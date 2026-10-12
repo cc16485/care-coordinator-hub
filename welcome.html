@@ -52,6 +52,7 @@
 </head>
 <body>
 <div class="wrap">
+<script>if (new URLSearchParams(location.search).get('preview') === '1') document.write('<div style="background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:10px 12px;font-size:14px;margin:0 0 12px"><b>Preview with made-up answers.</b> Nothing is saved, signed, booked or sent.</div>');</script>
   <header>
     <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
   </header>
@@ -99,7 +100,14 @@
 <script>
 const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
-const sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+/* PREVIEW (2026-10-11, the whole journey in Applicants Journey): ?preview=1 shows the real page for the made-up Pat with
+   made-up times; nothing is read, booked or cancelled. */
+const PREVIEW = new URLSearchParams(location.search).get('preview') === '1';
+const sb = PREVIEW ? { rpc: async (name) => {
+  if (name === 'welcome_mine') return { data: { status: 'invited', first: 'Pat', meet: null }, error: null };
+  if (name === 'welcome_open_slots') { const out = [], d = new Date(); let n = 0; while (out.length < 6 && n < 14) { d.setDate(d.getDate() + 1); n++; if (d.getDay() === 0 || d.getDay() === 6) continue;
+    for (const h of [15, 19]) { const x = new Date(d); x.setUTCHours(h, 0, 0, 0); out.push({ starts_at: x.toISOString() }); } } return { data: out, error: null }; }
+  return { data: null, error: null }; } } : window.supabase.createClient(SUPA_URL, SUPA_ANON);
 
 const TZ = 'America/Chicago';
 const MEET_FALLBACK = 'https://meet.google.com/yqj-nzuo-tgp';
@@ -109,7 +117,7 @@ const timeLabel = d => d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2
 const whenLabel = iso => { const d = new Date(iso); return dayLabel(d) + ' at ' + timeLabel(d); };
 const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-const W = (new URLSearchParams(location.search).get('w') || '').trim();
+const W = PREVIEW ? '00000000-0000-4000-8000-000000000000' : (new URLSearchParams(location.search).get('w') || '').trim();
 let MINE = null;          // what welcome_mine returned
 let HAVE_BOOKING = false; // moving a time vs booking a first one
 

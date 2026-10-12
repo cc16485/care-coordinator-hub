@@ -48,7 +48,19 @@ const FN = SUPA_URL + '/functions/v1/offer-sign';
 const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let STATE = null, DOCS = null, FIRST = '', LIVE = false;
+/* PREVIEW (2026-10-11, the whole journey in Applicants Journey): ?preview=1 shows the real letter and position description
+   from the server's read-only preview action for the made-up Pat; signing and declining happen only in this page */
+const PREVIEW = q.get('preview') === '1';
+async function previewCall(body){
+  if (body.action === 'view') { const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ action: 'preview' }) }); let j = {}; try { j = await r.json(); } catch (e) {} if (j.ok && PSTATE) j.state = PSTATE; if (j.ok) PSTATE = j.state; return { status: r.status, j }; }
+  if (body.action === 'sign') { const at = new Date().toISOString(); if (body.doc === 'offer') { PSTATE.offer_signed_at = at; PSTATE.offer_signer_name = body.typed_name; } else PSTATE.pd_signed_at = at; return { status: 200, j: { ok: true } }; }
+  if (body.action === 'copies') return { status: 200, j: { ok: true, copies: {} } };
+  if (body.action === 'decline') return { status: 200, j: { ok: true, declined_at: new Date().toISOString() } };
+  return { status: 400, j: { ok: false, error: 'Not in the preview.' } };
+}
+let PSTATE = null;
 async function call(body){
+  if (PREVIEW) return previewCall(body);
   const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
   return { status: r.status, j };
@@ -91,7 +103,8 @@ async function declineGo(){
 function render(){
   const s = STATE, main = document.getElementById('main');
   const offerDone = !!s.offer_signed_at, pdDone = !!s.pd_signed_at;
-  let h = '<h1>' + (offerDone && pdDone ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
+  let h = PREVIEW ? '<div style="background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:10px 12px;font-size:14px;margin:0 0 12px"><b>Preview with made-up answers.</b> Nothing is saved, signed or sent. The pay rate and classification are examples; a real letter shows the ones on the offer.</div>' : '';
+  h += '<h1>' + (offerDone && pdDone ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
   h += '<div class="steps"><span class="' + (offerDone ? 'done' : 'on') + '">1 · Offer letter' + (offerDone ? ' ✓' : '') + '</span><span class="' + (pdDone ? 'done' : offerDone ? 'on' : '') + '">2 · Position description' + (pdDone ? ' ✓' : '') + '</span></div>';
   if (offerDone && pdDone) {
     h += '<div class="okmsg"><b>Both documents are signed.</b> ' + (LIVE ? 'Your Step 1 paperwork is on its way by text and email, sent automatically now that your signed offer is saved.' : 'The office will be in touch about your Step 1 paperwork.') + ' Your signed copies are below; each link works for ten minutes and you can reopen this page for new ones while your link is valid.</div>';
@@ -113,7 +126,8 @@ function render(){
   main.innerHTML = h; window.scrollTo(0, 0);
 }
 async function copies(){
-  const box = document.getElementById('copies'); const r = await call({ action: 'copies' });
+  const box = document.getElementById('copies'); if (PREVIEW) { box.textContent = 'Preview: their two signed PDFs appear here as secure links.'; return; }
+  const r = await call({ action: 'copies' });
   if (!r.j.ok) { box.textContent = 'Your copies could not be fetched right now. Call the office and we will send them.'; return; }
   box.innerHTML = (r.j.copies.offer ? '<a href="' + esc(r.j.copies.offer) + '" target="_blank" rel="noopener">📄 Your signed offer letter (PDF)</a>' : '') + (r.j.copies.pd ? '<a href="' + esc(r.j.copies.pd) + '" target="_blank" rel="noopener">📄 Your signed position description (PDF)</a>' : '');
 }
@@ -134,7 +148,7 @@ function dead(j, status){
   main.innerHTML = '<h1>Sorry.</h1><div class="dead"><b>' + why + '</b><br><br>' + esc((j && j.error && !/not valid or has run out/.test(j.error)) ? j.error : 'Please ask the office for a new link: call or text (417) 234-8494.') + '</div>';
 }
 async function load(){
-  if (!LINK.o || !LINK.e || !LINK.t) { dead(null, 401); return; }
+  if (!PREVIEW && (!LINK.o || !LINK.e || !LINK.t)) { dead(null, 401); return; }
   const r = await call({ action: 'view' });
   if (!r.j.ok) { dead(r.j, r.status); return; }
   STATE = r.j.state; DOCS = { offer: r.j.offer, pd: r.j.pd }; FIRST = r.j.first || 'there'; LIVE = r.j.automation_live === true; render();
