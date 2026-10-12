@@ -512,15 +512,17 @@ window.AP_JOURNEY = [
   "text": "Hi {first}, this is Caring Companions. Something came up in your background screening that we'd like to go over with you before we continue your application. Please call us at (417) 234-8494 within 5 business days. Reply STOP to opt out.",
   "email_summary": "Names the check (Missouri Family Care Safety Registry screening / Missouri Employee Disqualification List check / federal OIG exclusion list check / fingerprint background check), says no decision has been made, asks them to call by the due date, and invites them to tell us anything, including a Good Cause Waiver. No details of the finding.",
   "shows_in_ghl": true,
-  "failure_visible": true
+  "failure_visible": true,
+  "replaced": "October 11, 2026",
+  "replaced_note": "Retired on October 11, 2026 (Samantha: 'cut the background notice to one step'). We use no screening company, so the federal two-step does not apply. The office now picks the result and sends one notice (below)."
  },
  {
   "stage": "background checks",
   "order": 20.6,
-  "name": "Background final notice (step 2)",
-  "trigger": "The office presses 'Send the final notice' on the background review, then OK. Only after step 1 (or told by phone), a review result of Waiver needed, Can't be employed, or No waiver needed with a written reason, the response due date passed or 'Spoke with them' recorded, and not while waiting on a Good Cause Waiver. They are then marked Not hired (Background check issue).",
+  "name": "Background notice (one message)",
+  "trigger": "The office opens the background review on a flagged check, reads the result, and picks it. If we are not moving forward, they press 'Send the notice' (or 'Not hiring…' with a private reason when no waiver is needed), then OK. One step since October 11, 2026: no 'Something came up' message and no response period first. Not while waiting on a Good Cause Waiver. They are then marked Not hired (Background check issue).",
   "automatic": false,
-  "button": "Background review → Send the final notice → OK",
+  "button": "Background & References → 🛡 Background review → pick the result → Send the notice → OK",
   "timing": "When OK is pressed.",
   "channel": "text + email",
   "rule": "Only after an office person presses OK on the exact words shown; Cancel sends nothing. Our own direct checks only (FCSR, EDL, OIG, fingerprints). The text never names the check; the email names it, never any detail. Texts 8am to 6pm Central, only with their yes to texts, ending with \"Reply STOP to opt out.\"; the email goes when there is one; outside those hours nothing goes. Every step is recorded on the review (bg_reviews) with who and when. Cleared (not them, an error corrected, no waiver needed, or a waiver approved with the letter) sends nothing.",
