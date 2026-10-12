@@ -10239,7 +10239,8 @@ function tpfState(c, it){
   if (!c[it.proof]) return 'no_proof';
   return tpfIsFile(c[it.proof]) ? 'ok' : 'link_only';
 }
-function tpfActive(){ return caregivers.filter(c => c && c.active !== false && !c.not_hired && String(c.status || '').toLowerCase() !== 'inactive'); }
+/* active here AND not marked inactive in AxisCare (the sweep keeps axiscare_status_active): 2026-10-12, 623 found 70 Hub records for 42 active AxisCare caregivers */
+function tpfActive(){ return caregivers.filter(c => c && c.active !== false && !c.not_hired && String(c.status || '').toLowerCase() !== 'inactive' && c.axiscare_status_active !== false); }
 function tpfOpen(){
   let w = document.getElementById('tpfPanel');
   if (!w) { w = document.createElement('div'); w.id = 'tpfPanel'; w.style.cssText = 'position:fixed;inset:0;z-index:10010;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
