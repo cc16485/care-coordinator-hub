@@ -32,6 +32,7 @@
   .row{background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:10px;margin:0 0 8px} .row .rl{font-size:12px;color:var(--muted);font-weight:700;margin:6px 0 2px} .row input{font-size:15px;padding:9px 10px}
   .card .cardh{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px} .card .fl{margin:10px 0 0} .card .fl>.rl{font-size:13.5px;color:var(--text);font-weight:700;margin:0 0 4px} .card .seg button{min-width:90px;min-height:46px;font-size:15px;padding:9px 12px} .sg{font-size:12px;font-weight:800;color:var(--gold-text);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px} .card .chk{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:15.5px} .card .chk:has(input:checked){border-color:var(--gold);background:#FFF9EE}
   .cheer{background:#FFF7E8;border:1.5px solid #F6C77E;border-radius:12px;padding:14px 14px 4px;margin:6px 0 14px} .cheer h3{color:var(--navy)!important;font-size:18px!important;text-transform:none!important;letter-spacing:0!important;margin:0 0 6px!important} .tip{background:#FFF7E8;border-left:4px solid var(--gold);border-radius:8px;padding:10px 12px;font-size:14.5px;margin:4px 0 12px}
+  .pbar{background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:12px 14px;font-size:14px;margin:0 0 12px} .prow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px} .prow select{flex:1 1 200px;font-size:15px;padding:8px} .pnote{background:#F4F2ED;border-radius:10px;padding:12px 14px;font-size:14px;margin-top:14px;color:var(--text)}
   .mini{font:inherit;font-size:14px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer;color:var(--navy);font-weight:600} .mini.x{color:var(--red)}
   .signbox{background:#FAF9F6;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;} .signbox h3{font-size:16px;color:var(--navy);margin:0 0 8px;}
   button.go{width:100%;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:12px;cursor:pointer;} button.go[disabled]{opacity:.55;cursor:default} button.back{width:100%;background:#fff;color:var(--navy);border:1px solid var(--border);border-radius:10px;padding:12px;font:inherit;font-size:15px;font-weight:700;margin-top:10px;cursor:pointer}
@@ -57,6 +58,23 @@ const FN = SUPA_URL + '/functions/v1/step1-sign';
 const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PHONE = '(417) 234-8494';
+/* ───── PREVIEW (Samantha 2026-10-11: "click through the screens as though I were the caregiver, using practice data, before
+   approving them for real hires"). ?preview=1: no link, the made-up Pat Preview, the real words and the real required-answer
+   check from the server's read-only preview action; answers live in this page only; identity numbers never leave it; nothing
+   is saved, signed or sent. Opened from the Hub's Applicants Journey tab. ───── */
+const PREVIEW = q.get('preview') === '1';
+const NEXT_NOTE = {
+  '1': 'Tapping Begin records their consent to sign electronically, with the time, device address and browser. Step 1 saves as they go; the same link brings them back where they left off.',
+  '2': 'Nothing is sent from this screen. Answers marked "from your application" or "from your interview" were filled in for them; they can correct any of them.',
+  '3': 'Signing stores the Employee Application as a PDF in the private document store (opened from their profile; every open is logged). The jobs, tasks and family care become the Skills and experience card on their profile, marked self-reported until a reference confirms them.',
+  '4': 'Signing gives permission to contact the references. Nothing goes to any reference yet: the references they let us contact move to Background & References when Step 1 is complete. A reference they asked us not to contact never does.',
+  '5a': 'The background check disclosure, on its own screen as the law requires (a draft for counsel). Signing authorizes the consumer reports.',
+  '5b': 'The Social Security number, date of birth and license number are sealed (encrypted) the moment they are saved and are never shown again; only a person on the Screening staff list can reveal one, for five minutes, with a reason, and every reveal is logged.',
+  '6': 'Their committed availability becomes the availability Team Builder reads once they are connected to AxisCare. The initials line confirms the AxisCare scheduling rule.',
+  '7': 'Their comfort answers land on their skills record as their own word ("attested") when they are connected to AxisCare. Nothing here changes a level: everyone starts at Level 1.',
+  '8': 'If they choose that they do not meet the driving requirements, they are never asked to drive and the office sends the Non-Driver Agreement with Step 2.',
+  '9': 'The last signature puts them into Background & References by itself and raises one card for the Recruiting & Orientation owner: start background checks and references. After the checks and references: Step 2 in Viventium, the Orientation Video Call, training, then Approve to Work.',
+};
 /* 2026-10-11: a value inside onclick="f('...')" is escaped for JavaScript FIRST, then for HTML. The other order turned the
    apostrophe in "Alzheimer's disease", "Parkinson's disease" and "I'm new to caregiving" into a broken click that did nothing. */
 const jsq = (s) => esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
@@ -87,6 +105,7 @@ const SHOW = {
   insurance_proof: (a) => a.has_insurance === 'yes', insurance_photo: (a) => a.has_insurance === 'yes', insurer: (a) => a.has_insurance === 'yes', insurance_expires: (a) => a.has_insurance === 'yes',
 };
 async function call(body){
+  if (PREVIEW) return previewCall(body);
   const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
   return { status: r.status, j };
@@ -192,19 +211,22 @@ function screenHtml(s){
   let h = '<div class="prog"><span>Screen ' + stepNo(s) + ' of ' + n + '</span><div class="bar"><i style="width:' + Math.round(stepNo(s) / n * 100) + '%"></i></div><span>' + Object.keys(SIGS).length + ' of ' + V.form_count + ' signed</span></div>';
   /* TRAINING WALKTHROUGH (2026-10-11): a staff member trying the journey; never their real SSN or date of birth */
   if (/\(TRAINING\)/.test(String((V.who || {}).last || ''))) h += '<div class="why" style="border-color:#B45309;background:#FFF7ED"><b>Training walkthrough.</b> Use the practice Social Security number 987-65-4321 (a number never issued to anyone) and a made-up date of birth and license number. Never type your real ones here.</div>';
-  if (V.test_mode) h += '<div class="why"><b>Practice only.</b> These forms are not yet approved for real signing; nothing here is sent anywhere and no office action follows from it. (The office sees that too.)</div>';
+  if (PREVIEW) h += previewBar(s);
+  else if (V.test_mode) h += '<div class="why"><b>Practice only.</b> These forms are not yet approved for real signing; nothing here is sent anywhere and no office action follows from it. (The office sees that too.)</div>';
   if (s === '1') {
     const w = V.who;
     h += '<h1>Welcome, ' + esc(w.first) + '!</h1><p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
     h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.map((f) => '<li style="margin:0 0 6px">' + esc(f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
     if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
     else h += '<button class="go" onclick="go(\'' + (nextScreen() || '2') + '\')">' + (V.completed_at ? 'See your signed copies' : 'Continue where I left off') + '</button>';
+    if (PREVIEW) h += '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE['1']) + '</div>';
     return h;
   }
   if (s === '9') {
     h += '<h1>All done, ' + esc(V.who.first) + '.</h1><p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
     h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
     setTimeout(loadCopies, 50);
+    if (PREVIEW) h += '<div class="pnote"><b>What happens next:</b> ' + esc(NEXT_NOTE['9']) + '</div>';
     return h;
   }
   const f = FORMS[P.form]; const locked = formSigned(P.form);
@@ -228,6 +250,7 @@ function screenHtml(s){
     else h += '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Continue</button>';
   } else h += '<button class="go" onclick="saveAndGo(\'' + nextOf(s) + '\')">Continue</button>';
   h += '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button><div class="err" id="e_screen"></div>';
+  if (PREVIEW && NEXT_NOTE[s]) h += '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE[s]) + '</div>';
   return h;
 }
 const nextOf = (s) => ORDER[Math.min(ORDER.indexOf(s) + 1, ORDER.length - 1)], prevOf = (s) => ORDER[Math.max(ORDER.indexOf(s) - 1, 0)];
@@ -300,13 +323,14 @@ async function sign(form){
   if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
 }
 async function loadCopies(){
+  if (PREVIEW) { const box = document.getElementById('copies'); if (box) box.innerHTML = V.forms.map((f) => '<a href="#" onclick="previewPdf(\'' + f.key + '\');return false">📄 ' + esc(f.title) + ' (preview PDF)</a>').join(''); return; }
   const box = document.getElementById('copies'); if (!box) return;
   const r = await call({ action: 'copies' });
   if (r.status !== 200 || !r.j.copies) { box.innerHTML = '<p class="small">Your copies are not ready yet. Open this page again in a minute.</p>'; return; }
   box.innerHTML = V.forms.filter((f) => r.j.copies[f.key]).map((f) => '<a href="' + esc(r.j.copies[f.key]) + '" target="_blank" rel="noopener">📄 ' + esc(f.title) + '</a>').join('') || '<p class="small">No copies yet.</p>';
 }
 async function init(){
-  if (!LINK.o || !LINK.t) return dead('This link is missing its code.');
+  if (!PREVIEW && (!LINK.o || !LINK.t)) return dead('This link is missing its code.');
   const r = await call({ action: 'view' });
   if (r.status !== 200) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
   V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f;
@@ -316,6 +340,83 @@ async function init(){
   if (SCREEN !== '1' && SCREEN !== '9' && formSigned(PLAN[SCREEN].form) && PLAN[SCREEN].sign) SCREEN = nextOf(SCREEN);
   render();
 }
+/* ───── the preview's stand-in for the server: only the words, the required-answer check and the PDF come from the server's
+   read-only preview action; everything else happens in this page ───── */
+let PSIGN = {};
+const PCALL = async (b) => { const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ action: 'preview', ...b }) }); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, j }; };
+const identLast4 = () => ({ ssn: IDENT.ssn ? String(IDENT.ssn).slice(-4) : null, dob: !!IDENT.dob, license: IDENT.license ? String(IDENT.license).slice(-4) : null });
+async function previewCall(b){
+  const ok = (j) => ({ status: 200, j: { ok: true, ...j } });
+  if (b.action === 'view') return PCALL({});
+  if (b.action === 'begin' || b.action === 'save') return ok({});
+  if (b.action === 'copies') return ok({ copies: {} });
+  if (b.action === 'identity') {
+    const d = (x) => String(x || '').replace(/\D/g, '');
+    if (b.ssn != null) { if (d(b.ssn) !== d(b.ssn2)) return { status: 400, j: { error: 'The two Social Security numbers do not match. Please type it twice, digits only.' } }; if (d(b.ssn).length !== 9) return { status: 400, j: { error: 'That does not look like a Social Security number. Please check it. For a practice or training hire, use 987-65-4321 (a number never issued to anyone).' } }; IDENT.ssn = 'ending ' + d(b.ssn).slice(-4); }
+    if (b.dob != null) { if (!/^\d{4}-\d{2}-\d{2}$/.test(b.dob)) return { status: 400, j: { error: 'Please enter your date of birth as a full date (you must be at least 16).' } }; IDENT.dob = true; }
+    if (b.license_number != null) { const l = String(b.license_number).replace(/\s+/g, '').toUpperCase(); if (!/^[A-Z0-9-]{4,20}$/.test(l)) return { status: 400, j: { error: 'Please enter the license number as it appears on the card (letters and numbers).' } }; IDENT.license = 'ending ' + l.slice(-4); }
+    return ok({ identity: { ...IDENT, license_state: ANS.license_state || null, license_expires: ANS.license_expires || null } });
+  }
+  if (b.action === 'sign') {
+    const before = V.order.slice(0, V.order.indexOf(b.form)).filter((k) => !SIGS[k]);
+    if (before.length) return { status: 409, j: { error: 'Please sign ' + FORMS[before[0]].title + ' first; the forms go in order.' } };
+    const ans = { ...ANS }; if (b.initials) ans.initials = b.initials;
+    const r = await PCALL({ check: true, form: b.form, answers: ans, identity: identLast4() });
+    if (r.status !== 200 || !r.j.ok) return { status: 500, j: { error: (r.j && r.j.error) || 'The preview check did not answer.' } };
+    if (r.j.missing.length) return { status: 400, j: { error: 'Please answer these first: ' + r.j.missing.join('; ') + '.' } };
+    PSIGN[b.form] = true; const done = V.order.every((k) => k === b.form || SIGS[k]);
+    return ok({ form: b.form, signed_at: new Date().toISOString(), version: FORMS[b.form].version, pdf: true, done, signed_count: Object.keys(SIGS).length + 1, form_count: V.form_count });
+  }
+  return { status: 400, j: { error: 'Not in the preview.' } };
+}
+async function previewPdf(form){
+  const w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif">Making the preview PDF…</p>');
+  const ans = { ...ANS }; const r = await PCALL({ pdf: true, form, answers: ans, identity: identLast4() });
+  if (!r.j || !r.j.pdf_base64) { if (w) w.document.body.innerHTML = '<p style="font-family:sans-serif">Could not make the preview PDF.</p>'; return; }
+  const bin = atob(r.j.pdf_base64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); if (w) w.location = url; else window.open(url, '_blank');
+}
+function previewBar(s){
+  const opts = ORDER.map((k) => '<option value="' + k + '"' + (k === s ? ' selected' : '') + '>' + stepNo(k) + '. ' + esc(PLAN[k].title) + '</option>').join('');
+  return '<div class="pbar"><b>Preview with made-up answers.</b> Nothing is saved, signed or sent, and identity numbers never leave this page. Signing here runs the same answer check a real Step 1 does.'
+    + '<div class="prow"><select onchange="pjump(this.value)" aria-label="Go to screen">' + opts + '</select>'
+    + (PLAN[s].form && !SIGS[PLAN[s].form] ? '<button class="mini" onclick="pfill()">Fill this screen with practice answers</button>' : '') + '</div></div>';
+}
+function pjump(k){ if (k !== '1' && !V.esign_consent_at) V.esign_consent_at = new Date().toISOString(); SCREEN = k; render(); }
+/* practice answers: every question on the screen, from the real options (so a changed option never breaks the filler) */
+function pfill(){
+  const P = PLAN[SCREEN], f = FORMS[P.form]; if (!f) return;
+  const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
+  const YES = ['has_license', 'has_insurance', 'has_transport', 'open_shift_texts', 'text_consent', 'hs_grad'];
+  const TEXT = { preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
+  for (const i of secs) for (const it of (f.sections[i].items || [])) {
+    /* a yes/no grid that is partly filled in (from the interview) gets only its missing rows */
+    if (it.kind === 'table' && it.id !== 'windows' && ANS[it.id] && typeof ANS[it.id] === 'object') { const m = { ...ANS[it.id] }; (it.options || []).forEach((x) => { if (!m[x]) m[x] = 'Yes'; }); ANS[it.id] = m; continue; }
+    if (ANS[it.id] !== undefined || it.locked || it.kind === 'statement' || it.kind === 'photo') continue;
+    const o = it.options || [];
+    if (it.kind === 'yesno') { if (it.id === 'no_employer_history') continue; ANS[it.id] = YES.includes(it.id) ? 'yes' : 'no'; }
+    else if (it.kind === 'choice') ANS[it.id] = it.id === 'state' || it.id === 'license_state' ? 'MO' : o[0];
+    else if (it.kind === 'multi') { if (it.id === 'states_lived') continue; ANS[it.id] = [o[0]]; }
+    else if (it.kind === 'number') ANS[it.id] = it.id === 'hours_min' ? 15 : it.id === 'hours_max' ? 40 : 30;
+    else if (it.kind === 'date') ANS[it.id] = '2027-06-30';
+    else if (it.kind === 'text') { if (TEXT[it.id]) ANS[it.id] = TEXT[it.id]; }
+    else if (it.kind === 'table' && it.id === 'windows') { const w = {}; DAYS.forEach((d, n) => { w[d] = n < 5 ? { Morning: true, Afternoon: true } : { 'Not available': true }; }); ANS.windows = w; }
+    else if (it.kind === 'table') { const m = {}; o.forEach((x) => { m[x] = 'Yes'; }); ANS[it.id] = m; }
+    else if (it.kind === 'cards') ANS[it.id] = PCARDS[it.id] ? JSON.parse(JSON.stringify(PCARDS[it.id])) : undefined;
+  }
+  if (P.form === 'availability') ANS.initials = 'PP';
+  if (P.form === 'edl_fcsr_consent') { IDENT.ssn = IDENT.ssn || 'ending 4321'; IDENT.dob = true; }
+  if (P.form === 'vehicle') { IDENT.license = IDENT.license || 'ending 0042'; }
+  for (const k of Object.keys(ANS)) if (ANS[k] === undefined) delete ANS[k];
+  render();
+}
+const PCARDS = {
+  jobs: [{ company: 'Home Helpers of Springfield', city_state: 'Springfield, MO', role: 'Caregiver', from: 'March 2019', to: 'June 2023', supervisor: 'Jane Example', phone: '417-555-0181', email: 'jane@practice.invalid', may_contact: 'yes', reason_leaving: 'Moved closer to family', did_care: 'yes',
+    tasks: ['companionship', 'bathing', 'toileting', 'transfers_gait_belt', 'hoyer_lift', 'dementia_care'], lifts: ['Full-body sling'], refresher: ['hoyer_lift'] }],
+  family_care: [{ who: 'A family member', relationship: 'my grandmother', from: '2023', to: '2025', paid: ['Consumer Directed Services (CDS) or another Medicaid program'], tasks: ['bathing', 'catheter_bag', 'hospice_support'], refresher: ['none'], confirmer: 'Kay Example', confirmer_how: 'her hospice nurse', phone: '417-555-0182', may_contact: 'yes' }],
+  professional_refs: [{ name: 'Jane Example', company: 'Home Helpers of Springfield', role: 'Supervisor', phone: '417-555-0181', email: 'jane@practice.invalid', may_contact: 'yes' }, { name: 'Lee Example', company: 'Visiting Angels', role: 'Scheduler', phone: '417-555-0183', may_contact: 'yes' }],
+  personal_refs: [{ name: 'Kay Example', relationship: 'Hospice nurse who saw my care', phone: '417-555-0182', may_contact: 'yes' }, { name: 'Sam Example', relationship: 'Friend from church', email: 'sam@practice.invalid', may_contact: 'yes' }],
+};
 init();
 </script>
 </body>
