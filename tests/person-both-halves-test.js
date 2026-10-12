@@ -24,7 +24,7 @@ function fakeSb(rows){ return { from(){ let f = rows.slice(); const q = { select
   const open = (row, cache, stay) => { const calls = [];
     const x = { AP_ROWS: [row], AP_CG_CACHE: cache, apIsOffered: r => ['hired','offer','left'].includes(r.status) || !!r.hired_at,
       cgdOpenFromApplicant: (ax, id, tab) => calls.push(['cg', ax, id, tab]), apFindCaregiver: async () => null,
-      document: { querySelectorAll: () => [], getElementById: () => ({ style: {} }) }, window: { scrollTo(){} }, apRenderProfile: () => calls.push(['ap']), String };
+      document: { querySelectorAll: () => [], getElementById: () => ({ style: {} }) }, window: { scrollTo(){} }, apRenderProfile: () => calls.push(['ap']), ppRemember(){}, String };
     vm.createContext(x); vm.runInContext(cut(IDX, 'function apOpenProfile(id, tab, stay){', '/* ---- Send the application').replace(/^let /gm, 'var '), x);
     x.AP_TAB = 'overview'; x.AP_TAB_FOR = null; x.apOpenProfile(row.id, 'hiring', stay); return calls; };
   ok(JSON.stringify(open({ id: 'h', status: 'hired' }, { h: '5001' })) === '[["cg","5001","h","hiring"]]', 'hired with a caregiver number: their one page is the caregiver page, on the asked-for tab');

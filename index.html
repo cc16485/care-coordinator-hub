@@ -5114,7 +5114,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
      dealing with somebody. Same shape as the lead profile, deliberately, so
      there is nothing new to learn. -->
 <section id="applicantProfileView" style="display:none;">
-  <button class="linklike" style="font-size:13px;margin-bottom:12px;" onclick="apCloseProfile()">← Back to Applicants</button>
+  <button class="linklike" id="apBackBtn" style="font-size:13px;margin-bottom:12px;" onclick="ppGoBack('ap')">← Back to Applicants</button>
   <div>
     <div id="apProfLeft"></div>
     <div id="apProfRight"></div>
@@ -7064,7 +7064,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=2"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=3"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
@@ -10774,8 +10774,14 @@ function btStatusChip(s){
 }
 function btWhoChip(who){ return who ? btChip(who+"'s interview",'#FFF4DE','#8A5A00') : ''; }
 function btOpenApplicant(id, tab){
+  ppRemember();
   gotoTab('applicants');
-  setTimeout(async ()=>{ try{ if(!AP_ROWS.length) await apLoad(); apOpenProfile(id, tab); }catch(e){} }, 260);
+  setTimeout(async ()=>{ try{
+    if(!AP_ROWS.length) await apLoad();
+    /* older than the list's 2,000: read that one application so the page still opens */
+    if(!AP_ROWS.some(x=>String(x.id)===String(id))){ const { data } = await sb.from('job_applicants').select('*').eq('id', id).maybeSingle(); if(data) AP_ROWS.push(data); }
+    apOpenProfile(id, tab);
+  }catch(e){} }, 260);
 }
 function btOpenAssessment(i){
   const it = (window.__btAsmt||[])[i]; if(!it) return;
@@ -17808,6 +17814,7 @@ function cgdGoRefs(){ cgdSection('compliance'); const el=document.getElementById
 async function cgdOpenProfile(axid, tab){
   const full=document.getElementById('cgdFull'), list=document.getElementById('cgdListView');
   if(!full||!list) return;
+  ppRemember(true);
   const c=(CGD.census&&CGD.census.caregivers||[]).find(x=>String(x.id)===String(axid)); if(!c) return;
   const keepTab=(String(CGD.openId)===String(axid)&&full.style.display==='block')?CGD.section:null;   /* a refresh stays on the tab you were on */
   const keepApp=(CGD_APP&&CGD_APP.axid===String(axid))?CGD_APP.id:null;
@@ -17824,7 +17831,7 @@ async function cgdOpenProfile(axid, tab){
   /* A caregiver exists because AxisCare says so — overlay presence is shown
      as connection status, never as existence. */
   full.innerHTML=
-    '<div style="margin-bottom:6px;"><button class="linklike" onclick="cgdBackToList()">← Back to Caregivers</button></div>'
+    '<div style="margin-bottom:6px;"><button class="linklike" onclick="ppGoBack(\'cg\')">'+esc(ppBackText('Caregivers'))+'</button></div>'
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">'
     +'<div class="pp-avatar" aria-hidden="true">'+esc(((c.first||' ')[0]+(c.last||' ')[0]).toUpperCase())+'</div>'
     +'<b style="font-size:23px;letter-spacing:-0.02em;color:var(--navy);">'+esc(nm)+'</b>'
@@ -23186,6 +23193,7 @@ let AP_PROF = null;
 
 function apOpenProfile(id, tab, stay){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  ppRemember(true);
   /* One profile, step 2 piece 2 (2026-10-12): once AxisCare lists them as a caregiver, their one page is the caregiver
      page, with their application and hiring on its tabs. Found by id only (apFindCaregiver). */
   if(!stay && apIsOffered(r)){
@@ -23596,6 +23604,39 @@ async function apCgLinkFill(r){
 const PP_TABS = [['overview','Overview'],['interview','Application & interview'],['hiring','Hiring'],['checks','Training & checks'],
   ['family','Family profile'],['work','Work'],['performance','Performance'],['messages','Messages'],['history','History']];
 const PP_STAGES = ['Applied','Interview','Offered','Working'];
+/* Back goes where you came from (step 2 piece 3, 2026-10-12). Remembered when a person's page opens from somewhere
+   else; moving from one person page to another keeps the first place. */
+let PP_BACK = null;
+function ppPersonShowing(){
+  const apv = document.getElementById('applicantProfileView'), cgf = document.getElementById('cgdFull');
+  return !!((apv && apv.style.display === 'block') || (cgf && cgf.style.display === 'block' && activeTab === 'cgdir'));
+}
+function ppRemember(soft){
+  if(ppPersonShowing()) return;
+  if(soft && PP_BACK && Date.now() - PP_BACK.at < 3000) return;   /* the opener already remembered it */
+  PP_BACK = { tab: activeTab, y: window.scrollY || 0, at: Date.now() };
+}
+function ppTabLabel(tab){
+  if(tab === 'cgdir') return 'Caregivers';
+  const pill = document.querySelector('.fsubbar .fpill[data-tab="' + tab + '"]');
+  const t = pill ? [...pill.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() : '';
+  if(t) return t;
+  const raw = (typeof CC_SECTION_TITLES === 'object' && CC_SECTION_TITLES[tab]) || '';
+  return String(raw).replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').trim();
+}
+function ppBackText(own){
+  const b = PP_BACK, label = b && b.tab ? ppTabLabel(b.tab) : '';
+  return '← Back to ' + (label || own);
+}
+function ppGoBack(from){
+  const b = PP_BACK; PP_BACK = null;
+  if(!b || !b.tab){ return from === 'cg' ? cgdBackToList() : apCloseProfile(); }
+  if(b.tab === 'cgdir' && from === 'cg') cgdBackToList();
+  else if(b.tab === 'applicants' && from === 'ap') apCloseProfile();
+  else { if(from === 'ap') AP_PROF = null; switchTab(b.tab); }
+  setTimeout(() => { try{ window.scrollTo(0, b.y || 0); }catch(e){} }, 150);
+}
+window.ppGoBack = ppGoBack;
 function ppStagesHtml(now, ended){
   if(ended) return '<div class="pp-stages"><span class="pp-stg pp-end">' + escapeHtmlComms(ended) + '</span></div>';
   return '<div class="pp-stages" aria-label="Where they are">' + PP_STAGES.map((s, i) =>
@@ -23683,6 +23724,7 @@ function apFlagsHtml(r){
 }
 function apRenderProfile(){
   const r = AP_PROF; if(!r) return;
+  { const bb = document.getElementById('apBackBtn'); if(bb) bb.textContent = ppBackText('Applicants'); }
   setTimeout(() => apCgLinkFill(r), 0);
   apReviewCheck(r);
   const esc = escapeHtmlComms;
@@ -39501,6 +39543,7 @@ function pdClose(){ const w=document.getElementById('pdWrap'); if(w) w.style.dis
      active NEVER breaks the tie (her ruling) — the directory opens
      pre-searched and the human chooses. */
 async function openCaregiverProfile(ref, tab){
+  ppRemember(true);
   const raw=String(ref||'').trim();
   const q=raw.toLowerCase().replace(/\s+/g,' ');
   switchTab('cgdir');

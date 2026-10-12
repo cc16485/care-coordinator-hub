@@ -63,7 +63,7 @@ function engineCtx(tables, census){
   const pg = async (row, intake, cen) => {
     const slot = { innerHTML: '' };
     const ctx = { document: { getElementById: id => id === 'apCgLink' ? slot : null }, AP_PROF: row,
-      sb: fakeSb({ hire_intake: intake }), cgdCensus: async () => cen, escapeHtmlComms: s => String(s), Object, Set, String };
+      sb: fakeSb({ hire_intake: intake }), cgdCensus: async () => cen, escapeHtmlComms: s => String(s), window: {}, Object, Set, String };
     vm.createContext(ctx);
     vm.runInContext(cut(IDX, 'const AP_CG_CACHE = {};', 'function apRenderProfile(){').replace('const AP_CG_CACHE', 'var AP_CG_CACHE'), ctx);
     await ctx.apCgLinkFill(row); return slot.innerHTML;

@@ -9,7 +9,7 @@ let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('PASS ', m); } else { fail++; console.log('FAIL ', m); } };
 
 /* the applicant page's pure pieces */
-const ctx = { escapeHtmlComms: s => String(s == null ? '' : s), Date, JSON, String };
+const ctx = { escapeHtmlComms: s => String(s == null ? '' : s), window: {}, Date, JSON, String };
 vm.createContext(ctx);
 vm.runInContext(cut(IDX, 'const PP_TABS = [', 'function apTab(k){').replace(/^const /gm, 'var ').replace(/^let /gm, 'var '), ctx);
 const next = (r, b) => ctx.apNextStep(Object.assign({ id: 'x' }, r), b);
@@ -48,7 +48,7 @@ ok(/cgdSection\(tab\|\|keepTab\|\|'overview'\)/.test(IDX), 'caregiver page opens
 /* the Whole profile's pieces never draw one person's records into another person's page */
 ok(/if\(m\.ks === JSON\.stringify\(KEY\)\) m\.el\.innerHTML/.test(HPJS), 'mounted pieces only redraw for their own person');
 ok(/mount,/.test(cut(HPJS, 'window.HP = {', '};')), 'HP.mount is exported');
-ok(/hire-profile\.js\?v=2/.test(IDX), 'the browser is told to fetch the new hire-profile.js');
+ok(/hire-profile\.js\?v=[2-9]/.test(IDX), 'the browser is told to fetch the new hire-profile.js');
 ok(!/—/.test(cut(IDX, 'const PP_TABS = [', '/* ---- The half of somebody')), 'no em dashes in the new page code');
 
 console.log(`person-profile-tabs: ${pass} passed, ${fail} failed`);
