@@ -14011,6 +14011,7 @@ async function saveSupervisoryVisit(){
       if(cg){
         cg.supv_date = record.visit_date;
         cg.supervisory_proof_link = record.proof_link;
+        if(record.proof_link) cg.supv_proof = record.proof_link;   /* 2026-10-12: the field the compliance table reads */
         await ccCaregiverPut(cg);
       }
     }
@@ -18478,7 +18479,7 @@ function cgdComplianceHtml(c,g){
     if(recheckDays){
       if(date){ const due=addDays(date,recheckDays);
         if(due){ const late=due<today; if(late) action=true;
-          dueHtml=(late?'<span style="color:#B45309;font-weight:700;">':'<span>')+esc(due)+(late?' — overdue</span>':'</span>'); }
+          dueHtml=(late?'<span style="color:#B45309;font-weight:700;">':'<span>')+esc(due)+(late?', overdue</span>':'</span>'); }
       } else dueHtml=unknown;
     }
     return '<div style="border:1px solid #F0EBE1;border-radius:8px;padding:7px 10px;margin-bottom:6px;">'
@@ -18500,8 +18501,8 @@ function cgdComplianceHtml(c,g){
     +'<div class="field-note">No Hub compliance record connected yet — the Training Platform evidence below still counts, and check answers can be recorded once the data connection exists. They are still a real caregiver.</div>'
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
   return CGD_VIVENTIUM_NOTE
-    +chk('OIG exclusion check','Federal exclusion list',g.oig_status,/FLAGGED/,g.oig_date,g.oig_proof,90,'rechecked every 90 days')
-    +chk('EDL','MO Employee Disqualification List',g.edl_status,/issues/i,g.edl_date,g.edl_proof,90,'rechecked every 90 days')
+    +chk('OIG exclusion check','Federal exclusion list',g.oig_status,/FLAGGED/,g.oig_date,g.oig_proof,30,'rechecked monthly (agency policy)')
+    +chk('EDL','MO Employee Disqualification List',g.edl_status,/issues/i,g.edl_date,g.edl_proof,30,'rechecked monthly (agency policy)')
     +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status,/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually')
     +chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')
     +chk('Alzheimer’s / dementia training','Requirement mapping awaits your ruling',g.alz_date?('recorded'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'')
@@ -23906,7 +23907,17 @@ async function apOnboardMount(r, hostEl){
        form showed here as "No start form yet". When the link is missing, their start form is found by the phone or
        email on the application, the same match the import uses. Read only; nothing is written. */
     if(!intake) intake = await apIntakeByContact(r);
-    const R = refs.error ? [] : (refs.data||[]);
+    let R = refs.error ? [] : (refs.data||[]);
+    /* 2026-10-12: requests asked from Background & References carry their board record, not the application. Found by
+       id: the board record made from this start form (intake_id), then that record's requests. Read only. */
+    if(!R.length && intake && window.SCX && typeof SCX.getCandidates === 'function'){
+      const ids = (SCX.getCandidates() || []).filter(c => c && String(c.intake_id || '') === String(intake.id)).map(c => c.id).filter(x => x != null);
+      if(ids.length){ try{ const q = await sb.from('reference_requests').select('*').in('candidate_id', ids).order('slot'); if(!q.error) R = q.data || []; }catch(e){} }
+    }
+    /* one line per reference: a slot can hold an older request and a newer one; the answered one, else the newest */
+    { const by = {}; R.forEach(x => { const cur = by[x.slot];
+        if(!cur || (x.responded_at && !cur.responded_at) || (!!x.responded_at === !!cur.responded_at && String(x.created_at||'') > String(cur.created_at||''))) by[x.slot] = x; });
+      R = Object.values(by).sort((a, b) => (a.slot||0) - (b.slot||0)); }
     let out = '';
 
     if(!intake){
