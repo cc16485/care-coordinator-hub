@@ -27,7 +27,7 @@ async()=>{
   const inDays=n=>{ const d=new Date(); d.setDate(d.getDate()+n); return ymd(d); };
   const storeP=id=>S.ops_items.find(x=>x.id===id);
   switchTab('mywork'); await sleep(400); try{ myWorkGo('today'); }catch(e){} await sleep(200);
-  ok('My Work has a "New project" button', [...document.querySelectorAll('#tab-mywork button')].some(b=>/New project/.test(b.textContent)));
+  ok('My Work no longer has a "New project" button (2026-10-13)', ![...document.querySelectorAll('#tab-mywork button')].some(b=>/New project/.test(b.textContent)));
   // create Ed's project through the form
   pjNewOpen(document.querySelector('#tab-mywork button.addlead')); await sleep(100);
   let p=pop();
