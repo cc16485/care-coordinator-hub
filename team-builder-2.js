@@ -16,6 +16,14 @@
      self-reported skill). Everyone else stays on the list, marked "Not available" with the reason, and can't be added.
      Only while the Admin switch driver_schedule_gate_live is on; off, the check shows as "Driver check (not enforced
      yet)" and anyone can be penciled in.
+   - RANKED CHOICES (2026-10-13, her "1st, 2nd, 3rd ... choice" + "yes to a and b"): everyone on a shift is in order;
+     the 1st choice is the main person (plan.cells[key]), the rest are plan.options[key] in order. ↑ / ↓ reorder; a Yes
+     is always 1st (only one Yes per shift). When the 1st choice says No, the next choice who hasn't said No moves up to
+     1st (decision A); nobody is texted by that, a person presses Text. The square shows "2nd <name> +N".
+   - STILL ONBOARDING (same day): people with an offer who aren't on the AxisCare roster yet, and new hires awaiting
+     Approve to Work, are marked "still onboarding" with where they are. They can be ranked, penciled and confirmed
+     (decision B); texting them from here and putting their shift into AxisCare wait until they're approved and on the
+     roster (schedule-push holds them, with the reason in the preview).
    Nothing here texts or emails anyone. */
 (function(){
   const esc = s => escapeHtmlComms(s);
@@ -35,6 +43,35 @@
   }
   function same(a, b){ return (a.cg_ax_id && b.cg_ax_id) ? String(a.cg_ax_id) === String(b.cg_ax_id)
     : (a.applicant_id && b.applicant_id) ? String(a.applicant_id) === String(b.applicant_id) : nk(a.name) === nk(b.name); }
+
+  const ORD = (n) => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th')
+  /* where someone still onboarding is (her B): an offer not on the roster yet, or a new hire awaiting Approve to Work */
+  function onboardingNote(p){
+    if(!p) return '';
+    if(p.applicant_id){ const a = (APPS.rows || []).find(x => String(x.id) === String(p.applicant_id));
+      return 'still onboarding · ' + (a && a.status === 'offer' ? 'offer sent' : 'getting ready to start'); }
+    const g = p.cg_ax_id && Array.isArray(TB.pool) ? TB.pool.find(x => String(x.axiscare_id) === String(p.cg_ax_id)) : null;
+    return g && g.work_locked ? 'still onboarding · waiting on Approve to Work' : '';
+  }
+  /* write an ordered list back: the 1st is the main person, the rest are the options in order */
+  function writeOrder(plan, key, list){
+    plan.cells = plan.cells || {}; plan.options = plan.options || {};
+    const L = list.map(p => { const r = Object.assign({}, p); delete r.main; delete r.pid; return r; });
+    if(!L.length){ delete plan.cells[key]; delete plan.options[key]; return; }
+    const first = L.shift(); delete first.id; plan.cells[key] = first;
+    L.forEach(r => { if(!r.id) r.id = 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); });
+    if(L.length) plan.options[key] = L; else delete plan.options[key];
+  }
+  /* ↑ / ↓ : a Yes is always 1st */
+  async function move(key, pid, dir){
+    const plan = tbPlan(); if(!plan) return;
+    const list = people(plan, key), i = list.findIndex(p => p.pid === pid), j = i + dir;
+    if(i < 0 || j < 0 || j >= list.length) return;
+    if(list[0].status === 'yes' && (i === 0 || j === 0)){ ccToast(list[0].name + ' said yes, so they stay 1st. Take the yes back first to change the order.'); return; }
+    const t = list[i]; list[i] = list[j]; list[j] = t;
+    writeOrder(plan, key, list);
+    await tbSave(plan); tbRender(); sync(plan);
+  }
 
   /* add someone to a shift: the first person is the main one, everyone after joins the list */
   async function add(key, person){
@@ -66,6 +103,15 @@
       if(status === null){                                     // remove the main person: the next one up takes the spot
         const next = list.shift();
         if(next){ delete next.id; plan.cells[key] = next; } else delete plan.cells[key];
+      } else if(status === 'no' && list.some(o => o.status !== 'no')){
+        /* decision A (2026-10-13): the next choice who hasn't said No moves up to 1st; the No goes to the end. Nobody is texted. */
+        main.status = 'no'; main.at = now(); main.by = me();
+        const all = people(plan, key), k = all.findIndex((x, n) => n > 0 && x.status !== 'no');
+        const reordered = [all[k]].concat(all.filter((x, n) => n !== k && n !== 0), [all[0]]);
+        writeOrder(plan, key, reordered);
+        await tbSave(plan); tbRender(); if(typeof swRenderBar === 'function') swRenderBar(); sync(plan);
+        ccToast(main.name + ' said no; ' + reordered[0].name + ' is now the 1st choice. Text them when you are ready.');
+        return;
       } else { main.status = status; main.at = now(); main.by = me(); }
     } else {
       const k = list.findIndex(o => o.id === pid); if(k < 0) return;
@@ -178,13 +224,13 @@
   function appsHtml(plan, key){
     if(!APPS.rows){ loadApps(); return '<div class="field-note" style="padding:6px 0;">Loading people with an offer…</div>'; }
     const q = nk(TB.poolQ || ''), list = APPS.rows.filter(a => !q || nk((a.first_name || '') + (a.last_name || '')).indexOf(q) > -1);
-    const head = '<div style="font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--navy);margin:10px 0 2px;">OFFERED, STARTS AFTER ONBOARDING · ' + list.length + '</div>';
+    const head = '<div style="font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--navy);margin:10px 0 2px;">OFFERED, STILL ONBOARDING · ' + list.length + '</div>';
     if(APPS.err) return head + '<div class="field-note">Couldn’t load them (' + esc(APPS.err) + ').</div>';
     if(!list.length) return head + '<div class="field-note">Nobody with an accepted offer is waiting to start.</div>';
     return head + list.map(a => '<div class="tb2-app" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       + '<b style="min-width:130px;">' + esc([a.first_name, a.last_name].filter(Boolean).join(' ')) + '</b>'
-      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">starts after onboarding</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : ' · no start date yet')
-      + (a.offer_position ? ' · ' + esc(a.offer_position) : '') + ' · call them; texting from here waits until they’re on the roster</span>'
+      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">still onboarding · ' + (a.status === 'offer' ? 'offer sent' : 'getting ready to start') + '</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : '')
+      + (a.offer_position ? ' · ' + esc(a.offer_position) : '') + ' · you can rank them and mark a Yes; call them, texting from here waits until they’re on the roster</span>'
       + '<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tb2AddApplicant(\'' + esc(key) + '\',\'' + esc(a.id) + '\')">Add to this shift</button></div>').join('');
   }
 
@@ -261,31 +307,36 @@
   }
   function rowCount(plan, s){ const x = readiness(plan).find(y => y.slot.k === s.k); return x ? '<div class="tb2-rowcount" style="font-size:10.5px;font-weight:800;color:' + (x.yes === x.total ? 'var(--green)' : 'var(--red)') + ';">' + x.yes + ' of ' + x.total + ' confirmed</div>' : ''; }
   function moreChip(plan, key){
-    const o = (plan.options || {})[key] || []; if(!o.length) return '';
-    const yes = o.filter(x => x.status === 'maybe').length;
-    return '<div class="tb2-more" style="font-size:9.5px;font-weight:700;color:var(--navy);">+' + o.length + ' more' + (yes ? ' (' + yes + ' maybe)' : '') + '</div>';
+    const o = ((plan.options || {})[key] || []).filter(x => x.status !== 'no'), m = (plan.cells || {})[key];
+    const ob = m ? onboardingNote(m) : '';
+    const wait = ob ? '<div class="tb2-onb" style="font-size:9.5px;font-weight:700;color:#7C3AED;">' + (m.status === 'yes' ? 'waiting on onboarding' : 'still onboarding') + '</div>' : '';
+    if(!o.length) return wait;
+    return wait + '<div class="tb2-more" style="font-size:9.5px;font-weight:700;color:var(--navy);">2nd ' + esc(String(o[0].name || '').split(' ')[0]) + (o.length > 1 ? ' +' + (o.length - 1) : '') + '</div>';
   }
   function peopleHtml(plan, key){
     const list = people(plan, key); if(!list.length) return '';
     const b = (pid, st, label, cur) => '<button class="cara-btn' + (cur === st ? '' : ' ghost') + '" style="font-size:11px;padding:3px 8px;" onclick="tb2Answer(\'' + esc(key) + '\',\'' + esc(pid) + '\',' + (st === null ? 'null' : '\'' + st + '\'') + ')">' + label + '</button>';
-    return '<div class="card tb2-people" style="padding:8px 12px;margin-bottom:8px;"><div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:4px;">Asked about this shift (' + list.length + ')</div>'
+    return '<div class="card tb2-people" style="padding:8px 12px;margin-bottom:8px;"><div style="font-weight:700;font-size:12.5px;color:var(--navy);margin-bottom:4px;">Choices for this shift (' + list.length + ')</div>'
       + list.map(p => {
         const a = ANSWER[p.status] || ANSWER.penciled;
         const ask = p.main && p.ask_id ? (plan.asks || []).find(x => x && x.id === p.ask_id) : null;
+        const ob = onboardingNote(p), i = list.indexOf(p);
+        const mv = (d, l) => '<button class="cara-btn ghost tb2-mv" title="' + (d < 0 ? 'Move up' : 'Move down') + '" style="font-size:11px;padding:1px 6px;" onclick="tb2Move(\'' + esc(key) + '\',\'' + esc(p.pid) + '\',' + d + ')">' + l + '</button>';
         return '<div class="tb2-person" data-pid="' + esc(p.pid) + '" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);">'
+          + '<span class="tb2-rank" style="min-width:34px;font-weight:800;color:' + (i === 0 ? 'var(--navy)' : 'var(--text-muted)') + ';">' + ORD(i + 1) + '</span>'
+          + '<span style="display:inline-flex;gap:3px;min-width:58px;">' + (i > 0 ? mv(-1, '↑') : '') + (i < list.length - 1 ? mv(1, '↓') : '') + '</span>'
           + '<b style="min-width:120px;">' + esc(p.name) + '</b>'
-          + (p.main ? '<span class="tag-chip" style="background:var(--navy);color:#fff;font-weight:700;">main</span>' : '')
-          + (p.applicant_id ? '<span class="tag-chip" style="background:#F3EEFF;color:#7C3AED;font-weight:700;">starts after onboarding</span>' : '')
+          + (ob ? '<span class="tag-chip" style="background:#F3EEFF;color:#7C3AED;font-weight:700;">' + esc(ob) + '</span>' : '')
           + '<span class="tag-chip" style="background:' + a[2] + ';color:' + a[1] + ';font-weight:700;">' + a[0] + '</span>'
           + '<span class="field-note" style="font-size:11px;">' + esc((p.status === 'asked' && p.ask_channel === 'sms' ? 'texted ' : '') + (p.at ? tbAgo(p.at) : '') + (p.by ? ' by ' + String(p.by).split(' ')[0] : '')) + '</span>'
           + '<span style="flex:1;"></span>'
-          + (p.status !== 'yes' && !p.applicant_id ? '<button class="cara-btn tb2-text" style="font-size:11px;padding:3px 8px;" onclick="' + (p.main ? 'tbAskOpen(\'' + esc(key) + '\')' : 'tb2TextSeveral(\'' + esc(key) + '\')') + '">💬 Text</button>' : '')
+          + (p.status !== 'yes' && !ob ? '<button class="cara-btn tb2-text" style="font-size:11px;padding:3px 8px;" onclick="' + (p.main ? 'tbAskOpen(\'' + esc(key) + '\')' : 'tb2TextSeveral(\'' + esc(key) + '\')') + '">💬 Text</button>' : '')
           + b(p.pid, 'asked', '📞 Asked', p.status) + b(p.pid, 'yes', '✓ Yes', p.status) + b(p.pid, 'maybe', 'Maybe', p.status) + b(p.pid, 'no', '✗ No', p.status) + b(p.pid, 'no_reply', 'No reply', p.status) + b(p.pid, null, 'Remove', '')
           + (ask ? '<details style="flex-basis:100%;font-size:12px;"><summary style="cursor:pointer;color:var(--teal);font-weight:700;">The text we sent</summary><div style="white-space:pre-wrap;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:6px 9px;margin-top:4px;">' + esc(ask.text) + '</div></details>' : '')
           + '</div>';
       }).join('')
-      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">' + (list.filter(p => !p.applicant_id && p.status !== 'yes').length > 1 ? '<button class="cara-btn tb2-textall" style="font-size:11.5px;" onclick="tb2TextSeveral(\'' + esc(key) + '\')">💬 Text everyone on this shift</button>' : '')
-      + '<span class="field-note" style="font-size:11px;">Add more people from the list below. A Yes becomes the main person for this shift; only one Yes per shift.</span></div></div>';
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">' + (list.filter(p => !onboardingNote(p) && p.status !== 'yes').length > 1 ? '<button class="cara-btn tb2-textall" style="font-size:11.5px;" onclick="tb2TextSeveral(\'' + esc(key) + '\')">💬 Text everyone on this shift</button>' : '')
+      + '<span class="field-note" style="font-size:11px;">Add more people from the list below. The 1st choice is who you ask first; use ↑ ↓ to change the order. If the 1st choice says No, the next choice moves up. A Yes is always 1st; only one Yes per shift. Someone still onboarding can be ranked and marked Yes; the shift goes into AxisCare once they’re approved.</span></div></div>';
   }
   /* ── TEXT SEVERAL AT ONCE (2026-10-06, Samantha: "build texting several people at once"). One window: everyone on the
      board who can be texted (on the roster, not already a Yes), each with the shifts they're listed on. One message;
@@ -297,7 +348,7 @@
     (plan.slots || []).forEach(s => (plan.days || []).forEach(d => {
       const k = tbCellKey(d, s.k);
       people(plan, k).forEach(p => {
-        if(p.applicant_id || p.status === 'yes' || !p.name) return;
+        if(onboardingNote(p) || p.status === 'yes' || !p.name) return;
         const id = p.cg_ax_id ? 'ax:' + p.cg_ax_id : 'n:' + nk(p.name);
         if(!by.has(id)) by.set(id, { name:p.name, ax:String(p.cg_ax_id || ''), cells:[] });
         by.get(id).cells.push({ k, d, s, status:p.status, texted:p.status === 'asked' && p.ask_channel === 'sms' });
@@ -403,7 +454,7 @@
   }
   function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 
-  Object.assign(window, { tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer,
+  Object.assign(window, { tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer, tb2Move:move, tb2Onboarding:onboardingNote, tb2WriteOrder:writeOrder,
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
     tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2DriveOf:driveOf, tb2DriveBlock:driveBlock, tb2DriveLive:driveLive, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,

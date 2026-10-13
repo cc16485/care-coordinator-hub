@@ -41,7 +41,7 @@ async()=>{
   const pl=document.createElement('div'); pl.innerHTML=tbPoolListHtml(plan,'mon|s1');
   const names=[...pl.querySelectorAll('div')].map(d=>d.innerText).filter(x=>/Newhire|Oldhand|Later/.test(x)).map(x=>x.split('\n')[0]);
   ok('Team Builder list: new hires who need hours come first when everyone fits the same, tagged', /new hire, needs hours/.test(pl.innerText) && pl.innerText.indexOf('Nina Newhire') < pl.innerText.indexOf('Oscar Oldhand') && pl.innerText.indexOf('Lee Later') < pl.innerText.indexOf('Oscar Oldhand'), pl.innerText.slice(0,600));
-  ok('...a locked new hire keeps the lock warning, not the tag', /Lock Ed[\s\S]{0,300}awaiting Approve to Work/.test(pl.innerText) && !/Lock Ed[^\n]{0,80}new hire, needs hours/.test(pl.innerText), '');
+  ok('...a locked new hire shows "still onboarding · waiting on Approve to Work", not the tag', /Lock Ed[\s\S]{0,300}still onboarding · waiting on Approve to Work/.test(pl.innerText) && !/Lock Ed[^\n]{0,80}new hire, needs hours/.test(pl.innerText), '');
   return R;
 }
 """

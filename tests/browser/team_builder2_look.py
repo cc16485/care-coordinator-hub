@@ -35,7 +35,7 @@ async()=>{
   ok('"This client needs" Hoyer lift is saved on the plan', JSON.stringify(plan().needs)==='["hoyer_lift"]');
   tbCell('mon|s1'); await sleep(200);
   let L=document.getElementById('tbPoolList');
-  const names=[...L.querySelectorAll('b')].map(b=>b.textContent).filter(t=>/Aide|Skill/.test(t));
+  const names=[...L.querySelectorAll('b')].map(b=>b.textContent.replace('↗','').trim()).filter(t=>/Aide|Skill/.test(t));
   ok('skill fit: who can do a Hoyer comes first, unknown next, a no last', names.join(',')==='Kim Aide,Di Aide,Lo Skill', names);
   ok('...each says yes / not on file (with yes/no to record it) / no', /✓ Hoyer lift/.test(L.innerText) && /Hoyer lift\? yes\/no/.test(L.innerText) && /✗ no Hoyer lift/.test(L.innerText), L.innerText.slice(0,600));
   L.querySelector('.tb2-sk').click(); await sleep(250);
@@ -50,9 +50,9 @@ async()=>{
   await tb2AddPool('mon|s1',1); 
   ok('the same person twice is refused', plan().options['mon|s1'].length===1 && /already on this shift/.test(window.__toasts.join(' ')));
   const cellTd=[...root().querySelectorAll('td')].find(td=>/tbCell\('mon\|s1'\)/.test(td.getAttribute('onclick')));
-  ok('the grid cell shows the main person and "+1 more"', /Kim A/.test(cellTd.innerText) && /\+1 more/.test(cellTd.innerText), cellTd.innerText);
+  ok('the grid cell shows the 1st choice and "2nd Di"', /Kim A/.test(cellTd.innerText) && /2nd Di/.test(cellTd.innerText), cellTd.innerText);
   let PP=root().querySelector('.tb2-people');
-  ok('the shift panel lists both, main first, each with Asked / Yes / Maybe / No / No reply', PP && /Asked about this shift \(2\)/.test(PP.innerText) && /Kim Aide\s*main/.test(PP.innerText) && ['📞 Asked','✓ Yes','Maybe','✗ No','No reply','Remove'].every(t=>PP.innerText.includes(t)), PP&&PP.innerText);
+  ok('the shift panel lists both in order (1st, 2nd), each with Asked / Yes / Maybe / No / No reply', PP && /Choices for this shift \(2\)/.test(PP.innerText) && /1st\s*↓\s*Kim Aide/.test(PP.innerText) && /2nd\s*↑\s*Di Aide/.test(PP.innerText) && ['📞 Asked','✓ Yes','Maybe','✗ No','No reply','Remove'].every(t=>PP.innerText.includes(t)), PP&&PP.innerText);
   const diId=plan().options['mon|s1'][0].id;
   await tb2Answer('mon|s1','main','asked'); await tb2Answer('mon|s1',diId,'maybe');
   ok('answers are saved with who and when', plan().cells['mon|s1'].status==='asked' && plan().cells['mon|s1'].by==='Krystal Land' && plan().options['mon|s1'][0].status==='maybe');
@@ -66,10 +66,10 @@ async()=>{
   TB2_APPS.rows=[{ id:'a1', first_name:'Ana', last_name:'New', status:'offer', start_date:'2026-10-20', offer_position:'Caregiver' }];
   tbCell('tue|s1'); await sleep(200);
   L=document.getElementById('tbPoolList');
-  ok('people with an accepted offer are listed: "starts after onboarding", with their start date', /OFFERED, STARTS AFTER ONBOARDING · 1/.test(L.innerText) && /Ana New/.test(L.innerText) && /start date Oct 20/.test(L.innerText), L.innerText.slice(-400));
+  ok('people with an offer are listed: "still onboarding · offer sent", with their start date', /OFFERED, STILL ONBOARDING · 1/.test(L.innerText) && /still onboarding · offer sent/.test(L.innerText) && /Ana New/.test(L.innerText) && /start date Oct 20/.test(L.innerText), L.innerText.slice(-400));
   L.querySelector('.tb2-app button').click(); await sleep(250);
   PP=root().querySelector('.tb2-people');
-  ok('...adding one keeps them marked; no Text button for them', plan().cells['tue|s1'].applicant_id==='a1' && /starts after onboarding/.test(PP.innerText) && !/💬 Text/.test(PP.innerText));
+  ok('...adding one keeps them marked; no Text button for them', plan().cells['tue|s1'].applicant_id==='a1' && /still onboarding · offer sent/.test(PP.innerText) && !/💬 Text/.test(PP.innerText));
   await tb2AddPool('tue|s1',0); await tb2Answer('tue|s1','main',null);
   ok('removing the main person moves the next one up', plan().cells['tue|s1'].name==='Lo Skill' && !plan().options['tue|s1']);
   // every shift confirmed: the project step ticks itself, and reopens

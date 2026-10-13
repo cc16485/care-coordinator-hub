@@ -36798,7 +36798,7 @@ function tbPoolListHtml(plan,key){
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
     if(x.cg.new_hire&&!x.cg.work_locked) flags.unshift('<b style="color:var(--teal);">🌱 new hire, needs hours</b>');   /* 2026-10-12, her "B" */
-    if(x.cg.work_locked) flags.unshift('<b style="color:var(--red);">⛔ awaiting Approve to Work (new hire): not to be scheduled yet</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back */
+    if(x.cg.work_locked) flags.unshift('<b style="color:#7C3AED;">still onboarding · waiting on Approve to Work: you can rank them and mark a Yes; texting them and the AxisCare step wait until they\'re approved</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back; 2026-10-13 her "B": plannable, never pushed or texted */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +(x.cg.axiscare_id
           ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
