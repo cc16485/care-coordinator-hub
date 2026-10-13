@@ -75,6 +75,17 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ const t=document.getElementById('tab-offers'); for(let el=t; el; el=el.parentElement){ if(getComputedStyle(el).display==='none') el.style.display='block'; } t.scrollIntoView(); }")
     bb = pg.locator('#tab-offers').bounding_box()
     if bb: pg.screenshot(path=os.path.join(OUT, 'offer_stages.png'), clip={'x': bb['x'], 'y': bb['y'], 'width': min(1300, bb['width']), 'height': min(900, bb['height'])})
+    # 2026-10-12 "I can't easily click": real mouse clicks on each pill, anywhere on it (the dot, the words, the count)
+    for st, where in [('rejected', 'offdot'), ('completed', 'offnav-n'), ('sent', None), ('accepted', None)]:
+        btn = pg.locator('#offstage-' + st); btn.scroll_into_view_if_needed()
+        if where: pg.locator('#offstage-' + st + ' .' + where).click(force=True)
+        else: bb2 = btn.bounding_box(); pg.mouse.click(bb2['x'] + 18, bb2['y'] + bb2['height'] - 10)   # near the rounded end
+        got = pg.evaluate("st=>[OFF_STAGE, document.getElementById('offstage-'+st).classList.contains('on'), [...document.querySelectorAll('#tab-offers .offnav-b.on')].length]", st)
+        R.append(['PASS' if got == [st, True, 1] else 'FAIL', 'a real click on the ' + st + ' pill (' + (where or 'corner') + ') opens it and lights only it', '' if got == [st, True, 1] else str(got)])
+    sz = pg.evaluate("()=>{ const r=document.getElementById('offstage-sent').getBoundingClientRect(); return [Math.round(r.height), getComputedStyle(document.getElementById('offstage-sent')).fontSize]; }")
+    R.append(['PASS' if sz[0] >= 48 and sz[1] == '16px' else 'FAIL', 'the pills are big enough to hit easily (50px tall, 16px words)', '' if sz[0] >= 48 else str(sz)])
+    lit = pg.evaluate("()=>{ OFF_STAGE='sent'; window.renderOffers=()=>{ throw new Error('boom'); }; offStageView('rejected'); return [document.getElementById('offstage-rejected').classList.contains('on'), document.getElementById('offersList').innerText]; }")
+    R.append(['PASS' if lit[0] and 'Could not show this stage: boom' in lit[1] else 'FAIL', 'if the list cannot redraw, the pill still lights and a message says so (never a dead click)', '' if lit[0] else str(lit)])
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', ' '.join(errs)])
     b.close()
 srv.terminate()
