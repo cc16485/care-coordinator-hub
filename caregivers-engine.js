@@ -5788,6 +5788,12 @@ function bgrvDiscHtml(c){
   else if(x.convicted === 'no') lines.push('They answered <b>No</b> to convictions.');
   if(x.moving_violations === 'yes') lines.push('Moving violations: yes' + (x.moving_detail ? ' (' + e(x.moving_detail) + ')' : '') + '.');
   if(x.license_suspended === 'yes') lines.push('License suspended or revoked in the last 3 years: yes.');
+  /* 2026-10-13: Missouri's other two required answers (RSMo 192.2495.5), on the permission form */
+  if(x.edl_listed === 'yes') lines.push('<b style="color:#B91C1C">They said they ARE on the Employee Disqualification List.</b> A person on the EDL cannot be employed to give care.');
+  else if(x.edl_listed === 'no') lines.push('Employee Disqualification List: they answered <b>No</b>.');
+  if(x.fcsr_listed === 'yes') lines.push('<b style="color:#B45309">They said they are listed on a Family Care Safety Registry list.</b> Read the FCSR result closely.');
+  else if(x.fcsr_listed === 'not sure') lines.push('<b style="color:#B45309">Family Care Safety Registry: they are not sure</b>; talk it through with them.');
+  else if(x.fcsr_listed === 'no') lines.push('Family Care Safety Registry lists: they answered <b>No</b>.');
   return box(lines.join('<div style="height:.2rem"></div>') + (d.practice ? ' <span style="color:#8A7F70">(practice record)</span>' : ''));
 }
 /* one chip for the table row */

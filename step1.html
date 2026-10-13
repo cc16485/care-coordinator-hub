@@ -64,13 +64,18 @@ const PHONE = '(417) 234-8494';
    check from the server's read-only preview action; answers live in this page only; identity numbers never leave it; nothing
    is saved, signed or sent. Opened from the Hub's Applicants Journey tab. ───── */
 const PREVIEW = q.get('preview') === '1';
+/* ───── REVIEW (Samantha 2026-10-13: coordinators see every Step 1 screen with the applicant's own answers, in the Hub).
+   ?review=<offer id>, opened inside the Hub by signed-in office staff: the server's read-only review action; every form is
+   locked; nothing is saved, signed or sent; identity numbers stay sealed. ───── */
+const REVIEW = !PREVIEW && /^[0-9a-f-]{36}$/i.test(q.get('review') || '') ? q.get('review') : '';
+function staffToken(){ try { const v = JSON.parse(localStorage.getItem('sb-zngsgedlsxinbygwmxwn-auth-token') || 'null'); return (v && (v.access_token || (v.currentSession && v.currentSession.access_token))) || ''; } catch (e) { return ''; } }
 const NEXT_NOTE = {
   '1': 'Tapping Begin records their consent to sign electronically, with the time, device address and browser. Step 1 saves as they go; the same link brings them back where they left off.',
   '2': 'Nothing is sent from this screen. Answers marked "from your application" or "from your interview" were filled in for them; they can correct any of them.',
   '3': 'Signing stores the Employee Application as a PDF in the private document store (opened from their profile; every open is logged). The jobs, tasks and family care become the Skills and experience card on their profile, marked self-reported until a reference confirms them.',
   '4': 'Signing gives permission to contact the references. Nothing goes to any reference yet: the references they let us contact move to Background & References when Step 1 is complete. A reference they asked us not to contact never does.',
-  '5a': 'The background check disclosure, on its own screen as the law requires (a draft for counsel). Signing authorizes the consumer reports.',
-  '5b': 'The Social Security number, date of birth and license number are sealed (encrypted) the moment they are saved and are never shown again; only a person on the Screening staff list can reveal one, for five minutes, with a reason, and every reveal is logged.',
+  '5a': 'Signing gives the permission Missouri requires for the criminal records review and the other checks, and records their answers to the three questions Missouri requires (criminal history, EDL, FCSR). Nothing is checked until all of Step 1 is complete.',
+  '5b': 'Only the details the checks need. The Social Security number, date of birth and license number are sealed (encrypted) the moment they are saved and are never shown again; only a person on the Screening staff list can reveal one, for five minutes, with a reason, and every reveal is logged.',
   '6': 'Their committed availability becomes the availability Team Builder reads once they are connected to AxisCare. The initials line confirms the AxisCare scheduling rule.',
   '7': 'Their comfort answers land on their skills record as their own word ("attested") when they are connected to AxisCare. Nothing here changes a level: everyone starts at Level 1.',
   '8': 'If they choose that they do not meet the driving requirements, they are never asked to drive and the office sends the Non-Driver Agreement with Step 2.',
@@ -89,8 +94,8 @@ const PLAN = {
   '2': { form: 'employee_application', sections: (f) => f.sections.some((x) => x.tone === 'cheer') ? [0, 1, 2, 3, 4, 5] : [0, 1, 2, 3, 4], title: 'About you' },
   '3': { form: 'employee_application', sections: (f) => f.sections.map((_, i) => i).filter((i) => i >= (f.sections.some((x) => x.tone === 'cheer') ? 6 : 5)), title: 'Your work history', sign: true },
   '4': { form: 'reference_consent', sections: 'all', title: 'Your references', sign: true },
-  '5a': { form: 'fcra_disclosure', sections: 'all', title: 'Background check, part one', sign: true },
-  '5b': { form: 'edl_fcsr_consent', sections: 'all', title: 'Background check, part two', sign: true },
+  '5a': { form: 'fcra_disclosure', sections: 'all', title: 'Permission for background checks', sign: true },
+  '5b': { form: 'edl_fcsr_consent', sections: 'all', title: 'Your details for the checks', sign: true },
   '6': { form: 'availability', sections: 'all', title: 'When you can work', sign: true },
   '7': { form: 'experience', sections: 'all', title: 'What you are willing to do and have done', sign: true },
   '8': { form: 'vehicle', sections: 'all', title: 'Driving', sign: true },
@@ -107,6 +112,7 @@ const SHOW = {
 };
 async function call(body){
   if (PREVIEW) return previewCall(body);
+  if (REVIEW) return reviewCall(body);
   const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
   return { status: r.status, j };
@@ -216,7 +222,9 @@ function screenHtml(s){
   /* TRAINING WALKTHROUGH (2026-10-11): a staff member trying the journey; never their real SSN or date of birth */
   if (/\(TRAINING\)/.test(String((V.who || {}).last || ''))) h += '<div class="why" style="border-color:#B45309;background:#FFF7ED"><b>Training walkthrough.</b> Use the practice Social Security number 987-65-4321 (a number never issued to anyone) and a made-up date of birth and license number. Never type your real ones here.</div>';
   if (PREVIEW) h += previewBar(s);
+  else if (REVIEW) h += reviewBar(s);
   else if (V.test_mode) h += '<div class="why"><b>Practice only.</b> These forms are not yet approved for real signing; nothing here is sent anywhere and no office action follows from it. (The office sees that too.)</div>';
+  if (REVIEW && (s === '1' || s === '9')) return h + reviewSummary(s);
   if (s === '1') {
     const w = V.who;
     h += '<h1>Welcome, ' + esc(w.first) + '!</h1><p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
@@ -233,11 +241,12 @@ function screenHtml(s){
     if (PREVIEW) h += '<div class="pnote"><b>What happens next:</b> ' + esc(NEXT_NOTE['9']) + '</div>';
     return h;
   }
-  const f = FORMS[P.form]; const locked = formSigned(P.form);
+  const f = FORMS[P.form]; const locked = REVIEW || formSigned(P.form);
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
   h += '<h1>' + esc(P.title) + '</h1>';
   h += '<h2 class="ft">' + esc(f.title) + ' <span style="font-size:12.5px;color:var(--muted);font-weight:600">version ' + f.version + '</span></h2>';
-  if (locked) h += '<div class="signed">Signed by ' + esc(SIGS[P.form].typed_name) + ' on ' + when(SIGS[P.form].at) + '. A signed form is never changed.</div>';
+  if (REVIEW) h += reviewFormLine(P.form);
+  else if (locked) h += '<div class="signed">Signed by ' + esc(SIGS[P.form].typed_name) + ' on ' + when(SIGS[P.form].at) + '. A signed form is never changed.</div>';
   if (s === '2') h += '<div class="doc"><h3>From your offer</h3><p><b>' + esc(V.who.first + ' ' + V.who.last) + '</b><br>' + esc(V.who.phone) + (V.who.email ? '<br>' + esc(V.who.email) : '') + '</p><p class="small">If any of this is wrong, call or text the office at ' + PHONE + ' and we will fix it on your offer.</p></div>';
   if (s === '6' && (V.hints.availability || V.hints.travel)) h += '<div class="why"><b>From your application:</b> ' + esc([V.hints.availability, V.hints.travel ? 'travel: ' + V.hints.travel : ''].filter(Boolean).join(' · ')) + '. Set your committed availability below.</div>';
   h += '<div class="doc' + (locked ? ' lock' : '') + '">' + (secs[0] === 0 ? (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('') : '');
@@ -248,6 +257,7 @@ function screenHtml(s){
     for (const it of sec.items || []) { if (SHOW[it.id] && !SHOW[it.id](ANS)) continue; h += itemHtml(it, locked); }
   }
   h += '</div>';
+  if (REVIEW) { if (P.sign) h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (ANS.initials && f.signature === 'typed+initials' ? '<p><b>Initials:</b> ' + esc(ANS.initials) + '</p>' : '') + '</div>'; return h + reviewNav(s); }
   if (P.sign) {
     h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (f.signature === 'typed+initials' && !locked ? '<div class="item"><label class="q">Your initials beside the AxisCare scheduling line <span style="color:var(--gold-text)">*</span></label>' + itemHtml({ id: 'initials', label: '', kind: 'initials' }, false).replace(/<label class="q">.*?<\/label>/, '') + '</div>' : '') + '</div>';
     if (!locked) h += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I agree to sign this form electronically. I have read it and my answers are true.</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name"><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time and your device are recorded with this signature. Your own copy comes back to you as a secure link when all forms are done.</div></div>';
@@ -264,7 +274,7 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'A
    only moving to another screen starts at the top. */
 let SHOWN = null;
 function render(){ const same = SHOWN === SCREEN, y = window.scrollY; main().innerHTML = screenHtml(SCREEN); window.scrollTo(0, same ? y : 0); SHOWN = SCREEN; }
-function go(s){ SCREEN = s; render(); save({}, s); }
+function go(s){ SCREEN = s; render(); if (!REVIEW) save({}, s); }
 
 /* ───── answers (page memory only) ───── */
 let saveTimer = null, PENDING = {};
@@ -334,15 +344,52 @@ async function loadCopies(){
   box.innerHTML = V.forms.filter((f) => r.j.copies[f.key]).map((f) => '<a href="' + esc(r.j.copies[f.key]) + '" target="_blank" rel="noopener">📄 ' + esc(f.title) + '</a>').join('') || '<p class="small">No copies yet.</p>';
 }
 async function init(){
-  if (!PREVIEW && (!LINK.o || !LINK.t)) return dead('This link is missing its code.');
+  if (!PREVIEW && !REVIEW && (!LINK.o || !LINK.t)) return dead('This link is missing its code.');
   const r = await call({ action: 'view' });
   if (r.status !== 200) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
   V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f;
   ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {};
   for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
+  if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; return render(); }
   SCREEN = V.completed_at ? '9' : (!V.esign_consent_at ? '1' : (ORDER.includes(V.current_screen) && V.current_screen !== '1' ? V.current_screen : '2'));
   if (SCREEN !== '1' && SCREEN !== '9' && formSigned(PLAN[SCREEN].form) && PLAN[SCREEN].sign) SCREEN = nextOf(SCREEN);
   render();
+}
+/* ───── the review mode's pieces (read only) ───── */
+async function reviewCall(b){
+  if (b.action !== 'view' && b.action !== 'open') return { status: 200, j: { ok: true } };
+  const tok = staffToken(); if (!tok) return { status: 401, j: { error: 'Please sign in to the Hub first, then open this again.' } };
+  const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + tok }, body: JSON.stringify(b.action === 'view' ? { action: 'review', offer_id: REVIEW } : { action: 'open', offer_id: REVIEW, form: b.form }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return { status: r.status, j };
+}
+const SIG_OF = (k) => (V.signed || {})[k] || null;
+function reviewBar(s){
+  const opts = ORDER.map((k) => '<option value="' + k + '"' + (k === s ? ' selected' : '') + '>' + stepNo(k) + '. ' + esc(PLAN[k].title) + (PLAN[k].form ? (SIG_OF(PLAN[k].form) ? ' ✓' : ' (not signed)') : '') + '</option>').join('');
+  return '<div class="pbar"><b>Office view of ' + esc(V.who.first + ' ' + V.who.last) + '\'s Step 1.</b> These are the screens they saw, with their own answers. Read only: nothing here is saved, signed or sent. Identity numbers stay sealed.' + (V.practice ? ' <b>Practice record.</b>' : '')
+    + '<div class="prow"><select onchange="go(this.value)" aria-label="Go to screen">' + opts + '</select></div></div>';
+}
+function reviewFormLine(k){
+  const g = SIG_OF(k);
+  if (!g) return '<div class="why"><b>Not signed yet.</b> The answers below are what they have typed so far.</div>';
+  return '<div class="signed">Signed by <b>' + esc(g.typed_name) + '</b> on ' + when(g.at) + ' · version ' + esc(g.version) + (g.ip ? ' · device address ' + esc(g.ip) : '') + '.'
+    + (g.version_mismatch ? ' <b>They signed version ' + esc(g.version) + '; the words shown are version ' + esc(g.current_version) + '. The signed PDF is the exact record.</b>' : '')
+    + (g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + k + '\')">Open the signed PDF</button>' : '') + '</div>';
+}
+function reviewNav(s){ return '<div class="prow" style="margin-top:14px">' + (s !== '1' ? '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button>' : '') + (s !== '9' ? '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Next screen</button>' : '') + '</div>'; }
+async function reviewPdf(k){
+  const w = window.open('', '_blank'); const r = await reviewCall({ action: 'open', form: k });
+  if (r.j && r.j.url) { if (w) w.location = r.j.url; else window.open(r.j.url, '_blank'); } else if (w) w.document.body.innerHTML = '<p style="font-family:sans-serif">' + esc((r.j && r.j.error) || 'Could not open the PDF.') + '</p>';
+}
+function reviewSummary(s){
+  const d = V.esign_consent_detail || {};
+  let h = '<h1>' + (s === '1' ? 'Step 1 for ' : 'Step 1 signatures for ') + esc(V.who.first + ' ' + V.who.last) + '</h1>';
+  h += '<div class="doc"><h3>Where they are</h3><p>' + (V.sent_at ? 'Sent ' + when(V.sent_at) + '. ' : '') + (V.started_at ? 'Opened ' + when(V.started_at) + '. ' : 'Not opened yet. ') + (V.esign_consent_at ? 'Agreed to sign electronically ' + when(V.esign_consent_at) + (d.ip ? ' (device address ' + esc(d.ip) + ')' : '') + '. ' : '') + (V.completed_at ? '<b>Complete ' + when(V.completed_at) + '.</b>' : '<b>' + V.signed_count + ' of ' + V.form_count + ' forms signed.</b> Last screen they were on: ' + esc((PLAN[V.current_screen] || {}).title || V.current_screen) + '.') + '</p></div>';
+  h += '<div class="doc"><h3>Every form</h3>' + V.forms.map((f) => { const g = SIG_OF(f.key); const scr = ORDER.find((k) => PLAN[k].form === f.key && PLAN[k].sign) || ORDER.find((k) => PLAN[k].form === f.key);
+    return '<div class="row"><b>' + esc(f.title) + '</b><br>' + (g ? '✓ Signed by ' + esc(g.typed_name) + ', ' + when(g.at) + ', version ' + esc(g.version) + (g.version_mismatch ? ' (current wording is version ' + esc(g.current_version) + ')' : '') : 'Not signed yet')
+      + '<div style="margin-top:6px"><button class="mini" onclick="go(\'' + (f.key === 'employee_application' ? '2' : scr) + '\')">See the screen</button>' + (g && g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + f.key + '\')">Signed PDF</button>' : '') + '</div></div>'; }).join('') + '</div>';
+  h += '<div class="doc"><h3>For the background checks</h3><p>Social Security number: ' + (IDENT.ssn ? 'on file, ' + esc(IDENT.ssn) : 'not given yet') + ' · date of birth: ' + (IDENT.dob ? 'on file' : 'not given yet') + ' · driver\'s license: ' + (IDENT.license ? 'on file, ' + esc(IDENT.license) : 'not given') + '. Only a person on the Screening staff list can reveal one, from Background &amp; References, and every reveal is logged.</p></div>';
+  return h + reviewNav(s);
 }
 /* ───── the preview's stand-in for the server: only the words, the required-answer check and the PDF come from the server's
    read-only preview action; everything else happens in this page ───── */
