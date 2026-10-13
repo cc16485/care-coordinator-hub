@@ -8,7 +8,7 @@ python3 tests/browser/driver_e2e_look.py [<Staffing supabase/functions dir>] [sc
 import json, sys, os, subprocess, urllib.request, urllib.error
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
-FNDIR = sys.argv[1] if len(sys.argv) > 1 else '/Users/samantha/Claude/Projects/Staffing-Coordinator-Hub/launch/driver-staff/supabase/functions'
+FNDIR = sys.argv[1] if len(sys.argv) > 1 else '/Users/samantha/Claude/Projects/Staffing-Coordinator-Hub/launch/forms-staff/supabase/functions'
 OUT = sys.argv[2] if len(sys.argv) > 2 else '/tmp'
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
@@ -62,7 +62,7 @@ try:
         ck(f'{eng} caregiver: the real view opens on the real link (d, e, t): first name, Pending, what is needed, the question', 'Hi, Pat.' in t and 'Not complete yet' in t and 'Your status: Pending Verification' in t and 'Are you willing and able to transport clients' in t, t[:700])
         pg.locator('.seg button', has_text='Yes').click(); pg.wait_for_timeout(150)
         t = pg.inner_text('body')
-        ck(f'{eng} caregiver: Yes shows the real vehicle agreement (version from the server)', 'Responsibility for Personal Vehicle Insurance & Transportation Standards' in t and 'Required Standards for Transporting Clients'.upper() in t.upper() and pg.locator('#b_sign').count() == 1, t[:600])
+        ck(f'{eng} caregiver: Yes shows the real vehicle agreement (version from the server)', 'Driver/Vehicle Insurance & Transportation Standards Agreement' in t and 'Required Standards for Transporting Clients'.upper() in t.upper() and pg.locator('#b_sign').count() == 1, t[:600])
         pg.locator('#c_sign').check(); pg.fill('#n_sign', 'Pat Practice'); pg.click('#b_sign'); pg.wait_for_timeout(1500)
         t = pg.inner_text('body')
         ck(f'{eng} caregiver: signed for real (practice person): the signed line, the copy link, the three uploads', 'Driver/Vehicle agreement signed on' in t and pg.locator('#okmsg a').count() == 1 and pg.locator('.slot').count() == 3, [t[:900], calls[-2:]])

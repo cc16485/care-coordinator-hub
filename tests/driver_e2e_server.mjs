@@ -8,7 +8,7 @@
    POST /put?p=<bucket/path>  -> the file lands in the fake bucket (what a signed upload would do)
    GET  /db   -> the fake tables, to check what the function wrote */
 import fs from 'fs'; import path from 'path'; import os from 'os'; import http from 'http'
-const FN = path.resolve(process.argv[2] || '/Users/samantha/Claude/Projects/Staffing-Coordinator-Hub/launch/driver-staff/supabase/functions')
+const FN = path.resolve(process.argv[2] || '/Users/samantha/Claude/Projects/Staffing-Coordinator-Hub/launch/forms-staff/supabase/functions')
 const SECRET = 'j'.repeat(48)
 const env = { SUPABASE_URL: 'http://x', SUPABASE_SERVICE_ROLE_KEY: 's'.repeat(40), HUB_JOB_SECRET: SECRET, GHL_TOKEN: 'g', GHL_LOCATION_ID: 'L' }
 let handler = null; globalThis.Deno = { env: { get: (k) => env[k] }, serve: (h) => { handler = h } }
