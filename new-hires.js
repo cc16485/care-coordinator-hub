@@ -28,7 +28,10 @@
     const M = window.CCMatch; if (!M || !M.transportEligible) return '';
     const lg = p.dl_status == null && p.axiscare_id && typeof DATA !== 'undefined' ? (DATA.caregivers || []).find((x) => String(x.axiscare_id || '') === String(p.axiscare_id)) : null;
     const t = M.transportEligible(lg || p, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date()));
-    return t.ok ? '' : '<div style="font-size:12.5px;color:var(--red);margin-top:2px;">🚗 Not cleared to drive clients: ' + esc(t.why) + '. Not for shifts that need transportation.</div>';
+    if (t.ok) return '';
+    const live = !!(M.driveGateOn && M.driveGateOn((typeof DATA !== 'undefined' && DATA.ops_settings) || {}));   /* the Admin switch, off by default */
+    return live ? '<div style="font-size:12.5px;color:var(--red);margin-top:2px;">🚗 Not cleared to drive clients: ' + esc(t.why) + '. Not for shifts that need transportation.</div>'
+      : '<div style="font-size:12.5px;color:#8A4E0C;margin-top:2px;">🚗 Driver check (not enforced yet): ' + esc(t.why) + '</div>';
   }
   const dateWords = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   function openShifts() { switchTab('liveschedule'); try { LC.open = true; if (typeof lcView === 'function') lcView('week'); else if (typeof lsPaint === 'function') lsPaint(); } catch (e) {} }

@@ -14,7 +14,7 @@ const ctx = { console, Intl, Date, Math, JSON, String, Number, Array, Object, Se
 ctx.window = ctx; ctx.globalThis = ctx;
 ctx.escapeHtmlComms = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 ctx.ccToast = (m) => toasts.push(m);
-ctx.DATA = { caregivers: [{ axiscare_id: '31', first: 'Rae', last: 'Roster', ...APPROVED }], caregiver_overlay: [{ axiscare_id: '12', skills: { transportation: { have: 'yes', evidence: 'attested' } } }] };
+ctx.DATA = { caregivers: [{ axiscare_id: '31', first: 'Rae', last: 'Roster', ...APPROVED }], caregiver_overlay: [{ axiscare_id: '12', skills: { transportation: { have: 'yes', evidence: 'attested' } } }], ops_settings: { driver_schedule_gate_live: true } };   /* the Admin switch on; off is checked at the end */
 let PLAN = { id: 'tb1', needs: ['transportation'], cells: {}, options: {} };
 ctx.tbPlan = () => PLAN; ctx.tbSave = async (p) => { saved.push(JSON.parse(JSON.stringify(p))); }; ctx.tbRender = () => {};
 ctx.TB = { pool: [
@@ -49,6 +49,16 @@ ck('...the skill rank puts not-available people with the other "a need they don\
   /* the new-hire card */
   ck('new-hire card: a new hire not cleared to drive says so, with the why', /Not cleared to drive clients: Not an Approved Driver \(Non-Driver\)\. Not for shifts that need transportation\./.test(ctx.NH.driveLine(P('Nell Nondriver'))), ctx.NH.driveLine(P('Nell Nondriver')));
   ck('new-hire card: nothing for an Approved Driver', ctx.NH.driveLine(P('Ann Approved')) === '');
+
+  /* the Admin switch OFF (the default): the same check shows as a warning; anyone can be penciled in */
+  ctx.DATA.ops_settings = {}; PLAN = { id: 'tb3', needs: ['transportation'], cells: {}, options: {} }; saved.length = 0;
+  ck('switch off: nobody is blocked on a plan that needs transportation', ctx.tb2DriveLive() === false && ctx.tb2DriveBlock(PLAN, P('Bo Pending')) === null && ctx.tb2DriveBlock(PLAN, P('Oz Norecord')) === null);
+  ck('switch off: the flag says "Driver check (not enforced yet)" with the why', /Driver check \(not enforced yet\): Not an Approved Driver \(Pending Verification\)/.test(ctx.tb2SkillFlags(PLAN, P('Bo Pending'))) && !/Not available/.test(ctx.tb2SkillFlags(PLAN, P('Bo Pending'))), ctx.tb2SkillFlags(PLAN, P('Bo Pending')));
+  ck('switch off: not cleared is "not on file" in the rank (1), not "a need they don\'t have" (2)', ctx.tb2SkillRank(PLAN, P('Bo Pending')) === 1);
+  await ctx.tb2AddPool('mon|s1', ctx.TB.pool.indexOf(P('Bo Pending')));
+  ck('switch off: Pending Verification can be penciled in', saved.length === 1 && saved[0].cells['mon|s1'].name === 'Bo Pending', saved);
+  ck('switch off: the new-hire card shows the check as not enforced yet', /Driver check \(not enforced yet\): Not an Approved Driver \(Non-Driver\)/.test(ctx.NH.driveLine(P('Nell Nondriver'))) && !/Not for shifts/.test(ctx.NH.driveLine(P('Nell Nondriver'))));
+  ck('the Staffing sheet\'s Transportation label says whether the switch enforces it', /not enforced on shifts yet/.test(fs.readFileSync(path.join(HUB, 'staffing-sheet.js'), 'utf8')) && /enforced on shifts'/.test(fs.readFileSync(path.join(HUB, 'staffing-sheet.js'), 'utf8')));
 
   /* the page */
   const html = fs.readFileSync(path.join(HUB, 'index.html'), 'utf8');

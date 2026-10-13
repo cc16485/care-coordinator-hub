@@ -36888,6 +36888,7 @@ async function tbAskOpen(key){
     +'<textarea id="taMsg" rows="6" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:4px;"></textarea>'
     +'<div class="field-note" id="taCount" style="font-size:11px;text-align:right;"></div>'
     +(late?'<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">It\'s '+esc(new Date().toLocaleTimeString('en-US',{timeZone:'America/Chicago',hour:'numeric',minute:'2-digit'}))+'. A text now reaches them late. You can still send it.</div>':'')
+    +(dr.transport&&dr.transport.note?'<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">'+esc(dr.transport.note)+'</div>':'')   /* Driver Compliance (2026-10-13): the driver check while its Admin switch is off */
     +(blockers.length?'<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">'+blockers.map(esc).join('<br>')+' Nothing can be sent.</div>':'')
     +'<div id="taRes" style="margin-top:8px;"></div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;"><button class="secondary" id="taX">Cancel</button><button class="cara-btn" id="taSend"'+(blockers.length?' disabled':'')+'>Send text</button></div>';

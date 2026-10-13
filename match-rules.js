@@ -16,14 +16,15 @@
      • Medicaid: any lift or device transfer is advanced personal care, which we do not provide: the client is flagged for
        review, never matched. Catheter or ostomy bag care for a Medicaid client is flagged until MMAC answers (task R).
      • Driving a client (Driver Compliance, October 13): only an Approved Driver with a current license and insurance; Non-Driver,
-       Pending Verification, Suspended or no driver record yet is never eligible. Self-reported driving never counts.
+       Pending Verification, Suspended or no driver record yet is never eligible. Enforced only while the Admin switch
+       driver_schedule_gate_live is on (opts.driveGate); off, a warning only.
      • CDS and ILW clients are not matched this way (their attendants are the consumer's own employees).
      • Six checks in order; the first that fails is the one reason shown. Preferences and strengths only rank people who passed.
    Pure functions over plain data: no DOM, no network, no clock except the date passed in.
    ===================================================================================================================== */
 (function(root){
 'use strict';
-const VERSION = '1.2.0';   /* 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower. 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
+const VERSION = '1.2.0';   /* 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower; all of it only while the Admin switch driver_schedule_gate_live is on (opts.driveGate), and off it is the warning "Driver check (not enforced yet)". 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
 /* ── DRIVING A CLIENT (Driver Compliance, October 13). Her rule: "A caregiver who is Non-Driver, Pending Verification, or
       Suspended must not be treated as eligible for shifts that require transporting clients. Only Approved Drivers with
       current, verified documentation should qualify for transportation assignments." No driver record yet = not eligible
@@ -61,6 +62,20 @@ function transportNeed(x){
   if (av === 'yes' || av === 'required') req.push('the lead checklist');
   else if (av === 'preferred') pref.push('the lead checklist');
   return req.length ? { level: 'required', from: req } : pref.length ? { level: 'preferred', from: pref } : { level: null, from: [] };
+}
+/* the rollout switch (Admin page, ops_settings.driver_schedule_gate_live, off by default) and what the driving rule does to
+   one person for one shift: required + not eligible + switch on = left out; preferred + not eligible + switch on = ranked
+   lower; switch off = never left out or moved, only the note "Driver check (not enforced yet): <why>". */
+function driveGateOn(st){
+  return !!(st && st.driver_schedule_gate_live === true);
+}
+function transportDecision(cg, level, live, today){
+  if (level !== 'required' && level !== 'preferred') return { exclude: false, rankLower: false, note: null, why: '' };
+  const t = transportEligible(cg, today);
+  if (t.ok) return { exclude: false, rankLower: false, note: null, why: t.why };
+  if (!live) return { exclude: false, rankLower: false, note: 'Driver check (not enforced yet): ' + t.why, why: t.why };
+  if (level === 'required') return { exclude: true, rankLower: false, note: null, why: t.why };
+  return { exclude: false, rankLower: true, note: 'The client would like help with driving; ranked lower, not excluded: ' + t.why, why: t.why };
 }
 /* ── the one skill list (October 12): key, label, the level that task needs, checked first, the Medicaid note,
       and where today's records keep it (the lead's checkbox, the skills record's box) ── */
@@ -130,8 +145,10 @@ function evaluate(client, cg, opts){
   /* driving first: Driver Compliance, never what they said about themselves. A need for driving at ANY stage (even an intake
      answer) rules out a caregiver who is not an Approved Driver with current documents: keeping an unqualified driver off a
      transport shift is the safe side. A client who would only like it ranks them lower (below). */
-  const drv = transportEligible(cg, opts.today), drvNeed = needOf(client, 'transportation').value;
-  if (drvNeed === 'required' && !drv.ok) return no('Not cleared to drive clients: ' + drv.why);
+  const drvNeed = needOf(client, 'transportation').value, drvLive = opts.driveGate === true, drvOk = transportEligible(cg, opts.today).ok;
+  const dd = transportDecision(cg, drvNeed === 'required' || drvNeed === 'preferred' ? drvNeed : null, drvLive, opts.today);
+  if (dd.exclude) return no('Not cleared to drive clients: ' + dd.why);
+  if (dd.note) out.warnings.push(dd.note);
   for (const s of SKILLS) {
     if (!req(client, s.key)) continue;
     const e = sk[s.key] || { standing: 'none' };
@@ -166,8 +183,8 @@ function evaluate(client, cg, opts){
   /* ranking inside the group only: preferences met, strengths */
   if (f.gender && f.gender.strength === 'prefer' && cg.gender === f.gender.value) out.ranks.push('Preferred: ' + f.gender.value + ' caregiver');
   if (f.spanish === 'prefer' && sp >= 2) out.ranks.push('Preferred: speaks Spanish');
-  SKILLS.forEach(s => { if (s.key === 'transportation' ? (wanted(client, s.key) && drv.ok) : (wanted(client, s.key) && VERIFIED.includes((sk[s.key] || {}).standing))) out.ranks.push('Confirmed: ' + s.label); });
-  if (drvNeed === 'preferred' && !drv.ok) out.warnings.push('The client would like help with driving; ranked lower, not excluded: ' + drv.why);
+  /* driving ranks on the driver record only while the switch is on; off, the ranking is exactly as before */
+  SKILLS.forEach(s => { if (s.key === 'transportation' && drvLive ? (wanted(client, s.key) && drvOk) : (wanted(client, s.key) && VERIFIED.includes((sk[s.key] || {}).standing))) out.ranks.push('Confirmed: ' + s.label); });
   (cg.strengths || []).forEach(x => out.ranks.push(x));
   return out;
 }
@@ -228,7 +245,7 @@ function overlayFacts(item){
 }
 /* AxisCare's caregiver gender ('F', 'M', 'Female', ...) */
 const axisGender = g => { const x = String(g || '').trim().toUpperCase(); return x.startsWith('F') ? 'female' : x.startsWith('M') ? 'male' : null; };
-const api = { VERSION, SKILLS, VERIFIED, transportEligible, transportNeed, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
+const api = { VERSION, SKILLS, VERIFIED, transportEligible, transportNeed, driveGateOn, transportDecision, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
 root.CCMatch = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
