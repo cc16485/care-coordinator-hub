@@ -14,7 +14,7 @@ TOPICS = [
 import re as _re
 HUB_CSS = '\n'.join(m for m in _re.findall(r'<style[^>]*>(.*?)</style>', open(os.path.join(ROOT, 'index.html')).read(), _re.S))  # every Hub style block, incl. input{width:100%}
 card_page = '''<!doctype html><meta charset="utf-8"><style>''' + HUB_CSS.replace('%', '%%') + '''</style><body><div id="cp_packet"></div><script>
-window.DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' }, { first: 'Bea', last: 'Jones', axiscare_id: '12' }, { first: 'No', last: 'Id' }] };
+let DATA = { caregivers: [{ first: 'Ariel', last: 'Smith', axiscare_id: '11' }, { first: 'Bea', last: 'Jones', axiscare_id: '12' }, { first: 'No', last: 'Id' }, { first: 'Gone', last: 'Away', axiscare_id: '13', inactive: true }] };   // page-level, like index.html (never window.DATA)
 const CP = { ax: '900', lead: { id: 'L1', client_first_name: 'Dan' }, r: { client_name: 'Dan Example' } };
 window.CALLS = []; window.STATE = { packet: null, recipients: [] };
 window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)));
@@ -91,7 +91,7 @@ try:
     c = pg.evaluate("CALLS.filter(c=>c.action==='save').pop()")
     ok('card: save sends the words, the topic with its edited notes, ready, and the version it opened (none yet)', c['action'] == 'save' and c['items'] == [{'topic': 'turning', 'notes': 'Turn every 2 hours. Left, back, right.'}] and c['ready'] is True and c['base_version'] is None and c['ax'] == '900', c)
     t = pg.inner_text('#cp_packet')
-    ok('card: saved, ready, version 1, the caregiver picker lists only people with an AxisCare id', 'Saved.' in t and 'Ready · version 1' in t and pg.eval_on_selector_all('#cpk_cg option', 'o=>o.map(x=>x.textContent)') == ['Pick a caregiver…', 'Ariel Smith', 'Bea Jones'], t[:400])
+    ok('card: picker lists every active caregiver with an AxisCare id (from the page-level roster, scheduled or not), says who is left out', 'Saved.' in t and 'Ready · version 1' in t and pg.eval_on_selector_all('#cpk_cg option', 'o=>o.map(x=>x.textContent)') == ['Pick a caregiver…', 'Ariel Smith', 'Bea Jones'] and 'scheduled with Dan or not' in t and '1 caregiver has no AxisCare number yet' in t, t[:900])
     pg.select_option('#cpk_cg', '11'); pg.click('#cpk_link'); pg.wait_for_timeout(300)
     t = pg.inner_text('#cp_packet')
     ok('card: Ariel\'s link shows, with the copy text that carries no health details', pg.input_value('#cpk_linkbox').startswith('https://cc.mo-care.com/packet.html?i=pl_') and "Before you work with Dan, please watch this short care packet and tap I understand" in t, t[-500:])
