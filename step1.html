@@ -47,6 +47,9 @@
   .copies a{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;text-decoration:none;font-weight:600;}
   .saving{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12.5px;padding:6px 12px;border-radius:999px;opacity:0;transition:opacity .2s} .saving.on{opacity:.9}
   .lock{opacity:.7;pointer-events:none}
+  .seg.vert{flex-direction:column} .seg.vert button{text-align:left;width:100%;min-width:0;line-height:1.35}
+  .decl{background:#FFF7ED;border:1.5px solid #F6C77E;border-radius:12px;padding:12px 14px;margin:12px 0 4px} .decl h3{color:var(--navy)!important;font-size:15px!important;text-transform:none!important;letter-spacing:0!important;margin:0 0 6px!important}
+  .decl blockquote{margin:8px 0 10px;padding:10px 12px;background:#fff;border-left:4px solid var(--gold);border-radius:6px;font-size:15.5px;line-height:1.55}
 </style>
 </head>
 <body>
@@ -82,12 +85,17 @@ const NEXT_NOTE = {
   '6': 'Their committed availability becomes the availability Team Builder reads once they are connected to AxisCare. The initials line confirms the AxisCare scheduling rule.',
   '7': 'Their comfort answers land on their skills record as their own word ("attested") when they are connected to AxisCare. Nothing here changes a level: everyone starts at Level 1.',
   '8': 'If they choose that they do not meet the driving requirements, they are never asked to drive and the office sends the Non-Driver Agreement with Step 2.',
+  /* 2026-10-13 HEPATITIS B IN STEP 1 (her rulings: the form in Step 1, offered to everyone; bloodborne pathogens training stays in the on-the-job courses) */
+  '16': 'The vaccine information OSHA requires before the offer (1910.1030(g)(2)(vii)(I)) comes first, then one choice. The choice and the signed PDF go only to their confidential Hepatitis B record (owners only, never the Step 1 answers); the office sees only the status words. A declination is the OSHA Appendix A statement word for word. A yes: the owners get a card to arrange the vaccine within 10 working days of the first client assignment. Already vaccinated or immune: a private link to add the proof, and a card for an owner to check it. This form does not complete the bloodborne pathogens training (that stays in the on-the-job courses).',
   '9': 'The last signature puts them into Background & References by itself and raises one card for the Recruiting & Orientation owner: start background checks and references. After the checks and references: Step 2 in Viventium, the Orientation Video Call, training, then Approve to Work.',
 };
 /* 2026-10-11: a value inside onclick="f('...')" is escaped for JavaScript FIRST, then for HTML. The other order turned the
    apostrophe in "Alzheimer's disease", "Parkinson's disease" and "I'm new to caregiving" into a broken click that did nothing. */
 const jsq = (s) => esc(String(s == null ? '' : s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"));
 let V = null, ANS = {}, SIGS = {}, IDENT = {}, FROM = {}, SCREEN = '1', FORMS = {}, BUSY = false;
+/* 2026-10-13 HEPATITIS B: the one choice and the separate agreement to sign the Appendix A statement live in THIS PAGE ONLY
+   until they sign (never saved with the Step 1 answers; the server puts them in the confidential record when they sign) */
+let HCHOICE = '', HDECL = false, HPROOF = '';
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 /* which screens hold which sections of which form; the sign box sits on a form's last screen */
 const PLAN = {
@@ -252,6 +260,7 @@ function screenHtml(s){
   }
   if (s === '9') {
     h += '<h1>All done, ' + esc(V.who.first) + '.</h1><p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
+    if (HPROOF) h += proofBox();
     h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
     setTimeout(loadCopies, 50);
     if (PREVIEW) h += '<div class="pnote"><b>What happens next:</b> ' + esc(NEXT_NOTE['9']) + '</div>';
@@ -331,13 +340,30 @@ function documentHtml(s, P, f, locked){
   const items = f.sections.flatMap((sec, i) => (sec.items || []).map((it) => [it, i]));
   if (items.length) r += '<div class="doc' + (locked ? ' lock' : '') + '"><h3>' + (items.every(([it]) => it.kind === 'initials') ? 'Your initials' : 'Your answers') + '</h3>'
     + items.map(([it, i]) => itemHtml(it, locked).replace('</label>', ' <a href="#" class="small" onclick="docJump(\'' + f.key + '\',\'' + secId(i) + '\');return false">Read this section</a></label>')).join('') + '</div>';
+  if (f.choices) r += choiceHtml(f, locked);
   if (REVIEW) return r + companyBox(f.key) + reviewNav(s);
-  if (!locked) r += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I have read the whole ' + esc(f.title) + ', I agree to it, and I agree to sign it electronically.</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name" oninput="sigPreview(this.value)"><div class="sigprev" id="sigprev" aria-hidden="true"></div><div class="siglbl">Electronic signature</div><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time, your device and this exact version of the document are recorded with your signature. Your own signed copy comes back to you when all forms are done.</div></div>';
+  if (!locked) r += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>' + (f.choices ? 'I have read the information above, the answer I chose is my own, and I agree to sign this form electronically.' : 'I have read the whole ' + esc(f.title) + ', I agree to it, and I agree to sign it electronically.') + '</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name" oninput="sigPreview(this.value)"><div class="sigprev" id="sigprev" aria-hidden="true"></div><div class="siglbl">Electronic signature</div><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time, your device and this exact version of the document are recorded with your signature. Your own signed copy comes back to you when all forms are done.</div></div>';
   else r += '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Continue</button>';
   r += '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button><div class="err" id="e_screen"></div>';
   if (PREVIEW && NEXT_NOTE[s]) r += '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE[s]) + '</div>';
   return r;
 }
+/* ───── 2026-10-13 HEPATITIS B IN STEP 1: one choice after the information; a declination shows the OSHA Appendix A statement
+   word for word with its own agreement box; after signing the answer is never shown again here (a confidential record) ───── */
+function choiceHtml(f, locked){
+  const c = f.choices;
+  if (REVIEW) return '<div class="doc"><h3>' + esc(c.label) + '</h3><p>Their answer is a confidential medical record: only an owner sees it, on their Hepatitis B card.</p><p><b>Status:</b> ' + esc(V.hepb_status || (SIG_OF(f.key) ? 'Answered' : 'Not answered yet')) + '</p></div>';
+  if (locked) return '<div class="doc"><h3>' + esc(c.label) + '</h3><p>Your answer is saved in your confidential employee medical record. To change it, or to choose the vaccine later at no cost, call the office: ' + PHONE + '.</p>' + (HPROOF ? proofBox() : '') + '</div>';
+  let h = '<div class="doc" id="hchoice"><h3>' + esc(c.label) + ' <span style="color:var(--gold-text)">*</span></h3><div class="seg vert">'
+    + c.options.map((o) => '<button type="button" class="' + (HCHOICE === o.id ? 'on' : '') + '" onclick="pickChoice(\'' + jsq(o.id) + '\')">' + esc(o.label) + '</button>').join('') + '</div>';
+  const o = c.options.find((x) => x.id === HCHOICE);
+  if (o && o.note) h += '<div class="note" style="margin-top:8px">' + esc(o.note) + '</div>';
+  if (f.decline && HCHOICE === f.decline.choice) h += '<div class="decl" id="decl"><h3>' + esc(f.decline.title) + '</h3><p class="small">' + esc(f.decline.intro) + '</p><blockquote>' + esc(f.decline.statement) + '</blockquote>'
+    + '<label class="chk"><input type="checkbox" id="c_decl"' + (HDECL ? ' checked' : '') + ' onchange="HDECL=this.checked"><span>' + esc(f.decline.consent) + '</span></label></div>';
+  return h + '</div>';
+}
+function pickChoice(id){ HCHOICE = id; if (!(FORMS.hepb_vaccination && FORMS.hepb_vaccination.decline && id === FORMS.hepb_vaccination.decline.choice)) HDECL = false; render(); }
+function proofBox(){ return '<div class="why" style="margin-top:10px"><b>Add your proof (optional).</b> If you have a copy of your vaccine record or your test result, add it on your private page. If you do not, the office will follow up with you.<br><a href="' + esc(HPROOF) + '" target="_blank" rel="noopener">Add my record or result</a></div>'; }
 function docJump(key, id){ const box = document.getElementById('reader_' + key), el = document.getElementById(id); if (!box || !el) return; box.scrollTop = el.offsetTop - box.offsetTop - 8; box.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
 async function docCopy(form){
   if (PREVIEW) return previewPdf(form);
@@ -415,7 +441,10 @@ async function sign(form){
      signature once; a retry after a save that did go through answers "already", and the page then takes the server's word. */
   const failed = (msg) => { BUSY = false; btn.disabled = false; btn.textContent = 'Try again: sign and continue'; e.style.display = 'block'; e.textContent = msg; };
   let r;
-  try { await flush(); r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials }); }
+  const fx = FORMS[form] || {};
+  if (fx.choices && !fx.choices.options.some((o) => o.id === HCHOICE)) { e.style.display = 'block'; e.textContent = 'Please choose your answer about the hepatitis B vaccine first.'; BUSY = false; btn.disabled = false; btn.textContent = 'Sign and continue'; return; }
+  if (fx.decline && HCHOICE === fx.decline.choice && !HDECL) { e.style.display = 'block'; e.textContent = 'Please tick that you agree to sign the declination statement.'; BUSY = false; btn.disabled = false; btn.textContent = 'Sign and continue'; return; }
+  try { await flush(); r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials, ...(fx.choices ? { choice: HCHOICE, decline_consent: HDECL } : {}) }); }
   catch (err) { return failed('We could not reach Caring Companions, so this form is not signed yet. Your answers are kept on this page. Check your connection and tap the button again.'); }
   if (r.status !== 200 && r.j && r.j.already) {
     let v; try { v = await call({ action: 'view' }); } catch (err) { v = null; }
@@ -427,6 +456,7 @@ async function sign(form){
   BUSY = false;
   if (r.status !== 200) return failed((r.j && r.j.error) || 'This form is not signed yet. Your answers are kept. Tap the button to try again.');
   SIGS[form] = { at: r.j.signed_at, typed_name: name, version: r.j.version };
+  if (r.j.proof_link) HPROOF = r.j.proof_link;
   if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
 }
 async function loadCopies(){
@@ -441,7 +471,7 @@ async function init(){
   const r = await call({ action: 'view' });
   if (r.status !== 200) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
   V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f; planFromServer();
-  ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {};
+  ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {}; HPROOF = V.hepb_proof_link || '';
   for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
   if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; return render(); }
   /* 2026-10-13 (Samantha): reopening the link goes straight to the FIRST form not signed yet (signed forms stay signed) */
@@ -523,20 +553,22 @@ async function previewCall(b){
     return ok({ identity: { ...IDENT, license_state: ANS.license_state || null, license_expires: ANS.license_expires || null } });
   }
   if (b.action === 'sign') {
-    const before = V.order.slice(0, V.order.indexOf(b.form)).filter((k) => !SIGS[k]);
+    /* 2026-10-13: only the forms that apply to them (the Driver OR the Non-Driver Agreement), like the real server */
+    const applies = (k) => { const w = (FORMS[k] || {}).when; return !w || ANS[w.id] === w.equals; };
+    const before = V.order.slice(0, V.order.indexOf(b.form)).filter((k) => applies(k) && !SIGS[k]);
     if (before.length) return { status: 409, j: { error: 'Please sign ' + FORMS[before[0]].title + ' first; the forms go in order.' } };
     const ans = { ...ANS }; if (b.initials) ans.initials = b.initials;
-    const r = await PCALL({ check: true, form: b.form, answers: ans, identity: identLast4() });
+    const r = await PCALL({ check: true, form: b.form, answers: ans, identity: identLast4(), ...(b.choice != null ? { choice: b.choice, decline_consent: b.decline_consent } : {}) });
     if (r.status !== 200 || !r.j.ok) return { status: 500, j: { error: (r.j && r.j.error) || 'The preview check did not answer.' } };
     if (r.j.missing.length) return { status: 400, j: { error: 'Please answer these first: ' + r.j.missing.join('; ') + '.' } };
-    PSIGN[b.form] = true; const done = V.order.every((k) => k === b.form || SIGS[k]);
+    PSIGN[b.form] = true; const done = V.order.every((k) => !applies(k) || k === b.form || SIGS[k]);
     return ok({ form: b.form, signed_at: new Date().toISOString(), version: FORMS[b.form].version, pdf: true, done, signed_count: Object.keys(SIGS).length + 1, form_count: V.form_count });
   }
   return { status: 400, j: { error: 'Not in the preview.' } };
 }
 async function previewPdf(form){
   const w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif">Making the preview PDF…</p>');
-  const ans = { ...ANS }; const r = await PCALL({ pdf: true, form, answers: ans, identity: identLast4() });
+  const ans = { ...ANS }; const r = await PCALL({ pdf: true, form, answers: ans, identity: identLast4(), ...(FORMS[form] && FORMS[form].choices && HCHOICE ? { choice: HCHOICE } : {}) });
   if (!r.j || !r.j.pdf_base64) { if (w) w.document.body.innerHTML = '<p style="font-family:sans-serif">Could not make the preview PDF.</p>'; return; }
   const bin = atob(r.j.pdf_base64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); if (w) w.location = url; else window.open(url, '_blank');
@@ -564,6 +596,7 @@ function pfill(){
     if (it.kind === 'yesno') { if (it.id === 'no_employer_history') continue; ANS[it.id] = YES.includes(it.id) ? 'yes' : 'no'; }
     else if (it.kind === 'choice') ANS[it.id] = it.id === 'state' || it.id === 'license_state' ? 'MO' : o[0];
     else if (it.kind === 'multi') { if (it.id === 'states_lived') continue; ANS[it.id] = [o[0]]; }
+    else if (it.kind === 'initials') ANS[it.id] = 'PP';
     else if (it.kind === 'number') ANS[it.id] = it.id === 'hours_min' ? 15 : it.id === 'hours_max' ? 40 : 30;
     else if (it.kind === 'date') ANS[it.id] = '2027-06-30';
     else if (it.kind === 'text') { if (TEXT[it.id]) ANS[it.id] = TEXT[it.id]; }
@@ -572,6 +605,8 @@ function pfill(){
     else if (it.kind === 'cards') ANS[it.id] = PCARDS[it.id] ? JSON.parse(JSON.stringify(PCARDS[it.id])) : undefined;
   }
   if (P.form === 'availability') ANS.initials = 'PP';
+  /* the practice hire declines, so the Appendix A statement and its agreement box are tried too */
+  if (f.choices) { HCHOICE = f.decline ? f.decline.choice : f.choices.options[0].id; HDECL = true; }
   if (P.form === 'edl_fcsr_consent') { IDENT.ssn = IDENT.ssn || 'ending 4321'; IDENT.dob = true; }
   if (P.form === 'vehicle') { IDENT.license = IDENT.license || 'ending 0042'; }
   for (const k of Object.keys(ANS)) if (ANS[k] === undefined) delete ANS[k];
