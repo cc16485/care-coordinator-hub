@@ -142,8 +142,8 @@ const fakeSb = (answer, log) => ({ functions: { invoke: async (name, o) => { log
   ck('scan: no staff Hub file outside office-call.js has a tel: link (every call is office line first, cell inside the panel)', bare.length === 0, bare);
   const idx = read('index.html'), eng = read('caregivers-engine.js');
   ck('scan: index.html loads office-call.js before the Hub code', /<script src="office-call\.js\?v=433"><\/script>/.test(idx) && idx.indexOf('office-call.js') < idx.indexOf('let sb = null'));
-  ck('scan: the office-line helper is used at every former call site (index.html 20: 18 buttons + 2 lead-profile links; caregivers-engine.js 3)',
-     (idx.match(/ocAttrs\(/g) || []).length === 18 && (idx.match(/dataset\.ocPhone/g) || []).length === 2 && (eng.match(/ocAttrs\(/g) || []).length === 3,
+  ck('scan: the office-line helper is used at every former call site (index.html 20: 18 buttons + 2 lead-profile links; caregivers-engine.js 4, the 4th the reference cards 2026-10-12)',
+     (idx.match(/ocAttrs\(/g) || []).length === 18 && (idx.match(/dataset\.ocPhone/g) || []).length === 2 && (eng.match(/ocAttrs\(/g) || []).length === 4,
      { idx: (idx.match(/ocAttrs\(/g) || []).length, ds: (idx.match(/dataset\.ocPhone/g) || []).length, eng: (eng.match(/ocAttrs\(/g) || []).length });
   ck('scan: the public pages (families, applicants, references) still call the office by phone, untouched', ['welcome.html', 'start.html', 'meet.html', 'reference.html', 'fix-reference.html', 'caregiver-profile.html', 'caregiver.html'].every((f) => /tel:/.test(read(f)) && !/office-call\.js/.test(read(f))));
   ck('scan: office-call.js only ever calls ghl-call-link (it never creates a contact or sends anything itself)', !/upsert|conversations|messages|invoke\('(?!ghl-call-link)/.test(OC) && (OC.match(/invoke\(/g) || []).length === 1);

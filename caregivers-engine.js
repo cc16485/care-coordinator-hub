@@ -4270,6 +4270,7 @@ async function saveCandidates(opts){
   // Resolves true only when the database confirmed every change.
   const r = await safeSave('candidates', opts);
   if(r.ok) bgrSharedSaveResult(true, 'candidates');
+  if(r.ok) try{ window.ppRefCardsRefresh && window.ppRefCardsRefresh(); }catch(e){}   /* the reference cards on a person's page */
   else if(r.reason === 'error' && r.kept && !(opts && opts.quiet)) bgrSharedSaveResult(false, 'candidates');
   return r.ok === true;
 }
@@ -7250,10 +7251,11 @@ async function saveOB(){
   const wasReady = oldCand ? obDeriveStatus(oldCand)==='Ready for Orientation' : false;
   const wasResolved = oldCand ? (obDeriveStatus(oldCand)==='Ready for Orientation'||obDeriveStatus(oldCand)==='Needs Review') : false;
   const d={first:g('ob-first'),last:g('ob-last'),phone:g('ob-phone'),email:g('ob-email'),oos:g('ob-oos'),
-    r1n:g('ob-r1n'),r1s:g('ob-r1s'),r1_phone:g('ob-r1-phone'),r1_email:g('ob-r1-email'),
-    r2n:g('ob-r2n'),r2s:g('ob-r2s'),r2_phone:g('ob-r2-phone'),r2_email:g('ob-r2-email'),
-    r3n:g('ob-r3n'),r3s:g('ob-r3s'),r3_phone:g('ob-r3-phone'),r3_email:g('ob-r3-email'),
-    r4n:g('ob-r4n'),r4s:g('ob-r4s'),r4_phone:g('ob-r4-phone'),r4_email:g('ob-r4-email'),
+    /* 2026-10-12 (her "yes to all", step 3): a reference's status comes only from answers, never typed in here */
+    r1n:g('ob-r1n'),r1s:(oldCand&&oldCand.r1s)||'Pending',r1_phone:g('ob-r1-phone'),r1_email:g('ob-r1-email'),
+    r2n:g('ob-r2n'),r2s:(oldCand&&oldCand.r2s)||'Pending',r2_phone:g('ob-r2-phone'),r2_email:g('ob-r2-email'),
+    r3n:g('ob-r3n'),r3s:(oldCand&&oldCand.r3s)||'Pending',r3_phone:g('ob-r3-phone'),r3_email:g('ob-r3-email'),
+    r4n:g('ob-r4n'),r4s:(oldCand&&oldCand.r4s)||'Pending',r4_phone:g('ob-r4-phone'),r4_email:g('ob-r4-email'),
     r1_proof:g('ob-r1-proof'),r2_proof:g('ob-r2-proof'),r3_proof:g('ob-r3-proof'),r4_proof:g('ob-r4-proof'),
     r1_type:obRefType(g('ob-r1-type')),r2_type:obRefType(g('ob-r2-type')),r3_type:obRefType(g('ob-r3-type')),r4_type:obRefType(g('ob-r4-type')),
     r1_company:g('ob-r1-company').trim(),r2_company:g('ob-r2-company').trim(),r3_company:g('ob-r3-company').trim(),r4_company:g('ob-r4-company').trim(),
@@ -9372,6 +9374,112 @@ function personName(k, label, extraStyle, apTab, cgTab){
   const tabs = (apTab || cgTab) ? ',' + JSON.stringify(apTab || null) + ',' + JSON.stringify(cgTab || null) : '';
   return `<span class="name-cell" role="link" tabindex="0" style="cursor:pointer;color:var(--navy);${extraStyle||''}" onclick='openPerson(${JSON.stringify(k).replace(/'/g,'&#39;')}${tabs})' onkeydown="if(event.key==='Enter')this.click()" title="Open their page">${label} <span style="font-size:.65rem;color:var(--teal)">↗</span></span>`;
 }
+
+/* ── REFERENCE CARDS ON THE PERSON'S PAGE (Samantha 2026-10-12, step 3: "start") ─────────────────────────────────────
+   One card per reference on their Hiring tab: who they are, every send, call and answer, the PDF, and every action for
+   that reference. Nothing new is saved here: each button is the one the Background & References table already uses.
+   The status comes only from answers (theirs online, or recorded from a call by a named person); a status typed in by
+   hand before 2026-10-12 is shown as that. A Conditional reference is decided by an owner, with a note. */
+async function obRefCardsMount(el, candId){
+  if(!el) return;
+  const c = candidates.find(x => String(x.id) === String(candId));
+  el.dataset.cand = String(candId);
+  if(!c){ el.innerHTML = '<div class="field-note">Their Background &amp; References record was not found, so their references cannot show here.</div>'; return; }
+  let reqs = [];
+  try{ const { data } = await sb.from('reference_requests').select('id,slot,created_at,responded_at,reminder_count,office_attempts')
+         .eq('candidate_id', c.id).order('created_at', { ascending:false }); reqs = data || []; }catch(e){}
+  if(el.dataset.cand !== String(candId)) return;   /* another person opened meanwhile */
+  el.innerHTML = obRefCardsHtml(c, reqs);
+}
+function obRefCardsHtml(c, reqs){
+  const esc = bgrEsc, id = c.id;
+  const work = n => obRefType((c[`r${n}_manual`] && c[`r${n}_manual`].type) || c[`r${n}_type`]) === 'professional';
+  const slots = [1,2,3,4].filter(n => String(c[`r${n}n`]||'').trim() || c[`r${n}_phone`] || c[`r${n}_email`] || (c[`r${n}s`] && c[`r${n}s`] !== 'Pending'));
+  const pos = [1,2,3,4].filter(n => c[`r${n}s`] === 'Positive');
+  const posWork = pos.filter(work).length;
+  const rp = (globalThis.CCElig && CCElig.refPolicy) ? CCElig.refPolicy(c) : { ok:false, why:'' };
+  const head = '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;margin:12px 0 6px;">'
+    + '<b style="font-size:14px;color:var(--navy);">References</b>'
+    + '<span class="field-note">' + pos.length + ' positive, ' + posWork + ' from work · 2 needed, at least 1 from work'
+      + (rp.ok ? ' · <span style="color:#15803D;font-weight:700;">done</span>' : '') + '</span></div>'
+    + (!rp.ok && rp.why && !rp.blocked ? '<div class="field-note" style="margin-bottom:6px;">' + esc(rp.why) + '</div>' : '');
+  if(!slots.length) return head + '<div class="field-note">No references given yet. They come in with the start form, or <button type="button" class="pp-link" onclick="openOBModal(' + id + ')">add them</button>.</div>';
+  const chip = s => { const k = { Positive:['#15803D','#DCFCE7'], Conditional:['#B45309','#FEF3C7'], Negative:['#B91C1C','#FEE2E2'] }[s] || ['#6E6559','#F4F2ED'];
+    return '<span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;color:' + k[0] + ';background:' + k[1] + ';white-space:nowrap;">' + esc(s === 'Pending' ? 'Waiting' : s) + '</span>'; };
+  const link = (on, label, red) => '<button type="button" class="pp-link"' + (red ? ' style="color:var(--red);"' : '') + ' onclick="' + on + '">' + label + '</button>';
+  const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
+  const cards = slots.map(n => {
+    const s = c[`r${n}s`] || 'Pending', nm = String(c[`r${n}n`]||'').trim(), mn = c[`r${n}_manual`], pdf = c[`r${n}_pdf`];
+    const req = reqs.find(r => Number(r.slot) === n) || null;   /* the newest request for this reference */
+    const p = c[`r${n}_phone`] ? obFmtPhone(c[`r${n}_phone`]) : null, em = c[`r${n}_email`];
+    const type = obRefCellTypeLine(c, n);
+    const hl = c[`r${n}_howlong`]; const meta = [type, hl && String(type||'').indexOf(hl) < 0 ? hl : ''].filter(Boolean).map(x => esc(String(x)));
+    const log = [];
+    const st = c[`r${n}_sent`]; if(st && st.how) log.push(esc((st.how === 'text' ? 'texted the form, after their OK by phone,' : 'emailed the form') + ' ' + day(st.at) + (st.by ? ' by ' + st.by : '')));
+    (Array.isArray(req && req.office_attempts) ? req.office_attempts : []).forEach(a => log.push(esc((a.method || 'call') + ' ' + day(a.at) + (a.by ? ' by ' + a.by : '') + (a.note ? ': ' + a.note : ''))));
+    if(req && req.reminder_count) log.push('reminded ' + req.reminder_count + (req.reminder_count === 1 ? ' time' : ' times'));
+    if(mn) log.push(esc((mn.via === 'Online form' ? 'answered online' : /phone|call/i.test(mn.via || 'call') ? 'answers taken by phone' : 'answers recorded (' + mn.via + ')') + (mn.date ? ' ' + day(mn.date) : '') + (mn.staff && mn.via !== 'Online form' ? ' by ' + mn.staff : '')));
+    else if(req && req.responded_at) log.push('answered online ' + day(req.responded_at) + ', waiting to land on the record');
+    const byHand = s !== 'Pending' && !mn;
+    const dc = mn && mn.date_check;
+    const acts = [];
+    if(s === 'Pending'){
+      acts.push(link('openManualRef(' + id + ',' + n + ')', 'Record answers from a call'));
+      if(nm) acts.push(link('obRefEmailOpen(' + id + ',' + n + ')', c[`r${n}_sent`] ? 'Email the form again' : 'Email the form'), link('obRefTextOpen(' + id + ',' + n + ')', 'Text the form'));
+      if(req) acts.push(link("bgrOpenAttemptModal('" + esc(req.id) + "')", 'Log a call or voicemail'));
+    } else {
+      acts.push(link('openManualRef(' + id + ',' + n + ')', mn ? 'Read the answers' : 'Record their answers'));
+    }
+    if(pdf) acts.push(link("bgrViewProof('" + esc(pdf).replace(/\x27/g, '') + "')", 'PDF'));
+    acts.push(link('openOBModal(' + id + ')', 'Fix contact'));
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;">'
+      + '<div style="display:flex;gap:10px;align-items:flex-start;">'
+        + '<div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--navy);">' + esc(nm || 'Name not given') + '</div>'
+        + (meta.length ? '<div class="field-note">' + meta.join(' · ') + '</div>' : '')
+        + '<div class="field-note">' + [p ? '<a' + ocAttrs(p.dial, { email:em }) + ' style="color:var(--teal);text-decoration:none;">' + esc(p.show) + '</a>' : '', em ? esc(em) : ''].filter(Boolean).join(' · ') + '</div></div>'
+        + chip(s) + '</div>'
+      + (byHand ? '<div class="field-note" style="margin-top:4px;color:#8A4E0C;">Status set by hand before 10/12/2026, with no answers behind it.</div>' : '')
+      + (dc === 'matches' ? '<div class="field-note" style="margin-top:4px;color:#15803D;">The dates match what they told us.</div>'
+        : /^differs:/.test(String(dc||'')) ? '<div class="field-note" style="margin-top:4px;color:#B45309;">The dates differ: ' + esc(String(dc).replace(/^differs:\s*/, '')) + '</div>' : '')
+      + (log.length ? '<div class="field-note" style="margin-top:6px;border-top:1px dashed var(--border);padding-top:5px;">' + log.join(' · ') + '</div>' : '')
+      + '<div class="pp-links" style="margin-top:6px;">' + acts.join('') + '</div>'
+      + '</div>';
+  }).join('');
+  /* a Conditional reference: an owner decides, with a note */
+  const cond = [1,2,3,4].some(n => c[`r${n}s`] === 'Conditional'), neg = [1,2,3,4].some(n => c[`r${n}s`] === 'Negative');
+  const d = c.ref_decision, covers = !!(globalThis.CCElig && CCElig.refDecisionCovers && CCElig.refDecisionCovers(c));
+  let decide = '';
+  if(cond && !neg){
+    const now = [c.r1s,c.r2s,c.r3s,c.r4s].map(x => x||'').join('|');
+    if(d && String(d.refs||'') === now) decide = '<div class="field-note" style="background:var(--bg);border-radius:8px;padding:8px 10px;">'
+        + (d.outcome === 'proceed' ? '<b style="color:#15803D;">Accepted</b>' : '<b style="color:#B91C1C;">Not enough</b>')
+        + ' by ' + esc(d.by || 'an owner') + ' on ' + day(d.at) + (d.note ? ': ' + esc(d.note) : '') + (d.outcome !== 'proceed' ? ' Ask another reference.' : '') + '</div>';
+    else if(typeof ccIsOwner === 'function' && ccIsOwner()) decide = '<div style="background:#FFF7E8;border:1px solid #F5D9A6;border-radius:8px;padding:8px 10px;font-size:13px;">'
+        + 'A reference is Conditional. Read their answers, then decide.<div class="pp-links" style="margin-top:6px;">'
+        + link("obRefDecide(" + id + ",'proceed')", 'Accept with a note') + link("obRefDecide(" + id + ",'not_enough')", 'Not enough', true) + '</div></div>';
+    else decide = '<div class="field-note" style="background:#FFF7E8;border-radius:8px;padding:8px 10px;">A reference is Conditional. An owner decides whether it is enough.</div>';
+  }
+  return head + cards + decide;
+}
+/* Owners only. The decision and its note are kept with who and when (eligibility history), and any later change to a
+   reference re-opens it (refDecisionCovers). */
+async function obRefDecide(candId, outcome){
+  if(!(typeof ccIsOwner === 'function' && ccIsOwner())){ alert('Only an owner can decide a Conditional reference.'); return; }
+  const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
+  const note = prompt(outcome === 'proceed' ? 'Why is this reference enough? (kept with your name and the date)' : 'Why is it not enough? (kept with your name and the date)');
+  if(note === null) return;
+  if(outcome === 'proceed' && note.trim().length < 5){ alert('Write a short reason, so the decision explains itself later.'); return; }
+  eligRecordRefDecision(c, outcome, note.trim());
+  /* the rules file cannot see who is signed in; the decision carries the owner's own email */
+  if(typeof ME !== 'undefined' && ME && ME.email){ c.ref_decision.by = ME.email; const h = c.eligibility_history; if(h && h.length) h[h.length - 1].by = ME.email; }
+  const ok = await saveCandidates();
+  if(!ok){ alert('The decision did not save. Nothing changed; try again.'); return; }
+  try{ renderOB(); }catch(e){}
+  try{ window.ppRefCardsRefresh && window.ppRefCardsRefresh(); }catch(e){}
+}
+window.obRefCardsMount = obRefCardsMount; window.obRefDecide = obRefDecide;
+/* every reference card on screen redraws after a Background & References save */
+window.ppRefCardsRefresh = function(){ document.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand)); };
 
 // ── Employee Profile (name-matched; no longer opened from the lists, see openPerson) ──
 function openProfile(first, last){
