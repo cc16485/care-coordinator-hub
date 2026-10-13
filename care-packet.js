@@ -111,6 +111,19 @@
     if (S.packet && S.packet.ready) {
       const cgs = (window.DATA && DATA.caregivers || []).filter(c => c && c.axiscare_id && !c.inactive)
         .sort((a, b) => (String(a.first || '') + ' ' + (a.last || '')).localeCompare(String(b.first || '') + ' ' + (b.last || '')));
+      /* per client (Samantha 2026-10-12): send automatically to anyone scheduled with them, or by hand (the default) */
+      const P = S.packet, autoOn = P.auto_send === true, cf = P.client_first || 'this client';
+      const prevAck = S.recipients.filter(r => P.version > 1 && r.ack_version === P.version - 1);
+      h += '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;"><b style="font-size:13.5px;color:var(--navy);">Who gets it</b>'
+        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:6px;cursor:pointer;"><input type="radio" name="cpk_auto" value="off" style="width:auto;margin:0;flex:none;"' + (autoOn ? '' : ' checked') + (S.busy ? ' disabled' : '') + '> I send it myself</label>'
+        + '<label style="display:flex;gap:8px;align-items:center;font-size:13.5px;margin-top:4px;cursor:pointer;"><input type="radio" name="cpk_auto" value="on" style="width:auto;margin:0;flex:none;"' + (autoOn ? ' checked' : '') + (S.busy ? ' disabled' : '') + '> Send it automatically to anyone scheduled with ' + esc(cf) + '</label>'
+        + '<div class="field-note">' + (autoOn ? 'Each caregiver with a visit in the next 3 days who has not had this version gets the text, 8am to 8pm. The check runs 3 times a day. No automatic reminders; Remind stays yours.' : 'Nobody is texted unless you press Text it.')
+        + (P.auto_send_by ? ' Set by ' + esc(String(P.auto_send_by).split('@')[0]) + ' ' + esc(day(P.auto_send_at)) + '.' : '') + '</div>'
+        + (prevAck.length ? '<div style="margin-top:10px;padding:9px 12px;border-radius:10px;background:#FFF6E3;border:1px solid #FFC671;font-size:13px;">'
+            + 'The last save made version ' + esc(P.version) + ', so ' + esc(prevAck.map(r => r.caregiver_name).join(', ')) + (prevAck.length === 1 ? ' is' : ' are') + ' asked to confirm again. '
+            + 'If it was only a small fix, keep their confirmation. It is recorded as kept by you.'
+            + '<div style="margin-top:6px;"><button class="secondary" id="cpk_carry"' + (S.busy || dirty() ? ' disabled' : '') + '>Small fix: keep their confirmation' + (prevAck.length === 1 ? '' : 's') + '</button></div></div>' : '')
+        + '</div>';
       h += '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;"><b style="font-size:13.5px;color:var(--navy);">Caregivers</b>'
         + '<div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;"><select id="cpk_cg" style="max-width:280px;"><option value="">Pick a caregiver…</option>'
         + cgs.map(c => '<option value="' + esc(c.axiscare_id) + '">' + esc(((c.first || '') + ' ' + (c.last || '')).trim()) + '</option>').join('') + '</select>'
@@ -127,9 +140,10 @@
             const now = r.ack_version === S.packet.version;
             return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><b>' + esc(r.caregiver_name) + '</b>'
               + (now ? '<span style="color:#166534;font-weight:700;">✓ understood ' + esc(day(r.ack_at)) + '</span>'
+                  + (r.ack_carried_from ? '<span class="field-note">kept from version ' + esc(r.ack_carried_from) + ' after a small fix, by ' + esc(String(r.ack_carried_by || '').split('@')[0]) + '</span>' : '')
                  : r.ack_version ? '<span style="color:#92400E;font-weight:700;">confirmed an older version, not this one</span>'
                  : '<span style="color:#92400E;font-weight:700;">not confirmed yet</span>')
-              + (r.last_sent_at ? '<span class="field-note">texted ' + esc(day(r.last_sent_at)) + (r.last_send_kind === 'reminder' ? ' (reminder)' : r.last_send_kind === 'updated' ? ' (updated packet)' : '') + (r.send_count > 1 ? ' · ' + esc(r.send_count) + ' texts' : '') + '</span>'
+              + (r.last_sent_at ? '<span class="field-note">texted ' + (r.last_sent_by === 'care-packet-watch' ? 'automatically ' : '') + esc(day(r.last_sent_at)) + (r.last_send_kind === 'reminder' ? ' (reminder)' : r.last_send_kind === 'updated' ? ' (updated packet)' : '') + (r.send_count > 1 ? ' · ' + esc(r.send_count) + ' texts' : '') + '</span>'
                  : '<span class="field-note">link made ' + esc(day(r.link_made_at)) + ', not texted from here</span>')
               + (now ? '' : '<button class="linklike" data-cpk-send="' + esc(r.caregiver_axiscare_id) + '"' + (S.busy || dirty() ? ' disabled' : '') + '>' + (r.ack_version ? 'Send update' : r.last_sent_at ? 'Remind' : 'Text it') + '</button>')
               + '</div>'; }).join('')
@@ -217,6 +231,8 @@
       else S.draft.items = S.draft.items.filter(x => x.topic !== k);
       S.msg = ''; render(); }; });
     const sv = $('cpk_save'); if (sv) sv.onclick = () => { keep(); save(); };
+    document.querySelectorAll('input[name="cpk_auto"]').forEach(el => { el.onchange = () => { if (el.checked) setAuto(el.value === 'on'); }; });
+    const ca = $('cpk_carry'); if (ca) ca.onclick = carry;
     const pv = $('cpk_preview'); if (pv) pv.onclick = preview;
     const sg = $('cpk_suggest'); if (sg) sg.onclick = () => { keep(); suggest(); };
     const lo = $('cpk_lib_open'); if (lo) lo.onclick = () => { keep(); if (typeof switchTab === 'function') switchTab('carelibrary'); };
@@ -268,6 +284,21 @@
     document.getElementById('cpk_pv_close').onclick = close;
     const f = document.getElementById('cpk_pv_f');
     f.onload = () => { try { f.contentWindow.postMessage({ cpkPreview: d }, location.origin); } catch (e) { /* the page says it is waiting */ } };
+  }
+  async function setAuto(on){
+    if (S.busy || !S.packet) return;
+    if (on && !confirm('Text this packet automatically to every caregiver scheduled with ' + (S.packet.client_first || 'this client') + ' who has not had it yet?')) { render(); return; }
+    S.busy = true; S.sendErr = ''; render();
+    try { const d = await call({ action: 'auto_set', packet_id: S.packet.id, on }); S.packet = Object.assign({}, S.packet, d.packet); S.msg = on ? 'Set to send automatically.' : 'Set to send by hand.'; }
+    catch (e) { S.sendErr = e.message; }
+    S.busy = false; render();
+  }
+  async function carry(){
+    if (S.busy || !S.packet) return; S.busy = true; S.sendErr = ''; render();
+    try { const d = await call({ action: 'carry_acks', packet_id: S.packet.id, from_version: S.packet.version - 1 }); S.recipients = d.recipients || S.recipients;
+      S.msg = d.carried ? 'Kept ' + d.carried + ' confirmation' + (d.carried === 1 ? '' : 's') + '.' : 'Nobody to keep.'; loadUpcoming(); }
+    catch (e) { S.sendErr = e.message; }
+    S.busy = false; render();
   }
   async function makeLink(axId){
     if (!axId) { S.sendErr = 'Pick a caregiver first.'; render(); return; }

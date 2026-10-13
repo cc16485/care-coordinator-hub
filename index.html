@@ -10039,7 +10039,7 @@ function cpRenderCare(){
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
-  { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012i'; sc.onload=go; document.head.appendChild(sc); } }
+  { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012j'; sc.onload=go; document.head.appendChild(sc); } }
 }
 function cpNewAssessment(){
   const lead=CP.lead;
