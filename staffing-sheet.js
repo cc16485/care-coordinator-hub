@@ -26,7 +26,7 @@
   /* eligibility from the Hub's own rules when they're loaded; "needs verification" (working, training record not imported) still counts */
   const elig = ax => { try{ if(!globalThis.CCElig) return null; const c = (DATA.caregivers || []).find(g => String(g.axiscare_id || '') === String(ax)); return c ? CCElig.eligibility(c).state : null; }catch(e){ return null; } };
   const ctx = () => ({ today:todayYmd(), overlay:overlay(), towns:towns(), eligibility:elig, doNotOffer:dno(), skills:SS.skills, settings:st() });
-  const SKILLS = [['dementia_care','Dementia'], ['hoyer_lift','Hoyer lift'], ['transfers_gait_belt','Transfers'], ['bedbound_care','Bedbound'], ['transportation','Transportation']];
+  const SKILLS = [['dementia_care','Dementia'], ['hoyer_lift','Hoyer lift'], ['transfers_gait_belt','Transfers'], ['bedbound_care','Bedbound'], ['transportation','Approved Driver (transportation)']];   /* Driver Compliance (2026-10-13): Approved Drivers with current documents only (staffing-rules.js) */
   const day = iso => iso ? new Date(iso).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
 
   async function load(force){

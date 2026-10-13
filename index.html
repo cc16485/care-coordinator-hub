@@ -7085,10 +7085,11 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
-<script src="team-builder-2.js?v=4"></script>
+<script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
+<script src="team-builder-2.js?v=5"></script>
 <script src="open-hours.js?v=2"></script>
 <script src="scheduling-guide.js?v=1"></script>
-<script src="new-hires.js?v=1"></script>
+<script src="new-hires.js?v=2"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7100,7 +7101,7 @@ The HomeTogether team</pre>
 <script src="partner-rules.js?v=1"></script>
 <script src="referral-desk.js?v=4"></script>
 <script src="partner-emails.js?v=1"></script>
-<script src="staffing-rules.js?v=1"></script>
+<script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
@@ -7109,7 +7110,7 @@ The HomeTogether team</pre>
 <script src="visit-rules.js?v=2"></script>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
-<script src="staffing-sheet.js?v=1"></script>
+<script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
@@ -36774,6 +36775,7 @@ function tbPoolListHtml(plan,key){
     if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
     flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
     var skF=(typeof tb2SkillFlags==='function')?tb2SkillFlags(plan,x.cg):''; if(skF) flags.unshift(skF);
+    var drvNo=(typeof tb2DriveBlock==='function')?tb2DriveBlock(plan,x.cg):null;   /* Driver Compliance (2026-10-13): shown, never hidden, but not available */
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
     if(x.cg.new_hire&&!x.cg.work_locked) flags.unshift('<b style="color:var(--teal);">🌱 new hire, needs hours</b>');   /* 2026-10-12, her "B" */
@@ -36783,7 +36785,8 @@ function tbPoolListHtml(plan,key){
           ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
           :'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>')
       +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
-      +'<button class="cara-btn" style="font-size:11.5px;" onclick="'+(typeof tb2AddPool==='function'?'tb2AddPool':'tbAssignPool')+'(\''+esc(key)+'\','+x.i+')">'+((plan.cells||{})[key]?'Add to this shift':'Pencil in')+'</button>'
+      +(drvNo?'<button class="cara-btn ghost" style="font-size:11.5px;" disabled title="'+esc(drvNo)+'">Not available</button>'
+        :'<button class="cara-btn" style="font-size:11.5px;" onclick="'+(typeof tb2AddPool==='function'?'tb2AddPool':'tbAssignPool')+'(\''+esc(key)+'\','+x.i+')">'+((plan.cells||{})[key]?'Add to this shift':'Pencil in')+'</button>')
       +'</div>';
   }).join('')+(typeof tb2AppsHtml==='function'?tb2AppsHtml(plan,key):'');
 }
