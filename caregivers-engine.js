@@ -1480,7 +1480,6 @@ function renderOffers(){
   const nextStep=o=>
       !o.axiscare_applicant_id   ? ['Add to AxisCare','#B45309','#FEF3C7']
     : !o.attributes_entered_at   ? ['Enter attributes','#B45309','#FEF3C7']
-    : !o.viventium_entered_at    ? ['Enter in Viventium','#B45309','#FEF3C7']
     : !o.step1_done_at           ? ['Waiting on their Step 1','#6E6559','#F4F2ED']
     :                              ['Ready for background & references','#15803D','#DCFCE7'];
 
@@ -1521,12 +1520,10 @@ function renderOffers(){
       {done:!!o.attributes_entered_at, label:'AxisCare attributes',
        btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
        note:o.axiscare_applicant_id?'Pushed automatically, just confirm the attributes.':'Auto-push did not take, so add them by hand first.'},
-      {done:!!o.viventium_entered_at, label:'Viventium entry',
-       btn:'<button class="fb" onclick="markOfferViventium(\''+id+'\',this)">Mark entered in Viventium</button>',
-       note:'Use the entry sheet below, then mark it.'},
       {done:!!o.step1_done_at, label:'Their Step 1 paperwork',
        btn:'<button class="fb" onclick="markOfferStep1(\''+id+'\',this)">Mark Step 1 done</button>',
-       note:'Theirs to do. Viventium reminds them every two days'+(o.step1_alerted_at?', and this one is flagged as stalled':'')+'.'},
+       /* 2026-10-12 (Samantha: "we don't do viventium until orientation"): no Viventium step or entry sheet on offer cards */
+       note:'Theirs to do'+(o.step1_alerted_at?'; this one is flagged as stalled':'')+'.'},
       {done:false, label:'Background &amp; references',
        btn:'<button class="fb" onclick="offerToCandidate(\''+id+'\',this)">Start checks early (before their start link)</button>',
        note:'Moves them across with their references already filled in.'},
@@ -1631,9 +1628,7 @@ function renderOffers(){
       [1,2,3].map(n=>'<option value="'+n+'"'+(lvl===n?' selected':'')+'>Level '+n+'</option>').join('')+
       '</select></label></div>'+
 
-      '<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#5B21B6">📝 Viventium entry sheet</summary>'+
-      '<div style="max-width:520px;margin-top:.4rem;background:#FBFAFF;border:1px solid #EDE9FE;border-radius:8px;padding:.6rem .8rem">'+vivSheet(o)+'</div></details>'+
-      '<details style="margin-top:.35rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#0D365F">AxisCare attribute answers</summary>'+
+      '<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#0D365F">AxisCare attribute answers</summary>'+
       '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>';
   };
 
@@ -4736,7 +4731,6 @@ function renderHirePipeline(){
       pips.push(on('offer ' + d10(r.offer.created_at)));
       pips.push(pathChip(r.offer.onboarding_path));
       pips.push(r.offer.attributes_entered_at ? on('AxisCare') : off('AxisCare'));
-      pips.push(r.offer.viventium_entered_at ? on('Viventium') : off('Viventium'));
       pips.push(r.offer.step1_done_at ? on('Step 1') : off('Step 1'));
       if (r.offerState === 'stalled') pips.push(warn('no response'));
     }
@@ -4767,9 +4761,8 @@ function renderHirePipeline(){
        retired Offer a Job tab is not needed to finish an offer. */
     if (r.offer && !r.offer.attributes_entered_at)
       actions.push('<button class="ibtn" onclick="markOfferEntered(\'' + r.offer.id + '\',this)">☑ AxisCare</button>');
-    if (r.offer && !r.offer.viventium_entered_at)
-      actions.push('<button class="ibtn" onclick="markOfferViventium(\'' + r.offer.id + '\',this)">☑ Viventium</button>');
-    if (r.offer && r.offer.viventium_entered_at && !r.offer.step1_done_at)
+    /* 2026-10-12: no Viventium tick before orientation; Step 1 is marked straight away on the old path (the new path ticks itself) */
+    if (r.offer && r.offer.onboarding_path !== 'new' && !r.offer.step1_done_at)
       actions.push('<button class="ibtn" onclick="markOfferStep1(\'' + r.offer.id + '\',this)">☑ Step 1</button>');
     if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" title="Optional: open a checks workspace before their start link arrives"'
