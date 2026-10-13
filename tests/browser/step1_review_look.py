@@ -11,14 +11,19 @@ ANS = {'preferred_name': 'Robin', 'lived_outside_mo': 'no', 'windows': {'Monday'
 SIGNED = {'employee_application': {'at': '2026-10-12T15:00:00Z', 'typed_name': 'Robin Test', 'version': 2, 'current_version': 3, 'version_mismatch': True, 'ip': '203.0.113.9', 'pdf': True},
           'reference_consent': {'at': '2026-10-12T15:05:00Z', 'typed_name': 'Robin Test', 'version': 3, 'current_version': 3, 'version_mismatch': False, 'ip': '203.0.113.9', 'pdf': True}}
 calls = []
+ST = {}
 def handle(route, request):
     body = json.loads(request.post_data or '{}'); calls.append((body.get('action'), request.headers.get('authorization', '')))
     if body.get('action') == 'review':
         if body.get('offer_id') != OFFER: return route.fulfill(status=400, content_type='application/json', body='{"ok":false,"error":"Which offer?"}')
         v = dict(VIEW); v.update({'review': True, 'who': {'first': 'Robin', 'last': 'Test', 'phone': '(417) 555-0100', 'email': 'robin@practice.invalid', 'position': 'Caregiver'}, 'answers': ANS,
             'signatures': {k: {'at': x['at'], 'typed_name': x['typed_name'], 'version': x['version']} for k, x in SIGNED.items()}, 'signed': SIGNED, 'identity': {'ssn': 'ending 4321', 'dob': True, 'license': None},
-            'started_at': '2026-10-12T14:50:00Z', 'esign_consent_at': '2026-10-12T14:51:00Z', 'esign_consent_detail': {'ip': '203.0.113.9'}, 'completed_at': None, 'current_screen': '5a', 'signed_count': 2, 'sent_at': '2026-10-12T14:00:00Z', 'test_mode': False})
+            'started_at': '2026-10-12T14:50:00Z', 'esign_consent_at': '2026-10-12T14:51:00Z', 'esign_consent_detail': {'ip': '203.0.113.9'}, 'completed_at': None, 'current_screen': '5a', 'signed_count': 2, 'sent_at': '2026-10-12T14:00:00Z', 'test_mode': False, 'countersign_forms': ['reference_consent'], 'countersignatures': ST.get('cs', {}), 'may_countersign': True})
         return route.fulfill(status=200, content_type='application/json', body=json.dumps(v))
+    if body.get('action') == 'countersign':
+        if not body.get('consent') or len((body.get('typed_name') or '').split()) < 2: return route.fulfill(status=400, content_type='application/json', body=json.dumps({'ok': False, 'error': 'Please tick that you are signing for Caring Companions first.'}))
+        ST['cs'] = {body['form']: {'at': '2026-10-13T15:00:00Z', 'typed_name': body['typed_name'], 'by_name': 'Samantha'}}; ST['cs_auth'] = request.headers.get('authorization', '')
+        return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'form': body['form']}))
     if body.get('action') == 'open': return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'url': 'about:blank#' + body.get('form', '')}))
     return route.fulfill(status=400, content_type='application/json', body='{"ok":false,"error":"refused in the test: ' + str(body.get('action')) + '"}')
 R = []
@@ -41,9 +46,15 @@ with sync_playwright() as p:
     ck('every answer box is locked (nothing can be typed)', pg.locator('#main input:not([disabled]):not([type=hidden])').count() == 0, pg.locator('#main input:not([disabled])').count())
     pg.select_option('.pbar select', '3'); pg.wait_for_timeout(300); t = pg.inner_text('body')
     ck('screen 3: signed line with the version note and the signed PDF button', 'They signed version 2; the words shown are version 3' in t and pg.locator('button', has_text='Open the signed PDF').count() == 1, t[:400])
+    pg.select_option('.pbar select', '4'); pg.wait_for_timeout(300); t = pg.inner_text('body')
+    ck('an agreement marked for the company: the Sign for Caring Companions box on the office view', 'Sign for Caring Companions' in t and pg.locator('#cs_name').count() == 1, t[:300])
+    pg.click('text=Sign for Caring Companions >> nth=-1'); pg.wait_for_timeout(300)
+    ck('...refused without the tick, with the reason', 'tick' in pg.inner_text('#e_cs'), pg.inner_text('#e_cs'))
+    pg.check('#cs_ok'); pg.fill('#cs_name', 'Samantha Troutman'); pg.click('button:has-text("Sign for Caring Companions")'); pg.wait_for_timeout(600); t = pg.inner_text('body')
+    ck('...signed with the staff sign-in; the screen now shows who signed for the company', ST.get('cs_auth') == 'Bearer staff-token-xyz' and 'Signed for Caring Companions by Samantha Troutman' in t, t[:300])
     pg.select_option('.pbar select', '6'); pg.wait_for_timeout(300); t = pg.inner_text('body')
     ck('screen 6 (not signed): "Not signed yet", their availability ticks shown, initials shown, no sign box', 'Not signed yet' in t and pg.locator('.row.day').nth(0).locator('input').nth(0).is_checked() and pg.locator('#b_sign').count() == 0, t[:300])
-    ck('moving between screens saved nothing (only review calls)', all(a == 'review' for a, _ in calls), calls)
+    ck('moving between screens saved nothing (only review calls, plus the company signature pressed on purpose)', all(a in ('review', 'countersign') for a, _ in calls), calls)
     pg.screenshot(path=os.path.join(OUT, 'step1_review_screen6.png'), full_page=False)
     ck('no page errors', not errs, errs)
     b.close()

@@ -274,7 +274,7 @@ function screenHtml(s){
     for (const it of sec.items || []) { if (SHOW[it.id] && !SHOW[it.id](ANS)) continue; h += itemHtml(it, locked); }
   }
   h += '</div>';
-  if (REVIEW) { if (P.sign) h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (ANS.initials && f.signature === 'typed+initials' ? '<p><b>Initials:</b> ' + esc(ANS.initials) + '</p>' : '') + '</div>'; return h + reviewNav(s); }
+  if (REVIEW) { if (P.sign) h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (ANS.initials && f.signature === 'typed+initials' ? '<p><b>Initials:</b> ' + esc(ANS.initials) + '</p>' : '') + '</div>'; if (P.sign) h += companyBox(P.form); return h + reviewNav(s); }
   if (P.sign) {
     h += '<div class="doc"><h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + (f.signature === 'typed+initials' && !locked ? '<div class="item"><label class="q">Your initials beside the AxisCare scheduling line <span style="color:var(--gold-text)">*</span></label>' + itemHtml({ id: 'initials', label: '', kind: 'initials' }, false).replace(/<label class="q">.*?<\/label>/, '') + '</div>' : '') + '</div>';
     if (!locked) h += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I agree to sign this form electronically. I have read it and my answers are true.</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name"><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time and your device are recorded with this signature. Your own copy comes back to you as a secure link when all forms are done.</div></div>';
@@ -324,7 +324,7 @@ function documentHtml(s, P, f, locked){
   const items = f.sections.flatMap((sec, i) => (sec.items || []).map((it) => [it, i]));
   if (items.length) r += '<div class="doc' + (locked ? ' lock' : '') + '"><h3>' + (items.every(([it]) => it.kind === 'initials') ? 'Your initials' : 'Your answers') + '</h3>'
     + items.map(([it, i]) => itemHtml(it, locked).replace('</label>', ' <a href="#" class="small" onclick="docJump(\'' + f.key + '\',\'' + secId(i) + '\');return false">Read this section</a></label>')).join('') + '</div>';
-  if (REVIEW) return r + reviewNav(s);
+  if (REVIEW) return r + companyBox(f.key) + reviewNav(s);
   if (!locked) r += '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I have read the whole ' + esc(f.title) + ', I agree to it, and I agree to sign it electronically.</span></label><label class="q" for="n_sign" style="margin-top:8px">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name"><button class="go" id="b_sign" onclick="sign(\'' + P.form + '\')">Sign and continue</button><div class="err" id="e_sign"></div><div class="secure">Your typed name, the time, your device and this exact version of the document are recorded with your signature. Your own signed copy comes back to you when all forms are done.</div></div>';
   else r += '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Continue</button>';
   r += '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button><div class="err" id="e_screen"></div>';
@@ -449,6 +449,23 @@ function reviewFormLine(k){
   return '<div class="signed">Signed by <b>' + esc(g.typed_name) + '</b> on ' + when(g.at) + ' · version ' + esc(g.version) + (g.ip ? ' · device address ' + esc(g.ip) : '') + '.'
     + (g.version_mismatch ? ' <b>They signed version ' + esc(g.version) + '; the words shown are version ' + esc(g.current_version) + '. The signed PDF is the exact record.</b>' : '')
     + (g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + k + '\')">Open the signed PDF</button>' : '') + '</div>';
+}
+/* 2026-10-13: the company signature, for an agreement marked countersign, by a person on the Approve to Work list */
+function companyBox(k){
+  if (!(V.countersign_forms || []).includes(k)) return '';
+  const c = (V.countersignatures || {})[k];
+  if (c) return '<div class="signed">Signed for Caring Companions by <b>' + esc(c.typed_name) + '</b> (' + esc(c.by_name || '') + ') on ' + when(c.at) + '.</div>';
+  if (!SIG_OF(k)) return '<div class="why">Caring Companions signs this after they do.</div>';
+  if (!V.may_countersign) return '<div class="why"><b>Waiting for the company signature.</b> A person on the Approve to Work list signs for Caring Companions here.</div>';
+  return '<div class="signbox"><h3>Sign for Caring Companions</h3><label class="chk"><input type="checkbox" id="cs_ok"><span>I am authorized to sign for Caring Companions, I have reviewed this agreement, and I sign it electronically for the Company.</span></label><label class="q" for="cs_name" style="margin-top:8px">Type your full name</label><input type="text" id="cs_name" autocomplete="name" placeholder="First and last name"><button class="go" onclick="companySign(\'' + k + '\')">Sign for Caring Companions</button><div class="err" id="e_cs"></div></div>';
+}
+async function companySign(k){
+  const ok = document.getElementById('cs_ok'), nm = document.getElementById('cs_name'), err = document.getElementById('e_cs');
+  const tok = staffToken(); if (!tok) { err.textContent = 'Please sign in to the Hub first.'; return; }
+  const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + tok }, body: JSON.stringify({ action: 'countersign', offer_id: REVIEW, form: k, consent: !!(ok && ok.checked), typed_name: nm ? nm.value : '' }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (r.status !== 200) { err.textContent = j.error || 'Could not sign.'; return; }
+  const v = await reviewCall({ action: 'view' }); if (v.status === 200) { V = v.j; render(); }
 }
 function reviewNav(s){ return '<div class="prow" style="margin-top:14px">' + (s !== '1' ? '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button>' : '') + (s !== '9' ? '<button class="go" onclick="go(\'' + nextOf(s) + '\')">Next screen</button>' : '') + '</div>'; }
 async function reviewPdf(k){
