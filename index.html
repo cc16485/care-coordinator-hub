@@ -7095,6 +7095,7 @@ The HomeTogether team</pre>
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=4"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
+<script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
@@ -17932,6 +17933,7 @@ async function cgdOpenProfile(axid, tab){
     +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', '<div id="cgdRefsBody">'+cgdRefsHtml(g)+'</div>', 'cgdRefsCard')
     +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +(window.DRV?card('Driver Compliance <span class="field-note" style="font-weight:400;">whether they may drive clients, with the documents and every change</span>', '<div id="cgdDrv"></div>', 'cgdDrvCard'):'')   /* 2026-10-13 driver-compliance.js */
+    +(window.HEPB?card('Hepatitis B <span class="field-note" style="font-weight:400;">the vaccine offer (OSHA): offered, accepted, declined or complete</span>', '<div id="cgdHepb"></div>', 'cgdHepbCard'):'')   /* 2026-10-13 hepb-card.js */
     +'</div>'
 
     +'<div id="cgdSec-skills" style="display:none;">'
@@ -17974,6 +17976,7 @@ async function cgdOpenProfile(axid, tab){
   try{ cgdKindMount(c); }catch(_){}
   cgdEvvFormsMount(c);
   try{ if(window.DRV) DRV.mountCaregiver(c, g); }catch(_){}   /* 2026-10-13 Driver Compliance card + Overview line */
+  try{ if(window.HEPB) HEPB.mountCaregiver(c, g); }catch(_){}   /* 2026-10-13 Hepatitis B card */
   const hint=(CGD_APP_HINT&&CGD_APP_HINT.axid===String(c.id))?CGD_APP_HINT.id:keepApp;
   { const hb=document.getElementById('cgdSecBtn-hiring'); if(hb&&!hint) hb.style.display='none'; }
   cgdSection(tab||keepTab||'overview');
@@ -23731,6 +23734,7 @@ function apTab(k){
   /* the Whole profile's pieces, read when their tab is first opened */
   if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
   if(k === 'hiring' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
+  if(k === 'hiring' && window.HEPB){ const el = document.getElementById('apHepb'); if(el && !el.dataset.done){ el.dataset.done = '1'; HEPB.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
   if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
   if(k === 'interview'){ const el = document.getElementById('apHpSkills'); if(el && !el.dataset.done && apIsOffered(r)){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['skills']); } }
 }
@@ -23878,7 +23882,8 @@ function apRenderProfile(){
       + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
           'References, the screenings and the paperwork, wherever they have got to.')
       + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="apHpHiring"></div>', 'Read from their records. Signed documents never change.') : '')
-      + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : ''))   /* 2026-10-13 driver-compliance.js */
+      + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : '')
+      + (window.HEPB ? apProfCard('Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.') : ''))   /* 2026-10-13 driver-compliance.js, hepb-card.js */
     + pane('checks',
         apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
           'Read live from the training platform, which is where it actually lives.'))
