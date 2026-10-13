@@ -19,7 +19,9 @@ console.log(JSON.stringify({
 }))'''
 ST = json.loads(subprocess.run(['node', '--input-type=module', '-e', js, FN], capture_output=True, text=True).stdout)
 def prof(key, jid=None):
-    return {'ok': True, 'name': key.title() + ' Practice', 'phone': '', 'email': '', 'where': 'x', 'ids': {'offer_id': 'o1', 'journey_id': jid}, 'path': 'new', 'timeline': [], 'documents': [], 'experience': None, 'status': ST[key]}
+    tl = [{'at': '2026-10-01T15:00:00Z', 'type': 'received', 'what': 'Applied (Caregiver)'}, {'at': '2026-10-05T15:00:00Z', 'type': 'sent', 'what': 'Offer sent'}, {'at': '2026-10-06T15:00:00Z', 'type': 'done', 'what': 'Offer letter signed', 'by': key.title() + ' Practice'},
+          {'at': '2026-10-06T15:01:00Z', 'type': 'sent', 'what': 'Step 1 sent automatically'}, {'at': '2026-10-07T15:00:00Z', 'type': 'done', 'what': 'Step 1 form signed: Employee Application'}]
+    return {'ok': True, 'name': key.title() + ' Practice', 'phone': '', 'email': '', 'where': 'x', 'ids': {'offer_id': '11111111-2222-3333-4444-555555555555', 'journey_id': jid}, 'path': 'new', 'timeline': tl, 'documents': [], 'experience': None, 'status': ST[key]}
 VIEW = {'journey': {'journey_id': 'j1', 'client_name': 'Bgr Practice'}, 'view': {'rail': [{'key': 'offer', 'state': 'done'}, {'key': 'step1', 'state': 'done'}, {'key': 'screening', 'state': 'current'}, {'key': 'approval', 'state': 'later'}, {'key': 'step2', 'state': 'later'}],
         'next': {'def': {'title': 'Case.net court records search (Missouri)'}, 'owner': {'role': 'screening_staff'}, 'why': 'Missouri court records, before work with clients'},
         'rows': [{'status': 'blocked', 'def': {'title': 'FCSR screening'}, 'why': 'waiting on the registration'}], 'complete': False}}
@@ -36,9 +38,15 @@ try:
         pg.evaluate('(p) => { window.NEXTP = p; return HP.open({ offer_id: "o1" }) }', prof(key, jid)); pg.wait_for_timeout(700)
         t = pg.inner_text('#hpBody')
         if key == 'mid':
-            ok('mid Step 1: twelve stages, Step 1 current, next owned by the applicant with the reminders', t.count('. ') >= 12 and 'Now: Step 1' in t and 'They finish Step 1 (3 of 7 signed)' in t and 'the applicant' in t, t[:400])
-            ok('mid Step 1: three forms ticked, four not signed yet, the four named under Missing', t.count('✓ ') >= 3 and t.count('not signed yet') == 5 and 'Step 1 forms not signed yet: EDL and FCSR Screening Consent, Availability' in t)
+            ok('mid Step 1: twelve stages, Step 1 current, next owned by the applicant with the reminders', t.count('. ') >= 12 and 'Now: Step 1' in t and 'They finish Step 1 (3 of 12 signed)' in t and 'the applicant' in t, t[:400])
+            ok('mid Step 1: each form with its own status: 3 Signed, the rest Not Started; the open link on the signed ones; the outstanding named under Missing', t.count('Signed ') >= 3 and t.count('Not Started') == 9 and pg.locator('#hpBody a[href^="step1.html?review="]').count() == 3 and 'Step 1 forms not signed yet: Details for the Background Checks, Availability' in t)
             ok('mid Step 1: unverified experience is named as not counting yet', 'not verified yet (does not count' in t)
+            jt = pg.evaluate('async (p) => { const d = document.createElement("div"); d.id = "hiringMount"; document.body.appendChild(d); await HP.mount(d, { offer_id: "o1" }, ["status","journey","docs"]); await new Promise(r => setTimeout(r, 300)); const t = d.innerText; d.remove(); return t }', prof(key, jid))
+            ok('2026-10-13 the whole journey card on the Hiring tab: the offer, Step 1 and an empty Step 2 group, each from the records', 'The whole journey, step by step' in jt and 'Offer letter signed' in jt and 'Step 1 sent automatically' in jt and 'Step 2 in Viventium nothing yet' in jt.replace('\n', ' '), jt[:900])
+            pg.locator('#hpBody button', has_text='See their Step 1 screens').click(); pg.wait_for_timeout(300)
+            ok('2026-10-13 See their Step 1 screens opens the real Step 1 page in its office view, inside the profile', pg.locator('#hpBody iframe[src="step1.html?review=11111111-2222-3333-4444-555555555555"]').count() == 1)
+            pg.locator('#hpBody button', has_text='Hide their Step 1 screens').click(); pg.wait_for_timeout(200)
+            ok('...and hides again', pg.locator('#hpBody iframe').count() == 0)
             ok('read-only versus editable is said plainly', 'signed forms are read-only and never change' in t and 'Background & References (editable)' in t)
         if key == 'bgr':
             ok('Background & References: the readiness card is asked once and its next step wins (Case.net, screening staff)', pg.evaluate('window.CJ') >= 1 and 'Next: Case.net court records search (Missouri)' in t and 'screening staff' in t, t[:600])

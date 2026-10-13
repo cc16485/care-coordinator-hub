@@ -37,6 +37,17 @@ ck('a skill filter (Hoyer lift) counts only those who have it', S.sheet(pool, Ob
 ck('every caregiver not counted has a reason Staffing can read', sh.excluded.every((p) => p.why.length) && sh.counted === 3)
 ck('an overnight visit spilling past midnight blocks the next morning too', S.booked([{ day: T, start: '22:00', end: '07:00' }], S.addDays(T, 1)).some(([a, b]) => a === 0 && b === 7))
 ck('freeRun: a 6-12 window with a 9-10 visit leaves 3 hours (not 4)', S.freeRun([6, 12], [[9, 10]]) === 3 && S.freeRun([6, 12], []) === 6 && S.freeRun([6, 12], [[11, 13]]) === 5)
+/* Driver Compliance (2026-10-13): the Transportation filter reads the driver record, never the self-reported skill */
+{ const drvPool = [ok('1', { dl_status: 'Approved Driver', cleared_to_drive: true, dl_expires: '2027-06-01', auto_ins_expires: '2027-01-01' }),
+    ok('2', { dl_status: 'Pending Verification', cleared_to_drive: false }), ok('12', { windows: W(['evening']), dl_status: 'Suspended' })]
+  const ov2 = Object.assign({}, overlay, { 2: OV({ skills: { transportation: { have: 'yes' } } }) })
+  const shT = S.sheet(drvPool, Object.assign({}, ctx, { skills: ['transportation'], overlay: ov2 }))
+  const w2 = shT.people.find((p) => p.ax === '2').why.join(), w12 = shT.people.find((p) => p.ax === '12').why.join()
+  ck('Transportation filter: only the Approved Driver counts; Pending Verification is out even though the skills record says yes', shT.cells['Springfield|morning'].ids.join() === '1' && /not cleared to drive clients \(Not an Approved Driver \(Pending Verification\)\)/.test(w2), w2)
+  ck('...Suspended is out, with the reason', /not cleared to drive clients \(Driving suspended\)/.test(w12) && shT.cells['Nixa|evening'].status === 'none', w12)
+  ck('...no driver record yet is out (no assumption)', /No driver record yet/.test(S.caregiver(ok('5'), Object.assign({}, ctx, { skills: ['transportation'] })).why.join()))
+  ck('...an Approved Driver whose insurance ran out on the day looked at is out', /License or insurance expired/.test(S.caregiver(ok('1', { dl_status: 'Approved Driver', cleared_to_drive: true, dl_expires: '2027-06-01', auto_ins_expires: T }), Object.assign({}, ctx, { skills: ['transportation'] })).why.join()))
+  ck('...and without the filter on, driving changes nothing', S.sheet(drvPool, ctx).cells['Springfield|morning'].ids.join() === '1,2') }
 /* confirmation, re-review, sharing */
 const conf = { week_start: S.weekOf(T).start, by: 'sally@mo-care.com', by_name: 'Sally', at: '2026-10-12T14:05:00Z', cells: S.snapshot(sh, { 'Ozark|morning': { status: 'limited', note: 'new hire starts Tuesday', by: 'sally' } }) }
 let sharex = S.shareable(conf, sh, T)

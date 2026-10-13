@@ -26,7 +26,11 @@
   /* eligibility from the Hub's own rules when they're loaded; "needs verification" (working, training record not imported) still counts */
   const elig = ax => { try{ if(!globalThis.CCElig) return null; const c = (DATA.caregivers || []).find(g => String(g.axiscare_id || '') === String(ax)); return c ? CCElig.eligibility(c).state : null; }catch(e){ return null; } };
   const ctx = () => ({ today:todayYmd(), overlay:overlay(), towns:towns(), eligibility:elig, doNotOffer:dno(), skills:SS.skills, settings:st() });
-  const SKILLS = [['dementia_care','Dementia'], ['hoyer_lift','Hoyer lift'], ['transfers_gait_belt','Transfers'], ['bedbound_care','Bedbound'], ['transportation','Transportation']];
+  /* Driver Compliance (2026-10-13): the Transportation filter counts Approved Drivers with current documents only
+     (staffing-rules.js); the label says whether the Admin switch enforces the driver check on shifts yet */
+  const driveLive = () => !!(window.CCMatch && CCMatch.driveGateOn && CCMatch.driveGateOn(st()));
+  const SKILLS = [['dementia_care','Dementia'], ['hoyer_lift','Hoyer lift'], ['transfers_gait_belt','Transfers'], ['bedbound_care','Bedbound'], ['transportation','Approved Driver (transportation)']];
+  const skillLabel = (k, l) => k === 'transportation' ? l + (driveLive() ? ', enforced on shifts' : ', not enforced on shifts yet') : l;
   const day = iso => iso ? new Date(iso).toLocaleString('en-US', { weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '';
 
   async function load(force){
@@ -54,7 +58,7 @@
       + (rv.flags.length ? '<span class="ss-warn">' + rv.flags.length + ' changed since then: re-check</span>' : '')
       + '<span style="flex:1"></span><button class="cara-btn ghost" onclick="ssLoad(true)">Refresh</button></div>'
       + '<div class="field-note">' + sh.counted + ' caregiver' + (sh.counted === 1 ? '' : 's') + ' counted. Open = 2 or more could take a new client, Limited = 1. Names are for the office only; partners see towns and times.</div>'
-      + '<div class="ss-filters">Only caregivers with: ' + SKILLS.map(([k, l]) => '<label><input type="checkbox" ' + (SS.skills.indexOf(k) > -1 ? 'checked ' : '') + 'onchange="ssSkill(\'' + k + '\',this.checked)"> ' + l + '</label>').join('') + '</div>'
+      + '<div class="ss-filters">Only caregivers with: ' + SKILLS.map(([k, l]) => '<label><input type="checkbox" ' + (SS.skills.indexOf(k) > -1 ? 'checked ' : '') + 'onchange="ssSkill(\'' + k + '\',this.checked)"> ' + esc(skillLabel(k, l)) + '</label>').join('') + '</div>'
       + '<div class="ss-wrap"><table class="ss-grid"><thead><tr><th>Town</th>' + R().WIN.map(w => '<th>' + ({ morning:'Morning', afternoon:'Afternoon', evening:'Evening', overnight:'Overnight' })[w] + '</th>').join('') + '</tr></thead><tbody>'
       + showTowns.map(t => '<tr><td>' + esc(t) + '</td>' + R().WIN.map(w => { const k = t + '|' + w, c = sh.cells[k], o = SS.over[k], f = rv.flags.find(x => x.key === k);
           const names = c.ids.map(id => (SS.pool.find(p => String(p.axiscare_id || p.id) === id) || {}).name || id).join(', ');

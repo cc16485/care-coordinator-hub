@@ -9,7 +9,8 @@
    · real availability on file (nothing on file, or older than 90 days, = not counted)
    · their TRAVEL PREFERENCES: the towns they'll work in, recorded by Staffing. Living in a town never counts by itself
    · qualifications: not counted if eligibility says not eligible or lapsed, if on the do-not-offer list, or if a
-     skill filter is on and they don't have it
+     skill filter is on and they don't have it; the Transportation filter counts only Approved Drivers with a current
+     license and insurance (Driver Compliance, 2026-10-13)
    · Open = 2 or more eligible caregivers, Limited = 1
    · confirmed by Staffing (or an owner) every Monday, updatable any time; a confirmed town/time whose caregivers or
      count changed since is flagged for re-review and is not shared until it's confirmed again
@@ -32,6 +33,12 @@
   const days = (a, b) => Math.round((Date.parse(ymd(b) + 'T12:00:00Z') - Date.parse(ymd(a) + 'T12:00:00Z')) / 864e5);
   const hm = t => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || '')); return m ? +m[1] + (+m[2]) / 60 : null; };
   function weekOf(today) { const d = new Date(ymd(today) + 'T12:00:00Z'), dow = (d.getUTCDay() + 6) % 7; return { start: addDays(today, -dow), end: addDays(today, 6 - dow) }; }
+  /* the one driving rule (match-rules.js): the page loads it before this file; Node requires it. Missing = not cleared (fail closed). */
+  function drive(cg, today) {
+    let M = (typeof CCMatch !== 'undefined' && CCMatch) || null;
+    if (!M && typeof require === 'function') { try { M = require('./match-rules.js'); } catch (e) { M = null; } }
+    return M && M.transportEligible ? M.transportEligible(cg, today) : { ok: false, why: 'the driver rule could not be loaded' };
+  }
   function settings(st) { const s = Object.assign({}, DEFAULTS, (st && st.staffing_sheet_rules) || {}); for (const k of Object.keys(DEFAULTS)) { const n = Number(s[k]); s[k] = n >= 1 && n <= 365 ? n : DEFAULTS[k]; } return s; }
 
   /* booked hours on one date, as [start, end) in hours from that date's midnight (a visit past midnight spills into the next date) */
@@ -67,7 +74,12 @@
     else if (acc !== 'yes') why.push('not asked yet: accepting new clients?');
     const towns = Array.isArray(ov.travel_towns) ? ov.travel_towns.filter(Boolean) : [];
     if (!towns.length) why.push('travel towns not recorded');
-    for (const k of ctx.skills || []) if (!(ov.skills && ov.skills[k] && ov.skills[k].have === 'yes')) why.push('no ' + k.replace(/_/g, ' '));
+    /* Driver Compliance (2026-10-13): the Transportation filter counts only Approved Drivers with current documents
+       (CCMatch.transportEligible, the one shared rule), never the self-reported skill */
+    for (const k of ctx.skills || []) {
+      if (k === 'transportation') { const t = drive(cg, today); if (!t.ok) why.push('not cleared to drive clients (' + t.why + ')'); continue; }
+      if (!(ov.skills && ov.skills[k] && ov.skills[k].have === 'yes')) why.push('no ' + k.replace(/_/g, ' '));
+    }
     /* the week: open hours, and which times of day have a usable block on at least one day */
     const wk = { start: today, end: addDays(today, 6) };
     const sched = (cg.visits || []).filter(v => v.day >= wk.start && v.day <= wk.end).reduce((a, v) => { const s = hm(v.start), e0 = hm(v.end); if (s == null || e0 == null) return a; return a + ((e0 <= s ? e0 + 24 : e0) - s); }, 0);
