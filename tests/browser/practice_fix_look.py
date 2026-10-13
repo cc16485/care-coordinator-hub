@@ -33,9 +33,10 @@ T = r"""async(CODE)=>{
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await new Promise(r=>setTimeout(r,50));
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active')); document.getElementById('tab-offers').classList.add('active');
   document.querySelectorAll('.offview').forEach(v=>v.style.display='none'); document.getElementById('offview-open').style.display='block';
-  renderOffers(); document.querySelectorAll('#offersList details').forEach(d=>d.open=true);
+  /* OFFER STAGES (2026-10-12): each stage tab is its own list; read the cards of every stage */
   const list=document.getElementById('offersList'); for(let el=list; el; el=el.parentElement){ if(getComputedStyle(el).display==='none') el.style.display='block'; }
-  const cards=list.innerText.split(/\n—\n|^—\n/).map(t=>t.replace(/\s+/g,' ')).filter(Boolean);
+  const cards=[]; for(const st of ['sent','rejected','accepted','completed']){ OFF_STAGE=st; OFF_STAGE_PICKED=true; renderOffers();
+    [...list.querySelectorAll(':scope > details')].forEach(d=>{ d.open=true; cards.push(d.innerText.replace(/\s+/g,' ')); }); }
   const card=n=>cards.find(t=>t.includes(n))||'';
   const pat=card('4175550183'), sam=card('4175550184'), moved=card('4175550185'), old=card('4175550102');
   ok('new path, unsigned: the next step is their signatures (no button), not Viventium', /Next: Offer and position description signed/.test(pat) && !/Mark entered in Viventium/.test(pat) && !/Mark Step 1 done/.test(pat), pat.slice(0,600));
@@ -51,7 +52,7 @@ T = r"""async(CODE)=>{
   ok('"move to Background & References" by hand on the new path: refused, with why (their signed permission is in Step 1)', r1 && r1.ok===false && /signed permission/.test(r1.why), r1);
   ok('the second guard: checks and references refuse a new-path person without Step 1, and allow one with it, and the old path', bgrStep1Wait({ first:'Mia', last:'Midway', onboarding_path:'new', offer_id:'of-mid' })===true && /has not finished Step 1/.test(al.join(' '))
      && bgrStep1Wait({ onboarding_path:'new', offer_id:'of-moved', step1_landed:{ done:'2026-10-11' } })===false && bgrStep1Wait({ onboarding_path:'old' })===false, al);
-  ok('the new wording has no em dash', !/—/.test([pat,sam,moved].join(' ').replace(/suggested —/g,'')));
+  ok('the new wording has no em dash', !/—/.test([pat,sam,moved].join(' ').replace(/suggested —/g,'').replace(/^— | — (?=Caregiver)/g,' '))   /* the no-date placeholder (these test offers have no interview date) */);
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []

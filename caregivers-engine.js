@@ -1422,21 +1422,59 @@ async function loadOffers(btn){
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 function updateOffersBadge(){
-  /* Everything still on this card, not just the ones missing attributes.
-     An offer waiting on Viventium entry is waiting on you too. */
-  const n=OFFERS.filter(o=>!offerMovedOn(o)).length;
+  /* The work still waiting: everyone not rejected and not moved on yet (2026-10-12: rejected offers are not work). */
+  const n=OFFERS.filter(o=>!offerMovedOn(o)&&!offerRejectedWhy(o)).length;
   const b=document.getElementById('offersBadge');
   if(b){ b.style.display=n?'inline-block':'none'; b.textContent=n; }
   updateGroupBadges();
 }
+/* OFFER STAGES (Samantha 2026-10-12): which of the four Offers tabs a person is on, read only from the records, so they
+   move by themselves the moment the record changes (signed, Step 1 done, declined, withdrawn, expired, moved on).
+     rejected   declined, withdrawn, expired unsigned, or marked Not hired in Background & References
+     completed  Step 1 done, or already moved on (Background & References, the roster)
+     sent       new path, offer letter + position description not both signed yet
+     accepted   everything else: signed on the new path, or an old-path offer (Step 1 marked by hand there) */
+function offerRejectedWhy(o){
+  if(o.offer_declined_at||o.offer_status==='declined') return 'Declined';
+  if(o.offer_withdrawn_at||o.offer_status==='withdrawn') return 'Withdrawn';
+  const signed=!!(o.offer_signed_at&&o.pd_signed_at);
+  if(!signed&&(o.offer_status==='expired'||(o.onboarding_path==='new'&&o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()))) return 'Expired';
+  const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
+  if(c&&c.not_hired) return 'Not hired';
+  return '';
+}
+function offerStage(o){
+  if(offerRejectedWhy(o)) return 'rejected';
+  if(o.step1_done_at||offerMovedOn(o)) return 'completed';
+  if(o.onboarding_path==='new'&&!(o.offer_signed_at&&o.pd_signed_at)) return 'sent';
+  return 'accepted';
+}
+function offerStageCounts(){
+  const n={sent:0,rejected:0,accepted:0,completed:0};
+  OFFERS.forEach(o=>{ n[offerStage(o)]++; });
+  return n;
+}
 function renderOffers(){
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const box=document.getElementById('offersList');
-  if(!OFFERS.length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No offers yet — they appear here the moment a coordinator submits the Offer a Job form on the Team Hub.</div>'; return; }
-  /* An offer that has reached Background & References is history, not work.
-     It moves to Previous offers so this card only ever holds what is left. */
-  const active=OFFERS.filter(o=>!offerMovedOn(o))
-    .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));  // oldest first: the ones going stale surface
+  const counts=offerStageCounts();
+  /* Until someone clicks a stage, open the first one with people in it. */
+  if(typeof OFF_STAGE_PICKED!=='undefined'&&!OFF_STAGE_PICKED){ OFF_STAGE=['sent','accepted','completed','rejected'].find(k=>counts[k])||'sent'; }
+  const stage=typeof OFF_STAGE!=='undefined'?OFF_STAGE:'accepted';
+  if(window.offNavCounts) window.offNavCounts(counts);
+  const note=document.getElementById('offStageNote'), wrap=document.getElementById('offPastWrap');
+  if(wrap) wrap.style.display = stage==='completed' ? '' : 'none';
+  if(!OFFERS.length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No offers yet. They appear here the moment you make one from an interview.</div>'; if(note) note.textContent=''; return; }
+  /* Each stage's cards. Completed Step 1 shows cards only for the ones still needing something on this card; everyone
+     who has moved on is the searchable list under it. Oldest first: the ones going stale surface. */
+  const active=OFFERS.filter(o=>offerStage(o)===stage&&(stage==='rejected'||!offerMovedOn(o)))
+    .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));
+  if(note) note.innerHTML = ({
+    sent:'Offer sent, waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves; once both are signed they move to Accepted.',
+    rejected:'Declined, withdrawn, expired unsigned, or not hired. Nothing to do here; an expired offer can be resent from its card.',
+    accepted:'Signed, and their Step 1 is out. They move to Completed Step 1 by themselves when it is done.'+(active.some(o=>o.onboarding_path!=='new')?' Offers from before online signing (marked Old path) stay here until someone presses <b>Mark Step 1 done</b>.':''),
+    completed:'Step 1 is done, so they hand off to Background &amp; References.'+(active.length?' The cards below still need one thing from you.':'')
+  })[stage]||'';
 
   /* One line telling you the single next thing, so the card can stay shut. */
   const nextStep=o=>
@@ -1601,17 +1639,18 @@ function renderOffers(){
 
   box.innerHTML = active.length
     ? active.map(o=>{
-        const s=nextStep(o);
+        const why=offerRejectedWhy(o);
+        const s=why?[why,'#B91C1C','#FEE2E2']:nextStep(o);
         /* Age earns a mention only once it is worth noticing. An offer sitting
-           a week without moving is the thing this card exists to surface. */
-        const age=offerAgeDays(o.interview_date);
-        const stale=age!=null&&age>=7;
-        return '<details style="background:#fff;border:1px solid '+(o.attributes_entered_at?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem">'+
+           a week without moving is the thing this card exists to surface; a month, red. */
+        const age=why?null:offerAgeDays(o.interview_date);
+        const stale=age!=null&&age>=7, old=age!=null&&age>=30;
+        return '<details style="background:#fff;border:1px solid '+(why||o.attributes_entered_at?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem">'+
           '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.75rem .95rem">'+
           '<span style="min-width:4.1rem;font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;color:'+(stale?'#B45309':'#6E6559')+'">'+esc(offerDate(o.interview_date))+'</span>'+
           '<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>'+
           '<span style="font-size:.76rem;color:#6E6559">'+esc(o.position||'Caregiver')+(o.offered_by?' · by '+esc(o.offered_by):'')+'</span>'+
-          (age==null?'':'<span style="font-size:.72rem;'+(stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
+          (age==null?'':'<span style="font-size:.72rem;'+(old?'font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:.1rem .5rem':stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
             (age===0?'today':age===1?'1 day ago':age+' days ago')+'</span>')+
           '<span style="flex:1"></span>'+
           '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
@@ -1619,10 +1658,9 @@ function renderOffers(){
           '</summary>'+
           '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
       }).join('')
-    : '<div style="color:#A89C8B;font-size:.85rem">Nothing waiting on you. Offers land here when you save one, and move to <b>Previous offers</b> below once they reach Background &amp; References.</div>';
+    : (stage==='completed' ? '' : '<div style="color:#A89C8B;font-size:.85rem">Nobody here right now.</div>');
 
   renderPastOffers();
-  if(window.offNavCounts) window.offNavCounts(active.length, OFFERS.length-active.length);
 }
 
 /* Linked when the offer was moved across; the candidate carries the offer id. */
@@ -1663,7 +1701,7 @@ function renderPastOffers(){
   const el=document.getElementById('pastOffersSearch');
   const q=((el&&el.value)||'').trim().toLowerCase();
 
-  let rows=OFFERS.filter(offerMovedOn);
+  let rows=OFFERS.filter(o=>offerMovedOn(o)&&offerStage(o)==='completed');
   const all=rows.length;
   if(q) rows=rows.filter(o=>((o.name||'')+' '+(o.position||'')+' '+(o.offered_by||'')).toLowerCase().includes(q));
   rows.sort((a,b)=>String(b.interview_date||'').localeCompare(String(a.interview_date||'')));
@@ -1671,7 +1709,7 @@ function renderPastOffers(){
   const cnt=document.getElementById('pastOffersCount');
   if(cnt) cnt.textContent = all ? (q? rows.length+' of '+all : all+' offer'+(all===1?'':'s')) : '';
 
-  if(!all){ box.innerHTML='<div class="field-note">Nothing here yet. An offer moves down here once you start their background &amp; references.</div>'; return; }
+  if(!all){ box.innerHTML='<div class="field-note">Nobody has moved on yet. People land here once they are in Background &amp; References.</div>'; return; }
   if(!rows.length){ box.innerHTML='<div class="field-note">No offer matches “'+esc(q)+'”.</div>'; return; }
 
   box.innerHTML=rows.map(o=>{
