@@ -45,6 +45,9 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
   if (b.action === 'preview') return { status: 200, data: { preview: true, ready: !!(STATE.packet && STATE.packet.ready), caregiver_first: 'the caregiver', client_first: 'Dan', about: 'Dan is on hospice.',
     items: [{ title: 'Turning and repositioning', notes: 'Turn every 2 hours.', videos: [{ title: 'Lie on the side', publisher: 'The Hospice Care Plan (hospice nurses)', minutes: 5, url: 'https://www.youtube.com/watch?v=6M5_eTPUWpo', embed: 'https://www.youtube-nocookie.com/embed/6M5_eTPUWpo?rel=0' }] }],
     version: 1, acknowledged: false, ack_at: null, earlier_ack: false } };
+  if (b.action === 'auto_set') { STATE.packet = Object.assign({}, STATE.packet, { auto_send: b.on, auto_send_by: 'samantha@mo-care.com', auto_send_at: '2026-10-12T23:00:00Z' }); return { status: 200, data: { outcome: 'saved', packet: STATE.packet } }; }
+  if (b.action === 'carry_acks') { let n = 0; STATE.recipients = STATE.recipients.map(r => r.ack_version === b.from_version ? (n++, Object.assign({}, r, { ack_version: STATE.packet.version, ack_carried_from: b.from_version, ack_carried_by: 'samantha@mo-care.com' })) : r);
+    return { status: 200, data: { outcome: 'saved', carried: n, recipients: STATE.recipients } }; }
   return { status: 400, data: { error: 'unknown' } }; };
 </script><script src="care-packet.js"></script></body>''' % json.dumps(TOPICS)
 open(os.path.join(ROOT, '_cpk_test.html'), 'w').write(card_page)
@@ -130,6 +133,23 @@ try:
     ok('card: Text the packet for a picked caregiver opens their draft', pg.evaluate("CALLS[CALLS.length-1]") == {'action': 'send_draft', 'packet_id': '11111111-1111-1111-1111-111111111111', 'caregiver_axiscare_id': '12'})
     ok('card: still no em dash anywhere', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.click('#cpk_cancel')
+    # ---- per client: send automatically or by hand; small fix keeps confirmations (2026-10-12) ----
+    pg.evaluate("window.confirm = () => true; STATE.packet = Object.assign({}, STATE.packet, { ready: true, version: 2, auto_send: false }); STATE.recipients = [{ id: 'pl_a', caregiver_name: 'Ariel Smith', caregiver_axiscare_id: '11', link_made_at: '2026-10-12T15:00:00Z', ack_version: 1, ack_at: '2026-10-12T16:00:00Z', last_sent_at: '2026-10-12T15:00:00Z', last_send_kind: 'first' }, { id: 'pl_b', caregiver_name: 'Bea Jones', caregiver_axiscare_id: '12', link_made_at: '2026-10-12T15:00:00Z', ack_version: null, last_sent_at: '2026-10-12T15:00:00Z', last_sent_by: 'care-packet-watch', last_send_kind: 'first' }]")
+    pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400); t = pg.inner_text('#cp_packet')
+    ok('who gets it: "I send it myself" is the default', 'Who gets it' in t and pg.is_checked('input[name="cpk_auto"][value="off"]') and 'Nobody is texted unless you press Text it' in t, t[:400])
+    ok('an automatic text says so on the caregiver row', 'texted automatically' in t)
+    ok('small fix: a save that made a new version offers to keep Ariel\'s confirmation, saying it is recorded', 'The last save made version 2, so Ariel Smith is asked to confirm again' in t and 'recorded as kept by you' in t and pg.query_selector('#cpk_carry') is not None, t)
+    n0 = pg.evaluate('CALLS.length'); pg.check('input[name="cpk_auto"][value="on"]'); pg.wait_for_timeout(300)
+    c = pg.evaluate('CALLS[CALLS.length-1]'); t = pg.inner_text('#cp_packet')
+    ok('who gets it: choosing automatic asks first, then saves it for this client', c == {'action': 'auto_set', 'packet_id': pg.evaluate('STATE.packet.id'), 'on': True} and pg.is_checked('input[name="cpk_auto"][value="on"]') and '8am to 8pm' in t and 'Set by samantha' in t, [c, t[:500]])
+    pg.screenshot(path=os.path.join(OUT, 'cpk_9_auto.png'), full_page=True)
+    pg.click('#cpk_carry'); pg.wait_for_timeout(300); c = pg.evaluate("CALLS.filter(x=>x.action==='carry_acks').pop()"); t = pg.inner_text('#cp_packet')
+    ok('small fix: keeps the confirmation of the version just before, and the row says it was kept, from which version, by whom', c == {'action': 'carry_acks', 'packet_id': pg.evaluate('STATE.packet.id'), 'from_version': 1} and 'kept from version 1 after a small fix, by samantha' in t and pg.query_selector('#cpk_carry') is None, [c, t[:700]])
+    lay = pg.evaluate("[...document.querySelectorAll('input[name=cpk_auto]')].map(x=>x.getBoundingClientRect().width)")
+    ok('the two choices are small radio buttons beside their words (Hub styles)', all(w < 30 for w in lay), lay)
+    pg.check('input[name="cpk_auto"][value="off"]'); pg.wait_for_timeout(300)
+    ok('who gets it: back to by hand', pg.evaluate('CALLS[CALLS.length-1]')['on'] is False)
+    pg.evaluate("STATE.recipients = []; STATE.packet = Object.assign({}, STATE.packet, { version: 1, auto_send: false })")
     # ---- the library lives in its own tab now (2026-10-12): the card links there, for everyone ----
     pg.evaluate("window.SWITCHED = []; window.switchTab = t => SWITCHED.push(t); 0"); pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400)
     pg.click('#cpk_lib_open'); pg.wait_for_timeout(100)
