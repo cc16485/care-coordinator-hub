@@ -104,7 +104,7 @@ async()=>{
   ok('...and the line is flagged to talk about', !!ML && !!ML.standup_item_id && S.standup_notes.some(x=>x.id===ML.standup_item_id && x.source==='desk'));
   // End My Shift
   switchTab('mywork'); await sleep(300);
-  const eb=[...document.querySelectorAll('#tab-mywork button')].find(x=>/End my shift/i.test(x.textContent));
+  const eb=[...document.querySelectorAll('header.topbar button')].find(x=>/End my shift/i.test(x.textContent));
   eoOpen(eb); await sleep(150);
   const ep=[...document.querySelectorAll('.ccpop')].pop();
   ok('End My Shift has a "Your desk" step listing what is still open on today\'s page', /YOUR DESK/.test(ep.innerText) && ep.querySelectorAll('.dkEsRow').length>=2, ep.innerText.slice(0,400));

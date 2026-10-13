@@ -40,8 +40,10 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
   switchTab('mywork'); await sleep(300);
-  const btn=[...document.querySelectorAll('#tab-mywork button')].find(b=>/End my shift/.test(b.textContent));
-  ok('My Work has an End my shift button', !!btn);
+  const btn=[...document.querySelectorAll('header.topbar button')].find(b=>/End my shift/.test(b.textContent));
+  ok('The top bar has an End my shift button', !!btn);
+  ok('My Work no longer has its own End my shift button', ![...document.querySelectorAll('#tab-mywork button')].some(b=>/End my shift/.test(b.textContent)));
+  ok('The top bar has Report a concern; My Work does not', [...document.querySelectorAll('header.topbar button')].some(b=>/Report a concern/.test(b.textContent)) && ![...document.querySelectorAll('#tab-mywork button')].some(b=>/Report a concern/.test(b.textContent)));
   ok('next on duty: Samantha for both seats (Krystal is off in 30 minutes)', EOX.nextOnDuty('operations').person==='samantha@mo-care.com' && EOX.nextOnDuty('staffing').person==='samantha@mo-care.com');
   const Ls=eoLists();
   ok('it walks through what is still moving today, most urgent first', Ls.moving.map(i=>i.id).join()==='cov,evv,call', Ls.moving.map(i=>i.id));

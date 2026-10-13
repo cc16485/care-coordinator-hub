@@ -357,6 +357,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .tp-chip.alert b{color:#FFD9D9;}
   .tp-chip.ok{opacity:.7;cursor:default;}
   @media(max-width:1000px){#topbarPulse{display:none;}}
+  /* 2026-10-13: Report a concern + End my shift joined the top bar; below 1500px the name chip shows just the
+     avatar (full name on hover) and the buttons tighten, so the search box keeps room to type. */
+  header.topbar input.search{min-width:170px;}
+  @media(max-width:1500px){
+    header.topbar{gap:8px;padding:0 18px;}
+    header.topbar .addlead{padding:0 12px;font-size:13px;}
+    #userChip > span:last-child{display:none;}
+    #userChip{padding:3px !important;}
+  }
   /* The chip is a white island on the navy band: pin its text colors with
      !important so no navy-band rule (like `.topbar span{color:#fff}`) can
      ever wash the name out again, in any embed. */
@@ -902,6 +911,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Jot on your desk, or add to My Work"
             style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Add</button>
     <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
+    <!-- 2026-10-13 (her call): Report a concern and End my shift moved up from My Work so they are on every page. -->
+    <button class="addlead" onclick="CCIssue.open()" title="Somebody has told us about a problem"
+            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Report a concern</button>
+    <button class="addlead" onclick="eoOpen(this)" title="Hand off what is still moving to whoever is on duty next"
+            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">End my shift</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
       <span class="su-avatar" id="navAvatar">·</span>
       <span style="line-height:1.15;"><b id="navUserName" style="display:block;font-size:12.5px;white-space:nowrap;">Signed in</b><span id="navUserRole" style="font-size:10px;white-space:nowrap;">Care Coordinator</span></span>
@@ -1577,13 +1591,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" id="myWorkWho"></div>
         </div>
         <div style="flex:1;"></div>
-        <button class="addlead" onclick="CCIssue.open()" style="background:var(--navy);color:#fff;"
-          title="Somebody has told us about a problem">＋ Report a concern</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
-        <button class="addlead" onclick="pjNewOpen(this)" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);"
-          title="A job with several steps that can't close until every step is done">＋ New project</button>
-        <button class="addlead" onclick="eoOpen(this)" style="background:#fff;color:var(--navy);border:1.5px solid var(--navy);"
-          title="Hand off what is still moving to whoever is on duty next">End my shift</button>
       </div>
       <div id="hoCardWork"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
@@ -11015,6 +11023,7 @@ async function initNavUser(){
     navUserFirst=name?name[0].toUpperCase()+name.slice(1):'';
     document.getElementById('navUserName').textContent = navUserFirst||'Signed in';
     document.getElementById('navAvatar').textContent = (name.slice(0,2)||'CC').toUpperCase();
+    const uc=document.getElementById('userChip'); if(uc) uc.title='Signed in as ' + (email||'nobody');
     const fd=document.getElementById('fbarDate');
     if(fd) fd.textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   }catch(e){}
