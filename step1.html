@@ -28,6 +28,7 @@
   /* 2026-10-11 (Samantha: "its hard to click these"): the answer buttons fill the row and are a full thumb tall */
   .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{flex:1 1 auto;min-width:120px;min-height:50px;font:inherit;font-size:16px;font-weight:600;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);touch-action:manipulation} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
   .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
+  .day .dayh{font-weight:800;color:var(--navy);margin:0 0 4px} .daychips{display:grid;grid-template-columns:1fr 1fr;gap:6px} .daychips .chk{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0;min-height:46px;align-items:center} .daychips .chk:has(input:checked){border-color:var(--gold);background:#FFF9EE} .daychips .chk:last-child{grid-column:1/-1} .dayhrs{margin-top:8px}
   table.grid{width:100%;border-collapse:collapse;font-size:13.5px} table.grid th,table.grid td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)} table.grid td:first-child,table.grid th:first-child{text-align:left;font-weight:600} table.grid input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold)} table.grid input[type=text]{font-size:13px;padding:6px}
   .row{background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:10px;margin:0 0 8px} .row .rl{font-size:12px;color:var(--muted);font-weight:700;margin:6px 0 2px} .row input{font-size:15px;padding:9px 10px}
   .card .cardh{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px} .card .fl{margin:10px 0 0} .card .fl>.rl{font-size:13.5px;color:var(--text);font-weight:700;margin:0 0 4px} .card .seg button{min-width:90px;min-height:46px;font-size:15px;padding:9px 12px} .sg{font-size:12px;font-weight:800;color:var(--gold-text);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px} .card .chk{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:15.5px} .card .chk:has(input:checked){border-color:var(--gold);background:#FFF9EE}
@@ -146,9 +147,12 @@ function ssnHtml(locked){
 function tableHtml(it, locked){
   const dis = locked ? ' disabled' : '';
   if (it.id === 'windows') {
-    const v = ANS.windows || {}; const cols = it.options;
-    return '<div style="overflow-x:auto"><table class="grid"><tr><th></th>' + cols.map((c) => '<th>' + esc(c.replace(' (optional)', '')) + '</th>').join('') + '</tr>'
-      + DAYS.map((d) => '<tr><td>' + d.slice(0, 3) + '</td>' + cols.map((c) => '<td>' + (c.startsWith('Hours') ? '<input type="text" style="width:80px" value="' + esc((v[d] || {})[c] || '') + '" oninput="setGrid(\'' + d + '\',\'' + esc(c) + '\',this.value)"' + dis + '>' : '<input type="checkbox"' + ((v[d] || {})[c] === true ? ' checked' : '') + ' onchange="setGrid(\'' + d + '\',\'' + esc(c) + '\',this.checked)"' + dis + '>') + '</td>').join('') + '</tr>').join('') + '</table></div>';
+    /* one card per day with big tap chips, so "Not available" and the hours box are always on screen on a phone (the old
+       seven-by-six table hid both off the right edge; every day must be answered) */
+    const v = ANS.windows || {}; const cols = it.options.filter((c) => !c.startsWith('Hours')); const hc = it.options.find((c) => c.startsWith('Hours'));
+    return DAYS.map((d) => { const r = v[d] || {}; return '<div class="row day"><div class="dayh">' + esc(d) + '</div><div class="daychips">'
+      + cols.map((c) => '<label class="chk"><input type="checkbox"' + (r[c] === true ? ' checked' : '') + ' onchange="setGrid(\'' + d + '\',\'' + esc(c) + '\',this.checked)"' + dis + '><span>' + esc(c) + '</span></label>').join('') + '</div>'
+      + (hc ? '<input type="text" class="dayhrs" placeholder="Exact hours (optional), e.g. 7:00 AM to 3:00 PM" value="' + esc(r[hc] || '') + '" oninput="setGrid(\'' + d + '\',\'' + esc(hc) + '\',this.value)"' + dis + '>' : '') + '</div>'; }).join('');
   }
   if (it.id === 'specialties' || it.id === 'matching_facts') {
     const v = ANS[it.id] || {};
@@ -266,7 +270,7 @@ function go(s){ SCREEN = s; render(); save({}, s); }
 let saveTimer = null, PENDING = {};
 function setVal(id, v, debounce){ if (v === '') delete ANS[id]; else ANS[id] = v; delete FROM[id]; PENDING[id] = v === '' ? '' : v; if (debounce) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
 function toggleMulti(el){ const id = el.dataset.id; const cur = new Set(ANS[id] || []); if (el.checked) cur.add(el.value); else cur.delete(el.value); ANS[id] = [...cur]; PENDING[id] = ANS[id]; delete FROM[id]; flush(); if (SHOW.overnight_nights && (id === 'shift_prefs' || id === 'languages')) render(); }
-function setGrid(day, col, val){ const w = { ...(ANS.windows || {}) }; const row = { ...(w[day] || {}) }; if (col === 'Not available' && val === true) { for (const k of Object.keys(row)) if (!k.startsWith('Hours')) row[k] = false; } if (val === true && col !== 'Not available' && !col.startsWith('Hours')) row['Not available'] = false; row[col] = val; w[day] = row; ANS.windows = w; PENDING.windows = w; clearTimeout(saveTimer); saveTimer = setTimeout(() => { flush(); render(); }, 600); }
+function setGrid(day, col, val){ const w = { ...(ANS.windows || {}) }; const row = { ...(w[day] || {}) }; if (col === 'Not available' && val === true) { for (const k of Object.keys(row)) if (!k.startsWith('Hours')) row[k] = false; } if (val === true && col !== 'Not available' && !col.startsWith('Hours')) row['Not available'] = false; row[col] = val; w[day] = row; ANS.windows = w; PENDING.windows = w; clearTimeout(saveTimer); saveTimer = setTimeout(() => { flush(); if (!col.startsWith('Hours')) render(); }, 600); }
 function setMap(id, opt, val){ const m = { ...(ANS[id] || {}) }; m[opt] = val; ANS[id] = m; PENDING[id] = m; flush(); render(); }
 function setCell(id, i, j, v){ const rows = (ANS[id] || []).map((r) => [...r]); rows[i] = rows[i] || []; rows[i][j] = v; ANS[id] = rows; PENDING[id] = rows; clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); }
 function addRow(id){ const rows = (ANS[id] || []).map((r) => [...r]); rows.push([]); ANS[id] = rows; render(); }
