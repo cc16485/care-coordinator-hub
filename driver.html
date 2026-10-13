@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Your driving details, Caring Companions</title>
+<!-- DRIVER COMPLIANCE, the caregiver's page (Samantha 2026-10-13, spec launch/review/driver-compliance-spec.md). Opened only from
+     the private link the office sends (?d=<record>&e=<expiry>&t=<code>, 21 days). Every word about where they stand, what is needed and
+     the agreement to sign comes from the server (driver-compliance); this page lays it out, uploads photos or files straight to
+     private storage through the server's one-time upload address, and signs with consent and a typed name. Uploading never
+     makes anyone a driver: only the office approves. Nothing is kept in this browser's storage. Nothing here texts anyone. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --navy-dark:#092647; --gold:#F0A63A; --gold-text:#C17A12; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px;} header{text-align:center;padding:8px 0 4px;} header img{height:48px;max-width:100%}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;} h2{font-size:19px;color:var(--navy);margin:0 0 6px}
+  .lede{font-size:16px;margin:0 0 14px;}
+  .doc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;font-size:16px;overflow-wrap:anywhere}
+  .doc h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);margin:14px 0 6px;} .doc h3:first-child{margin-top:0}
+  .doc p{margin:0 0 10px;} .small{font-size:13px;color:var(--muted);margin:0 0 10px;}
+  .status{border-radius:12px;padding:14px 16px;margin:0 0 14px;font-size:16px;border:1.5px solid}
+  .st-pending{background:#FFF7E8;border-color:#F6C77E} .st-approved{background:#F0F7F4;border-color:#9BD3B0} .st-suspended{background:#FDECEC;border-color:#F5B5B5} .st-non_driver,.st-none{background:#F4F2ED;border-color:var(--border)}
+  .status b.word{display:block;font-size:18px;color:var(--navy);margin-bottom:4px}
+  ul.need{margin:0;padding-left:20px} ul.need li{margin:0 0 6px}
+  .slot{border:1px solid var(--border);border-radius:12px;padding:12px;margin:0 0 12px;background:#FAF9F6}
+  .slot .sh{font-weight:800;color:var(--navy);font-size:16px;margin:0 0 4px} .slot .on{color:var(--green);font-weight:700;font-size:14px}
+  .slot .miss{color:var(--gold-text);font-weight:700;font-size:14px}
+  .pick{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .pick label{flex:1 1 140px;display:flex;align-items:center;justify-content:center;min-height:52px;font-size:16px;font-weight:700;padding:12px 14px;border:1.5px solid var(--navy);border-radius:12px;background:#fff;color:var(--navy);cursor:pointer;text-align:center;touch-action:manipulation}
+  .pick label.cam{background:var(--navy);color:#fff}
+  .pick input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+  label.q{display:block;font-size:15px;font-weight:600;color:var(--text);margin:10px 0 6px;}
+  input[type=text],input[type=date],select,textarea{width:100%;max-width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:48px;-webkit-appearance:none;appearance:none}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{flex:1 1 auto;min-width:120px;min-height:50px;font:inherit;font-size:16px;font-weight:600;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);touch-action:manipulation} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:24px;height:24px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
+  .docwrap{border:1.5px solid var(--border);border-radius:12px;background:#fff;margin:12px 0;overflow:hidden} .dochead{position:sticky;top:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px;background:#F4F7FB;border-bottom:1px solid var(--border);color:var(--navy)} .dochead span{font-size:12.5px;color:var(--muted)}
+  .reader{max-height:min(62vh,560px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 16px 16px;font-size:16px;line-height:1.6;overflow-wrap:anywhere} .reader h3{margin:16px 0 4px;font-size:15px;color:var(--navy)} .reader p{margin:6px 0} .docend{font-size:13px;color:var(--muted);text-align:center;margin-top:14px}
+  .tip{background:#FFF7E8;border-left:4px solid var(--gold);border-radius:8px;padding:10px 12px;font-size:14.5px;margin:4px 0 12px}
+  .signbox{background:#FAF9F6;border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;} .signbox h3{font-size:16px;color:var(--navy);margin:0 0 8px;text-transform:none;letter-spacing:0}
+  button.go{width:100%;min-height:52px;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:12px;cursor:pointer;touch-action:manipulation} button.go[disabled]{opacity:.55;cursor:default}
+  .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:15px;margin-top:10px;} .okmsg{background:#F0F7F4;color:var(--green);border-radius:10px;padding:12px 14px;font-size:15px;margin:10px 0;font-weight:600}
+  .signed{background:#DCFCE7;color:var(--green);border-radius:10px;padding:12px 14px;font-size:15px;margin-bottom:14px;font-weight:600;}
+  .secure{font-size:12.5px;color:var(--muted);margin-top:8px;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
+  .busy{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:13px;padding:7px 14px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none} .busy.on{opacity:.92}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your driving details…</p></div>
+</div>
+<div class="busy" id="busy">Working…</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const FN = SUPA_URL + '/functions/v1/driver-compliance';
+const q = new URLSearchParams(location.search); const LINK = { d: q.get('d') || '', e: q.get('e') || '', t: q.get('t') || '' };
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const PHONE = '(417) 234-8494';
+const MAX_BYTES = 15 * 1024 * 1024;
+/* what each status means, in her words; the server's own status_words win when it sends them */
+const WORDS = {
+  pending: ['Waiting for the office to check', 'Thank you. The office checks your license, your insurance and your driving record. You may not drive clients until the office tells you that you are approved.'],
+  approved: ['Approved to drive clients', 'You are approved to transport clients. Keep your license and insurance current, and upload the new card here whenever either one is renewed or changes.'],
+  suspended: ['Driving clients is paused', 'You may not drive clients right now. Upload your current documents below; the office verifies them before you drive clients again. You can keep working every assignment that does not include driving.'],
+  non_driver: ['Non-Driver', 'You will not be asked to drive clients, and you can work every assignment that does not include driving. If that changes, tell the office.'],
+  none: ['Not set up yet', 'Your driving details are not on file yet.'],
+};
+const SLOTS = [
+  ['license_front', 'Driver\'s license, front'], ['license_back', 'Driver\'s license, back'], ['insurance', 'Auto insurance card or declarations page'],
+];
+const CT_BY_EXT = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', heif: 'image/heic', webp: 'image/webp', pdf: 'application/pdf' };
+/* the server takes image/jpeg, image/png, image/heic, image/webp and application/pdf; a phone sometimes gives no type for a HEIC photo */
+const ctOf = (file) => { const t = String(file.type || '').toLowerCase(); if (t === 'image/jpg') return 'image/jpeg'; if (t === 'image/heif') return 'image/heic'; return t || CT_BY_EXT[(String(file.name || '').split('.').pop() || '').toLowerCase()] || ''; };
+let V = null, CHOICE = '', ANS = {}, MSG = '', COPY = '';
+
+/* the link's three parts go with every call: { d, e, t } (server: checkLink 'driver') */
+async function call(body){
+  const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, ...LINK }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return { status: r.status, j };
+}
+const main = () => document.getElementById('main');
+const phone = () => (V && V.office_phone) || PHONE;
+const busy = (on, t) => { const b = document.getElementById('busy'); b.textContent = t || 'Working…'; b.classList.toggle('on', !!on); };
+function dead(msg){ main().innerHTML = '<div class="dead"><b>We could not open your driving details.</b><p>' + esc(msg) + '</p><p>Call or text the office at <b>' + PHONE + '</b> and we will send you a new link.</p></div>'; }
+const when = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Central' : '';
+const exp = (k) => (V.expiries || {})[k] || null;   /* { date, label } */
+/* view: { first, status, status_label, cleared_to_drive, needed[], expiries, renewals[], on_file, agreement, agreement_needed, forms: { vehicle, non_driver }, office_phone } */
+const forms = () => V.forms || {};
+/* which agreement to show: nothing signed yet -> the question (Yes: vehicle, No: non_driver); a Non-Driver who wants to drive
+   -> the vehicle form on request; the server's agreement_needed otherwise */
+function agreementState(){
+  if (V.status === 'non_driver') return CHOICE === 'vehicle' ? 'vehicle' : 'nd';
+  if (V.agreement_needed === 'vehicle') return V.agreement ? 'vehicle' : 'ask';
+  return 'done';
+}
+const driving = () => V.status !== 'non_driver' && !(agreementState() === 'ask' && CHOICE !== 'vehicle');
+
+function render(){
+  const st = V.status || 'none';
+  /* Pending with things still to do is "not complete yet"; Pending with everything in is "waiting for the office" */
+  const w = st === 'pending' && (V.needed || []).length ? ['Not complete yet', 'Sign the agreement and add your license and insurance below. You may not drive clients until the office checks everything and tells you that you are approved.'] : (WORDS[st] || WORDS.none);
+  let h = '<h1>' + (V.first ? 'Hi, ' + esc(V.first) + '.' : 'Your driving details') + '</h1>';
+  h += '<p class="lede">This page is only for driving clients in your own vehicle. Uploading here never makes you a driver: the office checks everything and tells you.</p>';
+  h += '<div class="status st-' + esc(st) + '" id="stbox"><b class="word">' + esc(w[0]) + '</b>' + esc(w[1]) + (V.status_label && V.status_label !== w[0] ? '<div class="small" style="margin:6px 0 0">Your status: ' + esc(V.status_label) + '</div>' : '') + '</div>';
+  const need = (V.needed || []).filter(Boolean);
+  if (need.length && V.status !== 'non_driver' && CHOICE !== 'non_driver') h += '<div class="doc"><h3>What we still need</h3><ul class="need">' + need.map((x) => '<li>' + esc(x.charAt(0).toUpperCase() + x.slice(1)) + '</li>').join('') + '</ul></div>';
+  const le = exp('license'), ie = exp('insurance');
+  if ((le || ie) && st !== 'non_driver') h += '<div class="doc"><h3>On file</h3>' + (le ? '<p>License expires <b>' + esc(le.label || le.date) + '</b></p>' : '') + (ie ? '<p>Insurance expires <b>' + esc(ie.label || ie.date) + '</b></p>' : '') + '</div>';
+  if (MSG) h += '<div class="okmsg" id="okmsg">' + esc(MSG) + (COPY ? ' <a href="' + esc(COPY) + '" target="_blank" rel="noopener">Open your signed copy</a>' : '') + '</div>';
+  h += agreementHtml();
+  /* the uploads come once the vehicle agreement is signed; a Non-Driver never sees them */
+  if (driving() && ['done'].includes(agreementState())) h += uploadsHtml();
+  h += '<div class="doc"><h3>Keep us up to date</h3><p>If your license is suspended or revoked, or your insurance lapses, is cancelled or changes, tell the office right away at <b>' + esc(phone()) + '</b>. When you renew either one, upload the new card here.</p><p class="small">This link is private to you. Please do not share it.</p></div>';
+  main().innerHTML = h;
+}
+
+/* ───── the agreement ───── */
+function agreementHtml(){
+  const s = agreementState(), a = V.agreement;
+  let h = '';
+  if (a && a.signed_at && s !== 'ask') h += '<div class="signed">' + (a.form === 'non_driver' ? 'Non-Driver Agreement' : 'Driver/Vehicle agreement') + ' signed on ' + esc(when(a.signed_at)) + '. A signed agreement is never changed.</div>';
+  if (s === 'nd') return h + '<div class="doc"><p>Want to start driving clients? Sign the driver agreement and add your license and insurance; the office checks them first.</p><button class="go" onclick="choose(\'vehicle\')">I want to drive clients</button></div>';
+  if (s === 'done') return h;
+  if (s === 'ask') {
+    h += '<div class="doc"><h3>Driving clients</h3><p><b>Are you willing and able to transport clients in your personal vehicle as part of your caregiving duties?</b></p><div class="seg">'
+      + '<button type="button" class="' + (CHOICE === 'vehicle' ? 'on' : '') + '" onclick="choose(\'vehicle\')">Yes</button><button type="button" class="' + (CHOICE === 'non_driver' ? 'on' : '') + '" onclick="choose(\'non_driver\')">No</button></div></div>';
+    if (!CHOICE) return h;
+    if (CHOICE === 'non_driver' && !forms().non_driver) return h + '<div class="doc"><p>Thank you. The Non-Driver Agreement is not ready to sign online yet. Please call or text the office at <b>' + esc(phone()) + '</b> and tell them you will not drive clients. You will never be asked to.</p></div>';
+  }
+  const f = forms()[s === 'ask' ? CHOICE : 'vehicle'];
+  return f ? h + formHtml(f) : h + '<div class="doc"><p>The agreement could not be shown. Please call the office at <b>' + esc(phone()) + '</b>.</p></div>';
+}
+function choose(k){ CHOICE = k; render(); }
+/* the server fills the form's answers from the record when it makes the signed PDF, so only the words are shown here */
+function formHtml(f){
+  let h = '<h2>' + esc(f.title) + ' <span style="font-size:12.5px;color:var(--muted);font-weight:600">version ' + esc(f.version) + '</span></h2>';
+  const signbox = '<div class="signbox" id="sb"><h3>Sign ' + esc(f.title) + '</h3><label class="chk"><input type="checkbox" id="c_sign"><span>I agree to sign electronically. I have read the whole ' + esc(f.title) + ' and I agree to it.</span></label>'
+    + '<label class="q" for="n_sign">Type your full name to sign</label><input type="text" id="n_sign" autocomplete="name" placeholder="First and last name">'
+    + '<button class="go" id="b_sign" onclick="sign(\'' + esc(f.key) + '\')">Sign</button><div class="err" id="e_sign"></div>'
+    + '<div class="secure">Your typed name, the time, your device and this exact version are recorded with your signature.</div></div>';
+  const secs = (f.sections || []).filter((s) => (s.p || []).length || s.tip);
+  if (f.layout === 'document') {
+    h += '<div class="docwrap"><div class="dochead"><b>' + esc(f.title) + '</b><span>version ' + esc(f.version) + '</span></div><div class="reader" tabindex="0" role="document" aria-label="' + esc(f.title) + ', the whole document">'
+      + (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('')
+      + secs.map((s) => '<h3>' + esc(s.h) + '</h3>' + (s.p || []).map((p) => '<p>' + esc(p) + '</p>').join('') + (s.tip ? '<div class="tip">' + esc(s.tip) + '</div>' : '')).join('')
+      + '<h3>Certification</h3>' + (f.certification || []).map((c) => '<p>' + esc(c) + '</p>').join('') + '<p class="docend">End of ' + esc(f.title) + '.</p></div></div>';
+    return h + signbox;
+  }
+  h += '<div class="doc">' + (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('');
+  for (const s of secs) h += '<h3>' + esc(s.h) + '</h3>' + (s.p || []).map((p) => '<p>' + esc(p) + '</p>').join('') + (s.tip ? '<div class="tip">' + esc(s.tip) + '</div>' : '');
+  h += (f.certification || []).length ? '<h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') : '';
+  return h + '</div>' + signbox;
+}
+/* sign { form, typed_name, consent: true } -> { status, status_label, copy_url } */
+async function sign(form){
+  const e = document.getElementById('e_sign'), btn = document.getElementById('b_sign');
+  const name = (document.getElementById('n_sign').value || '').trim();
+  const say = (m) => { e.style.display = 'block'; e.textContent = m; };
+  if (!document.getElementById('c_sign').checked) return say('Please tick "I agree to sign electronically" first.');
+  if (name.split(/\s+/).length < 2) return say('Please type your full name, first and last.');
+  btn.disabled = true; btn.textContent = 'Signing…';
+  const r = await call({ action: 'sign', form, typed_name: name, consent: true });
+  if (r.status !== 200 || !r.j || r.j.ok === false) { btn.disabled = false; btn.textContent = 'Sign'; return say((r.j && r.j.error) || 'Could not sign. Please try again.'); }
+  MSG = form === 'non_driver' ? 'Signed. You are set up as a non-driver.' : 'Signed. Next, add your license and insurance below.';
+  COPY = r.j.copy_url || '';
+  CHOICE = ''; await reload();
+}
+
+/* ───── the uploads ───── */
+function uploadsHtml(){
+  const on = V.on_file || {};
+  let h = '<div class="doc"><h3>Your license and insurance</h3><p class="small">Take a photo with your phone, or choose a photo or PDF you already have. Make sure every corner is in the picture and the words are readable.</p>';
+  for (const [kind, label] of SLOTS) {
+    h += '<div class="slot" id="slot_' + kind + '"><div class="sh">' + esc(label) + '</div>'
+      + (on[kind] ? '<div class="on">✓ On file. Renewed or changed? Add the new one.</div>' : '<div class="miss">Needed</div>');
+    if (kind === 'license_front') h += '<label class="q" for="lic_exp">License expiration date</label><input type="date" id="lic_exp" value="' + esc(ANS.lic_exp || (exp('license') || {}).date || '') + '" onchange="ANS.lic_exp=this.value">';
+    if (kind === 'insurance') h += '<label class="q" for="ins_co">Insurance company</label><input type="text" id="ins_co" autocomplete="off" value="' + esc(ANS.ins_co || '') + '" oninput="ANS.ins_co=this.value">'
+      + '<label class="q" for="ins_exp">Insurance expiration date</label><input type="date" id="ins_exp" value="' + esc(ANS.ins_exp || (exp('insurance') || {}).date || '') + '" onchange="ANS.ins_exp=this.value">';
+    h += '<div class="pick"><label class="cam">Take a photo<input type="file" accept="image/*" capture="environment" data-kind="' + kind + '" onchange="picked(this)"></label>'
+      + '<label>Choose a file<input type="file" accept="image/*,application/pdf" data-kind="' + kind + '" onchange="picked(this)"></label></div>'
+      + '<div class="err" id="e_' + kind + '"></div></div>';
+  }
+  return h + '</div>';
+}
+/* upload_url { kind, content_type } -> { path, token, url }; the file PUT to url; uploaded { kind, path, content_type, expires?, insurer? } */
+async function picked(input){
+  const kind = input.dataset.kind, file = input.files && input.files[0];
+  const e = document.getElementById('e_' + kind); const say = (m) => { e.style.display = 'block'; e.textContent = m; };
+  if (!file) return;
+  e.style.display = 'none';
+  const ct = ctOf(file);
+  if (!['image/jpeg', 'image/png', 'image/heic', 'image/webp', 'application/pdf'].includes(ct)) { input.value = ''; return say('Please choose a photo (JPG, PNG, HEIC or WebP) or a PDF.'); }
+  if (file.size > MAX_BYTES) { input.value = ''; return say('That file is over 15 MB. Please take a new photo or choose a smaller file.'); }
+  const lic = (document.getElementById('lic_exp') || {}).value || '', insExp = (document.getElementById('ins_exp') || {}).value || '', insCo = ((document.getElementById('ins_co') || {}).value || '').trim();
+  if (kind === 'license_front' && !lic) { input.value = ''; return say('Please enter your license expiration date first, then add the photo.'); }
+  if (kind === 'insurance' && (!insExp || !insCo)) { input.value = ''; return say('Please enter your insurance company and the expiration date first, then add the card.'); }
+  busy(true, 'Uploading…');
+  try {
+    const u = await call({ action: 'upload_url', kind, content_type: ct });
+    if (u.status !== 200 || !u.j || u.j.ok === false) return say((u.j && u.j.error) || 'The upload could not start. Please try again.');
+    if (!u.j.url || !u.j.path) return say('The upload could not start. Please try again.');
+    let put;
+    try { put = await fetch(u.j.url, { method: 'PUT', headers: { 'Content-Type': ct, 'x-upsert': 'false' }, body: file }); }
+    catch (x) { return say('The upload did not finish. Check your connection and try again.'); }
+    if (!put.ok) return say('The upload did not finish. Please try again.');
+    const body = { action: 'uploaded', kind, path: u.j.path, content_type: ct };
+    if (kind === 'license_front') body.expires = lic;
+    if (kind === 'insurance') { body.expires = insExp; body.insurer = insCo; }
+    const d = await call(body);
+    if (d.status !== 200 || !d.j || d.j.ok === false) return say((d.j && d.j.error) || 'Your file arrived but could not be recorded. Please try again.');
+    MSG = 'Thank you. Your ' + SLOTS.find((s) => s[0] === kind)[1].replace(/^Auto /, '').toLowerCase() + ' is on file. The office checks it before you drive clients.'; COPY = '';
+    await reload();
+  } finally { busy(false); input.value = ''; }
+}
+
+async function reload(){
+  const r = await call({ action: 'view' });
+  if (r.status !== 200 || !r.j || r.j.ok === false) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
+  V = r.j; render();
+  const ok = document.getElementById('okmsg'); if (ok) ok.scrollIntoView({ block: 'center' });
+}
+async function init(){
+  if (!LINK.d || !LINK.t) return dead('This link is missing its code.');
+  const r = await call({ action: 'view' });
+  if (r.status !== 200 || !r.j || r.j.ok === false) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
+  V = r.j; render();
+}
+init();
+</script>
+</body>
+</html>
