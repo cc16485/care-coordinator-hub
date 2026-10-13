@@ -28007,6 +28007,8 @@ function myWorkCard(it, i){
   }
   if(cnFlag) h+=cnActions(it);
   if(it.next_action) h+='<div style="font-size:13.5px;margin-top:5px;">→ '+esc(it.next_action)+'</div>';
+  /* a call follow-up's other prepared steps (drafts; a person decides and sends) */
+  if(it.kind==='call_followup' && Array.isArray(it.steps)) it.steps.slice(1).forEach(x=>{ h+='<div style="font-size:13.5px;margin-top:3px;">→ '+esc(x)+'</div>'; });
   /* Generated work is a PROMPT; the source record is the deliverable. Putting
      the record one click away is what stops somebody closing the prompt and
      believing the obligation is discharged — it is not, and the engine will
@@ -32012,6 +32014,8 @@ const OPS_KINDS = {
   respite_limit:  { label:'Respite schedule', hours:24 },
   /* Caregiver packets step 3 (2026-10-12): someone has a shift with this client in the next 3 days and hasn't confirmed the packet (care-packet-watch) */
   care_packet_unconfirmed: { label:'Care packet', hours:12 },
+  /* Call follow-ups LIVE (2026-10-13, "Let's stop practicing and go for it!"): work the AI found in a call or text (call-tasks) */
+  call_followup:  { label:'Call follow-up', hours:24 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
