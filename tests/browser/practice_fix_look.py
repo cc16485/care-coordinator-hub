@@ -45,7 +45,8 @@ T = r"""async(CODE)=>{
   const mid=card('4175550186');
   ok('new path, somehow in Background & References before Step 1: the card stays on Open offers with its Step 1 link, next step their Step 1', /Next: Their Step 1/.test(mid) && /Step 1 link/.test(mid), mid.slice(0,700));
   ok('old path in Background & References: moved on, as before', card('4175550103')==='');
-  ok('old path unchanged: Viventium entry and its welcome message are still its next step', /Next: Viventium entry/.test(old) && /Mark entered in Viventium/.test(old), old.slice(0,500));
+  /* 2026-10-12 (Samantha: "we don't do viventium until orientation"): no Viventium step or entry sheet on any offer card */
+  ok('old path: after AxisCare attributes the next step is their Step 1 (Mark Step 1 done); no Viventium step, button or entry sheet', /Next: Their Step 1 paperwork/.test(old) && /Mark Step 1 done/.test(old) && !/Viventium/.test(cards.join(' ')), old.slice(0,500));
   /* moving them by hand on the new path is refused until Step 1 is complete (their signed permission) */
   const al=[]; window.alert=m=>al.push(String(m));
   const r1=await offerToCandidate('of-signed', null, { quiet:true });
