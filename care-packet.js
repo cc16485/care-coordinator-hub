@@ -109,7 +109,12 @@
       + (S.msg && !/^Sent|already went/.test(S.msg) ? '<span class="field-note" style="color:#166534;">' + esc(S.msg) + '</span>' : '') + '</div>'
       + (S.err ? '<div class="field-note" style="color:#B91C1C;margin-top:6px;">' + esc(S.err) + '</div>' : '');
     if (S.packet && S.packet.ready) {
-      const cgs = (window.DATA && DATA.caregivers || []).filter(c => c && c.axiscare_id && !c.inactive)
+      /* 2026-10-12 fix: DATA is a page-level let in index.html (never window.DATA), so this list was always empty. Every active
+         caregiver on the roster with an AxisCare number can be picked, scheduled with this client or not (Samantha: "we are
+         talking to someone about working with Dan ... we told them we would send the refresher videos"). */
+      const roster = (() => { try { return (typeof DATA !== 'undefined' && DATA && DATA.caregivers) || (window.DATA && window.DATA.caregivers) || []; } catch (e) { return []; } })();
+      const noAx = roster.filter(c => c && !c.axiscare_id && !c.inactive).length;
+      const cgs = roster.filter(c => c && c.axiscare_id && !c.inactive)
         .sort((a, b) => (String(a.first || '') + ' ' + (a.last || '')).localeCompare(String(b.first || '') + ' ' + (b.last || '')));
       /* per client (Samantha 2026-10-12): send automatically to anyone scheduled with them, or by hand (the default) */
       const P = S.packet, autoOn = P.auto_send === true, cf = P.client_first || 'this client';
@@ -129,6 +134,7 @@
         + cgs.map(c => '<option value="' + esc(c.axiscare_id) + '">' + esc(((c.first || '') + ' ' + (c.last || '')).trim()) + '</option>').join('') + '</select>'
         + '<button class="primary" id="cpk_text"' + (S.busy || dirty() ? ' disabled' : '') + '>Text the packet</button>'
         + '<button class="secondary" id="cpk_link"' + (S.busy || dirty() ? ' disabled' : '') + '>Get their link</button></div>'
+        + '<div class="field-note">Anyone on your team can get it, scheduled with ' + esc(S.packet.client_first || 'this client') + ' or not.' + (noAx ? ' ' + noAx + ' caregiver' + (noAx === 1 ? ' has' : 's have') + ' no AxisCare number yet, so ' + (noAx === 1 ? 'is' : 'are') + ' not listed.' : '') + '</div>'
         + sendPanel()
         + (dirty() ? '<div class="field-note">Save the packet first.</div>' : '')
         + (S.link ? '<div style="margin-top:8px;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">'
