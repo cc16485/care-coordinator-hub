@@ -11,11 +11,16 @@
      they're on the AxisCare roster.
    - SKILL FIT: the plan says what the client needs (Hoyer lift, bedbound care, transfers). Each caregiver shows yes / no
      / not on file for each, from their skills record, and a missing answer can be recorded right there.
+   - DRIVING (Driver Compliance, 2026-10-13): when the plan says the client needs transportation, only an Approved Driver
+     with a current license and insurance is available for it (CCMatch.transportEligible, the one shared rule; never the
+     self-reported skill). Everyone else stays on the list, marked "Not available" with the reason, and can't be added.
+     Only while the Admin switch driver_schedule_gate_live is on; off, the check shows as "Driver check (not enforced
+     yet)" and anyone can be penciled in.
    Nothing here texts or emails anyone. */
 (function(){
   const esc = s => escapeHtmlComms(s);
   const nk = s => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
-  const NEEDS = [['hoyer_lift', 'Hoyer lift'], ['bedbound_care', 'Bedbound care'], ['transfers_gait_belt', 'Transfers / gait belt']];
+  const NEEDS = [['hoyer_lift', 'Hoyer lift'], ['bedbound_care', 'Bedbound care'], ['transfers_gait_belt', 'Transfers / gait belt'], ['transportation', 'Transportation']];
   const ANSWER = { penciled:['penciled', '#475569', '#F1F5F9'], asked:['asked', 'var(--honey-ink)', '#FFF4E3'], maybe:['maybe', '#7C3AED', '#F3EEFF'],
     yes:['yes ✓', 'var(--green)', 'var(--green-bg)'], no:['no', 'var(--red)', '#FDE8E8'], no_reply:['no reply', '#8A4E0C', '#FFF4E3'] };
   const me = () => (typeof ME !== 'undefined' && (ME.name || ME.email)) || '';
@@ -41,9 +46,12 @@
     else { rec.id = 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); (plan.options[key] = plan.options[key] || []).push(rec); }
     await tbSave(plan); tbRender(); sync(plan);
   }
-  function addPool(key, i){ const cg = Array.isArray(TB.pool) ? TB.pool[i] : null; if(cg) add(key, { name:String(cg.name), cg_ax_id:String(cg.axiscare_id || '') || undefined }); }
+  function addPool(key, i){ const cg = Array.isArray(TB.pool) ? TB.pool[i] : null; if(!cg) return;
+    const no = driveBlock(tbPlan(), cg); if(no){ ccToast(cg.name + ' is not available for this plan. ' + no + '.'); return; }
+    add(key, { name:String(cg.name), cg_ax_id:String(cg.axiscare_id || '') || undefined }); }
   function addApplicant(key, id){
     const a = (APPS.rows || []).find(x => String(x.id) === String(id)); if(!a) return;
+    if(driveBlock(tbPlan(), {})){ ccToast('This client needs transportation, and someone who has not started has no driver approval on the roster yet, so they are not available for this plan.'); return; }
     add(key, { name:[a.first_name, a.last_name].filter(Boolean).join(' '), applicant_id:String(a.id), starts:a.start_date || null });
   }
 
@@ -188,17 +196,36 @@
     return Object.assign({}, (lg && lg.skills) || {}, (ov && ov.skills) || {});
   }
   function haveOf(sk, k){ const v = sk[k]; const h = v && typeof v === 'object' ? v.have : v; return h === 'yes' || h === true ? 'yes' : h === 'no' || h === false ? 'no' : ''; }
+  /* driving: the pool row's Driver Compliance fields (coverage-shifts team_pool), else the roster's (the mirror writes both) */
+  function driveOf(cg){
+    const M = window.CCMatch; if(!M || !M.transportEligible) return { ok:false, why:'the driver rule could not be loaded' };
+    const lg = cg && cg.dl_status == null && cg.axiscare_id ? (DATA.caregivers || []).find(x => String(x.axiscare_id || '') === String(cg.axiscare_id)) : null;
+    return M.transportEligible(lg || cg, new Intl.DateTimeFormat('en-CA', { timeZone:'America/Chicago' }).format(new Date()));
+  }
+  /* the Admin switch "Only Approved Drivers get shifts that need transportation" (ops_settings.driver_schedule_gate_live,
+     off by default). Off: the driver check is only shown ("not enforced yet") and anyone can be penciled in. */
+  function driveLive(){ const M = window.CCMatch; return !!(M && M.driveGateOn && M.driveGateOn((typeof DATA !== 'undefined' && DATA.ops_settings) || {})); }
+  /* why this person is not available for this plan (it needs driving, they are not cleared, and the switch is on), or null */
+  function driveBlock(plan, cg){
+    if(!plan || (plan.needs || []).indexOf('transportation') < 0 || !driveLive()) return null;
+    const t = driveOf(cg); return t.ok ? null : 'This client needs transportation: ' + t.why;
+  }
   /* 0 = has every need, 1 = something not on file, 2 = a need they don't have */
   function skillRank(plan, cg){
     const needs = plan.needs || []; if(!needs.length) return 0;
-    const sk = skillsOf(cg.axiscare_id), h = needs.map(n => haveOf(sk, n));
+    const sk = skillsOf(cg.axiscare_id), h = needs.map(n => n === 'transportation' ? (driveOf(cg).ok ? 'yes' : driveLive() ? 'no' : '') : haveOf(sk, n));
     return h.indexOf('no') > -1 ? 2 : h.indexOf('') > -1 ? 1 : 0;
   }
   function skillFlags(plan, cg){
     const needs = plan.needs || []; if(!needs.length) return '';
     const sk = skillsOf(cg.axiscare_id);
     return needs.map(n => {
-      const label = (NEEDS.find(x => x[0] === n) || [n, n])[1], h = haveOf(sk, n);
+      const label = (NEEDS.find(x => x[0] === n) || [n, n])[1];
+      if(n === 'transportation'){ const t = driveOf(cg);
+        return t.ok ? '<b style="color:var(--green);">✓ Approved Driver</b>'
+          : driveLive() ? '<b style="color:var(--red);">⛔ Not available: needs transportation; ' + esc(t.why) + '</b>'
+          : '<span style="color:#8A4E0C;font-weight:700;">Driver check (not enforced yet): ' + esc(t.why) + '</span>'; }
+      const h = haveOf(sk, n);
       if(h === 'yes') return '<b style="color:var(--green);">✓ ' + esc(label) + '</b>';
       if(h === 'no') return '<b style="color:var(--red);">✗ no ' + esc(label) + '</b>';
       return '<span style="color:#8A4E0C;font-weight:700;">' + esc(label) + '?</span>'
@@ -310,7 +337,8 @@
       if(d.error) why.push(d.error);
       else { if(!d.caregiver.on_roster) why.push('not on the caregiver roster, so there is no number');
         else if(!d.caregiver.phone_last4) why.push('no phone number on the roster');
-        if((d.caregiver.opt_out || []).length) why.push('asked not to get texts (' + d.caregiver.opt_out.join('; ') + ')'); }
+        if((d.caregiver.opt_out || []).length) why.push('asked not to get texts (' + d.caregiver.opt_out.join('; ') + ')');
+        if(d.blocked) why.push(String(d.blocked)); }   /* the server's checks (incl. driving, 2026-10-13), shown before anyone sends */
       return Object.assign(x, { first:(d.caregiver && d.caregiver.first) || String(x.name).split(' ')[0], last4:d.caregiver && d.caregiver.phone_last4, why }); });
     const live = !!dr0.live;
     const hr = +new Date().toLocaleString('en-US', { timeZone:'America/Chicago', hour:'2-digit', hour12:false }), late = hr < 8 || hr >= 20;
@@ -377,7 +405,7 @@
 
   Object.assign(window, { tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer,
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
-    tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
+    tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2DriveOf:driveOf, tb2DriveBlock:driveBlock, tb2DriveLive:driveLive, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,
     tb2OpenPlan:openPlan, TB2_APPS:APPS, TB2_ANSWER:ANSWER, tb2MakeProject:makeProject, tb2MakeOpen:makeOpen, tb2ProjectBox:projectBoxHtml, tb2TextSeveral:textSeveral, tb2Textable:textable });
 })();

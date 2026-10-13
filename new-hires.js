@@ -4,7 +4,8 @@
    One card at the top of Cara, Hours & matching. Who: hired in AxisCare in the last 60 days with nothing (or less than
    the weekly hours they asked for) scheduled in the next 14 days; the server decides (coverage-shifts team_pool,
    _shared/new-hire.ts) and the same people are tagged and put first among equal fits in Cara's ask lists and the Team
-   Builder list. Reads only; nothing here sends or saves.
+   Builder list. Each card also says when the person is not cleared to drive clients (Driver Compliance, 2026-10-13).
+   Reads only; nothing here sends or saves.
    ============================================================================= */
 (function () {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -20,6 +21,17 @@
     DAYS.forEach((d) => { const b = (Array.isArray(w[d]) ? w[d] : []).map((x) => BAND[x] || x).join(', '); if (b) { if (!groups.has(b)) groups.set(b, []); groups.get(b).push(DL[d]); } });
     if (!groups.size) return 'No availability on file: assumed available any time';
     return [...groups.entries()].map(([b, ds]) => ds.join(', ') + ': ' + b).join(' · ');
+  }
+  /* Driver Compliance (2026-10-13): a new hire not cleared to drive can't take a shift that needs transportation; say so on
+     the card so nobody offers them one (CCMatch.transportEligible, the one shared rule). Nothing shown for an Approved Driver. */
+  function driveLine(p) {
+    const M = window.CCMatch; if (!M || !M.transportEligible) return '';
+    const lg = p.dl_status == null && p.axiscare_id && typeof DATA !== 'undefined' ? (DATA.caregivers || []).find((x) => String(x.axiscare_id || '') === String(p.axiscare_id)) : null;
+    const t = M.transportEligible(lg || p, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago' }).format(new Date()));
+    if (t.ok) return '';
+    const live = !!(M.driveGateOn && M.driveGateOn((typeof DATA !== 'undefined' && DATA.ops_settings) || {}));   /* the Admin switch, off by default */
+    return live ? '<div style="font-size:12.5px;color:var(--red);margin-top:2px;">🚗 Not cleared to drive clients: ' + esc(t.why) + '. Not for shifts that need transportation.</div>'
+      : '<div style="font-size:12.5px;color:#8A4E0C;margin-top:2px;">🚗 Driver check (not enforced yet): ' + esc(t.why) + '</div>';
   }
   const dateWords = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   function openShifts() { switchTab('liveschedule'); try { LC.open = true; if (typeof lcView === 'function') lcView('week'); else if (typeof lsPaint === 'function') lsPaint(); } catch (e) {} }
@@ -41,12 +53,13 @@
             + '<div style="flex:1;min-width:260px;"><b style="color:var(--navy);">' + esc(p.name) + '</b>'
             + '<span class="field-note" style="margin-left:6px;">hired ' + esc(dateWords(n.hired)) + ' (' + n.days + ' day' + (n.days === 1 ? '' : 's') + ' ago)' + (p.city ? ' · ' + esc(p.city) : '') + '</span>'
             + '<div style="font-size:13px;margin-top:2px;"><b style="color:var(--red);">' + esc(hrs) + '</b>' + (n.target_week ? ' · wants ' + n.target_week + ' h a week' : '') + '</div>'
-            + '<div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">🗓️ ' + esc(availWords(p.windows)) + '</div></div>'
+            + '<div style="font-size:12.5px;color:var(--text-muted);margin-top:2px;">🗓️ ' + esc(availWords(p.windows)) + '</div>'
+            + driveLine(p) + '</div>'
             + '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="cara-btn" style="font-size:12px;" onclick="NH.openShifts()">Find them hours</button>'
             + '<button class="cara-btn ghost" style="font-size:12px;" onclick="openCaregiverProfile(\'' + esc(String(p.name).replace(/'/g, '')) + '\')">Profile</button></div></div>';
         }).join('');
     }
     box.innerHTML = '<div class="card" style="padding:12px 14px;margin:0 0 14px;border-left:4px solid var(--teal);">' + head + body + '</div>';
   }
-  window.NH = { render, count, list, availWords, openShifts };
+  window.NH = { render, count, list, availWords, openShifts, driveLine };
 })();
