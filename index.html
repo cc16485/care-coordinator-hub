@@ -1605,7 +1605,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div style="grid-column:span 2;"><label>What needs doing</label>
             <input id="opsNewTitle" placeholder="Run a background re-check on Dana"></div>
           <div><label>Who owns it</label>
-            <select id="opsNewOwner"></select></div>
+            <select id="opsNewOwner" onchange="TP.formSync()"></select></div>
+          <!-- Up for grabs (2026-10-13): how long it takes, and when it comes back if nobody takes it -->
+          <div id="opsNewPoolWrap" style="display:none;"><label>About how long</label>
+            <select id="opsNewPoolSize" onchange="TP.formSync()">
+              <option value="15m">About 15 minutes</option>
+              <option value="1h" selected>About an hour</option>
+              <option value="half">Half a day</option>
+            </select>
+            <div class="field-note" id="opsNewPoolBack" style="margin-top:4px;"></div></div>
           <div><label>Kind</label>
             <select id="opsNewKind">
               <option value="request">Request</option>
@@ -1622,7 +1630,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
                push; the due date is what Overdue measures, and what a
                supervisor looks at to see what is being missed. -->
           <div><label>Due by</label>
-            <select id="opsNewDue" onchange="opsDuePickToggle()">
+            <select id="opsNewDue" onchange="opsDuePickToggle();TP.formSync()">
               <option value="auto">Use how soon</option>
               <option value="today">End of today</option>
               <option value="tomorrow">End of tomorrow</option>
@@ -1630,7 +1638,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             </select></div>
           <div id="opsNewDuePickWrap" style="display:none;">
             <label>On this date</label>
-            <input id="opsNewDueDate" type="date"></div>
+            <input id="opsNewDueDate" type="date" onchange="TP.formSync()"></div>
           <div><label>Which client, if any</label>
             <input id="opsNewAbout" placeholder="Optional"></div>
           <div style="grid-column:1/-1;"><label>Anything they need to know</label>
@@ -7126,7 +7134,8 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=4"></script>
+<script src="end-shift.js?v=5"></script>
+<script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=12"></script>
 <script src="call-practice.js?v=6"></script><!-- 650: call follow-ups, practice tab on My Work -->
 <script>
@@ -27341,6 +27350,8 @@ function myWorkTabs(b){
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
   if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
+  if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
   if(window.CPR && CPR.offered()) t.push(['callpractice','Call follow-ups (practice)']);
   return t;
@@ -27649,7 +27660,10 @@ async function opsTakeIt(id){
         l.comm_log=Array.isArray(l.comm_log)?l.comm_log:[]; l.comm_log.push({ body:first+' took this inquiry'+(l.assigned_coordinator?' from '+String(l.assigned_coordinator).split(/\s+/)[0]:''), at:at, by:me, kind:'owner' });
         l.assigned_coordinator=first; await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} } }
   }
-  ccToast('✓ It’s yours now'+(was?' (it was '+String(wasName).split(' ')[0]+'’s)':''));
+  /* Up for grabs (pool.js): taking an offered task is helping, not taking over */
+  const fromPool=it.pool&&String(it.pool.taken_by||'').toLowerCase()===me&&Date.now()-Date.parse(it.pool.taken_at||0)<10000;
+  ccToast(fromPool?'✓ It’s yours now. Thanks for helping! '+String(wasName).split(' ')[0]+' will see you took it.'
+    :'✓ It’s yours now'+(was?' (it was '+String(wasName).split(' ')[0]+'’s)':''));
   myWorkRefresh();
 }
 /* "Was it covered?" (Phase 2): a person's answer closes the case (status done, a person) and the question card
@@ -27716,7 +27730,9 @@ function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
   /* also_for (2026-10-06): a red shift-note flag is Client Care's, and also on the Incidents owner's list */
-  const mine=open.filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))
+  /* Up for grabs (2026-10-13): while it is offered it is off my own lists (it shows in "Offered to the team") */
+  const offered=i=>!!(window.TP&&TP.isOffered(i));
+  const mine=open.filter(i=>!offered(i)).filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))
     /* Projects (2026-10-06): a project's team, and the owners inside the alert window */
     || (typeof pjSees==='function'&&pjSees(i,me))));
   const now=Date.now();
@@ -27773,6 +27789,7 @@ function myWorkBuckets(){
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
+    pool:       window.TP ? TP.shelf(me) : [],
     approvals:  (ccCan('approve_discipline')
                   ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
                   : [])
@@ -27828,7 +27845,8 @@ function myWorkSelectable(all){
 }
 function myWorkRows(){
   const b=myWorkBuckets();
-  const rows=(b[MYWORK_TAB]||[]).slice()
+  /* Up for grabs draws its own cards (pool.js); none of them are mine to tick or close with a key */
+  const rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
@@ -27972,6 +27990,7 @@ function myWorkCard(it, i){
   }
   if(it.help_from) states+=stateChip('help asked of '+(opsOwnerName(it.help_from)||it.help_from),'var(--navy');
   if(it.sub_state==='escalated') states+=stateChip('escalated','var(--red');
+  if(window.TP) states+=TP.cameBackChip(it);
   /* To talk about (2026-10-06): flagged for the next time you're together */
   const talkF=window.suTalk?suTalk.forWork(it.id):null;
   if(window.suTalk && !suTalk.ready() && !myWorkCard._askedTalk){ myWorkCard._askedTalk=true; suTalk.load().then(()=>{ try{ if(typeof activeTab!=='undefined'&&activeTab==='mywork') renderMyWork(); }catch(e){} }); }
@@ -28161,6 +28180,9 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
+  /* Up for grabs (2026-10-13): my own ordinary work can be offered to anyone with time */
+  if(window.TP && String(it.owner||'').toLowerCase()===meCl && !issueOf(it) && it.kind!=='project' && it.kind!=='journey' && !it.sensitive)
+    h+=opt('pool','Put it up for grabs (anyone with time)');
   h+=opt('needs_samantha','Hand it over — needs Samantha');
   /* An issue is NOT closed by the generic triage reasons. Completing an action
      and resolving a problem are different acts and the menu has to say so, or
@@ -28189,6 +28211,7 @@ function myWorkMore(id, anchorId){
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
       if(r.dataset.what==='claim') return opsTakeIt(id);
+      if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
       opsTriage(id, r.dataset.what);
@@ -28274,6 +28297,7 @@ function renderMyWork(){
   }
 
   if(MYWORK_TAB==='callpractice'){ wrap.innerHTML=''; if(window.CPR) CPR.render(wrap); return; }
+  if(MYWORK_TAB==='pool'){ wrap.innerHTML=''; if(window.TP) TP.render(wrap); return; }
 
   const rows=myWorkRows();
   const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
@@ -28324,6 +28348,8 @@ function renderMyWork(){
     .sort((a,c)=>String(a.due||'9999').localeCompare(String(c.due||'9999')));
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
+  /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
+  if(window.TP && !act.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   h+=lane('ACT NOW','emergencies, shifts about to start with nobody, anything late','var(--red)',act.length,
@@ -28335,6 +28361,8 @@ function renderMyWork(){
   const watch=myWorkStrips();
   h+=lane('WAITING & WATCHING','comes back on its own; nothing waits without a wake-up','var(--navy)',b.waiting.length||null,
     watch||none('Nothing waiting.'));
+  const offeredBody=window.TP?TP.offeredLaneBody():'';
+  if(offeredBody) h+=lane('OFFERED TO THE TEAM','up for grabs; yours again if nobody takes it in time','var(--teal)',null,offeredBody);
   h+=lane('LATER','yours, not due today','var(--text-muted)',later.length,
     !later.length?none('Nothing else on your list.')
     :(MYWORK_LATER_OPEN
@@ -34740,7 +34768,10 @@ function opsRenderQueue(){
    work ends up belonging to nobody. */
 async function opsAdd(){
   const kind = document.getElementById('opsNewKind').value;
-  const owner = document.getElementById('opsNewOwner').value;
+  const pickedOwner = document.getElementById('opsNewOwner').value;
+  /* Up for grabs: it is mine until somebody takes it, so it is never nobody's (pool.js) */
+  const toPool = pickedOwner==='__pool';
+  const owner = toPool ? String(ccActor().email||'').toLowerCase() : pickedOwner;
   const urgency = document.getElementById('opsNewUrgency').value;
   const title = document.getElementById('opsNewTitle').value.trim();
   const detail = document.getElementById('opsNewDetail').value.trim();
@@ -34761,14 +34792,16 @@ async function opsAdd(){
     owner, owner_name:s?(s.full_name||s.primary_email):(opsOwnerName(owner)||''),
     created_by:(typeof ME!=='undefined'&&ME.name)?ME.name:((typeof ME!=='undefined'&&ME.email)||''),
     opened_by:'person' };
+  if(toPool && !TP.stamp(it, (document.getElementById('opsNewPoolSize')||{}).value||'1h')) return;
   DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
-  opEvent('item_created',{item:it, summary:(about||title)+' — raised'+(it.owner_name?', for '+it.owner_name:'')});
+  opEvent('item_created',{item:it, summary:(about||title)+' — raised'+(toPool?', up for grabs':(it.owner_name?', for '+it.owner_name:''))});
   await persist('ops_items', it);
   ['opsNewTitle','opsNewDetail','opsNewAbout','opsNewDueDate']
     .forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   const dsel=document.getElementById('opsNewDue'); if(dsel) dsel.value='auto';
   opsDuePickToggle();
   document.getElementById('opsAddWrap').style.display='none';
+  if(toPool) ccToast('Up for grabs. It comes back to you if nobody takes it in time.');
   /* The form now lives in My Work, so the list the person is looking at has to
      refresh too. opsRenderQueue stays because the Needs Attention queue reads
      the same items and is still reachable. */
@@ -34780,7 +34813,10 @@ function opsToggleAdd(){
   const showing = w.style.display!=='none';
   w.style.display = showing ? 'none' : 'block';
   if(!showing){
-    document.getElementById('opsNewOwner').innerHTML=opsStaffOptions('');
+    /* Up for grabs (2026-10-13): anyone with time can take it; it stays mine until they do (pool.js) */
+    document.getElementById('opsNewOwner').innerHTML=opsStaffOptions('')
+      .replace('</option>','</option><option value="__pool">Up for grabs (anyone with time)</option>');
+    if(window.TP) TP.formSync();
     document.getElementById('opsNewTitle').focus();
   }
 }

@@ -90,6 +90,8 @@
           + '<div class="field-note" style="margin-bottom:4px;">These go in the handoff and on the To talk about list.</div>'
           + L.attention.map(i => '<div style="font-size:13px;">· ' + esc8(i.about || i.title || '') + ' <span class="field-note">' + esc8(dueText(i)) + '</span></div>').join('')
         : '')
+      /* Up for grabs (2026-10-13): what I offered, and what the team offered */
+      + (window.TP ? TP.shiftLine() : '')
       /* My Desk (Stage 4): a short step for my own desk, and the ribbon moves on */
       + (typeof dkShiftHtml === 'function' ? dkShiftHtml() : '')
       + '<div style="margin-top:10px;"><label class="field-note">Anything else the next person should know</label>'
