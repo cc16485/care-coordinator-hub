@@ -1849,6 +1849,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <label class="field-note" style="display:flex;gap:5px;align-items:center;"><input type="checkbox" id="apjApplicantOnly" onchange="apjRender()" checked> Messages to the applicant only</label>
         </div>
       </div>
+      <!-- ONE REAL PERSON'S JOURNEY (2026-10-13, Samantha: "one complete view ... the actual screens applicants see, not just
+           completion labels"). Search anyone with an offer; open their page on the Hiring tab (the whole journey step by step,
+           their real Step 1 screens and answers, signed documents, checks, Step 2, the video call, training, Approve to Work),
+           or their Step 1 screens on their own. Read only. -->
+      <div class="card" style="padding:14px 18px;margin-top:14px;">
+        <div style="font-size:15px;font-weight:800;color:var(--navy);">See a real applicant's journey</div>
+        <div class="field-note" style="margin-top:4px;">Type a name, phone or email. Their page shows every step from the application to Approved to Work, the Step 1 screens they saw with their own answers, every signed document, and who owns the next step.</div>
+        <input id="apjPerson" placeholder="Name, phone or email…" oninput="apjPersonFind()" style="margin-top:10px;width:100%;max-width:420px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit;">
+        <div id="apjPersonList" style="margin-top:8px;"></div>
+      </div>
       <!-- THE WHOLE JOURNEY, AS THE APPLICANT SEES IT (2026-10-11, Samantha: every stage from the application to Approved to
            Work, "the actual applicant-facing screens and messages"). Stage by stage: the real page in preview mode beside the
            messages that stage sends. Made-up applicant; nothing is saved, signed, booked or sent. (applicant-walkthrough.js) -->
@@ -7082,7 +7092,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=3"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=4"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
@@ -17644,7 +17654,7 @@ async function cgdAppHalfMount(axid, appId){
       + '<button type="button" class="pp-link" style="color:var(--red);" onclick="cgdApAct(\'apOffboard\',\''+id+'\')">'+(r.status==='left'?'Change how they left':'They have left')+'</button>'
     + '</div>';
   apOnboardMount(r, document.getElementById('cgdApOnboard'));
-  if(window.HP){ HP.mount(document.getElementById('cgdApHp'), { applicant_id:r.id }, ['status','docs']);
+  if(window.HP){ HP.mount(document.getElementById('cgdApHp'), { applicant_id:r.id }, ['status','journey','docs']);
                  HP.mount(document.getElementById('cgdApSkills'), { applicant_id:r.id }, ['skills']); }
   const link=document.getElementById('cgdAppLink'); if(link) link.innerHTML='';   /* the application is on this page now */
   const hist=document.getElementById('cgdHist'); if(hist){ delete hist.dataset.done; if(CGD.section==='history') cgdHistoryMount(); }
@@ -23715,7 +23725,7 @@ function apTab(k){
   });
   const r = AP_PROF; if(!r || !window.HP) return;
   /* the Whole profile's pieces, read when their tab is first opened */
-  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','docs']); } }
+  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
   if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
   if(k === 'interview'){ const el = document.getElementById('apHpSkills'); if(el && !el.dataset.done && apIsOffered(r)){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['skills']); } }
 }
@@ -24893,6 +24903,24 @@ const APJ_STAGES = [
   ['current caregivers (profile catch-up)','Current caregivers','i-eye'], ['any time (office text)','Any time','i-chat'] ];
 let APJ_CTX = null;
 /* The applicant walkthrough (2026-10-11): loaded the first time it is opened */
+/* 2026-10-13: find a real person with an offer (the same offer list the Offers tab reads) */
+let APJ_FIND_T = null;
+async function apjPersonFind(){
+  clearTimeout(APJ_FIND_T); APJ_FIND_T = setTimeout(async () => {
+    const box = document.getElementById('apjPersonList'), q = (document.getElementById('apjPerson').value || '').trim().toLowerCase(); if(!box) return;
+    if(q.length < 2){ box.innerHTML = ''; return; }
+    if(!Array.isArray(OFFERS) || !OFFERS.length){ box.innerHTML = '<div class="field-note">Reading the offers…</div>'; try{ await loadOffers(); }catch(_){} }
+    const dq = q.replace(/\D/g, '');
+    const hits = (OFFERS || []).filter(o => { const n = ((o.first_name || '') + ' ' + (o.last_name || '')).toLowerCase(); return n.includes(q) || (o.email || '').toLowerCase().includes(q) || (dq.length >= 4 && String(o.phone || '').replace(/\D/g, '').includes(dq)); })
+      .sort((a, z) => String(z.created_at || '').localeCompare(String(a.created_at || ''))).slice(0, 12);
+    const esc2 = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    box.innerHTML = hits.length ? hits.map(o => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-top:6px;">'
+        + '<span style="flex:1;min-width:200px;"><b>' + esc2((o.first_name || '') + ' ' + (o.last_name || '')) + '</b> <span class="field-note">' + esc2(o.position || '') + ' · offer ' + esc2(String(o.created_at || '').slice(0, 10)) + ' · ' + (o.onboarding_path === 'new' ? 'new path' : 'old path') + (/(TEST|TRAINING)/.test(String(o.last_name || '')) ? ' · practice' : '') + '</span></span>'
+        + '<button class="ibtn" onclick="HP.open({offer_id:\'' + esc2(o.id) + '\'})">Their whole journey</button>'
+        + (o.onboarding_path === 'new' ? '<a class="ibtn" style="text-decoration:none" href="step1.html?review=' + esc2(o.id) + '" target="_blank" rel="noopener">Their Step 1 screens</a>' : '')
+        + '</div>').join('') : '<div class="field-note">Nobody with an offer matches. Applicants without an offer are on the Applicants tab.</div>';
+  }, 250);
+}
 function apjWalkthrough(){
   const box = document.getElementById('awBox'); if (!box) return;
   if (box.style.display === 'block') { box.style.display = 'none'; box.innerHTML = ''; return; }

@@ -79,6 +79,7 @@
       else if(part === 'skills') h += skillsCard(p.experience);
       else if(part === 'docs') h += docsHtml(p);
       else if(part === 'timeline') h += timelineHtml(p);
+      else if(part === 'journey') h += journeyCard(p);
     }
     return h;
   }
@@ -157,11 +158,50 @@
     if(st.next && !st.next.from_readiness) h += '<div style="font-size:.86rem;margin-top:.2rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.4rem .6rem"><b>Next:</b> ' + esc(st.next.title) + ' · <b>' + esc(st.next.owner) + '</b>' + (st.next.why ? ' · ' + esc(st.next.why) : '') + '</div>';
     else if(st.next) h += '<div class="field-note" style="margin-top:.2rem">Reading the readiness card for the next step…</div>';
     if(st.missing && st.missing.length) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Missing or follow-up</b><ul style="margin:.2rem 0 0;padding-left:1.1rem">' + st.missing.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul></div>';
+    const oid = (p.ids || {}).offer_id;
     if(st.step1) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Step 1 forms</b> <span class="field-note">signed forms are read-only and never change; open them under Signed documents below</span>'
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.2rem .8rem;margin-top:.2rem">' + st.step1.forms.map(f => '<div>' + (f.signed_at ? '<span style="color:#15803D;font-weight:700">✓</span> ' + esc(f.title) + ' <span class="field-note">' + esc(central(f.signed_at)) + '</span>' : '<span style="color:#B45309;font-weight:700">○</span> ' + esc(f.title) + ' <span class="field-note">not signed yet</span>') + '</div>').join('') + '</div></div>';
+      + (oid ? ' <button class="ibtn" style="font-size:.74rem" onclick="HP.step1(\'' + esc(oid) + '\',this)">&#128065; See their Step 1 screens</button>' : '')
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.2rem .8rem;margin-top:.2rem">' + st.step1.forms.map(f => '<div>' + (f.signed_at ? '<span style="color:#15803D;font-weight:700">✓</span> ' + esc(f.title) + ' <span class="field-note">' + esc(central(f.signed_at)) + '</span>' : '<span style="color:#B45309;font-weight:700">○</span> ' + esc(f.title) + ' <span class="field-note">not signed yet</span>') + '</div>').join('') + '</div></div>'
+      + (oid ? '<div class="hp-s1" data-offer="' + esc(oid) + '" style="display:none;margin-top:.5rem"></div>' : '');
     const sub = st.submitted || {};
     h += '<div class="field-note" style="margin-top:.45rem">What they gave us: ' + [sub.application_at ? 'application ' + central(sub.application_at) + (sub.screen_grade ? ' (screening ' + esc(sub.screen_grade) + ')' : '') : 'no application on file', sub.interview_answers ? 'interview answers' : '', sub.step1_answers ? 'Step 1 answers' : '', sub.references_listed ? sub.references_listed + ' reference' + (sub.references_listed === 1 ? '' : 's') : ''].filter(Boolean).join(' · ')
       + '. To correct contact details, checks or references, use Background &amp; References (editable); signed documents are never edited.</div>';
+    return h + '</div>';
+  }
+  /* 2026-10-13 (Samantha: "show every Step 1 screen ... along with the applicant's answers ... see the complete journey
+     without jumping between systems"): the real Step 1 page in its read-only office view, inside the profile. */
+  function step1(offerId, btn){
+    const sel = '.hp-s1[data-offer="' + offerId + '"]'; let up = btn; while(up && !(up.querySelector && up.querySelector(sel))) up = up.parentElement;
+    const box = up ? up.querySelector(sel) : document.querySelector(sel);
+    if(!box) return;
+    if(box.style.display !== 'none'){ box.style.display = 'none'; box.innerHTML = ''; if(btn) btn.innerHTML = '&#128065; See their Step 1 screens'; return; }
+    box.style.display = 'block'; if(btn) btn.textContent = 'Hide their Step 1 screens';
+    box.innerHTML = '<div class="field-note" style="margin-bottom:.3rem">The screens they saw, with their own answers. Read only; every look is logged with your name. <a href="step1.html?review=' + esc(offerId) + '" target="_blank" rel="noopener">Open in its own tab</a></div>'
+      + '<iframe src="step1.html?review=' + esc(offerId) + '" title="Their Step 1, office view" style="width:100%;max-width:520px;height:760px;border:1px solid #E8E2D8;border-radius:10px;background:#FAF9F6"></iframe>';
+  }
+  /* 2026-10-13: the whole journey on one card, step by step, from the permanent records (the same timeline, grouped):
+     application and prescreen, interview, offer, Step 1, checks and references, Step 2 in Viventium, the Orientation Video
+     Call, training, Approved to Work. Nothing typed here. */
+  const JSTEPS = [
+    ['Application and prescreen', /^Applied|^Application:/],
+    ['Interview', /interview/i],
+    ['Offer', /^Offer|^They opened the offer|^They declined|Position description/],
+    ['Step 1', /Step 1/],
+    ['Background checks and references', /Background & References|OIG|EDL|FCSR|Case\.net|Fingerprint|^Reference|Evidence:/],
+    ['Step 2 in Viventium', /Step 2/],
+    ['Orientation Video Call', /Orientation Video Call/],
+    ['Training', /Orientation completed|Dementia course|On-the-job|Annual training|training/i],
+    ['Approved to Work', /Approved to Work|AxisCare|Hire date|First client visit/],
+  ];
+  function journeyCard(p){
+    const tl = p.timeline || []; const groups = JSTEPS.map(([t]) => ({ t, rows: [] }));
+    tl.forEach(x => { const i = JSTEPS.findIndex(([, re]) => re.test(x.what)); if(i >= 0) groups[i].rows.push(x); });
+    const ids = p.ids || {};
+    let h = '<div style="margin-top:.8rem;border:1px solid #E8E2D8;border-radius:10px;padding:.6rem .75rem"><b style="color:#0D365F">The whole journey, step by step</b> <span class="field-note">every send, answer and completion from the records, newest last; the full list is on History</span>'
+      + (ids.offer_id && p.path === 'new' && window.CRX ? ' <button class="ibtn" style="font-size:.74rem" onclick="CRX.open(\'' + esc(ids.offer_id) + '\')">&#9776; Readiness card: every requirement, who owns it, Approve to Work</button>' : '');
+    h += groups.map(g => '<div style="margin-top:.5rem"><div style="font-size:.8rem;font-weight:800;color:' + (g.rows.length ? '#0D365F' : '#8A7F70') + '">' + esc(g.t) + (g.rows.length ? '' : ' <span class="field-note">nothing yet</span>') + '</div>'
+      + g.rows.slice(-6).map(x => { const T = TYPES[x.type] || TYPES.done; return '<div style="font-size:.78rem;margin:.1rem 0 0 .6rem"><span style="color:#6E6559">' + esc(central(x.at)) + '</span> <span style="font-size:.66rem;font-weight:700;color:' + T[1] + ';background:' + T[2] + ';border-radius:6px;padding:0 .35rem">' + T[0] + '</span> ' + esc(x.what) + (x.by ? ' <span class="field-note">' + esc(x.by) + '</span>' : '') + '</div>'; }).join('')
+      + (g.rows.length > 6 ? '<div class="field-note" style="margin-left:.6rem">and ' + (g.rows.length - 6) + ' earlier on History</div>' : '') + '</div>').join('');
     return h + '</div>';
   }
   /* 2026-10-11 (Samantha: "Everything collected here must feed into the caregiver's matching profile ... I don't want these
@@ -217,5 +257,5 @@
   }
   function watch(){ const box = document.getElementById('offersList'); if(!box || box.dataset.hpWatch) return; box.dataset.hpWatch = '1'; new MutationObserver(() => fillOfferProgress()).observe(box, { childList:true, subtree:true }); fillOfferProgress(); }
   document.addEventListener('DOMContentLoaded', watch); setInterval(watch, 3000);
-  window.HP = { open, panel: panelOpen, close, chip, doc, mount, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
+  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
 })();
