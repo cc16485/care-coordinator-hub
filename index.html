@@ -24851,7 +24851,10 @@ window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.a
    or Candidate pool used to hear nothing. After the office marks them, this shows the exact message (OK sends it,
    Cancel sends nothing). The server (applicant-decision-msg) owns the wording and sends it through GoHighLevel: a text
    with their yes to texts, otherwise the email; 8am to 6pm only (outside that it waits, and their profile offers
-   "Send the message" / "Don't send it"); once per decision. The reason the office wrote is never sent. */
+   "Send the message" / "Don't send it"); once per decision. The reason the office wrote is never sent.
+   NOT HIRING WAITS FOR THE NEXT MORNING (Samantha 2026-10-13: "make the decline text send to the applicant hours after the
+   interview so it looks like we thought about it, or have it send next day"): OK books it for 10am Central tomorrow; their
+   profile shows it with "Send it now" / "Don't send it". The candidate pool message still goes on OK. */
 const AP_DEC_LABEL = { declined:'not-hiring message', pool:'candidate pool message' };
 async function apDecisionCall(body){
   const { data, error } = await sb.functions.invoke('applicant-decision-msg', { body });
@@ -24859,8 +24862,10 @@ async function apDecisionCall(body){
   if(data && data.error && !data.ok) throw new Error(data.error);
   return data || {};
 }
+const apDecWhen = iso => new Date(iso).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'long', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
 function apDecisionResult(d, label){
   if(d.already_sent) return 'The ' + label + ' had already been sent.';
+  if(d.booked_for) return 'Booked. The ' + label + ' goes ' + apDecWhen(d.booked_for) + '. Until then their profile has "Send it now" and "Don\'t send it".';
   if(d.held) return 'Nothing went yet. ' + d.held;
   const sent = [d.texted ? 'text' : '', d.emailed ? 'email' : ''].filter(Boolean);
   return (sent.length ? 'Sent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : 'No message went.')
@@ -24879,9 +24884,19 @@ async function apDecisionOffer(id, kind){
   if(!p.text && !p.email){ alert('They are marked. No ' + label + ' can go to ' + first + ': ' + (p.no_text_why || 'no phone number') + ', and there is no email on file. Nothing was sent.'); return; }
   const how = p.text ? 'a TEXT' : 'an EMAIL' + (p.no_text_why ? ' (no text: ' + p.no_text_why + ')' : '');
   const words = p.text || ('Subject: ' + p.email.subject + '\n\n' + apDecisionEmailText(p.email.html));
-  if(!confirm('Send ' + first + ' the ' + label + '?\n\nThis sends ' + how + ':\n\n' + words + '\n\nOK sends it. Cancel sends nothing.')) return;
+  if(p.booked_for && p.goes_at){ alert('The ' + label + ' is already booked for ' + apDecWhen(p.booked_for) + '.'); return; }
+  const when = p.goes_at ? 'tomorrow morning (' + apDecWhen(p.goes_at) + ')' : 'now';
+  if(!confirm('Send ' + first + ' the ' + label + ' ' + (p.goes_at ? 'tomorrow morning' : '') + '?\n\nThis sends ' + how + ' ' + when + ':\n\n' + words
+    + '\n\n' + (p.goes_at ? 'OK books it for then. Cancel sends nothing.' : 'OK sends it. Cancel sends nothing.'))) return;
   try{ const d = await apDecisionCall({ action:'send', id, kind }); await apLoad(); alert(apDecisionResult(d, label)); }
   catch(e){ alert('Could not send the ' + label + ': ' + (e && e.message || e) + '\n\nThey are still marked.'); }
+}
+/* "Send it now" on a booked Not hiring message. */
+async function apDecisionNow(id, kind){
+  const r = AP_ROWS.find(x=>String(x.id)===String(id)), first = (r && r.first_name) || 'them', label = AP_DEC_LABEL[kind];
+  if(!confirm('Send ' + first + ' the ' + label + ' now instead of waiting for the morning?')) return;
+  try{ const d = await apDecisionCall({ action:'send', id, kind, now:true }); await apLoad(); alert(apDecisionResult(d, label)); }
+  catch(e){ alert('Could not send the ' + label + ': ' + (e && e.message || e)); }
 }
 async function apDecisionSkip(id){
   if(!confirm("Don't send this message? Nothing goes to them, and the button goes away.")) return;
@@ -24895,6 +24910,14 @@ function apDecisionPanel(r){
   const day = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
   if(r.decision_msg_at && r.decision_msg_kind===r.status)
     return '<div style="margin-top:.5rem;font-size:.8rem;color:#15803D;">✓ The ' + esc(label) + ' was sent ' + esc(day(r.decision_msg_at)) + (r.decision_msg_by ? ' by ' + esc(r.decision_msg_by) : '') + '.</div>';
+  const btns = (sendLabel, sendFn) => '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.45rem;">'
+      + '<button class="fb" onclick="' + sendFn + '(\'' + esc(r.id) + '\',\'' + esc(r.status) + '\')">' + sendLabel + '</button>'
+      + '<button class="fb" onclick="apDecisionSkip(\'' + esc(r.id) + '\')">Don\'t send it</button></div>';
+  const box = 'margin-top:.5rem;background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:.55rem .75rem;font-size:.82rem;color:#92400E;';
+  if(r.decision_msg_due_at)
+    return '<div style="' + box + '">The ' + esc(label) + ' goes ' + esc(apDecWhen(r.decision_msg_due_at)) + '.' + btns('Send it now', 'apDecisionNow') + '</div>';
+  if(r.decision_msg_problem)
+    return '<div style="' + box + '">The ' + esc(label) + ' did not go: ' + esc(r.decision_msg_problem) + btns('Try again now', 'apDecisionNow') + '</div>';
   if(r.decision_msg_held_at)
     return '<div style="margin-top:.5rem;background:#FFFBEB;border:1px solid #FCD34D;border-radius:9px;padding:.55rem .75rem;font-size:.82rem;color:#92400E;">'
       + 'The ' + esc(label) + ' is waiting: messages to applicants go 8am to 6pm.'
@@ -24903,7 +24926,7 @@ function apDecisionPanel(r){
       + '<button class="fb" onclick="apDecisionSkip(\'' + esc(r.id) + '\')">Don\'t send it</button></div></div>';
   return '';
 }
-window.apDecisionOffer = apDecisionOffer; window.apDecisionSkip = apDecisionSkip;
+window.apDecisionOffer = apDecisionOffer; window.apDecisionSkip = apDecisionSkip; window.apDecisionNow = apDecisionNow;
 
 /* ---- Applicant journey & messages (2026-10-01) ----
    2026-10-11 (Samantha: "show visuals of the entire application and onboarding experience and the texts and emails
