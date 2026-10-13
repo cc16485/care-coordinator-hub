@@ -15,7 +15,7 @@ def view():
     v = copy.deepcopy(BASE); v['forms'] = v['forms'] + [DOC]; v['screens'] = ['1', '2', '3', '4', '5a', '5b', '6', '7', '8', '8b', '9']
     v['esign_consent_at'] = '2026-10-13T03:00:00Z'; v['current_screen'] = '8b'; v['test_mode'] = False
     v['signatures'] = {k: {'at': '2026-10-13T03:01:00Z', 'typed_name': 'Pat Practice', 'version': f['version']} for k, f in [(f['key'], f) for f in BASE['forms']]}
-    v['signed_count'] = len(v['signatures']); v['form_count'] = 8; v['answers'] = {}
+    v['signed_count'] = len(v['signatures']); v['form_count'] = len(BASE['forms']) + 1; v['answers'] = {}
     return v
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:300]))
@@ -40,7 +40,7 @@ with sync_playwright() as p:
             pg.route('**/functions/v1/step1-sign', handle); pg.goto(PAGE); pg.wait_for_timeout(900)
             tag = f'{eng} {label}'
             t = pg.inner_text('body')
-            ck(f'{tag}: the agreement has its own screen (9 of 11), named, before All done', 'Your employment agreement' in t and 'Screen 10 of 11' in t, t[:300])
+            ck(f'{tag}: the agreement has its own screen, named, counted as a form, before All done', 'Test Employment Agreement' in t and ('of %d signed' % (len(BASE['forms']) + 1)) in t and 'Form ' in t, t[:300])
             n_in_reader = pg.evaluate("document.querySelectorAll('.reader p:not(.inimark)').length")
             ck(f'{tag}: every paragraph of the document is in the reader (nothing shortened)', n_in_reader == len(PARAS) + 1 + 1 + 1, n_in_reader)
             sc = pg.evaluate("(() => { const r = document.querySelector('.reader'); return { sh: r.scrollHeight, ch: r.clientHeight, ov: getComputedStyle(r).overflowY } })()")

@@ -230,7 +230,11 @@ function fieldHtml(it, i, f, r, locked){
 function cardSeg(id, i, k, pairs, v, locked){ return '<div class="seg">' + pairs.map(([val, lab]) => '<button type="button" class="' + (v === val ? 'on' : '') + '" onclick="setCard(\'' + id + '\',' + i + ',\'' + k + '\',\'' + jsq(val) + '\')"' + (locked ? ' disabled' : '') + '>' + esc(lab) + '</button>').join('') + '</div>'; }
 function screenHtml(s){
   const P = PLAN[s]; const n = ORDER.length;
-  let h = '<div class="prog"><span>Screen ' + stepNo(s) + ' of ' + n + '</span><div class="bar"><i style="width:' + Math.round(stepNo(s) / n * 100) + '%"></i></div><span>' + Object.keys(SIGS).length + ' of ' + V.form_count + ' signed</span></div>';
+  /* 2026-10-13: "Form 4 of 12", counted over the forms THEY sign (the Driver or the Non-Driver Agreement, not both) */
+  const fk = P.form, listed = (V.forms || []).filter((x) => !x.when || ANS[x.when.id] === x.when.equals || (!ANS[x.when.id] && V.forms.find((y) => y.when && y.when.id === x.when.id) === x));
+  const fi = fk ? listed.findIndex((x) => x.key === fk || (x.when && FORMS[fk] && FORMS[fk].when && x.when.id === FORMS[fk].when.id)) : -1, done = Object.keys(SIGS).length;
+  const label = s === '1' ? 'Getting started' : s === '9' ? 'All done' : 'Form ' + (fi + 1) + ' of ' + V.form_count;
+  let h = '<div class="prog"><span>' + label + '</span><div class="bar"><i style="width:' + Math.round(done / Math.max(1, V.form_count) * 100) + '%"></i></div><span>' + done + ' of ' + V.form_count + ' signed</span></div>';
   /* TRAINING WALKTHROUGH (2026-10-11): a staff member trying the journey; never their real SSN or date of birth */
   if (/\(TRAINING\)/.test(String((V.who || {}).last || ''))) h += '<div class="why" style="border-color:#B45309;background:#FFF7ED"><b>Training walkthrough.</b> Use the practice Social Security number 987-65-4321 (a number never issued to anyone) and a made-up date of birth and license number. Never type your real ones here.</div>';
   if (PREVIEW) h += previewBar(s);
@@ -406,10 +410,22 @@ async function sign(form){
   if (!document.getElementById('c_sign').checked) { e.style.display = 'block'; e.textContent = 'Please tick "I agree to sign this form electronically" first.'; return; }
   if (name.split(/\s+/).length < 2) { e.style.display = 'block'; e.textContent = 'Please type your full name, first and last.'; return; }
   BUSY = true; btn.disabled = true; btn.textContent = 'Signing…';
-  await flush();
-  const r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials });
+  /* 2026-10-13 (Samantha: each form saves the moment it is signed; never shown as signed until the server confirms; a failed
+     save keeps them on the form with their entries and offers a safe retry; no duplicate signatures). The server writes a
+     signature once; a retry after a save that did go through answers "already", and the page then takes the server's word. */
+  const failed = (msg) => { BUSY = false; btn.disabled = false; btn.textContent = 'Try again: sign and continue'; e.style.display = 'block'; e.textContent = msg; };
+  let r;
+  try { await flush(); r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials }); }
+  catch (err) { return failed('We could not reach Caring Companions, so this form is not signed yet. Your answers are kept on this page. Check your connection and tap the button again.'); }
+  if (r.status !== 200 && r.j && r.j.already) {
+    let v; try { v = await call({ action: 'view' }); } catch (err) { v = null; }
+    if (v && v.status === 200 && v.j.signatures && v.j.signatures[form]) {
+      BUSY = false; SIGS = v.j.signatures; V.completed_at = v.j.completed_at; V.signed_count = v.j.signed_count;
+      return V.completed_at ? go('9') : go(nextOf(SCREEN));
+    }
+  }
   BUSY = false;
-  if (r.status !== 200) { btn.disabled = false; btn.textContent = 'Sign and continue'; e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not sign. Try again.'; return; }
+  if (r.status !== 200) return failed((r.j && r.j.error) || 'This form is not signed yet. Your answers are kept. Tap the button to try again.');
   SIGS[form] = { at: r.j.signed_at, typed_name: name, version: r.j.version };
   if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
 }
@@ -428,7 +444,9 @@ async function init(){
   ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {};
   for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
   if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; return render(); }
+  /* 2026-10-13 (Samantha): reopening the link goes straight to the FIRST form not signed yet (signed forms stay signed) */
   SCREEN = V.completed_at ? '9' : (!V.esign_consent_at ? '1' : (ORDER.includes(V.current_screen) && V.current_screen !== '1' ? V.current_screen : '2'));
+  if (!V.completed_at && V.esign_consent_at) { const first = nextScreen(); if (first && ORDER.indexOf(first) < ORDER.indexOf(SCREEN)) SCREEN = first; }
   if (SCREEN !== '1' && SCREEN !== '9' && formSigned(PLAN[SCREEN].form) && PLAN[SCREEN].sign) SCREEN = nextOf(SCREEN);
   render();
 }

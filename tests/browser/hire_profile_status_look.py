@@ -38,8 +38,8 @@ try:
         pg.evaluate('(p) => { window.NEXTP = p; return HP.open({ offer_id: "o1" }) }', prof(key, jid)); pg.wait_for_timeout(700)
         t = pg.inner_text('#hpBody')
         if key == 'mid':
-            ok('mid Step 1: twelve stages, Step 1 current, next owned by the applicant with the reminders', t.count('. ') >= 12 and 'Now: Step 1' in t and 'They finish Step 1 (3 of 7 signed)' in t and 'the applicant' in t, t[:400])
-            ok('mid Step 1: three forms ticked, four not signed yet, the four named under Missing', t.count('✓ ') >= 3 and t.count('not signed yet') == 5 and 'Step 1 forms not signed yet: Details for the Background Checks, Availability' in t)
+            ok('mid Step 1: twelve stages, Step 1 current, next owned by the applicant with the reminders', t.count('. ') >= 12 and 'Now: Step 1' in t and 'They finish Step 1 (3 of 12 signed)' in t and 'the applicant' in t, t[:400])
+            ok('mid Step 1: each form with its own status: 3 Signed, the rest Not Started; the open link on the signed ones; the outstanding named under Missing', t.count('Signed ') >= 3 and t.count('Not Started') == 9 and pg.locator('#hpBody a[href^="step1.html?review="]').count() == 3 and 'Step 1 forms not signed yet: Details for the Background Checks, Availability' in t)
             ok('mid Step 1: unverified experience is named as not counting yet', 'not verified yet (does not count' in t)
             jt = pg.evaluate('async (p) => { const d = document.createElement("div"); d.id = "hiringMount"; document.body.appendChild(d); await HP.mount(d, { offer_id: "o1" }, ["status","journey","docs"]); await new Promise(r => setTimeout(r, 300)); const t = d.innerText; d.remove(); return t }', prof(key, jid))
             ok('2026-10-13 the whole journey card on the Hiring tab: the offer, Step 1 and an empty Step 2 group, each from the records', 'The whole journey, step by step' in jt and 'Offer letter signed' in jt and 'Step 1 sent automatically' in jt and 'Step 2 in Viventium nothing yet' in jt.replace('\n', ' '), jt[:900])

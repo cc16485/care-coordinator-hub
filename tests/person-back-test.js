@@ -48,7 +48,7 @@ const hp = (got) => { const calls = []; const c = { calls, document: { getElemen
   c = hp({ ids: { applicant_id: 'a9' } }); await c.HP.open({ offer_id: 'o1' }); ok(JSON.stringify(c.calls) === '[["ap","a9","hiring"]]', 'Profile on an offer card finds their application by id');
   ok(/\(HP\.panel \|\| HP\.open\)\(rec \?/.test(ENG), 'openPerson falls back to the panel, never back to HP.open (no loop)');
   ok(!/&#128100;/.test(cut(HPJS, 'function chip(k, label){', '\n')), 'the Profile button has no emoji');
-  ok(/hire-profile\.js\?v=4/.test(IDX), 'browsers fetch the new hire-profile.js');
+  ok(/hire-profile\.js\?v=5/.test(IDX), 'browsers fetch the new hire-profile.js');
   ok(!/—/.test(cut(IDX, 'let PP_BACK = null;', 'window.ppGoBack = ppGoBack;').replace(/'← Back to '/g, '')), 'no em dashes');
   console.log(`person-back: ${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
