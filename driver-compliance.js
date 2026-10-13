@@ -20,10 +20,10 @@
     suspended:  ['Suspended', '#B91C1C', '#FEE2E2'],
     none:       ['Not set up yet', '#6E6559', '#F4F2ED'],
   };
-  const DOC_LABEL = { license_front:'License, front', license_back:'License, back', insurance:'Insurance card or declarations page', mvr:'Driving record (MVR)', other:'Other document', agreement:'Signed agreement' };
+  const DOC_LABEL = { license_front:'License (front)', license_back:'License (back)', insurance:'Proof of auto insurance', mvr:'Driving record (MVR)', other:'Other document' };   /* the server's own labels; docs carry label too */
   const EVENT_WORD = { created:'Set up', agreement_signed:'Agreement signed', doc_uploaded:'Document uploaded', verified:'Verified', approved:'Approved to drive',
     suspended:'Suspended', non_driver:'Marked Non-Driver', driver_requested:'Asked to drive', reminder_sent:'Reminder sent', reminder_held:'Reminder held',
-    reminder_refused:'Reminder not sent', expired:'Expired', note:'Note', link_sent:'Secure link sent' };
+    reminder_refused:'Reminder not sent', expired:'Expired', note:'Note' };
   const VERIFY_WORD = { license:'license', insurance:'insurance', coverage:'coverage for transporting clients', mvr:'driving record' };
   const central = iso => { try{ return new Date(iso).toLocaleString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }); }catch(_){ return String(iso || ''); } };
   const day = d => { if(!d) return ''; try{ return new Date(String(d).slice(0,10) + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); }catch(_){ return String(d); } };
@@ -107,12 +107,14 @@
   const kv = (k, v) => '<div style="display:flex;gap:8px;font-size:13.5px;padding:3px 0;border-bottom:1px dashed #EEE9DF"><span class="field-note" style="min-width:150px;flex:none">' + k + '</span><span style="min-width:0;flex:1">' + v + '</span></div>';
   const by = (at, who) => at ? '<span style="color:#15803D;font-weight:700">Verified</span> <span class="field-note">' + esc(day(at)) + (who ? ' by ' + esc(who) : '') + '</span>' : '<span style="color:#B45309;font-weight:700">Not verified</span>';
   function docBtns(c, docs, kinds){
-    const list = (docs || []).filter(d => kinds.includes(d.kind) && !d.superseded_at);
+    const list = (docs || []).filter(d => kinds.includes(d.kind) && !d.superseded_at).sort((a, z) => kinds.indexOf(a.kind) - kinds.indexOf(z.kind));   /* front before back */
     if(!list.length) return '<span class="field-note">none on file</span>';
     const i = cardIdx(c);
-    return list.map(d => '<button type="button" class="ibtn" style="margin:0 4px 4px 0" data-doc="' + esc(d.id) + '" onclick="DRV.open(' + i + ',\'' + esc(d.id) + '\',this)">Open ' + esc((DOC_LABEL[d.kind] || d.kind).replace(/^License, /, '').replace(/^[A-Z](?=[a-z])/, (m) => m.toLowerCase())) + '</button>'
+    return list.map(d => '<button type="button" class="ibtn" style="margin:0 4px 4px 0" data-doc="' + esc(d.id) + '" onclick="DRV.open(' + i + ',\'' + esc(d.id) + '\',this)">Open ' + esc(docWord(d)) + '</button>'
       + '<span class="field-note" style="margin-right:8px">' + (d.uploaded_at ? esc(day(d.uploaded_at)) : '') + (d.uploaded_by ? ' · ' + esc(d.uploaded_by === 'caregiver' ? 'from the caregiver' : d.uploaded_by) : '') + '</span>').join('');
   }
+  /* the server's label ("License (front)") as a button word: "Open front", "Open proof of auto insurance" */
+  function docWord(d){ const l = String(d.label || DOC_LABEL[d.kind] || d.kind); const m = l.match(/^License \((front|back)\)$/); return m ? m[1] : l.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase()); }
   function draw(c){
     const el = c.el, r = c.data || {}, i = cardIdx(c);
     if(!r.ok){
@@ -124,11 +126,16 @@
     let h = '';
     if(!row){
       /* Existing drivers today: nothing is assumed. Office-typed roster dates are shown as just that. */
-      const g = c.roster || {};
+      const g = p.roster_dates || c.roster || {};
       h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' + pill('none') + '<span class="field-note">No driver compliance record yet. Nobody is treated as a driver until one is set up and approved.</span></div>';
       if(g.dl_expires || g.auto_ins_expires) h += '<div class="field-note" style="margin:4px 0 8px">On the roster, typed by the office and not verified here: '
         + [g.dl_expires ? 'license expires ' + esc(day(g.dl_expires)) : '', g.auto_ins_expires ? 'insurance expires ' + esc(day(g.auto_ins_expires)) : ''].filter(Boolean).join(', ') + '.</div>';
-      h += '<button type="button" class="ibtn ibtn-strong" onclick="DRV.act(' + i + ',\'setup\',this)">Set up driver compliance</button>';
+      if(c.ids.caregiver_id){
+        h += '<button type="button" class="ibtn ibtn-strong" style="margin:0 6px 6px 0" onclick="DRV.act(' + i + ',\'setup\',this)">Set up driver compliance</button>'
+          + '<button type="button" class="ibtn" style="margin:0 6px 6px 0" onclick="DRV.form(' + i + ',\'setup_nd\')">Set up as Non-Driver</button>'
+          + '<div class="field-note">Set up starts them at Pending Verification; nothing counts until the office verifies and approves.</div>';
+        h += formHtml(c, {}, {});
+      } else h += '<div class="field-note">Their record starts from their Step 1 answer, or from the Hub roster once they are on it.</div>';
       h += msgHtml(c);
       el.innerHTML = h; return;
     }
@@ -139,12 +146,11 @@
     if(st !== 'approved') h += '<div class="field-note" style="margin-bottom:6px">Not eligible for shifts that include transporting a client.' + (st === 'non_driver' ? ' They may work every non-driving assignment.' : '') + '</div>';
     /* the record */
     const agreeWord = row.agreement_form === 'non_driver' ? 'Non-Driver Agreement' : row.agreement_form === 'vehicle' ? 'Driver/Vehicle Insurance & Transportation Standards Agreement' : '';
-    const agreeDoc = docs.find(x => x.kind === 'agreement');
     h += kv('Signed agreement', row.agreement_signed_at
       ? esc(agreeWord) + ' <span class="field-note">signed ' + esc(central(row.agreement_signed_at)) + (row.agreement_version ? ', version ' + esc(row.agreement_version) : '') + '</span> '
-        + '<button type="button" class="ibtn" onclick="DRV.open(' + i + ',\'' + esc(agreeDoc ? agreeDoc.id : 'agreement') + '\',this)">Open the signed agreement</button>'
+        + (row.agreement_pdf ? '<button type="button" class="ibtn" onclick="DRV.open(' + i + ',\'agreement\',this)">Open the signed agreement</button>' : '<span class="field-note">(no PDF on file)</span>')
       : '<span style="color:#B45309;font-weight:700">Not signed yet</span>');
-    if(st !== 'non_driver' || row.license_expires || row.insurance_expires || docs.some(x => x.kind !== 'agreement')){
+    if(st !== 'non_driver' || row.license_expires || row.insurance_expires || docs.length){
       h += kv('Driver\'s license', docBtns(c, docs, ['license_front','license_back']));
       h += kv('License expires', row.license_expires ? esc(day(row.license_expires)) + ' · ' + leftWords(daysLeft(row.license_expires)) + (row.license_state ? ' <span class="field-note">(' + esc(row.license_state) + ')</span>' : '') + '<br>' + by(row.license_verified_at, row.license_verified_by) : '<span class="field-note">not given</span>');
       h += kv('Auto insurance', docBtns(c, docs, ['insurance']));
@@ -160,7 +166,7 @@
     /* missing and renewals, from the server's own reading */
     const miss = d.missing || [], ren = d.renewals || [];
     if(miss.length) h += '<div style="margin-top:8px;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:6px 10px;font-size:13px"><b>Missing:</b> ' + miss.map(x => esc(typeof x === 'string' ? x : (x.what || x.label || ''))).join('; ') + '</div>';
-    if(ren.length) h += '<div style="margin-top:6px;font-size:13px"><b>Upcoming renewals:</b> ' + ren.map(x => esc(x.what || '') + ' ' + esc(day(x.expires)) + ' (' + leftWords(x.days_left != null ? Number(x.days_left) : daysLeft(x.expires)) + ')').join('; ') + '</div>';
+    if(ren.length) h += '<div style="margin-top:6px;font-size:13px"><b>Upcoming renewals:</b> ' + ren.map(x => esc(x.label || x.what || '') + ' ' + esc(day(x.expires)) + ' (' + leftWords(x.days_left != null ? Number(x.days_left) : daysLeft(x.expires)) + ')').join('; ') + '</div>';
     /* actions */
     const b = (act, label, strong) => '<button type="button" class="ibtn' + (strong ? ' ibtn-strong' : '') + '" style="margin:0 6px 6px 0" onclick="DRV.form(' + i + ',\'' + act + '\')">' + label + '</button>';
     h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #EEE9DF">'
@@ -195,8 +201,9 @@
     if(d.result) parts.push(mvrWord(d.result));
     if(d.reason) parts.push(d.reason);
     if(d.note) parts.push(d.note);
-    if(d.why) parts.push(d.why);
-    if(d.words) parts.push(d.words);
+    if(d.link_sent) parts.push('secure link: ' + (d.link_sent === 'sent' ? 'sent' : d.link_sent === 'practice' ? 'practice, nothing sent' : 'not sent') + (d.why ? ' (' + d.why + ')' : ''));
+    else if(d.why) parts.push(d.why);
+    if(d.from) parts.push(d.from);
     return parts.join(' · ');
   }
   function msgHtml(c){
@@ -217,7 +224,8 @@
       const what = f.slice(7);
       let inner = '';
       if(what === 'license') inner += lab('License expiration date (as printed on the card)') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.license_expires || '') + '">';
-      if(what === 'insurance') inner += lab('Policy expiration date') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.insurance_expires || '') + '">';
+      if(what === 'insurance') inner += lab('Policy expiration date') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.insurance_expires || '') + '">'
+        + lab('Insurance company') + '<input type="text" id="drvIns' + i + '" ' + inp + ' value="' + esc(row.insurer || '') + '">';
       if(what === 'mvr'){
         inner += lab('Result') + '<select id="drvRes' + i + '" ' + inp + '><option value="">Choose…</option><option value="acceptable">Acceptable</option><option value="not_acceptable">Not acceptable</option></select>';
         inner += lab('The driving record itself (optional): a PDF or photo, kept private') + '<input type="file" id="drvFile' + i + '" accept="image/*,application/pdf" style="font-size:13px">';
@@ -229,91 +237,111 @@
       const bl = d.approve_blockers || [];
       const inner = (d.can_approve === false && bl.length
         ? '<div style="color:#B91C1C;font-size:13px"><b>Not ready to approve.</b> The server lists:</div><ul style="margin:4px 0 0 18px;padding:0;font-size:13px">' + bl.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>'
+        : d.may_approve === false ? '<div style="font-size:13px">Only a person on the Admin page\'s Approve drivers list (or an owner) may approve. The server will refuse this for you.</div>'
         : '<div style="font-size:13px">Approve <b>' + esc(row.name || 'this caregiver') + '</b> to drive clients? Only the people on the Approve drivers list may do this; the server checks.</div>');
       return box('Approve driver', inner, 'DRV.act(' + i + ',\'approve\',this)', 'Approve driver');
     }
     if(f === 'suspend') return box('Suspend driving', lab('Reason (required)') + '<textarea id="drvNote' + i + '" rows="2" ' + inp + ' placeholder="e.g. license suspended, insurance lapsed"></textarea>', 'DRV.act(' + i + ',\'suspend\',this)', 'Suspend');
     if(f === 'non_driver') return box('Mark Non-Driver', lab('Reason (required)') + '<textarea id="drvNote' + i + '" rows="2" ' + inp + ' placeholder="e.g. they told us they no longer drive"></textarea>', 'DRV.act(' + i + ',\'non_driver\',this)', 'Mark Non-Driver');
     if(f === 'send_link') return box('Send the caregiver their secure link',
-      lab('Why') + '<select id="drvWhy' + i + '" ' + inp + '><option value="renewal">A renewal: new license or insurance</option><option value="driver_change">They want to change to driving (or back)</option><option value="missing">Something is missing</option><option value="other">Something else</option></select>'
-      + lab('Words for the office record (optional)') + '<input type="text" id="drvNote' + i + '" ' + inp + '>'
-      + '<div class="field-note" style="margin-top:6px">One text and one email with their private link, inside sending hours, to their own number and email. Opt-outs are respected.</div>',
+      lab('Why') + '<select id="drvWhy' + i + '" ' + inp + '><option value="renewal">To upload a renewed license or insurance</option><option value="documents">To add their license photos and proof of insurance</option><option value="change">To change their driving status or sign the driver agreement</option></select>'
+      + '<div class="field-note" style="margin-top:6px">One text and one email with their private link, inside sending hours, to their own number and email. Opt-outs are respected. While the sending switch is off, nothing is sent and the link is shown here for you to pass on.</div>',
       'DRV.act(' + i + ',\'send_link\',this)', 'Send the link');
+    if(f === 'setup_nd') return box('Set up as Non-Driver', lab('Reason (required)') + '<textarea id="drvNote' + i + '" rows="2" ' + inp + ' placeholder="e.g. told us they do not drive"></textarea>', 'DRV.act(' + i + ',\'setup_nd\',this)', 'Set up as Non-Driver');
     return '';
   }
   function cardAt(i){ const c = CARDS[i]; return c && c.el.isConnected ? c : null; }
   function setForm(i, f){ const c = cardAt(i); if(!c) return; c.form = f || null; c.msg = ''; c.blockers = null; draw(c); }
   const val = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
-  async function after(c, r, okWords){
-    if(r.ok){ c.form = null; c.msg = okWords; c.msgOk = true; c.blockers = null; }
-    else { c.msg = r.error; c.msgOk = false; const bl = r.data && (r.data.approve_blockers || r.data.blockers || r.data.missing); c.blockers = Array.isArray(bl) ? bl : null; }
+  async function after(c, r, okWords, bad){
+    if(r.ok){ c.form = null; c.msg = okWords; c.msgOk = !bad; c.blockers = null; }
+    else { c.msg = r.error; c.msgOk = false; const bl = r.data && r.data.blockers; c.blockers = Array.isArray(bl) ? bl : null; }
     drop(c.ids); await load(c, true);
     refreshGates(c.ids);
   }
   function busy(btn, on){ if(btn){ btn.disabled = on; if(on){ btn.dataset.t = btn.textContent; btn.textContent = 'Working…'; } else if(btn.dataset.t) btn.textContent = btn.dataset.t; } }
+  const rowOf = (c) => (c.data && c.data.data && c.data.data.row) || null;
+  /* every action after get names the record by its id (key = row.id); setup names the roster caregiver */
   async function act(i, action, btn){
     const c = cardAt(i); if(!c) return;
-    const body = Object.assign({ action }, c.ids, { key:c.ids });
-    const row = (c.data && c.data.data && c.data.data.row) || null; if(row && row.id) body.dc_id = row.id;
+    const row = rowOf(c);
+    let body;
+    if(action === 'setup' || action === 'setup_nd'){
+      body = { action:'setup', caregiver_id:c.ids.caregiver_id };
+      if(action === 'setup_nd'){ const reason = val('drvNote' + i); if(!reason){ c.msg = 'Please give the reason.'; c.msgOk = false; draw(c); return; } body.as = 'non_driver'; body.reason = reason; }
+    } else {
+      if(!row){ c.msg = 'Driver compliance is not set up for them yet.'; c.msgOk = false; draw(c); return; }
+      body = { action, key:row.id };
+    }
     if(action === 'suspend' || action === 'non_driver'){
       const reason = val('drvNote' + i);
       if(!reason){ c.msg = 'Please give the reason.'; c.msgOk = false; draw(c); return; }
       body.reason = reason;
     }
     if(action === 'send_link'){
-      body.why = val('drvWhy' + i) || 'other'; const n = val('drvNote' + i); if(n) body.note = n;
+      body.why = val('drvWhy' + i) || 'renewal';
       if(!confirm('Send ' + ((row && row.name) || 'the caregiver') + ' their secure driver link now, by text and email?')) return;
     }
     busy(btn, true);
     const r = await call(body);
     busy(btn, false);
-    const words = { setup:'Set up. Nothing is assumed: they show as Pending until documents are verified and approved, or Non-Driver once they sign that agreement.', approve:'Approved to drive clients.', suspend:'Driving suspended.', non_driver:'Marked Non-Driver.', send_link:'Sent. It shows in the history.' }[action] || 'Done.';
-    await after(c, r, (r.ok && r.data && r.data.message) || words);
+    if(action === 'send_link' && r.ok) return after(c, r, sendWords(r.data), r.data.state === 'failed');
+    const words = { setup:'Set up at Pending Verification. Nothing counts until the office verifies the documents and approves.', setup_nd:'Set up as Non-Driver.', approve:'Approved to drive clients.', suspend:'Driving suspended.', non_driver:'Marked Non-Driver.' }[action] || 'Done.';
+    await after(c, r, words);
   }
+  /* send_link answers { state: sent | practice | failed, texted, emailed, not_sent[], link (practice only) } */
+  function sendWords(d){
+    d = d || {};
+    if(d.state === 'sent') return 'Sent' + (d.texted && d.emailed ? ' by text and email.' : d.texted ? ' by text.' : ' by email.') + ((d.not_sent || []).length ? ' Not sent: ' + d.not_sent.join('; ') + '.' : '');
+    if(d.state === 'practice') return 'Practice: nothing was sent (' + (d.why || 'sending is off') + ').' + (d.link ? ' Their link, to pass on yourself: ' + d.link : '');
+    return 'Not sent: ' + ((d.not_sent || []).join('; ') || 'no reason given') + '.';
+  }
+  const CT_BY_EXT = { jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', heic:'image/heic', heif:'image/heic', webp:'image/webp', pdf:'application/pdf' };
+  const ctOf = (file) => { const t = String(file.type || '').toLowerCase(); if(t === 'image/jpg') return 'image/jpeg'; if(t === 'image/heif') return 'image/heic'; return t || CT_BY_EXT[(String(file.name || '').split('.').pop() || '').toLowerCase()] || ''; };
   /* verify: an optional staff upload of the proof first (MVR), through the server's signed upload, then the stamp */
   async function verify(i, what, btn){
     const c = cardAt(i); if(!c) return;
-    const row = (c.data && c.data.data && c.data.data.row) || null;
-    const body = Object.assign({ action:'verify', what }, c.ids, { key:c.ids }); if(row && row.id) body.dc_id = row.id;
-    const exp = val('drvExp' + i), note = val('drvNote' + i), res = val('drvRes' + i);
+    const row = rowOf(c); if(!row) return;
+    const body = { action:'verify', key:row.id, what };
+    const exp = val('drvExp' + i), note = val('drvNote' + i), res = val('drvRes' + i), ins = val('drvIns' + i);
     if((what === 'license' || what === 'insurance') && !exp){ c.msg = 'Please enter the expiration date you checked.'; c.msgOk = false; draw(c); return; }
     if(what === 'mvr' && !res){ c.msg = 'Please choose the driving record result.'; c.msgOk = false; draw(c); return; }
-    if(exp) body.expires = exp; if(note) body.note = note; if(res) body.result = res;
+    if(exp) body.expires = exp; if(note) body.note = note; if(res) body.result = res; if(what === 'insurance' && ins) body.insurer = ins;
     const fileEl = document.getElementById('drvFile' + i), file = fileEl && fileEl.files && fileEl.files[0];
     busy(btn, true);
     if(file){
-      const up = await uploadProof(c, 'mvr', file);
+      const up = await uploadProof(row.id, 'mvr', file);
       if(!up.ok){ busy(btn, false); c.msg = up.error; c.msgOk = false; c.blockers = null; draw(c); return; }
     }
     const r = await call(body);
     busy(btn, false);
     await after(c, r, 'The ' + VERIFY_WORD[what] + ' is recorded as verified, with your name and the time.');
   }
-  async function uploadProof(c, kind, file){
+  /* upload_url { key, kind, content_type } -> { path, token, url }; the file PUT to url; record { key, kind, path, content_type } */
+  async function uploadProof(key, kind, file){
     if(file.size > 15 * 1024 * 1024) return { ok:false, error:'That file is over 15 MB. Please choose a smaller one.' };
-    const ext = (String(file.name || '').split('.').pop() || '').toLowerCase();
-    const u = await call(Object.assign({ action:'upload_url', kind, content_type:file.type || '', ext }, c.ids, { key:c.ids }));
+    const ct = ctOf(file);
+    const u = await call({ action:'upload_url', key, kind, content_type:ct });
     if(!u.ok) return { ok:false, error:u.error };
-    const url = u.data.signed_url || u.data.url || u.data.signedUrl;
-    if(!url || !u.data.path) return { ok:false, error:'The upload could not start: the server gave no upload address.' };
+    if(!u.data.url || !u.data.path) return { ok:false, error:'The upload could not start: the server gave no upload address.' };
     try{
-      const put = await fetch(url, { method:'PUT', headers:{ 'Content-Type':file.type || 'application/octet-stream', 'x-upsert':'false' }, body:file });
+      const put = await fetch(u.data.url, { method:'PUT', headers:{ 'Content-Type':ct, 'x-upsert':'false' }, body:file });
       if(!put.ok) return { ok:false, error:'The upload did not finish (' + put.status + '). Please try again.' };
     }catch(e){ return { ok:false, error:'The upload did not finish. Check the connection and try again.' }; }
-    const rec = await call(Object.assign({ action:'record', kind, path:u.data.path }, c.ids, { key:c.ids }));
+    const rec = await call({ action:'record', key, kind, path:u.data.path, content_type:ct });
     return rec.ok ? { ok:true } : { ok:false, error:rec.error };
   }
-  /* documents open only through the server: it writes the open to the access log with your name, then a five-minute link */
+  /* documents open only through the server: open { doc_id } or { key, what: 'agreement' } -> { url } (logged with your name) */
   async function open(i, docId, btn){
     const c = cardAt(i); if(!c) return;
+    const row = rowOf(c);
     const w = window.open('', '_blank');
     if(w) try{ w.document.write('<p style="font-family:sans-serif">Opening the document…</p>'); }catch(_){}
     busy(btn, true);
-    const body = Object.assign({ action:'open' }, c.ids, { key:c.ids });
-    if(docId === 'agreement') body.doc = 'agreement'; else body.doc_id = docId;
+    const body = docId === 'agreement' ? { action:'open', key:row && row.id, what:'agreement' } : { action:'open', doc_id:docId };
     const r = await call(body);
     busy(btn, false);
-    const url = r.ok && r.data && (r.data.url || r.data.signed_url);
+    const url = r.ok && r.data && r.data.url;
     if(url){ if(w) w.location = url; else window.open(url, '_blank'); c.msg = ''; draw(c); return; }
     if(w) try{ w.close(); }catch(_){}
     c.msg = 'Not opened: ' + (r.error || 'the server gave no link.'); c.msgOk = false; c.blockers = null; draw(c);

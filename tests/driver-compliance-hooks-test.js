@@ -17,7 +17,7 @@ ck('applicant page: the card is mounted once when the Hiring tab opens, keyed by
 ck('applicant page: the card sits in the Hiring pane', /pane\('hiring',[\s\S]*?<div id="apDrv"><\/div>[\s\S]*?pane\('checks'/.test(html));
 ck('DRV opens documents only through the server: no storage address or bucket read in the file', !/storage\/v1\/object\/(public|sign)\//.test(js) && !/\.storage\.from\(/.test(js) && /action:'open'/.test(js));
 ck('the caregiver page carries the same 208-character public key as step1.html', (() => { const k = (s) => (s.match(/const SUPA_ANON = '([^']+)'/) || [])[1]; return k(page) && k(page) === k(step1) && k(page).length === 208; })());
-ck('the caregiver page calls functions/v1/driver-compliance with the link (k, e, t)', /functions\/v1\/driver-compliance/.test(page) && /k: q\.get\('k'\)/.test(page) && /\.\.\.LINK/.test(page));
+ck('the caregiver page calls functions/v1/driver-compliance with the link (d, e, t)', /functions\/v1\/driver-compliance/.test(page) && /d: q\.get\('d'\)/.test(page) && /\.\.\.LINK/.test(page));
 ck('nothing in either new file uses browser storage', !/localStorage|sessionStorage|indexedDB/.test(page + js));
 ck('no em dash and no "plain language" in the new files or the new index.html lines', !/—/.test(page + js) && !/plain (language|english)/i.test(page + js) && !html.split('\n').filter((l) => /DRV|cgdDrv|apDrv|driver-compliance/.test(l)).some((l) => /—/.test(l)));
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
