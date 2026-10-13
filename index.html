@@ -21232,7 +21232,7 @@ function ivqRender(){
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
         + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
       + '<span style="flex:1;"></span>'
-      + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Office line</a>':'')
+      + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
@@ -23276,7 +23276,7 @@ function apInvRender(){
         + ' · '+[i.texted?'text':'', i.emailed?'email':''].filter(Boolean).join(' + ')+'</span>'
       + (call ? '<span style="font-size:12px;font-weight:800;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 10px;">Give them a call</span>' : '')
       + '<span style="flex:1;"></span>'
-      + (i.phone ? '<a class="fb" style="text-decoration:none;"'+ocAttrs(i.phone,{email:i.email})+'>📞 Office line</a>' : '')
+      + (i.phone ? '<a class="fb" style="text-decoration:none;"'+ocAttrs(i.phone,{email:i.email})+'>📞 Call</a>' : '')
       + '<button class="fb" onclick="apInvDone('+Number(i.id)+',this)">Called them, done</button>'
       + '</div>';
   }).join('');
