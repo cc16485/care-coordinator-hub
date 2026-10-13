@@ -804,6 +804,10 @@
         + (q.guidance ? '<div class="ph-s">' + esc(q.guidance) + '</div>' : '')
         + '<textarea class="ph-in" rows="3" data-ivq="' + esc(q.id) + '" placeholder="What they said (the recording catches it too)">' + esc(a.note || '') + '</textarea></div>';
     });
+    /* 2026-10-13 (her "yes to all", reviewer point 3): after the questions, before the honest picture. Only on a tap. */
+    h += '<div class="ph-card"><div class="ph-k">After question 6</div><div class="ph-t" style="font-size:16px">Check before they leave</div>'
+      + '<div class="ph-s">Ends part 1 of the recording, writes it out, and lists anything the questions did not cover, so you can ask now. Then press Start recording for part 2. Usually a couple of minutes.</div>'
+      + '<div class="ph-btns"><button class="ph-b" data-iv="check">Check before they leave</button></div><div id="phIvCheck"></div></div>';
     h += '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>'
       + '<div class="ph-card"><div class="ph-k">Quick check, 30 seconds</div><div class="ph-s">Only what their application did not answer.</div><div id="phIvQuick"></div></div>'
       + '<div id="phIvObs"></div>'
@@ -815,7 +819,9 @@
          same record, and the same message offered with OK first); Hire needs the offer form, which is in the full Hub. */
       + '<div class="ph-card"><div class="ph-k">After the interview</div><div class="ph-s">Saves your notes first.</div><div class="ph-btns">'
       + '<button class="ph-b" data-iv="pool">Candidate pool</button><button class="ph-b" data-iv="declined">Not hiring</button></div>'
-      + '<div class="ph-h">Hire: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">make the offer in the full Hub</a> (the offer form is there).</div></div>';
+      + '<div class="ph-h">Hire: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">make the offer in the full Hub</a> (the offer form is there).</div></div>'
+      + '<div class="ph-card"><div class="ph-k">AI review (only when you tap it)</div><div class="ph-s">Once the recording is written out. Read it, confirm or dismiss each point, and make follow-up tasks on their Interview tab in the full Hub.</div>'
+      + '<div class="ph-btns"><button class="ph-b" data-iv="analyze">Analyze Interview</button></div></div>';
     box.innerHTML = h;
     ivQuick();
     ivObsMount();
@@ -914,6 +920,45 @@
     var n = box.querySelector('[data-ivf="notes"]'); if (n && document.activeElement !== n) n.value = IV.A.notes || '';
     var s2 = document.getElementById('phIvSaid'); if (s2) s2.textContent = 'Not saved to their record yet (kept on this phone).';
   }
+  /* Check before they leave: stop part 1 if it is recording, wait for its transcript, then the short AI check. */
+  async function ivWaitTranscript(since, out) {
+    for (var i = 0; i < 72; i++) {
+      var q = await sb.from('recordings').select('id,status,consent_given,created_at').eq('kind', 'interview').eq('subject_id', IV.id).order('created_at', { ascending: false });
+      var rows = (q.data || []).filter(function (r) { return r.consent_given; });
+      var mine = rows.filter(function (r) { return !since || Date.parse(r.created_at) >= since - 120000; });
+      var pending = (mine.length ? mine : rows).filter(function (r) { return r.status === 'recorded' || r.status === 'transcribing'; });
+      if (rows.length && !pending.length && rows.some(function (r) { return r.status === 'done'; })) return true;
+      if (rows.length && !pending.length && rows.every(function (r) { return r.status === 'failed'; })) return false;
+      out.innerHTML = '<div class="ph-h">Writing out the recording… ' + (i * 5) + 's</div>';
+      await new Promise(function (r) { setTimeout(r, 5000); });
+    }
+    return false;
+  }
+  async function ivCheck(btn) {
+    var out = document.getElementById('phIvCheck'); if (!out || !window.IR) return;
+    btn.disabled = true; var since = Date.now();
+    try {
+      if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording') { recStop(); out.innerHTML = '<div class="ph-h">Part 1 stopped. Uploading…</div>'; await new Promise(function (r) { setTimeout(r, 3000); }); }
+      if (!(await ivWaitTranscript(since, out))) { out.innerHTML = '<div class="ph-msg bad" style="margin:8px 0 0">The transcript is not ready (or there is no recording with consent). Carry on; you can Analyze afterwards.</div>'; btn.disabled = false; return; }
+      out.innerHTML = '<div class="ph-h">Reading it…</div>';
+      var d = await IR.call({ applicant_id: IV.id, kind: 'check' });
+      var items = (d.review && d.review.items) || [];
+      var ask = items.filter(function (x) { return x.section === 'missed'; }), con = items.filter(function (x) { return x.section === 'concerns'; });
+      out.innerHTML = '<div class="ph-k" style="margin-top:10px;color:#A8660E">AI · to ask now</div>'
+        + (ask.length || con.length ? ask.concat(con).map(function (x) {
+          return '<div class="ph-s" style="color:#1B2733;font-size:14px;border-left:3px solid #A8660E;padding-left:8px;margin-top:8px">' + esc(x.text || x.clarify || '')
+            + (x.said && x.said[0] ? '<div class="ph-s">They said: “' + esc(x.said[0].quote) + '”</div>' : '') + '</div>'; }).join('')
+          : '<div class="ph-s">Nothing obvious was missed.</div>')
+        + '<div class="ph-h" style="margin-top:8px">Saved on their Interview tab. Now press Start recording above for part 2.</div>';
+    } catch (e) { out.innerHTML = '<div class="ph-msg bad" style="margin:8px 0 0">The check did not run: ' + esc(e && e.message || e) + '. Nothing was saved.</div>'; }
+    btn.disabled = false;
+  }
+  async function ivAnalyze(btn) {
+    if (!window.IR) return; btn.disabled = true; btn.textContent = 'Reading the interview…';
+    try { await IR.call({ applicant_id: IV.id, kind: 'full' }); say('The AI review is on their Interview tab in the full Hub.', 'ok'); }
+    catch (e) { say('The AI review did not run: ' + (e && e.message || e), 'bad'); }
+    btn.disabled = false; btn.textContent = 'Analyze Interview';
+  }
   async function ivDecide(outcome, btn) {
     var r = IV.r, A = IV.A, nm = r.first_name || 'them';
     var reason = null, p = null;
@@ -950,6 +995,8 @@
       return show('today');
     }
     if (a === 'save') return ivSave(b);
+    if (a === 'check') return ivCheck(b);
+    if (a === 'analyze') return ivAnalyze(b);
     if (a === 'pool' || a === 'declined') return ivDecide(a, b);
   }
 
