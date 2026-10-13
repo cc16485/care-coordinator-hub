@@ -14,7 +14,7 @@ try:
     pg.goto(f'http://127.0.0.1:{PORT}/index.html'); pg.wait_for_timeout(1200)
     pg.evaluate("""() => { OFFERS = [
       { id:'11111111-2222-3333-4444-555555555555', first_name:'Robin', last_name:'Newpath', phone:'4175550301', email:'robin@practice.invalid', position:'Caregiver', onboarding_path:'new', created_at:'2026-10-12T15:00:00Z' },
-      { id:'22222222-2222-3333-4444-555555555555', first_name:'Olive', last_name:'Oldpath', phone:'4175550302', position:'CNA', onboarding_path:'old', created_at:'2026-10-01T15:00:00Z' },
+      { id:'22222222-2222-3333-4444-555555555555', name:'Olive Oldpath', phone:'4175550302', position:'CNA', onboarding_path:'old', created_at:'2026-10-01T15:00:00Z' },
       { id:'33333333-2222-3333-4444-555555555555', first_name:'Pat', last_name:'Practice (TEST)', phone:'', position:'Caregiver', onboarding_path:'new', created_at:'2026-10-11T15:00:00Z' } ];
       window.HPCALLS = []; window.HP = { open: (k) => HPCALLS.push(k) };
       document.querySelectorAll('.tabpanel').forEach(p => p.classList.remove('active')); document.getElementById('tab-apjourney').classList.add('active'); }""")
