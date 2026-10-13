@@ -7095,6 +7095,7 @@ The HomeTogether team</pre>
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
+<script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=14"></script>
 <script src="client-care.js?v=6"></script>
@@ -17932,6 +17933,7 @@ async function cgdOpenProfile(axid, tab){
     +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', '<div id="cgdRefsBody">'+cgdRefsHtml(g)+'</div>', 'cgdRefsCard')
     +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +(window.DRV?card('Driver Compliance <span class="field-note" style="font-weight:400;">whether they may drive clients, with the documents and every change</span>', '<div id="cgdDrv"></div>', 'cgdDrvCard'):'')   /* 2026-10-13 driver-compliance.js */
+    +(window.DT?card('Drug tests <span class="field-note" style="font-weight:400;">only when our policy calls for one; owners record</span>', '<div id="cgdDt"></div>', 'cgdDtCard'):'')   /* 2026-10-13 drug-tests.js (her ruling) */
     +'</div>'
 
     +'<div id="cgdSec-skills" style="display:none;">'
@@ -17974,6 +17976,7 @@ async function cgdOpenProfile(axid, tab){
   try{ cgdKindMount(c); }catch(_){}
   cgdEvvFormsMount(c);
   try{ if(window.DRV) DRV.mountCaregiver(c, g); }catch(_){}   /* 2026-10-13 Driver Compliance card + Overview line */
+  try{ if(window.DT) DT.mount(document.getElementById('cgdDt'), g ? { caregiver_id:g.id, offer_id:g.offer_id, candidate_id:g.candidate_id, name:((g.first||'')+' '+(g.last||'')).trim() } : {}); }catch(_){}   /* 2026-10-13 Drug tests */
   const hint=(CGD_APP_HINT&&CGD_APP_HINT.axid===String(c.id))?CGD_APP_HINT.id:keepApp;
   { const hb=document.getElementById('cgdSecBtn-hiring'); if(hb&&!hint) hb.style.display='none'; }
   cgdSection(tab||keepTab||'overview');
@@ -23731,6 +23734,7 @@ function apTab(k){
   /* the Whole profile's pieces, read when their tab is first opened */
   if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
   if(k === 'hiring' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
+  if(k === 'checks' && window.DT){ const el = document.getElementById('apDt'); if(el && !el.dataset.done){ el.dataset.done = '1'; DT.mount(el, { applicant_id: r.id, name: [r.first_name, r.last_name].filter(Boolean).join(' ') }); } }   /* 2026-10-13 Drug tests */
   if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
   if(k === 'interview'){ const el = document.getElementById('apHpSkills'); if(el && !el.dataset.done && apIsOffered(r)){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['skills']); } }
 }
@@ -23881,7 +23885,8 @@ function apRenderProfile(){
       + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : ''))   /* 2026-10-13 driver-compliance.js */
     + pane('checks',
         apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
-          'Read live from the training platform, which is where it actually lives.'))
+          'Read live from the training platform, which is where it actually lives.')
+      + (window.DT ? apProfCard('Drug tests', '<div id="apDt"></div>', 'Only when our policy calls for one. Owners record; nothing here happens on its own.') : ''))   /* 2026-10-13 drug-tests.js (her ruling) */
     + pane('performance', apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.'))
     + pane('messages', window.ApText ? apProfCard('Texts & emails', ApText.threadHtml(r), 'What we have sent them and what they sent back, from GoHighLevel. Reply from here.') : apProfCard('Texts & emails', '<div class="field-note">Texting did not load. Refresh the page.</div>', ''))   /* 574 */
     + pane('history',

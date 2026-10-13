@@ -8206,6 +8206,12 @@ const WC_TICKS = [
   ['photo_link_sent', 'Photo link sent'],
 ];
 let WC_ROWS = [], WC_LOADED = false, WC_ERR = '', WC_AT = 0;
+/* 2026-10-13 (her ruling, 19 CSR 15-7.021(24)(B)5): the Step 1 Client Rights signature is receipt and review only; the office
+   explains Client Rights, the Code of Ethics and the HIPAA policy on the call. The tick is sent with the done press (the
+   server records who and when, and refuses done without it on the new onboarding path); it is never saved from the page. */
+const WC_RIGHTS_LABEL = 'I went over the Client Rights, the Code of Ethics and the HIPAA policy with them, and they confirmed they understand';
+const WC_RIGHTS = {};
+function wcRights(id, box){ WC_RIGHTS[String(id)] = !!box.checked; }
 const wcEsc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const wcDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone: WC_TZ }) : '';
 const wcWhen = iso => { const d = new Date(iso);
@@ -8425,6 +8431,10 @@ function wcCard(w){
       ${WC_TICKS.map(([k, label]) => `<label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--navy);cursor:pointer">
         <input type="checkbox" ${w[k] ? 'checked' : ''} onchange="wcTick('${id}','${k}',this)"> ${label}</label>`).join('')}
     </div>
+    ${w.rights_explained_at
+      ? `<div style="font-size:.78rem;color:#15803D;margin:0 0 .45rem">✓ Client Rights, Code of Ethics and HIPAA explained ${wcEsc(wcDay(w.rights_explained_at))}${w.rights_explained_by ? ' by ' + wcEsc(w.rights_explained_by) : ''}; they confirmed they understand.</div>`
+      : `<label style="display:flex;align-items:flex-start;gap:.35rem;font-size:.78rem;color:var(--navy);cursor:pointer;margin:0 0 .45rem;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:7px;padding:.35rem .5rem">
+        <input type="checkbox" style="margin-top:.15rem" ${WC_RIGHTS[String(w.id)] ? 'checked' : ''} onchange="wcRights('${id}',this)"> <span><b>${WC_RIGHTS_LABEL}</b><br><span style="color:var(--gray)">They signed Client Rights in Step 1 (received and reviewed). Explain all three on this call before their first shift. Needed to mark the call done on the new onboarding path.</span></span></label>`}
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.35rem .6rem;margin:0 0 .45rem">${cgpBtnHtml(w.candidate_id)}
       <span style="font-size:.7rem;color:var(--gray)">Draft it before the call, read it to them, then send the photo link.</span></div>
     <textarea placeholder="Notes from the call" onchange="wcNotes('${id}',this)" style="width:100%;min-height:42px;font:inherit;font-size:.78rem;padding:.4rem .5rem;border:1px solid var(--border);border-radius:7px;box-sizing:border-box">${wcEsc(w.notes || '')}</textarea>
@@ -8497,6 +8507,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, set up the app you'll use to clock in, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
       <li><b>ID check for the I-9:</b> "You uploaded photos of your documents in Viventium. Now I need to see the same original documents on camera. Hold up your [document 1], front first please, now the back. Thank you, and your [document 2], front and back." After the call, tick the remote examination box and complete Section 2 in Viventium (E-Verify remote procedure).</li>
       <li><b>Viventium:</b> confirm that Step 2 is done. If it is not, reschedule.</li>
+      <li><b>Client Rights, Code of Ethics and HIPAA:</b> "In Step 1 you signed that you received and reviewed our Client Rights, our Code of Ethics and our HIPAA policy. Let's go over each one together now." Explain each in your own words and answer their questions. Then ask: "Do you understand all three?" When they confirm, tick <b>${WC_RIGHTS_LABEL}</b>. The Hub records your name and the time when you press done. This must happen before their first shift.</li>
       <li><b>Hire them in AxisCare (office, while you talk):</b> if they are still an applicant in AxisCare, hire them now and set their status to <b>In Training</b>. Check that their mobile phone or email in AxisCare is the one they use: that is how their orientation link finds them.</li>
       <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
       <li><b>Caregiver profile:</b> open <b>🪪 Caregiver profile</b>. "Before your first visit, the family sees a short profile of you, so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Read each part aloud. Ask any [ask: …] questions and type their answers in their own words (take the brackets out). Type their changes and press <b>Save</b>.
@@ -8582,7 +8593,8 @@ async function wcAct(id, action, reason, btn){
   let ask = '';
   if(action === 'done'){
     if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the Orientation Video Call done anyway?')) return;
-    ask = 'Mark the Orientation Video Call with ' + name + ' as done and send their orientation link?\n\n'
+    ask = (WC_RIGHTS[String(w.id)] || w.rights_explained_at ? '' : 'The box "' + WC_RIGHTS_LABEL + '" is not ticked. On the new onboarding path the Hub will not mark the call done without it.\n\n')
+      + 'Mark the Orientation Video Call with ' + name + ' as done and send their orientation link?\n\n'
       + 'First: they must be hired in AxisCare with status In Training. The Training Platform finds them there by phone or email and sends their orientation link by text and email.\n\n'
       + 'Remember to complete I-9 Section 2 in Viventium.';
   } else if(action === 'reschedule' && reason === 'step2'){
@@ -8597,7 +8609,8 @@ async function wcAct(id, action, reason, btn){
   if(!confirm(ask)) return;
   if(btn) btn.disabled = true;
   try{
-    const d = await wcCall(reason ? { action, id: w.id, reason } : { action, id: w.id });
+    const d = await wcCall(reason ? { action, id: w.id, reason } : action === 'done' ? { action, id: w.id, rights_explained: WC_RIGHTS[String(w.id)] === true } : { action, id: w.id });
+    if(action === 'done') delete WC_RIGHTS[String(w.id)];
     let head = { done:'Orientation Video Call marked done.', reschedule:'Call moved. Their invitation stays open so they can pick a new time.',
       noshow:'Marked as missed.', now:'Sent. Join the shared room and admit them when they ask to join.' }[action];
     /* Step 2 was marked done but is not: clear it so the record matches Viventium. */
@@ -10475,7 +10488,7 @@ window.obRefTextOpen = obRefTextOpen;
 window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + Orientation Video Calls. */
-Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
+Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcRights, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
 Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();
