@@ -30,6 +30,7 @@
   .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
   .day .dayh{font-weight:800;color:var(--navy);margin:0 0 4px} .daychips{display:grid;grid-template-columns:1fr 1fr;gap:6px} .daychips .chk{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0;min-height:46px;align-items:center} .daychips .chk:has(input:checked){border-color:var(--gold);background:#FFF9EE} .daychips .chk:last-child{grid-column:1/-1} .dayhrs{margin-top:8px}
   .docwrap{border:1.5px solid var(--border);border-radius:12px;background:#fff;margin:12px 0;overflow:hidden} .dochead{position:sticky;top:0;display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px;background:#F4F7FB;border-bottom:1px solid var(--border);color:var(--navy)} .dochead span{font-size:12.5px;color:var(--muted)} .reader{max-height:min(62vh,560px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 16px 16px;font-size:16px;line-height:1.6} .reader h3{margin:16px 0 4px} .reader p{margin:6px 0} .reader:focus-visible{outline:2px solid var(--gold);outline-offset:-2px} .inimark{font-size:14px;color:var(--muted)} .docend{font-size:13px;color:var(--muted);text-align:center;margin-top:14px} .docbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;border-top:1px solid var(--border);background:#FAFBFC} input.ini{max-width:140px;text-transform:uppercase}
+  .photobtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px} label.mini.photo{display:inline-flex;align-items:center;min-height:46px;cursor:pointer;position:relative;overflow:hidden} label.mini.photo input{position:absolute;inset:0;opacity:0;cursor:pointer}
   table.grid{width:100%;border-collapse:collapse;font-size:13.5px} table.grid th,table.grid td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border)} table.grid td:first-child,table.grid th:first-child{text-align:left;font-weight:600} table.grid input[type=checkbox]{width:20px;height:20px;accent-color:var(--gold)} table.grid input[type=text]{font-size:13px;padding:6px}
   .row{background:#FAF9F6;border:1px solid var(--border);border-radius:10px;padding:10px;margin:0 0 8px} .row .rl{font-size:12px;color:var(--muted);font-weight:700;margin:6px 0 2px} .row input{font-size:15px;padding:9px 10px}
   .card .cardh{font-size:13px;font-weight:800;color:var(--navy);text-transform:uppercase;letter-spacing:.05em;margin:0 0 4px} .card .fl{margin:10px 0 0} .card .fl>.rl{font-size:13.5px;color:var(--text);font-weight:700;margin:0 0 4px} .card .seg button{min-width:90px;min-height:46px;font-size:15px;padding:9px 12px} .sg{font-size:12px;font-weight:800;color:var(--gold-text);text-transform:uppercase;letter-spacing:.05em;margin:10px 0 2px} .card .chk{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:6px 0;font-size:15.5px} .card .chk:has(input:checked){border-color:var(--gold);background:#FFF9EE}
@@ -99,11 +100,14 @@ const PLAN = {
   '5b': { form: 'edl_fcsr_consent', sections: 'all', title: 'Your details for the checks', sign: true },
   '6': { form: 'availability', sections: 'all', title: 'When you can work', sign: true },
   '7': { form: 'experience', sections: 'all', title: 'What you are willing to do and have done', sign: true },
-  '8': { form: 'vehicle', sections: 'all', title: 'Driving', sign: true },
+  /* 2026-10-13: the transport question decides the form: the Driver Agreement (Yes) or the Non-Driver Agreement (No) */
+  '8': { decide: 'transport_willing', get form(){ return ANS.transport_willing === 'no' || (SIGS.non_driver && !SIGS.vehicle) ? 'non_driver' : 'vehicle'; }, sections: 'all', title: 'Driving', sign: true },
   '9': { title: 'All done' },
 };
 let ORDER = ['1', '2', '3', '4', '5a', '5b', '6', '7', '8', '9'];
 /* 2026-10-13: the screens follow the server's list; a form added later (an agreement, the manual) gets its own screen */
+/* the number of forms they sign, as the server counts it: those that apply, one for each open deciding question */
+function recount(){ if (!V || !V.deciding) return; const open = Object.keys(V.deciding).filter((k) => !ANS[k]).length; V.form_count = (V.forms || []).filter((f) => !f.when || ANS[f.when.id] === f.when.equals).length + open; }
 function planFromServer(){
   if (Array.isArray(V.screens) && V.screens.length) ORDER = V.screens.slice();
   for (const f of V.forms || []) if (!PLAN[f.screen] && f.screen !== '2 and 3') PLAN[f.screen] = { form: f.key, sections: 'all', title: f.short || f.title, sign: true };
@@ -144,7 +148,7 @@ function itemHtml(it, locked){
     case 'number': body = '<input type="number" inputmode="numeric" min="0" max="200" data-id="' + it.id + '" value="' + esc(v ?? '') + '" oninput="setVal(this.dataset.id,this.value===\'\'?\'\':Number(this.value),true)"' + dis + '>'; break;
     case 'date': body = '<input type="date" data-id="' + it.id + '" value="' + esc(v ?? '') + '" onchange="setVal(this.dataset.id,this.value)"' + dis + '>'; break;
     case 'initials': body = '<input type="text" maxlength="4" autocapitalize="characters" class="ini" data-id="' + esc(it.id) + '" value="' + esc(ANS[it.id] ?? '') + '" oninput="setVal(this.dataset.id,this.value,true)" placeholder="Your initials"' + dis + '>'; break;
-    case 'photo': body = '<div class="note">Optional. You can also just show the card at orientation; nothing is required here.</div>'; break;
+    case 'photo': body = photoHtml(it, locked); break;
     case 'statement': body = ''; break;
     case 'table': body = tableHtml(it, locked); break;
     case 'cards': body = cardsHtml(it, locked); break;
@@ -235,7 +239,7 @@ function screenHtml(s){
   if (s === '1') {
     const w = V.who;
     h += '<h1>Welcome, ' + esc(w.first) + '!</h1><p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
-    h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.map((f) => '<li style="margin:0 0 6px">' + esc(f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
+    h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals || (!ANS[f.when.id] && V.forms.find((x) => x.when && x.when.id === f.when.id) === f)).map((f) => '<li style="margin:0 0 6px">' + esc(f.when && !ANS[f.when.id] ? 'Driver or Non-Driver Agreement (you choose on the driving screen)' : f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
     if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
     else h += '<button class="go" onclick="go(\'' + (nextScreen() || '2') + '\')">' + (V.completed_at ? 'See your signed copies' : 'Continue where I left off') + '</button>';
     if (PREVIEW) h += '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE['1']) + '</div>';
@@ -248,9 +252,14 @@ function screenHtml(s){
     if (PREVIEW) h += '<div class="pnote"><b>What happens next:</b> ' + esc(NEXT_NOTE['9']) + '</div>';
     return h;
   }
+  if (P.decide && V.deciding && V.deciding[P.decide]) {
+    const q = V.deciding[P.decide], decided = (V.forms || []).some((x) => x.when && x.when.id === P.decide && SIGS[x.key]);
+    h += '<h1>' + esc(P.title) + '</h1><div class="doc"><div class="item"><label class="q">' + esc(q.label) + ' <span style="color:var(--gold-text)">*</span></label>' + seg(P.decide, q.options, ANS[P.decide], decided || REVIEW) + (decided ? '<div class="note">Your agreement is signed, so this answer is kept. To change it later, call the office: ' + PHONE + '.</div>' : '') + '</div></div>';
+    if (!ANS[P.decide]) return h + '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button>' + (PREVIEW && NEXT_NOTE[s] ? '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE[s]) + '</div>' : '');
+  }
   const f = FORMS[P.form]; const locked = REVIEW || formSigned(P.form);
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
-  h += '<h1>' + esc(P.title) + '</h1>';
+  if (!P.decide) h += '<h1>' + esc(P.title) + '</h1>';
   h += '<h2 class="ft">' + esc(f.title) + ' <span style="font-size:12.5px;color:var(--muted);font-weight:600">version ' + f.version + '</span></h2>';
   if (REVIEW) h += reviewFormLine(P.form);
   else if (locked) h += '<div class="signed">Signed by ' + esc(SIGS[P.form].typed_name) + ' on ' + when(SIGS[P.form].at) + '. A signed form is never changed.</div>';
@@ -274,6 +283,30 @@ function screenHtml(s){
   h += '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button><div class="err" id="e_screen"></div>';
   if (PREVIEW && NEXT_NOTE[s]) h += '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE[s]) + '</div>';
   return h;
+}
+/* ───── PICTURES (Samantha 2026-10-13): the license front and back and the insurance proof, from the phone camera or a file;
+   each goes straight to the private store by a one-use link, then the server records it. Never kept in the browser. ───── */
+function photoHtml(it, locked){
+  const v = ANS[it.id], done = v && typeof v === 'object' && v.path;
+  if (locked || REVIEW) return '<div class="okmsg">' + (done ? 'Picture on file' + (REVIEW ? ' (open it from their Driver Compliance card)' : '') + '.' : 'Not provided.') + '</div>';
+  return (done ? '<div class="okmsg">✓ Picture received. You can replace it below.</div>' : '')
+    + '<div class="photobtns"><label class="mini photo"><input type="file" accept="image/*" capture="environment" data-id="' + esc(it.id) + '" onchange="photoPick(this)">📷 Take a picture</label>'
+    + '<label class="mini photo"><input type="file" accept="image/*,application/pdf" data-id="' + esc(it.id) + '" onchange="photoPick(this)">Choose a file</label></div><div class="err" id="ph_' + esc(it.id) + '"></div>';
+}
+async function photoPick(el){
+  const id = el.dataset.id, file = el.files && el.files[0], box = document.getElementById('ph_' + id); if (!file) return;
+  const show = (m) => { if (box) box.textContent = m; };
+  if (file.size > 15 * 1024 * 1024) return show('That file is larger than 15 MB. Please take a new picture or choose a smaller file.');
+  const ext = ((file.name.split('.').pop() || '') + '').toLowerCase().replace('jpeg', 'jpg') || (file.type === 'application/pdf' ? 'pdf' : 'jpg');
+  if (PREVIEW) { ANS[id] = { path: 'preview/' + id + '.' + ext, content_type: file.type }; return render(); }
+  show('Sending your picture…');
+  const u = await call({ action: 'upload_url', item: id, ext: ['jpg', 'png', 'heic', 'heif', 'webp', 'pdf'].includes(ext) ? ext : 'jpg' });
+  if (u.status !== 200 || !u.j.signed_url) return show((u.j && u.j.error) || 'Could not send the picture. Please try again.');
+  try { const put = await fetch(u.j.signed_url, { method: 'PUT', headers: { 'Content-Type': file.type || u.j.content_type, 'x-upsert': 'false' }, body: file }); if (!put.ok) throw new Error(String(put.status)); }
+  catch (e) { return show('The picture did not go through. Please check your connection and try again.'); }
+  const r = await call({ action: 'uploaded', item: id, path: u.j.path });
+  if (r.status !== 200) return show((r.j && r.j.error) || 'The picture did not arrive. Please try again.');
+  ANS[id] = { path: u.j.path, content_type: file.type }; render();
 }
 /* ───── LONG DOCUMENTS (Samantha 2026-10-13): the whole approved document in one scrollable reader on its screen, the heading
    always visible, a copy to open or save, then any separate initials (each with a link to its section), the certification
@@ -319,7 +352,7 @@ function go(s){ SCREEN = s; render(); if (!REVIEW) save({}, s); }
 
 /* ───── answers (page memory only) ───── */
 let saveTimer = null, PENDING = {};
-function setVal(id, v, debounce){ if (v === '') delete ANS[id]; else ANS[id] = v; delete FROM[id]; PENDING[id] = v === '' ? '' : v; if (debounce) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
+function setVal(id, v, debounce){ if (V && V.deciding && V.deciding[id]) setTimeout(recount, 0); if (v === '') delete ANS[id]; else ANS[id] = v; delete FROM[id]; PENDING[id] = v === '' ? '' : v; if (debounce) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
 function toggleMulti(el){ const id = el.dataset.id; const cur = new Set(ANS[id] || []); if (el.checked) cur.add(el.value); else cur.delete(el.value); ANS[id] = [...cur]; PENDING[id] = ANS[id]; delete FROM[id]; flush(); if (SHOW.overnight_nights && (id === 'shift_prefs' || id === 'languages')) render(); }
 function setGrid(day, col, val){ const w = { ...(ANS.windows || {}) }; const row = { ...(w[day] || {}) }; if (col === 'Not available' && val === true) { for (const k of Object.keys(row)) if (!k.startsWith('Hours')) row[k] = false; } if (val === true && col !== 'Not available' && !col.startsWith('Hours')) row['Not available'] = false; row[col] = val; w[day] = row; ANS.windows = w; PENDING.windows = w; clearTimeout(saveTimer); saveTimer = setTimeout(() => { flush(); if (!col.startsWith('Hours')) render(); }, 600); }
 function setMap(id, opt, val){ const m = { ...(ANS[id] || {}) }; m[opt] = val; ANS[id] = m; PENDING[id] = m; flush(); render(); }
@@ -378,7 +411,7 @@ async function sign(form){
   if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
 }
 async function loadCopies(){
-  if (PREVIEW) { const box = document.getElementById('copies'); if (box) box.innerHTML = V.forms.map((f) => '<a href="#" onclick="previewPdf(\'' + f.key + '\');return false">📄 ' + esc(f.title) + ' (preview PDF)</a>').join(''); return; }
+  if (PREVIEW) { const box = document.getElementById('copies'); if (box) box.innerHTML = V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals).map((f) => '<a href="#" onclick="previewPdf(\'' + f.key + '\');return false">📄 ' + esc(f.title) + ' (preview PDF)</a>').join(''); return; }
   const box = document.getElementById('copies'); if (!box) return;
   const r = await call({ action: 'copies' });
   if (r.status !== 200 || !r.j.copies) { box.innerHTML = '<p class="small">Your copies are not ready yet. Open this page again in a minute.</p>'; return; }
@@ -426,7 +459,9 @@ function reviewSummary(s){
   const d = V.esign_consent_detail || {};
   let h = '<h1>' + (s === '1' ? 'Step 1 for ' : 'Step 1 signatures for ') + esc(V.who.first + ' ' + V.who.last) + '</h1>';
   h += '<div class="doc"><h3>Where they are</h3><p>' + (V.sent_at ? 'Sent ' + when(V.sent_at) + '. ' : '') + (V.started_at ? 'Opened ' + when(V.started_at) + '. ' : 'Not opened yet. ') + (V.esign_consent_at ? 'Agreed to sign electronically ' + when(V.esign_consent_at) + (d.ip ? ' (device address ' + esc(d.ip) + ')' : '') + '. ' : '') + (V.completed_at ? '<b>Complete ' + when(V.completed_at) + '.</b>' : '<b>' + V.signed_count + ' of ' + V.form_count + ' forms signed.</b> Last screen they were on: ' + esc((PLAN[V.current_screen] || {}).title || V.current_screen) + '.') + '</p></div>';
-  h += '<div class="doc"><h3>Every form</h3>' + V.forms.map((f) => { const g = SIG_OF(f.key); const scr = ORDER.find((k) => PLAN[k].form === f.key && PLAN[k].sign) || ORDER.find((k) => PLAN[k].form === f.key);
+  /* only the forms that apply to them; while the transport question is open, the Driver Agreement stands in */
+  const listed = V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals || (!ANS[f.when.id] && V.forms.find((x) => x.when && x.when.id === f.when.id) === f));
+  h += '<div class="doc"><h3>Every form</h3>' + listed.map((f) => { const g = SIG_OF(f.key); const scr = ORDER.find((k) => PLAN[k].form === f.key && PLAN[k].sign) || ORDER.find((k) => PLAN[k].form === f.key);
     return '<div class="row"><b>' + esc(f.title) + '</b><br>' + (g ? '✓ Signed by ' + esc(g.typed_name) + ', ' + when(g.at) + ', version ' + esc(g.version) + (g.version_mismatch ? ' (current wording is version ' + esc(g.current_version) + ')' : '') : 'Not signed yet')
       + '<div style="margin-top:6px"><button class="mini" onclick="go(\'' + (f.key === 'employee_application' ? '2' : scr) + '\')">See the screen</button>' + (g && g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + f.key + '\')">Signed PDF</button>' : '') + '</div></div>'; }).join('') + '</div>';
   h += '<div class="doc"><h3>For the background checks</h3><p>Social Security number: ' + (IDENT.ssn ? 'on file, ' + esc(IDENT.ssn) : 'not given yet') + ' · date of birth: ' + (IDENT.dob ? 'on file' : 'not given yet') + ' · driver\'s license: ' + (IDENT.license ? 'on file, ' + esc(IDENT.license) : 'not given') + '. Only a person on the Screening staff list can reveal one, from Background &amp; References, and every reveal is logged.</p></div>';
@@ -477,13 +512,15 @@ function previewBar(s){
 function pjump(k){ if (k !== '1' && !V.esign_consent_at) V.esign_consent_at = new Date().toISOString(); SCREEN = k; render(); }
 /* practice answers: every question on the screen, from the real options (so a changed option never breaks the filler) */
 function pfill(){
-  const P = PLAN[SCREEN], f = FORMS[P.form]; if (!f) return;
+  const P = PLAN[SCREEN]; if (P.decide && !ANS[P.decide]) ANS[P.decide] = 'yes';   /* the practice hire drives, so the pictures are tried too */
+  const f = FORMS[P.form]; if (!f) return;
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
   const YES = ['has_license', 'has_insurance', 'has_transport', 'open_shift_texts', 'text_consent', 'hs_grad'];
   const TEXT = { preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
   for (const i of secs) for (const it of (f.sections[i].items || [])) {
     /* a yes/no grid that is partly filled in (from the interview) gets only its missing rows */
     if (it.kind === 'table' && it.id !== 'windows' && ANS[it.id] && typeof ANS[it.id] === 'object') { const m = { ...ANS[it.id] }; (it.options || []).forEach((x) => { if (!m[x]) m[x] = 'Yes'; }); ANS[it.id] = m; continue; }
+    if (it.kind === 'photo' && ANS[it.id] === undefined) { ANS[it.id] = { path: 'preview/' + it.id + '.jpg', content_type: 'image/jpeg' }; continue; }
     if (ANS[it.id] !== undefined || it.locked || it.kind === 'statement' || it.kind === 'photo') continue;
     const o = it.options || [];
     if (it.kind === 'yesno') { if (it.id === 'no_employer_history') continue; ANS[it.id] = YES.includes(it.id) ? 'yes' : 'no'; }

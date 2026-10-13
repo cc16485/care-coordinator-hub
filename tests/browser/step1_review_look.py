@@ -34,7 +34,7 @@ with sync_playwright() as p:
     pg.goto(PAGE); pg.wait_for_timeout(800); t = pg.inner_text('body')
     ck('the review asks with the staff sign-in, never the link', calls and calls[0] == ('review', 'Bearer staff-token-xyz'), calls[:2])
     ck('summary: name, sent/opened/e-sign times with device, 2 of 7 signed, where they stopped', 'Step 1 for Robin Test' in t and 'Agreed to sign electronically' in t and '203.0.113.9' in t and '2 of 7 forms signed' in t, t[:600])
-    ck('summary: every form listed with signer, time and version; the older-version note', t.count('See the screen') == 7 and 'Signed by Robin Test' in t and 'current wording is version 3' in t, t[:900])
+    ck('summary: every form listed with signer, time and version; the older-version note', t.count('See the screen') == 7 and 'Signed by Robin Test' in t and 'current wording is version 3' in t, (t.count('See the screen'), 'current wording is version 3' in t, 'Signed by Robin Test' in t))
     ck('identity stays sealed: only "ending 4321"', 'ending 4321' in t and '987' not in t)
     pg.locator('button', has_text='See the screen').first.click(); pg.wait_for_timeout(300); t = pg.inner_text('body')
     ck('screen 2 shows their own answers (preferred name Robin), the office bar, no sign box, no Begin', pg.locator('input[data-id="preferred_name"]').input_value() == 'Robin' and 'Office view of Robin Test' in t and pg.locator('#b_sign').count() == 0, t[:300])
