@@ -795,7 +795,7 @@
       + '<div class="ph-card"><div class="ph-k">Interview</div><div class="ph-t">' + esc(nm) + '</div><div class="ph-s">' + esc(pos || 'Caregiver') + '</div>'
       + (fromDraft ? '<div class="ph-h">Your notes from earlier on this phone are back. Press Save to put them on their record.</div>' : '') + '</div>'
       + '<div id="phRecHost" style="margin-bottom:10px"></div>'
-      + '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">Say first</div><div class="ph-s" style="color:#1B2733;font-size:14px">"Thanks for coming in. This is just a conversation, there are no wrong answers. I’ll ask about you and the care you’ve given, I’ll tell you honestly what the job is like, and you can ask me anything. Is it OK if I record so I can listen to you instead of writing?"</div></div>';
+      + '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">Say first</div><div class="ph-s" style="color:#1B2733;font-size:14px">"Thanks for coming in. This is just a conversation, there are no wrong answers. I’ll ask about you and the care you’ve given, I’ll tell you honestly what the job is like, and you can ask me anything. Is it OK if I record so I can listen to you instead of writing? The recording is written out by software and summarized to help me review it."</div></div>';
     if (!IV.qs.length) h += '<div class="ph-msg bad" style="margin:0 0 10px">No interview questions are set up yet (Desktop step 622 installs them). Use the laminated sheet for now.</div>';
     IV.qs.forEach(function (q, i) {
       var a = A.script[q.id] || {};
@@ -806,6 +806,7 @@
     });
     h += '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>'
       + '<div class="ph-card"><div class="ph-k">Quick check, 30 seconds</div><div class="ph-s">Only what their application did not answer.</div><div id="phIvQuick"></div></div>'
+      + '<div id="phIvObs"></div>'
       + '<div class="ph-card"><div class="ph-k">Check with their references</div><textarea class="ph-in" rows="2" data-ivf="ref_check" placeholder="Anything you want their references to confirm">' + esc(A.ref_check || '') + '</textarea>'
       + '<div class="ph-k" style="margin-top:12px">How did it go?</div><textarea class="ph-in" rows="3" data-ivf="notes" placeholder="How they came across, anything that decided it either way">' + esc(A.notes || '') + '</textarea></div>'
       + '<div class="ph-btns" style="margin:4px 0 6px"><button class="ph-b p" data-iv="save" style="flex:1;font-size:16px;padding:13px">Save to their record</button></div>'
@@ -817,6 +818,7 @@
       + '<div class="ph-h">Hire: <a href="index.html#ap/' + encodeURIComponent(IV.id) + '">make the offer in the full Hub</a> (the offer form is there).</div></div>';
     box.innerHTML = h;
     ivQuick();
+    ivObsMount();
     try { recMount('phRecHost', 'interview', IV.id, nm); } catch (e) { document.getElementById('phRecHost').innerHTML = '<div class="ph-msg bad" style="margin:0">The recorder could not start: ' + esc(e && e.message || e) + '</div>'; }
   }
   function ivQuick() {
@@ -830,6 +832,19 @@
     h += '<div style="margin-top:9px;font-size:14px">Comfortable working with</div><div class="ph-ch">'
       + [['males', 'Men'], ['females', 'Women']].map(function (g) { return '<button type="button" data-ivw="' + g[0] + '" class="' + (ww[g[0]] ? 'on' : '') + '">' + g[1] + '</button>'; }).join('') + '</div>';
     box.innerHTML = h;
+  }
+  /* 2026-10-13: the interviewer's observations and the family reflection (interview-observations.js, the same section
+     as the Hub). Kept on this phone as you go, like the notes; Save puts them on their record. */
+  function ivObsMount() {
+    var ob = document.getElementById('phIvObs'); if (!ob || !window.OBS) return;
+    IV.A.observations = IV.A.observations || {};
+    var draw = function () { ob.innerHTML = OBS.html(IV.A.observations, { open: false }); };
+    draw();
+    OBS.bind(ob, function () { return (IV.A.observations = IV.A.observations || {}); }, function (redraw) {
+      if (redraw) draw();
+      clearTimeout(IV.t); IV.t = setTimeout(ivDraftSave, 300);
+      var s = document.getElementById('phIvSaid'); if (s) s.textContent = 'Not saved to their record yet (kept on this phone).';
+    });
   }
   function ivTyped(el) {
     var A = IV.A; if (!A) return;
@@ -853,6 +868,7 @@
       Object.keys(A.script || {}).forEach(function (k) { out.script[k] = Object.assign({}, out.script[k] || {}, A.script[k]); });
       ['smoker', 'dogs', 'cats', 'client_smokes', 'ref_check', 'notes'].forEach(function (k) { if (A[k] !== undefined) out[k] = typeof A[k] === 'string' ? A[k].trim() : A[k]; });
       if (A.works_with) out.works_with = A.works_with;
+      if (A.observations && window.OBS) out.observations = OBS.clean(A.observations, (typeof ME !== 'undefined' && ME && (ME.name || ME.email)) || null);
       out.phone_saved_at = new Date().toISOString();
       var up = await sb.from('job_applicants').update({ post_interview: out }).eq('id', IV.id);
       if (up.error) throw up.error;
@@ -901,6 +917,8 @@
   async function ivDecide(outcome, btn) {
     var r = IV.r, A = IV.A, nm = r.first_name || 'them';
     var reason = null, p = null;
+    var miss = window.OBS ? OBS.missing(A.observations) : '';
+    if (miss) { alert(miss); var ob = document.getElementById('phIvObs'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'end' }); return; }
     if (outcome === 'declined') { reason = prompt('Why are we not hiring ' + nm + '?\n\nKept for our records, never sent.', ''); if (reason === null) return; }
     else { p = apPoolPrompts(r, A); if (!p) return; }
     btn.disabled = true;

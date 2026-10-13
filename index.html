@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="phone-mode.js?v=11"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=12"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -5184,6 +5184,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </details>
         <div id="recHostInterview" style="margin-top:12px;"></div>
         <div id="apIntForm" style="margin-top:12px;"></div>
+        <!-- 2026-10-13 (her "yes to all" + "build"): the interviewer's observations and the family reflection (interview-observations.js) -->
+        <div id="apIntObs" style="margin-top:14px;max-width:760px;"></div>
 
         <label style="margin-top:14px;">How did it go?</label>
         <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
@@ -5197,9 +5199,11 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
           <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
           <span style="flex:1;"></span>
+          <button class="secondary" onclick="apIntSaveNotes(this)">Save notes</button>
           <button class="ghost" onclick="apOutcome('noshow',this)">Did not show</button>
         </div>
         <div class="field-note" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
+        <div id="apIntSaid" class="field-note" style="margin-top:6px;"></div>
         <div id="apIntErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
 </section>
@@ -22946,7 +22950,9 @@ function recMount(hostId, kind, subjectId, label){
       + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.<br>'
       + '<span class="field-note">Worth saying on the recording itself, in the first few seconds, so the transcript is its own proof. '
       /* 2026-10-11 (Samantha: "keep audio one year", "keep the transcript forever"; Desktop 621 sets keep_audio_days 365) */
-      + 'The audio is kept for 1 year, then deleted. The written transcript is kept for good.</span></span></label>'
+      + 'The audio is kept for 1 year, then deleted. The written transcript is kept for good. '
+      /* 2026-10-13 (approved consent line) */
+      + 'Tell them: "The recording is written out by software and summarized to help me review it."</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
       + '<button class="secondary" id="recGo" onclick="recStart()" disabled style="' + big + '">● Start recording</button>'
       + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;' + big + '">■ Stop</button>'
@@ -24341,6 +24347,10 @@ function apProfInterview(r){
       + apProfRow('Also good at', esc(A.custom_skill||''));
   if(A.notes) out += '<div style="margin-top:10px;font-size:13.5px;background:var(--bg);border:1px solid var(--border);'
     + 'border-radius:9px;padding:10px 12px;white-space:pre-wrap;">' + esc(A.notes) + '</div>';
+  /* 2026-10-13: the interviewer's observations and family reflection, as written (office only; never changed by the AI review) */
+  if(window.OBS && OBS.has(A.observations))
+    out += '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 6px;">Interviewer observations</div>'
+      + OBS.summaryHtml(A.observations);
   return out;
 }
 
@@ -24750,12 +24760,65 @@ async function apInterview(id){
   { const rc = document.getElementById('apIntRefCheck'); if(rc) rc.value = (r.post_interview && r.post_interview.ref_check) || ''; }
   document.getElementById('apIntErr').style.display='none';
   apIntRender();
+  apIntObsMount(id);
   const c = document.getElementById('apIntCard');
   c.style.display='block';
   recMount('recHostInterview', 'interview', r.id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
   apMatchMount(r);
   c.scrollIntoView({behavior:'smooth', block:'center'});
 }
+
+/* ---- Interviewer observations (2026-10-13, her "yes to all" on https://claude.ai/artifact/Ki7QEvLaDWqTQ5UAxuHGXp + "build")
+   The same section as the phone (interview-observations.js). Kept on this computer as you go (so a closed tab loses
+   nothing); "Save notes" puts it on their record without an outcome; an outcome needs the family reflection and its why. */
+const AP_IVD = id => 'cc_ivd_' + id;
+function apIntDraftSave(){
+  const id = (document.getElementById('apIntId')||{}).value; if(!id) return;
+  try{ localStorage.setItem(AP_IVD(id), JSON.stringify({ at: Date.now(), A: window.__apInt,
+    notes: (document.getElementById('apIntNotes')||{}).value || '', ref: (document.getElementById('apIntRefCheck')||{}).value || '' })); }catch(e){ /* private window */ }
+  const s = document.getElementById('apIntSaid'); if(s) s.textContent = 'Kept on this computer. Save notes (or an outcome) puts it on their record.';
+}
+function apIntObsMount(id){
+  const box = document.getElementById('apIntObs'); if(!box || !window.OBS) return;
+  let d = null; try{ d = JSON.parse(localStorage.getItem(AP_IVD(id)) || 'null'); }catch(e){}
+  const s = document.getElementById('apIntSaid'); if(s) s.textContent = '';
+  if(d && d.A && d.A.observations){
+    window.__apInt.observations = d.A.observations;
+    if(d.notes && !document.getElementById('apIntNotes').value) document.getElementById('apIntNotes').value = d.notes;
+    { const rc = document.getElementById('apIntRefCheck'); if(rc && d.ref && !rc.value) rc.value = d.ref; }
+    if(s) s.textContent = 'Your observations from earlier on this computer are back. Save notes puts them on their record.';
+  }
+  window.__apInt.observations = window.__apInt.observations || {};
+  const draw = () => { box.innerHTML = OBS.html(window.__apInt.observations, { open:true }); };
+  draw();
+  OBS.bind(box, () => (window.__apInt.observations = window.__apInt.observations || {}), redraw => { if(redraw) draw(); clearTimeout(apIntObsMount.t); apIntObsMount.t = setTimeout(apIntDraftSave, 400); });
+}
+const apIntBy = () => (typeof ME !== 'undefined' && ME && (ME.name || ME.email)) || null;
+async function apIntSaveNotes(btn){
+  const id = document.getElementById('apIntId').value;
+  const s = document.getElementById('apIntSaid');
+  btn.disabled = true;
+  try{
+    const A = Object.assign({}, window.__apInt || {});
+    A.notes = (document.getElementById('apIntNotes').value||'').trim();
+    { const rc = document.getElementById('apIntRefCheck'); if(rc) A.ref_check = (rc.value||'').trim(); }
+    if(window.OBS) A.observations = OBS.clean(A.observations, apIntBy());
+    /* merge into what is on their record now, so the phone's notes saved in the meantime are kept */
+    const cur = await sb.from('job_applicants').select('post_interview').eq('id', id).maybeSingle();
+    if(cur.error) throw cur.error;
+    const base = (cur.data && cur.data.post_interview) || {};
+    const out = Object.assign({}, base, A, { script: Object.assign({}, base.script||{}, A.script||{}) });
+    const { error } = await sb.from('job_applicants').update({ post_interview: out }).eq('id', id);
+    if(error) throw error;
+    window.__apInt = JSON.parse(JSON.stringify(out));
+    try{ localStorage.removeItem(AP_IVD(id)); }catch(e){}
+    const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(r) r.post_interview = out;
+    if(s) s.textContent = 'Saved to their record ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) + '.';
+  }catch(e){
+    if(s) s.innerHTML = '<span style="color:var(--red);">Not saved: ' + escapeHtmlComms(e && e.message || String(e)) + '. It is still kept on this computer; try again.</span>';
+  }finally{ btn.disabled = false; }
+}
+window.apIntSaveNotes = apIntSaveNotes;
 
 /* ---- Interview no-shows (2026-10-01, Samantha) -------------------------------
    "We are pushing the no show button and nothing happens. We want them labeled largely", "send both text and email",
@@ -25134,6 +25197,12 @@ async function apOutcome(outcome, btn){
   A.notes = (document.getElementById('apIntNotes').value||'').trim();
   { const rc = document.getElementById('apIntRefCheck'); if(rc) A.ref_check = (rc.value||'').trim(); }
 
+  /* 2026-10-13 (her rule): nothing is required except the family reflection's why, before an outcome */
+  if(window.OBS){
+    const miss = OBS.missing(A.observations);
+    if(miss){ alert(miss); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
+    A.observations = OBS.clean(A.observations, apIntBy());
+  }
   let reason = null, wants = null, area = null;
   if(outcome==='declined'){
     reason = prompt('Why are we not hiring '+(r.first_name||'them')+'?\n\nKept for our records, never sent.','');
@@ -25169,6 +25238,7 @@ async function apOutcome(outcome, btn){
       if(bErr) alert('Their outcome was saved, but their interview could not be closed, so it may still show as waiting on an outcome.\n\n'
         + 'Reason: ' + bErr.message + '\n\nTell Samantha (or Claude).');
     }
+    try{ localStorage.removeItem(AP_IVD(id)); }catch(e){}
     document.getElementById('apIntCard').style.display='none';
     if(outcome==='hired') apToOffer(id, A);
     await apLoad();
