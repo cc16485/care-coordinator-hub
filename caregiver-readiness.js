@@ -108,7 +108,8 @@
           + (r.due && !r.st?.completed_at ? ' · due ' + esc(r.due) : '') + (r.attention ? ' · <span style="color:#B91C1C">' + esc(r.attention) + '</span>' : '') + (r.why && r.status === 'later' ? ' · ' + esc(r.why) : '') + (r.st && r.st.blocked_reason ? ' · ' + esc(r.st.blocked_reason) : '')
           + (ev && (ev.document || ev.result || ev.fingerprint) ? ' · evidence: ' + esc([ev.result, ev.document ? 'document on file' : '', ev.fingerprint ? 'signed form ' + String(ev.fingerprint).slice(0, 12) : ''].filter(Boolean).join(', ')) : '')
           + (ev && ev.source ? ' · ' + esc(ev.source) : '')
-          + ' · <span title="' + esc(r.def.proof) + '">' + esc(proofWords(r.def.proof)) + '</span></div></div>';
+          + ' · <span title="' + esc(r.def.proof) + '">' + esc(proofWords(r.def.proof)) + '</span></div>'
+          + (r.key === 'cg.step2.participant_rights' ? rightsLine(d.facts && d.facts.rights, r) : '') + '</div>';
         /* Approve to Work has its own button in the Final approval block (it also updates AxisCare); the generic Confirm never shows for it */
         if(may && r.def.proof === 'confirmed' && r.key !== 'cg.approve.work' && ['ready', 'attention'].indexOf(r.status) > -1) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.confirm(\'' + esc(r.key) + '\',this)">Confirm</button>';
         if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
@@ -125,6 +126,20 @@
     /* the main profile: every send, receipt and completion with its time, and every signed document */
     h += '<div style="margin-top:.8rem;display:flex;gap:.4rem;justify-content:flex-end">' + (window.HP ? '<button class="ibtn" onclick="CRX.close();HP.open({offer_id:\'' + esc(OPEN_OFFER) + '\'})">&#128100; Profile</button>' : '') + '<button class="ibtn" onclick="CRX.close()">Close</button></div>';
     return h;
+  }
+  /* 2026-10-13 (her ruling, 19 CSR 15-7.021(24)(B)5): Client Rights is signed in Step 1 (received and reviewed) and explained
+     with the Code of Ethics and the HIPAA policy at the Orientation Video Call; the row needs both. Whose explanation, when. */
+  function rightsWords(rs, ev){
+    rs = rs || {}; ev = ev || {};
+    const signed = ev.signed_at || rs.signed_at, at = ev.explained_at || rs.explained_at, by = ev.explained_by || rs.explained_by;
+    const state = ev.explained_at || rs.state === 'complete' ? 'complete' : signed ? 'waiting_explanation' : at ? 'waiting_signature' : 'not_started';
+    const sig = signed ? 'Signed in Step 1 ' + day(signed) : 'Not signed in Step 1 yet';
+    const exp = at ? 'explained at the Orientation Video Call ' + day(at) + (by ? ' by ' + by : '') + ', and they confirmed they understand' : 'waiting for the explanation at the Orientation Video Call';
+    return { state, text: state === 'complete' ? 'Complete: ' + sig + '; ' + exp + '.' : sig + '; ' + exp + '.' };
+  }
+  function rightsLine(rs, r){
+    const w = rightsWords(rs, r && r.st && r.st.evidence), col = w.state === 'complete' ? '#15803D' : '#B45309';
+    return '<div class="cr-rights" style="font-size:.74rem;color:' + col + ';margin-top:.15rem">' + esc(w.text) + '</div>';
   }
   const ownerWords = o => !o ? 'the Hub' : o.email ? o.email : o.role === 'owner' ? 'an owner' : o.role === 'hub' ? 'the Hub (verified on its own)' : (o.role || '').replace(/_/g, ' ');
   const proofWords = p => ({ verified:'verified by the Hub', proof:'result + document', confirmed:'a named person confirms', answer:'answer' })[p] || p;
@@ -199,5 +214,5 @@
         + (r.axiscare === 'failed' ? '<span style="font-size:.7rem;color:#B91C1C;font-weight:700">Approval recorded, AxisCare update failed: open the card and press Retry</span>' : '<span style="font-size:.7rem;color:#6E6559">every requirement complete · scheduling locked until the press</span>')
         + '<span style="margin-left:auto">' + chip(r.offer_id) + '</span></div>').join('') + '</div></div>';
   }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords };
 })();

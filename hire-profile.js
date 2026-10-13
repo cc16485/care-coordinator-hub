@@ -158,6 +158,10 @@
     if(st.next && !st.next.from_readiness) h += '<div style="font-size:.86rem;margin-top:.2rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.4rem .6rem"><b>Next:</b> ' + esc(st.next.title) + ' · <b>' + esc(st.next.owner) + '</b>' + (st.next.why ? ' · ' + esc(st.next.why) : '') + '</div>';
     else if(st.next) h += '<div class="field-note" style="margin-top:.2rem">Reading the readiness card for the next step…</div>';
     if(st.missing && st.missing.length) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Missing or follow-up</b><ul style="margin:.2rem 0 0;padding-left:1.1rem">' + st.missing.map(m => '<li>' + esc(m) + '</li>').join('') + '</ul></div>';
+    /* 2026-10-13 (her ruling, 19 CSR 15-7.021(24)(B)5): Client Rights signed in Step 1, explained at the Orientation Video Call */
+    const rr = RD && RD.journey && RD.journey.journey_id === st.journey_id ? (RD.view.rows || []).find(r => r.key === 'cg.step2.participant_rights') : null;
+    if(rr && window.CRX && CRX.rightsWords){ const w = CRX.rightsWords(RD.facts && RD.facts.rights, rr.st && rr.st.evidence);
+      h += '<div class="hp-rights" style="font-size:.82rem;margin-top:.45rem"><b>Client Rights, Code of Ethics and HIPAA</b> <span class="field-note">signed in Step 1, explained at the Orientation Video Call, before the first shift</span><div style="color:' + (w.state === 'complete' ? '#15803D' : '#B45309') + '">' + (w.state === 'complete' ? '✓ ' : '○ ') + esc(w.text) + '</div></div>'; }
     const oid = (p.ids || {}).offer_id;
     if(st.step1) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Step 1 forms</b> <span class="field-note">signed forms are read-only and never change; open them under Signed documents below</span>'
       + (oid ? ' <button class="ibtn" style="font-size:.74rem" onclick="HP.step1(\'' + esc(oid) + '\',this)">&#128065; See their Step 1 screens</button>' : '')
