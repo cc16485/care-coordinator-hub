@@ -48,11 +48,96 @@
   /* where someone still onboarding is (her B): an offer not on the roster yet, or a new hire awaiting Approve to Work */
   function onboardingNote(p){
     if(!p) return '';
-    if(p.applicant_id){ const a = (APPS.rows || []).find(x => String(x.id) === String(p.applicant_id));
+    if(p.applicant_id){ const st = stageOf(p); if(st) return 'still onboarding · ' + st.label;
+      const a = (APPS.rows || []).find(x => String(x.id) === String(p.applicant_id));
       return 'still onboarding · ' + (a && a.status === 'offer' ? 'offer sent' : 'getting ready to start'); }
     const g = p.cg_ax_id && Array.isArray(TB.pool) ? TB.pool.find(x => String(x.axiscare_id) === String(p.cg_ax_id)) : null;
     return g && g.work_locked ? 'still onboarding · waiting on Approve to Work' : '';
   }
+  /* ── ONBOARDING FOR THIS CLIENT (Samantha 2026-10-14: Team Builder "for planning": show people who are onboarding and what
+     stage they are in, "then we could put our goal for when to have them onboarded by so they can work with that client").
+     Her choices: the goal is the client's start date (the Start Contract's target date, through the plan's Journey link),
+     changeable on the plan (plan.onboard_goal); 3 days or less to the goal and not Approved to Work = red here, and the
+     server's onboarding goal check opens a Needs Attention card for the onboarding owner. Read only; nothing is texted.
+     Stage: their readiness card's stage when they have one (caregiver-journey list, by offer), otherwise the stage their
+     profile page shows (hire-profile stages). ── */
+  const ONB = { stages:{}, journeys:null, goals:{}, asked:{}, at:0 };
+  const fmtDay = d => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+  const chiToday = () => new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0, 10);
+  const daysTo = d => Math.round((Date.parse(d + 'T12:00:00Z') - Date.parse(chiToday() + 'T12:00:00Z')) / 864e5);
+  function rosterOf(axId){ return ((typeof DATA !== 'undefined' && DATA.caregivers) || []).find(g => String(g.axiscare_id || '') === String(axId)) || null; }
+  function lockedAx(axId){ const g = axId && Array.isArray(TB.pool) ? TB.pool.find(x => String(x.axiscare_id) === String(axId)) : null; return !!(g && g.work_locked); }
+  /* everyone on the plan still onboarding: an applicant not on the roster yet, or a caregiver awaiting Approve to Work */
+  function onbPeople(plan){
+    const seen = {}, out = [];
+    Object.keys(plan.cells || {}).concat(Object.keys(plan.options || {})).forEach(key => people(plan, key).forEach(p => {
+      if(p.status === 'no' || !(p.applicant_id || (p.cg_ax_id && lockedAx(p.cg_ax_id)))) return;
+      const k = p.applicant_id ? 'a' + p.applicant_id : 'c' + p.cg_ax_id; if(seen[k]) return; seen[k] = 1; out.push(p); }));
+    return out;
+  }
+  async function loadOnb(plan){
+    if(!plan || ONB.asked[plan.id] && Date.now() - ONB.asked[plan.id] < 5 * 60e3) return;
+    ONB.asked[plan.id] = Date.now();
+    const jobs = [];
+    if(!ONB.journeys || Date.now() - ONB.at > 5 * 60e3) jobs.push(sb.functions.invoke('caregiver-journey', { body:{ action:'list' } }).then(r => {
+      const m = {}; ((r.data && r.data.rows) || []).forEach(j => { if(j.offer_id) m[j.offer_id] = j; }); ONB.journeys = m; ONB.at = Date.now(); }).catch(() => { ONB.journeys = ONB.journeys || {}; }));
+    const ids = onbPeople(plan).map(p => p.applicant_id).concat((APPS.rows || []).map(a => a.id)).filter(id => id && !ONB.stages[id]);
+    if(ids.length) jobs.push(sb.functions.invoke('hire-profile', { body:{ action:'stages', applicant_ids:[...new Set(ids.map(String))].slice(0, 60) } })
+      .then(r => Object.assign(ONB.stages, (r.data && r.data.stages) || {})).catch(() => {}));
+    if(!plan.onboard_goal && !ONB.goals[plan.id]) jobs.push((async () => {
+      try{ const l = await sb.from('team_build_link_current').select('episode_id').eq('plan_id', plan.id).maybeSingle();
+        const ep = l && l.data && l.data.episode_id; if(!ep){ ONB.goals[plan.id] = { date:'', from:'' }; return; }
+        const c = await sb.from('start_contract_current').select('target_date').eq('episode_id', ep).maybeSingle();
+        const d = String((c && c.data && c.data.target_date) || '').slice(0, 10);
+        ONB.goals[plan.id] = { date:/^\d{4}-\d\d-\d\d$/.test(d) ? d : '', from:"the client's start date" };
+      }catch(e){ ONB.goals[plan.id] = { date:'', from:'' }; } })());
+    await Promise.all(jobs);
+    try{ if(typeof tbPlan === 'function' && tbPlan() && tbPlan().id === plan.id && typeof tbRender === 'function') tbRender(); }catch(e){}
+  }
+  function goalOf(plan){
+    if(/^\d{4}-\d\d-\d\d$/.test(String(plan.onboard_goal || ''))) return { date:plan.onboard_goal, from:'set on this plan' + (plan.onboard_goal_by ? ' by ' + String(plan.onboard_goal_by).split(' ')[0] : '') };
+    return ONB.goals[plan.id] || null;
+  }
+  /* where someone is: the readiness card's stage when they have one, else their profile's stage */
+  function stageOf(p){
+    let offer = null, s = null;
+    if(p.applicant_id){ s = ONB.stages[p.applicant_id] || null; offer = s && s.offer_id; }
+    else if(p.cg_ax_id){ const g = rosterOf(p.cg_ax_id); offer = g && g.offer_id; }
+    const j = offer && ONB.journeys ? ONB.journeys[offer] : null;
+    if(j) return { label:j.stage || 'onboarding', next:j.next && j.next.title, approved:!!j.approved_to_work, blocked:(j.blocked || []).length };
+    if(s && !s.error) return { label:(s.ended || s.stage || 'onboarding') + (s.stage === 'Step 1' && s.step1 ? ' (' + s.step1.signed + ' of ' + s.step1.of + ' forms signed)' : ''), next:s.next && s.next.title, approved:!!s.approved_at };
+    return null;
+  }
+  function onboardHtml(plan){
+    if(!plan || plan.open_hours) return '';
+    const list = onbPeople(plan); loadOnb(plan);
+    const g = goalOf(plan), left = g && g.date ? daysTo(g.date) : null;
+    const goalLine = g && g.date
+      ? 'Goal: onboarded by <b>' + esc(fmtDay(g.date)) + '</b> <span class="field-note">(' + esc(g.from) + ')</span> · ' + (left < 0 ? '<b style="color:var(--red);">' + (-left) + ' day' + (left === -1 ? '' : 's') + ' past</b>' : left === 0 ? '<b style="color:var(--red);">today</b>' : left + ' day' + (left === 1 ? '' : 's') + ' left')
+      : (g ? '<span class="field-note">No onboarding goal yet: this client has no start date on their Start Contract.</span>' : '<span class="field-note">Reading the client’s start date…</span>');
+    const rows = list.map(p => {
+      const st = stageOf(p), late = left != null && left <= 3 && !(st && st.approved);
+      return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--border);font-size:12.5px;' + (late ? 'color:var(--red);' : '') + '">'
+        + '<b style="min-width:130px;">' + esc(p.name || '') + '</b>'
+        + '<span style="flex:1;">' + (st ? '<b style="color:' + (late ? 'var(--red)' : '#7C3AED') + ';">' + esc(st.label) + '</b>' + (st.next ? ' · next: ' + esc(st.next) : '') + (st.blocked ? ' · <b>' + st.blocked + ' blocked</b>' : '') : '<span class="field-note">reading their stage…</span>')
+        + (late ? ' · <b>behind the goal</b>' : '') + '</span></div>';
+    }).join('');
+    return '<div class="card tb2-onb-box" style="padding:9px 13px;margin:0 0 8px;border-left:4px solid ' + (list.some(p => { const st = stageOf(p); return left != null && left <= 3 && !(st && st.approved); }) ? 'var(--red)' : '#7C3AED') + ';">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;"><b style="color:var(--navy);">Onboarding for this client (' + list.length + ')</b><span>' + goalLine + '</span><span style="flex:1;"></span>'
+      + '<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tb2GoalEdit(\'' + esc(plan.id) + '\',this)">' + (plan.onboard_goal ? 'Change the goal' : 'Set a different goal') + '</button></div>'
+      + (list.length ? rows : '<div class="field-note" style="font-size:12px;">Nobody on this plan is still onboarding.</div>')
+      + '<div class="field-note" style="font-size:11px;margin-top:4px;">Red = 3 days or less to the goal and not Approved to Work yet; the onboarding owner also gets a Needs Attention card. Nothing is texted.</div></div>';
+  }
+  function goalEdit(planId, btn){
+    const plan = tbPlan(); if(!plan || plan.id !== planId) return;
+    const box = btn.parentNode; if(box.querySelector('.tb2-goal-in')) return;
+    box.insertAdjacentHTML('beforeend', '<span class="tb2-goal-in" style="display:inline-flex;gap:6px;align-items:center;"><input type="date" value="' + esc(plan.onboard_goal || ((goalOf(plan) || {}).date) || '') + '" style="width:auto;font-size:12.5px;padding:3px 6px;">'
+      + '<button class="cara-btn" style="font-size:11.5px;">Save</button>' + (plan.onboard_goal ? '<button class="cara-btn ghost" style="font-size:11.5px;">Use the client’s start date</button>' : '') + '</span>');
+    const w = box.querySelector('.tb2-goal-in'), inp = w.querySelector('input'), bs = w.querySelectorAll('button');
+    bs[0].onclick = async () => { const v = inp.value; if(!/^\d{4}-\d\d-\d\d$/.test(v)){ ccToast('Pick a date.'); return; } plan.onboard_goal = v; plan.onboard_goal_by = me(); plan.onboard_goal_at = now(); await tbSave(plan); tbRender(); };
+    if(bs[1]) bs[1].onclick = async () => { delete plan.onboard_goal; delete plan.onboard_goal_by; delete plan.onboard_goal_at; delete ONB.goals[plan.id]; delete ONB.asked[plan.id]; await tbSave(plan); tbRender(); };
+  }
+
   /* write an ordered list back: the 1st is the main person, the rest are the options in order */
   function writeOrder(plan, key, list){
     plan.cells = plan.cells || {}; plan.options = plan.options || {};
@@ -229,7 +314,7 @@
     if(!list.length) return head + '<div class="field-note">Nobody with an accepted offer is waiting to start.</div>';
     return head + list.map(a => '<div class="tb2-app" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       + '<b style="min-width:130px;">' + esc([a.first_name, a.last_name].filter(Boolean).join(' ')) + '</b>'
-      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">still onboarding · ' + (a.status === 'offer' ? 'offer sent' : 'getting ready to start') + '</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : '')
+      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">still onboarding · ' + esc((stageOf({ applicant_id:a.id }) || {}).label || (a.status === 'offer' ? 'offer sent' : 'getting ready to start')) + '</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : '')
       + (a.offer_position ? ' · ' + esc(a.offer_position) : '') + ' · you can rank them and mark a Yes; call them, texting from here waits until they’re on the roster</span>'
       + '<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tb2AddApplicant(\'' + esc(key) + '\',\'' + esc(a.id) + '\')">Add to this shift</button></div>').join('');
   }
@@ -454,7 +539,7 @@
   }
   function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 
-  Object.assign(window, { tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer, tb2Move:move, tb2Onboarding:onboardingNote, tb2WriteOrder:writeOrder,
+  Object.assign(window, { tb2OnboardHtml:onboardHtml, tb2GoalEdit:goalEdit, tb2StageOf:stageOf, TB2_ONB:ONB, tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer, tb2Move:move, tb2Onboarding:onboardingNote, tb2WriteOrder:writeOrder,
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
     tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2DriveOf:driveOf, tb2DriveBlock:driveBlock, tb2DriveLive:driveLive, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,
