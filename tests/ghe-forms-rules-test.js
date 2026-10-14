@@ -34,5 +34,14 @@ const sc = R.scorecard('2026-11', watch, sf, clients, T), L = sc.rows.find(r => 
 ck('scorecard by nurse: Lena 2 due, 1 visited (form missing), 1 still open', L.due === 2 && L.visited === 1 && L.forms_missing === 1 && L.open === 1 && L.missed === 0, L)
 ck('...Rita 2 due, both visited; 1 uploaded on time and seen in Fusion; 1 ready and overdue to upload', RR.due === 2 && RR.visited === 2 && RR.uploaded === 1 && RR.on_time === 1 && RR.seen === 1 && RR.ready_overdue === 1, RR)
 ck('...a past month counts what was not visited as missed; totals add up; inactive clients left out', R.scorecard('2026-11', watch, sf, clients, '2026-12-03').rows.find(r => r.nurse === 'Lena Lowe').missed === 1 && sc.total.due === 4)
+/* DECISION 1 (2026-10-14 nurse wording page): the participant signs before Fusion. Inert until Samantha approves it. */
+ck('decision 1 is NOT in force: PARTICIPANT_SIGNS_BEFORE_FUSION is false and a form without the participant\'s signature still moves exactly as before', R.PARTICIPANT_SIGNS_BEFORE_FUSION === false && R.transition(lpnForm, 'rn_review', ctx()).ok && R.transition(rnForm, 'ready', ctx()).ok && ok.ok)
+{ const fs = require('fs'), vm = require('vm'), path = require('path'); const src = fs.readFileSync(path.join(__dirname, '..', 'ghe-forms-rules.js'), 'utf8')
+  const on = src.replace('const PARTICIPANT_SIGNS_BEFORE_FUSION = false;', 'const PARTICIPANT_SIGNS_BEFORE_FUSION = true;'); const sb = { module: { exports: {} } }; vm.runInNewContext(on, sb); const R2 = sb.module.exports
+  ck('...the one line to change is there (exactly one)', on !== src && (src.match(/const PARTICIPANT_SIGNS_BEFORE_FUSION = false;/g) || []).length === 1)
+  const why = (x) => (x && x.why) || ''
+  ck('...once approved (the line set to true): an LPN form without the participant\'s signature cannot go to RN review, an RN\'s cannot be Ready, and each says why (HCBS 8.00 Appendix 4), with no em dash',
+    R2.PARTICIPANT_SIGNS_BEFORE_FUSION === true && /participant \(or their representative\) signs the form first/.test(why(R2.transition(lpnForm, 'rn_review', ctx()))) && /HCBS 8\.00 Appendix 4/.test(why(R2.transition(rnForm, 'ready', ctx()))) && !/\u2014/.test(why(R2.transition(rnForm, 'ready', ctx()))))
+  ck('...and with the participant\'s signature everything moves as before', R2.transition(Object.assign({}, lpnForm, { sig_part: 'p' }), 'rn_review', ctx()).ok && R2.transition(Object.assign({}, rnForm, { sig_part: 'p' }), 'ready', ctx()).ok && R2.transition(Object.assign({}, lpnForm, { sig_part: 'p', sig_sup: 'y' }), 'ready', ctx({ reviewer: 'Rita Reed' })).ok && R2.transition(Object.assign({}, rnForm), 'draft', ctx()).ok) }
 let pass = 0; for (const [n, okk, dd] of res) { console.log((okk ? 'PASS  ' : 'FAIL  ') + n + (okk ? '' : '  ' + dd)); if (okk) pass++ }
 console.log(`\n${pass} passed, ${res.length - pass} failed`); process.exit(pass === res.length ? 0 : 1)
