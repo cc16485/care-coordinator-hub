@@ -589,7 +589,7 @@ function pfill(){
   const f = FORMS[P.form]; if (!f) return;
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
   const YES = ['has_license', 'has_insurance', 'has_transport', 'open_shift_texts', 'text_consent', 'hs_grad'];
-  const TEXT = { preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
+  const TEXT = { county: 'Christian', preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
   for (const i of secs) for (const it of (f.sections[i].items || [])) {
     /* a yes/no grid that is partly filled in (from the interview) gets only its missing rows */
     if (it.kind === 'table' && it.id !== 'windows' && ANS[it.id] && typeof ANS[it.id] === 'object') { const m = { ...ANS[it.id] }; (it.options || []).forEach((x) => { if (!m[x]) m[x] = 'Yes'; }); ANS[it.id] = m; continue; }
