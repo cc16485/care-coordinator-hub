@@ -2805,9 +2805,29 @@ async function logAttEvent(){
 /* Pending triggers = uncovered strikes, per her rules:
    every short-notice call-in AND every NCNS is its own trigger; hitting the
    call-in/tardy totals inside the window is a trigger for the accumulation. */
+/* ── WHOSE RECORD IS IT (step 4, Samantha 2026-10-14: "yes start part 1") ─────────────────────────────────────────────
+   An attendance event or a write-up belongs to a person by their AxisCare caregiver number when it has one, and by the
+   typed name only when it has none. A record with a number never joins someone else by name. A name-only record joins
+   the person with a number only when exactly one person with a number has that name, so nothing splits while older
+   records are being connected. The cards are keyed 'ax:<number>' or 'nm:<name>'; attGroupName gives the name to show. */
+function attIdOf(r){ return String((r && (r.axiscare_caregiver_id || r.ax_caregiver_id)) || '').trim(); }
+function attNameKey(n){ return String(n || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+function attGroups(){
+  const recs = ATT_EVENTS.concat(DISC_ACTIONS);
+  const nameToIds = new Map(), names = new Map();
+  recs.forEach(r => { const id = attIdOf(r); if(!id) return;
+    const nk = attNameKey(r.caregiver); if(nk){ if(!nameToIds.has(nk)) nameToIds.set(nk, new Set()); nameToIds.get(nk).add(id); } });
+  const keyOf = r => { const id = attIdOf(r); if(id) return 'ax:' + id;
+    const nk = attNameKey(r.caregiver); const ids = nameToIds.get(nk);
+    return ids && ids.size === 1 ? 'ax:' + [...ids][0] : 'nm:' + nk; };
+  recs.forEach(r => { const k = keyOf(r); if(!names.has(k) && String(r.caregiver || '').trim()) names.set(k, String(r.caregiver).trim()); });
+  return { keyOf, names };
+}
+function attGroupName(key){ const g = attGroups(); return g.names.get(key) || String(key || '').replace(/^(ax|nm):/, ''); }
 function attStatus(cg){
   const cfg=attCfg(), now=Date.now();
-  const evs=ATT_EVENTS.filter(e=>e.caregiver===cg);
+  const G=attGroups(), K=/^(ax|nm):/.test(String(cg||''))?String(cg):G.keyOf({caregiver:cg});
+  const evs=ATT_EVENTS.filter(e=>G.keyOf(e)===K);
   const inWin=(e,days)=>now-new Date(e.shift_date+'T00:00').getTime()<=days*86400000;
   const uncovered=evs.filter(e=>!e.action_id);
   const callinsWin=evs.filter(e=>e.type==='callin'&&inWin(e,cfg.callin_window));
@@ -2823,14 +2843,15 @@ function attStatus(cg){
   if(tardiesWin.length>=cfg.tardy_count&&uncTardies.length)
     triggers.push({kind:'tardy_total',events:uncTardies,label:tardiesWin.length+' tardies in '+cfg.tardy_window+' days (policy: '+cfg.tardy_count+')'});
   const lookMs=cfg.lookback_months*30.4*86400000;
-  const issued=DISC_ACTIONS.filter(a=>a.caregiver===cg&&a.status==='issued'&&now-new Date(a.issued_at).getTime()<=lookMs);
-  const drafts=DISC_ACTIONS.filter(a=>a.caregiver===cg&&(a.status==='draft'||a.status==='pending_approval'||a.status==='approved'));
+  const issued=DISC_ACTIONS.filter(a=>G.keyOf(a)===K&&a.status==='issued'&&now-new Date(a.issued_at).getTime()<=lookMs);
+  const drafts=DISC_ACTIONS.filter(a=>G.keyOf(a)===K&&(a.status==='draft'||a.status==='pending_approval'||a.status==='approved'));
   const LADDER=['Verbal Warning','Written Warning','Final Written Warning','Termination Review'];
   const nextLevel=triggers.some(t=>t.kind==='ncns')?'Termination Review':LADDER[Math.min(issued.length,3)];
   return {evs,callinsWin,tardiesWin,triggers,issued,drafts,nextLevel,
     termEligible:issued.length>=2||triggers.some(t=>t.kind==='ncns')};
 }
-function attCaregivers(){ return [...new Set(ATT_EVENTS.map(e=>e.caregiver))].sort(); }
+/* one entry per person with attendance history: their key (see attGroups), sorted by the name shown */
+function attCaregivers(){ const G=attGroups(); return [...new Set(ATT_EVENTS.map(e=>G.keyOf(e)))].sort((a,b)=>attGroupName(a).localeCompare(attGroupName(b))); }
 
 /* ── WRITE-UP TEMPLATES ───────────────────────────────────────────────────────
    Until now a write-up could only be raised from an attendance trigger, so
@@ -2957,7 +2978,7 @@ function openNewWriteup(prefillCg){
   // caregivers on the roster, plus anyone who already has attendance history
   const names=[...new Set([].concat(
     (typeof caregivers!=='undefined'?caregivers:[]).map(c=>((c.first||'')+' '+(c.last||'')).trim()),
-    attCaregivers()
+    attCaregivers().map(attGroupName)
   ).filter(Boolean))].sort();
   document.getElementById('hb-cg-list').innerHTML=names.map(n=>'<option value="'+creqEsc(n)+'">').join('');
   hbTplChanged();
@@ -3070,7 +3091,7 @@ function renderAttendance(){
       :'<span style="background:#dcfce7;color:#166534;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:700">in good standing</span>';
     return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:.85rem 1.1rem;margin-bottom:.6rem">'
       +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
-      +'<b style="font-size:.95rem;color:var(--navy)">'+creqEsc(cg)+'</b>'+chip
+      +'<b style="font-size:.95rem;color:var(--navy)">'+creqEsc(attGroupName(cg))+'</b>'+chip
       +'<span style="margin-left:auto;font-size:.72rem;color:#6E6559">'+s.callinsWin.length+' call-ins · '+s.tardiesWin.length+' tardies (window) · '+s.issued.length+' warning'+(s.issued.length===1?'':'s')+' on file</span>'
       +'</div>'
       +(s.triggers.length?'<div style="margin-top:.5rem">'+s.triggers.map((t,ti)=>
@@ -3105,7 +3126,7 @@ function attDocBody(cg, trigger, level){
     +(e.note?' — '+e.note:'');
   return 'CARING COMPANIONS — CORRECTIVE ACTION NOTICE\n'
     +'══════════════════════════════════════════════\n\n'
-    +'Employee:        '+cg+'\n'
+    +'Employee:        '+attGroupName(cg)+'\n'
     +'Date:            '+today+'\n'
     +'Action level:    '+level+'\n'
     +'Category:        Attendance & Dependability (Handbook 2U)\n\n'
@@ -3146,7 +3167,8 @@ async function draftWriteup(cg, triggerIdx){
   const t=s.triggers[triggerIdx]; if(!t) return;
   const level=t.kind==='ncns'?'Termination Review':s.nextLevel;
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
-  const a={ id:'dw'+Date.now(), caregiver:cg, level, reason:t.label, event_ids:t.events.map(e=>e.id),
+  const axid=String(cg||'').startsWith('ax:')?String(cg).slice(3):'';
+  const a={ id:'dw'+Date.now(), caregiver:attGroupName(cg), ...(axid?{axiscare_caregiver_id:axid}:{}), level, reason:t.label, event_ids:t.events.map(e=>e.id),
     body:attDocBody(cg,t,level), status:'draft', created_at:new Date().toISOString(), created_by:by.split('@')[0]||'staffing', issued_at:null };
   DISC_ACTIONS.push(a);
   await attPersist('discipline_actions',a);
@@ -3199,8 +3221,8 @@ async function pushAxNote(id){
     +'Approved by: '+(a.approved_by||'Samantha Troutman')+' · Issued by: '+(a.created_by||'staffing')+'\n'
     +'Signed original filed in Viventium.';
   /* C2b: by AxisCare number, picked by a person, through our own server with their sign-in (recorded) */
-  const d=await axCaregiverNote(a.caregiver, noteText, a.ax_caregiver_id);
-  if(d.outcome==='sent'){ a.ax_noted=true; a.ax_note_error=''; a.ax_caregiver_id=d.picked.id; }
+  const d=await axCaregiverNote(a.caregiver, noteText, a.axiscare_caregiver_id || a.ax_caregiver_id);   /* step 4: either field name */
+  if(d.outcome==='sent'){ a.ax_noted=true; a.ax_note_error=''; a.ax_caregiver_id=d.picked.id; if(!a.axiscare_caregiver_id) a.axiscare_caregiver_id=String(d.picked.id); }
   else { a.ax_noted=false; a.ax_note_error=d.outcome==='cancelled'?'not sent: no caregiver was picked':String(d.detail||d.error||'failed'); }
   await attPersist('discipline_actions',a);
   renderAttendance();
@@ -7479,6 +7501,17 @@ async function confirmSendInvite(){
    itself: the person is booked onto the in-person session at that date and time (a one-seat session is added if
    there is none), so the calendar, the day-before reminder, attendance and Promote all work as before. Nothing is
    texted unless "Book and text them" is pressed, and that text is the same confirmation the booking page sends. */
+/* step 4 (Samantha 2026-10-14): whose orientation booking is it. A booking that carries their Background & References
+   record number is matched by that number only (compared as text: some are saved as numbers); a booking with no number
+   is matched by name only when exactly one person has that name. Never the first of two. */
+function bookingCandIdx(b){
+  if(!b) return -1;
+  if(b.candidate_id != null && String(b.candidate_id).trim() !== '') return candidates.findIndex(c => String(c.id) === String(b.candidate_id).trim());
+  const nm = (String(b.first || '') + ' ' + String(b.last || '')).trim().toLowerCase();
+  if(!nm) return -1;
+  const hits = candidates.map((c, i) => ((String(c.first || '') + ' ' + String(c.last || '')).trim().toLowerCase() === nm ? i : -1)).filter(i => i > -1);
+  return hits.length === 1 ? hits[0] : -1;
+}
 function officeOrientBookingFor(c, sessions, today){
   /* their upcoming orientation booking, if any: by candidate id first, then by name; a canceled, no-show or
      rescheduled seat is not a booking */
@@ -7490,7 +7523,7 @@ function officeOrientBookingFor(c, sessions, today){
     (s.bookings || []).forEach((b, idx) => {
       if(!b || (b.attend_status && b.attend_status !== 'attended')) return;
       const byId = b.candidate_id != null && String(b.candidate_id) === String(c.id);
-      const byName = !!name && (String(b.first || '') + ' ' + String(b.last || '')).trim().toLowerCase() === name;
+      const byName = !(b.candidate_id != null && String(b.candidate_id).trim() !== '') && !!name && (String(b.first || '') + ' ' + String(b.last || '')).trim().toLowerCase() === name;   /* step 4: a numbered booking is never someone else's by name */
       if(byId || byName) hits.push({ session: s, booking: b, idx });
     });
   }
@@ -8973,9 +9006,7 @@ function renderSessionsList(){
                   :ao==='canceled'?`<span class="badge b-gray" style="font-size:.68rem">❌ Canceled${b.cancel_method?` (${b.cancel_method==='call'?'📞':b.cancel_method==='text'?'💬':'❓'})`:''}</span>${b.cancel_reason?`<span class="chk-date" style="margin-left:.3rem">${b.cancel_reason}</span>`:''}`:''
                 ;
                 // Find matching candidate for Promote button
-                const matchCand = candidates.find(c=>
-                  `${c.first} ${c.last}`.toLowerCase()===`${b.first} ${b.last}`.toLowerCase()
-                  ||(b.candidate_id && c.id===b.candidate_id));
+                const matchCand = candidates[bookingCandIdx(b)] || null;   /* step 4: by their record number, not the first name match */
                 const promoteBtn = ao==='attended' && matchCand
                   ? `<button class="att-btn" style="background:#22C55E;color:#fff;border:none;font-size:.68rem;padding:.22rem .5rem;white-space:nowrap" onclick="promoteToCaregiver(${matchCand.id})">🎓 Promote</button>` : '';
                 const btns = ao ? `${promoteBtn}<button class="att-btn" style="font-size:.65rem;padding:.15rem .35rem" onclick="markAttendance(${s.id},${bi},null)" title="Undo">↩</button>`
@@ -9218,10 +9249,7 @@ function markAttendance(sessId, bookingIdx, status){
   b.attend_status = status;
   if(!status){ b.cancel_method=null; b.cancel_reason=''; }
   // Sync outcome to matching candidate record
-  const cIdx = candidates.findIndex(c=>
-    `${c.first} ${c.last}`.toLowerCase()===`${b.first} ${b.last}`.toLowerCase()
-    || (b.candidate_id && c.id===b.candidate_id)
-  );
+  const cIdx = bookingCandIdx(b);   /* step 4: by their record number; a name only when one person has it */
   if(cIdx!==-1){
     candidates[cIdx].orient_outcome = status;
     candidates[cIdx].orient_session_date = status ? s.date : '';
@@ -9262,10 +9290,7 @@ function saveCancelDetails(){
   b.cancel_method = method;
   b.cancel_reason = reason;
   // Sync to candidate
-  const cIdx = candidates.findIndex(c=>
-    `${c.first} ${c.last}`.toLowerCase()===`${b.first} ${b.last}`.toLowerCase()
-    || (b.candidate_id && c.id===b.candidate_id)
-  );
+  const cIdx = bookingCandIdx(b);   /* step 4: by their record number; a name only when one person has it */
   if(cIdx!==-1){
     candidates[cIdx].orient_outcome = 'canceled';
     candidates[cIdx].orient_session_date = s.date;

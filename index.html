@@ -14100,13 +14100,17 @@ async function saveSupervisoryVisit(){
   try{
     const { data } = await sb.from('app_data').select('data').eq('key','caregivers').maybeSingle();
     if(data && Array.isArray(data.data)){
-      const cg = data.data.find(g => (g.first && g.last && (g.first+' '+g.last)===record.caregiver_name) || (record.axiscare_caregiver_id && g.axiscare_id===record.axiscare_caregiver_id));
+      /* step 4 (2026-10-14): by AxisCare number when the visit has one; the name only when it has none, and only when one
+         caregiver has that name (never the first of two) */
+      const vid = String(record.axiscare_caregiver_id||'').trim();
+      const byName = data.data.filter(g => g.first && g.last && (g.first+' '+g.last).trim().toLowerCase()===String(record.caregiver_name||'').trim().toLowerCase());
+      const cg = vid ? data.data.find(g => String(g.axiscare_id||'')===vid) : (byName.length===1 ? byName[0] : null);
       if(cg){
         cg.supv_date = record.visit_date;
         cg.supervisory_proof_link = record.proof_link;
         if(record.proof_link) cg.supv_proof = record.proof_link;   /* 2026-10-12: the field the compliance table reads */
         await ccCaregiverPut(cg);
-      }
+      } else alert('The visit is saved, but it could not be matched to exactly one caregiver on the roster'+(vid?' (no caregiver has AxisCare number '+vid+')':' (pick the caregiver so it carries their AxisCare number)')+'. Add the date on their page.');
     }
   }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on the Training tab.'); }
 
@@ -18533,10 +18537,14 @@ function cgdPerformanceHtml(c,nm){
   const esc=escapeHtmlComms, card=cgdSectionCard, kv=cgdSectionKv;
   const nk=String(nm||'').toLowerCase().replace(/\s+/g,' ').trim();
   const now=Date.now(), d30=now-30*864e5, d90=now-90*864e5;
-  const evs=(DATA.attendance_events||[]).filter(e=>String(e.caregiver||'').toLowerCase().replace(/\s+/g,' ').trim()===nk);
+  /* step 4 (2026-10-14): a record with an AxisCare number is theirs only if it is their number; a name match counts only
+     for records with no number */
+  const recId=x=>String((x&&(x.axiscare_caregiver_id||x.ax_caregiver_id))||'').trim();
+  const isMine=x=>{ const i=recId(x); return i ? i===String(c.id) : String(x.caregiver||'').toLowerCase().replace(/\s+/g,' ').trim()===nk; };
+  const evs=(DATA.attendance_events||[]).filter(isMine);
   const inD=(e,cut)=>{ const t=new Date(String(e.shift_date||e.created_at||0)+'T12:00:00').getTime(); return Number.isFinite(t)&&t>=cut; };
   const cnt=(type,cut)=>evs.filter(e=>(type==='evv'?(e.type==='evv_missing_in'||e.type==='evv_missing_out'):e.type===type)&&inD(e,cut)).length;
-  const wus=(DATA.discipline_actions||[]).filter(w=>String(w.caregiver||'').toLowerCase().replace(/\s+/g,' ').trim()===nk);
+  const wus=(DATA.discipline_actions||[]).filter(isMine);
   const recent=evs.slice().sort((a,b)=>String(b.shift_date||'').localeCompare(String(a.shift_date||''))).slice(0,6)
     .map(e=>'<div class="field-note" style="padding:1px 0;">'+esc(String(e.shift_date||''))+' · '+esc(String(e.type))
       +(e.minutes_late?' ('+esc(String(e.minutes_late))+' min late)':'')
@@ -24339,9 +24347,14 @@ function apPerfHtml(r){
   if(!n) return '<div class="field-note">No name on this record.</div>';
 
   const sameName = (AP_ROWS||[]).filter(x=>trainNorm((x.first_name||'')+(x.last_name||''))===n).length;
+  /* step 4 (2026-10-14): a record with an AxisCare number is theirs only when it is the number found for them by id
+     (apFindCaregiver's cache); records with no number keep the unique-name rule */
+  const axid = (typeof AP_CG_CACHE !== 'undefined' && AP_CG_CACHE[r.id]) ? String(AP_CG_CACHE[r.id]) : '';
+  const recId = x => String((x && (x.axiscare_caregiver_id || x.ax_caregiver_id)) || '').trim();
   const mine = list => (list||[]).filter(x =>
     (x.person_id && String(x.person_id)===String(r.id))
-    || (!x.person_id && sameName<2 && trainNorm(x.caregiver)===n));
+    || (recId(x) ? (!!axid && recId(x) === axid)
+       : (!x.person_id && sameName<2 && trainNorm(x.caregiver)===n)));
 
   const events  = mine(DATA.attendance_events).sort((a,b)=>(b.shift_date||'').localeCompare(a.shift_date||''));
   const actions = mine(DATA.discipline_actions).sort((a,b)=>(b.created_at||'').localeCompare(a.created_at||''));
