@@ -6,7 +6,7 @@
    nursing license door. Nothing here sends anything. */
 const fs = require('fs'), path = require('path'), vm = require('vm'), { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..'), rd = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8');
-const LPN_BASE = process.env.LPN_BASE || '94e3abc';
+const LPN_BASE = process.env.LPN_BASE || 'd6903d4fbea928ef3c643904e30bbe31c7d467dd';   /* origin/main when this was built */
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 500))); };
 const base = (f) => { try { return execFileSync('git', ['-C', ROOT, 'show', LPN_BASE + ':' + f], { encoding: 'utf8' }); } catch (e) { return null; } };
