@@ -3066,7 +3066,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 1 Phone</label><input type="tel" id="ob-r1-phone" placeholder="417-555-0000"></div>
       <div class="grp"><label>Ref 1 Email</label><input type="email" id="ob-r1-email" placeholder="email@example.com"></div>
       <div class="grp"><label>Ref 1 Status</label>
-        <select id="ob-r1s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
+        <select id="ob-r1s" disabled title="Comes from the reference's answers (online, or recorded from a call)"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
       <div class="grp"><label>Ref 1 Type</label>
         <select id="ob-r1-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
@@ -3079,7 +3079,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 2 Phone</label><input type="tel" id="ob-r2-phone" placeholder="417-555-0000"></div>
       <div class="grp"><label>Ref 2 Email</label><input type="email" id="ob-r2-email" placeholder="email@example.com"></div>
       <div class="grp"><label>Ref 2 Status</label>
-        <select id="ob-r2s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
+        <select id="ob-r2s" disabled title="Comes from the reference's answers (online, or recorded from a call)"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
       <div class="grp"><label>Ref 2 Type</label>
         <select id="ob-r2-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
@@ -3092,7 +3092,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 3 Phone</label><input type="tel" id="ob-r3-phone" placeholder="417-555-0000"></div>
       <div class="grp"><label>Ref 3 Email</label><input type="email" id="ob-r3-email" placeholder="email@example.com"></div>
       <div class="grp"><label>Ref 3 Status</label>
-        <select id="ob-r3s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
+        <select id="ob-r3s" disabled title="Comes from the reference's answers (online, or recorded from a call)"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
       <div class="grp"><label>Ref 3 Type</label>
         <select id="ob-r3-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
@@ -3105,7 +3105,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Ref 4 Phone</label><input type="tel" id="ob-r4-phone" placeholder="417-555-0000"></div>
       <div class="grp"><label>Ref 4 Email</label><input type="email" id="ob-r4-email" placeholder="email@example.com"></div>
       <div class="grp"><label>Ref 4 Status</label>
-        <select id="ob-r4s"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
+        <select id="ob-r4s" disabled title="Comes from the reference's answers (online, or recorded from a call)"><option value="Pending">Pending</option><option value="Positive">Positive</option><option value="Conditional">Conditional</option><option value="Negative">Negative</option></select>
       </div>
       <div class="grp"><label>Ref 4 Type</label>
         <select id="ob-r4-type"><option value="">Not set</option><option value="professional">Professional</option><option value="personal">Personal</option></select>
@@ -24052,7 +24052,13 @@ async function apOnboardMount(r, hostEl){
             ? 'deleted once screening cleared' : '<span style="color:#B45309;">still held, deleted when screening clears</span>');
     }
 
-    if(R.length){
+    /* 2026-10-12 step 3: when their Background & References record is found (by id, through the start form), the
+       reference cards show here instead of the list: everything about each reference, and every action for it */
+    const boardCand = (intake && window.SCX && typeof SCX.getCandidates === 'function')
+      ? (SCX.getCandidates() || []).find(c => c && String(c.intake_id || '') === String(intake.id)) : null;
+    if(boardCand && typeof obRefCardsMount === 'function'){
+      out += '<div class="pp-refcards" data-cand="' + esc(String(boardCand.id)) + '"><div class="field-note">Reading their references…</div></div>';
+    } else if(R.length){
       const done = R.filter(x=>x.responded_at).length;
       out += '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 4px;">'
         + 'References · ' + done + ' of ' + R.length + ' back</div>'
@@ -24071,6 +24077,7 @@ async function apOnboardMount(r, hostEl){
     }
 
     host.innerHTML = out;
+    host.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand));
   }catch(e){
     host.innerHTML = '<div class="field-note">Could not read the onboarding: ' + esc(e && e.message || 'error')
       + '<br>If this mentions applicant_id, run <b>recruit-lifecycle.sql</b>.</div>';
