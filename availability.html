@@ -58,9 +58,6 @@
 <div id="form" style="display:none;">
   <div class="card">
     <div id="hello" style="font-weight:800;color:var(--navy);font-size:16px;"></div>
-    <!-- PRN4: from a check-in text's personal link, "Still right" confirms what's on file in one tap, right at the top. -->
-    <button class="go" id="stillRight" style="display:none;margin:12px 0 4px;" onclick="stillRight()">✓ Still right</button>
-    <div id="stillDone"></div>
     <label>Hours per week you're hoping for</label>
     <input id="hours" type="number" inputmode="numeric" min="0" max="80" placeholder="e.g. 25">
     <label style="margin-top:14px;">When do you want to work? Tap everything that works for you.</label>
@@ -68,7 +65,11 @@
     <div class="note">Morning is roughly 6am-12pm, daytime 12-5pm, evening 5-10pm, overnight 10pm-6am.</div>
     <!-- 2026-10-14 (Samantha): they can ask to hear about shifts outside the times above, in case they can take them -->
     <label class="chk"><input type="checkbox" id="outside"><span>Also text me about open shifts outside these times, in case I can take them. <span style="font-weight:400;color:var(--gray);">Saying no is always fine.</span></span></label>
-    <button class="go" onclick="save()">Save my hours</button>
+    <!-- 2026-10-14 (Samantha): whenever something is on file (their link or their phone number), they can keep it as it is in
+         one tap, and the outside-hours box above is saved with it either way -->
+    <button class="go" id="stillRight" style="display:none;background:var(--teal);" onclick="stillRight()">✓ Keep it the same</button>
+    <div id="stillDone"></div>
+    <button class="go" id="saveBtn" onclick="save()">Save my hours</button>
     <div class="err" id="saveErr"></div>
     <div id="done"></div>
   </div>
@@ -118,7 +119,8 @@ async function lookup(){
   $('outside').checked=out.outside_ok===true;
   grid();
   const has=Object.values(SEL).some(v=>Array.isArray(v)&&v.length);
-  if(LINK&&has){ $('stillRight').style.display='block'; $('hello').textContent='Hi '+out.first_name+'! Here is what you told us. Still right? One tap. Or change anything and save.'; }
+  if(has){ $('stillRight').style.display='block'; $('saveBtn').textContent='Save my changes';
+    $('hello').textContent='Hi '+out.first_name+'! Here is what we have on file for you. Keep it the same, or change anything and save.'; }
   $('phoneCard').style.display='none';
   $('form').style.display='block';
 }
@@ -136,7 +138,7 @@ async function save(){
 async function stillRight(){
   if(SAVING) return; SAVING=true;
   $('saveErr').textContent=''; $('done').innerHTML='';
-  const out=await call({ ...who(), action:'confirm' });
+  const out=await call({ ...who(), action:'confirm', outside_ok:$('outside').checked });
   SAVING=false;
   if(out.error){ $('stillDone').innerHTML='<div class="err">'+esc(out.error)+'</div>'; return; }
   if(out.unknown){ $('stillDone').innerHTML='<div class="err">'+esc(out.message)+'</div>'; return; }
