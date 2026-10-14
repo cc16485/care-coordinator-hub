@@ -42,7 +42,10 @@
   const chip = (txt, fg, bg) => '<span style="display:inline-block;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:700;color:' + fg + ';background:' + bg + ';white-space:nowrap;">' + esc(txt) + '</span>';
 
   /** Offered only while practice is on (the Owners Hub switch). */
-  function offered(){ try{ return !!(DATA && DATA.ops_settings && DATA.ops_settings.call_tasks_practice === true); }catch(e){ return false; } }
+  const live = () => { try{ return !!(DATA && DATA.ops_settings && DATA.ops_settings.call_tasks_live === true); }catch(e){ return false; } };
+  function offered(){ try{ return !!(DATA && DATA.ops_settings && (DATA.ops_settings.call_tasks_practice === true || DATA.ops_settings.call_tasks_live === true)); }catch(e){ return false; } }
+  /* 2026-10-14: its own tab on Today (Call Follow Ups, #cfuWrap); My Work's wrap kept for an old open page */
+  const host = () => document.getElementById('cfuWrap') && typeof activeTab !== 'undefined' && activeTab === 'callfollowups' ? document.getElementById('cfuWrap') : document.getElementById('myWorkWrap');
 
   async function load(force){
     if(CPR.busy) return CPR.busy;
@@ -170,12 +173,26 @@
       || '<div class="card" style="padding:18px;text-align:center;">No promises in this view.</div>';
   }
 
+  /* Which office line (2026-10-14, her "all numbers we have in our subaccount linked"): calls and texts read per GoHighLevel
+     number, so a line that never shows up stands out. Readings from before the line was kept are left out of the count. */
+  function linesLine(all){
+    const m = {}; let unknown = 0;
+    all.forEach(r => { const d = r.detail || {}; if(!('line' in d)) return; if(!d.line){ unknown++; return; }
+      const x = m[d.line] = m[d.line] || { call: 0, text: 0 }; x[(r.channel || 'call') === 'text' ? 'text' : 'call']++; });
+    const keys = Object.keys(m).sort((a, b) => (m[b].call + m[b].text) - (m[a].call + m[a].text));
+    if(!keys.length) return '';   /* nothing until GoHighLevel's line is being read; then the unknown ones are counted too */
+    const n = (k, w) => k + ' ' + w + (k === 1 ? '' : 's');
+    return '<div class="field-note" style="margin:0 0 6px;">By office line: ' + keys.map(k => '<b>' + esc(k) + '</b> ' + n(m[k].call, 'call') + ', ' + n(m[k].text, 'text')).join(' · ')
+      + (unknown ? (keys.length ? ' · ' : '') + unknown + ' where GoHighLevel did not say the line' : '') + '</div>';
+  }
   function render(wrap){
     if(!wrap) return;
     const intro = '<div class="card" style="padding:14px 16px;margin-bottom:12px;background:#FFF8EC;border:1px solid #F0D9A8;">'
-      + '<b style="color:#8A5A00;">Practice.</b> These cards are not in anyone\'s work. For each call they show what the AI employee understood, every job it found and why it would or would not make a card, '
-      + 'beside what the team actually did. Nothing here creates, changes or sends anything.</div>';
-    if(!CPR.rows){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Loading the calls…</div>'; load().then(() => { if(typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'callpractice') render(wrap); }); return; }
+      + (DATA && DATA.ops_settings && DATA.ops_settings.call_tasks_live === true
+        ? '<b style="color:#8A5A00;">What the AI read.</b> Its cards go straight into My Work as Call follow-up cards. For each call and text this shows what it understood, every job it found and why it did or did not make a card, '
+        : '<b style="color:#8A5A00;">Practice.</b> These cards are not in anyone\'s work. For each call they show what the AI employee understood, every job it found and why it would or would not make a card, ')
+      + 'beside what the team actually did. Nothing here sends anything.</div>';
+    if(!CPR.rows){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Loading the calls…</div>'; load().then(() => { if(typeof activeTab !== 'undefined' && activeTab === 'callfollowups') render(wrap); }); return; }
     if(CPR.err === 'not_installed'){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">This appears once Desktop step 650 has run.</div>'; return; }
     if(CPR.err){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Could not read the calls: ' + esc(CPR.err) + '</div>'; return; }
     const all = CPR.rows;
@@ -201,6 +218,7 @@
     let head = alarm + '<div class="field-note" style="margin:0 0 6px;">' + beatLine() + 'Last ' + DAYS + ' days: <b>' + all.length + '</b> calls and texts read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + ' it would have made · <b>' + nWork
       + '</b> jobs it found already handled (in a workflow or on the call) · <b>' + nPeople + '</b> cards people made for the same people within a day · '
       + '<a href="#" onclick="CPR.refresh();return false;">Refresh</a></div>'
+      + linesLine(all)
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 6px;">'
       + '<input id="cprQ" type="search" placeholder="Search a name or anything said" value="' + esc(CPR.q) + '" oninput="CPR.setQuery(this.value)" style="flex:1 1 220px;width:auto;min-width:0;font-size:13px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
       + '<select id="cprDay" onchange="CPR.setDay(this.value)" style="flex:0 0 auto;width:auto;font-size:13px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
@@ -235,7 +253,7 @@
         + (d.summary ? '<div style="font-size:13px;margin-top:6px;"><b>The call:</b> ' + esc(d.summary) + '</div>' : '')
         + (understood || promises ? '<div style="margin-top:6px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">WHAT IT UNDERSTOOD</div>' + understood + promises + '</div>' : '')
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">'
-        + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">WHAT THE AI WOULD DO</div>' + mine + '</div>'
+        + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">' + (live() ? 'WHAT THE AI PUT IN MY WORK' : 'WHAT THE AI WOULD DO') + '</div>' + mine + '</div>'
         + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--navy);">WHAT THE TEAM DID (WITHIN A DAY)</div>' + theirs + '</div>'
         + '</div></div>';
     }).join('');
@@ -243,7 +261,7 @@
 
   let qTimer = null;
   function redraw(keepFocus){
-    const w = document.getElementById('myWorkWrap'); if(!w) return;
+    const w = host(); if(!w) return;
     const el = keepFocus ? document.getElementById('cprQ') : null, pos = el ? el.selectionStart : null;
     render(w);
     if(keepFocus){ const n = document.getElementById('cprQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }
@@ -252,7 +270,7 @@
     setQuery(v){ CPR.q = String(v || ''); clearTimeout(qTimer); qTimer = setTimeout(() => redraw(true), 200); },
     setDay(v){ CPR.day = String(v || ''); redraw(false); },
     setChannel(k){ CPR.channel = k; redraw(false); },
-    setFilter(k){ CPR.filter = k; CPR.msg = ''; const w = document.getElementById('myWorkWrap'); if(w) render(w); },
-    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises') CPR.filter = 'all'; redraw(false); const w = document.getElementById('myWorkWrap'); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
-    refresh(){ CPR.rows = null; const w = document.getElementById('myWorkWrap'); if(w) render(w); } };
+    setFilter(k){ CPR.filter = k; CPR.msg = ''; const w = host(); if(w) render(w); },
+    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
+    refresh(){ CPR.rows = null; const w = host(); if(w) render(w); } };
 })();

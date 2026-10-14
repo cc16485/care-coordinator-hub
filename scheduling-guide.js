@@ -93,6 +93,8 @@
       ['No clock-in yet', 'timekeeper_msg', ph('set_tk_msg'), 'timekeeper_text_live'],
       ['No clock-out yet', 'timekeeper_msg_out', ph('set_tko_msg'), 'timekeeper_text_live'],
       ['Availability link', 'coverage_msg_avail_invite', ph('set_cov_avail_invite'), null],
+      ['30-day availability text (on file)', 'avail_checkin_msg_on_file', ph('set_avail_ck_on'), 'avail_checkin_live'],
+      ['30-day availability text (nothing on file)', 'avail_checkin_msg_none', ph('set_avail_ck_none'), 'avail_checkin_live'],
       ['To the family: a different caregiver is coming', 'circle_msg_caregiver_change', ph('set_cov_circle_change'), 'family_caregiver_change_text_approved'],
     ];
     return '<div class="card" style="padding:12px 16px;margin:0 0 10px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">💬 The texts, word for word</div>'
