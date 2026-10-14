@@ -344,7 +344,7 @@ const applies = (S) => S.calls.filter((c) => c.name === 'app_data_items_apply');
   ck('index.html: skills, Spanish, the supervisory-visit date and a check recorded after hire (2026-10-14) go through app_data_items_apply with the _rev the page read', (html.match(/await ccCaregiverPut\(/g) || []).length === 4
     && /sb\.rpc\('app_data_items_apply', \{ p_key:'caregivers',\s*p_changes:\[\{ op:'put', id:g\.id, base_rev:Number\(g\._rev\)\|\|0, record:g \}\] \}\)/.test(html));
   ck('index.html: the same conflict words as the engine', html.includes("'Someone else changed '+name+' since this page opened. We loaded the latest; please redo your last change.'"));
-  ck('index.html: a failed supervisory mirror is said, never swallowed; it never matches a caregiver on two blank AxisCare ids', /The visit is saved, but its date did not reach the caregiver roster/.test(html) && /record\.axiscare_caregiver_id && g\.axiscare_id===record\.axiscare_caregiver_id/.test(html));
+  ck('index.html: a failed supervisory mirror is said, never swallowed; it never matches a caregiver on two blank AxisCare ids', /The visit is saved, but its date did not reach the caregiver roster/.test(html) && /const cg = vid \? data\.data\.find\(g => String\(g\.axiscare_id\|\|''\)===vid\)/.test(html));
   ck('index.html: older queued changes to people are kept in the quarantine, never sent', /const peopleKey = entry\.key==='caregivers' \|\| entry\.key==='candidates';/.test(html));
 
   // ── no em dash in anything this change adds ──
