@@ -16,7 +16,7 @@ const fn = js.slice(js.indexOf('async function offerSignLink('), js.indexOf('fun
 ck('the link is made by the Hub server from the offer\'s own expiry, in seconds', /appLinkMint\(\{ kind: 'offer', offer_id: String\(o\.id\), exp: expSec \}\)/.test(fn) && /Math\.floor\(Date\.parse\(o\.offer_expires_at\) \/ 1000\)/.test(fn));
 ck('no expiry ahead means no link, with a plain explanation', /expSec \* 1000 < Date\.now\(\)/.test(fn) && /no link can be made/.test(fn));
 ck('the box offers Copy only: no text, no email, nothing sent from here', /offerCopyLink/.test(fn) && !/sms:/.test(fn) && !/mailto:/.test(fn) && /nothing is sent from here/.test(fn));
-ck('the applicant page action appears for an unsigned, unwithdrawn new-path offer', /r\.offer\.onboarding_path === 'new' && !r\.offer\.offer_withdrawn_at && !\(r\.offer\.offer_signed_at && r\.offer\.pd_signed_at\)/.test(js) && /onclick="offerSignLink\(/.test(js));
+ck('the applicant page action appears for an unsigned, unwithdrawn new-path offer', /r\.offer\.onboarding_path === 'new' && !r\.offer\.offer_withdrawn_at && !(\(r\.offer\.offer_signed_at && r\.offer\.pd_signed_at\)|ceOfferSigned\(r\.offer\))/.test(js)   /* 708: the one shared signed rule */ && /onclick="offerSignLink\(/.test(js));
 ck('the helper is exposed to the page', /window\.offerSignLink = offerSignLink;/.test(js));
 ck('no em dash in the new words', !/—/.test(card) && !/—/.test(fn));
 console.log(`\n${pass} passed, ${fail} failed`);

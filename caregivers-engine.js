@@ -1,5 +1,8 @@
 /* 2026-09-27: lead texts, GoHighLevel replies and job offers need the staff member's own Hub sign-in (x-hub-token), not
    the shared Training key; the Training functions check it with the Hub and run the Hub's opt-out check. */
+/* LPN HIRING (2026-10-14): THE one "offer signed" rule (nurse-hire.js CCPositions): the letter, plus the caregiver position description
+   unless the offer is an LPN or RN offer (letter only). Without the helper loaded, the old rule exactly. */
+function ceOfferSigned(o){ return window.CCPositions ? CCPositions.offerSigned(o) : !!(o && o.offer_signed_at && o.pd_signed_at); }
 /* (the page's own trainHubTok, defined in index.html, supplies the staff member's Hub session) */
 /* Caregiver lifecycle engine, moved from the Staffing Coordinator Hub
    on 2026-07-31. Wrapped so nothing here can reach the hub's own globals:
@@ -1437,7 +1440,7 @@ function updateOffersBadge(){
 function offerRejectedWhy(o){
   if(o.offer_declined_at||o.offer_status==='declined') return 'Declined';
   if(o.offer_withdrawn_at||o.offer_status==='withdrawn') return 'Withdrawn';
-  const signed=!!(o.offer_signed_at&&o.pd_signed_at);
+  const signed=ceOfferSigned(o);   /* LPN HIRING: the one shared rule */
   if(!signed&&(o.offer_status==='expired'||(o.onboarding_path==='new'&&o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()))) return 'Expired';
   const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
   if(c&&c.not_hired) return 'Not hired';
@@ -1446,7 +1449,7 @@ function offerRejectedWhy(o){
 function offerStage(o){
   if(offerRejectedWhy(o)) return 'rejected';
   if(o.step1_done_at||offerMovedOn(o)) return 'completed';
-  if(o.onboarding_path==='new'&&!(o.offer_signed_at&&o.pd_signed_at)) return 'sent';
+  if(o.onboarding_path==='new'&&!ceOfferSigned(o)) return 'sent';
   return 'accepted';
 }
 function offerStageCounts(){
@@ -1507,7 +1510,7 @@ function renderOffers(){
        their signed permission for checks and references is in Step 1. The Hub moves them in by itself the moment Step 1 is
        complete and tells Recruiting to start; there is no button for it. Step 1's progress shows here (HP.fillOfferProgress). */
     const steps=np?[
-      {done:!!(o.offer_signed_at&&o.pd_signed_at), label:'Offer and position description signed',
+      {done:!!ceOfferSigned(o), label:(window.CCPositions&&CCPositions.letterOnly(o)?'Offer letter signed (LPN or RN: letter only)':'Offer and position description signed'),
        btn:'', note:'Theirs to do on the signing link below; this ticks itself when both are signed.'},
       {done:!!o.step1_done_at, label:'Their Step 1',
        btn:'', note:'Sent automatically when they signed. <span class="hp1" data-offer="'+id+'">Checking how far they are…</span>'},
@@ -1584,7 +1587,7 @@ function renderOffers(){
       (o.onboarding_path==='new'
         ? '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem">'+
           '<b style="color:#0D365F">Signing link:</b>'+
-          (o.offer_signed_at&&o.pd_signed_at ? '<span style="color:#15803D">both documents signed ✓</span>'
+          (ceOfferSigned(o) ? '<span style="color:#15803D">'+(window.CCPositions&&CCPositions.letterOnly(o)?'offer letter signed ✓ (letter only)':'both documents signed ✓')+'</span>'
             : o.offer_signed_at ? '<span style="color:#B45309">offer signed, position description not yet</span>'
             : o.offer_withdrawn_at ? '<span style="color:var(--gray)">offer withdrawn, the link is dead</span>'
             : o.offer_status==='expired'||(o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()) ? '<span style="color:#B91C1C">expired unsigned; Resend makes a fresh link</span>'
@@ -1593,10 +1596,10 @@ function renderOffers(){
           offerReminderChip(o)+
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem" onclick="offerSignLink(\''+id+'\',this)">Show the link</button>')+
           /* SLICE 2b (2026-10-10): once both documents are signed, their private Step 1 link (the nine screens); shown and copied here, never sent from here */
-          (o.onboarding_path==='new'&&o.offer_signed_at&&o.pd_signed_at&&!o.offer_withdrawn_at?'<button class="fb" style="font-size:.72rem" onclick="offerStep1Link(\''+id+'\',this)">'+(o.step1_done_at?'Step 1 done · link':'Step 1 link')+'</button>':'')+
+          (o.onboarding_path==='new'&&ceOfferSigned(o)&&!o.offer_withdrawn_at?'<button class="fb" style="font-size:.72rem" onclick="offerStep1Link(\''+id+'\',this)">'+(o.step1_done_at?'Step 1 done · link':'Step 1 link')+'</button>':'')+
           /* SLICE 1c: what the delivery record says, then Resend (unsigned, open) and Withdraw (open) */
           offerDeliveryChip(o)+
-          (o.offer_withdrawn_at||(o.offer_signed_at&&o.pd_signed_at)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResend(\''+id+'\',this)">Resend</button>')+
+          (o.offer_withdrawn_at||ceOfferSigned(o)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResend(\''+id+'\',this)">Resend</button>')+
           (o.offer_withdrawn_at?'':'<button class="fb" style="font-size:.72rem;color:#B91C1C;border-color:#FCA5A5" onclick="offerWithdraw(\''+id+'\',this)">Withdraw</button>')+
           '</div>'+
           '<div id="od_'+id+'" style="display:none;margin-top:.3rem;font-size:.78rem"></div>'+
@@ -1611,7 +1614,7 @@ function renderOffers(){
             : '')+
           /* SLICE 1d (2026-10-09): Step 1 after both signatures. The Training Platform sends it and keeps the record; the
              card only reads it. Resend Step 1 is a person's action on a stuck one. */
-          (o.offer_signed_at&&o.pd_signed_at
+          (ceOfferSigned(o)
             ? '<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.78rem">'+
               '<b style="color:#0D365F">Step 1 link:</b>'+step1Chip(o)+
               (o.offer_withdrawn_at||(o.step1_delivery&&o.step1_delivery.done)?'':'<button class="fb" style="font-size:.72rem" onclick="offerResendStep1(\''+id+'\',this)">Resend Step 1</button>')+
@@ -2478,7 +2481,7 @@ function offeredChip(c){
   const np = o.onboarding_path === 'new'
     ? (o.offer_withdrawn_at ? '<span class="sub" style="color:var(--gray)">offer withdrawn</span>'
       : o.offer_declined_at ? '<span class="sub" style="color:#B91C1C">offer declined</span>'
-      : o.offer_signed_at && o.pd_signed_at ? '<span class="sub" style="color:#15803D">offer signed ' + esc(offerDate(o.offer_signed_at)) + '</span>'
+      : ceOfferSigned(o) ? '<span class="sub" style="color:#15803D">offer signed ' + esc(offerDate(o.offer_signed_at)) + '</span>'
       : o.offer_status === 'expired' ? '<span class="sub" style="color:#B91C1C">offer expired unsigned</span>'
       : o.offer_viewed_at ? '<span class="sub" style="color:#B45309">offer opened, not signed</span>'
       : '<span class="sub" style="color:#B45309">offer not opened yet</span>')
@@ -4753,9 +4756,9 @@ function renderHirePipeline(){
       actions.push('<button class="ibtn" onclick="askReferences(' + r.board.id + ',this)">Ask references</button>');
     if (r.offer && !r.intake && !r.board && !r.roster)
       actions.push('<button class="ibtn" onclick="offerStartLink(\'' + r.offer.id + '\',this)">Start link</button>');
-    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && !(r.offer.offer_signed_at && r.offer.pd_signed_at))
+    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && !ceOfferSigned(r.offer))
       actions.push('<button class="ibtn" onclick="offerSignLink(\'' + r.offer.id + '\',this)">Signing link</button>');
-    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && r.offer.offer_signed_at && r.offer.pd_signed_at)
+    if (r.offer && r.offer.onboarding_path === 'new' && !r.offer.offer_withdrawn_at && ceOfferSigned(r.offer))
       actions.push('<button class="ibtn" onclick="offerStep1Link(\'' + r.offer.id + '\',this)">' + (r.offer.step1_done_at ? 'Step 1 done · link' : 'Step 1 link') + '</button>');
     /* Gate B: the offer's own step actions live on the person row, so the
        retired Offer a Job tab is not needed to finish an offer. */
@@ -8345,12 +8348,14 @@ async function step2Reported(id){
 }
 async function step2Verify(id){
   const c = wcSrcFor(id); if(!c) return;
-  let p; try{ p = await s2Call({ action:'preview', first: c.first || '' }); }catch(e){ alert('Could not load the checklist: ' + e.message); return; }
+  /* LPN HIRING (2026-10-14): candidate_id lets the server add the LPN packet line, only for an LPN or RN hire */
+  let p; try{ p = await s2Call({ action:'preview', first: c.first || '', candidate_id: String(id) }); }catch(e){ alert('Could not load the checklist: ' + e.message); return; }
   const items = (p.checklist && p.checklist.items) || [];
   const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10004;
   w.innerHTML = '<div class="modal" style="max-width:560px"><h3>Verify Viventium Step 2 Complete · ' + wcEsc(c.first + ' ' + c.last) + '</h3>'
     + '<p style="font-size:.82rem;color:var(--gray);margin:.2rem 0 .6rem">Open the employee in Viventium and tick what you see completed. Each tick is recorded in your name with the time and confirms the matching row on their readiness card. Checklist version ' + wcEsc(String(p.checklist.version)) + ' (Admin page).</p>'
     + items.map((t, i) => '<label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.86rem;padding:.25rem 0"><input type="checkbox" class="s2tick" value="' + wcEsc(t) + '" style="margin-top:.2rem"> <span>' + wcEsc(t) + '</span></label>').join('')
+    + (window.NurseHire ? NurseHire.step2Tick(p) : '')
     + '<label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.86rem;padding:.45rem 0;border-top:1px solid #EEE9DF;margin-top:.4rem"><input type="checkbox" id="s2i9" style="margin-top:.2rem"> <span><b>I-9 Section 2:</b> I examined their documents myself and completed Section 2. (Only the person who did this ticks it; it confirms nothing else.)</span></label>'
     + '<div class="grp" style="margin-top:.4rem"><label>Note (optional)</label><input type="text" id="s2note" placeholder="for example: Active in Viventium (a note, not a tick)"></div>'
     + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="ibtn" id="s2cancel">Cancel</button><button class="ibtn" id="s2go" style="background:var(--teal);color:#fff;border-color:var(--teal)">Verify</button></div></div>';
@@ -8358,10 +8363,11 @@ async function step2Verify(id){
   w.querySelector('#s2cancel').onclick = () => w.remove();
   w.querySelector('#s2go').onclick = async () => {
     const ticked = [...w.querySelectorAll('.s2tick:checked')].map(x => x.value), i9 = w.querySelector('#s2i9').checked, note = w.querySelector('#s2note').value;
-    if(!ticked.length && !i9){ alert('Tick what you checked in Viventium.'); return; }
+    const np = !!(w.querySelector('#s2nurse') && w.querySelector('#s2nurse').checked);   /* LPN HIRING: the LPN packet tick */
+    if(!ticked.length && !i9 && !np){ alert('Tick what you checked in Viventium.'); return; }
     if(!confirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the Orientation Video Call invitation goes right after.' : '\n\nThe Orientation Video Call invitation switch is off: you press Invite yourself.'))) return;
     w.querySelector('#s2go').disabled = true;
-    try{ const d = await s2Call({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }); w.remove();
+    try{ const d = await s2Call(Object.assign({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }, np ? { nurse_packet: true } : {})); w.remove();
       const inv = d.invite || {};
       alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe Orientation Video Call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to Orientation Video Call yourself.' : inv.state === 'failed' ? '\n\nThe Orientation Video Call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
       await s2After(id, d);

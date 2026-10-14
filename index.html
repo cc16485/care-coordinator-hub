@@ -7133,7 +7133,8 @@ The HomeTogether team</pre>
 <script src="new-hires.js?v=2"></script>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
+<script src="nurse-hire.js?v=1"></script><!-- LPN hiring (2026-10-14): the position key, the one "offer signed" rule, the nurse forms on the readiness card -->
+<script src="caregiver-readiness.js?v=7"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="nurse-review-portal.js?v=1"></script><!-- 2026-10-14: RN review, the LPN half: Mark for Natasha and her answers on the Nurse Portal -->
@@ -19983,7 +19984,9 @@ async function submitJobOffer(){
     availability:g('jo_avail')||null,experience:g('jo_exp')||null,
     personality:g('jo_pers')||null,notes:g('jo_notes')||null, attributes:joState,
     /* SLICE 1c (2026-10-09): a typed reason sent only when an authorized person re-offers over an open offer */
-    reoffer_reason: (window.JO_REOFFER_REASON||null) };
+    reoffer_reason: (window.JO_REOFFER_REASON||null),
+    /* LPN HIRING (2026-10-14): the position as a key, set once at Save Offer (the form looks the same) */
+    position_key: window.CCPositions ? CCPositions.keyOf(g('jo_position')) : null };
   const btn=document.getElementById('jo_send');
   btn.disabled=true; btn.textContent='Sending…';
   try{
@@ -22646,10 +22649,10 @@ async function apStartingMount(rows){
       return list.find(o => o.onboarding_path === 'new' && ((d && digits(o.phone) === d) || (e && String(o.email||'').trim().toLowerCase() === e))) || null; }catch(_){ return null; } })();
     if(npo){
       const st = npo.offer_withdrawn_at ? ['offer withdrawn', false] : npo.offer_declined_at ? ['offer declined ' + day(npo.offer_declined_at), false]
-        : npo.offer_signed_at && npo.pd_signed_at ? ['offer signed ' + day(npo.offer_signed_at), true] : npo.offer_status === 'expired' ? ['offer expired unsigned', false]
+        : (window.CCPositions ? CCPositions.offerSigned(npo) : (npo.offer_signed_at && npo.pd_signed_at)) ? ['offer signed ' + day(npo.offer_signed_at), true] : npo.offer_status === 'expired' ? ['offer expired unsigned', false]
         : npo.offer_viewed_at ? ['offer opened ' + day(npo.offer_viewed_at) + ', not signed', false] : ['offer not opened yet', false];
       steps.push(dot(st[1], st[0], st[0]));
-      if(!npo.offer_withdrawn_at && !(npo.offer_signed_at && npo.pd_signed_at) && typeof offerSignLink === 'function') steps.push('<button class="ibtn" style="font-size:11px" onclick="offerSignLink(\'' + esc(String(npo.id)) + '\',this)">Signing link</button><div id="ol_' + esc(String(npo.id)) + '" style="display:none;margin-top:.3rem;font-size:.8rem"></div>');
+      if(!npo.offer_withdrawn_at && !(window.CCPositions ? CCPositions.offerSigned(npo) : (npo.offer_signed_at && npo.pd_signed_at)) && typeof offerSignLink === 'function') steps.push('<button class="ibtn" style="font-size:11px" onclick="offerSignLink(\'' + esc(String(npo.id)) + '\',this)">Signing link</button><div id="ol_' + esc(String(npo.id)) + '" style="display:none;margin-top:.3rem;font-size:.8rem"></div>');
     }
     const waiting = steps.filter(s=>s.indexOf('•') > -1).length;
 

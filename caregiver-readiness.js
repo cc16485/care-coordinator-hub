@@ -67,6 +67,7 @@
       if(a.prep){ const pw = p => !p || p.state === 'n/a' ? '' : p.state === 'confirmed' ? '<b style="color:#15803D">' + (p.unchanged ? 'already matched' : 'written and read back') + '</b>' + (p.read ? ' (' + esc(p.read) + ')' : '') : p.state === 'failed' ? '<b style="color:#B91C1C">' + esc(p.detail || 'failed') + '</b>' : p.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b>' : 'waiting for the read-back';
         if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
         if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
+      if(window.NurseHire) h += NurseHire.setupBlock(d);   /* LPN HIRING: an LPN or RN hire's nurse setup (nothing for a caregiver) */
       if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
     } else if(a.ready_for_final){
       h += '<div>Every requirement above is complete. ' + (a.may_approve_work ? 'Press Approve to Work to record your name and the exact time, set them Active in AxisCare and read it back, then send the cleared text.' : 'Only a person on the Approve to Work list (Admin page) can press the button.') + '</div>';
@@ -112,7 +113,9 @@
           + (r.key === 'cg.step2.participant_rights' ? rightsLine(d.facts && d.facts.rights, r) : '') + '</div>';
         /* Approve to Work has its own button in the Final approval block (it also updates AxisCare); the generic Confirm never shows for it */
         if(may && r.def.proof === 'confirmed' && r.key !== 'cg.approve.work' && ['ready', 'attention'].indexOf(r.status) > -1) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.confirm(\'' + esc(r.key) + '\',this)">Confirm</button>';
-        if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
+        /* LPN HIRING (2026-10-14): the nurse rows have their own forms (every field checked by the server), never the generic prompt */
+        if(window.NurseHire && NurseHire.handles(r.key)) line += NurseHire.buttons(r, may);
+        else if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
         /* SLICE 7: AxisCare has no door for attributes or availability: the copy sheet lays out the Step 1 answers to type in */
         if(r.key === 'cg.axiscare.attributes' || r.key === 'cg.axiscare.availability') line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.copySheet(\'' + (r.key === 'cg.axiscare.attributes' ? 'attributes' : 'availability') + '\',this)" title="The Step 1 answers in AxisCare order, to type on the AxisCare screen">&#9112; Copy sheet</button>';
         if(d.is_owner && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark not needed, with the reason">Not needed</button>';
@@ -214,5 +217,5 @@
         + (r.axiscare === 'failed' ? '<span style="font-size:.7rem;color:#B91C1C;font-weight:700">Approval recorded, AxisCare update failed: open the card and press Retry</span>' : '<span style="font-size:.7rem;color:#6E6559">every requirement complete · scheduling locked until the press</span>')
         + '<span style="margin-left:auto">' + chip(r.offer_id) + '</span></div>').join('') + '</div></div>';
   }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, act, cur: () => CUR };   /* act, cur: LPN HIRING (nurse-hire.js) */
 })();
