@@ -23952,7 +23952,8 @@ function apRenderProfile(){
       + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : '')
       + (window.HEPB ? apProfCard('Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.') : ''))   /* 2026-10-13 driver-compliance.js, hepb-card.js */
     + pane('checks',
-        apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
+        apProfCard('Background checks', '<div id="apChecksHost"><div class="field-note">Looking…</div></div>', 'Before hire. Record each result here, with its proof.')
+      + apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
           'Read live from the training platform, which is where it actually lives.')
       + (window.DT ? apProfCard('Drug tests', '<div id="apDt"></div>', 'Only when our policy calls for one. Owners record; nothing here happens on its own.') : ''))   /* 2026-10-13 drug-tests.js (her ruling) */
     + pane('performance', apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.'))
@@ -24057,6 +24058,10 @@ async function apOnboardMount(r, hostEl){
        reference cards show here instead of the list: everything about each reference, and every action for it */
     const boardCand = (intake && window.SCX && typeof SCX.getCandidates === 'function')
       ? (SCX.getCandidates() || []).find(c => c && String(c.intake_id || '') === String(intake.id)) : null;
+    /* the same record carries their background checks (Training & checks tab) */
+    { const ch = !hostEl && document.getElementById('apChecksHost');
+      if(ch){ if(boardCand && typeof obChecksMount === 'function'){ ch.className = 'pp-checks'; obChecksMount(ch, boardCand.id); }
+              else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is linked to their start form. Until then, record them on Background &amp; References.</div>'; } }
     if(boardCand && typeof obRefCardsMount === 'function'){
       out += '<div class="pp-refcards" data-cand="' + esc(String(boardCand.id)) + '"><div class="field-note">Reading their references…</div></div>';
     } else if(R.length){

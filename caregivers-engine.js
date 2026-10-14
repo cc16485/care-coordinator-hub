@@ -5148,7 +5148,7 @@ async function bgrRunOIG(boardId, btn){
       const { error } = await sb.storage.from('lead-docs').upload(path, blob, { contentType: 'application/json' });
       if(!error) proofPath = path;
     } catch(e) { proofPath = ''; }
-    const keep = (date, verdict) => { c.oig = verdict; c.oig_date = date; c.oig_evidence = evidence; if(proofPath) c.oig_proof = proofPath; saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} };
+    const keep = (date, verdict) => { c.oig = verdict; c.oig_date = date; c.oig_evidence = evidence; if(proofPath) c.oig_proof = proofPath; c.oig_by = ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''); c.oig_at = new Date().toISOString(); saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} };
     showOIGResult((c.first + ' ' + c.last).trim(), result, (date) => keep(date, 'CLEAR'), (date) => keep(date, 'FLAGGED'));
   } catch(e){ alert('OIG check failed: ' + ((e && e.message) || e)); }
   if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run OIG'; }
@@ -5924,7 +5924,7 @@ function bgrvPickFile(){
 }
 async function bgrvAfterClear(candId, check, why){
   const today = bgrvCentral();
-  bgrApplyBoardChange(candId, { [check]: BGRV_CHECKS[check].clear, [check + '_date']: today, [check + '_review_note']: 'Cleared after review ' + today + ' (' + (BGRV_WHY[why] || why) + ')' });
+  bgrApplyBoardChange(candId, { [check + '_by']: ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''), [check + '_at']: new Date().toISOString(), [check]: BGRV_CHECKS[check].clear, [check + '_date']: today, [check + '_review_note']: 'Cleared after review ' + today + ' (' + (BGRV_WHY[why] || why) + ')' });
 }
 /* Background review (one step, 2026-10-11): opening it sends nothing. The office reads the result, picks it, and only then
    sends the one notice (or clears them). */
@@ -6078,6 +6078,8 @@ async function bgrSaveCheck(btn){
   }
   restore();
   bgrCloseCheckModal();
+  /* 2026-10-14 step 3: every result says who recorded it and when */
+  changes[which+'_by'] = ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''); changes[which+'_at'] = new Date().toISOString();
   bgrApplyBoardChange(candId, changes);
   if(changes[which+'_proof']) bgrPushDocToGHL(candId, which, changes[which+'_proof']);  // fire-and-forget
 }
@@ -7240,6 +7242,10 @@ function openOBModal(id=null){
     g('ob-oos').value='';g('ob-r1s').value='Pending';g('ob-r2s').value='Pending';g('ob-r3s').value='Pending';g('ob-r4s').value='Pending';
     g('ob-oig').value='Pending';g('ob-edl').value='Pending';g('ob-fcsr').value='Pending';g('ob-fp').value='N/A';
   }
+  /* 2026-10-14 step 3: the checks here are shown, not edited */
+  ['ob-oig','ob-oig-date','ob-oig-proof','ob-edl','ob-edl-date','ob-edl-proof','ob-fcsr','ob-fcsr-date','ob-fcsr-proof','ob-fp','ob-fp-date','ob-fp-proof']
+    .forEach(k => { const el = g(k); if(el){ el.disabled = true; el.title = 'Recorded on their page (Training & checks), with its proof'; } });
+  { const b = g('ob-oig-check-btn'); if(b) b.style.display = 'none'; }
   document.getElementById('ob-modal').classList.add('open');
 }
 async function saveOB(){
@@ -7260,10 +7266,12 @@ async function saveOB(){
     r1_company:g('ob-r1-company').trim(),r2_company:g('ob-r2-company').trim(),r3_company:g('ob-r3-company').trim(),r4_company:g('ob-r4-company').trim(),
     r1_rel:g('ob-r1-rel').trim(),r2_rel:g('ob-r2-rel').trim(),r3_rel:g('ob-r3-rel').trim(),r4_rel:g('ob-r4-rel').trim(),
     r1_howlong:g('ob-r1-howlong').trim(),r2_howlong:g('ob-r2-howlong').trim(),r3_howlong:g('ob-r3-howlong').trim(),r4_howlong:g('ob-r4-howlong').trim(),
-    oig:g('ob-oig'),oig_date:g('ob-oig-date'),oig_proof:g('ob-oig-proof'),
-    edl:g('ob-edl'),edl_date:g('ob-edl-date'),edl_proof:g('ob-edl-proof'),
-    fcsr:g('ob-fcsr'),fcsr_date:g('ob-fcsr-date'),fcsr_proof:g('ob-fcsr-proof'),
-    fp:g('ob-fp'),fp_date:g('ob-fp-date'),fp_proof:g('ob-fp-proof'),notes:g('ob-notes')};
+    /* 2026-10-14 step 3: checks are recorded on the person's page (or the table's check buttons), each with its proof
+       and who recorded it; this form keeps what is there */
+    oig:oldCand?(oldCand.oig||'Pending'):'Pending',oig_date:oldCand?(oldCand.oig_date||''):'',oig_proof:oldCand?(oldCand.oig_proof||''):'',
+    edl:oldCand?(oldCand.edl||'Pending'):'Pending',edl_date:oldCand?(oldCand.edl_date||''):'',edl_proof:oldCand?(oldCand.edl_proof||''):'',
+    fcsr:oldCand?(oldCand.fcsr||'Pending'):'Pending',fcsr_date:oldCand?(oldCand.fcsr_date||''):'',fcsr_proof:oldCand?(oldCand.fcsr_proof||''):'',
+    fp:oldCand?(oldCand.fp||'N/A'):'N/A',fp_date:oldCand?(oldCand.fp_date||''):'',fp_proof:oldCand?(oldCand.fp_proof||''):'',notes:g('ob-notes')};
   let saved;
   if(editingOB){ const i=candidates.findIndex(x=>x.id===editingOB); candidates[i]={...candidates[i],...d}; saved=candidates[i]; }
   else { const rec={id:safeTmpId(),...d,invite_sent:false,invite_sent_date:'',addedAt:new Date().toISOString()}; candidates.push(rec); saved=rec; }
@@ -9491,7 +9499,47 @@ async function obRefDecide(candId, outcome){
 }
 window.obRefCardsMount = obRefCardsMount; window.obRefDecide = obRefDecide;
 /* every reference card on screen redraws after a Background & References save */
-window.ppRefCardsRefresh = function(){ document.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand)); };
+window.ppRefCardsRefresh = function(){ document.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand));
+  document.querySelectorAll('.pp-checks[data-cand]').forEach(el => obChecksMount(el, el.dataset.cand)); };
+
+/* ── BACKGROUND CHECKS ON THE PERSON'S PAGE (Samantha 2026-10-12/14, step 3: "yes") ───────────────────────────────────
+   Before hire, every check in one table on their Training & checks tab: result, date, the proof, and who recorded it and
+   when. "Record a result" is the same recorder the Background & References table uses (a finished result needs its date
+   and its proof); "Run it now" is the same OIG run (its LEIE result is the proof). Nothing else edits a check. */
+function obChecksMount(el, candId){
+  if(!el) return;
+  el.dataset.cand = String(candId);
+  const c = candidates.find(x => String(x.id) === String(candId));
+  el.innerHTML = c ? obChecksHtml(c) : '<div class="field-note">Their Background &amp; References record was not found, so their checks cannot show here.</div>';
+}
+function obChecksHtml(c){
+  const esc = bgrEsc, id = c.id;
+  const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
+  const tone = v => /^(clear|n\/a)$/i.test(String(v||'')) ? ['#15803D','#DCFCE7'] : /flag|issue/i.test(String(v||'')) ? ['#B91C1C','#FEE2E2'] : ['#B45309','#FEF3C7'];
+  const link = (on, label) => '<button type="button" class="pp-link" onclick="' + on + '">' + label + '</button>';
+  const rows = BGR_CHECKS.map(m => {
+    const k = m.k, v = c[k] || (k === 'fp' ? 'N/A' : 'Pending');
+    const naFp = k === 'fp' && c.oos !== 'yes' && (!c.fp || c.fp === 'N/A');
+    const t = tone(naFp ? 'N/A' : v);
+    const proof = c[k + '_proof'];
+    const by = c[k + '_by'] ? esc(c[k + '_by']) + (c[k + '_at'] ? ' · ' + day(c[k + '_at']) : '') : (c[k + '_date'] && v !== 'Pending' ? '<span style="color:#8A7F70;">not recorded (before 10/14/2026)</span>' : '');
+    const acts = [link('bgrRecordCheck(' + id + ",'" + k + "')", v === 'Pending' || v === 'Required' ? 'Record a result' : 'Record a new result')];
+    if(k === 'oig') acts.push(link('bgrRunOIG(' + id + ',this)', 'Run it now'));
+    return '<tr style="border-bottom:1px solid #F0EDE6;">'
+      + '<td style="padding:7px 8px;font-weight:600;color:var(--navy);white-space:nowrap;">' + esc(m.label) + '</td>'
+      + '<td style="padding:7px 8px;"><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;color:' + t[0] + ';background:' + t[1] + ';white-space:nowrap;">' + esc(naFp ? 'Not required' : v === 'CLEAR' ? 'Clear' : v === 'FLAGGED' ? 'Flagged' : v) + '</span></td>'
+      + '<td style="padding:7px 8px;white-space:nowrap;">' + esc(day(c[k + '_date'])) + '</td>'
+      + '<td style="padding:7px 8px;">' + (proof ? link("bgrViewProof('" + esc(proof).replace(/\x27/g, '') + "')", 'Open') : (v !== 'Pending' && !naFp ? '<span style="color:#B45309;">none on file</span>' : '')) + '</td>'
+      + '<td style="padding:7px 8px;font-size:12.5px;">' + by + '</td>'
+      + '<td style="padding:7px 8px;"><div class="pp-links" style="margin:0;gap:4px 12px;">' + (naFp ? '' : acts.join('')) + '</div></td></tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px;">'
+    + '<thead><tr style="text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'
+    + '<th style="padding:6px 8px;">Check</th><th style="padding:6px 8px;">Result</th><th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Proof</th><th style="padding:6px 8px;">Recorded by</th><th></th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div>'
+    + '<div class="field-note" style="margin-top:6px;">Every result needs its date and its proof. At hire these are kept exactly as they are, for audits.</div>';
+}
+window.obChecksMount = obChecksMount;
 
 // ── Employee Profile (name-matched; no longer opened from the lists, see openPerson) ──
 function openProfile(first, last){
