@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=1"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -22991,7 +22991,8 @@ function recMount(hostId, kind, subjectId, label){
       + '<span>I have asked ' + escapeHtmlComms(label || 'them') + ' out loud, and they said yes to being recorded.<br>'
       + '<span class="field-note">Worth saying on the recording itself, in the first few seconds, so the transcript is its own proof. '
       /* 2026-10-11 (Samantha: "keep audio one year", "keep the transcript forever"; Desktop 621 sets keep_audio_days 365) */
-      + 'The audio is kept for 1 year, then deleted. The written transcript is kept for good. '
+      /* 2026-10-14 (Samantha: "2 years", Desktop 649) */
+      + 'The audio is kept for 1 year, then deleted. The written transcript, observations and AI review are kept for 2 years. '
       /* 2026-10-13 (approved consent line) */
       + 'Tell them: "The recording is written out by software and summarized to help me review it."</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'

@@ -91,7 +91,8 @@
     var recs = await sb.from('recordings').select('id,status,consent_given,created_at,turns,seconds').eq('kind', 'interview').eq('subject_id', applicantId).order('created_at');
     var rv = await sb.from('interview_reviews').select('*').eq('applicant_id', applicantId).order('created_at', { ascending: false });
     if (rv.error && !/interview_reviews/.test(rv.error.message || '')) { host.innerHTML = '<div class="field-note" style="color:var(--red)">Could not load the AI review: ' + esc(rv.error.message) + '</div>'; return; }
-    var rows = rv.data || [], R = recs.data || [];
+    var ap = await sb.from('job_applicants').select('id,records_hold_at,records_hold_by,records_hold_reason').eq('id', applicantId).maybeSingle();
+    var rows = rv.data || [], R = recs.data || [], A = ap.data || {};
     rows.forEach(function (r) { ROWS[r.id] = r; });
     var ready = R.filter(function (x) { return x.consent_given && x.status === 'done'; }).length, busy = R.filter(function (x) { return x.consent_given && (x.status === 'recorded' || x.status === 'transcribing'); }).length;
     var full = rows.filter(function (r) { return r.kind === 'full'; }), checks = rows.filter(function (r) { return r.kind === 'check'; });
@@ -106,6 +107,14 @@
         return '<div style="margin-top:8px"><b style="font-size:13px">Part ' + (i + 1) + '</b> <span class="field-note">' + esc(when(x.created_at)) + (x.seconds ? ' · ' + clock(x.seconds) : '') + '</span><div style="max-height:300px;overflow:auto">'
           + x.turns.map(function (t) { return '<div style="font-size:13.5px;padding:3px 0"><button class="ir-act" style="padding:0 6px" onclick="IR.play(\'' + esc(x.id) + '\',' + (+t.start || 0) + ',this)">' + clock(t.start) + '</button> <span class="field-note">' + esc(t.name || t.speaker || '') + '</span> ' + esc(t.text) + '</div>'; }).join('') + '</div></div>';
       }).join('') + '</details>';
+    /* 2026-10-14 (Samantha: "2 years", 649): when it all goes, and the legal hold that stops it */
+    var first = R.length ? R[0].created_at : (rows.length ? rows[rows.length - 1].created_at : null);
+    if (A.records_hold_at) h += '<div style="margin-top:12px;background:#FEF3C7;border:1px solid #FCD34D;border-radius:9px;padding:8px 11px;font-size:13px;color:#92400E"><b>Legal hold</b> since '
+      + esc(when(A.records_hold_at)) + (A.records_hold_by ? ' by ' + esc(A.records_hold_by) : '') + (A.records_hold_reason ? ': ' + esc(A.records_hold_reason) : '')
+      + '. Nothing of theirs is deleted while it is on. <button class="ir-act" onclick="IR.hold(\'' + esc(applicantId) + '\',false)">Lift the hold</button></div>';
+    else if (first) h += '<div class="field-note" style="margin-top:12px">Kept 2 years: the transcript, observations and AI reviews are deleted from about '
+      + esc(new Date(Date.parse(first) + 730 * 864e5).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })) + ' (audio after 1 year). '
+      + '<button class="ir-act" onclick="IR.hold(\'' + esc(applicantId) + '\',true)">Legal hold</button></div>';
     host.innerHTML = h;
   }
 
@@ -181,6 +190,20 @@
         a.currentTime = Math.max(0, (+at || 0) - 2); await a.play();
       } catch (e) { alert('Could not play the recording: ' + (e && e.message || e)); }
     },
-    counts: counts
+    counts: counts,
+    hold: async function (applicantId, on) {
+      var patch;
+      if (on) {
+        var why = prompt('Put a legal hold on this person\'s interview records?\n\nWhile it is on, nothing of theirs (transcripts, observations, AI reviews) is deleted. Use it when a complaint, charge or lawsuit is possible or filed. Also hold anyone else who applied for the same job.\n\nWhy (kept with the hold):', '');
+        if (why === null) return;
+        patch = { records_hold_at: new Date().toISOString(), records_hold_by: who() || null, records_hold_reason: String(why).trim() || null };
+      } else {
+        if (!confirm('Lift the legal hold? The 2-year clean-up will apply to their interview records again.')) return;
+        patch = { records_hold_at: null, records_hold_by: null, records_hold_reason: null };
+      }
+      var up = await sb.from('job_applicants').update(patch).eq('id', applicantId);
+      if (up.error) { alert('Could not change the hold: ' + up.error.message); return; }
+      await load(applicantId);
+    }
   };
 })();
