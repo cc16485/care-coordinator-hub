@@ -86,11 +86,12 @@ function recordFromCandidate(c, hireDate, orientDate, x){
     // separate from the ongoing/annual checks above so the two never blur.
     prehire: {
       hired_at: hireDate,
-      oig:  { status: c.oig||'',  date: c.oig_date||'',  proof: c.oig_proof||''  },
-      edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||''  },
-      fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'' },
-      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes' },
-      casenet: { status: c.casenet||'', date: c.casenet_date||'', proof: c.casenet_proof||'' },
+      /* by / at: who recorded the result and when (2026-10-14; empty for results recorded before then) */
+      oig:  { status: c.oig||'',  date: c.oig_date||'',  proof: c.oig_proof||'',  by: c.oig_by||'',  at: c.oig_at||''  },
+      edl:  { status: c.edl||'',  date: c.edl_date||'',  proof: c.edl_proof||'',  by: c.edl_by||'',  at: c.edl_at||''  },
+      fcsr: { status: c.fcsr||'', date: c.fcsr_date||'', proof: c.fcsr_proof||'', by: c.fcsr_by||'', at: c.fcsr_at||'', sent: c.fcsr_sent_date||'' },
+      fp:   { status: c.fp||'',   date: c.fp_date||'',   proof: c.fp_proof||'',  applicable: c.oos==='yes', by: c.fp_by||'', at: c.fp_at||'' },
+      casenet: { status: c.casenet||'', date: c.casenet_date||'', proof: c.casenet_proof||'', by: c.casenet_by||'', at: c.casenet_at||'' },
       /* R3: the references travel with them too. */
       refs: prehireRefs(c)
     }

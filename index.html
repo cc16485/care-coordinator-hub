@@ -7127,7 +7127,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=6"></script>
+<script src="team-builder-2.js?v=7"></script>
 <script src="open-hours.js?v=2"></script>
 <script src="scheduling-guide.js?v=1"></script>
 <script src="new-hires.js?v=2"></script>
@@ -17857,7 +17857,7 @@ function cgdPreHireHtml(g){
     +(PHD.err&&!PHD.rows?'<div class="field-note" style="color:#B91C1C;margin-top:4px;">Couldn\'t load the GoHighLevel documents ('+esc(PHD.err)+'). Reopen the profile to try again.</div>':'');
   const note=ph
     ? '<div class="field-note" style="margin-top:8px;">Frozen at hire'+(ph.hired_at?(' ('+esc(String(ph.hired_at).slice(0,10))+')'):'')+'. Ongoing and annual checks are in the section below.</div>'
-    : '<div class="field-note" style="margin-top:8px;">Shown from the current check fields — no frozen pre-hire snapshot (hired before it was captured). New hires capture this automatically.</div>';
+    : '<div class="field-note" style="margin-top:8px;">Shown from the current check fields. No frozen pre-hire snapshot (hired before it was captured). New hires capture this automatically.</div>';
   return rows+note;
 }
 /* References card (R3, 2026-10-01). Reads prehire.refs, frozen at promotion
@@ -18020,7 +18020,7 @@ async function cgdOpenProfile(axid, tab){
     +'<div id="cgdSec-compliance" style="display:none;">'
     +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">screenings completed before hire, with the document on file (for audits)</span>', '<div id="cgdPreHireBody">'+cgdPreHireHtml(g)+'</div>', 'cgdPreHireCard')
     +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', '<div id="cgdRefsBody">'+cgdRefsHtml(g)+'</div>', 'cgdRefsCard')
-    +card('Compliance & Training <span class="field-note" style="font-weight:400;">— ongoing and annual</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
+    +card('Compliance & Training <span class="field-note" style="font-weight:400;">(ongoing and annual)</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
     +(window.DRV?card('Driver Compliance <span class="field-note" style="font-weight:400;">whether they may drive clients, with the documents and every change</span>', '<div id="cgdDrv"></div>', 'cgdDrvCard'):'')   /* 2026-10-13 driver-compliance.js */
     +(window.DT?card('Drug tests <span class="field-note" style="font-weight:400;">only when our policy calls for one; owners record</span>', '<div id="cgdDt"></div>', 'cgdDtCard'):'')   /* 2026-10-13 drug-tests.js (her ruling) */
     +(window.HEPB?card('Hepatitis B <span class="field-note" style="font-weight:400;">the vaccine offer (OSHA): offered, accepted, declined or complete</span>', '<div id="cgdHepb"></div>', 'cgdHepbCard'):'')   /* 2026-10-13 hepb-card.js */
@@ -18595,15 +18595,114 @@ function cgdWorkHtml(c,g,nm){
    verified · whether office action is needed. Unknown stays unknown. */
 const CGD_VIVENTIUM_NOTE='<div class="field-note" style="font-size:12px;background:#FAF9F6;border:1px solid var(--border);border-radius:8px;padding:6px 9px;margin-bottom:8px;">'
   +'Hiring &amp; onboarding paperwork lives in <b>Viventium</b> (payroll/HR). This section is the working home for <b>ongoing</b> compliance: recurring checks, renewals, and who verified what.</div>';
+/* ── RECORD A CHECK AFTER HIRE (Samantha 2026-10-14, step 3: "yes") ───────────────────────────────────────────────────
+   On the caregiver's own page, each repeating check has Record a result: the date, the proof (a file or a link; a result
+   is never recorded without its proof), and who recorded it and when. Only a clear result is recorded here; anything
+   else goes to an owner the same day, never typed into a box. OIG can be run from the page: the LEIE result itself is
+   kept as the proof. Saves go to that ONE caregiver, against the version this page read (ccCaregiverPut). */
+const CGR_KINDS = {
+  oig:      { label:'OIG exclusion check', result:'Clear' },
+  edl:      { label:'EDL (Employee Disqualification List)', result:'Clear' },
+  fcsr:     { label:'FCSR background screening', result:'Clear' },
+  fcsr_reg: { label:'FCSR registration', result:'Registered' },
+  fp:       { label:'Fingerprints', result:'Clear' }
+};
+let CGR = { gid:null, kind:null };
+function cgrWho(){ return (typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''; }
+function cgrModal(){
+  let m = document.getElementById('cgrModal'); if(m) return m;
+  m = document.createElement('div'); m.id = 'cgrModal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:10020;background:rgba(15,54,95,.35);display:none;align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
+  m.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:520px;width:100%;padding:18px 20px;margin:2rem 0;box-shadow:0 12px 40px rgba(0,0,0,.2)">'
+    + '<b id="cgrTitle" style="font-size:16px;color:var(--navy);"></b>'
+    + '<div class="field-note" id="cgrSub" style="margin:4px 0 12px;"></div>'
+    + '<label class="field-note" for="cgrDate">Date of the result</label><input type="date" id="cgrDate" style="display:block;margin:4px 0 10px;">'
+    + '<label class="field-note" for="cgrFile">The proof: upload the result</label><input type="file" id="cgrFile" accept=".pdf,image/*" style="display:block;margin:4px 0 6px;">'
+    + '<label class="field-note" for="cgrLink">or paste a link to it</label><input type="url" id="cgrLink" placeholder="https://…" style="display:block;width:100%;margin:4px 0 10px;">'
+    + '<div class="field-note" style="background:#FFF7E8;border-radius:8px;padding:8px 10px;">Only a clear result is recorded here. If it is not clear, do not record it: tell an owner today, and do not schedule them until it is looked at.</div>'
+    + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;"><button class="ghost" onclick="cgrClose()">Cancel</button><button class="primary" id="cgrSave" onclick="cgrSave(this)">Record it</button></div></div>';
+  m.addEventListener('click', e => { if(e.target === m) cgrClose(); });
+  document.body.appendChild(m); return m;
+}
+function cgrClose(){ const m = document.getElementById('cgrModal'); if(m) m.style.display = 'none'; CGR = { gid:null, kind:null }; }
+function cgrRecord(gid, kind){
+  const k = CGR_KINDS[kind]; if(!k) return;
+  const g = (DATA.caregivers||[]).find(x => String(x.id) === String(gid)); if(!g){ alert('Their Hub record was not found. Refresh and try again.'); return; }
+  CGR = { gid:String(gid), kind };
+  const m = cgrModal();
+  document.getElementById('cgrTitle').textContent = 'Record ' + k.label + ': ' + ((g.first||'') + ' ' + (g.last||'')).trim();
+  document.getElementById('cgrSub').textContent = 'Result: ' + k.result + '. Saved with your name and the time.';
+  const t = new Date(); document.getElementById('cgrDate').value = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+  document.getElementById('cgrFile').value = ''; document.getElementById('cgrLink').value = '';
+  m.style.display = 'flex';
+}
+/* read that one caregiver fresh, change only these fields, save it against the version just read */
+async function cgrPut(gid, changes){
+  const { data, error } = await sb.from('app_data').select('data').eq('key','caregivers').maybeSingle();
+  if(error || !data || !Array.isArray(data.data)) throw new Error('the caregiver list could not be read');
+  const g = data.data.find(x => String(x.id) === String(gid)); if(!g) throw new Error('their Hub record was not found');
+  Object.assign(g, changes);
+  const ok = await ccCaregiverPut(g); if(!ok) return false;
+  const i = (DATA.caregivers||[]).findIndex(x => String(x.id) === String(gid)); if(i > -1) DATA.caregivers[i] = g;
+  return true;
+}
+async function cgrSave(btn){
+  const { gid, kind } = CGR; const k = CGR_KINDS[kind]; if(!gid || !k) return;
+  const date = document.getElementById('cgrDate').value, file = (document.getElementById('cgrFile').files||[])[0], link = (document.getElementById('cgrLink').value||'').trim();
+  const today = new Date().toISOString().slice(0,10);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today){ alert('Give the date of the result (today or earlier).'); return; }
+  if(!file && !link){ alert('A result needs its proof: upload the result or paste a link to it. Nothing was saved.'); return; }
+  if(link && !/^https:\/\//i.test(link)){ alert('The link should start with https://'); return; }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try{
+    let proof = link;
+    if(file){
+      if(file.size > 20*1024*1024) throw new Error('that file is over 20 MB');
+      const path = 'bgcheck/cg-' + gid + '/' + kind + '-' + Date.now() + '-' + String(file.name).replace(/[^a-zA-Z0-9._-]/g,'_');
+      const up = await sb.storage.from('lead-docs').upload(path, file); if(up.error) throw new Error('the upload failed: ' + up.error.message);
+      proof = path;
+    }
+    const by = cgrWho(), at = new Date().toISOString();
+    const ch = kind === 'fcsr_reg' ? { fcsr_reg_date: date, fcsr_reg_proof: proof, fcsr_reg_by: by, fcsr_reg_at: at }
+      : kind === 'fp' ? { fp: 'Clear', fp_date: date, fp_proof: proof, fp_by: by, fp_at: at }
+      : { [kind + '_date']: date, [kind + '_proof']: proof, [kind + '_status']: '', [kind + '_by']: by, [kind + '_at']: at };   /* the date decides again */
+    if(kind === 'oig') ch.oig = 'CLEAR';
+    const ok = await cgrPut(gid, ch);
+    if(!ok) return;
+    cgrClose();
+    if(CGD.openId) cgdOpenProfile(CGD.openId);   /* stays on the tab you were on */
+  }catch(e){ alert('Not saved: ' + ((e && e.message) || e) + '. Nothing changed; try again.'); }
+  finally{ btn.disabled = false; btn.textContent = 'Record it'; }
+}
+async function cgrRunOIG(gid, btn){
+  const g = (DATA.caregivers||[]).find(x => String(x.id) === String(gid)); if(!g) return;
+  if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Checking…'; }
+  try{
+    const { data, error } = await sb.functions.invoke('oig-check', { body: { first: g.first, last: g.last } });
+    if(error || !data || data.error) throw new Error((data && data.error) || (error && error.message) || 'the OIG check could not run');
+    const matches = data.matches || [];
+    if(!data.clear){ alert('Possible match on the OIG exclusion list (' + matches.length + '). Nothing was recorded. Tell an owner today, and do not schedule ' + (g.first||'them') + ' until it is looked at.'); return; }
+    const evidence = { source: 'HHS-OIG LEIE (oig-check)', checked_at: new Date().toISOString(), query: { first: g.first, last: g.last }, match_count: 0 };
+    const path = 'bgcheck/cg-' + gid + '/oig-' + Date.now() + '-leie-result.json';
+    const up = await sb.storage.from('lead-docs').upload(path, new Blob([JSON.stringify(evidence, null, 2)], { type:'application/json' }), { contentType:'application/json' });
+    if(up.error) throw new Error('the result could not be kept as proof (' + up.error.message + '), so nothing was recorded');
+    const today = new Date().toISOString().slice(0,10);
+    const ok = await cgrPut(gid, { oig: 'CLEAR', oig_date: today, oig_proof: path, oig_evidence: evidence, oig_status: '', oig_by: cgrWho(), oig_at: evidence.checked_at });
+    if(ok && CGD.openId) cgdOpenProfile(CGD.openId);
+  }catch(e){ alert('OIG check: ' + ((e && e.message) || e)); }
+  finally{ if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run it now'; } }
+}
+window.cgrRecord = cgrRecord; window.cgrClose = cgrClose; window.cgrSave = cgrSave; window.cgrRunOIG = cgrRunOIG;
 function cgdComplianceHtml(c,g){
   const esc=escapeHtmlComms;
-  const unknown='<span style="color:#B45309;">needs an answer</span> <span class="field-note">(unknown is not a no — and not a fail)</span>';
+  const unknown='<span style="color:#B45309;">needs an answer</span> <span class="field-note">(unknown is not a no, and not a fail)</span>';
   const addDays=(d,n)=>{ const t=new Date(d+'T12:00:00'); if(isNaN(+t)) return null; t.setDate(t.getDate()+n); return t.toISOString().slice(0,10); };
   const today=new Date().toISOString().slice(0,10);
   /* One frame per ongoing check: required · status · last verified · next
      due · evidence · verified by. Fields the legacy record never captured
-     show as "not yet recorded" so the gap stays visible — never invented. */
-  const chk=(name,required,status,badRx,date,proof,recheckDays,cadence)=>{
+     show as "not yet recorded" so the gap stays visible, never invented. */
+  const day=d=>{ const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?m[2]+'/'+m[3]+'/'+m[1]:''; };
+  const chk=(name,required,status,badRx,date,proof,recheckDays,cadence,key)=>{
     const s=String(status||'').trim();
     const bad=s&&badRx&&badRx.test(s);
     const stHtml=!s?unknown:(bad?'<span style="color:var(--red);font-weight:700;">'+esc(s)+'</span>':'<span style="color:var(--green);font-weight:700;">'+esc(s)+'</span>');
@@ -18611,7 +18710,7 @@ function cgdComplianceHtml(c,g){
     if(recheckDays){
       if(date){ const due=addDays(date,recheckDays);
         if(due){ const late=due<today; if(late) action=true;
-          dueHtml=(late?'<span style="color:#B45309;font-weight:700;">':'<span>')+esc(due)+(late?', overdue</span>':'</span>'); }
+          dueHtml=(late?'<span style="color:#B45309;font-weight:700;">':'<span>')+esc(day(due))+(late?', overdue</span>':'</span>'); }
       } else dueHtml=unknown;
     }
     return '<div style="border:1px solid #F0EBE1;border-radius:8px;padding:7px 10px;margin-bottom:6px;">'
@@ -18623,24 +18722,29 @@ function cgdComplianceHtml(c,g){
       +'</div>'
       +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:2px 14px;font-size:12.5px;margin-top:3px;">'
       +'<div><span class="field-note">Status:</span> '+stHtml+'</div>'
-      +'<div><span class="field-note">Last verified:</span> '+(date?esc(String(date).slice(0,10)):unknown)+'</div>'
+      +'<div><span class="field-note">Last verified:</span> '+(date?esc(day(String(date).slice(0,10))):unknown)+'</div>'
       +'<div><span class="field-note">Next due:</span> '+dueHtml+'</div>'
-      +'<div><span class="field-note">Evidence:</span> '+(proof?'<span style="color:var(--green);">on file</span>':'<span class="field-note">not yet recorded</span>')+'</div>'
-      +'<div><span class="field-note">Verified by:</span> <span class="field-note">not yet recorded</span></div>'
-      +'</div></div>';
+      +'<div><span class="field-note">Evidence:</span> '+(proof?(typeof bgrViewProof==='function'?'<a class="linklike" style="cursor:pointer;color:var(--green);" onclick="bgrViewProof(\''+esc(String(proof)).replace(/\x27/g,'')+'\')">on file, open</a>':'<span style="color:var(--green);">on file</span>'):'<span class="field-note">not yet recorded</span>')+'</div>'
+      +'<div><span class="field-note">Verified by:</span> '+(key&&g[key+'_by']?esc(g[key+'_by'])+(g[key+'_at']?' · '+day(String(g[key+'_at']).slice(0,10)):''):'<span class="field-note">not recorded (before 10/14/2026)</span>')+'</div>'
+      +'</div>'
+      /* 2026-10-14 step 3: record a new result here (with its proof); OIG can be run from the page */
+      +(key?'<div class="pp-links" style="margin-top:4px;"><button type="button" class="pp-link" onclick="cgrRecord(\''+esc(String(g.id))+'\',\''+key+'\')">Record a result</button>'
+        +(key==='oig'?'<button type="button" class="pp-link" onclick="cgrRunOIG(\''+esc(String(g.id))+'\',this)">Run it now</button>':'')+'</div>':'')
+      +'</div>';
   };
   if(!g) return CGD_VIVENTIUM_NOTE
-    +'<div class="field-note">No Hub compliance record connected yet — the Training Platform evidence below still counts, and check answers can be recorded once the data connection exists. They are still a real caregiver.</div>'
+    +'<div class="field-note">No Hub compliance record connected yet. The Training Platform evidence below still counts, and check answers can be recorded once the data connection exists. They are still a real caregiver.</div>'
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
   return CGD_VIVENTIUM_NOTE
-    +chk('OIG exclusion check','Federal exclusion list',g.oig_status,/FLAGGED/,g.oig_date,g.oig_proof,30,'rechecked monthly (agency policy)')
-    +chk('EDL','MO Employee Disqualification List',g.edl_status,/issues/i,g.edl_date,g.edl_proof,30,'rechecked monthly (agency policy)')
-    +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status,/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually')
+    +chk('OIG exclusion check','Federal exclusion list',g.oig_status||(g.oig_date?'Clear':''),/FLAGGED/,g.oig_date,g.oig_proof,30,'rechecked monthly (agency policy)','oig')
+    +chk('EDL','MO Employee Disqualification List',g.edl_status||(g.edl_date?'Clear':''),/issues/i,g.edl_date,g.edl_proof,30,'rechecked monthly (agency policy)','edl')
+    +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status||(g.fcsr_date?'Clear':''),/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually','fcsr')
+    +chk('FCSR registration','MO Family Care Safety Registry, within 15 days of starting work',g.fcsr_reg_date?'Registered':'',null,g.fcsr_reg_date,g.fcsr_reg_proof,null,'once','fcsr_reg')
     +chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')
     +chk('Alzheimer’s / dementia training','Requirement mapping awaits your ruling',g.alz_date?('recorded'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'')
     +chk('OJT (on-the-job training)','Within 30 days of hire',g.ojt_date?'completed':'',null,g.ojt_date,g.ojt_proof||g.ojt_online_proof,null,'once')
     +chk('Annual training','5 hours each year',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,365,'renewed annually')
-    +(g.fp&&g.fp!=='N/A'?chk('Fingerprints','Required for this caregiver',g.fp,/issues/i,g.fp_date,g.fp_proof,null,''):'')
+    +(g.fp&&g.fp!=='N/A'?chk('Fingerprints','Required for this caregiver',g.fp,/issues/i,g.fp_date,g.fp_proof,null,'','fp'):'')
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
 }
 async function cgdLoadTraining(c,nm){
@@ -37046,7 +37150,7 @@ function tbPoolListHtml(plan,key){
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
     if(x.cg.new_hire&&!x.cg.work_locked) flags.unshift('<b style="color:var(--teal);">🌱 new hire, needs hours</b>');   /* 2026-10-12, her "B" */
-    if(x.cg.work_locked) flags.unshift('<b style="color:#7C3AED;">still onboarding · waiting on Approve to Work: you can rank them and mark a Yes; texting them and the AxisCare step wait until they\'re approved</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back; 2026-10-13 her "B": plannable, never pushed or texted */
+    if(x.cg.work_locked) flags.unshift('<b style="color:#7C3AED;">still onboarding · '+escapeHtmlComms(((typeof tb2StageOf==='function'&&tb2StageOf({cg_ax_id:x.cg.axiscare_id}))||{}).label||'waiting on Approve to Work')+': you can rank them and mark a Yes; texting them and the AxisCare step wait until they\'re approved</b>');   /* 2026-10-14: her four labels */   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back; 2026-10-13 her "B": plannable, never pushed or texted */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +(x.cg.axiscare_id
           ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
