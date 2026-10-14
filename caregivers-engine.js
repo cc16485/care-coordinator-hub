@@ -7873,6 +7873,10 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
     g('cg-perf-date').value=c.perf_date||'';g('cg-perf-proof').value=c.perf_proof||'';
     g('cg-cna-exp').value=c.cna_expires||'';g('cg-cna-proof').value=c.cna_proof||'';g('cg-dl-exp').value=c.dl_expires||'';g('cg-dl-proof').value=c.dl_proof||'';g('cg-ins-exp').value=c.auto_ins_expires||'';g('cg-ins-proof').value=c.auto_ins_proof||'';   /* SLICE 6 */
   } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; }
+  /* 2026-10-14 step 3: the checks here are shown, not edited (Record a result on their page) */
+  ['cg-oig','cg-oig-s','cg-oig-proof','cg-edl','cg-edl-s','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-s','cg-fcsr-proof','cg-fp','cg-fp-date','cg-fp-proof']
+    .forEach(k => { const el = document.getElementById(k); if(el){ el.disabled = true; el.title = 'Recorded on their caregiver page (Training & checks), with its proof'; } });
+  { const b = document.getElementById('cg-oig-check-btn'); if(b) b.style.display = 'none'; }
   document.getElementById('cg-modal').classList.add('open');
 }
 async function saveCG(){
@@ -7886,10 +7890,11 @@ async function saveCG(){
     annual_date:g('cg-annual'),annual_hrs:g('cg-annual-hrs'),annual_proof:g('cg-annual-proof'),
     ethics_date:g('cg-ethics-date'),ethics_proof:g('cg-ethics-proof'),
     rights_date:g('cg-rights-date'),rights_proof:g('cg-rights-proof'),
-    oig_date:g('cg-oig'),oig_status:g('cg-oig-s'),oig_proof:g('cg-oig-proof'),
-    edl_date:g('cg-edl'),edl_status:g('cg-edl-s'),edl_proof:g('cg-edl-proof'),
-    fcsr_reg_date:g('cg-fcsr-reg'),fcsr_date:g('cg-fcsr'),fcsr_status:g('cg-fcsr-s'),fcsr_proof:g('cg-fcsr-proof'),
-    fp:g('cg-fp'),fp_date:g('cg-fp-date'),fp_proof:g('cg-fp-proof'),
+    /* 2026-10-14 step 3: checks are recorded on the caregiver's page (Record a result, with proof and who); this form keeps them */
+    oig_date:oldCG?(oldCG.oig_date||''):'',oig_status:oldCG?(oldCG.oig_status||''):'',oig_proof:oldCG?(oldCG.oig_proof||''):'',
+    edl_date:oldCG?(oldCG.edl_date||''):'',edl_status:oldCG?(oldCG.edl_status||''):'',edl_proof:oldCG?(oldCG.edl_proof||''):'',
+    fcsr_reg_date:oldCG?(oldCG.fcsr_reg_date||''):'',fcsr_date:oldCG?(oldCG.fcsr_date||''):'',fcsr_status:oldCG?(oldCG.fcsr_status||''):'',fcsr_proof:oldCG?(oldCG.fcsr_proof||''):'',
+    fp:oldCG?(oldCG.fp||'N/A'):'N/A',fp_date:oldCG?(oldCG.fp_date||''):'',fp_proof:oldCG?(oldCG.fp_proof||''):'',
     supv_date:g('cg-supv-date'),supv_proof:g('cg-supv-proof'),
     perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof'),
     /* SLICE 6 (2026-10-10): typed credential expiries with proof; the rules file watches them */
