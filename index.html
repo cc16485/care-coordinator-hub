@@ -4760,6 +4760,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <button class="filter-pill" data-cf="profiles" onclick="cgdFilter('profiles',this)" title="Who still needs a finished caregiver profile, and the button that sends them their link">🪪 Profiles</button>
     </div>
     <div id="cgcLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
+    <!-- 2026-10-14 (Samantha: "axiscare is the truth for if a caregiver is active or not"): who the Hub changed to match AxisCare -->
+    <div id="cgaxLine" style="margin:-2px 0 10px;"></div>
     <div id="cgdList"><div class="field-note">Loading…</div></div>
   </div>
   <!-- The FULL caregiver profile page (her UX ruling, 2026-09-20): the
@@ -7125,7 +7127,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=5"></script>
+<script src="team-builder-2.js?v=6"></script>
 <script src="open-hours.js?v=2"></script>
 <script src="scheduling-guide.js?v=1"></script>
 <script src="new-hires.js?v=2"></script>
@@ -17012,8 +17014,33 @@ async function cgdOpen(){ // tab open
 function cgdFilter(f,btn){ CGD.filter=f; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn)); cgdRenderList(); }
 let cgdSearchT=null;
 function cgdSearchGo(v){ CGD.q=v; clearTimeout(cgdSearchT); cgdSearchT=setTimeout(cgdRenderList,180); }
+/* 2026-10-14: the nightly roster-axis-follow list (app_data roster_axis_follow), read once per page load. One line, details on tap. */
+let CGAX=null;
+async function cgaxRender(){
+  const box=document.getElementById('cgaxLine'); if(!box) return;
+  if(CGAX===null){ CGAX=false; try{ const { data } = await sb.from('app_data').select('data').eq('key','roster_axis_follow').maybeSingle(); CGAX=(data&&data.data)||false; }catch(e){ CGAX=false; } }
+  const r=CGAX; if(!r){ box.innerHTML=''; return; }
+  const esc=escapeHtmlComms, day=s=>String(s||'').slice(0,10);
+  const ch=Array.isArray(r.changes)?r.changes:[], hist=Array.isArray(r.history)?r.history:[], ni=Array.isArray(r.not_in_axiscare)?r.not_in_axiscare:[], nn=Array.isArray(r.no_number)?r.no_number:[];
+  const practice=r.mode!=='live';
+  const li=x=>'<li>'+esc(x.name||'(no name)')+(x.to===false?' → <b>inactive</b>':x.to===true?' → <b>active</b>':'')+(x.axiscare_label?' <span class="field-note">(AxisCare: '+esc(x.axiscare_label)+')</span>':'')+(x.axiscare_id&&x.to===undefined?' <span class="field-note">(AxisCare number '+esc(x.axiscare_id)+')</span>':'')+(x.at?' <span class="field-note">'+esc(day(x.at))+'</span>':'')+'</li>';
+  const sec=(t,arr)=>arr.length?'<div style="font-weight:700;color:var(--navy);margin:8px 0 2px;">'+t+' ('+arr.length+')</div><ul style="margin:0 0 0 18px;padding:0;">'+arr.map(li).join('')+'</ul>':'';
+  const head=r.held?'<b style="color:var(--red);">Hub vs AxisCare: the last check held, nothing changed.</b> '+esc(r.held)
+    :practice?(ch.length?'<b>Hub vs AxisCare:</b> '+ch.length+' caregiver'+(ch.length===1?'':'s')+' would change to match AxisCare once the switch is on (Admin page, "Caregiver list follows AxisCare")':'<b>Hub vs AxisCare:</b> everyone matches AxisCare')
+    :(hist.length?'<b>Hub vs AxisCare:</b> '+hist.length+' caregiver'+(hist.length===1?'':'s')+' changed to match AxisCare':'<b>Hub vs AxisCare:</b> everyone matches AxisCare');
+  const more=ni.length+nn.length;
+  box.innerHTML='<details class="card" style="padding:10px 14px;font-size:13px;"><summary style="cursor:pointer;">'+head
+    +(more?' · <span style="color:#8A4E0C;">'+more+' to look at</span>':'')+' <span class="field-note">checked '+esc(day(r.at))+'</span></summary>'
+    +(r.big&&!r.held?'<div style="margin:6px 0 0;color:#8A4E0C;"><b>Big change:</b> '+esc(r.big)+' Check the names before turning the switch on.</div>':'')
+    +sec(practice||r.held?'Would change':'Changed in the last check',ch)
+    +(!practice?sec('Changed before (newest first)',hist.filter(h=>!ch.some(c=>c.id===h.id&&c.result==='changed'))):'')
+    +sec('Their AxisCare number is not in AxisCare (not changed, please check)',ni)
+    +sec('Active in the Hub with no AxisCare number (not changed; never sent open shifts)',nn)
+    +'<div class="field-note" style="margin-top:6px;">AxisCare decides who is active. Nobody is deleted; a caregiver AxisCare makes active again comes back on its own.</div></details>';
+}
 function cgdRenderList(){
   const el=document.getElementById('cgdList'); if(!el||!CGD.census) return;
+  cgaxRender();
   const esc=escapeHtmlComms;
   const all=CGD.census.caregivers||[];
   const nAct=all.filter(c=>c.active).length;
@@ -36904,6 +36931,7 @@ function tbBoardHtml(plan){
       +'<input placeholder="Search by name" value="'+esc(TB.linkQ||'')+'" oninput="tbLinkFilter(this.value)" style="flex:1;max-width:260px;font-size:12.5px;"></div>'
       +'<div class="field-note" style="font-size:11.5px;margin-bottom:4px;">Pick the person this plan is really for: the inquiry that started it, or a current client. A plan can be moved later only by Owner / Decision, and never after its shifts are on that Journey.</div>'
       +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
+    +(typeof tb2OnboardHtml==='function'?tb2OnboardHtml(plan):'')   /* 2026-10-14: onboarding for this client, the goal and each stage */
     +(typeof tb2ReadinessHtml==='function'?tb2ReadinessHtml(plan)+(plan.open_hours?'':tb2NeedsHtml(plan)):'')
     +(typeof OH!=='undefined'&&!TB.profileRoot?OH.boxHtml(plan):'')
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
