@@ -7153,7 +7153,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=5"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=12"></script>
-<script src="call-practice.js?v=6"></script><!-- 650: call follow-ups, practice tab on My Work -->
+<script src="call-practice.js?v=7"></script><!-- 650: call follow-ups, practice tab on My Work -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -27468,7 +27468,7 @@ function myWorkTabs(b){
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
-  if(window.CPR && CPR.offered()) t.push(['callpractice','Call follow-ups (practice)']);
+  if(window.CPR && CPR.offered()) t.push(['callpractice', (DATA.ops_settings && DATA.ops_settings.call_tasks_live===true) ? 'What the AI read' : 'Call follow-ups (practice)']);
   return t;
 }
 

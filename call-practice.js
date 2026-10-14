@@ -170,11 +170,25 @@
       || '<div class="card" style="padding:18px;text-align:center;">No promises in this view.</div>';
   }
 
+  /* Which office line (2026-10-14, her "all numbers we have in our subaccount linked"): calls and texts read per GoHighLevel
+     number, so a line that never shows up stands out. Readings from before the line was kept are left out of the count. */
+  function linesLine(all){
+    const m = {}; let unknown = 0;
+    all.forEach(r => { const d = r.detail || {}; if(!('line' in d)) return; if(!d.line){ unknown++; return; }
+      const x = m[d.line] = m[d.line] || { call: 0, text: 0 }; x[(r.channel || 'call') === 'text' ? 'text' : 'call']++; });
+    const keys = Object.keys(m).sort((a, b) => (m[b].call + m[b].text) - (m[a].call + m[a].text));
+    if(!keys.length && !unknown) return '';
+    const n = (k, w) => k + ' ' + w + (k === 1 ? '' : 's');
+    return '<div class="field-note" style="margin:0 0 6px;">By office line: ' + keys.map(k => '<b>' + esc(k) + '</b> ' + n(m[k].call, 'call') + ', ' + n(m[k].text, 'text')).join(' · ')
+      + (unknown ? (keys.length ? ' · ' : '') + unknown + ' where GoHighLevel did not say the line' : '') + '</div>';
+  }
   function render(wrap){
     if(!wrap) return;
     const intro = '<div class="card" style="padding:14px 16px;margin-bottom:12px;background:#FFF8EC;border:1px solid #F0D9A8;">'
-      + '<b style="color:#8A5A00;">Practice.</b> These cards are not in anyone\'s work. For each call they show what the AI employee understood, every job it found and why it would or would not make a card, '
-      + 'beside what the team actually did. Nothing here creates, changes or sends anything.</div>';
+      + (DATA && DATA.ops_settings && DATA.ops_settings.call_tasks_live === true
+        ? '<b style="color:#8A5A00;">What the AI read.</b> Its cards go straight into My Work as Call follow-up cards. For each call and text this shows what it understood, every job it found and why it did or did not make a card, '
+        : '<b style="color:#8A5A00;">Practice.</b> These cards are not in anyone\'s work. For each call they show what the AI employee understood, every job it found and why it would or would not make a card, ')
+      + 'beside what the team actually did. Nothing here sends anything.</div>';
     if(!CPR.rows){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Loading the calls…</div>'; load().then(() => { if(typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'callpractice') render(wrap); }); return; }
     if(CPR.err === 'not_installed'){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">This appears once Desktop step 650 has run.</div>'; return; }
     if(CPR.err){ wrap.innerHTML = intro + '<div class="card" style="padding:18px;">Could not read the calls: ' + esc(CPR.err) + '</div>'; return; }
@@ -201,6 +215,7 @@
     let head = alarm + '<div class="field-note" style="margin:0 0 6px;">' + beatLine() + 'Last ' + DAYS + ' days: <b>' + all.length + '</b> calls and texts read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + ' it would have made · <b>' + nWork
       + '</b> jobs it found already handled (in a workflow or on the call) · <b>' + nPeople + '</b> cards people made for the same people within a day · '
       + '<a href="#" onclick="CPR.refresh();return false;">Refresh</a></div>'
+      + linesLine(all)
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 6px;">'
       + '<input id="cprQ" type="search" placeholder="Search a name or anything said" value="' + esc(CPR.q) + '" oninput="CPR.setQuery(this.value)" style="flex:1 1 220px;width:auto;min-width:0;font-size:13px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
       + '<select id="cprDay" onchange="CPR.setDay(this.value)" style="flex:0 0 auto;width:auto;font-size:13px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
