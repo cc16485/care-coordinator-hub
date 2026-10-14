@@ -30,9 +30,9 @@ function make(settings, rows, err) {
 }
 (async () => {
   // ── the tab wiring in index.html ──
-  ck('My Work offers the tab only while practice is on (via CPR.offered); named "What the AI read" once cards are live', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice', \(DATA\.ops_settings && DATA\.ops_settings\.call_tasks_live===true\) \? 'What the AI read' : 'Call follow-ups \(practice\)'\]\);/.test(html));
+  ck('Call Follow Ups is its own tab on Today (2026-10-14): pill, panel, rendered into #cfuWrap; no longer inside My Work', html.includes(`data-tab="callfollowups" onclick="switchTab('callfollowups')"`) && html.includes('<section class="tabpanel" id="tab-callfollowups"><div id="cfuWrap"></div></section>') && html.includes("if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));") && !/t\.push\(\['callpractice'/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js (v7) after desk.js', html.indexOf('<script src="call-practice.js?v=7"></script>') > html.indexOf('<script src="desk.js?v='));
+  ck('the page loads call-practice.js (v8) after desk.js', html.indexOf('<script src="call-practice.js?v=8"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
