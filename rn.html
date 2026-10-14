@@ -152,6 +152,17 @@ async function reviewFlag(id) {
   const card = $('fl_' + id); if (card) card.outerHTML = flagCard(j.flag); wire();
 }
 
+/* her typed name drawn as a small picture for the Supervisory Nurse box on the Hub's GHE form (the signature itself is the typed
+   name, the consent and the server's record; the picture is only what the printed form shows) */
+function sigPicture(name) {
+  try {
+    const c = document.createElement('canvas'); c.width = 420; c.height = 90; const x = c.getContext('2d');
+    x.fillStyle = '#16283a'; x.font = 'italic 34px "Brush Script MT","Segoe Script","Snell Roundhand",cursive'; x.fillText(name, 10, 50);
+    x.fillStyle = '#6b7280'; x.font = '11px Arial, Helvetica, sans-serif';
+    x.fillText('Signed electronically ' + new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) + ', RN', 10, 80);
+    return c.toDataURL('image/png');
+  } catch (_) { return null; }
+}
 /* ── one GHE ── */
 async function showGhe(id) {
   const j = await call({ action: 'open', ghe_id: id }); if (j.signed_out) return;
@@ -180,6 +191,7 @@ async function showGhe(id) {
     + (j.images.supervisor ? '<figure><img alt="Supervisory Nurse signature" src="' + esc(j.images.supervisor) + '"><figcaption>Supervisory Nurse, ' + esc(day(sd['Supervisory Nurse'])) + '</figcaption></figure>' : '')
     + '</div></div>');
   if (j.signature) h.push('<div class="okmsg">Signed by ' + esc(j.signature.typed_name) + ', ' + esc(j.signature.signed_at_label) + '.</div>' + (j.signature.pdf ? '<button class="plain" data-pdf="' + esc(j.signature.id) + '">Open the signed PDF</button>' : ''));
+  if (!j.participant_signed && !j.signature) h.push('<div class="note">The participant has not signed this form yet. You can still sign it; the form needs the participant\'s signature too before it goes to Fusion.</div>');
   if (j.may_sign) {
     h.push('<div class="card" id="signBox"><h2 style="margin-top:0">Sign as the supervising RN</h2><p class="muted">Read the whole form above first. Your signature moves it to Ready for Fusion for the office to upload.</p>'
       + '<label class="chk"><input type="checkbox" id="sgOk"> <span>' + esc(j.consent_words) + '</span></label>'
@@ -196,7 +208,7 @@ async function showGhe(id) {
     const e = $('sgErr'); e.style.display = 'none';
     if (!$('sgOk').checked) { e.textContent = 'Tick the box to agree to sign electronically first.'; e.style.display = 'block'; return; }
     $('sgGo').disabled = true;
-    const r = await call({ action: 'sign', ghe_id: id, typed_name: $('sgName').value.trim(), consent: true });
+    const r = await call({ action: 'sign', ghe_id: id, typed_name: $('sgName').value.trim(), consent: true, sig_png: sigPicture($('sgName').value.trim()) });
     $('sgGo').disabled = false;
     if (!r.ok) { e.textContent = r.error; e.style.display = 'block'; return; }
     $('signBox').outerHTML = '<div class="okmsg">Signed. ' + (r.form_updated ? 'The form is Ready for Fusion.' : 'Your signature is kept; the form will be marked Ready for Fusion shortly (the office has been told).') + (r.pdf ? '' : ' The signed PDF will follow.') + '</div>';

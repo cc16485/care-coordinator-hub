@@ -49,7 +49,7 @@ def server(st):
                            'readable': {'sections': LONG_SECTIONS, 'total': 9, 'sig_dates': [{'who': 'Nurse', 'date': '2026-10-06'}, {'who': 'Participant', 'date': '2026-10-06'}, {'who': 'Supervisory Nurse', 'date': ''}]},
                            'images': {'nurse': PNG, 'participant': PNG, 'supervisor': None}, 'signature': None, 'sent_back': [], 'may_sign': st['live'], 'may_send_back': st['live'],
                            'why_not': [] if st['live'] else ['The RN review page is not turned on yet (Owners Hub Admin page, RN review). Until then only practice forms can be signed or sent back.'],
-                           'consent_words': 'I agree to sign this General Health Evaluation electronically as the supervising RN who reviewed it, and I understand my typed name has the same effect as my handwritten signature.'})
+                           'participant_signed': False, 'consent_words': 'I agree to sign this General Health Evaluation electronically as the supervising RN who reviewed it, and I understand my typed name has the same effect as my handwritten signature.'})
         if a == 'open' and body.get('client_id'):
             return J(200, {'ok': True, 'client': {'id': 'nc1', 'name': 'Ada Client', 'axiscare_id': '7001', 'assigned_nurse': 'Lena Park', 'ghe1': '2026-10', 'ghe2': '2027-04'}, 'ghe': [{'id': 'g1', 'visit_date': '2026-10-06', 'nurse': 'Lena Park', 'status_label': 'Awaiting RN review', 'total': 9}],
                            'hub_visits': [{'id': 'v9', 'type': 'meds', 'status': 'completed', 'completed_on': '2026-10-01', 'by': 'Lena Park', 'note': ''}], 'flags': [],
@@ -100,6 +100,7 @@ with sync_playwright() as p:
             t = text(pg)
             ck(f'{tag}: the GHE laid out as the state form: sections, the answers, blanks shown as blank, scores, the total, both drawn signatures', 'Blood Pressure' in t and '128/80' in t and 'blank' in t and '3 points' in t and 'not scored' in t and 'TOTAL SCORE' in t and pg.locator('.sigs img').count() == 2, t[:800])
             ck(f'{tag}: switch off: no Sign box, the reason in its own words', pg.locator('#sgGo').count() == 0 and 'not turned on yet' in t)
+            ck(f'{tag}: the participant has not signed yet: said plainly, and it does not stop her signing (no rule sets the order)', 'The participant has not signed this form yet. You can still sign it' in t)
             ck(f'{tag}: nothing wider than the screen (the form, a long address)', not wide(pg))
             pg.screenshot(path=os.path.join(OUT, f'rn_ghe_off_{engine}_{w}.png'), full_page=True)
             # the switch on
@@ -110,6 +111,7 @@ with sync_playwright() as p:
             ck(f'{tag}: the server\'s refusal is shown in its own words', 'Natasha Early' in pg.inner_text('#sgErr'))
             pg.fill('#sgName', 'Natasha Early'); pg.click('#sgGo'); pg.wait_for_selector('text=Signed. The form is Ready for Fusion.')
             ck(f'{tag}: Sign sends consent true and the typed name for that form; Send back goes away', st['signed'] and st['signed'].get('consent') is True and st['signed'].get('typed_name') == 'Natasha Early' and st['signed'].get('ghe_id') == 'g1' and pg.locator('#backBox').count() == 0, st['signed'])
+            ck(f'{tag}: ...with her typed name drawn as a PNG picture for the Supervisory Nurse box', str(st['signed'].get('sig_png') or '').startswith('data:image/png;base64,iVBOR'), str(st['signed'].get('sig_png'))[:40])
             pg.screenshot(path=os.path.join(OUT, f'rn_signed_{engine}_{w}.png'), full_page=True)
             st['signed'] = None; pg.evaluate("location.hash=''"); pg.wait_for_selector('text=GHEs waiting'); pg.evaluate("location.hash='ghe=g1'"); pg.wait_for_selector('#bkGo')
             pg.fill('#bkNote', 'short'); pg.click('#bkGo'); pg.wait_for_selector('#bkErr', state='visible')
@@ -124,7 +126,7 @@ with sync_playwright() as p:
             ck(f'{tag}: nothing wider than the screen (history)', not wide(pg))
             pg.screenshot(path=os.path.join(OUT, f'rn_history_{engine}_{w}.png'), full_page=True)
             html = pg.content()
-            ck(f'{tag}: no em dash anywhere on the page', '—' not in html and '—' not in text(pg))
+            ck(f'{tag}: no em dash anywhere on the page', '\u2014' not in html and '\u2014' not in text(pg))
             ck(f'{tag}: the page wrote nothing to browser storage', pg.evaluate('window.__w.length') == 0, pg.evaluate('window.__w'))
             ck(f'{tag}: every call went to rn-review with her session; never app_data', not st['rest'] and all(a == 'Bearer tok-nat' for a in st['auth']) and {c.get('action') for c in st['calls']} <= {'queue', 'open', 'sign', 'send_back', 'flag_review'}, [st['rest'], set(c.get('action') for c in st['calls'])])
             taps = pg.evaluate("[...document.querySelectorAll('button')].filter(b => b.offsetParent).map(b => b.getBoundingClientRect().height).filter(h => h < 40).length")
@@ -163,7 +165,7 @@ var sb = { functions: { invoke: async (name, o) => { const r = await fetch('%s',
                     pg.wait_for_selector('text=Offload heels; recheck Friday.')
                     ck(f'{tag} portal: "Marked for Natasha" shows her answer', 'Marked for Natasha' in text(pg))
                 ck(f'{tag} portal: the GHE row shows Natasha\'s send-back note and what to do', 'Sent back by Natasha Early' in text(pg) and 'Please add the blood glucose.' in text(pg) and 'Amend' in text(pg))
-                ck(f'{tag} portal: nothing wider than the screen; no em dash', not wide(pg) and '—' not in pg.content())
+                ck(f'{tag} portal: nothing wider than the screen; no em dash', not wide(pg) and '\u2014' not in pg.content())
                 pg.screenshot(path=os.path.join(OUT, f'portal_{"on" if live else "off"}_{engine}_{w}.png'), full_page=True)
                 ctx.close()
         br.close()
