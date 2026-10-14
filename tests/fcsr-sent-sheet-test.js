@@ -34,7 +34,7 @@ const order = ['Last name (current/legal)', 'First name (current/legal)', 'Middl
 ok(order.every((l, i) => i === 0 || desk.indexOf("line('" + l + "'") > desk.indexOf("line('" + order[i - 1] + "'")), 'screening request: last, first, MI, SSN, date of birth, in that order');
 for (const l of ['Middle name, suffix', 'Birth name', 'Prior names used', 'Date of birth (MM-DD-YYYY)', 'Gender', 'Mailing address', 'County', 'Telephone (no dashes)', 'Email (required)'])
   ok(desk.includes("line('" + l + "'"), 'registration field: ' + l);
-ok((desk.match(/notYet\)/g) || []).length >= 5, 'facts Step 1 does not collect yet say so (MI, middle/suffix, birth name, gender, county)');
+ok((desk.match(/: notYet/g) || []).length >= 5, 'facts an older Step 1 did not collect say so (MI, middle/suffix, birth name, gender, county)');
 ok(!/Fictional offers only/.test(ENG), 'the stale "fictional offers only" line is gone');
 ok(/async function sdCopyText\(btn\)/.test(ENG) && /window\.sdCopyText = sdCopyText/.test(ENG), 'Copy buttons for each fact');
 ok(!/—/.test(cut(ENG, '2026-10-14 (Samantha: "have all', '  h += \'<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0">')) && !/—/.test(f), 'no em dashes');

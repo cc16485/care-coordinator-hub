@@ -100,8 +100,10 @@
     const ta = box.querySelector('#aptMsg'), cnt = box.querySelector('#aptCnt');
     const count = () => { const n = ta.value.length; cnt.textContent = n ? n + ' characters' + (n > 300 ? ' (a long text; it still goes as one message)' : '') : ''; };
     count(); ta.addEventListener('input', count);
+    let picked = start ? start.key : null;   /* 2026-10-14: the server sends a pick's email with it (FCSR registration) */
     box.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => {
       const p = picks.find((x) => x.key === b.getAttribute('data-pick')); if (!p) return;
+      picked = p.key;
       box.querySelectorAll('[data-pick]').forEach((x) => x.classList.toggle('on', x === b));
       ta.value = p.text; count(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
     }));
@@ -111,7 +113,7 @@
       const msg = ta.value.trim(); if (msg.length < 2) { ta.focus(); return; }
       this.disabled = true; this.textContent = 'Sending…';
       try {
-        const r = await call({ action: 'send', id, message: msg, kind: opts.kind === 'reply' ? 'reply' : 'text' });
+        const r = await call({ action: 'send', id, message: msg, kind: opts.kind === 'reply' ? 'reply' : 'text', pick: picked || undefined });
         if (r.held) toast('Held for 8am: ' + (d.first || 'they') + ' will get it in the morning.');
         else if (r.sent) toast('Sent to ' + (d.first || 'them') + '.');
         else { alert('Not sent: ' + ((r.not_sent || []).join('; ') || 'GoHighLevel did not accept it.')); }

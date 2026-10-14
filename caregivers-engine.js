@@ -5221,6 +5221,11 @@ function sdRender(){
   const mdy = v => { const m = String(v||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[2] + '/' + m[3] + '/' + m[1] : String(v||''); };
   const cp = v => v ? ' <button class="ibtn" style="font-size:.68rem;padding:.05rem .4rem" data-v="' + sdEsc(v) + '" onclick="sdCopyText(this)">Copy</button>' : '';
   const notYet = '<span style="color:#B45309">not collected in Step 1 yet</span>';
+  /* Step 1 screen 5b asks these from 2026-10-14 (her approval); someone who finished Step 1 before then shows "not collected" */
+  const has = k => F[k] != null && String(F[k]).trim() !== '';
+  const mi = has('middle_name') ? String(F.middle_name).trim().charAt(0).toUpperCase() : '';
+  const sfx = has('suffix') && F.suffix !== 'None' ? String(F.suffix) : '';
+  const midSfx = (has('middle_name') || has('suffix')) ? [has('middle_name') ? sdEsc(F.middle_name) + cp(F.middle_name) : 'no middle name', sfx ? sdEsc(sfx) + cp(sfx) : 'no suffix'].join(' · ') : notYet;
   const ssnV = I && I.ssn ? (SD.shown.ssn ? '<b>' + sdEsc(SD.shown.ssn.value) + '</b> <button class="ibtn" style="font-size:.68rem;padding:.05rem .4rem" onclick="sdCopy(\'ssn\')">Copy</button>' : 'on file (Reveal above)') : '';
   const dobV = I && I.dob ? (SD.shown.dob ? '<b>' + sdEsc(mdy(SD.shown.dob.value)) + '</b>' + cp(mdy(SD.shown.dob.value)) : 'on file (Reveal above)') : '';
   const digits = String(F.phone||'').replace(/\D/g,'').slice(-10);
@@ -5228,14 +5233,14 @@ function sdRender(){
   h += '<div style="' + lbl + '">1 · Run their screening <span style="font-weight:400;text-transform:none;letter-spacing:0">· Employer Background Screening Request (online, form or phone)</span></div>'
     + sub('They must already be registered with the Registry, and these three must match what the Registry has.')
     + line('Last name (current/legal)', sdEsc(F.last) + cp(F.last)) + line('First name (current/legal)', sdEsc(F.first) + cp(F.first))
-    + line('Middle initial', notYet) + line('Social Security number', ssnV) + line('Date of birth', dobV);
+    + line('Middle initial', mi ? sdEsc(mi) + cp(mi) : has('suffix') ? 'none' : notYet) + line('Social Security number', ssnV) + line('Date of birth', dobV);
   h += '<div style="' + lbl + '">2 · If they are not registered yet <span style="font-weight:400;text-transform:none;letter-spacing:0">· Worker Registration, MO 580-2421 (10-2026)</span></div>'
     + sub('They register within 15 days of starting work, online or by mail; the form says the fee is $16. Registration type on the form: Long Term Care/Personal Care, then the personal care subcategory that fits the work (In-Home Services is one of them).')
     + line('Social Security number', ssnV) + line('Last name', sdEsc(F.last) + cp(F.last)) + line('First name', sdEsc(F.first) + cp(F.first))
-    + line('Middle name, suffix', notYet) + line('Birth name', notYet)
+    + line('Middle name, suffix', midSfx) + line('Birth name', has('birth_name') ? sdEsc(F.birth_name) + cp(F.birth_name) : has('gender') ? 'same as now' : notYet)
     + line('Prior names used', sdEsc(F.other_names) + cp(F.other_names)) + line('Preferred name', sdEsc(F.preferred_name))
-    + line('Date of birth (MM-DD-YYYY)', dobV) + line('Gender', notYet)
-    + line('Mailing address', sdEsc(F.address) + cp(F.address)) + line('County', notYet)
+    + line('Date of birth (MM-DD-YYYY)', dobV) + line('Gender', has('gender') ? sdEsc(F.gender) : notYet)
+    + line('Mailing address', sdEsc(F.address) + cp(F.address)) + line('County', has('county') ? sdEsc(F.county) + cp(F.county) : notYet)
     + line('Telephone (no dashes)', sdEsc(digits) + cp(digits)) + line('Email (required)', sdEsc(F.email) + cp(F.email))
     + line('Lived outside Missouri', F.lived_outside_mo === 'yes' ? 'Yes: ' + sdEsc((F.states_lived||[]).join(', ')) + ' <span style="color:#B45309;font-weight:700">(fingerprint check required)</span>' : F.lived_outside_mo === 'no' ? 'No' : '')
     + line('EDL/FCSR consent signed', d.consent_signed_at ? sdEsc(sdWhen(d.consent_signed_at)) : '<span style="color:#B91C1C">not yet: no check may be ordered before the consent</span>');
@@ -9551,6 +9556,7 @@ function obChecksHtml(c){
     if(k === 'fcsr'){
       if(c.offer_id) acts.unshift(link('bgrScreeningDesk(' + id + ')', 'FCSR sheet'));   /* the facts from their Step 1, in the state form's order */
       if(v === 'Pending') acts.push(link('obFcsrSent(' + id + ')', c.fcsr_sent_date ? 'Change the sent date' : 'Mark as sent to the state'));
+      if(v === 'Pending') acts.push(link('obFcsrTextOpen(' + id + ')', 'Send registration steps'));
     }
     const sentD = k === 'fcsr' && c.fcsr_sent_date ? c.fcsr_sent_date : '';
     const daysSince = d => { const t = new Date(String(d) + 'T12:00:00').getTime(); return isNaN(t) ? null : Math.max(0, Math.round((Date.now() - t) / 864e5)); };
@@ -9583,7 +9589,19 @@ function obFcsrSent(candId){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d + 'T12:00:00')) || d > iso){ alert('That did not look like a date on or before today. Try ' + iso + '.'); return; }
   bgrApplyBoardChange(c.id, { fcsr_sent_date: d, fcsr_sent_by: ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''), fcsr_sent_at: new Date().toISOString() });
 }
-window.obFcsrSent = obFcsrSent;   /* bgrScreeningDesk is already on window (with the other offer actions) */
+window.obFcsrSent = obFcsrSent;
+/* Samantha 2026-10-14 (approved wording): "a quick easy way to text and email them if they are not registered yet". Opens
+   the Text composer on the FCSR registration pick for their application (found by id); a person reads it and taps Send. */
+async function obFcsrTextOpen(candId){
+  const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
+  if(!(window.ApText && typeof ApText.open === 'function')){ alert('Texting did not load. Refresh the page and try again.'); return; }
+  let appId = null;
+  try { const { data } = await sb.from('reference_requests').select('applicant_id').eq('candidate_id', c.id).not('applicant_id', 'is', null).limit(1); appId = (data && data[0] && data[0].applicant_id) || null; } catch(e){}
+  if(!appId && c.intake_id){ try { const { data } = await sb.from('hire_intake').select('applicant_id').eq('id', c.intake_id).maybeSingle(); appId = (data && data.applicant_id) || null; } catch(e){} }
+  if(!appId){ alert('Their application could not be found by id, so the Text button cannot open for them. Call them, or text from GoHighLevel.'); return; }
+  ApText.open(appId, { pick: 'fcsr' });
+}
+window.obFcsrTextOpen = obFcsrTextOpen;   /* bgrScreeningDesk is already on window (with the other offer actions) */
 
 // ── Employee Profile (name-matched; no longer opened from the lists, see openPerson) ──
 function openProfile(first, last){
