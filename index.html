@@ -7127,7 +7127,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=6"></script>
+<script src="team-builder-2.js?v=7"></script>
 <script src="open-hours.js?v=2"></script>
 <script src="scheduling-guide.js?v=1"></script>
 <script src="new-hires.js?v=2"></script>
@@ -37145,7 +37145,7 @@ function tbPoolListHtml(plan,key){
     var pgH=cgpgAxHtml(x.cg.axiscare_id,x.cg.name);   /* 2c: new hire, profile not published (flagged, never hidden) */
     if(pgH) flags.unshift(pgH);
     if(x.cg.new_hire&&!x.cg.work_locked) flags.unshift('<b style="color:var(--teal);">🌱 new hire, needs hours</b>');   /* 2026-10-12, her "B" */
-    if(x.cg.work_locked) flags.unshift('<b style="color:#7C3AED;">still onboarding · waiting on Approve to Work: you can rank them and mark a Yes; texting them and the AxisCare step wait until they\'re approved</b>');   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back; 2026-10-13 her "B": plannable, never pushed or texted */
+    if(x.cg.work_locked) flags.unshift('<b style="color:#7C3AED;">still onboarding · '+escapeHtmlComms(((typeof tb2StageOf==='function'&&tb2StageOf({cg_ax_id:x.cg.axiscare_id}))||{}).label||'waiting on Approve to Work')+': you can rank them and mark a Yes; texting them and the AxisCare step wait until they\'re approved</b>');   /* 2026-10-14: her four labels */   /* SLICE 5: locked until the owner\'s stamp and the AxisCare read-back; 2026-10-13 her "B": plannable, never pushed or texted */
     return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       +(x.cg.axiscare_id
           ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
