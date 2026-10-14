@@ -17031,7 +17031,8 @@ async function cgaxRender(){
   const more=ni.length+nn.length;
   box.innerHTML='<details class="card" style="padding:10px 14px;font-size:13px;"><summary style="cursor:pointer;">'+head
     +(more?' · <span style="color:#8A4E0C;">'+more+' to look at</span>':'')+' <span class="field-note">checked '+esc(day(r.at))+'</span></summary>'
-    +sec(practice?'Would change':'Changed in the last check',ch)
+    +(r.big&&!r.held?'<div style="margin:6px 0 0;color:#8A4E0C;"><b>Big change:</b> '+esc(r.big)+' Check the names before turning the switch on.</div>':'')
+    +sec(practice||r.held?'Would change':'Changed in the last check',ch)
     +(!practice?sec('Changed before (newest first)',hist.filter(h=>!ch.some(c=>c.id===h.id&&c.result==='changed'))):'')
     +sec('Their AxisCare number is not in AxisCare (not changed, please check)',ni)
     +sec('Active in the Hub with no AxisCare number (not changed; never sent open shifts)',nn)
