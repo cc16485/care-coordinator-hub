@@ -7136,6 +7136,7 @@ The HomeTogether team</pre>
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
+<script src="nurse-review-portal.js?v=1"></script><!-- 2026-10-14: RN review, the LPN half: Mark for Natasha and her answers on the Nurse Portal -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
@@ -40983,6 +40984,7 @@ function nursePortalRender(me){
       +gheNextStep(g,true)+'<span style="flex:1;"></span>'
       +'<button class="linklike" onclick="gheOpen(\''+g.id+'\')">Open</button></div>';
   }).join('')||'<div class="field-note">No GHE forms yet.</div>';
+  try{ if(window.NurseReview) NurseReview.mount(me, real); }catch(_){}   /* 2026-10-14 nurse-review-portal.js */
 }
 async function npClaim(id){
   const me=npIdentity(); if(!me) return;
