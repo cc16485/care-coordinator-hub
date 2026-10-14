@@ -62,6 +62,12 @@ async()=>{ const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify
   window.prompt=()=>'Agency says she was always safe.';
   const btn=[...host.querySelectorAll('.ir-act')].find(b=>b.innerText==='Mark resolved'); await IR.resolve(task.id,'rv000001-aaaa'); await sleep(50);
   ok('Mark resolved: asks for a note, closes the task with it, and the review shows Resolved', task.status==='done' && task.close_note==='Agency says she was always safe.' && /Resolved: Agency says/.test(host.innerText), [task.status, task.close_note]);
+  ok('2 years: the card says when the interview records are deleted, with a Legal hold button', /Kept 2 years/.test(host.innerText) && /Legal hold/.test(host.innerText), host.innerText.slice(-300));
+  window.prompt=()=>'Charge filed'; await IR.hold(APID,true); await sleep(40);
+  const AP=window.__DB.job_applicants[0];
+  ok('...Legal hold: stamped with who and why, and the card says nothing is deleted', !!AP.records_hold_at && AP.records_hold_by==='Samantha' && AP.records_hold_reason==='Charge filed' && /Nothing of theirs is deleted/.test(host.innerText), AP);
+  window.confirm=()=>true; await IR.hold(APID,false); await sleep(40);
+  ok('...Lift the hold clears it', AP.records_hold_at===null && /Kept 2 years/.test(host.innerText));
   /* the recording list button */
   const html=recListHtml(window.__DB.recordings);
   ok('the recording list offers Analyze Interview for a transcribed interview with consent', /Analyze Interview/.test(html));
