@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="RN review">
+<title>RN review, Caring Companions</title>
+<!-- RN REVIEW, the supervising RN's page (LPN nurse visit plan, steps 5 to 7; Samantha approved "approve nursing plan" 2026-10-14;
+     build spec launch/review/lpn/build-spec.md). Natasha Early signs in with her Hub email and password (the same sign-in as the
+     other staff pages) and sees ONLY her work: GHEs her LPNs completed waiting for her signature, what her LPNs marked for her,
+     anything overdue, and a client's nursing history (including the AxisCare nurse visits, read by the server: she never needs
+     AxisCare). EVERYTHING here comes from the rn-review server function; this page never reads app_data. Every open is logged
+     by the server. Nothing is kept in this browser's storage except the sign-in itself. Nothing here texts or emails anyone. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --navy-dark:#092647; --gold:#F0A63A; --gold-text:#C17A12; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.5;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:760px;margin:0 auto;padding:16px 16px 70px;} header{display:flex;align-items:center;gap:12px;justify-content:space-between;padding:4px 0 8px;flex-wrap:wrap} header img{height:40px;max-width:60vw}
+  .who{font-size:13px;color:var(--muted);text-align:right} .who a{color:var(--navy)}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:10px 0 4px;letter-spacing:-.02em;} h2{font-size:17px;color:var(--navy);margin:22px 0 8px}
+  .lede{font-size:15px;color:var(--muted);margin:0 0 12px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:12px;overflow-wrap:anywhere}
+  .banner{border-radius:12px;padding:12px 14px;margin:0 0 12px;font-size:15px;border:1.5px solid #F6C77E;background:#FFF7E8}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0 4px} .tile{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+  .tile b{display:block;font-size:24px;color:var(--navy)} .tile span{font-size:12.5px;color:var(--muted)} .tile.warn b{color:var(--red)}
+  button.item{display:block;width:100%;text-align:left;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 8px;font:inherit;font-size:15px;color:var(--text);cursor:pointer;touch-action:manipulation}
+  button.item b{color:var(--navy);font-size:16px} .meta{font-size:13.5px;color:var(--muted)}
+  .badge{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px;margin:4px 6px 0 0;background:#F4F2ED;color:#3A342C}
+  .badge.late{background:#FDECEC;color:var(--red)} .badge.prac{background:#E8F0FA;color:var(--navy)} .badge.ok{background:#DCFCE7;color:var(--green)}
+  .sec h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);margin:4px 0 8px}
+  .row{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:4px 12px;padding:5px 0;border-top:1px solid #f0ede6;font-size:14.5px} .row:first-of-type{border-top:0}
+  .row .l{color:var(--muted)} .row .v{font-weight:600} .row .v.blank{font-weight:400;color:#b4ab9e}
+  .score{border-top:1px solid #f0ede6;padding:8px 0;font-size:14.5px} .score .pts{font-weight:800;color:var(--navy)}
+  .sigs{display:grid;grid-template-columns:1fr 1fr;gap:10px} .sigs figure{margin:0;border:1px solid var(--border);border-radius:10px;padding:8px;background:#fff} .sigs img{width:100%;height:auto;max-height:90px;object-fit:contain} .sigs figcaption{font-size:12.5px;color:var(--muted)}
+  label.q{display:block;font-size:15px;font-weight:600;margin:10px 0 6px}
+  input[type=text],input[type=email],input[type=password],textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:48px;-webkit-appearance:none;appearance:none}
+  textarea{min-height:90px;font-size:16px} input:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:24px;height:24px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
+  button.go{width:100%;min-height:52px;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:14px;font:inherit;font-size:17px;font-weight:800;margin-top:12px;cursor:pointer;touch-action:manipulation} button.go[disabled]{opacity:.55;cursor:default}
+  button.plain{width:100%;min-height:48px;background:#fff;color:var(--navy);border:1.5px solid var(--navy);border-radius:10px;padding:12px;font:inherit;font-size:16px;font-weight:700;margin-top:10px;cursor:pointer}
+  a.back{display:inline-block;margin:6px 0 4px;color:var(--navy);font-weight:700;text-decoration:none;font-size:15px}
+  .err{background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:15px;margin-top:10px} .okmsg{background:#F0F7F4;color:var(--green);border-radius:10px;padding:12px 14px;font-size:15px;margin:10px 0;font-weight:600}
+  .note{background:#FAF9F6;border-left:4px solid var(--gold);border-radius:8px;padding:8px 12px;font-size:14.5px;margin:8px 0}
+  .muted{color:var(--muted);font-size:14px} .busy{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:13px;padding:7px 14px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none} .busy.on{opacity:.92}
+  @media (max-width:520px){ .row{grid-template-columns:1fr} .tiles{grid-template-columns:1fr 1fr 1fr} .tile b{font-size:20px} .sigs{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"><div class="who" id="who"></div></header>
+  <div id="login" class="card" style="display:none">
+    <h1>RN review</h1>
+    <p class="lede">Sign in with your Hub email and password.</p>
+    <label class="q" for="liEmail">Hub email</label><input id="liEmail" type="email" autocomplete="username">
+    <label class="q" for="liPass">Password</label><input id="liPass" type="password" autocomplete="current-password">
+    <button class="go" id="liGo">Sign in</button>
+    <div class="err" id="liErr" style="display:none"></div>
+  </div>
+  <div id="main"><p class="lede" style="text-align:center">Opening your review page…</p></div>
+</div>
+<div class="busy" id="busy">Working…</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const FN = SUPA_URL + '/functions/v1/rn-review';
+const sb = window.supabase.createClient(SUPA_URL, ANON);
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const day = (d) => { if (!d) return ''; const s = String(d).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return String(d); return new Date(s + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }); };
+const when = (iso) => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (_) { return String(iso || ''); } };
+const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+let Q = null;
+
+function busy(on) { $('busy').classList.toggle('on', !!on); }
+async function call(body) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showLogin(); return { ok: false, error: 'Sign in first.', signed_out: true }; }
+  busy(true);
+  try {
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: ANON, Authorization: 'Bearer ' + session.access_token }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({ ok: false, error: 'The server sent an answer this page could not read.' }));
+    if (r.status === 401) { showLogin(j.error); return { ok: false, error: j.error, signed_out: true }; }
+    return j;
+  } catch (e) { return { ok: false, error: 'Could not reach the Hub. Check the connection and try again.' }; }
+  finally { busy(false); }
+}
+function showLogin(msg) {
+  $('main').innerHTML = ''; $('who').innerHTML = ''; $('login').style.display = 'block';
+  if (msg) { $('liErr').textContent = msg; $('liErr').style.display = 'block'; }
+}
+$('liGo').onclick = async () => {
+  $('liErr').style.display = 'none';
+  const { error } = await sb.auth.signInWithPassword({ email: $('liEmail').value.trim(), password: $('liPass').value });
+  if (error) { $('liErr').textContent = error.message; $('liErr').style.display = 'block'; return; }
+  $('login').style.display = 'none'; route();
+};
+async function signOut() { await sb.auth.signOut(); location.hash = ''; showLogin(); }
+
+function whoLine(me) {
+  $('who').innerHTML = esc(me.name) + (me.rn ? ', RN' : me.owner ? ' (owner, view only)' : '') + '<br><a href="#" id="soLink">Sign out</a>';
+  $('soLink').onclick = (e) => { e.preventDefault(); signOut(); };
+}
+const fail = (j) => '<div class="err">' + esc(j.error || 'Something went wrong.') + '</div>';
+function badges(x) {
+  return (x.practice ? '<span class="badge prac">Practice</span>' : '') + (x.waiting_over ? '<span class="badge late">Waiting ' + plural(x.waiting_days, 'working day') + '</span>' : '')
+    + (x.upload_overdue ? '<span class="badge late">Fusion upload was due ' + esc(day(x.upload_due)) + '</span>' : '') + (x.sent_back_before ? '<span class="badge">Sent back before</span>' : '');
+}
+
+/* ── the list ── */
+async function showQueue() {
+  const j = await call({ action: 'queue' }); if (j.signed_out) return;
+  if (!j.ok) { $('main').innerHTML = '<h1>RN review</h1>' + fail(j); return; }
+  Q = j; whoLine(j.me);
+  const h = [];
+  h.push('<h1>RN review</h1><p class="lede">Only your work: GHEs your LPNs completed that need your signature, what they marked for you, and anything overdue.</p>');
+  if (!j.live) h.push('<div class="banner"><b>Practice.</b> This page is not turned on yet. You can look at everything; signing, sending back and reviewing work only on practice forms until the office turns it on.</div>');
+  if (!j.me.rn) h.push('<div class="banner">You are viewing as an owner. Only the RN signs, sends back or reviews.</div>');
+  h.push('<div class="tiles"><div class="tile"><b>' + j.counts.ghe + '</b><span>GHEs to sign</span></div><div class="tile"><b>' + j.counts.flags + '</b><span>Marked for you</span></div><div class="tile' + (j.counts.overdue ? ' warn' : '') + '"><b>' + j.counts.overdue + '</b><span>Overdue</span></div></div>');
+  if (j.cards.length) h.push('<h2>Needs attention</h2>' + j.cards.map((c) => '<div class="card"><b>' + esc(c.title) + '</b><div class="meta">' + esc(c.detail) + '</div></div>').join(''));
+  if (j.overdue.length) h.push('<h2>Overdue</h2>' + j.overdue.map((x) => '<button class="item" data-go="' + (x.kind === 'flag' ? 'client=' + esc(x.client_id) : 'ghe=' + esc(x.id)) + '"><b>' + esc(x.client || x.client_name) + '</b><div class="meta">' + esc(x.why) + '</div></button>').join(''));
+  h.push('<h2>GHEs waiting for your signature</h2>' + (j.ghe.length ? j.ghe.map((g) => '<button class="item" data-go="ghe=' + esc(g.id) + '"><b>' + esc(g.client) + '</b><div class="meta">Visit ' + esc(day(g.visit_date)) + ' by ' + esc(g.nurse || 'the LPN') + ' · score ' + esc(g.total == null ? 'not set' : g.total) + ' · upload to Fusion by ' + esc(day(g.upload_due)) + '</div>' + badges(g) + '</button>').join('') : '<p class="muted">Nothing is waiting for your signature.</p>'));
+  h.push('<h2>Marked for you</h2>' + (j.flags.length ? j.flags.map(flagCard).join('') : '<p class="muted">Nothing is marked for you.</p>'));
+  if (j.recent.length) h.push('<h2>Signed recently</h2>' + j.recent.map((s) => '<div class="card"><b>' + esc(s.client_name) + '</b><div class="meta">Visit ' + esc(day(s.visit_date)) + ' by ' + esc(s.lpn_name) + '. Signed ' + esc(s.signed_at_label) + '.</div>' + (s.practice ? '<span class="badge prac">Practice</span>' : '') + (s.pdf ? '<button class="plain" data-pdf="' + esc(s.id) + '">Open the signed PDF</button>' : '<div class="meta">The signed PDF is not saved yet.</div>') + '</div>').join(''));
+  $('main').innerHTML = h.join('');
+  wire();
+}
+function flagCard(f) {
+  return '<div class="card" id="fl_' + esc(f.id) + '"><b>' + esc(f.client_name) + '</b> <span class="meta">· ' + esc(f.service_name || f.service_key) + '</span>'
+    + '<div class="meta">Marked by ' + esc(f.by_name) + (f.entered_by ? ' (entered by ' + esc(f.entered_by) + ')' : '') + ' on ' + esc(when(f.at)) + (f.visit_date ? ', visit ' + esc(day(f.visit_date)) : '') + '</div>'
+    + '<div class="note">' + esc(f.seen) + '</div>' + (f.practice ? '<span class="badge prac">Practice</span>' : '') + (f.waiting_over ? '<span class="badge late">Waiting ' + plural(f.waiting_days, 'working day') + '</span>' : '')
+    + (f.status === 'reviewed' ? '<div class="okmsg">Reviewed by ' + esc(f.reviewed_by) + ' ' + esc(when(f.reviewed_at)) + ': ' + esc(f.rn_note) + '</div>'
+      : (Q && Q.me.rn ? '<label class="q" for="fn_' + esc(f.id) + '">Your note for ' + esc((f.by_name || 'the LPN').split(' ')[0]) + '</label><textarea id="fn_' + esc(f.id) + '" placeholder="What you found, or what to do next"></textarea><button class="go" data-review="' + esc(f.id) + '">Mark reviewed</button><div class="err" id="fe_' + esc(f.id) + '" style="display:none"></div>' : ''))
+    + '<button class="plain" data-go="client=' + esc(f.client_id) + '">Nursing history for ' + esc(f.client_name) + '</button></div>';
+}
+function wire() {
+  document.querySelectorAll('[data-go]').forEach((b) => { b.onclick = () => { location.hash = b.dataset.go; }; });
+  document.querySelectorAll('[data-pdf]').forEach((b) => { b.onclick = () => openPdf(b.dataset.pdf); });
+  document.querySelectorAll('[data-review]').forEach((b) => { b.onclick = () => reviewFlag(b.dataset.review); });
+}
+async function openPdf(id) {
+  const w = window.open('', '_blank');
+  const j = await call({ action: 'open', signature_id: id });
+  if (j.ok && j.url) { if (w) w.location = j.url; else location.href = j.url; } else { if (w) w.close(); alert(j.error || 'Could not open it.'); }
+}
+async function reviewFlag(id) {
+  const note = ($('fn_' + id) || {}).value || '', e = $('fe_' + id);
+  const j = await call({ action: 'flag_review', flag_id: id, note: note.trim() });
+  if (!j.ok) { e.textContent = j.error; e.style.display = 'block'; return; }
+  const card = $('fl_' + id); if (card) card.outerHTML = flagCard(j.flag); wire();
+}
+
+/* ── one GHE ── */
+async function showGhe(id) {
+  const j = await call({ action: 'open', ghe_id: id }); if (j.signed_out) return;
+  const back = '<a class="back" href="#">‹ Back to my list</a>';
+  if (!j.ok) { $('main').innerHTML = back + fail(j); return; }
+  const f = j.form, h = [back];
+  h.push('<h1>' + esc(f.client) + '</h1><p class="lede">General Health Evaluation (MO 580-2985). Visit ' + esc(day(f.visit_date)) + ' by ' + esc(f.nurse) + '. ' + esc(f.status_label) + '. Upload to Fusion by ' + esc(day(f.upload_due)) + '.</p>');
+  h.push(badges(f));
+  if (!j.live) h.push('<div class="banner"><b>Practice.</b> This page is not turned on yet.</div>');
+  if (f.client_id) h.push('<button class="plain" data-go="client=' + esc(f.client_id) + '">Nursing history for ' + esc(f.client) + '</button>');
+  if (j.sent_back.length) h.push('<h2>Sent back before</h2>' + j.sent_back.map((s) => '<div class="note"><b>' + esc(s.by) + ', ' + esc(when(s.at)) + ':</b> ' + esc(s.note) + '</div>').join(''));
+  for (const s of j.readable.sections) {
+    let b = '<div class="card sec"><h3>' + esc(s.h) + '</h3>';
+    for (const r of s.rows) b += '<div class="row"><div class="l">' + esc(r.label) + '</div><div class="v' + (r.value ? '' : ' blank') + '">' + (r.value ? esc(r.value) : 'blank') + '</div></div>';
+    if (s.scored) {
+      b += s.scored.map((x) => '<div class="score"><b>' + esc(x.title) + '</b>: <span class="pts">' + (x.points == null ? 'not scored' : esc(x.points) + ' points') + '</span>' + (x.answer ? '<div>' + esc(x.answer) + '</div>' : '')
+        + x.fields.filter((fl) => fl.value).map((fl) => '<div class="meta">' + esc(fl.label) + ': ' + esc(fl.value) + '</div>').join('') + (x.comment ? '<div class="meta">Comment: ' + esc(x.comment) + '</div>' : '') + '</div>').join('');
+      b += '<div class="score"><b>TOTAL SCORE</b>: <span class="pts">' + esc(j.readable.total) + '</span></div>';
+    }
+    h.push(b + '</div>');
+  }
+  const sd = Object.fromEntries(j.readable.sig_dates.map((x) => [x.who, x.date]));
+  h.push('<div class="card sec"><h3>Signatures</h3><div class="sigs">'
+    + '<figure>' + (j.images.nurse ? '<img alt="Nurse signature" src="' + esc(j.images.nurse) + '">' : '<div class="muted">Not signed</div>') + '<figcaption>Nurse, ' + esc(day(sd.Nurse) || 'no date') + '</figcaption></figure>'
+    + '<figure>' + (j.images.participant ? '<img alt="Participant signature" src="' + esc(j.images.participant) + '">' : '<div class="muted">Not signed</div>') + '<figcaption>Participant, ' + esc(day(sd.Participant) || 'no date') + '</figcaption></figure>'
+    + (j.images.supervisor ? '<figure><img alt="Supervisory Nurse signature" src="' + esc(j.images.supervisor) + '"><figcaption>Supervisory Nurse, ' + esc(day(sd['Supervisory Nurse'])) + '</figcaption></figure>' : '')
+    + '</div></div>');
+  if (j.signature) h.push('<div class="okmsg">Signed by ' + esc(j.signature.typed_name) + ', ' + esc(j.signature.signed_at_label) + '.</div>' + (j.signature.pdf ? '<button class="plain" data-pdf="' + esc(j.signature.id) + '">Open the signed PDF</button>' : ''));
+  if (j.may_sign) {
+    h.push('<div class="card" id="signBox"><h2 style="margin-top:0">Sign as the supervising RN</h2><p class="muted">Read the whole form above first. Your signature moves it to Ready for Fusion for the office to upload.</p>'
+      + '<label class="chk"><input type="checkbox" id="sgOk"> <span>' + esc(j.consent_words) + '</span></label>'
+      + '<label class="q" for="sgName">Type your full name</label><input type="text" id="sgName" autocomplete="name">'
+      + '<button class="go" id="sgGo">Sign</button><div class="err" id="sgErr" style="display:none"></div></div>');
+  }
+  if (j.may_send_back) {
+    h.push('<div class="card" id="backBox"><h2 style="margin-top:0">Send it back to ' + esc((f.nurse || 'the LPN').split(' ')[0]) + '</h2><p class="muted">The form goes back to Draft with your note on their Nurse Portal.</p>'
+      + '<label class="q" for="bkNote">What needs correcting</label><textarea id="bkNote"></textarea><button class="plain" id="bkGo">Send back</button><div class="err" id="bkErr" style="display:none"></div></div>');
+  }
+  if (!j.may_sign && !j.may_send_back && !j.signature && j.why_not.length) h.push('<div class="note">' + j.why_not.map(esc).join('<br>') + '</div>');
+  $('main').innerHTML = h.join(''); wire(); window.scrollTo(0, 0);
+  if ($('sgGo')) $('sgGo').onclick = async () => {
+    const e = $('sgErr'); e.style.display = 'none';
+    if (!$('sgOk').checked) { e.textContent = 'Tick the box to agree to sign electronically first.'; e.style.display = 'block'; return; }
+    $('sgGo').disabled = true;
+    const r = await call({ action: 'sign', ghe_id: id, typed_name: $('sgName').value.trim(), consent: true });
+    $('sgGo').disabled = false;
+    if (!r.ok) { e.textContent = r.error; e.style.display = 'block'; return; }
+    $('signBox').outerHTML = '<div class="okmsg">Signed. ' + (r.form_updated ? 'The form is Ready for Fusion.' : 'Your signature is kept; the form will be marked Ready for Fusion shortly (the office has been told).') + (r.pdf ? '' : ' The signed PDF will follow.') + '</div>';
+    if ($('backBox')) $('backBox').remove();
+  };
+  if ($('bkGo')) $('bkGo').onclick = async () => {
+    const e = $('bkErr'); e.style.display = 'none';
+    const r = await call({ action: 'send_back', ghe_id: id, note: $('bkNote').value.trim() });
+    if (!r.ok) { e.textContent = r.error; e.style.display = 'block'; return; }
+    $('backBox').outerHTML = '<div class="okmsg">Sent back to ' + esc(f.nurse) + ' with your note.</div>';
+    if ($('signBox')) $('signBox').remove();
+  };
+}
+
+/* ── a client's nursing history ── */
+async function showClient(id) {
+  const j = await call({ action: 'open', client_id: id }); if (j.signed_out) return;
+  const back = '<a class="back" href="#">‹ Back to my list</a>';
+  if (!j.ok) { $('main').innerHTML = back + fail(j); return; }
+  const c = j.client, h = [back, '<h1>' + esc(c.name) + '</h1><p class="lede">Nursing history. Nurse: ' + esc(c.assigned_nurse || 'none assigned') + (c.ghe1 || c.ghe2 ? '. GHE months: ' + esc([c.ghe1, c.ghe2].filter(Boolean).join(', ')) : '') + '.</p>'];
+  h.push('<h2>GHE forms</h2>' + (j.ghe.length ? j.ghe.map((g) => '<button class="item" data-go="ghe=' + esc(g.id) + '"><b>Visit ' + esc(day(g.visit_date)) + '</b><div class="meta">' + esc(g.nurse) + ' · ' + esc(g.status_label) + ' · score ' + esc(g.total == null ? 'not set' : g.total) + '</div></button>').join('') : '<p class="muted">No GHE forms in the Hub.</p>'));
+  h.push('<h2>Marked by the LPNs</h2>' + (j.flags.length ? j.flags.map(flagCard).join('') : '<p class="muted">Nothing marked.</p>'));
+  h.push('<h2>Nurse visits in AxisCare (last six months)</h2>' + (j.axiscare.ok ? '' : '<div class="note">' + esc(j.axiscare.why) + '</div>')
+    + (j.axiscare.visits.length ? j.axiscare.visits.map((v) => '<div class="card"><b>' + esc(when(v.date)) + '</b> <span class="meta">· ' + esc(v.services.join(', ') || v.service) + '</span><div class="meta">' + esc(v.nurse || 'no nurse on the visit') + (v.clock_in ? ' · in ' + esc(when(v.clock_in)) : ' · not clocked in') + (v.clock_out ? ', out ' + esc(when(v.clock_out)) : '') + '</div>' + (v.note ? '<div class="note">' + esc(v.note) + '</div>' : '') + '</div>').join('') : (j.axiscare.ok ? '<p class="muted">No nurse visits in AxisCare in that time.</p>' : '')));
+  h.push('<h2>Visits logged in the Hub</h2>' + (j.hub_visits.length ? j.hub_visits.map((v) => '<div class="card"><b>' + esc(v.type === 'meds' ? 'Medication setup' : v.type) + '</b> <span class="meta">· ' + esc(v.status) + ' · ' + esc(day(v.completed_on || v.scheduled_for)) + (v.by ? ' · ' + esc(v.by) : '') + '</span>' + (v.note ? '<div class="note">' + esc(v.note) + '</div>' : '') + '</div>').join('') : '<p class="muted">None logged.</p>'));
+  $('main').innerHTML = h.join(''); wire(); window.scrollTo(0, 0);
+  document.querySelectorAll('[data-review]').forEach((b) => { b.onclick = () => reviewFlag(b.dataset.review); });
+}
+
+async function route() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showLogin(); return; }
+  $('login').style.display = 'none';
+  const m = /^#(ghe|client)=(.+)$/.exec(location.hash);
+  if (!Q && m) { const j = await call({ action: 'queue' }); if (j.ok) { Q = j; whoLine(j.me); } else if (j.signed_out) return; }
+  if (m && m[1] === 'ghe') return showGhe(decodeURIComponent(m[2]));
+  if (m && m[1] === 'client') return showClient(decodeURIComponent(m[2]));
+  return showQueue();
+}
+window.addEventListener('hashchange', route);
+route();
+</script>
+</body>
+</html>
