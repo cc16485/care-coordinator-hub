@@ -30,9 +30,9 @@ function make(settings, rows, err) {
 }
 (async () => {
   // ── the tab wiring in index.html ──
-  ck('My Work offers the tab only while practice is on (via CPR.offered)', /if\(window\.CPR && CPR\.offered\(\)\) t\.push\(\['callpractice','Call follow-ups \(practice\)'\]\);/.test(html));
+  ck('Call Follow Ups is its own tab on Today (2026-10-14): pill, panel, rendered into #cfuWrap; no longer inside My Work', html.includes(`data-tab="callfollowups" onclick="switchTab('callfollowups')"`) && html.includes('<section class="tabpanel" id="tab-callfollowups"><div id="cfuWrap"></div></section>') && html.includes("if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));") && !/t\.push\(\['callpractice'/.test(html));
   ck('the tab draws through CPR.render and nothing else', /if\(MYWORK_TAB==='callpractice'\)\{ wrap\.innerHTML=''; if\(window\.CPR\) CPR\.render\(wrap\); return; \}/.test(html));
-  ck('the page loads call-practice.js (v6) after desk.js', html.indexOf('<script src="call-practice.js?v=6"></script>') > html.indexOf('<script src="desk.js?v='));
+  ck('the page loads call-practice.js (v8) after desk.js', html.indexOf('<script src="call-practice.js?v=8"></script>') > html.indexOf('<script src="desk.js?v='));
   let { ctx } = make({ call_tasks_practice: false }, ROWS);
   ck('switch off: the tab is not offered', ctx.CPR.offered() === false);
   ({ ctx } = make({ call_tasks_practice: true }, ROWS));
@@ -42,7 +42,7 @@ function make(settings, rows, err) {
   const wrap = { innerHTML: '' };
   c2.CPR.render(wrap); await new Promise((r) => setTimeout(r, 20)); c2.CPR.render(wrap)
   const h = wrap.innerHTML;
-  ck('it says plainly this is practice: in nobody\'s work, creates and sends nothing', /<b style="color:#8A5A00;">Practice\.<\/b> These cards are not in anyone's work/.test(h) && /Nothing here creates, changes or sends anything/.test(h), h.slice(0, 400));
+  ck('it says plainly this is practice: in nobody\'s work, sends nothing', /<b style="color:#8A5A00;">Practice\.<\/b> These cards are not in anyone's work/.test(h) && /Nothing here sends anything/.test(h), h.slice(0, 400));
   ck('it reads the last 7 days from call_task_reading, and never writes', Q.some((q) => q.tb === 'call_task_reading' && q.f.some((f) => f[1] === 'call_at')) && !Q.some((q) => q.write || q.rpc), JSON.stringify(Q));
   ck('the headline: 4 calls read, 2 cards it would have made, 1 made by people', /<b>4<\/b> calls and texts read · <b>2<\/b> cards it would have made/.test(h) && /<b>1<\/b> cards people made for the same people within a day/.test(h), h.slice(0, 900));
   ck('Steve\'s call: his name and role from the identity layer, we called, 2 min 16 s', /Steve Algiere \(client\)/.test(h) && /we called · 2 min 16 s/.test(h), h);

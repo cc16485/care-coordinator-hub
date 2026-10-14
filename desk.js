@@ -1654,8 +1654,8 @@
   }
   function dkAllowed(){ try{ return access(DATA.ops_settings, myEmail(), hasDesk(myEmail())); }catch(e){ return false; } }
   function dkPill(){
-    const pill = $('#fsub-today [data-tab="mydesk"]'); if(!pill) return;
-    pill.style.display = dkAllowed() ? '' : 'none';
+    /* 2026-10-14: My Desk is a tab inside My Work (the strip under it); redraw that strip when access is known */
+    try{ if(typeof activeTab !== 'undefined' && typeof CC_PARENT_OF !== 'undefined' && CC_PARENT_OF[activeTab] === 'myworkgrp' && typeof ccRenderSub2 === 'function') ccRenderSub2(activeTab); }catch(e){}
     try{ chromeTick(); }catch(e){}
     if(dkAllowed() && !DK.warm) setTimeout(() => dkWarm(), 1500);
   }
