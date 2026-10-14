@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=12"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=1"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -23192,6 +23192,8 @@ function recListHtml(rows){
         + (r.status==='failed' ? '<button class="fb" onclick="recRetry(\'' + esc(r.id) + '\')">Try again</button>' : '')
         + (r.transcript && r.kind==='interview'
             ? '<button class="secondary" onclick="recFill(\'' + esc(r.id) + '\',this)">✨ Fill the answers from this</button>' : '')
+        + (r.status==='done' && r.consent_given && r.kind==='interview' && window.IR   /* 2026-10-13: the AI review, only on a tap */
+            ? '<button class="secondary" onclick="apIrAnalyze(\'' + esc(r.subject_id) + '\',this)">Analyze Interview</button>' : '')
         + (r.transcript ? '<button class="fb" onclick="recUse(\'' + esc(r.id) + '\')">Use this transcript</button>' : '')
       + '</div>'
       + (r.error ? '<div class="field-note" style="color:var(--red);">' + esc(r.error) + '</div>' : '')
@@ -23207,6 +23209,16 @@ function recListHtml(rows){
       + '</div>';
   }).join('');
 }
+
+/* Analyze Interview from the recording list: runs the review, then opens it on their profile's Interview tab. */
+async function apIrAnalyze(applicantId, btn){
+  const was = btn.textContent;
+  const d = await IR.run(applicantId, 'full', btn);
+  btn.disabled = false; btn.textContent = was;
+  if(d){ if(!AP_PROF || String(AP_PROF.id)!==String(applicantId)) apOpenProfile(applicantId, 'interview'); else apTab('interview');
+    const el = document.getElementById('apIrHost'); if(el){ el.dataset.done = '1'; await IR.mount(el, AP_PROF); el.scrollIntoView({behavior:'smooth', block:'start'}); } }
+}
+window.apIrAnalyze = apIrAnalyze;
 
 async function recPlay(id){
   const host = document.getElementById('recplay_'+id); if(!host) return;
@@ -23780,6 +23792,7 @@ function apTab(k){
     const pane = document.getElementById('apPane-' + t); if(pane) pane.style.display = t === k ? 'block' : 'none';
     const btn = document.getElementById('apTabBtn-' + t); if(btn){ btn.classList.toggle('active', t === k); btn.setAttribute('aria-selected', String(t === k)); }
   });
+  if(k === 'interview' && AP_PROF && window.IR){ const el = document.getElementById('apIrHost'); if(el && !el.dataset.done){ el.dataset.done = '1'; IR.mount(el, AP_PROF); } }   /* 2026-10-13 */
   const r = AP_PROF; if(!r || !window.HP) return;
   /* the Whole profile's pieces, read when their tab is first opened */
   if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
@@ -23927,6 +23940,8 @@ function apRenderProfile(){
       + apProfCard('Where they have worked', apProfWork(r),
           'What they claim, and whether anybody has checked it.')
       + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
+      /* 2026-10-13: the AI review, kept apart from the interviewer's notes above (interview-review-ui.js) */
+      + (window.IR ? apProfCard('AI interview review', '<div id="apIrHost"></div>', 'A second set of ears, office only. It runs only when you tap it, and never scores or decides.') : '')
       + (offered ? '<div id="apHpSkills"></div>' : ''))
     + pane('hiring',
         apProfCard('The offer', apProfOffer(r), '')
@@ -27959,6 +27974,13 @@ async function ccIssueOpenClient(issueId){
     alert('This concern was saved with a name only ('+((data&&data.client_name_free_text)||'no name')+'), so it isn\'t tied to a profile.');
   }catch(e){ alert('Could not look up the client: '+(e&&e.message||e)); }
 }
+/* 2026-10-13: an interview follow-up opens the applicant's Interview tab, where the quote and the recording are */
+async function apOpenFollowup(id){
+  try{ switchTab('applicants'); }catch(e){}
+  if(!AP_ROWS.length){ try{ await apLoad(); }catch(e){} }
+  apOpenProfile(id, 'interview');
+}
+window.apOpenFollowup = apOpenFollowup;
 function obligationOpenAction(it){
   try{
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
@@ -27979,6 +28001,9 @@ function obligationOpenAction(it){
     }
     if(it && it.kind==='new_lead' && it.source_id && (DATA.leads||[]).some(l=>String(l.id)===String(it.source_id))){
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="openLeadProfile(\''+escapeHtmlComms(String(it.source_id))+'\')">Open the inquiry</button></div>';
+    }
+    if(it && it.kind==='interview_followup' && it.applicant_id){
+      return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="apOpenFollowup(\''+escapeHtmlComms(String(it.applicant_id))+'\')">Open their interview</button></div>';
     }
     if(it && it.kind==='client_issue' && it.issue_id){
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="ccIssueOpenClient(\''+escapeHtmlComms(String(it.issue_id))+'\')">Open their profile</button></div>';
@@ -32169,6 +32194,8 @@ const OPS_KINDS = {
   care_packet_unconfirmed: { label:'Care packet', hours:12 },
   /* Call follow-ups LIVE (2026-10-13, "Let's stop practicing and go for it!"): work the AI found in a call or text (call-tasks) */
   call_followup:  { label:'Call follow-up', hours:24 },
+  /* 2026-10-13: a follow-up someone made from the AI interview review (interview-review-ui.js); opens their Interview tab */
+  interview_followup: { label:'Interview follow-up', hours:72 },
   /* N2 (2026-09-29): a caregiver's shift note the AI thought someone should read (care-notes, every two hours) */
   care_note:      { label:'Shift note',    hours:24 },
   /* Missed shift notes (2026-09-29): a caregiver replied with the note they didn't write, or never replied. */
