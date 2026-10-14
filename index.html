@@ -5417,7 +5417,19 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     </div>
   </div></div>
   <!-- the borrowed-form slots sit OUTSIDE anything that is redrawn, so a redraw never deletes a borrowed form -->
-  <div class="cp-pane" data-cp-pane="care"><div id="cp_care"></div><div id="cp_review_slot"></div><div id="cp_shift_notes"></div><div id="cp_arrivals"></div><div id="cp_c_care"></div></div>
+  <!-- 2026-10-13 (her ask): the Care tab in four sub-tabs; cpCareSub switches them, the cards are unchanged -->
+  <div class="cp-pane" data-cp-pane="care">
+    <div class="subtab-bar" id="cpCareSubs">
+      <button type="button" class="subtab" data-cs="asmt" onclick="cpCareSub('asmt')">Assessments &amp; care plans</button>
+      <button type="button" class="subtab" data-cs="reviews" onclick="cpCareSub('reviews')">Care plan reviews &amp; message care team</button>
+      <button type="button" class="subtab" data-cs="packet" onclick="cpCareSub('packet')">Caregiver packet</button>
+      <button type="button" class="subtab" data-cs="notes" onclick="cpCareSub('notes')">Care notes</button>
+    </div>
+    <div class="cp-care-sub" data-cs="asmt"><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
+    <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_review_slot"></div></div>
+    <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
+    <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
+  </div>
   <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
   <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
@@ -9886,13 +9898,22 @@ function cnRender(){
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'+head+flags+body
     +'<div class="field-note" style="margin-top:6px;font-size:11.5px;">Read from AxisCare just now; nothing here is copied into the Hub. Notes are the caregivers\' own words.</div></div>';
 }
+/* The Care tab's four sub-tabs (2026-10-13). 'care:reviews' etc. opens straight onto one. */
+const CP_CARE_SUBS=['asmt','reviews','packet','notes'];
+function cpCareSub(s){
+  CP.careSub=CP_CARE_SUBS.indexOf(s)>-1?s:'asmt';
+  document.querySelectorAll('#leadProfileView .cp-care-sub').forEach(p=>{ p.style.display=p.dataset.cs===CP.careSub?'':'none'; });
+  document.querySelectorAll('#cpCareSubs .subtab').forEach(b=>b.classList.toggle('active',b.dataset.cs===CP.careSub));
+}
 function cpShowTab(t){
+  t=String(t||'');
+  if(t.indexOf('care:')===0){ CP.careSub=t.slice(5); t='care'; }
   const ok=[...document.querySelectorAll('#leadProfileView .cp-pane')].some(p=>p.dataset.cpPane===t);
   CP.tab=ok?t:'summary';
   document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
   try{ if(typeof lwTab==='function') lwTab(); }catch(e){}
-  if(CP.tab==='care'){ cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
+  if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 /* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Activity & Documents. */
 async function cpRenderEvvForms(){
@@ -9974,6 +9995,7 @@ async function openClient(seed, tab){
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
     else if(typeof cqUnmountProfile==='function') cqUnmountProfile(); }
+  CP.careSub='asmt';
   cpShowTab(tab||'summary');
   window.scrollTo(0,0);
   if(typeof cjMountProfile==='function') cjMountProfile({ lead, ax });
@@ -10057,8 +10079,10 @@ function cpRenderCare(){
       +'<li>After the visit, open the assessment and paste the transcript link, or the transcript text.</li>'
       +'<li>Generate the care plan, then review and edit it. You are always the final check, not the AI.</li>'
       +'<li>Save &amp; Push to AxisCare writes the care plan note and its tasks into AxisCare and reads them back.</li></ol></details>'
-    +'</div>'
-    +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
+    +'</div>';
+  /* Care plan reviews & message care team sub-tab (2026-10-13) */
+  const rbox=document.getElementById('cp_care_reviews');
+  if(rbox) rbox.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🔁 Care plan reviews</b><span style="flex:1;"></span>'
     +(function(){ const lv=ax?axLogRows(ax).find(x=>x.kind==='care_level'):null; if(!lv) return '';
         const o=AXL_OUT[lv.outcome]||['sent',lv.outcome];
@@ -10075,11 +10099,10 @@ function cpRenderCare(){
             :(v.changes_needed&&v.plan_updated?'<span class="field-note">plan updated in AxisCare'+(v.plan_updated_at?' '+esc(String(v.plan_updated_at).slice(0,10)):'')+'</span>':''))
           +'</div>').join('')
       :'<div class="field-note">No reviews logged yet.</div>')
-    +'</div>'
-    /* Track 3c (2026-10-12): Care needs for matching, only while its Admin switch is on (care-needs.js) */
-    +'<div id="cp_needs"></div>'
-    /* Caregiver packet (Step 1, 2026-10-12): videos + notes each caregiver confirms (care-packet.js) */
-    +'<div id="cp_packet"></div>';
+    +'</div>';
+  /* Care needs (Track 3c, care-needs.js, only while its Admin switch is on) and the Caregiver packet (care-packet.js)
+     mount into their own sub-tabs; clear them so a previous client's card never shows */
+  ['cp_needs','cp_packet'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
   /* 2026-10-12 fix: the shift-notes state is a page-level const named CN (line ~9787), so a bare CN here meant THAT object
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
@@ -32423,11 +32446,11 @@ function clDue(r, issues){
     if(ci&&ci.escalated) add('ckconcern','bad','check-in escalated'+(ci.concerns_raised?': '+String(ci.concerns_raised).slice(0,50):''),'checkins',ci.checkin_date);
     else if(ci&&ciDecliningAx(ax)) add('ckconcern','warn','satisfaction dropping','checkins');
     const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
-    if(!rv) add('review','warn','first plan review needed','care');
+    if(!rv) add('review','warn','first plan review needed','care:reviews');
     else {
-      if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care');
-      if(rv.next_due&&rv.next_due<t) add('review','bad','plan review overdue since '+d(rv.next_due),'care',rv.next_due);
-      else if(rv.next_due&&rv.next_due<=wk) add('review','warn','plan review due '+d(rv.next_due),'care',rv.next_due);
+      if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care:reviews');
+      if(rv.next_due&&rv.next_due<t) add('review','bad','plan review overdue since '+d(rv.next_due),'care:reviews',rv.next_due);
+      else if(rv.next_due&&rv.next_due<=wk) add('review','warn','plan review due '+d(rv.next_due),'care:reviews',rv.next_due);
     }
     const req=(DATA.staffing_tasks||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax&&x.status!=='done');
     if(req.length) add('request','warn',req.length+' family request'+(req.length===1?'':'s')+' waiting on Staffing','summary');
@@ -41067,7 +41090,7 @@ function renderNurseVisits(){
       const findings=c.latest&&c.latest.findings?'<div style="font-size:.74rem;color:#3A342C;margin-top:.25rem">“'+E(String(c.latest.findings).slice(0,160))+(c.latest.findings.length>160?'…':'')+'”</div>':'';
       return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.7rem 1rem;margin-bottom:.5rem">'
         +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
-        +'<div style="flex:1;min-width:220px"><span style="font-size:.9rem">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axisId},'care')+'</span> '+lvChip
+        +'<div style="flex:1;min-width:220px"><span style="font-size:.9rem">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axisId},'care:reviews')+'</span> '+lvChip
         +'<div style="font-size:.72rem;color:var(--text-muted)">'+lastTxt+' · '+dueTxt+(askedN?' · 💬 '+askedN+' caregiver'+(askedN===1?'':'s')+' asked this week':'')+'</div>'+findings+pend+'</div>'
         +'<button style="font-size:.72rem" onclick="cpAsk(\''+E(c.key)+'\')">💬 Ask caregivers</button>'
         +'<button class="primary" style="font-size:.72rem" onclick="cpOpenForm(\''+E(c.key)+'\')">📝 Log review</button>'
