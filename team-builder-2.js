@@ -81,9 +81,7 @@
     const jobs = [];
     if(!ONB.journeys || Date.now() - ONB.at > 5 * 60e3) jobs.push(sb.functions.invoke('caregiver-journey', { body:{ action:'list' } }).then(r => {
       const m = {}; ((r.data && r.data.rows) || []).forEach(j => { if(j.offer_id) m[j.offer_id] = j; }); ONB.journeys = m; ONB.at = Date.now(); }).catch(() => { ONB.journeys = ONB.journeys || {}; }));
-    const ids = onbPeople(plan).map(p => p.applicant_id).concat((APPS.rows || []).map(a => a.id)).filter(id => id && !ONB.stages[id]);
-    if(ids.length) jobs.push(sb.functions.invoke('hire-profile', { body:{ action:'stages', applicant_ids:[...new Set(ids.map(String))].slice(0, 60) } })
-      .then(r => Object.assign(ONB.stages, (r.data && r.data.stages) || {})).catch(() => {}));
+    jobs.push(loadStages(onbPeople(plan)));
     if(!plan.onboard_goal && !ONB.goals[plan.id]) jobs.push((async () => {
       try{ const l = await sb.from('team_build_link_current').select('episode_id').eq('plan_id', plan.id).maybeSingle();
         const ep = l && l.data && l.data.episode_id; if(!ep){ ONB.goals[plan.id] = { date:'', from:'' }; return; }
@@ -94,6 +92,22 @@
     await Promise.all(jobs);
     try{ if(typeof tbPlan === 'function' && tbPlan() && tbPlan().id === plan.id && typeof tbRender === 'function') tbRender(); }catch(e){}
   }
+  /* 2026-10-14: the four Team Builder labels come from hire-profile stages (tb), for applicants and locked new hires */
+  let STG_BUSY = false;
+  async function loadStages(extra){
+    const ids = (extra || []).map(p => p.applicant_id).concat((APPS.rows || []).map(a => a.id)).filter(id => id && !ONB.stages[id]).map(String);
+    const axs = (extra || []).map(p => p.cg_ax_id).concat((Array.isArray(TB.pool) ? TB.pool : []).filter(g => g.work_locked).map(g => g.axiscare_id))
+      .filter(a => a && !ONB.stages['ax:' + String(a).replace(/\D/g, '')]).map(a => String(a).replace(/\D/g, ''));
+    if(!ids.length && !axs.length) return;
+    if(STG_BUSY) return; STG_BUSY = true;
+    try{ const r = await sb.functions.invoke('hire-profile', { body:{ action:'stages', applicant_ids:[...new Set(ids)].slice(0, 60), caregiver_axids:[...new Set(axs)].slice(0, 40) } });
+      Object.assign(ONB.stages, (r.data && r.data.stages) || {});
+      /* anyone the read could not answer is marked, so the list never waits forever */
+      ids.forEach(id => { if(!ONB.stages[id]) ONB.stages[id] = { error:'could not be read' }; });
+    }catch(e){ ids.forEach(id => { if(!ONB.stages[id]) ONB.stages[id] = { error:'could not be read' }; }); }
+    STG_BUSY = false;
+  }
+  const tbOf = p => { const s = p.applicant_id ? ONB.stages[p.applicant_id] : p.cg_ax_id ? ONB.stages['ax:' + String(p.cg_ax_id).replace(/\D/g, '')] : null; return s && s.tb ? s.tb : null; };
   function goalOf(plan){
     if(/^\d{4}-\d\d-\d\d$/.test(String(plan.onboard_goal || ''))) return { date:plan.onboard_goal, from:'set on this plan' + (plan.onboard_goal_by ? ' by ' + String(plan.onboard_goal_by).split(' ')[0] : '') };
     return ONB.goals[plan.id] || null;
@@ -103,7 +117,8 @@
     let offer = null, s = null;
     if(p.applicant_id){ s = ONB.stages[p.applicant_id] || null; offer = s && s.offer_id; }
     else if(p.cg_ax_id){ const g = rosterOf(p.cg_ax_id); offer = g && g.offer_id; }
-    const j = offer && ONB.journeys ? ONB.journeys[offer] : null;
+    const j = offer && ONB.journeys ? ONB.journeys[offer] : null, tb = tbOf(p);
+    if(tb) return { label:tb.label, key:tb.key, next:j ? j.next && j.next.title : (s && s.next && s.next.title), approved:tb.key === 'approved' || !!(j && j.approved_to_work), blocked:j ? (j.blocked || []).length : 0 };
     if(j) return { label:j.stage || 'onboarding', next:j.next && j.next.title, approved:!!j.approved_to_work, blocked:(j.blocked || []).length };
     if(s && !s.error) return { label:(s.ended || s.stage || 'onboarding') + (s.stage === 'Step 1' && s.step1 ? ' (' + s.step1.signed + ' of ' + s.step1.of + ' forms signed)' : ''), next:s.next && s.next.title, approved:!!s.approved_at };
     return null;
@@ -119,7 +134,7 @@
       const st = stageOf(p), late = left != null && left <= 3 && !(st && st.approved);
       return '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:4px 0;border-top:1px solid var(--border);font-size:12.5px;' + (late ? 'color:var(--red);' : '') + '">'
         + '<b style="min-width:130px;">' + esc(p.name || '') + '</b>'
-        + '<span style="flex:1;">' + (st ? '<b style="color:' + (late ? 'var(--red)' : '#7C3AED') + ';">' + esc(st.label) + '</b>' + (st.next ? ' · next: ' + esc(st.next) : '') + (st.blocked ? ' · <b>' + st.blocked + ' blocked</b>' : '') : '<span class="field-note">reading their stage…</span>')
+        + '<span style="flex:1;">' + (st ? '<b style="color:' + (late || st.key === 'step1_not_done' ? 'var(--red)' : '#7C3AED') + ';">' + esc(st.label) + '</b>' + (st.key === 'step1_not_done' ? ' <span class="field-note">(kept on the plan; new people need Step 1 done first)</span>' : '') + (st.next ? ' · next: ' + esc(st.next) : '') + (st.blocked ? ' · <b>' + st.blocked + ' blocked</b>' : '') : '<span class="field-note">reading their stage…</span>')
         + (late ? ' · <b>behind the goal</b>' : '') + '</span></div>';
     }).join('');
     return '<div class="card tb2-onb-box" style="padding:9px 13px;margin:0 0 8px;border-left:4px solid ' + (list.some(p => { const st = stageOf(p); return left != null && left <= 3 && !(st && st.approved); }) ? 'var(--red)' : '#7C3AED') + ';">'
@@ -173,6 +188,8 @@
     add(key, { name:String(cg.name), cg_ax_id:String(cg.axiscare_id || '') || undefined }); }
   function addApplicant(key, id){
     const a = (APPS.rows || []).find(x => String(x.id) === String(id)); if(!a) return;
+    const t = (ONB.stages[a.id] || {}).tb;
+    if(!t || t.key === 'step1_not_done'){ ccToast('Only people who have finished Step 1 can be added to a plan.'); return; }
     if(driveBlock(tbPlan(), {})){ ccToast('This client needs transportation, and someone who has not started has no driver approval on the roster yet, so they are not available for this plan.'); return; }
     add(key, { name:[a.first_name, a.last_name].filter(Boolean).join(' '), applicant_id:String(a.id), starts:a.start_date || null });
   }
@@ -308,13 +325,19 @@
   }
   function appsHtml(plan, key){
     if(!APPS.rows){ loadApps(); return '<div class="field-note" style="padding:6px 0;">Loading people with an offer…</div>'; }
-    const q = nk(TB.poolQ || ''), list = APPS.rows.filter(a => !q || nk((a.first_name || '') + (a.last_name || '')).indexOf(q) > -1);
-    const head = '<div style="font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--navy);margin:10px 0 2px;">OFFERED, STILL ONBOARDING · ' + list.length + '</div>';
+    /* 2026-10-14 (Samantha): only people who have finished Step 1 are offered here, each with where they are */
+    const waiting = APPS.rows.filter(a => !ONB.stages[a.id]);
+    if(waiting.length){ loadStages([]).then(() => { try{ const el = document.getElementById('tbPoolList'), p = tbPlan(); if(el && p && TB.cellOpen) el.innerHTML = tbPoolListHtml(p, TB.cellOpen); }catch(e){} }); }
+    const done = a => { const t = (ONB.stages[a.id] || {}).tb; return t && t.key !== 'step1_not_done' && t.key !== 'approved'; };
+    const q = nk(TB.poolQ || ''), list = APPS.rows.filter(done).filter(a => !q || nk((a.first_name || '') + (a.last_name || '')).indexOf(q) > -1);
+    const notYet = APPS.rows.filter(a => { const t = (ONB.stages[a.id] || {}).tb; return t && t.key === 'step1_not_done'; }).length;
+    const head = '<div style="font-size:11.5px;font-weight:800;letter-spacing:.05em;color:var(--navy);margin:10px 0 2px;">STILL ONBOARDING, STEP 1 DONE · ' + list.length + '</div>';
     if(APPS.err) return head + '<div class="field-note">Couldn’t load them (' + esc(APPS.err) + ').</div>';
-    if(!list.length) return head + '<div class="field-note">Nobody with an accepted offer is waiting to start.</div>';
+    if(waiting.length && !list.length) return head + '<div class="field-note">Checking who has finished Step 1…</div>';
+    if(!list.length) return head + '<div class="field-note">Nobody still onboarding has finished Step 1 yet' + (notYet ? ' (' + notYet + ' with an offer haven’t finished it)' : '') + '.</div>';
     return head + list.map(a => '<div class="tb2-app" style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);font-size:12.5px;">'
       + '<b style="min-width:130px;">' + esc([a.first_name, a.last_name].filter(Boolean).join(' ')) + '</b>'
-      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">still onboarding · ' + esc((stageOf({ applicant_id:a.id }) || {}).label || (a.status === 'offer' ? 'offer sent' : 'getting ready to start')) + '</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : '')
+      + '<span class="field-note" style="flex:1;"><b style="color:#7C3AED;">still onboarding · ' + esc((stageOf({ applicant_id:a.id }) || {}).label || 'Step 1 done') + '</b>' + (a.start_date ? ' · start date ' + esc(new Date(a.start_date + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric' })) : '')
       + (a.offer_position ? ' · ' + esc(a.offer_position) : '') + ' · you can rank them and mark a Yes; call them, texting from here waits until they’re on the roster</span>'
       + '<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tb2AddApplicant(\'' + esc(key) + '\',\'' + esc(a.id) + '\')">Add to this shift</button></div>').join('');
   }
@@ -539,7 +562,7 @@
   }
   function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 
-  Object.assign(window, { tb2OnboardHtml:onboardHtml, tb2GoalEdit:goalEdit, tb2StageOf:stageOf, TB2_ONB:ONB, tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer, tb2Move:move, tb2Onboarding:onboardingNote, tb2WriteOrder:writeOrder,
+  Object.assign(window, { tb2OnboardHtml:onboardHtml, tb2GoalEdit:goalEdit, tb2StageOf:stageOf, TB2_ONB:ONB, tb2LoadStages:loadStages, tb2People:people, tb2Add:add, tb2AddPool:addPool, tb2AddApplicant:addApplicant, tb2Answer:answer, tb2Move:move, tb2Onboarding:onboardingNote, tb2WriteOrder:writeOrder,
     tb2Readiness:readiness, tb2ReadinessWords:readinessWords, tb2AllConfirmed:allConfirmed, tb2Sync:sync,
     tb2AppsHtml:appsHtml, tb2SkillRank:skillRank, tb2SkillFlags:skillFlags, tb2DriveOf:driveOf, tb2DriveBlock:driveBlock, tb2DriveLive:driveLive, tb2Skill:setSkill, tb2Need:toggleNeed, tb2NeedsHtml:needsHtml,
     tb2ReadinessHtml:readinessHtml, tb2RowCount:rowCount, tb2MoreChip:moreChip, tb2PeopleHtml:peopleHtml, tb2ProjectLine:projectLine,
