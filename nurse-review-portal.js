@@ -15,8 +15,9 @@
   'use strict';
   const FN = 'rn-review';
   const esc = t => String(t == null ? '' : t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-  /* the build spec's service list; the Admin page's ops_settings.nurse_services wins (the server checks the key either way) */
-  const FALLBACK = [['med_setup','Weekly medication organizer setup'],['ghe','General Health Evaluation'],['skin_monitoring','Skin monitoring'],['nail_care','Diabetic or medically necessary nail care'],['insulin_prefill','Insulin syringe prefill']];
+  /* the ONE nurse service list: the keys and names of Staffing _shared/nurse-services.ts DEFAULT_NURSE_SERVICES (its test checks
+     this copy word for word); the Admin page's ops_settings.nurse_services wins (the server checks the key either way) */
+  const FALLBACK = [['med_setup','Weekly medication organizer setup'],['ghe','General Health Evaluation'],['skin_monitoring','Skin monitoring'],['nail_care','Diabetic or medically necessary nail care'],['insulin_prefill','Insulin syringe prefill'],['nurse_visit','Authorized nurse visit (not named more exactly)']];
   const todayC = () => { try{ return new Date().toLocaleDateString('en-CA', { timeZone:'America/Chicago' }); }catch(_){ return new Date().toISOString().slice(0,10); } };
   const day = d => { const s = String(d || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(s + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone:'UTC', month:'short', day:'numeric', year:'numeric' }) : ''; };
   const D = () => (typeof DATA !== 'undefined' && DATA) ? DATA : {};
@@ -24,7 +25,7 @@
   const live = () => st().nurse_review_live === true;
   const practiceClient = c => !!c && (c.practice === true || /\(TRAINING\)|\bpractice\b/i.test(String(c.name || '')));
   function services(){
-    const l = Array.isArray(st().nurse_services) ? st().nurse_services.filter(s => s && s.key && s.name) : [];
+    const l = Array.isArray(st().nurse_services) ? st().nurse_services.filter(s => s && s.key && s.name && s.active !== false) : [];
     return (l.length ? l.map(s => [String(s.key), String(s.name)]) : FALLBACK).concat([['other','Something else']]);
   }
   function rnFirst(){

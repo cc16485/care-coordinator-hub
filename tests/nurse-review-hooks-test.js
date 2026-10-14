@@ -8,7 +8,7 @@ const R = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 400))); };
 const html = R('index.html'), js = R('nurse-review-portal.js'), pageAll = R('rn.html'), page = pageAll.replace(/<!--[\s\S]*?-->/g, '');
-ck('nurse-review-portal.js is loaded once, with ?v=1, after driver-compliance.js', (html.match(/<script src="nurse-review-portal\.js\?v=1"><\/script>/g) || []).length === 1 && html.indexOf('nurse-review-portal.js?v=1') > html.indexOf('driver-compliance.js?v=1'));
+ck('nurse-review-portal.js is loaded once, with ?v=2 (the one service list), after driver-compliance.js', (html.match(/<script src="nurse-review-portal\.js\?v=2"><\/script>/g) || []).length === 1 && html.indexOf('nurse-review-portal.js?v=2') > html.indexOf('driver-compliance.js?v=1'));
 ck('one mount, at the end of nursePortalRender, guarded', (html.match(/NurseReview\.mount\(/g) || []).length === 1 && /try\{ if\(window\.NurseReview\) NurseReview\.mount\(me, real\); \}catch\(_\)\{\}/.test(html)
   && html.indexOf('NurseReview.mount(') > html.indexOf('function nursePortalRender(me)') && html.indexOf('NurseReview.mount(') < html.indexOf('async function npClaim(id)'));
 ck('the Nurse Portal rows still carry gheNewFor(\'<client>\') and gheOpen(\'<form>\') buttons, the hooks the portal half finds its place by', /onclick="gheNewFor\(\\''\+c\.id\+'\\'\)">📋 GHE form<\/button>/.test(html) && /onclick="gheOpen\(\\''\+g\.id\+'\\'\)">Open<\/button>/.test(html) && /id="npMine"/.test(html) && /id="npGhe"/.test(html));
