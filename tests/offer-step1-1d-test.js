@@ -8,7 +8,7 @@ const journey = fs.readFileSync(path.join(__dirname, '..', 'applicant-journey.js
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 400))); };
 const card = js.slice(js.indexOf("/* Start link, one line, because it sends itself."), js.indexOf("<b style=\"color:#0D365F\">Level of care:</b>"));
-ck('the Step 1 line appears only once both documents are signed', /o\.offer_signed_at&&o\.pd_signed_at\s*\?[\s\S]*Step 1 link:/.test(card));
+ck('the Step 1 line appears only once both documents are signed', /(o\.offer_signed_at&&o\.pd_signed_at|ceOfferSigned\(o\))\s*\?[\s\S]*Step 1 link:/.test(card)   /* 708: the one shared signed rule */);
 ck('Resend Step 1 is a person\'s action, hidden on a withdrawn offer or a finished Step 1', /o\.offer_withdrawn_at\|\|\(o\.step1_delivery&&o\.step1_delivery\.done\)\?'':'<button[^>]*offerResendStep1/.test(card));
 const chip = js.slice(js.indexOf('function step1Chip('), js.indexOf('async function offerResendStep1('));
 ck('the chip reads the record: waiting, practice, held, went, did not go (retrying), stopped after n tries', /waiting to send/.test(chip) && /recorded in practice/.test(chip) && /held until 8am/.test(chip) && /did not go/.test(chip) && /\(retrying\)/.test(chip) && /stopped after/.test(chip) && /see Needs Attention/.test(chip));
