@@ -283,8 +283,8 @@ function screenHtml(s){
   h += '<div class="doc' + (locked ? ' lock' : '') + '">' + (secs[0] === 0 ? (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('') : '');
   for (const i of secs) {
     const sec = f.sections[i];
-    if (sec.tone === 'cheer') { h += '<div class="cheer"><h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + esc(p) + '</p>').join('') + '</div>'; continue; }
-    h += '<h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + esc(p) + '</p>').join('') + (sec.tip ? '<div class="tip">' + esc(sec.tip) + '</div>' : '');
+    if (sec.tone === 'cheer') { h += '<div class="cheer"><h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + linkify(esc(p)) + '</p>').join('') + '</div>'; continue; }
+    h += '<h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + linkify(esc(p)) + '</p>').join('') + (sec.tip ? '<div class="tip">' + esc(sec.tip) + '</div>' : '');
     for (const it of sec.items || []) { if (SHOW[it.id] && !SHOW[it.id](ANS)) continue; h += itemHtml(it, locked); }
   }
   h += '</div>';
@@ -332,7 +332,7 @@ function documentHtml(s, P, f, locked){
   let r = '<div class="docwrap"><div class="dochead"><b>' + esc(f.title) + '</b><span>version ' + f.version + '</span></div>'
     + '<div class="reader" id="reader_' + esc(f.key) + '" tabindex="0" role="document" aria-label="' + esc(f.title) + ', the whole document">'
     + (f.intro || []).map((p) => '<p>' + esc(p) + '</p>').join('');
-  f.sections.forEach((sec, i) => { r += '<h3 id="' + secId(i) + '">' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + esc(p) + '</p>').join('') + (sec.tip ? '<div class="tip">' + esc(sec.tip) + '</div>' : '')
+  f.sections.forEach((sec, i) => { r += '<h3 id="' + secId(i) + '">' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + linkify(esc(p)) + '</p>').join('') + (sec.tip ? '<div class="tip">' + esc(sec.tip) + '</div>' : '')
     + (sec.items || []).filter((it) => it.kind === 'initials').map((it) => '<p class="inimark">' + esc(it.label) + ': ' + (ANS[it.id] ? '<b>' + esc(ANS[it.id]) + '</b>' : '<i>initial below</i>') + '</p>').join(''); });
   r += '<h3>Certification</h3>' + f.certification.map((c) => '<p>' + esc(c) + '</p>').join('') + '<p class="docend">End of ' + esc(f.title) + '.</p></div>'
     + '<div class="docbar"><span class="small">Scroll inside the box to read the whole document.</span><button class="mini" onclick="docCopy(\'' + f.key + '\')">Open or save a copy (PDF)</button></div></div>';
@@ -363,6 +363,9 @@ function choiceHtml(f, locked){
   return h + '</div>';
 }
 function pickChoice(id){ HCHOICE = id; if (!(FORMS.hepb_vaccination && FORMS.hepb_vaccination.decline && id === FORMS.hepb_vaccination.decline.choice)) HDECL = false; render(); }
+/* 2026-10-14 (Samantha: "link to the FCSR form so they can see the form in the step one screen 5b"): a web address in a
+   screen's text opens in a new tab; a full stop or comma right after it stays text */
+function linkify(h){ return String(h).replace(/(https:\/\/[^\s<]+?)([.,]?)(?=\s|$)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>$2'); }
 function proofBox(){ return '<div class="why" style="margin-top:10px"><b>Add your proof (optional).</b> If you have a copy of your vaccine record or your test result, add it on your private page. If you do not, the office will follow up with you.<br><a href="' + esc(HPROOF) + '" target="_blank" rel="noopener">Add my record or result</a></div>'; }
 function docJump(key, id){ const box = document.getElementById('reader_' + key), el = document.getElementById(id); if (!box || !el) return; box.scrollTop = el.offsetTop - box.offsetTop - 8; box.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
 async function docCopy(form){
@@ -586,7 +589,7 @@ function pfill(){
   const f = FORMS[P.form]; if (!f) return;
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
   const YES = ['has_license', 'has_insurance', 'has_transport', 'open_shift_texts', 'outside_shift_texts', 'text_consent', 'hs_grad'];
-  const TEXT = { preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
+  const TEXT = { county: 'Christian', preferred_name: 'Pat', hs_name: 'Nixa High School', hs_years: '2008 to 2012', address1: '100 Practice Lane', city: 'Nixa', zip: '65714', overnight_nights: 'Friday and Saturday', insurer: 'Practice Mutual' };
   for (const i of secs) for (const it of (f.sections[i].items || [])) {
     /* a yes/no grid that is partly filled in (from the interview) gets only its missing rows */
     if (it.kind === 'table' && it.id !== 'windows' && ANS[it.id] && typeof ANS[it.id] === 'object') { const m = { ...ANS[it.id] }; (it.options || []).forEach((x) => { if (!m[x]) m[x] = 'Yes'; }); ANS[it.id] = m; continue; }

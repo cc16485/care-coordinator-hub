@@ -5,6 +5,22 @@
 window.AP_JOURNEY_CHECKED = 'October 11, 2026 (checked by the journey check against the real messages; no em dashes)';
 window.AP_JOURNEY = [
  {
+  "stage": "background checks",
+  "order": 20.4,
+  "name": "How to register with the Family Care Safety Registry (office, when they are not registered yet)",
+  "trigger": "Staff press 'Send registration steps' on the FCSR row of their page (Training & checks), or pick 'FCSR registration' in the Text composer. 2026-10-14, Samantha: 'a quick easy way to text and email them if they are not registered yet'; wording approved 2026-10-14.",
+  "automatic": false,
+  "button": "Their page → Training & checks → FCSR → 'Send registration steps' → Send",
+  "timing": "Immediately 8am–6pm Central (any day); outside that it is HELD and sent at 8am, the email with it.",
+  "channel": "text + email",
+  "rule": "Same gates as any office text (their yes to texts, the opt-out door). The text is editable before sending; the email (the steps) goes with it when they have an email address. Fee from the state's pages, read 2026-10-14: $16 since 10/01/2026, plus $0.57 online.",
+  "subject": "Your next step: register with the Missouri Family Care Safety Registry",
+  "text": "Hi {first}, this is {me} from Caring Companions. Next step: please register with the Missouri Family Care Safety Registry (FCSR). You only register once, and after that any employer can run your screening without you registering again. The state fee is $16 (plus $0.57 to pay online). Register here: https://healthapps.dhss.mo.gov/BSEES/Main.aspx You will need your Social Security number, your email and a debit or credit card. We also emailed you the steps. Questions? Call us at (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "Hi {first}, Your next step is to register with the Missouri Family Care Safety Registry (FCSR). Missouri requires it for caregivers, and you only do it once. After that, any employer can run your screening without you registering again. What you need: your Social Security number, your email address, and a debit or credit card. The state fee is $16, plus $0.57 to pay online. How to register: go to the state's site, Registration, Register Online; enter your Social Security number twice; choose Caring Companions (Troutman Enterprises, LLC) as the employer; Long Term Care/Personal Care, then Personal Care, In-Home Services; your information; pay and save your confirmation. When you are done, reply to this email or text us, and we will request your screening.",
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
   "stage": "any time (office text)",
   "order": 37,
   "name": "A text from the office (Applicants, Interviews, their page, the phone)",
@@ -13,7 +29,7 @@ window.AP_JOURNEY = [
   "button": "Applicants / Interviews / their page → '💬 Text' → Send",
   "timing": "Immediately 8am–6pm Central (any day); outside that it is HELD and the schedule sends it at 8am (the card says so, with a 'take it back' link). Replies from their page go the same way.",
   "channel": "text",
-  "rule": "Only with their latest application's yes to texts and past the universal opt-out door; otherwise the composer says why and offers nothing to send. Quick picks (the office changes anything): a client who may fit (below), still interested, please call us, we tried to reach you, finish the application (unfinished forms), about their interview (once booked), write my own. The sender's first name is filled in. 'Reply STOP to opt out.' is added. Every send is kept in applicant_texts (words, who, when) and shows as 'texted 2h ago by {name}' on the card. A refused text raises a Needs Attention card.",
+  "rule": "Only with their latest application's yes to texts and past the universal opt-out door; otherwise the composer says why and offers nothing to send. Quick picks (the office changes anything): a client who may fit (below), still interested, please call us, we tried to reach you, finish the application (unfinished forms), about their interview (once booked), FCSR registration (its email of the steps goes with it, see 'How to register with the Family Care Safety Registry'), write my own. The sender's first name is filled in. 'Reply STOP to opt out.' is added. Every send is kept in applicant_texts (words, who, when) and shows as 'texted 2h ago by {name}' on the card. A refused text raises a Needs Attention card.",
   "subject": null,
   "text": "Hi {first}, this is {me} from Caring Companions. We saw you started an application with us, and we have a client right now who may be a good fit for your experience and availability. Would you like to hear more? Reply here or call us at 417-234-8494. Reply STOP to opt out.",
   "email_summary": null,

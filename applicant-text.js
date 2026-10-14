@@ -93,6 +93,7 @@
         + '<div class="apt-picks">' + picks.map((p) => '<button type="button" data-pick="' + esc(p.key) + '"' + (start && start.key === p.key ? ' class="on"' : '') + '>' + esc(p.label) + '</button>').join('') + '</div>'
         + '<textarea id="aptMsg" placeholder="Hi ' + esc(d.first || '') + ', this is ' + esc(d.me || '') + ' from Caring Companions. ">' + esc(start ? start.text : '') + '</textarea>'
         + '<div class="apt-cnt" id="aptCnt"></div>'
+        + '<div id="aptEmail"></div>'   /* 2026-10-14: the FCSR registration pick's email (the steps), shown so the office sees what goes */
         + '<div class="apt-sub" style="margin-top:4px">"Reply STOP to opt out." is added when it goes.</div>' : '')
       + '<div class="apt-row"><span class="sp"></span><button class="apt-b" onclick="ApText.close()">' + (d.can_text ? 'Not now' : 'Close') + '</button>'
       + (d.can_text ? '<button class="apt-b p" id="aptSend">' + (d.in_hours ? 'Send' : 'Send at 8am') + '</button>' : '') + '</div>';
@@ -100,8 +101,17 @@
     const ta = box.querySelector('#aptMsg'), cnt = box.querySelector('#aptCnt');
     const count = () => { const n = ta.value.length; cnt.textContent = n ? n + ' characters' + (n > 300 ? ' (a long text; it still goes as one message)' : '') : ''; };
     count(); ta.addEventListener('input', count);
+    let picked = start ? start.key : null;   /* 2026-10-14: the server sends a pick's email with it (FCSR registration) */
+    const emailBox = () => { const el = box.querySelector('#aptEmail'); if (!el) return;
+      if (picked !== 'fcsr') { el.innerHTML = ''; return; }
+      el.innerHTML = d.fcsr_email
+        ? '<div class="apt-sub" style="margin-top:8px"><b>This email goes with it</b> (the registration steps, as approved; the text above is yours to change):</div>'
+          + '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:8px 10px;margin-top:4px;max-height:200px;overflow:auto;font-size:12.5px;background:#FAF9F6"><div style="font-weight:700;margin-bottom:4px">' + esc(d.fcsr_email.subject) + '</div>' + d.fcsr_email.html + '</div>'
+        : '<div class="apt-sub" style="margin-top:8px">No email address on their application, so only the text goes.</div>'; };
+    emailBox();
     box.querySelectorAll('[data-pick]').forEach((b) => b.addEventListener('click', () => {
       const p = picks.find((x) => x.key === b.getAttribute('data-pick')); if (!p) return;
+      picked = p.key; emailBox();
       box.querySelectorAll('[data-pick]').forEach((x) => x.classList.toggle('on', x === b));
       ta.value = p.text; count(); ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
     }));
@@ -111,7 +121,7 @@
       const msg = ta.value.trim(); if (msg.length < 2) { ta.focus(); return; }
       this.disabled = true; this.textContent = 'Sending…';
       try {
-        const r = await call({ action: 'send', id, message: msg, kind: opts.kind === 'reply' ? 'reply' : 'text' });
+        const r = await call({ action: 'send', id, message: msg, kind: opts.kind === 'reply' ? 'reply' : 'text', pick: picked || undefined });
         if (r.held) toast('Held for 8am: ' + (d.first || 'they') + ' will get it in the morning.');
         else if (r.sent) toast('Sent to ' + (d.first || 'them') + '.');
         else { alert('Not sent: ' + ((r.not_sent || []).join('; ') || 'GoHighLevel did not accept it.')); }

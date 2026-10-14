@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=1"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -25119,7 +25119,7 @@ function apjOpen(){
   if(window.TW) TW.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261011'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
     .then(apjRender)
     .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
   apjLoadCtx();
