@@ -18528,6 +18528,7 @@ function cgdWorkHtml(c,g,nm){
         ?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:var(--amber);">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:var(--green);">at target</b>')
         :'')
       +kv('Wanted windows',esc(wins||'(none ticked)'))
+      +kv('Shifts outside these',av.outside_ok===true?'OK to text them':av.outside_ok===false?'only text shifts in their times':'<span class="field-note">not asked yet</span>')
     : '<div class="field-note">No availability on file — text them cc.mo-care.com/availability</div>';
   let asked=0,yes=0,no=0,silent=0,lastReply='';
   (DATA.coverage_cases||[]).forEach(cs=>(cs.asked||[]).forEach(a=>{
@@ -40005,6 +40006,7 @@ async function hwMatch(btn){
         /* Her rule (2026-09-19): no form on file = assumed available 24/7
            minus their schedule, ranked in the main list and labeled. */
         if(x.assumed_available) chips.push('<span class="cara-rchip" style="background:#FFF4E3;color:#8A4E0C;font-weight:700;">assumed available — hasn\'t set their windows yet</span>');
+        else if(!x.covers_n&&x.outside_ok) chips.push('<span class="cara-rchip" style="background:#FFF4E3;color:#8A4E0C;font-weight:700;">outside their times, said OK to texts about those</span>');
         else chips.push('<span class="cara-rchip">covers '+esc(String(x.covers))+' of the asked slots (their stated windows)</span>');
         chips.push(x.level_unknown||x.level==null
           ? '<span class="cara-rchip dim">level not classed</span>'

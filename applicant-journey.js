@@ -931,7 +931,7 @@ window.AP_JOURNEY = [
   "channel": "text only",
   "rule": "audience caregiver, opt-out check. Wording editable (ops_settings.coverage_msg_avail_invite).",
   "subject": null,
-  "text": "Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime.",
+  "text": "Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability You can also tell us if you'd like texts about shifts outside those hours. It takes 30 seconds and you can update it anytime.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true

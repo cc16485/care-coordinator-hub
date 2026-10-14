@@ -38,6 +38,9 @@
   .w{ display:inline-block; width:100%; padding:9px 0; border-radius:8px; border:1px solid var(--border);
       background:#fff; font-size:11px; color:var(--gray); cursor:pointer; user-select:none; }
   .w.on{ background:var(--teal); border-color:var(--teal); color:#fff; font-weight:800; }
+  .chk{ display:flex; gap:10px; align-items:flex-start; margin-top:14px; padding:12px; border:1px solid var(--border);
+        border-radius:10px; background:#F6F9FD; font-size:14px; font-weight:600; color:#1f2a36; cursor:pointer; }
+  .chk input{ width:22px; height:22px; flex:0 0 22px; margin:1px 0 0; padding:0; accent-color:var(--teal); }
 </style>
 </head>
 <body>
@@ -63,6 +66,8 @@
     <label style="margin-top:14px;">When do you want to work? Tap everything that works for you.</label>
     <table id="grid"></table>
     <div class="note">Morning is roughly 6am-12pm, daytime 12-5pm, evening 5-10pm, overnight 10pm-6am.</div>
+    <!-- 2026-10-14 (Samantha): they can ask to hear about shifts outside the times above, in case they can take them -->
+    <label class="chk"><input type="checkbox" id="outside"><span>Also text me about open shifts outside these times, in case I can take them. <span style="font-weight:400;color:var(--gray);">Saying no is always fine.</span></span></label>
     <button class="go" onclick="save()">Save my hours</button>
     <div class="err" id="saveErr"></div>
     <div id="done"></div>
@@ -87,7 +92,7 @@ async function call(body){
     const r=await fetch(SUPA_URL+'/functions/v1/caregiver-availability',{
       method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     return await r.json().catch(()=>({error:'unreadable answer'}));
-  }catch(e){ return { error:'network problem — try again' }; }
+  }catch(e){ return { error:'network problem, try again' }; }
 }
 function grid(){
   $('grid').innerHTML='<tr><th></th>'+WINS.map(w=>'<th>'+w[1]+'</th>').join('')+'</tr>'
@@ -107,9 +112,10 @@ async function lookup(){
   const out=await call(who());
   if(out.error){ $('phErr').textContent=out.error; return; }
   if(out.unknown){ $('phErr').textContent=out.message; if(LINK){ LINK_FAILED(); } return; }
-  $('hello').textContent='Hi '+out.first_name+'!'+(out.updated_at?' Here is what you told us last time — change anything.':'');
+  $('hello').textContent='Hi '+out.first_name+'!'+(out.updated_at?' Here is what you told us last time. Change anything.':'');
   if(out.target_hours!=null) $('hours').value=out.target_hours;
   SEL=out.windows||{};
+  $('outside').checked=out.outside_ok===true;
   grid();
   const has=Object.values(SEL).some(v=>Array.isArray(v)&&v.length);
   if(LINK&&has){ $('stillRight').style.display='block'; $('hello').textContent='Hi '+out.first_name+'! Here is what you told us. Still right? One tap. Or change anything and save.'; }
@@ -121,7 +127,7 @@ async function save(){
   if(SAVING) return; SAVING=true;
   $('saveErr').textContent=''; $('done').innerHTML='';
   const out=await call({ ...who(), action:'save',
-    target_hours:Number($('hours').value||0), windows:SEL });
+    target_hours:Number($('hours').value||0), windows:SEL, outside_ok:$('outside').checked });
   SAVING=false;
   if(out.error){ $('saveErr').textContent=out.error; return; }
   if(out.unknown){ $('saveErr').textContent=out.message; return; }
