@@ -4125,7 +4125,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>Escalation text to the on-call person when a callout runs out of caregivers</label>
 <textarea id="set_cov_escalation" rows="2" placeholder="Coverage alert: the callout for {client} {when} ran out of caregivers to ask ({asked} asked, nobody said yes). It needs a person now: {link}"></textarea>
 <label>Availability invite (sends 10am-5pm only, from the button on Cara, Hours &amp; matching)</label>
-<textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability It takes 30 seconds and you can update it anytime."></textarea>
+<textarea id="set_cov_avail_invite" rows="2" placeholder="Hi {first_name}, it's Caring Companions! Tell us the hours and days you WANT to work so we can offer you shifts first: cc.mo-care.com/availability You can also tell us if you'd like texts about shifts outside those hours. It takes 30 seconds and you can update it anytime."></textarea>
+<!-- 2026-10-14 (Samantha): the 30-day availability text, two wordings ({first_name}, {link} = their own page) -->
+<label>30-day availability text, when we have their availability on file (weekdays 10am-5pm, their own link: {link})</label>
+<textarea id="set_avail_ck_on" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Are the days and times you can work still the same? Tap to keep them or update them, and to choose if you'd like texts about shifts outside those times: {link}"></textarea>
+<label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
+<textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
 <label>Open hours: the text to the whole team (Team Builder, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
@@ -14222,7 +14227,7 @@ function covMsgsFill(){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_avail_ck_on:'avail_checkin_msg_on_file', set_avail_ck_none:'avail_checkin_msg_none', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
 }
 /* ── GHL booking calendars (Profile First, step A, 2026-09-28) ─────────────
@@ -14272,7 +14277,7 @@ async function covMsgsSave(btn){
   const map={ set_cov_tier1:'coverage_msg_tier1', set_cov_other_sameday:'coverage_msg_other_sameday',
     set_cov_other_advance:'coverage_msg_other_advance', set_cov_prn:'coverage_msg_prn', set_cov_ack_yes:'coverage_msg_ack_yes',
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
-    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
+    set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_avail_ck_on:'avail_checkin_msg_on_file', set_avail_ck_none:'avail_checkin_msg_none', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   if(btn) btn.disabled=true;
   /* Merge against the CURRENT server object, not the page-load copy — the
      engine and other tabs write flags into ops_settings too, and a stale
@@ -18536,6 +18541,7 @@ function cgdWorkHtml(c,g,nm){
         ?kv('Gap',(Number(av.target_hours)-sched)>0?'<b style="color:var(--amber);">'+(Number(av.target_hours)-sched).toFixed(1)+' h short</b>':'<b style="color:var(--green);">at target</b>')
         :'')
       +kv('Wanted windows',esc(wins||'(none ticked)'))
+      +kv('Shifts outside these',av.outside_ok===true?'OK to text them':av.outside_ok===false?'only text shifts in their times':'<span class="field-note">not asked yet</span>')
     : '<div class="field-note">No availability on file — text them cc.mo-care.com/availability</div>';
   let asked=0,yes=0,no=0,silent=0,lastReply='';
   (DATA.coverage_cases||[]).forEach(cs=>(cs.asked||[]).forEach(a=>{
@@ -38323,7 +38329,7 @@ function covPickerHtml(c){
     /* 2c: a new hire whose caregiver profile is not published starts unchecked and says why (never hidden) */
     const pgRow=x=>{ const pg=cgpgAx(x.axiscare_id,x.name); return pg&&pg.blocked?pg:null; };
     const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
-      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" data-ax="'+esc(String(x.axiscare_id||''))+'"'+((checked&&!x.working_then&&!pgRow(x))?' checked':'')+' style="width:auto;">'
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" data-ax="'+esc(String(x.axiscare_id||''))+'"'+((checked&&!x.working_then&&!x.outside_avail&&!pgRow(x))?' checked':'')+' style="width:auto;">'
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+(pgRow(x)?cgpgAxHtml(x.axiscare_id,x.name)+' · ':'')+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
       +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
@@ -38333,6 +38339,9 @@ function covPickerHtml(c){
       +(x.rep&&x.rep.concerns>1?' · <span style="color:var(--red);">🚩 '+x.rep.concerns+' concern calls</span>':'')
       +(x.chain?' · <b style="color:var(--teal);">🚗 '+esc(x.chain.detail)+'</b>':'')
       +(x.new_hire?' · <b style="color:var(--teal);">🌱 new hire, needs hours</b>':'')
+      /* 2026-10-14 (her rule: check availability): outside the times they gave us starts unticked, with the reason */
+      +(x.outside_avail?' · <b style="color:var(--red);">🕐 '+esc(x.outside_avail)+'</b>':'')
+      +(x.outside_ok_note?' · <b style="color:#8A4E0C;">🕐 '+esc(x.outside_ok_note)+'</b>':'')
       +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
         :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
@@ -40018,6 +40027,7 @@ async function hwMatch(btn){
         /* Her rule (2026-09-19): no form on file = assumed available 24/7
            minus their schedule, ranked in the main list and labeled. */
         if(x.assumed_available) chips.push('<span class="cara-rchip" style="background:#FFF4E3;color:#8A4E0C;font-weight:700;">assumed available — hasn\'t set their windows yet</span>');
+        else if(!x.covers_n&&x.outside_ok) chips.push('<span class="cara-rchip" style="background:#FFF4E3;color:#8A4E0C;font-weight:700;">outside their times, said OK to texts about those</span>');
         else chips.push('<span class="cara-rchip">covers '+esc(String(x.covers))+' of the asked slots (their stated windows)</span>');
         chips.push(x.level_unknown||x.level==null
           ? '<span class="cara-rchip dim">level not classed</span>'
