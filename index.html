@@ -38311,7 +38311,7 @@ function covPickerHtml(c){
     /* 2c: a new hire whose caregiver profile is not published starts unchecked and says why (never hidden) */
     const pgRow=x=>{ const pg=cgpgAx(x.axiscare_id,x.name); return pg&&pg.blocked?pg:null; };
     const row=(x,g,checked)=>'<label style="display:flex;gap:8px;align-items:baseline;font-size:13px;padding:2.5px 0;cursor:pointer;">'
-      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" data-ax="'+esc(String(x.axiscare_id||''))+'"'+((checked&&!x.working_then&&!pgRow(x))?' checked':'')+' style="width:auto;">'
+      +'<input type="checkbox" data-pick="'+esc(c.id)+'" data-g="'+g+'" value="'+esc(x.name)+'" data-ax="'+esc(String(x.axiscare_id||''))+'"'+((checked&&!x.working_then&&!x.outside_avail&&!pgRow(x))?' checked':'')+' style="width:auto;">'
       +'<b>'+esc(x.name)+'</b><span class="field-note">'+(pgRow(x)?cgpgAxHtml(x.axiscare_id,x.name)+' · ':'')+esc(x.why)
       +(x.level?' · Level '+x.level:'')+(x.wants_more_hours?' · wants +'+x.wants_more_hours+'h':'')
       +(x.city?' · 📍 '+esc(x.city)+(x.same_town?' <b style="color:var(--green);">same town</b>':(x.miles!=null?' ~'+x.miles+' mi':'')):'')
@@ -38321,6 +38321,9 @@ function covPickerHtml(c){
       +(x.rep&&x.rep.concerns>1?' · <span style="color:var(--red);">🚩 '+x.rep.concerns+' concern calls</span>':'')
       +(x.chain?' · <b style="color:var(--teal);">🚗 '+esc(x.chain.detail)+'</b>':'')
       +(x.new_hire?' · <b style="color:var(--teal);">🌱 new hire, needs hours</b>':'')
+      /* 2026-10-14 (her rule: check availability): outside the times they gave us starts unticked, with the reason */
+      +(x.outside_avail?' · <b style="color:var(--red);">🕐 '+esc(x.outside_avail)+'</b>':'')
+      +(x.outside_ok_note?' · <b style="color:#8A4E0C;">🕐 '+esc(x.outside_ok_note)+'</b>':'')
       +(x.working_then?' · <b style="color:var(--red);">📅 already scheduled: '+esc(x.working_then.detail)+'</b>'
         :x.free_then===true?' · <b style="color:var(--green);">🟢 free those hours</b>':'')
       +'</span></label>';
