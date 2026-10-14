@@ -25105,7 +25105,7 @@ function apjOpen(){
   if(window.TW) TW.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261011'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
     .then(apjRender)
     .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
   apjLoadCtx();
