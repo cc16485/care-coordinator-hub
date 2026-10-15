@@ -39,7 +39,7 @@ async()=>{
   const B=()=>document.getElementById('lbBoard');
   /* off: nothing shows, labels unchanged */
   DATA.ops_settings=Object.assign({}, DATA.ops_settings); delete DATA.ops_settings.lead_record_since; await draw();
-  ok('off: no recorder card, nothing read', !B().querySelector('.lr-card') && !window.__asked.length);
+  ok('off: no recorder card, nothing read', !B().querySelector('.lr-card') && !window.__asked.some(x=>x[0]==='lead_record_seen'), window.__asked);
   /* PRACTICE */
   DATA.ops_settings.lead_record_since='2026-10-01T00:00:00Z'; DATA.ops_settings.lead_record_live=false; await LeadRecorder.load(true); await draw();
   const card=B().querySelector('.lr-card');

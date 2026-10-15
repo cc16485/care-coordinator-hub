@@ -150,6 +150,32 @@
   .lb-av{width:24px;height:24px;border-radius:50%;background:#E4EDF6;color:var(--navy);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
   .lb-av-none{background:var(--red-bg);color:var(--red);}
   @media (max-width:980px){ .lb-row{grid-template-columns:1fr;gap:8px;} .lb-when{display:flex;gap:10px;align-items:baseline;} }
+  /* 2026-10-15: the ranked, one-line Leads list (not so wide; most important first) */
+  #lbNumbers,#lbFilters,#lbBoard,#lbLookup{max-width:1180px;}
+  .lbc-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:0 0 10px;}
+  .lbc-head,.lb-row.lbc{display:grid;grid-template-columns:14px minmax(150px,1.5fr) 128px 62px 90px minmax(130px,1.3fr) 104px minmax(84px,auto) 26px;gap:10px;align-items:center;}
+  .lbc-head{padding:7px 14px;border-bottom:1px solid var(--border);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);}
+  .lb-row.lbc{padding:7px 14px;font-size:13px;}
+  .lbc-open{background:#FBFCFE;}
+  .lbc-chev{color:var(--text-muted);font-size:11px;}
+  .lbc-fam{min-width:0;}
+  .lbc-name{all:unset;cursor:pointer;font-weight:700;color:var(--navy);font-size:13.5px;}
+  .lbc-name:hover{text-decoration:underline;} .lbc-name:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
+  .lbc-sub{font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lbc-num{text-align:right;font-variant-numeric:tabular-nums;}
+  .lbc-usd{font-weight:700;color:#15803D;}
+  .lbc-unk{color:var(--text-muted);font-weight:500;font-size:12px;}
+  .lbc-next{min-width:0;color:var(--text);font-weight:600;font-size:12.5px;}
+  .lbc-due{font-weight:800;font-size:12.5px;line-height:1.2;}
+  .lbc-act .lb-btn{min-height:28px;padding:4px 10px;font-size:12px;}
+  .lbc-heat{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:11.5px;border-radius:6px;padding:2px 8px;white-space:nowrap;}
+  .lbc-heat i{display:inline-flex;gap:2px;} .lbc-heat s{width:5px;height:10px;border-radius:2px;background:currentColor;opacity:.25;text-decoration:none;} .lbc-heat s.f{opacity:1;}
+  .lbc-h3{background:#FFF1E8;color:#C2410C;} .lbc-h2{background:#FFF7E6;color:#B7791F;} .lbc-h1{background:#F1F5F9;color:#64748B;} .lbc-h0{background:transparent;color:var(--text-muted);font-weight:500;padding-left:0;}
+  .lbc-det{padding:8px 14px 12px 38px;background:#FBFCFE;border-bottom:1px solid var(--border);font-size:12.5px;}
+  .lbc-det[hidden]{display:none;}
+  .lbc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 22px;}
+  .lbc-grid .lb-k{display:block;margin-bottom:1px;}
+  @media (max-width:980px){ .lbc-head{display:none;} .lb-row.lbc{grid-template-columns:14px minmax(0,1fr) auto;row-gap:4px;} .lb-row.lbc > .lbc-ready,.lb-row.lbc > .lbc-num,.lb-row.lbc > .lbc-next,.lb-row.lbc > .lbc-due,.lb-row.lbc > .lbc-act{grid-column:2 / 4;text-align:left;} .lbc-own{grid-column:3;grid-row:1;} .lbc-det{padding-left:14px;} }
   /* 769: calls and texts record themselves */
   .lr-on{display:none;} body[data-lead-record="live"] .lr-on{display:inline;} body[data-lead-record="live"] .lr-off{display:none;}
   .lr-card{padding:12px 16px;margin-bottom:12px;}
@@ -7291,7 +7317,7 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=11"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=12"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=7"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
