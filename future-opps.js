@@ -208,25 +208,41 @@
   function matchCount(){ try{ return matches().length; }catch(e){ return 0; } }
 
   /* the old Lost families for area or staffing reasons, moved in one step (her yes, 2026-10-15) */
-  const oldLost = () => (DATA.leads || []).filter(l => l && !l.archived && l.status === 'Lost' && ['could_not_staff', 'outside_area'].indexOf(l.lost_reason_key) > -1);
-  async function moveOldLost(btn){
-    const list = oldLost(); if(!list.length) return;
-    if(btn) btn.disabled = true;
-    const a = me();
-    for(const l of list){
-      const key = l.lost_reason_key === 'outside_area' ? 'outside_area' : (l.lost_schedule && l.lost_schedule.days && l.lost_schedule.days.length ? 'schedule' : 'no_caregiver');
-      const from = { reason:l.lost_reason || '', at:l.lost_at || '' };
-      /* Lost → Saved: the record keeps everything; status history says why */
-      l.status_history = (Array.isArray(l.status_history) ? l.status_history : []);
-      R().saveForFuture(l, { key, note:l.lost_detail || '', county:countyFor(l), town:(l.lost_schedule && l.lost_schedule.city) || l.client_city || '', zip:(l.lost_schedule && l.lost_schedule.zip) || l.client_zip || '', by:a.email,
-        permission:{ answer:'not_asked' }, from_lost:from }, l.lost_at || undefined);
-      l.future.saved_at = new Date().toISOString(); l.future.from_lost = from;
-      l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : [];
-      l.comm_log.push({ body:'📌 Moved from Lost (' + (l.lost_reason || '') + ') to Saved for future', at:l.future.saved_at, by:a.email });
-      await persist('leads', l);
-    }
-    if(typeof opEvent === 'function') opEvent('lead_saved_future', { item_id:'bulk', area:'growth_leads', summary:(a.name || 'Someone') + ' moved ' + list.length + ' families Lost for area or staffing reasons into Future opportunities' });
-    toast(list.length + ' famil' + (list.length === 1 ? 'y' : 'ies') + ' moved into Future opportunities.'); redraw();
+  /* Her rule (2026-10-15): only families Lost because of where they live or caregiver availability. Never a family that
+     declined, asked for no further contact, or was lost for anything else. Their Lost reason and history are kept. */
+  const lostForAreaOrStaff = l => l && !l.archived && l.status === 'Lost' && ['could_not_staff', 'outside_area'].indexOf(l.lost_reason_key) > -1;
+  const optedOut = l => !!(l.do_not_contact || l.opted_out || l.sms_opt_out);
+  const oldLost = () => (DATA.leads || []).filter(l => lostForAreaOrStaff(l) && !optedOut(l));
+  const oldLostOptedOut = () => (DATA.leads || []).filter(l => lostForAreaOrStaff(l) && optedOut(l));
+  /* the list first: who would move, with their Lost reason; untick anyone; the ones who asked for no contact stay Lost */
+  function moveOldLost(){
+    const list = oldLost(), skip = oldLostOptedOut(); if(!list.length) return;
+    const d = modal('<h3>Move ' + list.length + ' famil' + (list.length === 1 ? 'y' : 'ies') + ' into Future opportunities?</h3>'
+      + '<div class="field-note">Only families marked Lost because of where they live or because we had no caregiver. They keep their Lost reason and all their history; nobody is contacted, and permission to contact them later is "didn\'t ask".</div>'
+      + '<div class="fo-scroll"><table class="fo-t" style="min-width:0;"><thead><tr><th></th><th>Family</th><th>Lost because</th><th>When</th></tr></thead><tbody>'
+      + list.map(l => '<tr><td><input type="checkbox" checked data-move="' + esc(l.id) + '" aria-label="Move ' + esc(nameOf(l)) + '"></td><td><b>' + esc(nameOf(l)) + '</b><span class="fo-sub">' + esc(l.client_city || '') + '</span></td><td>' + esc(l.lost_reason || '') + '</td><td>' + esc(l.lost_at ? day(l.lost_at) : '') + '</td></tr>').join('')
+      + '</tbody></table></div>'
+      + (skip.length ? '<div class="field-note">Staying Lost: ' + skip.map(l => esc(nameOf(l))).join(', ') + ' (asked us not to contact them).</div>' : '')
+      + '<div class="fo-btns"><button class="primary" id="foMoveGo">Move the ticked families</button><button class="ghost" id="foMoveNo">Cancel</button></div>');
+    d.querySelector('#foMoveNo').onclick = close;
+    d.querySelector('#foMoveGo').onclick = async () => {
+      const ids = [...d.querySelectorAll('input[data-move]:checked')].map(x => x.dataset.move);
+      d.querySelector('#foMoveGo').disabled = true;
+      const a = me(); let n = 0;
+      for(const l of list.filter(x => ids.indexOf(String(x.id)) > -1)){
+        if(!lostForAreaOrStaff(l) || optedOut(l)) continue;
+        const key = l.lost_reason_key === 'outside_area' ? 'outside_area' : (l.lost_schedule && l.lost_schedule.days && l.lost_schedule.days.length ? 'schedule' : 'no_caregiver');
+        /* the original Lost record stays on the lead (lost_reason, lost_reason_key, lost_at, lost_detail) and is copied here */
+        const from = { reason:l.lost_reason || '', key:l.lost_reason_key || '', detail:l.lost_detail || '', at:l.lost_at || '', by:((l.status_history || []).filter(h => h && h.to === 'Lost').slice(-1)[0] || {}).by || '' };
+        R().saveForFuture(l, { key, note:l.lost_detail || '', county:countyFor(l), town:(l.lost_schedule && l.lost_schedule.city) || l.client_city || '', zip:(l.lost_schedule && l.lost_schedule.zip) || l.client_zip || '', by:a.email,
+          permission:{ answer:'not_asked' }, from_lost:from });
+        l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : [];
+        l.comm_log.push({ body:'📌 Moved from Lost (' + (l.lost_reason || '') + ') to Saved for future. The Lost reason is kept.', at:l.future.saved_at, by:a.email });
+        await persist('leads', l); n++;
+      }
+      if(n && typeof opEvent === 'function') opEvent('lead_saved_future', { item_id:'bulk', area:'growth_leads', summary:(a.name || 'Someone') + ' moved ' + n + ' families Lost for area or staffing reasons into Future opportunities' });
+      close(); toast(n + ' famil' + (n === 1 ? 'y' : 'ies') + ' moved into Future opportunities.'); redraw();
+    };
   }
 
   /* ── the service area (owner) ── */
@@ -298,13 +314,26 @@
         + '<div class="field-note">' + esc(m.why) + '</div></div><div class="fo-btns">'
         + '<button class="lb-btn lb-btn-primary" onclick="FutureOpps.reactivate(\'' + esc(m.l.id) + '\', ' + esc(JSON.stringify(m.why)) .replace(/"/g, '&quot;') + ', ' + (R().mayContact(m.l) ? 'true' : 'false') + ')">' + (R().mayContact(m.l) ? 'Reactivate and call' : 'Reactivate') + '</button>'
         + '<button class="lb-btn" onclick="FutureOpps.notYet(\'' + esc(m.l.id) + '\', \'' + esc(m.key) + '\')">Not yet</button></div></div>').join('') + '</div>';
-    if(old.length && owner) h += '<div class="card fo-card fo-note"><b>' + old.length + ' famil' + (old.length === 1 ? 'y was' : 'ies were') + ' marked Lost for area or staffing reasons.</b> <span class="field-note">Move them into Future opportunities so their demand counts. Their history stays; nobody is contacted.</span> <button class="lb-btn" onclick="FutureOpps.moveOldLost(this)">Move ' + old.length + ' in</button></div>';
-    /* demand by area */
+    if(old.length && owner) h += '<div class="card fo-card fo-note"><b>' + old.length + ' famil' + (old.length === 1 ? 'y was' : 'ies were') + ' marked Lost because of where they live or caregiver availability.</b> <span class="field-note">Move them into Future opportunities so their demand counts. You see the list first. Their Lost reason and history stay; nobody is contacted. Families who declined, asked for no contact, or were lost for other reasons stay Lost.</span> <button class="lb-btn" onclick="FutureOpps.moveOldLost(this)">Review ' + old.length + ' to move in</button></div>';
+    /* demand by county (2026-10-15: "show how many potential weekly care hours are accumulating in each county, not just the
+       number of families"): one row per county, ranked by hours asked for, with how many families gave hours and the split by why */
     const dem = R().demand(DATA.leads || [], l => valueOf(l));
-    if(dem.length) h += '<div class="card fo-card"><div class="fo-head"><b>Demand by area</b><span class="field-note">Saved families in the last 12 months. Worth acting on: ' + R().DEMAND_FAMILIES + '+ families or ' + R().DEMAND_HOURS + '+ hours a week.</span></div>'
-      + '<div class="fo-scroll"><table class="fo-t"><thead><tr><th>Area</th><th>Kind</th><th class="n">Families</th><th class="n">Hours/wk</th><th class="n">$/month</th><th>Points to</th></tr></thead><tbody>'
-      + dem.map(d => '<tr><td><b>' + esc(d.area) + '</b><span class="fo-sub">' + esc([Object.keys(d.towns).join(', '), d.county ? TIER_WORD[tierOf(d.county)] : ''].filter(Boolean).join(' · ')) + '</span></td><td><span class="fo-tag ' + KIND_TAG[d.kind] + '">' + esc(KIND_SHORT[d.kind]) + '</span></td><td class="n">' + d.families + '</td><td class="n">' + (d.hours || '?') + '</td><td class="n">' + (d.usd ? '<b class="fo-usd">' + money(d.usd) + '</b>' : '') + '</td><td class="' + (d.worth ? 'fo-worth' : 'field-note') + '">'
-        + (!d.worth ? 'Too few to act on yet' : d.kind === 'area' ? 'Worth a look at expanding here' : d.kind === 'staff' ? 'Recruit here: we cover it, nobody is nearby' : d.kind === 'schedule' ? 'Find caregivers for these days and hours' : 'Worth a look') + '</td></tr>').join('')
+    const byArea = {};
+    dem.forEach(d => { const b = byArea[d.area] || (byArea[d.area] = { area:d.area, county:d.county, families:0, hours:0, usd:0, known:0, kinds:{}, towns:{} });
+      b.families += d.families; b.hours += d.hours; b.usd += d.usd; b.kinds[d.kind] = (b.kinds[d.kind] || 0) + d.families; Object.assign(b.towns, d.towns);
+      d.ids.forEach(id => { const l = lead(id); if(l && valueOf(l).hours) b.known++; }); });
+    const areas = Object.values(byArea).map(b => Object.assign(b, { worth:b.families >= R().DEMAND_FAMILIES || b.hours >= R().DEMAND_HOURS })).sort((a, b) => (b.hours - a.hours) || (b.families - a.families));
+    const point = b => { const k = Object.keys(b.kinds).sort((x, y) => b.kinds[y] - b.kinds[x])[0], t = b.county ? tierOf(b.county) : '';
+      if(!b.worth) return 'Too few to act on yet';
+      if(k === 'staff' || k === 'schedule') return t === 'conditional' ? 'Recruit here before taking more Tier 2 clients' : k === 'staff' ? 'Recruit here: we cover it, nobody is nearby' : 'Find caregivers for these days and hours';
+      return t === 'expansion' ? 'Worth a look at moving up from Tier 3' : 'Worth a look at expanding here'; };
+    if(areas.length) h += '<div class="card fo-card"><div class="fo-head"><b>Demand by county</b><span class="field-note">Weekly care hours families have asked for, saved in the last 12 months. Worth acting on: ' + R().DEMAND_FAMILIES + '+ families or ' + R().DEMAND_HOURS + '+ hours a week.</span></div>'
+      + '<div class="fo-scroll"><table class="fo-t"><thead><tr><th>County</th><th class="n">Hours/wk asked</th><th class="n">Families</th><th class="n">Avg h/family</th><th class="n">$/month</th><th>Why we said no</th><th>Points to</th></tr></thead><tbody>'
+      + areas.map(b => '<tr><td><b>' + esc(b.area) + '</b><span class="fo-sub">' + esc([b.county ? TIER_WORD[tierOf(b.county)] : '', Object.keys(b.towns).join(', ')].filter(Boolean).join(' · ')) + '</span></td>'
+        + '<td class="n"><b>' + (b.hours || '?') + '</b>' + (b.known < b.families ? '<span class="fo-sub">' + b.known + ' of ' + b.families + ' gave hours</span>' : '') + '</td><td class="n">' + b.families + '</td>'
+        + '<td class="n">' + (b.known ? Math.round(b.hours / b.known) : '?') + '</td><td class="n">' + (b.usd ? '<b class="fo-usd">' + money(b.usd) + '</b>' : '') + '</td>'
+        + '<td>' + Object.keys(b.kinds).map(k => '<span class="fo-tag ' + KIND_TAG[k] + '">' + esc(KIND_SHORT[k]) + ' ' + b.kinds[k] + '</span>').join(' ') + '</td>'
+        + '<td class="' + (b.worth ? 'fo-worth' : 'field-note') + '">' + esc(point(b)) + '</td></tr>').join('')
       + '</tbody></table></div></div>';
     h += areaHtml();
     /* the list */
@@ -316,7 +345,7 @@
         + list.map(l => { const f = l.future, v = valueOf(l), p = PERM[f.permission && f.permission.answer] || PERM.not_asked;
           return '<tr><td><button class="lbc-name" data-open-lead="' + esc(l.id) + '" data-open-tab="summary">' + esc(nameOf(l)) + '</button><span class="fo-sub">' + esc(callerOf(l)) + (contacted(l) ? ' · <b class="fo-hot">contacted us since</b>' : '') + '</span></td>'
             + '<td>' + esc(f.town || '') + '<span class="fo-sub">' + esc([f.county ? f.county + ' County' : '', f.zip].filter(Boolean).join(' · ')) + '</span></td>'
-            + '<td><span class="fo-tag ' + KIND_TAG[f.kind] + '">' + esc(f.reason_key === 'expansion' ? 'Future expansion' : KIND_SHORT[f.kind]) + '</span>' + (f.note ? '<span class="fo-sub">' + esc(f.note) + '</span>' : '') + '</td>'
+            + '<td><span class="fo-tag ' + KIND_TAG[f.kind] + '">' + esc(f.reason_key === 'expansion' ? 'Future expansion' : KIND_SHORT[f.kind]) + '</span>' + (f.note ? '<span class="fo-sub">' + esc(f.note) + '</span>' : '') + (f.from_lost ? '<span class="fo-sub">was Lost: ' + esc(f.from_lost.reason || '') + (f.from_lost.at ? ', ' + day(f.from_lost.at) : '') + '</span>' : '') + '</td>'
             + '<td class="n">' + (v.hours || '<span class="fo-sub">?</span>') + '</td><td class="n">' + (v.usd ? '<b class="fo-usd">' + money(v.usd) + '</b>' : '<span class="fo-sub">' + esc(v.txt || '?') + '</span>') + '</td>'
             + '<td><span class="fo-tag ' + p[0] + '">' + p[1] + (f.permission && f.permission.answer === 'yes' && f.permission.via ? ', ' + esc(f.permission.via) : '') + '</span></td>'
             + '<td>' + day(f.saved_at) + (f.look_again ? '<span class="fo-sub">look again ' + esc(f.look_again) + '</span>' : '') + '</td>'

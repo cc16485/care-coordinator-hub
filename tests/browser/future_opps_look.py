@@ -25,7 +25,9 @@ MORE = r"""
       future:{ reason_key:'no_caregiver', reason:'No caregiver available in that location', kind:'staff', county:'Polk', town:'Fair Play', zip:'65649', saved_at:'2026-09-02T00:00:00Z', permission:{ answer:'not_asked' } } }),
     Object.assign({}, base, { id:'L1', client_first_name:'Lou', client_last_name:'Lost', client_city:'West Plains', status:'Lost', lost_reason_key:'outside_area', lost_reason:'Outside our service area', lost_at:'2026-08-01T00:00:00Z', phone:'4175550507' }),
     Object.assign({}, base, { id:'L2', client_first_name:'Liz', client_last_name:'Lost', client_city:'Ozark', status:'Lost', lost_reason_key:'could_not_staff', lost_reason:'Could not staff the schedule', lost_schedule:{ days:['Sat','Sun'], city:'Ozark', zip:'65721' }, phone:'4175550508' }),
-    Object.assign({}, base, { id:'L3', client_first_name:'Leo', client_last_name:'Price', client_city:'Nixa', status:'Lost', lost_reason_key:'price', lost_reason:'Price', phone:'4175550509' }));
+    Object.assign({}, base, { id:'L3', client_first_name:'Leo', client_last_name:'Price', client_city:'Nixa', status:'Lost', lost_reason_key:'price', lost_reason:'Price', phone:'4175550509' }),
+    Object.assign({}, base, { id:'L4', client_first_name:'Nan', client_last_name:'NoContact', client_city:'Bolivar', status:'Lost', lost_reason_key:'outside_area', lost_reason:'Outside our service area', do_not_contact:true, phone:'4175550510' }),
+    Object.assign({}, base, { id:'L5', client_first_name:'Ida', client_last_name:'Declined', client_city:'Ozark', status:'Lost', lost_reason_key:'no_longer_needs', lost_reason:'No longer needs care', phone:'4175550511' }));
   DATA.client_rates=[{ id:'rates', levels:{ l1:{ rate:'$30' }, l2:{ rate:'$32' }, l3:{ rate:'$34' } } }];
   (0,eval)("ZIPS={ '65613':{zip:'65613',lat:37.614,lon:-93.410}, '65674':{zip:'65674',lat:37.795,lon:-93.578}, '65649':{zip:'65649',lat:37.633,lon:-93.578}, '65802':{zip:'65802',lat:37.21,lon:-93.30} };");
   window.ccIsOwner=()=>true; window.__merged=[];
@@ -71,7 +73,8 @@ async()=>{
   lbFilter('future'); await draw(); await sleep(100);
   const V=()=>B().innerText;
   ok('the list shows the saved families with where, why, hours, $/month, may contact', /Mary Johnson[\s\S]*Bolivar[\s\S]*Polk County[\s\S]*Can't staff[\s\S]*24[\s\S]*\$3,330[\s\S]*Yes, call/.test(V()), V().slice(0,1500));
-  ok('demand by area: Polk can\'t-staff, 3 families, 42 h a week: "Recruit here" (her 3+ / 40+ rule)', /Polk County[\s\S]*Tier 1 \(core\)[\s\S]*Can't staff[\s\S]*3[\s\S]*42[\s\S]*Recruit here/.test(V()), V().slice(0,1800));
+  const pr=[...B().querySelectorAll('.fo-t tr')].find(r=>/Polk County/.test(r.innerText)&&/Hours|Tier 1/.test(r.innerText)&&r.querySelector('.fo-worth,.field-note'));
+  ok('demand by county: Polk ranks by weekly hours asked (42), 3 families, 14 h average, why we said no, "Recruit here" (her 3+ / 40+ rule)', /Demand by county/.test(V()) && pr && /42[\s\S]*\b3\b[\s\S]*14[\s\S]*Can't staff 3[\s\S]*Recruit here/.test(pr.innerText), pr && pr.innerText);
   ok('the service area shows her three tiers', /Tier 1 · Core[\s\S]*Christian, Greene, Polk, Webster|Tier 1 · Core[\s\S]*Greene, Christian, Webster, Polk/.test(V()) && /Tier 3 · Expansion or waitlist[\s\S]*Barry/.test(V()), V());
   [...B().querySelectorAll('.fo-tabs .filter-pill')].find(b=>/Area we don't serve/.test(b.textContent)).click(); await sleep(150);
   ok('the Area tab shows only area families (none yet)', /Nobody matches/.test(V()));
@@ -79,11 +82,14 @@ async()=>{
   ok('search finds by town', /Pam Three/.test(V()) && !/Mary Johnson/.test(V().split('Saved for future')[1]||''), V().slice(-600));
   FutureOpps.search(''); await sleep(100);
   /* old Lost families */
-  const mv=[...B().querySelectorAll('button')].find(b=>/Move 2 in/.test(b.textContent));
-  ok('the 2 families Lost for area or staffing reasons are offered to move in (not the price one)', !!mv && /2 families were marked Lost/.test(V()));
-  mv.click(); await sleep(300);
+  const mv=[...B().querySelectorAll('button')].find(b=>/Review 2 to move in/.test(b.textContent));
+  ok('only the 2 families Lost for area or staffing are offered (not price, not declined, not the one who asked for no contact)', !!mv && /2 families were marked Lost because of where they live/.test(V()), V().slice(0,1500));
+  mv.click(); await sleep(150);
+  ok('the list comes first: each family with its Lost reason, and who stays Lost because they asked for no contact', /Move 2 families/.test(M().innerText) && /Lou Lost[\s\S]*Outside our service area/.test(M().innerText) && /Staying Lost: Nan NoContact \(asked us not to contact them\)/.test(M().innerText), M().innerText);
+  M().querySelector('#foMoveGo').click(); await sleep(400);
   ok('...moved: Saved, kind from the reason, from Lost recorded, nobody asked to contact', L('L1').status==='Saved' && L('L1').future.kind==='area' && L('L2').future.kind==='schedule' && L('L2').future.from_lost.reason==='Could not staff the schedule'
-     && L('L1').future.permission.answer==='not_asked' && L('L3').status==='Lost', [L('L1').future, L('L2').future]);
+     && L('L1').future.permission.answer==='not_asked' && L('L3').status==='Lost' && L('L4').status==='Lost' && L('L5').status==='Lost', [L('L1').future, L('L2').future]);
+  ok('...their original Lost reason stays on the record and on the saved row', L('L1').lost_reason==='Outside our service area' && L('L1').lost_reason_key==='outside_area' && L('L1').future.from_lost.key==='outside_area' && /was Lost: Outside our service area/.test(V()), [L('L1').lost_reason, V().slice(-800)]);
   /* a caregiver nearby is hired: possible matches */
   DATA.caregivers.push({ axiscare_id:'77', name:'Jordan Pike', zip:'65613', city:'Bolivar', hire_date:'2026-10-20' }); await draw(); await sleep(100);
   ok('a caregiver hired in Bolivar after they were saved: Mary and the two other Polk families are listed as possible matches', /Possible matches/.test(V()) && /Mary Johnson[\s\S]*Jordan Pike \(0 mi\) was hired/.test(V()) && /Pat Two/.test(V()), V().slice(0,900));

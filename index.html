@@ -221,6 +221,12 @@
   .lr-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
   .lr-tag{font-size:11px;font-weight:600;border-radius:4px;padding:1px 7px;white-space:nowrap;background:var(--bg);color:var(--text-muted);}
   .lr-tag.lr-would_record{background:#EAF7EF;color:#15803D;} .lr-tag.lr-error{background:var(--red-bg);color:var(--red);}
+  .lr-tag.lr-flag{background:#FFF4E5;color:#B45309;}
+  .lr-checks{margin:8px 0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-size:13px;}
+  .lr-checks li{padding-left:22px;position:relative;} .lr-checks li::before{position:absolute;left:0;font-weight:800;}
+  .lr-checks .lr-ok::before{content:'✓';color:#15803D;} .lr-checks .lr-warn::before{content:'⚑';color:#B45309;} .lr-checks .lr-info{color:var(--text-muted);} .lr-checks .lr-info::before{content:'·';}
+  .lr-flag{font-size:12px;color:#B45309;margin-top:2px;}
+  .lr-bar{font-size:12.5px;margin:4px 0 6px;}
   @media (max-width:640px){ .lr-row{grid-template-columns:1fr;gap:2px;} .lr-acts{justify-content:flex-start;} }
   .lb-btn-yes{border-color:#15803D;color:#15803D;}
   .pt-more{margin-left:auto;position:relative;}
@@ -7361,8 +7367,8 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
 <script src="call-lead.js?v=2"></script><!-- Make this a lead (2026-10-14) -->
-<script src="lead-recorder.js?v=1"></script>
-<script src="future-opps.js?v=1"></script><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
+<script src="lead-recorder.js?v=2"></script>
+<script src="future-opps.js?v=2"></script><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
