@@ -74,6 +74,12 @@
   .lb-av-none{background:var(--red-bg);color:var(--red);}
   @media (max-width:980px){ .lb-row{grid-template-columns:1fr;gap:8px;} .lb-when{display:flex;gap:10px;align-items:baseline;} }
   .lb-btn-yes{border-color:#15803D;color:#15803D;}
+  .pt-more{margin-left:auto;position:relative;}
+  .pt-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:40;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 24px rgba(13,54,95,.14);padding:6px;min-width:220px;display:flex;flex-direction:column;}
+  .pt-menu[hidden]{display:none;}
+  .pt-menu #cpTopLinks{display:flex;flex-direction:column;}
+  .pt-menu .pt-item{display:block;text-align:left;padding:7px 10px;border-radius:6px;font-size:13.5px;text-decoration:none;color:var(--navy);white-space:nowrap;}
+  .pt-menu .pt-item:hover,.pt-menu .pt-item:focus-visible{background:#EAF4F6;}
   .cj-yes-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;}
   .cj-yes-btn{font-family:inherit;background:#15803D;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;}
 </style>
@@ -5247,13 +5253,15 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button class="linklike" style="font-size:13px;" id="cpBack" onclick="closeLeadProfile()">← Back</button>
     <h2 id="cpTitle" style="margin:0;font-size:22px;font-weight:800;color:var(--navy);"></h2>
     <span id="cpChips" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
+    <!-- A calmer top (2026-10-15, profile-top.js): Pause/End care, the review ask, See every step, Client audit and the
+         lead links live in this one menu instead of above the tabs -->
+    <span id="cpTopMore" class="pt-more" style="display:none;"><button type="button" class="secondary" id="cpTopMoreBtn" aria-haspopup="true" aria-expanded="false">More ▾</button>
+      <span id="cpTopMenu" class="pt-menu" role="menu" hidden><span id="cpTopLinks"></span></span></span>
   </div>
   <!-- Gate 1a: who they are in one line (age, town, AxisCare's own status, payer). Computed, never typed. -->
   <div id="cpFacts" class="cpx-facts"></div>
   <!-- CLIENT JOURNEY (Stages 1-3, 2026-10-06): stage, rail, NEXT REQUIRED STEP and Coming next, on every tab. client-journey.js -->
-  <div id="cpPath"></div><!-- ONE PATH stage 1 (2026-10-15): the stage words and the four tracks, every tab. client-journey.js -->
-  <div id="ccCare"></div><!-- Pause care / End care (client-care.js) -->
-  <div id="ccReview"></div><!-- Google review asks (review-ask.js) -->
+  <div id="ccCare"></div><!-- Pause care / End care (client-care.js); while care is simply active its buttons are in More (profile-top.js) -->
   <div id="cjHead"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
@@ -5268,6 +5276,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Activity &amp; Documents</button>
   </div>
   <div class="cp-pane" data-cp-pane="summary">
+  <!-- A calmer top (2026-10-15): the Google review ask when there is one, and the journey card's tiles and yes line, moved here by profile-top.js -->
+  <div id="ccReview"></div><!-- Google review asks (review-ask.js) -->
+  <div id="cpOverJ"></div>
   <!-- THE LEAD WORKSPACE (her design's screen 2, 2026-10-07): the Overview until the family says yes. lead-workspace.js draws it
        from lead-rules.js; while it shows, the older lead card, the AI card and the command tiles step aside (one card, not layers). -->
   <div id="lwHost" style="display:none;"></div>
@@ -5344,6 +5355,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- GATE 1b-2 · LEAD INTAKE: what the family told us before care started (lpiRender) -->
   <div class="cp-pane" data-cp-pane="intake"><div id="lpIntake"></div></div>
   <div class="cp-pane" data-cp-pane="start">
+  <div id="cpStartNote"></div>
+  <div id="cpPath"></div><!-- ONE PATH stage 1: the stage words and the four tracks (client-journey.js); on this tab since 2026-10-15 (a calmer top) -->
   <!-- the whole journey, grouped by stage, each step with its evidence and history (client-journey.js) -->
   <div id="cjStart"></div>
     <div id="cp_start_note"></div>
@@ -7165,8 +7178,9 @@ The HomeTogether team</pre>
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=5"></script>
-<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list --><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=5"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
+<script src="profile-top.js?v=1"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=5"></script>
