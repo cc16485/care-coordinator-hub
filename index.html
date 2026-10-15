@@ -6469,10 +6469,14 @@ The HomeTogether team</pre>
 <div><label>Relationship to Client</label><input id="lead_relationship" placeholder="Son, Friend, Case Manager, etc."></div>
 <div>
 <label>Source</label>
-<select id="lead_source">
+<select id="lead_source" onchange="leadTalkedUI(true)">
 <option>Phone</option><option>Website</option><option>Referral</option><option>Other</option>
 </select>
 </div>
+<!-- 2026-10-15 (her: leads typed in with + Add Lead while on the phone were treated like nobody had talked to them): a new
+     lead typed during the call records that conversation. On by default for a Phone lead; only on a NEW lead. -->
+<div id="leadTalkedRow" style="grid-column:1/-1;display:none;"><label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0;">
+<input type="checkbox" id="lead_talked_now" style="width:auto;margin:0;"> We're talking to them on this call (counts as the first conversation)</label></div>
 <div style="grid-column:1/-1;"><label>Referred By</label>
   <!-- Picked from the partners we already keep records on, because a typed
        name is how "Mercy", "Mercy Hospital" and "mercy hosp" become three
@@ -9342,6 +9346,7 @@ function openLeadModal(id){
   { const ro=document.getElementById('lead_stage_ro'); if(ro){ try{ ro.innerHTML=id?ccStageChip(ccLeadStage(l)):'New'; }catch(e){ ro.textContent=l.status||'New'; } } }
   /* what shows depends on the answers (these only show and hide; they never change a value) */
   toggleClientNameFields(!!l.client_name_not_provided);
+  leadTalkedUI(false);
   // Full address stays folded on a first call (city is enough); pop it open
   // when this lead already has one so edits never hide saved data.
   const af=document.getElementById('leadAddrFold');
@@ -12224,6 +12229,13 @@ async function ckCheckNewInquiry(leave){
   if(ch.kind==='link'&&axEl){ axEl.value=ch.ax; CK_SET=ch.ax; }   // the side-by-side check in saveLead confirms it
   return {proceed:true, note:''};
 }
+/* the "talking to them on this call" box: new leads only; ticked by default when the source is Phone */
+function leadTalkedUI(fromChange){
+  const row=document.getElementById('leadTalkedRow'), box=document.getElementById('lead_talked_now'); if(!row||!box) return;
+  const isNew=!document.getElementById('lead_id').value;
+  row.style.display=isNew?'':'none';
+  if(isNew) box.checked=(document.getElementById('lead_source').value==='Phone');
+}
 async function saveLead(opts){
   opts=opts||{};
   /* this replaced the caller-phone-only check (where Cancel saved anyway) */
@@ -12267,6 +12279,17 @@ async function saveLead(opts){
      (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
      wrote the old intake values back to the database. */
   const fromCall=window.CallLead?CallLead.stamp(merged):null;   /* Make this a lead / Add from this call: the call and its care plan draft go onto the lead */
+  /* 2026-10-15: typed in with + Add Lead while on the phone with the family: that call is the first real conversation
+     (the same record a logged connected call writes), so no first-call clock, no late alerts, not New */
+  { const tb=document.getElementById('lead_talked_now');
+    if(idx<0&&!fromCall&&tb&&tb.checked&&!merged.first_human_contact_at){
+      const a=ccActor()||{}, at=new Date().toISOString();
+      ldPush(merged,{at,channel:'call',direction:'in',outcome:'connected',actor:'human',by:a.email||'',note:'Talked on the call this lead was typed in from'});
+      merged.comm_log=Array.isArray(merged.comm_log)?merged.comm_log:[];
+      merged.comm_log.push({ body:'☎ call: connected (typed in while on the phone)', at, by:a.email||'' });
+      merged.last_contacted_at=at.slice(0,10);
+      if(String(merged.status||'New')==='New') LeadRules.setStatus(merged,'Contacted',{ by:a.email||'', why:'first real conversation (typed in during the call)' });
+    } }
   if(idx>=0) Object.assign(DATA.leads[idx], merged); else DATA.leads.push(merged);
   await persist('leads', merged);
   if(fromCall) CallLead.afterSave(merged, fromCall);

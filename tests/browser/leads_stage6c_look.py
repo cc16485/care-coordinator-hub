@@ -34,10 +34,11 @@ async()=>{
   document.getElementById('lead_why_called').value='Calling for himself, wife passed'; await saveLead(); await sleep(150);
   let w=window.__log.writes.filter(x=>x.id==='har').slice(-1)[0];
   ok('saving the form leaves status alone (Contacted) and writes no history', w.status==='Contacted' && !w.status_history, [w.status, w.status_history]);
-  /* a brand-new lead starts New */
+  /* a brand-new lead nobody has talked to starts New (2026-10-15: "We're talking to them on this call" unticked) */
   openLeadModal(); await sleep(80); document.getElementById('lead_first_name').value='Diane'; document.getElementById('lead_last_name').value='Teague'; document.getElementById('lead_phone').value='4175550131';
+  document.getElementById('lead_talked_now').checked=false;
   await saveLead(); await sleep(150); w=window.__log.writes.slice(-1)[0];
-  ok('a brand-new lead starts New', w.status==='New' && w.first_name==='Diane', w.status);
+  ok('a brand-new lead nobody has talked to starts New', w.status==='New' && w.first_name==='Diane', w.status);
   /* the profile head: stage words + Mark lost */
   const h=DATA.leads.find(x=>x.id==='har'); lpLead=h; const head=document.getElementById('lp_stage'); head.innerHTML=lpStageControlHtml(h);
   ok('the profile shows the stage words and a Mark lost… link, no dropdown', !document.getElementById('lp_status') && /Talking/.test(head.innerText) && /Mark lost/.test(head.innerText), head.innerText);
