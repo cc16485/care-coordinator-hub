@@ -21,6 +21,52 @@
   }
 })();
 </script>
+<script>
+/* 2026-10-15 · No silent failures (her rule). Chrome can switch off alert()/confirm()/prompt() for this site, and inside
+   the GHL frame it may block them outright. Then a message never showed, and a button that asked first did nothing.
+   1. Every alert() now shows on the page instead (kept through a reload until OK is pressed).
+   2. A confirm() or prompt() that comes back at once was blocked (no person answers in 80ms), so a red note says
+      which question was blocked and that nothing was done. */
+(function(){
+  var KEY = 'ccPageNotices', W = window;
+  function load(){ try { return JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { return []; } }
+  function store(list){ try { sessionStorage.setItem(KEY, JSON.stringify(list.slice(-8))); } catch (e) {} }
+  function stack(){
+    var st = document.getElementById('ccNoticeStack');
+    if (!st) {
+      st = document.createElement('div'); st.id = 'ccNoticeStack'; st.setAttribute('role', 'alert');
+      st.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10002;width:min(540px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px);overflow:auto;';
+      document.body.appendChild(st);
+    }
+    return st;
+  }
+  function draw(n){
+    if (!document.body) { document.addEventListener('DOMContentLoaded', function(){ draw(n); }); return; }
+    var red = n.kind === 'blocked', box = document.createElement('div');
+    box.className = 'cc-notice' + (red ? ' cc-notice-blocked' : '');
+    box.style.cssText = 'background:' + (red ? '#FEF3F2' : '#fff') + ';border:1px solid ' + (red ? '#B42318' : '#CBD5E1') + ';border-left:5px solid ' + (red ? '#B42318' : '#0D365F')
+      + ';border-radius:10px;padding:12px 14px;box-shadow:0 8px 24px rgba(0,0,0,.18);font:14px/1.45 system-ui,-apple-system,sans-serif;color:#1B2733;';
+    if (red) { var h = document.createElement('b'); h.style.cssText = 'display:block;color:#B42318;margin-bottom:4px;'; h.textContent = 'Your browser blocked a question, so nothing was done.'; box.appendChild(h); }
+    var t = document.createElement('div'); t.style.whiteSpace = 'pre-wrap'; t.textContent = n.text; box.appendChild(t);
+    if (red) { var f = document.createElement('div'); f.style.cssText = 'margin-top:6px;font-size:13px;color:#475467;';
+      f.textContent = 'Nothing was saved or sent. Tell Claude which button this was so it can ask on the page instead.'; box.appendChild(f); }
+    var ok = document.createElement('button'); ok.type = 'button'; ok.textContent = 'OK'; ok.className = 'primary cc-notice-ok';
+    ok.style.cssText = 'margin-top:10px;min-width:64px;';
+    ok.onclick = function(){ box.remove(); store(load().filter(function(x){ return x.id !== n.id; })); };
+    box.appendChild(ok); stack().appendChild(box); try { ok.focus({ preventScroll: true }); } catch (e) {}
+  }
+  function show(kind, text){
+    var n = { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), kind: kind, text: String(text == null ? '' : text) };
+    store(load().concat([n])); draw(n);
+  }
+  W.ccNotice = function(text){ show('note', text); };
+  W.alert = function(msg){ show('note', msg); };
+  var nConfirm = W.confirm, nPrompt = W.prompt;
+  W.confirm = function(msg){ var t0 = Date.now(), r = nConfirm.call(W, msg); if (r === false && Date.now() - t0 < 80) show('blocked', msg); return r; };
+  W.prompt = function(msg, def){ var t0 = Date.now(), r = nPrompt.call(W, msg, def); if (r === null && Date.now() - t0 < 80) show('blocked', msg); return r; };
+  var left = load(); if (left.length) left.forEach(draw);
+})();
+</script>
 <style>
   /* Kept with the class that sets it, in the head, so the rule exists before
      the element it hides is parsed. */
