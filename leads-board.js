@@ -37,6 +37,8 @@
   function avatar(owner){ const f = first(owner); return f ? '<span class="lb-av">' + esc(f.charAt(0).toUpperCase()) + '</span><span>' + esc(f) + '</span>' : '<span class="lb-av lb-av-none">?</span><span style="color:var(--red);font-weight:700;">Nobody</span>'; }
   function btn(l, a, primary){
     const k = a.kind, id = esc(l.id), cls = primary ? 'lb-btn lb-btn-primary' : 'lb-btn';
+    /* 769: once calls and texts record themselves, the row has no Log call (it stays under ··· for another phone) */
+    if(k === 'log' && window.LeadRecorder && LeadRecorder.isLive()) return '';
     if(k === 'call'){
       if(!l.phone) return '<span class="lb-btn lb-btn-dim" title="No phone number on the inquiry">No phone</span>';
       return '<a class="' + cls + '" href="#" role="button" data-oc-phone="' + esc(l.phone) + '"' + (l.email ? ' data-oc-email="' + esc(l.email) + '"' : '') + ' data-no-open="1" title="Call from the office line">Call</a>';
@@ -119,7 +121,7 @@
     const order = LB.filter === 'now' ? ['now'] : LB.filter === 'waiting' ? ['waiting'] : LB.filter === 'later' ? ['later'] : ['now', 'later', 'waiting'];
     if(LB.filter === 'missing' && !shown.length){ box.innerHTML = '<div class="card lb-group"><div class="lb-empty">Nothing is missing that the stage needs. <button class="linklike" onclick="lbFilter(\'All\')">Show everyone</button></div></div>'; return; }
     /* 2026-10-15: leads the old AI made, until each is filled from its calls */
-    box.innerHTML = (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '') + order.map(k => groupHtml(k, by[k], today)).join('');
+    box.innerHTML = (window.LeadRecorder && LB.filter === 'All' ? LeadRecorder.html() : '') + (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '') + order.map(k => groupHtml(k, by[k], today)).join('');
   }
   function lbIn(x, f){
     if(LB.owner && first(x.r.owner) !== LB.owner) return false;
@@ -160,10 +162,10 @@
     const l = lead(id); if(!l || typeof ccPopOpen !== 'function') return;
     const row = (t, fn) => '<div class="ccpick-row" data-fn="' + fn + '" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">' + t + '</div>';
     const el = ccPopOpen(btn, '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">' + esc(((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() || ((l.first_name || '') + ' ' + (l.last_name || '')).trim()) + '</div>'
-      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
+      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (window.LeadRecorder && LeadRecorder.isLive() ? row('Log a call from another phone', 'log') : '') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
     el.querySelectorAll('.ccpick-row').forEach(r => { r.onmouseenter = () => r.style.background = 'var(--bg)'; r.onmouseleave = () => r.style.background = '';
       r.onclick = () => { const fn = r.dataset.fn; ccPopClose();
-        if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn);
+        if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn); else if(fn === 'log') lbLog(id, btn);
         else if(fn === 'yes') lbYes(id, btn); else if(fn === 'lost') lbLost(id); else if(fn === 'spam' && typeof lpMarkSpam === 'function') lpMarkSpam(id, btn); };
     });
   }

@@ -150,6 +150,18 @@
   .lb-av{width:24px;height:24px;border-radius:50%;background:#E4EDF6;color:var(--navy);font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;flex:none;}
   .lb-av-none{background:var(--red-bg);color:var(--red);}
   @media (max-width:980px){ .lb-row{grid-template-columns:1fr;gap:8px;} .lb-when{display:flex;gap:10px;align-items:baseline;} }
+  /* 769: calls and texts record themselves */
+  .lr-on{display:none;} body[data-lead-record="live"] .lr-on{display:inline;} body[data-lead-record="live"] .lr-off{display:none;}
+  .lr-card{padding:12px 16px;margin-bottom:12px;}
+  .lr-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;cursor:pointer;}
+  .lr-fam{padding:8px 0;border-top:1px solid var(--border);}
+  .lr-row{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:10px;align-items:center;padding:4px 0;font-size:13px;}
+  .lr-when{color:var(--text-muted);font-size:12px;font-variant-numeric:tabular-nums;}
+  .lr-line{min-width:0;}
+  .lr-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+  .lr-tag{font-size:11px;font-weight:600;border-radius:4px;padding:1px 7px;white-space:nowrap;background:var(--bg);color:var(--text-muted);}
+  .lr-tag.lr-would_record{background:#EAF7EF;color:#15803D;} .lr-tag.lr-error{background:var(--red-bg);color:var(--red);}
+  @media (max-width:640px){ .lr-row{grid-template-columns:1fr;gap:2px;} .lr-acts{justify-content:flex-start;} }
   .lb-btn-yes{border-color:#15803D;color:#15803D;}
   .pt-more{margin-left:auto;position:relative;}
   #leadProfileView.pt-on #cjHead{display:none !important;}
@@ -5511,7 +5523,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <b style="font-size:16px;color:var(--navy);">Communications</b>
           <span style="flex:1;"></span>
           <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
-          <button type="button" class="secondary" onclick="logManualCall()">📝 Log a call</button>
+          <button type="button" class="secondary" onclick="logManualCall()">📝 <span class="lr-off">Log a call</span><span class="lr-on">Log a call from another phone</span></button>
           <button type="button" class="secondary" id="ldDncBtn" onclick="ldToggleDnc()">🚫 Do not contact</button>
           <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
         </div>
@@ -7279,8 +7291,8 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=10"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=6"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="leads-board.js?v=11"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=7"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
@@ -7289,6 +7301,7 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
 <script src="call-lead.js?v=2"></script><!-- Make this a lead (2026-10-14) -->
+<script src="lead-recorder.js?v=1"></script><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
@@ -7698,6 +7711,8 @@ async function persist(key, item){
     document.getElementById('syncPill').textContent = '⚠ Not saved';
     return;
   }
+  /* 769: calls and texts the server recorded on this lead after the page loaded it are kept, never saved over */
+  if(key==='leads' && window.LeadRecorder) await LeadRecorder.keep(item);
   document.getElementById('syncPill').textContent = '⏳ Saving…';
   /* CONFIGURATION IS AUDITED (her rule, 2026-09-19): every change to who
      handles what or who is on duty leaves a who/what/when line in the
