@@ -193,6 +193,7 @@
       return;
     }
     rdLoad();
+    if(window.LeadBasics) setTimeout(() => LeadBasics.background(), 1500);   /* leads nobody opened yet get their basics from the call, one a minute */
     const shown = work.filter(x => lbIn(x, LB.filter)).map(x => Object.assign(x, { v:valueOf(x.l) })).sort((a, b) => R.boardSort(a.r, b.r));
     const worth = shown.reduce((t, x) => t + (x.v.usd || 0), 0);
     const bar = '<div class="lbc-bar"><button class="filter-pill' + (LB.sort === 'imp' ? ' active' : '') + '" onclick="lbSort(\'imp\')">Most important</button><button class="filter-pill' + (LB.sort === 'due' ? ' active' : '') + '" onclick="lbSort(\'due\')">Due first</button>'
