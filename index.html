@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=2"></script><script src="interview-history.js?v=1"></script><!-- 748 (2026-10-15): every interview cancel and move on the applicant's page --><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -5186,6 +5186,12 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <button class="ghost" onclick="document.getElementById('apBookCard').style.display='none'">Close</button>
         </div>
         <input type="hidden" id="apBookId">
+        <!-- 748: a move says who asked, so their interview history counts it right -->
+        <div id="apBookAsked" style="display:none;margin-top:10px;font-size:13.5px;">
+          <b style="color:var(--navy);">Who asked to move it?</b>
+          <label style="margin-left:10px;"><input type="radio" name="apBookAskedBy" value="applicant" checked> They asked</label>
+          <label style="margin-left:10px;"><input type="radio" name="apBookAskedBy" value="office"> We need to move it</label>
+        </div>
         <div id="apBookSlots" style="margin-top:12px;"></div>
         <div id="apBookErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
@@ -22608,7 +22614,9 @@ function apChips(r){
   if(r.status!=='noshow' && apNoshowElsewhere(r)) out.push(chip('🚫 Previous NO-SHOW','bad'));
   /* Reliability, before it costs a client a shift. At two their self-serve
      changes stop and any further moves come through the phone. */
-  if(AP_CHURN[r.id]) out.push(chip('🔁 Moved/cancelled interview ×'+AP_CHURN[r.id], AP_CHURN[r.id]>=2?'warn':''));
+  /* 748: counted across all their applications, and it includes changes they asked the office to make */
+  const churn = window.IVH ? IVH.count(r) : (AP_CHURN[r.id]||0);
+  if(churn) out.push(chip('🔁 Moved/cancelled interview ×'+churn, churn>=3?'bad':churn>=2?'warn':''));
 
   /* What the screen worked out, in its own words. It already knows about the
      license, the insurance and the background question, so those are not
@@ -24128,6 +24136,7 @@ function apRenderProfile(){
   /* Overview: anything that needs a look first, then the facts at a glance */
   const attention =
       apNoshowPanel(r)
+    + '<div id="apIvFlag"></div>'   /* 748: changed their interview 2+ times (interview-history.js) */
     + apDecisionPanel(r)
     /* They have applied before. The apply flow now tags a repeat application
        so a previously-declined person can't quietly come back as "new". */
@@ -24152,8 +24161,8 @@ function apRenderProfile(){
     + apProfRow('Interview', b ? esc(new Date(b.starts_at).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
     + apProfRow('Moved from', b && b.rescheduled_from
         ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
-    + apProfRow('Changed by them', AP_CHURN[r.id]
-        ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ', self-serve changes used up, phone only now' : '') : '');
+    + apProfRow('Changed by them', (window.IVH ? IVH.count(r) : AP_CHURN[r.id])
+        ? '×' + (window.IVH ? IVH.count(r) : AP_CHURN[r.id]) + ((window.IVH ? IVH.count(r) : AP_CHURN[r.id])>=2 ? ', online changes used up, by phone only now' : '') : '');
 
   const pane = (k, html) => AP_TABS_HAVE.includes(k) ? '<div id="apPane-' + k + '" role="tabpanel" style="display:none;">' + html + '</div>' : '';
   document.getElementById('apProfRight').innerHTML =
@@ -24168,6 +24177,8 @@ function apRenderProfile(){
       + apProfCard('Where they have worked', apProfWork(r),
           'What they claim, and whether anybody has checked it.')
       + apProfCard('The interview', apProfInterview(r), b || r.post_interview ? '' : 'Nothing recorded yet.')
+      /* 748 (her "so we can see if theyve canceled and rescheduled a bunch of times"): every booking, cancel, move and no-show */
+      + (window.IVH ? apProfCard('Interview history', '<div id="apIvHist"><div class="field-note">Looking…</div></div>', 'Every booking, cancel, move and no-show, across all their applications, and who asked.') : '')
       /* 2026-10-13: the AI review, kept apart from the interviewer's notes above (interview-review-ui.js) */
       + (window.IR ? apProfCard('AI interview review', '<div id="apIrHost"></div>', 'A second set of ears, office only. It runs only when you tap it, and never scores or decides.') : '')
       + (offered ? '<div id="apHpSkills"></div>' : ''))
@@ -24190,6 +24201,7 @@ function apRenderProfile(){
       + (window.HP ? '<div class="card" style="padding:4px 18px 16px;"><div id="apHpHistory"></div></div>' : '<div class="field-note">The history did not load. Refresh the page.</div>'));
   /* the start paperwork and training read into their boxes even before their tab is opened */
   if(AP_TABS_HAVE.includes('hiring')) apOnboardMount(r);
+  if(window.IVH) IVH.mount(r);   /* 748 */
   if(AP_TABS_HAVE.includes('checks')) apTrainingMount(r);
   apTab(AP_TAB);
 }
@@ -24686,6 +24698,13 @@ async function apBookFor(id, askFirst){
     (moving ? 'Move the interview for ' : 'Book a time for ')
     + (((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them');
   document.getElementById('apBookErr').style.display = 'none';
+  const askedRow = document.getElementById('apBookAsked');
+  if(askedRow){   /* "They asked" each time the card opens for somebody; a re-show after an error keeps the choice */
+    askedRow.style.display = moving ? 'block' : 'none';
+    const d = askedRow.querySelector('input[value=applicant]');
+    if(d && askedRow.dataset.for !== String(id)) d.checked = true;
+    askedRow.dataset.for = moving ? String(id) : '';
+  }
   const box = document.getElementById('apBookSlots');
   box.innerHTML = '<div class="field-note">Looking for free times…</div>';
   const card = document.getElementById('apBookCard');
@@ -24826,8 +24845,11 @@ async function apBookTake(iso, btn){
   const when = fmt(iso);
   const b = AP_BOOK[id];
   const moving = !!(b && b.status==='booked');
+  /* 748: who asked. "They asked" counts in their interview history (and toward their two online changes); "we need to" does not */
+  const askedBy = moving ? ((document.querySelector('input[name=apBookAskedBy]:checked')||{}).value || 'applicant') : null;
   if(!confirm(moving
     ? 'Move ' + (r.first_name||'them') + '\'s interview from ' + fmt(b.starts_at) + ' to ' + when + '?\n\n'
+      + (askedBy === 'office' ? 'We need to move it: this is not counted against them.\n' : 'They asked: this goes in their interview history as a change they asked for.\n')
       + 'The old time opens back up, and they get a fresh confirmation and reminders for the new one.'
     : 'Book ' + ((r.first_name||'them')) + ' in for ' + when + '?\n\n'
       + 'They get the confirmation and the reminders the same as if they had booked it themselves.')) return;
@@ -24845,9 +24867,10 @@ async function apBookTake(iso, btn){
     /* Moving is one transaction: if the new time was just taken, the old
        booking survives untouched. */
     const { error } = moving
-      ? await sb.rpc('interview_reschedule', { p_applicant: id, p_starts: iso, p_by: 'office' })
+      ? await sb.rpc('interview_reschedule', { p_applicant: id, p_starts: iso, p_by: askedBy })
       : await sb.rpc('interview_book', { p_applicant: id, p_starts: iso });
     if(error) throw error;
+    if(moving && window.IVH) await IVH.stamp(id, 'move');   /* 748: who in the office moved it */
     document.getElementById('apBookCard').style.display = 'none';
     await apLoad();
   }catch(e){
@@ -24887,6 +24910,7 @@ async function apCancelBooking(id){
       { p_applicant: id, p_reason: (reason||'').trim() || null, p_by: 'office' });
     if(error) throw error;
     if(!data || !data.cancelled) alert('There was no live booking to cancel — refresh and look again.');
+    else if(window.IVH) await IVH.stamp(id, 'cancel');   /* 748: who in the office cancelled it */
     if(AP_ROWS.length) await apLoad();
     if(document.getElementById('ivqList')) ivqLoad();
   }catch(e){
