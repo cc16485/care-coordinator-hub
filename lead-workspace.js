@@ -220,9 +220,9 @@
       + '<div class="lw-next-t">' + esc(r.next.text) + '</div>'
       + (reply ? '<div class="lw-quote"><div class="lw-quote-k">' + esc(callerFirst) + ' wrote</div>"' + esc(reply.sub || reply.text) + '"</div>' : '')
       + (sc.text || sc.hint ? '<div class="lw-script">' + (sc.text ? '<div class="lw-quote-k" style="color:#A8660E;">Script · ' + esc(sc.title) + (sc.custom ? ' (your wording)' : '') + '</div>' + esc(sc.text) : '') + (sc.hint ? '<div class="lw-hint">' + esc(sc.hint) + '</div>' : '') + '</div>' : '')
-      + '<div class="lb-actions">' + btn(l, r.primary, true) + r.secondary.map(a => btn(l, a, false)).join('')
+      + '<div class="lb-actions">' + btn(l, r.primary, true) + r.secondary.filter(a => !(a.kind === 'log' && recLive())).map(a => btn(l, a, false)).join('')
       + (r.primary.kind !== 'text' && !r.secondary.some(a => a.kind === 'text') && l.phone ? '<button class="lb-btn" onclick="lwText(this)">Text ' + esc(callerFirst) + '</button>' : '')
-      + (r.primary.kind !== 'log' && !r.secondary.some(a => a.kind === 'log') ? '<button class="lb-btn" onclick="lwLog(this)">Log a call</button>' : '')
+      + (recLive() || (r.primary.kind !== 'log' && !r.secondary.some(a => a.kind === 'log')) ? '<button class="lb-btn" onclick="lwLog(this)"><span class="lr-off">Log a call</span><span class="lr-on">Log a call from another phone</span></button>' : '')
       + (r.primary.kind !== 'followup' && !r.secondary.some(a => a.kind === 'followup' || a.kind === 'open') ? '<button class="lb-btn" onclick="lwFollowUp(this)">Set a follow-up</button>' : '') + '</div>'
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
@@ -275,6 +275,8 @@
   /* ── the actions: the Hub's own, pointed at this family, then redraw ── */
   const afterPop = () => { const t = setInterval(() => { if(!document.querySelector('.ccpop')){ clearInterval(t); render(); } }, 400); setTimeout(() => clearInterval(t), 120000); };
   const redrawBoard = () => { try{ if(typeof renderLeadsStarts === 'function') renderLeadsStarts(); }catch(e){} };
+  /* 769: once calls and texts record themselves, Log a call is only for a call from another phone */
+  function recLive(){ return !!(window.LeadRecorder && LeadRecorder.isLive()); }
   function lwLog(b){ const l = lead(); if(!l) return; lbLog(l.id, b); afterPop(); }
   function lwFollowUp(b){ const l = lead(); if(!l) return; lbFollowUp(l.id, b); afterPop(); }
   function lwSchedule(){ const l = lead(); if(!l) return; lbSchedule(l.id); }
