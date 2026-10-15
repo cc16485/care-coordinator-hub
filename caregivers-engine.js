@@ -7582,22 +7582,27 @@ function officeOrientPreview(){
     + `<div>${wcEsc(officeOrientConfirmText(c.first, date, time))} Reply STOP to opt out.</div>`;
 }
 async function bookOfficeOrientation(sendText){
-  const c = candidates.find(x => x.id === invitingId); if(!c) return;
+  /* 2026-10-15: every question and answer here is asked on the page (apAsk), not with confirm()/alert(). Chrome can
+     switch those off, and then Book did nothing and said nothing. */
+  const say = (title, text) => window.apAsk ? apAsk({ title, text }) : alert(title + (text ? '\n\n' + text : ''));
+  const ask = (title, text, ok) => window.apAsk ? apAsk({ title, text, ok, back: 'Back' }) : confirm(title + (text ? '\n\n' + text : ''));
+  const c = candidates.find(x => x.id === invitingId);
+  if(!c){ await say('Could not find this person', 'Close this and open them again. Nothing was booked.'); return; }
   const name = (c.first + ' ' + c.last).trim();
   const date = (document.getElementById('inv-manual-date') || {}).value || '';
   const time = (document.getElementById('inv-manual-time') || {}).value || '';
-  if(!date || !time){ alert('Type the date and the time of the orientation first.'); return; }
+  if(!date || !time){ await say('Type the date and the time of the orientation first.'); return; }
   const today = localDay(new Date());
-  if(date < today){ alert('That date has passed. Pick today or a later day.'); return; }
-  if(sendText && !c.phone){ alert('No phone number on file, so nothing can be texted. Add a cell number (✏️), or press Book only.'); return; }
-  if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)){ alert(name + ' is still being saved. Try again in a moment.'); return; }
+  if(date < today){ await say('That date has passed.', 'Pick today or a later day.'); return; }
+  if(sendText && !c.phone){ await say('No phone number on file, so nothing can be texted.', 'Add a cell number (✏️), or press Book only.'); return; }
+  if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)){ await say(name + ' is still being saved.', 'Try again in a moment.'); return; }
   const when = officeOrientWhen({ date, time });
   const existing = officeOrientBookingFor(c, orientSessions, today);
-  if(existing && existing.session.date === date && String(existing.session.time || '') === time){ alert(name + ' is already booked for ' + when + '.'); return; }
-  if(existing && !confirm(name + ' is already booked for ' + officeOrientWhen(existing.session) + '.\n\nMove them to ' + when + '?')) return;
+  if(existing && existing.session.date === date && String(existing.session.time || '') === time){ await say(name + ' is already booked for ' + when + '.'); return; }
+  if(existing && !await ask(name + ' is already booked for ' + officeOrientWhen(existing.session) + '.', 'Move them to ' + when + '?', 'Move them')) return;
   const msg = officeOrientConfirmText(c.first, date, time);
-  if(sendText && !confirm('Book ' + name + ' for ' + when + ' and text them now?\n\n' + msg + ' Reply STOP to opt out.\n\n(Texts go 8am to 6pm Central, only with their yes to texts.)')) return;
-  if(!sendText && !confirm('Book ' + name + ' for ' + when + '?\n\nNothing is texted. You tell them the date and time.')) return;
+  if(sendText && !await ask('Book ' + name + ' for ' + when + ' and text them now?', msg + ' Reply STOP to opt out.\n\n(Texts go 8am to 6pm Central, only with their yes to texts.)', 'Book and text')) return;
+  if(!sendText && !await ask('Book ' + name + ' for ' + when + '?', 'Nothing is texted. You tell them the date and time.', 'Book')) return;
   const who = await wcWho();
   if(existing) existing.session.bookings.splice(existing.idx, 1);
   const oc = getOrientConfig();
@@ -7615,9 +7620,9 @@ async function bookOfficeOrientation(sendText){
     catch(e){ textNote = 'The text could NOT be sent (' + ((e && e.message) || e) + '). Call or text them yourself.'; }
   }
   closeModal('invite-modal'); renderOB(); renderOrientations(); renderAlerts();
-  alert(name + ' is booked for the office orientation ' + when + (slot.created ? ' (a one-seat session was added on the Orientations tab)' : '') + '.'
-    + (existing ? '\n\nTheir earlier seat on ' + officeOrientWhen(existing.session) + ' was given up.' : '')
-    + '\n\n' + textNote
+  await say(name + ' is booked for the office orientation ' + when + '.', (slot.created ? 'A one-seat session was added on the Orientations tab.\n\n' : '')
+    + (existing ? 'Their earlier seat on ' + officeOrientWhen(existing.session) + ' was given up.\n\n' : '')
+    + textNote
     + (saved === false ? '\n\nThe candidate record did not reach the shared workspace, so the rest of the team may not see this yet. Check your connection.' : ''));
 }
 let _notHireId=null;

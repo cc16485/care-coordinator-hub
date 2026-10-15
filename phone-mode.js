@@ -966,7 +966,7 @@
     /* 2026-10-15: asked on the page (apAsk), not with alert()/prompt(), which Chrome can switch off so the tap did nothing. */
     if (miss) { await apAsk({ title: 'Not yet', text: miss }); var ob = document.getElementById('phIvObs'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'end' }); return; }
     if (outcome === 'declined') { reason = await apAsk({ title: 'Why are we not hiring ' + nm + '?', text: 'Kept for our records, never sent.', input: true, ok: 'Mark not hiring', back: 'Back' }); if (reason === null) return; }
-    else { p = apPoolPrompts(r, A); if (!p) return; }
+    else { p = await apPoolPrompts(r, A); if (!p) return; }
     btn.disabled = true;
     await ivSave(document.querySelector('[data-iv="save"]') || btn);
     try {
@@ -1101,7 +1101,7 @@
     if (a === 'invsend') {
       var body2 = invBody('send');
       if (!MORE.inv || MORE.inv !== JSON.stringify(Object.assign({}, body2, { action: 'preview' }))) { out.innerHTML = '<span style="color:#B42318">Something changed. Press Preview again first.</span>'; return; }
-      if (!confirm('Send the application to ' + body2.first_name + ' now?')) return;
+      if (!await apAsk({ title: 'Send the application to ' + body2.first_name + ' now?', ok: 'Send', back: 'Back' })) return;
       b.disabled = true; b.textContent = 'Sending…';
       try {
         var r = await apInvCall(body2);

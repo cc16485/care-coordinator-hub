@@ -87,7 +87,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=14"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=15"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -23739,7 +23739,7 @@ async function apInvPreview(btn){
 async function apInvSend(btn){
   const esc = escapeHtmlComms, body = apInvBody('send');
   if(!AP_INV_OK || AP_INV_OK !== JSON.stringify(Object.assign({}, body, {action:'preview'}))) return apInvSay('Press Preview first.', true);
-  if(!confirm('Send the application to ' + body.first_name + ' now?')) return;
+  if(!await apAsk({ title: 'Send the application to ' + body.first_name + ' now?', ok: 'Send', back: 'Back' })) return;
   btn.disabled = true; btn.textContent = 'Sending…';
   try{
     const j = await apInvCall(body);
@@ -23747,7 +23747,7 @@ async function apInvSend(btn){
     if(j.error || !j.ok) return apInvSay(esc(j.error || 'Nothing was sent.'), true);
     const how = [j.texted?'by text':'', j.emailed?'by email':''].filter(Boolean).join(' and ');
     apInvClose();
-    alert('Sent ' + how + '.' + ((j.not_sent||[]).length ? '\n\nNot sent: ' + j.not_sent.join('; ') : ''));
+    await apAsk({ title: 'Sent ' + how + '.', text: (j.not_sent||[]).length ? 'Not sent: ' + j.not_sent.join('; ') : '' });
     apInvLoad();
   }catch(e){ apInvSay('Could not send: '+esc(String(e && e.message || e)), true); }
   finally{ btn.textContent = 'Send'; }
@@ -24950,23 +24950,24 @@ async function apCancelBooking(id){
           : (IVQ||[]).find(x=>String(x.applicant_id)===String(id) && x.status==='booked');
   const name = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'this applicant';
   const when = b ? new Date(b.starts_at).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'}) : 'their time';
-  const reason = prompt('Cancel ' + name + '\'s interview — ' + when + '?\n\n'
-    + 'Say why if you know (kept on the booking, never sent to them word for word). '
+  const reason = await apAsk({ title: 'Cancel ' + name + '\'s interview, ' + when + '?', input: true, ok: 'Cancel the interview', back: 'Back',
+    placeholder: 'Why, if you know',
+    text: 'Say why if you know (kept on the booking, never sent to them word for word). '
     + 'They get a text and email confirming the cancellation, with the link to book a new time. '
-    + 'To pick the new time with them now, use Move instead — this only cancels.','');
+    + 'To pick the new time with them now, use Move instead. This only cancels.' });
   if(reason===null) return;
   try{
     const { data, error } = await sb.rpc('interview_cancel',
       { p_applicant: id, p_reason: (reason||'').trim() || null, p_by: 'office' });
     if(error) throw error;
-    if(!data || !data.cancelled) alert('There was no live booking to cancel — refresh and look again.');
+    if(!data || !data.cancelled) await apAsk({ title: 'Nothing to cancel', text: 'There was no live booking to cancel. Refresh and look again.' });
     if(AP_ROWS.length) await apLoad();
     if(document.getElementById('ivqList')) ivqLoad();
   }catch(e){
     const m = String(e && e.message || 'error');
-    alert(/interview_cancel/.test(m) && /function|exist/i.test(m)
-      ? 'The database cannot cancel bookings yet — run interview-cancel-reschedule.sql in the Supabase SQL editor and this works.'
-      : 'Could not cancel it: ' + m);
+    await apAsk({ title: 'Could not cancel it', text: /interview_cancel/.test(m) && /function|exist/i.test(m)
+      ? 'The database cannot cancel bookings yet. Run interview-cancel-reschedule.sql in the Supabase SQL editor and this works.'
+      : m });
   }
 }
 
@@ -25273,7 +25274,9 @@ function apNoshowResult(d){
    those pop-ups off for a site, and then a click quietly did nothing. apAsk resolves to true (or the typed words) for
    the main button, null for Back. With no back label it is just a message with OK. input: true is an optional box,
    a string makes the box required and is what it says when left empty. */
-function apAsk({ title, text, ok, back, input, placeholder }){
+function apAsk({ title, text, ok, back, input, placeholder, value, fields }){
+  /* 2026-10-15: value pre-fills the one box; fields asks several at once ([{label, hint, value}]) and resolves to
+     an array of what was typed (or null on Back). Every step stays on the page, never a browser pop-up. */
   return new Promise(res=>{
     const esc = escapeHtmlComms;
     const ov = document.createElement('div');
@@ -25282,15 +25285,21 @@ function apAsk({ title, text, ok, back, input, placeholder }){
     ov.innerHTML = '<div style="background:var(--card,#fff);border-radius:12px;max-width:520px;width:100%;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">'
       + '<b style="font-size:16px;color:var(--navy);">' + esc(title) + '</b>'
       + (text ? '<div style="white-space:pre-wrap;font-size:14px;margin-top:8px;">' + esc(text) + '</div>' : '')
-      + (input ? '<textarea rows="3" style="width:100%;margin-top:10px;" placeholder="' + esc(placeholder||'') + '"></textarea>'
+      + (fields ? fields.map((f,i)=>'<label style="display:block;margin-top:12px;font-weight:600;font-size:14px;">' + esc(f.label)
+                 + (f.hint ? '<div class="field-note" style="font-weight:400;">' + esc(f.hint) + '</div>' : '')
+                 + '<textarea rows="2" data-ap-field="' + i + '" style="width:100%;margin-top:4px;"></textarea></label>').join('')
+       : input ? '<textarea rows="3" style="width:100%;margin-top:10px;" placeholder="' + esc(placeholder||'') + '"></textarea>'
                + '<div class="field-note ap-ask-err" style="display:none;color:var(--red);margin-top:4px;"></div>' : '')
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">'
       + '<button class="primary ap-ask-ok">' + esc(ok || 'OK') + '</button>'
       + (back ? '<button class="secondary ap-ask-back">' + esc(back) + '</button>' : '') + '</div></div>';
     document.body.appendChild(ov);
-    const ta = ov.querySelector('textarea');
+    const tas = [...ov.querySelectorAll('textarea')], ta = tas[0];
+    if(fields) tas.forEach((t,i)=>{ t.value = fields[i].value || ''; });
+    else if(ta && value) ta.value = value;
     const done = v => { ov.remove(); res(v); };
     ov.querySelector('.ap-ask-ok').onclick = ()=>{
+      if(fields) return done(tas.map(t=>t.value.trim()));
       if(!ta) return done(true);
       if(!ta.value.trim() && typeof input === 'string'){ const e = ov.querySelector('.ap-ask-err'); e.textContent = input; e.style.display = 'block'; return; }
       done(ta.value.trim());
@@ -25623,7 +25632,7 @@ async function apOutcome(outcome, btn){
   if(outcome==='noshow') return apNoshowMark(document.getElementById('apIntId').value, btn);
   const id = document.getElementById('apIntId').value;
   const r = AP_ROWS.find(x=>String(x.id)===String(id));
-  if(!r){ alert('Could not match this to an applicant on the list — reload the page and open their interview again. Nothing was recorded.'); return; }
+  if(!r){ await apAsk({ title: 'Could not find this application', text: 'Refresh the page and open their interview again. Nothing was recorded.' }); return; }
   const err = document.getElementById('apIntErr');
   const A = Object.assign({}, window.__apInt || {});
   A.notes = (document.getElementById('apIntNotes').value||'').trim();
@@ -25632,16 +25641,17 @@ async function apOutcome(outcome, btn){
   /* 2026-10-13 (her rule): nothing is required except the family reflection's why, before an outcome */
   if(window.OBS){
     const miss = OBS.missing(A.observations);
-    if(miss){ alert(miss); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
+    if(miss){ await apAsk({ title: 'Not yet', text: miss }); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
     A.observations = OBS.clean(A.observations, apIntBy());
   }
   let reason = null, wants = null, area = null;
   if(outcome==='declined'){
-    reason = prompt('Why are we not hiring '+(r.first_name||'them')+'?\n\nKept for our records, never sent.','');
+    reason = await apAsk({ title: 'Why are we not hiring '+(r.first_name||'them')+'?', text: 'Kept for our records, never sent.',
+      input: true, ok: 'Mark not hiring', back: 'Back' });
     if(reason===null) return;
   }
   if(outcome==='pool'){
-    const p = apPoolPrompts(r, A);
+    const p = await apPoolPrompts(r, A);
     if(!p) return;
     wants = p.wants; area = p.area; reason = p.note;
   }
@@ -25667,8 +25677,8 @@ async function apOutcome(outcome, btn){
         status: outcome==='noshow' ? 'noshow' : 'attended',
         post_interview: A, outcome_notes: A.notes || null, outcome_at: new Date().toISOString(),
       }).eq('applicant_id', id).eq('status','booked');
-      if(bErr) alert('Their outcome was saved, but their interview could not be closed, so it may still show as waiting on an outcome.\n\n'
-        + 'Reason: ' + bErr.message + '\n\nTell Samantha (or Claude).');
+      if(bErr) await apAsk({ title: 'Saved, but the interview is still open', text: 'Their outcome was saved, but their interview could not be closed, so it may still show as waiting on an outcome.\n\n'
+        + 'Reason: ' + bErr.message + '\n\nTell Samantha (or Claude).' });
     }
     try{ localStorage.removeItem(AP_IVD(id)); }catch(e){}
     document.getElementById('apIntCard').style.display='none';
@@ -25684,12 +25694,11 @@ async function apOutcome(outcome, btn){
     const friendly = /constraint|check/i.test(m) && /pool|noshow|offer/.test(m + outcome)
       ? 'The database will not accept "' + outcome + '" as a status yet.\n\n'
         + 'Run recruit-fixes.sql in the Supabase SQL editor and this button works. '
-        + 'Nothing you typed is lost — it is still on screen.'
+        + 'Nothing you typed is lost. It is still on screen.'
       : 'Could not save that: ' + m;
     err.textContent = friendly;
     err.style.display = 'block';
     err.scrollIntoView({ behavior:'smooth', block:'center' });
-    alert(friendly);
   }finally{ btn.disabled=false; }
 }
 
@@ -25703,26 +25712,28 @@ async function apOutcome(outcome, btn){
    The pool is only worth having if you can tell, months later, who a new run
    of hours belongs to. So it always asks the same three things, whether it is
    reached from the interview or straight from the list. */
-function apPoolPrompts(r, A){
+async function apPoolPrompts(r, A){
+  /* 2026-10-15: one in-page ask with all three, not three browser prompt()s (Chrome can switch those off, and then
+     the button did nothing at all). */
   A = A || r.post_interview || {};
-  const wants = prompt('What are they holding out for?\n\ne.g. Full time · Weekday days · Weekends · 25+ hours',
-    r.pool_wants || (A.shift==='nights'?'Nights':'')
-      || [r.job_type, r.hours_wanted && r.hours_wanted + ' hrs/wk'].filter(Boolean).join(', ')
-      || 'Full time');
-  if(wants===null) return null;
-  const area = prompt('Which area do they need it in?\n\nSearch applicants looks here when you search by zip or town.',
-    r.pool_area || A.travel_areas || r.city || r.zip || '');
-  if(area===null) return null;
-  const note = prompt('Anything to remember about them?\n\nThis is what you will read when hours come up.',
-    r.pool_note || A.notes || '');
-  if(note===null) return null;
-  return { wants: wants.trim(), area: area.trim(), note: note.trim() };
+  const nm = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them';
+  const v = await apAsk({ title: 'Put ' + nm + ' in the candidate pool', ok: 'Put in the pool', back: 'Back', fields: [
+    { label: 'What are they holding out for?', hint: 'e.g. Full time · Weekday days · Weekends · 25+ hours',
+      value: r.pool_wants || (A.shift==='nights'?'Nights':'')
+        || [r.job_type, r.hours_wanted && r.hours_wanted + ' hrs/wk'].filter(Boolean).join(', ') || 'Full time' },
+    { label: 'Which area do they need it in?', hint: 'Search applicants looks here when you search by zip or town.',
+      value: r.pool_area || A.travel_areas || r.city || r.zip || '' },
+    { label: 'Anything to remember about them?', hint: 'This is what you will read when hours come up.',
+      value: r.pool_note || A.notes || '' } ] });
+  if(!v) return null;
+  return { wants: v[0], area: v[1], note: v[2] };
 }
 
 async function apToPool(id){
-  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const r = AP_ROWS.find(x=>String(x.id)===String(id));
+  if(!r){ await apAsk({ title: 'Could not find this application', text: 'Refresh the page and try again. Nothing was changed.' }); return; }
   const wasPool = r.status==='pool', pastOffer = r.status==='offer' || r.status==='hired';
-  const p = apPoolPrompts(r);
+  const p = await apPoolPrompts(r);
   if(!p) return;
   try{
     const { error } = await sb.from('job_applicants').update({
@@ -25736,9 +25747,9 @@ async function apToPool(id){
     if(!wasPool && !pastOffer) await apDecisionOffer(id, 'pool');
   }catch(e){
     const m = String(e&&e.message||'error');
-    alert(/constraint/i.test(m)
+    await apAsk({ title: 'Could not move them', text: /constraint/i.test(m)
       ? 'The database will not accept "pool" as a status yet. Run recruit-fixes.sql in the Supabase SQL editor and this works.'
-      : 'Could not move them: ' + m);
+      : m });
   }
 }
 
