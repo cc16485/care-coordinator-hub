@@ -735,6 +735,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .lead-card .lc-summary{font-size:12px;color:var(--text-muted);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .lead-card .lc-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);}
   .tag-chip{font-size:11px;background:#FAF9F6;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
+  /* Make this a lead (2026-10-14): what was heard on the call, until a person touches it */
+  .cl-heard{background:#FFF1C2 !important;box-shadow:0 0 0 1.5px #E8C66A inset;border-radius:6px;}
   .detail-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
   .detail-grid3 .dbox{background:#FAF9F6;border-radius:8px;padding:10px;}
   .detail-grid3 .dbox .dlbl{font-size:11px;color:var(--text-muted);}
@@ -7162,7 +7164,8 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=5"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
-<script src="call-practice.js?v=8"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-lead.js?v=1"></script><!-- Make this a lead (2026-10-14) -->
+<script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7370,7 +7373,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -9306,6 +9309,7 @@ function leadWaitingUI(fromChange){
   if(fromChange&&!r.value) d.value='';
 }
 function openLeadModal(id){
+  if(window.CallLead) CallLead.clearForm();   /* Make this a lead: a form opened any other way has no call marks */
   if(typeof lpiRelease==='function') lpiRelease('form');   /* Gate 1b-2 lock: a Lead intake chapter hands its sections back first */
   const l = id ? DATA.leads.find(x=>x.id===id) : {};
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
@@ -12168,7 +12172,7 @@ async function ckCheckNewInquiry(leave){
   if(!found.leads.length&&!found.clients.length) return {proceed:true, note:found.note};
   const ch=await ckPanel(found,'save');
   if(ch.kind==='cancel') return {proceed:false};
-  if(ch.kind==='lead'){ leave(); openLeadProfile(ch.id); return {proceed:false}; }
+  if(ch.kind==='lead'){ if(window.CallLead) await CallLead.attachTo(ch.id); leave(); openLeadProfile(ch.id); return {proceed:false}; }
   if(ch.kind==='client'){
     /* 5b E: what was typed on the inquiry becomes the start of a change request on their profile */
     const who=[v('lead_first_name'),v('lead_last_name')].filter(Boolean).join(' ')+(v('lead_relationship')?' ('+v('lead_relationship')+')':'');
@@ -12219,8 +12223,10 @@ async function saveLead(opts){
   /* Gate 1b-0 (2026-09-28): update the lead IN PLACE. Swapping in a new object left the open profile
      (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
      wrote the old intake values back to the database. */
+  const fromCall=(idx<0&&window.CallLead)?CallLead.stamp(merged):null;   /* Make this a lead: the call goes onto the new lead */
   if(idx>=0) Object.assign(DATA.leads[idx], merged); else DATA.leads.push(merged);
   await persist('leads', merged);
+  if(fromCall) CallLead.afterSave(merged, fromCall);
   if(jcAfter){
     const res=await jcConnect(merged, newAx, 'typed', jcAfter.name);
     if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
@@ -35335,6 +35341,7 @@ function callsPaint(){
       +'<span class="field-note" style="white-space:nowrap;">'+esc(callsFmtWhen(c.at))+'</span>'
       +play+open
       +'</div>'
+      +(window.CallLead?CallLead.callRow(c):'')
       +'<div id="rec-'+c.id+'" style="display:none;"></div>'
       +'</div>';
   }).join('');
@@ -35362,6 +35369,8 @@ async function renderCalls(force, btn){
     opsReconcileDiscipline();
     opsRenderCallbacks();
     callsPaint();
+    /* Make this a lead: the call reader's tags and summaries arrive a moment later */
+    if(window.CallLead) CallLead.load(force).then(()=>callsPaint()).catch(()=>{});
   }catch(e){
     box.innerHTML='<div class="field-note" style="color:var(--red);">Could not load calls: '+String(e&&e.message||'error')+'</div>';
   }
