@@ -70,7 +70,7 @@
     const care = (typeof cpxCareChips === 'function' ? cpxCareChips(l) : []).map(c => c.t);
     const needs = (Array.isArray(l.needs) ? l.needs : []).map(k => (typeof LPI_L !== 'undefined' && LPI_L.needs[k]) || k);
     const src = [l.source, ctx.referral].filter(Boolean).join(' · ') + (l.created_at ? ' · ' + RR.cameInWords(l.created_at, ctx.now).replace(/^came in /, '') : '');
-    return '<div class="card lw-card"><div class="lw-head"><b>What we know</b><span class="field-note">red = needed before the next stage</span><span style="flex:1;"></span><button class="linklike" onclick="openLeadModal(lpLead.id)">Edit the inquiry</button></div>'
+    return '<div class="card lw-card"><div class="lw-head"><b>What we know</b><span class="field-note">red = needed before the next stage</span><span style="flex:1;"></span>'+(window.CallLead&&l.ghl_contact_id?'<button class="linklike" style="margin-right:12px;" onclick="CallLead.fillFromLead(lpLead.id,this)">Fill from the call</button>':'')+'<button class="linklike" onclick="openLeadModal(lpLead.id)">Edit the inquiry</button></div>'
       + '<div class="lw-facts">'
       + fact('Who needs care', client ? client + (age ? ', ' + age : '') + (RR.whyCalled(l) ? ' · ' + RR.whyCalled(l) : '') : '', miss.client || miss.why, 'intake')
       + fact('Decision-maker', caller ? caller + (l.relationship ? ' (' + l.relationship + ')' : '') + (l.phone ? ' · ' + l.phone : '') + (l.email ? ' · ' + l.email : '') : '', '', 'family')

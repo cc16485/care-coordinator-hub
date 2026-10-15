@@ -111,7 +111,8 @@
     const by = { now:[], later:[], waiting:[] }; shown.forEach(x => by[x.r.group].push(x));
     const order = LB.filter === 'now' ? ['now'] : LB.filter === 'waiting' ? ['waiting'] : LB.filter === 'later' ? ['later'] : ['now', 'later', 'waiting'];
     if(LB.filter === 'missing' && !shown.length){ box.innerHTML = '<div class="card lb-group"><div class="lb-empty">Nothing is missing that the stage needs. <button class="linklike" onclick="lbFilter(\'All\')">Show everyone</button></div></div>'; return; }
-    box.innerHTML = order.map(k => groupHtml(k, by[k], today)).join('');
+    /* 2026-10-15: leads the old AI made, until each is filled from its calls */
+    box.innerHTML = (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '') + order.map(k => groupHtml(k, by[k], today)).join('');
   }
   function lbIn(x, f){
     if(LB.owner && first(x.r.owner) !== LB.owner) return false;
