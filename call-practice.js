@@ -14,6 +14,8 @@
    reader's last run is shown so a stopped reader is seen. PROMISES: every promise the office made, or a confirmation it is
    waiting on, with its due day, owner, and whether later calls, texts and cards show it kept (call_promise_watch). In
    practice "would remind" is only shown; nobody is reminded.
+   2026-10-14 MAKE THIS A LEAD (call-lead.js): every call card has Make this a lead / Open lead, and calls the reader calls
+   a "new client inquiry" that nobody has decided on are listed at the top. The AI only tags; a person decides.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -229,7 +231,7 @@
     if(CPR.msg) head += '<div class="field-note" style="margin:-4px 0 10px;">Showing one ' + (rows[0] && rows[0].channel === 'text' ? 'text conversation' : 'call') + '. <a href="#" onclick="CPR.openCall(\'\');return false;">Back to all</a></div>';
     if(CPR.filter === 'promises' && !CPR.msg){ wrap.innerHTML = intro + head + '<div class="field-note" style="margin:0 0 10px;">' + pLate + ' past due with no sign it was kept · ' + pOpen + ' still owed · ' + pKept + ' kept. Use the day box for promises due that day.</div>' + promisesView(); return; }
     if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls or texts in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
-    wrap.innerHTML = intro + head + rows.map(r => {
+    wrap.innerHTML = intro + head + (window.CallLead && !CPR.msg ? CallLead.waitingHtml(all) : '') + rows.map(r => {
       const d = r.detail || {};
       const who = r.match === 'one' ? esc(r.who_name || r.caller || 'Someone') + ((r.who_roles || []).length ? ' (' + (r.who_roles || []).map(x => esc(WHO[x] || x)).join(', ') + ')' : '')
         : r.match === 'several' ? esc(r.caller || 'Unknown') + ' <span class="field-note">(shared number)</span>' : esc(r.caller || 'Unknown number') + ' <span class="field-note">(not in our records)</span>';
@@ -251,6 +253,7 @@
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;"><b style="color:var(--navy);">' + who + '</b>'
         + '<span class="field-note">' + esc(when(r.call_at)) + ' · ' + (r.channel === 'text' ? 'texts' : (r.direction === 'in' ? 'they called' : 'we called') + ' · ' + esc(mins(r.seconds))) + ' · ' + esc(ROLE[r.call_type] || r.call_type || '') + '</span></div>'
         + (d.summary ? '<div style="font-size:13px;margin-top:6px;"><b>The call:</b> ' + esc(d.summary) + '</div>' : '')
+        + (window.CallLead ? CallLead.cardBar(r) : '')
         + (understood || promises ? '<div style="margin-top:6px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">WHAT IT UNDERSTOOD</div>' + understood + promises + '</div>' : '')
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">'
         + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">' + (live() ? 'WHAT THE AI PUT IN MY WORK' : 'WHAT THE AI WOULD DO') + '</div>' + mine + '</div>'
