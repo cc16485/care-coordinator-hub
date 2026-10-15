@@ -280,7 +280,7 @@
     }
     if(action === 'send_link'){
       body.why = val('drvWhy' + i) || 'renewal';
-      if(!confirm('Send ' + ((row && row.name) || 'the caregiver') + ' their secure driver link now, by text and email?')) return;
+      if(!(await ccConfirm('Send ' + ((row && row.name) || 'the caregiver') + ' their secure driver link now, by text and email?'))) return;
     }
     busy(btn, true);
     const r = await call(body);

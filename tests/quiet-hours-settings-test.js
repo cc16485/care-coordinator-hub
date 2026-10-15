@@ -25,7 +25,7 @@ function world(nowIso, ops = {}, answer = true) {
     Date: class extends Date { constructor(...a) { super(...(a.length ? a : [now])) } static now() { return now } },
     escapeHtmlComms: esc, DATA: { ops_settings: ops, coordinator_staff: [], timekeeper_cases: [] },
     document: { getElementById: el }, today: () => nowIso.slice(0, 10),
-    confirm: (t) => { asked.push(t); return answer },
+    confirm: (t) => { asked.push(t); return answer }, ccConfirm: async (t) => { asked.push(t); return answer },
     tkMerge: async (apply) => { const m = { ...ops }; const ch = apply(m, ops); merged.push(m); return { changed: ch, error: null } },
     tkAdminsNow: () => [],
   }

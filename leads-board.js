@@ -169,7 +169,7 @@
   }
   async function lbLost(id){
     const l = lead(id); if(!l) return;
-    const r = (typeof askLostReason === 'function') ? askLostReason(l) : null; if(!r) return;
+    const r = (typeof askLostReason === 'function') ? await askLostReason(l) : null; if(!r) return;
     Object.assign(l, r); window.LeadRules.setStatus(l, 'Lost', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:r.lost_reason });
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
@@ -195,7 +195,7 @@
   }
   async function lbBridge(id){
     const l = lead(id); if(!l) return; const now = new Date().toISOString(), a = (typeof ccActor === 'function') ? ccActor() : { email:'', name:'' };
-    if(!confirm('Record that ' + ((l.first_name || 'the family')) + ' was offered private-pay bridge hours while the state decides? (Nothing is sent; this is what you told them.)')) return;
+    if(!(await ccConfirm('Record that ' + ((l.first_name || 'the family')) + ' was offered private-pay bridge hours while the state decides? (Nothing is sent; this is what you told them.)'))) return;
     l.bridge_hours_offered_at = now; l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : []; l.comm_log.push({ body:'Offered private bridge hours while the state decides', at:now, by:a.email, kind:'bridge' });
     await persist('leads', l); redraw(); if(typeof ccToast === 'function') ccToast('Noted: bridge hours offered.');
   }

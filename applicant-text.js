@@ -130,7 +130,7 @@
     });
   }
   async function unhold(rowId) {
-    if (!confirm('Take this text back so it is not sent at 8am?')) return;
+    if (!(await ccConfirm('Take this text back so it is not sent at 8am?'))) return;
     try { const r = await call({ action: 'unhold', row_id: rowId }); toast(r.unheld ? 'Taken back. Nothing will be sent.' : 'It had already gone.'); load(); }
     catch (e) { alert('Could not take it back: ' + e.message); }
   }
@@ -156,10 +156,10 @@
     const ta = box.querySelector('#aptMsg'), sendIt = box.querySelector('#aptSendIt');
     const edited = { applicant: false, office: false }; let cur = 'applicant';
     ta.addEventListener('input', () => { edited[cur] = true; });
-    box.querySelectorAll('input[name=aptBy]').forEach((r) => r.addEventListener('change', () => {
+    box.querySelectorAll('input[name=aptBy]').forEach((r) => r.addEventListener('change', async () => {
       box.querySelectorAll('.apt-who label').forEach((l) => l.classList.toggle('on', l.querySelector('input').checked));
       const nxt = box.querySelector('input[name=aptBy]:checked').value;
-      if (!edited[cur] || confirm('Replace your edited message with the ' + (nxt === 'office' ? '"we need to cancel"' : '"as you asked"') + ' wording?')) { ta.value = d.drafts[nxt]; edited[nxt] = false; }
+      if (!edited[cur] || (await ccConfirm('Replace your edited message with the ' + (nxt === 'office' ? '"we need to cancel"' : '"as you asked"') + ' wording?'))) { ta.value = d.drafts[nxt]; edited[nxt] = false; }
       cur = nxt;
     }));
     sendIt.addEventListener('change', () => { ta.disabled = !sendIt.checked; });

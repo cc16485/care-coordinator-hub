@@ -935,7 +935,7 @@
   }
   async function suSetToggle(b){
     const on = !emailOn();
-    if(!confirm(on ? SU_EMAIL_ON : SU_EMAIL_OFF)) return;
+    if(!(await ccConfirm(on ? SU_EMAIL_ON : SU_EMAIL_OFF))) return;
     if(b) b.disabled = true;
     const out = typeof tkMerge === 'function' ? await tkMerge(mm => { mm.talk_email_live = on; return ['To talk about emails ' + (on ? 'ON' : 'OFF')]; }, 'To talk about emails') : { error:{ message:'the settings save is not on this page' } };
     if(b) b.disabled = false;

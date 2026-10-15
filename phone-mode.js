@@ -985,13 +985,13 @@
       show('today');
     } catch (e) { say('Not saved: ' + (e && e.message || e) + '. Nothing was changed.', 'bad'); btn.disabled = false; }
   }
-  function onIvTap(ev) {
+  async function onIvTap(ev) {
     var b = ev.target.closest && ev.target.closest('[data-iv],[data-ivk],[data-ivw]'); if (!b) return;
     if (b.hasAttribute('data-ivk')) { var k = b.getAttribute('data-ivk'), v = b.getAttribute('data-ivv'); IV.A[k] = IV.A[k] === v ? null : v; ivQuick(); ivDraftSave(); return; }
     if (b.hasAttribute('data-ivw')) { var g = b.getAttribute('data-ivw'); IV.A.works_with = IV.A.works_with || {}; IV.A.works_with[g] = !IV.A.works_with[g]; ivQuick(); ivDraftSave(); return; }
     var a = b.getAttribute('data-iv');
     if (a === 'back') {
-      if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording' && !confirm('You are still recording. Leave anyway? The recording stops, and what was recorded is kept on this phone.')) return;
+      if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording' && !(await ccConfirm('You are still recording. Leave anyway? The recording stops, and what was recorded is kept on this phone.'))) return;
       if (typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording') { try { recStop(); } catch (e) { /* stopped */ } }
       return show('today');
     }
@@ -1024,7 +1024,7 @@
   }
   async function copyText(text, btn) {
     var done = function () { var w = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(function () { btn.textContent = w; }, 1600); };
-    try { await navigator.clipboard.writeText(text); done(); } catch (e) { window.prompt('Copy this:', text); }
+    try { await navigator.clipboard.writeText(text); done(); } catch (e) { (await ccPrompt('Copy this:', text)); }
   }
   /* Phone notifications were built 2026-10-12 and taken out the same day (Samantha: "we are already getting the notification
      about missed clock ins and call ins, i dont want a general notification"). */
@@ -1079,7 +1079,7 @@
     if (a === 'copymsg') return copyText(moreMsg(), b);
     if (a === 'share') { try { await navigator.share({ text: moreMsg() }); } catch (e) { /* closed the share sheet */ } return; }
     if (a === 'hours') return copyText('https://cc.mo-care.com/availability', b);
-    if (a === 'out') { if (!confirm('Sign out of CC Office on this phone?')) return; return phSignOut(); }
+    if (a === 'out') { if (!(await ccConfirm('Sign out of CC Office on this phone?'))) return; return phSignOut(); }
     var out = document.getElementById('moInv'), send = document.querySelector('[data-mo="invsend"]');
     if (a === 'invprev') {
       var body = invBody('preview'); MORE.inv = null; if (send) send.disabled = true;

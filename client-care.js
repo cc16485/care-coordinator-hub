@@ -167,7 +167,7 @@
     const row = document.querySelector('.cc-check [data-how="' + key + '"]'), how = row ? row.value.trim() : '';
     const onEl = document.querySelector('.cc-check [data-on="' + key + '"]'), fileEl = document.querySelector('.cc-check [data-file="' + key + '"]');
     let note = '';
-    if(state === 'not_needed'){ note = (window.prompt && window.prompt('Why isn\'t this step needed?')) || ''; if(!note.trim()) return; }
+    if(state === 'not_needed'){ note = (window.prompt && (await ccPrompt('Why isn\'t this step needed?'))) || ''; if(!note.trim()) return; }
     const files = [];
     if(fileEl && fileEl.files && fileEl.files[0]){
       try{ const u = await call({ action:'care_upload_url', change_id:changeId, item:key, name:fileEl.files[0].name });
@@ -180,7 +180,7 @@
   }
   /* SLICE 9 (Samantha "yes to all", 2026-10-11): a recorded step reopens only with a reason; the server keeps what it said */
   async function reopen(changeId, key){
-    const why = (window.prompt && window.prompt('Why is this step being reopened? What it says now is kept on the record.')) || '';
+    const why = (window.prompt && (await ccPrompt('Why is this step being reopened? What it says now is kept on the record.'))) || '';
     if(!why.trim()) return;
     let out; try{ out = await call({ action:'care_checklist', change_id:changeId, item:key, state:'open', reason:why.trim() }); }catch(e){ out = { error:e.message }; }
     if(out && out.error){ if(typeof ccToast === 'function') ccToast(out.error); else alert(out.error); return; }

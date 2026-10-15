@@ -294,7 +294,7 @@
       }, '✓ Step changed');
     };
     el.querySelector('#pjERm').onclick = async () => {
-      if(!confirm('Take "' + s.label + '" off this project? It stays in the project’s history.')) return;
+      if(!(await ccConfirm('Take "' + s.label + '" off this project? It stays in the project’s history.'))) return;
       ccPopClose();
       await mutate(id, x => { const k = steps(x).findIndex(y => y.id === sid); if(k < 0) return false; const t = x.steps.splice(k, 1)[0]; return 'Step taken off: ' + t.label; }, '✓ Step taken off');
     };

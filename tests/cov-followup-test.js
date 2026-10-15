@@ -28,7 +28,7 @@ function world(c, opts){
     sb:{ auth:{ getSession:async()=>({ data:{ session:{ access_token:'tok' } } }) }, from:()=>({ select:()=>({ eq:()=>({ maybeSingle:async()=>({ data:{ data:[Object.assign({},c,{followups:(c.followups||[]).concat([{id:'fuN',at:'2026-10-09T22:00:00Z',ask_ids:['a1'],names:['Elizabeth Johns']}])})] } }) }) }) }) },
     fetch:async(url,o)=>{ posted.push({url,body:JSON.parse(o.body)}); return { ok:!opts.fail, json:async()=>opts.fail?{error:'held: night'}:{ sent:['Elizabeth Johns'], failed:['Emma Daum (the text was refused; see Send problems)'], skipped:[] } }; },
     opEvent:(v,o)=>events.push([v,o]), renderCoverage:()=>{rendered++;}, ccActor:()=>({name:'Samantha'}),
-    alert:m=>alerted.push(m), confirm:m=>{ confirmMsg=m; return opts.decline?false:true; }, setTimeout:(f)=>f(),
+    alert:m=>alerted.push(m), confirm:m=>{ confirmMsg=m; return opts.decline?false:true; }, ccConfirm:async m=>{ confirmMsg=m; return opts.decline?false:true; }, setTimeout:(f)=>f(),
     Date, String, Object, Array, JSON, console, Math };
   const vm=require('vm'); vm.createContext(ctx);
   vm.runInContext(src+'\nthis.X={covFollowCandidates,covFollowUpsFor,covFollowDefaults,covFollowOpen,covFollowPreset,covFollowClose,covFollowSend,covAskRow};',ctx);

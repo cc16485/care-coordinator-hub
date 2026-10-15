@@ -186,11 +186,11 @@
     document.querySelectorAll('[data-clib-toggle]').forEach(el => el.onclick = () => { const k = el.getAttribute('data-clib-toggle'); S.open[k] = !S.open[k]; render(); });
     document.querySelectorAll('[data-clib-play]').forEach(b => b.onclick = () => { const k = b.getAttribute('data-clib-play'); S.playing[k] = !S.playing[k]; render(); });
     document.querySelectorAll('[data-clib-ok]').forEach(b => b.onclick = () => { const [t, v] = find(b.getAttribute('data-clib-ok')); if (t && v) review(t.key, v.url, 'approve'); });
-    document.querySelectorAll('[data-clib-rm]').forEach(b => b.onclick = () => { const [t, v] = find(b.getAttribute('data-clib-rm'));
-      if (t && v && confirm('Remove "' + v.title + '" from "' + t.title + '"?')) review(t.key, v.url, 'remove'); });
+    document.querySelectorAll('[data-clib-rm]').forEach(b => b.onclick = async () => { const [t, v] = find(b.getAttribute('data-clib-rm'));
+      if (t && v && (await ccConfirm('Remove "' + v.title + '" from "' + t.title + '"?'))) review(t.key, v.url, 'remove'); });
     document.querySelectorAll('[data-clib-topic-ok]').forEach(b => b.onclick = () => review(b.getAttribute('data-clib-topic-ok'), null, 'approve'));
-    document.querySelectorAll('[data-clib-topic-rm]').forEach(b => b.onclick = () => { const t = S.list.find(x => x.key === b.getAttribute('data-clib-topic-rm'));
-      if (t && confirm('Remove the topic "' + t.title + '"? Packets that already have it keep it.')) review(t.key, null, 'remove'); });
+    document.querySelectorAll('[data-clib-topic-rm]').forEach(b => b.onclick = async () => { const t = S.list.find(x => x.key === b.getAttribute('data-clib-topic-rm'));
+      if (t && (await ccConfirm('Remove the topic "' + t.title + '"? Packets that already have it keep it.'))) review(t.key, null, 'remove'); });
     document.querySelectorAll('[data-clib-edit]').forEach(b => b.onclick = () => { const t = S.list.find(x => x.key === b.getAttribute('data-clib-edit')); if (!t) return;
       S.edit = { key: t.key, is_new: false, title: t.title, category: t.category || 'other', flag: t.flag || '', notes: t.notes || '', videos: (t.videos || []).map(v => Object.assign({}, v)) }; S.err = ''; render(); window.scrollTo(0, 0); });
     const nw = $('clib_new'); if (nw) nw.onclick = () => { S.edit = { key: '', is_new: true, title: '', category: S.filter && GROUPS.some(g => g[0] === S.filter) ? S.filter : 'other', flag: '', notes: '', videos: [{ title: '', url: '', publisher: '', minutes: '' }] }; S.err = ''; render(); };

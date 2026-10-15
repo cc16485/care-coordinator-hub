@@ -288,7 +288,7 @@
   }
   async function vcToggle(btn){
     const on = !(((DATA.ops_settings || {}).visit_change_live) === true);
-    if(!confirm(on ? VCQ : VCQ_OFF)) return;
+    if(!(await ccConfirm(on ? VCQ : VCQ_OFF))) return;
     if(btn) btn.disabled = true;
     const out = await tkMerge(m => { m.visit_change_live = on; return ['changing visits from the Live Schedule ' + (on ? 'ON' : 'OFF')]; }, 'Live Schedule');
     if(!out.error){ DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { visit_change_live:on }); VC.live = null; VC.reasons = null; }

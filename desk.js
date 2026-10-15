@@ -409,7 +409,7 @@
   }
   async function repeatStop(rid){
     const r = repById(rid); if(!r || !canRule(r)) return;
-    if(!confirm('Stop "' + r.body + '" from repeating? The lines already on pages stay.')) return;
+    if(!(await ccConfirm('Stop "' + r.body + '" from repeating? The lines already on pages stay.'))) return;
     await repSave({ id:r.id, patch:{ active:false } }, false); render(); say('Stopped repeating');
   }
   function repeatsHtml(){
@@ -1681,7 +1681,7 @@
   const TELL_OFF = 'Turn off texting kind words to caregivers? Tell still shows the words; nothing can be sent.';
   async function dkTellToggle(btn){
     const on = !((DATA.ops_settings || {}).kind_tell_live === true);
-    if(!confirm(on ? TELL_ON : TELL_OFF)) return;
+    if(!(await ccConfirm(on ? TELL_ON : TELL_OFF))) return;
     if(btn) btn.disabled = true;
     const out = await tkMerge(m => { m.kind_tell_live = on; return ['texting kind words ' + (on ? 'ON' : 'OFF')]; }, 'My Desk settings');
     if(btn) btn.disabled = false;
@@ -1700,7 +1700,7 @@
   async function dkKindToggle(btn){
     const on = !((DATA.ops_settings || {}).kind_words_suggest_live === true);
     if(on && (DATA.ops_settings || {}).care_notes_flag_live !== true){ alert("Can't turn this on yet: shift-note flags are not running."); return; }
-    if(!confirm(on ? KIND_ON : KIND_OFF)) return;
+    if(!(await ccConfirm(on ? KIND_ON : KIND_OFF))) return;
     if(btn) btn.disabled = true;
     let refused = false;
     const out = await tkMerge(m => { if(on && m.care_notes_flag_live !== true){ refused = true; return []; } m.kind_words_suggest_live = on; return [on ? 'kind words from shift notes ON' : 'kind words from shift notes OFF']; }, 'My Desk settings');

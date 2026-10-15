@@ -169,7 +169,7 @@
     },
     resolve: async function (taskId, rid) {
       var t = task(taskId); if (!t) return;
-      var note = prompt('Mark this follow-up resolved?\n\n"' + t.title + '"\n\nA short note on what you found:', '');
+      var note = (await ccPrompt('Mark this follow-up resolved?\n\n"' + t.title + '"\n\nA short note on what you found:', ''));
       if (note === null) return;
       try { if (typeof opsCloseCommit === 'function') await opsCloseCommit(t, note.trim()); else { t.status = 'done'; t.close_note = note.trim(); await persist('ops_items', t); } }
       catch (e) { alert('Could not mark it resolved: ' + (e && e.message || e)); }
@@ -194,11 +194,11 @@
     hold: async function (applicantId, on) {
       var patch;
       if (on) {
-        var why = prompt('Put a legal hold on this person\'s interview records?\n\nWhile it is on, nothing of theirs (transcripts, observations, AI reviews) is deleted. Use it when a complaint, charge or lawsuit is possible or filed. Also hold anyone else who applied for the same job.\n\nWhy (kept with the hold):', '');
+        var why = (await ccPrompt('Put a legal hold on this person\'s interview records?\n\nWhile it is on, nothing of theirs (transcripts, observations, AI reviews) is deleted. Use it when a complaint, charge or lawsuit is possible or filed. Also hold anyone else who applied for the same job.\n\nWhy (kept with the hold):', ''));
         if (why === null) return;
         patch = { records_hold_at: new Date().toISOString(), records_hold_by: who() || null, records_hold_reason: String(why).trim() || null };
       } else {
-        if (!confirm('Lift the legal hold? The 2-year clean-up will apply to their interview records again.')) return;
+        if (!(await ccConfirm('Lift the legal hold? The 2-year clean-up will apply to their interview records again.'))) return;
         patch = { records_hold_at: null, records_hold_by: null, records_hold_reason: null };
       }
       var up = await sb.from('job_applicants').update(patch).eq('id', applicantId);

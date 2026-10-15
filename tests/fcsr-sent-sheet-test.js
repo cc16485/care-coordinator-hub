@@ -21,12 +21,13 @@ ok(/obFcsrSent\(9\)">Mark as sent to the state/.test(r) && />Pending<\/span>/.te
 r = row(x.obChecksHtml({ id: 9, fcsr: 'Clear', fcsr_date: '2026-10-14', fcsr_sent_date: '2026-10-09', fcsr_proof: 'f.pdf' }));
 ok(/>Clear<\/span>/.test(r) && /sent 10\/09\/2026, back in 5 days/.test(r) && !/obFcsrSent/.test(r), 'the result in: sent date kept, how long it took');
 
-const f = cut(ENG, 'function obFcsrSent(candId){', 'window.obFcsrSent = obFcsrSent;');
-const run = answer => { const calls = []; const c = { candidates: [{ id: 9 }], prompt: () => answer, alert: m => calls.push(['alert', m]), bgrApplyBoardChange: (id, ch) => calls.push(['save', id, ch]), Date, String, isNaN };
-  vm.createContext(c); vm.runInContext(f, c); c.obFcsrSent(9); return calls; };
-let k = run(iso(2)); ok(k[0][0] === 'save' && k[0][2].fcsr_sent_date === iso(2) && 'fcsr_sent_at' in k[0][2], 'saves the sent date with who and when');
-ok(run('10/09/2026')[0][0] === 'alert' && run(iso(-3))[0][0] === 'alert', 'a wrong or future date is refused');
-ok(run(null).length === 0, 'Cancel saves nothing');
+const f = cut(ENG, 'async function obFcsrSent(candId){', 'window.obFcsrSent = obFcsrSent;');
+const run = answer => { const calls = []; const c = { candidates: [{ id: 9 }], prompt: () => answer, ccPrompt: async () => answer, alert: m => calls.push(['alert', m]), bgrApplyBoardChange: (id, ch) => calls.push(['save', id, ch]), Date, String, isNaN };
+  vm.createContext(c); vm.runInContext(f, c); return c.obFcsrSent(9).then(() => calls); };
+(async () => {
+let k = await run(iso(2)); ok(k[0][0] === 'save' && k[0][2].fcsr_sent_date === iso(2) && 'fcsr_sent_at' in k[0][2], 'saves the sent date with who and when');
+ok((await run('10/09/2026'))[0][0] === 'alert' && (await run(iso(-3)))[0][0] === 'alert', 'a wrong or future date is refused');
+ok((await run(null)).length === 0, 'Cancel saves nothing');
 
 const desk = cut(ENG, 'function sdRender(){', 'async function sdReveal(');
 ok(/1 · Run their screening/.test(desk) && /Employer Background Screening Request/.test(desk) && /Worker Registration, MO 580-2421 \(10-2026\)/.test(desk), 'the sheet follows the two state forms');
@@ -40,3 +41,4 @@ ok(/async function sdCopyText\(btn\)/.test(ENG) && /window\.sdCopyText = sdCopyT
 ok(!/—/.test(cut(ENG, '2026-10-14 (Samantha: "have all', '  h += \'<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0">')) && !/—/.test(f), 'no em dashes');
 console.log(`fcsr-sent-sheet: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+})();

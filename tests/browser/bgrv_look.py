@@ -20,7 +20,7 @@ async function sendCandidateSMS(){ return {}; }
 function obDeriveStatus(c){ return globalThis.CCElig.obDeriveStatus(c); }
 """ + cut('/* ── BACKGROUND REVIEW: "Something came up"', '/* Record a single background check (EDL / FCSR / Fingerprint)') \
     + cut('function bgrApplyBoardChange(candId, changes){', '// ── ORIENTATION INVITE') \
-    + cut('async function confirmNotHire(){', 'function reactivateOB(id){')
+    + cut('async function confirmNotHire(){', 'async function reactivateOB(id){')
 T = r"""
 async([W, CODE])=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,900)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));

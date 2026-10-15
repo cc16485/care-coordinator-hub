@@ -12,7 +12,7 @@ ck('the Starting soon card shows the signing link line only for an offer on the 
 ck('the line says the link dies with the offer and shows the expiry in Central time', /dies with the offer/.test(card) && /timeZone:'America\/Chicago'/.test(card));
 ck('a signed offer says so instead of offering the link again', /both documents signed ✓/.test(card) && /offer signed, position description not yet/.test(card));
 ck('a withdrawn offer shows no button', /o\.offer_withdrawn_at\?'':'<button[^>]*offerSignLink/.test(card));
-const fn = js.slice(js.indexOf('async function offerSignLink('), js.indexOf('function offerCopyLink('));
+const fn = js.slice(js.indexOf('async function offerSignLink('), js.indexOf('async function offerCopyLink('));
 ck('the link is made by the Hub server from the offer\'s own expiry, in seconds', /appLinkMint\(\{ kind: 'offer', offer_id: String\(o\.id\), exp: expSec \}\)/.test(fn) && /Math\.floor\(Date\.parse\(o\.offer_expires_at\) \/ 1000\)/.test(fn));
 ck('no expiry ahead means no link, with a plain explanation', /expSec \* 1000 < Date\.now\(\)/.test(fn) && /no link can be made/.test(fn));
 ck('the box offers Copy only: no text, no email, nothing sent from here', /offerCopyLink/.test(fn) && !/sms:/.test(fn) && !/mailto:/.test(fn) && /nothing is sent from here/.test(fn));

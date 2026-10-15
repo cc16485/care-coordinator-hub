@@ -172,7 +172,7 @@
     const sw = SW[k]; if(!sw) return;
     const st = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, on = st[k] !== true;
     if(on && sw.needs && st[sw.needs] !== true){ alert('Can\'t turn this on yet: ' + sw.needsWhy + '.'); return; }
-    if(!confirm(on ? sw.on : sw.off)) return;
+    if(!(await ccConfirm(on ? sw.on : sw.off))) return;
     if(btn) btn.disabled = true;
     let refused = false;
     const out = typeof tkMerge === 'function' ? await tkMerge(m => { if(on && sw.needs && m[sw.needs] !== true){ refused = true; return []; }

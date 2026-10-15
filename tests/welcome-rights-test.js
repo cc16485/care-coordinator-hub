@@ -19,7 +19,7 @@ function world(opts = {}) {
   const calls = [], asks = [], alerts = [];
   const ctx = { console, Date, JSON, Promise, String, Object, Array, Error, Set,
     candidates: [], caregivers: [], window: {}, personName: (k, l) => l, cgpBtnHtml: () => '',
-    confirm: (m) => { asks.push(m); return true; }, alert: (m) => alerts.push(m),
+    confirm: (m) => { asks.push(m); return true; }, ccConfirm: async (m) => { asks.push(m); return true; }, alert: (m) => alerts.push(m),
     wcCall: async (b) => { calls.push(b); if (opts.refuse && b.action === 'done' && !b.rights_explained) throw new Error(opts.refuse); return { ok: true }; },
     wcLoad: async () => {}, wcAddToRoster: async () => ({ status: 'added' }), wcRosterMsg: () => 'Added.', wcOrientCall: async () => ({ status: 'sent', sms: true }), wcOrientMsg: () => 'Link sent.', wcSrcFor: () => null };
   vm.createContext(ctx);

@@ -546,7 +546,7 @@
   }
   async function undoYes(leadId, btn, reason){
     const l = (DATA.leads || []).find(x => String(x.id) === String(leadId)); if(!l) return;
-    if(!reason){ reason = prompt('Undo "They said yes" for ' + cpNameOf(l) + '? Say why, in a few words:'); if(reason == null) return; }
+    if(!reason){ reason = (await ccPrompt('Undo "They said yes" for ' + cpNameOf(l) + '? Say why, in a few words:')); if(reason == null) return; }
     if(btn) btn.disabled = true;
     let d; try{ d = await call({ action:'undo_yes', lead_id:String(leadId), reason:String(reason || '') }); }catch(e){ d = { error:e.message }; }
     if(btn) btn.disabled = false;
@@ -787,7 +787,7 @@
   }
   async function setToggle(b){
     const on = !(((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).client_journey_live === true);
-    if(!confirm(on ? CJ_ON : CJ_OFF)) return;
+    if(!(await ccConfirm(on ? CJ_ON : CJ_OFF))) return;
     if(b) b.disabled = true;
     const out = await tkMerge(m => { m.client_journey_live = on; return ['client journeys ' + (on ? 'ON' : 'OFF')]; }, 'Client journeys');
     if(b) b.disabled = false;
