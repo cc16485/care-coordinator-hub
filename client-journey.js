@@ -67,7 +67,8 @@
     CJ.data = d; compute(); drawPath();
     if(!d.journey){ head.innerHTML = startHtml(lead, ax, testLead); wireStart(lead, ax, testLead);
       /* live: the journey is the only way to start; the older checklist shows only for someone who already has one */
-      if(live() && !(lead && lead.soc)){ const el = document.getElementById('lp_soc_body'); if(el) el.style.display = 'none'; }
+      /* CRM plan step A6 (2026-10-15): the old Start of Care checklist is retired; nobody new gets one, so its whole card steps aside */
+      if(live() && !(lead && lead.soc)) ['lp_soc_body', 'lp_soc_card'].forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
       return; }
     if(CJ.focus){ const f = CJ.focus; CJ.focus = null; if(rowOf(f)) CJ.sel = f; }
     render();
@@ -75,7 +76,7 @@
   /* while a journey speaks for this person, the older checklists, the older stage path and the older stage chip step
      aside, so two progress systems never show at once */
   function showOld(on){
-    ['lp_soc_body', 'cp_launch', 'cpcPath'].concat(on || !CJ.oldOpen ? ['lp_head_card', 'lp_ai_card'] : []).forEach(id => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
+    ['lp_soc_body', 'lp_soc_card', 'cp_launch', 'cpcPath'].concat(on || !CJ.oldOpen ? ['lp_head_card', 'lp_ai_card'] : []).forEach(id => { const el = document.getElementById(id); if(el) el.style.display = on ? '' : 'none'; });
     const chips = document.getElementById('cpChips'), st = chips && chips.querySelector('.tag-chip[title]');
     if(st) st.style.display = on ? '' : 'none';
   }
