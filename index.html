@@ -5248,6 +5248,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- Gate 1a: who they are in one line (age, town, AxisCare's own status, payer). Computed, never typed. -->
   <div id="cpFacts" class="cpx-facts"></div>
   <!-- CLIENT JOURNEY (Stages 1-3, 2026-10-06): stage, rail, NEXT REQUIRED STEP and Coming next, on every tab. client-journey.js -->
+  <div id="cpPath"></div><!-- ONE PATH stage 1 (2026-10-15): the stage words and the four tracks, every tab. client-journey.js -->
   <div id="ccCare"></div><!-- Pause care / End care (client-care.js) -->
   <div id="ccReview"></div><!-- Google review asks (review-ask.js) -->
   <div id="cjHead"></div>
@@ -7144,7 +7145,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=14"></script>
+<script src="client-journey.js?v=15"></script>
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
@@ -7161,7 +7162,7 @@ The HomeTogether team</pre>
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=4"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=5"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=5"></script>
@@ -12251,6 +12252,8 @@ async function saveLead(opts){
   if(idx>=0) Object.assign(DATA.leads[idx], merged); else DATA.leads.push(merged);
   await persist('leads', merged);
   if(fromCall) CallLead.afterSave(merged, fromCall);
+  /* ONE PATH stage 1 (her rule 2026-10-15): a real lead's journey starts as soon as it is saved (not spam, test or CDS) */
+  if(idx<0&&typeof cjAutoOpen==='function') cjAutoOpen(merged);
   if(jcAfter){
     const res=await jcConnect(merged, newAx, 'typed', jcAfter.name);
     if(typeof ccToast==='function') ccToast((res.ok?'✓ ':'')+res.text); else alert(res.text);
@@ -34612,6 +34615,12 @@ function opsReconcileLeads(){
       it.owner_name = it.owner ? opsOwnerName(it.owner) : '';
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
+    /* ONE PATH stage 1 (2026-10-15): an inquiry card that was handed to a journey while the lead was still New (before
+       journeys started on save) comes back, so the first call is never left without a card */
+    if(it&&it.status==='done'&&it.closed_by==='journey'&&String(l.status||'New')==='New'&&opsLeadUntouched(l)&&!l.archived){
+      it.status='open'; it.reopened_at=new Date().toISOString(); delete it.closed_at; delete it.closed_by; delete it.auto_closed_reason;
+      opsLeadLog(it,'Back with the inquiry card: nobody has talked to them yet'); touched.set(it.id,it);
+    }
 
     /* ONE EVOLVING ITEM FOR THE WHOLE ENQUIRY.
        This used to close the moment last_contacted_at appeared, which treated
@@ -34631,7 +34640,9 @@ function opsReconcileLeads(){
       /* ONE CARD PER FAMILY (clean-up 6.1, 2026-10-07): once a client journey carries this family (journeys live, not a
          TEST), its card is the family's one card and the inquiry card hands over. */
       let jr=null; try{ jr=(typeof cjJourneyFor==='function')?cjJourneyFor({ lead:l }):null; }catch(e){}
-      if(jr&&!jr.is_test&&jr.status!=='closed'){
+      /* ONE PATH stage 1 (2026-10-15): journeys now start when a lead is saved, but while the lead is still New this card
+         and its first-call clock carry the family; the hand-over waits until someone has talked to them */
+      if(jr&&!jr.is_test&&jr.status!=='closed'&&st!=='New'){
         it.status='done'; it.closed_at=new Date().toISOString(); it.closed_by='journey'; it.auto_closed_reason='The client journey card carries this family now';
         opsLeadLog(it,'Handed over to the client journey card'); touched.set(it.id,it); return;
       }

@@ -96,7 +96,7 @@ async()=>{
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('T1','summary'); await sleep(400);
   ok('an owner on a TEST client sees "Start a TEST journey"', /Start a TEST journey/.test(H().innerText), H().innerText);
   document.getElementById('cjStartBtn').click(); await sleep(500);
-  ok('started: one line (payer, who is the Care Coordinator, start date) and one progress bar', /Medicaid IHS \/ HCBS/.test(H().innerText) && /Angie is their Care Coordinator/.test(H().innerText) && /Start not set/.test(H().innerText) && !!H().querySelector('.cj-prog') && /Intake · then Pre-checks/.test(H().innerText), H().innerText);
+  ok('started: one line (payer, who is the Care Coordinator, start date) and one progress bar', /Medicaid IHS \/ HCBS/.test(H().innerText) && /Angie is their Care Coordinator/.test(H().innerText) && /Start not set/.test(H().innerText) && !!document.querySelector('#cpPath .cj-path-bar') && /Talking/.test(document.querySelector('#cpPath .cj-path-now').textContent) && document.querySelectorAll('#cpPath .cj-path-t').length===4, [H().innerText, document.getElementById('cpPath').innerText]);  /* One Path stage 1: the Path card replaces the progress bar */
   ok('...no row of ten stage chips on top (they are under See every step)', !H().querySelector('.cj-rail'));
   ok('the next step says whose it is and exactly what is missing: Home address, with an Add button (no Check now while something is missing)', next() && /Next for Angie/.test(next().innerText) && /Confirm the client's basics/.test(next().innerText) && /Home address/.test(next().innerText) && !!next().querySelector('.cj-add') && next().querySelectorAll('.cj-need li.ok').length===3 && !btn(next(),'check'), next()&&next().innerText);
   ok('...no "Also ready" or "Coming next" lists; "See every step" says 1 more is ready; everything else waits behind "Can\'t do this yet"', !/also ready now/i.test(H().innerText) && !/coming next/i.test(H().innerText) && /See every step \(1 more ready now\)/.test(H().innerText) && !btn(next(),'wait-open') && !!next().querySelector('.cj-cant'), H().innerText);
@@ -133,7 +133,7 @@ async()=>{
   ok('...ticked: done; Count the prior 21-day notices is next', next().dataset.step==='med.notices');
   // hard stop
   set('count',2); btn(next(),'complete').click(); await sleep(500);
-  ok('2 prior notices: STOP. The step turns red with the owner-exception words; the progress bar turns red, "Stopped at Pre-checks"', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && !!H().querySelector('.cj-bar-stop') && /Stopped at Pre-checks/.test(H().innerText), next().innerText);
+  ok('2 prior notices: STOP. The step turns red with the owner-exception words; the progress bar turns red, "Stopped at Pre-checks"', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && /PAPERWORK[\s\S]*\(blocked\)/.test(document.getElementById('cpPath').innerText) && /Stopped at/.test(H().innerText), [next().innerText, document.getElementById('cpPath').innerText]);
   ok('...the Care Coordinator has no exception button', !btn(next(),'exc-open'));
   ok('...the top says plainly that it stopped, not "Done"', /Stopped at "Count the prior 21-day notices"/.test(H().innerText) && !/✓ Done: Count the prior/.test(H().innerText), H().innerText.slice(0,500));
   ok('...the older stage path and stage chip step aside (one progress system on screen)', document.getElementById('cpcPath').style.display==='none');
@@ -181,7 +181,7 @@ async()=>{
   const f3=next().querySelector('[data-upload]'); const d3=new DataTransfer(); d3.items.add(new File(['x'],'careplan.pdf',{type:'application/pdf'})); f3.files=d3.files; f3.dispatchEvent(new Event('change')); await sleep(400);
   btn(next(),'complete').click(); await sleep(500);
   set('decision','assess'); btn(next(),'complete').click(); await sleep(500);
-  ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the bar), with its own "Book the assessment visit" button on the step', next().dataset.step==='asmt.book' && /^Assessment/.test(H().querySelector('.cj-prog-t').textContent) && /Book the assessment visit/.test(next().innerText), [H().querySelector('.cj-prog-t').textContent, next().innerText]);
+  ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the bar), with its own "Book the assessment visit" button on the step', next().dataset.step==='asmt.book' && /^Assessment/.test(document.querySelector('#cpPath .cj-path-now').textContent) && /CARE[\s\S]*Book/i.test(document.getElementById('cpPath').innerText) && /Book the assessment visit/.test(next().innerText), [document.getElementById('cpPath').innerText, next().innerText]);
   ok('one card: the lead card and the AI summary are put away; the links at the bottom open them', document.getElementById('lp_head_card').style.display==='none' && document.getElementById('lp_ai_card').style.display==='none' && /Edit intake form/.test(H().innerText) && /AI summary/.test(H().innerText) && /More…/.test(H().innerText));
   ok('before the family says yes, the Leads workspace speaks on the Overview and the journey card steps aside there', document.getElementById('cjHead').style.display==='none' || !document.getElementById('lwHost') || document.getElementById('lwHost').style.display==='none');
   [...H().querySelectorAll('.cj-every .linklike')].find(b=>/More…/.test(b.textContent)).click(); await sleep(150);
@@ -258,6 +258,21 @@ async()=>{
   ok('live: a lead with no journey offers "Start the journey", and the older "Begin Start of Care" is gone', /Start the journey/.test(H().innerText) && document.getElementById('lp_soc_body').style.display==='none', [H().innerText, document.getElementById('lp_soc_body').style.display]);
   await openLeadProfile('S1','start'); await sleep(500);
   ok('...someone who already has an older checklist still sees it', document.getElementById('lp_soc_body').style.display!=='none');
+  /* ONE PATH stage 1 (2026-10-15): a real lead's journey starts when it is saved; the Path card on top */
+  DATA.leads.push({ id:'N10', client_first_name:'Opal', client_last_name:'Saved', funding_source:'private', status:'New' }, { id:'N11', client_first_name:'Spam', client_last_name:'Bot', status:'New', spam:{ at:'2026-10-14' } },
+    { id:'N12', client_first_name:'Cee', client_last_name:'Dee', funding_source:'cds', status:'New' });
+  await cjAutoOpen(DATA.leads.find(x=>x.id==='N10')); await cjAutoOpen(DATA.leads.find(x=>x.id==='N11')); await cjAutoOpen(DATA.leads.find(x=>x.id==='N12'));
+  ok('Path: a real lead\'s journey starts as soon as it is saved; spam and CDS do not', window.__svc.journeys.some(j=>j.lead_id==='N10') && !window.__svc.journeys.some(j=>j.lead_id==='N11'||j.lead_id==='N12'), window.__svc.journeys.map(j=>j.lead_id));
+  await openLeadProfile('N10','summary'); await sleep(500);
+  const P=()=>document.getElementById('cpPath');
+  ok('Path: on top of the profile, the stage words with New lit (nobody has talked to them yet) and four tracks', /New/.test(P().querySelector('.cj-path-now').textContent) && P().querySelectorAll('.cj-path-t').length===4
+     && /CARE[\s\S]*PAPERWORK[\s\S]*TEAM[\s\S]*SCHEDULE/.test(P().innerText), P().innerText);
+  ok('...each track says where it stands or what starts it', /Starts with:/.test(P().innerText), P().innerText);
+  ok('...the old progress bar is gone (the stage is said once)', !H().querySelector('.cj-prog'));
+  const teamT=[...P().querySelectorAll('.cj-path-t')].find(b=>/TEAM/.test(b.innerText)); teamT.click(); await sleep(300);
+  ok('...clicking a track opens its step on Start of Care', /team\./.test((next()||{dataset:{}}).dataset.step||'') && document.querySelector('[data-cp-pane="start"]').offsetParent!==null, (next()||{dataset:{}}).dataset.step);
+  await openLeadProfile('S1','start'); await sleep(400);
+  ok('...and it follows the profile you open (the Path is redrawn for each person)', !/Opal/.test(P().innerText) && P().querySelectorAll('.cj-path-w').length===5);
   sb.from=ofrom; DATA.ops_settings.client_journey_live=false;
 
   // settings: the switch and who gets which payer
