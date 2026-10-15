@@ -14,9 +14,10 @@ MORE = r"""
   DATA.leads.push({ id:'sh1', first_name:'Ann', last_name:'Shared', client_first_name:'Bea', client_last_name:'Shared', status:'New', phone:'4175550300', created_at:'2026-10-06T14:00:00Z', funding_source:'private', assigned_coordinator:'Krystal' },
     { id:'sh2', first_name:'Al', last_name:'Shared', client_first_name:'Cy', client_last_name:'Shared', status:'New', client_phone:'4175550300', created_at:'2026-10-06T14:05:00Z', funding_source:'private', assigned_coordinator:'Krystal' });
   window.__seen={ practice:[
-      { message_id:'p1', mode:'practice', msg_at:'2026-10-06T14:40:00Z', kind:'call', status:'would_record', lead_id:'dia', line:'☎ Krystal called them, 11 min' },
-      { message_id:'p2', mode:'practice', msg_at:'2026-10-06T14:48:00Z', kind:'sms', status:'would_record', lead_id:'dia', line:'💬 They texted: "Thursday works"' },
-      { message_id:'p3', mode:'practice', msg_at:'2026-10-06T13:12:00Z', kind:'call', status:'already', lead_id:'dia', line:'☎ Krystal called, reached voicemail' },
+      { message_id:'p1', mode:'practice', msg_at:'2026-10-06T14:40:00Z', kind:'call', status:'would_record', lead_id:'dia', line:'☎ Krystal called them, 11 min', contact_name:'Diane Teague', matched_on:'phone', ev:{ direction:'out' } },
+      { message_id:'p2', mode:'practice', msg_at:'2026-10-06T14:48:00Z', kind:'sms', status:'would_record', lead_id:'dia', line:'💬 They texted: "Thursday works"', contact_name:'Bob Stranger', matched_on:'phone', ev:{ direction:'in' } },
+      { message_id:'p2b', mode:'practice', msg_at:'2026-10-06T14:49:00Z', kind:'sms', status:'would_record', lead_id:'dia', line:'💬 They texted: "Thursday works"', contact_name:'Diane Teague', matched_on:'client_phone', ev:{ direction:'in' } },
+      { message_id:'p3', mode:'practice', msg_at:'2026-10-06T13:12:00Z', kind:'call', status:'already', lead_id:'dia', line:'☎ Krystal called, reached voicemail', contact_name:'Diane Teague', matched_on:'phone', ev:{ direction:'out' } },
       { message_id:'p4', mode:'practice', msg_at:'2026-10-06T14:50:00Z', kind:'call', status:'several', candidates:['sh1','sh2'], line:'☎ They called, Krystal answered, 3 min' }],
     live:[{ message_id:'s1', mode:'live', msg_at:'2026-10-06T14:50:00Z', kind:'call', status:'several', candidates:['sh1','sh2'], line:'☎ They called, Krystal answered, 3 min',
         ev:{ channel:'call', direction:'in', outcome:'connected', actor:'human', by:'krystal@mo-care.com', duration_s:180, ref:'ghl:s1', at:'2026-10-06T14:50:00Z' } },
@@ -43,9 +44,17 @@ async()=>{
   /* PRACTICE */
   DATA.ops_settings.lead_record_since='2026-10-01T00:00:00Z'; DATA.ops_settings.lead_record_live=false; await LeadRecorder.load(true); await draw();
   const card=B().querySelector('.lr-card');
-  ok('practice: the board shows what it would have recorded, with the counts', card && /Practice: calls and texts recording themselves/.test(card.innerText) && /would have recorded 2 on 1 family, 1 already logged by hand, 1 on a shared number/.test(card.innerText), card && card.innerText.slice(0,500));
+  ok('practice: the board shows the check, with the counts', card && /Practice: check before switching on/.test(card.innerText) && /it would record 3 calls and texts on 1 family, 1 already logged by hand \(skipped\)/.test(card.innerText), card && card.innerText.slice(0,500));
   card.open=true; await sleep(50);
-  ok('practice: by family, oldest first, each line tagged', /Marjorie Teague|Diane Teague/.test(card.innerText) && /Krystal called, reached voicemail[\s\S]*already logged[\s\S]*Krystal called them, 11 min[\s\S]*would record/.test(card.innerText), card.innerText.slice(0,900));
+  const ci=card.innerText;
+  ok('772 check: a contact whose GoHighLevel name is not on the family is flagged (right family?)', /1 row\(s\) where GoHighLevel's name for the contact isn't on the family/.test(ci) && /GoHighLevel calls this contact "Bob Stranger", a name not on this family/.test(ci), ci.slice(0,1500));
+  ok('772 check: the same text twice within 3 minutes is flagged as a possible double; the hand-logged voicemail is flagged', /possible double\(s\)/.test(ci) && /Another text the same way within 3 minutes/.test(ci), ci.slice(0,1500));
+  ok('772 check: a match on the client\'s own number is flagged, the shared number is listed, and how family members\' calls work is said', /matched on the client's own number/.test(ci) && /on a number two families share/.test(ci) && /A sister calling from her own number is not recorded/.test(ci));
+  ok('772 check: each row says GoHighLevel\'s name and which number matched', /GoHighLevel: Diane Teague, on the inquirer's number/.test(ci));
+  card.querySelector('.lr-bar input').click(); await sleep(150);
+  const c2=B().querySelector('.lr-card');
+  ok('"Only rows worth a look" hides the clean rows', c2 && !/Krystal called them, 11 min/.test(c2.innerText) && /Bob Stranger/.test(c2.innerText), c2 && c2.innerText.slice(0,800));
+  c2.querySelector('.lr-bar input').click(); await sleep(150);
   ok('practice: no lead was saved, and the board still offers Log call', !window.__log.writes.length && document.body.dataset.leadRecord==='practice' && [...B().querySelectorAll('button')].some(b=>b.textContent==='Log call'));
   /* LIVE */
   DATA.ops_settings.lead_record_live=true; await LeadRecorder.load(true); await draw();
