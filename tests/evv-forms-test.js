@@ -262,7 +262,7 @@ const client = (o) => ({ auth: { getSession: async () => o.session === undefined
   pc.CP.ax = ''; await vm.runInContext('cpRenderEvvForms()', pc);
   ck('client profile: an inquiry with no AxisCare id shows nothing (no forms can be linked yet)', el('cp_evv_forms').innerHTML === '');
   ck('profiles: wired in: caregiver Performance section and client Activity & Documents, called when the profile opens',
-    idx.includes('<div id="cgdEvvForms"></div>') && /cgdLateMount\(c\); \}catch\(_\)\{\}\n  cgdEvvFormsMount\(c\);/.test(idx) && idx.includes('<div><div id="cp_evv_forms"></div><div id="cp_calls">') && idx.includes('callsLoad(); cpRenderEvvForms();'));
+    idx.includes('<div id="cgdEvvForms"></div>') && /cgdLateMount\(c\); \}catch\(_\)\{\}\n  cgdEvvFormsMount\(c\);/.test(idx) && idx.includes('<div id="cp_history"></div></div>\n    <div><div id="cp_evv_forms"></div>') && idx.includes('callsLoad(); } cpRenderEvvForms();'));
   ck('index.html loads evv-forms.js; the EVV tab has "4 · Past forms" with search and dates', /<script src="evv-forms\.js\?v=\d+"><\/script>/.test(idx) && idx.includes('4 · Past forms') && idx.includes('id="evvPastQ"') && idx.includes('id="evvPastFrom"'));
 
   /* ── 6. words ── */
