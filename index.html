@@ -19696,12 +19696,11 @@ async function renderStaffAccess(){
         const acct = !r.has_account ? chip('none','var(--red-bg)','var(--red)')
                    : !r.account_confirmed ? chip('unconfirmed','var(--amber-bg)','var(--amber)')
                    : chip('yes','#E1F1ED','#1F7A8C');
-        // No hub_access recorded still means access to everything today: the
-        // fallback grants it when the field is absent. Saying "all (default)"
-        // rather than "none" keeps that visible instead of reassuring.
+        // 760b (2026-10-15): no hub list means no hub. Shown in amber so an
+        // account that can open nothing is easy to spot.
         const access=(r.hub_access&&r.hub_access.length)
           ? r.hub_access.map(h=>chip(h,'#EEF2F7','#334155')).join(' ')
-          : chip('all (default)','var(--amber-bg)','var(--amber)');
+          : chip('no hub yet','var(--amber-bg)','var(--amber)');
         const roles=(r.roles&&r.roles.length)
           ? r.roles.map(x=>chip(x, owner&&x==='owner_admin'?'var(--yellow)':'#EEF2F7',
                                     owner&&x==='owner_admin'?'#5C4300':'#334155')).join(' ')

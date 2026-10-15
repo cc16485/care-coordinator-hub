@@ -37,14 +37,11 @@ const TODAY = new Date(); TODAY.setHours(0,0,0,0);
 // Checking 'staffing' alone silently signed care coordinators out the moment
 // they opened Offers or Background & References, with no message at all.
 const HUB_SLUGS = ['staffing', 'care_coordinator'];
-// Real access control lives in Supabase Auth's app_metadata.hub_access. A
-// missing hub_access array means the account predates this system — treat
-// that as grandfathered in rather than denied, so this never locks out the
-// existing team on deploy. Restriction only starts once an owner explicitly
-// sets someone's portal access from Team Hub's Manage Team Access panel.
+// Real access control lives in Supabase Auth's app_metadata.hub_access, given
+// from the Owners Hub's Team Access. 760b (2026-10-15): a missing list means no
+// hub, the same as the Hub's own sign-in check and the database.
 function hasHubAccess(user){
   const access = user && user.app_metadata && user.app_metadata.hub_access;
-  if(access === undefined || access === null) return true;
   return Array.isArray(access) && HUB_SLUGS.some(s => access.includes(s));
 }
 async function showApp(){
