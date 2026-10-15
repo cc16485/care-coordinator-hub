@@ -26,7 +26,10 @@
     /* item 3 (2026-10-07): the partner's record (subtype), the caregivers' availability (staffing risk) and whether a Team Builder plan is linked (pre-matched) */
     let pre = false; try{ const F = (typeof LS !== 'undefined' && LS.facts) || null; const ep = F && F.epOf && F.epOf[String(l.id)]; pre = !!(ep && F.planOf && F.planOf[ep]); }catch(e){}
     const people = (window.LeadWorkspace && LeadWorkspace.people) ? LeadWorkspace.people() : null;
-    return { hours:R.responseHours(DATA.ops_settings || {}), stage, contract, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
+    /* 2026-10-15 (her "tidier Leads board"): Medicaid is no longer accepted (one row, not the state's rows); the old AI's
+       recap drafts are retired (no Draft ready row; they stay under Look up); no "assessment overdue" or "deciding 7+ days"
+       nudge rows (the follow-up date you set says when) */
+    return { no_medicaid:true, no_drafts:true, quiet_nudges:true, hours:R.responseHours(DATA.ops_settings || {}), stage, contract, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
       referral:(org && org.name) || l.referral_source_name || '', payer_label:(typeof CPX_PAY !== 'undefined' && CPX_PAY[l.funding_source]) || null };
   }
   window.lbCtxFor = ctxFor;   /* the same question for the profile's Next action and the Path card (LeadRules.oneNext) */
@@ -41,7 +44,7 @@
     if(k === 'draft') return '<button class="' + cls + '" data-no-open="1" onclick="lbDraft(\'' + id + '\', \'' + esc(a.id) + '\')">' + esc(a.label) + '</button>';
     /* item 5 (2026-10-07): the suggested next try rides on the follow-up button; Waiting on…, Mark lost…, Called the case manager, Offered bridge hours */
     if(k === 'followup' && a.suggest && a.suggest.day) return '<button class="' + cls + '" data-no-open="1" onclick="lbFollowUp(\'' + id + '\', this, ' + q(JSON.stringify(a.suggest)) + ')">' + esc(a.label) + '</button>';
-    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds', waiting:'lbWaiting', lost:'lbLost', bridge:'lbBridge', case_manager:'lbCaseManager' }[k];
+    const fn = { text:'lbText', log:'lbLog', followup:'lbFollowUp', schedule:'lbSchedule', open_asmt:'lbOpenAsmt', open:'lbOpen', dsds:'lbDsds', waiting:'lbWaiting', lost:'lbLost', bridge:'lbBridge', case_manager:'lbCaseManager', payer:'lbPayer', lost_cds:'lbLostCds' }[k];
     return '<button class="' + cls + '" data-no-open="1" onclick="' + fn + '(\'' + id + '\', this)">' + esc(a.label) + '</button>';
   }
   /* the yes is offered on the row once a real conversation has happened and nothing blocks it (the server checks again) */
@@ -100,7 +103,8 @@
     if(lk) lk.innerHTML = '<span class="lb-k" style="margin-right:4px;">Look up</span>'
       + '<button class="filter-pill" onclick="lbGettingReady()">Said yes this month ' + yesMonth + ' · Getting ready</button>'
       + [['care', 'Receiving care'], ['past', 'Past'], ['archived', 'Archived'], ['spam', 'Spam']].map(s => '<button class="filter-pill' + (LB.filter === 'set:' + s[0] ? ' active' : '') + '" onclick="lbFilter(\'set:' + s[0] + '\')">' + s[1] + ' ' + count(s[0]) + '</button>').join('')
-      + '<button class="filter-pill' + (LB.filter === 'state' ? ' active' : '') + '" onclick="lbFilter(\'state\')">State submissions</button>'
+      /* 2026-10-15: Medicaid is no longer accepted: State submissions only while an older Medicaid family is still open */
+      + ((DATA.leads || []).some(x => x && x.funding_source === 'medicaid' && !x.archived && x.status !== 'Lost') ? '<button class="filter-pill' + (LB.filter === 'state' ? ' active' : '') + '" onclick="lbFilter(\'state\')">State submissions</button>' : '')
       + '<span style="flex:1;"></span><button class="linklike" onclick="switchLeadsSubtab(\'followups\')">All follow-up drafts (pending, approved, sent)</button>';
     /* the board itself */
     if(LB.filter === 'state'){ box.innerHTML = (typeof lsStateHtml === 'function') ? lsStateHtml() : ''; return; }
@@ -170,6 +174,16 @@
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     if(typeof ccToast === 'function') ccToast('Marked lost: ' + r.lost_reason);
   }
+  /* 2026-10-15: a Medicaid family: change the payer on their Payer tab, or close it as sent to Caring CDS */
+  function lbPayer(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id, 'payer'); }
+  async function lbLostCds(id){
+    const l = lead(id); if(!l) return;
+    if(!confirm('Mark ' + ((typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || 'this family') + ' lost: referred to Caring CDS?')) return;
+    Object.assign(l, { lost_reason:'Referred to Caring CDS', lost_reason_key:'referred_cds' });
+    window.LeadRules.setStatus(l, 'Lost', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:'Referred to Caring CDS' });
+    await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
+    if(typeof ccToast === 'function') ccToast('Marked lost: referred to Caring CDS');
+  }
   /* item 5: the Waiting on… pop-up (the workspace's), pointed at this row's family */
   function lbWaiting(id, btn){ const l = lead(id); if(!l) return; if(window.LeadWorkspace && LeadWorkspace.waitingFor) LeadWorkspace.waitingFor(l, btn, redraw); }
   /* item 5: the 45-day Medicaid rules: the case manager was called (7-day quiet on the row); private bridge hours were offered */
@@ -201,5 +215,5 @@
   function lbFilter(f){ LB.filter = f; redraw(); }
   function lbOwner(o){ LB.owner = o || ''; redraw(); }
   function lbGettingReady(){ if(typeof ccParentClick === 'function') ccParentClick('gettingready'); else if(typeof switchTab === 'function') switchTab('soc'); }
-  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbDraft, lbFilter, lbOwner, lbGettingReady, lbWaiting, lbBridge, lbCaseManager });
+  Object.assign(window, { LeadsBoard:{ render, state:LB, ctxFor }, lbText, lbOpen, lbOpenAsmt, lbSchedule, lbLog, lbFollowUp, lbMore, lbLost, lbYes, lbDsds, lbDraft, lbFilter, lbOwner, lbGettingReady, lbWaiting, lbBridge, lbCaseManager, lbPayer, lbLostCds });
 })();
