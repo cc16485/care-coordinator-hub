@@ -22385,7 +22385,12 @@ let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_CHURN = {}, AP_POS = [], AP_PO
 /* Cleared the screen means: nothing we knock people back for, and nobody in
    the office has since said no. */
 const apQualified = r => !r.decline_reason && r.status !== 'declined'
-  && r.age_ok !== false && r.work_auth !== false && r.has_transport !== false;
+  && r.age_ok !== false && r.work_auth !== false && r.has_transport !== false && r.one_year !== 'no';
+/* 731 (2026-10-14, Samantha: "we also need to require a year of paid experience"; unpaid family caregiving counts when
+   a hospice or home health nurse or a family member confirms it, "as an office review, not automatic"). one_year is
+   'yes' | 'family' (waiting for the office) | 'family_ok' (verified) | 'no'; empty on applications from before 731. */
+const AP_ONE_YEAR = { yes: 'Yes, a year or more', family: 'Unpaid family caregiving, someone can confirm it',
+  family_ok: 'Unpaid family caregiving, verified by the office', no: 'No, less than a year' };
 const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 /* 2026-10-01 (Samantha: "why is Holly Means still listed in qualified when she's already been offered"): once someone
    has an offer out, is hired, is in the candidate pool or has left, they are past the working lists (New, Qualified,
@@ -22393,7 +22398,7 @@ const apDays = iso => (Date.now() - new Date(iso).getTime()) / 864e5;
 const AP_DECIDED = ['offer','hired','pool','left','declined'];
 
 const AP_VIEWS = [
-  ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['booked','Interview booked'],
+  ['new','New'], ['qualified','Qualified'], ['review','Needs a look'], ['family','Family care to verify'], ['booked','Interview booked'],
   ['starting','Starting soon'],
   ['pool','Candidate pool'], ['noshow','🚫 No-shows'], ['unqualified','Not qualified'], ['inactive','Inactive'], ['all','Everyone'],
 ];
@@ -22479,10 +22484,11 @@ function apMatching(k, ignorePosition){
       case 'booked':     return booked;
       case 'review':     return r.screen_grade==='review' && !booked
                                  && !AP_DECIDED.includes(r.status);
+      case 'family':     return r.one_year==='family' && !AP_DECIDED.includes(r.status);   // 731: the office verifies first
       /* Once somebody is booked the grade has done its job, so a flag no
          longer holds them out of the list you work from. */
       case 'qualified':  return apQualified(r) && !AP_DECIDED.includes(r.status)
-                                 && r.screen_grade!=='duplicate'
+                                 && r.screen_grade!=='duplicate' && r.one_year!=='family'
                                  && (booked || (r.screen_grade!=='review' && apDays(r.created_at) <= 60));
       /* Between saying yes and turning up is where hires evaporate, and it was
          the one stretch with no list at all. Offer out, or a start date close
@@ -22532,6 +22538,9 @@ function apChips(r){
   if(r.age_ok===false) out.push(chip('Under 18','bad'));
   if(r.work_auth===false) out.push(chip('Not authorized to work','bad'));
   if(r.has_transport===false) out.push(chip('No transport','bad'));
+  if(r.one_year==='no') out.push(chip('Under 1 year of paid experience','bad'));
+  if(r.one_year==='family') out.push(chip('Family caregiving: verify','warn'));
+  if(r.one_year==='family_ok') out.push(chip('Family caregiving verified','good'));
   if(r.screen_grade==='duplicate') out.push(chip('Applied before','warn'));
   if(r.status!=='noshow' && r.noshow_excused_at) out.push(chip('No-show excused','warn'));
   if(r.status!=='noshow' && apNoshowElsewhere(r)) out.push(chip('🚫 Previous NO-SHOW','bad'));
@@ -23971,6 +23980,9 @@ function apToldHtml(r){
     + apProfRow('Are you 18 or older?', yn(r.age_ok))
     + apProfRow('Are you legally authorized to work in the United States?', yn(r.work_auth))
     + apProfRow('Do you have reliable transportation to get to shifts?', yn(r.has_transport))
+    + apProfRow('Do you have at least one year of paid caregiving experience?',
+        r.one_year==='no' ? '<b style="color:#B45309;">'+AP_ONE_YEAR.no+'</b>'
+        : esc(AP_ONE_YEAR[r.one_year]||'') + (r.one_year==='family_ok' && r.one_year_confirmer ? ' (confirmed by ' + esc(r.one_year_confirmer) + ')' : ''))
     + apProfRow("Do you have a valid driver's license?", yn(r.has_license))
     + apProfRow('Do you have current auto insurance?', yn(r.has_insurance))
     + apProfRow('Can you pass a background check?',
@@ -24666,7 +24678,7 @@ async function apScreenAsk(id, gap){
   const box = document.getElementById('apBookSlots');
   if(gap === 'ineligible'){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">This application answered no to a question the job '
-      + 'needs (18 or older, allowed to work in the U.S., reliable transportation, or the CNA question for the PRN team), '
+      + 'needs (18 or older, allowed to work in the U.S., reliable transportation, a year of paid experience, or the CNA question for the PRN team), '
       + 'or it was closed for that reason, so an interview cannot be booked from it.</div>';
     return;
   }
@@ -24680,16 +24692,33 @@ async function apScreenAsk(id, gap){
     + '<option value="">Choose</option><option value="yes"'+(v===true?' selected':'')+'>Yes</option>'
     + '<option value="no"'+(v===false?' selected':'')+'>No</option></select>';
   const prnA = r.prn || {};
+  /* 731: the year of paid experience. Unpaid family caregiving is the office's call, made here after talking to the
+     person who can confirm it (a hospice or home health nurse, or a family member), and their name is saved with it. */
+  const fam = r.one_year === 'family';
+  const oy = r.one_year === 'yes' || r.one_year === 'family_ok' || r.one_year === 'no' ? r.one_year : '';
+  const oneYearRow = '<div style="padding:7px 0;border-top:1px solid var(--border);">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">'
+    + '<span style="font-size:14px;">'+(fam ? 'Did someone confirm their family caregiving?' : 'At least one year of paid caregiving experience (or a CNA, CMT, LPN or RN license)?')+'</span>'
+    + '<select id="apScr_oy" style="width:auto;min-width:96px;" onchange="document.getElementById(\'apScr_oyWho\').style.display=this.value===\'family_ok\'?\'block\':\'none\'">'
+    + '<option value="">Choose</option>'
+    + (fam ? '' : '<option value="yes"'+(oy==='yes'?' selected':'')+'>Yes</option>')
+    + '<option value="family_ok"'+(oy==='family_ok'?' selected':'')+'>'+(fam ? 'Yes, confirmed' : 'Unpaid family caregiving, confirmed')+'</option>'
+    + '<option value="no"'+(oy==='no'?' selected':'')+'>'+(fam ? 'No, could not confirm it' : 'No')+'</option></select></div>'
+    + '<input id="apScr_oyWho" placeholder="Who confirmed it? e.g. hospice nurse Jane Smith, or her daughter Amy" '
+    + 'style="display:none;margin-top:6px;width:100%;"></div>';
   const row = (q, k, v) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);">'
     + '<span style="font-size:14px;">'+q+'</span>'+yn(k, v)+'</div>';
   box.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;">'
     + '<b style="font-size:14px;color:var(--navy);">Ask these first</b>'
     + '<div class="field-note" style="margin:3px 0 6px;">'
-    + (gap === 'unfinished' ? 'They stopped before finishing the application. ' : 'They have not answered the screening questions yet. ')
+    + (gap === 'unfinished' ? 'They stopped before finishing the application. '
+       : fam ? 'Their experience is unpaid family caregiving. Talk to the person who can confirm it (a hospice or home health nurse, or a family member) before booking. '
+       : 'They have not answered the screening questions yet. ')
     + 'Ask them now (on the phone is fine). Your answers are saved with your name and the time, and then the times appear.</div>'
     + row('Are they 18 or older?', 'age', r.age_ok)
     + row('Are they legally authorized to work in the United States?', 'auth', r.work_auth)
     + row('Do they have reliable transportation to get to shifts?', 'car', r.has_transport)
+    + oneYearRow
     + (prn ? row('Are they currently a CNA?', 'cna', prnA.cna) + row('At least one year of caregiving or CNA experience?', 'yr', prnA.one_year) : '')
     + '<div style="margin-top:10px;"><button class="primary" onclick="apScreenSave(\''+String(id).replace(/[^a-z0-9-]/gi,'')+'\', this)">Save answers and show times</button></div>'
     + '<div id="apScrErr" class="field-note" style="display:none;color:var(--red);margin-top:6px;"></div></div>';
@@ -24698,16 +24727,23 @@ async function apScreenSave(id, btn){
   const v = k => { const el = document.getElementById('apScr_'+k); return !el ? null : el.value === 'yes' ? true : el.value === 'no' ? false : undefined; };
   const err = document.getElementById('apScrErr');
   const a = { age: v('age'), auth: v('auth'), car: v('car'), cna: v('cna'), yr: v('yr') };
-  if([a.age, a.auth, a.car, a.cna, a.yr].some(x => x === undefined)){
+  const oyEl = document.getElementById('apScr_oy'), oy = oyEl ? oyEl.value : null;
+  const who = ((document.getElementById('apScr_oyWho')||{}).value || '').trim();
+  if([a.age, a.auth, a.car, a.cna, a.yr].some(x => x === undefined) || (oyEl && !oy)){
     err.textContent = 'Please answer every question.'; err.style.display = 'block'; return;
+  }
+  if(oy === 'family_ok' && !who){
+    err.textContent = 'Say who confirmed the family caregiving.'; err.style.display = 'block'; return;
   }
   btn.disabled = true; btn.textContent = 'Saving…';
   try{
     const { data, error } = await sb.rpc('applicant_screen_by_office', { p: id, p_age_ok: a.age, p_work_auth: a.auth,
-      p_has_transport: a.car, p_prn_cna: a.cna, p_prn_one_year: a.yr });
+      p_has_transport: a.car, p_prn_cna: a.cna, p_prn_one_year: a.yr, p_one_year: oy || null,
+      p_one_year_confirmer: oy === 'family_ok' ? who : null });
     if(error) throw error;
     const r = AP_ROWS.find(x=>String(x.id)===String(id));
-    if(r){ r.age_ok = a.age; r.work_auth = a.auth; r.has_transport = a.car; }
+    if(r){ r.age_ok = a.age; r.work_auth = a.auth; r.has_transport = a.car;
+           if(oy && (!r.one_year || r.one_year === 'family')){ r.one_year = oy; if(oy === 'family_ok') r.one_year_confirmer = who; } }
     if(data){ await apScreenAsk(id, data); return; }   // still missing or a no: say so instead of showing times
     apBookFor(id);
   }catch(e){
