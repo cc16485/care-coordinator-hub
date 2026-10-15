@@ -60,6 +60,37 @@
     store(load().concat([n])); draw(n);
   }
   W.ccNotice = function(text){ show('note', text); };
+  /* ccConfirm(msg) / ccPrompt(msg, value): the same question, asked on the page. They keep the browser's meaning exactly
+     (OK = true / the typed text, even empty; Cancel = false / null), so "OK for yes, Cancel for no" wording still reads
+     right. Enter answers OK, Escape answers Cancel. */
+  function pageAsk(msg, isPrompt, value){
+    return new Promise(function(res){
+      var ov = document.createElement('div'); ov.className = 'cc-ask';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+      var card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border-radius:12px;max-width:540px;width:100%;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.2);font:14px/1.5 system-ui,-apple-system,sans-serif;color:#1B2733;';
+      var m = String(msg == null ? '' : msg), cut = m.indexOf('\n\n');
+      var h = document.createElement('b'); h.style.cssText = 'display:block;font-size:16px;color:#0D365F;white-space:pre-wrap;';
+      h.textContent = cut > -1 ? m.slice(0, cut) : m; card.appendChild(h);
+      if (cut > -1) { var t = document.createElement('div'); t.style.cssText = 'white-space:pre-wrap;margin-top:8px;'; t.textContent = m.slice(cut + 2); card.appendChild(t); }
+      var ta = null;
+      if (isPrompt) { ta = document.createElement('textarea'); ta.rows = 2; ta.style.cssText = 'width:100%;margin-top:10px;box-sizing:border-box;'; ta.value = value == null ? '' : String(value); card.appendChild(ta); }
+      var row = document.createElement('div'); row.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;';
+      var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'primary cc-ask-ok'; ok.textContent = 'OK';
+      var no = document.createElement('button'); no.type = 'button'; no.className = 'secondary cc-ask-cancel'; no.textContent = 'Cancel';
+      row.appendChild(ok); row.appendChild(no); card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+      function done(v){ ov.remove(); res(v); }
+      ok.onclick = function(){ done(isPrompt ? ta.value : true); };
+      no.onclick = function(){ done(isPrompt ? null : false); };
+      ov.addEventListener('keydown', function(e){
+        if (e.key === 'Escape') { e.preventDefault(); no.onclick(); }
+        else if (e.key === 'Enter' && !e.shiftKey && (!ta || e.target === ta)) { e.preventDefault(); ok.onclick(); }
+      });
+      if (ta) { ta.focus(); ta.select(); } else ok.focus();
+    });
+  }
+  W.ccConfirm = function(msg){ return pageAsk(msg, false); };
+  W.ccPrompt = function(msg, value){ return pageAsk(msg, true, value); };
   W.alert = function(msg){ show('note', msg); };
   var nConfirm = W.confirm, nPrompt = W.prompt;
   W.confirm = function(msg){ var t0 = Date.now(), r = nConfirm.call(W, msg); if (r === false && Date.now() - t0 < 80) show('blocked', msg); return r; };
@@ -7395,7 +7426,7 @@ function hasHubAccess(user){
 }
 /* ---- Self-service password reset (same flow on every hub) ---- */
 async function forgotPassword(){
-  const email=((document.getElementById('loginEmail')||{}).value||'').trim()||(prompt('Enter your work email:')||'').trim();
+  const email=((document.getElementById('loginEmail')||{}).value||'').trim()||((await ccPrompt('Enter your work email:'))||'').trim();
   if(!email) return;
   const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.origin+'/'});
   alert(error?('Could not send the reset email: '+error.message)
@@ -8072,7 +8103,7 @@ async function fbSeenAll(){ for(const f of (DATA.feedback||[])){ if(!f.seen){ f.
 async function fbDelete(id){
   const f=(DATA.feedback||[]).find(x=>x.id===id);
   const isStory=f&&f.kind==='story';
-  if(!confirm(isStory?'Delete this story? If there is a video, it is deleted too and cannot be recovered.':'Delete this feedback entry?')) return;
+  if(!(await ccConfirm(isStory?'Delete this story? If there is a video, it is deleted too and cannot be recovered.':'Delete this feedback entry?'))) return;
   if(isStory&&f.video_path){ try{ await sb.storage.from('stories').remove([f.video_path]); }catch(e){} }
   await removeItem('feedback', id); DATA.feedback=(DATA.feedback||[]).filter(x=>x.id!==id); renderFeedback();
 }
@@ -8166,7 +8197,7 @@ function hlRubric(r){
 }
 const HL_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/ht-local?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
 async function hlPayLink(id,btn,fam){
-  if(!confirm(fam?'Send the "a family wants to move forward with you" email with the $45 payment link?':'Email this caregiver a standard $45 payment link for their background check?')) return;
+  if(!(await ccConfirm(fam?'Send the "a family wants to move forward with you" email with the $45 payment link?':'Email this caregiver a standard $45 payment link for their background check?'))) return;
   btn.disabled=true; btn.textContent='Sending…';
   try{
     /* S5: your sign-in goes with it; the server sends this email only for signed-in office staff */
@@ -8190,7 +8221,7 @@ async function hlOig(id,btn){
 async function hlSetStatus(key,id,st){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.status=st; x.seen=true; await persist(key,x); renderHtLocal(); }
 async function hlSeen(key,id){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; x.seen=true; await persist(key,x); renderHtLocal(); }
 async function hlNote(key,id,v){ const x=(DATA[key]||[]).find(i=>i.id===id); if(!x) return; if(key==='local_families') x.team_notes=v; else x.notes=v; await persist(key,x); }
-async function hlDelete(key,id){ if(!confirm('Delete this entry?')) return; await removeItem(key,id); DATA[key]=(DATA[key]||[]).filter(i=>i.id!==id); renderHtLocal(); }
+async function hlDelete(key,id){ if(!(await ccConfirm('Delete this entry?'))) return; await removeItem(key,id); DATA[key]=(DATA[key]||[]).filter(i=>i.id!==id); renderHtLocal(); }
 function cmBadges(){
   var n=0;
   (DATA.corner_posts||[]).forEach(function(p){
@@ -8251,7 +8282,7 @@ function renderCommunity(){
   cmBadges();
 }
 async function cmApprovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; p.status='approved'; p.seen=true; await persist('corner_posts',p); renderCommunity(); }
-async function cmRemovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; if(!confirm('Remove this post'+(p.status==='approved'?' from the public site':'')+'?')) return; p.status='removed'; await persist('corner_posts',p); renderCommunity(); }
+async function cmRemovePost(id){ const p=(DATA.corner_posts||[]).find(x=>x.id===id); if(!p) return; if(!(await ccConfirm('Remove this post'+(p.status==='approved'?' from the public site':'')+'?'))) return; p.status='removed'; await persist('corner_posts',p); renderCommunity(); }
 const CM_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/cc-corner?token=htorder_078070ed7c3e8e7619e567dcfaddfc400e43147a';
 async function cmNotify(pid,rid){ try{ fetch(CM_EP,{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({action:'notify',post_id:pid,reply_id:rid})}); }catch(e){} }   /* S5: sent with your sign-in */
 async function cmApproveReply(pid,rid){ const p=(DATA.corner_posts||[]).find(x=>x.id===pid); if(!p) return; const r=(p.replies||[]).find(x=>x.id===rid); if(!r) return; r.status='approved'; p.pending_replies=(p.replies||[]).some(x=>x.status==='pending'&&x.id!==rid); await persist('corner_posts',p); cmNotify(pid,rid); renderCommunity(); }
@@ -8283,7 +8314,7 @@ async function cmAddEvent(){
   ['cmEvTime','cmEvTitle','cmEvWhere','cmEvLink'].forEach(id=>document.getElementById(id).value='');
   renderCommunity();
 }
-async function cmDelEvent(id){ if(!confirm('Delete this event?')) return; await removeItem('corner_events', id); DATA.corner_events=(DATA.corner_events||[]).filter(x=>x.id!==id); renderCommunity(); }
+async function cmDelEvent(id){ if(!(await ccConfirm('Delete this event?'))) return; await removeItem('corner_events', id); DATA.corner_events=(DATA.corner_events||[]).filter(x=>x.id!==id); renderCommunity(); }
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
@@ -8861,7 +8892,7 @@ async function dvAdd(){
   DATA.ht_devices=DATA.ht_devices||[]; DATA.ht_devices.push(d); inp.value=''; await dvSave(d);
 }
 async function dvAssign(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
-  const who=prompt("Customer name (as on the order):"); if(!who) return;
+  const who=(await ccPrompt("Customer name (as on the order):")); if(!who) return;
   d.status='customer'; d.customer=who.trim(); d.assigned_at=new Date().toISOString(); d.return_due=''; await dvSave(d); }
 async function dvReturnPending(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
   const due=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
@@ -8871,10 +8902,10 @@ async function dvReceived(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id);
   d.status='received'; await dvSave(d); }
 async function dvShelf(id){ const d=(DATA.ht_devices||[]).find(x=>x.id===id); if(!d) return;
   d.status='shelf'; d.customer=''; d.return_due=''; await dvSave(d); }
-async function dvDelete(id){ if(!confirm('Remove this device from the tracker?')) return;
+async function dvDelete(id){ if(!(await ccConfirm('Remove this device from the tracker?'))) return;
   await removeItem('ht_devices', id); DATA.ht_devices=(DATA.ht_devices||[]).filter(x=>x.id!==id); renderDevices(); }
 async function tkDelete(id){
-  if(!confirm('Delete this support ticket? This cannot be undone.')){ return; }
+  if(!(await ccConfirm('Delete this support ticket? This cannot be undone.'))){ return; }
   await removeItem('ht_tickets', id);
   DATA.ht_tickets = (DATA.ht_tickets||[]).filter(x=>x.id!==id);
   renderTickets(); updateHTBadge();
@@ -9139,7 +9170,7 @@ async function cmpSend(){
   if(scr.error){ alert(scr.error+' Nothing was sent.'); return; }
   const recipients=scr.allowed;
   if(!recipients.length){ alert('Nobody in that group may get this email'+(scr.left_out.length?' ('+scr.left_out.length+' left out: past, paused or deceased clients and their families)':'')+'.'); return; }
-  if(!confirm('Send "'+e.subj+'" to '+recipients.length+' recipient'+(recipients.length===1?'':'s')+'?\n\nThis sends real email through GoHighLevel.')) return;
+  if(!(await ccConfirm('Send "'+e.subj+'" to '+recipients.length+' recipient'+(recipients.length===1?'':'s')+'?\n\nThis sends real email through GoHighLevel.'))) return;
   cmpSending=true;
   const st=document.getElementById('cmpStatus');
   const html=ccBuildEmailHTML(e);
@@ -9169,7 +9200,7 @@ async function htSetStatus(id, status){
   renderHTOrders(); updateHTBadge();
 }
 async function htDeleteOrder(id){
-  if(!confirm('Delete this HomeTogether order? This cannot be undone.')){ return; }
+  if(!(await ccConfirm('Delete this HomeTogether order? This cannot be undone.'))){ return; }
   await removeItem('hometogether_orders', id);
   DATA.hometogether_orders = (DATA.hometogether_orders||[]).filter(x=>x.id!==id);
   renderHTOrders(); updateHTBadge();
@@ -9544,7 +9575,7 @@ async function sendLeadSms(){
   if(!text || !commsLead) return;
   if(!commsLead.phone){ alert('This lead has no phone number on file — add one and save first.'); return; }
   btn.disabled=true; btn.textContent='Sending…';
-  if(commsLead.do_not_contact && !confirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?')){ btn.disabled=false; btn.textContent='Send text'; return; }
+  if(commsLead.do_not_contact && !(await ccConfirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?'))){ btn.disabled=false; btn.textContent='Send text'; return; }
   try{
     await commsCall({ action:'send_sms', message:text });
     input.value='';
@@ -9562,7 +9593,7 @@ async function sendLeadEmail(){
   if(!sub || !bodyEl.value.trim() || !commsLead) { alert('Subject and body are both needed.'); return; }
   if(!commsLead.email){ alert('This lead has no email on file — add one and save first.'); return; }
   btn.disabled=true; btn.textContent='Sending…';
-  if(commsLead.do_not_contact && !confirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?')){ btn.disabled=false; btn.textContent='Send email'; return; }
+  if(commsLead.do_not_contact && !(await ccConfirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?'))){ btn.disabled=false; btn.textContent='Send email'; return; }
   try{
     await commsCall({ action:'send_email', subject:sub, message:bodyEl.value.trim() });
     commsRemote.push({ kind:'email', direction:'outbound', subject:sub, body:bodyEl.value.trim(), at:new Date().toISOString() });
@@ -9657,14 +9688,14 @@ async function ldToggleDnc(){
   const l=commsLead; if(!l) return;
   const a=ccActor();
   if(!l.do_not_contact){
-    if(!confirm('Record that this family asked us NOT to contact them?\n\nEvery automated text and email will skip them from now on. Humans can still call if they ask us to.')) return;
+    if(!(await ccConfirm('Record that this family asked us NOT to contact them?\n\nEvery automated text and email will skip them from now on. Humans can still call if they ask us to.'))) return;
     l.do_not_contact=true; l.do_not_contact_at=new Date().toISOString();
     l.do_not_contact_reason='recorded by '+(a.name||a.email);
     l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'🚫 Do not contact — recorded', at:l.do_not_contact_at, by:a.email});
     opEvent('lead_opted_out',{item_id:String(l.id), area:'growth_leads',
       summary:(([l.first_name,l.last_name].filter(Boolean).join(' '))||'A lead')+' marked do-not-contact by '+a.name});
   } else {
-    if(!confirm('They asked us to contact them again? This turns automated messages back on.')) return;
+    if(!(await ccConfirm('They asked us to contact them again? This turns automated messages back on.'))) return;
     l.do_not_contact=false; l.do_not_contact_cleared_at=new Date().toISOString();
     l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'Do-not-contact lifted', at:l.do_not_contact_cleared_at, by:a.email});
   }
@@ -10235,11 +10266,11 @@ function cpRenderCare(){
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
-function cpNewAssessment(){
+async function cpNewAssessment(){
   const lead=CP.lead;
   if(lead){ scheduleAssessmentFromLead(lead.id); return; }
   const have=asmtExisting(null, CP.ax);
-  if(have && confirm('This client already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){ openAssessmentModal(have.id); return; }
+  if(have && (await ccConfirm('This client already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)'))){ openAssessmentModal(have.id); return; }
   openAssessmentModal(null);
   document.getElementById('assess_client_name').value=CP.r?CP.r.client_name:'';
   document.getElementById('assess_axiscare_client_id').value=CP.ax||'';
@@ -10540,11 +10571,11 @@ async function lpSetStatus(v){
   if(!lpLead||typeof LeadRules==='undefined') return;
   const a=(typeof ccActor==='function')?ccActor():{ email:'', name:'' };
   if(v==='Lost'){
-    const r=askLostReason(lpLead); if(!r) return;
+    const r=await askLostReason(lpLead); if(!r) return;
     Object.assign(lpLead, r); LeadRules.setStatus(lpLead, 'Lost', { by:a.email, why:r.lost_reason });
   } else if(v==='unlost'){
     const back=LeadRules.statusBeforeLost(lpLead);
-    if(!confirm('Not lost after all? They go back to '+back+'; the reason stays in the history.')) return;
+    if(!(await ccConfirm('Not lost after all? They go back to '+back+'; the reason stays in the history.'))) return;
     LeadRules.setStatus(lpLead, back, { by:a.email, why:'not lost after all' }); lpLead.lost_reason=null; lpLead.lost_reason_key=null;
   } else return;   /* nothing else is set by hand any more */
   await persist('leads',lpLead); renderLeads&&renderLeads();
@@ -11436,7 +11467,7 @@ async function logOrgActivity(orgId){
   const a={ id:uid(), org_id:orgId, kind, note, at:new Date().toISOString(), by };
   DATA.referral_activities=DATA.referral_activities||[]; DATA.referral_activities.push(a);
   await persist('referral_activities',a);
-  if(confirm('Logged! Schedule the NEXT touch with them now? (Keeps the relationship from going quiet.)')) openActivityModal(null,orgId);
+  if((await ccConfirm('Logged! Schedule the NEXT touch with them now? (Keeps the relationship from going quiet.)'))) openActivityModal(null,orgId);
   renderReferrers();
 }
 
@@ -11574,20 +11605,20 @@ async function refLog(){
   /* Only for a real visit. Being asked to schedule the next one after jotting
      an idea would train everybody to dismiss it. */
   if(['dropby','appointment','event'].includes(kind)
-     && confirm('Logged. Schedule the next touch with them now?\n\nThis is what keeps a partner from going quiet.')) openActivityModal(null,o.id);
+     && (await ccConfirm('Logged. Schedule the next touch with them now?\n\nThis is what keeps a partner from going quiet.'))) openActivityModal(null,o.id);
 }
 
 /* ================= CRM: LOST REASONS + REPORTS ================= */
 /* Stage 0 (2026-10-06): the fixed list lives in lead-rules.js so the Owners Hub can count "hours lost to weekends in Ozark".
    Returns the fields to put on the lead ({lost_reason, lost_reason_key, lost_at, lost_detail?, lost_schedule?}) or null. */
 const LOST_REASONS=(typeof LeadRules!=='undefined')?LeadRules.LOST.map(r=>r[1]):['Price','Chose another agency','Chose a facility','Unable to reach them','Other (say what)'];
-function askLostReason(l){
+async function askLostReason(l){
   const list=(typeof LeadRules!=='undefined')?LeadRules.LOST:[['other','Other (say what)']];
-  const pick=prompt('Why did this family not start with us?\n'+list.map((r,i)=>(i+1)+' · '+r[1]).join('\n')+'\n\nType the number:');
+  const pick=(await ccPrompt('Why did this family not start with us?\n'+list.map((r,i)=>(i+1)+' · '+r[1]).join('\n')+'\n\nType the number:'));
   if(pick==null) return null;
   const n=parseInt(pick,10), row=(n>=1&&n<=list.length)?list[n-1]:list[list.length-1];
   let note='';
-  if(row[0]==='other'){ note=prompt('What happened? (a few words, kept with the reason)')||''; if(!note.trim()){ alert('"Other" needs a few words, so the reason means something later.'); return null; } }
+  if(row[0]==='other'){ note=(await ccPrompt('What happened? (a few words, kept with the reason)'))||''; if(!note.trim()){ alert('"Other" needs a few words, so the reason means something later.'); return null; } }
   if(typeof LeadRules==='undefined') return { lost_reason:row[1]+(note?': '+note.trim():''), lost_at:new Date().toISOString() };
   return LeadRules.lostRecord(l||{}, row[0], note);
 }
@@ -11713,7 +11744,7 @@ async function lpConvertLead(){
     if(ch.kind==='cancel') return;
     if(ch.kind==='client'){ openClient({ax:ch.ax},'summary'); return; }
     if(ch.kind==='link'){ await ckUseExisting(l, ch.ax, ch.name); return; }
-  } else if(found.note && !confirm(found.note+'\n\nWithout that check this could make a second AxisCare client for someone already there. Create a new client anyway?')) return;
+  } else if(found.note && !(await ccConfirm(found.note+'\n\nWithout that check this could make a second AxisCare client for someone already there. Create a new client anyway?'))) return;
   const esc=escapeHtmlComms;
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
@@ -11920,7 +11951,7 @@ async function openLeadDoc(path){
 async function deleteLeadDoc(path){
   if(!lpLead) return;
   const d=(lpLead.docs||[]).find(x=>x.path===path); if(!d) return;
-  const why=prompt('Remove "'+(d.name||'this document')+'" from the list?\nThe file is kept for the record and can still be opened under Removed. Why is it being removed?','');
+  const why=(await ccPrompt('Remove "'+(d.name||'this document')+'" from the list?\nThe file is kept for the record and can still be opened under Removed. Why is it being removed?',''));
   if(why===null) return;
   if(why.trim().length<5){ alert('Say why it is being removed (a few words).'); return; }
   d.removed={ by:(typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||'', by_name:(typeof ME!=='undefined'&&ME&&ME.name)||'', at:new Date().toISOString(), why:why.trim().slice(0,300) };
@@ -12917,7 +12948,7 @@ function asmtExisting(l, ax){
 async function scheduleAssessmentFromLead(leadId){
   const l=(DATA.leads||[]).find(x=>x.id===leadId); if(!l) return;
   const have=asmtExisting(l);
-  if(have && confirm('This family already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)')){
+  if(have && (await ccConfirm('This family already has an assessment'+(have.visit_date?' (visit '+have.visit_date+')':'')+'.\n\nOK = open it · Cancel = start a new one (a reassessment)'))){
     await asmtToProfile(l); openAssessmentModal(have.id); return;
   }
   if(l.status==='New'||l.status==='Contacted'){ LeadRules.setStatus(l, 'Assessment Scheduled', { by:(ccActor()||{}).email, why:'assessment booked' }); persist('leads', l); }
@@ -12990,8 +13021,8 @@ function ckptDirty(){
     ||ckptVal('lead_interest_notes')||ckptVal('lead_client_first_name')||ckptVal('lead_client_last_name')
     ||getRadioValue('lead_funding_source')||ckptVal('lead_desired_start_kind'));
 }
-function ckptClose(){
-  if(ckptDirty() && !confirm('Close this call without saving the lead?')) return;
+async function ckptClose(){
+  if(ckptDirty() && !(await ccConfirm('Close this call without saving the lead?'))) return;
   ckptTeardown();
 }
 function ckptToForm(){
@@ -13325,7 +13356,7 @@ async function delayFollowUp(id){
 async function markFollowUpSent(id){
   const f = DATA.post_call_followups.find(x=>x.id===id);
   if(!f) return;
-  if(!confirm('Mark this as sent? (This just updates the tracker — send the email/text yourself first.)')) return;
+  if(!(await ccConfirm('Mark this as sent? (This just updates the tracker. Send the email or text yourself first.)'))) return;
   f.status = 'sent';
   await persist('post_call_followups', f);
   renderPostCallFollowups();
@@ -14059,9 +14090,9 @@ async function ciAskFeedback(id){
     + ' at Caring Companions. Thank you for the kind words on our call. If you have a minute, '
     + 'it would mean a lot if you shared them here: ' + CI_FEEDBACK_URL
     + ' It helps other families in the area find care they can trust.';
-  const ok = confirm('Send this to ' + (c.client_name||'them') + '?\n\n' + msg
+  const ok = (await ccConfirm('Send this to ' + (c.client_name||'them') + '?\n\n' + msg
     + '\n\nOK copies it to your clipboard so you can send it from your phone or from GoHighLevel. '
-    + 'Nothing is sent automatically.');
+    + 'Nothing is sent automatically.'));
   if(!ok) return;
   try{ await navigator.clipboard.writeText(msg); }catch(e){}
   c.feedback_asked_at = new Date().toISOString();
@@ -14604,7 +14635,7 @@ async function ahToggle(kind, btn){
        :'Turn off after-hours texts for call-ins? From '+q.from+' to '+q.to+' a call-in only emails the admins and waits on the board. A client whose call-in plan says "must be covered" still texts at any hour.')
     :(on?'Turn on after-hours texts for missed clock-ins? A missed clock-in from '+q.from+' to '+q.to+' will text every admin the same as in the day (at most '+cap+' texts each, Resolved stops them).'+(loopOn?'':' The missed clock-in admin texts themselves are OFF right now, so nothing is texted until they are turned on.')
        :'Turn off after-hours texts for missed clock-ins? From '+q.from+' to '+q.to+' nobody is texted about a missed clock-in: it waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.');
-  if(!confirm(msg)) return;
+  if(!(await ccConfirm(msg))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m[AH_KEYS[kind]]=on; return [ahLabel(kind)+(on?' ON':' OFF')]; }, kind==='callin'?'call-in alert settings':'missed clock-in settings');
   if(btn) btn.disabled=false;
@@ -14651,8 +14682,8 @@ function crRender(){
 }
 async function crToggle(btn){
   const c=crSettings(), on=!c.on, q=tkQuiet();
-  if(!confirm(on?'Turn on call-in reminders? From the next check (every 3 minutes), a call-in nobody has claimed, confirmed or closed reminds every admin who got its text every '+c.every+' minutes, at most '+c.max+' times.'+(q.off?'':' From '+q.from+' to '+q.to+' only for MUST BE COVERED shifts or shifts within 3 hours.')
-                 :'Turn off call-in reminders? They go back to practice: recorded, not texted.')) return;
+  if(!(await ccConfirm(on?'Turn on call-in reminders? From the next check (every 3 minutes), a call-in nobody has claimed, confirmed or closed reminds every admin who got its text every '+c.every+' minutes, at most '+c.max+' times.'+(q.off?'':' From '+q.from+' to '+q.to+' only for MUST BE COVERED shifts or shifts within 3 hours.')
+                 :'Turn off call-in reminders? They go back to practice: recorded, not texted.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.callin_reminders_live=on; return ['call-in reminders '+(on?'ON':'OFF')]; }, 'call-in alert settings');
   if(btn) btn.disabled=false;
@@ -14752,7 +14783,7 @@ async function tkSave(btn){
 async function tkToggleCg(btn){
   const st=DATA.ops_settings||{}; if(st.timekeeper_watch_live!==true) return;
   const on=!(st.timekeeper_text_live===true);
-  if(!confirm(on?'Turn on caregiver texts? From the next missed clock-in, the caregiver gets one short text asking her to clock in (no EVV form).':'Turn off caregiver texts? Missed clock-ins are still found and the admins still alerted; caregivers get no text.')) return;
+  if(!(await ccConfirm(on?'Turn on caregiver texts? From the next missed clock-in, the caregiver gets one short text asking her to clock in (no EVV form).':'Turn off caregiver texts? Missed clock-ins are still found and the admins still alerted; caregivers get no text.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.timekeeper_text_live=on; return [on?'caregiver texts ON':'caregiver texts OFF']; });
   if(btn) btn.disabled=false;
@@ -14766,7 +14797,7 @@ async function tkToggleLive(btn){
   const hrs=q.off?' Office quiet hours are OFF, so these texts can go at ANY hour, including overnight.'
     :ahOn('missed_clockin')?' Hours: ANY hour, including '+q.from+' to '+q.to+' (missed clock-ins text admins after hours is on), so a missed clock-in overnight texts every admin too. To keep '+q.from+' to '+q.to+' quiet, turn that switch off on this card.'
     :' Hours: '+q.to+' to '+q.from+' Central only. From '+q.from+' to '+q.to+' nobody is texted: an overnight missed clock-in waits in Needs Attention, and if it is still open at '+q.to+' each admin gets one text then.'+(q.now?' It is quiet hours right now, so nothing will be texted before '+q.to+'.':'');
-  if(!confirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes (at most '+cap+' texts each) until someone taps Resolved on their link.'+hrs:'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.')) return;
+  if(!(await ccConfirm(on?'Turn on the admin texts? From the next missed clock-in, every admin is texted every few minutes (at most '+cap+' texts each) until someone taps Resolved on their link.'+hrs:'Turn off the admin texts? Missed clock-ins go back to practice (recorded, not texted to admins). Caregivers still get their text.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.timekeeper_admin_loop_live=on; return [on?'admin texts ON':'admin texts OFF']; });
   if(btn) btn.disabled=false;
@@ -14825,8 +14856,8 @@ async function cpLoad(btn){
 }
 async function cpSetToggle(btn){
   const on = !((DATA.ops_settings||{}).call_pull_live===true);
-  if(!confirm(on ? 'Turn on calls from GoHighLevel?\n\nFrom the next run (within 10 minutes), a new-client call creates the lead, drafts a follow-up for your approval (nothing is sent), and tags the GoHighLevel contact "lead", which your AxisCare sync picks up. Calls already read in practice are not redone.'
-                 : 'Switch back to practice? Calls are still read and listed, but nothing is created.')) return;
+  if(!(await ccConfirm(on ? 'Turn on calls from GoHighLevel?\n\nFrom the next run (within 10 minutes), a new-client call creates the lead, drafts a follow-up for your approval (nothing is sent), and tags the GoHighLevel contact "lead", which your AxisCare sync picks up. Calls already read in practice are not redone.'
+                 : 'Switch back to practice? Calls are still read and listed, but nothing is created.'))) return;
   if(btn) btn.disabled = true;
   const out = await tkMerge((m)=>{ m.call_pull_live = on; if(on && !m.call_pull_live_since) m.call_pull_live_since = new Date().toISOString(); return [on ? 'calls from GoHighLevel ON' : 'calls from GoHighLevel back to practice']; }, 'Calls from GoHighLevel settings');
   if(btn) btn.disabled = false;
@@ -14835,8 +14866,8 @@ async function cpSetToggle(btn){
 }
 async function mnSetToggle(btn){
   const on=!((DATA.ops_settings||{}).missed_notes_live===true);
-  if(!confirm(on?'Turn on missed-note texts? From the next run, a caregiver who clocks out with no care note is texted right away (8am to 9pm), and misses start counting toward 3 in 30 days from today.'
-               :'Turn off missed-note texts? It goes back to practice: misses are found and listed, nobody is texted, nothing new counts.')) return;
+  if(!(await ccConfirm(on?'Turn on missed-note texts? From the next run, a caregiver who clocks out with no care note is texted right away (8am to 9pm), and misses start counting toward 3 in 30 days from today.'
+               :'Turn off missed-note texts? It goes back to practice: misses are found and listed, nobody is texted, nothing new counts.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.missed_notes_live=on; if(on && !m.missed_notes_live_since) m.missed_notes_live_since=new Date().toISOString(); return [on?'missed-note texts ON':'missed-note texts OFF']; }, 'missed care notes settings');
   if(btn) btn.disabled=false;
@@ -14882,8 +14913,8 @@ async function prnSetSave(btn){
 }
 async function prnSetToggle(btn){
   const on = !((DATA.ops_settings||{}).prn_reconfirm_live===true);
-  if(!confirm(on ? 'Turn on the PRN check-in texts? From the next weekday run, PRN CNAs whose availability is 60+ days old get one text with their one-tap link.'
-                 : 'Turn off the PRN check-in texts? They go back to practice: worked out, nothing sent.')) return;
+  if(!(await ccConfirm(on ? 'Turn on the PRN check-in texts? From the next weekday run, PRN CNAs whose availability is 60+ days old get one text with their one-tap link.'
+                 : 'Turn off the PRN check-in texts? They go back to practice: worked out, nothing sent.'))) return;
   if(btn) btn.disabled = true;
   const out = await tkMerge((m)=>{ m.prn_reconfirm_live = on; return [on ? 'PRN check-in texts ON' : 'PRN check-in texts OFF']; }, 'PRN CNA Team settings');
   if(btn) btn.disabled = false;
@@ -16928,7 +16959,7 @@ async function socToggleStep(i,checked){
 async function socStepNote(i){
   if(!lpLead||!lpLead.soc) return;
   const s=lpLead.soc.steps[i]; if(!s) return;
-  const v=prompt('Note for: '+s.label, s.note||'');
+  const v=(await ccPrompt('Note for: '+s.label, s.note||''));
   if(v===null) return;
   s.note=v.trim();
   await persist('leads', lpLead);
@@ -16936,7 +16967,7 @@ async function socStepNote(i){
 }
 async function socRemove(){
   if(!lpLead||!lpLead.soc) return;
-  if(!confirm('Remove the Start of Care checklist from this lead? (Only for checklists started by mistake — progress is deleted.)')) return;
+  if(!(await ccConfirm('Remove the Start of Care checklist from this lead? (Only for checklists started by mistake. Its progress is deleted.)'))) return;
   delete lpLead.soc;
   await persist('leads', lpLead);
   renderLpSoc(); updateSocBadge();
@@ -17022,7 +17053,7 @@ async function ccProfilePanelLoad(l){
   }catch(e){ el.innerHTML='<div class="field-note">Profile check unavailable: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
 }
 async function ccProfileNoRp(axId){
-  const reason=prompt('Document the no-responsible-party exception.\n\nWhy does this client legitimately have no responsible party / emergency contact? (Never enter fake contact data to satisfy the standard.)');
+  const reason=(await ccPrompt('Document the no-responsible-party exception.\n\nWhy does this client legitimately have no responsible party / emergency contact? (Never enter fake contact data to satisfy the standard.)'));
   if(!reason||!reason.trim()) return;
   const id='cp_ax'+axId;
   const prev=(DATA.client_profiles||[]).find(p=>p.id===id)||{ id, axiscare_client_id:axId, client_name:'' };
@@ -17089,10 +17120,10 @@ async function ccSkillSet(cgId,key,val){
   g.skills=g.skills||{};
   if(val===''){ delete g.skills[key]; }
   else{
-    const ev=prompt('Evidence for "'+key.replace(/_/g,' ')+'" = '+val+':\ntype one of: training / observed / attested','attested');
+    const ev=(await ccPrompt('Evidence for "'+key.replace(/_/g,' ')+'" = '+val+':\ntype one of: training / observed / attested','attested'));
     if(ev===null) return;
     const evidence=/^(training|observed|attested)$/i.test((ev||'').trim())?(ev||'').trim().toLowerCase():'attested';
-    const note=prompt('Optional evidence note (Enter to skip):','')||'';
+    const note=(await ccPrompt('Optional evidence note (Enter to skip):',''))||'';
     g.skills[key]={ have:val, evidence, by:(ME&&(ME.name||ME.email))||'', at:new Date().toISOString(), note:note.trim() };
   }
   await ccCaregiverPut(g);   /* 421: one person, based on the _rev this page read */
@@ -17128,7 +17159,7 @@ async function ccEnfMount(){
   try{ settingsFocusApply(); }catch(_){}
 }
 async function ccEnfSave(key,val,el){
-  if(val && !confirm('Turn ON enforcement?\n\n"'+key+'" will start BLOCKING (grandfathered records excepted). The shadow proof should be reviewed first. Continue?')){ el.checked=false; return; }
+  if(val && !(await ccConfirm('Turn ON enforcement?\n\n"'+key+'" will start BLOCKING (grandfathered records excepted). The shadow proof should be reviewed first. Continue?'))){ el.checked=false; return; }
   const { error }=await ccMergeSave('ops_settings', (m)=>{ m[key]=(val===true); return [key]; });
   if(error){ alert('Could not save: '+error.message); el.checked=!val; return; }
   try{ ccToast(val?('⚠ '+key+' is ON'):('✓ '+key+' is off — shadow only')); }catch(e){}
@@ -17360,8 +17391,8 @@ function iimSetRender(){
 async function iimSetFill(){ iimSetRender(); await iimLoad(true); iimSetRender(); }
 async function iimToggle(btn){
   const on=!((DATA.ops_settings||{}).intake_auto_import_live===true);
-  if(!confirm(on?'Turn on start forms importing themselves? From the next check (every 5 minutes), a new start form from someone we sent a start link to becomes a Background & References candidate; everyone else gets a Needs Attention card. Nothing is sent to them or their references.'
-                :'Turn off start forms importing themselves? It goes back to practice: it only lists what it would do, and Import works by hand as before.')) return;
+  if(!(await ccConfirm(on?'Turn on start forms importing themselves? From the next check (every 5 minutes), a new start form from someone we sent a start link to becomes a Background & References candidate; everyone else gets a Needs Attention card. Nothing is sent to them or their references.'
+                :'Turn off start forms importing themselves? It goes back to practice: it only lists what it would do, and Import works by hand as before.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.intake_auto_import_live=on; return ['start forms import themselves '+(on?'ON':'OFF')]; }, 'start form import');
   if(btn) btn.disabled=false;
@@ -17419,8 +17450,8 @@ function orrSetRender(){
 async function orrSetFill(){ orrSetRender(); await orrLoad(true); orrSetRender(); }
 async function orrToggle(btn){
   const on=!((DATA.ops_settings||{}).orient_remind_live===true);
-  if(!confirm(on?'Turn on office orientation reminders from the Hub?\n\nFrom 10am tomorrow (or today, if it is before 6pm and someone is booked for tomorrow), everyone still booked on the next day\'s in-person office orientation gets one reminder text.\n\nTurn off the GoHighLevel workflow "Orientation booked - remind" at the same time, or people get two reminders.'
-                :'Turn off office orientation reminders from the Hub? It goes back to practice: it only lists who it would remind, and nobody gets a reminder unless the GoHighLevel workflow is on.')) return;
+  if(!(await ccConfirm(on?'Turn on office orientation reminders from the Hub?\n\nFrom 10am tomorrow (or today, if it is before 6pm and someone is booked for tomorrow), everyone still booked on the next day\'s in-person office orientation gets one reminder text.\n\nTurn off the GoHighLevel workflow "Orientation booked - remind" at the same time, or people get two reminders.'
+                :'Turn off office orientation reminders from the Hub? It goes back to practice: it only lists who it would remind, and nobody gets a reminder unless the GoHighLevel workflow is on.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.orient_remind_live=on; return ['orientation reminders from the Hub '+(on?'ON':'OFF')]; }, 'orientation reminders');
   if(btn) btn.disabled=false;
@@ -17606,7 +17637,7 @@ async function cgcAct(action, ax, recId, btn){
   const q = action==='link' ? 'Connect '+name+' (AxisCare) to the Hub record "'+rn+'"?\n\nTheir checks, references and compliance on that record will show on this profile. Only do this if it is the same person.'
     : action==='move' ? 'Move "'+rn+'" over from Background & References as '+name+'?\n\nThey become a caregiver record carrying their checks, references and documents (the same as the Move to caregiver button), and leave Background & References. Only do this if it is the same person.'
     : 'Start a new, empty Hub record for '+name+'?\n\nOnly if the Hub never had them. Their checks and references can be added to it afterwards.';
-  if(!confirm(q)) return;
+  if(!(await ccConfirm(q))) return;
   CGC.busy=true; if(btn) btn.disabled=true;
   const m=document.getElementById('cgcMsg'); if(m) m.textContent='Saving…';
   const body = action==='link' ? { action, axiscare_id:ax, caregiver_id:recId } : action==='move' ? { action, axiscare_id:ax, candidate_id:recId } : { action:'new', axiscare_id:ax };
@@ -17623,7 +17654,7 @@ async function cgcUndo(logId, btn){
   const q = x.action==='move' ? 'Not this person? This puts "'+(x.record_name||'')+'" back in Background & References and takes the caregiver record back off '+nm+'.\n\nThe hourly check will never make this match again.'
     : x.action==='create' ? 'Not this person? This removes the new Hub record started for '+nm+'.\n\nThe hourly check will not start one for them again; a person decides instead.'
     : 'Not this person? This takes the connection between '+nm+' and the Hub record "'+(x.record_name||'')+'" back off. Nothing on the record is deleted.\n\nThe hourly check will never make this match again.';
-  if(!confirm(q)) return;
+  if(!(await ccConfirm(q))) return;
   CGC.busy=true; if(btn) btn.disabled=true;
   const out=await cgcCall({ action:'undo', log_id:Number(logId) });
   CGC.busy=false; if(btn) btn.disabled=false;
@@ -17667,7 +17698,7 @@ function inqSetFill(){
 }
 async function inqToggle(k, btn){
   const sw=INQ_SWITCHES.find(x=>x.k===k); if(!sw) return; const on=!((DATA.ops_settings||{})[k]===true);
-  if(!confirm(on?sw.on:sw.off)) return;
+  if(!(await ccConfirm(on?sw.on:sw.off))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m[k]=on; if(on&&!m[k+'_since']) m[k+'_since']=new Date().toISOString(); return [sw.name+(on?' ON':' OFF')]; }, 'inquiry messages');
   if(btn) btn.disabled=false;
@@ -17717,8 +17748,8 @@ function loopsSetRender(){
 }
 async function loopsToggle(btn){
   const on=!((DATA.ops_settings||{}).loops_close_live===true);
-  if(!confirm(on?'Turn on the Hub closing its own loops?\n\nFrom the next check (within 5 minutes):\n· a coverage case whose shift is over closes when AxisCare shows who worked it, or asks "Was it covered?"\n· a card that belongs to a closed case closes with it\n· a shift closed as not covered puts a "call the family" card on someone\'s list (a person calls; the Hub never contacts families)\n· a missed clock-in becomes one "EVV fix needed" item when the shift ends, and the admin texts about it stop\n· EVV: one weekly Caregiver EVV Review (under 90%) for the owner of caregiver performance, instead of nightly cards\n\nNothing is texted or emailed by any of this.'
-    :'Turn off the Hub closing its own loops? It goes back to practice: the checks only list what they would close or ask. Missed clock-ins keep texting the admins after the shift ends, and the nightly EVV cards come back.')) return;
+  if(!(await ccConfirm(on?'Turn on the Hub closing its own loops?\n\nFrom the next check (within 5 minutes):\n· a coverage case whose shift is over closes when AxisCare shows who worked it, or asks "Was it covered?"\n· a card that belongs to a closed case closes with it\n· a shift closed as not covered puts a "call the family" card on someone\'s list (a person calls; the Hub never contacts families)\n· a missed clock-in becomes one "EVV fix needed" item when the shift ends, and the admin texts about it stop\n· EVV: one weekly Caregiver EVV Review (under 90%) for the owner of caregiver performance, instead of nightly cards\n\nNothing is texted or emailed by any of this.'
+    :'Turn off the Hub closing its own loops? It goes back to practice: the checks only list what they would close or ask. Missed clock-ins keep texting the admins after the shift ends, and the nightly EVV cards come back.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.loops_close_live=on; if(on && !m.loops_close_since) m.loops_close_since=new Date().toISOString(); return ['the Hub closing its own loops '+(on?'ON':'OFF')]; }, 'closing loops');
   if(btn) btn.disabled=false;
@@ -17762,8 +17793,8 @@ async function routeSetDefault(area, email){
 }
 async function routeToggle(btn){
   const on=!((DATA.ops_settings||{}).routing_live===true);
-  if(!confirm(on?'Turn on right person first, then escalate?\n\nFrom the next check (within 2 minutes):\n· new scheduling work goes to whoever is on Staffing duty now (the schedule under Dashboard, Responsible now; when nobody is scheduled, the person set in Settings)\n· work nobody has taken pulls in whoever holds Owner Escalation: after 5 minutes for an uncovered shift starting within the hour, after 15 minutes for other urgent staffing and missed clock-ins, otherwise once it is overdue. It stays with its owner.\n· missed clock-in texts go to the person on Staffing duty first, and after 15 minutes also to Owner Escalation (daytime only)\n\nNothing is texted to caregivers, clients or families by this.'
-    :'Turn off right person first, then escalate? Work goes back to how it was: scheduling alerts go to the alert list, and nothing escalates by itself.')) return;
+  if(!(await ccConfirm(on?'Turn on right person first, then escalate?\n\nFrom the next check (within 2 minutes):\n· new scheduling work goes to whoever is on Staffing duty now (the schedule under Dashboard, Responsible now; when nobody is scheduled, the person set in Settings)\n· work nobody has taken pulls in whoever holds Owner Escalation: after 5 minutes for an uncovered shift starting within the hour, after 15 minutes for other urgent staffing and missed clock-ins, otherwise once it is overdue. It stays with its owner.\n· missed clock-in texts go to the person on Staffing duty first, and after 15 minutes also to Owner Escalation (daytime only)\n\nNothing is texted to caregivers, clients or families by this.'
+    :'Turn off right person first, then escalate? Work goes back to how it was: scheduling alerts go to the alert list, and nothing escalates by itself.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.routing_live=on; if(on && !m.routing_since) m.routing_since=new Date().toISOString(); return ['right person first, then escalate '+(on?'ON':'OFF')]; }, 'routing');
   if(btn) btn.disabled=false;
@@ -17857,8 +17888,8 @@ async function freshUndo(btn){
 async function cgcSetFill(){ cgcSetRender(); await cgcLoad(true); cgcSetRender(); }
 async function cgcToggle(btn){
   const on=!((DATA.ops_settings||{}).cg_connect_live===true);
-  if(!confirm(on?'Turn on caregiver connect? From the next hourly check, AxisCare caregivers it is sure about are connected to their Hub record, moved over from Background & References, or given a new Hub record. Everyone else goes to Needs Attention. Each one shows on the Caregivers list with "Not this person" to undo it.'
-                :'Turn off caregiver connect? The hourly check goes back to practice: it only lists what it would do.')) return;
+  if(!(await ccConfirm(on?'Turn on caregiver connect? From the next hourly check, AxisCare caregivers it is sure about are connected to their Hub record, moved over from Background & References, or given a new Hub record. Everyone else goes to Needs Attention. Each one shows on the Caregivers list with "Not this person" to undo it.'
+                :'Turn off caregiver connect? The hourly check goes back to practice: it only lists what it would do.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.cg_connect_live=on; return ['caregiver connect '+(on?'ON':'OFF')]; }, 'caregiver connect');
   if(btn) btn.disabled=false;
@@ -18495,9 +18526,9 @@ async function lnDo(itemId, action){
   const D=LN_VIEW[itemId]||{}, F=D.family||{};
   let extra={};
   if(action==='eta'){ const v=(document.getElementById('lnEta_'+itemId)||{}).value||''; if(!v){ const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Pick a time first.'; return; } extra={ hhmm:v }; }
-  if(action==='family'){ const t=((document.getElementById('lnFam_'+itemId)||{}).value||'').trim(); if(!t) return; if(!confirm('Text '+(F.first_names||[]).join(', ')+' now?')) return; extra={ text:t }; }
-  if(action==='arrived'){ if(!confirm('Tell the family '+D.caregiver_first+' arrived?')) return; extra={ text:((document.getElementById('lnArr_'+itemId)||{}).value||'').trim() }; }
-  if(action==='coverage' && !confirm('Open a coverage case for this shift? The call-in process takes it from there.')) return;
+  if(action==='family'){ const t=((document.getElementById('lnFam_'+itemId)||{}).value||'').trim(); if(!t) return; if(!(await ccConfirm('Text '+(F.first_names||[]).join(', ')+' now?'))) return; extra={ text:t }; }
+  if(action==='arrived'){ if(!(await ccConfirm('Tell the family '+D.caregiver_first+' arrived?'))) return; extra={ text:((document.getElementById('lnArr_'+itemId)||{}).value||'').trim() }; }
+  if(action==='coverage' && !(await ccConfirm('Open a coverage case for this shift? The call-in process takes it from there.'))) return;
   const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Working…';
   try{ const j=await lnCall(it.late_notice_id, action, extra);
     opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
@@ -18591,7 +18622,7 @@ async function lnSetToggle(key, btn){
     late_cg_reply_live:on?'Turn on caregiver replies? A caregiver who texts that they\'re running late gets one thank-you with their time, or one "about what time?"':'Turn off caregiver replies?',
     late_admin_live:on?'Turn on admin texts? Every admin is texted a link now and every 5 minutes until someone taps Seen.':'Turn off admin texts? The card still opens in Needs Attention.',
     late_call_live:on?'Turn calls back on? A caregiver\'s call that says they\'re running late opens a card, and when they gave a time the missed clock-in texts pause until 5 minutes after it.':'Turn off calls? Calls are still read, but only in practice (listed below): no card, and the missed clock-in texts are never paused because of a call.' }[key];
-  if(!confirm(ask)) return;
+  if(!(await ccConfirm(ask))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m[key]=on; if(key==='late_watch_live' && !on){ m.late_cg_reply_live=false; m.late_admin_live=false; } return [key.replace(/_/g,' ')+(on?' ON':' OFF')]; }, 'running late settings');
   if(btn) btn.disabled=false;
@@ -19867,7 +19898,7 @@ function renderApprovalsCc(){
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
   if(!ccCan('approve_discipline')){ alert('You do not have permission to approve discipline.'); return; }
-  if(!confirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.')) return;
+  if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.'))) return;
   a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
@@ -19875,7 +19906,7 @@ async function approveWriteupCc(id){
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
   if(!ccCan('approve_discipline')){ alert('You do not have permission to act on discipline.'); return; }
-  const why=prompt('Tell staffing what to change (they\'ll see this on the draft):',''); if(why===null) return;
+  const why=(await ccPrompt('Tell staffing what to change (they\'ll see this on the draft):','')); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
@@ -19905,13 +19936,13 @@ async function requestMeetingCc(){
 }
 async function acceptMeetingCc(id){
   const m=(DATA.meetings||[]).find(x=>x.id===id); if(!m) return;
-  const when=prompt('When is the meeting? (both hubs will show this)', m.when_pref||''); if(when===null) return;
+  const when=(await ccPrompt('When is the meeting? (both hubs will show this)', m.when_pref||'')); if(when===null) return;
   m.status='accepted'; m.scheduled_for=when.trim()||m.when_pref||'time TBD'; m.accepted_by=ME.name||ME.email;
   await persist('meetings',m); renderMeetingsCc();
 }
 async function declineMeetingCc(id){
   const m=(DATA.meetings||[]).find(x=>x.id===id); if(!m) return;
-  const why=prompt('Suggest another time or say why it doesn\'t work (they\'ll see this):',''); if(why===null) return;
+  const why=(await ccPrompt('Suggest another time or say why it doesn\'t work (they\'ll see this):','')); if(why===null) return;
   m.status='declined'; m.declined_reason=why.trim();
   await persist('meetings',m); renderMeetingsCc();
 }
@@ -19984,9 +20015,9 @@ function ccGoals(){
 }
 async function editCcGoals(){
   const g=ccGoals();
-  const a=prompt('Monthly goal — NEW INQUIRIES:',g.inquiries); if(a===null) return;
-  const b=prompt('Monthly goal — NEW CLIENTS (starts of care):',g.starts); if(b===null) return;
-  const c=prompt('Weekly goal — REFERRAL-SOURCE TOUCHES (visits, calls, drop-bys):',g.ref_week); if(c===null) return;
+  const a=(await ccPrompt('Monthly goal for NEW INQUIRIES:',g.inquiries)); if(a===null) return;
+  const b=(await ccPrompt('Monthly goal for NEW CLIENTS (starts of care):',g.starts)); if(b===null) return;
+  const c=(await ccPrompt('Weekly goal for REFERRAL-SOURCE TOUCHES (visits, calls, drop-bys):',g.ref_week)); if(c===null) return;
   const item={id:'main', inquiries:+a||12, starts:+b||4, ref_week:+c||5};
   DATA.cc_goals=[item];
   await persist('cc_goals',item);
@@ -20617,7 +20648,7 @@ async function iqToggle(i){
 
 async function iqDelete(i){
   const q = iqRow(i); if(!q) return;
-  if(!confirm('Delete this question?\n\nInterviews already recorded keep the answer somebody gave to it.')) return;
+  if(!(await ccConfirm('Delete this question?\n\nInterviews already recorded keep the answer somebody gave to it.'))) return;
   try{
     const { error } = await sb.from('interview_questions').delete().eq('id', q.id);
     if(error) throw error;
@@ -20626,12 +20657,12 @@ async function iqDelete(i){
 }
 
 async function iqAdd(){
-  const text = prompt('What is the question?\n\nWord it the way you would say it out loud.');
+  const text = (await ccPrompt('What is the question?\n\nWord it the way you would say it out loud.'));
   if(text===null) return;
   if(!text.trim()){ alert('It needs a question.'); return; }
   const rows = IQ.filter(q=>q.position===IQ_POS);
-  const section = prompt('Which part of the interview does it belong to?',
-    (rows[rows.length-1]||{}).section || 'Where they have been');
+  const section = (await ccPrompt('Which part of the interview does it belong to?',
+    (rows[rows.length-1]||{}).section || 'Where they have been'));
   if(section===null) return;
   try{
     const { error } = await sb.from('interview_questions').insert({
@@ -20684,19 +20715,19 @@ function dnrRender(){
 }
 
 async function dnrAdd(){
-  const name = prompt('Who is this?\n\nTheir name as it would come through on an application.');
+  const name = (await ccPrompt('Who is this?\n\nTheir name as it would come through on an application.'));
   if(name===null) return;
   if(!name.trim()){ alert('It needs a name.'); return; }
-  const phone = prompt('Their mobile number.\n\nThis is what the match is actually made on, so it is worth digging out.', '');
+  const phone = (await ccPrompt('Their mobile number.\n\nThis is what the match is actually made on, so it is worth digging out.', ''));
   if(phone===null) return;
-  const email = prompt('Their email address, if you have it.', '');
+  const email = (await ccPrompt('Their email address, if you have it.', ''));
   if(email===null) return;
   const digits = phone.replace(/[^0-9]/g,'');
   if(!digits && !email.trim()){
     alert('A name on its own cannot be matched safely, because two people share a name far more often than a phone number. Add a number or an email.');
     return;
   }
-  const reason = prompt('Why, in a few words?\n\nKept for our own records. Never sent anywhere.', '');
+  const reason = (await ccPrompt('Why, in a few words?\n\nKept for our own records. Never sent anywhere.', ''));
   if(reason===null) return;
   try{
     const { error } = await sb.from('do_not_rehire').insert({
@@ -20711,7 +20742,7 @@ async function dnrAdd(){
 
 async function dnrRemove(id){
   const d = DNR.find(x=>String(x.id)===String(id));
-  if(!confirm('Take ' + ((d&&d.name)||'this person') + ' off the list?\n\nThey would be screened like anybody else from now on.')) return;
+  if(!(await ccConfirm('Take ' + ((d&&d.name)||'this person') + ' off the list?\n\nThey would be screened like anybody else from now on.'))) return;
   try{
     const { error } = await sb.from('do_not_rehire').delete().eq('id', id);
     if(error) throw error;
@@ -20753,7 +20784,7 @@ function jtPreview(id){
 }
 async function jtDelete(id){
   const t = JT.find(function(x){ return String(x.id)===String(id); });
-  if(!confirm('Delete "'+((t&&t.name)||'this description')+'"?\n\nPostings already written with it are not touched.')) return;
+  if(!(await ccConfirm('Delete "'+((t&&t.name)||'this description')+'"?\n\nPostings already written with it are not touched.'))) return;
   try{
     const { error } = await sb.from('job_templates').delete().eq('id', id);
     if(error) throw error;
@@ -20824,7 +20855,7 @@ function scRender(){
 function pbCopyLink(k, btn){
   const url = 'https://mo-care.com/apply?position=' + encodeURIComponent(k);
   const done = () => { const was = btn.innerHTML; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.innerHTML = was; }, 1600); };
-  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(url) : Promise.reject()).then(done).catch(() => { window.prompt('Copy this link:', url); });
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(url) : Promise.reject()).then(done).catch(async () => { (await ccPrompt('Copy this link:', url)); });
 }
 window.pbCopyLink = pbCopyLink;
 function scCopy(i, btn){
@@ -21123,7 +21154,7 @@ async function pbSave(i, btn){
 
 async function pbToggle(i){
   const p = PB[i];
-  if(p.active && !confirm('Stop hiring for '+p.label+'?\n\nIt disappears from the position lists. Nothing already applied is touched.')) return;
+  if(p.active && !(await ccConfirm('Stop hiring for '+p.label+'?\n\nIt disappears from the position lists. Nothing already applied is touched.'))) return;
   try{
     const { error } = await sb.from('job_positions').update({ active: !p.active }).eq('key', p.key);
     if(error) throw error;
@@ -21132,7 +21163,7 @@ async function pbToggle(i){
 }
 
 async function pbAdd(){
-  const label = prompt('What is the position called?\n\nAs an applicant would see it.');
+  const label = (await ccPrompt('What is the position called?\n\nAs an applicant would see it.'));
   if(label===null) return;
   if(!label.trim()){ alert('It needs a name.'); return; }
   const key = label.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,40);
@@ -21720,8 +21751,8 @@ async function ivqSelfTest(btn){
     out.innerHTML = '<div style="border:1px solid '+c[2]+';background:'+c[1]+';color:'+c[0]
       + ';border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;">'+html+'</div>';
   };
-  if(!confirm('Run the booking self-test?\n\nIt books a throwaway applicant called "Slot Selftest" into the first open time, '
-    + 'cancels it again, and checks the time comes back. It cleans up after itself and messages nobody.')) return;
+  if(!(await ccConfirm('Run the booking self-test?\n\nIt books a throwaway applicant called "Slot Selftest" into the first open time, '
+    + 'cancels it again, and checks the time comes back. It cleans up after itself and messages nobody.'))) return;
   btn.disabled = true; const oldLabel = btn.textContent; btn.textContent = '🧪 Testing…';
   let apId = null;
   const times = r => (r||[]).map(x=>x.starts_at).sort();
@@ -22027,22 +22058,22 @@ async function fcRpEdit(contactId){
 }
 async function fcRpAdd(contactId){
   const p=Object.values(FC_CONTACTS).flat().find(x=>String(x.id)===String(contactId)); if(!p) return;
-  if(!confirm('Add '+p.name+' to this client\'s responsible parties in AxisCare?\n\nThey go into the first free slot (of three). From then on AxisCare owns their details, and HIPAA / medical-decision answers are set in AxisCare.')) return;
+  if(!(await ccConfirm('Add '+p.name+' to this client\'s responsible parties in AxisCare?\n\nThey go into the first free slot (of three). From then on AxisCare owns their details, and HIPAA / medical-decision answers are set in AxisCare.'))) return;
   let out; try{ out=await fcCall({action:'rp_add',contact_id:contactId}); }catch(e){ out={error:String(e.message||e)}; }
   if(out.outcome==='added'){ await fcLoad(); alert(p.name+' is now AxisCare contact '+out.list_number+' (read back from AxisCare).'); return; }
   alert(out.detail||out.error||out.outcome);
 }
 
 async function fcAddContact(circleId){
-  const name = prompt('Who should hear from us?'); if(name===null) return;
+  const name = (await ccPrompt('Who should hear from us?')); if(name===null) return;
   if(!name.trim()){ alert('It needs a name.'); return; }
-  const rel = prompt('How are they related?\n\ne.g. Daughter, Son, Power of attorney, Neighbor', 'Daughter');
+  const rel = (await ccPrompt('How are they related?\n\ne.g. Daughter, Son, Power of attorney, Neighbor', 'Daughter'));
   if(rel===null) return;
-  const phone = prompt('Mobile number, if they are happy to be texted.\n\nLeave blank if not.', '');
+  const phone = (await ccPrompt('Mobile number, if they are happy to be texted.\n\nLeave blank if not.', ''));
   if(phone===null) return;
-  const email = prompt('Email address, if they have one.', ''); if(email===null) return;
+  const email = (await ccPrompt('Email address, if they have one.', '')); if(email===null) return;
   if(!phone.trim() && !email.trim()){ alert('Give a phone or an email, or we cannot reach them.'); return; }
-  const consent = phone.trim() ? confirm('Has ' + name.trim() + ' agreed to be texted?\n\nOK for yes. Cancel means email only.') : false;
+  const consent = phone.trim() ? (await ccConfirm('Has ' + name.trim() + ' agreed to be texted?\n\nOK for yes. Cancel means email only.')) : false;
   try{
     const { error } = await sb.from('circle_contacts').insert({
       circle_id: circleId, name: name.trim(), relationship: rel.trim() || null,
@@ -22064,7 +22095,7 @@ async function fcSet(id, field, value){
 async function fcDel(id){
   const p=Object.values(FC_CONTACTS).flat().find(x=>String(x.id)===String(id));
   if(p&&p.source==='axiscare'&&p.axiscare_list_number&&!p.axiscare_removed_at){ alert(p.name+' is on this client\'s AxisCare contacts, so removing them here would not stick: the nightly sync would bring them back. Remove them in AxisCare, and the hub marks them the next night.'); return; }
-  if(!confirm('Take this person out of the circle?')) return;
+  if(!(await ccConfirm('Take this person out of the circle?'))) return;
   try{
     const { error } = await sb.from('circle_contacts').delete().eq('id', id);
     if(error) throw error;
@@ -22141,7 +22172,7 @@ async function fcSend(circleId, btn){
   const kind = box.dataset.kind || 'update';
   if(!body){ err.textContent='Write the message first.'; err.style.display='block'; return; }
   const c = FC.find(function(x){ return String(x.id)===String(circleId); });
-  if(!confirm('Send this to ' + c.client_name + "'s circle?")) return;
+  if(!(await ccConfirm('Send this to ' + c.client_name + "'s circle?"))) return;
   btn.disabled = true; btn.textContent = 'Sending…';
   try{
     const { data, error } = await sb.functions.invoke('circle-send', {
@@ -22375,10 +22406,10 @@ function evvPhone(id, mode){
   const sub=evvSubById(id); if(!sub||!window.EVVF){ alert('This form is no longer in the list. Refresh and try again.'); return; }
   EVVF.openPhoneDialog({ sb, sub, mode, me:evvMe(), doc:document, onDone:function(){ EVV_SUBS.data=null; evvLoadSubs(); } });
 }
-function evvCopySign(btn){
+async function evvCopySign(btn){
   const v=btn&&btn.getAttribute('data-link'); if(!v) return;
   const ok=function(){ const t=btn.textContent; btn.textContent='Copied: text it to the caregiver only'; setTimeout(function(){ btn.textContent=t; },2200); };
-  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok,function(){ prompt('Copy the signing link (for the caregiver only):',v); }); else prompt('Copy the signing link (for the caregiver only):',v); }catch(e){ prompt('Copy the signing link (for the caregiver only):',v); }
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok,async function(){ (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }); else (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }catch(e){ (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }
 }
 /* 429: the next-visit signature text switch. OFF = practice (the timekeeper records who it WOULD text). */
 function evvPaintNextVisit(){
@@ -22395,8 +22426,8 @@ function evvPaintNextVisit(){
 }
 async function evvToggleNextVisit(btn){
   const on=!((DATA.ops_settings||{}).evv_next_visit_live===true);
-  if(!confirm(on?'Turn on next-visit signature texts? When a correction form is waiting for the client\'s signature, the caregiver gets ONE text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Nothing is ever sent to the client or family.'
-    :'Turn off next-visit signature texts? Waiting forms go back to practice (who would be texted is recorded; nobody is texted).')) return;
+  if(!(await ccConfirm(on?'Turn on next-visit signature texts? When a correction form is waiting for the client\'s signature, the caregiver gets ONE text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Nothing is ever sent to the client or family.'
+    :'Turn off next-visit signature texts? Waiting forms go back to practice (who would be texted is recorded; nobody is texted).'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge(function(m){ m.evv_next_visit_live=on; return [on?'next-visit signature texts ON':'next-visit signature texts OFF']; }, 'EVV next-visit settings');
   if(btn) btn.disabled=false;
@@ -22405,7 +22436,7 @@ async function evvToggleNextVisit(btn){
 }
 function evvLinkPast(id){ return evvOpenLinker(id,'link'); }
 async function evvDismissSub(id){
-  if(!confirm('Dismiss this submission without logging it? It moves to Past forms, marked Dismissed.')) return;
+  if(!(await ccConfirm('Dismiss this submission without logging it? It moves to Past forms, marked Dismissed.'))) return;
   const sub=evvSubById(id)||{ id };
   const r=window.EVVF?await EVVF.linkSave(sb, sub, {}, { by:evvMe(), dismiss:true })
     :{ ok:false, error:'the EVV form tools did not load; refresh the page' };
@@ -23008,8 +23039,8 @@ async function apDecline(id){
   /* 446: someone already given an offer or hired is past the interview stage; a background check issue is handled by
      the background review's final notice, so this message is not offered and nobody gets both. */
   const pastOffer = !!r && (r.status==='offer' || r.status==='hired');
-  const why = prompt('Why are we not moving forward with '
-    + ((r&&r.first_name)||'this applicant') + '?\n\nKept for our own records only, never sent.', '');
+  const why = (await ccPrompt('Why are we not moving forward with '
+    + ((r&&r.first_name)||'this applicant') + '?\n\nKept for our own records only, never sent.', ''));
   if(why===null) return;
   if(await apSetStatus(id, 'declined', why.trim() || null) && !pastOffer) await apDecisionOffer(id, 'declined');
 }
@@ -23376,7 +23407,7 @@ async function recRecoverUpload(id, btn){
   recRecoverShow();
 }
 async function recRecoverDrop(id){
-  if(!confirm('Discard this unfinished recording? It cannot be brought back.')) return;
+  if(!(await ccConfirm('Discard this unfinished recording? It cannot be brought back.'))) return;
   await recDbDrop(id); recRecoverShow();
 }
 
@@ -23754,7 +23785,7 @@ function apLinkCopy(what, btn){
   const text = what === 'msg' ? apLinkMsgText() : document.getElementById('apLinkUrl').value;
   const done = () => { const was = btn.textContent; btn.textContent = 'Copied ✓'; setTimeout(() => { btn.textContent = was; }, 1600); };
   (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(text) : Promise.reject())
-    .then(done).catch(() => { window.prompt('Copy this:', text); });
+    .then(done).catch(async () => { (await ccPrompt('Copy this:', text)); });
 }
 window.apLinkOpen = apLinkOpen; window.apLinkRender = apLinkRender; window.apLinkCopy = apLinkCopy;
 
@@ -23899,8 +23930,8 @@ async function apAddSave(btn){
   if(same){
     const nm = ((same.first_name||'')+' '+(same.last_name||'')).trim() || 'someone';
     const when = same.created_at ? new Date(same.created_at).toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric'}) : '';
-    if(!confirm(nm + ' already applied with this phone or email' + (when?' on '+when:'') + '.\n\n'
-      + 'OK opens their existing page instead. Cancel goes back to the form.')) return;
+    if(!(await ccConfirm(nm + ' already applied with this phone or email' + (when?' on '+when:'') + '.\n\n'
+      + 'OK opens their existing page instead. Cancel goes back to the form.'))) return;
     apAddClose(); apOpenProfile(same.id); return;
   }
 
@@ -24021,7 +24052,7 @@ async function apReviewCheck(r){
 async function apReviewApprove(id, btn){
   const r = AP_PROF && String(AP_PROF.id)===String(id) ? AP_PROF : (AP_ROWS||[]).find(x=>String(x.id)===String(id));
   const who = r ? ((r.first_name||'')+' '+(r.last_name||'')).trim() : 'them';
-  if(!confirm('Approve '+who+' to book an interview?\n\nYou chose not to move forward with them before. After this they can pick a time from their link, and the usual booking reminders start. Nothing is sent right now.')) return;
+  if(!(await ccConfirm('Approve '+who+' to book an interview?\n\nYou chose not to move forward with them before. After this they can pick a time from their link, and the usual booking reminders start. Nothing is sent right now.'))) return;
   if(btn) btn.disabled=true;
   const at=new Date().toISOString();
   const { error } = await sb.from('job_applicants').update({ review_cleared_at: at, review_cleared_by: (ME&&ME.email)||'' }).eq('id', id);
@@ -24618,18 +24649,18 @@ function apProfLeaving(r){
    from now when the same name comes back through the form. */
 async function apOffboard(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
-  const last = prompt('What was their last day?\n\nAs YYYY-MM-DD.', r.left_at || new Date().toISOString().slice(0,10));
+  const last = (await ccPrompt('What was their last day?\n\nAs YYYY-MM-DD.', r.left_at || new Date().toISOString().slice(0,10)));
   if(last===null) return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(last.trim())){ alert('That did not look like a date. Try 2026-08-02.'); return; }
-  const how = prompt('How did it end?\n\nresigned · let go · no call no show · never started · other',
-    r.left_how || 'resigned');
+  const how = (await ccPrompt('How did it end?\n\nresigned · let go · no call no show · never started · other',
+    r.left_how || 'resigned'));
   if(how===null) return;
   const ok = ['resigned','let go','no call no show','never started','other'];
   const how2 = ok.includes(how.trim().toLowerCase()) ? how.trim().toLowerCase() : 'other';
-  const why = prompt('Why, in a line?\n\nKept for our own records. Never sent anywhere.', r.leave_reason || '');
+  const why = (await ccPrompt('Why, in a line?\n\nKept for our own records. Never sent anywhere.', r.leave_reason || ''));
   if(why===null) return;
-  const back = confirm('Would we have them back?\n\nOK for yes. Cancel for no.\n\n'
-    + 'A no puts them on the do-not-rehire list straight away, so if they apply again the screen catches them at the form.');
+  const back = (await ccConfirm('Would we have them back?\n\nOK for yes. Cancel for no.\n\n'
+    + 'A no puts them on the do-not-rehire list straight away, so if they apply again the screen catches them at the form.'));
   try{
     const { error } = await sb.from('job_applicants').update({
       status: 'left', left_at: last.trim(), left_how: how2,
@@ -24690,10 +24721,10 @@ async function apVerifyWork(i, state){
   const list = (Array.isArray(r.work_history) ? r.work_history : []).map(x=>Object.assign({}, x));
   if(!list[i]) return;
   if(state){
-    const note = prompt(state==='yes'
+    const note = (await ccPrompt(state==='yes'
       ? 'Who did you speak to, and what did they say?'
       : 'What happened? Number dead, would not confirm, no such employer…',
-      (list[i].verified||{}).note || '');
+      (list[i].verified||{}).note || ''));
     if(note===null) return;
     list[i].verified = { state, note: note.trim() || null,
       by: (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
@@ -25480,20 +25511,20 @@ async function apDecisionOffer(id, kind){
   const words = p.text || ('Subject: ' + p.email.subject + '\n\n' + apDecisionEmailText(p.email.html));
   if(p.booked_for && p.goes_at){ alert('The ' + label + ' is already booked for ' + apDecWhen(p.booked_for) + '.'); return; }
   const when = p.goes_at ? 'tomorrow morning (' + apDecWhen(p.goes_at) + ')' : 'now';
-  if(!confirm('Send ' + first + ' the ' + label + ' ' + (p.goes_at ? 'tomorrow morning' : '') + '?\n\nThis sends ' + how + ' ' + when + ':\n\n' + words
-    + '\n\n' + (p.goes_at ? 'OK books it for then. Cancel sends nothing.' : 'OK sends it. Cancel sends nothing.'))) return;
+  if(!(await ccConfirm('Send ' + first + ' the ' + label + ' ' + (p.goes_at ? 'tomorrow morning' : '') + '?\n\nThis sends ' + how + ' ' + when + ':\n\n' + words
+    + '\n\n' + (p.goes_at ? 'OK books it for then. Cancel sends nothing.' : 'OK sends it. Cancel sends nothing.')))) return;
   try{ const d = await apDecisionCall({ action:'send', id, kind }); await apLoad(); alert(apDecisionResult(d, label)); }
   catch(e){ alert('Could not send the ' + label + ': ' + (e && e.message || e) + '\n\nThey are still marked.'); }
 }
 /* "Send it now" on a booked Not hiring message. */
 async function apDecisionNow(id, kind){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)), first = (r && r.first_name) || 'them', label = AP_DEC_LABEL[kind];
-  if(!confirm('Send ' + first + ' the ' + label + ' now instead of waiting for the morning?')) return;
+  if(!(await ccConfirm('Send ' + first + ' the ' + label + ' now instead of waiting for the morning?'))) return;
   try{ const d = await apDecisionCall({ action:'send', id, kind, now:true }); await apLoad(); alert(apDecisionResult(d, label)); }
   catch(e){ alert('Could not send the ' + label + ': ' + (e && e.message || e)); }
 }
 async function apDecisionSkip(id){
-  if(!confirm("Don't send this message? Nothing goes to them, and the button goes away.")) return;
+  if(!(await ccConfirm("Don't send this message? Nothing goes to them, and the button goes away."))) return;
   try{ await apDecisionCall({ action:'skip', id }); await apLoad(); }
   catch(e){ alert('Could not change it: ' + (e && e.message || e)); }
 }
@@ -25850,9 +25881,9 @@ async function apToPool(id){
 async function apPoolSweep(){
   const rows = apMatching('inactive');
   if(!rows.length) return;
-  if(!confirm('Move all ' + rows.length + ' of these into the candidate pool?\n\n'
+  if(!(await ccConfirm('Move all ' + rows.length + ' of these into the candidate pool?\n\n'
     + 'What each of them is waiting for and where comes from their own application, so you can search them '
-    + 'by area and hours straight away. Open anyone afterwards to say more about them.')) return;
+    + 'by area and hours straight away. Open anyone afterwards to say more about them.'))) return;
   const stamp = new Date().toISOString();
   const when = d => new Date(d).toLocaleDateString('en-US',{month:'long', year:'numeric'});
   let done = 0, failed = 0;
@@ -25881,8 +25912,8 @@ async function apPoolSweep(){
    is kept, because it is the truest note anybody ever writes about them. */
 async function apFromPool(id){
   const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
-  if(!confirm('Take ' + (r.first_name||'them') + ' out of the pool?\n\n'
-    + 'They go back into Qualified as somebody to move on with now. What they were holding out for is kept.')) return;
+  if(!(await ccConfirm('Take ' + (r.first_name||'them') + ' out of the pool?\n\n'
+    + 'They go back into Qualified as somebody to move on with now. What they were holding out for is kept.'))) return;
   try{
     const { error } = await sb.from('job_applicants')
       .update({ status:'reviewing', seen_at:new Date().toISOString() }).eq('id', id);
@@ -26206,8 +26237,8 @@ async function apReSend(btn){
   if(!msg){ err.textContent='Write what you want to say.'; err.style.display='block'; return; }
   if(!slug){ err.textContent='Publish a job posting first, so there is something to point them at.'; err.style.display='block'; return; }
   if(!list.length){ err.textContent='Tick who to contact first. Nothing was sent.'; err.style.display='block'; return; }
-  if(!confirm('Send this to these ' + list.length + ' ' + (list.length===1?'person':'people') + '?\n\n'
-    + list.map(r=>'• ' + ((r.first_name||'')+' '+(r.last_name||'')).trim()).join('\n'))) return;
+  if(!(await ccConfirm('Send this to these ' + list.length + ' ' + (list.length===1?'person':'people') + '?\n\n'
+    + list.map(r=>'• ' + ((r.first_name||'')+' '+(r.last_name||'')).trim()).join('\n')))) return;
   err.style.display='none';
   btn.disabled = true; btn.textContent = 'Sending…';
   try{
@@ -26586,7 +26617,7 @@ function ivRenderBusy(){
 }
 
 async function ivAddHost(){
-  const name = prompt('Which coordinator?\n\nTheir name as clients and applicants would hear it.');
+  const name = (await ccPrompt('Which coordinator?\n\nTheir name as clients and applicants would hear it.'));
   if(name===null) return;
   if(!name.trim()){ alert('It needs a name.'); return; }
   try{
@@ -26658,7 +26689,7 @@ async function ivHoursSave(btn){
 async function ivDelBlock(id){
   const a = IV_AVAIL.find(x=>String(x.id)===String(id));
   const label = a ? actLabel(a.activity)+' '+IV_DSHORT[a.day_of_week]+' '+ivTime(a.start_time)+'–'+ivTime(a.end_time) : 'these hours';
-  if(!confirm('Remove '+label+'?\n\nAnything already booked in that time stays booked.')) return;
+  if(!(await ccConfirm('Remove '+label+'?\n\nAnything already booked in that time stays booked.'))) return;
   try{
     const { error } = await sb.from('coordinator_availability').delete().eq('id', id);
     if(error) throw error;
@@ -26729,7 +26760,7 @@ async function ivBlockSave(btn){
 }
 
 async function ivUnblock(id){
-  if(!confirm('Remove this blocked time?\n\nThose slots become bookable again.')) return;
+  if(!(await ccConfirm('Remove this blocked time?\n\nThose slots become bookable again.'))) return;
   try{
     const { error } = await sb.from('coordinator_busy').delete().eq('id', id);
     if(error) throw error;
@@ -26777,15 +26808,15 @@ async function jtLoad(){
 
 /* Fills the wording and leaves the posting's own identity alone. Slug, city,
    expiry and openings belong to this posting, not to the template. */
-function jtApply(){
+async function jtApply(){
   const id = document.getElementById('jp_tpl').value;
   const t = JT.find(x=>String(x.id)===String(id));
   if(!t){ alert('Pick a saved description first.'); return; }
   const filled = ['jp_desc','jp_resp','jp_qual','jp_benefits','jp_summary']
     .some(f=>document.getElementById(f).value.trim());
   const isNew = !document.getElementById('jp_id').value;
-  if(filled && !confirm('Replace what is written here with “'+t.name+'”?'
-      + (isNew ? '' : '\n\nThe title, page address and dates stay as they are.'))) return;
+  if(filled && !(await ccConfirm('Replace what is written here with “'+t.name+'”?'
+      + (isNew ? '' : '\n\nThe title, page address and dates stay as they are.')))) return;
 
   const v=(id,val)=>{ const e=document.getElementById(id); if(e && val!=null && val!=='') e.value=val; };
   /* On a new posting the title follows the template, so picking the wrong one
@@ -26806,7 +26837,7 @@ async function jtSave(){
   const g=id=>{ const e=document.getElementById(id); return e? e.value.trim() : ''; };
   if(!g('jp_desc')){ alert('Write the advert first, then save it for reuse.'); return; }
   const suggested = g('jp_title') || 'Description';
-  const name = prompt('Call this description what?\n\nIt appears in the picker next time.', suggested);
+  const name = (await ccPrompt('Call this description what?\n\nIt appears in the picker next time.', suggested));
   if(name===null) return;
   if(!name.trim()){ alert('It needs a name.'); return; }
   const num=v=>v===''?null:Number(v);
@@ -26815,7 +26846,7 @@ async function jtSave(){
     description:g('jp_desc'), responsibilities:g('jp_resp')||null,
     qualifications:g('jp_qual')||null, benefits:g('jp_benefits')||null };
   const existing = JT.find(t=>t.name.toLowerCase()===row.name.toLowerCase());
-  if(existing && !confirm('“'+row.name+'” already exists. Overwrite it?')) return;
+  if(existing && !(await ccConfirm('“'+row.name+'” already exists. Overwrite it?'))) return;
   try{
     const q = existing ? sb.from('job_templates').update(row).eq('id',existing.id)
                        : sb.from('job_templates').insert(row);
@@ -26884,7 +26915,7 @@ async function jpSave(status){
 async function jpClose(){
   const id=document.getElementById('jp_id').value;
   if(!id){ jpCancel(); return; }
-  if(!confirm('Close this role?\n\nThe page comes down and Google drops it within a few days. Nothing is deleted, so you can publish it again later.')) return;
+  if(!(await ccConfirm('Close this role?\n\nThe page comes down and Google drops it within a few days. Nothing is deleted, so you can publish it again later.'))) return;
   try{
     const { error } = await sb.from('job_postings').update({status:'closed'}).eq('id',id);
     if(error) throw error;
@@ -29327,9 +29358,9 @@ async function ccIssueAct(id, what){
   const cat=CCIssue.cats.find(c=>c.code===it.issue_category);
 
   if(what==='iss_action'){
-    const note=prompt('What did you do?\n\nThis is recorded against the issue. '
+    const note=(await ccPrompt('What did you do?\n\nThis is recorded against the issue. '
       +'The issue stays open — completing an action is not the same as solving '
-      +'the problem.');
+      +'the problem.'));
     if(!note) return;
     const r=await CCIssue.call('action=1',{ issue_id:it.issue_id, action_type:'action',
       note:note, by_whom:ME.email||'', ops_item_id:it.id });
@@ -29340,9 +29371,9 @@ async function ccIssueAct(id, what){
 
   if(what==='iss_classify'){
     const opts=CCIssue.cats.filter(c=>c.code!=='needs_triage');
-    const pick=prompt('Classify this issue.\n\n'
+    const pick=(await ccPrompt('Classify this issue.\n\n'
       +opts.map((c,n)=>(n+1)+'. '+c.label).join('\n')
-      +'\n\nType the number:');
+      +'\n\nType the number:'));
     const c=opts[parseInt(pick,10)-1];
     if(!c) return;
     /* Reclassifies the SAME issue. The original report and every action stay
@@ -29363,27 +29394,27 @@ async function ccIssueAct(id, what){
   if(what==='iss_resolve'){
     /* 528: a grievance is resolved only after our written answer, and once they know they can also go to DSDS */
     if(it.issue_category==='grievance'){
-      if(!confirm('Before this grievance is resolved:\n\n1. Did the client (or their representative) get our written answer, with what we found and what we did?\n2. Were they told they can also file a grievance with DSDS (the online portal or 866-835-3505)?\n\nOK = yes to both. Cancel = not yet.')) return;
+      if(!(await ccConfirm('Before this grievance is resolved:\n\n1. Did the client (or their representative) get our written answer, with what we found and what we did?\n2. Were they told they can also file a grievance with DSDS (the online portal or 866-835-3505)?\n\nOK = yes to both. Cancel = not yet.'))) return;
     }
     const warn = cat && cat.follow_up_required
       ? '\n\nNOTE: this kind of issue requires a follow-up check. Resolving now '
         +'will schedule that check rather than closing it — the problem is not '
         +'settled until somebody confirms it stayed settled.'
       : '';
-    const note=prompt('What actually resolved it?\n\nResolved means: '
-      +((cat&&cat.resolution_means)||'the underlying problem is addressed')+warn);
+    const note=(await ccPrompt('What actually resolved it?\n\nResolved means: '
+      +((cat&&cat.resolution_means)||'the underlying problem is addressed')+warn));
     if(!note) return;
     /* SLICE 8 (her decision 2, 2026-10-11): a grievance resolves only with the written answer attached, or a recorded reason
        it was answered in person. The server refuses otherwise. */
     let answer = {};
     if(it.issue_category==='grievance'){
-      if(confirm('Attach the written answer we gave them?\n\nOK = choose the file (PDF, photo or scan).\nCancel = it was answered in person instead.')){
+      if((await ccConfirm('Attach the written answer we gave them?\n\nOK = choose the file (PDF, photo or scan).\nCancel = it was answered in person instead.'))){
         const f = window.ClientAudit ? await ClientAudit.pickFile('application/pdf,.pdf,image/*') : null;
         if(!f){ alert('No file chosen, so nothing was changed. Try again and choose the written answer.'); return; }
         try{ const u = await ClientAudit.upload('grievance', it.issue_id, f); answer = { resolution_doc: u.path }; }
         catch(e){ return alert('The written answer did not upload, nothing was changed: '+(e.message||e)); }
       } else {
-        const why = prompt('Why was it answered in person instead of in writing? (a sentence; this is kept with the grievance)');
+        const why = (await ccPrompt('Why was it answered in person instead of in writing? (a sentence; this is kept with the grievance)'));
         if(!why || why.trim().length < 10){ alert('A sentence is needed. Nothing was changed.'); return; }
         answer = { in_person_reason: why.trim() };
       }
@@ -32893,12 +32924,12 @@ function clNotClientHtml(){
     +(own?' · <button class="linklike" style="font-size:12px;" onclick="clNotClientAsk()">+ leave out another AxisCare number</button>':'');
 }
 async function clNotClientAsk(){
-  const v=String(prompt('The AxisCare client number to leave out of client lists (only for records that are not a person in care, like Office Staff):')||'').trim().replace(/^#/,'');
+  const v=String((await ccPrompt('The AxisCare client number to leave out of client lists (only for records that are not a person in care, like Office Staff):'))||'').trim().replace(/^#/,'');
   if(!v) return;
   if(!/^\d+$/.test(v)){ alert('That is not an AxisCare number (digits only).'); return; }
   const c=((CL.census&&CL.census.clients)||[]).find(x=>String(x.id)===v);
   const nm=c?clCensusName(c):'';
-  if(!confirm('Leave '+(nm?nm+' ':'')+'(AxisCare #'+v+') out of every client list in the Hub?\n\nNothing in AxisCare or their record changes, and you can put them back here.')) return;
+  if(!(await ccConfirm('Leave '+(nm?nm+' ':'')+'(AxisCare #'+v+') out of every client list in the Hub?\n\nNothing in AxisCare or their record changes, and you can put them back here.'))) return;
   clNotClientSet(v, true, nm);
 }
 async function clNotClientSet(ax, out, name){
@@ -35760,7 +35791,7 @@ async function ivOffer(oid,uid,cand,date){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 async function ivDecline(oid,uid,cand){
-  const reason=prompt('Declining '+(cand||'this candidate')+' — quick reason? (optional)')||'';
+  const reason=(await ccPrompt('Declining '+(cand||'this candidate')+': a quick reason? (optional)'))||'';
   const rec={id:oid,uid:uid,outcome:'declined',reason:reason.slice(0,200),by:ME.name||ME.email||'',at:new Date().toISOString()};
   DATA.interview_outcomes=(DATA.interview_outcomes||[]).filter(x=>x.id!==oid).concat([rec]);
   await persist('interview_outcomes',rec);
@@ -35791,7 +35822,7 @@ async function calConnAdd(){
   renderCalInterviews(true);
 }
 async function calConnRemove(id){
-  if(!confirm('Remove this calendar from the interviews list?')) return;
+  if(!(await ccConfirm('Remove this calendar from the interviews list?'))) return;
   await removeItem('interview_calendars',id);
   DATA.interview_calendars=(DATA.interview_calendars||[]).filter(x=>x.id!==id);
   renderCalInterviews(true);
@@ -36440,7 +36471,7 @@ async function dnoRemove(id){
   const arr=DATA.coverage_do_not_offer||[];
   const d=arr.find(x=>x&&x.id===id);
   if(!d) return;
-  if(!confirm('Start offering open shifts to '+(d.name||'this caregiver')+' again?')) return;
+  if(!(await ccConfirm('Start offering open shifts to '+(d.name||'this caregiver')+' again?'))) return;
   DATA.coverage_do_not_offer=arr.filter(x=>!(x&&x.id===id));
   await removeItem('coverage_do_not_offer', id);
   caraRenderCC();
@@ -37012,7 +37043,7 @@ async function swEvvText(key){
     await swEvvMark(key,'texted');
     return;
   }
-  if(!confirm('Text '+r.caregiver+' the correction-form request?\n\n"'+msg+'"')) return;
+  if(!(await ccConfirm('Text '+r.caregiver+' the correction-form request?\n\n"'+msg+'"'))) return;
   try{
     var resp=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
       method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
@@ -37273,7 +37304,7 @@ async function tbAddShift(id){
 async function tbDelShift(id,k){
   var p=tbPlan(); if(!p||p.id!==id) return;
   if((p.slots||[]).length<=1){ alert('A plan needs at least one shift — edit this one instead of removing it.'); return; }
-  if(!confirm('Remove this shift? Anyone penciled into it on this board will be cleared.')) return;
+  if(!(await ccConfirm('Remove this shift? Anyone penciled into it on this board will be cleared.'))) return;
   p.slots=(p.slots||[]).filter(function(s){ return s.k!==k; });
   (p.days||[]).forEach(function(d){ if(p.cells) delete p.cells[tbCellKey(d,k)]; });
   await tbSave(p); tbRender();
@@ -37789,7 +37820,7 @@ async function spUndo(plan, msgEl){
   var push=plan.axiscare_push; if(!push) return;
   var ids=[]; (push.created||[]).forEach(function(c){ (c.schedule_ids||[]).forEach(function(i){ ids.push(String(i)); }); });
   if(!ids.length){ if(msgEl) msgEl.textContent='AxisCare did not return the schedule ids; end them in AxisCare.'; return; }
-  if(!confirm('End the '+ids.length+' AxisCare schedule record(s) this plan just created? Their visits from '+push.start_date+' on will be removed.')) return;
+  if(!(await ccConfirm('End the '+ids.length+' AxisCare schedule record(s) this plan just created? Their visits from '+push.start_date+' on will be removed.'))) return;
   var out; try{ out=await spCall({action:'undo',plan_id:plan.id,schedule_ids:ids}); }catch(e){ out={error:String(e.message||e)}; }
   if(out.outcome==='removed'||out.outcome==='partly_removed'){
     push.undone={at:out.at,by:out.by,effective:out.effective,results:out.results}; plan.status='building'; delete plan.completed_at;
@@ -38614,8 +38645,8 @@ async function covAdd(){
 }
 async function covAsk(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
-  const name=prompt('Who did you ask?'); if(!name||!name.trim()) return;
-  const how=prompt('How? text / call / axiscare app','text')||'text';
+  const name=(await ccPrompt('Who did you ask?')); if(!name||!name.trim()) return;
+  const how=(await ccPrompt('How? text / call / axiscare app','text'))||'text';
   c.asked=c.asked||[];
   c.asked.push({ id:uid(), name:name.trim(), channel:how.trim().toLowerCase(),
                  at:new Date().toISOString(), state:'waiting', replied_at:null });
@@ -38639,7 +38670,7 @@ async function covAskState(cid,aid,state){
   }
   await persist('coverage_cases',c);
   if(state==='yes' && c.status==='open' &&
-     confirm(a.name+' said yes — mark the shift covered by them?')){ covResolve(cid,'covered',a.name); return; }
+     (await ccConfirm(a.name+' said yes. Mark the shift covered by them?'))){ covResolve(cid,'covered',a.name); return; }
   renderCoverage();
 }
 async function covResolve(id,how,byName){
@@ -38648,7 +38679,7 @@ async function covResolve(id,how,byName){
   const yesL=covYesList(c);
   if(how==='covered' && !by && yesL.length===1) by=yesL[0].name;
   if(how==='covered' && !by && c.pending_fill && c.pending_fill.name) by=c.pending_fill.name;
-  if(how==='covered' && !by){ by=prompt('Covered by whom?'); if(!by||!by.trim()) return; by=by.trim(); }
+  if(how==='covered' && !by){ by=(await ccPrompt('Covered by whom?')); if(!by||!by.trim()) return; by=by.trim(); }
   /* 2c: confirming a new hire with no published caregiver profile takes a reason (saved with who and when) */
   if(how==='covered' && by){
     const ask=(c.asked||[]).find(a=>String(a.name||'').toLowerCase().trim()===String(by).toLowerCase().trim());
@@ -38661,10 +38692,10 @@ async function covResolve(id,how,byName){
     const others=yesL.filter(a=>String(a.name||'').toLowerCase()!==String(by||'').toLowerCase());
     if(others.length){
       const names=others.map(a=>a.name).join(', ');
-      if(confirm(others.length+' other'+(others.length===1?'':'s')+' also said yes ('+names+').\n\nText them a thank-you when this closes?\n\nOK = send a message (you write it next) · Cancel = they get NO message')){
+      if((await ccConfirm(others.length+' other'+(others.length===1?'':'s')+' also said yes ('+names+').\n\nText them a thank-you when this closes?\n\nOK = send a message (you write it next) · Cancel = they get NO message'))){
         const dflt=(DATA.ops_settings&&DATA.ops_settings.coverage_msg_not_chosen)
           ||'Caring Companions: that shift got covered this time — thank you so much for offering, {first_name}! Next one is yours.';
-        const m=prompt('What should it say? ({first_name} becomes their name)',dflt);
+        const m=(await ccPrompt('What should it say? ({first_name} becomes their name)',dflt));
         notChosen={ msg:(m&&m.trim())||dflt };
       }else notChosen={ silent:true };
     }
@@ -38724,7 +38755,7 @@ async function covPrnShift(c, name, kind){
 async function covBackedOut(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c || c.resolved_how!=='covered') return;
   const who=c.covered_by||'?';
-  if(!confirm(who+' backed out after being confirmed?\n\nThe shift reopens so it can be covered again, and this is recorded against them. Nothing is sent to them.\n\nIf they were put on the AxisCare visit, take them off it there too.')) return;
+  if(!(await ccConfirm(who+' backed out after being confirmed?\n\nThe shift reopens so it can be covered again, and this is recorded against them. Nothing is sent to them.\n\nIf they were put on the AxisCare visit, take them off it there too.'))) return;
   c.backed_out=(c.backed_out||[]).concat([{ name:who, at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'')||(ME&&(ME.name||ME.email))||'' }]);
   opEvent('coverage_backed_out',{item_id:c.id, area:'coverage', summary:who+' backed out of '+(c.client||'a shift')+' after being confirmed'});
   await covPrnShift(c, who, 'backed_out');
@@ -38757,7 +38788,7 @@ async function covReopen(id){
 async function covFlagConfirm(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   if(/confirm the client/.test(String(c.client||''))||!String(c.client||'').trim()){
-    const nm=prompt('Which client is this shift for? (Cara couldn\'t tell from the call)');
+    const nm=(await ccPrompt('Which client is this shift for? (Cara couldn\'t tell from the call)'));
     if(nm&&nm.trim()) c.client=nm.trim();
   }
   c.status='open'; c.flag_confirmed_at=new Date().toISOString();
@@ -38767,7 +38798,7 @@ async function covFlagConfirm(id){
 }
 async function covFlagDismiss(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
-  if(!confirm('Dismiss this flag? Cara won\'t flag this call again.')) return;
+  if(!(await ccConfirm('Dismiss this flag? Cara won\'t flag this call again.'))) return;
   c.status='dismissed'; c.dismissed_at=new Date().toISOString();
   c.dismissed_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
   await persist('coverage_cases',c); renderCoverage();
@@ -38888,7 +38919,7 @@ async function covPickSend(id,includeG2){
      chose), but nobody should wake 12 caregivers by accident. */
   const hr=new Date().getHours();
   const lateNote=(hr>=21||hr<8)?'⚠ It\'s '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' — most caregivers are asleep. Send anyway only if this shift truly can\'t wait for morning.\n\n':'';
-  if(!confirm(lateNote+(isInterest?'Text the new-client interest check to ':'Text the coverage ask to ')+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\nReplies land on this case.')) return;
+  if(!(await ccConfirm(lateNote+(isInterest?'Text the new-client interest check to ':'Text the coverage ask to ')+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\nReplies land on this case.'))) return;
   try{
     const { data:{ session } } = await sb.auth.getSession();
     if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
@@ -39258,7 +39289,7 @@ async function covFollowSend(id){
   const names=ids.map(i=>{ const a=(c.asked||[]).find(x=>x.id===i); return a?a.name:i; });
   const hr=new Date().getHours();
   const lateNote=(hr>=21||hr<8)?'⚠ It\'s '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+' and most caregivers are asleep. Send anyway only if this shift truly can\'t wait for morning.\n\n':'';
-  if(!confirm(lateNote+'Text this follow-up to '+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\n"'+text+'"\n\nReplies land on this case.')) return;
+  if(!(await ccConfirm(lateNote+'Text this follow-up to '+names.length+' caregiver'+(names.length===1?'':'s')+'?\n\n'+names.join(', ')+'\n\n"'+text+'"\n\nReplies land on this case.'))) return;
   try{
     const { data:{ session } } = await sb.auth.getSession();
     if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
@@ -39593,7 +39624,7 @@ function ccLevelChip(lv){ if(!lv) return '<span class="field-note">—</span>';
 /* "Update AxisCare's care level" (after a review found a different level): only the
    level class changes; every payer class is kept; AxisCare is read back. */
 async function ccLevelSet(ax, level, clientName){
-  if(!confirm('Update '+(clientName||'this client')+'\'s care level in AxisCare to '+CCLV_NAMES[level]+'?\n\nOnly the level class changes. Payer and every other class stay exactly as they are, and AxisCare is read back.')) return null;
+  if(!(await ccConfirm('Update '+(clientName||'this client')+'\'s care level in AxisCare to '+CCLV_NAMES[level]+'?\n\nOnly the level class changes. Payer and every other class stay exactly as they are, and AxisCare is read back.'))) return null;
   let out; try{ out=await ccLevelCall({action:'set',axiscare_client_id:String(ax),level:+level}); }catch(e){ out={error:String(e.message||e)}; }
   if(out.outcome==='updated'||out.outcome==='already'){ if(CCLV.levels) CCLV.levels[String(ax)]=out.after||out; alert('AxisCare now shows '+CCLV_NAMES[level]+' for '+(clientName||'this client')+(out.kept_classes&&out.kept_classes.length?' (kept: '+out.kept_classes.join(', ')+')':'')+'.'); return out; }
   alert(out.detail||out.error||('Not changed: '+out.outcome)); return out;
@@ -40596,7 +40627,7 @@ function hwRender(){
 
 async function hwInvite(btn){
   const st=document.getElementById('hwState');
-  if(!confirm('Text the availability link to every active caregiver who has nothing on file (up to 20 per press, never nurses, nobody twice in 30 days)? Sends only between 10am and 5pm.')) return;
+  if(!(await ccConfirm('Text the availability link to every active caregiver who has nothing on file (up to 20 per press, never nurses, nobody twice in 30 days)? Sends only between 10am and 5pm.'))) return;
   if(btn) btn.disabled=true; if(st) st.textContent='sending invites…';
   try{
     const { data:{ session } } = await sb.auth.getSession();
@@ -40640,7 +40671,7 @@ async function nvLinkSave(id, where){
   const o=ccPickParse((document.getElementById('nvLinkIn'+where+'-'+id)||{}).value);
   if(!o){ alert('Pick the client from the list.'); return; }
   if(String(c.name||'').trim().toLowerCase()!==o.name.toLowerCase()
-     && !confirm('The nurse board calls this client "'+c.name+'". AxisCare #'+o.ax+' is "'+o.name+'". Link them anyway?')) return;
+     && !(await ccConfirm('The nurse board calls this client "'+c.name+'". AxisCare #'+o.ax+' is "'+o.name+'". Link them anyway?'))) return;
   if((DATA.nurse_clients||[]).some(x=>x.id!==id&&x.active!==false&&String(x.axiscare_client_id||'')===o.ax)){ alert(o.name+' is already linked to another client on the nurse board.'); return; }
   c.axiscare_client_id=o.ax; c.linked_by=(typeof ME!=='undefined'&&(ME.name||ME.email))||''; c.linked_at=new Date().toISOString();
   await persist('nurse_clients',c);
@@ -40708,7 +40739,7 @@ async function nvSetFreq(id,v){
 }
 async function nvDeactivate(id){
   const c=(DATA.nurse_clients||[]).find(x=>x.id===id); if(!c) return;
-  if(!confirm('Remove '+c.name+' from the visit board? History is kept.')) return;
+  if(!(await ccConfirm('Remove '+c.name+' from the visit board? History is kept.'))) return;
   c.active=false; await persist('nurse_clients',c); renderNurseVisits();
 }
 function nvVisitsFor(cid,type){
@@ -40784,7 +40815,7 @@ async function nvMissedSave(k){
 async function nvSchedule(cid,type){
   /* 2026-10-08: one booking per client and kind; setting a date again MOVES it (never a second booking) */
   const open=nvVisitsFor(cid,type).find(v=>v.status==='scheduled');
-  const when=prompt(open?'Move the booking from '+open.scheduled_for+' to (YYYY-MM-DD)':'Scheduled for (YYYY-MM-DD)',open?open.scheduled_for:today()); if(!when) return;
+  const when=(await ccPrompt(open?'Move the booking from '+open.scheduled_for+' to (YYYY-MM-DD)':'Scheduled for (YYYY-MM-DD)',open?open.scheduled_for:today())); if(!when) return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(when.trim())){ alert('Use the date as YYYY-MM-DD, for example '+today()+'.'); return; }
   const by=(typeof ME!=='undefined'&&(ME.name||ME.email))||'';
   if(open){ open.scheduled_for=when.trim(); open.moved_at=new Date().toISOString(); open.moved_by=by; await persist('nurse_visits',open); }
@@ -40794,7 +40825,7 @@ async function nvSchedule(cid,type){
 }
 async function nvComplete(cid,type){
   const sched=nvVisitsFor(cid,type).find(v=>v.status==='scheduled');
-  const note=prompt('Anything to note from the visit? (optional)')||'';
+  const note=(await ccPrompt('Anything to note from the visit? (optional)'))||'';
   const on=today();
   if(sched){
     sched.status='completed'; sched.completed_on=on; sched.note=note;
@@ -41031,7 +41062,7 @@ async function gheReload(){
 }
 async function gheAmend(){
   const id=gheV('ghe_id'); const g=(DATA.ghe_forms||[]).find(x=>x.id===id); if(!g||!gheLocked(g)||g.superseded_by) return;
-  const why=prompt('Amend this signed GHE form.\nThe signed form is kept exactly as it is and marked as replaced. The corrected copy starts as a draft and needs the nurse\'s and the participant\'s signatures again.\n\nWhat needs correcting, and why?','');
+  const why=(await ccPrompt('Amend this signed GHE form.\nThe signed form is kept exactly as it is and marked as replaced. The corrected copy starts as a draft and needs the nurse\'s and the participant\'s signatures again.\n\nWhat needs correcting, and why?',''));
   if(why===null) return;
   if(why.trim().length<10){ alert('Say what needs correcting and why (at least a few words).'); return; }
   const now=new Date().toISOString(), nid=uid();
@@ -41198,7 +41229,7 @@ async function nsAdd(){
 async function nsDelete(id){
   const n=(DATA.nurse_staff||[]).find(x=>x.id===id); if(!n) return;
   const load=(DATA.nurse_clients||[]).filter(c=>c.active!==false&&c.assigned_nurse===n.name).length;
-  if(!confirm('Remove '+n.name+' from the nurse list?'+(load?' Their '+load+' client'+(load===1?'':'s')+' will show as assigned to someone not on the list until you reassign them.':''))) return;
+  if(!(await ccConfirm('Remove '+n.name+' from the nurse list?'+(load?' Their '+load+' client'+(load===1?'':'s')+' will show as assigned to someone not on the list until you reassign them.':'')))) return;
   await removeItem('nurse_staff',id); DATA.nurse_staff=(DATA.nurse_staff||[]).filter(x=>x.id!==id); renderNurseVisits();
 }
 function nsRender(){
@@ -41432,10 +41463,10 @@ async function npClaim(id){
   const ok=NurseRules.canTake(me,DATA.nurse_staff||[],today()); if(!ok.ok){ alert(ok.why); return; }
   const mine=!!nurseMe();
   /* MAN 3.15: the nurse can't be the client's immediate family. The nurse confirms it with each claim, and it's kept. */
-  if(!confirm((mine
+  if(!(await ccConfirm((mine
     ? 'Claim '+c.name+'? You call them and set the day and time together.'
     : 'Claim '+c.name+' for '+me.name+'? (You are previewing their portal. This really assigns them.)')
-    +'\n\nBy claiming, '+(mine?'you confirm you are':me.name+' confirms they are')+' not '+c.name+'\'s immediate family (the state does not allow a family member to do the nurse visit).')) return;
+    +'\n\nBy claiming, '+(mine?'you confirm you are':me.name+' confirms they are')+' not '+c.name+'\'s immediate family (the state does not allow a family member to do the nurse visit).'))) return;
   c.not_family={ nurse:me.name, by:(ME&&ME.email)||'', at:new Date().toISOString() };
   if((await nvAssign(id,me.name))===false){ delete c.not_family; return; }
   nursePortalRender();
@@ -41806,8 +41837,8 @@ function renderNurseVisits(){
       alert('None of '+c.name+'\'s caregivers have a phone on file in the hub. The message is copied, paste it into a text from your own phone to: '+noPhone.map(p=>p.caregiver).join(', '));
       return;
     }
-    if(!confirm('Send this to '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+' on '+c.name+'\'s shifts?\n\n"'+msg+'"'
-      +(noPhone.length?'\n\n('+noPhone.length+' more '+(noPhone.length===1?'has':'have')+' no phone on file, you\'ll get a copy to send yourself.)':''))) return;
+    if(!(await ccConfirm('Send this to '+withPhone.length+' caregiver'+(withPhone.length===1?'':'s')+' on '+c.name+'\'s shifts?\n\n"'+msg+'"'
+      +(noPhone.length?'\n\n('+noPhone.length+' more '+(noPhone.length===1?'has':'have')+' no phone on file, you\'ll get a copy to send yourself.)':'')))) return;
     const sent=[], failed=[];
     for(const p of withPhone){
       const cg=String(p.caregiver||'').trim(), first=cg.split(' ')[0]||cg;
@@ -42238,7 +42269,7 @@ window.covLoadShifts=function(){};
     }catch(e){ box.innerHTML='<div class="field-note" style="margin-top:.6rem">Could not run the check: '+E(String(e&&e.message||e))+'</div>'; }
   };
   window.cqDelete=async function(id){
-    if(!confirm('Remove this client from the queue?')) return;
+    if(!(await ccConfirm('Remove this client from the queue?'))) return;
     QUEUE=(QUEUE||[]).filter(c=>c.id!==id);
     renderQueue();
     await sb.from('client_queue').delete().eq('id',id);
@@ -42248,11 +42279,11 @@ window.covLoadShifts=function(){};
      through the same central upsert as every other producer, so it can
      enrich an open episode but never create a duplicate one. */
   window.cqAddManual=async function(){
-    const name=prompt('Launch Exception — client name:\n\n(The normal route is a lead\'s Start of Care reaching Ready for Staffing. Use this only when staff has deliberately determined that isn\'t needed.)');
+    const name=(await ccPrompt('Launch Exception. Client name:\n\n(The normal route is a lead\'s Start of Care reaching Ready for Staffing. Use this only when staff has deliberately determined that isn\'t needed.)'));
     if(!name||!name.trim()) return;
-    const reason=prompt('Why is this launch being created without Start of Care?\n\nExamples: "readmission / SOC not required", "client added directly in AxisCare".\nA reason is required.');
+    const reason=(await ccPrompt('Why is this launch being created without Start of Care?\n\nExamples: "readmission / SOC not required", "client added directly in AxisCare".\nA reason is required.'));
     if(!reason||!reason.trim()){ alert('No reason, no exception — nothing was created.'); return; }
-    const ax=prompt('AxisCare client ID (leave blank if they don\'t have one yet):')||'';
+    const ax=(await ccPrompt('AxisCare client ID (leave blank if they don\'t have one yet):'))||'';
     const { data:{ user } } = await sb.auth.getUser();
     const { data, error } = await sb.rpc('upsert_client_launch', { p:{
       client_name:name.trim(), axiscare_client_id:ax.trim(),
@@ -42413,7 +42444,7 @@ window.covLoadShifts=function(){};
   window.sopDeleteDoc=async function(){
     if(!isOwner()||!editId) return;
     const d=docs().find(x=>x.id===editId); if(!d) return;
-    if(!confirm('Delete "'+(d.title||'')+'" from the library?\n\nThis removes it for everyone.')) return;
+    if(!(await ccConfirm('Delete "'+(d.title||'')+'" from the library?\n\nThis removes it for everyone.'))) return;
     DATA.sop_library=(DATA.sop_library||[]).filter(x=>x.id!==editId);
     await removeItem('sop_library', editId);
     editId=null; openId=null; sopRender();
@@ -42624,7 +42655,7 @@ window.covLoadShifts=function(){};
     else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
   }
   async function skip(client,caregiver){
-    if(!confirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed — it logs a ✓ and this pair won\'t come up for calls again.')) return;
+    if(!(await ccConfirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed. It logs a ✓ and this pair won\'t come up for calls again.'))) return;
     const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:'', rating:'good',
       notes:'Marked as an established match — no call needed.', coaching:'', want_favorite:false, want_exclusion:false,
       at:new Date().toISOString(), by:me(), skip:true, fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };

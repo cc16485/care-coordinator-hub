@@ -93,7 +93,7 @@
     const allowed = new Set((scr.allowed || []).map(r => lc(r.email))), left = scr.left_out || [];
     const go = to.filter(p => allowed.has(p.email));
     if(!go.length){ PE.busy = false; PE.msg = 'Nobody here may get it' + (left.length ? ': ' + left.map(l => l.email + ' (' + l.why + ')').join('; ') : '') + '. Nothing was sent.'; paint(); return; }
-    if(!confirm('Send "' + b.subj + '" to ' + go.map(p => p.name).join(', ') + '?' + (left.length ? '\n\nLeft out: ' + left.map(l => l.email + ' (' + l.why + ')').join('; ') : '') + '\n\nThis sends real email.')){ PE.busy = false; PE.msg = ''; paint(); return; }
+    if(!(await ccConfirm('Send "' + b.subj + '" to ' + go.map(p => p.name).join(', ') + '?' + (left.length ? '\n\nLeft out: ' + left.map(l => l.email + ' (' + l.why + ')').join('; ') : '') + '\n\nThis sends real email.'))){ PE.busy = false; PE.msg = ''; paint(); return; }
     let r; try{ r = await fetch(endpoint(), { method:'POST', headers:await auth(), body:JSON.stringify({ subject:b.subj, html:b.html, recipients:go.map(p => ({ email:p.email, name:p.name })), campaign:'partner:' + e.key, tag:'referral-partner' }) }).then(x => x.json()); }
     catch(err){ PE.busy = false; PE.msg = 'Not sent: ' + (err.message || err); paint(); return; }
     const okSet = new Set(((r && r.results) || []).filter(x => x && x.ok).map(x => lc(x.email)));

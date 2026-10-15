@@ -39,8 +39,8 @@
   }
   /** the read-only client audit PDF (owners and the Audit export list; logged) */
   async function exportClient(ax, lead){
-    const reason = prompt('Reason for this export (it is logged with your name):', 'audit export'); if(reason === null) return;
-    const asOf = prompt('As of a past date? Type YYYY-MM-DD to see what the records said at the end of that day, or leave blank for today.', '');
+    const reason = (await ccPrompt('Reason for this export (it is logged with your name):', 'audit export')); if(reason === null) return;
+    const asOf = (await ccPrompt('As of a past date? Type YYYY-MM-DD to see what the records said at the end of that day, or leave blank for today.', ''));
     if(asOf === null) return;
     if(asOf && !/^\d{4}-\d{2}-\d{2}$/.test(asOf.trim())){ alert('Use the form YYYY-MM-DD, or leave it blank.'); return; }
     try{

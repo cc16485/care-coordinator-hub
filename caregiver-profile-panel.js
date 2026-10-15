@@ -384,12 +384,12 @@
       if (what === 'reload') { await reload(k); return; }
       if (what === 'copy') {
         try { await navigator.clipboard.writeText(cardUrl(row)); say(m, 'Card link copied.' + (row.published ? '' : ' It only opens for families once the profile is published.')); }
-        catch (e) { prompt('Copy the card link:', cardUrl(row)); }
+        catch (e) { (await ccPrompt('Copy the card link:', cardUrl(row))); }
         return;
       }
       if (what === 'draft') {
         var redo = !!(row && row.drafted_at);
-        if (redo && !confirm('Redo the draft for ' + name + '?\n\nThe AI writes fresh words from their application and interview, and REPLACES what is in the three boxes now' + (row.submitted_at ? ', including what they typed on their own page' : '') + '. Their photo stays.')) return;
+        if (redo && !(await ccConfirm('Redo the draft for ' + name + '?\n\nThe AI writes fresh words from their application and interview, and REPLACES what is in the three boxes now' + (row.submitted_at ? ', including what they typed on their own page' : '') + '. Their photo stays.'))) return;
         if (row && row.published) { alert('Their profile is published. Unpublish it first if you want a fresh draft.'); return; }
         say(m, 'Writing a draft from their application and interview…');
         var d = await call(Object.assign({ action: 'draft', redo: redo }, ctxBody(x)));
@@ -408,7 +408,7 @@
       if (what === 'beefclose') { var kept3 = keepEdits(m); m.beef = null; draw(m); kept3(); return; }
       if (/^(hide|show)_(photo|video)$/.test(what)) {
         var hp = what.split('_'), hide = hp[0] === 'hide', kind = hp[1], word = kind === 'photo' ? 'photo' : 'video';
-        if (hide && !confirm('Hide ' + name + '\'s ' + word + ' from families?\n\nIt comes off their family card' + (row.published ? ' right away' : '') + '. The file is kept, and you can show it again any time.' + (kind === 'photo' ? '\n\nTheir card will have no photo until you show it again or they send a new one.' : ''))) return;
+        if (hide && !(await ccConfirm('Hide ' + name + '\'s ' + word + ' from families?\n\nIt comes off their family card' + (row.published ? ' right away' : '') + '. The file is kept, and you can show it again any time.' + (kind === 'photo' ? '\n\nTheir card will have no photo until you show it again or they send a new one.' : '')))) return;
         var hpatch = { updated_at: new Date().toISOString() }; hpatch[kind + '_hidden'] = hide;
         var hr = await c.from('caregiver_profiles').update(hpatch).eq('id', row.id);
         if (hr.error) { say(m, 'Did not save: ' + hr.error.message, true); return; }
@@ -440,7 +440,7 @@
         var p = await call({ action: 'send_link', profile_id: row.id, dry: true, phone: x.phone || '', email: x.email || '' });
         var to = [p.to && p.to.phone ? 'TEXT to ' + p.to.phone + ' (only if they said yes to texts, 8am to 6pm Central)' : '', p.to && p.to.email ? 'EMAIL to ' + p.to.email : ''].filter(Boolean);
         if (!to.length) { alert(name + ' has no phone number or email on file. Add one first. Nothing was sent.'); return; }
-        if (!confirm('Send ' + name + ' their personal ' + (row.self_complete ? 'profile' : 'photo') + ' link?\n\nThis sends a ' + to.join(' and an ') + '.\n\nTEXT:\n' + p.text + '\n\nEMAIL: ' + p.subject)) return;
+        if (!(await ccConfirm('Send ' + name + ' their personal ' + (row.self_complete ? 'profile' : 'photo') + ' link?\n\nThis sends a ' + to.join(' and an ') + '.\n\nTEXT:\n' + p.text + '\n\nEMAIL: ' + p.subject))) return;
         var s = await call({ action: 'send_link', profile_id: row.id, phone: x.phone || '', email: x.email || '' });
         m.msg = [sent(s), !(s.texted || s.emailed)];
         alert((s.texted || s.emailed ? 'Link sent.\n\n' : 'The link did NOT go.\n\n') + sent(s));
@@ -459,7 +459,7 @@
       if (what === 'isend') {
         var pv = m.intro && m.intro.preview;
         if (!pv || !pv.would_reach || !pv.would_reach.length) return;
-        if (!confirm('Send ' + cardName(row) + '\'s card to ' + pv.would_reach.join(', ') + '?\n\nTEXT:\n' + pv.example + '\n\nEmails say the same, with a button to the card.')) return;
+        if (!(await ccConfirm('Send ' + cardName(row) + '\'s card to ' + pv.would_reach.join(', ') + '?\n\nTEXT:\n' + pv.example + '\n\nEmails say the same, with a button to the card.'))) return;
         try {
           var sr = await call(introBody(m, false), 'caregiver-intro');
           var lines = [];
@@ -473,20 +473,20 @@
       }
       if (what === 'reviewed') {
         if (!row.photo_path || !row.consent) return;
-        if (!confirm('You have read ' + cardName(row) + '\'s words, the photo is a proper one, and they gave their OK?')) return;
+        if (!(await ccConfirm('You have read ' + cardName(row) + '\'s words, the photo is a proper one, and they gave their OK?'))) return;
         var rv = await c.from('caregiver_profiles').update({ needs_review: false, updated_at: new Date().toISOString() }).eq('id', row.id);
         if (rv.error) { say(m, 'Did not save: ' + rv.error.message, true); return; }
         m.msg = ['Marked as checked.', false];
         await reload(k); return;
       }
       if (what === 'publish') {
-        if (!confirm('Publish ' + name + '\'s profile?\n\nFamilies we place them with will see their photo, first name and last initial, and these words.')) return;
+        if (!(await ccConfirm('Publish ' + name + '\'s profile?\n\nFamilies we place them with will see their photo, first name and last initial, and these words.'))) return;
         try { await call({ action: 'publish', profile_id: row.id }); m.msg = ['Published. Families we place them with can see it now.', false]; }
         catch (e) { m.msg = [(e.problems && e.problems.length ? 'Not published yet:\n• ' + e.problems.join('\n• ') : (e.message || 'Not published.')), true]; }
         await reload(k); return;
       }
       if (what === 'unpublish') {
-        if (!confirm('Unpublish ' + name + '\'s profile?\n\nFamilies will no longer see the card until you publish it again.')) return;
+        if (!(await ccConfirm('Unpublish ' + name + '\'s profile?\n\nFamilies will no longer see the card until you publish it again.'))) return;
         await call({ action: 'unpublish', profile_id: row.id });
         m.msg = ['Unpublished. The card is hidden from families.', false];
         await reload(k); return;
@@ -499,7 +499,7 @@
   /* "Is this Sarah's profile? Link it": the office confirms a name match before it is tied to this caregiver. */
   async function link(k, id, el) {
     var m = M[k]; if (!m) return; var c = client();
-    if (!confirm('Link this profile to ' + [m.ctx.first, m.ctx.last].join(' ') + ' (AxisCare ' + m.ctx.axiscare_id + ')?')) return;
+    if (!(await ccConfirm('Link this profile to ' + [m.ctx.first, m.ctx.last].join(' ') + ' (AxisCare ' + m.ctx.axiscare_id + ')?'))) return;
     if (el) el.disabled = true;
     var r = await c.from('caregiver_profiles').update({ axiscare_id: String(m.ctx.axiscare_id), updated_at: new Date().toISOString() }).eq('id', id);
     if (r.error) { say(m, 'Could not link it: ' + r.error.message, true); if (el) el.disabled = false; return; }
@@ -514,7 +514,7 @@
     var ext = String(f.name.split('.').pop() || '').toLowerCase(), types = kind === 'photo' ? IMG : VID;
     if (!types[ext]) { say(m, kind === 'photo' ? 'Choose a JPG, PNG, HEIC or WEBP photo.' : 'Choose an MP4, MOV or WEBM video.', true); input.value = ''; return; }
     if (f.size > 100 * 1024 * 1024) { say(m, 'That file is over 100 MB. Try a shorter video.', true); input.value = ''; return; }
-    if (row.published && !confirm('Their profile is live. The new ' + kind + ' shows on their card right away. Go ahead?')) { input.value = ''; return; }
+    if (row.published && !(await ccConfirm('Their profile is live. The new ' + kind + ' shows on their card right away. Go ahead?'))) { input.value = ''; return; }
     say(m, 'Uploading the ' + kind + '…');
     var path = row.id + '/' + kind + '-' + Date.now() + '.' + ext, old = row[kind + '_path'];
     var u = await c.storage.from(BUCKET).upload(path, f, { contentType: f.type || types[ext] });
@@ -630,10 +630,10 @@
   async function gateOverride(list, what) {
     list = (list || []).filter(Boolean); if (!list.length) return true;
     var names = list.map(function (x) { return x.name; }).join(', ');
-    var why = prompt(names + (list.length === 1 ? ' is a new hire whose caregiver profile is not published yet.' : ' are new hires whose caregiver profiles are not published yet.')
+    var why = (await ccPrompt(names + (list.length === 1 ? ' is a new hire whose caregiver profile is not published yet.' : ' are new hires whose caregiver profiles are not published yet.')
       + ' New hires need a published profile, with their photo, before their first shift.\n\n'
       + 'To ' + what + ' anyway (for example, emergency coverage), type the reason. It is saved with your name and the time.\n\n'
-      + 'Press Cancel to stop and publish the profile first.');
+      + 'Press Cancel to stop and publish the profile first.'));
     if (why === null) return false;
     why = String(why).trim();
     if (!why) { alert('A reason is needed to go ahead. Nothing was done.'); return false; }
@@ -647,7 +647,7 @@
         data: { action: what, reason: why, at: at, by: email, caregivers: list.map(function (x) { return { name: x.name, axiscare_id: x.axiscare_id || null, hub_id: x.id || null }; }) } };
       r = await c.rpc('record_event', { p_verb: 'profile_gate_override', p_item_id: ev.item_id, p_area: ev.area, p_summary: ev.summary, p_data: ev.data });
     } catch (e) { r = { error: e }; }
-    if (r && r.error) return confirm('Your reason could not be saved (' + ((r.error && r.error.message) || r.error) + ').\n\nGo ahead anyway? If you do, tell Samantha the reason.');
+    if (r && r.error) return (await ccConfirm('Your reason could not be saved (' + ((r.error && r.error.message) || r.error) + ').\n\nGo ahead anyway? If you do, tell Samantha the reason.'));
     return true;
   }
 
@@ -789,7 +789,7 @@
       CU.busy = false; if (el && typeof root.ccPopClose === 'function') root.ccPopClose();
       CU.rows = null; await catchupRender();
     };
-    if (!el) { if (confirm('Send profile links to ' + reach.length + ' caregivers?')) await go(); return; }
+    if (!el) { if ((await ccConfirm('Send profile links to ' + reach.length + ' caregivers?'))) await go(); return; }
     el.querySelector('#cuNo').onclick = function () { root.ccPopClose(); };
     el.querySelector('#cuGo').onclick = go;
   }
@@ -833,7 +833,7 @@
       if (none.length) CU.result[0] += '\n\nCan\'t be reached (no mobile or email in AxisCare): ' + none.map(function (p) { return (p.first + ' ' + p.last).trim(); }).join(', ');
       cuDraw();
     };
-    if (!el) { if (confirm('Tell ' + reach.length + ' caregivers the video is optional?\n\n' + String(words.text || ''))) await go(); return; }
+    if (!el) { if ((await ccConfirm('Tell ' + reach.length + ' caregivers the video is optional?\n\n' + String(words.text || '')))) await go(); return; }
     el.querySelector('#cuNo').onclick = function () { root.ccPopClose(); };
     el.querySelector('#cuGo').onclick = go;
   }

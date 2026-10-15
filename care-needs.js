@@ -80,8 +80,8 @@
     if (!changed.length || S.busy) return;
     let kind = 'update', reason = null;
     if (changed.some(k => S.cur[k])) {
-      const wrong = !confirm('Some of these replace an answer already confirmed.\n\nOK = their needs changed (an update)\nCancel = the earlier answer was wrong (a correction, with a reason)');
-      if (wrong) { reason = (prompt('Why was the earlier answer wrong? (required for a correction)') || '').trim(); if (!reason) { S.msg = 'Nothing saved: a correction needs a reason.'; return render(); } kind = 'correction'; }
+      const wrong = !(await ccConfirm('Some of these replace an answer already confirmed.\n\nOK = their needs changed (an update)\nCancel = the earlier answer was wrong (a correction, with a reason)'));
+      if (wrong) { reason = ((await ccPrompt('Why was the earlier answer wrong? (required for a correction)')) || '').trim(); if (!reason) { S.msg = 'Nothing saved: a correction needs a reason.'; return render(); } kind = 'correction'; }
     }
     S.busy = true; S.msg = ''; render();
     const done = [], refused = [];

@@ -57,7 +57,7 @@
   async function send(planId) {
     const box = document.getElementById('ohText'); if (box) OH.draft[planId] = box.value;
     const pv = OH.pv[planId]; if (!pv) return;
-    if (!confirm('Text ' + pv.will_get + ' caregiver' + (pv.will_get === 1 ? '' : 's') + ' about these hours now?')) return;
+    if (!(await ccConfirm('Text ' + pv.will_get + ' caregiver' + (pv.will_get === 1 ? '' : 's') + ' about these hours now?'))) return;
     OH.err[planId] = ''; let total = 0, failed = [], left = 1, rounds = 0;
     try {
       while (left > 0 && rounds < 20) {
@@ -81,10 +81,10 @@
     if (state === 'no') { a.yes_cells = []; a.any_time = false; }
     await persist('coverage_cases', c); redraw();
   }
-  function pencil(planId, key, askId) {
+  async function pencil(planId, key, askId) {
     const plan = (typeof tbPlans === 'function' ? tbPlans() : []).find((p) => p.id === planId); if (!plan) return;
     const c = caseOf(plan); const a = c && (c.asked || []).find((x) => x.id === askId); if (!a) return;
-    if (plan.cells && plan.cells[key] && plan.cells[key].name && !confirm(plan.cells[key].name + ' is already on this square. Put ' + a.name + ' there instead?')) return;
+    if (plan.cells && plan.cells[key] && plan.cells[key].name && !(await ccConfirm(plan.cells[key].name + ' is already on this square. Put ' + a.name + ' there instead?'))) return;
     tbAssign(key, a.name, a.axiscare_id || null);
   }
   const yesOn = (plan, a, key) => a.state === 'yes' && (a.any_time || (a.yes_cells || []).includes(key));
@@ -196,7 +196,7 @@
   }
   async function closeOld(cid) {
     const c = (DATA.coverage_cases || []).find((x) => x && x.id === cid); if (!c) return;
-    if (!confirm('Close the new-client ask for ' + (c.client || 'this client') + '? Its answers stay in Cara\'s History. Nobody is texted.')) return;
+    if (!(await ccConfirm('Close the new-client ask for ' + (c.client || 'this client') + '? Its answers stay in Cara\'s History. Nobody is texted.'))) return;
     c.status = 'closed'; c.resolved_at = new Date().toISOString(); c.resolved_how = 'closed';
     c.resolved_by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || ''; c.resolved_note = 'closed from Team Builder (New clients moved there)';
     await persist('coverage_cases', c); redraw();

@@ -16,7 +16,7 @@ const code = [
   cut('function wcResult(', '/* ── Caregiver profile (part 2'),
   cut('const WC_GUIDE =', 'async function wcNotes('),
   cut('async function wcAct(', 'function renderOrientReadyQueue('),
-  cut('function cgRecordFromCandidate(', 'function closeOutCandidate('),
+  cut('function cgRecordFromCandidate(', 'async function closeOutCandidate('),
 ].join('\n');
 
 let pass = 0, fail = 0;

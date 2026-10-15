@@ -29,6 +29,8 @@ try:
     DLG = {'accept': True, 'prompt': ''}
     pg.on('dialog', lambda d: d.accept(DLG['prompt']) if d.type == 'prompt' else (d.accept() if DLG['accept'] else d.dismiss()))
     pg.goto('file://' + os.path.join(ROOT, '_cn_test.html')); pg.wait_for_timeout(200)
+    # the Hub asks on the page (ccConfirm/ccPrompt); this bare test page has no Hub, so they go to the dialogs answered above
+    pg.evaluate('window.ccConfirm = async m => confirm(m); window.ccPrompt = async (m, v) => prompt(m, v)')
     pg.evaluate('window.window.CN.mount("cp_needs")'); pg.wait_for_timeout(300)
     ok('switch off: nothing shows and nothing is read', pg.inner_text('#cp_needs').strip() == '')
     pg.evaluate('DATA.ops_settings.care_needs_live = true; window.CN.mount("cp_needs")'); pg.wait_for_timeout(500)

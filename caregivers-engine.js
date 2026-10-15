@@ -124,7 +124,7 @@ async function doLogout(){
 
 async function doForgotPassword(){
   const email = document.getElementById('login-email')?.value.trim()
-    || prompt('Enter your email address:');
+    || (await ccPrompt('Enter your email address:'));
   if(!email) return;
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/' });
   if(error){ alert('Error: ' + error.message); }
@@ -1022,14 +1022,14 @@ async function completeClientQueueItem(id){
 }
 
 async function deleteClientQueueItem(id){
-  if(!confirm('Remove this client from the queue?')) return;
+  if(!(await ccConfirm('Remove this client from the queue?'))) return;
   window._clientQueue = (window._clientQueue||[]).filter(c=>c.id!==id);
   renderClientQueue();
   await sb.from('client_queue').delete().eq('id', id);
 }
 
-function openAddClientManual(){
-  const name = prompt('Client name:');
+async function openAddClientManual(){
+  const name = (await ccPrompt('Client name:'));
   if(!name) return;
   addClientToQueue({ client_name: name.trim(), source: 'manual' });
 }
@@ -1181,7 +1181,7 @@ function switchTab(name, btn){
 
 async function resolveReturnedItem(hid,i){
   const h=(HANDOFFS||[]).find(x=>x.id===hid); if(!h||!h.items[i]) return;
-  const note=prompt('Resolved ✓ — note for the record (optional):',''); if(note===null) return;
+  const note=(await ccPrompt('Resolved ✓. A note for the record (optional):','')); if(note===null) return;
   h.items[i].done_at=new Date().toISOString();
   h.items[i].done_by=(window._myEmail||'staffing').split('@')[0];
   if(note.trim()) h.items[i].done_note=note.trim();
@@ -1246,8 +1246,8 @@ function openSopLink(){
   if(url){ window.open(url,'_blank','noopener'); return; }
   editSopLink();
 }
-function editSopLink(){
-  const v=prompt('Paste the link to the Onboarding & Compliance SOP (Google Doc, PDF, etc.) — saved for the whole team:', appSettings.sop_onboarding||'');
+async function editSopLink(){
+  const v=(await ccPrompt('Paste the link to the Onboarding & Compliance SOP (Google Doc, PDF, etc.). It is saved for the whole team:', appSettings.sop_onboarding||''));
   if(v===null) return;
   appSettings.sop_onboarding=v.trim();
   syncToSupabase('settings', appSettings);
@@ -1259,8 +1259,8 @@ function openRoleSopLink(){
   if(url){ window.open(url,'_blank','noopener'); return; }
   editRoleSopLink();
 }
-function editRoleSopLink(){
-  const v=prompt('Paste the link to the Staffing Coordinator Job Description & Duties document — saved for the whole team:', appSettings.sop_role||'');
+async function editRoleSopLink(){
+  const v=(await ccPrompt('Paste the link to the Staffing Coordinator Job Description & Duties document. It is saved for the whole team:', appSettings.sop_role||''));
   if(v===null) return;
   appSettings.sop_role=v.trim();
   syncToSupabase('settings', appSettings);
@@ -1271,8 +1271,8 @@ function openCommsSopLink(){
   if(url){ window.open(url,'_blank','noopener'); return; }
   editCommsSopLink();
 }
-function editCommsSopLink(){
-  const v=prompt('Paste the link to the Communication SOP (Google Doc, PDF, etc.) — saved for the whole team:', appSettings.sop_communication||'');
+async function editCommsSopLink(){
+  const v=(await ccPrompt('Paste the link to the Communication SOP (Google Doc, PDF, etc.). It is saved for the whole team:', appSettings.sop_communication||''));
   if(v===null) return;
   appSettings.sop_communication=v.trim();
   syncToSupabase('settings', appSettings);
@@ -1283,8 +1283,8 @@ function openSchedSopLink(){
   if(url){ window.open(url,'_blank','noopener'); return; }
   editSchedSopLink();
 }
-function editSchedSopLink(){
-  const v=prompt('Paste the link to the Scheduling SOP (Google Doc, PDF, etc.) — saved for the whole team:', appSettings.sop_scheduling||'');
+async function editSchedSopLink(){
+  const v=(await ccPrompt('Paste the link to the Scheduling SOP (Google Doc, PDF, etc.). It is saved for the whole team:', appSettings.sop_scheduling||''));
   if(v===null) return;
   appSettings.sop_scheduling=v.trim();
   syncToSupabase('settings', appSettings);
@@ -1840,7 +1840,7 @@ async function offerOpenDoc(id, doc, btn){
     const r=await sb.functions.invoke('offer-sign',{ body:{ action:'open', offer_id:String(id), doc } });
     let j=r.data; if(!j && r.error && r.error.context && r.error.context.json){ try{ j=await r.error.context.json(); }catch(_){} }
     if(!j||!j.ok||!j.url) throw new Error((j&&j.error)||(r.error&&r.error.message)||'could not open the document');
-    const w=window.open(j.url,'_blank','noopener'); if(!w) prompt('Your browser blocked the window. Copy this link (it works for 5 minutes):', j.url);
+    const w=window.open(j.url,'_blank','noopener'); if(!w) (await ccPrompt('Your browser blocked the window. Copy this link (it works for 5 minutes):', j.url));
   }catch(e){ alert('Could not open it: '+String(e.message||e)); }
   if(btn){ btn.disabled=false; btn.textContent=t; }
 }
@@ -1888,7 +1888,7 @@ async function offerResend(id, btn){
 }
 async function offerWithdraw(id, btn){
   const o=OFFERS.find(x=>String(x.id)===String(id)); const name=o?(o.first_name+' '+(o.last_name||'')).trim():'this offer';
-  const reason=prompt('Withdraw the offer to '+name+'? Their link stops working at once; nothing is deleted. Type the reason:');
+  const reason=(await ccPrompt('Withdraw the offer to '+name+'? Their link stops working at once; nothing is deleted. Type the reason:'));
   if(reason==null) return; if(reason.trim().length<4){ alert('A reason is needed.'); return; }
   const box=document.getElementById('od_'+id); if(box){ box.style.display='block'; box.innerHTML='<span style="color:var(--gray)">Withdrawing…</span>'; }
   const t=btn?btn.textContent:'';
@@ -1904,10 +1904,10 @@ function offerQr(url){
     return '<div style="background:#fff;padding:6px;border:1px solid #e4e1d8;border-radius:8px;line-height:0" title="Open the signing link on a phone">' + q.createSvgTag(3, 2, 'QR code of the signing link', 'The signing link') + '</div>';
   } catch (e) { return ''; }
 }
-function offerCopyLink(btn, url){
+async function offerCopyLink(btn, url){
   const done = () => { const t = btn.textContent; btn.textContent = '✓ Copied'; setTimeout(() => btn.textContent = t, 1600); };
-  if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, () => prompt('Copy this link:', url));
-  else prompt('Copy this link:', url);
+  if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, async () => (await ccPrompt('Copy this link:', url)));
+  else (await ccPrompt('Copy this link:', url));
 }
 /* Hand an offer over to Background & References. Everything we already know
    comes with it, including the references and the out-of-state answer from
@@ -2557,7 +2557,7 @@ async function offeredAddOne(offerId, btn){
 async function offeredAddAll(btn){
   let rows = []; try{ rows = lifecycleRows().filter(r => r.offer && !r.board && !r.roster); }catch(e){}
   if(!rows.length) return;
-  if(!confirm('Add all ' + rows.length + ' offered people to the Background & References table?\n\nEach row gets the offer\'s details, plus their start form\'s references if it is back. Nothing is sent.')) return;
+  if(!(await ccConfirm('Add all ' + rows.length + ' offered people to the Background & References table?\n\nEach row gets the offer\'s details, plus their start form\'s references if it is back. Nothing is sent.'))) return;
   if(btn){ btn.disabled = true; btn.textContent = 'Adding…'; }
   const bad = [];
   for(const r of rows){ const x = await offerToCandidate(String(r.offer.id), null, { quiet:true }); if(!x || !x.ok) bad.push(r.name + ': ' + ((x && x.why) || 'could not be read')); }
@@ -3239,7 +3239,7 @@ async function issueWriteup(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
   if(!a){ alert('This write-up could not be found — reload the page and open it again.'); return; }
   if(a.status!=='approved'){ alert('Samantha has to approve this first — send it to her from the draft view.'); return; }
-  if(!confirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.')) return;
+  if(!(await ccConfirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.'))) return;
   a.body=document.getElementById('writeup-body').value;
   a.status='issued'; a.issued_at=new Date().toISOString();
   await attPersist('discipline_actions',a);
@@ -3369,7 +3369,7 @@ async function sendReply(i){
 async function dismissReply(i){
   const el=document.getElementById('thread-'+i), btn=document.getElementById('done-'+i);
   if(!el) return;
-  if(!confirm('Clear "'+(el.dataset.name||'this message')+'" without replying? It will be marked read in GHL.')) return;
+  if(!(await ccConfirm('Clear "'+(el.dataset.name||'this message')+'" without replying? It will be marked read in GHL.'))) return;
   if(btn){btn.textContent='Clearing…';btn.disabled=true;}
   try{
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-reply',{
@@ -3409,14 +3409,14 @@ function mtgIncoming(m){ return m.status==='requested' && m.requested_by_role!==
 function mtgInvolvesMe(m){ return m.requested_by_role===MTG_ROLE || m.with===MTG_ROLE || m.with==='team'; }
 async function acceptMeeting(id){
   const m=MEETINGS.find(x=>x.id===id); if(!m) return;
-  const when=prompt('When is the meeting? (both hubs will show this)', m.when_pref||''); if(when===null) return;
+  const when=(await ccPrompt('When is the meeting? (both hubs will show this)', m.when_pref||'')); if(when===null) return;
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   m.status='accepted'; m.scheduled_for=when.trim()||m.when_pref||'time TBD'; m.accepted_by=by.split('@')[0]||'staffing';
   await mtgPersist(m); renderMeetings();
 }
 async function declineMeeting(id){
   const m=MEETINGS.find(x=>x.id===id); if(!m) return;
-  const why=prompt('Suggest another time or say why it doesn\'t work (they\'ll see this):',''); if(why===null) return;
+  const why=(await ccPrompt('Suggest another time or say why it doesn\'t work (they\'ll see this):','')); if(why===null) return;
   m.status='declined'; m.declined_reason=why.trim();
   await mtgPersist(m); renderMeetings();
 }
@@ -3688,7 +3688,7 @@ async function ciPushCoach(id){
   else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
 }
 async function ciSkip(client,caregiver){
-  if(!confirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed — it logs a ✓ and this pair won\'t come up for calls again.')) return;
+  if(!(await ccConfirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed. It logs a ✓ and this pair won\'t come up for calls again.'))) return;
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:'', rating:'good',
     notes:'Marked as an established match — no call needed.', coaching:'', want_favorite:false, want_exclusion:false,
@@ -3762,12 +3762,12 @@ function renderCoordReqs(){
 async function creqDone(id, withReply){
   const t=STASKS.find(x=>x.id===id); if(!t) return;
   let reply='';
-  if(withReply){ reply=prompt('Reply to the coordinator (they see it in their hub):','')||''; }
+  if(withReply){ reply=(await ccPrompt('Reply to the coordinator (they see it in their hub):',''))||''; }
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const who=by.split('@')[0]||'staffing';
   // Do-not-return requests go on the permanent log the moment they're done.
   if(t.kind==='dnr'){
-    const caregiver=t.caregiver||prompt('Which caregiver must not return? (goes on the permanent log)','')||'';
+    const caregiver=t.caregiver||(await ccPrompt('Which caregiver must not return? (goes on the permanent log)',''))||'';
     if(!caregiver.trim()){ alert('The Do-Not-Return log needs the caregiver\'s name — nothing was marked done.'); return; }
     const entry={ id:'dnr'+Date.now(), client:t.about||'', caregiver:caregiver.trim(), reason:t.message||'',
       requested_by:t.from_name||'', requested_at:t.created_at, logged_at:new Date().toISOString(), logged_by:who, axiscare_entered:false, task_id:t.id };
@@ -5271,7 +5271,7 @@ function sdRender(){
   Object.keys(SD.shown).forEach(sdTick);
 }
 async function sdReveal(key, btn){
-  const reason = (prompt('Why are you opening this ' + ({ssn:'Social Security number',dob:'date of birth',license:'license number'}[key]) + '? (logged with your name and the time)\nFor example: FCSR registration, EDL check, driving record check') || '').trim();
+  const reason = ((await ccPrompt('Why are you opening this ' + ({ssn:'Social Security number',dob:'date of birth',license:'license number'}[key]) + '? (logged with your name and the time)\nFor example: FCSR registration, EDL check, driving record check')) || '').trim();
   if(reason.length < 5){ if(reason) alert('Please give a reason of at least five characters.'); return; }
   if(btn){ btn.disabled = true; btn.textContent = 'Opening…'; }
   try {
@@ -5977,7 +5977,7 @@ async function bgrvAfterClear(candId, check, why){
 async function bgrvStart(candId, check){
   const c = candidates.find(x => x.id === candId); if(!c) return;
   if(typeof safeIsTmp === 'function' && safeIsTmp(c.id)){ alert('They are still being saved. Try again in a moment.'); return; }
-  if(!confirm('Open a background review for ' + c.first + '\'s ' + BGRV_CHECKS[check].label + '?\n\nNothing is sent. Read the result and pick it: if they are cleared, nothing is sent; if we are not moving forward, you send them one notice, worded for their result, after you see the exact words.')) return;
+  if(!(await ccConfirm('Open a background review for ' + c.first + '\'s ' + BGRV_CHECKS[check].label + '?\n\nNothing is sent. Read the result and pick it: if they are cleared, nothing is sent; if we are not moving forward, you send them one notice, worded for their result, after you see the exact words.'))) return;
   try{ await bgrvCall({ action: 'open', candidate_id: String(candId), check }); }
   catch(e){ alert('Could not open the review: ' + (e && e.message || e) + '\n\nNothing was sent.'); return; }
   await bgrvLoad(true); bgrvRefresh();
@@ -5988,15 +5988,15 @@ async function bgrvAct(id, candId, act, arg){
   const lab = BGRV_CHECKS[rv.check_key].label;
   try{
     if(act === 'spoke'){
-      if(!confirm('Record that you spoke with ' + c.first + ' about their ' + lab + ' result today? Nothing is sent.')) return;
+      if(!(await ccConfirm('Record that you spoke with ' + c.first + ' about their ' + lab + ' result today? Nothing is sent.'))) return;
       await bgrvCall({ action: 'spoke', id });
     } else if(act === 'result'){
-      if(!confirm('Set ' + c.first + '\'s ' + lab + ' review result to "' + bgrvResultLabel(rv.check_key, arg) + '"?\n\nNothing is sent and nothing is decided yet'
-        + (arg === 'no_waiver' ? ': next, choose "They\'re cleared" or "Not hiring…".' : '.'))) return;
+      if(!(await ccConfirm('Set ' + c.first + '\'s ' + lab + ' review result to "' + bgrvResultLabel(rv.check_key, arg) + '"?\n\nNothing is sent and nothing is decided yet'
+        + (arg === 'no_waiver' ? ': next, choose "They\'re cleared" or "Not hiring…".' : '.')))) return;
       await bgrvCall({ action: 'result', id, result: arg });
     } else if(act === 'waiver'){
       if(arg === 'approved'){
-        if(!confirm('Waiver approved: attach the DHSS approval letter (PDF or photo). Nothing is sent. You then decide: They\'re cleared, or Not hiring (a waiver never obliges us to hire).')) return;
+        if(!(await ccConfirm('Waiver approved: attach the DHSS approval letter (PDF or photo). Nothing is sent. You then decide: They\'re cleared, or Not hiring (a waiver never obliges us to hire).'))) return;
         const f = await bgrvPickFile(); if(!f) return;
         if(f.size > 20 * 1024 * 1024){ alert('That file is over 20 MB. Please shrink it first.'); return; }
         const path = 'bgcheck/' + candId + '/gcw-' + Date.now() + '-' + String(f.name).replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -6006,8 +6006,8 @@ async function bgrvAct(id, candId, act, arg){
         if(d.cleared) await bgrvAfterClear(candId, rv.check_key, 'waiver_approved');
         else alert('Waiver approved and the letter is saved. ' + c.first + ' is not cleared yet: choose "They\'re cleared…" or "Not hiring…".');
       } else {
-        if(!confirm(arg === 'wait' ? 'Mark ' + c.first + ' as waiting on their Good Cause Waiver? They are held: not hired, not working, and no final notice until the waiver decision. Nothing is sent.'
-          : 'Record that ' + c.first + '\'s Good Cause Waiver was denied? The final notice becomes available. Nothing is sent now.')) return;
+        if(!(await ccConfirm(arg === 'wait' ? 'Mark ' + c.first + ' as waiting on their Good Cause Waiver? They are held: not hired, not working, and no final notice until the waiver decision. Nothing is sent.'
+          : 'Record that ' + c.first + '\'s Good Cause Waiver was denied? The final notice becomes available. Nothing is sent now.'))) return;
         await bgrvCall({ action: 'waiver', id, step: arg });
       }
     } else if(act === 'clear'){
@@ -6019,11 +6019,11 @@ async function bgrvAct(id, candId, act, arg){
       if(d.cleared) await bgrvAfterClear(candId, rv.check_key, why);
       alert(c.first + ' is cleared. Their ' + lab + ' is recorded as ' + BGRV_CHECKS[rv.check_key].clear + ' (after review). Nothing was sent: let them know when you talk.');
     } else if(act === 'note'){
-      const note = prompt('A short private note about ' + c.first + '\'s review (never sent; no details of the finding):', rv.note || '');
+      const note = (await ccPrompt('A short private note about ' + c.first + '\'s review (never sent; no details of the finding):', rv.note || ''));
       if(note === null || !note.trim()) return;
       await bgrvCall({ action: 'note', id, note: note.trim() });
     } else if(act === 'nothire'){
-      const reason = prompt('Not hiring ' + c.first + ' (our decision; a waiver never obliges us to hire).\n\nWrite why. This is private, kept on the review, and never sent. They get our decision notice, with no waiver invitation:', rv.decision_reason || '');
+      const reason = (await ccPrompt('Not hiring ' + c.first + ' (our decision; a waiver never obliges us to hire).\n\nWrite why. This is private, kept on the review, and never sent. They get our decision notice, with no waiver invitation:', rv.decision_reason || ''));
       if(reason === null) return;
       if(!reason.trim()){ alert('Write why first. Nothing was changed and nothing was sent.'); return; }
       await bgrvCall({ action: 'result', id, result: rv.result === 'waiver_needed' ? 'waiver_needed' : 'no_waiver', reason: reason.trim() });
@@ -6032,7 +6032,7 @@ async function bgrvAct(id, candId, act, arg){
     } else if(act === 'final'){
       const p = await bgrvCall({ action: 'preview', id, step: 'final' });
       if(p.blocked){ alert(p.blocked); return; }
-      if(!confirm('Send ' + c.first + ' the notice?\n\nThey will be marked Not hired (Background check issue).\n\n' + bgrvWordsBox(p) + '\n\nOK sends it. Cancel sends nothing.')) return;
+      if(!(await ccConfirm('Send ' + c.first + ' the notice?\n\nThey will be marked Not hired (Background check issue).\n\n' + bgrvWordsBox(p) + '\n\nOK sends it. Cancel sends nothing.'))) return;
       const d = await bgrvCall({ action: 'final', id });
       if(d.not_hired) bgrApplyBoardChange(candId, { not_hired: true, not_hired_reason: 'background', not_hired_notes: 'Notice sent after the background review (' + lab + ')', not_hired_date: bgrvCentral() });
       alert(bgrvSentResult(d) + (d.not_hired ? '\n\nThey are marked Not hired.' : ''));
@@ -6708,7 +6708,7 @@ async function bgrMakeRefPdfs(btn){
   if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then try again.'); return; }
   const todo=obRefPdfTodo();
   if(!todo.length){ alert('Every answered reference already has its PDF.'); return; }
-  if(!confirm('Make '+todo.length+' reference PDF'+(todo.length===1?'':'s')+'?\n\nEach one is saved to the hiring record and filed to the person\'s GoHighLevel contact, the same way background checks are. Nobody is messaged.')) return;
+  if(!(await ccConfirm('Make '+todo.length+' reference PDF'+(todo.length===1?'':'s')+'?\n\nEach one is saved to the hiring record and filed to the person\'s GoHighLevel contact, the same way background checks are. Nobody is messaged.'))) return;
   if(btn){ btn.disabled=true; btn._t=btn.textContent; }
   let made=0, failed=0;
   for(let i=0;i<todo.length;i++){
@@ -7478,7 +7478,7 @@ async function confirmSendInvite(){
       message: buildInviteMsg(c, url)
     });
   } catch(e){
-    if(!confirm(`⚠️ The text could NOT be sent automatically (${e.message}).\n\nUse "Copy link only" and text the candidate yourself.\n\nMark them as Invited anyway?`)){
+    if(!(await ccConfirm(`⚠️ The text could NOT be sent automatically (${e.message}).\n\nUse "Copy link only" and text the candidate yourself.\n\nMark them as Invited anyway?`))){
       document.getElementById('inv-sending').style.display='none';
       document.getElementById('inv-actions').style.display='flex';
       return;
@@ -7656,7 +7656,7 @@ async function confirmNotHire(){
   }
   if(c.phone && reason!=='withdrew'){
     const msg=`Hi ${c.first}, thank you for your interest in joining Caring Companions. After careful review, we won't be moving forward with your application at this time. We appreciate the time you invested and wish you all the best. Caring Companions (417) 234-8494`;
-    if(confirm(`Send ${c.first} a courtesy text letting them know?\n\n"${msg}"`)){
+    if((await ccConfirm(`Send ${c.first} a courtesy text letting them know?\n\n"${msg}"`))){
       try {
         await sendCandidateSMS({ first:c.first, last:c.last, phone:c.phone, email:c.email||'', message:msg });
         alert('✅ Text sent.');
@@ -7666,9 +7666,9 @@ async function confirmNotHire(){
     }
   }
 }
-function reactivateOB(id){
+async function reactivateOB(id){
   const c=candidates.find(x=>x.id===id);
-  if(!c||!confirm(`Reactivate ${c.first} ${c.last}? They will return to the active pipeline.`)) return;
+  if(!c||!(await ccConfirm(`Reactivate ${c.first} ${c.last}? They will return to the active pipeline.`))) return;
   delete c.not_hired; delete c.not_hired_reason; delete c.not_hired_notes; delete c.not_hired_date;
   saveCandidates(); renderOB(); renderAlerts();
 }
@@ -8369,9 +8369,9 @@ async function step2Sent(id, resend){
   const name = (c.first + ' ' + c.last).trim();
   let note = '';
   if(!resend){
-    if(!confirm('Record that Viventium Step 2 was sent to ' + name + '?\n\nThis records your name and the time. On the new onboarding path the Hub then texts and emails them the Step 2 message with their private "I finished Step 2" link (practice while the switch is off). Pressing it twice is refused.')) return;
-    note = prompt('Optional note (for example the email address used in Viventium):', '') || '';
-  } else if(!confirm('Resend the Step 2 message to ' + name + '? This is its own stamp.')) return;
+    if(!(await ccConfirm('Record that Viventium Step 2 was sent to ' + name + '?\n\nThis records your name and the time. On the new onboarding path the Hub then texts and emails them the Step 2 message with their private "I finished Step 2" link (practice while the switch is off). Pressing it twice is refused.'))) return;
+    note = (await ccPrompt('Optional note (for example the email address used in Viventium):', '')) || '';
+  } else if(!(await ccConfirm('Resend the Step 2 message to ' + name + '? This is its own stamp.'))) return;
   try{ const d = await s2Call({ action:'sent', candidate_id:String(id), note, resend: !!resend });
     const m = d.message || {};
     alert((resend ? 'Resent' : 'Recorded') + ' for ' + name + '.' + (m.state === 'practice' ? '\n\nPractice: the Step 2 message was recorded, not sent (the switch is off).' : m.state === 'sent' ? '\n\nThe Step 2 message went by ' + [m.texted ? 'text' : '', m.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : m.state === 'failed' ? '\n\nThe message did not go: ' + (m.not_sent || []).join('; ') : (d.new_path ? '' : '\n\nNo message from the Hub: this person is on the current path (their Viventium welcome text is unchanged).')));
@@ -8380,7 +8380,7 @@ async function step2Sent(id, resend){
 }
 async function step2Reported(id){
   const c = wcSrcFor(id); if(!c) return;
-  if(!confirm('Record that ' + c.first + ' told the office Step 2 is done (by phone or in person)? This is their report, not verification.')) return;
+  if(!(await ccConfirm('Record that ' + c.first + ' told the office Step 2 is done (by phone or in person)? This is their report, not verification.'))) return;
   try{ const d = await s2Call({ action:'reported', candidate_id:String(id) }); await s2After(id, d); }catch(e){ alert('Not recorded: ' + e.message); }
 }
 async function step2Verify(id){
@@ -8399,7 +8399,7 @@ async function step2Verify(id){
   w.querySelector('#s2go').onclick = async () => {
     const ticked = [...w.querySelectorAll('.s2tick:checked')].map(x => x.value), i9 = w.querySelector('#s2i9').checked, note = w.querySelector('#s2note').value;
     if(!ticked.length && !i9){ alert('Tick what you checked in Viventium.'); return; }
-    if(!confirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the Orientation Video Call invitation goes right after.' : '\n\nThe Orientation Video Call invitation switch is off: you press Invite yourself.'))) return;
+    if(!(await ccConfirm('Record Step 2 as verified for ' + c.first + ', with ' + ticked.length + ' item' + (ticked.length === 1 ? '' : 's') + ' ticked' + (i9 ? ' and I-9 Section 2' : '') + '? This is permanent history in your name.' + (p.switches && p.switches.invite ? '\n\nOn the new path the Orientation Video Call invitation goes right after.' : '\n\nThe Orientation Video Call invitation switch is off: you press Invite yourself.')))) return;
     w.querySelector('#s2go').disabled = true;
     try{ const d = await s2Call({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }); w.remove();
       const inv = d.invite || {};
@@ -8410,16 +8410,16 @@ async function step2Verify(id){
 }
 async function step2StillOpen(id){
   const c = wcSrcFor(id); if(!c) return;
-  const task = prompt('Which task is still open in Viventium? (goes into the text)', ''); if(!task) return;
+  const task = (await ccPrompt('Which task is still open in Viventium? (goes into the text)', '')); if(!task) return;
   try{ const p = await s2Call({ action:'still_open', candidate_id:String(id), task, preview:true });
-    if(!confirm('Send this text to ' + c.first + ' (8am to 6pm, yes-to-texts, opt-outs)?\n\n' + p.preview)) return;
+    if(!(await ccConfirm('Send this text to ' + c.first + ' (8am to 6pm, yes-to-texts, opt-outs)?\n\n' + p.preview))) return;
     const d = await s2Call({ action:'still_open', candidate_id:String(id), task });
     alert(d.texted ? 'Sent.' : 'Not sent: ' + (d.not_sent || []).join('; ')); await s2After(id, d);
   }catch(e){ alert('Not sent: ' + e.message); }
 }
 async function step2Undo(id, which){
   const c = wcSrcFor(id); if(!c) return;
-  const reason = prompt('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '? Give the reason (recorded, permanent):', ''); if(!reason || reason.trim().length < 5) return;
+  const reason = (await ccPrompt('Undo "Step 2 ' + which + '" for ' + c.first + ' ' + c.last + '? Give the reason (recorded, permanent):', '')); if(!reason || reason.trim().length < 5) return;
   try{ const d = await s2Call({ action:'undo', candidate_id:String(id), which, reason }); await s2After(id, d); }catch(e){ alert('Not undone: ' + e.message); }
 }
 function step2Html(c){
@@ -8460,9 +8460,9 @@ async function wcInvite(id, btn){
   if(btn) btn.disabled = true;
   try{
     const p = await wcCall({ action:'preview', first: c.first || '' });
-    if(!confirm('Invite ' + name + ' to a 15-minute Orientation Video Call?\n\n'
+    if(!(await ccConfirm('Invite ' + name + ' to a 15-minute Orientation Video Call?\n\n'
       + 'This sends a TEXT (only if they said yes to texts, 8am to 6pm Central) and an EMAIL. The link (shown as …) is their own booking page.\n\n'
-      + 'TEXT:\n' + (p.text || '') + '\n\nEMAIL: ' + (p.subject || ''))) return;
+      + 'TEXT:\n' + (p.text || '') + '\n\nEMAIL: ' + (p.subject || '')))) return;
     const d = await wcCall({ action:'invite', candidate_id: String(c.id), first: c.first || '', last: c.last || '', phone: c.phone || '', email: c.email || '' });
     c.welcome_invited_at = new Date().toISOString();
     if(d.id) c.welcome_call_id = d.id;
@@ -8642,7 +8642,7 @@ function wcOrientMsg(d){
 }
 async function wcOrientLink(id, btn){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
-  if(!confirm('Send ' + wcName(w) + ' their orientation link now?\n\nThe Training Platform finds them in AxisCare (an active caregiver In Training, by phone or email) and sends the text and email. It never sends twice.')) return;
+  if(!(await ccConfirm('Send ' + wcName(w) + ' their orientation link now?\n\nThe Training Platform finds them in AxisCare (an active caregiver In Training, by phone or email) and sends the text and email. It never sends twice.'))) return;
   if(btn) btn.disabled = true;
   try{ alert(wcOrientMsg(await wcOrientCall(w))); }
   catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was sent.'); }
@@ -8669,7 +8669,7 @@ async function wcAct(id, action, reason, btn){
   const name = wcName(w), when = w.starts_at ? wcWhen(w.starts_at) : '';
   let ask = '';
   if(action === 'done'){
-    if(!WC_TICKS.every(([k]) => w[k]) && !confirm('Not every checklist box is ticked for ' + name + '.\n\nMark the Orientation Video Call done anyway?')) return;
+    if(!WC_TICKS.every(([k]) => w[k]) && !(await ccConfirm('Not every checklist box is ticked for ' + name + '.\n\nMark the Orientation Video Call done anyway?'))) return;
     ask = (WC_RIGHTS[String(w.id)] || w.rights_explained_at ? '' : 'The box "' + WC_RIGHTS_LABEL + '" is not ticked. On the new onboarding path the Hub will not mark the call done without it.\n\n')
       + 'Mark the Orientation Video Call with ' + name + ' as done and send their orientation link?\n\n'
       + 'First: they must be hired in AxisCare with status In Training. The Training Platform finds them there by phone or email and sends their orientation link by text and email.\n\n'
@@ -8683,7 +8683,7 @@ async function wcAct(id, action, reason, btn){
   } else if(action === 'now'){
     ask = 'Text and email ' + name + " now: 'We have an opening right now for your Orientation Video Call, join in the next 10 minutes'? Their booked time (if any) stays the same unless the call happens.";
   } else return;
-  if(!confirm(ask)) return;
+  if(!(await ccConfirm(ask))) return;
   if(btn) btn.disabled = true;
   try{
     const d = await wcCall(reason ? { action, id: w.id, reason } : action === 'done' ? { action, id: w.id, rights_explained: WC_RIGHTS[String(w.id)] === true } : { action, id: w.id });
@@ -8777,7 +8777,7 @@ function wcRosterMsg(r){
    catch-up for Orientation Video Calls marked done before this change. */
 async function wcRosterAdd(id, btn){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
-  if(!confirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation and dementia training. They move out of Background & References. Nothing is sent to them.')) return;
+  if(!(await ccConfirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation and dementia training. They move out of Background & References. Nothing is sent to them.'))) return;
   if(btn) btn.disabled = true;
   try{ alert(wcRosterMsg(await wcAddToRoster(w))); renderWelcomeCalls(); }
   catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was changed.'); }
@@ -9205,7 +9205,7 @@ function saveOrient(){
   closeModal('orient-modal');
   renderOrientations();
 }
-function deleteOrient(id){
+async function deleteOrient(id){
   const s=orientSessions.find(x=>x.id===id);
   if(!s) return;
   if(s.series_id){
@@ -9217,25 +9217,25 @@ function deleteOrient(id){
     }
   }
   const {dow,date}=sessDateShort(s.date);
-  if(!confirm(`Delete the ${dow} ${date} at ${fmtTime(s.time)} session?`)) return;
+  if(!(await ccConfirm(`Delete the ${dow} ${date} at ${fmtTime(s.time)} session?`))) return;
   gcalDeleteEvent(s);
   orientSessions=orientSessions.filter(x=>x.id!==id);
   saveOrientStore(); renderOrientations();
 }
-function deleteOrientConfirm(scope){
+async function deleteOrientConfirm(scope){
   closeModal('delete-scope-modal');
   const s=orientSessions.find(x=>x.id===pendingDeleteId);
   if(!s){pendingDeleteId=null;return;}
   if(scope==='future'){
     const seriesId=s.series_id, sessDate=s.date;
     const count=orientSessions.filter(x=>x.series_id===seriesId && x.date>=sessDate).length;
-    if(!confirm(`Delete ${count} sessions (this and all future in this series)?`)){pendingDeleteId=null;return;}
+    if(!(await ccConfirm(`Delete ${count} sessions (this and all future in this series)?`))){pendingDeleteId=null;return;}
     // Delete calendar events for all affected sessions
     orientSessions.filter(x=>x.series_id===seriesId && x.date>=sessDate).forEach(x=>gcalDeleteEvent(x));
     orientSessions=orientSessions.filter(x=>!(x.series_id===seriesId && x.date>=sessDate));
   } else {
     const {dow,date}=sessDateShort(s.date);
-    if(!confirm(`Delete just the ${dow} ${date} session?`)){pendingDeleteId=null;return;}
+    if(!(await ccConfirm(`Delete just the ${dow} ${date} session?`))){pendingDeleteId=null;return;}
     gcalDeleteEvent(s);
     orientSessions=orientSessions.filter(x=>x.id!==pendingDeleteId);
   }
@@ -9327,7 +9327,7 @@ async function promoteToCaregiver(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
   if(!c) return;
   if(safeIsTmp(c.id)){ alert(`${c.first} ${c.last} is still being saved. Try again in a moment.`); return; }
-  if(!confirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`)) return;
+  if(!(await ccConfirm(`Promote ${c.first} ${c.last} to caregiver?\n\nThey will be added to Training & Active Compliance and removed from Background & References.`))) return;
   const hireDate = c.orient_session_date || new Date().toISOString().split('T')[0];
   let rec;
   try{ rec = cgRecordFromCandidate(c, hireDate, hireDate); }
@@ -9348,9 +9348,9 @@ async function promoteToCaregiver(candidateId){
   alert(`🎉 ${c.first} ${c.last} has been promoted! They now appear in Training and Active Compliance.`
     +(live?'':`\n\nProfile needed before first shift: their caregiver profile is not published yet. Publish it (the photo is required) before their first client visit. The Training tab shows it until then.`));
 }
-function closeOutCandidate(candidateId){
+async function closeOutCandidate(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
-  if(!c||!confirm(`Close out ${c.first} ${c.last}?\n\nThey will be hidden from regular views. You can reopen them anytime.`)) return;
+  if(!c||!(await ccConfirm(`Close out ${c.first} ${c.last}?\n\nThey will be hidden from regular views. You can reopen them anytime.`))) return;
   const i = candidates.findIndex(x=>x.id===candidateId);
   candidates[i].closed_out = true;
   saveCandidates(); renderOB();
@@ -9545,7 +9545,7 @@ function obRefCardsHtml(c, reqs){
 async function obRefDecide(candId, outcome){
   if(!(typeof ccIsOwner === 'function' && ccIsOwner())){ alert('Only an owner can decide a Conditional reference.'); return; }
   const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
-  const note = prompt(outcome === 'proceed' ? 'Why is this reference enough? (kept with your name and the date)' : 'Why is it not enough? (kept with your name and the date)');
+  const note = (await ccPrompt(outcome === 'proceed' ? 'Why is this reference enough? (kept with your name and the date)' : 'Why is it not enough? (kept with your name and the date)'));
   if(note === null) return;
   if(outcome === 'proceed' && note.trim().length < 5){ alert('Write a short reason, so the decision explains itself later.'); return; }
   eligRecordRefDecision(c, outcome, note.trim());
@@ -9612,10 +9612,10 @@ function obChecksHtml(c){
 }
 window.obChecksMount = obChecksMount;
 /* FCSR sent to the state: the date it went, who marked it, and when. The result is still recorded with its proof. */
-function obFcsrSent(candId){
+async function obFcsrSent(candId){
   const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
   const today = new Date(); const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  const v = prompt('What day was the FCSR screening sent to the state? (YYYY-MM-DD)', c.fcsr_sent_date || iso);
+  const v = (await ccPrompt('What day was the FCSR screening sent to the state? (YYYY-MM-DD)', c.fcsr_sent_date || iso));
   if(v === null) return;
   const d = String(v).trim();
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d + 'T12:00:00')) || d > iso){ alert('That did not look like a date on or before today. Try ' + iso + '.'); return; }
@@ -9899,7 +9899,7 @@ async function addStaffUser(){
 
 async function removeStaffUser(idx){
   const u=allStaff()[idx]; if(!u) return;
-  if(!confirm(`Remove ${u.name}? This removes them everywhere — both hubs read one staff list now.`)) return;
+  if(!(await ccConfirm(`Remove ${u.name}? This removes them everywhere, because both hubs read one staff list now.`))) return;
   if(u._legacy){ await dropLegacy(u); }
   else{
     SHARED_STAFF=SHARED_STAFF.filter(x=>x.id!==u.id);
@@ -10102,10 +10102,10 @@ function onGlobalSearch(val){
   const renders={onboarding:renderOB,training:renderTR,compliance:renderAC};
   if(renders[activeTab]) renders[activeTab]();
 }
-function addManualBooking(sessId){
-  const first=prompt('Candidate first name:'); if(!first) return;
-  const last=prompt('Candidate last name:'); if(!last) return;
-  const phone=prompt('Candidate phone (optional):','') || '';
+async function addManualBooking(sessId){
+  const first=(await ccPrompt('Candidate first name:')); if(!first) return;
+  const last=(await ccPrompt('Candidate last name:')); if(!last) return;
+  const phone=(await ccPrompt('Candidate phone (optional):','')) || '';
   const s=orientSessions.find(x=>x.id===sessId);
   if(!s.bookings) s.bookings=[];
   if(s.bookings.length>=parseInt(s.capacity)){ alert('This session is full.'); return; }
@@ -10261,8 +10261,8 @@ function evvToggleWellsky(id, checked) {
 }
 
 // ── Remove a record ───────────────────────────────────────────────────
-function evvRemove(id) {
-  if (!confirm('Remove this correction record?')) return;
+async function evvRemove(id) {
+  if (!(await ccConfirm('Remove this correction record?'))) return;
   saveEVVCorrections(getEVVCorrections().filter(c => c.id !== id));
   renderEVVCorrections();
 }
@@ -10407,7 +10407,7 @@ async function acceptEVVSubmission(subId) {
 }
 
 async function dismissEVVSubmission(id) {
-  if (!confirm('Dismiss this submission? It will be removed from the pending list.')) return;
+  if (!(await ccConfirm('Dismiss this submission? It will be removed from the pending list.'))) return;
   const { data: { user } } = await sb.auth.getUser();
   const adminEmail = user?.email || 'unknown';
   const r = window.EVVF ? await EVVF.linkSave(sb, { id }, {}, { by: adminEmail, dismiss: true }) : { ok: false, error: 'evv-forms.js did not load' };
@@ -10626,7 +10626,7 @@ async function tpfSave(cgId, k){
   if (date > new Date().toISOString().slice(0, 10)) { err.textContent = 'That date is in the future.'; return; }
   if (!file && !tpfIsFile(c[it.proof])) { err.textContent = 'Please choose the certificate file: a date is never saved without its proof (MMAC audit).'; return; }
   if (it.hrs && !(Number(hrs) > 0)) { err.textContent = 'Please give the hours.'; return; }
-  if (it.hrs && Number(hrs) < it.minHrs && !confirm('That is under the ' + it.minHrs + ' hours required. Save it anyway (it will show as short)?')) return;
+  if (it.hrs && Number(hrs) < it.minHrs && !(await ccConfirm('That is under the ' + it.minHrs + ' hours required. Save it anyway (it will show as short)?'))) return;
   if (file && file.size > 20 * 1024 * 1024) { err.textContent = 'That file is over 20 MB: please shrink it first.'; return; }
   btn.disabled = true; btn.textContent = 'Saving…'; err.textContent = '';
   const changes = { [it.date]: date };

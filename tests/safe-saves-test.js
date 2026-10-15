@@ -21,7 +21,7 @@ const code = [
   cut('async function intakeImport(', '/* ══════════════ UI GATE 1'),
   cut('async function wcAddToRoster(', 'function wcRosterMsg('),
   cut('function cgRecordFromCandidate(', '// ── Promote / Close Out'),
-  cut('async function promoteToCaregiver(', 'function closeOutCandidate('),
+  cut('async function promoteToCaregiver(', 'async function closeOutCandidate('),
   cut('async function createRefRequests(', 'async function askReferences('),
   cut('async function bootHydrate(', 'async function retryHydrate('),
 ].join('\n');
@@ -124,7 +124,7 @@ async function world(init, opts = {}) {
   const D = page(); const alerts = []; const opened = []; const renders = []; const local = {};
   const ctx = {
     console: { log() {}, warn() {}, error() {} }, Date, JSON, Promise, Set, Map, String, Array, Object, Number, Error, RegExp, Intl, Math, setTimeout,
-    sb: S.sb, document: D.document, window: {}, alert: (m) => alerts.push(m), confirm: () => true,
+    sb: S.sb, document: D.document, window: {}, alert: (m) => alerts.push(m), confirm: () => true, ccConfirm: async () => true,
     localStorage: { setItem(k, v) { local[k] = v; }, getItem(k) { return local[k] || null; } },
     setSyncStatus() {}, hydrateBanner: () => renders.push('hydrateBanner'), migrateOldRecipients() {},
     renderAll: () => renders.push('renderAll'), renderOB: () => renders.push('renderOB'), renderTR() {}, renderAC() {}, renderAlerts() {},

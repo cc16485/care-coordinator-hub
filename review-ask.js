@@ -80,7 +80,7 @@
     after('Recorded. In a week you\'ll get one card to note whether they left a review.');
   }
   async function notNow(){
-    const why = (window.prompt && window.prompt('Not now. Why? (kept with the record)')) || '';
+    const why = (window.prompt && (await ccPrompt('Not now. Why? (kept with the record)'))) || '';
     if(why === null) return;
     try{ const o = await call({ action:'review_not_now', ask_id:RV.data.open.ask_id, note:why }); if(o.error) return err(o.error); }catch(e){ return err(e.message); }
     after('Noted. No review suggestion for them for 30 days.');
@@ -90,8 +90,8 @@
     after(v === 'left' ? 'Wonderful. Recorded.' : 'Recorded.');
   }
   async function suggest(){
-    const who = (window.prompt && window.prompt('Who would you ask? (e.g. their daughter Rosa)')) || '';
-    const note = (window.prompt && window.prompt('What makes now a good time? (optional)')) || '';
+    const who = (window.prompt && (await ccPrompt('Who would you ask? (e.g. their daughter Rosa)'))) || '';
+    const note = (window.prompt && (await ccPrompt('What makes now a good time? (optional)'))) || '';
     let o; try{ o = await call({ action:'review_suggest', axiscare_client_id:RV.ax, who, note }); }catch(e){ o = { error:e.message }; }
     if(o.error){ if(typeof ccToast === 'function') ccToast(o.error); return; }
     await mount({ ax:RV.ax });
@@ -117,7 +117,7 @@
   }
   async function setToggle(b){
     const on = !(((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).review_asks_live === true);
-    if(!confirm(on ? RV_ON : RV_OFF)) return;
+    if(!(await ccConfirm(on ? RV_ON : RV_OFF))) return;
     if(b) b.disabled = true;
     const out = await tkMerge(m => { m.review_asks_live = on; return ['Google review suggestions ' + (on ? 'ON' : 'OFF')]; }, 'Google reviews');
     if(b) b.disabled = false;
@@ -127,7 +127,7 @@
   async function setUrl(b){
     const v = ((document.getElementById('rvUrl') || {}).value || '').trim(), msg = document.getElementById('rvUrlMsg');
     if(!/^https:\/\/(search\.google\.com|g\.page|maps\.app\.goo\.gl)\//.test(v)){ if(msg) msg.textContent = 'That doesn\'t look like a Google review link.'; return; }
-    if(!confirm('Use this as your Google review link in every review message?\n\n' + v + '\n\nOpen it once while signed in to Google first, to be sure it shows the review box for Caring Companions.')) return;
+    if(!(await ccConfirm('Use this as your Google review link in every review message?\n\n' + v + '\n\nOpen it once while signed in to Google first, to be sure it shows the review box for Caring Companions.'))) return;
     if(b) b.disabled = true;
     const out = await tkMerge(m => { const was = m.google_review_url || DEFAULT_URL; m.google_review_url = v; return was === v ? [] : ['Google review link changed']; }, 'Google reviews');
     if(b) b.disabled = false;

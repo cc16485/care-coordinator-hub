@@ -149,15 +149,15 @@
     try { CUR = Object.assign(await call(Object.assign({ journey_id: CUR.journey.journey_id }, body)), { who: CUR.who }); LIST.at = 0; render(); }
     catch(e){ alert(e.message || e); if(btn){ btn.disabled = false; btn.textContent = 'Try again'; } }
   }
-  async function confirm(key, btn){ if(!window.confirm('Confirm this requirement as complete, in your name and with the time? It is permanent history.')) return; await act({ action:'confirm', step_key:key }, btn); }
-  async function record(key, btn){ const result = prompt('Result (for example: verified, current):'); if(!result) return; const document_ = prompt('Where is the document? Paste a link or the file path on the row:'); if(!document_) { alert('A result needs its document.'); return; } const expires = prompt('Expiry date, YYYY-MM-DD (blank if none):') || ''; await act({ action:'record', step_key:key, result, document: document_, expires }, btn); }
-  async function notNeeded(key, btn){ const reason = prompt('Why is this not needed for this person? (owners only; permanent)'); if(!reason || reason.trim().length < 5) return; await act({ action:'not_needed', step_key:key, reason }, btn); }
+  async function confirm(key, btn){ if(!(await ccConfirm('Confirm this requirement as complete, in your name and with the time? It is permanent history.'))) return; await act({ action:'confirm', step_key:key }, btn); }
+  async function record(key, btn){ const result = (await ccPrompt('Result (for example: verified, current):')); if(!result) return; const document_ = (await ccPrompt('Where is the document? Paste a link or the file path on the row:')); if(!document_) { alert('A result needs its document.'); return; } const expires = (await ccPrompt('Expiry date, YYYY-MM-DD (blank if none):')) || ''; await act({ action:'record', step_key:key, result, document: document_, expires }, btn); }
+  async function notNeeded(key, btn){ const reason = (await ccPrompt('Why is this not needed for this person? (owners only; permanent)')); if(!reason || reason.trim().length < 5) return; await act({ action:'not_needed', step_key:key, reason }, btn); }
   /* SLICE 5: the owner's press and the Retry */
   async function approve(btn){
     const d = CUR; if(!d || !d.approve) return;
     const done = (d.view.rows || []).filter(r => ['complete', 'not_needed', 'exception'].indexOf(r.status) > -1).length;
     const words = 'Approve ' + d.journey.client_name + ' to work?\n\n' + done + ' requirements complete, Level of Care ' + d.approve.level_of_care.level + '.\nThis records your name and the exact time (permanent), ' + (d.approve.switches.axiscare_live ? 'sets them Active in AxisCare and reads it back' : 'records the AxisCare update as practice (the switch is off)') + ', then ' + (d.approve.switches.text_live ? 'sends the cleared text (8am to 6pm, yes-to-texts, opt-outs).' : 'records the cleared text as practice (the switch is off).');
-    if(!window.confirm(words)) return;
+    if(!(await ccConfirm(words))) return;
     await act({ action:'approve_work' }, btn);
   }
   async function retry(btn){ await act({ action:'retry_axiscare' }, btn); }
@@ -179,9 +179,9 @@
   }
   /* SLICE 6: the export. The server builds the PDF, logs the export and hands back five-minute links. */
   async function exportFile(btn, caregiverId){
-    const reason = prompt('Reason for this export (it is logged with your name):', 'audit export'); if(reason === null) return;
+    const reason = (await ccPrompt('Reason for this export (it is logged with your name):', 'audit export')); if(reason === null) return;
     /* SLICE 8: as of a past date (what the card said at the end of that day) */
-    const asOf = prompt('As of a past date? Type YYYY-MM-DD, or leave blank for today.', ''); if(asOf === null) return;
+    const asOf = (await ccPrompt('As of a past date? Type YYYY-MM-DD, or leave blank for today.', '')); if(asOf === null) return;
     if(asOf && !/^\d{4}-\d{2}-\d{2}$/.test(asOf.trim())){ alert('Use the form YYYY-MM-DD, or leave it blank.'); return; }
     if(btn){ btn.disabled = true; btn.textContent = 'Building…'; }
     try {

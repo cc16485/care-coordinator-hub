@@ -210,9 +210,9 @@
   }
   window.mcpFusionCheck = async function () {
     const p = curPlan(); if (!p) return;
-    const on = prompt('The date you checked this plan against Fusion (YYYY-MM-DD):', todayIso()); if (on === null) return;
+    const on = (await ccPrompt('The date you checked this plan against Fusion (YYYY-MM-DD):', todayIso())); if (on === null) return;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(on.trim()) || on.trim() > todayIso()) { alert('Use the form YYYY-MM-DD, not in the future.'); return; }
-    const note = prompt('What you checked (optional, for example: dates, services and units match Fusion):', 'dates, services and units match Fusion'); if (note === null) return;
+    const note = (await ccPrompt('What you checked (optional, for example: dates, services and units match Fusion):', 'dates, services and units match Fusion')); if (note === null) return;
     p.fusion_verified = { by: me(), by_name: (typeof ME !== 'undefined' && ME.name) || me(), checked_on: on.trim(), note: note.trim(), at: new Date().toISOString() };
     await savePlan(p); say('Recorded: checked against Fusion.');
   };

@@ -7,7 +7,7 @@ CODE = open(os.path.join(HERE, '..', '..', 'caregiver-readiness.js')).read()
 T = r"""
 async(CODE)=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  window.__calls=[]; window.__alerts=[]; window.alert=m=>__alerts.push(String(m)); window.confirm=()=>true; window.prompt=()=>'verified by the office';
+  window.__calls=[]; window.__alerts=[]; window.alert=m=>__alerts.push(String(m)); window.confirm=()=>true; window.prompt=()=>'verified by the office'; window.ccConfirm=async()=>true; window.ccPrompt=async()=>'verified by the office';
   const def=(key,title,stage,proof,permission,extra={})=>({ key, title, stage, proof, permission, required:true, ...extra });
   let advanced=false, isOwner=false, mayAdvance=false, mayWork=false, A=null;   /* A: the slice 5 approve state the stand-in answers with */
   const view=()=>{ const rows=[
@@ -82,7 +82,7 @@ async(CODE)=>{
   ok('no export button for a person not on the Audit export list', !btns().some(x=>/Personnel file/.test(x)), btns());
   CRX.close(); mayExport=true; await CRX.open('o-1','Ava Lee'); await sleep(120);
   ok('on the Audit export list (or an owner): the Personnel file (PDF) button', btns().some(x=>/Personnel file \(PDF\)/.test(x)), btns());
-  { const answers=['DHSS review','2026-10-01']; window.prompt=()=>answers.shift() ?? ''; }
+  { const answers=['DHSS review','2026-10-01']; window.prompt=()=>answers.shift() ?? ''; window.ccPrompt=async()=>answers.shift() ?? ''; }
   window.sb.functions.invoke=async(fn,o)=>{ __calls.push({fn,b:(o&&o.body)||{}}); if(fn==='caregiver-export') return { data:{ ok:true, url:'https://signed/pdf', expires_in:300, proofs:[{ label:'OIG exclusion check (LEIE)', url:'https://signed/oig' }, { label:'CNA or HHA credential verified', url:null }] }, error:null }; return { data:answer(), error:null }; };
   const eb=[...document.querySelectorAll('#crBody button')].find(b=>/Personnel file/.test(b.textContent)); eb.click(); await sleep(150); t=document.getElementById('crBody').innerText;
   ok('the press asks caregiver-export with the reason, the as-of date (Slice 8) and this card, then shows the five-minute links and the proofs (one without a link says so)', __calls.some(c=>c.fn==='caregiver-export' && c.b.action==='export' && c.b.reason==='DHSS review' && c.b.as_of==='2026-10-01' && c.b.journey_id==='j-1') && /Personnel file ready/.test(t) && /open the PDF/.test(t) && /OIG exclusion check/.test(t) && /no link/.test(t), t.slice(-500));

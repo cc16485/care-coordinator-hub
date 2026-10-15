@@ -74,7 +74,7 @@
   async function link(i){
     const g = PR().unlinked(DATA.leads || [])[i], sel = document.getElementById('pdLink_' + i); if(!g || !sel || !sel.value) return;
     const o = org(sel.value); if(!o) return;
-    if(!confirm('Link ' + g.leads.length + ' referral' + (g.leads.length === 1 ? '' : 's') + ' named "' + g.name + '" to ' + o.name + '?')) return;
+    if(!(await ccConfirm('Link ' + g.leads.length + ' referral' + (g.leads.length === 1 ? '' : 's') + ' named "' + g.name + '" to ' + o.name + '?'))) return;
     for(const id of g.leads){ const l = (DATA.leads || []).find(x => x.id === id); if(!l) continue; l.referral_org_id = o.id; delete l.referral_org_suggest; if(!l.referral_source_name) l.referral_source_name = o.name; await persist('leads', l); }
     toast('Linked to ' + o.name + '.'); refresh();
   }

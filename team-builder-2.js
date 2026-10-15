@@ -220,7 +220,7 @@
       if(status === null) list.splice(k, 1);
       else if(status === 'yes'){
         const o = list[k];
-        if(main && main.status === 'yes' && !confirm(main.name + ' is already confirmed for this shift. Make ' + o.name + ' the confirmed one instead? ' + main.name + ' stays on the list as a maybe.')) return;
+        if(main && main.status === 'yes' && !(await ccConfirm(main.name + ' is already confirmed for this shift. Make ' + o.name + ' the confirmed one instead? ' + main.name + ' stays on the list as a maybe.'))) return;
         list.splice(k, 1);
         if(main) list.unshift(Object.assign({}, main, { id:'o' + Date.now().toString(36), status:main.status === 'yes' ? 'maybe' : main.status }));
         delete o.id; o.status = 'yes'; o.at = now(); o.by = me(); plan.cells[key] = o;

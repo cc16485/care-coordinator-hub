@@ -190,7 +190,7 @@
   }
   async function doSend(){
     const d = S.send; if (!d || S.busy) return;
-    if (d.late && !confirm('It is before 8am or after 8pm in Springfield. Send ' + d.caregiver_first + ' this text now?')) return;
+    if (d.late && !(await ccConfirm('It is before 8am or after 8pm in Springfield. Send ' + d.caregiver_first + ' this text now?'))) return;
     S.busy = true; S.sendErr = ''; render();
     try { const r = await call({ action: 'send', packet_id: S.packet.id, caregiver_axiscare_id: d.ax, send_id: d.send_id });
       S.recipients = r.recipients || S.recipients; S.send = null; loadUpcoming();
@@ -293,7 +293,7 @@
   }
   async function setAuto(on){
     if (S.busy || !S.packet) return;
-    if (on && !confirm('Text this packet automatically to every caregiver scheduled with ' + (S.packet.client_first || 'this client') + ' who has not had it yet?')) { render(); return; }
+    if (on && !(await ccConfirm('Text this packet automatically to every caregiver scheduled with ' + (S.packet.client_first || 'this client') + ' who has not had it yet?'))) { render(); return; }
     S.busy = true; S.sendErr = ''; render();
     try { const d = await call({ action: 'auto_set', packet_id: S.packet.id, on }); S.packet = Object.assign({}, S.packet, d.packet); S.msg = on ? 'Set to send automatically.' : 'Set to send by hand.'; }
     catch (e) { S.sendErr = e.message; }

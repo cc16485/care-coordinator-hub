@@ -6,7 +6,7 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'caregivers-engine.js'), 
 const cut = (a, b) => { const i = src.indexOf(a), j = src.indexOf(b, i + 1); if (i < 0 || j < 0) throw new Error('not found: ' + a); return src.slice(i, j); };
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 600))); };
-const code = cut('async function appLinkMint(', 'function offerCopyLink(') + cut('function bookingSessionsParam(){', 'function buildInviteMsg(');
+const code = cut('async function appLinkMint(', 'async function offerCopyLink(') + cut('function bookingSessionsParam(){', 'function buildInviteMsg(');
 function world(answer) {
   const calls = [], els = {};
   const el = (id) => els[id] || (els[id] = { id, innerHTML: '', textContent: '', style: {} });

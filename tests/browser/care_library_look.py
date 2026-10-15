@@ -35,7 +35,7 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
     const prev = STATE.lib.find(t => t.key === b.key); const row = Object.assign({}, prev || { pending: false, review_note: '' }, { key: b.key, title: b.title, category: b.category, flag: b.flag, notes: b.notes, videos: b.videos, active: true });
     STATE.lib = STATE.lib.filter(t => t.key !== b.key).concat([row]); return { status: 200, data: { outcome: 'saved', library: JSON.parse(JSON.stringify(STATE.lib)) } }; }
   return { status: 400, data: { error: 'unknown' } }; };
-window.confirm = () => true;
+window.confirm = () => true; window.ccConfirm = async () => true;
 </script><script src="care-library.js"></script></body>''' % json.dumps(LIB)
 open(os.path.join(ROOT, '_clib_test.html'), 'w').write(page)
 try:

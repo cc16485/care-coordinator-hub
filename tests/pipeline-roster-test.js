@@ -12,7 +12,7 @@ const cut = (from, to) => { const a = src.indexOf(from), b = src.indexOf(to, a +
 const code = [
   cut('const WC_MEET =', 'async function wcWho('),
   cut('async function wcAct(', 'function renderOrientReadyQueue('),
-  cut('function cgRecordFromCandidate(', 'function closeOutCandidate('),
+  cut('function cgRecordFromCandidate(', 'async function closeOutCandidate('),
   cut('function lifecycleRows(', 'let REF_REQUESTS = [];'),
   cut('const bgrEsc =', 'const BGR_ATT_METHODS'),
   cut('function bgrChecksSummary(', 'function bgrToggleTimeline('),

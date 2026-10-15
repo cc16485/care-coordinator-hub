@@ -121,7 +121,7 @@
     if(a === 'set_assignment'){ body.date = val('hbAs' + i); if(!body.date){ c.msg = 'Enter the date of their first client visit first.'; c.msgOk = false; return draw(c); } }
     if(a === 'record_dose'){ body.date = val('hbDose' + i); if(!body.date){ c.msg = 'Enter the date the dose was given.'; c.msgOk = false; return draw(c); } }
     if(a === 'record_choice'){ body.choice = val('hbCh' + i); if(!body.choice){ c.msg = 'Choose the answer first.'; c.msgOk = false; return draw(c); } }
-    if(a === 'record_offer'){ const how = window.prompt('How was the vaccine offered? (for example: in person at the office, by phone)'); if(!how) return; body.how = how; }
+    if(a === 'record_offer'){ const how = (await ccPrompt('How was the vaccine offered? (for example: in person at the office, by phone)')); if(!how) return; body.how = how; }
     const r = await call(body);
     if(!r.ok){ c.msg = r.error; c.msgOk = false; return draw(c); }
     c.msg = a === 'send_link' ? (r.data.state === 'sent' ? 'Sent.' : r.data.state === 'practice' ? 'Practice: nothing was sent. ' + (r.data.why || '') : 'Not sent: ' + (r.data.not_sent || []).join('; ')) : 'Saved.';

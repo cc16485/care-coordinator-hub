@@ -162,7 +162,7 @@
     };
     el.querySelector('#lwPdCopy').onclick = async () => {
       const t = el.querySelector('#lwPdText').value.trim(); try{ await navigator.clipboard.writeText(t); }catch(e){}
-      if(confirm('Copied. Mark this as told to ' + pl.partner.name + ' by call or text? (It goes on the record as sent by you.)')) await record('call');
+      if((await ccConfirm('Copied. Mark this as told to ' + pl.partner.name + ' by call or text? (It goes on the record as sent by you.)'))) await record('call');
     };
     const em = el.querySelector('#lwPdEmail');
     if(em) em.onclick = async () => {
@@ -300,7 +300,7 @@
     el.querySelector('#lwTextNo').onclick = ccPopClose;
     el.querySelector('#lwTextGo').onclick = async () => {
       const text = el.querySelector('#lwTextIn').value.trim(), go = el.querySelector('#lwTextGo'), msg = el.querySelector('#lwTextMsg'); if(!text) return;
-      if(l.do_not_contact && !confirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?')) return;
+      if(l.do_not_contact && !(await ccConfirm('This family asked us not to contact them. Send anyway, as a person, because they asked for this specific reply?'))) return;
       go.disabled = true; msg.textContent = 'Sending…';
       try{ window.commsLead = l; try{ commsLead = l; }catch(e){}
         await commsCall({ action:'send_sms', message:text });

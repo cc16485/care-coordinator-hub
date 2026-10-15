@@ -48,7 +48,7 @@
   async function start(btn){
     const v = id => (document.getElementById(id) || {}).value || '';
     const first = v('twFirst').trim(), phone = v('twPhone').trim(), email = v('twEmail').trim();
-    if(!confirm('Start your training walkthrough?\n\nEvery text and email a new hire gets will come to ' + phone + ' and ' + email + ', starting with the job offer now.\nUse ONLY your own phone and email, and a made-up SSN and date of birth in Step 1.')) return;
+    if(!(await ccConfirm('Start your training walkthrough?\n\nEvery text and email a new hire gets will come to ' + phone + ' and ' + email + ', starting with the job offer now.\nUse ONLY your own phone and email, and a made-up SSN and date of birth in Step 1.'))) return;
     if(btn){ btn.disabled = true; btn.textContent = 'Starting…'; }
     try{
       const r = await call({ action:'start', first, phone, email });
@@ -59,7 +59,7 @@
     await mount();
   }
   async function end(id, btn){
-    if(!confirm('End this training walkthrough? The practice offer is withdrawn and the practice records come off the lists (their history stays). The phone and email come off the test list.')) return;
+    if(!(await ccConfirm('End this training walkthrough? The practice offer is withdrawn and the practice records come off the lists (their history stays). The phone and email come off the test list.'))) return;
     if(btn) btn.disabled = true;
     try{ await call({ action:'end', offer_id:id }); MSG = 'Ended.'; }catch(e){ MSG = 'Not ended: ' + e.message; }
     await mount();

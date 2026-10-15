@@ -135,7 +135,7 @@
   async function copy(){
     const conf = st().staffing_sheet, sh = SS.pool ? R().sheet(SS.pool, ctx()) : null; if(!sh){ await load(); return copy(); }
     const s = R().shareable(conf, sh, todayYmd()); if(!s.text) return;
-    try{ await navigator.clipboard.writeText(s.text); if(typeof ccToast === 'function') ccToast('Copied.'); }catch(e){ prompt('Copy this:', s.text); }
+    try{ await navigator.clipboard.writeText(s.text); if(typeof ccToast === 'function') ccToast('Copied.'); }catch(e){ (await ccPrompt('Copy this:', s.text)); }
   }
   /* ── Today ── */
   function myDayRows(rowFn){

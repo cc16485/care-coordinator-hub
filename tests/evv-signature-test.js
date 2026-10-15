@@ -116,7 +116,7 @@ ck('phone answers: a good one; who called is NOT in it (the server takes it from
   const ctx = { sb: sbFake, console, Date, JSON, Promise, String, Object, Array, setTimeout,
     document: { getElementById: (id) => (id === 'evvLinkModal' || id === 'evvPhoneModal' ? hel[id] || null : el(id)), createElement: () => ({ style: {} }), body: { appendChild: (x) => { hel[x.id || 'evvLinkModal'] = x; if (!x.id) x.id = 'evvLinkModal'; } } },
     window: null, DATA: { evv_corrections: [], ops_settings: { timekeeper_text_live: true } }, ME: { email: 'krystal@mo-care.com' }, SW_EVV: { data: null, loading: true }, swEvvLoad() {}, swEvvPaint() {}, evvPaintStats() {}, ccChiToday: () => '2026-10-03',
-    esc: F.esc, alert: (m) => ALERTS.push(m), confirm: (m) => { ALERTS.push('CONFIRM: ' + m); return true; }, persist: async () => {},
+    esc: F.esc, alert: (m) => ALERTS.push(m), confirm: (m) => { ALERTS.push('CONFIRM: ' + m); return true; }, ccConfirm: async (m) => { ALERTS.push('CONFIRM: ' + m); return true; }, persist: async () => {},
     tkMerge: async (apply, what) => { const m = {}; const ch = apply(m, {}); MERGES.push({ m, ch, what }); ctx.DATA.ops_settings = Object.assign({}, ctx.DATA.ops_settings, m); return { changed: ch, error: null }; },
     cgdCensus: async () => ({ caregivers: [] }), cl360Roster: async () => [], CL360_AXSTATUS: {}, fetch: async () => ({ ok: true, status: 200, json: async () => ({}) }) };
   ctx.window = ctx; ctx.EVVF = F; ctx.globalThis = ctx;
