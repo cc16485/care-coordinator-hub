@@ -41,25 +41,30 @@
       const role = (d.roles || []).filter(r => r.status !== 'active').slice(-1)[0] || {};
       h += '<span class="cc-what">' + (role.ended_at ? (role.ended_date_basis === 'on_or_before' ? 'Care ended on or before ' + esc(day(role.ended_at)) + ' · exact date not recorded in AxisCare' : 'Care ended ' + esc(day(role.ended_at))) : 'End date not recorded in AxisCare') + (role.end_reason && !/^deceased$/i.test(role.end_reason) ? ' · ' + esc(role.end_reason) : (role.end_reason ? '' : ' · reason not recorded in AxisCare')) + '</span>';
     }
+    /* PLANNED END (Samantha 2026-10-15): End care with a future last day; care continues as normal until then */
+    const pe = d.planned_end;
+    if(pe) h += '<span class="cc-what cc-planned"><b>Care ends after ' + esc(day(pe.effective_date)) + '</b> (planned) · ' + esc((d.reasons.end || {})[pe.reason] || pe.reason) + ' · recorded by ' + esc(pe.made_by_name || pe.made_by) + '</span>';
     h += '<span style="flex:1"></span>';
+    if(pe && d.can.cancel_end) h += '<button class="secondary" onclick="ccCareCancelEnd()">Cancel the planned end</button>';
     if(d.can.resume) h += '<button class="primary" onclick="ccCareForm(\'resume\')">Resume care</button><button class="secondary" onclick="ccCareForm(\'extend\')">Pause longer</button>';
     if(d.can.pause) h += '<button class="secondary" onclick="ccCareForm(\'pause\')">Pause care</button>';
-    if(d.can.end) h += '<button class="secondary cc-end-btn" onclick="ccCareForm(\'end\')">End care</button>';
+    if(d.can.end && !pe) h += '<button class="secondary cc-end-btn" onclick="ccCareForm(\'end\')">End care</button>';
     if(d.can.return) h += '<button class="secondary" onclick="ccCareForm(\'return\')">Resume care</button>';
     /* Correct the end date (Samantha 2026-10-08): a link, not an action button; the old date stays in the history */
     if(d.can.end_date) h += '<a href="javascript:void(0)" class="cc-fix" onclick="ccCareForm(\'end_date\')">Correct end date</a>';
     h += '</div>';
     if(d.state === 'deceased') h += '<div class="field-note cc-quiet">Kept for the record only. No outreach of any kind: no campaigns, review requests, reactivation prompts or follow-up.</div>';
     if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. Care resumes only when an owner confirms it.</div>';
+    if(pe) h += '<div class="field-note cc-quiet">Care continues as normal until then. The day after, the Hub ends care exactly as End care would, as ' + esc(pe.made_by_name || pe.made_by) + '. Nothing is sent to anyone.</div>';
     /* the Medicaid checklist on the latest pause or end that has one */
-    const ch = (d.changes || []).filter(c => (c.kind === 'pause' || c.kind === 'end') && (c.checklist || []).length).slice(-1)[0];
-    if(ch && (ch.kind === 'end' || d.state === 'paused')) h += checklistHtml(ch);
+    const ch = pe && (pe.checklist || []).length ? pe : (d.changes || []).filter(c => (c.kind === 'pause' || c.kind === 'end') && (c.checklist || []).length).slice(-1)[0];
+    if(ch && (ch.kind === 'end' || ch.kind === 'end_planned' || d.state === 'paused')) h += checklistHtml(ch);
     h += historyHtml(d) + '</div>';
     box.innerHTML = h;
   }
   function checklistHtml(ch){
     const open = (ch.checklist || []).filter(x => x.state === 'open').length;
-    return '<details class="cc-check"' + (open ? ' open' : '') + '><summary><b>Medicaid steps for this ' + (ch.kind === 'end' ? 'end of care' : 'pause') + '</b> <span class="field-note">' + (open ? open + ' still to do' : 'all recorded') + ' · a person does each one; the Hub never sends a notice</span></summary>'
+    return '<details class="cc-check"' + (open ? ' open' : '') + '><summary><b>Medicaid steps for this ' + (ch.kind === 'end_planned' ? 'planned end of care' : ch.kind === 'end' ? 'end of care' : 'pause') + '</b> <span class="field-note">' + (open ? open + ' still to do' : 'all recorded') + ' · a person does each one; the Hub never sends a notice</span></summary>'
       + (ch.checklist || []).map(x => '<div class="cc-ci cc-ci-' + esc(x.state) + '"><div><b>' + esc(x.label) + '</b> <span class="cc-src">Regulation · ' + esc(x.rule) + '</span></div>'
         + '<div class="field-note">' + esc(x.when) + (x.note_needed ? ' ' + esc(x.note_needed) : '') + '</div>'
         + (x.state === 'open' ? '<div class="cc-ci-do"><input placeholder="How it was done (e.g. the form or email used)" data-how="' + esc(x.key) + '"><input type="date" data-on="' + esc(x.key) + '" max="' + todayYmd() + '"><input type="file" data-file="' + esc(x.key) + '">'
@@ -71,13 +76,13 @@
         + ((x.earlier || []).length ? '<div class="field-note">Earlier: ' + x.earlier.map(e => esc(e.state === 'done' ? 'done' : 'not needed') + ' by ' + esc(e.by_name || e.by || '') + (e.on ? ' ' + esc(day(e.on)) : '') + (e.how ? ' (' + esc(e.how) + ')' : '') + ', reopened by ' + esc(e.replaced_by_name || e.replaced_by || '') + ': ' + esc(e.reason || '')).join('; ') + '</div>' : '')
         + '</div>').join('') + '</details>';
   }
-  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)', end_date:'End date corrected' };
+  const KIND = { pause:'Paused', extend:'Pause made longer', resume:'Care resumed', end:'Care ended', return:'Care resumed (returning client)', end_date:'End date corrected', end_planned:'Care end planned (last day)', end_cancelled:'Planned end cancelled' };
   function historyHtml(d){
     const eps = d.episodes || [], ch = d.changes || [];
     if(eps.length < 2 && !ch.length) return '';
     return '<details class="cc-hist"><summary>Care history</summary>'
       + eps.map(e => '<div class="cc-ev"><b>Care period ' + (e.episode_n || 1) + '</b> · started ' + esc(day(e.created_at)) + ' · ' + (e.status === 'closed' ? esc(e.closed_reason || 'closed') : e.status === 'active' ? 'start of care complete' : 'under way') + '</div>').join('')
-      + ch.map(c => '<div class="cc-ev">' + esc(day(c.effective_date)) + ' · <b>' + esc(KIND[c.kind] || c.kind) + '</b>' + (c.reason ? ' · ' + esc(((d.reasons[c.kind === 'end' ? 'end' : 'pause'] || {})[c.reason]) || c.reason) : '') + (c.explanation ? ': ' + esc(c.explanation) : '')
+      + ch.map(c => '<div class="cc-ev">' + esc(day(c.effective_date)) + ' · <b>' + esc(KIND[c.kind] || c.kind) + '</b>' + (c.reason ? ' · ' + esc(((d.reasons[c.kind === 'end' || c.kind === 'end_planned' ? 'end' : 'pause'] || {})[c.reason]) || c.reason) : '') + (c.explanation ? ': ' + esc(c.explanation) : '')
         + (c.notified_by ? ' · told by ' + esc(c.notified_by) : '') + ' <span class="field-note">recorded by ' + esc(c.made_by_name || c.made_by) + ', ' + esc(new Date(c.made_at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + (c.source === 'axiscare_review' ? ', from an AxisCare status change' : '') + '</span></div>').join('')
       + '</details>';
   }
@@ -101,9 +106,10 @@
       + '<div class="field-note">Their journey, shift alerts and check-in work come back as they were.</div>';
     if(kind === 'end') f = '<label>Why care ended <span class="cc-req">required</span></label>' + sel('ccR', R.end || {})
       + '<label>Explanation <span class="cc-req" id="ccWhyReq" hidden>required for Other</span></label><input id="ccX">'
-      + '<label>Effective date: the last day of service <span class="cc-req">required</span></label><input type="date" id="ccD" value="' + esc(opts.date || todayYmd()) + '" max="' + todayYmd() + '">'
+      + '<label>Effective date: the last day of service <span class="cc-req">required</span></label><input type="date" id="ccD" value="' + esc(opts.date || todayYmd()) + '"' + (opts.review_id ? ' max="' + todayYmd() + '"' : '') + '>'
+      + '<div class="field-note" id="ccPlanNote" hidden>A future last day plans the end: care continues as normal until then, and the day after, the Hub ends care as if you pressed this. It can be cancelled.</div>'
       + '<label>Who told us</label><input id="ccN" placeholder="e.g. the family, the facility, DSDS, AxisCare">'
-      + (d.payer === 'medicaid' ? '<div class="cc-rule" id="ccRule"></div>' : '')
+      + '<div class="cc-rule" id="ccRule"></div>'
       + '<div class="field-note">Their journey and open work close with this reason; nothing is deleted. If they are on Medicaid, the steps the regulation requires appear as a checklist for a person to do.</div>';
     if(kind === 'return') f = '<div class="field-note" style="margin-bottom:6px;">' + esc(name) + ' was served before. Resuming care starts a fresh care record on the same person; their earlier history stays as it is.</div>'
       + '<label>Care resumes on</label><input type="date" id="ccD" value="' + todayYmd() + '" max="' + todayYmd() + '"><label>Note</label><input id="ccX" placeholder="e.g. family called, back from rehab"><label>Who told us</label><input id="ccN">';
@@ -123,7 +129,9 @@
     /* Medicaid intake slice B (2026-10-08): the discharge rule for the reason picked (the server enforces the same rule) */
     const ruleBox = () => {
       const box = ov.querySelector('#ccRule'); if(!box || kind !== 'end') return;
-      const rule = (d.discharge || {})[r ? r.value : ''] || '';
+      /* the Medicaid rule shows for a Medicaid client, and always for the IHS/ADW reasons (2026-10-15) */
+      const med = d.payer === 'medicaid' || (d.always_medicaid || []).indexOf(r ? r.value : '') > -1;
+      const rule = med ? ((d.discharge || {})[r ? r.value : ''] || '') : '';
       if(rule === 'notice21') box.innerHTML = '<b>Medicaid: we are ending services while they still need care</b><div class="field-note">Written notice to the participant or family AND to DSDS at least 21 days before the last day, and care continues for those 21 days or until DSDS arranges other care (19 CSR 15-7.021(16)(D)). An owner records this end.</div>'
         + '<label>21-day notice to the participant or family, sent on <span class="cc-req">required</span></label><input type="date" id="ccNP" max="' + todayYmd() + '">'
         + '<label>21-day notice to DSDS, sent on <span class="cc-req">required</span></label><input type="date" id="ccND" max="' + todayYmd() + '">'
@@ -140,6 +148,8 @@
       if(np) np.onchange = upd; if(nd) nd.onchange = upd;
     };
     if(r) r.onchange = () => { const q = ov.querySelector('#ccWhyReq'); if(q) q.hidden = r.value !== 'other'; ruleBox(); };
+    const dEl = ov.querySelector('#ccD'), pn = ov.querySelector('#ccPlanNote');
+    if(dEl && pn && kind === 'end'){ const upd = () => { pn.hidden = !(dEl.value && dEl.value > todayYmd()); const go = ov.querySelector('#ccGo'); if(go) go.textContent = pn.hidden ? T : 'Plan the end'; }; dEl.onchange = upd; dEl.oninput = upd; }
     ov.querySelector('#ccNo').onclick = close;
     ov.querySelector('#ccGo').onclick = async () => {
       const err = ov.querySelector('#ccErr'), say = t => { err.textContent = t; };
@@ -155,13 +165,22 @@
       let out; try{ out = await call(b); }catch(e){ out = { error:e.message }; }
       if(!out || out.error){ go.disabled = false; go.textContent = T; return say((out && out.error) || 'Not saved.'); }
       close();
-      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end_date:'End date corrected.', end:'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'Care resumed.' }[kind]);
+      if(typeof ccToast === 'function') ccToast({ pause:'Care paused. The restart follow-up is on their Care Coordinator\'s My Work.', extend:'Follow-up moved.', resume:'Care resumed.', end_date:'End date corrected.', end:out.outcome === 'planned' ? 'End of care planned: care continues until ' + day(out.last_day) + '.' : 'Care ended.' + (out.sympathy ? ' A sympathy-card task is on My Work.' : ''), return:'Care resumed.' }[kind]);
       try{ if(typeof cjListRefresh === 'function') cjListRefresh(); }catch(e){}
       try{ if(typeof opsLoad === 'function') opsLoad(); }catch(e){}
       await mount({ ax:CC.ax });
       try{ if(typeof CP !== 'undefined' && typeof cjMountProfile === 'function') cjMountProfile({ lead:CP.lead, ax:CP.ax }); }catch(e){}
       if(opts.after) try{ opts.after(out); }catch(e){}
     };
+  }
+  async function cancelEnd(){
+    const pe = CC.data && CC.data.planned_end; if(!pe) return;
+    const why = (window.prompt && window.prompt('Why is the planned end on ' + day(pe.effective_date) + ' cancelled? It stays in the care history.')) || '';
+    if(!why.trim()) return;
+    let out; try{ out = await call({ action:'care_end_cancel', axiscare_client_id:CC.ax, explanation:why.trim() }); }catch(e){ out = { error:e.message }; }
+    if(out && out.error){ if(typeof ccToast === 'function') ccToast(out.error); return; }
+    if(typeof ccToast === 'function') ccToast('Planned end cancelled. Care continues.');
+    await mount({ ax:CC.ax });
   }
   async function tick(changeId, key, state){
     const row = document.querySelector('.cc-check [data-how="' + key + '"]'), how = row ? row.value.trim() : '';
@@ -195,6 +214,7 @@
   try{ const st = document.createElement('style'); st.textContent = [
     '.cc-care{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 14px;margin:0 0 12px}.cc-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
     '.cc-chip{font:800 12px/1 inherit;padding:6px 9px;border-radius:6px;white-space:nowrap}.cc-what{font-size:13.5px;color:var(--text)}.cc-fix{font-size:12.5px;font-weight:600;color:var(--teal-dark,#2E8C87);white-space:nowrap}',
+    '.cc-planned{background:#FFF4E1;border-radius:6px;padding:4px 8px}',
     '.cc-st-active .cc-chip,.cc-chip.cc-st-active{background:#E6F4EC;color:#1E7B45}.cc-chip.cc-st-start{background:#E7EEFC;color:#1E4FB8}.cc-chip.cc-st-paused{background:#FFF4E1;color:#9A6412}.cc-chip.cc-st-past{background:#EEF2F6;color:#3E4C5E}.cc-chip.cc-st-dec{background:#ECEAE6;color:#4A4740}',
     '.cc-care.cc-st-paused{border-color:#E9C98B;background:#FFFBF2}.cc-care.cc-st-dec{background:#F7F6F3}.cc-quiet{margin-top:6px}.cc-end-btn{color:#9A2B20}',
     '.cc-check{margin-top:10px;border-top:1px solid var(--border);padding-top:8px}.cc-check summary{cursor:pointer;font-size:14px}.cc-ci{border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-top:8px}.cc-ci-done,.cc-ci-not_needed{background:#F6F9FD}',
@@ -206,5 +226,5 @@
     '.cc-rule{margin-top:10px;padding:10px 12px;border-radius:10px;background:#FBF3E2;font-size:13px}.cc-rule:empty{display:none}.cc-dlg{max-height:92vh;overflow:auto}',
     '.cc-err{color:#B42318;font-weight:600;font-size:13px;margin-top:8px}.cc-err:empty{display:none}.cc-act{display:flex;gap:8px;margin-top:14px}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { ccCareMount:mount, ccCareForm:form, ccCareTick:tick, ccCareReopen:reopen, ccCareFile:openFile, ccCareFromReview:fromReview, CC_CARE:CC });
+  Object.assign(window, { ccCareMount:mount, ccCareForm:form, ccCareTick:tick, ccCareReopen:reopen, ccCareFile:openFile, ccCareFromReview:fromReview, ccCareCancelEnd:cancelEnd, CC_CARE:CC });
 })();
