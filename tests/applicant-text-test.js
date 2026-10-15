@@ -22,7 +22,7 @@ ck('their page: Text next to the phone number, and the Texts & emails card with 
 const ivq = between('function ivqRender(){', 'let html = \'\';');
 ck('Interviews tab: a Text button and the chip on each booked row', /ApText\.btn\(b\.applicant_id\) \+ ApText\.slot\(b\.applicant_id\)/.test(ivq) && /📞 Office line/.test(ivq));
 const cancel = between('async function apCancelBooking(id){', 'const r = AP_ROWS.find');
-ck('Cancel goes through the who-is-cancelling sheet (the old prompt stays as the fallback)', /if\(window\.ApText && ApText\.cancelOpen\) return ApText\.cancelOpen\(id\);/.test(cancel) && /const reason = prompt\('Cancel '/.test(html));
+ck('Cancel goes through the who-is-cancelling sheet (the old ask stays as the fallback, on the page)', /if\(window\.ApText && ApText\.cancelOpen\) return ApText\.cancelOpen\(id\);/.test(cancel) && /const reason = await apAsk\(\{ title: 'Cancel '/.test(html));
 ck('the chips load after the Applicants list and after the Interviews list', (html.match(/if\(window\.ApText\) ApText\.load\(\);/g) || []).length === 2);
 ck('every place guards for the file not being loaded', !/[^.]ApText\.(btn|slot|threadHtml)\(/.test(html.replace(/window\.ApText && [a-z.]+ \? /g, '').replace(/window\.ApText \? /g, '')) || true);
 
