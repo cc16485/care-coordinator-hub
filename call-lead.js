@@ -198,7 +198,7 @@
       + '</div>';
     if(sub) sub.insertAdjacentHTML('afterend', banner);
     CL.pending = { message_id: d.call.message_id, at: d.call.at || '', contact_id: (d.contact && d.contact.id) || '', care_plan: (nPlan || nTasks) ? cp : null, lead_id: leadId || '',
-      calls: (d.calls && d.calls.length ? d.calls : [d.call]).filter(Boolean), profile: (nFacts || nAttr || nPeople) ? pf : null };
+      calls: (d.calls && d.calls.length ? d.calls : [d.call]).filter(Boolean), profile: (nFacts || nAttr || nPeople) ? pf : null, talked: d.transcript === true };
   }
   /* touching a yellow box means a person checked it */
   document.addEventListener('input', e => {
@@ -238,6 +238,22 @@
     const list = Array.isArray(lead.from_calls) ? lead.from_calls.slice() : [];
     (p.calls && p.calls.length ? p.calls : [{ message_id: p.message_id, at: p.at }]).forEach(c => { if(c && c.message_id && !list.some(x => x && x.message_id === c.message_id)) list.push({ message_id: c.message_id, at: c.at || '', by: me(), linked_at: new Date().toISOString() }); });
     lead.from_calls = list;
+    /* 2026-10-15 (her: "Leads that are put in from the first lead call that they called us are being treated like it's a lead
+       we haven't spoken to"): an answered call with a transcript IS the first real conversation. Each one goes on the lead
+       the way a logged call does (ldPush: first_human_attempt_at / first_human_contact_at), once per call, and a New lead
+       becomes Contacted, so the first-call clock, the late alerts and the New stage stop. */
+    if(p.talked) (p.calls || []).slice().sort((a, b) => String(a && a.at || '').localeCompare(String(b && b.at || ''))).forEach(c => {   /* oldest first: the first conversation is the earliest call */
+      if(!c || !c.message_id || (Array.isArray(lead.contact_events) && lead.contact_events.some(e => e && e.ref === 'ghl:' + c.message_id))) return;
+      const at = c.at || new Date().toISOString(), mins = c.seconds ? Math.max(1, Math.round(Number(c.seconds) / 60)) : 0;
+      if(typeof ldPush === 'function') ldPush(lead, { at, channel: 'call', direction: c.direction === 'outbound' ? 'out' : 'in', outcome: 'connected', actor: 'human', by: me(),
+        duration_s: Number(c.seconds) || null, ref: 'ghl:' + c.message_id, note: 'Answered call' + (mins ? ', ' + mins + ' min' : '') + ' (the call this lead was filled from)' });
+      lead.comm_log = Array.isArray(lead.comm_log) ? lead.comm_log : [];
+      lead.comm_log.push({ body: '☎ call (' + (c.direction === 'outbound' ? 'we called' : 'they called') + '): connected' + (mins ? ', ' + mins + ' min' : ''), at, by: me() });
+      if(!lead.last_contacted_at || String(at).slice(0, 10) > String(lead.last_contacted_at).slice(0, 10)) lead.last_contacted_at = String(at).slice(0, 10);
+    });
+    if(p.talked && lead.first_human_contact_at && String(lead.status || 'New') === 'New'){
+      if(window.LeadRules && LeadRules.setStatus) LeadRules.setStatus(lead, 'Contacted', { by: me(), why: 'first real conversation (the call this lead was filled from)' }); else lead.status = 'Contacted';
+    }
     if(PLACEHOLDER.test(String(lead.first_name || '').trim())) lead.first_name = '';
     if(p.profile){
       const pr = Object.assign({ facts: {}, people: [], filed: {} }, lead.call_profile || {});
