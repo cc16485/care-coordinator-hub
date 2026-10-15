@@ -90,6 +90,9 @@ async()=>{
   /* save → the call is on the lead, GoHighLevel tag asked */
   await saveLead(); await sleep(200);
   const nl=DATA.leads.find(l=>l.client_first_name==='Margaret');
+  ok('the call it was made from counts as the first real conversation: Contacted, contact stamps, one call event, the log line', nl.status==='Contacted' && nl.first_human_contact_at==='2026-10-14T15:14:00Z' && nl.first_human_attempt_at==='2026-10-14T15:14:00Z'
+     && (nl.contact_events||[]).filter(e=>e.ref==='ghl:msgNEW001'&&e.outcome==='connected'&&e.direction==='in').length===1 && (nl.comm_log||[]).some(c=>/they called\): connected, 6 min/.test(c.body)) && nl.last_contacted_at==='2026-10-14', { st:nl.status, ev:nl.contact_events });
+  ok('...so it is not a New lead with a first-call clock: the inquiry card is not made for it', typeof opsLeadUntouched!=='function' || !opsLeadUntouched(nl));
   ok('Save makes the lead the usual way, with the call kept on it and the GoHighLevel contact', nl && nl.from_calls && nl.from_calls[0].message_id==='msgNEW001' && nl.ghl_contact_id==='C77' && nl.last_call_at==='2026-10-14T15:14:00Z' && nl.client_city==='Nixa, MO', nl);
   ok('...and asks the server to tag the GoHighLevel contact "lead" for that lead', __log.fn.some(b=>b.action==='made' && b.message_id==='msgNEW001' && b.lead_id===nl.id), __log.fn);
   callsPaint(); await sleep(30);
@@ -188,6 +191,7 @@ async()=>{
   ok('v3: the banner says what goes to Home & Life and people', /Home & Life and people from the call:[\s\S]*lives in a facility \(Elfdale assisted living, Apex\)[\s\S]*dog[\s\S]*prefers female caregiver[\s\S]*Boyfriend/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
   await saveLead(); await sleep(200);
   const L=ai();
+  ok('v3: Fill from the call on an existing lead records each call it read as a conversation, once', ai().status==='Contacted' && (ai().contact_events||[]).filter(e=>/^ghl:call(NEW02|OLD01)$/.test(e.ref)).length===2 && ai().first_human_contact_at==='2026-10-14T21:42:00Z', ai().contact_events);
   ok('v3: saved: both calls on the lead, the checklist answers on the lead, the rest kept to file', L.first_name==='Laura' && L.from_calls.map(x=>x.message_id).join()==='callNEW02,callOLD01' && L.client_attributes.dogs==='yes' && L.client_attributes.female_caregiver==='preferred'
      && L.call_profile.facts.facility_name==='Elfdale assisted living, Apex' && L.call_profile.people[0].relationship==='Boyfriend' && L.call_profile.said_by==='Laura Johnson', L);
   ok('v3: the old review list is closed as replaced, and the old AI draft is dropped (kept, not deleted)', L.ai_suggestions[0].reviewed===true && /Replaced by Fill from the call/.test(L.ai_suggestions[0].review_note) && L.filled_from_calls_at
