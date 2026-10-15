@@ -7387,6 +7387,8 @@ async function loadAllData(){
     const { data, error } = await sb.from('app_data').select('data').eq('key', key).single();
     if(!error && data) DATA[key] = data.data || [];
   }
+  /* 2026-10-15: the old AI named callers "(phone lead)" when GoHighLevel had no name; that is no name, not a name */
+  (DATA.leads||[]).forEach(l=>{ if(l&&/^\(phone lead\)$/i.test(String(l.first_name||'').trim())) l.first_name=''; });
   await loadSharedConfig();   // agency settings, not this laptop's settings
   document.getElementById('syncPill').textContent = '☁ Synced';
   await resolveMe();
@@ -9951,7 +9953,7 @@ async function cpRenderEvvForms(){
 function cpLeadClientName(l){
   if(!l) return '';
   const c=!l.client_name_not_provided&&(l.client_first_name||l.client_last_name)?((l.client_first_name||'')+' '+(l.client_last_name||'')).trim():'';
-  return c||((l.first_name||'')+' '+(l.last_name||'')).trim()||'(no name)';
+  return c||((l.first_name||'')+' '+(l.last_name||'')).trim()||(l.phone?'Caller '+callsFmtPhone(l.phone):'(no name)');
 }
 async function openClient(seed, tab){
   seed=seed||{};
@@ -10363,9 +10365,10 @@ function cpRenderPayer(){
     +'</div>'
     +'<div style="display:flex;gap:8px;align-items:center;margin-top:14px;"><button class="primary" onclick="cpPayerSave()">Save</button>'
     +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
-    +'</div><div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div><div id="cpPayFacts"></div>';
+    /* 2026-10-15: Medicaid is no longer accepted, so the state care plan shows only for a Medicaid family already on file */
+    +'</div>'+(med?'<div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div>':'')+'<div id="cpPayFacts"></div>';
   /* GHE fix (her rule 2026-10-08): the state care plan is uploaded here, in the client's intake */
-  if(typeof mcpProfileRender==='function') mcpProfileRender();
+  if(med&&typeof mcpProfileRender==='function') mcpProfileRender();
   lpfRenderPayerFacts();
 }
 function cpPayerDraft(){ const f=document.getElementById('cpPayFunding'), m=document.getElementById('cpPayMed'); if(f&&m&&f.value==='medicaid') m.style.display=''; }
@@ -10492,7 +10495,8 @@ function renderLpAttrs(){
      deliberate save, so a stored legacy "yes" can never read as Require. */
   const GENDER_KEYS=['female_caregiver','male_caregiver'];
   const genderLegacy = k => GENDER_KEYS.includes(k) && vals[k]==='yes' && !(lpLead&&lpLead.gender_pref_normalized===true);
-  box.innerHTML = LP_ATTRS.map(a=>{
+  /* 2026-10-15: "Payor - Medicaid" only for a family that already has it (Medicaid is no longer accepted) */
+  box.innerHTML = LP_ATTRS.filter(a=>a[0]!=='payor_medicaid'||vals[a[0]]||l.funding_source==='medicaid').map(a=>{
     const raw=vals[a[0]]||'';
     const isGender=GENDER_KEYS.includes(a[0]);
     const legacy=genderLegacy(a[0]);
@@ -11839,6 +11843,8 @@ function renderLeadDocs(){
   const em=docs.filter(d=>d.slot==='EMOMED').length, fu=docs.filter(d=>d.slot==='FUSION').length;
   document.getElementById('lp_doc_emomed').textContent = em?('✓ '+em+' on file'):'Medicaid verification';
   document.getElementById('lp_doc_fusion').textContent = fu?('✓ '+fu+' on file'):'Referral proof';
+  /* 2026-10-15: the Medicaid upload slots only for a Medicaid family, or when one is already on file */
+  { const g=document.querySelector('.lp-docslots'); if(g) g.style.display=(l.funding_source==='medicaid'||em||fu)?'':'none'; }
   const row=(d,on)=>'<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;'+(on?'':'opacity:.75;')+'">'
     +'<span style="flex:0 0 auto;">📄</span>'
     +'<a href="#" onclick="openLeadDoc(\''+esc(d.path)+'\');return false;" style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+esc(d.name)+'</a>'
@@ -33172,7 +33178,7 @@ function lrnOpen(l){ return (Array.isArray(l&&l.ai_suggestions)?l.ai_suggestions
 function cpRenderLearned(){
   const box=document.getElementById('cpcLearned'); if(!box) return;
   const l=CP.lead, esc=escapeHtmlComms;
-  if(!l||l.archived||leadIsSpam(l)){ box.innerHTML=''; return; }
+  if(!l||l.archived||leadIsSpam(l)||l.filled_from_calls_at){ box.innerHTML=''; return; }   /* 2026-10-15: replaced by Fill from the call */
   const open=lrnOpen(l);
   if(!open.length){ box.innerHTML=''; return; }
   const opt=(ch,sel)=>Object.keys(ch).map(c=>'<option value="'+esc(c)+'"'+(c===sel?' selected':'')+'>'+esc(ch[c])+'</option>').join('');
@@ -33210,7 +33216,8 @@ function cpRenderLearned(){
   }).join('');
   box.innerHTML='<div class="cpx-row" style="display:block;border:1px solid var(--border);border-left:3px solid #6B4FBB;border-radius:10px;padding:10px 12px;margin-top:10px;background:#fff;">'
     +'<div style="display:flex;align-items:center;gap:8px;"><span class="cpx-lbl" style="margin:0;">Learned from this call</span>'
-    +'<span class="cpx-src">nothing here is saved until someone accepts it</span></div>'+groups
+    +'<span class="cpx-src">nothing here is saved until someone accepts it</span><span style="flex:1;"></span>'
+    +(window.CallLead&&l.ghl_contact_id?'<button class="primary" style="font-size:12px;padding:4px 10px;" onclick="CallLead.fillFromLead(\''+esc(l.id)+'\',this)">Fill the lead from the call instead</button>':'')+'</div>'+groups
     +'<div id="lrnMsg" class="cpx-src" style="margin-top:6px;"></div></div>';
 }
 /* the family's record as the server has it now (so a decision never overwrites something newer) */
@@ -33490,8 +33497,9 @@ function lpiRender(){
   const chapter=ch=>{
     const c=C[ch.key], editingThis=e&&e.ch===ch.key&&e.lead_id===l.id;
     const fks=factsOn?(LPF_CH[ch.key]||[]).filter(k=>lpfShown(l,b,k)):[];
-    const fhtml=fks.length?'<div class="lp-facts lpf-facts">'+fks.map(k=>lpfFactHtml(l,b,k,!!b.began)).join('')+'</div>':'';
-    if(fks.some(k=>lpfCur(b,k))) c.empty=false;
+    const fhtml=(fks.length?'<div class="lp-facts lpf-facts">'+fks.map(k=>lpfFactHtml(l,b,k,!!b.began)).join('')+'</div>':'')
+      +(window.CallLead&&!locked?CallLead.heardHtml(l,b,ch.key):'');   /* 2026-10-15: what the call said, not filed yet */
+    if(fks.some(k=>lpfCur(b,k))||/Heard on the call/.test(fhtml)) c.empty=false;
     const act=locked?'':ch.owner==='payer'?'<button class="lp-link" onclick="cpShowTab(\'payer\');window.scrollTo(0,0)">Change on the Payer tab</button>'
       :ch.owner==='home'?'<button class="lp-link" onclick="cpShowTab(\'home\');window.scrollTo(0,0)">Change on Home &amp; Life</button>'
       :editingThis?'':'<button class="lp-link" onclick="lpiEdit(\''+ch.key+'\')">'+(c.empty?'Add':'Add or change')+'</button>';
@@ -33538,7 +33546,6 @@ function lpiRender(){
   const na=[];
   if((l.mobility==='independent'||l.mobility==='walker')&&!(l.personal_care||[]).includes('transfers')&&l.weight_bearing!=='no') na.push(['Hoyer lift and gait belt questions','they '+(l.mobility==='walker'?'walk with a walker':'get around on their own')+' and need no help with transfers']);
   if(!dem) na.push(['Dementia follow-up','no dementia reported']);
-  if(l.funding_source&&l.funding_source!=='medicaid') na.push(['Medicaid DCN, county and state',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
   if(l.funding_source&&['private','ltc'].indexOf(l.funding_source)<0) na.push(['Private-pay rate',(CPX_PAY[l.funding_source]||l.funding_source)+' family']);
   Object.values(b.cur||{}).filter(f=>f.certainty==='doesnt_apply').forEach(f=>na.push([lpfLabel(b,f.kind),'marked by '+(typeof lpscName==='function'?lpscName(f.recorded_by):f.recorded_by)]));
   const ul=a=>'<ul>'+a.map(x=>'<li>'+x+'</li>').join('')+'</ul>';

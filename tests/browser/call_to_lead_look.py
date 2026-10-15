@@ -33,11 +33,23 @@ STUB = r"""
         narrative:'Margaret is 85 and lives alone in Nixa with her dog. Reported by her daughter on the phone, to confirm at the visit.',
         axiscare_tasks:[{ adl_id:11, name:'Bathing', key:'bathing', days:['M','W','F'], require:1, when:1, instructions:'Standby while showering' }], heard:['adl_needs','iadl_needs','narrative','axiscare_tasks'] } }), { status:200 });
     if(b.action==='made') return new Response(JSON.stringify({ ok:true, tagged:true }), { status:200 });
+    if(b.action==='read_lead') return new Response(JSON.stringify({ ok:true, transcript:true, call:{ message_id:'callNEW02', at:'2026-10-15T00:50:00Z', direction:'inbound', seconds:600 },
+      calls:[{ message_id:'callNEW02', at:'2026-10-15T00:50:00Z' }, { message_id:'callOLD01', at:'2026-10-14T21:42:00Z' }],
+      contact:{ id:'C99', first_name:'', last_name:'', phone:'+14172244400', email:'' },
+      prefill:{ first_name:'Laura', last_name:'Johnson', phone:'+14172244400', source:'Phone', relationship:'Daughter', client_first_name:'Joanne', client_city:'Apex', needs:['personalCare','dementia'], funding_source:'private',
+        times_needed:'Evenings 5:30 to bedtime; weekends 8+ hours', interest_notes:'Laura called about her mom Joanne at Elfdale.' },
+      heard:['first_name','last_name','relationship','client_first_name','client_city','needs','times_needed','interest_notes'],
+      is_new_family:true, medicaid_mentioned:false, care_plan:{ fields:{}, narrative:'', axiscare_tasks:[], heard:[] },
+      profile:{ facts:{ living_situation:'facility', facility_name:'Elfdale assisted living, Apex', why_now:['caregiver_cant_continue'] }, attributes:{ dogs:'yes', female_caregiver:'preferred' },
+        people:[{ name:'Her boyfriend', relationship:'Boyfriend', note:'Can get in the way during care' }] } }), { status:200 });
     return new Response('{}', { status:400 }); };
   DATA.ops_settings={}; DATA.referral_orgs=[]; DATA.care_assessments=[]; DATA.ops_items=[]; DATA.call_lead_marks=[];
   DATA.leads=[{ id:'L_old', first_name:'Ruth', last_name:'Old', phone:'4175550999', status:'Contacted', created_at:'2026-10-01T15:00:00Z', client_city:'Ozark', needs:['respite'], interest_notes:'First call notes.',
     care_plan_draft:{ reported:true, fields:{ adl_needs:'Help dressing.' }, narrative:'', axiscare_tasks:[{ adl_id:22, name:'Meal Preparation', days:['M'], require:1, when:0, instructions:'' }], from_calls:['msgEARLY9'] } }];
   DATA.care_assessments=[]; DATA.care_plans=[]; W.cptLoadCatalog=()=>{}; W.renderAssessments=()=>{};
+  DATA.leads.push({ id:'L_ai', first_name:'', phone:'+14172244400', ghl_contact_id:'C99', status:'New', source:'Inbound Call', created_at:'2026-10-15T00:50:00Z', funding_source:'private', price_quoted:true, quoted_price_amount:'32',
+    interest_notes:'AI call summary, not reviewed (2026-10-15): Laura Johnson called on behalf of her mother.', ai_suggestions:[{ id:'s1', source:'call-followup', reviewed:false, fields:{ needs:['bathing'] } }] });
+  DATA.post_call_followups=[{ id:'pd1', lead_id:'L_ai', status:'pending_approval', ai_generated:true, created_at:'2026-10-15T00:51:00Z' }];
   (0,eval)(`CALLS_FILTER='all'; CALLS_FEED={ generated_at:'2026-10-14T15:40:00Z', calls:[
     { id:'msgNEW001', name:'Linda Parker', phone:'+14175550142', contact_id:'C77', direction:'inbound', duration:360, at:'2026-10-14T15:14:00Z', has_recording:true },
     { id:'msgCG0002', name:'Ann Caregiver', phone:'+14175550200', contact_id:'C78', direction:'inbound', duration:40, at:'2026-10-14T15:20:00Z', has_recording:true },
@@ -163,6 +175,44 @@ async()=>{
   window.__medicaid=true; await CallLead.make('msgCG0002'); await sleep(100);
   ok('v2: a caller who mentioned Medicaid is flagged on the form (we no longer accept it; CDS may fit)', /They mentioned Medicaid[\s\S]*no longer accept/.test(document.getElementById('clBanner').innerText) && /Care plan draft started from this call/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
   closeModal('leadModalBackdrop');
+
+  /* ── v3: fixes 1 to 5 ── */
+  const ai=()=>DATA.leads.find(l=>l.id==='L_ai');
+  ok('v3: a caller with no name shows as "Caller" and the number, never "(phone lead)"', cpLeadClientName(ai())==='Caller (417) 224-4400', cpLeadClientName(ai()));
+  const ob=document.createElement('div'); ob.innerHTML=CallLead.oldAiHtml();
+  ok('v3: the Leads board lists the old AI\'s leads that are not filled in, with Fill from the call', /MADE BY THE OLD AI, NOT FILLED IN YET \(1\)/.test(ob.innerText) && /Caller \(417\) 224-4400/.test(ob.innerText) && /Fill from the call/.test(ob.innerText), ob.innerText);
+  await CallLead.fillFromLead('L_ai'); await sleep(300);
+  ok('v3: Fill from the call opens their lead, with every call read', document.getElementById('lead_id').value==='L_ai' && __log.fn.some(b=>b.action==='read_lead'&&b.lead_id==='L_ai') && /Read from 2 calls/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
+  ok('v3: the empty name is filled (yellow); boxes already answered are kept', v('lead_first_name')==='Laura' && document.getElementById('lead_first_name').classList.contains('cl-heard') && getRadioValue('lead_funding_source')==='private' && v('lead_client_city')==='Apex', { fn:v('lead_first_name') });
+  ok('v3: the old AI\'s unreviewed summary is replaced by the calls\' summary', !/AI call summary, not reviewed/.test(v('lead_interest_notes')) && /Laura called about her mom Joanne/.test(v('lead_interest_notes')), v('lead_interest_notes'));
+  ok('v3: the banner says what goes to Home & Life and people', /Home & Life and people from the call:[\s\S]*lives in a facility \(Elfdale assisted living, Apex\)[\s\S]*dog[\s\S]*prefers female caregiver[\s\S]*Boyfriend/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
+  await saveLead(); await sleep(200);
+  const L=ai();
+  ok('v3: saved: both calls on the lead, the checklist answers on the lead, the rest kept to file', L.first_name==='Laura' && L.from_calls.map(x=>x.message_id).join()==='callNEW02,callOLD01' && L.client_attributes.dogs==='yes' && L.client_attributes.female_caregiver==='preferred'
+     && L.call_profile.facts.facility_name==='Elfdale assisted living, Apex' && L.call_profile.people[0].relationship==='Boyfriend' && L.call_profile.said_by==='Laura Johnson', L);
+  ok('v3: the old review list is closed as replaced, and the old AI draft is dropped (kept, not deleted)', L.ai_suggestions[0].reviewed===true && /Replaced by Fill from the call/.test(L.ai_suggestions[0].review_note) && L.filled_from_calls_at
+     && DATA.post_call_followups[0].status==='dropped' && /Old AI recap/.test(DATA.post_call_followups[0].dropped_reason), DATA.post_call_followups[0]);
+  ok('v3: it leaves the board\'s old AI list', !CallLead.oldAiLeads().some(l=>l.id==='L_ai'));
+  /* Lead intake: heard on the call, filed on the journey */
+  const b={ ep:'E1', cur:{}, people:[] };
+  let h=CallLead.heardHtml(L, b, 'person');
+  ok('v3: Lead intake shows what the call said about them, not filed yet, with File these', /Heard on the call, not filed yet[\s\S]*Living situation:[\s\S]*lives in a facility[\s\S]*Facility or community:[\s\S]*Elfdale/.test(h.replace(/<[^>]+>/g,' ')) && /File these/.test(h), h.slice(0,300));
+  ok('v3: without a journey it says to start the journey first', /Start the journey to file these/.test(CallLead.heardHtml(L, { ep:null, cur:{}, people:[] }, 'people')));
+  const rec=[]; window.lpfCall=async(body)=>{ rec.push(body); return { outcome:'recorded' }; }; window.lpiLoadBegan=async()=>{}; window.lpiRender=()=>{};
+  CP.lead=L; LPI.began[L.id]=b;
+  for(const ch of ['person','people','why']){ LPI.began[L.id]=b; await CallLead.fileHeard(ch); }
+  LPI.began[L.id]=b;
+  const f1=rec.find(x=>x.kind==='living_situation'), p1=rec.find(x=>x.action==='record_person');
+  ok('v3: filed as facts said by the caller, on the phone, reported', f1 && f1.value==='facility' && f1.said_by==='Laura Johnson' && f1.said_by_relationship==='Daughter' && f1.said_how==='call' && f1.certainty==='reported' && f1.layer==='intake' && f1.said_at==='2026-10-15T00:50:00Z'
+     && rec.some(x=>x.kind==='why_now'&&x.value.join()==='caregiver_cant_continue'), rec);
+  ok('v3: the boyfriend is added as a person involved (not the caller, permission not asked)', p1 && p1.name==='Her boyfriend' && /Boyfriend: Can get in the way/.test(p1.relationship) && p1.is_caller===false && p1.permission==='not_asked', p1);
+  ok('v3: once filed they no longer show as not filed', CallLead.heardHtml(L, b, 'person')==='' && CallLead.heardHtml(L, b, 'people')==='');
+  /* Medicaid off the lead page */
+  lpLead=L; renderLpAttrs(); const at=document.getElementById('lp_attrs').innerText;
+  ok('v3: a private-pay lead has no "Payor - Medicaid" on its AxisCare checklist', !/Payor - Medicaid/.test(at) && /Payor - Private Pay/.test(at), at.slice(0,200));
+  lpLead=Object.assign({}, L, { funding_source:'medicaid' }); renderLpAttrs();
+  ok('v3: ...a Medicaid family already on file still has it', /Payor - Medicaid/.test(document.getElementById('lp_attrs').innerText));
+  lpLead=L; renderLeadDocs(); ok('v3: the EMOMED and FUSION upload slots are hidden for a private-pay lead', document.querySelector('.lp-docslots').style.display==='none');
   return R;
 }
 """

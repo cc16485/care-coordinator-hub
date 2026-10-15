@@ -9,6 +9,15 @@
        the call is kept on the lead (from_calls) and the GoHighLevel contact is tagged "lead". A failed tag says so.
      · If the same-family check finds their open lead, the call is added to that lead instead.
    Nothing here sends anything to anyone. "Not a lead" is kept in app_data call_lead_marks (who, when; Undo).
+   v3 (her yes to fixes 1 to 5, 2026-10-15):
+     · Fill from the call on a lead that already exists (e.g. one the old AI made): reads ALL its GoHighLevel calls.
+     · The old AI's leads are listed on the Leads board until each is filled.
+     · "(phone lead)" counts as empty and is replaced; the old "Learned from this call" list and the old AI recap draft
+       are retired for a lead once it is filled from its calls (the draft is marked dropped, never deleted).
+     · Home & Life and the people named on the call: pets, smoking, caregiver preference and Spanish go straight onto
+       the lead's AxisCare checklist when the lead is saved; living situation, facility, preferred name, what changed,
+       allergies and the people are kept as "heard on the call" and filed on the journey with one click (said by the
+       caller, by phone, reported).
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -139,7 +148,10 @@
   };
   /** What a box holds now, read the same way the save reads it. */
   const boxNow = f => { try{ return leadFieldRead(f); }catch(e){ return ''; } };
-  const blank = v => v === '' || v == null || v === false || (Array.isArray(v) && !v.length);
+  const PLACEHOLDER = /^\(phone lead\)$/i;
+  const blank = v => v === '' || v == null || v === false || (Array.isArray(v) && !v.length) || PLACEHOLDER.test(String(v).trim());
+  /** the old AI's unreviewed summary paragraphs, replaced by the fill's own summary */
+  const dropOldAi = t => String(t || '').split(/\n{2,}/).filter(x => !/^AI call summary, not reviewed \(/.test(x.trim())).join('\n\n').trim();
   /** v2 "fill everything": a NEW lead gets every box the call gave; an EXISTING lead (Add from this call) gets the boxes
    *  still empty, the new ticks added to its grids, the call's notes added below its own, and any box where the call
    *  said something different is listed for a person to decide (never overwritten). */
@@ -151,7 +163,7 @@
       if(!leadId){ leadFieldFill(f, p); return; }
       if(!heard.has(k)) return;                                 /* GoHighLevel's own name/phone never touch an existing lead */
       const now = boxNow(f), v = p[k];
-      if(k === 'interest_notes'){ const el = document.getElementById(f[1]); el.value = [String(now || '').trim(), 'From the ' + (callWhen(d.call && d.call.at) || '') + ' call: ' + v].filter(Boolean).join('\n\n'); return; }
+      if(k === 'interest_notes'){ const el = document.getElementById(f[1]); el.value = [dropOldAi(now), 'From ' + ((d.calls || []).length > 1 ? 'the calls up to ' : 'the ') + (callWhen(d.call && d.call.at) || '') + ' call: ' + v].filter(Boolean).join('\n\n'); return; }
       if(f[2] === 'checks'){ const add = (v || []).filter(x => (now || []).indexOf(x) < 0); if(!add.length){ heard.delete(k); return; } leadFieldFill(f, { [k]: (now || []).concat(add) }); return; }
       if(blank(now)){ leadFieldFill(f, p); return; }
       heard.delete(k);
@@ -170,6 +182,7 @@
     const LBL = { client_city: 'Town', client_address: 'Address', client_dob: 'Birth date', relationship: 'Relationship', funding_source: 'Payer', mobility: 'Mobility', times_needed: 'Times',
       number_of_hours: 'Hours a week', desired_start_kind: 'Start', client_last_name: 'Last name', client_first_name: 'First name', physician_name: 'Doctor', preferred_hospital: 'Hospital', why_called: 'Why they called' };
     const cp = d.care_plan || {}, nTasks = (cp.axiscare_tasks || []).length, nPlan = Object.keys(cp.fields || {}).length + (cp.narrative ? 1 : 0);
+    const pf = d.profile || {}, nFacts = Object.keys(pf.facts || {}).length, nAttr = Object.keys(pf.attributes || {}).length, nPeople = (pf.people || []).length;
     const sub = document.querySelector('#leadModalBackdrop .modal-sub');
     const banner = '<div id="clBanner" style="margin:8px 0 12px;padding:9px 12px;border-radius:10px;background:#FFF8EC;border:1px solid #F0D9A8;font-size:13px;">'
       + '<span class="cl-heard" style="padding:1px 6px;border-radius:4px;">Yellow</span> = heard on the call. Check it before saving; the yellow goes when you change a box.'
@@ -177,12 +190,15 @@
       + (differs.length ? '<div style="margin-top:4px;color:#8A5A00;"><b>The call said something different here (not changed):</b> ' + differs.map(x => esc(LBL[x[0]] || x[0]) + ': form has "' + esc(Array.isArray(x[1]) ? x[1].join(', ') : x[1]) + '", the call said "' + esc(Array.isArray(x[2]) ? x[2].join(', ') : x[2]) + '"').join(' · ') + '</div>' : '')
       + (d.medicaid_mentioned ? '<div style="margin-top:4px;color:#A83A2F;"><b>They mentioned Medicaid.</b> We no longer accept it; CDS may fit (417) 218-2888, or private pay.</div>' : '')
       + (nPlan || nTasks ? '<div style="margin-top:4px;color:#1F5F3A;"><b>Care plan draft started from this call:</b> ' + [nPlan ? nPlan + ' part' + (nPlan === 1 ? '' : 's') + (cp.narrative ? ' incl. the narrative' : '') : '', nTasks ? nTasks + ' AxisCare care task' + (nTasks === 1 ? '' : 's') : ''].filter(Boolean).join(', ') + '. It saves with the lead and opens in the care plan at the home visit.</div>' : '')
+      + (nFacts || nAttr || nPeople ? '<div style="margin-top:4px;color:#1F5F3A;"><b>Home &amp; Life and people from the call:</b> ' + [profileWords(pf), nPeople ? (pf.people || []).map(x => esc(x.relationship || x.name)).join(', ') : ''].filter(Boolean).join('; ') + '. The checklist answers save with the lead; the rest shows on Lead intake to file on the journey.</div>' : '')
+      + ((d.calls || []).length > 1 ? '<div style="margin-top:4px;">Read from ' + d.calls.length + ' calls with this family; where they disagree, the newest wins.</div>' : '')
       + (d.tasks_note ? '<div style="margin-top:4px;color:#8A5A00;">' + esc(d.tasks_note) + '</div>' : '')
       + (d.note ? '<div style="margin-top:4px;color:#8A5A00;"><b>' + esc(d.note) + '</b></div>' : '')
       + (!leadId && d.is_new_family === false ? '<div style="margin-top:4px;color:#A83A2F;"><b>The AI thinks this may not be a new family' + (d.not_new_family_reason ? ' (' + esc(d.not_new_family_reason) + ')' : '') + '.</b> Save only if it is.</div>' : '')
       + '</div>';
     if(sub) sub.insertAdjacentHTML('afterend', banner);
-    CL.pending = { message_id: d.call.message_id, at: d.call.at || '', contact_id: (d.contact && d.contact.id) || '', care_plan: (nPlan || nTasks) ? cp : null, lead_id: leadId || '' };
+    CL.pending = { message_id: d.call.message_id, at: d.call.at || '', contact_id: (d.contact && d.contact.id) || '', care_plan: (nPlan || nTasks) ? cp : null, lead_id: leadId || '',
+      calls: (d.calls && d.calls.length ? d.calls : [d.call]).filter(Boolean), profile: (nFacts || nAttr || nPeople) ? pf : null };
   }
   /* touching a yellow box means a person checked it */
   document.addEventListener('input', e => {
@@ -220,8 +236,24 @@
     if(p.lead_id && String(lead.id) !== String(p.lead_id)) return null;
     if(p.care_plan) lead.care_plan_draft = mergeDraft(lead.care_plan_draft, p.care_plan, p);
     const list = Array.isArray(lead.from_calls) ? lead.from_calls.slice() : [];
-    if(!list.some(x => x && x.message_id === p.message_id)) list.push({ message_id: p.message_id, at: p.at, by: me(), linked_at: new Date().toISOString() });
+    (p.calls && p.calls.length ? p.calls : [{ message_id: p.message_id, at: p.at }]).forEach(c => { if(c && c.message_id && !list.some(x => x && x.message_id === c.message_id)) list.push({ message_id: c.message_id, at: c.at || '', by: me(), linked_at: new Date().toISOString() }); });
     lead.from_calls = list;
+    if(PLACEHOLDER.test(String(lead.first_name || '').trim())) lead.first_name = '';
+    if(p.profile){
+      const pr = Object.assign({ facts: {}, people: [], filed: {} }, lead.call_profile || {});
+      pr.facts = Object.assign({}, p.profile.facts || {}, pr.facts);          /* what is already there stays */
+      const names = new Set((pr.people || []).map(x => String(x.name).toLowerCase()));
+      pr.people = (pr.people || []).concat((p.profile.people || []).filter(x => x && x.name && !names.has(String(x.name).toLowerCase())));
+      pr.updated_at = new Date().toISOString(); pr.said_by = [lead.first_name, lead.last_name].filter(x => x && !PLACEHOLDER.test(x)).join(' ') || '';
+      pr.said_by_relationship = lead.relationship || '';
+      lead.call_profile = pr;
+      const ca = Object.assign({}, lead.client_attributes || {});
+      Object.keys(p.profile.attributes || {}).forEach(k => { if(!ca[k]) ca[k] = p.profile.attributes[k]; });
+      lead.client_attributes = ca;
+    }
+    /* the old AI's review list is replaced by this fill: its open suggestions are closed as replaced (kept, not deleted) */
+    (Array.isArray(lead.ai_suggestions) ? lead.ai_suggestions : []).forEach(sg => { if(sg && !sg.reviewed){ sg.reviewed = true; sg.reviewed_by = me(); sg.reviewed_at = new Date().toISOString(); sg.review_note = 'Replaced by Fill from the call'; } });
+    lead.filled_from_calls_at = new Date().toISOString(); lead.filled_from_calls_by = me();
     if(!lead.ghl_contact_id && p.contact_id) lead.ghl_contact_id = p.contact_id;
     if(p.at && (!lead.last_call_at || String(p.at) > String(lead.last_call_at))) lead.last_call_at = p.at;
     CL.pending = null;
@@ -230,6 +262,12 @@
   /** after the save: tag the GoHighLevel contact "lead"; a failure is shown, never quiet. */
   async function afterSave(lead, p){
     if(!p) return;
+    /* the old AI's recap drafts for this family: marked dropped (kept in the drafts archive), so "Draft ready" goes away */
+    try{
+      for(const f of ((typeof DATA !== 'undefined' && DATA.post_call_followups) || [])){
+        if(f && f.lead_id === lead.id && f.status === 'pending_approval' && f.ai_generated){ f.status = 'dropped'; f.dropped_at = new Date().toISOString(); f.dropped_by = me(); f.dropped_reason = 'Old AI recap, replaced by Fill from the call'; await persist('post_call_followups', f); }
+      }
+    }catch(e){ say('Lead saved, but the old AI draft could not be closed: ' + (e && e.message || e)); }
     try{ if(typeof opEvent === 'function') opEvent('lead_from_call', { item_id: String(lead.id), area: 'leads', summary: 'Made a lead from a call: ' + leadName(lead), data: { message_id: p.message_id } }); }catch(e){}
     try{ const r = await staffCall({ action: 'made', message_id: p.message_id, lead_id: lead.id }); if(r && r.note) say(r.note); }
     catch(e){ say('Lead saved, but GoHighLevel was not tagged "lead": ' + (e && e.message || e)); }
@@ -258,5 +296,90 @@
   }
   function openLead(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id); else openLeadModal(id); }
 
-  window.CallLead = { mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+  /* ---------- v3: Fill from the call on an existing lead ---------- */
+  const LIVING_W = { alone: 'lives alone', spouse_partner: 'lives with a spouse or partner', family: 'lives with family', paid_help: 'lives with paid help', facility: 'lives in a facility', other: 'other living situation' };
+  const WHY_W = { fall: 'a fall', discharge: 'a hospital discharge', caregiver_cant_continue: 'their caregiver can\'t continue', memory_worse: 'memory getting worse', provider_cant_staff: 'their provider can\'t staff', new_diagnosis: 'a new diagnosis', other: 'other' };
+  const ATTR_W = { cats: 'cat', dogs: 'dog', smoking: 'smoking', female_caregiver: 'female caregiver', male_caregiver: 'male caregiver', spanish_speaking: 'Spanish-speaking caregiver' };
+  function profileWords(pf){
+    const f = pf.facts || {}, a = pf.attributes || {}, out = [];
+    if(f.living_situation) out.push(LIVING_W[f.living_situation] + (f.facility_name ? ' (' + f.facility_name + ')' : ''));
+    else if(f.facility_name) out.push(f.facility_name);
+    if(f.preferred_name) out.push('goes by ' + f.preferred_name);
+    Object.keys(a).forEach(k => out.push((a[k] === 'preferred' ? 'prefers ' : a[k] === 'no' ? 'no ' : '') + (ATTR_W[k] || k)));
+    return esc(out.join(', '));
+  }
+  async function fillFromLead(leadId, btn){
+    if(!leadId || CL.working['lead:' + leadId]) return;
+    CL.working['lead:' + leadId] = true; const was = btn && btn.textContent; if(btn){ btn.disabled = true; btn.textContent = 'Reading the calls…'; }
+    try{ const d = await staffCall({ action: 'read_lead', lead_id: leadId });
+      if(!d.call){ say(d.note || 'No answered call was found for this family.'); return; }
+      fillForm(d, leadId); }
+    catch(e){ say('Could not read the calls: ' + (e && e.message || e)); }
+    finally{ delete CL.working['lead:' + leadId]; if(btn){ btn.disabled = false; btn.textContent = was; } }
+  }
+  const OLD_CLOSED = /^(converted|lost|closed|not a fit|spam)/i;
+  /** leads the old AI made from a call and nobody has filled from the calls yet */
+  function oldAiLeads(){
+    return leads().filter(l => l && !l.archived && !l.filled_from_calls_at && !OLD_CLOSED.test(String(l.status || '')) && l.ghl_contact_id
+      && (Array.isArray(l.ai_suggestions) && l.ai_suggestions.some(s => s && s.source === 'call-followup') || PLACEHOLDER.test(String(l.first_name || '').trim())));
+  }
+  function oldAiHtml(){
+    const w = oldAiLeads(); if(!w.length) return '';
+    const nm = l => (typeof cpLeadClientName === 'function' ? cpLeadClientName(l) : leadName(l));
+    return '<div class="card" style="padding:12px 14px;margin-bottom:10px;border:1.5px solid #F0D9A8;background:#FFF8EC;">'
+      + '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">MADE BY THE OLD AI, NOT FILLED IN YET (' + w.length + ')</div>'
+      + '<div class="field-note" style="margin:2px 0 6px;">These came from calls before the AI stopped making leads. Fill from the call reads all their calls and fills the lead; you check it and save.</div>'
+      + w.map(l => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);">'
+        + '<b style="color:var(--navy);min-width:150px;">' + esc(nm(l)) + '</b><span class="field-note" style="flex:1 1 200px;">' + esc(String(l.created_at || '').slice(0, 10)) + (l.phone ? ' · ' + esc(l.phone) : '') + '</span>'
+        + '<button class="primary" style="font-size:12px;padding:4px 10px;" onclick="CallLead.fillFromLead(\'' + esc(l.id) + '\',this)">Fill from the call</button>'
+        + '<button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="CallLead.openLead(\'' + esc(l.id) + '\')">Open lead</button></div>').join('') + '</div>';
+  }
+  /* ---------- v3: what the call said about Home & Life and people, filed on the journey ---------- */
+  const CH_KEYS = { person: ['preferred_name', 'living_situation', 'facility_name'], why: ['why_now'], care: ['allergies'] };
+  function heardItems(l, b, ch){
+    const pr = l && l.call_profile; if(!pr) return [];
+    const cur = k => { try{ return typeof lpfCur === 'function' && b && lpfCur(b, k); }catch(e){ return null; } };
+    if(ch === 'people'){
+      const have = new Set(((b && b.people) || []).map(x => String(x && x.name || '').toLowerCase()));
+      return (pr.people || []).filter(x => x && x.name && !(pr.filed || {})['person:' + String(x.name).toLowerCase()] && !have.has(String(x.name).toLowerCase()))
+        .map(x => ({ key: 'person:' + String(x.name).toLowerCase(), label: x.relationship || 'Person', text: x.name + (x.note ? ' (' + x.note + ')' : ''), person: x }));
+    }
+    return (CH_KEYS[ch] || []).filter(k => pr.facts && pr.facts[k] != null && pr.facts[k] !== '' && !(pr.filed || {})[k] && !cur(k))
+      .map(k => ({ key: k, label: { preferred_name: 'Preferred name', living_situation: 'Living situation', facility_name: 'Facility or community', why_now: 'What changed', allergies: 'Allergies' }[k],
+        text: k === 'living_situation' ? LIVING_W[pr.facts[k]] : k === 'why_now' ? [].concat(pr.facts[k]).map(x => WHY_W[x] || x).join(', ') : String(pr.facts[k]), fact: k }));
+  }
+  function heardHtml(l, b, ch){
+    const it = heardItems(l, b, ch); if(!it.length) return '';
+    const canFile = !!(b && b.ep);
+    return '<div style="margin:8px 0;padding:8px 10px;border-radius:10px;background:#FFF1C2;border:1px solid #E8C66A;font-size:13px;">'
+      + '<b style="color:#8A5A00;">Heard on the call, not filed yet</b>'
+      + it.map(x => '<div style="margin-top:3px;"><span class="field-note">' + esc(x.label) + ':</span> ' + esc(x.text) + '</div>').join('')
+      + (canFile ? '<div style="margin-top:6px;"><button class="secondary" style="font-size:12px;padding:4px 10px;" onclick="CallLead.fileHeard(\'' + esc(ch) + '\',this)">File these (said by the caller on the phone, reported)</button></div>'
+        : '<div class="field-note" style="margin-top:4px;">Start the journey to file these on Home &amp; Life and People.</div>')
+      + '</div>';
+  }
+  async function fileHeard(ch, btn){
+    const l = (typeof CP !== 'undefined' && CP.lead) || null, b = l && typeof LPI !== 'undefined' && LPI.began[l.id];
+    if(!l || !b || !b.ep) return;
+    const it = heardItems(l, b, ch); if(!it.length) return;
+    if(btn){ btn.disabled = true; btn.textContent = 'Filing…'; }
+    const pr = l.call_profile, saidBy = pr.said_by || [l.first_name, l.last_name].filter(x => x && !PLACEHOLDER.test(x)).join(' ') || l.relationship || 'The caller';
+    const bad = [];
+    for(const x of it){
+      try{
+        const r = x.person ? await lpfCall({ action: 'record_person', episode_id: b.ep, is_caller: false, change_kind: 'first', person_key: null, supersedes_row_id: null, reason: null,
+            name: x.person.name, relationship: [x.person.relationship, x.person.note].filter(Boolean).join(': ').slice(0, 120), organization: null, roles: [], phone: null, email: null,
+            reach_way: null, reach_time: null, permission: 'not_asked', permission_asked_by: null, permission_asked_at: null })
+          : await lpfCall({ action: 'record', episode_id: b.ep, kind: x.fact, layer: 'intake', value: pr.facts[x.fact], certainty: 'reported', change_kind: 'first', supersedes_fact_id: null,
+            said_by: saidBy, said_by_relationship: pr.said_by_relationship || l.relationship || null, said_how: 'call', said_at: ((l.from_calls || []).map(c => c && c.at).filter(Boolean).sort().pop()) || new Date().toISOString() });
+        if(r && r.outcome === 'recorded'){ pr.filed = Object.assign({}, pr.filed, { [x.key]: new Date().toISOString() }); }
+        else bad.push(x.label + ': ' + ((r && (r.message || r.reason)) || 'refused'));
+      }catch(e){ bad.push(x.label + ': ' + String(e && e.message || e)); }
+    }
+    await persist('leads', l);
+    if(bad.length) say('Not all were filed: ' + bad.join(' · ')); else say('Filed on the journey.');
+    try{ delete LPI.began[l.id]; await lpiLoadBegan(l); lpiRender(); if(typeof lppRender === 'function') lppRender(); }catch(e){}
+  }
+
+  window.CallLead = { fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
 })();
