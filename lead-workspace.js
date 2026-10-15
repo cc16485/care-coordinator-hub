@@ -225,9 +225,45 @@
       + (r.primary.kind !== 'log' && !r.secondary.some(a => a.kind === 'log') ? '<button class="lb-btn" onclick="lwLog(this)">Log a call</button>' : '')
       + (r.primary.kind !== 'followup' && !r.secondary.some(a => a.kind === 'followup' || a.kind === 'open') ? '<button class="lb-btn" onclick="lwFollowUp(this)">Set a follow-up</button>' : '') + '</div>'
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
+    if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
     h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
     host.innerHTML = h; host.style.display = '';
     tab(); trim();
+  }
+  /* ── MEDICARE GUIDE INTAKE (Samantha 2026-10-15: "a place to embed or link https://app.crosbyhealth.com/login to do the intake
+     over the phone for Medicare GUIDE program"; "lets do 2"). On a GUIDE lead: what to copy into Crosby from our lead, the
+     eligibility questions with what the lead already says (a facility is flagged: assisted living and memory care are not
+     eligible since June 2026), and Crosby itself, opened inside the Hub on a click (or in its own tab, which always works).
+     Nothing here saves or sends anything. ── */
+  const CROSBY = 'https://app.crosbyhealth.com/login';
+  const LIVING_W = { alone:'lives alone', spouse_partner:'lives with a spouse or partner', family:'lives with family', paid_help:'lives with paid help', facility:'lives in a facility', other:'other living situation' };
+  function guideHtml(l){
+    const pr = l.call_profile || {}, f = pr.facts || {}, conds = Array.isArray(l.medical_conditions) ? l.medical_conditions : [];
+    const client = [l.client_first_name, l.client_last_name].filter(Boolean).join(' '), caller = [l.first_name, l.last_name].filter(Boolean).join(' ');
+    const home = [f.living_situation ? LIVING_W[f.living_situation] : '', f.facility_name || '', [l.client_address, l.client_city, l.client_state, l.client_zip].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+    const fact = (k, v) => '<div class="lw-gd-f"><span class="field-note">' + esc(k) + '</span><span>' + (v ? esc(v) : '<span class="field-note">not asked yet</span>') + '</span></div>';
+    const dem = conds.indexOf('dementia') > -1 || conds.indexOf('alzheimers') > -1, inFacility = f.living_situation === 'facility' || !!f.facility_name;
+    const q = (txt, state, note) => '<li class="lw-gd-q lw-gd-' + state + '">' + esc(txt) + (note ? '<span class="field-note"> · ' + esc(note) + '</span>' : '') + '</li>';
+    return '<div class="card lw-card lw-guide" id="lwGuide"><div class="lw-gd-head"><b>Medicare GUIDE intake</b><span class="field-note">enter the patient in Crosby while you are on the phone</span><span style="flex:1;"></span>'
+      + '<button class="lb-btn" onclick="lwCrosby(this)">Open Crosby here</button><a class="lb-btn" href="' + CROSBY + '" target="_blank" rel="noopener">Open Crosby in its own tab ↗</a></div>'
+      + '<div class="lw-gd-grid"><div>'
+      + '<div class="lb-k" style="margin:4px 0;">From our lead, to copy into Crosby</div>'
+      + fact('Patient', client) + fact('Date of birth', l.client_dob || '') + fact('Caregiver', caller + (l.relationship ? ' (' + l.relationship + ')' : '')) + fact('Phone', l.phone || '') + fact('Home', home)
+      + '<div class="lb-k" style="margin:10px 0 4px;">Ask before the assessment (any no: not eligible)</div><ul class="lw-gd-list">'
+      + q('A dementia diagnosis', dem ? 'ok' : 'ask', dem ? 'the lead says dementia; confirm it is diagnosed' : '')
+      + q('Original Medicare Parts A and B, not Medicare Advantage', 'ask')
+      + q('Not on the Medicare hospice benefit, not in PACE', 'ask')
+      + q('An unpaid caregiver (family or friend)', l.relationship && !/self/i.test(l.relationship) ? 'ok' : 'ask', l.relationship && !/self/i.test(l.relationship) ? caller ? caller + ', ' + l.relationship.toLowerCase() : l.relationship : '')
+      + q('Not already in another GUIDE program', 'ask')
+      + q('Lives in a private home or independent living', inFacility ? 'no' : 'ask', inFacility ? 'the call said ' + (f.facility_name || 'a facility') + ': assisted living and memory care are not eligible (June 2026)' : '')
+      + '</ul><div class="field-note" style="margin-top:6px;">Never promise free care or that they are approved. Our account in Crosby is Troutman Enterprises, LLC. <a href="guide.html" target="_blank" rel="noopener">The GUIDE page</a> has the full screener.</div>'
+      + '</div><div id="lwCrosbyBox" class="lw-gd-frame"><div class="field-note">Crosby opens here when you press "Open Crosby here". If the sign-in will not stay inside the Hub, use "Open Crosby in its own tab".</div></div></div></div>';
+  }
+  function lwCrosby(btn){
+    const box = document.getElementById('lwCrosbyBox'); if(!box) return;
+    if(box.querySelector('iframe')){ box.innerHTML = '<div class="field-note">Crosby closed. Press "Open Crosby here" to open it again.</div>'; if(btn) btn.textContent = 'Open Crosby here'; return; }
+    box.innerHTML = '<iframe src="' + CROSBY + '" title="Crosby Health" style="width:100%;height:640px;border:1px solid var(--border);border-radius:8px;background:#fff;" referrerpolicy="no-referrer"></iframe>';
+    if(btn) btn.textContent = 'Close Crosby';
   }
   /* the journey card sits above the tabs on every tab; on the Overview the workspace speaks for them, so it steps aside there */
   function tab(){
@@ -325,6 +361,8 @@
 
   try{ const st = document.createElement('style'); st.textContent = [
     '#lwHost{margin-bottom:14px}.lw-grid{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}.lw-main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:14px}.lw-rail{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:14px}',
+    '.lw-guide{border-left:4px solid #6B4FBB}.lw-gd-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}.lw-gd-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px}@media (max-width:900px){.lw-gd-grid{grid-template-columns:1fr}}',
+    '.lw-gd-f{display:flex;gap:8px;font-size:13.5px;padding:2px 0}.lw-gd-f>.field-note{min-width:92px}.lw-gd-list{margin:0;padding-left:0;list-style:none;font-size:13.5px}.lw-gd-q{padding:3px 0 3px 22px;position:relative}.lw-gd-q:before{position:absolute;left:0;font-weight:800}.lw-gd-ok:before{content:"✓";color:#1E7B45}.lw-gd-ask:before{content:"?";color:#9A6412}.lw-gd-no:before{content:"✕";color:#B42318}.lw-gd-no{color:#B42318}.lw-gd-frame{min-height:120px;background:#FAFBFC;border:1px dashed var(--border);border-radius:8px;padding:8px}',
     '.lw-card{padding:14px 18px;margin:0}.lw-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.lw-head b{font-size:14px;color:var(--navy)}',
     '.lw-top-row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}.lw-story{font-size:14px}.lw-need{font-size:13px;color:var(--text-muted);margin-top:3px}',
     '.lw-moves{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.lw-moves select{width:auto;font-size:13px;padding:6px 10px;min-height:34px}',
@@ -340,5 +378,5 @@
     '.lw-rail-t{font-size:13.5px;color:var(--navy)}.lw-up{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}.lw-contacts{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:8px}.lw-links{margin-top:6px;font-size:13px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:720px){.lw-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lw-facts{grid-template-columns:1fr}.lw-tl-row{grid-template-columns:1fr;gap:2px}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
+  Object.assign(window, { lwCrosby, LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
 })();

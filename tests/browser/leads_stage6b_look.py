@@ -27,9 +27,8 @@ async()=>{
   switchTab('leadsstarts'); await sleep(500); renderLeadsStarts(); await sleep(200);
   const rows=()=>[...document.querySelectorAll('#lbBoard .lb-row')], T=()=>document.getElementById('lbBoard').innerText;
   ok('no Board / Follow-ups sub-tab bar any more', !document.getElementById('lsViewBar') && !document.getElementById('lsViewBtn-followups'));
-  ok('a draft waiting for approval is a Need-you-now row: "Draft ready", Review draft is the filled button', /NEED YOU NOW[\s\S]*Draft ready\nan AI follow-up is waiting for your approval\nEvelyn Marsh/.test(T()) && rows()[0].querySelector('.lb-btn-primary').textContent==='Review draft', T().slice(0,400));
-  rows()[0].querySelector('.lb-btn-primary').click(); await sleep(50);
-  ok('Review draft opens that draft for that lead', window.__log.modals.slice(-1)[0]==='d1:tom', window.__log.modals);
+  /* 2026-10-15 (her tidier board): the old AI's recap drafts are retired, so a draft no longer makes a Draft ready row; the drafts stay under Look up */
+  ok('a draft waiting for approval no longer makes a "Draft ready" row (the old AI is retired)', !/Draft ready/.test(T()), T().slice(0,400));
   ok('a stopped (retired) drip shows nothing on the row: no "nurture running" anywhere', !/nurture/i.test(T()));
   /* the archive of drafts, from Look up, with a way back */
   const link=[...document.querySelectorAll('#lbLookup button')].find(b=>/All follow-up drafts/.test(b.textContent)); ok('Look up has "All follow-up drafts (pending, approved, sent)"', !!link);
