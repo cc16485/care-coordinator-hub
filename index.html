@@ -2545,7 +2545,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <th style="width:36px"><input type="checkbox" id="ac-chk-all" onchange="SCX.toggleACSelectAll(this.checked)" style="accent-color:var(--teal);cursor:pointer"></th>
             <th>Caregiver</th>
             <th>OIG <span style="font-weight:400;opacity:.7">90 days</span></th>
-            <th>EDL <span style="font-weight:400;opacity:.7">monthly</span></th>
+            <th>EDL <span style="font-weight:400;opacity:.7">quarterly</span></th>
             <th>FCSR <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Fingerprint BG</th>
             <th>Supervisory Visit <span style="font-weight:400;opacity:.7">annual</span></th>
@@ -18742,7 +18742,7 @@ function cgdComplianceHtml(c,g){
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
   return CGD_VIVENTIUM_NOTE
     +chk('OIG exclusion check','Federal exclusion list',g.oig_status||(g.oig_date?'Clear':''),/FLAGGED/,g.oig_date,g.oig_proof,30,'rechecked monthly (agency policy)','oig')
-    +chk('EDL','MO Employee Disqualification List',g.edl_status||(g.edl_date?'Clear':''),/issues/i,g.edl_date,g.edl_proof,30,'rechecked monthly (agency policy)','edl')
+    +chk('EDL','MO Employee Disqualification List',g.edl_status||(g.edl_date?'Clear':''),/issues/i,g.edl_date,g.edl_proof,90,'rechecked quarterly (agency policy)','edl')
     +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status||(g.fcsr_date?'Clear':''),/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually','fcsr')
     +chk('FCSR registration','MO Family Care Safety Registry, within 15 days of starting work',g.fcsr_reg_date?'Registered':'',null,g.fcsr_reg_date,g.fcsr_reg_proof,null,'once','fcsr_reg')
     +chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')

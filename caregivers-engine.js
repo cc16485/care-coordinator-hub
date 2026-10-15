@@ -7152,7 +7152,7 @@ function acFilter(f,btn){ acFilterVal=f; document.querySelectorAll('#panel-compl
 
 
 function acWorst(c){
-  const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+  const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
   const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
   const ss=[o.status,e.status,f.status,sv.status,pr.status];
@@ -7174,7 +7174,7 @@ function renderAC(){
   if(!list.length){tbody.innerHTML='';acSelected.clear();updateACBulkBar();return;}
 
   tbody.innerHTML=list.map(c=>{
-    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
     const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
     function compCell(lastStr,info,overrideStatus,proof){
       /* 2026-10-12: a hand-set Current or Overdue, or a flagged result, wins over the date; a stored result word like
@@ -7229,7 +7229,7 @@ function renderAlerts(){
   // Active Compliance
   let acOverdue=0, acDueSoon=0;
   caregivers.forEach(c=>{
-    const oig=chkStatus(c.oig_date,30,7), edl=chkStatus(c.edl_date,30,7), fcsr=chkStatus(c.fcsr_date,365,30);
+    const oig=chkStatus(c.oig_date,30,7), edl=chkStatus(c.edl_date,90,14), fcsr=chkStatus(c.fcsr_date,365,30);
     if([oig,edl,fcsr].some(s=>s.status==='Overdue')) acOverdue++;
     else if([oig,edl,fcsr].some(s=>s.status==='Due Soon')) acDueSoon++;
   });
@@ -9399,7 +9399,7 @@ function exportComplianceCSV(){
   const today=new Date(); today.setHours(0,0,0,0);
   const rows=[['Name','Hire Date','OIG Last Check','OIG Status','EDL Last Check','EDL Status','FCSR Last Check','FCSR Status','Fingerprint','Overall']];
   caregivers.forEach(c=>{
-    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,30,7), f=chkStatus(c.fcsr_date,365,30);
+    const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
     rows.push([
       `${c.first} ${c.last}`,
       c.hire_date||'',
@@ -9741,7 +9741,7 @@ function openProfile(first, last){
   // ── Active Compliance ──
   html+=`<div class="sect-lbl">Active Compliance</div>`;
   if(cg){
-    const o=chkStatus(cg.oig_date,30,7), e=chkStatus(cg.edl_date,30,7), f=chkStatus(cg.fcsr_date,365,30);
+    const o=chkStatus(cg.oig_date,30,7), e=chkStatus(cg.edl_date,90,14), f=chkStatus(cg.fcsr_date,365,30);
     const sv=chkStatus(cg.supv_date,365,30), pr=chkStatus(cg.perf_date,365,30);
     const fReg=fcsrRegStatus(cg);
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
