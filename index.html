@@ -7099,7 +7099,7 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=15"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=16"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7145,7 +7145,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=16"></script>
+<script src="client-journey.js?v=17"></script>
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
@@ -7161,7 +7161,7 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=9"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=5"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
@@ -16716,7 +16716,9 @@ function scxSaveUpdate(key){
 }
 /* The lead profile's mount (Step 1). */
 function lpScLabel(l){ return [l.client_first_name,l.client_last_name].filter(Boolean).join(' ')||[l.first_name,l.last_name].filter(Boolean).join(' ')||'this family'; }
-function lpScRender(){ if(!lpLead) return; scxMount('lp',{bodyId:'lp_sc_body',actId:'lp_sc_actions',lead:lpLead,label:lpScLabel(lpLead)}); }
+function lpScRender(){ if(!lpLead) return; scxMount('lp',{bodyId:'lp_sc_body',actId:'lp_sc_actions',lead:lpLead,label:lpScLabel(lpLead),
+  /* CRM plan step A: the Start Contract's date is the journey's target start; the journey catches up when they differ */
+  onLoaded:function(d){ try{ if(d&&d.ep&&typeof cjSyncStart==='function') cjSyncStart(d.c?d.c.target_date:null); }catch(e){} }}); }
 function lpScLoad(l,force){ if(l&&lpLead&&l.id===lpLead.id) return scxLoad('lp',force); }
 function renderLpSoc(){
   const body=document.getElementById('lp_soc_body'), prog=document.getElementById('lp_soc_progress');
@@ -32955,10 +32957,16 @@ function cpxStillNeeded(l, st, sc, fb){
   if(late&&!l.days_needed&&!l.times_needed&&!l.number_of_hours) add(3,'The schedule they\'re asking for','no days, times or hours yet','intake');
   return out.sort((a,b)=>a.tier-b.tier);
 }
+function cpOneNext(l, sc, ax){
+  if(typeof LeadRules==='undefined'||!LeadRules.oneNext) return null;
+  let jn=null; try{ const j=(typeof cjJourneyFor==='function')?cjJourneyFor({ lead:l, ax }):null; if(j&&j.next&&j.status==='open') jn={ title:j.next.title, why:j.next.why||'', status:j.next.status }; }catch(e){}
+  const base=(l&&typeof lbCtxFor==='function')?lbCtxFor(l):{};
+  return LeadRules.oneNext(l, Object.assign({}, base, { contract:sc||base.contract||null, journey_next:jn }));
+}
 function cpCommandModel(){
   const l=CP.lead||null, r=CP.r||null, launch=CP.launch||null, ax=String(CP.ax||'').trim();
   const st=ccClientStage({ lead:l, r, launch, ax }), t=today();
-  const dd=x=>x?lsDate(String(x).slice(0,10)):'';
+  const dd=x=>x?lsDate(String(x).slice(0,10)):''; let one=null;
   const pre=['new','talking','assessment','ready'].indexOf(st.k)>=0;
   const m={ st, lead:l, r, ax, pre, tiles:[] };
   m.age=l?cpxAge(l.client_dob):null;
@@ -32994,6 +33002,9 @@ function cpCommandModel(){
     const ended=r&&r.role_status&&r.role_status!=='active';
     tile('next','Next action','Nothing: '+(ended?'care ended'+(r.ended_at?(r.ended_date_basis==='on_or_before'?' on or before ':' ')+dd(r.ended_at):''):'did not start'), ended?((r.end_reason?'reason: '+r.end_reason:'from their client record')+(r.ended_date_basis==='on_or_before'?' · exact date not recorded in AxisCare':'')):(l&&l.lost_reason?'reason: '+l.lost_reason:'no reason recorded'), 'history');
   }
+  /* CRM plan step A (2026-10-15): one next step everywhere (LeadRules.oneNext), the same words as the Leads board, the
+     Path card and My Work */
+  else if(pre&&(one=cpOneNext(l, sc, ax))&&one.text) tile('next','Next action', one.text, one.source==='journey'?'the next step of their journey':one.source==='family'?'promised to the family':'the same next step the Leads board shows', one.source==='journey'?'start':(row?row.tab:'summary'), 'next');
   else if(row&&row.move) tile('next','Next action', row.move, 'the same next move the Leads board shows', row.tab, 'next');
   else if(due.length) tile('next','Next action', due[0].label.charAt(0).toUpperCase()+due[0].label.slice(1), 'the first thing open or due', due[0].tab, 'next');
   else tile('next','Next action', ax?'Nothing open or due':'None found', ax?'check-ins, plan reviews, requests, concerns, call-offs':'', '', 'next');
@@ -34363,13 +34374,10 @@ function lsRow(o){
     else move='Set their next follow-up';
   }
   else if(st.k==='assessment') move=care.txt==='plan not written'?'Write the care plan':(l.assessment_at?'Assessment '+lsDate(l.assessment_at):'Book the assessment');
-  else if(st.k==='ready'&&st.d==='before staffing'&&l&&l.soc&&typeof socCurrentStep==='function'){
-    const cur=socCurrentStep(l.soc);
-    move=cur?cur.label:'Before staffing is done: open the First shift checklist';
-    if(cur&&typeof socIsStuck==='function'&&socIsStuck(l.soc)) risk.push('stuck '+socWaitingDays(l.soc)+' days on a step');
-  }
-  else if(st.k==='ready'&&c) move=(typeof cqNextStep==='function'&&cqNextStep(c))||'Finish the First shift checklist';
-  else if(st.k==='ready') move='Begin Getting ready';
+  /* CRM plan step A (2026-10-15): once they're getting ready, the journey's next step is the next move. The older Start of
+     Care checklist and First shift launch steps no longer give one of their own (749: nobody was on either). */
+  else if(st.k==='ready'){ const jn=(typeof cjJourneyFor==='function')?cjJourneyFor({ lead:l, ax:c&&c.axiscare_client_id }):null;
+    move=(jn&&jn.next&&jn.next.title)||(c?'Finish the First shift checklist':'Begin Getting ready'); }
   const name=l?cpLeadClientName(l):(c&&c.client_name)||'(no name)';
   const tab=st.k==='ready'?'start':st.k==='assessment'?'care':(waitingState?'payer':'summary');
   return { l, c, st, name, start, days, care, auth, staff, move, who, risk, owe:owe.length>0, waitingState, tab,
