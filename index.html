@@ -775,6 +775,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   /* a profile section with nothing to show in one of its two columns uses the full width (cpFitGrids) */
   #leadProfileView .profile-grid.cp-one{grid-template-columns:1fr !important;}
   #leadProfileView .profile-grid > .cp-emptycol{display:none !important;}
+  /* Step D (2026-10-15): Activity & Documents, the History list is the wide column and EVV forms + documents sit beside it */
+  #leadProfileView .profile-grid.ch-grid{grid-template-columns:minmax(0,1fr) 340px;}
+  @media(max-width:960px){#leadProfileView .profile-grid.ch-grid{grid-template-columns:1fr;}}
   .cp-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid var(--border);margin-bottom:14px;}
   .cp-tab{background:none;border:none;border-bottom:3px solid transparent;margin-bottom:-2px;padding:8px 12px;font:inherit;font-size:13.5px;font-weight:700;color:var(--text-muted);cursor:pointer;}
   .cp-tab.on{color:var(--navy);border-bottom-color:var(--teal);}
@@ -5459,9 +5462,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       </div>
 </div>
   </div>
-  <div class="cp-pane" data-cp-pane="history"><div class="profile-grid">
-    <div><div id="cp_evv_forms"></div><div id="cp_calls"></div><div id="cp_change_log"></div><div id="cp_ax_log"></div><div id="cp_c_history"></div></div>
-    <div>
+  <div class="cp-pane" data-cp-pane="history"><div class="profile-grid ch-grid">
+    <div><!-- Step D (2026-10-15): ONE history list (client-history.js) replaces the stacked Calls, What changed, AxisCare changes and Timeline boxes --><div id="cp_history"></div></div>
+    <div><div id="cp_evv_forms"></div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
         <b style="font-size:16px;color:var(--navy);">Documents</b>
@@ -7162,7 +7165,8 @@ The HomeTogether team</pre>
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=8"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=5"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=5"></script>
+<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list --><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=5"></script>
@@ -10015,7 +10019,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); cpRenderChangeLog(); axLogLoad(); callsLoad(); cpRenderEvvForms();
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms();
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -39832,6 +39836,7 @@ async function c360StartLoad(r, px, baseEv){
   upds.forEach(function(u){ push(u.given_at,'Family update to '+esc(u.given_to)+': "'+esc(u.summary)+'"'); });
   if(lead&&lead.soc&&lead.soc.ready_for_staffing_at) push(lead.soc.ready_for_staffing_at,'Start of Care ready for staffing');
   myL.forEach(function(c){ var a=leActualSoc(c,levRows); if(a) push(a.ymd,'Care began ('+(a.how==='axiscare'?'first clock-in in AxisCare':a.how==='hand'?'recorded by hand by '+esc(lpscName(a.by)):'first shift marked completed')+')'); if(c.completed_at) push(c.completed_at,'Launch complete'); });
+  if(px==='cp_'&&typeof chAddStart==='function') chAddStart(add);
   if(add.length){
     var all=(baseEv||[]).concat(add).sort(function(x,y){ return y.at.localeCompare(x.at); });
     var tlBox=document.getElementById(px+'cl360Tl');
