@@ -9,6 +9,12 @@
        history, so the journey is the audit trail
      · Waiting always needs a check-back date; Blocked says why and who unblocks it; only an owner can allow an exception
    Links: #p/<ref>/<tab>/<step>, where ref is A<AxisCare number>, L<inquiry number> or J<journey id>. Ids only, never names.
+   ONE PATH, STAGE 1 (Samantha 2026-10-15: "the leads to client and planning the caregiver and schedule and everything is
+   still so disjointed"; the Path card mockup approved; "Start the journey as soon as a real lead is saved (not spam, test
+   or CDS)"): a Path card above everything on every tab: the stage words, then four tracks that move side by side (Care,
+   Paperwork, Team, Schedule), each saying where it stands or what starts it, each opening its steps. The next step stays
+   the card right under it (never said twice). A real lead's journey starts when it is saved (cjAutoOpen) and by the
+   server's sweep; while the lead is New its journey writes no My Work card.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -50,7 +56,7 @@
     const lead = p && p.lead, ax = p && p.ax ? String(p.ax) : '';
     const key = lead ? 'L' + lead.id : ax ? 'A' + ax : null;
     CJ.key = key; CJ.data = null; CJ.view = null; CJ.sel = null; CJ.mode = null; CJ.more = false; CJ.oldOpen = false; CJ.flash = ''; CJ.err = '';
-    head.innerHTML = ''; start.innerHTML = ''; showOld(true);
+    head.innerHTML = ''; start.innerHTML = ''; showOld(true); drawPath();
     try{ if(typeof lwRender === 'function') lwRender(); }catch(e){}   /* before the yes, the lead workspace is the Overview */
     if(!key) return;
     const testLead = !!(lead && lead.is_test);
@@ -58,7 +64,7 @@
     head.innerHTML = '<div class="cj-loading field-note">Reading this person\'s journey…</div>';
     let d; try{ d = await call(lead ? { action:'get', lead_id:lead.id } : { action:'get', axiscare_client_id:ax }); }catch(e){ head.innerHTML = '<div class="cj-err">Couldn\'t read the journey: ' + esc(e.message) + '</div>'; return; }
     if(CJ.key !== key) return;
-    CJ.data = d; compute();
+    CJ.data = d; compute(); drawPath();
     if(!d.journey){ head.innerHTML = startHtml(lead, ax, testLead); wireStart(lead, ax, testLead);
       /* live: the journey is the only way to start; the older checklist shows only for someone who already has one */
       if(live() && !(lead && lead.soc)){ const el = document.getElementById('lp_soc_body'); if(el) el.style.display = 'none'; }
@@ -93,11 +99,84 @@
     CJ.data = d; compute(); render();
   }
 
+  /* ── ONE PATH (stage 1): the stage words and the four tracks ── */
+  const PATH_WORDS = ['new', 'talking', 'assessment', 'ready', 'care'];
+  const TRACKS = [
+    { k:'care', label:'Care', has:r => r.def.stage === 'assessment' || ['med.careplan', 'ax.tasks'].indexOf(r.key) > -1 },
+    { k:'paper', label:'Paperwork', has:r => ['intake', 'prechecks', 'signed', 'axiscare', 'billing'].indexOf(r.def.stage) > -1 && ['med.careplan', 'ax.tasks'].indexOf(r.key) < 0 },
+    { k:'team', label:'Team', has:r => r.def.stage === 'team' },
+    { k:'sched', label:'Schedule', has:r => ['schedule', 'ready', 'firstweek', 'active'].indexOf(r.def.stage) > -1 },
+  ];
+  const MOVING = ['ready', 'waiting', 'blocked', 'attention', 'exception'];
+  const STATUS_WORD = { ready:'ready now', waiting:'waiting', blocked:'blocked', attention:'needs attention', exception:'owner exception' };
+  /** one track: its steps on this journey, where it stands, and the step to open */
+  function trackOf(t){
+    const rows = ((CJ.view && CJ.view.rows) || []).filter(r => r.def && r.status !== 'not_needed' && t.has(r));
+    if(!rows.length) return { rows, state:'none', line:'Nothing needed', key:null };
+    const done = rows.filter(r => R.DONE.indexOf(r.status) > -1).length;
+    if(done === rows.length) return { rows, done, state:'done', line:'Done', key:rows[rows.length - 1].key };
+    const cur = rows.find(r => MOVING.indexOf(r.status) > -1);
+    if(cur) return { rows, done, state:cur.status, line:cur.def.title, sub:STATUS_WORD[cur.status] || '', key:cur.key };
+    const nx = rows.find(r => R.DONE.indexOf(r.status) < 0);
+    return { rows, done, state:'later', line:'Starts with: ' + nx.def.title, key:nx.key };
+  }
+  /** what the lead already says that belongs on a track (asked, not promised) */
+  function trackExtra(k, l){
+    if(!l) return '';
+    const LR = window.LeadRules;
+    if(k === 'care' && l.care_plan_draft) return 'Care plan draft from the call' + ((l.care_plan_draft.from_calls || []).length > 1 ? 's' : '');
+    if(k === 'team'){ const w = [l.schedule_days && l.schedule_days.length ? l.schedule_days.join(', ') : '', l.times_needed || '', l.number_of_hours ? l.number_of_hours + ' hrs/wk' : ''].filter(Boolean).join(' · '); return w ? 'Asked for: ' + w : ''; }
+    if(k === 'sched'){ try{ const w = LR && LR.desiredStartWords ? LR.desiredStartWords(l, todayYmd()) : ''; return w ? 'Wants to start: ' + w : ''; }catch(e){ return ''; } }
+    return '';
+  }
+  const TONE = { done:['#E6F4EC', '#1E7B45'], ready:['#E7EEFC', '#1E4FB8'], waiting:['#FFF4E1', '#9A6412'], blocked:['#FDECEA', '#B42318'], attention:['#FDECEA', '#B42318'], exception:['#F1EBFB', '#6B3FB0'], later:['#F6F7F9', '#5B6B80'], none:['#F6F7F9', '#5B6B80'] };
+  function pathHtml(){
+    const l = (typeof CP !== 'undefined' && CP.lead) || null;
+    let st = null;
+    const j0 = CJ.data && CJ.data.journey;
+    if(j0 && CJ.view){
+      /* the journey on screen decides (the same words as the stage chip); a lead nobody has talked to yet is still New */
+      const jst = CJ.view.stage || j0.stage;
+      st = j0.status === 'active' ? { k:'care', d:'' } : j0.status === 'closed' ? { k:'past', d:/^Care ended/.test(j0.closed_reason || '') ? 'ended care' : 'did not start' }
+        : (jst === 'intake' || jst === 'prechecks') ? (l && String(l.status || 'New') === 'New' ? { k:'new', d:'' } : { k:'talking', d:jst === 'intake' ? 'intake' : 'pre-checks' })
+        : jst === 'assessment' ? { k:'assessment', d:'' } : { k:'ready', d:PRE_TEAM.indexOf(jst) > -1 ? 'before staffing' : 'first shift' };
+    }
+    else { try{ st = l ? ccLeadStage(l) : ccClientStage({ ax:(typeof CP !== 'undefined' && CP.ax) || null, r:(typeof CP !== 'undefined' && CP.r) || null }); }catch(e){} }
+    if(!st) return '';
+    const at = PATH_WORDS.indexOf(st.k), META = (typeof CC_STAGE_META !== 'undefined' && CC_STAGE_META) || {};
+    let h = '<div class="cj-path"><div class="cj-path-bar">' + PATH_WORDS.map((w, i) => {
+      const cls = st.k === 'past' ? 'past' : i < at ? 'done' : i === at ? 'now' : 'later';
+      return '<span class="cj-path-w cj-path-' + cls + '">' + esc((META[w] || [w])[0]) + (i === at && st.d ? '<small> · ' + esc(st.d) + '</small>' : '') + '</span>';
+    }).join('') + '</div>';
+    if(st.k === 'past') h += '<div class="field-note" style="margin-top:4px;">Past' + (st.d ? ': ' + esc(st.d) : '') + '.</div>';
+    if(CJ.view && CJ.data && CJ.data.journey && CJ.data.journey.status !== 'closed'){
+      h += '<div class="cj-path-tracks">' + TRACKS.map(t => {
+        const x = trackOf(t), tone = TONE[x.state] || TONE.later, extra = trackExtra(t.k, l);
+        return '<button type="button" class="cj-path-t" style="border-top:3px solid ' + tone[1] + ';" ' + (x.key ? 'onclick="cjPathOpen(\'' + esc(x.key) + '\')"' : 'disabled') + '>'
+          + '<span class="cj-path-tl">' + esc(t.label) + (x.rows.length && x.state !== 'done' ? '<small> ' + (x.done || 0) + ' of ' + x.rows.length + '</small>' : '') + '</span>'
+          + '<span class="cj-path-tx" style="color:' + tone[1] + ';">' + esc(x.line) + (x.sub ? ' <small>(' + esc(x.sub) + ')</small>' : '') + '</span>'
+          + (extra ? '<span class="cj-path-te">' + esc(extra) + '</span>' : '') + '</button>';
+      }).join('') + '</div>';
+    }
+    return h + '</div>';
+  }
+  function drawPath(){ const box = document.getElementById('cpPath'); if(box) box.innerHTML = CJ.key ? pathHtml() : ''; }
+  function pathOpen(key){ if(typeof cpShowTab === 'function') cpShowTab('start'); pick(key, true); }
+  /** a real lead was just saved: its journey starts now (not spam, test or CDS; the server checks again) */
+  async function autoOpen(lead){
+    try{
+      if(!lead || !live() || lead.is_test || (lead.spam && lead.spam.at) || /cds/i.test(String(lead.funding_source || '')) || lead.status === 'Lost' || lead.archived) return null;
+      const d = await call({ action:'open', lead_id:lead.id });
+      if(d && d.outcome === 'created'){ listRefresh(); if(CJ.key === 'L' + lead.id) await reload(); }
+      return d;
+    }catch(e){ return null; }   /* the sweep starts it within ten minutes if this did not */
+  }
+
   /* ── the top of the profile ── */
   function render(){
     const head = document.getElementById('cjHead'), start = document.getElementById('cjStart');
     if(!head || !CJ.view) return;
-    showOld(false);
+    showOld(false); drawPath();
     const d = CJ.data, j = d.journey, v = CJ.view;
     const payer = j.payer ? R.PAYERS[j.payer] + (j.payer === 'other' && j.payer_other ? ': ' + j.payer_other : '') : 'Payer not known yet';
     /* SIMPLE TOP (Samantha 2026-10-06, "it's so busy and not clear"): one line about the client, one progress bar, one
@@ -111,7 +190,7 @@
       + '<div class="cj-meta">' + (j.is_test ? '<span class="cj-chip cj-s-exc">TEST</span> ' : '') + esc(payer)
       + ' · <button class="linklike" onclick="cjAssignCc(this)" title="Give this client to another Care Coordinator">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is ' + (j.assigned_cc ? 'their' : 'the') + ' Care Coordinator'
       + ' · Start <button class="linklike cj-start-date" onclick="cjEditStart(this)">' + (j.target_start ? esc(day(j.target_start)) : 'not set') + '</button></div>'
-      + (j.status === 'active' ? '' : '<div class="cj-prog"><div class="cj-bar"><i style="width:' + Math.max(pct, 3) + '%"' + (v.stop ? ' class="cj-bar-stop"' : '') + '></i></div>'
+      + (j.status === 'active' || document.getElementById('cpPath') ? '' : '<div class="cj-prog"><div class="cj-bar"><i style="width:' + Math.max(pct, 3) + '%"' + (v.stop ? ' class="cj-bar-stop"' : '') + '></i></div>'
         + '<span class="cj-prog-t">' + (v.stop ? '<b class="cj-red">Stopped</b> at ' + esc(v.stageLabel) : esc(v.stageLabel) + (then ? ' · then ' + esc(then) : '')) + '</span></div>');
     if(v.stop && !CJ.sel) h += '<div class="cj-flash cj-flash-stop">Stopped at "' + esc(v.stop.def.title) + '": ' + esc(v.stop.why) + '</div>';
     else if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
@@ -735,6 +814,13 @@
     '.wk-jr-prog{display:flex;align-items:center;gap:8px;margin:6px 0 4px;max-width:340px}.wk-jr-prog .cj-bar{height:6px}.wk-jr-prog span{font-size:12px;color:var(--text-muted);white-space:nowrap}.wk-jr-what{font-size:14.5px}.cj-bar i.cj-bar-wait{background:#C98A1B}',
     '.cj-sc{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}.cj-sc th{text-align:left;padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;background:var(--bg)}.cj-sc td{padding:9px 10px;border-top:1px solid var(--border);vertical-align:middle}',
     '.cj-sc-name{font-weight:700;color:var(--navy)}.cj-sc-where{display:flex;align-items:center;gap:8px;min-width:150px}.cj-sc-where .cj-bar{height:6px;max-width:90px}.cj-sc-where span{font-size:12.5px;color:var(--text-muted);white-space:nowrap}.cj-sc-old td{background:#FBFAF7}',
+    '.cj-path{background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin:0 0 12px}.cj-path-bar{display:flex;gap:4px;flex-wrap:wrap}',
+    '.cj-path-w{flex:1 1 90px;text-align:center;font-size:12.5px;font-weight:700;padding:5px 4px;border-radius:7px;background:#F6F7F9;color:#7A8899}.cj-path-w small{font-weight:600;opacity:.85}',
+    '.cj-path-done{background:#E6F4EC;color:#1E7B45}.cj-path-now{background:var(--navy);color:#fff}.cj-path-past{background:#F1F5F9;color:#64748B}',
+    '.cj-path-tracks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}',
+    '.cj-path-t{display:flex;flex-direction:column;gap:2px;text-align:left;background:#FAFBFC;border:1px solid var(--border);border-radius:8px;padding:8px 10px;cursor:pointer;font:inherit;color:inherit}.cj-path-t:disabled{cursor:default}',
+    '.cj-path-tl{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--navy)}.cj-path-tl small{font-weight:600;color:var(--text-muted);text-transform:none;letter-spacing:0}',
+    '.cj-path-tx{font-size:13px;font-weight:700}.cj-path-tx small{font-weight:600}.cj-path-te{font-size:12px;color:var(--text-muted)}',
     '@media (max-width:720px){.wk-jr{flex-wrap:wrap}.wk-jr button.primary{width:100%;min-height:44px}}',
     '.cj-shifts{margin:2px 0 8px}.cj-shifts-n{font-size:15px;margin-bottom:6px}.cj-shifts .cj-bar{max-width:320px;height:7px;margin-bottom:6px}.cj-shifts .cj-dot{border-color:#C98A1B}',
     '.cj-menu{display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:8px;background:#F6F9FD;border-radius:8px}',
@@ -743,5 +829,5 @@
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjPathOpen:pathOpen, cjAutoOpen:autoOpen, cjDrawPath:drawPath, cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
 })();
