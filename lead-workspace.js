@@ -202,7 +202,8 @@
     const owners = [...new Set((typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).map(p => first(p.full_name)).concat((DATA.leads || []).map(x => first(x.assigned_coordinator))).concat([first(l.assigned_coordinator)]).filter(Boolean))].sort();
     const yesOk = !!(l.first_human_contact_at && !l.said_yes_at && !lost);
     const reply = r.reason === 'replied' ? (RR.timeline(l, ctx).find(x => x.kind === 'family') || null) : null;
-    let h = '<div class="card lw-card lw-top">'
+    /* 2026-10-15: the Basics card first (lead-basics.js) */
+    let h = (window.LeadBasics ? LeadBasics.html(l) : '') + '<div class="card lw-card lw-top">'
       + '<div class="lw-top-row"><div style="flex:1 1 380px;min-width:0;">'
       + '<div class="lw-story"><b>' + esc(r.why || ('Inquiry' + (r.name ? ' for ' + r.name : ''))) + '</b>' + (r.last ? ' <span class="field-note">· ' + esc(r.last) + '</span>' : '') + '</div>'
       + (r.need ? '<div class="lw-need">' + esc(r.need) + '</div>' : '')
@@ -230,6 +231,7 @@
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
     h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
     host.innerHTML = h; host.style.display = '';
+    if(window.LeadBasics) setTimeout(() => LeadBasics.fill(l.id), 0);   /* fills the empty lines from the call, once */
     tab(); trim();
   }
   /* ── MEDICARE GUIDE INTAKE (Samantha 2026-10-15: "a place to embed or link https://app.crosbyhealth.com/login to do the intake

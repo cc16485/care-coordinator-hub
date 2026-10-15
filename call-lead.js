@@ -397,5 +397,7 @@
     try{ delete LPI.began[l.id]; await lpiLoadBegan(l); lpiRender(); if(typeof lppRender === 'function') lppRender(); }catch(e){}
   }
 
-  window.CallLead = { fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+  /* 2026-10-15 (the Basics card): the same reading as Fill from the call, for lead-basics.js to fill only the empty lines */
+  const readLead = leadId => staffCall({ action: 'read_lead', lead_id: leadId });
+  window.CallLead = { readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
 })();
