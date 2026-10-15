@@ -625,6 +625,9 @@
     if((j.stage === 'intake' || j.stage === 'prechecks') && o && o.lead && String(o.lead.status || 'New') === 'New') return { k:'new', d:'' };
     if(j.stage === 'intake' || j.stage === 'prechecks') return { k:'talking', d:j.stage === 'intake' ? 'intake' : 'pre-checks' };
     if(j.stage === 'assessment') return { k:'assessment', d:'' };
+    /* CRM plan step A (Samantha 2026-10-15): past the assessment but the family hasn't said yes is still a lead,
+       deciding. Calling it 'ready' took them off the Leads board while Starting care waited for the yes. */
+    if(o && o.lead && !o.lead.said_yes_at && o.lead.status !== 'Converted') return { k:'assessment', d:'deciding' };
     return { k:'ready', d:PRE_TEAM.indexOf(j.stage) > -1 ? 'before staffing' : 'first shift' };
   }
   function ownsLaunch(c){
