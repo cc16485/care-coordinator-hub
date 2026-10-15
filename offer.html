@@ -47,12 +47,15 @@ const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const FN = SUPA_URL + '/functions/v1/offer-sign';
 const q = new URLSearchParams(location.search); const LINK = { o: q.get('o') || '', e: q.get('e') || '', t: q.get('t') || '' };
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let STATE = null, DOCS = null, FIRST = '', LIVE = false;
+let STATE = null, DOCS = null, FIRST = '', LIVE = false, LETTER_ONLY = false;
+/* LPN HIRING (2026-10-14): an LPN or RN offer is the licensed nurse letter alone (their job description is in Viventium Step 2);
+   ?preview=1&position=lpn (or rn) previews it. Every other offer is exactly as before. */
+const PPOS = ['lpn', 'rn'].includes(q.get('position')) ? q.get('position') : '';
 /* PREVIEW (2026-10-11, the whole journey in Applicants Journey): ?preview=1 shows the real letter and position description
    from the server's read-only preview action for the made-up Pat; signing and declining happen only in this page */
 const PREVIEW = q.get('preview') === '1';
 async function previewCall(body){
-  if (body.action === 'view') { const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ action: 'preview' }) }); let j = {}; try { j = await r.json(); } catch (e) {} if (j.ok && PSTATE) j.state = PSTATE; if (j.ok) PSTATE = j.state; return { status: r.status, j }; }
+  if (body.action === 'view') { const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify(PPOS ? { action: 'preview', position: PPOS } : { action: 'preview' }) }); let j = {}; try { j = await r.json(); } catch (e) {} if (j.ok && PSTATE) j.state = PSTATE; if (j.ok) PSTATE = j.state; return { status: r.status, j }; }
   if (body.action === 'sign') { const at = new Date().toISOString(); if (body.doc === 'offer') { PSTATE.offer_signed_at = at; PSTATE.offer_signer_name = body.typed_name; } else PSTATE.pd_signed_at = at; return { status: 200, j: { ok: true } }; }
   if (body.action === 'copies') return { status: 200, j: { ok: true, copies: {} } };
   if (body.action === 'decline') return { status: 200, j: { ok: true, declined_at: new Date().toISOString() } };
@@ -102,6 +105,7 @@ async function declineGo(){
 }
 function render(){
   const s = STATE, main = document.getElementById('main');
+  if (LETTER_ONLY) return renderLetterOnly();
   const offerDone = !!s.offer_signed_at, pdDone = !!s.pd_signed_at;
   let h = PREVIEW ? '<div style="background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:10px 12px;font-size:14px;margin:0 0 12px"><b>Preview with made-up answers.</b> Nothing is saved, signed or sent. The pay rate and classification are examples; a real letter shows the ones on the offer.</div>' : '';
   h += '<h1>' + (offerDone && pdDone ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
@@ -125,8 +129,25 @@ function render(){
   }
   main.innerHTML = h; window.scrollTo(0, 0);
 }
+/* LPN HIRING: the letter alone; signed = done */
+function renderLetterOnly(){
+  const s = STATE, main = document.getElementById('main'), done = !!s.offer_signed_at;
+  let h = PREVIEW ? '<div style="background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:10px 12px;font-size:14px;margin:0 0 12px"><b>Preview with made-up answers.</b> Nothing is saved, signed or sent. The pay rate and classification are examples; a real letter shows the ones on the offer.</div>' : '';
+  h += '<h1>' + (done ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
+  if (done) {
+    h += '<div class="okmsg"><b>Your offer letter is signed.</b> ' + (LIVE ? 'Your Step 1 paperwork is on its way by text and email, sent automatically now that your signed offer is saved.' : 'The office will be in touch about your Step 1 paperwork.') + ' Your signed copy is below; the link works for ten minutes and you can reopen this page for a new one while your link is valid.</div>';
+    if (!LIVE) h += '<div class="why"><b>Test mode.</b> No onboarding text or email is sent from this page right now. Nothing has been sent to you by signing.</div>';
+    h += '<div class="copies" id="copies">Fetching your copy…</div>';
+    h += '<p class="lede">Questions? Call or text the office at <a href="tel:+14172348494">(417) 234-8494</a>.</p>';
+    main.innerHTML = h; copies(); return;
+  }
+  h += '<p class="lede">Please read the whole letter, then sign at the bottom. It takes about two minutes. Your job description comes with your Step 2 paperwork, so the letter is the only document to sign here.</p>';
+  h += '<p class="lede">This offer is open until <b>' + esc(when(s.expires_at)) + '</b>. Your link stops working at that moment.</p>';
+  h += '<div class="doc"><div class="title">Offer of employment</div>' + docHtml(DOCS.offer) + '</div>' + signBox('offer', 'offer letter');
+  main.innerHTML = h; window.scrollTo(0, 0);
+}
 async function copies(){
-  const box = document.getElementById('copies'); if (PREVIEW) { box.textContent = 'Preview: their two signed PDFs appear here as secure links.'; return; }
+  const box = document.getElementById('copies'); if (PREVIEW) { box.textContent = LETTER_ONLY ? 'Preview: their signed offer letter appears here as a secure link.' : 'Preview: their two signed PDFs appear here as secure links.'; return; }
   const r = await call({ action: 'copies' });
   if (!r.j.ok) { box.textContent = 'Your copies could not be fetched right now. Call the office and we will send them.'; return; }
   box.innerHTML = (r.j.copies.offer ? '<a href="' + esc(r.j.copies.offer) + '" target="_blank" rel="noopener">📄 Your signed offer letter (PDF)</a>' : '') + (r.j.copies.pd ? '<a href="' + esc(r.j.copies.pd) + '" target="_blank" rel="noopener">📄 Your signed position description (PDF)</a>' : '');
@@ -151,7 +172,7 @@ async function load(){
   if (!PREVIEW && (!LINK.o || !LINK.e || !LINK.t)) { dead(null, 401); return; }
   const r = await call({ action: 'view' });
   if (!r.j.ok) { dead(r.j, r.status); return; }
-  STATE = r.j.state; DOCS = { offer: r.j.offer, pd: r.j.pd }; FIRST = r.j.first || 'there'; LIVE = r.j.automation_live === true; render();
+  STATE = r.j.state; DOCS = { offer: r.j.offer, pd: r.j.pd }; FIRST = r.j.first || 'there'; LIVE = r.j.automation_live === true; LETTER_ONLY = r.j.letter_only === true && !r.j.pd; render();
 }
 load();
 </script>

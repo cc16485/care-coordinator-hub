@@ -24,6 +24,12 @@
   const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
   const STATUS = { draft: 'Draft', rn_review: 'Awaiting RN review', ready: 'Ready for Fusion', uploaded: 'Uploaded to Fusion' };
   const FORM_DAYS = 2;
+  /* DECISION 1 on the nurse wording page (2026-10-14), NOT IN FORCE until Samantha approves it: today a form can reach "Ready for
+     Fusion" (and go to the RN) without the participant's signature, but HCBS 8.00 Appendix 4 has BOTH the participant and the
+     nurse sign before it goes to Fusion. Set to true (here AND in Staffing _shared/rn-review.ts) only with her approval; then a
+     form needs the participant's signature before it goes to RN review or is marked Ready for Fusion. */
+  const PARTICIPANT_SIGNS_BEFORE_FUSION = false;
+  const PARTICIPANT_WHY = 'The participant (or their representative) signs the form first. Both the participant and the nurse sign before it goes to Fusion (HCBS 8.00 Appendix 4).';
 
   function workingDaysAfter(d, n) { let x = ymd(d); while (n > 0) { x = addDays(x, 1); const w = new Date(x + 'T12:00:00Z').getUTCDay(); if (w !== 0 && w !== 6) n--; } return x; }
   /** the upload deadline: the earlier of 10 working days after the visit or the 15th of the next month */
@@ -45,6 +51,7 @@
     if (!f || !String(f.client || '').trim() || !isDate(f.visit_date)) return no('The form needs the client and the visit date first.');
     if (to === 'draft') return { ok: true, patch: { status: 'draft' } };
     if (!f.sig_nurse) return no('The nurse has to sign the form first.');
+    if (PARTICIPANT_SIGNS_BEFORE_FUSION && (to === 'rn_review' || to === 'ready') && !f.sig_part) return no(PARTICIPANT_WHY);
     const cred = credOf(f.nurse, staff);
     if (to === 'rn_review') return cred === 'RN' ? no('This form is by an RN, so it does not need a second RN: mark it Ready for Fusion.') : { ok: true, patch: { status: 'rn_review' } };
     if (to === 'ready') {
@@ -125,5 +132,5 @@
     return { month, rows: list, total };
   }
 
-  return { STATUS, FORM_DAYS, uploadDue, workingDaysAfter, transition, fusionToCheck, fusionCheck, formState, formMissing, scorecard };
+  return { STATUS, FORM_DAYS, PARTICIPANT_SIGNS_BEFORE_FUSION, uploadDue, workingDaysAfter, transition, fusionToCheck, fusionCheck, formState, formMissing, scorecard };
 });

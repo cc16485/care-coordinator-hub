@@ -149,6 +149,8 @@ function itemHtml(it, locked){
   let body = '';
   if (it.locked && it.id === 'ssn') body = ssnHtml(locked);
   else if (it.locked && it.id === 'dob') body = IDENT.dob ? '<div class="okmsg">Date of birth: <b>on file</b> (never shown again).' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'dob\')">Change</button>') + '</div>' : '<input type="date" id="id_dob"' + dis + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'dob\')"' + dis + '>Save my date of birth</button>';
+  /* LPN HIRING (2026-10-14): the nursing license number, through the same locked door (only on a nurse's Step 1) */
+  else if (it.locked && it.id === 'nurse_license_number') body = IDENT.nurse_license ? '<div class="okmsg">License number: <b>on file, ' + esc(IDENT.nurse_license) + '</b>.' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'nurse_license\')">Change</button>') + '</div>' : '<input type="text" id="id_nurse_license" autocomplete="off" placeholder="As shown on Nursys or your board of nursing"' + dis + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'nurse_license\')"' + dis + '>Save my license number</button>';
   else if (it.locked && it.id === 'license_number') body = IDENT.license ? '<div class="okmsg">License number: <b>on file, ' + esc(IDENT.license) + '</b>.' + (locked ? '' : ' <button class="mini" onclick="identityEdit(\'license\')">Change</button>') + '</div>' : '<input type="text" id="id_license" autocomplete="off" placeholder="As printed on your license"' + dis + '> <button class="mini" style="margin-top:8px" onclick="identitySend(\'license\')"' + dis + '>Save my license number</button>';
   else switch (it.kind) {
     case 'yesno': body = seg(it.id, [['yes', 'Yes'], ['no', 'No']], v, locked); break;
@@ -304,7 +306,7 @@ function sigPreview(v){ const el = document.getElementById('sigprev'); if (el) e
    each goes straight to the private store by a one-use link, then the server records it. Never kept in the browser. ───── */
 function photoHtml(it, locked){
   const v = ANS[it.id], done = v && typeof v === 'object' && v.path;
-  if (locked || REVIEW) return '<div class="okmsg">' + (done ? 'Picture on file' + (REVIEW ? ' (open it from their Driver Compliance card)' : '') + '.' : 'Not provided.') + '</div>';
+  if (locked || REVIEW) return '<div class="okmsg">' + (done ? 'Picture on file' + (REVIEW ? (it.id === 'nurse_license_doc' ? ' (open it from their readiness card, nursing license row)' : ' (open it from their Driver Compliance card)') : '') + '.' : 'Not provided.') + '</div>';
   return (done ? '<div class="okmsg">✓ Picture received. You can replace it below.</div>' : '')
     + '<div class="photobtns"><label class="mini photo"><input type="file" accept="image/*" capture="environment" data-id="' + esc(it.id) + '" onchange="photoPick(this)">📷 Take a picture</label>'
     + '<label class="mini photo"><input type="file" accept="image/*,application/pdf" data-id="' + esc(it.id) + '" onchange="photoPick(this)">Choose a file</label></div><div class="err" id="ph_' + esc(it.id) + '"></div>';
@@ -414,12 +416,13 @@ async function save(answers, screen){
 }
 async function saveAndGo(next){ await flush(); await save({}, next); SCREEN = next; render(); }
 /* the locked door: the SSN, date of birth and license number go straight to the server's identity action, never into ANS */
-function identityEdit(which){ IDENT[which === 'ssn' ? 'ssn' : which === 'dob' ? 'dob' : 'license'] = null; render(); }
+function identityEdit(which){ IDENT[which === 'ssn' ? 'ssn' : which === 'dob' ? 'dob' : which === 'nurse_license' ? 'nurse_license' : 'license'] = null; render(); }
 async function identitySend(which){
   const body = { action: 'identity' };
   if (which === 'ssn') { body.ssn = (document.getElementById('id_ssn') || {}).value || ''; body.ssn2 = (document.getElementById('id_ssn2') || {}).value || ''; }
   if (which === 'dob') body.dob = (document.getElementById('id_dob') || {}).value || '';
   if (which === 'license') { body.license_number = (document.getElementById('id_license') || {}).value || ''; body.license_state = ANS.license_state || ''; body.license_expires = ANS.license_expires || ''; }
+  if (which === 'nurse_license') body.nurse_license_number = (document.getElementById('id_nurse_license') || {}).value || '';
   const r = await call(body);
   const e = document.getElementById('e_screen');
   if (r.status !== 200) { if (e) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not save.'; } return; }
@@ -541,11 +544,13 @@ function reviewSummary(s){
 /* ───── the preview's stand-in for the server: only the words, the required-answer check and the PDF come from the server's
    read-only preview action; everything else happens in this page ───── */
 let PSIGN = {};
+/* LPN HIRING (2026-10-14): ?preview=1&position=lpn (or rn) previews a nurse's Step 1, the nursing license form last */
+const PPOS = ['lpn', 'rn'].includes(q.get('position')) ? q.get('position') : '';
 const PCALL = async (b) => { const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ action: 'preview', ...b }) }); let j = {}; try { j = await r.json(); } catch (e) {} return { status: r.status, j }; };
-const identLast4 = () => ({ ssn: IDENT.ssn ? String(IDENT.ssn).slice(-4) : null, dob: !!IDENT.dob, license: IDENT.license ? String(IDENT.license).slice(-4) : null });
+const identLast4 = () => ({ ssn: IDENT.ssn ? String(IDENT.ssn).slice(-4) : null, dob: !!IDENT.dob, license: IDENT.license ? String(IDENT.license).slice(-4) : null, ...(PPOS ? { nurse_license: IDENT.nurse_license ? String(IDENT.nurse_license).slice(-4) : null } : {}) });
 async function previewCall(b){
   const ok = (j) => ({ status: 200, j: { ok: true, ...j } });
-  if (b.action === 'view') return PCALL({});
+  if (b.action === 'view') return PCALL(PPOS ? { position: PPOS } : {});
   if (b.action === 'begin' || b.action === 'save') return ok({});
   if (b.action === 'copies') return ok({ copies: {} });
   if (b.action === 'identity') {
@@ -553,6 +558,7 @@ async function previewCall(b){
     if (b.ssn != null) { if (d(b.ssn) !== d(b.ssn2)) return { status: 400, j: { error: 'The two Social Security numbers do not match. Please type it twice, digits only.' } }; if (d(b.ssn).length !== 9) return { status: 400, j: { error: 'That does not look like a Social Security number. Please check it. For a practice or training hire, use 987-65-4321 (a number never issued to anyone).' } }; IDENT.ssn = 'ending ' + d(b.ssn).slice(-4); }
     if (b.dob != null) { if (!/^\d{4}-\d{2}-\d{2}$/.test(b.dob)) return { status: 400, j: { error: 'Please enter your date of birth as a full date (you must be at least 16).' } }; IDENT.dob = true; }
     if (b.license_number != null) { const l = String(b.license_number).replace(/\s+/g, '').toUpperCase(); if (!/^[A-Z0-9-]{4,20}$/.test(l)) return { status: 400, j: { error: 'Please enter the license number as it appears on the card (letters and numbers).' } }; IDENT.license = 'ending ' + l.slice(-4); }
+    if (b.nurse_license_number != null) { const l = String(b.nurse_license_number).replace(/\s+/g, '').toUpperCase(); if (!/^[A-Z0-9-]{3,20}$/.test(l)) return { status: 400, j: { error: 'Please enter your license number as it appears on Nursys or your board of nursing (letters and numbers).' } }; IDENT.nurse_license = 'ending ' + l.slice(-4); }
     return ok({ identity: { ...IDENT, license_state: ANS.license_state || null, license_expires: ANS.license_expires || null } });
   }
   if (b.action === 'sign') {
@@ -561,7 +567,7 @@ async function previewCall(b){
     const before = V.order.slice(0, V.order.indexOf(b.form)).filter((k) => applies(k) && !SIGS[k]);
     if (before.length) return { status: 409, j: { error: 'Please sign ' + FORMS[before[0]].title + ' first; the forms go in order.' } };
     const ans = { ...ANS }; if (b.initials) ans.initials = b.initials;
-    const r = await PCALL({ check: true, form: b.form, answers: ans, identity: identLast4(), ...(b.choice != null ? { choice: b.choice, decline_consent: b.decline_consent } : {}) });
+    const r = await PCALL({ check: true, form: b.form, answers: ans, identity: identLast4(), ...(PPOS ? { position: PPOS } : {}), ...(b.choice != null ? { choice: b.choice, decline_consent: b.decline_consent } : {}) });
     if (r.status !== 200 || !r.j.ok) return { status: 500, j: { error: (r.j && r.j.error) || 'The preview check did not answer.' } };
     if (r.j.missing.length) return { status: 400, j: { error: 'Please answer these first: ' + r.j.missing.join('; ') + '.' } };
     PSIGN[b.form] = true; const done = V.order.every((k) => !applies(k) || k === b.form || SIGS[k]);
@@ -571,7 +577,7 @@ async function previewCall(b){
 }
 async function previewPdf(form){
   const w = window.open('', '_blank'); if (w) w.document.write('<p style="font-family:sans-serif">Making the preview PDF…</p>');
-  const ans = { ...ANS }; const r = await PCALL({ pdf: true, form, answers: ans, identity: identLast4(), ...(FORMS[form] && FORMS[form].choices && HCHOICE ? { choice: HCHOICE } : {}) });
+  const ans = { ...ANS }; const r = await PCALL({ pdf: true, form, answers: ans, identity: identLast4(), ...(PPOS ? { position: PPOS } : {}), ...(FORMS[form] && FORMS[form].choices && HCHOICE ? { choice: HCHOICE } : {}) });
   if (!r.j || !r.j.pdf_base64) { if (w) w.document.body.innerHTML = '<p style="font-family:sans-serif">Could not make the preview PDF.</p>'; return; }
   const bin = atob(r.j.pdf_base64), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })); if (w) w.location = url; else window.open(url, '_blank');
@@ -597,7 +603,7 @@ function pfill(){
     if (ANS[it.id] !== undefined || it.locked || it.kind === 'statement' || it.kind === 'photo') continue;
     const o = it.options || [];
     if (it.kind === 'yesno') { if (it.id === 'no_employer_history') continue; ANS[it.id] = YES.includes(it.id) ? 'yes' : 'no'; }
-    else if (it.kind === 'choice') ANS[it.id] = it.id === 'state' || it.id === 'license_state' ? 'MO' : o[0];
+    else if (it.kind === 'choice') ANS[it.id] = it.id === 'state' || it.id === 'license_state' || it.id === 'nurse_license_state' ? 'MO' : o[0];
     else if (it.kind === 'multi') { if (it.id === 'states_lived') continue; ANS[it.id] = [o[0]]; }
     else if (it.kind === 'initials') ANS[it.id] = 'PP';
     else if (it.kind === 'number') ANS[it.id] = it.id === 'hours_min' ? 15 : it.id === 'hours_max' ? 40 : 30;
@@ -612,6 +618,7 @@ function pfill(){
   if (f.choices) { HCHOICE = f.decline ? f.decline.choice : f.choices.options[0].id; HDECL = true; }
   if (P.form === 'edl_fcsr_consent') { IDENT.ssn = IDENT.ssn || 'ending 4321'; IDENT.dob = true; }
   if (P.form === 'vehicle') { IDENT.license = IDENT.license || 'ending 0042'; }
+  if (P.form === 'nurse_license') { IDENT.nurse_license = IDENT.nurse_license || 'ending 2468'; }
   for (const k of Object.keys(ANS)) if (ANS[k] === undefined) delete ANS[k];
   render();
 }
