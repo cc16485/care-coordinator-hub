@@ -81,7 +81,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=13"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=14"></script><script src="applicant-text.js?v=2"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -24675,8 +24675,25 @@ function apProfOffer(r){
    booking function behind it, so a time taken here is a time nobody else is
    offered, it lands on the coordinator with the lightest day, and it gets the
    same confirmation and reminders as one they booked themselves. */
+/* 2026-10-15 (Niasia Fulton's move did nothing): the applicant can be missing from AP_ROWS (the list was never loaded on
+   this screen, or it is out of date). That used to return without a word. Now the list is reloaded once, and if they
+   are still not there the card says so. */
+async function apBookRow(id){
+  let r = AP_ROWS.find(x=>String(x.id)===String(id));
+  if(!r){ try{ await apLoad(); }catch(_){} r = AP_ROWS.find(x=>String(x.id)===String(id)); }
+  return r || null;
+}
+function apBookMissing(){
+  const card = document.getElementById('apBookCard'), err = document.getElementById('apBookErr');
+  document.getElementById('apBookSlots').innerHTML = '';
+  err.textContent = 'Could not find this application. Refresh the page and try again. Nothing was booked or moved.';
+  err.style.display = 'block';
+  card.style.display = 'block';
+  card.scrollIntoView({behavior:'smooth', block:'center'});
+}
 async function apBookFor(id, askFirst){
-  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const r = await apBookRow(id);
+  if(!r){ document.getElementById('apBookTitle').textContent = 'Book or move an interview'; return apBookMissing(); }
   if(!AP_PROF || String(AP_PROF.id) !== String(id)) apOpenProfile(id, undefined, true);   /* booking and the interview form live on the application page */
   document.getElementById('apBookId').value = id;
   /* The same picker moves an interview as books one: with a live booking the
@@ -24686,6 +24703,7 @@ async function apBookFor(id, askFirst){
     (moving ? 'Move the interview for ' : 'Book a time for ')
     + (((r.first_name||'')+' '+(r.last_name||'')).trim() || 'them');
   document.getElementById('apBookErr').style.display = 'none';
+  apBookAskReset();
   const box = document.getElementById('apBookSlots');
   box.innerHTML = '<div class="field-note">Looking for free times…</div>';
   const card = document.getElementById('apBookCard');
@@ -24818,21 +24836,42 @@ async function apScreenSave(id, btn){
   }
 }
 
+/* 2026-10-15: picking a time asks inside the card, not with a browser confirm(). Chrome can switch those pop-ups off
+   for a site, and then confirm() says no on its own and the click did nothing at all. */
 async function apBookTake(iso, btn){
   const id = document.getElementById('apBookId').value;
-  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
+  const r = await apBookRow(id); if(!r) return apBookMissing();
   const err = document.getElementById('apBookErr');
   const fmt = d => new Date(d).toLocaleString('en-US',{weekday:'long', month:'long', day:'numeric', hour:'numeric', minute:'2-digit'});
   const when = fmt(iso);
   const b = AP_BOOK[id];
   const moving = !!(b && b.status==='booked');
-  if(!confirm(moving
-    ? 'Move ' + (r.first_name||'them') + '\'s interview from ' + fmt(b.starts_at) + ' to ' + when + '?\n\n'
-      + 'The old time opens back up, and they get a fresh confirmation and reminders for the new one.'
-    : 'Book ' + ((r.first_name||'them')) + ' in for ' + when + '?\n\n'
-      + 'They get the confirmation and the reminders the same as if they had booked it themselves.')) return;
-  btn.disabled = true; btn.textContent = moving ? 'Moving…' : 'Booking…';
+  const esc = escapeHtmlComms, name = (r.first_name||'').trim();
   err.style.display = 'none';
+  const ask = document.getElementById('apBookAsk') || (()=>{ const d = document.createElement('div'); d.id = 'apBookAsk';
+    document.getElementById('apBookSlots').before(d); return d; })();
+  ask.innerHTML = '<div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px;">'
+    + '<b style="font-size:14px;color:var(--navy);">' + (moving
+      ? 'Move ' + esc(name ? name + '\'s' : 'their') + ' interview from ' + esc(fmt(b.starts_at)) + ' to ' + esc(when) + '?'
+      : 'Book ' + esc(name || 'them') + ' in for ' + esc(when) + '?') + '</b>'
+    + '<div class="field-note" style="margin:4px 0 10px;">' + (moving
+      ? 'The old time opens back up, and they get a fresh confirmation and reminders for the new one.'
+      : 'They get the confirmation and the reminders the same as if they had booked it themselves.') + '</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;">'
+    + '<button class="primary" id="apBookYes">' + (moving ? 'Move it' : 'Book it') + '</button>'
+    + '<button class="secondary" id="apBookBack">Back</button></div></div>';
+  ask.style.display = 'block';
+  document.getElementById('apBookSlots').style.display = 'none';
+  ask.scrollIntoView({behavior:'smooth', block:'center'});
+  const yes = await new Promise(res=>{
+    document.getElementById('apBookYes').onclick = ()=>res(true);
+    document.getElementById('apBookBack').onclick = ()=>res(false);
+  });
+  const go = document.getElementById('apBookYes');
+  if(!yes){ ask.style.display = 'none'; ask.innerHTML = ''; document.getElementById('apBookSlots').style.display = ''; return; }
+  go.disabled = true; document.getElementById('apBookBack').disabled = true;
+  go.textContent = moving ? 'Moving…' : 'Booking…';
+  btn = go;
   try{
     /* Booking is only open on an application nobody has closed. Somebody in
        the pool or marked as a no-show is exactly who this is for, so they come
@@ -24849,8 +24888,10 @@ async function apBookTake(iso, btn){
       : await sb.rpc('interview_book', { p_applicant: id, p_starts: iso });
     if(error) throw error;
     document.getElementById('apBookCard').style.display = 'none';
+    apBookAskReset();
     await apLoad();
   }catch(e){
+    apBookAskReset();
     const m = String(e && e.message || 'error');
     if(/SCREEN_FIRST/.test(m)){ apBookFor(id, true); return; }   // 586: the questions are asked first
     err.textContent = /just taken|passed/i.test(m)
@@ -24861,6 +24902,11 @@ async function apBookTake(iso, btn){
     err.style.display = 'block';
     apBookFor(id);
   }
+}
+
+function apBookAskReset(){
+  const ask = document.getElementById('apBookAsk'); if(ask){ ask.style.display = 'none'; ask.innerHTML = ''; }
+  document.getElementById('apBookSlots').style.display = '';
 }
 
 /* ---- Cancelling for somebody -----------------------------------------------
@@ -25196,41 +25242,75 @@ function apNoshowResult(d){
   return 'Marked as a no-show.' + (sent.length ? '\n\nSent by ' + sent.join(' and ') + '. It shows in their GoHighLevel conversation.' : '\n\nNo message went.')
     + ((d.not_sent && d.not_sent.length) ? '\n\nNot sent: ' + d.not_sent.join('; ') : '') + (d.error ? '\n\n' + d.error : '');
 }
+/* 2026-10-15: the interview buttons ask on the page itself, not with confirm(), prompt() or alert(). Chrome can switch
+   those pop-ups off for a site, and then a click quietly did nothing. apAsk resolves to true (or the typed words) for
+   the main button, null for Back. With no back label it is just a message with OK. input: true is an optional box,
+   a string makes the box required and is what it says when left empty. */
+function apAsk({ title, text, ok, back, input, placeholder }){
+  return new Promise(res=>{
+    const esc = escapeHtmlComms;
+    const ov = document.createElement('div');
+    ov.className = 'ap-ask';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+    ov.innerHTML = '<div style="background:var(--card,#fff);border-radius:12px;max-width:520px;width:100%;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">'
+      + '<b style="font-size:16px;color:var(--navy);">' + esc(title) + '</b>'
+      + (text ? '<div style="white-space:pre-wrap;font-size:14px;margin-top:8px;">' + esc(text) + '</div>' : '')
+      + (input ? '<textarea rows="3" style="width:100%;margin-top:10px;" placeholder="' + esc(placeholder||'') + '"></textarea>'
+               + '<div class="field-note ap-ask-err" style="display:none;color:var(--red);margin-top:4px;"></div>' : '')
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">'
+      + '<button class="primary ap-ask-ok">' + esc(ok || 'OK') + '</button>'
+      + (back ? '<button class="secondary ap-ask-back">' + esc(back) + '</button>' : '') + '</div></div>';
+    document.body.appendChild(ov);
+    const ta = ov.querySelector('textarea');
+    const done = v => { ov.remove(); res(v); };
+    ov.querySelector('.ap-ask-ok').onclick = ()=>{
+      if(!ta) return done(true);
+      if(!ta.value.trim() && typeof input === 'string'){ const e = ov.querySelector('.ap-ask-err'); e.textContent = input; e.style.display = 'block'; return; }
+      done(ta.value.trim());
+    };
+    if(back) ov.querySelector('.ap-ask-back').onclick = ()=>done(null);
+    (ta || ov.querySelector('.ap-ask-ok')).focus();
+  });
+}
+window.apAsk = apAsk;
 async function apNoshowMark(id, btn){
-  const r = AP_ROWS.find(x=>String(x.id)===String(id));
-  if(!r){ alert('Could not match this to an applicant on the list. Reload the page and open their interview again. Nothing was recorded.'); return; }
+  const r = await apBookRow(id);
+  if(!r){ await apAsk({ title: 'Could not find this application', text: 'Refresh the page and open their interview again. Nothing was recorded.' }); return; }
   if(btn) btn.disabled = true;
   try{
     const p = await apNoshowCall({ action:'preview', id });
     const who = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'this applicant';
     const goes = [p.text ? 'a TEXT' : '', p.email ? 'an EMAIL' : ''].filter(Boolean).join(' and ') || 'no message (no usable phone or email)';
-    if(!confirm('Mark ' + who + ' as a NO-SHOW?\n\nThey will not be able to reapply or book again unless you excuse it.\n\nThis sends ' + goes + ':'
-      + (p.text ? '\n\n— TEXT —\n' + p.text : '') + (p.no_text_why ? '\n\n(No text: ' + p.no_text_why + '.)' : '')
-      + (p.email ? '\n\n— EMAIL — ' + p.email.subject : ''))) return;
+    if(!await apAsk({ title: 'Mark ' + who + ' as a no-show?', ok: 'Mark no-show', back: 'Back',
+      text: 'They will not be able to reapply or book again unless you excuse it.\n\nThis sends ' + goes + ':'
+      + (p.text ? '\n\nTEXT:\n' + p.text : '') + (p.no_text_why ? '\n\n(No text: ' + p.no_text_why + '.)' : '')
+      + (p.email ? '\n\nEMAIL: ' + p.email.subject : '') })) return;
     const d = await apNoshowCall({ action:'mark', id });
     const card = document.getElementById('apIntCard'); if(card) card.style.display='none';
     await apLoad();
-    alert(apNoshowResult(d));
-  }catch(e){ alert('Could not mark the no-show: ' + (e && e.message || e) + '\n\nNothing was sent.'); }
+    await apAsk({ title: 'Done', text: apNoshowResult(d) });
+  }catch(e){ await apAsk({ title: 'Could not mark the no-show', text: String(e && e.message || e) + '\n\nNothing was sent.' }); }
   finally{ if(btn) btn.disabled = false; }
 }
 async function apNoshowSend(id, btn){
-  if(!confirm('Send the no-show text and email now?')) return;
+  if(!await apAsk({ title: 'Send the no-show text and email now?', ok: 'Send', back: 'Back' })) return;
   if(btn) btn.disabled = true;
-  try{ const d = await apNoshowCall({ action:'send', id }); await apLoad(); alert(apNoshowResult(d)); }
-  catch(e){ alert('Could not send it: ' + (e && e.message || e)); }
+  try{ const d = await apNoshowCall({ action:'send', id }); await apLoad(); await apAsk({ title: 'Done', text: apNoshowResult(d) }); }
+  catch(e){ await apAsk({ title: 'Could not send it', text: String(e && e.message || e) }); }
   finally{ if(btn) btn.disabled = false; }
 }
 async function apNoshowExcuse(id){
-  const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(!r) return;
-  const reason = prompt('Excuse ' + ((r.first_name||'')+' '+(r.last_name||'')).trim() + "'s no-show?\n\nWrite down the reason they gave (kept on their record). Then pick a new interview time.", '');
+  const r = await apBookRow(id);
+  if(!r){ await apAsk({ title: 'Could not find this application', text: 'Refresh the page and try again. Nothing was changed.' }); return; }
+  const reason = await apAsk({ title: 'Excuse ' + ((r.first_name||'')+' '+(r.last_name||'')).trim() + "'s no-show?",
+    text: 'Write down the reason they gave (kept on their record). Then pick a new interview time.',
+    input: 'Write down the reason they gave.', placeholder: 'The reason they gave', ok: 'Excuse and pick a time', back: 'Back' });
   if(reason===null) return;
-  if(!reason.trim()){ alert('Write down the reason they gave. Nothing was changed.'); return; }
   try{
-    await apNoshowCall({ action:'excuse', id, reason: reason.trim() });
+    await apNoshowCall({ action:'excuse', id, reason });
     await apLoad();
     apBookFor(id);
-  }catch(e){ alert('Could not excuse it: ' + (e && e.message || e)); }
+  }catch(e){ await apAsk({ title: 'Could not excuse it', text: String(e && e.message || e) }); }
 }
 window.apNoshowMark = apNoshowMark; window.apNoshowSend = apNoshowSend; window.apNoshowExcuse = apNoshowExcuse;
 
