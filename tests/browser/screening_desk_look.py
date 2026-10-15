@@ -19,7 +19,7 @@ window.__applied = null; function bgrApplyBoardChange(id, ch){ window.__applied 
 T = r"""
 async(CODE)=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  window.__calls=[]; window.__alerts=[]; window.alert=m=>__alerts.push(String(m)); window.prompt=()=>'FCSR registration';
+  window.__calls=[]; window.__alerts=[]; window.alert=m=>__alerts.push(String(m)); window.prompt=()=>'FCSR registration'; window.ccPrompt=async()=>'FCSR registration';
   let mayReveal=false, revealsLog=[], reveals=0;
   const screening=()=>({ ok:true, may_reveal:mayReveal, ttl_seconds:300, fields:['ssn','dob','license'], identity:{ ssn:'ending 3456', dob:true, license:'ending 6789', license_state:'MO', license_expires:'2029-01-01', captured_at:'2026-10-10T03:00:00Z', reveals, purged_at:null, purge_after:null },
     facts:{ first:'Ava', last:'Lee', phone:'(417) 555-0101', email:'ava@example.com', preferred_name:'Ava', other_names:'Ava Smith', lived_outside_mo:'yes', states_lived:['KS'], address:'12 Oak St, Springfield MO 65802' }, consent_signed_at:'2026-10-10T02:50:00Z', step1_completed_at:'2026-10-10T03:10:00Z', reveals_log:revealsLog });

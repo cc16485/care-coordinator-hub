@@ -15,7 +15,7 @@ T = r"""async()=>{
     if(body.action==='start'){ OPEN=[...OPEN, { id:'w-kay', first:body.first, phone:body.phone, email:body.email, by_email:'kay@mo-care.com', started_at:'2026-10-11T18:00:00Z', ends_at:'2026-10-25T18:00:00Z', mine:true }]; return { data:{ ok:true, offer_sent:{ sms:false, email:true, held:true }, not_sent:[] }, error:null }; }
     if(body.action==='end'){ OPEN=OPEN.filter(x=>x.id!==body.offer_id); return { data:{ ok:true }, error:null }; }
     return { data:{ error:'?' }, error:null }; } } };
-  ME = { email:'kay@mo-care.com', name:'Kay Office', shift:'day' }; window.confirm = () => true;
+  ME = { email:'kay@mo-care.com', name:'Kay Office', shift:'day' }; window.confirm = () => true; window.ccConfirm = async () => true;
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active')); document.getElementById('tab-apjourney').classList.add('active');
   const box=document.getElementById('twBox');
   for(let el=box; el; el=el.parentElement){ if(getComputedStyle(el).display==='none') el.style.display='block'; }

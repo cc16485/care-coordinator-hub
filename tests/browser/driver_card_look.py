@@ -48,7 +48,7 @@ FAKE = r"""<!doctype html><meta charset="utf-8"><body><div id="card" style="max-
 <script>
 window.CALLS = []; window.OPENED = []; window.SERVER = { status:'pending' };
 window.open = function(){ const w = { document:{ write(){}, body:{} }, closed:false, close(){ this.closed = true; } }; Object.defineProperty(w, 'location', { set(v){ window.OPENED.push(String(v)); } }); return w; };
-window.confirm = () => true;
+window.confirm = () => true; window.ccConfirm = async () => true;
 const P = %s, DC = '%s';
 function refuse(status, body){ return { data:null, error:{ message:'Edge Function returned a non-2xx status code', context:{ status, json: async () => Object.assign({ ok:false }, body) } } }; }
 window.sb = { functions: { invoke: async (name, o) => {

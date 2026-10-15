@@ -124,7 +124,7 @@ try:
     pg.click('#cpk_cancel'); pg.evaluate("STATE.live = true; STATE.late = true"); pg.click('[data-cpk-send="11"] >> nth=0'); pg.wait_for_timeout(300)
     ok('card: in the evening the panel warns', 'before 8am or after 8pm' in pg.inner_text('#cp_packet'))
     DLG_ANSWER = {'v': False}
-    pg.once('dialog', lambda d: d.dismiss()); n0 = pg.evaluate("CALLS.filter(c=>c.action==='send').length"); pg.click('#cpk_send'); pg.wait_for_timeout(300)
+    pg.evaluate("window.ccConfirm = async () => false"); n0 = pg.evaluate("CALLS.filter(c=>c.action==='send').length"); pg.click('#cpk_send'); pg.wait_for_timeout(300)
     ok('card: in the evening, saying no to the question sends nothing', pg.evaluate("CALLS.filter(c=>c.action==='send').length") == n0)
     pg.evaluate("STATE.late = false; STATE.fail = true"); pg.click('#cpk_cancel'); pg.click('[data-cpk-send="11"] >> nth=0'); pg.wait_for_timeout(300); pg.click('#cpk_send'); pg.wait_for_timeout(300)
     ok('card: a refused send shows the reason on the card', 'Not sent: Ariel has asked not to get texts' in pg.inner_text('#cp_packet'))
@@ -134,7 +134,7 @@ try:
     ok('card: still no em dash anywhere', '\u2014' not in pg.inner_text('#cp_packet'))
     pg.click('#cpk_cancel')
     # ---- per client: send automatically or by hand; small fix keeps confirmations (2026-10-12) ----
-    pg.evaluate("window.confirm = () => true; STATE.packet = Object.assign({}, STATE.packet, { ready: true, version: 2, auto_send: false }); STATE.recipients = [{ id: 'pl_a', caregiver_name: 'Ariel Smith', caregiver_axiscare_id: '11', link_made_at: '2026-10-12T15:00:00Z', ack_version: 1, ack_at: '2026-10-12T16:00:00Z', last_sent_at: '2026-10-12T15:00:00Z', last_send_kind: 'first' }, { id: 'pl_b', caregiver_name: 'Bea Jones', caregiver_axiscare_id: '12', link_made_at: '2026-10-12T15:00:00Z', ack_version: null, last_sent_at: '2026-10-12T15:00:00Z', last_sent_by: 'care-packet-watch', last_send_kind: 'first' }]")
+    pg.evaluate("window.confirm = () => true; window.ccConfirm = async () => true; STATE.packet = Object.assign({}, STATE.packet, { ready: true, version: 2, auto_send: false }); STATE.recipients = [{ id: 'pl_a', caregiver_name: 'Ariel Smith', caregiver_axiscare_id: '11', link_made_at: '2026-10-12T15:00:00Z', ack_version: 1, ack_at: '2026-10-12T16:00:00Z', last_sent_at: '2026-10-12T15:00:00Z', last_send_kind: 'first' }, { id: 'pl_b', caregiver_name: 'Bea Jones', caregiver_axiscare_id: '12', link_made_at: '2026-10-12T15:00:00Z', ack_version: null, last_sent_at: '2026-10-12T15:00:00Z', last_sent_by: 'care-packet-watch', last_send_kind: 'first' }]")
     pg.evaluate('CPK.mount("cp_packet")'); pg.wait_for_timeout(400); t = pg.inner_text('#cp_packet')
     ok('who gets it: "I send it myself" is the default', 'Who gets it' in t and pg.is_checked('input[name="cpk_auto"][value="off"]') and 'Nobody is texted unless you press Text it' in t, t[:400])
     ok('an automatic text says so on the caregiver row', 'texted automatically' in t)
