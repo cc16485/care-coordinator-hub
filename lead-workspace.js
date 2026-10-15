@@ -211,10 +211,12 @@
       + '<label for="lwOwner" class="lb-k">Owner</label><select id="lwOwner" onchange="lwOwner(this.value)"><option value="">Nobody</option>' + owners.map(o => '<option' + (o === first(l.assigned_coordinator) ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>'
       + (yesOk ? '<button class="cj-yes-btn" onclick="lwYes(this)" title="The family chose Caring Companions. Moves them into Getting ready and lands you on the next step. Undo is right there if it was a slip.">They said yes</button>' : '')
       + (typeof lpStageControlHtml === 'function' ? lpStageControlHtml(l) : '')
+      + (lost || l.status === 'Saved' || !window.FutureOpps ? '' : '<button class="lb-btn" onclick="FutureOpps.save(\'' + esc(l.id) + '\')">Save for future</button>')
       + (lost ? '' : '<button class="lb-btn" onclick="lwWaiting(this)">' + (RR.waiting(l) ? 'Waiting on: ' + esc(RR.WAITING[RR.waiting(l).reason].on.toLowerCase()) + ' ▾' : 'Waiting on…') + '</button>')
       + '</div></div>' + stepsHtml(st) + '</div>';   /* the Path card moved to the Start of Care tab (a calmer top, 2026-10-15), so the Overview says the stage here */
     /* the one next card */
     if(lost) h += '<div class="card lw-card lw-next" style="border-color:#9A9388;"><div class="lw-next-k" style="color:#6E6559;">Lost</div><div class="lw-next-t">' + esc(l.lost_reason || 'No reason recorded') + '</div><div class="field-note">Not lost after all puts them back where they were; the reason stays in the history.</div></div>';
+    else if(l.status === 'Saved' && window.FutureOpps) h += FutureOpps.cardHtml(l);   /* 2026-10-15: saved for future, Reactivate here */
     else h += '<div class="card lw-card lw-next" style="border-color:' + tone[0] + ';">'
       + '<div class="lw-next-head"><span class="lw-next-k" style="color:' + tone[1] + ';">' + esc(tone[2]) + '</span><span class="lw-next-big" style="color:' + tone[0] + ';">' + esc(r.when.big) + '</span>' + (r.when.sub ? '<span class="field-note">' + esc(r.when.sub) + '</span>' : '') + '</div>'
       + '<div class="lw-next-t">' + esc(r.next.text) + '</div>'

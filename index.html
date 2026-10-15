@@ -176,6 +176,40 @@
   .lbc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 22px;}
   .lbc-grid .lb-k{display:block;margin-bottom:1px;}
   @media (max-width:980px){ .lbc-head{display:none;} .lb-row.lbc{grid-template-columns:14px minmax(0,1fr) auto;row-gap:4px;} .lb-row.lbc > .lbc-ready,.lb-row.lbc > .lbc-num,.lb-row.lbc > .lbc-next,.lb-row.lbc > .lbc-due,.lb-row.lbc > .lbc-act{grid-column:2 / 4;text-align:left;} .lbc-own{grid-column:3;grid-row:1;} .lbc-det{padding-left:14px;} }
+  /* 2026-10-15: Future Service Opportunities */
+  .fo-bg{position:fixed;inset:0;background:rgba(14,56,96,.35);z-index:3000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:40px 16px;}
+  .fo-dlg{background:#fff;border-radius:12px;max-width:560px;width:100%;padding:18px 20px;display:flex;flex-direction:column;gap:8px;box-shadow:0 10px 40px rgba(14,56,96,.25);}
+  .fo-dlg h3{margin:0;color:var(--navy);font-size:17px;}
+  .fo-k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-top:6px;}
+  .fo-opt{display:flex;gap:10px;align-items:flex-start;padding:7px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;}
+  .fo-opt input{margin-top:4px;} .fo-opt b{display:block;} .fo-opt span{font-size:12px;color:var(--text-muted);}
+  .fo-opt:has(input:checked){border-color:var(--teal);background:var(--bg);}
+  .fo-sugg{color:#6D28D9 !important;font-weight:600;}
+  .fo-two{display:grid;grid-template-columns:1fr 1fr;gap:10px;} .fo-two[hidden]{display:none;}
+  .fo-f{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--text-muted);}
+  .fo-f input,.fo-f select{font-size:13px;padding:6px 9px;font-weight:400;}
+  .fo-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .fo-err{color:var(--red);font-size:12.5px;min-height:0;}
+  .fo-card{padding:12px 16px;margin-bottom:12px;} .fo-note{background:#FBF9FF;}
+  .fo-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:6px;}
+  .fo-head .lb-btn{margin-left:auto;}
+  .fo-tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 8px;}
+  .fo-search{margin-left:auto;font-size:12.5px;padding:5px 12px;border-radius:999px;min-width:200px;}
+  .fo-scroll{overflow-x:auto;}
+  .fo-t{border-collapse:collapse;width:100%;font-size:13px;min-width:640px;}
+  .fo-t th{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);font-weight:700;text-align:left;padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .fo-t td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  .fo-t .n{text-align:right;font-variant-numeric:tabular-nums;}
+  .fo-sub{display:block;font-size:11.5px;color:var(--text-muted);}
+  .fo-usd{color:#15803D;} .fo-hot{color:#B91C1C;} .fo-worth{font-weight:700;color:var(--navy);font-size:12.5px;}
+  .fo-tag{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:2px 8px;white-space:nowrap;}
+  .fo-a{background:#F3EEFE;color:#6D28D9;} .fo-s{background:#FFF4E5;color:#B45309;} .fo-c{background:#E7F5FA;color:#0F6E8C;} .fo-o{background:var(--bg);color:var(--text-muted);border:1px solid var(--border);}
+  .fo-g{background:#EAF7EF;color:#15803D;} .fo-r{background:var(--red-bg);color:var(--red);}
+  .fo-m{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--border);font-size:13px;}
+  .fo-tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin-top:4px;}
+  .fo-tier{border:1px solid var(--border);border-top:4px solid var(--border);border-radius:8px;padding:8px 10px;font-size:13px;display:flex;flex-direction:column;gap:3px;}
+  .fo-tier-core{border-top-color:#15803D;} .fo-tier-conditional{border-top-color:#B45309;} .fo-tier-expansion{border-top-color:#6D28D9;}
+  @media (max-width:640px){ .fo-two{grid-template-columns:1fr;} .fo-m{grid-template-columns:1fr;} .fo-search{margin-left:0;width:100%;} }
   /* 769: calls and texts record themselves */
   .lr-on{display:none;} body[data-lead-record="live"] .lr-on{display:inline;} body[data-lead-record="live"] .lr-off{display:none;}
   .lr-card{padding:12px 16px;margin-bottom:12px;}
@@ -7317,8 +7351,8 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=12"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=7"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="leads-board.js?v=13"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=8"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
@@ -7327,7 +7361,8 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
 <script src="call-lead.js?v=2"></script><!-- Make this a lead (2026-10-14) -->
-<script src="lead-recorder.js?v=1"></script><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
+<script src="lead-recorder.js?v=1"></script>
+<script src="future-opps.js?v=1"></script><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
@@ -32897,6 +32932,7 @@ function ldAttempts(l){ return ldEvents(l).filter(e=>e.actor==='human'&&e.direct
 function leadStage(l){
   const st=String(l.status||'New');
   if(st==='Converted') return 'won';
+  if(st==='Saved'&&!l.archived) return 'saved';   /* 2026-10-15: saved for future (Future Service Opportunities) */
   if(st==='Lost'||l.archived) return 'lost';
   if(l.nurture_started_at && !l.nurture_stopped_at) return 'nurture';
   if(st==='Assessment Scheduled') return 'assessment';
@@ -32922,6 +32958,7 @@ const LEAD_STAGE_META={
   nurture:      ['Nurture',      '#F3EDE3', '#6E6559'],
   won:          ['Won',          '#E7F6EC', '#1F7A4D'],
   lost:         ['Lost',         '#F1F5F9', '#64748B'],
+  saved:        ['Saved for future','#F3EEFE', '#6D28D9'],
 };
 /* ── CLIENTS + "OPEN RIGHT NOW" (Client path step 5, 2026-09-28) ─────────────────────────────
    clDue(r, issues) is the one answer to "what is open or due for this client", used by the Clients
@@ -34672,13 +34709,13 @@ function lsRows(){
     let st=ccLeadStage(l); if(st.k==='care'&&idr&&idr.role_status&&idr.role_status!=='active') st={ k:'past', d:'ended care' };
     if(st.k==='ready'&&!leadIsSpam(l)&&!l.archived) return;   /* said yes: they live in Client Care → Getting ready (her call, 2026-09-28) */
     if(l.said_yes_at&&!leadIsSpam(l)&&!l.archived) return;        /* Stage 3: They said yes = off the Leads board, whatever the journey's stage word */
-    const set=leadIsSpam(l)?'spam':l.archived?'archived':st.k==='care'?'care':st.k==='past'?'past':'work';
+    const set=leadIsSpam(l)?'spam':l.archived?'archived':st.k==='saved'?'future':st.k==='care'?'care':st.k==='past'?'past':'work';
     const ep=F.epOf[String(l.id)], sc=ep?F.scOf[ep]:null, pid=ep?F.planOf[ep]:null;
     const launch=ax?launches.find(c=>c.status!=='complete'&&String(c.axiscare_client_id||'').trim()===ax):null;
     const r=lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }); r.set=set;
     if(set!=='work'){ r.risk=[]; r.owe=false; r.tab='summary';
       r.move=set==='spam'?'Marked spam by '+lpscName(l.spam.by)+', '+lsDate(l.spam.at)+(leadSpamUndoable(l)?' (Not spam is in their profile\'s More menu)':'')
-        :set==='archived'?'Archived (restore it from their profile)':set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
+        :set==='archived'?'Archived (restore it from their profile)':set==='future'?'Saved for future: '+((l.future&&l.future.reason)||''):set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
     rows.push(r);
   });
   rows.sort((a,b)=>(b.risk.length?1:0)-(a.risk.length?1:0)
@@ -34821,10 +34858,13 @@ const CC_STAGE_META={
   ready:      ['Getting ready',  '#EFEAFB', '#6B4FBB'],
   care:       ['Receiving care', '#E7F6EC', '#1F7A4D'],
   past:       ['Past',           '#F1F5F9', '#64748B'],
+  saved:      ['Saved for future','#F3EEFE', '#6D28D9'],
 };
-const CC_STAGE_ORDER=['new','talking','assessment','ready','care','past'];
+const CC_STAGE_ORDER=['new','talking','assessment','ready','care','saved','past'];
 function ccLeadStage(l){
   /* the move-over (483): once journeys are live, a person's journey decides the stage words */
+  /* 2026-10-15: a family saved for future is that, whatever its journey says (the journey is paused) */
+  if(l&&l.status==='Saved'&&!l.archived) return { k:'saved', d:(l.future&&l.future.reason)||'' };
   const js=(typeof cjStageFor==='function')?cjStageFor({ lead:l }):null; if(js) return js;
   const s=leadStage(l), soc=l&&l.soc;
   if(s==='lost') return { k:'past', d:'did not start' };
