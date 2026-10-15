@@ -39,7 +39,7 @@ ck('no check-back is a problem; so is no reason', R.waitingProblems({ reason:'st
 ck('default check-back: state weekly, VA two weeks, not ready monthly', R.defaultCheckBack('state', T) === '2026-10-13' && R.defaultCheckBack('va', T) === '2026-10-20' && R.defaultCheckBack('not_ready', T) === '2026-11-05');
 
 /* lost */
-ck('14 reasons; other needs a note', R.LOST.length === 14 && R.lostRecord({}, 'other', '') === null && R.lostRecord({}, 'other', 'moved to Texas').lost_reason === 'Other (say what): moved to Texas');
+ck('15 reasons (Referred to Caring CDS added 2026-10-15); other needs a note', R.LOST.length === 15 && R.LOST_LABEL.referred_cds === 'Referred to Caring CDS' && R.lostRecord({}, 'other', '') === null && R.lostRecord({}, 'other', 'moved to Texas').lost_reason === 'Other (say what): moved to Texas');
 ck('a staffing reason keeps the schedule and town', (() => { const r = R.lostRecord({ schedule:{ days:['Sat', 'Sun'], times:'mornings', hours_per_week:8 }, client_city:'Ozark' }, 'could_not_staff', ''); return r.lost_reason_key === 'could_not_staff' && r.lost_schedule.days.join() === 'Sat,Sun' && r.lost_schedule.city === 'Ozark'; })());
 ck('price keeps no schedule', !R.lostRecord({ client_city:'Ozark' }, 'price', '').lost_schedule);
 ck('old reasons map to keys for reports', R.lostKey({ lost_reason:'Chose another agency' }) === 'chose_agency' && R.lostKey({ lost_reason:'No response' }) === 'unable_to_reach' && R.lostKey({ lost_reason:'because' }) === 'other' && R.lostKey({}) === null);

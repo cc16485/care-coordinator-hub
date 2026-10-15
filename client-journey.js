@@ -189,12 +189,15 @@
     let h = '<div class="cj-head">' + contactHtml(l)
       + '<div class="cj-meta">' + (j.is_test ? '<span class="cj-chip cj-s-exc">TEST</span> ' : '') + esc(payer)
       + ' · <button class="linklike" onclick="cjAssignCc(this)" title="Give this client to another Care Coordinator">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is ' + (j.assigned_cc ? 'their' : 'the') + ' Care Coordinator'
-      + ' · Start <button class="linklike cj-start-date" onclick="cjEditStart(this)">' + (j.target_start ? esc(day(j.target_start)) : 'not set') + '</button></div>'
+      + ' · Start <button class="linklike cj-start-date" onclick="cjEditStart(this)" title="Kept on the Start Contract: change it there">' + (j.target_start ? esc(day(j.target_start)) : 'not set') + '</button></div>'
       + (j.status === 'active' || document.getElementById('cpPath') ? '' : '<div class="cj-prog"><div class="cj-bar"><i style="width:' + Math.max(pct, 3) + '%"' + (v.stop ? ' class="cj-bar-stop"' : '') + '></i></div>'
         + '<span class="cj-prog-t">' + (v.stop ? '<b class="cj-red">Stopped</b> at ' + esc(v.stageLabel) : esc(v.stageLabel) + (then ? ' · then ' + esc(then) : '')) + '</span></div>');
     if(v.stop && !CJ.sel) h += '<div class="cj-flash cj-flash-stop">Stopped at "' + esc(v.stop.def.title) + '": ' + esc(v.stop.why) + '</div>';
     else if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
     const sel = CJ.sel && rowOf(CJ.sel), r = sel || v.next;
+    const one = !sel && j.status !== 'active' ? oneFor(l, v) : null;
+    if(one && one.due && (one.source === 'family' || (one.source === 'lead' && (!v.next || one.text !== v.next.def.title))))
+      h += '<div class="cj-first"><div class="cj-k">First</div><div class="cj-t">' + esc(one.text) + '</div>' + (one.sub ? '<div class="field-note">' + esc(one.sub) + '</div>' : '') + '<div class="field-note">Then the journey step below.</div></div>';
     if(j.status === 'active') h += '<div class="cj-next cj-done-all"><div class="cj-k">Start of care complete</div><div class="cj-t">' + esc(cpName()) + ' is an active client.</div><div class="field-note">Every step stays under "See every step" as the record of how they started.</div></div>';
     else if(r) h += stepCard(r, !sel || sel === v.next, true);
     else h += '<div class="cj-next"><div class="cj-t">Nothing is up right now.</div></div>';
@@ -561,10 +564,30 @@
   function pick(key, inList){ CJ.sel = key; CJ.mode = null; render(); if(inList){ const el = document.getElementById('cjrow_' + String(key).replace(/\W/g, '_')); if(el) el.scrollIntoView({ block:'nearest' }); } }
   function showStage(s){ cpShowTab('start'); const el = document.getElementById('cjstage_' + s); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }
   function filter(f){ CJ.filter = f; render(); }
-  function editStart(btn){
-    const j = CJ.data.journey, el = ccPopOpen(btn, '<div style="font-weight:700;margin-bottom:6px;">Target start</div><input type="date" id="cjSd" value="' + esc(j.target_start || '') + '"><div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="cjSdGo">Save</button><button class="ghost" id="cjSdNo">Cancel</button></div>', { width:260 });
-    el.querySelector('#cjSdNo').onclick = ccPopClose;
-    el.querySelector('#cjSdGo').onclick = async () => { const v = el.querySelector('#cjSd').value; ccPopClose(); try{ await call({ action:'set_start', journey_id:j.journey_id, date:v }); CJ.flash = 'Target start saved.'; await reload(); }catch(e){ ccToast(e.message); } };
+  /* CRM plan step A (Samantha 2026-10-15, "yes to all 10"): the target start is the Start Contract's date, the one place it
+     is kept (with the words we promised and how sure we are). The journey shows it; changing it opens the Start Contract. */
+  function editStart(){
+    try{ cpShowTab('start'); }catch(e){}
+    const card = document.getElementById('lp_sc_card');
+    if(!card){ ccToast('The start date is kept on the Start Contract, on the Start tab.'); return; }
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    card.classList.add('cj-sc-glow'); setTimeout(() => card.classList.remove('cj-sc-glow'), 1800);
+    const b = document.querySelector('#lp_sc_actions button'); if(b) b.focus();
+  }
+  /* the Start Contract was read: if its date is not the one the journey shows, the journey catches up */
+  function syncStart(target){
+    const j = CJ.data && CJ.data.journey; if(!j || CJ.syncing) return;
+    if(String(j.target_start || '').slice(0, 10) === String(target || '').slice(0, 10)) return;
+    CJ.syncing = true;
+    call({ action:'refresh', journey_id:j.journey_id }).then(reload).catch(() => {}).then(() => { CJ.syncing = false; });
+  }
+  /* the one next step (LeadRules.oneNext): when something with the family comes before the journey step, it says so first */
+  function oneFor(l, v){
+    if(typeof LeadRules === 'undefined' || !LeadRules.oneNext) return null;
+    let sc = null; try{ const s = (typeof scxSt === 'function') ? scxSt('lp').d : null; sc = s && s.c || null; }catch(e){}
+    const base = (l && typeof lbCtxFor === 'function') ? lbCtxFor(l) : {};
+    const n = v && v.next;
+    return LeadRules.oneNext(l, Object.assign({}, base, { contract:sc || base.contract || null, journey_next:n ? { title:n.def.title, why:n.attention || n.why || '', status:n.status } : null }));
   }
   function assignCc(btn){
     const j = CJ.data.journey, people = (CJ.data.office || []);
@@ -787,6 +810,7 @@
     '.cj-meta{font-size:13.5px;color:var(--text-muted);line-height:1.6}.cj-meta b{color:var(--navy)}',
     '.cj-rail{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 2px}.cj-st{font:600 12px/1 inherit;padding:7px 9px;border-radius:16px;border:1.5px solid var(--border);background:#fff;color:var(--text-muted);cursor:pointer}',
     '.cj-st-done{background:#E3F4F3;border-color:#2E8F8A;color:#1F6F6B}.cj-st-now{background:var(--navy);border-color:var(--navy);color:#fff}.cj-st-stopped{background:#FDECEA;border-color:#B42318;color:#B42318}',
+    '.cj-first{border:2px solid #B45309;background:#FFFBEB;border-radius:10px;padding:10px 14px;margin-top:10px}.cj-first .cj-t{font-size:16px}.cj-sc-glow{box-shadow:0 0 0 3px #1F7A8C;transition:box-shadow .3s}',
     '.cj-next{border:2px solid var(--navy);border-radius:10px;padding:12px 14px;margin-top:10px;background:#fff}.cj-next-red{border-color:#B42318}',
     '.cj-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}.cj-t{font-size:18px;font-weight:800;color:var(--navy);margin:4px 0 6px;line-height:1.25}',
     '.cj-chip{display:inline-block;font-size:11.5px;font-weight:800;padding:4px 8px;border-radius:5px;vertical-align:1px;white-space:nowrap}',
@@ -834,5 +858,5 @@
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjPathOpen:pathOpen, cjAutoOpen:autoOpen, cjDrawPath:drawPath, cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjPathOpen:pathOpen, cjAutoOpen:autoOpen, cjDrawPath:drawPath, cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjSyncStart:syncStart, cjOneFor:oneFor, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
 })();

@@ -18,15 +18,18 @@
     const R = window.LeadRules;
     const stage = (typeof leadStage === 'function') ? leadStage(l) : 'new';
     const asm = (DATA.care_assessments || []).filter(a => a && a.lead_id === l.id).map(a => ({ status:a.status, visit_date:a.visit_date }));
-    let jn = null; try{ const j = (typeof cjJourneyFor === 'function') ? cjJourneyFor({ lead:l }) : null; if(j && j.next && j.status === 'open') jn = { title:j.next.title, why:j.next.why || '' }; }catch(e){}
+    let jn = null; try{ const j = (typeof cjJourneyFor === 'function') ? cjJourneyFor({ lead:l }) : null; if(j && j.next && j.status === 'open') jn = { title:j.next.title, why:j.next.why || '', status:j.next.status }; }catch(e){}
+    /* CRM plan step A (2026-10-15): the Start Contract, so the update we owe the family shows here like any other promise */
+    let contract = null; try{ const F = (typeof LS !== 'undefined' && LS.facts) || null; const ep = F && F.epOf && F.epOf[String(l.id)]; contract = ep && F.scOf ? F.scOf[ep] || null : null; }catch(e){}
     const org = l.referral_org_id ? (DATA.referral_orgs || []).find(o => o.id === l.referral_org_id) : null;
     const drafts = (DATA.post_call_followups || []).filter(f => f && f.lead_id === l.id && f.status === 'pending_approval').map(f => f.id);
     /* item 3 (2026-10-07): the partner's record (subtype), the caregivers' availability (staffing risk) and whether a Team Builder plan is linked (pre-matched) */
     let pre = false; try{ const F = (typeof LS !== 'undefined' && LS.facts) || null; const ep = F && F.epOf && F.epOf[String(l.id)]; pre = !!(ep && F.planOf && F.planOf[ep]); }catch(e){}
     const people = (window.LeadWorkspace && LeadWorkspace.people) ? LeadWorkspace.people() : null;
-    return { hours:R.responseHours(DATA.ops_settings || {}), stage, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
+    return { hours:R.responseHours(DATA.ops_settings || {}), stage, contract, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
       referral:(org && org.name) || l.referral_source_name || '', payer_label:(typeof CPX_PAY !== 'undefined' && CPX_PAY[l.funding_source]) || null };
   }
+  window.lbCtxFor = ctxFor;   /* the same question for the profile's Next action and the Path card (LeadRules.oneNext) */
   function first(n){ return String(n || '').trim().split(/\s+/)[0] || ''; }
   function avatar(owner){ const f = first(owner); return f ? '<span class="lb-av">' + esc(f.charAt(0).toUpperCase()) + '</span><span>' + esc(f) + '</span>' : '<span class="lb-av lb-av-none">?</span><span style="color:var(--red);font-weight:700;">Nobody</span>'; }
   function btn(l, a, primary){
