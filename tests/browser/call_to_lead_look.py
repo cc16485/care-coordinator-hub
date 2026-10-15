@@ -28,11 +28,16 @@ STUB = r"""
         schedule_days:['Mon','Tue','Wed','Thu','Fri'], times_needed:'Mornings, 8 to 12', number_of_hours:'20', funding_source:'private',
         why_called:'Daughter looking for morning help for her mom after a fall', interest_notes:'Linda called about her mom Margaret in Nixa.' },
       heard:['source','relationship','client_first_name','client_city','referral_source_name','desired_start_kind','needs','safety','mobility','schedule_days','times_needed','number_of_hours','funding_source','why_called','interest_notes'],
-      is_new_family:true, not_new_family_reason:'' }), { status:200 });
+      is_new_family:true, not_new_family_reason:'', medicaid_mentioned:!!W.__medicaid,
+      care_plan:{ fields:{ adl_needs:'Standby help showering.', iadl_needs:'Meals and light housekeeping.', recommended_frequency:'Mon to Fri mornings', recommended_hours_per_week:'20' },
+        narrative:'Margaret is 85 and lives alone in Nixa with her dog. Reported by her daughter on the phone, to confirm at the visit.',
+        axiscare_tasks:[{ adl_id:11, name:'Bathing', key:'bathing', days:['M','W','F'], require:1, when:1, instructions:'Standby while showering' }], heard:['adl_needs','iadl_needs','narrative','axiscare_tasks'] } }), { status:200 });
     if(b.action==='made') return new Response(JSON.stringify({ ok:true, tagged:true }), { status:200 });
     return new Response('{}', { status:400 }); };
   DATA.ops_settings={}; DATA.referral_orgs=[]; DATA.care_assessments=[]; DATA.ops_items=[]; DATA.call_lead_marks=[];
-  DATA.leads=[{ id:'L_old', first_name:'Ruth', last_name:'Old', phone:'4175550999', status:'Contacted', created_at:'2026-10-01T15:00:00Z' }];
+  DATA.leads=[{ id:'L_old', first_name:'Ruth', last_name:'Old', phone:'4175550999', status:'Contacted', created_at:'2026-10-01T15:00:00Z', client_city:'Ozark', needs:['respite'], interest_notes:'First call notes.',
+    care_plan_draft:{ reported:true, fields:{ adl_needs:'Help dressing.' }, narrative:'', axiscare_tasks:[{ adl_id:22, name:'Meal Preparation', days:['M'], require:1, when:0, instructions:'' }], from_calls:['msgEARLY9'] } }];
+  DATA.care_assessments=[]; DATA.care_plans=[]; W.cptLoadCatalog=()=>{}; W.renderAssessments=()=>{};
   (0,eval)(`CALLS_FILTER='all'; CALLS_FEED={ generated_at:'2026-10-14T15:40:00Z', calls:[
     { id:'msgNEW001', name:'Linda Parker', phone:'+14175550142', contact_id:'C77', direction:'inbound', duration:360, at:'2026-10-14T15:14:00Z', has_recording:true },
     { id:'msgCG0002', name:'Ann Caregiver', phone:'+14175550200', contact_id:'C78', direction:'inbound', duration:40, at:'2026-10-14T15:20:00Z', has_recording:true },
@@ -103,6 +108,61 @@ async()=>{
   ok('same family: no second lead; the call is added to their open lead and their profile opens', DATA.leads.filter(l=>l.first_name==='Linda').length===1 && (old.from_calls||[]).some(x=>x.message_id==='msgDUP005') && __log.opened==='L_old'
      && __log.toasts.some(t=>/Added this call to Ruth Old/.test(t)), { old, toasts:__log.toasts });
   ok('nothing in this module sends a text or an email', !__log.fn.some(b=>!['read','made'].includes(b.action)));
+
+  /* ── v2: fill everything, the care plan draft, Add from this call, GUIDE ── */
+  const nl2=DATA.leads.find(l=>l.client_first_name==='Margaret');
+  ok('v2: the care plan draft from the call is saved on the lead (fields, narrative, AxisCare tasks, which call)', nl2.care_plan_draft && nl2.care_plan_draft.reported===true && nl2.care_plan_draft.fields.adl_needs==='Standby help showering.'
+     && /lives alone in Nixa/.test(nl2.care_plan_draft.narrative) && nl2.care_plan_draft.axiscare_tasks[0].adl_id===11 && nl2.care_plan_draft.from_calls.join()==='msgNEW001', nl2.care_plan_draft);
+  /* Add from this call, on Ruth's existing lead (the reader matched the caller to her lead) */
+  callsPaint(); await sleep(20);
+  const addBtn=[...row('msgOLD003').querySelectorAll('button')].find(b=>b.textContent==='Add from this call');
+  ok('v2: a call from a family that already has a lead offers Add from this call beside Open lead', !!addBtn && /Open lead/.test(txt('msgOLD003')), txt('msgOLD003'));
+  addBtn.click(); await sleep(300);
+  ok('v2: Add from this call opens THEIR lead, titled for the call', document.getElementById('lead_id').value==='L_old' && /^Add what the (Wed, Oct 14 )?10:14 am call said$/.test(document.getElementById('leadModalTitle').textContent), document.getElementById('leadModalTitle').textContent);
+  ok('v2: an empty box is filled and yellow; a box that already has an answer is NOT changed', v('lead_client_first_name')==='Margaret' && document.getElementById('lead_client_first_name').classList.contains('cl-heard')
+     && v('lead_client_city')==='Ozark' && !document.getElementById('lead_client_city').classList.contains('cl-heard') && v('lead_first_name')==='Ruth', { city:v('lead_client_city') });
+  ok('v2: ...the difference is listed for a person to decide', /said something different[\s\S]*Town: form has "Ozark", the call said "Nixa"/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
+  ok('v2: ...new ticks are added to the grid (yellow), the old tick kept', getCheckedValues('lead_needs_grid').join()==='personalCare,housekeeping,respite'.split(',').filter(x=>getCheckedValues('lead_needs_grid').includes(x)).join() && getCheckedValues('lead_needs_grid').includes('respite')
+     && getCheckedValues('lead_needs_grid').includes('personalCare') && document.querySelector('#lead_needs_grid input[value="personalCare"]').closest('label').classList.contains('cl-heard')
+     && !document.querySelector('#lead_needs_grid input[value="respite"]').closest('label').classList.contains('cl-heard'), getCheckedValues('lead_needs_grid'));
+  ok('v2: ...the call\'s notes are added below their own', /^First call notes\.\n\nFrom the (Wed, Oct 14 )?10:14 am call: Linda called/.test(v('lead_interest_notes')), v('lead_interest_notes'));
+  await saveLead(); await sleep(150);
+  const ruth=DATA.leads.find(l=>l.id==='L_old');
+  ok('v2: saved: the call is on her lead and her care plan draft grows (keeps what it had, adds the new, adds the new task)', (ruth.from_calls||[]).some(x=>x.message_id==='msgOLD003')
+     && ruth.care_plan_draft.fields.adl_needs==='Help dressing.\nStandby help showering.' && ruth.care_plan_draft.axiscare_tasks.map(t=>t.adl_id).join()==='22,11'
+     && ruth.care_plan_draft.from_calls.join()==='msgEARLY9,msgDUP005,msgOLD003' && DATA.leads.filter(l=>l.first_name==='Ruth').length===1, ruth.care_plan_draft);
+  callsPaint(); await sleep(20);
+  ok('v2: once the call is on the lead, only Open lead shows', /Open lead/.test(txt('msgOLD003')) && !/Add from this call/.test(txt('msgOLD003')), txt('msgOLD003'));
+
+  /* the care plan form starts from the calls' draft */
+  DATA.care_assessments.push({ id:'A1', lead_id:nl2.id, client_name:'Margaret Parker', visit_date:'2026-10-20', status:'Scheduled' });
+  openPlanForAssessment('A1'); await sleep(50);
+  ok('v2: a care plan not written yet opens with the calls\' draft: fields, narrative, AxisCare tasks, and says so', document.getElementById('plan_adl_needs').value==='Standby help showering.' && document.getElementById('plan_recommended_hours_per_week').value==='20'
+     && /lives alone in Nixa/.test(document.getElementById('plan_narrative').value) && CPT.tasks.length===1 && CPT.tasks[0].adl_id===11 && /Started from 1 phone call[\s\S]*reported by the family/.test(document.getElementById('plan_draft_note').innerText), document.getElementById('plan_draft_note').innerText);
+  /* after the visit: the drafter builds on it */
+  const realFetch2=window.fetch; let sentCP=null;
+  window.fetch=async(u,o)=>{ if(String(u).includes('ai-draft-careplan')){ sentCP=JSON.parse(o.body); return new Response(JSON.stringify({ adl_needs:'Standby help showering; needs a shower chair.', narrative:'Margaret is 85, lives alone in Nixa with her dog Max.', medications:'Eliquis' }), { status:200 }); } return realFetch2(u,o); };
+  document.getElementById('plan_iadl_needs').value='Meals, laundry and light housekeeping (checked at the visit).';
+  closeModal('planModalBackdrop'); document.getElementById('assess_id').value='A1'; document.getElementById('assess_transcript_text').value='Visit transcript words';
+  await generateCarePlan(); await sleep(80); window.fetch=realFetch2;
+  ok('v2: Generate sends the calls\' draft along as what we already knew', sentCP && sentCP.earlier && sentCP.earlier.fields.adl_needs==='Standby help showering.' && /lives alone/.test(sentCP.earlier.narrative), sentCP);
+  ok('v2: boxes still holding the call draft take the visit\'s fuller answer; empty boxes fill; nothing else is touched', document.getElementById('plan_adl_needs').value==='Standby help showering; needs a shower chair.'
+     && /dog Max/.test(document.getElementById('plan_narrative').value) && document.getElementById('plan_medications').value==='Eliquis', document.getElementById('plan_adl_needs').value);
+  await savePlan(false); await sleep(50);
+  const plan=DATA.care_plans.find(p=>p.assessment_id==='A1');
+  ok('v2: the plan saves the narrative, its tasks, and that it started from the calls', plan && /dog Max/.test(plan.narrative) && plan.axiscare_tasks.length===1 && plan.drafted_by==='calls', plan);
+
+  /* payers */
+  openLeadModal(); const radios=[...document.querySelectorAll('input[name="lead_funding_source"]')].map(i=>[i.value, i.closest('label').style.display!=='none']);
+  ok('v2: payers: Private pay, LTC, VA, Medicare GUIDE, CDS; Medicaid hidden on a new lead', JSON.stringify(radios)===JSON.stringify([['private',true],['ltc',true],['va',true],['guide',true],['cds',true],['medicaid',false]]), radios);
+  setRadioValue('lead_funding_source','guide'); leadPayorUI();
+  ok('v2: Medicare GUIDE goes to Krystal, with the screener and a Crosby Health link that opens in its own tab', /Medicare GUIDE → Krystal/.test(document.getElementById('leadPayorHint').innerText)
+     && document.querySelector('#leadPayorHint a[href="https://app.crosbyhealth.com/login"][target="_blank"]'), document.getElementById('leadPayorHint').innerHTML.slice(0,300));
+  ok('v2: every payer is Krystal\'s', ['private','ltc','va','guide','cds','medicaid'].every(k=>PAYER_COORDINATOR[k]==='Krystal'));
+  closeModal('leadModalBackdrop');
+  window.__medicaid=true; await CallLead.make('msgCG0002'); await sleep(100);
+  ok('v2: a caller who mentioned Medicaid is flagged on the form (we no longer accept it; CDS may fit)', /They mentioned Medicaid[\s\S]*no longer accept/.test(document.getElementById('clBanner').innerText) && /Care plan draft started from this call/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
+  closeModal('leadModalBackdrop');
   return R;
 }
 """

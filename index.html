@@ -6569,8 +6569,9 @@ The HomeTogether team</pre>
 <label><input type="radio" name="lead_funding_source" value="private" onchange="leadPayorUI()"> Private Pay</label>
 <label><input type="radio" name="lead_funding_source" value="ltc" onchange="leadPayorUI()"> LTC Insurance</label>
 <label><input type="radio" name="lead_funding_source" value="va" onchange="leadPayorUI()"> VA</label>
+<label><input type="radio" name="lead_funding_source" value="guide" onchange="leadPayorUI()"> Medicare GUIDE</label>
 <label><input type="radio" name="lead_funding_source" value="cds" onchange="leadPayorUI()"> CDS</label>
-<label><input type="radio" name="lead_funding_source" value="medicaid" onchange="leadPayorUI()"> Medicaid (IHS)</label>
+<label id="leadPayMedicaid" style="display:none;"><input type="radio" name="lead_funding_source" value="medicaid" onchange="leadPayorUI()"> Medicaid (no longer accepted)</label>
 
 </div>
 <div id="leadPayorHint"></div>
@@ -6724,7 +6725,7 @@ The HomeTogether team</pre>
 <div id="lead_stage_ro" class="field-note" style="padding:8px 0;">New</div>
 <div class="field-note" style="font-size:10.5px;">Changes from what happens: a logged conversation, a booked assessment, They said yes, Mark lost. (Clean-up 6.7)</div>
 </div>
-<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Private Pay &amp; LTC → Krystal · Medicaid, VA &amp; CDS → Angiel. Auto-fills when blank; override any time.</div></div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Krystal for every payer for now (the only care coordinator). Change it if someone else takes this family.</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
@@ -6933,6 +6934,7 @@ The HomeTogether team</pre>
 <div class="modal">
 <h2>Care Plan</h2>
 <div class="modal-sub" id="planModalClientLine"></div>
+<div id="plan_draft_note"></div>
 <input type="hidden" id="plan_id">
 <input type="hidden" id="plan_assessment_id">
 <div class="grid2">
@@ -6943,6 +6945,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Safety Concerns</label><textarea id="plan_safety_concerns" rows="2"></textarea></div>
 <div style="grid-column:1/-1"><label>Client / Family Goals</label><textarea id="plan_client_goals" rows="2"></textarea></div>
 <div style="grid-column:1/-1"><label>Recommended Services</label><textarea id="plan_services_recommended" rows="2"></textarea></div>
+<div style="grid-column:1/-1"><label>Care plan narrative (who they are, their home, what they need and when, what matters to them)</label><textarea id="plan_narrative" rows="4"></textarea></div>
 <div><label>Recommended Frequency</label><input id="plan_recommended_frequency" placeholder="e.g. 5x/week"></div>
 <div><label>Recommended Hours/Week</label><input id="plan_recommended_hours_per_week" type="number"></div>
 <div><label>Care Start Date</label><input type="date" id="plan_start_date"><div class="field-note" id="plan_start_note"></div></div>
@@ -10092,9 +10095,20 @@ function cpRenderCare(){
           +'<span style="flex:1;"></span><button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
           +'<button class="linklike" onclick="openPlanForAssessment('+q(a.id)+')">'+(plan?'Open care plan':'Write the care plan')+'</button></div>'; }).join('')
       :'<div class="field-note">No assessment recorded yet.</div>')
+    /* 2026-10-14: the care plan draft the phone calls started (Make this a lead), until a plan is written from a visit */
+    +(function(){ const d=lead&&lead.care_plan_draft; if(!d||as.some(a=>(DATA.care_plans||[]).some(p=>p.assessment_id===a.id))) return '';
+        const F={ adl_needs:'Daily living', iadl_needs:'Around the home', medical_conditions:'Health', medications:'Medications', safety_concerns:'Safety', client_goals:'Goals', services_recommended:'What we would do', recommended_frequency:'When', recommended_hours_per_week:'Hours a week' };
+        const parts=Object.keys(F).filter(k=>(d.fields||{})[k]);
+        if(!parts.length&&!d.narrative&&!(d.axiscare_tasks||[]).length) return '';
+        return '<div style="margin-top:10px;padding:10px 12px;border:1px solid #B9DCC6;background:#F4FAF6;border-radius:10px;font-size:13px;">'
+          +'<b style="color:#1F5F3A;">Care plan draft from the phone call'+((d.from_calls||[]).length===1?'':'s')+'</b> <span class="field-note">reported by the family; the home visit checks it and adds to it</span>'
+          +(d.narrative?'<div style="margin-top:6px;white-space:pre-wrap;">'+esc(d.narrative)+'</div>':'')
+          +(parts.length?'<div style="margin-top:6px;display:grid;grid-template-columns:max-content 1fr;gap:3px 10px;">'+parts.map(k=>'<span class="field-note">'+esc(F[k])+'</span><span>'+esc(d.fields[k])+'</span>').join('')+'</div>':'')
+          +((d.axiscare_tasks||[]).length?'<div style="margin-top:6px;"><span class="field-note">AxisCare care tasks:</span> '+d.axiscare_tasks.map(t=>esc(t.name)).join(', ')+'</div>':'')
+          +'<div class="field-note" style="margin-top:6px;">It opens in the care plan when you write it from the visit. Nothing has gone to AxisCare.</div></div>'; })()
     /* the retired Care Assessments tab's guide lives here now */
     +'<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">How assessments work</summary><ol style="font-size:13px;margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:4px;">'
-      +'<li>Book the in-home visit with "Book the visit" (Medicaid families get Angiel\'s calendar). Bring your transcription app (Otter, Fireflies) to the visit.</li>'
+      +'<li>Book the in-home visit with "Book the visit". Bring your transcription app (Otter, Fireflies) to the visit.</li>'
       +'<li>After the visit, open the assessment and paste the transcript link, or the transcript text.</li>'
       +'<li>Generate the care plan, then review and edit it. You are always the final check, not the AI.</li>'
       +'<li>Save &amp; Push to AxisCare writes the care plan note and its tasks into AxisCare and reads them back.</li></ol></details>'
@@ -11845,7 +11859,8 @@ function renderLeadDocs(){
    2026-08-02: Angiel also does the CDS intakes (the record still lives on
    the CDS side; assigning her here just puts the callback in her book)
    and owns the monthly client check-ins. */
-const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Angiel', medicaid:'Angiel', cds:'Angiel' };
+/* 2026-10-14 (her): Krystal is the only care coordinator; every payer is hers until a second coordinator starts (then they share all clients) */
+const PAYER_COORDINATOR={ private:'Krystal', ltc:'Krystal', va:'Krystal', guide:'Krystal', cds:'Krystal', medicaid:'Krystal' };
 
 /* The payor choice re-shapes the lead form: Medicaid opens the state block,
    private-side payors show pricing, CDS throws the refer-out banner. */
@@ -11853,6 +11868,8 @@ function leadPayorUI(){
   const v=getRadioValue('lead_funding_source');
   const sb2=document.getElementById('leadStateBlock');
   if(sb2) sb2.style.display = v==='medicaid' ? '' : 'none';
+  /* 2026-10-14: Medicaid is no longer accepted; the choice only shows on an older lead that already has it */
+  const pm=document.getElementById('leadPayMedicaid'); if(pm) pm.style.display = v==='medicaid' ? '' : 'none';
   const pr=document.getElementById('leadPriceRow');
   if(pr) pr.style.display = (v===''||v==='private'||v==='ltc') ? '' : 'none';
   const hint=document.getElementById('leadPayorHint');
@@ -11860,9 +11877,10 @@ function leadPayorUI(){
   const H={
     private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
     ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy — the LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
-    va:'🎖️ <b>VA → Angiel\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    medicaid:'🏛️ <b>Medicaid IHS → Angiel\'s book.</b> First ask: <b>"Has [client] ever received in-home services through Medicaid before, or is this brand new?"</b> If they\'re new, walk them through the two options and the difference: <b>IHS</b>, we hire, train, and send the caregiver and handle everything, or <b>CDS</b>, they choose their own caregiver, often a family member who is already helping, and our sister company handles enrollment and payroll. If they pick CDS, switch the payor above to CDS. Staying IHS: minimum to get started is client <b>first name, last name, and DOB</b>. Get the DCN and county too if you can, the State Submission block just opened below and this lead rides the State submissions filter on Leads &amp; Starts until DSDS authorizes. <b>Do not commit on this call:</b> tell them we\'ll make sure we can staff it and get back to them ASAP, then <b>read the notes before taking them</b> and call back.',
-    cds:'↪️ <b>CDS → Angiel.</b> CDS is the sister company, but Angiel does the intake herself. If she\'s in, warm-transfer now. If not, take name and number and save this lead, it lands in her book for the callback. She runs the intake on the CDS side (caringcds.com · <b>(417) 218-2888</b>), then marks this lead <b>Lost</b> with reason "Referred to CDS" so the CC pipeline stays clean.'
+    va:'🎖️ <b>VA → Krystal\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
+    guide:'🧠 <b>Medicare GUIDE → Krystal\'s book.</b> Run the GUIDE screener first (<a href="guide.html" target="_blank" rel="noopener">GUIDE page</a>): dementia diagnosis, Original Medicare (not Advantage), not in hospice or PACE, an unpaid caregiver, a private home. Then enter the patient in <a href="https://app.crosbyhealth.com/login" target="_blank" rel="noopener">Crosby Health</a> (our account is Troutman Enterprises, LLC). Never promise free care or approval.',
+    medicaid:'⛔ <b>We no longer accept Medicaid.</b> If they want care paid by Medicaid, our sister company Caring Companions CDS may fit (417) 218-2888. Change the payer to CDS, or to private pay if they would rather pay themselves.',
+    cds:'↪️ <b>CDS goes to our sister company, Caring Companions CDS</b> (417) 218-2888. Take their name, number, who needs care and the county, and save the lead so it can be passed to CDS.',
   };
   hint.innerHTML = v&&H[v] ? '<div class="payor-note'+(v==='cds'?' refer':'')+'">'+H[v]+'</div>' : '';
   // The Guided Call close stage flips with the payor: Medicaid IHS never
@@ -12223,7 +12241,7 @@ async function saveLead(opts){
   /* Gate 1b-0 (2026-09-28): update the lead IN PLACE. Swapping in a new object left the open profile
      (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
      wrote the old intake values back to the database. */
-  const fromCall=(idx<0&&window.CallLead)?CallLead.stamp(merged):null;   /* Make this a lead: the call goes onto the new lead */
+  const fromCall=window.CallLead?CallLead.stamp(merged):null;   /* Make this a lead / Add from this call: the call and its care plan draft go onto the lead */
   if(idx>=0) Object.assign(DATA.leads[idx], merged); else DATA.leads.push(merged);
   await persist('leads', merged);
   if(fromCall) CallLead.afterSave(merged, fromCall);
@@ -13428,6 +13446,15 @@ async function saveAssessment(){
   closeModal('assessmentModalBackdrop');
   renderAssessments();
 }
+/* The care plan's own text boxes, and the call draft a lead carries (lead.care_plan_draft, from Make this a lead) */
+const PLAN_KEYS=['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended','recommended_frequency','recommended_hours_per_week'];
+let PLAN_FROM_CALLS=false;
+function planCallDraft(a){
+  if(!a||!a.lead_id) return null;
+  const l=(DATA.leads||[]).find(x=>x&&x.id===a.lead_id);
+  const d=l&&l.care_plan_draft;
+  return d&&(Object.keys(d.fields||{}).length||d.narrative||(d.axiscare_tasks||[]).length)?d:null;
+}
 async function generateCarePlan(){
   const id = document.getElementById('assess_id').value;
   if(!id){ alert('Save the assessment first so it has visit details on file.'); return; }
@@ -13436,13 +13463,18 @@ async function generateCarePlan(){
   if(!transcript){ alert('Paste the assessment transcript text first — the AI needs something to read. (A link alone isn\'t enough; paste the words.)'); return; }
   const box = document.getElementById('assess_ai_summary_box');
   box.textContent = '🤖 Reading the transcript and drafting the care plan… (10–20 seconds)';
+  /* what the phone calls (or a saved plan) already say: the visit keeps it, adds to it and corrects it */
+  const savedPlan = DATA.care_plans.find(p=>p.assessment_id===id);
+  const callDraft = planCallDraft(a);
+  const earlier = savedPlan ? { fields: Object.fromEntries(PLAN_KEYS.filter(k=>savedPlan[k]).map(k=>[k,savedPlan[k]])), narrative: savedPlan.narrative||'' }
+    : callDraft ? { fields: callDraft.fields||{}, narrative: callDraft.narrative||'' } : null;
   try{
     const { data:{ session } } = await sb.auth.getSession();
     if(!session){ alert('Please sign in again.'); return; }
     const r = await fetch(CONFIG.supabase_url+'/functions/v1/ai-draft-careplan',{
       method:'POST',
       headers:{ 'Authorization':'Bearer '+session.access_token, 'Content-Type':'application/json' },
-      body: JSON.stringify({ transcript_text: transcript, client_name: a.client_name, visit_date: a.visit_date })
+      body: JSON.stringify({ transcript_text: transcript, client_name: a.client_name, visit_date: a.visit_date, ...(earlier?{earlier}:{}) })
     });
     const draft = await r.json();
     if(!r.ok || draft.error) throw new Error(draft.error||('AI error ('+r.status+')'));
@@ -13451,10 +13483,12 @@ async function generateCarePlan(){
     box.textContent = '✓ Draft ready — opening the care plan form. Review every field before saving: '+(draft.confidence_note||'');
     closeModal('assessmentModalBackdrop');
     openPlanForAssessment(id);
-    ['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals',
-     'services_recommended','recommended_frequency','recommended_hours_per_week'].forEach(k=>{
-      const el=document.getElementById('plan_'+k);
-      if(el && !el.value) el.value = draft[k]!=null ? String(draft[k]) : '';
+    /* a box still holding only what the calls (or the saved plan) said takes the visit's fuller answer; a box a person
+       changed is left alone */
+    const was = k => earlier ? String((k==='narrative'?earlier.narrative:(earlier.fields||{})[k])||'').trim() : '';
+    PLAN_KEYS.concat(['narrative']).forEach(k=>{
+      const el=document.getElementById('plan_'+k); if(!el || draft[k]==null || String(draft[k]).trim()==='') return;
+      if(!el.value || el.value.trim()===was(k)) el.value = String(draft[k]);
     });
     renderAssessments();
   }catch(e){
@@ -13493,9 +13527,20 @@ function openPlanForAssessment(assessmentId){
   document.getElementById('plan_assessment_id').value = assessmentId;
   const f = (key) => document.getElementById('plan_'+key).value = plan ? (plan[key]||'') : '';
   ['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals',
-   'services_recommended','recommended_frequency','recommended_hours_per_week','start_date','review_date'].forEach(f);
+   'services_recommended','recommended_frequency','recommended_hours_per_week','start_date','review_date','narrative'].forEach(f);
   planStartFromContract(a);
   CPT.tasks=JSON.parse(JSON.stringify((plan&&plan.axiscare_tasks)||[])); CPT.clientName=a?a.client_name:'';
+  /* 2026-10-14 (her "start drafting... we will add to it after the home visit"): a plan not written yet starts from the
+     draft the phone calls built on the lead (reported by the family). The visit checks it and adds to it. */
+  const fromCalls=!plan&&planCallDraft(a);
+  PLAN_FROM_CALLS=!!fromCalls;
+  if(fromCalls){
+    Object.keys(fromCalls.fields||{}).forEach(k=>{ const el=document.getElementById('plan_'+k); if(el&&!el.value) el.value=String(fromCalls.fields[k]); });
+    if(fromCalls.narrative) document.getElementById('plan_narrative').value=fromCalls.narrative;
+    if(!CPT.tasks.length&&(fromCalls.axiscare_tasks||[]).length) CPT.tasks=JSON.parse(JSON.stringify(fromCalls.axiscare_tasks));
+  }
+  const dn=document.getElementById('plan_draft_note');
+  if(dn) dn.innerHTML=fromCalls?'<div style="margin:6px 0 10px;padding:8px 12px;border-radius:10px;background:#EAF5EE;border:1px solid #B9DCC6;font-size:13px;color:#1F5F3A;"><b>Started from '+((fromCalls.from_calls||[]).length||'the')+' phone call'+((fromCalls.from_calls||[]).length===1?'':'s')+'</b>, as reported by the family. Check it at the home visit and add what you see; nothing here has gone to AxisCare.</div>':'';
   cptRender(); cptLoadCatalog();
   document.getElementById('planModalBackdrop').classList.add('open');
 }
@@ -13513,13 +13558,14 @@ async function savePlan(pushToAxisCare){
     safety_concerns: document.getElementById('plan_safety_concerns').value.trim(),
     client_goals: document.getElementById('plan_client_goals').value.trim(),
     services_recommended: document.getElementById('plan_services_recommended').value.trim(),
+    narrative: document.getElementById('plan_narrative').value.trim(),
     recommended_frequency: document.getElementById('plan_recommended_frequency').value.trim(),
     recommended_hours_per_week: document.getElementById('plan_recommended_hours_per_week').value,
     start_date: document.getElementById('plan_start_date').value,
     review_date: document.getElementById('plan_review_date').value,
     axiscare_tasks: CPT.tasks.filter(function(t){ return t&&t.adl_id; }).map(function(t){ return {adl_id:+t.adl_id,name:t.name,key:t.key||null,days:t.days||[],require:+t.require===2?2:1,when:+t.require===2?0:(+t.when||0),instructions:t.instructions||''}; }),
     axiscare_tasks_push: existing.axiscare_tasks_push || null,
-    drafted_by: existing.drafted_by || 'manual',
+    drafted_by: existing.drafted_by || (PLAN_FROM_CALLS ? 'calls' : 'manual'),
     reviewed_by: existing.reviewed_by || '',
     axiscare_synced: existing.axiscare_synced || false,
     created_at: existing.created_at || new Date().toISOString(),
@@ -13542,6 +13588,7 @@ async function savePlan(pushToAxisCare){
        A preview comes first: tasks AxisCare already has are only changed when
        ticked "update", and nothing is removed without its own tick. */
     const planNote = 'CARE PLAN — '+((a&&a.client_name)||'')+' (assessment '+((a&&a.visit_date)||'')+')\n'
+      +(record.narrative?'NARRATIVE:\n'+record.narrative+'\n\n':'')
       +['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended']
         .filter(k=>record[k]).map(k=>k.replace(/_/g,' ').toUpperCase()+':\n'+record[k]).join('\n\n')
       +'\n\nFREQUENCY: '+(record.recommended_frequency||'—')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'—')
