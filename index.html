@@ -15674,8 +15674,8 @@ async function hubAccessCall(action, email, hub){
     headers:{ 'Content-Type':'application/json',
               'Authorization':'Bearer '+session.access_token,
               'apikey': CONFIG.supabase_anon_key },
-    body: JSON.stringify({ action, target_email:String(email||'').toLowerCase(),
-                           hub:hub||'care_coordinator' }) });
+    body: JSON.stringify(Object.assign({ action, target_email:String(email||'').toLowerCase() },
+                           Array.isArray(hub) ? { hubs:hub, hub:hub[0] } : { hub:hub||'care_coordinator' })) });
   let body={}; try{ body = await r.json(); }catch(e){}
   if(!r.ok) return { error: body.error || ('Request failed ('+r.status+')'), detail: body.detail };
   return body;
@@ -15692,7 +15692,12 @@ const HUB_STATE={
    The server (hub-access) still decides everything: owners only, the fixed hub list, never the last owner. */
 /* 2026-10-05 (Samantha, "yes remove it"): the Staffing Hub page (sc.mo-care.com) was retired Oct 4, so its row is gone
    from Hub access. Deactivate still removes 'staffing' along with the others, so nobody keeps an old grant. */
-const HUB_ROWS=[['care_coordinator','Care Coordinator Hub','cc.mo-care.com'],['team_hub','Team Hub','hub.mo-care.com']];
+/* 760b (2026-10-15, Samantha: "I want most to have access to both hubs staffing and care coordinator"): the staffing
+   tools live inside the Care Coordinator Hub now, so giving the Care Coordinator Hub gives the staffing records with it
+   (one invitation, both hubs), and removing it removes both. An account that has the Care Coordinator Hub but not the
+   staffing records shows a button to add them. */
+const HUB_ROWS=[['care_coordinator','Care Coordinator Hub','cc.mo-care.com · includes the staffing tools'],['team_hub','Team Hub','hub.mo-care.com']];
+const HUB_GIVES={ care_coordinator:['care_coordinator','staffing'] };
 async function hubAccessOpen(email){
   if(!ccCan('manage_access')) return;
   const esc=escapeHtmlComms, e=String(email||'').toLowerCase();
@@ -15709,12 +15714,13 @@ async function hubAccessOpen(email){
     return;
   }
   const noAccount=st.state==='none', invited=st.state==='invited';
-  const has=h=>!noAccount&&(st.access==null||(Array.isArray(st.access)&&st.access.includes(h)));
+  const has=h=>!noAccount&&Array.isArray(st.access)&&st.access.includes(h);   // 760b: no hub list = no hub
   const acct=noAccount?'<span style="color:var(--text-muted);">No sign-in yet. Giving the first hub sends them one invitation email.</span>'
     :invited?'<span style="color:var(--amber);font-weight:600;">Invitation sent, not accepted yet.</span> They choose their password when they open it.'
     :'<span style="color:var(--teal);font-weight:600;">Has a sign-in.</span>';
   const row=([h,label,host])=>'<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);">'
     +'<div style="flex:1;min-width:0;"><div style="font-weight:700;color:var(--navy);font-size:13.5px;">'+esc(label)+'</div><div class="field-note" style="font-size:12px;">'+esc(host)+'</div></div>'
+    +(has(h)&&(HUB_GIVES[h]||[h]).some(x=>!has(x))?'<button class="ghost" data-ha-give="'+h+'" style="padding:5px 10px;font-size:12px;">Add the staffing tools</button>':'')
     +(has(h)?'<span class="badge ok" style="font-size:11px;">Has access</span><button class="ghost" data-ha-remove="'+h+'" style="padding:5px 10px;font-size:12px;">Remove</button>'
             :'<span class="badge muted" style="font-size:11px;">No access</span><button class="primary" data-ha-give="'+h+'" style="padding:5px 10px;font-size:12px;">'+(noAccount?'Invite':'Give access')+'</button>')
     +'</div>';
@@ -15736,7 +15742,9 @@ async function hubAccessOpen(email){
       return;
     }
     msg.textContent='Working…';
-    const r=await hubAccessCall(action, e, hub);
+    const parts=action==='revoke'?(HUB_GIVES[hub]||[hub]).filter(x=>x===hub||has(x)):[HUB_GIVES[hub]||hub];
+    let r={};
+    for(const part of parts){ r=await hubAccessCall(action, e, part); if(r.error) break; }
     if(r.error){
       msg.innerHTML='<span style="color:var(--red);">'+esc(r.error)+'</span>'
         +(r.detail?'<div style="margin-top:3px;">'+esc(r.detail)+'</div>':'');
