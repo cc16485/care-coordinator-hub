@@ -178,7 +178,7 @@
   function lbPayer(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id, 'payer'); }
   async function lbLostCds(id){
     const l = lead(id); if(!l) return;
-    if(!confirm('Mark ' + ((typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || 'this family') + ' lost: referred to Caring CDS?')) return;
+    if(!(await ccConfirm('Mark ' + ((typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || 'this family') + ' lost: referred to Caring CDS?'))) return;
     Object.assign(l, { lost_reason:'Referred to Caring CDS', lost_reason_key:'referred_cds' });
     window.LeadRules.setStatus(l, 'Lost', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:'Referred to Caring CDS' });
     await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
