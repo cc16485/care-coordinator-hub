@@ -179,6 +179,23 @@ async()=>{
   ok('v2: a caller who mentioned Medicaid is flagged on the form (we no longer accept it; CDS may fit)', /They mentioned Medicaid[\s\S]*no longer accept/.test(document.getElementById('clBanner').innerText) && /Care plan draft started from this call/.test(document.getElementById('clBanner').innerText), document.getElementById('clBanner').innerText);
   closeModal('leadModalBackdrop');
 
+  /* ── + Add Lead typed while on the phone (2026-10-15) ── */
+  window.__same={ leads:[], clients:[] };
+  openLeadModal(); const trow=document.getElementById('leadTalkedRow'), tb=document.getElementById('lead_talked_now');
+  ok('+ Add Lead: a new Phone lead shows "We\'re talking to them on this call", ticked', trow.style.display!=='none' && tb.checked);
+  const src=document.getElementById('lead_source'); src.value='Website'; src.dispatchEvent(new Event('change')); ok('...a Website lead: not ticked', !tb.checked);
+  src.value='Phone'; src.dispatchEvent(new Event('change'));
+  document.getElementById('lead_first_name').value='Gail'; document.getElementById('lead_last_name').value='Typed'; document.getElementById('lead_phone').value='4175550777';
+  await saveLead(); await sleep(150);
+  const ty=DATA.leads.find(l=>l.first_name==='Gail');
+  ok('...saved ticked: the call is the first conversation (Contacted, contact stamps, one connected call, the log line)', ty && ty.status==='Contacted' && ty.first_human_contact_at && ty.first_human_attempt_at
+     && (ty.contact_events||[]).filter(e=>e.outcome==='connected'&&e.channel==='call').length===1 && (ty.comm_log||[]).some(c=>/typed in while on the phone/.test(c.body)) && !opsLeadUntouched(ty), ty);
+  openLeadModal(); document.getElementById('lead_first_name').value='Hank'; document.getElementById('lead_last_name').value='Unticked'; document.getElementById('lead_phone').value='4175550778';
+  document.getElementById('lead_talked_now').checked=false; await saveLead(); await sleep(150);
+  const un=DATA.leads.find(l=>l.first_name==='Hank');
+  ok('...saved unticked (a message or voicemail): still New, nobody talked to yet', un && un.status==='New' && !un.first_human_contact_at, un);
+  openLeadModal(ty.id); ok('...editing an existing lead never shows the box', document.getElementById('leadTalkedRow').style.display==='none'); closeModal('leadModalBackdrop');
+
   /* ── v3: fixes 1 to 5 ── */
   const ai=()=>DATA.leads.find(l=>l.id==='L_ai');
   ok('v3: a caller with no name shows as "Caller" and the number, never "(phone lead)"', cpLeadClientName(ai())==='Caller (417) 224-4400', cpLeadClientName(ai()));
