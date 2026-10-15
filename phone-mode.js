@@ -963,8 +963,9 @@
     var r = IV.r, A = IV.A, nm = r.first_name || 'them';
     var reason = null, p = null;
     var miss = window.OBS ? OBS.missing(A.observations) : '';
-    if (miss) { alert(miss); var ob = document.getElementById('phIvObs'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'end' }); return; }
-    if (outcome === 'declined') { reason = prompt('Why are we not hiring ' + nm + '?\n\nKept for our records, never sent.', ''); if (reason === null) return; }
+    /* 2026-10-15: asked on the page (apAsk), not with alert()/prompt(), which Chrome can switch off so the tap did nothing. */
+    if (miss) { await apAsk({ title: 'Not yet', text: miss }); var ob = document.getElementById('phIvObs'); if (ob) ob.scrollIntoView({ behavior: 'smooth', block: 'end' }); return; }
+    if (outcome === 'declined') { reason = await apAsk({ title: 'Why are we not hiring ' + nm + '?', text: 'Kept for our records, never sent.', input: true, ok: 'Mark not hiring', back: 'Back' }); if (reason === null) return; }
     else { p = apPoolPrompts(r, A); if (!p) return; }
     btn.disabled = true;
     await ivSave(document.querySelector('[data-iv="save"]') || btn);
