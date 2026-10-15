@@ -212,7 +212,7 @@
       + (yesOk ? '<button class="cj-yes-btn" onclick="lwYes(this)" title="The family chose Caring Companions. Moves them into Getting ready and lands you on the next step. Undo is right there if it was a slip.">They said yes</button>' : '')
       + (typeof lpStageControlHtml === 'function' ? lpStageControlHtml(l) : '')
       + (lost ? '' : '<button class="lb-btn" onclick="lwWaiting(this)">' + (RR.waiting(l) ? 'Waiting on: ' + esc(RR.WAITING[RR.waiting(l).reason].on.toLowerCase()) + ' ▾' : 'Waiting on…') + '</button>')
-      + '</div></div>' + stepsHtml(st) + '</div>';
+      + '</div></div>' + ((document.getElementById('cpPath') || {}).innerHTML ? '' : stepsHtml(st)) + '</div>';   /* One Path stage 1: the Path card says the stage once */
     /* the one next card */
     if(lost) h += '<div class="card lw-card lw-next" style="border-color:#9A9388;"><div class="lw-next-k" style="color:#6E6559;">Lost</div><div class="lw-next-t">' + esc(l.lost_reason || 'No reason recorded') + '</div><div class="field-note">Not lost after all puts them back where they were; the reason stays in the history.</div></div>';
     else h += '<div class="card lw-card lw-next" style="border-color:' + tone[0] + ';">'

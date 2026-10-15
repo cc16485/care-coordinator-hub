@@ -621,6 +621,8 @@
     const j = journeyFor(o); if(!j || j.is_test) return null;
     if(j.status === 'active') return { k:'care', d:'' };
     if(j.status === 'closed') return { k:'past', d:/^Care ended/.test(j.closed_reason || '') ? 'ended care' : 'did not start' };
+    /* One Path stage 1: journeys start when a lead is saved, so a lead nobody has talked to yet is still New */
+    if((j.stage === 'intake' || j.stage === 'prechecks') && o && o.lead && String(o.lead.status || 'New') === 'New') return { k:'new', d:'' };
     if(j.stage === 'intake' || j.stage === 'prechecks') return { k:'talking', d:j.stage === 'intake' ? 'intake' : 'pre-checks' };
     if(j.stage === 'assessment') return { k:'assessment', d:'' };
     return { k:'ready', d:PRE_TEAM.indexOf(j.stage) > -1 ? 'before staffing' : 'first shift' };
