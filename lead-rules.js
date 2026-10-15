@@ -1105,7 +1105,7 @@
     if(l && !yes && !l.archived && l.status !== 'Lost'){
       const r = boardRow(l, Object.assign({}, ctx, { today, stage:ctx.stage || stageWord(l, today) }));
       if(r.reason === 'no_next_step' && jn) return { text:jn.title, sub:jn.why || '', source:'journey', reason:'journey', due:jn.status === 'attention' || jn.status === 'blocked' };
-      return { text:r.next.text, sub:r.next.sub || '', source:FAMILY_REASONS.indexOf(r.reason) > -1 ? 'family' : 'lead', reason:r.reason, due:r.group === 'now' };
+      return { text:r.next.text, sub:r.next.sub || '', late:/late/.test(String(r.when && r.when.sub || '')) ? r.when.sub : '', source:FAMILY_REASONS.indexOf(r.reason) > -1 ? 'family' : 'lead', reason:r.reason, due:r.group === 'now' };
     }
     if(l && yes){
       if(replyPending(l)) return { text:'Answer ' + ((l.first_name || '').trim() || 'them'), sub:'', source:'family', reason:'replied', due:true };
