@@ -1,6 +1,6 @@
 """Training proof catch-up (Samantha 2026-10-12: training from another platform, PDF proof on profiles for the MMAC audit).
 Offline: the catch-up block lifted from caregivers-engine.js, with a stand-in caregiver list, storage and safe save. Every
-active caregiver's items (done with a PDF, date without proof, a link only, missing, year 1 not due); recording refuses
+active caregiver's items (done with a PDF, date without proof, a link only, missing, optional none recorded); recording refuses
 without a date or a file; a recorded item uploads to lead-docs under training/, saves the dates, who and when, through the
 caregivers save; the personnel file export is offered; proofs open by a private link.  python3 tests/browser/training_proof_look.py [shots]"""
 import os, sys, re
@@ -36,9 +36,9 @@ try:
     pg.on('pageerror', lambda e: errs.append(str(e)[:200])); pg.on('dialog', lambda d: d.accept())
     pg.goto('file://' + os.path.join(ROOT, '_tp_test.html')); pg.evaluate('SCX.tpfOpen()'); pg.wait_for_timeout(200)
     t = pg.inner_text('#tpfBody')
-    ok('the list counts who is complete with proof, and by default shows only who still needs something', '1 of 3 complete with proof' in t and 'Ann Able' not in t and 'Bo Bright' in t and 'Cy New' in t, t[:300])
+    ok('the list counts who has orientation on file with proof (optional courses never count), and by default shows only who still needs something', '1 of 3 with orientation on file with proof' in t and 'Ann Able' not in t and 'Bo Bright' in t and 'Cy New' in t, t[:300])
     ok('an inactive caregiver is not listed, here or in AxisCare', 'Di Gone' not in t and 'Ex Former' not in t)
-    ok('each state in words: a link only, a date with no proof, missing, year 1 not due', 'a link only' in t and 'date, no proof' in t and 'missing' in t and 'year 1: not due' in t)
+    ok('each state in words: a link only, a date with no proof, missing (orientation), optional none recorded (2026-10-15)', 'a link only' in t and 'date, no proof' in t and 'missing' in t and 'optional, none recorded' in t and 'year 1' not in t)
     pg.evaluate("SCX.tpfFilter('all')"); pg.wait_for_timeout(100)
     ok('Everyone shows the complete caregiver with "PDF on file"', 'Ann Able' in pg.inner_text('#tpfBody') and 'PDF on file' in pg.inner_text('#tpfBody'))
     pg.screenshot(path=os.path.join(OUT, 'tp_list.png'), full_page=True)

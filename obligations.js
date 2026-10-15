@@ -54,10 +54,13 @@
 
   var CG_LABELS = {
     oig_expired:'OIG check', edl_expired:'EDL check', fcsr_expired:'FCSR check',
-    fcsr_registration:'FCSR registration', annual_training:'Annual training',
+    fcsr_registration:'FCSR registration',
     verify_records:'Verify training records',
-    orientation:'Orientation', alz:'Dementia training',
-    ojt:'On-the-job training', ojt_overdue:'OJT past its 30-day deadline',
+    orientation:'Orientation',
+    /* Optional from 2026-10-15 (orientation only is required). The engine no longer raises these codes; the labels
+       stay only so an older obligation still reads sensibly while it closes. */
+    annual_training:'Annual training (no longer required)', alz:'Dementia training (optional)',
+    ojt:'On-the-job training (optional)', ojt_overdue:'On-the-job training (no longer required)',
     supervisory_visit:'Supervisory visit', performance_review:'Performance review'
   };
   function LABEL(code){ return CG_LABELS[code] || String(code || 'Compliance item'); }
