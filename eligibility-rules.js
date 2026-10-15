@@ -297,8 +297,8 @@ function eligibilityFacts(c){
   /* OIG monthly (Samantha, decision 2, 2026-10-10): HHS-OIG Special Advisory Bulletin (May 2013) recommends monthly LEIE
      screening with documented searches; Missouri MMAC requires a monthly HHS-OIG search. The 90-day figure was never a rule. */
   const oig = chkStatus(c.oig_date, 30, 7);
-  /* EDL monthly: Caring Companions policy (Samantha, 2026-10-09), not a Missouri interval; the 90-day figure was never a rule */
-  const edl = chkStatus(c.edl_date, 30, 7);
+  /* EDL quarterly: Caring Companions policy (Samantha, 2026-10-14, replacing her 2026-10-09 monthly rule), not a Missouri interval */
+  const edl = chkStatus(c.edl_date, 90, 14);
   const fcsr = chkStatus(c.fcsr_date, 365, 30);
   const reg = fcsrRegStatus(c);
   const hire = pd(c.hire_date);
@@ -405,7 +405,7 @@ function eligibility(c){
     return derived;
   };
   if(eff(c.oig_status,  f.oig.status)  === 'Overdue') lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (monthly, agency policy).'});
-  if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (monthly, agency policy).'});
+  if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (quarterly, agency policy).'});
   if(eff(c.fcsr_status, f.fcsr.status) === 'Overdue') lapses.push({code:'fcsr_expired', kind:ELIG_LEGAL, why:'FCSR check is overdue (annual).'});
   if(f.ts.annualStatus === 'Overdue')
     lapses.push({code:'annual_training', kind:ELIG_LEGAL, why:'Annual training is overdue.'});

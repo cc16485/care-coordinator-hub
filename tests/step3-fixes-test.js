@@ -11,7 +11,7 @@ let pass = 0, fail = 0;
 const ok = (c, m) => { if (c) { pass++; console.log('PASS ', m); } else { fail++; console.log('FAIL ', m); } };
 
 ok(!/oig_date,90,14/.test(ENG) && (ENG.match(/oig_date,30,7\)/g) || []).length === 6, 'every OIG check in the engine is monthly (6 places)');
-ok(/g\.oig_date,g\.oig_proof,30,'rechecked monthly \(agency policy\)'/.test(IDX) && /g\.edl_date,g\.edl_proof,30,'rechecked monthly \(agency policy\)'/.test(IDX), 'caregiver page: OIG and EDL monthly');
+ok(/g\.oig_date,g\.oig_proof,30,'rechecked monthly \(agency policy\)'/.test(IDX) && /g\.edl_date,g\.edl_proof,90,'rechecked quarterly \(agency policy\)'/.test(IDX), 'caregiver page: OIG monthly, EDL quarterly (2026-10-14)');
 ok(/OIG check is overdue \(monthly, agency policy\)/.test(ER), 'matches the scheduling rule, which already says monthly');
 ok(!/rechecked every 90 days/.test(IDX), 'no "every 90 days" left for OIG or EDL');
 
