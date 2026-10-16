@@ -71,7 +71,7 @@ function draw(err) {
   const flex = v.kind === 'flex'
   const when = flex ? hrs(v.hours) + ', anytime between ' + t12(v.window_start) + ' and ' + t12(v.window_end) : t12(v.start) + ' to ' + t12(v.end)
   const times = flex ? (v.choices.length
-      ? '<div class="q">What time would you start?</div><div class="times">' + v.choices.map((c) => '<button class="t" data-pick="' + c + '" aria-pressed="' + (c === PICK) + '">' + t12(c) + '</button>').join('') + '</div>'
+      ? '<div class="q">What time could you start that day?</div><div class="times">' + v.choices.map((c) => '<button class="t" data-pick="' + c + '" aria-pressed="' + (c === PICK) + '">' + t12(c) + '</button>').join('') + '</div>'
       : '<div class="info">You are already working at every start time in this window, so we can\'t put you on this one.</div>')
     : (v.choices.length ? '' : '<div class="info">You are already working then, so we can\'t put you on this one.</div>')
   const can = v.choices.length && (!flex || PICK)
@@ -80,14 +80,16 @@ function draw(err) {
     (err ? '<div class="err">' + esc(err) + '</div>' : '') +
     '<button class="big no" id="withdraw"' + (BUSY ? ' disabled' : '') + '>I can\'t do it after all</button><p class="note">Questions? Call the office at ' + PHONE + '.</p>')
   shell('<div class="sub">Hi ' + esc(v.first_name || 'there') + '! ' + (choose ? 'A family is choosing a caregiver for an extra visit. Interested?' : 'A family booked an extra visit. Can you take it?') + '</div>' +
+    (v.asked_for_you ? '<div class="ok" style="margin-bottom:10px">The family asked for you.</div>' : '') +
     '<div class="card">' +
       '<div class="row"><span>Who</span><b>' + esc(v.client) + (v.town ? ', ' + esc(v.town) : '') + '</b></div>' +
       '<div class="row"><span>When</span><b>' + esc(v.day) + '<br>' + esc(when) + '</b></div>' +
       '<div class="row"><span>Help with</span><b>' + esc((v.tasks || []).join(', ')) + '</b></div>' +
+      (v.about ? '<div class="row"><span>About ' + esc(v.client) + '</span><b>' + esc(v.about) + '</b></div>' : '') +
       (v.note ? '<div class="row"><span>The family says</span><b>' + esc(v.note) + '</b></div>' : '') +
     '</div>' + times +
     (err ? '<div class="err">' + esc(err) + '</div>' : '') +
-    '<button class="big yes" id="yes"' + (can && !BUSY ? '' : ' disabled') + '>' + (BUSY ? 'Saving…' : choose ? (flex && PICK ? 'I\'m interested, starting at ' + t12(PICK) : 'I\'m interested') : flex && PICK ? 'Yes, I\'ll start at ' + t12(PICK) : 'Yes, I can take it') + '</button>' +
+    '<button class="big yes" id="yes"' + (can && !BUSY ? '' : ' disabled') + '>' + (BUSY ? 'Saving…' : choose ? 'I\'m available &amp; interested' + (flex && PICK ? ' (start ' + t12(PICK) + ')' : '') : 'I\'ll accept this shift' + (flex && PICK ? ' (start ' + t12(PICK) + ')' : '')) + '</button>' +
     '<button class="big no" id="no"' + (BUSY ? ' disabled' : '') + '>No thanks</button>' +
     '<p class="note">' + (choose ? 'The family sees your profile and picks. If they pick you, it goes on your AxisCare schedule and we text you. The address is in AxisCare once you have it.' : 'The first yes gets the visit, and it goes straight on your AxisCare schedule. The address is in AxisCare once you have it.') + '</p>')
 }
