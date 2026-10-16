@@ -22,6 +22,7 @@
     if (st === 'active') {
       return head + '<span style="color:var(--green);font-weight:600;">Family app: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' +
         btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAM.act('can_book'," + id + ",'" + e(px) + "'," + (!m.app_can_book) + ")") +
+        btn('Send welcome', "FAM.welcome(" + id + ",'" + e(px) + "')", 'btn-primary') +
         btn('Turn app off', "FAM.act('revoke'," + id + ",'" + e(px) + "')") + '</div>'
     }
     if (st === 'revoked') return head + '<span class="field-note">Family app: turned off</span>' + btn('Turn on again', "FAM.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
@@ -42,7 +43,7 @@
         if (action === 'invite' && d.words) {
           var l2 = document.getElementById('fam-' + px + '-' + contactId)
           if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-words" style="background:var(--teal-pale,#EAF4F6);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;">' +
-            '<b>They can sign in now.</b> Nothing was sent. Text or email them this (from the office line):<div style="margin:6px 0;padding:6px 8px;background:#fff;border-radius:6px;" id="famw-' + e(px) + '-' + contactId + '">' + e(d.words) + '</div>' +
+            '<b>They can sign in now.</b> Nothing was sent. Press <b>Send welcome</b> to text and email them the steps, or send this yourself from the office line:<div style="margin:6px 0;padding:6px 8px;background:#fff;border-radius:6px;" id="famw-' + e(px) + '-' + contactId + '">' + e(d.words) + '</div>' +
             '<button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAM.copy(\'famw-' + e(px) + '-' + contactId + '\', this)">Copy the words</button></div>')
         }
       })
@@ -56,6 +57,44 @@
     try { navigator.clipboard.writeText(el.textContent).then(done, function () { selectText(el) }) } catch (x) { selectText(el) }
   }
   function selectText(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r) }
+
+  // ── Welcome by text + email (her approved wording, 2026-10-15). A person presses Send; nothing goes on its own. ─────
+  var W = {}
+  function welcome(contactId, px) {
+    var line = document.getElementById('fam-' + px + '-' + contactId); if (!line) return Promise.resolve()
+    var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) { old.remove(); return Promise.resolve() }
+    line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the welcome ready…</div>')
+    return call({ action: 'welcome', contact_id: contactId }).then(function (d) {
+      W[px + '-' + contactId] = d
+      var box = document.getElementById('famwel-' + px + '-' + contactId)
+      var axis = d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so they can activate the AxisCare portal.</div>'
+        : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on their AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send without the AxisCare part.</div>'
+        : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
+      var how = [d.can_text ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
+      box.innerHTML = '<b>Welcome for ' + e(d.name) + '</b>' + axis +
+        '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + e(px) + '-' + contactId + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAM.welcomeAxis(' + contactId + ',\'' + e(px) + '\', this.checked)"> Include the AxisCare portal steps (calendar, care notes, invoices)</label>' +
+        '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + e(px) + '-' + contactId + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
+        '<div class="field-note" style="margin:4px 0;">Email: "' + e(d.email_subject) + '" with the same steps and buttons.</div>' +
+        '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
+        (how.length ? '<div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-primary btn-sm" onclick="FAM.welcomeSend(' + contactId + ',\'' + e(px) + '\', this)">Send welcome</button>' +
+          '<button class="btn btn-ghost btn-sm" onclick="FAM.welcome(' + contactId + ',\'' + e(px) + '\')">Cancel</button></div>' : '') +
+        '<div class="fam-wmsg" style="margin-top:4px;"></div>'
+    }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
+  function welcomeAxis(contactId, px, on) {
+    var d = W[px + '-' + contactId], ta = document.getElementById('famwt-' + px + '-' + contactId); if (!d || !ta) return
+    var from = on ? d.text_without_axis : d.text_with_axis, to = on ? d.text_with_axis : d.text_without_axis
+    if (ta.value.trim() === from.trim()) ta.value = to   // only swap words the office hasn't changed
+  }
+  function welcomeSend(contactId, px, b) {
+    var ta = document.getElementById('famwt-' + px + '-' + contactId), ax = document.getElementById('famwax-' + px + '-' + contactId)
+    var box = document.getElementById('famwel-' + px + '-' + contactId), msg = box && box.querySelector('.fam-wmsg')
+    if (!ta || !ta.value.trim()) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">The text is empty.</span>'; return Promise.resolve() }
+    b.disabled = true; b.textContent = 'Sending…'
+    return call({ action: 'welcome', contact_id: contactId, send: true, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }).then(function (d) {
+      box.innerHTML = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [d.by_text ? 'text' : '', d.by_email ? 'email' : ''].filter(Boolean).join(' and ') + '.</span> It\'s saved in this Family Circle\'s messages.'
+    }).catch(function (err) { b.disabled = false; b.textContent = 'Send welcome'; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
 
   // ── Scheduling > Family bookings ─────────────────────────────────────────────────────────────────────────────────
   var STATUS = {
@@ -128,5 +167,5 @@
     return call({ action: 'place', booking_id: id, caregiver_axiscare_id: cg }).then(render).catch(function (err) { b.disabled = false; b.textContent = 'Place on this visit'; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   window.updateFamBadge = function (n) { var b = document.getElementById('famPillBadge'); if (!b) return; b.textContent = n; b.style.display = n ? '' : 'none' }
-  window.FAM = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, render: render, schedule: schedule, place: place }
+  window.FAM = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place }
 })()
