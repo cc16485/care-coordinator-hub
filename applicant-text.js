@@ -45,7 +45,8 @@
   }
   function paint() { document.querySelectorAll('[data-aptext]').forEach((el) => { el.innerHTML = chip(el.getAttribute('data-aptext')); }); }
   /* the button and the chip, for any row: class 'fb' in the Hub, 'ph-b' on the phone */
-  function btn(id, label, cls) { return '<button type="button" class="' + esc(cls || 'fb') + '" onclick="event.stopPropagation();ApText.open(\'' + esc(id) + '\')">💬 ' + esc(label || 'Text') + '</button>'; }
+  /* 806: Oklahoma applicants get no texts from the Hub yet (they would come from the Missouri number) */
+  function btn(id, label, cls) { if (window.OKO && OKO.isOk(id)) return OKO.heldNote(id); return '<button type="button" class="' + esc(cls || 'fb') + '" onclick="event.stopPropagation();ApText.open(\'' + esc(id) + '\')">💬 ' + esc(label || 'Text') + '</button>'; }
   function slot(id) { return '<span data-aptext="' + esc(id) + '">' + chip(id) + '</span>'; }
 
   /* ── the sheet (one at a time) ─────────────────────────────────────────────────────────────────────────────── */
