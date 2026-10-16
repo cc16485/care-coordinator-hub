@@ -81,12 +81,12 @@ try:
       window.apBookFor = (id) => { window.__booked = id; }; }""")
     pg.evaluate("apScreenAsk('a-ok-2', 'questions')"); pg.wait_for_timeout(80)
     q = pg.inner_text('#apBookSlots')
-    ok('Ask these first (Oklahoma): 18+, allowed to work, OKSCREEN; nothing about transport or a year of experience',
-       'OKSCREEN fingerprint background check' in q and '18 or older' in q and 'reliable transportation' not in q and 'paid caregiving experience' not in q, q)
-    pg.evaluate("['age','auth','oks'].forEach(k => document.getElementById('apScrOk_'+k).value = 'yes')")
+    ok('Ask these first (Oklahoma): 18+, allowed to work, OKSCREEN, driving clients; nothing about a year of experience',
+       'OKSCREEN fingerprint background check' in q and '18 or older' in q and 'Every Companion drives clients' in q and 'reliable transportation' not in q and 'paid caregiving experience' not in q, q)
+    pg.evaluate("['age','auth','oks','drv'].forEach(k => document.getElementById('apScrOk_'+k).value = 'yes')")
     pg.evaluate("document.querySelector('#apBookSlots button.primary').click()"); pg.wait_for_timeout(150)
     rpc = pg.evaluate('__rpc')
-    ok('saving calls the Oklahoma office screen, then shows times', rpc and rpc[-1] == ['applicant_screen_by_office_ok', {'p': 'a-ok-2', 'p_age_ok': True, 'p_work_auth': True, 'p_okscreen': True}] and pg.evaluate('window.__booked') == 'a-ok-2', rpc)
+    ok('saving calls the Oklahoma office screen, then shows times', rpc and rpc[-1] == ['applicant_screen_by_office_ok', {'p': 'a-ok-2', 'p_age_ok': True, 'p_work_auth': True, 'p_okscreen': True, 'p_drives': True}] and pg.evaluate('window.__booked') == 'a-ok-2', rpc)
     pg.evaluate("apScreenAsk('a-mo-2', 'questions')"); pg.wait_for_timeout(80)
     ok('a Missouri application still gets the Missouri questions', 'reliable transportation' in pg.inner_text('#apBookSlots'))
     # the text button anywhere (the phone uses the same button) and the journey note

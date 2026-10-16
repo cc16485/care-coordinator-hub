@@ -25110,12 +25110,13 @@ async function apScreenSave(id, btn){
   }
 }
 
-/* 806 (2026-10-16): an Oklahoma Companion is asked the Oklahoma three: 18 or older, allowed to work in the U.S., and the
-   OKSCREEN fingerprint check. Driving clients and a year of experience are asked on the form but never hold anyone back. */
+/* 806 (2026-10-16): an Oklahoma Companion is asked the Oklahoma questions: 18 or older, allowed to work in the U.S., the OKSCREEN
+   fingerprint check, and (808, her rule 2026-10-16: "every employee has to be able to drive clients") driving clients.
+   A year of experience is asked on the form but never holds anyone back. */
 function apScreenAskOk(id, gap, r, box){
   if(gap === 'ineligible'){
     box.innerHTML = '<div class="field-note" style="color:var(--red);">This application answered no to a question the Companion job '
-      + 'needs (18 or older, allowed to work in the U.S., or the OKSCREEN fingerprint check), or it was closed for that reason, so an interview cannot be booked from it.</div>';
+      + 'needs (18 or older, allowed to work in the U.S., the OKSCREEN fingerprint check, or driving clients), or it was closed for that reason, so an interview cannot be booked from it.</div>';
     return;
   }
   const yn = (k, v) => '<select id="apScrOk_'+k+'" style="width:auto;min-width:96px;">'
@@ -25131,20 +25132,21 @@ function apScreenAskOk(id, gap, r, box){
     + row('Are they 18 or older?', 'age', r.age_ok)
     + row('Are they legally authorized to work in the United States?', 'auth', r.work_auth)
     + row('Will they agree to an OKSCREEN fingerprint background check?', 'oks', r.can_pass_background)
+    + row('Do they have a driver\'s license, a reliable car and auto insurance? (Every Companion drives clients.)', 'drv', r.has_transport)   /* 808: her rule 2026-10-16 */
     + '<div style="margin-top:10px;"><button class="primary" onclick="apScreenSaveOk(\''+String(id).replace(/[^a-z0-9-]/gi,'')+'\', this)">Save answers and show times</button></div>'
     + '<div id="apScrErr" class="field-note" style="display:none;color:var(--red);margin-top:6px;"></div></div>';
 }
 async function apScreenSaveOk(id, btn){
   const v = k => { const el = document.getElementById('apScrOk_'+k); return !el ? undefined : el.value === 'yes' ? true : el.value === 'no' ? false : undefined; };
   const err = document.getElementById('apScrErr');
-  const a = { age: v('age'), auth: v('auth'), oks: v('oks') };
-  if([a.age, a.auth, a.oks].some(x => x === undefined)){ err.textContent = 'Please answer every question.'; err.style.display = 'block'; return; }
+  const a = { age: v('age'), auth: v('auth'), oks: v('oks'), drv: v('drv') };
+  if([a.age, a.auth, a.oks, a.drv].some(x => x === undefined)){ err.textContent = 'Please answer every question.'; err.style.display = 'block'; return; }
   btn.disabled = true; btn.textContent = 'Saving…';
   try{
-    const { data, error } = await sb.rpc('applicant_screen_by_office_ok', { p: id, p_age_ok: a.age, p_work_auth: a.auth, p_okscreen: a.oks });
+    const { data, error } = await sb.rpc('applicant_screen_by_office_ok', { p: id, p_age_ok: a.age, p_work_auth: a.auth, p_okscreen: a.oks, p_drives: a.drv });
     if(error) throw error;
     const r = AP_ROWS.find(x=>String(x.id)===String(id));
-    if(r){ r.age_ok = a.age; r.work_auth = a.auth; r.can_pass_background = a.oks; }
+    if(r){ r.age_ok = a.age; r.work_auth = a.auth; r.can_pass_background = a.oks; r.has_transport = a.drv; }
     if(data){ await apScreenAsk(id, data); return; }
     apBookFor(id);
   }catch(e){
