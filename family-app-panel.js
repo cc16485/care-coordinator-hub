@@ -139,7 +139,7 @@
       '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;"><b>' + e(b.client_name || 'Client') + ' · ' + e(day(b.visit_date)) + ', ' + when + '</b>' +
       '<span style="font-weight:700;color:' + s[1] + ';">' + e(s[0]) + (b.caregiver_name ? ': ' + e(b.caregiver_name) : '') + '</span></div>' +
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
-        (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone she knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
+        (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone the client knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
       offersLine(b) +
       (b.note ? '<div style="margin-top:4px;font-size:13px;">Note: ' + e(b.note) + '</div>' : '') +
       (b.error && b.status !== 'placed' ? '<div style="margin-top:4px;font-size:12.5px;color:#b91c1c;">' + e(b.error) + '</div>' : '') +
