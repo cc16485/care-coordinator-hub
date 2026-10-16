@@ -101,6 +101,21 @@
     received: ['Saving', '#B45309'], needs_office: ['Needs the office', '#b91c1c'], practice: ['Practice (not on the schedule)', '#6b7280'],
     waiting_for_caregiver: ['On the schedule, needs a caregiver', '#B45309'], placed: ['Caregiver placed', 'var(--green,#15803d)'], cancelled: ['Cancelled', '#6b7280']
   }
+  // Flexible bookings (her yes 2026-10-16): no start until a caregiver takes it, so they are not on AxisCare while waiting.
+  var flexWaiting = function (b) { return b.kind === 'flex' && !b.start_time }
+  function m2(t) { var p = String(t || '').split(':'); return Number(p[0]) * 60 + Number(p[1]) }
+  function hm(n) { return String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0') }
+  function startOptions(b) {
+    var out = ''
+    for (var m = m2(b.window_start); m + Number(b.hours) * 60 <= m2(b.window_end); m += 30) out += '<option value="' + hm(m) + '">' + e(t12(hm(m))) + '</option>'
+    return out
+  }
+  var OFFER_WORD = { sent: 'asked, no answer yet', yes: 'said yes', no: 'said no', taken: 'too late', closed: 'closed', failed: 'text did not go' }
+  function offersLine(b) {
+    var os = b.family_offers || []
+    if (!os.length) return ''
+    return '<div class="field-note" style="margin-top:4px;">Offered: ' + os.map(function (o) { return e(o.caregiver_name || '?') + ' (' + e(OFFER_WORD[o.state] || o.state) + (o.picked_start ? ', ' + e(t12(o.picked_start)) : '') + ')' }).join(' · ') + '</div>'
+  }
   function caregiverOptions() {
     var list = ((window.DATA && window.DATA.caregivers) || []).filter(function (g) { return g && g.axiscare_id && g.active !== false })
     list.sort(function (a, b) { return String(a.first || '').localeCompare(String(b.first || '')) })
@@ -108,19 +123,24 @@
     return list.filter(function (g) { var k = String(g.axiscare_id); if (seen[k]) return false; seen[k] = 1; return true })
       .map(function (g) { return '<option value="' + e(g.axiscare_id) + '">' + e([g.first, g.last].filter(Boolean).join(' ')) + '</option>' }).join('')
   }
+  function cgName(id) { var g = ((window.DATA && window.DATA.caregivers) || []).find(function (x) { return String(x.axiscare_id) === String(id) }); return g ? e([g.first, g.last].filter(Boolean).join(' ')) : 'caregiver ' + e(id) }
   function bookingCard(b, today) {
-    var s = STATUS[b.status] || [b.status, '#6b7280']
+    var s = flexWaiting(b) && b.status === 'waiting_for_caregiver' ? ['Needs a caregiver (not on AxisCare until placed)', '#B45309'] : (STATUS[b.status] || [b.status, '#6b7280'])
     var acts = ''
     if (['needs_office', 'practice', 'received'].indexOf(b.status) >= 0 && !b.axiscare_visit_id && b.visit_date >= today)
       acts = '<button class="btn btn-primary btn-sm" onclick="FAMAPP.schedule(\'' + e(b.id) + '\', this)">Put it on the AxisCare schedule</button>'
-    if (b.status === 'waiting_for_caregiver')
+    if (b.status === 'waiting_for_caregiver' || (b.status === 'needs_office' && (flexWaiting(b) || b.axiscare_visit_id)))
       acts = '<select id="famcg-' + e(b.id) + '" style="max-width:220px;"><option value="">Pick a caregiver…</option>' + caregiverOptions() + '</select> ' +
-        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">Place on this visit</button>'
+        (flexWaiting(b) ? '<select id="famst-' + e(b.id) + '" style="max-width:160px;"><option value="">Start time…</option>' + startOptions(b) + '</select> ' : '') +
+        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">' + (flexWaiting(b) ? 'Place and put on AxisCare' : 'Place on this visit') + '</button>'
+    var when = flexWaiting(b) ? 'flexible, ' + e(Number(b.hours)) + ' hours anytime ' + e(t12(b.window_start)) + ' to ' + e(t12(b.window_end)) : e(t12(b.start_time)) + ' to ' + e(t12(b.end_time))
+    var picks = (b.preferred_caregiver_ids || []).length ? ' · asked for ' + (b.preferred_caregiver_ids || []).map(cgName).join(', ') + ' first' : (b.who === 'any' ? ' · whoever is available' : '')
     return '<div class="card" style="padding:12px 14px;margin-bottom:8px;" id="famb-' + e(b.id) + '">' +
-      '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;"><b>' + e(b.client_name || 'Client') + ' · ' + e(day(b.visit_date)) + ', ' + e(t12(b.start_time)) + ' to ' + e(t12(b.end_time)) + '</b>' +
+      '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;"><b>' + e(b.client_name || 'Client') + ' · ' + e(day(b.visit_date)) + ', ' + when + '</b>' +
       '<span style="font-weight:700;color:' + s[1] + ';">' + e(s[0]) + (b.caregiver_name ? ': ' + e(b.caregiver_name) : '') + '</span></div>' +
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
-        (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone she knows' : '') + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
+        (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone she knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
+      offersLine(b) +
       (b.note ? '<div style="margin-top:4px;font-size:13px;">Note: ' + e(b.note) + '</div>' : '') +
       (b.error && b.status !== 'placed' ? '<div style="margin-top:4px;font-size:12.5px;color:#b91c1c;">' + e(b.error) + '</div>' : '') +
       (acts ? '<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' + acts + '</div>' : '') +
@@ -133,7 +153,8 @@
     return '<div class="card" style="padding:12px 14px;margin-bottom:12px;background:' + (live ? '#fff' : '#FBF0DD') + ';">' +
       '<b>' + (live ? 'Live: family bookings go on the AxisCare schedule.' : 'Practice mode: family bookings are recorded here but NOT put on the AxisCare schedule.') + '</b>' +
       '<div class="field-note" style="margin-top:4px;">App address: <a href="https://family.mo-care.com" target="_blank" rel="noopener">family.mo-care.com</a> · ' +
-      'Missouri: service ' + svc('MO') + ', rate ' + rate('MO') + ' · Oklahoma: service ' + svc('OK') + ', rate ' + rate('OK') + '. Ask Claude to change these.</div></div>'
+      'Missouri: service ' + svc('MO') + ', rate ' + rate('MO') + ' · Oklahoma: service ' + svc('OK') + ', rate ' + rate('OK') + '. Ask Claude to change these.</div>' +
+      '<div class="field-note" style="margin-top:4px;">' + (o.family_offer_live === true ? 'Caregivers are offered each booking by text: the family\'s picks first, then the team, first yes goes on the schedule. You get a card if nobody has said yes 24 hours before, or everyone has been asked.' : 'Caregiver offers are off (Owners Hub Admin page): place each booking yourself.') + '</div></div>'
   }
   function render() {
     var box = document.getElementById('famBookings'); if (!box) return Promise.resolve()
@@ -161,10 +182,11 @@
     return call({ action: 'schedule', booking_id: id }).then(render).catch(function (err) { b.disabled = false; b.textContent = 'Put it on the AxisCare schedule'; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   function place(id, b) {
-    var sel = document.getElementById('famcg-' + id), cg = sel && sel.value
+    var sel = document.getElementById('famcg-' + id), cg = sel && sel.value, ss = document.getElementById('famst-' + id), label = b.textContent
     if (!cg) { rowMsg(id, '<span style="color:#b91c1c;">Pick a caregiver first.</span>'); return Promise.resolve() }
+    if (ss && !ss.value) { rowMsg(id, '<span style="color:#b91c1c;">Pick the start time inside the family\'s window.</span>'); return Promise.resolve() }
     b.disabled = true; b.textContent = 'Placing…'
-    return call({ action: 'place', booking_id: id, caregiver_axiscare_id: cg }).then(render).catch(function (err) { b.disabled = false; b.textContent = 'Place on this visit'; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
+    return call({ action: 'place', booking_id: id, caregiver_axiscare_id: cg, start: ss ? ss.value : undefined }).then(render).catch(function (err) { b.disabled = false; b.textContent = label; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   window.updateFamBadge = function (n) { var b = document.getElementById('famPillBadge'); if (!b) return; b.textContent = n; b.style.display = n ? '' : 'none' }
   window.FAMAPP = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place }
