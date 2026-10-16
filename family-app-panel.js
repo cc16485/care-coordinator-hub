@@ -172,9 +172,56 @@
         (other.length ? '<details style="margin-top:12px;"><summary>Practice, cancelled and past (' + other.length + ')</summary>' + other.map(function (b) { return bookingCard(b, today) }).join('') + '</details>' : '') +
         '<h3 style="margin:16px 0 6px;">Families using the app (' + on.length + ')</h3>' +
         (on.length ? '<div class="field-note">' + on.map(function (m) { return e(m.name) + ' for ' + e(m.client_name || '?') + (m.can_book ? '' : ' (view only)') }).join(' · ') + '</div>'
-                   : '<div class="field-note">Nobody yet. Invite someone from the Care circle card on a client\'s profile.</div>')
+                   : '<div class="field-note">Nobody yet. Invite someone from the Care circle card on a client\'s profile.</div>') +
+        plansBox(d.plans || []) + '<div id="famFee" style="margin-top:14px;"></div>'
+      fee()
       if (window.updateFamBadge) window.updateFamBadge(open.length)
     }).catch(function (err) { box.innerHTML = '<div class="field-note" style="color:#b91c1c;">' + e(err.message) + '</div>' })
+  }
+  // ── App fee check (her yes 2026-10-16): free any month with a visit, $15 for a month with none, the join month free ──
+  function plansBox(ps) {
+    if (!ps.length) return ''
+    return '<h3 style="margin:16px 0 6px;">App plan clients</h3><div class="field-note" style="margin-bottom:6px;">Ticked clients are on the app plan: no weekly minimum, and the app fee for a month with no visits. Set-shift clients who only add extra visits can be unticked.</div>' +
+      ps.map(function (k) {
+        return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:3px 0;font-size:13px;"><b>' + e(k.client_name || 'Client') + '</b>' +
+          '<span class="field-note">' + (k.app_plan ? 'App plan since ' + e(k.app_plan_since || '?') : 'not on the app plan') + '</span>' +
+          '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.plan(\'' + e(k.id) + '\',' + (!k.app_plan) + ', this)">' + (k.app_plan ? 'Take off the app plan' : 'Put on the app plan') + '</button></div>'
+      }).join('')
+  }
+  var FEE_WORD = { fee: ['No visits: add the app fee', '#b91c1c'], free: ['Had a visit: free', 'var(--green,#15803d)'], joined: ['Joined this month: free', '#6b7280'], couldnt_check: ['AxisCare couldn\'t be checked: press Check again', '#B45309'] }
+  function lastMonthKey() { var d = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) + 'T12:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) }
+  function feeView(month, rows, note) {
+    var box = document.getElementById('famFee'); if (!box) return
+    var owe = rows.filter(function (r) { return r.result === 'fee' }), left = owe.filter(function (r) { return !r.billed_at })
+    box.innerHTML = '<h3 style="margin:0 0 6px;">App fee check</h3>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px;"><input type="month" id="famFeeMonth" value="' + e(month) + '" style="max-width:170px;"> ' +
+      '<button class="btn btn-primary btn-sm" onclick="FAMAPP.feeCheck(this)">Check now</button><span class="field-note">Runs by itself on the 1st of each month for the month before.</span></div>' +
+      (note ? '<div class="field-note" style="color:#b91c1c;">' + e(note) + '</div>' : '') +
+      (rows.length ? '<div class="field-note" style="margin-bottom:4px;">' + owe.length + ' to bill' + (owe.length ? ', ' + left.length + ' not added yet' : '') + '. Add the fee on the client\'s AxisCare invoice, then tick it here.</div>' +
+        rows.map(function (r) {
+          var w = FEE_WORD[r.result] || [r.result, '#6b7280']
+          return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:3px 0;font-size:13px;"><b>' + e(r.client_name || r.axiscare_client_id) + '</b>' +
+            '<span style="font-weight:700;color:' + w[1] + ';">' + e(w[0]) + (r.result === 'fee' ? ' ($' + e(Number(r.fee)) + ')' : '') + '</span>' +
+            (r.result === 'fee' ? '<label style="display:flex;gap:4px;align-items:center;"><input type="checkbox"' + (r.billed_at ? ' checked' : '') + ' onchange="FAMAPP.feeBilled(\'' + e(r.month) + '\',\'' + e(r.axiscare_client_id) + '\', this)"> Added to the AxisCare invoice</label>' +
+              (r.billed_at ? '<span class="field-note">' + e(r.billed_by || '') + ', ' + e(String(r.billed_at).slice(0, 10)) + '</span>' : '') : '') + '</div>'
+        }).join('') : '<div class="field-note">Not checked yet for this month. Press Check now.</div>')
+  }
+  function fee(month) {
+    month = month || lastMonthKey()
+    return call({ action: 'fee_list', month: month }).then(function (d) { feeView(month, d.rows || []) }).catch(function (err) { feeView(month, [], err.message) })
+  }
+  function feeCheck(b) {
+    var m = (document.getElementById('famFeeMonth') || {}).value || lastMonthKey()
+    b.disabled = true; b.textContent = 'Checking AxisCare…'
+    return call({ action: 'fee_check', month: m }).then(function (d) { feeView(m, d.rows || []) }).catch(function (err) { feeView(m, [], err.message) })
+  }
+  function feeBilled(month, cid, box) {
+    var on = box.checked; box.disabled = true
+    return call({ action: 'fee_billed', month: month, axiscare_client_id: cid, on: on }).then(function () { return fee(month) }).catch(function (err) { box.checked = !on; box.disabled = false; alert(err.message) })
+  }
+  function plan(circleId, on, b) {
+    b.disabled = true
+    return call({ action: 'app_plan', circle_id: circleId, on: on }).then(render).catch(function (err) { b.disabled = false; alert(err.message) })
   }
   function rowMsg(id, html) { var c = document.getElementById('famb-' + id); var m = c && c.querySelector('.fam-msg'); if (m) m.innerHTML = html }
   function schedule(id, b) {
@@ -189,5 +236,5 @@
     return call({ action: 'place', booking_id: id, caregiver_axiscare_id: cg, start: ss ? ss.value : undefined }).then(render).catch(function (err) { b.disabled = false; b.textContent = label; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   window.updateFamBadge = function (n) { var b = document.getElementById('famPillBadge'); if (!b) return; b.textContent = n; b.style.display = n ? '' : 'none' }
-  window.FAMAPP = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place }
+  window.FAMAPP = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()
