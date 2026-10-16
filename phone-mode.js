@@ -278,7 +278,8 @@
       (async function () { var c = await cgdCensus(); FIND.cg = (c && c.caregivers) || []; })().catch(function (e) { FIND.err.cg = e && e.message || String(e); FIND.cg = []; }),
       (async function () { FIND.cl = (await cl360Identity()) || []; })().catch(function (e) { FIND.err.cl = e && e.message || String(e); FIND.cl = []; }),
       (async function () {
-        var a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,status,screen_grade,position,created_at,city').order('created_at', { ascending: false }).limit(2000);
+        var a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,status,screen_grade,position,created_at,city,office').order('created_at', { ascending: false }).limit(2000);
+        if (window.OKO && a && a.data) OKO.remember(a.data);   /* 806 */
         if (a.error) throw a.error;
         FIND.ap = (a.data || []).filter(function (r) { return r.status !== 'hired'; });
         var b = await sb.from('interview_bookings').select('applicant_id,starts_at,status,coordinator_id').eq('status', 'booked').gte('starts_at', new Date().toISOString());
@@ -384,7 +385,7 @@
     if (p.type === 'ap') {
       var a = p.a, bk = FIND.book[a.id], pos = '';
       try { pos = typeof apPosLabel === 'function' ? apPosLabel(a.position) : ''; } catch (e) { /* no label */ }
-      dl = row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
+      dl = row('Office', window.OKO ? OKO.chip(a) : '') + row('Applied for', esc(pos || a.position || 'Caregiver')) + row('Where they are', esc(AP_WORDS[a.status] || a.status || ''))
         + row('Interview', esc(bk ? when(bk.starts_at) + (FIND.coord[bk.coordinator_id] ? ' with ' + first(FIND.coord[bk.coordinator_id]) : '') : 'None booked'))
         + row('Phone', esc(pretty(a.phone))) + row('Lives in', esc(a.city || '')) + row('Applied', esc(day(a.created_at)));
       btns = '<button class="ph-b p" data-ivopen="' + esc(a.id) + '">Interview them</button>'
@@ -566,7 +567,8 @@
           .gte('starts_at', new Date(midUtc - 864e5).toISOString()).lt('starts_at', new Date(midUtc + 2 * 864e5).toISOString()).order('starts_at');
         if (b.error) throw b.error;
         var ids = (b.data || []).map(function (x) { return x.applicant_id; }).filter(Boolean);
-        var a = ids.length ? await sb.from('job_applicants').select('id,first_name,last_name,phone,email').in('id', ids) : { data: [] };
+        var a = ids.length ? await sb.from('job_applicants').select('id,first_name,last_name,phone,email,office').in('id', ids) : { data: [] };
+        if (window.OKO && a && a.data) OKO.remember(a.data);   /* 806 */
         if (a.error) throw a.error;
         var byId = {}; (a.data || []).forEach(function (x) { byId[x.id] = x; });
         btInterviewsOn(day, b.data || [], a.data || [], btAfternoonRule(DATA.ops_settings)).forEach(function (r) {
