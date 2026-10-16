@@ -13,8 +13,8 @@ def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:7
 # ── index.html wiring ──────────────────────────────────────────────────────────────────────────────────────────────────
 ck('index: panel loaded after the caregiver panel', re.search(r'caregiver-profile-panel\.js[^\n]*\n<script src="family-app-panel\.js\?v=', HTML))
 ck('index: Family bookings pill, panel and badge', 'data-tab="familybookings"' in HTML and 'id="tab-familybookings"' in HTML and 'id="famBookings"' in HTML and 'id="famPillBadge"' in HTML)
-ck('index: in the Scheduling group, titled, rendered on open', "'evv','familybookings','carematch'" in HTML and "familybookings:'Family bookings'" in HTML and "activeTab==='familybookings' && window.FAM) FAM.render()" in HTML)
-ck('index: the Care circle card shows the app line and can reload itself', "FAM.circleLine(m, px)" in HTML and "FAM.register(px, cl360CircleLoad)" in HTML and "await cl360CircleLoad();" in HTML)
+ck('index: in the Scheduling group, titled, rendered on open', "'evv','familybookings','carematch'" in HTML and "familybookings:'Family bookings'" in HTML and "activeTab==='familybookings' && window.FAMAPP) FAMAPP.render()" in HTML)
+ck('index: the Care circle card shows the app line and can reload itself', "FAMAPP.circleLine(m, px)" in HTML and "FAMAPP.register(px, cl360CircleLoad)" in HTML and "await cl360CircleLoad();" in HTML)
 tmp = tempfile.mkdtemp(prefix='fam1c-')
 scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', HTML, re.S)
 bad = []
@@ -25,6 +25,7 @@ for i, sc in enumerate(scripts):
     if p.returncode != 0: bad.append((i, p.stderr[-300:]))
 ck(f'index: all {len(scripts)} inline scripts still parse', not bad, bad)
 ck('no em dashes in the panel', '—' not in PANEL)
+ck('the panel never uses the bare name FAM (the Hub has const FAM, a cache)', not re.search(r'(?<![\w.])FAM\s*[.(=\[]', PANEL) and not re.search(r'(?<![\w.])FAM\.(circleLine|register|render|act|welcome)', HTML))
 
 PAGE = """<!doctype html><meta charset=utf-8><body>
 <div class="fsubbar"><div class="fpill">Family bookings<span id="famPillBadge" style="display:none"></span></div></div>
@@ -54,10 +55,11 @@ window.callAction = async (fn, body) => {
   if (a === 'place') { const b = B.find(x => x.id === body.booking_id); b.status = 'placed'; b.caregiver_name = 'Maria L.'; return { status: 200, data: { ok: true } } }
   return { status: 400, data: { error: 'unknown' } };
 };
-window.drawCircle = async () => { document.getElementById('cp_cl360Circle').innerHTML = Object.values(M).map(m => '<div><b>' + m.name + '</b>' + FAM.circleLine(m, 'cp_') + '</div>').join('') };
+window.drawCircle = async () => { document.getElementById('cp_cl360Circle').innerHTML = Object.values(M).map(m => '<div><b>' + m.name + '</b>' + FAMAPP.circleLine(m, 'cp_') + '</div>').join('') };
 </script>
+<script>const FAM={ cache:{} };  /* the Hub's own FAM (index.html), kept here so a name clash shows up in this test */</script>
 <script>__PANEL__</script>
-<script>FAM.register('cp_', window.drawCircle); drawCircle();</script>
+<script>FAMAPP.register('cp_', window.drawCircle); drawCircle();</script>
 """
 page = os.path.join(tmp, 'page.html'); open(page, 'w').write(PAGE.replace('__PANEL__', PANEL))
 with sync_playwright() as p:
@@ -89,7 +91,7 @@ with sync_playwright() as p:
     pg.evaluate("window.__axisOn=false"); pg.click('#fam-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famwel-cp_-11')
     ck('email not on AxisCare: warned, AxisCare part off by default', "isn't on their AxisCare record" in t and not pg.is_checked('#famwax-cp_-11'), t)
-    pg.evaluate('FAM.render()'); pg.wait_for_timeout(80)
+    pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famBookings')
     ck('bookings: practice mode said plainly, settings shown', 'Practice mode' in t and 'NOT put on the AxisCare schedule' in t and 'service PP - WC' in t and 'rate not set' in t, t)
     ck('bookings: needs-you count 2, placed 1, cancelled tucked away, badge 2', 'Needs you (2)' in t and 'Coming up, caregiver placed (1)' in t and 'Practice, cancelled and past (1)' in t and pg.inner_text('#famPillBadge') == '2', t)

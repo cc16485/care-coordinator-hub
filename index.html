@@ -7324,7 +7324,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261015b"></script>
+<script src="family-app-panel.js?v=20261015c"></script>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
@@ -8692,7 +8692,7 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='liveschedule') lsRender();
-  if(activeTab==='familybookings' && window.FAM) FAM.render();
+  if(activeTab==='familybookings' && window.FAMAPP) FAMAPP.render();
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
@@ -40015,11 +40015,11 @@ async function cl360RenderInto(r, out, px, panes){
           + (m.can_make_medical_decisions ? ' · <b>medical decisions ok</b>' : (m.decision_maker ? ' · <b>decision maker</b>' : ''))
           + (m.hipaa_authorized ? ' · HIPAA ok' : '')
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
-          + (window.FAM ? FAM.circleLine(m, px) : '')
+          + (window.FAMAPP ? FAMAPP.circleLine(m, px) : '')
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
   }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; } };
-  if(window.FAM) FAM.register(px, cl360CircleLoad);
+  if(window.FAMAPP) FAMAPP.register(px, cl360CircleLoad);
   await cl360CircleLoad();
 }
 /* ===================== STEP 4 · "Their start" on the client profile =====================
