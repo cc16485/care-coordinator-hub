@@ -1237,6 +1237,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
     <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
+    <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
          scheduled like any other visit. The badge keeps its gb-nursing id so
@@ -5025,6 +5026,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
      Same records, same shared storage — the Staffing hub copy still works. -->
+<section class="tabpanel" id="tab-familybookings">
+<!-- 2026-10-15 (booking plan Step 1c): visits families booked in the family app (family.mo-care.com). family-app-panel.js draws it. -->
+<div class="card" style="padding:14px 16px;margin-bottom:12px;"><h2 style="margin:0 0 4px;">Family bookings</h2>
+<div class="field-note">Extra visits families booked themselves in the family app. Each one needs a caregiver placed here. Their regular weekly visits are set up as usual in AxisCare.</div></div>
+<div id="famBookings"></div>
+</section>
 <section class="tabpanel" id="tab-carematch">
 <details class="guide">
 <summary>📋 How This Tab Works — Care Match Check-in Calls ▼</summary>
@@ -7317,6 +7324,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
+<script src="family-app-panel.js?v=20261015a"></script>
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
@@ -8022,7 +8030,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8430,7 +8438,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Playbook',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -8684,6 +8692,7 @@ function renderActiveTab(){
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
   if(activeTab==='liveschedule') lsRender();
+  if(activeTab==='familybookings' && window.FAM) FAM.render();
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='clientqueue') cqRender();
@@ -39989,8 +39998,8 @@ async function cl360RenderInto(r, out, px, panes){
       +(differs?'<div style="font-size:12px;color:#92400E;">The last review found Level '+rv.care_level+'. <button class="linklike" style="font-size:12px;" onclick="ccLevelSet(\''+esc(axisId)+'\','+(+rv.care_level)+',\''+esc(String(name).replace(/'/g,''))+'\')">Update AxisCare\'s care level</button></div>':'');
   })();
 
-  /* circle loads after paint; its tables are not in the DATA blob */
-  try{
+  /* circle loads after paint; its tables are not in the DATA blob. 2026-10-15: a function, so the family app line can reload it. */
+  const cl360CircleLoad = async () => { try{
     const c = await sb.from('care_circles').select('*').eq('active', true);
     /* Change 6a: the client's circle is the one linked to their AxisCare id, never a first-name match */
     const axc = String((r&&r.axiscare_client_id)||'').trim();
@@ -40006,9 +40015,12 @@ async function cl360RenderInto(r, out, px, panes){
           + (m.can_make_medical_decisions ? ' · <b>medical decisions ok</b>' : (m.decision_maker ? ' · <b>decision maker</b>' : ''))
           + (m.hipaa_authorized ? ' · HIPAA ok' : '')
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
+          + (window.FAM ? FAM.circleLine(m, px) : '')
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
-  }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; }
+  }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; } };
+  if(window.FAM) FAM.register(px, cl360CircleLoad);
+  await cl360CircleLoad();
 }
 /* ===================== STEP 4 · "Their start" on the client profile =====================
    (2026-09-26.) The same Journey the lead profile and New Clients show, as
