@@ -75,7 +75,11 @@ function draw(err) {
       : '<div class="info">You are already working at every start time in this window, so we can\'t put you on this one.</div>')
     : (v.choices.length ? '' : '<div class="info">You are already working then, so we can\'t put you on this one.</div>')
   const can = v.choices.length && (!flex || PICK)
-  shell('<div class="sub">Hi ' + esc(v.first_name || 'there') + '! A family booked an extra visit. Can you take it?</div>' +
+  const choose = v.mode === 'choose'   // Let me choose (her yes 2026-10-16): a yes is interest; the family picks
+  if (choose && v.answer === 'interested') return shell('<div class="ok">You\'ve said you\'re interested' + (v.picked ? ' (starting ' + esc(t12(v.picked)) + ')' : '') + '. The family is choosing, and we\'ll text you if they pick you. You\'re not on the schedule unless they do.</div>' +
+    (err ? '<div class="err">' + esc(err) + '</div>' : '') +
+    '<button class="big no" id="withdraw"' + (BUSY ? ' disabled' : '') + '>I can\'t do it after all</button><p class="note">Questions? Call the office at ' + PHONE + '.</p>')
+  shell('<div class="sub">Hi ' + esc(v.first_name || 'there') + '! ' + (choose ? 'A family is choosing a caregiver for an extra visit. Interested?' : 'A family booked an extra visit. Can you take it?') + '</div>' +
     '<div class="card">' +
       '<div class="row"><span>Who</span><b>' + esc(v.client) + (v.town ? ', ' + esc(v.town) : '') + '</b></div>' +
       '<div class="row"><span>When</span><b>' + esc(v.day) + '<br>' + esc(when) + '</b></div>' +
@@ -83,22 +87,31 @@ function draw(err) {
       (v.note ? '<div class="row"><span>The family says</span><b>' + esc(v.note) + '</b></div>' : '') +
     '</div>' + times +
     (err ? '<div class="err">' + esc(err) + '</div>' : '') +
-    '<button class="big yes" id="yes"' + (can && !BUSY ? '' : ' disabled') + '>' + (BUSY ? 'Saving…' : flex && PICK ? 'Yes, I\'ll start at ' + t12(PICK) : 'Yes, I can take it') + '</button>' +
+    '<button class="big yes" id="yes"' + (can && !BUSY ? '' : ' disabled') + '>' + (BUSY ? 'Saving…' : choose ? (flex && PICK ? 'I\'m interested, starting at ' + t12(PICK) : 'I\'m interested') : flex && PICK ? 'Yes, I\'ll start at ' + t12(PICK) : 'Yes, I can take it') + '</button>' +
     '<button class="big no" id="no"' + (BUSY ? ' disabled' : '') + '>No thanks</button>' +
-    '<p class="note">The first yes gets the visit, and it goes straight on your AxisCare schedule. The address is in AxisCare once you have it.</p>')
+    '<p class="note">' + (choose ? 'The family sees your profile and picks. If they pick you, it goes on your AxisCare schedule and we text you. The address is in AxisCare once you have it.' : 'The first yes gets the visit, and it goes straight on your AxisCare schedule. The address is in AxisCare once you have it.') + '</p>')
 }
 async function answer(yes) {
   BUSY = true; draw()
   const r = await call({ action: 'answer', yes, start: PICK || undefined })
   BUSY = false
   if (r.error) return draw(r.error)
+  if (r.interested) { V = Object.assign({}, V, { answer: 'interested', picked: PICK || V.start }); return draw() }
   done(r.message || 'Thank you!', r.ok && (r.placed || !yes) ? 'ok' : 'info')
+}
+async function withdraw() {
+  BUSY = true; draw()
+  const r = await call({ action: 'withdraw' })
+  BUSY = false
+  if (r.error) return draw(r.error)
+  done(r.message || 'Got it. Thank you!', 'info')
 }
 document.addEventListener('click', (ev) => {
   const b = ev.target.closest('button'); if (!b || BUSY) return
   if (b.dataset.pick) { PICK = b.dataset.pick; return draw() }
   if (b.id === 'yes') return answer(true)
   if (b.id === 'no') return answer(false)
+  if (b.id === 'withdraw') return withdraw()
 })
 ;(async () => {
   if (!LINK.o || !LINK.e || !LINK.t) return done('This link is not complete. Please open it from the text again, or call the office at ' + PHONE + '.', 'info')
