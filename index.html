@@ -278,7 +278,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=16"></script><script src="applicant-text.js?v=3"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=16"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -7326,7 +7326,7 @@ The HomeTogether team</pre>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
 <script src="family-app-panel.js?v=20261015c"></script>
-<script src="office-ok.js?v=20261016a"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
+<script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
 <script src="evv-forms.js?v=429"></script>
@@ -22865,7 +22865,7 @@ function apChips(r){
   if(r.age_ok===false) out.push(chip('Under 18','bad'));
   if(r.work_auth===false) out.push(chip('Not authorized to work','bad'));
   if(r.has_transport===false && !(window.OKO && OKO.isOk(r))) out.push(chip('No transport','bad'));   // 806: Oklahoma asks about driving clients, the screen flags it
-  if(window.OKO && OKO.isOk(r)) out.push(chip('Messages held for Oklahoma','warn'));
+  if(window.OKO && OKO.isHeld(r)) out.push(chip('Messages held for Oklahoma','warn'));   // 808: until the office switch is on
   if(r.one_year==='no') out.push(chip('Under 1 year of paid experience','bad'));
   if(r.one_year==='family') out.push(chip('Family caregiving: verify','warn'));
   if(r.one_year==='family_ok') out.push(chip('Family caregiving verified','good'));
@@ -22993,7 +22993,7 @@ function apRender(){
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+apPosOpt(p)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(r.phone,{email:r.email})+'>📞 Call</a>':'')
-        + (window.OKO && OKO.isOk(r) ? OKO.heldNote(r)                            /* 806: Oklahoma messages are off */
+        + (window.OKO && OKO.isHeld(r) ? OKO.heldNote(r)                          /* 806/808: Oklahoma office messages are off */
            : window.ApText && r.phone ? ApText.btn(r.id) + ApText.slot(r.id) : '')   /* 574: text them from here */
         + (r.status!=='declined'
             ? (b && b.status==='booked'
@@ -24367,9 +24367,9 @@ function apRenderProfile(){
   const link = (on, label, red) => '<button type="button" class="pp-link"' + (red ? ' style="color:var(--red);"' : '') + ' onclick="' + on + '">' + label + '</button>';
   const links = []
     .concat(r.phone ? ['<a class="pp-link"'+ocAttrs(r.phone,{email:r.email})+'>Call ' + esc(r.phone) + '</a>'] : [])
-    .concat(window.OKO && OKO.isOk(r) ? [OKO.heldNote(r)]                     // 806: Oklahoma messages are off
+    .concat(window.OKO && OKO.isHeld(r) ? [OKO.heldNote(r)]                   // 806/808: Oklahoma office messages are off
             : window.ApText && r.phone ? [ApText.btn(r.id) + ApText.slot(r.id)] : [])
-    .concat(r.email && !(window.OKO && OKO.isOk(r)) ? ['<a class="pp-link" href="mailto:'+esc(r.email)+'">Email</a>'] : [])
+    .concat(r.email && !(window.OKO && OKO.isHeld(r)) ? ['<a class="pp-link" href="mailto:'+esc(r.email)+'">Email</a>'] : [])
     .concat(!b && !offered && !['declined','pool','left'].includes(r.status) && !/apBookFor/.test(nx[3]) ? [link("apBookFor('"+id+"')", 'Book a time')] : [])
     .concat(b && b.status==='booked' && r.status!=='declined' && !/apBookFor/.test(nx[3]) ? [link("apBookFor('"+id+"')", 'Move their interview')] : [])
     .concat(b && b.status==='booked' && r.status!=='declined' ? [link("apCancelBooking('"+id+"')", 'Cancel their interview', true)] : [])
@@ -25540,7 +25540,7 @@ function apNoshowPanel(r){
       + '<div style="font-size:12.5px;margin-top:4px;opacity:.95;">' + (r.noshow_msg_at ? '✓ No-show text/email sent ' + esc(day(r.noshow_msg_at)) : 'The no-show message has not gone yet.') + '</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
       + '<button class="secondary" style="background:#fff;color:#15803D;font-weight:800;" onclick="apNoshowExcuse(\''+esc(r.id)+'\')">✅ Excuse no-show &amp; rebook</button>'
-      + (!r.noshow_msg_at && !(window.OKO && OKO.isOk(r)) ? '<button class="secondary" style="background:#fff;color:#B91C1C;" onclick="apNoshowSend(\''+esc(r.id)+'\',this)">Send the no-show message</button>' : '')
+      + (!r.noshow_msg_at && !(window.OKO && OKO.isHeld(r)) ? '<button class="secondary" style="background:#fff;color:#B91C1C;" onclick="apNoshowSend(\''+esc(r.id)+'\',this)">Send the no-show message</button>' : '')
       + '</div></div>';
   }
   if(r.noshow_excused_at){
@@ -25609,7 +25609,7 @@ async function apNoshowMark(id, btn){
   if(!r){ await apAsk({ title: 'Could not find this application', text: 'Refresh the page and open their interview again. Nothing was recorded.' }); return; }
   if(btn) btn.disabled = true;
   try{
-    const okHeld = !!(window.OKO && OKO.isOk(r));   // 806: nothing goes to an Oklahoma applicant
+    const okHeld = !!(window.OKO && OKO.isHeld(r));   // 806/808: nothing goes while the Oklahoma office switch is off
     const p = okHeld ? {} : await apNoshowCall({ action:'preview', id });
     const who = ((r.first_name||'')+' '+(r.last_name||'')).trim() || 'this applicant';
     const goes = okHeld ? 'no message (Oklahoma messages are off)' : [p.text ? 'a TEXT' : '', p.email ? 'an EMAIL' : ''].filter(Boolean).join(' and ') || 'no message (no usable phone or email)';
@@ -25676,7 +25676,7 @@ const apDecisionEmailText = html => String(html||'').replace(/<br\s*\/?>/gi,'\n'
 /* After they are marked (or from the "Send the message" button): show the message, send only on OK. */
 async function apDecisionOffer(id, kind){
   const r = AP_ROWS.find(x=>String(x.id)===String(id));
-  if(window.OKO && OKO.isOk(r)) return;   // 806: they are marked; Oklahoma messages are off, so nothing is offered to send
+  if(window.OKO && OKO.isHeld(r)) return;   // 806/808: they are marked; Oklahoma office messages are off, so nothing is offered
   const first = (r && r.first_name) || 'them', label = AP_DEC_LABEL[kind];
   let p;
   try{ p = await apDecisionCall({ action:'preview', id, kind }); }
@@ -25707,7 +25707,7 @@ async function apDecisionSkip(id){
 /* What their profile (and list card) says about the message: sent, or waiting for texting hours. */
 function apDecisionPanel(r){
   if(!r || (r.status!=='declined' && r.status!=='pool')) return '';
-  if(window.OKO && OKO.isOk(r)) return '<div style="margin-top:.5rem;">' + OKO.heldNote(r) + '</div>';   // 806
+  if(window.OKO && OKO.isHeld(r)) return '<div style="margin-top:.5rem;">' + OKO.heldNote(r) + '</div>';   // 806/808
   const esc = escapeHtmlComms, label = AP_DEC_LABEL[r.status];
   const day = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
   if(r.decision_msg_at && r.decision_msg_kind===r.status)
@@ -25741,7 +25741,8 @@ const APJ_STAGES = [
   ['references','References','i-talk'], ['background checks','Background','i-shield'], ['start paperwork','Paperwork','i-clipboard'],
   ['Orientation Video Call (remote orientation)','Orientation call','i-video'], ['orientation & training','Training','i-grad'],
   ['first shift','First shift','i-home'], ['after first shift (PRN only)','PRN','i-calendar'],
-  ['current caregivers (profile catch-up)','Current caregivers','i-eye'], ['any time (office text)','Any time','i-chat'] ];
+  ['current caregivers (profile catch-up)','Current caregivers','i-eye'], ['any time (office text)','Any time','i-chat'],
+  ['Oklahoma applicants (Companion)','Oklahoma','i-send']   /* 808 */ ];
 let APJ_CTX = null;
 /* The applicant walkthrough (2026-10-11): loaded the first time it is opened */
 /* 2026-10-13: find a real person with an offer (the same offer list the Offers tab reads) */
@@ -25854,7 +25855,8 @@ function apjRender(){
     'orientation & training':'Orientation and required training.',
     'first shift':'Getting them onto the schedule.',
     'after first shift (PRN only)':'PRN CNA Team only.',
-    'current caregivers (profile catch-up)':'Caregivers already working with us.' };
+    'current caregivers (profile catch-up)':'Caregivers already working with us.',
+    'Oklahoma applicants (Companion)':'Caring Companions Oklahoma: video interviews, from (405) 500-1758, each kind only once its Admin switch is on.' };
   const rank = st => { const i = APJ_STAGES.findIndex(s=>s[0]===st); return i < 0 ? 99 : i; };
   const toRef = x => /^To the reference/.test(x.name);
   const all = window.AP_JOURNEY.filter(x => (!onlyApplicant || !toRef(x)) && (!q || JSON.stringify(x).toLowerCase().includes(q)))
@@ -25923,10 +25925,13 @@ function apjRender(){
     + issues.map(i=>'<li style="margin-bottom:4px;">'+esc(i)+'</li>').join('') + '</ul></div>' : '';
   html += '<div class="field-note" style="margin-top:10px;">Checked against the Hub\'s code on '+esc(window.AP_JOURNEY_CHECKED||'')+'.</div>';
   /* 806 (2026-10-16): Caring Companions Oklahoma applicants (Companion) get none of these yet */
+  /* 808: Oklahoma gets only its own messages (the Oklahoma stage at the end), from the Oklahoma number, behind two Admin switches */
+  const okOps = (typeof DATA !== 'undefined' && DATA.ops_settings) || {};
+  const okSw = (k) => okOps[k] === true ? 'on' : 'off';
   html = '<div style="background:#FBF4EE;border:1px solid #EBCDBB;border-radius:10px;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#6B3216;">'
-    + '<b>Oklahoma applicants (Companion):</b> none of the messages on this page go to them yet, automatic or from a button. '
-    + 'They would come from the Missouri number with Missouri wording, so they stay held until Samantha turns Oklahoma applicant messages on. '
-    + 'The recruiter calls them from (405) 500-1758 in LeadConnector.</div>' + html;
+    + '<b>Oklahoma applicants (Companion):</b> they get only the Oklahoma messages at the end of this page (video interviews, from (405) 500-1758), never the Missouri ones. '
+    + 'Office messages are <b>' + okSw('ok_applicant_office_msgs_live') + '</b> and interview messages are <b>' + okSw('ok_applicant_auto_msgs_live') + '</b> (Owners Hub Admin page). '
+    + 'References, Step 2 and offers are not set up for Oklahoma yet.</div>' + html;
   box.innerHTML = html;
 }
 window.apjRender = apjRender; window.apjOpen = apjOpen;

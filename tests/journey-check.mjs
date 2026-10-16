@@ -29,7 +29,7 @@ const corpus = Object.values(raw).join('\n')
   .replace(/[`'"]\s*\+\s*\n?\s*[`'"]/g, '').replace(/\\n/g, ' ').replace(/\\'/g, "'").replace(/\\"/g, '"')
   .replace(/&amp;/g, '&').replace(/&mdash;/g, '\u2014').replace(/&middot;/g, '·').replace(/<\/?[a-zA-Z][^<>]{0,200}>/g, ' ').replace(/\s+/g, ' ')
 const norm = (s) => String(s).replace(/<\/?[a-zA-Z][^<>]{0,200}>/g, ' ').replace(/\s+/g, ' ').trim()
-const STRIP = /\{[^}]*\}|\[[^\]]*\]|https?:\/\/\S+|\(private:[^)]*\)|\(?417\)?[ .-]?234-8494|1331 N Stewart Ave Ste B, Springfield MO 65802|\.\./g
+const STRIP = /\{[^}]*\}|\[[^\]]*\]|https?:\/\/\S+|\(private:[^)]*\)|\(?417\)?[ .-]?234-8494|\(?405\)?[ .-]?500-1758|1331 N Stewart Ave Ste B, Springfield MO 65802|\.\./g
 /* sentences assembled from parts in the code: each part must still be there */
 const PARTS = {
   25: [['a reminder that your in-person Caring Companions orientation at our office is tomorrow', ['a reminder that ', 'your in-person Caring Companions orientation at our office', ' is tomorrow, ']]],
