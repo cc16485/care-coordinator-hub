@@ -7325,7 +7325,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261016f"></script>
+<script src="family-app-panel.js?v=20261016g"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -40086,7 +40086,7 @@ async function cl360RenderInto(r, out, px, panes){
     if(!circ){ box.innerHTML = '<div class="field-note">No Family Circle is linked to '+esc(name.split(' ')[0])+' yet. Create or link one in Family Circles.</div>'; return; }
     const p2 = await sb.from('circle_contacts').select('*').eq('circle_id', circ.id);
     const members = (p2.data||[]).filter(m=>!m.axiscare_removed_at);
-    box.innerHTML = members.length
+    box.innerHTML = (window.FAMAPP && FAMAPP.aboutBox ? FAMAPP.aboutBox(circ, px, name) : '') + (members.length
       ? members.map(m=>'<div style="font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--border);">'
           + '<b>'+esc(m.name||'(no name)')+'</b>'
           + (m.role||m.relationship ? ' · '+esc(m.role||m.relationship) : '')
@@ -40095,7 +40095,7 @@ async function cl360RenderInto(r, out, px, panes){
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
           + (window.FAMAPP ? FAMAPP.circleLine(m, px) : '')
           + '</div>').join('')
-      : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>';
+      : '<div class="field-note">Circle exists but has no people yet — add them in Family Circles.</div>');
   }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; } };
   if(window.FAMAPP) FAMAPP.register(px, cl360CircleLoad);
   await cl360CircleLoad();

@@ -236,5 +236,26 @@
     return call({ action: 'place', booking_id: id, caregiver_axiscare_id: cg, start: ss ? ss.value : undefined }).then(render).catch(function (err) { b.disabled = false; b.textContent = label; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   window.updateFamBadge = function (n) { var b = document.getElementById('famPillBadge'); if (!b) return; b.textContent = n; b.style.display = n ? '' : 'none' }
-  window.FAMAPP = { circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  /* Her rule 2026-10-16: a short "About <client>" the office writes once; caregivers see it on the visit offer link.
+     First name only, no address or medical detail. Empty = nothing shown to caregivers. */
+  function aboutBox(circ, px, clientName) {
+    if (!circ || !circ.id) return ''
+    var first = String(clientName || circ.client_name || 'this client').split(' ')[0]
+    var id = 'famabout-' + px
+    return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">' +
+      '<div style="font-weight:600;font-size:13.5px;">About ' + e(first) + ', for caregivers</div>' +
+      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit booked in the family app. First name only. No address or medical details.</div>' +
+      '<textarea id="' + id + '" maxlength="400" rows="3" style="width:100%;margin-top:6px;font:inherit;font-size:13.5px;" placeholder="For example: ' + e(first) + ' loves gardening and old movies, and enjoys a short walk when it\'s nice out.">' + e(circ.caregiver_about || '') + '</textarea>' +
+      '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.aboutSave(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">Save</button>' +
+      '<span class="field-note" id="' + id + '-msg">' + (circ.caregiver_about_at ? 'Last saved ' + e(new Date(circ.caregiver_about_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_about_by ? ' by ' + e(String(circ.caregiver_about_by).split('@')[0]) : '') : '') + '</span></div></div>'
+  }
+  function aboutSave(circleId, px, b) {
+    var ta = document.getElementById('famabout-' + px), msg = document.getElementById('famabout-' + px + '-msg')
+    if (!ta) return
+    b.disabled = true; if (msg) msg.textContent = 'Saving…'
+    return call({ action: 'about', circle_id: circleId, text: ta.value }).then(function (d) {
+      b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
+    }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
+  window.FAMAPP = { aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()
