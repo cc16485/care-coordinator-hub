@@ -45,8 +45,8 @@
   }
   function paint() { document.querySelectorAll('[data-aptext]').forEach((el) => { el.innerHTML = chip(el.getAttribute('data-aptext')); }); }
   /* the button and the chip, for any row: class 'fb' in the Hub, 'ph-b' on the phone */
-  /* 806: Oklahoma applicants get no texts from the Hub yet (they would come from the Missouri number) */
-  function btn(id, label, cls) { if (window.OKO && OKO.isOk(id)) return OKO.heldNote(id); return '<button type="button" class="' + esc(cls || 'fb') + '" onclick="event.stopPropagation();ApText.open(\'' + esc(id) + '\')">💬 ' + esc(label || 'Text') + '</button>'; }
+  /* 806/808: Oklahoma applicants get no texts from the Hub until the Oklahoma office switch is on (then from the Oklahoma number) */
+  function btn(id, label, cls) { if (window.OKO && OKO.isHeld(id)) return OKO.heldNote(id); return '<button type="button" class="' + esc(cls || 'fb') + '" onclick="event.stopPropagation();ApText.open(\'' + esc(id) + '\')">💬 ' + esc(label || 'Text') + '</button>'; }
   function slot(id) { return '<span data-aptext="' + esc(id) + '">' + chip(id) + '</span>'; }
 
   /* ── the sheet (one at a time) ─────────────────────────────────────────────────────────────────────────────── */
@@ -88,6 +88,7 @@
     const start = opts.pick ? picks.find((p) => p.key === opts.pick) : null;
     box.innerHTML = '<h3>Text ' + esc(d.name || 'applicant') + '</h3>'
       + '<div class="apt-sub">' + (d.phone ? esc(pretty(d.phone)) + ' · from the office number, so it shows in GoHighLevel' : 'No phone number on their application') + '</div>'
+      + (d.from_problem ? '<div class="apt-note apt-no">' + esc(d.from_problem) + '</div>' : d.from ? '<div class="apt-note apt-ok">Oklahoma applicant: this goes from ' + esc(d.from) + '.</div>' : '')   /* 808 */
       + (!d.can_text ? '<div class="apt-note apt-no">Can\'t text them: ' + esc(d.why_not || '') + '. Call or email instead.</div>' : '')
       + (d.can_text && d.waits ? '<div class="apt-note apt-wait">' + esc(d.waits) + '</div>' : '')
       + (d.can_text ? '<div class="apt-sub" style="margin:8px 0 0">Start from one of these, then change anything you like:</div>'

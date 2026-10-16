@@ -26,13 +26,22 @@
     r = rowOf(r); return r && r.office === 'OK' ? 'OK' : 'MO';
   };
   const isOk = (r) => office(r) === 'OK';
+  /* 808 (2026-10-16): two switches on the Owners Hub Admin page. The office's buttons (Text, not hiring / pool, no-show, the
+     cancel notice) send from the Oklahoma number once ok_applicant_office_msgs_live is on; the automatic interview messages
+     once ok_applicant_auto_msgs_live is on. Until then they stay held, as in 806. */
+  const ops = () => { try { return (typeof DATA !== 'undefined' && DATA && DATA.ops_settings) || {}; } catch (_) { return {}; } };
+  const officeOn = () => ops().ok_applicant_office_msgs_live === true;
+  const autoOn = () => ops().ok_applicant_auto_msgs_live === true;
+  const fromPhone = () => { const d = String(ops().ok_from_number || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : ''; };
+  /* an office button for this person waits (Oklahoma, and the office switch off) */
+  const isHeld = (r) => isOk(r) && !officeOn();
   const pass = (r) => !pick || office(r) === pick;
 
   function chip(r) {
     const ok = isOk(r);
     return '<span class="oko-chip ' + (ok ? 'oko-ok' : 'oko-mo') + '" title="' + (ok ? 'Caring Companions Oklahoma (Mustang)' : 'Caring Companions Missouri (Springfield)') + '">' + (ok ? 'OK' : 'MO') + '</span>';
   }
-  const HELD = 'Oklahoma messages are off. Call from ' + OK_PHONE + ' in LeadConnector.';
+  const HELD = 'Oklahoma messages are off. Call from ' + OK_PHONE + ' in LeadConnector.';   /* the office switch is off */
   /* in place of a send button (the text button, the not-hiring message, the no-show message) */
   function heldNote(r) {
     return '<span class="oko-held" title="Texts and emails from the Hub would come from the Missouri number. They stay off for Oklahoma until Samantha turns them on.">' + esc(HELD) + '</span>';
@@ -44,8 +53,12 @@
       ? '<div style="margin-top:4px;">Last held: ' + esc(r.msgs_held_note || 'a message') + ', '
         + esc(new Date(r.msgs_held_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) + '.</div>'
       : '';
+    const ph = fromPhone() || OK_PHONE;
+    const line = (on, what) => '<div style="margin-top:4px;">' + what + ': ' + (on ? '<b>on</b>, from ' + esc(ph) : 'held (off on the Admin page)') + '</div>';
     return '<div class="oko-box"><b>Caring Companions Oklahoma applicant</b>'
-      + '<div style="margin-top:4px;">Automatic messages: held for Oklahoma. Nothing goes to them by text or email from the Hub. ' + esc('Call from ' + OK_PHONE + ' in LeadConnector.') + '</div>'
+      + line(officeOn(), 'Office messages (Text, not hiring, no-show)')
+      + line(autoOn(), 'Interview messages (booked, the day before, cancelled)')
+      + (officeOn() ? '' : '<div style="margin-top:4px;">' + esc('Call from ' + OK_PHONE + ' in LeadConnector.') + '</div>')
       + last + '</div>';
   }
   function offerBlocked(r) { return isOk(r); }
@@ -80,5 +93,5 @@
   css();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 
-  window.OKO = { remember, office, isOk, pass, chip, heldNote, heldBox, pickerHtml, setPicker, mount, offerBlocked, OFFER_TEXT, HELD, get picked() { return pick; } };
+  window.OKO = { remember, office, isOk, isHeld, officeOn, autoOn, fromPhone, pass, chip, heldNote, heldBox, pickerHtml, setPicker, mount, offerBlocked, OFFER_TEXT, HELD, get picked() { return pick; } };
 })();
