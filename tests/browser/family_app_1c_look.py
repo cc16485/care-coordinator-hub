@@ -47,6 +47,9 @@ window.callAction = async (fn, body) => {
   if (a === 'invite') { M[body.contact_id].app_status = 'active'; M[body.contact_id].app_can_book = true; return { status: 200, data: { ok: true, words: 'Hi Lisa, you can now see Dorothy Ray\\'s visits and book extra visits at family.mo-care.com.' } } }
   if (a === 'can_book') { M[body.contact_id].app_can_book = body.on; return { status: 200, data: { ok: true } } }
   if (a === 'revoke') { M[body.contact_id].app_status = 'revoked'; return { status: 200, data: { ok: true } } }
+  if (a === 'welcome' && !body.send) return { status: 200, data: { preview: true, name: M[body.contact_id].name, can_text: false, can_email: true, axis_email_on_file: window.__axisOn, include_axis: window.__axisOn !== false,
+      text: window.__axisOn === false ? 'Hi Ann, short.' : 'Hi Ann, long with 16485.axiscare.com.', text_with_axis: 'Hi Ann, long with 16485.axiscare.com.', text_without_axis: 'Hi Ann, short.', email_subject: 'Your Caring Companions family access for Dorothy' } };
+  if (a === 'welcome' && body.send) return { status: 200, data: { ok: true, by_text: false, by_email: true } };
   if (a === 'schedule') return { status: 502, data: { error: 'no app service is set for OK in the Hub settings' } };
   if (a === 'place') { const b = B.find(x => x.id === body.booking_id); b.status = 'placed'; b.caregiver_name = 'Maria L.'; return { status: 200, data: { ok: true } } }
   return { status: 400, data: { error: 'unknown' } };
@@ -75,6 +78,17 @@ with sync_playwright() as p:
     pg.click('#fam-cp_-11 button:has-text("Turn app off")'); pg.wait_for_timeout(80)
     ck('turn off: done on the second press; Turn on again offered', pg.evaluate('__calls')[-1][1] == {'action': 'revoke', 'contact_id': 11} and 'Turn on again' in pg.inner_text('#fam-cp_-11'))
 
+    pg.evaluate("M[11].app_status='active'; window.__axisOn=true; drawCircle()"); pg.wait_for_timeout(40)
+    pg.click('#fam-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(80)
+    t = pg.inner_text('#famwel-cp_-11')
+    ck('welcome: preview with the AxisCare check, editable text, how it goes, nothing sent yet', 'is on AxisCare' in t and 'Goes by email' in t and 'no phone with Texts OK' in t and pg.input_value('#famwt-cp_-11').startswith('Hi Ann, long') and pg.evaluate('__calls')[-1][1] == {'action': 'welcome', 'contact_id': 11}, t)
+    pg.uncheck('#famwax-cp_-11'); ck('unticking the AxisCare part swaps to the short words', pg.input_value('#famwt-cp_-11') == 'Hi Ann, short.')
+    pg.fill('#famwt-cp_-11', 'My own words'); pg.check('#famwax-cp_-11'); ck('words the office changed are never overwritten', pg.input_value('#famwt-cp_-11') == 'My own words')
+    pg.click('#famwel-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(80)
+    ck('send: the office\'s words go, result shown', pg.evaluate('__calls')[-1][1] == {'action': 'welcome', 'contact_id': 11, 'send': True, 'text': 'My own words', 'include_axis': True} and 'Sent by email' in pg.inner_text('#famwel-cp_-11'))
+    pg.evaluate("window.__axisOn=false"); pg.click('#fam-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-11 button:has-text("Send welcome")'); pg.wait_for_timeout(80)
+    t = pg.inner_text('#famwel-cp_-11')
+    ck('email not on AxisCare: warned, AxisCare part off by default', "isn't on their AxisCare record" in t and not pg.is_checked('#famwax-cp_-11'), t)
     pg.evaluate('FAM.render()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famBookings')
     ck('bookings: practice mode said plainly, settings shown', 'Practice mode' in t and 'NOT put on the AxisCare schedule' in t and 'service PP - WC' in t and 'rate not set' in t, t)
