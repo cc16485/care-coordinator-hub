@@ -5561,6 +5561,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- the whole journey, grouped by stage, each step with its evidence and history (client-journey.js) -->
   <div id="cjStart"></div>
     <div id="cp_start_note"></div>
+    <div id="cp_agreement"></div><!-- 2026-10-16: the Client Care Agreement signed on the tablet (agreement-card.js, agreement.html) -->
 <div class="cp-lead">
       <!-- The Start Contract (2026-09-26, Step 1 of the Lead to Client Plan).
            It belongs to this inquiry's Journey, not to the lead; this card is
@@ -10249,7 +10250,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms();
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261016b'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
