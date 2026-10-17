@@ -1149,6 +1149,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
+    <!-- 2026-10-17 (her "documents to be their own tab so its not burried and hard to find"): every document in one place -->
+    <div class="ftab" data-g="docs" onclick="ccGroupClick('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Documents</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <!-- The day's own row: what is happening, what is late, who rang, and what
@@ -1277,6 +1279,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Procedures</div>
     <div class="fpill" data-tab="sopref" onclick="switchTab('sopref')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Payors &amp; Programs</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Scripts</div>
+  </div>
+
+  <div class="fsubbar" id="fsub-docs">
+    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
+    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
@@ -5308,6 +5315,14 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
      2026-10-17 (her ask, "they don't stay in the tab and subtab structure"): Payors & Programs used to open as its own
      page with its own header and tab row, so the page jumped on every click. It now opens here, under the Hub's own
      SOPs tab row, with its sub-tabs straight beneath. programs.html?in=hub hides its own header and tabs. -->
+<!-- DOCUMENTS (2026-10-17): Forms & Templates (forms.html, the agency's master copies) and Client Folders (the printed
+     folder pieces; also a procedure under Procedures). Both open inside the Hub with ?in=hub, like Payors & Programs. -->
+<section class="tabpanel" id="tab-docs">
+  <iframe id="docsFrame" title="Forms &amp; Templates" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
+<section class="tabpanel" id="tab-docfolders">
+  <iframe id="docFoldersFrame" title="Client Folders" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
 <section class="tabpanel" id="tab-sopref">
   <iframe id="sopRefFrame" title="Payors &amp; Programs" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
@@ -7987,7 +8002,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','routing'],docs:['docs','docfolders'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8395,7 +8410,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', docfolders:'Client Folders', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -8653,6 +8668,8 @@ function renderActiveTab(){
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='sopref') sopRefShow();
+  if(activeTab==='docs') docsShow();
+  if(activeTab==='docfolders') ccHubFrame(document.getElementById('docFoldersFrame'), 'client-folders.html?in=hub');
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
@@ -41979,6 +41996,13 @@ function sopRefShow(sub){
   if(!sub && cur && /programs\.html|guide\.html/.test(cur.pathname)) { ccHubFrame(f, cur.href); return; }
   ccHubFrame(f, 'programs.html?in=hub' + (sub ? '#' + sub : ''));
 }
+/* Documents > Forms & Templates. cat (e.g. GUIDE) opens it filtered; without one it keeps where the person was. */
+function docsShow(cat){
+  const f = document.getElementById('docsFrame');
+  if(!cat && f && f.dataset.src && /forms\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
+  ccHubFrame(f, 'forms.html?in=hub' + (cat ? '&cat=' + encodeURIComponent(cat) : ''));
+}
+function ccOpenDocs(cat){ switchTab('docs'); docsShow(cat || ''); return false; }
 /* "Open Payors & Programs at this program": from Scripts and anywhere else in the Hub */
 function ccOpenRef(sub){
   switchTab('sopref');
@@ -42598,7 +42622,7 @@ function ccOpenRef(sub){
      NOT have one: an alias is checked first and would shadow the real thing.
      That is what happened to 'scheduling' and 'caregivers' when those became
      sections in their own right. */
-  var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', grow:'clients', phone:'calls', 'clients-care':'clients',
+  var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
                         growth:'campaigns', marketing:'campaigns',
                         /* 'leads' stopped being an alias 2026-09-19: it is a

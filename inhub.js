@@ -1,5 +1,6 @@
 /* Pages shown INSIDE the Hub (2026-10-17, her "they don't stay in the tab and subtab structure").
-   programs.html, guide.html and client-folders.html open in the Hub's SOPs section with ?in=hub. Then: their own
+   programs.html, guide.html and client-folders.html open in the Hub's SOPs section, and forms.html + client-folders.html in
+   Documents, with ?in=hub. Then: their own
    header and tab row are hidden (the Hub's stay put), links between them stay inside the Hub, a link to a Hub tab
    (/#ltcpolicy) moves the Hub itself, and a tab switch keeps the top of the page in view. Opened on their own, they
    are unchanged. */
@@ -23,8 +24,8 @@
       try { window.parent.location.hash = u.hash || '#sops'; } catch (x) { window.parent.location.href = u.href; }
       return;
     }
-    var m = u.pathname.match(/\/(programs|guide|client-folders)(\.html)?$/);
-    if (m) { e.preventDefault(); location.href = m[1] + '.html?in=hub' + (u.hash || ''); }
+    var m = u.pathname.match(/\/(programs|guide|client-folders|forms)(\.html)?$/);
+    if (m) { e.preventDefault(); var q = new URLSearchParams(u.search); q.set('in', 'hub'); location.href = m[1] + '.html?' + q.toString() + (u.hash || ''); }
   }, true);
   window.ccInHubTop = function () {
     try { var r = window.frameElement.getBoundingClientRect(); if (r.top < 0) window.parent.scrollBy(0, r.top - 12); } catch (x) {}

@@ -174,7 +174,7 @@
   <button data-s="training">Caregiver training</button>
   <button data-s="crosby">Crosby Health</button>
   <button data-s="dates">Dates &amp; deadlines</button>
-  <button data-s="docs">Documents</button>
+  <button data-s="docs" data-href="forms.html?cat=GUIDE">Documents</button>
   <button data-s="log">Screening log<span class="tag" id="logCount" style="margin-left:6px;">0</span></button>
 </nav>
 <main>
@@ -930,6 +930,11 @@
   /* ---------- tabs ---------- */
   Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
     b.addEventListener('click', function () {
+      /* 2026-10-16 (Samantha): documents live in one place, SOPs > Forms & Templates; this button opens it filtered to GUIDE */
+      if (b.hasAttribute('data-href')) {
+        try { if (document.documentElement.classList.contains('inhub') && window.parent.ccOpenDocs) { window.parent.ccOpenDocs('GUIDE'); return; } } catch (x) {}
+        location.href = b.getAttribute('data-href'); return;
+      }
       Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.remove('on'); });
       Array.prototype.forEach.call(document.querySelectorAll('main section'), function (x) { x.classList.remove('on'); });
       b.classList.add('on');
