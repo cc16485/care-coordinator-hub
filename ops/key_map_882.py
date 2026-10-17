@@ -123,6 +123,12 @@ begin
     one := '{{}}'::jsonb;
     foreach k in array {arr(tests)} loop
       begin
+        /* a slot holding one record (not a list), like the nightly roster_axis_follow summary, is written by the server
+           and only read by the Hub: prove it can be READ instead of test-saving a list item into it */
+        if exists (select 1 from public.app_data a where a.key = k and jsonb_typeof(a.data) <> 'array') then
+          one := one || jsonb_build_object(k, (select exists (select 1 from public.app_data a where a.key = k)));
+          continue;
+        end if;
         perform public.upsert_app_data_item(k, jsonb_build_object('id', '__probe_882', 'note', 'thrown away'));
         one := one || jsonb_build_object(k, (select exists (select 1 from public.app_data a, jsonb_array_elements(case when jsonb_typeof(a.data) = 'array' then a.data else '[]'::jsonb end) x where a.key = k and x->>'id' = '__probe_882')));
       exception when others then one := one || jsonb_build_object(k, 'refused: ' || left(sqlerrm, 120));
@@ -144,7 +150,7 @@ for who in TESTERS:
     if x is None: say(f"  · {who}: no such login, skipped"); continue
     saves = x.get("saves", {}); refused = [k for k, v in saves.items() if v is not True]
     bad += len(refused)
-    say(f"  · {who}: {len(saves) - len(refused)} of {len(saves)} test saves went through" + (" · REFUSED: " + "; ".join(f"{k} ({saves[k]})" for k in refused) if refused else ""))
+    say(f"  · {who}: {len(saves) - len(refused)} of {len(saves)} slots work (test save, or a read for a single-record slot)" + (" · REFUSED: " + "; ".join(f"{k} ({saves[k]})" for k in refused) if refused else ""))
     if who == "samantha@mo-care.com":
         un = x.get("unmapped") or []
         say("    sign-in check answers: " + ("every slot registered" if not un else "still not registered: " + ", ".join(un)))
