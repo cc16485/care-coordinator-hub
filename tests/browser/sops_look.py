@@ -16,7 +16,7 @@ a = HUB.index('<section class="tabpanel" id="tab-sops">'); b = HUB.index('</sect
 PANELS = HUB[a:b].replace('class="tabpanel"', 'class="tabpanel on" style="display:block"')
 s0 = HUB.index('/* ── PAGES SHOWN INSIDE THE HUB'); s1 = HUB.index('\n})();\n', HUB.index('/* ── SOP LIBRARY ──')) + 6
 JS = HUB[s0:s1]
-ok('the SOPs row is Procedures, Payors & Programs, Scripts, all inside the Hub', re.search(r'id="fsub-sops">[\s\S]*?</div>\s*\n\s*<!-- Third', HUB) is not None
+ok('the SOPs row opens everything inside the Hub (Scripts off the row 2026-10-17)', re.search(r'id="fsub-sops">[\s\S]*?</div>\s*\n\s*<!-- Third', HUB) is not None
    and "switchTab('sopref')" in HUB and "location.href='programs.html'" not in HUB and "location.href='client-folders.html'" not in HUB)
 ok('Scripts links open Payors & Programs inside the Hub', 'href="programs.html' not in HUB and "ccOpenRef('private')" in HUB)
 ok('no em dashes in the two first drafts', '—' not in JS[JS.index('const STARTERS'):JS.index('let openId')])
