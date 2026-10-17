@@ -8614,7 +8614,11 @@ function ccRenderPulse(){
   /* Points at My Work, which is where a late item is actually worked. `late` is
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
-  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
+  /* ONE HEADLINE NUMBER (2026-10-17, her fix 3): the chip says what needs you right now (Today's Act now lane). Only
+     when nothing does, it says how much of yours is late. One number, never both. */
+  let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
+  if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
+  else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready'&&!g.superseded_by).length;
@@ -27742,7 +27746,7 @@ function myWorkHandOff(id, anchorId){
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
 /* Lands on Today, because "what do I need to do now" is the question somebody
    opens this screen to answer. */
-let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false;
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false, MYWORK_ESC_WHO='';
 /* Buckets are FILTERS over one list, never separate lists. Overdue and
    escalated used to be their own destinations, but both are computed from
    `mine` — they are states of your work, not categories of it. Today carries
@@ -27964,9 +27968,10 @@ function opsLateFor(email){
 function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(i)); }
 /* The four lanes of Today, counted once for every place that shows them. */
 function opsTodayCounts(){
-  const b=myWorkBuckets();
-  const act=b.today.filter(i=>opsPriorityKey(i)[0]<=2).length;
-  return { act, due:b.today.length-act, lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
+  /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
+  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamEscalated(i));
+  const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
+  return { act:n(0), late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
 }
 /* "by 2:00 PM", "was due Sep 29, 2:36 PM", "by Fri Oct 9". A date-only due is a whole day, never a time. */
 function opsDueText(it){
@@ -28136,6 +28141,13 @@ function opsUniq(list){ const seen=new Set(); return list.filter(i=>{ if(!i||see
 function opsEscalatedToMe(i, me){
   const e=i&&i.escalation; me=String(me||'').toLowerCase();
   return !!(e && !e.cleared_at && me && String(e.to||'').toLowerCase()===me && String(i.owner||'').toLowerCase()!==me && !i.claimed_by && i.status==='open');
+}
+/* SOMEONE ELSE'S LATE WORK, ESCALATED TO ME (2026-10-17, her fix 4). It stays theirs, so on my Today it is one summary
+   card per person ("Krystal has 18 late items"), not 18 of my cards. The Escalated to you tab still lists every one. */
+function opsTeamEscalated(it, me){
+  me=String(me||opsMeKey()||'').toLowerCase();
+  const o=String((it&&it.owner)||'').toLowerCase();
+  return !!(o && o!==me && opsEscalatedToMe(it, me));
 }
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
@@ -28336,8 +28348,11 @@ function myWorkSelectable(all){
 function myWorkRows(){
   const b=myWorkBuckets();
   /* Up for grabs draws its own cards (pool.js); none of them are mine to tick or close with a key */
-  const rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
+  let rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+  /* fix 4: on Today, someone else's escalated work is their summary card, not my cards */
+  if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamEscalated(r));
+  if(MYWORK_TAB==='escalated' && MYWORK_ESC_WHO) rows=rows.filter(r=>String(r.owner||'').toLowerCase()===MYWORK_ESC_WHO);
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
       return (myWorkLane(a)-myWorkLane(c)) || (ka[0]-kc[0]) || (ka[1]-kc[1]); });
@@ -28475,6 +28490,10 @@ function myWorkCard(it, i){
   const sel=MYWORK_SEL.has(it.id), focused=(i===MYWORK_FOCUS);
   const ev=opsAlreadyHandled(it);
   const ago=it.created_at?callsFmtWhen(it.created_at):'';
+  /* fix 5: an AI call card says where it came from here, instead of in a long line at the bottom */
+  const src=it.source||{};
+  const fromCall=(it.kind==='call_followup'&&src.call_at)
+    ?('from '+(src.channel==='text'?'texts':'a call')+' '+new Date(src.call_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
   const who=it.owner?('owned by '+esc(it.owner_name||opsOwnerName(it.owner))):'unassigned';
   /* State has to be readable on the card, or marking something waiting or in
      progress is a private act nobody else benefits from. Ownership is stated
@@ -28539,8 +28558,8 @@ function myWorkCard(it, i){
     /* Whose it is and by when, on every card (2026-10-05). */
     +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
       +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
-      +esc(opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)+'</span>'
+      +esc(String(it.owner||'').toLowerCase()===String(opsMeKey()||'').toLowerCase()?opsDueText(it):opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
+    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>'
     +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
@@ -28548,8 +28567,11 @@ function myWorkCard(it, i){
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
 
+  /* Lighter cards (2026-10-17, her fix 5): the everyday reason ("You own Scheduling and coverage", "automatic staffing
+     alerts come to you") is true of nearly every card, so it is no longer printed. Handed, escalated, unowned and
+     help-asked reasons still are. */
   const why=opsWhyHere(it);
-  if(why) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
+  if(why && !/^You own |^You’re first on the scheduling alert list/.test(why)) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
   /* a red or yellow shift-note flag draws its own card (shift-flags.js) */
   const cnFlag=typeof cnIsFlag==='function'&&cnIsFlag(it);
   if(cnFlag) h+=cnBlock(it);
@@ -28658,14 +28680,14 @@ function myWorkCard(it, i){
       +'onclick="opsWaitOpen(\''+it.id+'\',\'act_'+it.id+'\')">Set a wake-up</button>';
   /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
      closes the card. */
-  if(typeof dkAllowed==='function' && dkAllowed())
-    h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="dkJotWork(\''+it.id+'\',this)">Jot on my desk</button>';
+  /* fix 5 (2026-10-17): Jot on my desk moved into the ⋯ menu, so a card has three buttons: Done, Hand off, Talk about */
   if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
   if(trail) h+='<div class="field-note" style="margin-top:6px;"><b>Owner:</b> '+esc(trail)+'</div>';
-  const hist=(it.history||[]).slice(-2);
+  /* fix 5: only the latest thing that happened, and not the AI's own "Made from a call…" line (said in the header) */
+  const hist=(it.history||[]).slice(-1).filter(x=>!(fromCall && /^AI /.test(String(x.by||'')) && /^Made from /.test(String(x.text||''))));
   if(hist.length) h+='<div class="field-note" style="margin-top:8px;">'
     +hist.map(x=>esc(callsFmtWhen(x.at))+' · '+esc(x.by)+' — '+esc(x.text)).join('<br>')+'</div>';
 
@@ -28689,6 +28711,8 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
+  /* My Desk: my own steps for this card (moved here from the card's buttons, 2026-10-17) */
+  if(typeof dkAllowed==='function' && dkAllowed() && typeof dkJotWork==='function') h+=opt('jot','Jot on my desk');
   /* Up for grabs (2026-10-13): my own ordinary work can be offered to anyone with time */
   if(window.TP && String(it.owner||'').toLowerCase()===meCl && !issueOf(it) && it.kind!=='project' && it.kind!=='journey' && !it.sensitive)
     h+=opt('pool','Put it up for grabs (anyone with time)');
@@ -28720,6 +28744,7 @@ function myWorkMore(id, anchorId){
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
       if(r.dataset.what==='claim') return opsTakeIt(id);
+      if(r.dataset.what==='jot') return dkJotWork(id, document.getElementById(anchorId));
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -28772,6 +28797,15 @@ function opsWaitOpen(id, anchorId){
   const f=el.querySelector('#owWho'); if(f) f.focus();
 }
 
+/* Counts on the tabs (2026-10-17, her fix 3): Today shows only what needs you now; All mine, Escalated and Waiting
+   carry no number (they were 56, 18 and so on, and nobody acts on a big number). Small lists that each need a
+   person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
+function myWorkTabBadge(k,b){
+  if(k==='mine'||k==='escalated'||k==='waiting') return '';
+  if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
+  const n=(b[k]||[]).length;
+  return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
+}
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
@@ -28787,8 +28821,7 @@ function renderMyWork(){
     /* on press, not on click (2026-10-06, "i cant click on those"): a background redraw between pressing and letting go
        used to swallow the click */
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onpointerdown="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')" onclick="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')">'
-    +label+((b[k]||[]).length?' <span class="subtab-badge'
-      +((k==='today'&&b.overdue.length)||k==='approvals'?' red':'')+'">'+b[k].length+'</span>':'')
+    +label+myWorkTabBadge(k,b)
     +'</div>').join('');
 
   /* Approvals is not a list of ops_items, so it renders its own card rather
@@ -28837,8 +28870,11 @@ function renderMyWork(){
       helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
   if(MYWORK_TAB!=='today'){
-    wrap.innerHTML=rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
-      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
+    /* narrowed from a team card: say so, with a way back to everyone */
+    const narrow=(MYWORK_TAB==='escalated'&&MYWORK_ESC_WHO)
+      ?'<div class="field-note" style="margin:0 0 8px;">Showing '+escapeHtmlComms(String(opsOwnerName(MYWORK_ESC_WHO)||MYWORK_ESC_WHO).split(' ')[0])+'’s only · <span style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_ESC_WHO=\'\';renderMyWork()">Show everyone</span></div>':'';
+    wrap.innerHTML=narrow+(rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
+      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>');
     return;
   }
   const lane=(label,note,color,count,body)=>'<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
@@ -28863,6 +28899,9 @@ function renderMyWork(){
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
   if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
+  const team=myWorkTeamHtml(b);
+  if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
@@ -28892,7 +28931,35 @@ function renderMyWork(){
   const sel=myWorkSelectable();
   wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+h;
 }
-function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGo(t){ MYWORK_ESC_WHO=''; MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGoWho(o){ myWorkGo('escalated'); MYWORK_ESC_WHO=String(o||'').toLowerCase(); renderMyWork(); }
+/* One card per teammate whose late work was escalated to me: how many, how many urgent, the oldest, and the first few
+   (urgent first) so nothing is hidden behind a number. See them opens the Escalated to you tab on just that person. */
+function myWorkTeamHtml(b){
+  const esc=escapeHtmlComms, me=String(opsMeKey()||'').toLowerCase();
+  const items=(b.escalated||[]).filter(i=>opsTeamEscalated(i, me));
+  if(!items.length) return '';
+  const by={}; items.forEach(i=>{ const o=String(i.owner).toLowerCase(); (by[o]=by[o]||[]).push(i); });
+  const md=x=>{ const d=new Date(x); return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  return Object.keys(by).sort((x,y)=>by[y].length-by[x].length).map(o=>{
+    const list=by[o].slice().sort((a,c)=>((c.escalation&&c.escalation.level==='urgent')-(a.escalation&&a.escalation.level==='urgent'))
+      ||String(a.due||'').localeCompare(String(c.due||'')));
+    const urgent=list.filter(i=>i.escalation&&i.escalation.level==='urgent').length;
+    const oldest=list.map(i=>i.due).filter(Boolean).sort()[0];
+    const first=String(list[0].owner_name||opsOwnerName(o)||o).split(' ')[0];
+    return '<div class="wkcard wk-team" data-owner="'+esc(o)+'" style="padding:13px 15px;margin-bottom:8px;">'
+      +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:15px;">'+esc(first)+' has '+list.length+' late item'+(list.length===1?'':'s')+'</b>'
+      +(urgent?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);font-weight:700;">'+urgent+' urgent</span>':'')
+      +(oldest?'<span class="field-note">oldest was due '+esc(md(oldest))+'</span>':'')+'</div>'
+      +'<div style="font-size:13.5px;margin-top:5px;">'+list.slice(0,3).map(i=>'· '+esc(i.title||i.about||'')+(i.about&&i.title&&i.about!==i.title?' <span class="field-note">('+esc(i.about)+')</span>':'')).join('<br>')
+      +(list.length>3?'<br><span class="field-note">and '+(list.length-3)+' more</span>':'')+'</div>'
+      +'<div class="field-note" style="margin-top:4px;">They stay '+esc(first)+'’s. Look, nudge, or take one.</div>'
+      +'<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">'
+      +'<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkGoWho(\''+esc(o)+'\')">See '+esc(first)+'’s list</button>'
+      +'</div></div>';
+  }).join('');
+}
 
 /* PAST ITS DAY, the two answers (2026-10-17). Close it: closed as stale (the same code the Stale quick-close uses),
    with the day in the note so the record says why. Still needs doing: remembered for that day only, so the card goes
@@ -28968,7 +29035,7 @@ function myWorkBulkBar(rows){
     +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">'
     +'<input type="checkbox" '+(all?'checked':'')+' onchange="myWorkSelectAll(this.checked)" '
     +'style="width:16px;height:16px;cursor:pointer;"> '
-    +(n?('<b>'+n+' selected</b>'):('Select all '+rows.length))+'</label>';
+    +(n?('<b>'+n+' selected</b>'):'Select all')+'</label>';
   if(n){
     const sel=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
     // Only offered when it means the same thing for everything selected.
@@ -35132,7 +35199,8 @@ function opsBadges(){
   // to nag somebody or it is exactly what falls through.
   /* 2026-10-05: the pill carries "late for you", the same number as the header chip. Late with no owner has its
      own header chip, so it still nags somebody without being counted as yours. */
-  const late = opsLateFor(opsMeKey()).length;
+  /* 2026-10-17 (fix 3): the pill carries the same one number as the header chip: Act now, else nothing */
+  let late=0; try{ late=opsTodayCounts().act; }catch(e){}
   /* gb-mywork has existed in the markup since the tab was added and was never
      populated, so the My Work pill has never carried a count. Same number as
      the header chip and the Today bucket — one source, three renderings. */
