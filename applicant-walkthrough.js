@@ -34,7 +34,7 @@
     { t: 'Orientation', pages: [['Book the Orientation Video Call', 'welcome.html?preview=1']], orders: [22.1, 22.2, 22.3, 22.4, 22.5, 22.6, 22.7, 22.8, 22.9],
       next: 'Step 2 verified: the invitation goes by itself. After the call, the orientation link to the Training Platform.' },
     { t: 'Training', pages: [['The Training Platform (its public course list)', 'https://training.mo-care.com/#/training']], orders: [22.95, 23, 24, 25, 27, 28, 29],
-      next: 'Orientation and the dementia course before the first client; completions reach the Hub by themselves.' },
+      next: 'Orientation before the first client (dementia and other courses are optional, for a client\'s needs); completions reach the Hub by themselves.' },
     { t: 'Approved to Work', pages: [], none: 'No screen: a person on the Approve to Work list approves them in the Hub, then the texts below.', orders: [30, 30.5, 31, 32, 33],
       next: 'AxisCare active, the cleared text, the availability link, and the first-shift check-in.' },
   ];

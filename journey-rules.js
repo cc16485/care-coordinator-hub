@@ -77,7 +77,7 @@
   function dueOf(def, st, j, byKey){
     const d = def && def.due; if(!d) return null;
     if(d.before_start != null && j.target_start) return addDays(j.target_start, -Number(d.before_start));
-    /* 3b: N days after another step was completed (the OJT clock runs from orientation completion, her decision 7) */
+    /* 3b: N days after another step was completed (built for the OJT clock, her decision 7; OJT is optional from 2026-10-15, the rule stays generic) */
     if(d.from && d.days != null){ const o = byKey && byKey[d.from]; if(!o || !o.completed_at) return null; return d.business ? addBusinessDays(ymd(o.completed_at), Number(d.days)) : addDays(ymd(o.completed_at), Number(d.days)); }
     const since = st && st.ready_since ? ymd(st.ready_since) : null;
     if(d.days != null && since) return d.business ? addBusinessDays(since, Number(d.days)) : addDays(since, Number(d.days));

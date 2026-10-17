@@ -41,6 +41,8 @@ function world(opts = {}) {
     window: { trainHubTok: async () => 'staff-hub-token' },
     CGP2: { isLive: () => true, rowFor: () => ({}) },
     confirm: (m) => { log.push(['confirm', m]); return opts.confirm !== false; },
+    ccConfirm: async (m) => { log.push(['confirm', m]); return opts.confirm !== false; },
+    ccPrompt: async (m, d) => (d == null ? '' : d),
     alert: (m) => { alerts.push(m); },
     wcCall: async (b) => { log.push(['welcome-call', b.action]); return {}; },
     wcLoad: async () => { log.push(['wcLoad']); },
@@ -132,7 +134,8 @@ function world(opts = {}) {
   ck('2c gate: hire date today makes them a new hire (blocked until the profile is published)', pg.new_hire && pg.blocked, pg);
   ck('2c gate: published profile clears them', !gate(Object.assign({}, rec, { profile_published: true })).blocked);
   const el = E.eligibility(Object.assign({}, rec, { profile_published: true }));
-  ck('not cleared to work: orientation is not done yet (orient_date empty)', el.state === 'not_eligible' && el.blockers.some((b) => b.code === 'orientation') && el.blockers.some((b) => b.code === 'alz'), el);
+  ck('not cleared to work: orientation is not done yet (orient_date empty)', el.state === 'not_eligible' && el.blockers.some((b) => b.code === 'orientation'), el);
+  ck('orientation only (2026-10-15): no dementia blocker, no OJT task, no annual lapse', !el.reasons.concat(el.tasks).some((b) => ['alz', 'ojt', 'ojt_overdue', 'annual_training', 'annual_hours'].includes(b.code)), el);
 
   // ---- office Promote unchanged ----
   W = world();
