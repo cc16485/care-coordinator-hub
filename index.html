@@ -19620,7 +19620,11 @@ const CC_ROLE_PERMS_DEFAULT={
      coverage. It is NOT a copy of the Care Coordinator role. Widen it on
      purpose once the job is real, by editing the role_permissions record —
      that is a data change, not a deploy. */
-  staffing_coordinator:[ 'manage_duty' ]
+  staffing_coordinator:[ 'manage_duty' ],
+  /* SOP ruling 9 (2026-10-17): the Springfield lead (Krystal now) gives and removes Hub access for anyone who is not
+     an owner. Held ON TOP of their office role, so it adds only this. The hub-access function and
+     staff_access_overview check the same role; switches, rates and settings stay with owners. */
+  springfield_lead:[ 'manage_access' ]
 };
 
 /* The same nine permissions said the way somebody would say them out loud.
