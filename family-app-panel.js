@@ -180,7 +180,7 @@
       '<b>' + (live ? 'Live: families request visits; a visit goes on the AxisCare schedule when a caregiver is placed.' : 'Practice mode: family requests are recorded here but caregivers aren\'t asked and nothing is scheduled.') + '</b>' +
       '<div class="field-note" style="margin-top:4px;">App address: <a href="https://family.mo-care.com" target="_blank" rel="noopener">family.mo-care.com</a> · ' +
       'Missouri: service ' + svc('MO') + ', rate ' + rate('MO') + ' · Oklahoma: service ' + svc('OK') + ', rate ' + rate('OK') + '. Ask Claude to change these.</div>' +
-      '<div class="field-note" style="margin-top:4px;">' + (o.family_offer_live === true ? 'Caregivers are offered each booking by text: the family\'s picks first, then the team, first yes goes on the schedule. You get a card if nobody has said yes 24 hours before, or everyone has been asked.' : 'Caregiver offers are off (Owners Hub Admin page): place each booking yourself.') + '</div></div>'
+      '<div class="field-note" style="margin-top:4px;">' + (o.family_offer_live === true ? 'Caregivers are offered each booking by text: the family\'s picks first, then the team, first yes goes on the schedule. A request nobody takes ends on its own and the family is told. Only the ones that need a person are under Needs you.' : 'Caregiver offers are off (Owners Hub Admin page): place each booking yourself.') + '</div></div>'
   }
   function render() {
     var box = document.getElementById('famBookings'); if (!box) return Promise.resolve()
@@ -188,13 +188,23 @@
     return call({ action: 'list' }).then(function (d) {
       var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
       var bs = d.bookings || [], ms = d.members || []
-      var open = bs.filter(function (b) { return ['needs_office', 'received', 'waiting_for_caregiver', 'held'].indexOf(b.status) >= 0 && b.visit_date >= today })
-      open.sort(function (a, z) { return (z.status === 'held') - (a.status === 'held') || (z.fill_task_at ? 1 : 0) - (a.fill_task_at ? 1 : 0) })   // the ones that need a person first
+      /* Her check 2026-10-17 ("Check for anytime it's involving office staff when it shouldn't"): Needs you holds only what
+         needs a person (AxisCare refused a placement, a Help us fill round, a held request from before, or every request
+         while caregiver offers are switched off). Requests caregivers are being asked about are listed, not counted. */
+      var offersOn = settings().family_offer_live === true
+      var live = bs.filter(function (b) { return ['needs_office', 'received', 'waiting_for_caregiver', 'held'].indexOf(b.status) >= 0 && b.visit_date >= today })
+      var open = live.filter(function (b) { return b.status === 'needs_office' || b.status === 'held' || (b.help_fill && b.fill_task_at) || (!offersOn && b.status === 'waiting_for_caregiver') })
+      var asking = live.filter(function (b) { return open.indexOf(b) < 0 })
+      var toBill = bs.filter(function (b) { return Number(b.late_charge_hours) > 0 && !b.late_billed_at })
       var placed = bs.filter(function (b) { return b.status === 'placed' && b.visit_date >= today })
-      var other = bs.filter(function (b) { return open.indexOf(b) < 0 && placed.indexOf(b) < 0 })
+      var other = bs.filter(function (b) { return live.indexOf(b) < 0 && placed.indexOf(b) < 0 })
       var on = ms.filter(function (m) { return m.status === 'active' })
       box.innerHTML = settingsBox() +
-        '<h3 style="margin:6px 0;">Needs you (' + open.length + ')</h3>' + (open.length ? open.map(function (b) { return bookingCard(b, today) }).join('') : '<div class="field-note" style="margin-bottom:10px;">Nothing waiting. Every family booking has a caregiver.</div>') +
+        '<h3 style="margin:6px 0;">Needs you (' + open.length + ')</h3>' + (open.length ? open.map(function (b) { return bookingCard(b, today) }).join('') : '<div class="field-note" style="margin-bottom:10px;">Nothing needs you.</div>') +
+        (asking.length ? '<details style="margin:8px 0;"><summary>Asking caregivers, nothing for you to do (' + asking.length + ')</summary>' + asking.map(function (b) { return bookingCard(b, today) }).join('') + '</details>' : '') +
+        (toBill.length ? '<h3 style="margin:12px 0 6px;">Late cancels to bill this week (' + toBill.length + ')</h3><div class="field-note" style="margin-bottom:4px;">The family cancelled inside 24 hours and agreed to the charge in the app. AxisCare won\'t add it by itself (nobody clocks in).</div>' +
+          toBill.map(function (b) { return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:3px 0;font-size:13px;" id="famlate-' + e(b.id) + '"><b>' + e(b.client_name || 'Client') + '</b> ' + e(day(b.visit_date)) + ': charge ' + e(b.late_charge_hours) + ' hours' + (b.late_pay_caregiver ? ', pay ' + e(b.late_pay_caregiver) + ' ' + e(b.late_charge_hours) + ' hours' : '') +
+            ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.lateBilled(\'' + e(b.id) + '\', this)">Added to invoice</button></div>' }).join('') : '') +
         '<h3 style="margin:12px 0 6px;">Coming up, caregiver placed (' + placed.length + ')</h3>' + (placed.length ? placed.map(function (b) { return bookingCard(b, today) }).join('') : '<div class="field-note">None yet.</div>') +
         (other.length ? '<details style="margin-top:12px;"><summary>Practice, cancelled and past (' + other.length + ')</summary>' + other.map(function (b) { return bookingCard(b, today) }).join('') + '</details>' : '') +
         '<h3 style="margin:16px 0 6px;">Families using the app (' + on.length + ')</h3>' +
@@ -248,6 +258,10 @@
     if (decision === 'decline' && !reason) { rowMsg(id, '<span style="color:#b91c1c;">Say why you\'re declining (for the record; the family gets the approved wording).</span>'); return Promise.resolve() }
     b.disabled = true
     return call({ action: 'review', booking_id: id, decision: decision, reason: reason }).then(render).catch(function (err) { b.disabled = false; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
+  }
+  function lateBilled(id, b) {
+    b.disabled = true
+    return call({ action: 'late_billed', booking_id: id, on: true }).then(render).catch(function (err) { b.disabled = false; var r = document.getElementById('famlate-' + id); if (r) r.insertAdjacentHTML('beforeend', ' <span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   function fillClose(id, how, b) {
     b.disabled = true
@@ -322,5 +336,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()

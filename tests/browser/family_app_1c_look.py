@@ -50,6 +50,7 @@ window.callAction = async (fn, body) => {
   if (a === 'review') { const b = B.find(x => x.id === body.booking_id); b.status = body.decision === 'decline' ? 'declined' : 'waiting_for_caregiver'; return { status: 200, data: { ok: true } } }
   if (a === 'help_fill') { PLANS[0].help_fill = body.on ? { on: true, reason: body.reason, review_by: '2099-01-01' } : { on: false }; return { status: 200, data: { ok: true } } }
   if (a === 'app_tasks') { PLANS[0].app_tasks = body.tasks; return { status: 200, data: { ok: true } } }
+  if (a === 'late_billed') { B.find(x => x.id === body.booking_id).late_billed_at = '2099-01-01'; return { status: 200, data: { ok: true } } }
   if (a === 'invite') { M[body.contact_id].app_status = 'active'; M[body.contact_id].app_can_book = true; return { status: 200, data: { ok: true, words: 'Hi Lisa, you can now see Dorothy Ray\\'s visits and book extra visits at family.mo-care.com.' } } }
   if (a === 'can_book') { M[body.contact_id].app_can_book = body.on; return { status: 200, data: { ok: true } } }
   if (a === 'revoke') { M[body.contact_id].app_status = 'revoked'; return { status: 200, data: { ok: true } } }
@@ -121,6 +122,15 @@ with sync_playwright() as p:
     ck('Release 3: Help us fill needs a reason first', 'Say why this client needs it' in pg.inner_text('#famBookings'))
     pg.fill('#famhf-c1', 'Respite for her daughter'); pg.click('button:has-text("Turn on for 90 days")'); pg.wait_for_timeout(120)
     ck('Release 3: Help us fill on, shown with its date and reason', 'on until 2099-01-01 (Respite for her daughter)' in pg.inner_text('#famBookings'), pg.inner_text('#famBookings')[-600:])
+    # Her check 2026-10-17: with caregiver offers ON, routine requests are listed, not counted; late charges are a list
+    pg.evaluate("window.DATA.ops_settings.family_offer_live = true; B.push({ id: 'b6', client_name: 'Dorothy Ray', visit_date: '2099-01-03', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', late_charge_hours: 2, late_pay_caregiver: 'Maria L.' })")
+    pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(120)
+    t = pg.inner_text('#famBookings')
+    ck('offers on: routine requests are under "Asking caregivers, nothing for you to do", not Needs you; the badge counts only what needs a person', 'Asking caregivers, nothing for you to do (1)' in t and 'Needs you (1)' in t and pg.inner_text('#famPillBadge') == '1', [l for l in t.split(chr(10)) if 'Needs you' in l or 'Asking caregivers' in l] + [pg.inner_text('#famPillBadge')])
+    ck('offers on: the settings line no longer says the office gets a card for every unfilled request', 'You get a card if nobody' not in t and 'ends on its own' in t)
+    ck('late cancel charges are a billing list with "Added to invoice", not a card', 'Late cancels to bill this week (1)' in t and 'charge 2 hours, pay Maria L. 2 hours' in t, t[-700:])
+    pg.click('#famlate-b6 button'); pg.wait_for_timeout(120)
+    ck('"Added to invoice" takes it off the list', 'Late cancels to bill' not in pg.inner_text('#famBookings'))
     # Release 2 (2026-10-17): the 10-minute AxisCare check, shown to the office
     pg.click('summary:has-text("Practice, cancelled and past")'); pg.wait_for_timeout(40)
     t3, t4 = pg.inner_text('#famb-b3'), pg.inner_text('#famb-b4')
