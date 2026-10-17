@@ -6274,7 +6274,7 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our family app. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our Caring Companions Booking App. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
       </details>
       <details class="pb2-card">
         <summary>"I can take care of Mom myself." <span class="chev">▸</span></summary>
@@ -34002,7 +34002,7 @@ function lppLine(l,b,p,ro,care){
     +'<div class="lp-prov">'+[phone?esc(phone):'', email?esc(email):'', p&&p.reach_way?'best by '+esc(p.reach_way):'', p&&p.reach_time?esc(p.reach_time):''].filter(Boolean).join(' · ')+'</div>'
     +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
       +(caller?' · name and phone come from the inquiry':'')+'</div>'
-    +lppSignedLine(l,caller?name:p.name)
+    +lppSignedLine(l,caller?name:p.name,email)
     +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
       +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
     +(care?lpcLine(l,b,caller?(lpcSelf(l)?'client':'caller'):'person',p):'')
@@ -34011,10 +34011,16 @@ function lppLine(l,b,p,ro,care){
 /* HIPAA and Medical decisions as the signed Client Care Agreement gave them: approved contacts are written to AxisCare (and read back
    into the Family Circle), so the Family Circle member with the same name carries them. Read-only here; never typed on this screen. */
 function lppNameKey(x){ return String(x||'').toLowerCase().replace(/[^a-z]/g,''); }
-function lppSignedLine(l,name){
+/* 2026-10-17 her rule: the same person by EMAIL first (one match, or the one whose name also matches when two share it), then name */
+function lppFind(list,name,email){
+  const e=String(email||'').trim().toLowerCase(), n=lppNameKey(name), live=list.filter(x=>!x.axiscare_removed_at);
+  if(e){ const by=live.filter(x=>String(x.email||'').trim().toLowerCase()===e); if(by.length===1) return by[0]; if(by.length>1){ const both=by.filter(x=>n&&lppNameKey(x.name)===n); if(both.length===1) return both[0]; } }
+  return n?live.find(x=>lppNameKey(x.name)===n)||null:null;
+}
+function lppSignedLine(l,name,email){
   if(!lpcOn(l)) return '';
   const c=LPP.circ&&LPP.circ[String(CP.ax)]; if(!c) return '';
-  const m=c.find(x=>lppNameKey(x.name)===lppNameKey(name)&&!x.axiscare_removed_at);
+  const m=lppFind(c,name,email);
   const yn=v=>v===true?'Yes':v===false?'No':'not answered';
   if(!m||(m.hipaa_authorized==null&&m.can_make_medical_decisions==null)) return '<div class="lp-prov">HIPAA (signed agreement): <b>not on file yet</b></div>';
   return '<div class="lp-prov">HIPAA (signed agreement): <b>'+yn(m.hipaa_authorized)+'</b> · Medical decisions: <b>'+yn(m.can_make_medical_decisions)+'</b> <span class="field-note">as AxisCare holds them</span></div>';
@@ -34023,7 +34029,7 @@ async function lppLoadCirc(){
   const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)) return; LPP.circ=LPP.circ||{}; if(LPP.circ[ax]) return;
   LPP.circ[ax]=null;
   try{ const k=await sb.from('care_circles').select('id').eq('axiscare_client_id',ax).limit(1); const id=k.data&&k.data[0]&&k.data[0].id;
-    const m=id?await sb.from('circle_contacts').select('name,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
+    const m=id?await sb.from('circle_contacts').select('name,email,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
     LPP.circ[ax]=m.data||[]; }catch(e){ LPP.circ[ax]=[]; }
   lppRender();
 }
