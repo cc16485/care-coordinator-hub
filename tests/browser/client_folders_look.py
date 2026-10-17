@@ -14,7 +14,7 @@ html = open(os.path.join(ROOT, 'client-folders.html')).read()
 links = sorted(set(re.findall(r'href="(client-folders/[^"]+\.pdf)"', html)))
 ck(f'every PDF link points at a real PDF ({len(links)})', links and all(open(os.path.join(ROOT, l), 'rb').read(5) == b'%PDF-' for l in links))
 ck('no card number, no em dashes', not re.search(r'\b(?:\d[ -]?){13,16}\b', html) and '—' not in html)
-ck('the SOPs menu has a Client Folders button that opens the page', "location.href='client-folders.html'" in open(os.path.join(ROOT, 'index.html')).read())
+ck('Client Folders opens inside the Hub, as a procedure under Assessment and start of care (2026-10-17)', "page:'client-folders.html'" in open(os.path.join(ROOT, 'index.html')).read())
 with sync_playwright() as p:
     for eng in ('chromium', 'webkit'):
         br = getattr(p, eng).launch()

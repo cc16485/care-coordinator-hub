@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="inhub.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Payors &amp; Programs | Caring Companions</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
@@ -410,7 +411,7 @@
     if (!b) return;
     Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.toggle('on', x === b); });
     Array.prototype.forEach.call(document.querySelectorAll('main section'), function (x) { x.classList.toggle('on', x.id === 's-' + name); });
-    window.scrollTo(0, 0);
+    window.scrollTo(0, 0); if (window.ccInHubTop) ccInHubTop();
   }
   Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
     b.addEventListener('click', function () { history.replaceState(null, '', '#' + b.getAttribute('data-s')); show(b.getAttribute('data-s')); });
