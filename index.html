@@ -278,6 +278,7 @@
 <title>Leads, Clients &amp; Care — Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
+<script src="confirm-times.js?v=1017"></script>
 <script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=16"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
@@ -931,6 +932,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .lead-card .lc-name{font-weight:700;font-size:14px;}
   .lead-card .lc-summary{font-size:12px;color:var(--text-muted);margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
   .lead-card .lc-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--text-muted);}
+  .sop-ed label{display:block;font-size:.72rem;font-weight:700;color:var(--text-muted);margin:.5rem 0 .2rem;}
+  .sop-ed input,.sop-ed select,.sop-ed textarea{width:100%;}
+  .sop-ed-row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem;}
+  @media (max-width:700px){ .sop-ed-row{grid-template-columns:1fr;} }
   .tag-chip{font-size:11px;background:#FAF9F6;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
   /* Make this a lead (2026-10-14): what was heard on the call, until a person touches it */
   .cl-heard{background:#FFF1C2 !important;box-shadow:0 0 0 1.5px #E8C66A inset;border-radius:6px;}
@@ -1144,6 +1149,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
+    <!-- 2026-10-17 (her "documents to be their own tab so its not burried and hard to find"): every document in one place -->
+    <div class="ftab" data-g="docs" onclick="ccGroupClick('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Documents</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <!-- The day's own row: what is happening, what is late, who rang, and what
@@ -1236,7 +1243,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
-    <div class="fpill" data-tab="evv" onclick="schedGo('evv')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> EVV</div>
     <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
@@ -1266,12 +1272,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
 
   <div class="fsubbar" id="fsub-sops">
-    <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
-    <div class="fpill" onclick="location.href='forms.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
-    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
-    <div class="fpill" data-tab="routing" onclick="switchTab('routing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Who Handles What</div>
-    <span class="pillsec">Programs</span>
-    <div class="fpill" onclick="location.href='guide.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> GUIDE Program</div>
+    <!-- 2026-10-17 (her call): SOPs holds only things you read to check how we do something. Later the same day (her
+         "they don't stay in the tab and subtab structure"): all three open INSIDE the Hub, so this row and the header
+         never change; Client Folders is a procedure under Assessment and start of care. Who Handles What is a
+         settings grid, so it opens from Settings (Right person first) and #routing; GUIDE opens from Payors & Programs. -->
+    <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Procedures</div>
+    <div class="fpill" data-tab="sopref" onclick="switchTab('sopref')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Payors &amp; Programs</div>
+    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Scripts</div>
+  </div>
+
+  <div class="fsubbar" id="fsub-docs">
+    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
+    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
@@ -1977,65 +1989,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="fcList"><div class="field-note">Loading…</div></div>
     </section>
 
-    <!-- ===================== TAB: EVV CORRECTIONS ===================== -->
-    <!-- The correction log lives in the Staffing hub and stays there. Framed
-         rather than copied, because two logs of the same correction is how a
-         visit gets fixed twice and billed once. -->
-    <section class="tabpanel" id="tab-evv">
-      <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-        <div style="flex:1 1 420px;">
-          <h2 style="margin:2px 0 0;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">EVV Corrections</h2>
-          <div style="font-size:14px;color:var(--text-muted);margin-top:5px;max-width:70ch;">Visits missing a clock-in or clock-out, the signed correction forms, and the corrections log. Everything happens right here.</div>
-        </div>
-        <a href="javascript:void(0)" onclick="switchTab('schedguide')" style="font-size:13px;font-weight:700;color:var(--teal);text-decoration:none;">How this works &#8599;</a>
-      </div>
-      <!-- NATIVE PIPELINE (2026-09-18, her call: "make the evv tab better and
-           fully synced with the schedule watch evv"). Three linked stages,
-           all from the shared database and the same AxisCare read Schedule
-           Watch uses. The Staffing hub remains the ONLY writer of the
-           corrections log (it saves the whole array — a second writer would
-           clobber entries), so processing clicks jump there. -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px;" id="evvStatRow"></div>
-
-      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
-        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">1 · Missing from the record</h3>
-        <span class="field-note">yesterday and today, live from AxisCare</span>
-        <span style="flex:1;"></span>
-        <button class="cara-btn ghost" onclick="swEvvLoad(true)">↻ Refresh</button>
-      </div>
-      <div id="evvMissingBoard" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
-
-      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
-        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">2 · Forms received, waiting to be processed</h3>
-        <span class="field-note">signed correction forms from sc.mo-care.com/evv-correction-form · deadline Sunday midnight</span>
-      </div>
-      <!-- 429 (2026-10-03): the next-visit signature text switch (evv_next_visit_live), and forms waiting for the client -->
-      <div id="evvNextVisitCard" style="margin-bottom:10px;"></div>
-      <div id="evvPendingNative" style="margin-bottom:22px;"><div class="field-note">Loading…</div></div>
-
-      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0 0 8px;">
-        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">3 · The corrections log</h3>
-        <span class="field-note">processed corrections and whether AxisCare was updated</span>
-        <span style="flex:1;"></span>
-      </div>
-      <div id="evvLogNative"></div>
-
-      <!-- 422 (2026-10-03, Samantha: "We need the real form that was completed and signed by caregiver and client to be
-           saved and able to be viewed by office staff"). Every form ever sent, processed ones too, each opening the
-           signed form itself. Link = confirm which caregiver and client it is for (then it shows on their profiles). -->
-      <div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:22px 0 8px;">
-        <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--navy);">4 · Past forms</h3>
-        <span class="field-note">every signed form already accepted or dismissed, newest first · 📄 View form opens the form itself, with both signatures</span>
-        <span style="flex:1;"></span>
-        <button class="cara-btn ghost" onclick="evvLoadPast(true)">↻ Refresh</button>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
-        <input id="evvPastQ" type="search" placeholder="Search caregiver or client" oninput="evvPastFilter()" style="flex:1 1 220px;max-width:320px;">
-        <label class="field-note" style="display:flex;gap:5px;align-items:center;">Visit from <input id="evvPastFrom" type="date" onchange="evvPastFilter()"></label>
-        <label class="field-note" style="display:flex;gap:5px;align-items:center;">to <input id="evvPastTo" type="date" onchange="evvPastFilter()"></label>
-      </div>
-      <div id="evvPastNative"><div class="field-note">Loading…</div></div>
-    </section>
+    <!-- TAB: EVV CORRECTIONS removed 2026-10-17 (Samantha: "completely remove the EVV tab"). The EVV correction form is
+         retired: a visit missing a clock-in or clock-out becomes a "Call <client> to confirm <caregiver>'s times" card in
+         Needs Attention (confirm_times, ccCft* below). Past signed forms stay on the caregiver's and client's profiles. -->
 
     <!-- ===================== TAB: TRAINING HUB ===================== -->
     <!-- The training platform lives at training.mo-care.com and is its own
@@ -4458,7 +4414,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div class="settings-section" id="tkSettings" data-set="missed-clockins">
 <h3>⏰ Missed clock-ins</h3>
-<p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). The EVV form never goes out by itself: an admin sends it from the link page when a caregiver asks to be clocked in for their start time. Changes here take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<p class="hint">When a caregiver hasn't clocked in a few minutes after their shift starts, they get one short text. At the same moment every admin gets a text with their own link, and it repeats until someone opens the link and marks it resolved (or she clocks in, or a coverage case covers the shift). When the shift ends with still no clock-in, the texts stop and the office gets a card to call the client and confirm the times (the EVV correction form is no longer used).</p>
 <p class="hint" id="tkQuietHint"><b>Office quiet hours:</b> no admin or office text from 8pm to 7am Central, except missed clock-ins and call-ins while their after-hours switches are on. Each admin gets at most 6 texts about one missed clock-in, and every text has the link to mark it resolved.</p>
 <div id="tkCg" class="field-note" style="margin:6px 0 4px;"></div>
 <button class="secondary" id="tkCgBtn" onclick="tkToggleCg(this)" style="margin-bottom:10px;">Turn on caregiver texts</button>
@@ -4486,12 +4442,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      its own wording and minutes in ops_settings, but no box here. -->
 <div class="settings-section" id="tkoSettings" data-set="missed-clockouts">
 <h3>⏱️ Missed clock-outs</h3>
-<p class="hint">When a caregiver clocked in but there's no clock-out a few minutes after the shift ends, they get one text, once. No admin texts: the client was served, only the time record is at stake. It goes out with the caregiver texts switch under Missed clock-ins. Keep the form link (sc.mo-care.com/evv-correction-form) in the text: each caregiver gets it already filled in for that visit. Changes take effect on the next check (every 2 minutes) and are recorded in the activity log.</p>
+<p class="hint">When a caregiver clocked in but there's no clock-out a few minutes after the shift ends, they get one text, once. No admin texts. It goes out with the caregiver texts switch under Missed clock-ins. If there's still no clock-out after the minutes below, the office gets a card in Needs Attention to call the client and confirm the departure time (the EVV correction form is no longer used).</p>
 <div id="tkoState" class="field-note" style="margin:6px 0 10px;"></div>
 <label>Minutes after the shift ends before the text goes</label>
 <input id="set_tko_grace" type="number" min="1" max="120" placeholder="10">
+<label>Minutes after the shift ends, still no clock-out, before the office gets the card to call the client</label>
+<input id="set_cft_after" type="number" min="15" max="240" placeholder="30">
 <label>The caregiver's text ({first_name} their name, {client} the client's first name, {time} when the shift ended)</label>
-<textarea id="set_tko_msg" rows="4" oninput="tkoWarn()" placeholder="Hi {first_name}, it's Caring Companions. Your shift with {client} ended at {time} but there's no clock-out yet. Please clock out in the AxisCare app now. If you need your time corrected, fill in this form before you leave and have {client} sign it: sc.mo-care.com/evv-correction-form. If you didn't put in your shift note, text it to the office now so we can put it in your shift for you."></textarea>
+<textarea id="set_tko_msg" rows="4" oninput="tkoWarn()" placeholder="Hi {first_name}, it's Caring Companions. Your shift with {client} ended at {time} but there's no clock-out yet. Please clock out in the AxisCare app now. If you didn't put in your shift note, text it to the office now so we can put it in your shift for you."></textarea>
 <div class="field-note" style="margin-top:4px;"><a href="#" onclick="tkoCopyStd();return false;">Copy the standard wording into the box to edit it</a> · leave the box empty to use the standard wording</div>
 <div id="tkoWarn" class="field-note" style="color:#B23B2E;"></div>
 <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -4540,7 +4498,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section" data-set="loops">
 <h3>🔁 The Hub closes its own loops</h3>
-<p class="hint">Finished shifts close their coverage case (or ask "Was it covered?"), case cards close with the case, an uncovered shift asks a person to call the family, a missed clock-in becomes an "EVV fix needed" item when the shift ends, and EVV reviews come weekly. Sends nothing.</p>
+<p class="hint">Finished shifts close their coverage case (or ask "Was it covered?"), case cards close with the case, an uncovered shift asks a person to call the family, a missed clock-in or clock-out becomes a card to call the client and confirm the times, and EVV reviews come weekly. Sends nothing.</p>
 <div id="loopsSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="loopsSetBtn" onclick="loopsToggle(this)">Turn on</button>
@@ -4606,6 +4564,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
 <p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
+<p class="hint">Who owns each area, who gets notified and when it escalates: <a href="#" onclick="switchTab('routing');return false"><b>open Who Handles What</b></a>.</p>
 <div id="routeSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="routeSetBtn" onclick="routeToggle(this)">Turn on</button>
@@ -5267,69 +5226,105 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
      and pointers to the Playbook and the in-tab guides. -->
 <section class="tabpanel" id="tab-sops">
 <details class="guide">
-<summary>📋 How This Tab Works — the SOP Library ▼</summary>
+<summary>📋 How This Tab Works: the SOP Library ▼</summary>
 <div class="guide-body">
 <div class="guide-step"><span class="num">1</span>This is the one place that answers "how do we do things here." Every standard operating procedure either lives on this page or is linked from it, so a new hire or a covering coordinator never has to know which hub grew the answer.</div>
-<div class="guide-step"><span class="num">2</span><b>Documents</b> are stored privately in the hub's database, not in the website code. Samantha and Zach can add one with <b>+ Add SOP</b>: give it a title and paste the document text (Markdown headings, lists, and tables all render properly).</div>
-<div class="guide-step"><span class="num">3</span>Instructions for using each tab stay <b>on that tab</b>, in the "How This Tab Works" guide at the top. This library is for the procedures that span tabs or hubs.</div>
+<div class="guide-step"><span class="num">2</span>Procedures are sorted by <b>the moment in our work</b> (New lead, Assessment and start of care, Ongoing care, When something goes wrong, Caregivers, Ending care, Office). Every one has the same card: when this happens, who owns it and the backup, the steps, where you do it, done when, and escalate if.</div>
+<div class="guide-step"><span class="num">3</span><b>Why we do it this way</b> is labelled: a <b>State rule</b> (with its source and the date it was checked), <b>Our procedure</b> (how we comply), or <b>Our choice</b> (a company decision). Never describe one of our choices to a family or an auditor as a state requirement.</div>
+<div class="guide-step"><span class="num">4</span>Samantha and Zach add and edit procedures with <b>+ Add a procedure</b>. A <b>draft</b> is only seen by them until they publish it. Each one is tagged Missouri, Oklahoma or both; the filter at the top shows one state.</div>
+<div class="guide-step"><span class="num">5</span>Instructions for using each tab stay <b>on that tab</b>, in the "How This Tab Works" guide at the top. This library is for the procedures that span tabs or hubs.</div>
 <div class="guide-step flag"><span class="num">!</span>If a procedure changes, update it here the same day. An SOP that says the old way is worse than no SOP at all.</div>
 </div>
 </details>
 
 <div id="sop-viewer" style="display:none">
   <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap">
-    <button class="primary" style="font-size:.78rem" onclick="sopCloseDoc()">← Back to the library</button>
+    <button class="primary" style="font-size:.78rem" onclick="sopCloseDoc()">← All procedures</button>
     <span id="sop-viewer-meta" style="font-size:.75rem;color:var(--text-muted)"></span>
     <span class="spacer" style="flex:1"></span>
+    <button id="sop-publish-btn" class="primary" style="display:none;font-size:.78rem" onclick="sopPublish()">Publish for everyone</button>
     <button id="sop-edit-btn" style="display:none;font-size:.78rem" onclick="sopEditDoc()">✎ Edit</button>
   </div>
-  <div class="card" style="padding:1.25rem 1.5rem"><div id="sop-viewer-body"></div></div>
+  <div class="card" id="sop-viewer-card" style="padding:1.25rem 1.5rem"><div id="sop-viewer-body"></div></div>
+  <iframe id="sop-viewer-page" title="Procedure" style="display:none;width:100%;border:0;background:transparent"></iframe>
 </div>
 
 <div id="sop-editor" style="display:none">
-  <div class="card" style="padding:1rem 1.25rem;margin-bottom:1rem">
-    <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem" id="sop-editor-title">Add an SOP</div>
-    <div style="margin-bottom:.6rem"><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Title</label><input id="sop-ed-title" type="text" placeholder="e.g. Corrective Action &amp; Employee Discipline"></div>
-    <div style="margin-bottom:.6rem"><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Document (paste Markdown or plain text)</label><textarea id="sop-ed-body" rows="16" style="resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></textarea></div>
-    <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-      <button class="primary" onclick="sopSaveDoc()">Save SOP ✓</button>
+  <div class="card sop-ed" style="padding:1rem 1.25rem;margin-bottom:1rem">
+    <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem" id="sop-editor-title">Add a procedure</div>
+    <label>Title</label><input id="sop-ed-title" type="text" placeholder="e.g. A caregiver calls off: finding coverage">
+    <div class="sop-ed-row">
+      <div><label>When it happens in our work</label><select id="sop-ed-moment"></select></div>
+      <div><label>Where it applies</label><select id="sop-ed-state"><option value="MO">Missouri</option><option value="OK">Oklahoma</option><option value="Both">Both states</option></select></div>
+    </div>
+    <label>When this happens (one line)</label><input id="sop-ed-when" type="text" placeholder="e.g. A caregiver calls or texts that they can't make a shift.">
+    <div class="sop-ed-row">
+      <div><label>Who owns it</label><input id="sop-ed-owner" type="text" placeholder="e.g. Krystal"></div>
+      <div><label>Backup</label><input id="sop-ed-backup" type="text" placeholder="e.g. Samantha"></div>
+    </div>
+    <label>Steps (one per line)</label><textarea id="sop-ed-steps" rows="7"></textarea>
+    <label>Where you do it (one per line: what it is | link, the link is optional)</label><textarea id="sop-ed-where" rows="3" placeholder="Missed clock-ins | #hourswatch&#10;AxisCare (the visit)"></textarea>
+    <label>Done when</label><input id="sop-ed-done" type="text">
+    <label>Escalate if</label><input id="sop-ed-escalate" type="text">
+    <label>Why we do it this way</label>
+    <div class="field-note" style="margin:0 0 6px">Keep these honest: a <b>State rule</b> needs its source; <b>Our procedure</b> is how we comply; <b>Our choice</b> is a company decision, never described to a family or an auditor as a state requirement.</div>
+    <div id="sop-ed-why"></div>
+    <button style="font-size:.75rem;margin:4px 0 10px" onclick="sopWhyAdd()">+ Add a reason</button>
+    <label>Anything else (optional, Markdown or plain text)</label><textarea id="sop-ed-body" rows="5" style="resize:vertical;font-family:ui-monospace,Menlo,monospace;font-size:12.5px"></textarea>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.6rem">
+      <button class="primary" onclick="sopSaveDoc('published')">Save and publish ✓</button>
+      <button onclick="sopSaveDoc('draft')">Save as a draft</button>
       <button onclick="sopCancelEdit()">Cancel</button>
       <span class="spacer" style="flex:1"></span>
-      <button id="sop-delete-btn" style="display:none;color:#b91c1c" onclick="sopDeleteDoc()">Delete this SOP</button>
+      <button id="sop-delete-btn" style="display:none;color:#b91c1c" onclick="sopDeleteDoc()">Delete</button>
     </div>
   </div>
 </div>
 
 <div id="sop-index">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.6rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem;flex-wrap:wrap;gap:.6rem">
     <div>
       <div style="font-size:.95rem;font-weight:700;color:var(--navy)">📚 Standard Operating Procedures</div>
-      <div style="font-size:.74rem;color:var(--text-muted)">Stored privately in the hub. Everyone can read; Samantha and Zach can edit.</div>
+      <div style="font-size:.74rem;color:var(--text-muted)">Sorted by the moment in our work. Everyone can read; Samantha and Zach can edit.</div>
     </div>
-    <button class="primary" id="sop-add-btn" style="display:none" onclick="sopNewDoc()">+ Add SOP</button>
+    <button class="primary" id="sop-add-btn" style="display:none" onclick="sopNewDoc()">+ Add a procedure</button>
   </div>
+  <div id="sop-state-filter" style="display:flex;gap:6px;margin-bottom:.9rem;flex-wrap:wrap"></div>
+  <div id="sop-starters"></div>
   <div id="sop-doc-list" style="margin-bottom:1.5rem"></div>
 
+  <div id="sop-esc-wrap" style="display:none">
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">🚨 After-Hours Escalation Protocol</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
     <div id="sop-escalation" style="white-space:pre-wrap;font-size:.85rem;line-height:1.6"></div>
     <div class="hint" style="margin-top:.6rem">Owners edit this text in ⚙️ Settings → After-Hours Escalation Protocol.</div>
   </div>
+  </div>
 
+  <div id="sop-staff-wrap" style="display:none">
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">📘 Staffing SOP documents</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
     <div id="sop-staffing-links" style="font-size:.85rem;line-height:2"><span style="color:var(--text-muted)">Loading…</span></div>
     <div class="hint" style="margin-top:.4rem">These links are set in the Staffing hub's Scheduling tab (the ✎ next to each SOP) and shared to both hubs.</div>
   </div>
-
-  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Also part of the library</div>
-  <div class="card" style="padding:1rem 1.25rem;margin-bottom:2rem;font-size:.85rem;line-height:2">
-    <div>📚 <a href="#" onclick="switchTab('playbook');return false"><b>Coordinator Playbook</b></a> — payors, the intake process, sales scripts, objection handling. The next pill over.</div>
-    <div>🗓️ <a href="#" onclick="switchTab('calendar');return false"><b>Team Calendar</b></a> — who's on, who's in the field, the coordinator books, and the field expectation in writing.</div>
-    <div>🛡️ <a href="#" onclick="switchTab('ltcpolicy');return false"><b>LTC claim process</b></a> — lives with the LTC Policy tools under Growth.</div>
-    <div>📋 <b>"How This Tab Works" guides</b> — at the top of every tab in every hub, instructions stay where the work happens.</div>
   </div>
 </div>
+</section>
+
+<!-- ===================== TAB: REFERENCE (SOPs) =====================
+     2026-10-17 (her ask, "they don't stay in the tab and subtab structure"): Payors & Programs used to open as its own
+     page with its own header and tab row, so the page jumped on every click. It now opens here, under the Hub's own
+     SOPs tab row, with its sub-tabs straight beneath. programs.html?in=hub hides its own header and tabs. -->
+<!-- DOCUMENTS (2026-10-17): Forms & Templates (forms.html, the agency's master copies) and Client Folders (the printed
+     folder pieces; also a procedure under Procedures). Both open inside the Hub with ?in=hub, like Payors & Programs. -->
+<section class="tabpanel" id="tab-docs">
+  <iframe id="docsFrame" title="Forms &amp; Templates" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
+<section class="tabpanel" id="tab-docfolders">
+  <iframe id="docFoldersFrame" title="Client Folders" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
+<section class="tabpanel" id="tab-sopref">
+  <iframe id="sopRefFrame" title="Payors &amp; Programs" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
 
 <!-- ===================== TAB: TEAM WEEKLY SCHEDULE ====================
@@ -5562,6 +5557,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <!-- the whole journey, grouped by stage, each step with its evidence and history (client-journey.js) -->
   <div id="cjStart"></div>
     <div id="cp_start_note"></div>
+    <div id="cp_agreement"></div><!-- 2026-10-16: the Client Care Agreement signed on the tablet (agreement-card.js, agreement.html) -->
 <div class="cp-lead">
       <!-- The Start Contract (2026-09-26, Step 1 of the Lead to Client Plan).
            It belongs to this inquiry's Journey, not to the lead; this card is
@@ -6198,8 +6194,8 @@ The HomeTogether team</pre>
   </style>
 
   <div class="pb2-wrap">
-    <h2 class="pb2-h">📚 Coordinator Playbook</h2>
-    <p class="pb2-sub">Everything you need to answer a family's questions with confidence — how every payor works, the intake process for each, and word-for-word scripts for selling blended care. When in doubt, verify eligibility before promising anything.</p>
+    <h2 class="pb2-h">📚 Scripts</h2>
+    <p class="pb2-sub">The intake process and word-for-word scripts for talking with families. How each payor works is on <a href="#" onclick="return ccOpenRef()">Payors &amp; Programs</a>. When in doubt, verify eligibility before promising anything.</p>
     <div class="pb2-nav">
       <a href="#pb-payors">Payors</a>
       <a href="#pb-process">Intake process</a>
@@ -6208,61 +6204,11 @@ The HomeTogether team</pre>
       <a href="#pb-objections">Objections</a>
     </div>
 
-    <!-- PAYORS -->
+    <!-- PAYORS: moved to programs.html on 2026-10-17 so there is one place for how each payor works -->
     <div class="pb2-sec" id="pb-payors">
       <h3>How families pay</h3>
-      <p class="hint">Tap a payor to expand. Every family fits one — or a blend — of these five.</p>
-
-      <details class="pb2-card" open>
-        <summary>Private Pay <span class="pb2-tag t-green">Fastest start</span> <span class="chev">▸</span></summary>
-        <table class="pb2-rate">
-          <tr><td>Wellness Care</td><td>from $30/hr</td></tr>
-          <tr><td>Personal Care</td><td>from $32/hr</td></tr>
-          <tr><td>Advanced Care</td><td>from $34/hr</td></tr>
-          <tr><td>24-Hour Care</td><td>$28–$32/hr</td></tr>
-          <tr><td>HomeTogether virtual check-ins</td><td>from $75/mo</td></tr>
-        </table>
-        <p class="pb2-note">These are the only published rates — quote them exactly, never invent others.</p>
-        <p class="pb2-kv"><b>Best for:</b> families who need to start now with no eligibility wait, want flexibility, or don't qualify for a program. <b>Lead with:</b> our caregivers are screened, insured W-2 employees, backed by 24/7 support and backup coverage.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Medicaid — MO HealthNet HCBS <span class="pb2-tag t-blue">$0 to family</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> Missouri's Home &amp; Community-Based Services pay for personal-care hours at home so seniors avoid a nursing facility. Two ways to receive it — the <b>Agency Model</b> (we employ and send the caregiver) or <b>Consumer-Directed Services (CDS)</b>, where the client directs their own attendant (often a family member) and we handle the management/fiscal side.</p>
-        <p class="pb2-kv"><b>Who qualifies:</b> MO HealthNet (Medicaid) eligible · age 63+ or an adult with a disability · and meets nursing-facility <b>level of care</b> confirmed by the state's in-home assessment.</p>
-        <p class="pb2-kv"><b>Covers:</b> authorized personal-care / ADL hours (bathing, dressing, mobility, meals). <b>Does not cover:</b> room &amp; board, or hours beyond the authorized units.</p>
-        <p class="pb2-kv"><b>Watch out:</b> care is capped at the <b>authorized units</b> — anything above that isn't reimbursed. Confirm remaining units before scheduling.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Veterans (VA) <span class="pb2-tag t-purple">Underused — always ask</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv">Two very different paths — know which one you're on:</p>
-        <ul class="pb2-list">
-          <li><b>Aid &amp; Attendance</b> — an increased monthly VA pension for wartime veterans (or surviving spouses) who need help with daily activities. The family uses that money to pay us <b>privately</b>. Start by connecting them to a Veterans Service Officer to apply.</li>
-          <li><b>VA-authorized home care</b> (Homemaker/Home Health Aide, Veteran-Directed Care, Community Care) — the VA <b>authorizes and pays the agency directly</b>. You must have the VA referral/authorization <b>before</b> care starts.</li>
-        </ul>
-        <p class="pb2-kv"><b>Always ask:</b> "Did your loved one serve in the military?" It's the most-missed source of funding.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Medicare GUIDE (dementia respite) <span class="pb2-tag t-amber">75 hrs/yr</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> Medicare's GUIDE program covers up to <b>75 hours/year of in-home respite</b> for people with dementia — and we're an approved provider who bills Medicare directly.</p>
-        <p class="pb2-kv"><b>Who qualifies:</b> Original Medicare (Parts A &amp; B) · documented dementia diagnosis · not living in a long-term facility · not on hospice or certain Medicare Advantage plans.</p>
-        <p class="pb2-kv"><b>Process &amp; limits:</b> we check eligibility, coordinate approval with our GUIDE partner (typically 7–20 days), then care can begin. Respite hours only; they reset each program year and don't roll over. Full detail lives on the public <a href="https://guide.mo-care.com/medicare-guide.html" target="_blank" rel="noopener">Medicare GUIDE page</a>.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Long-Term Care (LTC) Insurance <span class="pb2-tag t-slate">Verify first</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> a private policy that reimburses home care once the person qualifies. Benefits vary wildly by policy — <b>never promise coverage before you read the policy.</b></p>
-        <p class="pb2-kv"><b>Check these five things:</b></p>
-        <ul class="pb2-list">
-          <li><b>Benefit trigger</b> — usually needs help with 2+ ADLs or has cognitive impairment (confirmed by our assessment).</li>
-          <li><b>Elimination period</b> — days the family pays out of pocket before benefits start (often 30–90 days).</li>
-          <li><b>Benefit amount</b> — the daily or monthly maximum the policy pays.</li>
-          <li><b>Agency requirement</b> — many require a licensed agency and a written plan of care (we provide both).</li>
-          <li><b>Reimbursement vs. direct bill</b> — the family may pay us and get reimbursed, or we bill the insurer.</li>
-        </ul>
-      </details>
+      <p class="pb2-kv">Rates, who qualifies and how to start for every payor now live on one page: <a href="#" onclick="return ccOpenRef()"><b>Payors &amp; Programs</b></a>.</p>
+      <p class="pb2-kv"><a href="#" onclick="return ccOpenRef('private')">Private pay</a> &nbsp;&middot;&nbsp; <a href="#" onclick="return ccOpenRef('guide')">Medicare GUIDE</a> &nbsp;&middot;&nbsp; <a href="#" onclick="return ccOpenRef('ltc')">LTC insurance</a> &nbsp;&middot;&nbsp; <a href="#" onclick="return ccOpenRef('va')">VA</a> &nbsp;&middot;&nbsp; <a href="#" onclick="return ccOpenRef('cds')">CDS</a> &nbsp;&middot;&nbsp; <a href="#" onclick="return ccOpenRef('medicaid')">Medicaid (ending 11/16)</a></p>
     </div>
 
     <!-- PROCESS -->
@@ -6279,8 +6225,8 @@ The HomeTogether team</pre>
           <span class="step">6 · Ongoing</span>
         </div>
         <ul class="pb2-list">
-          <li><b>Identify payor early.</b> On the first call, find out how they plan to pay — and always screen for Medicaid, VA, and a dementia diagnosis (GUIDE) even if they lead with private pay. It's the difference between an affordable plan and a lost family.</li>
-          <li><b>Verify before you promise.</b> For Medicaid, confirm level-of-care + authorized units. For VA-paid and LTC, get the authorization or policy details in hand <em>before</em> the start date.</li>
+          <li><b>Identify payor early.</b> On the first call, find out how they plan to pay, and always screen for VA, a long-term care policy, and a dementia diagnosis (GUIDE) even if they lead with private pay. On Medicaid? We no longer take agency Medicaid; send them to Caring Companions CDS, (417) 218-2888.</li>
+          <li><b>Verify before you promise.</b> For VA-paid and LTC, get the authorization or policy details in hand <em>before</em> the start date.</li>
           <li><b>Assessment sets the plan.</b> The in-home Care Assessment drives the care plan and satisfies documentation for LTC and GUIDE.</li>
           <li><b>Start of Care</b> is where private pay can begin same/next day — one of our biggest advantages. Say so.</li>
         </ul>
@@ -6334,7 +6280,7 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"Doesn't Medicare pay for this?" <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"Great question. Regular Medicare doesn't cover ongoing personal care at home — that catches a lot of families off guard. But there are real options: if there's a dementia diagnosis, Medicare's GUIDE program covers respite hours and we're an approved provider. And many families qualify for Medicaid or VA benefits. Let's see which fits — I'll help you check at no cost."</div>
+        <div class="pb2-script"><span class="who">Say</span>"Great question. Regular Medicare doesn't cover ongoing personal care at home, and that catches a lot of families off guard. But there are real options: if there's a dementia diagnosis, Medicare's GUIDE program covers respite visits and we're an approved provider. And many families have VA benefits or a long-term care policy that helps. Let's see which fits. I'll help you check at no cost."</div>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
@@ -7326,7 +7272,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261016g"></script>
+<script src="family-app-panel.js?v=20261017r2"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -7589,9 +7535,10 @@ async function signIn(){
   document.getElementById('appScreen').classList.add('on'); initNavUser();
   await loadAllData();
   /* CC Office on the phone (2026-10-07): the phone never runs the sign-in work; it reads and does the one thing tapped */
-  if(window.CC_PHONE){ phSignedIn(); await flushPendingSync(); phStart(); return; }
+  if(window.CC_PHONE){ phSignedIn(); await flushPendingSync(); ccKeyMapCheck(); phStart(); return; }
   await runSignInWork();   // writing producers run on an intentional sign-in, never on a passive reload
   await flushPendingSync();
+  ccKeyMapCheck();
   renderActiveTab();
 }
 async function signOut(){
@@ -7777,8 +7724,12 @@ function syncOpenPanel(){
     +(errs.length?'<div style="font-size:13px;font-weight:700;margin-top:10px;">Why</div>'
       +errs.slice(0,5).map(e=>'<div class="field-note" style="padding:4px 0;border-bottom:1px solid var(--border);">'
         +esc(e.kind)+(e.code?' · '+esc(String(e.code)):'')+'<br>'+esc(e.message||'')
+        +(/row-level security/i.test(e.message||'')?'<br><b>The database does not accept this storage slot yet (it is not registered). Run the Desktop key-map step (882), then Try again now.</b>':'')
         +'<br><span style="opacity:.7;">'+esc(String(e.at).replace('T',' ').slice(0,16))+' · '+esc(e.key||'')+'</span></div>').join('')
       :'')
+    +((window.CC_UNMAPPED||[]).length?'<div style="font-size:13px;font-weight:700;margin-top:10px;color:var(--red);">Not registered in the database</div>'
+      +'<div class="field-note" style="padding:4px 0;">Saves to these are refused until they are registered: '+esc(window.CC_UNMAPPED.join(', '))
+      +'. Run the Desktop key-map step (882), then reload.</div>':'')
     +(function(){ try{
         const qr=JSON.parse(localStorage.getItem('cch_sync_quarantine')||'[]');
         if(!qr.length) return '';
@@ -8011,6 +7962,24 @@ async function flushPendingSync(){
         : (SYNC_TEXT[syncClassify(lastErr)] + ' · ' + left + ' waiting'));
 }
 window.addEventListener('online', flushPendingSync);
+/* 882 (2026-10-17): the database refuses saves to any storage slot (app_data key) that is not registered in its map,
+   and on 10-17 that left 24 changes waiting in the browser. At sign-in, ask the database which of the slots this Hub
+   uses (app-data-keys.json) are not registered, and say so on the chip and in its panel instead of failing later. */
+async function ccKeyMapCheck(){
+  if(!sb) return;
+  try{
+    const res=await fetch('app-data-keys.json',{cache:'no-store'});
+    const keys=((await res.json())||{}).keys||[];
+    if(!keys.length) return;
+    const { data, error }=await sb.rpc('app_data_keys_unmapped',{ p_keys:keys });
+    if(error){ console.warn('ccKeyMapCheck: the sign-in check is not installed yet (Desktop 882)', error.message||error); return; }
+    window.CC_UNMAPPED=Array.isArray(data)?data:[];
+    if(window.CC_UNMAPPED.length){
+      console.error('ccKeyMapCheck: storage slots not registered, saves to them are refused:', window.CC_UNMAPPED);
+      syncSay('✗ '+window.CC_UNMAPPED.length+' storage slot'+(window.CC_UNMAPPED.length===1?'':'s')+' not registered · saves to '+(window.CC_UNMAPPED.length===1?'it':'them')+' are refused');
+    }
+  }catch(e){ console.warn('ccKeyMapCheck could not run', e); }
+}
 
 /* ---------------- Collapsible sidebar groups ---------------- */
 function toggleNavGroup(g){
@@ -8033,7 +8002,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','evv','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','playbook','routing'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','routing'],docs:['docs','docfolders'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8439,9 +8408,9 @@ const CC_SECTION_TITLES = {
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
-  soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Playbook',
+  soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', docfolders:'Client Folders', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -8569,7 +8538,8 @@ function ccSetSectionTitle(tab){
 /* The shared caregivers code (caregivers-engine.js) was written for the Staffing hub and jumps to its tab names; its own
    gotoTab replaces the one here once it loads, and both end in switchTab. Here those tabs have other names, so switchTab
    maps them; an unknown name used to throw "null is not an object" (the Previous offers row, 2026-10-11). */
-const GOTO_ALIAS={ onboarding:'cgbackground', orientations:'cgorient', home:'today' };
+/* evv: the EVV tab is gone (2026-10-17); its work is the confirm-times cards in Needs Attention */
+const GOTO_ALIAS={ onboarding:'cgbackground', orientations:'cgorient', home:'today', evv:'ops' };
 function gotoTab(tab){ return switchTab(tab); }
 
 /* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
@@ -8670,7 +8640,6 @@ function renderActiveTab(){
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
-  if(activeTab==='evv') evvOpen();
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -8698,6 +8667,9 @@ function renderActiveTab(){
   if(activeTab==='familybookings' && window.FAMAPP) FAMAPP.render();
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
+  if(activeTab==='sopref') sopRefShow();
+  if(activeTab==='docs') docsShow();
+  if(activeTab==='docfolders') ccHubFrame(document.getElementById('docFoldersFrame'), 'client-folders.html?in=hub');
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='careplans') cpRender();
   if(activeTab==='supervisory') renderSupervisory();
@@ -10250,7 +10222,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms();
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261017b'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -14682,6 +14654,7 @@ function tkoFill(){
   const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
   const g=document.getElementById('set_tko_grace'), m=document.getElementById('set_tko_msg'); if(!g||!m) return;
   g.value=st.timekeeper_clockout_grace_min!=null?String(st.timekeeper_clockout_grace_min):'';
+  const ca=document.getElementById('set_cft_after'); if(ca) ca.value=st.confirm_times_out_after_min!=null?String(st.confirm_times_out_after_min):'';
   m.value=String(st.timekeeper_msg_out||'');
   tkoWarn();
   const on=st.timekeeper_watch_live===true && st.timekeeper_text_live===true;
@@ -14695,7 +14668,8 @@ function tkoFill(){
 }
 function tkoWarn(){
   const m=String((document.getElementById('set_tko_msg')||{}).value||'').trim(), w=document.getElementById('tkoWarn'); if(!w) return;
-  w.textContent=(m && !/sc\.mo-care\.com\/evv-correction-form/.test(m))?'This wording has no form link (sc.mo-care.com/evv-correction-form), so caregivers will not get their filled-in correction form.':'';
+  /* 2026-10-17: the EVV correction form is retired; a wording that still links to it is not sent (the standard one goes) */
+  w.textContent=(m && /evv-correction-form/i.test(m))?'This wording still has the old form link. The form is no longer used, so this wording will not be sent: take the link out, or leave the box empty for the standard wording.':'';
 }
 function tkoCopyStd(){ const m=document.getElementById('set_tko_msg'); if(m){ m.value=m.getAttribute('placeholder')||''; m.focus(); tkoWarn(); } }
 async function tkoSave(btn){
@@ -14703,10 +14677,14 @@ async function tkoSave(btn){
   const gv=String((document.getElementById('set_tko_grace')||{}).value||'').trim();
   const g=gv?Math.round(Number(gv)):null;
   if(gv && !(g>=1&&g<=120)){ if(s) s.textContent='Minutes must be a whole number from 1 to 120.'; if(btn) btn.disabled=false; return; }
+  const cv=String((document.getElementById('set_cft_after')||{}).value||'').trim();
+  const cft=cv?Math.round(Number(cv)):null;
+  if(cv && !(cft>=15&&cft<=240)){ if(s) s.textContent='The call-the-client minutes must be a whole number from 15 to 240.'; if(btn) btn.disabled=false; return; }
   const msg=String((document.getElementById('set_tko_msg')||{}).value||'').trim();
   const out=await tkMerge((m, base)=>{ const ch=[];
     const set=(k,v,label)=>{ if(v==null||v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(base[k])!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
     set('timekeeper_clockout_grace_min', g, 'clock-out minutes'); set('timekeeper_msg_out', msg, 'clock-out wording');
+    set('confirm_times_out_after_min', cft, 'call-the-client minutes');
     return ch; }, 'missed clock-out settings');
   if(btn) btn.disabled=false;
   if(s) s.textContent=out.error?('Could not save: '+out.error.message):(out.changed.length?'Saved: '+out.changed.join(', ')+'.':'Nothing changed.');
@@ -22069,6 +22047,7 @@ function fcCircleBody(c, people, linked, esc){
             + (ax&&!p.axiscare_removed_at&&typeof lpcAxNote==='function'?'<span class="field-note" style="font-size:11.5px;">'+esc(lpcAxNote(p))+'</span>':'')
             + (p.carried_from&&typeof lpcWho==='function'?'<span class="field-note" style="font-size:11.5px;">added from People involved by '+esc(lpcWho(p.carried_by))+', '+esc(lpcWhen(p.carried_at))+'</span>':'')
             + (p.stopped_at?'<span class="field-note" style="font-size:11.5px;color:var(--red);">replied STOP</span>':'')
+            + (p.from_agreement?'<span class="field-note" style="font-size:11.5px;">from the signed Client Care Agreement</span>':'')
             + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
             + fcRecogChip(p)
             + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
@@ -22078,6 +22057,9 @@ function fcCircleBody(c, people, linked, esc){
               + '<input type="checkbox" ' + (p.sms_consent?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'sms_consent\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> texts ok</label>'
             + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
               + '<input type="checkbox" ' + (p.wants_changes!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_changes\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> caregiver changes</label>'
+            /* 872 (Samantha 2026-10-16 "Separately"): running-late texts have their own switch */
+            + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
+              + '<input type="checkbox" ' + (p.wants_late!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_late\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> running late</label>'
             + (ax&&!p.axiscare_removed_at?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpEdit(\'' + esc(p.id) + '\')">Edit in AxisCare</button>'
               :(linked&&p.source!=='axiscare'&&p.carried_from!=='client'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
@@ -22327,378 +22309,6 @@ function trainhubOpen(){ framedOpen('trainhubFrame','https://training.mo-care.co
    survives. Connecting -> embedded -> blocked are the three states the
    design asks for, and the blocked one is the common one: browsers routinely
    refuse to embed a signed-in site. */
-/* ── NATIVE EVV PIPELINE (2026-09-18, replacing the iframe): three stages
-   from the shared database — missing (same read as Schedule Watch), forms
-   received (evv_submissions table), and the corrections log (read-only:
-   the Staffing hub is the only writer of that array on purpose). */
-let EVV_SUBS={data:null,loading:false};
-/* 422 (2026-10-03): the signed form itself. EVV_PAST = every processed form (no signatures in the list; the
-   📄 View form page reads the whole form). EVV_LINK = the "Who is this form for?" picker while it is open. */
-let EVV_PAST={data:null,loading:false,noLink:false,open:{},ax:{},autoAt:0,autoMsg:''};
-let EVV_LINK=null;
-function evvOpen(){
-  if(!SW_EVV.data&&!SW_EVV.loading) swEvvLoad(); else swEvvPaint();
-  evvPaintNextVisit();
-  evvLoadSubs();
-  evvLoadPast();
-  evvPaintLog();
-}
-async function evvLoadSubs(){
-  if(EVV_SUBS.loading) return;
-  EVV_SUBS.loading=true;
-  try{
-    const r=await sb.from('evv_submissions').select('*').eq('processed',false)
-      .order('submitted_at',{ascending:false});
-    EVV_SUBS.data=r.error?{error:r.error.message}:{rows:r.data||[]};
-  }catch(e){ EVV_SUBS.data={error:String(e.message||e)}; }
-  /* 429: the signing link rows for forms waiting for the client (staff can read them; only the server writes them) */
-  EVV_SUBS.sign={};
-  try{
-    const wait=((EVV_SUBS.data&&EVV_SUBS.data.rows)||[]).filter(function(s){ return window.EVVF&&EVVF.sigStatus(s).key==='waiting'; }).map(function(s){ return String(s.id); });
-    if(wait.length){
-      const sr=await sb.from('evv_sign').select('submission_id,token,expires_at,used_at,closed_at,next_visit_texted_at,next_visit_practice_at,next_visit_start,next_visit_refused_at,next_visit_seen,no_visit_item_at,last_note').in('submission_id',wait);
-      ((sr&&sr.data)||[]).forEach(function(x){ EVV_SUBS.sign[String(x.submission_id)]=x; });
-    }
-  }catch(e){ /* before Desktop 429 the table is not there: the forms still list */ }
-  EVV_SUBS.loading=false;
-  evvPaintSubs(); evvPaintStats();
-  try{ swEvvPaint(); }catch(e){}   // re-match the missing rows against the fresh forms
-}
-function evvMe(){ return (typeof ME!=='undefined'&&(ME.email||ME.name))||'coordinator'; }
-function evvAllSubs(){ return ((EVV_SUBS.data&&EVV_SUBS.data.rows)||[]).concat((EVV_PAST.data&&EVV_PAST.data.rows)||[]); }
-function evvSubById(id){ return evvAllSubs().find(function(x){ return String(x.id)===String(id); })||null; }
-function evvPaintSubs(){
-  const box=document.getElementById('evvPendingNative'); if(!box||!EVV_SUBS.data) return;
-  const d=EVV_SUBS.data;
-  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">Could not load submissions: '+esc(d.error)+'</div>'; return; }
-  if(!window.EVVF){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">The EVV form tools did not load (evv-forms.js). Refresh the page.</div>'; return; }
-  if(!d.rows.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">No forms waiting. ✅</div>'; return; }
-  box.innerHTML=d.rows.map(function(s){
-    const orig=EVVF.span(s.orig_in,s.orig_out)||'?';
-    const neu=EVVF.span(s.new_in,s.new_out)||'?';
-    /* 429: the client signature has its own badge (waiting / verified by phone / declined / signed) */
-    const sig=EVVF.sigStatus(s), block=EVVF.acceptBlock(s), id=esc(String(s.id));
-    const sigs=EVVF.safeSig(s.sig_attendant)?'':'no caregiver signature';
-    const line=EVVF.signLineWords(s, (EVV_SUBS.sign||{})[String(s.id)]||null);
-    const link=EVVF.signLink((EVV_SUBS.sign||{})[String(s.id)]||null);
-    const ph=EVVF.phoneWords(s);
-    return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;border-left:4px solid '+(sig.key==='waiting'||sig.key==='refused'?'#F59E0B':'var(--honey)')+';">'
-      +'<b style="color:var(--navy);">'+esc(s.attendant||'?')+'</b>'
-      +'<span class="field-note">visit '+esc(s.visitdate||'?')+' with '+esc(s.consumer||'?')+'</span>'
-      +EVVF.visitChipHtml(s)+EVVF.sigChipHtml(s)
-      +'<span style="font-size:12.5px;">'+esc(orig)+' → <b>'+esc(neu)+'</b></span>'
-      +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,60))+'</span>':'')
-      +(sigs?'<span style="color:var(--red);font-size:12px;font-weight:700;">'+esc(sigs)+'</span>':'')
-      +'<span style="flex:1;"></span>'
-      +'<span class="field-note">'+(s.submitted_at?new Date(s.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'</span>'
-      +EVVF.viewBtnHtml(s.id)
-      +'<button class="cara-btn" style="font-size:12px;'+(block?'opacity:.55;':'')+'"'+(block?' title="'+esc(block)+'"':'')+' onclick="evvProcessSub(\''+id+'\')">✓ Accept &amp; Log</button>'
-      +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvDismissSub(\''+id+'\')">Dismiss</button>'
-      +(EVVF.canPhone(s)?'<div style="flex-basis:100%;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:2px;">'
-        +(line?'<span class="field-note" style="color:#92400E;flex:1 1 260px;">'+esc(line)+'</span>':(sig.key==='refused'?'<span class="field-note" style="color:#B91C1C;flex:1 1 260px;">'+esc(ph)+'. Dismiss it: the time is not corrected.</span>':''))
-        +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvPhone(\''+id+'\',\'verify\')">📞 Verified by phone</button>'
-        +(sig.key==='waiting'?'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvPhone(\''+id+'\',\'refuse\')">Client declined to confirm</button>':'')
-        +(link?'<button class="cara-btn ghost" style="font-size:12px;" data-link="'+esc(link)+'" onclick="evvCopySign(this)" title="To text the caregiver yourself at her visit. Never send it to the client or family.">Copy signing link</button>':'')
-        +(!(s.caregiver_axiscare_id&&s.client_axiscare_id)?'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvLinkPast(\''+id+'\')">Link</button>':'')
-        +'</div>'
-       :(ph?'<div style="flex-basis:100%;" class="field-note">'+esc(ph)+'</div>':''))
-      +'</div>';
-  }).join('')
-  +'<div class="field-note" style="margin-top:6px;">Accept &amp; Log asks who the form is for (so it shows on the caregiver\'s and the client\'s profiles), then moves it into the corrections log below. Then correct the visit in AxisCare and press Check AxisCare on the log row.</div>';
-}
-
-/* ── "Who is this form for?" (Accept & Log, or Link on a past form). A name match is only ever a suggestion:
-      nothing is saved until the office presses the confirm button. ── */
-async function evvPeopleLists(){
-  const out={ cgs:[], cls:[], cgErr:'', clErr:'' };
-  try{ const j=await cgdCensus(false);
-       out.cgs=(j&&j.caregivers||[]).map(function(c){ return { id:String(c.id), name:((c.first||'')+' '+(c.last||'')).trim()||('#'+c.id), active:!!c.active }; }); }
-  catch(e){ out.cgErr=String(e&&e.message||e); }
-  try{ const roster=await cl360Roster();
-       out.cls=(roster||[]).filter(function(r){ return /^\d+$/.test(String(r.axiscare_client_id||'')); }).map(function(r){
-         const st=(typeof CL360_AXSTATUS!=='undefined'&&CL360_AXSTATUS&&CL360_AXSTATUS[String(r.axiscare_client_id)])||null;
-         return { id:String(r.axiscare_client_id), name:r.client_name||('#'+r.axiscare_client_id), active:!st||/active/i.test(String(st.label||'')) }; }); }
-  catch(e){ out.clErr=String(e&&e.message||e); }
-  if(!out.clErr&&!out.cls.length) out.clErr='no clients with an AxisCare number were found';
-  return out;
-}
-async function evvOpenLinker(id, mode){
-  if(!window.EVVF){ alert('The EVV form tools did not load. Refresh the page and try again.'); return; }
-  const sub=evvSubById(id); if(!sub){ alert('This form is no longer in the list. Press Refresh and try again.'); return; }
-  if(mode==='link'&&EVV_PAST.noLink){ alert('Linking needs the database update first (Desktop 422). Nothing was changed.'); return; }
-  /* 427: a form sent from the pre-filled link is already linked from its AxisCare visit: no lists, no guess.
-     The office confirms it as it is, or presses Change to pick someone else. */
-  if(mode==='accept'&&EVVF.fromVisit(sub)){ EVV_LINK={ sub, mode, fixed:true }; evvPaintLinker(); return; }
-  EVV_LINK={ sub, mode, lists:null };
-  evvPaintLinker();
-  EVV_LINK.lists=await evvPeopleLists();
-  if(!EVV_LINK||EVV_LINK.sub!==sub) return;
-  EVV_LINK.model=EVVF.pickerModel(sub, EVV_LINK.lists.cgs, EVV_LINK.lists.cls);
-  evvPaintLinker();
-}
-async function evvLinkUnfix(){
-  const L=EVV_LINK; if(!L||!L.fixed) return;
-  L.fixed=false; L.lists=null; evvPaintLinker();
-  L.lists=await evvPeopleLists();
-  if(EVV_LINK!==L) return;
-  L.model=EVVF.pickerModel(L.sub, L.lists.cgs, L.lists.cls);
-  evvPaintLinker();
-}
-function evvPaintLinker(){
-  let ov=document.getElementById('evvLinkModal');
-  if(!EVV_LINK){ if(ov) ov.style.display='none'; return; }
-  if(!ov){ ov=document.createElement('div'); ov.id='evvLinkModal'; document.body.appendChild(ov); }
-  ov.style.cssText='position:fixed;inset:0;background:rgba(16,30,48,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto;';
-  const L=EVV_LINK, s=L.sub, accept=L.mode==='accept';
-  const body=L.fixed
-    ?'<div style="margin:12px 0 4px;border:1.5px solid #BBF7D0;background:#F0FDF4;border-radius:10px;padding:10px 12px;font-size:13.5px;">'
-     +'<div style="margin-bottom:6px;">'+EVVF.visitChipHtml(s)+'</div>'
-     +'<div><b>Caregiver:</b> '+esc(s.caregiver_linked_name||('#'+(s.caregiver_axiscare_id||'?')))+'</div>'
-     +'<div><b>Client:</b> '+esc(s.client_linked_name||('#'+(s.client_axiscare_id||'?')))+'</div>'
-     +(s.axiscare_visit_id?'<div class="field-note">AxisCare visit '+esc(s.axiscare_visit_id)+'</div>':'')
-     +'<div class="field-note" style="margin-top:4px;">This form was sent from the link filled in for this visit, so the caregiver, client and visit came from AxisCare, not from a name match. '
-     +'<a href="#" onclick="evvLinkUnfix();return false;" style="color:#0F766E;font-weight:700;">Change</a> if it is wrong.</div></div>'
-    :!L.model
-    ?'<div class="field-note" style="padding:14px 0;">Loading the caregiver and client lists…</div>'
-    :'<div style="margin:10px 0 4px;font-weight:700;color:var(--navy);font-size:13.5px;">Caregiver</div>'+EVVF.selectHtml('evvLinkCg', L.model.cg, L.lists.cgErr)
-     +'<div style="margin:14px 0 4px;font-weight:700;color:var(--navy);font-size:13.5px;">Client</div>'+EVVF.selectHtml('evvLinkCl', L.model.cl, L.lists.clErr);
-  ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:20px 22px;box-shadow:0 12px 40px rgba(0,0,0,.25);">'
-    +'<div style="display:flex;align-items:baseline;gap:10px;"><b style="font-size:18px;color:var(--navy);">Who is this form for?</b><span style="flex:1"></span>'
-    +'<button class="cara-btn ghost" style="font-size:12px;" onclick="evvLinkCancel()">Cancel</button></div>'
-    +'<div class="field-note" style="margin-top:6px;">On the form the caregiver typed <b>'+esc(s.attendant||'?')+'</b> and the client <b>'+esc(s.consumer||'?')+'</b> (visit '+esc(s.visitdate||'?')+'). '
-    +'Choose the right people. The signed form is then kept on both of their profiles.</div>'
-    +body
-    +'<div id="evvLinkMsg" style="color:var(--red);font-size:13px;margin-top:10px;"></div>'
-    +'<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">'
-    +'<button class="cara-btn" id="evvLinkGo" onclick="evvLinkConfirm()"'+(L.model||L.fixed?'':' disabled')+'>'+(accept?'✓ Confirm and log':'✓ Confirm link')+'</button>'
-    +EVVF.viewBtnHtml(s.id)
-    +'</div>'
-    +(accept?'<div class="field-note" style="margin-top:8px;">After logging: correct the times in AxisCare, then press Check AxisCare on the log row.</div>':'')
-    +'</div>';
-  ov.style.display='flex';
-}
-function evvLinkCancel(){ EVV_LINK=null; evvPaintLinker(); }
-async function evvLinkConfirm(){
-  const L=EVV_LINK; if(!L||!(L.model||L.fixed)) return;
-  const msg=document.getElementById('evvLinkMsg'), go=document.getElementById('evvLinkGo');
-  if(L.fixed) return evvLinkSave(L, { cg:String(L.sub.caregiver_axiscare_id||EVVF.NONE), cgName:L.sub.caregiver_linked_name||'', cl:String(L.sub.client_axiscare_id||EVVF.NONE), clName:L.sub.client_linked_name||'' }, msg, go);
-  const cgSel=document.getElementById('evvLinkCg'), clSel=document.getElementById('evvLinkCl');
-  const cg=cgSel?cgSel.value:'', cl=clSel?clSel.value:'';
-  if(!cg||!cl){ if(msg) msg.textContent='Choose the '+(!cg?'caregiver':'client')+', or "Not on this list", before you confirm.'; return; }
-  const nameOf=function(list,id){ const p=(list||[]).find(function(x){ return String(x.id)===String(id); }); return p?p.name:''; };
-  const choice={ cg, cgName:nameOf(L.model.cg.people,cg), cl, clName:nameOf(L.model.cl.people,cl) };
-  return evvLinkSave(L, choice, msg, go);
-}
-async function evvLinkSave(L, choice, msg, go){
-  if(go){ go.disabled=true; go.textContent='Saving…'; }
-  const me=evvMe();
-  const r=await EVVF.linkSave(sb, L.sub, choice, { by:me, accept:L.mode==='accept' });
-  if(!r.ok){ if(go){ go.disabled=false; go.textContent=L.mode==='accept'?'✓ Confirm and log':'✓ Confirm link'; } if(msg) msg.textContent='Not saved: '+r.error; return; }
-  const s=L.sub;
-  if(L.mode==='accept'){
-    const e={ id:Date.now().toString(), submission_id:String(s.id), attendant:s.attendant, consumer:s.consumer,
-      visitdate:s.visitdate, submitdate:s.submitdate||'',
-      origIn:s.orig_in||'', origOut:s.orig_out||'', newIn:s.new_in||'', newOut:s.new_out||'',
-      reason:s.reason||'', formReceived:'yes', wellskyDone:'no', admin:me,
-      wellskyDate:'', notes:s.notes||'', loggedAt:new Date().toISOString() };
-    DATA.evv_corrections=DATA.evv_corrections||[]; DATA.evv_corrections.unshift(e);
-    await persist('evv_corrections',e);   /* persist shows its own "not saved" and retries */
-  }
-  EVV_LINK=null; evvPaintLinker();
-  if(r.fellBack) alert('Logged, but who the form is for was NOT saved: the database needs its update first (Desktop 422). Link it later from Past forms.');
-  EVV_SUBS.data=null; evvLoadSubs(); evvLoadPast(true); evvPaintLog();
-}
-function evvProcessSub(id){
-  /* 429: no Accept until the client signed or the office verified by phone (Dismiss is always allowed) */
-  const sub=evvSubById(id), block=sub&&window.EVVF?EVVF.acceptBlock(sub):null;
-  if(block){ alert(block); return; }
-  return evvOpenLinker(id,'accept');
-}
-/* 429: the office's phone verification. A person calls; the Hub records who called (the sign-in), who they spoke with,
-   when, what was confirmed. Nothing here contacts a client. */
-function evvPhone(id, mode){
-  const sub=evvSubById(id); if(!sub||!window.EVVF){ alert('This form is no longer in the list. Refresh and try again.'); return; }
-  EVVF.openPhoneDialog({ sb, sub, mode, me:evvMe(), doc:document, onDone:function(){ EVV_SUBS.data=null; evvLoadSubs(); } });
-}
-async function evvCopySign(btn){
-  const v=btn&&btn.getAttribute('data-link'); if(!v) return;
-  const ok=function(){ const t=btn.textContent; btn.textContent='Copied: text it to the caregiver only'; setTimeout(function(){ btn.textContent=t; },2200); };
-  try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(v).then(ok,async function(){ (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }); else (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }catch(e){ (await ccPrompt('Copy the signing link (for the caregiver only):',v)); }
-}
-/* 429: the next-visit signature text switch. OFF = practice (the timekeeper records who it WOULD text). */
-function evvPaintNextVisit(){
-  const box=document.getElementById('evvNextVisitCard'); if(!box) return;
-  const st=DATA.ops_settings||{}, on=st.evv_next_visit_live===true, cgOn=st.timekeeper_text_live===true;
-  box.innerHTML='<div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13px;">'
-    +'<span style="flex:1 1 320px;">'+(on
-      ?(cgOn?'<b style="color:#1E8449;">Next-visit signature texts: ON.</b> When a form is waiting for the client, the caregiver gets one text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Never the client or family.'
-            :'<b style="color:#B7791F;">Next-visit signature texts: ON, but caregiver texts are OFF</b> (Settings, Missed clock-ins), so nothing is sent.')
-      :'<b style="color:#B7791F;">Next-visit signature texts: OFF (practice).</b> Forms waiting for the client show who WOULD have been texted. Use Copy signing link to text the caregiver yourself, or verify by phone.')
-    +' No visit within 14 days = a Needs Attention item to call the client.</span>'
-    +'<button class="cara-btn ghost" style="font-size:12px;" id="evvNvBtn" onclick="evvToggleNextVisit(this)">'+(on?'Turn off next-visit texts':'Turn on next-visit texts')+'</button>'
-    +'<span class="field-note" id="evvNvSaved"></span></div>';
-}
-async function evvToggleNextVisit(btn){
-  const on=!((DATA.ops_settings||{}).evv_next_visit_live===true);
-  if(!(await ccConfirm(on?'Turn on next-visit signature texts? When a correction form is waiting for the client\'s signature, the caregiver gets ONE text with the signing link at her next visit with that client (10 minutes after she clocks in, never 8pm to 7am). Nothing is ever sent to the client or family.'
-    :'Turn off next-visit signature texts? Waiting forms go back to practice (who would be texted is recorded; nobody is texted).'))) return;
-  if(btn) btn.disabled=true;
-  const out=await tkMerge(function(m){ m.evv_next_visit_live=on; return [on?'next-visit signature texts ON':'next-visit signature texts OFF']; }, 'EVV next-visit settings');
-  if(btn) btn.disabled=false;
-  evvPaintNextVisit();
-  const s=document.getElementById('evvNvSaved'); if(s) s.textContent=out.error?('Could not save: '+out.error.message):(on?'Saved: on.':'Saved: off.');
-}
-function evvLinkPast(id){ return evvOpenLinker(id,'link'); }
-async function evvDismissSub(id){
-  if(!(await ccConfirm('Dismiss this submission without logging it? It moves to Past forms, marked Dismissed.'))) return;
-  const sub=evvSubById(id)||{ id };
-  const r=window.EVVF?await EVVF.linkSave(sb, sub, {}, { by:evvMe(), dismiss:true })
-    :{ ok:false, error:'the EVV form tools did not load; refresh the page' };
-  if(!r.ok){ alert('Could not dismiss: '+r.error); return; }
-  EVV_SUBS.data=null; evvLoadSubs(); evvLoadPast(true);
-}
-async function evvMarkAx(id){
-  var e=(DATA.evv_corrections||[]).find(function(x){ return x&&String(x.id)===String(id); }); if(!e) return;
-  e.wellskyDone='yes'; e.wellskyDate=ccChiToday();
-  await persist('evv_corrections',e);
-  evvPaintLog(); evvPaintStats();
-}
-function evvPaintLog(){
-  const box=document.getElementById('evvLogNative'); if(!box) return;
-  const log=(DATA.evv_corrections||[]).slice(0,25), F=window.EVVF, all=evvAllSubs();
-  if(!log.length){ box.innerHTML='<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">Nothing in the log yet.</div>'; return; }
-  box.innerHTML='<div class="card" style="padding:6px 18px 10px;">'+log.map(function(e){
-    const done=String(e.wellskyDone||'').toLowerCase()==='yes';
-    const sub=F?F.logMatch(e, all):null, live=sub&&!sub._notLoaded?sub:null;
-    const axs=live&&F?F.axStatus(Object.assign({ _accepted:true }, live)):null;
-    return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
-      +'<b>'+esc(e.attendant||'?')+'</b>'
-      +'<span class="field-note">'+esc(e.visitdate||'')+' with '+esc(e.consumer||'')+' · '+esc([e.newIn,e.newOut].filter(Boolean).join('–'))+'</span>'
-      +(axs?F.axChipHtml(axs):'')
-      +'<span style="flex:1;"></span>'
-      +(sub?F.viewBtnHtml(sub.id):'')
-      +(live&&live.outcome!=='dismissed'?'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvAxToggle(\''+esc(String(live.id))+'\')">'+(EVV_PAST.open[live.id]?'Hide AxisCare':'Fix in AxisCare')+'</button>':'')
-      +(done?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ AxisCare updated'+(e.wellskyDate?' '+esc(e.wellskyDate):'')+'</span>'
-            :'<button class="cara-btn" style="font-size:11.5px;" onclick="evvMarkAx(\''+esc(String(e.id))+'\')">AxisCare updated ✓</button>')
-      +(live&&EVV_PAST.open[live.id]?'<div style="flex-basis:100%;">'+F.axHelperHtml(live, EVV_PAST.ax[live.id], 'evvAxCheck', 'evvAxPick')+'</div>':'')
-      +'</div>';
-  }).join('')+'</div>'
-  +((DATA.evv_corrections||[]).length>25?'<div class="field-note" style="margin-top:5px;">Showing the latest 25. Every form is in Past forms below.</div>':'');
-}
-
-/* ── Past forms: every processed form, searchable ── */
-async function evvLoadPast(force){
-  if(EVV_PAST.loading) return;
-  if(EVV_PAST.data&&!force){ evvPaintPast(); return; }
-  if(!window.EVVF){ EVV_PAST.data={ error:'the EVV form tools did not load (evv-forms.js); refresh the page' }; evvPaintPast(); return; }
-  EVV_PAST.loading=true;
-  const q=function(cols){ return sb.from('evv_submissions').select(cols).eq('processed',true).order('submitted_at',{ascending:false}).limit(1000); };
-  try{
-    let r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS+','+EVVF.SIG_COLS), noLink=false;
-    if(r.error&&EVVF.isMissingCol(r.error)) r=await q(EVVF.LIST_COLS+','+EVVF.LINK_COLS);   /* before Desktop 429 */
-    if(r.error&&EVVF.isMissingCol(r.error)){ noLink=true; r=await q(EVVF.LIST_COLS+',tasks'); }
-    EVV_PAST.noLink=noLink;
-    EVV_PAST.data=r.error?{ error:r.error.message||String(r.error) }:{ rows:r.data||[] };
-  }catch(e){ EVV_PAST.data={ error:String(e&&e.message||e) }; }
-  EVV_PAST.loading=false;
-  evvPaintPast(); evvPaintLog();
-  evvAutoAxCheck();
-}
-function evvPastFilter(){ evvPaintPast(); }
-function evvPaintPast(){
-  const box=document.getElementById('evvPastNative'); if(!box) return;
-  const d=EVV_PAST.data, F=window.EVVF;
-  if(!d){ box.innerHTML='<div class="field-note">Loading…</div>'; return; }
-  if(d.error){ box.innerHTML='<div style="color:var(--red);font-size:12.5px;">Could not load past forms: '+esc(d.error)+'. Press Refresh to try again.</div>'; return; }
-  const val=function(id){ const el=document.getElementById(id); return el?el.value:''; };
-  const rows=F.filterPast(d.rows,{ q:val('evvPastQ'), from:val('evvPastFrom'), to:val('evvPastTo') });
-  const log=DATA.evv_corrections||[];
-  const head=(EVV_PAST.noLink?'<div class="field-note" style="color:#92400E;margin-bottom:6px;">Linking forms to caregivers and clients, and the AxisCare check, start once the database update (Desktop 422) has run. The forms themselves open now.</div>':'')
-    +(EVV_PAST.autoMsg?'<div style="color:var(--red);font-size:12.5px;margin-bottom:6px;">'+esc(EVV_PAST.autoMsg)+'</div>':'')
-    +'<div class="field-note" style="margin-bottom:4px;">'+rows.length+' of '+d.rows.length+' form'+(d.rows.length===1?'':'s')+'</div>';
-  if(!rows.length){ box.innerHTML=head+'<div class="card" style="padding:14px 18px;color:var(--text-muted);font-size:13.5px;">'+(d.rows.length?'No past forms match the search.':'No past forms yet.')+'</div>'; return; }
-  box.innerHTML=head+'<div class="card" style="padding:6px 18px 10px;">'+rows.slice(0,200).map(function(s){
-    const st=F.statusOf(s, log), accepted=st.key==='accepted';
-    const axs=F.axStatus(Object.assign({ _accepted:accepted }, s));
-    const linked=s.caregiver_axiscare_id||s.client_axiscare_id;
-    const who=linked?'<span class="field-note"'+(F.fromVisit(s)?' style="color:#15803D;"':'')+'>'+esc(F.linkedWords(s))+'</span>'
-      :'<span class="field-note" style="color:#92400E;">not linked to a caregiver or client yet</span>';
-    return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);font-size:13px;">'
-      +'<b>'+esc(F.dateWord(s.visitdate))+'</b>'
-      +'<span><b>'+esc(s.attendant||'?')+'</b> <span class="field-note">with</span> '+esc(s.consumer||'?')+'</span>'
-      +'<span>'+esc(F.span(s.new_in,s.new_out)||'?')+'</span>'
-      +(s.reason?'<span class="field-note">'+esc(String(s.reason).slice(0,50))+'</span>':'')
-      +F.chipHtml(st)+' '+F.sigChipHtml(s)+(axs?' '+F.axChipHtml(axs):'')
-      +'<span style="flex:1;"></span>'
-      +F.viewBtnHtml(s.id)
-      +(EVV_PAST.noLink?'':'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvLinkPast(\''+esc(String(s.id))+'\')">'+(linked?'Change link':'Link')+'</button>')
-      +(!EVV_PAST.noLink&&accepted?'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="evvAxToggle(\''+esc(String(s.id))+'\')">'+(EVV_PAST.open[s.id]?'Hide AxisCare':'Fix in AxisCare')+'</button>':'')
-      +'<div style="flex-basis:100%;margin-top:-2px;">'+who+(s.processed_by?' <span class="field-note">· '+esc(st.key==='dismissed'?'dismissed':'processed')+' by '+esc(String(s.processed_by).split('@')[0])+(s.processed_at?' '+esc(F.whenWord(s.processed_at)):'')+'</span>':'')+'</div>'
-      +(EVV_PAST.open[s.id]?'<div style="flex-basis:100%;">'+F.axHelperHtml(s, EVV_PAST.ax[s.id], 'evvAxCheck', 'evvAxPick')+'</div>':'')
-      +'</div>';
-  }).join('')+'</div>'
-  +(rows.length>200?'<div class="field-note" style="margin-top:5px;">Showing the newest 200. Search by name or date to find older forms.</div>':'');
-}
-
-/* ── AxisCare: a person corrects the visit; the Hub checks it (read only) ── */
-function evvAxToggle(id){ EVV_PAST.open[id]=!EVV_PAST.open[id]; evvPaintPast(); evvPaintLog(); if(EVV_PAST.open[id]&&!EVV_PAST.ax[id]){ const s=evvSubById(id); if(s&&s.client_axiscare_id&&!s.axiscare_done_at) evvAxCheck(id); } }
-function evvAxApply(s, r){
-  if(!s||!r) return;
-  if(r.outcome==='match'||r.outcome==='mismatch'){
-    s.axiscare_visit_id=r.visit&&r.visit.id; s.axiscare_seen=r.seen; s.axiscare_checked_at=r.checked_at; s.axiscare_done_at=r.done_at||null;
-    if(r.outcome==='match'){   /* the log row's "AxisCare updated" follows the check */
-      const e=window.EVVF&&EVVF.logFor(s, DATA.evv_corrections||[]);
-      if(e&&String(e.wellskyDone||'').toLowerCase()!=='yes'){ e.wellskyDone='yes'; e.wellskyDate=ccChiToday(); e.axiscareChecked=true; persist('evv_corrections',e); }
-    }
-  }
-}
-async function evvAxCheck(id, visitId){
-  const s=evvSubById(id); if(!s||!window.EVVF) return;
-  EVV_PAST.open[id]=true;
-  EVV_PAST.ax[id]={ busy:true, result:(EVV_PAST.ax[id]||{}).result }; evvPaintPast(); evvPaintLog();
-  const body={ submission_id:String(id) }; if(visitId) body.visit_id=visitId;
-  const r=await EVVF.axCall(sb, body);
-  evvAxApply(s, r);
-  EVV_PAST.ax[id]={ busy:false, result:r }; evvPaintPast(); evvPaintLog(); evvPaintStats();
-}
-function evvAxPick(id, visitId){ return evvAxCheck(id, visitId); }
-/* When the lists open: re-check the accepted forms still waiting for AxisCare (up to 8, at most every 5 minutes). */
-async function evvAutoAxCheck(){
-  if(!window.EVVF||EVV_PAST.noLink||!EVV_PAST.data||!EVV_PAST.data.rows) return;
-  if(Date.now()-EVV_PAST.autoAt<5*60000) return;
-  const log=DATA.evv_corrections||[];
-  const wait=EVV_PAST.data.rows.filter(function(s){ return s.client_axiscare_id&&!s.axiscare_done_at&&EVVF.statusOf(s,log).key==='accepted'; }).slice(0,8);
-  if(!wait.length) return;
-  EVV_PAST.autoAt=Date.now();
-  const r=await EVVF.axCall(sb,{ submission_ids:wait.map(function(s){ return String(s.id); }) });
-  if(!r||r.outcome==='error'||!r.results){ EVV_PAST.autoMsg='Could not check AxisCare for the forms waiting on it: '+((r&&r.error)||'no answer')+'. Use Check AxisCare on a form to try again.'; evvPaintPast(); return; }
-  EVV_PAST.autoMsg='';
-  const errs=[], needs=[];
-  wait.forEach(function(s){ const x=r.results[String(s.id)]; if(!x) return; evvAxApply(s,x);
-    if(x.outcome!=='match') EVV_PAST.ax[s.id]={ busy:false, result:x };
-    if(x.outcome==='error') errs.push(x.error); else if(x.outcome==='several'||x.outcome==='none') needs.push(s); });
-  if(errs.length) EVV_PAST.autoMsg='AxisCare could not be checked for '+errs.length+' form'+(errs.length===1?'':'s')+': '+errs[0];
-  else if(needs.length) EVV_PAST.autoMsg=needs.length+' accepted form'+(needs.length===1?'':'s')+' could not be matched to one AxisCare visit (none found, or several that day). Press Fix in AxisCare on '+(needs.length===1?'it':'them')+' to pick or check.';
-  evvPaintPast(); evvPaintLog(); evvPaintStats();
-}
-function evvPaintStats(){
-  const row=document.getElementById('evvStatRow'); if(!row) return;
-  const missN=(SW_EVV.data&&SW_EVV.data.missing)?SW_EVV.data.missing.filter(function(r){ return !swEvvState(r.key)&&!evvSubFor(r); }).length:'…';
-  const pendN=(EVV_SUBS.data&&EVV_SUBS.data.rows)?EVV_SUBS.data.rows.length:'…';
-  const notAx=(DATA.evv_corrections||[]).filter(function(e){ return String(e.wellskyDone||'').toLowerCase()!=='yes'; }).length;
-  const stat=function(n,label,hot){ return '<div class="card" style="padding:12px 14px;text-align:center;">'
-    +'<div style="font-size:26px;font-weight:800;color:'+(hot&&n?'var(--red)':'var(--navy)')+';">'+n+'</div>'
-    +'<div class="field-note" style="font-size:11.5px;">'+label+'</div></div>'; };
-  row.innerHTML=stat(missN,'missing, not chased',true)+stat(pendN,'forms waiting',false)+stat(notAx,'logged, AxisCare not updated',false);
-}
-/* SYNC: a Missing-EVV row whose caregiver + visit date matches a submitted
-   form is no longer a chase — the form beat us to it. */
-function evvSubFor(r){
-  const rows=(EVV_SUBS.data&&EVV_SUBS.data.rows)||[];
-  const nk=function(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); };
-  return rows.find(function(s){ return String(s.visitdate||'')===String(r.date)&&nk(s.attendant)===nk(r.caregiver); })||null;
-}
-
 /* ---- Applicants ------------------------------------------------------------
    Everyone who has ever applied, kept for good. The whole point of keeping
    them is the person who was right but early: when an opening appears, they
@@ -28682,6 +28292,8 @@ window.apOpenFollowup = apOpenFollowup;
 function obligationOpenAction(it){
   try{
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
+    /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
+    if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
     if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
@@ -28694,8 +28306,8 @@ function obligationOpenAction(it){
         +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
       if(it.kind==='evv_review') return '<div style="margin-top:6px;">'+b("switchTab('cgattendance')",'Open Attendance')
         +'<span class="field-note" style="margin-left:8px;">Mark Done when you have reviewed each one.</span></div>';
-      if(it.kind==='evv_fix') return '<div style="margin-top:6px;">'+b("switchTab('evv')",'Open Missing EVV')
-        +'<span class="field-note" style="margin-left:8px;">Mark Done once the clock-in is fixed in AxisCare.</span></div>';
+      /* an EVV fix card made before 2026-10-17 (the install turns open ones into call cards) */
+      if(it.kind==='evv_fix') return '<div style="margin-top:6px;"><span class="field-note">Call '+esc(it.client_first||'the client')+' to confirm the times, correct the visit in AxisCare, then mark Done.</span></div>';
     }
     if(it && it.kind==='new_lead' && it.source_id && (DATA.leads||[]).some(l=>String(l.id)===String(it.source_id))){
       return '<div style="margin-top:6px;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="openLeadProfile(\''+escapeHtmlComms(String(it.source_id))+'\')">Open the inquiry</button></div>';
@@ -32938,6 +32550,7 @@ const OPS_KINDS = {
   family_call:    { label:'Call the family',       hours:1  },
   evv_review:     { label:'Caregiver EVV review',  hours:48 },
   evv_fix:        { label:'EVV fix needed',        hours:4  },
+  confirm_times:  { label:'Confirm times with the client', hours:4 },
 };
 // Urgency overrides the default window for anything raised by hand.
 const OPS_URGENCY = { urgent:1, today:8, normal:null };
@@ -36143,6 +35756,7 @@ function renderMgrStrip(){
       document.getElementById('appScreen').classList.add('on'); initNavUser();
       await loadAllData();
       await flushPendingSync();
+      ccKeyMapCheck();
       if(window.CC_PHONE){ phStart(); return; }
       renderActiveTab();
       updateStartLinkBadge();
@@ -36722,7 +36336,7 @@ function caraOpenCase(id){
    applyHash re-enters the same path and the panel renders twice. Replacement
    also keeps simple tab switching out of browser history, while a real deep
    link (a case, history, a shift) still arrives as its own entry. */
-var SCHED_CANON={ coverage:'#cara', hourswatch:'#cara', evv:'#evv' };
+var SCHED_CANON={ coverage:'#cara', hourswatch:'#cara' };
 function schedGo(tab){
   if(tab==='coverage'){
     CARA_PENDING_CASE='';
@@ -37109,144 +36723,6 @@ function swAutoRefreshArm(){
       if(r&&r.data&&Array.isArray(r.data.data)){ DATA.timekeeper_cases=r.data.data; swRenderLive(); swRenderBar(); }
     }catch(e){}
   },60000);
-}
-
-/* ── MISSING EVV (her ask, 2026-09-18: "we need to monitor missed clock ins
-   and clock outs - and missing evv"). Yesterday + today, live from the same
-   AxisCare read the Live Schedule uses; a visit that ENDED without its
-   clock-in or clock-out is a hole in the record. One tap texts the
-   caregiver the correction-form link (signed by the client — her EVV rule);
-   handled state persists in app_data evv_followups for the whole office. */
-let SW_EVV={data:null,loading:false};
-function swEvvKey(date,visitId){ return 'evv_'+String(date)+'_'+String(visitId).replace(/[^A-Za-z0-9]/g,'_'); }
-function swEvvState(key){ return (DATA.evv_followups||[]).find(function(e){ return e&&e.id===key; })||null; }
-async function swEvvLoad(force){
-  var box=document.getElementById('swEvvBoard'); if(!box) return;
-  if(SW_EVV.loading) return;
-  SW_EVV.loading=true;
-  box.innerHTML='<div class="field-note">Reading yesterday and today from AxisCare…</div>';
-  try{
-    var sess=await sb.auth.getSession();
-    var tok=sess&&sess.data&&sess.data.session&&sess.data.session.access_token;
-    if(!tok) throw new Error('Sign in to the hub first.');
-    var days=[ccChiToday()];
-    (function(){ var d=new Date(Date.now()-86400000); days.unshift(d.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)); })();
-    var missing=[], errs=[];
-    for(var i=0;i<days.length;i++){
-      var r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{
-        method:'POST', headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
-        body: JSON.stringify({ live_schedule:true, date:days[i] })});
-      var d2=await r.json().catch(function(){ return null; });
-      if(!r.ok||!d2||d2.error){ errs.push(days[i]+': '+((d2&&d2.error)||('AxisCare answered '+r.status))); continue; }
-      var nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
-      var isToday=days[i]===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
-      (d2.rows||[]).forEach(function(v){
-        if(!v.caregiver) return;                       // unassigned = Cara's problem, not EVV's
-        var ended=isToday?(v.end&&v.end<=nowHM):true;
-        if(!ended) return;
-        var missIn=!v.clock_in, missOut=!v.clock_out;
-        if(!missIn&&!missOut) return;
-        missing.push({ key:swEvvKey(days[i],v.visit_id||v.time+'_'+v.caregiver_id), date:days[i],
-          time:v.time, end:v.end, client:v.client, caregiver:v.caregiver, caregiver_id:v.caregiver_id,
-          miss: missIn&&missOut?'no clock-in or clock-out':missIn?'no clock-in':'no clock-out' });
-      });
-    }
-    SW_EVV.data={missing:missing, errors:errs, at:Date.now()};
-  }catch(e){ SW_EVV.data={missing:[],errors:[String(e.message||e)],at:Date.now()}; }
-  SW_EVV.loading=false;
-  if(!EVV_SUBS.data&&!EVV_SUBS.loading) evvLoadSubs();   // form-matching needs the submissions
-  swEvvPaint(); swRenderBar();
-}
-function swEvvPaint(){
-  var boxes=[document.getElementById('swEvvBoard'),document.getElementById('evvMissingBoard')].filter(Boolean);
-  var box=boxes[0]; if(!boxes.length||!SW_EVV.data) return;
-  var t12=function(s){ var m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; var h=+m[1]%12||12; return h+(m[2]==='00'?'':':'+m[2])+(+m[1]>=12?'p':'a'); };
-  var rows=SW_EVV.data.missing.slice().sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
-  /* SYNC with the correction forms: a matching submission means the form
-     already came in — no chase needed, it just needs processing. */
-  var formIn=rows.filter(function(r){ return !swEvvState(r.key)&&evvSubFor(r); });
-  var open=rows.filter(function(r){ return !swEvvState(r.key)&&!evvSubFor(r); });
-  var handled=rows.filter(function(r){ return swEvvState(r.key); });
-  var today=ccChiToday();
-  var h='';
-  if(SW_EVV.data.errors&&SW_EVV.data.errors.length)
-    h+='<div style="color:var(--red);font-size:12.5px;margin-bottom:8px;">Could not read: '+esc(SW_EVV.data.errors.join(' · '))+'</div>';
-  if(!open.length){
-    h+='<div class="card" style="padding:20px 22px;display:flex;gap:13px;align-items:center;">'
-      +'<span style="width:34px;height:34px;flex:0 0 34px;border-radius:50%;background:var(--green-bg);color:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;">✓</span>'
-      +'<div><div style="font-size:15.5px;font-weight:700;color:var(--navy);">Every finished visit has its EVV.</div>'
-      +'<div class="field-note" style="margin-top:2px;">Yesterday and today, straight from AxisCare.</div></div></div>';
-  }else{
-    h+=open.map(function(r){
-      return '<div class="card" style="padding:12px 16px;margin:0 0 7px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--red);">'
-        +'<b style="color:var(--navy);">'+esc(r.client)+'</b>'
-        +'<span class="field-note">'+(r.date===today?'today':'yesterday')+' '+t12(r.time)+(r.end?'–'+t12(r.end):'')+' · '+esc(r.caregiver)+'</span>'
-        +'<b style="color:var(--red);font-size:12.5px;">🧾 '+esc(r.miss)+'</b>'
-        +'<span style="flex:1;"></span>'
-        +'<button class="cara-btn" style="font-size:12px;" onclick="swEvvText(\''+esc(r.key)+'\')">📱 Text the correction form</button>'
-        +'<button class="cara-btn ghost" style="font-size:12px;" onclick="swEvvHandled(\''+esc(r.key)+'\')">✓ Handled</button>'
-        +'</div>';
-    }).join('');
-  }
-  if(formIn.length){
-    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 7px;">📨 Correction form already received</div>'
-      +formIn.map(function(r){
-        return '<div class="card" style="padding:10px 16px;margin:0 0 6px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;border-left:4px solid var(--teal);">'
-          +'<b style="color:var(--navy);">'+esc(r.client)+'</b>'
-          +'<span class="field-note">'+(r.date===today?'today':'yesterday')+' '+t12(r.time)+(r.end?'–'+t12(r.end):'')+' · '+esc(r.caregiver)+' · '+esc(r.miss)+'</span>'
-          +'<span style="flex:1;"></span>'
-          +'<b style="color:var(--teal);font-size:12.5px;">📨 form in — waiting to be processed (section 2 on the EVV tab)</b>'
-          +'</div>';
-      }).join('');
-  }
-  if(handled.length){
-    h+='<div style="font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-dim);margin:16px 0 7px;">Chased or handled</div>'
-      +'<div class="card" style="padding:6px 18px 10px;">'+handled.map(function(r){
-        var st=swEvvState(r.key);
-        return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13px;">'
-          +'<b>'+esc(r.client)+'</b><span class="field-note">'+esc(r.caregiver)+' · '+esc(r.miss)+'</span>'
-          +'<span style="flex:1;"></span>'
-          +'<span class="field-note">'+(st.status==='texted'?'📱 form texted':'✓ marked handled')+' '+covClock(st.at)+(st.by?' by '+esc(st.by):'')+'</span></div>';
-      }).join('')+'</div>';
-  }
-  h+='<div class="field-note" style="margin-top:9px;">Corrections need the signed form (client signature required) — the corrections log lives on the EVV tab. Loaded '+new Date(SW_EVV.data.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'.</div>';
-  boxes.forEach(function(b){ b.innerHTML=h; });
-  try{ evvPaintStats(); }catch(e){}
-}
-async function swEvvMark(key,status){
-  var r=(SW_EVV.data.missing||[]).find(function(x){ return x.key===key; }); if(!r) return;
-  var e={ id:key, status:status, at:new Date().toISOString(),
-    by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'', caregiver:r.caregiver, client:r.client, miss:r.miss, date:r.date };
-  DATA.evv_followups=DATA.evv_followups||[]; DATA.evv_followups.push(e);
-  await persist('evv_followups',e);
-  swEvvPaint(); swRenderBar();
-}
-async function swEvvHandled(key){ await swEvvMark(key,'handled'); }
-async function swEvvText(key){
-  var r=(SW_EVV.data.missing||[]).find(function(x){ return x.key===key; }); if(!r) return;
-  var roster=(DATA.caregivers||[]);
-  var nk=function(s){ return String(s||'').toLowerCase().replace(/[^a-z]/g,''); };
-  var cg=roster.find(function(c){ return nk((c.first||'')+(c.last||''))===nk(r.caregiver); });
-  var phone=cg&&cg.phone;
-  var first=(cg&&cg.first)||String(r.caregiver).split(' ')[0];
-  var clientFirst=String(r.client).split(' ')[0];
-  var when=(r.date===ccChiToday()?'today':'yesterday');
-  var msg='Hi '+first+", it's the Caring Companions office. Your "+when+' visit with '+clientFirst+' is missing its '+r.miss.replace('no ','')+' in AxisCare. Please complete the EVV correction form and have the client sign it. Thank you! sc.mo-care.com/evv-correction-form';
-  if(!phone){
-    try{ await navigator.clipboard.writeText(msg); }catch(e){}
-    alert('No phone on file for '+r.caregiver+' in the hub roster. The message is copied — paste it into a text from your phone, then it will be logged as texted.');
-    await swEvvMark(key,'texted');
-    return;
-  }
-  if(!(await ccConfirm('Text '+r.caregiver+' the correction-form request?\n\n"'+msg+'"'))) return;
-  try{
-    var resp=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/ghl-lead-comms',{
-      method:'POST',headers:{'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'x-hub-token':await trainHubTok(),'Content-Type':'application/json'},
-      body:JSON.stringify({action:'send_sms', phone:phone, first_name:first, message:msg})});
-    var d=await resp.json();
-    if(d&&d.status==='sent'){ await swEvvMark(key,'texted'); }
-    else alert('Could not send: '+((d&&d.error)||'unknown error'));
-  }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
 }
 
 /* ── THE CARE TEAM BUILDER (2026-09-19) ──────────────────────────────────
@@ -42494,21 +41970,140 @@ window.covLoadShifts=function(){};
 })();
 </script>
 <script>
+/* ── PAGES SHOWN INSIDE THE HUB (2026-10-17) ───────────────────────────
+   Payors & Programs, GUIDE and Client Folders are their own files, but they open INSIDE the Hub's SOPs section so the
+   header and tab row never change shape. They are on the same site, so the frame is sized to its page (no second
+   scroll bar) and its links stay inside (?in=hub hides each page's own header and tab row). */
+function ccHubFrame(frame, url){
+  if(!frame) return;
+  const want = new URL(url, location.href).href;
+  if(frame.dataset.src !== want){ frame.dataset.src = want; frame.src = want; }
+  if(frame.dataset.wired) return;
+  frame.dataset.wired = '1';
+  frame.addEventListener('load', function(){
+    let doc = null;
+    try{ doc = frame.contentDocument; }catch(e){ doc = null; }
+    if(!doc || !doc.body) return;
+    const fit = () => { try{ const h = Math.ceil(doc.body.getBoundingClientRect().height) + 24; if(h > 60) frame.style.height = h + 'px'; }catch(e){} };
+    fit();
+    try{ if(frame._ro) frame._ro.disconnect(); frame._ro = new ResizeObserver(fit); frame._ro.observe(doc.body); }catch(e){}
+    try{ frame.dataset.src = frame.contentWindow.location.href; }catch(e){}
+  });
+}
+function sopRefShow(sub){
+  const f = document.getElementById('sopRefFrame');
+  const cur = f && f.dataset.src ? new URL(f.dataset.src) : null;
+  if(!sub && cur && /programs\.html|guide\.html/.test(cur.pathname)) { ccHubFrame(f, cur.href); return; }
+  ccHubFrame(f, 'programs.html?in=hub' + (sub ? '#' + sub : ''));
+}
+/* Documents > Forms & Templates. cat (e.g. GUIDE) opens it filtered; without one it keeps where the person was. */
+function docsShow(cat){
+  const f = document.getElementById('docsFrame');
+  if(!cat && f && f.dataset.src && /forms\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
+  ccHubFrame(f, 'forms.html?in=hub' + (cat ? '&cat=' + encodeURIComponent(cat) : ''));
+}
+function ccOpenDocs(cat){ switchTab('docs'); docsShow(cat || ''); return false; }
+/* "Open Payors & Programs at this program": from Scripts and anywhere else in the Hub */
+function ccOpenRef(sub){
+  switchTab('sopref');
+  sopRefShow(sub || 'all');
+  try{ const f = document.getElementById('sopRefFrame'); if(f && f.contentWindow && sub) f.contentWindow.location.hash = sub; }catch(e){}
+  return false;
+}
+
 /* ── SOP LIBRARY ──────────────────────────────────────────────────────
-   Documents live in app_data key 'sop_library' as {id,title,body,updated_at,
-   updated_by} — in the database, not in this file, because some SOPs are
-   deliberately kept out of the public repo. Everyone signed in can read;
-   only manage_settings sees the add/edit/delete controls.
-   The RLS on app_data is what actually protects the content; the button
-   gating is just tidiness. Markdown rendering is a small local converter:
-   headings, bold/italic, inline code, fenced blocks, tables, lists, rules. */
+   Records live in app_data key 'sop_library', in the database, not in this file, because some SOPs are deliberately
+   kept out of the public repo. Everyone signed in reads; manage_settings adds, edits, publishes and deletes.
+   2026-10-17 (her yes to the SOP plan): every procedure has the same one-card shape, sorted by the moment in our
+   work: when this happens, who owns it and the backup, steps, where you do it (links), done when, escalate if, and
+   WHY, labelled State rule (with its source and the date it was checked), Our procedure, or Our choice, so a company
+   decision is never passed off as a state requirement. Each one is tagged Missouri, Oklahoma or both. A draft is
+   only shown to the owners until it is published. Older records ({id,title,body}) still open, as "Other documents".
+   The RLS on app_data is what protects the content; the button gating is tidiness. */
 (function(){
   const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  /* ME and DISC_APPROVERS are top-level let/const — not window properties —
-     so they must be referenced directly (this script runs after both). */
   const isOwner=()=>{ try{ return ccCan('manage_settings'); }catch(e){ return false; } };
-  const docs=()=>(DATA.sop_library||[]).slice().sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
-  let openId=null, editId=null, staffingLinks=null;
+  const MOMENTS=[
+    ['lead','New lead'],
+    ['assess','Assessment and start of care'],
+    ['ongoing','Ongoing care'],
+    ['wrong','When something goes wrong'],
+    ['caregivers','Caregivers'],
+    ['ending','Ending care'],
+    ['office','Office'],
+    ['other','Other documents']
+  ];
+  const WHY={ state:['State rule','#B42318','#FDECEA'], procedure:['Our procedure','#155A68','#EAF4F6'], choice:['Our choice','#9C6410','#FFF4E0'] };
+  const STATE_LABEL={ MO:'Missouri', OK:'Oklahoma', Both:'Both states' };
+  /* the first ten to write (her yes 2026-10-17); owners see the ones not written yet under their moment */
+  const TO_WRITE=[
+    ['ihs_end','ending','Moving IHS/ADW clients to Caring CDS before Nov 16'],
+    ['no_clock','ongoing',"A caregiver didn't clock in or out"],
+    ['calloff','ongoing','A caregiver calls off: finding coverage'],
+    ['first_call','lead','First call with a new lead'],
+    ['assessment','assess','The in-home assessment visit'],
+    ['soc','assess','Start of care'],
+    ['fall','wrong','A fall, injury or hospital stay'],
+    ['complaint','wrong','A complaint, then corrective action'],
+    ['hiring','caregivers','Hiring: interview, offer, checks, orientation'],
+    ['oncall','office','After-hours on-call']
+  ];
+  /* guides that are their own page, opened inside the procedures (not a separate tab) */
+  const PAGES=[
+    { id:'page_client_folders', moment:'assess', state:'MO', title:'Put together a client folder', page:'client-folders.html',
+      when:'Before every in-home assessment: which folder, what goes in each pocket, and how to order more.' }
+  ];
+  /* Two first drafts written by Claude from what she has decided (2026-10-17). Added to the library as DRAFTS only when
+     an owner presses the button; nobody else sees them until she publishes. */
+  const STARTERS=[
+    /* no_clock: the wording Samantha approved on 2026-10-17 ("The SOP is right as written"); Desktop 883 publishes it */
+    { slot:'no_clock', moment:'ongoing', state:'MO', title:'Missed clock-in or clock-out: confirm the times with the client',
+      when:'A caregiver did not clock in or clock out in AxisCare, and the shift is over. The Hub does the watching: no clock-in 5 minutes into a shift, the caregiver gets a text asking her to clock in and the office gets texts until someone marks it Resolved; no clock-out 10 minutes after the shift ends, the caregiver gets one text asking her to clock out. No clock-out 30 minutes after the shift ends, or a shift that ended with no clock-in, puts a card in Needs Attention: "Call Ruth to confirm Maria\'s times." Overnight, any visit from yesterday still missing a time gets the same card.',
+      owner:'Whoever is on duty in the office', backup:'',
+      steps:[
+        'Open the card and tap Call. It rings your phone and connects from the office line.',
+        'Speak with the client, or the family member who handles their care. Ask: "Was Maria with you today? What time did she get there, and what time did she leave?" Let them tell you the times rather than reading them out.',
+        'On the card, record who you spoke with, the times they gave, and any notes.',
+        'Correct the visit in AxisCare with those times, then tick Fixed in AxisCare. The card closes.',
+        'If the client can\'t remember or isn\'t sure: call the family member on file. If nobody can confirm, don\'t change the times. Write down what was said.',
+        'If nobody answers: leave a message and try again later the same day. The card stays open until it\'s done.',
+        'If a caregiver keeps missing clock-ins or clock-outs: the weekly Caregiver EVV Review flags it, and you decide the next step there.'
+      ],
+      where:[{ label:'Needs Attention: the card', url:'#ops' },{ label:'AxisCare: the visit', url:'' }],
+      done_when:'The visit in AxisCare has the times the client confirmed, and the card is closed.',
+      escalate_if:'The client says the caregiver wasn\'t there: don\'t change the times. Record a call-off or no-show on the caregiver\'s attendance and tell Samantha.',
+      why:[
+        { kind:'choice', text:'We no longer use the EVV correction form. When a time is missing, the office calls the client to confirm it.', source:'Samantha, 2026-10-17', url:'', checked:'' }
+      ] },
+    { slot:'ihs_end', moment:'ending', state:'MO', title:'Moving IHS/ADW clients to Caring CDS before Nov 16',
+      when:'Each of the 3 IHS/ADW clients we still serve, before our last day of agency Medicaid care on November 16, 2026.',
+      owner:'Samantha', backup:'Krystal',
+      steps:[
+        'For each client, decide with the family: moving to Caring Companions CDS, or ending care.',
+        'Write the discharge notice. Samantha approves the wording before anything goes to a family.',
+        'By October 26, send the written notice to the client or family AND to the Division (DSDS). That gives the 21 days before November 16.',
+        'Moving to CDS: give the family Caring Companions CDS, (417) 218-2888, and let the CDS office know they are coming.',
+        'Keep caring for them until their CDS care starts or November 16. If no other care is set up by then, keep caring and tell Samantha.',
+        "Record the planned last day and the reason on the client's End care form in the Hub: Moved to Caring CDS, or We no longer provide this program.",
+        'Tell each caregiver on these clients the last day, and talk about their other hours.',
+        'After the last visit, end the client in AxisCare.'
+      ],
+      where:[{ label:"Client Care: the client's profile", url:'#clients' },{ label:'Caring Companions CDS office hub', url:'https://hub.caringcds.com' }],
+      done_when:'All 3 clients have a notice sent (with its date), a planned last day and reason in the Hub, and are ended in AxisCare after their last visit.',
+      escalate_if:'A client still needs care on November 16 and nothing else is arranged: tell Samantha. We keep providing care until DSDS arranges other care.',
+      why:[
+        { kind:'state', text:'A provider that can no longer meet the needs of a participant who still needs help gives written notice of discharge to the participant or family and to the Division at least 21 days before the discharge, and keeps providing care for those 21 days or until DSDS arranges other care.', source:'19 CSR 15-7.021(16)(D)', url:'https://www.sos.mo.gov/cmsimages/adrules/csr/current/19csr/19c15-7.pdf', checked:'2026-10-15' },
+        { kind:'choice', text:'Caring Companions stops agency Medicaid (IHS and ADW) on November 16, 2026. CDS continues through our sister company.', source:'Samantha, 2026-10-14', url:'', checked:'' },
+        { kind:'procedure', text:'Families only hear about this in wording Samantha has approved.', source:'', url:'', checked:'' }
+      ] }
+  ];
+  let openId=null, editId=null, staffingLinks=null, stateFilter='all';
+  try{ stateFilter=localStorage.getItem('cch_sop_state')||'all'; }catch(e){}
+  const all=()=>(DATA.sop_library||[]);
+  const visible=()=>all().filter(d=>isOwner()||d.status!=='draft');
+  const momentOf=d=>MOMENTS.some(m=>m[0]===d.moment)?d.moment:'other';
+  const stateOk=d=>stateFilter==='all'||!d.state||d.state==='Both'||d.state===stateFilter;
+  const tag=(t,fg,bg)=>'<span style="font-size:10.5px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:2px 8px;color:'+fg+';background:'+bg+';white-space:nowrap">'+E(t)+'</span>';
 
   function inline(s){
     return E(s)
@@ -42556,19 +42151,49 @@ window.covLoadShifts=function(){};
     document.getElementById('sop-viewer').style.display = which==='viewer'?'':'none';
     document.getElementById('sop-editor').style.display = which==='editor'?'':'none';
   }
+  function linkHtml(w){
+    const u=String(w.url||'').trim();
+    if(!u) return E(w.label);
+    if(u.charAt(0)==='#') return '<a href="'+E(u)+'">'+E(w.label)+'</a>';
+    if(/^https:\/\//.test(u)) return '<a href="'+E(u)+'" target="_blank" rel="noopener">'+E(w.label)+'</a>';
+    return E(w.label);
+  }
+  function renderFilter(){
+    const box=document.getElementById('sop-state-filter'); if(!box) return;
+    box.innerHTML=[['all','All'],['MO','Missouri'],['OK','Oklahoma']].map(([k,l])=>
+      '<button style="font-size:.74rem;padding:4px 12px;border-radius:999px;'+(stateFilter===k?'background:var(--navy);color:#fff;border-color:var(--navy)':'')+'" onclick="sopState(\''+k+'\')">'+l+'</button>').join('');
+  }
+  function renderStarters(){
+    const box=document.getElementById('sop-starters'); if(!box) return;
+    const have=new Set(all().map(d=>d.slot).filter(Boolean));
+    const left=STARTERS.filter(s=>!have.has(s.slot));
+    box.innerHTML=(isOwner()&&left.length)?'<div class="card" style="padding:.85rem 1.1rem;margin-bottom:1rem;border-left:4px solid var(--honey,#F0A63A)">'
+      +'<b style="color:var(--navy)">'+left.length+' first draft'+(left.length===1?'':'s')+' ready for you to review</b>'
+      +'<div class="field-note" style="margin:3px 0 8px">'+left.map(s=>E(s.title)).join(' · ')+'. Written by Claude from what you have decided. Only you and Zach see a draft until you publish it.</div>'
+      +'<button class="primary" style="font-size:.76rem" onclick="sopAddStarters()">Add them as drafts</button></div>':'';
+  }
+  function cardHtml(d){
+    const draft=d.status==='draft';
+    return '<div class="card" style="padding:.7rem 1.05rem;margin-bottom:.45rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;cursor:pointer" onclick="sopOpenDoc(\''+E(d.id)+'\')">'
+      +'<div style="flex:1;min-width:220px"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><b style="font-size:.9rem;color:var(--navy)">'+E(d.title||'(untitled)')+'</b>'
+      +(draft?tag('Draft','#9C6410','#FFF4E0'):'')+(d.state&&d.state!=='MO'?tag(STATE_LABEL[d.state]||d.state,'#155A68','#EAF4F6'):'')+'</div>'
+      +(d.when?'<div style="font-size:.76rem;color:var(--text-muted);margin-top:2px">'+E(d.when)+'</div>':'')+'</div>'
+      +(d.owner?'<div style="font-size:.72rem;color:var(--text-muted);max-width:220px">'+E(d.owner)+'</div>':'')
+      +'</div>';
+  }
   function renderList(){
     const box=document.getElementById('sop-doc-list'); if(!box) return;
-    const list=docs();
-    if(!list.length){
-      box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No documents yet. '
-        +(isOwner()?'Click <b>+ Add SOP</b> and paste the first one in — the Corrective Action SOP is the one waiting for a home.':'Samantha or Zach will add the first documents here.')+'</div>';
-      return;
-    }
-    box.innerHTML=list.map(d=>'<div class="card" style="padding:.75rem 1.1rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
-      +'<div style="flex:1;min-width:220px"><a href="#" style="font-weight:700;font-size:.9rem" onclick="sopOpenDoc(\''+E(d.id)+'\');return false;">'+E(d.title||'(untitled)')+'</a>'
-      +'<div style="font-size:.7rem;color:var(--text-muted)">updated '+E(String(d.updated_at||'').slice(0,10))+(d.updated_by?' by '+E(d.updated_by):'')+'</div></div>'
-      +'<button class="primary" style="font-size:.72rem" onclick="sopOpenDoc(\''+E(d.id)+'\')">Open</button>'
-      +'</div>').join('');
+    const list=visible().concat(PAGES).filter(stateOk);
+    const have=new Set(all().map(d=>d.slot).filter(Boolean));
+    box.innerHTML=MOMENTS.map(([k,label])=>{
+      const items=list.filter(d=>momentOf(d)===k).sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
+      const todo=isOwner()?TO_WRITE.filter(t=>t[1]===k&&!have.has(t[0])):[];
+      if(!items.length&&!todo.length) return '';
+      return '<div style="margin:0 0 1rem"><div style="font-size:.78rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:0 0 .4rem">'+E(label)+'</div>'
+        +items.map(cardHtml).join('')
+        +(todo.length?'<div style="font-size:.74rem;color:var(--text-muted);padding:.2rem .2rem 0">Still to write: '+todo.map(t=>E(t[2])).join(' · ')+'</div>':'')
+        +'</div>';
+    }).join('')||'<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No procedures here yet.</div>';
   }
   async function renderStaffingLinks(){
     const box=document.getElementById('sop-staffing-links'); if(!box) return;
@@ -42584,66 +42209,152 @@ window.covLoadShifts=function(){};
       ['sop_communication','Communication SOP'],
       ['sop_role','Staffing Coordinator Job Description &amp; Duties'],
     ];
-    box.innerHTML=items.map(([k,label])=>{
-      const url=String(staffingLinks[k]||'').trim();
-      return url
-        ? '<div>📘 <a href="'+E(url)+'" target="_blank" rel="noopener"><b>'+label+'</b></a></div>'
-        : '<div style="color:var(--text-muted)">📘 '+label+' — not linked yet (add it in the Staffing hub → Scheduling)</div>';
-    }).join('');
+    // only documents that are actually linked; the whole block stays hidden until one is (2026-10-17, her call)
+    const linked=items.filter(([k])=>String(staffingLinks[k]||'').trim());
+    const wrap=document.getElementById('sop-staff-wrap'); if(wrap) wrap.style.display=linked.length?'':'none';
+    box.innerHTML=linked.map(([k,label])=>
+      '<div>📘 <a href="'+E(String(staffingLinks[k]).trim())+'" target="_blank" rel="noopener"><b>'+label+'</b></a></div>').join('');
+  }
+  function viewHtml(d){
+    const sec=(t,html)=>html?'<div style="margin:0 0 14px"><div style="font-size:.74rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:4px">'+t+'</div>'+html+'</div>':'';
+    const p=t=>t?'<div style="font-size:.9rem;line-height:1.6">'+E(t)+'</div>':'';
+    const steps=(d.steps||[]).filter(Boolean);
+    const where=(d.where||[]).filter(w=>w&&w.label);
+    const why=(d.why||[]).filter(w=>w&&w.text);
+    return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px"><div style="font-size:1.15rem;font-weight:800;color:var(--navy)">'+E(d.title||'')+'</div>'
+      +(d.status==='draft'?tag('Draft: only owners see this','#9C6410','#FFF4E0'):'')+(d.state?tag(STATE_LABEL[d.state]||d.state,'#155A68','#EAF4F6'):'')+'</div>'
+      +(d.when?'<div style="font-size:.95rem;margin:0 0 14px"><b>When this happens:</b> '+E(d.when)+'</div>':'')
+      +sec('Who',(d.owner||d.backup)?p((d.owner?'Owner: '+d.owner:'')+(d.backup?(d.owner?' · ':'')+'Backup: '+d.backup:'')):'')
+      +sec('Steps',steps.length?'<ol style="margin:0;padding-left:22px;font-size:.9rem;line-height:1.6">'+steps.map(s=>'<li style="margin:3px 0">'+E(s)+'</li>').join('')+'</ol>':'')
+      +sec('Where you do it',where.length?'<div style="font-size:.9rem;line-height:1.8">'+where.map(linkHtml).join('<br>')+'</div>':'')
+      +sec('Done when',p(d.done_when))
+      +sec('Escalate if',p(d.escalate_if))
+      +sec('Why we do it this way',why.length?why.map(w=>{ const k=WHY[w.kind]||WHY.procedure;
+          return '<div style="display:flex;gap:8px;align-items:flex-start;margin:0 0 8px">'+tag(k[0],k[1],k[2])
+            +'<div style="font-size:.88rem;line-height:1.55">'+E(w.text)
+            +((w.source||w.checked)?'<div style="font-size:.74rem;color:var(--text-muted)">'+(w.url&&/^https:\/\//.test(w.url)?'<a href="'+E(w.url)+'" target="_blank" rel="noopener">'+E(w.source||'source')+'</a>':E(w.source||''))
+              +(w.checked?' · checked '+E(w.checked):'')+'</div>':'')
+            +'</div></div>'; }).join(''):'')
+      +(d.body&&String(d.body).trim()?sec(steps.length?'More':'',mdToHtml(d.body)):'')
+      +'<div style="font-size:.72rem;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;margin-top:6px">'
+      +(d.reviewed_at?'Last reviewed '+E(String(d.reviewed_at).slice(0,10))+(d.reviewed_by?' by '+E(d.reviewed_by):''):'Updated '+E(String(d.updated_at||'').slice(0,10))+(d.updated_by?' by '+E(d.updated_by):''))+'</div>';
   }
 
+  window.sopState=function(k){ stateFilter=k; try{ localStorage.setItem('cch_sop_state',k); }catch(e){} renderFilter(); renderList(); };
   window.sopRender=function(){
     show('index'); openId=null; editId=null;
     document.getElementById('sop-add-btn').style.display=isOwner()?'':'none';
-    document.getElementById('sop-escalation').textContent=(CONFIG.escalation_protocol||'').trim()||'Not written yet — owners can add it in ⚙️ Settings.';
-    renderList(); renderStaffingLinks();
+    const escTxt=(CONFIG.escalation_protocol||'').trim();
+    document.getElementById('sop-escalation').textContent=escTxt;
+    document.getElementById('sop-esc-wrap').style.display=escTxt?'':'none';
+    renderFilter(); renderStarters(); renderList(); renderStaffingLinks();
   };
   window.sopOpenDoc=function(id){
-    const d=docs().find(x=>x.id===id); if(!d) return;
+    const pg=PAGES.find(x=>x.id===id);
+    const d=pg||visible().find(x=>x.id===id); if(!d) return;
     openId=id;
-    document.getElementById('sop-viewer-body').innerHTML=mdToHtml(d.body);
-    document.getElementById('sop-viewer-meta').textContent=(d.title||'')+' · updated '+String(d.updated_at||'').slice(0,10)+(d.updated_by?' by '+d.updated_by:'');
-    document.getElementById('sop-edit-btn').style.display=isOwner()?'':'none';
+    const card=document.getElementById('sop-viewer-card'), fr=document.getElementById('sop-viewer-page');
+    if(pg){ card.style.display='none'; fr.style.display='block'; ccHubFrame(fr, pg.page+'?in=hub'); }
+    else { fr.style.display='none'; card.style.display=''; document.getElementById('sop-viewer-body').innerHTML=viewHtml(d); }
+    document.getElementById('sop-viewer-meta').textContent=pg?d.title:'';
+    document.getElementById('sop-edit-btn').style.display=(!pg&&isOwner())?'':'none';
+    document.getElementById('sop-publish-btn').style.display=(!pg&&isOwner()&&d.status==='draft')?'':'none';
     show('viewer'); window.scrollTo(0,0);
   };
   window.sopCloseDoc=function(){ sopRender(); };
+
+  function whyRow(w){
+    w=w||{kind:'procedure',text:'',source:'',url:'',checked:''};
+    return '<div class="sop-why" style="border:1px solid var(--border);border-radius:10px;padding:8px;margin-bottom:6px;display:grid;grid-template-columns:150px 1fr;gap:6px">'
+      +'<select class="w-kind">'+Object.keys(WHY).map(k=>'<option value="'+k+'"'+(w.kind===k?' selected':'')+'>'+WHY[k][0]+'</option>').join('')+'</select>'
+      +'<input class="w-text" type="text" placeholder="What the rule, procedure or choice is" value="'+E(w.text)+'">'
+      +'<input class="w-source" type="text" placeholder="Source (e.g. 19 CSR 15-7.021, or Samantha 2026-10-17)" value="'+E(w.source)+'" style="grid-column:2">'
+      +'<input class="w-url" type="text" placeholder="Link to the source (https://...)" value="'+E(w.url)+'" style="grid-column:2">'
+      +'<input class="w-checked" type="date" title="Date the source was checked" value="'+E(w.checked)+'" style="grid-column:2;max-width:180px">'
+      +'<button style="grid-column:2;justify-self:start;font-size:.72rem;color:#b91c1c" onclick="this.closest(\'.sop-why\').remove()">Remove this reason</button></div>';
+  }
+  window.sopWhyAdd=function(){ document.getElementById('sop-ed-why').insertAdjacentHTML('beforeend', whyRow()); };
+  function fillEditor(d){
+    d=d||{};
+    document.getElementById('sop-ed-moment').innerHTML=MOMENTS.map(([k,l])=>'<option value="'+k+'"'+(momentOf(d)===k?' selected':'')+'>'+l+'</option>').join('');
+    document.getElementById('sop-ed-title').value=d.title||'';
+    document.getElementById('sop-ed-state').value=d.state||'MO';
+    document.getElementById('sop-ed-when').value=d.when||'';
+    document.getElementById('sop-ed-owner').value=d.owner||'';
+    document.getElementById('sop-ed-backup').value=d.backup||'';
+    document.getElementById('sop-ed-steps').value=(d.steps||[]).join('\n');
+    document.getElementById('sop-ed-where').value=(d.where||[]).map(w=>w.label+(w.url?' | '+w.url:'')).join('\n');
+    document.getElementById('sop-ed-done').value=d.done_when||'';
+    document.getElementById('sop-ed-escalate').value=d.escalate_if||'';
+    document.getElementById('sop-ed-why').innerHTML=(d.why&&d.why.length?d.why:[null]).map(whyRow).join('');
+    document.getElementById('sop-ed-body').value=d.body||'';
+  }
   window.sopNewDoc=function(){
     if(!isOwner()) return;
     editId=null;
-    document.getElementById('sop-editor-title').textContent='Add an SOP';
-    document.getElementById('sop-ed-title').value=''; document.getElementById('sop-ed-body').value='';
-    document.getElementById('sop-delete-btn').style.display='none';
+    document.getElementById('sop-editor-title').textContent='Add a procedure';
+    fillEditor({}); document.getElementById('sop-delete-btn').style.display='none';
     show('editor');
   };
   window.sopEditDoc=function(){
     if(!isOwner()||!openId) return;
-    const d=docs().find(x=>x.id===openId); if(!d) return;
+    const d=all().find(x=>x.id===openId); if(!d) return;
     editId=openId;
     document.getElementById('sop-editor-title').textContent='Edit: '+(d.title||'');
-    document.getElementById('sop-ed-title').value=d.title||''; document.getElementById('sop-ed-body').value=d.body||'';
-    document.getElementById('sop-delete-btn').style.display='';
+    fillEditor(d); document.getElementById('sop-delete-btn').style.display='';
     show('editor');
   };
   window.sopCancelEdit=function(){ if(editId){ sopOpenDoc(editId); } else sopRender(); };
-  window.sopSaveDoc=async function(){
-    if(!isOwner()) return;
-    const title=document.getElementById('sop-ed-title').value.trim();
-    const body=document.getElementById('sop-ed-body').value;
-    if(!title){ alert('Give the SOP a title.'); return; }
-    if(!body.trim()){ alert('Paste the document text.'); return; }
-    const d={ id: editId || ('sop'+Date.now()), title, body,
-      updated_at:new Date().toISOString(), updated_by:(typeof ME!=='undefined'&&ME.name)||'owner' };
-    const idx=(DATA.sop_library||[]).findIndex(x=>x.id===d.id);
-    if(idx>=0){ d.created_at=DATA.sop_library[idx].created_at||d.updated_at; DATA.sop_library[idx]=d; }
-    else { d.created_at=d.updated_at; DATA.sop_library.push(d); }
+  const who=()=>(typeof ME!=='undefined'&&(ME.name||ME.email))||'owner';
+  async function put(d){
+    const now=new Date().toISOString();
+    d.updated_at=now; d.updated_by=who();
+    const idx=all().findIndex(x=>x.id===d.id);
+    if(idx>=0){ d.created_at=DATA.sop_library[idx].created_at||now; DATA.sop_library[idx]=d; }
+    else { d.created_at=now; DATA.sop_library=all().concat([d]); }
     await persist('sop_library', d);
+  }
+  window.sopSaveDoc=async function(status){
+    if(!isOwner()) return;
+    const v=id=>document.getElementById(id).value.trim();
+    const title=v('sop-ed-title');
+    if(!title){ alert('Give the procedure a title.'); return; }
+    const steps=document.getElementById('sop-ed-steps').value.split('\n').map(s=>s.trim()).filter(Boolean);
+    const body=document.getElementById('sop-ed-body').value;
+    if(!steps.length&&!body.trim()){ alert('Add the steps (one per line), or paste the document under Anything else.'); return; }
+    const where=document.getElementById('sop-ed-where').value.split('\n').map(s=>s.trim()).filter(Boolean).map(s=>{ const i=s.lastIndexOf('|'); return i>0?{label:s.slice(0,i).trim(),url:s.slice(i+1).trim()}:{label:s,url:''}; });
+    const why=Array.prototype.map.call(document.querySelectorAll('#sop-ed-why .sop-why'),r=>({
+      kind:r.querySelector('.w-kind').value, text:r.querySelector('.w-text').value.trim(), source:r.querySelector('.w-source').value.trim(),
+      url:r.querySelector('.w-url').value.trim(), checked:r.querySelector('.w-checked').value })).filter(w=>w.text);
+    if(why.some(w=>w.kind==='state'&&!w.source)){ alert('A State rule needs its source (the rule number or the page it comes from).'); return; }
+    const old=editId?all().find(x=>x.id===editId):null;
+    const d=Object.assign({}, old||{}, { id:editId||('sop'+Date.now()), title, moment:v('sop-ed-moment'), state:v('sop-ed-state'),
+      when:v('sop-ed-when'), owner:v('sop-ed-owner'), backup:v('sop-ed-backup'), steps, where, done_when:v('sop-ed-done'),
+      escalate_if:v('sop-ed-escalate'), why, body, status:status==='draft'?'draft':'published',
+      reviewed_at:new Date().toISOString(), reviewed_by:who() });
+    await put(d);
+    editId=null; sopOpenDoc(d.id);
+  };
+  window.sopPublish=async function(){
+    if(!isOwner()||!openId) return;
+    const d=all().find(x=>x.id===openId); if(!d) return;
+    if(!(await ccConfirm('Publish "'+(d.title||'')+'" so everyone in the office sees it?'))) return;
+    await put(Object.assign({}, d, { status:'published', reviewed_at:new Date().toISOString(), reviewed_by:who() }));
     sopOpenDoc(d.id);
+  };
+  window.sopAddStarters=async function(){
+    if(!isOwner()) return;
+    const have=new Set(all().map(d=>d.slot).filter(Boolean));
+    for(const s of STARTERS.filter(x=>!have.has(x.slot))){
+      await put(Object.assign(JSON.parse(JSON.stringify(s)), { id:'sop_'+s.slot, status:'draft', drafted_by:'Claude, 2026-10-17' }));
+    }
+    sopRender();
   };
   window.sopDeleteDoc=async function(){
     if(!isOwner()||!editId) return;
-    const d=docs().find(x=>x.id===editId); if(!d) return;
+    const d=all().find(x=>x.id===editId); if(!d) return;
     if(!(await ccConfirm('Delete "'+(d.title||'')+'" from the library?\n\nThis removes it for everyone.'))) return;
-    DATA.sop_library=(DATA.sop_library||[]).filter(x=>x.id!==editId);
+    DATA.sop_library=all().filter(x=>x.id!==editId);
     await removeItem('sop_library', editId);
     editId=null; openId=null; sopRender();
   };
@@ -42911,7 +42622,7 @@ window.covLoadShifts=function(){};
      NOT have one: an alias is checked first and would shadow the real thing.
      That is what happened to 'scheduling' and 'caregivers' when those became
      sections in their own right. */
-  var CC_HASH_ALIAS = { grow:'clients', phone:'calls', 'clients-care':'clients',
+  var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
                         growth:'campaigns', marketing:'campaigns',
                         /* 'leads' stopped being an alias 2026-09-19: it is a

@@ -38,8 +38,8 @@ const M = { 9: { id: 9, name: 'Lisa Ray', email: 'lisa@x.test', app_status: null
 const B = [
   { id: 'b1', client_name: 'Dorothy Ray', visit_date: '2099-01-05', start_time: '10:00', end_time: '13:00', hours: 3, tasks: ['Companionship'], requested_by_name: 'Lisa Ray', who: 'regular', status: 'needs_office', error: 'no app service is set for OK in the Hub settings', state: 'OK', note: 'Soup please' },
   { id: 'b2', client_name: 'Dorothy Ray', visit_date: '2099-01-06', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Errands and shopping'], requested_by_name: 'Lisa Ray', who: 'any', status: 'waiting_for_caregiver', axiscare_visit_id: 'v=5:s=0:d=2099-01-06', state: 'MO' },
-  { id: 'b3', client_name: 'Dorothy Ray', visit_date: '2099-01-07', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'placed', caregiver_name: 'Maria L.', state: 'MO' },
-  { id: 'b4', client_name: 'Dorothy Ray', visit_date: '2099-01-08', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO' } ];
+  { id: 'b3', client_name: 'Dorothy Ray', visit_date: '2099-01-07', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'placed', caregiver_name: 'Maria L.', state: 'MO', sync_state: 'no_caregiver', sync_note: 'Maria L.' },
+  { id: 'b4', client_name: 'Dorothy Ray', visit_date: '2099-01-08', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', cancel_source: 'office' } ];
 window.callAction = async (fn, body) => {
   __calls.push([fn, body]); await new Promise(r => setTimeout(r, 5));
   if (fn !== 'family-app-office') return { status: 404, data: { error: 'wrong door' } };
@@ -93,18 +93,23 @@ with sync_playwright() as p:
     ck('email not on AxisCare: warned, AxisCare part off by default', "isn't on their AxisCare record" in t and not pg.is_checked('#famwax-cp_-11'), t)
     pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famBookings')
-    ck('bookings: practice mode said plainly, settings shown', 'Practice mode' in t and 'NOT put on the AxisCare schedule' in t and 'service PP - WC' in t and 'rate not set' in t, t)
+    ck('bookings: practice mode said plainly, settings shown', 'Practice mode' in t and "caregivers aren't asked and nothing is scheduled" in t and 'service PP - WC' in t and 'rate not set' in t, t)
     ck('bookings: needs-you count 2, placed 1, cancelled tucked away, badge 2', 'Needs you (2)' in t and 'Coming up, caregiver placed (1)' in t and 'Practice, cancelled and past (1)' in t and pg.inner_text('#famPillBadge') == '2', t)
     ck('bookings: reason shown on the one that needs the office, note shown', 'no app service is set for OK' in t and 'Note: Soup please' in t)
     opts = pg.eval_on_selector_all('#famcg-b2 option', 'os => os.map(o => o.textContent)')
     ck('caregiver picker: active caregivers with an AxisCare id, each once', opts == ['Pick a caregiver…', 'Maria Lopez'], opts)
-    pg.click('#famb-b2 button:has-text("Place on this visit")'); pg.wait_for_timeout(40)
-    ck('place without picking: asks, sends nothing', 'Pick a caregiver first' in pg.inner_text('#famb-b2') and pg.evaluate('__calls')[-1][1]['action'] == 'list')
-    pg.select_option('#famcg-b2', '88'); pg.click('#famb-b2 button:has-text("Place on this visit")'); pg.wait_for_timeout(120)
+    pg.click('#famb-b2 button:has-text("Place and put on AxisCare")'); pg.wait_for_timeout(40)
+    ck('place without picking: asks, sends nothing', 'Pick a caregiver first' in pg.inner_text('#famb-b2') and not any(c[1].get('action') == 'place' for c in pg.evaluate('__calls')))
+    pg.select_option('#famcg-b2', '88'); pg.click('#famb-b2 button:has-text("Place and put on AxisCare")'); pg.wait_for_timeout(120)
     t = pg.inner_text('#famBookings')
     ck('place: calls the door with the caregiver, list refreshes, Needs you drops to 1', {'action': 'place', 'booking_id': 'b2', 'caregiver_axiscare_id': '88'} in [c[1] for c in pg.evaluate('__calls')] and 'Needs you (1)' in t and 'Coming up, caregiver placed (2)' in t, t)
-    pg.click('#famb-b1 button:has-text("Put it on the AxisCare schedule")'); pg.wait_for_timeout(80)
-    ck('schedule refused: the door\'s reason shows on that booking, button back', 'no app service is set for OK' in pg.inner_text('#famb-b1 .fam-msg') and pg.is_enabled('#famb-b1 button'))
+    # Release 1 (2026-10-17): no "Put it on the AxisCare schedule" (no empty visits); a request needing the office gets the Place picker
+    ck('Release 1: no empty-visit button anywhere; the needs-office request offers Place instead', 'Put it on the AxisCare schedule' not in pg.inner_text('#famBookings') and pg.query_selector('#famcg-b1') is not None)
+    # Release 2 (2026-10-17): the 10-minute AxisCare check, shown to the office
+    pg.click('summary:has-text("Practice, cancelled and past")'); pg.wait_for_timeout(40)
+    t3, t4 = pg.inner_text('#famb-b3'), pg.inner_text('#famb-b4')
+    ck('Release 2: a caregiver taken off in AxisCare is shown, with who covers it', 'No caregiver on it in AxisCare' in t3 and 'Maria L. came off this visit in AxisCare' in t3 and "can\'t promise one" in t3, t3)
+    ck('Release 2: removed in AxisCare (not by the family): call them with the reason', 'Removed in AxisCare' in t4 and 'please call them with the reason' in t4, t4)
     ck('no page errors', not errs, errs)
     b.close()
 for r in R: print(('  ✓ ' if r[0] == 'PASS' else '  ✗ ') + r[1] + ('' if r[0] == 'PASS' else '\n      ' + r[2]))

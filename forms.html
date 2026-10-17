@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="inhub.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Forms &amp; Templates &mdash; Caring Companions</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
@@ -88,6 +89,9 @@
   details.gone{ margin-top:18px; }
   details.gone .doc{ opacity:.7; }
   .hide{ display:none !important; }
+  /* inside the Hub the sign-in (rarely seen: the Hub's own sign-in is shared) is a card, not a full dark page */
+  html.inhub #gate{ background:transparent; min-height:0; padding:30px 18px; }
+  html.inhub #gate .box{ border:1px solid var(--border); }
   html.embedded header img, html.embedded header a.back{ display:none; }
   html.embedded header{ padding:11px 18px; }
   @media (max-width:700px){
@@ -122,6 +126,12 @@
 <main>
   <h2 class="serif">Forms &amp; Templates</h2>
   <p class="lead">Our master copies in one place: blank forms, agreements, the Client Handbook, folder pieces, training and program material. Anyone signed into the hub can open these. Nobody outside can. A client's own signed papers go on that client's record, not here.</p>
+
+  <div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--pale);border-color:#d3e7eb;">
+    <div style="flex:1;min-width:220px;"><b style="color:var(--navy);">Printed client folder pieces</b>
+      <div class="muted">The levels of care sheets, rates, the handbook and every other folder piece, with how to put a folder together and order more.</div></div>
+    <a class="btn sm ghost" href="client-folders.html" id="toFolders">Open Client Folders</a>
+  </div>
 
   <div class="card" id="upCard">
     <div class="grid3">
@@ -288,6 +298,12 @@
     $('fCat').value = want || '';
   }
   $('fCat').addEventListener('change', render);
+  /* inside the Hub, Client Folders is the tab next door, so move the Hub there instead of loading it in this frame */
+  /* (on window, so it runs before inhub.js's document-level link rule) */
+  window.addEventListener('click', function (e) {
+    if (!e.target.closest || !e.target.closest('#toFolders')) return;
+    try { if (document.documentElement.classList.contains('inhub') && window.parent.switchTab) { e.preventDefault(); e.stopPropagation(); window.parent.switchTab('docfolders'); } } catch (x) {}
+  }, true);
   $('q').addEventListener('input', render);
 
   function row(d, kind) {

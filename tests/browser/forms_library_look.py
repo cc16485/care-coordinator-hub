@@ -7,7 +7,8 @@ Chromium AND WebKit at 360px and 1024px:
   multi-file upload = one item per file with cat / rev / family, a single-file name override, a 25MB+ file refused;
   the newer-version flow (new item first, then the old item with replaced.with = the new id, same family);
   Remove asks why and refuses under 5 characters; nothing deletes; no em dashes on screen; nothing wider than the screen.
-Also guide.html: the Documents button opens forms.html?cat=GUIDE and the other GUIDE tabs still switch.
+Also guide.html: the Documents button opens forms.html?cat=GUIDE and the other GUIDE tabs still switch (on its own; inside the
+Hub it moves the Hub to Documents, see documents_tab_look.py).
 python3 tests/browser/forms_library_look.py [screenshot dir]"""
 import json, sys, os, threading, functools, http.server
 from playwright.sync_api import sync_playwright
@@ -110,6 +111,7 @@ def run(p, eng, base):
 
         txt = pg.inner_text('body')
         ck(tag + ': no em dashes on screen', '—' not in txt, [l for l in txt.split('\n') if '—' in l])
+        ck(tag + ': a link to the printed Client Folders sits above the upload box', pg.get_attribute('#toFolders', 'href') == 'client-folders.html')
         ck(tag + ': revision label starts as this month', pg.input_value('#uRev').startswith('Rev. ') and len(pg.input_value('#uRev')) == 12, pg.input_value('#uRev'))
         wide = pg.evaluate('document.documentElement.scrollWidth - innerWidth')
         ck(tag + ': nothing wider than the screen', wide <= 0, wide)
@@ -209,9 +211,9 @@ if __name__ == '__main__':
             run(p, eng, base)
     srv.shutdown()
     idx = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
-    sops = idx[idx.index('id="fsub-sops"'):idx.index('</div>', idx.index('Who Handles What'))]
-    ck('index.html: Forms & Templates sits in the SOPs menu right after Library',
-       sops.index('Library') < sops.index("location.href='forms.html'") < sops.index('Playbook') and 'Forms &amp; Templates' in sops, sops[:400])
+    ck('index.html: Documents is its own top-level tab, right after SOPs, with Forms & Templates and Client Folders',
+       idx.index('data-g="sops"') < idx.index('data-g="docs"') < idx.index('data-g="settings"') and "docs:['docs','docfolders']" in idx
+       and 'forms.html?in=hub' in idx and 'client-folders.html?in=hub' in idx)
     for r in R:
         if r[0] == 'FAIL': print(r[0], r[1], r[2])
     print('forms_library_look: %d passed, %d failed' % (sum(r[0] == 'PASS' for r in R), sum(r[0] == 'FAIL' for r in R)))

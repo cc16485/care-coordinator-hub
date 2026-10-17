@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="inhub.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payors &amp; Programs | Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:14px 0 5px; text-align:left; }
+  input,select,textarea{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus,textarea:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  textarea{ min-height:80px; resize:vertical; font-size:13.5px; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px; border:none;
+        cursor:pointer; background:var(--cta); color:#fff; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+  .btn.good{ background:var(--green); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .ttl em{ font-style:normal; color:var(--honey); }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  nav{ background:#fff; border-bottom:1px solid var(--border); padding:0 18px; display:flex; gap:4px; overflow-x:auto; }
+  nav button{ font-family:inherit; font-size:14.5px; font-weight:600; color:var(--muted); background:none; border:none;
+    border-bottom:3px solid transparent; padding:14px 14px; cursor:pointer; white-space:nowrap; }
+  nav button.on{ color:var(--navy); border-bottom-color:var(--honey); }
+  main{ max-width:1080px; margin:0 auto; padding:24px 18px 80px; }
+  section{ display:none; } section.on{ display:block; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  h3{ font-size:16px; color:var(--navy); margin:0 0 6px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:76ch; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .card.tight{ padding:14px 16px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; border-radius:999px;
+        padding:3px 10px; background:var(--panel); color:var(--muted); display:inline-block; }
+  .tag.good{ background:var(--green-bg); color:var(--green); }
+  .tag.warn{ background:#fdf3e2; color:var(--deep-honey); }
+  .tag.bad{ background:var(--red-bg); color:var(--red); }
+  .name{ font-weight:700; color:var(--navy); font-size:16px; }
+  .empty{ text-align:center; color:var(--muted); padding:34px 12px; }
+  .err{ background:var(--red-bg); color:var(--red); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .ok{ background:var(--green-bg); color:var(--green); border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+
+  /* the money / facts strip */
+  .facts{ display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:16px; }
+  .fact{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .fact .n{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:27px; color:var(--navy); line-height:1.15; }
+  .fact .l{ font-size:12.5px; color:var(--muted); margin-top:3px; }
+
+  /* yes / no / unknown answer buttons */
+  .qblock{ border-top:1px solid var(--border); padding:16px 0; }
+  .qblock:first-of-type{ border-top:none; padding-top:4px; }
+  .qtext{ font-weight:600; color:var(--navy); font-size:15px; margin-bottom:3px; }
+  .qhelp{ font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .opts{ display:flex; gap:8px; flex-wrap:wrap; }
+  .opt{ font-family:inherit; font-size:14px; font-weight:600; padding:9px 15px; border-radius:10px; cursor:pointer;
+        background:#fff; color:var(--ink); border:1px solid var(--border); }
+  .opt:hover{ background:var(--pale); }
+  .opt.on{ background:var(--navy); color:#fff; border-color:var(--navy); }
+  .opt.on.kill{ background:var(--red); border-color:var(--red); }
+  .opt.on.pass{ background:var(--green); border-color:var(--green); }
+  .opt.on.maybe{ background:var(--deep-honey); border-color:var(--deep-honey); }
+
+  /* verdict */
+  .verdict{ border-radius:14px; padding:20px 22px; margin-bottom:14px; color:#fff; }
+  .verdict.yes{ background:var(--green); }
+  .verdict.no{ background:#8f2f2f; }
+  .verdict.ask{ background:var(--deep-honey); }
+  .verdict.wait{ background:var(--navy); }
+  .verdict h3{ color:#fff; font-family:'Source Serif 4',Georgia,serif; font-size:20px; margin-bottom:6px; }
+  .verdict p{ font-size:14.5px; opacity:.94; }
+  .verdict ul{ margin:10px 0 0 20px; font-size:14px; }
+  .verdict li{ margin-bottom:4px; }
+
+  /* script blocks */
+  .say{ background:var(--panel); border-left:3px solid var(--honey); border-radius:0 10px 10px 0;
+        padding:14px 16px; margin:10px 0; font-size:14.5px; line-height:1.7; }
+  .say b{ color:var(--navy); }
+  details.obj{ border-top:1px solid var(--border); padding:12px 0; }
+  details.obj:last-of-type{ border-bottom:1px solid var(--border); }
+  details.obj summary{ cursor:pointer; font-weight:600; color:var(--navy); font-size:15px; list-style:none; }
+  details.obj summary::-webkit-details-marker{ display:none; }
+  details.obj summary::before{ content:"+ "; color:var(--deep-honey); font-weight:700; }
+  details.obj[open] summary::before{ content:"\2013 "; }
+  details.obj .body{ padding-top:8px; }
+
+  /* dates */
+  table{ width:100%; border-collapse:collapse; font-size:14.5px; }
+  th{ text-align:left; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);
+      padding:8px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:10px; border-bottom:1px solid var(--border); }
+  tr.next td{ background:var(--green-bg); font-weight:700; color:var(--green); }
+  tr.past td{ color:#a9a396; }
+
+  /* documents */
+  .doc{ display:flex; gap:12px; align-items:center; padding:12px 0; border-bottom:1px solid var(--border); }
+  .doc:last-child{ border-bottom:none; }
+  .doc .ic{ width:34px; height:34px; border-radius:9px; background:var(--pale); color:var(--cta);
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-weight:700; font-size:11px; }
+  .doc .g{ flex:1; min-width:0; }
+  .doc .g b{ color:var(--navy); font-size:15px; display:block; }
+  .doc .g span{ font-size:12.5px; color:var(--muted); }
+  .drop{ border:2px dashed var(--border); border-radius:14px; padding:26px; text-align:center; color:var(--muted);
+         cursor:pointer; background:#fff; }
+  .drop.over{ border-color:var(--cta); background:var(--pale); color:var(--cta); }
+
+  .hubtabs{ background:var(--navy); padding:8px 14px 0; display:flex; gap:4px; align-items:flex-end; overflow-x:auto; }
+  .hubtabs a{ font-family:inherit; font-size:13px; font-weight:600; color:rgba(255,255,255,.78);
+              text-decoration:none; padding:8px 16px; border-radius:9px 9px 0 0; white-space:nowrap; }
+  .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
+  .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
+  html.embedded header img,
+  html.embedded header a.back[href="index.html"]{ display:none; }
+  html.embedded header{ padding:11px 18px; }
+  .hide{ display:none !important; }
+  @media (max-width:700px){ .grid2,.grid3{ grid-template-columns:1fr; } }
+
+  /* payors page */
+  .ptable td:first-child{ font-weight:700; color:var(--navy); white-space:nowrap; }
+  .ptable td{ vertical-align:top; }
+  .ptable a{ color:var(--cta); font-weight:600; }
+  ul.list{ margin:8px 0 0 20px; font-size:14.5px; } ul.list li{ margin-bottom:5px; }
+  .sec-h{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:4px; }
+  .sec-h h2{ margin:0; }
+  .gone{ background:var(--red-bg); border-color:#e8c4c4; }
+  @media (max-width:700px){ .ptable, .ptable tbody, .ptable tr, .ptable td{ display:block; width:100%; }
+    .ptable tr:first-child{ display:none; } .ptable tr{ border-bottom:1px solid var(--border); padding:8px 0; }
+    .ptable td{ border:none; padding:3px 0; } }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">Payors &amp; Programs</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">Payors &amp; <em>Programs</em></span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<div class="hubtabs"><a href="/#sops">Procedures</a><a href="/programs" class="on">Payors &amp; Programs</a><a href="/guide">GUIDE</a><a href="/#playbook">Scripts</a><a href="/client-folders">Client Folders</a></div>
+<nav>
+  <button data-s="all" class="on">Who pays?</button>
+  <button data-s="private">Private pay</button>
+  <button data-s="guide">Medicare GUIDE</button>
+  <button data-s="ltc">LTC insurance</button>
+  <button data-s="va">VA</button>
+  <button data-s="cds">CDS</button>
+  <button data-s="medicaid">Medicaid (ending)</button>
+</nav>
+<main>
+
+<!-- ======================= OVERVIEW ======================= -->
+<section id="s-all" class="on">
+  <h2 class="serif">Who pays for care?</h2>
+  <p class="lead">Every way a family can pay us, in one place. These are the same choices as "Who's paying" on a lead. Pick one above for the details.</p>
+  <div class="card">
+    <table class="ptable">
+      <tr><th>Program</th><th>Who it's for</th><th>New clients?</th><th>Who pays us</th></tr>
+      <tr><td><a href="#private">Private pay</a></td><td>Anyone in our service area</td><td><span class="tag good">Yes</span></td><td>The family, invoiced weekly</td></tr>
+      <tr><td><a href="#guide">Medicare GUIDE</a></td><td>Dementia diagnosis, traditional Medicare, living at home</td><td><span class="tag good">Yes</span></td><td>Medicare, through Continuum and Crosby Health</td></tr>
+      <tr><td><a href="#ltc">LTC insurance</a></td><td>Someone with a long-term care policy that has started paying</td><td><span class="tag good">Yes</span></td><td>The insurance company, or the family who sends our invoices in</td></tr>
+      <tr><td><a href="#va">VA</a></td><td>Veterans and surviving spouses</td><td><span class="tag good">Yes</span></td><td>The VA (Community Care) or the family (Aid &amp; Attendance)</td></tr>
+      <tr><td><a href="#cds">CDS</a></td><td>Missouri Medicaid families who want to hire their own caregiver</td><td><span class="tag warn">Caring CDS</span></td><td>Missouri Medicaid, through our sister company</td></tr>
+      <tr><td><a href="#medicaid">Medicaid IHS / ADW</a></td><td>Agency-model Missouri Medicaid</td><td><span class="tag bad">No</span></td><td>Ends November 16, 2026</td></tr>
+    </table>
+  </div>
+  <div class="card tight">
+    <p style="font-size:14.5px;"><b>A Medicaid caller?</b> We no longer take agency Medicaid. Send them to <b>Caring Companions CDS</b>, (417) 218-2888.<br>
+    <b>Dementia and traditional Medicare?</b> Screen them for GUIDE on the <a href="guide.html">GUIDE page</a>, even if they are paying privately too.</p>
+  </div>
+</section>
+
+<!-- ======================= PRIVATE PAY ======================= -->
+<section id="s-private">
+  <div class="sec-h"><h2 class="serif">Private pay</h2><span class="tag good">Taking new clients</span></div>
+  <p class="lead">The family pays us directly. These are the terms in the Client Care Agreement (Rev. 10/2026).</p>
+  <div class="facts">
+    <div class="fact"><div class="n">$30</div><div class="l">Wellness Care, per hour</div></div>
+    <div class="fact"><div class="n">$32</div><div class="l">Personal Care, per hour</div></div>
+    <div class="fact"><div class="n">$34</div><div class="l">Advanced Care, per hour (still non-medical)</div></div>
+    <div class="fact"><div class="n">4 h / 8 h</div><div class="l">Minimum per visit / per week</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>The terms</h3>
+      <ul class="list">
+        <li>Invoices go out by email for each Monday to Sunday week.</li>
+        <li>Credit cards carry a 3% fee. Debit cards and ACH have no fee.</li>
+        <li>Mileage is $0.69 a mile whenever the caregiver uses their own car.</li>
+        <li>Cancelling with less than 24 hours' notice is billed as 2 hours.</li>
+        <li>8 holidays, including Juneteenth, are billed at 1.5 times the rate.</li>
+        <li>No separate overnight or 24-hour rate. Those are priced by care level.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Best Price Guarantee</h3>
+      <p style="font-size:14.5px;">For new private-pay clients: we beat a comparable written rate from a professional home care agency for the first 6 months. Additional eligibility terms may apply.</p>
+      <h3 style="margin-top:14px;">Paperwork</h3>
+      <ul class="list">
+        <li>Client Care Agreement, every initials box</li>
+        <li>A backup caregiver named (required)</li>
+        <li>Card or ACH authorization</li>
+      </ul>
+    </div>
+  </div>
+  <div class="card tight"><p style="font-size:14.5px;"><b>Pays privately but has dementia and traditional Medicare?</b> Screen them for <a href="guide.html">GUIDE</a>. Up to 20 of their visits a year could be covered.</p></div>
+</section>
+
+<!-- ======================= GUIDE ======================= -->
+<section id="s-guide">
+  <div class="sec-h"><h2 class="serif">Medicare GUIDE</h2><span class="tag good">Taking new clients</span></div>
+  <p class="lead">A Medicare program for people with dementia living at home. We are a contracted partner under Continuum (EmpowerMe Medical Group). We do the home assessments and the respite visits, and we bill through Crosby Health.</p>
+  <div class="facts">
+    <div class="fact"><div class="n">20 visits</div><div class="l">Four-hour respite visits a year here ($2,625, PY2026). Resets July 1.</div></div>
+    <div class="fact"><div class="n">$200</div><div class="l">To us per home assessment, only if the patient aligns</div></div>
+    <div class="fact"><div class="n">Fridays</div><div class="l">Submissions due by noon. Alignment the Tuesday about 11 days later.</div></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Who qualifies</h3>
+      <ul class="list">
+        <li>Dementia diagnosis</li>
+        <li>Traditional Medicare, not Medicare Advantage</li>
+        <li>Lives in their own home, a family member's home, or independent living. <b>Not</b> assisted living, memory care, or a nursing home.</li>
+        <li>Not on hospice and not in PACE (palliative care is fine)</li>
+        <li>Has an unpaid caregiver</li>
+        <li>Medicaid and VA alongside it are fine</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Everything else is on the GUIDE page</h3>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+        <a class="btn" href="guide.html#screen">Screen someone for GUIDE</a>
+        <a class="btn ghost" href="guide.html#families">Finding GUIDE families</a>
+        <a class="btn ghost" href="guide.html#training">Caregiver training for GUIDE</a>
+        <a class="btn ghost" href="guide.html#crosby">Crosby Health steps</a>
+      </div>
+      <p class="muted" style="margin-top:10px;">Continuum: guide@continuumcare.com, 833.801.4336. Families' 24/7 line: 888 466 9008.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= LTC ======================= -->
+<section id="s-ltc">
+  <div class="sec-h"><h2 class="serif">Long-term care insurance</h2><span class="tag good">Taking new clients</span></div>
+  <p class="lead">Billed at our private-pay rates. A policy can cover most or all of the cost once it starts paying. We verify benefits, set up a call with the carrier, help with the claim forms, and can bill the carrier directly.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>When a policy starts paying</h3>
+      <p style="font-size:14.5px;">Usually once the person needs help with 2 of these 6, or has a cognitive impairment such as dementia: <b>bathing, dressing, eating, toileting, transferring, continence.</b> A licensed professional certifies it. That is the policy's "benefit trigger."</p>
+      <h3 style="margin-top:14px;">Two ways to bill</h3>
+      <ul class="list">
+        <li><b>Direct billing.</b> The family signs an assignment of benefits and we bill the carrier. Within the policy limits, the family pays nothing.</li>
+        <li><b>Pay, then get reimbursed.</b> The family pays our rate and we give them itemized paid invoices and paperwork to send in.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Words on every policy</h3>
+      <ul class="list">
+        <li><b>Elimination period.</b> Days the family pays before benefits begin, often 30, 60 or 90.</li>
+        <li><b>Daily or monthly maximum.</b> The most the policy pays. Care above it is the family's.</li>
+        <li><b>Benefit period.</b> How long benefits last, or the total the policy will pay.</li>
+        <li><b>Inflation protection.</b> Grows the daily benefit over time.</li>
+      </ul>
+      <p class="muted" style="margin-top:10px;">Ask the family to have the policy out at the home assessment. Handout: folder piece 9.</p>
+    </div>
+  </div>
+  <div class="card tight"><p style="font-size:14.5px;"><b>Have the policy in hand?</b> The hub's <a href="/#ltcpolicy">LTC Policy tab</a> reads it for you, walks through setting the carrier up as a payor in AxisCare, and has our claim steps.</p></div>
+</section>
+
+<!-- ======================= VA ======================= -->
+<section id="s-va">
+  <div class="sec-h"><h2 class="serif">VA</h2><span class="tag good">Taking new clients</span></div>
+  <p class="lead">Two different paths. Find out which one the family means before anything else.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>VA Community Care (the VA pays us)</h3>
+      <ul class="list">
+        <li>Needs an <b>active VA authorization number</b>. We give only the hours and type of service on it.</li>
+        <li>Needs a plan of care from, or approved by, the VA.</li>
+        <li><b>EVV is required.</b> No clock-in, no VA payment.</li>
+        <li><b>No transportation.</b> Caregivers cannot drive VA Community Care clients anywhere.</li>
+        <li>Extra hours or tasks outside the authorization are private pay.</li>
+        <li>If the authorization ends, is cut or is denied, the family can carry on as private pay.</li>
+        <li>The family signs the <b>VA Community Care Addendum</b> as well as the agreement.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Aid &amp; Attendance (the family pays us)</h3>
+      <p style="font-size:14.5px;">A monthly, tax-free payment added to a VA pension. The money is the veteran's, so to us this is private pay.</p>
+      <ul class="list">
+        <li>Wartime-era service, or a surviving spouse who hasn't remarried</li>
+        <li>Needs help with at least two daily activities</li>
+        <li>Net worth under the VA limit (about $163,700 in 2026, not counting the home, one vehicle and belongings)</li>
+        <li>The VA looks back 3 years at asset transfers</li>
+      </ul>
+      <p class="muted" style="margin-top:10px;">A Veterans Service Officer helps them apply for free. Handout: folder piece 9.</p>
+    </div>
+  </div>
+  <div class="card tight" style="border-color:#e0c48a; background:#fdf8ef;"><p style="font-size:14.5px;"><b>Not written down yet:</b> where VA Community Care referrals come in and how we bill the VA. Add it here when it's settled.</p></div>
+</section>
+
+<!-- ======================= CDS ======================= -->
+<section id="s-cds">
+  <div class="sec-h"><h2 class="serif">CDS (Consumer Directed Services)</h2><span class="tag warn">Through Caring CDS</span></div>
+  <p class="lead">Missouri Medicaid where the family hires their own caregiver. This runs through our sister company, <b>Caring Companions CDS</b>, not through this hub.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3>Send them here</h3>
+      <ul class="list">
+        <li>Phone: <b>(417) 218-2888</b>, toll-free (866) 863-5151</li>
+        <li>Website: <a href="https://caringcds.com" target="_blank" rel="noopener">caringcds.com</a></li>
+        <li>CDS office hub: <a href="https://hub.caringcds.com" target="_blank" rel="noopener">hub.caringcds.com</a></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Good to know</h3>
+      <ul class="list">
+        <li>CDS covers a wider area than we do, 27 counties across Southwest Missouri.</li>
+        <li>The CDS caregivers work for the family, not for Caring Companions.</li>
+        <li>Clock-in is by the WellSky app or by phone from the client's home.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= MEDICAID ======================= -->
+<section id="s-medicaid">
+  <div class="sec-h"><h2 class="serif">Medicaid IHS and ADW</h2><span class="tag bad">Ending November 16, 2026</span></div>
+  <p class="lead">From November 16, 2026, Caring Companions no longer provides agency-model Missouri Medicaid: In-Home Services (IHS) and the Aged &amp; Disabled Waiver (ADW). CDS carries on through Caring CDS.</p>
+  <div class="card gone">
+    <ul class="list">
+      <li><b>No new IHS or ADW clients.</b> Send Medicaid callers to Caring Companions CDS, (417) 218-2888.</li>
+      <li>Each remaining IHS or ADW client is either ending service or moving to Caring CDS.</li>
+      <li>State rule: when a provider can no longer meet a participant's needs, written notice of discharge goes to the participant and the state at least 21 days ahead, and care continues for those 21 days or until other care is arranged (19 CSR 15-7.021(16)(D)).</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  if (window.top !== window.self) document.documentElement.classList.add('embedded');
+
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', doSignIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+  function doSignIn() {
+    $('gateErr').classList.add('hide');
+    $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value }).then(function (r) {
+      $('signin').disabled = false; $('signin').textContent = 'Sign in';
+      if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+      boot(r.data.session);
+    });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide'); $('app').classList.remove('hide');
+    $('who').textContent = (session.user && session.user.email) || '';
+  }
+
+  // tabs, with #private, #guide and so on as links straight to one program
+  function show(name) {
+    var b = document.querySelector('nav button[data-s="' + name + '"]');
+    if (!b) return;
+    Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (x) { x.classList.toggle('on', x === b); });
+    Array.prototype.forEach.call(document.querySelectorAll('main section'), function (x) { x.classList.toggle('on', x.id === 's-' + name); });
+    window.scrollTo(0, 0); if (window.ccInHubTop) ccInHubTop();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('nav button'), function (b) {
+    b.addEventListener('click', function () { history.replaceState(null, '', '#' + b.getAttribute('data-s')); show(b.getAttribute('data-s')); });
+  });
+  document.querySelector('main').addEventListener('click', function (e) {
+    var a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    e.preventDefault();
+    history.replaceState(null, '', a.getAttribute('href'));
+    show(a.getAttribute('href').slice(1));
+  });
+  window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+  if (location.hash) show(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>

@@ -11,7 +11,8 @@
      resolved". Opened from the link in an admin's missed clock-in text. The link is that admin's alone, for that one
      alert, and expires the next day; the server (clockin-alert) checks it on every tap. Opening this page changes
      nothing: only the buttons do (phones preview links automatically, and a preview must never count).
-     Nothing here ever contacts a client or family. The EVV form goes to the caregiver only when a person taps.
+     Nothing here ever contacts a client or family. (The EVV correction form is retired, 2026-10-17: when the shift
+     ends with no clock-in, the Hub opens a card in Needs Attention to call the client and confirm the times.)
      ============================================================ -->
 <style>
   :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
@@ -112,10 +113,9 @@ function render(msg){
       +'<button class="ghost" id="bSnooze">'+(D.snoozed_until?'Reminders paused for you until '+esc(D.snoozed_until):'Remind me in 10 minutes')+'</button>'
       +'<div class="note">Resolved stops the reminders for every admin and closes it in Needs Attention. Remind me in 10 minutes pauses them for you only.</div></div>';
   }
-  h+='<div class="card"><h2>EVV form</h2>'
-    +(D.evv_sent_at?'<div class="done">EVV form texted to '+esc(D.caregiver_first)+' at '+esc(D.evv_sent_at)+'.'+(D.evv_prefilled?' The form opens already filled in for this visit.':'')+'</div>'
-      :'<div class="note">Only if '+esc(D.caregiver_first)+' says she\'s been there and asks to be clocked in for the start time. She gets the form link (filled in for this visit: her name, '+esc(D.client_first)+', the date and the scheduled times) and is told '+esc(D.client_first)+' must sign it, and that no manual changes can be made without it.</div>'
-       +'<button class="ghost" id="bEvv">Text '+esc(D.caregiver_first)+' the EVV form</button>')
+  /* 2026-10-17: the EVV correction form is retired. A missing time is confirmed with the client by phone, from a card. */
+  h+='<div class="card"><h2>If the shift ends with no clock-in</h2>'
+    +'<div class="note">The texts stop and Needs Attention gets a card: call '+esc(D.client_first)+' to confirm '+esc(D.caregiver_first)+'\'s times, record what '+esc(D.client_first)+' says, then correct the visit in AxisCare. We no longer use the EVV correction form.</div>'
     +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
   document.getElementById('app').innerHTML=h;
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
@@ -123,7 +123,6 @@ function render(msg){
   on('bCov', ()=>act('coverage', ()=>({ note:(document.getElementById('note')||{}).value||'' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bCov2', ()=>act('coverage', ()=>({ note:'Said on the call' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bSnooze', ()=>act('snooze'));
-  on('bEvv', ()=>act('evv', null, 'Text '+D.caregiver_first+' the EVV correction form now?'));
 }
 function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
   document.getElementById('cYes').onclick=()=>{ e.innerHTML=''; res(true); }; document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; res(false); }; }); }
