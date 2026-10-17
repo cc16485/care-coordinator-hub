@@ -77,7 +77,7 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('file://' + page); pg.wait_for_timeout(50)
     t = pg.inner_text('#cp_cl360Circle')
-    ck('circle: one invite-and-welcome button for someone with an email; Tom needs an email; Ann shows on + can book', 'Invite and send welcome' in t and 'add an email to invite them' in t and 'Family app: on' in t and 'can book visits' in t, t)
+    ck('circle: one invite-and-welcome button for someone with an email; Tom needs an email; Ann shows on + can book', 'Invite and send welcome' in t and 'add an email to invite them' in t and 'Booking App: on' in t and 'can book visits' in t, t)
     pg.click('#fam-cp_-9 button'); pg.wait_for_timeout(80)
     t = pg.inner_text('#cp_cl360Circle')
     calls = pg.evaluate('__calls')
