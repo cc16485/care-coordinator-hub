@@ -33578,7 +33578,7 @@ function lpiRender(){
   if(axT&&axT!==String(CP.ax||'').trim()) verify.push('AxisCare #'+axT+' is typed on the inquiry, but nobody has confirmed it\'s the same person');
   if(typeof ckReturningOpen==='function'&&ckReturningOpen(l)) verify.push('Might be a returning family: nobody has answered that yet');
   Object.values(b.cur||{}).filter(f=>f.needs_verification).forEach(f=>verify.push(lpfLabel(b,f.kind)+': '+lpfWords(f.kind,f.value)+', '+(LPF_SURE[f.certainty]||f.certainty)+', not verified yet'));
-  if(b.ep&&!b.peopleErr){ const keyNotAsked=lppPeople(b).filter(p=>(p.roles||[]).some(r=>['primary','decision_maker','poa'].includes(r))&&p.permission==='not_asked');
+  if(b.ep&&!b.peopleErr){ const keyNotAsked=lppPeople(b).filter(p=>(p.roles||[]).some(r=>['primary','decision_maker','poa','medical_decisions','poa_health','poa_financial'].includes(r))&&p.permission==='not_asked');
     keyNotAsked.forEach(p=>verify.push('Permission to discuss care not asked yet: '+(p.is_caller?((l.first_name||'the caller')+' (the caller)'):p.name))); }
   /* conflicts the Hub can prove */
   const conf=[], ls=lpfVal(b,'living_situation'), la=(l.safety||[]).includes('livesAlone');
@@ -33833,7 +33833,11 @@ async function lpfPayerSave(){
    read live from the inquiry, and records only their roles and permission. Nobody is linked to anybody
    automatically: a phone number already known elsewhere is SHOWN, and a person decides. Storing a number
    lets nothing text them. Shown in Lead intake chapter 9 and on Family & Contacts. */
-const LPP_ROLES={ primary:'Primary contact', decision_maker:'Decision maker', poa:'POA / legal representative', billing:'Billing', emergency:'Emergency contact', professional:'Professional or referral' };
+/* 2026-10-17 her ask: "line People involved up with the agreement: Medical decisions, Health and Financial POA, and HIPAA shown from
+   the signed agreement". The two older answers stay readable (marked older) until someone updates the person; nothing is guessed. */
+const LPP_ROLES={ primary:'Primary contact', medical_decisions:'Medical decisions', poa_health:'Health care POA', poa_financial:'Financial POA', billing:'Billing', emergency:'Emergency contact', professional:'Professional or referral' };
+const LPP_OLD_ROLES={ decision_maker:'Decision maker (older answer)', poa:'POA (older answer: health or financial?)' };
+const lppRoleLabel=r=>LPP_ROLES[r]||LPP_OLD_ROLES[r]||r;
 const LPP_RELS=['daughter','son','spouse','sibling','grandchild','niece or nephew','friend','neighbor','case manager','social worker','discharge planner','other'];
 const LPP_PERM={ not_asked:'Not asked yet', yes:'Yes, we may discuss care', no:'No' };
 const LPP={ form:null, drafts:{}, msg:null };
@@ -33845,7 +33849,7 @@ function lppLine(l,b,p,ro,care){
   const name=caller?((l.first_name||'')+' '+(l.last_name||'')).trim()||'The caller':p.name;
   const rel=caller?(p&&p.relationship)||l.relationship:p.relationship;
   const phone=caller?l.phone:p.phone, email=caller?l.email:p.email;
-  const roles=(p&&p.roles||[]).map(r=>LPP_ROLES[r]||r);
+  const roles=(p&&p.roles||[]).map(lppRoleLabel);
   const perm=p?p.permission:'not_asked';
   return '<div class="lpp-person" data-key="'+esc(p?p.person_key:'caller')+'">'
     +'<div class="lpp-top"><b>'+esc(name)+'</b>'+(rel?' <span class="lp-prov">'+esc(rel)+(p&&p.organization?', '+esc(p.organization):'')+'</span>':'')
@@ -33854,10 +33858,30 @@ function lppLine(l,b,p,ro,care){
     +'<div class="lp-prov">'+[phone?esc(phone):'', email?esc(email):'', p&&p.reach_way?'best by '+esc(p.reach_way):'', p&&p.reach_time?esc(p.reach_time):''].filter(Boolean).join(' · ')+'</div>'
     +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
       +(caller?' · name and phone come from the inquiry':'')+'</div>'
+    +lppSignedLine(l,caller?name:p.name)
     +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
       +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
     +(care?lpcLine(l,b,caller?(lpcSelf(l)?'client':'caller'):'person',p):'')
     +'<div class="lpp-formhost"></div></div>';
+}
+/* HIPAA and Medical decisions as the signed Client Care Agreement gave them: approved contacts are written to AxisCare (and read back
+   into the Family Circle), so the Family Circle member with the same name carries them. Read-only here; never typed on this screen. */
+function lppNameKey(x){ return String(x||'').toLowerCase().replace(/[^a-z]/g,''); }
+function lppSignedLine(l,name){
+  if(!lpcOn(l)) return '';
+  const c=LPP.circ&&LPP.circ[String(CP.ax)]; if(!c) return '';
+  const m=c.find(x=>lppNameKey(x.name)===lppNameKey(name)&&!x.axiscare_removed_at);
+  const yn=v=>v===true?'Yes':v===false?'No':'not answered';
+  if(!m||(m.hipaa_authorized==null&&m.can_make_medical_decisions==null)) return '<div class="lp-prov">HIPAA (signed agreement): <b>not on file yet</b></div>';
+  return '<div class="lp-prov">HIPAA (signed agreement): <b>'+yn(m.hipaa_authorized)+'</b> · Medical decisions: <b>'+yn(m.can_make_medical_decisions)+'</b> <span class="field-note">as AxisCare holds them</span></div>';
+}
+async function lppLoadCirc(){
+  const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)) return; LPP.circ=LPP.circ||{}; if(LPP.circ[ax]) return;
+  LPP.circ[ax]=null;
+  try{ const k=await sb.from('care_circles').select('id').eq('axiscare_client_id',ax).limit(1); const id=k.data&&k.data[0]&&k.data[0].id;
+    const m=id?await sb.from('circle_contacts').select('name,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
+    LPP.circ[ax]=m.data||[]; }catch(e){ LPP.circ[ax]=[]; }
+  lppRender();
 }
 function lppHtml(l,b,host){
   const esc=escapeHtmlComms;
@@ -33876,6 +33900,7 @@ function lppHtml(l,b,host){
 }
 function lppRender(){
   const l=CP.lead, b=l&&LPI.began[l.id];
+  if(l&&lpcOn(l)&&!(LPP.circ&&String(CP.ax) in LPP.circ)) lppLoadCirc();
   ['lppIntakeHost','lppFamHost'].forEach(id=>{ const el=document.getElementById(id); if(!el) return;
     if(!l){ el.innerHTML=''; return; }
     if(LPP.form&&LPP.form.hostId===id&&document.getElementById('lppF-name')) return;       /* never rebuild under an open form */
@@ -33901,7 +33926,7 @@ function lppOpen(key, el, removing, values){
       :'<div class="lpf-grid">'+(isCaller?'<input type="hidden" id="lppF-name" value="caller">':'<label>Name<input id="lppF-name" value="'+esc(v.name)+'"></label>')
         +'<label>Relationship<select id="lppF-rel"><option value=""></option>'+opt(LPP_RELS,v.relationship)+(v.relationship&&LPP_RELS.indexOf(v.relationship)<0?'<option selected>'+esc(v.relationship)+'</option>':'')+'</select></label>'
         +'<label>Organization (professionals)<input id="lppF-org" value="'+esc(v.organization)+'" placeholder="e.g. Mercy Hospital"></label></div>'
-      +'<div class="lpf-cks">'+Object.keys(LPP_ROLES).map(r=>'<label class="lpf-ck"><input type="checkbox" name="lppF-roles" value="'+r+'"'+(v.roles.includes(r)?' checked':'')+'> '+esc(LPP_ROLES[r])+'</label>').join('')+'</div>'
+      +'<div class="lpf-cks">'+Object.keys(LPP_ROLES).concat(Object.keys(LPP_OLD_ROLES).filter(r=>v.roles.includes(r))).map(r=>'<label class="lpf-ck"><input type="checkbox" name="lppF-roles" value="'+r+'"'+(v.roles.includes(r)?' checked':'')+'> '+esc(lppRoleLabel(r))+'</label>').join('')+'</div>'
       +(isCaller?'<p class="lp-prov">The caller\'s name, phone and email stay on the inquiry. Change them with "Add or change" in How they found us.</p>'
         :'<div class="lpf-grid"><label>Phone<input id="lppF-phone" value="'+esc(v.phone)+'" onchange="lppCheckPhone()"></label><label>Email<input id="lppF-email" value="'+esc(v.email)+'"></label>'
           +'<label>Best way<select id="lppF-way"><option value=""></option>'+['call','text','email'].map(x=>'<option'+(x===v.reach_way?' selected':'')+'>'+x+'</option>').join('')+'</select></label>'
@@ -33909,7 +33934,7 @@ function lppOpen(key, el, removing, values){
       +'<div class="lpf-who"><div class="lpf-lbl">Permission to discuss care (asked by a person, never assumed)</div><div class="lpf-grid">'
         +'<label>Answer<select id="lppF-perm">'+Object.keys(LPP_PERM).map(x=>'<option value="'+x+'"'+(x===v.permission?' selected':'')+'>'+esc(LPP_PERM[x])+'</option>').join('')+'</select></label>'
         +'<label>Who asked<input id="lppF-askedby" value="'+esc(v.permission_asked_by)+'"></label><label>When<input id="lppF-askedat" type="date" value="'+esc(v.permission_asked_at)+'"></label></div>'
-        +'<p class="lp-prov">This is our office\'s note. AxisCare\'s legal HIPAA answer stays in AxisCare.</p></div>')
+        +'<p class="lp-prov">This is our office\'s note from the calls. The legal HIPAA and medical-decisions answers come from the signed Client Care Agreement and are kept in AxisCare (shown on each person once signed).</p></div>')
     +'<div class="lpi-actions"><button class="primary" onclick="lppSave()">'+(removing?'Remove':'Save')+'</button><button class="secondary" onclick="lppCancel()">Cancel</button><span class="lp-prov" id="lppF-note"></span></div></div>';
   if(!removing&&!isCaller&&v.phone) lppCheckPhone();
 }
@@ -33962,7 +33987,7 @@ function lppChanges(b){
   const nm=r=>r.is_caller?'The caller':(r.name||'someone');
   return hist.filter(r=>r.supersedes_row_id&&byId[r.supersedes_row_id]).map(r=>{ const p=byId[r.supersedes_row_id], d=[];
     if(r.change_kind==='removed') d.push('removed ('+(r.reason||'')+')');
-    else { const rs=x=>(x.roles||[]).map(y=>LPP_ROLES[y]||y).join(', ')||'no roles';
+    else { const rs=x=>(x.roles||[]).map(lppRoleLabel).join(', ')||'no roles';
       if(JSON.stringify(p.roles||[])!==JSON.stringify(r.roles||[])) d.push('roles: '+rs(p)+' → '+rs(r));
       if(p.permission!==r.permission) d.push('permission: '+(LPP_PERM[p.permission]||p.permission)+' → '+(LPP_PERM[r.permission]||r.permission));
       ['phone','email','relationship','name','organization'].forEach(k=>{ if((p[k]||'')!==(r[k]||'')) d.push(k+': '+(p[k]||'blank')+' → '+(r[k]||'blank')); }); }
