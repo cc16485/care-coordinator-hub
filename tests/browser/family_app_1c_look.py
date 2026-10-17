@@ -13,7 +13,7 @@ def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:7
 # ── index.html wiring ──────────────────────────────────────────────────────────────────────────────────────────────────
 ck('index: panel loaded after the caregiver panel', re.search(r'caregiver-profile-panel\.js[^\n]*\n<script src="family-app-panel\.js\?v=', HTML))
 ck('index: Family bookings pill, panel and badge', 'data-tab="familybookings"' in HTML and 'id="tab-familybookings"' in HTML and 'id="famBookings"' in HTML and 'id="famPillBadge"' in HTML)
-ck('index: in the Scheduling group, titled, rendered on open', "'evv','familybookings','carematch'" in HTML and "familybookings:'Family bookings'" in HTML and "activeTab==='familybookings' && window.FAMAPP) FAMAPP.render()" in HTML)
+ck('index: in the Scheduling group, titled, rendered on open', "'familybookings','carematch'" in HTML and "familybookings:'Family bookings'" in HTML and "activeTab==='familybookings' && window.FAMAPP) FAMAPP.render()" in HTML)
 ck('index: the Care circle card shows the app line and can reload itself', "FAMAPP.circleLine(m, px)" in HTML and "FAMAPP.register(px, cl360CircleLoad)" in HTML and "await cl360CircleLoad();" in HTML)
 tmp = tempfile.mkdtemp(prefix='fam1c-')
 scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', HTML, re.S)
@@ -39,12 +39,17 @@ const B = [
   { id: 'b1', client_name: 'Dorothy Ray', visit_date: '2099-01-05', start_time: '10:00', end_time: '13:00', hours: 3, tasks: ['Companionship'], requested_by_name: 'Lisa Ray', who: 'regular', status: 'needs_office', error: 'no app service is set for OK in the Hub settings', state: 'OK', note: 'Soup please' },
   { id: 'b2', client_name: 'Dorothy Ray', visit_date: '2099-01-06', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Errands and shopping'], requested_by_name: 'Lisa Ray', who: 'any', status: 'waiting_for_caregiver', axiscare_visit_id: 'v=5:s=0:d=2099-01-06', state: 'MO' },
   { id: 'b3', client_name: 'Dorothy Ray', visit_date: '2099-01-07', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'placed', caregiver_name: 'Maria L.', state: 'MO', sync_state: 'no_caregiver', sync_note: 'Maria L.' },
-  { id: 'b4', client_name: 'Dorothy Ray', visit_date: '2099-01-08', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', cancel_source: 'office' } ];
+  { id: 'b4', client_name: 'Dorothy Ray', visit_date: '2099-01-08', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', cancel_source: 'office' },
+  { id: 'b5', client_name: 'Dorothy Ray', visit_date: '2099-01-09', start_time: '10:00', end_time: '12:00', hours: 2, tasks: ['Companionship'], status: 'held', state: 'MO', hold_reason: 'the note mentions personal care (bathing, toileting, dressing)', answer_by: '2099-01-08T23:00:00Z', note: 'help her shower' } ];
+const PLANS = [{ id: 'c1', client_name: 'Dorothy Ray', app_plan: true, app_plan_since: '2026-10-01', help_fill: null, app_tasks: null }];
 window.callAction = async (fn, body) => {
   __calls.push([fn, body]); await new Promise(r => setTimeout(r, 5));
   if (fn !== 'family-app-office') return { status: 404, data: { error: 'wrong door' } };
   const a = body.action;
-  if (a === 'list') return { status: 200, data: { members: [{ name: 'Ann', client_name: 'Dorothy Ray', status: 'active', can_book: true }], bookings: B } };
+  if (a === 'list') return { status: 200, data: { members: [{ name: 'Ann', client_name: 'Dorothy Ray', status: 'active', can_book: true }], bookings: B, plans: PLANS, tasks: ['Companionship', 'Meal preparation'] } };
+  if (a === 'review') { const b = B.find(x => x.id === body.booking_id); b.status = body.decision === 'decline' ? 'declined' : 'waiting_for_caregiver'; return { status: 200, data: { ok: true } } }
+  if (a === 'help_fill') { PLANS[0].help_fill = body.on ? { on: true, reason: body.reason, review_by: '2099-01-01' } : { on: false }; return { status: 200, data: { ok: true } } }
+  if (a === 'app_tasks') { PLANS[0].app_tasks = body.tasks; return { status: 200, data: { ok: true } } }
   if (a === 'invite') { M[body.contact_id].app_status = 'active'; M[body.contact_id].app_can_book = true; return { status: 200, data: { ok: true, words: 'Hi Lisa, you can now see Dorothy Ray\\'s visits and book extra visits at family.mo-care.com.' } } }
   if (a === 'can_book') { M[body.contact_id].app_can_book = body.on; return { status: 200, data: { ok: true } } }
   if (a === 'revoke') { M[body.contact_id].app_status = 'revoked'; return { status: 200, data: { ok: true } } }
@@ -94,7 +99,7 @@ with sync_playwright() as p:
     pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famBookings')
     ck('bookings: practice mode said plainly, settings shown', 'Practice mode' in t and "caregivers aren't asked and nothing is scheduled" in t and 'service PP - WC' in t and 'rate not set' in t, t)
-    ck('bookings: needs-you count 2, placed 1, cancelled tucked away, badge 2', 'Needs you (2)' in t and 'Coming up, caregiver placed (1)' in t and 'Practice, cancelled and past (1)' in t and pg.inner_text('#famPillBadge') == '2', t)
+    ck('bookings: needs-you count 3 (incl. the held one), placed 1, cancelled tucked away, badge 3', 'Needs you (3)' in t and 'Coming up, caregiver placed (1)' in t and 'Practice, cancelled and past (1)' in t and pg.inner_text('#famPillBadge') == '3', t)
     ck('bookings: reason shown on the one that needs the office, note shown', 'no app service is set for OK' in t and 'Note: Soup please' in t)
     opts = pg.eval_on_selector_all('#famcg-b2 option', 'os => os.map(o => o.textContent)')
     ck('caregiver picker: active caregivers with an AxisCare id, each once', opts == ['Pick a caregiver…', 'Maria Lopez'], opts)
@@ -102,9 +107,20 @@ with sync_playwright() as p:
     ck('place without picking: asks, sends nothing', 'Pick a caregiver first' in pg.inner_text('#famb-b2') and not any(c[1].get('action') == 'place' for c in pg.evaluate('__calls')))
     pg.select_option('#famcg-b2', '88'); pg.click('#famb-b2 button:has-text("Place and put on AxisCare")'); pg.wait_for_timeout(120)
     t = pg.inner_text('#famBookings')
-    ck('place: calls the door with the caregiver, list refreshes, Needs you drops to 1', {'action': 'place', 'booking_id': 'b2', 'caregiver_axiscare_id': '88'} in [c[1] for c in pg.evaluate('__calls')] and 'Needs you (1)' in t and 'Coming up, caregiver placed (2)' in t, t)
+    ck('place: calls the door with the caregiver, list refreshes, Needs you drops to 2', any(c[1].get('action') == 'place' and c[1].get('booking_id') == 'b2' and c[1].get('caregiver_axiscare_id') == '88' and not c[1].get('start') for c in pg.evaluate('__calls')) and 'Needs you (2)' in t and 'Coming up, caregiver placed (2)' in t, t)
     # Release 1 (2026-10-17): no "Put it on the AxisCare schedule" (no empty visits); a request needing the office gets the Place picker
     ck('Release 1: no empty-visit button anywhere; the needs-office request offers Place instead', 'Put it on the AxisCare schedule' not in pg.inner_text('#famBookings') and pg.query_selector('#famcg-b1') is not None)
+    # Release 3 (2026-10-17): held requests, Help us fill, app tasks
+    t5 = pg.inner_text('#famb-b5')
+    ck('Release 3: a held request is in Needs you with its reason and Approve / Approve without the note / Decline', 'Check before caregivers are asked' in t5 and 'personal care' in t5 and 'Approve without the note' in t5 and 'Decline' in t5, t5)
+    pg.click('#famb-b5 button:has-text("Decline")'); pg.wait_for_timeout(40)
+    ck('Release 3: Decline without a reason asks for one, sends nothing', 'Say why' in pg.inner_text('#famb-b5') and not any(c[1].get('action') == 'review' for c in pg.evaluate('__calls')))
+    pg.click('#famb-b5 button:has-text("Approve without the note")'); pg.wait_for_timeout(120)
+    ck('Release 3: Approve without the note calls the door', {'action': 'review', 'booking_id': 'b5', 'decision': 'approve_no_note', 'reason': ''} in [c[1] for c in pg.evaluate('__calls')])
+    pg.click('button:has-text("Turn on for 90 days")'); pg.wait_for_timeout(40)
+    ck('Release 3: Help us fill needs a reason first', 'Say why this client needs it' in pg.inner_text('#famBookings'))
+    pg.fill('#famhf-c1', 'Respite for her daughter'); pg.click('button:has-text("Turn on for 90 days")'); pg.wait_for_timeout(120)
+    ck('Release 3: Help us fill on, shown with its date and reason', 'on until 2099-01-01 (Respite for her daughter)' in pg.inner_text('#famBookings'), pg.inner_text('#famBookings')[-600:])
     # Release 2 (2026-10-17): the 10-minute AxisCare check, shown to the office
     pg.click('summary:has-text("Practice, cancelled and past")'); pg.wait_for_timeout(40)
     t3, t4 = pg.inner_text('#famb-b3'), pg.inner_text('#famb-b4')
