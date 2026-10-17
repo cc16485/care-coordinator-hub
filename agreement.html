@@ -527,14 +527,25 @@ function vOffice(){
     const want=!declined&&$('mailCopy')&&$('mailCopy').checked, to=want?$('mailTo').value.trim():'';
     if(want&&!EMAIL_OK.test(to)){ $('cErr').innerHTML='<div class="err">That email address does not look right. Fix it, or untick "Email the family a copy".</div>'; return; }
     $('cBtn').disabled=true; $('cBtn').textContent=want?'Saving and emailing their copy…':'Saving the signed agreement…';
-    try{ const r=await call({action:'countersign',id:AG.id,signature:P.png(),email_copy:want?{to}:null}); showDone(r.email||null,declined); }
+    try{ const r=await call({action:'countersign',id:AG.id,signature:P.png(),email_copy:want?{to}:null}); showDone(r.email||null,declined,r.steps||null); }
     catch(e){ $('cErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; $('cBtn').disabled=false; $('cBtn').textContent='Countersign and save'; }
   };
 }
-function showDone(email,declined){
+/* 875 (Stage 4): what the countersign ticked by itself, and the one step that stays a person's (AxisCare can't take documents) */
+function stepsNote(st){
+  if(!st) return '';
+  const bits=[];
+  if(st.soc==='ticked') bits.push('Start of Care: "Care Agreement provided" and "Signed Care Agreement received" are ticked.');
+  else if(st.soc==='conflict') bits.push('Start of Care was being changed by someone else, so its agreement steps were not ticked: tick them by hand.');
+  else if(st.soc==='error') bits.push('Start of Care could not be updated: tick its agreement steps by hand.');
+  if(st.journey==='ticked') bits.push('The journey\'s "Service agreement signed and on file" is done.');
+  else if(st.journey==='error') bits.push('The journey could not be updated: complete "Service agreement signed and on file" by hand.');
+  return (bits.length?'<div class="ok">'+esc(bits.join(' '))+'</div>':'')+'<div class="note"><b>Still yours:</b> open the signed agreement, save it, and upload it in AxisCare (the client, Documents). Then tick "Signed Care Agreement uploaded to AxisCare" on Start of Care.</div>';
+}
+function showDone(email,declined,steps){
   $('steps').classList.add('hide'); $('bar').classList.add('hide');
   const mail=email?(email.outcome==='sent'?`<div class="ok">Their copy was emailed to ${esc(email.to)}.</div>`:`<div class="err">${esc(email.detail)}</div>`):'';
-  $('view').innerHTML=`<h1>Signed and saved</h1><div class="ok">The signed Client Care Agreement is saved on the client's record.</div>${mail}
+  $('view').innerHTML=`<h1>Signed and saved</h1><div class="ok">The signed Client Care Agreement is saved on the client's record.</div>${mail}${stepsNote(steps)}
    <p style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn" id="printCopy" type="button">Print the family's copy</button><button class="btn ghost" id="openPdf" type="button">Open the signed agreement</button><a class="btn ghost" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Back to the Hub</a></p>
    <div style="font-size:15px;color:var(--muted)">The family's copy has a big "COPY" on every page, to print and hand them.${declined?' They chose not to get email, so this is their copy.':''}</div><div id="dErr"></div>`;
   const opener=(action,btn)=>async()=>{ $('dErr').innerHTML=''; btn.disabled=true; try{ const r=await call({action,id:AG.id}); window.open(r.url,'_blank','noopener'); }catch(e){ $('dErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } btn.disabled=false; };

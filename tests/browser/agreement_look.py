@@ -47,7 +47,7 @@ def fake(state):
         if a == 'countersign':
             state['counter'] = b; ag['status'] = 'countersigned'
             em = b.get('email_copy')
-            return J(200, {'ok': True, 'outcome': 'countersigned', 'email': {'outcome': 'sent', 'detail': 'Emailed to ' + em['to'] + '.', 'to': em['to']} if em else None})
+            return J(200, {'ok': True, 'outcome': 'countersigned', 'email': {'outcome': 'sent', 'detail': 'Emailed to ' + em['to'] + '.', 'to': em['to']} if em else None, 'steps': state.get('steps', {'soc': 'ticked', 'journey': 'ticked'})})
         if a == 'copy_print': return J(200, {'ok': True, 'url': 'https://example.com/family-copy.pdf', 'expires_in': 300})
         if a == 'open': return J(200, {'ok': True, 'url': 'https://example.com/signed.pdf', 'expires_in': 300})
         if a == 'list': return J(200, {'ok': True, 'agreements': state.get('list', [])})
@@ -155,6 +155,7 @@ def flow(browser, name, w, h):
     page.fill('#mailTo', 'nancy.anderson@example.com'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
     ck(f'{name}: countersign sends the office signature and the email address, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and st['counter']['email_copy'] == {'to': 'nancy.anderson@example.com'} and 'Signed and saved' in page.locator('#view h1').inner_text(), st['counter'].get('email_copy'))
     ck(f'{name}: the done screen says the copy was emailed', 'Their copy was emailed to nancy.anderson@example.com' in page.inner_text('#view'))
+    ck(f'{name}: the done screen says which steps were ticked, and that the AxisCare upload is still theirs', '"Signed Care Agreement received" are ticked' in page.inner_text('#view') and '"Service agreement signed and on file" is done' in page.inner_text('#view') and 'Still yours' in page.inner_text('#view'))
     page.click('#openPdf'); page.wait_for_timeout(300); page.click('#printCopy'); page.wait_for_timeout(300)
     ck(f'{name}: Open the signed agreement and Print the family\'s copy open their 5-minute links', page.evaluate('window.__opened') == ['https://example.com/signed.pdf', 'https://example.com/family-copy.pdf'], page.evaluate('window.__opened'))
     ck(f'{name}: no page errors', not errs, errs)
@@ -184,11 +185,12 @@ with sync_playwright() as p:
             ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024})
         ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
-        pg = ctx.new_page(); st = {'calls': [], 'ag': {'id': '33333333-3333-4333-8333-333333333333', 'status': 'signed', 'version': 'Rev. 10/2026', 'office': {'answers': {}}, 'answers': {'comm.decline': True, 'c1.email': 'x@example.com'}}}
+        pg = ctx.new_page(); st = {'steps': {'soc': 'conflict', 'journey': 'no_journey'}, 'calls': [], 'ag': {'id': '33333333-3333-4333-8333-333333333333', 'status': 'signed', 'version': 'Rev. 10/2026', 'office': {'answers': {}}, 'answers': {'comm.decline': True, 'c1.email': 'x@example.com'}}}
         pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=33333333-3333-4333-8333-333333333333'); pg.wait_for_selector('#osig')
         ck(f'{eng}: a family who declined email: no email box, it says to print their copy', pg.locator('#mailCopy').count() == 0 and 'chose not to get email' in pg.inner_text('#view'))
         draw(pg, '#osig'); pg.click('#cBtn'); pg.wait_for_selector('#printCopy')
         ck(f'{eng}: ...countersigned with no email asked for', st['counter'].get('email_copy') is None and 'this is their copy' in pg.inner_text('#view'))
+        ck(f'{eng}: when Start of Care could not be ticked, it says to tick it by hand', 'tick them by hand' in pg.inner_text('#view'))
         ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/functions/v1/client-agreement', fake({'calls': []})); pg.goto(BASE + '/agreement.html?ax=296'); pg.wait_for_selector('#signin')
