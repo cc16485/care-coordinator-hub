@@ -1149,8 +1149,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
-    <!-- 2026-10-17 (her "documents to be their own tab so its not burried and hard to find"): every document in one place -->
-    <div class="ftab" data-g="docs" onclick="ccGroupClick('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Documents</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <!-- The day's own row: what is happening, what is late, who rang, and what
@@ -1279,14 +1277,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Procedures</div>
     <div class="fpill" data-tab="sopref" onclick="switchTab('sopref')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Payors &amp; Programs</div>
     <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Scripts</div>
+    <!-- 2026-10-17 (her "i want it inside SOPs"): Documents moved here from its own top tab. Forms & Templates (forms.html) and
+         Client Folders (client-folders.html) open inside the Hub, like Payors & Programs. -->
+    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
+    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
     <!-- 2026-10-17 (her ask "a tab in SOPs that says order supplies"): supplies.html, opened inside the Hub. -->
     <div class="fpill" data-tab="supplies" onclick="switchTab('supplies')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Order Supplies</div>
   </div>
 
-  <div class="fsubbar" id="fsub-docs">
-    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
-    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
-  </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
        (Leads, Marketing, Playbook). Rendered by ccRenderSub2(). -->
@@ -8007,7 +8005,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','routing','supplies'],docs:['docs','docfolders'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
