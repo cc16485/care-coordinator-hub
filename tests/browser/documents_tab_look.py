@@ -22,8 +22,9 @@ async()=>{
 
   document.querySelector('.ftab[data-g="sops"]').click(); await sleep(300);
   const row=document.getElementById('fsub-sops'), pills=[...row.querySelectorAll('.fpill')].map(p=>p.textContent.trim());
-  ok('SOPs row: Procedures, Payors & Programs, Scripts, Forms & Templates, Client Folders, Order Supplies',
-     JSON.stringify(pills)==='["Procedures","Payors & Programs","Scripts","Forms & Templates","Client Folders","Order Supplies"]', pills);
+  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Order Supplies (no Scripts)',
+     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Order Supplies"]', pills);
+  ok('Scripts still opens from its old address (#playbook), content kept', document.getElementById('tab-playbook') && CC_GROUPS.sops.includes('playbook'));
   [...row.querySelectorAll('.fpill')].find(p=>/Forms & Templates/.test(p.textContent)).click(); await sleep(300);
   ok('Forms & Templates is first and opens inside the Hub', activeTab==='docs' && /forms\.html\?in=hub$/.test(document.getElementById('docsFrame').src), [activeTab, document.getElementById('docsFrame').src]);
   const f1=document.getElementById('docsFrame');
