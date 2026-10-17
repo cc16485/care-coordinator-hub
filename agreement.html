@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Client Care Agreement · Caring Companions</title>
+<!-- ============================================================
+     CLIENT CARE AGREEMENT ON A TABLET, Stage 1 (Samantha 2026-10-16).
+     The office opens a client in the Hub, sets the level and rate here, and hands the tablet to the family. The family
+     fills in who is signing, the client and POA, Contacts & Permissions, their choices, taps six initials after reading
+     each part, and signs with a finger plus their typed name. The office countersigns and the signed PDF (the real
+     agreement pages with everything written in, plus a signature record page) is saved by the client-agreement function.
+     The tablet stays signed in as the office person who opened it. Nothing here changes AxisCare or sends anything.
+     Field keys are the printed agreement's keys (client-agreement-map.ts on the server).
+     ============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{ --navy:#0D365F; --teal:#1F7A8C; --teal-d:#155A68; --pale:#EAF4F6; --honey:#F0A63A; --honey-d:#C17A12; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --cream:#faf9f6; --panel:#f4f2ec; --red:#a33; --green:#0f7a4d; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--cream); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:18px; line-height:1.5; }
+  header{ background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header b{ font-size:19px; } header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  header a{ color:#fff; font-size:14px; opacity:.85; }
+  .steps{ display:flex; gap:6px; padding:12px 20px 0; flex-wrap:wrap; max-width:980px; margin:0 auto; }
+  .steps span{ font-size:13px; font-weight:700; padding:5px 12px; border-radius:99px; background:#fff; border:1px solid var(--border); color:var(--muted); }
+  .steps span.on{ background:var(--teal); color:#fff; border-color:var(--teal); } .steps span.done{ background:var(--pale); color:var(--teal-d); border-color:var(--pale); }
+  main{ max-width:980px; margin:0 auto; padding:16px 20px 120px; }
+  h1{ font-size:28px; color:var(--navy); margin:8px 0 4px; } h2{ font-size:21px; color:var(--navy); margin:22px 0 8px; }
+  .lead{ color:var(--muted); margin:0 0 16px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:16px; padding:18px 20px; margin:0 0 14px; }
+  .kick{ font-size:13px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--honey-d); margin:0 0 6px; }
+  label{ display:block; font-size:15px; font-weight:700; color:var(--navy); margin:10px 0 4px; }
+  input[type=text],input[type=email],input[type=tel],input[type=date],input[type=number],select{ width:100%; font:inherit; font-size:18px; padding:12px 14px; border:1.5px solid #cfd6dd; border-radius:12px; background:#fff; color:var(--ink); }
+  input:focus{ outline:3px solid var(--pale); border-color:var(--teal); }
+  .grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:0 16px; } .grid3{ display:grid; grid-template-columns:2fr 1fr 1fr; gap:0 16px; }
+  .opts{ display:flex; gap:10px; flex-wrap:wrap; margin:6px 0 4px; }
+  .pill{ font:inherit; font-size:17px; padding:11px 18px; border-radius:12px; border:1.5px solid #cfd6dd; background:#fff; color:var(--ink); cursor:pointer; min-height:48px; }
+  .pill.on{ background:var(--teal); border-color:var(--teal); color:#fff; font-weight:700; }
+  .row{ display:grid; grid-template-columns:230px 1fr; gap:10px; align-items:center; padding:6px 0; border-top:1px solid #efece5; }
+  .row:first-of-type{ border-top:none; } .row .rl{ font-weight:700; color:var(--navy); font-size:16px; }
+  .note{ background:var(--pale); border-left:4px solid var(--teal); border-radius:0 12px 12px 0; padding:12px 14px; font-size:15.5px; margin:10px 0; }
+  .btn{ font:inherit; font-size:18px; font-weight:700; border:none; border-radius:14px; padding:14px 24px; min-height:54px; background:var(--teal); color:#fff; cursor:pointer; }
+  .btn:hover{ background:var(--teal-d); } .btn.ghost{ background:#fff; color:var(--navy); border:1.5px solid #cfd6dd; } .btn:disabled{ opacity:.5; cursor:default; }
+  .bar{ position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--border); padding:12px 20px; display:flex; gap:12px; justify-content:space-between; align-items:center; z-index:5; }
+  .bar .inner{ max-width:980px; margin:0 auto; width:100%; display:flex; justify-content:space-between; gap:12px; align-items:center; }
+  .err{ background:#fdf0f0; color:var(--red); border-radius:12px; padding:12px 14px; margin:10px 0; font-size:16px; }
+  .err ul{ margin:6px 0 0 18px; padding:0; } .err a{ color:var(--red); }
+  .ok{ background:#e8f6ef; color:var(--green); border-radius:12px; padding:12px 14px; margin:10px 0; }
+  .ini-card{ display:grid; grid-template-columns:1fr auto; gap:12px; align-items:center; }
+  .ini-btn{ min-width:190px; } .ini-btn.on{ background:var(--green); }
+  .pages{ display:none; margin-top:12px; max-height:70vh; overflow-y:auto; border:1px solid var(--border); border-radius:12px; background:#ddd; padding:10px; }
+  .pages.on{ display:block; } .pages img{ display:block; width:100%; max-width:820px; margin:0 auto 10px; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+  .sigbox{ border:2px dashed #b9c3cc; border-radius:14px; background:#fff; touch-action:none; width:100%; height:200px; display:block; }
+  .contact{ border:1px solid var(--border); border-radius:14px; padding:12px 16px; margin:0 0 12px; background:#fff; }
+  .contact summary{ font-weight:800; color:var(--navy); font-size:18px; cursor:pointer; padding:4px 0; }
+  .hide{ display:none !important; }
+  #gate{ max-width:420px; margin:60px auto; }
+  @media (max-width:700px){ .grid,.grid3{ grid-template-columns:1fr; } .row{ grid-template-columns:1fr; } .ini-card{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<header><b>Client Care Agreement</b><a href="index.html" id="backLink">← Back to the Hub</a><span class="who" id="who"></span></header>
+<div class="steps hide" id="steps"></div>
+<main>
+  <div id="gate" class="card hide">
+    <h1>Sign in</h1><p class="lead">Use your Hub sign-in. The tablet stays signed in as you while the family fills in the agreement.</p>
+    <label for="em">Email</label><input type="email" id="em" autocomplete="username">
+    <label for="pw">Password</label><input type="password" id="pw" autocomplete="current-password" style="width:100%;font:inherit;font-size:18px;padding:12px 14px;border:1.5px solid #cfd6dd;border-radius:12px">
+    <p><button class="btn" id="signin" type="button">Sign in</button></p><div id="gateErr"></div>
+  </div>
+  <div id="view"></div>
+</main>
+<div class="bar hide" id="bar"><div class="inner"><button class="btn ghost" id="backBtn" type="button">Back</button><span id="barMsg" style="font-size:15px;color:var(--muted)"></span><button class="btn" id="nextBtn" type="button">Next</button></div></div>
+<script>
+(function(){
+'use strict';
+const SUPA_URL='https://zngsgedlsxinbygwmxwn.supabase.co';
+const ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const sb=window.supabase.createClient(SUPA_URL,ANON);
+const $=id=>document.getElementById(id);
+const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const Q=new URLSearchParams(location.search);
+const PAGES_DIR='agreement-pages/rev-2026-10/';
+/* which agreement pages each initials box covers (printed page numbers) */
+const READ={ '1':[1,2,3,11], '2':[3,4,5,12,13,15,16], '3':[5], '4':[6,7,8,9], '5':[10,14,17,18], '6':[20,21] };
+let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='', CONTACTS=1;
+
+/* ---------- server ---------- */
+async function call(body){
+  const s=await sb.auth.getSession(), tok=s&&s.data&&s.data.session&&s.data.session.access_token;
+  if(!tok) throw new Error('Sign in first.');
+  const r=await fetch(SUPA_URL+'/functions/v1/client-agreement',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:ANON,'Content-Type':'application/json','x-cc-via':'hub'},body:JSON.stringify(body)});
+  const d=await r.json().catch(()=>null);
+  if(!d) throw new Error('The agreement service answered '+r.status);
+  if(r.status>=400){ const e=new Error(d.error||('The agreement service answered '+r.status)); e.problems=d.problems||[]; e.outcome=d.outcome; throw e; }
+  return d;
+}
+
+/* ---------- sign-in ---------- */
+sb.auth.getSession().then(r=>{ if(r.data&&r.data.session) boot(r.data.session); else $('gate').classList.remove('hide'); });
+$('signin').onclick=async()=>{
+  $('gateErr').innerHTML=''; const r=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
+  if(r.error){ $('gateErr').innerHTML='<div class="err">'+esc(r.error.message)+'</div>'; return; }
+  $('gate').classList.add('hide'); boot(r.data.session);
+};
+async function boot(session){
+  ME.email=(session.user&&session.user.email)||''; $('who').textContent=ME.email;
+  try{
+    if(Q.get('id')){ const d=await call({action:'get',id:Q.get('id')}); FORM=d.form; load(d.agreement); }
+    else if(/^\d{1,12}$/.test(Q.get('ax')||'')){ FORM=(await call({action:'form'})).form; showOffice(); }
+    else $('view').innerHTML='<div class="err">Open this page from a client in the Hub (Start of Care → Client Care Agreement).</div>';
+  }catch(e){ $('view').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
+}
+function load(ag){
+  AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{};
+  for(const n of [2,3,4]) if(A['c'+n+'.name']) CONTACTS=n;
+  $('backLink').href='index.html';
+  if(ag.status==='draft') go('about');
+  else if(ag.status==='signed') go('office');
+  else if(ag.status==='countersigned') showDone();
+  else $('view').innerHTML='<div class="err">This agreement was set aside'+(ag.void_reason?': '+esc(ag.void_reason):'')+'. Start a new one from the client in the Hub.</div>';
+}
+
+/* ---------- small form helpers (data-k = the printed agreement's field key) ---------- */
+const val=k=>A[k]==null?'':A[k];
+const txt=(k,label,type='text',extra='')=>`<label>${label}</label><input type="${type}" data-k="${k}" value="${esc(val(k))}" ${extra}>`;
+const tick=(k,label)=>`<button type="button" class="pill${A[k]===true?' on':''}" data-t="${k}">${label}</button>`;
+const oneOf=(keys,labels)=>keys.map((k,i)=>`<button type="button" class="pill${A[k]===true?' on':''}" data-one="${keys.join(',')}" data-t="${k}">${labels[i]}</button>`).join('');
+function wire(root){
+  root.querySelectorAll('input[data-k]').forEach(i=>{ i.oninput=()=>{ const v=i.value.trim(); if(v) A[i.dataset.k]=i.value; else delete A[i.dataset.k]; }; });
+  root.querySelectorAll('[data-t]').forEach(b=>{ b.onclick=()=>{
+    const k=b.dataset.t, on=A[k]!==true;
+    if(b.dataset.one&&on) b.dataset.one.split(',').forEach(o=>{ delete A[o]; root.querySelectorAll('[data-t="'+o+'"]').forEach(x=>x.classList.remove('on')); });
+    if(k==='photos.no_photos'&&on) ['photos.share_with_my_family','photos.marketing'].forEach(o=>{ delete A[o]; root.querySelectorAll('[data-t="'+o+'"]').forEach(x=>x.classList.remove('on')); });
+    if((k==='photos.share_with_my_family'||k==='photos.marketing')&&on){ delete A['photos.no_photos']; root.querySelectorAll('[data-t="photos.no_photos"]').forEach(x=>x.classList.remove('on')); }
+    if(on) A[k]=true; else delete A[k]; b.classList.toggle('on',on);
+    if(b.dataset.after) render();
+  }; });
+}
+const initials=name=>{ const w=String(name||'').trim().split(/\s+/).filter(Boolean); return w.length?(w[0][0]+(w.length>1?w[w.length-1][0]:'')).toUpperCase():''; };
+
+/* ---------- office: set up (new agreement) ---------- */
+function showOffice(){
+  $('view').innerHTML=`<div class="kick">For the office</div><h1>Set up the agreement</h1><p class="lead">Fill this in before you hand the tablet to the family. AxisCare client #${esc(Q.get('ax'))}.</p>
+  <div class="card"><label>Level of care</label><div class="opts">${oneOf(['level.wellness_care','level.personal_care','level.advanced_care'],['Wellness Care','Personal Care','Advanced Care'])}</div>
+  <div class="grid"><div>${txt('level.hourly_rate','Hourly rate ($)','text','inputmode="decimal" placeholder="30"')}</div><div><label>Start date (optional)</label><input type="date" id="startDate"></div></div>
+  <label>Addenda this client also signs</label><div class="opts"><button type="button" class="pill" data-ad="va">VA Community Care</button><button type="button" class="pill" data-ad="guide">Medicare GUIDE</button></div>
+  <div class="field-note" style="font-size:14px;color:var(--muted);margin-top:6px">Addenda are noted on the agreement record; print and sign them on paper for now.</div></div>
+  <div id="offErr"></div><p><button class="btn" id="startBtn" type="button">Start and hand the tablet to the family</button></p>`;
+  wire($('view'));
+  $('view').querySelectorAll('[data-ad]').forEach(b=>{ b.onclick=()=>b.classList.toggle('on'); });
+  $('startBtn').onclick=async()=>{
+    const office={}; ['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate'].forEach(k=>{ if(A[k]!=null) office[k]=A[k]; });
+    $('startBtn').disabled=true;
+    try{
+      const d=await call({action:'start',client_ax:Q.get('ax'),office,start_date:$('startDate').value||null,addenda:[...$('view').querySelectorAll('[data-ad].on')].map(b=>b.dataset.ad)});
+      history.replaceState(null,'','agreement.html?id='+encodeURIComponent(d.agreement.id)); A={}; load(d.agreement);
+    }catch(e){ $('offErr').innerHTML='<div class="err">'+esc(e.message)+problemsHtml(e.problems)+'</div>'; $('startBtn').disabled=false; }
+  };
+}
+
+/* ---------- the family's steps ---------- */
+const STEPS=[['about','About you'],['contacts','Contacts'],['choices','Your choices'],['initial','Read & initial'],['sign','Sign']];
+function go(s){ step=s; render(); window.scrollTo(0,0); }
+function render(){
+  const fam=STEPS.findIndex(x=>x[0]===step);
+  $('steps').classList.toggle('hide',fam<0); $('bar').classList.toggle('hide',fam<0||step==='sign');
+  $('steps').innerHTML=STEPS.map((x,i)=>`<span class="${i===fam?'on':i<fam?'done':''}">${i+1}. ${x[1]}</span>`).join('');
+  ({about:vAbout,contacts:vContacts,choices:vChoices,initial:vInitial,sign:vSign,office:vOffice})[step]();
+  wire($('view'));
+  $('backBtn').style.visibility=fam>0?'visible':'hidden';
+  $('backBtn').onclick=()=>{ save(); go(STEPS[fam-1][0]); };
+  $('nextBtn').onclick=async()=>{ const p=check(step); if(p){ $('barMsg').innerHTML='<span style="color:var(--red)">'+esc(p)+'</span>'; return; } $('barMsg').textContent='Saving…'; if(!await save()) return; $('barMsg').textContent=''; go(STEPS[fam+1][0]); };
+}
+async function save(){ try{ await call({action:'save',id:AG.id,answers:famAnswers()}); return true; }catch(e){ $('barMsg').innerHTML='<span style="color:var(--red)">Not saved: '+esc(e.message)+'</span>'; return false; } }
+function famAnswers(){ const o={}; const off=new Set(FORM.office_keys); for(const [k,v] of Object.entries(A)) if(!off.has(k)&&FORM.fields[k]&&v!=='' ) o[k]=v; return o; }
+function check(s){
+  if(s==='about'){
+    if(!/\S+\s+\S+/.test(SIGNER.name.trim())) return 'Please type your full name.';
+    if(!SIGNER.role) return 'Are you the client, or signing for the client?';
+    for(const [k,l] of [['client.client_s_name',"the client's name"],['client.address','the address'],['client.city','the city'],['client.zip','the zip'],['client.phone_number','a phone number']]) if(!A[k]) return 'Please add '+l+'.';
+    if(SIGNER.role==='representative'&&!A['poa.name']) return 'Please fill in your name in the POA section.';
+  }
+  if(s==='contacts'){
+    if(!A['c1.name']||!A['c1.relationship']) return 'Please add the primary contact.';
+    if(!A['c1.cell_phone']&&!A['c1.home_phone']) return 'Please add a phone for the primary contact.';
+    for(let n=1;n<=CONTACTS;n++) if(A['c'+n+'.name']&&((!A['c'+n+'.hipaa_yes']&&!A['c'+n+'.hipaa_no'])||(!A['c'+n+'.medical_yes']&&!A['c'+n+'.medical_no']))) return 'Contact '+n+': please answer the two Yes/No questions.';
+  }
+  if(s==='choices'){
+    if(!Object.keys(A).some(k=>k.startsWith('access.')&&A[k]===true)) return 'Please pick how caregivers get into the home.';
+    if(!A['backup.full_name']||!A['backup.primary_phone']) return 'Please add a backup caregiver (required).';
+    if(!A['car.accept']&&!A['car.decline']) return 'Use of your car: Accept or Decline.';
+    if(!['photos.share_with_my_family','photos.marketing','photos.no_photos'].some(k=>A[k])) return 'Please pick a photo choice.';
+    if(!A['comm.accept']&&!A['comm.decline']) return 'Permission to communicate: Accept or Decline.';
+  }
+  if(s==='initial'){ const miss=Object.keys(FORM.initials).filter(n=>!TAPS[n]); if(miss.length) return 'Please initial every part ('+miss.length+' left).'; if(SIGNER.role==='representative'&&!TAPS.poa) return 'Please initial that you may sign for the client.'; }
+  return '';
+}
+
+function vAbout(){
+  $('view').innerHTML=`<h1>Welcome</h1><p class="lead">This takes about 10 minutes. You can ask us anything as you go.</p>
+  <div class="card"><div class="kick">Who is signing today?</div>
+   <label>Your full name</label><input type="text" id="sName" value="${esc(SIGNER.name)}" autocomplete="name">
+   <div class="opts" style="margin-top:12px"><button type="button" class="pill${SIGNER.role==='client'?' on':''}" data-role="client">I am the client</button><button type="button" class="pill${SIGNER.role==='representative'?' on':''}" data-role="representative">I'm signing for the client</button></div>
+   <div id="relBox" class="${SIGNER.role==='representative'?'':'hide'}"><label>Your relationship to the client</label><input type="text" id="sRel" value="${esc(SIGNER.relationship)}"></div></div>
+  <div class="card"><div class="kick">The client</div>
+   <div class="grid"><div>${txt('client.client_s_name',"Client's name")}</div><div>${txt('client.spouse','Spouse (if any)')}</div></div>
+   ${txt('client.address','Address')}<div class="grid3"><div>${txt('client.city','City')}</div><div>${txt('client.zip','Zip','text','inputmode="numeric"')}</div><div>${txt('ci.date_of_birth','Date of birth')}</div></div>
+   ${txt('client.phone_number','Phone number','tel')}</div>
+  <div class="card"><div class="kick">Power of attorney (if any)</div><p style="margin:0;font-size:15.5px;color:var(--muted)">The person with authority to sign for the client in an emergency. ${SIGNER.role==='representative'?'<b>Required, since you are signing for the client.</b>':'Leave blank if none.'}</p>
+   <div class="grid"><div>${txt('poa.name','Name')}</div><div>${txt('poa.relationship','Relationship')}</div><div>${txt('poa.cell_phone','Cell phone','tel')}</div><div>${txt('poa.email','Email','email')}</div></div></div>`;
+  $('sName').oninput=()=>{ SIGNER.name=$('sName').value; };
+  $('view').querySelectorAll('[data-role]').forEach(b=>{ b.onclick=()=>{ SIGNER.role=b.dataset.role; render(); }; });
+  const rel=$('sRel'); if(rel) rel.oninput=()=>{ SIGNER.relationship=rel.value; };
+}
+function contactHtml(n){
+  const p='c'+n+'.';
+  return `<details class="contact" ${n<=CONTACTS?'open':''}><summary>${n===1?'Primary contact (required)':'Contact '+n}</summary>
+   <div class="grid"><div>${txt(p+'name','Name')}</div><div>${txt(p+'relationship','Relationship')}</div><div>${txt(p+'home_phone','Home phone','tel')}</div><div>${txt(p+'cell_phone','Cell phone','tel')}</div></div>
+   ${txt(p+'email','Email','email')}${txt(p+'address','Address')}<div class="grid3"><div>${txt(p+'city','City')}</div><div>${txt(p+'state','State')}</div><div>${txt(p+'zip','Zip','text','inputmode="numeric"')}</div></div>
+   <h2 style="font-size:17px">Permissions</h2>
+   <div class="row"><span class="rl">May we share health information with this person (HIPAA)?</span><div class="opts">${oneOf([p+'hipaa_yes',p+'hipaa_no'],['Yes','No'])}</div></div>
+   <div class="row"><span class="rl">Can this person make medical decisions?</span><div class="opts">${oneOf([p+'medical_yes',p+'medical_no'],['Yes','No'])}</div></div>
+   <div class="row"><span class="rl">Power of attorney</span><div class="opts">${tick(p+'poa_health','Health')}${tick(p+'poa_financial','Financial')}${tick(p+'poa_none','None')}</div></div>
+   <h2 style="font-size:17px">What they receive</h2>
+   <div class="row"><span class="rl">Texts</span><div class="opts">${tick(p+'text_running_late','Running late')}${tick(p+'text_caregiver_change','Caregiver change')}</div></div>
+   <div class="row"><span class="rl">AxisCare access</span><div class="opts">${tick(p+'axis_care_notes','Care notes')}${tick(p+'axis_invoices','Invoices')}</div></div>
+   <div class="row"><span class="rl">Emails</span><div class="opts">${tick(p+'email_weekly_calendar','Weekly calendar')}${tick(p+'email_care_plans','Care plans')}${tick(p+'email_office_messages','Office messages')}${tick(p+'email_invoices','Invoices')}</div></div></details>`;
+}
+function vContacts(){
+  $('view').innerHTML=`<h1>Contacts &amp; Permissions</h1><p class="lead">Who we may contact in an emergency, and what each person may see and receive about the client's care. You can change this any time.</p>
+  ${[1,2,3,4].filter(n=>n<=CONTACTS).map(contactHtml).join('')}
+  ${CONTACTS<4?'<p><button type="button" class="btn ghost" id="addC">+ Add another contact</button></p>':''}
+  <div class="note"><b>AxisCare access:</b> Checking "Care notes" or "Invoices" gives that person their own sign-in to AxisCare, our care and billing system, to see only what is checked.</div>
+  <div class="note"><b>Text messages:</b> Checking "Running late" or "Caregiver change" lets us text that person about the client's care. Message frequency varies. Msg &amp; data rates may apply. Reply STOP to opt out any time.</div>`;
+  const add=$('addC'); if(add) add.onclick=()=>{ CONTACTS++; render(); };
+}
+function vChoices(){
+  const ac=A['access.2_lockbox_access_a_ke']===true, gc=A['access.3_garage_door_access_code']===true, oc=A['access.4_other_access_option']===true;
+  $('view').innerHTML=`<h1>Your choices</h1><p class="lead">A few choices that are part of your agreement.</p>
+  <div class="card"><div class="kick">How caregivers get into the home</div><p style="margin:0 0 6px;font-size:15.5px;color:var(--muted)">Pick one or more. We share access details only with the caregivers assigned to you.</p>
+   <div class="opts">${['access.1_client_responsible_party','access.2_lockbox_access_a_ke','access.3_garage_door_access_code','access.4_other_access_option'].map((k,i)=>`<button type="button" class="pill${A[k]===true?' on':''}" data-t="${k}" data-after="1">${['Someone opens the door','Lockbox','Garage code','Other'][i]}</button>`).join('')}</div>
+   ${ac?'<div class="grid"><div>'+txt('access.lockbox_location','Lockbox location')+'</div><div>'+txt('access.lockbox_code','Lockbox code')+'</div></div>':''}
+   ${gc?txt('access.garage_code','Garage code'):''}${oc?txt('access.describe','Describe the other way in'):''}</div>
+  <div class="card"><div class="kick">Backup caregiver (required)</div><p style="margin:0;font-size:15.5px;color:var(--muted)">Someone who can step in if we can't reach the home, for example in bad weather.</p>
+   <div class="grid"><div>${txt('backup.full_name','Full name')}</div><div>${txt('backup.relationship_to_client','Relationship to the client')}</div><div>${txt('backup.primary_phone','Primary phone','tel')}</div><div>${txt('backup.secondary_phone','Second phone','tel')}</div></div></div>
+  <div class="card"><div class="kick">Use of your car</div><p style="margin:0;font-size:15.5px">May a caregiver drive your vehicle for your care? You stay responsible for the car and its insurance.</p>
+   <div class="opts">${['car.accept','car.decline'].map((k,i)=>`<button type="button" class="pill${A[k]===true?' on':''}" data-one="car.accept,car.decline" data-t="${k}" data-after="1">${['Accept','Decline'][i]}</button>`).join('')}</div>
+   ${A['car.accept']===true?'<div class="grid"><div>'+txt('vehicle.car_make_model','Car make and model')+'</div><div>'+txt('vehicle.year','Year')+'</div><div>'+txt('vehicle.insurance','Insurance company')+'</div><div>'+txt('vehicle.expiration_date','Insurance expiration')+'</div><div>'+txt('vehicle.driver_s_license',"Driver's license")+'</div><div>'+txt('vehicle.expiration_date_2','License expiration')+'</div></div>'+txt('vehicle.spare_key_location','Spare key location'):''}</div>
+  <div class="card"><div class="kick">Photos</div><p style="margin:0;font-size:15.5px">May caregivers take photos? "Share with my family" means sent privately to the people you authorized. "Marketing" means our printed materials, website and social media.</p>
+   <div class="opts">${tick('photos.share_with_my_family','Share with my family')}${tick('photos.marketing','Marketing')}${tick('photos.no_photos','No photos')}</div></div>
+  <div class="card"><div class="kick">Permission to communicate</div><p style="margin:0;font-size:15.5px">May we talk about your care by email, text or voicemail? These are not fully secure.</p>
+   <div class="opts">${oneOf(['comm.accept','comm.decline'],['Accept','Decline'])}</div></div>`;
+}
+function vInitial(){
+  const ini=initials(SIGNER.name);
+  const card=(n,title)=>`<div class="card"><div class="ini-card"><div><div class="kick">Initials ${n==='poa'?'':n+' of 6'}</div><div style="font-weight:700;font-size:19px;color:var(--navy)">${esc(title)}</div>
+   ${n==='poa'?'':`<button type="button" class="btn ghost" data-show="${n}" style="margin-top:10px;font-size:16px;min-height:44px;padding:8px 16px">Read pages ${READ[n].join(', ')}</button>`}</div>
+   <button type="button" class="btn ini-btn${TAPS[n]?' on':''}" data-tap="${n}">${TAPS[n]?'✓ Initialed '+esc(ini):'Tap to initial '+esc(ini)}</button></div>
+   ${n==='poa'?'':`<div class="pages" id="pg${n}">${READ[n].map(p=>`<img loading="lazy" alt="Agreement page ${p}" src="${PAGES_DIR}p${String(p).padStart(2,'0')}.jpg">`).join('')}</div>`}</div>`;
+  $('view').innerHTML=`<h1>Read and initial</h1><p class="lead">Please read each part of the agreement, then tap to put your initials (<b>${esc(ini)}</b>) on it. Ask us about anything.</p>
+   ${Object.entries(FORM.initials).map(([n,t])=>card(n,t)).join('')}
+   ${SIGNER.role==='representative'?card('poa','I certify I have legal authority to sign for the client.'):''}
+   <div class="card"><button type="button" class="btn ghost" data-show="all">See the whole agreement (23 pages)</button><div class="pages" id="pgall">${Array.from({length:23},(_,i)=>`<img loading="lazy" alt="Agreement page ${i+1}" src="${PAGES_DIR}p${String(i+1).padStart(2,'0')}.jpg">`).join('')}</div></div>`;
+  $('view').querySelectorAll('[data-show]').forEach(b=>{ b.onclick=()=>$('pg'+b.dataset.show).classList.toggle('on'); });
+  $('view').querySelectorAll('[data-tap]').forEach(b=>{ b.onclick=()=>{ const n=b.dataset.tap; if(TAPS[n]) delete TAPS[n]; else TAPS[n]=new Date().toISOString(); $('barMsg').textContent=''; render(); }; });
+}
+
+/* ---------- finger signature ---------- */
+function pad(canvas){
+  const st={has:false};
+  const size=()=>{ const r=canvas.getBoundingClientRect(), d=window.devicePixelRatio||1; canvas.width=r.width*d; canvas.height=r.height*d; const c=canvas.getContext('2d'); c.scale(d,d); c.lineWidth=2.6; c.lineCap='round'; c.lineJoin='round'; c.strokeStyle='#0D365F'; st.has=false; };
+  size(); let down=false, last=null; const ctx=()=>canvas.getContext('2d');
+  const pt=e=>{ const r=canvas.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; };
+  canvas.addEventListener('pointerdown',e=>{ down=true; last=pt(e); canvas.setPointerCapture(e.pointerId); e.preventDefault(); });
+  canvas.addEventListener('pointermove',e=>{ if(!down) return; const p=pt(e), c=ctx(); c.beginPath(); c.moveTo(last.x,last.y); c.lineTo(p.x,p.y); c.stroke(); last=p; st.has=true; e.preventDefault(); });
+  ['pointerup','pointercancel','pointerleave'].forEach(t=>canvas.addEventListener(t,()=>{ down=false; }));
+  st.clear=size; st.png=()=>canvas.toDataURL('image/png'); return st;
+}
+function problemsHtml(ps){ return ps&&ps.length?'<ul>'+ps.map(p=>'<li>'+esc(p.error)+'</li>').join('')+'</ul>':''; }
+function vSign(){
+  $('view').innerHTML=`<h1>Sign the agreement</h1><p class="lead">Last step. Your signature goes on the agreement and on your Contacts &amp; Permissions form.</p>
+  <div class="card"><label style="display:flex;gap:12px;align-items:flex-start;font-weight:600;font-size:16.5px;color:var(--ink)"><input type="checkbox" id="consent" style="width:28px;height:28px;flex:none">${esc(FORM.esign_words)}</label></div>
+  <div class="card"><label>Type your full name</label><input type="text" id="typed" value="${esc(SIGNER.name)}">
+   <label style="margin-top:14px">Sign here with your finger</label><canvas class="sigbox" id="sig"></canvas>
+   <p style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><button type="button" class="btn ghost" id="clr">Clear</button><button type="button" class="btn" id="signBtn">Sign the agreement</button></p>
+   <div id="signErr"></div></div><p><button type="button" class="btn ghost" id="backToIni">Back</button></p>`;
+  const P=pad($('sig'));
+  $('clr').onclick=()=>P.clear(); $('backToIni').onclick=()=>go('initial');
+  $('signBtn').onclick=async()=>{
+    $('signErr').innerHTML='';
+    if(!$('consent').checked){ $('signErr').innerHTML='<div class="err">Please tick the box to agree to sign electronically.</div>'; return; }
+    if(!P.has){ $('signErr').innerHTML='<div class="err">Please sign with your finger in the box.</div>'; return; }
+    SIGNER.name=$('typed').value.trim();
+    $('signBtn').disabled=true; $('signBtn').textContent='Signing…';
+    try{
+      await call({action:'sign',id:AG.id,answers:famAnswers(),signer:SIGNER,initials:TAPS,signature:P.png(),consent:true});
+      AG.status='signed';
+      $('view').innerHTML='<h1>Thank you!</h1><p class="lead">You have signed your Client Care Agreement.</p><div class="ok" style="font-size:20px">Please hand the tablet back to the office.</div><p><button class="btn" id="toOffice" type="button">I\'m the office: countersign</button></p>';
+      $('steps').classList.add('hide'); $('toOffice').onclick=()=>go('office');
+    }catch(e){
+      $('signErr').innerHTML='<div class="err">'+esc(e.message)+problemsHtml(e.problems)+'</div>'; $('signBtn').disabled=false; $('signBtn').textContent='Sign the agreement';
+    }
+  };
+}
+
+/* ---------- office: countersign, then the signed PDF ---------- */
+function vOffice(){
+  $('view').innerHTML=`<div class="kick">For the office</div><h1>Countersign</h1><p class="lead">You are signing for Caring Companions as <b>${esc(ME.email)}</b>. The signed agreement is saved on the client's record.</p>
+  <div class="card"><label>Sign here</label><canvas class="sigbox" id="osig"></canvas>
+   <p style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><button type="button" class="btn ghost" id="oclr">Clear</button><button type="button" class="btn" id="cBtn">Countersign and save</button></p><div id="cErr"></div></div>`;
+  const P=pad($('osig')); $('oclr').onclick=()=>P.clear();
+  $('cBtn').onclick=async()=>{
+    if(!P.has){ $('cErr').innerHTML='<div class="err">Please sign in the box.</div>'; return; }
+    $('cBtn').disabled=true; $('cBtn').textContent='Saving the signed agreement…';
+    try{ await call({action:'countersign',id:AG.id,signature:P.png()}); showDone(); }
+    catch(e){ $('cErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; $('cBtn').disabled=false; $('cBtn').textContent='Countersign and save'; }
+  };
+}
+function showDone(){
+  $('steps').classList.add('hide'); $('bar').classList.add('hide');
+  $('view').innerHTML=`<h1>Signed and saved</h1><div class="ok">The signed Client Care Agreement is saved on the client's record.</div>
+   <p style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn" id="openPdf" type="button">Open the signed agreement</button><a class="btn ghost" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Back to the Hub</a></p><div id="dErr"></div>`;
+  $('openPdf').onclick=async()=>{ try{ const r=await call({action:'open',id:AG.id}); window.open(r.url,'_blank','noopener'); }catch(e){ $('dErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } };
+}
+window.__AG_TEST={ get A(){return A;}, get TAPS(){return TAPS;}, get SIGNER(){return SIGNER;} };
+})();
+</script>
+</body>
+</html>
