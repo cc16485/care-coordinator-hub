@@ -108,9 +108,10 @@ with sync_playwright() as p:
 
     # the Hub wiring (static checks on index.html and inhub.js)
     idx = open(os.path.join(ROOT, 'index.html')).read(); ih = open(os.path.join(ROOT, 'inhub.js')).read()
-    row = idx[idx.index('id="fsub-sops"'):idx.index('id="fsub-docs"')]
-    ck('the SOPs row has Order Supplies, last', re.findall(r"switchTab\('(\w+)'\)", row) == ['sops', 'sopref', 'playbook', 'supplies'], re.findall(r"switchTab\('(\w+)'\)", row))
-    ck('it is in the SOPs group and has a panel with a frame', "sops:['sops','sopref','playbook','routing','supplies']" in idx and 'id="tab-supplies"' in idx and 'id="suppliesFrame"' in idx)
+    row = idx[idx.index('id="fsub-sops"'):idx.index('</div>\n\n', idx.index('id="fsub-sops"'))]
+    # 2026-10-17 her "i want it inside SOPs": Forms & Templates and Client Folders sit before Order Supplies; Scripts is off the row
+    ck('the SOPs row has Order Supplies, last', re.findall(r"switchTab\('(\w+)'\)", row) == ['sops', 'sopref', 'docs', 'docfolders', 'supplies'], re.findall(r"switchTab\('(\w+)'\)", row))
+    ck('it is in the SOPs group and has a panel with a frame', "sops:['sops','sopref','playbook','docs','docfolders','routing','supplies']" in idx and 'id="tab-supplies"' in idx and 'id="suppliesFrame"' in idx)
     ck('it opens supplies.html inside the Hub', "ccHubFrame(document.getElementById('suppliesFrame'), 'supplies.html?in=hub')" in idx)
     ck('#order-supplies opens it, and links stay inside the Hub', "'order-supplies':'supplies'" in idx and 'forms|supplies)' in ih)
 srv.shutdown()

@@ -1,5 +1,5 @@
-"""Documents, its own top-level Hub tab (2026-10-17, her "documents to be their own tab so its not burried and hard to
-find"): Forms & Templates (forms.html) and Client Folders (client-folders.html) open INSIDE the Hub with ?in=hub, like
+"""Documents inside SOPs (2026-10-17: first its own top tab, her "documents to be their own tab so its not burried and hard
+to find"; then the same day her "i want it inside SOPs"): Forms & Templates (forms.html) and Client Folders (client-folders.html) open INSIDE the Hub with ?in=hub, like
 Payors & Programs. Offline, with the Gate 1a harness (every Supabase call answered locally). Checks: the tab sits right
 after SOPs; its row has the two buttons; each opens its page in a frame inside the Hub (own header hidden); the library's
 "Open Client Folders" moves the Hub to the Client Folders tab; ccOpenDocs('GUIDE') opens it filtered; #documents and
@@ -18,11 +18,14 @@ async()=>{
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true;
 
   const tops=[...document.querySelectorAll('.ftab')].map(t=>t.dataset.g);
-  ok('Documents sits right after SOPs in the top row', tops.indexOf('docs')===tops.indexOf('sops')+1 && /Documents/.test(document.querySelector('.ftab[data-g="docs"]').textContent), tops);
+  ok('there is no separate Documents tab in the top row any more', !tops.includes('docs') && !document.getElementById('fsub-docs'), tops);
 
-  document.querySelector('.ftab[data-g="docs"]').click(); await sleep(300);
-  const row=document.getElementById('fsub-docs'), pills=[...row.querySelectorAll('.fpill')].map(p=>p.textContent.trim());
-  ok('it opens its own row: Forms & Templates, Client Folders', row.classList.contains('on') && JSON.stringify(pills)==='["Forms & Templates","Client Folders"]', pills);
+  document.querySelector('.ftab[data-g="sops"]').click(); await sleep(300);
+  const row=document.getElementById('fsub-sops'), pills=[...row.querySelectorAll('.fpill')].map(p=>p.textContent.trim());
+  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Order Supplies (no Scripts)',
+     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Order Supplies"]', pills);
+  ok('Scripts still opens from its old address (#playbook), content kept', document.getElementById('tab-playbook') && CC_GROUPS.sops.includes('playbook'));
+  [...row.querySelectorAll('.fpill')].find(p=>/Forms & Templates/.test(p.textContent)).click(); await sleep(300);
   ok('Forms & Templates is first and opens inside the Hub', activeTab==='docs' && /forms\.html\?in=hub$/.test(document.getElementById('docsFrame').src), [activeTab, document.getElementById('docsFrame').src]);
   const f1=document.getElementById('docsFrame');
   ok('the library page loads in the frame with its own header hidden', await until(()=>f1.contentDocument && f1.contentDocument.documentElement.classList.contains('inhub') && getComputedStyle(f1.contentDocument.querySelector('header')).display==='none'));
@@ -34,7 +37,8 @@ async()=>{
   const f2=document.getElementById('docFoldersFrame');
   ok('"Open Client Folders" moves the Hub to the Client Folders tab', activeTab==='docfolders' && /client-folders\.html\?in=hub$/.test(f2.src) && /forms\.html/.test(f1.src), [activeTab, f2.src, f1.src]);
   ok('Client Folders loads inside the Hub', await until(()=>f2.contentDocument && f2.contentDocument.documentElement.classList.contains('inhub')));
-  ok('the Documents tab stays lit on Client Folders', document.querySelector('.ftab[data-g="docs"]').classList.contains('active') || document.querySelector('.ftab[data-g="docs"]').classList.contains('on'));
+  ok('SOPs stays lit on Client Folders', document.querySelector('.ftab[data-g="sops"]').classList.contains('active') || document.querySelector('.ftab[data-g="sops"]').classList.contains('on'));
+  ok('...and on Forms & Templates', (switchTab('docs'), ccGroupOf('docs')==='sops'));
 
   ccOpenDocs('GUIDE'); await sleep(300);
   ok('ccOpenDocs(\'GUIDE\') opens the library filtered to GUIDE', activeTab==='docs' && /forms\.html\?in=hub&cat=GUIDE$/.test(f1.src), f1.src);
@@ -42,7 +46,7 @@ async()=>{
   ok('coming back to Documents keeps where you were', /cat=GUIDE/.test(f1.src), f1.src);
 
   switchTab('today'); location.hash='#documents'; await sleep(400);
-  ok('#documents opens Documents', CC_GROUPS.docs.includes(activeTab), activeTab);
+  ok('#documents opens Forms & Templates', activeTab==='docs', activeTab);
   switchTab('today'); location.hash='#client-folders'; await sleep(400);
   ok('#client-folders opens Client Folders', activeTab==='docfolders', activeTab);
 
