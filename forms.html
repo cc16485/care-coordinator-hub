@@ -74,6 +74,7 @@
          cursor:pointer; background:#fff; margin-top:14px; }
   .drop.over{ border-color:var(--cta); background:var(--pale); color:var(--cta); }
   .drop b{ color:var(--navy); }
+  .up{ border-top:1px solid var(--border); margin-top:14px; padding-top:14px; }
   .group{ margin:22px 0 6px; font-size:12.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--deep-honey); }
   .doc{ display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border); }
   .doc:last-child{ border-bottom:none; }
@@ -127,34 +128,36 @@
   <h2 class="serif">Forms &amp; Templates</h2>
   <p class="lead">Our master copies in one place: blank forms, agreements, the Client Handbook, folder pieces, training and program material. Anyone signed into the hub can open these. Nobody outside can. A client's own signed papers go on that client's record, not here.</p>
 
+  <div class="card">
+    <div class="row">
+      <input id="q" type="search" placeholder="Search by name" style="flex:1;min-width:180px;">
+      <select id="fCat" style="width:auto;"></select>
+      <button class="btn sm" id="addBtn" aria-expanded="false" aria-controls="upCard">+ Add a document</button>
+    </div>
+    <div id="upCard" class="up hide">
+      <div class="grid3">
+        <div><label for="uCat">What kind of document</label><select id="uCat"></select></div>
+        <div><label for="uRev">Revision</label><input id="uRev" placeholder="Rev. 10/2026"></div>
+        <div><label for="uName">Name (one file only)</label><input id="uName" placeholder="Uses the file name if blank"></div>
+      </div>
+      <div class="drop" id="drop" role="button" tabindex="0">
+        <b>Drop files here, or click to choose</b>
+        <div class="muted" style="margin-top:4px;">One file or a whole folder's worth. PDF, Word, Excel, or an image. Up to 25MB each.</div>
+        <input type="file" id="fileIn" class="hide" multiple>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="btn sm ghost" id="addClose">Done adding</button></div>
+    </div>
+    <input type="file" id="verIn" class="hide">
+    <div id="upMsg"></div>
+    <div id="list"><div class="empty">Loading&hellip;</div></div>
+  </div>
+
   <div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--pale);border-color:#d3e7eb;">
     <div style="flex:1;min-width:220px;"><b style="color:var(--navy);">Printed client folder pieces</b>
       <div class="muted">The levels of care sheets, rates, the handbook and every other folder piece, with how to put a folder together and order more.</div></div>
     <a class="btn sm ghost" href="client-folders.html" id="toFolders">Open Client Folders</a>
   </div>
 
-  <div class="card" id="upCard">
-    <div class="grid3">
-      <div><label for="uCat">What kind of document</label><select id="uCat"></select></div>
-      <div><label for="uRev">Revision</label><input id="uRev" placeholder="Rev. 10/2026"></div>
-      <div><label for="uName">Name (one file only)</label><input id="uName" placeholder="Uses the file name if blank"></div>
-    </div>
-    <div class="drop" id="drop" role="button" tabindex="0">
-      <b>Drop files here, or click to choose</b>
-      <div class="muted" style="margin-top:4px;">One file or a whole folder's worth. PDF, Word, Excel, or an image. Up to 25MB each.</div>
-      <input type="file" id="fileIn" class="hide" multiple>
-    </div>
-    <input type="file" id="verIn" class="hide">
-    <div id="upMsg"></div>
-  </div>
-
-  <div class="card">
-    <div class="row" style="justify-content:space-between;">
-      <input id="q" type="search" placeholder="Search by name" style="flex:1;min-width:180px;">
-      <select id="fCat" style="width:auto;"></select>
-    </div>
-    <div id="list"><div class="empty">Loading&hellip;</div></div>
-  </div>
 </main>
 </div>
 
@@ -230,7 +233,15 @@
       .then(function (r) { if (r.error) throw new Error(r.error.message); return path; });
   }
 
-  /* ---------- upload one or many new documents ---------- */
+  /* ---------- upload one or many new documents (2026-10-17: behind the Add a document button so search and the list sit at the top) ---------- */
+  function showAdd(on) {
+    $('upCard').classList.toggle('hide', !on);
+    $('addBtn').classList.toggle('hide', on);
+    $('addBtn').setAttribute('aria-expanded', on ? 'true' : 'false');
+    if (on) $('drop').focus();
+  }
+  $('addBtn').addEventListener('click', function () { showAdd(true); });
+  $('addClose').addEventListener('click', function () { showAdd(false); });
   var drop = $('drop');
   drop.addEventListener('click', function (e) { if (e.target.tagName !== 'INPUT') $('fileIn').click(); });
   drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileIn').click(); } });
@@ -339,7 +350,7 @@
         if (old.length) html += '<details class="older"><summary>Replaced versions (' + old.length + ')</summary>' + old.map(function (o) { return row(o, 'old'); }).join('') + '</details>';
       });
     });
-    if (!html) html = '<div class="empty">' + (DOCS.length ? 'Nothing matches.' : 'Nothing stored yet. Drop your first files above.') + '</div>';
+    if (!html) html = '<div class="empty">' + (DOCS.length ? 'Nothing matches.' : 'Nothing stored yet. Use Add a document above.') + '</div>';
     if (gone.length) html += '<details class="gone"><summary>Removed (' + gone.length + '), kept for the record</summary>' + gone.map(function (d) { return row(d, 'gone'); }).join('') + '</details>';
     $('list').innerHTML = html;
     bind();
