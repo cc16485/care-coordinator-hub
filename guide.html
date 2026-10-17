@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<script src="inhub.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GUIDE Program &mdash; Caring Companions</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
@@ -933,7 +934,7 @@
       Array.prototype.forEach.call(document.querySelectorAll('main section'), function (x) { x.classList.remove('on'); });
       b.classList.add('on');
       $('s-' + b.getAttribute('data-s')).classList.add('on');
-      window.scrollTo(0, 0);
+      window.scrollTo(0, 0); if (window.ccInHubTop) ccInHubTop();
     });
   });
 
@@ -1161,7 +1162,7 @@
     A = {};
     Array.prototype.forEach.call(document.querySelectorAll('.opt'), function (x) { x.classList.remove('on'); });
     ['pName','pDob','pMbi','pPhone','pAddr','pCg','pNotes'].forEach(function (id) { $(id).value = ''; });
-    verdict(); window.scrollTo(0, 0);
+    verdict(); window.scrollTo(0, 0); if (window.ccInHubTop) ccInHubTop();
   });
   $('saveScreen').addEventListener('click', function () {
     var name = $('pName').value.trim();
