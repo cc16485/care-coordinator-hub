@@ -40,7 +40,7 @@
     }).join('');
     box.innerHTML = `<div class="card" style="padding:14px;margin:10px 0">${head}
       <button type="button" class="primary" data-cag-new="1">${open.length ? 'Start another' : 'Start on the tablet'}</button></div>
-      <div class="field-note" style="margin:6px 0 4px">The office sets the level and rate, then hands the tablet to the family to fill in, initial and sign. The office countersigns, and the signed PDF is saved here.</div>
+      <div class="field-note" style="margin:6px 0 4px">The tablet shows the real agreement pages. The office or the family types into the blanks, the family taps their initials and signs, and the office countersigns. The signed PDF is saved here.</div>
       ${rows || '<div class="field-note" style="padding-top:6px">No agreement yet.</div>'}
       <div class="field-note" id="cagMsg" style="margin-top:6px"></div></div>`;
     box.querySelector('[data-cag-new]').onclick = () => go('ax=' + encodeURIComponent(ax));
