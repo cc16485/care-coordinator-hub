@@ -85,6 +85,8 @@
     "staffing_tasks",
     "standup_notes",
     "supervisory_visits",
+    "supply_items",
+    "supply_requests",
     "timekeeper_cases",
     "visit_watch"
   ]

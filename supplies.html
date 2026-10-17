@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<script src="inhub.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Supplies · Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:0 0 5px; text-align:left; }
+  #gate label{ margin-top:14px; }
+  input,select{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px; border:none;
+        cursor:pointer; background:var(--cta); color:#fff; min-height:44px; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; min-height:38px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .ttl em{ font-style:normal; color:var(--honey); }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  main{ max-width:1000px; margin:0 auto; padding:24px 18px 80px; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:76ch; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; letter-spacing:.02em; border-radius:999px; padding:2px 9px;
+        background:var(--pale); color:var(--cta-h); display:inline-block; margin-left:6px; vertical-align:2px; white-space:nowrap; }
+  .tag.old{ background:var(--panel); color:var(--muted); }
+  .empty{ text-align:center; color:var(--muted); padding:28px 12px; }
+  .msg{ border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .msg.err{ background:var(--red-bg); color:var(--red); }
+  .msg.ok{ background:var(--green-bg); color:var(--green); }
+  .msg.info{ background:var(--pale); color:var(--cta-h); }
+  .drop{ border:2px dashed var(--border); border-radius:14px; padding:24px; text-align:center; color:var(--muted);
+         cursor:pointer; background:#fff; margin-top:14px; }
+  .drop.over{ border-color:var(--cta); background:var(--pale); color:var(--cta); }
+  .drop b{ color:var(--navy); }
+  .group{ margin:22px 0 6px; font-size:12.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--deep-honey); }
+  .doc{ display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border); }
+  .doc:last-child{ border-bottom:none; }
+  .doc .ic{ width:38px; height:38px; border-radius:9px; background:var(--pale); color:var(--cta);
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-weight:700; font-size:11px; }
+  .doc .g{ flex:1; min-width:0; }
+  .doc .g b{ color:var(--navy); font-size:15px; }
+  .doc .g .meta{ font-size:12.5px; color:var(--muted); display:block; }
+  .doc .acts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  details.older{ margin:4px 0 0 50px; }
+  details.older summary, details.gone summary{ font-size:13px; color:var(--muted); cursor:pointer; }
+  details.older .doc{ opacity:.8; padding:8px 0; }
+  details.gone{ margin-top:18px; }
+  details.gone .doc{ opacity:.7; }
+  .hide{ display:none !important; }
+  /* inside the Hub the sign-in (rarely seen: the Hub's own sign-in is shared) is a card, not a full dark page */
+  html.inhub #gate{ background:transparent; min-height:0; padding:30px 18px; }
+  html.inhub #gate .box{ border:1px solid var(--border); }
+  html.embedded header img, html.embedded header a.back{ display:none; }
+  html.embedded header{ padding:11px 18px; }
+  @media (max-width:700px){
+    .grid3{ grid-template-columns:1fr; }
+    .doc{ flex-wrap:wrap; }
+    .doc .acts{ width:100%; justify-content:flex-start; padding-left:50px; }
+    details.older{ margin-left:0; }
+  }
+</style><style>
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+  .chip{ font-family:inherit; font-size:13px; font-weight:600; border:1px solid var(--border); background:#fff; color:var(--navy); border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .chip:hover{ background:var(--pale); }
+  .req{ display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border); }
+  .req:last-child{ border-bottom:none; }
+  .req .g{ flex:1; min-width:0; }
+  .req .g b{ color:var(--navy); font-size:15px; }
+  .req .meta{ font-size:12.5px; color:var(--muted); display:block; }
+  .req .acts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .st{ font-size:11.5px; font-weight:700; border-radius:999px; padding:2px 9px; display:inline-block; margin-left:6px; vertical-align:2px; }
+  .st.requested{ background:#fff4dd; color:#8a5a00; } .st.ordered{ background:var(--pale); color:var(--cta-h); }
+  .st.received{ background:var(--green-bg); color:var(--green); } .st.cancelled{ background:var(--panel); color:var(--muted); }
+  .st.out{ background:var(--red-bg); color:var(--red); }
+  .pay{ border-left:4px solid var(--honey); background:#fff; }
+  .edit{ background:var(--cream); border:1px solid var(--border); border-radius:12px; padding:14px; margin:10px 0; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  textarea{ width:100%; padding:10px 12px; font-size:15px; font-family:inherit; color:var(--ink); background:var(--cream); border:1px solid var(--border); border-radius:10px; min-height:44px; }
+  .check{ display:flex; gap:8px; align-items:center; font-size:14px; color:var(--ink); font-weight:500; margin-top:10px; }
+  .check input{ width:auto; }
+  @media (max-width:700px){ .grid2{ grid-template-columns:1fr; } .req{ flex-wrap:wrap; } .req .acts{ width:100%; justify-content:flex-start; } }
+</style></head>
+<body>
+<!--
+  ORDER SUPPLIES (2026-10-17, Samantha: "Can we add a tab in SOPs that says order supplies"; her answers: printed pieces,
+  office supplies, caregiver supplies, and a request list). Opens inside the Hub under SOPs (inhub.js).
+  Two app_data lists, saved one item at a time with upsert_app_data_item (registered by Desktop step 882):
+    supply_requests  { id, name, cat, qty, note, out, by, at, status: requested|ordered|received|cancelled,
+                       ordered: { by, at, where }, received: { by, at }, cancelled: { by, at } }
+    supply_items     { id, cat: office|caregiver, name, where, link, keep, notes, by, at, removed: { by, at } }
+  Where to buy and how many to keep are hers to edit here, not code. Nothing is deleted: removed and cancelled are kept.
+  Printed pieces are not copied here: Client Folders already lists every piece, how many to keep, and the Vistaprint steps.
+  Payment rule: the card saved in each store's account. A card number never goes into the Hub, a text or an email.
+-->
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">Order Supplies</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="msg err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">Order <em>Supplies</em></span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<main>
+  <h2 class="serif">Order supplies</h2>
+  <p class="lead">Running low on something? Add it to the order list below. Whoever does the ordering marks it ordered, then received. Below that is what we keep on hand and where we buy it.</p>
+
+  <div class="card pay"><b style="color:var(--navy)">Paying:</b> use the card saved in that store's account. Never type a card number into the Hub, a text, or an email.</div>
+
+  <div class="card" id="askCard">
+    <div class="group" style="margin-top:0">Ask for something</div>
+    <div class="grid3">
+      <div><label for="rName">What do we need?</label><input id="rName" list="itemNames" placeholder="e.g. HP 206A toner"><datalist id="itemNames"></datalist></div>
+      <div><label for="rQty">How many</label><input id="rQty" placeholder="e.g. 2 boxes"></div>
+      <div><label for="rCat">Kind</label><select id="rCat"><option value="office">Office supplies</option><option value="caregiver">Caregiver supplies</option><option value="printed">Printed pieces</option></select></div>
+    </div>
+    <label for="rNote" style="margin-top:12px">Note (optional)</label><input id="rNote" placeholder="Size, color, which client folder, anything that helps">
+    <label class="check"><input type="checkbox" id="rOut"> We're already out</label>
+    <button class="btn" id="rAdd" style="margin-top:12px">Add to the order list</button>
+    <div id="askMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="group" style="margin-top:0">Order list</div>
+    <div id="openList"><div class="empty">Loading&hellip;</div></div>
+    <details id="doneBox" style="margin-top:10px"><summary class="muted" style="cursor:pointer">Received and cancelled</summary><div id="doneList"></div></details>
+  </div>
+
+  <div class="group">What we keep and where to buy it</div>
+  <div class="card" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--pale);border-color:#d3e7eb;">
+    <div style="flex:1;min-width:220px;"><b style="color:var(--navy);">Printed pieces (Vistaprint)</b>
+      <div class="muted">Handbooks, flyers, folders and magnets: every piece, how many to keep, and the Vistaprint steps are on Client Folders.</div></div>
+    <a class="btn sm ghost" href="client-folders.html">Open Client Folders</a>
+  </div>
+  <div class="card" id="sec-office"></div>
+  <div class="card" id="sec-caregiver"></div>
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  var REQ = [], ITEMS = [], ME = '', editing = null;
+  var CATS = { office: 'Office supplies', caregiver: 'Caregiver supplies', printed: 'Printed pieces' };
+  var SUGGEST = { office: ['HP 206A toner', 'Printer paper', 'Pocket folders', 'Envelopes', 'Pens'],
+                  caregiver: ['Gloves', 'Hand sanitizer', 'Masks', 'Gait belts', 'Name badges'] };
+
+  if (window.top !== window.self) document.documentElement.classList.add('embedded');
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function uid() { return crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  function when(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; }
+  function now() { return new Date().toISOString(); }
+  function safeLink(u) { u = String(u || '').trim(); if (!u || /\s/.test(u)) return ''; if (!/^https?:\/\//i.test(u)) u = 'https://' + u; try { var x = new URL(u); return /^https?:$/.test(x.protocol) && /\.[a-z]{2,}$/i.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } }
+  function say(id, html, kind) { $(id).innerHTML = html ? '<div class="msg ' + (kind || 'info') + '">' + html + '</div>' : ''; }
+
+  /* ---------- sign in (the same Supabase session as the hub) ---------- */
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', signIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') signIn(); });
+  function signIn() {
+    $('gateErr').classList.add('hide'); $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value }).then(function (r) {
+      $('signin').disabled = false; $('signin').textContent = 'Sign in';
+      if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+      boot(r.data.session);
+    });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide'); $('app').classList.remove('hide');
+    ME = (session.user && session.user.email) || ''; $('who').textContent = ME;
+    load();
+  }
+
+  /* ---------- data ---------- */
+  function load() {
+    return Promise.all([sb.from('app_data').select('data').eq('key', 'supply_requests').maybeSingle(), sb.from('app_data').select('data').eq('key', 'supply_items').maybeSingle()])
+      .then(function (rs) {
+        var bad = rs.filter(function (r) { return r.error; });
+        if (bad.length) { $('openList').innerHTML = '<div class="msg err">Could not load the order list: ' + esc(bad[0].error.message) + '</div>'; return; }
+        REQ = (rs[0].data && Array.isArray(rs[0].data.data)) ? rs[0].data.data : [];
+        ITEMS = (rs[1].data && Array.isArray(rs[1].data.data)) ? rs[1].data.data : [];
+        render();
+      });
+  }
+  function saveReq(item) {
+    return sb.rpc('upsert_app_data_item', { target_key: 'supply_requests', item: item }).then(function (r) {
+      if (r && r.error) throw new Error(r.error.message);
+      var i = REQ.findIndex(function (x) { return x.id === item.id; }); if (i > -1) REQ[i] = item; else REQ.push(item);
+    });
+  }
+  function saveItem(item) {
+    return sb.rpc('upsert_app_data_item', { target_key: 'supply_items', item: item }).then(function (r) {
+      if (r && r.error) throw new Error(r.error.message);
+      var i = ITEMS.findIndex(function (x) { return x.id === item.id; }); if (i > -1) ITEMS[i] = item; else ITEMS.push(item);
+    });
+  }
+
+  /* ---------- ask for something ---------- */
+  $('rAdd').addEventListener('click', function () {
+    var name = $('rName').value.trim();
+    if (!name) { say('askMsg', 'Type what we need first.', 'err'); $('rName').focus(); return; }
+    var known = ITEMS.find(function (x) { return !x.removed && x.name.toLowerCase() === name.toLowerCase(); });
+    var item = { id: uid(), name: name, cat: known ? known.cat : $('rCat').value, qty: $('rQty').value.trim(), note: $('rNote').value.trim(),
+                 out: $('rOut').checked, by: ME, at: now(), status: 'requested' };
+    $('rAdd').disabled = true;
+    saveReq(item).then(function () {
+      $('rName').value = ''; $('rQty').value = ''; $('rNote').value = ''; $('rOut').checked = false;
+      say('askMsg', 'Added to the order list.', 'ok'); render();
+    }).catch(function (e) { say('askMsg', 'Not saved: ' + esc(e.message) + '. Nothing was lost from the screen; try again.', 'err'); })
+      .then(function () { $('rAdd').disabled = false; });
+  });
+  $('rName').addEventListener('change', function () {
+    var known = ITEMS.find(function (x) { return !x.removed && x.name.toLowerCase() === $('rName').value.trim().toLowerCase(); });
+    if (known) $('rCat').value = known.cat;
+  });
+
+  /* ---------- the order list ---------- */
+  function itemFor(r) { return ITEMS.find(function (x) { return !x.removed && x.name.toLowerCase() === String(r.name).toLowerCase(); }); }
+  function reqRow(r) {
+    var it = itemFor(r), link = it && safeLink(it.link);
+    var where = it && it.where ? 'Buy at ' + esc(it.where) + (link ? ' (<a href="' + esc(link) + '" target="_blank" rel="noopener">open the store</a>)' : '') : '';
+    var bits = [CATS[r.cat] || '', r.qty ? 'how many: ' + esc(r.qty) : '', 'asked by ' + esc(r.by) + ' ' + when(r.at)];
+    if (r.ordered) bits.push('ordered by ' + esc(r.ordered.by) + ' ' + when(r.ordered.at) + (r.ordered.where ? ' from ' + esc(r.ordered.where) : ''));
+    if (r.received) bits.push('received ' + when(r.received.at) + ' (' + esc(r.received.by) + ')');
+    if (r.cancelled) bits.push('cancelled ' + when(r.cancelled.at) + ' (' + esc(r.cancelled.by) + ')');
+    if (r.cat === 'printed') where = 'Order on Vistaprint: see <a href="client-folders.html">Client Folders</a>';
+    var acts = r.status === 'requested' ? '<button class="btn sm" data-ordered="' + esc(r.id) + '">Mark ordered</button><button class="btn sm ghost" data-cancel="' + esc(r.id) + '">Cancel</button>'
+      : r.status === 'ordered' ? '<button class="btn sm" data-received="' + esc(r.id) + '">Mark received</button>' : '';
+    return '<div class="req"><div class="g"><b>' + esc(r.name) + '</b><span class="st ' + esc(r.status) + '">' + esc(r.status === 'requested' ? 'needs ordering' : r.status) + '</span>'
+      + (r.out && r.status === 'requested' ? '<span class="st out">we\'re out</span>' : '')
+      + '<span class="meta">' + bits.filter(Boolean).join(' · ') + '</span>' + (r.note ? '<span class="meta">Note: ' + esc(r.note) + '</span>' : '')
+      + (where && r.status !== 'received' && r.status !== 'cancelled' ? '<span class="meta">' + where + '</span>' : '') + '</div><div class="acts">' + acts + '</div></div>';
+  }
+  function setStatus(id, status, extra) {
+    var r = REQ.find(function (x) { return x.id === id; }); if (!r) return;
+    var next = Object.assign({}, r, extra, { status: status });
+    saveReq(next).then(render).catch(function (e) { alert('Not saved: ' + e.message); });
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('button'); if (!t) return;
+    if (t.dataset.ordered) {
+      var r = REQ.find(function (x) { return x.id === t.dataset.ordered; }), it = r && itemFor(r);
+      var where = prompt('Where was it ordered from?', (it && it.where) || '');
+      if (where === null) return;
+      setStatus(t.dataset.ordered, 'ordered', { ordered: { by: ME, at: now(), where: where.trim() } });
+    } else if (t.dataset.received) setStatus(t.dataset.received, 'received', { received: { by: ME, at: now() } });
+    else if (t.dataset.cancel) { if (confirm('Cancel this request? It stays in the list under Received and cancelled.')) setStatus(t.dataset.cancel, 'cancelled', { cancelled: { by: ME, at: now() } }); }
+    else if (t.dataset.add) openEdit(t.dataset.add, null);
+    else if (t.dataset.edit) openEdit(null, t.dataset.edit);
+    else if (t.dataset.quick) openEdit(t.dataset.cat, null, t.dataset.quick);
+    else if (t.dataset.ask) { var i = ITEMS.find(function (x) { return x.id === t.dataset.ask; }); if (i) { $('rName').value = i.name; $('rCat').value = i.cat; $('rQty').focus(); $('askCard').scrollIntoView({ block: 'center' }); } }
+  });
+
+  /* ---------- what we keep and where to buy it ---------- */
+  function openEdit(cat, id, name) { editing = id ? Object.assign({}, ITEMS.find(function (x) { return x.id === id; })) : { id: uid(), cat: cat, name: name || '', where: '', link: '', keep: '', notes: '' }; render(); var n = $('eName'); if (n) n.focus(); }
+  function editForm() {
+    var e = editing;
+    return '<div class="edit"><div class="grid2"><div><label for="eName">Item</label><input id="eName" value="' + esc(e.name) + '"></div>'
+      + '<div><label for="eKeep">Keep on hand</label><input id="eKeep" value="' + esc(e.keep) + '" placeholder="e.g. 2 cartridges"></div>'
+      + '<div><label for="eWhere">Where we buy it</label><input id="eWhere" value="' + esc(e.where) + '" placeholder="e.g. Amazon, Staples, Walmart"></div>'
+      + '<div><label for="eLink">Link to the item (optional)</label><input id="eLink" value="' + esc(e.link) + '" placeholder="https://"></div></div>'
+      + '<label for="eNotes" style="margin-top:12px">Notes (optional)</label><input id="eNotes" value="' + esc(e.notes) + '" placeholder="Size, brand, account it is saved in">'
+      + '<div class="row" style="margin-top:12px"><button class="btn sm" id="eSave">Save</button><button class="btn sm ghost" id="eCancel">Cancel</button>'
+      + (ITEMS.some(function (x) { return x.id === e.id; }) ? '<button class="btn sm danger" id="eRemove">Remove from the list</button>' : '') + '</div><div id="eMsg"></div></div>';
+  }
+  function section(cat) {
+    var list = ITEMS.filter(function (x) { return x.cat === cat && !x.removed; }).sort(function (a, b) { return a.name.localeCompare(b.name); });
+    var rows = list.map(function (x) {
+      var link = safeLink(x.link);
+      if (editing && editing.id === x.id) return editForm();
+      return '<div class="req"><div class="g"><b>' + esc(x.name) + '</b>' + (x.keep ? '<span class="meta">Keep on hand: ' + esc(x.keep) + '</span>' : '')
+        + '<span class="meta">' + (x.where ? 'Buy at ' + esc(x.where) : 'Where to buy: not set yet') + (link ? ' · <a href="' + esc(link) + '" target="_blank" rel="noopener">open the store</a>' : '') + '</span>'
+        + (x.notes ? '<span class="meta">' + esc(x.notes) + '</span>' : '') + '</div><div class="acts"><button class="btn sm ghost" data-ask="' + esc(x.id) + '">Ask for it</button><button class="btn sm ghost" data-edit="' + esc(x.id) + '">Edit</button></div></div>';
+    }).join('');
+    var isNew = editing && editing.cat === cat && !ITEMS.some(function (x) { return x.id === editing.id; });
+    var have = list.map(function (x) { return x.name.toLowerCase(); });
+    var sug = SUGGEST[cat].filter(function (s) { return have.indexOf(s.toLowerCase()) < 0; });
+    return '<div class="group" style="margin-top:0">' + esc(CATS[cat]) + '</div>' + (rows || (isNew ? '' : '<div class="muted">Nothing listed yet. Add what we keep, where we buy it, and how many to have on hand.</div>'))
+      + (isNew ? editForm() : '<div class="row" style="margin-top:12px"><button class="btn sm" data-add="' + cat + '">Add an item</button></div>'
+      + (sug.length ? '<div class="chips">' + sug.map(function (s) { return '<button class="chip" data-quick="' + esc(s) + '" data-cat="' + cat + '">+ ' + esc(s) + '</button>'; }).join('') + '</div>' : ''));
+  }
+  function wireEdit() {
+    if (!$('eSave')) return;
+    $('eCancel').onclick = function () { editing = null; render(); };
+    $('eSave').onclick = function () {
+      var e = Object.assign({}, editing, { name: $('eName').value.trim(), keep: $('eKeep').value.trim(), where: $('eWhere').value.trim(), link: $('eLink').value.trim(), notes: $('eNotes').value.trim(), by: ME, at: now() });
+      if (!e.name) { say('eMsg', 'Name the item first.', 'err'); return; }
+      if (e.link && !safeLink(e.link)) { say('eMsg', 'That link does not look right.', 'err'); return; }
+      if (/\b(?:\d[ -]?){13,19}\b/.test(e.notes + ' ' + e.where)) { say('eMsg', 'That looks like a card number. Card numbers never go in the Hub.', 'err'); return; }
+      $('eSave').disabled = true;
+      saveItem(e).then(function () { editing = null; render(); }).catch(function (x) { say('eMsg', 'Not saved: ' + esc(x.message), 'err'); $('eSave').disabled = false; });
+    };
+    if ($('eRemove')) $('eRemove').onclick = function () {
+      if (!confirm('Remove ' + editing.name + ' from the list?')) return;
+      var e = Object.assign({}, ITEMS.find(function (x) { return x.id === editing.id; }), { removed: { by: ME, at: now() } });
+      saveItem(e).then(function () { editing = null; render(); }).catch(function (x) { say('eMsg', 'Not saved: ' + esc(x.message), 'err'); });
+    };
+  }
+
+  function render() {
+    var open = REQ.filter(function (r) { return r.status === 'requested' || r.status === 'ordered'; })
+      .sort(function (a, b) { return (b.out === true) - (a.out === true) || (a.status === 'requested' ? -1 : 1) - (b.status === 'requested' ? -1 : 1) || String(a.at).localeCompare(String(b.at)); });
+    var done = REQ.filter(function (r) { return r.status === 'received' || r.status === 'cancelled'; }).sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); }).slice(0, 40);
+    $('openList').innerHTML = open.length ? open.map(reqRow).join('') : '<div class="empty">Nothing to order right now.</div>';
+    $('doneList').innerHTML = done.length ? done.map(reqRow).join('') : '<div class="muted" style="padding:8px 0">Nothing yet.</div>';
+    $('itemNames').innerHTML = ITEMS.filter(function (x) { return !x.removed; }).map(function (x) { return '<option value="' + esc(x.name) + '">'; }).join('');
+    $('sec-office').innerHTML = section('office'); $('sec-caregiver').innerHTML = section('caregiver');
+    wireEdit();
+  }
+})();
+</script>
+</body>
+</html>

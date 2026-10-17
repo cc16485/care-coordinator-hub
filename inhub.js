@@ -24,7 +24,7 @@
       try { window.parent.location.hash = u.hash || '#sops'; } catch (x) { window.parent.location.href = u.href; }
       return;
     }
-    var m = u.pathname.match(/\/(programs|guide|client-folders|forms)(\.html)?$/);
+    var m = u.pathname.match(/\/(programs|guide|client-folders|forms|supplies)(\.html)?$/);
     if (m) { e.preventDefault(); var q = new URLSearchParams(u.search); q.set('in', 'hub'); location.href = m[1] + '.html?' + q.toString() + (u.hash || ''); }
   }, true);
   window.ccInHubTop = function () {
