@@ -130,6 +130,9 @@
   function byWords(iso) { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(':00', '') } catch (x) { return '' } }
   function bookingCard(b, today) {
     var s = STATUS[b.status] || [b.status, '#6b7280']
+    // Release 2: AxisCare is checked every 10 minutes for confirmed app visits
+    if (b.status === 'placed' && b.sync_state === 'no_caregiver') s = ['No caregiver on it in AxisCare', '#B45309']
+    if (b.status === 'cancelled' && b.cancel_source === 'office') s = ['Removed in AxisCare', '#6b7280']
     var acts = ''
     if ((b.status === 'waiting_for_caregiver' || b.status === 'needs_office') && b.visit_date >= today)
       acts = '<select id="famcg-' + e(b.id) + '" style="max-width:220px;"><option value="">Pick a caregiver…</option>' + caregiverOptions() + '</select> ' +
@@ -143,6 +146,10 @@
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
         (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone the client knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
       (b.status === 'waiting_for_caregiver' && b.answer_by ? '<div class="field-note">The family hears by ' + e(byWords(b.answer_by)) + (b.two_stage && b.team_from ? ' · the wider team is asked from ' + e(byWords(b.team_from)) : '') + '. Nothing to do unless you want to place someone.</div>' : '') +
+      (b.status === 'placed' && b.sync_state === 'no_caregiver' ? '<div class="field-note">' + e(b.sync_note || 'The caregiver') + ' came off this visit in AxisCare. Coverage Help (or the office) covers it; the family\'s app says our office is arranging another caregiver.</div>' : '') +
+      (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their app says we cancelled it; please call them with the reason.</div>' : '') +
+      (b.status === 'placed' && b.family_change_pending ? '<div class="field-note">Changed in AxisCare. The family is told (8 AM to 8 PM).</div>' : '') +
+      (b.status === 'placed' && b.family_change_how && !b.family_change_pending ? '<div class="field-note">Change message: ' + e(b.family_change_how) + '</div>' : '') +
       (b.status === 'not_filled' ? '<div class="field-note">Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '') + '. The family is told nothing was scheduled.</div>' : '') +
       offersLine(b) +
       (b.note ? '<div style="margin-top:4px;font-size:13px;">Note: ' + e(b.note) + '</div>' : '') +
