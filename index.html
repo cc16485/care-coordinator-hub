@@ -10250,7 +10250,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261016b'; sc.onload=go; document.head.appendChild(sc); } }
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261016c'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -22069,6 +22069,7 @@ function fcCircleBody(c, people, linked, esc){
             + (ax&&!p.axiscare_removed_at&&typeof lpcAxNote==='function'?'<span class="field-note" style="font-size:11.5px;">'+esc(lpcAxNote(p))+'</span>':'')
             + (p.carried_from&&typeof lpcWho==='function'?'<span class="field-note" style="font-size:11.5px;">added from People involved by '+esc(lpcWho(p.carried_by))+', '+esc(lpcWhen(p.carried_at))+'</span>':'')
             + (p.stopped_at?'<span class="field-note" style="font-size:11.5px;color:var(--red);">replied STOP</span>':'')
+            + (p.from_agreement?'<span class="field-note" style="font-size:11.5px;">from the signed Client Care Agreement</span>':'')
             + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
             + fcRecogChip(p)
             + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
@@ -22078,6 +22079,9 @@ function fcCircleBody(c, people, linked, esc){
               + '<input type="checkbox" ' + (p.sms_consent?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'sms_consent\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> texts ok</label>'
             + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
               + '<input type="checkbox" ' + (p.wants_changes!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_changes\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> caregiver changes</label>'
+            /* 872 (Samantha 2026-10-16 "Separately"): running-late texts have their own switch */
+            + '<label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text);">'
+              + '<input type="checkbox" ' + (p.wants_late!==false?'checked':'') + ' onchange="fcSet(\'' + esc(p.id) + '\',\'wants_late\',this.checked)" style="width:15px;height:15px;accent-color:var(--yellow);"> running late</label>'
             + (ax&&!p.axiscare_removed_at?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpEdit(\'' + esc(p.id) + '\')">Edit in AxisCare</button>'
               :(linked&&p.source!=='axiscare'&&p.carried_from!=='client'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
