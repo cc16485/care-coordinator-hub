@@ -32,7 +32,7 @@ MAPPED = {"leads": ["care_coordinator"], "ops_items": ["care_coordinator", "team
           "caregivers": ["care_coordinator", "staffing"], "settings": ["staffing"], "calls_cache": ["server_only"]}
 for k, hs in MAPPED.items():
     for h in hs: c.run("insert into public.app_data_key_hub_map values (:k, :h)", k=k, h=h)
-c.run("""insert into public.app_data values ('leads', '[{"id":"L1"}]'), ('ops_items', '[]'), ('medicaid_plans', '[{"id":"P1","client":"made up"}]')""")
+c.run("""insert into public.app_data values ('leads', '[{"id":"L1"}]'), ('ops_items', '[]'), ('medicaid_plans', '[{"id":"P1","client":"made up"}]'), ('roster_axis_follow', '{"n":2}')""")
 c.run("grant select, insert, update, delete on public.app_data to authenticated")
 c.run("""create function public.can_access_data_key(k text) returns boolean language sql stable security definer set search_path = pg_catalog, public as $$
   select public.jwt_hub_access() is null or exists (select 1 from public.app_data_key_hub_map m where m.data_key = k and public.jwt_hub_access() ? m.hub_slug) $$""")
@@ -95,7 +95,8 @@ ck("the people lists are never added here (candidates left alone)", not any(k ==
 keys = json.load(open(os.path.join(ROOT, "app-data-keys.json")))["keys"]
 ck("every other key the Hub uses now has a row", all(k in {a for a, _ in after} for k in keys if k != "candidates"))
 ck("the test saves were thrown away (no __probe_882 anywhere)", q1("select count(*) from public.app_data a, jsonb_array_elements(case when jsonb_typeof(a.data)='array' then a.data else '[]'::jsonb end) x where x->>'id' = '__probe_882'")[0][0] == 0)
-ck("...and no new empty lists were left behind by the proof", q1("select count(*) from public.app_data")[0][0] == 3)
+ck("...and no new empty lists were left behind by the proof", q1("select count(*) from public.app_data")[0][0] == 4)
+ck("a single-record slot (roster_axis_follow) is read, not test-saved, and stays as it was", q1("select data from public.app_data where key = 'roster_axis_follow'")[0][0] == {"n": 2} and "roster_axis_follow" not in out.split("4 · PROOF")[1].split("REFUSED")[-1] and "REFUSED" not in out, out[-900:])
 ck("medicaid_plans' saved record is untouched", q1("select data from public.app_data where key = 'medicaid_plans'")[0][0] == [{"id": "P1", "client": "made up"}])
 r = as_sam("""select public.upsert_app_data_item('medicaid_plans', '{"id":"P2"}'::jsonb)""")
 ck("after: Samantha's waiting medicaid_plans change now saves", r[0] == "ok" and len(q1("select data from public.app_data where key = 'medicaid_plans'")[0][0]) == 2, r)
