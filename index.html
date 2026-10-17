@@ -7537,9 +7537,10 @@ async function signIn(){
   document.getElementById('appScreen').classList.add('on'); initNavUser();
   await loadAllData();
   /* CC Office on the phone (2026-10-07): the phone never runs the sign-in work; it reads and does the one thing tapped */
-  if(window.CC_PHONE){ phSignedIn(); await flushPendingSync(); phStart(); return; }
+  if(window.CC_PHONE){ phSignedIn(); await flushPendingSync(); ccKeyMapCheck(); phStart(); return; }
   await runSignInWork();   // writing producers run on an intentional sign-in, never on a passive reload
   await flushPendingSync();
+  ccKeyMapCheck();
   renderActiveTab();
 }
 async function signOut(){
@@ -7725,8 +7726,12 @@ function syncOpenPanel(){
     +(errs.length?'<div style="font-size:13px;font-weight:700;margin-top:10px;">Why</div>'
       +errs.slice(0,5).map(e=>'<div class="field-note" style="padding:4px 0;border-bottom:1px solid var(--border);">'
         +esc(e.kind)+(e.code?' · '+esc(String(e.code)):'')+'<br>'+esc(e.message||'')
+        +(/row-level security/i.test(e.message||'')?'<br><b>The database does not accept this storage slot yet (it is not registered). Run the Desktop key-map step (882), then Try again now.</b>':'')
         +'<br><span style="opacity:.7;">'+esc(String(e.at).replace('T',' ').slice(0,16))+' · '+esc(e.key||'')+'</span></div>').join('')
       :'')
+    +((window.CC_UNMAPPED||[]).length?'<div style="font-size:13px;font-weight:700;margin-top:10px;color:var(--red);">Not registered in the database</div>'
+      +'<div class="field-note" style="padding:4px 0;">Saves to these are refused until they are registered: '+esc(window.CC_UNMAPPED.join(', '))
+      +'. Run the Desktop key-map step (882), then reload.</div>':'')
     +(function(){ try{
         const qr=JSON.parse(localStorage.getItem('cch_sync_quarantine')||'[]');
         if(!qr.length) return '';
@@ -7959,6 +7964,24 @@ async function flushPendingSync(){
         : (SYNC_TEXT[syncClassify(lastErr)] + ' · ' + left + ' waiting'));
 }
 window.addEventListener('online', flushPendingSync);
+/* 882 (2026-10-17): the database refuses saves to any storage slot (app_data key) that is not registered in its map,
+   and on 10-17 that left 24 changes waiting in the browser. At sign-in, ask the database which of the slots this Hub
+   uses (app-data-keys.json) are not registered, and say so on the chip and in its panel instead of failing later. */
+async function ccKeyMapCheck(){
+  if(!sb) return;
+  try{
+    const res=await fetch('app-data-keys.json',{cache:'no-store'});
+    const keys=((await res.json())||{}).keys||[];
+    if(!keys.length) return;
+    const { data, error }=await sb.rpc('app_data_keys_unmapped',{ p_keys:keys });
+    if(error){ console.warn('ccKeyMapCheck: the sign-in check is not installed yet (Desktop 882)', error.message||error); return; }
+    window.CC_UNMAPPED=Array.isArray(data)?data:[];
+    if(window.CC_UNMAPPED.length){
+      console.error('ccKeyMapCheck: storage slots not registered, saves to them are refused:', window.CC_UNMAPPED);
+      syncSay('✗ '+window.CC_UNMAPPED.length+' storage slot'+(window.CC_UNMAPPED.length===1?'':'s')+' not registered · saves to '+(window.CC_UNMAPPED.length===1?'it':'them')+' are refused');
+    }
+  }catch(e){ console.warn('ccKeyMapCheck could not run', e); }
+}
 
 /* ---------------- Collapsible sidebar groups ---------------- */
 function toggleNavGroup(g){
@@ -36095,6 +36118,7 @@ function renderMgrStrip(){
       document.getElementById('appScreen').classList.add('on'); initNavUser();
       await loadAllData();
       await flushPendingSync();
+      ccKeyMapCheck();
       if(window.CC_PHONE){ phStart(); return; }
       renderActiveTab();
       updateStartLinkBadge();
