@@ -99,7 +99,9 @@
   // ── Scheduling > Family bookings ─────────────────────────────────────────────────────────────────────────────────
   var STATUS = {
     received: ['Saving', '#B45309'], needs_office: ['Needs the office', '#b91c1c'], practice: ['Practice (not on the schedule)', '#6b7280'],
-    waiting_for_caregiver: ['On the schedule, needs a caregiver', '#B45309'], placed: ['Caregiver placed', 'var(--green,#15803d)'], cancelled: ['Cancelled', '#6b7280']
+    // Release 1 (her approval 2026-10-17): a request isn't on AxisCare until a caregiver is placed; unfilled requests end "not filled"
+    waiting_for_caregiver: ['Asking caregivers (not on AxisCare until placed)', '#B45309'], placed: ['Caregiver placed', 'var(--green,#15803d)'], cancelled: ['Cancelled', '#6b7280'],
+    not_filled: ['Not filled (family told, nothing scheduled)', '#6b7280']
   }
   // Flexible bookings (her yes 2026-10-16): no start until a caregiver takes it, so they are not on AxisCare while waiting.
   var flexWaiting = function (b) { return b.kind === 'flex' && !b.start_time }
@@ -124,15 +126,15 @@
       .map(function (g) { return '<option value="' + e(g.axiscare_id) + '">' + e([g.first, g.last].filter(Boolean).join(' ')) + '</option>' }).join('')
   }
   function cgName(id) { var g = ((window.DATA && window.DATA.caregivers) || []).find(function (x) { return String(x.axiscare_id) === String(id) }); return g ? e([g.first, g.last].filter(Boolean).join(' ')) : 'caregiver ' + e(id) }
+  // Release 1: when the family will hear back, Central time ("Wed, Oct 21, 6 PM")
+  function byWords(iso) { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(':00', '') } catch (x) { return '' } }
   function bookingCard(b, today) {
-    var s = flexWaiting(b) && b.status === 'waiting_for_caregiver' ? ['Needs a caregiver (not on AxisCare until placed)', '#B45309'] : (STATUS[b.status] || [b.status, '#6b7280'])
+    var s = STATUS[b.status] || [b.status, '#6b7280']
     var acts = ''
-    if (['needs_office', 'practice', 'received'].indexOf(b.status) >= 0 && !b.axiscare_visit_id && b.visit_date >= today)
-      acts = '<button class="btn btn-primary btn-sm" onclick="FAMAPP.schedule(\'' + e(b.id) + '\', this)">Put it on the AxisCare schedule</button>'
-    if (b.status === 'waiting_for_caregiver' || (b.status === 'needs_office' && (flexWaiting(b) || b.axiscare_visit_id)))
+    if ((b.status === 'waiting_for_caregiver' || b.status === 'needs_office') && b.visit_date >= today)
       acts = '<select id="famcg-' + e(b.id) + '" style="max-width:220px;"><option value="">Pick a caregiver…</option>' + caregiverOptions() + '</select> ' +
         (flexWaiting(b) ? '<select id="famst-' + e(b.id) + '" style="max-width:160px;"><option value="">Start time…</option>' + startOptions(b) + '</select> ' : '') +
-        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">' + (flexWaiting(b) ? 'Place and put on AxisCare' : 'Place on this visit') + '</button>'
+        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">Place and put on AxisCare</button>'
     var when = flexWaiting(b) ? 'flexible, ' + e(Number(b.hours)) + ' hours anytime ' + e(t12(b.window_start)) + ' to ' + e(t12(b.window_end)) : e(t12(b.start_time)) + ' to ' + e(t12(b.end_time))
     var picks = (b.preferred_caregiver_ids || []).length ? ' · asked for ' + (b.preferred_caregiver_ids || []).map(cgName).join(', ') + ' first' : (b.who === 'any' ? ' · whoever is available' : '')
     return '<div class="card" style="padding:12px 14px;margin-bottom:8px;" id="famb-' + e(b.id) + '">' +
@@ -140,6 +142,8 @@
       '<span style="font-weight:700;color:' + s[1] + ';">' + e(s[0]) + (b.caregiver_name ? ': ' + e(b.caregiver_name) : '') + '</span></div>' +
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
         (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone the client knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
+      (b.status === 'waiting_for_caregiver' && b.answer_by ? '<div class="field-note">The family hears by ' + e(byWords(b.answer_by)) + (b.two_stage && b.team_from ? ' · the wider team is asked from ' + e(byWords(b.team_from)) : '') + '. Nothing to do unless you want to place someone.</div>' : '') +
+      (b.status === 'not_filled' ? '<div class="field-note">Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '') + '. The family is told nothing was scheduled.</div>' : '') +
       offersLine(b) +
       (b.note ? '<div style="margin-top:4px;font-size:13px;">Note: ' + e(b.note) + '</div>' : '') +
       (b.error && b.status !== 'placed' ? '<div style="margin-top:4px;font-size:12.5px;color:#b91c1c;">' + e(b.error) + '</div>' : '') +
@@ -151,7 +155,7 @@
     var rate = function (st) { return o['family_app_rate_' + st] ? '$' + e(o['family_app_rate_' + st]) + '/hr' : 'not set (no estimate shown)' }
     var svc = function (st) { return o['family_app_service_' + st] ? e(o['family_app_service_' + st]) : 'not set (bookings come to you instead)' }
     return '<div class="card" style="padding:12px 14px;margin-bottom:12px;background:' + (live ? '#fff' : '#FBF0DD') + ';">' +
-      '<b>' + (live ? 'Live: family bookings go on the AxisCare schedule.' : 'Practice mode: family bookings are recorded here but NOT put on the AxisCare schedule.') + '</b>' +
+      '<b>' + (live ? 'Live: families request visits; a visit goes on the AxisCare schedule when a caregiver is placed.' : 'Practice mode: family requests are recorded here but caregivers aren\'t asked and nothing is scheduled.') + '</b>' +
       '<div class="field-note" style="margin-top:4px;">App address: <a href="https://family.mo-care.com" target="_blank" rel="noopener">family.mo-care.com</a> · ' +
       'Missouri: service ' + svc('MO') + ', rate ' + rate('MO') + ' · Oklahoma: service ' + svc('OK') + ', rate ' + rate('OK') + '. Ask Claude to change these.</div>' +
       '<div class="field-note" style="margin-top:4px;">' + (o.family_offer_live === true ? 'Caregivers are offered each booking by text: the family\'s picks first, then the team, first yes goes on the schedule. You get a card if nobody has said yes 24 hours before, or everyone has been asked.' : 'Caregiver offers are off (Owners Hub Admin page): place each booking yourself.') + '</div></div>'
