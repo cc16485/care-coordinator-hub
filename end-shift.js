@@ -16,7 +16,7 @@
   const me = () => { try{ const a = ccActor(); return { email: lc(a.email), name: a.name || a.email || 'Someone' }; }catch(e){ return { email: '', name: 'Someone' }; } };
   const first = e => String((typeof opsOwnerName === 'function' && opsOwnerName(e)) || String(e || '').split('@')[0]).split(/\s+/)[0];
   const full = e => (typeof opsOwnerName === 'function' && opsOwnerName(e)) || e;
-  const STAFFING_KINDS = ['coverage', 'staffing_issue', 'coverage_outcome', 'family_call', 'evv_fix', 'staffing'];
+  const STAFFING_KINDS = ['coverage', 'staffing_issue', 'coverage_outcome', 'family_call', 'evv_fix', 'confirm_times', 'staffing'];
   const HO = { list: null, at: 0, busy: null };
 
   /* Which seat an item belongs to: staffing work to Staffing, everything else to Operations. */
