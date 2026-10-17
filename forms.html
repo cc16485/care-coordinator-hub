@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forms &amp; Templates &mdash; Caring Companions</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="icon" href="cc-logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!--
+  FORMS & TEMPLATES (2026-10-16, Samantha: "where in the hub can i save these important documents", design approved the same day).
+  One Hub-wide place for the agency's master documents: blank forms, templates, the Client Handbook, the Client Care Agreement,
+  folder pieces. Same storage as the GUIDE page's Documents (bucket agency-docs, list in app_data key agency_docs, saved one item
+  at a time through upsert_app_data_item), so there is one list, not two. The GUIDE page's Documents button now opens this page
+  filtered to GUIDE material.
+  Each item: { id, name, cat, path, size, filename, by, at } as the GUIDE page writes it, plus
+    rev       the revision label, e.g. "Rev. 10/2026"
+    family    the id of the first version, shared by every version of one document (missing = its own id)
+    replaced  { by, at, with } once a newer version is uploaded; the old file stays and can still be opened
+    removed   { by, at, why } exactly as the GUIDE page's Remove writes it; the file stays for the record
+  Nothing here deletes a file or an item.
+-->
+<style>
+  :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
+         --cream:#faf9f6; --panel:#f2f0e9; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --pale:#EAF4F6;
+         --green:#0f7a4d; --green-bg:#e8f6ef; --red:#a33; --red-bg:#fdf0f0; }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  body{ font-family:'Inter',Helvetica,Arial,sans-serif; background:var(--cream); color:var(--ink); font-size:15px; line-height:1.6; }
+  .serif{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; }
+  #gate{ min-height:100vh; display:flex; align-items:center; justify-content:center; background:var(--navy); padding:24px; }
+  #gate .box{ background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:400px; text-align:center; }
+  #gate img{ width:170px; margin:0 auto 18px; display:block; }
+  #gate h1{ font-size:22px; color:var(--navy); margin-bottom:4px; }
+  #gate p{ color:var(--muted); font-size:14px; margin-bottom:18px; }
+  label{ display:block; font-size:13px; font-weight:700; color:var(--navy); margin:0 0 5px; text-align:left; }
+  #gate label{ margin-top:14px; }
+  input,select{ width:100%; padding:11px 12px; font-size:15px; font-family:inherit; color:var(--ink);
+    background:var(--cream); border:1px solid var(--border); border-radius:10px; }
+  input:focus,select:focus{ outline:2px solid var(--cta); border-color:var(--cta); background:#fff; }
+  .btn{ font-family:inherit; font-size:15px; font-weight:700; padding:11px 18px; border-radius:10px; border:none;
+        cursor:pointer; background:var(--cta); color:#fff; min-height:44px; }
+  .btn:hover{ background:var(--cta-h); }
+  .btn.wide{ width:100%; margin-top:16px; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1px solid var(--border); }
+  .btn.ghost:hover{ background:var(--pale); }
+  .btn.sm{ font-size:13px; padding:8px 13px; border-radius:9px; min-height:38px; }
+  .btn.danger{ background:#fff; color:var(--red); border:1px solid var(--border); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  header{ background:var(--navy); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  header img{ height:34px; }
+  header .ttl{ font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:20px; }
+  header .ttl em{ font-style:normal; color:var(--honey); }
+  header a.back{ color:#fff; font-size:13px; text-decoration:underline; opacity:.85; }
+  header .who{ margin-left:auto; font-size:13px; opacity:.85; }
+  main{ max-width:1000px; margin:0 auto; padding:24px 18px 80px; }
+  h2{ font-size:21px; color:var(--navy); margin:0 0 4px; }
+  .lead{ color:var(--muted); font-size:14.5px; margin:0 0 18px; max-width:76ch; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:18px 20px; margin:0 0 14px; }
+  .grid3{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .muted{ color:var(--muted); font-size:13.5px; }
+  .tag{ font-size:11.5px; font-weight:700; letter-spacing:.02em; border-radius:999px; padding:2px 9px;
+        background:var(--pale); color:var(--cta-h); display:inline-block; margin-left:6px; vertical-align:2px; white-space:nowrap; }
+  .tag.old{ background:var(--panel); color:var(--muted); }
+  .empty{ text-align:center; color:var(--muted); padding:28px 12px; }
+  .msg{ border-radius:10px; padding:11px 14px; font-size:14px; margin-top:12px; }
+  .msg.err{ background:var(--red-bg); color:var(--red); }
+  .msg.ok{ background:var(--green-bg); color:var(--green); }
+  .msg.info{ background:var(--pale); color:var(--cta-h); }
+  .drop{ border:2px dashed var(--border); border-radius:14px; padding:24px; text-align:center; color:var(--muted);
+         cursor:pointer; background:#fff; margin-top:14px; }
+  .drop.over{ border-color:var(--cta); background:var(--pale); color:var(--cta); }
+  .drop b{ color:var(--navy); }
+  .group{ margin:22px 0 6px; font-size:12.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--deep-honey); }
+  .doc{ display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--border); }
+  .doc:last-child{ border-bottom:none; }
+  .doc .ic{ width:38px; height:38px; border-radius:9px; background:var(--pale); color:var(--cta);
+            display:flex; align-items:center; justify-content:center; flex:0 0 auto; font-weight:700; font-size:11px; }
+  .doc .g{ flex:1; min-width:0; }
+  .doc .g b{ color:var(--navy); font-size:15px; }
+  .doc .g .meta{ font-size:12.5px; color:var(--muted); display:block; }
+  .doc .acts{ display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  details.older{ margin:4px 0 0 50px; }
+  details.older summary, details.gone summary{ font-size:13px; color:var(--muted); cursor:pointer; }
+  details.older .doc{ opacity:.8; padding:8px 0; }
+  details.gone{ margin-top:18px; }
+  details.gone .doc{ opacity:.7; }
+  .hide{ display:none !important; }
+  html.embedded header img, html.embedded header a.back{ display:none; }
+  html.embedded header{ padding:11px 18px; }
+  @media (max-width:700px){
+    .grid3{ grid-template-columns:1fr; }
+    .doc{ flex-wrap:wrap; }
+    .doc .acts{ width:100%; justify-content:flex-start; padding-left:50px; }
+    details.older{ margin-left:0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="box">
+    <img src="cc-logo.png" alt="Caring Companions">
+    <h1 class="serif">Forms &amp; Templates</h1>
+    <p>Same sign-in as your hub.</p>
+    <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
+    <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
+    <button class="btn wide" id="signin">Sign in</button>
+    <div class="msg err hide" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+<header>
+  <img src="cc-logo.png" alt="">
+  <span class="ttl">Forms <em>&amp;</em> Templates</span>
+  <a class="back" href="index.html">&larr; Back to the hub</a>
+  <span class="who" id="who"></span>
+</header>
+<main>
+  <h2 class="serif">Forms &amp; Templates</h2>
+  <p class="lead">Our master copies in one place: blank forms, agreements, the Client Handbook, folder pieces, training and program material. Anyone signed into the hub can open these. Nobody outside can. A client's own signed papers go on that client's record, not here.</p>
+
+  <div class="card" id="upCard">
+    <div class="grid3">
+      <div><label for="uCat">What kind of document</label><select id="uCat"></select></div>
+      <div><label for="uRev">Revision</label><input id="uRev" placeholder="Rev. 10/2026"></div>
+      <div><label for="uName">Name (one file only)</label><input id="uName" placeholder="Uses the file name if blank"></div>
+    </div>
+    <div class="drop" id="drop" role="button" tabindex="0">
+      <b>Drop files here, or click to choose</b>
+      <div class="muted" style="margin-top:4px;">One file or a whole folder's worth. PDF, Word, Excel, or an image. Up to 25MB each.</div>
+      <input type="file" id="fileIn" class="hide" multiple>
+      <input type="file" id="verIn" class="hide">
+    </div>
+    <div id="upMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between;">
+      <input id="q" type="search" placeholder="Search by name" style="flex:1;min-width:180px;">
+      <select id="fCat" style="width:auto;"></select>
+    </div>
+    <div id="list"><div class="empty">Loading&hellip;</div></div>
+  </div>
+</main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+  var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+  var BUCKET = 'agency-docs', KEY = 'agency_docs', MAX = 25 * 1024 * 1024;
+  var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+  var $ = function (id) { return document.getElementById(id); };
+  var DOCS = [], ME = '', verFor = null;
+
+  /* the GUIDE page already stores these values in cat; Client is new (handbook, care agreement, folder pieces) */
+  var CATS = [['Client', 'Client documents'], ['Contract', 'Contracts & agreements'], ['Form', 'Forms & templates'],
+              ['Training', 'Training'], ['GUIDE', 'GUIDE program material'], ['Insurance', 'Insurance & licenses'], ['Other', 'Other']];
+  var label = function (c) { var f = CATS.find(function (x) { return x[0] === c; }); return f ? f[1] : (c || 'Other'); };
+
+  if (window.top !== window.self) document.documentElement.classList.add('embedded');
+
+  function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+  function uid() { return crypto.randomUUID ? crypto.randomUUID() : 'id' + Math.random().toString(36).slice(2) + Date.now().toString(36); }
+  function stamp(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
+  function kb(n) { return !n ? '' : n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB'; }
+  function revNow() { var d = new Date(); return 'Rev. ' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear(); }
+  function family(d) { return d.family || d.id; }
+  function ext(d) { return ((d.filename || '').match(/\.([^.]+)$/) || ['', 'file'])[1].toUpperCase().slice(0, 4); }
+  function nice(fname) { return fname.replace(/\.[^.]+$/, '').replace(/[_]+/g, ' ').replace(/^\d+-/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim(); }
+  function say(html, kind) { $('upMsg').innerHTML = html ? '<div class="msg ' + (kind || 'info') + '">' + html + '</div>' : ''; }
+
+  /* ---------- sign in (the same Supabase session as the hub) ---------- */
+  sb.auth.getSession().then(function (r) { if (r.data && r.data.session) boot(r.data.session); });
+  $('signin').addEventListener('click', signIn);
+  $('pw').addEventListener('keydown', function (e) { if (e.key === 'Enter') signIn(); });
+  function signIn() {
+    $('gateErr').classList.add('hide'); $('signin').disabled = true; $('signin').textContent = 'Signing in...';
+    sb.auth.signInWithPassword({ email: $('em').value.trim(), password: $('pw').value }).then(function (r) {
+      $('signin').disabled = false; $('signin').textContent = 'Sign in';
+      if (r.error) { $('gateErr').textContent = r.error.message; $('gateErr').classList.remove('hide'); return; }
+      boot(r.data.session);
+    });
+  }
+  function boot(session) {
+    $('gate').classList.add('hide'); $('app').classList.remove('hide');
+    ME = (session.user && session.user.email) || ''; $('who').textContent = ME;
+    $('uCat').innerHTML = CATS.map(function (c) { return '<option value="' + c[0] + '">' + esc(c[1]) + '</option>'; }).join('');
+    $('uRev').value = revNow();
+    var want = new URLSearchParams(location.search).get('cat') || '';
+    if (want) $('uCat').value = want;
+    load(want);
+  }
+
+  /* ---------- data ---------- */
+  function load(want) {
+    return sb.from('app_data').select('data').eq('key', KEY).maybeSingle().then(function (r) {
+      if (r.error) { $('list').innerHTML = '<div class="msg err">Could not load the documents: ' + esc(r.error.message) + '</div>'; return; }
+      DOCS = (r.data && Array.isArray(r.data.data)) ? r.data.data : [];
+      fillFilter(want); render();
+    });
+  }
+  function save(item) {
+    return sb.rpc('upsert_app_data_item', { target_key: KEY, item: item }).then(function (r) {
+      if (r && r.error) throw new Error(r.error.message);
+      var i = DOCS.findIndex(function (x) { return x.id === item.id; });
+      if (i > -1) DOCS[i] = item; else DOCS.push(item);
+      return item;
+    });
+  }
+  function putFile(file, cat) {
+    var e = (file.name.match(/\.[^.]+$/) || [''])[0];
+    var path = cat.toLowerCase() + '/' + uid() + e;
+    return sb.storage.from(BUCKET).upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false })
+      .then(function (r) { if (r.error) throw new Error(r.error.message); return path; });
+  }
+
+  /* ---------- upload one or many new documents ---------- */
+  var drop = $('drop');
+  drop.addEventListener('click', function () { $('fileIn').click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileIn').click(); } });
+  drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+  drop.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('over'); addMany(e.dataTransfer.files); });
+  $('fileIn').addEventListener('change', function () { addMany($('fileIn').files); $('fileIn').value = ''; });
+
+  function addMany(list) {
+    var files = Array.prototype.slice.call(list || []);
+    if (!files.length) return;
+    var big = files.filter(function (f) { return f.size > MAX; });
+    files = files.filter(function (f) { return f.size <= MAX; });
+    var cat = $('uCat').value, rev = $('uRev').value.trim(), one = files.length === 1 ? $('uName').value.trim() : '';
+    var done = 0, failed = [];
+    if (!files.length) { say('Too big to store (over 25MB): ' + big.map(function (f) { return esc(f.name); }).join(', '), 'err'); return; }
+    say('Saving ' + files.length + ' file' + (files.length > 1 ? 's' : '') + '...');
+    var next = function (i) {
+      if (i >= files.length) {
+        render(); $('uName').value = '';
+        var parts = [];
+        if (done) parts.push('Saved ' + done + ' file' + (done > 1 ? 's' : '') + '.');
+        if (failed.length) parts.push('Not saved: ' + failed.map(esc).join('; '));
+        if (big.length) parts.push('Too big (over 25MB): ' + big.map(function (f) { return esc(f.name); }).join(', '));
+        say(parts.join(' '), failed.length || big.length ? 'err' : 'ok');
+        return;
+      }
+      var f = files[i];
+      putFile(f, cat).then(function (path) {
+        var item = { id: uid(), name: one || nice(f.name), cat: cat, path: path, size: f.size, filename: f.name, by: ME, at: new Date().toISOString() };
+        if (rev) item.rev = rev;
+        item.family = item.id;
+        return save(item);
+      }).then(function () { done++; }, function (err) { failed.push(f.name + ' (' + err.message + ')'); })
+        .then(function () { say('Saving ' + (i + 2 > files.length ? files.length : i + 2) + ' of ' + files.length + '...'); next(i + 1); });
+    };
+    next(0);
+  }
+
+  /* ---------- a newer version of one document ---------- */
+  $('verIn').addEventListener('change', function () {
+    var f = $('verIn').files[0], old = DOCS.find(function (x) { return x.id === verFor; });
+    $('verIn').value = '';
+    if (!f || !old) return;
+    if (f.size > MAX) { say('That file is over 25MB. Too big.', 'err'); return; }
+    var rev = prompt('Revision label for the new version of "' + old.name + '":', revNow());
+    if (rev === null) return;
+    say('Saving the new version of ' + esc(old.name) + '...');
+    var fresh;
+    putFile(f, old.cat || 'Other').then(function (path) {
+      fresh = { id: uid(), name: old.name, cat: old.cat, path: path, size: f.size, filename: f.name, by: ME, at: new Date().toISOString(), family: family(old) };
+      if (rev.trim()) fresh.rev = rev.trim();
+      return save(fresh);
+    }).then(function () {
+      return save(Object.assign({}, old, { family: family(old), replaced: { by: ME, at: new Date().toISOString(), with: fresh.id } }));
+    }).then(function () { render(); say('Saved. The older version is kept under "Replaced versions".', 'ok'); },
+            function (err) { say('Not saved: ' + esc(err.message), 'err'); load($('fCat').value); });
+  });
+
+  /* ---------- list ---------- */
+  function fillFilter(want) {
+    var have = {}; DOCS.forEach(function (d) { have[d.cat || 'Other'] = 1; });
+    var opts = CATS.map(function (c) { return c[0]; }).concat(Object.keys(have).filter(function (c) { return !CATS.some(function (x) { return x[0] === c; }); }));
+    $('fCat').innerHTML = '<option value="">Every kind</option>' + opts.map(function (c) { return '<option value="' + esc(c) + '">' + esc(label(c)) + '</option>'; }).join('');
+    $('fCat').value = want || '';
+  }
+  $('fCat').addEventListener('change', render);
+  $('q').addEventListener('input', render);
+
+  function row(d, kind) {
+    var meta = [label(d.cat), kb(d.size), 'added ' + stamp(d.at) + (d.by ? ' by ' + d.by : '')].filter(Boolean).join(' · ');
+    if (kind === 'old') meta = 'replaced ' + stamp(d.replaced.at) + ' by ' + (d.replaced.by || '') + ' · ' + meta;
+    if (kind === 'gone') meta = 'removed ' + stamp(d.removed.at) + ' by ' + (d.removed.by || '') + ': ' + (d.removed.why || '') + ' · ' + meta;
+    return '<div class="doc"><div class="ic">' + esc(ext(d)) + '</div>' +
+      '<div class="g"><b>' + esc(d.name) + '</b>' + (d.rev ? '<span class="tag' + (kind === 'cur' ? '' : ' old') + '">' + esc(d.rev) + '</span>' : '') +
+      '<span class="meta">' + esc(meta) + '</span></div>' +
+      '<div class="acts"><button class="btn sm ghost" data-open="' + d.id + '">Open</button>' +
+      (kind === 'cur' ? '<button class="btn sm ghost" data-ver="' + d.id + '">Upload a newer version</button><button class="btn sm danger" data-del="' + d.id + '">Remove</button>' : '') +
+      '</div></div>';
+  }
+
+  function render() {
+    var cat = $('fCat').value, q = $('q').value.trim().toLowerCase();
+    var match = function (d) { return (!cat || (d.cat || 'Other') === cat) && (!q || (d.name || '').toLowerCase().indexOf(q) > -1 || (d.filename || '').toLowerCase().indexOf(q) > -1); };
+    var newest = function (a, b) { return (b.at || '').localeCompare(a.at || ''); };
+    var cur = DOCS.filter(function (d) { return !d.removed && !d.replaced && match(d); }).sort(function (a, b) { return (a.name || '').localeCompare(b.name || ''); });
+    var gone = DOCS.filter(function (d) { return d.removed && match(d); }).sort(newest);
+    var older = {};
+    DOCS.filter(function (d) { return d.replaced && !d.removed; }).forEach(function (d) { (older[family(d)] = older[family(d)] || []).push(d); });
+    var html = '';
+    var groups = CATS.map(function (c) { return c[0]; });
+    cur.forEach(function (d) { if (groups.indexOf(d.cat || 'Other') < 0) groups.push(d.cat || 'Other'); });
+    groups.forEach(function (g) {
+      var inG = cur.filter(function (d) { return (d.cat || 'Other') === g; });
+      if (!inG.length) return;
+      html += '<div class="group">' + esc(label(g)) + '</div>';
+      inG.forEach(function (d) {
+        html += row(d, 'cur');
+        var old = (older[family(d)] || []).sort(newest);
+        if (old.length) html += '<details class="older"><summary>Replaced versions (' + old.length + ')</summary>' + old.map(function (o) { return row(o, 'old'); }).join('') + '</details>';
+      });
+    });
+    if (!html) html = '<div class="empty">' + (DOCS.length ? 'Nothing matches.' : 'Nothing stored yet. Drop your first files above.') + '</div>';
+    if (gone.length) html += '<details class="gone"><summary>Removed (' + gone.length + '), kept for the record</summary>' + gone.map(function (d) { return row(d, 'gone'); }).join('') + '</details>';
+    $('list').innerHTML = html;
+    bind();
+  }
+
+  function bind() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-open]'), function (b) {
+      b.onclick = function () {
+        var d = DOCS.find(function (x) { return x.id === b.getAttribute('data-open'); });
+        if (!d) return;
+        b.textContent = 'Opening...';
+        sb.storage.from(BUCKET).createSignedUrl(d.path, 3600).then(function (r) {
+          b.textContent = 'Open';
+          if (r.error || !r.data) { alert('Could not open it: ' + (r.error ? r.error.message : 'unknown')); return; }
+          window.open(r.data.signedUrl, '_blank', 'noopener');
+        });
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-ver]'), function (b) {
+      b.onclick = function () { verFor = b.getAttribute('data-ver'); $('verIn').click(); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-del]'), function (b) {
+      b.onclick = function () {
+        var d = DOCS.find(function (x) { return x.id === b.getAttribute('data-del'); });
+        if (!d) return;
+        var why = prompt('Remove "' + d.name + '" from the list?\nThe file is kept for the record and can still be opened under Removed. Why is it being removed?', '');
+        if (why === null) return;
+        if (why.trim().length < 5) { alert('Say why it is being removed (a few words).'); return; }
+        save(Object.assign({}, d, { removed: { by: ME, at: new Date().toISOString(), why: why.trim().slice(0, 300) } }))
+          .then(render, function (err) { alert('Not saved: ' + err.message); load($('fCat').value); });
+      };
+    });
+  }
+})();
+</script>
+</body>
+</html>
