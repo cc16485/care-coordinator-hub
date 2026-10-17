@@ -37,9 +37,9 @@ PAGE = '''<!doctype html><meta charset="utf-8"><meta name="viewport" content="wi
 const CP = { ax: '296' }; window.CALLS = []; window.CONFIRMS = [];
 const CONTACTS = %s;
 let REVIEW = null;
-window.ccConfirm = async (m) => { CONFIRMS.push(m); return true; };
+window.ccConfirm = async (m) => { CONFIRMS.push(m); return true; }; window.PROMPTS = []; window.ccPrompt = async (m, d) => { PROMPTS.push([m, d]); return ('PROMPT_ANSWER' in window) ? window.PROMPT_ANSWER : d; }; window.OPENED = [];
 window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)));
-  if (b.action === 'list') return { status: 200, data: { agreements: [{ id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Anderson', role: 'representative' }, contacts_review: REVIEW }] } };
+  if (b.action === 'list') return { status: 200, data: { agreements: [{ id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Anderson', role: 'representative' }, contacts_review: REVIEW, answers: { 'c1.email': 'nancy@example.com' }, copies: { emails: [{ to: 'old@example.com', at: '2026-10-16T16:01:00Z', outcome: 'held', detail: 'Not sent: it is outside email hours' }], printed: false } }] } };
   if (b.action === 'contacts') return { status: 200, data: { ok: true, contacts: CONTACTS, review: REVIEW } };
   if (b.action === 'contacts_apply') {
     REVIEW = REVIEW || { people: {}, todo: {} }; const results = [];
@@ -54,8 +54,10 @@ window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)))
   }
   if (b.action === 'contacts_todo') { REVIEW = REVIEW || { people: {}, todo: {} }; if (b.done) REVIEW.todo[b.key] = { by: 'kr@mo-care.com', at: '2026-10-16T17:05:00Z' }; else delete REVIEW.todo[b.key]; return { status: 200, data: { ok: true, review: REVIEW } }; }
   if (b.action === 'open') return { status: 200, data: { url: 'https://example.com/a1.pdf' } };
+  if (b.action === 'copy_print') return { status: 200, data: { url: 'https://example.com/a1-copy.pdf' } };
+  if (b.action === 'copy_email') return { status: 200, data: { ok: true, email: { outcome: 'sent', to: b.to, detail: 'Emailed to ' + b.to + '.' } } };
   return { status: 400, data: { error: 'x' } }; };
-window.open = () => null;
+window.open = (u) => { OPENED.push(u); return null; };
 </script><script src="agreement-card.js"></script><script>CAG.mount('cp_agreement')</script>'''
 open(os.path.join(ROOT, '_car_test.html'), 'w').write(PAGE % json.dumps(CONTACTS))
 
@@ -114,6 +116,14 @@ try:
                    [[x['n'] for x in c['people']] for c in pg.evaluate('CALLS') if c['action'] == 'contacts_apply'][1:] == [[2], [2]], [c for c in pg.evaluate('CALLS') if c['action'] == 'contacts_apply'])
                 pg.check('[data-car-todo="c1.signin"]'); pg.wait_for_timeout(400)
                 ck(f'{name}: ticking a checklist item saves who did it', 'done by kr@mo-care.com' in pg.inner_text('[data-cag-revbox]') and pg.is_checked('[data-car-todo="c1.signin"]'))
+                pg.click('[data-cag-print]'); pg.wait_for_timeout(300)
+                ck(f'{name}: card: Print family copy opens the COPY version', pg.evaluate('OPENED').count('https://example.com/a1-copy.pdf') == 1, pg.evaluate('OPENED'))
+                ck(f'{name}: card: the last email attempt is shown, in red when it did not go', 'family copy not emailed: Not sent: it is outside email hours' in pg.inner_text('#cp_agreement'))
+                pg.click('[data-cag-mail]'); pg.wait_for_timeout(400)
+                ce = [c for c in pg.evaluate('CALLS') if c['action'] == 'copy_email']
+                ck(f'{name}: card: Email family copy asks first, offering the primary contact, then sends to that address', pg.evaluate('PROMPTS')[0][1] == 'nancy@example.com' and ce and ce[-1]['to'] == 'nancy@example.com' and 'Emailed to nancy@example.com' in pg.inner_text('#cagMsg'), [pg.evaluate('PROMPTS'), ce])
+                pg.evaluate('window.PROMPT_ANSWER = null'); n0 = len(pg.evaluate('CALLS')); pg.click('[data-cag-mail]'); pg.wait_for_timeout(300)
+                ck(f'{name}: card: cancelling the question sends nothing', len(pg.evaluate('CALLS')) == n0)
                 ck(f'{name}: nothing wider than the screen', pg.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
                 ck(f'{name}: no page errors', not errs, errs)
                 pg.screenshot(path=os.path.join(OUT, f'review-done-{name}.png'), full_page=True)
