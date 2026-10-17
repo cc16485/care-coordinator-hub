@@ -49,7 +49,7 @@
       'When caregiver texts are on, the caregiver gets one text asking them to clock in.' + chip(on('timekeeper_text_live'), 'texts on', 'texts off'),
       'Call the caregiver from the office line. If they\'re on the way, there is nothing else to do: it clears itself when the clock-in lands.',
       'If they can\'t make it, press <b>If they cannot work, open a coverage case</b>, then follow the call-off steps.',
-      'After a shift ends with no clock-out, the caregiver gets one reminder with the correction form link.',
+      'After a shift ends with no clock-out, the caregiver gets one reminder text to clock out. If it still doesn\'t land, a Call card opens to confirm the times with the client (below).',
     ], 'The minutes and the wording are in Settings, Missed clock-ins and Missed clock-outs.')
     + steps('📣 Regular open hours: ask the whole team', false, [
       'Go to <b>Client Care, Team Builder</b>, press <b>New care team plan</b> and pick <b>Open hours, no client yet</b>. Type the town, pick the days, and pick <b>Two halves</b> or <b>One day shift</b>.',
