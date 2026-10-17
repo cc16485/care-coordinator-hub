@@ -2,7 +2,9 @@
    Lists this client's agreements (newest first), starts a new one on the tablet page (agreement.html), continues a draft,
    and opens a signed PDF (a 5-minute link; every open is logged on the server). Reads the page-level CP (never window.CP).
    Stage 2 (872): a countersigned agreement shows where its Contacts & Permissions stand and a "Review contacts" button
-   that opens the office review (agreement-review.js, CAR.open). Nothing is sent to the family from here. */
+   that opens the office review (agreement-review.js, CAR.open). Nothing is sent to the family from here.
+   873: "Print family copy" (the big "COPY" version to hand them) and "Email family copy" (asks the address first; the
+   copy goes through GoHighLevel with the codes hidden, 8am to 6pm), with how the last email went. */
 (function () {
   'use strict';
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]));
@@ -37,12 +39,15 @@
       const cst = a.status !== 'countersigned' ? '' : !ppl.length ? ['Contacts not reviewed yet', '#8a6d00', '#fff7e0']
         : ppl.some(p => p.outcome === 'needs_another_try') ? ['Contacts: needs another try', '#a33', '#fdf0f0'] : ['Contacts reviewed', '#0f7a4d', '#e8f6ef'];
       const rbtn = a.status === 'countersigned' ? `<button type="button" data-cag-rev="${esc(a.id)}">${ppl.length ? 'Contacts and checklist' : 'Review contacts'}</button>` : '';
-      const btn = a.status === 'countersigned' && a.has_pdf ? `<span style="display:flex;gap:6px;flex-wrap:wrap">${rbtn}<button type="button" class="primary" data-cag-open="${esc(a.id)}">Open signed PDF</button></span>`
+      const em = (a.copies && a.copies.emails) || [], last = em[em.length - 1]
+      const mailNote = last ? (last.outcome === 'sent' ? ` · family copy emailed to ${esc(last.to)} ${esc(when(last.at))}` : ` · <span style="color:#a33">family copy not emailed: ${esc(last.detail || last.outcome)}</span>`) : ''
+      const copyBtns = a.status === 'countersigned' && a.has_pdf ? `<button type="button" data-cag-print="${esc(a.id)}">Print family copy</button>${a.answers && a.answers['comm.decline'] === true ? '' : `<button type="button" data-cag-mail="${esc(a.id)}">Email family copy</button>`}` : ''
+      const btn = a.status === 'countersigned' && a.has_pdf ? `<span style="display:flex;gap:6px;flex-wrap:wrap">${rbtn}${copyBtns}<button type="button" class="primary" data-cag-open="${esc(a.id)}">Open signed PDF</button></span>`
         : (a.status === 'draft' || a.status === 'signed') ? `<button type="button" data-cag-go="${esc(a.id)}">${a.status === 'draft' ? 'Continue on the tablet' : 'Countersign'}</button>` : '';
       return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border)">
         <div><span style="font-size:12px;font-weight:700;border-radius:99px;padding:2px 9px;color:${st[1]};background:${st[2]}">${esc(st[0])}</span>
         ${cst ? `<span style="font-size:12px;font-weight:700;border-radius:99px;padding:2px 9px;margin-left:4px;color:${cst[1]};background:${cst[2]}">${esc(cst[0])}</span>` : ''}
-        <span class="field-note" style="margin-left:6px">${esc(a.version || '')} · started ${esc(when(a.created_at))}${who ? ' · ' + who : ''}${a.countersigned_at ? ' · signed ' + esc(when(a.countersigned_at)) : ''}${a.void_reason ? ' · ' + esc(a.void_reason) : ''}</span></div>${btn}</div>
+        <span class="field-note" style="margin-left:6px">${esc(a.version || '')} · started ${esc(when(a.created_at))}${who ? ' · ' + who : ''}${a.countersigned_at ? ' · signed ' + esc(when(a.countersigned_at)) : ''}${a.void_reason ? ' · ' + esc(a.void_reason) : ''}${mailNote}</span></div>${btn}</div>
         ${a.status === 'countersigned' ? `<div data-cag-revbox="${esc(a.id)}"></div>` : ''}`;
     }).join('');
     box.innerHTML = `<div class="card" style="padding:14px;margin:10px 0">${head}
@@ -58,6 +63,27 @@
         if (slot.innerHTML) { slot.innerHTML = ''; return; }
         const show = () => window.CAR.open(slot, b.dataset.cagRev, null);
         if (window.CAR) show(); else { const sc = document.createElement('script'); sc.src = 'agreement-review.js?v=20261016a'; sc.onload = show; document.head.appendChild(sc); }
+      };
+    });
+    box.querySelectorAll('[data-cag-print]').forEach(b => {
+      b.onclick = async () => {
+        const msg = box.querySelector('#cagMsg'); b.disabled = true;
+        try { const r = await call({ action: 'copy_print', id: b.dataset.cagPrint }); window.open(r.url, '_blank', 'noopener'); msg.textContent = ''; }
+        catch (e) { msg.textContent = e.message; msg.style.color = '#a33'; }
+        b.disabled = false;
+      };
+    });
+    box.querySelectorAll('[data-cag-mail]').forEach(b => {
+      b.onclick = async () => {
+        const a = list.find(x => x.id === b.dataset.cagMail) || {}, ans = a.answers || {}
+        const def = [ans['c1.email'], ans['poa.email']].map(x => String(x || '').trim()).find(x => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)) || ''
+        const ask = typeof ccPrompt === 'function' ? ccPrompt : (m, d) => Promise.resolve(window.prompt(m, d))
+        const to = await ask('Email the family\'s copy (big "COPY", lockbox and garage codes hidden) to:', def)
+        if (to == null || !String(to).trim()) return
+        const msg = box.querySelector('#cagMsg'); b.disabled = true; b.textContent = 'Sending…'
+        try { const r = await call({ action: 'copy_email', id: b.dataset.cagMail, to: String(to).trim() }); msg.textContent = r.email.detail; msg.style.color = r.email.outcome === 'sent' ? '#0f7a4d' : '#a33'; }
+        catch (e) { msg.textContent = e.message; msg.style.color = '#a33'; }
+        b.disabled = false; b.textContent = 'Email family copy';
       };
     });
     box.querySelectorAll('[data-cag-open]').forEach(b => {

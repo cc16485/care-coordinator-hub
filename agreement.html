@@ -403,23 +403,42 @@ function pad(canvas){
 function problemsHtml(ps){ return ps&&ps.length?'<ul>'+ps.map(p=>'<li>'+esc(p.error)+'</li>').join('')+'</ul>':''; }
 
 /* ---------- office: countersign, then the signed PDF ---------- */
+/* 873 (Samantha 2026-10-16): the family's copy. The countersign screen offers to email it (primary contact, else the POA;
+   the office can change the address or untick it); it goes when the office taps Countersign, codes hidden, through
+   GoHighLevel. A family who declined email gets no box, only the printed copy. After 6pm it waits for the card's button. */
+const EMAIL_OK=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+function copyTo(){ for(const [e,n] of [['c1.email','c1.name'],['poa.email','poa.name']]) if(EMAIL_OK.test(String(A[e]||'').trim())) return {to:String(A[e]).trim(),name:String(A[n]||'').trim()}; return {to:'',name:''}; }
 function vOffice(){
+  const declined=A['comm.decline']===true, d=copyTo();
+  const emailBox=declined
+    ?'<div class="note">They chose not to get email (Permission to communicate), so no copy is emailed. Print their copy after you countersign.</div>'
+    :`<div class="card"><label style="display:flex;gap:12px;align-items:center;font-size:17px;color:var(--ink);margin:0"><input type="checkbox" id="mailCopy" ${d.to?'checked':''} style="width:26px;height:26px;flex:none"> Email the family a copy when I countersign</label>
+      <label for="mailTo" style="margin-top:10px">Send it to${d.name?' ('+esc(d.name)+')':''}</label><input type="email" id="mailTo" value="${esc(d.to)}" placeholder="their email" autocomplete="off">
+      <div style="font-size:14px;color:var(--muted);margin-top:6px">Their copy has a big "COPY" on it and the lockbox and garage codes are hidden. Emails go between 8am and 6pm.</div></div>`;
   $('view').innerHTML=`<div class="kick">For the office</div><h1>Countersign</h1><p class="lead">You are signing for Caring Companions as <b>${esc(ME.email)}</b>. The signed agreement is saved on the client's record.</p>
+  ${emailBox}
   <div class="card"><label>Sign here</label><canvas class="sigbox" id="osig"></canvas>
    <p style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><button type="button" class="btn ghost" id="oclr">Clear</button><button type="button" class="btn" id="cBtn">Countersign and save</button></p><div id="cErr"></div></div>`;
   const P=pad($('osig')); $('oclr').onclick=()=>P.clear();
+  const mt=$('mailTo'); if(mt) mt.oninput=()=>{ if(mt.value.trim()) $('mailCopy').checked=true; };
   $('cBtn').onclick=async()=>{
+    $('cErr').innerHTML='';
     if(!P.has){ $('cErr').innerHTML='<div class="err">Please sign in the box.</div>'; return; }
-    $('cBtn').disabled=true; $('cBtn').textContent='Saving the signed agreement…';
-    try{ await call({action:'countersign',id:AG.id,signature:P.png()}); showDone(); }
+    const want=!declined&&$('mailCopy')&&$('mailCopy').checked, to=want?$('mailTo').value.trim():'';
+    if(want&&!EMAIL_OK.test(to)){ $('cErr').innerHTML='<div class="err">That email address does not look right. Fix it, or untick "Email the family a copy".</div>'; return; }
+    $('cBtn').disabled=true; $('cBtn').textContent=want?'Saving and emailing their copy…':'Saving the signed agreement…';
+    try{ const r=await call({action:'countersign',id:AG.id,signature:P.png(),email_copy:want?{to}:null}); showDone(r.email||null,declined); }
     catch(e){ $('cErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; $('cBtn').disabled=false; $('cBtn').textContent='Countersign and save'; }
   };
 }
-function showDone(){
+function showDone(email,declined){
   $('steps').classList.add('hide'); $('bar').classList.add('hide');
-  $('view').innerHTML=`<h1>Signed and saved</h1><div class="ok">The signed Client Care Agreement is saved on the client's record.</div>
-   <p style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn" id="openPdf" type="button">Open the signed agreement</button><a class="btn ghost" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Back to the Hub</a></p><div id="dErr"></div>`;
-  $('openPdf').onclick=async()=>{ try{ const r=await call({action:'open',id:AG.id}); window.open(r.url,'_blank','noopener'); }catch(e){ $('dErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } };
+  const mail=email?(email.outcome==='sent'?`<div class="ok">Their copy was emailed to ${esc(email.to)}.</div>`:`<div class="err">${esc(email.detail)}</div>`):'';
+  $('view').innerHTML=`<h1>Signed and saved</h1><div class="ok">The signed Client Care Agreement is saved on the client's record.</div>${mail}
+   <p style="display:flex;gap:12px;flex-wrap:wrap"><button class="btn" id="printCopy" type="button">Print the family's copy</button><button class="btn ghost" id="openPdf" type="button">Open the signed agreement</button><a class="btn ghost" href="index.html" style="text-decoration:none;display:inline-flex;align-items:center">Back to the Hub</a></p>
+   <div style="font-size:15px;color:var(--muted)">The family's copy has a big "COPY" on every page, to print and hand them.${declined?' They chose not to get email, so this is their copy.':''}</div><div id="dErr"></div>`;
+  const opener=(action,btn)=>async()=>{ $('dErr').innerHTML=''; btn.disabled=true; try{ const r=await call({action,id:AG.id}); window.open(r.url,'_blank','noopener'); }catch(e){ $('dErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } btn.disabled=false; };
+  $('openPdf').onclick=opener('open',$('openPdf')); $('printCopy').onclick=opener('copy_print',$('printCopy'));
 }
 window.__AG_TEST={ get POS(){return POS;}, get A(){return A;}, get TAPS(){return TAPS;}, get SIGNER(){return SIGNER;} };
 })();

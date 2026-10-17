@@ -45,7 +45,10 @@ def fake(state):
         if a == 'sign':
             state['signed'] = b; ag['status'] = 'signed'; return J(200, {'ok': True, 'outcome': 'signed'})
         if a == 'countersign':
-            state['counter'] = b; ag['status'] = 'countersigned'; return J(200, {'ok': True, 'outcome': 'countersigned'})
+            state['counter'] = b; ag['status'] = 'countersigned'
+            em = b.get('email_copy')
+            return J(200, {'ok': True, 'outcome': 'countersigned', 'email': {'outcome': 'sent', 'detail': 'Emailed to ' + em['to'] + '.', 'to': em['to']} if em else None})
+        if a == 'copy_print': return J(200, {'ok': True, 'url': 'https://example.com/family-copy.pdf', 'expires_in': 300})
         if a == 'open': return J(200, {'ok': True, 'url': 'https://example.com/signed.pdf', 'expires_in': 300})
         if a == 'list': return J(200, {'ok': True, 'agreements': state.get('list', [])})
         return J(400, {'error': 'Unknown action.'})
@@ -112,7 +115,7 @@ def flow(browser, name, w, h):
        'A few things first' in page.locator('#sheet').inner_text() and 'POA name' in page.locator('#sheet').inner_text() and 'Backup caregiver' in page.locator('#sheet').inner_text(), page.locator('#sheet').inner_text())
     page.locator('#sheet [data-goto="c1.name"]').click(); page.wait_for_timeout(500)
     ck(f'{name}: tapping an item closes the list and goes to that blank', page.locator('#sheet').count() == 0 and page.evaluate('document.activeElement && document.activeElement.dataset.k') == 'c1.name')
-    fam_vals = {'poa.name': 'Nancy Anderson', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-863-7309', 'c2.name': 'Tom Anderson',
+    fam_vals = {'poa.name': 'Nancy Anderson', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-863-7309', 'c1.email': 'nancy@example.com', 'c2.name': 'Tom Anderson',
                 'access.lockbox_location': 'Back porch', 'access.lockbox_code': '2468', 'backup.full_name': 'Tom Anderson', 'backup.primary_phone': '417-555-0111'}
     for k, v in fam_vals.items(): page.fill(f'input[data-k="{k}"]', v)
     for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
@@ -145,10 +148,15 @@ def flow(browser, name, w, h):
        and sg['signature'].startswith('data:image/png;base64,') and len(sg['signature']) > 1500, {k: (v if k != 'signature' else len(v)) for k, v in sg.items()})
     ck(f'{name}: every answer sent is a field on the printed agreement, none of them office or server fields', all(k in FIELDS and k not in OFFICE_KEYS and not SERVER_ONLY(k) for k in sg['answers']) and sg['answers'].get('access.lockbox_code') == '2468',
        [k for k in sg['answers'] if k not in FIELDS or k in OFFICE_KEYS or SERVER_ONLY(k)])
-    page.click('#toOffice'); page.wait_for_selector('#osig'); draw(page, '#osig'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
-    ck(f'{name}: countersign sends the office signature, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and 'Signed and saved' in page.locator('#view h1').inner_text())
-    page.click('#openPdf'); page.wait_for_timeout(300)
-    ck(f'{name}: Open the signed agreement opens the 5-minute link', page.evaluate('window.__opened') == ['https://example.com/signed.pdf'], page.evaluate('window.__opened'))
+    page.click('#toOffice'); page.wait_for_selector('#osig')
+    ck(f'{name}: countersign offers to email the family a copy, ticked, to the primary contact', page.is_checked('#mailCopy') and page.input_value('#mailTo') == 'nancy@example.com' and 'COPY' in page.inner_text('#view') and 'codes are hidden' in page.inner_text('#view'))
+    page.fill('#mailTo', 'nancy at example'); draw(page, '#osig'); page.click('#cBtn'); page.wait_for_timeout(300)
+    ck(f'{name}: a bad email address is caught before anything is countersigned', 'does not look right' in page.inner_text('#cErr') and 'counter' not in st)
+    page.fill('#mailTo', 'nancy.anderson@example.com'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
+    ck(f'{name}: countersign sends the office signature and the email address, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and st['counter']['email_copy'] == {'to': 'nancy.anderson@example.com'} and 'Signed and saved' in page.locator('#view h1').inner_text(), st['counter'].get('email_copy'))
+    ck(f'{name}: the done screen says the copy was emailed', 'Their copy was emailed to nancy.anderson@example.com' in page.inner_text('#view'))
+    page.click('#openPdf'); page.wait_for_timeout(300); page.click('#printCopy'); page.wait_for_timeout(300)
+    ck(f'{name}: Open the signed agreement and Print the family\'s copy open their 5-minute links', page.evaluate('window.__opened') == ['https://example.com/signed.pdf', 'https://example.com/family-copy.pdf'], page.evaluate('window.__opened'))
     ck(f'{name}: no page errors', not errs, errs)
     ctx.close()
     return st
@@ -170,9 +178,18 @@ with sync_playwright() as p:
             try: pg.wait_for_selector(expect, timeout=8000); ok = True
             except Exception: ok = False
             ck(f'{eng}: a {status} agreement opens at the right screen', ok)
+            if status == 'signed': ck(f'{eng}: no email box for a family who did not decline but gave no email: unticked, empty', not pg.is_checked('#mailCopy') and pg.input_value('#mailTo') == '')
             if status == 'draft': ck(f'{eng}: a resumed draft shows the pages with its answers', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'A B')
             ck(f'{eng}: nothing wider than the tablet ({status})', no_wide(pg, status))
             ctx.close()
+        ctx = br.new_context(viewport={'width': 768, 'height': 1024})
+        ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
+        pg = ctx.new_page(); st = {'calls': [], 'ag': {'id': '33333333-3333-4333-8333-333333333333', 'status': 'signed', 'version': 'Rev. 10/2026', 'office': {'answers': {}}, 'answers': {'comm.decline': True, 'c1.email': 'x@example.com'}}}
+        pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=33333333-3333-4333-8333-333333333333'); pg.wait_for_selector('#osig')
+        ck(f'{eng}: a family who declined email: no email box, it says to print their copy', pg.locator('#mailCopy').count() == 0 and 'chose not to get email' in pg.inner_text('#view'))
+        draw(pg, '#osig'); pg.click('#cBtn'); pg.wait_for_selector('#printCopy')
+        ck(f'{eng}: ...countersigned with no email asked for', st['counter'].get('email_copy') is None and 'this is their copy' in pg.inner_text('#view'))
+        ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/functions/v1/client-agreement', fake({'calls': []})); pg.goto(BASE + '/agreement.html?ax=296'); pg.wait_for_selector('#signin')
         ck(f'{eng}: not signed in: the Hub sign-in shows, nothing else', pg.locator('#gate').is_visible() and pg.locator('#view').inner_text().strip() == '', errs)
