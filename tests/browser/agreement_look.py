@@ -32,11 +32,11 @@ def fake(state):
         J = lambda code, o: route.fulfill(status=code, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(o))
         if request.headers.get('authorization') != 'Bearer kr': return J(401, {'error': 'Sign in first.'})
         a = b.get('action'); ag = state.get('ag')
-        if a == 'form': return J(200, {'ok': True, 'form': FORM})
+        if a == 'form': return J(200, {'ok': True, 'form': state.get('form', FORM)})
         if a == 'start':
             state['ag'] = {'id': '11111111-1111-4111-8111-111111111111', 'client_ax': b['client_ax'], 'status': 'draft', 'version': 'Rev. 10/2026', 'office': {'answers': b['office'], 'addenda': b.get('addenda', [])}, 'answers': {}}
-            return J(200, {'ok': True, 'agreement': state['ag'], 'form': FORM})
-        if a == 'get': return J(200, {'ok': True, 'agreement': ag, 'form': FORM}) if ag and b.get('id') == ag['id'] else J(404, {'error': 'Agreement not found.'})
+            return J(200, {'ok': True, 'agreement': state['ag'], 'form': state.get('form', FORM)})
+        if a == 'get': return J(200, {'ok': True, 'agreement': ag, 'form': state.get('form', FORM)}) if ag and b.get('id') == ag['id'] else J(404, {'error': 'Agreement not found.'})
         if a == 'save' and state.get('fail_save'): return J(500, {'error': 'The database did not answer.'})
         if a == 'save':
             bad = [k for k in b['answers'] if k not in FIELDS or k in OFFICE_KEYS]
@@ -181,6 +181,20 @@ with sync_playwright() as p:
             if status == 'signed': ck(f'{eng}: no email box for a family who did not decline but gave no email: unticked, empty', not pg.is_checked('#mailCopy') and pg.input_value('#mailTo') == '')
             if status == 'draft': ck(f'{eng}: a resumed draft shows the pages with its answers', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'A B')
             ck(f'{eng}: nothing wider than the tablet ({status})', no_wide(pg, status))
+            ctx.close()
+        # 2026-10-17 (8-hour weekly minimum): each agreement shows the pages of the master it was started on
+        NEW, FIRST = 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (FIRST, 'draft', 'old'), (FIRST, 'signed', 'old-signed')):
+            ctx = br.new_context(viewport={'width': 768, 'height': 1024})
+            ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
+            pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
+            pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
+            if label == 'new':
+                pg.wait_for_selector('.pg img'); ck(f'{eng}: a new draft shows the updated pages', 'rev-2026-10-17/p01.jpg' in pg.get_attribute('.pg img', 'src'))
+            elif label == 'old':
+                pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on the earlier wording says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
+            else:
+                pg.wait_for_selector('#osig'); ck(f'{eng}: signed on the earlier wording: countersign still opens', pg.locator('#osig').count() == 1)
             ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024})
         ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
