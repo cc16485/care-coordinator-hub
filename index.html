@@ -4563,7 +4563,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
-<p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
+<p class="hint">Scheduling work goes to whoever is on Staffing duty now. Work nobody takes climbs the team first: late work goes to whoever is In charge; anything critical goes to In charge at 10 minutes, Leadership at 20 and the leadership backup at 35. The owner always keeps it. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
 <p class="hint">Who owns each area, who gets notified and when it escalates: <a href="#" onclick="switchTab('routing');return false"><b>open Who Handles What</b></a>.</p>
 <div id="routeSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
@@ -7342,6 +7342,7 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=5"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
+<script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
 <script src="call-lead.js?v=3"></script><!-- Make this a lead (2026-10-14) -->
 <script src="lead-recorder.js?v=2"></script>
@@ -17861,6 +17862,12 @@ function routeSeatNow(area){
   if(h&&h.person) return { person:String(h.person).toLowerCase(), from:'the schedule' };
   const d=String(st['duty_default_'+area]||'').toLowerCase();
   if(d) return { person:d, from:'when nobody is scheduled' };
+  /* 2026-10-17: a seat nobody holds falls to whoever is In charge before it falls to the alert list (leadership).
+     Leadership itself, and In charge, fall to the alert list: that means the office is empty. */
+  if(area!=='in_charge' && area!=='owner_escalation'){
+    const ic=routeSeatNow('in_charge');
+    if(ic && ic.person && ic.from!=='first on the alert list') return { person:ic.person, from:'In charge now' };
+  }
   const f=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins[0])||'samantha@mo-care.com';
   return { person:String(f).toLowerCase(), from:'first on the alert list' };
 }
@@ -17873,14 +17880,41 @@ function routeSetRender(){
     return '<select onchange="routeSetDefault(\''+area+'\',this.value)" style="width:auto;font-size:12.5px;padding:3px 6px;">'
       +'<option value="">(first on the alert list)</option>'
       +people.map(p=>'<option value="'+esc(String(p.email).toLowerCase())+'"'+(String(p.email).toLowerCase()===cur?' selected':'')+'>'+esc(p.name||p.email)+'</option>').join('')+'</select>'; };
-  const o=routeSeatNow('operations'), s=routeSeatNow('staffing'), e=routeSeatNow('owner_escalation');
+  const o=routeSeatNow('operations'), s=routeSeatNow('staffing'), ic=routeSeatNow('in_charge'), e=routeSeatNow('owner_escalation');
+  const bk=String(st.leadership_backup||'').toLowerCase();
+  const bsel='<select onchange="routeSetBackup(this.value)" style="width:auto;font-size:12.5px;padding:3px 6px;">'
+    +'<option value="">(nobody)</option>'
+    +(bk && !people.some(p=>String(p.email).toLowerCase()===bk)?'<option value="'+esc(bk)+'" selected>'+esc(nm(bk))+'</option>':'')
+    +people.map(p=>'<option value="'+esc(String(p.email).toLowerCase())+'"'+(String(p.email).toLowerCase()===bk?' selected':'')+'>'+esc(p.name||p.email)+'</option>').join('')+'</select>';
+  const L=Object.assign({in_charge:10,leadership:20,backup:35}, st.critical_ladder||{});
   box.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off (practice).</b> The check only lists what it would route and escalate. ')
     +'<div style="margin-top:6px;line-height:1.9;">'
     +'<b>Operations</b> now: '+esc(nm(o.person))+' <span class="field-note">('+esc(o.from)+')</span> · when nobody is scheduled: '+sel('operations')+'<br>'
+    +'<b>In charge</b> now: '+esc(nm(ic.person))+' <span class="field-note">('+esc(ic.from)+')</span> · when nobody is scheduled: '+sel('in_charge')+'<br>'
     +'<b>Staffing</b> now: '+esc(nm(s.person))+' <span class="field-note">('+esc(s.from)+')</span> · when nobody is scheduled: '+sel('staffing')+'<br>'
-    +'<b>Owner Escalation</b> now: '+esc(nm(e.person))+' <span class="field-note">('+esc(e.from)+')</span> · when nobody is scheduled: '+sel('owner_escalation')
+    +'<b>Leadership</b> now: '+esc(nm(e.person))+' <span class="field-note">('+esc(e.from)+')</span> · when nobody is scheduled: '+sel('owner_escalation')+'<br>'
+    +'<b>Leadership backup</b>: '+bsel+' <span class="field-note">(only critical work after '+esc(String(L.backup))+' minutes, and decisions you ask them for)</span><br>'
+    +'<b>Payroll day</b>: '+(()=>{ const pp=String(st.payroll_person||'').toLowerCase(), pd=Array.isArray(st.payroll_days)?st.payroll_days.map(Number):[];
+        return '<select onchange="routeSetPayroll(this.value,null)" style="width:auto;font-size:12.5px;padding:3px 6px;"><option value="">(nobody)</option>'
+          +people.map(p=>'<option value="'+esc(String(p.email).toLowerCase())+'"'+(String(p.email).toLowerCase()===pp?' selected':'')+'>'+esc(p.name||p.email)+'</option>').join('')+'</select> on '
+          +['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map((d,i)=>'<label style="font-size:12.5px;margin-right:8px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap;"><input type="checkbox" style="width:auto;margin:0;" onchange="routeSetPayroll(null,'+i+')"'+(pd.indexOf(i)>-1?' checked':'')+'> '+d+'</label>').join('')
+          +' <span class="field-note">(new Care Coordination work goes to the other coordinator that day)</span><br>'; })()
+    +'<span class="field-note">Critical ladder: In charge at '+esc(String(L.in_charge))+' min, Leadership at '+esc(String(L.leadership))+', backup at '+esc(String(L.backup))+'. In an emergency anyone calls 911 first.</span>'
     +'</div>';
   if(b) b.textContent=on?'Turn off':'Turn on';
+}
+async function routeSetPayroll(person, day){
+  const out=await tkMerge((m)=>{
+    if(person!==null) m.payroll_person=person||'';
+    if(day!==null){ const d=new Set(Array.isArray(m.payroll_days)?m.payroll_days.map(Number):[]); d.has(day)?d.delete(day):d.add(day); m.payroll_days=[...d].sort(); }
+    return ['Payroll day: '+(m.payroll_person?(opsOwnerName(m.payroll_person)||m.payroll_person):'nobody')+' on '+((m.payroll_days||[]).map(i=>['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][i]).join(', ')||'no days')]; }, 'on-duty seats');
+  const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  routeSetRender();
+}
+async function routeSetBackup(email){
+  const out=await tkMerge((m)=>{ m.leadership_backup=email||''; return ['Leadership backup: '+(email?(opsOwnerName(email)||email):'nobody')]; }, 'on-duty seats');
+  const sv=document.getElementById('routeSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  routeSetRender();
 }
 async function routeSetDefault(area, email){
   const out=await tkMerge((m)=>{ m['duty_default_'+area]=email||''; return [dutyAreaLabel(area)+' when nobody is scheduled: '+(email?(opsOwnerName(email)||email):'first on the alert list')]; }, 'on-duty seats');
@@ -17889,7 +17923,7 @@ async function routeSetDefault(area, email){
 }
 async function routeToggle(btn){
   const on=!((DATA.ops_settings||{}).routing_live===true);
-  if(!(await ccConfirm(on?'Turn on right person first, then escalate?\n\nFrom the next check (within 2 minutes):\n· new scheduling work goes to whoever is on Staffing duty now (the schedule under Dashboard, Responsible now; when nobody is scheduled, the person set in Settings)\n· work nobody has taken pulls in whoever holds Owner Escalation: after 5 minutes for an uncovered shift starting within the hour, after 15 minutes for other urgent staffing and missed clock-ins, otherwise once it is overdue. It stays with its owner.\n· missed clock-in texts go to the person on Staffing duty first, and after 15 minutes also to Owner Escalation (daytime only)\n\nNothing is texted to caregivers, clients or families by this.'
+  if(!(await ccConfirm(on?'Turn on right person first, then escalate?\n\nFrom the next check (within 2 minutes):\n· new scheduling work goes to whoever is on Staffing duty now (the schedule under Dashboard, Responsible now; when nobody is scheduled, whoever is In charge)\n· late work nobody has taken pulls in whoever is In charge. It never goes to leadership.\n· critical work (an uncovered shift starting within the hour, urgent staffing, a missed clock-in) pulls in In charge after 10 minutes (5 for the shift), Leadership after 20 and the leadership backup after 35. It stays with its owner.\n· missed clock-in texts follow the same steps, daytime only\n\nNothing is texted to caregivers, clients or families by this.'
     :'Turn off right person first, then escalate? Work goes back to how it was: scheduling alerts go to the alert list, and nothing escalates by itself.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.routing_live=on; if(on && !m.routing_since) m.routing_since=new Date().toISOString(); return ['right person first, then escalate '+(on?'ON':'OFF')]; }, 'routing');
@@ -27110,6 +27144,11 @@ function opsSuggest(it){
   if(it.domain){
     const o=opsDomainOwner(it.domain);
     const d=opsAllDomains().find(x=>x.code===it.domain);
+    /* 2026-10-17: Krystal and Angiel share all clients, so Care Coordination work goes to whichever coordinator is
+       carrying less (and not the payroll person on payroll day). One coordinator: the domain owner, as before. */
+    if(o && window.TA && TA.coordinators().indexOf(String(o).toLowerCase())>-1){
+      const lc=TA.lighterCoordinator(); if(lc) return lc;
+    }
     if(o) return {email:o, reason:'Primary owner for '+((d&&d.label)||it.domain)};
   }
   if(it.kind==='missed_call'){
@@ -27703,7 +27742,9 @@ async function opsSetDomain(id, code){
   opsLog(it, code ? ('Filed under '+((d&&d.label)||code)) : 'Domain cleared');
   if(code && !it.owner){
     const o=opsDomainOwner(code);
-    if(o){ it.owner=o; it.owner_name=opsOwnerName(o); opsLog(it,'Assigned to '+it.owner_name+' as owner of that domain'); }
+    const lc=(o && window.TA && TA.coordinators().indexOf(String(o).toLowerCase())>-1)?TA.lighterCoordinator():null;
+    if(lc){ it.owner=lc.email; it.owner_name=opsOwnerName(lc.email); opsLog(it,'Assigned to '+it.owner_name+': '+lc.reason); }
+    else if(o){ it.owner=o; it.owner_name=opsOwnerName(o); opsLog(it,'Assigned to '+it.owner_name+' as owner of that domain'); }
   }
   await persist('ops_items',it); myWorkRefresh();
 }
@@ -28007,10 +28048,11 @@ function opsOwnerTag(it){
 /* Why is this card in front of me? Said only when it isn't simply my own work that I made or took. */
 function opsWhyHere(it){
   const me=String(opsMeKey()||'').toLowerCase(), o=String(it.owner||'').toLowerCase();
+  if(window.TA && o!==me){ const w=TA.why(it); if(w) return w; }
   const dl=c=>{ const d=opsAllDomains().find(x=>x.code===c); return d?d.label:c; };
   const first=e=>String(opsOwnerName(e)||e||'').split(' ')[0];
   if(!o){
-    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String(it.escalation.why||'')+'.';
+    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String((it.escalation||{}).why||'')+'.';
     if(!it.domain) return 'Nobody owns this, and it isn’t filed under an area yet, so every admin sees it.';
     const r=String(opsDomainOwner(it.domain)||'').toLowerCase();
     if(!r) return 'Nobody owns this, and '+dl(it.domain)+' has no owner set, so every admin sees it.';
@@ -28018,8 +28060,8 @@ function opsWhyHere(it){
     return 'Nobody owns this yet. '+dl(it.domain)+' is '+first(r)+'’s area.';
   }
   if(o!==me){
-    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String(it.escalation.why||'')+'. It stays '+first(o)+'’s unless you take it.';
-    if(String(it.help_from||'').toLowerCase()===me) return first(o)+' asked you for help. It stays '+first(o)+'’s.';
+    if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String((it.escalation||{}).why||'')+'. It stays '+first(o)+'’s unless you take it.';
+    if(String(it.help_from||'').toLowerCase()===me) return it.helping_since?('You’re helping '+first(o)+'. It stays '+first(o)+'’s.'):(first(o)+' asked you for help. It stays '+first(o)+'’s.');
     return '';
   }
   const oh=Array.isArray(it.owner_history)?it.owner_history:[];
@@ -28143,6 +28185,7 @@ async function famCallDone(itemId, how){
 /* An active escalation to this person: not cleared, not theirs, nobody has taken it. */
 function opsUniq(list){ const seen=new Set(); return list.filter(i=>{ if(!i||seen.has(i.id)) return false; seen.add(i.id); return true; }); }
 function opsEscalatedToMe(i, me){
+  if(window.TA) return TA.escalatedToMe(i, me);
   const e=i&&i.escalation; me=String(me||'').toLowerCase();
   return !!(e && !e.cleared_at && me && String(e.to||'').toLowerCase()===me && String(i.owner||'').toLowerCase()!==me && !i.claimed_by && i.status==='open');
 }
@@ -28203,9 +28246,12 @@ function myWorkBuckets(){
                   if(!i.domain) return true;
                   const resp=opsDomainOwner(i.domain);
                   return !resp || resp===me;
-                })).concat(open.filter(i=>opsEscalatedToMe(i, me) && i.escalation.level==='urgent'))
+                })).concat(open.filter(i=>opsEscalatedToMe(i, me) && i.escalation && i.escalation.level==='urgent'))
                 /* Projects (2026-10-06): inside the alert window with open steps */
-                .concat(mine.filter(i=>!parked(i) && typeof pjHot==='function' && pjHot(i)))),
+                .concat(mine.filter(i=>!parked(i) && typeof pjHot==='function' && pjHot(i)))
+                /* 2026-10-17: a helper did their part, or leadership answered: my turn, today */
+                .concat(window.TA?mine.filter(i=>TA.needsMeNow(i)):[])
+                .concat(window.TA?open.filter(i=>TA.decisionFor(i, me)):[])),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
@@ -28536,6 +28582,7 @@ function myWorkCard(it, i){
       +(r.next_checkpoint?' · next look '+esc(callsFmtWhen(r.next_checkpoint)):'')+'</div>';
   }
 
+  if(window.TA) h+=TA.cardTop(it);
   h+='<div id="act_'+it.id+'" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
   if(!it.owner && sug){
     /* "I've got it" beats deciding whose it should be: one press makes it
@@ -28554,6 +28601,9 @@ function myWorkCard(it, i){
       +'onclick="opsTakeIt(\''+it.id+'\')">Take it</button>'
       +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
       +'onclick="opsAssignFromCard(\''+it.id+'\',\'act_'+it.id+'\')">Assign…</button>';
+  } else if(window.TA && String(it.owner).toLowerCase()!==String(ccActor().email||'').toLowerCase()){
+    /* Somebody else's card (2026-10-17): help first, and taking it over is a deliberate step with a reason. */
+    h+=TA.othersButtons(it);
   } else if(String(it.owner).toLowerCase()!==String(ccActor().email||'').toLowerCase()){
     /* Somebody else's card in front of me (a help request, a shared view): one press makes it mine, with history. */
     h+='<button class="primary" style="padding:6px 13px;font-size:12.5px;" '
@@ -28611,11 +28661,11 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('working', it.sub_state==='working'?'Not working on it right now':'I am working on this');
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
-    it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
+    it.help_from?'Help no longer needed':'Needs team support… (stays mine)');
   /* Up for grabs (2026-10-13): my own ordinary work can be offered to anyone with time */
   if(window.TP && String(it.owner||'').toLowerCase()===meCl && !issueOf(it) && it.kind!=='project' && it.kind!=='journey' && !it.sensitive)
     h+=opt('pool','Put it up for grabs (anyone with time)');
-  h+=opt('needs_samantha','Hand it over — needs Samantha');
+  h+=opt('needs_samantha', window.TA?'Escalate for decision… (stays mine)':'Hand it over — needs Samantha');
   /* An issue is NOT closed by the generic triage reasons. Completing an action
      and resolving a problem are different acts and the menu has to say so, or
      somebody clicks Done because they finished today's phone call. */
@@ -28642,7 +28692,8 @@ function myWorkMore(id, anchorId){
       /* Waiting without a date is how work disappears. Marking something
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
-      if(r.dataset.what==='claim') return opsTakeIt(id);
+      /* 2026-10-17: taking someone else's work is a transfer: confirm and a reason (TA.transfer); my own is "I'm on it" */
+      if(r.dataset.what==='claim') return (window.TA && it.owner && String(it.owner).toLowerCase()!==ccActor().email) ? TA.transfer(id, anchorId) : opsTakeIt(id);
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -28801,7 +28852,7 @@ function renderMyWork(){
       ? later.map(it=>myWorkCard(it,-1)).join('')+'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_LATER_OPEN=false;renderMyWork()">Fold away</span>'
       : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_LATER_OPEN=true;renderMyWork()">Show '+later.length+' later item'+(later.length===1?'':'s')+'</button>'));
   const sel=myWorkSelectable();
-  wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+h;
+  wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+(window.TA?TA.stripHtml():'')+h;
 }
 function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
 
@@ -28918,7 +28969,7 @@ function myWorkKeys(e){
   if(k==='?')          return go(()=>ccPopOpen(document.getElementById('myWorkTabs'),
     '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">Shortcuts</div>'
     +[['J / K','next / previous'],['A','assign'],['D','what it is about'],
-      ['H','already handled'],['E','needs Samantha'],['X','select for bulk'],
+      ['H','already handled'],['E','escalate for decision'],['X','select for bulk'],
       ['Esc','close this']].map(([a,b])=>
       '<div style="display:flex;gap:12px;font-size:13px;padding:3px 0;">'
       +'<b style="min-width:56px;">'+a+'</b><span>'+b+'</span></div>').join(''), {width:250}));
@@ -28952,6 +29003,13 @@ async function opsTriage(id, what, quiet){
       opEvent('item_released',{item:it, summary:wa.name+' stepped back — '+(it.about||it.title||'')});
     }
     opsLog(it, it.sub_state==='working'?'Started working on it':'No longer marked in progress');
+  } else if(what==='ask_help' && window.TA){
+    /* 2026-10-17: Needs team support. A teammate first (the other Care Coordinator, or whoever is In charge), never
+       leadership by default. The picker saves it. */
+    return TA.askSupport(id, 'act_'+id);
+  } else if(what==='needs_samantha' && window.TA){
+    /* 2026-10-17: Escalate for decision. One question to leadership; the owner keeps the item. */
+    return TA.escalateDecision(id, 'act_'+id);
   } else if(what==='ask_help'){
     /* ASKING FOR HELP MUST NOT MOVE THE WORK.
        'Needs Samantha' reassigns the owner, so the only way to ask a question
@@ -31741,6 +31799,10 @@ function posHolderLabel(r){
 
 const DUTY_AREAS=[
   ['operations',      'Operations',        'Manages whatever comes up',            ['client_care','family_enquiries']],
+  /* Springfield structure (2026-10-17): the person with authority when the owner, their partner and leadership aren't
+     available. Weekdays Krystal (Springfield lead); evenings and weekends Samantha for now. Overdue work and the first
+     step of anything critical come here, not to leadership. */
+  ['in_charge',       'In charge',         'Makes the call when nobody else can',  []],
   ['staffing',        'Staffing',          'Open shifts, call-offs, outreach',     ['scheduling_coverage']],
   ['field_response',  'Field Response',    'Can physically go to a home',          []],
   /* field_quality, NOT caregiver_performance. One domain was doing two jobs:
@@ -31750,12 +31812,12 @@ const DUTY_AREAS=[
      are still correctly classified; only future field work routes here. */
   ['advanced_care',   'Advanced Care',     'CNA-level judgement',                  ['field_quality']],
   ['after_hours',     'After Hours',       'Holds the phone outside office hours', []],
-  ['owner_escalation','Owner Escalation',  'The last resort',                      []]];
+  ['owner_escalation','Leadership',        'Decisions, and critical work the team couldn’t settle', []]];
 /* Areas that mean "you are available to respond". Direct care is not one of
    them, and that is the whole basis of the conflict rule. */
-const DUTY_RESPONDING=['operations','staffing','after_hours','owner_escalation'];
+const DUTY_RESPONDING=['operations','in_charge','staffing','after_hours','owner_escalation'];
 /* The seats the office always has someone in: whoever is scheduled, else the "when nobody is scheduled" person. */
-const DUTY_CORE=['operations','staffing','owner_escalation'];
+const DUTY_CORE=['operations','in_charge','staffing','owner_escalation'];
 
 function dutyAreaLabel(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[1]||code; }
 function dutyAreaDomains(code){ return (DUTY_AREAS.find(a=>a[0]===code)||[])[3]||[]; }
