@@ -5592,22 +5592,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cp_c_start"></div>
   </div>
   <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div id="cp_c_family"></div><div class="profile-grid">
-    <div>
-<div class="cp-lead">
-      <!-- What has actually been said to this person. Used to mean leaving the
-           hub for GoHighLevel and searching their name, so nobody looked. -->
-      <div class="card" style="padding:18px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">💬 Texts &amp; emails</b>
-          <span class="field-note" id="gt_lp_meta"></span>
-          <button class="linklike" style="margin-left:auto;" onclick="ghlThread('gt_lp', {phone:(lpLead||{}).phone, email:(lpLead||{}).email})">↻ Load</button>
-          <a class="linklike" id="gt_lp_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a>
-        </div>
-        <div id="gt_lp" style="margin-top:10px;"></div>
-      </div>
-</div>
-<!-- the Nurture drip card was retired 2026-10-07 (clean-up 6.3): no timed family sequences; a family's next touch is a person's call -->
-    </div>
+<!-- 2026-10-17 her ask: no "Texts & emails" box on Family & Contacts ("no reason it should be here"). ghlThreadReset('gt_lp') is
+     null-safe, so nothing else changes. The Nurture drip card was retired 2026-10-07 (clean-up 6.3). -->
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;">
