@@ -73,11 +73,14 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('file://' + page); pg.wait_for_timeout(50)
     t = pg.inner_text('#cp_cl360Circle')
-    ck('circle: invite button for someone with an email; Tom needs an email; Ann shows on + can book', 'Invite to the family app' in t and 'add an email to invite them' in t and 'Family app: on' in t and 'can book visits' in t, t)
+    ck('circle: one invite-and-welcome button for someone with an email; Tom needs an email; Ann shows on + can book', 'Invite and send welcome' in t and 'add an email to invite them' in t and 'Family app: on' in t and 'can book visits' in t, t)
     pg.click('#fam-cp_-9 button'); pg.wait_for_timeout(80)
     t = pg.inner_text('#cp_cl360Circle')
     calls = pg.evaluate('__calls')
-    ck('invite: calls the office door, reloads the card, shows the words with "Nothing was sent"', calls[-1] == ['family-app-office', {'action': 'invite', 'contact_id': 9, 'can_book': True}] and 'Nothing was sent' in t and 'family.mo-care.com' in t and 'Lisa Ray' in t and 'Family app: on' in pg.inner_text('#fam-cp_-9'), [calls, t])
+    # her ask 2026-10-17: one press invites AND opens the welcome to read; nothing is sent until Send welcome
+    pg.wait_for_timeout(120); t = pg.inner_text('#cp_cl360Circle')
+    ck('one press: invites (office door), then the welcome preview opens; nothing sent yet', ['family-app-office', {'action': 'invite', 'contact_id': 9, 'can_book': True}] in calls and
+       any(c[1].get('action') == 'welcome' and c[1].get('contact_id') == 9 and not c[1].get('send') for c in pg.evaluate('__calls')) and 'can sign in now. Nothing is sent until you press Send welcome' in t and 'Not now' in t, t)
     pg.click('#fam-cp_-11 button:has-text("Turn booking off")'); pg.wait_for_timeout(80)
     ck('booking off for one person', pg.evaluate('__calls')[-1][1] == {'action': 'can_book', 'contact_id': 11, 'on': False} and "can't book" in pg.inner_text('#fam-cp_-11'))
     n = len(pg.evaluate('__calls'))

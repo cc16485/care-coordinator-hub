@@ -28,9 +28,10 @@
     if (st === 'revoked') return head + '<span class="field-note">Family app: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
     if (m.stopped_at || m.axiscare_removed_at) return ''
     if (!m.email) return head + '<span class="field-note">Family app: add an email to invite them</span></div>'
-    return head + btn('Invite to the family app', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')", 'btn-primary') + '</div>'
+    // Her ask 2026-10-17: ONE press invites them and opens the welcome to read; it goes only when Send welcome is pressed.
+    return head + btn('Invite and send welcome', "FAMAPP.act('invite'," + id + ",'" + e(px) + "',null,true)", 'btn-primary') + '</div>'
   }
-  function act(action, contactId, px, on) {
+  function act(action, contactId, px, on, thenWelcome) {
     var line = document.getElementById('fam-' + px + '-' + contactId)
     if (action === 'revoke' && line && !line.dataset.sure) { line.dataset.sure = '1'; line.insertAdjacentHTML('beforeend', '<span class="fam-sure" style="color:#B45309;font-weight:600;">They won\'t be able to see anything. Press Turn app off again to confirm.</span>'); return Promise.resolve() }
     if (line) line.style.opacity = '.55'
@@ -40,6 +41,7 @@
     return call(body).then(function (d) {
       var c = ctxs[px]
       return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        if (action === 'invite' && thenWelcome) return welcome(contactId, px, true)   // straight to the welcome preview
         if (action === 'invite' && d.words) {
           var l2 = document.getElementById('fam-' + px + '-' + contactId)
           if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-words" style="background:var(--teal-pale,#EAF4F6);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;">' +
@@ -58,11 +60,11 @@
   }
   function selectText(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r) }
 
-  // ── Welcome by text + email (her approved wording, 2026-10-15). A person presses Send; nothing goes on its own. ─────
+  // ── Welcome by text + email (her approved wording, 2026-10-17). A person presses Send; nothing goes on its own. ─────
   var W = {}
-  function welcome(contactId, px) {
+  function welcome(contactId, px, justInvited) {
     var line = document.getElementById('fam-' + px + '-' + contactId); if (!line) return Promise.resolve()
-    var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) { old.remove(); return Promise.resolve() }
+    var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) { old.remove(); if (!justInvited) return Promise.resolve() }
     line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the welcome ready…</div>')
     return call({ action: 'welcome', contact_id: contactId }).then(function (d) {
       W[px + '-' + contactId] = d
@@ -71,13 +73,14 @@
         : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on their AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send without the AxisCare part.</div>'
         : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
       var how = [d.can_text ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
-      box.innerHTML = '<b>Welcome for ' + e(d.name) + '</b>' + axis +
+      box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send welcome.</div>' : '') +
+        '<b>Welcome for ' + e(d.name) + '</b>' + axis +
         '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + e(px) + '-' + contactId + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(' + contactId + ',\'' + e(px) + '\', this.checked)"> Include the AxisCare portal steps (calendar, care notes, invoices)</label>' +
         '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + e(px) + '-' + contactId + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
         '<div class="field-note" style="margin:4px 0;">Email: "' + e(d.email_subject) + '" with the same steps and buttons.</div>' +
         '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
         (how.length ? '<div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(' + contactId + ',\'' + e(px) + '\', this)">Send welcome</button>' +
-          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\')">Cancel</button></div>' : '') +
+          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\')">' + (justInvited ? 'Not now' : 'Cancel') + '</button></div>' : '') +
         '<div class="fam-wmsg" style="margin-top:4px;"></div>'
     }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
