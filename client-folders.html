@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Client Folders · Caring Companions</title>
+<!-- ============================================================
+     CLIENT FOLDERS (Samantha 2026-10-17): everything for the assessment folder in one place. Pick the folder for the
+     level of care, how to put it together, every printed piece (open or download the PDF), and how to order more from
+     Vistaprint (her answers: online printer in bulk, because the office's HP 206A toner is expensive; pay with the card
+     saved in the Vistaprint account; the handbook as a stapled booklet). No card number is ever written here.
+     The PDFs in client-folders/ are built in cc-folder-inserts (src/build.py, src/handbook.py). Rev. 10/2026.
+     ============================================================ -->
+<style>
+  :root{ --navy:#0D365F; --teal:#1F7A8C; --teal-d:#155A68; --pale:#EAF4F6; --honey:#F0A63A; --honey-d:#9C6410; --ink:#16283a; --muted:#55677a; --border:#e4e1d8; --cream:#faf9f6; --panel:#f4f2ec; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; background:var(--cream); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size:16px; line-height:1.55; }
+  header{ background:var(--navy); color:#fff; padding:14px 20px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  header b{ font-size:18px; } header a{ color:#fff; font-size:14px; opacity:.85; }
+  main{ max-width:1080px; margin:0 auto; padding:18px 20px 60px; }
+  h1{ font-size:28px; color:var(--navy); margin:6px 0 4px; } h2{ font-size:21px; color:var(--navy); margin:30px 0 10px; } h3{ font-size:16.5px; color:var(--navy); margin:0 0 6px; }
+  .lead{ color:var(--muted); margin:0 0 14px; max-width:820px; }
+  .kick{ font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--honey-d); margin:0 0 6px; }
+  .card{ background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; } .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .lvl h3{ font-size:19px; } .lvl .tag{ font-size:12.5px; color:var(--muted); margin:0 0 10px; }
+  ol,ul{ margin:6px 0 0; padding-left:20px; } li{ margin:3px 0; }
+  .btn{ display:inline-flex; align-items:center; gap:6px; font:inherit; font-weight:700; font-size:14.5px; border-radius:10px; padding:9px 14px; text-decoration:none; background:var(--teal); color:#fff; border:0; }
+  .btn.ghost{ background:#fff; color:var(--navy); border:1.5px solid #cfd6dd; }
+  .btns{ display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .pocket{ border-radius:12px; padding:12px 14px; } .pocket.l{ background:var(--pale); } .pocket.r{ background:var(--panel); }
+  .pocket b{ color:var(--navy); }
+  .note{ background:var(--pale); border-left:4px solid var(--teal); border-radius:0 10px 10px 0; padding:11px 14px; margin:12px 0; }
+  .warn{ background:#fff7e0; border-left:4px solid var(--honey); border-radius:0 10px 10px 0; padding:11px 14px; margin:12px 0; }
+  table{ width:100%; border-collapse:collapse; background:#fff; border:1px solid var(--border); border-radius:12px; overflow:hidden; font-size:14.5px; }
+  th,td{ text-align:left; padding:9px 11px; border-top:1px solid #efece5; vertical-align:top; } th{ background:var(--panel); color:var(--navy); font-size:13px; border-top:0; }
+  td a{ color:var(--teal-d); font-weight:600; } .muted{ color:var(--muted); } .small{ font-size:13.5px; }
+  .steps{ counter-reset:s; list-style:none; padding:0; } .steps li{ counter-increment:s; position:relative; padding-left:38px; margin:10px 0; }
+  .steps li:before{ content:counter(s); position:absolute; left:0; top:0; width:27px; height:27px; border-radius:99px; background:var(--teal); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  @media (max-width:820px){ .grid3,.grid2{ grid-template-columns:1fr; } table{ font-size:13.5px; } th:nth-child(4),td:nth-child(4){ display:none; } }
+</style>
+</head>
+<body>
+<header><b>Client Folders</b><a href="index.html">&larr; Back to the Hub</a></header>
+<main>
+<div class="kick">Assessment folders · Rev. 10/2026</div>
+<h1>Client folders: what goes in, how to put them together, and how to order more</h1>
+<p class="lead">Every prospective private-pay client gets a folder at the in-home assessment. Pick the folder for the level of care you recommend. The printed pieces are ordered in bulk from Vistaprint, and you put each folder together from the boxes in the office.</p>
+
+<h2>1. Pick the folder for their level</h2>
+<div class="grid3">
+ <div class="card lvl"><h3>Wellness Care</h3><p class="tag">Level 1: company, meals, errands, light housekeeping</p>
+  <div class="btns"><a class="btn" href="client-folders/0-folder-wellness.pdf" target="_blank" rel="noopener">Open the Wellness folder</a></div></div>
+ <div class="card lvl"><h3>Personal Care</h3><p class="tag">Level 2: hands-on help with bathing, dressing, moving safely</p>
+  <div class="btns"><a class="btn" href="client-folders/0-folder-personal.pdf" target="_blank" rel="noopener">Open the Personal folder</a></div></div>
+ <div class="card lvl"><h3>Advanced Care</h3><p class="tag">Level 3: higher needs, more complex care</p>
+  <div class="btns"><a class="btn" href="client-folders/0-folder-advanced.pdf" target="_blank" rel="noopener">Open the Advanced folder</a></div></div>
+</div>
+<p class="small muted">Each one is the whole folder in pocket order (16 pages, 8 double-sided sheets). Use it to see what goes in, or to print one in a pinch if a box runs out.</p>
+
+<h2>2. Put the folder together</h2>
+<div class="grid2">
+ <div class="pocket l"><div class="kick">Left pocket · helping the family decide</div>
+  <ol>
+   <li><b>Our Levels of Care</b></li>
+   <li><b>The sheet for their level:</b> Wellness, Personal or Advanced Care</li>
+   <li><b>Rates &amp; Ways to Pay</b></li>
+   <li><b>Meet Your Caregiver</b></li>
+  </ol></div>
+ <div class="pocket r"><div class="kick">Right pocket · getting started</div>
+  <ol>
+   <li><b>Client Handbook</b> (the stapled booklet),</li>
+   <li><b>Personalized Care Proposal</b>, filled in after the assessment</li>
+   <li><b>Next Steps</b></li>
+   <li><b>Seeing Care Notes &amp; Invoices in AxisCare</b></li>
+   <li><b>The Caring Companions App</b></li>
+  </ol></div>
+</div>
+<ol class="steps">
+ <li><b>Before the visit:</b> put the left pocket together for the level you expect, and the right pocket (all five pieces). Every piece is one double-sided sheet except the handbook booklet, so nothing needs stapling.</li>
+ <li><b>Add one extra flyer when it fits the family</b> (see the list below), in the left pocket behind their level sheet.</li>
+ <li><b>At the assessment,</b> fill in the Care Proposal (level, days, hours, estimated weekly cost, start date) and put it in the right pocket.</li>
+ <li><b>If they say yes,</b> sign the Client Care Agreement on the tablet (the client's card in the Hub, Start of Care), or send it to sign from home. Use the paper agreement only as a backup.</li>
+</ol>
+<div class="note"><b>Add when it fits the family:</b> Coming Home from the Hospital (just home from a hospital or rehab) · Overnight, 24-Hour &amp; Respite Care (nights, around the clock, or a worn-out family caregiver) · Long-Term Care Insurance &amp; VA Benefits (a policy or a veteran) · Medicare GUIDE (dementia) · HomeTogether TV half-sheet (20+ hours a week) · Good Days Out (outings) · Caring CDS half-sheet (Missouri Medicaid, hire their own caregiver).</div>
+
+<h2>3. Every printed piece</h2>
+<table>
+ <tr><th>Piece</th><th>Open the PDF</th><th>How to order it on Vistaprint</th><th>Keep on hand</th></tr>
+ <tr><td colspan="4" class="kick" style="background:#fff;padding-top:12px">In every folder</td></tr>
+ <tr><td>Our Levels of Care</td><td><a href="client-folders/1-levels-of-care.pdf" target="_blank" rel="noopener">1-levels-of-care.pdf</a></td><td>Flyer, 2-sided</td><td>50</td></tr>
+ <tr><td>Rates &amp; Ways to Pay</td><td><a href="client-folders/5-rates-and-ways-to-pay.pdf" target="_blank" rel="noopener">5-rates-and-ways-to-pay.pdf</a></td><td>Flyer, 2-sided</td><td>50</td></tr>
+ <tr><td>Meet Your Caregiver</td><td><a href="client-folders/23-meet-your-caregiver.pdf" target="_blank" rel="noopener">23-meet-your-caregiver.pdf</a></td><td>Flyer, 2-sided</td><td>50</td></tr>
+ <tr><td>Personalized Care Proposal</td><td><a href="client-folders/24-care-proposal.pdf" target="_blank" rel="noopener">24-care-proposal.pdf</a></td><td>Flyer, 1-sided (matte, so it's easy to write on)</td><td>50</td></tr>
+ <tr><td>Next Steps</td><td><a href="client-folders/25-next-steps.pdf" target="_blank" rel="noopener">25-next-steps.pdf</a></td><td>Flyer, 1-sided</td><td>50</td></tr>
+ <tr><td>Seeing Care Notes &amp; Invoices in AxisCare</td><td><a href="client-folders/22-axiscare-family-access.pdf" target="_blank" rel="noopener">22-axiscare-family-access.pdf</a></td><td>Flyer, 1-sided</td><td>50</td></tr>
+ <tr><td>The Caring Companions App</td><td><a href="client-folders/15-client-app-assessment.pdf" target="_blank" rel="noopener">15-client-app-assessment.pdf</a></td><td>Flyer, 2-sided</td><td>50</td></tr>
+ <tr><td>Client Handbook</td><td><a href="client-folders/16-client-handbook-booklet.pdf" target="_blank" rel="noopener">16-client-handbook-booklet.pdf</a> <span class="muted small">(24 pages for printing)</span><br><a class="small" href="client-folders/16-client-handbook.pdf" target="_blank" rel="noopener">16-client-handbook.pdf</a> <span class="muted small">(to read or email)</span></td><td>Saddle-Stitch Booklet, 24 pages</td><td>25</td></tr>
+ <tr><td>Pocket folders</td><td class="muted">Your logo</td><td>Folders, 9" x 12"</td><td>100</td></tr>
+ <tr><td colspan="4" class="kick" style="background:#fff;padding-top:12px">One per folder, for their level</td></tr>
+ <tr><td>Wellness Care</td><td><a href="client-folders/2-wellness-care.pdf" target="_blank" rel="noopener">2-wellness-care.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Personal Care</td><td><a href="client-folders/3-personal-care.pdf" target="_blank" rel="noopener">3-personal-care.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Advanced Care</td><td><a href="client-folders/4-advanced-care.pdf" target="_blank" rel="noopener">4-advanced-care.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td colspan="4" class="kick" style="background:#fff;padding-top:12px">Add when it fits the family</td></tr>
+ <tr><td>Coming Home from the Hospital</td><td><a href="client-folders/7-home-from-the-hospital.pdf" target="_blank" rel="noopener">7-home-from-the-hospital.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Overnight, 24-Hour &amp; Respite Care</td><td><a href="client-folders/6-overnight-24-hour-respite.pdf" target="_blank" rel="noopener">6-overnight-24-hour-respite.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Long-Term Care Insurance &amp; VA Benefits</td><td><a href="client-folders/9-ltc-insurance-and-va.pdf" target="_blank" rel="noopener">9-ltc-insurance-and-va.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Medicare GUIDE (dementia respite)</td><td><a href="client-folders/8-medicare-guide-dementia-respite.pdf" target="_blank" rel="noopener">8-medicare-guide-dementia-respite.pdf</a></td><td>Flyer, 2-sided</td><td>25</td></tr>
+ <tr><td>Good Days Out</td><td><a href="client-folders/12-good-days-out-flyer.pdf" target="_blank" rel="noopener">12-good-days-out-flyer.pdf</a></td><td>Flyer, 1-sided</td><td>25</td></tr>
+ <tr><td>HomeTogether TV half-sheets</td><td><a href="client-folders/13-hometogether-tv-half-sheets.pdf" target="_blank" rel="noopener">13-hometogether-tv-half-sheets.pdf</a></td><td>Flyer, 1-sided; cut in half in the office</td><td>25 sheets</td></tr>
+ <tr><td>Caring CDS half-sheets</td><td><a href="client-folders/11-caring-cds-half-sheets.pdf" target="_blank" rel="noopener">11-caring-cds-half-sheets.pdf</a></td><td>Flyer, 1-sided; cut in half in the office</td><td>25 sheets</td></tr>
+ <tr><td colspan="4" class="kick" style="background:#fff;padding-top:12px">Signing (print in the office, only when needed)</td></tr>
+ <tr><td>Client Care Agreement (paper backup)</td><td><a href="client-folders/18-client-care-agreement.pdf" target="_blank" rel="noopener">18-client-care-agreement.pdf</a></td><td class="muted">Not ordered. The tablet is first choice.</td><td>2 printed</td></tr>
+ <tr><td>Contacts &amp; Permissions (for later changes)</td><td><a href="client-folders/21-contacts-and-permissions.pdf" target="_blank" rel="noopener">21-contacts-and-permissions.pdf</a></td><td class="muted">Not ordered</td><td>As needed</td></tr>
+ <tr><td>VA Community Care Addendum</td><td><a href="client-folders/19-va-community-care-addendum.pdf" target="_blank" rel="noopener">19-va-community-care-addendum.pdf</a></td><td class="muted">Not ordered; VA clients only</td><td>As needed</td></tr>
+ <tr><td>Medicare GUIDE Addendum</td><td><a href="client-folders/20-medicare-guide-addendum.pdf" target="_blank" rel="noopener">20-medicare-guide-addendum.pdf</a></td><td class="muted">Not ordered; GUIDE clients only</td><td>As needed</td></tr>
+ <tr><td colspan="4" class="kick" style="background:#fff;padding-top:12px">Not for families</td></tr>
+ <tr><td>Folder checklist (office use)</td><td><a href="client-folders/17-office-folder-checklist.pdf" target="_blank" rel="noopener">17-office-folder-checklist.pdf</a></td><td class="muted">Print one for the office</td><td>1</td></tr>
+ <tr><td>For Referral Partners</td><td><a href="client-folders/10-referral-partners.pdf" target="_blank" rel="noopener">10-referral-partners.pdf</a></td><td>Flyer, 1-sided</td><td>25</td></tr>
+ <tr><td>Now Hiring Caregivers</td><td><a href="client-folders/14-now-hiring-flyer.pdf" target="_blank" rel="noopener">14-now-hiring-flyer.pdf</a></td><td>Flyer, 1-sided</td><td>25</td></tr>
+</table>
+
+<h2>4. How to order more from Vistaprint</h2>
+<div class="warn"><b>Paying:</b> use the office card saved in the Caring Companions Vistaprint account. Never write a card number in the Hub, an email or a text. Ask Samantha if you don't have the Vistaprint sign-in.</div>
+<div class="grid2">
+ <div class="card"><h3>Reorder something you've ordered before (easiest)</h3>
+  <ol class="steps">
+   <li>Go to <a href="https://www.vistaprint.com" target="_blank" rel="noopener">vistaprint.com</a> and sign in to the office account.</li>
+   <li>Open your account's past orders and find the piece.</li>
+   <li>Choose <b>Reorder</b>, check the quantity, and check out with the saved card.</li>
+  </ol>
+  <p class="small muted">Only reorder a piece if this page shows the same Rev. date as the last order. If a piece changed, order it new with the PDF from this page.</p></div>
+ <div class="card"><h3>Order a flyer new</h3>
+  <ol class="steps">
+   <li>On vistaprint.com, open <b>Postcards &amp; Print Advertising</b>, then under Marketing Materials choose <b>Flyers</b>. Pick <b>8.5" x 11"</b>.</li>
+   <li>Pick <b>2-sided</b> or <b>1-sided</b> (the table above says which), and a matte paper, thicker if you can.</li>
+   <li>Choose to <b>upload your design</b> and upload the PDF from this page. A 2-page PDF is the front and back.</li>
+   <li>In the preview, check the front and back look right and nothing is cut off. The white edge around the page is meant to be there.</li>
+   <li>Pick the quantity, then check out with the saved card. Ship to the office.</li>
+  </ol></div>
+ <div class="card"><h3>Order Client Handbooks</h3>
+  <ol class="steps">
+   <li>On vistaprint.com, open <b>Postcards &amp; Print Advertising</b>, then under Booklets, Catalogs &amp; Magazines choose <b>Saddle-Stitch Booklets</b> (the stapled kind). Pick letter size (8.5" x 11") if offered.</li>
+   <li>Pick <b>24 pages</b> and upload <b>16-client-handbook-booklet.pdf</b> from this page.</li>
+   <li>Check the preview page by page, then check out with the saved card.</li>
+  </ol></div>
+ <div class="card"><h3>Order pocket folders</h3>
+  <ol class="steps">
+   <li>On vistaprint.com, open <b>Postcards &amp; Print Advertising</b>, then under Marketing Materials choose <b>Folders</b>. Pick <b>9" x 12"</b> (holds letter-size sheets).</li>
+   <li>Add the Caring Companions logo, or ask Samantha for the folder design.</li>
+   <li>The smallest order is 100. Check out with the saved card.</li>
+  </ol></div>
+</div>
+<div class="note"><b>When to reorder:</b> when a box gets down to about 10, order the amount in the "Keep on hand" column. Orders take a few days to arrive, so don't wait until the last one.<br><b>When something changes</b> (rates, the app, a policy), Samantha will update the PDFs here. Recycle the old ones and order the changed pieces only. The folder checklist says which pieces carry prices.</div>
+<p class="small muted">Prices change, so check the cart total before you pay. These PDFs are built from the Caring Companions marketing source (cc-folder-inserts) and are the only versions to order from.</p>
+</main>
+</body>
+</html>
