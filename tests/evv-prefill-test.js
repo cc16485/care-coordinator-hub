@@ -8,10 +8,14 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 700))); };
-const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+/* 2026-10-17: the EVV tab is removed and the form is retired (tests/confirm-times-test.js). The tab's glue and the link
+   page's old EVV card are checked on their last version (99a7a8c); evv-forms.js itself still serves the profiles. */
+const LAST_EVV_TAB = '99a7a8c';
+const atLast = (f) => require('child_process').execSync('git show ' + LAST_EVV_TAB + ':' + f, { cwd: ROOT, encoding: 'utf8', maxBuffer: 64e6 });
+const idx = atLast('index.html');
 const lib = fs.readFileSync(path.join(ROOT, 'evv-forms.js'), 'utf8');
 const formPage = fs.readFileSync(path.join(ROOT, 'evv-form.html'), 'utf8');
-const clockin = fs.readFileSync(path.join(ROOT, 'clockin.html'), 'utf8');
+const clockin = atLast('clockin.html');
 require(path.join(ROOT, 'evv-forms.js'));
 const F = globalThis.EVVF;
 const DASH = /[\u2014\u2015]/;

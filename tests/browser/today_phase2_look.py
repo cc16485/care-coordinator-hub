@@ -2,6 +2,8 @@
 offline, made-up people only; saves are recorded, never sent, and nobody is texted or emailed.
 (python3 tests/browser/today_phase2_look.py, with the static server on 8765)"""
 from playwright.sync_api import sync_playwright
+import os
+PORT = os.environ.get('HUB_PORT', '8765')   # the static server's port
 
 STUB = r"""
 (()=>{
@@ -56,7 +58,8 @@ async()=>{
      && /Answering closes the case\. No texts are sent\./.test(card('ops_covq_c2').innerText));
   ok('...and says why it is yours (the role, not the alert list)', /Why you’re seeing this: You own Scheduling and coverage\./.test(card('ops_covq_c2').innerText), card('ops_covq_c2').innerText.slice(0,300));
   ok('the family card: called / already knew, and the Hub never calls', /I called the family/.test(card('ops_famcall_c6').innerText) && /They already knew/.test(card('ops_famcall_c6').innerText) && /never calls or texts the family itself/.test(card('ops_famcall_c6').innerText));
-  ok('the EVV review opens Attendance; the EVV fix opens Missing EVV', /Open Attendance/.test(card('ops_evvrev_2026-09-28').innerText) && /Open Missing EVV/.test(card('ops_evvfix_9301').innerText));
+  /* 2026-10-17: the EVV tab is gone; an old EVV fix card says to call the client (new cards are confirm_times) */
+  ok('the EVV review opens Attendance; an old EVV fix card says to call the client and confirm the times', /Open Attendance/.test(card('ops_evvrev_2026-09-28').innerText) && /Call the client to confirm the times/.test(card('ops_evvfix_9301').innerText) && !/Open Missing EVV/.test(card('ops_evvfix_9301').innerText));
 
   /* Not covered */
   L.writes.length=0; press('ops_covq_c2','Not covered'); await sleep(150);
@@ -97,7 +100,7 @@ with sync_playwright() as pw:
     pin(pg)  # same answer at any hour (tests/browser/clock_pin.py)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.goto('http://localhost:8765/index.html?proof=today2'); pg.wait_for_timeout(1200)
+    pg.goto('http://127.0.0.1:'+PORT+'/index.html?proof=today2'); pg.wait_for_timeout(1200)
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)

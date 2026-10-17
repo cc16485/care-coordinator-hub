@@ -20,7 +20,7 @@
     ['A client\'s regular shift has nobody on it', go('', 'ongoing', 'Cara: Ongoing shifts'), 'Ask who wants it, the same way as a call-off.'],
     ['Regular hours to fill, or a new client', go('teambuilder', '', 'Client Care: Team Builder'), 'Ask the whole team, then pencil in the green names.'],
     ['Who can we staff this week? Who wants more hours?', go('', 'hours', 'Cara: Hours & matching'), 'Check it on Mondays; text the availability link to anyone missing.'],
-    ['A visit is missing a clock-in or clock-out', go('evv', '', 'EVV'), 'Text the correction form, then process the signed form.'],
+    ['A visit is missing a clock-in or clock-out', go('ops', '', 'Needs Attention'), 'Call the client to confirm the times from the card, then fix the visit in AxisCare.'],
     ['See the schedule, or change one visit', go('liveschedule', '', 'Live Schedule'), 'Click a visit to change its caregiver or time.'],
     ['How did a new pairing go?', go('carematch', '', 'Care Match Check-ins'), 'Call when a check-in is due and log both sides.'],
     ['GHEs and medication visits', go('nursevisits', '', 'Nurse Scheduling'), 'Who is due, which nurse, and the GHE forms.'],
@@ -66,10 +66,10 @@
       'Use <b>Link to a Journey</b> once the client is in the Hub.',
       '<b>Plan complete</b> shows a preview, then puts the schedules into AxisCare. It can be undone the same day.',
     ])
-    + steps('🧾 Fixing an EVV record', false, [
-      'Open <b>EVV</b>. <b>Missing from the record</b> lists yesterday\'s and today\'s visits with no clock-in or clock-out.',
-      'Press <b>text form</b> to send the caregiver the correction form link.',
-      'Signed forms land in <b>Forms received</b>. Fix each visit in AxisCare, then record it in the corrections log.',
+    + steps('🧾 A missing clock-in or clock-out', false, [
+      'The Hub opens a card in <b>Needs Attention</b>: <b>Call Ruth to confirm Maria\'s times</b>. It comes 30 minutes after a shift ends with no clock-out, when a shift ends with no clock-in, and overnight for anything from yesterday.',
+      'Tap <b>Call</b> and ask what time the caregiver got there and left. Let them tell you the times.',
+      '<b>Record the call</b> on the card, correct the visit in AxisCare, then tick <b>Fixed in AxisCare</b>. We no longer use the EVV correction form.',
     ])
     + steps('🗓️ Changing one visit', false, [
       'Open <b>Live Schedule</b> and click the visit.',
