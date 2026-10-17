@@ -133,8 +133,8 @@
       <b>Drop files here, or click to choose</b>
       <div class="muted" style="margin-top:4px;">One file or a whole folder's worth. PDF, Word, Excel, or an image. Up to 25MB each.</div>
       <input type="file" id="fileIn" class="hide" multiple>
-      <input type="file" id="verIn" class="hide">
     </div>
+    <input type="file" id="verIn" class="hide">
     <div id="upMsg"></div>
   </div>
 
@@ -222,7 +222,7 @@
 
   /* ---------- upload one or many new documents ---------- */
   var drop = $('drop');
-  drop.addEventListener('click', function () { $('fileIn').click(); });
+  drop.addEventListener('click', function (e) { if (e.target.tagName !== 'INPUT') $('fileIn').click(); });
   drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('fileIn').click(); } });
   drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
   drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
