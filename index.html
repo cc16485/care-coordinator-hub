@@ -28063,7 +28063,7 @@ function opsWhyHere(it){
   }
   if(o!==me){
     if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String((it.escalation||{}).why||'')+'. It stays '+first(o)+'’s unless you take it.';
-    if(String(it.help_from||'').toLowerCase()===me) return 'You’re helping '+first(o)+'. It stays '+first(o)+'’s.';
+    if(String(it.help_from||'').toLowerCase()===me) return it.helping_since?('You’re helping '+first(o)+'. It stays '+first(o)+'’s.'):(first(o)+' asked you for help. It stays '+first(o)+'’s.');
     return '';
   }
   const oh=Array.isArray(it.owner_history)?it.owner_history:[];
@@ -28694,7 +28694,8 @@ function myWorkMore(id, anchorId){
       /* Waiting without a date is how work disappears. Marking something
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
-      if(r.dataset.what==='claim') return opsTakeIt(id);
+      /* 2026-10-17: taking someone else's work is a transfer: confirm and a reason (TA.transfer); my own is "I'm on it" */
+      if(r.dataset.what==='claim') return (window.TA && it.owner && String(it.owner).toLowerCase()!==ccActor().email) ? TA.transfer(id, anchorId) : opsTakeIt(id);
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
