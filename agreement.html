@@ -14,6 +14,10 @@
      agreement pages with everything written in, plus a signature record page) is saved by the client-agreement function.
      The tablet stays signed in as the office person who opened it. Nothing here changes AxisCare or sends anything.
      Field keys are the printed agreement's keys (client-agreement-map.ts on the server).
+     874 (Stage 3, Samantha 2026-10-17): SIGNING FROM HOME. Opened from a family's link (sign.html#t=...), the page needs
+     no Hub sign-in: it asks for a 6-digit code sent to the phone or email the link went to, then shows the same real
+     pages to fill in, initial and sign, through the public agreement-sign door. The office sends the link from the fill
+     page ("Send to sign from home") and countersigns in the Hub as usual.
      ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -56,8 +60,10 @@
   input.ft{ background:rgba(240,166,58,.16); border-bottom:2px solid var(--honey); border-radius:3px 3px 0 0; color:#0D365F; min-height:0; }
   input.ft:focus{ outline:none; background:rgba(31,122,140,.16); border-bottom-color:var(--teal); }
   .ft.pv{ color:#8a9aaa; }
-  .fc{ width:30px; height:30px; transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; font-family:inherit; font-size:20px; font-weight:800; color:#0D365F; padding:0; }
-  button.fc{ background:rgba(240,166,58,.18); border:2px solid var(--honey); border-radius:8px; cursor:pointer; }
+  /* 874: never wider than the 17pt gap between the closest two boxes, so on a phone they never cover each other */
+  .fc{ width:min(30px, calc(var(--s) * 16px)); height:min(30px, calc(var(--s) * 16px)); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; font-family:inherit; font-size:20px; font-weight:800; color:#0D365F; padding:0; }
+  button.fc{ background:rgba(240,166,58,.18); border:2px solid var(--honey); border-radius:min(8px, calc(var(--s) * 3px)); cursor:pointer; font-size:min(20px, calc(var(--s) * 11px)); }
+  .zoomtip{ display:none; } @media (max-width:640px){ .zoomtip{ display:block; } }
   button.fc.on{ background:rgba(31,122,140,.15); border-color:var(--teal); }
   .fc.ro{ background:transparent; border:none; }
   .wait{ font-family:inherit; font-size:calc(var(--s) * 7px); color:#9aa6b2; display:flex; align-items:center; justify-content:center; border:1.5px dashed #c5ccd3; border-radius:4px; }
@@ -105,9 +111,24 @@ const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const Q=new URLSearchParams(location.search);
 const PAGES_DIR='agreement-pages/rev-2026-10/';
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
+/* 874: opened from a family's link? The secret rides after # so it never reaches a server log. */
+const HASH=new URLSearchParams(location.hash.slice(1)), REMOTE=/^[A-Za-z0-9_-]{40,60}$/.test(HASH.get('t')||'')?HASH.get('t'):'';
+let SESSION=''; try{ SESSION=sessionStorage.getItem('cag-s-'+REMOTE.slice(0,12))||''; }catch(e){}
+const keepSession=v=>{ SESSION=v||''; try{ if(SESSION) sessionStorage.setItem('cag-s-'+REMOTE.slice(0,12),SESSION); else sessionStorage.removeItem('cag-s-'+REMOTE.slice(0,12)); }catch(e){} };
 
 /* ---------- server ---------- */
+async function rcall(body){
+  const r=await fetch(SUPA_URL+'/functions/v1/agreement-sign',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{t:REMOTE},SESSION?{s:SESSION}:{}))});
+  const d=await r.json().catch(()=>null);
+  if(!d) throw new Error('We could not reach Caring Companions. Check your internet, then try again.');
+  if(r.status>=400){
+    if(d.outcome==='need_code'&&step&&step!=='code'){ keepSession(''); remoteStart(); }
+    const e=new Error(d.error||'Something went wrong. Please call Caring Companions at (417) 234-8494.'); e.problems=d.problems||[]; e.outcome=d.outcome; throw e;
+  }
+  return d;
+}
 async function call(body){
+  if(REMOTE) return rcall(body);
   const s=await sb.auth.getSession(), tok=s&&s.data&&s.data.session&&s.data.session.access_token;
   if(!tok) throw new Error('Sign in first.');
   const r=await fetch(SUPA_URL+'/functions/v1/client-agreement',{method:'POST',headers:{Authorization:'Bearer '+tok,apikey:ANON,'Content-Type':'application/json','x-cc-via':'hub'},body:JSON.stringify(body)});
@@ -118,7 +139,47 @@ async function call(body){
 }
 
 /* ---------- sign-in ---------- */
-sb.auth.getSession().then(r=>{ if(r.data&&r.data.session) boot(r.data.session); else $('gate').classList.remove('hide'); });
+if(REMOTE) remoteStart();
+else sb.auth.getSession().then(r=>{ if(r.data&&r.data.session) boot(r.data.session); else $('gate').classList.remove('hide'); });
+
+/* ---------- 874: from home, the family proves it is them with a 6-digit code ---------- */
+async function remoteStart(){
+  $('backLink').classList.add('hide'); $('who').textContent=''; $('bar').classList.add('hide'); step='open';
+  try{
+    if(SESSION){ try{ const d=await rcall({action:'get'}); return remoteOpen(d); }catch(e){ keepSession(''); } }
+    const o=await rcall({action:'open'});
+    if(o.state==='signed'){ $('view').innerHTML='<h1>Thank you!</h1><div class="ok" style="font-size:19px">This agreement is already signed. Caring Companions will send you your copy.</div><p class="lead">Questions? Call us at (417) 234-8494.</p>'; return; }
+    showCode(o);
+  }catch(e){ $('view').innerHTML='<h1>Client Care Agreement</h1><div class="err" style="font-size:18px">'+esc(e.message)+'</div>'; }
+}
+function showCode(o){
+  step='code';
+  $('view').innerHTML=`<h1>Hi${o.to_name?' '+esc(String(o.to_name).split(/\s+/)[0]):''}!</h1>
+   <p class="lead">This is your Client Care Agreement from Caring Companions. First, we'll send you a 6-digit code to make sure it's you.</p>
+   <div class="card">${o.options.map(x=>`<p><button class="btn" type="button" data-via="${esc(x.via)}" style="width:100%">${x.via==='sms'?'Text':'Email'} me a code at ${esc(x.to)}</button></p>`).join('')}
+    <div id="codeBox" class="hide"><label for="code">Type the 6-digit code</label><input type="text" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" style="font-size:28px;letter-spacing:6px;text-align:center">
+     <p><button class="btn" type="button" id="codeGo" style="width:100%">Open my agreement</button></p></div>
+    <div id="codeMsg"></div></div>
+   <p class="lead" style="font-size:16px">Questions? Call us at (417) 234-8494.</p>`;
+  $('view').querySelectorAll('[data-via]').forEach(b=>{ b.onclick=async()=>{
+    $('codeMsg').innerHTML=''; b.disabled=true;
+    try{ const r=await rcall({action:'code',via:b.dataset.via}); $('codeBox').classList.remove('hide'); $('codeMsg').innerHTML='<div class="ok">We sent a code to '+esc(r.to)+'. It works for 10 minutes.</div>'; $('code').focus(); }
+    catch(e){ $('codeMsg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
+    setTimeout(()=>{ b.disabled=false; },3000);
+  }; });
+  const go1=async()=>{
+    $('codeMsg').innerHTML='';
+    try{ const d=await rcall({action:'verify',code:$('code').value}); keepSession(d.s); remoteOpen(d); }
+    catch(e){ $('codeMsg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
+  };
+  $('codeGo').onclick=go1; $('code').onkeydown=e=>{ if(e.key==='Enter') go1(); };
+}
+async function remoteOpen(d){
+  FORM=d.form; AG=d.agreement; A=Object.assign({},AG.answers||{}); OFFICE=(AG.office&&AG.office.answers)||{};
+  recallSigner(); if(!SIGNER.name&&d.to_name) SIGNER.name=d.to_name;
+  if(AG.status!=='draft'){ $('view').innerHTML='<h1>Thank you!</h1><div class="ok" style="font-size:19px">This agreement is already signed.</div>'; return; }
+  await positions(); go('family');
+}
 $('signin').onclick=async()=>{
   $('gateErr').innerHTML=''; const r=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
   if(r.error){ $('gateErr').innerHTML='<div class="err">'+esc(r.error.message)+'</div>'; return; }
@@ -274,12 +335,46 @@ function wireFill(again){
 }
 function missingHtml(p){ return '<div class="err"><b>Still needed before signing:</b><ul>'+p.map(x=>`<li><a href="#" data-goto="${esc(x.field)}">${esc(x.error)}</a></li>`).join('')+'</ul></div>'; }
 function wireGoto(root,before){ root.querySelectorAll('[data-goto]').forEach(a=>{ a.onclick=e=>{ e.preventDefault(); if(before) before(); showField(a.dataset.goto); }; }); }
+/* 874: the office sends the family a link to fill in and sign from home (her answers: office picks text, email or both;
+   7 days; a 6-digit code when they open it). Sends only on this tap, 8am to 6pm, through GoHighLevel. */
+const linkLine=l=>{ if(!l) return ''; const w=t=>t?new Date(t).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  const to=[l.to_phone,l.to_email].filter(Boolean).join(' and ');
+  if(l.signed_at) return `Signed from home ${w(l.signed_at)}.`;
+  if(l.live) return `Link sent to ${esc(l.to_name)} (${esc(to)}) ${w(l.created_at)} by ${esc(l.sent_by)}. Works until ${w(l.expires_at)}. ${l.verified_at?'They opened it and entered their code '+w(l.verified_at)+'.':l.opened_at?'They opened it '+w(l.opened_at)+'.':'Not opened yet.'}`;
+  return l.revoked_by==='not delivered'?'The last link could not be sent.':`The last link was ${l.revoked_at?'cancelled':'not used and has expired'}.`; };
+function homeCard(){
+  const l=AG&&AG.link, d=(k)=>esc(A[k]||'');
+  return `<details class="card" id="homeCard" ${l&&l.live?'open':''}><summary style="font-weight:800;color:var(--navy);cursor:pointer">Send to sign from home instead</summary>
+   <p style="font-size:15.5px;color:var(--muted);margin:8px 0">We text or email them a link. When they open it, we send a 6-digit code to the same phone or email. The link works for 7 days.</p>
+   ${l?`<div class="note" id="linkNow">${linkLine(l)}${l.live?' <button type="button" class="btn ghost" id="linkCancel" style="min-height:40px;padding:6px 14px;font-size:15px;margin-left:6px">Cancel the link</button>':''}</div>`:''}
+   <div class="grid"><div><label for="hName">Send it to</label><input type="text" id="hName" value="${d('c1.name')||esc(SIGNER.name)}" autocomplete="off"></div><div><label for="hCN">Client's name (for the message)</label><input type="text" id="hCN" value="${d('client.client_s_name')||esc(Q.get('cn')||'')}" autocomplete="off"></div>
+    <div><label for="hPhone">Cell phone</label><input type="tel" id="hPhone" value="${d('c1.cell_phone')}" autocomplete="off"></div><div><label for="hEmail">Email</label><input type="email" id="hEmail" value="${d('c1.email')}" autocomplete="off"></div></div>
+   <div class="opts" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:center;font-size:17px;color:var(--ink);margin:0"><input type="checkbox" id="hSms" ${A['c1.cell_phone']?'checked':''} style="width:24px;height:24px"> Text it</label><label style="display:flex;gap:8px;align-items:center;font-size:17px;color:var(--ink);margin:0"><input type="checkbox" id="hMail" ${A['c1.email']?'checked':''} style="width:24px;height:24px"> Email it</label></div>
+   <p><button type="button" class="btn" id="hSend">${l&&l.live?'Send a new link':'Send the link'}</button></p><div id="hMsg"></div></details>`;
+}
+function wireHome(){
+  const c=$('linkCancel'); if(c) c.onclick=async()=>{ c.disabled=true; try{ await call({action:'link_cancel',id:AG.id}); AG.link=Object.assign({},AG.link,{live:false,revoked_at:new Date().toISOString()}); $('linkNow').innerHTML='The link was cancelled.'; }catch(e){ $('hMsg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; c.disabled=false; } };
+  $('hPhone').oninput=()=>{ if($('hPhone').value.trim()) $('hSms').checked=true; }; $('hEmail').oninput=()=>{ if($('hEmail').value.trim()) $('hMail').checked=true; };
+  $('hSend').onclick=async()=>{
+    $('hMsg').innerHTML='';
+    const ch=[$('hSms').checked&&'sms',$('hMail').checked&&'email'].filter(Boolean);
+    if(!ch.length){ $('hMsg').innerHTML='<div class="err">Tick Text it, Email it, or both.</div>'; return; }
+    if(!(await save())) return;
+    $('hSend').disabled=true; $('hSend').textContent='Sending…';
+    try{
+      const r=await call({action:'link_send',id:AG.id,to_name:$('hName').value,phone:$('hPhone').value,email:$('hEmail').value,channels:ch,client_name:$('hCN').value});
+      if(r.ok){ AG.link=r.link; $('hMsg').innerHTML='<div class="ok">'+esc(r.sent.map(x=>(x.channel==='sms'?'Text: ':'Email: ')+x.detail).join(' '))+' You can close this page; we\'ll let you know in Needs Attention when they sign.</div>'; }
+      else $('hMsg').innerHTML='<div class="err">Not sent. '+esc(r.error||'')+'</div>';
+    }catch(e){ $('hMsg').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
+    $('hSend').disabled=false; $('hSend').textContent='Send a new link';
+  };
+}
 function vFill(){
   $('bar').classList.remove('hide');
   $('view').innerHTML=`<div class="kick">For the office</div><h1>Fill in the agreement</h1>
    <p class="lead">Type into the blanks and tick the boxes right on the pages as you talk with the family. Fill in as much as you like: the family can also type into any blank when you hand them the tablet.</p>
-   ${signerCard()}${pagesHtml('office')}`;
-  fitText(); wireFill(vFill);
+   ${signerCard()}${homeCard()}${pagesHtml('office')}`;
+  fitText(); wireFill(vFill); wireHome();
   $('backBtn').style.visibility='hidden'; $('barMsg').textContent='';
   $('nextBtn').textContent='Hand to the family';
   $('nextBtn').onclick=async()=>{ $('barMsg').textContent='Saving…'; if(!await save()) return; $('barMsg').textContent=''; go('handoff'); };
@@ -325,10 +420,11 @@ const needTaps=()=>[...Object.keys(FORM.initials),...(SIGNER.role==='representat
 function vFamily(){
   const ini=initials(SIGNER.name);
   $('view').innerHTML=`<h1>Your Client Care Agreement</h1>
+   <div class="note zoomtip">Tip: on a phone, spread two fingers on the page to zoom in, so the blanks and boxes are easier to tap.</div>
    <p class="lead">Please look it over. You can type into any blank or change a box if something needs fixing. Then tap each yellow <b>Tap to initial</b> box to put your initials${ini?' (<b>'+esc(ini)+'</b>)':''} on it, and tap <b>Tap to sign</b>.</p>
    ${signerCard()}${pagesHtml('family')}`;
   fitText(); wireFill(vFamily);
-  $('bar').classList.remove('hide'); $('backBtn').style.visibility='visible'; $('backBtn').textContent='Office: back';
+  $('bar').classList.remove('hide'); $('backBtn').style.visibility=REMOTE?'hidden':'visible'; $('backBtn').textContent='Office: back';
   $('backBtn').onclick=()=>{ $('backBtn').textContent='Back'; go('fill'); };
   $('view').querySelectorAll('[data-tap]').forEach(b=>{ b.onclick=()=>{
     const n=b.dataset.tap, f=POS[b.dataset.key];
@@ -381,6 +477,7 @@ function signSheet(){
     try{
       await call({action:'sign',id:AG.id,answers:famAnswers(),signer:SIGNER,initials:TAPS,signature:P.png(),consent:true});
       AG.status='signed'; sh.remove(); $('bar').classList.add('hide'); $('backBtn').textContent='Back';
+      if(REMOTE){ keepSession(''); $('view').innerHTML='<h1>Thank you!</h1><p class="lead">You have signed your Client Care Agreement.</p><div class="ok" style="font-size:20px">Caring Companions will countersign it and send you your copy. You can close this page.</div><p class="lead">Questions? Call us at (417) 234-8494.</p>'; window.scrollTo(0,0); return; }
       $('view').innerHTML='<h1>Thank you!</h1><p class="lead">You have signed your Client Care Agreement.</p><div class="ok" style="font-size:20px">Please hand the tablet back to the office.</div><p><button class="btn" id="toOffice" type="button">I\'m the office: countersign</button></p>';
       window.scrollTo(0,0); $('toOffice').onclick=()=>go('office');
     }catch(e){
