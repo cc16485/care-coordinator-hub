@@ -32,11 +32,11 @@ def fake(state):
         J = lambda code, o: route.fulfill(status=code, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(o))
         if request.headers.get('authorization') != 'Bearer kr': return J(401, {'error': 'Sign in first.'})
         a = b.get('action'); ag = state.get('ag')
-        if a == 'form': return J(200, {'ok': True, 'form': FORM})
+        if a == 'form': return J(200, {'ok': True, 'form': state.get('form', FORM)})
         if a == 'start':
             state['ag'] = {'id': '11111111-1111-4111-8111-111111111111', 'client_ax': b['client_ax'], 'status': 'draft', 'version': 'Rev. 10/2026', 'office': {'answers': b['office'], 'addenda': b.get('addenda', [])}, 'answers': {}}
-            return J(200, {'ok': True, 'agreement': state['ag'], 'form': FORM})
-        if a == 'get': return J(200, {'ok': True, 'agreement': ag, 'form': FORM}) if ag and b.get('id') == ag['id'] else J(404, {'error': 'Agreement not found.'})
+            return J(200, {'ok': True, 'agreement': state['ag'], 'form': state.get('form', FORM)})
+        if a == 'get': return J(200, {'ok': True, 'agreement': ag, 'form': state.get('form', FORM)}) if ag and b.get('id') == ag['id'] else J(404, {'error': 'Agreement not found.'})
         if a == 'save' and state.get('fail_save'): return J(500, {'error': 'The database did not answer.'})
         if a == 'save':
             bad = [k for k in b['answers'] if k not in FIELDS or k in OFFICE_KEYS]
@@ -47,7 +47,7 @@ def fake(state):
         if a == 'countersign':
             state['counter'] = b; ag['status'] = 'countersigned'
             em = b.get('email_copy')
-            return J(200, {'ok': True, 'outcome': 'countersigned', 'email': {'outcome': 'sent', 'detail': 'Emailed to ' + em['to'] + '.', 'to': em['to']} if em else None})
+            return J(200, {'ok': True, 'outcome': 'countersigned', 'email': {'outcome': 'sent', 'detail': 'Emailed to ' + em['to'] + '.', 'to': em['to']} if em else None, 'steps': state.get('steps', {'soc': 'ticked', 'journey': 'ticked'})})
         if a == 'copy_print': return J(200, {'ok': True, 'url': 'https://example.com/family-copy.pdf', 'expires_in': 300})
         if a == 'open': return J(200, {'ok': True, 'url': 'https://example.com/signed.pdf', 'expires_in': 300})
         if a == 'list': return J(200, {'ok': True, 'agreements': state.get('list', [])})
@@ -155,6 +155,7 @@ def flow(browser, name, w, h):
     page.fill('#mailTo', 'nancy.anderson@example.com'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
     ck(f'{name}: countersign sends the office signature and the email address, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and st['counter']['email_copy'] == {'to': 'nancy.anderson@example.com'} and 'Signed and saved' in page.locator('#view h1').inner_text(), st['counter'].get('email_copy'))
     ck(f'{name}: the done screen says the copy was emailed', 'Their copy was emailed to nancy.anderson@example.com' in page.inner_text('#view'))
+    ck(f'{name}: the done screen says which steps were ticked, and that the AxisCare upload is still theirs', '"Signed Care Agreement received" are ticked' in page.inner_text('#view') and '"Service agreement signed and on file" is done' in page.inner_text('#view') and 'Still yours' in page.inner_text('#view'))
     page.click('#openPdf'); page.wait_for_timeout(300); page.click('#printCopy'); page.wait_for_timeout(300)
     ck(f'{name}: Open the signed agreement and Print the family\'s copy open their 5-minute links', page.evaluate('window.__opened') == ['https://example.com/signed.pdf', 'https://example.com/family-copy.pdf'], page.evaluate('window.__opened'))
     ck(f'{name}: no page errors', not errs, errs)
@@ -182,13 +183,28 @@ with sync_playwright() as p:
             if status == 'draft': ck(f'{eng}: a resumed draft shows the pages with its answers', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'A B')
             ck(f'{eng}: nothing wider than the tablet ({status})', no_wide(pg, status))
             ctx.close()
+        # 2026-10-17 (8-hour weekly minimum): each agreement shows the pages of the master it was started on
+        NEW, FIRST = 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (FIRST, 'draft', 'old'), (FIRST, 'signed', 'old-signed')):
+            ctx = br.new_context(viewport={'width': 768, 'height': 1024})
+            ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
+            pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
+            pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
+            if label == 'new':
+                pg.wait_for_selector('.pg img'); ck(f'{eng}: a new draft shows the updated pages', 'rev-2026-10-17/p01.jpg' in pg.get_attribute('.pg img', 'src'))
+            elif label == 'old':
+                pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on the earlier wording says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
+            else:
+                pg.wait_for_selector('#osig'); ck(f'{eng}: signed on the earlier wording: countersign still opens', pg.locator('#osig').count() == 1)
+            ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024})
         ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
-        pg = ctx.new_page(); st = {'calls': [], 'ag': {'id': '33333333-3333-4333-8333-333333333333', 'status': 'signed', 'version': 'Rev. 10/2026', 'office': {'answers': {}}, 'answers': {'comm.decline': True, 'c1.email': 'x@example.com'}}}
+        pg = ctx.new_page(); st = {'steps': {'soc': 'conflict', 'journey': 'no_journey'}, 'calls': [], 'ag': {'id': '33333333-3333-4333-8333-333333333333', 'status': 'signed', 'version': 'Rev. 10/2026', 'office': {'answers': {}}, 'answers': {'comm.decline': True, 'c1.email': 'x@example.com'}}}
         pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=33333333-3333-4333-8333-333333333333'); pg.wait_for_selector('#osig')
         ck(f'{eng}: a family who declined email: no email box, it says to print their copy', pg.locator('#mailCopy').count() == 0 and 'chose not to get email' in pg.inner_text('#view'))
         draw(pg, '#osig'); pg.click('#cBtn'); pg.wait_for_selector('#printCopy')
         ck(f'{eng}: ...countersigned with no email asked for', st['counter'].get('email_copy') is None and 'this is their copy' in pg.inner_text('#view'))
+        ck(f'{eng}: when Start of Care could not be ticked, it says to tick it by hand', 'tick them by hand' in pg.inner_text('#view'))
         ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/functions/v1/client-agreement', fake({'calls': []})); pg.goto(BASE + '/agreement.html?ax=296'); pg.wait_for_selector('#signin')
