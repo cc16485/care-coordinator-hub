@@ -1266,12 +1266,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
 
   <div class="fsubbar" id="fsub-sops">
-    <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Library</div>
+    <!-- 2026-10-17 (her call): SOPs holds only things you read to check how we do something. Who Handles What is a
+         settings grid, so it opens from Settings (Right person first) and #routing; GUIDE opens from Payors & Programs. -->
+    <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Procedures</div>
+    <div class="fpill" onclick="location.href='programs.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Payors &amp; Programs</div>
+    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Scripts</div>
     <div class="fpill" onclick="location.href='client-folders.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Client Folders</div>
-    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Playbook</div>
-    <div class="fpill" data-tab="routing" onclick="switchTab('routing')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Who Handles What</div>
-    <span class="pillsec">Programs</span>
-    <div class="fpill" onclick="location.href='guide.html'"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> GUIDE Program</div>
   </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
@@ -4606,6 +4606,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="settings-section" data-set="routing">
 <h3>👥 Right person first, then escalate</h3>
 <p class="hint">Scheduling work goes to whoever is on Staffing duty now; work nobody takes pulls in whoever holds Owner Escalation. The duty schedule itself is under Dashboard, Responsible now, Manage.</p>
+<p class="hint">Who owns each area, who gets notified and when it escalates: <a href="#" onclick="switchTab('routing');return false"><b>open Who Handles What</b></a>.</p>
 <div id="routeSet" class="field-note" style="margin:6px 0 4px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="routeSetBtn" onclick="routeToggle(this)">Turn on</button>
@@ -5310,24 +5311,20 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </div>
   <div id="sop-doc-list" style="margin-bottom:1.5rem"></div>
 
+  <div id="sop-esc-wrap" style="display:none">
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">🚨 After-Hours Escalation Protocol</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
     <div id="sop-escalation" style="white-space:pre-wrap;font-size:.85rem;line-height:1.6"></div>
     <div class="hint" style="margin-top:.6rem">Owners edit this text in ⚙️ Settings → After-Hours Escalation Protocol.</div>
   </div>
+  </div>
 
+  <div id="sop-staff-wrap" style="display:none">
   <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">📘 Staffing SOP documents</div>
   <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem">
     <div id="sop-staffing-links" style="font-size:.85rem;line-height:2"><span style="color:var(--text-muted)">Loading…</span></div>
     <div class="hint" style="margin-top:.4rem">These links are set in the Staffing hub's Scheduling tab (the ✎ next to each SOP) and shared to both hubs.</div>
   </div>
-
-  <div style="font-size:.9rem;font-weight:700;color:var(--navy);margin-bottom:.5rem">Also part of the library</div>
-  <div class="card" style="padding:1rem 1.25rem;margin-bottom:2rem;font-size:.85rem;line-height:2">
-    <div>📚 <a href="#" onclick="switchTab('playbook');return false"><b>Coordinator Playbook</b></a> — payors, the intake process, sales scripts, objection handling. The next pill over.</div>
-    <div>🗓️ <a href="#" onclick="switchTab('calendar');return false"><b>Team Calendar</b></a> — who's on, who's in the field, the coordinator books, and the field expectation in writing.</div>
-    <div>🛡️ <a href="#" onclick="switchTab('ltcpolicy');return false"><b>LTC claim process</b></a> — lives with the LTC Policy tools under Growth.</div>
-    <div>📋 <b>"How This Tab Works" guides</b> — at the top of every tab in every hub, instructions stay where the work happens.</div>
   </div>
 </div>
 </section>
@@ -6199,8 +6196,8 @@ The HomeTogether team</pre>
   </style>
 
   <div class="pb2-wrap">
-    <h2 class="pb2-h">📚 Coordinator Playbook</h2>
-    <p class="pb2-sub">Everything you need to answer a family's questions with confidence — how every payor works, the intake process for each, and word-for-word scripts for selling blended care. When in doubt, verify eligibility before promising anything.</p>
+    <h2 class="pb2-h">📚 Scripts</h2>
+    <p class="pb2-sub">The intake process and word-for-word scripts for talking with families. How each payor works is on <a href="programs.html">Payors &amp; Programs</a>. When in doubt, verify eligibility before promising anything.</p>
     <div class="pb2-nav">
       <a href="#pb-payors">Payors</a>
       <a href="#pb-process">Intake process</a>
@@ -6209,61 +6206,11 @@ The HomeTogether team</pre>
       <a href="#pb-objections">Objections</a>
     </div>
 
-    <!-- PAYORS -->
+    <!-- PAYORS: moved to programs.html on 2026-10-17 so there is one place for how each payor works -->
     <div class="pb2-sec" id="pb-payors">
       <h3>How families pay</h3>
-      <p class="hint">Tap a payor to expand. Every family fits one — or a blend — of these five.</p>
-
-      <details class="pb2-card" open>
-        <summary>Private Pay <span class="pb2-tag t-green">Fastest start</span> <span class="chev">▸</span></summary>
-        <table class="pb2-rate">
-          <tr><td>Wellness Care</td><td>from $30/hr</td></tr>
-          <tr><td>Personal Care</td><td>from $32/hr</td></tr>
-          <tr><td>Advanced Care</td><td>from $34/hr</td></tr>
-          <tr><td>24-Hour Care</td><td>$28–$32/hr</td></tr>
-          <tr><td>HomeTogether virtual check-ins</td><td>from $75/mo</td></tr>
-        </table>
-        <p class="pb2-note">These are the only published rates — quote them exactly, never invent others.</p>
-        <p class="pb2-kv"><b>Best for:</b> families who need to start now with no eligibility wait, want flexibility, or don't qualify for a program. <b>Lead with:</b> our caregivers are screened, insured W-2 employees, backed by 24/7 support and backup coverage.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Medicaid — MO HealthNet HCBS <span class="pb2-tag t-blue">$0 to family</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> Missouri's Home &amp; Community-Based Services pay for personal-care hours at home so seniors avoid a nursing facility. Two ways to receive it — the <b>Agency Model</b> (we employ and send the caregiver) or <b>Consumer-Directed Services (CDS)</b>, where the client directs their own attendant (often a family member) and we handle the management/fiscal side.</p>
-        <p class="pb2-kv"><b>Who qualifies:</b> MO HealthNet (Medicaid) eligible · age 63+ or an adult with a disability · and meets nursing-facility <b>level of care</b> confirmed by the state's in-home assessment.</p>
-        <p class="pb2-kv"><b>Covers:</b> authorized personal-care / ADL hours (bathing, dressing, mobility, meals). <b>Does not cover:</b> room &amp; board, or hours beyond the authorized units.</p>
-        <p class="pb2-kv"><b>Watch out:</b> care is capped at the <b>authorized units</b> — anything above that isn't reimbursed. Confirm remaining units before scheduling.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Veterans (VA) <span class="pb2-tag t-purple">Underused — always ask</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv">Two very different paths — know which one you're on:</p>
-        <ul class="pb2-list">
-          <li><b>Aid &amp; Attendance</b> — an increased monthly VA pension for wartime veterans (or surviving spouses) who need help with daily activities. The family uses that money to pay us <b>privately</b>. Start by connecting them to a Veterans Service Officer to apply.</li>
-          <li><b>VA-authorized home care</b> (Homemaker/Home Health Aide, Veteran-Directed Care, Community Care) — the VA <b>authorizes and pays the agency directly</b>. You must have the VA referral/authorization <b>before</b> care starts.</li>
-        </ul>
-        <p class="pb2-kv"><b>Always ask:</b> "Did your loved one serve in the military?" It's the most-missed source of funding.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Medicare GUIDE (dementia respite) <span class="pb2-tag t-amber">75 hrs/yr</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> Medicare's GUIDE program covers up to <b>75 hours/year of in-home respite</b> for people with dementia — and we're an approved provider who bills Medicare directly.</p>
-        <p class="pb2-kv"><b>Who qualifies:</b> Original Medicare (Parts A &amp; B) · documented dementia diagnosis · not living in a long-term facility · not on hospice or certain Medicare Advantage plans.</p>
-        <p class="pb2-kv"><b>Process &amp; limits:</b> we check eligibility, coordinate approval with our GUIDE partner (typically 7–20 days), then care can begin. Respite hours only; they reset each program year and don't roll over. Full detail lives on the public <a href="https://guide.mo-care.com/medicare-guide.html" target="_blank" rel="noopener">Medicare GUIDE page</a>.</p>
-      </details>
-
-      <details class="pb2-card">
-        <summary>Long-Term Care (LTC) Insurance <span class="pb2-tag t-slate">Verify first</span> <span class="chev">▸</span></summary>
-        <p class="pb2-kv"><b>What it is:</b> a private policy that reimburses home care once the person qualifies. Benefits vary wildly by policy — <b>never promise coverage before you read the policy.</b></p>
-        <p class="pb2-kv"><b>Check these five things:</b></p>
-        <ul class="pb2-list">
-          <li><b>Benefit trigger</b> — usually needs help with 2+ ADLs or has cognitive impairment (confirmed by our assessment).</li>
-          <li><b>Elimination period</b> — days the family pays out of pocket before benefits start (often 30–90 days).</li>
-          <li><b>Benefit amount</b> — the daily or monthly maximum the policy pays.</li>
-          <li><b>Agency requirement</b> — many require a licensed agency and a written plan of care (we provide both).</li>
-          <li><b>Reimbursement vs. direct bill</b> — the family may pay us and get reimbursed, or we bill the insurer.</li>
-        </ul>
-      </details>
+      <p class="pb2-kv">Rates, who qualifies and how to start for every payor now live on one page: <a href="programs.html"><b>Payors &amp; Programs</b></a>.</p>
+      <p class="pb2-kv"><a href="programs.html#private">Private pay</a> &nbsp;&middot;&nbsp; <a href="programs.html#guide">Medicare GUIDE</a> &nbsp;&middot;&nbsp; <a href="programs.html#ltc">LTC insurance</a> &nbsp;&middot;&nbsp; <a href="programs.html#va">VA</a> &nbsp;&middot;&nbsp; <a href="programs.html#cds">CDS</a> &nbsp;&middot;&nbsp; <a href="programs.html#medicaid">Medicaid (ending 11/16)</a></p>
     </div>
 
     <!-- PROCESS -->
@@ -6280,8 +6227,8 @@ The HomeTogether team</pre>
           <span class="step">6 · Ongoing</span>
         </div>
         <ul class="pb2-list">
-          <li><b>Identify payor early.</b> On the first call, find out how they plan to pay — and always screen for Medicaid, VA, and a dementia diagnosis (GUIDE) even if they lead with private pay. It's the difference between an affordable plan and a lost family.</li>
-          <li><b>Verify before you promise.</b> For Medicaid, confirm level-of-care + authorized units. For VA-paid and LTC, get the authorization or policy details in hand <em>before</em> the start date.</li>
+          <li><b>Identify payor early.</b> On the first call, find out how they plan to pay, and always screen for VA, a long-term care policy, and a dementia diagnosis (GUIDE) even if they lead with private pay. On Medicaid? We no longer take agency Medicaid; send them to Caring Companions CDS, (417) 218-2888.</li>
+          <li><b>Verify before you promise.</b> For VA-paid and LTC, get the authorization or policy details in hand <em>before</em> the start date.</li>
           <li><b>Assessment sets the plan.</b> The in-home Care Assessment drives the care plan and satisfies documentation for LTC and GUIDE.</li>
           <li><b>Start of Care</b> is where private pay can begin same/next day — one of our biggest advantages. Say so.</li>
         </ul>
@@ -6335,7 +6282,7 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"Doesn't Medicare pay for this?" <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"Great question. Regular Medicare doesn't cover ongoing personal care at home — that catches a lot of families off guard. But there are real options: if there's a dementia diagnosis, Medicare's GUIDE program covers respite hours and we're an approved provider. And many families qualify for Medicaid or VA benefits. Let's see which fits — I'll help you check at no cost."</div>
+        <div class="pb2-script"><span class="who">Say</span>"Great question. Regular Medicare doesn't cover ongoing personal care at home, and that catches a lot of families off guard. But there are real options: if there's a dementia diagnosis, Medicare's GUIDE program covers respite visits and we're an approved provider. And many families have VA benefits or a long-term care policy that helps. Let's see which fits. I'll help you check at no cost."</div>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
@@ -8440,9 +8387,9 @@ const CC_SECTION_TITLES = {
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
-  soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Playbook',
+  soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'SOP Library', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -42565,8 +42512,8 @@ window.covLoadShifts=function(){};
     const box=document.getElementById('sop-doc-list'); if(!box) return;
     const list=docs();
     if(!list.length){
-      box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No documents yet. '
-        +(isOwner()?'Click <b>+ Add SOP</b> and paste the first one in — the Corrective Action SOP is the one waiting for a home.':'Samantha or Zach will add the first documents here.')+'</div>';
+      box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">No procedures written yet. '
+        +(isOwner()?'Click <b>+ Add SOP</b> and paste the first one in. The Corrective Action SOP is the one waiting for a home.':'Samantha or Zach will add the first ones here.')+'</div>';
       return;
     }
     box.innerHTML=list.map(d=>'<div class="card" style="padding:.75rem 1.1rem;margin-bottom:.5rem;display:flex;align-items:center;gap:.8rem;flex-wrap:wrap">'
@@ -42589,18 +42536,19 @@ window.covLoadShifts=function(){};
       ['sop_communication','Communication SOP'],
       ['sop_role','Staffing Coordinator Job Description &amp; Duties'],
     ];
-    box.innerHTML=items.map(([k,label])=>{
-      const url=String(staffingLinks[k]||'').trim();
-      return url
-        ? '<div>📘 <a href="'+E(url)+'" target="_blank" rel="noopener"><b>'+label+'</b></a></div>'
-        : '<div style="color:var(--text-muted)">📘 '+label+' — not linked yet (add it in the Staffing hub → Scheduling)</div>';
-    }).join('');
+    // only documents that are actually linked; the whole block stays hidden until one is (2026-10-17, her call)
+    const linked=items.filter(([k])=>String(staffingLinks[k]||'').trim());
+    const wrap=document.getElementById('sop-staff-wrap'); if(wrap) wrap.style.display=linked.length?'':'none';
+    box.innerHTML=linked.map(([k,label])=>
+      '<div>📘 <a href="'+E(String(staffingLinks[k]).trim())+'" target="_blank" rel="noopener"><b>'+label+'</b></a></div>').join('');
   }
 
   window.sopRender=function(){
     show('index'); openId=null; editId=null;
     document.getElementById('sop-add-btn').style.display=isOwner()?'':'none';
-    document.getElementById('sop-escalation').textContent=(CONFIG.escalation_protocol||'').trim()||'Not written yet — owners can add it in ⚙️ Settings.';
+    const escTxt=(CONFIG.escalation_protocol||'').trim();
+    document.getElementById('sop-escalation').textContent=escTxt;
+    document.getElementById('sop-esc-wrap').style.display=escTxt?'':'none';
     renderList(); renderStaffingLinks();
   };
   window.sopOpenDoc=function(id){
