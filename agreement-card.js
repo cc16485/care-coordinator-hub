@@ -17,7 +17,16 @@
   const when = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
   const STATUS = { draft: ['Started, not signed', '#8a6d00', '#fff7e0'], signed: ['Signed by the family, waiting for the office', '#8a6d00', '#fff7e0'],
     countersigned: ['Signed', '#0f7a4d', '#e8f6ef'], void: ['Set aside', '#6b7280', '#f2f0e9'] };
-  const go = (q) => { location.href = 'agreement.html?' + q; };
+  /* 874: the client's name rides along so a sign-from-home text can say who the agreement is for */
+  const go = (q) => { const cn = (typeof CP !== 'undefined' && CP && CP.r && CP.r.client_name) || ''; location.href = 'agreement.html?' + q + (cn ? '&cn=' + encodeURIComponent(cn) : ''); };
+  const at = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+  function homeLine(a) {
+    const l = a.link
+    if (a.status === 'signed' && a.signed_from_home) return ' · <b style="color:#8a6d00">signed from home: countersign it</b>'
+    if (!l || a.status !== 'draft') return ''
+    if (l.live) return ` · sent to ${esc(l.to_name)} to sign from home ${esc(at(l.created_at))} · ${l.verified_at ? 'opened, code checked ' + esc(at(l.verified_at)) : l.opened_at ? 'opened ' + esc(at(l.opened_at)) : 'not opened yet'} · works until ${esc(at(l.expires_at))}`
+    return l.revoked_by === 'not delivered' ? ' · <span style="color:#a33">the home link could not be sent</span>' : ''
+  }
 
   async function mount(boxId) {
     const box = document.getElementById(boxId); if (!box) return;
@@ -47,12 +56,12 @@
       return `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border)">
         <div><span style="font-size:12px;font-weight:700;border-radius:99px;padding:2px 9px;color:${st[1]};background:${st[2]}">${esc(st[0])}</span>
         ${cst ? `<span style="font-size:12px;font-weight:700;border-radius:99px;padding:2px 9px;margin-left:4px;color:${cst[1]};background:${cst[2]}">${esc(cst[0])}</span>` : ''}
-        <span class="field-note" style="margin-left:6px">${esc(a.version || '')} · started ${esc(when(a.created_at))}${who ? ' · ' + who : ''}${a.countersigned_at ? ' · signed ' + esc(when(a.countersigned_at)) : ''}${a.void_reason ? ' · ' + esc(a.void_reason) : ''}${mailNote}</span></div>${btn}</div>
+        <span class="field-note" style="margin-left:6px">${esc(a.version || '')} · started ${esc(when(a.created_at))}${who ? ' · ' + who : ''}${a.countersigned_at ? ' · signed ' + esc(when(a.countersigned_at)) : ''}${a.void_reason ? ' · ' + esc(a.void_reason) : ''}${mailNote}${homeLine(a)}</span></div>${btn}</div>
         ${a.status === 'countersigned' ? `<div data-cag-revbox="${esc(a.id)}"></div>` : ''}`;
     }).join('');
     box.innerHTML = `<div class="card" style="padding:14px;margin:10px 0">${head}
       <button type="button" class="primary" data-cag-new="1">${open.length ? 'Start another' : 'Start on the tablet'}</button></div>
-      <div class="field-note" style="margin:6px 0 4px">The tablet shows the real agreement pages. The office or the family types into the blanks, the family taps their initials and signs, and the office countersigns. The signed PDF is saved here.</div>
+      <div class="field-note" style="margin:6px 0 4px">The tablet shows the real agreement pages. The office or the family types into the blanks, the family taps their initials and signs, and the office countersigns. The signed PDF is saved here. To have them sign from home, open it and use "Send to sign from home".</div>
       ${rows || '<div class="field-note" style="padding-top:6px">No agreement yet.</div>'}
       <div class="field-note" id="cagMsg" style="margin-top:6px"></div></div>`;
     box.querySelector('[data-cag-new]').onclick = () => go('ax=' + encodeURIComponent(ax));
