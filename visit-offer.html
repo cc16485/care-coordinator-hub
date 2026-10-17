@@ -87,6 +87,8 @@ function draw(err) {
       '<div class="row"><span>When</span><b>' + esc(v.day) + '<br>' + esc(when) + '</b></div>' +
       '<div class="row"><span>Help with</span><b>' + esc((v.tasks || []).join(', ')) + '</b></div>' +
       (v.about ? '<div class="row"><span>About ' + esc(v.client) + '</span><b>' + esc(v.about) + '</b></div>' : '') +
+      /* Release 3 (her decision 4, 2026-10-17): what to know before saying yes; you decide */
+      (v.home && v.home.length ? '<div class="row"><span>Good to know</span><b>' + v.home.map(esc).join('. ') + '.</b></div>' : '') +
       (v.note ? '<div class="row"><span>The family says</span><b>' + esc(v.note) + '</b></div>' : '') +
     '</div>' + times +
     (err ? '<div class="err">' + esc(err) + '</div>' : '') +

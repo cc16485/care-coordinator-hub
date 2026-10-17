@@ -101,7 +101,9 @@
     received: ['Saving', '#B45309'], needs_office: ['Needs the office', '#b91c1c'], practice: ['Practice (not on the schedule)', '#6b7280'],
     // Release 1 (her approval 2026-10-17): a request isn't on AxisCare until a caregiver is placed; unfilled requests end "not filled"
     waiting_for_caregiver: ['Asking caregivers (not on AxisCare until placed)', '#B45309'], placed: ['Caregiver placed', 'var(--green,#15803d)'], cancelled: ['Cancelled', '#6b7280'],
-    not_filled: ['Not filled (family told, nothing scheduled)', '#6b7280']
+    not_filled: ['Not filled (family told, nothing scheduled)', '#6b7280'],
+    // Release 3 (her "Start Release 3." 2026-10-17): a request held for the office's check, and one declined
+    held: ['Check before caregivers are asked', '#b91c1c'], declined: ['Declined (family told to call)', '#6b7280']
   }
   // Flexible bookings (her yes 2026-10-16): no start until a caregiver takes it, so they are not on AxisCare while waiting.
   var flexWaiting = function (b) { return b.kind === 'flex' && !b.start_time }
@@ -137,7 +139,15 @@
     if ((b.status === 'waiting_for_caregiver' || b.status === 'needs_office') && b.visit_date >= today)
       acts = '<select id="famcg-' + e(b.id) + '" style="max-width:220px;"><option value="">Pick a caregiver…</option>' + caregiverOptions() + '</select> ' +
         (flexWaiting(b) ? '<select id="famst-' + e(b.id) + '" style="max-width:160px;"><option value="">Start time…</option>' + startOptions(b) + '</select> ' : '') +
-        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">Place and put on AxisCare</button>'
+        '<button class="btn btn-primary btn-sm" onclick="FAMAPP.place(\'' + e(b.id) + '\', this)">Place and put on AxisCare</button>' +
+        // Help us fill: the office's one round, closed with one button (Placed is Place)
+        (b.help_fill && b.fill_task_at && b.status === 'waiting_for_caregiver' ? ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.fillClose(\'' + e(b.id) + '\',\'another_time\', this)">Another time agreed</button>' +
+          ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.fillClose(\'' + e(b.id) + '\',\'couldnt\', this)">Couldn\'t fill</button>' : '')
+    if (b.status === 'held' && b.visit_date >= today)
+      acts = '<button class="btn btn-primary btn-sm" onclick="FAMAPP.review(\'' + e(b.id) + '\',\'approve\', this)">Approve</button> ' +
+        (b.note ? '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.review(\'' + e(b.id) + '\',\'approve_no_note\', this)">Approve without the note</button> ' : '') +
+        '<input id="famdec-' + e(b.id) + '" maxlength="300" placeholder="Why decline (for the record)" style="min-width:200px;font-size:13px;"> ' +
+        '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.review(\'' + e(b.id) + '\',\'decline\', this)">Decline</button>'
     var when = flexWaiting(b) ? 'flexible, ' + e(Number(b.hours)) + ' hours anytime ' + e(t12(b.window_start)) + ' to ' + e(t12(b.window_end)) : e(t12(b.start_time)) + ' to ' + e(t12(b.end_time))
     var picks = (b.preferred_caregiver_ids || []).length ? ' · asked for ' + (b.preferred_caregiver_ids || []).map(cgName).join(', ') + ' first' : (b.who === 'any' ? ' · whoever is available' : '')
     return '<div class="card" style="padding:12px 14px;margin-bottom:8px;" id="famb-' + e(b.id) + '">' +
@@ -150,7 +160,12 @@
       (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their app says we cancelled it; please call them with the reason.</div>' : '') +
       (b.status === 'placed' && b.family_change_pending ? '<div class="field-note">Changed in AxisCare. The family is told (8 AM to 8 PM).</div>' : '') +
       (b.status === 'placed' && b.family_change_how && !b.family_change_pending ? '<div class="field-note">Change message: ' + e(b.family_change_how) + '</div>' : '') +
-      (b.status === 'not_filled' ? '<div class="field-note">Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '') + '. The family is told nothing was scheduled.</div>' : '') +
+      (b.status === 'not_filled' ? '<div class="field-note">' + (b.unfilled_kind === 'couldnt' ? 'Help us fill: the office tried and couldn\'t fill it' : 'Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '')) + '. The family is told nothing was scheduled.</div>' : '') +
+      (b.status === 'held' ? '<div class="field-note" style="color:#b91c1c;">Held: ' + e(b.hold_reason || 'needs a check') + '. The family\'s app says our office is checking it; they hear by ' + e(byWords(b.answer_by)) + '. Not reviewed by then = it ends with the decline wording.</div>' : '') +
+      (b.status === 'declined' ? '<div class="field-note">' + (b.ended_why === 'not_reviewed' ? 'Not reviewed by the answer-by time' : 'Declined by ' + e(String(b.reviewed_by || '').split('@')[0]) + (b.decline_reason ? ': ' + e(b.decline_reason) : '')) + '. The family is asked to call.</div>' : '') +
+      (b.help_fill && b.status === 'waiting_for_caregiver' ? '<div class="field-note">Help us fill client' + (b.fill_task_at ? ': the office\'s round is open (Place, Another time agreed, or Couldn\'t fill)' : ': the office gets a task one office day before the family\'s answer-by time if nobody has said yes') + '.</div>' : '') +
+      (b.note_check === 'ai_unavailable' ? '<div class="field-note">AI didn\'t read this note (it was unavailable); the fixed rules passed it. Glance at it.</div>' : '') +
+      (b.note_hidden ? '<div class="field-note">Approved without the note: caregivers don\'t see it.</div>' : '') +
       offersLine(b) +
       (b.note ? '<div style="margin-top:4px;font-size:13px;">Note: ' + e(b.note) + '</div>' : '') +
       (b.error && b.status !== 'placed' ? '<div style="margin-top:4px;font-size:12.5px;color:#b91c1c;">' + e(b.error) + '</div>' : '') +
@@ -173,7 +188,8 @@
     return call({ action: 'list' }).then(function (d) {
       var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
       var bs = d.bookings || [], ms = d.members || []
-      var open = bs.filter(function (b) { return ['needs_office', 'received', 'waiting_for_caregiver'].indexOf(b.status) >= 0 && b.visit_date >= today })
+      var open = bs.filter(function (b) { return ['needs_office', 'received', 'waiting_for_caregiver', 'held'].indexOf(b.status) >= 0 && b.visit_date >= today })
+      open.sort(function (a, z) { return (z.status === 'held') - (a.status === 'held') || (z.fill_task_at ? 1 : 0) - (a.fill_task_at ? 1 : 0) })   // the ones that need a person first
       var placed = bs.filter(function (b) { return b.status === 'placed' && b.visit_date >= today })
       var other = bs.filter(function (b) { return open.indexOf(b) < 0 && placed.indexOf(b) < 0 })
       var on = ms.filter(function (m) { return m.status === 'active' })
@@ -184,20 +200,58 @@
         '<h3 style="margin:16px 0 6px;">Families using the app (' + on.length + ')</h3>' +
         (on.length ? '<div class="field-note">' + on.map(function (m) { return e(m.name) + ' for ' + e(m.client_name || '?') + (m.can_book ? '' : ' (view only)') }).join(' · ') + '</div>'
                    : '<div class="field-note">Nobody yet. Invite someone from the Care circle card on a client\'s profile.</div>') +
-        plansBox(d.plans || []) + '<div id="famFee" style="margin-top:14px;"></div>'
+        plansBox(d.plans || [], d.tasks || []) + '<div id="famFee" style="margin-top:14px;"></div>'
       fee()
       if (window.updateFamBadge) window.updateFamBadge(open.length)
     }).catch(function (err) { box.innerHTML = '<div class="field-note" style="color:#b91c1c;">' + e(err.message) + '</div>' })
   }
   // ── App fee check (her yes 2026-10-16): free any month with a visit, $15 for a month with none, the join month free ──
-  function plansBox(ps) {
+  function plansBox(ps, tasks) {
     if (!ps.length) return ''
+    var today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
     return '<h3 style="margin:16px 0 6px;">App plan clients</h3><div class="field-note" style="margin-bottom:6px;">Ticked clients are on the app plan: no weekly minimum, and the app fee for a month with no visits. Set-shift clients who only add extra visits can be unticked.</div>' +
       ps.map(function (k) {
         return '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:3px 0;font-size:13px;"><b>' + e(k.client_name || 'Client') + '</b>' +
           '<span class="field-note">' + (k.app_plan ? 'App plan since ' + e(k.app_plan_since || '?') : 'not on the app plan') + '</span>' +
-          '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.plan(\'' + e(k.id) + '\',' + (!k.app_plan) + ', this)">' + (k.app_plan ? 'Take off the app plan' : 'Put on the app plan') + '</button></div>'
+          '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.plan(\'' + e(k.id) + '\',' + (!k.app_plan) + ', this)">' + (k.app_plan ? 'Take off the app plan' : 'Put on the app plan') + '</button></div>' +
+          clientSettings(k, tasks, today)
       }).join('')
+  }
+  /* Release 3: per client, what the family may pick in the app (set at the assessment) and "Help us fill extra visits"
+     (Samantha or Krystal, with a reason, 90 days; the server checks the role). */
+  function clientSettings(k, tasks, today) {
+    var hf = k.help_fill || {}, on = hf.on === true && String(hf.review_by || '') >= today, only = Array.isArray(k.app_tasks) && k.app_tasks.length ? k.app_tasks : null
+    return '<div style="margin:0 0 8px 12px;font-size:12.5px;">' +
+      '<div><span class="field-note">Help us fill extra visits: </span>' + (on ? '<b>on</b> until ' + e(hf.review_by) + (hf.reason ? ' (' + e(hf.reason) + ')' : '') + ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.helpFill(\'' + e(k.id) + '\', false, this)">Turn off</button>'
+        : 'off <input id="famhf-' + e(k.id) + '" maxlength="300" placeholder="Why (e.g. respite for a worn-out family caregiver)" style="min-width:220px;font-size:12.5px;"> <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.helpFill(\'' + e(k.id) + '\', true, this)">Turn on for 90 days</button>') + '</div>' +
+      '<details style="margin-top:2px;"><summary class="field-note">App tasks: ' + (only ? e(only.join(', ')) : 'all companion tasks') + '</summary>' +
+        '<div id="famtasks-' + e(k.id) + '" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:4px 0;">' + tasks.map(function (t) { return '<label style="font-size:12.5px;"><input type="checkbox" value="' + e(t) + '"' + (!only || only.indexOf(t) >= 0 ? ' checked' : '') + '> ' + e(t) + '</label>' }).join('') + '</div>' +
+        '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.appTasks(\'' + e(k.id) + '\', this)">Save tasks</button> <span class="field-note" id="famtasks-' + e(k.id) + '-msg"></span></details>' +
+      '<div class="fam-msg" id="famset-' + e(k.id) + '"></div></div>'
+  }
+  function setMsg(id, html) { var m = document.getElementById('famset-' + id); if (m) m.innerHTML = html }
+  function helpFill(circleId, on, b) {
+    var inp = document.getElementById('famhf-' + circleId), reason = inp ? inp.value.trim() : ''
+    if (on && !reason) { setMsg(circleId, '<span style="color:#b91c1c;">Say why this client needs it first.</span>'); return Promise.resolve() }
+    b.disabled = true
+    return call({ action: 'help_fill', circle_id: circleId, on: on, reason: reason }).then(render).catch(function (err) { b.disabled = false; setMsg(circleId, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
+  }
+  function appTasks(circleId, b) {
+    var box = document.getElementById('famtasks-' + circleId), all = box ? box.querySelectorAll('input[type=checkbox]') : [], picked = []
+    for (var i = 0; i < all.length; i++) if (all[i].checked) picked.push(all[i].value)
+    if (!picked.length) { setMsg(circleId, '<span style="color:#b91c1c;">Pick at least one task.</span>'); return Promise.resolve() }
+    b.disabled = true
+    return call({ action: 'app_tasks', circle_id: circleId, tasks: picked.length === all.length ? null : picked }).then(render).catch(function (err) { b.disabled = false; setMsg(circleId, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
+  }
+  function review(id, decision, b) {
+    var inp = document.getElementById('famdec-' + id), reason = inp ? inp.value.trim() : ''
+    if (decision === 'decline' && !reason) { rowMsg(id, '<span style="color:#b91c1c;">Say why you\'re declining (for the record; the family gets the approved wording).</span>'); return Promise.resolve() }
+    b.disabled = true
+    return call({ action: 'review', booking_id: id, decision: decision, reason: reason }).then(render).catch(function (err) { b.disabled = false; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
+  }
+  function fillClose(id, how, b) {
+    b.disabled = true
+    return call({ action: 'fill_close', booking_id: id, how: how }).then(render).catch(function (err) { b.disabled = false; rowMsg(id, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   var FEE_WORD = { fee: ['No visits: add the app fee', '#b91c1c'], free: ['Had a visit: free', 'var(--green,#15803d)'], joined: ['Joined this month: free', '#6b7280'], couldnt_check: ['AxisCare couldn\'t be checked: press Check again', '#B45309'] }
   function lastMonthKey() { var d = new Date(new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) + 'T12:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 7) }
@@ -268,5 +322,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()
