@@ -64,10 +64,11 @@ function shell(inner) { $('app').innerHTML = '<h1>Caring Companions</h1>' + inne
 function done(msg, cls) { shell('<div class="' + (cls || 'ok') + '">' + esc(msg) + '</div><p class="note">Questions? Call the office at ' + PHONE + '.</p>') }
 function draw(err) {
   const v = V
-  if (v.state === 'yours') return done("You're on this visit: " + v.day + ', ' + t12(v.picked || v.start) + '. It is on your AxisCare schedule. Thank you!')
+  // Her approval 2026-10-17 (decision E): an accepted shift is confirmed; changes go through the office, no cancel button here.
+  if (v.state === 'yours') return done("You're confirmed for " + v.day + ', ' + t12(v.picked || v.start) + '. This is a confirmed shift on your AxisCare schedule. To change it, call the office at ' + PHONE + ' right away, the same as any shift.')
   if (v.state === 'taken') return done('Someone else took this one. Thank you!', 'info')
   if (v.state === 'cancelled') return done('The family cancelled this visit. Thank you!', 'info')
-  if (v.state === 'ended') return done('This visit has passed. Thank you!', 'info')
+  if (v.state === 'ended') return done('This visit is no longer needed. Thank you!', 'info')
   const flex = v.kind === 'flex'
   const when = flex ? hrs(v.hours) + ', anytime between ' + t12(v.window_start) + ' and ' + t12(v.window_end) : t12(v.start) + ' to ' + t12(v.end)
   const times = flex ? (v.choices.length
@@ -90,8 +91,8 @@ function draw(err) {
     '</div>' + times +
     (err ? '<div class="err">' + esc(err) + '</div>' : '') +
     '<button class="big yes" id="yes"' + (can && !BUSY ? '' : ' disabled') + '>' + (BUSY ? 'Saving…' : choose ? 'I\'m available &amp; interested' + (flex && PICK ? ' (start ' + t12(PICK) + ')' : '') : 'I\'ll accept this shift' + (flex && PICK ? ' (start ' + t12(PICK) + ')' : '')) + '</button>' +
-    '<button class="big no" id="no"' + (BUSY ? ' disabled' : '') + '>No thanks</button>' +
-    '<p class="note">' + (choose ? 'The family sees your profile and picks. If they pick you, it goes on your AxisCare schedule and we text you. The address is in AxisCare once you have it.' : 'The first yes gets the visit, and it goes straight on your AxisCare schedule. The address is in AxisCare once you have it.') + '</p>')
+    '<button class="big no" id="no"' + (BUSY ? ' disabled' : '') + '>I can\'t this time</button>' +
+    '<p class="note">' + (choose ? 'The family sees your profile and picks. If they pick you, it goes on your AxisCare schedule and we text you. The address is in AxisCare once you have it.' : 'Accepting puts this on your AxisCare schedule like any other shift. If something comes up later, call the office right away, the same as any shift. The first caregiver to accept gets it. The address is in AxisCare once you have it.') + '</p>')
 }
 async function answer(yes) {
   BUSY = true; draw()
