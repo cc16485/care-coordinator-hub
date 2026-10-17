@@ -1,6 +1,6 @@
 /* family-app-panel.js (global window.FAMAPP; the Hub already has a const FAM, a cache) · The office side of the Caring Companions family app (family.mo-care.com). Step 1c of the
    booking plan approved 2026-10-15.
-   - FAMAPP.circleLine(member, ctx): the "Family app" line under each Family Circle person on the client profile:
+   - FAMAPP.circleLine(member, ctx): the "Booking App" line under each Family Circle person on the client profile:
      Invite to the app / booking on-off / turn off. Invite never sends anything: it shows the words for a person to send.
    - FAMAPP.render(): Scheduling > Family bookings: every app booking, what needs the office, and the two office actions
      (put it on the AxisCare schedule, place a caregiver).
@@ -28,14 +28,14 @@
     var btn = function (label, js, cls) { return '<button class="btn ' + (cls || 'btn-ghost') + ' btn-sm" style="padding:2px 9px;font-size:12px;" onclick="' + js + '">' + label + '</button>' }
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
     if (st === 'active') {
-      return head + '<span style="color:var(--green);font-weight:600;">Family app: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
+      return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
         btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book'," + id + ",'" + e(px) + "'," + (!m.app_can_book) + ")") +
         btn('Send welcome', "FAMAPP.welcome(" + id + ",'" + e(px) + "')", 'btn-primary') +
         btn('Turn app off', "FAMAPP.act('revoke'," + id + ",'" + e(px) + "')") + '</div>'
     }
-    if (st === 'revoked') return head + '<span class="field-note">Family app: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
+    if (st === 'revoked') return head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
     if (m.stopped_at || m.axiscare_removed_at) return ''
-    if (!m.email) return head + '<span class="field-note">Family app: add an email to invite them</span></div>'
+    if (!m.email) return head + '<span class="field-note">Booking App: add an email to invite them</span></div>'
     // Her ask 2026-10-17: ONE press invites them and opens the welcome to read; it goes only when Send welcome is pressed.
     return head + btn('Invite and send welcome', "FAMAPP.act('invite'," + id + ",'" + e(px) + "',null,true)", 'btn-primary') + '</div>'
   }
@@ -197,12 +197,12 @@
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
         (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone the client knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
       (b.status === 'waiting_for_caregiver' && b.answer_by ? '<div class="field-note">The family hears by ' + e(byWords(b.answer_by)) + (b.two_stage && b.team_from ? ' · the wider team is asked from ' + e(byWords(b.team_from)) : '') + '. Nothing to do unless you want to place someone.</div>' : '') +
-      (b.status === 'placed' && b.sync_state === 'no_caregiver' ? '<div class="field-note">' + e(b.sync_note || 'The caregiver') + ' came off this visit in AxisCare. Coverage Help (or the office) covers it. The family\'s app says we\'re checking for another caregiver, can\'t promise one, and will contact them either way.</div>' : '') +
-      (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their app says we cancelled it; please call them with the reason.</div>' : '') +
+      (b.status === 'placed' && b.sync_state === 'no_caregiver' ? '<div class="field-note">' + e(b.sync_note || 'The caregiver') + ' came off this visit in AxisCare. Coverage Help (or the office) covers it. The family\'s Booking App says we\'re checking for another caregiver, can\'t promise one, and will contact them either way.</div>' : '') +
+      (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their Booking App says we cancelled it; please call them with the reason.</div>' : '') +
       (b.status === 'placed' && b.family_change_pending ? '<div class="field-note">Changed in AxisCare. The family is told (8 AM to 8 PM).</div>' : '') +
       (b.status === 'placed' && b.family_change_how && !b.family_change_pending ? '<div class="field-note">Change message: ' + e(b.family_change_how) + '</div>' : '') +
       (b.status === 'not_filled' ? '<div class="field-note">' + (b.unfilled_kind === 'couldnt' ? 'Help us fill: the office tried and couldn\'t fill it' : 'Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '')) + '. The family is told nothing was scheduled.</div>' : '') +
-      (b.status === 'held' ? '<div class="field-note" style="color:#b91c1c;">Held: ' + e(b.hold_reason || 'needs a check') + '. The family\'s app says our office is checking it; they hear by ' + e(byWords(b.answer_by)) + '. Not reviewed by then = it ends with the decline wording.</div>' : '') +
+      (b.status === 'held' ? '<div class="field-note" style="color:#b91c1c;">Held: ' + e(b.hold_reason || 'needs a check') + '. The family\'s Booking App says our office is checking it; they hear by ' + e(byWords(b.answer_by)) + '. Not reviewed by then = it ends with the decline wording.</div>' : '') +
       (b.status === 'declined' ? '<div class="field-note">' + (b.ended_why === 'not_reviewed' ? 'Not reviewed by the answer-by time' : 'Declined by ' + e(String(b.reviewed_by || '').split('@')[0]) + (b.decline_reason ? ': ' + e(b.decline_reason) : '')) + '. The family is asked to call.</div>' : '') +
       (b.help_fill && b.status === 'waiting_for_caregiver' ? '<div class="field-note">Help us fill client' + (b.fill_task_at ? ': the office\'s round is open (Place, Another time agreed, or Couldn\'t fill)' : ': the office gets a task one office day before the family\'s answer-by time if nobody has said yes') + '.</div>' : '') +
       (b.note_check === 'ai_unavailable' ? '<div class="field-note">AI didn\'t read this note (it was unavailable); the fixed rules passed it. Glance at it.</div>' : '') +
@@ -248,7 +248,7 @@
             ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.lateBilled(\'' + e(b.id) + '\', this)">Added to invoice</button></div>' }).join('') : '') +
         '<h3 style="margin:12px 0 6px;">Coming up, caregiver placed (' + placed.length + ')</h3>' + (placed.length ? placed.map(function (b) { return bookingCard(b, today) }).join('') : '<div class="field-note">None yet.</div>') +
         (other.length ? '<details style="margin-top:12px;"><summary>Practice, cancelled and past (' + other.length + ')</summary>' + other.map(function (b) { return bookingCard(b, today) }).join('') + '</details>' : '') +
-        '<h3 style="margin:16px 0 6px;">Families using the app (' + on.length + ')</h3>' +
+        '<h3 style="margin:16px 0 6px;">Families using the Booking App (' + on.length + ')</h3>' +
         (on.length ? '<div class="field-note">' + on.map(function (m) { return e(m.name) + ' for ' + e(m.client_name || '?') + (m.can_book ? '' : ' (view only)') }).join(' · ') + '</div>'
                    : '<div class="field-note">Nobody yet. Invite someone from the Care circle card on a client\'s profile.</div>') +
         plansBox(d.plans || [], d.tasks || []) + '<div id="famFee" style="margin-top:14px;"></div>'
@@ -371,7 +371,7 @@
     var id = 'famabout-' + px
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">' +
       '<div style="font-weight:600;font-size:13.5px;">About ' + e(first) + ', for caregivers</div>' +
-      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit booked in the family app. First name only. No address or medical details.</div>' +
+      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit requested in the Booking App. First name only. No address or medical details.</div>' +
       '<textarea id="' + id + '" maxlength="400" rows="3" style="width:100%;margin-top:6px;font:inherit;font-size:13.5px;" placeholder="For example: ' + e(first) + ' loves gardening and old movies, and enjoys a short walk when it\'s nice out.">' + e(circ.caregiver_about || '') + '</textarea>' +
       '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.aboutSave(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">Save</button>' +
       '<span class="field-note" id="' + id + '-msg">' + (circ.caregiver_about_at ? 'Last saved ' + e(new Date(circ.caregiver_about_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_about_by ? ' by ' + e(String(circ.caregiver_about_by).split('@')[0]) : '') : '') + '</span></div></div>'

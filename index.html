@@ -6274,7 +6274,7 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our family app. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our Caring Companions Booking App. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
       </details>
       <details class="pb2-card">
         <summary>"I can take care of Mom myself." <span class="chev">▸</span></summary>
@@ -27775,7 +27775,7 @@ function myWorkHandOff(id, anchorId){
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
 /* Lands on Today, because "what do I need to do now" is the question somebody
    opens this screen to answer. */
-let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false;
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false;
 /* Buckets are FILTERS over one list, never separate lists. Overdue and
    escalated used to be their own destinations, but both are computed from
    `mine` — they are states of your work, not categories of it. Today carries
@@ -28277,12 +28277,91 @@ function opsPriorityKey(it){
   if(!isNaN(d) && d<=e.getTime()) return [3, d-(it.urgency==='high'?36e5:0)];
   return [4, isNaN(d)?Infinity:d];
 }
+/* PAST ITS DAY (2026-10-17, her fix 2). A card that asks for a change to one visit or shift ("Cancel Angela's 10/15
+   visit") has nothing left to do once that day is over: the visit happened or it didn't. Those cards were sitting in
+   Act Now for days. This finds the day such a card is about. It only ever ASKS (the card says the day has passed and
+   offers Close it / Still needs doing); nothing closes by itself.
+   Deliberately narrow, so a real job is never folded away:
+     - only the AI's call follow-ups (their titles name the visit and its day), or a card with an about_day field
+     - only scheduling verbs on a visit, shift or call-off (cancel, change, confirm, remove, add, assign, update, find,
+       cover, open a call-off); never calls back, pay, bills, logs or reports, which still need doing after the day
+     - never anything ongoing ("every", "starting", "Sundays")
+     - with several days named, the LATEST counts, so "Remove Mon 10/19; Friday replaces it" waits for the 19th
+   Dates are read against the day of the call in Central time: "today" is the call's day, "Friday" the next Friday after
+   it. */
+function opsYmdCentral(t){
+  const x=new Date(t); if(isNaN(x)) return '';
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(x);
+  const g=k=>(p.find(y=>y.type===k)||{}).value||'';
+  return g('year')+'-'+g('month')+'-'+g('day');
+}
+function opsDaysInText(text, baseYmd){
+  const m0=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(baseYmd||'')); if(!m0) return [];
+  const base=Date.UTC(+m0[1],+m0[2]-1,+m0[3]);
+  const ymd=ms=>new Date(ms).toISOString().slice(0,10);
+  /* a month and day with no year: the year that puts it nearest the call */
+  const md=(mo,dd)=>{ if(!(mo>=1&&mo<=12&&dd>=1&&dd<=31)) return null; let best=null;
+    [-1,0,1].forEach(k=>{ const ms=Date.UTC(+m0[1]+k,mo-1,dd); if(best==null||Math.abs(ms-base)<Math.abs(best-base)) best=ms; });
+    return ymd(best); };
+  const t=' '+String(text||'').toLowerCase()+' ', out=[];
+  let m; const reSlash=/(?:^|[^\d\/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?![\d\/])/g;
+  while((m=reSlash.exec(t))){ if(m[3]){ const y=+m[3]<100?2000+ +m[3]:+m[3]; out.push(ymd(Date.UTC(y,+m[1]-1,+m[2]))); } else { const v=md(+m[1],+m[2]); if(v) out.push(v); } }
+  const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const reMon=/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*(?:-|–|to|and|&)\s*(\d{1,2})\b)?/g;
+  while((m=reMon.exec(t))){ const mo=MON.indexOf(m[1].slice(0,3))+1; [m[2],m[3]].forEach(d=>{ if(d){ const v=md(mo,+d); if(v) out.push(v); } }); }
+  const DOW={sun:0,mon:1,tue:2,tues:2,wed:3,thu:4,thur:4,thurs:4,fri:5,sat:6};
+  const reDow=/\b(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|nesday|rsday|urday|sday)?\b/g;
+  const bd=new Date(base).getUTCDay();
+  while((m=reDow.exec(t))){ const w=DOW[m[1]]; if(w==null) continue; let k=(w-bd+7)%7; if(k===0) k=7; out.push(ymd(base+k*864e5)); }
+  if(/\b(today|tonight|this morning|this afternoon|this evening)\b/.test(t)) out.push(ymd(base));
+  if(/\btomorrow\b/.test(t)) out.push(ymd(base+864e5));
+  return out;
+}
+function opsAboutDay(it){
+  if(!it) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(it.about_day||''))) return it.about_day;
+  if(it.kind!=='call_followup') return '';
+  const title=String(it.title||'');
+  if(!/^\s*(open a call-?off|cancel|change|confirm|remove|add|assign|update|find|cover|move|switch|swap|reschedule)\b/i.test(title)) return '';
+  if(!/\b(visits?|shifts?|call-?off)\b/i.test(title)) return '';
+  if(/\b(pay|paid|bill|billing|invoice|stub|log|report|every|starting|ongoing|permanent|weekly|each)\b|\b(sun|mon|tues|wednes|thurs|fri|satur)days\b/i.test(title)) return '';
+  const base=opsYmdCentral((it.source&&it.source.call_at)||it.created_at||'');
+  const days=opsDaysInText(title, base).sort();
+  return days.length?days[days.length-1]:'';
+}
+/* Past its day and nobody has said it still needs doing. */
+function opsPastDay(it){
+  const d=opsAboutDay(it);
+  if(!d || it.past_day_keep===d) return false;
+  return d<ccTodayCentral();
+}
+function opsDayWords(ymd){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd||'')); if(!m) return String(ymd||'');
+  return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+/* WHICH LANE ON TODAY (2026-10-17, her fix 1: "Act Now only means right now"). Act Now had 43 of 45 cards because
+   anything late counted. Now:
+     0 Act now: missed clock-ins, urgent, escalated, a shift within 3 hours with nobody; and no more than 12 hours
+       past due (an "urgent" card from two days ago is not happening right now any more)
+     1 Late, still matters: late work that still needs doing, longest late first
+     2 Due today: everything else for today
+     3 Past its day: a visit or shift card whose day is over (opsPastDay), folded away until opened
+   The priority order inside each lane is unchanged (opsPriorityKey). */
+const MYWORK_ACT_STALE_MS=12*36e5;
+function myWorkLane(it){
+  if(opsPastDay(it)) return 3;
+  const k=opsPriorityKey(it), d=Date.parse(it.due||'');
+  if(k[0]<=1) return (!isNaN(d) && Date.now()-d>MYWORK_ACT_STALE_MS) ? 1 : 0;
+  return k[0]===2 ? 1 : 2;
+}
 /* What can be ticked (2026-10-06, Samantha: "i am trying to click multiple cards on my work and its not letting me"):
    on Today that is the Act Now and Due Today cards AND the Later cards once they are shown. Before, a Later card's tick
    was undone the moment the page redrew, because only the Act Now / Due Today list counted. */
 function myWorkSelectable(all){
   /* a project is never bulk-closed or bulk-assigned: it closes when every step is done */
-  const rows=myWorkRows().filter(r=>r.kind!=='project'&&r.kind!=='journey'); if(MYWORK_TAB!=='today') return rows;
+  let rows=myWorkRows().filter(r=>r.kind!=='project'&&r.kind!=='journey'); if(MYWORK_TAB!=='today') return rows;
+  /* Past its day: folded cards can't be ticked by Select all (2026-10-17) */
+  if(!all && !MYWORK_PAST_OPEN) rows=rows.filter(r=>!opsPastDay(r));
   const ids=new Set(rows.map(r=>r.id));
   const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id)&&i.kind!=='project'&&i.kind!=='journey');
   return (all||MYWORK_LATER_OPEN)?rows.concat(later):rows;
@@ -28294,7 +28373,7 @@ function myWorkRows(){
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
-      return (ka[0]-kc[0]) || (ka[1]-kc[1]); });
+      return (myWorkLane(a)-myWorkLane(c)) || (ka[0]-kc[0]) || (ka[1]-kc[1]); });
   return rows;
 }
 
@@ -28560,6 +28639,13 @@ function myWorkCard(it, i){
       +(r.next_checkpoint?' · next look '+esc(callsFmtWhen(r.next_checkpoint)):'')+'</div>';
   }
 
+  /* Past its day (2026-10-17, her fix 2): say so on the card and ask; never close by itself */
+  if(opsPastDay(it)){
+    h+='<div class="wk-pastday" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      +'<span style="flex:1;min-width:180px;">This was about <b>'+esc(opsDayWords(opsAboutDay(it)))+'</b>. That day has passed.</span>'
+      +'<button class="primary" style="padding:5px 12px;font-size:12.5px;" onclick="opsPastClose(\''+it.id+'\')">Close it</button>'
+      +'<button class="ghost" style="padding:5px 12px;font-size:12.5px;" onclick="opsPastKeep(\''+it.id+'\')">Still needs doing</button></div>';
+  }
   h+='<div id="act_'+it.id+'" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
   if(!it.owner && sug){
     /* "I've got it" beats deciding whose it should be: one press makes it
@@ -28794,7 +28880,11 @@ function renderMyWork(){
   /* FROM YOUR HANDOFF (her call 2026-10-07): what was handed to me at the end of someone's shift sits above everything
      until I tap Got it on the handoff (end-shift.js hoPinned), then drops back into its usual lane. */
   const pinned=(typeof hoPinned==='function')?hoPinned():[], pinIds=new Set(pinned.map(i=>i.id));
-  const act=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]<=2), due=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]>2);
+  /* 2026-10-17 (her fixes 1 and 2): Act Now / Late, still matters / Due today / Past its day, by myWorkLane. The card
+     index is the card's place in rows, which myWorkRows sorts lane first, so keyboard focus follows the page. */
+  const laneOf=n=>rows.filter(r=>!pinIds.has(r.id)&&myWorkLane(r)===n);
+  const act=laneOf(0), lateL=laneOf(1), due=laneOf(2), past=laneOf(3);
+  const ix=it=>rows.indexOf(it);
   const inToday=new Set(rows.map(r=>r.id).concat([...pinIds]));
   /* CLIENTS IN MOTION (2026-10-06, her: normal next steps show before they are ever late): a client journey's next step
      that isn't due today has its own lane, not Later. Parked (waiting) ones stay in Waiting & Watching. */
@@ -28805,13 +28895,21 @@ function renderMyWork(){
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
-  if(window.TP && !act.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
-  h+=lane('ACT NOW','emergencies, shifts about to start with nobody, anything late','var(--red)',act.length,
-    act.length?act.map((it,i)=>myWorkCard(it,i)).join(''):none('Nothing urgent or late. Good.'));
-  h+=lane('DUE TODAY','everything else that needs doing today','var(--amber)',due.length,
-    due.length?due.map((it,i)=>myWorkCard(it,act.length+i)).join(''):none('Nothing else due today.'));
+  h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
+    act.length?act.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing needs you right this minute. Good.'));
+  if(lateL.length) h+=lane('LATE, STILL MATTERS','past due and still needs doing, longest late first','var(--amber)',lateL.length,
+    lateL.map(it=>myWorkCard(it,ix(it))).join(''));
+  h+=lane('DUE TODAY','everything else that needs doing today','var(--navy)',due.length,
+    due.length?due.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing else due today.'));
+  if(past.length) h+=lane('PAST ITS DAY','the visit or shift these were about is over; close them or keep the ones that still need doing','var(--text-muted)',past.length,
+    (MYWORK_PAST_OPEN
+      ? past.map(it=>myWorkCard(it,ix(it))).join('')
+        +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_PAST_OPEN=false;renderMyWork()">Fold away</span> '
+      : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_PAST_OPEN=true;renderMyWork()">Look through them</button> ')
+    +'<button class="ghost" id="pastCloseAll" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkPastCloseAll()">Close all '+past.length+'…</button>');
   h+=lane('CLIENTS IN MOTION','your next steps for each client, before anything is late','var(--navy)',motion.length||null,
     motion.length?motion.map(it=>myWorkCard(it,-1)).join(''):none('No client steps waiting on you.'));
   const watch=myWorkStrips();
@@ -28828,6 +28926,52 @@ function renderMyWork(){
   wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+h;
 }
 function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+
+/* PAST ITS DAY, the two answers (2026-10-17). Close it: closed as stale (the same code the Stale quick-close uses),
+   with the day in the note so the record says why. Still needs doing: remembered for that day only, so the card goes
+   back to its usual lane and never asks again about the same day. */
+async function opsPastClose(id, quiet){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it || it.status!=='open') return;
+  const day=opsAboutDay(it); if(!day) return;
+  if(typeof issueOf==='function' && issueOf(it)){ if(!quiet) ccToast('This is a client issue: resolve it from the issue.'); return; }
+  it.status='done'; it.triage_state='stale'; it.resolution_code='stale';
+  it.closed_at=new Date().toISOString(); it.closed_by=(typeof ME!=='undefined'&&ME.email)||'';
+  it.close_note='Its day had passed ('+opsDayWords(day)+')';
+  opsLog(it,'Closed: the day it was about had passed ('+opsDayWords(day)+')');
+  opEvent('item_resolved',{item:it, summary:(it.about||it.title||'')+' — closed: its day ('+opsDayWords(day)+') had passed'});
+  await persist('ops_items',it);
+  if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
+  MYWORK_SEL.delete(id);
+  if(!quiet){ myWorkRefresh(); ccToast('Closed. Its day had passed.'); }
+}
+async function opsPastKeep(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const day=opsAboutDay(it); if(!day) return;
+  it.past_day_keep=day;
+  opsLog(it,'Still needs doing after its day ('+opsDayWords(day)+')');
+  await persist('ops_items',it);
+  myWorkRefresh();
+}
+/* Named, counted, and it lists them, like the other bulk closes. */
+function myWorkPastCloseAll(){
+  const b=myWorkBuckets(), rows=(b.today||[]).filter(r=>opsPastDay(r));
+  if(!rows.length) return;
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(document.getElementById('pastCloseAll')||document.body,
+    '<div style="font-size:14px;font-weight:700;margin-bottom:6px;">Close '+rows.length+' card'+(rows.length===1?'':'s')+' whose day has passed?</div>'
+    +'<div class="field-note" style="max-height:170px;overflow:auto;margin-bottom:10px;">'
+    +rows.map(r=>'· '+esc(opsDayWords(opsAboutDay(r)))+': '+esc(r.title||r.about||'')).join('<br>')+'</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Each one is closed with your name and the day it was about. If one still needs doing, cancel and tap Still needs doing on that card first.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="pcGo" style="padding:7px 14px;font-size:13px;">Close '+rows.length+'</button>'
+    +'<button class="ghost" id="pcNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', {width:380});
+  el.querySelector('#pcNo').onclick=ccPopClose;
+  el.querySelector('#pcGo').onclick=async ()=>{
+    ccPopClose();
+    for(const it of rows) await opsPastClose(it.id, true);
+    myWorkRefresh(); ccToast('Closed '+rows.length+'.');
+  };
+}
 
 /* ── Bulk ────────────────────────────────────────────────────────────────
    An action is offered in bulk only when it means the same thing for every
@@ -33891,7 +34035,7 @@ function lppLine(l,b,p,ro,care){
     +'<div class="lp-prov">'+[phone?esc(phone):'', email?esc(email):'', p&&p.reach_way?'best by '+esc(p.reach_way):'', p&&p.reach_time?esc(p.reach_time):''].filter(Boolean).join(' · ')+'</div>'
     +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
       +(caller?' · name and phone come from the inquiry':'')+'</div>'
-    +lppSignedLine(l,caller?name:p.name)
+    +lppSignedLine(l,caller?name:p.name,email)
     +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
       +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
     +(care?lpcLine(l,b,caller?(lpcSelf(l)?'client':'caller'):'person',p):'')
@@ -33900,10 +34044,16 @@ function lppLine(l,b,p,ro,care){
 /* HIPAA and Medical decisions as the signed Client Care Agreement gave them: approved contacts are written to AxisCare (and read back
    into the Family Circle), so the Family Circle member with the same name carries them. Read-only here; never typed on this screen. */
 function lppNameKey(x){ return String(x||'').toLowerCase().replace(/[^a-z]/g,''); }
-function lppSignedLine(l,name){
+/* 2026-10-17 her rule: the same person by EMAIL first (one match, or the one whose name also matches when two share it), then name */
+function lppFind(list,name,email){
+  const e=String(email||'').trim().toLowerCase(), n=lppNameKey(name), live=list.filter(x=>!x.axiscare_removed_at);
+  if(e){ const by=live.filter(x=>String(x.email||'').trim().toLowerCase()===e); if(by.length===1) return by[0]; if(by.length>1){ const both=by.filter(x=>n&&lppNameKey(x.name)===n); if(both.length===1) return both[0]; } }
+  return n?live.find(x=>lppNameKey(x.name)===n)||null:null;
+}
+function lppSignedLine(l,name,email){
   if(!lpcOn(l)) return '';
   const c=LPP.circ&&LPP.circ[String(CP.ax)]; if(!c) return '';
-  const m=c.find(x=>lppNameKey(x.name)===lppNameKey(name)&&!x.axiscare_removed_at);
+  const m=lppFind(c,name,email);
   const yn=v=>v===true?'Yes':v===false?'No':'not answered';
   if(!m||(m.hipaa_authorized==null&&m.can_make_medical_decisions==null)) return '<div class="lp-prov">HIPAA (signed agreement): <b>not on file yet</b></div>';
   return '<div class="lp-prov">HIPAA (signed agreement): <b>'+yn(m.hipaa_authorized)+'</b> · Medical decisions: <b>'+yn(m.can_make_medical_decisions)+'</b> <span class="field-note">as AxisCare holds them</span></div>';
@@ -33912,7 +34062,7 @@ async function lppLoadCirc(){
   const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)) return; LPP.circ=LPP.circ||{}; if(LPP.circ[ax]) return;
   LPP.circ[ax]=null;
   try{ const k=await sb.from('care_circles').select('id').eq('axiscare_client_id',ax).limit(1); const id=k.data&&k.data[0]&&k.data[0].id;
-    const m=id?await sb.from('circle_contacts').select('name,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
+    const m=id?await sb.from('circle_contacts').select('name,email,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
     LPP.circ[ax]=m.data||[]; }catch(e){ LPP.circ[ax]=[]; }
   lppRender();
 }
