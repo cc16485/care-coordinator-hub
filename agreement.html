@@ -118,7 +118,10 @@ const keepSession=v=>{ SESSION=v||''; try{ if(SESSION) sessionStorage.setItem('c
 
 /* ---------- server ---------- */
 async function rcall(body){
-  const r=await fetch(SUPA_URL+'/functions/v1/agreement-sign',{method:'POST',headers:{apikey:ANON,'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{t:REMOTE},SESSION?{s:SESSION}:{}))});
+  /* only Content-Type: the public door's browser check allows exactly that header (874 live fix, 2026-10-17) */
+  let r;
+  try{ r=await fetch(SUPA_URL+'/functions/v1/agreement-sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({},body,{t:REMOTE},SESSION?{s:SESSION}:{}))}); }
+  catch(e){ throw new Error('We could not reach Caring Companions. Check your internet connection, then try again. Questions? Call us at (417) 234-8494.'); }
   const d=await r.json().catch(()=>null);
   if(!d) throw new Error('We could not reach Caring Companions. Check your internet, then try again.');
   if(r.status>=400){

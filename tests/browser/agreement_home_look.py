@@ -149,6 +149,20 @@ with sync_playwright() as p:
         ck(f'{eng}: a bad link says to call the office', 'This link does not work' in pg.inner_text('#view') and '(417) 234-8494' in pg.inner_text('#view'))
         pg.goto(BASE + '/sign.html'); pg.wait_for_timeout(600)
         ck(f'{eng}: no link at all: the Hub sign-in, nothing else', pg.locator('#gate').is_visible())
+        # the live door's browser check (CORS) allows only these headers: every header the family page sends must be on it
+        import re as _re
+        fn = os.environ.get('AGREEMENT_SIGN_FN', os.path.join(ROOT, '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', 'agreement-sign', 'index.ts'))
+        allowed = set(x.strip().lower() for x in _re.search(r"'Access-Control-Allow-Headers': '([^']+)'", open(fn).read()).group(1).split(',')) if os.path.exists(fn) else None
+        sent = set()
+        pg = ctx2 = br.new_context().new_page()
+        pg.on('request', lambda rq: sent.update(k.lower() for k in rq.headers if 'agreement-sign' in rq.url and rq.method == 'POST'))
+        pg.route('**/functions/v1/agreement-sign', lambda route, req: J(route, 404, {'error': 'This link does not work.', 'outcome': 'bad_link'}))
+        pg.goto(BASE + '/sign.html#t=' + 'X' * 43); pg.wait_for_timeout(600)
+        custom = {h for h in sent if h not in ('accept', 'user-agent', 'referer', 'origin', 'accept-language', 'sec-ch-ua', 'sec-ch-ua-mobile', 'sec-ch-ua-platform', 'content-length', 'accept-encoding', 'connection', 'host', 'cache-control', 'pragma') and not h.startswith('sec-')}   # headers the browser adds itself are not checked by CORS
+        ck(f'{eng}: every header the family page sends is one the public door allows ({sorted(custom)} within {sorted(allowed) if allowed else "the function file was not found"})', allowed is not None and custom <= allowed, (custom, allowed))
+        pg.route('**/functions/v1/agreement-sign', lambda route, req: route.abort())
+        pg.goto(BASE + '/sign.html#t=' + 'Y' * 43); pg.wait_for_timeout(800)
+        ck(f'{eng}: no internet: a plain message with the phone number, not "Failed to fetch"', 'could not reach Caring Companions' in pg.inner_text('#view') and 'Failed to fetch' not in pg.inner_text('#view'), pg.inner_text('#view'))
         ctx.close(); br.close()
     for f in ('agreement.html', 'agreement-card.js', 'sign.html'):
         ck(f'no em dash in {f}', '—' not in open(os.path.join(ROOT, f)).read())
