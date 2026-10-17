@@ -108,7 +108,7 @@ with sync_playwright() as p:
     # Release 2 (2026-10-17): the 10-minute AxisCare check, shown to the office
     pg.click('summary:has-text("Practice, cancelled and past")'); pg.wait_for_timeout(40)
     t3, t4 = pg.inner_text('#famb-b3'), pg.inner_text('#famb-b4')
-    ck('Release 2: a caregiver taken off in AxisCare is shown, with who covers it', 'No caregiver on it in AxisCare' in t3 and 'Maria L. came off this visit in AxisCare' in t3, t3)
+    ck('Release 2: a caregiver taken off in AxisCare is shown, with who covers it', 'No caregiver on it in AxisCare' in t3 and 'Maria L. came off this visit in AxisCare' in t3 and "can\'t promise one" in t3, t3)
     ck('Release 2: removed in AxisCare (not by the family): call them with the reason', 'Removed in AxisCare' in t4 and 'please call them with the reason' in t4, t4)
     ck('no page errors', not errs, errs)
     b.close()
