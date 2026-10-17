@@ -109,7 +109,13 @@ const sb=window.supabase.createClient(SUPA_URL,ANON);
 const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const Q=new URLSearchParams(location.search);
-const PAGES_DIR='agreement-pages/rev-2026-10/';
+/* 2026-10-17 (the 8-hour weekly minimum): each agreement shows the pages of the master it was started on, found by its
+   pdf_sha256. A draft started on an earlier master can't be signed (the server refuses), so it says to start a new one. */
+const PAGE_DIRS={'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
+  'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9':'agreement-pages/rev-2026-10/'};
+let PAGES_DIR='agreement-pages/rev-2026-10-17/';
+function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
+const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
 /* 874: opened from a family's link? The secret rides after # so it never reaches a server log. */
 const HASH=new URLSearchParams(location.hash.slice(1)), REMOTE=/^[A-Za-z0-9_-]{40,60}$/.test(HASH.get('t')||'')?HASH.get('t'):'';
@@ -178,7 +184,8 @@ function showCode(o){
   $('codeGo').onclick=go1; $('code').onkeydown=e=>{ if(e.key==='Enter') go1(); };
 }
 async function remoteOpen(d){
-  FORM=d.form; AG=d.agreement; A=Object.assign({},AG.answers||{}); OFFICE=(AG.office&&AG.office.answers)||{};
+  FORM=d.form; AG=d.agreement; A=Object.assign({},AG.answers||{}); OFFICE=(AG.office&&AG.office.answers)||{}; pagesFor(AG);
+  if(oldDraft(AG)){ $('view').innerHTML='<h1>We updated this agreement</h1><div class="err" style="font-size:18px">This link is for an earlier version of the agreement. Please call or text us at (417) 234-8494 and we\'ll send you a new link.</div>'; return; }
   recallSigner(); if(!SIGNER.name&&d.to_name) SIGNER.name=d.to_name;
   if(AG.status!=='draft'){ $('view').innerHTML='<h1>Thank you!</h1><div class="ok" style="font-size:19px">This agreement is already signed.</div>'; return; }
   await positions(); go('family');
@@ -197,8 +204,9 @@ async function boot(session){
   }catch(e){ $('view').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
 }
 async function load(ag){
-  AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{}; recallSigner();
+  AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{}; recallSigner(); pagesFor(ag);
   $('backLink').href='index.html';
+  if(oldDraft(ag)){ $('view').innerHTML='<div class="err">This agreement was started before the wording was updated on October 17, 2026 (scheduled care now has an 8 hours a week minimum), so it can\'t be signed. Go back to the client and tap <b>Start another</b> to begin a new one.</div>'; return; }
   if(ag.status==='draft'){ await positions(); go('fill'); }
   else if(ag.status==='signed') go('office');
   else if(ag.status==='countersigned') showDone();
@@ -240,7 +248,7 @@ function showOffice(){
 
 /* ---------- the real agreement pages, with the blanks fillable in place (Samantha 2026-10-16) ----------
    POS: key -> {type, page, box:[x0,y0,x1,y1]} in PDF points from the top-left of a 612 x 792 page, the same boxes the
-   server writes the signed PDF with (agreement-pages/rev-2026-10/fields.json, from the agreement build). */
+   server writes the signed PDF with (agreement-pages/<its master>/fields.json, from the agreement build). */
 let POS=null, saveTimer=null;
 const OFFICE_KEYS=new Set(['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate','rates.wellness_care','rates.personal_care','rates.advanced_care']);
 const ONE_OF=[['level.wellness_care','level.personal_care','level.advanced_care'],['car.accept','car.decline'],['comm.accept','comm.decline'],
@@ -251,7 +259,7 @@ const initials=name=>{ const w=String(name||'').trim().split(/\s+/).filter(Boole
 async function positions(){
   if(POS) return POS;
   const r=await fetch(PAGES_DIR+'fields.json',{cache:'no-cache'}); const d=await r.json();
-  if(d.version!==FORM.version) throw new Error('The agreement pages on this tablet are '+d.version+' but the agreement is '+FORM.version+'. Tell Samantha.');
+  if(AG&&AG.pdf_sha256?d.pdf_sha256!==AG.pdf_sha256:d.version!==FORM.version) throw new Error('The agreement pages on this tablet do not match this agreement. Tell Samantha.');
   POS=d.fields; return POS;
 }
 function rememberSigner(){ try{ sessionStorage.setItem('cag-signer-'+AG.id, JSON.stringify(SIGNER)); }catch(e){} }
