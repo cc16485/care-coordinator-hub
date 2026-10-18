@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Your notice, Caring Companions</title>
+<!-- A WRITE-UP NOTICE TO SIGN FOR (HR Agent build step 8, Samantha 2026-10-18: "build step 8"). Opened only from the private
+     link Zach texts, or on an office or Zach's phone in person (?t=<code>; 7 days, or 2 hours in person). The caregiver reads
+     the notice and signs that they RECEIVED it, not that they agree: a typed full name and a tick. The server (hr-ack) holds
+     the notice and decides everything; this page lays it out. Nothing is kept in this browser's storage. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --gold-text:#C17A12; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px;} header{text-align:center;padding:8px 0 4px;} header img{height:48px;max-width:100%}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;}
+  .lede{font-size:16px;margin:0 0 14px;}
+  .practice{background:#FFF7E6;border:1.5px dashed var(--gold);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 12px}
+  .doc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;font-size:15.5px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .statement{border:1.5px solid var(--navy);border-radius:12px;background:#fff;padding:14px 16px;font-size:16.5px;line-height:1.6;margin:10px 0}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:16px;margin:10px 0;cursor:pointer} .chk input{width:26px;height:26px;margin:1px 0 0;flex:none;accent-color:var(--gold)}
+  label.q{display:block;font-size:15px;font-weight:600;margin:12px 0 6px;}
+  input[type=text]{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:48px;-webkit-appearance:none;appearance:none}
+  input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  button.go{width:100%;min-height:54px;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:14px;cursor:pointer;touch-action:manipulation}
+  button.go:disabled{opacity:.6}
+  .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:15px;margin-top:10px;}
+  .okmsg{background:#F0F7F4;color:var(--green);border-radius:10px;padding:14px 16px;font-size:16px;border:1.5px solid #9BD3B0}
+  .okmsg b{display:block;font-size:18px;color:var(--navy);margin-bottom:4px}
+  .small{font-size:13.5px;color:var(--muted);margin:10px 0 0;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your notice…</p></div>
+</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const FN = SUPA_URL + '/functions/v1/hr-ack';
+const T = new URLSearchParams(location.search).get('t') || '';
+const PHONE = '(417) 234-8494';
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (id) => document.getElementById(id);
+async function call(body) {
+  try {
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, t: T }) });
+    return { s: r.status, j: await r.json().catch(() => ({})) };
+  } catch (e) { return { s: 0, j: { error: 'You seem to be offline. Check your connection and try again.' } }; }
+}
+function dead(msg) { $('main').innerHTML = '<div class="dead">' + esc(msg || ('This link is not active. Call the office at ' + PHONE + '.')) + '</div>'; }
+let V = null;
+function signed(copy, practice) {
+  $('main').innerHTML = '<div class="okmsg"><b>Thank you. You signed that you received this notice.</b>Signing does not mean you agree. If you want to share your side, call Zach or the office at ' + esc(PHONE) + '.'
+    + (copy ? '<p class="small"><a href="' + esc(copy) + '" target="_blank" rel="noopener">Open your copy (PDF)</a> · this link works for 10 minutes.</p>' : '') + '</div>'
+    + (practice ? '<p class="practice" style="margin-top:12px">Practice: this was a test. Nothing was filed.</p>' : '');
+}
+async function load() {
+  if (!T) return dead();
+  const r = await call({ action: 'view' });
+  if (r.s !== 200) return dead(r.j.error);
+  V = r.j;
+  if (V.status === 'signed') { $('main').innerHTML = '<div class="okmsg"><b>This notice is already signed. Thank you.</b>If you have a question, call the office at ' + esc(PHONE) + '.</div>'; return; }
+  if (V.status === 'expired') return dead('This link has expired. Call the office at ' + PHONE + ' for a new one.');
+  if (V.status !== 'waiting') return dead('This notice can no longer be signed here. Call the office at ' + PHONE + '.');
+  $('main').innerHTML = (V.practice ? '<p class="practice"><b>Practice.</b> This is a test of the signing page. Nothing is filed and nobody is told.</p>' : '')
+    + '<h1>Hi ' + esc(V.first || 'there') + ', please read this notice</h1>'
+    + '<p class="lede">Read it all the way through. Then sign below to show you received it. <b>Signing does not mean you agree.</b></p>'
+    + '<div class="doc" id="doc">' + esc(V.notice) + '</div>'
+    + '<div class="statement">' + esc(V.receipt) + '</div>'
+    + '<label class="chk"><input type="checkbox" id="ok"> <span>I received this notice. I understand signing does not mean I agree.</span></label>'
+    + '<label class="q" for="nm">Type your full name (first and last)</label>'
+    + '<input type="text" id="nm" autocomplete="name" autocapitalize="words" enterkeyhint="done">'
+    + '<button class="go" id="go" type="button">Sign that I received it</button>'
+    + '<div class="err" id="err"></div>'
+    + '<p class="small">Your name, the time and your device are kept with the notice as your electronic signature. Questions? Call the office at ' + esc(PHONE) + '.</p>';
+  $('go').onclick = sign;
+}
+async function sign() {
+  const err = $('err'); err.style.display = 'none';
+  const name = $('nm').value.trim();
+  if (!$('ok').checked) { err.textContent = 'Tick the box to confirm you received the notice.'; err.style.display = 'block'; return; }
+  if (name.split(/\s+/).length < 2) { err.textContent = 'Type your full first and last name.'; err.style.display = 'block'; return; }
+  $('go').disabled = true; $('go').textContent = 'Signing…';
+  const r = await call({ action: 'sign', typed_name: name, consent: true, notice_hash: V.notice_hash });
+  if (r.s === 200) return signed(r.j.copy_url, r.j.practice);
+  $('go').disabled = false; $('go').textContent = 'Sign that I received it';
+  err.textContent = r.j.error || 'That did not go through. Try again, or call the office at ' + PHONE + '.'; err.style.display = 'block';
+}
+load();
+</script>
+</body>
+</html>

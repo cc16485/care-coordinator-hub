@@ -147,6 +147,7 @@
       + (dl.length ? dl.slice(0, 12).map((x) => '<div class="hr-row"><span><b>' + esc(x.who) + '</b> · ' + esc(x.what) + '</span><span class="' + (x.due.getTime() < now ? 'hr-late' : 'field-note') + '">' + (x.due.getTime() < now ? 'was due ' : 'due ') + esc(fmtDay(x.due)) + '</span></div>').join('')
         : '<div class="field-note">No open deadlines.</div>')
       + '<div class="field-note hr-foot">From the Corrective Action SOP: facts in 2 business days, a decision in 3, the meeting within 5 business days of the decision, and a 30-day follow-up.</div></div>'
+      + '<div class="card hr-card"><div class="hr-card-h">Signatures</div><div class="field-note" id="hrAckN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">HR agent practice</div><div class="field-note" id="hrPracN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Coaching oversight</div><div class="field-note" id="hrCoachN">Loading…</div></div>';
     loadCoaching(true).then((cs) => { const el = document.getElementById('hrCoachN'); if (!el) return;
@@ -159,7 +160,23 @@
       const todo = cs.filter((c) => c.practice && !c.review);
       el.innerHTML = todo.length ? todo.length + ' case' + (todo.length === 1 ? '' : 's') + ' the agent would have flagged, waiting for you to mark right or wrong. <a href="#" onclick="HR.go(\'practice\');return false;">Review them</a>'
         : (cs.length ? 'All practice cases are marked. Thank you.' : 'No practice cases yet. The agent runs every morning at 7.'); });
+    /* HR step 8 (2026-10-18): notices waiting for a signature, ones not signed in 5 business days, and PDFs to upload to AxisCare */
+    loadAcks().then((ks) => { const el = document.getElementById('hrAckN'); if (!el) return;
+      if (ks === null) { el.textContent = 'The signature records could not be read. Reload the page to try again.'; return; }
+      const wait = ks.filter((k) => k.status === 'waiting'), late = wait.filter((k) => k.unsigned_too_long);
+      const up = ks.filter((k) => !k.practice && ['signed', 'refused', 'did_not_sign'].includes(k.status) && !k.ax_upload_at);
+      const line = (k, what, cls) => '<div class="hr-row"><span><b>' + esc(k.caregiver) + '</b> · ' + esc(k.level || '') + (k.practice ? ' (practice)' : '') + '</span><span class="' + (cls || 'field-note') + '">' + what + '</span>'
+        + (k.writeup_id && k.writeup_id !== 'practice-sample' ? '<button class="secondary hr-btn" onclick="HR.openFormal(\'' + esc(k.writeup_id) + '\')">Open</button>' : '') + '</div>';
+      el.innerHTML = !(wait.length || up.length) ? 'Nothing is waiting for a signature.'
+        : late.map((k) => line(k, 'not signed in 5 business days: record it as Did not sign', 'hr-late')).join('')
+          + wait.filter((k) => !k.unsigned_too_long).map((k) => line(k, k.sent_at ? 'link texted, waiting' : (k.via === 'in_person' ? 'signing in person' : 'link made, not texted yet'))).join('')
+          + up.map((k) => line(k, 'upload the PDF to AxisCare')).join(''); });
     loadTerminations().then((t) => { const el = document.getElementById('hrTermN'); if (el) el.textContent = t === null ? '?' : String(t.filter((x) => x.status !== 'complete').length); });
+  }
+
+  async function loadAcks() {
+    try { const { data, error } = await sb.functions.invoke('hr-ack', { body: { action: 'list' } }); if (error || !data || !Array.isArray(data.acks)) return null; return data.acks; }
+    catch (e) { return null; }
   }
 
   /* ---------- agent practice (build step 4): what the agent would flag, for Samantha and Zach to mark ---------- */
@@ -529,6 +546,17 @@
   }
   function renderTerminations(box) {
     box.innerHTML = '<div class="hr-h">Terminations</div><div class="card hr-card" id="hrTermBox"><div class="field-note">Loading…</div></div>';
+    /* HR step 8 (2026-10-18): notices waiting for a signature, ones not signed in 5 business days, and PDFs to upload to AxisCare */
+    loadAcks().then((ks) => { const el = document.getElementById('hrAckN'); if (!el) return;
+      if (ks === null) { el.textContent = 'The signature records could not be read. Reload the page to try again.'; return; }
+      const wait = ks.filter((k) => k.status === 'waiting'), late = wait.filter((k) => k.unsigned_too_long);
+      const up = ks.filter((k) => !k.practice && ['signed', 'refused', 'did_not_sign'].includes(k.status) && !k.ax_upload_at);
+      const line = (k, what, cls) => '<div class="hr-row"><span><b>' + esc(k.caregiver) + '</b> · ' + esc(k.level || '') + (k.practice ? ' (practice)' : '') + '</span><span class="' + (cls || 'field-note') + '">' + what + '</span>'
+        + (k.writeup_id && k.writeup_id !== 'practice-sample' ? '<button class="secondary hr-btn" onclick="HR.openFormal(\'' + esc(k.writeup_id) + '\')">Open</button>' : '') + '</div>';
+      el.innerHTML = !(wait.length || up.length) ? 'Nothing is waiting for a signature.'
+        : late.map((k) => line(k, 'not signed in 5 business days: record it as Did not sign', 'hr-late')).join('')
+          + wait.filter((k) => !k.unsigned_too_long).map((k) => line(k, k.sent_at ? 'link texted, waiting' : (k.via === 'in_person' ? 'signing in person' : 'link made, not texted yet'))).join('')
+          + up.map((k) => line(k, 'upload the PDF to AxisCare')).join(''); });
     loadTerminations().then((t) => {
       const el = document.getElementById('hrTermBox'); if (!el) return;
       if (t === null) { el.innerHTML = '<div class="field-note">The termination list could not be read. Reload the page to try again.</div>'; return; }

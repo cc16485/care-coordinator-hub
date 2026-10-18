@@ -281,7 +281,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=17"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=18"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -2954,6 +2954,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div id="writeup-notice" style="font-size:.75rem;background:#fef2f2;border-radius:6px;padding:.45rem .7rem;color:#b91c1c;margin:.4rem 0 .6rem;font-weight:600"></div>
     <!-- HR step 6 (2026-10-18): the four items required before approval, Save and Draft with AI (caregivers-engine.js wuCheckHtml) -->
     <div id="writeup-check"></div>
+    <!-- HR step 8 (2026-10-18): getting it signed: a texted link, in person, or a recorded refusal (caregivers-engine.js wuAckHtml) -->
+    <div id="writeup-ack"></div>
     <textarea id="writeup-body" rows="18" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;line-height:1.5"></textarea>
     <div style="display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap" id="writeup-actions"></div>
     <!-- HR step 6: every change to this write-up, from the database's audit trail (hr_formal_log) -->
@@ -8783,7 +8785,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018j'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018k'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -19483,7 +19485,8 @@ function cgdPerformanceHtml(c,nm){
     /* HR steps 1 and 3 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
     +(ccCan('approve_discipline') ? card('Formal records <span class="field-note" style="font-weight:400;">(Samantha and Zach only)</span>',
       (wus.length ? wus.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).map(a=>{
-          const st={draft:'draft',pending_approval:'waiting for approval',approved:'approved, not issued yet',issued:'issued'}[a.status]||String(a.status||'');
+          const st=({draft:'draft',pending_approval:'waiting for approval',approved:'approved, waiting for a signature',issued:'issued'}[a.status]||String(a.status||''))
+            +(a.ack?' · '+({signed:'signed by '+(a.ack.signed_name||'them'),refused:'refused to sign, witnessed',did_not_sign:'did not sign'}[a.ack.status]||a.ack.status):'');
           const when=String(a.issued_at||a.approved_at||a.created_at||'').slice(0,10);
           const pw=(typeof WriteupRules!=='undefined'&&WriteupRules.protectedWords)?WriteupRules.protectedWords(a):[];
           return '<div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><b>'+esc(a.level||'Write-up')+'</b> · '+esc(st)+(when?' · '+esc(when):'')
@@ -33545,6 +33548,8 @@ const OPS_KINDS = {
   discipline:     { label:'Approval',      hours:24 },
   /* HR step 5 (2026-10-18): a coaching talk (or kind words to pass on) assigned on HR > Coaching; the database writes this card */
   coaching:       { label:'Coaching',      hours:120 },
+  /* HR step 8 (2026-10-18): a signed or refused notice's PDF to upload to AxisCare (its system takes no files); hr-ack writes this card */
+  hr_file:        { label:'HR filing',     hours:72 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
@@ -36219,6 +36224,7 @@ function opsClose(id, anchorId){
   if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
+  if(it.kind==='hr_file'){ location.hash='hr/formal'; return; }
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
