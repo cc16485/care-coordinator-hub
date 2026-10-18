@@ -362,6 +362,8 @@
     head.innerHTML = '';
     const box = start || head; box.innerHTML = h;
     wireForm(box); n9Wire(box);
+    /* celebrate.js (2026-10-18, fun step 2): a first visit AxisCare reported gets the Care began stamp; its Care Coordinator sees the key turn once */
+    try{ const fv = ((d.steps || []).find(x => x.step_key === 'soc.first') || {}).evidence; if(window.CEL && fv && fv.actual_first_visit) CEL.firstVisit(box, j, fv.actual_first_visit, cpName()); }catch(e){}
     try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
   }
   window.cjNinePreview = function(b){ return ninePreview(b); };

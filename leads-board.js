@@ -205,7 +205,9 @@
     const order = LB.filter === 'now' ? ['now'] : LB.filter === 'waiting' ? ['waiting'] : LB.filter === 'later' ? ['later'] : ['now', 'later', 'waiting'];
     if(LB.filter === 'missing' && !shown.length){ box.innerHTML = '<div class="card lb-group"><div class="lb-empty">Nothing is missing that the stage needs. <button class="linklike" onclick="lbFilter(\'All\')">Show everyone</button></div></div>'; return; }
     /* 2026-10-15: leads the old AI made, until each is filled from its calls */
-    const top = (window.LeadRecorder && LB.filter === 'All' ? LeadRecorder.html() : '') + (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '');
+    const top = (window.LeadRecorder && LB.filter === 'All' ? LeadRecorder.html() : '') + (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '')
+      /* the drawing kit (2026-10-18): nobody in Needs you now is the quiet phone */
+      + (window.HS && (LB.filter === 'All' || LB.filter === 'now') && !by.now.length ? HS.banner({ scene:'phone', say:'Every new family has heard from us.', sub:'No one is waiting on a call from us right now. A new inquiry shows here the moment it comes in.' }) : '');
     if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
       box.innerHTML = top + bar + '<div class="card lb-group"><div class="lb-group-head" style="background:var(--bg);"><span class="lb-group-title" style="color:var(--navy);">Most important first</span><span class="field-note">' + list.length + ' · a new family nobody has tried and a family waiting on our answer stay on top; then how ready they sound, then what they are worth a month. Click a line for the details.</span></div>'
