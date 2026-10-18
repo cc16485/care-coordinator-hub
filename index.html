@@ -4579,6 +4579,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="fuToggleBtn" onclick="fuToggle(this)">Turn on follow-up rules</button>
   <span class="field-note" id="fuSaved"></span>
 </div>
+<!-- Relationship calls (Stage 3 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.relationship_calls_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Relationship calls</div>
+<p class="hint">After a client's first visit: the welcome call is the client journey's own step (due by the end of the next business day). Then the 7-day relationship call (due by day 7) and, once it is logged, the 30-day call (due by day 30) each come as one card for the client's Care Coordinator, with Log the call. Relationship calls are never supervisory visits or notes. Nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
+<div id="rcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="rcToggleBtn" onclick="rcToggle(this)">Turn on relationship calls</button>
+  <span class="field-note" id="rcSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7342,6 +7350,7 @@ The HomeTogether team</pre>
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18116,6 +18125,26 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Relationship calls settings (Stage 3, policy 2026-10-18). Owners only. */
+function rcOn(){ return typeof RelationshipRules!=='undefined'&&RelationshipRules.on(DATA.ops_settings||{}); }
+function rcSetFill(){
+  const now=document.getElementById('rcSetNow'), b=document.getElementById('rcToggleBtn'); if(!now) return;
+  const on=rcOn(), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> The 7-day and 30-day relationship call cards are in use.':'<b style="color:#B7791F;">Off.</b> No relationship call cards (the journey’s welcome call works as always).')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off relationship calls':'Turn on relationship calls'; b.style.display=owner?'':'none'; }
+}
+async function rcToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn relationship calls on or off.'); return; }
+  const on=!rcOn();
+  const ok=await ccConfirm(on?'Turn on relationship calls?\n\nFrom now on, after each client’s first visit:\n· the 7-day relationship call shows on their Care Coordinator’s My Work (due by day 7)\n· once it is logged, the 30-day call (due by day 30)\n· a card stays until someone logs that they talked with the family\n\nNever a supervisory visit or note. Nothing is sent to any family.'
+    :'Turn off relationship calls? Open relationship call cards stay until handled; no new ones are made.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.relationship_calls_live=on; if(on&&!m.relationship_calls_live_since) m.relationship_calls_live_since=new Date().toISOString(); return ['relationship calls '+(on?'ON':'OFF')]; }, 'relationship calls');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('rcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  rcSetFill(); try{ opsReconcileLeads(); }catch(e){} try{ myWorkRefresh(); }catch(e){}
+}
 /* Follow-up rules settings (Stage 2, policy 2026-10-18). Owners only. */
 function fuSetFill(){
   const now=document.getElementById('fuSetNow'), b=document.getElementById('fuToggleBtn'); if(!now) return;
@@ -18181,6 +18210,7 @@ function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ ltSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
+  try{ rcSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -28681,6 +28711,38 @@ async function covOutcome(itemId, how){
   ccToast(how==='uncovered'?'✓ Recorded. A "call the family" card is on your list.':'✓ Recorded: '+words);
   myWorkRefresh();
 }
+/* Relationship calls (Stage 3): log the call from the card. Talked = done (the next call comes later); voicemail or no
+   answer = recorded, the card stays. Who made it is recorded; a teammate helping never changes whose family it is. */
+function relCallLog(itemId, btn){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const O=RelationshipRules.OUTCOMES, esc=escapeHtmlComms;
+  const el=ccPopOpen(btn||document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">'+esc(it.title||'Relationship call')+'</div>'
+    +Object.keys(O).map(k=>'<label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:13.5px;"><input type="radio" name="relO" value="'+k+'" style="width:auto;margin:0;"'+(k==='talked'?' checked':'')+'> '+esc(O[k])+'</label>').join('')
+    +'<input id="relNote" placeholder="What did they say? (short note)" style="width:100%;margin-top:8px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
+    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="relGo" style="padding:7px 14px;font-size:13px;">Log it</button><button class="ghost" id="relNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:320 });
+  el.querySelector('#relNo').onclick=ccPopClose;
+  el.querySelector('#relGo').onclick=async ()=>{
+    const outcome=(el.querySelector('input[name=relO]:checked')||{}).value, note=(el.querySelector('#relNote').value||'').trim();
+    if(outcome==='talked'&&!note){ alert('Add a short note: what did they say?'); return; }
+    ccPopClose(); await relCallSave(itemId, outcome, note);
+  };
+}
+async function relCallSave(itemId, outcome, note){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
+  const a=ccActor()||{}, now=new Date().toISOString();
+  const e=RelationshipRules.record(l, it.call_key, { outcome, note, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
+  if(!e){ alert('That could not be logged.'); return; }
+  await persist('leads', l);
+  const words=RelationshipRules.OUTCOMES[outcome];
+  if(outcome==='talked'){ it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=words+(note?': '+note:''); }
+  else { it.last_activity_at=now; }
+  opsLog(it, (a.name||'Someone')+': '+words.toLowerCase()+(note?' ('+note+')':''));
+  opEvent(outcome==='talked'?'item_resolved':'item_updated',{item:it, summary:(it.title||'Relationship call')+': '+words.toLowerCase()+' (by '+(a.name||a.email||'someone')+')'});
+  await persist('ops_items', it);
+  ccToast(outcome==='talked'?'✓ Logged. '+it.title.split(':')[0]+' is done.':'✓ Logged. The card stays until you talk with them.');
+  myWorkRefresh();
+}
 async function famCallDone(itemId, how){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const a=ccActor(), now=new Date().toISOString();
@@ -28964,7 +29026,7 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
-    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix') && it.status==='open'){
+    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
       if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
@@ -28974,6 +29036,9 @@ function obligationOpenAction(it){
       if(it.kind==='family_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("famCallDone('"+id+"','called')",'I called the family',true)+b("famCallDone('"+id+"','knew')",'They already knew')
         +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
+      if(it.kind==='relationship_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+        +b("relCallLog('"+id+"', this)",'Log the call',true)+b("openLeadProfile('"+esc(String(it.source_id||''))+"')",'Open the family')
+        +'<span class="field-note">A relationship call, not a supervisory visit. The Hub never calls or texts the family.</span></div>';
       if(it.kind==='evv_review') return '<div style="margin-top:6px;">'+b("switchTab('cgattendance')",'Open Attendance')
         +'<span class="field-note" style="margin-left:8px;">Mark Done when you have reviewed each one.</span></div>';
       /* an EVV fix card made before 2026-10-17 (the install turns open ones into call cards) */
@@ -35755,7 +35820,7 @@ function opsReconcileLeads(){
           detail:'Saved '+String(l.future.saved_at||'').slice(0,10)+': '+(l.future.reason||'')+(l.future.note?' ('+l.future.note+')':''),
           next_action:may?'They said we may contact them. See if we can help now, call them, then Reactivate or save them again with a new check-back date.'
                          :'They have not said we may contact them, so don\'t call. See if we can help now (area, caregiver, schedule), then save them again with a new check-back date or leave a note.',
-          due:day, check_day:day, created_at:it.created_at||nowIso, last_activity_at:nowIso,
+          due:LeadRules.chicagoInstant(day,'17:00'), check_day:day, created_at:it.created_at||nowIso, last_activity_at:nowIso,
           owner:opsCanonicalPerson(l.assigned_coordinator)||opsDomainOwner('family_enquiries')||'' });
         it.owner_name=it.owner?opsOwnerName(it.owner):''; delete it.closed_at; delete it.closed_by; delete it.auto_closed_reason;
         touched.set(it.id,it);
@@ -35764,6 +35829,39 @@ function opsReconcileLeads(){
         it.auto_closed_reason=saved?'Saved again with check-back '+(day||'none'):'No longer saved for future ('+String(l.status||'')+')';
         touched.set(it.id,it);
       }
+    });
+  }
+
+  /* Relationship calls (Stage 3, policy approved 2026-10-18): after the first visit, the 7-day and then the 30-day
+     relationship call, one card at a time, for the client's Care Coordinator (the journey's), else the lead's owner. The
+     welcome call is the journey's own step. Never a supervisory note or visit. Nothing is sent to the family. */
+  if(typeof RelationshipRules!=='undefined'&&RelationshipRules.on(DATA.ops_settings||{})){
+    const t=today(), nowIso=new Date().toISOString();
+    (DATA.leads||[]).forEach(l=>{
+      if(!l||!l.id||!l.first_shift_at) return;
+      let j=null; try{ j=(typeof cjJourneyFor==='function')?cjJourneyFor({ lead:l }):null; }catch(e){}
+      const nc=RelationshipRules.nextCall(l, { today:t, journey:j, since:RelationshipRules.since(DATA.ops_settings||{}) });
+      RelationshipRules.CALLS.forEach(c=>{
+        const id='ops_rel_'+l.id+'_'+c.key; let it=DATA.ops_items.find(i=>i.id===id);
+        if(nc&&nc.key===c.key){
+          if(it&&it.status==='open') return;
+          if(it&&it.status!=='open'&&RelationshipRules.done(l, c.key)) return;
+          const who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.client_first_name,l.client_last_name].filter(Boolean).join(' ').trim()||[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a client';
+          const fam=[l.first_name,l.last_name].filter(Boolean).join(' ').trim();
+          const owner=String((j&&j.assigned_cc)||'').toLowerCase()||opsCanonicalPerson(l.assigned_coordinator)||opsDomainOwner('client_care')||'';
+          if(!it){ it={ id, kind:'relationship_call', call_key:c.key, source_id:String(l.id), domain:'client_care', opened_by:'system', created_at:nowIso }; DATA.ops_items.push(it); }
+          Object.assign(it, { status:'open', title:c.title+': '+who, about:who, phone:l.phone||'', urgency:'normal',
+            detail:'First visit '+nc.first_visit+'. Call '+(fam||'the family')+': how is it going? Anything to change? A relationship call, not a supervisory visit.',
+            next_action:'Call '+(fam||'the family')+', then Log the call. Due by '+nc.due+'.',
+            due:LeadRules.chicagoInstant(nc.due,'17:00'), owner, last_activity_at:nowIso });
+          it.owner_name=it.owner?opsOwnerName(it.owner):''; delete it.closed_at; delete it.closed_by; delete it.auto_closed_reason;
+          touched.set(it.id,it);
+        } else if(it&&it.status==='open'){
+          it.status='done'; it.closed_at=nowIso; it.closed_by='system';
+          it.auto_closed_reason=RelationshipRules.done(l, c.key)?'Logged':(RelationshipRules.stopped(l, j)?'Care stopped':'Not open now');
+          touched.set(it.id,it);
+        }
+      });
     });
   }
 
