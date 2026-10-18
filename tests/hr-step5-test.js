@@ -22,5 +22,8 @@ ck('hr.js is cache-busted', /hr\.js\?v=20261018d/.test(H));
 const ctx = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem: () => {} }, ccCan: () => true, console };
 ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx);
 ck('hr.js loads', !!ctx.HR && typeof ctx.HR.assign === 'function' && typeof ctx.HR.done === 'function');
+ck('talking points follow Situation-Behavior-Impact plus an open question (research 2026-10-18)', /Situation-Behavior-Impact/.test(SRC) && /What has been getting in the way\?/.test(SRC));
+ck('the tips say to stop and tell Zach if a protected situation comes up', SRC.includes("Thank them, write it down and tell Zach before going further"));
+ck('the tips never use labels: dates from the record instead', SRC.includes('never "always late"'));
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }
 console.log((res.length - f) + '/' + res.length); process.exit(f ? 1 : 0);
