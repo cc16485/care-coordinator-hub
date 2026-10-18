@@ -283,7 +283,7 @@
         help: 'How can we help? Would a different shift time or fewer shifts work better for you, or is there something we can do, like help with a ride?',
         expect: 'Going forward, we need you at the shifts you take. If something comes up, call us as early as you can.' },
       w03: { kind: 'your clients love having you', what: 'start times',
-        facts: 'On ' + list(facts) + ', the shift started late. Your clients plan their day around you, and some need help the moment their visit begins.',
+        facts: 'On ' + list(facts) + ', the shift started late.',
         why: 'What has been making it hard to get there on time?',
         help: 'How can we help? Would a different start time work better for you, or is there something we can do?',
         expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts.' },
