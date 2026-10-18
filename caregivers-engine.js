@@ -286,10 +286,10 @@ function oigMatchTable(matches){
     </tr></thead>
     <tbody>${matches.map(m=>`<tr style="border-bottom:1px solid var(--border)">
       <td style="padding:.4rem .6rem">${m.firstname||''} ${m.lastname||''}</td>
-      <td style="padding:.4rem .6rem">${m.dob||'—'}</td>
-      <td style="padding:.4rem .6rem">${m.state||'—'}</td>
-      <td style="padding:.4rem .6rem">${m.excltype||'—'}</td>
-      <td style="padding:.4rem .6rem">${m.excldate||'—'}</td>
+      <td style="padding:.4rem .6rem">${m.dob||''}</td>
+      <td style="padding:.4rem .6rem">${m.state||''}</td>
+      <td style="padding:.4rem .6rem">${m.excltype||''}</td>
+      <td style="padding:.4rem .6rem">${m.excldate||''}</td>
     </tr>`).join('')}</tbody>
   </table>`;
 }
@@ -1107,7 +1107,7 @@ async function sendNewClientAlert(){
   } else {
     // Fallback: show the notification as a visible alert in the hub
     statusEl.textContent='';
-    alert(`📋 New Client Alert\n\nClient: ${name}\nStart: ${dateLabel}\nPayer: ${payer||'—'}\nHrs/Week: ${authHrs||'—'}\n${notes?'Notes: '+notes+'\n':''}`);
+    alert(`📋 New Client Alert\n\nClient: ${name}\nStart: ${dateLabel}\nPayer: ${payer||'Not set'}\nHrs/Week: ${authHrs||'Not set'}\n${notes?'Notes: '+notes+'\n':''}`);
   }
 }
 
@@ -1618,7 +1618,7 @@ function renderOffers(){
         : '')+
 
       '<div style="display:flex;gap:.6rem;align-items:center;margin-top:.6rem;flex-wrap:wrap;font-size:.8rem">'+
-      '<b style="color:#0D365F">Level of care:</b><span style="color:#6E6559">suggested '+(o.level_suggested||'—')+'</span>'+
+      '<b style="color:#0D365F">Level of care:</b><span style="color:#6E6559">'+(o.level_suggested?'suggested '+o.level_suggested:'Not set')+'</span>'+
       '<label style="display:flex;align-items:center;gap:.35rem">confirmed:'+
       '<select onchange="confirmOfferLevel(\''+id+'\',this)" style="font-family:inherit;font-size:.8rem;padding:.2rem .4rem;border:1px solid #e4e1d8;border-radius:6px">'+
       '<option value=""'+(lvl===''?' selected':'')+'>not yet</option>'+
@@ -1672,7 +1672,7 @@ function offerMovedOn(o){
 const OFF_MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function offerDate(iso){
   const m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if(!m) return '—';
+  if(!m) return '';
   const out=OFF_MONTHS[+m[2]-1]+' '+(+m[3]);
   return (+m[1]===new Date().getFullYear()) ? out : out+' '+m[1];
 }
@@ -2611,7 +2611,7 @@ function vivSheet(o){
     +'<span style="min-width:145px;color:#6E6559">'+label+'</span>'
     +(val!=null&&String(val).trim()!==''
       ?'<b style="flex:1;word-break:break-word">'+esc(val)+'</b><button class="fb" style="font-size:.68rem;padding:.12rem .5rem;flex-shrink:0" data-v="'+esc(val)+'" onclick="vivCopy(this)">📋 copy</button>'
-      :'<span style="flex:1;color:#A89C8B;font-style:italic">'+(hint||'—')+'</span>')
+      :'<span style="flex:1;color:#A89C8B;font-style:italic">'+(hint||'')+'</span>')
     +'</div>';
   const sec=t=>'<div style="font-size:.68rem;font-weight:800;letter-spacing:.05em;color:#5B21B6;text-transform:uppercase;margin:.5rem 0 .1rem">'+t+'</div>';
   const nm=String(o.name||'').trim();
@@ -4465,7 +4465,7 @@ function renderOBStats(){
     const h=ms/(1000*60*60); if(h<24) return `${Math.round(h)}h`; return `${msToDays(ms).toFixed(1)}d`;
   }
   function fmtTs(ts){
-    if(!ts) return '—';
+    if(!ts) return '';
     const d=new Date(ts);
     return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
   }
@@ -4493,15 +4493,15 @@ function renderOBStats(){
       <div style="font-size:.72rem;color:var(--gray);margin-top:.2rem">Resolved Total</div>
     </div>
     <div style="background:var(--white);border-radius:10px;padding:1rem;text-align:center;box-shadow:0 2px 8px rgba(14,56,96,.07)">
-      <div style="font-size:1.6rem;font-weight:700;color:var(--navy)">${avgMs!==null?fmtDur(avgMs):'—'}</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--navy)">${avgMs!==null?fmtDur(avgMs):''}</div>
       <div style="font-size:.72rem;color:var(--gray);margin-top:.2rem">Avg Time to Clear</div>
     </div>
     <div style="background:var(--white);border-radius:10px;padding:1rem;text-align:center;box-shadow:0 2px 8px rgba(14,56,96,.07)">
-      <div style="font-size:1.6rem;font-weight:700;color:var(--green-text)">${fastestMs!==null?fmtDur(fastestMs):'—'}</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--green-text)">${fastestMs!==null?fmtDur(fastestMs):''}</div>
       <div style="font-size:.72rem;color:var(--gray);margin-top:.2rem">Fastest</div>
     </div>
     <div style="background:var(--white);border-radius:10px;padding:1rem;text-align:center;box-shadow:0 2px 8px rgba(14,56,96,.07)">
-      <div style="font-size:1.6rem;font-weight:700;color:var(--red)">${slowestMs!==null?fmtDur(slowestMs):'—'}</div>
+      <div style="font-size:1.6rem;font-weight:700;color:var(--red)">${slowestMs!==null?fmtDur(slowestMs):''}</div>
       <div style="font-size:.72rem;color:var(--gray);margin-top:.2rem">Slowest</div>
     </div>
   </div>
@@ -4535,9 +4535,9 @@ function renderOBStats(){
         return `<tr style="border-top:1px solid var(--border);background:${i%2===0?'#fff':'#FAF9F6'}">
           <td style="padding:.5rem .75rem;font-weight:600">${c.first} ${c.last}</td>
           <td style="padding:.5rem .75rem;color:var(--gray)">${fmtTs(c.addedAt||c.added)}</td>
-          <td style="padding:.5rem .75rem;font-weight:700;color:${urgencyColor(days)}">${days!==null?fmtDur(c.elapsed):'—'}</td>
+          <td style="padding:.5rem .75rem;font-weight:700;color:${urgencyColor(days)}">${days!==null?fmtDur(c.elapsed):''}</td>
           <td style="padding:.5rem .75rem"><span class="badge ${st==='Ready for Orientation'?'b-green':st==='Needs Review'?'b-red':'b-gray'}">${st}</span></td>
-          <td style="padding:.5rem .75rem;color:var(--amber-text);font-size:.75rem">${blocking.join(', ')||'—'}</td>
+          <td style="padding:.5rem .75rem;color:var(--amber-text);font-size:.75rem">${blocking.join(', ')||''}</td>
         </tr>`;
       }).join('')}</tbody>
     </table>`:''}
@@ -5410,7 +5410,7 @@ function bgrTriage(r){
   // 3) has a workspace
   if(board){
     if(board.not_hired)
-      return { stage:'Not hired', waitingOn:'—', why:'Marked not hired', next:'Closed', group:'closed' };
+      return { stage:'Not hired', waitingOn:'Nobody', why:'Marked not hired', next:'Closed', group:'closed' };
     const status = obDeriveStatus(board);
     if(status === 'Ready for Orientation')
       return { stage:'Ready for orientation', waitingOn:'Us', why:'All required checks are clear', next:'Book orientation', group:'ready' };
@@ -6249,12 +6249,12 @@ function bgrRefActivityHTML(){
 
   if(!REF_REQUESTS.length) return health + '<div style="color:#A89C8B;font-size:.85rem">No reference requests on record yet.</div>';
   const rowsHtml = REF_REQUESTS.map(r => {
-    const cell = (label, val, tone) => '<td style="padding:.4rem .5rem;white-space:nowrap">'+(val ? (tone||bgrOn)(label) : bgrOff('—'))+'</td>';
+    const cell = (label, val, tone) => '<td style="padding:.4rem .5rem;white-space:nowrap">'+(val ? (tone||bgrOn)(label) : bgrOff(''))+'</td>';
     const reminders = (r.reminder_count||0) > 0 ? bgrWarn((r.reminder_count)+'× '+(bgrD(r.reminded_at)||'')) : bgrOff('none');
     const responded = r.responded_at
       ? ((r.recommend==='no'||r.concerns==='serious') ? bgrBad('responded '+bgrD(r.responded_at)) : bgrOn('responded '+bgrD(r.responded_at)))
-      : bgrOff('—');
-    const needs = (r.responded_at && (r.recommend==='no'||r.concerns==='serious')) ? bgrBad('review') : bgrOff('—');
+      : bgrOff('');
+    const needs = (r.responded_at && (r.recommend==='no'||r.concerns==='serious')) ? bgrBad('review') : bgrOff('');
     const att = bgrAttemptSummary(r);
     const attCell = '<td style="padding:.4rem .5rem;font-size:.76rem;color:#4A4A4A;min-width:120px">'
       + (att ? bgrEsc(att.text) : bgrOff('none logged')) + '</td>';
@@ -6263,7 +6263,7 @@ function bgrRefActivityHTML(){
     return '<tr style="border-top:1px solid #ece9e1">'
       + '<td style="padding:.4rem .5rem">'+bgrEsc(r.candidate_name||('#'+r.candidate_id))+'</td>'
       + '<td style="padding:.4rem .5rem">'+bgrEsc(r.ref_name||('slot '+r.slot))+'</td>'
-      + '<td style="padding:.4rem .5rem;white-space:nowrap">'+(bgrD(r.created_at)||bgrUnk('—'))+'</td>'
+      + '<td style="padding:.4rem .5rem;white-space:nowrap">'+(bgrD(r.created_at)||bgrUnk(''))+'</td>'
       + cell('sent '+(bgrD(r.sent_at)||''), r.sent_at)
       + '<td style="padding:.4rem .5rem">'+reminders+'</td>'
       + '<td style="padding:.4rem .5rem">'+responded+'</td>'
@@ -7139,10 +7139,10 @@ function renderTR(){
     const oBadge={Current:'b-green','Annual Due Soon':'b-amber','Annual Overdue':'b-red','Training Overdue':'b-red','OJT Pending':'b-gray','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
     return `<tr>
       <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`, '', 'checks', 'checks')}</div></td>
-      <td><span class="chk-date">${fmtD(c.hire_date)||'—'}</span></td>
+      <td><span class="chk-date">${fmtD(c.hire_date)||''}</span></td>
       <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${alzLine}${alzHrsLine}${profLine?`<span class="chk-date">${profLine}</span>`:''}</div></td>
       <td>${(()=>{
-        if(!c.first_contact){ return ts.preContactDone?`<div class="chk"><span class="badge b-gray">Not recorded</span><span class="chk-date" style="color:var(--gray)">Required in training file</span></div>`:`<div class="chk"><span class="badge b-gray">—</span></div>`; }
+        if(!c.first_contact){ return ts.preContactDone?`<div class="chk"><span class="badge b-gray">Not recorded</span><span class="chk-date" style="color:var(--gray)">Required in training file</span></div>`:`<div class="chk"></div>`; }
         const fcD=pd(c.first_contact);
         const orientOk=c.orient_date&&pd(c.orient_date)<=fcD;
         const alzOk=c.alz_date&&pd(c.alz_date)<=fcD;
@@ -7152,7 +7152,7 @@ function renderTR(){
         const note=!orientOk?'Orientation not done before contact':!alzOk?'ALZ training not done before contact':'Pre-contact training was complete';
         return `<div class="chk"><span class="badge ${statusBadge}">${statusLabel}</span><span class="chk-date">${fmtD(c.first_contact)}</span><span class="chk-date" style="color:${preOk?'var(--green)':'var(--red)'}">${note}</span></div>`;
       })()}</td>
-      <td><div class="chk"><span class="badge ${thirtyBadge}">${thirtyLabel}</span><span class="chk-date">Deadline: ${ddStr||'—'}</span>${ojtLine}${ojtOnlineLine}</div></td>
+      <td><div class="chk"><span class="badge ${thirtyBadge}">${thirtyLabel}</span><span class="chk-date">Deadline: ${ddStr||'Not set'}</span>${ojtLine}${ojtOnlineLine}</div></td>
       <td><div class="chk"><span class="badge ${annBadge}">${annLabel}</span>${annDateLine}${annHrsLine}${annProofLine}</div></td>
       <td><span class="badge ${oBadge}">${ts.overall}</span></td>
       <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
@@ -9686,7 +9686,7 @@ function openProfile(first, last){
 
   const refBadge=s=>({Positive:'b-green',Conditional:'b-amber',Negative:'b-red',Pending:'b-gray'}[s]||'b-gray');
   const compBadge=s=>({Current:'b-green','Due Soon':'b-amber',Overdue:'b-red'}[s]||'b-gray');
-  const miss='<span style="color:#E8E2D8;font-size:.75rem">—</span>';
+  const miss='<span style="color:#A89C8B;font-size:.75rem">Not set</span>';
 
   // ── Header ──
   const phone = cand?.phone || cg?.phone || '';
@@ -10205,7 +10205,7 @@ function saveEVVCorrections(arr) {
 
 // ── Helpers ───────────────────────────────────────────────────────────
 function evvGetPayPeriod(dateStr) {
-  if (!dateStr) return '—';
+  if (!dateStr) return '';
   const d = new Date(dateStr + 'T12:00:00');
   const sun = new Date(d); sun.setDate(d.getDate() - d.getDay());
   const sat = new Date(sun); sat.setDate(sun.getDate() + 6);
@@ -10348,11 +10348,11 @@ async function loadPendingEVVSubmissions() {
 
     _evvPendingCache = {};
     container.innerHTML = data.map(sub => {
-      const origTime = [sub.orig_in, sub.orig_out].filter(Boolean).join(' – ') || '—';
-      const newTime  = [sub.new_in,  sub.new_out ].filter(Boolean).join(' – ') || '—';
+      const origTime = [sub.orig_in, sub.orig_out].filter(Boolean).join(' – ') || 'Not set';
+      const newTime  = [sub.new_in,  sub.new_out ].filter(Boolean).join(' – ') || 'Not set';
       const submitted = sub.submitted_at
         ? new Date(sub.submitted_at).toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'})
-        : '—';
+        : 'Not set';
 
       // Late check (after Saturday 11:59 PM of visit week)
       let lateTag = '';
@@ -10376,7 +10376,7 @@ async function loadPendingEVVSubmissions() {
           <div>
             <div style="font-weight:700;font-size:.9rem">${evvEsc(sub.attendant)} <span style="color:var(--gray)">→</span> ${evvEsc(sub.consumer)}</div>
             <div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem;align-items:center">
-              <span class="badge b-blue">📅 Visit: ${sub.visitdate||'—'}</span>
+              <span class="badge b-blue">📅 Visit: ${sub.visitdate||'Not set'}</span>
               ${window.EVVF && EVVF.sigChipHtml ? EVVF.sigChipHtml(sub) : ''}
               ${lateTag}
               <span style="font-size:.72rem;color:var(--gray)">Submitted: ${submitted}</span>
@@ -10524,7 +10524,7 @@ function renderEVVCorrections() {
         <td>${c.consumer}</td>
         <td style="font-size:.78rem;color:var(--gray)">${origTime}</td>
         <td style="font-size:.78rem;font-weight:600">${newTime}</td>
-        <td style="font-size:.78rem;max-width:150px">${c.reason||'—'}${c.notes?`<div class="sub">${c.notes}</div>`:''}</td>
+        <td style="font-size:.78rem;max-width:150px">${c.reason||''}${c.notes?`<div class="sub">${c.notes}</div>`:''}</td>
         <td>${formBadge}</td>
         <td>${wsCell}</td>
         <td>${evvStatusBadge(status)}</td>
@@ -10552,7 +10552,7 @@ function renderEVVCorrections() {
   thisMonth.forEach(c => { byAtt[c.attendant] = (byAtt[c.attendant]||0)+1; });
   const sorted = Object.entries(byAtt).sort((a,b)=>b[1]-a[1]);
   const maxCount = sorted.length > 0 ? sorted[0][1] : 0;
-  const maxName  = sorted.length > 0 ? sorted[0][0] : '—';
+  const maxName  = sorted.length > 0 ? sorted[0][0] : '';
 
   const maxCountEl = document.getElementById('evv-thresh-max-count');
   if (maxCountEl) {

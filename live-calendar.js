@@ -104,7 +104,7 @@
       const vs = rows.filter(v => v.date === day), open = vs.filter(v => !v.caregiver).length, inMonth = day.slice(0, 7) === month;
       h += '<div class="lc-mday" data-day="' + day + '" onclick="lcOpenDay(\'' + day + '\')" style="cursor:pointer;border:1px solid ' + (day === today ? 'var(--teal)' : 'var(--border)') + ';border-radius:8px;padding:5px 7px;min-height:64px;background:' + (open ? '#FFF6F5' : inMonth ? '#fff' : '#F8FAFC') + ';' + (inMonth ? '' : 'opacity:.55;') + '">'
         + '<div style="font-weight:800;color:var(--navy);font-size:12.5px;">' + Number(day.slice(8)) + '</div>'
-        + (vs.length ? '<div style="font-size:11.5px;">' + vs.length + ' visit' + (vs.length === 1 ? '' : 's') + '</div>' : '<div class="field-note" style="font-size:11px;">—</div>')
+        + (vs.length ? '<div style="font-size:11.5px;">' + vs.length + ' visit' + (vs.length === 1 ? '' : 's') + '</div>' : '<div class="field-note" style="font-size:11px;"></div>')
         + (open ? '<div style="font-size:11.5px;font-weight:800;color:' + STATES.open.ink + ';">' + open + ' open</div>' : '')
         + (vs.length ? '<div class="lc-mdots" style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px;">' + ORDER.map(k => { const c = vs.filter(v => stateOf(v).key === k).length;
             return c ? '<span data-state="' + k + '" title="' + esc(STATES[k].label) + '" style="font-size:10px;font-weight:800;color:' + STATES[k].ink + ';background:' + STATES[k].bg + ';border:1px solid ' + STATES[k].bar + ';border-radius:4px;padding:0 4px;">' + c + '</span>' : ''; }).join('') + '</div>' : '') + '</div>';
