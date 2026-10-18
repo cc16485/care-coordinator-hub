@@ -38,13 +38,10 @@ async()=>{
   ok("...why it's here, in one sentence", /Why it's here: Ruth slipped getting out of the bath and hit her arm\./.test(red.innerText));
   ok("...the caregiver's words, with the part that caused it highlighted", red.querySelector('.cn-hl') && red.querySelector('.cn-hl').textContent==='Ruth slipped getting out and hit her arm on the sink' && /Helped with bath\./.test(red.querySelector('.cn-words').textContent));
   ok('...the not-done task under it, and "2nd flag for Ruth in 14 days"', /Bathing: not done/.test(red.innerText) && /2nd flag for Ruth in 14 days/.test(red.innerText));
-  ok('...next steps: call Kim (office line), tell the family, nurse visit, incident, watch, not a concern', ['Call Kim','Tell the family','Nurse or supervisor visit','Write it up as an incident','Watch it (3 days)','Not a concern, close'].every(t=>red.innerText.includes(t)) && red.querySelector('.cn-call[data-oc-phone="4175550909"]'));
+  ok('...next steps: call Kim (office line), tell the family, incident, watch, not a concern; no nurse or supervisor visit (2026-10-18)', !/Nurse or supervisor visit/.test(red.innerText) && ['Call Kim','Tell the family','Write it up as an incident','Watch it (3 days)','Not a concern, close'].every(t=>red.innerText.includes(t)) && red.querySelector('.cn-call[data-oc-phone="4175550909"]'), red.innerText.slice(0,900));
   ok('the yellow flag: its own level, no incident step, and no call link without a number', yel && /Yellow flag · look within 24 hours/.test(yel.innerText) && !/Write it up as an incident/.test(yel.innerText) && !yel.querySelector('.cn-call') && /Call the caregiver/.test(yel.innerText), yel && yel.innerText.slice(0,600));
   ok('an older flag with no level looks as it did', old && !old.querySelector('.cn-flag') && /An older flag with no level/.test(old.innerText));
   // steps
-  await cnStep('ops_carenote_9_601','nurse'); await sleep(200);
-  const nurse=DATA.ops_items.find(x=>x.source_id==='ops_carenote_9_601' && /Nurse or supervisor visit/.test(x.title));
-  ok('Nurse or supervisor visit: a new card for Client Care, linked back, and recorded on the flag', nurse && nurse.owner==='krystal@mo-care.com' && /Ruth Barnes/.test(nurse.title) && DATA.ops_items[0].cn_actions.some(a=>a.what==='nurse'));
   await cnStep('ops_carenote_9_601','incident'); await sleep(200);
   const inc=DATA.ops_items.find(x=>x.source_id==='ops_carenote_9_601' && /^Incident: /.test(x.title));
   ok('Write it up as an incident: a card on the Incidents owner\'s My Work (Samantha)', inc && inc.owner==='sam@mo-care.com' && inc.domain==='incidents' && /a fall or injury/.test(inc.title), inc);
@@ -52,15 +49,15 @@ async()=>{
   ok('Tell the family opens the draft a person sends (never sends by itself)', window.__n3==='ops_carenote_9_601' && window.__log.fn.length===0);
   await cnDid('ops_carenote_9_601','called'); await sleep(200);
   const r2=card('ops_carenote_9_601');
-  ok('the card says what was done so far, by whom', /Done so far: Asked for a nurse or supervisor visit \(Krystal/.test(r2.innerText) && /Called the caregiver/.test(r2.innerText));
+  ok('the card says what was done so far, by whom', /Done so far: Wrote it up as an incident \(Krystal/.test(r2.innerText) && /Called the caregiver/.test(r2.innerText));
   // Done asks what was done
   opsClose('ops_carenote_9_601'); await sleep(150);
   const pop=[...document.querySelectorAll('.ccpop')].pop();
   const ticked=[...pop.querySelectorAll('.cn-out input')].filter(x=>x.checked).map(x=>x.value);
-  ok('Done asks "What was done?", already ticked for what was recorded', /What was done\?/.test(pop.innerText) && JSON.stringify(ticked.sort())===JSON.stringify(['called','family','incident','nurse']), ticked);
+  ok('Done asks "What was done?", already ticked for what was recorded', /What was done\?/.test(pop.innerText) && JSON.stringify(ticked.sort())===JSON.stringify(['called','family','incident']) && !/nurse or supervisor/i.test(pop.innerText), [ticked, pop.innerText.slice(0,600)]);
   pop.querySelector('#clGo').click(); await sleep(250);
   const R0=DATA.ops_items.find(x=>x.id==='ops_carenote_9_601');
-  ok('...and the closed flag keeps that outcome', R0.status==='done' && JSON.stringify(R0.outcome.sort())===JSON.stringify(['called','family','incident','nurse']), R0.outcome);
+  ok('...and the closed flag keeps that outcome', R0.status==='done' && JSON.stringify(R0.outcome.sort())===JSON.stringify(['called','family','incident']), R0.outcome);
   opsClose('ops_carenote_8_602'); await sleep(150);
   let p2=[...document.querySelectorAll('.ccpop')].pop(); p2.querySelector('#clGo').click(); await sleep(150);
   ok('Done with nothing ticked and no note: asks first, nothing closed', DATA.ops_items.find(x=>x.id==='ops_carenote_8_602').status==='open');
@@ -87,7 +84,7 @@ async()=>{
   DATA.ops_settings={}; let box=document.getElementById('cnSet'); if(!box){ box=document.createElement('div'); box.id='cnSet'; document.body.appendChild(box); } cnSetFill();
   const btns=()=>[...box.querySelectorAll('button')];
   ok('Settings: both switches off; texts can\'t go on while red and yellow flags are off', btns().length===2 && btns()[1].disabled && /red and yellow flags are off/.test(box.innerText));
-  const asked=[]; window.confirm=t=>{ asked.push(t); return true; };
+  const asked=[]; window.confirm=t=>{ asked.push(t); return true; }; window.ccConfirm=async t=>{ asked.push(t); return true; };   /* #429: the Hub asks on the page */
   btns()[0].click(); await sleep(150);
   ok('...turning on red and yellow flags asks first and saves only that switch', /Turn on red and yellow shift-note flags\?/.test(asked[0]) && window.__merged.at(-1).m.care_notes_levels_live===true && JSON.stringify(window.__merged.at(-1).ch)==='["Red and yellow flags ON"]' && !btns()[1].disabled);
   btns()[1].click(); await sleep(150);

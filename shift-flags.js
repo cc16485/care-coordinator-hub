@@ -55,7 +55,6 @@
     return '<div class="cn-next"><div class="field-note">What happens next (pick one or more)</div><div class="cn-btns">'
       + call
       + (it.client_ax && typeof n3Open === 'function' ? b('family', 'Tell the family') : '')
-      + b('nurse', 'Nurse or supervisor visit')
       + (it.level === 'red' ? b('incident', 'Write it up as an incident') : '')
       + b('watch', 'Watch it (3 days)')
       + b('ok', 'Not a concern, close')
@@ -92,12 +91,7 @@
     if(what === 'family'){ n3Open(id); await save(it, 'family', 'Opened Tell the family'); refresh(); return; }
     if(btn) btn.disabled = true;
     try{
-      if(what === 'nurse'){
-        const w = await newWork(it, { kind:'capture', domain:'client_care', title:'Nurse or supervisor visit for ' + (it.about || who) + ': ' + (it.why || it.flag_kind || ''),
-          detail:'From a ' + it.level + ' shift-note flag. ' + String(it.detail || '').slice(0, 900), owner:String(it.owner || me().email).toLowerCase(), owner_name:it.owner_name || '' });
-        await save(it, 'nurse', 'Asked for a nurse or supervisor visit (new card: ' + w.title.slice(0, 60) + ')');
-        ccToast('A nurse or supervisor visit card is on ' + (first(w.owner_name) || 'the Client Care') + '\'s My Work.');
-      } else if(what === 'incident'){
+      if(what === 'incident'){
         const owner = domainOwner('incidents') || String(it.owner || me().email).toLowerCase();
         const w = await newWork(it, { kind:'client_issue', domain:'incidents', title:'Incident: ' + (it.about || who) + ', ' + (it.flag_kind || 'shift note') + (it.visit_day ? ' (' + it.visit_day + ')' : ''),
           detail:String(it.detail || '').slice(0, 1500), owner, owner_name:(typeof opsOwnerName === 'function' && opsOwnerName(owner)) || '' });
@@ -125,7 +119,8 @@
     if(!isFlag(it)) return '';
     const did = new Set((it.cn_actions || []).map(a => a.what));
     return '<div class="cn-close"><div style="font-size:12.5px;font-weight:700;margin:2px 0 4px;">What was done?</div>'
-      + ['called', 'family', 'nurse', 'incident', 'watch', 'ok'].map(k => '<label class="cn-out"><input type="checkbox" value="' + k + '"' + (did.has(k) ? ' checked' : '') + ' style="width:auto;margin:0;"> ' + esc(ACT[k]) + '</label>').join('')
+      /* 2026-10-18 (Samantha): the Nurse or supervisor visit button is gone; an older flag that used it still shows it */
+      + ['called', 'family'].concat(did.has('nurse') ? ['nurse'] : [], ['incident', 'watch', 'ok']).map(k => '<label class="cn-out"><input type="checkbox" value="' + k + '"' + (did.has(k) ? ' checked' : '') + ' style="width:auto;margin:0;"> ' + esc(ACT[k]) + '</label>').join('')
       + '</div>';
   }
   function closeRead(el){ return [...el.querySelectorAll('.cn-out input:checked')].map(x => x.value); }

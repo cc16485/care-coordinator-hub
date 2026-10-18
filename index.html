@@ -5123,26 +5123,26 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">💡</span><b>Why this exists:</b> clients decline faster than paperwork. A fill-in caregiver who walks in trusting a plan that says "walker" when the client now needs a Hoyer lift is a safety incident waiting to happen. So every active client's care plan gets confirmed <b>every 90 days</b>, and sooner <b>whenever a shift note shows a change</b>. A client with a red or yellow shift-note flag since their last review moves to the top as <b>Review now</b> until you save a review.</div>
 <div class="guide-step"><span class="num">1</span><b>Work the board top-down.</b> Review now (a shift note showed a change), overdue and never-reviewed clients float to the top in red. A review can be an in-person visit, a phone call with the client or family, or a caregiver check, whichever fits, as long as someone who has actually seen the client confirms the plan.</div>
 <div class="guide-step"><span class="num">2</span><b>Ask the people on the shifts.</b> "Ask caregivers" lists every caregiver who worked with that client in the last 60 days (live from AxisCare) and texts them the check question with one click. They see the decline first, weeks before anyone in the office does. "Text the check" sends exactly this, with the names filled in:
-<div style="margin:.4rem 0;padding:.5rem .7rem;background:#F6F1E7;border-left:3px solid var(--border);border-radius:6px;font-size:.8rem;font-style:italic">"Hi (caregiver's first name)! Quick care plan check for (client name). Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Meals or meds changes? Reply here with anything that's different. Takes a minute and keeps everyone safe. Thank you! — Caring Companions"</div>
-The same panel can also send a <b>custom update</b> in your own words to everyone on that client's shifts (a new address, a schedule note, an equipment change). Custom updates go out as <i>"Hi (first name)! Update about (client name): (your message) — Caring Companions"</i>, get noted on the client's AxisCare profile, and are never logged as a plan check.</div>
+<div style="margin:.4rem 0;padding:.5rem .7rem;background:#F6F1E7;border-left:3px solid var(--border);border-radius:6px;font-size:.8rem;font-style:italic">"Hi (caregiver's first name)! Quick care plan check for (client name). Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Meals or meds changes? Reply here with anything that's different. Takes a minute and keeps everyone safe. Thank you!<br>Caring Companions"</div>
+The same panel can also send a <b>custom update</b> in your own words to everyone on that client's shifts (a new address, a schedule note, an equipment change). Custom updates go out as <i>"Hi (first name)! Update about (client name): (your message)<br>Caring Companions"</i>, get noted on the client's AxisCare profile, and are never logged as a plan check.</div>
 <div class="guide-step"><span class="num">3</span><b>Log what you learned and set the Level.</b> Every client is Level 1 (Wellness), Level 2 (Personal Care), or Level 3 (Advanced Care). If anything changed, mobility, overnight expectations, meds, equipment, flag it. A changed answer isn't done until the plan in AxisCare is actually updated, the board holds a red "plan not updated yet" until you mark it.</div>
 <div class="guide-step flag"><span class="num">!</span>A Level change is a scheduling event, not just paperwork: a Level 3 client needs Level 3-capable caregivers on every shift, including fill-ins. When you bump a level, tell scheduling the same day.</div>
 </div>
 </details>
 
 <div id="cp-form" class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem;display:none">
-  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📝 Log a care plan review — <span id="cp-form-client"></span></div>
+  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📝 Log a care plan review: <span id="cp-form-client"></span></div>
   <input type="hidden" id="cp-client-name"><input type="hidden" id="cp-axis-id"><input type="hidden" id="cp-client-key">
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:.6rem">
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">How was it reviewed?</label>
       <select id="cp-method"><option value="visit">In-person visit</option><option value="phone">Phone with client / family</option><option value="caregiver">Caregiver check</option></select></div>
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Care Level (right now)</label>
-      <select id="cp-level"><option value="">— set the level —</option><option value="1">Level 1 · Wellness</option><option value="2">Level 2 · Personal Care</option><option value="3">Level 3 · Advanced Care</option></select></div>
+      <select id="cp-level"><option value="">Set the level</option><option value="1">Level 1 · Wellness</option><option value="2">Level 2 · Personal Care</option><option value="3">Level 3 · Advanced Care</option></select></div>
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Next review due</label><input type="date" id="cp-next-due"></div>
   </div>
   <label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">What changed? (check everything that applies)</label>
   <div style="display:flex;gap:1rem;flex-wrap:wrap;margin:.35rem 0 .6rem;font-size:.82rem">
-    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-none" style="width:auto"> ✅ No changes — plan still accurate</label>
+    <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-none" style="width:auto"> ✅ No changes, the plan is still accurate</label>
     <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-mobility" style="width:auto"> 🦽 Mobility / transfers</label>
     <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-schedule" style="width:auto"> 🌙 Schedule / overnight expectations</label>
     <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer"><input type="checkbox" id="cpf-meds" style="width:auto"> 💊 Diet / meds</label>
@@ -13189,7 +13189,7 @@ async function ckptSave(book){
 const CARE_RATE_LEVELS=[
   {k:'l1', label:'Level 1 · Wellness',      ph:'Companionship, meal prep, light housekeeping, errands and rides'},
   {k:'l2', label:'Level 2 · Personal Care', ph:'Everything in Wellness plus bathing, dressing, toileting, transfers'},
-  {k:'l3', label:'Level 3 · Advanced Care', ph:'Everything in Personal Care plus dementia care, lift or two-person transfers, complex needs'},
+  {k:'l3', label:'Level 3 · Advanced Care', ph:'Everything in Personal Care plus dementia care, Hoyer or sit-to-stand lift transfers, complex needs. One caregiver per visit: a client who needs more than one person to transfer must have a lift'},   /* 2026-10-18 (Samantha): never two-person transfers */
 ];
 function clientRatesRec(){
   return (DATA.client_rates||[]).find(x=>x.id==='rates')
@@ -41844,7 +41844,7 @@ function cpShiftChangeSince(axisId, sinceIso){
     if(!rows.length){
       box.innerHTML='<div class="card" style="padding:1rem 1.25rem;font-size:.85rem;color:var(--text-muted)">'
         +(PAIRS===null?'Loading active clients from AxisCare…'
-          :'No clients found — no completed AxisCare visits in the last 60 days'+(CC_VIEW_AS?' for '+E(CC_VIEW_AS)+'\'s book (unassigned clients show under Everyone)':'')+'.')
+          :'No clients found: no completed AxisCare visits in the last 60 days'+(CC_VIEW_AS?' for '+E(CC_VIEW_AS)+'\'s book (unassigned clients show under Everyone)':'')+'.')
         +'</div>';
       return;
     }
@@ -41858,7 +41858,7 @@ function cpShiftChangeSince(axisId, sinceIso){
         +(c.lastVisit?' · last AxisCare visit '+E(c.lastVisit):(c.fromAxis?'':' · <span style="color:#B45309">no AxisCare visits in 60 days</span>'));
       const dueTxt=c.latest?(c.due?(c.due<t?'<b style="color:#DC2626">⚠ due '+E(c.due)+'</b>':'next due '+E(c.due)):'no due date'):'<b style="color:#DC2626">⚠ needs its first review</b>';
       const askedN=recentAsks.filter(a=>(a.client_key||'')===c.key).length;
-      const pend=c.pendingUpdate?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">🔴 Changes flagged — plan in AxisCare not updated yet · <a href="#" onclick="cpMarkUpdated(\''+E(c.latest.id)+'\');return false;">mark plan updated ✓</a></div>':'';
+      const pend=c.pendingUpdate?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">🔴 Changes flagged, the plan in AxisCare is not updated yet · <a href="#" onclick="cpMarkUpdated(\''+E(c.latest.id)+'\');return false;">mark plan updated ✓</a></div>':'';
       const sc=c.shiftChange, scWhen=sc?String(sc.visit_day||sc.created_at||'').slice(0,10):'';
       const shiftNow=sc?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">Review now: shift note '+E(scWhen)+' showed a change'+(sc.why?' ('+E(String(sc.why).slice(0,120))+')':'')+'</div>':'';
       const findings=c.latest&&c.latest.findings?'<div style="font-size:.74rem;color:#3A342C;margin-top:.25rem">“'+E(String(c.latest.findings).slice(0,160))+(c.latest.findings.length>160?'…':'')+'”</div>':'';
@@ -41896,12 +41896,12 @@ function cpShiftChangeSince(axisId, sinceIso){
     const name=document.getElementById('cp-client-name').value;
     const flags=['mobility','schedule','meds','home'].filter(f=>document.getElementById('cpf-'+f).checked);
     const none=document.getElementById('cpf-none').checked;
-    if(!none&&!flags.length){ alert('Check "No changes" or flag what changed — one or the other.'); return; }
-    if(none&&flags.length){ alert('"No changes" and a changed flag can\'t both be true — pick one.'); return; }
+    if(!none&&!flags.length){ alert('Check "No changes" or flag what changed, one or the other.'); return; }
+    if(none&&flags.length){ alert('"No changes" and a changed flag can\'t both be true. Pick one.'); return; }
     const level=document.getElementById('cp-level').value;
-    if(!level){ alert('Set the client\'s care Level — it\'s part of every review.'); return; }
+    if(!level){ alert('Set the client\'s care Level. It\'s part of every review.'); return; }
     const findings=document.getElementById('cp-findings').value.trim();
-    if(flags.length&&!findings){ alert('Describe what changed — that text becomes the AxisCare note and the plan correction.'); return; }
+    if(flags.length&&!findings){ alert('Describe what changed. That text becomes the AxisCare note and the plan correction.'); return; }
     let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
     const rv={ kind:'review', id:'cpr'+Date.now(), client_key:document.getElementById('cp-client-key').value,
       client_name:name, axiscare_client_id:document.getElementById('cp-axis-id').value,
@@ -41920,15 +41920,15 @@ function cpShiftChangeSince(axisId, sinceIso){
     if(rv.changes_needed){
       let axMsg='';
       if(rv.axiscare_client_id){
-        const note='CARE PLAN REVIEW — changes flagged ('+rv.at.slice(0,10)+')\n'
+        const note='CARE PLAN REVIEW: changes flagged ('+rv.at.slice(0,10)+')\n'
           +'Level: '+(LEVELS[rv.care_level]?LEVELS[rv.care_level][0]:rv.care_level)+'\n'
-          +'Changed: '+rv.flags.join(', ')+'\n'+findings+'\n— '+(by||'coordinator')+', Caring Companions hub';
+          +'Changed: '+rv.flags.join(', ')+'\n'+findings+'\nBy '+(by||'coordinator')+', Caring Companions hub';
         const d=await axNoteCall({ action:'client_note', axiscare_client_id:rv.axiscare_client_id, note, kind:'care_plan_note' });
         rv.ax_note={ at:new Date().toISOString(), sent:d.outcome==='sent', error:d.outcome==='sent'?'':String(d.detail||d.error||'not sent') };
         try{ await persist('care_plan_reviews', rv); }catch(e){}
         axMsg=rv.ax_note.sent?'\n\n📝 The review note is on their AxisCare record.':'\n\n⚠ The review note did NOT reach AxisCare ('+rv.ax_note.error+'). Add it by hand.';
       }
-      alert('Saved, and the changes are flagged. ✍️ Now update the actual care plan in AxisCare (and tell scheduling if the Level moved) — then click "mark plan updated ✓" on the card. It stays red until you do.'+axMsg);
+      alert('Saved, and the changes are flagged. ✍️ Now update the actual care plan in AxisCare (and tell scheduling if the Level moved), then click "mark plan updated ✓" on the card. It stays red until you do.'+axMsg);
     }
     cpCloseForm(); cpRender();
   };
@@ -41979,7 +41979,7 @@ function cpShiftChangeSince(axisId, sinceIso){
     const asked=asks().filter(a=>(a.client_key||'')===key);
     const updated=updates().filter(u=>(u.client_key||'')===key);
     const phoneCount=mine.filter(p=>CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]).length;
-    el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days — one tap asks the care plan question:</div>'
+    el.innerHTML='<div style="font-size:.72rem;font-weight:700;color:var(--text-muted);margin-bottom:.35rem">Caregivers on '+E(c.name)+'\'s shifts, last 60 days. One tap asks the care plan question:</div>'
       +mine.map(p=>{
         const cg=String(p.caregiver||'').trim();
         const phone=CG_PHONES[cg.toLowerCase()]||'';
@@ -41993,7 +41993,7 @@ function cpShiftChangeSince(axisId, sinceIso){
           +askedNote+updNote
           +'<span style="flex:1"></span>'
           +(phone?'<button class="primary" style="font-size:.7rem" onclick="cpTextCg(\''+E(key)+'\','+A2(cg)+','+A2(phone)+','+A2(c.name)+')">📱 Text the check</button>'
-                 :'<button style="font-size:.7rem" onclick="cpCopyAsk('+A2(cg)+','+A2(c.name)+',\''+E(key)+'\')" title="No phone on file in the hub — copies the message to paste anywhere">📋 Copy ask</button>')
+                 :'<button style="font-size:.7rem" onclick="cpCopyAsk('+A2(cg)+','+A2(c.name)+',\''+E(key)+'\')" title="No phone on file in the hub, so this copies the message to paste anywhere">📋 Copy ask</button>')
           +'</div>';
       }).join('')
       +'<div style="margin-top:.55rem;border-top:1px dashed var(--border);padding-top:.55rem">'
@@ -42007,7 +42007,7 @@ function cpShiftChangeSince(axisId, sinceIso){
   }
   function A2(s){ return "'"+String(s==null?'':s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;').replace(/</g,'&lt;')+"'"; }
   function askText(cgFirst,client){
-    return 'Hi '+cgFirst+'! Quick care plan check for '+client+'. Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Meals or meds changes? Reply here with anything that\'s different. Takes a minute and keeps everyone safe. Thank you! — Caring Companions';
+    return 'Hi '+cgFirst+'! Quick care plan check for '+client+'. Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Meals or meds changes? Reply here with anything that\'s different. Takes a minute and keeps everyone safe. Thank you!\nCaring Companions';
   }
   async function logAsk(key,client,cg,via){
     let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
@@ -42024,7 +42024,7 @@ function cpShiftChangeSince(axisId, sinceIso){
       const d=await r.json();
       if(d&&d.status==='sent'){ await logAsk(key,client,cg,'sms'); renderAskInto(key); cpRender(); }
       else alert('Could not send: '+((d&&d.error)||'unknown error')+'\n\nUse 📋 Copy ask instead and send it from your phone.');
-    }catch(e){ alert('Could not reach the messaging service — check your connection.'); }
+    }catch(e){ alert('Could not reach the messaging service. Check your connection.'); }
   };
   async function logUpdate(key,client,cg,via,msg){
     let by=''; try{ by=(ME&&ME.name)||''; }catch(e){}
@@ -42048,7 +42048,7 @@ function cpShiftChangeSince(axisId, sinceIso){
     const withPhone=mine.filter(p=>CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]);
     const noPhone=mine.filter(p=>!CG_PHONES[String(p.caregiver||'').trim().toLowerCase()]);
     if(!withPhone.length&&noPhone.length){
-      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+' — Caring Companions'); }catch(e){}
+      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+'\nCaring Companions'); }catch(e){}
       alert('None of '+c.name+'\'s caregivers have a phone on file in the hub. The message is copied, paste it into a text from your own phone to: '+noPhone.map(p=>p.caregiver).join(', '));
       return;
     }
@@ -42079,7 +42079,7 @@ function cpShiftChangeSince(axisId, sinceIso){
           +'"'+msg+'"\n'
           +'Sent to: '+sent.join(', ')
           +(noPhone.length?'\nNo phone on file (send manually): '+noPhone.map(p=>p.caregiver).join(', '):'')
-          +'\n— '+(by||'coordinator')+', Caring Companions hub';
+          +'\nBy '+(by||'coordinator')+', Caring Companions hub';
         const nr=await axNoteCall({ action:'client_note', axiscare_client_id:String(c.axisId), note });
         noted=nr.outcome==='sent';
       }catch(e){}
@@ -42089,7 +42089,7 @@ function cpShiftChangeSince(axisId, sinceIso){
     else if(sent.length) report+='\n\n📝 Saved to '+c.name+'\'s History here in the hub.'+(c.axisId?' (Could not reach AxisCare to add the profile note.)':' (No AxisCare ID on file, so no profile note.)');
     if(failed.length) report+='\n\n⚠ Could not send to: '+failed.join(', ')+'. Try again in a minute or text them from your phone.';
     if(noPhone.length){
-      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+' — Caring Companions'); }catch(e){}
+      try{ await navigator.clipboard.writeText('Update about '+c.name+': '+msg+'\nCaring Companions'); }catch(e){}
       report+='\n\n📋 No phone on file for: '+noPhone.map(p=>p.caregiver).join(', ')+'. The message is copied, paste it into a text from your own phone.';
     }
     alert(report);
@@ -42099,7 +42099,7 @@ function cpShiftChangeSince(axisId, sinceIso){
     const first=cg.split(' ')[0]||cg;
     try{ await navigator.clipboard.writeText(askText(first,client)); }catch(e){}
     await logAsk(key,client,cg,'manual');
-    alert('Message copied — paste it into a text to '+cg+'. Logged as asked.');
+    alert('Message copied. Paste it into a text to '+cg+'. Logged as asked.');
     renderAskInto(key); cpRender();
   };
   // Lens-independent: the manager strip counts every book's overdue plans.
