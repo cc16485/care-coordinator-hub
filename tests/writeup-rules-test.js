@@ -7,7 +7,8 @@ const ZACH = { email: 'zach@mo-care.com', owner: true, team: true };
 const KRYSTAL = { email: 'krystal@mo-care.com', owner: false, team: true };
 const ANGIEL = { email: 'angiel@mo-care.com', owner: false, team: true };
 const STAFFING = { email: 'staffing@mo-care.com', owner: false, team: false };
-const wu = (level, extra) => Object.assign({ id: 'x' + Math.random(), caregiver: 'Pat Sample', axiscare_caregiver_id: '77', level, status: 'pending_approval', created_by: 'the Hub (missed notes)' }, extra || {});
+const wu = (level, extra) => Object.assign({ id: 'x' + Math.random(), caregiver: 'Pat Sample', axiscare_caregiver_id: '77', level, status: 'pending_approval', created_by: 'the Hub (missed notes)',
+  facts_checked_at: '2026-10-18', handbook: { section: '2U Attendance & Dependability' }, explanation: { asked_on: '2026-10-17', how: 'phone', text: 'Car trouble' }, protected: [] }, extra || {});
 const can = (a, who, all) => W.canApprove(a, who, all || [a], NOW);
 
 // HR decisions 1 to 3 (2026-10-18): every write-up is an owner's; Zach approves terminations; protected cases need
@@ -75,6 +76,17 @@ ck('...no call time recorded: nothing guessed', !W.shortNotice(ci({ notice_hours
 ck('...not a call-in: never short', !W.shortNotice({ type: 'tardy', shift_date: '2026-10-20', shift_time: '08:00', reported_at: '2026-10-19T19:00' }, 4).short);
 ck('...the reason has no em dash', !/\u2014/.test(W.shortNotice(ci({ notice_hours: 13, reported_at: '2026-10-19T19:00' }), 4).why));
 
+// HR step 6 (2026-10-18): the four required items before approval
+const bare = { id: 'b', caregiver: 'Pat', level: 'Written Warning', status: 'pending_approval' };
+ck('a bare write-up lists all four missing items, in order', JSON.stringify(W.missingBeforeDecision(bare)) === JSON.stringify(['the facts checked against the record', 'the handbook section', "the caregiver's side", 'the protected-situation check']), W.missingBeforeDecision(bare));
+ck('...and Zach cannot approve it, told what to fill in', !can(bare, ZACH).ok && can(bare, ZACH).missing.length === 4 && /Before this can be approved, fill in: /.test(can(bare, ZACH).why));
+ck('...nor Samantha', !can(bare, SAM).ok);
+ck('a complete one: nothing missing', W.missingBeforeDecision(wu('Written Warning')).length === 0 && can(wu('Written Warning'), ZACH).ok);
+ck('"they chose not to give their side" counts, with the date asked', W.missingBeforeDecision(wu('Written Warning', { explanation: { asked_on: '2026-10-17', declined: true } })).length === 0);
+ck('their side without the date asked is missing', W.missingBeforeDecision(wu('Written Warning', { explanation: { text: 'x' } })).join() === "the caregiver's side");
+ck('an empty side is missing', W.missingBeforeDecision(wu('Written Warning', { explanation: { asked_on: '2026-10-17', text: '  ' } })).join() === "the caregiver's side");
+ck('the protected check must have been done (an empty list counts as done)', W.missingBeforeDecision(wu('Written Warning', { protected: undefined })).join() === 'the protected-situation check');
+ck('a Care Coordinator is still told Zach approves (not the missing list)', /Zach/.test(can(bare, KRYSTAL).why));
 // no em dashes in anything a person reads
 const said = [W.whoApproves(wu('Coaching')), W.whoApproves(pw), can(wu('Suspension'), KRYSTAL).why, can(pw, ZACH).why, can(wu('Coaching'), STAFFING).why];
 ck('no em dashes in the words', said.every(t => !/—/.test(t)), said);

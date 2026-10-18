@@ -191,7 +191,7 @@
           + '<div class="field-note">' + esc(k[1]) + ' · found ' + esc(String(c.created_at || '').slice(0, 10)) + (c.practice ? ' · practice' : '') + '</div>'
           + '<div style="margin:6px 0;">' + (c.facts || []).slice(0, 20).map((f) => '<div class="field-note">' + esc(f.date) + ' · ' + esc(f.what) + '</div>').join('') + '</div>'
           + (c.handbook ? '<div class="hr-quote" style="margin-bottom:6px;">' + esc(c.handbook) + '</div>' : '')
-          + assignHtml(c)
+          + assignHtml(c) + formalHtml(c)
           + (c.review ? '<div class="field-note"><b>' + (c.review === 'agree' ? 'Right call' : 'Wrong call') + '</b>' + (c.review_note ? ': ' + esc(c.review_note) : '') + ' · ' + esc(c.reviewed_by || '') + ' <a href="#" onclick="HR.mark(\'' + esc(c.id) + '\',null);return false;">change</a></div>'
             : '<div><button class="primary hr-btn" onclick="HR.mark(\'' + esc(c.id) + '\',\'agree\')">Right call</button> <button class="secondary hr-btn" onclick="HR.mark(\'' + esc(c.id) + '\',\'disagree\')">Wrong call</button></div>')
           + '</div>'; }).join('')
@@ -306,6 +306,40 @@
       + R.expect + (R.note ? ' ' + NOTE_OPEN + R.note + NOTE_CLOSE : '') + ' I also want to be clear and fair with you: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination. We don\'t want that. That\'s why we\'re talking now. '
       + 'Do you have any questions for me?' + ST + 'Thank you, ' + first + '. We\'re here to help you.';
   }
+  /* HR step 6 (2026-10-18): a recurring or serious case becomes a formal case (a write-up draft) only when Zach says so.
+     The draft carries the facts and the agent's case; Zach adds the four required items and can draft it with AI. */
+  function formalHtml(c) {
+    if (!owner() || (c.kind !== 'recurring' && c.kind !== 'serious')) return '';
+    const on = (typeof DATA !== 'undefined' && DATA && DATA.discipline_actions || []).find((x) => x && x.case_id === c.id);
+    if (on) return '<div class="field-note" style="margin-bottom:6px;">Formal case started: ' + esc(on.level) + ' · ' + esc(String(on.status || '').replace('_', ' ')) + ' <a href="#" onclick="HR.openFormal(\'' + esc(on.id) + '\');return false;">open it</a></div>';
+    return '<div style="margin-bottom:6px;"><button class="secondary hr-btn" onclick="HR.startFormal(\'' + esc(c.id) + '\')">Start a formal case</button> <span class="field-note">You decide; nothing goes to the caregiver.</span></div>';
+  }
+  async function engineReady() {
+    if (typeof scxEnsure === 'function') scxEnsure('cgwriteups');
+    for (let i = 0; i < 50 && !(window.SCX && window.SCX.addWriteup); i++) await new Promise((r) => setTimeout(r, 200));
+    return !!(window.SCX && window.SCX.addWriteup);
+  }
+  async function startFormal(caseId) {
+    const c = (cases || []).find((x) => x.id === caseId); if (!c) return;
+    if (!(await ccConfirm('Start a formal case for ' + c.caregiver + '?\n\nIt opens as a draft write-up with the facts. You add their side, the handbook section and the protected check before it can be approved. Nothing goes to the caregiver.'))) return;
+    if (!(await engineReady())) { alert('The write-up list did not load. Reload the page and try again.'); return; }
+    if (window.SCX.hasCase(c.id)) { alert('A formal case is already open for this. Look in Formal cases.'); return; }
+    const all = (typeof DATA !== 'undefined' && DATA && DATA.discipline_actions) || [];
+    const issued = all.filter((x) => x && x.status === 'issued' && String(x.axiscare_caregiver_id || x.ax_caregiver_id || '') === String(c.axiscare_caregiver_id)).length;
+    const LADDER = ['Verbal Warning', 'Written Warning', 'Final Written Warning', 'Termination Review'];
+    const me = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
+    const evRules = ['w01', 'w02', 'w03', 'w04', 'w06'];
+    const a = { id: 'hc' + Date.now(), case_id: c.id, caregiver: c.caregiver, axiscare_caregiver_id: String(c.axiscare_caregiver_id),
+      level: c.kind === 'serious' ? 'Termination Review' : LADDER[Math.min(issued, 3)], reason: c.title,
+      category: ({ w05: 'documentation', w06: 'evv' })[c.rule] || 'attendance', event_ids: evRules.includes(c.rule) ? (c.source_ids || []) : [],
+      facts: c.facts || [], body: '', status: 'draft', created_at: new Date().toISOString(), created_by: (me.split('@')[0] || 'zach'), created_by_email: me, issued_at: null };
+    const id = await window.SCX.addWriteup(a);
+    try { await sb.from('hr_cases').update({ status: 'reviewed', updated_at: new Date().toISOString() }).eq('id', c.id); } catch (e) {}
+    try { if (typeof DATA !== 'undefined' && DATA) (DATA.discipline_actions = DATA.discipline_actions || []).push(a); } catch (e) {}
+    go('formal'); setTimeout(() => { try { window.SCX.openWriteup(id); } catch (e) {} }, 300);
+  }
+  async function openFormal(id) { if (!(await engineReady())) return; go('formal'); setTimeout(() => { try { window.SCX.openWriteup(id); } catch (e) {} }, 300); }
+
   function assignHtml(c) {
     if (!owner() || (c.kind !== 'coaching' && c.kind !== 'recognition')) return '';
     const done = (coach || []).find((x) => x.case_id === c.id);
@@ -550,5 +584,5 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, mark, assign, done, help, postpone, improved, reply, reassign, close: closeAs, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
+  window.HR = { render, go, mark, startFormal, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
