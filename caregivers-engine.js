@@ -10856,6 +10856,13 @@ for (const [n, f] of Object.entries({
 })) window[n] = f;
 window.intakeImport = intakeImport;
 window.openPerson = openPerson;
+/* 2026-10-18 audit: three more inline handlers the export list missed, so they did nothing when used (Active Compliance's row
+   tick for the bulk bar, the orientation start/end time preview, and Add to roster on a finished welcome call). Left out on
+   purpose: evvToggleWellsky and updateCQStep draw into screens the Hub doesn't have (the retired EVV table and the old
+   client queue list; the Hub's own client queue has its own buttons); closeModal and gotoTab resolve to the Hub's own. */
+window.toggleACSelect = toggleACSelect;
+window.updateOrientGenPreview = updateOrientGenPreview;
+window.wcRosterAdd = wcRosterAdd;
 window.SCX.getCandidates = () => candidates;   /* read-only view for the applicant page (2026-10-12) */
 window.retryHydrate = retryHydrate;
 /* Background & References card / timeline / modal actions reached from onclick.
