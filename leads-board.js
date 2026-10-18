@@ -66,11 +66,12 @@
   }
   const READY = { ready:[3, 'Ready now'], deciding:[2, 'Deciding'], looking:[1, 'Just looking'] };
   const numOf = v => { const m = String(v == null ? '' : v).match(/\d+(\.\d+)?/); const n = m ? Number(m[0]) : 0; return n > 0 && n <= 168 ? n : 0; };
-  /* the rate card's level: dementia or a two-person transfer is Advanced (l3), help with the body is Personal Care (l2), else Wellness (l1) */
+  /* the rate card's level: dementia or a lift is Advanced (l3), help with the body is Personal Care (l2), else Wellness (l1).
+     2026-10-18 (Samantha): a transfer that needs more than one person means the client must have a lift, so it reads as Advanced too. */
   function careLevel(l){
     const words = [l.why_called, l.notes, l.mobility, (l.care_plan_draft && l.care_plan_draft.fields && l.care_plan_draft.fields.adl_needs) || ''].join(' ');
     const needs = Array.isArray(l.needs) ? l.needs : [], conds = Array.isArray(l.medical_conditions) ? l.medical_conditions : [];
-    if(needs.indexOf('dementia') >= 0 || conds.some(c => c === 'dementia' || c === 'alzheimers') || /dementia|alzheim|memory care|two.person|hoyer/i.test(words)) return ['l3', 'Advanced Care'];
+    if(needs.indexOf('dementia') >= 0 || conds.some(c => c === 'dementia' || c === 'alzheimers') || /dementia|alzheim|memory care|two.person|hoyer|sit.to.stand|mechanical lift/i.test(words)) return ['l3', 'Advanced Care'];
     if(needs.indexOf('personalCare') >= 0 || /bath|shower|dress|toilet|incontinen|transfer|groom|hygien/i.test(words)) return ['l2', 'Personal Care'];
     return ['l1', 'Wellness'];
   }
