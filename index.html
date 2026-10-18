@@ -7158,7 +7158,7 @@ The HomeTogether team</pre>
 <label>Resolution</label>
 <textarea id="checkin_resolution" rows="2"></textarea>
 <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
-<input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate to Samantha
+<input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate (the Client care owner and the Springfield lead are told)
 </label>
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('checkinModalBackdrop')">Cancel</button>
@@ -7294,7 +7294,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-library.js"></script>
+<script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=17"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
@@ -9280,7 +9280,7 @@ async function cmpTest(){
   const e=cmpLib().find(x=>x.key===cmpKey); if(!e||cmpSending) return;
   cmpSending=true; const st=document.getElementById('cmpStatus'); st.textContent='Sending test to '+ME.email+'…';
   try{
-    const r=await cmpCall(e.subj, ccBuildEmailHTML(e), [{email:ME.email,name:'Samantha'}]);
+    const r=await cmpCall(e.subj, ccBuildEmailHTML(e), [{email:ME.email,name:ME.name||'there'}]);
     st.textContent=r.sent?'✓ Test sent to '+ME.email+'. Check your inbox (it lands via GoHighLevel).':'Test failed: '+JSON.stringify(r.results||r);
   }catch(err){ st.textContent='Test failed: '+err; }
   cmpSending=false;
@@ -14326,10 +14326,28 @@ async function saveCheckin(){
   if(record.escalated && !existing.escalated) notifyEscalation(record);
 }
 
-/* Escalated check-in → text the staff flagged for check-in alerts + email
-   Samantha, through the same secured GHL functions the lead comms use. */
+/* Escalated check-in → text the staff flagged for check-in alerts + email the Client care owner and the Springfield
+   lead (SOP ruling 8, 2026-10-17; was Samantha), through the same secured GHL functions the lead comms use. It also
+   opens a card for the Client care owner, so owners see it and who has it under Everyone. An incident is still handed
+   to Samantha from the card. */
 async function notifyEscalation(c){
-  const msg = '🚨 ESCALATED CHECK-IN — '+(c.client_name||'client')
+  const owner=ccNoticeTo('client_care');
+  try{
+    const id='ops_ckesc_'+String(c.id);
+    if(!(DATA.ops_items||[]).some(x=>x&&x.id===id)){
+      const now=new Date().toISOString();
+      const it={ id, kind:'request', domain:'client_care', status:'open', urgency:'high',
+        title:'Escalated check-in: '+(c.client_name||'client'), about:c.client_name||'',
+        detail:'Concern: '+String(c.concerns_raised||c.caregiver_feedback||'see the check-in').slice(0,400)
+          +'. Satisfaction '+(c.satisfaction_rating||'?')+'/5, by '+(c.coordinator||'the coordinator')+'.',
+        next_action:'Call the family and fix it. If it sounds like harm or neglect, it is an incident: hand it to Samantha.',
+        link:'#checkins', owner, owner_name:opsOwnerName(owner)||owner, created_at:now,
+        due:new Date(Date.now()+24*3600e3).toISOString(), created_by:'check-in escalation', opened_by:'system' };
+      DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
+      await persist('ops_items', it);
+    }
+  }catch(e){ console.warn('[checkin] escalation card', e); }
+  const msg = '🚨 ESCALATED CHECK-IN: '+(c.client_name||'client')
     +'\nConcern: '+((c.concerns_raised||c.caregiver_feedback||'(see hub)').slice(0,300))
     +'\nSatisfaction: '+(c.satisfaction_rating||'?')+'/5 · by '+(c.coordinator||'coordinator')
     +'\nOpen the CC Hub → Client Check-ins for the full record.';
@@ -14340,14 +14358,17 @@ async function notifyEscalation(c){
   (DATA.coordinator_staff||[]).filter(s=>s.notify_checkins&&s.phone).forEach(s=>{
     sends.push(call({action:'send_sms',phone:s.phone,first_name:s.name||'Staff',message:msg}));
   });
-  sends.push(call({action:'send_email',email:'samantha@mo-care.com',first_name:'Samantha',last_name:'Troutman',
-    subject:'🚨 Escalated check-in: '+(c.client_name||'client'),
-    message:msg}));
+  ccFallbackList('client_care').forEach(e=>{
+    const n=String(opsOwnerName(e)||e.split('@')[0]).trim().split(/\s+/);
+    sends.push(call({action:'send_email',email:e,first_name:n[0]||'there',last_name:n.slice(1).join(' '),
+      subject:'🚨 Escalated check-in: '+(c.client_name||'client'),
+      message:msg}));
+  });
   const results=await Promise.all(sends);
   const ok=results.filter(r=>r&&r.status==='sent').length;
   alert(ok
-    ? 'Escalation sent — '+ok+' alert'+(ok===1?'':'s')+' (text/email) went out automatically.'
-    : 'Escalation saved, but the alerts could not send ('+((results[0]&&results[0].error)||'error')+') — tell Samantha directly.');
+    ? 'Escalation sent: '+ok+' alert'+(ok===1?'':'s')+' (text/email) went out, and it is a card for '+(opsOwnerName(owner)||owner)+'.'
+    : 'Escalation saved and it is a card for '+(opsOwnerName(owner)||owner)+', but the alerts could not send ('+((results[0]&&results[0].error)||'error')+'). Tell them directly.');
 }
 
 /* ---------------- SUPERVISORY VISITS ---------------- */
@@ -14848,7 +14869,8 @@ function tkFill(){
 }
 function tkAdminsNow(){
   const st=DATA.ops_settings||{};
-  const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:['samantha@mo-care.com','krystal@mo-care.com'];
+  /* SOP ruling 8: an empty list shows the same fallback the server uses (coverage owner + Springfield lead). */
+  const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:ccFallbackList('scheduling_coverage');
   return list.map(e=>{ e=String(e).trim().toLowerCase(); const p=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e); return { email:e, name:(p&&p.name)||e, phone:!!(p&&String(p.phone||'').replace(/\D/g,'').length>=10) }; });
 }
 /* OFFICE QUIET HOURS (Samantha, 2026-10-03): the server (_shared/quiet-hours.ts) never texts the office, an admin or a
@@ -27141,6 +27163,17 @@ function opsDomainEscalation(code){
   const d = code ? OPS_DOMAINS.find(x=>x.code===code) : null;
   return d ? opsEmailForPerson(d.escalation_person) : '';
 }
+/* WHO GETS A ROUTINE NOTICE (SOP ruling 8, 2026-10-17): the work area owner, else the Springfield lead, else Samantha.
+   The same order as the server (_shared/notice-to.ts), read from Work areas and roles, never a name in the code. */
+function ccSpringfieldLead(){
+  return Object.keys(CC_ROLE_BY_EMAIL||{}).filter(e=>(CC_ROLE_BY_EMAIL[e]||[]).indexOf('springfield_lead')>-1).sort()[0]||'';
+}
+function ccNoticeTo(area){ return opsDomainOwner(area) || ccSpringfieldLead() || 'samantha@mo-care.com'; }
+/* An empty alert-list setting falls back to the area owner and the Springfield lead (no repeats), else Samantha. */
+function ccFallbackList(area){
+  const out=[]; [opsDomainOwner(area), ccSpringfieldLead()].forEach(e=>{ e=String(e||'').toLowerCase(); if(e && out.indexOf(e)<0) out.push(e); });
+  return out.length ? out : ['samantha@mo-care.com'];
+}
 /* The person who rings back callers we cannot identify. A PERSON, not a
    domain: Krystal owning the callback is not evidence that an unknown call
    belongs to Client Care. The domain stays null until she has rung. */
@@ -35627,6 +35660,26 @@ function opsRow(i, showKind){
    So this defaults to Mine. Everyone else's is one click away, which is the
    transparency, but the thing you open shows what you should be doing. */
 let OPS_SCOPE = 'mine';
+/* SOP ruling 8 (Samantha 2026-10-17: "owners see all work and who has it, don't keep any cards from me"): an owner
+   opens on Everyone, grouped by who has each card. Staff still open on Mine. Once someone picks a scope, it stays. */
+let OPS_SCOPE_PICKED = false;
+function opsOwnerDefaultScope(){
+  if(OPS_SCOPE_PICKED || typeof CC_ROLES_CHECKED==='undefined' || !CC_ROLES_CHECKED) return;
+  let own=false; try{ own=ccIsOwner(); }catch(e){}
+  if(!own || OPS_SCOPE==='all') return;
+  OPS_SCOPE='all';
+  document.querySelectorAll('.opsscope').forEach(b=>b.classList.toggle('active', /opsSetScope\('all'/.test(b.getAttribute('onclick')||'')));
+}
+/* Everyone, grouped by who has it: nobody's cards first (they need an owner), then each person A to Z. */
+function opsGroupedByOwner(rows){
+  const groups=new Map();
+  rows.forEach(i=>{ const k=String(i.owner||'').toLowerCase(); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(i); });
+  const keys=[...groups.keys()].sort((a,b)=>{ if(!a) return -1; if(!b) return 1;
+    return String(opsOwnerName(a)||a).localeCompare(String(opsOwnerName(b)||b)); });
+  return keys.map(k=>{ const g=groups.get(k), n=k ? (opsOwnerName(k)||k) : 'Nobody yet';
+    return '<div class="ops-owner-group" style="font-weight:700;color:var(--navy);margin:12px 0 4px;">'+esc(n)
+      +' <span class="field-note" style="font-weight:400;">'+g.length+' open</span></div>'+g.map(i=>opsRow(i,true)).join(''); }).join('');
+}
 function opsMeKey(){
   const me=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
   const s=(DATA.coordinator_staff||[]).find(x=>(x.email||'').toLowerCase()===me && me);
@@ -35639,7 +35692,7 @@ function opsScopeFilter(rows){
   return rows;
 }
 function opsSetScope(s, btn){
-  OPS_SCOPE=s;
+  OPS_SCOPE=s; OPS_SCOPE_PICKED=true;
   document.querySelectorAll('.opsscope').forEach(b=>b.classList.toggle('active', b===btn));
   opsRenderQueue();
 }
@@ -35647,6 +35700,7 @@ function opsSetScope(s, btn){
 /* The queue on Needs Attention: everything open, whatever raised it. */
 function opsRenderQueue(){
   const box=document.getElementById('opsQueueList'); if(!box) return;
+  opsOwnerDefaultScope();
   const all=opsOpen();
   const rows=opsScopeFilter(all);
   // Keep the card up whenever anything is open, even if none of it is yours —
@@ -35673,7 +35727,7 @@ function opsRenderQueue(){
       + '</div>';
     opsBadges(); return;
   }
-  box.innerHTML = rows.map(i=>opsRow(i,true)).join('');
+  box.innerHTML = OPS_SCOPE==='all' ? opsGroupedByOwner(rows) : rows.map(i=>opsRow(i,true)).join('');
   opsBadges();
 }
 

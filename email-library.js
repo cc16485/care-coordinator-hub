@@ -22,6 +22,8 @@ function ccBlocksToHtml(e){
   }).join('');
 }
 function ccBuildEmailHTML(e){
+  /* SOP ruling 8 (2026-10-17): an unsubscribe request goes to the Springfield lead (then Samantha), not a name in code. */
+  const unsub=(typeof ccNoticeTo==='function' ? ccNoticeTo('') : '') || 'samantha@mo-care.com';
   const ac=e.ac;
   const footer=e.footer||"You're receiving this because you've been in touch with Caring Companions about care for your family.";
   return '<!DOCTYPE html>'+
@@ -56,7 +58,7 @@ ccBlocksToHtml(e)+
 '<a href="tel:4172348494" style="color:#e7c87a;text-decoration:none;font-weight:bold;">(417) 234-8494</a> &middot; 1331 N Stewart Ave, Ste B, Springfield, MO 65802</div>'+
 '<div style="height:1px;background:rgba(255,255,255,0.14);margin:18px auto 14px;max-width:360px;font-size:0;line-height:0;">&nbsp;</div>'+
 '<div style="font-family:Arial,Helvetica,sans-serif;font-size:11.5px;line-height:1.6;color:#8298b0;">'+footer+'<br>'+
-'<a href="mailto:samantha@mo-care.com?subject=Please%20unsubscribe%20me" style="color:#a9bccf;">Unsubscribe</a> &middot; <a href="https://mo-care.com" style="color:#a9bccf;">mo-care.com</a></div>'+
+'<a href="mailto:'+unsub+'?subject=Please%20unsubscribe%20me" style="color:#a9bccf;">Unsubscribe</a> &middot; <a href="https://mo-care.com" style="color:#a9bccf;">mo-care.com</a></div>'+
 '</td></tr>'+
 '</table>'+
 '</td></tr></table>'+
