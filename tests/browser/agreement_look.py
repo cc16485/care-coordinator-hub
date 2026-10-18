@@ -183,19 +183,20 @@ with sync_playwright() as p:
             if status == 'draft': ck(f'{eng}: a resumed draft shows the pages with its answers', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'A B')
             ck(f'{eng}: nothing wider than the tablet ({status})', no_wide(pg, status))
             ctx.close()
-        # 2026-10-17 (8-hour weekly minimum): each agreement shows the pages of the master it was started on
-        NEW, FIRST = 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
-        for sha, status, label in ((NEW, 'draft', 'new'), (FIRST, 'draft', 'old'), (FIRST, 'signed', 'old-signed')):
+        # 2026-10-17 (8-hour weekly minimum) and 2026-10-18 (overtime Monday to Sunday): each agreement shows the pages of the master it was started on
+        NEW, SECOND, FIRST = 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
             ctx = br.new_context(viewport={'width': 768, 'height': 1024})
             ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
             pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
             pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
             if label == 'new':
-                pg.wait_for_selector('.pg img'); ck(f'{eng}: a new draft shows the updated pages', 'rev-2026-10-17/p01.jpg' in pg.get_attribute('.pg img', 'src'))
+                pg.wait_for_selector('.pg img'); srcs = pg.eval_on_selector_all('.pg img', 'xs => xs.map(x => x.getAttribute("src"))')
+                ck(f'{eng}: a new draft shows the Monday to Sunday pages (page 3 is the changed one)', len(srcs) == 23 and all('rev-2026-10-18/' in s for s in srcs) and any(s.endswith('rev-2026-10-18/p03.jpg') for s in srcs), srcs[:3])
             elif label == 'old':
-                pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on the earlier wording says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
+                pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on an earlier wording ({sha[:4]}) says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
             else:
-                pg.wait_for_selector('#osig'); ck(f'{eng}: signed on the earlier wording: countersign still opens', pg.locator('#osig').count() == 1)
+                pg.wait_for_selector('#osig'); ck(f'{eng}: signed on an earlier wording ({sha[:4]}): countersign still opens', pg.locator('#osig').count() == 1)
             ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024})
         ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
