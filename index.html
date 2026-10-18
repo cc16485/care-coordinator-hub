@@ -4622,6 +4622,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="tnSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div class="grid2" style="grid-template-columns:220px 1fr;align-items:end;"><div><label>HR lead (decides reviews)</label><select id="tnHr"></select></div>
 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px;"><button class="secondary" id="tnSaveBtn" onclick="tnSave(this)">Save</button><button class="secondary" id="tnToggleBtn" onclick="tnToggle(this)">Turn on team numbers and reviews</button><span class="field-note" id="tnSaved"></span></div></div>
+<!-- Time off and coverage (audit step 2, Samantha 2026-10-18): ops_settings.fair_counts_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Time off and coverage never count</div>
+<p class="hint">While someone is out on the Team page (out until a date), their new inquiries text the person on duty instead of them, and nothing counts against them: no late first call, no missed inquiry, and nothing that goes overdue while they are out counts toward a review, even after they come back. A teammate who receives a lead because its owner is out is covering, so the clock before that never counts against them either. Only Samantha or Zachary can turn this on or off.</p>
+<div id="fcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="fcToggleBtn" onclick="fcToggle(this)">Turn on</button>
+  <span class="field-note" id="fcSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7384,10 +7392,10 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=20"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
-<script src="team.js?v=1"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
+<script src="team.js?v=2"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18166,6 +18174,25 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Time off and coverage never count (audit step 2, Samantha 2026-10-18). Owners only. */
+function fcSetFill(){
+  const now=document.getElementById('fcSetNow'), b=document.getElementById('fcToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).fair_counts_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Time off and covering never count against anyone.':'<b style="color:#B7791F;">Off.</b> Time off is not looked at: an absent owner is still texted and counted, as before.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function fcToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).fair_counts_live===true);
+  const ok=await ccConfirm(on?'Turn on "time off and coverage never count"?\n\n· someone out on the Team page is not texted at 5 minutes; the person on duty is, as cover\n· they are never counted late or as a missed inquiry while out\n· what goes overdue while they are out never counts toward a review\n· a teammate covering a lead is never counted for the time before it reached them\n\nNothing is sent to any family.'
+    :'Turn it off? Time off goes back to not being looked at.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.fair_counts_live=on; if(on&&!m.fair_counts_live_since) m.fair_counts_live_since=new Date().toISOString(); return ['time off and coverage never count '+(on?'ON':'OFF')]; }, 'time off and coverage');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('fcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  fcSetFill();
+}
 /* Team numbers and reviews settings (Stage 5, policy 2026-10-18). Owners only. The reviews live on the server (cc-team). */
 function tnSetFill(){
   const now=document.getElementById('tnSetNow'); if(!now) return;
@@ -18330,6 +18357,7 @@ function lhSetFill(){
   try{ rcSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
+  try{ fcSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }

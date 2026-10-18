@@ -48,7 +48,7 @@
     document.body.appendChild(bg);
     ST.data = await call({ action:'list' }); draw();
   }
-  const val = (m, k) => k === 'bonuses' ? (m.bonuses + (m.bonus_dollars ? ' ($' + m.bonus_dollars + ')' : '')) : m[k];
+  const val = (m, k) => k === 'bonuses' ? (m.bonuses + (m.bonus_dollars ? ' ($' + m.bonus_dollars + ')' : '')) : k === 'overdue_now' && m.overdue_while_out ? m[k] + ' (+' + m.overdue_while_out + ' while out, not counted)' : m[k];   /* audit step 2: time off never counts */
   function review(r, me, people){
     const B = (fn, label, primary) => '<button class="' + (primary ? 'primary' : 'ghost') + '" style="padding:5px 11px;font-size:12px;" onclick="' + fn + '">' + label + '</button>';
     const items = (r.items || []).map(x => esc(KIND[x.kind] || x.kind) + (x.client ? ' (' + esc(x.client) + ')' : '') + ' ' + esc(x.day)).join(' · ');
