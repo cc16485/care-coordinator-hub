@@ -78,6 +78,22 @@ ck('routing: a final warning skips Krystal', W.approverFor(wu('Final Written War
 ck('routing: a suspension Samantha started goes to Zach', W.approverFor(samFinal, order, whoFor, [samFinal], NOW) === 'zach@mo-care.com');
 ck('routing: nobody listed can, empty', W.approverFor(wu('Termination Review'), ['zach@mo-care.com', 'krystal@mo-care.com'], whoFor, [], NOW) === '');
 
+// short notice (ruling 5, handbook 2A/2U)
+const ci = (o) => Object.assign({ type: 'callin', shift_date: '2026-10-20', shift_time: '08:00' }, o);
+ck('short notice: 2h notice is short', W.shortNotice(ci({ notice_hours: 2, reported_at: '2026-10-20T06:00' }), 4).kind === 'hours');
+ck('...4h exactly is not short (by hours)', !W.shortNotice(ci({ shift_time: '13:00', notice_hours: 4, reported_at: '2026-10-20T09:00' }), 4).short);
+ck('early shift: a call at 7 PM the night before an 8 AM shift is short (13h looks fine)', W.shortNotice(ci({ notice_hours: 13, reported_at: '2026-10-19T19:00' }), 4).kind === 'early');
+ck('...a call at 4:30 PM the day before is fine', !W.shortNotice(ci({ notice_hours: 15.5, reported_at: '2026-10-19T16:30' }), 4).short);
+ck('...5:00 PM exactly is fine', !W.shortNotice(ci({ notice_hours: 15, reported_at: '2026-10-19T17:00' }), 4).short);
+ck('...7:00 AM and 9:00 AM shifts are both covered', W.shortNotice(ci({ shift_time: '07:00', notice_hours: 12, reported_at: '2026-10-19T19:00' }), 4).short && W.shortNotice(ci({ shift_time: '09:00', notice_hours: 14, reported_at: '2026-10-19T19:00' }), 4).short);
+ck('...a 9:30 AM shift is not an early shift', !W.shortNotice(ci({ shift_time: '09:30', notice_hours: 14.5, reported_at: '2026-10-19T19:00' }), 4).short);
+ck('...across a month start (Nov 1 shift, Oct 31 6 PM call)', W.shortNotice(ci({ shift_date: '2026-11-01', notice_hours: 14, reported_at: '2026-10-31T18:00' }), 4).kind === 'early');
+ck('...a server timestamp is read in Central time (23:30Z = 6:30 PM CDT)', W.shortNotice(ci({ notice_hours: 13.5, reported_at: '2026-10-19T23:30:00.000Z' }), 4).kind === 'early');
+ck('...21:30Z = 4:30 PM CDT is fine', !W.shortNotice(ci({ notice_hours: 15.5, reported_at: '2026-10-19T21:30:00Z' }), 4).short);
+ck('...no call time recorded: nothing guessed', !W.shortNotice(ci({ notice_hours: null }), 4).short);
+ck('...not a call-in: never short', !W.shortNotice({ type: 'tardy', shift_date: '2026-10-20', shift_time: '08:00', reported_at: '2026-10-19T19:00' }, 4).short);
+ck('...the reason has no em dash', !/\u2014/.test(W.shortNotice(ci({ notice_hours: 13, reported_at: '2026-10-19T19:00' }), 4).why));
+
 // no em dashes in anything a person reads
 const said = [W.whoApproves(wu('Coaching'), []), can(wu('Suspension'), KRYSTAL).why, can(term, ZACH).why, can(mine, KRYSTAL).why, can(wu('Coaching'), STAFFING).why];
 ck('no em dashes in the words', said.every(t => !/—/.test(t)), said);

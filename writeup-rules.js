@@ -101,6 +101,39 @@
     return '';
   }
 
-  return { TEAM_LEVELS, LEADERSHIP_LEVELS, FIRING_LEVELS, FIRING_APPROVERS,
+  /* SHORT NOTICE (SOP ruling 5, Samantha 2026-10-18; Employee Handbook 2025-2027, 2A and 2U):
+     "Whenever possible, notify the office at least four (4) hours before the beginning of your shift. For shifts
+     beginning between 7:00 AM and 9:00 AM, notify the office no later than 5:00 PM the previous day."
+     ev: an attendance event (type 'callin') with shift_date, shift_time ('HH:MM'), reported_at (a typed local time
+     'YYYY-MM-DDTHH:MM', or a full timestamp, read in Central time) and notice_hours.
+     Returns { short, kind: 'hours' | 'early' | '', why }. Short notice starts a review; a write-up only if there was
+     no good reason (the handbook says "whenever possible"). */
+  function centralLocal(ts) {
+    const t = String(ts || '').trim(); if (!t) return '';
+    if (!/(Z|[+-]\d\d:?\d\d)$/.test(t)) return t.replace(' ', 'T').slice(0, 16);
+    const d = new Date(t); if (isNaN(d)) return '';
+    const p = {}; new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Chicago', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).forEach(x => { p[x.type] = x.value; });
+    return p.year + '-' + p.month + '-' + p.day + 'T' + p.hour + ':' + p.minute;
+  }
+  function dayBefore(ymd) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd || '')); if (!m) return '';
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3] - 1)).toISOString().slice(0, 10);
+  }
+  function shortNotice(ev, noticeHours) {
+    const need = noticeHours == null ? 4 : +noticeHours;
+    if (!ev || ev.type !== 'callin') return { short: false, kind: '', why: '' };
+    if (ev.notice_hours != null && ev.notice_hours !== '' && +ev.notice_hours < need)
+      return { short: true, kind: 'hours', why: 'Call-in with only ' + ev.notice_hours + 'h notice (handbook: ' + need + 'h)' };
+    const st = String(ev.shift_time || '').slice(0, 5);
+    if (/^\d\d:\d\d$/.test(st) && st >= '07:00' && st <= '09:00') {
+      const said = centralLocal(ev.reported_at), prev = dayBefore(ev.shift_date);
+      if (said && prev && said > prev + 'T17:00')
+        return { short: true, kind: 'early', why: 'Call-in after 5 PM the day before a ' + st + ' shift (handbook: by 5 PM the day before a 7 to 9 AM shift)' };
+    }
+    return { short: false, kind: '', why: '' };
+  }
+
+  return { shortNotice, centralLocal, TEAM_LEVELS, LEADERSHIP_LEVELS, FIRING_LEVELS, FIRING_APPROVERS,
     tier, isFiring, priorWritten, startedBy, canApprove, whoApproves, levelWords, approverFor, samePerson };
 });

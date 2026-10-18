@@ -2767,7 +2767,7 @@ function attTypeUi(){
   document.getElementById('att-late-wrap').style.display = t==='tardy'?'inline':'none';
   document.getElementById('att-log-hint').textContent =
     t==='ncns'?'Per Handbook 2U this is serious misconduct — logging it flags an immediate termination review and alerts Samantha.'
-    :t==='callin'?'The hub computes the notice from shift time minus call time — under '+attCfg().notice_hours+' hours = write-up required.':'';
+    :t==='callin'?'The hub works out the notice from the shift time and the call time. Under '+attCfg().notice_hours+' hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice (Handbook 2A). It flags it to review: a write-up only if there was no good reason.':'';
 }
 async function attPersist(key,item){
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:key, item }); if(error) throw error; }
@@ -2831,8 +2831,12 @@ function attStatus(cg){
   const tardiesWin=evs.filter(e=>e.type==='tardy'&&inWin(e,cfg.tardy_window));
   const triggers=[];
   uncovered.filter(e=>e.type==='ncns').forEach(e=>triggers.push({kind:'ncns',events:[e],label:'No-call/no-show — immediate termination review'}));
-  uncovered.filter(e=>e.type==='callin'&&e.notice_hours!=null&&e.notice_hours<cfg.notice_hours)
-    .forEach(e=>triggers.push({kind:'short_notice',events:[e],label:'Call-in with only '+e.notice_hours+'h notice (policy: '+cfg.notice_hours+'h)'}));
+  /* SOP ruling 5 (2026-10-18): short notice per handbook 2A/2U, including the 7 to 9 AM shift rule (writeup-rules.js). */
+  uncovered.forEach(e=>{
+    const sn=(typeof WriteupRules!=='undefined') ? WriteupRules.shortNotice(e, cfg.notice_hours)
+      : { short: e.type==='callin'&&e.notice_hours!=null&&e.notice_hours<cfg.notice_hours, why:'Call-in with only '+e.notice_hours+'h notice (handbook: '+cfg.notice_hours+'h)' };
+    if(sn.short) triggers.push({kind:'short_notice',events:[e],label:sn.why});
+  });
   const uncCallins=callinsWin.filter(e=>!e.action_id);
   if(callinsWin.length>=cfg.callin_count&&uncCallins.length)
     triggers.push({kind:'callin_total',events:uncCallins,label:callinsWin.length+' call-ins in '+cfg.callin_window+' days (policy: '+cfg.callin_count+')'});
@@ -3087,8 +3091,8 @@ function renderAttendance(){
   wrap.innerHTML=names.map(cg=>{
     const s=attStatus(cg);
     const chip=s.triggers.some(t=>t.kind==='ncns')?'<span style="background:#DC2626;color:#fff;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">🚨 TERMINATION REVIEW</span>'
-      :s.triggers.length?'<span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">⚠ WRITE-UP DUE</span>'
-      :s.termEligible?'<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">eligible for termination on next occurrence</span>'
+      :s.triggers.length?'<span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">⚠ REVIEW NEEDED</span>'
+      :s.termEligible?'<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">next step is leadership\'s (final warning or above)</span>'
       :'<span style="background:#dcfce7;color:#166534;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:700">in good standing</span>';
     return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:.85rem 1.1rem;margin-bottom:.6rem">'
       +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
@@ -3098,7 +3102,9 @@ function renderAttendance(){
       +(s.triggers.length?'<div style="margin-top:.5rem">'+s.triggers.map((t,ti)=>
         '<div style="display:flex;align-items:center;gap:.6rem;font-size:.8rem;padding:.3rem 0;flex-wrap:wrap"><span style="color:#b91c1c;font-weight:700">→</span>'
         +'<span style="flex:1">'+creqEsc(t.label)+'</span>'
-        +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button></div>').join('')+'</div>':'')
+        +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button>'
+        +(t.kind==='ncns'?'':'<button class="fb" style="font-size:.72rem;background:#FAF9F6;color:var(--navy);border:1px solid var(--border)" onclick="noWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">No write-up</button>')
+        +'</div>').join('')+'</div>':'')
       +(s.drafts.length?s.drafts.map(a=>{
         const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved, ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
         return '<div style="font-size:.75rem;color:#92400e;margin-top:.3rem">'+creqEsc(a.level)+' · '+st+' · <a href="#" onclick="openWriteup(\''+a.id+'\');return false;">open</a></div>';
@@ -3108,7 +3114,7 @@ function renderAttendance(){
         '<div style="font-size:.75rem;padding:.2rem 0;color:#3A342C">'+(TYPE_ICON[e.type]||'')+' '+e.shift_date+(e.shift_time?' '+e.shift_time:'')
         +(e.type==='callin'&&e.notice_hours!=null?' · '+e.notice_hours+'h notice':'')
         +(e.type==='tardy'&&e.minutes_late?' · '+e.minutes_late+' min late':'')
-        +(e.note?' · '+creqEsc(e.note):'')+(e.action_id?' · <span style="color:#92400e">covered by warning</span>':'')+'</div>').join('')
+        +(e.note?' · '+creqEsc(e.note):'')+(e.action_id==='no_writeup'?' · <span style="color:#166534">reviewed, no write-up: '+creqEsc(e.review_note||'')+'</span>':e.action_id?' · <span style="color:#92400e">covered by warning</span>':'')+'</div>').join('')
       +s.issued.map(a=>'<div style="font-size:.75rem;padding:.2rem 0;color:#b91c1c">📄 '+creqEsc(a.level)+' issued '+String(a.issued_at).slice(0,10)+'</div>').join('')
       +'</details></div>';
   }).join('');
@@ -3173,6 +3179,21 @@ async function draftWriteup(cg, triggerIdx){
   DISC_ACTIONS.push(a);
   await attPersist('discipline_actions',a);
   openWriteup(a.id);
+  renderAttendance();
+}
+/* SOP ruling 5 (2026-10-18): a flag is a review, not an automatic write-up (the handbook says "whenever possible").
+   When there was a good reason, the reviewer records it here; the events stop flagging, the same as a write-up issued.
+   No Call / No Show always goes to a termination review, so it has no such button. */
+async function noWriteup(cg, triggerIdx){
+  const t=attStatus(cg).triggers[triggerIdx]; if(!t||t.kind==='ncns') return;
+  const why=await ccPrompt('No write-up for '+attGroupName(cg)+' ('+t.label+'). What was the good reason? It is kept on their record.','');
+  if(why===null) return;
+  if(!why.trim()){ alert('Write the reason first. It is what shows this was reviewed.'); return; }
+  let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
+  for(const e of t.events){
+    e.action_id='no_writeup'; e.review_note=why.trim(); e.reviewed_by=by.toLowerCase(); e.reviewed_at=new Date().toISOString();
+    await attPersist('attendance_events',e);
+  }
   renderAttendance();
 }
 function openWriteup(id){
