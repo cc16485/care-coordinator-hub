@@ -4632,6 +4632,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="fcToggleBtn" onclick="fcToggle(this)">Turn on</button>
   <span class="field-note" id="fcSaved"></span>
 </div>
+<!-- Causes and cover reasons (audit step 3, Samantha 2026-10-18): ops_settings.overdue_causes_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Why it happened, and why someone covered</div>
+<p class="hint">Each follow-up that went overdue gets a cause: mine, staffing shortage, client or family decision, approved leave (set by itself while someone is out), or a phone or Hub problem. Only "mine" counts toward a review, and anything else needs a short note. The owner marks it in My month and has a day before it can count; once it is part of a review, only Zachary or Samantha can change it. When someone covers a teammate's inquiry, call or relationship call, the Hub asks why and keeps the answer. Only Samantha or Zachary can turn this on or off.</p>
+<div id="ocSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="ocToggleBtn" onclick="ocToggle(this)">Turn on</button>
+  <span class="field-note" id="ocSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7397,7 +7405,7 @@ The HomeTogether team</pre>
 <script src="lead-rules.js?v=20"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
-<script src="team.js?v=2"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
+<script src="team.js?v=3"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -9671,6 +9679,15 @@ function leadWaitingUI(fromChange){
 /* LEAD TURNS (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18).
    ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live. The rules live in lead-rules.js (the server
    runs the same file in lead-watch), so the Hub and the server agree on who is next up. Out = the Team page's out_until. */
+/* Cover reasons (audit step 3, Samantha 2026-10-18, ops_settings.overdue_causes_live): when someone covers a teammate's
+   work, the Hub asks why, and keeps it with who covered (card: covering.reason, the field the Team Work build reserved;
+   lead: helpers[].why). Off: nothing is asked. Returns the reason, '' when off, or null when the person cancels. */
+async function coverReasonAsk(ownerFirst){
+  if(!((DATA.ops_settings||{}).overdue_causes_live===true)) return '';
+  const w=await ccPrompt('Why are you covering for '+(ownerFirst||'your teammate')+'? (for example: '+(ownerFirst||'they')+' is out, with another family, or it couldn\'t wait)', '');
+  if(w===null) return null;
+  return String(w||'').trim()||'not given';
+}
 function leadTurns(){ return (typeof LeadRules!=='undefined'&&LeadRules.rotationSettings)?LeadRules.rotationSettings(DATA.ops_settings||{}):{ live:false, people:[] }; }
 function leadTurnsOn(){ const r=leadTurns(); return r.live&&r.people.some(p=>p.on); }
 function leadTurnIsOut(name){
@@ -9951,7 +9968,14 @@ async function ldLogCall(outcome, note, cbDate, cbTime, nx){
   const l=commsLead; if(!l||!outcome) return;
   const a=ccActor();
   /* Lead turns (Stage 1) + follow-up rules (Stage 2): a teammate calling someone else's lead is recorded as helping */
-  if(typeof leadTurnsOn==='function'&&leadTurnsOn()&&l.assigned_coordinator) LeadRules.noteHelper(l, a.name||a.email, { what:'a call', by:a.email });
+  if(typeof leadTurnsOn==='function'&&leadTurnsOn()&&l.assigned_coordinator){
+    const ownerF=String(l.assigned_coordinator).split(/\s+/)[0], meF=String(a.name||'').split(/\s+/)[0];
+    const covering=!!ownerF&&!!meF&&ownerF.toLowerCase()!==meF.toLowerCase();
+    const why=covering?await coverReasonAsk(ownerF):'';
+    const n0=Array.isArray(l.helpers)?l.helpers.length:0;
+    LeadRules.noteHelper(l, a.name||a.email, { what:'a call', by:a.email });
+    if(covering&&Array.isArray(l.helpers)&&l.helpers.length>n0) l.helpers[l.helpers.length-1].why=why===null?'not given':why;
+  }
   const label={connected:'connected',voicemail:'voicemail',no_answer:'no answer',
                requested_callback:'they asked us to call back',wrong_number:'wrong number'}[outcome]||outcome;
   const firstTime=!l.first_human_contact_at;
@@ -18176,6 +18200,25 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Causes and cover reasons (audit step 3, Samantha 2026-10-18). Owners only. */
+function ocSetFill(){
+  const now=document.getElementById('ocSetNow'), b=document.getElementById('ocToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).overdue_causes_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Only misses marked "mine" count, and covering asks why.':'<b style="color:#B7791F;">Off.</b> Every miss counts as before, and covering asks nothing.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function ocToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).overdue_causes_live===true);
+  const ok=await ccConfirm(on?'Turn on causes and cover reasons?\n\n· each overdue follow-up gets a cause; only "mine" counts toward a review\n· the owner marks it in My month and has a day before it counts\n· once it is part of a review, only Zachary or you change it\n· covering a teammate\'s inquiry, call or relationship call asks why\n\nNothing is sent to anyone.'
+    :'Turn it off? Every miss counts again, and covering asks nothing.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.overdue_causes_live=on; if(on&&!m.overdue_causes_live_since) m.overdue_causes_live_since=new Date().toISOString(); return ['causes and cover reasons '+(on?'ON':'OFF')]; }, 'causes and cover reasons');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ocSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  ocSetFill();
+}
 /* Time off and coverage never count (audit step 2, Samantha 2026-10-18). Owners only. */
 function fcSetFill(){
   const now=document.getElementById('fcSetNow'), b=document.getElementById('fcToggleBtn'); if(!now) return;
@@ -18360,6 +18403,7 @@ function lhSetFill(){
   try{ bpSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
   try{ fcSetFill(); }catch(e){}
+  try{ ocSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -28807,6 +28851,8 @@ async function opsTakeIt(id){
   /* Lead turns (Stage 1, policy 2026-10-18): on an inquiry card, taking it is helping. You make the first contact; the
      lead and its card stay the owner's ("helping never changes ownership"). Off: as before, it becomes yours. */
   if(was&&leadTurnsOn()&&it.kind==='new_lead'&&String(it.id||'').indexOf('ops_lead_')===0){
+    const why=await coverReasonAsk(String(wasName).split(' ')[0]); if(why===null) return;
+    if(why) it.covering=Object.assign({}, it.covering||{}, { for:was, by:me, at, reason:why });
     it.help_from=me; it.helping_since=at; it.help_asked_at=it.help_asked_at||at;
     it.also_for=[...new Set([...(Array.isArray(it.also_for)?it.also_for:[]), me])];
     if(it.escalation && !it.escalation.cleared_at){ it.escalation.cleared_at=at; it.escalation.cleared_why='a teammate is helping'; }
@@ -28814,7 +28860,7 @@ async function opsTakeIt(id){
     opEvent('item_helped',{item:it, summary:(a.name||me)+' is helping '+wasName+' with '+(it.about||it.title||'an inquiry')});
     await persist('ops_items',it);
     const l=(DATA.leads||[]).find(x=>x&&String(x.id)===String(it.source_id));
-    if(l){ LeadRules.noteHelper(l, a.name||me, { what:'first contact', by:me, at }); await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} }
+    if(l){ LeadRules.noteHelper(l, a.name||me, { what:'first contact', by:me, at }); if(why&&Array.isArray(l.helpers)&&l.helpers.length) l.helpers[l.helpers.length-1].why=why; await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} }
     ccToast('✓ You’re helping '+String(wasName).split(' ')[0]+'. '+(l?LeadRules.ownerIntro(l):'It stays '+String(wasName).split(' ')[0]+'’s.'));
     myWorkRefresh(); return;
   }
@@ -28900,8 +28946,12 @@ async function relCallSave(itemId, outcome, note){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
   const a=ccActor()||{}, now=new Date().toISOString();
+  const covering=!!it.owner&&String(it.owner).toLowerCase()!==String(a.email||'').toLowerCase();
+  const why=covering?await coverReasonAsk(String(it.owner_name||opsOwnerName(it.owner)||'').split(' ')[0]):'';
+  if(why===null) return;
   const e=RelationshipRules.record(l, it.call_key, { outcome, note, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
   if(!e){ alert('That could not be logged.'); return; }
+  if(why){ e.cover_reason=why; it.covering=Object.assign({}, it.covering||{}, { for:it.owner, by:a.email||'', at:now, reason:why }); }
   await persist('leads', l);
   const words=RelationshipRules.OUTCOMES[outcome];
   if(outcome==='talked'){ it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=words+(note?': '+note:''); }

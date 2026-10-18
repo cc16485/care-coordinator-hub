@@ -51,9 +51,11 @@
   const val = (m, k) => k === 'bonuses' ? (m.bonuses + (m.bonus_dollars ? ' ($' + m.bonus_dollars + ')' : '')) : k === 'overdue_now' && m.overdue_while_out ? m[k] + ' (+' + m.overdue_while_out + ' while out, not counted)' : m[k];   /* audit step 2: time off never counts */
   function review(r, me, people){
     const B = (fn, label, primary) => '<button class="' + (primary ? 'primary' : 'ghost') + '" style="padding:5px 11px;font-size:12px;" onclick="' + fn + '">' + label + '</button>';
-    const items = (r.items || []).map(x => esc(KIND[x.kind] || x.kind) + (x.client ? ' (' + esc(x.client) + ')' : '') + ' ' + esc(x.day)).join(' · ');
+    const co = (ST.data && ST.data.overdue_causes) || {};
+    const items = (r.items || []).map(x => esc(KIND[x.kind] || x.kind) + (x.client ? ' (' + esc(x.client) + ')' : '') + ' ' + esc(x.day) + (x.cause && ST.data.causes_live ? ': ' + esc(co[x.cause] || x.cause) + (x.cause_note ? ' (' + esc(x.cause_note) + ')' : '') : '')).join(' · ');
+    const causeEdit = ST.data.causes_live && (me.hr || me.decider) && ['open', 'coaching'].includes(r.status) ? (r.items || []).filter(x => x.key).map(x => '<div class="cct-grid"><label>' + esc(KIND[x.kind] || x.kind) + (x.client ? ' (' + esc(x.client) + ')' : '') + '<select id="cctCz_' + esc(x.key) + '">' + Object.keys(co).filter(k => k !== 'leave').map(k => '<option value="' + k + '"' + (k === x.cause ? ' selected' : '') + '>' + esc(co[k]) + '</option>').join('') + '</select></label><label>Note<input id="cctCn_' + esc(x.key) + '" value="' + esc(x.cause_note || '') + '"></label></div><div style="margin:4px 0 6px"><button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="cctCause(\'' + esc(x.key) + '\')">Save the cause</button></div>').join('') : '';
     let h = '<div class="cct-card" data-id="' + esc(r.id) + '"><b style="color:var(--navy)">' + esc(r.person) + '</b> <span class="cct-sub">review opened ' + esc(r.opened_on) + '</span>'
-      + (r.unresolved ? ' <span class="cct-red">unresolved</span>' : '') + (items ? '<div class="cct-sub">Overdue: ' + items + '</div>' : '');
+      + (r.unresolved ? ' <span class="cct-red">unresolved</span>' : '') + (items ? '<div class="cct-sub">Overdue: ' + items + '</div>' : '') + (causeEdit ? '<details style="margin:6px 0"><summary class="cct-sub">Change why an item happened</summary>' + causeEdit + '</details>' : '');
     if(r.status === 'open' && (me.hr || me.decider)){
       const opts = Object.keys(ST.data.causes || {}).map(k => '<option value="' + k + '">' + esc(ST.data.causes[k]) + '</option>').join('');
       const ppl = people.map(p => '<option value="' + esc(p.e) + '">' + esc(p.n) + '</option>').join('');
@@ -84,6 +86,17 @@
     }
     if((d.my_overdue || []).length) h += '<div class="cct-k">Overdue for you now</div>' + d.my_overdue.map(o => '<div class="cct-sub" style="color:var(--text)">' + esc(KIND[o.kind] || o.kind) + ': ' + esc(o.client) + ' (since ' + esc(o.since) + ')' + (o.lead_id ? ' <button class="linklike" onclick="cctClose();openLeadProfile(\'' + esc(o.lead_id) + '\')">Open</button>' : '') + '</div>').join('');
     else if(!me.owner && months.length) h += '<div class="cct-k">Overdue for you now</div><div class="cct-sub">Nothing. Nicely done.</div>';
+    /* audit step 3: why each miss happened (only "Mine" counts toward a review) */
+    if(d.causes_live && (d.my_missed || []).length){
+      const co = d.overdue_causes || {};
+      h += '<div class="cct-k">Missed in the last 30 days</div><p class="cct-sub">Mark why each one happened. Only "Mine" counts toward a review. Anything else needs a short note. You have until the next morning\'s check.</p>'
+        + d.my_missed.map(x => '<div class="cct-card"><b style="color:var(--navy)">' + esc(KIND[x.kind] || x.kind) + (x.client ? ': ' + esc(x.client) : '') + '</b> <span class="cct-sub">' + esc(x.day) + (x.counts ? '' : ' · not counted') + '</span>'
+          + (x.in_review ? '<div class="cct-sub">Part of a review: ' + esc(co[x.cause] || x.cause) + '. Zachary decides its cause now.</div>'
+            : x.cause === 'leave' ? '<div class="cct-sub">Approved leave (you were out). Never counts.</div>'
+            : '<div class="cct-grid"><label>Why<select id="cctCz_' + esc(x.key) + '">' + Object.keys(co).filter(k => k !== 'leave').map(k => '<option value="' + k + '"' + (k === x.cause ? ' selected' : '') + '>' + esc(co[k]) + '</option>').join('') + '</select></label>'
+              + '<label>Note<input id="cctCn_' + esc(x.key) + '" value="' + esc(x.cause_note || '') + '" placeholder="What happened?"></label></div><div style="margin-top:6px"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="cctCause(\'' + esc(x.key) + '\')">Save</button></div>')
+          + '</div>').join('');
+    }
     const rs = d.reviews || [];
     if(me.hr || me.decider || rs.length){
       const people = (typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).filter(p => p && p.primary_email).map(p => ({ e:String(p.primary_email).toLowerCase(), n:p.full_name || p.primary_email }));
@@ -102,9 +115,10 @@
   function decide(id){ const c = v('cctChoice_' + id);
     send(Object.assign({ action:'act', id, do:'decide', cause:v('cctCause_' + id), choice:c, note:v('cctNote_' + id) }, c === 'coaching' ? { coaching_owner:v('cctOwner_' + id), deadline:v('cctDead_' + id), plan:v('cctPlan_' + id) } : {})); }
   function done(id){ send({ action:'act', id, do:'coaching_done', note:v('cctDone_' + id) }); }
+  function cause(key){ send({ action:'set_cause', key, cause:v('cctCz_' + key), note:v('cctCn_' + key) }); }
   /* the HR lead's button shows how many reviews wait on him */
   async function btnBadge(){ const b = document.getElementById('cctBtn'); if(!b || b.style.display === 'none' || !(typeof ccIsOwner === 'function' && ccIsOwner())) return;
     const d = (ST.data && !ST.data.error) ? ST.data : null; const n = d && d.waiting ? d.waiting : 0; b.textContent = 'Team' + (n ? ' (' + n + ')' : ''); }
   window.CcTeam = { open, close, btnSync, call };
-  Object.assign(window, { cctOpen:open, cctClose:close, cctChoice:choice, cctDecide:decide, cctDone:done, cctBtnSync:btnSync });
+  Object.assign(window, { cctOpen:open, cctClose:close, cctChoice:choice, cctDecide:decide, cctDone:done, cctCause:cause, cctBtnSync:btnSync });
 })();
