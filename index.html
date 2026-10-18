@@ -7310,8 +7310,8 @@ The HomeTogether team</pre>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
-<script src="partner-rules.js?v=1"></script>
-<script src="referral-desk.js?v=4"></script>
+<script src="partner-rules.js?v=2"></script>
+<script src="referral-desk.js?v=5"></script>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
@@ -19609,7 +19609,7 @@ let CC_SETTINGS_PENDING=false;         // Settings was asked for before the role
 const CC_ROLE_PERMS_DEFAULT={
   owner_admin:[ 'manage_staff','manage_positions','manage_duty','manage_leads',
                 'manage_ownership','approve_discipline','approve_team_discipline','manage_access',
-                'manage_settings','manage_rates' ],
+                'manage_settings','manage_rates','assign_partners' ],
   /* Krystal's role. Runs the office; does not administer access, set pay, or change owner settings.
      SOP ruling 2 (2026-10-17): approves coaching, verbal and first written warnings (approve_team_discipline);
      a final warning, suspension or termination stays with owners (approve_discipline). writeup-rules.js decides
@@ -19624,11 +19624,13 @@ const CC_ROLE_PERMS_DEFAULT={
   staffing_coordinator:[ 'manage_duty' ],
   /* SOP ruling 9 (2026-10-17): the Springfield lead (Krystal now) gives and removes Hub access for anyone who is not
      an owner. Held ON TOP of their office role, so it adds only this. The hub-access function and
-     staff_access_overview check the same role; switches, rates and settings stay with owners. */
-  springfield_lead:[ 'manage_access' ]
+     staff_access_overview check the same role; switches, rates and settings stay with owners.
+     2026-10-18: Care Coordinators own referral partners and the Springfield lead hands them out (assign_partners);
+     the desk's timing settings stay with owners. */
+  springfield_lead:[ 'manage_access','assign_partners' ]
 };
 
-/* The same nine permissions said the way somebody would say them out loud.
+/* The same permissions said the way somebody would say them out loud.
    Every screen that explains authority reads from here, so the wording cannot
    drift between the role picker and the confirmation. */
 const CC_PERM_LABEL={
@@ -19641,10 +19643,11 @@ const CC_PERM_LABEL={
   approve_team_discipline:'approve coaching and first written warnings',
   manage_access:'manage Hub access',
   manage_settings:'change Owner settings',
-  manage_rates:'change rates'
+  manage_rates:'change rates',
+  assign_partners:'assign referral partner owners'
 };
 const CC_PERM_ORDER=['manage_staff','manage_positions','manage_duty','manage_leads',
-  'manage_ownership','approve_team_discipline','approve_discipline','manage_access','manage_settings','manage_rates'];
+  'manage_ownership','approve_team_discipline','approve_discipline','manage_access','assign_partners','manage_settings','manage_rates'];
 
 /* The roles that legitimately exist, read from the database catalog. The
    picker cannot offer anything else and set_staff_role will not accept
