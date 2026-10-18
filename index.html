@@ -43235,8 +43235,8 @@ function ccOpenRef(sub){
       '<div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;font-size:.85rem">'
       +'<b>'+E(e.caregiver||'(caregiver)')+'</b> must not return to <b>'+E(e.client||'(client)')+'</b>'
       +(e.reason?': '+E(e.reason):'')
-      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">requested by '+E(e.requested_by||'—')
-      +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+E(e.logged_by||'—')
+      +'<div style="font-size:.72rem;color:var(--text-muted);margin-top:.2rem">requested by '+E(e.requested_by||'Not set')
+      +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+E(e.logged_by||'Not set')
       +(e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="cmDnrMark(\''+E(e.id)+'\');return false;">mark exclusion entered in AxisCare</a>')
       +'</div></div>').join('');
   }
