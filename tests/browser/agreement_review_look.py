@@ -16,12 +16,12 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f'http://127.0.0.1:{srv.server_address[1]}'
 
 C = lambda n, name, rel, **k: {'n': n, 'name': name, 'relationship': rel, 'cell': k.get('cell', ''), 'home': '', 'email': k.get('email', ''),
-    'address': {'line1': k.get('line1', ''), 'city': '', 'state': k.get('state', ''), 'zip': ''}, 'hipaa': k.get('hipaa', False), 'medical': k.get('medical', False),
+    'address': {'line1': k.get('line1', ''), 'city': '', 'state': k.get('state', ''), 'zip': ''}, 'hipaa': k.get('hipaa', False), 'medical': k.get('medical', False), 'book': k.get('book'),
     'poa': k.get('poa', []), 'texts': {'late': k.get('late', False), 'change': k.get('change', False)}, 'axis': {'care_notes': k.get('notes', False), 'invoices': False},
     'emails': {'weekly_calendar': k.get('cal', False), 'care_plans': False, 'office_messages': False, 'invoices': False},
     'plan': k['plan'], 'bad_state': k.get('bad_state', False), 'todo': k.get('todo', []), 'axiscare_now': k.get('now'), 'hub_now': k.get('hub_now')}
 CONTACTS = [
-    C(1, 'Nancy Anderson', 'Wife', cell='417-863-7309', email='nancy@example.com', line1='123 Maple St', state='Missouri', hipaa=True, medical=True, poa=['health'], late=True, notes=True, cal=True, bad_state=False,
+    C(1, 'Nancy Anderson', 'Wife', cell='417-863-7309', email='nancy@example.com', line1='123 Maple St', state='Missouri', hipaa=True, medical=True, poa=['health'], book=True, late=True, notes=True, cal=True, bad_state=False,
       plan={'axiscare': {'action': 'update', 'slot': 1}, 'hub': {'action': 'update', 'member_id': 'm1'}},
       now={'name': 'Nancy Anderson', 'phone': '417-555-0001', 'email': 'old@example.com', 'address': '9 Old Rd, Ozark, MO', 'hipaa_authorized': False, 'can_make_medical_decisions': None},
       todo=[{'key': 'c1.signin', 'text': "Set up Nancy Anderson's AxisCare family sign-in to see care notes (nancy@example.com)"}, {'key': 'c1.emails', 'text': 'In AxisCare, turn on emails to Nancy Anderson: weekly calendar'}]),
@@ -88,7 +88,7 @@ try:
                 ck(f'{name}: each person says where they go (AxisCare slot, Family Circle, or Hub only and why)',
                    'AxisCare slot 1 (updates Nancy Anderson, already there)' in t and 'AxisCare slot 3 (new)' in t and t.count('Family Circle only') == 2 and 'three responsible party slots are taken' in t, t)
                 ck(f'{name}: AxisCare now is shown side by side for Nancy', 'AxisCare now: Nancy Anderson · 417-555-0001 · old@example.com' in t and 'HIPAA No' in t)
-                ck(f'{name}: the signed choices are shown and are not editable', 'Health information (HIPAA): Yes' in t and 'Texts: running late' in t and pg.locator('[data-car-f$=".hipaa"]').count() == 0)
+                ck(f'{name}: the signed choices are shown and are not editable', 'Health information (HIPAA): Yes' in t and 'Can book in the app: Yes' in t and 'Can book in the app: not asked on this wording' in t and 'Texts: running late' in t and pg.locator('[data-car-f$=".hipaa"]').count() == 0)
                 ck(f'{name}: a bad state and a STOP reply are pointed out', 'AxisCare needs a 2-letter state' in t and 'replied STOP' in t)
                 ck(f'{name}: the AxisCare checklist lists the hand jobs', pg.locator('[data-car-todo]').count() == 3 and 'family sign-in' in t and 'ask for a cell number' in t)
                 pg.screenshot(path=os.path.join(OUT, f'review-{name}.png'), full_page=True)

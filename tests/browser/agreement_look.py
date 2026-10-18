@@ -14,7 +14,8 @@ SERVER_ONLY = lambda k: k.startswith(('ini.', 'sig.', 'ci.sig.', 'date.')) or k 
 OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
 INITIALS = {'1': 'Rates, billing, cancellations and the app', '2': 'Services, safety, home access and the emergency plan (Exhibits B and D)', '3': 'Transportation and use of my car',
             '4': 'Privacy and communication choices (photos, permission to communicate, HIPAA)', '5': 'I received the Client Handbook (Exhibits C and E) and agree to the Infectious Disease Waiver (Exhibit F)', '6': 'Non-solicitation and the $5,000 direct hire fee'}
-FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'esign_words': 'I agree to sign this Client Care Agreement electronically.', 'initials': INITIALS, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
+CURRENT = 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa'   # 2026-10-18b: drafts start on the current master, as the server does
+FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree to sign this Client Care Agreement electronically.', 'initials': INITIALS, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
 
@@ -34,7 +35,7 @@ def fake(state):
         a = b.get('action'); ag = state.get('ag')
         if a == 'form': return J(200, {'ok': True, 'form': state.get('form', FORM)})
         if a == 'start':
-            state['ag'] = {'id': '11111111-1111-4111-8111-111111111111', 'client_ax': b['client_ax'], 'status': 'draft', 'version': 'Rev. 10/2026', 'office': {'answers': b['office'], 'addenda': b.get('addenda', [])}, 'answers': {}}
+            state['ag'] = {'id': '11111111-1111-4111-8111-111111111111', 'client_ax': b['client_ax'], 'status': 'draft', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'office': {'answers': b['office'], 'addenda': b.get('addenda', [])}, 'answers': {}}
             return J(200, {'ok': True, 'agreement': state['ag'], 'form': state.get('form', FORM)})
         if a == 'get': return J(200, {'ok': True, 'agreement': ag, 'form': state.get('form', FORM)}) if ag and b.get('id') == ag['id'] else J(404, {'error': 'Agreement not found.'})
         if a == 'save' and state.get('fail_save'): return J(500, {'error': 'The database did not answer.'})
@@ -118,7 +119,7 @@ def flow(browser, name, w, h):
     fam_vals = {'poa.name': 'Nancy Anderson', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-863-7309', 'c1.email': 'nancy@example.com', 'c2.name': 'Tom Anderson',
                 'access.lockbox_location': 'Back porch', 'access.lockbox_code': '2468', 'backup.full_name': 'Tom Anderson', 'backup.primary_phone': '417-555-0111'}
     for k, v in fam_vals.items(): page.fill(f'input[data-k="{k}"]', v)
-    for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
+    for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'c1.book_yes', 'c2.book_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
         page.click(f'button[data-t="{k}"]')
     ck(f'{name}: Yes/No is one-or-the-other for the family too', page.locator('button[data-t="c1.hipaa_no"].on').count() == 0 and page.locator('button[data-t="c1.hipaa_yes"]').inner_text() == '✓')
     ck(f'{name}: 6 initials boxes plus the POA box, and 2 signature lines (agreement and Exhibit I)', page.locator('[data-tap]').count() == 7 and page.locator('[data-sign]').count() == 2)
@@ -184,15 +185,16 @@ with sync_playwright() as p:
             ck(f'{eng}: nothing wider than the tablet ({status})', no_wide(pg, status))
             ctx.close()
         # 2026-10-17 (8-hour weekly minimum) and 2026-10-18 (overtime Monday to Sunday): each agreement shows the pages of the master it was started on
-        NEW, SECOND, FIRST = 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
-        for sha, status, label in ((NEW, 'draft', 'new'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
+        # 2026-10-18b (the Booking App terms + "Can book in the app"): the 10-18 wording is now an earlier one too
+        NEW, THIRD, SECOND, FIRST = 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
             ctx = br.new_context(viewport={'width': 768, 'height': 1024})
             ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
             pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
             pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
             if label == 'new':
                 pg.wait_for_selector('.pg img'); srcs = pg.eval_on_selector_all('.pg img', 'xs => xs.map(x => x.getAttribute("src"))')
-                ck(f'{eng}: a new draft shows the Monday to Sunday pages (page 3 is the changed one)', len(srcs) == 23 and all('rev-2026-10-18/' in s for s in srcs) and any(s.endswith('rev-2026-10-18/p03.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: a new draft shows the Booking App pages (Section 9 on page 3, "Can book in the app" on page 22)', len(srcs) == 23 and all('rev-2026-10-18b/' in s for s in srcs) and any(s.endswith('rev-2026-10-18b/p22.jpg') for s in srcs), srcs[:3])
             elif label == 'old':
                 pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on an earlier wording ({sha[:4]}) says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
             else:
