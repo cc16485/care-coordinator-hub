@@ -3102,8 +3102,11 @@ function renderAttendance(){
       +(s.triggers.length?'<div style="margin-top:.5rem">'+s.triggers.map((t,ti)=>
         '<div style="display:flex;align-items:center;gap:.6rem;font-size:.8rem;padding:.3rem 0;flex-wrap:wrap"><span style="color:#b91c1c;font-weight:700">→</span>'
         +'<span style="flex:1">'+creqEsc(t.label)+'</span>'
-        +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button>'
-        +(t.kind==='ncns'?'':'<button class="fb" style="font-size:.72rem;background:#FAF9F6;color:var(--navy);border:1px solid var(--border)" onclick="noWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">No write-up</button>')
+        /* HR step 1 (2026-10-18): only Samantha and Zach draft or dismiss a write-up; everyone else sees who decides. */
+        +(attCanDecide()
+          ? '<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button>'
+            +(t.kind==='ncns'?'':'<button class="fb" style="font-size:.72rem;background:#FAF9F6;color:var(--navy);border:1px solid var(--border)" onclick="noWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">No write-up</button>')
+          : '<span style="font-size:.72rem;color:#6E6559">Zach reviews this</span>')
         +'</div>').join('')+'</div>':'')
       +(s.drafts.length?s.drafts.map(a=>{
         const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved, ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
@@ -3120,8 +3123,12 @@ function renderAttendance(){
   }).join('');
   updateAttBadge();
 }
+/* Owners (Zach, the HR lead, and Samantha) decide on write-ups. A coordinator's screen shows the flags but not the
+   buttons, and its badge does not count them, since the next step is not theirs (HR step 1, 2026-10-18). */
+function attCanDecide(){ try{ return typeof ccCan==='function' && ccCan('approve_discipline'); }catch(e){ return false; } }
 function updateAttBadge(){
   const b=document.getElementById('attBadge'); if(!b) return;
+  if(!attCanDecide()){ b.style.display='none'; updateGroupBadges(); return; }
   const n=attCaregivers().reduce((acc,cg)=>acc+attStatus(cg).triggers.length,0)+DISC_ACTIONS.filter(a=>a.status==='draft'||a.status==='approved').length;
   b.style.display=n?'inline':'none'; b.textContent=n;  updateGroupBadges();
 }

@@ -739,6 +739,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
   .filter-pill{background:#fff;border:1px solid var(--border);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:500;color:var(--text-muted);}
   .filter-pill.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+  #clFilters .filter-pill.cl-main{padding:9px 20px;font-size:14px;font-weight:700;color:var(--navy);border-width:1.5px;}
+  #clFilters .filter-pill.cl-main.active{color:#fff;}
+  #clFilters .cl-more{flex-basis:auto;height:auto;align-self:center;font-size:12px;color:var(--text-muted);margin-left:14px;padding-left:14px;border-left:1px solid var(--border);}
   .toolbar .spacer{flex:1;}
   button.primary{background:var(--navy);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;}
   button.primary:hover{background:var(--navy-dark);}
@@ -2753,15 +2756,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-attendance">
           <ol style="margin:.4rem 0 .6rem;padding-left:1.3rem;line-height:1.7;font-size:.85rem">
-            <li><b>Log every attendance event the moment it happens</b>: a call-in (the hub works out the notice; under 4 hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice per Handbook 2A and 2U), a tardy, or a no-call/no-show (immediate termination review per 2U; Samantha is alerted and makes the final call, since only she approves a termination).</li>
-            <li>The hub counts events per caregiver and flags them <b>to review</b>: short notice, or 3 call-ins or 3 tardies in 90 days (our working numbers; the handbook gives none). It suggests the next step on the Handbook 2V ladder, but every case is decided on its own and steps can be skipped. If there was a good reason, press <b>No write-up</b> and write why.</li>
-            <li>When a write-up is the right call, press the red <b>Draft</b> button and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
-            <li>Every write-up is <b>approved before it can be issued</b>, and never by the person who started it. Coaching, a verbal warning and a first written warning: <b>any Care Coordinator</b> (or an owner). A second written warning, a final written warning or a suspension: <b>Samantha or Zach</b>. A termination: <b>Samantha</b>.</li>
+            <li><b>Log every attendance event the moment it happens</b>: a call-in (the hub works out the notice; under 4 hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice per Handbook 2A and 2U), a tardy, or a no-call/no-show (immediate termination review per 2U; Zach, the HR lead, makes the final call).</li>
+            <li>The hub counts events per caregiver and flags them <b>to review</b>: short notice, or 3 call-ins or 3 tardies in 90 days (our working numbers; the handbook gives none). It suggests the next step on the Handbook 2V ladder, but every case is decided on its own and steps can be skipped. Zach reviews every flag; if there was a good reason, he presses <b>No write-up</b> and writes why.</li>
+            <li>When a write-up is the right call, Zach presses the red <b>Draft</b> button and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
+            <li>Every write-up, from a verbal warning up, is <b>approved by Zach</b> (or Samantha) before it can be issued. If the case involves protected leave, an accommodation, an injury or workers' comp, a discrimination or harassment complaint, or a retaliation concern, <b>Samantha is consulted first</b>. Care Coordinators coach; coaching is not a write-up.</li>
           </ol>
         </div>
       </div>
       <div style="padding:0 1.5rem 2rem">
-        <div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;margin-bottom:1rem">
+        <div id="attWriteupsLink" style="display:none;align-items:center;gap:.7rem;flex-wrap:wrap;background:#fff;border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem;margin-bottom:1rem">
           <span style="font-size:.78rem;color:var(--gray)">Attendance write-ups draft themselves from the cards below. Everything else lives on the</span>
           <a href="#" onclick="SCX.gotoTab('writeups');return false" style="font-size:.8rem;font-weight:700;color:var(--navy)">Write-Ups tab →</a>
         </div>
@@ -2820,7 +2823,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
           <div>
             <h2 style="margin:0;font-size:1.15rem;color:var(--navy)">Write-Ups</h2>
-            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Coaching and first written warnings are approved by a Care Coordinator; a final warning or above by leadership. Nobody approves one they started.</div>
+            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Only Samantha and Zach see this tab. Zach approves every write-up; Samantha is consulted first when a protected situation is involved.</div>
           </div>
           <span style="flex:1"></span>
           <button class="fb" onclick="SCX.openNewWriteup()">📝 Start a write-up</button>
@@ -7346,7 +7349,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
-<script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
+<script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
 <script src="open-hours.js?v=3"></script>
 <script src="scheduling-guide.js?v=3"></script>
@@ -7368,7 +7371,7 @@ The HomeTogether team</pre>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
-<script src="writeup-rules.js?v=2"></script>
+<script src="writeup-rules.js?v=3"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=2"></script>
@@ -8614,6 +8617,7 @@ function switchTab(tab){
      read, so this used to refuse everyone, owners included. Until the roles are known, wait and decide then. */
   if(tab==='settings' && !CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=true; ccSetSectionTitle('settings'); return; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
+  if(tab==='cgwriteups' && CC_ROLES_CHECKED && !ccCan('approve_discipline')){ alert('Write-ups are kept by Zach and Samantha. Attendance shows what Zach is reviewing.'); tab='cgattendance'; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
   if(lpv&&lpv.style.display==='block'&&typeof cpLeaving==='function') cpLeaving();
@@ -10405,7 +10409,7 @@ function cpRenderCare(){
   /* 2026-10-12 fix: the shift-notes state is a page-level const named CN (line ~9787), so a bare CN here meant THAT object
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
-  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
+  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261018'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
 async function cpNewAssessment(){
@@ -19091,9 +19095,10 @@ function cgdPerformanceHtml(c,nm){
       +kv('EVV problems',cnt('evv',d30)+' / '+cnt('evv',d90))
       +kv('No-call/no-show',cnt('ncns',d30)+' / '+cnt('ncns',d90))
       +(recent?'<div style="margin-top:6px;">'+recent+'</div>':'<div class="field-note" style="margin-top:6px;">No attendance events recorded.</div>'))
-    +card('Write-ups',
+    /* HR step 1 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
+    +(ccCan('approve_discipline') ? card('Formal records <span class="field-note" style="font-weight:400;">(Samantha and Zach only)</span>',
       kv('On file',String(wus.length))
-      +'<div class="field-note" style="margin-top:4px;">Full detail lives on the Write-Ups tab.</div>')
+      +'<div class="field-note" style="margin-top:4px;">Full detail lives on the Write-Ups tab.</div>') : '')
     +card('What belongs here, and what does not',
       '<div class="field-note">Declining an OPTIONAL open shift is never a performance or attendance problem. Coverage-offer history lives under Work.<br><br>Annual and supervisory reviews and client match ratings arrive with Phase 2.</div>');
 }
@@ -19841,12 +19846,12 @@ const CC_ROLE_PERMS_DEFAULT={
                 'manage_ownership','approve_discipline','approve_team_discipline','manage_access',
                 'manage_settings','manage_rates','assign_partners' ],
   /* Krystal's role. Runs the office; does not administer access, set pay, or change owner settings.
-     SOP ruling 2 (2026-10-17): approves coaching, verbal and first written warnings (approve_team_discipline);
-     a final warning, suspension or termination stays with owners (approve_discipline). writeup-rules.js decides
-     which a write-up needs. No role_permissions record is saved in the database (897 checked 2026-10-17), so
-     this list is the one in force. */
+     HR decisions (Samantha 2026-10-18): Care Coordinators coach; every write-up, from a verbal warning up, is
+     approved by an owner (Zach is the HR lead), so this role no longer holds approve_team_discipline. Write-ups
+     are owner-only in the database too (HR step 1). No role_permissions record is saved in the database (checked
+     2026-10-18), so this list is the one in force. */
   care_coordinator:[ 'manage_staff','manage_positions','manage_duty',
-                     'manage_leads','manage_ownership','approve_team_discipline' ],
+                     'manage_leads','manage_ownership' ],
   /* PROPOSED, and deliberately the smallest thing that lets the job be done:
      coverage. It is NOT a copy of the Care Coordinator role. Widen it on
      purpose once the job is real, by editing the role_permissions record —
@@ -19869,8 +19874,8 @@ const CC_PERM_LABEL={
   manage_duty:'manage duty coverage',
   manage_leads:'manage leads',
   manage_ownership:'manage operational ownership',
-  approve_discipline:'approve final warnings and terminations',
-  approve_team_discipline:'approve coaching and first written warnings',
+  approve_discipline:'approve write-ups and terminations',
+  approve_team_discipline:'(retired 2026-10-18; write-ups are approved by an owner)',
   manage_access:'manage Hub access',
   manage_settings:'change Owner settings',
   manage_rates:'change rates',
@@ -19937,6 +19942,10 @@ function ccApplyRoleUi(){
   /* 2026-10-05 (her call): Hub settings open from the Owners Hub Admin page (Hub settings), each one by itself
      (#settings/<name>); the sidebar has no Settings tab. #settings still opens them all. */
   if(sft) sft.style.display='none';
+  /* HR step 1 (2026-10-18): write-ups are Samantha and Zach's only, so the Write-Ups tab and the Attendance links to
+     it show only to someone who can approve one. The database refuses everyone else anyway. */
+  const wuOk=ccCan('approve_discipline');
+  document.querySelectorAll('[data-tab="cgwriteups"],#attWriteupsLink').forEach(el=>{ el.style.display=wuOk?'':'none'; });
   if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
   try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
 }
@@ -19960,9 +19969,9 @@ function ccRolesBanner(){
    legacyCan, the parked comparison shim. Do not add a third. */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
 
-/* WHO APPROVES A WRITE-UP (SOP ruling 2, Samantha 2026-10-17). writeup-rules.js decides from the level and who
-   started it; these only say what a person holds. Team levels need approve_team_discipline (Care Coordinators and
-   owners), leadership levels need approve_discipline (owners), and nobody approves a case they started. */
+/* WHO APPROVES A WRITE-UP (HR decisions, Samantha 2026-10-18). writeup-rules.js decides; these only say what a
+   person holds. Every write-up needs approve_discipline (owners: Zach as HR lead, and Samantha). A case marked as
+   involving a protected situation needs Samantha consulted before Zach can approve it. */
 function ccCanFor(email, perm){
   const map=ccRolePerms();
   return ccRolesFor(email).some(r=>(map[r]||[]).indexOf(perm)>-1);
@@ -19980,7 +19989,34 @@ function discCanApprove(a){
 }
 function discMayApproveAny(){ return ccCan('approve_discipline') || ccCan('approve_team_discipline'); }
 function discForMe(){
-  return (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval' && discCanApprove(a).ok);
+  return (DATA.discipline_actions||[]).filter(a=>{ if(a.status!=='pending_approval') return false;
+    const c=discCanApprove(a); return c.ok || c.consult; });
+}
+/* Before an owner approves: ask once whether the case involves a protected situation (HR decision 1). The answer is
+   kept on the case. Returns true to go on approving, false to stop. Samantha answering yes counts as her consult. */
+async function discProtectedCheck(a){
+  if(Array.isArray(a.protected)) return true;
+  const words=(typeof WriteupRules!=='undefined'?WriteupRules.PROTECTED:[]).map(p=>'  · '+p.words).join('\n');
+  const none=await ccConfirm('One check before you approve\n\nDoes this case involve any of these?\n'+words
+    +'\n\nOK = none of these apply.\nCancel = at least one does, so Samantha is consulted before a final decision.');
+  const me=String((ME&&ME.email)||'').toLowerCase(), now=new Date().toISOString();
+  if(none){ a.protected=[]; a.protected_checked_by=me; a.protected_checked_at=now; return true; }
+  const which=await ccPrompt('Which ones? Type any of: leave, accommodation, injury, discrimination, retaliation, legal. It is saved on the case so Samantha sees why.','');
+  if(which===null) return false;
+  const keys=(typeof WriteupRules!=='undefined'?WriteupRules.PROTECTED:[]).map(p=>p.key).filter(k=>new RegExp('\\b'+k).test(which.toLowerCase()));
+  a.protected=keys.length?keys:['legal']; a.protected_note=which.trim(); a.protected_checked_by=me; a.protected_checked_at=now;
+  if(typeof WriteupRules!=='undefined' && me===WriteupRules.CONSULT_WITH){ a.samantha_consulted_at=now; a.samantha_consult_note='Samantha approved it herself.'; return true; }
+  await persist('discipline_actions',a);
+  alert('Saved. Talk to Samantha first: she marks the consult on this write-up, then you can approve it.');
+  renderApprovalsCc(); renderMgrStrip();
+  return false;
+}
+async function discMarkConsulted(id){
+  const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
+  const note=await ccPrompt('You talked with Zach about this case. Anything to note? (optional)',''); if(note===null) return;
+  a.samantha_consulted_at=new Date().toISOString(); a.samantha_consult_note=note.trim();
+  await persist('discipline_actions',a);
+  renderApprovalsCc(); renderMgrStrip();
 }
 
 /* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
@@ -20107,7 +20143,8 @@ async function opsCheckRender(){
     const sv=!!(sft&&sft.style.display!=='none');
     const wu=!!document.querySelector('[data-tab="cgwriteups"]');
     say('Settings tab visible  : '+sv+'   '+yn(sv===false)+'   (settings open from the Owners Hub Admin page)');
-    say('Write-Ups tab present : '+wu+'   '+yn(wu===true)+'   (everyone should see this)');
+    const wuShown=!!(document.querySelector('[data-tab="cgwriteups"]')&&document.querySelector('[data-tab="cgwriteups"]').style.display!=='none');
+    say('Write-Ups tab shown   : '+wuShown+'   '+yn(wuShown===owner)+'   (owners only, HR step 1)');
     say('');
     say('── ATTRIBUTION ────────────────────────────────────');
     say('Work saved from here records: '+(ME.name||ME.email));
@@ -20117,7 +20154,7 @@ async function opsCheckRender(){
       say('  · approve a test write-up, confirm the record names YOU');
       say('  · confirm the standup board and referral scoreboard omit you');
     }else{
-      say('  · open Write-Ups, confirm "Start a write-up" works');
+      say('  · confirm there is no Write-Ups tab and no Formal records card on a profile');
       say('  · confirm no Approve or Send back button exists anywhere');
       say('  · open Pay Rates, confirm the figures are read-only');
       say('  · claim a missed call, confirm your name lands on it');
@@ -20240,24 +20277,32 @@ function renderApprovalsCc(){
   if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
     +'<div class="attbody">'
-    +'<div class="field-note" style="margin-bottom:4px;">Coaching, verbal and first written warnings are the team\'s call; a final warning, suspension or termination is leadership\'s. You only see the ones you can approve, never one you started. Read the whole notice first; your name goes on the approval.</div>'
-    +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
+    +'<div class="field-note" style="margin-bottom:4px;">Every write-up is approved by Zach (or Samantha). A case that involves a protected situation waits for Samantha\'s consult first. Read the whole notice first; your name goes on the approval.</div>'
+    +pending.map(a=>{ const waits=discCanApprove(a).consult, isSam=typeof WriteupRules!=='undefined' && String((ME&&ME.email)||'').toLowerCase()===WriteupRules.CONSULT_WITH;
+      const pw=(typeof WriteupRules!=='undefined'?WriteupRules.protectedWords(a):[]);
+      return '<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
       +'<span class="field-note" style="flex:1;min-width:160px;">'+esc(a.reason||'')+'</span>'
-      +'<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="approveWriteupCc(\''+a.id+'\')">✓ Approve</button>'
+      +(waits
+        ? '<span class="field-note" style="color:var(--red);">Waiting on Samantha\'s consult</span>'
+        : '<button class="primary" style="padding:6px 12px;font-size:12.5px;" onclick="approveWriteupCc(\''+a.id+'\')">✓ Approve</button>')
+      +(isSam && pw.length && !a.samantha_consulted_at
+        ? '<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="discMarkConsulted(\''+a.id+'\')">I was consulted</button>' : '')
       +'<button class="secondary" style="padding:6px 12px;font-size:12.5px;" onclick="rejectWriteupCc(\''+a.id+'\')">↩ Send back</button>'
       +'</div>'
+      +(pw.length ? '<div class="field-note" style="margin-top:4px;">Involves '+esc(pw.join(', '))+(a.samantha_consulted_at?'. Samantha consulted '+esc(String(a.samantha_consulted_at).slice(0,10))+'.':'.')+'</div>' : '')
       +'<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">Read the full notice</summary>'
       +'<pre style="white-space:pre-wrap;font-size:11.5px;line-height:1.5;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px;max-height:320px;overflow-y:auto;">'+esc(a.body||'')+'</pre></details>'
-      +'</div>').join('')
+      +'</div>'; }).join('')
     +'</div></details>';
   updateAttnCard();
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
+  if(!(await discProtectedCheck(a))) return;
   const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
-  if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.'))) return;
+  if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval.'))) return;
   a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_by_email=String(ME.email||'').toLowerCase(); a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
@@ -33263,7 +33308,7 @@ const LEAD_STAGE_META={
    board and the profile's Summary alike. It reads what the older lists read: the latest check-in,
    the latest care plan review, open concerns (client_issue, by person), open family requests
    (staffing_tasks, by AxisCare id) and call-offs in the last 30 days (coverage_cases). */
-const CL={ roster:null, issues:null, loading:false, filter:'Needs something', census:null, censusErr:'', beat:null, q:'' };
+const CL={ roster:null, issues:null, loading:false, filter:'', census:null, censusErr:'', beat:null, q:'' };
 /* THE CLIENTS DIRECTORY (2026-10-12, hers: "Clients need to have a directory just like caregivers", after "dan has not
    been pulled over from Axiscare!"). Like the Caregivers directory, the list starts from who AXISCARE says exists
    (client-census-report, read live, never stored), and the Hub's people, check-ins and due items enrich it. An active
@@ -33427,16 +33472,21 @@ function renderClientsBoard(){
     ['Active', x=>!x.past],
     ['Past', x=>x.past],
     ...(all.some(x=>x.unconnected)?[['Not connected yet', x=>!!x.unconnected]]:[]) ];
-  /* Starting care comes first once journeys are live, until someone picks another filter */
-  if(FILTERS[0][0]==='Starting care'&&!CL.picked&&CL.filter==='Needs something') CL.filter='Starting care';
-  const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
-  document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
+  /* Starting care and Active are the two main views (2026-10-18): they sit up front, bigger; the rest are a smaller
+     "Narrow down" row. Opens on Starting care when someone is being started, otherwise Active, until someone picks */
+  const MAIN=['Starting care','Active'];
+  const startN=FILTERS[0][0]==='Starting care'?cjStartingCount():0;
+  if(!CL.picked&&!FILTERS.some(x=>x[0]===CL.filter)) CL.filter=startN>0?'Starting care':'Active';
+  const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS.find(x=>x[0]==='Active');
+  const pill=(x,big)=>'<button class="filter-pill'+(big?' cl-main':'')+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+(x[0]==='Starting care'?startN:all.filter(x[1]).length)+'</span></button>';
+  document.getElementById('clFilters').innerHTML=FILTERS.filter(x=>MAIN.includes(x[0])).map(x=>pill(x,true)).join('')
+    +'<span class="cl-more">Narrow down:</span>'+FILTERS.filter(x=>!MAIN.includes(x[0])).map(x=>pill(x,false)).join('')
     +(CL.issues&&CL.issues.error?'<span class="field-note" style="color:var(--red);align-self:center;">Concerns could not load: '+esc(CL.issues.error)+'</span>':'');
   /* Google review asks (2026-10-08): owners see the last 90 days at a glance */
   if(typeof ccIsOwner==='function'&&ccIsOwner()&&typeof rvCounts==='function') rvCounts().then(c=>{ const f=document.getElementById('clFilters'); if(!c||!f||f.querySelector('.rv-count')) return;
     f.insertAdjacentHTML('beforeend','<span class="field-note rv-count" style="align-self:center;margin-left:auto;">Google reviews, last 90 days: '+c.asked+' asked · '+c.left+' left'+(c.said_would?' · '+c.said_would+' said they would':'')+(c.live?'':' · suggestions off')+'</span>'); });
   /* Starting care: every client being started (client journeys, plus any older First shift checklist still open) */
-  if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); document.querySelectorAll('#clFilters .filter-pill').forEach(b=>{ if(/^Starting care/.test(b.textContent)) b.innerHTML='Starting care <span style="opacity:.65;">'+cjStartingCount()+'</span>'; }); return; }
+  if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); return; }
   /* search finds anyone, current or past, whatever filter is on (like the Caregivers directory) */
   const q=clNorm(CL.q);
   const rows=(q?all.filter(x=>clNorm(x.r.client_name).includes(q)||clNorm(x.ax&&((x.ax.first||'')+(x.ax.last||'')+(x.ax.goes_by||''))).includes(q)||String(x.r.axiscare_client_id)===CL.q.trim().replace(/^#/,''))
@@ -35530,13 +35580,11 @@ function opsReconcileDiscipline(){
              // did not start herself.
              domain:'caregiver_performance',
              owner:'', owner_name:'', opened_by:'system' };
-      /* SOP ruling 2 (2026-10-17): coaching, verbal and first written warnings go to the Caregiver Performance owner
-         (Krystal), leadership levels to its escalation (Samantha), then to whichever owner may approve it. Never
-         to the person who started it. */
-      const dom = opsDomainOwner('caregiver_performance'), esc = opsDomainEscalation('caregiver_performance');
+      /* HR decisions (2026-10-18): every write-up goes to Zach, the HR lead, then to whichever owner may approve it
+         (Samantha, when the case waits on her consult). */
+      const esc = opsDomainEscalation('caregiver_performance');
       const owners = ccOwnerEmails().slice().sort((x,y)=>(y==='samantha@mo-care.com')-(x==='samantha@mo-care.com'));
-      const order = (typeof WriteupRules!=='undefined' && WriteupRules.tier(a, DATA.discipline_actions||[])==='team')
-        ? [dom, esc].concat(owners) : [esc].concat(owners);
+      const order = (typeof WriteupRules!=='undefined' ? [WriteupRules.HR_LEAD] : []).concat(owners);
       const approver = (typeof WriteupRules!=='undefined'
         ? WriteupRules.approverFor(a, order, discWhoFor, DATA.discipline_actions||[]) : '')
         || esc || 'samantha@mo-care.com';
