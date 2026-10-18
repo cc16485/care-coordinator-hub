@@ -13,16 +13,21 @@ STUB = r"""
   const W=window; W.__log={ fn:[], persisted:[], toasts:[] };
   const S='samantha@mo-care.com';
   W.__READ=[
-    { message_id:'msgNEW001', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:50:00Z', call_at:'2026-10-07T14:42:00Z', seconds:372, who_name:null, caller:'Linda P.', detail:{ summary:'Daughter asking about morning help for her mom in Nixa after a fall.' } },
+    { message_id:'msgNEW001', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:50:00Z', call_at:'2026-10-07T14:42:00Z', seconds:372, who_name:null, caller:'Linda P.', detail:{ summary:'Daughter asking about morning help for her mom in Nixa after a fall.', answered_by:'ghlSam' } },
+    { message_id:'msgKRY008', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:20:00Z', call_at:'2026-10-07T14:10:00Z', seconds:240, who_name:null, caller:'Kay K.', detail:{ summary:'Son asking about help for his dad.', answered_by:'ghlKry' } },
+    { message_id:'msgSPAM07', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:05:00Z', call_at:'2026-10-07T14:00:00Z', seconds:90, who_name:null, caller:'Sales G.', detail:{ summary:'Says they need care.' } },
     { message_id:'msgSAME05', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-07T14:55:00Z', call_at:'2026-10-07T14:52:00Z', seconds:200, who_name:null, caller:'Ruth O.', detail:{ summary:'Asking about care again.' } },
     { message_id:'msgOLD003', call_type:'new_client_inquiry', lead_id:null, read_at:'2026-10-03T15:00:00Z', call_at:'2026-10-03T14:00:00Z', seconds:300, who_name:null, caller:'Old C.', detail:{ summary:'Three days ago.' } },
     { message_id:'msgCG0002', call_type:'caregiver', lead_id:null, read_at:'2026-10-07T14:31:00Z', call_at:'2026-10-07T14:30:00Z', seconds:40, who_name:'Ann Caregiver', caller:'Ann C.', detail:{ summary:'Caregiver running late.' } }];
-  (0,eval)(`sb={ from:(t)=>{ const p={ select(){return p;}, eq(){return p;}, gte(){return p;}, in(){return p;}, not(){return p;}, order(){return p;}, limit(){return p;},
-      maybeSingle:async()=>({data:null,error:null}), then(a,b){ return Promise.resolve({data: t==='call_task_reading' ? window.__READ : [], error:null}).then(a,b); } }; return p; },
+  (0,eval)(`sb={ from:(t)=>{ const p={ select(){return p;}, gte(){return p;}, in(){return p;}, not(){return p;}, order(){return p;}, limit(){return p;},
+      _k:'', eq(c,v){ if(c==='key') p._k=v; return p; }, maybeSingle:async()=>({data: t==='app_data'&&p._k==='ghl_users' ? { data:[{ id:'people', people:{ ghlSam:{ email:'samantha@mo-care.com', first:'Samantha' }, ghlKry:{ email:'krystal@mo-care.com', first:'Krystal' } } }] } : null, error:null}), then(a,b){ return Promise.resolve({data: t==='call_task_reading' ? window.__READ : [], error:null}).then(a,b); } }; return p; },
     rpc:async()=>({data:null,error:null}), functions:{ invoke:async()=>({data:null,error:null}) }, storage:{ from:()=>({}) },
     auth:{ getSession:async()=>({data:{session:{access_token:'t'}}}), getUser:async()=>({data:{user:null}}) } };
     ME={ email:'${S}', name:'Samantha Troutman', shift:'day' };
-    OPS_PEOPLE=[{ person_id:'p_s', full_name:'Samantha Troutman', primary_email:'${S}' }];
+    OPS_PEOPLE=[{ person_id:'p_s', full_name:'Samantha Troutman', primary_email:'${S}' }, { person_id:'p_k', full_name:'Krystal Example', primary_email:'krystal@mo-care.com' }];
+    CALLS_FEED={ generated_at:'2026-10-07T14:59:00Z', calls:[ { id:'msgSPAM07', name:'Sales Guy', phone:'+14175550777', direction:'inbound', duration:90, at:'2026-10-07T14:00:00Z' },
+      { id:'missBLK1', name:'Sales Guy', phone:'(417) 555-0777', direction:'inbound', duration:0, status:'no-answer', at:'2026-10-07T14:30:00Z' },
+      { id:'missOK01', name:'Real Person', phone:'+14175550300', direction:'inbound', duration:0, status:'no-answer', at:'2026-10-07T14:31:00Z' } ] };
     OPS_DOMAINS=[{ code:'family_enquiries', label:'Family inquiries', owner_person:'p_s', escalation_person:'p_s' }];`);
   W.persist=async(k,i)=>{ W.__log.persisted.push([k, JSON.parse(JSON.stringify(i))]); };
   W.ccToast=m=>{ W.__log.toasts.push(m); }; W.opEvent=()=>{}; W.ccOpsRefresh=()=>{}; W.ccRecentFetch=async()=>{}; W.reviewMaybeCreate=async()=>{};
@@ -44,6 +49,7 @@ STUB = r"""
     return new Response('{}', { status:400 }); };
   DATA.ops_settings={}; DATA.referral_orgs=[]; DATA.care_assessments=[]; DATA.care_plans=[]; DATA.ops_items=[]; DATA.call_lead_marks=[]; DATA.coverage_cases=[];
   DATA.leads=[]; DATA.post_call_followups=[];
+  DATA.phone_suppress=[{ id:'s_old', phone:'+14175550777', digits:'4175550777', why:'Spam or Sales', at:'2026-10-01T15:00:00Z', by:'phone screen' }];
 })();
 """
 
@@ -60,7 +66,13 @@ async()=>{
   const it=item('msgNEW001');
   ok('a card for the new-family call', !!it && it.kind==='new_family_call' && it.status==='open', DATA.ops_items);
   ok('due 2 hours after the call', it && it.due==='2026-10-07T16:42:00.000Z', it&&it.due);
-  ok('owner = whoever owns Family inquiries', it && it.owner==='samantha@mo-care.com', it&&it.owner);
+  ok('owner = whoever answered (Samantha)', it && it.owner==='samantha@mo-care.com' && it.source.answered_by_name, it);
+  ok('answered by Krystal: her card', item('msgKRY008') && item('msgKRY008').owner==='krystal@mo-care.com', item('msgKRY008'));
+  ok('nobody named on the call: whoever owns Family inquiries', item('msgSAME05') && item('msgSAME05').owner==='samantha@mo-care.com' && !item('msgSAME05').source.answered_by_name, item('msgSAME05'));
+  ok('a number on the block list gets no card', !item('msgSPAM07'));
+  opsReconcileCalls();
+  ok('a blocked number gets no missed-call card (any phone format)', !DATA.ops_items.some(x=>x.id==='ops_missBLK1'));
+  ok('another missed call still gets its card', DATA.ops_items.some(x=>x.id==='ops_missOK01'));
   ok('saved', L.persisted.some(p=>p[0]==='ops_items'&&p[1].id==='ops_newfam_msgNEW001'));
   ok('no card for a call older than 48 hours', !item('msgOLD003'));
   ok('no card for a caregiver call', !item('msgCG0002'));
@@ -72,6 +84,7 @@ async()=>{
   ok('facts read once', await until(()=>it.facts && card('msgNEW001') && /About 20 a week/.test(card('msgNEW001').innerText)), it.facts);
   const t1=card('msgNEW001').innerText;
   ok('says New family? and the call', /New family\?/.test(t1) && /Call on the office line/.test(t1) && /6 min/.test(t1), t1);
+  ok('says who took it', /Samantha took it/.test(t1), t1);
   ok('who and about whom', /Linda Parker \(daughter\), calling about Margaret/.test(t1), t1);
   ok('the four facts', /Private pay/.test(t1) && /This week/.test(t1) && /Mon, Tue, Wed, Thu, Fri · Mornings/.test(t1) && /Nixa/.test(t1), t1);
   ok('the summary', /morning help for her mom in Nixa/.test(t1));
@@ -92,10 +105,15 @@ async()=>{
   const mk=DATA.call_lead_marks.find(m=>m.id==='msgNEW001');
   ok('kept on the call with the reason', mk && mk.verdict==='not' && mk.reason==='spam', mk);
   ok('close note says why', /Not a lead \(Spam or sales\)/.test(it.close_note||''), it.close_note);
+  const blk=DATA.phone_suppress.find(x=>x.id==='sup_msgNEW001');
+  ok('spam: the number goes on the block list', blk && blk.digits==='4175550142' && /spam or sales/.test(blk.why) && L.persisted.some(p=>p[0]==='phone_suppress'&&p[1].id==='sup_msgNEW001'), blk);
+  ok('spam: the toast says it is blocked', L.toasts.some(m=>/That number is blocked/.test(m)), L.toasts);
+  ok('the Hub now honors it', !!CallLead.suppressed('417-555-0142'));
   await sleep(150);
   ok('gone from Today', !card('msgNEW001'));
   await CallLead.undoNot('msgNEW001'); await CallLead.reconcile(); await sleep(150);
   ok('Undo brings the card back', it.status==='open' && !!card('msgNEW001'), it);
+  ok('Undo takes the number off the block list (kept, marked undone)', blk.undone_at && !CallLead.suppressed('4175550142'), blk);
 
   /* Yes, then Undo before anything is saved */
   CallLead._state.waitS=0.6;
