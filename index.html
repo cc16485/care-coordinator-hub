@@ -8754,7 +8754,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018b'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018c'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -18883,6 +18883,7 @@ async function cgdOpenProfile(axid, tab){
     const b=document.getElementById('cgdRefsBody'); if(b) b.innerHTML=cgdRefsHtml(g); });
   try{ cgdLateMount(c); }catch(_){}
   try{ cgdKindMount(c); }catch(_){}
+  try{ cgdCoachMount(c); }catch(_){}
   cgdEvvFormsMount(c);
   try{ if(window.DRV) DRV.mountCaregiver(c, g); }catch(_){}   /* 2026-10-13 Driver Compliance card + Overview line */
   try{ if(window.DT) DT.mount(document.getElementById('cgdDt'), g ? { caregiver_id:g.id, offer_id:g.offer_id, candidate_id:g.candidate_id, name:((g.first||'')+' '+(g.last||'')).trim() } : {}); }catch(_){}   /* 2026-10-13 Drug tests */
@@ -19239,6 +19240,24 @@ async function lnSetToggle(key, btn){
 /* The caregiver's page, Performance: compliments (2026-10-06, Samantha: "also put in the caregivers profile under
    performance if they got a compliment"). Kind words in the jar about this caregiver: a paperclip to them, their exact
    name, or "First L."; plus any kind words someone texted them (kind_tells). Shows whether and when they were told. */
+/* HR step 5 (2026-10-18): coaching history on the caregiver's Performance page. Coaching is never discipline; Samantha,
+   Zach and the Care Coordinators can read it (the database decides). Read only: coaching is worked on HR > Coaching. */
+async function cgdCoachMount(c){
+  const host=document.getElementById('cgdCoach'); if(!host) return;
+  const ax=String(c.id), esc=escapeHtmlComms;
+  let rows=null; try{ const r=await sb.from('hr_coaching').select('*').eq('axiscare_caregiver_id', ax).order('created_at',{ascending:false}).limit(50); if(!r.error) rows=r.data||[]; }catch(e){}
+  if(String(CGD.openId)!==ax) return;
+  const d=x=>{ try{ return new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } };
+  const word={open:'to do',done:'done',flag_wrong:'flag was wrong',not_needed:'not needed',withdrawn:'withdrawn'};
+  host.innerHTML=cgdSectionCard('Coaching <span class="field-note" style="font-weight:400;">(not discipline)</span>',
+    rows===null?'<div class="field-note">Coaching could not be read.</div>'
+    :rows.length?rows.map(x=>'<div style="padding:7px 0;border-top:1px solid var(--border);font-size:13px;"><b>'+esc(x.kind==='recognition'?'Kind words passed on':x.topic)+'</b> · '+esc(word[x.status]||x.status)
+      +(x.held_on?' · '+esc(d(x.held_on)):x.status==='open'?' · due '+esc(d(x.due_on)):'')
+      +(x.discussed?'<div class="field-note">'+esc(x.discussed)+(x.response?' · They said: '+esc(x.response):'')+'</div>':'')
+      +(x.improved===true?'<div class="field-note" style="color:#166534;">Improved after 30 days</div>':x.improved===false?'<div class="field-note" style="color:#B45309;">Still happening after 30 days</div>':'')+'</div>').join('')
+      +'<div class="field-note" style="margin-top:6px;"><a href="#" onclick="switchTab(\'hr\');return false;">Open HR, Coaching</a></div>'
+    :'<div class="field-note">No coaching conversations recorded yet. Coaching is not discipline.</div>');
+}
 async function cgdKindMount(c){
   const host=document.getElementById('cgdKind'); if(!host) return;
   const nk=s=>String(s||'').toLowerCase().replace(/[^a-z]/g,''), fullN=((c.first||'')+' '+(c.last||'')).trim(), ax=String(c.id);
@@ -19375,8 +19394,8 @@ function cgdPerformanceHtml(c,nm){
       +(recent?'<div style="margin-top:6px;">'+recent+'</div>':'<div class="field-note" style="margin-top:6px;">No attendance events recorded.</div>'))
     /* HR step 3 (2026-10-18): coaching is its own record (it arrives with the coaching tracker, build step 5) and is
        never discipline. Everyone who opens the profile sees it. */
-    +card('Coaching',
-      '<div class="field-note">No coaching conversations recorded yet. When Krystal or Angiel coach '+esc(c.first||'this caregiver')+', the date, what was said and whether it helped show here. Coaching is not discipline.</div>')
+    /* HR step 5 (2026-10-18): the coaching history (hr_coaching) is drawn by cgdCoachMount once the profile is open */
+    +'<div id="cgdCoach">'+card('Coaching','<div class="field-note">Loading…</div>')+'</div>'
     /* HR steps 1 and 3 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
     +(ccCan('approve_discipline') ? card('Formal records <span class="field-note" style="font-weight:400;">(Samantha and Zach only)</span>',
       (wus.length ? wus.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).map(a=>{
@@ -33439,6 +33458,8 @@ const OPS_KINDS = {
   new_lead:       { label:'New lead',      hours:4  },
   new_family_call:{ label:'New family?',   hours:2  },   /* call-lead.js v4: the one-tap card (2026-10-18) */
   discipline:     { label:'Approval',      hours:24 },
+  /* HR step 5 (2026-10-18): a coaching talk (or kind words to pass on) assigned on HR > Coaching; the database writes this card */
+  coaching:       { label:'Coaching',      hours:120 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
@@ -36111,6 +36132,8 @@ function opsClose(id, anchorId){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
   if(it.kind==='project' && typeof pjClose==='function') return pjClose(id, document.getElementById(anchorId||('act_'+id)));
   if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
+  /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
+  if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
