@@ -3225,25 +3225,25 @@ function wuDefaultSection(a){
 }
 function wuCheckHtml(a){
   const esc=creqEsc, R=(typeof WriteupRules!=='undefined')?WriteupRules:null, miss=R?R.missingBeforeDecision(a):[];
-  const ok=()=>'<span style="color:#166534;font-weight:700">✓</span> ', no=()=>'<span style="color:#b91c1c;font-weight:700">○</span> ';
-  const ex=a.explanation||{}, ro=a.status!=='draft'&&a.status!=='pending_approval';
-  const dis=ro?' disabled':'';
-  const sec=(a.handbook&&a.handbook.section)||wuDefaultSection(a);
-  const pw=R&&R.protectedWords?R.protectedWords(a):[];
-  return '<div style="border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;margin:.2rem 0 .7rem;background:#FAFBFD;font-size:.8rem;display:grid;gap:.45rem">'
+  const ok=()=>'<span style="color:#166534;font-weight:700;flex:0 0 auto">✓</span>', no=()=>'<span style="color:#b91c1c;font-weight:700;flex:0 0 auto">○</span>';
+  const ex=a.explanation||{}, ro=a.status!=='draft'&&a.status!=='pending_approval', dis=ro?' disabled':'';
+  const sec=(a.handbook&&a.handbook.section)||wuDefaultSection(a), pw=R&&R.protectedWords?R.protectedWords(a):[];
+  /* the Hub's modal styles make inputs full width; these keep each item on one tidy row */
+  const row='display:flex;gap:.5rem;align-items:flex-start;flex-wrap:wrap', box='width:auto;display:inline-block;margin:.15rem 0 0;flex:0 0 auto', fld='width:auto;display:inline-block;flex:0 0 auto';
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;margin:.2rem 0 .7rem;background:#FAFBFD;font-size:.8rem;display:grid;gap:.55rem">'
     +'<b style="color:var(--navy)">Before this can be approved'+(miss.length?' ('+miss.length+' to go)':' (all done)')+'</b>'
-    +'<label>'+(a.facts_checked_at?ok():no())+'<input type="checkbox" id="wuFacts"'+(a.facts_checked_at?' checked':'')+dis+'> I checked the facts below against the record (AxisCare visits, clock times, notes, messages)'
-      +(a.facts_checked_at?' <span class="field-note">· '+esc(a.facts_checked_by||'')+' '+esc(String(a.facts_checked_at).slice(0,10))+'</span>':'')+'</label>'
-    +'<label>'+((a.handbook&&a.handbook.section)?ok():no())+'Handbook section <select id="wuHb"'+dis+' style="max-width:100%"><option value="'+esc(sec)+'">'+esc(sec||'Pick one')+'</option></select></label>'
-    +'<div>'+((ex.declined||String(ex.text||'').trim())&&ex.asked_on?ok():no())+'The caregiver\'s side: asked on <input type="date" id="wuExOn" value="'+esc(ex.asked_on||'')+'"'+dis+'> by <select id="wuExHow"'+dis+'>'
-      +['in person','phone','video'].map(h=>'<option'+(ex.how===h?' selected':'')+'>'+h+'</option>').join('')+'</select>'
-      +'<textarea id="wuExText" rows="2" placeholder="What they said, in their words"'+dis+' style="width:100%;margin-top:.3rem">'+esc(ex.text||'')+'</textarea>'
-      +'<label><input type="checkbox" id="wuExNo"'+(ex.declined?' checked':'')+dis+'> They chose not to give their side</label></div>'
-    +'<div>'+(Array.isArray(a.protected)?ok():no())+'Protected-situation check: '
-      +(Array.isArray(a.protected)?(pw.length?'<b>involves '+esc(pw.join(', '))+'</b>'+(a.samantha_consulted_at?' · Samantha consulted':' · talk to Samantha first'):'none apply')+' <span class="field-note">· '+esc(a.protected_checked_by||'')+'</span>'
-        :(ro?'not done':'<button class="fb" style="font-size:.72rem" onclick="wuProtected()">Check now</button>'))+'</div>'
-    +(ro?'':'<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="fb" onclick="wuSave()">💾 Save</button><button class="fb" style="background:#0d3a5f" onclick="wuDraftAi(this)">✨ Draft with AI</button>'
-      +'<span class="field-note" style="align-self:center">The AI draft fills the box below. Read it and edit it; nothing is saved until you press Save.</span></div>')
+    +'<label style="'+row+';font-weight:400">'+(a.facts_checked_at?ok():no())+'<input type="checkbox" id="wuFacts" style="'+box+'"'+(a.facts_checked_at?' checked':'')+dis+'><span style="flex:1;min-width:200px">I checked the facts below against the record (AxisCare visits, clock times, notes, messages)'
+      +(a.facts_checked_at?' <span class="field-note">· '+esc(a.facts_checked_by||'')+' '+esc(String(a.facts_checked_at).slice(0,10))+'</span>':'')+'</span></label>'
+    +'<div style="'+row+'">'+((a.handbook&&a.handbook.section)?ok():no())+'<span>Handbook section</span><select id="wuHb" style="'+fld+';max-width:100%;min-width:220px"'+dis+'><option value="'+esc(sec)+'">'+esc(sec||'Pick one')+'</option></select></div>'
+    +'<div style="display:grid;gap:.3rem"><div style="'+row+'">'+((ex.declined||String(ex.text||'').trim())&&ex.asked_on?ok():no())+'<span>The caregiver\'s side: asked on</span><input type="date" id="wuExOn" style="'+fld+'" value="'+esc(ex.asked_on||'')+'"'+dis+'><span>by</span><select id="wuExHow" style="'+fld+'"'+dis+'>'
+      +['in person','phone','video'].map(h=>'<option'+(ex.how===h?' selected':'')+'>'+h+'</option>').join('')+'</select></div>'
+      +'<textarea id="wuExText" rows="2" placeholder="What they said, in their words"'+dis+' style="width:100%"></textarea>'.replace('></textarea>','>'+esc(ex.text||'')+'</textarea>')
+      +'<label style="'+row+';font-weight:400"><input type="checkbox" id="wuExNo" style="'+box+'"'+(ex.declined?' checked':'')+dis+'><span>They chose not to give their side</span></label></div>'
+    +'<div style="'+row+'">'+(Array.isArray(a.protected)?ok():no())+'<span>Protected-situation check:</span>'
+      +(Array.isArray(a.protected)?'<span>'+(pw.length?'<b>involves '+esc(pw.join(', '))+'</b>'+(a.samantha_consulted_at?' · Samantha consulted':' · talk to Samantha first'):'none apply')+' <span class="field-note">· '+esc(a.protected_checked_by||'')+'</span></span>'
+        :(ro?'<span>not done</span>':'<button class="fb" style="font-size:.72rem;width:auto" onclick="wuProtected()">Check now</button>'))+'</div>'
+    +(ro?'':'<div style="'+row+';align-items:center"><button class="fb" style="width:auto" onclick="wuSave()">💾 Save</button><button class="fb" style="width:auto;background:#0d3a5f;color:#fff" onclick="wuDraftAi(this)">✨ Draft with AI</button>'
+      +'<span class="field-note" style="flex:1;min-width:200px">The AI draft fills the box below. Read it and edit it; nothing is saved until you press Save.</span></div>')
     +'</div>';
 }
 function wuCollect(a){
