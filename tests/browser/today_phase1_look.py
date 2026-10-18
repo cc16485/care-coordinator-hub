@@ -102,10 +102,12 @@ async()=>{
   myWorkMore('help1','more_help1'); await sleep(40);
   ok('the ⋯ menu says Take it from Samantha (it becomes yours)', $$('.ccpop .ccpick-row').some(r=>r.textContent==='Take it from Samantha (it becomes yours)'));
   ccPopClose();
-  [...card('help1').querySelectorAll('button')].find(b=>b.textContent==='Take it').click(); await sleep(80);
+  /* 2026-10-17: on somebody else's card, Take it… is a transfer: it asks for a reason, then it's mine */
+  [...card('help1').querySelectorAll('button')].find(b=>b.textContent==='Take it…').click(); await sleep(60);
+  const tp=$$('.ccpop').pop(); tp.querySelector('#taWhy').value='They asked me to take it'; tp.querySelector('#taGo').click(); await sleep(120);
   it=item('help1'); oh=it.owner_history;
   ok('taking it from Samantha: mine, history says from whom', it.owner==='krystal@mo-care.com' && oh.slice(-1)[0].from==='samantha@mo-care.com' && oh.slice(-1)[0].how==='took'
-     && it.history.some(h=>h.text==='Took it from Samantha Troutman') && /it was Samantha’s/.test(L.toasts.slice(-1)[0]), [oh, L.toasts.slice(-1)]);
+     && it.history.some(h=>h.text==='Took it from Samantha Troutman') && L.toasts.some(t=>/it was Samantha’s/.test(t)) && /asked me to take it/.test(oh.slice(-1)[0].note||''), [oh, L.toasts.slice(-1)]);
   await opsSetOwner('due1','samantha@mo-care.com','Samantha Troutman','Over to you');
   await opsSetOwner('un_late','krystal@mo-care.com','Krystal Land');
   ok('Hand off and Assign write ownership history too', item('due1').owner_history.slice(-1)[0].how==='handed' && item('due1').owner_history.slice(-1)[0].note==='Over to you'

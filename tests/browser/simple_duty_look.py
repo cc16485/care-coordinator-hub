@@ -18,11 +18,12 @@ async()=>{
     { id:'c', area:'field_response', person:'cierra@mo-care.com', status:'planned', active:true, recur:{ days:all, from:'00:00', to:'23:59' } } ];
   let h=dutyPanelHtml(); const box=document.createElement('div'); box.innerHTML=h; let t=box.innerText;
   ok('Krystal\'s hours: she shows for Operations and Staffing', /Operations[\s\S]*Krystal[\s\S]*Staffing[\s\S]*Krystal/.test(t), t);
-  ok('Owner Escalation: Samantha, when nobody is scheduled', /Owner Escalation[\s\S]*Samantha[\s\S]*when nobody is scheduled/.test(t), t);
+  /* 2026-10-17: Owner Escalation is labelled Leadership, and In charge is a fourth core seat */
+  ok('Leadership: Samantha, when nobody is scheduled', /Leadership[\s\S]*Samantha[\s\S]*when nobody is scheduled/.test(t) && /In charge/.test(t), t);
   ok('unused areas hidden (Field Response, Advanced Care, After Hours) and no "nobody" warnings', !/Field Response|Advanced Care|After Hours/.test(t) && !/[Nn]obody (is )?(assigned|on duty)/.test(t), t);
   DATA.duty_windows.forEach(w=>{ if(w.area!=='field_response') w.recur.days=[]; w.recur.from='03:00'; w.recur.to='03:01'; });
   box.innerHTML=dutyPanelHtml(); t=box.innerText;
-  ok('outside Krystal\'s hours: Operations and Staffing fall to Samantha', (t.match(/Samantha Troutman · when nobody is scheduled/g)||[]).length===3, t);
+  ok('outside Krystal\'s hours: Operations and Staffing fall to Samantha', (t.match(/Samantha Troutman · when nobody is scheduled/g)||[]).length===4, t);
   DATA.duty_windows.push({ id:'d', area:'after_hours', person:K, status:'live', active:true, recur:{ days:all, from:'00:00', to:'23:59' } });
   box.innerHTML=dutyPanelHtml(); t=box.innerText;
   ok('an area someone IS scheduled in shows up again', /After Hours[\s\S]*Krystal/.test(t), t);
