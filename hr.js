@@ -12,7 +12,6 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const owner = () => { try { return typeof ccCan === 'function' && ccCan('approve_discipline'); } catch (e) { return false; } };
   const W = () => (typeof WriteupRules !== 'undefined' ? WriteupRules : null);
-  const meEmail = () => String((window.ME && ME.email) || '').toLowerCase();
   const VIEWS = [
     { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
     { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true },
@@ -117,7 +116,8 @@
 
   /* ---------- Zach's dashboard ---------- */
   function renderHome(box) {
-    const list = (window.DATA && DATA.discipline_actions) || [];
+    /* DATA is the Hub's own top-level variable, not a window property */
+    const list = (typeof DATA !== 'undefined' && DATA && DATA.discipline_actions) || [];
     const wr = W(), can = (a) => (typeof discCanApprove === 'function' ? discCanApprove(a) : { ok: false });
     const decide = list.filter((a) => a.status === 'pending_approval' && can(a).ok);
     const drafts = list.filter((a) => a.status === 'draft');
