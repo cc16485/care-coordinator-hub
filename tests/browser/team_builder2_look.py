@@ -104,9 +104,9 @@ async()=>{
   const old={ id:'tb_old', client:'Cal Fake', days:['mon','tue'], slots:[{k:'s1',label:'Days',start:'08:00',end:'12:00'}], cells:{}, status:'building' };
   S.staffing_plans.push(JSON.parse(JSON.stringify(old))); DATA.staffing_plans.push(old); tbOpen('tb_old'); await sleep(150);
   root().querySelector('.tb2-make').click(); await sleep(120);
-  const pp=[...document.querySelectorAll('.ccpop')].pop(); pp.querySelector('#tb2K').value='client_start'; pp.querySelector('#tb2Go').click(); await sleep(500);
+  const pp=[...document.querySelectorAll('.ccpop')].pop(); ok('"Make this a project" has no Client start / coming home choice (2026-10-18)', !pp.querySelector('#tb2K') && !/coming home|Client start/i.test(pp.innerText)); pp.querySelector('#tb2Go').click(); await sleep(500);
   const cp=S.ops_items.find(x=>x.plan_id==='tb_old');
-  ok('"Make this a project" on an existing plan: Client start makes the full project', cp && cp.template==='client_start' && cp.steps.length===8 && !cp.all_hands && /Cal Fake coming home/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
+  ok('"Make this a project" on an existing plan: a care team project', cp && cp.template==='care_team' && !cp.all_hands && /Cal Fake care team/.test(cp.title) && S.staffing_plans.find(x=>x.id==='tb_old').project_id===cp.id);
   window.__toasts=[]; await tb2MakeProject('tb_old',{});
   ok('...never twice', S.ops_items.filter(x=>x.plan_id==='tb_old').length===1 && /already a project/.test(window.__toasts.join(' ')));
   // TEXT SEVERAL AT ONCE (team-ask is faked here: it records what would be sent)

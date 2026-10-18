@@ -466,26 +466,19 @@
     const el = ccPopOpen(anchor || document.body,
       '<div style="font-size:15px;font-weight:800;color:var(--navy);">New project</div>'
       + '<div class="field-note" style="margin:2px 0 6px;">A job with several steps. It can’t be closed until every step is done.</div>'
-      + lab('Kind') + '<select id="pjNT" style="width:100%;padding:7px;font-size:13px;"><option value="client_start">Client start / coming home</option><option value="blank">Other project</option></select>'
-      + lab('Client') + inp('pjNA', 'Ed Anderson', '')
-      + lab('What it is') + inp('pjNTi', 'Ed Anderson coming home', '')
+      /* 2026-10-18 (Samantha): no Client start / coming home projects; Start of Care runs on the client's own steps.
+         Older client-start projects still open and close as before. */
+      + '<input type="hidden" id="pjNT" value="blank">'
+      + lab('Client (if there is one)') + inp('pjNA', 'Ed Anderson', '')
+      + lab('What it is') + inp('pjNTi', 'New shower chair and grab bars for Ed', '')
       + '<div style="display:flex;gap:8px;"><div style="flex:1;">' + lab('Owner') + '<select id="pjNO" style="width:100%;padding:7px;font-size:13px;">' + people.map(e => '<option value="' + esc(e) + '"' + (e === defOwner ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select></div>'
       + '<div style="flex:1;">' + lab('Ready by') + '<input id="pjNR" type="date" value="' + dStr(d) + '" style="width:100%;padding:6px;font-size:13px;"></div></div>'
-      + '<div id="pjNCS">'
-      + '<div style="display:flex;gap:8px;"><div style="flex:2;">' + lab('Who tells us the date') + inp('pjNDC', 'Pamela Anderson (daughter)', '') + '</div><div style="flex:1;">' + lab('Notice to ask for') + inp('pjNNo', '48 hours', '48 hours') + '</div></div>'
-      + lab('Shifts needed') + inp('pjNSh', '9am–2pm and 4pm–9pm, 7 days a week', '')
-      + lab('Care level (or the possibilities)') + inp('pjNCL', 'bed bound, Hoyer lift or sit-to-stand', '')
-      + '<div class="field-note" style="margin-top:6px;">The Staffing Coordinator joins the team by themselves. And an owner signs it off at the end.</div></div>'
-      + '<div id="pjNBL" style="display:none;">' + lab('Steps, one per line')
+      + '<div id="pjNBL">' + lab('Steps, one per line')
       + '<textarea id="pjNSt" rows="4" style="width:100%;font-size:13px;padding:8px;border-radius:8px;"></textarea>'
       + '<label style="display:flex;gap:7px;align-items:center;font-size:13px;margin-top:6px;"><input type="checkbox" id="pjNSo" style="width:auto;margin:0;"> Needs owner sign-off</label></div>'
       + '<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="pjNGo" style="padding:7px 14px;font-size:13px;">Create</button><button class="ghost" id="pjNNoB" style="padding:7px 14px;font-size:13px;">Cancel</button></div>',
       { width:440 });
-    const kind = el.querySelector('#pjNT'), cs = el.querySelector('#pjNCS'), bl = el.querySelector('#pjNBL'), ti = el.querySelector('#pjNTi'), ab = el.querySelector('#pjNA');
-    let typed = false;
-    ti.oninput = () => { typed = true; };
-    ab.oninput = () => { if(!typed && kind.value === 'client_start') ti.value = ab.value.trim() ? ab.value.trim() + ' coming home' : ''; };
-    kind.onchange = () => { const c = kind.value === 'client_start'; cs.style.display = c ? '' : 'none'; bl.style.display = c ? 'none' : ''; };
+    const kind = el.querySelector('#pjNT');
     el.querySelector('#pjNNoB').onclick = ccPopClose;
     el.querySelector('#pjNGo').onclick = async () => {
       const v = id => (el.querySelector('#' + id) || {}).value || '';
@@ -504,7 +497,7 @@
       ccToast('✓ Project created');
       refresh(); openCard(p.id);
     };
-    ab.focus();
+    el.querySelector('#pjNTi').focus();
   }
 
   Object.assign(window, {

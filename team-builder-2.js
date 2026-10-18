@@ -291,13 +291,13 @@
     const el = ccPopOpen(anchor || document.body,
       '<div style="font-size:14px;font-weight:800;color:var(--navy);">Put ' + esc(plan.client) + '’s plan on My Work</div>'
       + '<div class="field-note" style="margin:3px 0 8px;">It becomes a project: the team sees it on My Work, talks in its conversation, and its shift step follows this board.</div>'
-      + '<div class="field-note">Kind</div><select id="tb2K" style="width:100%;padding:6px;font-size:13px;"><option value="care_team">Just this care team (shifts confirmed, then AxisCare)</option><option value="client_start">Client start / coming home (all the steps)</option></select>'
+      + '<div class="field-note">A care team project: shifts confirmed, then AxisCare.</div>'   /* 2026-10-18 (Samantha): no Client start / coming home projects */
       + '<div style="display:flex;gap:8px;margin-top:8px;"><div style="flex:1;"><div class="field-note">Owner</div><select id="tb2O" style="width:100%;padding:6px;font-size:13px;">' + crew().map(e => '<option value="' + esc(e) + '"' + (e === own ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select></div>'
       + '<div style="flex:1;"><div class="field-note">Ready by</div><input id="tb2R" type="date" value="' + inDays(7) + '" style="width:100%;padding:5px;font-size:13px;"></div></div>'
       + '<div style="display:flex;gap:8px;margin-top:12px;"><button class="primary" id="tb2Go" style="padding:6px 12px;font-size:13px;">Put it on My Work</button><button class="ghost" id="tb2No" style="padding:6px 12px;font-size:13px;">Cancel</button></div>', { width:400 });
     el.querySelector('#tb2No').onclick = ccPopClose;
     el.querySelector('#tb2Go').onclick = async () => {
-      const o = { kind:el.querySelector('#tb2K').value, owner:el.querySelector('#tb2O').value, ready_by:el.querySelector('#tb2R').value };
+      const o = { kind:'care_team', owner:el.querySelector('#tb2O').value, ready_by:el.querySelector('#tb2R').value };
       if(!o.ready_by){ ccToast('Pick a ready-by date'); return; }
       ccPopClose(); await makeProject(planId, o); tbRender();
     };
