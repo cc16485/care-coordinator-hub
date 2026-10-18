@@ -2926,6 +2926,10 @@ const HB_TEMPLATES = {
 /* Every corrective action, grouped by where it is stuck. Ordered by who is
    waiting on whom: sent back to you first, then yours to finish, then waiting
    on the owners, then ready to hand over. History last. */
+/* SOP ruling 2 (2026-10-17): who approves this one, from writeup-rules.js (loaded by the page). */
+function wuWho(a){
+  return (typeof WriteupRules!=='undefined') ? WriteupRules.whoApproves(a, DISC_ACTIONS) : 'Samantha or Zach';
+}
 function renderWriteups(){
   const box=document.getElementById('wuList'); if(!box) return;
   const all=(DISC_ACTIONS||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
@@ -2957,9 +2961,9 @@ function renderWriteups(){
     : '';
 
   const html =
-     group('Sent back to you', sentBack.map(a=>row(a,'↩ '+creqEsc(a.reject_note||''))).join(''), 'an owner asked for changes', '#b91c1c')
+     group('Sent back to you', sentBack.map(a=>row(a,'↩ '+creqEsc(a.reject_note||''))).join(''), 'the approver asked for changes', '#b91c1c')
    + group('Your drafts', drafts.map(a=>row(a,'')).join(''), 'not submitted yet')
-   + group('Waiting on Samantha or Zach', waiting.map(a=>row(a,'⏳')).join(''), 'nothing is sent until they approve')
+   + group('Waiting for approval', waiting.map(a=>row(a,'⏳ '+creqEsc(wuWho(a)))).join(''), 'nothing is issued until it is approved')
    + group('Approved, ready to issue', approved.map(a=>row(a,'✅')).join(''), 'review it with the caregiver, get the signature, then mark issued', '#15803d')
    + group('Issued', issued.slice(0,25).map(a=>row(a,'📄 '+String(a.issued_at||'').slice(0,10))).join(''), 'on file');
 
@@ -3011,7 +3015,7 @@ async function hbCreateWriteup(){
   const a={ id:'hb'+Date.now(), caregiver:cg, level, reason:t.label, category:key, event_ids:[],
     body:hbDocBody(cg,key,level,when,checked,details),
     status:'draft', created_at:new Date().toISOString(),
-    created_by:by.split('@')[0]||'coordinator', created_by_email:by, issued_at:null };
+    created_by:by.split('@')[0]||'coordinator', created_by_email:by.toLowerCase(), issued_at:null };
   // Persist FIRST, then show it locally — so a failed save never leaves a
   // phantom draft that looks saved but vanishes on reload. attPersist alerts
   // "Could not save" and throws on failure, so the coordinator is told.
@@ -3156,8 +3160,7 @@ function attDocBody(cg, trigger, level){
     +'  X ______________________________   Date: ____________\n\n'
     +'Issued by:\n\n'
     +'  X ______________________________   Date: ____________\n\n'
-    +'File the signed original in Viventium. Samantha Troutman must be\n'
-    +'notified before this notice is issued.\n';
+    +'File the signed original in Viventium.\n';
 }
 async function draftWriteup(cg, triggerIdx){
   const s=attStatus(cg);
@@ -3166,7 +3169,7 @@ async function draftWriteup(cg, triggerIdx){
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const axid=String(cg||'').startsWith('ax:')?String(cg).slice(3):'';
   const a={ id:'dw'+Date.now(), caregiver:attGroupName(cg), ...(axid?{axiscare_caregiver_id:axid}:{}), level, reason:t.label, event_ids:t.events.map(e=>e.id),
-    body:attDocBody(cg,t,level), status:'draft', created_at:new Date().toISOString(), created_by:by.split('@')[0]||'staffing', issued_at:null };
+    body:attDocBody(cg,t,level), status:'draft', created_at:new Date().toISOString(), created_by:by.split('@')[0]||'staffing', created_by_email:by.toLowerCase(), issued_at:null };
   DISC_ACTIONS.push(a);
   await attPersist('discipline_actions',a);
   openWriteup(a.id);
@@ -3182,11 +3185,11 @@ function openWriteup(id){
   const closeBtn='<button onclick="document.getElementById(\'writeup-modal\').classList.remove(\'open\')" style="margin-left:auto;background:#FAF9F6;border:1px solid var(--border);border-radius:7px;padding:.4rem .9rem;cursor:pointer;font-family:inherit;font-size:.8rem">Close</button>';
   document.getElementById('writeup-body').readOnly = a.status==='pending_approval';
   if(a.status==='draft'){
-    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b> — only <b>Samantha or Zach</b> can approve discipline (they see it in the Owners Hub and the CC Hub); nothing can be issued without that.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
+    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b>. A '+creqEsc(a.level||'write-up')+' is approved by <b>'+creqEsc(wuWho(a))+'</b>, never by the person who started it. Nothing can be issued until it is approved.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'
       +'<button class="fb" style="background:#0d3a5f" onclick="sendForApproval()">📤 Send for approval</button>'+closeBtn;
   }else if(a.status==='pending_approval'){
-    notice.innerHTML='⏳ Waiting for Samantha or Zach to approve — they see this in the Owners Hub. It can\'t be edited or issued until it\'s approved.';
+    notice.innerHTML='⏳ Waiting for '+creqEsc(wuWho(a))+' to approve it (they see it under My Work, Approvals). It can\'t be edited or issued until it\'s approved.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'+closeBtn;
   }else if(a.status==='approved'){
     notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'a care coordinator')+'. <b>Copy notice</b> → paste into the AxisCare "Corrective Action Notice" form → send to the caregiver to e-sign in their app. Once signed, click Mark issued — that stamps the proof note on their AxisCare record too. (🖨 Print / Save as PDF if you also want a copy in Viventium.)';
@@ -3208,14 +3211,14 @@ async function sendForApproval(){
   document.getElementById('writeup-modal').classList.remove('open');
   renderAttendance();
   renderWriteups();
-  alert('Sent ✓ — Samantha and Zach will see it in the Owners Hub. You\'ll see the approval here.');
+  alert('Sent. '+wuWho(a).charAt(0).toUpperCase()+wuWho(a).slice(1)+' will see it under My Work, Approvals. You\'ll see the approval here.');
 }
 async function pushAxNote(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
   const noteText='CORRECTIVE ACTION ISSUED — '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
     +'Category: Attendance & Dependability (Handbook 2U/2V)\n'
     +'Reason: '+a.reason+'\n'
-    +'Approved by: '+(a.approved_by||'Samantha Troutman')+' · Issued by: '+(a.created_by||'staffing')+'\n'
+    +'Approved by: '+(a.approved_by||'not recorded')+' · Issued by: '+(a.created_by||'staffing')+'\n'
     +'Signed original filed in Viventium.';
   /* C2b: by AxisCare number, picked by a person, through our own server with their sign-in (recorded) */
   const d=await axCaregiverNote(a.caregiver, noteText, a.axiscare_caregiver_id || a.ax_caregiver_id);   /* step 4: either field name */
@@ -3238,7 +3241,7 @@ function printWriteup(){
 async function issueWriteup(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
   if(!a){ alert('This write-up could not be found — reload the page and open it again.'); return; }
-  if(a.status!=='approved'){ alert('Samantha has to approve this first — send it to her from the draft view.'); return; }
+  if(a.status!=='approved'){ alert('This needs approval first ('+wuWho(a)+'). Send it for approval from the draft view.'); return; }
   if(!(await ccConfirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.'))) return;
   a.body=document.getElementById('writeup-body').value;
   a.status='issued'; a.issued_at=new Date().toISOString();
