@@ -11926,7 +11926,7 @@ async function csrOpen(reviewId){
     +opt('care_ended','Care ended','Opens End care: the reason, the last day of service and who told us. Their journey and open work close; nothing is deleted.')
     +opt('on_hold','Paused (hospital, rehab, family away…)','Opens Pause care with a follow-up date. Nothing ends.')
     +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
-    +opt('returning','Returning client','Opens Resume care on the same person. An owner decides.')
+    +opt('returning','Returning client','Opens Resume care on the same person. A Care Coordinator or an owner confirms it.')
     +'<div id="csrMore" style="margin-top:10px;"></div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
   ov.querySelector('#csrX').onclick=close;
@@ -12295,7 +12295,7 @@ async function ckUseExisting(l, ax, name){
   try{ renderLeadProfile(); }catch(e){} try{ renderLeads(); }catch(e){}
   alert('Linked to their existing AxisCare record #'+ax+(name?' ('+name+')':'')+'. No second client was made.'
     +(jcRes?'\n\nJourney: '+jcRes.text:'')
-    +'\n\nIn AxisCare, set them back to active when care starts. Owner / Decision then confirms the returning client, and this inquiry\'s Journey carries on.');
+    +'\n\nIn AxisCare, set them back to active when care starts. Their Care Coordinator then confirms the returning client, and this inquiry\'s Journey carries on.');
   return true;
 }
 /* 5b C: an automatic front door (web form, booking, AI call, call disposition) flagged this new
