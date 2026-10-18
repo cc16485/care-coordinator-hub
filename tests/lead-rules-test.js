@@ -484,6 +484,45 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('helper · the intro line', R.ownerIntro({ assigned_coordinator:'Angiel' }) === 'Calling for Angiel? Introduce Angiel as their Care Coordinator.' && R.ownerIntro({}) === '');
 }
 
+/* follow-up rules (Care Coordinator Leads and Bonus, Stage 2, policy approved 2026-10-18) */
+{
+  const NOW = '2026-10-06T15:00:00Z', TODAY = '2026-10-06';
+  const tried = (at, outcome) => ({ id:'f1', first_name:'Fay', status:'New', assigned_coordinator:'Angiel', created_at:'2026-10-05T14:00:00Z', first_human_attempt_at:at,
+    contact_events:[{ at, channel:'call', direction:'out', outcome:outcome || 'voicemail', actor:'human', by:'a@mo-care.com' }] });
+  ck('rules · off unless the switch is exactly true', R.followupRulesOn({ lead_followup_live:true }) === true && R.followupRulesOn({ lead_followup_live:'true' }) === false && R.followupRulesOn(null) === false);
+  const st = R.secondTry(tried('2026-10-05T16:00:00Z'), { now:NOW, today:TODAY });
+  ck('second try · first call (Oct 5) reached nobody → due by Oct 7, not late yet', st && st.day === '2026-10-07' && !st.due && !st.late, st);
+  const late = R.secondTry(tried('2026-10-01T16:00:00Z'), { now:NOW, today:TODAY });
+  ck('second try · first call Oct 1 → 3 days late on Oct 6', late && late.late && late.late_days === 3, late);
+  ck('second try · none after a conversation, a second attempt, a set date, or a waiting record',
+    R.secondTry(tried('2026-10-05T16:00:00Z', 'connected'), { now:NOW, today:TODAY }) === null
+    && R.secondTry(Object.assign(tried('2026-10-05T16:00:00Z'), { contact_events:[tried('2026-10-05T16:00:00Z').contact_events[0], { at:'2026-10-06T14:00:00Z', channel:'call', direction:'out', outcome:'no_answer', actor:'human' }] }), { now:NOW, today:TODAY }) === null
+    && R.secondTry(Object.assign(tried('2026-10-05T16:00:00Z'), { follow_up_due:'2026-10-09' }), { now:NOW, today:TODAY }) === null
+    && R.secondTry(Object.assign(tried('2026-10-05T16:00:00Z'), { waiting:{ reason:'family_decision', since:'2026-10-05', check_back:'2026-10-12' } }), { now:NOW, today:TODAY }) === null);
+  ck('second try · none for a lead that is saved, lost or said yes', ['Saved', 'Lost'].every(x => R.secondTry(Object.assign(tried('2026-10-01T16:00:00Z'), { status:x }), { now:NOW, today:TODAY }) === null)
+    && R.secondTry(Object.assign(tried('2026-10-01T16:00:00Z'), { said_yes_at:'2026-10-02T00:00:00Z' }), { now:NOW, today:TODAY }) === null);
+  const fresh = { id:'f2', first_name:'Gil', status:'New', created_at:'2026-10-06T14:00:00Z' };
+  const r1 = R.nextDateRule(fresh, 'voicemail', { now:NOW, today:TODAY });
+  ck('call log · the first call reached nobody: a next date is required, by Oct 8', r1.required && r1.latest === '2026-10-08', r1);
+  const r2 = R.nextDateRule(fresh, 'connected', { now:NOW, today:TODAY });
+  ck('call log · a conversation: a next date is required, no 2-day limit', r2.required && r2.latest === null, r2);
+  const r3 = R.nextDateRule(tried('2026-10-05T16:00:00Z'), 'no_answer', { now:NOW, today:TODAY });
+  ck('call log · a later failed try: required, no 2-day limit (the owner sets it)', r3.required && r3.latest === null, r3);
+  ck('call log · not required when they asked for a call back, when waiting, or with a booked assessment',
+    !R.nextDateRule(fresh, 'requested_callback', { now:NOW, today:TODAY }).required
+    && !R.nextDateRule(Object.assign({}, fresh, { waiting:{ reason:'state', since:TODAY, check_back:'2026-10-20' } }), 'voicemail', { now:NOW, today:TODAY }).required
+    && !R.nextDateRule(fresh, 'connected', { now:NOW, today:TODAY, assessments:[{ status:'Scheduled', visit_date:'2026-10-09' }] }).required);
+  const ctxOn = { now:NOW, today:TODAY, stage:'reaching_out', followup_rules:true }, ctxOff = { now:NOW, today:TODAY, stage:'reaching_out' };
+  const bLate = R.boardRow(tried('2026-10-01T16:00:00Z'), ctxOn);
+  ck('board (on) · a late second try is red in Need you now', bLate.reason === 'second_try_late' && bLate.group === 'now' && bLate.when.tone === 'red' && /Second try 3 days late/.test(bLate.when.big), bLate);
+  const bSoon = R.boardRow(tried('2026-10-05T16:00:00Z'), ctxOn);
+  ck('board (on) · a second try due Oct 7 waits in Later', bSoon.reason === 'second_try' && bSoon.group === 'later', bSoon);
+  const bOff = R.boardRow(tried('2026-10-01T16:00:00Z'), ctxOff);
+  ck('board (off) · as before: No next step, amber', bOff.reason === 'no_next_step' && bOff.when.tone === 'amber', bOff);
+  const two = Object.assign(tried('2026-10-01T16:00:00Z'), { contact_events:[tried('2026-10-01T16:00:00Z').contact_events[0], { at:'2026-10-03T14:00:00Z', channel:'call', direction:'out', outcome:'no_answer', actor:'human' }] });
+  ck('board (on) · after the second try with no date: No next step, red', (b => b.reason === 'no_next_step' && b.when.tone === 'red')(R.boardRow(two, ctxOn)), R.boardRow(two, ctxOn));
+}
+
 /* the Hub page and the server run the same file (STAFFING_ROOT points at another Staffing checkout, e.g. a worktree) */
 const serverCopy = path.join(process.env.STAFFING_ROOT || path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub'), 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));

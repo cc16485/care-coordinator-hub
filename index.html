@@ -4571,6 +4571,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="ltToggleBtn" onclick="ltToggle(this)">Turn on lead turns</button>
   <span class="field-note" id="ltSaved"></span>
 </div>
+<!-- Follow-up rules (Stage 2 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.lead_followup_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Follow-up rules</div>
+<p class="hint">If the first call reaches nobody, a second try is due within 2 days. After that, logging a call needs the next follow-up date (unless an assessment is booked or they are waiting on something with a check-back date). A lead with no next step shows red until it has one or is closed. Saving for future needs a check-back date, and the family's Care Coordinator gets a card that day. Reminders for staff only: nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
+<div id="fuSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="fuToggleBtn" onclick="fuToggle(this)">Turn on follow-up rules</button>
+  <span class="field-note" id="fuSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7333,7 +7341,7 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=18"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7399,8 +7407,8 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=15"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=9"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="leads-board.js?v=16"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
@@ -7412,7 +7420,7 @@ The HomeTogether team</pre>
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
-<script src="future-opps.js?v=2"></script>
+<script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
@@ -9818,6 +9826,12 @@ function logManualCall(){
     +'<div class="field-note" style="margin-bottom:4px;">Call them back when?</div>'
     +'<div style="display:flex;gap:6px;"><input id="ldCbDate" type="date" style="flex:1;font-size:13px;padding:6px;">'
     +'<input id="ldCbTime" type="time" style="width:110px;font-size:13px;padding:6px;"></div></div>'
+    /* Follow-up rules (Stage 2, policy 2026-10-18): while on, a call log carries the next date (see LeadRules.nextDateRule) */
+    +'<div id="ldNextWrap" style="display:none;margin-top:8px;">'
+    +'<div class="field-note" style="margin-bottom:4px;"><b>Next follow-up</b> <span id="ldNextWhy"></span></div>'
+    +'<div style="display:flex;gap:6px;"><input id="ldNextDate" type="date" style="flex:1;font-size:13px;padding:6px;">'
+    +'<input id="ldNextTime" type="time" style="width:110px;font-size:13px;padding:6px;"></div>'
+    +'<label class="field-note" style="display:flex;gap:6px;align-items:center;margin-top:6px;"><input type="checkbox" id="ldNextClose" style="width:auto;margin:0;"> No more follow-up: I’ll close it now (lost, or save for future)</label></div>'
     +'<input id="ldCallNote" placeholder="Anything worth remembering? (optional)" '
     +'style="width:100%;margin-top:10px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
     +'<div style="display:flex;gap:8px;margin-top:10px;">'
@@ -9831,6 +9845,7 @@ function logManualCall(){
       picked=r.dataset.o;
       el.querySelectorAll('.ccpick-row').forEach(x=>x.style.background=x.dataset.o===picked?'var(--teal-bg,#E6F5F4)':'');
       el.querySelector('#ldCbWrap').style.display = picked==='requested_callback'?'block':'none';
+      ldNextUI(el, picked);
       el.querySelector('#ldCallGo').disabled=false;
     };
   });
@@ -9840,13 +9855,43 @@ function logManualCall(){
     const cbDate=(el.querySelector('#ldCbDate')||{}).value||'';
     const cbTime=(el.querySelector('#ldCbTime')||{}).value||'';
     if(picked==='requested_callback'&&!cbDate){ alert('Pick the day they asked for.'); return; }
+    const nx=ldNextRead(el, picked); if(nx&&nx.error){ alert(nx.error); return; }
     ccPopClose();
-    await ldLogCall(picked, note, cbDate, cbTime);
+    await ldLogCall(picked, note, cbDate, cbTime, nx);
+    if(nx&&nx.close&&typeof lbLost==='function'){
+      if(await ccConfirm('Close '+(([commsLead&&commsLead.first_name,commsLead&&commsLead.last_name].filter(Boolean).join(' '))||'this lead')+' now?\n\nOK: mark it lost with a reason.\nCancel: save it for future instead (with a check-back date).')) await lbLost(commsLead.id);
+      else if(window.FutureOpps&&FutureOpps.save) FutureOpps.save(commsLead.id);
+    }
   };
 }
-async function ldLogCall(outcome, note, cbDate, cbTime){
+/* Follow-up rules (Stage 2): show and read the next follow-up date in the call log */
+function ldFollowupOn(){ return typeof LeadRules!=='undefined'&&LeadRules.followupRulesOn&&LeadRules.followupRulesOn(DATA.ops_settings||{}); }
+function ldNextRule(outcome){
+  const l=commsLead; if(!l||!ldFollowupOn()) return { required:false };
+  const ctx=(typeof lbCtxFor==='function')?lbCtxFor(l):{};
+  return LeadRules.nextDateRule(l, outcome, Object.assign({}, ctx, { now:new Date().toISOString(), today:today() }));
+}
+function ldNextUI(el, outcome){
+  const w=el.querySelector('#ldNextWrap'); if(!w) return;
+  const r=ldNextRule(outcome); w.style.display=r.required?'block':'none'; if(!r.required) return;
+  const d=el.querySelector('#ldNextDate'), why=el.querySelector('#ldNextWhy');
+  d.min=today(); d.max=r.latest||''; if(r.latest&&(!d.value||d.value>r.latest)) d.value=r.latest;
+  if(why) why.textContent=r.latest?'(by '+r.latest+': '+r.why.replace(/^The first call reached nobody, so /,'')+')':'(required)';
+}
+function ldNextRead(el, outcome){
+  const r=ldNextRule(outcome); if(!r.required) return null;
+  if(el.querySelector('#ldNextClose')&&el.querySelector('#ldNextClose').checked) return { close:true };
+  const day=(el.querySelector('#ldNextDate')||{}).value||'', time=(el.querySelector('#ldNextTime')||{}).value||'';
+  if(!day) return { error:'Pick the next follow-up date (or tick "No more follow-up" to close it).' };
+  if(day<today()) return { error:'The next follow-up can\'t be in the past.' };
+  if(r.latest&&day>r.latest) return { error:r.why+' Pick '+r.latest+' or sooner.' };
+  return { day, time };
+}
+async function ldLogCall(outcome, note, cbDate, cbTime, nx){
   const l=commsLead; if(!l||!outcome) return;
   const a=ccActor();
+  /* Lead turns (Stage 1) + follow-up rules (Stage 2): a teammate calling someone else's lead is recorded as helping */
+  if(typeof leadTurnsOn==='function'&&leadTurnsOn()&&l.assigned_coordinator) LeadRules.noteHelper(l, a.name||a.email, { what:'a call', by:a.email });
   const label={connected:'connected',voicemail:'voicemail',no_answer:'no answer',
                requested_callback:'they asked us to call back',wrong_number:'wrong number'}[outcome]||outcome;
   const firstTime=!l.first_human_contact_at;
@@ -9873,11 +9918,13 @@ async function ldLogCall(outcome, note, cbDate, cbTime){
     else { l.follow_up_due=cbDate; l.promised_callback_at=cbDate+'T'+(cbTime||'09:00')+':00'; }
     l.comm_log.push({ body:'🤝 Promised to call back '+cbDate+(cbTime?' at '+cbTime:''), at:new Date().toISOString(), by:a.email });
   }
+  if(nx&&nx.day){ LeadRules.setNext(l, { kind:'follow_up', day:nx.day, time:nx.time||'' });
+    l.comm_log.push({ body:'📅 Next follow-up '+nx.day+(nx.time?' at '+nx.time:''), at:new Date().toISOString(), by:a.email }); }
   await persist('leads', l);
   renderCommsTimeline();
   if(typeof opsReconcileLeads==='function'){ try{ opsReconcileLeads(); }catch(e){} }
   if(typeof myWorkRefresh==='function') myWorkRefresh();
-  ccToast(outcome==='connected'?'✓ Logged. First real conversation is on the record':'✓ Logged');
+  ccToast((outcome==='connected'?'✓ Logged. First real conversation is on the record':'✓ Logged')+(nx&&nx.day?'. Next follow-up '+nx.day+'.':''));
 }
 /* Do-not-contact: the recorded fact every automated sender obeys. */
 async function ldToggleDnc(){
@@ -18069,6 +18116,25 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Follow-up rules settings (Stage 2, policy 2026-10-18). Owners only. */
+function fuSetFill(){
+  const now=document.getElementById('fuSetNow'), b=document.getElementById('fuToggleBtn'); if(!now) return;
+  const on=ldFollowupOn(), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Second tries, required next dates and check-back cards are in use.':'<b style="color:#B7791F;">Off.</b> Logging a call works as before; nothing is required.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off follow-up rules':'Turn on follow-up rules'; b.style.display=owner?'':'none'; }
+}
+async function fuToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn the follow-up rules on or off.'); return; }
+  const on=!ldFollowupOn();
+  const ok=await ccConfirm(on?'Turn on the follow-up rules?\n\nFrom now on:\n· a first call that reaches nobody needs a second try within 2 days\n· logging a call needs the next follow-up date (or closing the lead)\n· a lead with no next step shows red\n· Save for future needs a check-back date, and a card comes back that day\n\nNothing is sent to any family.'
+    :'Turn off the follow-up rules? Logging a call and saving for future go back to how they were; nothing is required.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.lead_followup_live=on; if(on&&!m.lead_followup_live_since) m.lead_followup_live_since=new Date().toISOString(); return ['follow-up rules '+(on?'ON':'OFF')]; }, 'follow-up rules');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('fuSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  fuSetFill(); try{ opsReconcileLeads(); }catch(e){} try{ renderLeadsStarts(); }catch(e){}
+}
 /* Lead turns settings (Stage 1, policy 2026-10-18). The list order is the turn order. Owners only. */
 function ltSetFill(){
   const now=document.getElementById('ltSetNow'), box=document.getElementById('ltPeople'), b=document.getElementById('ltToggleBtn'); if(!now||!box) return;
@@ -18114,6 +18180,7 @@ async function ltToggle(btn){
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ ltSetFill(); }catch(e){}
+  try{ fuSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -35669,6 +35736,36 @@ function opsReconcileLeads(){
       }
     }
   });
+
+  /* Follow-up rules (Stage 2, policy approved 2026-10-18): a family saved for future comes back on its check-back day as one
+     card for its Care Coordinator, only while the rules are on. Nothing is sent to the family; whether we may contact them is
+     on the card. The card closes when they are reactivated, closed, or saved again with a later date. */
+  if(typeof LeadRules!=='undefined'&&LeadRules.followupRulesOn&&LeadRules.followupRulesOn(DATA.ops_settings||{})){
+    const t=today(), nowIso=new Date().toISOString();
+    (DATA.leads||[]).forEach(l=>{
+      if(!l||!l.id) return;
+      const id='ops_future_'+l.id, day=String((l.future&&l.future.look_again)||'');
+      const saved=LeadRules.isSaved(l)&&!!l.future, due=saved&&/^\d{4}-\d{2}-\d{2}$/.test(day)&&day<=t;
+      let it=DATA.ops_items.find(i=>i.id===id);
+      if(due&&(!it||(it.status!=='open'&&it.check_day!==day))){
+        const who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a saved family';
+        const may=LeadRules.mayContact(l);
+        if(!it){ it={ id, kind:'future_check_back', source_id:String(l.id), domain:'family_enquiries', opened_by:'system' }; DATA.ops_items.push(it); }
+        Object.assign(it, { status:'open', title:'Check back: '+who+' (saved for future)', about:who, phone:may?(l.phone||''):'', urgency:'normal',
+          detail:'Saved '+String(l.future.saved_at||'').slice(0,10)+': '+(l.future.reason||'')+(l.future.note?' ('+l.future.note+')':''),
+          next_action:may?'They said we may contact them. See if we can help now, call them, then Reactivate or save them again with a new check-back date.'
+                         :'They have not said we may contact them, so don\'t call. See if we can help now (area, caregiver, schedule), then save them again with a new check-back date or leave a note.',
+          due:day, check_day:day, created_at:it.created_at||nowIso, last_activity_at:nowIso,
+          owner:opsCanonicalPerson(l.assigned_coordinator)||opsDomainOwner('family_enquiries')||'' });
+        it.owner_name=it.owner?opsOwnerName(it.owner):''; delete it.closed_at; delete it.closed_by; delete it.auto_closed_reason;
+        touched.set(it.id,it);
+      } else if(it&&it.status==='open'&&!(saved&&day&&day<=t)){
+        it.status='done'; it.closed_at=nowIso; it.closed_by='system';
+        it.auto_closed_reason=saved?'Saved again with check-back '+(day||'none'):'No longer saved for future ('+String(l.status||'')+')';
+        touched.set(it.id,it);
+      }
+    });
+  }
 
   touched.forEach(i=>persist('ops_items', i));
 }

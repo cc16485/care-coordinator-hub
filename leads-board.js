@@ -30,7 +30,7 @@
     /* 2026-10-15 (her "tidier Leads board"): Medicaid is no longer accepted (one row, not the state's rows); the old AI's
        recap drafts are retired (no Draft ready row; they stay under Look up); no "assessment overdue" or "deciding 7+ days"
        nudge rows (the follow-up date you set says when) */
-    return { no_medicaid:true, no_drafts:true, quiet_nudges:true, hours:R.responseHours(DATA.ops_settings || {}), stage, contract, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
+    return { no_medicaid:true, no_drafts:true, quiet_nudges:true, followup_rules:!!(R.followupRulesOn && R.followupRulesOn(DATA.ops_settings || {})), hours:R.responseHours(DATA.ops_settings || {}), stage, contract, name:(typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || '', assessments:asm, journey_next:jn, drafts, org, people, pre_matched:pre,
       referral:(org && org.name) || l.referral_source_name || '', payer_label:(typeof CPX_PAY !== 'undefined' && CPX_PAY[l.funding_source]) || null };
   }
   window.lbCtxFor = ctxFor;   /* the same question for the profile's Next action and the Path card (LeadRules.oneNext) */

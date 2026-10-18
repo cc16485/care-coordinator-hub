@@ -107,6 +107,7 @@
     document.body.appendChild(bg); return bg.querySelector('.fo-dlg');
   }
   function close(){ const m = document.getElementById('foModal'); if(m) m.remove(); }
+  function rulesOn(){ return !!(R().followupRulesOn && R().followupRulesOn(DATA.ops_settings || {})); }
   function save(id){
     const l = lead(id); if(!l) return;
     const c = countyFor(l), v = valueOf(l), tier = tierOf(c), sugg = !c ? '' : served(c) ? 'no_caregiver' : tier === 'expansion' ? 'expansion' : 'outside_area';
@@ -121,7 +122,10 @@
       + '<div class="fo-k">Why we can\'t help right now</div>' + reasons
       + '<div class="fo-two"><label class="fo-f">County<input id="foCounty" list="foCounties" value="' + esc(c) + '" placeholder="e.g. Polk"><datalist id="foCounties">' + COUNTIES.map(x => '<option value="' + esc(x) + '">').join('') + '</datalist></label>'
       + '<label class="fo-f">Town and zip<input id="foTown" value="' + esc(where) + '" placeholder="Bolivar, 65613"></label></div>'
-      + '<label class="fo-f">Look again by (optional)<input id="foLook" type="date"></label>'
+      /* Follow-up rules (Stage 2, policy 2026-10-18): while on, saving for future needs a check-back date, and the family's
+         Care Coordinator gets a card that day */
+      + (rulesOn() ? '<label class="fo-f">Check back on (required: their Care Coordinator gets a reminder that day)<input id="foLook" type="date" min="' + R().ymd(new Date()) + '"></label>'
+                   : '<label class="fo-f">Look again by (optional)<input id="foLook" type="date"></label>')
       + '<div class="fo-k">May we contact them about future availability?</div>' + perm
       + '<div id="foPermYes" class="fo-two" hidden><label class="fo-f">Who said so<input id="foSaid" value="' + esc(callerOf(l)) + '"></label><label class="fo-f">How to reach them<select id="foVia"><option value="call">Call</option><option value="text">Text</option><option value="email">Email</option></select></label></div>'
       + '<label class="fo-f">Note (optional; needed for Other)<input id="foNote" placeholder="Wants mornings Mon to Fri"></label>'
@@ -136,6 +140,7 @@
       if(!key){ err.textContent = 'Pick why we can\'t help right now.'; return; }
       if(key === 'other' && !note){ err.textContent = '"Other" needs a few words in the note.'; return; }
       if(!county){ err.textContent = 'Which county? It is how the demand by area counts them.'; return; }
+      if(rulesOn()){ const lk = d.querySelector('#foLook').value; if(!lk || lk < R().ymd(new Date())){ err.textContent = 'Pick the check-back date (today or later).'; return; } }
       const tz = d.querySelector('#foTown').value.split(','), ans = d.querySelector('input[name=foP]:checked').value;
       const a = me();
       const ok = R().saveForFuture(l, { key, note, county, town:(tz[0] || '').trim(), zip:((tz[1] || '').match(/\d{5}/) || [l.client_zip || ''])[0], look_again:d.querySelector('#foLook').value, by:a.email,
