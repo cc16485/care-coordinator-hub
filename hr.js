@@ -232,18 +232,32 @@
     try { Object.keys(CC_ROLE_BY_EMAIL || {}).forEach((e) => { if ((CC_ROLE_BY_EMAIL[e] || []).indexOf('care_coordinator') > -1) out.push(e); }); } catch (x) {}
     return out.length ? out.sort() : ['krystal@mo-care.com'];
   }
-  /* suggested talking points, kind and clear, in the coordinator's own voice (she edits them before assigning) */
+  /* Suggested talking points (research 2026-10-18, sources in the HR Agent Rulebook doc). Each follows the Center for
+     Creative Leadership's Situation-Behavior-Impact model, then an open question (SBI plus intent): something true and
+     kind first; the dates from the record, never labels like "always" or "lazy"; the effect on the client; one open
+     question, then listen; one clear expectation; an offer of help. Kind words are specific, timely and personal
+     (Gallup). The coordinator edits them before assigning; they are a guide, not a script to read out. */
   function talkingPoints(c) {
     const first = String(c.caregiver || '').split(/\s+/)[0] || 'there';
-    const f0 = (c.facts || [])[0] || {};
+    const facts = (c.facts || []).filter((f) => f && f.date);
+    const fmt = (d) => { const x = new Date(String(d) + 'T12:00:00'); return isNaN(x) ? String(d) : x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }); };
+    const list = (fs) => { const ds = fs.slice(-4).map((f) => fmt(f.date)); const s_ = ds.length <= 1 ? (ds[0] || 'recently') : ds.slice(0, -1).join(', ') + ' and ' + ds[ds.length - 1]; return s_ + (fs.length > 4 ? ' (and ' + (fs.length - 4) + ' earlier)' : ''); };
+    const f0 = facts[0] || {};
     return ({
-      w06: first + ', I wanted to check in about clocking in and out. A few shifts this month show no clock-in or no clock-out. Is something getting in the way, like the app or your phone? Every shift needs both, so you are paid right and the visit counts.',
-      w01: first + ', thank you for letting us know you could not make your shift on ' + (f0.date || 'that day') + '. When you can, we need at least 4 hours notice, and for a 7 to 9 AM shift, a call by 5 PM the day before. That gives us time to find someone for your client. Is there anything that would make that easier?',
-      w02: first + ', I have noticed a few call-ins lately. Is everything okay? Our clients count on you, so I want to see if there is something we can help with, like a change to your schedule.',
-      w03: first + ', your clients love you, and I want to talk about start times. A few shifts started late. Is something making it hard to get there on time? Our clients count on the scheduled start time.',
-      w05: first + ', thank you for the care you give. A few shifts did not have a shift note. The note is how the family and the office know how the visit went, and every shift needs one before you clock out. Is the app giving you any trouble?',
-      kind: first + ', I wanted to pass along what someone said about you: ' + String(f0.what || '').slice(0, 200) + ' Thank you for the care you give.',
-    })[c.rule] || (first + ', I wanted to check in with you about ' + String(c.title || '').toLowerCase() + '.');
+      w06: first + ', thank you for the care you give your clients. I want to check in about clocking in and out. Our records show '
+        + (facts.length || 'a few') + ' shifts without a clock-in or clock-out, on ' + list(facts) + '. When that happens, the visit can\'t be confirmed, and your pay and the client\'s record can come out wrong. '
+        + 'What has been getting in the way? Is it the app, your phone, or something else? Going forward, every shift needs a clock-in when you arrive and a clock-out before you leave. If the app gives you trouble, call the office right then and we\'ll fix it with you.',
+      w01: first + ', thank you for letting us know you couldn\'t make your shift on ' + fmt(f0.date) + '. When we hear late, it\'s hard to find someone, and your client may go without care. '
+        + 'What happened that day? From now on, please call at least 4 hours before a shift, and for a shift that starts between 7 and 9 AM, by 5 PM the day before, whenever you can. Is there anything that would make that easier for you?',
+      w02: first + ', your clients count on you, and I\'ve noticed some call-ins lately: ' + list(facts) + '. Each one means we scramble to cover, and your client may get someone they don\'t know. '
+        + 'How are things going for you? Is something making it hard to make your shifts, like your schedule, a ride, or something at home? Let\'s figure out what would help, so you can be there for the shifts you take.',
+      w03: first + ', your clients love having you. I want to talk about start times. On ' + list(facts) + ', the shift started late. Your clients plan their day around you, and some need help the moment their visit begins. '
+        + 'What has been making it hard to get there on time? Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts. Is there anything we can change, like the start time, that would help?',
+      w05: first + ', thank you for the care you give. I want to talk about shift notes. The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one. '
+        + 'What has been getting in the way? Going forward, please write the note before you clock out. If the app won\'t let you, text the note to the office right away.',
+      kind: first + ', I want to pass something along. ' + (f0.date ? 'On ' + fmt(f0.date) + ', ' : '') + 'we heard this about you: ' + String(f0.what || '').slice(0, 220).replace(/([^.!?])$/, '$1.')
+        + ' That kind of care is exactly what our families count on. Thank you.',
+    })[c.rule] || (first + ', thank you for your work. I want to check in with you about ' + String(c.title || '').toLowerCase() + '. What has been going on? Let\'s agree on what happens from here and what would help.');
   }
   function assignHtml(c) {
     if (!owner() || (c.kind !== 'coaching' && c.kind !== 'recognition')) return '';
@@ -267,8 +281,16 @@
     FORM['a' + caseId] = 0; await Promise.all([loadCases(true), loadCoaching(true)]); drawPractice();
   }
 
-  const TIPS = ['Find a private moment and start with something that is going well.', 'Say the facts plainly: the dates and what happened. No labels like "always" or "lazy".',
-    'Ask an open question, then listen: "Is something making this hard?"', 'Agree on one clear thing that is expected from now on.', 'End kindly: thank them and say you are there to help.'];
+  /* How to have the talk (research 2026-10-18): CCL Situation-Behavior-Impact plus an intent question; open questions,
+     affirmations, reflections and a summary (motivational interviewing's OARS); private and soon after; written down. */
+  const TIPS = ['Talk soon and in private (a call is fine). Keep it short and calm. It is a check-in, not a write-up.',
+    'Start with something true and kind about their work.',
+    'Say what happened plainly, with the dates from the record. Describe what happened, never what they are ("late on Oct 3 and Oct 10", never "always late").',
+    'Say how it affects the client: they go without care, their day is thrown off, the family worries.',
+    'Ask one open question, then listen: "What has been getting in the way?" Let them finish. Say back what you heard.',
+    'Agree on one clear thing that is expected from now on, and ask what would help (a different start time, help with the app).',
+    'If they mention their health, a pregnancy, a family member who is sick, an injury at work, or being treated unfairly: don\'t push. Thank them, write it down and tell Zach before going further.',
+    'End with thanks, and write down the date, what you said, what they said and what you agreed.'];
   function coachCard(c) {
     const o = owner(), mine = String(c.assigned_to).toLowerCase() === String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
     const can = c.status === 'open' && (o || mine), rec = c.kind === 'recognition', id = esc(c.id);

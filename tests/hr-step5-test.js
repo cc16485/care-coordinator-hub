@@ -17,7 +17,7 @@ ck('no em dashes in hr.js', !/—/.test(SRC));
 ck('My Work: coaching is a card kind', /coaching:\s*\{ label:'Coaching'/.test(H));
 ck('My Work: a coaching card can only be finished on HR, Coaching', /if\(it\.kind==='coaching'\)\{ location\.hash='hr\/coaching'; return; \}/.test(H));
 ck('Performance shows coaching history from hr_coaching, read only', /async function cgdCoachMount\(c\)/.test(H) && /from\('hr_coaching'\)\.select\('\*'\)\.eq\('axiscare_caregiver_id'/.test(H) && /try\{ cgdCoachMount\(c\); \}catch/.test(H));
-ck('hr.js is cache-busted', /hr\.js\?v=20261018c/.test(H));
+ck('hr.js is cache-busted', /hr\.js\?v=20261018d/.test(H));
 // the talking points read well for a sample case
 const ctx = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem: () => {} }, ccCan: () => true, console };
 ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx);
