@@ -7445,7 +7445,8 @@ The HomeTogether team</pre>
 <script src="open-hours.js?v=3"></script>
 <script src="scheduling-guide.js?v=3"></script>
 <script src="new-hires.js?v=3"></script>
-<script src="hub-scenes.js?v=1"></script><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
+<script src="hub-scenes.js?v=1"></script>
+<script src="celebrate.js?v=1"></script><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7454,7 +7455,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=20"></script>
+<script src="client-journey.js?v=21"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
@@ -7478,7 +7479,7 @@ The HomeTogether team</pre>
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=7"></script>
+<script src="end-shift.js?v=8"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
@@ -11215,6 +11216,8 @@ function renderTodayHero(){
   h.innerHTML='<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>';
   try{ renderSinceYouLeft(); }catch(e){}
   heroLoadShifts();
+  /* celebrate.js (2026-10-18, fun step 2): every visit tomorrow has a caregiver = the Full house stamp on Today in AxisCare */
+  if(window.CEL) CEL.fullHouse();
 }
 async function heroLoadShifts(){
   const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
@@ -18919,6 +18922,8 @@ async function cgdOpenProfile(axid, tab){
     +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">Level '+lvl+'</span>':'')
     +(function(){ const t=c.hire_date?Math.floor((Date.now()-new Date(String(c.hire_date).slice(0,10)+'T12:00:00').getTime())/864e5):null;
         return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire, day '+t+'</span>':''; })()
+    /* celebrate.js (2026-10-18, fun step 2): orientation done = the cap stamp; it pops in once per person in the first two weeks */
+    +(window.CEL?CEL.orientedChip(Object.assign({ axiscare_id:String(c.id) }, ov||{}, g||{})):'')
     +'<span class="field-note">AxisCare ID '+esc(String(c.id))+'</span>'
     +'<span id="cgdAppLink"></span>'
     +'<span style="flex:1;"></span>'
