@@ -1,7 +1,8 @@
 """Care needs for matching (Samantha "go", 2026-10-12, Track 3c): the checklist on the client profile's Care tab. Offline:
 care-needs.js with the real match-rules.js; the database reads and the fact door are faked and recorded. Off: nothing shows.
-On: 18 needs plus the extras; intake answers shown as "to confirm", never counted; Confirm sends care-plan facts through the
-door (first, then update or a correction with a reason); a stale refusal is shown; a Medicaid lift is flagged.
+On: 17 needs (18 until 2026-10-18, no two-person transfers) plus the extras; intake answers shown as "to confirm", never counted; Confirm sends care-plan facts through the
+door (first, then update or a correction with a reason); a stale refusal is shown; a Medicaid lift is flagged; more than one
+person to transfer flags "Needs a lift before we staff" until the lift is Required.
 python3 tests/browser/care_needs_look.py [screenshot dir]"""
 import json, sys, os
 from playwright.sync_api import sync_playwright
@@ -35,19 +36,19 @@ try:
     ok('switch off: nothing shows and nothing is read', pg.inner_text('#cp_needs').strip() == '')
     pg.evaluate('DATA.ops_settings.care_needs_live = true; window.CN.mount("cp_needs")'); pg.wait_for_timeout(500)
     t = pg.inner_text('#cp_needs')
-    ok('switch on: the checklist with every need on the approved list and the extras', t.count('Required') >= 19 and 'A Hoyer or other mechanical lift' in t and 'Emptying an ostomy bag' in t and 'Caregiver gender' in t and 'Advanced tasks we do not provide' in t, t[:300])
-    ok('nothing confirmed yet: "Matching requirements incomplete: 18 of 18", every need "not yet known"', 'Matching requirements incomplete: 18 of 18 needs not confirmed' in t and t.count('not yet known') >= 18)
+    ok('switch on: the checklist with every need on the approved list and the extras', t.count('Required') >= 18 and 'Two-person' not in t and 'Needs more than one person to transfer' in t and 'A Hoyer or other mechanical lift' in t and 'Emptying an ostomy bag' in t and 'Caregiver gender' in t and 'Advanced tasks we do not provide' in t, t[:300])
+    ok('nothing confirmed yet: "Matching requirements incomplete: 17 of 17", every need "not yet known"', 'Matching requirements incomplete: 17 of 17 needs not confirmed' in t and t.count('not yet known') >= 17)
     ok('the lead\'s answers show as "from intake, to confirm" and do not count', 'from intake: required, to confirm' in t and 'from intake: preferred, to confirm' in t and 'Matching requirements incomplete' in t)
     ok('the Medicaid and checked-first notes show on their rows', '(checked first)' in t and 'Medicaid: advanced personal care' in t and 'Medicaid: waits on MMAC' in t)
     pg.screenshot(path=os.path.join(OUT, 'cn_1_empty.png'), full_page=True)
     # confirm every need: hoyer required, the rest no
     pg.evaluate("CCMatch.SKILLS.forEach(s => window.CN.set('need_' + s.key, s.key === 'hoyer_lift' ? 'required' : 'no'))"); pg.wait_for_timeout(200)
-    ok('chosen but not saved: says so, and Confirm counts them', 'changed, not saved' in pg.inner_text('#cp_needs') and 'Confirm 18 on the care plan' in pg.inner_text('#cp_needs'))
-    pg.click('text=Confirm 18 on the care plan'); pg.wait_for_timeout(800)
+    ok('chosen but not saved: says so, and Confirm counts them', 'changed, not saved' in pg.inner_text('#cp_needs') and 'Confirm 17 on the care plan' in pg.inner_text('#cp_needs'))
+    pg.click('text=Confirm 17 on the care plan'); pg.wait_for_timeout(800)
     calls = pg.evaluate('CALLS')
-    ok('Confirm: 18 facts through the door, each on the care plan layer, "confirmed", a first save, by staff observation', len(calls) == 18 and all(c['layer'] == 'plan' and c['certainty'] == 'confirmed' and c['change_kind'] == 'first' and c['supersedes_fact_id'] is None and c['said_how'] == 'staff_observation' for c in calls), calls[:2])
+    ok('Confirm: 17 facts through the door, each on the care plan layer, "confirmed", a first save, by staff observation', len(calls) == 17 and all(c['layer'] == 'plan' and c['certainty'] == 'confirmed' and c['change_kind'] == 'first' and c['supersedes_fact_id'] is None and c['said_how'] == 'staff_observation' for c in calls), calls[:2])
     t = pg.inner_text('#cp_needs')
-    ok('after saving: complete, each row shows who confirmed it and when', 'Matching requirements complete' in t and t.count('care plan, kay 2026-10-12') >= 18 and '18 saved.' in t, t[:400])
+    ok('after saving: complete, each row shows who confirmed it and when', 'Matching requirements complete' in t and t.count('care plan, kay 2026-10-12') >= 17 and '17 saved.' in t, t[:400])
     pg.screenshot(path=os.path.join(OUT, 'cn_2_complete.png'), full_page=True)
     # their needs changed: an update replacing the confirmed fact
     DLG['accept'] = True; pg.evaluate("window.CALLS = []; window.CN.set('need_bedbound_care', 'required')"); pg.click('text=Confirm 1 on the care plan'); pg.wait_for_timeout(500)
@@ -63,6 +64,16 @@ try:
     DLG['accept'] = True; pg.evaluate("window.CALLS = []; window.NEXT = [{ outcome: 'refused', reason: 'stale', message: 'someone changed this after you opened it; look at their change first' }]; window.CN.set('need_feeding', 'required')")
     pg.click('text=Confirm 1 on the care plan'); pg.wait_for_timeout(400)
     ok('a stale save is refused and the reason shown (never overwritten)', 'someone changed this after you opened it' in pg.inner_text('#cp_needs'))
+    # her rule 2026-10-18: more than one person to transfer, no lift = "Needs a lift before we staff"
+    pg.evaluate("window.CALLS = []; window.NEXT = []; window.CN.set('need_hoyer_lift', 'no'); window.CN.set('need_more_than_one_to_transfer', 'yes')")
+    pg.click('text=Confirm 2 on the care plan'); pg.wait_for_timeout(500)
+    calls = pg.evaluate('CALLS'); t = pg.inner_text('#cp_needs')
+    ok('more than one person to transfer: saved on the care plan through the door, as a yes', any(c['kind'] == 'need_more_than_one_to_transfer' and c['value'] == 'yes' and c['layer'] == 'plan' for c in calls), calls)
+    ok('more than one person to transfer and no lift: "Needs a lift before we staff", in red', 'Needs a lift before we staff: this client needs more than one person to transfer, and our caregivers never do two-person transfers.' in t, t[:400])
+    pg.screenshot(path=os.path.join(OUT, 'cn_2b_lift_first.png'), full_page=True)
+    pg.evaluate("window.CALLS = []; window.CN.set('need_hoyer_lift', 'required')"); pg.click('text=Confirm 1 on the care plan'); pg.wait_for_timeout(500)
+    t = pg.inner_text('#cp_needs')
+    ok('the lift Required on the care plan: the flag clears (requirements complete)', 'Needs a lift before we staff' not in t and 'Matching requirements complete' in t, t[:400])
     # Medicaid client with a lift required: flagged
     pg.evaluate("CP.lead.funding_source = 'medicaid'; window.CN.render()"); pg.wait_for_timeout(200)
     ok('a Medicaid client with a lift required: flagged for review (advanced personal care), shown in red', 'Flagged for review: A Hoyer or other mechanical lift is advanced personal care' in pg.inner_text('#cp_needs'))
