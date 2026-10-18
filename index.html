@@ -939,6 +939,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .tag-chip{font-size:11px;background:#FAF9F6;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
   /* Make this a lead (2026-10-14): what was heard on the call, until a person touches it */
   .cl-heard{background:#FFF1C2 !important;box-shadow:0 0 0 1.5px #E8C66A inset;border-radius:6px;}
+  #leadModalBackdrop.cl-quiet{visibility:hidden;}   /* Yes, lead: the regular save runs without flashing the form */
   .detail-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
   .detail-grid3 .dbox{background:#FAF9F6;border-radius:8px;padding:10px;}
   .detail-grid3 .dbox .dlbl{font-size:11px;color:var(--text-muted);}
@@ -7333,7 +7334,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=6"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
-<script src="call-lead.js?v=3"></script><!-- Make this a lead (2026-10-14) -->
+<script src="call-lead.js?v=4"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=2"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
@@ -28278,6 +28279,8 @@ function opsMinsToShift(it){
    must not outrank a client sitting alone this morning. The card still says
    nobody has it, and "I've got it" is still the button. */
 function opsPriorityKey(it){
+  /* the one-tap New family? card (2026-10-18): a family that just called is Act now */
+  if(it.kind==='new_family_call') return [0, Date.parse(it.created_at||0)||0];
   /* Projects (2026-10-06): inside the alert window with open steps: Act Now */
   if(typeof pjHot==='function' && pjHot(it)) return [0, Date.parse(it.due||it.created_at||0)||0];
   if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
@@ -28516,6 +28519,7 @@ async function myWorkTalk(id, btn){
 function myWorkCard(it, i){
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   if(it && it.kind==='journey') return jrCard(it, i);
+  if(it && it.kind==='new_family_call' && window.CallLead && CallLead.card) return CallLead.card(it, i);
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
   /* Graded rather than a single "late". Two days and five days late are
@@ -28855,6 +28859,7 @@ function myWorkTabBadge(k,b){
 }
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
@@ -32745,6 +32750,7 @@ const OPS_KINDS = {
   review:         { label:'Review',       hours:24 },
   recurring:      { label:'Recurring duty', hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
+  new_family_call:{ label:'New family?',   hours:2  },   /* call-lead.js v4: the one-tap card (2026-10-18) */
   discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
