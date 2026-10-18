@@ -1,7 +1,7 @@
 /* =====================================================================================================================
    CARE NEEDS FOR MATCHING (Samantha "go", 2026-10-12, Track 3c). A checklist on the client profile's Care tab, shown only
-   while the Admin switch "Care needs for matching" (ops_settings.care_needs_live) is on. The 18 needs on the one skill list
-   (match-rules.js) plus the lift type, pets and smoking, caregiver gender, Spanish and the advanced tasks we do not provide.
+   while the Admin switch "Care needs for matching" (ops_settings.care_needs_live) is on. The 17 needs on the one skill list
+   (match-rules.js) plus whether more than one person is needed to transfer, the lift type, pets and smoking, caregiver gender, Spanish and the advanced tasks we do not provide.
    The lead's answers show as "from intake, to confirm" and never count as confirmed. Confirm saves each changed answer to the
    client's fact record on the care plan layer, through the one door (client-fact), with the coordinator's name and the
    date: a change is an update (their needs changed) or a correction with a reason (it was wrong); someone else's newer save
@@ -14,6 +14,8 @@
   const esc = t => (typeof escapeHtmlComms === 'function' ? escapeHtmlComms(t) : String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]));
   const RPN = [['required', 'Required'], ['preferred', 'Preferred'], ['no', 'No']];
   const EXTRA = [
+    /* her rule (2026-10-18): never two-person transfers; Yes = "Needs a lift before we staff" until a lift is Required above */
+    { kind: 'need_more_than_one_to_transfer', label: 'Needs more than one person to transfer', opts: [['yes', 'Yes'], ['no', 'No']] },
     { kind: 'need_lift_type', label: 'Lift type (if a lift is used)', opts: [['full_body_sling', 'Full-body sling'], ['sit_to_stand', 'Sit-to-stand'], ['other', 'Other']], optional: true },
     { kind: 'home_cats', label: 'Cats in the home', opts: [['yes', 'Yes'], ['no', 'No']], lead: 'cats' },
     { kind: 'home_dogs', label: 'Dogs in the home', opts: [['yes', 'Yes'], ['no', 'No']], lead: 'dogs' },
@@ -27,7 +29,7 @@
   const q = p => p.then(r => { if (r.error) throw r.error; return r.data || []; });
   async function ensureRules(){
     if (window.CCMatch) return;
-    await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'match-rules.js?v=20261012'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
+    await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'match-rules.js?v=20261018'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   }
   async function load(){
     const l = window.CP && CP.lead; S.ep = null; S.cur = {}; S.err = '';
@@ -54,7 +56,7 @@
     if (!l) return box.innerHTML = h + '<div class="field-note">No inquiry is on file for this client, so there is no Journey to keep their needs on yet.</div></div>';
     if (S.err) return box.innerHTML = h + '<div class="field-note" style="color:#B91C1C">Could not load: ' + esc(S.err) + '</div></div>';
     if (!S.ep) return box.innerHTML = h + '<div class="field-note">This client\'s Journey is not open yet, so needs cannot be kept. It opens with their inquiry.</div></div>';
-    const cs = CCMatch.clientState({ payer: (l.funding_source === 'medicaid' ? 'medicaid' : l.funding_source), plan_current: true, needs: needsForRule(), advanced_tasks: (curVal('need_advanced_tasks') || []).map(k => (ADVANCED.find(a => a[0] === k) || [k, k])[1]) });
+    const cs = CCMatch.clientState({ payer: (l.funding_source === 'medicaid' ? 'medicaid' : l.funding_source), plan_current: true, needs: needsForRule(), facts: { more_than_one_to_transfer: curVal('need_more_than_one_to_transfer') === 'yes' }, advanced_tasks: (curVal('need_advanced_tasks') || []).map(k => (ADVANCED.find(a => a[0] === k) || [k, k])[1]) });
     const banner = cs.status === 'ok' ? ['#DCFCE7', '#15803D', 'Matching requirements complete: every need is confirmed on the care plan.'] : cs.status === 'flagged' ? ['#FEE2E2', '#991B1B', cs.message] : cs.status === 'not_matched' ? ['#F4F2ED', '#3A342C', cs.message] : ['#FEF3C7', '#92400E', cs.message];
     h += '<div style="background:' + banner[0] + ';color:' + banner[1] + ';border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;margin-bottom:8px">' + esc(banner[2]) + '</div>';
     const intake = intakeOf();

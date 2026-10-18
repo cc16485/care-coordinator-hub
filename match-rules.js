@@ -6,7 +6,10 @@
    own today: it is run in the dark (a report only) until she switches a screen on.
 
    Her rules, built in:
-     • The one skill list (approved October 12): 18 skills; the lift, two-person transfers and bedbound care are checked first.
+     • The one skill list (approved October 12): 17 skills since October 18; the lift and bedbound care are checked first.
+     • No two-person transfers (October 18): our caregivers never do them; a client who needs more than one person to transfer
+       must have a lift. A client recorded that way (at any stage, the latest answer wins) is flagged "Needs a lift before we
+       staff" and nobody is matched until the care plan shows the Hoyer or other lift as Required.
      • "If we can't verify it, it doesn't count": a skill counts only when independently corroborated (a reference who saw it,
        a coordinator's observation, our clients' history with no concern, a registry) or demonstrated. Self-reported,
        "believed" or questioned evidence never counts; it can only make someone "Needs one more step".
@@ -24,7 +27,7 @@
    ===================================================================================================================== */
 (function(root){
 'use strict';
-const VERSION = '1.2.0';   /* 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower; all of it only while the Admin switch driver_schedule_gate_live is on (opts.driveGate), and off it is the warning "Driver check (not enforced yet)". 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
+const VERSION = '1.3.0';   /* 1.3.0 (2026-10-18, no two-person transfers, Samantha): the skill "Two-person transfers" and its second-caregiver warning are gone (17 skills); the fact need_more_than_one_to_transfer = yes flags the client "Needs a lift before we staff" until a lift is Required on the care plan (fromFacts carries it as facts.more_than_one_to_transfer, so the server jobs need no change). 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower; all of it only while the Admin switch driver_schedule_gate_live is on (opts.driveGate), and off it is the warning "Driver check (not enforced yet)". 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
 /* ── DRIVING A CLIENT (Driver Compliance, October 13). Her rule: "A caregiver who is Non-Driver, Pending Verification, or
       Suspended must not be treated as eligible for shifts that require transporting clients. Only Approved Drivers with
       current, verified documentation should qualify for transportation assignments." No driver record yet = not eligible
@@ -90,7 +93,6 @@ const SKILLS = [
   ['feeding', 'Feeding', 2, false, null, ['personal_care'], 'personal_care'],
   ['walking_wheelchair', 'Walking or wheelchair help', 2, false, null, ['personal_care'], 'personal_care'],
   ['transfers_gait_belt', 'Transfers with a gait belt', 2, false, null, ['gait_belt'], 'transfers_gait_belt'],
-  ['two_person_transfers', 'Two-person transfers', 2, true, null, [], null],
   ['hoyer_lift', 'A Hoyer or other mechanical lift', 3, true, 'apc', ['hoyer_lift'], 'hoyer_lift'],
   ['bedbound_care', 'Bedbound care and repositioning', 3, true, null, ['bed_bound'], 'bedbound_care'],
   ['catheter_bag', 'Emptying a catheter bag and cleaning around the site', 2, false, 'mmac', [], null],
@@ -104,6 +106,7 @@ const VERIFIED = ['corroborated', 'demonstrated'];          /* the only standing
 const CONFIRMED_STAGES = ['plan', 'current'];               /* only these client stages are enforced */
 const NOT_MATCHED_PAYERS = ['cds', 'ilw'];
 const lab = k => (BY[k] || { label: k }).label;
+const LIFT_FIRST = 'Needs a lift before we staff: this client needs more than one person to transfer, and our caregivers never do two-person transfers.';
 const needOf = (c, k) => { const n = (c.needs || {})[k]; return n && typeof n === 'object' ? n : { value: n == null ? null : n, stage: n == null ? null : 'plan' }; };
 const req = (c, k) => { const n = needOf(c, k); return CONFIRMED_STAGES.includes(n.stage) && n.value === 'required'; };
 const wanted = (c, k) => { const n = needOf(c, k); return n.value === 'required' || n.value === 'preferred'; };
@@ -112,6 +115,8 @@ const wanted = (c, k) => { const n = needOf(c, k); return n.value === 'required'
 function clientState(c){
   c = c || {};
   if (NOT_MATCHED_PAYERS.includes(String(c.payer || '').toLowerCase())) return { status: 'not_matched', message: 'CDS and ILW attendants are the consumer\'s own employees: not matched here.' };
+  /* her rule (October 18): never two-person transfers; more than one person to transfer = a lift first */
+  if ((c.facts || {}).more_than_one_to_transfer === true && !req(c, 'hoyer_lift')) return { status: 'flagged', message: LIFT_FIRST };
   const medicaid = String(c.payer || '').toLowerCase() === 'medicaid';
   if (medicaid) {
     const apc = SKILLS.filter(s => s.medicaid === 'apc' && wanted(c, s.key));
@@ -163,7 +168,6 @@ function evaluate(client, cg, opts){
     if (e.refresher) out.steps.push({ skill: s.key, why: s.label + ': wants a refresher first', action: 'Book a refresher with the PRN CNA Team' });
     if (s.key === 'hoyer_lift' && client.lift_type && VERIFIED.includes(e.standing) && (e.lift_types || []).length && !(e.lift_types || []).includes(client.lift_type))
       out.steps.push({ skill: s.key, why: 'Lift: confirmed on ' + e.lift_types.join(', ') + ', not on ' + client.lift_type, action: 'Request a reference or a refresher' });
-    if (s.key === 'two_person_transfers') out.warnings.push('Two-person transfer: a second caregiver must be on the visit');
   }
   /* 5. nothing rules them out */
   if ((client.dnr_axiscare_ids || []).map(String).includes(String(cg.axiscare_id || ''))) return no('Do Not Return for this client');
@@ -232,6 +236,8 @@ function fromFacts(rows){
   ['cats', 'dogs', 'smoking'].forEach(k => { const f = pick['home_' + k]; if (enforced(f)) out.facts[k] = f.value === 'yes'; });
   const g = pick.pref_caregiver_gender; if (enforced(g) && /^(female|male)_(required|preferred)$/.test(g.value)) { const [v, st] = g.value.split('_'); out.facts.gender = { value: v, strength: st === 'required' ? 'require' : 'prefer' }; }
   const sp = pick.need_spanish; if (enforced(sp) && sp.value !== 'no') out.facts.spanish = sp.value === 'required' ? 'require' : 'prefer';
+  /* any stage, the latest answer wins: an intake "yes" already stops staffing (the safe side), a care-plan "no" clears it */
+  const mt = pick.need_more_than_one_to_transfer; if (mt && mt.value === 'yes') out.facts.more_than_one_to_transfer = true;
   const lt = pick.need_lift_type; if (enforced(lt)) out.lift_type = LIFT[lt.value] || null;
   const at = pick.need_advanced_tasks; if (enforced(at) && Array.isArray(at.value)) out.advanced_tasks = at.value.map(k => ADV[k] || k);
   return out;
@@ -245,7 +251,7 @@ function overlayFacts(item){
 }
 /* AxisCare's caregiver gender ('F', 'M', 'Female', ...) */
 const axisGender = g => { const x = String(g || '').trim().toUpperCase(); return x.startsWith('F') ? 'female' : x.startsWith('M') ? 'male' : null; };
-const api = { VERSION, SKILLS, VERIFIED, transportEligible, transportNeed, driveGateOn, transportDecision, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
+const api = { VERSION, SKILLS, LIFT_FIRST, VERIFIED, transportEligible, transportNeed, driveGateOn, transportDecision, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
 root.CCMatch = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
