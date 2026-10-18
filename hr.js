@@ -286,7 +286,7 @@
         facts: 'On ' + list(facts) + ', the shift started late.',
         why: 'What has been making it hard to get there on time?',
         help: 'How can we help? Would a different start time work better for you, or is there something we can do?',
-        expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts.' },
+        expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts. Not calling makes it twice as bad: we don\'t get the chance to let your client or their family know, and it makes our company look unprofessional and unreliable.' },
       w05: { kind: 'thank you for the care you give', what: 'shift notes',
         facts: 'The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one.',
         why: 'What has been getting in the way?',
