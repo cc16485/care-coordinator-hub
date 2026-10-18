@@ -17,7 +17,7 @@ ck('no em dashes in hr.js', !/—/.test(SRC));
 ck('My Work: coaching is a card kind', /coaching:\s*\{ label:'Coaching'/.test(H));
 ck('My Work: a coaching card can only be finished on HR, Coaching', /if\(it\.kind==='coaching'\)\{ location\.hash='hr\/coaching'; return; \}/.test(H));
 ck('Performance shows coaching history from hr_coaching, read only', /async function cgdCoachMount\(c\)/.test(H) && /from\('hr_coaching'\)\.select\('\*'\)\.eq\('axiscare_caregiver_id'/.test(H) && /try\{ cgdCoachMount\(c\); \}catch/.test(H));
-ck('hr.js is cache-busted', /hr\.js\?v=20261018h/.test(H));
+ck('hr.js is cache-busted', /hr\.js\?v=20261018i/.test(H));
 // the talking points read well for a sample case
 const ctx = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem: () => {} }, ccCan: () => true, console };
 ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx);
@@ -52,6 +52,8 @@ ck('the record form has an answer box per question and refuses a missing answer'
 ck('the answers are saved as Asked / They said pairs', SRC.includes("'Asked: ' + x.q + '\\nThey said: ' + x.a"));
 ck('the tips say to stop talking at each STOP and not answer for them', SRC.includes('do not answer for them'));
 ck('the late-arrival talk no longer says clients plan their day around them (her edit 2026-10-18)', !SRC.includes('plan their day around you'));
-ck('late arrivals: not calling makes it twice as bad (her words 2026-10-18)', SRC.includes("Not calling makes it twice as bad: we don\\'t get the chance to let your client or their family know, and it makes our company look unprofessional and unreliable."));
+{ const tp = ctx2.__tp({ caregiver: 'Jessica Miller', rule: 'w03', facts: F }), html = ctx2.__html(tp);
+  ck('late arrivals: the not-calling point is a note, not part of the script (her edit 2026-10-18)', tp.includes('[NOTE: Only if they did not call ahead: not calling makes it twice as bad') && html.includes('class="hr-note"><b>Note for you, not part of the script.</b> Only if they did not call ahead') && !/\[NOTE/.test(html), html.slice(0, 200));
+  ck('...and the note adds no question or STOP', ctx2.__sq(tp).length === 3); }
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }
 console.log((res.length - f) + '/' + res.length); process.exit(f ? 1 : 0);
