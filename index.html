@@ -1186,6 +1186,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
+    <!-- 2026-10-18 her ask: every active client's Family Circle on one page to check (family-check.js); fixing stays on the profile -->
+    <div class="fpill" data-tab="fccheck" onclick="switchTab('fccheck')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Family Circles</div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -1324,6 +1326,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- Care Library (Samantha 2026-10-12): how-to videos and notes for caregivers; the office browses, she approves each one;
          a client's caregivers get only what is put in their Caregiver packet (care-library.js, care-packet function). -->
     <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
+    <section class="tabpanel" id="tab-fccheck">
+      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+        <div>
+          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Family Circles</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Every active client's family on one page, to check they are up to date and have the right people. Fix anything on the client's Family tab.</div>
+        </div>
+        <span style="flex:1;"></span>
+        <button class="secondary" onclick="window.FCK&&FCK.sync(this)" title="Pulls responsible parties from AxisCare. Runs nightly by itself. Never overwrites people you typed, never sets texting consent.">⇄ Sync from AxisCare</button>
+        <button class="ghost" onclick="window.FCK&&FCK.refresh(this)">↻ Refresh</button>
+      </div>
+      <div id="fck_box"><div class="field-note">Loading…</div></div>
+    </section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver Matching</h2>
@@ -8036,7 +8050,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8449,7 +8463,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -8688,6 +8702,8 @@ function renderActiveTab(){
   if(activeTab==='teambuilder'){ tbRender(); }
   if(activeTab==='carelibrary'){ const go=()=>{ try{ window.CLIB&&window.CLIB.mount('clib_box'); }catch(e){ console.warn('care library', e); } };
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
+  if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
+    if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261018a'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
