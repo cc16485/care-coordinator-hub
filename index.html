@@ -28236,7 +28236,7 @@ function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(
 /* The four lanes of Today, counted once for every place that shows them. */
 function opsTodayCounts(){
   /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
-  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamEscalated(i));
+  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamSummary(i));
   const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
   return { act:n(0), late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
 }
@@ -28418,6 +28418,22 @@ function opsTeamEscalated(it, me){
   const o=String((it&&it.owner)||'').toLowerCase();
   return !!(o && o!==me && opsEscalatedToMe(it, me));
 }
+/* CRITICAL TEAM WORK IS ACT NOW (Samantha 2026-10-18, "can you do it", merging In charge #471 with Today lanes #479):
+   someone else's critical STAFFING card escalated to me (a missed clock-in, a shift about to start with nobody: TA.critical
+   on the card itself, not just because its escalation is urgent) is a full card in Act now, with the 911 line and Help
+   with this / Take it, never only a line in "Your team's late work". It stays theirs unless I take it. Everything else
+   escalated from a teammate, a late red flag included, stays in the summary with its "urgent" tag (Today lanes #479). */
+function opsTeamCritical(it, me){
+  return opsTeamEscalated(it, me) && !!(window.TA && typeof TA.critical==='function' && TA.critical(Object.assign({}, it, { escalation:null })));
+}
+/* a decision a teammate asked ME for (Escalate for decision, TA.decisionFor) is a question to me, not their late work:
+   a full card with Answer, in its usual lane */
+function opsTeamDecision(it, me){
+  me=String(me||opsMeKey()||'').toLowerCase();
+  return opsTeamEscalated(it, me) && !!(window.TA && typeof TA.decisionFor==='function' && TA.decisionFor(it, me));
+}
+/* a teammate's escalated card that belongs in the summary, not in my lanes */
+function opsTeamSummary(it, me){ return opsTeamEscalated(it, me) && !opsTeamCritical(it, me) && !opsTeamDecision(it, me); }
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -28600,6 +28616,7 @@ function opsDayWords(ymd){
    The priority order inside each lane is unchanged (opsPriorityKey). */
 const MYWORK_ACT_STALE_MS=12*36e5;
 function myWorkLane(it){
+  if(opsTeamCritical(it)) return 0;   /* critical team work escalated to me is right now, however late it already is */
   if(opsPastDay(it)) return 3;
   const k=opsPriorityKey(it), d=Date.parse(it.due||'');
   if(k[0]<=1) return (!isNaN(d) && Date.now()-d>MYWORK_ACT_STALE_MS) ? 1 : 0;
@@ -28623,7 +28640,7 @@ function myWorkRows(){
   let rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
   /* fix 4: on Today, someone else's escalated work is their summary card, not my cards */
-  if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamEscalated(r));
+  if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamSummary(r));   /* critical ones stay: Act now */
   if(MYWORK_TAB==='escalated' && MYWORK_ESC_WHO) rows=rows.filter(r=>String(r.owner||'').toLowerCase()===MYWORK_ESC_WHO);
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
@@ -29227,7 +29244,7 @@ function myWorkGoWho(o){ myWorkGo('escalated'); MYWORK_ESC_WHO=String(o||'').toL
    (urgent first) so nothing is hidden behind a number. See them opens the Escalated to you tab on just that person. */
 function myWorkTeamHtml(b){
   const esc=escapeHtmlComms, me=String(opsMeKey()||'').toLowerCase();
-  const items=(b.escalated||[]).filter(i=>opsTeamEscalated(i, me));
+  const items=(b.escalated||[]).filter(i=>opsTeamSummary(i, me));
   if(!items.length) return '';
   const by={}; items.forEach(i=>{ const o=String(i.owner).toLowerCase(); (by[o]=by[o]||[]).push(i); });
   const md=x=>{ const d=new Date(x); return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };

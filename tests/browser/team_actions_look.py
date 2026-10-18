@@ -68,6 +68,16 @@ async()=>{
   ok('the escalated no clock-in is on Krystal’s list, saying she is In charge and Casey keeps it', /Escalated to you \(you’re In charge\)/.test(mw()) && /It stays Casey’s unless you take it/.test(mw()), mw().slice(0,1500));
   ok('the critical card opens with the 911 line', /If someone is in danger, call 911 now\. Anyone on the team can act on this/.test(card('c1')?.innerText||''), card('c1')?.innerText);
   ok('...and offers Help with this first, Take it… second', /Help with this/.test(card('c1').innerText) && /Take it…/.test(card('c1').innerText) && card('c1').querySelector('button.primary')?.textContent==='Help with this');
+  /* merged with Today lanes (#479), her call 2026-10-18: critical team work is a full card in Act now and counts in the
+     headline; a teammate's ordinary late work stays a line in "Your team's late work" */
+  ok('the critical card sits in Act now and the headline counts it', myWorkLane(it('c1'))===0 && opsTodayCounts().act>=1 && !/Nothing needs you right this minute/.test(mw()), [myWorkLane(it('c1')), opsTodayCounts()]);
+  const HH=h=>new Date(Date.now()+h*36e5).toISOString();
+  DATA.ops_items.push({ id:'l9', kind:'request', status:'open', domain:'client_care', urgency:'normal', title:'Care plan follow-up (fake)', owner:C, owner_name:'Casey Coord', due:HH(-30), created_at:HH(-40),
+    escalation:{ to:K, to_name:'Krystal Land', seat:'in_charge', stage:'in_charge', level:'overdue', why:'late', at:HH(-1) } });
+  myWorkGo('today'); await sleep(150);
+  const teamBox=[...document.querySelectorAll('#myWorkWrap .wk-team')].map(x=>x.innerText).join(' | ');
+  ok('a teammate\'s ordinary late work stays in the team summary, not a card of mine', !card('l9') && /Care plan follow-up \(fake\)/.test(teamBox) && !/NO CLOCK-IN/.test(teamBox), teamBox);
+  DATA.ops_items=DATA.ops_items.filter(x=>x.id!=='l9'); myWorkGo('today'); await sleep(100);
 
   /* Help with this */
   await TA.helpWith('c1'); await sleep(50);
