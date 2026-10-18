@@ -3201,7 +3201,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <p style="font-size:.82rem;color:var(--gray);margin-bottom:1rem">Send this link to a candidate so they can choose their preferred orientation session. The link expires when all selected sessions are full.</p>
     <div style="background:var(--bg);border-radius:8px;padding:.75rem;margin-bottom:1rem;border:1.5px solid var(--border)">
       <div style="font-size:.7rem;color:var(--gray);margin-bottom:.4rem;font-weight:600">Candidate</div>
-      <div style="font-weight:600;color:var(--navy);font-size:.9rem;margin-bottom:.75rem" id="bl-cand-name">—</div>
+      <div style="font-weight:600;color:var(--navy);font-size:.9rem;margin-bottom:.75rem" id="bl-cand-name"></div>
       <div style="font-size:.7rem;color:var(--gray);margin-bottom:.4rem;font-weight:600">Booking Link</div>
       <div style="background:var(--white);border-radius:6px;padding:.6rem .75rem;font-size:.72rem;color:var(--navy);word-break:break-all;border:1px solid var(--border);user-select:all" id="bl-url"></div>
     </div>
@@ -8531,7 +8531,7 @@ function renderPayRates(){
         const cell = function(which, val){
           return '<td style="padding:5px 0 5px 8px;border-top:1px solid var(--border);text-align:right;">'
                + '<input id="pay-'+role.k+'-'+which+'" type="number" step="0.25" min="0" inputmode="decimal" '
-               + 'value="'+esc(val===undefined||val===null?'':String(val))+'" placeholder="—" '
+               + 'value="'+esc(val===undefined||val===null?'':String(val))+'" placeholder="" '
                + 'style="width:96px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;'
                + 'font-size:13.5px;text-align:right;font-variant-numeric:tabular-nums;"></td>';
         };
@@ -8854,7 +8854,7 @@ function htOrderCard(o){
   const summary =
     `<span class="ht-when">${htWhen(o.created_at)}</span>`+
     `<span class="ht-name">${escapeHtmlComms(name)}</span>`+
-    `<span class="ht-sub">for ${escapeHtmlComms(o.buyer_name||'—')}${ship?' · '+escapeHtmlComms(ship):''}</span>`+
+    `<span class="ht-sub">for ${escapeHtmlComms(o.buyer_name||'Not set')}${ship?' · '+escapeHtmlComms(ship):''}</span>`+
     `<span class="badge ${htStatusClass(st)}">${escapeHtmlComms(st)}</span>`;
 
   const contact =
@@ -8890,7 +8890,7 @@ function htOrderCard(o){
   return `<details class="ht-card">
     <summary>${summary}</summary>
     <div class="ht-body">
-      <div class="ht-sec"><h4>Who's setting it up</h4>${contact||'<div class="ht-row"><span class="v">—</span></div>'}</div>
+      <div class="ht-sec"><h4>Who's setting it up</h4>${contact||'<div class="ht-row"><span class="v">Not set</span></div>'}</div>
       <div class="ht-sec"><h4>Who it's for &amp; shipping</h4>${senior}</div>
       ${emerg.trim()?`<div class="ht-sec"><h4>Emergency &amp; care contacts</h4>${emerg}</div>`:''}
       ${care.trim()?`<div class="ht-sec"><h4>Care &amp; daily visits</h4>${care}</div>`:''}
@@ -9124,7 +9124,7 @@ function renderAutopilot(){
   + '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;border-top:1px solid var(--border);padding-top:9px;font-size:13px;">'
   + CMP_AUDS.filter(a=>a[0]!=='referrers').map(function(a){
       const c=cmpAudienceCount(a[0]);
-      return '<span><b style="color:var(--navy);">'+(c.n==null?'—':c.n)+'</b> '+tkEsc(a[1].replace(/^\S+\s/,''))
+      return '<span><b style="color:var(--navy);">'+(c.n==null?'':c.n)+'</b> '+tkEsc(a[1].replace(/^\S+\s/,''))
         + (c.note?'<span class="field-note"> · '+tkEsc(c.note)+'</span>':'')+'</span>';
     }).join('')
   + '</div>'
@@ -9419,7 +9419,7 @@ function leadNextAction(l){
     return '<span style="color:'+(od?'var(--red)':'var(--gold-text)')+';font-size:12.5px;font-weight:700;">'+(od?'⚠ Overdue — ':'📞 ')+'follow up '+l.follow_up_due+'</span>'+leadAttemptChip(l);
   }
   if(l.status==='New') return '<span style="color:var(--red);font-size:12.5px;font-weight:700;">⚠ No next step set</span>';
-  return '<span style="color:#8A7F70;font-size:12.5px;">—</span>';
+  return '<span style="color:#8A7F70;font-size:12.5px;"></span>';
 }
 function statusBadge(status){
   const map = {
@@ -10686,9 +10686,9 @@ function renderLeadProfile(){
   const ph = document.getElementById('lp_phone'); ph.textContent = l.phone||''; ph.href = '#'; ph.dataset.ocPhone = l.phone||''; if(l.email) ph.dataset.ocEmail = l.email; else delete ph.dataset.ocEmail; ph.title = 'Call from office line (LeadConnector)';
   document.getElementById('lp_email_row').style.display = l.email?'block':'none';
   document.getElementById('lp_email').textContent = l.email||'';
-  document.getElementById('lp_urgency').textContent = (typeof LeadRules!=='undefined'&&LeadRules.desiredStartWords(l))||l.urgency||'—';
-  document.getElementById('lp_assigned').textContent = l.assigned_coordinator||'—';
-  document.getElementById('lp_due').textContent = l.follow_up_due||'—';
+  document.getElementById('lp_urgency').textContent = (typeof LeadRules!=='undefined'&&LeadRules.desiredStartWords(l))||l.urgency||'Not set';
+  document.getElementById('lp_assigned').textContent = l.assigned_coordinator||'Not set';
+  document.getElementById('lp_due').textContent = l.follow_up_due||'Not set';
   document.getElementById('lp_tags').innerHTML = (l.intent_tags||[]).map((t,i)=>
     '<span class="tag-chip">'+esc(t)+' <a href="#" onclick="lpRemoveTag('+i+');return false;" style="text-decoration:none;color:var(--text-muted);">✕</a></span>').join('')||'<span class="field-note">none yet</span>';
   ghlThreadReset('gt_lp');
@@ -11035,7 +11035,7 @@ async function heroLoadShifts(){
   const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
   const chipEl=document.getElementById('tbShiftChip');
   const paint=d=>{
-    if(!d||d.error){ if(body) body.textContent='AxisCare did not answer just now.'; if(nEl) nEl.textContent='—'; return; }
+    if(!d||d.error){ if(body) body.textContent='AxisCare did not answer just now.'; if(nEl) nEl.textContent=''; return; }
     if(nEl){ nEl.textContent=d.open.length; nEl.style.color=d.open.length?'var(--red)':'var(--teal)'; }
     if(chipEl) chipEl.style.borderTopColor=d.open.length?'var(--red)':'var(--teal)';
     if(!body) return;
@@ -11414,7 +11414,7 @@ function renderOverviewTop(nOverdue,nDue){
   document.getElementById('stageGrid').innerHTML = stages.map(s=>
     '<div class="stage" style="background:'+s[3]+';"><div class="sl"><i style="background:'+s[2]+';"></i>'+s[0]+'</div>'
     +'<div class="sn">'+s[1]+'</div><div class="sb"><i style="width:'+Math.round(s[1]/maxN*100)+'%;background:'+s[2]+';"></i></div>'
-    +'<div class="sc">'+(newInq?Math.round(s[1]/newInq*100)+'% of inquiries':'—')+'</div></div>').join('');
+    +'<div class="sc">'+(newInq?Math.round(s[1]/newInq*100)+'% of inquiries':'')+'</div></div>').join('');
 }
 async function markActivityDone(id){
   const a=(DATA.activities||[]).find(x=>x.id===id); if(!a) return;
@@ -11427,8 +11427,8 @@ function openActivityModal(leadId, orgId){
   document.getElementById('act_title').value='';
   document.getElementById('act_due').value=today();
   const ls=document.getElementById('act_lead'), os=document.getElementById('act_org');
-  ls.innerHTML='<option value="">—</option>'+DATA.leads.filter(l=>l.status!=='Lost').map(l=>'<option value="'+l.id+'"'+(l.id===leadId?' selected':'')+'>'+escapeHtmlComms((l.first_name||'')+' '+(l.last_name||''))+'</option>').join('');
-  os.innerHTML='<option value="">—</option>'+(DATA.referral_orgs||[]).map(o=>'<option value="'+o.id+'"'+(o.id===orgId?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>').join('');
+  ls.innerHTML='<option value="">Not set</option>'+DATA.leads.filter(l=>l.status!=='Lost').map(l=>'<option value="'+l.id+'"'+(l.id===leadId?' selected':'')+'>'+escapeHtmlComms((l.first_name||'')+' '+(l.last_name||''))+'</option>').join('');
+  os.innerHTML='<option value="">Not set</option>'+(DATA.referral_orgs||[]).map(o=>'<option value="'+o.id+'"'+(o.id===orgId?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>').join('');
   document.getElementById('activityModalBackdrop').classList.add('open');
 }
 async function saveActivity(){
@@ -11827,7 +11827,7 @@ function repRows(leads){
   return Object.values(g);
 }
 function repTable(rows, first){
-  const esc=escapeHtmlComms, pct=(a,b)=>b?Math.round(a/b*100)+'%':'—';
+  const esc=escapeHtmlComms, pct=(a,b)=>b?Math.round(a/b*100)+'%':'';
   const cell=(n,of,what)=>'<td style="padding:7px 10px;font-variant-numeric:tabular-nums;"><b>'+n+'</b>'+(of?' <span class="field-note">· '+pct(n,of)+' of '+what+'</span>':'')+'</td>';
   const tot=rows.reduce((t,r)=>{ ['n','booked','closed','started','unknown','open'].forEach(k=>t[k]+=r[k]); return t; },{ src:'All sources', n:0, booked:0, closed:0, started:0, unknown:0, open:0 });
   const line=(r,bold)=>'<tr style="border-top:1px solid var(--border);'+(bold?'background:var(--bg);':'')+'"><td style="padding:7px 10px;'+(bold?'font-weight:800;':'font-weight:600;')+'color:var(--navy);">'+esc(r.src)+'</td>'
@@ -12049,7 +12049,7 @@ function lpPrintFacesheet(){
   const attrs = l.client_attributes||{};
   const attrRows = LP_ATTRS.map(a=>{
     const v=attrs[a[0]];
-    return '<tr><td style="padding:4px 10px;border-bottom:1px solid #ddd;">'+a[1]+'</td><td style="padding:4px 10px;border-bottom:1px solid #ddd;font-weight:700;">'+(v==='yes'?'YES':v==='no'?'No':v==='preferred'?'Preferred':'—')+'</td></tr>';
+    return '<tr><td style="padding:4px 10px;border-bottom:1px solid #ddd;">'+a[1]+'</td><td style="padding:4px 10px;border-bottom:1px solid #ddd;font-weight:700;">'+(v==='yes'?'YES':v==='no'?'No':v==='preferred'?'Preferred':'')+'</td></tr>';
   }).join('');
   const list = (label, arr) => (Array.isArray(arr)&&arr.length) ? '<p><b>'+label+':</b> '+arr.map(esc).join(', ')+'</p>' : '';
   const w = window.open('','_blank');
@@ -13603,9 +13603,9 @@ function renderFollowUpQueueList(){
         </div>
         <div class="lc-summary">${l.interest_notes||'No call notes logged yet.'}</div>
         <div class="lc-meta">
-          <span>📞 ${ph||'—'}</span>
-          <span>🕒 Last contact: ${l.last_contacted_at||'—'}${da!==null?' ('+da+'d ago)':''}</span>
-          <span>📅 Next action: <b>${l.follow_up_due||'—'}</b></span>
+          <span>📞 ${ph||'Not set'}</span>
+          <span>🕒 Last contact: ${l.last_contacted_at||'Not set'}${da!==null?' ('+da+'d ago)':''}</span>
+          <span>📅 Next action: <b>${l.follow_up_due||'Not set'}</b></span>
         </div>
         ${(l.intent_tags&&l.intent_tags.length) ? `<div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>` : ''}
         <div style="margin-top:9px;display:flex;gap:12px;align-items:center;">
@@ -13638,8 +13638,8 @@ function openFollowUpDetail(leadId){
     html += `<div class="section-title">Notes / Tags</div><div style="display:flex;gap:6px;flex-wrap:wrap;">${l.intent_tags.map(t=>`<span class="tag-chip">"${t}"</span>`).join('')}</div>`;
   }
   html += `<div class="detail-grid3" style="margin-top:16px;">
-    <div class="dbox"><div class="dlbl">Last Contacted</div><div class="dval">${l.last_contacted_at||'—'}</div></div>
-    <div class="dbox"><div class="dlbl">Next Action Due</div><div class="dval">${l.follow_up_due||'—'}</div></div>
+    <div class="dbox"><div class="dlbl">Last Contacted</div><div class="dval">${l.last_contacted_at||'Not set'}</div></div>
+    <div class="dbox"><div class="dlbl">Next Action Due</div><div class="dval">${l.follow_up_due||'Not set'}</div></div>
     <div class="dbox"><div class="dlbl">Stage</div><div class="dval">${leadTruthChips(l)}</div></div>
   </div>`;
   html += `<div class="section-title">Follow-Up Draft</div>`;
@@ -13893,7 +13893,7 @@ async function savePlan(pushToAxisCare){
       +(record.narrative?'NARRATIVE:\n'+record.narrative+'\n\n':'')
       +['adl_needs','iadl_needs','medical_conditions','medications','safety_concerns','client_goals','services_recommended']
         .filter(k=>record[k]).map(k=>k.replace(/_/g,' ').toUpperCase()+':\n'+record[k]).join('\n\n')
-      +'\n\nFREQUENCY: '+(record.recommended_frequency||'—')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'—')
+      +'\n\nFREQUENCY: '+(record.recommended_frequency||'Not set')+' · HOURS/WEEK: '+(record.recommended_hours_per_week||'Not set')
       +(record.start_date?' · START: '+record.start_date:'');
     if(a && a.axiscare_client_id){ closeModal('planModalBackdrop'); renderAssessments(); cptPushFlow(record, a, planNote); return; }
     alert('Saved. No AxisCare client ID on the assessment yet, so nothing went to AxisCare. Add the ID, then push again.');
@@ -14280,7 +14280,7 @@ function renderCheckins(){
       <td>${c.checkin_date||''}</td>
       <td>${c.method||''}</td>
       <td>${'⭐'.repeat(c.satisfaction_rating||0)}</td>
-      <td>${c.next_checkin_due ? (c.next_checkin_due<today() ? '<span class="badge bad">'+c.next_checkin_due+'</span>' : c.next_checkin_due) : '—'}</td>
+      <td>${c.next_checkin_due ? (c.next_checkin_due<today() ? '<span class="badge bad">'+c.next_checkin_due+'</span>' : c.next_checkin_due) : ''}</td>
       <td>${c.coordinator||''}</td>
       <td><button class="linklike" onclick="openCheckinModal('${c.id}')">Edit</button>${ciCanAsk(c)?` <button class="linklike" style="color:#B8860B;" onclick="ciAskFeedback('${c.id}')">🌟 Ask for feedback</button>`:''}${c.feedback_asked_at?` <span class="field-note">asked ${String(c.feedback_asked_at).slice(0,10)}</span>`:''}</td>
     </tr>`; }).join('')}</tbody></table>`;
@@ -14433,8 +14433,8 @@ function renderSupervisory(){
     return `<tr>
       <td><b>${v.caregiver_name||''}</b></td>
       <td>${v.client_name||''}</td>
-      <td>${v.visit_date||'—'}</td>
-      <td>${v.due_date ? (overdue?'<span class="badge bad">'+v.due_date+'</span>':v.due_date) : '—'}</td>
+      <td>${v.visit_date||''}</td>
+      <td>${v.due_date ? (overdue?'<span class="badge bad">'+v.due_date+'</span>':v.due_date) : ''}</td>
       <td>${v.performance_rating?'<span class="badge ok">Completed</span>':(overdue?'<span class="badge bad">Overdue</span>':'<span class="badge warn">Scheduled</span>')}</td>
       <td>${v.coordinator||''}</td>
       <td><button class="linklike" onclick="openSupervisoryModal('${v.id}')">Edit</button></td>
@@ -14662,13 +14662,13 @@ async function renderClients(){
   if(rows.length===0 && !past.length){ wrap.innerHTML='<div class="empty">No clients match this filter.</div>'; return; }
   rows.sort((a,b)=>a.client_name.localeCompare(b.client_name));
   const axCell = r=>{ const st=r.axiscare_client_id?CL360_AXSTATUS[String(r.axiscare_client_id)]:null;
-    if(!st) return '<span class="field-note">—</span>';
+    if(!st) return '<span class="field-note"></span>';
     const ok=st.label==='Active';
     return '<span class="badge '+(ok?'ok':'warn')+'" title="As of the status check on '+escapeHtmlComms(String(st.observed_at||'').slice(0,16).replace('T',' '))+' UTC">'+escapeHtmlComms(st.label)+'</span>'; };
   const pastHtml = past.length ? '<details style="margin-top:14px;"><summary style="cursor:pointer;font-weight:700;color:var(--navy);">Past clients ('+past.length+')</summary>'
     +'<table style="margin-top:8px;"><thead><tr><th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care ended</th><th>Why</th></tr></thead><tbody>'
     +past.map(r=>'<tr><td><a href="javascript:void(0)" data-open-client="'+escapeHtmlComms(String(r.axiscare_client_id||r.client_name))+'" style="color:inherit;text-decoration:underline dotted;">'+escapeHtmlComms(r.client_name)+'</a></td>'
-      +'<td>'+escapeHtmlComms(r.axiscare_client_id||'—')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?(r.ended_date_basis==='on_or_before'?'on or before ':'')+lpscDate(r.ended_at):'—')+'</td><td>'+escapeHtmlComms(r.end_reason||'—')+'</td></tr>').join('')
+      +'<td>'+escapeHtmlComms(r.axiscare_client_id||'')+'</td><td>'+axCell(r)+'</td><td>'+escapeHtmlComms(r.ended_at?(r.ended_date_basis==='on_or_before'?'on or before ':'')+lpscDate(r.ended_at):'')+'</td><td>'+escapeHtmlComms(r.end_reason||'')+'</td></tr>').join('')
     +'</tbody></table></details>' : '';
   wrap.innerHTML = `<table><thead><tr>
     <th>Client</th><th>AxisCare ID</th><th>AxisCare status</th><th>Care level (AxisCare)</th><th>Assessment Status</th><th>Last Check-in</th><th>Actions</th>
@@ -14677,11 +14677,11 @@ async function renderClients(){
     const declining = clientSatisfactionDeclining(r.client_name);
     return `<tr>
       <td><b><a href="javascript:void(0)" data-open-client="${escapeHtmlComms(String(r.axiscare_client_id||r.client_name))}" style="color:inherit;text-decoration:underline dotted;" title="Open their profile">${r.client_name}</a></b>${declining?' <span class="badge warn">📉 Declining</span>':''}</td>
-      <td>${r.axiscare_client_id||'—'}</td>
+      <td>${r.axiscare_client_id||''}</td>
       <td>${axCell(r)}</td>
       <td>${ccLevelChip(((CCLV.levels||{})[String(r.axiscare_client_id||'')]||{}).level)}</td>
       <td>${r.assessment?statusBadge(r.assessment.status):'<span class="badge muted">No assessment</span>'}</td>
-      <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : '—'}</td>
+      <td>${lastCheckin ? lastCheckin.checkin_date+' ('+'⭐'.repeat(lastCheckin.satisfaction_rating||0)+')' : ''}</td>
       <td><button class="linklike" onclick="openClientHistory('${r.key.replace(/'/g,"\\'")}')">View History</button></td>
     </tr>`; }).join('')}</tbody></table>` + pastHtml;
 }
@@ -15283,11 +15283,11 @@ function renderStaffList(){
   if(!wrap) return;
   const staff = DATA.coordinator_staff || [];
   if(staff.length===0){ wrap.innerHTML = '<div class="empty" style="padding:14px;">No staff added yet.</div>'; return; }
-  const shiftLabel = s => s.shift==='evening'?'Evening 5–9':s.shift==='manager'?'Manager':s.shift==='day'?'Day 8–2':'—';
+  const shiftLabel = s => s.shift==='evening'?'Evening 5–9':s.shift==='manager'?'Manager':s.shift==='day'?'Day 8–2':'';
   wrap.innerHTML = `<table><thead><tr><th>Name</th><th>Sign-in email</th><th>Shift</th><th>Phone</th><th>Notifications</th><th></th></tr></thead><tbody>${
     staff.map(s=>{
-      const notifs = [s.notify_leads&&'Leads', s.notify_checkins&&'Check-ins', s.notify_supervisory&&'Supervisory', s.notify_careplan&&'Care Plans'].filter(Boolean).join(', ') || '—';
-      return `<tr><td>${s.name}</td><td>${s.email||'—'}</td><td>${shiftLabel(s)}</td><td>${s.phone||'—'}</td><td>${notifs}</td><td><button class="linklike" onclick="staffDeactivate('${(s.email||'').toLowerCase()}')">Deactivate</button></td></tr>`;
+      const notifs = [s.notify_leads&&'Leads', s.notify_checkins&&'Check-ins', s.notify_supervisory&&'Supervisory', s.notify_careplan&&'Care Plans'].filter(Boolean).join(', ') || '';
+      return `<tr><td>${s.name}</td><td>${s.email||''}</td><td>${shiftLabel(s)}</td><td>${s.phone||''}</td><td>${notifs}</td><td><button class="linklike" onclick="staffDeactivate('${(s.email||'').toLowerCase()}')">Deactivate</button></td></tr>`;
     }).join('')
   }</tbody></table>`;
 }
@@ -16601,7 +16601,7 @@ const AUTO_GROUPS = [
       says: 'Who they are, how many hours ago they wrote, and that nobody has called.' },
     { name: 'Everything stops',
       when: 'The moment a coordinator moves them off New, or they reply',
-      how: '—',
+      how: '',
       says: 'Nothing further sends. A person has it.',
       note: 'The worst thing this could do is chase a family while somebody is already on the phone to them.' },
   ]},
@@ -16642,7 +16642,7 @@ const AUTO_GROUPS = [
       note: 'References are never texted.' },
     { name: 'Their social security number is deleted',
       when: 'Once their screening clears',
-      how: '—',
+      how: '',
       says: 'The number goes. Everything else on the form stays.',
       note: 'The start form promises this. This is the thing that keeps the promise.' },
   ]},
@@ -16650,7 +16650,7 @@ const AUTO_GROUPS = [
   { who: 'When a shift needs covering (Cara)', items: [
     { name: 'Cara hears a possible call-in',
       when: 'Minutes after a call, from the call summary',
-      how: '—',
+      how: '',
       says: 'Nothing to anyone. A flag appears on the Cara board: who she thinks called off, and the phrase that convinced her.',
       note: 'A coordinator confirms or dismisses every flag. Cara never texts a caregiver on her own.' },
     { name: 'The office hears about a confirmed call-in',
@@ -16669,7 +16669,7 @@ const AUTO_GROUPS = [
       note: 'Every YES is collected so you walk into the client meeting knowing who wants the hours. Nobody is assigned anything.' },
     { name: 'When caregivers say yes',
       when: 'Nothing sends until you pick',
-      how: '—',
+      how: '',
       says: 'Nothing, on purpose. Every yes is collected on the case; the office gets one text on the first yes. When you pick, the chosen caregiver gets "You\'re confirmed…", and YOU decide what the others hear: the thank-you text, your own wording, or no message at all.',
       note: 'No caregiver is ever told "someone grabbed it just before you" again.' },
   ]},
@@ -16708,7 +16708,7 @@ const AUTO_GROUPS = [
   { who: 'Quietly, in the background', items: [
     { name: 'Interview audio is deleted',
       when: '1 year after the recording (her ruling 2026-10-11)',
-      how: '—',
+      how: '',
       says: 'The recording goes, the written transcript stays for good.',
       note: 'A recording that never transcribed is never deleted, because then the audio is the only copy.' },
     { name: 'The Morning Brief',
@@ -16718,7 +16718,7 @@ const AUTO_GROUPS = [
       note: 'If the interviews or assessments cannot be loaded, the email says so instead of leaving them out.' },
     { name: 'A backup of the whole hub',
       when: 'Every Monday',
-      how: '—' },
+      how: '' },
   ]},
 ];
 
@@ -16736,7 +16736,7 @@ function autoOpen(){
           return '<div style="border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin-bottom:9px;background:#fff;">'
             + '<div style="display:flex;gap:9px;align-items:baseline;flex-wrap:wrap;">'
               + '<b style="font-size:14px;color:var(--navy);">' + esc(i.name) + '</b>'
-              + (i.how && i.how !== '—' ? '<span style="font-size:11px;font-weight:700;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 9px;">' + esc(i.how) + '</span>' : '')
+              + (i.how ?  '<span style="font-size:11px;font-weight:700;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 9px;">' + esc(i.how) + '</span>' : '')
             + '</div>'
             + '<div class="field-note" style="margin-top:4px;"><b>When:</b> ' + esc(i.when) + '</div>'
             + (i.says ? '<div style="font-size:13.5px;margin-top:6px;">' + esc(i.says) + '</div>' : '')
@@ -20190,7 +20190,7 @@ async function renderStaffAccess(){
       return;
     }
     const chip=(t,bg,fg)=>'<span class="tag-chip" style="background:'+bg+';color:'+fg+';">'+esc(t)+'</span>';
-    const when=s=>{ if(!s) return '—';
+    const when=s=>{ if(!s) return '';
       const d=new Date(s), days=Math.floor((Date.now()-d)/86400000);
       return days===0?'today':days===1?'yesterday':days+' days ago'; };
 
@@ -20214,10 +20214,10 @@ async function renderStaffAccess(){
           : '<span class="field-note">none</span>';
         return '<tr'+(r.active?'':' style="opacity:.5;"')+'>'
           +'<td><b>'+esc(r.full_name||'')+'</b></td>'
-          +'<td>'+esc(r.email||'—')+'</td>'
+          +'<td>'+esc(r.email||'')+'</td>'
           +'<td>'+acct+'</td>'
           +'<td>'+(r.active?'yes':chip('inactive','#EEF2F7','#334155'))+'</td>'
-          +'<td>'+esc((r.entities||[]).join(', ')||'—')+'</td>'
+          +'<td>'+esc((r.entities||[]).join(', ')||'')+'</td>'
           +'<td>'+access+'</td>'
           +'<td>'+roles+'</td>'
           +'<td class="field-note">'+when(r.last_sign_in)+'</td></tr>';
@@ -21374,7 +21374,7 @@ function pbRateDisagrees(p){
   const same = (x,y) => (x==null && y==null) || (x!=null && y!=null && Math.abs(x-y) < 0.005);
   if(same(a.min, p.pay_min==null?null:Number(p.pay_min))
      && same(a.max, p.pay_max==null?null:Number(p.pay_max))) return null;
-  const money = v => v==null ? '—' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
+  const money = v => v==null ? '' : '$'+Number(v).toFixed(2).replace(/\.00$/,'');
   return money(a.min) + (a.max!=null && a.max!==a.min ? '–'+money(a.max) : '');
 }
 
@@ -21646,7 +21646,7 @@ async function rnLoad(btn){
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
-const rnPct = (a,b) => b ? Math.round(a/b*100) + '%' : '—';
+const rnPct = (a,b) => b ? Math.round(a/b*100) + '%' : '';
 const rnDays = (from,to) => (new Date(to) - new Date(from)) / 864e5;
 /* Median rather than average, because one applicant who books six weeks out
    drags an average somewhere that describes nobody. */
@@ -21807,8 +21807,8 @@ function rnRender(){
   const toInterview = booked.map(r => rnDays(r.created_at, bookByAp[r.id].starts_at));
   const toHire = hired.filter(r=>r.hired_at).map(r => rnDays(r.created_at, r.hired_at));
   const medI = rnMedian(toInterview), medH = rnMedian(toHire);
-  const speed = rnRow('Applied to interview', medI==null ? '—' : '<b>' + medI.toFixed(1) + ' days</b>')
-    + rnRow('Applied to hired', medH==null ? '—' : '<b>' + medH.toFixed(1) + ' days</b>')
+  const speed = rnRow('Applied to interview', medI==null ? '' : '<b>' + medI.toFixed(1) + ' days</b>')
+    + rnRow('Applied to hired', medH==null ? '' : '<b>' + medH.toFixed(1) + ' days</b>')
     + '<div class="field-note" style="margin-top:8px;">Middle of the range, not the average, so one slow one does not move it.</div>';
 
   /* ---- why people fall out ---- */
@@ -22414,7 +22414,7 @@ async function fcRpEdit(contactId){
   const a=v.axiscare;
   const ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
-  const row=(k,label)=>'<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;margin-top:6px;font-size:13px;"><span class="field-note">'+label+'</span><span>'+esc(a[k]||'—')+'</span><input id="fce_'+k+'" value="'+esc(a[k]||'')+'"></div>';
+  const row=(k,label)=>'<div style="display:grid;grid-template-columns:110px 1fr 1fr;gap:8px;align-items:center;margin-top:6px;font-size:13px;"><span class="field-note">'+label+'</span><span>'+esc(a[k]||'Not set')+'</span><input id="fce_'+k+'" value="'+esc(a[k]||'')+'"></div>';
   ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:620px;width:100%;padding:20px 22px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
     +'<div style="font-weight:800;color:var(--navy);font-size:17px;">Edit AxisCare contact '+esc(a.list_number)+'</div>'
     +'<div class="field-note">AxisCare owns this person\'s details; saving writes to AxisCare, reads it back, and updates the hub copy.</div>'
@@ -22881,7 +22881,7 @@ function apRender(){
       + (r.states_lived?'<div style="margin-top:.3rem;font-size:.82rem;"><b>Lived outside Missouri:</b> '+esc(r.states_lived)+'</div>':'')
       + '<div style="display:flex;gap:.5rem;align-items:center;margin-top:.8rem;flex-wrap:wrap;">'
         + '<label style="font-size:.78rem;color:#6E6559;">Position: <select onchange="apSetPosition(\''+esc(r.id)+'\',this.value)" style="font:inherit;font-size:.78rem;padding:2px 6px;border:1px solid var(--border);border-radius:6px;">'
-          + '<option value="">—</option>'
+          + '<option value="">Not set</option>'
           + AP_POS.map(p=>'<option value="'+esc(p.key)+'"'+(r.position===p.key?' selected':'')+'>'+apPosOpt(p)+'</option>').join('')
           + '</select></label>'
         + (r.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(r.phone,{email:r.email})+'>📞 Call</a>':'')
@@ -30561,7 +30561,7 @@ function homeTeamDevelopment(){
   const all=(DATA.ops_items||[]).filter(i=>i.kind==='review'&&i.review);
   if(!all.length) return '';
   const by={};
-  all.forEach(i=>{ const k=i.review.person_name||i.review.person||'—';
+  all.forEach(i=>{ const k=i.review.person_name||i.review.person||'Not set';
     (by[k]=by[k]||{done:[],open:[],owners:new Set()});
     (i.review.completed_at?by[k].done:by[k].open).push(i);
     if(!i.review.completed_at) by[k].owners.add(opsOwnerName(i.owner)||i.owner); });
@@ -32941,7 +32941,7 @@ function renderHome(){
       +'Not who is on duty right now, which the hub cannot yet answer.</div>'
       +doms.map(d=>'<div style="display:flex;gap:10px;padding:4px 0;font-size:13px;">'
         +'<span style="flex:1;">'+esc(d.label)+'</span>'
-        +'<b>'+esc(opsOwnerName(opsEmailForPerson(d.owner_person))||'—')+'</b></div>').join(''));
+        +'<b>'+esc(opsOwnerName(opsEmailForPerson(d.owner_person))||'Not set')+'</b></div>').join(''));
 
     /* ── Can the automation be trusted? Placed above the positive signal
          because 'the team closed 12 items' means nothing if the thing that
@@ -33450,7 +33450,7 @@ function renderClientsBoard(){
   const rows=(q?all.filter(x=>clNorm(x.r.client_name).includes(q)||clNorm(x.ax&&((x.ax.first||'')+(x.ax.last||'')+(x.ax.goes_by||''))).includes(q)||String(x.r.axiscare_client_id)===CL.q.trim().replace(/^#/,''))
       :all.filter(f[1])).sort((a,b)=>(a.past-b.past)||((b.unconnected?1:0)-(a.unconnected?1:0))||(b.bad-a.bad)||(b.warn-a.warn)||String(a.r.client_name).localeCompare(String(b.r.client_name)));
   if(!rows.length){ box.innerHTML='<div class="card" style="padding:16px 18px;color:var(--text-muted);">'+(q?'No client by that name in the Hub or AxisCare.':'Nobody here right now.')+'</div>'; return; }
-  const lvl=x=>{ const l=x.ax&&typeof cgdLevelOf==='function'?cgdLevelOf(x.ax.classes):null; return l?'Level '+l:'<span class="field-note">—</span>'; };
+  const lvl=x=>{ const l=x.ax&&typeof cgdLevelOf==='function'?cgdLevelOf(x.ax.classes):null; return l?'Level '+l:'<span class="field-note"></span>'; };
   const axLink=ax=>'<a href="https://16485.axiscare.com/?clients-profile.php&id='+esc(ax)+'" target="_blank" rel="noopener">open in AxisCare ↗</a>';
   box.innerHTML='<div class="card" style="padding:0;overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:640px;">'
     +'<thead><tr style="background:var(--bg);text-align:left;">'+['Client','Open or due','Care level','Last check-in'].map(h=>'<th style="padding:8px 10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">'+h+'</th>').join('')+'</tr></thead><tbody>'
@@ -34977,7 +34977,7 @@ function lsRow(o){
   const l=o.lead||null, c=o.launch||null, st=o.st, sc=o.sc||null, t=today(), risk=[], owe=[];
   const pip=(tone,txt)=>({ tone, txt });
   /* Care: the assessment and its plan */
-  let care=pip('dim','—');
+  let care=pip('dim','');
   if(l){
     const as=(DATA.care_assessments||[]).filter(a=>a&&a.lead_id===l.id);
     if(as.some(a=>a.status==='Plan Drafted'||a.status==='Pushed to AxisCare')) care=pip('ok','plan ready');
@@ -34998,7 +34998,7 @@ function lsRow(o){
       if(d!==null&&d>21) risk.push('state waiting '+d+' days');
     } else auth=pip(st.k==='ready'?'bad':'warn','not submitted');
   } else if(fs&&LS_PAYER[fs]) auth=pip('ok',LS_PAYER[fs]);
-  else if(!l) auth=pip('dim','—');
+  else if(!l) auth=pip('dim','');
   else if(st.k==='ready') auth=pip('bad','payer?');
   /* Staffing: the team plan linked to their Journey, else the First shift checklist */
   let staff=pip('dim','later');
@@ -38454,7 +38454,7 @@ function rtRender(){
              the engine never invents one. */
           +'<div style="margin-top:4px;display:flex;gap:5px;align-items:center;">'
           +(canEdit
-            ?'<input type="number" min="1" value="'+(r.esc_minutes||'')+'" placeholder="—" '
+            ?'<input type="number" min="1" value="'+(r.esc_minutes||'')+'" placeholder="" '
               +'title="Escalate after this many minutes unacknowledged. A business decision: leave blank until Samantha approves the number." '
               +'style="width:56px;font-size:11px;padding:3px 6px;" onchange="rtEscMin(\''+esc(a.code)+'\',this.value)">'
               +'<span class="field-note" style="font-size:10px;">min unacknowledged (blank = not decided)</span>'
@@ -38566,7 +38566,7 @@ function lsPaint(){
       return '<tr class="ls-row" style="border-top:1px solid var(--border);cursor:pointer;'+tint+'" title="Click to change this visit" onclick="if(typeof lcVisitOpen===\'function\'&&!event.target.closest(\'a\'))lcVisitOpen(\''+esc(v.visit_id)+'\')">'
         +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
         +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
-        +'<td style="padding:.35rem .4rem;">'+(un?'—':esc(v.caregiver))+'</td>'
+        +'<td style="padding:.35rem .4rem;">'+(un?'':esc(v.caregiver))+'</td>'
         +'<td style="padding:.35rem .4rem;">'+st+'</td></tr>';
     }).join('')+'</tbody></table>'
     +'<div class="field-note" style="margin-top:.5rem;">Loaded from AxisCare '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'. Click a visit to change it.</div>';
@@ -39934,7 +39934,7 @@ async function ccLevelCall(body){
   const d=await r.json().catch(()=>null); if(!d) throw new Error('The care level service answered '+r.status); return d;
 }
 const CCLV_NAMES={1:'Level 1 · Wellness',2:'Level 2 · Personal Care',3:'Level 3 · Advanced Care'};
-function ccLevelChip(lv){ if(!lv) return '<span class="field-note">—</span>';
+function ccLevelChip(lv){ if(!lv) return '<span class="field-note"></span>';
   const c={1:['#1E8449','#E7F5EC'],2:['#B45309','#FCEED6'],3:['#DC2626','#FDE8E8']}[lv]||['#555','#eee'];
   return '<span style="font-size:.7rem;font-weight:800;color:'+c[0]+';background:'+c[1]+';border-radius:5px;padding:.12rem .45rem;white-space:nowrap">'+CCLV_NAMES[lv]+'</span>'; }
 /* "Update AxisCare's care level" (after a review found a different level): only the
@@ -41803,7 +41803,7 @@ function renderNurseVisits(){
   const gheRows=clients.filter(c=>c.ghe1||c.ghe2).map(c=>{
     const cells=['ghe1','ghe2'].map(w=>{
       const st=nvGheState(c,w);
-      if(!st) return '<td style="padding:8px;border-top:1px solid var(--border);" class="field-note">—</td>';
+      if(!st) return '<td style="padding:8px;border-top:1px solid var(--border);" class="field-note"></td>';
       /* slice 3: no "book" or "done" here; the nurse books it in AxisCare (T1001) and AxisCare shows it */
       const act=(st.s==='done'||st.s==='resolved')?'' :
         '<div style="margin-top:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'
