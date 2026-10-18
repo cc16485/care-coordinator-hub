@@ -63,7 +63,7 @@ open(os.path.join(ROOT, '_car_test.html'), 'w').write(PAGE % json.dumps(CONTACTS
 
 # the Family Circle row, straight from index.html
 src = open(os.path.join(ROOT, 'index.html')).read()
-m = re.search(r'\nfunction fcCircleBody\(c, people, linked, esc\)\{.*?\n\}\n', src, re.S)
+m = re.search(r'\nfunction fcCircleBody\(c, people, linked, esc(?:, inProfile)?\)\{.*?\n\}\n', src, re.S)
 FC = '''<!doctype html><meta charset="utf-8"><body><div id="out"></div><script>function fcRecogChip(){return ''}%s
 const e = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 window.SETS = []; window.fcSet = (id, k, v) => SETS.push([id, k, v]);

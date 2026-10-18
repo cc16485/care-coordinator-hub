@@ -22216,7 +22216,13 @@ function fcRender(){
     if(FC_PROFILE&&typeof lppRender==='function') lppRender();
     return;
   }
-  box.innerHTML = FC.filter(function(c){ return c!==mine; }).map(fcCircleHtml).join('');
+  /* 2026-10-18: an invite reloads the list, so circles that were open stay open (the welcome preview opens under the person) */
+  const wasOpen={}; box.querySelectorAll('details[data-fc][open]').forEach(function(d){ wasOpen[d.getAttribute('data-fc')]=1; });
+  /* map() hands over (circle, index, the whole list): the list was the truthy 3rd argument, so since 2026-09-29 every circle here drew as
+     the profile's own box (no client name, all open). Only the profile passes inProfile now. */
+  box.innerHTML = FC.filter(function(c){ return c!==mine; }).map(function(c, i){ return fcCircleHtml(c, i); }).join('');
+  box.querySelectorAll('details[data-fc]').forEach(function(d){ if(wasOpen[d.getAttribute('data-fc')]) d.open=true; });
+  if(window.FAMAPP && FAMAPP.register) FAMAPP.register('fcl_', fcLoad);
   if(FC_PROFILE&&typeof lppRender==='function') lppRender();   /* Gate 4b: People going into care shows who is in the circle */
 }
 function fcCircleHtml(c,i,inProfile){
@@ -22230,7 +22236,7 @@ function fcCircleHtml(c,i,inProfile){
       + '<b style="font-size:15px;color:var(--navy);">👨‍👩‍👧 Family Circle</b>'
       + '<span class="field-note">' + people.length + ' in the circle' + (people.length ? ' · ' + textable + ' can be texted' : '') + '</span>'
       + '<span style="flex:1;"></span>' + (typeof naSyncLine==='function' ? naSyncLine().replace('margin-top:6px;','margin:0;') : '') + '</summary>'
-      + fcCircleBody(c, people, linked, esc);
+      + fcCircleBody(c, people, linked, esc, true);
     return '<details class="card" data-fc="' + esc(c.id) + '" ontoggle="if(this.open) famMount(\'famfc-' + esc(c.id) + '\', { circle_id:\'' + esc(c.id) + '\' }, \'family\')" style="padding:0;margin-bottom:10px;">'
       + '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:14px 18px;">'
       + '<b style="font-size:15px;color:var(--navy);">' + esc(c.client_name) + '</b>'
@@ -22244,7 +22250,7 @@ function fcCircleHtml(c,i,inProfile){
       + '<div id="famfc-' + esc(c.id) + '" style="padding:0 18px;"></div>'
       + fcCircleBody(c, people, linked, esc);
 }
-function fcCircleBody(c, people, linked, esc){
+function fcCircleBody(c, people, linked, esc, inProfile){
     return '<div style="padding:0 18px 16px;">'
 
       + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
@@ -22275,7 +22281,11 @@ function fcCircleBody(c, people, linked, esc){
             + (ax&&!p.axiscare_removed_at?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpEdit(\'' + esc(p.id) + '\')">Edit in AxisCare</button>'
               :(linked&&p.source!=='axiscare'&&p.carried_from!=='client'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
-            + '</div>';
+            + '</div>'
+            /* 2026-10-18 her ask: the Booking App line (Invite and send welcome, AxisCare + app sign-in steps) under each person here
+               too, not only on the client profile. Linked circles only (the app needs the client); the profile's own Care circle
+               card already shows it, so not inside the profile. */
+            + (!inProfile && linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_') + '</div>' : '');
         }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
 
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
