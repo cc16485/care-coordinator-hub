@@ -45,6 +45,34 @@
   }
   const tier = it => (typeof opsPriorityKey === 'function' ? opsPriorityKey(it)[0] : 4);
   const dueText = it => (typeof opsDueText === 'function' ? opsDueText(it) : (it.due ? String(it.due).slice(0, 10) : ''));
+  /* ENOUGH TO DECIDE (Samantha 2026-10-17: "the handoff cards only have title so its impossible to know when you end
+     shift what to keep or hand off"). Each row says who it is about AND what it is, where it stands (Act now, late, past
+     its day), a line of the detail, and a More that opens everything on the card: the full detail, the prepared steps,
+     the latest note. The label that goes into the handoff carries both too, so the next person can read it. */
+  const labelOf = it => { const a = String(it.about || '').trim(), t = String(it.title || '').trim();
+    return a && t && a !== t ? a + ': ' + t : (a || t); };
+  const short = (x, n) => { x = String(x || '').replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : x; };
+  function laneTag(it){
+    const l = typeof myWorkLane === 'function' ? myWorkLane(it) : null;
+    if(l === 3) return ['Past its day' + (typeof opsAboutDay === 'function' ? ' (' + opsDayWords(opsAboutDay(it)) + ')' : ''), 'var(--text-muted)', 'var(--bg)'];
+    if(l === 0) return ['Act now', 'var(--red)', 'var(--red-bg)'];
+    if(l === 1) return ['Late', 'var(--amber)', 'var(--amber-bg)'];
+    return null;
+  }
+  function rowDetail(it){
+    const t = String(it.title || '').trim(), a = String(it.about || '').trim();
+    const steps = Array.isArray(it.steps) && it.steps.length ? it.steps : (it.next_action ? [it.next_action] : []);
+    const last = (it.history || []).slice(-1)[0];
+    let h = '';
+    if(t && a && t !== a) h += '<div style="font-size:13px;margin-top:2px;">' + esc(t) + '</div>';
+    if(it.detail) h += '<div class="field-note" style="margin-top:2px;">“' + esc(short(it.detail, 150)) + '”</div>';
+    else if(steps.length) h += '<div class="field-note" style="margin-top:2px;">→ ' + esc(short(steps[0], 150)) + '</div>';
+    const more = (it.detail && String(it.detail).length > 150 ? '<div style="font-size:12.5px;margin-top:4px;">“' + esc(it.detail) + '”</div>' : '')
+      + (steps.length && (it.detail || steps.length > 1) ? steps.map(x => '<div style="font-size:12.5px;margin-top:3px;">→ ' + esc(x) + '</div>').join('') : '')
+      + (last ? '<div class="field-note" style="margin-top:4px;">Latest: ' + esc(typeof callsFmtWhen === 'function' ? callsFmtWhen(last.at) : String(last.at || '').slice(0, 16)) + ' · ' + esc(last.by || '') + ': ' + esc(last.text || '') + '</div>' : '');
+    if(more) h += '<details class="eoMore" style="margin-top:3px;"><summary class="field-note" style="cursor:pointer;">More</summary>' + more + '</details>';
+    return h;
+  }
 
   /* What the walk-through lists, and what it only counts. */
   function eoLists(){
@@ -63,10 +91,12 @@
     const nxName = a => nx[a] ? first(nx[a].person) : '';
     const row = (it, k) => {
       const a = areaOf(it), to = nx[a], t = tier(it);
-      const def = (t <= 1 && to) ? 'hand' : 'keep';
+      const def = (t <= 1 && to) ? 'hand' : 'keep', lt = laneTag(it);
       return '<div class="eoRow" data-k="' + k + '" style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;' + (t <= 2 ? 'border-left:3px solid var(--red);' : '') + '">'
         + '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:13.5px;flex:1;min-width:200px;">' + esc8(it.about || it.title || '') + '</b>'
+        + (lt ? '<span class="tag-chip" style="background:' + lt[2] + ';color:' + lt[1] + ';font-weight:700;">' + esc8(lt[0]) + '</span>' : '')
         + '<span class="field-note">' + esc8(dueText(it)) + '</span></div>'
+        + rowDetail(it)
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center;">'
         + '<select class="eoWhat" style="width:auto;font-size:12.5px;padding:4px 6px;">'
         + '<option value="keep"' + (def === 'keep' ? ' selected' : '') + '>Stays with me</option>'
@@ -88,7 +118,7 @@
       + (L.attention.length
         ? '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;color:var(--red);margin:10px 0 4px;">NEEDS ATTENTION, NOBODY HAS IT · ' + L.attention.length + '</div>'
           + '<div class="field-note" style="margin-bottom:4px;">These go in the handoff and on the To talk about list.</div>'
-          + L.attention.map(i => '<div style="font-size:13px;">· ' + esc8(i.about || i.title || '') + ' <span class="field-note">' + esc8(dueText(i)) + '</span></div>').join('')
+          + L.attention.map(i => '<div style="font-size:13px;margin-bottom:4px;">· <b>' + esc8(i.about || i.title || '') + '</b> <span class="field-note">' + esc8(dueText(i)) + '</span>' + rowDetail(i) + '</div>').join('')
         : '')
       /* Up for grabs (2026-10-13): what I offered, and what the team offered */
       + (window.TP ? TP.shiftLine() : '')
@@ -119,7 +149,7 @@
     let done = 0, handed = 0;
     for(const p of picks){
       const it = p.it, a = areaOf(it), to = nx[a] && nx[a].person;
-      const base = { label: it.about || it.title || '', ops_id: it.id, area: a, due: it.due || '', note: p.note };
+      const base = { label: labelOf(it), ops_id: it.id, area: a, due: it.due || '', note: p.note };
       if(p.what === 'hand' && to){
         await opsSetOwner(it.id, to, full(to), 'End of shift' + (p.note ? ': ' + p.note : ''));
         handed++; add(to, Object.assign(base, { what: 'handed' }));
@@ -138,7 +168,7 @@
     }
     for(const it of attention){
       const to = nx[areaOf(it)] && nx[areaOf(it)].person;
-      add(to, { label: it.about || it.title || '', ops_id: it.id, area: areaOf(it), due: it.due || '', what: 'attention' });
+      add(to, { label: labelOf(it), ops_id: it.id, area: areaOf(it), due: it.due || '', what: 'attention' });
       await eoStandUp(it, who);
     }
     /* Nothing still moving still deserves a word: the next person on Operations hears that the shift ended clean. */

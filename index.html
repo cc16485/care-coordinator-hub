@@ -939,6 +939,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .tag-chip{font-size:11px;background:#FAF9F6;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
   /* Make this a lead (2026-10-14): what was heard on the call, until a person touches it */
   .cl-heard{background:#FFF1C2 !important;box-shadow:0 0 0 1.5px #E8C66A inset;border-radius:6px;}
+  #leadModalBackdrop.cl-quiet{visibility:hidden;}   /* Yes, lead: the regular save runs without flashing the form */
   .detail-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
   .detail-grid3 .dbox{background:#FAF9F6;border-radius:8px;padding:10px;}
   .detail-grid3 .dbox .dlbl{font-size:11px;color:var(--text-muted);}
@@ -1183,8 +1184,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
-    <!-- 2026-10-12 (her call): Team Builder lives in Client Care; Schedule Watch is gone. -->
-    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Team Builder</div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -1241,6 +1240,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
+    <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Live Schedule.
+         The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
     <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
@@ -1322,7 +1324,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Builder</h2>
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver Matching</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">Build a client's team on a week grid: pencil caregivers in as you call, then confirm the schedules into AxisCare when the whole team is set.</div>
       </div>
       <div id="swBuilderWrap"><div id="tbRoot"><div class="field-note">Loading…</div></div>
@@ -2733,10 +2735,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-attendance">
           <ol style="margin:.4rem 0 .6rem;padding-left:1.3rem;line-height:1.7;font-size:.85rem">
-            <li><b>Log every attendance event the moment it happens</b> — a call-in (the hub computes the notice automatically; less than 4 hours = write-up required per Handbook 2U), a tardy, or a no-call/no-show (immediate termination review per 2U — Samantha is alerted and makes the final call).</li>
-            <li>The hub counts events per caregiver and applies the corrective-action ladder from Handbook 2V the same way every time: Verbal Warning → Written Warning → Final Written Warning → Termination Review.</li>
-            <li>When a write-up is due, the caregiver's card shows a red button — click it and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
-            <li>Every write-up — warning or termination — is <b>approved by Samantha or Zach</b> (the owners) before it can be issued. Nobody else can approve discipline.</li>
+            <li><b>Log every attendance event the moment it happens</b>: a call-in (the hub works out the notice; under 4 hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice per Handbook 2A and 2U), a tardy, or a no-call/no-show (immediate termination review per 2U; Samantha is alerted and makes the final call, since only she approves a termination).</li>
+            <li>The hub counts events per caregiver and flags them <b>to review</b>: short notice, or 3 call-ins or 3 tardies in 90 days (our working numbers; the handbook gives none). It suggests the next step on the Handbook 2V ladder, but every case is decided on its own and steps can be skipped. If there was a good reason, press <b>No write-up</b> and write why.</li>
+            <li>When a write-up is the right call, press the red <b>Draft</b> button and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
+            <li>Every write-up is <b>approved before it can be issued</b>, and never by the person who started it. Coaching, a verbal warning and a first written warning: <b>any Care Coordinator</b> (or an owner). A second written warning, a final written warning or a suspension: <b>Samantha or Zach</b>. A termination: <b>Samantha</b>.</li>
           </ol>
         </div>
       </div>
@@ -2800,7 +2802,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
           <div>
             <h2 style="margin:0;font-size:1.15rem;color:var(--navy)">Write-Ups</h2>
-            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Samantha or Zach approve before anything is issued.</div>
+            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Coaching and first written warnings are approved by a Care Coordinator; a final warning or above by leadership. Nobody approves one they started.</div>
           </div>
           <span style="flex:1"></span>
           <button class="fb" onclick="SCX.openNewWriteup()">📝 Start a write-up</button>
@@ -4294,7 +4296,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
 <textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
-<label>Open hours: the text to the whole team (Team Builder, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<label>Open hours: the text to the whole team (Caregiver Matching, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
 <label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
 <textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
@@ -7065,7 +7067,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Other</option></select>
+<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
 <div class="field-note" id="assess_payer_note"></div>
 </div>
 <div>
@@ -7293,26 +7295,28 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=7"></script>
-<script src="open-hours.js?v=2"></script>
-<script src="scheduling-guide.js?v=2"></script>
-<script src="new-hires.js?v=2"></script>
+<script src="team-builder-2.js?v=8"></script>
+<script src="open-hours.js?v=3"></script>
+<script src="scheduling-guide.js?v=3"></script>
+<script src="new-hires.js?v=3"></script>
 <script src="live-calendar.js?v=4"></script>
-<script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
+<script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=18"></script>
+<script src="client-journey.js?v=20"></script>
+<script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
-<script src="partner-rules.js?v=1"></script>
+<script src="partner-rules.js?v=2"></script>
 <script src="referral-desk.js?v=5"></script>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
+<script src="writeup-rules.js?v=2"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=2"></script>
@@ -7323,18 +7327,18 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=14"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=9"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
-<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
+<script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=5"></script>
+<script src="end-shift.js?v=6"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="desk.js?v=13"></script>
-<script src="call-lead.js?v=3"></script><!-- Make this a lead (2026-10-14) -->
+<script src="call-lead.js?v=4"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=2"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7992,7 +7996,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8405,7 +8409,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -8614,7 +8618,11 @@ function ccRenderPulse(){
   /* Points at My Work, which is where a late item is actually worked. `late` is
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
-  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
+  /* ONE HEADLINE NUMBER (2026-10-17, her fix 3): the chip says what needs you right now (Today's Act now lane). Only
+     when nothing does, it says how much of yours is late. One number, never both. */
+  let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
+  if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
+  else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready'&&!g.superseded_by).length;
@@ -10395,12 +10403,15 @@ async function cpRenderTeam(){
   const box=document.getElementById('cp_team'); if(!box) return;
   const esc=escapeHtmlComms;
   let f=null; try{ f=await famResolve(CP.ax?{ ax:CP.ax }:(CP.lead?{ lead_id:CP.lead.id }:{})); }catch(e){}
-  const plan=f&&f.plan;
+  /* Start of Care stage C (2026-10-17): a plan started with Find Caregivers is keyed to the lead, the AxisCare client and
+     the journey, so the profile finds it before AxisCare too (famResolve only knew linked plans) */
+  const cj=window.CJ_STATE&&CJ_STATE.data&&CJ_STATE.data.journey;
+  const plan=(f&&f.plan)||(typeof cmPlanFor==='function'?cmPlanFor({ lead:CP.lead, ax:CP.ax, journey_id:cj&&cj.journey_id }):null);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care team plan</b></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Caregiver Matching</b></div>'
     +(plan?'<div id="cp_tb"></div>'
-      :'<div class="field-note">No Team Builder plan is linked to this family yet. Start one in Team Builder and use "Link to a Journey" on the board; it will then show here.</div>'
-        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'teambuilder\');">Open Team Builder</button>')
+      :'<div class="field-note">No Caregiver Matching plan for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
+        +'<button class="primary" style="margin-top:8px;" onclick="cmFindCaregivers(this)">Find Caregivers</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📞 Care Match calls</b><span style="flex:1;"></span>'
@@ -10522,7 +10533,9 @@ async function cpSendChange(){
    edited in one place. Saves to the same inquiry fields the intake form writes; the steps check off
    exactly as they do on the Start tab (socToggleStep). A mismatch between the two is shown, and a
    person fixes it: nothing is changed on its own. */
-const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)']];
+/* stage A (2026-10-17): Medicare GUIDE is a payer here too; a payer the list doesn't know is kept as it is, never saved over as blank */
+const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['guide','Medicare GUIDE'],['cds','CDS'],['medicaid','Medicaid (IHS, ending 11/16)']];
+function cpPayersFor(v){ return v&&!CP_PAYERS.some(x=>x[0]===v)?CP_PAYERS.concat([[v,String(v)]]):CP_PAYERS; }
 const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
 function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
 function cpRenderPayer(){
@@ -10542,7 +10555,7 @@ function cpRenderPayer(){
   box.innerHTML='<div class="card" style="padding:14px 18px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span><span class="field-note" id="cpPayMsg"></span></div>'
     +'<div class="grid2">'
-      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(CP_PAYERS,l.funding_source)+'</select></div>'
+      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(cpPayersFor(l.funding_source),l.funding_source)+'</select></div>'
       +'<div><label '+lbl+'>Price quoted</label><div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="cpPayQuoted" style="width:auto;"'+(l.price_quoted?' checked':'')+'><input id="cpPayAmount" placeholder="e.g. $35/hr" value="'+esc(l.quoted_price_amount||'')+'" style="flex:1;"></div></div>'
     +'</div>'
     +'<div id="cpPayMed" style="'+(med?'':'display:none;')+'margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">'
@@ -11921,7 +11934,7 @@ async function csrOpen(reviewId){
     +opt('care_ended','Care ended','Opens End care: the reason, the last day of service and who told us. Their journey and open work close; nothing is deleted.')
     +opt('on_hold','Paused (hospital, rehab, family away…)','Opens Pause care with a follow-up date. Nothing ends.')
     +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
-    +opt('returning','Returning client','Opens Resume care on the same person. An owner decides.')
+    +opt('returning','Returning client','Opens Resume care on the same person. A Care Coordinator or an owner confirms it.')
     +'<div id="csrMore" style="margin-top:10px;"></div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
   ov.querySelector('#csrX').onclick=close;
@@ -12290,7 +12303,7 @@ async function ckUseExisting(l, ax, name){
   try{ renderLeadProfile(); }catch(e){} try{ renderLeads(); }catch(e){}
   alert('Linked to their existing AxisCare record #'+ax+(name?' ('+name+')':'')+'. No second client was made.'
     +(jcRes?'\n\nJourney: '+jcRes.text:'')
-    +'\n\nIn AxisCare, set them back to active when care starts. Owner / Decision then confirms the returning client, and this inquiry\'s Journey carries on.');
+    +'\n\nIn AxisCare, set them back to active when care starts. Their Care Coordinator then confirms the returning client, and this inquiry\'s Journey carries on.');
   return true;
 }
 /* 5b C: an automatic front door (web form, booking, AI call, call disposition) flagged this new
@@ -13620,7 +13633,7 @@ function openAssessmentModal(id, fromLead){
   /* One profile, step 4: the payer has ONE editor, the intake (the Payer tab). When the family has an
      inquiry, the assessment shows its payer read-only; only an assessment with no inquiry types its own. */
   { const lp = fromLead || ((a&&a.lead_id) ? (DATA.leads||[]).find(l=>l.id===a.lead_id) : null);
-    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS' };
+    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS', guide:'Medicare GUIDE' };
     const sel = document.getElementById('assess_payer'), note = document.getElementById('assess_payer_note');
     const fromIntake = lp && lp.funding_source ? (PAYER_LABEL[lp.funding_source] || 'Other') : '';
     sel.value = fromIntake || (a&&a.payer) || '';
@@ -16580,7 +16593,7 @@ async function autoMirrorHealth(){
     const [cov,lds,tb]=await Promise.all([runs('legacy_mirror_run'),runs('lead_journey_mirror_run'),runs('team_build_mirror_run')]);
     box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">'
       +[mirrorHealthCard('Cara coverage copy',cov,'legacy_unchanged','Cara'),mirrorHealthCard('Leads copy',lds,'leads_unchanged','Leads'),
-        mirrorHealthCard('Team Builder copy',tb,'plans_unchanged','Team Builder')]
+        mirrorHealthCard('Caregiver Matching copy',tb,'plans_unchanged','Caregiver Matching')]
         .join('')
       +'</div>';
   }catch(e){ box.innerHTML='<div class="field-note">Could not check the copies: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
@@ -19618,12 +19631,15 @@ let CC_SETTINGS_PENDING=false;         // Settings was asked for before the role
    so the mapping itself is data and does not need a deploy to change. */
 const CC_ROLE_PERMS_DEFAULT={
   owner_admin:[ 'manage_staff','manage_positions','manage_duty','manage_leads',
-                'manage_ownership','approve_discipline','manage_access',
-                'manage_settings','manage_rates' ],
-  /* Krystal's role. Runs the office; does not approve discipline, administer
-     access, set pay, or change owner settings. */
+                'manage_ownership','approve_discipline','approve_team_discipline','manage_access',
+                'manage_settings','manage_rates','assign_partners' ],
+  /* Krystal's role. Runs the office; does not administer access, set pay, or change owner settings.
+     SOP ruling 2 (2026-10-17): approves coaching, verbal and first written warnings (approve_team_discipline);
+     a final warning, suspension or termination stays with owners (approve_discipline). writeup-rules.js decides
+     which a write-up needs. No role_permissions record is saved in the database (897 checked 2026-10-17), so
+     this list is the one in force. */
   care_coordinator:[ 'manage_staff','manage_positions','manage_duty',
-                     'manage_leads','manage_ownership' ],
+                     'manage_leads','manage_ownership','approve_team_discipline' ],
   /* PROPOSED, and deliberately the smallest thing that lets the job be done:
      coverage. It is NOT a copy of the Care Coordinator role. Widen it on
      purpose once the job is real, by editing the role_permissions record —
@@ -19631,11 +19647,13 @@ const CC_ROLE_PERMS_DEFAULT={
   staffing_coordinator:[ 'manage_duty' ],
   /* SOP ruling 9 (2026-10-17): the Springfield lead (Krystal now) gives and removes Hub access for anyone who is not
      an owner. Held ON TOP of their office role, so it adds only this. The hub-access function and
-     staff_access_overview check the same role; switches, rates and settings stay with owners. */
-  springfield_lead:[ 'manage_access' ]
+     staff_access_overview check the same role; switches, rates and settings stay with owners.
+     2026-10-18: Care Coordinators own referral partners and the Springfield lead hands them out (assign_partners);
+     the desk's timing settings stay with owners. */
+  springfield_lead:[ 'manage_access','assign_partners' ]
 };
 
-/* The same nine permissions said the way somebody would say them out loud.
+/* The same permissions said the way somebody would say them out loud.
    Every screen that explains authority reads from here, so the wording cannot
    drift between the role picker and the confirmation. */
 const CC_PERM_LABEL={
@@ -19644,13 +19662,15 @@ const CC_PERM_LABEL={
   manage_duty:'manage duty coverage',
   manage_leads:'manage leads',
   manage_ownership:'manage operational ownership',
-  approve_discipline:'approve discipline',
+  approve_discipline:'approve final warnings and terminations',
+  approve_team_discipline:'approve coaching and first written warnings',
   manage_access:'manage Hub access',
   manage_settings:'change Owner settings',
-  manage_rates:'change rates'
+  manage_rates:'change rates',
+  assign_partners:'assign referral partner owners'
 };
 const CC_PERM_ORDER=['manage_staff','manage_positions','manage_duty','manage_leads',
-  'manage_ownership','approve_discipline','manage_access','manage_settings','manage_rates'];
+  'manage_ownership','approve_team_discipline','approve_discipline','manage_access','assign_partners','manage_settings','manage_rates'];
 
 /* The roles that legitimately exist, read from the database catalog. The
    picker cannot offer anything else and set_staff_role will not accept
@@ -19732,6 +19752,29 @@ function ccRolesBanner(){
    opsCanSee, the confidentiality rule, which was deliberately left alone; and
    legacyCan, the parked comparison shim. Do not add a third. */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
+
+/* WHO APPROVES A WRITE-UP (SOP ruling 2, Samantha 2026-10-17). writeup-rules.js decides from the level and who
+   started it; these only say what a person holds. Team levels need approve_team_discipline (Care Coordinators and
+   owners), leadership levels need approve_discipline (owners), and nobody approves a case they started. */
+function ccCanFor(email, perm){
+  const map=ccRolePerms();
+  return ccRolesFor(email).some(r=>(map[r]||[]).indexOf(perm)>-1);
+}
+function discWhoFor(email){
+  const e=String(email||'').toLowerCase();
+  const me=!!e && String((ME&&ME.email)||'').toLowerCase()===e;
+  return { email:e,
+    owner: me ? ccCan('approve_discipline') : ccCanFor(e,'approve_discipline'),
+    team:  me ? ccCan('approve_team_discipline') : ccCanFor(e,'approve_team_discipline') };
+}
+function discCanApprove(a){
+  if(typeof WriteupRules==='undefined') return { ok:false, why:'The write-up rules did not load. Reload the page.' };
+  return WriteupRules.canApprove(a, discWhoFor(ME&&ME.email), DATA.discipline_actions||[]);
+}
+function discMayApproveAny(){ return ccCan('approve_discipline') || ccCan('approve_team_discipline'); }
+function discForMe(){
+  return (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval' && discCanApprove(a).ok);
+}
 
 /* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
    Every gated action this hub has, and the expression that decides it today,
@@ -19985,12 +20028,12 @@ async function renderStaffAccess(){
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  if(!ccCan('approve_discipline')){ wrap.innerHTML=''; updateAttnCard(); return; }
-  const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  if(!discMayApproveAny()){ wrap.innerHTML=''; updateAttnCard(); return; }
+  const pending=discForMe();
   if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
     +'<div class="attbody">'
-    +'<div class="field-note" style="margin-bottom:4px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
+    +'<div class="field-note" style="margin-bottom:4px;">Coaching, verbal and first written warnings are the team\'s call; a final warning, suspension or termination is leadership\'s. You only see the ones you can approve, never one you started. Read the whole notice first; your name goes on the approval.</div>'
     +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
@@ -20006,15 +20049,15 @@ function renderApprovalsCc(){
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to approve discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.'))) return;
-  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
+  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_by_email=String(ME.email||'').toLowerCase(); a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
 }
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to act on discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   const why=(await ccPrompt('Tell staffing what to change (they\'ll see this on the draft):','')); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
@@ -27775,7 +27818,7 @@ function myWorkHandOff(id, anchorId){
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
 /* Lands on Today, because "what do I need to do now" is the question somebody
    opens this screen to answer. */
-let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false;
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false, MYWORK_ESC_WHO='';
 /* Buckets are FILTERS over one list, never separate lists. Overdue and
    escalated used to be their own destinations, but both are computed from
    `mine` — they are states of your work, not categories of it. Today carries
@@ -27793,7 +27836,7 @@ function myWorkTabs(b){
   /* An approval is work that requires a specific person, so it belongs in that
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
-  if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  if(discMayApproveAny()) t.push(['approvals','Approvals']);
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
@@ -27997,9 +28040,10 @@ function opsLateFor(email){
 function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(i)); }
 /* The four lanes of Today, counted once for every place that shows them. */
 function opsTodayCounts(){
-  const b=myWorkBuckets();
-  const act=b.today.filter(i=>opsPriorityKey(i)[0]<=2).length;
-  return { act, due:b.today.length-act, lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
+  /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
+  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamEscalated(i));
+  const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
+  return { act:n(0), late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
 }
 /* "by 2:00 PM", "was due Sep 29, 2:36 PM", "by Fri Oct 9". A date-only due is a whole day, never a time. */
 function opsDueText(it){
@@ -28170,6 +28214,13 @@ function opsEscalatedToMe(i, me){
   const e=i&&i.escalation; me=String(me||'').toLowerCase();
   return !!(e && !e.cleared_at && me && String(e.to||'').toLowerCase()===me && String(i.owner||'').toLowerCase()!==me && !i.claimed_by && i.status==='open');
 }
+/* SOMEONE ELSE'S LATE WORK, ESCALATED TO ME (2026-10-17, her fix 4). It stays theirs, so on my Today it is one summary
+   card per person ("Krystal has 18 late items"), not 18 of my cards. The Escalated to you tab still lists every one. */
+function opsTeamEscalated(it, me){
+  me=String(me||opsMeKey()||'').toLowerCase();
+  const o=String((it&&it.owner)||'').toLowerCase();
+  return !!(o && o!==me && opsEscalatedToMe(it, me));
+}
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -28234,9 +28285,7 @@ function myWorkBuckets(){
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
     pool:       window.TP ? TP.shelf(me) : [],
-    approvals:  (ccCan('approve_discipline')
-                  ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
-                  : [])
+    approvals:  (discMayApproveAny() ? discForMe() : [])
   };
 }
 /* How many minutes until the shift this item is about? Null when the item
@@ -28263,6 +28312,8 @@ function opsMinsToShift(it){
    must not outrank a client sitting alone this morning. The card still says
    nobody has it, and "I've got it" is still the button. */
 function opsPriorityKey(it){
+  /* the one-tap New family? card (2026-10-18): a family that just called is Act now */
+  if(it.kind==='new_family_call') return [0, Date.parse(it.created_at||0)||0];
   /* Projects (2026-10-06): inside the alert window with open steps: Act Now */
   if(typeof pjHot==='function' && pjHot(it)) return [0, Date.parse(it.due||it.created_at||0)||0];
   if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
@@ -28369,8 +28420,11 @@ function myWorkSelectable(all){
 function myWorkRows(){
   const b=myWorkBuckets();
   /* Up for grabs draws its own cards (pool.js); none of them are mine to tick or close with a key */
-  const rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
+  let rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+  /* fix 4: on Today, someone else's escalated work is their summary card, not my cards */
+  if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamEscalated(r));
+  if(MYWORK_TAB==='escalated' && MYWORK_ESC_WHO) rows=rows.filter(r=>String(r.owner||'').toLowerCase()===MYWORK_ESC_WHO);
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
       return (myWorkLane(a)-myWorkLane(c)) || (ka[0]-kc[0]) || (ka[1]-kc[1]); });
@@ -28498,6 +28552,7 @@ async function myWorkTalk(id, btn){
 function myWorkCard(it, i){
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   if(it && it.kind==='journey') return jrCard(it, i);
+  if(it && it.kind==='new_family_call' && window.CallLead && CallLead.card) return CallLead.card(it, i);
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
   /* Graded rather than a single "late". Two days and five days late are
@@ -28508,6 +28563,10 @@ function myWorkCard(it, i){
   const sel=MYWORK_SEL.has(it.id), focused=(i===MYWORK_FOCUS);
   const ev=opsAlreadyHandled(it);
   const ago=it.created_at?callsFmtWhen(it.created_at):'';
+  /* fix 5: an AI call card says where it came from here, instead of in a long line at the bottom */
+  const src=it.source||{};
+  const fromCall=(it.kind==='call_followup'&&src.call_at)
+    ?('from '+(src.channel==='text'?'texts':'a call')+' '+new Date(src.call_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
   const who=it.owner?('owned by '+esc(it.owner_name||opsOwnerName(it.owner))):'unassigned';
   /* State has to be readable on the card, or marking something waiting or in
      progress is a private act nobody else benefits from. Ownership is stated
@@ -28572,8 +28631,8 @@ function myWorkCard(it, i){
     /* Whose it is and by when, on every card (2026-10-05). */
     +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
       +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
-      +esc(opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)+'</span>'
+      +esc(String(it.owner||'').toLowerCase()===String(opsMeKey()||'').toLowerCase()?opsDueText(it):opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
+    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>'
     +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
@@ -28581,8 +28640,11 @@ function myWorkCard(it, i){
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
 
+  /* Lighter cards (2026-10-17, her fix 5): the everyday reason ("You own Scheduling and coverage", "automatic staffing
+     alerts come to you") is true of nearly every card, so it is no longer printed. Handed, escalated, unowned and
+     help-asked reasons still are. */
   const why=opsWhyHere(it);
-  if(why) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
+  if(why && !/^You own |^You’re first on the scheduling alert list/.test(why)) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
   /* a red or yellow shift-note flag draws its own card (shift-flags.js) */
   const cnFlag=typeof cnIsFlag==='function'&&cnIsFlag(it);
   if(cnFlag) h+=cnBlock(it);
@@ -28639,6 +28701,17 @@ function myWorkCard(it, i){
       +(r.next_checkpoint?' · next look '+esc(callsFmtWhen(r.next_checkpoint)):'')+'</div>';
   }
 
+  /* LOOKS DONE (919, 2026-10-17; her plan of 2026-10-14): the card check saw the work done. What showed it, then one tap.
+     A person's Not yet holds until something new happens with them (the server checks that). */
+  if(it.looks_done && it.status==='open' && !(Date.parse((it.looks_done_no||{}).at||0) >= Date.parse(it.looks_done.at||0))){
+    const ld=it.looks_done, ev=(Array.isArray(ld.evidence)?ld.evidence:[]).filter(x=>x && x!==ld.why);
+    h+='<div class="wk-looksdone" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#E4F4EA;color:#1F6E43;font-size:13px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:180px;"><b>Looks done:</b> '+esc(ld.why||'')+'</span>'
+      +'<button class="primary" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneClose(\''+it.id+'\')">Close it</button>'
+      +'<button class="ghost" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneNo(\''+it.id+'\')">Not yet</button></div>'
+      +(ev.length?'<div style="font-size:12px;margin-top:3px;">'+ev.slice(0,3).map(x=>'· '+esc(x)).join('<br>')+'</div>':'')
+      +'<div style="font-size:11.5px;margin-top:3px;opacity:.85;">'+(ld.source==='proof'?'From what the Hub can see: LeadConnector, AxisCare and call-off cases.':'The AI read the calls and texts since this card.')+'</div></div>';
+  }
   /* Past its day (2026-10-17, her fix 2): say so on the card and ask; never close by itself */
   if(opsPastDay(it)){
     h+='<div class="wk-pastday" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
@@ -28691,14 +28764,14 @@ function myWorkCard(it, i){
       +'onclick="opsWaitOpen(\''+it.id+'\',\'act_'+it.id+'\')">Set a wake-up</button>';
   /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
      closes the card. */
-  if(typeof dkAllowed==='function' && dkAllowed())
-    h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="dkJotWork(\''+it.id+'\',this)">Jot on my desk</button>';
+  /* fix 5 (2026-10-17): Jot on my desk moved into the ⋯ menu, so a card has three buttons: Done, Hand off, Talk about */
   if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
   if(trail) h+='<div class="field-note" style="margin-top:6px;"><b>Owner:</b> '+esc(trail)+'</div>';
-  const hist=(it.history||[]).slice(-2);
+  /* fix 5: only the latest thing that happened, and not the AI's own "Made from a call…" line (said in the header) */
+  const hist=(it.history||[]).slice(-1).filter(x=>!(fromCall && /^AI /.test(String(x.by||'')) && /^Made from /.test(String(x.text||''))));
   if(hist.length) h+='<div class="field-note" style="margin-top:8px;">'
     +hist.map(x=>esc(callsFmtWhen(x.at))+' · '+esc(x.by)+' — '+esc(x.text)).join('<br>')+'</div>';
 
@@ -28722,6 +28795,8 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Ask for help (keeps it mine)');
+  /* My Desk: my own steps for this card (moved here from the card's buttons, 2026-10-17) */
+  if(typeof dkAllowed==='function' && dkAllowed() && typeof dkJotWork==='function') h+=opt('jot','Jot on my desk');
   /* Up for grabs (2026-10-13): my own ordinary work can be offered to anyone with time */
   if(window.TP && String(it.owner||'').toLowerCase()===meCl && !issueOf(it) && it.kind!=='project' && it.kind!=='journey' && !it.sensitive)
     h+=opt('pool','Put it up for grabs (anyone with time)');
@@ -28753,6 +28828,7 @@ function myWorkMore(id, anchorId){
          waiting asks the only two questions that matter, and the answer is
          what brings it back on its own. */
       if(r.dataset.what==='claim') return opsTakeIt(id);
+      if(r.dataset.what==='jot') return dkJotWork(id, document.getElementById(anchorId));
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -28805,8 +28881,18 @@ function opsWaitOpen(id, anchorId){
   const f=el.querySelector('#owWho'); if(f) f.focus();
 }
 
+/* Counts on the tabs (2026-10-17, her fix 3): Today shows only what needs you now; All mine, Escalated and Waiting
+   carry no number (they were 56, 18 and so on, and nobody acts on a big number). Small lists that each need a
+   person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
+function myWorkTabBadge(k,b){
+  if(k==='mine'||k==='escalated'||k==='waiting') return '';
+  if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
+  const n=(b[k]||[]).length;
+  return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
+}
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
@@ -28820,8 +28906,7 @@ function renderMyWork(){
     /* on press, not on click (2026-10-06, "i cant click on those"): a background redraw between pressing and letting go
        used to swallow the click */
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onpointerdown="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')" onclick="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')">'
-    +label+((b[k]||[]).length?' <span class="subtab-badge'
-      +((k==='today'&&b.overdue.length)||k==='approvals'?' red':'')+'">'+b[k].length+'</span>':'')
+    +label+myWorkTabBadge(k,b)
     +'</div>').join('');
 
   /* Approvals is not a list of ops_items, so it renders its own card rather
@@ -28870,8 +28955,11 @@ function renderMyWork(){
       helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
   if(MYWORK_TAB!=='today'){
-    wrap.innerHTML=rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
-      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
+    /* narrowed from a team card: say so, with a way back to everyone */
+    const narrow=(MYWORK_TAB==='escalated'&&MYWORK_ESC_WHO)
+      ?'<div class="field-note" style="margin:0 0 8px;">Showing '+escapeHtmlComms(String(opsOwnerName(MYWORK_ESC_WHO)||MYWORK_ESC_WHO).split(' ')[0])+'’s only · <span style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_ESC_WHO=\'\';renderMyWork()">Show everyone</span></div>':'';
+    wrap.innerHTML=narrow+(rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
+      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>');
     return;
   }
   const lane=(label,note,color,count,body)=>'<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
@@ -28896,6 +28984,9 @@ function renderMyWork(){
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
   if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
+  const team=myWorkTeamHtml(b);
+  if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
@@ -28925,7 +29016,35 @@ function renderMyWork(){
   const sel=myWorkSelectable();
   wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+h;
 }
-function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGo(t){ MYWORK_ESC_WHO=''; MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGoWho(o){ myWorkGo('escalated'); MYWORK_ESC_WHO=String(o||'').toLowerCase(); renderMyWork(); }
+/* One card per teammate whose late work was escalated to me: how many, how many urgent, the oldest, and the first few
+   (urgent first) so nothing is hidden behind a number. See them opens the Escalated to you tab on just that person. */
+function myWorkTeamHtml(b){
+  const esc=escapeHtmlComms, me=String(opsMeKey()||'').toLowerCase();
+  const items=(b.escalated||[]).filter(i=>opsTeamEscalated(i, me));
+  if(!items.length) return '';
+  const by={}; items.forEach(i=>{ const o=String(i.owner).toLowerCase(); (by[o]=by[o]||[]).push(i); });
+  const md=x=>{ const d=new Date(x); return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  return Object.keys(by).sort((x,y)=>by[y].length-by[x].length).map(o=>{
+    const list=by[o].slice().sort((a,c)=>((c.escalation&&c.escalation.level==='urgent')-(a.escalation&&a.escalation.level==='urgent'))
+      ||String(a.due||'').localeCompare(String(c.due||'')));
+    const urgent=list.filter(i=>i.escalation&&i.escalation.level==='urgent').length;
+    const oldest=list.map(i=>i.due).filter(Boolean).sort()[0];
+    const first=String(list[0].owner_name||opsOwnerName(o)||o).split(' ')[0];
+    return '<div class="wkcard wk-team" data-owner="'+esc(o)+'" style="padding:13px 15px;margin-bottom:8px;">'
+      +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:15px;">'+esc(first)+' has '+list.length+' late item'+(list.length===1?'':'s')+'</b>'
+      +(urgent?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);font-weight:700;">'+urgent+' urgent</span>':'')
+      +(oldest?'<span class="field-note">oldest was due '+esc(md(oldest))+'</span>':'')+'</div>'
+      +'<div style="font-size:13.5px;margin-top:5px;">'+list.slice(0,3).map(i=>'· '+esc(i.title||i.about||'')+(i.about&&i.title&&i.about!==i.title?' <span class="field-note">('+esc(i.about)+')</span>':'')).join('<br>')
+      +(list.length>3?'<br><span class="field-note">and '+(list.length-3)+' more</span>':'')+'</div>'
+      +'<div class="field-note" style="margin-top:4px;">They stay '+esc(first)+'’s. Look, nudge, or take one.</div>'
+      +'<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">'
+      +'<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkGoWho(\''+esc(o)+'\')">See '+esc(first)+'’s list</button>'
+      +'</div></div>';
+  }).join('');
+}
 
 /* PAST ITS DAY, the two answers (2026-10-17). Close it: closed as stale (the same code the Stale quick-close uses),
    with the day in the note so the record says why. Still needs doing: remembered for that day only, so the card goes
@@ -28943,6 +29062,20 @@ async function opsPastClose(id, quiet){
   if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
   MYWORK_SEL.delete(id);
   if(!quiet){ myWorkRefresh(); ccToast('Closed. Its day had passed.'); }
+}
+/* Looks done (919): Close it = done with what showed it in the note; Not yet = remembered, so it is not suggested again until
+   something new happens with them. */
+async function opsLooksDoneClose(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it || it.status!=='open' || !it.looks_done) return;
+  await opsCloseCommit(it, 'Looked done: '+String(it.looks_done.why||'').slice(0,300), null);
+  ccToast('Closed.');
+}
+async function opsLooksDoneNo(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  it.looks_done_no={ at:new Date().toISOString(), by:(typeof ME!=='undefined'&&ME.name)||'' };
+  opsLog(it,'Not done yet (the check said it looked done)');
+  await persist('ops_items',it);
+  myWorkRefresh();
 }
 async function opsPastKeep(id){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
@@ -29001,7 +29134,7 @@ function myWorkBulkBar(rows){
     +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">'
     +'<input type="checkbox" '+(all?'checked':'')+' onchange="myWorkSelectAll(this.checked)" '
     +'style="width:16px;height:16px;cursor:pointer;"> '
-    +(n?('<b>'+n+' selected</b>'):('Select all '+rows.length))+'</label>';
+    +(n?('<b>'+n+' selected</b>'):'Select all')+'</label>';
   if(n){
     const sel=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
     // Only offered when it means the same thing for everything selected.
@@ -32650,6 +32783,7 @@ const OPS_KINDS = {
   review:         { label:'Review',       hours:24 },
   recurring:      { label:'Recurring duty', hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
+  new_family_call:{ label:'New family?',   hours:2  },   /* call-lead.js v4: the one-tap card (2026-10-18) */
   discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
@@ -34299,7 +34433,7 @@ function clgValue(v){
    line from here too. */
 const AXL={ rows:{}, at:{} };
 const AXL_OUT={ sent_confirmed:['ok','Confirmed by AxisCare'], sent:['sent','Sent, not read back'], refused:['bad','Refused'], practice:['dry','Practice run'] };
-const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Team Builder',
+const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Caregiver Matching',
   'care-level':'Care level', 'coverage-assign':'Coverage', 'call-disposition':'Call summary', 'axiscare-note':'Note' };
 async function axLogLoad(force){
   const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)){ axLogRender(); return; }
@@ -35086,7 +35220,10 @@ function opsReconcileLeads(){
 function opsCanSee(i){
   if(!i || !i.sensitive) return true;
   const meEmail=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
-  if(meEmail && typeof DISC_APPROVERS!=='undefined' && DISC_APPROVERS.includes(meEmail)) return true;
+  if(meEmail && ccIsOwner(meEmail)) return true;
+  /* SOP ruling 2 (2026-10-17): a Care Coordinator can now be the one asked to approve a write-up, so whoever the
+     item is given to sees it too. Nobody else does. */
+  if(meEmail && String(i.owner||'').toLowerCase()===meEmail) return true;
   const raised=String(i.created_by_email||i.created_by||'').toLowerCase();
   const meKey=String(opsMeKey()||'').toLowerCase();
   return !!meEmail && (raised===meEmail || (!!meKey && raised===meKey));
@@ -35115,21 +35252,29 @@ function opsReconcileDiscipline(){
       it = { id:'ops_disc_'+id, kind:'discipline', source_id:id, sensitive:true,
              title:'Write-up for '+(a.caregiver||'a caregiver')+' needs approval',
              detail:(a.level? a.level+'. ':'')+'Raised by '+(a.created_by||'a coordinator')
-                    +'. Nothing is sent until an owner approves it.',
+                    +'. Approved by '+(typeof WriteupRules!=='undefined' ? WriteupRules.whoApproves(a, DATA.discipline_actions||[]) : 'Samantha or Zach')
+                    +'. Nothing is issued until it is approved.',
              next_action:'Read the whole notice, then approve it or send it back.',
              about:(a.caregiver||''),
              created_by:a.created_by||'', created_by_email:a.created_by_email||a.created_by||'',
              urgency:'today', status:'open', created_at:at, last_activity_at:at,
              due:opsDueFor('discipline','today',at),
              // Domain says what this is ABOUT; owner says who can do the
-             // CURRENT next action. They part company here: the domain is
-             // caregiver performance, but only an owner may approve, so
-             // routing it to the domain owner would create work she is
-             // structurally unable to finish. It moves back to the domain
-             // owner if it is ever sent back for revision.
+             // CURRENT next action: whoever writeup-rules.js says may approve
+             // it (below), which is the domain owner only for team levels she
+             // did not start herself.
              domain:'caregiver_performance',
              owner:'', owner_name:'', opened_by:'system' };
-      const approver = opsDomainEscalation('caregiver_performance') || 'samantha@mo-care.com';
+      /* SOP ruling 2 (2026-10-17): coaching, verbal and first written warnings go to the Caregiver Performance owner
+         (Krystal), leadership levels to its escalation (Samantha), then to whichever owner may approve it. Never
+         to the person who started it. */
+      const dom = opsDomainOwner('caregiver_performance'), esc = opsDomainEscalation('caregiver_performance');
+      const owners = ccOwnerEmails().slice().sort((x,y)=>(y==='samantha@mo-care.com')-(x==='samantha@mo-care.com'));
+      const order = (typeof WriteupRules!=='undefined' && WriteupRules.tier(a, DATA.discipline_actions||[])==='team')
+        ? [dom, esc].concat(owners) : [esc].concat(owners);
+      const approver = (typeof WriteupRules!=='undefined'
+        ? WriteupRules.approverFor(a, order, discWhoFor, DATA.discipline_actions||[]) : '')
+        || esc || 'samantha@mo-care.com';
       it.owner = approver; it.owner_name = opsOwnerName(approver);
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
@@ -35165,7 +35310,8 @@ function opsBadges(){
   // to nag somebody or it is exactly what falls through.
   /* 2026-10-05: the pill carries "late for you", the same number as the header chip. Late with no owner has its
      own header chip, so it still nags somebody without being counted as yours. */
-  const late = opsLateFor(opsMeKey()).length;
+  /* 2026-10-17 (fix 3): the pill carries the same one number as the header chip: Act now, else nothing */
+  let late=0; try{ late=opsTodayCounts().act; }catch(e){}
   /* gb-mywork has existed in the markup since the tab was added and was never
      populated, so the My Work pill has never carried a count. Same number as
      the header chip and the Today bucket — one source, three renderings. */
@@ -35938,7 +36084,7 @@ function renderMgrStrip(){
     const cpN=(typeof cpOverdueCount==='function')?cpOverdueCount():0;
     if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','clOpen(\'Plan reviews\')']);
   }catch(e){}
-  const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  const wuPending=discForMe();
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
   DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
@@ -37259,7 +37405,7 @@ function tbBoardHtml(plan){
         +'</td>'
         +(plan.days||[]).map(function(d){
           var key=tbCellKey(d,s.k), c=(plan.cells||{})[key];
-          if(c&&c.status==='yes') yes++;
+          if(typeof cmCovered==='function'?cmCovered(plan,key,c):(c&&c.status==='yes')) yes++;   /* stage C: a yes needing a recheck isn't coverage */
           if(c&&c.status!=='no') filled++;
           var open=TB.cellOpen===key;
           var inner=c
@@ -37399,7 +37545,7 @@ function tbPoolListHtml(plan,key){
     if(x.lowLevel) flags.push('<b style="color:var(--red);">Level '+x.cg.level+' caregiver, client is Level '+lvT+'</b>');
     if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
     else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
-    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
+    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability unknown</span>');   /* her correction 2026-10-17: missing means Unknown, never Available */
     if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
     if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
     flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
@@ -37493,7 +37639,7 @@ async function tbAskOpen(key){
   var asked=dr.asked_before||[], edited=false;
   var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
   var blockers=[];
-  if(!dr.live) blockers.push('Sending from the Team Builder is switched off right now.');
+  if(!dr.live) blockers.push('Sending from Caregiver Matching is switched off right now.');
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');

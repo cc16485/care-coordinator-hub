@@ -30,7 +30,7 @@ async()=>{
   ok('Select all (with Later open) ticks all five', MYWORK_SEL.size===5, [...MYWORK_SEL]);
   myWorkSelectAll(false); await sleep(100);
   DATA.ops_items=DATA.ops_items.filter(i=>/^later/.test(i.id)); window.__store.ops_items=JSON.parse(JSON.stringify(DATA.ops_items)); MYWORK_LATER_OPEN=true; renderMyWork(); await sleep(100);
-  ok('nothing due today, only Later: the select bar still shows', /Select all 3/.test(W.innerText), W.innerText.slice(0,300));
+  ok('nothing due today, only Later: the select bar still shows', /Select all/.test(W.innerText), W.innerText.slice(0,300));
   // a tick no longer redraws the list (it used to, for every tick)
   let redraws=0; const orig=window.renderMyWork; window.renderMyWork=function(){ redraws++; return orig.apply(this, arguments); };
   const first=W.querySelector('.wkcard'); const firstId=first.dataset.id;

@@ -36,8 +36,8 @@
     CL.busy = (async () => {
       try{
         const since = new Date(Date.now() - DAYS * 864e5).toISOString();
-        const { data, error } = await sb.from('call_task_reading').select('message_id, call_type, lead_id, read_at, detail').eq('channel', 'call').gte('call_at', since).order('read_at', { ascending: false }).limit(800);
-        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '' }; CL.readings = m; }
+        const { data, error } = await sb.from('call_task_reading').select('message_id, call_type, lead_id, read_at, detail, call_at, seconds, who_name, caller').eq('channel', 'call').gte('call_at', since).order('read_at', { ascending: false }).limit(800);
+        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '', call_at: r.call_at || '', seconds: Number(r.seconds) || 0, who: r.who_name || r.caller || '' }; CL.readings = m; }
       }catch(e){ /* no tags; the buttons still work */ }
       CL.at = Date.now(); CL.busy = null; return CL.readings;
     })();
@@ -69,7 +69,7 @@
     if(l) return '<span class="field-note">Lead: <b>' + esc(leadName(l)) + '</b></span> ' + btn('Open lead', 'CallLead.openLead(\'' + esc(l.id) + '\')', false)
       + (onLead ? '' : ' <button class="ghost" style="font-size:12px;padding:4px 10px;" data-lead="' + esc(l.id) + '" onclick="CallLead.make(\'' + esc(id) + '\',this)">Add from this call</button>');
     if(busy) return '<span class="field-note">Reading the call…</span>';
-    if(nl) return '<span class="field-note">Not a lead (' + esc(String(nl.by || '').split(' ')[0] || 'someone') + ') · <a href="#" onclick="CallLead.undoNot(\'' + esc(id) + '\');return false;">Undo</a></span>';
+    if(nl) return '<span class="field-note">Not a lead' + (nl.reason && NOT_REASONS[nl.reason] ? ': ' + esc(NOT_REASONS[nl.reason].toLowerCase()) : '') + ' (' + esc(String(nl.by || '').split(' ')[0] || 'someone') + ') ·<a href="#" onclick="CallLead.undoNot(\'' + esc(id) + '\');return false;">Undo</a></span>';
     const tag = likely(id) ? '<span class="tag-chip" style="background:#E6EEF7;color:#0D365F;font-weight:700;">Sounds like a new family</span> ' : '';
     return tag + btn('Make this a lead', 'CallLead.make(\'' + esc(id) + '\',this)', likely(id))
       + (likely(id) ? ' ' + btn('Not a lead', 'CallLead.markNot(\'' + esc(id) + '\')', false) : '');
@@ -210,7 +210,7 @@
   async function make(id, btn){
     if(!okId(id) || CL.working[id]) return;
     CL.working[id] = true; repaint();
-    try{ const d = await staffCall({ action: 'read', message_id: id }); fillForm(d, (btn && btn.dataset && btn.dataset.lead) || ''); }
+    try{ const d = await readCall(id); fillForm(d, (btn && btn.dataset && btn.dataset.lead) || ''); }
     catch(e){ say('Could not read the call: ' + (e && e.message || e)); }
     finally{ delete CL.working[id]; repaint(); }
   }
@@ -298,16 +298,17 @@
     afterSave(l, p);
   }
 
-  async function markNot(id){
+  async function markNot(id, reason){
     if(!okId(id)) return;
     if(typeof DATA !== 'undefined' && !Array.isArray(DATA.call_lead_marks)) DATA.call_lead_marks = [];
     const m = { id, verdict: 'not', by: me(), at: new Date().toISOString() };
+    if(reason && NOT_REASONS[reason]) m.reason = reason;
     const i = DATA.call_lead_marks.findIndex(x => x && x.id === id); if(i >= 0) DATA.call_lead_marks[i] = m; else DATA.call_lead_marks.push(m);
     await persist('call_lead_marks', m); repaint();
   }
   async function undoNot(id){
     const m = marks().find(x => x && x.id === id); if(!m) return;
-    Object.assign(m, { verdict: '', undone_by: me(), undone_at: new Date().toISOString() });
+    Object.assign(m, { verdict: '', reason: '', undone_by: me(), undone_at: new Date().toISOString() });
     await persist('call_lead_marks', m); repaint();
   }
   function openLead(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id); else openLeadModal(id); }
@@ -399,5 +400,195 @@
 
   /* 2026-10-15 (the Basics card): the same reading as Fill from the call, for lead-basics.js to fill only the empty lines */
   const readLead = leadId => staffCall({ action: 'read_lead', lead_id: leadId });
-  window.CallLead = { readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+
+  /* =====================================================================================================================
+     v4 · THE ONE-TAP "NEW FAMILY?" CARD ON TODAY (Samantha 2026-10-18: "Yes, build the one-tap New Family card as shown").
+     Her question was whether "+ lead" is still needed when the call is recorded and fills the lead. The answer she took:
+     keep a person's yes, make it one tap.
+       · A call the AI tagged as a new family (call reader: new_client_inquiry) with no lead and no "Not a lead" gets ONE
+         card on My Work (ops item ops_newfam_<call>, kind new_family_call, Act now). Owner = whoever owns Family
+         inquiries (the call record does not say who answered); due 2 hours after the call, then the usual late
+         routing. Only calls from the last 48 hours get a card; older undecided ones stay on Call Follow Ups' list.
+       · The card reads the call once (call-to-lead, the same reading Make this a lead uses) and keeps the facts on the
+         card: who, phone, town, hours, days, payer, start.
+       · Yes, lead: a 10-second "Making … a lead · Undo" window, THEN the regular save (saveLead: same-family check,
+         call stamped on the lead as the first conversation, GoHighLevel "lead" tag, journey starts). Undo comes BEFORE
+         the save so there is never a tag, journey or lead to take back. If the save stops for a person (same family
+         found, the AI now unsure, a box the save refuses), the filled form opens instead.
+       · Not a lead: one more tap for who it was; kept on call_lead_marks with the reason (Undo stays on Call Follow Ups).
+       · Check the form first = Make this a lead (the filled form, yellow boxes). Play the call = the GoHighLevel recording.
+     Nothing here sends anything to a family. A card is never turned into a lead by itself.
+     ===================================================================================================================== */
+  const NF = 'ops_newfam_', NF_HOURS = 2, NF_WINDOW_H = 48, NF_WAIT_S = 10;
+  const NOT_REASONS = { caregiver: 'Caregiver or applicant', current: 'Current client or family', referral: 'Referral partner', spam: 'Spam or sales', other: 'Something else' };
+  const PAYER_W = { private: 'Private pay', ltc: 'LTC insurance', va: 'VA', guide: 'Medicare GUIDE', cds: 'CDS', medicaid: 'Medicaid (not accepted)' };
+  const START_W = { asap: 'As soon as possible', this_week: 'This week', this_month: 'This month', planning: 'Planning ahead' };
+  CL.reads = {}; CL.yes = {}; CL.asking = {}; CL.factsBusy = {};
+  /** one reading of a call per session: the card's facts, Yes and Check the form first all use it */
+  async function readCall(id){
+    if(CL.reads[id]) return CL.reads[id];
+    const d = await staffCall({ action: 'read', message_id: id });
+    CL.reads[id] = d; return d;
+  }
+  function factsOf(d){
+    const p = d.prefill || {};
+    const days = Array.isArray(p.schedule_days) && p.schedule_days.length ? p.schedule_days.join(', ') : '';
+    const hrs = String(p.number_of_hours || '').trim();
+    const start = p.desired_start_kind === 'by_date' && p.desired_start_date ? 'By ' + p.desired_start_date : (START_W[p.desired_start_kind] || '');
+    return { caller: [p.first_name, p.last_name].filter(x => x && !PLACEHOLDER.test(x)).join(' '), relationship: p.relationship || '',
+      client: [p.client_first_name, p.client_last_name].filter(Boolean).join(' '), town: p.client_city || '', phone: p.phone || '',
+      hours: hrs ? (/^\d+(\.\d+)?$/.test(hrs) ? 'About ' + hrs + ' a week' : hrs) : '', when: [days, p.times_needed].filter(Boolean).join(' · '),
+      payer: PAYER_W[p.funding_source] || '', start, not_new: d.is_new_family === false };
+  }
+  const nfItems = () => (typeof DATA !== 'undefined' && Array.isArray(DATA.ops_items)) ? DATA.ops_items : [];
+  const refresh = () => { try{ if(typeof myWorkRefresh === 'function') myWorkRefresh(); }catch(e){} repaint(); };
+
+  /** Opens a card for each new-family call waiting on a person; closes it once a lead is made or it is marked not a lead. */
+  let RC = null;
+  function reconcile(){
+    if(RC) return RC;
+    RC = (async () => {
+      try{
+        await load();
+        if(typeof DATA === 'undefined') return;
+        DATA.ops_items = DATA.ops_items || [];
+        const now = new Date().toISOString(), changed = [];
+        Object.keys(CL.readings).forEach(id => {
+          const r = CL.readings[id]; if(!r || r.type !== 'new_client_inquiry' || !okId(id)) return;
+          const itId = NF + id, it = DATA.ops_items.find(x => x && x.id === itId);
+          const l = leadFor(id), nl = notLead(id);
+          if(l || nl){
+            if(it && it.status === 'open'){
+              it.status = 'done'; it.closed_at = now; it.closed_by = (l ? (l.filled_from_calls_by || '') : nl.by) || me() || 'system';
+              it.close_note = l ? 'Made a lead: ' + leadName(l) : 'Not a lead' + (nl.reason ? ' (' + NOT_REASONS[nl.reason] + ')' : '');
+              if(typeof opsLog === 'function') opsLog(it, it.close_note);
+              changed.push(it);
+            }
+            return;
+          }
+          /* Undo on a "Not a lead" brings its card back */
+          if(it && it.status === 'done' && /^Not a lead/.test(String(it.close_note || ''))){
+            it.status = 'open'; it.reopened_at = now; delete it.closed_at; delete it.closed_by; delete it.close_note;
+            if(typeof opsLog === 'function') opsLog(it, 'Back: "Not a lead" was undone');
+            changed.push(it); return;
+          }
+          if(it || !r.call_at || Date.now() - Date.parse(r.call_at) > NF_WINDOW_H * 36e5) return;
+          const owner = (typeof opsDomainOwner === 'function' && opsDomainOwner('family_enquiries')) || '';
+          const n = { id: itId, kind: 'new_family_call', source_id: id, about: r.who || 'Unknown caller', title: 'New family? ' + (r.who || 'Unknown caller'),
+            detail: String(r.summary || '').slice(0, 300), domain: 'family_enquiries', status: 'open', urgency: 'normal',
+            created_at: r.call_at, last_activity_at: r.call_at, due: new Date(Date.parse(r.call_at) + NF_HOURS * 36e5).toISOString(),
+            owner, owner_name: owner && typeof opsOwnerName === 'function' ? opsOwnerName(owner) : '', opened_by: 'system',
+            source: { type: 'new_family_call', message_id: id, call_at: r.call_at, seconds: r.seconds || 0 } };
+          DATA.ops_items.push(n); changed.push(n);
+        });
+        for(const it of changed) await persist('ops_items', it);
+        if(changed.length) refresh();
+      }catch(e){ /* the waiting list on Call Follow Ups still shows them */ }
+      finally{ RC = null; }
+    })();
+    return RC;
+  }
+
+  async function loadFacts(it){
+    const id = it.source_id; if(CL.factsBusy[id]) return;
+    CL.factsBusy[id] = true;
+    try{ const d = await readCall(id); it.facts = factsOf(d); if(it.facts.caller) it.about = it.facts.caller; await persist('ops_items', it); }
+    catch(e){ it._facts_failed = true; }
+    finally{ delete CL.factsBusy[id]; refresh(); }
+  }
+
+  const tile = (label, v) => '<div style="background:#F6F5F0;border-radius:10px;padding:8px 12px;min-width:0;"><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em;">' + esc(label) + '</div>'
+    + '<div style="font-size:14.5px;font-weight:700;' + (v ? '' : 'color:var(--text-muted);font-weight:400;') + '">' + esc(v || 'not heard') + '</div></div>';
+  /** My Work draws this instead of the regular card for kind new_family_call */
+  function card(it, i){
+    const id = it.source_id, f = it.facts || null, src = it.source || {};
+    if(!f && !it._facts_failed && okId(id)) loadFacts(it);
+    const at = src.call_at || it.created_at, mins = src.seconds ? Math.max(1, Math.round(src.seconds / 60)) : 0;
+    const focused = (typeof MYWORK_FOCUS !== 'undefined' && i === MYWORK_FOCUS);
+    const att = typeof opsAttention === 'function' ? opsAttention(it) : { level: 0 };
+    const ownerTag = typeof opsOwnerTag === 'function' ? (String(it.owner || '').toLowerCase() === String((typeof opsMeKey === 'function' && opsMeKey()) || '').toLowerCase() && typeof opsDueText === 'function' ? opsDueText(it) : opsOwnerTag(it)) : '';
+    const who = (f && f.caller) || it.about || 'Unknown caller';
+    const head = esc(who) + (f && f.relationship ? ' <span style="font-weight:400;">(' + esc(String(f.relationship).toLowerCase()) + ')</span>' : '') + (f && f.client ? ', calling about ' + esc(f.client) : '');
+    let h = '<div class="wkcard nf-card' + (focused ? ' focused' : '') + '" data-id="' + esc(it.id) + '" style="padding:15px 17px;margin-bottom:8px;">'
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<span class="tag-chip" style="background:#E6EEF7;color:#0D365F;font-weight:800;">New family?</span>'
+      + '<span class="field-note">Call on the office line · ' + esc(callWhen(at)) + (mins ? ' · ' + mins + ' min' : '') + '</span>'
+      + (ownerTag ? '<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:' + (att.level >= 1 ? 'var(--amber-bg);color:var(--amber)' : 'var(--bg);color:var(--navy)') + ';">' + esc(ownerTag) + '</span>' : '')
+      + '<span style="flex:1;"></span>'
+      + '<span class="wkmore" id="more_' + esc(it.id) + '" onclick="myWorkMore(\'' + esc(it.id) + '\',\'more_' + esc(it.id) + '\')">⋯</span></div>'
+      + '<div style="font-size:17px;font-weight:700;color:var(--navy);margin-top:6px;">' + head + '</div>'
+      + ((f && (f.phone || f.town)) ? '<div class="field-note" style="margin-top:2px;">' + esc([f.phone ? (typeof callsFmtPhone === 'function' ? callsFmtPhone(f.phone) : f.phone) : '', f.town].filter(Boolean).join(' · ')) + '</div>' : '');
+    if(f) h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px;">' + tile('Hours', f.hours) + tile('When', f.when) + tile('Paying with', f.payer) + tile('Start', f.start) + '</div>';
+    else if(!it._facts_failed) h += '<div class="field-note" style="margin-top:8px;">Reading the call for the details…</div>';
+    if(it.detail) h += '<div style="font-size:14px;margin-top:9px;line-height:1.45;">' + esc(it.detail) + '</div>';
+    if(f && f.not_new) h += '<div style="font-size:13px;margin-top:6px;color:#A83A2F;"><b>On a closer read the AI is not sure this is a new family.</b> Check the form first.</div>';
+    h += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:12px;padding-top:12px;">';
+    const y = CL.yes[id];
+    if(CL.working[id]) h += '<span class="field-note"><b>Making the lead…</b></span>';
+    else if(y) h += '<span style="font-size:14.5px;"><b>Making ' + esc(who) + ' a lead in a few seconds.</b></span> <a href="#" onclick="CallLead.undoYes(\'' + esc(id) + '\');return false;" style="font-weight:700;">Undo</a>';
+    else if(CL.asking[id]) h += '<span style="font-size:14px;font-weight:700;color:var(--navy);">Who was it?</span>'
+      + Object.keys(NOT_REASONS).map(k => '<button class="ghost" style="min-height:40px;border-radius:999px;font-size:13.5px;" onclick="CallLead.notPick(\'' + esc(id) + '\',\'' + k + '\')">' + esc(NOT_REASONS[k]) + '</button>').join('')
+      + '<a href="#" onclick="CallLead.notCancel(\'' + esc(id) + '\');return false;">Cancel</a>';
+    else h += '<button class="primary" style="min-height:44px;padding:0 22px;font-size:15px;font-weight:700;background:#1F7A8C;border-color:#1F7A8C;" onclick="CallLead.yes(\'' + esc(id) + '\')">Yes, lead</button>'
+      + '<button class="ghost" style="min-height:44px;padding:0 18px;font-size:15px;" onclick="CallLead.notAsk(\'' + esc(id) + '\')">Not a lead</button>'
+      + '<span style="flex:1;"></span>'
+      + '<a href="#" onclick="CallLead.make(\'' + esc(id) + '\');return false;">Check the form first</a>'
+      + '<a href="#" onclick="CallLead.play(\'' + esc(id) + '\',this);return false;">Play the call</a>';
+    h += '</div><div id="nfrec-' + esc(id) + '"></div></div>';
+    return h;
+  }
+
+  function yes(id){
+    if(!okId(id) || CL.yes[id] || CL.working[id]) return;
+    CL.yes[id] = { t: setTimeout(() => doYes(id), (CL.waitS || NF_WAIT_S) * 1000) };   /* CL.waitS: the browser test only */
+    refresh();
+    readCall(id).catch(() => {});   /* read while the Undo window runs */
+  }
+  function undoYes(id){ const y = CL.yes[id]; if(!y) return; clearTimeout(y.t); delete CL.yes[id]; refresh(); say('Not made. The card is still here.'); }
+  async function doYes(id){
+    if(!CL.yes[id]) return;
+    delete CL.yes[id]; CL.working[id] = true; refresh();
+    const modal = document.getElementById('leadModalBackdrop');
+    let shown = false;
+    try{
+      const d = await readCall(id);
+      if(modal) modal.classList.add('cl-quiet');
+      fillForm(d, '');
+      if(d.is_new_family === false){ shown = true; say('The AI is not sure this is a new family. Check the form, then save.'); return; }
+      if(typeof saveLead !== 'function') throw new Error('the lead form is not loaded');
+      await saveLead();
+      if(modal && modal.classList.contains('open')){ shown = true; say('Check this one before it is saved.'); }
+      else { const l = leadFor(id); say(l ? leadName(l) + ' is a lead. Next: book the home visit.' : 'Saved.'); }
+    }catch(e){ shown = !!(modal && modal.classList.contains('open')); say('Could not make the lead: ' + (e && e.message || e)); }
+    finally{
+      if(modal) modal.classList.remove('cl-quiet');
+      delete CL.working[id];
+      if(shown && modal) modal.scrollTop = 0;
+      reconcile().then(refresh);
+    }
+  }
+  function notAsk(id){ CL.asking[id] = true; refresh(); }
+  function notCancel(id){ delete CL.asking[id]; refresh(); }
+  async function notPick(id, reason){
+    delete CL.asking[id];
+    try{ await markNot(id, reason); say('Marked not a lead (' + NOT_REASONS[reason] + '). Undo is on Call Follow Ups.'); }
+    catch(e){ say('Could not save that: ' + (e && e.message || e)); }
+    await reconcile(); refresh();
+  }
+  async function play(id, a){
+    const holder = document.getElementById('nfrec-' + id); if(!holder) return;
+    if(holder.dataset.loaded){ holder.style.display = holder.style.display === 'none' ? 'block' : 'none'; return; }
+    const was = a && a.textContent; if(a) a.textContent = 'Loading…';
+    try{
+      const sess = await sb.auth.getSession(), tok = sess && sess.data && sess.data.session && sess.data.session.access_token;
+      const r = await fetch(CONFIG.supabase_url + '/functions/v1/calls-feed', { method: 'POST',
+        headers: { Authorization: 'Bearer ' + tok, apikey: CONFIG.supabase_anon_key, 'Content-Type': 'application/json' }, body: JSON.stringify({ recording: id }) });
+      if(!r.ok) throw new Error('no recording');
+      holder.innerHTML = '<audio controls autoplay style="width:100%;margin-top:10px;" src="' + URL.createObjectURL(await r.blob()) + '"></audio>';
+      holder.dataset.loaded = '1';
+    }catch(e){ say('No recording was found for this call.'); }
+    finally{ if(a) a.textContent = was; }
+  }
+
+  window.CallLead = { reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
 })();

@@ -1,8 +1,8 @@
 """SOP ruling 8 (Samantha 2026-10-17): routine notices go to the work area owner, then the Springfield lead, then
 Samantha, and "owners see all work and who has it, don't keep any cards from me". Made-up data, offline: an owner opens
 Needs Attention on Everyone grouped by who has each card, staff still open on Mine, an escalated check-in becomes a card
-for the Client care owner and emails the owner and the lead, the Springfield lead can assign referral partners, and an
-unsubscribe link names the lead. (python3 tests/browser/routine_notices_look.py; it serves this folder itself)"""
+for the Client care owner and emails the owner and the lead, and an unsubscribe link names the lead. (Who assigns
+referral partners is PR 490's, tests/partner-owner-assign-test.js.) (python3 tests/browser/routine_notices_look.py; it serves this folder itself)"""
 import http.server, os, socketserver, threading, functools
 from playwright.sync_api import sync_playwright
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -64,15 +64,6 @@ async()=>{
   /* unsubscribe */
   const html=ccBuildEmailHTML({ subj:'Test', ac:'#4f8f74', blocks:[], pre:'' });
   ok('the unsubscribe link goes to the Springfield lead', /mailto:krystal@mo-care\.com\?subject=Please%20unsubscribe%20me/.test(html) && !/mailto:samantha@/.test(html));
-  /* referral desk: the lead can assign, settings stay with owners */
-  DATA.referral_orgs=[{ id:'o1', name:'Hospice X', created_at:new Date().toISOString() },{ id:'o2', name:'Elder Law Y', created_at:new Date().toISOString() }];
-  const mk=(id,v)=>{ let s=document.getElementById('pdOwn_'+id); if(!s){ s=document.createElement('select'); s.id='pdOwn_'+id; document.body.appendChild(s); } s.innerHTML='<option value="'+v+'">x</option>'; s.value=v; };
-  window.toast=()=>{}; window.ccToast=()=>{};
-  (0,eval)(`ME={ email:'${K}', name:'Krystal Land', shift:'day' };`); mk('o1',A); await pdAssign('o1');
-  ok('the Springfield lead can assign a new referral partner', DATA.referral_orgs[0].owner_email===A && DATA.referral_orgs[0].owner_assigned_by===K, DATA.referral_orgs[0]);
-  (0,eval)(`ME={ email:'${A}', name:'Angiel Test', shift:'day' };`); mk('o2',A); await pdAssign('o2');
-  ok('...a coordinator who is not the lead cannot', !DATA.referral_orgs[1].owner_email, DATA.referral_orgs[1]);
-  (0,eval)(`ME={ email:'${S}', name:'Samantha Troutman', shift:'manager' };`);
   ok('call-in alert admins: an empty list shows the server fallback', (()=>{ DATA.ops_settings={}; const l=tkAdminsNow().map(x=>x.email); return JSON.stringify(l)===JSON.stringify([K]); })());
   return R;
 }

@@ -5,8 +5,9 @@
    details), referral_activities (every visit, call, email), and leads (what each partner sent and what became of it).
 
    HER RULES
-   · one owner per partner. Partners that existed when the desk started are hers until she hands them out; a partner
-     added after that waits in "Needs an owner" (and shows on the default owner's week so it's never nobody's)
+   · one owner per partner. Care Coordinators own partners and the Springfield lead (or an owner) assigns them
+     (her ruling 2026-10-18). A partner with no owner waits in "Needs an owner", which the people who assign see on
+     the desk and on Today, until somebody is picked. There is no default owner any more.
    · tier timing, adjustable in Settings: A every 14 days, B every 30, C every 42, a new partner 7 days after the first visit
    · relationship potential counts: a new or high-potential partner gets A timing for its first 90 days (or until its
      first referral), so it's never buried in C; within a tier, high potential comes first
@@ -19,7 +20,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const DEFAULTS = { cadence: { A: 14, B: 30, C: 42, new: 7 }, a_days: 90, a_count: 3, b_days: 365, priority_days: 90,
-    default_owner: 'samantha@mo-care.com', since: '2026-10-08', towns: [] };
+    since: '2026-10-08', towns: [] };
   const FACE = ['dropby', 'appointment', 'event'], TOUCH = ['dropby', 'appointment', 'event', 'call', 'email'];
   const POT = { high: 0, medium: 1, '': 2, low: 3 }, TIER_RANK = { P: 0, A: 1, B: 2, C: 3 };
   const lc = s => String(s == null ? '' : s).trim().toLowerCase();
@@ -37,13 +38,10 @@
     s.towns = Array.isArray(s.towns) ? s.towns.map(t => String(t).trim()).filter(Boolean) : [];
     return s;
   }
-  /* who owns it: the assigned owner, else (for a partner that existed when the desk started) the default owner */
-  function ownerOf(o, st) {
-    const S = settings(st), e = lc(o && o.owner_email);
-    if (e) return { email: e, how: 'assigned' };
-    const made = o && o.created_at ? ymd(o.created_at) : '0000-00-00';
-    if (made <= S.since) return { email: lc(S.default_owner), how: 'existing' };
-    return { email: '', how: 'needs_owner' };
+  /* who owns it: the assigned owner, else nobody yet ("Needs an owner"). A default_owner left in old settings is ignored. */
+  function ownerOf(o) {
+    const e = lc(o && o.owner_email);
+    return e ? { email: e, how: 'assigned' } : { email: '', how: 'needs_owner' };
   }
   /* the leads a partner sent: by its id; older leads with only words are matched by name (the Hub's own rule) */
   function leadsOf(o, leads) {
@@ -89,16 +87,16 @@
     return { id: o.id, name: o.name, tier: priority ? 'P' : tier, tier_label: priority ? 'Priority' : tier, why, potential: pot, cadence, cadence_why: cadWhy,
       last_touch: last, due, overdue_days: last && due < today ? daysBetween(due, today) : (!last ? null : 0), on_week: onWeek, planned,
       sent: sent.length, sent_12m: in12.length, became: sent.filter(becameAt).length, last_referral: lastRef ? ymd(lastRef) : null,
-      sent_this_week: sentThisWeek.length, reasons, owner: ownerOf(o, ctx.settings) };
+      sent_this_week: sentThisWeek.length, reasons, owner: ownerOf(o) };
   }
   /** the week's list for one owner (or everyone when owner is '*'): due by Sunday or sent this week, best first */
   function week(orgs, ctx, owner) {
-    const S = settings(ctx && ctx.settings), mine = e => owner === '*' || e === lc(owner) || (!e && lc(owner) === lc(S.default_owner));
+    const mine = e => owner === '*' || (!!e && e === lc(owner));
     return (orgs || []).filter(o => o && !o.archived).map(o => look(o, ctx)).filter(x => x.on_week && mine(x.owner.email))
       .sort((a, b) => (b.sent_this_week ? 1 : 0) - (a.sent_this_week ? 1 : 0) || TIER_RANK[a.tier] - TIER_RANK[b.tier] || (POT[a.potential] ?? 2) - (POT[b.potential] ?? 2)
         || String(a.due).localeCompare(String(b.due)) || String(a.name).localeCompare(String(b.name)));
   }
-  function needsOwner(orgs, ctx) { return (orgs || []).filter(o => o && !o.archived && ownerOf(o, ctx && ctx.settings).how === 'needs_owner'); }
+  function needsOwner(orgs) { return (orgs || []).filter(o => o && !o.archived && ownerOf(o).how === 'needs_owner'); }
   /** referral leads not linked to a partner, grouped by the name typed (or the organization a website referral named) */
   function unlinked(leads) {
     const g = {};

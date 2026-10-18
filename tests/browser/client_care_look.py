@@ -18,7 +18,7 @@ FAKE = r"""
     episodes:[{ episode_n:1, status:C.state[ax]==='active'||C.state[ax]==='paused'?'open':'closed', created_at:'2026-09-01', closed_reason:C.state[ax]==='past'?null:null }],
     roles:ax==='500'?[C.r500]:ax==='501'?[{ status:'former', ended_at:'2026-01-02', end_reason:'deceased' }]:[{ status:C.state[ax]==='past'?'former':'active' }],
     changes:ax==='777'?C.changes:ax==='500'?C.ch500:[], reasons,
-    can:{ pause:['active','starting'].includes(C.state[ax]), resume:C.state[ax]==='paused', end:['active','starting','paused'].includes(C.state[ax]), return:C.state[ax]==='past'&&W.__me.email==='sam@mo-care.com', end_date:['past','deceased'].includes(C.state[ax]) } });
+    can:{ pause:['active','starting'].includes(C.state[ax]), resume:C.state[ax]==='paused', end:['active','starting','paused'].includes(C.state[ax]), return:C.state[ax]==='past',   /* 2026-10-17 SOP 30: Care Coordinators and owners (the server refuses Staffing; care_test.mjs) */ end_date:['past','deceased'].includes(C.state[ax]) } });
   const of=W.fetch; W.fetch=async(u,o)=>{ if(/client-journey/.test(String(u))){ const b=JSON.parse(o.body);
       if(String(b.action||'').startsWith('care_')){ C.calls.push(b); let out={};
         if(b.action==='care_state') out=stateOf(b.axiscare_client_id);
@@ -69,7 +69,7 @@ T = r"""async()=>{
   ok('...ended (deceased): the profile says Deceased and offers nothing; kept for the record only', /Deceased/.test(B().innerText) && !B().querySelector('button') && /No outreach of any kind/.test(B().innerText), B().innerText);
   await openLeadProfile('R5','summary'); await sleep(500);
   ok('a past client imported from AxisCare: Past, "on or before" the date we first saw them inactive, never an exact date, and no guessed reason', /Past client/.test(B().innerText) && /Care ended on or before [A-Z][a-z]{2} 8, 2026 · exact date not recorded in AxisCare/.test(B().innerText) && /reason not recorded in AxisCare/.test(B().innerText), B().innerText);
-  ok('...a Care Coordinator can\'t resume a past client\'s care', !/Resume care/.test(B().innerText));
+  ok('...a Care Coordinator can resume a past client\'s care (Samantha 2026-10-17, SOP 30), and the note says so', /Resume care/.test(B().innerText) && /Care resumes only when a Care Coordinator or an owner confirms it/.test(B().innerText) && !/when an owner confirms/.test(B().innerText), B().innerText);
   /* END DATE FIX (2026-10-08) */
   const fixA=()=>[...B().querySelectorAll('a')].find(a=>/Correct end date/.test(a.textContent));
   ok('end date fix: a past client shows a "Correct end date" link', !!fixA());
@@ -82,7 +82,7 @@ T = r"""async()=>{
   ok('...the care history keeps the old date and how we know', /End date corrected: Was on or before 2026-10-08\. How we know: AxisCare notes/.test(B().querySelector('.cc-hist').textContent), B().querySelector('.cc-hist')&&B().querySelector('.cc-hist').textContent);
   await shot('past');
   window.__as('sam@mo-care.com','Samantha Owner'); await openLeadProfile('R5','summary'); await sleep(500);
-  ok('...an owner can, on purpose: the button says Resume care, never "new episode"', /Resume care/.test(B().innerText) && !/episode/i.test(B().innerText));
+  ok('...an owner can too, on purpose: the button says Resume care, never "new episode"', /Resume care/.test(B().innerText) && !/episode/i.test(B().innerText));
   [...B().querySelectorAll('button')].find(b=>/Resume care/.test(b.textContent)).click(); await sleep(150);
   ok('...the form says they were served before and the old history stays', /was served before/.test(dlg().innerText) && /earlier history stays/.test(dlg().innerText)); dlg().querySelector('#ccNo').click();
   await openLeadProfile('R6','summary'); await sleep(500);

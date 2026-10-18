@@ -5,7 +5,8 @@
      Shift alerts, check-in work and routine outreach stop; one "Is care restarting?" card goes to their Care Coordinator.
    · Resume care · Pause longer · End care: why (her nine reasons; Other needs an explanation), the effective date (the
      last day of service), who told us. The journey and open work close; nothing is deleted; a death adds one sympathy task.
-   · Resume care (owners, past clients only; Samantha 2026-10-08: "Resume care", not "Start a new episode"): a new journey
+   · Resume care (Care Coordinators and owners, past clients only; Samantha 2026-10-08: "Resume care", not "Start a new
+     episode"; Care Coordinators too from 2026-10-17, SOP 30): a new journey
      on the same person; the old history stays.
    · The Medicaid checklist on a pause or end: the regulation's steps for a PERSON to do (never automatic), each with how it
      was done, the date and proof, or "not needed" and why. Anything DSDS hasn't answered says so.
@@ -50,7 +51,7 @@
     if(d.can.end_date) h += '<a href="javascript:void(0)" class="cc-fix" onclick="ccCareForm(\'end_date\')">Correct end date</a>';
     h += '</div>';
     if(d.state === 'deceased') h += '<div class="field-note cc-quiet">Kept for the record only. No outreach of any kind: no campaigns, review requests, reactivation prompts or follow-up.</div>';
-    if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. Care resumes only when an owner confirms it.</div>';
+    if(d.state === 'past') h += '<div class="field-note cc-quiet">No journey, reminders, campaigns or review requests. Care resumes only when a Care Coordinator or an owner confirms it.</div>';
     /* the Medicaid checklist on the latest pause or end that has one */
     const ch = (d.changes || []).filter(c => (c.kind === 'pause' || c.kind === 'end') && (c.checklist || []).length).slice(-1)[0];
     if(ch && (ch.kind === 'end' || d.state === 'paused')) h += checklistHtml(ch);
