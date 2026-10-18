@@ -127,7 +127,7 @@
       id:     function (c) { return String(c.id); },
       due:    function (c) { return c._superseded ? '' : ymdOf(c.next_checkin_due); },
       who:    function (c) { return c.coordinator; },
-      title:  function (c) { return 'Client check-in due — ' + c.client_name; },
+      title:  function (c) { return 'Client check-in due: ' + c.client_name; },
       about:  function (c) { return c.client_name; },
       detail: function (c) {
         return 'Scheduled check-in. Last one ' + (c.checkin_date || 'not recorded')
@@ -184,7 +184,7 @@
     id: function (c) { return String(c.id); },
     who: function () { return ''; },              // routed by domain, not by name
     due: function () { return ''; },              // unused: obligations() supplies dates
-    title: function (c) { return 'Compliance — ' + cgName(c); },
+    title: function (c) { return 'Compliance: ' + cgName(c); },
     about: function (c) { return cgName(c); },
     detail: function () { return ''; },
     next: function () { return ''; },
@@ -259,7 +259,7 @@
           severity: severity,
           restriction: it.restriction === true,
           domain: domain,
-          title: LABEL(it.code) + ' — ' + name,
+          title: LABEL(it.code) + ': ' + name,
           about: name,
           detail: (it.why || LABEL(it.code)) +
             (severity === 'verification'
@@ -550,9 +550,9 @@
     source_gone:      'The record this was generated from no longer exists. Closed automatically.'
   };
   var CLOSE_LOG = {
-    done_at_source:   'Closed automatically — the record shows it was done',
-    obligation_moved: 'Closed automatically — the date it was generated for has moved',
-    source_gone:      'Closed automatically — the record it came from is gone'
+    done_at_source:   'Closed automatically: the record shows it was done',
+    obligation_moved: 'Closed automatically: the date it was generated for has moved',
+    source_gone:      'Closed automatically: the record it came from is gone'
   };
 
   root.CCOblig = {

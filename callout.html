@@ -99,12 +99,12 @@ async function fn(body){
   try{
     const { data:{ session } }=await sb.auth.getSession();
     if(!session){ $('app').style.display='none'; $('loginCard').style.display='block';
-      return { error:'signed out — sign in again above' }; }
+      return { error:'signed out. Sign in again above' }; }
     const r=await fetch(SUPA_URL+'/functions/v1/coverage-shifts',{ method:'POST',
       headers:{ 'Authorization':'Bearer '+session.access_token,'Content-Type':'application/json' },
       body:JSON.stringify(body)});
     return await r.json().catch(()=>({ error:'unreadable answer from the server' }));
-  }catch(e){ return { error:'network problem — try again: '+String(e) }; }
+  }catch(e){ return { error:'network problem. Try again: '+String(e) }; }
 }
 async function fillWho(){
   const out=await fn({ list_caregivers:true });

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>417 Caring Community &mdash; Caring Companions</title>
+<title>417 Caring Community | Caring Companions</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="icon" href="cc-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -464,11 +464,11 @@
   }
   function escT(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function emailText(m, vids) {
-    return '417 CARING COMMUNITY — ' + monthName(m) + '\nOne question. One minute.\n'
+    return '417 CARING COMMUNITY: ' + monthName(m) + '\nOne question. One minute.\n'
       + 'Brought to you by Caring Companions In-Home Senior Care\n\n'
       + vids.map(function (v) {
-          return '• ' + v.prompt + '\n  ' + v.name + (v.title ? ', ' + v.title : '') + ' — ' + v.org
-            + (v.org_phone ? ' — ' + v.org_phone : '') + '\n  Watch: ' + GALLERY + '#v-' + v.id;
+          return '• ' + v.prompt + '\n  ' + v.name + (v.title ? ', ' + v.title : '') + ', ' + v.org
+            + (v.org_phone ? ', ' + v.org_phone : '') + '\n  Watch: ' + GALLERY + '#v-' + v.id;
         }).join('\n\n')
       + '\n\nWant to be in next month\'s issue? Record your minute at ' + SITE + '/417';
   }
