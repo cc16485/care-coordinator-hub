@@ -2862,7 +2862,7 @@ const HB_LEVELS = ['Coaching','Verbal Warning','Written Warning','Final Written 
 
 const HB_TEMPLATES = {
   callout: {
-    label:'Short-notice call-off', section:'2U — Attendance & Dependability', level:'Verbal Warning',
+    label:'Short-notice call-off', section:'2U, Attendance & Dependability', level:'Verbal Warning',
     policy:['Employees are expected to: Report to work as scheduled. Arrive on time. Complete assigned shifts. Notify the office immediately if attendance issues arise. Maintain reliable attendance.',
             'Whenever possible, notify the office at least four (4) hours before the beginning of your shift. For shifts beginning between 7:00 AM and 9:00 AM, notify the office no later than 5:00 PM the previous day, whenever reasonably possible.'],
     boxes:['Less than 4 hours notice','7-9 AM shift, not notified by 5 PM the day before','Repeated short-notice call-offs'],
@@ -2870,7 +2870,7 @@ const HB_TEMPLATES = {
     expect:['Report to all assigned shifts as scheduled.','Give as much notice as the circumstances allow.','Call the office directly rather than telling a coworker.','Keep transportation arrangements reliable, including a backup where possible.','Consider your availability carefully before accepting an assignment.'] },
 
   ncns: {
-    label:'No Call / No Show', section:'2U — Attendance & Dependability', level:'Termination Review', serious:true,
+    label:'No Call / No Show', section:'2U, Attendance & Dependability', level:'Termination Review', serious:true,
     policy:['A No Call / No Show occurs when an employee fails to report to work and fails to notify the company. Because this places vulnerable clients at significant risk, No Call / No Show incidents are considered serious misconduct and may result in immediate termination.',
             'Employees may never leave a client without ensuring appropriate coverage or receiving authorization from the office.'],
     boxes:['Did not report for a scheduled shift','Did not notify the office','Client was left without coverage'],
@@ -2878,7 +2878,7 @@ const HB_TEMPLATES = {
     expect:['This notice is a review of continued employment. Any expectations going forward will be set in that review.'] },
 
   communicate: {
-    label:'Failure to communicate', section:'2N — Communication', level:'Verbal Warning',
+    label:'Failure to communicate', section:'2N, Communication', level:'Verbal Warning',
     policy:['Employees should: Return calls and messages promptly. Notify the office of concerns immediately. Report changes in client condition. Ask questions when unsure. Maintain a respectful tone. Communicate honestly.',
             'Never assume someone else has already reported a concern.',
             'Refer questions regarding scheduling, billing, care plans, or medical concerns to the office.',
@@ -2888,7 +2888,7 @@ const HB_TEMPLATES = {
     expect:['Return office calls and messages promptly.','Report scheduling problems to the office as soon as you know.','Report any change in a client’s condition immediately.','Send clients and families to the office for scheduling, billing and care plan questions.','Keep a working phone that can receive calls and texts.'] },
 
   conduct: {
-    label:'Unprofessional conduct', section:'2M — Professionalism', level:'Verbal Warning',
+    label:'Unprofessional conduct', section:'2M, Professionalism', level:'Verbal Warning',
     policy:['Employees are expected to conduct themselves with honesty, integrity, compassion, and respect at all times.',
             'Professional behavior includes: Being courteous. Speaking respectfully. Maintaining appropriate boundaries. Being dependable. Following company policies. Demonstrating patience. Respecting client choices. Maintaining confidentiality.',
             'Employees should avoid: Becoming personally involved in family conflicts. Sharing excessive personal information. Accepting inappropriate gifts. Making promises they cannot keep. Discussing company matters with clients. Speaking negatively about coworkers or previous caregivers.'],
@@ -2897,14 +2897,14 @@ const HB_TEMPLATES = {
     expect:['Speak respectfully to clients, families, coworkers and office staff at all times.','Keep conversations client-focused and work-related.','Raise concerns about the company with the office, not with clients.','Do not speak negatively about coworkers or previous caregivers.','Maintain professional boundaries in every interaction.'] },
 
   insub: {
-    label:'Refusing to follow direction (insubordination)', section:'2V — Corrective Action', level:'Written Warning',
+    label:'Refusing to follow direction (insubordination)', section:'2V, Corrective Action', level:'Written Warning',
     policy:['Handbook section 2V lists Insubordination among behaviors that may result in corrective action. In plain terms, that means failure or refusal to follow reasonable directions, instructions, or policies from supervisors or agency leadership.'],
     boxes:['Refused to perform assigned duties','Refused to follow a care plan after being directed','Refused to complete required documentation','Argued with or hung up on office staff','Ignored scheduling instructions'],
     why:'The office is responsible for the client’s care plan and for the agency’s compliance. When direction is refused, care can fall outside what was authorised and the agency cannot stand behind it.',
     expect:['Follow reasonable direction from the office and from agency leadership.','Complete assigned duties and required documentation.','Follow the care plan as written; raise concerns with the office rather than changing it yourself.','Bring disagreements to the office professionally and at the time.'] },
 
   boundary: {
-    label:'Client boundaries and gifts', section:'4Q — Gifts & Gratuities', level:'Verbal Warning',
+    label:'Client boundaries and gifts', section:'4Q, Gifts & Gratuities', level:'Verbal Warning',
     policy:['Many clients express appreciation through gifts or tips. While small tokens of appreciation may occasionally be appropriate, employees should never request or expect gifts.',
             'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept expensive gifts or valuable property.',
             'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or other significant gifts, politely decline the gift and notify the office.'],
@@ -2914,7 +2914,7 @@ const HB_TEMPLATES = {
     caution:'Under 4Q a small token of appreciation is NOT a violation. Do not issue this notice for one. If the concern is a pattern, describe the pattern.' },
 
   phone: {
-    label:'Improper phone use', section:'2P — Personal Cell Phone Use', level:'Coaching',
+    label:'Improper phone use', section:'2P, Personal Cell Phone Use', level:'Coaching',
     policy:['Employees are expected to limit personal phone use while providing services.',
             'Employees should not: Spend excessive time texting. Browse social media during work hours. Watch videos or stream media. Play games. Make lengthy personal phone calls.',
             'Phones may be used for AxisCare, Electronic Visit Verification, reviewing care plans, documenting care notes, work-related communication with the office, emergencies and approved client-related communication.'],
@@ -3044,7 +3044,7 @@ function hbDocBody(cg, tplKey, level, incidentDate, checked, details){
   const wrap=(s,ind='  ')=>{ const out=[]; let line=ind;
     s.split(/\s+/).forEach(w=>{ if((line+w).length>76){ out.push(line); line=ind; } line+=w+' '; });
     out.push(line); return out.join('\n').replace(/\s+$/gm,''); };
-  return 'CARING COMPANIONS — CORRECTIVE ACTION NOTICE\n'
+  return 'CARING COMPANIONS: CORRECTIVE ACTION NOTICE\n'
     +'══════════════════════════════════════════════\n\n'
     +'Employee:        '+cg+'\n'
     +'Date of notice:  '+today+'\n'
@@ -3082,7 +3082,7 @@ function renderAttendance(){
   attTypeUi();
   const wrap=document.getElementById('att-roster'); if(!wrap) return;
   const names=attCaregivers();
-  if(!names.length){ wrap.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No attendance events logged yet — the record starts with the first log.</div>'; updateAttBadge(); return; }
+  if(!names.length){ wrap.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No attendance events logged yet. The record starts with the first log.</div>'; updateAttBadge(); return; }
   const TYPE_ICON={callin:'📞',tardy:'🕐',ncns:'🚨'};
   wrap.innerHTML=names.map(cg=>{
     const s=attStatus(cg);
@@ -3100,8 +3100,8 @@ function renderAttendance(){
         +'<span style="flex:1">'+creqEsc(t.label)+'</span>'
         +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button></div>').join('')+'</div>':'')
       +(s.drafts.length?s.drafts.map(a=>{
-        const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved — ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
-        return '<div style="font-size:.75rem;color:#92400e;margin-top:.3rem">'+creqEsc(a.level)+' — '+st+' · <a href="#" onclick="openWriteup(\''+a.id+'\');return false;">open</a></div>';
+        const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved, ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
+        return '<div style="font-size:.75rem;color:#92400e;margin-top:.3rem">'+creqEsc(a.level)+' · '+st+' · <a href="#" onclick="openWriteup(\''+a.id+'\');return false;">open</a></div>';
       }).join(''):'')
       +'<details style="margin-top:.45rem"><summary style="cursor:pointer;font-size:.72rem;color:#6E6559">History ('+s.evs.length+' events'+(s.issued.length?', '+s.issued.length+' issued warnings':'')+')</summary>'
       +s.evs.slice().sort((a,b)=>String(b.shift_date).localeCompare(String(a.shift_date))).map(e=>
@@ -3122,10 +3122,10 @@ function updateAttBadge(){
 let _writeupId=null;
 function attDocBody(cg, trigger, level){
   const s=attStatus(cg), cfg=attCfg(), today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const evLine=e=>'  • '+e.shift_date+(e.shift_time?' at '+e.shift_time:'')+' — '
+  const evLine=e=>'  • '+e.shift_date+(e.shift_time?' at '+e.shift_time:'')+': '
     +(e.type==='ncns'?'No-call/no-show':e.type==='callin'?'Call-in'+(e.notice_hours!=null?' with '+e.notice_hours+' hours notice':''):'Tardy'+(e.minutes_late?' ('+e.minutes_late+' minutes late)':''))
-    +(e.note?' — '+e.note:'');
-  return 'CARING COMPANIONS — CORRECTIVE ACTION NOTICE\n'
+    +(e.note?'. '+e.note:'');
+  return 'CARING COMPANIONS: CORRECTIVE ACTION NOTICE\n'
     +'══════════════════════════════════════════════\n\n'
     +'Employee:        '+attGroupName(cg)+'\n'
     +'Date:            '+today+'\n'
@@ -3135,15 +3135,15 @@ function attDocBody(cg, trigger, level){
     +'THE FACTS:\n'+trigger.events.map(evLine).join('\n')+'\n\n'
     +'ATTENDANCE HISTORY ('+cfg.callin_window+'-day window):\n'
     +'  • Call-ins: '+s.callinsWin.length+'   • Tardies: '+s.tardiesWin.length+'\n'
-    +(s.issued.length?'  Prior corrective actions on file:\n'+s.issued.map(a=>'  • '+a.level+' — issued '+String(a.issued_at).slice(0,10)).join('\n')+'\n':'  No prior corrective actions on file.\n')
+    +(s.issued.length?'  Prior corrective actions on file:\n'+s.issued.map(a=>'  • '+a.level+', issued '+String(a.issued_at).slice(0,10)).join('\n')+'\n':'  No prior corrective actions on file.\n')
     +'\nCOMPANY POLICY (Employee Handbook):\n'
-    +'  2U — Attendance & Dependability: "Notify the office as soon as possible\n'
+    +'  2U, Attendance & Dependability: "Notify the office as soon as possible\n'
     +'  when unable to report to work. Whenever possible, provide at least four\n'
     +'  (4) hours notice; early morning shifts should be reported the evening\n'
     +'  before." A No Call / No Show "places vulnerable clients at significant\n'
     +'  risk, is considered serious misconduct and may result in immediate\n'
     +'  termination."\n'
-    +'  2V — Corrective Action: Coaching → Verbal Warning → Written Warning →\n'
+    +'  2V, Corrective Action: Coaching → Verbal Warning → Written Warning →\n'
     +'  Final Written Warning → Suspension → Termination. The company reserves\n'
     +'  the right to skip any step depending upon the seriousness of the\n'
     +'  violation.\n\n'
