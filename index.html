@@ -1830,6 +1830,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" id="myWorkWho"></div>
         </div>
         <div style="flex:1;"></div>
+        <button class="secondary" id="bnBtn" style="display:none;" onclick="bnOpen()" title="Your new-client bonuses (pay is private)">Bonuses</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
       <div id="hoCardWork"></div>
@@ -4586,6 +4587,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
   <button class="secondary" id="rcToggleBtn" onclick="rcToggle(this)">Turn on relationship calls</button>
   <span class="field-note" id="rcSaved"></span>
+</div>
+<!-- Bonus program (Stage 4 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.bonus_live and
+     ops_settings.bonus {start, amount, min_hours, payroll, decider}. The bonus records themselves stay on the server (cc-bonus). -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Bonus program</div>
+<p class="hint">$100 for each new private-pay client whose lead a Care Coordinator owned (the Care Coordinators on the Lead turns list), once the client has 20 completed hours in AxisCare by day 30 and is still with us. A daily check starts each bonus and counts the hours; after day 30 it is ready for approval or under review with the reason. Samantha or Zachary approves a ready one; only the decider makes an exception or marks one not earned, with a reason. The payroll person enters approved ones in Viventium and marks them paid. Pay is private: the records stay on the server and each person sees only their own. Only Samantha or Zachary can change this.</p>
+<div id="bpSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div class="grid2" id="bpFields" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;">
+<div><label>First visits from</label><input type="date" id="bpStart"></div>
+<div><label>Amount ($)</label><input type="number" id="bpAmount" min="1" step="1"></div>
+<div><label>Hours by day 30</label><input type="number" id="bpHours" min="1" step="1"></div>
+<div><label>Payroll person</label><select id="bpPayroll"></select></div>
+<div><label>Decider (exceptions)</label><select id="bpDecider"></select></div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px;">
+  <button class="secondary" id="bpSaveBtn" onclick="bpSave(this)">Save the program</button>
+  <button class="secondary" id="bpToggleBtn" onclick="bpToggle(this)">Turn on the bonus program</button>
+  <span class="field-note" id="bpSaved"></span>
 </div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
@@ -7346,11 +7364,12 @@ The HomeTogether team</pre>
 </div>
 </div>
 
-<script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
+<script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
+<script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18125,6 +18144,49 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Bonus program settings (Stage 4, policy 2026-10-18). Owners only. The records live on the server (cc-bonus). */
+const BP_DEFAULT={ start:'2026-11-01', amount:100, min_hours:20, decider:'samantha@mo-care.com' };
+function bpCfg(){ const b=((DATA.ops_settings||{}).bonus)||{}; return Object.assign({}, BP_DEFAULT, b); }
+function bpSetFill(){
+  const now=document.getElementById('bpSetNow'); if(!now) return;
+  const on=(DATA.ops_settings||{}).bonus_live===true, owner=ccIsOwner(), c=bpCfg();
+  const ppl=(typeof OPS_PEOPLE!=='undefined'&&OPS_PEOPLE||[]).filter(p=>p&&p.primary_email);
+  const opts=(sel)=>'<option value="">Nobody yet</option>'+ppl.map(p=>'<option value="'+escapeHtmlComms(String(p.primary_email).toLowerCase())+'"'+(String(p.primary_email).toLowerCase()===String(sel||'').toLowerCase()?' selected':'')+'>'+escapeHtmlComms(p.full_name||p.primary_email)+'</option>').join('');
+  const set=(id,v)=>{ const e=document.getElementById(id); if(e){ e.value=v; e.disabled=!owner; } };
+  set('bpStart', c.start); set('bpAmount', c.amount); set('bpHours', c.min_hours);
+  const pr=document.getElementById('bpPayroll'), de=document.getElementById('bpDecider');
+  if(pr){ pr.innerHTML=opts(c.payroll); pr.disabled=!owner; } if(de){ de.innerHTML=opts(c.decider); de.disabled=!owner; }
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> The daily check starts and updates bonuses.':'<b style="color:#B7791F;">Off.</b> The daily check only lists what it would do.')
+    +(c.ot_checked&&c.ot_checked.at?' Viventium overtime check recorded '+String(c.ot_checked.at).slice(0,10)+'.':' The Viventium overtime check is not recorded yet (Samantha does it from the Bonuses window).')+(owner?'':' Only Samantha or Zachary can change this.');
+  ['bpSaveBtn','bpToggleBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=owner?'':'none'; });
+  const tb=document.getElementById('bpToggleBtn'); if(tb) tb.textContent=on?'Turn off the bonus program':'Turn on the bonus program';
+  try{ bnBtnSync(); }catch(e){}
+}
+async function bpSave(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the bonus program.'); return; }
+  const v=id=>String((document.getElementById(id)||{}).value||'').trim();
+  const start=v('bpStart'), amount=Math.round(Number(v('bpAmount'))), hours=Math.round(Number(v('bpHours')));
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(start)||!(amount>=1)||!(hours>=1)){ alert('Pick a start date, an amount and the hours (whole numbers).'); return; }
+  if(!v('bpDecider')){ alert('Pick the decider (the person who makes exceptions).'); return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.bonus=Object.assign({}, m.bonus||{}, { start, amount, min_hours:hours, payroll:v('bpPayroll').toLowerCase(), decider:v('bpDecider').toLowerCase() }); return ['bonus program '+start+' $'+amount+' '+hours+'h']; }, 'bonus program');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('bpSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  bpSetFill();
+}
+async function bpToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn the bonus program on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).bonus_live===true), c=bpCfg();
+  if(on&&!c.payroll){ alert('Pick the payroll person first, then save.'); return; }
+  const ok=await ccConfirm(on?'Turn on the bonus program?\n\nFrom the next daily check:\n· each private-pay client whose first visit is on or after '+c.start+' starts a $'+c.amount+' bonus for the Care Coordinator who owned the lead\n· the hours come from AxisCare (read only); after day 30 it is ready or under review\n· everyone sees only their own; payroll sees approved ones; you and Zachary see all\n\nNothing is sent to anyone.'
+    :'Turn off the bonus program? The daily check stops starting or updating bonuses. Bonuses already on file stay, and can still be approved and paid.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.bonus_live=on; if(on&&!m.bonus_live_since) m.bonus_live_since=new Date().toISOString(); return ['bonus program '+(on?'ON':'OFF')]; }, 'bonus program');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('bpSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  bpSetFill();
+}
 /* Relationship calls settings (Stage 3, policy 2026-10-18). Owners only. */
 function rcOn(){ return typeof RelationshipRules!=='undefined'&&RelationshipRules.on(DATA.ops_settings||{}); }
 function rcSetFill(){
@@ -18211,6 +18273,7 @@ function lhSetFill(){
   try{ ltSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
+  try{ bpSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -29470,6 +29533,7 @@ function myWorkTabBadge(k,b){
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
 }
 function renderMyWork(){
+  try{ if(typeof bnBtnSync==='function') bnBtnSync(); }catch(e){}   /* Stage 4: the Bonuses button */
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
