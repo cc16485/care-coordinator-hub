@@ -739,6 +739,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px;}
   .filter-pill{background:#fff;border:1px solid var(--border);padding:6px 12px;border-radius:20px;font-size:12px;font-weight:500;color:var(--text-muted);}
   .filter-pill.active{background:var(--navy);border-color:var(--navy);color:#fff;}
+  #clFilters .filter-pill.cl-main{padding:9px 20px;font-size:14px;font-weight:700;color:var(--navy);border-width:1.5px;}
+  #clFilters .filter-pill.cl-main.active{color:#fff;}
+  #clFilters .cl-more{flex-basis:auto;height:auto;align-self:center;font-size:12px;color:var(--text-muted);margin-left:14px;padding-left:14px;border-left:1px solid var(--border);}
   .toolbar .spacer{flex:1;}
   button.primary{background:var(--navy);color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:600;}
   button.primary:hover{background:var(--navy-dark);}
@@ -7346,7 +7349,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
-<script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
+<script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
 <script src="open-hours.js?v=3"></script>
 <script src="scheduling-guide.js?v=3"></script>
@@ -10405,7 +10408,7 @@ function cpRenderCare(){
   /* 2026-10-12 fix: the shift-notes state is a page-level const named CN (line ~9787), so a bare CN here meant THAT object
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
-  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
+  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261018'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
 async function cpNewAssessment(){
@@ -33263,7 +33266,7 @@ const LEAD_STAGE_META={
    board and the profile's Summary alike. It reads what the older lists read: the latest check-in,
    the latest care plan review, open concerns (client_issue, by person), open family requests
    (staffing_tasks, by AxisCare id) and call-offs in the last 30 days (coverage_cases). */
-const CL={ roster:null, issues:null, loading:false, filter:'Needs something', census:null, censusErr:'', beat:null, q:'' };
+const CL={ roster:null, issues:null, loading:false, filter:'', census:null, censusErr:'', beat:null, q:'' };
 /* THE CLIENTS DIRECTORY (2026-10-12, hers: "Clients need to have a directory just like caregivers", after "dan has not
    been pulled over from Axiscare!"). Like the Caregivers directory, the list starts from who AXISCARE says exists
    (client-census-report, read live, never stored), and the Hub's people, check-ins and due items enrich it. An active
@@ -33427,16 +33430,21 @@ function renderClientsBoard(){
     ['Active', x=>!x.past],
     ['Past', x=>x.past],
     ...(all.some(x=>x.unconnected)?[['Not connected yet', x=>!!x.unconnected]]:[]) ];
-  /* Starting care comes first once journeys are live, until someone picks another filter */
-  if(FILTERS[0][0]==='Starting care'&&!CL.picked&&CL.filter==='Needs something') CL.filter='Starting care';
-  const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS[0];
-  document.getElementById('clFilters').innerHTML=FILTERS.map(x=>'<button class="filter-pill'+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+all.filter(x[1]).length+'</span></button>').join('')
+  /* Starting care and Active are the two main views (2026-10-18): they sit up front, bigger; the rest are a smaller
+     "Narrow down" row. Opens on Starting care when someone is being started, otherwise Active, until someone picks */
+  const MAIN=['Starting care','Active'];
+  const startN=FILTERS[0][0]==='Starting care'?cjStartingCount():0;
+  if(!CL.picked&&!FILTERS.some(x=>x[0]===CL.filter)) CL.filter=startN>0?'Starting care':'Active';
+  const f=FILTERS.find(x=>x[0]===CL.filter)||FILTERS.find(x=>x[0]==='Active');
+  const pill=(x,big)=>'<button class="filter-pill'+(big?' cl-main':'')+(x[0]===f[0]?' active':'')+'" onclick="CL.filter=\''+x[0]+'\';CL.picked=true;renderClientsBoard()">'+x[0]+' <span style="opacity:.65;">'+(x[0]==='Starting care'?startN:all.filter(x[1]).length)+'</span></button>';
+  document.getElementById('clFilters').innerHTML=FILTERS.filter(x=>MAIN.includes(x[0])).map(x=>pill(x,true)).join('')
+    +'<span class="cl-more">Narrow down:</span>'+FILTERS.filter(x=>!MAIN.includes(x[0])).map(x=>pill(x,false)).join('')
     +(CL.issues&&CL.issues.error?'<span class="field-note" style="color:var(--red);align-self:center;">Concerns could not load: '+esc(CL.issues.error)+'</span>':'');
   /* Google review asks (2026-10-08): owners see the last 90 days at a glance */
   if(typeof ccIsOwner==='function'&&ccIsOwner()&&typeof rvCounts==='function') rvCounts().then(c=>{ const f=document.getElementById('clFilters'); if(!c||!f||f.querySelector('.rv-count')) return;
     f.insertAdjacentHTML('beforeend','<span class="field-note rv-count" style="align-self:center;margin-left:auto;">Google reviews, last 90 days: '+c.asked+' asked · '+c.left+' left'+(c.said_would?' · '+c.said_would+' said they would':'')+(c.live?'':' · suggestions off')+'</span>'); });
   /* Starting care: every client being started (client journeys, plus any older First shift checklist still open) */
-  if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); document.querySelectorAll('#clFilters .filter-pill').forEach(b=>{ if(/^Starting care/.test(b.textContent)) b.innerHTML='Starting care <span style="opacity:.65;">'+cjStartingCount()+'</span>'; }); return; }
+  if(f[0]==='Starting care'){ box.innerHTML=cjStartingHtml(); return; }
   /* search finds anyone, current or past, whatever filter is on (like the Caregivers directory) */
   const q=clNorm(CL.q);
   const rows=(q?all.filter(x=>clNorm(x.r.client_name).includes(q)||clNorm(x.ax&&((x.ax.first||'')+(x.ax.last||'')+(x.ax.goes_by||''))).includes(q)||String(x.r.axiscare_client_id)===CL.q.trim().replace(/^#/,''))
