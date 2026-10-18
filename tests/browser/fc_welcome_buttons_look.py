@@ -14,7 +14,8 @@ i = HTML.index('function fcRender(){'); j = HTML.index('/* Change 6a: a circle i
 FCJS = HTML[i:j]
 ck('index: the list registers its reload for the app line', "FAMAPP.register('fcl_', fcLoad)" in FCJS)
 ck('index: the list never hands map()\'s array to fcCircleHtml as inProfile', '.map(fcCircleHtml)' not in FCJS)
-ck('index: not drawn inside the profile (its Care circle card has it)', "!inProfile && linked && window.FAMAPP" in FCJS and "fcCircleBody(c, people, linked, esc, true)" in FCJS)
+ck('index: drawn inside the profile too (its Family tab shows this box)', "+ (linked && window.FAMAPP && FAMAPP.circleLine ?" in FCJS)
+ck('index: the profile has no family slot for Client 360\'s card, so this box is the only one', "const slots=['summary','start','care','team','home','history'];" in HTML)
 
 PAGE = """<!doctype html><meta charset=utf-8><body>
 <div id="leadProfileView" style="display:none"></div><div id="cp_c_family"></div><div id="fcList"></div>
@@ -67,7 +68,8 @@ with sync_playwright() as p:
     ck('Lisa now shows Booking App: on', 'Booking App: on' in pg.inner_text('#fam-fcl_-9'))
     # inside the client profile the circle is drawn by fcCircleHtml(.., true): no duplicate app line there
     pg.evaluate("document.getElementById('leadProfileView').style.display='block'; FC_PROFILE={ el:'cp_c_family', ax:'55' }; fcRender();")
-    ck('inside the profile: no app line in the Family Circle box (the Care circle card has it)', 'Invite' not in pg.inner_text('#cp_c_family') and 'Lisa Ray' in pg.inner_text('#cp_c_family'), pg.inner_text('#cp_c_family'))
+    ck('inside the profile: Lisa (invited above) shows Booking App on + Send welcome; Tom needs an email', 'Booking App: on' in pg.inner_text('#cp_c_family') and pg.locator('#cp_c_family #fam-fcl_-9 button', has_text='Send welcome').count() == 1 and 'add an email to invite them' in pg.inner_text('#cp_c_family'), pg.inner_text('#cp_c_family'))
+    ck('inside the profile: the list leaves that circle out, so no doubled ids', pg.locator('[id="fam-fcl_-9"]').count() == 1)
     ck('no page errors', not errs, errs)
     b.close()
 for r in R: print(r[0], r[1], ('  ' + r[2]) if r[2] else '')

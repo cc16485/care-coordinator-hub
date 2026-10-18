@@ -22316,10 +22316,10 @@ function fcCircleBody(c, people, linked, esc, inProfile){
               :(linked&&p.source!=='axiscare'&&p.carried_from!=='client'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
             + '</div>'
-            /* 2026-10-18 her ask: the Booking App line (Invite and send welcome, AxisCare + app sign-in steps) under each person here
-               too, not only on the client profile. Linked circles only (the app needs the client); the profile's own Care circle
-               card already shows it, so not inside the profile. */
-            + (!inProfile && linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_') + '</div>' : '');
+            /* 2026-10-18 her ask: the Booking App line (Invite and send welcome, AxisCare + app sign-in steps) under each person.
+               Linked circles only (the app needs the client). Inside the profile too: the profile's Family & Contacts tab shows
+               THIS box (Client 360's Care circle card has no slot there), so it is where the office sees the family. */
+            + (linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_') + '</div>' : '');
         }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
 
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
