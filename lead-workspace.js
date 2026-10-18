@@ -287,7 +287,15 @@
   function lwOpenAsmt(){ if(typeof cpShowTab === 'function') cpShowTab('care'); window.scrollTo(0, 0); }
   async function lwDsds(){ const l = lead(); if(!l) return; await lbDsds(l.id); render(); }
   function lwYes(b){ const l = lead(); if(!l) return; lbYes(l.id, b); }
-  async function lwOwner(v){ const l = lead(); if(!l) return; l.assigned_coordinator = v || ''; await persist('leads', l); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); }
+  /* Lead turns (Stage 1, policy 2026-10-18): while turns are on, only Samantha or Zachary change an owner, with a reason */
+  async function lwOwner(v){ const l = lead(); if(!l) return;
+    if(typeof leadTurnsOn === 'function' && leadTurnsOn()){
+      if(!(typeof ccIsOwner === 'function' && ccIsOwner())){ alert('Only Samantha or Zachary can change who owns a lead. Helping never changes it.'); render(); return; }
+      const why = await ccPrompt('Why is this lead moving' + (l.assigned_coordinator ? ' from ' + l.assigned_coordinator : '') + ' to ' + (v || 'nobody') + '? (kept in its history)', '');
+      const r = v ? R().changeOwner(l, v, { by_owner:true, by:(ccActor() || {}).email || '', why:why || '' }) : { error:'Pick who should own this lead.' };
+      if(r.error){ alert(r.error + ' The owner was not changed.'); render(); return; }
+    } else l.assigned_coordinator = v || '';
+    await persist('leads', l); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); }
   function lwAi(){ const c = document.getElementById('lp_ai_card'); if(!c) return; c.style.display = c.style.display === 'none' ? '' : 'none'; if(c.style.display !== 'none') c.scrollIntoView({ behavior:'smooth', block:'start' }); }
   async function lwNote(){
     const l = lead(), inp = document.getElementById('lwNoteIn'); if(!l || !inp) return;
