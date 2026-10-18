@@ -14,6 +14,7 @@
   const W = () => (typeof WriteupRules !== 'undefined' ? WriteupRules : null);
   const VIEWS = [
     { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
+    { id: 'practice', label: 'Agent practice', note: 'Check what it would flag', owner: true },
     { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true },
     { id: 'oversight', label: 'Coaching oversight', note: 'Is coaching happening', owner: true },
     { id: 'coaching', label: 'Coaching', note: 'Conversations to have', owner: false },
@@ -90,6 +91,7 @@
           + '.hr-late{color:#B42318;font-weight:700;font-size:12.5px}.hr-foot{margin-top:8px}'
           + '.hr-quote{font-family:Georgia,serif;font-size:13.5px;color:#3a3222;max-width:60ch}'
           + '.hr-rule{padding:8px 0;border-top:1px solid var(--border);font-size:13px;display:grid;gap:3px}'
+          + '.hr-kind{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;white-space:nowrap}.hr-kind-recognition{background:#E3F3F2;color:#1F6E69}.hr-kind-coaching{background:#EEF2F7;color:#334155}.hr-kind-recurring{background:#FEF3C7;color:#92400E}.hr-kind-serious{background:#FDECEA;color:#B42318}'
           + '.hr-serious{font-size:11px;font-weight:700;color:#B42318;background:#FDECEA;border-radius:999px;padding:1px 8px}'
           + '.hr-hb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0}.hr-hb-bar input[type=search]{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}'
           + '.hr-role p,.hr-role li{font-size:14px;line-height:1.6;max-width:68ch}.hr-sel{user-select:all;font-weight:700}'
@@ -110,7 +112,7 @@
     box.hidden = !!PANEL_OF[view];
     if (PANEL_OF[view]) { if (typeof scxEnsure === 'function') scxEnsure(SCX_OF[view]); return; }
     box.innerHTML = '';
-    ({ home: renderHome, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, handbook: renderHandbook, role: renderRole })[view](box);
+    ({ home: renderHome, practice: renderPractice, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, handbook: renderHandbook, role: renderRole })[view](box);
   }
   function go(v) { view = v; render(v); try { window.scrollTo(0, 0); } catch (e) {} }
 
@@ -139,8 +141,61 @@
       + (dl.length ? dl.slice(0, 12).map((x) => '<div class="hr-row"><span><b>' + esc(x.who) + '</b> · ' + esc(x.what) + '</span><span class="' + (x.due.getTime() < now ? 'hr-late' : 'field-note') + '">' + (x.due.getTime() < now ? 'was due ' : 'due ') + esc(fmtDay(x.due)) + '</span></div>').join('')
         : '<div class="field-note">No open deadlines.</div>')
       + '<div class="field-note hr-foot">From the Corrective Action SOP: facts in 2 business days, a decision in 3, the meeting within 5 business days of the decision, and a 30-day follow-up.</div></div>'
+      + '<div class="card hr-card"><div class="hr-card-h">HR agent practice</div><div class="field-note" id="hrPracN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Coaching oversight</div><div class="field-note">How Krystal and Angiel are keeping up with coaching shows here once coaching tasks are switched on. <a href="#" onclick="HR.go(\'oversight\');return false;">What you will see</a></div></div>';
+    loadCases().then((cs) => { const el = document.getElementById('hrPracN'); if (!el) return;
+      if (cs === null) { el.textContent = 'The practice cases could not be read. Reload the page to try again.'; return; }
+      const todo = cs.filter((c) => c.practice && !c.review);
+      el.innerHTML = todo.length ? todo.length + ' case' + (todo.length === 1 ? '' : 's') + ' the agent would have flagged, waiting for you to mark right or wrong. <a href="#" onclick="HR.go(\'practice\');return false;">Review them</a>'
+        : (cs.length ? 'All practice cases are marked. Thank you.' : 'No practice cases yet. The agent runs every morning at 7.'); });
     loadTerminations().then((t) => { const el = document.getElementById('hrTermN'); if (el) el.textContent = t === null ? '?' : String(t.filter((x) => x.status !== 'complete').length); });
+  }
+
+  /* ---------- agent practice (build step 4): what the agent would flag, for Samantha and Zach to mark ---------- */
+  let cases = null, pracFilter = 'todo';
+  const KIND = { recognition: ['Recognition', 'Pass it on to the caregiver'], coaching: ['Coaching', 'Krystal or Angiel talks with them'], recurring: ['Recurring', 'Zach reviews'], serious: ['Serious', 'Zach right away'] };
+  async function loadCases(force) {
+    if (cases && !force) return cases;
+    try { const { data, error } = await sb.from('hr_cases').select('*').order('created_at', { ascending: false }).limit(300); if (error) return null; cases = data || []; return cases; }
+    catch (e) { return null; }
+  }
+  function renderPractice(box) {
+    box.innerHTML = '<div class="hr-h">Agent practice</div>'
+      + '<div class="card hr-card"><div class="field-note">Every morning the HR agent reads attendance, missed shift notes and kind words, and writes down what it would flag. Nothing is sent to anyone while it practices. Mark each one: <b>Right call</b> or <b>Wrong call</b> (say why). When you and Zach agree with what it catches, it can be switched on.</div>'
+      + '<div class="hr-hb-bar" style="margin-top:8px;"><label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'todo' ? 'checked' : '') + ' onchange="HR.pf(\'todo\')"> Not marked yet</label>'
+      + '<label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'all' ? 'checked' : '') + ' onchange="HR.pf(\'all\')"> All</label></div></div>'
+      + '<div id="hrPracList"><div class="field-note">Loading…</div></div>';
+    loadCases(true).then(drawPractice);
+  }
+  function drawPractice() {
+    const el = document.getElementById('hrPracList'); if (!el) return;
+    if (cases === null) { el.innerHTML = '<div class="card hr-card field-note">The practice cases could not be read. Reload the page to try again.</div>'; return; }
+    const list = cases.filter((c) => pracFilter === 'all' || !c.review);
+    const counts = {}; cases.forEach((c) => { counts[c.review || 'todo'] = (counts[c.review || 'todo'] || 0) + 1; });
+    el.innerHTML = '<div class="field-note" style="margin:0 0 8px;">' + cases.length + ' on file · ' + (counts.todo || 0) + ' to mark · ' + (counts.agree || 0) + ' right · ' + (counts.disagree || 0) + ' wrong</div>'
+      + (list.length ? list.map((c) => {
+        const k = KIND[c.kind] || [c.kind, ''];
+        return '<div class="card hr-card"><div class="hr-row" style="border-top:0;padding-top:0;"><span><b>' + esc(c.caregiver) + '</b> · ' + esc(c.title) + '</span>'
+          + '<span class="hr-kind hr-kind-' + esc(c.kind) + '">' + esc(k[0]) + '</span></div>'
+          + '<div class="field-note">' + esc(k[1]) + ' · found ' + esc(String(c.created_at || '').slice(0, 10)) + (c.practice ? ' · practice' : '') + '</div>'
+          + '<div style="margin:6px 0;">' + (c.facts || []).slice(0, 20).map((f) => '<div class="field-note">' + esc(f.date) + ' · ' + esc(f.what) + '</div>').join('') + '</div>'
+          + (c.handbook ? '<div class="hr-quote" style="margin-bottom:6px;">' + esc(c.handbook) + '</div>' : '')
+          + (c.review ? '<div class="field-note"><b>' + (c.review === 'agree' ? 'Right call' : 'Wrong call') + '</b>' + (c.review_note ? ': ' + esc(c.review_note) : '') + ' · ' + esc(c.reviewed_by || '') + ' <a href="#" onclick="HR.mark(\'' + esc(c.id) + '\',null);return false;">change</a></div>'
+            : '<div><button class="primary hr-btn" onclick="HR.mark(\'' + esc(c.id) + '\',\'agree\')">Right call</button> <button class="secondary hr-btn" onclick="HR.mark(\'' + esc(c.id) + '\',\'disagree\')">Wrong call</button></div>')
+          + '</div>'; }).join('')
+        : '<div class="card hr-card field-note">' + (cases.length ? 'Everything is marked.' : 'No practice cases yet. The agent runs every morning at 7.') + '</div>');
+  }
+  async function mark(id, review) {
+    const c = (cases || []).find((x) => x.id === id); if (!c) return;
+    let note = null;
+    if (review === 'disagree') { note = await ccPrompt('Why is this the wrong call? This teaches the agent what to leave alone (your words only; it never changes the rules by itself).', ''); if (note === null) return; }
+    else if (review === 'agree') { note = ''; }
+    const who = String((typeof ME !== 'undefined' && ME && (ME.name || ME.email)) || '');
+    const patch = review ? { review, review_note: (note || '').trim() || null, reviewed_by: who, reviewed_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+      : { review: null, review_note: null, reviewed_by: null, reviewed_at: null, updated_at: new Date().toISOString() };
+    const { error } = await sb.from('hr_cases').update(patch).eq('id', id);
+    if (error) { alert('That did not save: ' + error.message + '. Nothing changed; try again.'); return; }
+    Object.assign(c, patch); drawPractice();
   }
 
   /* ---------- coaching (arrives in build step 5) ---------- */
@@ -221,5 +276,5 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
+  window.HR = { render, go, mark, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();

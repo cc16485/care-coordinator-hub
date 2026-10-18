@@ -13,7 +13,7 @@ function load(isOwner) {
   ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx); return ctx.HR;
 }
 const O = load(true), C = load(false);
-ck('owners see every HR page', JSON.stringify(O._views()) === JSON.stringify(['home', 'formal', 'oversight', 'coaching', 'attendance', 'terminations', 'handbook', 'role']), O._views());
+ck('owners see every HR page', JSON.stringify(O._views()) === JSON.stringify(['home', 'practice', 'formal', 'oversight', 'coaching', 'attendance', 'terminations', 'handbook', 'role']), O._views());
 ck('coordinators see Coaching, Attendance, Handbook and Zach\'s role only', JSON.stringify(C._views()) === JSON.stringify(['coaching', 'attendance', 'handbook', 'role']), C._views());
 
 // business days skip weekends: Fri + 1 = Mon
@@ -42,6 +42,10 @@ ck('Performance starts with recognition', perf.indexOf('cgdKind') > -1 && perf.i
 ck('Performance has a Coaching card for everyone', /card\('Coaching',/.test(H));
 ck('the compliments card is called Recognition', /cgdSectionCard\('Recognition /.test(H));
 ck('no em dashes in hr.js', !/\u2014/.test(SRC));
+// step 4: the practice review page
+ck('Agent practice reads hr_cases and saves only the review columns', /sb\.from\('hr_cases'\)\.select\('\*'\)/.test(SRC) && /review, review_note: .*reviewed_by: who, reviewed_at: /.test(SRC));
+ck('...a wrong call asks why, and says it never changes the rules by itself', /it never changes the rules by itself/.test(SRC));
+ck('...a failed save says so and keeps the page as it was', /That did not save: /.test(SRC));
 
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }
 console.log((res.length - f) + '/' + res.length); process.exit(f ? 1 : 0);
