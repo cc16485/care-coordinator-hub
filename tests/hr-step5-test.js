@@ -17,7 +17,7 @@ ck('no em dashes in hr.js', !/—/.test(SRC));
 ck('My Work: coaching is a card kind', /coaching:\s*\{ label:'Coaching'/.test(H));
 ck('My Work: a coaching card can only be finished on HR, Coaching', /if\(it\.kind==='coaching'\)\{ location\.hash='hr\/coaching'; return; \}/.test(H));
 ck('Performance shows coaching history from hr_coaching, read only', /async function cgdCoachMount\(c\)/.test(H) && /from\('hr_coaching'\)\.select\('\*'\)\.eq\('axiscare_caregiver_id'/.test(H) && /try\{ cgdCoachMount\(c\); \}catch/.test(H));
-ck('hr.js is cache-busted', /hr\.js\?v=20261018d/.test(H));
+ck('hr.js is cache-busted', /hr\.js\?v=20261018e/.test(H));
 // the talking points read well for a sample case
 const ctx = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem: () => {} }, ccCan: () => true, console };
 ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx);
@@ -25,5 +25,19 @@ ck('hr.js loads', !!ctx.HR && typeof ctx.HR.assign === 'function' && typeof ctx.
 ck('talking points follow Situation-Behavior-Impact plus an open question (research 2026-10-18)', /Situation-Behavior-Impact/.test(SRC) && /What has been getting in the way\?/.test(SRC));
 ck('the tips say to stop and tell Zach if a protected situation comes up', SRC.includes("Thank them, write it down and tell Zach before going further"));
 ck('the tips never use labels: dates from the record instead', SRC.includes('never "always late"'));
+// her ask 2026-10-18: say clearly where to stop, and write down their answer to each question
+const ctx2 = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: () => null, setItem: () => {} }, ccCan: () => true, console };
+ctx2.window = ctx2; vm.createContext(ctx2); vm.runInContext(SRC.replace('window.HR = {', 'window.__tp = talkingPoints; window.__sq = stopQuestions; window.__html = tpHtml; window.HR = {'), ctx2);
+const F = [{ date: '2026-10-03', what: 'x' }, { date: '2026-10-10', what: 'y' }, { date: '2026-10-15', what: 'z' }];
+for (const r of ['w06', 'w01', 'w02', 'w03', 'w05']) {
+  const tp = ctx2.__tp({ caregiver: 'Jessica Miller', rule: r, facts: F });
+  ck(r + ': every question is followed by a STOP', ctx2.__sq(tp).length >= 1 && ctx2.__sq(tp).every((q) => /\?$/.test(q)), ctx2.__sq(tp));
+}
+ck('w01 and w03 stop twice (two questions)', ctx2.__sq(ctx2.__tp({ caregiver: 'J', rule: 'w01', facts: F })).length === 2 && ctx2.__sq(ctx2.__tp({ caregiver: 'J', rule: 'w03', facts: F })).length === 2);
+ck('kind words have no STOP (nothing to ask)', ctx2.__sq(ctx2.__tp({ caregiver: 'J', rule: 'kind', facts: F })).length === 0);
+ck('the card shows each STOP as a box that says to write down what they say', /class="hr-stop">STOP\. Let them answer, and write down what they say\./.test(ctx2.__html(ctx2.__tp({ caregiver: 'J', rule: 'w05', facts: F }))));
+ck('the record form has an answer box per question and refuses a missing answer', SRC.includes('You asked: <b>') && SRC.includes('Write down what they said to each question first.'));
+ck('the answers are saved as Asked / They said pairs', SRC.includes("'Asked: ' + x.q + '\\nThey said: ' + x.a"));
+ck('the tips say to stop talking at each STOP and not answer for them', SRC.includes('do not answer for them'));
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }
 console.log((res.length - f) + '/' + res.length); process.exit(f ? 1 : 0);

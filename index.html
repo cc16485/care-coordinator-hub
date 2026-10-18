@@ -8754,7 +8754,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018d'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018e'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
