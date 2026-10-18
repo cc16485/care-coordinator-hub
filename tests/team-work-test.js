@@ -27,7 +27,7 @@ function shiftEnd(e, t){
 }
 function nextShift(e, t){ for(let m = 0; m <= 8 * 1440; m += 15){ const x = t + m * 60000, end = shiftEnd(e, x); if(end != null) return { start:x, end }; } return null; }
 const FAM = { ax_101:K, ax_202:A, lead_9:K };
-function ctx(now, settings){ return { now, settings:settings || {}, coordinators:[K, A], shiftEnd, nextShift,
+function ctx(now, staff){ return { now, settings:{}, staff:staff || [], coordinators:[K, A], shiftEnd, nextShift,
   familyCC: it => FAM['ax_' + (it.client_ax || '')] || FAM['lead_' + (it.source_id || '')] || '',
   minsToShift: it => it._mins == null ? null : it._mins }; }
 const card = (o) => Object.assign({ id:'c' + Math.random().toString(36).slice(2, 7), status:'open', created_at:new Date(at('2026-10-20', '14:40')).toISOString() }, o);
@@ -55,8 +55,9 @@ ck('Tue 1:40 PM: both, Angiel first up (new work after 1:30 goes to Angiel)', JS
 ck('Tue 6 PM: nobody on duty', TW.onDuty(ctx(at('2026-10-20', '18:00'))).length === 0);
 ck('Monday is different: Mon 2:30 PM Krystal is still on (9 to 3) with Angiel', TW.onDuty(ctx(at('2026-10-19', '14:30'))).indexOf(K) > -1);
 ck('Tue 2:30 PM Krystal is off', TW.onDuty(ctx(at('2026-10-20', '14:30'))).indexOf(K) === -1);
-const pto = { team_work_out:[{ id:'o1', person:K, from:'2026-10-20', to:'2026-10-21', why:'Time off' }] };
-ck('Krystal marked out Tue: Tue 10 AM nobody on duty (Angiel starts at 1)', TW.onDuty(ctx(at('2026-10-20', '10:00'), pto)).length === 0);
+/* time off lives in ONE place: the Team page's Out until (coordinator_staff.out_until) */
+const pto = [{ name:'Krystal Land', email:K, out_until:'2026-10-21' }, { name:'Angiel Test', email:A }];
+ck('Krystal out until Wed: Tue 10 AM nobody on duty (Angiel starts at 1)', TW.onDuty(ctx(at('2026-10-20', '10:00'), pto)).length === 0);
 ck('...and Thursday she is back', TW.onDuty(ctx(at('2026-10-22', '10:00'), pto)).indexOf(K) > -1);
 
 /* ── Family requests, missed clock-ins, red and yellow flags ── */
@@ -91,7 +92,7 @@ const kDue = card({ kind:'relationship_call', opened_by:'system', owner:K, due:n
 const kLater = card({ kind:'relationship_call', opened_by:'system', owner:K, due:new Date(at('2026-10-23', '16:00')).toISOString() });
 const kProj = card({ kind:'project', opened_by:'person', owner:K, due:new Date(at('2026-10-20', '12:00')).toISOString() });
 const pc = TW.teamCard(kDue, cPto);
-ck('Krystal out: her card due today shows in Team Work as Covering for Krystal', pc.tab === 'team' && pc.covering && pc.covering.person === K && pc.covering.why === 'Time off', pc);
+ck('Krystal out: her card due today shows in Team Work as Covering for Krystal', pc.tab === 'team' && pc.covering && pc.covering.person === K && pc.covering.why === 'out until 2026-10-21', pc);
 ck('...it stays Krystal\'s family', pc.family === K);
 ck('...her card due Friday stays where it is (no needless handoff)', TW.place(kLater, cPto).tab === 'mine');
 ck('...her project waits for her', TW.place(kProj, cPto).tab === 'mine');
@@ -130,7 +131,7 @@ if(process.env.SNAPSHOT){
       const f = String(r.from || '00:00').split(':').map(Number), to = String(r.to || '23:59').split(':').map(Number);
       if(c.mins >= f[0] * 60 + f[1] && c.mins < to[0] * 60 + to[1]) best = Math.max(best || 0, at(c.ymd, r.to || '23:59')); });
     return best; };
-  const rc = { now, settings:snap.settings || {}, coordinators:coords, shiftEnd:snapEnd, nextShift:() => null, familyCC:famOf, minsToShift:it => it._mins == null ? null : it._mins };
+  const rc = { now, settings:snap.settings || {}, staff:snap.staff || [], coordinators:coords, shiftEnd:snapEnd, nextShift:() => null, familyCC:famOf, minsToShift:it => it._mins == null ? null : it._mins };
   console.log('  on duty at snapshot time: ' + JSON.stringify(TW.onDuty(rc)));
   const tabs = {}, why = {}, team = { care:0, today:0, ordinary:0, fam:0, nofam:0, ruleDeadline:0 }, confInTeam = [];
   (snap.items || []).forEach(it => {

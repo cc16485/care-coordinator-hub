@@ -28,6 +28,7 @@ STUB = r"""
   W.__journeys=[{ axiscare_client_id:'101', assigned_cc:K },{ axiscare_client_id:'202', assigned_cc:A }];
   W.cjJourneyFor=o=>W.__journeys.find(j=>String(j.axiscare_client_id)===String((o&&(o.ax||(o.lead&&o.lead.axiscare_client_id)))||''))||null;
   DATA.handoffs=[]; DATA.leads=[]; DATA.coverage_cases=[];
+  DATA.coordinator_staff=[{ id:'sk', name:'Krystal Land', email:K }, { id:'sa', name:'Angiel Test', email:A }, { id:'ss', name:'Samantha Troutman', email:S }];
   DATA.duty_windows=[
     { id:'dk', area:'operations', person:K, recur:{ days:[1,2,3,4,5], from:'08:00', to:'14:00' } },
     { id:'da', area:'staffing',   person:A, recur:{ days:[1,2,3,4,5], from:'13:00', to:'17:00' } } ];
@@ -104,10 +105,10 @@ async()=>{
   ok('...the family is still Krystal\'s (journey untouched)', TW.familyCC(c)==='krystal@mo-care.com' && window.__journeys[0].assigned_cc==='krystal@mo-care.com');
 
   /* ── Krystal out today: covering ── */
-  DATA.ops_settings.team_work_out=[{ id:'o1', person:'krystal@mo-care.com', from:'2026-10-07', to:'2026-10-07', why:'Time off' }];
+  DATA.coordinator_staff[0].out_until='2026-10-07';   /* the Team page's Out until */
   myWorkGo('team'); await sleep(150);
   const rk=document.querySelector('.tw-card[data-id="relk"]');
-  ok('Krystal marked out: her card due today shows as Covering for Krystal, Time off', rk && /Covering for Krystal, Time off/.test(rk.innerText) && /I’ll cover it/.test(rk.innerText), rk&&rk.innerText);
+  ok('Krystal out (Team page Out until): her card due today shows as Covering for Krystal', rk && /Covering for Krystal, out until 2026-10-07/.test(rk.innerText) && /I’ll cover it/.test(rk.innerText), rk&&rk.innerText);
   const cf=document.querySelector('.tw-card[data-id="famreq"]');
   ok('...a family request routed to Krystal is plain Team Work, not Covering', cf && !/Covering for/.test(cf.innerText) && /Take it/.test(cf.innerText), cf&&cf.innerText);
   ok('...her coaching still never shows (confidential)', !document.querySelector('.tw-card[data-id="coach"]'));
@@ -122,9 +123,9 @@ async()=>{
   /* ── Settings ── */
   as('samantha@mo-care.com','Samantha Troutman'); TW.setFill && (document.getElementById('twSet')) && TW.setFill();
   const st=document.getElementById('twSet').innerText;
-  ok('Settings: hours from the duty schedule, who is out, the switch (owner)', /Krystal Land: Mon, Tue, Wed, Thu, Fri 8am to 2pm/.test(st) && /Angiel Test: Mon, Tue, Wed, Thu, Fri 1pm to 5pm/.test(st) && /Krystal Land: 2026-10-07 \(Time off\)/.test(st) && /Turn off Team Work/.test(st), st);
+  ok('Settings: hours from the duty schedule, who is out, the switch (owner)', /Krystal Land: Mon, Tue, Wed, Thu, Fri 8am to 2pm/.test(st) && /Angiel Test: Mon, Tue, Wed, Thu, Fri 1pm to 5pm/.test(st) && /Krystal Land: out until 2026-10-07/.test(st) && /Turn off Team Work/.test(st), st);
   as('krystal@mo-care.com','Krystal Land'); TW.setFill();
-  ok('Settings as Krystal: no switch, no Mark out', !/Turn (on|off) Team Work/.test(document.getElementById('twSet').innerText) && !document.getElementById('twOutWho'));
+  ok('Settings as Krystal: no switch', !/Turn (on|off) Team Work/.test(document.getElementById('twSet').innerText));
   as('samantha@mo-care.com','Samantha Troutman'); await TW.toggle(); await sleep(50);
   ok('turning it off: back to off, owners keep the preview', DATA.ops_settings.team_work_live===false && tabs().length>=0);
 

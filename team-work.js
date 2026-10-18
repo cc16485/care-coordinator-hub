@@ -12,7 +12,8 @@
    Switched by ops_settings.team_work_live (Settings > Team Work, and the Owners Hub Admin page). While it is off nothing
    moves: My Work is exactly as before, and owners see the Team Work tab as a PREVIEW of the real cards.
    Who is working comes from the duty schedule (each coordinator's own windows, weekday by weekday, one-offs included),
-   and who is out from ops_settings.team_work_out ([{ person, from:'YYYY-MM-DD', to, why, by, at }]).
+   and who is out from the ONE place time off is kept: the Owners Hub Team page's "Out until" (coordinator_staff.out_until),
+   the same date lead turns and the fair counts read. No second list.
    Nothing here texts, emails or calls anyone, and nothing here writes a client journey or a lead.
    The rules (place, track, deadline, escalation, onDuty) are pure functions of a ctx, so tests/team-work-test.js runs
    them under node against made-up cards and against the read-only 964 snapshot of the real ones. */
@@ -68,16 +69,17 @@
   function ms(v){ const t = Date.parse(v || ''); return isNaN(t) ? null : t; }
 
   /* ── who is out, who is working ───────────────────────────────────────────────────────────────────────────────── */
-  function outOn(settings, email, ymd){
-    const list = Array.isArray(settings && settings.team_work_out) ? settings.team_work_out : [];
-    const e = lc(email);
-    return list.find(o => o && lc(o.person) === e && String(o.from || '') <= ymd && ymd <= String(o.to || o.from || '')) || null;
+  /* Out = the Team page's "Out until" date: out from now through that day (it has no start date). */
+  function outOn(staff, email, ymd){
+    const e = lc(email), s = (Array.isArray(staff) ? staff : []).find(x => x && lc(x.email || x.primary_email) === e);
+    const until = s ? String(s.out_until || '').slice(0, 10) : '';
+    return until && ymd <= until ? { until, why:'out until ' + until } : null;
   }
   /* The coordinators working at a moment, first-up first. First up: the earliest shift end that is more than 30 minutes
      away (so after 1:30 Angiel is first while Krystal finishes); when everyone ends within 30 minutes, the latest end. */
   function onDuty(ctx, at){
     const t = at == null ? ctx.now : at, ymd = ymdChicago(t);
-    const on = (ctx.coordinators || []).map(lc).filter(e => !outOn(ctx.settings, e, ymd)).map(e => ({ email:e, end:ctx.shiftEnd(e, t) }))
+    const on = (ctx.coordinators || []).map(lc).filter(e => !outOn(ctx.staff, e, ymd)).map(e => ({ email:e, end:ctx.shiftEnd(e, t) }))
       .filter(x => x.end != null);
     const far = on.filter(x => x.end - t > 30 * MIN).sort((a, b) => a.end - b.end);
     const near = on.filter(x => x.end - t <= 30 * MIN).sort((a, b) => b.end - a.end);
@@ -132,7 +134,7 @@
     if(operational && !claimed) return { tab:'team', why:'operational' };
     /* Covering (the day plan): a coordinator out today; their own work that is late or due today is done by whoever is
        on duty, and stays theirs. Projects and journeys wait for them. */
-    const ymd = ymdChicago(ctx.now), out = owner ? outOn(ctx.settings, owner, ymd) : null;
+    const ymd = ymdChicago(ctx.now), out = owner ? outOn(ctx.staff, owner, ymd) : null;
     if(out && !operational && (!claimed || claimed === owner) && ['project', 'journey'].indexOf(lc(it.kind)) === -1){
       const d = ms(it.due);
       if(d != null && d <= endOfDayMs(ctx)) return { tab:'team', why:'covering', covering:{ person:owner, why:out.why || 'out today' } };
@@ -197,7 +199,7 @@
   function nextShift(email, t){
     for(let m = 0; m <= 8 * 24 * 60; m += 15){
       const at = t + m * MIN, end = shiftEnd(email, at);
-      if(end != null && !outOn(settings(), email, ymdChicago(at))) return { start:at, end };
+      if(end != null && !outOn(D().coordinator_staff, email, ymdChicago(at))) return { start:at, end };
     }
     return null;
   }
@@ -224,7 +226,7 @@
     }catch(e){ return ''; }
   }
   function ctx(){
-    return { now:Date.now(), settings:settings(), coordinators:coordinators(), shiftEnd, nextShift, familyCC,
+    return { now:Date.now(), settings:settings(), staff:D().coordinator_staff || [], coordinators:coordinators(), shiftEnd, nextShift, familyCC,
       minsToShift: it => { try{ return typeof W.opsMinsToShift === 'function' ? W.opsMinsToShift(it) : null; }catch(e){ return null; } } };
   }
   function openItems(){ return ((D().ops_items) || []).filter(i => i && i.status === 'open' && (typeof W.opsCanSee !== 'function' || W.opsCanSee(i))); }
@@ -295,7 +297,7 @@
   function render(wrap){
     if(!wrap) return;
     const c = ctx(), rows = list(), duty = onDuty(c), ymd = ymdChicago(c.now);
-    const outToday = (c.coordinators || []).filter(e => outOn(c.settings, e, ymd));
+    const outToday = (c.coordinators || []).filter(e => outOn(c.staff, e, ymd));
     const lane = (label, note, color, xs) => xs.length ? '<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:12.5px;letter-spacing:.06em;color:' + color + ';">' + label + ' · ' + xs.length + '</b><span class="field-note">' + note + '</span></div>' + xs.map(cardHtml).join('') : '';
     let h = on() ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FDF3E2;color:#8A5A00;"><b>Preview, switched off.</b> Only owners see this tab. Nothing has moved: everyone’s My Work is exactly as before until Team Work is turned on in Settings.</div>';
     h += '<div class="card" style="padding:12px 16px;margin-bottom:10px;background:#EAF4F6;"><b style="color:var(--navy);">The team’s pile.</b> The Hub made these and nobody has taken them yet. Whoever is on duty works from the top. Take it and it moves to your My Work with your name on it. The family keeps its own Care Coordinator either way.'
@@ -313,7 +315,7 @@
   /* ── Settings > Team Work (owners) ── */
   function setFill(){
     const box = document.getElementById('twSet'); if(!box) return;
-    const st = settings(), owner = isOwner(), cc = coordinators(), out = Array.isArray(st.team_work_out) ? st.team_work_out : [];
+    const owner = isOwner(), cc = coordinators(), staff = D().coordinator_staff || [];
     const today = ymdChicago(Date.now());
     const hours = cc.map(e => {
       const ws = ((D().duty_windows) || []).filter(w => lc(w.person) === e && w.active !== false && w.recur && !(typeof W.rowPlanned === 'function' && W.rowPlanned(w)));
@@ -323,35 +325,12 @@
     }).join('');
     box.innerHTML = '<div class="field-note" style="margin:4px 0 8px;">' + (on() ? '<b style="color:#1E8449;">On.</b> Team Work is in everyone’s My Work.' : '<b style="color:#B7791F;">Off.</b> Owners see Team Work as a preview; nobody’s My Work has changed.') + '</div>'
       + '<div><b style="font-size:13px;">Who is working</b> <span class="field-note">(from the duty schedule; change hours in Responsible now › Manage)</span><ul style="margin:4px 0 10px;">' + (hours || '<li>No Care Coordinators found.</li>') + '</ul></div>'
-      + '<div><b style="font-size:13px;">Who is out</b> <span class="field-note">(time off, sick days; their cards due that day show in Team Work as Covering)</span><ul style="margin:4px 0 6px;">'
-      + (out.filter(o => String(o.to || o.from) >= today).map(o => '<li>' + esc(nameOf(o.person)) + ': ' + esc(o.from) + (o.to && o.to !== o.from ? ' to ' + esc(o.to) : '') + (o.why ? ' (' + esc(o.why) + ')' : '')
-        + (owner ? ' <button class="linklike" style="font-size:12px;" onclick="TW.outRemove(\'' + esc(o.id) + '\')">Remove</button>' : '') + '</li>').join('') || '<li class="field-note">Nobody is marked out.</li>') + '</ul>'
-      + (owner ? '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin:4px 0 10px;"><div><label>Who</label><select id="twOutWho">' + cc.map(e => '<option value="' + esc(e) + '">' + esc(nameOf(e)) + '</option>').join('') + '</select></div>'
-        + '<div><label>First day</label><input type="date" id="twOutFrom"></div><div><label>Last day</label><input type="date" id="twOutTo"></div>'
-        + '<div><label>Why (optional)</label><input id="twOutWhy" placeholder="Time off"></div><button class="secondary" onclick="TW.outAdd(this)">Mark out</button></div>' : '') + '</div>'
+      + '<div><b style="font-size:13px;">Who is out</b> <span class="field-note">(the Owners Hub Team page\u2019s \u201cOut until\u201d, the same date lead turns use; their cards due that day show in Team Work as Covering)</span><ul style="margin:4px 0 10px;">'
+      + (cc.map(e => { const o = outOn(staff, e, today); return o ? '<li>' + esc(nameOf(e)) + ': out until ' + esc(o.until) + '</li>' : ''; }).join('') || '<li class="field-note">Nobody is marked out.</li>') + '</ul></div>'
       + (owner ? '<button class="secondary" id="twToggleBtn" onclick="TW.toggle(this)">' + (on() ? 'Turn off Team Work' : 'Turn on Team Work') + '</button> <span class="field-note" id="twSaved"></span>'
         : '<div class="field-note">Only Samantha or Zachary can turn Team Work on or off.</div>');
   }
   async function merge(fn, what){ if(typeof W.tkMerge !== 'function') return { error:{ message:'saving is not available here' } }; return W.tkMerge(fn, what); }
-  async function outAdd(btn){
-    if(!isOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
-    const g = id => (document.getElementById(id) || {}).value || '';
-    const person = lc(g('twOutWho')), from = g('twOutFrom'), to = g('twOutTo') || from, why = g('twOutWhy').trim();
-    if(!person || !from){ alert('Pick who and the first day.'); return; }
-    if(to < from){ alert('The last day is before the first day.'); return; }
-    if(btn) btn.disabled = true;
-    const row = { id:'out_' + Date.now().toString(36), person, from, to, why, by:me(), at:new Date().toISOString() };
-    const r = await merge(m => { m.team_work_out = (Array.isArray(m.team_work_out) ? m.team_work_out : []).concat([row]); return [nameOf(person) + ' out ' + from + (to !== from ? ' to ' + to : '')]; }, 'Team Work');
-    if(btn) btn.disabled = false;
-    if(r && r.error) alert('Could not save: ' + r.error.message);
-    setFill(); if(typeof W.myWorkRefresh === 'function') W.myWorkRefresh();
-  }
-  async function outRemove(id){
-    if(!isOwner()) return;
-    const r = await merge(m => { const o = (Array.isArray(m.team_work_out) ? m.team_work_out : []); m.team_work_out = o.filter(x => x && x.id !== id); return ['out day removed']; }, 'Team Work');
-    if(r && r.error) alert('Could not save: ' + r.error.message);
-    setFill(); if(typeof W.myWorkRefresh === 'function') W.myWorkRefresh();
-  }
   const SW_ON = 'Turn on Team Work?\n\nFrom now:\n· call-offs, missed clock-ins, same-day scheduling and time-sensitive family requests the Hub opened move from My Work to a Team Work tab, until someone takes them\n· each one shows the responsible role, its deadline and its escalation path\n· the cards of a coordinator marked out today show there as Covering\n· Take it makes that one task yours; the family keeps its Care Coordinator\n\nNothing is texted, emailed or called because of this, and escalation rules are unchanged.';
   const SW_OFF = 'Turn off Team Work? Everyone’s My Work goes back to how it was; owners keep the preview. Cards already taken stay with whoever took them.';
   async function toggle(btn){
@@ -375,6 +354,6 @@
     return list().filter(x => x.tc.track === 'care');
   }
   function careHtml(){ return careForMe().map(cardHtml).join(''); }
-  W.TW = Object.assign({}, CORE, { on, visible, ctx, list, teamIds, take, render, careForMe, careHtml, cardHtml, setFill, outAdd, outRemove, toggle, familyCC, shiftEnd, nextShift,
+  W.TW = Object.assign({}, CORE, { on, visible, ctx, list, teamIds, take, render, careForMe, careHtml, cardHtml, setFill, toggle, familyCC, shiftEnd, nextShift,
     count: () => list().length, SW_ON, SW_OFF });
 })(typeof window !== 'undefined' ? window : globalThis);
