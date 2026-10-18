@@ -69,6 +69,8 @@
           /* v13: the promises being watched, and the reader's last run (both best effort; before v13 they are simply empty) */
           try{ const pw = await sb.from('call_promise_watch').select('message_id, idx, channel, call_at, who_name, caller, what, kind, area, owner, due, status, why, evidence, checked_at').gte('call_at', since).order('due', { ascending: true }).limit(500); CPR.promises = pw.error ? [] : (pw.data || []); }catch(e){ CPR.promises = []; }
           try{ const hb = await sb.from('app_data').select('data').eq('key', 'automation_heartbeats').maybeSingle(); CPR.beat = ((hb.data && Array.isArray(hb.data.data)) ? hb.data.data : []).find(b => b && b.automation === 'call-tasks') || null; }catch(e){ CPR.beat = null; }
+          /* 919 (2026-10-17): what the last look at each AI card found (best effort; empty until Desktop 919 has run) */
+          try{ const cc = await sb.from('call_card_check').select('card_id, message_id, mode, checked_at, checks, verdict, why, evidence, proofs, would, done, last_activity_at, error').order('checked_at', { ascending: false }).limit(500); CPR.checks = cc.error ? null : (cc.data || []); }catch(e){ CPR.checks = null; }
           try{ const oc = await sb.from('call_record').select('recorded_at, kind, outcome, person_id, lead_id').eq('kind', 'outcome').gte('recorded_at', since).limit(2000); CPR.outcomes = oc.data || []; }catch(e){ CPR.outcomes = []; }
         }
         CPR.at = Date.now();
@@ -165,6 +167,47 @@
       + (withCall ? '<div class="field-note" style="margin-top:3px;"><a href="#" onclick="CPR.openCall(\'' + esc(w.message_id) + '\');return false;">See the ' + (w.channel === 'text' ? 'texts' : 'call') + '</a> (' + esc(when(w.call_at)) + ')</div>' : '')
       + '</div>';
   }
+  /* CARD CHECKS (919, 2026-10-17): every AI card looked at again: what happened since, which steps have hard proof, what the
+     AI made of it, and what it would do. In practice nothing on any card changes; this is where she sees whether to trust it. */
+  const STEPW = { call_back: 'Call back', axiscare_visit_change: 'Change the visit in AxisCare', text_caregiver: 'Text the caregiver', text_family_update: 'Text the family',
+    ask_client_family_permission: 'Ask the client or family', text_client_caregivers: "Text the client's caregivers", open_calloff_case: 'Open a call-off case' };
+  const VERD = { done: ['Looks done', '#1F6E43', '#E4F4EA'], partly: ['Partly done', '#8A5A00', '#FFF4E1'], not_yet: ['Not yet', '#5B6573', '#EEF1F4'], unclear: ['Unclear', '#5B6573', '#EEF1F4'], none: ['Nothing since', '#5B6573', '#EEF1F4'] };
+  function checkRow(k){
+    const it = ((DATA && DATA.ops_items) || []).find(x => x && x.id === k.card_id) || {};
+    const v = VERD[k.verdict] || VERD.none, proofs = Array.isArray(k.proofs) ? k.proofs : [];
+    const act = k.done === 'close' ? chip('Closed on proof', '#fff', '#1F6E43') : k.done === 'suggest' ? chip('Shows Looks done', '#1F6E43', '#E4F4EA')
+      : k.would === 'close' ? chip('Would close on proof', '#1F6E43', '#E4F4EA') : k.would === 'suggest' ? chip('Would say Looks done', '#1F6E43', '#E4F4EA') : '';
+    return '<div style="border:1.5px solid #EEF1F4;border-radius:10px;padding:9px 11px;margin:6px 0;background:#fff;">'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">' + chip(v[0], v[1], v[2]) + act
+      + (it.status && it.status !== 'open' ? chip('Card ' + (it.status === 'done' ? 'closed' : it.status), '#5B6573', '#EEF1F4') : '')
+      + '<span style="font-size:11.5px;color:var(--muted);">checked ' + esc(when(k.checked_at)) + '</span></div>'
+      + '<div style="font-weight:700;color:var(--navy);font-size:13.5px;margin-top:4px;">' + esc(it.about || '') + (it.title ? ': ' + esc(it.title) : '') + '</div>'
+      + (proofs.length ? '<div style="margin-top:3px;">' + proofs.map(p => '<div style="font-size:12.5px;">' + (p.proven ? '✓ ' : '· ') + esc(STEPW[p.kind] || p.kind)
+          + (p.proven ? ' <span class="field-note">' + esc(p.how) + '</span>' : ' <span class="field-note">no proof the Hub can see</span>') + '</div>').join('') + '</div>'
+        : '<div class="field-note" style="margin-top:3px;">No prepared steps, so it can only ever say Looks done.</div>')
+      + (k.why ? '<div class="field-note" style="margin-top:3px;"><b>What it saw:</b> ' + esc(k.why) + '</div>' : '')
+      + ((k.evidence || []).length && !(proofs.length && proofs.every(p => p.proven)) ? '<ul style="margin:3px 0 0;padding-left:18px;font-size:12px;">' + k.evidence.map(e => '<li>' + esc(e) + '</li>').join('') + '</ul>' : '')
+      + (k.error ? '<div class="field-note" style="margin-top:3px;color:#A83A2F;">The last look could not finish: ' + esc(k.error) + '. It tries again within the hour.</div>' : '')
+      + (k.message_id ? '<div class="field-note" style="margin-top:3px;"><a href="#" onclick="CPR.openCall(\'' + esc(k.message_id) + '\');return false;">See the call or texts</a></div>' : '')
+      + '</div>';
+  }
+  function checksView(){
+    const st = (DATA && DATA.ops_settings) || {};
+    const mode = st.call_cards_close_live === true ? 'close' : st.call_cards_suggest_live === true ? 'suggest' : st.call_cards_practice === true ? 'practice' : 'off';
+    if(CPR.checks === null || !(CPR.checks || []).length) return '<div class="card" style="padding:18px;text-align:center;">No card checks yet. They appear once Desktop step 919 has run; the first look comes within 10 minutes.</div>';
+    const q = lc(CPR.q), ks = CPR.checks.filter(k => { const it = ((DATA && DATA.ops_items) || []).find(x => x && x.id === k.card_id) || {};
+      return !q || q.split(/\s+/).every(w => lc([it.about, it.title, k.why].concat(k.evidence || []).join(' ')).includes(w)); });
+    const grp = (title, list, note) => list.length ? '<div class="card" style="padding:12px 14px;margin-bottom:10px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--navy);">' + esc(title) + ' (' + list.length + ')</div>'
+      + (note ? '<div class="field-note" style="margin:2px 0 4px;">' + esc(note) + '</div>' : '') + list.map(checkRow).join('') + '</div>' : '';
+    const closed = ks.filter(k => k.done === 'close'), wclose = ks.filter(k => k.done !== 'close' && k.would === 'close'), sug = ks.filter(k => k.would === 'suggest');
+    const rest = ks.filter(k => k.would !== 'close' && k.would !== 'suggest' && k.done !== 'close');
+    const modeLine = mode === 'practice' ? 'Practice: nothing on any card changes. This shows what it would do.' : mode === 'suggest' ? 'On: cards show Looks done; a person closes them.' : mode === 'close' ? 'On: cards with proof for every step close by themselves; the rest can show Looks done.' : 'Off.';
+    return '<div class="field-note" style="margin:0 0 10px;">' + esc(modeLine) + ' A card closes by itself only when every prepared step has proof: an office call or text to that person after the card, AxisCare showing the visit change, or a call-off case opened.</div>'
+      + grp('CLOSED ON PROOF', closed, 'Closed by the check. The proof is in the card\'s history.')
+      + grp('WOULD CLOSE ON PROOF', wclose, mode === 'suggest' ? 'Shown as Looks done; a person closes them.' : 'Every step has proof. Live, these close by themselves.')
+      + grp('WOULD SAY LOOKS DONE', sug, 'The AI read what happened as done; a person taps Close or Not yet.')
+      + grp('STILL OPEN', rest, 'Nothing yet shows the work was done.');
+  }
   function promisesView(){
     const ps = (CPR.promises || []).filter(w => w.status !== 'dropped' && (!CPR.day || String(w.due) === CPR.day) && (!lc(CPR.q) || lc(CPR.q).split(/\s+/).every(x => lc([w.what, w.who_name, w.caller, w.why, (w.owner || {}).name].join(' ')).includes(x))));
     if(!(CPR.promises || []).length) return '<div class="card" style="padding:18px;text-align:center;">No promises watched yet. They appear once Desktop step 650 v13 has run and the reader has read a call or text with a promise in it.</div>';
@@ -227,8 +270,10 @@
       + '<option value="">All ' + DAYS + ' days</option>' + Array.from({ length: DAYS }, (_, i) => { const ymd = chiYmd(Date.now() - i * 864e5); return '<option value="' + ymd + '"' + (CPR.day === ymd ? ' selected' : '') + '>' + (i === 0 ? 'Today' : i === 1 ? 'Yesterday' : esc(day(ymd))) + '</option>'; }).join('') + '</select></div>'
       + '<div class="field-note" style="margin:0 0 10px;">Show: ' + f('all', 'All') + f('cards', 'With cards') + f('urgent', 'Urgent') + f('none', 'No card') + f('unread', 'Couldn\'t read' + (notRead.length + retrying.length ? ' (' + (notRead.length + retrying.length) + ')' : ''))
       + f('promises', 'Promises' + (pLate ? ' (' + pLate + ' past due)' : pOpen ? ' (' + pOpen + ' owed)' : ''))
+      + f('checks', 'Card checks' + ((CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length ? ' (' + (CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length + ' look done)' : ''))
       + ' <span style="margin:0 6px;color:var(--border);">|</span> ' + c('all', 'Calls and texts') + c('call', 'Calls') + c('text', 'Texts') + '</div>';
     if(CPR.msg) head += '<div class="field-note" style="margin:-4px 0 10px;">Showing one ' + (rows[0] && rows[0].channel === 'text' ? 'text conversation' : 'call') + '. <a href="#" onclick="CPR.openCall(\'\');return false;">Back to all</a></div>';
+    if(CPR.filter === 'checks' && !CPR.msg){ wrap.innerHTML = intro + head + checksView(); return; }
     if(CPR.filter === 'promises' && !CPR.msg){ wrap.innerHTML = intro + head + '<div class="field-note" style="margin:0 0 10px;">' + pLate + ' past due with no sign it was kept · ' + pOpen + ' still owed · ' + pKept + ' kept. Use the day box for promises due that day.</div>' + promisesView(); return; }
     if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls or texts in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
     wrap.innerHTML = intro + head + (window.CallLead && !CPR.msg ? CallLead.waitingHtml(all) : '') + rows.map(r => {
@@ -274,6 +319,6 @@
     setDay(v){ CPR.day = String(v || ''); redraw(false); },
     setChannel(k){ CPR.channel = k; redraw(false); },
     setFilter(k){ CPR.filter = k; CPR.msg = ''; const w = host(); if(w) render(w); },
-    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
+    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises' && CPR.filter !== 'checks') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
     refresh(){ CPR.rows = null; const w = host(); if(w) render(w); } };
 })();

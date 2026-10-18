@@ -7337,7 +7337,7 @@ The HomeTogether team</pre>
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=2"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -28664,6 +28664,17 @@ function myWorkCard(it, i){
       +(r.next_checkpoint?' · next look '+esc(callsFmtWhen(r.next_checkpoint)):'')+'</div>';
   }
 
+  /* LOOKS DONE (919, 2026-10-17; her plan of 2026-10-14): the card check saw the work done. What showed it, then one tap.
+     A person's Not yet holds until something new happens with them (the server checks that). */
+  if(it.looks_done && it.status==='open' && !(Date.parse((it.looks_done_no||{}).at||0) >= Date.parse(it.looks_done.at||0))){
+    const ld=it.looks_done, ev=(Array.isArray(ld.evidence)?ld.evidence:[]).filter(x=>x && x!==ld.why);
+    h+='<div class="wk-looksdone" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#E4F4EA;color:#1F6E43;font-size:13px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:180px;"><b>Looks done:</b> '+esc(ld.why||'')+'</span>'
+      +'<button class="primary" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneClose(\''+it.id+'\')">Close it</button>'
+      +'<button class="ghost" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneNo(\''+it.id+'\')">Not yet</button></div>'
+      +(ev.length?'<div style="font-size:12px;margin-top:3px;">'+ev.slice(0,3).map(x=>'· '+esc(x)).join('<br>')+'</div>':'')
+      +'<div style="font-size:11.5px;margin-top:3px;opacity:.85;">'+(ld.source==='proof'?'From what the Hub can see: LeadConnector, AxisCare and call-off cases.':'The AI read the calls and texts since this card.')+'</div></div>';
+  }
   /* Past its day (2026-10-17, her fix 2): say so on the card and ask; never close by itself */
   if(opsPastDay(it)){
     h+='<div class="wk-pastday" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
@@ -29013,6 +29024,20 @@ async function opsPastClose(id, quiet){
   if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
   MYWORK_SEL.delete(id);
   if(!quiet){ myWorkRefresh(); ccToast('Closed. Its day had passed.'); }
+}
+/* Looks done (919): Close it = done with what showed it in the note; Not yet = remembered, so it is not suggested again until
+   something new happens with them. */
+async function opsLooksDoneClose(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it || it.status!=='open' || !it.looks_done) return;
+  await opsCloseCommit(it, 'Looked done: '+String(it.looks_done.why||'').slice(0,300), null);
+  ccToast('Closed.');
+}
+async function opsLooksDoneNo(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  it.looks_done_no={ at:new Date().toISOString(), by:(typeof ME!=='undefined'&&ME.name)||'' };
+  opsLog(it,'Not done yet (the check said it looked done)');
+  await persist('ops_items',it);
+  myWorkRefresh();
 }
 async function opsPastKeep(id){
   const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
