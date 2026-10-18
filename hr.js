@@ -96,6 +96,7 @@
           + '.hr-actions{margin-top:8px}.hr-err{color:#B42318;font-size:12.5px;min-height:1em}.hr-tips{margin:0 0 6px 18px;padding:0;font-size:13px;line-height:1.6}.hr-more summary{cursor:pointer}'
           + '.hr-scroll{overflow-x:auto}.hr-table{border-collapse:collapse;font-size:13px;width:100%}.hr-table th,.hr-table td{text-align:left;padding:6px 8px;border-top:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums}.hr-table th{font-size:12px;color:var(--gray,#6B7280);font-weight:600}'
           + '.hr-stop{display:block;margin:8px 0;padding:6px 10px;border-left:4px solid #B42318;background:#FDECEA;color:#7A1F1F;font:700 12.5px system-ui,-apple-system,sans-serif;border-radius:0}'
+          + '.hr-note{display:block;margin:8px 0;padding:6px 10px;border:1px dashed #94A3B8;background:#F8FAFC;color:#334155;font:400 12.5px system-ui,-apple-system,sans-serif;border-radius:8px}'
           + '.hr-check{display:flex;gap:8px;align-items:flex-start;margin-top:4px}.hr-check input{margin-top:3px}'
           + '.hr-serious{font-size:11px;font-weight:700;color:#B42318;background:#FDECEA;border-radius:999px;padding:1px 8px}'
           + '.hr-hb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0}.hr-hb-bar input[type=search]{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}'
@@ -244,6 +245,9 @@
      asks for their answer to each question before the talk can be marked done. */
   const STOP = '[STOP: let them answer. Write down what they say.]';
   const ST = ' ' + STOP + ' ';
+  /* A note for the coordinator that is NOT part of the script (her ask 2026-10-18: "make it an additional note, not in the
+     script, since it's not always the case"). Shown as a gray box; she says it only when it applies. */
+  const NOTE_OPEN = '[NOTE: ', NOTE_CLOSE = ']';
   /* the questions in talking points: for each STOP, the question (or two) just before it */
   function stopQuestions(tp) {
     const parts = String(tp || '').split(STOP); parts.pop();
@@ -251,7 +255,8 @@
   }
   /* talking points as HTML: each STOP marker becomes a clear box */
   function tpHtml(tp) {
-    return String(tp || '').split(STOP).map(esc).join('<span class="hr-stop">STOP. Let them answer, and write down what they say.</span>');
+    return String(tp || '').split(STOP).map((part) => esc(part).replace(/\[NOTE: ([^\]]*)\]/g, '<span class="hr-note"><b>Note for you, not part of the script.</b> $1</span>'))
+      .join('<span class="hr-stop">STOP. Let them answer, and write down what they say.</span>');
   }
   /* Every coaching talk is a coaching CALL (her direction 2026-10-18): say plainly it is coaching, not a write-up; the
      facts; ask what's going on; ask how we can help (a different shift time? something we can do?); the expectation;
@@ -286,7 +291,8 @@
         facts: 'On ' + list(facts) + ', the shift started late.',
         why: 'What has been making it hard to get there on time?',
         help: 'How can we help? Would a different start time work better for you, or is there something we can do?',
-        expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts. Not calling makes it twice as bad: we don\'t get the chance to let your client or their family know, and it makes our company look unprofessional and unreliable.' },
+        expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts.',
+        note: 'Only if they did not call ahead: not calling makes it twice as bad, because we don\'t get the chance to let the client or their family know, and it makes our company look unprofessional and unreliable.' },
       w05: { kind: 'thank you for the care you give', what: 'shift notes',
         facts: 'The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one.',
         why: 'What has been getting in the way?',
@@ -297,7 +303,7 @@
     return first + ', ' + R.kind + '. I want to talk with you about ' + R.what + '. This is a coaching call, not a write-up. Our goal is to figure out together what would help, so this doesn\'t turn into write-ups. '
       + (R.facts ? R.facts + ' ' : '') + R.why + ST
       + R.help + ST
-      + R.expect + ' I also want to be clear and fair with you: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination. We don\'t want that. That\'s why we\'re talking now. '
+      + R.expect + (R.note ? ' ' + NOTE_OPEN + R.note + NOTE_CLOSE : '') + ' I also want to be clear and fair with you: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination. We don\'t want that. That\'s why we\'re talking now. '
       + 'Do you have any questions for me?' + ST + 'Thank you, ' + first + '. We\'re here to help you.';
   }
   function assignHtml(c) {
