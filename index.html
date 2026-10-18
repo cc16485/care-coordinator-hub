@@ -2733,10 +2733,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-attendance">
           <ol style="margin:.4rem 0 .6rem;padding-left:1.3rem;line-height:1.7;font-size:.85rem">
-            <li><b>Log every attendance event the moment it happens</b> — a call-in (the hub computes the notice automatically; less than 4 hours = write-up required per Handbook 2U), a tardy, or a no-call/no-show (immediate termination review per 2U — Samantha is alerted and makes the final call).</li>
+            <li><b>Log every attendance event the moment it happens</b>: a call-in (the hub computes the notice automatically; less than 4 hours = write-up required per Handbook 2U), a tardy, or a no-call/no-show (immediate termination review per 2U; Samantha is alerted and makes the final call, since only she approves a termination).</li>
             <li>The hub counts events per caregiver and applies the corrective-action ladder from Handbook 2V the same way every time: Verbal Warning → Written Warning → Final Written Warning → Termination Review.</li>
             <li>When a write-up is due, the caregiver's card shows a red button — click it and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
-            <li>Every write-up — warning or termination — is <b>approved by Samantha or Zach</b> (the owners) before it can be issued. Nobody else can approve discipline.</li>
+            <li>Every write-up is <b>approved before it can be issued</b>, and never by the person who started it. Coaching, a verbal warning and a first written warning: <b>any Care Coordinator</b> (or an owner). A second written warning, a final written warning or a suspension: <b>Samantha or Zach</b>. A termination: <b>Samantha</b>.</li>
           </ol>
         </div>
       </div>
@@ -2800,7 +2800,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
           <div>
             <h2 style="margin:0;font-size:1.15rem;color:var(--navy)">Write-Ups</h2>
-            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Samantha or Zach approve before anything is issued.</div>
+            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Coaching and first written warnings are approved by a Care Coordinator; a final warning or above by leadership. Nobody approves one they started.</div>
           </div>
           <span style="flex:1"></span>
           <button class="fb" onclick="SCX.openNewWriteup()">📝 Start a write-up</button>
@@ -7313,6 +7313,7 @@ The HomeTogether team</pre>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
+<script src="writeup-rules.js?v=1"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=2"></script>
@@ -19596,12 +19597,15 @@ let CC_SETTINGS_PENDING=false;         // Settings was asked for before the role
    so the mapping itself is data and does not need a deploy to change. */
 const CC_ROLE_PERMS_DEFAULT={
   owner_admin:[ 'manage_staff','manage_positions','manage_duty','manage_leads',
-                'manage_ownership','approve_discipline','manage_access',
+                'manage_ownership','approve_discipline','approve_team_discipline','manage_access',
                 'manage_settings','manage_rates' ],
-  /* Krystal's role. Runs the office; does not approve discipline, administer
-     access, set pay, or change owner settings. */
+  /* Krystal's role. Runs the office; does not administer access, set pay, or change owner settings.
+     SOP ruling 2 (2026-10-17): approves coaching, verbal and first written warnings (approve_team_discipline);
+     a final warning, suspension or termination stays with owners (approve_discipline). writeup-rules.js decides
+     which a write-up needs. No role_permissions record is saved in the database (897 checked 2026-10-17), so
+     this list is the one in force. */
   care_coordinator:[ 'manage_staff','manage_positions','manage_duty',
-                     'manage_leads','manage_ownership' ],
+                     'manage_leads','manage_ownership','approve_team_discipline' ],
   /* PROPOSED, and deliberately the smallest thing that lets the job be done:
      coverage. It is NOT a copy of the Care Coordinator role. Widen it on
      purpose once the job is real, by editing the role_permissions record —
@@ -19622,13 +19626,14 @@ const CC_PERM_LABEL={
   manage_duty:'manage duty coverage',
   manage_leads:'manage leads',
   manage_ownership:'manage operational ownership',
-  approve_discipline:'approve discipline',
+  approve_discipline:'approve final warnings and terminations',
+  approve_team_discipline:'approve coaching and first written warnings',
   manage_access:'manage Hub access',
   manage_settings:'change Owner settings',
   manage_rates:'change rates'
 };
 const CC_PERM_ORDER=['manage_staff','manage_positions','manage_duty','manage_leads',
-  'manage_ownership','approve_discipline','manage_access','manage_settings','manage_rates'];
+  'manage_ownership','approve_team_discipline','approve_discipline','manage_access','manage_settings','manage_rates'];
 
 /* The roles that legitimately exist, read from the database catalog. The
    picker cannot offer anything else and set_staff_role will not accept
@@ -19710,6 +19715,29 @@ function ccRolesBanner(){
    opsCanSee, the confidentiality rule, which was deliberately left alone; and
    legacyCan, the parked comparison shim. Do not add a third. */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
+
+/* WHO APPROVES A WRITE-UP (SOP ruling 2, Samantha 2026-10-17). writeup-rules.js decides from the level and who
+   started it; these only say what a person holds. Team levels need approve_team_discipline (Care Coordinators and
+   owners), leadership levels need approve_discipline (owners), and nobody approves a case they started. */
+function ccCanFor(email, perm){
+  const map=ccRolePerms();
+  return ccRolesFor(email).some(r=>(map[r]||[]).indexOf(perm)>-1);
+}
+function discWhoFor(email){
+  const e=String(email||'').toLowerCase();
+  const me=!!e && String((ME&&ME.email)||'').toLowerCase()===e;
+  return { email:e,
+    owner: me ? ccCan('approve_discipline') : ccCanFor(e,'approve_discipline'),
+    team:  me ? ccCan('approve_team_discipline') : ccCanFor(e,'approve_team_discipline') };
+}
+function discCanApprove(a){
+  if(typeof WriteupRules==='undefined') return { ok:false, why:'The write-up rules did not load. Reload the page.' };
+  return WriteupRules.canApprove(a, discWhoFor(ME&&ME.email), DATA.discipline_actions||[]);
+}
+function discMayApproveAny(){ return ccCan('approve_discipline') || ccCan('approve_team_discipline'); }
+function discForMe(){
+  return (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval' && discCanApprove(a).ok);
+}
 
 /* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
    Every gated action this hub has, and the expression that decides it today,
@@ -19963,12 +19991,12 @@ async function renderStaffAccess(){
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  if(!ccCan('approve_discipline')){ wrap.innerHTML=''; updateAttnCard(); return; }
-  const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  if(!discMayApproveAny()){ wrap.innerHTML=''; updateAttnCard(); return; }
+  const pending=discForMe();
   if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
     +'<div class="attbody">'
-    +'<div class="field-note" style="margin-bottom:4px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
+    +'<div class="field-note" style="margin-bottom:4px;">Coaching, verbal and first written warnings are the team\'s call; a final warning, suspension or termination is leadership\'s. You only see the ones you can approve, never one you started. Read the whole notice first; your name goes on the approval.</div>'
     +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
@@ -19984,15 +20012,15 @@ function renderApprovalsCc(){
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to approve discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.'))) return;
-  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
+  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_by_email=String(ME.email||'').toLowerCase(); a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
 }
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to act on discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   const why=(await ccPrompt('Tell staffing what to change (they\'ll see this on the draft):','')); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
@@ -27760,7 +27788,7 @@ function myWorkTabs(b){
   /* An approval is work that requires a specific person, so it belongs in that
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
-  if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  if(discMayApproveAny()) t.push(['approvals','Approvals']);
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
@@ -28201,9 +28229,7 @@ function myWorkBuckets(){
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
     pool:       window.TP ? TP.shelf(me) : [],
-    approvals:  (ccCan('approve_discipline')
-                  ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
-                  : [])
+    approvals:  (discMayApproveAny() ? discForMe() : [])
   };
 }
 /* How many minutes until the shift this item is about? Null when the item
@@ -35053,7 +35079,10 @@ function opsReconcileLeads(){
 function opsCanSee(i){
   if(!i || !i.sensitive) return true;
   const meEmail=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
-  if(meEmail && typeof DISC_APPROVERS!=='undefined' && DISC_APPROVERS.includes(meEmail)) return true;
+  if(meEmail && ccIsOwner(meEmail)) return true;
+  /* SOP ruling 2 (2026-10-17): a Care Coordinator can now be the one asked to approve a write-up, so whoever the
+     item is given to sees it too. Nobody else does. */
+  if(meEmail && String(i.owner||'').toLowerCase()===meEmail) return true;
   const raised=String(i.created_by_email||i.created_by||'').toLowerCase();
   const meKey=String(opsMeKey()||'').toLowerCase();
   return !!meEmail && (raised===meEmail || (!!meKey && raised===meKey));
@@ -35082,21 +35111,29 @@ function opsReconcileDiscipline(){
       it = { id:'ops_disc_'+id, kind:'discipline', source_id:id, sensitive:true,
              title:'Write-up for '+(a.caregiver||'a caregiver')+' needs approval',
              detail:(a.level? a.level+'. ':'')+'Raised by '+(a.created_by||'a coordinator')
-                    +'. Nothing is sent until an owner approves it.',
+                    +'. Approved by '+(typeof WriteupRules!=='undefined' ? WriteupRules.whoApproves(a, DATA.discipline_actions||[]) : 'Samantha or Zach')
+                    +'. Nothing is issued until it is approved.',
              next_action:'Read the whole notice, then approve it or send it back.',
              about:(a.caregiver||''),
              created_by:a.created_by||'', created_by_email:a.created_by_email||a.created_by||'',
              urgency:'today', status:'open', created_at:at, last_activity_at:at,
              due:opsDueFor('discipline','today',at),
              // Domain says what this is ABOUT; owner says who can do the
-             // CURRENT next action. They part company here: the domain is
-             // caregiver performance, but only an owner may approve, so
-             // routing it to the domain owner would create work she is
-             // structurally unable to finish. It moves back to the domain
-             // owner if it is ever sent back for revision.
+             // CURRENT next action: whoever writeup-rules.js says may approve
+             // it (below), which is the domain owner only for team levels she
+             // did not start herself.
              domain:'caregiver_performance',
              owner:'', owner_name:'', opened_by:'system' };
-      const approver = opsDomainEscalation('caregiver_performance') || 'samantha@mo-care.com';
+      /* SOP ruling 2 (2026-10-17): coaching, verbal and first written warnings go to the Caregiver Performance owner
+         (Krystal), leadership levels to its escalation (Samantha), then to whichever owner may approve it. Never
+         to the person who started it. */
+      const dom = opsDomainOwner('caregiver_performance'), esc = opsDomainEscalation('caregiver_performance');
+      const owners = ccOwnerEmails().slice().sort((x,y)=>(y==='samantha@mo-care.com')-(x==='samantha@mo-care.com'));
+      const order = (typeof WriteupRules!=='undefined' && WriteupRules.tier(a, DATA.discipline_actions||[])==='team')
+        ? [dom, esc].concat(owners) : [esc].concat(owners);
+      const approver = (typeof WriteupRules!=='undefined'
+        ? WriteupRules.approverFor(a, order, discWhoFor, DATA.discipline_actions||[]) : '')
+        || esc || 'samantha@mo-care.com';
       it.owner = approver; it.owner_name = opsOwnerName(approver);
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
@@ -35884,7 +35921,7 @@ function renderMgrStrip(){
     const cpN=(typeof cpOverdueCount==='function')?cpOverdueCount():0;
     if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','clOpen(\'Plan reviews\')']);
   }catch(e){}
-  const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  const wuPending=discForMe();
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
   DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
