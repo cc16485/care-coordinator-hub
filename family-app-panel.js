@@ -1,6 +1,6 @@
 /* family-app-panel.js (global window.FAMAPP; the Hub already has a const FAM, a cache) · The office side of the Caring Companions family app (family.mo-care.com). Step 1c of the
    booking plan approved 2026-10-15.
-   - FAMAPP.circleLine(member, ctx): the "Family app" line under each Family Circle person on the client profile:
+   - FAMAPP.circleLine(member, ctx): the "Booking App" line under each Family Circle person on the client profile:
      Invite to the app / booking on-off / turn off. Invite never sends anything: it shows the words for a person to send.
    - FAMAPP.render(): Scheduling > Family bookings: every app booking, what needs the office, and the two office actions
      (put it on the AxisCare schedule, place a caregiver).
@@ -15,22 +15,31 @@
   function settings() { return (window.DATA && window.DATA.ops_settings) || {} }
 
   // ── Family Circle line ──────────────────────────────────────────────────────────────────────────────────────────
+  /* Her rule 2026-10-17: the welcome is sent by a person, and the Hub notes when, by whom and which version. */
+  var KIND = { regular: 'Regular', flexible: 'Flexible', both: 'Combination' }
+  function when(iso) { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch (x) { return '' } }
+  function sentLine(m) {
+    if (m.welcome_sent_at) return '<span class="field-note" style="color:var(--green);">Welcome sent ' + e(when(m.welcome_sent_at)) + (m.welcome_sent_by ? ' by ' + e(m.welcome_sent_by) : '') + ' (' + e(KIND[m.welcome_version] || m.welcome_version || '') + (m.welcome_how ? ', ' + e(m.welcome_how) : '') + ')</span>'
+    if (m.welcome_skip_at) return '<span class="field-note">No welcome: ' + e(m.welcome_skip_reason || '') + '</span>'
+    return '<span class="field-note" style="color:#B45309;">Welcome not sent yet</span>'
+  }
   function circleLine(m, px) {
     var id = Number(m.id), st = m.app_status
     var btn = function (label, js, cls) { return '<button class="btn ' + (cls || 'btn-ghost') + ' btn-sm" style="padding:2px 9px;font-size:12px;" onclick="' + js + '">' + label + '</button>' }
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
     if (st === 'active') {
-      return head + '<span style="color:var(--green);font-weight:600;">Family app: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' +
+      return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
         btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book'," + id + ",'" + e(px) + "'," + (!m.app_can_book) + ")") +
         btn('Send welcome', "FAMAPP.welcome(" + id + ",'" + e(px) + "')", 'btn-primary') +
         btn('Turn app off', "FAMAPP.act('revoke'," + id + ",'" + e(px) + "')") + '</div>'
     }
-    if (st === 'revoked') return head + '<span class="field-note">Family app: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
+    if (st === 'revoked') return head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
     if (m.stopped_at || m.axiscare_removed_at) return ''
-    if (!m.email) return head + '<span class="field-note">Family app: add an email to invite them</span></div>'
-    return head + btn('Invite to the family app', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')", 'btn-primary') + '</div>'
+    if (!m.email) return head + '<span class="field-note">Booking App: add an email to invite them</span></div>'
+    // Her ask 2026-10-17: ONE press invites them and opens the welcome to read; it goes only when Send welcome is pressed.
+    return head + btn('Invite and send welcome', "FAMAPP.act('invite'," + id + ",'" + e(px) + "',null,true)", 'btn-primary') + '</div>'
   }
-  function act(action, contactId, px, on) {
+  function act(action, contactId, px, on, thenWelcome) {
     var line = document.getElementById('fam-' + px + '-' + contactId)
     if (action === 'revoke' && line && !line.dataset.sure) { line.dataset.sure = '1'; line.insertAdjacentHTML('beforeend', '<span class="fam-sure" style="color:#B45309;font-weight:600;">They won\'t be able to see anything. Press Turn app off again to confirm.</span>'); return Promise.resolve() }
     if (line) line.style.opacity = '.55'
@@ -40,6 +49,7 @@
     return call(body).then(function (d) {
       var c = ctxs[px]
       return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        if (action === 'invite' && thenWelcome) return welcome(contactId, px, true)   // straight to the welcome preview
         if (action === 'invite' && d.words) {
           var l2 = document.getElementById('fam-' + px + '-' + contactId)
           if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-words" style="background:var(--teal-pale,#EAF4F6);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;">' +
@@ -58,42 +68,73 @@
   }
   function selectText(el) { var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r) }
 
-  // ── Welcome by text + email (her approved wording, 2026-10-15). A person presses Send; nothing goes on its own. ─────
+  // ── Welcome by text + email (her approved wording, 2026-10-17). A person presses Send; nothing goes on its own. ─────
   var W = {}
-  function welcome(contactId, px) {
+  function welcome(contactId, px, justInvited, kind) {
     var line = document.getElementById('fam-' + px + '-' + contactId); if (!line) return Promise.resolve()
-    var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) { old.remove(); return Promise.resolve() }
-    line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the welcome ready…</div>')
-    return call({ action: 'welcome', contact_id: contactId }).then(function (d) {
+    var old = document.getElementById('famwel-' + px + '-' + contactId)
+    if (old && !kind) { old.remove(); if (!justInvited) return Promise.resolve() }
+    if (!old || !kind) line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the welcome ready…</div>')
+    var body = { action: 'welcome', contact_id: contactId }; if (kind) body.kind = kind
+    return call(body).then(function (d) {
       W[px + '-' + contactId] = d
       var box = document.getElementById('famwel-' + px + '-' + contactId)
-      var axis = d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so they can activate the AxisCare portal.</div>'
-        : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on their AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send without the AxisCare part.</div>'
+      var id = e(px) + '-' + contactId
+      var axis = !d.kind ? '' : d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so they can activate the AxisCare Family Portal.</div>'
+        : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on ' + e(firstOf(d)) + '\'s AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send it without the AxisCare part.</div>'
         : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
       var how = [d.can_text ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
-      box.innerHTML = '<b>Welcome for ' + e(d.name) + '</b>' + axis +
-        '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + e(px) + '-' + contactId + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(' + contactId + ',\'' + e(px) + '\', this.checked)"> Include the AxisCare portal steps (calendar, care notes, invoices)</label>' +
-        '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + e(px) + '-' + contactId + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
-        '<div class="field-note" style="margin:4px 0;">Email: "' + e(d.email_subject) + '" with the same steps and buttons.</div>' +
-        '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
-        (how.length ? '<div style="margin-top:6px;display:flex;gap:6px;"><button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(' + contactId + ',\'' + e(px) + '\', this)">Send welcome</button>' +
-          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\')">Cancel</button></div>' : '') +
+      var choose = '<div style="margin:6px 0 4px;font-weight:600;">How will this client schedule their care?</div><div role="radiogroup" style="display:flex;flex-direction:column;gap:3px;">' +
+        d.kinds.map(function (k) { return '<label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="famwk-' + id + '" value="' + e(k.key) + '"' + (d.kind === k.key ? ' checked' : '') + ' onchange="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\',false,this.value)"> ' + e(k.label) + '</label>' }).join('') + '</div>' +
+        (d.saved_kind ? '' : '<div class="field-note">Saved on the client for next time. Flexible turns the App plan on; Regular and Combination leave it off (you can still change it).</div>')
+      var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? ' by ' + e(d.sent.by) : '') + (d.sent.version ? ' (' + e(KIND[d.sent.version] || d.sent.version) + ')' : '') + '.</div>' : ''
+      box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send welcome.</div>' : '') +
+        '<b>Welcome for ' + e(d.name) + '</b>' + sent +
+        (d.hipaa_ok ? '' : '<div style="color:#b91c1c;font-weight:600;">No HIPAA permission for ' + e(d.name) + ' on file, so the welcome can\'t go. Check their permission in AxisCare first.</div>') +
+        choose +
+        (!d.kind ? '<div class="field-note" style="margin-top:6px;">Pick one to see the welcome.</div>' :
+          axis +
+          '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + id + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(' + contactId + ',\'' + e(px) + '\', this.checked)"> Include the AxisCare Family Portal steps</label>' +
+          '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + id + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
+          '<div class="field-note" style="margin:6px 0 2px;">The email: "' + e(d.email_subject) + '"</div>' +
+          '<iframe title="Welcome email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
+          '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
+          '') +
+        '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
+          (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(' + contactId + ',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send welcome') + '</button>' : '') +
+          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\')">' + (justInvited ? 'Not now' : 'Cancel') + '</button>' +
+          '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(' + contactId + ',\'' + e(px) + '\', this)">No welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
         '<div class="fam-wmsg" style="margin-top:4px;"></div>'
     }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
+  function firstOf(d) { return d.client || 'the client' }
   function welcomeAxis(contactId, px, on) {
     var d = W[px + '-' + contactId], ta = document.getElementById('famwt-' + px + '-' + contactId); if (!d || !ta) return
     var from = on ? d.text_without_axis : d.text_with_axis, to = on ? d.text_with_axis : d.text_without_axis
-    if (ta.value.trim() === from.trim()) ta.value = to   // only swap words the office hasn't changed
+    if (ta.value.trim() === String(from || '').trim()) ta.value = to   // only swap words the office hasn't changed
   }
   function welcomeSend(contactId, px, b) {
+    var d = W[px + '-' + contactId] || {}
     var ta = document.getElementById('famwt-' + px + '-' + contactId), ax = document.getElementById('famwax-' + px + '-' + contactId)
     var box = document.getElementById('famwel-' + px + '-' + contactId), msg = box && box.querySelector('.fam-wmsg')
+    if (!d.kind) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">Pick how this client schedules care first.</span>'; return Promise.resolve() }
     if (!ta || !ta.value.trim()) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">The text is empty.</span>'; return Promise.resolve() }
-    b.disabled = true; b.textContent = 'Sending…'
-    return call({ action: 'welcome', contact_id: contactId, send: true, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }).then(function (d) {
-      box.innerHTML = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [d.by_text ? 'text' : '', d.by_email ? 'email' : ''].filter(Boolean).join(' and ') + '.</span> It\'s saved in this Family Circle\'s messages.'
-    }).catch(function (err) { b.disabled = false; b.textContent = 'Send welcome'; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+    var label = b.textContent; b.disabled = true; b.textContent = 'Sending…'
+    return call({ action: 'welcome', contact_id: contactId, send: true, kind: d.kind, again: !!d.sent, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }).then(function (r) {
+      box.innerHTML = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [r.by_text ? 'text' : '', r.by_email ? 'email' : ''].filter(Boolean).join(' and ') + ' (' + e(KIND[r.version] || '') + ').</span> Noted on the Care circle card and saved in this Family Circle\'s messages.'
+      var c = ctxs[px]; if (c && c.reload) c.reload()
+    }).catch(function (err) { b.disabled = false; b.textContent = label; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
+  function welcomeSkip(contactId, px, b) {
+    var holder = document.getElementById('famwsk-' + px + '-' + contactId); if (!holder) return Promise.resolve()
+    var inp = document.getElementById('famwskr-' + px + '-' + contactId)
+    if (!inp) { holder.innerHTML = '<input id="famwskr-' + e(px) + '-' + contactId + '" maxlength="200" placeholder="Why (for the record)" style="font-size:12px;min-width:200px;"> <button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(' + contactId + ',\'' + e(px) + '\', this)">Save</button>'; return Promise.resolve() }
+    if (!inp.value.trim()) { inp.focus(); return Promise.resolve() }
+    b.disabled = true
+    return call({ action: 'welcome_skip', contact_id: contactId, on: true, reason: inp.value.trim() }).then(function () {
+      var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span class="field-note">Noted: no welcome for this person. The reminder won\'t ask again.</span>'
+      var c = ctxs[px]; if (c && c.reload) c.reload()
+    }).catch(function (err) { b.disabled = false; holder.insertAdjacentHTML('beforeend', ' <span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
 
   // ── Scheduling > Family bookings ─────────────────────────────────────────────────────────────────────────────────
@@ -156,12 +197,12 @@
       '<div class="field-note">' + e(Number(b.hours)) + ' hours · ' + e((b.tasks || []).join(', ')) + ' · booked by ' + e(b.requested_by_name || 'family') +
         (b.who === 'regular' ? ' · wants the regular caregiver' : b.who === 'favorites' ? ' · someone the client knows' : picks) + (b.state ? ' · ' + e(b.state) : '') + '</div>' +
       (b.status === 'waiting_for_caregiver' && b.answer_by ? '<div class="field-note">The family hears by ' + e(byWords(b.answer_by)) + (b.two_stage && b.team_from ? ' · the wider team is asked from ' + e(byWords(b.team_from)) : '') + '. Nothing to do unless you want to place someone.</div>' : '') +
-      (b.status === 'placed' && b.sync_state === 'no_caregiver' ? '<div class="field-note">' + e(b.sync_note || 'The caregiver') + ' came off this visit in AxisCare. Coverage Help (or the office) covers it. The family\'s app says we\'re checking for another caregiver, can\'t promise one, and will contact them either way.</div>' : '') +
-      (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their app says we cancelled it; please call them with the reason.</div>' : '') +
+      (b.status === 'placed' && b.sync_state === 'no_caregiver' ? '<div class="field-note">' + e(b.sync_note || 'The caregiver') + ' came off this visit in AxisCare. Coverage Help (or the office) covers it. The family\'s Booking App says we\'re checking for another caregiver, can\'t promise one, and will contact them either way.</div>' : '') +
+      (b.status === 'cancelled' && b.cancel_source === 'office' ? '<div class="field-note">Removed in AxisCare, not by the family. Their Booking App says we cancelled it; please call them with the reason.</div>' : '') +
       (b.status === 'placed' && b.family_change_pending ? '<div class="field-note">Changed in AxisCare. The family is told (8 AM to 8 PM).</div>' : '') +
       (b.status === 'placed' && b.family_change_how && !b.family_change_pending ? '<div class="field-note">Change message: ' + e(b.family_change_how) + '</div>' : '') +
       (b.status === 'not_filled' ? '<div class="field-note">' + (b.unfilled_kind === 'couldnt' ? 'Help us fill: the office tried and couldn\'t fill it' : 'Nobody accepted' + (b.ended_why === 'early' ? ' (everyone asked)' : '')) + '. The family is told nothing was scheduled.</div>' : '') +
-      (b.status === 'held' ? '<div class="field-note" style="color:#b91c1c;">Held: ' + e(b.hold_reason || 'needs a check') + '. The family\'s app says our office is checking it; they hear by ' + e(byWords(b.answer_by)) + '. Not reviewed by then = it ends with the decline wording.</div>' : '') +
+      (b.status === 'held' ? '<div class="field-note" style="color:#b91c1c;">Held: ' + e(b.hold_reason || 'needs a check') + '. The family\'s Booking App says our office is checking it; they hear by ' + e(byWords(b.answer_by)) + '. Not reviewed by then = it ends with the decline wording.</div>' : '') +
       (b.status === 'declined' ? '<div class="field-note">' + (b.ended_why === 'not_reviewed' ? 'Not reviewed by the answer-by time' : 'Declined by ' + e(String(b.reviewed_by || '').split('@')[0]) + (b.decline_reason ? ': ' + e(b.decline_reason) : '')) + '. The family is asked to call.</div>' : '') +
       (b.help_fill && b.status === 'waiting_for_caregiver' ? '<div class="field-note">Help us fill client' + (b.fill_task_at ? ': the office\'s round is open (Place, Another time agreed, or Couldn\'t fill)' : ': the office gets a task one office day before the family\'s answer-by time if nobody has said yes') + '.</div>' : '') +
       (b.note_check === 'ai_unavailable' ? '<div class="field-note">AI didn\'t read this note (it was unavailable); the fixed rules passed it. Glance at it.</div>' : '') +
@@ -207,7 +248,7 @@
             ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.lateBilled(\'' + e(b.id) + '\', this)">Added to invoice</button></div>' }).join('') : '') +
         '<h3 style="margin:12px 0 6px;">Coming up, caregiver placed (' + placed.length + ')</h3>' + (placed.length ? placed.map(function (b) { return bookingCard(b, today) }).join('') : '<div class="field-note">None yet.</div>') +
         (other.length ? '<details style="margin-top:12px;"><summary>Practice, cancelled and past (' + other.length + ')</summary>' + other.map(function (b) { return bookingCard(b, today) }).join('') + '</details>' : '') +
-        '<h3 style="margin:16px 0 6px;">Families using the app (' + on.length + ')</h3>' +
+        '<h3 style="margin:16px 0 6px;">Families using the Booking App (' + on.length + ')</h3>' +
         (on.length ? '<div class="field-note">' + on.map(function (m) { return e(m.name) + ' for ' + e(m.client_name || '?') + (m.can_book ? '' : ' (view only)') }).join(' · ') + '</div>'
                    : '<div class="field-note">Nobody yet. Invite someone from the Care circle card on a client\'s profile.</div>') +
         plansBox(d.plans || [], d.tasks || []) + '<div id="famFee" style="margin-top:14px;"></div>'
@@ -231,13 +272,20 @@
      (Samantha or Krystal, with a reason, 90 days; the server checks the role). */
   function clientSettings(k, tasks, today) {
     var hf = k.help_fill || {}, on = hf.on === true && String(hf.review_by || '') >= today, only = Array.isArray(k.app_tasks) && k.app_tasks.length ? k.app_tasks : null
+    var types = [['', 'Not set yet'], ['regular', 'Regular Scheduled Care'], ['flexible', 'Flexible Booking Care'], ['both', 'Combination of Both']]
     return '<div style="margin:0 0 8px 12px;font-size:12.5px;">' +
+      '<div><span class="field-note">How they schedule care: </span><select id="famtype-' + e(k.id) + '" style="font-size:12.5px;" onchange="FAMAPP.setType(\'' + e(k.id) + '\', this)">' +
+        types.map(function (t) { return '<option value="' + t[0] + '"' + ((k.care_scheduling_type || '') === t[0] ? ' selected' : '') + (t[0] === '' ? ' disabled' : '') + '>' + t[1] + '</option>' }).join('') + '</select></div>' +
       '<div><span class="field-note">Help us fill extra visits: </span>' + (on ? '<b>on</b> until ' + e(hf.review_by) + (hf.reason ? ' (' + e(hf.reason) + ')' : '') + ' <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.helpFill(\'' + e(k.id) + '\', false, this)">Turn off</button>'
         : 'off <input id="famhf-' + e(k.id) + '" maxlength="300" placeholder="Why (e.g. respite for a worn-out family caregiver)" style="min-width:220px;font-size:12.5px;"> <button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.helpFill(\'' + e(k.id) + '\', true, this)">Turn on for 90 days</button>') + '</div>' +
       '<details style="margin-top:2px;"><summary class="field-note">App tasks: ' + (only ? e(only.join(', ')) : 'all companion tasks') + '</summary>' +
         '<div id="famtasks-' + e(k.id) + '" style="display:flex;flex-wrap:wrap;gap:4px 12px;margin:4px 0;">' + tasks.map(function (t) { return '<label style="font-size:12.5px;"><input type="checkbox" value="' + e(t) + '"' + (!only || only.indexOf(t) >= 0 ? ' checked' : '') + '> ' + e(t) + '</label>' }).join('') + '</div>' +
         '<button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.appTasks(\'' + e(k.id) + '\', this)">Save tasks</button> <span class="field-note" id="famtasks-' + e(k.id) + '-msg"></span></details>' +
       '<div class="fam-msg" id="famset-' + e(k.id) + '"></div></div>'
+  }
+  function setType(circleId, sel) {
+    sel.disabled = true
+    return call({ action: 'scheduling_type', circle_id: circleId, kind: sel.value }).then(render).catch(function (err) { sel.disabled = false; setMsg(circleId, '<span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
   function setMsg(id, html) { var m = document.getElementById('famset-' + id); if (m) m.innerHTML = html }
   function helpFill(circleId, on, b) {
@@ -323,7 +371,7 @@
     var id = 'famabout-' + px
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">' +
       '<div style="font-weight:600;font-size:13.5px;">About ' + e(first) + ', for caregivers</div>' +
-      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit booked in the family app. First name only. No address or medical details.</div>' +
+      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit requested in the Booking App. First name only. No address or medical details.</div>' +
       '<textarea id="' + id + '" maxlength="400" rows="3" style="width:100%;margin-top:6px;font:inherit;font-size:13.5px;" placeholder="For example: ' + e(first) + ' loves gardening and old movies, and enjoys a short walk when it\'s nice out.">' + e(circ.caregiver_about || '') + '</textarea>' +
       '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.aboutSave(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">Save</button>' +
       '<span class="field-note" id="' + id + '-msg">' + (circ.caregiver_about_at ? 'Last saved ' + e(new Date(circ.caregiver_about_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_about_by ? ' by ' + e(String(circ.caregiver_about_by).split('@')[0]) : '') : '') + '</span></div></div>'
@@ -336,5 +384,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()

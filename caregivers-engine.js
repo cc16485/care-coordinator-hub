@@ -2767,7 +2767,7 @@ function attTypeUi(){
   document.getElementById('att-late-wrap').style.display = t==='tardy'?'inline':'none';
   document.getElementById('att-log-hint').textContent =
     t==='ncns'?'Per Handbook 2U this is serious misconduct — logging it flags an immediate termination review and alerts Samantha.'
-    :t==='callin'?'The hub computes the notice from shift time minus call time — under '+attCfg().notice_hours+' hours = write-up required.':'';
+    :t==='callin'?'The hub works out the notice from the shift time and the call time. Under '+attCfg().notice_hours+' hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice (Handbook 2A). It flags it to review: a write-up only if there was no good reason.':'';
 }
 async function attPersist(key,item){
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:key, item }); if(error) throw error; }
@@ -2831,8 +2831,12 @@ function attStatus(cg){
   const tardiesWin=evs.filter(e=>e.type==='tardy'&&inWin(e,cfg.tardy_window));
   const triggers=[];
   uncovered.filter(e=>e.type==='ncns').forEach(e=>triggers.push({kind:'ncns',events:[e],label:'No-call/no-show — immediate termination review'}));
-  uncovered.filter(e=>e.type==='callin'&&e.notice_hours!=null&&e.notice_hours<cfg.notice_hours)
-    .forEach(e=>triggers.push({kind:'short_notice',events:[e],label:'Call-in with only '+e.notice_hours+'h notice (policy: '+cfg.notice_hours+'h)'}));
+  /* SOP ruling 5 (2026-10-18): short notice per handbook 2A/2U, including the 7 to 9 AM shift rule (writeup-rules.js). */
+  uncovered.forEach(e=>{
+    const sn=(typeof WriteupRules!=='undefined') ? WriteupRules.shortNotice(e, cfg.notice_hours)
+      : { short: e.type==='callin'&&e.notice_hours!=null&&e.notice_hours<cfg.notice_hours, why:'Call-in with only '+e.notice_hours+'h notice (handbook: '+cfg.notice_hours+'h)' };
+    if(sn.short) triggers.push({kind:'short_notice',events:[e],label:sn.why});
+  });
   const uncCallins=callinsWin.filter(e=>!e.action_id);
   if(callinsWin.length>=cfg.callin_count&&uncCallins.length)
     triggers.push({kind:'callin_total',events:uncCallins,label:callinsWin.length+' call-ins in '+cfg.callin_window+' days (policy: '+cfg.callin_count+')'});
@@ -2862,7 +2866,7 @@ const HB_LEVELS = ['Coaching','Verbal Warning','Written Warning','Final Written 
 
 const HB_TEMPLATES = {
   callout: {
-    label:'Short-notice call-off', section:'2U — Attendance & Dependability', level:'Verbal Warning',
+    label:'Short-notice call-off', section:'2U, Attendance & Dependability', level:'Verbal Warning',
     policy:['Employees are expected to: Report to work as scheduled. Arrive on time. Complete assigned shifts. Notify the office immediately if attendance issues arise. Maintain reliable attendance.',
             'Whenever possible, notify the office at least four (4) hours before the beginning of your shift. For shifts beginning between 7:00 AM and 9:00 AM, notify the office no later than 5:00 PM the previous day, whenever reasonably possible.'],
     boxes:['Less than 4 hours notice','7-9 AM shift, not notified by 5 PM the day before','Repeated short-notice call-offs'],
@@ -2870,7 +2874,7 @@ const HB_TEMPLATES = {
     expect:['Report to all assigned shifts as scheduled.','Give as much notice as the circumstances allow.','Call the office directly rather than telling a coworker.','Keep transportation arrangements reliable, including a backup where possible.','Consider your availability carefully before accepting an assignment.'] },
 
   ncns: {
-    label:'No Call / No Show', section:'2U — Attendance & Dependability', level:'Termination Review', serious:true,
+    label:'No Call / No Show', section:'2U, Attendance & Dependability', level:'Termination Review', serious:true,
     policy:['A No Call / No Show occurs when an employee fails to report to work and fails to notify the company. Because this places vulnerable clients at significant risk, No Call / No Show incidents are considered serious misconduct and may result in immediate termination.',
             'Employees may never leave a client without ensuring appropriate coverage or receiving authorization from the office.'],
     boxes:['Did not report for a scheduled shift','Did not notify the office','Client was left without coverage'],
@@ -2878,7 +2882,7 @@ const HB_TEMPLATES = {
     expect:['This notice is a review of continued employment. Any expectations going forward will be set in that review.'] },
 
   communicate: {
-    label:'Failure to communicate', section:'2N — Communication', level:'Verbal Warning',
+    label:'Failure to communicate', section:'2N, Communication', level:'Verbal Warning',
     policy:['Employees should: Return calls and messages promptly. Notify the office of concerns immediately. Report changes in client condition. Ask questions when unsure. Maintain a respectful tone. Communicate honestly.',
             'Never assume someone else has already reported a concern.',
             'Refer questions regarding scheduling, billing, care plans, or medical concerns to the office.',
@@ -2888,7 +2892,7 @@ const HB_TEMPLATES = {
     expect:['Return office calls and messages promptly.','Report scheduling problems to the office as soon as you know.','Report any change in a client’s condition immediately.','Send clients and families to the office for scheduling, billing and care plan questions.','Keep a working phone that can receive calls and texts.'] },
 
   conduct: {
-    label:'Unprofessional conduct', section:'2M — Professionalism', level:'Verbal Warning',
+    label:'Unprofessional conduct', section:'2M, Professionalism', level:'Verbal Warning',
     policy:['Employees are expected to conduct themselves with honesty, integrity, compassion, and respect at all times.',
             'Professional behavior includes: Being courteous. Speaking respectfully. Maintaining appropriate boundaries. Being dependable. Following company policies. Demonstrating patience. Respecting client choices. Maintaining confidentiality.',
             'Employees should avoid: Becoming personally involved in family conflicts. Sharing excessive personal information. Accepting inappropriate gifts. Making promises they cannot keep. Discussing company matters with clients. Speaking negatively about coworkers or previous caregivers.'],
@@ -2897,14 +2901,14 @@ const HB_TEMPLATES = {
     expect:['Speak respectfully to clients, families, coworkers and office staff at all times.','Keep conversations client-focused and work-related.','Raise concerns about the company with the office, not with clients.','Do not speak negatively about coworkers or previous caregivers.','Maintain professional boundaries in every interaction.'] },
 
   insub: {
-    label:'Refusing to follow direction (insubordination)', section:'2V — Corrective Action', level:'Written Warning',
+    label:'Refusing to follow direction (insubordination)', section:'2V, Corrective Action', level:'Written Warning',
     policy:['Handbook section 2V lists Insubordination among behaviors that may result in corrective action. In plain terms, that means failure or refusal to follow reasonable directions, instructions, or policies from supervisors or agency leadership.'],
     boxes:['Refused to perform assigned duties','Refused to follow a care plan after being directed','Refused to complete required documentation','Argued with or hung up on office staff','Ignored scheduling instructions'],
     why:'The office is responsible for the client’s care plan and for the agency’s compliance. When direction is refused, care can fall outside what was authorised and the agency cannot stand behind it.',
     expect:['Follow reasonable direction from the office and from agency leadership.','Complete assigned duties and required documentation.','Follow the care plan as written; raise concerns with the office rather than changing it yourself.','Bring disagreements to the office professionally and at the time.'] },
 
   boundary: {
-    label:'Client boundaries and gifts', section:'4Q — Gifts & Gratuities', level:'Verbal Warning',
+    label:'Client boundaries and gifts', section:'4Q, Gifts & Gratuities', level:'Verbal Warning',
     policy:['Many clients express appreciation through gifts or tips. While small tokens of appreciation may occasionally be appropriate, employees should never request or expect gifts.',
             'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept expensive gifts or valuable property.',
             'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or other significant gifts, politely decline the gift and notify the office.'],
@@ -2914,7 +2918,7 @@ const HB_TEMPLATES = {
     caution:'Under 4Q a small token of appreciation is NOT a violation. Do not issue this notice for one. If the concern is a pattern, describe the pattern.' },
 
   phone: {
-    label:'Improper phone use', section:'2P — Personal Cell Phone Use', level:'Coaching',
+    label:'Improper phone use', section:'2P, Personal Cell Phone Use', level:'Coaching',
     policy:['Employees are expected to limit personal phone use while providing services.',
             'Employees should not: Spend excessive time texting. Browse social media during work hours. Watch videos or stream media. Play games. Make lengthy personal phone calls.',
             'Phones may be used for AxisCare, Electronic Visit Verification, reviewing care plans, documenting care notes, work-related communication with the office, emergencies and approved client-related communication.'],
@@ -2926,6 +2930,10 @@ const HB_TEMPLATES = {
 /* Every corrective action, grouped by where it is stuck. Ordered by who is
    waiting on whom: sent back to you first, then yours to finish, then waiting
    on the owners, then ready to hand over. History last. */
+/* SOP ruling 2 (2026-10-17): who approves this one, from writeup-rules.js (loaded by the page). */
+function wuWho(a){
+  return (typeof WriteupRules!=='undefined') ? WriteupRules.whoApproves(a, DISC_ACTIONS) : 'Samantha or Zach';
+}
 function renderWriteups(){
   const box=document.getElementById('wuList'); if(!box) return;
   const all=(DISC_ACTIONS||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
@@ -2957,9 +2965,9 @@ function renderWriteups(){
     : '';
 
   const html =
-     group('Sent back to you', sentBack.map(a=>row(a,'↩ '+creqEsc(a.reject_note||''))).join(''), 'an owner asked for changes', '#b91c1c')
+     group('Sent back to you', sentBack.map(a=>row(a,'↩ '+creqEsc(a.reject_note||''))).join(''), 'the approver asked for changes', '#b91c1c')
    + group('Your drafts', drafts.map(a=>row(a,'')).join(''), 'not submitted yet')
-   + group('Waiting on Samantha or Zach', waiting.map(a=>row(a,'⏳')).join(''), 'nothing is sent until they approve')
+   + group('Waiting for approval', waiting.map(a=>row(a,'⏳ '+creqEsc(wuWho(a)))).join(''), 'nothing is issued until it is approved')
    + group('Approved, ready to issue', approved.map(a=>row(a,'✅')).join(''), 'review it with the caregiver, get the signature, then mark issued', '#15803d')
    + group('Issued', issued.slice(0,25).map(a=>row(a,'📄 '+String(a.issued_at||'').slice(0,10))).join(''), 'on file');
 
@@ -3011,7 +3019,7 @@ async function hbCreateWriteup(){
   const a={ id:'hb'+Date.now(), caregiver:cg, level, reason:t.label, category:key, event_ids:[],
     body:hbDocBody(cg,key,level,when,checked,details),
     status:'draft', created_at:new Date().toISOString(),
-    created_by:by.split('@')[0]||'coordinator', created_by_email:by, issued_at:null };
+    created_by:by.split('@')[0]||'coordinator', created_by_email:by.toLowerCase(), issued_at:null };
   // Persist FIRST, then show it locally — so a failed save never leaves a
   // phantom draft that looks saved but vanishes on reload. attPersist alerts
   // "Could not save" and throws on failure, so the coordinator is told.
@@ -3040,7 +3048,7 @@ function hbDocBody(cg, tplKey, level, incidentDate, checked, details){
   const wrap=(s,ind='  ')=>{ const out=[]; let line=ind;
     s.split(/\s+/).forEach(w=>{ if((line+w).length>76){ out.push(line); line=ind; } line+=w+' '; });
     out.push(line); return out.join('\n').replace(/\s+$/gm,''); };
-  return 'CARING COMPANIONS — CORRECTIVE ACTION NOTICE\n'
+  return 'CARING COMPANIONS: CORRECTIVE ACTION NOTICE\n'
     +'══════════════════════════════════════════════\n\n'
     +'Employee:        '+cg+'\n'
     +'Date of notice:  '+today+'\n'
@@ -3078,13 +3086,13 @@ function renderAttendance(){
   attTypeUi();
   const wrap=document.getElementById('att-roster'); if(!wrap) return;
   const names=attCaregivers();
-  if(!names.length){ wrap.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No attendance events logged yet — the record starts with the first log.</div>'; updateAttBadge(); return; }
+  if(!names.length){ wrap.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No attendance events logged yet. The record starts with the first log.</div>'; updateAttBadge(); return; }
   const TYPE_ICON={callin:'📞',tardy:'🕐',ncns:'🚨'};
   wrap.innerHTML=names.map(cg=>{
     const s=attStatus(cg);
     const chip=s.triggers.some(t=>t.kind==='ncns')?'<span style="background:#DC2626;color:#fff;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">🚨 TERMINATION REVIEW</span>'
-      :s.triggers.length?'<span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">⚠ WRITE-UP DUE</span>'
-      :s.termEligible?'<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">eligible for termination on next occurrence</span>'
+      :s.triggers.length?'<span style="background:#fef3c7;color:#92400e;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">⚠ REVIEW NEEDED</span>'
+      :s.termEligible?'<span style="background:#fee2e2;color:#b91c1c;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:800">next step is leadership\'s (final warning or above)</span>'
       :'<span style="background:#dcfce7;color:#166534;border-radius:999px;padding:.15rem .6rem;font-size:.7rem;font-weight:700">in good standing</span>';
     return '<div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:.85rem 1.1rem;margin-bottom:.6rem">'
       +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
@@ -3094,17 +3102,19 @@ function renderAttendance(){
       +(s.triggers.length?'<div style="margin-top:.5rem">'+s.triggers.map((t,ti)=>
         '<div style="display:flex;align-items:center;gap:.6rem;font-size:.8rem;padding:.3rem 0;flex-wrap:wrap"><span style="color:#b91c1c;font-weight:700">→</span>'
         +'<span style="flex:1">'+creqEsc(t.label)+'</span>'
-        +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button></div>').join('')+'</div>':'')
+        +'<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button>'
+        +(t.kind==='ncns'?'':'<button class="fb" style="font-size:.72rem;background:#FAF9F6;color:var(--navy);border:1px solid var(--border)" onclick="noWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">No write-up</button>')
+        +'</div>').join('')+'</div>':'')
       +(s.drafts.length?s.drafts.map(a=>{
-        const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved — ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
-        return '<div style="font-size:.75rem;color:#92400e;margin-top:.3rem">'+creqEsc(a.level)+' — '+st+' · <a href="#" onclick="openWriteup(\''+a.id+'\');return false;">open</a></div>';
+        const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved, ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
+        return '<div style="font-size:.75rem;color:#92400e;margin-top:.3rem">'+creqEsc(a.level)+' · '+st+' · <a href="#" onclick="openWriteup(\''+a.id+'\');return false;">open</a></div>';
       }).join(''):'')
       +'<details style="margin-top:.45rem"><summary style="cursor:pointer;font-size:.72rem;color:#6E6559">History ('+s.evs.length+' events'+(s.issued.length?', '+s.issued.length+' issued warnings':'')+')</summary>'
       +s.evs.slice().sort((a,b)=>String(b.shift_date).localeCompare(String(a.shift_date))).map(e=>
         '<div style="font-size:.75rem;padding:.2rem 0;color:#3A342C">'+(TYPE_ICON[e.type]||'')+' '+e.shift_date+(e.shift_time?' '+e.shift_time:'')
         +(e.type==='callin'&&e.notice_hours!=null?' · '+e.notice_hours+'h notice':'')
         +(e.type==='tardy'&&e.minutes_late?' · '+e.minutes_late+' min late':'')
-        +(e.note?' · '+creqEsc(e.note):'')+(e.action_id?' · <span style="color:#92400e">covered by warning</span>':'')+'</div>').join('')
+        +(e.note?' · '+creqEsc(e.note):'')+(e.action_id==='no_writeup'?' · <span style="color:#166534">reviewed, no write-up: '+creqEsc(e.review_note||'')+'</span>':e.action_id?' · <span style="color:#92400e">covered by warning</span>':'')+'</div>').join('')
       +s.issued.map(a=>'<div style="font-size:.75rem;padding:.2rem 0;color:#b91c1c">📄 '+creqEsc(a.level)+' issued '+String(a.issued_at).slice(0,10)+'</div>').join('')
       +'</details></div>';
   }).join('');
@@ -3118,10 +3128,10 @@ function updateAttBadge(){
 let _writeupId=null;
 function attDocBody(cg, trigger, level){
   const s=attStatus(cg), cfg=attCfg(), today=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const evLine=e=>'  • '+e.shift_date+(e.shift_time?' at '+e.shift_time:'')+' — '
+  const evLine=e=>'  • '+e.shift_date+(e.shift_time?' at '+e.shift_time:'')+': '
     +(e.type==='ncns'?'No-call/no-show':e.type==='callin'?'Call-in'+(e.notice_hours!=null?' with '+e.notice_hours+' hours notice':''):'Tardy'+(e.minutes_late?' ('+e.minutes_late+' minutes late)':''))
-    +(e.note?' — '+e.note:'');
-  return 'CARING COMPANIONS — CORRECTIVE ACTION NOTICE\n'
+    +(e.note?'. '+e.note:'');
+  return 'CARING COMPANIONS: CORRECTIVE ACTION NOTICE\n'
     +'══════════════════════════════════════════════\n\n'
     +'Employee:        '+attGroupName(cg)+'\n'
     +'Date:            '+today+'\n'
@@ -3131,15 +3141,15 @@ function attDocBody(cg, trigger, level){
     +'THE FACTS:\n'+trigger.events.map(evLine).join('\n')+'\n\n'
     +'ATTENDANCE HISTORY ('+cfg.callin_window+'-day window):\n'
     +'  • Call-ins: '+s.callinsWin.length+'   • Tardies: '+s.tardiesWin.length+'\n'
-    +(s.issued.length?'  Prior corrective actions on file:\n'+s.issued.map(a=>'  • '+a.level+' — issued '+String(a.issued_at).slice(0,10)).join('\n')+'\n':'  No prior corrective actions on file.\n')
+    +(s.issued.length?'  Prior corrective actions on file:\n'+s.issued.map(a=>'  • '+a.level+', issued '+String(a.issued_at).slice(0,10)).join('\n')+'\n':'  No prior corrective actions on file.\n')
     +'\nCOMPANY POLICY (Employee Handbook):\n'
-    +'  2U — Attendance & Dependability: "Notify the office as soon as possible\n'
+    +'  2U, Attendance & Dependability: "Notify the office as soon as possible\n'
     +'  when unable to report to work. Whenever possible, provide at least four\n'
     +'  (4) hours notice; early morning shifts should be reported the evening\n'
     +'  before." A No Call / No Show "places vulnerable clients at significant\n'
     +'  risk, is considered serious misconduct and may result in immediate\n'
     +'  termination."\n'
-    +'  2V — Corrective Action: Coaching → Verbal Warning → Written Warning →\n'
+    +'  2V, Corrective Action: Coaching → Verbal Warning → Written Warning →\n'
     +'  Final Written Warning → Suspension → Termination. The company reserves\n'
     +'  the right to skip any step depending upon the seriousness of the\n'
     +'  violation.\n\n'
@@ -3156,8 +3166,7 @@ function attDocBody(cg, trigger, level){
     +'  X ______________________________   Date: ____________\n\n'
     +'Issued by:\n\n'
     +'  X ______________________________   Date: ____________\n\n'
-    +'File the signed original in Viventium. Samantha Troutman must be\n'
-    +'notified before this notice is issued.\n';
+    +'File the signed original in Viventium.\n';
 }
 async function draftWriteup(cg, triggerIdx){
   const s=attStatus(cg);
@@ -3166,10 +3175,25 @@ async function draftWriteup(cg, triggerIdx){
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const axid=String(cg||'').startsWith('ax:')?String(cg).slice(3):'';
   const a={ id:'dw'+Date.now(), caregiver:attGroupName(cg), ...(axid?{axiscare_caregiver_id:axid}:{}), level, reason:t.label, event_ids:t.events.map(e=>e.id),
-    body:attDocBody(cg,t,level), status:'draft', created_at:new Date().toISOString(), created_by:by.split('@')[0]||'staffing', issued_at:null };
+    body:attDocBody(cg,t,level), status:'draft', created_at:new Date().toISOString(), created_by:by.split('@')[0]||'staffing', created_by_email:by.toLowerCase(), issued_at:null };
   DISC_ACTIONS.push(a);
   await attPersist('discipline_actions',a);
   openWriteup(a.id);
+  renderAttendance();
+}
+/* SOP ruling 5 (2026-10-18): a flag is a review, not an automatic write-up (the handbook says "whenever possible").
+   When there was a good reason, the reviewer records it here; the events stop flagging, the same as a write-up issued.
+   No Call / No Show always goes to a termination review, so it has no such button. */
+async function noWriteup(cg, triggerIdx){
+  const t=attStatus(cg).triggers[triggerIdx]; if(!t||t.kind==='ncns') return;
+  const why=await ccPrompt('No write-up for '+attGroupName(cg)+' ('+t.label+'). What was the good reason? It is kept on their record.','');
+  if(why===null) return;
+  if(!why.trim()){ alert('Write the reason first. It is what shows this was reviewed.'); return; }
+  let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
+  for(const e of t.events){
+    e.action_id='no_writeup'; e.review_note=why.trim(); e.reviewed_by=by.toLowerCase(); e.reviewed_at=new Date().toISOString();
+    await attPersist('attendance_events',e);
+  }
   renderAttendance();
 }
 function openWriteup(id){
@@ -3182,11 +3206,11 @@ function openWriteup(id){
   const closeBtn='<button onclick="document.getElementById(\'writeup-modal\').classList.remove(\'open\')" style="margin-left:auto;background:#FAF9F6;border:1px solid var(--border);border-radius:7px;padding:.4rem .9rem;cursor:pointer;font-family:inherit;font-size:.8rem">Close</button>';
   document.getElementById('writeup-body').readOnly = a.status==='pending_approval';
   if(a.status==='draft'){
-    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b> — only <b>Samantha or Zach</b> can approve discipline (they see it in the Owners Hub and the CC Hub); nothing can be issued without that.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
+    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b>. A '+creqEsc(a.level||'write-up')+' is approved by <b>'+creqEsc(wuWho(a))+'</b>, never by the person who started it. Nothing can be issued until it is approved.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'
       +'<button class="fb" style="background:#0d3a5f" onclick="sendForApproval()">📤 Send for approval</button>'+closeBtn;
   }else if(a.status==='pending_approval'){
-    notice.innerHTML='⏳ Waiting for Samantha or Zach to approve — they see this in the Owners Hub. It can\'t be edited or issued until it\'s approved.';
+    notice.innerHTML='⏳ Waiting for '+creqEsc(wuWho(a))+' to approve it (they see it under My Work, Approvals). It can\'t be edited or issued until it\'s approved.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'+closeBtn;
   }else if(a.status==='approved'){
     notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'a care coordinator')+'. <b>Copy notice</b> → paste into the AxisCare "Corrective Action Notice" form → send to the caregiver to e-sign in their app. Once signed, click Mark issued — that stamps the proof note on their AxisCare record too. (🖨 Print / Save as PDF if you also want a copy in Viventium.)';
@@ -3208,14 +3232,14 @@ async function sendForApproval(){
   document.getElementById('writeup-modal').classList.remove('open');
   renderAttendance();
   renderWriteups();
-  alert('Sent ✓ — Samantha and Zach will see it in the Owners Hub. You\'ll see the approval here.');
+  alert('Sent. '+wuWho(a).charAt(0).toUpperCase()+wuWho(a).slice(1)+' will see it under My Work, Approvals. You\'ll see the approval here.');
 }
 async function pushAxNote(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
   const noteText='CORRECTIVE ACTION ISSUED — '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
     +'Category: Attendance & Dependability (Handbook 2U/2V)\n'
     +'Reason: '+a.reason+'\n'
-    +'Approved by: '+(a.approved_by||'Samantha Troutman')+' · Issued by: '+(a.created_by||'staffing')+'\n'
+    +'Approved by: '+(a.approved_by||'not recorded')+' · Issued by: '+(a.created_by||'staffing')+'\n'
     +'Signed original filed in Viventium.';
   /* C2b: by AxisCare number, picked by a person, through our own server with their sign-in (recorded) */
   const d=await axCaregiverNote(a.caregiver, noteText, a.axiscare_caregiver_id || a.ax_caregiver_id);   /* step 4: either field name */
@@ -3238,7 +3262,7 @@ function printWriteup(){
 async function issueWriteup(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
   if(!a){ alert('This write-up could not be found — reload the page and open it again.'); return; }
-  if(a.status!=='approved'){ alert('Samantha has to approve this first — send it to her from the draft view.'); return; }
+  if(a.status!=='approved'){ alert('This needs approval first ('+wuWho(a)+'). Send it for approval from the draft view.'); return; }
   if(!(await ccConfirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.'))) return;
   a.body=document.getElementById('writeup-body').value;
   a.status='issued'; a.issued_at=new Date().toISOString();
@@ -7152,12 +7176,18 @@ function acWorst(c){
   const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
   const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
-  const ss=[o.status,e.status,f.status,sv.status,pr.status];
+  /* from 2026-11-16 supervisory visits are concern-only: never due, so they no longer count toward the overall status */
+  const ss=svConcernOnly()?[o.status,e.status,f.status,pr.status]:[o.status,e.status,f.status,sv.status,pr.status];
   if(fReg.status==='overdue') ss.push('Overdue');
   if(ss.includes('Overdue')) return 'overdue';
   if(ss.includes('Due Soon')) return 'duesoon';
   if(ss.every(s=>s==='Current')&&fReg.status==='ok') return 'current';
   return 'pending';
+}
+function svConcernOnly(){ return !!(globalThis.CCElig && CCElig.supervisoryConcernOnly && CCElig.supervisoryConcernOnly()); }
+/* From 2026-11-16: the last concern visit's date only, no badge and no next date */
+function supvLastCell(c){
+  return `<div class="chk">${c.supv_date?`<span class="chk-date">Last visit: ${fmtD(c.supv_date)}</span>`:'<span class="chk-date">No visit logged</span>'}<span>${proofLink(c.supv_proof)}</span></div>`;
 }
 function renderAC(){
   const q=((document.querySelector('#panel-compliance input')||{value:''}).value||globalSearch).toLowerCase();
@@ -7191,7 +7221,7 @@ function renderAC(){
       <td>${compCell(c.edl_date,e,c.edl_status,c.edl_proof)}</td>
       <td>${(()=>{ const reg=fcsrRegStatus(c); const regColor=reg.status==='ok'?'var(--green)':reg.status==='overdue'?'var(--red)':'var(--amber)'; const regIcon=reg.status==='ok'?'✓':reg.status==='overdue'?'⚠':'⏳'; return compCell(c.fcsr_date,f,c.fcsr_status,c.fcsr_proof)+`<span class="chk-date" style="color:${regColor}">${regIcon} ${reg.label}</span>`; })()}</td>
       <td><div class="chk">${c.oos==='yes'?`<span class="badge ${fpBadge}">${c.fp}</span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
-      <td>${compCell(c.supv_date,sv,'',c.supv_proof)}</td>
+      <td>${svConcernOnly()?supvLastCell(c):compCell(c.supv_date,sv,'',c.supv_proof)}</td>
       <td>${compCell(c.perf_date,pr,'',c.perf_proof)}</td>
       <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
@@ -9748,8 +9778,11 @@ function openProfile(first, last){
     const fReg=fcsrRegStatus(cg);
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
     html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.5rem 0 .75rem">`;
-    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Supervisory Visit',chk:sv,date:cg.supv_date},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date})=>{
+    const svConcern=svConcernOnly();
+    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Supervisory Visit',chk:sv,date:cg.supv_date,lastOnly:svConcern},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date,lastOnly})=>{
       const b=compBadge(chk.status);
+      /* from 2026-11-16 a supervisory visit is concern-only: show when the last one was, never a due badge */
+      if(lastOnly){ html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem"><div style="font-size:.68rem;font-weight:600;color:var(--gray);margin-bottom:.2rem">${label}</div><div style="font-size:.65rem;color:var(--gray)">${date?'Last visit '+fmtD(date):'When there is a concern'}</div></div>`; return; }
       html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem"><div style="font-size:.68rem;font-weight:600;color:var(--gray);margin-bottom:.2rem">${label}</div><span class="badge ${b}" style="font-size:.65rem">${chk.status}</span>${date?`<div style="font-size:.65rem;color:var(--gray);margin-top:.15rem">${fmtD(date)}</div>`:''}</div>`;
     });
     html+=`</div>`;

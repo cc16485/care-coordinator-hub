@@ -36,14 +36,16 @@ async()=>{
   document.getElementById('appScreen').classList.add('on');
   switchTab('mywork'); myWorkGo('today'); await sleep(150);
   const wrap=document.getElementById('myWorkWrap');
-  ok('an URGENT escalation to me is in Act Now', !!card('u1') && wrap.innerText.indexOf('ACT NOW')<wrap.innerText.indexOf('Joyce (fake)') && wrap.innerText.indexOf('Joyce (fake)')<wrap.innerText.indexOf('DUE TODAY'));
-  ok('...saying why and whose it stays', /Escalated to you \(Owner Escalation\): Krystal hasn't taken it in 15 minutes\. It stays Krystal’s unless you take it\./.test(card('u1').innerText), card('u1').innerText.slice(0,300));
-  ok('an OVERDUE escalation is NOT in my Today (my Today stays quiet)', !card('o1'));
+  /* 2026-10-17 (her fix 4): Krystal's escalated work is one summary card above Act Now, not my cards */
+  const tm=document.querySelector('.wk-team');
+  ok('an URGENT escalation to me is on Krystal\'s team card, above Act Now', !card('u1') && !!tm && /Krystal has 2 late items/.test(tm.innerText) && /1 urgent/.test(tm.innerText) && wrap.innerText.indexOf('Krystal has')<wrap.innerText.indexOf('ACT NOW'), tm&&tm.innerText);
+  ok('an OVERDUE escalation is NOT a card on my Today (my Today stays quiet)', !card('o1'));
   ok('routed work says why it came to me', /You’re on Staffing duty now, so it came to you first\./.test(card('r1').innerText), card('r1').innerText.slice(0,300));
   const tabs=document.getElementById('myWorkTabs').innerText;
-  ok('an "Escalated to you" tab with its count', /Escalated to you\s*2/.test(tabs), tabs);
+  ok('an "Escalated to you" tab (no count since fix 3)', /Escalated to you/.test(tabs) && !/Escalated to you\s*\d/.test(tabs), tabs);
   myWorkGo('escalated'); await sleep(80);
   ok('...listing the urgent and the overdue one, not the cleared one', !!card('u1') && !!card('o1') && !card('c1'));
+  ok('...saying why and whose it stays', /Escalated to you \(Owner Escalation\): Krystal hasn't taken it in 15 minutes\. It stays Krystal’s unless you take it\./.test(card('u1').innerText), card('u1').innerText.slice(0,300));
   [...card('o1').querySelectorAll('button')].find(b=>b.textContent==='Take it').click(); await sleep(100);
   ok('Take it: mine now, and the escalation is cleared', item('o1').owner==='samantha@mo-care.com' && !!item('o1').escalation.cleared_at && item('o1').escalation.cleared_why==='taken');
   (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };"); myWorkGo('today'); await sleep(100);

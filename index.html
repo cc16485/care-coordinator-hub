@@ -273,6 +273,8 @@
   .pt-menu .pt-item:hover,.pt-menu .pt-item:focus-visible{background:#EAF4F6;}
   .cj-yes-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 0 4px;font-size:13px;}
   .cj-yes-btn{font-family:inherit;background:#15803D;color:#fff;border:none;padding:8px 16px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;}
+  /* supervisory visits: yearly text until 2026-11-16, concern-only text from then (svApplyDateText) */
+  body:not(.sv-concern) [data-sv="concern"], body.sv-concern [data-sv="yearly"]{display:none !important;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
 <title>Leads, Clients &amp; Care — Caring Companions</title>
@@ -939,6 +941,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   .tag-chip{font-size:11px;background:#FAF9F6;color:var(--text-muted);padding:2px 8px;border-radius:10px;}
   /* Make this a lead (2026-10-14): what was heard on the call, until a person touches it */
   .cl-heard{background:#FFF1C2 !important;box-shadow:0 0 0 1.5px #E8C66A inset;border-radius:6px;}
+  #leadModalBackdrop.cl-quiet{visibility:hidden;}   /* Yes, lead: the regular save runs without flashing the form */
   .detail-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;}
   .detail-grid3 .dbox{background:#FAF9F6;border-radius:8px;padding:10px;}
   .detail-grid3 .dbox .dlbl{font-size:11px;color:var(--text-muted);}
@@ -1149,8 +1152,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
-    <!-- 2026-10-17 (her "documents to be their own tab so its not burried and hard to find"): every document in one place -->
-    <div class="ftab" data-g="docs" onclick="ccGroupClick('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Documents</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
   <!-- The day's own row: what is happening, what is late, who rang, and what
@@ -1185,8 +1186,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
-    <!-- 2026-10-12 (her call): Team Builder lives in Client Care; Schedule Watch is gone. -->
-    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Team Builder</div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -1243,6 +1242,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
+    <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Live Schedule.
+         The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
     <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
@@ -1278,15 +1280,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          settings grid, so it opens from Settings (Right person first) and #routing; GUIDE opens from Payors & Programs. -->
     <div class="fpill" data-tab="sops" onclick="switchTab('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-compass"/></svg> Procedures</div>
     <div class="fpill" data-tab="sopref" onclick="switchTab('sopref')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Payors &amp; Programs</div>
-    <div class="fpill" data-tab="playbook" onclick="switchTab('playbook')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Scripts</div>
+    <!-- 2026-10-17 (her "I dont think we need the scripts tab"): Scripts (#playbook) is off the SOPs row; its tab and content
+         stay in place, reachable at #playbook, nothing deleted. -->
+    <!-- 2026-10-17 (her "i want it inside SOPs"): Documents moved here from its own top tab. Forms & Templates (forms.html) and
+         Client Folders (client-folders.html) open inside the Hub, like Payors & Programs. -->
+    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
+    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
     <!-- 2026-10-17 (her ask "a tab in SOPs that says order supplies"): supplies.html, opened inside the Hub. -->
     <div class="fpill" data-tab="supplies" onclick="switchTab('supplies')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Order Supplies</div>
   </div>
 
-  <div class="fsubbar" id="fsub-docs">
-    <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
-    <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
-  </div>
 
   <!-- Third level. Only appears when the active tab belongs to a parent
        (Leads, Marketing, Playbook). Rendered by ccRenderSub2(). -->
@@ -1323,7 +1326,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Builder</h2>
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver Matching</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">Build a client's team on a week grid: pencil caregivers in as you call, then confirm the schedules into AxisCare when the whole team is set.</div>
       </div>
       <div id="swBuilderWrap"><div id="tbRoot"><div class="field-note">Loading…</div></div>
@@ -1667,12 +1670,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- ===================== TAB: START OF CARE ===================== -->
     <section class="tabpanel" id="tab-soc">
       <details class="guide">
-        <summary>📋 How Start of Care Works — the three ways a Medicaid case arrives ▼</summary>
+        <summary>📋 How Start of Care Works ▼</summary>
         <div class="guide-body">
-          <div class="guide-step"><span class="num">A1</span><b>Brand-new referral</b> — the family calls us first and has never had HCBS services. We explain the program (DSDS decides eligibility, not us), get permission, and submit the referral in <b>FUSION</b>. DSDS assesses, and if approved, offers us the case.</div>
-          <div class="guide-step"><span class="num">A2</span><b>PCCP transfer</b> — they already have services but want to switch to us. We get consent and enter the PCCP request in FUSION; DSDS coordinates the transfer and sends the authorization (a new assessment usually isn't needed).</div>
-          <div class="guide-step"><span class="num">B</span><b>DSDS calls us</b> — the state offers us a case directly with the care plan and authorized hours. We decide whether we can staff it and notify DSDS.</div>
-          <div class="guide-step"><span class="num">→</span>From acceptance on, all three paths merge into the same checklist — authorization, care plan into AxisCare, welcome call, assessments, home safety — ending at <b>Ready for Staffing</b>. The <b>evening coordinator</b> owns FUSION entry, authorizations and care-plan input; <b>daytime</b> owns the welcome call and assessments. The moment a start is business-ready and the AxisCare client is linked, the first-caregiver launch opens by itself in <b>New Clients</b>, which owns everything from caregiver match through first shift and the 24–72 hour follow-ups.</div>
+          <div class="guide-step"><span class="num">1</span><b>Every family who said yes lands here</b>: private pay, VA Community Care, long-term care insurance and Medicare GUIDE. Each one follows the same checklist: in-home assessment, Care Agreement signed and received, the signed agreement filed in AxisCare, billing set up in AxisCare, the care plan and caregiver instructions in AxisCare, the welcome call, and the home safety check.</div>
+          <div class="guide-step"><span class="num">2</span>A step waiting on the family (like a signature) is not the office's fault and shows as waiting on them. Open the family to check steps off.</div>
+          <div class="guide-step"><span class="num">3</span>When every step is done and the AxisCare client is linked, the start is <b>Ready for Staffing</b> and the first-caregiver launch opens by itself in <b>New Clients</b>, which owns everything from caregiver match through first shift and the 24 to 72 hour follow-ups.</div>
+          <div class="guide-step flag"><span class="num">!</span><b>We no longer take new Medicaid (IHS or ADW) clients.</b> A Medicaid caller is referred to Caring CDS at (417) 218-2888. Older Medicaid starts still show their own steps here until they are closed.</div>
         </div>
       </details>
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
@@ -1958,6 +1961,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
 
+      <div id="ccCoachBox"></div><!-- call coaching (call-coach.js) -->
       <div class="card" style="padding:16px 18px;">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
           <button class="fpill callfilter active" data-f="all"      onclick="callsFilter('all',this)">All</button>
@@ -2679,7 +2683,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body">Use the <strong>🔍 Batch OIG Check</strong> button to run the OIG exclusion check on all caregivers at once. This should be done regularly (monthly at minimum).<span class="tip">OIG only requires first and last name — no SSN or date of birth needed.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Use the <strong>Overdue</strong> and <strong>Due Soon</strong> filters to prioritize who needs attention. Red = overdue, yellow = coming up within 30 days.</div></div>
           <div class="guide-section-lbl">Supervisory visits &amp; performance reviews</div>
-          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Supervisory Visit</strong> dates and <strong>Performance Review</strong> dates in each caregiver's record. These are required for Medicaid compliance audits.</div></div>
+          <div class="guide-step" data-sv="yearly"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Supervisory Visit</strong> dates and <strong>Performance Review</strong> dates in each caregiver's record. These are required for Medicaid compliance audits.</div></div>
+          <div class="guide-step" data-sv="concern"><div class="guide-step-num">4</div><div class="guide-step-body">Log a <strong>Supervisory Visit</strong> on the Supervisory Visits tab when there's a concern; this table shows the last one. It is never due or overdue. Log <strong>Performance Review</strong> dates in each caregiver's record.</div></div>
           <div class="guide-section-lbl">Import / Export</div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Use <strong>📥 Export CSV</strong> to download your full caregiver list for reporting. Use <strong>⬆ Import CSV</strong> to bulk-upload caregivers using the provided template.</div></div>
         </div>
@@ -2711,7 +2716,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <th>EDL <span style="font-weight:400;opacity:.7">quarterly</span></th>
             <th>FCSR <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Fingerprint BG</th>
-            <th>Supervisory Visit <span style="font-weight:400;opacity:.7">annual</span></th>
+            <th>Supervisory Visit <span style="font-weight:400;opacity:.7" data-sv="yearly">annual</span><span style="font-weight:400;opacity:.7" data-sv="concern">when there's a concern</span></th>
             <th>Performance Review <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Actions</th>
           </tr></thead>
@@ -2734,10 +2739,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
         <div class="tab-guide-body" id="guide-body-attendance">
           <ol style="margin:.4rem 0 .6rem;padding-left:1.3rem;line-height:1.7;font-size:.85rem">
-            <li><b>Log every attendance event the moment it happens</b> — a call-in (the hub computes the notice automatically; less than 4 hours = write-up required per Handbook 2U), a tardy, or a no-call/no-show (immediate termination review per 2U — Samantha is alerted and makes the final call).</li>
-            <li>The hub counts events per caregiver and applies the corrective-action ladder from Handbook 2V the same way every time: Verbal Warning → Written Warning → Final Written Warning → Termination Review.</li>
-            <li>When a write-up is due, the caregiver's card shows a red button — click it and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
-            <li>Every write-up — warning or termination — is <b>approved by Samantha or Zach</b> (the owners) before it can be issued. Nobody else can approve discipline.</li>
+            <li><b>Log every attendance event the moment it happens</b>: a call-in (the hub works out the notice; under 4 hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice per Handbook 2A and 2U), a tardy, or a no-call/no-show (immediate termination review per 2U; Samantha is alerted and makes the final call, since only she approves a termination).</li>
+            <li>The hub counts events per caregiver and flags them <b>to review</b>: short notice, or 3 call-ins or 3 tardies in 90 days (our working numbers; the handbook gives none). It suggests the next step on the Handbook 2V ladder, but every case is decided on its own and steps can be skipped. If there was a good reason, press <b>No write-up</b> and write why.</li>
+            <li>When a write-up is the right call, press the red <b>Draft</b> button and the <b>document is drafted for you</b> with the facts, dates, history and policy language. Print it, review it with the caregiver in person, have them sign (a signature confirms receipt, not agreement), then <b>Mark issued</b> and file the signed copy in Viventium.</li>
+            <li>Every write-up is <b>approved before it can be issued</b>, and never by the person who started it. Coaching, a verbal warning and a first written warning: <b>any Care Coordinator</b> (or an owner). A second written warning, a final written warning or a suspension: <b>Samantha or Zach</b>. A termination: <b>Samantha</b>.</li>
           </ol>
         </div>
       </div>
@@ -2801,7 +2806,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:flex-end;gap:.7rem;flex-wrap:wrap;margin-bottom:1rem">
           <div>
             <h2 style="margin:0;font-size:1.15rem;color:var(--navy)">Write-Ups</h2>
-            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Samantha or Zach approve before anything is issued.</div>
+            <div style="font-size:.78rem;color:var(--gray);margin-top:.2rem">Every corrective action and what stage it is at. Coaching and first written warnings are approved by a Care Coordinator; a final warning or above by leadership. Nobody approves one they started.</div>
           </div>
           <span style="flex:1"></span>
           <button class="fb" onclick="SCX.openNewWriteup()">📝 Start a write-up</button>
@@ -4295,7 +4300,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
 <textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
-<label>Open hours: the text to the whole team (Team Builder, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<label>Open hours: the text to the whole team (Caregiver Matching, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
 <label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
 <textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
@@ -4613,7 +4618,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <h3>Cadences</h3>
 <div class="grid2">
 <div><label>Client check-in cadence (days)</label><input type="number" id="set_checkin_cadence" value="30"></div>
-<div><label>Supervisory visit "due soon" window (days)</label><input type="number" id="set_supervisory_window" value="60"></div>
+<div data-sv="yearly"><label>Supervisory visit "due soon" window (days)</label><input type="number" id="set_supervisory_window" value="60"></div>
 </div>
 </div>
 
@@ -4710,7 +4715,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="checklist" style="margin:8px 0;">
 <label><input type="checkbox" id="new_staff_notify_leads"> New lead alerts</label>
 <label><input type="checkbox" id="new_staff_notify_checkins"> Overdue check-in alerts</label>
-<label><input type="checkbox" id="new_staff_notify_supervisory"> Supervisory visit due alerts</label>
+<label data-sv="yearly"><input type="checkbox" id="new_staff_notify_supervisory"> Supervisory visit due alerts</label>
 <label><input type="checkbox" id="new_staff_notify_careplan"> Care plan ready alerts</label>
 </div>
 <button class="secondary" onclick="addStaffMember()">+ Add Staff Member</button>
@@ -4992,7 +4997,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <section class="tabpanel" id="tab-familybookings">
 <!-- 2026-10-15 (booking plan Step 1c): visits families booked in the family app (family.mo-care.com). family-app-panel.js draws it. -->
 <div class="card" style="padding:14px 16px;margin-bottom:12px;"><h2 style="margin:0 0 4px;">Family bookings</h2>
-<div class="field-note">Extra visits families booked themselves in the family app. Each one needs a caregiver placed here. Their regular weekly visits are set up as usual in AxisCare.</div></div>
+<div class="field-note">Visits families requested in the Booking App, whether it's how they schedule all their care (Flexible) or alongside regular shifts (Combination). Caregivers are offered each request automatically; only the ones that need a person are under Needs you. Regular shifts stay in AxisCare as usual.</div></div>
 <div id="famBookings"></div>
 </section>
 <section class="tabpanel" id="tab-carematch">
@@ -5108,15 +5113,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      Built 2026-08-01 after two real stale-plan catches: a client's plan
      still said walker after she'd declined to a Hoyer lift, and a live-in
      converted to hourly with awake-overnight now required. Every active
-     client's plan gets reviewed monthly (visit, phone, or caregiver check),
+     client's plan gets reviewed every 90 days and on any shift-note change (visit, phone, or caregiver check),
      the caregivers actually on the shifts get asked directly, and every
      client carries a care Level so acuity changes are named, not vibes. -->
 <section class="tabpanel" id="tab-careplans">
 <details class="guide">
-<summary>📋 How This Tab Works — Monthly Care Plan Reviews ▼</summary>
+<summary>📋 How This Tab Works: Care Plan Reviews ▼</summary>
 <div class="guide-body">
-<div class="guide-step"><span class="num">💡</span><b>Why this exists:</b> clients decline faster than paperwork. A fill-in caregiver who walks in trusting a plan that says "walker" when the client now needs a Hoyer lift is a safety incident waiting to happen. So every active client's care plan gets confirmed <b>every 30 days</b>, no exceptions.</div>
-<div class="guide-step"><span class="num">1</span><b>Work the board top-down.</b> Overdue and never-reviewed clients float to the top in red. A review can be an in-person visit, a phone call with the client or family, or a caregiver check, whichever fits the month, as long as someone who has actually seen the client confirms the plan.</div>
+<div class="guide-step"><span class="num">💡</span><b>Why this exists:</b> clients decline faster than paperwork. A fill-in caregiver who walks in trusting a plan that says "walker" when the client now needs a Hoyer lift is a safety incident waiting to happen. So every active client's care plan gets confirmed <b>every 90 days</b>, and sooner <b>whenever a shift note shows a change</b>. A client with a red or yellow shift-note flag since their last review moves to the top as <b>Review now</b> until you save a review.</div>
+<div class="guide-step"><span class="num">1</span><b>Work the board top-down.</b> Review now (a shift note showed a change), overdue and never-reviewed clients float to the top in red. A review can be an in-person visit, a phone call with the client or family, or a caregiver check, whichever fits, as long as someone who has actually seen the client confirms the plan.</div>
 <div class="guide-step"><span class="num">2</span><b>Ask the people on the shifts.</b> "Ask caregivers" lists every caregiver who worked with that client in the last 60 days (live from AxisCare) and texts them the check question with one click. They see the decline first, weeks before anyone in the office does. "Text the check" sends exactly this, with the names filled in:
 <div style="margin:.4rem 0;padding:.5rem .7rem;background:#F6F1E7;border-left:3px solid var(--border);border-radius:6px;font-size:.8rem;font-style:italic">"Hi (caregiver's first name)! Quick care plan check for (client name). Does the plan still match what you see on shift? Transfers and mobility (walker, wheelchair, Hoyer)? Meals or meds changes? Reply here with anything that's different. Takes a minute and keeps everyone safe. Thank you! — Caring Companions"</div>
 The same panel can also send a <b>custom update</b> in your own words to everyone on that client's shifts (a new address, a schedule note, an equipment change). Custom updates go out as <i>"Hi (first name)! Update about (client name): (your message) — Caring Companions"</i>, get noted on the client's AxisCare profile, and are never logged as a plan check.</div>
@@ -5157,7 +5162,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div style="display:flex;align-items:center;gap:.6rem">
     <span style="font-size:1.1rem">🗂️</span>
     <div>
-      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Every active client, every plan, every 30 days</div>
+      <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Every active client, every 90 days, and whenever a shift note shows a change</div>
       <div style="font-size:.72rem;color:var(--text-muted)">Pulled live from AxisCare (every client with a completed visit in the last 60 days). Red means overdue or never reviewed; a flagged change stays red until the plan in AxisCare is actually updated.</div>
     </div>
   </div>
@@ -5169,7 +5174,14 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <section class="tabpanel" id="tab-supervisory">
 <details class="guide">
 <summary>📋 How This Tab Works — Step by Step ▼</summary>
-<div class="guide-body">
+<div class="guide-body" data-sv="concern">
+<div class="guide-step"><span class="num">1</span>From November 16, 2026 a supervisory visit happens <b>only when there's a concern</b>: a family complaint about the caregiver, a red shift-note flag, or a concern from a Care Match call. There is no yearly due date, so nobody is ever due or overdue.</div>
+<div class="guide-step"><span class="num">2</span>Visit the client while the caregiver is working, then press <b>+ Log Supervisory Visit</b> and write a short note: what prompted it, what went well, anything to coach, and what the client or family told you.</div>
+<div class="guide-step"><span class="num">3</span>No score, no skills sign-off and no signed form. Who logged it and when are saved from your login.</div>
+<div class="guide-step"><span class="num">4</span>Saving updates the caregiver's "last supervisory visit" date, so their page shows when they were last visited.</div>
+<div class="guide-step flag"><span class="num">!</span>Visits from before November 16 were yearly evaluations for Medicaid. They stay here exactly as they were and open read-only.</div>
+</div>
+<div class="guide-body" data-sv="yearly">
 <div class="guide-step"><span class="num">1</span>Every caregiver needs a supervisory visit <b>at least once a year</b> for Medicaid compliance — a coordinator observes them in a client's home. Due date = last visit + 365 days.</div>
 <div class="guide-step"><span class="num">2</span>Use the <b>Due Soon</b> and <b>Overdue</b> filters to plan your visits — Due Soon shows anyone within the window set in Settings (default 60 days).</div>
 <div class="guide-step"><span class="num">3</span>During the visit, work through the checklist (punctuality, task completion against the care plan, client interaction, safety practices, EVV/documentation compliance) and rate overall performance.</div>
@@ -5593,22 +5605,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cp_c_start"></div>
   </div>
   <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div id="cp_c_family"></div><div class="profile-grid">
-    <div>
-<div class="cp-lead">
-      <!-- What has actually been said to this person. Used to mean leaving the
-           hub for GoHighLevel and searching their name, so nobody looked. -->
-      <div class="card" style="padding:18px;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">💬 Texts &amp; emails</b>
-          <span class="field-note" id="gt_lp_meta"></span>
-          <button class="linklike" style="margin-left:auto;" onclick="ghlThread('gt_lp', {phone:(lpLead||{}).phone, email:(lpLead||{}).email})">↻ Load</button>
-          <a class="linklike" id="gt_lp_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a>
-        </div>
-        <div id="gt_lp" style="margin-top:10px;"></div>
-      </div>
-</div>
-<!-- the Nurture drip card was retired 2026-10-07 (clean-up 6.3): no timed family sequences; a family's next touch is a person's call -->
-    </div>
+<!-- 2026-10-17 her ask: no "Texts & emails" box on Family & Contacts ("no reason it should be here"). ghlThreadReset('gt_lp') is
+     null-safe, so nothing else changes. The Nurture drip card was retired 2026-10-07 (clean-up 6.3). -->
     <div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;margin-bottom:14px;">
@@ -6281,7 +6279,7 @@ The HomeTogether team</pre>
 
       <details class="pb2-card">
         <summary>"It's too expensive." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"Totally fair — let's not start with full days. Most families begin with just the hours that relieve the most stress and add HomeTogether so there's coverage the rest of the day for $75 a month. Let's also make sure we've checked every source that could help pay — Medicaid, VA benefits, and, if there's a dementia diagnosis, Medicare respite. Can I run those with you? It's free to find out."</div>
+        <div class="pb2-script"><span class="who">Say</span>"Totally fair. Let's not start with full days. Most families begin with just the hours that relieve the most stress and add HomeTogether so there's coverage the rest of the day for $75 a month. Let's also make sure we've checked every source that could help pay: VA benefits, a long-term care policy, and, if there's a dementia diagnosis, Medicare respite. Can I run those with you? It's free to find out."</div>
       </details>
       <details class="pb2-card">
         <summary>"Doesn't Medicare pay for this?" <span class="chev">▸</span></summary>
@@ -6289,15 +6287,15 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small — even a few hours a week, or just HomeTogether for peace of mind — so support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our Caring Companions Booking App. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
       </details>
       <details class="pb2-card">
         <summary>"I can take care of Mom myself." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"You clearly love her, and no one will ever replace that. This is about protecting <em>you</em> too — burnout is real, and even a few respite hours or HomeTogether checking in keeps you from carrying it all alone. Think of us as backup for the moments you can't be there. Want to start with just a little and see how it feels?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"You clearly love her, and no one will ever replace that. This is about protecting <em>you</em> too. Burnout is real, and even a few respite hours or HomeTogether checking in keeps you from carrying it all alone. Think of us as backup for the moments you can't be there. Want to start with just a little and see how it feels?"</div>
       </details>
       <details class="pb2-card">
         <summary>"Let me talk to the family / think about it." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"Of course — this is a family decision. Let me make it easy: I'll email a simple summary with the plan and the costs so everyone's looking at the same thing. Could we put a quick call on the calendar for after you've talked, so I can answer their questions directly? What day works?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"Of course, this is a family decision. Let me make it easy: I'll email a simple summary with the plan and the costs so everyone's looking at the same thing. Could we put a quick call on the calendar for after you've talked, so I can answer their questions directly? What day works?"</div>
       </details>
     </div>
 
@@ -7039,7 +7037,7 @@ The HomeTogether team</pre>
 </div>
 
 <div class="grid2" style="margin-top:12px;">
-<div><label>Rate Discussed (optional)</label><input id="fu_rate_discussed" placeholder="e.g. $28/hr"></div>
+<div><label>Rate Discussed (optional)</label><input id="fu_rate_discussed" placeholder="e.g. $32/hr"></div>
 <div class="checklist" style="align-self:end;"><label><input type="checkbox" id="fu_email_collected_on_call"> Email was collected on this call</label></div>
 </div>
 
@@ -7080,7 +7078,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Other</option></select>
+<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
 <div class="field-note" id="assess_payer_note"></div>
 </div>
 <div>
@@ -7161,7 +7159,7 @@ The HomeTogether team</pre>
 <label>Resolution</label>
 <textarea id="checkin_resolution" rows="2"></textarea>
 <label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);">
-<input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate to Samantha
+<input type="checkbox" id="checkin_escalated" style="width:auto"> Escalate (the Client care owner and the Springfield lead are told)
 </label>
 <div class="modal-actions">
 <button class="secondary" onclick="closeModal('checkinModalBackdrop')">Cancel</button>
@@ -7174,7 +7172,8 @@ The HomeTogether team</pre>
 <div class="modal-backdrop" id="supervisoryModalBackdrop">
 <div class="modal">
 <h2>Supervisory Visit</h2>
-<div class="modal-sub">Generic checklist shown below — attach your official Missouri supervisory visit form to replace this with your exact fields.</div>
+<div class="modal-sub" data-sv="yearly">Generic checklist shown below. Attach your official Missouri supervisory visit form to replace this with your exact fields.</div>
+<div class="modal-sub" id="sv_readonly_note" hidden>Yearly evaluation from before November 16, 2026. Kept exactly as it was logged, read-only.</div>
 <input type="hidden" id="sv_id">
 <div class="grid2">
 <div><label>Caregiver Name</label><input id="sv_caregiver_name"></div>
@@ -7210,8 +7209,34 @@ The HomeTogether team</pre>
 <input id="sv_proof_link" placeholder="https://drive.google.com/...">
 
 <div class="modal-actions">
-<button class="secondary" onclick="closeModal('supervisoryModalBackdrop')">Cancel</button>
-<button class="primary" onclick="saveSupervisoryVisit()">Save Visit</button>
+<button class="secondary" onclick="closeModal('supervisoryModalBackdrop')">Close</button>
+<button class="primary" id="sv_save_btn" onclick="saveSupervisoryVisit()">Save Visit</button>
+</div>
+</div>
+</div>
+
+<!-- ============================= SUPERVISORY VISIT NOTE (from 2026-11-16) ============================= -->
+<div class="modal-backdrop" id="svNoteModalBackdrop">
+<div class="modal">
+<h2>Supervisory Visit</h2>
+<div class="modal-sub">A short note about a visit made because of a concern. No score and no form.</div>
+<input type="hidden" id="svn_id">
+<div class="grid2">
+<div><label for="svn_caregiver">Caregiver</label><select id="svn_caregiver"></select></div>
+<div><label for="svn_client">Client</label><input id="svn_client"></div>
+<div><label for="svn_date">Visit date</label><input type="date" id="svn_date"></div>
+<div><label for="svn_prompted">What prompted the visit</label><select id="svn_prompted"></select></div>
+</div>
+<label for="svn_went_well">What went well</label>
+<textarea id="svn_went_well" rows="2"></textarea>
+<label for="svn_coach">Anything to coach</label>
+<textarea id="svn_coach" rows="2" placeholder="Leave blank if nothing"></textarea>
+<label for="svn_view">Client or family's view</label>
+<textarea id="svn_view" rows="2" placeholder="What they told you"></textarea>
+<div class="field-note" id="svn_msg" style="color:var(--red);" role="alert"></div>
+<div class="modal-actions">
+<button class="secondary" onclick="closeModal('svNoteModalBackdrop')">Cancel</button>
+<button class="primary" onclick="saveSupervisoryNote()">Save Note</button>
 </div>
 </div>
 </div>
@@ -7270,14 +7295,14 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-library.js"></script>
+<script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=17"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261017r4"></script>
+<script src="family-app-panel.js?v=20261017r6"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -7308,26 +7333,28 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=7"></script>
-<script src="open-hours.js?v=2"></script>
-<script src="scheduling-guide.js?v=1"></script>
-<script src="new-hires.js?v=2"></script>
+<script src="team-builder-2.js?v=8"></script>
+<script src="open-hours.js?v=3"></script>
+<script src="scheduling-guide.js?v=3"></script>
+<script src="new-hires.js?v=3"></script>
 <script src="live-calendar.js?v=4"></script>
-<script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
+<script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=18"></script>
+<script src="client-journey.js?v=20"></script>
+<script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
-<script src="partner-rules.js?v=1"></script>
-<script src="referral-desk.js?v=4"></script>
+<script src="partner-rules.js?v=2"></script>
+<script src="referral-desk.js?v=5"></script>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
+<script src="writeup-rules.js?v=2"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=2"></script>
@@ -7338,19 +7365,20 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=14"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=9"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
-<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
+<script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=5"></script>
+<script src="end-shift.js?v=6"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
-<script src="call-lead.js?v=3"></script><!-- Make this a lead (2026-10-14) -->
+<script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
+<script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=2"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=9"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7559,7 +7587,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -8008,7 +8036,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','routing','supplies'],docs:['docs','docfolders'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8421,7 +8449,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -8630,7 +8658,11 @@ function ccRenderPulse(){
   /* Points at My Work, which is where a late item is actually worked. `late` is
      unchanged — the same opsOverdue() filtered to mine-or-unowned that My Work's
      Today bucket shows — so this is a label and a destination, not a new metric. */
-  if(late) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
+  /* ONE HEADLINE NUMBER (2026-10-17, her fix 3): the chip says what needs you right now (Today's Act now lane). Only
+     when nothing does, it says how much of yours is late. One number, never both. */
+  let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
+  if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
+  else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready'&&!g.superseded_by).length;
@@ -8638,6 +8670,7 @@ function ccRenderPulse(){
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
 }
 function renderActiveTab(){
+  svApplyDateText();
   ccRenderViewAs();
   ccRenderPulse();
   nurseModeCheck();
@@ -9250,7 +9283,7 @@ async function cmpTest(){
   const e=cmpLib().find(x=>x.key===cmpKey); if(!e||cmpSending) return;
   cmpSending=true; const st=document.getElementById('cmpStatus'); st.textContent='Sending test to '+ME.email+'…';
   try{
-    const r=await cmpCall(e.subj, ccBuildEmailHTML(e), [{email:ME.email,name:'Samantha'}]);
+    const r=await cmpCall(e.subj, ccBuildEmailHTML(e), [{email:ME.email,name:ME.name||'there'}]);
     st.textContent=r.sent?'✓ Test sent to '+ME.email+'. Check your inbox (it lands via GoHighLevel).':'Test failed: '+JSON.stringify(r.results||r);
   }catch(err){ st.textContent='Test failed: '+err; }
   cmpSending=false;
@@ -10395,7 +10428,7 @@ function cpLogReview(){
     document.getElementById('cp-client-key').value='ax:'+CP.ax;
     document.getElementById('cp-method').value='phone';
     document.getElementById('cp-level').value='';
-    document.getElementById('cp-next-due').value=new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+    document.getElementById('cp-next-due').value=new Date(Date.now()+CP_REVIEW_DAYS*86400000).toISOString().slice(0,10);
     ['cpf-none','cpf-mobility','cpf-schedule','cpf-meds','cpf-home'].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
     document.getElementById('cp-findings').value='';
   }
@@ -10411,12 +10444,15 @@ async function cpRenderTeam(){
   const box=document.getElementById('cp_team'); if(!box) return;
   const esc=escapeHtmlComms;
   let f=null; try{ f=await famResolve(CP.ax?{ ax:CP.ax }:(CP.lead?{ lead_id:CP.lead.id }:{})); }catch(e){}
-  const plan=f&&f.plan;
+  /* Start of Care stage C (2026-10-17): a plan started with Find Caregivers is keyed to the lead, the AxisCare client and
+     the journey, so the profile finds it before AxisCare too (famResolve only knew linked plans) */
+  const cj=window.CJ_STATE&&CJ_STATE.data&&CJ_STATE.data.journey;
+  const plan=(f&&f.plan)||(typeof cmPlanFor==='function'?cmPlanFor({ lead:CP.lead, ax:CP.ax, journey_id:cj&&cj.journey_id }):null);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care team plan</b></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Caregiver Matching</b></div>'
     +(plan?'<div id="cp_tb"></div>'
-      :'<div class="field-note">No Team Builder plan is linked to this family yet. Start one in Team Builder and use "Link to a Journey" on the board; it will then show here.</div>'
-        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'teambuilder\');">Open Team Builder</button>')
+      :'<div class="field-note">No Caregiver Matching plan for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
+        +'<button class="primary" style="margin-top:8px;" onclick="cmFindCaregivers(this)">Find Caregivers</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📞 Care Match calls</b><span style="flex:1;"></span>'
@@ -10538,7 +10574,9 @@ async function cpSendChange(){
    edited in one place. Saves to the same inquiry fields the intake form writes; the steps check off
    exactly as they do on the Start tab (socToggleStep). A mismatch between the two is shown, and a
    person fixes it: nothing is changed on its own. */
-const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)']];
+/* stage A (2026-10-17): Medicare GUIDE is a payer here too; a payer the list doesn't know is kept as it is, never saved over as blank */
+const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['guide','Medicare GUIDE'],['cds','CDS'],['medicaid','Medicaid (IHS, ending 11/16)']];
+function cpPayersFor(v){ return v&&!CP_PAYERS.some(x=>x[0]===v)?CP_PAYERS.concat([[v,String(v)]]):CP_PAYERS; }
 const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
 function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
 function cpRenderPayer(){
@@ -10558,7 +10596,7 @@ function cpRenderPayer(){
   box.innerHTML='<div class="card" style="padding:14px 18px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span><span class="field-note" id="cpPayMsg"></span></div>'
     +'<div class="grid2">'
-      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(CP_PAYERS,l.funding_source)+'</select></div>'
+      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(cpPayersFor(l.funding_source),l.funding_source)+'</select></div>'
       +'<div><label '+lbl+'>Price quoted</label><div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="cpPayQuoted" style="width:auto;"'+(l.price_quoted?' checked':'')+'><input id="cpPayAmount" placeholder="e.g. $35/hr" value="'+esc(l.quoted_price_amount||'')+'" style="flex:1;"></div></div>'
     +'</div>'
     +'<div id="cpPayMed" style="'+(med?'':'display:none;')+'margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">'
@@ -11937,7 +11975,7 @@ async function csrOpen(reviewId){
     +opt('care_ended','Care ended','Opens End care: the reason, the last day of service and who told us. Their journey and open work close; nothing is deleted.')
     +opt('on_hold','Paused (hospital, rehab, family away…)','Opens Pause care with a follow-up date. Nothing ends.')
     +opt('no_change','AxisCare mistake / nothing changed','Nothing ends. Say what happened.')
-    +opt('returning','Returning client','Opens Resume care on the same person. An owner decides.')
+    +opt('returning','Returning client','Opens Resume care on the same person. A Care Coordinator or an owner confirms it.')
     +'<div id="csrMore" style="margin-top:10px;"></div>'
     +'<div style="display:flex;gap:8px;margin-top:14px;align-items:center;"><button class="primary" id="csrGo" disabled>Record the answer</button><button class="secondary" id="csrX">Close</button><span id="csrMsg" class="field-note"></span></div>';
   ov.querySelector('#csrX').onclick=close;
@@ -12306,7 +12344,7 @@ async function ckUseExisting(l, ax, name){
   try{ renderLeadProfile(); }catch(e){} try{ renderLeads(); }catch(e){}
   alert('Linked to their existing AxisCare record #'+ax+(name?' ('+name+')':'')+'. No second client was made.'
     +(jcRes?'\n\nJourney: '+jcRes.text:'')
-    +'\n\nIn AxisCare, set them back to active when care starts. Owner / Decision then confirms the returning client, and this inquiry\'s Journey carries on.');
+    +'\n\nIn AxisCare, set them back to active when care starts. Their Care Coordinator then confirms the returning client, and this inquiry\'s Journey carries on.');
   return true;
 }
 /* 5b C: an automatic front door (web form, booking, AI call, call disposition) flagged this new
@@ -12470,6 +12508,7 @@ async function saveLead(opts){
      (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
      wrote the old intake values back to the database. */
   const fromCall=window.CallLead?CallLead.stamp(merged):null;   /* Make this a lead / Add from this call: the call and its care plan draft go onto the lead */
+  if(idx<0&&window.CallCoach) CallCoach.stamp(merged);   /* saved from Taking a call: who took it (call coaching) */
   /* 2026-10-15: typed in with + Add Lead while on the phone with the family: that call is the first real conversation
      (the same record a logged connected call writes), so no first-call clock, no late alerts, not New */
   { const tb=document.getElementById('lead_talked_now');
@@ -13087,6 +13126,9 @@ function ckptRestoreSections(){
   });
 }
 function openCallCockpit(){
+  /* 2026-10-18 (her call): + Add Lead opens Taking a call (call-coach.js): a notes box, and the five beats for new coordinators.
+     The seven-step Guided Call below is retired and no longer opens. */
+  if(window.CallCoach) return CallCoach.open();
   openLeadModal();                                       // blank form, payor UI reset
   document.getElementById('leadModalBackdrop').classList.remove('open');
   ckptBorrowSections();
@@ -13636,7 +13678,7 @@ function openAssessmentModal(id, fromLead){
   /* One profile, step 4: the payer has ONE editor, the intake (the Payer tab). When the family has an
      inquiry, the assessment shows its payer read-only; only an assessment with no inquiry types its own. */
   { const lp = fromLead || ((a&&a.lead_id) ? (DATA.leads||[]).find(l=>l.id===a.lead_id) : null);
-    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS' };
+    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS', guide:'Medicare GUIDE' };
     const sel = document.getElementById('assess_payer'), note = document.getElementById('assess_payer_note');
     const fromIntake = lp && lp.funding_source ? (PAYER_LABEL[lp.funding_source] || 'Other') : '';
     sel.value = fromIntake || (a&&a.payer) || '';
@@ -14291,10 +14333,28 @@ async function saveCheckin(){
   if(record.escalated && !existing.escalated) notifyEscalation(record);
 }
 
-/* Escalated check-in → text the staff flagged for check-in alerts + email
-   Samantha, through the same secured GHL functions the lead comms use. */
+/* Escalated check-in → text the staff flagged for check-in alerts + email the Client care owner and the Springfield
+   lead (SOP ruling 8, 2026-10-17; was Samantha), through the same secured GHL functions the lead comms use. It also
+   opens a card for the Client care owner, so owners see it and who has it under Everyone. An incident is still handed
+   to Samantha from the card. */
 async function notifyEscalation(c){
-  const msg = '🚨 ESCALATED CHECK-IN — '+(c.client_name||'client')
+  const owner=ccNoticeTo('client_care');
+  try{
+    const id='ops_ckesc_'+String(c.id);
+    if(!(DATA.ops_items||[]).some(x=>x&&x.id===id)){
+      const now=new Date().toISOString();
+      const it={ id, kind:'request', domain:'client_care', status:'open', urgency:'high',
+        title:'Escalated check-in: '+(c.client_name||'client'), about:c.client_name||'',
+        detail:'Concern: '+String(c.concerns_raised||c.caregiver_feedback||'see the check-in').slice(0,400)
+          +'. Satisfaction '+(c.satisfaction_rating||'?')+'/5, by '+(c.coordinator||'the coordinator')+'.',
+        next_action:'Call the family and fix it. If it sounds like harm or neglect, it is an incident: hand it to Samantha.',
+        link:'#checkins', owner, owner_name:opsOwnerName(owner)||owner, created_at:now,
+        due:new Date(Date.now()+24*3600e3).toISOString(), created_by:'check-in escalation', opened_by:'system' };
+      DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it);
+      await persist('ops_items', it);
+    }
+  }catch(e){ console.warn('[checkin] escalation card', e); }
+  const msg = '🚨 ESCALATED CHECK-IN: '+(c.client_name||'client')
     +'\nConcern: '+((c.concerns_raised||c.caregiver_feedback||'(see hub)').slice(0,300))
     +'\nSatisfaction: '+(c.satisfaction_rating||'?')+'/5 · by '+(c.coordinator||'coordinator')
     +'\nOpen the CC Hub → Client Check-ins for the full record.';
@@ -14305,21 +14365,39 @@ async function notifyEscalation(c){
   (DATA.coordinator_staff||[]).filter(s=>s.notify_checkins&&s.phone).forEach(s=>{
     sends.push(call({action:'send_sms',phone:s.phone,first_name:s.name||'Staff',message:msg}));
   });
-  sends.push(call({action:'send_email',email:'samantha@mo-care.com',first_name:'Samantha',last_name:'Troutman',
-    subject:'🚨 Escalated check-in: '+(c.client_name||'client'),
-    message:msg}));
+  ccFallbackList('client_care').forEach(e=>{
+    const n=String(opsOwnerName(e)||e.split('@')[0]).trim().split(/\s+/);
+    sends.push(call({action:'send_email',email:e,first_name:n[0]||'there',last_name:n.slice(1).join(' '),
+      subject:'🚨 Escalated check-in: '+(c.client_name||'client'),
+      message:msg}));
+  });
   const results=await Promise.all(sends);
   const ok=results.filter(r=>r&&r.status==='sent').length;
   alert(ok
-    ? 'Escalation sent — '+ok+' alert'+(ok===1?'':'s')+' (text/email) went out automatically.'
-    : 'Escalation saved, but the alerts could not send ('+((results[0]&&results[0].error)||'error')+') — tell Samantha directly.');
+    ? 'Escalation sent: '+ok+' alert'+(ok===1?'':'s')+' (text/email) went out, and it is a card for '+(opsOwnerName(owner)||owner)+'.'
+    : 'Escalation saved and it is a card for '+(opsOwnerName(owner)||owner)+', but the alerts could not send ('+((results[0]&&results[0].error)||'error')+'). Tell them directly.');
 }
 
 /* ---------------- SUPERVISORY VISITS ---------------- */
 /* The older caregiver profile list (cgp*) was removed in 2b (2026-10-01): it had no caller since renderCgProfiles was
    deleted. The ONE caregiver profile now lives in caregiver-profile-panel.js (CGP2), with "Introduce to a family". */
 
+/* From 2026-11-16 (her decision 2026-10-18) supervisory visits are concern-only, logged as a short note, never due.
+   The one date lives in eligibility-rules.js (CCElig.supervisoryConcernOnly); this copy is only for when that file
+   has not loaded yet, and must say the same day. */
+function svConcernOnly(){
+  if(globalThis.CCElig && CCElig.supervisoryConcernOnly) return CCElig.supervisoryConcernOnly();
+  let d; try{ d=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }catch(e){ d=today(); }
+  return d >= '2026-11-16';
+}
+/* text that differs before and after the date: [data-sv="yearly"] until then, [data-sv="concern"] from then */
+function svApplyDateText(){ document.body.classList.toggle('sv-concern', svConcernOnly()); }
+const SV_PROMPTS=['Family complaint about the caregiver','Red shift-note flag','Concern from a Care Match call','Other'];
+function svIsNote(v){ return !!(v && v.kind==='concern_note'); }
+
 function renderSupervisory(){
+  svApplyDateText();
+  if(svConcernOnly()) return renderSupervisoryNotes();
   renderFilterPills('supervisoryFilters', ['All','Due Soon','Overdue','Completed This Year'], activeFilters.supervisory, 'supervisory');
   let rows = DATA.supervisory_visits.filter(v=>searchMatch(v.caregiver_name));
   const f = activeFilters.supervisory;
@@ -14343,8 +14421,40 @@ function renderSupervisory(){
       <td><button class="linklike" onclick="openSupervisoryModal('${v.id}')">Edit</button></td>
     </tr>`; }).join('')}</tbody></table>`;
 }
+function renderSupervisoryNotes(){
+  const f0 = activeFilters.supervisory;
+  const f = ['All','This Month','This Year'].includes(f0) ? f0 : 'All';
+  renderFilterPills('supervisoryFilters', ['All','This Month','This Year'], f, 'supervisory');
+  let rows = (DATA.supervisory_visits||[]).filter(v=>searchMatch(v.caregiver_name));
+  const t = today();
+  if(f==='This Month') rows = rows.filter(v=>(v.visit_date||'').slice(0,7)===t.slice(0,7));
+  else if(f==='This Year') rows = rows.filter(v=>(v.visit_date||'').slice(0,4)===t.slice(0,4));
+  rows = rows.slice().sort((a,b)=>String(b.visit_date||'').localeCompare(String(a.visit_date||'')));
+  const wrap = document.getElementById('supervisoryTableWrap');
+  if(rows.length===0){ wrap.innerHTML='<div class="empty">No supervisory visits logged'+(f==='All'?'':' '+f.toLowerCase())+'. Log one when there\'s a concern.</div>'; return; }
+  const e = escapeHtmlComms;
+  wrap.innerHTML = `<table><thead><tr>
+    <th>Date</th><th>Caregiver</th><th>Client</th><th>What prompted it</th><th>Logged by</th><th></th>
+  </tr></thead><tbody>${rows.map(v=>{
+    const note = svIsNote(v);
+    return `<tr>
+      <td>${e(v.visit_date||'')}</td>
+      <td><b>${e(v.caregiver_name||'')}</b></td>
+      <td>${e(v.client_name||'')}</td>
+      <td>${note ? e(v.prompted_by||'') : '<span class="badge">Yearly evaluation (before Nov 16)</span>'}</td>
+      <td>${e(note ? (v.logged_by_name||v.logged_by||'') : (v.coordinator||''))}</td>
+      <td><button class="linklike" onclick="openSupervisoryModal('${e(v.id)}')">${note?'Edit':'View'}</button></td>
+    </tr>`; }).join('')}</tbody></table>`;
+}
 function openSupervisoryModal(id){
   const v = id ? DATA.supervisory_visits.find(x=>x.id===id) : {};
+  /* from 2026-11-16: a new visit, or one logged as a note, opens the short note; an old yearly evaluation opens read-only */
+  if(svConcernOnly() && (!id || svIsNote(v))) return openSupervisoryNote(id);
+  if(svIsNote(v)) return openSupervisoryNote(id);
+  const readOnly = svConcernOnly();
+  document.querySelectorAll('#supervisoryModalBackdrop input, #supervisoryModalBackdrop select, #supervisoryModalBackdrop textarea').forEach(el=>{ el.disabled = readOnly; });
+  document.getElementById('sv_save_btn').hidden = readOnly;
+  document.getElementById('sv_readonly_note').hidden = !readOnly;
   document.getElementById('sv_id').value = id||'';
   document.getElementById('sv_caregiver_name').value = (v&&v.caregiver_name)||'';
   document.getElementById('sv_axiscare_caregiver_id').value = (v&&v.axiscare_caregiver_id)||'';
@@ -14362,6 +14472,7 @@ function openSupervisoryModal(id){
   document.getElementById('supervisoryModalBackdrop').classList.add('open');
 }
 async function saveSupervisoryVisit(){
+  if(svConcernOnly()) return;   /* old yearly evaluations are read-only from 2026-11-16 */
   const id = document.getElementById('sv_id').value || uid();
   const existing = DATA.supervisory_visits.find(x=>x.id===id) || {};
   const checklist = {};
@@ -14387,6 +14498,11 @@ async function saveSupervisoryVisit(){
   if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
   await persist('supervisory_visits', record);
 
+  await svMirrorToRoster(record);
+  closeModal('supervisoryModalBackdrop');
+  renderSupervisory();
+}
+async function svMirrorToRoster(record){
   // Mirror the date into the shared caregivers list, same record, two views.
   // 421: read fresh, then save that ONE caregiver based on the _rev just read
   // (ccCaregiverPut); a failure is shown, never swallowed. The visit itself is
@@ -14401,14 +14517,68 @@ async function saveSupervisoryVisit(){
       const cg = vid ? data.data.find(g => String(g.axiscare_id||'')===vid) : (byName.length===1 ? byName[0] : null);
       if(cg){
         cg.supv_date = record.visit_date;
-        cg.supervisory_proof_link = record.proof_link;
-        if(record.proof_link) cg.supv_proof = record.proof_link;   /* 2026-10-12: the field the compliance table reads */
+        if(!svIsNote(record)){   /* a concern note has no form, so it never touches the proof fields */
+          cg.supervisory_proof_link = record.proof_link;
+          if(record.proof_link) cg.supv_proof = record.proof_link;   /* 2026-10-12: the field the compliance table reads */
+        }
         await ccCaregiverPut(cg);
       } else alert('The visit is saved, but it could not be matched to exactly one caregiver on the roster'+(vid?' (no caregiver has AxisCare number '+vid+')':' (pick the caregiver so it carries their AxisCare number)')+'. Add the date on their page.');
     }
   }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on the Training tab.'); }
+}
 
-  closeModal('supervisoryModalBackdrop');
+/* The short note (from 2026-11-16): date, caregiver, client, what prompted it, what went well, anything to coach,
+   the client's or family's view. No score, no checklist, no form link, no due date. */
+function svCaregiverOptions(sel){
+  const list=(DATA.caregivers||[]).filter(g=>g.first||g.last).map(g=>({id:String(g.axiscare_id||''), name:((g.first||'')+' '+(g.last||'')).trim()}))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  const e=escapeHtmlComms;
+  return '<option value="">Pick the caregiver</option>'+list.map(g=>'<option value="'+e(g.id+'|'+g.name)+'"'+(sel&&(g.id&&g.id===sel.id||g.name===sel.name)?' selected':'')+'>'+e(g.name)+'</option>').join('');
+}
+function openSupervisoryNote(id){
+  const v = id ? (DATA.supervisory_visits.find(x=>x.id===id)||{}) : {};
+  document.getElementById('svn_id').value = id||'';
+  document.getElementById('svn_caregiver').innerHTML = svCaregiverOptions(v.caregiver_name ? {id:String(v.axiscare_caregiver_id||''), name:v.caregiver_name} : null);
+  document.getElementById('svn_client').value = v.client_name||'';
+  document.getElementById('svn_date').value = v.visit_date||today();
+  document.getElementById('svn_prompted').innerHTML = '<option value="">Pick one</option>'+SV_PROMPTS.map(p=>'<option'+(v.prompted_by===p?' selected':'')+'>'+p+'</option>').join('');
+  document.getElementById('svn_went_well').value = v.went_well||'';
+  document.getElementById('svn_coach').value = v.coaching||'';
+  document.getElementById('svn_view').value = v.client_view||'';
+  document.getElementById('svn_msg').textContent = '';
+  document.getElementById('svNoteModalBackdrop').classList.add('open');
+}
+async function saveSupervisoryNote(){
+  const msg = document.getElementById('svn_msg');
+  const id = document.getElementById('svn_id').value || uid();
+  const existing = DATA.supervisory_visits.find(x=>x.id===id) || {};
+  const cgv = document.getElementById('svn_caregiver').value;
+  const cut = cgv.indexOf('|');
+  const record = {
+    id,
+    kind: 'concern_note',
+    caregiver_name: cut>=0 ? cgv.slice(cut+1) : '',
+    axiscare_caregiver_id: cut>=0 ? cgv.slice(0,cut) : '',
+    client_name: document.getElementById('svn_client').value.trim(),
+    visit_date: document.getElementById('svn_date').value,
+    prompted_by: document.getElementById('svn_prompted').value,
+    went_well: document.getElementById('svn_went_well').value.trim(),
+    coaching: document.getElementById('svn_coach').value.trim(),
+    client_view: document.getElementById('svn_view').value.trim(),
+    status: 'Completed',
+    logged_by: existing.logged_by || ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''),
+    logged_by_name: existing.logged_by_name || ((typeof ME!=='undefined'&&ME&&ME.name)||''),
+    created_at: existing.created_at || new Date().toISOString(),
+  };
+  if(existing.created_at){ record.updated_at = new Date().toISOString(); record.updated_by = (typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''; }
+  const missing = [!record.caregiver_name&&'the caregiver', !record.client_name&&'the client', !record.visit_date&&'the date', !record.prompted_by&&'what prompted it'].filter(Boolean);
+  if(missing.length){ msg.textContent = 'Add '+missing.join(', ')+' first.'; return; }
+  if(record.visit_date > today()){ msg.textContent = 'The visit date cannot be in the future.'; return; }
+  const idx = DATA.supervisory_visits.findIndex(x=>x.id===id);
+  if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
+  await persist('supervisory_visits', record);
+  await svMirrorToRoster(record);
+  closeModal('svNoteModalBackdrop');
   renderSupervisory();
 }
 
@@ -14706,7 +14876,8 @@ function tkFill(){
 }
 function tkAdminsNow(){
   const st=DATA.ops_settings||{};
-  const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:['samantha@mo-care.com','krystal@mo-care.com'];
+  /* SOP ruling 8: an empty list shows the same fallback the server uses (coverage owner + Springfield lead). */
+  const list=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins.length)?st.coverage_alert_admins:ccFallbackList('scheduling_coverage');
   return list.map(e=>{ e=String(e).trim().toLowerCase(); const p=(DATA.coordinator_staff||[]).find(s=>String(s.email||'').toLowerCase()===e); return { email:e, name:(p&&p.name)||e, phone:!!(p&&String(p.phone||'').replace(/\D/g,'').length>=10) }; });
 }
 /* OFFICE QUIET HOURS (Samantha, 2026-10-03): the server (_shared/quiet-hours.ts) never texts the office, an admin or a
@@ -15131,13 +15302,13 @@ async function addStaffMember(){
    A LIVE OWNER IS ALWAYS A REAL PERSON. A vacant position may be shown as the
    planned future owner, but it can never be the current one: a seat cannot
    answer a phone. */
+/* 2026-10-17 (Samantha): Field Quality and Payer Programs are retired (no Payer Program coordinator; the PRN Team will
+   cover hands-on refreshers later), so they are no longer listed. Their domain rows stay, switched off. */
 const OWN_AREAS=[
   ['scheduling_coverage','Staffing & Scheduling','Open shifts, call-offs, coverage'],
   ['client_care',        'Client Care','Clients, families, the relationship'],
   ['family_enquiries',   'Family Enquiries','The front door'],
   ['caregiver_performance','Caregiver Performance Management','Conduct, reliability, corrective action'],
-  ['field_quality',      'Field Quality & Advanced Care','Hands-on skills in the home'],
-  ['payer_programs',     'Payer Programs & Enrollment','Medicaid IHS · CDS · Veterans Affairs'],
   ['recruiting_orientation','Recruiting & Orientation','Hiring and starting people'],
   ['training_compliance','Training & Compliance','Required training and records'],
   ['program_administration','Program Administration',''],
@@ -16574,7 +16745,7 @@ async function autoMirrorHealth(){
     const [cov,lds,tb]=await Promise.all([runs('legacy_mirror_run'),runs('lead_journey_mirror_run'),runs('team_build_mirror_run')]);
     box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">'
       +[mirrorHealthCard('Cara coverage copy',cov,'legacy_unchanged','Cara'),mirrorHealthCard('Leads copy',lds,'leads_unchanged','Leads'),
-        mirrorHealthCard('Team Builder copy',tb,'plans_unchanged','Team Builder')]
+        mirrorHealthCard('Caregiver Matching copy',tb,'plans_unchanged','Caregiver Matching')]
         .join('')
       +'</div>';
   }catch(e){ box.innerHTML='<div class="field-note">Could not check the copies: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
@@ -19645,20 +19816,29 @@ let CC_SETTINGS_PENDING=false;         // Settings was asked for before the role
    so the mapping itself is data and does not need a deploy to change. */
 const CC_ROLE_PERMS_DEFAULT={
   owner_admin:[ 'manage_staff','manage_positions','manage_duty','manage_leads',
-                'manage_ownership','approve_discipline','manage_access',
-                'manage_settings','manage_rates' ],
-  /* Krystal's role. Runs the office; does not approve discipline, administer
-     access, set pay, or change owner settings. */
+                'manage_ownership','approve_discipline','approve_team_discipline','manage_access',
+                'manage_settings','manage_rates','assign_partners' ],
+  /* Krystal's role. Runs the office; does not administer access, set pay, or change owner settings.
+     SOP ruling 2 (2026-10-17): approves coaching, verbal and first written warnings (approve_team_discipline);
+     a final warning, suspension or termination stays with owners (approve_discipline). writeup-rules.js decides
+     which a write-up needs. No role_permissions record is saved in the database (897 checked 2026-10-17), so
+     this list is the one in force. */
   care_coordinator:[ 'manage_staff','manage_positions','manage_duty',
-                     'manage_leads','manage_ownership' ],
+                     'manage_leads','manage_ownership','approve_team_discipline' ],
   /* PROPOSED, and deliberately the smallest thing that lets the job be done:
      coverage. It is NOT a copy of the Care Coordinator role. Widen it on
      purpose once the job is real, by editing the role_permissions record —
      that is a data change, not a deploy. */
-  staffing_coordinator:[ 'manage_duty' ]
+  staffing_coordinator:[ 'manage_duty' ],
+  /* SOP ruling 9 (2026-10-17): the Springfield lead (Krystal now) gives and removes Hub access for anyone who is not
+     an owner. Held ON TOP of their office role, so it adds only this. The hub-access function and
+     staff_access_overview check the same role; switches, rates and settings stay with owners.
+     2026-10-18: Care Coordinators own referral partners and the Springfield lead hands them out (assign_partners);
+     the desk's timing settings stay with owners. */
+  springfield_lead:[ 'manage_access','assign_partners' ]
 };
 
-/* The same nine permissions said the way somebody would say them out loud.
+/* The same permissions said the way somebody would say them out loud.
    Every screen that explains authority reads from here, so the wording cannot
    drift between the role picker and the confirmation. */
 const CC_PERM_LABEL={
@@ -19667,13 +19847,15 @@ const CC_PERM_LABEL={
   manage_duty:'manage duty coverage',
   manage_leads:'manage leads',
   manage_ownership:'manage operational ownership',
-  approve_discipline:'approve discipline',
+  approve_discipline:'approve final warnings and terminations',
+  approve_team_discipline:'approve coaching and first written warnings',
   manage_access:'manage Hub access',
   manage_settings:'change Owner settings',
-  manage_rates:'change rates'
+  manage_rates:'change rates',
+  assign_partners:'assign referral partner owners'
 };
 const CC_PERM_ORDER=['manage_staff','manage_positions','manage_duty','manage_leads',
-  'manage_ownership','approve_discipline','manage_access','manage_settings','manage_rates'];
+  'manage_ownership','approve_team_discipline','approve_discipline','manage_access','assign_partners','manage_settings','manage_rates'];
 
 /* The roles that legitimately exist, read from the database catalog. The
    picker cannot offer anything else and set_staff_role will not accept
@@ -19755,6 +19937,29 @@ function ccRolesBanner(){
    opsCanSee, the confidentiality rule, which was deliberately left alone; and
    legacyCan, the parked comparison shim. Do not add a third. */
 const DISC_APPROVERS=['samantha@mo-care.com','zach@mo-care.com'];
+
+/* WHO APPROVES A WRITE-UP (SOP ruling 2, Samantha 2026-10-17). writeup-rules.js decides from the level and who
+   started it; these only say what a person holds. Team levels need approve_team_discipline (Care Coordinators and
+   owners), leadership levels need approve_discipline (owners), and nobody approves a case they started. */
+function ccCanFor(email, perm){
+  const map=ccRolePerms();
+  return ccRolesFor(email).some(r=>(map[r]||[]).indexOf(perm)>-1);
+}
+function discWhoFor(email){
+  const e=String(email||'').toLowerCase();
+  const me=!!e && String((ME&&ME.email)||'').toLowerCase()===e;
+  return { email:e,
+    owner: me ? ccCan('approve_discipline') : ccCanFor(e,'approve_discipline'),
+    team:  me ? ccCan('approve_team_discipline') : ccCanFor(e,'approve_team_discipline') };
+}
+function discCanApprove(a){
+  if(typeof WriteupRules==='undefined') return { ok:false, why:'The write-up rules did not load. Reload the page.' };
+  return WriteupRules.canApprove(a, discWhoFor(ME&&ME.email), DATA.discipline_actions||[]);
+}
+function discMayApproveAny(){ return ccCan('approve_discipline') || ccCan('approve_team_discipline'); }
+function discForMe(){
+  return (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval' && discCanApprove(a).ok);
+}
 
 /* ---------------- LEGACY AUTHORITY, IN ONE PLACE (build 4) ----------------
    Every gated action this hub has, and the expression that decides it today,
@@ -20008,12 +20213,12 @@ async function renderStaffAccess(){
 function renderApprovalsCc(){
   const wrap=document.getElementById('approvalsCard'); if(!wrap) return;
   const esc=escapeHtmlComms;
-  if(!ccCan('approve_discipline')){ wrap.innerHTML=''; updateAttnCard(); return; }
-  const pending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  if(!discMayApproveAny()){ wrap.innerHTML=''; updateAttnCard(); return; }
+  const pending=discForMe();
   if(!pending.length){ wrap.innerHTML=''; updateAttnCard(); return; }
   wrap.innerHTML='<details class="attx" id="approvalsDetails"><summary>📝 Write-ups awaiting your approval<span class="cnt">'+pending.length+'</span></summary>'
     +'<div class="attbody">'
-    +'<div class="field-note" style="margin-bottom:4px;">Only you and '+(ME.email==='zach@mo-care.com'?'Samantha':'Zach')+' can approve discipline. Read the whole notice first; your name goes on the approval.</div>'
+    +'<div class="field-note" style="margin-bottom:4px;">Coaching, verbal and first written warnings are the team\'s call; a final warning, suspension or termination is leadership\'s. You only see the ones you can approve, never one you started. Read the whole notice first; your name goes on the approval.</div>'
     +pending.map(a=>'<div style="padding:10px 0;border-bottom:1px solid var(--border);">'
       +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;">'
       +'<b>'+esc(a.caregiver)+'</b><span class="tag-chip" style="background:var(--red-bg);color:var(--red);">'+esc(a.level)+'</span>'
@@ -20029,15 +20234,15 @@ function renderApprovalsCc(){
 }
 async function approveWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to approve discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   if(!(await ccConfirm('Approve this '+a.level+' for '+a.caregiver+'? Your name ('+(ME.name||ME.email)+') goes on the approval, and staffing will print, review and issue it.'))) return;
-  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_at=new Date().toISOString();
+  a.status='approved'; a.approved_by=ME.name||ME.email; a.approved_by_email=String(ME.email||'').toLowerCase(); a.approved_at=new Date().toISOString();
   await persist('discipline_actions',a);
   renderApprovalsCc(); renderMgrStrip();
 }
 async function rejectWriteupCc(id){
   const a=(DATA.discipline_actions||[]).find(x=>x.id===id); if(!a) return;
-  if(!ccCan('approve_discipline')){ alert('You do not have permission to act on discipline.'); return; }
+  const can=discCanApprove(a); if(!can.ok){ alert(can.why); return; }
   const why=(await ccPrompt('Tell staffing what to change (they\'ll see this on the draft):','')); if(why===null) return;
   a.status='draft'; a.reject_note=why.trim()||'needs changes';
   await persist('discipline_actions',a);
@@ -20185,7 +20390,8 @@ function careStats(){
   const latest=ciLatestByClient();
   const overdueCk=latest.filter(c=>c.next_checkin_due&&c.next_checkin_due<t);
   const escalated=latest.filter(c=>c.escalated);
-  const svOver=(DATA.supervisory_visits||[]).filter(v=>v.due_date&&v.due_date<t);
+  /* from 2026-11-16 supervisory visits are concern-only and never overdue */
+  const svOver=svConcernOnly()?[]:(DATA.supervisory_visits||[]).filter(v=>v.due_date&&v.due_date<t);
   const d30=new Date(Date.now()-30*86400000).toISOString();
   const newStarts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||'')>=d30);
   return {overdueCk,escalated,svOver,newStarts};
@@ -20200,7 +20406,7 @@ function renderCareKpis(){
   wrap.innerHTML=
     kpi('Check-ins Overdue',s.overdueCk.length,'A quiet client is a leaving client — call them','💚','#FDE8E8','#B23B3B',true)
     +kpi('Escalated Concerns',s.escalated.length,'Raised by a client, not yet resolved','🚨','#FDE8E8','#B23B3B',true)
-    +kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#C17A12',true)
+    +(svConcernOnly()?'':kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#C17A12',true))
     +kpi('New Clients — first 30 days',s.newStarts.length,'Highest cancel risk — extra attention now','🌟','#E1F1ED','#1F7A8C',false);
 }
 function renderCareQueue(){
@@ -26831,6 +27037,8 @@ function opsReconcileCalls(){
     if(c.direction!=='inbound' || !callsIsMissed(c)) return;
     let it = existing.get(c.id);
     if(!it){
+      /* 2026-10-18: a number on the block list (Spam or sales) gets no missed-call card */
+      if(window.CallLead && CallLead.suppressed && CallLead.suppressed(c.phone)) return;
       /* Old enough to be history rather than a callback. Skipped only for
          items that do not exist yet — anything already raised keeps running,
          because ageing out of the window must never abandon live work. */
@@ -26994,6 +27202,17 @@ function opsDomainOwner(code){
 function opsDomainEscalation(code){
   const d = code ? OPS_DOMAINS.find(x=>x.code===code) : null;
   return d ? opsEmailForPerson(d.escalation_person) : '';
+}
+/* WHO GETS A ROUTINE NOTICE (SOP ruling 8, 2026-10-17): the work area owner, else the Springfield lead, else Samantha.
+   The same order as the server (_shared/notice-to.ts), read from Work areas and roles, never a name in the code. */
+function ccSpringfieldLead(){
+  return Object.keys(CC_ROLE_BY_EMAIL||{}).filter(e=>(CC_ROLE_BY_EMAIL[e]||[]).indexOf('springfield_lead')>-1).sort()[0]||'';
+}
+function ccNoticeTo(area){ return opsDomainOwner(area) || ccSpringfieldLead() || 'samantha@mo-care.com'; }
+/* An empty alert-list setting falls back to the area owner and the Springfield lead (no repeats), else Samantha. */
+function ccFallbackList(area){
+  const out=[]; [opsDomainOwner(area), ccSpringfieldLead()].forEach(e=>{ e=String(e||'').toLowerCase(); if(e && out.indexOf(e)<0) out.push(e); });
+  return out.length ? out : ['samantha@mo-care.com'];
 }
 /* The person who rings back callers we cannot identify. A PERSON, not a
    domain: Krystal owning the callback is not evidence that an unknown call
@@ -27794,7 +28013,7 @@ function myWorkHandOff(id, anchorId){
 /* ── MY WORK ─────────────────────────────────────────────────────────────── */
 /* Lands on Today, because "what do I need to do now" is the question somebody
    opens this screen to answer. */
-let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false;
+let MYWORK_TAB='today', MYWORK_SEL=new Set(), MYWORK_FOCUS=0, MYWORK_LATER_OPEN=false, MYWORK_PAST_OPEN=false, MYWORK_ESC_WHO='';
 /* Buckets are FILTERS over one list, never separate lists. Overdue and
    escalated used to be their own destinations, but both are computed from
    `mine` — they are states of your work, not categories of it. Today carries
@@ -27812,7 +28031,7 @@ function myWorkTabs(b){
   /* An approval is work that requires a specific person, so it belongs in that
      person's work. The gate is the same ccCan the approve/reject handlers use;
      this only decides whether the bucket is offered. */
-  if(ccCan('approve_discipline')) t.push(['approvals','Approvals']);
+  if(discMayApproveAny()) t.push(['approvals','Approvals']);
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
@@ -28016,9 +28235,10 @@ function opsLateFor(email){
 function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(i)); }
 /* The four lanes of Today, counted once for every place that shows them. */
 function opsTodayCounts(){
-  const b=myWorkBuckets();
-  const act=b.today.filter(i=>opsPriorityKey(i)[0]<=2).length;
-  return { act, due:b.today.length-act, lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
+  /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
+  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamEscalated(i));
+  const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
+  return { act:n(0), late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
 }
 /* "by 2:00 PM", "was due Sep 29, 2:36 PM", "by Fri Oct 9". A date-only due is a whole day, never a time. */
 function opsDueText(it){
@@ -28191,6 +28411,13 @@ function opsEscalatedToMe(i, me){
   const e=i&&i.escalation; me=String(me||'').toLowerCase();
   return !!(e && !e.cleared_at && me && String(e.to||'').toLowerCase()===me && String(i.owner||'').toLowerCase()!==me && !i.claimed_by && i.status==='open');
 }
+/* SOMEONE ELSE'S LATE WORK, ESCALATED TO ME (2026-10-17, her fix 4). It stays theirs, so on my Today it is one summary
+   card per person ("Krystal has 18 late items"), not 18 of my cards. The Escalated to you tab still lists every one. */
+function opsTeamEscalated(it, me){
+  me=String(me||opsMeKey()||'').toLowerCase();
+  const o=String((it&&it.owner)||'').toLowerCase();
+  return !!(o && o!==me && opsEscalatedToMe(it, me));
+}
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
   const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
@@ -28258,9 +28485,7 @@ function myWorkBuckets(){
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
     pool:       window.TP ? TP.shelf(me) : [],
-    approvals:  (ccCan('approve_discipline')
-                  ? (DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval')
-                  : [])
+    approvals:  (discMayApproveAny() ? discForMe() : [])
   };
 }
 /* How many minutes until the shift this item is about? Null when the item
@@ -28287,6 +28512,8 @@ function opsMinsToShift(it){
    must not outrank a client sitting alone this morning. The card still says
    nobody has it, and "I've got it" is still the button. */
 function opsPriorityKey(it){
+  /* the one-tap New family? card (2026-10-18): a family that just called is Act now */
+  if(it.kind==='new_family_call') return [0, Date.parse(it.created_at||0)||0];
   /* Projects (2026-10-06): inside the alert window with open steps: Act Now */
   if(typeof pjHot==='function' && pjHot(it)) return [0, Date.parse(it.due||it.created_at||0)||0];
   if(it.kind==='staffing_issue' && /timekeeper/.test(String(it.opened_by||'')))
@@ -28301,12 +28528,91 @@ function opsPriorityKey(it){
   if(!isNaN(d) && d<=e.getTime()) return [3, d-(it.urgency==='high'?36e5:0)];
   return [4, isNaN(d)?Infinity:d];
 }
+/* PAST ITS DAY (2026-10-17, her fix 2). A card that asks for a change to one visit or shift ("Cancel Angela's 10/15
+   visit") has nothing left to do once that day is over: the visit happened or it didn't. Those cards were sitting in
+   Act Now for days. This finds the day such a card is about. It only ever ASKS (the card says the day has passed and
+   offers Close it / Still needs doing); nothing closes by itself.
+   Deliberately narrow, so a real job is never folded away:
+     - only the AI's call follow-ups (their titles name the visit and its day), or a card with an about_day field
+     - only scheduling verbs on a visit, shift or call-off (cancel, change, confirm, remove, add, assign, update, find,
+       cover, open a call-off); never calls back, pay, bills, logs or reports, which still need doing after the day
+     - never anything ongoing ("every", "starting", "Sundays")
+     - with several days named, the LATEST counts, so "Remove Mon 10/19; Friday replaces it" waits for the 19th
+   Dates are read against the day of the call in Central time: "today" is the call's day, "Friday" the next Friday after
+   it. */
+function opsYmdCentral(t){
+  const x=new Date(t); if(isNaN(x)) return '';
+  const p=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(x);
+  const g=k=>(p.find(y=>y.type===k)||{}).value||'';
+  return g('year')+'-'+g('month')+'-'+g('day');
+}
+function opsDaysInText(text, baseYmd){
+  const m0=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(baseYmd||'')); if(!m0) return [];
+  const base=Date.UTC(+m0[1],+m0[2]-1,+m0[3]);
+  const ymd=ms=>new Date(ms).toISOString().slice(0,10);
+  /* a month and day with no year: the year that puts it nearest the call */
+  const md=(mo,dd)=>{ if(!(mo>=1&&mo<=12&&dd>=1&&dd<=31)) return null; let best=null;
+    [-1,0,1].forEach(k=>{ const ms=Date.UTC(+m0[1]+k,mo-1,dd); if(best==null||Math.abs(ms-base)<Math.abs(best-base)) best=ms; });
+    return ymd(best); };
+  const t=' '+String(text||'').toLowerCase()+' ', out=[];
+  let m; const reSlash=/(?:^|[^\d\/])(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?![\d\/])/g;
+  while((m=reSlash.exec(t))){ if(m[3]){ const y=+m[3]<100?2000+ +m[3]:+m[3]; out.push(ymd(Date.UTC(y,+m[1]-1,+m[2]))); } else { const v=md(+m[1],+m[2]); if(v) out.push(v); } }
+  const MON=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  const reMon=/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:\s*(?:-|–|to|and|&)\s*(\d{1,2})\b)?/g;
+  while((m=reMon.exec(t))){ const mo=MON.indexOf(m[1].slice(0,3))+1; [m[2],m[3]].forEach(d=>{ if(d){ const v=md(mo,+d); if(v) out.push(v); } }); }
+  const DOW={sun:0,mon:1,tue:2,tues:2,wed:3,thu:4,thur:4,thurs:4,fri:5,sat:6};
+  const reDow=/\b(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|nesday|rsday|urday|sday)?\b/g;
+  const bd=new Date(base).getUTCDay();
+  while((m=reDow.exec(t))){ const w=DOW[m[1]]; if(w==null) continue; let k=(w-bd+7)%7; if(k===0) k=7; out.push(ymd(base+k*864e5)); }
+  if(/\b(today|tonight|this morning|this afternoon|this evening)\b/.test(t)) out.push(ymd(base));
+  if(/\btomorrow\b/.test(t)) out.push(ymd(base+864e5));
+  return out;
+}
+function opsAboutDay(it){
+  if(!it) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(it.about_day||''))) return it.about_day;
+  if(it.kind!=='call_followup') return '';
+  const title=String(it.title||'');
+  if(!/^\s*(open a call-?off|cancel|change|confirm|remove|add|assign|update|find|cover|move|switch|swap|reschedule)\b/i.test(title)) return '';
+  if(!/\b(visits?|shifts?|call-?off)\b/i.test(title)) return '';
+  if(/\b(pay|paid|bill|billing|invoice|stub|log|report|every|starting|ongoing|permanent|weekly|each)\b|\b(sun|mon|tues|wednes|thurs|fri|satur)days\b/i.test(title)) return '';
+  const base=opsYmdCentral((it.source&&it.source.call_at)||it.created_at||'');
+  const days=opsDaysInText(title, base).sort();
+  return days.length?days[days.length-1]:'';
+}
+/* Past its day and nobody has said it still needs doing. */
+function opsPastDay(it){
+  const d=opsAboutDay(it);
+  if(!d || it.past_day_keep===d) return false;
+  return d<ccTodayCentral();
+}
+function opsDayWords(ymd){
+  const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(ymd||'')); if(!m) return String(ymd||'');
+  return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+}
+/* WHICH LANE ON TODAY (2026-10-17, her fix 1: "Act Now only means right now"). Act Now had 43 of 45 cards because
+   anything late counted. Now:
+     0 Act now: missed clock-ins, urgent, escalated, a shift within 3 hours with nobody; and no more than 12 hours
+       past due (an "urgent" card from two days ago is not happening right now any more)
+     1 Late, still matters: late work that still needs doing, longest late first
+     2 Due today: everything else for today
+     3 Past its day: a visit or shift card whose day is over (opsPastDay), folded away until opened
+   The priority order inside each lane is unchanged (opsPriorityKey). */
+const MYWORK_ACT_STALE_MS=12*36e5;
+function myWorkLane(it){
+  if(opsPastDay(it)) return 3;
+  const k=opsPriorityKey(it), d=Date.parse(it.due||'');
+  if(k[0]<=1) return (!isNaN(d) && Date.now()-d>MYWORK_ACT_STALE_MS) ? 1 : 0;
+  return k[0]===2 ? 1 : 2;
+}
 /* What can be ticked (2026-10-06, Samantha: "i am trying to click multiple cards on my work and its not letting me"):
    on Today that is the Act Now and Due Today cards AND the Later cards once they are shown. Before, a Later card's tick
    was undone the moment the page redrew, because only the Act Now / Due Today list counted. */
 function myWorkSelectable(all){
   /* a project is never bulk-closed or bulk-assigned: it closes when every step is done */
-  const rows=myWorkRows().filter(r=>r.kind!=='project'&&r.kind!=='journey'); if(MYWORK_TAB!=='today') return rows;
+  let rows=myWorkRows().filter(r=>r.kind!=='project'&&r.kind!=='journey'); if(MYWORK_TAB!=='today') return rows;
+  /* Past its day: folded cards can't be ticked by Select all (2026-10-17) */
+  if(!all && !MYWORK_PAST_OPEN) rows=rows.filter(r=>!opsPastDay(r));
   const ids=new Set(rows.map(r=>r.id));
   const later=myWorkBuckets().mine.filter(i=>!ids.has(i.id)&&i.kind!=='project'&&i.kind!=='journey');
   return (all||MYWORK_LATER_OPEN)?rows.concat(later):rows;
@@ -28314,11 +28620,14 @@ function myWorkSelectable(all){
 function myWorkRows(){
   const b=myWorkBuckets();
   /* Up for grabs draws its own cards (pool.js); none of them are mine to tick or close with a key */
-  const rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
+  let rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
+  /* fix 4: on Today, someone else's escalated work is their summary card, not my cards */
+  if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamEscalated(r));
+  if(MYWORK_TAB==='escalated' && MYWORK_ESC_WHO) rows=rows.filter(r=>String(r.owner||'').toLowerCase()===MYWORK_ESC_WHO);
   if(MYWORK_TAB==='today')
     rows.sort((a,c)=>{ const ka=opsPriorityKey(a), kc=opsPriorityKey(c);
-      return (ka[0]-kc[0]) || (ka[1]-kc[1]); });
+      return (myWorkLane(a)-myWorkLane(c)) || (ka[0]-kc[0]) || (ka[1]-kc[1]); });
   return rows;
 }
 
@@ -28443,6 +28752,7 @@ async function myWorkTalk(id, btn){
 function myWorkCard(it, i){
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   if(it && it.kind==='journey') return jrCard(it, i);
+  if(it && it.kind==='new_family_call' && window.CallLead && CallLead.card) return CallLead.card(it, i);
   const esc=escapeHtmlComms;
   const late=it.due && Date.parse(it.due)<Date.now();
   /* Graded rather than a single "late". Two days and five days late are
@@ -28453,6 +28763,10 @@ function myWorkCard(it, i){
   const sel=MYWORK_SEL.has(it.id), focused=(i===MYWORK_FOCUS);
   const ev=opsAlreadyHandled(it);
   const ago=it.created_at?callsFmtWhen(it.created_at):'';
+  /* fix 5: an AI call card says where it came from here, instead of in a long line at the bottom */
+  const src=it.source||{};
+  const fromCall=(it.kind==='call_followup'&&src.call_at)
+    ?('from '+(src.channel==='text'?'texts':'a call')+' '+new Date(src.call_at).toLocaleDateString('en-US',{month:'short',day:'numeric'})):'';
   const who=it.owner?('owned by '+esc(it.owner_name||opsOwnerName(it.owner))):'unassigned';
   /* State has to be readable on the card, or marking something waiting or in
      progress is a private act nobody else benefits from. Ownership is stated
@@ -28517,8 +28831,8 @@ function myWorkCard(it, i){
     /* Whose it is and by when, on every card (2026-10-05). */
     +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
       +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
-      +esc(opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(ago)+'</span>'
+      +esc(String(it.owner||'').toLowerCase()===String(opsMeKey()||'').toLowerCase()?opsDueText(it):opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
+    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>'
     +states
     +'<span style="flex:1;"></span>'
     +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
@@ -28526,8 +28840,11 @@ function myWorkCard(it, i){
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
 
+  /* Lighter cards (2026-10-17, her fix 5): the everyday reason ("You own Scheduling and coverage", "automatic staffing
+     alerts come to you") is true of nearly every card, so it is no longer printed. Handed, escalated, unowned and
+     help-asked reasons still are. */
   const why=opsWhyHere(it);
-  if(why) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
+  if(why && !/^You own |^You’re first on the scheduling alert list/.test(why)) h+='<div class="field-note" style="margin-top:3px;color:var(--navy);"><b>Why you’re seeing this:</b> '+esc(why)+'</div>';
   /* a red or yellow shift-note flag draws its own card (shift-flags.js) */
   const cnFlag=typeof cnIsFlag==='function'&&cnIsFlag(it);
   if(cnFlag) h+=cnBlock(it);
@@ -28585,6 +28902,24 @@ function myWorkCard(it, i){
   }
 
   if(window.TA) h+=TA.cardTop(it);
+  /* LOOKS DONE (919, 2026-10-17; her plan of 2026-10-14): the card check saw the work done. What showed it, then one tap.
+     A person's Not yet holds until something new happens with them (the server checks that). */
+  if(it.looks_done && it.status==='open' && !(Date.parse((it.looks_done_no||{}).at||0) >= Date.parse(it.looks_done.at||0))){
+    const ld=it.looks_done, ev=(Array.isArray(ld.evidence)?ld.evidence:[]).filter(x=>x && x!==ld.why);
+    h+='<div class="wk-looksdone" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#E4F4EA;color:#1F6E43;font-size:13px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="flex:1;min-width:180px;"><b>Looks done:</b> '+esc(ld.why||'')+'</span>'
+      +'<button class="primary" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneClose(\''+it.id+'\')">Close it</button>'
+      +'<button class="ghost" style="padding:5px 12px;font-size:12.5px;" onclick="opsLooksDoneNo(\''+it.id+'\')">Not yet</button></div>'
+      +(ev.length?'<div style="font-size:12px;margin-top:3px;">'+ev.slice(0,3).map(x=>'· '+esc(x)).join('<br>')+'</div>':'')
+      +'<div style="font-size:11.5px;margin-top:3px;opacity:.85;">'+(ld.source==='proof'?'From what the Hub can see: LeadConnector, AxisCare and call-off cases.':'The AI read the calls and texts since this card.')+'</div></div>';
+  }
+  /* Past its day (2026-10-17, her fix 2): say so on the card and ask; never close by itself */
+  if(opsPastDay(it)){
+    h+='<div class="wk-pastday" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:var(--amber-bg);color:var(--amber);font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      +'<span style="flex:1;min-width:180px;">This was about <b>'+esc(opsDayWords(opsAboutDay(it)))+'</b>. That day has passed.</span>'
+      +'<button class="primary" style="padding:5px 12px;font-size:12.5px;" onclick="opsPastClose(\''+it.id+'\')">Close it</button>'
+      +'<button class="ghost" style="padding:5px 12px;font-size:12.5px;" onclick="opsPastKeep(\''+it.id+'\')">Still needs doing</button></div>';
+  }
   h+='<div id="act_'+it.id+'" style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">';
   if(!it.owner && sug){
     /* "I've got it" beats deciding whose it should be: one press makes it
@@ -28633,14 +28968,14 @@ function myWorkCard(it, i){
       +'onclick="opsWaitOpen(\''+it.id+'\',\'act_'+it.id+'\')">Set a wake-up</button>';
   /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
      closes the card. */
-  if(typeof dkAllowed==='function' && dkAllowed())
-    h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="dkJotWork(\''+it.id+'\',this)">Jot on my desk</button>';
+  /* fix 5 (2026-10-17): Jot on my desk moved into the ⋯ menu, so a card has three buttons: Done, Hand off, Talk about */
   if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
   if(trail) h+='<div class="field-note" style="margin-top:6px;"><b>Owner:</b> '+esc(trail)+'</div>';
-  const hist=(it.history||[]).slice(-2);
+  /* fix 5: only the latest thing that happened, and not the AI's own "Made from a call…" line (said in the header) */
+  const hist=(it.history||[]).slice(-1).filter(x=>!(fromCall && /^AI /.test(String(x.by||'')) && /^Made from /.test(String(x.text||''))));
   if(hist.length) h+='<div class="field-note" style="margin-top:8px;">'
     +hist.map(x=>esc(callsFmtWhen(x.at))+' · '+esc(x.by)+' — '+esc(x.text)).join('<br>')+'</div>';
 
@@ -28664,6 +28999,8 @@ function myWorkMore(id, anchorId){
   if(it.owner) h+=opt('waiting', it.sub_state==='waiting'?'No longer waiting':'Waiting on someone…');
   if(it.owner) h+=opt(it.help_from?'help_done':'ask_help',
     it.help_from?'Help no longer needed':'Needs team support… (stays mine)');
+  /* My Desk: my own steps for this card (moved here from the card's buttons, 2026-10-17) */
+  if(typeof dkAllowed==='function' && dkAllowed() && typeof dkJotWork==='function') h+=opt('jot','Jot on my desk');
   /* Up for grabs (2026-10-13): my own ordinary work can be offered to anyone with time */
   if(window.TP && String(it.owner||'').toLowerCase()===meCl && !issueOf(it) && it.kind!=='project' && it.kind!=='journey' && !it.sensitive)
     h+=opt('pool','Put it up for grabs (anyone with time)');
@@ -28696,6 +29033,7 @@ function myWorkMore(id, anchorId){
          what brings it back on its own. */
       /* 2026-10-17: taking someone else's work is a transfer: confirm and a reason (TA.transfer); my own is "I'm on it" */
       if(r.dataset.what==='claim') return (window.TA && it.owner && String(it.owner).toLowerCase()!==ccActor().email) ? TA.transfer(id, anchorId) : opsTakeIt(id);
+      if(r.dataset.what==='jot') return dkJotWork(id, document.getElementById(anchorId));
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -28748,8 +29086,18 @@ function opsWaitOpen(id, anchorId){
   const f=el.querySelector('#owWho'); if(f) f.focus();
 }
 
+/* Counts on the tabs (2026-10-17, her fix 3): Today shows only what needs you now; All mine, Escalated and Waiting
+   carry no number (they were 56, 18 and so on, and nobody acts on a big number). Small lists that each need a
+   person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
+function myWorkTabBadge(k,b){
+  if(k==='mine'||k==='escalated'||k==='waiting') return '';
+  if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
+  const n=(b[k]||[]).length;
+  return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
+}
 function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
@@ -28763,8 +29111,7 @@ function renderMyWork(){
     /* on press, not on click (2026-10-06, "i cant click on those"): a background redraw between pressing and letting go
        used to swallow the click */
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onpointerdown="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')" onclick="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')">'
-    +label+((b[k]||[]).length?' <span class="subtab-badge'
-      +((k==='today'&&b.overdue.length)||k==='approvals'?' red':'')+'">'+b[k].length+'</span>':'')
+    +label+myWorkTabBadge(k,b)
     +'</div>').join('');
 
   /* Approvals is not a list of ops_items, so it renders its own card rather
@@ -28813,8 +29160,11 @@ function renderMyWork(){
       helping:'Nobody has asked you for help.',
       waiting:'You are not waiting on anybody.'}[MYWORK_TAB];
   if(MYWORK_TAB!=='today'){
-    wrap.innerHTML=rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
-      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>';
+    /* narrowed from a team card: say so, with a way back to everyone */
+    const narrow=(MYWORK_TAB==='escalated'&&MYWORK_ESC_WHO)
+      ?'<div class="field-note" style="margin:0 0 8px;">Showing '+escapeHtmlComms(String(opsOwnerName(MYWORK_ESC_WHO)||MYWORK_ESC_WHO).split(' ')[0])+'’s only · <span style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_ESC_WHO=\'\';renderMyWork()">Show everyone</span></div>':'';
+    wrap.innerHTML=narrow+(rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
+      : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>');
     return;
   }
   const lane=(label,note,color,count,body)=>'<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">'
@@ -28823,7 +29173,11 @@ function renderMyWork(){
   /* FROM YOUR HANDOFF (her call 2026-10-07): what was handed to me at the end of someone's shift sits above everything
      until I tap Got it on the handoff (end-shift.js hoPinned), then drops back into its usual lane. */
   const pinned=(typeof hoPinned==='function')?hoPinned():[], pinIds=new Set(pinned.map(i=>i.id));
-  const act=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]<=2), due=rows.filter(r=>!pinIds.has(r.id)&&opsPriorityKey(r)[0]>2);
+  /* 2026-10-17 (her fixes 1 and 2): Act Now / Late, still matters / Due today / Past its day, by myWorkLane. The card
+     index is the card's place in rows, which myWorkRows sorts lane first, so keyboard focus follows the page. */
+  const laneOf=n=>rows.filter(r=>!pinIds.has(r.id)&&myWorkLane(r)===n);
+  const act=laneOf(0), lateL=laneOf(1), due=laneOf(2), past=laneOf(3);
+  const ix=it=>rows.indexOf(it);
   const inToday=new Set(rows.map(r=>r.id).concat([...pinIds]));
   /* CLIENTS IN MOTION (2026-10-06, her: normal next steps show before they are ever late): a client journey's next step
      that isn't due today has its own lane, not Later. Parked (waiting) ones stay in Waiting & Watching. */
@@ -28834,13 +29188,24 @@ function renderMyWork(){
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
-  if(window.TP && !act.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
+  const team=myWorkTeamHtml(b);
+  if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
-  h+=lane('ACT NOW','emergencies, shifts about to start with nobody, anything late','var(--red)',act.length,
-    act.length?act.map((it,i)=>myWorkCard(it,i)).join(''):none('Nothing urgent or late. Good.'));
-  h+=lane('DUE TODAY','everything else that needs doing today','var(--amber)',due.length,
-    due.length?due.map((it,i)=>myWorkCard(it,act.length+i)).join(''):none('Nothing else due today.'));
+  h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
+    act.length?act.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing needs you right this minute. Good.'));
+  if(lateL.length) h+=lane('LATE, STILL MATTERS','past due and still needs doing, longest late first','var(--amber)',lateL.length,
+    lateL.map(it=>myWorkCard(it,ix(it))).join(''));
+  h+=lane('DUE TODAY','everything else that needs doing today','var(--navy)',due.length,
+    due.length?due.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing else due today.'));
+  if(past.length) h+=lane('PAST ITS DAY','the visit or shift these were about is over; close them or keep the ones that still need doing','var(--text-muted)',past.length,
+    (MYWORK_PAST_OPEN
+      ? past.map(it=>myWorkCard(it,ix(it))).join('')
+        +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_PAST_OPEN=false;renderMyWork()">Fold away</span> '
+      : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_PAST_OPEN=true;renderMyWork()">Look through them</button> ')
+    +'<button class="ghost" id="pastCloseAll" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkPastCloseAll()">Close all '+past.length+'…</button>');
   h+=lane('CLIENTS IN MOTION','your next steps for each client, before anything is late','var(--navy)',motion.length||null,
     motion.length?motion.map(it=>myWorkCard(it,-1)).join(''):none('No client steps waiting on you.'));
   const watch=myWorkStrips();
@@ -28856,7 +29221,95 @@ function renderMyWork(){
   const sel=myWorkSelectable();
   wrap.innerHTML=((sel.length||MYWORK_SEL.size)?myWorkBulkBar(sel):'')+(window.TA?TA.stripHtml():'')+h;
 }
-function myWorkGo(t){ MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGo(t){ MYWORK_ESC_WHO=''; MYWORK_TAB=t; MYWORK_SEL.clear(); MYWORK_FOCUS=0; renderMyWork(); }
+function myWorkGoWho(o){ myWorkGo('escalated'); MYWORK_ESC_WHO=String(o||'').toLowerCase(); renderMyWork(); }
+/* One card per teammate whose late work was escalated to me: how many, how many urgent, the oldest, and the first few
+   (urgent first) so nothing is hidden behind a number. See them opens the Escalated to you tab on just that person. */
+function myWorkTeamHtml(b){
+  const esc=escapeHtmlComms, me=String(opsMeKey()||'').toLowerCase();
+  const items=(b.escalated||[]).filter(i=>opsTeamEscalated(i, me));
+  if(!items.length) return '';
+  const by={}; items.forEach(i=>{ const o=String(i.owner).toLowerCase(); (by[o]=by[o]||[]).push(i); });
+  const md=x=>{ const d=new Date(x); return isNaN(d)?'':d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); };
+  return Object.keys(by).sort((x,y)=>by[y].length-by[x].length).map(o=>{
+    const list=by[o].slice().sort((a,c)=>((c.escalation&&c.escalation.level==='urgent')-(a.escalation&&a.escalation.level==='urgent'))
+      ||String(a.due||'').localeCompare(String(c.due||'')));
+    const urgent=list.filter(i=>i.escalation&&i.escalation.level==='urgent').length;
+    const oldest=list.map(i=>i.due).filter(Boolean).sort()[0];
+    const first=String(list[0].owner_name||opsOwnerName(o)||o).split(' ')[0];
+    return '<div class="wkcard wk-team" data-owner="'+esc(o)+'" style="padding:13px 15px;margin-bottom:8px;">'
+      +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;">'
+      +'<b style="font-size:15px;">'+esc(first)+' has '+list.length+' late item'+(list.length===1?'':'s')+'</b>'
+      +(urgent?'<span class="tag-chip" style="background:var(--red-bg);color:var(--red);font-weight:700;">'+urgent+' urgent</span>':'')
+      +(oldest?'<span class="field-note">oldest was due '+esc(md(oldest))+'</span>':'')+'</div>'
+      +'<div style="font-size:13.5px;margin-top:5px;">'+list.slice(0,3).map(i=>'· '+esc(i.title||i.about||'')+(i.about&&i.title&&i.about!==i.title?' <span class="field-note">('+esc(i.about)+')</span>':'')).join('<br>')
+      +(list.length>3?'<br><span class="field-note">and '+(list.length-3)+' more</span>':'')+'</div>'
+      +'<div class="field-note" style="margin-top:4px;">They stay '+esc(first)+'’s. Look, nudge, or take one.</div>'
+      +'<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap;">'
+      +'<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkGoWho(\''+esc(o)+'\')">See '+esc(first)+'’s list</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+/* PAST ITS DAY, the two answers (2026-10-17). Close it: closed as stale (the same code the Stale quick-close uses),
+   with the day in the note so the record says why. Still needs doing: remembered for that day only, so the card goes
+   back to its usual lane and never asks again about the same day. */
+async function opsPastClose(id, quiet){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it || it.status!=='open') return;
+  const day=opsAboutDay(it); if(!day) return;
+  if(typeof issueOf==='function' && issueOf(it)){ if(!quiet) ccToast('This is a client issue: resolve it from the issue.'); return; }
+  it.status='done'; it.triage_state='stale'; it.resolution_code='stale';
+  it.closed_at=new Date().toISOString(); it.closed_by=(typeof ME!=='undefined'&&ME.email)||'';
+  it.close_note='Its day had passed ('+opsDayWords(day)+')';
+  opsLog(it,'Closed: the day it was about had passed ('+opsDayWords(day)+')');
+  opEvent('item_resolved',{item:it, summary:(it.about||it.title||'')+' — closed: its day ('+opsDayWords(day)+') had passed'});
+  await persist('ops_items',it);
+  if(typeof reviewMaybeCreate==='function') await reviewMaybeCreate(it);
+  MYWORK_SEL.delete(id);
+  if(!quiet){ myWorkRefresh(); ccToast('Closed. Its day had passed.'); }
+}
+/* Looks done (919): Close it = done with what showed it in the note; Not yet = remembered, so it is not suggested again until
+   something new happens with them. */
+async function opsLooksDoneClose(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it || it.status!=='open' || !it.looks_done) return;
+  await opsCloseCommit(it, 'Looked done: '+String(it.looks_done.why||'').slice(0,300), null);
+  ccToast('Closed.');
+}
+async function opsLooksDoneNo(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  it.looks_done_no={ at:new Date().toISOString(), by:(typeof ME!=='undefined'&&ME.name)||'' };
+  opsLog(it,'Not done yet (the check said it looked done)');
+  await persist('ops_items',it);
+  myWorkRefresh();
+}
+async function opsPastKeep(id){
+  const it=(DATA.ops_items||[]).find(x=>x.id===id); if(!it) return;
+  const day=opsAboutDay(it); if(!day) return;
+  it.past_day_keep=day;
+  opsLog(it,'Still needs doing after its day ('+opsDayWords(day)+')');
+  await persist('ops_items',it);
+  myWorkRefresh();
+}
+/* Named, counted, and it lists them, like the other bulk closes. */
+function myWorkPastCloseAll(){
+  const b=myWorkBuckets(), rows=(b.today||[]).filter(r=>opsPastDay(r));
+  if(!rows.length) return;
+  const esc=escapeHtmlComms;
+  const el=ccPopOpen(document.getElementById('pastCloseAll')||document.body,
+    '<div style="font-size:14px;font-weight:700;margin-bottom:6px;">Close '+rows.length+' card'+(rows.length===1?'':'s')+' whose day has passed?</div>'
+    +'<div class="field-note" style="max-height:170px;overflow:auto;margin-bottom:10px;">'
+    +rows.map(r=>'· '+esc(opsDayWords(opsAboutDay(r)))+': '+esc(r.title||r.about||'')).join('<br>')+'</div>'
+    +'<div class="field-note" style="margin-bottom:10px;">Each one is closed with your name and the day it was about. If one still needs doing, cancel and tap Still needs doing on that card first.</div>'
+    +'<div style="display:flex;gap:8px;">'
+    +'<button class="primary" id="pcGo" style="padding:7px 14px;font-size:13px;">Close '+rows.length+'</button>'
+    +'<button class="ghost" id="pcNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', {width:380});
+  el.querySelector('#pcNo').onclick=ccPopClose;
+  el.querySelector('#pcGo').onclick=async ()=>{
+    ccPopClose();
+    for(const it of rows) await opsPastClose(it.id, true);
+    myWorkRefresh(); ccToast('Closed '+rows.length+'.');
+  };
+}
 
 /* ── Bulk ────────────────────────────────────────────────────────────────
    An action is offered in bulk only when it means the same thing for every
@@ -28886,7 +29339,7 @@ function myWorkBulkBar(rows){
     +'<label style="display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer;">'
     +'<input type="checkbox" '+(all?'checked':'')+' onchange="myWorkSelectAll(this.checked)" '
     +'style="width:16px;height:16px;cursor:pointer;"> '
-    +(n?('<b>'+n+' selected</b>'):('Select all '+rows.length))+'</label>';
+    +(n?('<b>'+n+' selected</b>'):'Select all')+'</label>';
   if(n){
     const sel=myWorkSelectable(true).filter(r=>MYWORK_SEL.has(r.id));
     // Only offered when it means the same thing for everything selected.
@@ -32546,6 +32999,7 @@ const OPS_KINDS = {
   review:         { label:'Review',       hours:24 },
   recurring:      { label:'Recurring duty', hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
+  new_family_call:{ label:'New family?',   hours:2  },   /* call-lead.js v4: the one-tap card (2026-10-18) */
   discipline:     { label:'Approval',      hours:24 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
@@ -33651,7 +34105,7 @@ function lpiRender(){
   if(axT&&axT!==String(CP.ax||'').trim()) verify.push('AxisCare #'+axT+' is typed on the inquiry, but nobody has confirmed it\'s the same person');
   if(typeof ckReturningOpen==='function'&&ckReturningOpen(l)) verify.push('Might be a returning family: nobody has answered that yet');
   Object.values(b.cur||{}).filter(f=>f.needs_verification).forEach(f=>verify.push(lpfLabel(b,f.kind)+': '+lpfWords(f.kind,f.value)+', '+(LPF_SURE[f.certainty]||f.certainty)+', not verified yet'));
-  if(b.ep&&!b.peopleErr){ const keyNotAsked=lppPeople(b).filter(p=>(p.roles||[]).some(r=>['primary','decision_maker','poa'].includes(r))&&p.permission==='not_asked');
+  if(b.ep&&!b.peopleErr){ const keyNotAsked=lppPeople(b).filter(p=>(p.roles||[]).some(r=>['primary','decision_maker','poa','medical_decisions','poa_health','poa_financial'].includes(r))&&p.permission==='not_asked');
     keyNotAsked.forEach(p=>verify.push('Permission to discuss care not asked yet: '+(p.is_caller?((l.first_name||'the caller')+' (the caller)'):p.name))); }
   /* conflicts the Hub can prove */
   const conf=[], ls=lpfVal(b,'living_situation'), la=(l.safety||[]).includes('livesAlone');
@@ -33906,7 +34360,11 @@ async function lpfPayerSave(){
    read live from the inquiry, and records only their roles and permission. Nobody is linked to anybody
    automatically: a phone number already known elsewhere is SHOWN, and a person decides. Storing a number
    lets nothing text them. Shown in Lead intake chapter 9 and on Family & Contacts. */
-const LPP_ROLES={ primary:'Primary contact', decision_maker:'Decision maker', poa:'POA / legal representative', billing:'Billing', emergency:'Emergency contact', professional:'Professional or referral' };
+/* 2026-10-17 her ask: "line People involved up with the agreement: Medical decisions, Health and Financial POA, and HIPAA shown from
+   the signed agreement". The two older answers stay readable (marked older) until someone updates the person; nothing is guessed. */
+const LPP_ROLES={ primary:'Primary contact', medical_decisions:'Medical decisions', poa_health:'Health care POA', poa_financial:'Financial POA', billing:'Billing', emergency:'Emergency contact', professional:'Professional or referral' };
+const LPP_OLD_ROLES={ decision_maker:'Decision maker (older answer)', poa:'POA (older answer: health or financial?)' };
+const lppRoleLabel=r=>LPP_ROLES[r]||LPP_OLD_ROLES[r]||r;
 const LPP_RELS=['daughter','son','spouse','sibling','grandchild','niece or nephew','friend','neighbor','case manager','social worker','discharge planner','other'];
 const LPP_PERM={ not_asked:'Not asked yet', yes:'Yes, we may discuss care', no:'No' };
 const LPP={ form:null, drafts:{}, msg:null };
@@ -33918,7 +34376,7 @@ function lppLine(l,b,p,ro,care){
   const name=caller?((l.first_name||'')+' '+(l.last_name||'')).trim()||'The caller':p.name;
   const rel=caller?(p&&p.relationship)||l.relationship:p.relationship;
   const phone=caller?l.phone:p.phone, email=caller?l.email:p.email;
-  const roles=(p&&p.roles||[]).map(r=>LPP_ROLES[r]||r);
+  const roles=(p&&p.roles||[]).map(lppRoleLabel);
   const perm=p?p.permission:'not_asked';
   return '<div class="lpp-person" data-key="'+esc(p?p.person_key:'caller')+'">'
     +'<div class="lpp-top"><b>'+esc(name)+'</b>'+(rel?' <span class="lp-prov">'+esc(rel)+(p&&p.organization?', '+esc(p.organization):'')+'</span>':'')
@@ -33927,10 +34385,36 @@ function lppLine(l,b,p,ro,care){
     +'<div class="lp-prov">'+[phone?esc(phone):'', email?esc(email):'', p&&p.reach_way?'best by '+esc(p.reach_way):'', p&&p.reach_time?esc(p.reach_time):''].filter(Boolean).join(' · ')+'</div>'
     +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
       +(caller?' · name and phone come from the inquiry':'')+'</div>'
+    +lppSignedLine(l,caller?name:p.name,email)
     +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
       +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
     +(care?lpcLine(l,b,caller?(lpcSelf(l)?'client':'caller'):'person',p):'')
     +'<div class="lpp-formhost"></div></div>';
+}
+/* HIPAA and Medical decisions as the signed Client Care Agreement gave them: approved contacts are written to AxisCare (and read back
+   into the Family Circle), so the Family Circle member with the same name carries them. Read-only here; never typed on this screen. */
+function lppNameKey(x){ return String(x||'').toLowerCase().replace(/[^a-z]/g,''); }
+/* 2026-10-17 her rule: the same person by EMAIL first (one match, or the one whose name also matches when two share it), then name */
+function lppFind(list,name,email){
+  const e=String(email||'').trim().toLowerCase(), n=lppNameKey(name), live=list.filter(x=>!x.axiscare_removed_at);
+  if(e){ const by=live.filter(x=>String(x.email||'').trim().toLowerCase()===e); if(by.length===1) return by[0]; if(by.length>1){ const both=by.filter(x=>n&&lppNameKey(x.name)===n); if(both.length===1) return both[0]; } }
+  return n?live.find(x=>lppNameKey(x.name)===n)||null:null;
+}
+function lppSignedLine(l,name,email){
+  if(!lpcOn(l)) return '';
+  const c=LPP.circ&&LPP.circ[String(CP.ax)]; if(!c) return '';
+  const m=lppFind(c,name,email);
+  const yn=v=>v===true?'Yes':v===false?'No':'not answered';
+  if(!m||(m.hipaa_authorized==null&&m.can_make_medical_decisions==null)) return '<div class="lp-prov">HIPAA (signed agreement): <b>not on file yet</b></div>';
+  return '<div class="lp-prov">HIPAA (signed agreement): <b>'+yn(m.hipaa_authorized)+'</b> · Medical decisions: <b>'+yn(m.can_make_medical_decisions)+'</b> <span class="field-note">as AxisCare holds them</span></div>';
+}
+async function lppLoadCirc(){
+  const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)) return; LPP.circ=LPP.circ||{}; if(LPP.circ[ax]) return;
+  LPP.circ[ax]=null;
+  try{ const k=await sb.from('care_circles').select('id').eq('axiscare_client_id',ax).limit(1); const id=k.data&&k.data[0]&&k.data[0].id;
+    const m=id?await sb.from('circle_contacts').select('name,email,hipaa_authorized,can_make_medical_decisions,axiscare_removed_at').eq('circle_id',id):{data:[]};
+    LPP.circ[ax]=m.data||[]; }catch(e){ LPP.circ[ax]=[]; }
+  lppRender();
 }
 function lppHtml(l,b,host){
   const esc=escapeHtmlComms;
@@ -33949,6 +34433,7 @@ function lppHtml(l,b,host){
 }
 function lppRender(){
   const l=CP.lead, b=l&&LPI.began[l.id];
+  if(l&&lpcOn(l)&&!(LPP.circ&&String(CP.ax) in LPP.circ)) lppLoadCirc();
   ['lppIntakeHost','lppFamHost'].forEach(id=>{ const el=document.getElementById(id); if(!el) return;
     if(!l){ el.innerHTML=''; return; }
     if(LPP.form&&LPP.form.hostId===id&&document.getElementById('lppF-name')) return;       /* never rebuild under an open form */
@@ -33974,7 +34459,7 @@ function lppOpen(key, el, removing, values){
       :'<div class="lpf-grid">'+(isCaller?'<input type="hidden" id="lppF-name" value="caller">':'<label>Name<input id="lppF-name" value="'+esc(v.name)+'"></label>')
         +'<label>Relationship<select id="lppF-rel"><option value=""></option>'+opt(LPP_RELS,v.relationship)+(v.relationship&&LPP_RELS.indexOf(v.relationship)<0?'<option selected>'+esc(v.relationship)+'</option>':'')+'</select></label>'
         +'<label>Organization (professionals)<input id="lppF-org" value="'+esc(v.organization)+'" placeholder="e.g. Mercy Hospital"></label></div>'
-      +'<div class="lpf-cks">'+Object.keys(LPP_ROLES).map(r=>'<label class="lpf-ck"><input type="checkbox" name="lppF-roles" value="'+r+'"'+(v.roles.includes(r)?' checked':'')+'> '+esc(LPP_ROLES[r])+'</label>').join('')+'</div>'
+      +'<div class="lpf-cks">'+Object.keys(LPP_ROLES).concat(Object.keys(LPP_OLD_ROLES).filter(r=>v.roles.includes(r))).map(r=>'<label class="lpf-ck"><input type="checkbox" name="lppF-roles" value="'+r+'"'+(v.roles.includes(r)?' checked':'')+'> '+esc(lppRoleLabel(r))+'</label>').join('')+'</div>'
       +(isCaller?'<p class="lp-prov">The caller\'s name, phone and email stay on the inquiry. Change them with "Add or change" in How they found us.</p>'
         :'<div class="lpf-grid"><label>Phone<input id="lppF-phone" value="'+esc(v.phone)+'" onchange="lppCheckPhone()"></label><label>Email<input id="lppF-email" value="'+esc(v.email)+'"></label>'
           +'<label>Best way<select id="lppF-way"><option value=""></option>'+['call','text','email'].map(x=>'<option'+(x===v.reach_way?' selected':'')+'>'+x+'</option>').join('')+'</select></label>'
@@ -33982,7 +34467,7 @@ function lppOpen(key, el, removing, values){
       +'<div class="lpf-who"><div class="lpf-lbl">Permission to discuss care (asked by a person, never assumed)</div><div class="lpf-grid">'
         +'<label>Answer<select id="lppF-perm">'+Object.keys(LPP_PERM).map(x=>'<option value="'+x+'"'+(x===v.permission?' selected':'')+'>'+esc(LPP_PERM[x])+'</option>').join('')+'</select></label>'
         +'<label>Who asked<input id="lppF-askedby" value="'+esc(v.permission_asked_by)+'"></label><label>When<input id="lppF-askedat" type="date" value="'+esc(v.permission_asked_at)+'"></label></div>'
-        +'<p class="lp-prov">This is our office\'s note. AxisCare\'s legal HIPAA answer stays in AxisCare.</p></div>')
+        +'<p class="lp-prov">This is our office\'s note from the calls. The legal HIPAA and medical-decisions answers come from the signed Client Care Agreement and are kept in AxisCare (shown on each person once signed).</p></div>')
     +'<div class="lpi-actions"><button class="primary" onclick="lppSave()">'+(removing?'Remove':'Save')+'</button><button class="secondary" onclick="lppCancel()">Cancel</button><span class="lp-prov" id="lppF-note"></span></div></div>';
   if(!removing&&!isCaller&&v.phone) lppCheckPhone();
 }
@@ -34035,7 +34520,7 @@ function lppChanges(b){
   const nm=r=>r.is_caller?'The caller':(r.name||'someone');
   return hist.filter(r=>r.supersedes_row_id&&byId[r.supersedes_row_id]).map(r=>{ const p=byId[r.supersedes_row_id], d=[];
     if(r.change_kind==='removed') d.push('removed ('+(r.reason||'')+')');
-    else { const rs=x=>(x.roles||[]).map(y=>LPP_ROLES[y]||y).join(', ')||'no roles';
+    else { const rs=x=>(x.roles||[]).map(lppRoleLabel).join(', ')||'no roles';
       if(JSON.stringify(p.roles||[])!==JSON.stringify(r.roles||[])) d.push('roles: '+rs(p)+' → '+rs(r));
       if(p.permission!==r.permission) d.push('permission: '+(LPP_PERM[p.permission]||p.permission)+' → '+(LPP_PERM[r.permission]||r.permission));
       ['phone','email','relationship','name','organization'].forEach(k=>{ if((p[k]||'')!==(r[k]||'')) d.push(k+': '+(p[k]||'blank')+' → '+(r[k]||'blank')); }); }
@@ -34164,7 +34649,7 @@ function clgValue(v){
    line from here too. */
 const AXL={ rows:{}, at:{} };
 const AXL_OUT={ sent_confirmed:['ok','Confirmed by AxisCare'], sent:['sent','Sent, not read back'], refused:['bad','Refused'], practice:['dry','Practice run'] };
-const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Team Builder',
+const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Caregiver Matching',
   'care-level':'Care level', 'coverage-assign':'Coverage', 'call-disposition':'Call summary', 'axiscare-note':'Note' };
 async function axLogLoad(force){
   const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)){ axLogRender(); return; }
@@ -34951,7 +35436,10 @@ function opsReconcileLeads(){
 function opsCanSee(i){
   if(!i || !i.sensitive) return true;
   const meEmail=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
-  if(meEmail && typeof DISC_APPROVERS!=='undefined' && DISC_APPROVERS.includes(meEmail)) return true;
+  if(meEmail && ccIsOwner(meEmail)) return true;
+  /* SOP ruling 2 (2026-10-17): a Care Coordinator can now be the one asked to approve a write-up, so whoever the
+     item is given to sees it too. Nobody else does. */
+  if(meEmail && String(i.owner||'').toLowerCase()===meEmail) return true;
   const raised=String(i.created_by_email||i.created_by||'').toLowerCase();
   const meKey=String(opsMeKey()||'').toLowerCase();
   return !!meEmail && (raised===meEmail || (!!meKey && raised===meKey));
@@ -34980,21 +35468,29 @@ function opsReconcileDiscipline(){
       it = { id:'ops_disc_'+id, kind:'discipline', source_id:id, sensitive:true,
              title:'Write-up for '+(a.caregiver||'a caregiver')+' needs approval',
              detail:(a.level? a.level+'. ':'')+'Raised by '+(a.created_by||'a coordinator')
-                    +'. Nothing is sent until an owner approves it.',
+                    +'. Approved by '+(typeof WriteupRules!=='undefined' ? WriteupRules.whoApproves(a, DATA.discipline_actions||[]) : 'Samantha or Zach')
+                    +'. Nothing is issued until it is approved.',
              next_action:'Read the whole notice, then approve it or send it back.',
              about:(a.caregiver||''),
              created_by:a.created_by||'', created_by_email:a.created_by_email||a.created_by||'',
              urgency:'today', status:'open', created_at:at, last_activity_at:at,
              due:opsDueFor('discipline','today',at),
              // Domain says what this is ABOUT; owner says who can do the
-             // CURRENT next action. They part company here: the domain is
-             // caregiver performance, but only an owner may approve, so
-             // routing it to the domain owner would create work she is
-             // structurally unable to finish. It moves back to the domain
-             // owner if it is ever sent back for revision.
+             // CURRENT next action: whoever writeup-rules.js says may approve
+             // it (below), which is the domain owner only for team levels she
+             // did not start herself.
              domain:'caregiver_performance',
              owner:'', owner_name:'', opened_by:'system' };
-      const approver = opsDomainEscalation('caregiver_performance') || 'samantha@mo-care.com';
+      /* SOP ruling 2 (2026-10-17): coaching, verbal and first written warnings go to the Caregiver Performance owner
+         (Krystal), leadership levels to its escalation (Samantha), then to whichever owner may approve it. Never
+         to the person who started it. */
+      const dom = opsDomainOwner('caregiver_performance'), esc = opsDomainEscalation('caregiver_performance');
+      const owners = ccOwnerEmails().slice().sort((x,y)=>(y==='samantha@mo-care.com')-(x==='samantha@mo-care.com'));
+      const order = (typeof WriteupRules!=='undefined' && WriteupRules.tier(a, DATA.discipline_actions||[])==='team')
+        ? [dom, esc].concat(owners) : [esc].concat(owners);
+      const approver = (typeof WriteupRules!=='undefined'
+        ? WriteupRules.approverFor(a, order, discWhoFor, DATA.discipline_actions||[]) : '')
+        || esc || 'samantha@mo-care.com';
       it.owner = approver; it.owner_name = opsOwnerName(approver);
       DATA.ops_items.push(it); existing.set(id,it); touched.set(it.id,it);
     }
@@ -35030,7 +35526,8 @@ function opsBadges(){
   // to nag somebody or it is exactly what falls through.
   /* 2026-10-05: the pill carries "late for you", the same number as the header chip. Late with no owner has its
      own header chip, so it still nags somebody without being counted as yours. */
-  const late = opsLateFor(opsMeKey()).length;
+  /* 2026-10-17 (fix 3): the pill carries the same one number as the header chip: Act now, else nothing */
+  let late=0; try{ late=opsTodayCounts().act; }catch(e){}
   /* gb-mywork has existed in the markup since the tab was added and was never
      populated, so the My Work pill has never carried a count. Same number as
      the header chip and the Today bucket — one source, three renderings. */
@@ -35231,6 +35728,26 @@ function opsRow(i, showKind){
    So this defaults to Mine. Everyone else's is one click away, which is the
    transparency, but the thing you open shows what you should be doing. */
 let OPS_SCOPE = 'mine';
+/* SOP ruling 8 (Samantha 2026-10-17: "owners see all work and who has it, don't keep any cards from me"): an owner
+   opens on Everyone, grouped by who has each card. Staff still open on Mine. Once someone picks a scope, it stays. */
+let OPS_SCOPE_PICKED = false;
+function opsOwnerDefaultScope(){
+  if(OPS_SCOPE_PICKED || typeof CC_ROLES_CHECKED==='undefined' || !CC_ROLES_CHECKED) return;
+  let own=false; try{ own=ccIsOwner(); }catch(e){}
+  if(!own || OPS_SCOPE==='all') return;
+  OPS_SCOPE='all';
+  document.querySelectorAll('.opsscope').forEach(b=>b.classList.toggle('active', /opsSetScope\('all'/.test(b.getAttribute('onclick')||'')));
+}
+/* Everyone, grouped by who has it: nobody's cards first (they need an owner), then each person A to Z. */
+function opsGroupedByOwner(rows){
+  const groups=new Map();
+  rows.forEach(i=>{ const k=String(i.owner||'').toLowerCase(); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(i); });
+  const keys=[...groups.keys()].sort((a,b)=>{ if(!a) return -1; if(!b) return 1;
+    return String(opsOwnerName(a)||a).localeCompare(String(opsOwnerName(b)||b)); });
+  return keys.map(k=>{ const g=groups.get(k), n=k ? (opsOwnerName(k)||k) : 'Nobody yet';
+    return '<div class="ops-owner-group" style="font-weight:700;color:var(--navy);margin:12px 0 4px;">'+esc(n)
+      +' <span class="field-note" style="font-weight:400;">'+g.length+' open</span></div>'+g.map(i=>opsRow(i,true)).join(''); }).join('');
+}
 function opsMeKey(){
   const me=(typeof ME!=='undefined' && ME.email) ? ME.email.toLowerCase() : '';
   const s=(DATA.coordinator_staff||[]).find(x=>(x.email||'').toLowerCase()===me && me);
@@ -35243,7 +35760,7 @@ function opsScopeFilter(rows){
   return rows;
 }
 function opsSetScope(s, btn){
-  OPS_SCOPE=s;
+  OPS_SCOPE=s; OPS_SCOPE_PICKED=true;
   document.querySelectorAll('.opsscope').forEach(b=>b.classList.toggle('active', b===btn));
   opsRenderQueue();
 }
@@ -35251,6 +35768,7 @@ function opsSetScope(s, btn){
 /* The queue on Needs Attention: everything open, whatever raised it. */
 function opsRenderQueue(){
   const box=document.getElementById('opsQueueList'); if(!box) return;
+  opsOwnerDefaultScope();
   const all=opsOpen();
   const rows=opsScopeFilter(all);
   // Keep the card up whenever anything is open, even if none of it is yours —
@@ -35277,7 +35795,7 @@ function opsRenderQueue(){
       + '</div>';
     opsBadges(); return;
   }
-  box.innerHTML = rows.map(i=>opsRow(i,true)).join('');
+  box.innerHTML = OPS_SCOPE==='all' ? opsGroupedByOwner(rows) : rows.map(i=>opsRow(i,true)).join('');
   opsBadges();
 }
 
@@ -35526,6 +36044,7 @@ function callsPaint(){
       +dur
       +'<span class="field-note" style="white-space:nowrap;">'+esc(callsFmtWhen(c.at))+'</span>'
       +play+open
+      +(window.CallCoach?CallCoach.callTools(c):'')
       +'</div>'
       +(window.CallLead?CallLead.callRow(c):'')
       +'<div id="rec-'+c.id+'" style="display:none;"></div>'
@@ -35555,6 +36074,7 @@ async function renderCalls(force, btn){
     opsReconcileDiscipline();
     opsRenderCallbacks();
     callsPaint();
+    if(window.CallCoach) CallCoach.render();
     /* Make this a lead: the call reader's tags and summaries arrive a moment later */
     if(window.CallLead) CallLead.load(force).then(()=>callsPaint()).catch(()=>{});
   }catch(e){
@@ -35782,7 +36302,7 @@ function renderMgrStrip(){
     const cpN=(typeof cpOverdueCount==='function')?cpOverdueCount():0;
     if(cpN) rows.push(['🗂️',cpN+' care plan'+(cpN===1?'':'s')+' overdue for monthly review or flagged but not yet updated in AxisCare','clOpen(\'Plan reviews\')']);
   }catch(e){}
-  const wuPending=(DATA.discipline_actions||[]).filter(a=>a.status==='pending_approval');
+  const wuPending=discForMe();
   if(wuPending.length)
     rows.push(['📝',wuPending.length+' write-up'+(wuPending.length===1?'':'s')+' awaiting your approval'+(wuPending.some(a=>a.level==='Termination Review')?' — <b style="color:var(--red);">including a termination review</b>':''),'var d=document.getElementById(\'approvalsDetails\');if(d)d.open=true;d&&d.scrollIntoView({behavior:\'smooth\'})']);
   DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).forEach(l=>
@@ -37103,7 +37623,7 @@ function tbBoardHtml(plan){
         +'</td>'
         +(plan.days||[]).map(function(d){
           var key=tbCellKey(d,s.k), c=(plan.cells||{})[key];
-          if(c&&c.status==='yes') yes++;
+          if(typeof cmCovered==='function'?cmCovered(plan,key,c):(c&&c.status==='yes')) yes++;   /* stage C: a yes needing a recheck isn't coverage */
           if(c&&c.status!=='no') filled++;
           var open=TB.cellOpen===key;
           var inner=c
@@ -37243,7 +37763,7 @@ function tbPoolListHtml(plan,key){
     if(x.lowLevel) flags.push('<b style="color:var(--red);">Level '+x.cg.level+' caregiver, client is Level '+lvT+'</b>');
     if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
     else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
-    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
+    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability unknown</span>');   /* her correction 2026-10-17: missing means Unknown, never Available */
     if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
     if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
     flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
@@ -37337,7 +37857,7 @@ async function tbAskOpen(key){
   var asked=dr.asked_before||[], edited=false;
   var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
   var blockers=[];
-  if(!dr.live) blockers.push('Sending from the Team Builder is switched off right now.');
+  if(!dr.live) blockers.push('Sending from Caregiver Matching is switched off right now.');
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
@@ -41306,7 +41826,19 @@ function renderNurseVisits(){
    Care / 3 Advanced Care) kept current. Records in app_data key
    'care_plan_reviews': kind 'review' events + kind 'ask' log entries.
    Caregiver phones come from the shared 'caregivers' app_data key; texts
-   go out through the same secured GHL function the escalation alerts use. */
+   go out through the same secured GHL function the escalation alerts use.
+   2026-10-17 (her SOP ruling 4): every 90 days, and sooner whenever a shift note shows a change. A red or yellow
+   shift-note flag for the client since their last review puts them at the top as Review now, until a review is saved.
+   A flag the office closed as "Not a concern" doesn't count. */
+const CP_REVIEW_DAYS=90;
+function cpShiftChangeSince(axisId, sinceIso){
+  const ax=String(axisId||'').trim(); if(!ax) return null;
+  const hits=((typeof DATA!=='undefined'&&DATA.ops_items)||[]).filter(i=>i&&i.kind==='care_note'
+    &&(i.level==='red'||i.level==='yellow')&&String(i.client_ax||'')===ax
+    &&!(i.cn_actions||[]).some(a=>a&&a.what==='ok')
+    &&(!sinceIso||String(i.created_at||'')>String(sinceIso)));
+  return hits.sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0]||null;
+}
 (function(){
   const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const LEVELS={1:['Level 1 · Wellness','#1E8449','#E7F5EC'],2:['Level 2 · Personal Care','#B45309','#FCEED6'],3:['Level 3 · Advanced Care','#DC2626','#FDE8E8']};
@@ -41359,8 +41891,9 @@ function renderNurseVisits(){
         const due=c.latest?(c.latest.next_due||''):'';
         const overdue=!c.latest||(due&&due<t);
         const pendingUpdate=c.latest&&c.latest.changes_needed&&!c.latest.plan_updated;
-        return Object.assign(c,{due,overdue,pendingUpdate});
-      }).sort((a,b)=>(b.overdue?1:0)-(a.overdue?1:0)||(b.pendingUpdate?1:0)-(a.pendingUpdate?1:0)||String(a.due||'0000').localeCompare(String(b.due||'0000')));
+        const shiftChange=cpShiftChangeSince(c.axisId, c.latest&&c.latest.at);
+        return Object.assign(c,{due,overdue,pendingUpdate,shiftChange});
+      }).sort((a,b)=>(b.shiftChange?1:0)-(a.shiftChange?1:0)||(b.overdue?1:0)-(a.overdue?1:0)||(b.pendingUpdate?1:0)-(a.pendingUpdate?1:0)||String(a.due||'0000').localeCompare(String(b.due||'0000')));
   }
 
   window.cpRender=function(){
@@ -41382,17 +41915,19 @@ function renderNurseVisits(){
       const lv=c.latest&&LEVELS[c.latest.care_level];
       const lvChip=lv?'<span style="font-size:.66rem;font-weight:800;color:'+lv[1]+';background:'+lv[2]+';border-radius:5px;padding:.15rem .45rem;white-space:nowrap">'+lv[0]+'</span>'
         :'<span style="font-size:.66rem;font-weight:700;color:var(--text-muted);background:#F3EDE3;border-radius:5px;padding:.15rem .45rem;white-space:nowrap">no level set</span>';
-      const border=c.pendingUpdate?'#DC2626':c.overdue?'#DC2626':'#1E8449';
+      const border=(c.pendingUpdate||c.overdue||c.shiftChange)?'#DC2626':'#1E8449';
       const lastTxt=(c.latest?('reviewed '+String(c.latest.at).slice(0,10)+' ('+(METHODS[c.latest.method]||c.latest.method)+') by '+E(c.latest.by||'')):'never reviewed')
         +(c.lastVisit?' · last AxisCare visit '+E(c.lastVisit):(c.fromAxis?'':' · <span style="color:#B45309">no AxisCare visits in 60 days</span>'));
       const dueTxt=c.latest?(c.due?(c.due<t?'<b style="color:#DC2626">⚠ due '+E(c.due)+'</b>':'next due '+E(c.due)):'no due date'):'<b style="color:#DC2626">⚠ needs its first review</b>';
       const askedN=recentAsks.filter(a=>(a.client_key||'')===c.key).length;
       const pend=c.pendingUpdate?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">🔴 Changes flagged — plan in AxisCare not updated yet · <a href="#" onclick="cpMarkUpdated(\''+E(c.latest.id)+'\');return false;">mark plan updated ✓</a></div>':'';
+      const sc=c.shiftChange, scWhen=sc?String(sc.visit_day||sc.created_at||'').slice(0,10):'';
+      const shiftNow=sc?'<div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-top:.2rem">Review now: shift note '+E(scWhen)+' showed a change'+(sc.why?' ('+E(String(sc.why).slice(0,120))+')':'')+'</div>':'';
       const findings=c.latest&&c.latest.findings?'<div style="font-size:.74rem;color:#3A342C;margin-top:.25rem">“'+E(String(c.latest.findings).slice(0,160))+(c.latest.findings.length>160?'…':'')+'”</div>':'';
       return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.7rem 1rem;margin-bottom:.5rem">'
         +'<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
         +'<div style="flex:1;min-width:220px"><span style="font-size:.9rem">'+cpOpenLink({client_name:c.name,axiscare_client_id:c.axisId},'care:reviews')+'</span> '+lvChip
-        +'<div style="font-size:.72rem;color:var(--text-muted)">'+lastTxt+' · '+dueTxt+(askedN?' · 💬 '+askedN+' caregiver'+(askedN===1?'':'s')+' asked this week':'')+'</div>'+findings+pend+'</div>'
+        +'<div style="font-size:.72rem;color:var(--text-muted)">'+lastTxt+' · '+dueTxt+(askedN?' · 💬 '+askedN+' caregiver'+(askedN===1?'':'s')+' asked this week':'')+'</div>'+shiftNow+findings+pend+'</div>'
         +'<button style="font-size:.72rem" onclick="cpAsk(\''+E(c.key)+'\')">💬 Ask caregivers</button>'
         +'<button class="primary" style="font-size:.72rem" onclick="cpOpenForm(\''+E(c.key)+'\')">📝 Log review</button>'
         +'</div>'
@@ -41411,7 +41946,7 @@ function renderNurseVisits(){
     document.getElementById('cp-client-key').value=c.key;
     document.getElementById('cp-method').value='phone';
     document.getElementById('cp-level').value=(c.latest&&c.latest.care_level)||'';
-    const d=new Date(Date.now()+30*86400000);
+    const d=new Date(Date.now()+CP_REVIEW_DAYS*86400000);
     document.getElementById('cp-next-due').value=d.toISOString().slice(0,10);
     ['cpf-none','cpf-mobility','cpf-schedule','cpf-meds','cpf-home'].forEach(id=>document.getElementById(id).checked=false);
     document.getElementById('cp-findings').value='';
