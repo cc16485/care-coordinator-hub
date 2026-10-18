@@ -227,7 +227,7 @@ function fcsrRegStatus(c){
   if(!c.hire_date) return {status:'pending', label:'Registration: not recorded'};
   const hire=pd(c.hire_date);
   const daysSince=Math.floor((__ELIG_TODAY__-hire)/86400000);
-  if(daysSince>15) return {status:'overdue', label:`Registration overdue — ${daysSince}d since hire`};
+  if(daysSince>15) return {status:'overdue', label:`Registration overdue: ${daysSince}d since hire`};
   return {status:'pending', label:`Must register within ${15-daysSince}d`};
 }
 
@@ -401,7 +401,7 @@ function eligibility(c){
   // ── FCSR registration: serious, but not a lapse in V1 ─────────────────
   if(f.reg.status === 'overdue')
     tasks.push({ code:'fcsr_registration', kind:ELIG_LEGAL, high:true,
-      why:'FCSR registration overdue — Missouri requires it within 15 days of hire.' });
+      why:'FCSR registration overdue. Missouri requires it within 15 days of hire.' });
   else if(f.reg.status === 'pending' && c.hire_date)
     tasks.push({ code:'fcsr_registration', kind:ELIG_LEGAL, why:f.reg.label });
 
@@ -544,7 +544,7 @@ function eligRecordRefDecision(c, outcome, note){
   c.eligibility_history = c.eligibility_history || [];
   c.eligibility_history.push({
     at: c.ref_decision.at, event: 'ref_decision', state: null,
-    reason: 'Supervisor decision on references: ' + outcome + (note ? ' — ' + note : ''),
+    reason: 'Supervisor decision on references: ' + outcome + (note ? ': ' + note : ''),
     refs, by: c.ref_decision.by
   });
   return c.ref_decision;

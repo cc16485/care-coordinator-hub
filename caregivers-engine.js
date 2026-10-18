@@ -140,7 +140,7 @@ function showSetNewPassword(){
   d.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.78);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px';
   d.innerHTML='<div style="background:#fff;border-radius:14px;padding:26px;width:100%;max-width:360px;font-family:inherit">'
     +'<h2 style="margin:0 0 6px;color:#0D365F;font-size:18px">Set a new password</h2>'
-    +'<p style="margin:0 0 14px;font-size:13px;color:#6E6559">Your email link signed you in — now choose a new password.</p>'
+    +'<p style="margin:0 0 14px;font-size:13px;color:#6E6559">Your email link signed you in. Now choose a new password.</p>'
     +'<input id="pwNew1" type="password" placeholder="New password (8+ characters)" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:8px;font-family:inherit">'
     +'<input id="pwNew2" type="password" placeholder="Type it again" style="width:100%;box-sizing:border-box;padding:11px;border:1.5px solid #e4e1d8;border-radius:8px;font-size:16px;margin-bottom:10px;font-family:inherit">'
     +'<div id="pwErr" style="display:none;color:#DC2626;font-size:12.5px;margin-bottom:10px"></div>'
@@ -151,12 +151,12 @@ function showSetNewPassword(){
     var p1=document.getElementById('pwNew1').value, p2=document.getElementById('pwNew2').value, err=document.getElementById('pwErr');
     err.style.display='none';
     if(p1.length<8){ err.textContent='Please use at least 8 characters.'; err.style.display='block'; return; }
-    if(p1!==p2){ err.textContent='Those don\'t match — try again.'; err.style.display='block'; return; }
+    if(p1!==p2){ err.textContent='Those don\'t match. Try again.'; err.style.display='block'; return; }
     this.disabled=true; this.textContent='Saving…';
     var res=await sb.auth.updateUser({password:p1});
     if(res.error){ err.textContent=res.error.message; err.style.display='block'; this.disabled=false; this.textContent='Save new password'; return; }
     d.remove();
-    alert('Password updated — you\'re signed in.');
+    alert('Password updated. You\'re signed in.');
     window.location.reload();
   };
 }
@@ -300,25 +300,25 @@ function showOIGResult(name, result, onClear, onFlagged, onDismiss){
   if(result.clear){
     c.innerHTML = `<div style="text-align:center;padding:.5rem 0">
       <div style="font-size:2.5rem">✅</div>
-      <h3 style="margin:.5rem 0 .25rem;color:var(--green-text)">OIG Check — CLEAR</h3>
+      <h3 style="margin:.5rem 0 .25rem;color:var(--green-text)">OIG Check: CLEAR</h3>
       <p style="font-size:.85rem;color:var(--gray)"><strong>${name}</strong> was not found on the OIG Exclusions List.</p>
       <p style="font-size:.78rem;color:var(--gray);margin-top:.35rem">Checked: ${result.date}</p>
     </div>`;
-    a.innerHTML = `<button class="btn-save" style="width:100%;background:var(--green)" onclick="oigResultConfirm()">Save — Mark CLEAR</button>`;
+    a.innerHTML = `<button class="btn-save" style="width:100%;background:var(--green)" onclick="oigResultConfirm()">Save and Mark CLEAR</button>`;
     a._onConfirm = () => { onClear(result.date); closeModal('oig-result-modal'); };
   } else {
     c.innerHTML = `<div>
       <div style="text-align:center;margin-bottom:.75rem">
         <div style="font-size:2rem">⚠️</div>
         <h3 style="margin:.4rem 0 .2rem;color:var(--red-text)">Potential OIG Match Found</h3>
-        <p style="font-size:.82rem;color:var(--gray)">The name <strong>${name}</strong> returned ${result.matches.length} result${result.matches.length>1?'s':''} on the OIG Exclusions List. Review carefully — common names may return false positives.</p>
+        <p style="font-size:.82rem;color:var(--gray)">The name <strong>${name}</strong> returned ${result.matches.length} result${result.matches.length>1?'s':''} on the OIG Exclusions List. Review carefully: common names may return false positives.</p>
       </div>
       ${oigMatchTable(result.matches)}
-      <p style="font-size:.75rem;color:var(--gray);margin-top:.75rem">If this is NOT your employee, click "Not a Match — Mark CLEAR". If it IS a match, click "Confirm FLAGGED".</p>
+      <p style="font-size:.75rem;color:var(--gray);margin-top:.75rem">If this is NOT your employee, click "Not a Match, Mark CLEAR". If it IS a match, click "Confirm FLAGGED".</p>
     </div>`;
     a.innerHTML = `
       <button class="btn-cancel" onclick="oigResultDismiss()">Cancel</button>
-      <button class="btn-save" style="background:var(--green)" onclick="oigResultNotMatch()">Not a Match — Mark CLEAR</button>
+      <button class="btn-save" style="background:var(--green)" onclick="oigResultNotMatch()">Not a Match, Mark CLEAR</button>
       <button class="btn-save" style="background:var(--red)" onclick="oigResultFlagged()">Confirm FLAGGED</button>`;
     a._onClear   = () => { onClear(result.date); closeModal('oig-result-modal'); };
     a._onFlagged = () => { onFlagged(result.date); closeModal('oig-result-modal'); };
@@ -429,7 +429,7 @@ async function batchOIGCheck(){
     </div>
     <div style="background:${flagged?'var(--red-bg)':'var(--slate-bg)'};border-radius:8px;padding:.75rem;text-align:center">
       <div style="font-size:1.6rem;font-weight:700;color:${flagged?'var(--red-text)':'var(--slate-text)'}">${flagged}</div>
-      <div style="font-size:.72rem;color:${flagged?'var(--red-text)':'var(--slate-text)'};font-weight:600">FLAGGED — Review</div>
+      <div style="font-size:.72rem;color:${flagged?'var(--red-text)':'var(--slate-text)'};font-weight:600">FLAGGED: Review</div>
     </div>
     <div style="background:var(--slate-bg);border-radius:8px;padding:.75rem;text-align:center">
       <div style="font-size:1.6rem;font-weight:700;color:var(--slate-text)">${errors}</div>
@@ -444,7 +444,7 @@ async function batchOIGCheck(){
     html += `<p style="font-size:.75rem;color:var(--gray);margin-top:.5rem">Open each flagged caregiver's record to review and update their OIG status manually.</p>`;
   }
   if(errors){ html += `<div style="background:var(--amber-bg);border:1.5px solid #fcd34d;border-radius:8px;padding:.75rem 1rem;margin-top:.5rem;font-size:.78rem;color:var(--amber-text)">
-    <strong>⚠ ${errors} caregiver${errors>1?'s':''} could not be checked after 3 attempts (OIG API may be slow — try them individually):</strong>
+    <strong>⚠ ${errors} caregiver${errors>1?'s':''} could not be checked after 3 attempts (OIG API may be slow, so try them individually):</strong>
     <div style="margin-top:.4rem">${errorList.join(', ')}</div>
   </div>`; }
   content.innerHTML = html;
@@ -478,7 +478,7 @@ function gdriveUploadClick(inputId){
   }
   if(!gdriveTokenClient) gdriveInit();
   if(!gdriveTokenClient){
-    alert('Google sign-in is still loading — try again in a moment.');
+    alert('Google sign-in is still loading. Try again in a moment.');
     return;
   }
   gdrivePendingId = inputId;
@@ -700,7 +700,7 @@ function gcalBuildEvent(session){
   const pad2 = n => String(n).padStart(2,'0');
   const toLocal = d => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:00`;
   const locParts = session.is_remote==='yes'
-    ? { location: session.video_link||'Remote — video call', conferenceUrl: session.video_link }
+    ? { location: session.video_link||'Remote video call', conferenceUrl: session.video_link }
     : { location: '1331 N Stewart Ave Ste B, Springfield, MO 65802' };
   const facName = session.facilitator || '';
   const facRole = session.facilitator_role || '';
@@ -709,7 +709,7 @@ function gcalBuildEvent(session){
   const notesNote = session.notes ? `\nNotes: ${session.notes}` : '';
   const attendeeCount = (session.bookings||[]).length;
   return {
-    summary: `Caring Companions Orientation${facFull ? ` — ${facFull}` : ''}`,
+    summary: `Caring Companions Orientation${facFull ? `: ${facFull}` : ''}`,
     description: `Agency orientation session (${attendeeCount}/${session.capacity||6} booked)${facilitatorNote}${notesNote}`,
     location: locParts.location,
     start: { dateTime: toLocal(start), timeZone: 'America/Chicago' },
@@ -766,7 +766,7 @@ async function loadClientQueue(forceRender=false){
     const { data:{ session } } = await sb.auth.getSession();
     if(!session){
       window._clientQueue = [];
-      if(el) el.innerHTML = `<div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:8px;padding:.75rem 1rem;font-size:.82rem;color:#92400e">⚠️ Not signed in — client queue requires authentication. Please sign in to view new clients.</div>`;
+      if(el) el.innerHTML = `<div style="background:#fef3c7;border:1.5px solid #fcd34d;border-radius:8px;padding:.75rem 1rem;font-size:.82rem;color:#92400e">⚠️ Not signed in. The client queue requires authentication. Please sign in to view new clients.</div>`;
       return;
     }
     const { data, error } = await sb.from('client_queue').select('*').order('added_at', { ascending: false });
@@ -794,7 +794,7 @@ function renderClientQueue(){
   // Pending section
   if(!pending.length){
     html += `<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">
-      ✅ No pending clients — all scheduled!
+      ✅ No pending clients. All scheduled!
       <div style="font-size:.7rem;margin-top:.3rem;color:var(--gray)">New clients appear here automatically when added in AxisCare via Zapier. <a href="#" onclick="openAddClientManual();return false" style="color:var(--teal)">Or add one manually →</a></div>
     </div>`;
   } else {
@@ -874,14 +874,14 @@ function renderClientCard(c){
   const cgNotesHtml = c.caregiver_called ? `
     <div style="margin-top:.45rem" onclick="event.stopPropagation()">
       ${c.caregiver_called_at ? `<div style="font-size:.67rem;color:#8A7F70;margin-bottom:.25rem">✓ Completed ${fmtTs(c.caregiver_called_at)}</div>` : ''}
-      <textarea rows="2" placeholder="Required — notes from caregiver call (confirmed schedule, any concerns…)" onblur="saveCallNotes('${c.id}','caregiver_call_notes',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid ${(c.caregiver_call_notes||'').trim()?'#86efac':'#fca5a5'};border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">${c.caregiver_call_notes||''}</textarea>
+      <textarea rows="2" placeholder="Required: notes from caregiver call (confirmed schedule, any concerns…)" onblur="saveCallNotes('${c.id}','caregiver_call_notes',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid ${(c.caregiver_call_notes||'').trim()?'#86efac':'#fca5a5'};border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">${c.caregiver_call_notes||''}</textarea>
       ${!(c.caregiver_call_notes||'').trim() ? `<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>` : ''}
     </div>` : '';
 
   const clientNotesHtml = c.client_called ? `
     <div style="margin-top:.45rem" onclick="event.stopPropagation()">
       ${c.client_called_at ? `<div style="font-size:.67rem;color:#8A7F70;margin-bottom:.25rem">✓ Completed ${fmtTs(c.client_called_at)}</div>` : ''}
-      <textarea rows="2" placeholder="Required — notes from client call (schedule confirmed, client reaction, anything to flag…)" onblur="saveCallNotes('${c.id}','client_call_notes',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid ${(c.client_call_notes||'').trim()?'#86efac':'#fca5a5'};border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">${c.client_call_notes||''}</textarea>
+      <textarea rows="2" placeholder="Required: notes from client call (schedule confirmed, client reaction, anything to flag…)" onblur="saveCallNotes('${c.id}','client_call_notes',this.value)" style="width:100%;padding:.35rem .55rem;border:1.5px solid ${(c.client_call_notes||'').trim()?'#86efac':'#fca5a5'};border-radius:6px;font-family:inherit;font-size:.74rem;resize:vertical;box-sizing:border-box;background:#fff">${c.client_call_notes||''}</textarea>
       ${!(c.client_call_notes||'').trim() ? `<div style="font-size:.68rem;color:#dc2626;margin-top:.15rem">⚠ Notes required</div>` : ''}
     </div>` : '';
 
@@ -1154,7 +1154,7 @@ function setSectionTitle(name){
   const el=document.querySelector('.hdr-center h1');
   if(el) el.innerHTML = SECTION_TITLES[name] || 'Caring Companions';
   const t=String(SECTION_TITLES[name]||'').replace(/&amp;/g,'&');
-  if(t) document.title = t+' — Caring Companions';
+  if(t) document.title = t+' · Caring Companions';
 }
 
 function switchTab(name, btn){
@@ -1186,7 +1186,7 @@ async function resolveReturnedItem(hid,i){
   h.items[i].done_by=(window._myEmail||'staffing').split('@')[0];
   if(note.trim()) h.items[i].done_note=note.trim();
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:'handoffs', item:h }); if(error) throw error; }
-  catch(e){ alert('Could not save — try again.'); return; }
+  catch(e){ alert('Could not save. Try again.'); return; }
   renderStaffHome();
 }
 
@@ -1199,10 +1199,10 @@ function openStaffHandoff(){
   const now=Date.now();
   (OPEN_SHIFTS||[]).forEach(s=>{
     const hrs=(new Date(s.date+'T'+(s.start24||'23:59')).getTime()-now)/3600000;
-    if(hrs<=48) staffHandoffDraft.push({include:true,note:'',label:'🔴 OPEN SHIFT still unfilled: '+s.client+' — '+s.date+(s.start?' '+s.start:'')});
+    if(hrs<=48) staffHandoffDraft.push({include:true,note:'',label:'🔴 OPEN SHIFT still unfilled: '+s.client+', '+s.date+(s.start?' '+s.start:'')});
   });
   STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open'&&t.urgency==='Today').forEach(t=>
-    staffHandoffDraft.push({include:true,note:'',label:'📨 Unfinished TODAY request: '+(t.about?t.about+' — ':'')+String(t.message||'').slice(0,80)}));
+    staffHandoffDraft.push({include:true,note:'',label:'📨 Unfinished TODAY request: '+(t.about?t.about+': ':'')+String(t.message||'').slice(0,80)}));
   OFFERS.filter(o=>!o.attributes_entered_at).slice(0,5).forEach(o=>
     staffHandoffDraft.push({include:false,note:'',label:'🤝 New hire awaiting AxisCare attributes: '+(o.name||'')}));
   if(!(eodReports||[]).some(r=>r.report_date===today10))
@@ -1218,7 +1218,7 @@ function renderStaffHandoffDraft(){
       +'<div style="flex:1;min-width:0">'+creqEsc(it.label)
       +'<input placeholder="Context for tonight… (optional)" value="'+creqEsc(it.note||'')+'" oninput="staffHandoffDraft['+i+'].note=this.value" style="width:100%;margin-top:.25rem;font-size:.74rem;padding:.3rem .5rem">'
       +'</div></div>').join('')
-    : '<div style="color:#A89C8B;font-size:.8rem;padding:.4rem 0">Nothing time-sensitive is open — add items below or just leave a note.</div>';
+    : '<div style="color:#A89C8B;font-size:.8rem;padding:.4rem 0">Nothing time-sensitive is open. Add items below or just leave a note.</div>';
 }
 function addStaffHandoffItem(){
   const inp=document.getElementById('staffhandoff-custom');
@@ -1229,15 +1229,15 @@ function addStaffHandoffItem(){
 async function postStaffHandoff(){
   const items=staffHandoffDraft.filter(it=>it.include).map(it=>({id:'shi'+Date.now()+Math.random().toString(36).slice(2,5),type:'custom',ref:'',label:it.label,note:(it.note||'').trim(),done_at:null,done_by:null}));
   const note=document.getElementById('staffhandoff-note').value.trim();
-  if(!items.length&&!note){ alert('Nothing to hand off — include an item or leave a note.'); return; }
+  if(!items.length&&!note){ alert('Nothing to hand off. Include an item or leave a note.'); return; }
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const h={ id:'ho'+Date.now(), posted_at:new Date().toISOString(), from_email:by,
     from_name:(by.split('@')[0]||'Staffing')+' (Staffing)', shift:'staffing',
     items, general_note:note, ack_by:null, ack_at:null };
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:'handoffs', item:h }); if(error) throw error; }
-  catch(e){ alert('Could not post — check your connection and try again.'); return; }
+  catch(e){ alert('Could not post. Check your connection and try again.'); return; }
   document.getElementById('staffhandoff-modal').classList.remove('open');
-  alert('Handoff posted ✓ — the evening/after-hours coordinator sees it the moment they open their hub, and it\'s on the permanent Communication Log.');
+  alert('Handoff posted ✓. The evening/after-hours coordinator sees it the moment they open their hub, and it\'s on the permanent Communication Log.');
 }
 
 // ── SOP LINK (URL shared via appSettings.sop_onboarding) ──
@@ -1323,7 +1323,7 @@ let _homeKicked=false;
 function renderStaffHome(){
   const box=document.getElementById('home-rows'); if(!box) return;
   const hr=new Date().getHours();
-  document.getElementById('home-greeting').textContent=(hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')+' — your day at a glance';
+  document.getElementById('home-greeting').textContent=(hr<12?'Good morning':hr<17?'Good afternoon':'Good evening')+'. Your day at a glance';
   // Kick the async sources once so the counts fill themselves in.
   if(!_homeKicked){
     _homeKicked=true;
@@ -1362,24 +1362,24 @@ function renderStaffHome(){
       +'<b style="font-size:.85rem;color:#92400E">↩ Sent back to you from your handoff ('+returned.length+')</b>'
       +returned.map(x=>'<div style="display:flex;align-items:flex-start;gap:.6rem;padding:.4rem 0;font-size:.8rem;flex-wrap:wrap">'
         +'<div style="flex:1;min-width:200px">'+creqEsc(x.it.label)
-        +'<div style="font-size:.72rem;color:#92400E">'+creqEsc(x.it.returned_by||'')+': “'+creqEsc(x.it.return_note||'')+'” — it\'s yours again</div></div>'
+        +'<div style="font-size:.72rem;color:#92400E">'+creqEsc(x.it.returned_by||'')+': “'+creqEsc(x.it.return_note||'')+'”. It\'s yours again</div></div>'
         +'<button class="fb" style="font-size:.72rem" onclick="resolveReturnedItem(\''+x.h.id+'\','+x.i+')">✓ Resolved</button></div>').join('')
       +'</div>'
     : '';
   box.innerHTML= returnedHtml
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.2rem 0 .4rem">🗓 Scheduling</div>'
-    +row('🔴',shiftN,'Open shifts — next 14 days','Every unassigned visit in AxisCare is yours to fill','scheduling',true)
-    +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks — two calls per match, then done','checkins',false)
+    +row('🔴',shiftN,'Open shifts, next 14 days','Every unassigned visit in AxisCare is yours to fill','scheduling',true)
+    +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks. Two calls per match, then done','checkins',false)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
-    +row('🤝',offN,'New offers — enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
-    +row('⛔',blocked,'Blocked from first client contact','Orientation/dementia training incomplete — can\'t be scheduled yet','training',true)
+    +row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
+    +row('⛔',blocked,'Blocked from first client contact','Orientation/dementia training incomplete, so can\'t be scheduled yet','training',true)
     +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">🤝 Team &amp; Reports</div>'
     +row('📨',reqN,'Coordinator requests waiting','Coverage gaps, do-not-returns, hours changes from the coordinators','coordreq',true)
     +row('💬',repN,'Automation replies waiting','Applicants & caregivers texting back on the automation line','comms',false)
     +row('🎥',mtgN,'Meeting requests for you','Accept and both sides get the video room','meetings',false)
-    +row('📄',eodDone?0:1,'End-of-day report',''+(eodDone?'Today\'s report is uploaded — nice.':'Not uploaded yet — do it before you sign off'),'eod',false);
+    +row('📄',eodDone?0:1,'End-of-day report',''+(eodDone?'Today\'s report is uploaded. Nice.':'Not uploaded yet. Do it before you sign off'),'eod',false);
 }
 
 // ── NEW OFFERS (interview records from the Team Hub "Offer a Job" form) ──
@@ -1971,10 +1971,10 @@ async function createRefRequests(c){
      weekday-morning cron is the backstop that actually sends it. */
   try {
     const { data: chase, error: chaseErr } = await sb.functions.invoke('reference-chase', { body: {} });
-    if (chaseErr) console.warn('reference-chase: immediate send failed, the weekday-morning run will send these —', chaseErr.message || chaseErr);
-    else if (chase && chase.skipped) console.warn('reference-chase: held (' + chase.skipped + ') — the weekday-morning run will send these');
+    if (chaseErr) console.warn('reference-chase: immediate send failed, the weekday-morning run will send these:', chaseErr.message || chaseErr);
+    else if (chase && chase.skipped) console.warn('reference-chase: held (' + chase.skipped + '), the weekday-morning run will send these');
   } catch (e) {
-    console.warn('reference-chase: immediate send failed, the weekday-morning run will send these —', e && e.message || e);
+    console.warn('reference-chase: immediate send failed, the weekday-morning run will send these:', e && e.message || e);
   }
   return data || [];
 }
@@ -2626,7 +2626,7 @@ function vivSheet(o){
   return sec('Personal')
     +row('First Name',first)
     +row('Last Name',last)
-    +row('Email Address',o.email,'none given — their invite needs an email; ask them for one')
+    +row('Email Address',o.email,'none given. Their invite needs an email; ask them for one')
     +row('Phone Type',null,'select Mobile')
     +row('Phone',phone,'none given')
     +(o.onboarding_path==='new'?row('Home address',null,'on the Screening desk (Background & References row), from their signed Step 1; the SSN and date of birth are never copied from the Hub: Viventium collects them from the employee'):'')
@@ -2635,18 +2635,18 @@ function vivSheet(o){
     +row('Job Title',o.position||'Caregiver')
     +row('Employee Status',null,'leave as Onboarding')
     +row('Employee # / Badge #',null,'click AUTO-GENERATE on both')
-    +row('Department',null,'required dropdown — pick per company setup')
+    +row('Department',null,'required dropdown, pick per company setup')
     +row('Pay Group / Benefit Category',null,'leave blank unless told otherwise')
-    +row('Employee Type',null,'Full/Part Time — availability: '+(o.availability||'not given'))
+    +row('Employee Type',null,'Full/Part Time, availability: '+(o.availability||'not given'))
     +sec('Work Schedule')
-    +row('Work Schedule Template',null,'skip — leave empty')
+    +row('Work Schedule Template',null,'skip, leave empty')
     +sec('Pay Info')
     +row('Pay Type',null,'select Hourly')
-    +row('Pay Frequency',null,'Weekly — already set')
+    +row('Pay Frequency',null,'Weekly, already set')
     +row('Standard Hours / Auto Pay',null,'leave the defaults')
     +sec('Rates')
-    +row('Rate Code',null,'Base Rate — already set')
-    +row('Rate',o.pay_rate?Number(o.pay_rate).toFixed(2):null,'no rate on the offer — ask '+(o.offered_by||'the coordinator'))
+    +row('Rate Code',null,'Base Rate, already set')
+    +row('Rate',o.pay_rate?Number(o.pay_rate).toFixed(2):null,'no rate on the offer, ask '+(o.offered_by||'the coordinator'))
     +sec('Taxes')
     +row('Tax Type',null,'choose W2')
     +sec('Onboarding Plan')
@@ -2682,7 +2682,7 @@ function fmtD(s){ const d=pd(s); if(!d)return null; return d.toLocaleDateString(
    answer. */
 function __elig(){
   const E = (typeof globalThis!=='undefined') && globalThis.CCElig;
-  if(!E) throw new Error('eligibility-rules.js has not loaded — refusing to guess at eligibility');
+  if(!E) throw new Error('eligibility-rules.js has not loaded, refusing to guess at eligibility');
   return E;
 }
 function chkStatus(a,b,c){ return __elig().chkStatus(a,b,c); }
@@ -2766,12 +2766,12 @@ function attTypeUi(){
   document.getElementById('att-called-wrap').style.display = t==='callin'?'inline':'none';
   document.getElementById('att-late-wrap').style.display = t==='tardy'?'inline':'none';
   document.getElementById('att-log-hint').textContent =
-    t==='ncns'?'Per Handbook 2U this is serious misconduct — logging it flags an immediate termination review and alerts Samantha.'
+    t==='ncns'?'Per Handbook 2U this is serious misconduct. Logging it flags an immediate termination review and alerts Samantha.'
     :t==='callin'?'The hub works out the notice from the shift time and the call time. Under '+attCfg().notice_hours+' hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice (Handbook 2A). It flags it to review: a write-up only if there was no good reason.':'';
 }
 async function attPersist(key,item){
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:key, item }); if(error) throw error; }
-  catch(e){ alert('Could not save — check your connection and try again.'); throw e; }
+  catch(e){ alert('Could not save. Check your connection and try again.'); throw e; }
 }
 async function logAttEvent(){
   const type=document.getElementById('att-type').value;
@@ -2797,7 +2797,7 @@ async function logAttEvent(){
   document.getElementById('att-cg').value=''; document.getElementById('att-note').value='';
   document.getElementById('att-late-min').value=''; document.getElementById('att-called-at').value='';
   renderAttendance();
-  if(type==='ncns') alert('Logged. Per Handbook 2U this is an immediate termination review — it now shows on Samantha\'s manager view. Draft the notice from '+cg+'\'s card, and call Samantha before anything is issued.');
+  if(type==='ncns') alert('Logged. Per Handbook 2U this is an immediate termination review. It now shows on Samantha\'s manager view. Draft the notice from '+cg+'\'s card, and call Samantha before anything is issued.');
 }
 /* Pending triggers = uncovered strikes, per her rules:
    every short-notice call-in AND every NCNS is its own trigger; hitting the
@@ -2830,7 +2830,7 @@ function attStatus(cg){
   const callinsWin=evs.filter(e=>e.type==='callin'&&inWin(e,cfg.callin_window));
   const tardiesWin=evs.filter(e=>e.type==='tardy'&&inWin(e,cfg.tardy_window));
   const triggers=[];
-  uncovered.filter(e=>e.type==='ncns').forEach(e=>triggers.push({kind:'ncns',events:[e],label:'No-call/no-show — immediate termination review'}));
+  uncovered.filter(e=>e.type==='ncns').forEach(e=>triggers.push({kind:'ncns',events:[e],label:'No-call/no-show: immediate termination review'}));
   /* SOP ruling 5 (2026-10-18): short notice per handbook 2A/2U, including the 7 to 9 AM shift rule (writeup-rules.js). */
   uncovered.forEach(e=>{
     const sn=(typeof WriteupRules!=='undefined') ? WriteupRules.shortNotice(e, cfg.notice_hours)
@@ -3206,7 +3206,7 @@ async function noWriteup(cg, triggerIdx){
 function openWriteup(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
   _writeupId=id;
-  document.getElementById('writeup-title').textContent='📝 '+a.level+' — '+a.caregiver;
+  document.getElementById('writeup-title').textContent='📝 '+a.level+': '+a.caregiver;
   document.getElementById('writeup-body').value=a.body;
   const notice=document.getElementById('writeup-notice');
   const acts=document.getElementById('writeup-actions');
@@ -3220,19 +3220,19 @@ function openWriteup(id){
     notice.innerHTML='⏳ Waiting for '+creqEsc(wuWho(a))+' to approve it (they see it under My Work, Approvals). It can\'t be edited or issued until it\'s approved.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'+closeBtn;
   }else if(a.status==='approved'){
-    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'a care coordinator')+'. <b>Copy notice</b> → paste into the AxisCare "Corrective Action Notice" form → send to the caregiver to e-sign in their app. Once signed, click Mark issued — that stamps the proof note on their AxisCare record too. (🖨 Print / Save as PDF if you also want a copy in Viventium.)';
+    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'a care coordinator')+'. <b>Copy notice</b> → paste into the AxisCare "Corrective Action Notice" form → send to the caregiver to e-sign in their app. Once signed, click Mark issued. That stamps the proof note on their AxisCare record too. (🖨 Print / Save as PDF if you also want a copy in Viventium.)';
     acts.innerHTML='<button class="fb" style="background:#0d3a5f" onclick="copyWriteup(this)">📋 Copy notice</button>'
       +'<button class="fb" onclick="printWriteup()">🖨 Print / PDF</button>'
       +'<button class="fb" style="background:#16a34a" onclick="issueWriteup()">✓ Mark issued</button>'+closeBtn;
   }else{
-    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+' — <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
+    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+'. <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print</button>'+closeBtn;
   }
   document.getElementById('writeup-modal').classList.add('open');
 }
 async function sendForApproval(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
-  if(!a){ alert('This write-up could not be found — reload the page, open it again, then resend. (Nothing was lost; your draft is saved.)'); return; }
+  if(!a){ alert('This write-up could not be found. Reload the page, open it again, then resend. (Nothing was lost; your draft is saved.)'); return; }
   a.body=document.getElementById('writeup-body').value;
   a.status='pending_approval'; a.sent_for_approval_at=new Date().toISOString(); a.reject_note='';
   await attPersist('discipline_actions',a);
@@ -3243,7 +3243,7 @@ async function sendForApproval(){
 }
 async function pushAxNote(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
-  const noteText='CORRECTIVE ACTION ISSUED — '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
+  const noteText='CORRECTIVE ACTION ISSUED: '+a.level+' ('+String(a.issued_at||'').slice(0,10)+')\n'
     +'Category: Attendance & Dependability (Handbook 2U/2V)\n'
     +'Reason: '+a.reason+'\n'
     +'Approved by: '+(a.approved_by||'not recorded')+' · Issued by: '+(a.created_by||'staffing')+'\n'
@@ -3268,7 +3268,7 @@ function printWriteup(){
 }
 async function issueWriteup(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
-  if(!a){ alert('This write-up could not be found — reload the page and open it again.'); return; }
+  if(!a){ alert('This write-up could not be found. Reload the page and open it again.'); return; }
   if(a.status!=='approved'){ alert('This needs approval first ('+wuWho(a)+'). Send it for approval from the draft view.'); return; }
   if(!(await ccConfirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.'))) return;
   a.body=document.getElementById('writeup-body').value;
@@ -3283,8 +3283,8 @@ async function issueWriteup(){
   // Proof onto the caregiver's AxisCare record — the paper trail lives where
   // the state and the schedule live.
   const ok=await pushAxNote(a.id);
-  alert(ok?'Issued ✓ — proof note added to '+a.caregiver+'\'s AxisCare record. File the signed original in Viventium.'
-          :'Issued ✓ — but the AxisCare note didn\'t attach ('+(a.ax_note_error||'error')+'). A retry link is on their card; file the signed original in Viventium either way.');
+  alert(ok?'Issued ✓. Proof note added to '+a.caregiver+'\'s AxisCare record. File the signed original in Viventium.'
+          :'Issued ✓, but the AxisCare note didn\'t attach ('+(a.ax_note_error||'error')+'). A retry link is on their card; file the signed original in Viventium either way.');
   renderAttendance();
 }
 async function scanClockins(btn){
@@ -3300,7 +3300,7 @@ async function scanClockins(btn){
     const missing=(d.flagged||[]).filter(f=>f.missing_clock_in);
     box.innerHTML=
       (late.length?late.map(f=>'<div style="background:#fff;border:1px solid var(--border);border-left:4px solid #B45309;border-radius:8px;padding:.5rem .8rem;margin-bottom:.3rem;font-size:.78rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">'
-        +'<b>'+creqEsc(f.caregiver)+'</b> clocked in '+f.minutes_late+' min late — '+f.date+' '+(f.scheduled||'')+' ('+creqEsc(f.client)+')'
+        +'<b>'+creqEsc(f.caregiver)+'</b> clocked in '+f.minutes_late+' min late, '+f.date+' '+(f.scheduled||'')+' ('+creqEsc(f.client)+')'
         +'<button class="fb" style="font-size:.7rem;margin-left:auto" onclick="prefillTardy(\''+creqEsc(f.caregiver).replace(/'/g,"\\'")+'\',\''+f.date+'\',\''+(f.scheduled||'')+'\','+f.minutes_late+')">Log as tardy</button></div>').join('')
         :'<div style="font-size:.78rem;color:#166534">No confirmed late clock-ins found.</div>')
       +(missing.length?'<div style="font-size:.72rem;color:#A89C8B;margin-top:.3rem">'+missing.length+' shifts had no clock-in recorded (likely the EVV gap above, not true no-shows).</div>':'');
@@ -3339,7 +3339,7 @@ function renderReplies(){
   if(!box||!data) return;
   if(cnt) cnt.textContent=data.replies.length?'('+data.replies.length+(data.replies.length>=10?'+':'')+')':'';
   updateCommsBadge();
-  if(!data.replies.length){ box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ Nothing waiting — every reply has been handled.</div>'; return; }
+  if(!data.replies.length){ box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ Nothing waiting. Every reply has been handled.</div>'; return; }
   const loc=data.location_id||'Recp0AhyMh8lrtKJ9kaj';
   const ago=ms=>{ if(!ms) return ''; const m=Math.round((Date.now()-ms)/60000); if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago'; return Math.round(h/24)+'d ago'; };
   box.innerHTML=data.replies.map((x,i)=>
@@ -3349,7 +3349,7 @@ function renderReplies(){
     +'<span style="color:#6E6559;flex:1;min-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">“'+creqEsc(x.preview)+'”</span>'
     +'<span style="color:#A89C8B;font-size:.72rem;white-space:nowrap">'+ago(x.at)+'</span>'
     +'<button onclick="toggleThread('+i+')" style="font-size:.75rem;font-weight:600;color:#92400e;background:#fde68a;border:none;border-radius:6px;padding:.2rem .55rem;cursor:pointer;font-family:inherit">💬 View & reply</button>'
-    +'<button onclick="dismissReply('+i+')" id="done-'+i+'" title="No reply needed — mark it read in GHL and clear it" style="font-size:.75rem;font-weight:600;color:#166534;background:#dcfce7;border:none;border-radius:6px;padding:.2rem .55rem;cursor:pointer;font-family:inherit">✓ Done</button>'
+    +'<button onclick="dismissReply('+i+')" id="done-'+i+'" title="No reply needed. Mark it read in GHL and clear it" style="font-size:.75rem;font-weight:600;color:#166534;background:#dcfce7;border:none;border-radius:6px;padding:.2rem .55rem;cursor:pointer;font-family:inherit">✓ Done</button>'
     +'<a href="https://app.gohighlevel.com/v2/location/'+loc+'/conversations/conversations/'+encodeURIComponent(x.id)+'" target="_blank" rel="noopener" style="font-size:.75rem;font-weight:600;color:#1e40af;white-space:nowrap;text-decoration:none;border:1px solid #93c5fd;border-radius:6px;padding:.15rem .5rem">GHL ↗</a>'
     +'</div>'
     +'<div id="thread-'+i+'" data-conv="'+creqEsc(x.id)+'" data-contact="'+creqEsc(x.contact_id||'')+'" data-name="'+creqEsc(x.name)+'" style="display:none;margin:.5rem 0 .3rem 1rem"></div>'
@@ -3369,7 +3369,7 @@ async function toggleThread(i){
     const fmt=iso=>{try{return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}catch(e){return ''}};
     el.innerHTML=
       '<div style="max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:.35rem;padding:.5rem;background:#fff;border:1px solid #fcd34d;border-radius:8px">'
-      +(data.thread.length>=25?'<div style="align-self:center;font-size:.68rem;color:#A89C8B">Showing the last 25 messages — open GHL for the full history</div>':'')
+      +(data.thread.length>=25?'<div style="align-self:center;font-size:.68rem;color:#A89C8B">Showing the last 25 messages. Open GHL for the full history</div>':'')
       +data.thread.map(m=>
         '<div style="align-self:'+(m.direction==='inbound'?'flex-start':'flex-end')+';max-width:85%;background:'+(m.direction==='inbound'?'#FAF9F6':'#0D365F')+';color:'+(m.direction==='inbound'?'#3A342C':'#fff')+';border-radius:10px;padding:.4rem .65rem;font-size:.8rem;white-space:pre-wrap">'+creqEsc(m.body)
         +'<div style="font-size:.62rem;opacity:.65;margin-top:.15rem">'+fmt(m.at)+'</div></div>').join('')
@@ -3419,7 +3419,7 @@ const MTG_WHO={samantha:'Samantha',care:'the Care Coordinators',staffing:'the St
 function mtgJoinUrl(m){ return 'https://meet.jit.si/'+encodeURIComponent(m.room); }
 async function mtgPersist(m){
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:'meetings', item:m }); if(error) throw error; }
-  catch(e){ alert('Could not save — check your connection and try again.'); throw e; }
+  catch(e){ alert('Could not save. Check your connection and try again.'); throw e; }
 }
 async function requestMeeting(role){
   const topic=document.getElementById('mtg-topic').value.trim();
@@ -3470,14 +3470,14 @@ function renderMeetings(){
     (inc.length?'<div style="font-weight:700;font-size:.85rem;margin:.2rem 0">📥 Meeting requests for you</div>'+inc.map(m=>card(m,
       '<button class="fb" style="font-size:.75rem" onclick="acceptMeeting(\''+m.id+'\')">✓ Accept & set time</button> '
       +'<button style="font-size:.75rem;background:#FAF9F6;border:1px solid var(--border);border-radius:7px;padding:.3rem .7rem;cursor:pointer;font-family:inherit" onclick="declineMeeting(\''+m.id+'\')">Suggest another time</button>')).join(''):'')
-    +(upcoming.length?'<div style="font-weight:700;font-size:.85rem;margin:.8rem 0 .2rem">🎥 Upcoming — join when it\'s time</div>'+upcoming.map(m=>card(m,
+    +(upcoming.length?'<div style="font-weight:700;font-size:.85rem;margin:.8rem 0 .2rem">🎥 Upcoming: join when it\'s time</div>'+upcoming.map(m=>card(m,
       '<a href="'+mtgJoinUrl(m)+'" target="_blank" rel="noopener" style="display:inline-block;background:#16a34a;color:#fff;border-radius:7px;padding:.35rem .9rem;font-size:.78rem;font-weight:700;text-decoration:none">🎥 Join Video</a> '
       +'<button style="font-size:.75rem;background:#FAF9F6;border:1px solid var(--border);border-radius:7px;padding:.3rem .7rem;cursor:pointer;font-family:inherit" onclick="doneMeeting(\''+m.id+'\')">Mark done</button>'
-      +'<div style="font-size:.68rem;color:#A89C8B;margin-top:.3rem">Opens in your browser — allow camera &amp; mic. The 🖥 button inside shares your screen.</div>')).join(''):'')
+      +'<div style="font-size:.68rem;color:#A89C8B;margin-top:.3rem">Opens in your browser. Allow camera &amp; mic. The 🖥 button inside shares your screen.</div>')).join(''):'')
     +(mine.length?'<div style="font-weight:700;font-size:.85rem;margin:.8rem 0 .2rem">⏳ Waiting for an answer</div>'+mine.map(m=>card(m,'<span style="font-size:.72rem;color:#A89C8B">requested '+new Date(m.created_at).toLocaleDateString()+'</span>')).join(''):'')
     +(recent.length?'<div style="font-weight:700;font-size:.85rem;margin:.8rem 0 .2rem;color:#6E6559">Recent</div>'+recent.map(m=>card(m,
-      m.status==='declined'?'<span style="font-size:.75rem;color:#b45309">↩ '+creqEsc(m.declined_reason||'didn\'t work — try another time')+'</span>':'<span style="font-size:.75rem;color:#166534">✓ held</span>')).join(''):'')
-    ||'<div style="color:#A89C8B;font-size:.85rem">No meetings yet — request one above.</div>';
+      m.status==='declined'?'<span style="font-size:.75rem;color:#b45309">↩ '+creqEsc(m.declined_reason||'didn\'t work, try another time')+'</span>':'<span style="font-size:.75rem;color:#166534">✓ held</span>')).join(''):'')
+    ||'<div style="color:#A89C8B;font-size:.85rem">No meetings yet. Request one above.</div>';
   updateCommsBadge();
 }
 function updateCommsBadge(){
@@ -3502,13 +3502,13 @@ async function loadOpenShifts(btn){
     if(data.error){
       OPEN_SHIFTS=null;
       box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">'+creqEsc(String(data.error).includes('403')
-        ?'AxisCare said no (403) — the API token needs "Visits" read permission. In AxisCare, edit the API token and check Visits, then refresh.'
+        ?'AxisCare said no (403). The API token needs "Visits" read permission. In AxisCare, edit the API token and check Visits, then refresh.'
         :'Could not load open shifts: '+data.error)+'</div>';
       updateSchedBadge(); return;
     }
     OPEN_SHIFTS=data.open||[];
     renderOpenShifts();
-  }catch(e){ box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the open-shifts service — check your connection.</div>'; }
+  }catch(e){ box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the open-shifts service. Check your connection.</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 function renderOpenShifts(){
@@ -3516,7 +3516,7 @@ function renderOpenShifts(){
   const cnt=document.getElementById('open-shifts-count');
   if(!OPEN_SHIFTS||!OPEN_SHIFTS.length){
     if(cnt) cnt.textContent='';
-    box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ No open shifts in the next 14 days — everything is covered.</div>';
+    box.innerHTML='<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:.75rem 1rem;font-size:.85rem;color:#166534">✅ No open shifts in the next 14 days. Everything is covered.</div>';
     updateSchedBadge(); return;
   }
   if(cnt) cnt.textContent='('+OPEN_SHIFTS.length+')';
@@ -3549,16 +3549,16 @@ function renderDnrLog(){
   box.innerHTML=DNRLOG.slice().sort((a,b)=>String(b.logged_at).localeCompare(String(a.logged_at))).map(e=>
     '<div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;font-size:.85rem">'
     +'<b>'+creqEsc(e.caregiver||'(caregiver)')+'</b> must not return to <b>'+creqEsc(e.client||'(client)')+'</b>'
-    +(e.reason?' — '+creqEsc(e.reason):'')
-    +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">requested by '+creqEsc(e.requested_by||'—')
-    +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+creqEsc(e.logged_by||'—')
+    +(e.reason?': '+creqEsc(e.reason):'')
+    +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">requested by '+creqEsc(e.requested_by||'Not set')
+    +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+creqEsc(e.logged_by||'Not set')
     +(e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="dnrMarkAxis(\''+e.id+'\');return false;">mark exclusion entered in AxisCare</a>')
     +'</div></div>').join('');
 }
 async function dnrMarkAxis(id){
   const e=DNRLOG.find(x=>x.id===id); if(!e) return;
   e.axiscare_entered=true;
-  try{ await sb.rpc('upsert_app_data_item',{ target_key:'dnr_log', item:e }); }catch(err){ alert('Could not save — try again.'); e.axiscare_entered=false; }
+  try{ await sb.rpc('upsert_app_data_item',{ target_key:'dnr_log', item:e }); }catch(err){ alert('Could not save. Try again.'); e.axiscare_entered=false; }
   renderDnrLog();
 }
 
@@ -3602,7 +3602,7 @@ async function loadCheckinPairs(btn){
     CI_PAIRS=data.pairs||[];
     renderCheckinPairs(); updateCheckinsBadge();
     if(activeTab==='home') renderStaffHome();
-  }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the visits service — check your connection.</div>'; }
+  }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not reach the visits service. Check your connection.</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 function renderCheckinPairs(){
@@ -3615,14 +3615,14 @@ function renderCheckinPairs(){
   const RATE={love:'⭐',good:'👍',concern:'🚩'};
   box.innerHTML=rows.map(({p,i})=>{
     const border=i.due==='concern'?'#DC2626':i.due==='first'?(i.newPair?'#DC2626':'#B45309'):i.due==='fit'?'#B45309':'#16a34a';
-    const tag=i.due==='concern'?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🚩 concerns on '+fmt(String(i.last.at).slice(0,10))+' — check it got fixed</span>'
-      :i.due==='first'&&i.newPair?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🆕 first shift scheduled '+fmt(p.first_date)+' — call them</span>'
+    const tag=i.due==='concern'?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🚩 concerns on '+fmt(String(i.last.at).slice(0,10))+', check it got fixed</span>'
+      :i.due==='first'&&i.newPair?'<span style="font-size:.7rem;font-weight:800;color:#DC2626">🆕 first shift scheduled '+fmt(p.first_date)+', call them</span>'
       :i.due==='first'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">first check-in still to do</span>'
-      :i.due==='fit'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">good-fit follow-up — first call was '+fmt(String(i.last.at).slice(0,10))+'</span>'
-      :i.count>=2?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ good fit confirmed — no more calls needed</span>'
+      :i.due==='fit'?'<span style="font-size:.7rem;font-weight:700;color:#B45309">good-fit follow-up, first call was '+fmt(String(i.last.at).slice(0,10))+'</span>'
+      :i.count>=2?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ good fit confirmed, no more calls needed</span>'
       :i.last&&i.last.skip?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ known good match</span>'
       :i.last?'<span style="font-size:.7rem;font-weight:700;color:#166534">✓ checked in '+fmt(String(i.last.at).slice(0,10))+' '+(RATE[i.last.rating]||'')+'</span>':'';
-    const skip=i.due==='first'?'<a href="#" style="font-size:.68rem;color:#A89C8B" onclick="ciSkip('+creqAttr(p.client)+','+creqAttr(p.caregiver)+');return false;" title="No call needed — logs it as an established match">known good match ✓</a>':'';
+    const skip=i.due==='first'?'<a href="#" style="font-size:.68rem;color:#A89C8B" onclick="ciSkip('+creqAttr(p.client)+','+creqAttr(p.caregiver)+');return false;" title="No call needed. Logs it as an established match">known good match ✓</a>':'';
     return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+border+';border-radius:10px;padding:.55rem 1rem;margin-bottom:.4rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap">'
       +'<div style="flex:1;min-width:220px"><b style="font-size:.85rem">'+creqEsc(p.client)+'</b> <span style="color:#A89C8B">×</span> <b style="font-size:.85rem">'+creqEsc(p.caregiver)+'</b>'
       +'<div style="font-size:.7rem;color:var(--gray)">'+p.visits+' shift'+(p.visits===1?'':'s')+' · '+p.hours+' hrs · last '+fmt(p.last_date)+'</div></div>'
@@ -3644,8 +3644,8 @@ async function saveCheckin(){
   const rating=val('ci-rating'), notes=val('ci-notes'), coaching=val('ci-coaching');
   const fav=document.getElementById('ci-fav').checked, excl=document.getElementById('ci-excl').checked;
   if(!client||!caregiver){ alert('Client and caregiver names are both needed.'); return; }
-  if(!rating){ alert('Pick how it\'s going — ⭐ 👍 or 🚩.'); return; }
-  if(excl&&!notes){ alert('For a do-not-return, write what the client said in "What they said" — it goes on the permanent log.'); return; }
+  if(!rating){ alert('Pick how it\'s going: ⭐ 👍 or 🚩.'); return; }
+  if(excl&&!notes){ alert('For a do-not-return, write what the client said in "What they said". It goes on the permanent log.'); return; }
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const who=by.split('@')[0]||'staffing';
   const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:spoke, rating, notes, coaching,
@@ -3653,14 +3653,14 @@ async function saveCheckin(){
     fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
   CHECKINS.push(e);
   try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }
-  catch(err){ alert('Could not save — check your connection and try again.'); CHECKINS.pop(); return; }
+  catch(err){ alert('Could not save. Check your connection and try again.'); CHECKINS.pop(); return; }
   if(excl){
     const entry={ id:'dnr'+Date.now(), client, caregiver, reason:notes,
       requested_by:(spoke||client)+' (check-in call)', requested_at:e.at, logged_at:e.at, logged_by:who, axiscare_entered:false, task_id:e.id };
     DNRLOG.push(entry);
     try{ await sb.rpc('upsert_app_data_item',{ target_key:'dnr_log', item:entry }); }catch(err){ DNRLOG.pop(); }
     try{ renderDnrLog(); }catch(err){}
-    alert('Added to the permanent Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open '+client+' → Caregiver Exclusions → add '+caregiver+' — that\'s what physically blocks the schedule from pairing them.');
+    alert('Added to the permanent Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open '+client+' → Caregiver Exclusions → add '+caregiver+'. That\'s what physically blocks the schedule from pairing them.');
   }
   if(fav){
     alert('⭐ Nice find. Make it stick in AxisCare: open '+client+'\'s profile and mark '+caregiver+' as a preferred caregiver so scheduling pairs them first. Then click "mark done" on the entry below.');
@@ -3671,28 +3671,28 @@ async function saveCheckin(){
 }
 function renderCheckins(){
   const box=document.getElementById('ci-history'); if(!box) return;
-  if(!(CHECKINS||[]).length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No check-ins logged yet — the first one appears here.</div>'; return; }
+  if(!(CHECKINS||[]).length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No check-ins logged yet. The first one appears here.</div>'; return; }
   const RATE={love:['⭐','#16a34a','They love them'],good:['👍','#2F6FB0','Going fine'],concern:['🚩','#DC2626','Some concerns']};
   box.innerHTML=CHECKINS.slice().sort((a,b)=>String(b.at).localeCompare(String(a.at))).slice(0,40).map(e=>{
     const rm=RATE[e.rating]||RATE.good;
     let extra='';
     if(e.coaching){
-      extra+='<div style="font-size:.78rem;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:.35rem .6rem;margin-top:.35rem">💬 Pass along: “'+creqEsc(e.coaching)+'” — '
+      extra+='<div style="font-size:.78rem;background:#F0F9FF;border:1px solid #BAE6FD;border-radius:6px;padding:.35rem .6rem;margin-top:.35rem">💬 Pass along: “'+creqEsc(e.coaching)+'”. '
         +(e.coach_ax_noted?'✅ on the caregiver\'s AxisCare record'
           :'<a href="#" onclick="ciPushCoach(\''+e.id+'\');return false;">put it on the caregiver\'s AxisCare record</a>'
            +(e.coach_ax_error?' <span style="color:#b91c1c">(last try failed: '+creqEsc(e.coach_ax_error)+')</span>':''))
         +'</div>';
     }
     if(e.want_favorite){
-      extra+='<div style="font-size:.78rem;margin-top:.35rem">⭐ Favorite — '
+      extra+='<div style="font-size:.78rem;margin-top:.35rem">⭐ Favorite: '
         +(e.fav_ax_done?'✅ marked preferred in AxisCare':'⚠ <a href="#" onclick="ciMarkFav(\''+e.id+'\');return false;">mark done once set as preferred caregiver in AxisCare</a>')+'</div>';
     }
     if(e.want_exclusion) extra+='<div style="font-size:.78rem;margin-top:.35rem;color:#b91c1c">🚫 On the Do-Not-Return log</div>';
     return '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+rm[1]+';border-radius:10px;padding:.65rem 1rem;margin-bottom:.45rem;font-size:.85rem">'
       +'<b>'+creqEsc(e.client)+'</b> <span style="color:#A89C8B">×</span> <b>'+creqEsc(e.caregiver)+'</b>'
-      +' — '+rm[0]+' '+rm[2]
+      +': '+rm[0]+' '+rm[2]
       +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">'+new Date(e.at).toLocaleDateString('en-US',{month:'short',day:'numeric'})
-      +(e.skip?' · marked established — no call needed':(e.spoke_with?' · spoke with '+creqEsc(e.spoke_with):''))+' · by '+creqEsc(e.by||'')+'</div>'
+      +(e.skip?' · marked established, no call needed':(e.spoke_with?' · spoke with '+creqEsc(e.spoke_with):''))+' · by '+creqEsc(e.by||'')+'</div>'
       +(e.notes?'<div style="font-size:.8rem;color:#3A342C;margin-top:.3rem">“'+creqEsc(e.notes)+'”</div>':'')
       +extra+'</div>';
   }).join('');
@@ -3700,33 +3700,33 @@ function renderCheckins(){
 async function ciMarkFav(id){
   const e=(CHECKINS||[]).find(x=>x.id===id); if(!e) return;
   e.fav_ax_done=true;
-  try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }catch(err){ alert('Could not save — try again.'); e.fav_ax_done=false; }
+  try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }catch(err){ alert('Could not save. Try again.'); e.fav_ax_done=false; }
   renderCheckins();
 }
 async function ciPushCoach(id){
   const e=(CHECKINS||[]).find(x=>x.id===id); if(!e) return;
-  const noteText='CLIENT PREFERENCE — from a check-in call ('+String(e.at).slice(0,10)+')\n'
+  const noteText='CLIENT PREFERENCE from a check-in call ('+String(e.at).slice(0,10)+')\n'
     +'Client: '+e.client+(e.spoke_with?' (spoke with '+e.spoke_with+')':'')+'\n'
     +'“'+e.coaching+'”\n'
-    +'Passed along as friendly coaching so the match stays strong. — '+(e.by||'staffing');
+    +'Passed along as friendly coaching so the match stays strong. From '+(e.by||'staffing');
   const d=await axCaregiverNote(e.caregiver, noteText, e.coach_ax_caregiver_id);
   if(d.outcome==='cancelled') return;
   if(d.outcome==='sent'){ e.coach_ax_noted=true; e.coach_ax_error=''; e.coach_ax_caregiver_id=d.picked.id; }
   else { e.coach_ax_noted=false; e.coach_ax_error=String(d.detail||d.error||'failed'); }
   try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }catch(err){}
   renderCheckins();
-  if(e.coach_ax_noted) alert('✅ Noted on '+d.picked.name+'\'s AxisCare record (#'+d.picked.id+').\n\nRemember to also tell them directly — a quick friendly text or call lands better than a note they might not see.');
+  if(e.coach_ax_noted) alert('✅ Noted on '+d.picked.name+'\'s AxisCare record (#'+d.picked.id+').\n\nRemember to also tell them directly. A quick friendly text or call lands better than a note they might not see.');
   else alert('Could not attach the AxisCare note: '+e.coach_ax_error);
 }
 async function ciSkip(client,caregiver){
   if(!(await ccConfirm('Mark '+client+' × '+caregiver+' as an established match that\'s already known to be good?\n\nNo call needed. It logs a ✓ and this pair won\'t come up for calls again.'))) return;
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const e={ id:'ci'+Date.now()+Math.random().toString(36).slice(2,6), client, caregiver, spoke_with:'', rating:'good',
-    notes:'Marked as an established match — no call needed.', coaching:'', want_favorite:false, want_exclusion:false,
+    notes:'Marked as an established match, no call needed.', coaching:'', want_favorite:false, want_exclusion:false,
     at:new Date().toISOString(), by:by.split('@')[0]||'staffing', skip:true, fav_ax_done:false, coach_ax_noted:false, coach_ax_error:'' };
   CHECKINS.push(e);
   try{ await sb.rpc('upsert_app_data_item',{ target_key:'client_checkins', item:e }); }
-  catch(err){ alert('Could not save — try again.'); CHECKINS.pop(); return; }
+  catch(err){ alert('Could not save. Try again.'); CHECKINS.pop(); return; }
   renderCheckins(); renderCheckinPairs(); updateCheckinsBadge();
 }
 function updateCheckinsBadge(){
@@ -3744,7 +3744,7 @@ async function creqPersist(item){
   try{
     const { error } = await sb.rpc('upsert_app_data_item', { target_key:'staffing_tasks', item });
     if(error) throw error;
-  }catch(e){ alert('Could not save — check your connection and try again.'); throw e; }
+  }catch(e){ alert('Could not save. Check your connection and try again.'); throw e; }
 }
 function updateCoordreqBadge(){
   const b=document.getElementById('coordreqBadge'); if(!b) return;
@@ -3758,7 +3758,7 @@ function renderCoordReqs(){
   const urgRank=u=>u==='Today'?0:u==='This week'?1:2;
   const open=inbox.filter(t=>t.status==='open').sort((a,b)=>urgRank(a.urgency)-urgRank(b.urgency)||String(a.created_at).localeCompare(String(b.created_at)));
   const recentDone=inbox.filter(t=>t.status==='done').sort((a,b)=>String(b.done_at).localeCompare(String(a.done_at))).slice(0,10);
-  const KIND_META={ dnr:['🚫','#DC2626','Do not send back'], hours:['➕','#B45309','Add / change hours'], coverage:['🕐','#DC2626','Coverage gap'], schedule:['📅','#2F6FB0','Schedule change'], attendance:['⏰','#B45309','Attendance issue — log it on the ⏰ Attendance tab'], todo:['☑️','#DC2626',''], update:['ℹ️','#2F6FB0',''] };
+  const KIND_META={ dnr:['🚫','#DC2626','Do not send back'], hours:['➕','#B45309','Add / change hours'], coverage:['🕐','#DC2626','Coverage gap'], schedule:['📅','#2F6FB0','Schedule change'], attendance:['⏰','#B45309','Attendance issue: log it on the ⏰ Attendance tab'], todo:['☑️','#DC2626',''], update:['ℹ️','#2F6FB0',''] };
   const row=(t,mine)=>{
     const urgColor=t.urgency==='Today'?'#DC2626':t.urgency==='This week'?'#B45309':'#6E6559';
     const km=KIND_META[t.kind]||KIND_META.update;
@@ -3767,8 +3767,8 @@ function renderCoordReqs(){
       +'<span style="font-size:1.05rem">'+(t.status==='done'?'✅':km[0])+'</span>'
       +'<div style="flex:1;min-width:200px">'
       +(km[2]?'<span style="font-size:.68rem;font-weight:800;letter-spacing:.03em;color:'+km[1]+';text-transform:uppercase">'+km[2]+'</span><br>':'')
-      +(t.about?'<b>'+creqEsc(t.about)+'</b>'+(t.caregiver?' / caregiver: <b>'+creqEsc(t.caregiver)+'</b>':'')+' — ':'')+creqEsc(t.message)
-      +(t.kind==='hours'&&t.status!=='done'?'<div style="font-size:.72rem;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:.3rem .55rem;margin-top:.3rem;color:#92400E">💡 Medicaid client? Check authorized units before promising the hours — if this exceeds the authorization, send it back to the evening coordinator to request a DSDS reassessment.</div>':'')
+      +(t.about?'<b>'+creqEsc(t.about)+'</b>'+(t.caregiver?' / caregiver: <b>'+creqEsc(t.caregiver)+'</b>':'')+': ':'')+creqEsc(t.message)
+      +(t.kind==='hours'&&t.status!=='done'?'<div style="font-size:.72rem;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:.3rem .55rem;margin-top:.3rem;color:#92400E">💡 Medicaid client? Check authorized units before promising the hours. If this exceeds the authorization, send it back to the evening coordinator to request a DSDS reassessment.</div>':'')
       +'<div style="font-size:.75rem;color:#6E6559;margin-top:.25rem">'
       +(mine?(t.direction==='to_owners'?'to the Owners':'to the care coordinators'):'from '+creqEsc(t.from_name||'a care coordinator'))
       +' · '+new Date(t.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
@@ -3799,13 +3799,13 @@ async function creqDone(id, withReply){
   // Do-not-return requests go on the permanent log the moment they're done.
   if(t.kind==='dnr'){
     const caregiver=t.caregiver||(await ccPrompt('Which caregiver must not return? (goes on the permanent log)',''))||'';
-    if(!caregiver.trim()){ alert('The Do-Not-Return log needs the caregiver\'s name — nothing was marked done.'); return; }
+    if(!caregiver.trim()){ alert('The Do-Not-Return log needs the caregiver\'s name. Nothing was marked done.'); return; }
     const entry={ id:'dnr'+Date.now(), client:t.about||'', caregiver:caregiver.trim(), reason:t.message||'',
       requested_by:t.from_name||'', requested_at:t.created_at, logged_at:new Date().toISOString(), logged_by:who, axiscare_entered:false, task_id:t.id };
     DNRLOG.push(entry);
-    try{ await sb.rpc('upsert_app_data_item',{ target_key:'dnr_log', item:entry }); }catch(e){ alert('Could not save the log entry — try again.'); DNRLOG.pop(); return; }
+    try{ await sb.rpc('upsert_app_data_item',{ target_key:'dnr_log', item:entry }); }catch(e){ alert('Could not save the log entry. Try again.'); DNRLOG.pop(); return; }
     renderDnrLog();
-    alert('Added to the Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open the client → Caregiver Exclusions → add '+caregiver.trim()+' — that\'s what physically blocks the schedule from pairing them.');
+    alert('Added to the Do-Not-Return log ✓\n\nNow enter it in AxisCare too: open the client → Caregiver Exclusions → add '+caregiver.trim()+'. That\'s what physically blocks the schedule from pairing them.');
   }
   t.status='done'; t.done_at=new Date().toISOString(); t.done_by=who; if(reply.trim()) t.reply=reply.trim();
   await creqPersist(t);
@@ -3817,14 +3817,14 @@ function renderSendMsg(){
     .sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at))).slice(0,50);
   box.innerHTML = sent.length ? sent.map(x=>
     '<div style="background:#fff;border:1px solid var(--border);border-left:4px solid '+(x.status==='done'?'#16a34a':'#2F6FB0')+';border-radius:10px;padding:.7rem 1rem;font-size:.92rem">'
-    +'<div>'+(x.about?'<b>'+creqEsc(x.about)+'</b> — ':'')+creqEsc(x.message||'')+'</div>'
+    +'<div>'+(x.about?'<b>'+creqEsc(x.about)+'</b>: ':'')+creqEsc(x.message||'')+'</div>'
     +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">'
     +(x.direction==='to_owners'?'to the Owners':'to the care coordinators')
     +' · '+new Date(x.created_at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})
     +' · '+creqEsc(x.urgency||'')
     +(x.status==='done'?' · ✅ done by '+creqEsc(x.done_by||'')+(x.reply?' · 💬 “'+creqEsc(x.reply)+'”':''):' · ⏳ open')
     +'</div></div>').join('')
-    : '<div style="color:#A89C8B;font-size:.85rem">Nothing sent yet — the first message you send appears here, permanently.</div>';
+    : '<div style="color:#A89C8B;font-size:.85rem">Nothing sent yet. The first message you send appears here, permanently.</div>';
 }
 async function sendCoordReq(){
   const message=document.getElementById('creq-message').value.trim();
@@ -3845,14 +3845,14 @@ async function sendCoordReq(){
 async function uploadEod(input){
   const file = input.files && input.files[0]; input.value='';
   if(!file) return;
-  if(file.size > 25*1024*1024){ alert('That file is over 25 MB — please shrink it.'); return; }
+  if(file.size > 25*1024*1024){ alert('That file is over 25 MB. Please shrink it.'); return; }
   const day = document.getElementById('eod-date').value || new Date().toISOString().slice(0,10);
   const note = document.getElementById('eod-note').value.trim();
   const st = document.getElementById('eod-status');
   st.textContent = 'Uploading…';
   const path = 'eod/'+day+'-'+Date.now()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
   const { error } = await sb.storage.from('lead-docs').upload(path, file);
-  if(error){ st.textContent=''; alert('Upload failed: '+error.message+(String(error.message).match(/bucket/i)?' — the lead-docs storage SQL may not be run yet (ask Claude/Samantha).':'')); return; }
+  if(error){ st.textContent=''; alert('Upload failed: '+error.message+(String(error.message).match(/bucket/i)?'. The lead-docs storage SQL may not be run yet (ask Claude/Samantha).':'')); return; }
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   eodReports.unshift({ id: Date.now(), report_date: day, role: (document.getElementById('eod-role')||{}).value||'', name: file.name, path, size: file.size, note, by, at: new Date().toISOString() });
   await syncToSupabase('eod_reports', eodReports);
@@ -3870,7 +3870,7 @@ function renderEod(){
   const el = document.getElementById('eod-list');
   const dt = document.getElementById('eod-date');
   if(dt && !dt.value) dt.value = new Date().toISOString().slice(0,10);
-  if(!eodReports.length){ el.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No reports uploaded yet — the first one lands here. Reports are permanent: they can\'t be deleted, so the record stays audit-clean.</div>'; return; }
+  if(!eodReports.length){ el.innerHTML='<div style="color:#A89C8B;font-size:.85rem">No reports uploaded yet. The first one lands here. Reports are permanent: they can\'t be deleted, so the record stays audit-clean.</div>'; return; }
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const sorted=[...eodReports].sort((a,b)=> (b.report_date||'').localeCompare(a.report_date||'') || (b.at||'').localeCompare(a.at||''));
   const byMonth={};
@@ -4216,7 +4216,7 @@ async function syncToSupabase(key, data){
     // local arrays, and an unauthenticated write here can overwrite real data
     // in Supabase (this happened — see clearSeedPeople).
     const { data:{ session } } = await sb.auth.getSession();
-    if(!session){ console.warn('Skipped Supabase sync for', key, '— not signed in'); return false; }
+    if(!session){ console.warn('Skipped Supabase sync for', key, '(not signed in)'); return false; }
     if(WHOLE_KEYS.includes(key)) return await wholeSave(key, data);
     /* safe saves step 2: no other record is ever saved whole from this page (none is today; this keeps it that way) */
     console.error('BLOCKED whole save of', key, '- not a record this page saves whole');
@@ -4378,7 +4378,7 @@ async function syncFromTrainingHub(btn){
   try{
     const r=await fetch(TRAINING_HUB_API,{method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},body:'{}'});
     const data=await r.json();
-    if(!Array.isArray(data)) throw new Error((data&&data.error)?data.error:'unexpected response — is the read key correct?');
+    if(!Array.isArray(data)) throw new Error((data&&data.error)?data.error:'unexpected response. Is the read key correct?');
     const norm=s=>(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,'');
     const byId={}, byName={}, dupes={};
     data.forEach(h=>{
@@ -4391,7 +4391,7 @@ async function syncFromTrainingHub(btn){
     caregivers.forEach(c=>{
       const nkey=norm((c.first||'')+(c.last||''));
       const h=(c.axiscare_id&&byId[String(c.axiscare_id)])||(!dupes[nkey]&&byName[nkey])||null;
-      if(!h){ unmatched.push(((c.first||'')+' '+(c.last||'')).trim()+(dupes[nkey]?' (duplicate name — match by hand once, then IDs take over)':'')); return; }
+      if(!h){ unmatched.push(((c.first||'')+' '+(c.last||'')).trim()+(dupes[nkey]?' (duplicate name: match by hand once, then IDs take over)':'')); return; }
       matched++;
       let ch=false;
       if(h.axiscare_id&&c.axiscare_id!==h.axiscare_id){ c.axiscare_id=h.axiscare_id; ch=true; }
@@ -4508,7 +4508,7 @@ function renderOBStats(){
 
   <!-- Active pipeline -->
   <div style="background:var(--white);border-radius:10px;box-shadow:0 2px 8px rgba(14,56,96,.07);margin-bottom:1.25rem;overflow:hidden">
-    <div style="padding:.8rem 1rem;background:var(--navy);color:#fff;font-size:.82rem;font-weight:700">⏳ Active Pipeline — sorted by longest waiting (${active.length})</div>
+    <div style="padding:.8rem 1rem;background:var(--navy);color:#fff;font-size:.82rem;font-weight:700">⏳ Active Pipeline, sorted by longest waiting (${active.length})</div>
     ${active.length===0?'<div style="padding:1rem;font-size:.82rem;color:var(--gray)">No active candidates.</div>':''}
     ${active.length?`<table style="width:100%;border-collapse:collapse;font-size:.8rem">
       <thead><tr style="background:var(--bg)">
@@ -4546,7 +4546,7 @@ function renderOBStats(){
   <!-- Resolved history -->
   <div style="background:var(--white);border-radius:10px;box-shadow:0 2px 8px rgba(14,56,96,.07);overflow:hidden">
     <div style="padding:.8rem 1rem;background:var(--teal);color:#fff;font-size:.82rem;font-weight:700">✅ Resolved History (${resolved.length})</div>
-    ${resolved.length===0?'<div style="padding:1rem;font-size:.82rem;color:var(--gray)">No resolved candidates yet — data will populate as candidates are cleared.</div>':''}
+    ${resolved.length===0?'<div style="padding:1rem;font-size:.82rem;color:var(--gray)">No resolved candidates yet. Data will populate as candidates are cleared.</div>':''}
     ${resolved.length?`<table style="width:100%;border-collapse:collapse;font-size:.8rem">
       <thead><tr style="background:var(--bg)">
         <th style="padding:.5rem .75rem;text-align:left;font-weight:600;color:var(--navy)">Candidate</th>
@@ -5138,7 +5138,7 @@ async function bgrSaveAttempt(btn){
   try{ ok = await logRefAttempt(reqId, _bgrAttMethod, note); }catch(e){ ok = false; }
   if(btn){ btn.disabled=false; btn.textContent='Save attempt'; }
   if(ok){ bgrCloseAttemptModal(); try{ renderReferenceActivity(); }catch(e){} try{ renderPeopleChecks(); }catch(e){} }
-  else { alert('Could not save the attempt. Nothing was recorded — please try again.'); }
+  else { alert('Could not save the attempt. Nothing was recorded. Please try again.'); }
 }
 
 /* ── Sync reference answers (explicit, gated action) ─────────────────────────
@@ -6089,7 +6089,7 @@ function bgrEnsureCheckModal(){
     +   '<div style="font-size:.72rem;color:#A89C8B;margin-bottom:.5rem">Records the result on the candidate. Reaching all-clear can move them to Ready and sync to AxisCare.</div>'
     +   '<div style="'+lbl+'">Result</div><select id="bgrCheckResult" style="'+inp+'"></select>'
     +   '<div style="'+lbl+'">Date</div><input id="bgrCheckDate" type="date" style="'+inp+'">'
-    +   '<div style="'+lbl+'">Proof document <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#A89C8B">(PDF or photo — saved privately for audit)</span></div>'
+    +   '<div style="'+lbl+'">Proof document <span style="font-weight:400;text-transform:none;letter-spacing:0;color:#A89C8B">(PDF or photo, saved privately for audit)</span></div>'
     +   '<input id="bgrCheckFile" type="file" accept=".pdf,image/*" style="'+inp+';padding:.4rem">'
     +   '<div id="bgrCheckCurrent" style="font-size:.74rem;color:#6E6559;margin:.35rem 0 0"></div>'
     +   '<div style="'+lbl+'">…or paste a link instead</div><input id="bgrCheckProof" type="url" placeholder="https://…" style="'+inp+'">'
@@ -6108,7 +6108,7 @@ function bgrRecordCheck(candId, which){
   const meta = BGR_CHECKS.find(x => x.k === which); if(!meta) return;
   bgrEnsureCheckModal();
   _bgrCheckCand = candId; _bgrCheckWhich = which;
-  document.getElementById('bgrCheckTitle').textContent = 'Record ' + meta.label + ' — ' + (c.first + ' ' + c.last).trim();
+  document.getElementById('bgrCheckTitle').textContent = 'Record ' + meta.label + ': ' + (c.first + ' ' + c.last).trim();
   const cur = c[which] || meta.opts[0];
   document.getElementById('bgrCheckResult').innerHTML = meta.opts.map(o => '<option value="'+bgrEsc(o)+'"'+(o===cur?' selected':'')+'>'+bgrEsc(o)+'</option>').join('');
   document.getElementById('bgrCheckDate').value = c[which+'_date'] || new Date().toISOString().slice(0,10);
@@ -6116,7 +6116,7 @@ function bgrRecordCheck(candId, which){
   const url = document.getElementById('bgrCheckProof'); if(url) url.value = '';
   const curDoc = c[which+'_proof'];
   document.getElementById('bgrCheckCurrent').innerHTML = curDoc
-    ? 'On file: <a class="proof-link" style="cursor:pointer;color:var(--teal)" onclick="bgrViewProof(\''+bgrEsc(curDoc).replace(/\x27/g,'')+'\')">📄 View document</a> — upload a new one to replace it.'
+    ? 'On file: <a class="proof-link" style="cursor:pointer;color:var(--teal)" onclick="bgrViewProof(\''+bgrEsc(curDoc).replace(/\x27/g,'')+'\')">📄 View document</a>. Upload a new one to replace it.'
     : '<span style="color:#A89C8B">No document on file yet.</span>';
   /* GoHighLevel's copy, shown only (2026-10-04): recording the check stays a person's choice */
   const ghlDocs = (typeof PHD !== 'undefined' && PHD.rows) ? phdFor('candidate', candId).filter(d => d.check_key === which) : [];
@@ -6142,14 +6142,14 @@ async function bgrSaveCheck(btn){
   if(finished && !file && !urlVal && !cur[which+'_proof']){ alert('A result needs its evidence: upload the result document or paste a link to it. Nothing was saved.'); return; }
   if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Saving…'; }
   if(file){
-    if(file.size > 20*1024*1024){ alert('That file is over 20 MB — please shrink it first.'); restore(); return; }
+    if(file.size > 20*1024*1024){ alert('That file is over 20 MB. Please shrink it first.'); restore(); return; }
     const safe = String(file.name).replace(/[^a-zA-Z0-9._-]/g,'_');
     const path = 'bgcheck/' + candId + '/' + which + '-' + Date.now() + '-' + safe;
     try{
       const { error } = await sb.storage.from('lead-docs').upload(path, file);
       if(error){ alert('Upload failed: ' + error.message); restore(); return; }
       changes[which+'_proof'] = path;
-    }catch(e){ alert('Upload failed. Nothing was saved — please try again.'); restore(); return; }
+    }catch(e){ alert('Upload failed. Nothing was saved. Please try again.'); restore(); return; }
   } else if(urlVal){
     changes[which+'_proof'] = urlVal;
   }
@@ -6425,7 +6425,7 @@ function renderPreHireAudit(){
 function bgrPrintAudit(){
   const w = window.open('', '_blank'); if(!w){ alert('Please allow pop-ups to print the binder.'); return; }
   const when = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  w.document.write('<html><head><title>Pre-Hire Background Checks — Caring Companions</title>'
+  w.document.write('<html><head><title>Pre-Hire Background Checks · Caring Companions</title>'
     + '<style>body{font-family:system-ui,Arial,sans-serif;color:#1a1a1a;padding:24px}h1{color:#0D365F;font-size:18px;margin:0 0 2px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}</style>'
     + '</head><body><h1>Pre-Hire Background Checks</h1><div style="color:#666;font-size:12px;margin-bottom:12px">Caring Companions &middot; generated '+when+'</div>'
     + bgrAuditHTML(true)
@@ -7126,7 +7126,7 @@ function renderTR(){
     const proofLine='';
     // Annual cell
     let annBadge,annLabel;
-    if(ts.isFirstYear){ annBadge='b-blue'; annLabel='Exempt — Year 1'; }
+    if(ts.isFirstYear){ annBadge='b-blue'; annLabel='Exempt: Year 1'; }
     else if(ts.annualStatus==='Overdue'){ annBadge='b-red'; annLabel='Overdue'; }
     else if(ts.annualStatus==='Due Soon'){ annBadge='b-amber'; annLabel='Due Soon'; }
     else if(ts.annualStatus==='Current'){ annBadge='b-green'; annLabel='Current'; }
@@ -7254,7 +7254,7 @@ function renderAlerts(){
   // Background & References
   const readyCount = candidates.filter(c=>obDeriveStatus(c)==='Ready for Orientation'&&!c.invite_sent).length;
   const reviewCount = candidates.filter(c=>obDeriveStatus(c)==='Needs Review').length;
-  if(readyCount) alerts.push({color:'#22C55E', text:`${readyCount} candidate${readyCount>1?'s':''} ready for orientation — invite pending`, tab:'onboarding'});
+  if(readyCount) alerts.push({color:'#22C55E', text:`${readyCount} candidate${readyCount>1?'s':''} ready for orientation, invite pending`, tab:'onboarding'});
   if(reviewCount) alerts.push({color:'#EF4444', text:`${reviewCount} candidate${reviewCount>1?'s':''} need review`, tab:'onboarding'});
 
   // Training alerts moved into the Overview's "Blocked from first client
@@ -7274,7 +7274,7 @@ function renderAlerts(){
   const now=new Date(); now.setHours(0,0,0,0);
   const upcomingSess = orientSessions.filter(s=>new Date(s.date+'T00:00:00')>=now);
   const totalOpen = upcomingSess.reduce((a,s)=>a+Math.max(0,parseInt(s.capacity)-(s.bookings||[]).length),0);
-  if(upcomingSess.length && totalOpen>0) alerts.push({color:'#54BDB8', text:`${upcomingSess.length} orientation session${upcomingSess.length>1?'s':''} scheduled — ${totalOpen} spot${totalOpen>1?'s':''} available`, tab:'orientations'});
+  if(upcomingSess.length && totalOpen>0) alerts.push({color:'#54BDB8', text:`${upcomingSess.length} orientation session${upcomingSess.length>1?'s':''} scheduled, ${totalOpen} spot${totalOpen>1?'s':''} available`, tab:'orientations'});
 
   const strip = document.getElementById('alert-strip');
   if(!strip) return;
@@ -7450,7 +7450,7 @@ function openInviteModal(id){
   invitingId=id;
   const c=candidates.find(x=>x.id===id);
   document.getElementById('inv-name').textContent=`${c.first} ${c.last}`;
-  document.getElementById('inv-phone').textContent=c.phone?fmtPhone(c.phone):'⚠ No phone — add in Edit';
+  document.getElementById('inv-phone').textContent=c.phone?fmtPhone(c.phone):'⚠ No phone. Add in Edit';
 
   // Show available sessions
   const now=new Date(); now.setHours(0,0,0,0);
@@ -7777,7 +7777,7 @@ function updateMrefPreview(){
 function openManualRef(candidateId, slot){
   _mrefCandId=candidateId; _mrefSlot=slot;
   const c=candidates.find(x=>x.id===candidateId);
-  document.getElementById('mref-title').textContent=`Record Reference ${slot} — ${c.first} ${c.last}`;
+  document.getElementById('mref-title').textContent=`Record Reference ${slot}: ${c.first} ${c.last}`;
   document.getElementById('mref-sub').textContent=`Completing this form on behalf of the reference (phone/in-person). Will be saved as staff-completed.`;
   const existing=c[`r${slot}_manual`]||{};
   const g=k=>document.getElementById(k);
@@ -8151,7 +8151,7 @@ function updateOrientGenPreview(){
   const weeksEl = document.getElementById('orient-gen-weeks');
   const weeks   = weeksEl ? parseInt(weeksEl.value) : 8;
   const enabled = DAYS.filter(d => { const cb=document.getElementById('odt-'+d); return cb && cb.checked; });
-  if(!enabled.length){ el.textContent='No days selected — enable at least one day above.'; return; }
+  if(!enabled.length){ el.textContent='No days selected. Enable at least one day above.'; return; }
   const count = enabled.length * weeks;
   const summary = enabled.map(d=>{
     const start=document.getElementById('ods-'+d+'-start')?.value||'12:00';
@@ -8238,7 +8238,7 @@ function generateOrientSessions(){
   }
 
   if(created===0){
-    alert('All sessions for this schedule already exist — no new sessions were created.');
+    alert('All sessions for this schedule already exist. No new sessions were created.');
   } else {
     saveOrientStore();
     renderOrientations();
@@ -8258,7 +8258,7 @@ function generateOrientSessions(){
 async function orientLoadPending(){
   try {
     const { data, error } = await sb.from('orient_bookings').select('*').eq('merged', false).order('booked_at', { ascending: true });
-    if(error){ console.warn('orient_bookings load failed — run fix-scheduling-and-bookings.sql if the table is missing:', error); ORIENT_PENDING = []; return; }
+    if(error){ console.warn('orient_bookings load failed. Run fix-scheduling-and-bookings.sql if the table is missing:', error); ORIENT_PENDING = []; return; }
     ORIENT_PENDING = data || [];
   } catch(e){ console.warn('orientLoadPending:', e); ORIENT_PENDING = []; }
 }
@@ -8272,7 +8272,7 @@ const orientPendingCount = () => (ORIENT_PENDING||[]).length;
 async function mergePendingBookings(){
   try {
     const { data, error } = await sb.from('orient_bookings').select('*').eq('merged', false).order('booked_at', { ascending: true });
-    if(error){ console.warn('orient_bookings load failed — run fix-scheduling-and-bookings.sql if the table is missing:', error); return; }
+    if(error){ console.warn('orient_bookings load failed. Run fix-scheduling-and-bookings.sql if the table is missing:', error); return; }
     if(!data || !data.length) return;
     let changed = false;
     for(const row of data){
@@ -8884,7 +8884,7 @@ function renderOrientations(){
   const pc = orientPendingCount();
   const pendBanner = pc > 0
     ? `<div style="flex:1 0 100%;margin-top:.5rem;padding:.5rem .7rem;background:#FEF3C7;border:1px solid #FCD34D;border-radius:8px;font-size:.8rem;color:#92400E;display:flex;gap:.6rem;align-items:center;justify-content:space-between;flex-wrap:wrap">`
-      + `<span>⏳ <b>${pc}</b> self-serve booking${pc!==1?'s':''} pending — shown read-only below, not yet in the roster.</span>`
+      + `<span>⏳ <b>${pc}</b> self-serve booking${pc!==1?'s':''} pending, shown read-only below, not yet in the roster.</span>`
       + `<button class="ibtn" onclick="orientSyncBookings(this)">Sync to roster</button></div>`
     : '';
   document.getElementById('or-stats').innerHTML = `
@@ -8971,7 +8971,7 @@ function renderSessionsList(){
     const d = new Date(calSelectedDate+'T00:00:00');
     titleEl.textContent = d.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
   } else {
-    titleEl.textContent = showPastSessions ? 'Past Sessions — Mark Attendance' : 'All Upcoming Sessions';
+    titleEl.textContent = showPastSessions ? 'Past Sessions: Mark Attendance' : 'All Upcoming Sessions';
   }
   countEl.textContent = `${sessions.length} session${sessions.length!==1?'s':''}`;
 
@@ -9008,7 +9008,7 @@ function renderSessionsList(){
        bookings[] (which attendance/cancel index into). */
     const pend = orientPendingFor(s.id);
     const pendChips = pend.length
-      ? `<div style="margin-top:.4rem;font-size:.68rem;color:#B45309"><b>⏳ ${pend.length} pending self-serve booking${pend.length!==1?'s':''} — sync to add to the roster:</b> `
+      ? `<div style="margin-top:.4rem;font-size:.68rem;color:#B45309"><b>⏳ ${pend.length} pending self-serve booking${pend.length!==1?'s':''}. Sync to add to the roster:</b> `
         + pend.map(p=>`<span class="booking-chip" style="background:#FEF3C7;color:#92400E">${p.first} ${p.last}</span>`).join(' ') + '</div>'
       : '';
     const fullBadge = isFull ? '<span class="badge b-red" style="font-size:.65rem;margin-left:.4rem">FULL</span>' : '';
@@ -9750,7 +9750,7 @@ function openProfile(first, last){
   if(bookSess){
     const outcomeLabel={attended:'✅ Attended',noshow:'🚫 No-Show',rescheduled:'📅 Rescheduled',canceled:'❌ Canceled'}[booking?.attend_status]||'⏳ Booked';
     const outColor={attended:'var(--green)',noshow:'var(--red)',rescheduled:'#F97316',canceled:'var(--red)'}[booking?.attend_status]||'var(--navy)';
-    html+=`<div>Session: <strong>${fmtD(bookSess.date)}${bookSess.time?' · '+bookSess.time:''}</strong> — <span style="color:${outColor};font-weight:600">${outcomeLabel}</span></div>`;
+    html+=`<div>Session: <strong>${fmtD(bookSess.date)}${bookSess.time?' · '+bookSess.time:''}</strong>: <span style="color:${outColor};font-weight:600">${outcomeLabel}</span></div>`;
   } else {
     html+=`<div style="color:var(--gray)">No orientation session booked</div>`;
   }
@@ -9866,7 +9866,7 @@ function renderStaffUsers(){
   if(!list) return;
   const users = allStaff();
   if(!users.length){
-    list.innerHTML = '<div style="font-size:.8rem;color:var(--gray);padding:.5rem 0;font-style:italic">No staff added yet. Anyone you add here also appears in the Care Coordinator Hub — it is one list now.</div>';
+    list.innerHTML = '<div style="font-size:.8rem;color:var(--gray);padding:.5rem 0;font-style:italic">No staff added yet. Anyone you add here also appears in the Care Coordinator Hub. It is one list now.</div>';
     return;
   }
   list.innerHTML = users.map((u,i)=>{
@@ -9898,7 +9898,7 @@ async function persistStaff(s){
   try{
     const { error } = await sb.rpc('upsert_app_data_item',{ target_key:'coordinator_staff', item:s });
     if(error) throw error;
-  }catch(e){ alert('Could not save that staff change — check your connection and try again.'); }
+  }catch(e){ alert('Could not save that staff change. Check your connection and try again.'); }
 }
 
 async function dropLegacy(u){
@@ -9944,7 +9944,7 @@ async function removeStaffUser(idx){
   else{
     SHARED_STAFF=SHARED_STAFF.filter(x=>x.id!==u.id);
     try{ await sb.rpc('delete_app_data_item',{ target_key:'coordinator_staff', item_id:u.id }); }
-    catch(e){ alert('Could not remove that person — try again.'); }
+    catch(e){ alert('Could not remove that person. Try again.'); }
   }
   syncAlertRecipients();
   renderStaffUsers();
@@ -10090,7 +10090,7 @@ function previewCSV(){
     const first = row.first||'', last = row.last||'';
     if(!first && !last){ skipped.push(`Row ${i+1}: no name`); continue; }
     const exists = caregivers.some(c=>c.first.toLowerCase()===first.toLowerCase()&&c.last.toLowerCase()===last.toLowerCase());
-    if(exists){ skipped.push(`${first} ${last} — already exists, skipped`); continue; }
+    if(exists){ skipped.push(`${first} ${last}: already exists, skipped`); continue; }
     _csvParsed.push({
       first, last,
       hire_date: row.hire_date||'', orient_date: row.orient_date||'',
@@ -10110,7 +10110,7 @@ function previewCSV(){
   const listEl = document.getElementById('csv-preview-list');
   document.getElementById('csv-preview').style.display = 'block';
   const toImport = _csvParsed.map(c=>`<div style="padding:.3rem 0;border-bottom:1px solid #FAF9F6;color:var(--green-text)">✓ ${c.first} ${c.last}${c.hire_date?` · Hired ${c.hire_date}`:''}</div>`).join('');
-  const toSkip = skipped.map(s=>`<div style="padding:.3rem 0;border-bottom:1px solid #FAF9F6;color:var(--slate-text)">— ${s}</div>`).join('');
+  const toSkip = skipped.map(s=>`<div style="padding:.3rem 0;border-bottom:1px solid #FAF9F6;color:var(--slate-text)">• ${s}</div>`).join('');
   listEl.innerHTML = toImport + toSkip || '<div style="padding:.3rem 0;color:var(--gray)">No rows found.</div>';
   if(_csvParsed.length){
     msgEl.textContent = `Ready to import ${_csvParsed.length} caregiver${_csvParsed.length>1?'s':''}${skipped.length?` · ${skipped.length} skipped`:''}`;
@@ -10118,7 +10118,7 @@ function previewCSV(){
     document.getElementById('csv-import-btn').style.display = '';
     document.getElementById('csv-preview-btn').style.display = 'none';
   } else {
-    msgEl.textContent = skipped.length ? `Nothing to import — ${skipped.length} row(s) skipped.` : 'No valid rows found.';
+    msgEl.textContent = skipped.length ? `Nothing to import. ${skipped.length} row(s) skipped.` : 'No valid rows found.';
     msgEl.style.color = 'var(--amber-text)';
     document.getElementById('csv-import-btn').style.display = 'none';
   }
@@ -10339,7 +10339,7 @@ async function loadPendingEVVSubmissions() {
 
     if (!data || data.length === 0) {
       badge.style.display = 'none';
-      container.innerHTML = '<p style="font-size:.82rem;color:var(--gray)">No pending submissions — all caught up ✅</p>';
+      container.innerHTML = '<p style="font-size:.82rem;color:var(--gray)">No pending submissions. All caught up ✅</p>';
       return;
     }
 
@@ -10408,7 +10408,7 @@ async function loadPendingEVVSubmissions() {
 
 async function acceptEVVSubmission(subId) {
   const sub = _evvPendingCache[subId];
-  if(!sub){ alert('Could not find this submission — click ↻ Refresh and try again.'); return; }
+  if(!sub){ alert('Could not find this submission. Click ↻ Refresh and try again.'); return; }
   /* 429: no accept until the client signed at the shift or the next visit, or the office verified by phone */
   const sigBlock = window.EVVF && EVVF.acceptBlock ? EVVF.acceptBlock(sub) : null;
   if(sigBlock){ alert(sigBlock); return; }
@@ -10569,7 +10569,7 @@ function renderEVVCorrections() {
     summaryDiv.innerHTML = '<p style="font-size:.82rem;color:var(--gray)">No corrections logged this month.</p>';
   } else {
     summaryDiv.innerHTML =
-      '<div style="font-size:.72rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">This Month — By Attendant</div>' +
+      '<div style="font-size:.72rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem">This Month by Attendant</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:.5rem">' +
       sorted.map(([name, count]) => {
         const color = count >= EVV_ATTENDANT_LIMIT ? 'var(--red)' : count >= 2 ? '#F97316' : 'var(--green)';
