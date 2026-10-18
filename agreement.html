@@ -110,10 +110,12 @@ const $=id=>document.getElementById(id);
 const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
 const Q=new URLSearchParams(location.search);
 /* 2026-10-17 (the 8-hour weekly minimum): each agreement shows the pages of the master it was started on, found by its
-   pdf_sha256. A draft started on an earlier master can't be signed (the server refuses), so it says to start a new one. */
-const PAGE_DIRS={'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
+   pdf_sha256. A draft started on an earlier master can't be signed (the server refuses), so it says to start a new one.
+   2026-10-18 (Samantha: overtime counted Monday to Sunday): rev-2026-10-18 is the current master; only page 3 changed. */
+const PAGE_DIRS={'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11':'agreement-pages/rev-2026-10-18/',
+  'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
   'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9':'agreement-pages/rev-2026-10/'};
-let PAGES_DIR='agreement-pages/rev-2026-10-17/';
+let PAGES_DIR='agreement-pages/rev-2026-10-18/';
 function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
