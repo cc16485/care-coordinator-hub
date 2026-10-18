@@ -3543,8 +3543,8 @@ function renderDnrLog(){
     '<div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;font-size:.85rem">'
     +'<b>'+creqEsc(e.caregiver||'(caregiver)')+'</b> must not return to <b>'+creqEsc(e.client||'(client)')+'</b>'
     +(e.reason?': '+creqEsc(e.reason):'')
-    +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">requested by '+creqEsc(e.requested_by||'—')
-    +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+creqEsc(e.logged_by||'—')
+    +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">requested by '+creqEsc(e.requested_by||'Not set')
+    +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+creqEsc(e.logged_by||'Not set')
     +(e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="dnrMarkAxis(\''+e.id+'\');return false;">mark exclusion entered in AxisCare</a>')
     +'</div></div>').join('');
 }
