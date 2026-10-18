@@ -31,12 +31,18 @@ async()=>{
   // create Ed's project through the form
   pjNewOpen(document.querySelector('#tab-mywork button.addlead')); await sleep(100);
   let p=pop();
-  ok('the form starts on Client start / coming home, owner defaults to a Care Coordinator', p && p.querySelector('#pjNT').value==='client_start' && /krystal|angie/.test(p.querySelector('#pjNO').value));
-  p.querySelector('#pjNA').value='Ed Anderson (fake)'; p.querySelector('#pjNA').dispatchEvent(new Event('input'));
-  ok('...typing the client fills "coming home"', p.querySelector('#pjNTi').value==='Ed Anderson (fake) coming home');
-  p.querySelector('#pjNO').value='krystal@mo-care.com'; p.querySelector('#pjNR').value=inDays(7);
-  p.querySelector('#pjNDC').value='Pamela Anderson (daughter)'; p.querySelector('#pjNSh').value='9am–2pm and 4pm–9pm, 7 days a week'; p.querySelector('#pjNCL').value='bed bound, Hoyer or sit-to-stand';
-  p.querySelector('#pjNGo').click(); await sleep(400);
+  ok('the form has no Client start / coming home choice (2026-10-18), only a project with its own steps; owner defaults to a Care Coordinator', p && p.querySelector('#pjNT').value==='blank' && !/coming home|Client start/i.test(p.innerText) && p.querySelector('#pjNSt') && /krystal|angie/.test(p.querySelector('#pjNO').value));
+  p.querySelector('#pjNA').value='Bo Fake'; p.querySelector('#pjNTi').value='New shower chair for Bo'; p.querySelector('#pjNR').value=inDays(5);
+  p.querySelector('#pjNGo').click(); await sleep(200);
+  ok('...it asks for at least one step', /Add at least one step/.test((window.__toasts||[]).join(' ')) || !!pop());
+  p.querySelector('#pjNSt').value='Order the chair\nInstall the grab bars'; p.querySelector('#pjNGo').click(); await sleep(400);
+  const Bo=S.ops_items.find(x=>x.kind==='project' && /shower chair/.test(x.title));
+  ok('...an other project saves with its two steps and no owner sign-off unless ticked', Bo && Bo.template==='blank' && Bo.steps.length===2 && !Bo.signoff.needed, Bo);
+  S.ops_items=S.ops_items.filter(x=>x!==Bo); DATA.ops_items=DATA.ops_items.filter(x=>x.id!==(Bo&&Bo.id));
+  // an older client-start project (made before 2026-10-18) still works the same
+  const P0=pjBuild({ template:'client_start', title:'Ed Anderson (fake) coming home', about:'Ed Anderson (fake)', owner:'krystal@mo-care.com', ready_by:inDays(7),
+    date_contact:'Pamela Anderson (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
+  DATA.ops_items.push(P0); await persist('ops_items', P0); await sleep(300);
   const P=S.ops_items.find(x=>x.kind==='project'); const id=P&&P.id;
   ok('the project is saved: kind project, Krystal owns it, ready in 7 days, 8 steps', P && P.owner==='krystal@mo-care.com' && P.ready_by===inDays(7) && P.steps.length===8, P);
   ok('...the Staffing Coordinator joined the team by themselves, and it shows on their My Work (also_for)', P.team.includes('sally@mo-care.com') && P.also_for.includes('sally@mo-care.com'));
