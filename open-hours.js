@@ -171,7 +171,7 @@
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
           + '<b>' + esc(c.client || 'New client') + '</b><span class="field-note">' + esc([c.client_city, hoursOf(c)].filter(Boolean).join(' · ')) + '</span>'
           + '<span>🟢 ' + n('yes') + (ys.length ? ' (' + esc(ys.slice(0, 6).join(', ')) + ')' : '') + ' · 🟡 ' + n('inquiry') + ' · 🔴 ' + n('no') + ' · ⏳ ' + n('waiting') + '</span>'
-          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OH.convert(\'' + esc(c.id) + '\')">Make it a Team Builder plan</button>'
+          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OH.convert(\'' + esc(c.id) + '\')">Make it a Caregiver Matching plan</button>'
           + '<button class="cara-btn ghost" style="font-size:12px;" onclick="OH.closeOld(\'' + esc(c.id) + '\')">Close it</button></div>'; }).join('')
       + '</div>';
   }
@@ -198,7 +198,7 @@
     const c = (DATA.coverage_cases || []).find((x) => x && x.id === cid); if (!c) return;
     if (!(await ccConfirm('Close the new-client ask for ' + (c.client || 'this client') + '? Its answers stay in Cara\'s History. Nobody is texted.'))) return;
     c.status = 'closed'; c.resolved_at = new Date().toISOString(); c.resolved_how = 'closed';
-    c.resolved_by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || ''; c.resolved_note = 'closed from Team Builder (New clients moved there)';
+    c.resolved_by = (typeof ME !== 'undefined' && (ME.name || ME.email)) || ''; c.resolved_note = 'closed from Caregiver Matching (New clients moved there)';
     await persist('coverage_cases', c); redraw();
   }
 

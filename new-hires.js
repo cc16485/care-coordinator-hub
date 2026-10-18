@@ -40,7 +40,7 @@
     if (typeof TB === 'undefined') { box.innerHTML = ''; return; }
     if (!TB.pool && !TB.loading && typeof tbLoadPool === 'function') tbLoadPool();
     const head = '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:15px;color:var(--navy);">🌱 New hires waiting for hours</b>'
-      + '<span class="field-note" style="font-size:12px;">Hired in the last 60 days with nothing, or less than they asked for, on the schedule in the next 2 weeks. They come first in Cara\'s ask lists and the Team Builder list when they fit as well as anyone else.</span></div>';
+      + '<span class="field-note" style="font-size:12px;">Hired in the last 60 days with nothing, or less than they asked for, on the schedule in the next 2 weeks. They come first in Cara\'s ask lists and the Caregiver Matching list when they fit as well as anyone else.</span></div>';
     let body;
     if (!Array.isArray(TB.pool)) body = '<div class="field-note" style="margin-top:6px;">' + (TB.pool && TB.pool.error ? 'Couldn\'t read AxisCare just now: ' + esc(TB.pool.error) : 'Reading AxisCare…') + '</div>';
     else {

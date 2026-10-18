@@ -18,7 +18,7 @@
     ['A caregiver calls off', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Build the ask list, send, pick from the yeses.'],
     ['Nobody has clocked in, or out', go('', 'clockins', 'Cara: Missed clock-ins & outs'), 'Call them from the office line. If they can\'t work, open a coverage case.'],
     ['A client\'s regular shift has nobody on it', go('', 'ongoing', 'Cara: Ongoing shifts'), 'Ask who wants it, the same way as a call-off.'],
-    ['Regular hours to fill, or a new client', go('teambuilder', '', 'Client Care: Team Builder'), 'Ask the whole team, then pencil in the green names.'],
+    ['Regular hours to fill, or a new client', go('teambuilder', '', 'Scheduling: Caregiver Matching'), 'Ask the whole team, then pencil in the green names.'],
     ['Who can we staff this week? Who wants more hours?', go('', 'hours', 'Cara: Hours & matching'), 'Check it on Mondays; text the availability link to anyone missing.'],
     ['A visit is missing a clock-in or clock-out', go('ops', '', 'Needs Attention'), 'Call the client to confirm the times from the card, then fix the visit in AxisCare.'],
     ['See the schedule, or change one visit', go('liveschedule', '', 'Live Schedule'), 'Click a visit to change its caregiver or time.'],
@@ -52,7 +52,7 @@
       'After a shift ends with no clock-out, the caregiver gets one reminder text to clock out. If it still doesn\'t land, a Call card opens to confirm the times with the client (below).',
     ], 'The minutes and the wording are in Settings, Missed clock-ins and Missed clock-outs.')
     + steps('📣 Regular open hours: ask the whole team', false, [
-      'Go to <b>Client Care, Team Builder</b>, press <b>New care team plan</b> and pick <b>Open hours, no client yet</b>. Type the town, pick the days, and pick <b>Two halves</b> or <b>One day shift</b>.',
+      'Go to <b>Scheduling, Caregiver Matching</b>, press <b>New care team plan</b> and pick <b>Open hours, no client yet</b>. Type the town, pick the days, and pick <b>Two halves</b> or <b>One day shift</b>.',
       'On the plan, press <b>See the text and who gets it</b>. Check the words and the head count.' + chip(on('open_hours_live'), 'texting on', 'texting off'),
       'Press <b>Text</b> (9am to 6pm only). Everyone eligible gets it, 20 at a time, and nobody twice.',
       'Answers sort themselves into green (yes, with their days), yellow (questions) and red (no).' + chip(on('open_hours_ai_live'), 'AI sorting on', 'AI sorting off'),
@@ -60,7 +60,7 @@
       'Green names show on each square they said yes to. Click one to pencil them in. When every square is confirmed, <b>Plan complete</b> puts the schedules into AxisCare after a preview.',
     ])
     + steps('🧩 Building a new client\'s team', false, [
-      'Team Builder, <b>New care team plan</b>, pick <b>A client</b>. Choose the days and the shifts.',
+      'Caregiver Matching, <b>New care team plan</b>, pick <b>A client</b>. Choose the days and the shifts.',
       'Click a square to pencil someone in. <b>💬 Text</b> asks them (the same checks as Cara: never someone on No shift texts or that client\'s Do Not Return list), or mark <b>Asked by phone</b>.' + chip(on('team_ask_live'), 'texting on', 'texting off'),
       'Mark yes, maybe or no as answers come in. The board counts what is confirmed.',
       'Use <b>Link to a Journey</b> once the client is in the Hub.',
