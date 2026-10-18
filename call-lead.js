@@ -37,7 +37,12 @@
       try{
         const since = new Date(Date.now() - DAYS * 864e5).toISOString();
         const { data, error } = await sb.from('call_task_reading').select('message_id, call_type, lead_id, read_at, detail, call_at, seconds, who_name, caller').eq('channel', 'call').gte('call_at', since).order('read_at', { ascending: false }).limit(800);
-        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '', call_at: r.call_at || '', seconds: Number(r.seconds) || 0, who: r.who_name || r.caller || '' }; CL.readings = m; }
+        if(!error){ const m = {}; for(const r of data || []) if(!m[r.message_id]) m[r.message_id] = { type: r.call_type, lead_id: r.lead_id, summary: (r.detail && r.detail.summary) || '', call_at: r.call_at || '', seconds: Number(r.seconds) || 0, who: r.who_name || r.caller || '', answered_by: (r.detail && r.detail.answered_by) || '' }; CL.readings = m; }
+        if(!CL.users){   /* GoHighLevel users {userId: {email, first}}, the list the call recorder keeps (app_data ghl_users) */
+          const u = await sb.from('app_data').select('data').eq('key', 'ghl_users').maybeSingle();
+          const row = u && u.data && Array.isArray(u.data.data) ? u.data.data.find(x => x && x.id === 'people') : null;
+          CL.users = (row && row.people) || {};
+        }
       }catch(e){ /* no tags; the buttons still work */ }
       CL.at = Date.now(); CL.busy = null; return CL.readings;
     })();
@@ -304,12 +309,26 @@
     const m = { id, verdict: 'not', by: me(), at: new Date().toISOString() };
     if(reason && NOT_REASONS[reason]) m.reason = reason;
     const i = DATA.call_lead_marks.findIndex(x => x && x.id === id); if(i >= 0) DATA.call_lead_marks[i] = m; else DATA.call_lead_marks.push(m);
-    await persist('call_lead_marks', m); repaint();
+    await persist('call_lead_marks', m);
+    if(reason === 'spam'){
+      const d = CL.reads[id], phone = (d && ((d.contact && d.contact.phone) || (d.prefill && d.prefill.phone))) || callPhone(id);
+      if(digits10(phone).length < 10) say('Marked not a lead, but the number could not be found, so it is not on the block list.');
+      else if(!suppressed(phone)){
+        if(!Array.isArray(DATA.phone_suppress)) DATA.phone_suppress = [];
+        const b = { id: 'sup_' + id, phone, digits: digits10(phone), why: 'Not a lead: spam or sales', at: m.at, by: me(), from_call: id };
+        const j = DATA.phone_suppress.findIndex(x => x && x.id === b.id); if(j >= 0) DATA.phone_suppress[j] = b; else DATA.phone_suppress.push(b);
+        await persist('phone_suppress', b);
+      }
+    }
+    repaint();
   }
   async function undoNot(id){
     const m = marks().find(x => x && x.id === id); if(!m) return;
     Object.assign(m, { verdict: '', reason: '', undone_by: me(), undone_at: new Date().toISOString() });
-    await persist('call_lead_marks', m); repaint();
+    await persist('call_lead_marks', m);
+    const b = blockList().find(x => x && typeof x === 'object' && x.id === 'sup_' + id && !x.undone_at);   /* off the block list again */
+    if(b){ Object.assign(b, { undone_at: m.undone_at, undone_by: me() }); await persist('phone_suppress', b); }
+    repaint();
   }
   function openLead(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id); else openLeadModal(id); }
 
@@ -443,6 +462,30 @@
   const nfItems = () => (typeof DATA !== 'undefined' && Array.isArray(DATA.ops_items)) ? DATA.ops_items : [];
   const refresh = () => { try{ if(typeof myWorkRefresh === 'function') myWorkRefresh(); }catch(e){} repaint(); };
 
+  /* 2026-10-18 upgrades (her "build all"):
+     · WHO ANSWERED: call-pull now keeps GoHighLevel's user on each answered call (call_pull_seen.answered_by), the call
+       reader copies it into its reading (detail.answered_by), and the card goes to that person when they are on the
+       Hub team. Otherwise (and for calls read before this) it goes to whoever owns Family inquiries, as before.
+     · THE BLOCK LIST: "Spam or sales" puts the number on app_data phone_suppress, the same list the phone screen's
+       Spam or Sales writes. Until now nothing read that list; now a number on it gets no New family? card and no
+       missed-call card. Undo on the Not a lead takes it off again (kept with undone_at, never deleted). */
+  const digits10 = p => String(p || '').replace(/\D/g, '').slice(-10);
+  const blockList = () => (typeof DATA !== 'undefined' && Array.isArray(DATA.phone_suppress)) ? DATA.phone_suppress : [];
+  function suppressed(phone){
+    const d = digits10(phone); if(d.length < 10) return null;
+    return blockList().find(x => x && (typeof x === 'string' ? digits10(x) === d : !x.undone_at && digits10(x.digits || x.phone) === d)) || null;
+  }
+  function answeredBy(userId){
+    if(!userId) return null;
+    const m = (typeof DATA !== 'undefined' && DATA.ops_settings && typeof DATA.ops_settings.ghl_user_ids === 'object' && DATA.ops_settings.ghl_user_ids) || {};
+    const byMap = Object.keys(m).find(em => String(m[em]) === String(userId));   /* her Settings map wins, as on the server */
+    const u = (CL.users || {})[userId] || null;
+    const email = String(byMap || (u && u.email) || '').toLowerCase();
+    const owner = email && typeof opsCanonicalPerson === 'function' ? opsCanonicalPerson(email) : '';
+    return { owner, name: (owner && typeof opsOwnerName === 'function' && opsOwnerName(owner)) || (u && u.first) || '' };
+  }
+  const callPhone = id => { try{ const c = (typeof CALLS_FEED !== 'undefined' && CALLS_FEED && CALLS_FEED.calls || []).find(x => x && x.id === id); return c ? c.phone : ''; }catch(e){ return ''; } };
+
   /** Opens a card for each new-family call waiting on a person; closes it once a lead is made or it is marked not a lead. */
   let RC = null;
   function reconcile(){
@@ -473,12 +516,14 @@
             changed.push(it); return;
           }
           if(it || !r.call_at || Date.now() - Date.parse(r.call_at) > NF_WINDOW_H * 36e5) return;
-          const owner = (typeof opsDomainOwner === 'function' && opsDomainOwner('family_enquiries')) || '';
+          if(suppressed(callPhone(id))) return;   /* a number on the block list gets no card */
+          const took = answeredBy(r.answered_by);
+          const owner = (took && took.owner) || (typeof opsDomainOwner === 'function' && opsDomainOwner('family_enquiries')) || '';
           const n = { id: itId, kind: 'new_family_call', source_id: id, about: r.who || 'Unknown caller', title: 'New family? ' + (r.who || 'Unknown caller'),
             detail: String(r.summary || '').slice(0, 300), domain: 'family_enquiries', status: 'open', urgency: 'normal',
             created_at: r.call_at, last_activity_at: r.call_at, due: new Date(Date.parse(r.call_at) + NF_HOURS * 36e5).toISOString(),
             owner, owner_name: owner && typeof opsOwnerName === 'function' ? opsOwnerName(owner) : '', opened_by: 'system',
-            source: { type: 'new_family_call', message_id: id, call_at: r.call_at, seconds: r.seconds || 0 } };
+            source: { type: 'new_family_call', message_id: id, call_at: r.call_at, seconds: r.seconds || 0, answered_by_name: (took && took.name) || '' } };
           DATA.ops_items.push(n); changed.push(n);
         });
         for(const it of changed) await persist('ops_items', it);
@@ -512,7 +557,7 @@
     let h = '<div class="wkcard nf-card' + (focused ? ' focused' : '') + '" data-id="' + esc(it.id) + '" style="padding:15px 17px;margin-bottom:8px;">'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
       + '<span class="tag-chip" style="background:#E6EEF7;color:#0D365F;font-weight:800;">New family?</span>'
-      + '<span class="field-note">Call on the office line · ' + esc(callWhen(at)) + (mins ? ' · ' + mins + ' min' : '') + '</span>'
+      + '<span class="field-note">Call on the office line · ' + esc(callWhen(at)) + (mins ? ' · ' + mins + ' min' : '') + (src.answered_by_name ? ' · ' + esc(String(src.answered_by_name).split(/\s+/)[0]) + ' took it' : '') + '</span>'
       + (ownerTag ? '<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:' + (att.level >= 1 ? 'var(--amber-bg);color:var(--amber)' : 'var(--bg);color:var(--navy)') + ';">' + esc(ownerTag) + '</span>' : '')
       + '<span style="flex:1;"></span>'
       + '<span class="wkmore" id="more_' + esc(it.id) + '" onclick="myWorkMore(\'' + esc(it.id) + '\',\'more_' + esc(it.id) + '\')">⋯</span></div>'
@@ -571,7 +616,9 @@
   function notCancel(id){ delete CL.asking[id]; refresh(); }
   async function notPick(id, reason){
     delete CL.asking[id];
-    try{ await markNot(id, reason); say('Marked not a lead (' + NOT_REASONS[reason] + '). Undo is on Call Follow Ups.'); }
+    try{ await markNot(id, reason);
+      const blocked = reason === 'spam' && blockList().some(x => x && x.id === 'sup_' + id && !x.undone_at);
+      if(reason !== 'spam' || blocked) say('Marked not a lead (' + NOT_REASONS[reason] + ').' + (blocked ? ' That number is blocked: no more cards for it.' : '') + ' Undo is on Call Follow Ups.'); }
     catch(e){ say('Could not save that: ' + (e && e.message || e)); }
     await reconcile(); refresh();
   }
@@ -590,5 +637,5 @@
     finally{ if(a) a.textContent = was; }
   }
 
-  window.CallLead = { reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
 })();
