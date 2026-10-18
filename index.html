@@ -7445,6 +7445,7 @@ The HomeTogether team</pre>
 <script src="open-hours.js?v=3"></script>
 <script src="scheduling-guide.js?v=3"></script>
 <script src="new-hires.js?v=3"></script>
+<script src="hub-scenes.js?v=1"></script><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7471,7 +7472,7 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=16"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=17"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
@@ -7487,7 +7488,7 @@ The HomeTogether team</pre>
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=11"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -29784,6 +29785,11 @@ function renderMyWork(){
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
   if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  /* the drawing kit (2026-10-18, her "build step 1"): caught up with nothing to help with shows the porch at sunset */
+  if(window.HS && !h && !act.length && !lateL.length && !due.length && !pinned.length && !myWorkTeamHtml(b))
+    h+=HS.empty({ scene:'porch', say:'All caught up.', sub:'Every family has what they need today. Anything new will land here on its own.',
+      links:[].concat((typeof dkAllowed==='function'&&dkAllowed())?[['Open My Desk',"switchTab('mydesk')"]]:[],
+        later.length?[['Show what is later','MYWORK_LATER_OPEN=true;renderMyWork()']]:[]) });
   /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
   const team=myWorkTeamHtml(b);
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
@@ -39151,12 +39157,18 @@ function lsPaint(){
   if(lbl) lbl.textContent=d.date?(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})):'';
   if(d.error){ box.innerHTML=top+'<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
   if(!(d.rows||[]).length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
+  /* the drawing kit (2026-10-18): "Only open shifts" with none open is the road with every house lit */
+  const lcF=(typeof LC==='object'&&LC)||{};
+  if(!rowsF.length&&lcF.open&&!String(lcF.q||'').trim()&&window.HS){ box.innerHTML=top+HS.empty({ scene:'road', say:'Every visit has a caregiver.',
+    sub:'Every house on the road is lit on '+(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))+'. Open shifts would show here first, in red.',
+    links:[['Show all '+d.rows.length+' visits','lcOnlyOpen(false)']] }); return; }
   if(!rowsF.length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">None of the '+d.rows.length+' visits on '+esc(d.date)+' match.</div>'; return; }
   const t12=s=>{ const m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; const h=Number(m[1])%12||12; return h+(m[2]==='00'?'':':'+m[2])+(Number(m[1])>=12?'p':'a'); };
   const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
   const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
   const unF=rowsF.filter(v=>!v.caregiver).length;
-  box.innerHTML=top+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
+  const allLit=(!unF&&!lcF.open&&!String(lcF.q||'').trim()&&window.HS)?HS.banner({ scene:'road', say:'Every visit has a caregiver.', sub:isToday?'Every house on the road is lit today.':'Every house on the road is lit for this day.' }):'';
+  box.innerHTML=top+allLit+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
     +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
     +rowsF.map(v=>{
