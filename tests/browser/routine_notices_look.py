@@ -65,6 +65,21 @@ async()=>{
   const html=ccBuildEmailHTML({ subj:'Test', ac:'#4f8f74', blocks:[], pre:'' });
   ok('the unsubscribe link goes to the Springfield lead', /mailto:krystal@mo-care\.com\?subject=Please%20unsubscribe%20me/.test(html) && !/mailto:samantha@/.test(html));
   ok('call-in alert admins: an empty list shows the server fallback', (()=>{ DATA.ops_settings={}; const l=tkAdminsNow().map(x=>x.email); return JSON.stringify(l)===JSON.stringify([K]); })());
+  /* seats nobody is scheduled in (SOP ruling 8): the Scheduling and coverage owner, then the lead, never a name in code */
+  DATA.duty_windows=[]; DATA.ops_settings={};
+  const seats=()=>['in_charge','owner_escalation','staffing','operations'].map(a=>routeSeatNow(a));
+  ok('nobody scheduled, no alert list: every seat falls to the Scheduling and coverage owner', seats().every(x=>x.person===K) && routeSeatNow('in_charge').from==='the Scheduling and coverage owner', seats());
+  ok('...and a seat does not claim "In charge now" when In charge is itself a fallback', routeSeatNow('staffing').from!=='In charge now', routeSeatNow('staffing'));
+  (0,eval)(`OPS_DOMAINS=[{ code:'client_care', owner_person:'p_a' }];`);
+  ok('no Scheduling and coverage owner: the Springfield lead, said so', routeSeatNow('in_charge').person===K && routeSeatNow('in_charge').from==='the Springfield lead', routeSeatNow('in_charge'));
+  DATA.ops_settings={ coverage_alert_admins:[A] };
+  ok('an alert list set on the Admin page still comes first', routeSeatNow('in_charge').person===A && routeSeatNow('in_charge').from==='first on the alert list', routeSeatNow('in_charge'));
+  DATA.ops_settings={ duty_default_staffing:A };
+  ok('the seat\'s "when nobody is scheduled" person still beats the fallback', routeSeatNow('staffing').person===A);
+  DATA.ops_settings={};
+  ok('end my shift: a seat nobody holds hands to the Springfield lead, not Samantha', window.EOX && EOX.seatAt('staffing', new Date())===K && EOX.seatAt('operations', new Date())===K, window.EOX && EOX.seatAt('staffing', new Date()));
+  (0,eval)(`CC_ROLE_BY_EMAIL={ '${S}':['owner_admin'] }; OPS_DOMAINS=[];`);
+  ok('nobody set anywhere: Samantha, so a seat is never empty', routeSeatNow('in_charge').person===S && EOX.seatAt('staffing', new Date())===S, routeSeatNow('in_charge'));
   return R;
 }
 """

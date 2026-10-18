@@ -7369,7 +7369,7 @@ The HomeTogether team</pre>
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=6"></script>
+<script src="end-shift.js?v=7"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
@@ -18039,10 +18039,16 @@ function routeSeatNow(area){
      Leadership itself, and In charge, fall to the alert list: that means the office is empty. */
   if(area!=='in_charge' && area!=='owner_escalation'){
     const ic=routeSeatNow('in_charge');
-    if(ic && ic.person && ic.from!=='first on the alert list') return { person:ic.person, from:'In charge now' };
+    if(ic && ic.person && !ic.fallback) return { person:ic.person, from:'In charge now' };
   }
-  const f=(Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins[0])||'samantha@mo-care.com';
-  return { person:String(f).toLowerCase(), from:'first on the alert list' };
+  const f=Array.isArray(st.coverage_alert_admins)&&st.coverage_alert_admins[0];
+  if(f) return { person:String(f).toLowerCase(), from:'first on the alert list', fallback:true };
+  /* SOP ruling 8 (2026-10-17): no alert list either, so the Scheduling and coverage owner, then the Springfield lead,
+     then Samantha (ccFallbackList, the server's fallbackList), never a name here. */
+  const p=ccFallbackList('scheduling_coverage')[0];
+  const why=p===String(opsDomainOwner('scheduling_coverage')||'').toLowerCase()?'the Scheduling and coverage owner'
+    :p===String(ccSpringfieldLead()||'').toLowerCase()?'the Springfield lead':'nobody else is set';
+  return { person:p, from:why, fallback:true };
 }
 function routeSetRender(){
   const box=document.getElementById('routeSet'), b=document.getElementById('routeSetBtn'); if(!box) return;

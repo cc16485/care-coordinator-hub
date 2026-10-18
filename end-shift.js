@@ -25,13 +25,15 @@
     if(it.domain === 'scheduling_coverage' || STAFFING_KINDS.indexOf(String(it.kind)) > -1) return 'staffing';
     return 'operations';
   }
-  /* Who holds a seat at a moment: the schedule, else the "when nobody is scheduled" person, else the first alert admin. */
+  /* Who holds a seat at a moment: the schedule, else the "when nobody is scheduled" person, else the first alert admin,
+     else the Scheduling and coverage owner, then the Springfield lead (ccFallbackList, SOP ruling 8). */
   function seatAt(area, t){
     const h = typeof dutyHolder === 'function' ? dutyHolder(area, t) : null;
     if(h && h.person) return lc(h.person);
     const st = DATA.ops_settings || {};
     const d = lc(st['duty_default_' + area]); if(d) return d;
-    return lc((Array.isArray(st.coverage_alert_admins) && st.coverage_alert_admins[0]) || 'samantha@mo-care.com');
+    return lc((Array.isArray(st.coverage_alert_admins) && st.coverage_alert_admins[0])
+      || (typeof ccFallbackList === 'function' ? ccFallbackList('scheduling_coverage')[0] : ''));
   }
   /* The next person on duty for an area who is not me: now if someone else holds it, else the first change in the
      next 4 days (covers a Friday-afternoon handoff to Monday morning). */
