@@ -161,7 +161,7 @@
     }
     return h + '</div>';
   }
-  function drawPath(){ const box = document.getElementById('cpPath'); if(box) box.innerHTML = CJ.key ? pathHtml() : ''; }
+  function drawPath(){ const box = document.getElementById('cpPath'); if(box) box.innerHTML = CJ.key && !(CJ.data && CJ.data.journey && R.catalogOf(CJ.data.journey) === 'nine') ? pathHtml() : ''; }
   function pathOpen(key){ if(typeof cpShowTab === 'function') cpShowTab('start'); pick(key, true); }
   /** a real lead was just saved: its journey starts now (not spam, test or CDS; the server checks again) */
   async function autoOpen(lead){
@@ -177,6 +177,7 @@
   function render(){
     const head = document.getElementById('cjHead'), start = document.getElementById('cjStart');
     if(!head || !CJ.view) return;
+    if(R.catalogOf(CJ.data.journey) === 'nine') return renderNine(head, start);
     showOld(false); drawPath();
     const d = CJ.data, j = d.journey, v = CJ.view;
     const payer = j.payer ? R.PAYERS[j.payer] + (j.payer === 'other' && j.payer_other ? ': ' + j.payer_other : '') : 'Payer not known yet';
@@ -228,6 +229,168 @@
     autoCheck(r);
     try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
     try{ if(typeof lwRender === 'function') lwRender(); }catch(e){}
+  }
+  /* ── STAGE B (2026-10-17): THE NINE-STEP START OF CARE CARD. One step bar, one next action, who owns it, what's blocking,
+     the three dates kept apart, first-week coverage, earlier steps folded away. Samantha: "One client. One Start of Care
+     journey. One current action. One responsible Care Coordinator." ── */
+  const N9 = { sel:null, confirm:null, out:null };
+  function n9css(){
+    if(document.getElementById('cj9css')) return;
+    const st = document.createElement('style'); st.id = 'cj9css';
+    st.textContent = '.n9{border:1px solid var(--border,#E2E8F0);border-radius:12px;padding:16px;display:grid;gap:12px;background:#fff}'
+      + '.n9-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 12px;align-items:baseline}.n9-top h3{margin:0;font-size:17px;color:var(--navy,#0E3860)}'
+      + '.n9-dates{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:#55677a}.n9-dates b{color:#16283a;font-weight:600}'
+      + '.n9-rail{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:4px}.n9-rail button{appearance:none;border:0;background:none;padding:0;cursor:pointer;display:grid;gap:4px;justify-items:center;font:inherit;color:#55677a}'
+      + '.n9-rail i{display:block;width:100%;height:8px;border-radius:4px;background:#E2E8F0}.n9-rail .d i{background:#1F7A8C}.n9-rail .n i{background:#F0A63A}.n9-rail .x i{background:repeating-linear-gradient(45deg,#E2E8F0 0 4px,transparent 4px 8px);outline:1px solid #E2E8F0}'
+      + '.n9-rail small{font-size:11px;line-height:1.15;text-align:center}.n9-rail .n small{color:#16283a;font-weight:700}.n9-rail .s{outline:2px solid #1F7A8C;outline-offset:3px;border-radius:4px}'
+      + '@media(max-width:640px){.n9-rail small{display:none}}'
+      + '.n9-facts{display:flex;flex-wrap:wrap;gap:8px 20px;font-size:13px}.n9-facts div{display:grid}.n9-facts span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#8a978f}.n9-facts b{font-weight:600;color:#16283a}.n9-facts b.r{color:#B42318}'
+      + '.n9-next{border:2px solid #1F7A8C;border-radius:12px;padding:14px;display:grid;gap:10px}.n9-next .k{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#1F7A8C;font-weight:700}.n9-next h4{margin:0;font-size:18px;color:var(--navy,#0E3860)}'
+      + '.n9-ck{list-style:none;margin:0;padding:0;display:grid;gap:8px}.n9-ck li{display:grid;grid-template-columns:22px 1fr auto;gap:8px;align-items:start;font-size:14px}'
+      + '.n9-ck .b{width:18px;height:18px;border-radius:5px;border:2px solid #CBD5E1;margin-top:2px;display:grid;place-items:center;font-size:12px;color:#fff}.n9-ck .b.y{background:#1F7A8C;border-color:#1F7A8C}.n9-ck .b.a{background:#1E7B45;border-color:#1E7B45}'
+      + '.n9-ck .src{font-size:12px;color:#8a978f}.n9-ck input[type=text]{width:100%;max-width:340px}.n9-ck .dt{font-size:12px;color:#55677a;display:block}'
+      + '.n9-outs{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px}.n9-outs button{text-align:left;border:1px solid #E2E8F0;border-radius:10px;padding:10px;background:#fff;cursor:pointer;display:grid;gap:2px;font:inherit;color:#55677a}.n9-outs button b{color:var(--navy,#0E3860)}'
+      + '.n9-cov{border:1px solid #F5D9A8;background:#FFF8EC;border-radius:10px;padding:10px 12px;font-size:13px}.n9-cov.ok{border-color:#CFE8D9;background:#F1FAF4}'
+      + '.n9-chip{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:1px 9px;margin-left:6px}.n9-chip.p{background:#FFF4E1;color:#9A6412}.n9-chip.g{background:#E6F4EC;color:#1E7B45}'
+      + '.n9 details summary{cursor:pointer;color:#1F7A8C;font-weight:600;font-size:13px}.n9 details ul{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;font-size:13px;color:#55677a}';
+    document.head.appendChild(st);
+  }
+  const N9_SHORT = { 'soc.lead':'Lead', 'soc.assess':'Assess', 'soc.outcome':'Outcome', 'soc.setup':'AxisCare', 'soc.confirm':'Confirm team', 'soc.axis':'AxisCare schedule', 'soc.start':'Confirm start', 'soc.first':'First shift', 'soc.follow':'Follow-up' };
+  function n9Dates(){
+    const d = CJ.data, j = d.journey, by = k => (d.steps || []).find(x => x.step_key === k) || {};
+    const l = (typeof CP !== 'undefined' && CP.lead) || null;
+    let prop = j.target_start ? day(j.target_start) : '';
+    if(!prop && l){ try{ prop = window.LeadRules && LeadRules.desiredStartWords ? LeadRules.desiredStartWords(l, todayYmd()) : ''; }catch(e){} }
+    const ax = (by('soc.axis').evidence || {}).auto, axF = ax && ax.first_assigned && ax.first_assigned.facts;
+    const conf = (by('soc.start').answer || {}).first_at || (axF && axF.first_caregiver && axF.first_at ? shiftTime(axF.first_at) + ' with ' + axF.first_caregiver : '');
+    const act = (by('soc.first').evidence || {}).actual_first_visit;
+    return '<div class="n9-dates"><span>Proposed start <b>' + esc(prop || 'not set') + '</b></span><span>Confirmed first visit <b>' + esc(conf || 'not yet') + '</b></span><span>Actual first visit <b>' + esc(act ? day(act) : 'not yet') + '</b></span></div>';
+  }
+  function n9Agreement(){
+    const d = CJ.data, out = (d.steps || []).find(x => x.step_key === 'soc.outcome');
+    const ready = out && out.answer && out.answer.outcome === 'ready', a = d.agreement;
+    if(a && a.status === 'countersigned') return '<span class="n9-chip g">Agreement signed</span>';
+    if(ready || a) return '<span class="n9-chip p">Agreement Pending' + (a && a.status === 'signed' ? ': office countersign' : '') + '</span>';
+    return '';
+  }
+  function n9Blocking(r){
+    if(!r) return 'Nothing';
+    if(r.status === 'waiting') return r.why;
+    if(r.status === 'blocked') return r.why || 'Blocked';
+    if(r.def.proof === 'checks'){ const miss = R.checkState(r.def, r.st, CJ.data.journey).filter(c => !c.ok && !c.optional);
+      if(!miss.length) return 'Nothing';
+      const a = miss.find(c => c.auto && c.detail); return a ? a.detail : miss.length + ' check' + (miss.length === 1 ? '' : 's') + ' to do'; }
+    if(r.def.proof === 'verified') return 'The Hub is watching AxisCare';
+    return 'Nothing';
+  }
+  function n9Coverage(){
+    const st = (CJ.data.steps || []).find(x => x.step_key === 'soc.axis'), f = st && st.evidence && st.evidence.auto && st.evidence.auto.first_assigned && st.evidence.auto.first_assigned.facts;
+    if(!f || !f.total) return '';
+    const cc = CJ.data.journey.assigned_cc;
+    if(!f.unassigned) return '<div class="n9-cov ok">First two weeks from ' + esc(day(f.from)) + ': every one of the ' + f.total + ' visits has a caregiver in AxisCare.</div>';
+    return '<div class="n9-cov"><b>First two weeks: ' + f.unassigned + ' of ' + f.total + ' visits still have no caregiver.</b> ' + esc((f.open_at || []).map(t => shiftTime(t)).join(', ')) + '. Owner: ' + esc(cc ? first(cc) : 'the Care Coordinator') + ', with Staffing helping. These stay open staffing work; they don\'t hold up the start.</div>';
+  }
+  function n9Checks(r){
+    const done = R.DONE.indexOf(r.status) > -1, up = !done && r.status !== 'later';
+    const ans = Object.assign({}, r.st.answer || {}, CJ.form[r.key] || {});
+    return '<ul class="n9-ck">' + R.checkState(r.def, r.st, CJ.data.journey, ans).map(c => {
+      const ansBy = c.auto ? null : ((r.st.evidence || {}).answered || {})[c.key];
+      const src = c.auto ? (c.ok ? 'the Hub checked' : 'the Hub checks this') : ansBy ? first(ansBy.by) + ', ' + when(ansBy.at) : '';
+      let body = esc(c.label) + (c.detail ? '<span class="dt">' + esc(c.detail) + '</span>' : '');
+      /* the confirmed first visit fills in from AxisCare's first assigned visit, to check rather than retype */
+      let pre = c.value || '';
+      if(!pre && c.key === 'first_at'){ const ax = ((CJ.data.steps || []).find(x => x.step_key === 'soc.axis') || {}).evidence, f = ax && ax.auto && ax.auto.first_assigned && ax.auto.first_assigned.facts; if(f && f.first_at) pre = shiftTime(f.first_at) + (f.first_caregiver ? ' with ' + f.first_caregiver : ''); }
+      if(!c.auto && c.type === 'text') body = esc(c.label) + (up ? '<span class="dt"><input type="text" data-n9t="' + esc(c.key) + '" value="' + esc(pre) + '"> <button class="ghost" data-n9a="savetext" data-k="' + esc(c.key) + '">Save</button></span>' : c.value ? '<span class="dt">' + esc(c.value) + '</span>' : '');
+      const box = c.auto ? '<span class="b' + (c.ok ? ' a' : '') + '">' + (c.ok ? '✓' : '') + '</span>'
+        : c.type === 'text' ? '<span class="b' + (c.ok ? ' y' : '') + '">' + (c.ok ? '✓' : '') + '</span>'
+        : '<input type="checkbox" data-n9c="' + esc(c.key) + '"' + (c.ok ? ' checked' : '') + (up ? '' : ' disabled') + ' style="width:18px;height:18px;margin-top:2px">';
+      const hand = c.auto && !c.ok && up ? ' <button class="linklike" data-n9a="hand" data-k="' + esc(c.key) + '">done another way?</button>' : '';
+      return '<li>' + box + '<span>' + body + (N9.confirm === r.key + ':' + c.key ? '<span class="dt">How do you know it\'s done? <input type="text" data-n9r="1"> <button class="primary" data-n9a="handgo" data-k="' + esc(c.key) + '">Confirm</button></span>' : '') + '</span><span class="src">' + esc(src) + hand + '</span></li>';
+    }).join('') + '</ul>';
+  }
+  function n9Outcome(r){
+    if(R.DONE.indexOf(r.status) > -1 || r.status === 'later') return '';
+    const pre = (r.st.answer || {}).outcome, sel = N9.out;
+    let h = '<div class="n9-outs">'
+      + '<button data-n9a="out" data-v="ready"' + (pre === 'ready' ? ' style="border-color:#1F7A8C;background:#EAF4F6"' : '') + '><b>Ready to Start</b>Set up care and the schedule; the agreement can follow</button>'
+      + '<button data-n9a="out" data-v="follow_up"><b>Needs Follow-Up</b>One dated follow-up, nothing goes late</button>'
+      + '<button data-n9a="out" data-v="not_ready"><b>Family Not Ready</b>Everything kept, a check-back date</button>'
+      + '<button data-n9a="out" data-v="cannot"><b>Cannot Accept</b>Closes with your reason</button></div>';
+    if(sel === 'follow_up' || sel === 'not_ready') h += '<div class="cj-mode"><label class="cj-field">' + (sel === 'follow_up' ? 'What are we following up on?' : 'What is the family waiting for?') + '</label><input data-n9o="on"><label class="cj-field">Check back on</label><input type="date" data-n9o="cb" min="' + todayYmd() + '"><div class="cj-actions"><button class="primary" data-n9a="outgo">Save</button></div></div>';
+    if(sel === 'cannot') h += '<div class="cj-mode"><label class="cj-field">Why we cannot accept (kept on the record)</label><input data-n9o="why"><div class="cj-actions"><button class="primary" data-n9a="outgo">Close the journey</button></div></div>';
+    return h;
+  }
+  function n9StepBody(r){
+    if(r.key === 'soc.outcome') return n9Outcome(r);
+    if(r.def.proof === 'checks') return n9Checks(r);
+    if(r.def.proof === 'verified') return '<div class="field-note">' + esc(R.DONE.indexOf(r.status) > -1 ? ((r.st.evidence || {}).verified || {}).detail || 'Done' : 'Nothing to tick. The Hub watches AxisCare; a late or missed clock-in comes to you as its usual card.') + '</div>';
+    return R.DONE.indexOf(r.status) > -1 ? evidenceHtml(r) : formHtml(r) + '<div class="cj-actions"><button class="primary" data-act="complete">Save' + (r.def.completes_journey ? ' and finish Start of Care' : '') + '</button></div><div class="cj-err" data-err></div>';
+  }
+  function renderNine(head, start){
+    n9css(); showOld(false); drawPath();
+    const d = CJ.data, j = d.journey, v = CJ.view, l = (typeof CP !== 'undefined' && CP.lead) || null;
+    const nextI = v.next ? R.NINE_STAGES.indexOf(v.next.def.stage) : (j.status === 'active' ? 9 : 0);
+    const sel = (N9.sel && rowOf(N9.sel)) || null, r = sel || v.next;
+    const payer = j.payer ? R.PAYERS[j.payer] : 'Payer not known yet';
+    let h = '<div class="n9">'
+      + '<div class="n9-top"><h3>' + (j.status === 'active' ? 'Start of Care complete' : 'Start of Care · step ' + (nextI + 1) + ' of 9' + (v.next ? ': ' + esc(v.next.def.title) : '')) + n9Agreement() + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '') + '</h3>'
+      + '<span class="field-note">' + esc(payer) + ' · <button class="linklike" onclick="cjAssignCc(this)">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is the Care Coordinator</span></div>'
+      + n9Dates()
+      + '<div class="n9-rail" role="tablist" aria-label="Start of Care steps">' + v.rows.map((x, i) => {
+          const c = x.status === 'not_needed' ? 'x' : R.DONE.indexOf(x.status) > -1 ? 'd' : (v.next && x.key === v.next.key) ? 'n' : '';
+          return '<button type="button" role="tab" class="' + c + (r && x.key === r.key ? ' s' : '') + '" data-n9a="pick" data-k="' + esc(x.key) + '" aria-label="Step ' + (i + 1) + ': ' + esc(x.def.title) + '"><i></i><small>' + (i + 1) + ' ' + esc(N9_SHORT[x.key] || x.def.title) + '</small></button>'; }).join('') + '</div>';
+    if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
+    if(v.stop) h += '<div class="cj-flash cj-flash-stop">' + esc(v.stop.why) + '</div>';
+    if(j.status === 'active' && !sel) h += '<div class="n9-cov ok">' + esc(cpName()) + ' is a current client. Normal check-ins take over from here. Every step stays below as the record.</div>';
+    else if(r){
+      const due = r.due && R.DONE.indexOf(r.status) < 0 ? day(r.due) + (r.due < todayYmd() ? ' (late)' : '') : '';
+      h += '<div class="n9-facts"><div><span>Owner</span><b>' + esc(ownerWords(r)) + '</b></div><div><span>Blocking</span><b' + (n9Blocking(r) !== 'Nothing' && r.status !== 'waiting' ? ' class="r"' : '') + '>' + esc(n9Blocking(r)) + '</b></div>' + (due ? '<div><span>Due</span><b' + (r.due < todayYmd() ? ' class="r"' : '') + '>' + esc(due) + '</b></div>' : '') + '</div>'
+        + '<div class="n9-next cj-next" data-step="' + esc(r.key) + '"><div class="k">' + (sel && sel !== v.next ? (R.DONE.indexOf(r.status) > -1 ? 'Done · ' : r.status === 'later' ? 'Coming up · ' : '') + 'Step ' + (R.NINE_STAGES.indexOf(r.def.stage) + 1) + ' <button class="linklike" data-n9a="pick" data-k="">back to the current step</button>' : 'Next action · step ' + (nextI + 1)) + '</div>'
+        + '<h4>' + esc(r.def.title) + '</h4>' + (r.status === 'later' ? '<div class="field-note">' + esc(r.why) + '</div>' : '')
+        + n9StepBody(r)
+        + (R.DONE.indexOf(r.status) > -1 && r.def.proof !== 'verified' ? '<div class="cj-actions"><button class="ghost" data-act="reopen-open">Go back to this step…</button></div>' + modeHtml(r) : '')
+        + '<div class="cj-err" data-err></div>'
+        + (r.def.howto && r.def.howto.length ? '<details class="cj-howto"><summary>Show me how</summary><ol>' + r.def.howto.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>' : '')
+        + '</div>';
+    }
+    h += n9Coverage();
+    const doneRows = v.rows.filter(x => R.DONE.indexOf(x.status) > -1);
+    if(doneRows.length) h += '<details><summary>Done so far (' + doneRows.length + ' of 9)</summary><ul>' + doneRows.map(x => '<li><b>' + (R.NINE_STAGES.indexOf(x.def.stage) + 1) + ' ' + esc(x.def.title) + '</b> · ' + esc(x.status === 'not_needed' ? 'not needed' : (x.st.completed_by_name || first(x.st.completed_by) || '') + (x.st.completed_at ? ', ' + when(x.st.completed_at) : '')) + ' · <button class="linklike" data-n9a="pick" data-k="' + esc(x.key) + '">see or change</button></li>').join('') + '</ul></details>';
+    h += '<div class="cj-every"><button class="linklike" onclick="cjToggleHist()">' + (CJ.hist ? 'Hide the history' : 'History') + '</button></div>' + (CJ.hist ? fullHtml() : '') + '</div>';
+    /* the profile's top line and Overview already say the one next action (profile-top.js reads CJ_STATE); the whole card
+       lives on the Start of Care tab, the one Start of Care section */
+    head.innerHTML = '';
+    const box = start || head; box.innerHTML = h;
+    wireForm(box); n9Wire(box);
+    try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
+  }
+  window.cjNinePreview = function(b){ return ninePreview(b); };
+  window.cjToggleHist = function(){ CJ.hist = !CJ.hist; render(); };
+  async function n9Call(body, btn){
+    if(btn){ btn.disabled = true; }
+    let d; try{ d = await call(Object.assign({ action:'apply', journey_id:CJ.data.journey.journey_id }, body)); }catch(e){ d = { error:e.message }; }
+    if(d.error && d.outcome !== 'saved'){ if(btn) btn.disabled = false; ccToast(d.error); return false; }
+    CJL.at = 0; await call({ action:'refresh', journey_id:CJ.data.journey.journey_id }).catch(() => null); await reload();
+    if(typeof myWorkRefresh === 'function'){ try{ if(typeof ccOpsRefresh === 'function') await ccOpsRefresh(); myWorkRefresh(); }catch(e){} }
+    return true;
+  }
+  function n9Wire(box){
+    const curKey = () => { const c = box.querySelector('.n9-next'); return c ? c.getAttribute('data-step') : null; };
+    box.querySelectorAll('[data-n9c]').forEach(el => { el.onchange = () => n9Call({ step_key:curKey(), op:'save', answer:{ [el.getAttribute('data-n9c')]:el.checked } }, el); });
+    box.querySelectorAll('[data-n9a]').forEach(el => { el.onclick = async (e) => {
+      e.preventDefault(); const a = el.getAttribute('data-n9a'), k = el.getAttribute('data-k'), key = curKey();
+      if(a === 'pick'){ N9.sel = k || null; N9.confirm = null; N9.out = null; CJ.flash = ''; render(); return; }
+      if(a === 'savetext'){ const inp = box.querySelector('[data-n9t="' + k + '"]'); const val = inp ? inp.value.trim() : ''; if(!val){ ccToast('Type it first.'); return; } CJ.flash = ''; await n9Call({ step_key:key, op:'save', answer:{ [k]:val } }, el); return; }
+      if(a === 'hand'){ N9.confirm = key + ':' + k; render(); return; }
+      if(a === 'handgo'){ const inp = box.querySelector('[data-n9r]'); const why = inp ? inp.value.trim() : ''; if(!why){ ccToast('Say how you know it is done.'); return; } N9.confirm = null; await n9Call({ step_key:key, op:'confirm_check', check:k, reason:why }, el); return; }
+      if(a === 'out'){ const val = el.getAttribute('data-v');
+        if(val === 'ready'){ if(await n9Call({ step_key:key, op:'complete', answer:{ outcome:'ready' } }, el)){ CJ.flash = '✓ Ready to Start. Next: Client Setup + Billing in AxisCare. The agreement can be signed any time before the first visit is confirmed.'; render(); } return; }
+        N9.out = val; render(); return; }
+      if(a === 'outgo'){ const o = k => { const x = box.querySelector('[data-n9o="' + k + '"]'); return x ? x.value.trim() : ''; };
+        if(N9.out === 'cannot'){ if(!o('why')){ ccToast('Write why we cannot accept.'); return; } if(await n9Call({ step_key:key, op:'complete', answer:{ outcome:'cannot', reason:o('why') } }, el)){ N9.out = null; render(); } return; }
+        if(!o('on') || !o('cb')){ ccToast('Say what we are waiting for and pick a check-back date.'); return; }
+        if(await n9Call({ step_key:key, op:'wait', waiting_on:(N9.out === 'follow_up' ? 'Follow-up: ' : 'Family not ready: ') + o('on'), check_back:o('cb') }, el)){ CJ.flash = 'Saved. It comes back to My Work on ' + day(o('cb')) + ', and nothing goes late meanwhile.'; N9.out = null; render(); } return; }
+    }; });
   }
   /* is a journey showing for the profile that's open? (the Overview keeps only what the journey doesn't say) */
   function hasJourney(){ return !!(CJ.data && CJ.data.journey && CJ.view && document.getElementById('cjHead') && document.getElementById('cjHead').innerHTML); }
@@ -688,6 +851,7 @@
   const leadOf = j => j && j.lead_id && typeof DATA !== 'undefined' ? (DATA.leads || []).find(l => String(l.id) === String(j.lead_id)) || null : null;
   function progressOf(j){
     if(!j) return 0; if(j.status === 'active') return 100;
+    if(j.catalog === 'nine') return Math.max(4, Math.round(((j.step_n || 1) - 1) / 9 * 100));
     const i = R.STAGES.indexOf(j.stage); return i < 0 ? 0 : Math.max(4, Math.round(i / (R.STAGES.length - 1) * 100));
   }
   /* the next thing in plain words: what's missing, not the step's name, when the Hub can tell */
@@ -743,11 +907,12 @@
       waitHtml = cqfWaitingHtml((window.__cqRows || []).filter(c => c && c.status !== 'complete'));
     }
     if(!js.length && !old.length) return waitHtml + '<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody is starting care right now. A new client appears here once someone has talked to them.</div>';
-    js.sort((a, b) => R.STAGES.indexOf(b.stage) - R.STAGES.indexOf(a.stage) || String(a.client_name).localeCompare(String(b.client_name)));
+    const rank = j => j.catalog === 'nine' ? (j.step_n || 1) / 9 : R.STAGES.indexOf(j.stage) / R.STAGES.length;
+    js.sort((a, b) => rank(b) - rank(a) || String(a.client_name).localeCompare(String(b.client_name)));
     const row = (name, href, pct, where, next, who, start, cls) => '<tr class="' + (cls || '') + '"><td><a href="' + href + '" class="cj-sc-name">' + name + '</a></td>'
       + '<td><div class="cj-sc-where"><div class="cj-bar"><i style="width:' + pct + '%"></i></div><span>' + esc(where) + '</span></div></td><td>' + next + '</td><td>' + esc(who) + '</td><td class="field-note">' + esc(start) + '</td></tr>';
     return waitHtml + '<div class="card" style="padding:0;overflow-x:auto;"><table class="cj-sc"><thead><tr><th>Client</th><th>Where</th><th>Next</th><th>Who</th><th>Start</th></tr></thead><tbody>'
-      + js.map(j => row(esc(j.client_name) + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : ''), '#p/' + esc(j.ref) + '/start' + (j.next ? '/' + esc(j.next.key) : ''), progressOf(j), j.stage_label || j.stage,
+      + js.map(j => row(esc(j.client_name) + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : ''), '#p/' + esc(j.ref) + '/start' + (j.next ? '/' + esc(j.next.key) : ''), progressOf(j), j.catalog === 'nine' ? 'Step ' + (j.step_n || 1) + ' of 9 · ' + (j.stage_label || '') : (j.stage_label || j.stage),
           '<span class="' + (j.stopped || (j.next && (j.next.status === 'blocked' || j.next.status === 'attention')) ? 'cj-red' : j.next && j.next.status === 'waiting' ? 'cj-wait' : '') + '">' + esc(plainNext(j)) + '</span>',
           personName((j.next && j.next.owner) || j.assigned_cc), j.target_start ? day(j.target_start) : '')).join('')
       + old.map(c => row(esc(c.client_name), 'javascript:void(0)" data-open-client="' + esc(String(c.axiscare_client_id || '')), 80, 'First week', esc('Finish the older First shift checklist'), c.caregiver_assigned_name ? String(c.caregiver_assigned_name).split(' ')[0] : '', '', 'cj-sc-old')).join('')
@@ -786,7 +951,19 @@
       + '<div class="cj-kv" style="align-items:center;">' + ROUTE_ROWS.map(([k, label]) => '<dt>' + esc(label) + '</dt><dd><select data-route="' + k + '"' + (can ? '' : ' disabled') + '><option value="">(nobody: the default, then whoever starts it)</option>'
         + people.map(p => '<option value="' + esc(lc(p.primary_email)) + '"' + (lc(routes[k]) === lc(p.primary_email) ? ' selected' : '') + '>' + esc(p.full_name) + '</option>').join('') + '</select></dd>').join('') + '</div>'
       + '<div class="field-note">A lead\'s own coordinator always comes first. A client routed while the payer wasn\'t known moves to that payer\'s person once the payer is answered. Anyone can hand a journey to someone else from its profile.</div>'
-      + (can ? '<div style="margin-top:8px;"><button class="secondary" onclick="cjSetRoutes(this)">Save who gets which payer</button> <span class="field-note" id="cjRouteMsg"></span></div>' : '');
+      + (can ? '<div style="margin-top:8px;"><button class="secondary" onclick="cjSetRoutes(this)">Save who gets which payer</button> <span class="field-note" id="cjRouteMsg"></span></div>' : '')
+      /* STAGE B (2026-10-17): the nine-step Start of Care. The switch is on the Admin page; the preview is here, for owners */
+      + '<div class="cj-k" style="margin:16px 0 6px;">Nine-step Start of Care</div>'
+      + '<div class="field-note">' + (st.soc_nine_steps_live === true ? 'On. New clients start on the nine steps, and every open journey has moved (or moves on the next check, every few minutes).' : 'Off. Turn it on from Admin, Switches, Clients. Before you do, see where each open client would land.') + '</div>'
+      + (can ? '<div style="margin-top:8px;"><button class="secondary" onclick="cjNinePreview(this)">Preview the move</button> <span class="field-note" id="cjNineMsg"></span></div><div id="cjNineList"></div>' : '');
+  }
+  async function ninePreview(b){
+    const box = document.getElementById('cjNineList'), msg = document.getElementById('cjNineMsg'); if(b) b.disabled = true; if(msg) msg.textContent = 'Reading every open journey and AxisCare…';
+    let d; try{ d = await call({ action:'place_nine', practice:true }); }catch(e){ d = { error:e.message }; }
+    if(b) b.disabled = false;
+    if(d.error){ if(msg) msg.textContent = 'Could not preview: ' + d.error; return; }
+    const js = d.journeys || []; if(msg) msg.textContent = js.length ? js.length + ' open journey' + (js.length === 1 ? '' : 's') + '. Nothing was changed.' : 'No open journeys to move.';
+    if(box) box.innerHTML = js.length ? '<table class="cj-sc" style="margin-top:8px"><thead><tr><th>Client</th><th>Now</th><th>Would land on</th><th>Why</th></tr></thead><tbody>' + js.map(x => '<tr><td>' + esc(x.client) + (x.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '') + '</td><td>' + esc(x.from || '') + '</td><td>' + esc(x.outcome === 'not_checked' ? 'Not checked (AxisCare did not answer)' : x.to) + '</td><td class="field-note">' + esc(x.why || '') + '</td></tr>').join('') + '</tbody></table>' : '';
   }
   async function setToggle(b){
     const on = !(((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).client_journey_live === true);
