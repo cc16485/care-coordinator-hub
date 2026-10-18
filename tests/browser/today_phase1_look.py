@@ -76,14 +76,16 @@ async()=>{
   ok('Done and Resolved items are in no lane', !card('res1') && !card('done1'));
 
   /* owner and time on every card; why */
-  ok('every card says whose it is and by when', $$('#myWorkWrap .wkcard').every(c=>/(Krystal|Unassigned|Samantha) · /.test(c.innerText)), $$('#myWorkWrap .wkcard').map(c=>c.innerText.slice(0,80)));
-  ok('"Krystal · by <time>"', /Krystal · by \d{1,2}:\d{2}\s?[AP]M/.test(card('due1').innerText), card('due1').innerText.slice(0,160));
+  ok('every card says whose it is and by when', $$('#myWorkWrap .wkcard').every(c=>/(Krystal|Unassigned|Samantha) · |was due |\nby |no time set/.test(c.innerText)), $$('#myWorkWrap .wkcard').map(c=>c.innerText.slice(0,80)));
+  /* 2026-10-17 (fix 5): my own card needs no name, just when */
+  ok('"by <time>" on my own card', /\nby \d{1,2}:\d{2}\s?[AP]M/.test(card('due1').innerText) && !/Krystal · by/.test(card('due1').innerText), card('due1').innerText.slice(0,160));
   ok('"Unassigned · needs owner"', /Unassigned · needs owner/.test(card('un1').innerText));
-  ok('late says when it was due and how late', /Krystal · was due .* · 1 day late/.test(card('late1').innerText), card('late1').innerText.slice(0,160));
+  ok('late says when it was due and how late', /was due .* · 1 day late/.test(card('late1').innerText), card('late1').innerText.slice(0,160));
   ok('why: unowned in my area', /Why you’re seeing this: Nobody owns this yet, and Client Care is your area\./.test(card('un1').innerText));
   ok('why: unowned with no area', /Nobody owns this, and it isn’t filed under an area yet, so every admin sees it\./.test(card('un_late').innerText));
   ok('why: handed to me, with the note', /Handed to you by Samantha Troutman: Call the daughter first/.test(card('handed').innerText));
-  ok('why: an automatic staffing alert', /You’re first on the scheduling alert list/.test(card('tk1').innerText));
+  /* 2026-10-17 (fix 5): the routine reason is no longer printed */
+  ok('why: the routine staffing-alert reason is not printed', !/You’re first on the scheduling alert list/.test(card('tk1').innerText));
   ok('no why line on my own ordinary work', !/Why you’re seeing this/.test(card('due1').innerText));
   ok('"I’ve got it" is gone; unowned cards offer Take it', !/I’ve got it/.test(txt()) && /Take it/.test(card('un1').innerText));
 
@@ -124,8 +126,9 @@ async()=>{
   const lateMine=opsLateFor('krystal@mo-care.com').map(i=>i.id).sort(), lateNo=opsLateUnowned().map(i=>i.id);
   ok('late for you: my past-due items, not parked ones, not other people’s', JSON.stringify(lateMine)===JSON.stringify(['late1','tk1']) && JSON.stringify(lateNo)===JSON.stringify(['un_late']), [lateMine,lateNo]);
   const pulse=$('#topbarPulse').innerText;
-  ok('header: "2 late for you" and "1 late, no owner"', /2\s*late for you/.test(pulse) && /1\s*late, no owner/.test(pulse) && !/overdue/.test(pulse.replace(/check-ins? overdue/,'')), pulse);
-  ok('My Work pill badge = late for you', $('#gb-mywork') ? $('#gb-mywork').textContent==='2' : true, $('#gb-mywork')&&$('#gb-mywork').textContent);
+  /* 2026-10-17 (fix 3): one headline number; something needs you now (the missed clock-in), so it says that */
+  ok('header: "1 needs you now" and "1 late, no owner"', /1\s*needs you now/.test(pulse) && !/late for you/.test(pulse) && /1\s*late, no owner/.test(pulse) && !/overdue/.test(pulse.replace(/check-ins? overdue/,'')), pulse);
+  ok('My Work pill badge = the same one number', $('#gb-mywork') ? $('#gb-mywork').textContent==='1' : true, $('#gb-mywork')&&$('#gb-mywork').textContent);
   renderOverviewTop(0,0);
   const c=opsTodayCounts();
   ok('greeting uses the same lanes and numbers', $('#todayHello').innerText.replace(/\s+/g,' ')==='You have '+c.act+' to act on now (2 late) and '+c.due+' due today. 1 late item has no owner.', [$('#todayHello').innerText, c]);

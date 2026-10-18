@@ -115,8 +115,10 @@ async()=>{
   ok('"Just for me" puts the question away for good', !W().querySelector('.dk-hint[data-for="'+G.id+'"]') && db.desk_lines.find(l=>l.id===G.id).link.nohint===true && !DATA.ops_items.some(x=>/Pattersons/.test(x.title||'')));
   // My Work card
   switchTab('mywork'); await sleep(400);
-  const wb=[...document.querySelectorAll('.wkcard[data-id="ops_w1"] button')].find(b=>/Jot on my desk/.test(b.textContent));
-  ok('My Work cards have "Jot on my desk"', !!wb);
+  /* 2026-10-17 (fix 5): Jot on my desk lives in the card's ⋯ menu */
+  document.querySelector('.wkcard[data-id="ops_w1"] .wkmore').click(); await sleep(150);
+  const wb=[...document.querySelectorAll('.ccpick-row')].find(b=>/Jot on my desk/.test(b.textContent));
+  ok('My Work cards have "Jot on my desk" (in the ⋯ menu)', !!wb);
   wb.click(); await sleep(150);
   const q=document.getElementById('dkQuick'); q.value='First ask Maria if she can do Thursday (fake)'; q.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); await sleep(400);
   const M=db.desk_lines.find(l=>/ask Maria/.test(l.body));
