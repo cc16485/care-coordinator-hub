@@ -331,6 +331,8 @@
       + '</dl>';
     if(!done && r.status !== 'later') h += formHtml(r);
     else if(done) h += '<div class="cj-actions">' + (owner() || r.st.state !== 'exception' ? '<button class="ghost" data-act="reopen-open">Reopen…</button>' : '') + '</div>' + modeHtml(r);
+    /* stage A (2026-10-17): a step the Hub checks, reopened by a person, waits for them; this hands it back to the Hub */
+    if(!done && def.proof === 'verified' && r.st.evidence && r.st.evidence.hold_auto) h += '<div class="cj-actions"><span class="field-note">Reopened by ' + esc(r.st.evidence.hold_auto.by || 'someone') + ': the Hub won\'t tick this until you finish it or</span> <button class="ghost" data-act="recheck">Let the Hub check again</button></div>';
     if(def.howto && def.howto.length) h += '<details class="cj-howto"' + (CJ.mode === 'howto' ? ' open' : '') + '><summary>Show me how</summary><ol>' + def.howto.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>';
     return h + '</div>';
   }
@@ -488,6 +490,7 @@
     else if(a === 'unblock') body = Object.assign(base, { op:'unblock' });
     else if(a === 'na'){ if(!m('reason')){ say('Say why.'); return; } body = Object.assign(base, { op:'not_needed', reason:m('reason') }); }
     else if(a === 'reopen'){ if(!m('reason')){ say('Say why.'); return; } body = Object.assign(base, { op:'reopen', reason:m('reason') }); }
+    else if(a === 'recheck') body = Object.assign(base, { op:'recheck' });
     else if(a === 'assign') body = Object.assign(base, { op:'assign', email:m('email') });
     else if(a === 'exc'){ if(!m('reason')){ say('An owner exception needs a written reason.'); return; } body = Object.assign(base, { op:'exception', kind:m('kind'), reason:m('reason') }); }
     if(!body) return;
@@ -705,7 +708,7 @@
       if(n.key === 'team.staffed' && f.unassigned) return n.title + ': ' + f.unassigned + ' of ' + f.total + ' shift' + (f.total === 1 ? '' : 's') + ' still ' + (f.unassigned === 1 ? 'has' : 'have') + ' no caregiver'; }
     return n.title;
   }
-  const PAYER_SHORT = { private:'Private Pay', medicaid:'Medicaid', va:'VA', ltc:'LTC', other:'Other' };
+  const PAYER_SHORT = { private:'Private Pay', medicaid:'Medicaid', va:'VA', ltc:'LTC', guide:'GUIDE', other:'Other' };
   /* My Work's card for a client in motion: progress, the next thing in plain words, when, Open */
   function workCard(it, focused){
     const j = journeyFor({ journey_id:it.journey_id }), k = it.card_kind || 'next', pct = progressOf(j);
@@ -771,7 +774,7 @@
   /* ── Settings: the switch, and the routing RULE (which Care Coordinator gets a new client nobody has picked, by payer) ── */
   const CJ_ON = 'Turn on client journeys?\n\nEvery new client\'s start of care runs as one journey on their profile: the next required step, who owns it, and proof on each step. Care Coordinators see their next steps on My Work under Clients in motion. A lead starts its journey once someone has talked to them, and goes to the Care Coordinator for its payer (set in Hub settings, Client journeys). The older Start of Care checklist is no longer offered to anyone new; clients who already have one keep it.\n\nNobody is texted or emailed.';
   const CJ_OFF = 'Turn off client journeys? Journeys stop showing to Care Coordinators and nothing new starts by itself. Every step and its history is kept, and comes back when it is turned on again.';
-  const ROUTE_ROWS = [['medicaid', 'Medicaid IHS / HCBS'], ['va', 'VA Community Care'], ['private', 'Private Pay'], ['ltc', 'Long-Term Care Insurance'], ['other', 'Other'], ['unknown', 'Payer not known yet']];
+  const ROUTE_ROWS = [['private', 'Private Pay'], ['va', 'VA Community Care'], ['ltc', 'Long-Term Care Insurance'], ['guide', 'Medicare GUIDE'], ['other', 'Other'], ['unknown', 'Payer not known yet (and any payer with no route)'], ['medicaid', 'Medicaid IHS / HCBS (ending)']];
   function setFill(){
     const box = document.getElementById('cjSet'); if(!box) return;
     const st = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, on = st.client_journey_live === true, routes = st.client_journey_routing || {};

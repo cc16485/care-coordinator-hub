@@ -7065,7 +7065,7 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Other</option></select>
+<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
 <div class="field-note" id="assess_payer_note"></div>
 </div>
 <div>
@@ -7298,14 +7298,14 @@ The HomeTogether team</pre>
 <script src="scheduling-guide.js?v=2"></script>
 <script src="new-hires.js?v=2"></script>
 <script src="live-calendar.js?v=4"></script>
-<script src="journey-rules.js?v=2"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
+<script src="journey-rules.js?v=3"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=18"></script>
+<script src="client-journey.js?v=19"></script>
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
@@ -10527,7 +10527,9 @@ async function cpSendChange(){
    edited in one place. Saves to the same inquiry fields the intake form writes; the steps check off
    exactly as they do on the Start tab (socToggleStep). A mismatch between the two is shown, and a
    person fixes it: nothing is changed on its own. */
-const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['cds','CDS'],['medicaid','Medicaid (IHS)']];
+/* stage A (2026-10-17): Medicare GUIDE is a payer here too; a payer the list doesn't know is kept as it is, never saved over as blank */
+const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insurance'],['va','VA'],['guide','Medicare GUIDE'],['cds','CDS'],['medicaid','Medicaid (IHS, ending 11/16)']];
+function cpPayersFor(v){ return v&&!CP_PAYERS.some(x=>x[0]===v)?CP_PAYERS.concat([[v,String(v)]]):CP_PAYERS; }
 const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
 function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
 function cpRenderPayer(){
@@ -10547,7 +10549,7 @@ function cpRenderPayer(){
   box.innerHTML='<div class="card" style="padding:14px 18px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span><span class="field-note" id="cpPayMsg"></span></div>'
     +'<div class="grid2">'
-      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(CP_PAYERS,l.funding_source)+'</select></div>'
+      +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(cpPayersFor(l.funding_source),l.funding_source)+'</select></div>'
       +'<div><label '+lbl+'>Price quoted</label><div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="cpPayQuoted" style="width:auto;"'+(l.price_quoted?' checked':'')+'><input id="cpPayAmount" placeholder="e.g. $35/hr" value="'+esc(l.quoted_price_amount||'')+'" style="flex:1;"></div></div>'
     +'</div>'
     +'<div id="cpPayMed" style="'+(med?'':'display:none;')+'margin-top:12px;border-top:1px solid var(--border);padding-top:12px;">'
@@ -13625,7 +13627,7 @@ function openAssessmentModal(id, fromLead){
   /* One profile, step 4: the payer has ONE editor, the intake (the Payer tab). When the family has an
      inquiry, the assessment shows its payer read-only; only an assessment with no inquiry types its own. */
   { const lp = fromLead || ((a&&a.lead_id) ? (DATA.leads||[]).find(l=>l.id===a.lead_id) : null);
-    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS' };
+    const PAYER_LABEL = { medicaid:'Medicaid', private:'Private Pay', ltc:'LTC Insurance', va:'VA', cds:'CDS', guide:'Medicare GUIDE' };
     const sel = document.getElementById('assess_payer'), note = document.getElementById('assess_payer_note');
     const fromIntake = lp && lp.funding_source ? (PAYER_LABEL[lp.funding_source] || 'Other') : '';
     sel.value = fromIntake || (a&&a.payer) || '';
