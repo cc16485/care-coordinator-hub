@@ -4558,6 +4558,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" onclick="lrSave(this)">Save the minutes</button><span class="field-note" id="lrSaved"></span></div>
 </div>
 <p class="hint" style="margin-top:6px;">The owner's text at 5 minutes is fixed. Who the backup is comes from the Operations duty window (Dashboard → Responsible now → Manage, the Backup person); with none set, Owner Escalation is told at 15. Texts go to the mobile numbers on the Team page (Owners Hub → Admin → Team).</p>
+<!-- Lead turns (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18): who owns a new
+     lead, by turn. ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live; only Samantha or Zachary can change it. -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Lead turns</div>
+<p class="hint">Each new lead goes to the next Care Coordinator in this list, so everyone gets the same number of chances. Someone switched off or out on the Team page is skipped, with no makeup turn. Asked for by name and returning clients go to that person and use their turn. Taking an inquiry card is helping: the lead stays its owner's. Only Samantha or Zachary can change this or change a lead's owner. Nothing here contacts a family.</p>
+<div id="ltSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div id="ltPeople"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <input id="ltAdd" placeholder="First name" style="max-width:160px;"><button class="secondary" onclick="ltAddPerson(this)">Add to the list</button>
+  <button class="secondary" id="ltToggleBtn" onclick="ltToggle(this)">Turn on lead turns</button>
+  <span class="field-note" id="ltSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -6914,7 +6925,13 @@ The HomeTogether team</pre>
 <div id="lead_stage_ro" class="field-note" style="padding:8px 0;">New</div>
 <div class="field-note" style="font-size:10.5px;">Changes from what happens: a logged conversation, a booked assessment, They said yes, Mark lost. (Clean-up 6.7)</div>
 </div>
-<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" style="font-size:10.5px;margin-top:2px;">Krystal for every payer for now (the only care coordinator). Change it if someone else takes this family.</div></div>
+<div><label>Assigned Coordinator</label><input id="lead_assigned_coordinator" placeholder="auto-fills from funding source"><div class="field-note" id="lead_owner_note" style="font-size:10.5px;margin-top:2px;">Krystal for every payer for now (the only care coordinator). Change it if someone else takes this family.</div>
+<!-- Lead turns (Stage 1, policy approved 2026-10-18): shown instead of the box above on a NEW lead while turns are on -->
+<div id="lead_turn_box" style="display:none;">
+<select id="lead_turn_how" onchange="leadTurnFormUI()"><option value="turn">Next up</option><option value="asked">Asked for by name</option><option value="returning">Returning client</option></select>
+<select id="lead_turn_who" style="display:none;margin-top:6px;"></select>
+<div class="field-note" id="lead_turn_note" style="font-size:10.5px;margin-top:2px;"></div>
+</div></div>
 <div><label>AxisCare Client ID (once converted)</label><input id="lead_axiscare_client_id"></div>
 </div>
 
@@ -7314,7 +7331,7 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=2"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=17"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=18"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7380,7 +7397,7 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=14"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=15"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=9"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
@@ -9578,6 +9595,34 @@ function leadWaitingUI(fromChange){
   if(fromChange&&r.value&&!d.value&&typeof LeadRules!=='undefined') d.value=LeadRules.defaultCheckBack(r.value, LeadRules.ymd(new Date()))||'';
   if(fromChange&&!r.value) d.value='';
 }
+/* LEAD TURNS (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18).
+   ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live. The rules live in lead-rules.js (the server
+   runs the same file in lead-watch), so the Hub and the server agree on who is next up. Out = the Team page's out_until. */
+function leadTurns(){ return (typeof LeadRules!=='undefined'&&LeadRules.rotationSettings)?LeadRules.rotationSettings(DATA.ops_settings||{}):{ live:false, people:[] }; }
+function leadTurnsOn(){ const r=leadTurns(); return r.live&&r.people.some(p=>p.on); }
+function leadTurnIsOut(name){
+  const t=today(), f=String(name||'').trim().split(/\s+/)[0].toLowerCase();
+  return !!f&&(DATA.coordinator_staff||[]).some(s=>s&&String(s.out_until||'').slice(0,10)>=t&&String(s.name||'').trim().split(/\s+/)[0].toLowerCase()===f);
+}
+function leadNextUp(){ return leadTurnsOn()?LeadRules.nextUp(DATA.leads||[], DATA.ops_settings||{}, { isOut:leadTurnIsOut }):null; }
+/* the form: a new lead shows "Next up: Angiel" (or asked for by name / returning client); an existing lead's owner box is
+   read-only unless you are Samantha or Zachary */
+function leadTurnFormUI(){
+  const on=leadTurnsOn(), isNew=!String((document.getElementById('lead_id')||{}).value||'').trim();
+  const box=document.getElementById('lead_turn_box'), inp=document.getElementById('lead_assigned_coordinator'), note=document.getElementById('lead_owner_note');
+  if(!box||!inp) return;
+  const showBox=on&&isNew;
+  box.style.display=showBox?'':'none'; inp.style.display=showBox?'none':''; if(note) note.style.display=showBox?'none':'';
+  inp.readOnly=on&&!isNew&&!ccIsOwner();
+  if(note&&on&&!isNew) note.textContent=ccIsOwner()?'Changing the owner asks for a reason, kept in the lead’s history. It does not count as a turn.':'Only Samantha or Zachary can change who owns a lead. Helping never changes it.';
+  if(!showBox) return;
+  const how=document.getElementById('lead_turn_how'), who=document.getElementById('lead_turn_who'), tn=document.getElementById('lead_turn_note');
+  const nx=leadNextUp(), people=leadTurns().people;
+  if(how&&how.options[0]) how.options[0].textContent='Next up: '+(nx||'nobody right now');
+  if(who){ const keep=who.value; who.innerHTML=people.map(p=>'<option value="'+escapeHtmlComms(p.name)+'">'+escapeHtmlComms(p.name)+'</option>').join(''); if(keep) who.value=keep;
+    who.style.display=how&&how.value!=='turn'?'':'none'; }
+  if(tn) tn.textContent=how&&how.value!=='turn'?'It counts as that person’s turn.':(nx?'Leads take turns. The next one goes to the other Care Coordinator.':'Nobody is in the turn list right now, so this lead goes to the payer default.');
+}
 function openLeadModal(id){
   if(window.CallLead) CallLead.clearForm();   /* Make this a lead: a form opened any other way has no call marks */
   if(typeof lpiRelease==='function') lpiRelease('form');   /* Gate 1b-2 lock: a Lead intake chapter hands its sections back first */
@@ -9585,6 +9630,8 @@ function openLeadModal(id){
   document.getElementById('leadModalTitle').textContent = id ? 'Edit Lead' : 'Add Lead';
   document.getElementById('lead_id').value = id || '';
   leadFormFill(l);
+  { const th=document.getElementById('lead_turn_how'); if(th) th.value='turn'; }
+  try{ leadTurnFormUI(); }catch(e){}
   { const ro=document.getElementById('lead_stage_ro'); if(ro){ try{ ro.innerHTML=id?ccStageChip(ccLeadStage(l)):'New'; }catch(e){ ro.textContent=l.status||'New'; } } }
   /* what shows depends on the answers (these only show and hide; they never change a value) */
   toggleClientNameFields(!!l.client_name_not_provided);
@@ -12500,14 +12547,35 @@ async function saveLead(opts){
   const record = Object.assign({ id }, leadFormRead(), {
     created_at: (DATA.leads.find(x=>x.id===id)||{}).created_at || new Date().toISOString(),
   });
-  record.assigned_coordinator = record.assigned_coordinator || PAYER_COORDINATOR[record.funding_source] || '';
   const idx = DATA.leads.findIndex(x=>x.id===id);
+  /* Lead turns (Stage 1, policy approved 2026-10-18): while turns are on the form never changes an owner by itself.
+     A new lead gets its owner by turn below; an owner change is Samantha's or Zachary's, with a reason. Off: as before. */
+  const turnsOn=leadTurnsOn(), prevOwner=idx>=0?String(DATA.leads[idx].assigned_coordinator||'').trim():'';
+  const wantOwner=String(record.assigned_coordinator||'').trim();
+  if(!turnsOn) record.assigned_coordinator = record.assigned_coordinator || PAYER_COORDINATOR[record.funding_source] || '';
+  else record.assigned_coordinator = prevOwner;
   // Merge over the existing record — the intake form doesn't know about
   // profile-side fields (comm_log, AI summary, attributes, docs, AxisCare
   // link) and must never wipe them.
   /* Stage 0: the form's helper fields fold into desired_start / schedule / waiting here (LeadRules.compose) */
   const merged = leadFormCompose(Object.assign({}, idx>=0?DATA.leads[idx]:{ status:'New' }), record);
   if(merged.waiting&&typeof LeadRules!=='undefined'){ const p=LeadRules.waitingProblems(merged.waiting); if(p.length){ alert(p.join('\n')); return; } }
+  let turnNote='';
+  if(turnsOn){
+    const a=ccActor()||{};
+    if(idx<0||!prevOwner){
+      const how=String((document.getElementById('lead_turn_how')||{}).value||'turn');
+      const who=how==='turn'||idx>=0?leadNextUp():String((document.getElementById('lead_turn_who')||{}).value||'');
+      if(!who&&how!=='turn'){ alert('Pick who the family asked for.'); return; }
+      if(who){ LeadRules.giveTurn(merged, who, { how:idx>=0?'turn':how, by:a.email||'', leads:DATA.leads||[] }); turnNote=who+'’s lead'+(how==='turn'||idx>=0?' (next up).':' ('+LeadRules.TURN_HOW[how]+').'); }
+      else { merged.assigned_coordinator=PAYER_COORDINATOR[merged.funding_source]||''; turnNote='Nobody is in the turn list right now, so this lead went to '+(merged.assigned_coordinator||'nobody')+'.'; }
+    } else if(wantOwner&&wantOwner.split(/\s+/)[0].toLowerCase()!==prevOwner.split(/\s+/)[0].toLowerCase()){
+      if(!ccIsOwner(a.email)){ alert('Only Samantha or Zachary can change who owns a lead. Everything else on the form was saved.'); }
+      else { const why=await ccPrompt('Why is this lead moving from '+prevOwner+' to '+wantOwner+'? (kept in its history)','');
+        const r=LeadRules.changeOwner(merged, wantOwner, { by_owner:true, by:a.email||'', why:why||'' });
+        if(r.error){ alert(r.error+' The owner was not changed; everything else on the form was saved.'); } }
+    }
+  }
   /* Step 2: a new AxisCare id is checked side by side BEFORE saving, and a
      lead already connected to a client keeps its id (changing who a Journey
      belongs to is an Owner / Decision correction, not a form edit). */
@@ -12555,6 +12623,7 @@ async function saveLead(opts){
   /* Gate 1b-0: an open profile of this lead redraws, so its Payer tab can't save old values back */
   if(typeof cpOpen==='function'&&cpOpen()&&lpLead&&lpLead.id===id){ renderLeadProfile(); cpRenderPayer(); }
   if(ckNote){ if(typeof ccToast==='function') ccToast('Saved. '+ckNote); else alert('Saved. '+ckNote); }
+  else if(turnNote&&typeof ccToast==='function') ccToast('Saved. '+turnNote);
 }
 /* ===================== STEP 2 · which AxisCare client is this lead? =====================
    (2026-09-26, Lead to Client Plan.) A coordinator deliberately entering the
@@ -17995,8 +18064,51 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Lead turns settings (Stage 1, policy 2026-10-18). The list order is the turn order. Owners only. */
+function ltSetFill(){
+  const now=document.getElementById('ltSetNow'), box=document.getElementById('ltPeople'), b=document.getElementById('ltToggleBtn'); if(!now||!box) return;
+  const r=leadTurns(), owner=ccIsOwner(), esc=escapeHtmlComms, nx=r.people.some(p=>p.on)?LeadRules.nextUp(DATA.leads||[], DATA.ops_settings||{}, { isOut:leadTurnIsOut }):null;
+  now.innerHTML=(r.live?'<b style="color:#1E8449;">On.</b> New leads get their owner by turn. ':'<b style="color:#B7791F;">Off.</b> New leads get their owner the old way (the payer default). ')
+    +(r.people.length?'Next up'+(r.live?'':' when it is on')+': <b>'+esc(nx||'nobody (everyone is off or out)')+'</b>.':'Add the Care Coordinators who take turns.')
+    +(owner?'':' Only Samantha or Zachary can change this.');
+  box.innerHTML=r.people.map((p,i)=>'<div style="display:flex;gap:10px;align-items:center;padding:4px 0;"><label style="display:flex;gap:6px;align-items:center;min-width:180px;"><input type="checkbox" style="width:auto;margin:0;"'+(p.on?' checked':'')+(owner?'':' disabled')+' onchange="ltSetOn('+i+', this.checked)"> '+esc(p.name)+'</label>'
+    +'<span class="field-note">'+(leadTurnIsOut(p.name)?'out (Team page), skipped':p.on?'taking leads':'not taking leads')+'</span>'
+    +(owner&&i>0?'<button class="linklike" onclick="ltMoveUp('+i+')">Move up</button>':'')+(owner?'<button class="linklike" onclick="ltRemove('+i+')">Remove</button>':'')+'</div>').join('');
+  if(b){ b.textContent=r.live?'Turn off lead turns':'Turn on lead turns'; b.style.display=owner?'':'none'; }
+  const add=document.getElementById('ltAdd'); if(add){ add.style.display=owner?'':'none'; if(add.nextElementSibling) add.nextElementSibling.style.display=owner?'':'none'; }
+}
+async function ltSavePeople(people, what){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change lead turns.'); return; }
+  const sv=document.getElementById('ltSaved');
+  const out=await tkMerge((m)=>{ m.lead_rotation=Object.assign({}, m.lead_rotation||{}, { people }); return ['lead turns: '+what]; }, 'lead turns');
+  if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  ltSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
+function ltPeopleNow(){ return leadTurns().people.map(p=>({ name:p.name, on:p.on })); }
+function ltSetOn(i, on){ const p=ltPeopleNow(); if(!p[i]) return; p[i].on=!!on; ltSavePeople(p, p[i].name+(on?' taking leads':' not taking leads')); }
+function ltMoveUp(i){ const p=ltPeopleNow(); if(i<1||!p[i]) return; const t=p[i-1]; p[i-1]=p[i]; p[i]=t; ltSavePeople(p, 'order '+p.map(x=>x.name).join(', ')); }
+async function ltRemove(i){ const p=ltPeopleNow(); if(!p[i]) return; if(!(await ccConfirm('Take '+p[i].name+' out of the lead turns list? Their leads stay theirs.'))) return; const n=p[i].name; p.splice(i,1); ltSavePeople(p, n+' removed'); }
+function ltAddPerson(){
+  const el=document.getElementById('ltAdd'), n=String((el||{}).value||'').trim().split(/\s+/)[0]; if(!n) return;
+  const p=ltPeopleNow(); if(p.some(x=>x.name.toLowerCase()===n.toLowerCase())){ alert(n+' is already on the list.'); return; }
+  p.push({ name:n.charAt(0).toUpperCase()+n.slice(1), on:true }); if(el) el.value=''; ltSavePeople(p, n+' added');
+}
+async function ltToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn lead turns on or off.'); return; }
+  const r=leadTurns(), on=!r.live;
+  if(on&&!r.people.some(p=>p.on)){ alert('Add at least one Care Coordinator who is taking leads first.'); return; }
+  const ok=await ccConfirm(on?'Turn on lead turns?\n\nFrom now on:\n· each new lead goes to whoever is next up ('+(LeadRules.nextUp(DATA.leads||[], DATA.ops_settings||{}, { isOut:leadTurnIsOut })||'nobody')+' first)\n· Take it on an inquiry card means helping: the lead stays its owner’s\n· someone out on the Team page is skipped, and their leads stay theirs (the person on duty makes first contact)\n· only Samantha or Zachary can change a lead’s owner, with a reason\n\nNothing is sent to any family.'
+    :'Turn off lead turns? New leads go back to the old way (the payer default), and Take it moves an inquiry to whoever takes it.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.lead_rotation_live=on; if(on&&!m.lead_rotation_live_since) m.lead_rotation_live_since=new Date().toISOString(); return ['lead turns '+(on?'ON':'OFF')]; }, 'lead turns');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  ltSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
+  try{ ltSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -28360,7 +28472,11 @@ function opsWhyHere(it){
   }
   if(o!==me){
     if(opsEscalatedToMe(it, me)) return 'Escalated to you (Owner Escalation): '+String((it.escalation||{}).why||'')+'. It stays '+first(o)+'’s unless you take it.';
-    if(String(it.help_from||'').toLowerCase()===me) return it.helping_since?('You’re helping '+first(o)+'. It stays '+first(o)+'’s.'):(first(o)+' asked you for help. It stays '+first(o)+'’s.');
+    /* Lead turns (Stage 1): on an inquiry card that is not yours, the line for a first call made for the owner */
+    const intro=(it.kind==='new_lead'&&String(it.id||'').indexOf('ops_lead_')===0&&typeof leadTurnsOn==='function'&&leadTurnsOn())
+      ?' Calling for '+first(o)+'? Introduce '+first(o)+' as their Care Coordinator.':'';
+    if(String(it.help_from||'').toLowerCase()===me) return (it.helping_since?('You’re helping '+first(o)+'. It stays '+first(o)+'’s.'):(first(o)+' asked you for help. It stays '+first(o)+'’s.'))+intro;
+    if(intro) return first(o)+'’s lead.'+intro;
     return '';
   }
   const oh=Array.isArray(it.owner_history)?it.owner_history:[];
@@ -28404,6 +28520,20 @@ async function opsTakeIt(id){
   if(was===me) return opsClaim(id);
   const wasName=was?(it.owner_name||opsOwnerName(was)||was):'';
   const at=new Date().toISOString();
+  /* Lead turns (Stage 1, policy 2026-10-18): on an inquiry card, taking it is helping. You make the first contact; the
+     lead and its card stay the owner's ("helping never changes ownership"). Off: as before, it becomes yours. */
+  if(was&&leadTurnsOn()&&it.kind==='new_lead'&&String(it.id||'').indexOf('ops_lead_')===0){
+    it.help_from=me; it.helping_since=at; it.help_asked_at=it.help_asked_at||at;
+    it.also_for=[...new Set([...(Array.isArray(it.also_for)?it.also_for:[]), me])];
+    if(it.escalation && !it.escalation.cleared_at){ it.escalation.cleared_at=at; it.escalation.cleared_why='a teammate is helping'; }
+    opsLog(it, (a.name||me)+' is making first contact for '+wasName+' (it stays '+String(wasName).split(' ')[0]+'’s)');
+    opEvent('item_helped',{item:it, summary:(a.name||me)+' is helping '+wasName+' with '+(it.about||it.title||'an inquiry')});
+    await persist('ops_items',it);
+    const l=(DATA.leads||[]).find(x=>x&&String(x.id)===String(it.source_id));
+    if(l){ LeadRules.noteHelper(l, a.name||me, { what:'first contact', by:me, at }); await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} }
+    ccToast('✓ You’re helping '+String(wasName).split(' ')[0]+'. '+(l?LeadRules.ownerIntro(l):'It stays '+String(wasName).split(' ')[0]+'’s.'));
+    myWorkRefresh(); return;
+  }
   it.owner=me; it.owner_name=a.name||opsOwnerName(me)||me;
   it.claimed_by=me; it.claimed_by_name=a.name; it.claimed_at=at;
   if(it.sub_state!=='waiting'){ it.sub_state='working'; if(!it.started_at) it.started_at=at; }
@@ -35224,7 +35354,7 @@ function renderLeadsStarts(){
     LeadsBoard.state.filter=map[LS.filter]||'All'; LS.filter='All';
   }
   const drafts=(DATA.post_call_followups||[]).filter(f=>f&&f.status==='pending_approval').length;
-  LeadsBoard.render(every, { draftCount:drafts });
+  LeadsBoard.render(every, { draftCount:drafts, nextUp:(typeof leadTurnsOn==='function'&&leadTurnsOn())?(leadNextUp()||'Nobody'):'' });
 }
 /* ONE SET OF STAGE WORDS (Client path step 2, her approval 2026-09-28): every screen names a
    family's place in one of six stages. They sit ON TOP of the facts each screen already reads:
