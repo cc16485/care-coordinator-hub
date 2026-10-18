@@ -523,6 +523,18 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('board (on) · after the second try with no date: No next step, red', (b => b.reason === 'no_next_step' && b.when.tone === 'red')(R.boardRow(two, ctxOn)), R.boardRow(two, ctxOn));
 }
 
+/* time off and coverage never count (audit step 2, 2026-10-18) */
+{
+  ck('fair counts · off unless exactly true', R.fairCountsOn({ fair_counts_live:true }) && !R.fairCountsOn({ fair_counts_live:'yes' }));
+  const a = { id:'x1', created_at:'2026-10-06T14:00:00Z', assigned_coordinator:'Angiel' }, b = { id:'x2', created_at:'2026-10-06T14:00:00Z', assigned_coordinator:'Angiel' };
+  R.stampRung(a, 'owner', { owner:'ang@mo-care.com', excused:'out' }, '2026-10-06T14:05:00Z'); R.stampRung(a, 'manager', { owner:'ang@mo-care.com', excused:'out' }, '2026-10-06T14:30:00Z');
+  R.stampRung(b, 'owner', { owner:'ang@mo-care.com' }, '2026-10-06T14:05:00Z'); R.stampRung(b, 'manager', { owner:'ang@mo-care.com' }, '2026-10-06T14:30:00Z');
+  ck('fair counts · an excused stamp says why; a normal one does not', a.rungs.owner_excused === 'out' && a.speed_miss.excused === 'out' && !b.rungs.owner_excused && !b.speed_miss.excused, [a, b]);
+  const n = R.ownerNumbers([a, b], R.responseHours({}), { now:'2026-10-07T15:00:00Z', days:30, names:{ 'ang@mo-care.com':'Angiel Rose' } });
+  const ang = n.now.by_owner.find(o => o.owner === 'Angiel') || {};
+  ck('fair counts · the team table counts only the normal one: 1 late, 1 miss, 1 excused', ang.late === 1 && ang.misses === 1 && ang.excused === 1, n.now.by_owner);
+}
+
 /* the Hub page and the server run the same file (STAFFING_ROOT points at another Staffing checkout, e.g. a worktree) */
 const serverCopy = path.join(process.env.STAFFING_ROOT || path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub'), 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
