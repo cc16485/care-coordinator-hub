@@ -76,6 +76,17 @@
   const needsConsult = a => protectedWords(a).length > 0;
   const consultDone = a => !!(a && a.samantha_consulted_at);
 
+  /* HR step 6 (2026-10-18): what must be on a write-up before it can be approved or issued (decision 1 and the build
+     plan: "evidence, handbook wording, the employee's explanation, and the protected-situation check, all required").
+     Returns the missing items in words, in order; an empty list means it is complete. */
+  const REQUIRED = [
+    ['facts', 'the facts checked against the record', (a) => !!(a && a.facts_checked_at)],
+    ['handbook', 'the handbook section', (a) => !!(a && a.handbook && String(a.handbook.section || '').trim())],
+    ['explanation', 'the caregiver\'s side', (a) => !!(a && a.explanation && (a.explanation.declined || String(a.explanation.text || '').trim()) && String(a.explanation.asked_on || '').trim())],
+    ['protected', 'the protected-situation check', (a) => !!(a && Array.isArray(a.protected))],
+  ];
+  function missingBeforeDecision(a) { return REQUIRED.filter((r) => !r[2](a)).map((r) => r[1]); }
+
   /* who: { email, owner (holds approve_discipline) }. Returns { ok, why, consult }. why is said to the person when
      ok is false; consult is true when the only thing missing is Samantha's consult. */
   function canApprove(a, who) {
@@ -83,6 +94,8 @@
     const email = low(who.email);
     if (!a || !email) return { ok: false, why: 'Sign in again to approve this.' };
     if (!who.owner) return { ok: false, why: 'Zach (or Samantha) approves a ' + levelWords(a) + '.' };
+    const miss = missingBeforeDecision(a);
+    if (miss.length) return { ok: false, missing: miss, why: 'Before this can be approved, fill in: ' + miss.join(', ') + '. Open it in HR, Formal cases.' };
     if (needsConsult(a) && !consultDone(a) && email !== CONSULT_WITH)
       return { ok: false, consult: true, why: 'Talk to Samantha first: this case involves ' + protectedWords(a).join(', ')
         + '. She marks the consult on it, then you can approve.' };
@@ -146,6 +159,6 @@
   }
 
   return { shortNotice, centralLocal, TEAM_LEVELS, LEADERSHIP_LEVELS, FIRING_LEVELS, FIRING_APPROVERS, HR_LEAD, CONSULT_WITH,
-    PROTECTED, protectedWords, needsConsult, consultDone,
+    PROTECTED, protectedWords, needsConsult, consultDone, missingBeforeDecision, REQUIRED,
     tier, isFiring, priorWritten, startedBy, canApprove, whoApproves, levelWords, approverFor, samePerson };
 });

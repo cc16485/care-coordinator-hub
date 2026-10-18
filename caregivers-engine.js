@@ -3203,9 +3203,110 @@ async function noWriteup(cg, triggerIdx){
   }
   renderAttendance();
 }
+/* ── HR step 6 (2026-10-18): what a write-up needs before it can be approved or issued ──────────────────────────────
+   1 the facts checked against the record, 2 the handbook section (from the approved rulebook), 3 the caregiver's side
+   (what they said, or that they chose not to give it, and when and how they were asked), 4 the protected-situation
+   check. writeup-rules.js missingBeforeDecision decides; the approval refuses until all four are in. Every save is in
+   the database's audit trail (hr_formal_log). Draft with AI asks the hr-draft service and only fills the text box:
+   nothing is saved until Save. */
+let WU_HB=null;
+async function wuHandbookSections(){
+  if(WU_HB) return WU_HB;
+  try{ const { data }=await sb.from('app_data').select('data').eq('key','hr_handbook').maybeSingle();
+    const seen={}; WU_HB=((data&&data.data)||[]).filter(r=>r&&r.t==='rule').map(r=>String(r.s)).filter(x=>!seen[x]&&(seen[x]=1)); }catch(e){ WU_HB=[]; }
+  return WU_HB;
+}
+function wuDefaultSection(a){
+  const c=String(a.category||'').toLowerCase()+' '+String(a.reason||'').toLowerCase();
+  if(/note|documentation/.test(c)) return '2K Documentation & Daily Care Notes';
+  if(/clock|evv|punch/.test(c)) return '2D Clocking In and Out (Electronic Visit Verification - EVV)';
+  if(/attendance|late|tard|call|no-call|ncns/.test(c)||(a.event_ids||[]).length) return '2U Attendance & Dependability';
+  return '';
+}
+function wuCheckHtml(a){
+  const esc=creqEsc, R=(typeof WriteupRules!=='undefined')?WriteupRules:null, miss=R?R.missingBeforeDecision(a):[];
+  const ok=x=>'<span style="color:#166534;font-weight:700">✓</span> ', no='<span style="color:#b91c1c;font-weight:700">○</span> ';
+  const ex=a.explanation||{}, ro=a.status!=='draft'&&a.status!=='pending_approval';
+  const dis=ro?' disabled':'';
+  const sec=(a.handbook&&a.handbook.section)||wuDefaultSection(a);
+  const pw=R&&R.protectedWords?R.protectedWords(a):[];
+  return '<div style="border:1px solid var(--border);border-radius:10px;padding:.7rem .9rem;margin:.2rem 0 .7rem;background:#FAFBFD;font-size:.8rem;display:grid;gap:.45rem">'
+    +'<b style="color:var(--navy)">Before this can be approved'+(miss.length?' ('+miss.length+' to go)':' (all done)')+'</b>'
+    +'<label>'+(a.facts_checked_at?ok():no())+'<input type="checkbox" id="wuFacts"'+(a.facts_checked_at?' checked':'')+dis+'> I checked the facts below against the record (AxisCare visits, clock times, notes, messages)'
+      +(a.facts_checked_at?' <span class="field-note">· '+esc(a.facts_checked_by||'')+' '+esc(String(a.facts_checked_at).slice(0,10))+'</span>':'')+'</label>'
+    +'<label>'+((a.handbook&&a.handbook.section)?ok():no())+'Handbook section <select id="wuHb"'+dis+' style="max-width:100%"><option value="'+esc(sec)+'">'+esc(sec||'Pick one')+'</option></select></label>'
+    +'<div>'+((ex.declined||String(ex.text||'').trim())&&ex.asked_on?ok():no())+'The caregiver\'s side: asked on <input type="date" id="wuExOn" value="'+esc(ex.asked_on||'')+'"'+dis+'> by <select id="wuExHow"'+dis+'>'
+      +['in person','phone','video'].map(h=>'<option'+(ex.how===h?' selected':'')+'>'+h+'</option>').join('')+'</select>'
+      +'<textarea id="wuExText" rows="2" placeholder="What they said, in their words"'+dis+' style="width:100%;margin-top:.3rem">'+esc(ex.text||'')+'</textarea>'
+      +'<label><input type="checkbox" id="wuExNo"'+(ex.declined?' checked':'')+dis+'> They chose not to give their side</label></div>'
+    +'<div>'+(Array.isArray(a.protected)?ok():no())+'Protected-situation check: '
+      +(Array.isArray(a.protected)?(pw.length?'<b>involves '+esc(pw.join(', '))+'</b>'+(a.samantha_consulted_at?' · Samantha consulted':' · talk to Samantha first'):'none apply')+' <span class="field-note">· '+esc(a.protected_checked_by||'')+'</span>'
+        :(ro?'not done':'<button class="fb" style="font-size:.72rem" onclick="wuProtected()">Check now</button>'))+'</div>'
+    +(ro?'':'<div style="display:flex;gap:.4rem;flex-wrap:wrap"><button class="fb" onclick="wuSave()">💾 Save</button><button class="fb" style="background:#0d3a5f" onclick="wuDraftAi(this)">✨ Draft with AI</button>'
+      +'<span class="field-note" style="align-self:center">The AI draft fills the box below. Read it and edit it; nothing is saved until you press Save.</span></div>')
+    +'</div>';
+}
+function wuCollect(a){
+  const g=id=>document.getElementById(id); if(!g('wuFacts')) return;
+  const me=String((typeof ME!=='undefined'&&ME&&ME.email)||'').toLowerCase(), now=new Date().toISOString();
+  if(g('wuFacts').checked&&!a.facts_checked_at){ a.facts_checked_at=now; a.facts_checked_by=me; }
+  if(!g('wuFacts').checked){ a.facts_checked_at=null; a.facts_checked_by=null; }
+  const sec=g('wuHb').value; a.handbook=sec?{ section:sec }:null;
+  const text=g('wuExText').value.trim(), declined=g('wuExNo').checked, on=g('wuExOn').value;
+  a.explanation=(text||declined||on)?{ asked_on:on, how:g('wuExHow').value, text, declined }:null;
+  a.body=g('writeup-body').value;
+}
+async function wuFillSections(a){
+  const list=await wuHandbookSections(), el=document.getElementById('wuHb'); if(!el||!list.length) return;
+  const cur=(a.handbook&&a.handbook.section)||wuDefaultSection(a);
+  el.innerHTML='<option value="">Pick one</option>'+list.map(x=>'<option'+(x===cur?' selected':'')+'>'+creqEsc(x)+'</option>').join('');
+}
+async function wuAudit(id){
+  const box=document.getElementById('writeup-audit-list'); if(!box) return;
+  let rows=null; try{ const r=await sb.from('hr_formal_log').select('at,by_email,action,changes').eq('item_id', id).order('at',{ascending:false}).limit(100); if(!r.error) rows=r.data||[]; }catch(e){}
+  if(_writeupId!==id) return;
+  const word={added:'started it',changed:'changed',removed:'removed it'};
+  box.innerHTML=rows===null?'The audit trail could not be read.'
+    :rows.length?rows.map(x=>'<div style="padding:3px 0;border-top:1px solid var(--border)">'+creqEsc(new Date(x.at).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))
+      +' · '+creqEsc(x.by_email==='server'?'the Hub':x.by_email)+' '+creqEsc(word[x.action]||x.action)
+      +(x.action==='changed'?': '+creqEsc(Object.keys(x.changes||{}).filter(k=>!/_at$|_by$|_email$/.test(k)||k==='approved_by').map(k=>({body:'the notice text',status:'the stage',explanation:'their side',handbook:'the handbook section',protected:'the protected check',facts_checked_at:'the facts check'})[k]||k).join(', ')):'')+'</div>').join('')
+    :'Nothing logged yet. Changes are logged from today on.';
+}
+async function wuSave(silent){
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return false;
+  wuCollect(a);
+  try{ await attPersist('discipline_actions',a); }catch(e){ return false; }
+  document.getElementById('writeup-check').innerHTML=wuCheckHtml(a); wuFillSections(a); wuAudit(a.id);
+  if(!silent && typeof ccNotice==='function') ccNotice('Saved.');
+  return true;
+}
+async function wuProtected(){
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a||typeof discProtectedCheck!=='function') return;
+  wuCollect(a);
+  await discProtectedCheck(a);
+  if(Array.isArray(a.protected)) await attPersist('discipline_actions',a);
+  document.getElementById('writeup-check').innerHTML=wuCheckHtml(a); wuFillSections(a); wuAudit(a.id);
+}
+async function wuDraftAi(btn){
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return;
+  const box=document.getElementById('writeup-body');
+  if(box.value.trim() && !(await ccConfirm('Replace the text in the box with an AI draft?\n\nYour current text is only replaced in the box. Nothing is saved until you press Save.'))) return;
+  if(!(await wuSave(true))) return;
+  btn.disabled=true; const was=btn.textContent; btn.textContent='Drafting…';
+  try{
+    const { data, error }=await sb.functions.invoke('hr-draft',{ body:{ id:a.id } });
+    let msg=''; if(error){ try{ msg=(await error.context.json()).error; }catch(_){ msg=error.message; } }
+    if(error||!data||!data.draft){ alert((msg||(data&&data.error)||'The draft did not come back.')+' Nothing changed.'); return; }
+    box.value=data.draft;
+    if(typeof ccNotice==='function') ccNotice('AI draft is in the box. Read it, edit it, then Save.');
+  }finally{ btn.disabled=false; btn.textContent=was; }
+}
 function openWriteup(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
   _writeupId=id;
+  /* HR step 6: the checklist (owners can fill it while it is a draft or waiting for approval) and the audit trail */
+  { const ck=document.getElementById('writeup-check'); if(ck){ ck.innerHTML=attCanDecide()?wuCheckHtml(a):''; if(attCanDecide()) wuFillSections(a); }
+    const au=document.getElementById('writeup-audit-list'); if(au){ au.textContent='Loading…'; wuAudit(id); } }
   document.getElementById('writeup-title').textContent='📝 '+a.level+': '+a.caregiver;
   document.getElementById('writeup-body').value=a.body;
   const notice=document.getElementById('writeup-notice');
@@ -3233,7 +3334,11 @@ function openWriteup(id){
 async function sendForApproval(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
   if(!a){ alert('This write-up could not be found. Reload the page, open it again, then resend. (Nothing was lost; your draft is saved.)'); return; }
+  wuCollect(a);
   a.body=document.getElementById('writeup-body').value;
+  { const miss=(typeof WriteupRules!=='undefined')?WriteupRules.missingBeforeDecision(a):[];
+    if(miss.length){ await attPersist('discipline_actions',a); document.getElementById('writeup-check').innerHTML=wuCheckHtml(a); wuFillSections(a);
+      alert('Before it goes for approval, fill in: '+miss.join(', ')+'. Your changes are saved.'); return; } }
   a.status='pending_approval'; a.sent_for_approval_at=new Date().toISOString(); a.reject_note='';
   await attPersist('discipline_actions',a);
   document.getElementById('writeup-modal').classList.remove('open');
@@ -3270,6 +3375,8 @@ async function issueWriteup(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
   if(!a){ alert('This write-up could not be found. Reload the page and open it again.'); return; }
   if(a.status!=='approved'){ alert('This needs approval first ('+wuWho(a)+'). Send it for approval from the draft view.'); return; }
+  { const miss=(typeof WriteupRules!=='undefined')?WriteupRules.missingBeforeDecision(a):['the write-up rules (reload the page)'];
+    if(miss.length){ alert('This can\'t be issued yet. Missing: '+miss.join(', ')+'.'); return; } }
   if(!(await ccConfirm('Mark this '+a.level+' as ISSUED to '+a.caregiver+'? Only do this once the signed copy is in hand.'))) return;
   a.body=document.getElementById('writeup-body').value;
   a.status='issued'; a.issued_at=new Date().toISOString();
@@ -10711,6 +10818,10 @@ window.orientSyncBookings = mergePendingBookings;
 window.offerCopyLink = offerCopyLink;
 window.offerSignLink = offerSignLink; window.offerStep1Link = offerStep1Link; window.bgrScreeningDesk = bgrScreeningDesk; window.sdReveal = sdReveal; window.sdClose = sdClose; window.sdCopy = sdCopy;
 window.offerQr = offerQr;
+/* HR step 6 (2026-10-18): the HR page starts a formal case from an agent case and opens it here */
+window.SCX.addWriteup = async (a) => { if (!DISC_ACTIONS.some((x) => x.id === a.id)) DISC_ACTIONS.push(a); await attPersist('discipline_actions', a); try { renderWriteups(); } catch (e) {} return a.id; };
+window.SCX.openWriteup = (id) => openWriteup(id);
+window.SCX.hasCase = (caseId) => DISC_ACTIONS.some((x) => x && x.case_id === caseId);
 window.offerResend = offerResend;
 window.offerWithdraw = offerWithdraw;
 window.offerResendStep1 = offerResendStep1;

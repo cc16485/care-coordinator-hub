@@ -2946,8 +2946,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="modal" style="max-width:720px">
     <h3 style="color:var(--navy)" id="writeup-title">📝 Corrective Action Notice</h3>
     <div id="writeup-notice" style="font-size:.75rem;background:#fef2f2;border-radius:6px;padding:.45rem .7rem;color:#b91c1c;margin:.4rem 0 .6rem;font-weight:600"></div>
+    <!-- HR step 6 (2026-10-18): the four items required before approval, Save and Draft with AI (caregivers-engine.js wuCheckHtml) -->
+    <div id="writeup-check"></div>
     <textarea id="writeup-body" rows="18" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;line-height:1.5"></textarea>
     <div style="display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap" id="writeup-actions"></div>
+    <!-- HR step 6: every change to this write-up, from the database's audit trail (hr_formal_log) -->
+    <details id="writeup-audit" style="margin-top:.7rem"><summary style="cursor:pointer;font-size:.78rem;color:var(--navy);font-weight:700">Audit trail</summary><div id="writeup-audit-list" class="field-note">Loading…</div></details>
   </div>
 </div>
 <div class="overlay" id="evv-correction-modal">
@@ -7426,7 +7430,7 @@ The HomeTogether team</pre>
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
-<script src="writeup-rules.js?v=3"></script>
+<script src="writeup-rules.js?v=4"></script>
 <script src="nurse-rules.js?v=3"></script>
 <script src="ghe-rules.js?v=1"></script>
 <script src="ghe-forms-rules.js?v=2"></script>
@@ -8754,7 +8758,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018i'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018j'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();

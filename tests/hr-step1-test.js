@@ -36,7 +36,7 @@ ck('approval cards go to the HR lead first', /\[WriteupRules\.HR_LEAD\]/.test(re
 const ap = between(H, 'async function approveWriteupCc(id){', '\n}');
 ck('approving asks the protected-situation question first', ap.indexOf('discProtectedCheck(a)') > -1 && ap.indexOf('discProtectedCheck(a)') < ap.indexOf('discCanApprove(a)'), ap);
 ck('Samantha has an "I was consulted" button', /discMarkConsulted\(/.test(H) && /I was consulted/.test(H));
-ck('the rules file is cache-busted to v3', /writeup-rules\.js\?v=3/.test(H));
+ck('the rules file is cache-busted (v4 since step 6)', /writeup-rules\.js\?v=4/.test(H));
 
 // no team-approval wording left on screen
 ck('no "any Care Coordinator" approval wording', !/any Care Coordinator<\/b>/.test(H) && !/approved by a Care Coordinator/.test(H));
