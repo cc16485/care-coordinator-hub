@@ -7,10 +7,10 @@ const C = (sk = {}, x = {}) => ({ name: 'Ann', axiscare_id: '101', cleared: true
 const ok = (st) => ({ standing: st });
 const ON = { driveGate: true };   /* the Admin switch driver_schedule_gate_live on (2026-10-13 rollout) */
 
-ck('the approved list: 18 skills; lift, two-person and bedbound checked first', M.SKILLS.length === 18 && M.SKILLS.filter(s => s.checkFirst).map(s => s.key).join() === 'two_person_transfers,hoyer_lift,bedbound_care');
+ck('the approved list: 17 skills since October 18 (no two-person transfers); lift and bedbound checked first', M.SKILLS.length === 17 && !M.SKILLS.some(s => /two.person/i.test(s.key + s.label)) && M.SKILLS.filter(s => s.checkFirst).map(s => s.key).join() === 'hoyer_lift,bedbound_care');
 /* missing never means none */
 let cs = M.clientState({ payer: 'private', plan_current: true, needs: {} });
-ck('a client with no needs answered is incomplete (18 of 18 not confirmed), never "none"', cs.status === 'incomplete' && /18 of 18 needs not confirmed/.test(cs.message), cs);
+ck('a client with no needs answered is incomplete (17 of 17 not confirmed), never "none"', cs.status === 'incomplete' && /17 of 17 needs not confirmed/.test(cs.message), cs);
 cs = M.clientState({ ...plan([]), needs: { ...plan([]).needs, bathing: { value: 'required', stage: 'intake' } } });
 ck('an intake answer is not confirmed: the client stays incomplete', cs.status === 'incomplete' && cs.unconfirmed.join() === 'bathing', cs);
 ck('a care plan that is not current: incomplete', M.clientState(plan([], { plan_current: false })).status === 'incomplete');
@@ -43,8 +43,28 @@ r = M.evaluate(plan(['bathing', 'toileting']), C({}));
 ck('4: basic personal care rests on the approved Level 2, not a per-task check', r.group === 'ready', r);
 r = M.evaluate(plan(['bedbound_care']), C({}, { level: 3 }));
 ck('4: a required check-first need with no experience at all: not for this visit', r.group === 'not_for_visit' && /no experience on record/.test(r.reason), r);
-r = M.evaluate(plan(['two_person_transfers']), C({ two_person_transfers: ok('corroborated') }));
-ck('two-person transfers: confirmed, and the warning that a second caregiver must be on the visit', r.group === 'ready' && /second caregiver/.test(r.warnings.join()), r);
+/* no two-person transfers (her rule, October 18): more than one person to transfer = a lift before we staff */
+ck('no second-caregiver warning anywhere in the rulebook', !/second caregiver/.test(require('fs').readFileSync(require('path').join(__dirname, '..', 'match-rules.js'), 'utf8')));
+cs = M.clientState(plan([], { facts: { more_than_one_to_transfer: true } }));
+ck('needs more than one person to transfer, no lift: flagged "Needs a lift before we staff"', cs.status === 'flagged' && cs.message === M.LIFT_FIRST && /^Needs a lift before we staff/.test(cs.message), cs);
+r = M.rankFor(plan([], { facts: { more_than_one_to_transfer: true } }), [C({}, { level: 3 }), C({ hoyer_lift: ok('corroborated') }, { name: 'Bo', level: 3 })]);
+ck('needs more than one person, no lift: nobody is matched, every caregiver is "not for this visit" with that reason', r.rows.every(x => x.group === 'not_for_visit' && x.reason === M.LIFT_FIRST), r.rows);
+cs = M.clientState(plan([], { facts: { more_than_one_to_transfer: true }, needs: { ...plan([]).needs, hoyer_lift: { value: 'required', stage: 'intake' } } }));
+ck('a lift only from intake does not clear it: still flagged', cs.status === 'flagged' && cs.message === M.LIFT_FIRST, cs);
+r = M.evaluate(plan(['hoyer_lift'], { facts: { more_than_one_to_transfer: true } }), C({ hoyer_lift: ok('corroborated') }, { level: 3 }));
+ck('the care plan shows the lift as Required: the flag clears and the usual lift check applies (Ready with the lift confirmed)', r.group === 'ready' && !r.warnings.length, r);
+r = M.evaluate(plan(['hoyer_lift'], { facts: { more_than_one_to_transfer: true } }), C({ hoyer_lift: ok('self_reported') }, { level: 3 }));
+ck('with the lift Required, a lift only self-reported is one more step, as for any lift client', r.group === 'one_more_step', r);
+cs = M.clientState(plan(['hoyer_lift'], { payer: 'medicaid', facts: { more_than_one_to_transfer: true } }));
+ck('Medicaid client with a lift: still flagged as advanced personal care', cs.status === 'flagged' && /advanced personal care/.test(cs.message), cs);
+cs = M.clientState(plan([], { payer: 'CDS', facts: { more_than_one_to_transfer: true } }));
+ck('CDS and ILW: still not matched here (their own attendants)', cs.status === 'not_matched', cs);
+let mt = M.fromFacts([{ kind: 'need_more_than_one_to_transfer', layer: 'intake', value: 'yes' }]);
+ck('from the fact record: an intake "yes" already stops staffing (the safe side)', mt.facts.more_than_one_to_transfer === true && M.clientState(plan([], { facts: mt.facts })).status === 'flagged', mt);
+mt = M.fromFacts([{ kind: 'need_more_than_one_to_transfer', layer: 'intake', value: 'yes' }, { kind: 'need_more_than_one_to_transfer', layer: 'plan', value: 'no' }]);
+ck('from the fact record: a care-plan "no" after an intake "yes" clears it (the latest layer wins)', mt.facts.more_than_one_to_transfer === undefined, mt);
+mt = M.fromFacts([{ kind: 'need_two_person_transfers', layer: 'plan', value: 'required' }]);
+ck('an old two-person need on a record is ignored (the kind is retired; none were ever saved)', !('two_person_transfers' in mt.needs), mt);
 ck('driving a client: an Approved Driver whose documents lapsed is not for this visit', M.evaluate(plan(['transportation']), C({}, { cleared_to_drive: false, dl_expires: '2026-09-30', auto_ins_expires: '2027-01-31' }), ON).reason === 'Not cleared to drive clients: License or insurance expired');
 /* 5: restrictions, Do Not Return, home facts, gender, language */
 ck('5: a restriction on a required need (not at this time for bedbound): excluded with that reason', /Bedbound care and repositioning: not at this time/.test(M.evaluate(plan(['bedbound_care']), C({ bedbound_care: ok('corroborated') }, { level: 3, restrictions: ['bedbound_care'] })).reason));
