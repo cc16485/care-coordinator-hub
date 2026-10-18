@@ -1142,6 +1142,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navsec">Employees</span>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
     <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
+    <div class="ftab" data-g="hr" onclick="ccGroupClick('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> HR<span class="subtab-badge red" id="gb-hr" style="display:none"></span></div>
     <div class="ftab" data-g="caregivers" onclick="ccGroupClick('caregivers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training &amp; Compliance</div>
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
@@ -1232,8 +1233,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        sections; deep links resolve to the full profile. -->
   <div class="fsubbar" id="fsub-cgdir">
     <div class="fpill" data-tab="cgdir" onclick="switchTab('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Directory</div>
-    <div class="fpill" data-tab="cgattendance" onclick="switchTab('cgattendance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Attendance</div>
-    <div class="fpill" data-tab="cgwriteups" onclick="switchTab('cgwriteups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Write-Ups</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
   </div>
   <!-- Three views of one scheduling operation (IA revised 2026-09-15):
@@ -2816,6 +2815,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
 </section>
 
+    <!-- ===== HR (HR Agent step 3, 2026-10-18): one page with its own menu; hr.js draws it and moves the Attendance and
+         Write-Ups panels below into it. ===== -->
+<section class="tabpanel" id="tab-hr"><div id="hrRoot"></div></section>
     <!-- ===== CAREGIVERS: Write-Ups (moved from Staffing hub) ===== -->
 <section class="tabpanel" id="tab-cgwriteups">
     <div class="panel" id="panel-writeups">
@@ -8053,7 +8055,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8456,7 +8458,7 @@ function ccGroupClick(g){
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
   schedguide:'How scheduling works',
-  cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups',
+  cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'HR',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
@@ -8608,6 +8610,8 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   tab=GOTO_ALIAS[tab]||tab;
+  /* HR step 3 (2026-10-18): Attendance and Write-Ups live inside the HR page now; every old link lands there. */
+  if(tab==='cgattendance'||tab==='cgwriteups'){ window.HR_WANT=(tab==='cgwriteups'?'formal':'attendance'); tab='hr'; }
   /* Schedule Watch is gone (2026-10-12, her call): every old link lands on Cara's Missed clock-ins & outs; a caller
      that wanted another part follows with swSubGo, which moves on to New clients, Hours & matching or Team Builder. */
   if(tab==='hourswatch'){ tab='coverage'; try{ COV_SUB='clockins'; }catch(e){} }
@@ -8617,7 +8621,6 @@ function switchTab(tab){
      read, so this used to refuse everyone, owners included. Until the roles are known, wait and decide then. */
   if(tab==='settings' && !CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=true; ccSetSectionTitle('settings'); return; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
-  if(tab==='cgwriteups' && CC_ROLES_CHECKED && !ccCan('approve_discipline')){ alert('Write-ups are kept by Zach and Samantha. Attendance shows what Zach is reviewing.'); tab='cgattendance'; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
   if(lpv&&lpv.style.display==='block'&&typeof cpLeaving==='function') cpLeaving();
@@ -8697,6 +8700,8 @@ function renderActiveTab(){
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
+  if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018a'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -18575,7 +18580,8 @@ async function cgdOpenProfile(axid, tab){
       +'<div id="cgdSkills"></div>')
     +'</div>'
 
-    +'<div id="cgdSec-performance" style="display:none;">'+cgdPerformanceHtml(c,nm)+'<div id="cgdKind"></div><div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
+    /* HR step 3 (2026-10-18): recognition first, then attendance, coaching and (Samantha and Zach only) formal records */
+    +'<div id="cgdSec-performance" style="display:none;"><div id="cgdKind"></div>'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
 
     +'<div id="cgdSec-work" style="display:none;">'+cgdWorkHtml(c,g,nm)+'</div>'
 
@@ -18976,7 +18982,7 @@ async function cgdKindMount(c){
     const m=a.match(/^([A-Za-z'-]+)\s+([A-Za-z])\.?$/); return !!(m&&nk(m[1])===nk(c.first)&&String(c.last||'').trim().toLowerCase().startsWith(m[2].toLowerCase()));
   });
   const esc=escapeHtmlComms, d=x=>{ try{ return new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }catch(e){ return ''; } };
-  host.innerHTML=cgdSectionCard('Compliments <span class="field-note" style="font-weight:400;">(from the Kind Words jar)</span>',
+  host.innerHTML=cgdSectionCard('Recognition <span class="field-note" style="font-weight:400;">(compliments from the Kind Words jar)</span>',
     mine.length?mine.map(k=>{ const t=(tells[k.id]||[]).filter(x=>String(x.caregiver_ax)===ax).slice(-1)[0];
       return '<div style="padding:7px 0;border-top:1px solid var(--border);"><div style="font-family:Georgia,serif;font-size:14px;color:#3a3222;">“'+esc(k.quote)+'”</div>'
         +'<div class="field-note">'+esc(k.who||'Someone')+(k.said_on?' · '+esc(d(k.said_on)):'')+(t?' · <b style="color:#1F7A8C;">told '+esc(String(c.first||'them'))+' '+esc(d(t.at))+'</b>':'')+'</div></div>'; }).join('')
@@ -19095,10 +19101,22 @@ function cgdPerformanceHtml(c,nm){
       +kv('EVV problems',cnt('evv',d30)+' / '+cnt('evv',d90))
       +kv('No-call/no-show',cnt('ncns',d30)+' / '+cnt('ncns',d90))
       +(recent?'<div style="margin-top:6px;">'+recent+'</div>':'<div class="field-note" style="margin-top:6px;">No attendance events recorded.</div>'))
-    /* HR step 1 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
+    /* HR step 3 (2026-10-18): coaching is its own record (it arrives with the coaching tracker, build step 5) and is
+       never discipline. Everyone who opens the profile sees it. */
+    +card('Coaching',
+      '<div class="field-note">No coaching conversations recorded yet. When Krystal or Angiel coach '+esc(c.first||'this caregiver')+', the date, what was said and whether it helped show here. Coaching is not discipline.</div>')
+    /* HR steps 1 and 3 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
     +(ccCan('approve_discipline') ? card('Formal records <span class="field-note" style="font-weight:400;">(Samantha and Zach only)</span>',
-      kv('On file',String(wus.length))
-      +'<div class="field-note" style="margin-top:4px;">Full detail lives on the Write-Ups tab.</div>') : '')
+      (wus.length ? wus.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).map(a=>{
+          const st={draft:'draft',pending_approval:'waiting for approval',approved:'approved, not issued yet',issued:'issued'}[a.status]||String(a.status||'');
+          const when=String(a.issued_at||a.approved_at||a.created_at||'').slice(0,10);
+          const pw=(typeof WriteupRules!=='undefined'&&WriteupRules.protectedWords)?WriteupRules.protectedWords(a):[];
+          return '<div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><b>'+esc(a.level||'Write-up')+'</b> · '+esc(st)+(when?' · '+esc(when):'')
+            +(a.reason?'<div class="field-note">'+esc(a.reason)+'</div>':'')
+            +(a.approved_by?'<div class="field-note">Approved by '+esc(a.approved_by)+'</div>':'')
+            +(pw.length?'<div class="field-note">Involves '+esc(pw.join(', '))+(a.samantha_consulted_at?'; Samantha consulted':'')+'</div>':'')+'</div>'; }).join('')
+        : '<div class="field-note">None on file.</div>')
+      +'<div class="field-note" style="margin-top:6px;"><a href="#" onclick="switchTab(\'cgwriteups\');return false;">Open Formal cases in HR</a></div>') : '')
     +card('What belongs here, and what does not',
       '<div class="field-note">Declining an OPTIONAL open shift is never a performance or attendance problem. Coverage-offer history lives under Work.<br><br>Annual and supervisory reviews and client match ratings arrive with Phase 2.</div>');
 }
@@ -20143,8 +20161,8 @@ async function opsCheckRender(){
     const sv=!!(sft&&sft.style.display!=='none');
     const wu=!!document.querySelector('[data-tab="cgwriteups"]');
     say('Settings tab visible  : '+sv+'   '+yn(sv===false)+'   (settings open from the Owners Hub Admin page)');
-    const wuShown=!!(document.querySelector('[data-tab="cgwriteups"]')&&document.querySelector('[data-tab="cgwriteups"]').style.display!=='none');
-    say('Write-Ups tab shown   : '+wuShown+'   '+yn(wuShown===owner)+'   (owners only, HR step 1)');
+    const wuShown=(typeof HR!=='undefined' && HR._views) ? HR._views().indexOf('formal')>-1 : ccCan('approve_discipline');
+    say('HR formal cases shown : '+wuShown+'   '+yn(wuShown===owner)+'   (owners only, HR steps 1 and 3)');
     say('');
     say('── ATTRIBUTION ────────────────────────────────────');
     say('Work saved from here records: '+(ME.name||ME.email));
@@ -43364,6 +43382,7 @@ function ccOpenRef(sub){
     var seg=raw.split('/');
     var head=String(seg[0]||'').toLowerCase();
     if(seg.length<2) return false;
+    if(head==='hr'){ window.HR_WANT=String(seg[1]||'').toLowerCase(); switchTab('hr'); return true; }   /* #hr/formal, #hr/coaching ... */
     try{
       if(head==='cara'||head==='coverage'){
         var sub=String(seg[1]||'').toLowerCase();
