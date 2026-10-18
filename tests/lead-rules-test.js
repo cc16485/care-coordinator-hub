@@ -452,8 +452,40 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('...rubbish in the time is ignored, never a crash', (() => { try{ R.boardRow(Object.assign({}, W, { assessment_at:'sometime next week' }), CTX({ stage:'assessment' })); return true; }catch(e){ return false; } })());
 }
 
-/* the Hub page and the server run the same file */
-const serverCopy = path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub', 'supabase', 'functions', '_shared', 'lead-rules.js');
+/* lead turns (Care Coordinator Leads and Bonus, Stage 1, policy approved 2026-10-18) */
+{
+  const SET = { lead_rotation_live:true, lead_rotation:{ people:[{ name:'Krystal Land', on:true }, { name:'Angiel', on:true }, { name:'krystal', on:true }] } };
+  const rs = R.rotationSettings(SET);
+  ck('turns · settings: first names, no duplicates, the switch read', rs.live === true && rs.people.map(p => p.name).join() === 'Krystal,Angiel', rs);
+  ck('turns · off unless the switch is exactly true', R.rotationSettings({ lead_rotation_live:'yes', lead_rotation:SET.lead_rotation }).live === false);
+  ck('turns · no turns on file → the first person in the list', R.nextUp([], SET) === 'Krystal');
+  const leads = [];
+  const give = (who, how) => { const l = { id:'l' + leads.length, created_at:'2026-10-06T15:00:00Z' }; leads.push(l); R.giveTurn(l, who, { how, leads, at:'2026-10-06T15:00:00Z', by:'x@mo-care.com' }); return l; };
+  const a = give(R.nextUp(leads, SET)), b = give(R.nextUp(leads, SET)), c = give(R.nextUp(leads, SET));
+  ck('turns · alternate, even when given in the same second', [a, b, c].map(l => l.assigned_coordinator).join() === 'Krystal,Angiel,Krystal', [a, b, c].map(l => l.owner_turn));
+  ck('turns · each records its turn number and its original owner', c.owner_turn.seq === 3 && c.original_owner.name === 'Krystal' && /Krystal’s lead \(next up by turn\)/.test(c.comm_log[0].body));
+  const asked = give('Krystal', 'asked');
+  ck('turns · asked for by name counts as that person’s turn (the next goes to Angiel)', asked.owner_turn.how === 'asked' && R.nextUp(leads, SET) === 'Angiel' && /counts as Krystal’s turn/.test(asked.comm_log[0].body));
+  ck('turns · someone out is skipped', R.nextUp(leads, SET, { isOut:n => n === 'Angiel' }) === 'Krystal');
+  ck('turns · someone switched off is skipped', R.nextUp(leads, { lead_rotation_live:true, lead_rotation:{ people:[{ name:'Krystal' }, { name:'Angiel', on:false }] } }) === 'Krystal');
+  ck('turns · nobody eligible → null (the caller falls back and says so)', R.nextUp(leads, SET, { isOut:() => true }) === null && R.nextUp([], { lead_rotation:{ people:[] } }) === null);
+  give('Krystal'); /* Krystal covered while Angiel was out */
+  ck('turns · no makeup turn: after Krystal covered, Angiel is next, then Krystal', R.nextUp(leads, SET) === 'Angiel');
+  const ch = { assigned_coordinator:'Angiel', original_owner:{ name:'Angiel', at:'x', how:'turn' } };
+  ck('owner change · refused for anyone but Samantha or Zachary', /Only Samantha or Zachary/.test(R.changeOwner(ch, 'Krystal', { by_owner:false, why:'family asked' }).error || '') && ch.assigned_coordinator === 'Angiel');
+  ck('owner change · refused without a reason', /reason/.test(R.changeOwner(ch, 'Krystal', { by_owner:true, why:' ' }).error || '') && ch.assigned_coordinator === 'Angiel');
+  const ok = R.changeOwner(ch, 'Krystal', { by_owner:true, why:'the family asked for Krystal', by:'samantha@mo-care.com' });
+  ck('owner change · with a reason: moved, kept in history, NOT a turn, original owner unchanged', ok.ok && ch.assigned_coordinator === 'Krystal' && ch.owner_changes[0].why === 'the family asked for Krystal' && !ch.owner_turn && ch.original_owner.name === 'Angiel', ch);
+  const old = { assigned_coordinator:'Krystal', created_at:'2026-09-01T00:00:00Z' }; R.changeOwner(old, 'Angiel', { by_owner:true, why:'covering' });
+  ck('owner change · a lead from before turns keeps who had it first as its original owner', old.original_owner.name === 'Krystal' && old.original_owner.how === 'before turns', old.original_owner);
+  const h = { assigned_coordinator:'Angiel' }; R.noteHelper(h, 'Krystal Land', { what:'first contact', by:'k@mo-care.com' });
+  ck('helper · recorded, owner stays', h.assigned_coordinator === 'Angiel' && h.helpers[0].name === 'Krystal' && /It stays Angiel’s lead/.test(h.comm_log[0].body), h);
+  ck('helper · the owner helping their own lead records nothing', !R.noteHelper({ assigned_coordinator:'Angiel' }, 'Angiel').helpers);
+  ck('helper · the intro line', R.ownerIntro({ assigned_coordinator:'Angiel' }) === 'Calling for Angiel? Introduce Angiel as their Care Coordinator.' && R.ownerIntro({}) === '');
+}
+
+/* the Hub page and the server run the same file (STAFFING_ROOT points at another Staffing checkout, e.g. a worktree) */
+const serverCopy = path.join(process.env.STAFFING_ROOT || path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub'), 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
 
 console.log(pass + ' passed, ' + fail + ' failed');
