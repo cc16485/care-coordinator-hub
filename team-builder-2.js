@@ -234,7 +234,8 @@
   function readiness(plan){
     const days = plan.days || [];
     return (plan.slots || []).map(s => ({ slot:s, total:days.length,
-      yes:days.filter(d => { const c = (plan.cells || {})[tbCellKey(d, s.k)]; return c && c.status === 'yes'; }).length }));
+      /* Start of Care stage C (2026-10-17, her rule): a yes that needs a recheck isn't coverage (caregiver-matching.js) */
+      yes:days.filter(d => { const k = tbCellKey(d, s.k), c = (plan.cells || {})[k]; return typeof cmCovered === 'function' ? cmCovered(plan, k, c) : !!(c && c.status === 'yes'); }).length }));
   }
   function readinessWords(plan){ return readiness(plan).map(r => r.slot.label + ' ' + r.yes + ' of ' + r.total).join(' · ') + ' confirmed'; }
   function allConfirmed(plan){ const r = readiness(plan); return r.length > 0 && r.every(x => x.total > 0 && x.yes === x.total); }
@@ -276,9 +277,9 @@
     const pj = pjBuild({ template:kind, title:plan.client + (kind === 'client_start' ? ' coming home' : ' care team'), about:plan.client,
       owner:o.owner || defaultOwner(), ready_by:o.ready_by || inDays(7), shifts:shiftWords(plan), plan_id:plan.id });
     (DATA.ops_items = DATA.ops_items || []).push(pj);
-    if(typeof opsLog === 'function') opsLog(pj, 'Project made from the Team Builder plan by ' + ((ccActor() || {}).name || ''));
+    if(typeof opsLog === 'function') opsLog(pj, 'Project made from the Caregiver Matching plan by ' + ((ccActor() || {}).name || ''));
     await persist('ops_items', pj);
-    opEvent('item_created', { item:pj, summary:'New project from the Team Builder: ' + pj.title });
+    opEvent('item_created', { item:pj, summary:'New project from Caregiver Matching: ' + pj.title });
     plan.project_id = pj.id; await tbSave(plan);
     ccToast('✓ On My Work as a project');
     await sync(plan);
@@ -388,7 +389,7 @@
   }
   async function setSkill(axId, k, val){
     await cgdOverlaySave(axId, ov => { ov.skills = ov.skills || {};
-      ov.skills[k] = { have:val, evidence:'attested', by:me(), at:now(), note:'recorded from the Team Builder' }; });
+      ov.skills[k] = { have:val, evidence:'attested', by:me(), at:now(), note:'recorded from Caregiver Matching' }; });
     ccToast('✓ Saved on their caregiver profile');
     const el = document.getElementById('tbPoolList'), p = tbPlan(); if(el && p && TB.cellOpen) el.innerHTML = tbPoolListHtml(p, TB.cellOpen);
   }
@@ -513,7 +514,7 @@
       + '<div style="margin-top:12px;display:flex;align-items:baseline;gap:8px;"><b style="font-size:13px;color:var(--navy);">The text</b><span class="field-note" style="font-size:11.5px;">' + esc(TOK_FIRST) + ' and ' + esc(TOK_WHEN) + ' are filled in for each person. Edit anything else.</span></div>'
       + '<textarea id="tsMsg" rows="5" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:4px;"></textarea>'
       + (late ? '<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">It’s ' + esc(new Date().toLocaleTimeString('en-US', { timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' })) + '. These texts reach people late. You can still send them.</div>' : '')
-      + (!live ? '<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">Sending from the Team Builder is switched off right now. Nothing can be sent.</div>' : '')
+      + (!live ? '<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">Sending from Caregiver Matching is switched off right now. Nothing can be sent.</div>' : '')
       + '<div id="tsRes" style="margin-top:8px;"></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px;"><span class="field-note" id="tsCount"></span><button class="secondary" id="tsX">Cancel</button><button class="cara-btn" id="tsSend"' + (live ? '' : ' disabled') + '>Send</button></div>';
     const $ = q => ov.querySelector(q);
@@ -558,7 +559,7 @@
     const plan = ((typeof DATA !== 'undefined' && DATA.staffing_plans) || []).find(x => x && (x.id === p.plan_id || x.project_id === p.id));
     if(!plan) return '';
     return '<div class="tb2-pjline" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + readinessHtml(plan, true).replace('margin:0 0 8px', 'margin:0')
-      + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open the Team Builder</button></div>';
+      + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open Caregiver Matching</button></div>';
   }
   function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 

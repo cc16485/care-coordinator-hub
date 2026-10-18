@@ -1183,8 +1183,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-clients">
     <div class="fpill" data-parent="gettingready" onclick="ccParentClick('gettingready')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-hospital"/></svg> Getting ready</div>
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
-    <!-- 2026-10-12 (her call): Team Builder lives in Client Care; Schedule Watch is gone. -->
-    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Team Builder</div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -1241,6 +1239,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
     <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
+    <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Live Schedule.
+         The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
     <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- Nursing folded into Scheduling 2026-09-20 (her call): a GHE visit is
@@ -1322,7 +1323,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Team Builder</h2>
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver Matching</h2>
         <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">Build a client's team on a week grid: pencil caregivers in as you call, then confirm the schedules into AxisCare when the whole team is set.</div>
       </div>
       <div id="swBuilderWrap"><div id="tbRoot"><div class="field-note">Loading…</div></div>
@@ -4294,7 +4295,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
 <textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
-<label>Open hours: the text to the whole team (Team Builder, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<label>Open hours: the text to the whole team (Caregiver Matching, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
 <label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
 <textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
@@ -7293,12 +7294,12 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=1"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261013"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=7"></script>
-<script src="open-hours.js?v=2"></script>
-<script src="scheduling-guide.js?v=2"></script>
-<script src="new-hires.js?v=2"></script>
+<script src="team-builder-2.js?v=8"></script>
+<script src="open-hours.js?v=3"></script>
+<script src="scheduling-guide.js?v=3"></script>
+<script src="new-hires.js?v=3"></script>
 <script src="live-calendar.js?v=4"></script>
-<script src="journey-rules.js?v=4"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
+<script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
@@ -7306,6 +7307,7 @@ The HomeTogether team</pre>
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=20"></script>
+<script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=1"></script>
@@ -7324,7 +7326,7 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="leads-board.js?v=14"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=9"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
-<script src="client-history.js?v=2"></script><!-- Step D (2026-10-15): the client profile's one History list -->
+<script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
@@ -7993,7 +7995,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','teambuilder','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','cgattendance','cgwriteups','supervisory'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8406,7 +8408,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions — Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
   callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Team Builder', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
   community:'Community', settings:'Settings',
@@ -10400,12 +10402,15 @@ async function cpRenderTeam(){
   const box=document.getElementById('cp_team'); if(!box) return;
   const esc=escapeHtmlComms;
   let f=null; try{ f=await famResolve(CP.ax?{ ax:CP.ax }:(CP.lead?{ lead_id:CP.lead.id }:{})); }catch(e){}
-  const plan=f&&f.plan;
+  /* Start of Care stage C (2026-10-17): a plan started with Find Caregivers is keyed to the lead, the AxisCare client and
+     the journey, so the profile finds it before AxisCare too (famResolve only knew linked plans) */
+  const cj=window.CJ_STATE&&CJ_STATE.data&&CJ_STATE.data.journey;
+  const plan=(f&&f.plan)||(typeof cmPlanFor==='function'?cmPlanFor({ lead:CP.lead, ax:CP.ax, journey_id:cj&&cj.journey_id }):null);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care team plan</b></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Caregiver Matching</b></div>'
     +(plan?'<div id="cp_tb"></div>'
-      :'<div class="field-note">No Team Builder plan is linked to this family yet. Start one in Team Builder and use "Link to a Journey" on the board; it will then show here.</div>'
-        +'<button class="secondary" style="margin-top:8px;" onclick="switchTab(\'teambuilder\');">Open Team Builder</button>')
+      :'<div class="field-note">No Caregiver Matching plan for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
+        +'<button class="primary" style="margin-top:8px;" onclick="cmFindCaregivers(this)">Find Caregivers</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📞 Care Match calls</b><span style="flex:1;"></span>'
@@ -16565,7 +16570,7 @@ async function autoMirrorHealth(){
     const [cov,lds,tb]=await Promise.all([runs('legacy_mirror_run'),runs('lead_journey_mirror_run'),runs('team_build_mirror_run')]);
     box.innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;">'
       +[mirrorHealthCard('Cara coverage copy',cov,'legacy_unchanged','Cara'),mirrorHealthCard('Leads copy',lds,'leads_unchanged','Leads'),
-        mirrorHealthCard('Team Builder copy',tb,'plans_unchanged','Team Builder')]
+        mirrorHealthCard('Caregiver Matching copy',tb,'plans_unchanged','Caregiver Matching')]
         .join('')
       +'</div>';
   }catch(e){ box.innerHTML='<div class="field-note">Could not check the copies: '+escapeHtmlComms(String(e&&e.message||e))+'</div>'; }
@@ -34361,7 +34366,7 @@ function clgValue(v){
    line from here too. */
 const AXL={ rows:{}, at:{} };
 const AXL_OUT={ sent_confirmed:['ok','Confirmed by AxisCare'], sent:['sent','Sent, not read back'], refused:['bad','Refused'], practice:['dry','Practice run'] };
-const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Team Builder',
+const AXL_VIA={ 'client-convert':'Convert', 'family-circles':'Family Circle', 'careplan-tasks':'Care plan', 'schedule-push':'Caregiver Matching',
   'care-level':'Care level', 'coverage-assign':'Coverage', 'call-disposition':'Call summary', 'axiscare-note':'Note' };
 async function axLogLoad(force){
   const ax=String(CP.ax||''); if(!/^\d+$/.test(ax)){ axLogRender(); return; }
@@ -37312,7 +37317,7 @@ function tbBoardHtml(plan){
         +'</td>'
         +(plan.days||[]).map(function(d){
           var key=tbCellKey(d,s.k), c=(plan.cells||{})[key];
-          if(c&&c.status==='yes') yes++;
+          if(typeof cmCovered==='function'?cmCovered(plan,key,c):(c&&c.status==='yes')) yes++;   /* stage C: a yes needing a recheck isn't coverage */
           if(c&&c.status!=='no') filled++;
           var open=TB.cellOpen===key;
           var inner=c
@@ -37452,7 +37457,7 @@ function tbPoolListHtml(plan,key){
     if(x.lowLevel) flags.push('<b style="color:var(--red);">Level '+x.cg.level+' caregiver, client is Level '+lvT+'</b>');
     if(x.stated===true) flags.push('<b style="color:var(--green);">✓ says they\'re free '+TB_DAYL[d]+' '+cats.join('/')+'</b>');
     else if(x.stated===false) flags.push('<b style="color:var(--red);">their form says these hours don\'t work</b>');
-    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability not on file</span>');
+    else flags.push('<span style="color:#8A4E0C;font-weight:700;">availability unknown</span>');   /* her correction 2026-10-17: missing means Unknown, never Available */
     if(x.conflicts.length) flags.push('<b style="color:var(--red);">📅 '+esc(x.conflicts[0])+'</b>');
     if(x.sameTown) flags.push('<b style="color:var(--green);">📍 same town</b>'); else if(x.cg.city) flags.push('📍 '+esc(x.cg.city));
     flags.push((x.proj>40?'<b style="color:var(--red);">would be '+Math.round(x.proj)+'h/wk ⚠ OT</b>':'~'+Math.round(x.proj)+'h/wk with this'));
@@ -37546,7 +37551,7 @@ async function tbAskOpen(key){
   var asked=dr.asked_before||[], edited=false;
   var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
   var blockers=[];
-  if(!dr.live) blockers.push('Sending from the Team Builder is switched off right now.');
+  if(!dr.live) blockers.push('Sending from Caregiver Matching is switched off right now.');
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
