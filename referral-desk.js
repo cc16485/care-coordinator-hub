@@ -3,14 +3,16 @@
    The Referrers tab becomes the desk. Rules: partner-rules.js. Records: the ones the Hub already keeps
    (referral_orgs, referral_activities, activities, leads, ops_items); nothing new to sync.
      · This week: each owner's partners due by Sunday (or that sent a referral this week), best first, with why
-     · Needs an owner (owners): partners added since the desk started, until someone is assigned
+     · Needs an owner (the Springfield lead and owners): every partner nobody owns yet, until someone is assigned
      · Link these referrals: referral leads with no partner, grouped by the name typed
      · Log a visit: one form that works on a phone (who you saw, what happened, the next touch)
      · Partner profile: owner, tier and why, relationship potential, how they like to be reached, best visit times,
        materials they asked for, relationship notes, and the people there
-     · Today: "Partner visits this week" (and, for owners, "Partners needing an owner"), counted, never stored
+     · Today: "Partner visits this week" (and, for whoever assigns, "Partners needing an owner"), counted, never stored
      · My Work: ONE card per owner per week, a fixed id so it can't double; it closes itself when the week is done
-     · Settings: tier timing, tier rules, the default owner, the towns (owners edit; every change is logged)
+     · Settings: tier timing, tier rules, the towns (owners edit; every change is logged)
+   Who owns a partner (her ruling 2026-10-18): Care Coordinators own partners; the Springfield lead and owners assign and
+   reassign them (permission assign_partners). No default owner: a new partner waits in "Needs an owner".
    Urgent referrals are not here: they stay on the Leads board (red flag, office alert, speed-to-lead).
    ============================================================================= */
 (function () {
@@ -22,15 +24,22 @@
   const day = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) : '';
   const me = () => lc((typeof ME !== 'undefined' && ME && ME.email) || '');
   const isOwner = () => { try{ return ccIsOwner(); }catch(e){ return false; } };
+  /* assigning partner owners: the Springfield lead and owners (assign_partners); an owner always can, even before the new permission is in a saved role map */
+  const canAssign = () => { try{ return ccCan('assign_partners') || ccIsOwner(); }catch(e){ return isOwner(); } };
   const st = () => (typeof DATA !== 'undefined' && DATA.ops_settings) || {};
   const ctx = () => ({ today:todayYmd(), leads:(DATA.leads || []), activities:(DATA.referral_activities || []), planned:(DATA.activities || []), settings:st() });
   const orgs = () => DATA.referral_orgs || [];
   const org = id => orgs().find(o => o.id === id) || null;
+  /* who can own a partner: Care Coordinators (and the Springfield lead and owners); everyone on the team if the roles aren't known */
+  const OWNER_ROLES = ['care_coordinator', 'springfield_lead', 'owner_admin'];
   const people = () => {
-    const p = (typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).filter(x => x && x.primary_email).map(x => ({ email:lc(x.primary_email), name:x.full_name || x.primary_email }));
-    const S = PR().settings(st()); if(!p.some(x => x.email === lc(S.default_owner))) p.unshift({ email:lc(S.default_owner), name:S.default_owner.split('@')[0] });
-    return p.sort((a, b) => a.name.localeCompare(b.name));
+    const all = (typeof OPS_PEOPLE !== 'undefined' && OPS_PEOPLE || []).filter(x => x && x.primary_email).map(x => ({ email:lc(x.primary_email), name:x.full_name || x.primary_email }));
+    const roles = e => { try{ return ccRolesFor(e) || []; }catch(err){ return []; } };
+    const fit = all.filter(x => roles(x.email).some(r => OWNER_ROLES.indexOf(r) > -1));
+    return (fit.length ? fit : all).sort((a, b) => a.name.localeCompare(b.name));
   };
+  /* the choices for an owner picker: the current owner stays listed even if their role changed */
+  const ownerChoices = cur => { const p = people(); return cur && !p.some(x => x.email === lc(cur)) ? p.concat([{ email:lc(cur), name:String(cur).split('@')[0] }]) : p; };
   const nameOf = e => { const p = people().find(x => x.email === lc(e)); return p ? p.name : (e ? String(e).split('@')[0] : 'Nobody'); };
   const PILL = { P:['Priority','pd-p'], A:['A','pd-a'], B:['B','pd-b'], C:['C','pd-c'] };
   const pill = x => '<span class="pd-pill ' + PILL[x.tier][1] + '" title="' + esc(x.why + ' · ' + x.cadence_why) + '">' + PILL[x.tier][0] + '</span>';
@@ -40,10 +49,10 @@
   /* ── the desk, at the top of Referrers ── */
   function deskHtml(){
     if(!PR()) return '';
-    const c = ctx(), owner = DESK.who === 'all' && isOwner() ? '*' : me();
-    const wk = PR().week(orgs(), c, owner), need = isOwner() ? PR().needsOwner(orgs(), c) : [], un = PR().unlinked(DATA.leads || []);
+    const c = ctx(), owner = DESK.who === 'all' && canAssign() ? '*' : me();
+    const wk = PR().week(orgs(), c, owner), need = canAssign() ? PR().needsOwner(orgs()) : [], un = PR().unlinked(DATA.leads || []);
     let h = '<div class="card pd-desk"><div class="pd-head"><b>This week</b><span class="field-note">' + (wk.length ? wk.length + ' partner' + (wk.length === 1 ? '' : 's') + ' to see or call' : 'Nothing due this week') + '</span><span style="flex:1"></span>'
-      + (isOwner() ? '<span class="pd-seg"><button class="' + (DESK.who !== 'all' ? 'on' : '') + '" onclick="pdWho(\'mine\')">Mine</button><button class="' + (DESK.who === 'all' ? 'on' : '') + '" onclick="pdWho(\'all\')">Everyone</button></span>' : '') + '</div>'
+      + (canAssign() ? '<span class="pd-seg"><button class="' + (DESK.who !== 'all' ? 'on' : '') + '" onclick="pdWho(\'mine\')">Mine</button><button class="' + (DESK.who === 'all' ? 'on' : '') + '" onclick="pdWho(\'all\')">Everyone</button></span>' : '') + '</div>'
       + '<div class="field-note pd-sub">Urgent referrals are never here: they stay red on the Leads board until someone calls.</div>';
     h += wk.length ? wk.map(x => { const o = org(x.id) || {}, ph = phoneOf(o);
       return '<div class="pd-row"><div class="pd-main"><div><a href="javascript:void(0)" onclick="openRefProfile(\'' + esc(x.id) + '\')"><b>' + esc(x.name) + '</b></a> ' + pill(x)
@@ -55,9 +64,9 @@
         + (typeof peOpen === 'function' && ((o.contacts || []).some(c => c && !c.archived && c.email) || o.email) ? '<button class="fb" onclick="peOpen(\'' + esc(x.id) + '\')">Email</button>' : '') + '</div></div>'; }).join('')
       : '<div class="field-note" style="padding:8px 0;">You\'re caught up for the week.</div>';
     h += '</div>';
-    if(need.length) h += '<div class="card pd-desk"><div class="pd-head"><b>Needs an owner</b><span class="field-note">' + need.length + ' new partner' + (need.length === 1 ? '' : 's') + '; until assigned they show on ' + esc(nameOf(PR().settings(st()).default_owner)) + '\'s week</span></div>'
+    if(need.length) h += '<div class="card pd-desk"><div class="pd-head"><b>Needs an owner</b><span class="field-note">' + need.length + ' partner' + (need.length === 1 ? '' : 's') + ' nobody owns yet; pick a Care Coordinator for each</span></div>'
       + need.map(o => '<div class="pd-row"><div class="pd-main"><a href="javascript:void(0)" onclick="openRefProfile(\'' + esc(o.id) + '\')"><b>' + esc(o.name) + '</b></a><div class="field-note">' + esc(o.type || '') + ' · added ' + esc(day(o.created_at)) + '</div></div>'
-        + '<div class="pd-acts"><select id="pdOwn_' + esc(o.id) + '">' + people().map(p => '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>').join('') + '</select><button class="primary" onclick="pdAssign(\'' + esc(o.id) + '\')">Assign</button></div></div>').join('') + '</div>';
+        + '<div class="pd-acts"><select id="pdOwn_' + esc(o.id) + '" aria-label="Owner for ' + esc(o.name) + '"><option value="">Pick a person…</option>' + people().map(p => '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>').join('') + '</select><button class="primary" onclick="pdAssign(\'' + esc(o.id) + '\')">Assign</button></div></div>').join('') + '</div>';
     if(un.length) h += '<div class="card pd-desk"><div class="pd-head"><b>Link these referrals to a partner</b><span class="field-note">so they count for the right partner</span></div>'
       + un.map((g, i) => '<div class="pd-row"><div class="pd-main"><b>' + esc(g.name) + '</b><div class="field-note">' + g.leads.length + ' referral' + (g.leads.length === 1 ? '' : 's') + (g.type ? ' · ' + esc(g.type) : '') + ' · no partner linked</div></div>'
         + '<div class="pd-acts"><select id="pdLink_' + i + '"><option value="">Pick the partner…</option>' + orgs().slice().sort((a, b) => String(a.name).localeCompare(String(b.name))).map(o => '<option value="' + esc(o.id) + '">' + esc(o.name) + '</option>').join('') + '</select>'
@@ -67,7 +76,8 @@
   function render(){ const box = document.getElementById('refDesk'); if(box) box.innerHTML = deskHtml() + '<div id="ssDesk">' + (typeof ssDeskHtml === 'function' ? ssDeskHtml() : '') + '</div>'; }
 
   async function assign(id){
-    if(!isOwner()) return; const o = org(id), sel = document.getElementById('pdOwn_' + id); if(!o || !sel) return;
+    if(!canAssign()) return; const o = org(id), sel = document.getElementById('pdOwn_' + id); if(!o || !sel) return;
+    if(!sel.value){ toast('Pick who will own ' + o.name + ' first.'); return; }
     o.owner_email = sel.value; o.owner_assigned_at = new Date().toISOString(); o.owner_assigned_by = me();
     await persist('referral_orgs', o); toast('Assigned to ' + nameOf(sel.value) + '.'); refresh();
   }
@@ -125,13 +135,13 @@
   /* ── partner profile: owner, tier, potential, details, people ── */
   function profileCard(o){
     if(!PR() || !o) return '';
-    const x = PR().look(o, ctx()), own = PR().ownerOf(o, st()), can = isOwner();
+    const x = PR().look(o, ctx()), own = PR().ownerOf(o), can = canAssign();
     const sel = (id, opts, v) => '<select id="' + id + '">' + opts.map(([k, l]) => '<option value="' + esc(k) + '"' + (k === (v || '') ? ' selected' : '') + '>' + esc(l) + '</option>').join('') + '</select>';
     return '<div class="card pd-prof" style="padding:16px 18px;margin-bottom:14px;"><div class="pd-head"><b>Relationship</b> ' + pill(x) + '</div>'
       + '<div class="field-note">' + esc(x.why) + ' · ' + esc(x.cadence_why) + '. Next: ' + esc(day(x.due)) + (x.last_touch ? ' (last touch ' + esc(day(x.last_touch)) + ')' : ' (never touched)') + '</div>'
       + '<div class="field-note">' + x.sent + ' referral' + (x.sent === 1 ? '' : 's') + ' · ' + x.became + ' became client' + (x.became === 1 ? '' : 's') + (x.last_referral ? ' · last ' + esc(day(x.last_referral)) : '') + '</div>'
       + '<div class="pd-grid">'
-      + '<label>Owner</label>' + (can ? sel('pdOwner', people().map(p => [p.email, p.name]), own.email) : '<div>' + esc(own.email ? nameOf(own.email) : 'Needs an owner') + '</div>')
+      + '<label>Owner</label>' + (can ? sel('pdOwner', (own.email ? [] : [['', 'Needs an owner']]).concat(ownerChoices(own.email).map(p => [p.email, p.name])), own.email) : '<div>' + esc(own.email ? nameOf(own.email) : 'Needs an owner') + '</div>')
       + '<label>Relationship potential</label>' + sel('pdPot', [['', 'Not set'], ['high', 'High'], ['medium', 'Medium'], ['low', 'Low']], o.potential)
       + '<label>Best way to reach them</label>' + sel('pdPref', [['', 'Not set'], ['visit', 'Visit'], ['call', 'Call'], ['email', 'Email'], ['text', 'Text']], o.preferred_contact)
       + '<label for="pdTimes">Best visit times</label><input id="pdTimes" value="' + esc(o.best_visit_times || '') + '" placeholder="e.g. Tue/Thu after 2, not Mondays">'
@@ -173,7 +183,7 @@
     const pot = v('pdPot') || '';
     if(pot !== (o.potential || '')){ o.potential = pot; o.potential_set_at = new Date().toISOString(); }
     o.preferred_contact = v('pdPref') || ''; o.best_visit_times = (v('pdTimes') || '').trim(); o.materials = (v('pdMat') || '').trim(); o.relationship_notes = (v('pdRel') || '').trim();
-    if(isOwner() && v('pdOwner') && lc(v('pdOwner')) !== lc(PR().ownerOf(o, st()).email)){ o.owner_email = lc(v('pdOwner')); o.owner_assigned_at = new Date().toISOString(); o.owner_assigned_by = me(); }
+    if(canAssign() && v('pdOwner') && lc(v('pdOwner')) !== lc(PR().ownerOf(o).email)){ o.owner_email = lc(v('pdOwner')); o.owner_assigned_at = new Date().toISOString(); o.owner_assigned_by = me(); }
     await persist('referral_orgs', o); const m = document.getElementById('pdProfMsg'); if(m) m.textContent = 'Saved.'; refresh();
   }
   function person(orgId, cid){
@@ -213,7 +223,7 @@
     if(!PR() || typeof rowFn !== 'function') return [];
     const c = ctx(), out = [], mine = PR().week(orgs(), c, me());
     if(mine.length) out.push(rowFn('var(--teal)', 'i-calendar', 'Partner visits this week: ' + mine.length, esc(mine.slice(0, 3).map(x => x.name).join(', ') + (mine.length > 3 ? ' and more' : '')), 'PARTNERS', 'var(--teal)', 'var(--teal-bg, #E4F1F3)', '', 'Open', "switchTab('referrers')"));
-    if(isOwner()){ const n = PR().needsOwner(orgs(), c).length; if(n) out.push(rowFn('var(--gold)', 'i-person', 'Partners needing an owner: ' + n, 'New partners wait here until you assign them', 'ASSIGN', 'var(--gold-text)', 'var(--amber-bg)', '', 'Open', "switchTab('referrers')")); }
+    if(canAssign()){ const n = PR().needsOwner(orgs()).length; if(n) out.push(rowFn('var(--gold)', 'i-person', 'Partners needing an owner: ' + n, 'They wait here until you pick a Care Coordinator for each', 'ASSIGN', 'var(--gold-text)', 'var(--amber-bg)', '', 'Open', "switchTab('referrers')")); }
     return out;
   }
   /* ── My Work: one card per owner per week (fixed id), kept in step with the week's list, closed when it's done ── */
@@ -231,7 +241,7 @@
     if(cur.status === 'open' && (cur.title !== title || cur.detail !== detail)){ Object.assign(cur, { title, detail, updated_at:new Date().toISOString() }); await persist('ops_items', cur); }
   }
 
-  /* ── Settings: tier timing, tier rules, default owner, towns (owners; logged) ── */
+  /* ── Settings: tier timing, tier rules, towns (owners; logged). No default owner since 2026-10-18. ── */
   function setFill(){
     const box = document.getElementById('pdSet'); if(!box || !PR()) return;
     const S = PR().settings(st()), can = isOwner(), dis = can ? '' : ' disabled';
@@ -239,19 +249,19 @@
     box.innerHTML = '<div class="pd-grid pd-set">' + num('pdsA', S.cadence.A, 'A partners: every … days') + num('pdsB', S.cadence.B, 'B partners: every … days') + num('pdsC', S.cadence.C, 'C partners: every … days')
       + num('pdsNew', S.cadence.new, 'New partner: follow up … days after the first visit') + num('pdsAd', S.a_days, 'A: a client started within … days') + num('pdsAc', S.a_count, 'A: or this many referrals in 12 months (with high potential)')
       + num('pdsPd', S.priority_days, 'Priority (new or high potential): A timing for … days')
-      + '<label for="pdsOwn">Default owner (existing partners, and new ones until assigned)</label><select id="pdsOwn"' + dis + '>' + people().map(p => '<option value="' + esc(p.email) + '"' + (p.email === lc(S.default_owner) ? ' selected' : '') + '>' + esc(p.name) + '</option>').join('') + '</select>'
+      + '<label>Who owns a partner</label><div class="field-note">A Care Coordinator. The Springfield lead (or an owner) assigns each one; a new partner waits in "Needs an owner".</div>'
       + '<label for="pdsTowns">Towns we serve (one per line; used by the staffing sheet)</label><textarea id="pdsTowns" rows="6"' + dis + '>' + esc((S.towns.length ? S.towns : DEFAULT_TOWNS).join('\n')) + '</textarea></div>'
       + (can ? '<button class="primary" style="margin-top:8px;" onclick="pdSetSave(this)">Save</button> <span class="field-note" id="pdSetMsg"></span>' : '<div class="field-note">Only an owner can change these.</div>');
   }
   async function setSave(b){
     if(!isOwner()) return; const v = id => document.getElementById(id).value;
-    const next = { cadence:{ A:+v('pdsA'), B:+v('pdsB'), C:+v('pdsC'), new:+v('pdsNew') }, a_days:+v('pdsAd'), a_count:+v('pdsAc'), priority_days:+v('pdsPd'), default_owner:lc(v('pdsOwn')),
+    const next = { cadence:{ A:+v('pdsA'), B:+v('pdsB'), C:+v('pdsC'), new:+v('pdsNew') }, a_days:+v('pdsAd'), a_count:+v('pdsAc'), priority_days:+v('pdsPd'),
       towns:v('pdsTowns').split('\n').map(t => t.trim()).filter(Boolean) };
     const bad = Object.values(next.cadence).concat([next.a_days, next.a_count, next.priority_days]).some(n => !(n >= 1 && n <= 3650));
     const msg = document.getElementById('pdSetMsg'); if(bad){ if(msg) msg.textContent = 'Each number must be between 1 and 3650.'; return; }
     if(b) b.disabled = true;
-    const out = await tkMerge(m => { const was = m.partner_desk || {}; m.partner_desk = Object.assign({}, was, next, { since:was.since || PR().DEFAULTS.since });
-      return JSON.stringify(was) === JSON.stringify(m.partner_desk) ? [] : ['referral partner desk settings: A ' + next.cadence.A + 'd, B ' + next.cadence.B + 'd, C ' + next.cadence.C + 'd, new +' + next.cadence.new + 'd, default owner ' + next.default_owner + ', ' + next.towns.length + ' towns']; }, 'Referral partner desk');
+    const out = await tkMerge(m => { const was = m.partner_desk || {}; m.partner_desk = Object.assign({}, was, next, { since:was.since || PR().DEFAULTS.since }); delete m.partner_desk.default_owner;
+      return JSON.stringify(was) === JSON.stringify(m.partner_desk) ? [] : ['referral partner desk settings: A ' + next.cadence.A + 'd, B ' + next.cadence.B + 'd, C ' + next.cadence.C + 'd, new +' + next.cadence.new + 'd, ' + next.towns.length + ' towns']; }, 'Referral partner desk');
     if(b) b.disabled = false;
     if(out && out.error){ if(msg) msg.textContent = 'Could not save: ' + out.error.message; return; }
     DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { partner_desk:Object.assign({}, (DATA.ops_settings || {}).partner_desk || {}, next) }); if(msg) msg.textContent = 'Saved.'; refresh();
