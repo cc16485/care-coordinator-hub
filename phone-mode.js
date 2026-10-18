@@ -27,10 +27,20 @@
    ===================================================================================================================== */
 (function () {
   'use strict';
-  var ON = /[?&]m=1(&|$)/.test(location.search);
-  window.CC_PHONE = ON;
-  if (!ON) return;
+  /* THE HR DESK ON THE PHONE (2026-10-18, Samantha: "can the button Open the HR Page open only the HR page not the
+     whole hub - and make it mobile friendly, he works from his phone 90% of the time"). index.html?m=hr is this same
+     phone mode showing ONLY the HR section (hr.js, unchanged rules, the same sign-in), laid out for a phone. A phone
+     that opens an HR link (#hr, #hr/formal, the link in Zach's alerts) is sent there; a computer keeps the Hub's HR page. */
+  var HRM = /[?&]m=hr(&|$)/.test(location.search);
+  var ON = HRM || /[?&]m=1(&|$)/.test(location.search);
+  window.CC_PHONE = ON; window.CC_PHONE_HR = HRM;
+  if (!ON) {
+    try { if (/^#hr(\/|$)/i.test(location.hash) && window.matchMedia && window.matchMedia('(max-width: 760px)').matches) location.replace('index.html?m=hr' + location.hash); }
+    catch (e) { /* the Hub's own HR page opens instead */ }
+    return;
+  }
   document.documentElement.classList.add('ccphone');
+  if (HRM) document.documentElement.classList.add('ph-hr');
 
   var DAYS14 = 14 * 864e5, KEY = 'cc_phone_signed_in_at';
   var css = ''
@@ -86,6 +96,37 @@
     + '.ph-in{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:9px 10px;border:1.5px solid #DCE4EE;border-radius:9px;margin-top:8px}'
     + '.ph-ho{background:#EEF8F7;border:1.5px dashed #2E8F8B;border-radius:14px;padding:12px 13px;margin:12px 0 4px}.ph-ho ul{margin:6px 0 0;padding-left:18px;font-size:13.5px}'
     + '.ph-fam{border-top:1px solid #EEF2F7;padding:8px 0;display:flex;align-items:center;gap:10px}.ph-fam div{flex:1;min-width:0;font-size:14px}.ph-fam small{display:block;color:#5B6878;font-size:12px}';
+  /* The HR desk: hr.js's own screens, one column, the menu a row of chips you swipe, big tap targets, windows full screen. */
+  css += ''
+    + 'html.ph-hr #phApp{padding-bottom:calc(30px + env(safe-area-inset-bottom,0px))}'
+    + 'html.ph-hr .hr-wrap{display:block;padding:0 0 24px}'
+    + 'html.ph-hr .hr-menu{position:sticky;top:calc(52px + env(safe-area-inset-top,0px));z-index:4;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:8px;border:0;border-bottom:1px solid #DCE4EE;border-radius:0;padding:10px 14px;background:#F6F9FD;scrollbar-width:none;-webkit-overflow-scrolling:touch}'
+    + 'html.ph-hr .hr-menu::-webkit-scrollbar{display:none}'
+    + 'html.ph-hr .hr-menu-head,html.ph-hr .hr-item-note{display:none}'
+    + 'html.ph-hr .hr-item{flex:0 0 auto;white-space:nowrap;border:1.5px solid #DCE4EE;background:#fff;border-radius:999px;padding:9px 15px}'
+    + 'html.ph-hr .hr-item.on{border-color:#0E3860;background:#0E3860;color:#fff}'
+    + 'html.ph-hr .hr-item-label{font-size:14px}'
+    + 'html.ph-hr .hr-main{padding:12px 14px 0}'
+    + 'html.ph-hr .hr-h{font-size:19px}'
+    + 'html.ph-hr .hr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}'
+    + 'html.ph-hr .hr-card,html.ph-hr .card{border-radius:14px}'
+    + 'html.ph-hr .hr-row{flex-direction:column;align-items:stretch;gap:8px;font-size:14px}'
+    + 'html.ph-hr .hr-row>*{min-width:0;max-width:100%}'
+    + 'html.ph-hr .hr-btn,html.ph-hr .hr-main .btn,html.ph-hr .hr-main button.fb,html.ph-hr .overlay .btn,html.ph-hr .overlay button{min-height:42px;font-size:14.5px;padding:9px 14px}'
+    + 'html.ph-hr .hr-main input,html.ph-hr .hr-main select,html.ph-hr .hr-main textarea,html.ph-hr .overlay input,html.ph-hr .overlay select,html.ph-hr .overlay textarea{font-size:16px;max-width:100%;box-sizing:border-box}'
+    + 'html.ph-hr .hr-main .tabpanel{display:none}html.ph-hr .hr-main .tabpanel.active{display:block}'
+    + 'html.ph-hr .hr-main .panel>div{padding:0!important}'
+    + 'html.ph-hr .hr-main table{font-size:13px}'
+    + 'html.ph-hr .hr-main .panel,html.ph-hr .hr-main [id^="wu"],html.ph-hr .hr-main [id^="att"]{max-width:100%;overflow-x:auto}'
+    + 'html.ph-hr .hr-quote,html.ph-hr .hr-role p,html.ph-hr .hr-role li{max-width:none}'
+    + 'html.ph-hr .hr-hb-bar input[type=search]{min-width:0;width:100%;font-size:16px}'
+    + 'html.ph-hr .overlay .modal{width:100%!important;max-width:100%!important;max-height:none!important;min-height:100%;margin:0!important;border-radius:0!important;box-sizing:border-box;padding:calc(14px + env(safe-area-inset-top,0px)) 14px calc(20px + env(safe-area-inset-bottom,0px))!important;overflow-y:auto}'
+    + 'html.ph-hr .overlay.open,html.ph-hr .overlay.on,html.ph-hr .overlay.show{align-items:stretch!important;padding:0!important}'
+    + 'html.ph-hr #writeup-body{font-size:14px!important;min-height:50vh}'
+    + 'html.ph-hr .hr-main .panel{padding:0!important;margin:0!important;border:0!important;background:none!important;box-shadow:none!important}'
+    + 'html.ph-hr .hr-kind{align-self:flex-start;display:inline-block}'
+    + '.ph-close{position:sticky;top:calc(-14px - env(safe-area-inset-top,0px));z-index:2;display:flex;justify-content:flex-start;margin:-14px -14px 10px;padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:#fff;border-bottom:1px solid #DCE4EE}'
+    + '.ph-close button{appearance:none;background:none;border:0;font:inherit;font-size:15px;font-weight:700;color:#0E3860;padding:6px 0;min-height:0!important}';
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
   /* 2026-10-12: the app's manifest only in phone mode, so a phone's home screen icon opens CC Office as its own app; the computer Hub is unchanged */
   if (!document.querySelector('link[rel="manifest"]')) { var mf = document.createElement('link'); mf.rel = 'manifest'; mf.href = 'cc-office.webmanifest'; document.head.appendChild(mf); }
@@ -1178,7 +1219,48 @@
     phRender();
     if (VIEW === 'today') todayLoad(force);
   }
+  /* ── THE HR DESK (?m=hr): only the HR section ── */
+  function hrStart() {
+    var d = document.getElementById('phApp');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'phApp';
+      d.innerHTML = '<div class="ph-top"><b>HR<small id="phWho">Caring Companions</small></b><button type="button" id="phHrOut">Sign out</button></div><div id="phHr"></div>';
+      document.body.appendChild(d);
+      /* hr.js draws into #hrRoot and moves the Write-Ups and Attendance panels in beside it; the Hub's windows (the
+         write-up notice, Start a write-up) sit inside the hidden computer screen, so they come out to the page */
+      var root = document.getElementById('hrRoot'); if (root) document.getElementById('phHr').appendChild(root);
+      document.querySelectorAll('#appScreen .overlay').forEach(function (o) {
+        document.body.appendChild(o);
+        /* a full-screen window needs its way back at the top, not only at the end of a long form */
+        var m = o.querySelector('.modal');
+        if (m && !m.querySelector('.ph-close')) {
+          var c = document.createElement('div'); c.className = 'ph-close';
+          c.innerHTML = '<button type="button">\u2039 Back</button>';
+          c.firstChild.onclick = function () { o.classList.remove('open'); };
+          m.prepend(c);
+        }
+      });
+      document.getElementById('phHrOut').onclick = async function () {
+        try { localStorage.removeItem(KEY); } catch (e) { /* nothing kept */ }
+        document.documentElement.classList.remove('ph-on');
+        await signOut();
+      };
+      try { var n = (typeof ME !== 'undefined' && ME && ME.name) || ''; if (n) document.getElementById('phWho').textContent = first(n) + ' · Caring Companions'; } catch (e) { /* the name is optional */ }
+    }
+    document.documentElement.classList.add('ph-on');
+    var s = document.getElementById('signinScreen'); if (s) s.style.display = 'none';
+    var want = String((location.hash.match(/^#hr\/([a-z]+)/i) || [])[1] || '').toLowerCase();
+    var draw = function (w) { try { if (window.HR) window.HR.render(w); } catch (e) { console.warn('hr', e); } };
+    /* The Hub's own actions redraw the open screen when they finish: here that is the HR section */
+    window.renderActiveTab = function () { draw(); };
+    window.myWorkRefresh = function () {};
+    window.addEventListener('scx-hydrated', function () { draw(); });
+    if (window.HR) draw(want);
+    else { var sc = document.createElement('script'); sc.src = 'hr.js?v=20261018j'; sc.onload = function () { draw(want); }; document.head.appendChild(sc); }
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) draw(); });
+  }
   function phStart() {
+    if (HRM) { hrStart(); return; }
     build();
     document.documentElement.classList.add('ph-on');
     var s = document.getElementById('signinScreen'); if (s) s.style.display = 'none';
