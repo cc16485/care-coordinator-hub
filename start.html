@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Let's get you started — Caring Companions</title>
+<title>Let's get you started · Caring Companions</title>
 <!--
   Public new-hire intake. Sent right after the interview, before the Viventium
   offer packet, because reference checks are the slowest part of hiring and
@@ -450,7 +450,7 @@ function printCopy(){
     (r.dob ? '<tr><th>Date of birth</th><td>' + esc(r.dob) + '</td></tr>' : '') +
     '<tr><th>Address</th><td>' + esc([r.address, r.city, r.state, r.zip].filter(Boolean).join(', ')) + '</td></tr>' +
     '<tr><th>Contact</th><td>' + esc([r.phone, r.email].filter(Boolean).join(' · ')) + '</td></tr>' +
-    '<tr><th>Lived outside MO<br>in last 5 years</th><td>' + (r.lived_outside_mo ? 'Yes' + (r.states_lived ? ' — ' + esc(r.states_lived) : '') + '<br><i>Fingerprint screening required</i>' : 'No') + '</td></tr>' +
+    '<tr><th>Lived outside MO<br>in last 5 years</th><td>' + (r.lived_outside_mo ? 'Yes' + (r.states_lived ? ': ' + esc(r.states_lived) : '') + '<br><i>Fingerprint screening required</i>' : 'No') + '</td></tr>' +
     refRows + '</table>' +
     '<div class="consent">' + esc(r.consent_text) + '</div>' +
     '<div><span class="sig">' + esc(r.signature_name) + '</span><br>' +

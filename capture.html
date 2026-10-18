@@ -38,7 +38,7 @@
 <body>
 <img src="cc-logo.png" alt="Caring Companions" style="display:block;max-width:210px;width:65%;margin:4px auto 12px;">
 <h1>📥 Quick Capture</h1>
-<div class="sub">Anything that reaches you by phone gets banked in 30 seconds — a new client lead, a caregiver question, a family message, a schedule change. It lands in the hub with an owner and a due date. Nothing lives in your head.</div>
+<div class="sub">Anything that reaches you by phone gets banked in 30 seconds: a new client lead, a caregiver question, a family message, a schedule change. It lands in the hub with an owner and a due date. Nothing lives in your head.</div>
 
 <div class="card" id="loginCard" style="display:none;">
   <label>Hub email</label><input id="liEmail" type="email" autocomplete="username">
@@ -178,7 +178,7 @@ function setMode(m){
   $('noteCard').style.display=lead?'none':'block';
   $('mLead').className=lead?'primary':''; $('mLead').style.cssText='flex:1;'+(lead?'':'background:#fff;border:1px solid var(--border);color:var(--navy);');
   $('mNote').className=lead?'':'primary'; $('mNote').style.cssText='flex:1;'+(lead?'background:#fff;border:1px solid var(--border);color:var(--navy);':'');
-  $('modeHint').textContent=lead?'A potential new client called.':'Anything the team must know or do — a question, info, a promise you made.';
+  $('modeHint').textContent=lead?'A potential new client called.':'Anything the team must know or do: a question, info, a promise you made.';
   if(!lead&&!$('nDue').value) $('nDue').value=$('cDue').value;
 }
 let NBANKING=false;
@@ -188,7 +188,7 @@ async function bankNote(){
   try{
     const about=$('nAbout').value.trim(), notes=$('nNotes').value.trim(),
           owner=$('nOwner').value, due=$('nDue').value, urgent=$('nUrgent').checked;
-    if(!notes){ $('nErr').textContent='Write the note — future-team will thank you.'; return; }
+    if(!notes){ $('nErr').textContent='Write the note. Future-team will thank you.'; return; }
     const { data:{ session } }=await sb.auth.getSession();
     if(!session){ $('app').style.display='none'; $('loginCard').style.display='block'; return; }
     const by=(session.user&&session.user.email)||'quick capture';
@@ -198,7 +198,7 @@ async function bankNote(){
     const kindSel=$('nKind').value;
     const item={
       id:uid('ops_note'), kind:'request',
-      title:(KIND_TAG[kindSel]||'Pass-along')+' — '+(about||notes.slice(0,40)),
+      title:(KIND_TAG[kindSel]||'Pass-along')+': '+(about||notes.slice(0,40)),
       about:about||'',
       detail:notes+' (Passed along via the quick form by '+by+'.)',
       domain:'', status:'open', urgency:urgent?'high':'normal',
@@ -221,7 +221,7 @@ async function bank(){
           notes=$('cNotes').value.trim(), assess=$('cAssess').value,
           owner=$('cOwner').value, due=$('cDue').value, asap=$('cAsap').checked;
     if(!name&&!phone){ $('err').textContent='At least a name or a phone number.'; return; }
-    if(!notes){ $('err').textContent='One sentence on what they want — future-you will thank you.'; return; }
+    if(!notes){ $('err').textContent='One sentence on what they want. Future-you will thank you.'; return; }
     const { data:{ session } }=await sb.auth.getSession();
     if(!session){ $('app').style.display='none'; $('loginCard').style.display='block'; return; }
     const by=(session.user&&session.user.email)||'quick capture';
@@ -242,7 +242,7 @@ async function bank(){
     if(r.error){ $('err').textContent='Could not save the lead: '+r.error.message; return; }
     const item={
       id:uid('ops_cap'), kind:'request',
-      title:(assess?'Assessment '+assess.replace('T',' ')+' — ':'New lead follow-up — ')+(name||phone),
+      title:(assess?'Assessment '+assess.replace('T',' ')+': ':'New lead follow-up: ')+(name||phone),
       about:name||phone,
       detail:(asap?'WANTS TO START ASAP. ':'')+assessTxt+notes+' (Captured after-hours via the quick form.)',
       domain:'', status:'open', urgency: (assess||asap)?'high':'normal',
