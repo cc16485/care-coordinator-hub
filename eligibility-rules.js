@@ -35,6 +35,18 @@ function fmtD(s){ const d=pd(s); if(!d) return null;
    same source works in a process that runs for days. */
 Object.defineProperty(root, '__ELIG_TODAY__', { get: today, configurable:true });
 
+/* Supervisory visits, her decision 2026-10-18: from 2026-11-16 (IHS/ADW Medicaid ends) a supervisory visit happens
+   only when there is a concern and is logged as a short note. No yearly due date, so nothing is ever due or overdue.
+   Until then the yearly evaluation still applies to caregivers on IHS/ADW clients. The day is read on Central time,
+   so the browser and the server flip together at midnight in Missouri. */
+const SUPERVISORY_CONCERN_FROM = '2026-11-16';
+function centralDay(now){
+  const d = now ? new Date(now) : new Date();
+  try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(d); }
+  catch(e){ return d.toISOString().slice(0,10); }
+}
+function supervisoryConcernOnly(now){ return centralDay(now) >= SUPERVISORY_CONCERN_FROM; }
+
 function chkStatus(lastStr, interval, warnDays){
   if(!lastStr) return {status:'Pending',nextDue:null,days:null};
   const last=pd(lastStr), next=addDays(last,interval), left=daysLeft(next);
@@ -427,7 +439,7 @@ function eligibility(c){
 
   // ── MANAGEMENT QUALITY: reported, never eligibility ───────────────────
   const sv = chkStatus(c.supv_date, 365, 30), pr = chkStatus(c.perf_date, 365, 30);
-  if(sv.status === 'Overdue') mgmt.push({code:'supervisory_visit', kind:ELIG_MGMT, why:'Supervisory visit overdue.'});
+  if(sv.status === 'Overdue' && !supervisoryConcernOnly()) mgmt.push({code:'supervisory_visit', kind:ELIG_MGMT, why:'Supervisory visit overdue.'});
   if(pr.status === 'Overdue') mgmt.push({code:'performance_review', kind:ELIG_MGMT, why:'Performance review overdue.'});
 
   /* needs_verification sits between eligible and not_eligible on purpose. It
@@ -543,5 +555,6 @@ root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, refScore, 
                 fcsrRegStatus, eligibility, eligibilityFacts, eligEntry, eligRecord,
                 eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT, ELIG_AGENCY,
                 PROFILE_REQUIRED_FROM, profileNewHire, profileGate,
+                SUPERVISORY_CONCERN_FROM, supervisoryConcernOnly, centralDay,
                 _helpers:{ pd, addDays, daysLeft, fmtD, today } };
 })(typeof globalThis!=='undefined' ? globalThis : this);

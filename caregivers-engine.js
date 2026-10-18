@@ -7176,12 +7176,18 @@ function acWorst(c){
   const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
   const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
-  const ss=[o.status,e.status,f.status,sv.status,pr.status];
+  /* from 2026-11-16 supervisory visits are concern-only: never due, so they no longer count toward the overall status */
+  const ss=svConcernOnly()?[o.status,e.status,f.status,pr.status]:[o.status,e.status,f.status,sv.status,pr.status];
   if(fReg.status==='overdue') ss.push('Overdue');
   if(ss.includes('Overdue')) return 'overdue';
   if(ss.includes('Due Soon')) return 'duesoon';
   if(ss.every(s=>s==='Current')&&fReg.status==='ok') return 'current';
   return 'pending';
+}
+function svConcernOnly(){ return !!(globalThis.CCElig && CCElig.supervisoryConcernOnly && CCElig.supervisoryConcernOnly()); }
+/* From 2026-11-16: the last concern visit's date only, no badge and no next date */
+function supvLastCell(c){
+  return `<div class="chk">${c.supv_date?`<span class="chk-date">Last visit: ${fmtD(c.supv_date)}</span>`:'<span class="chk-date">No visit logged</span>'}<span>${proofLink(c.supv_proof)}</span></div>`;
 }
 function renderAC(){
   const q=((document.querySelector('#panel-compliance input')||{value:''}).value||globalSearch).toLowerCase();
@@ -7215,7 +7221,7 @@ function renderAC(){
       <td>${compCell(c.edl_date,e,c.edl_status,c.edl_proof)}</td>
       <td>${(()=>{ const reg=fcsrRegStatus(c); const regColor=reg.status==='ok'?'var(--green)':reg.status==='overdue'?'var(--red)':'var(--amber)'; const regIcon=reg.status==='ok'?'✓':reg.status==='overdue'?'⚠':'⏳'; return compCell(c.fcsr_date,f,c.fcsr_status,c.fcsr_proof)+`<span class="chk-date" style="color:${regColor}">${regIcon} ${reg.label}</span>`; })()}</td>
       <td><div class="chk">${c.oos==='yes'?`<span class="badge ${fpBadge}">${c.fp}</span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
-      <td>${compCell(c.supv_date,sv,'',c.supv_proof)}</td>
+      <td>${svConcernOnly()?supvLastCell(c):compCell(c.supv_date,sv,'',c.supv_proof)}</td>
       <td>${compCell(c.perf_date,pr,'',c.perf_proof)}</td>
       <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
@@ -9772,8 +9778,11 @@ function openProfile(first, last){
     const fReg=fcsrRegStatus(cg);
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
     html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.5rem 0 .75rem">`;
-    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Supervisory Visit',chk:sv,date:cg.supv_date},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date})=>{
+    const svConcern=svConcernOnly();
+    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Supervisory Visit',chk:sv,date:cg.supv_date,lastOnly:svConcern},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date,lastOnly})=>{
       const b=compBadge(chk.status);
+      /* from 2026-11-16 a supervisory visit is concern-only: show when the last one was, never a due badge */
+      if(lastOnly){ html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem"><div style="font-size:.68rem;font-weight:600;color:var(--gray);margin-bottom:.2rem">${label}</div><div style="font-size:.65rem;color:var(--gray)">${date?'Last visit '+fmtD(date):'When there is a concern'}</div></div>`; return; }
       html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem"><div style="font-size:.68rem;font-weight:600;color:var(--gray);margin-bottom:.2rem">${label}</div><span class="badge ${b}" style="font-size:.65rem">${chk.status}</span>${date?`<div style="font-size:.65rem;color:var(--gray);margin-top:.15rem">${fmtD(date)}</div>`:''}</div>`;
     });
     html+=`</div>`;
