@@ -1154,7 +1154,7 @@ function setSectionTitle(name){
   const el=document.querySelector('.hdr-center h1');
   if(el) el.innerHTML = SECTION_TITLES[name] || 'Caring Companions';
   const t=String(SECTION_TITLES[name]||'').replace(/&amp;/g,'&');
-  if(t) document.title = t+' | Caring Companions';
+  if(t) document.title = t+' · Caring Companions';
 }
 
 function switchTab(name, btn){
@@ -6418,7 +6418,7 @@ function renderPreHireAudit(){
 function bgrPrintAudit(){
   const w = window.open('', '_blank'); if(!w){ alert('Please allow pop-ups to print the binder.'); return; }
   const when = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  w.document.write('<html><head><title>Pre-Hire Background Checks | Caring Companions</title>'
+  w.document.write('<html><head><title>Pre-Hire Background Checks · Caring Companions</title>'
     + '<style>body{font-family:system-ui,Arial,sans-serif;color:#1a1a1a;padding:24px}h1{color:#0D365F;font-size:18px;margin:0 0 2px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;vertical-align:top}</style>'
     + '</head><body><h1>Pre-Hire Background Checks</h1><div style="color:#666;font-size:12px;margin-bottom:12px">Caring Companions &middot; generated '+when+'</div>'
     + bgrAuditHTML(true)
