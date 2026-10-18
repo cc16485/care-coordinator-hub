@@ -3173,7 +3173,7 @@ function attDocBody(cg, trigger, level){
     +'  X ______________________________   Date: ____________\n\n'
     +'Issued by:\n\n'
     +'  X ______________________________   Date: ____________\n\n'
-    +'File the signed original in Viventium.\n';
+    +'Signed in the Hub (HR, Formal cases). The signed copy is kept there and uploaded to AxisCare.\n';
 }
 async function draftWriteup(cg, triggerIdx){
   const s=attStatus(cg);
@@ -3301,6 +3301,127 @@ async function wuDraftAi(btn){
     if(typeof ccNotice==='function') ccNotice('AI draft is in the box. Read it, edit it, then Save.');
   }finally{ btn.disabled=false; btn.textContent=was; }
 }
+/* ── HR step 8 (2026-10-18, her decisions): once a write-up is approved, the caregiver signs that they RECEIVED it (not
+   that they agree) on a private link Zach texts (he sees the words and presses Send) or in person on this phone; or Zach
+   records a refusal with the date, how it was delivered and a witness. The server (hr-ack) keeps the notice, the PDF and
+   the history. Practice until ops_settings.hr_ack_live: it all works, but nothing is texted, the write-up stays approved
+   and nothing goes to AxisCare. ── */
+async function wuAck(body){
+  const { data, error }=await sb.functions.invoke('hr-ack',{ body });
+  let msg=''; if(error){ try{ msg=(await error.context.json()).error; }catch(_){ msg=error.message; } }
+  if(error||!data||data.error) throw new Error(msg||(data&&data.error)||'The server did not answer.');
+  return data;
+}
+const ACK_WORD={ waiting:'Waiting for a signature', signed:'Signed: they received it', refused:'Refused to sign', did_not_sign:'Did not sign', cancelled:'Link cancelled' };
+const ACK_HOW={ phone:'by phone', video:'by video call', in_person:'in person', text_link:'by text link' };
+const ackDay=(iso)=>iso?new Date(iso).toLocaleString('en-US',{timeZone:'America/Chicago',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+async function wuAckLoad(id, msg){
+  const box=document.getElementById('writeup-ack'); if(!box) return;
+  const a=DISC_ACTIONS.find(x=>x.id===id);
+  if(!a||!['approved','issued'].includes(a.status)||!attCanDecide()){ box.innerHTML=''; return; }
+  box.innerHTML='<div class="field-note">Loading the signature record…</div>';
+  let d; try{ d=await wuAck({ action:'list', writeup_id:id }); }catch(e){ if(_writeupId===id) box.innerHTML='<div class="field-note" style="color:#b91c1c">Could not load the signature record: '+creqEsc(e.message)+'</div>'; return; }
+  if(_writeupId!==id) return;
+  const acks=d.acks||[];
+  /* signed on the caregiver's own phone since this page loaded: bring the write-up up to date */
+  if(a.status==='approved' && acks.some(k=>!k.practice&&['signed','refused','did_not_sign'].includes(k.status))){ await wuReloadWriteups(); return; }
+  box.innerHTML=wuAckHtml(a, acks, d.live, msg);
+}
+async function wuReloadWriteups(){
+  try{ const r=await sb.from('app_data').select('data').eq('key','discipline_actions').maybeSingle(); if(!r.error&&Array.isArray(r.data&&r.data.data)) DISC_ACTIONS=r.data.data; }catch(_){}
+  try{ renderWriteups(); }catch(_){} try{ renderAttendance(); }catch(_){}
+  if(_writeupId) openWriteup(_writeupId);
+}
+function wuAckHtml(a, acks, live, msg){
+  const esc=creqEsc, B='class="fb" style="width:auto"', P='class="fb" style="width:auto;background:#0d3a5f;color:#fff"';
+  const wrap='background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:.7rem .8rem;margin:.2rem 0 .6rem;font-size:.8rem';
+  const row='display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.45rem';
+  let h='<div style="'+wrap+'"><div style="font-weight:800;color:var(--navy);margin-bottom:.25rem">Getting it signed</div>';
+  if(!live) h+='<div style="background:#FFF7E6;border:1px dashed #F0A63A;border-radius:8px;padding:.4rem .6rem;margin:.2rem 0 .4rem">Practice: signing works end to end, but nothing is texted, this write-up stays approved and nothing goes to AxisCare. It goes live in build step 10.</div>';
+  if(msg) h+='<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.4rem .6rem;margin:.2rem 0 .4rem">'+msg+'</div>';
+  const done=acks.filter(k=>['signed','refused','did_not_sign'].includes(k.status));
+  done.forEach(k=>{
+    h+='<div style="border-top:1px solid var(--border);padding:.4rem 0"><b>'+esc(ACK_WORD[k.status])+'</b>'+(k.practice?' <span style="color:#b45309">(practice)</span>':'')+'<br>'
+      +(k.status==='signed'?'Signed by '+esc(k.signed_name)+', '+esc(ackDay(k.signed_at))+(k.via==='in_person'?', in person':', on their link')
+        :esc(String(k.refused_on||''))+', '+esc(ACK_HOW[k.refused_how]||'')+' · '+(k.witness?'Witness: '+esc(k.witness):'No witness: '+esc(k.witness_reason||''))+(k.note?' · '+esc(k.note):''))
+      +'<div style="'+row+'"><button '+B+' onclick="wuAckOpen(\''+k.id+'\',this)">📄 Open the PDF</button>'
+      +(k.practice?'':k.ax_upload_at?'<span style="color:#166534">✓ PDF uploaded to AxisCare ('+esc(ackDay(k.ax_upload_at))+')</span>'
+        :'<button '+P+' onclick="wuAckUploaded(\''+k.id+'\')">✓ Uploaded to AxisCare</button><span>'+(k.ax_note==='sent'?'A short note is on their AxisCare record. Now add the PDF to their AxisCare documents.':'The AxisCare note did not go ('+esc(k.ax_note_error||'not sent')+'). Add the PDF to their AxisCare documents.')+'</span>')
+      +'<span id="ackOpen_'+k.id+'"></span></div></div>';
+  });
+  const wait=acks.find(k=>k.status==='waiting');
+  if(wait){
+    h+='<div style="border-top:1px solid var(--border);padding:.4rem 0"><b>'+esc(ACK_WORD.waiting)+'</b>'+(wait.practice?' <span style="color:#b45309">(practice)</span>':'')+'<br>'
+      +(wait.via==='in_person'?'Signing in person, started '+esc(ackDay(wait.started_at)):(wait.sent_at?'Link texted '+esc(ackDay(wait.sent_at)):'Link made '+esc(ackDay(wait.started_at))+', not texted yet'))
+      +(wait.opened_at?' · they opened it '+esc(ackDay(wait.opened_at)):'')
+      +(wait.unsigned_too_long?'<div style="color:#b91c1c;font-weight:700;margin-top:.2rem">Not signed in 5 business days. Record it as Did not sign.</div>':'')
+      +'<div id="ackSend"></div><div style="'+row+'"><button '+B+' onclick="wuAckRefuseForm(\''+wait.id+'\')">Record a refusal or Did not sign</button><button '+B+' onclick="wuAckCancel(\''+wait.id+'\')">Cancel the link</button></div><div id="ackRefuse"></div></div>';
+  }else if(a.status==='approved'){
+    h+='<div>Meet with them first (phone, video or in person) and go over it. Then they sign that they received it. Signing does not mean they agree.</div>'
+      +'<div style="'+row+'"><button '+P+' onclick="wuAckStart(\'link\',this)">📱 Text them a link</button><button '+B+' onclick="wuAckStart(\'in_person\',this)">✍️ Sign here, in person</button></div><div id="ackSend"></div>';
+  }
+  return h+'</div>';
+}
+async function wuAckStart(via, btn){
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return;
+  if(!(await wuSave(true))) return alert('Your changes could not be saved, so nothing was started. Try again.');
+  btn.disabled=true;
+  let d; try{ d=await wuAck({ action:'start', writeup_id:a.id, via }); }catch(e){ btn.disabled=false; return alert(e.message+' Nothing was started.'); }
+  await wuAckLoad(a.id);
+  const box=document.getElementById('ackSend'); if(!box) return;
+  const esc=creqEsc;
+  if(via==='in_person'){
+    box.innerHTML='<div style="margin-top:.5rem"><a class="fb" style="display:inline-block;width:auto;background:#F0A63A;color:#122F52;text-decoration:none;font-weight:800" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open the signing page</a>'
+      +'<div class="field-note" style="margin-top:.3rem">It opens in a new tab. Hand them this phone to read and sign. The page works for 2 hours. Come back here after.</div></div>';
+    return;
+  }
+  box.innerHTML='<div style="margin-top:.5rem"><div class="field-note">'+(d.phone_last4?'Goes to their phone ending '+esc(d.phone_last4)+', from the office line.':'<b style="color:#b91c1c">No usable phone on their record.</b> Sign in person instead.')
+    +' Check the words, then Send. Keep the link in it.</div><textarea id="ackMsg" rows="5" style="width:100%;font-size:.85rem;margin-top:.3rem">'+esc(d.draft||'')+'</textarea>'
+    +'<div style="display:flex;gap:.5rem;margin-top:.4rem"><button class="fb" style="width:auto;background:#0d3a5f;color:#fff" onclick="wuAckSend(\''+d.ack.id+'\',this)">'+(d.practice?'Send (practice: nothing is texted)':'📤 Send the text')+'</button></div>'
+    +(d.practice?'<div class="field-note" style="margin-top:.3rem">Practice: try it yourself on your phone: <a href="'+esc(d.link)+'" target="_blank" rel="noopener">open the signing page</a>.</div>':'')+'</div>';
+}
+async function wuAckSend(ackId, btn){
+  const m=document.getElementById('ackMsg'); if(!m) return;
+  btn.disabled=true;
+  try{ const d=await wuAck({ action:'send', ack_id:ackId, message:m.value });
+    await wuAckLoad(_writeupId, d.outcome==='practice'?'Practice: nothing was texted. The 5-day clock started.':'Sent. You will see here when they sign.'); }
+  catch(e){ btn.disabled=false; alert(e.message); }
+}
+function wuAckRefuseForm(ackId){
+  const box=document.getElementById('ackRefuse'); if(!box) return;
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
+  box.innerHTML='<div style="margin-top:.5rem;display:grid;gap:.35rem">'
+    +'<label><input type="radio" name="ackOut" value="refused" checked style="width:auto"> They refused to sign</label>'
+    +'<label><input type="radio" name="ackOut" value="did_not_sign" style="width:auto"> They did not sign (no answer)</label>'
+    +'<label>Date <input type="date" id="ackDate" value="'+today+'" max="'+today+'" style="width:auto"></label>'
+    +'<label>How it was delivered <select id="ackHow" style="width:auto"><option value="phone">By phone</option><option value="video">By video call</option><option value="in_person">In person</option><option value="text_link">By text link</option></select></label>'
+    +'<label>Witness (someone else on the call or in the room) <input type="text" id="ackWit" placeholder="Their name"></label>'
+    +'<label>No witness? Say why <input type="text" id="ackWhy" placeholder="For example: texted the link, no reply in 5 business days"></label>'
+    +'<label>Note (optional) <input type="text" id="ackNote" placeholder="What they said"></label>'
+    +'<div><button class="fb" style="width:auto;background:#0d3a5f;color:#fff" onclick="wuAckRecord(\''+ackId+'\',this)">Record it</button></div></div>';
+}
+async function wuAckRecord(ackId, btn){
+  const v=(id)=>((document.getElementById(id)||{}).value||'').trim();
+  const out=(document.querySelector('input[name="ackOut"]:checked')||{}).value||'';
+  btn.disabled=true;
+  try{ const d=await wuAck({ action:'record', ack_id:ackId, outcome:out, date:v('ackDate'), how:v('ackHow'), witness:v('ackWit'), witness_reason:v('ackWhy'), note:v('ackNote') });
+    if(d.practice) await wuAckLoad(_writeupId,'Practice: recorded and the PDF is kept. The write-up stays approved.'); else await wuReloadWriteups(); }
+  catch(e){ btn.disabled=false; alert(e.message); }
+}
+async function wuAckOpen(ackId, btn){
+  btn.disabled=true;
+  try{ const d=await wuAck({ action:'open', ack_id:ackId }); const s=document.getElementById('ackOpen_'+ackId);
+    if(s) s.innerHTML='<a href="'+creqEsc(d.url)+'" target="_blank" rel="noopener" style="font-weight:700">Open it now</a> (works for 5 minutes; this open is logged)'; }
+  catch(e){ alert(e.message); } finally{ btn.disabled=false; }
+}
+async function wuAckUploaded(ackId){
+  if(!(await ccConfirm('Is the PDF now in their AxisCare documents?'))) return;
+  try{ await wuAck({ action:'uploaded', ack_id:ackId }); await wuAckLoad(_writeupId,'Thank you. The AxisCare task is closed.'); }catch(e){ alert(e.message); }
+}
+async function wuAckCancel(ackId){
+  if(!(await ccConfirm('Stop this link from working? You can start a new one.'))) return;
+  try{ await wuAck({ action:'cancel', ack_id:ackId }); await wuAckLoad(_writeupId,'The link is cancelled.'); }catch(e){ alert(e.message); }
+}
 function openWriteup(id){
   const a=DISC_ACTIONS.find(x=>x.id===id); if(!a) return;
   _writeupId=id;
@@ -3321,15 +3442,14 @@ function openWriteup(id){
     notice.innerHTML='⏳ Waiting for '+creqEsc(wuWho(a))+' to approve it (they see it under My Work, Approvals). It can\'t be edited or issued until it\'s approved.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'+closeBtn;
   }else if(a.status==='approved'){
-    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'a care coordinator')+'. <b>Copy notice</b> → paste into the AxisCare "Corrective Action Notice" form → send to the caregiver to e-sign in their app. Once signed, click Mark issued. That stamps the proof note on their AxisCare record too. (🖨 Print / Save as PDF if you also want a copy in Viventium.)';
-    acts.innerHTML='<button class="fb" style="background:#0d3a5f" onclick="copyWriteup(this)">📋 Copy notice</button>'
-      +'<button class="fb" onclick="printWriteup()">🖨 Print / PDF</button>'
-      +'<button class="fb" style="background:#16a34a" onclick="issueWriteup()">✓ Mark issued</button>'+closeBtn;
+    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'Zach')+'. Next: meet with them, then they sign that they received it (below). Signing does not mean they agree.';
+    acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print / PDF</button>'+closeBtn;
   }else{
-    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+'. <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
+    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ack?' · '+creqEsc(ACK_WORD[a.ack.status]||a.ack.status):'')+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+'. <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print</button>'+closeBtn;
   }
   document.getElementById('writeup-modal').classList.add('open');
+  wuAckLoad(id);
 }
 async function sendForApproval(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
@@ -10853,6 +10973,9 @@ for (const [n, f] of Object.entries({
   pushAxNote, reactivateOB, removeStaffUser, resolveReturnedItem,
   sendForApproval, sendReply, toggleCQCard, toggleStaffNotif,
   toggleThread, vivCopy,
+  /* HR steps 6 and 8 (2026-10-18): the write-up checklist, Draft with AI, No write-up, and getting it signed */
+  wuSave, wuDraftAi, wuProtected, noWriteup,
+  wuAckStart, wuAckSend, wuAckRefuseForm, wuAckRecord, wuAckOpen, wuAckUploaded, wuAckCancel,
 })) window[n] = f;
 window.intakeImport = intakeImport;
 window.openPerson = openPerson;
