@@ -17,7 +17,7 @@ ck('owners still hold approve_discipline', own.indexOf("'approve_discipline'") >
 const ui = between(H, 'function ccApplyRoleUi(){', '\n}');
 ck('ccApplyRoleUi hides the Write-Ups tab without approve_discipline', /approve_discipline/.test(ui) && /cgwriteups/.test(ui) && /attWriteupsLink/.test(ui), ui);
 ck('the Attendance link to Write-Ups starts hidden', /id="attWriteupsLink" style="display:none;/.test(H));
-ck('opening Write-Ups without permission goes to Attendance', /tab==='cgwriteups' && CC_ROLES_CHECKED && !ccCan\('approve_discipline'\)/.test(H));
+ck('old Write-Ups and Attendance links land in the HR page (step 3)', /if\(tab==='cgattendance'\|\|tab==='cgwriteups'\)\{ window\.HR_WANT=/.test(H));
 
 // profile: no formal records card for anyone else
 const perf = between(H, 'function cgdPerformanceHtml(', '\nfunction ');
