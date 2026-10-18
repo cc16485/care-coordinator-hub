@@ -277,7 +277,7 @@
   body:not(.sv-concern) [data-sv="concern"], body.sv-concern [data-sv="yearly"]{display:none !important;}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800;900&family=Figtree:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=Poppins:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
-<title>Leads, Clients &amp; Care | Caring Companions</title>
+<title>Leads, Clients &amp; Care · Caring Companions</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
@@ -8576,7 +8576,7 @@ function ccSetSectionTitle(tab){
   const el=document.getElementById('ccSectionTitle');
   if(el) el.innerHTML = CC_SECTION_TITLES[tab] || 'Leads, Clients &amp; Care';
   const t=String(CC_SECTION_TITLES[tab]||'').replace(/&amp;/g,'&');
-  if(t) document.title = t+' | Caring Companions';
+  if(t) document.title = t+' · Caring Companions';
 }
 
 /* Some of the hub calls this gotoTab, which was never a function that existed.
