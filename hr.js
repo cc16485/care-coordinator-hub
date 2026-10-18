@@ -96,6 +96,7 @@
           + '.hr-actions{margin-top:8px}.hr-err{color:#B42318;font-size:12.5px;min-height:1em}.hr-tips{margin:0 0 6px 18px;padding:0;font-size:13px;line-height:1.6}.hr-more summary{cursor:pointer}'
           + '.hr-scroll{overflow-x:auto}.hr-table{border-collapse:collapse;font-size:13px;width:100%}.hr-table th,.hr-table td{text-align:left;padding:6px 8px;border-top:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums}.hr-table th{font-size:12px;color:var(--gray,#6B7280);font-weight:600}'
           + '.hr-stop{display:block;margin:8px 0;padding:6px 10px;border-left:4px solid #B42318;background:#FDECEA;color:#7A1F1F;font:700 12.5px system-ui,-apple-system,sans-serif;border-radius:0}'
+          + '.hr-check{display:flex;gap:8px;align-items:flex-start;margin-top:4px}.hr-check input{margin-top:3px}'
           + '.hr-serious{font-size:11px;font-weight:700;color:#B42318;background:#FDECEA;border-radius:999px;padding:1px 8px}'
           + '.hr-hb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0}.hr-hb-bar input[type=search]{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}'
           + '.hr-role p,.hr-role li{font-size:14px;line-height:1.6;max-width:68ch}.hr-sel{user-select:all;font-weight:700}'
@@ -252,27 +253,52 @@
   function tpHtml(tp) {
     return String(tp || '').split(STOP).map(esc).join('<span class="hr-stop">STOP. Let them answer, and write down what they say.</span>');
   }
+  /* Every coaching talk is a coaching CALL (her direction 2026-10-18): say plainly it is coaching, not a write-up; the
+     facts; ask what's going on; ask how we can help (a different shift time? something we can do?); the expectation;
+     and be clear that if it continues, the next step is official write-ups, which can lead to termination. The goal is
+     to solve it on the coaching call so it never gets that far. Each question is followed by a STOP. */
   function talkingPoints(c) {
     const first = String(c.caregiver || '').split(/\s+/)[0] || 'there';
     const facts = (c.facts || []).filter((f) => f && f.date);
     const fmt = (d) => { const x = new Date(String(d) + 'T12:00:00'); return isNaN(x) ? String(d) : x.toLocaleDateString('en-US', { month: 'long', day: 'numeric' }); };
     const list = (fs) => { const ds = fs.slice(-4).map((f) => fmt(f.date)); const s_ = ds.length <= 1 ? (ds[0] || 'recently') : ds.slice(0, -1).join(', ') + ' and ' + ds[ds.length - 1]; return s_ + (fs.length > 4 ? ' (and ' + (fs.length - 4) + ' earlier)' : ''); };
     const f0 = facts[0] || {};
-    return ({
-      w06: first + ', thank you for the care you give your clients. I want to check in about clocking in and out. Our records show '
-        + (facts.length || 'a few') + ' shifts without a clock-in or clock-out, on ' + list(facts) + '. When that happens, the visit can\'t be confirmed, and your pay and the client\'s record can come out wrong. '
-        + 'What has been getting in the way? Is it the app, your phone, or something else?' + ST + 'Going forward, every shift needs a clock-in when you arrive and a clock-out before you leave. If the app gives you trouble, call the office right then and we\'ll fix it with you.',
-      w01: first + ', thank you for letting us know you couldn\'t make your shift on ' + fmt(f0.date) + '. When we hear late, it\'s hard to find someone, and your client may go without care. '
-        + 'What happened that day?' + ST + 'From now on, please call at least 4 hours before a shift, and for a shift that starts between 7 and 9 AM, by 5 PM the day before, whenever you can. Is there anything that would make that easier for you?' + ST.trimEnd(),
-      w02: first + ', your clients count on you, and I\'ve noticed some call-ins lately: ' + list(facts) + '. Each one means we scramble to cover, and your client may get someone they don\'t know. '
-        + 'How are things going for you? Is something making it hard to make your shifts, like your schedule, a ride, or something at home?' + ST + 'Let\'s figure out what would help, so you can be there for the shifts you take.',
-      w03: first + ', your clients love having you. I want to talk about start times. On ' + list(facts) + ', the shift started late. Your clients plan their day around you, and some need help the moment their visit begins. '
-        + 'What has been making it hard to get there on time?' + ST + 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts. Is there anything we can change, like the start time, that would help?' + ST.trimEnd(),
-      w05: first + ', thank you for the care you give. I want to talk about shift notes. The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one. '
-        + 'What has been getting in the way?' + ST + 'Going forward, please write the note before you clock out. If the app won\'t let you, text the note to the office right away.',
-      kind: first + ', I want to pass something along. ' + (f0.date ? 'On ' + fmt(f0.date) + ', ' : '') + 'we heard this about you: ' + String(f0.what || '').slice(0, 220).replace(/([^.!?])$/, '$1.')
-        + ' That kind of care is exactly what our families count on. Thank you.',
-    })[c.rule] || (first + ', thank you for your work. I want to check in with you about ' + String(c.title || '').toLowerCase() + '. What has been going on?' + ST + 'Let\'s agree on what happens from here and what would help.');
+    if (c.rule === 'kind')
+      return first + ', I want to pass something along. ' + (f0.date ? 'On ' + fmt(f0.date) + ', ' : '') + 'we heard this about you: ' + String(f0.what || '').slice(0, 220).replace(/([^.!?])$/, '$1.')
+        + ' That kind of care is exactly what our families count on. Thank you.';
+    const R = {
+      w06: { kind: 'thank you for the care you give your clients', what: 'clocking in and out',
+        facts: 'Our records show ' + (facts.length || 'a few') + ' shifts without a clock-in or clock-out, on ' + list(facts) + '. When that happens, the visit can\'t be confirmed, and your pay and the client\'s record can come out wrong.',
+        why: 'What has been getting in the way? Is it the app, your phone, or something else?',
+        help: 'How can we help? Would it help if we went through the app with you, or is there something else we can do?',
+        expect: 'Going forward, every shift needs a clock-in when you arrive and a clock-out before you leave. If the app gives you trouble, call the office right then and we\'ll fix it with you.' },
+      w01: { kind: 'thank you for letting us know you couldn\'t make your shift on ' + fmt(f0.date), what: 'giving us enough notice',
+        facts: 'When we hear late, it\'s hard to find someone, and your client may go without care.',
+        why: 'What happened that day?',
+        help: 'How can we help? Would a different shift time work better for you, or is there something we can do?',
+        expect: 'Going forward, please call at least 4 hours before a shift, and for a shift that starts between 7 and 9 AM, by 5 PM the day before, whenever you can.' },
+      w02: { kind: 'your clients count on you', what: 'call-ins',
+        facts: 'I\'ve noticed some call-ins lately: ' + list(facts) + '. Each one means we scramble to cover, and your client may get someone they don\'t know.',
+        why: 'How are things going for you? Is something making it hard to make your shifts?',
+        help: 'How can we help? Would a different shift time or fewer shifts work better for you, or is there something we can do, like help with a ride?',
+        expect: 'Going forward, we need you at the shifts you take. If something comes up, call us as early as you can.' },
+      w03: { kind: 'your clients love having you', what: 'start times',
+        facts: 'On ' + list(facts) + ', the shift started late. Your clients plan their day around you, and some need help the moment their visit begins.',
+        why: 'What has been making it hard to get there on time?',
+        help: 'How can we help? Would a different start time work better for you, or is there something we can do?',
+        expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts.' },
+      w05: { kind: 'thank you for the care you give', what: 'shift notes',
+        facts: 'The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one.',
+        why: 'What has been getting in the way?',
+        help: 'How can we help? Would it help if we went through the notes in the app with you, or is there something else we can do?',
+        expect: 'Going forward, please write the note before you clock out. If the app won\'t let you, text the note to the office right away.' },
+    }[c.rule] || { kind: 'thank you for your work', what: String(c.title || 'how things are going').toLowerCase(), facts: '', why: 'What has been going on?',
+      help: 'How can we help? Would a different shift time work better for you, or is there something else we can do?', expect: 'Let\'s agree on what happens from here.' };
+    return first + ', ' + R.kind + '. I want to talk with you about ' + R.what + '. This is a coaching call, not a write-up. Our goal is to figure out together what would help, so this doesn\'t turn into write-ups. '
+      + (R.facts ? R.facts + ' ' : '') + R.why + ST
+      + R.help + ST
+      + R.expect + ' I also want to be clear and fair with you: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination. We don\'t want that. That\'s why we\'re talking now. '
+      + 'Do you have any questions for me?' + ST + 'Thank you, ' + first + '. We\'re here to help you.';
   }
   function assignHtml(c) {
     if (!owner() || (c.kind !== 'coaching' && c.kind !== 'recognition')) return '';
@@ -298,14 +324,14 @@
 
   /* How to have the talk (research 2026-10-18): CCL Situation-Behavior-Impact plus an intent question; open questions,
      affirmations, reflections and a summary (motivational interviewing's OARS); private and soon after; written down. */
-  const TIPS = ['Talk soon and in private (a call is fine). Keep it short and calm. It is a check-in, not a write-up.',
-    'Start with something true and kind about their work.',
+  const TIPS = ['Start by saying it plainly: this is a coaching call, not a write-up. The goal is to fix it together so it never gets to write-ups.',
+    'Talk soon and in private (a call is fine). Keep it short and calm.',
     'Say what happened plainly, with the dates from the record. Describe what happened, never what they are ("late on Oct 3 and Oct 10", never "always late").',
-    'Say how it affects the client: they go without care, their day is thrown off, the family worries.',
     'Wherever the talking points say STOP: stop talking. Let them answer, even if there is a silence, and do not answer for them. Write down what they say. Then say back what you heard before you go on.',
-    'Agree on one clear thing that is expected from now on, and ask what would help (a different start time, help with the app).',
-    'If they mention their health, a pregnancy, a family member who is sick, an injury at work, or being treated unfairly: don\'t push. Thank them, write it down and tell Zach before going further.',
-    'End with thanks, and write down the date, what you said, what they said and what you agreed.'];
+    'Ask how we can help, and mean it: a different shift time, fewer shifts, help with the app, help with a ride. Write down what you agree to, then make sure the office does it.',
+    'Before you finish, say it clearly and kindly: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination.',
+    'If they mention their health, a pregnancy, a family member who is sick, an injury at work, or being treated unfairly: do not push. Thank them, write it down and tell Zach before going further.',
+    'End with thanks, and record it right away: the date, what you said, what they said, what help you agreed to, and that you explained write-ups come next.'];
   function coachCard(c) {
     const o = owner(), mine = String(c.assigned_to).toLowerCase() === String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
     const can = c.status === 'open' && (o || mine), rec = c.kind === 'recognition', id = esc(c.id);
@@ -320,7 +346,7 @@
     if (c.status === 'done') {
       h += '<div class="hr-sub">' + (rec ? 'Passed on' : 'The conversation') + ' · ' + esc(fmtYmd(c.held_on)) + ' · ' + esc(String(c.method || '').replace('_', ' ')) + '</div>'
         + '<div class="field-note"><b>' + (rec ? 'What you told them' : 'Discussed') + ':</b> ' + esc(c.discussed) + '</div><div class="field-note"><b>' + (rec ? 'How they took it' : 'What they said') + ':</b><br>' + esc(c.response).replace(/\n/g, '<br>') + '</div>'
-        + (rec ? '' : '<div class="field-note"><b>Expected from now on:</b> ' + esc(c.expectation) + '</div>') + (c.followup ? '<div class="field-note"><b>Follow-up:</b> ' + esc(c.followup) + '</div>' : '');
+        + (rec ? '' : '<div class="field-note"><b>Expected from now on:</b><br>' + esc(c.expectation).replace(/\n/g, '<br>') + '</div>') + (c.followup ? '<div class="field-note"><b>Help we agreed to give:</b> ' + esc(c.followup) + '</div>' : '');
       if (!rec && c.improved === null && c.check_on && String(c.check_on) <= todayStr())
         h += '<div class="hr-form"><b>30 days on: did it help?</b> <button class="primary hr-btn" onclick="HR.improved(\'' + id + '\',true)">Yes, it improved</button> <button class="secondary hr-btn" onclick="HR.improved(\'' + id + '\',false)">No, it is still happening</button></div>';
       else if (c.improved !== null && c.improved !== undefined) h += '<div class="field-note"><b>30-day check:</b> ' + (c.improved ? 'it improved' : 'still happening, so it goes to Zach') + (c.improved_note ? ' · ' + esc(c.improved_note) : '') + '</div>';
@@ -338,7 +364,9 @@
           + (rec || !stopQuestions(c.talking_points).length
             ? '<div class="field-note">' + (rec ? 'How they took it' : 'Their response') + '</div><textarea id="hrRr' + id + '" rows="2"></textarea>'
             : stopQuestions(c.talking_points).map((q, i) => '<div class="field-note">You asked: <b>' + esc(q) + '</b><br>What they said</div><textarea id="hrRa' + i + '_' + id + '" rows="2"></textarea>').join(''))
-          + (rec ? '' : '<div class="field-note">What is expected from now on</div><textarea id="hrRe' + id + '" rows="2"></textarea><div class="field-note">Follow-up needed (optional)</div><textarea id="hrRf' + id + '" rows="1"></textarea>')
+          + (rec ? '' : '<div class="field-note">What is expected from now on</div><textarea id="hrRe' + id + '" rows="2"></textarea>'
+            + '<div class="field-note">Help we agreed to give (a different shift time, help with the app...) and who in the office does it</div><textarea id="hrRf' + id + '" rows="2"></textarea>'
+            + '<label class="field-note hr-check"><input type="checkbox" id="hrRw2' + id + '"> I told them this was a coaching call, and that if it keeps happening, the next step is an official write-up, which can lead to termination.</label>')
           + '<div class="hr-err" id="hrRerr' + id + '"></div><button class="primary hr-btn" onclick="HR.done(\'' + id + '\')">' + (rec ? 'Mark passed on' : 'Mark coaching done') + '</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button></div>';
       } else if (f === 'help') {
         h += '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">How to have this conversation</div><ol class="hr-tips">' + TIPS.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ol>'
@@ -385,8 +413,10 @@
     const answers = qs.map((q, i) => { const el = document.getElementById('hrRa' + i + '_' + id); return { q, a: el ? el.value.trim() : '' }; });
     if (answers.some((x) => !x.a)) { err.textContent = 'Write down what they said to each question first.'; return; }
     const response = qs.length ? answers.map((x) => 'Asked: ' + x.q + '\nThey said: ' + x.a).join('\n\n') : (g('hrRr') ? g('hrRr').value.trim() : '');
+    if (!rec && !(g('hrRw2') && g('hrRw2').checked)) { err.textContent = 'Tick the box once you have told them that if it continues, official write-ups come next.'; return; }
     const p = { held_on: g('hrRd').value, method: g('hrRm').value, discussed: g('hrRw').value.trim(), response,
-      expectation: rec ? 'None (a compliment)' : g('hrRe').value.trim(), followup: rec ? '' : g('hrRf').value.trim() };
+      expectation: rec ? 'None (a compliment)' : (g('hrRe').value.trim() ? g('hrRe').value.trim() + '\nTold them: this was a coaching call; if it keeps happening, the next step is an official write-up, which can lead to termination.' : ''),
+      followup: rec ? '' : g('hrRf').value.trim() };
     if (!p.held_on || !p.discussed || !p.response || !p.expectation) { err.textContent = 'Fill in every box above first.'; return; }
     if (await act(id, 'done', p)) { FORM[id] = 0; after(); }
   }
