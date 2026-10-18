@@ -1780,6 +1780,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Nothing on a desk texts, emails, routes or becomes My Work. -->
     <section class="tabpanel" id="tab-mydesk"><div id="dkWrap"></div></section>
 
+    <!-- ===================== TAB: CLIENT GOALS (My Work, 2026-10-18) =====================
+         Weekly care hours (read from AxisCare) and CDS consumers (a count the owners keep), each against a goal only
+         Samantha or Zachary sets. client-goals.js draws it; saved in app_data cc_goals. Nothing is sent to anyone. -->
+    <section class="tabpanel" id="tab-clientgoals"><div id="cgoWrap"></div></section>
+
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
          Meeting notes and action items (moved in from the Team Hub; each action item is a
          Stand-Up item with an owner and a due date), the team video room, and the old
@@ -7458,6 +7463,7 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
+<script src="client-goals.js?v=1"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
@@ -8121,7 +8127,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8133,7 +8139,9 @@ const CC_SUBTABS = {
   /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
   gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
   /* 2026-10-14 (her call): My Desk and To talk about live inside My Work */
-  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' }, { t:'standup', l:'To talk about', i:'i-talk' } ],
+  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' }, { t:'standup', l:'To talk about', i:'i-talk' },
+    /* 2026-10-18 (her ask): Client Goals, weekly care hours and CDS consumers; owners set the goals (client-goals.js) */
+    { t:'clientgoals', l:'Client Goals', i:'i-target' } ],
   /* 2026-10-08 (her call): one Nurse Scheduling tab, not two */
   nursing:[ { t:'nursevisits', l:'Office view', i:'i-steth' }, { t:'nurseportal', l:'What a nurse sees', i:'i-phone' } ],
 };
@@ -8533,7 +8541,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -8814,6 +8822,7 @@ function renderActiveTab(){
   /* desk.js: guarded the same way */
   if(typeof dkPill==='function') dkPill();
   if(activeTab==='mydesk' && typeof dkOpen==='function') dkOpen();
+  if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
