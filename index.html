@@ -1830,6 +1830,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="field-note" id="myWorkWho"></div>
         </div>
         <div style="flex:1;"></div>
+        <button class="secondary" id="cctBtn" style="display:none;" onclick="cctOpen()" title="Your month (owners: the team side by side and reviews)">My month</button>
         <button class="secondary" id="bnBtn" style="display:none;" onclick="bnOpen()" title="Your new-client bonuses (pay is private)">Bonuses</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
@@ -4609,6 +4610,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="bpToggleBtn" onclick="bpToggle(this)">Turn on the bonus program</button>
   <span class="field-note" id="bpSaved"></span>
 </div>
+<!-- Team numbers and reviews (Stage 5 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.team_live and
+     ops_settings.team.hr_lead. The reviews themselves stay on the server (cc-team). -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Team numbers and reviews</div>
+<p class="hint">Each Care Coordinator sees My month: their own leads, assessments, starts, clients retained at 30 days, what is overdue for them now, and bonuses. Samantha and Zachary see everyone side by side. Two follow-ups that go overdue within 30 days open one management review for the HR lead, who records the cause and chooses No action or Coaching (with an owner, a deadline and a done check). Samantha sees a review only if it goes unresolved. Never discipline. The records stay on the server. Only Samantha or Zachary can change this.</p>
+<div id="tnSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div class="grid2" style="grid-template-columns:220px 1fr;align-items:end;"><div><label>HR lead (decides reviews)</label><select id="tnHr"></select></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px;"><button class="secondary" id="tnSaveBtn" onclick="tnSave(this)">Save</button><button class="secondary" id="tnToggleBtn" onclick="tnToggle(this)">Turn on team numbers and reviews</button><span class="field-note" id="tnSaved"></span></div></div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7374,6 +7382,7 @@ The HomeTogether team</pre>
 <script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
+<script src="team.js?v=1"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18148,6 +18157,39 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Team numbers and reviews settings (Stage 5, policy 2026-10-18). Owners only. The reviews live on the server (cc-team). */
+function tnSetFill(){
+  const now=document.getElementById('tnSetNow'); if(!now) return;
+  const st=DATA.ops_settings||{}, on=st.team_live===true, owner=ccIsOwner(), hr=String((st.team&&st.team.hr_lead)||'zach@mo-care.com').toLowerCase();
+  const ppl=(typeof OPS_PEOPLE!=='undefined'&&OPS_PEOPLE||[]).filter(p=>p&&p.primary_email);
+  const sel=document.getElementById('tnHr');
+  if(sel){ sel.innerHTML=(ppl.some(p=>String(p.primary_email).toLowerCase()===hr)?'':'<option value="'+escapeHtmlComms(hr)+'">'+escapeHtmlComms(hr)+'</option>')+ppl.map(p=>'<option value="'+escapeHtmlComms(String(p.primary_email).toLowerCase())+'"'+(String(p.primary_email).toLowerCase()===hr?' selected':'')+'>'+escapeHtmlComms(p.full_name||p.primary_email)+'</option>').join(''); sel.disabled=!owner; }
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> My month, the team view and the daily review check are in use.':'<b style="color:#B7791F;">Off.</b> Owners can look at Team; the daily check only lists what it would do.')+(owner?'':' Only Samantha or Zachary can change this.');
+  ['tnSaveBtn','tnToggleBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=owner?'':'none'; });
+  const tb=document.getElementById('tnToggleBtn'); if(tb) tb.textContent=on?'Turn off team numbers and reviews':'Turn on team numbers and reviews';
+  try{ cctBtnSync(); }catch(e){}
+}
+async function tnSave(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const hr=String((document.getElementById('tnHr')||{}).value||'').trim().toLowerCase(); if(!hr){ alert('Pick the HR lead.'); return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.team=Object.assign({}, m.team||{}, { hr_lead:hr }); return ['team reviews HR lead '+hr]; }, 'team numbers and reviews');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  tnSetFill();
+}
+async function tnToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).team_live===true);
+  const ok=await ccConfirm(on?'Turn on team numbers and reviews?\n\n· each Care Coordinator sees My month (only their own)\n· you and Zachary see everyone side by side\n· from the next daily check, two follow-ups overdue within 30 days open one management review for the HR lead\n· you see a review only if it goes unresolved\n\nNever discipline. Nothing is sent to anyone.'
+    :'Turn off team numbers and reviews? My month goes away for the Care Coordinators and the daily check stops opening reviews. Reviews already on file stay.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.team_live=on; if(on&&!m.team_live_since) m.team_live_since=new Date().toISOString(); return ['team numbers and reviews '+(on?'ON':'OFF')]; }, 'team numbers and reviews');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  tnSetFill();
+}
 /* Bonus program settings (Stage 4, policy 2026-10-18). Owners only. The records live on the server (cc-bonus). */
 const BP_DEFAULT={ start:'2026-11-01', amount:100, min_hours:20, decider:'samantha@mo-care.com' };
 function bpCfg(){ const b=((DATA.ops_settings||{}).bonus)||{}; return Object.assign({}, BP_DEFAULT, b); }
@@ -18278,6 +18320,7 @@ function lhSetFill(){
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
+  try{ tnSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -29557,6 +29600,7 @@ function myWorkTabBadge(k,b){
 }
 function renderMyWork(){
   try{ if(typeof bnBtnSync==='function') bnBtnSync(); }catch(e){}   /* Stage 4: the Bonuses button */
+  try{ if(typeof cctBtnSync==='function') cctBtnSync(); }catch(e){}   /* Stage 5: the My month / Team button */
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
