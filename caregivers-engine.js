@@ -3225,7 +3225,7 @@ function wuDefaultSection(a){
 }
 function wuCheckHtml(a){
   const esc=creqEsc, R=(typeof WriteupRules!=='undefined')?WriteupRules:null, miss=R?R.missingBeforeDecision(a):[];
-  const ok=x=>'<span style="color:#166534;font-weight:700">✓</span> ', no='<span style="color:#b91c1c;font-weight:700">○</span> ';
+  const ok=()=>'<span style="color:#166534;font-weight:700">✓</span> ', no=()=>'<span style="color:#b91c1c;font-weight:700">○</span> ';
   const ex=a.explanation||{}, ro=a.status!=='draft'&&a.status!=='pending_approval';
   const dis=ro?' disabled':'';
   const sec=(a.handbook&&a.handbook.section)||wuDefaultSection(a);

@@ -19,5 +19,12 @@ ck('...and leaves the handbook section for Zach to pick', !/handbook: \{ section
 ck('the engine lets the HR page add and open a write-up', E.includes('window.SCX.addWriteup = async (a) =>') && E.includes('window.SCX.openWriteup = (id) => openWriteup(id);'));
 ck('the rules file is cache-busted to v4', H.includes('writeup-rules.js?v=4'));
 ck('no em dashes in the new code', !/—/.test(E.slice(E.indexOf('let WU_HB=null;'), E.indexOf('function openWriteup(id){'))) && !/—/.test(J));
+// the checklist actually renders (caught in review: a mark helper was not callable)
+{ const part = E.slice(E.indexOf('let WU_HB=null;'), E.indexOf('function openWriteup(id){')).replace('let WU_HB=null;', 'var WU_HB=[];');
+  const ctx = { creqEsc: (s) => String(s == null ? '' : s), WriteupRules: require(path.join(ROOT, 'writeup-rules.js')) }; require('vm').createContext(ctx); require('vm').runInContext(part, ctx);
+  let h1 = '', h2 = '', h3 = ''; try { h1 = ctx.wuCheckHtml({ id: 1, status: 'draft' }); h2 = ctx.wuCheckHtml({ id: 2, status: 'draft', facts_checked_at: 'x', handbook: { section: '2U' }, explanation: { asked_on: '2026-10-17', declined: true }, protected: ['leave'] }); h3 = ctx.wuCheckHtml({ id: 3, status: 'issued', protected: [] }); } catch (e) { h1 = 'ERR ' + e.message; }
+  ck('the checklist renders for a new draft: 4 to go, with Check now, Save and Draft with AI', /\(4 to go\)/.test(h1) && /Check now/.test(h1) && /Save/.test(h1) && /Draft with AI/.test(h1), h1.slice(0, 120));
+  ck('...a complete one says all done and names the protected situation', /\(all done\)/.test(h2) && /involves protected leave/.test(h2));
+  ck('...an issued one is read only (no Save, no Draft with AI)', !/Draft with AI/.test(h3) && / disabled/.test(h3)); }
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }
 console.log((res.length - f) + '/' + res.length); process.exit(f ? 1 : 0);
