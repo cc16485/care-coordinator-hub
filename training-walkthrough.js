@@ -30,18 +30,18 @@
       h += '<div style="margin-top:10px;border:1px solid #E8E2D8;border-radius:10px;padding:10px 12px"><b>Your walkthrough is open:</b> ' + esc(mine.first) + ' (TRAINING) · started ' + esc(day(mine.started_at)) + ' · ends ' + esc(day(mine.ends_at))
         + '<div class="field-note">Messages go to ' + esc(mine.phone) + ' and ' + esc(mine.email) + '. The offer text comes 8am to 6pm Central; the email any time.</div>'
         + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' + (window.HP ? '<button class="ibtn" onclick="HP.open({offer_id:\'' + esc(mine.id) + '\'})">&#128100; My practice profile</button>' : '')
-        + '<button class="ibtn" onclick="TW.end(\'' + esc(mine.id) + '\',this)">End my walkthrough</button></div></div>';
+        + '<button class="ibtn" onclick="TWalk.end(\'' + esc(mine.id) + '\',this)">End my walkthrough</button></div></div>';
     } else {
       h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center">'
         + '<input id="twFirst" placeholder="Your first name" value="' + esc(String(me.name || '').split(' ')[0]) + '" style="width:150px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit">'
         + '<input id="twPhone" placeholder="Your cell phone" inputmode="tel" style="width:160px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit">'
         + '<input id="twEmail" placeholder="Your email" inputmode="email" style="width:220px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit">'
-        + '<button class="primary" onclick="TW.start(this)">Start my walkthrough</button></div>';
+        + '<button class="primary" onclick="TWalk.start(this)">Start my walkthrough</button></div>';
     }
     const others = OPEN.filter(x => !x.mine);
     if(others.length) h += '<div style="margin-top:10px"><b style="font-size:13px">Other open walkthroughs</b>' + others.map(x => '<div class="field-note" style="display:flex;gap:6px;align-items:center;margin-top:3px">' + esc(x.first) + ' (TRAINING) · by ' + esc(x.by_name || x.by_email) + ' · ends ' + esc(day(x.ends_at))
       + (window.HP ? ' <button class="ibtn" style="font-size:.72rem" onclick="HP.open({offer_id:\'' + esc(x.id) + '\'})">&#128100; Profile</button>' : '')
-      + (MAY_ALL ? ' <button class="ibtn" style="font-size:.72rem" onclick="TW.end(\'' + esc(x.id) + '\',this)">End</button>' : '') + '</div>').join('') + '</div>';
+      + (MAY_ALL ? ' <button class="ibtn" style="font-size:.72rem" onclick="TWalk.end(\'' + esc(x.id) + '\',this)">End</button>' : '') + '</div>').join('') + '</div>';
     if(MSG) h += '<div class="field-note" style="margin-top:8px;color:var(--navy)">' + esc(MSG) + '</div>';
     box.innerHTML = h;
   }
@@ -64,5 +64,5 @@
     try{ await call({ action:'end', offer_id:id }); MSG = 'Ended.'; }catch(e){ MSG = 'Not ended: ' + e.message; }
     await mount();
   }
-  window.TW = { mount, start, end };
+  window.TWalk = { mount, start, end };
 })();
