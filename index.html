@@ -19919,9 +19919,9 @@ function cgdComplianceHtml(c,g){
      due · evidence · verified by. Fields the legacy record never captured
      show as "not yet recorded" so the gap stays visible, never invented. */
   const day=d=>{ const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/); return m?m[2]+'/'+m[3]+'/'+m[1]:''; };
-  const chk=(name,required,status,badRx,date,proof,recheckDays,cadence,key)=>{
+  const chk=(name,required,status,badRx,date,proof,recheckDays,cadence,key,gap)=>{
     const s=String(status||'').trim();
-    const bad=s&&badRx&&badRx.test(s);
+    const bad=(s&&badRx&&badRx.test(s))||!!gap;   /* gap: a Medicaid caregiver's required training or certificate is missing */
     const stHtml=!s?unknown:(bad?'<span style="color:var(--red);font-weight:700;">'+esc(s)+'</span>':'<span style="color:var(--green);font-weight:700;">'+esc(s)+'</span>');
     let dueHtml='<span class="field-note">n/a</span>', action=bad;
     if(recheckDays){
@@ -19941,6 +19941,7 @@ function cgdComplianceHtml(c,g){
       +'<div><span class="field-note">Status:</span> '+stHtml+'</div>'
       +'<div><span class="field-note">Last verified:</span> '+(date?esc(day(String(date).slice(0,10))):unknown)+'</div>'
       +'<div><span class="field-note">Next due:</span> '+dueHtml+'</div>'
+      +(gap?'<div style="grid-column:1/-1;color:#B45309;font-weight:700;">Medicaid audit: '+esc(gap)+'</div>':'')
       +'<div><span class="field-note">Evidence:</span> '+(proof?(typeof bgrViewProof==='function'?'<a class="linklike" style="cursor:pointer;color:var(--green);" onclick="bgrViewProof(\''+esc(String(proof)).replace(/\x27/g,'')+'\')">on file, open</a>':'<span style="color:var(--green);">on file</span>'):'<span class="field-note">not yet recorded</span>')+'</div>'
       +'<div><span class="field-note">Verified by:</span> '+(key&&g[key+'_by']?esc(g[key+'_by'])+(g[key+'_at']?' · '+day(String(g[key+'_at']).slice(0,10)):''):'<span class="field-note">not recorded (before 10/14/2026)</span>')+'</div>'
       +'</div>'
@@ -19957,11 +19958,25 @@ function cgdComplianceHtml(c,g){
     +chk('EDL','MO Employee Disqualification List',g.edl_status||(g.edl_date?'Clear':''),/issues/i,g.edl_date,g.edl_proof,90,'rechecked quarterly (agency policy)','edl')
     +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status||(g.fcsr_date?'Clear':''),/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually','fcsr')
     +chk('FCSR registration','MO Family Care Safety Registry, within 15 days of starting work',g.fcsr_reg_date?'Registered':'',null,g.fcsr_reg_date,g.fcsr_reg_proof,null,'once','fcsr_reg')
-    +chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')
+    +(()=>{
+      /* Medicaid caregiver (her rule 2026-10-19): every required IHS training with its certificate on the profile, for good */
+      const mp=(window.CCElig&&CCElig.medicaidProof)?CCElig.medicaidProof(g):{medicaid:false};
+      if(!mp.medicaid) return '';
+      const W={no_date:'not on record',no_proof:'no certificate on file',not_signed:'not signed off by a supervisor',too_old:'the latest in-service is out of date',short_hours:'hours short'};
+      const it=k=>mp.items.find(x=>x.key===k)||{}, gp=k=>{ const x=it(k); return W[x.status]?(W[x.status]+(x.note&&x.status!=='no_proof'?' ('+x.note+')':'')):''; };
+      const REQ='Required, Medicaid caregiver (proof kept for audits)';
+      return '<div style="font-weight:800;color:var(--navy);margin:8px 0 4px;">Medicaid caregiver: required training and certificates</div>'
+        +chk('Agency Orientation',REQ,g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once','',gp('orient'))
+        +chk('Dementia training',REQ,g.alz_date?('completed'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'once','',gp('alz'))
+        +chk('On-the-job training, in person',REQ+', signed off',g.ojt_date?(g.ojt_signed==='yes'?'completed, signed off':'completed, not signed off'):'',null,g.ojt_date,g.ojt_proof,null,'once','',gp('ojt'))
+        +chk('On-the-job training, online',REQ,g.ojt_online?'completed':'',null,g.ojt_online,g.ojt_online_proof,null,'once','',gp('ojt_online'))
+        +chk('Annual in-service (5 hours)',it('annual').status==='not_due'?'Not due ('+esc(it('annual').note||'')+')':REQ+', for the years they served Medicaid',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,null,'yearly while serving Medicaid','',gp('annual'));
+    })()
+    +((window.CCElig&&CCElig.medicaidCaregiver&&CCElig.medicaidCaregiver(g))?'':chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')
     /* Optional from 2026-10-15 (Samantha): shown as records only, no due date, never office action */
     +chk('Dementia care training','Optional, assigned for a client\'s needs',g.alz_date?('recorded'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'')
     +chk('On-the-job training','Optional, assigned for a client\'s needs',(g.ojt_date||g.ojt_online)?'completed':'',null,g.ojt_date||g.ojt_online,g.ojt_proof||g.ojt_online_proof,null,'')
-    +chk('Annual in-service','Optional',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,null,'')
+    +chk('Annual in-service','Optional',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,null,''))
     +(g.fp&&g.fp!=='N/A'?chk('Fingerprints','Required for this caregiver',g.fp,/issues/i,g.fp_date,g.fp_proof,null,'','fp'):'')
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
 }

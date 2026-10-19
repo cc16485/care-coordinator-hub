@@ -85,6 +85,54 @@ function medicaidCaregiver(c){
   return !!(c && (String(c.medicaid_hand||'') === 'yes' || (Array.isArray(c.medicaid_clients) && c.medicaid_clients.length)));
 }
 function medicaidTrainingApplies(c, now){ return medicaidCaregiver(c) && centralDay(now) < MEDICAID_TRAINING_UNTIL; }
+/* MEDICAID PROOF (Samantha, 2026-10-19): "Caregiver who worked with medicaid clients have to have proof of all required
+   trainings and certificates proving the training on their profiles." Permanent, for audits, past employees included.
+   Required = the 4 IHS trainings (her answer): Agency Orientation, dementia training, on-the-job training (in person,
+   signed off, and online), and the yearly 5-hour in-service, only for the years they served a Medicaid client (her
+   answer: once Medicaid work ends no new yearly in-service is due). Each needs a date AND its certificate. This never
+   blocks anybody; it is the audit answer. The Hub keeps only the latest in-service, so it checks the latest one covers
+   their last Medicaid year (earlier years' certificates live in the Training Platform history). */
+function medicaidLastDay(c, now){
+  const cap = addDays(pd(MEDICAID_TRAINING_UNTIL), -1).toISOString().slice(0,10);
+  const todayS = centralDay(now);
+  const seen = (Array.isArray(c.medicaid_clients) ? c.medicaid_clients : []).map(m => String(m.last_date||'').slice(0,10)).filter(Boolean).sort();
+  let last = seen.length ? seen[seen.length-1] : '';
+  if(String(c.medicaid_hand||'') === 'yes' && !last) last = todayS < cap ? todayS : cap;   // hand tick: no dates, assume up to now (or 11-15)
+  if(last && last > cap) last = cap;
+  if(last && last > todayS) last = todayS;
+  return last;
+}
+function medicaidProof(c, now){
+  if(!medicaidCaregiver(c)) return { medicaid:false, items:[], missing:[] };
+  const last = medicaidLastDay(c, now);
+  const hire = pd(c.hire_date);
+  const items = [];
+  const add = (key, label, date, proof, extraOk, note) => {
+    const st = !date ? 'no_date' : (extraOk === false ? 'not_signed' : (!proof ? 'no_proof' : 'ok'));
+    items.push({ key, label, date: date || '', proof: proof || '', status: st, note: note || '' });
+  };
+  add('orient', 'Agency Orientation', c.orient_date, c.orient_proof);
+  add('alz', 'Dementia training', c.alz_date, c.alz_proof);
+  add('ojt', 'On-the-job, in person', c.ojt_date, c.ojt_proof, c.ojt_date ? c.ojt_signed === 'yes' : undefined);
+  add('ojt_online', 'On-the-job, online', c.ojt_online, c.ojt_online_proof);
+  /* yearly in-service: due only when they served Medicaid past their first year */
+  const yearOneEnd = hire ? addDays(hire, 365).toISOString().slice(0,10) : '';
+  if(last && yearOneEnd && last >= yearOneEnd){
+    const needFrom = addDays(pd(last), -365).toISOString().slice(0,10);
+    const d = String(c.annual_date||'').slice(0,10);
+    const hrs = parseFloat(c.annual_hrs);
+    if(!d) items.push({ key:'annual', label:'Annual in-service (5 hours)', date:'', proof:c.annual_proof||'', status:'no_date', note:'needed for the year up to ' + last });
+    else if(d < needFrom) items.push({ key:'annual', label:'Annual in-service (5 hours)', date:d, proof:c.annual_proof||'', status:'too_old', note:'the latest on file is before the year up to ' + last });
+    else if(!isNaN(hrs) && hrs < 5) items.push({ key:'annual', label:'Annual in-service (5 hours)', date:d, proof:c.annual_proof||'', status:'short_hours', note: hrs + ' of 5 hours' });
+    else add('annual', 'Annual in-service (5 hours)', d, c.annual_proof);
+  } else {
+    items.push({ key:'annual', label:'Annual in-service (5 hours)', date:String(c.annual_date||''), proof:c.annual_proof||'', status:'not_due',
+      note: last ? 'not due: Medicaid work ended in their first year' : 'not due' });
+  }
+  const WORD = { no_date:'not on record', no_proof:'no certificate', not_signed:'not signed off', too_old:'out of date', short_hours:'hours short' };
+  const missing = items.filter(i => WORD[i.status]).map(i => i.label + ': ' + WORD[i.status] + (i.note && i.status !== 'no_proof' ? ' (' + i.note + ')' : ''));
+  return { medicaid:true, last_medicaid_day:last, items, missing, complete: !missing.length };
+}
 function ihsTraining(c){
   const hire = pd(c.hire_date);
   const alzDone = !!c.alz_date;
@@ -578,6 +626,6 @@ root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, refScore, 
                 eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT, ELIG_AGENCY,
                 PROFILE_REQUIRED_FROM, profileNewHire, profileGate,
                 SUPERVISORY_CONCERN_FROM, supervisoryConcernOnly, centralDay,
-                MEDICAID_TRAINING_UNTIL, medicaidCaregiver, medicaidTrainingApplies, ihsTraining,
+                MEDICAID_TRAINING_UNTIL, medicaidCaregiver, medicaidTrainingApplies, ihsTraining, medicaidProof, medicaidLastDay,
                 _helpers:{ pd, addDays, daysLeft, fmtD, today } };
 })(typeof globalThis!=='undefined' ? globalThis : this);

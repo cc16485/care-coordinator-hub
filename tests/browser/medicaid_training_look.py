@@ -71,13 +71,17 @@ try:
     ok('the box explains it and offers the download', 'kept for good' in pg.inner_text('#tr-medicaid') and pg.is_visible('#tr-medicaid'))
     row = pg.inner_text('#tr-tbody tr:nth-child(1)')
     if pg.evaluate("CCElig.medicaidTrainingApplies({medicaid_hand:'yes'})"):
-      ok('before Nov 16: a Medicaid caregiver with no dementia training shows it is needed', 'Medicaid: needed by Nov 16' in row and 'Dementia care: needed' in row, row)
+      ok('before Nov 16: a Medicaid caregiver with no dementia training shows it is needed', 'Medicaid: needed by Nov 16' in row and 'Dementia training: needed' in row and 'Agency Orientation: no certificate' in row, row)
     else:
       ok('from Nov 16: a gap shows as not on record, never needed', 'not on record' in row and 'needed' not in row.replace('not on record', ''), row)
     pg.screenshot(path=os.path.join(OUT, 'medicaid_training.png'), full_page=True)
     pg.evaluate('SCX.medicaidCSV()'); csv = pg.evaluate('CSV') or ''
     ok('the download lists each Medicaid caregiver with clients, proof and what is not on file', csv.count('\n') == 3 and 'Pat Plan' in csv and 'Mary S., IHS, 2025' in csv and 'training/3/alz.pdf' in csv and 'Dementia training' in csv and 'Bo Bright' not in csv, csv[:400])
     ok('the file is named for the audit', (pg.evaluate('CSVNAME') or '').startswith('medicaid_caregivers_training_'))
+    cy = pg.inner_text('#tr-tbody tr:nth-child(2)')
+    ok('a date without its certificate is flagged on the row', 'Cy Hand' in cy and 'On-the-job, in person: no certificate' in cy and 'certificate missing' in cy, cy)
+    ok('a Proof Missing count', 'Medicaid: Proof Missing' in pg.inner_text('#tr-stats'))
+    ok('the download says who is still working', 'Still working' in csv and 'no certificate' in csv)
     ok('no em dashes on the tab', '—' not in pg.inner_text('body'))
     ok('no page errors', not errs, errs)
     b.close()
