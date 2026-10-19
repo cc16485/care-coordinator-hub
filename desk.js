@@ -108,6 +108,30 @@
     return h + ':' + (m[2] || '00') + ' ' + ap.toUpperCase();
   }
   const PROMISE = /\b(call|text|email|ring)\b.*\b(back|tomorrow|monday|tuesday|wednesday|thursday|friday)\b|\btold\b.*\bI'?d\b|\bpromised\b|\bget back to\b|\bwill call\b/i;
+  /* 2026-10-18 (her "1 sounds good", the desk touches): a line that names someone the Hub knows (a family, a client, a
+     lead, a referral partner, or the line's own paperclip) together with a day, a time or a "back" is a promise too.
+     The tape names them. Only on your own desk; nothing moves unless you tap. */
+  const CUE = /\b(today|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon|this week|next week|back|follow up|send|by \d)|\b\d{1,2}(:\d\d)?\s?(am|pm)\b/i;
+  let KNOWN = { at:0, list:[] };
+  function knownNames(){
+    if(Date.now() - KNOWN.at < 60000) return KNOWN.list;
+    const out = new Map(), add = n => { n = String(n || '').replace(/\s+/g, ' ').trim(); if(n.split(' ').length >= 2 && n.length >= 5) out.set(n.toLowerCase(), n); };
+    try{ ((typeof DATA !== 'undefined' && DATA.leads) || []).forEach(l => { if(l.spam) return; add((l.first_name || '') + ' ' + (l.last_name || '')); add((l.client_first_name || '') + ' ' + (l.client_last_name || '')); }); }catch(e){}
+    try{ ((typeof DATA !== 'undefined' && DATA.referral_orgs) || []).forEach(o => add(o.name)); }catch(e){}
+    KNOWN = { at:Date.now(), list:[...out.values()].sort((a, b) => b.length - a.length) };
+    return KNOWN.list;
+  }
+  function promiseWho(l){
+    if(l.link && ['client', 'lead', 'family', 'partner'].includes(l.link.type) && l.link.name) return l.link.name;
+    const body = ' ' + String(l.body || '').toLowerCase() + ' ';
+    return knownNames().find(n => { const i = body.indexOf(n.toLowerCase()); return i > -1 && !/[a-z]/.test(body[i - 1]) && !/[a-z]/.test(body[i + n.length] || ' '); }) || '';
+  }
+  function promiseOf(l){
+    if(l.done_at || l.kind !== 'todo' || (l.link && (l.link.work_id || l.link.nohint || l.link.type === 'work' || l.link.type === 'repeat'))) return null;
+    const who = promiseWho(l);
+    if(who && (CUE.test(l.body) || l.time_text)) return { who };
+    return PROMISE.test(l.body) ? { who } : null;
+  }
   /* A phone number written on a line calls from the office line (office-call.js), never a bare tel: link. */
   function linkify(t){
     return esc(t).replace(/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/g, m => typeof ocAttrs === 'function' ? '<a class="dk-phone"' + ocAttrs(m) + '>' + m + '</a>' : m);
@@ -536,7 +560,23 @@
       + '<span class="dk-tw"' + jit + '><span class="dk-txt"' + ed + '>' + linkify(l.body) + '</span>'
       + (l.circle ? '<svg class="dk-circ" viewBox="0 0 100 30" preserveAspectRatio="none" aria-hidden="true"><path d="M8 6 C30 -1 80 0 95 9 C102 16 90 28 50 28 C14 28 -2 22 3 13 C6 7 16 4 26 3"/></svg>' : '')
       + (chips.length ? '<span class="dk-chips">' + chips.join('') + '</span>' : '') + '</span>' + ost + tools + '</li>'
-      + (!R && !l.done_at && PROMISE.test(l.body) && !(l.link && (l.link.work_id || l.link.nohint || l.link.type === 'work')) ? '<li class="dk-hint" data-for="' + l.id + '">This sounds like a promise to a family. Want the Hub to keep track of it too? <button class="dk-yes" data-dk="follow" data-id="' + l.id + '">Make it a Hub follow-up</button><button data-dk="nohint" data-id="' + l.id + '">Just for me</button></li>' : '');
+      + ((() => { const pr = R ? null : promiseOf(l); return pr ? '<li class="dk-hint dk-promise" data-for="' + l.id + '"><span>Sounds like a promise to ' + esc(pr.who || 'a family') + '.</span> <button class="dk-yes" data-dk="follow" data-id="' + l.id + '"' + (pr.who ? ' data-who="' + esc(pr.who) + '"' : '') + '>Make it a Hub follow-up</button><button data-dk="nohint" data-id="' + l.id + '">Just a note</button></li>' : ''; })());
+  }
+  const PORCH = '<svg viewBox="0 0 200 110"><circle cx="170" cy="28" r="10" fill="#F0A63A" opacity=".35"/><g fill="none" stroke="#0D365F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".7">'
+    + '<path d="M10 96 Q 100 84 190 96"/><path d="M52 52 L100 24 L148 52"/><rect x="60" y="50" width="80" height="44"/><rect x="92" y="66" width="16" height="28"/>'
+    + '<rect x="68" y="60" width="14" height="12"/><rect x="118" y="60" width="14" height="12"/><path d="M146 94 v-16 h10 v16 M146 84 h10"/><circle cx="170" cy="28" r="10"/><path d="M14 92 q 4 -8 8 0 M28 94 q 4 -9 8 0"/></g></svg>';
+  /* 2026-10-18 (desk touches): when the owners' Seasons switch is on, a few still leaves, snowflakes, blossoms or a sun
+     sit in one corner of the mat. No motion; nothing over the planner. */
+  function seasonCorner(){
+    let on = false; try{ on = !!(typeof DATA !== 'undefined' && DATA.ops_settings && DATA.ops_settings.seasons_live === true); }catch(e){}
+    if(!on || !window.SEA || !SEA.seasonOf) return '';
+    const N = '#0D365F', H = '#F0A63A', s = SEA.seasonOf();
+    let g = '';
+    if(s === 'autumn') g = [[150,90,'#D9622B',20],[118,104,'#F0A63A',-30],[170,58,'#C17A12',40],[88,96,'#8FD1C7',10],[140,40,'#F0A63A',-60]].map(([x,y,c,r]) => '<path d="M' + x + ' ' + y + ' q 8 -12 16 0 q -8 12 -16 0 Z" fill="' + c + '" stroke="' + N + '" stroke-width="1" transform="rotate(' + r + ' ' + (x + 8) + ' ' + y + ')"/><line x1="' + x + '" y1="' + y + '" x2="' + (x - 5) + '" y2="' + (y + 4) + '" stroke="' + N + '" stroke-width="1"/>').join('');
+    else if(s === 'winter') g = [[150,80],[120,100],[170,50],[96,70],[140,30],[60,104]].map(([x,y], i) => { const r = i % 2 ? 6 : 8; let k = ''; for(let j = 0; j < 3; j++) k += '<line x1="' + (x - r) + '" y1="' + y + '" x2="' + (x + r) + '" y2="' + y + '" stroke="#fff" stroke-width="2" stroke-linecap="round" transform="rotate(' + (j * 60) + ' ' + x + ' ' + y + ')"/>'; return k; }).join('');
+    else if(s === 'spring') g = [[150,86],[118,100],[166,52],[92,84],[136,36]].map(([x,y]) => { let k = ''; for(let j = 0; j < 5; j++) k += '<ellipse cx="' + x + '" cy="' + (y - 5) + '" rx="3.4" ry="5.5" fill="#F6C7D4" stroke="' + N + '" stroke-width=".9" transform="rotate(' + (j * 72) + ' ' + x + ' ' + y + ')"/>'; return k + '<circle cx="' + x + '" cy="' + y + '" r="2.6" fill="' + H + '"/>'; }).join('');
+    else { for(let i = 0; i < 10; i++) g += '<line x1="150" y1="44" x2="150" y2="34" stroke="' + H + '" stroke-width="3" stroke-linecap="round" transform="rotate(' + (i * 36) + ' 150 62)"/>'; g += '<circle cx="150" cy="62" r="16" fill="' + H + '" stroke="' + N + '" stroke-width="1.4"/>'; }
+    return '<svg class="dk-season" data-season="' + s + '" viewBox="0 0 190 120" aria-hidden="true">' + g + '</svg>';
   }
   function pageHtml(day, cls){
     const d = D(day), arr = inPlace(DK.lines, 'day', day), prev = prevBiz(day), next = nextBiz(day), t = T();
@@ -564,7 +604,10 @@
       +   (R ? '' : '<li class="dk-jot' + (DK.noteMode ? ' dk-notemode' : '') + '"><button class="dk-mode" data-dk="jotmode" title="' + (DK.noteMode ? 'Writing a note. Click for a to-do' : 'Writing a to-do. Click to scribble a note instead (or Shift+Enter)') + '" aria-label="Switch between a to-do and a note">'
       +     icon(DK.noteMode ? 'pencil' : 'box') + '</button><input id="dkJot" data-day="' + day + '" maxlength="1000" placeholder="' + (DK.noteMode ? 'scribble a note…' : 'jot something down…') + '" autocomplete="off" aria-label="Jot something down">'
       +     '<span class="dk-tip">Enter for a to-do · Shift+Enter for a note</span></li>')
-      + '</ol>' + (R ? '<div class="dk-ronote">' + esc(firstName(DK.who)) + "'s page, in " + esc(firstName(DK.who)) + "'s handwriting. You can leave a note on the desk, or give a finished line a star.</div>" : '<div class="dk-blank" data-dk="focusjot" aria-hidden="true"></div>')
+      + '</ol>'
+      /* 2026-10-18 (desk touches): an empty page gets a little pencil drawing of the porch at sunset, like the Hub's scenes */
+      + (!arr.some(x => x.kind !== 'ghost') ? '<div class="dk-pagedoodle" aria-hidden="true">' + PORCH + '</div>' : '')
+      + (R ? '<div class="dk-ronote">' + esc(firstName(DK.who)) + "'s page, in " + esc(firstName(DK.who)) + "'s handwriting. You can leave a note on the desk, or give a finished line a star.</div>" : '<div class="dk-blank" data-dk="focusjot" aria-hidden="true"></div>')
       + (pf.wrapped_at ? '<div class="dk-wrapped">Wrapped up at ' + esc(new Date(pf.wrapped_at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ })) + '. See you ' + dowName(nextBiz(day)) + '.</div>' : '')
       + (pf.stamp ? '<div class="dk-stamp' + (DK.justStamped === day ? ' dk-thunk' : '') + '"><svg><use href="#dk-st-' + esc(pf.stamp) + '"/></svg><div>' + (day === t ? "Good day's work, " + esc(R ? firstName(DK.who) : String(myName()).split(' ')[0]) + '.' : '') + '</div></div>' : '')
       + '<button class="dk-curl" data-dk="go" data-day="' + next + '" aria-label="Turn the page" title="Turn to ' + fmtShort(next) + '"></button>'
@@ -721,12 +764,12 @@
   }
   /* "Make it a Hub follow-up": the one bridge into My Work, always the person's own tap. Opens Capture with the words; if
      they save it, the line gets a paperclip to the follow-up. */
-  function followUp(id){
+  function followUp(id, who){
     const l = lineById(id); if(!l || typeof ccCaptureOpen !== 'function') return;
     const since = Date.now(), before = new Set(((typeof DATA !== 'undefined' && DATA.ops_items) || []).map(x => x.id));
     ccCaptureOpen();
     setTimeout(() => { const w = document.getElementById('capWhat'), ab = document.getElementById('capAbout');
-      if(w){ w.value = l.body; w.focus(); } if(ab && l.link && l.link.name && l.link.type !== 'work') ab.value = l.link.name; }, 30);
+      if(w){ w.value = l.body; w.focus(); } if(ab && l.link && l.link.name && l.link.type !== 'work') ab.value = l.link.name; else if(ab && who && !ab.value) ab.value = who; }, 30);
     let n = 0; const t = setInterval(() => {
       n++; const wrap = document.getElementById('ccCapWrap'), open = wrap && wrap.style.display !== 'none';
       if(open && n < 1200) return;
@@ -1243,10 +1286,10 @@
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
     if(DK.view === 'everyone') return everyoneHtml();
-    if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + monthHtml() + '</div>';
+    if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + seasonCorner() + monthHtml() + '</div>';
     const strip = ro() ? '<div class="dk-strip">You are at ' + esc(firstName(DK.who)) + "'s desk. " + esc(firstName(DK.who)) + ' will see you stopped by.</div>' : '';
     const vis = !ro() && DK.visits.length ? '<div class="dk-visit">' + icon('steps') + DK.visits.map(v => esc(firstName(v.visitor_person_id)) + ' stopped by your desk today at ' + esc(new Date(v.at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ }))).join('. ') + '.</div>' : '';
-    return '<div class="dk-mat' + matClass() + '" id="dkMat">' + strip + vis + '<div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
+    return '<div class="dk-mat' + matClass() + '" id="dkMat">' + seasonCorner() + strip + vis + '<div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
       + '<div class="dk-grid">' + left + plannerHtml(DK.day) + right + '</div></div>';
   }
   function render(){
@@ -1442,7 +1485,7 @@
     's-peel': a => { const el = a.closest('[data-sid]'), sid = el.dataset.sid; el.classList.add('dk-peel'); setTimeout(() => action('Sticky peeled off', ctx => ctx.setStick(sid, { erased_at:new Date().toISOString() })), 300); },
     'erase-help': () => say('Drop a line or a sticky on the eraser to erase it'),
     link: a => { const l = lineById(a.closest('[data-dkid]').dataset.dkid); if(l && l.link) openLink(l.link, !!a.dataset.work); },
-    follow: a => followUp(a.dataset.id),
+    follow: a => followUp(a.dataset.id, a.dataset.who || ''),
     nohint: a => { const l = lineById(a.dataset.id); if(l) action(null, ctx => ctx.setLine(l.id, { link:Object.assign({}, l.link || {}, { nohint:true }) })); },
     desk: a => openDesk(a.dataset.who || null),
     everyone: () => openEveryone(),
@@ -1775,15 +1818,15 @@
     + '<symbol id="dk-hstar" viewBox="0 0 24 24"><path d="M12.3 3.2c.9 2.2 1.7 4.1 2.6 6 2.2.1 4.4.2 6.4.5-1.7 1.4-3.3 2.8-4.9 4.3.5 2.1 1 4.1 1.4 6.2-1.9-1.2-3.7-2.3-5.6-3.3-1.9 1.1-3.8 2.2-5.6 3.4.5-2.1 1-4.2 1.6-6.3C6.6 12.6 5 11.2 3.3 9.8c2.1-.3 4.2-.4 6.4-.5.8-2.1 1.7-4 2.6-6.1z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>'
     + '<symbol id="dk-circle" viewBox="0 0 24 24"><path d="M5 9c3-5 14-5 15 1 1 6-9 9-14 6-3-2-2-6 1-8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>'
     + '<symbol id="dk-heart" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 17.5c-3-1.9-4.3-3.4-4.3-4.8 0-1.2.9-2 1.9-2s1.7.6 2.4 1.4c.7-.8 1.4-1.4 2.4-1.4s1.9.8 1.9 2c0 1.4-1.3 2.9-4.3 4.8z" fill="currentColor"/></symbol>'
-    + '<symbol id="dk-st-house" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" stroke-width="2"/><path id="dk-ring1" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring1" startOffset="2%">GOOD DAY\'S WORK ✦ CARING COMPANIONS ✦</textPath></text><path d="M40 60l20-17 20 17v20H40z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M60 75c-7-4.5-10-8-10-11.3 0-2.8 2.1-4.6 4.5-4.6 2.3 0 4 1.3 5.5 3.3 1.5-2 3.2-3.3 5.5-3.3 2.4 0 4.5 1.8 4.5 4.6 0 3.3-3 6.8-10 11.3z" fill="currentColor"/></symbol>'
-    + '<symbol id="dk-st-sun" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><path id="dk-ring2" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring2" startOffset="2%">WELL DONE TODAY ✦ CARING COMPANIONS ✦</textPath></text><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="60" cy="60" r="11"/><path d="M60 34v8M60 78v8M34 60h8M78 60h8M42 42l6 6M72 72l6 6M78 42l-6 6M48 72l-6 6"/></g></symbol>'
-    + '<symbol id="dk-st-cup" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><path id="dk-ring3" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring3" startOffset="2%">PUT THE KETTLE ON ✦ ALL DONE ✦ </textPath></text><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M40 56h34v6c0 9-7.6 16-17 16s-17-7-17-16z"/><path d="M74 59h4a5 5 0 0 1 0 10h-6"/><path d="M38 82h38"/><path d="M50 50c-2-3 2-5 0-8M58 50c-2-3 2-5 0-8M66 50c-2-3 2-5 0-8"/></g></symbol>'
+    + '<symbol id="dk-st-house" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/><path id="dk-ring1" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring1" startOffset="2%">GOOD DAY\'S WORK ✦ CARING COMPANIONS ✦</textPath></text><path d="M40 60l20-17 20 17v20H40z" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linejoin="round"/><path d="M60 75c-7-4.5-10-8-10-11.3 0-2.8 2.1-4.6 4.5-4.6 2.3 0 4 1.3 5.5 3.3 1.5-2 3.2-3.3 5.5-3.3 2.4 0 4.5 1.8 4.5 4.6 0 3.3-3 6.8-10 11.3z" fill="currentColor"/></symbol>'
+    + '<symbol id="dk-st-sun" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/><path id="dk-ring2" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring2" startOffset="2%">WELL DONE TODAY ✦ CARING COMPANIONS ✦</textPath></text><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><circle cx="60" cy="60" r="11"/><path d="M60 34v8M60 78v8M34 60h8M78 60h8M42 42l6 6M72 72l6 6M78 42l-6 6M48 72l-6 6"/></g></symbol>'
+    + '<symbol id="dk-st-cup" viewBox="0 0 120 120"><circle cx="60" cy="60" r="55" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="4 4"/><path id="dk-ring3" d="M60 60 m-46 0 a46 46 0 1 1 92 0 a46 46 0 1 1 -92 0" fill="none"/><text font-family="system-ui, sans-serif" font-weight="800" font-size="11" letter-spacing="2.4" fill="currentColor"><textPath href="#dk-ring3" startOffset="2%">PUT THE KETTLE ON ✦ ALL DONE ✦ </textPath></text><g fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M40 56h34v6c0 9-7.6 16-17 16s-17-7-17-16z"/><path d="M74 59h4a5 5 0 0 1 0 10h-6"/><path d="M38 82h38"/><path d="M50 50c-2-3 2-5 0-8M58 50c-2-3 2-5 0-8M66 50c-2-3 2-5 0-8"/></g></symbol>'
     + '</defs></svg>';
 
   const CSS = `
 .dk{ --paper:#fffdf6; --paper-2:#f6f0e1; --paper-edge:#e6dcc4; --rule:#cfe1e8; --margin:#f3b9a4; --ink:#0D365F; --pencil:#6f7681; --faint:#a8acb2;
   --dk-teal:#1F7A8C; --teal-pale:#EAF4F6; --honey:#F0A63A; --honey-deep:#C17A12; --honey-pale:#ffe4ac; --mat:#1d6f7d; --mat-2:#175e6a;
-  --s-yellow:#fde68a; --s-pink:#f8c5d2; --s-blue:#bde2ee; --s-green:#cde8c2; --manila:#e3c48d; --manila-2:#d5b077; --shadow:rgba(40,25,10,.30);
+  --s-yellow:#FBDDA0; --s-pink:#F6D3DB; --s-blue:#D6ECF0; --s-green:#CDEBE4; --manila:#e3c48d; --manila-2:#d5b077; --shadow:rgba(40,25,10,.30);
   --hand:'Patrick Hand','Comic Sans MS',cursive; --sticky-font:'Gochi Hand','Patrick Hand',cursive; --print:'Young Serif',Georgia,serif; --lh:34px;
   --strike:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='8' viewBox='0 0 100 8' preserveAspectRatio='none'><path d='M0 4.6 C20 3.2 38 4.8 55 3.9 S85 3.1 100 3.6' stroke='%230D365F' stroke-width='1.9' fill='none' stroke-linecap='round'/></svg>");
   font-size:14px; color:#16283a; }
@@ -1976,7 +2019,7 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-dogear:hover{ background:linear-gradient(225deg, transparent 0 46%, rgba(0,0,0,.06) 47%, transparent 60%); }
 .dk-dogear.dk-on{ width:38px; height:38px; background:linear-gradient(225deg, var(--mat) 0 50%, var(--paper-edge) 50%, var(--paper-2)); box-shadow:-2px 2px 3px -1px var(--shadow); }
 .dk-nav{ margin-right:22px; }
-.dk-stamp{ position:absolute; right:34px; bottom:50px; width:132px; text-align:center; pointer-events:none; color:var(--dk-teal); transform:rotate(-12deg); }
+.dk-stamp{ position:absolute; right:34px; bottom:50px; width:132px; text-align:center; pointer-events:none; color:#0F7A73; transform:rotate(-12deg); }
 .dk-stamp svg{ width:112px; height:112px; mix-blend-mode:multiply; opacity:.8; }
 .dk-stamp div{ font-family:var(--hand); font-size:17px; color:var(--ink); margin-top:-4px; }
 .dk-thunk svg{ animation:dkThunk .5s cubic-bezier(.2,1.6,.4,1); } @keyframes dkThunk{ 0%{ transform:scale(2.2); opacity:0; } 60%{ opacity:1; } 100%{ transform:scale(1); } }
@@ -2023,7 +2066,7 @@ body.dk-dragging, body.dk-dragging *{ cursor:grabbing !important; user-select:no
 .dk-ml{ font-family:var(--hand); font-size:12.5px; line-height:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-bottom:1px solid var(--rule); }
 .dk-ml.dk-d{ text-decoration:line-through; opacity:.5; } .dk-ml.dk-n{ color:var(--pencil); padding-left:8px; }
 .dk-mc{ font-size:10.5px; font-weight:700; color:var(--pencil); margin-top:5px; font-variant-numeric:tabular-nums; }
-.dk-ms{ position:absolute; right:-6px; bottom:-6px; width:56px; height:56px; color:var(--dk-teal); opacity:.75; transform:rotate(-14deg); mix-blend-mode:multiply; }
+.dk-ms{ position:absolute; right:-6px; bottom:-6px; width:56px; height:56px; color:#0F7A73; opacity:.75; transform:rotate(-14deg); mix-blend-mode:multiply; }
 .dk-de{ position:absolute; top:0; right:0; width:18px; height:18px; background:linear-gradient(225deg, var(--mat) 0 50%, var(--paper-edge) 50%); }
 .dk-mini.dk-future{ opacity:.6; } .dk-mini.dk-today{ outline:3px solid var(--honey); outline-offset:2px; }
 .dk-mini.dk-wk{ min-height:60px; background:rgba(255,255,255,.12); box-shadow:none; color:rgba(255,255,255,.7); cursor:default; }
@@ -2102,6 +2145,15 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 .dk-reprow{ display:flex; gap:8px; align-items:center; padding:0 6px; } .dk-reprow span{ color:#6E6559; font-size:12px; white-space:nowrap; } .dk-reprow input{ flex:1; }
 .dk-repnote{ color:#6E6559; font-size:12px; padding:4px 6px; } .dk-repbtns{ display:flex; gap:8px; padding:6px; } .dk-repbtns .dk-ghosty{ background:#fff; color:#0D365F !important; border:1px solid #e4e1d8; }
 .dk-hint{ list-style:none; font-family:system-ui,-apple-system,'Segoe UI',sans-serif; font-size:12.5px; color:#7a4d06; line-height:1.4; padding:2px 0 8px 35px; display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; }
+/* 2026-10-18 (desk touches): the promise hint is a strip of honey washi tape stuck on the page */
+.dk-hint.dk-promise{ width:fit-content; max-width:calc(100% - 40px); margin:-4px 0 8px 30px; padding:6px 12px; color:#4d3500; font-weight:600; transform:rotate(-1.2deg);
+  background:repeating-linear-gradient(-45deg,#F7C76B 0 7px,#F3BB55 7px 14px); box-shadow:0 2px 3px rgba(0,0,0,.12); clip-path:polygon(1.5% 0,98.5% 3%,100% 50%,98% 97%,1% 100%,0 55%); }
+.dk-hint.dk-promise button{ border:0; background:rgba(255,255,255,.72); color:#4d3500 !important; }
+.dk-hint.dk-promise .dk-yes{ background:#0D365F; color:#fff !important; }
+.dk-pagedoodle{ position:absolute; left:0; right:0; bottom:120px; display:flex; justify-content:center; pointer-events:none; }
+.dk-pagedoodle svg{ width:170px; height:auto; }
+.dk-season{ position:absolute; right:16px; bottom:14px; width:220px; height:140px; pointer-events:none; z-index:0; }
+.dk-narrow .dk-pagedoodle{ bottom:70px; } .dk-narrow .dk-season{ width:150px; height:96px; }
 .dk-hint button{ font-size:11.5px; font-weight:700; border-radius:14px; padding:2px 10px; border:1px solid var(--honey); background:var(--paper); color:#7a4d06 !important; }
 .dk-hint .dk-yes{ background:var(--honey); color:#2b1d00 !important; }
 .dk-dash{ display:flex; gap:8px; align-items:center; width:100%; text-align:left; border:1px solid #f0d78a; background:#fff8e1; color:#4d3500; border-radius:10px; padding:9px 12px; font-size:13.5px; cursor:pointer; margin-bottom:12px; }
