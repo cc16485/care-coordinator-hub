@@ -107,6 +107,9 @@ async()=>{
 """
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={ 'width':1400, 'height':1000 })
+    import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from clock_pin import pin  # 2026-10-18: a weekday morning, so the test gives the same answer on weekends and at night
+    pin(pg)
     pg.route('**/*', lambda r: r.abort() if ('supabase.co' in r.request.url or 'fonts.g' in r.request.url) else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://localhost:8765/index.html?proof=desk2'); pg.wait_for_timeout(1200)

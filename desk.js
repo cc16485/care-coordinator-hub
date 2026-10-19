@@ -2285,7 +2285,10 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 .dk-mat-meadow::before{ border-color:rgba(13,54,95,.18); }
 .dk-mat-meadow > .dk-sun{ position:absolute; right:7%; top:22px; width:64px; height:64px; border-radius:50%; background:#F0A63A; opacity:.72; pointer-events:none; }
 .dk-mat-meadow > .dk-hills{ position:absolute; left:0; right:0; bottom:0; width:100%; height:120px; pointer-events:none; display:block; }
-.dk-mat-meadow > .dk-grid, .dk-mat-meadow > .dk-stickies, .dk-mat-meadow > .dk-strip, .dk-mat-meadow > .dk-visit{ position:relative; z-index:1; }
+.dk-mat-meadow > .dk-grid, .dk-mat-meadow > .dk-strip, .dk-mat-meadow > .dk-visit{ position:relative; z-index:1; }
+/* 2026-10-18 fix: the sticky layer stays an overlay above the planner (as on every other mat). Made relative at z 1 it sat
+   under the grid's columns, so a sticky on the left couldn't be picked up (the left column's empty zone was on top). */
+.dk-mat-meadow > .dk-stickies{ position:absolute; inset:0; z-index:6; }
 .dk-mat-meadow .dk-lit{ animation:dkTwinkle 3.6s ease-in-out infinite alternate; }
 @keyframes dkTwinkle{ from{ opacity:1; } to{ opacity:.55; } }
 /* words that sat white on the dark felt are navy on the sky */

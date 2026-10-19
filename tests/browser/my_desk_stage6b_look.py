@@ -61,7 +61,7 @@ async()=>{
   DATA.ops_settings.care_notes_flag_live=false; dkSetFill();
   let kb=[...set.querySelectorAll('button')].find(x=>/Turn on/.test(x.textContent));
   ok('Settings > My Desk: the switch can\'t go on while shift-note flags aren\'t running', kb && kb.disabled && /Can't turn on yet: shift-note flags are not running/.test(set.innerText));
-  DATA.ops_settings.care_notes_flag_live=true; dkSetFill(); const asked=[]; window.confirm=t=>{ asked.push(t); return true; };
+  DATA.ops_settings.care_notes_flag_live=true; dkSetFill(); const asked=[]; /* 2026-10-18: the Hub asks on the page now (ccConfirm, #429), not the browser's pop-up */ window.ccConfirm=async t=>{ asked.push(t); return true; }; (0,eval)('ccConfirm=window.ccConfirm');
   [...set.querySelectorAll('button')].find(x=>/Turn on/.test(x.textContent)).click(); await sleep(200);
   const mg=window.__merge.at(-1);
   ok('...turning it on asks first, then saves only that switch', /Turn on kind words from shift notes\?/.test(asked[0]) && /Nobody is texted or emailed/.test(asked[0]) && mg && mg.m.kind_words_suggest_live===true && JSON.stringify(mg.ch)==='["kind words from shift notes ON"]' && /On\./.test(set.innerText) && /Turn off/.test(set.innerText), [asked, mg]);
@@ -73,6 +73,9 @@ async()=>{
 """
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={ 'width':1400, 'height':1000 })
+    import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from clock_pin import pin  # 2026-10-18: a weekday morning, so the test gives the same answer on weekends and at night
+    pin(pg)
     pg.route('**/*', lambda r: r.abort() if ('supabase.co' in r.request.url or 'fonts.g' in r.request.url) else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://localhost:8765/index.html?proof=desk6b'); pg.wait_for_timeout(1200)
