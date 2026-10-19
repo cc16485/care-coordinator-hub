@@ -7378,25 +7378,18 @@ function medicaidHow(c){
   const ax = Array.isArray(c.medicaid_clients) && c.medicaid_clients.length, hand = String(c.medicaid_hand || '') === 'yes';
   return ax && hand ? 'AxisCare visits and marked by hand' : ax ? 'AxisCare visits' : hand ? 'Marked by hand (before AxisCare)' : '';
 }
-/* what an auditor would ask for that is not on file: the training the IHS rules required, and its signed proof */
-function medicaidGaps(c){
-  const ihs = trainStatus(c).ihs || {}, g = [];
-  if(!c.orient_date) g.push('Agency Orientation'); else if(!c.orient_proof) g.push('Agency Orientation proof');
-  if(!c.alz_date) g.push('Dementia training'); else if(!c.alz_proof) g.push('Dementia training proof');
-  if(!c.ojt_date || c.ojt_signed !== 'yes') g.push('On-the-job, in person'); else if(!c.ojt_proof) g.push('On-the-job, in person proof');
-  if(!c.ojt_online) g.push('On-the-job, online'); else if(!c.ojt_online_proof) g.push('On-the-job, online proof');
-  if(ihs.annualStatus === 'Overdue') g.push('Annual in-service'); else if(c.annual_date && !c.annual_proof) g.push('Annual in-service proof');
-  if(ihs.annualShort) g.push('Annual in-service hours (' + c.annual_hrs + ' of 5)');
-  return g;
-}
+/* what an auditor would ask for that is not on file: the rules file's medicaidProof (her rule 2026-10-19: every required
+   training with its certificate, for good, past employees too) */
+function medicaidGaps(c){ return __elig().medicaidProof(c).missing; }
+function medicaidGone(c){ return c.active === false || c.axiscare_status_active === false; }
 function medicaidCSV(){
   const list = caregivers.filter(c => __elig().medicaidCaregiver(c));
-  const rows = [['Caregiver','AxisCare ID','Hire date','How we know','Medicaid clients (first to last visit seen)','Hand note',
+  const rows = [['Caregiver','Still working','AxisCare ID','Hire date','How we know','Last Medicaid day seen','Medicaid clients (first to last visit seen)','Hand note',
     'Agency Orientation','Orientation proof','Dementia training','Dementia hours','Dementia proof',
     'On-the-job in person','OJT signed','OJT in person proof','On-the-job online','OJT online proof',
-    'First client contact','Annual in-service','Annual hours','Annual proof','Not on file']];
+    'First client contact','Annual in-service','Annual hours','Annual proof','Missing for the audit']];
   list.forEach(c => rows.push([
-    `${c.first} ${c.last}`, c.axiscare_id || '', c.hire_date || '', medicaidHow(c),
+    `${c.first} ${c.last}`, medicaidGone(c) ? 'No' : 'Yes', c.axiscare_id || '', c.hire_date || '', medicaidHow(c), __elig().medicaidProof(c).last_medicaid_day || '',
     (c.medicaid_clients || []).map(m => `${m.client} (${m.first_date} to ${m.last_date})`).join('; '), c.medicaid_hand_note || '',
     c.orient_date || '', c.orient_proof || '', c.alz_date || '', c.alz_hrs || '', c.alz_proof || '',
     c.ojt_date || '', c.ojt_signed || '', c.ojt_proof || '', c.ojt_online || '', c.ojt_online_proof || '',
@@ -7439,7 +7432,7 @@ function renderTR(){
       :MEDICAID_SYNC.err?`<span style="color:var(--red)">Could not check AxisCare: ${wcEsc(MEDICAID_SYNC.err)}. The list below is what was already recorded.</span>`
       :MEDICAID_SYNC.at?`AxisCare checked ${new Date(MEDICAID_SYNC.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}${MEDICAID_SYNC.found?`, ${MEDICAID_SYNC.found} new visit record${MEDICAID_SYNC.found===1?'':'s'} saved`:', nothing new'}.`:'';
     medBox.style.display=trFilterVal==='medicaid'?'block':'none';
-    medBox.innerHTML=`<div style="font-size:.82rem;line-height:1.5">Everyone who has worked with a Medicaid (IHS or ADW) client, kept for good for audits. AxisCare visits are added on their own; for someone from the WellSky days, open their record (✏️) and tick <b>Worked with a Medicaid client</b>. Until Nov 16, 2026 these caregivers still need dementia training, on-the-job training within 30 days and the yearly 5 hours.</div>
+    medBox.innerHTML=`<div style="font-size:.82rem;line-height:1.5">Everyone who has worked with a Medicaid (IHS or ADW) client, kept for good for audits. AxisCare visits are added on their own; for someone from the WellSky days, open their record (✏️) and tick <b>Worked with a Medicaid client</b>. Every one of them needs each required training on their profile with its certificate: Agency Orientation, dementia training, on-the-job training (in person and online) and the yearly 5 hours for the years they served Medicaid. Past employees stay on the list. Until Nov 16, 2026 the missing training also stops them being scheduled.</div>
       <div style="font-size:.78rem;color:var(--gray);margin-top:.3rem">${st}</div>
       <div style="margin-top:.45rem;display:flex;gap:.4rem;flex-wrap:wrap"><button class="fb" onclick="SCX.medicaidSync(this)">↻ Check AxisCare for Medicaid visits</button><button class="fb" onclick="SCX.medicaidCSV()">⬇ Download the list with training proof</button></div>`;
   }
@@ -7471,18 +7464,23 @@ function renderTR(){
     const ihs=ts.ihs||{};
     let optB=optBadge, optL=optLabel, optMiss='', annMiss='', medChip='';
     if(ihs.medicaid){
-      const miss=[]; if(!ihs.alzDone) miss.push('Dementia care'); if(!ihs.ojtDone) miss.push('On-the-job');
-      const word=ihs.applies?'needed':'not on record';
-      optB=miss.length?(ihs.applies?'b-red':'b-amber'):'b-green';
-      optL=miss.length?(ihs.applies?'Medicaid: needed by Nov 16':'Medicaid: not all on record'):'Medicaid: done';
-      optMiss=miss.map(m=>`<span class="chk-date" style="color:${ihs.applies?'var(--red)':'var(--amber)'}">${m}: ${word}${m==='On-the-job'&&ihs.applies&&ihs.thirtyDeadline?` (due ${fmtD(ihs.thirtyDeadline.toISOString().slice(0,10))})`:''}</span>`).join('');
-      if(ihs.isFirstYear){ annBadge='b-gray'; annLabel='Medicaid: year 1, not due'; }
-      else if(ihs.annualStatus==='Overdue'){ annBadge=ihs.applies?'b-red':'b-amber'; annLabel=ihs.applies?'Medicaid: overdue':'Medicaid: not on record'; }
-      else if(ihs.annualStatus==='Due Soon'){ annBadge='b-amber'; annLabel='Medicaid: due soon'; }
-      else { annBadge='b-green'; annLabel='Medicaid: current'; }
-      if(ihs.annualShort) annMiss=`<span class="chk-date" style="color:var(--amber)">Hours: ${wcEsc(c.annual_hrs)} of 5</span>`;
+      /* her rule 2026-10-19: every required training with its certificate; a date without the certificate is a gap */
+      const mp=__elig().medicaidProof(c);
+      const gap=k=>mp.items.filter(x=>x.key===k&&!['ok','not_due'].includes(x.status));
+      const WORD={no_date:ihs.applies?'needed':'not on record',no_proof:'no certificate',not_signed:'not signed off',too_old:'out of date',short_hours:'hours short'};
+      const missOpt=['alz','ojt','ojt_online'].flatMap(gap);
+      optB=missOpt.length?(ihs.applies&&missOpt.some(x=>x.status==='no_date')?'b-red':'b-amber'):'b-green';
+      optL=missOpt.length?(ihs.applies&&missOpt.some(x=>x.status==='no_date')?'Medicaid: needed by Nov 16':'Medicaid: certificate missing'):'Medicaid: certificates on file';
+      optMiss=missOpt.map(x=>`<span class="chk-date" style="color:${x.status==='no_date'&&ihs.applies?'var(--red)':'var(--amber)'}">${x.label}: ${WORD[x.status]}${x.key==='ojt'&&x.status==='no_date'&&ihs.applies&&ihs.thirtyDeadline?` (due ${fmtD(ihs.thirtyDeadline.toISOString().slice(0,10))})`:''}</span>`).join('');
+      const og=gap('orient')[0]; if(og) optMiss=`<span class="chk-date" style="color:var(--amber)">Agency Orientation: ${WORD[og.status]}</span>`+optMiss;
+      const ag=gap('annual')[0];
+      const an=mp.items.find(x=>x.key==='annual')||{};
+      if(an.status==='not_due'){ annBadge='b-gray'; annLabel='Medicaid: not due'; }
+      else if(ag){ annBadge=ihs.applies&&an.status!=='no_proof'?'b-red':'b-amber'; annLabel='Medicaid: '+WORD[ag.status]; annMiss=ag.note&&ag.status!=='no_proof'?`<span class="chk-date" style="color:var(--amber)">${wcEsc(ag.note)}</span>`:''; }
+      else if(ihs.applies&&ihs.annualStatus==='Due Soon'){ annBadge='b-amber'; annLabel='Medicaid: due soon'; }
+      else { annBadge='b-green'; annLabel='Medicaid: certificate on file'; }
       const cl=(c.medicaid_clients||[]).map(m=>`${m.client} (${m.first_date} to ${m.last_date})`).join(', ');
-      medChip=`<div><span class="tag-chip" style="background:#EEF2FF;color:#3730A3" title="${wcEsc(medicaidHow(c)+(cl?': '+cl:'')+(c.medicaid_hand_note?'. '+c.medicaid_hand_note:''))}">Medicaid caregiver</span></div>`;
+      medChip=(medicaidGone(c)?`<div><span class="tag-chip">no longer working</span></div>`:'')+`<div><span class="tag-chip" style="background:#EEF2FF;color:#3730A3" title="${wcEsc(medicaidHow(c)+(cl?': '+cl:'')+(c.medicaid_hand_note?'. '+c.medicaid_hand_note:''))}">Medicaid caregiver</span></div>`;
     }
     // Overall
     const oBadge={Current:'b-green','Client Contact Blocked':'b-red','Training Overdue':'b-red','Annual Overdue':'b-red','OJT Pending':'b-amber','Annual Due Soon':'b-amber'}[ts.overall]||'b-gray';
@@ -7514,7 +7512,8 @@ function renderTR(){
     <div class="stat"><div class="lbl">Total Caregivers</div><div class="val v-navy">${caregivers.length}</div></div>
     <div class="stat"><div class="lbl">Client Contact Blocked</div><div class="val v-red">${bl}</div></div>
     <div class="stat"><div class="lbl">Orientation Done</div><div class="val v-green">${allOk}</div></div>
-    <div class="stat"><div class="lbl">Medicaid Caregivers</div><div class="val v-navy">${caregivers.filter(c=>__elig().medicaidCaregiver(c)).length}</div></div>`;
+    <div class="stat"><div class="lbl">Medicaid Caregivers</div><div class="val v-navy">${caregivers.filter(c=>__elig().medicaidCaregiver(c)).length}</div></div>
+    <div class="stat"><div class="lbl">Medicaid: Proof Missing</div><div class="val v-red">${caregivers.filter(c=>__elig().medicaidCaregiver(c)&&!__elig().medicaidProof(c).complete).length}</div></div>`;
 }
 
 // ── ACTIVE COMPLIANCE RENDER ──────────────────────────────────────────
