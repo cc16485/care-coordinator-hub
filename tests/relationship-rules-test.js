@@ -25,5 +25,12 @@ ck('care stopped: journey closed, lost or archived → nothing', R.nextCall(L(),
 ck('a first visit before the switch went on → nothing (no flood of late cards)', R.nextCall(L(), { today:'2026-11-05', since:'2026-11-03' }) === null && !!R.nextCall(L(), { today:'2026-11-05', since:'2026-11-02' }));
 ck('record refuses an unknown call or outcome', R.record(L(), 'day99', { outcome:'talked' }) === null && R.record(L(), 'day7', { outcome:'maybe' }) === null);
 ck('never a supervisory word in what it writes', !/supervis/i.test(JSON.stringify(l.relationship_calls) + JSON.stringify(l.comm_log)));
+/* audit step 4: concerns, follow-ups, the welcome call */
+{ const w = {}; const e = R.record(w, 'welcome', { outcome:'talked', note:'settling in', concern:'Mom fell Sunday', followup:{ what:'Check the walker', owner:'k@mo-care.com', due:'2026-11-10' } });
+  ck('step 4 · the welcome call is recorded like the others, with the concern and the follow-up', e && e.key === 'welcome' && e.title === 'Welcome call' && e.concern === 'Mom fell Sunday' && e.followup.due === '2026-11-10' && /Concern raised: Mom fell Sunday/.test(w.comm_log[0].body), e);
+  const v = R.record({}, 'welcome', { outcome:'voicemail', concern:'x', followup:{ what:'y' } });
+  ck('step 4 · a voicemail never carries a concern or a follow-up', v && !v.concern && !v.followup, v);
+  ck('step 4 · the welcome call is never a card from nextCall (the journey step is its card)', !R.CALLS.some(c => c.key === 'welcome'));
+}
 console.log(pass + ' passed, ' + fail + ' failed');
 process.exitCode = fail ? 1 : 0;

@@ -281,7 +281,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=16"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=18"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -1780,6 +1780,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Nothing on a desk texts, emails, routes or becomes My Work. -->
     <section class="tabpanel" id="tab-mydesk"><div id="dkWrap"></div></section>
 
+    <!-- ===================== TAB: CLIENT GOALS (My Work, 2026-10-18) =====================
+         Weekly care hours (read from AxisCare) and CDS consumers (a count the owners keep), each against a goal only
+         Samantha or Zachary sets. client-goals.js draws it; saved in app_data cc_goals. Nothing is sent to anyone. -->
+    <section class="tabpanel" id="tab-clientgoals"><div id="cgoWrap"></div></section>
+
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
          Meeting notes and action items (moved in from the Team Hub; each action item is a
          Stand-Up item with an owner and a due date), the team video room, and the old
@@ -2949,6 +2954,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div id="writeup-notice" style="font-size:.75rem;background:#fef2f2;border-radius:6px;padding:.45rem .7rem;color:#b91c1c;margin:.4rem 0 .6rem;font-weight:600"></div>
     <!-- HR step 6 (2026-10-18): the four items required before approval, Save and Draft with AI (caregivers-engine.js wuCheckHtml) -->
     <div id="writeup-check"></div>
+    <!-- HR step 8 (2026-10-18): getting it signed: a texted link, in person, or a recorded refusal (caregivers-engine.js wuAckHtml) -->
+    <div id="writeup-ack"></div>
     <textarea id="writeup-body" rows="18" style="width:100%;font-family:ui-monospace,Menlo,monospace;font-size:.78rem;line-height:1.5"></textarea>
     <div style="display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap" id="writeup-actions"></div>
     <!-- HR step 6: every change to this write-up, from the database's audit trail (hr_formal_log) -->
@@ -4575,13 +4582,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <!-- Lead turns (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18): who owns a new
      lead, by turn. ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live; only Samantha or Zachary can change it. -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Lead turns</div>
-<p class="hint">Each new lead goes to the next Care Coordinator in this list, so everyone gets the same number of chances. Someone switched off or out on the Team page is skipped, with no makeup turn. Asked for by name and returning clients go to that person and use their turn. Taking an inquiry card is helping: the lead stays its owner's. Only Samantha or Zachary can change this or change a lead's owner. Nothing here contacts a family.</p>
+<p class="hint">Each new lead goes to the next Care Coordinator in this list, so everyone gets the same number of chances. Someone switched off or out on the Team page is skipped, with no makeup turn. Asked for by name goes to that person and uses their turn; a returning client goes to their old Care Coordinator and uses their turn unless returning clients are kept apart (below). Taking an inquiry card is helping: the lead stays its owner's. Only Samantha or Zachary can change this or change a lead's owner. Nothing here contacts a family.</p>
 <div id="ltSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div id="ltPeople"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
   <input id="ltAdd" placeholder="First name" style="max-width:160px;"><button class="secondary" onclick="ltAddPerson(this)">Add to the list</button>
   <button class="secondary" id="ltToggleBtn" onclick="ltToggle(this)">Turn on lead turns</button>
   <span class="field-note" id="ltSaved"></span>
+</div>
+<!-- Returning clients apart (audit step 6, Samantha's decision 1, 2026-10-18): ops_settings.returning_apart_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Returning clients:</b> <span id="raSetNow"></span></div>
+  <button class="secondary" id="raToggleBtn" onclick="raToggle(this)" style="margin-top:4px;">Keep returning clients apart</button>
+</div>
+<!-- The database guards who owns a lead (audit step 8, Samantha 2026-10-18): ops_settings.owner_guard_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Database guard:</b> <span id="ogSetNow"></span></div>
+  <button class="secondary" id="ogToggleBtn" onclick="ogToggle(this)" style="margin-top:4px;">Turn on the database guard</button>
 </div>
 <!-- Follow-up rules (Stage 2 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.lead_followup_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Follow-up rules</div>
@@ -4598,6 +4615,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
   <button class="secondary" id="rcToggleBtn" onclick="rcToggle(this)">Turn on relationship calls</button>
   <span class="field-note" id="rcSaved"></span>
+</div>
+<!-- Relationship call details (audit step 4, Samantha 2026-10-18): ops_settings.relcall_details_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Concerns, follow-ups and the welcome call</div>
+<p class="hint">When a relationship call reaches the family, the log also asks: any concern (it goes to Client Care as an issue, like any other concern) and any follow-up (someone owns it by a date, as a card for them). The welcome call is logged the same way: pressing Done on "Call the family after the first visit" opens the call log, voicemails and no answers are kept as attempts, and the step closes only after a real conversation with a note. Only Samantha or Zachary can turn this on or off.</p>
+<div id="rdSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="rdToggleBtn" onclick="rdToggle(this)">Turn on</button>
+  <span class="field-note" id="rdSaved"></span>
 </div>
 <!-- Bonus program (Stage 4 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.bonus_live and
      ops_settings.bonus {start, amount, min_hours, payroll, decider}. The bonus records themselves stay on the server (cc-bonus). -->
@@ -4623,6 +4648,27 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="tnSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div class="grid2" style="grid-template-columns:220px 1fr;align-items:end;"><div><label>HR lead (decides reviews)</label><select id="tnHr"></select></div>
 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px;"><button class="secondary" id="tnSaveBtn" onclick="tnSave(this)">Save</button><button class="secondary" id="tnToggleBtn" onclick="tnToggle(this)">Turn on team numbers and reviews</button><span class="field-note" id="tnSaved"></span></div></div>
+<!-- Balanced measures (audit step 7, Samantha 2026-10-18): ops_settings.balanced_measures_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:4px 0 10px;">
+  <div class="field-note"><b>More balanced measures:</b> <span id="bmSetNow"></span></div>
+  <button class="secondary" id="bmToggleBtn" onclick="bmToggle(this)" style="margin-top:4px;">Show them</button>
+</div>
+<!-- Time off and coverage (audit step 2, Samantha 2026-10-18): ops_settings.fair_counts_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Time off and coverage never count</div>
+<p class="hint">While someone is out on the Team page (out until a date), their new inquiries text the person on duty instead of them, and nothing counts against them: no late first call, no missed inquiry, and nothing that goes overdue while they are out counts toward a review, even after they come back. A teammate who receives a lead because its owner is out is covering, so the clock before that never counts against them either. Only Samantha or Zachary can turn this on or off.</p>
+<div id="fcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="fcToggleBtn" onclick="fcToggle(this)">Turn on</button>
+  <span class="field-note" id="fcSaved"></span>
+</div>
+<!-- Causes and cover reasons (audit step 3, Samantha 2026-10-18): ops_settings.overdue_causes_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Why it happened, and why someone covered</div>
+<p class="hint">Each follow-up that went overdue gets a cause: mine, staffing shortage, client or family decision, approved leave (set by itself while someone is out), or a phone or Hub problem. Only "mine" counts toward a review, and anything else needs a short note. The owner marks it in My month and has a day before it can count; once it is part of a review, only Zachary or Samantha can change it. When someone covers a teammate's inquiry, call or relationship call, the Hub asks why and keeps the answer. Only Samantha or Zachary can turn this on or off.</p>
+<div id="ocSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="ocToggleBtn" onclick="ocToggle(this)">Turn on</button>
+  <span class="field-note" id="ocSaved"></span>
+</div>
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">What we say to families</div>
 <p class="hint" style="font-weight:600;color:var(--navy);">These are conversation starters, not scripts to read word-for-word. Make it sound like you, answer the family's actual question, and never send a message without reading it first.</p>
 <p class="hint">The line a coordinator sees on a family's profile for the moment they are in (first call, voicemail, they replied, the call we promised, and so on). It is a prompt for the person, never sent by itself. Blank means the standard wording shown in grey, and a line left blank always falls back to it. Never promise a caregiver or a start date until staffing is confirmed. Fill-ins: <code>{first}</code> the caller, <code>{client}</code> the person who needs care, <code>{me}</code> whoever is signed in, <code>{when}</code> the promised or booked time, <code>{why}</code> the follow-up note, <code>{start}</code> when they want care.</p>
@@ -7385,10 +7431,10 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=19"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
-<script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
-<script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
-<script src="team.js?v=1"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
+<script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
+<script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
+<script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7428,6 +7474,11 @@ The HomeTogether team</pre>
 <script src="open-hours.js?v=3"></script>
 <script src="scheduling-guide.js?v=3"></script>
 <script src="new-hires.js?v=3"></script>
+<script src="hub-scenes.js?v=1"></script>
+<script src="celebrate.js?v=1"></script>
+<script src="progress-paths.js?v=2"></script>
+<script src="seasons.js?v=1"></script>
+<script src="more-fun.js?v=1"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7436,7 +7487,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=20"></script>
+<script src="client-journey.js?v=22"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
@@ -7454,23 +7505,24 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=16"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=17"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=12"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=7"></script>
-<script src="pool.js?v=1"></script>
-<script src="team-work.js?v=1"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live --><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
+<script src="end-shift.js?v=8"></script>
+<script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
+<script src="team-work.js?v=1"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
+<script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=10"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=11"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -7905,6 +7957,17 @@ async function persist(key, item){
     document.getElementById('syncPill').textContent = '☁ Synced';
     clearPendingSync(key, item.id);
   }catch(e){
+    /* audit step 8: the database refused a change of who owns a lead (or of its first owner). Not a sync problem, so it is
+       never queued to retry: the person is told why, and the lead is read back from the database as it really is. */
+    if(key==='leads' && /LEAD_OWNER_GUARD/.test(String((e && (e.message || e.details)) || ''))){
+      syncRecordError(key, item, e, 'server'); syncSay('✗ Not saved · owner change refused');
+      alert('Not saved. Only Samantha or Zachary can change who owns a lead, and a lead\'s first owner never changes. The lead has been put back as it is on file; make your other change again if you need to.');
+      try{ const { data } = await sb.from('app_data').select('data').eq('key','leads').maybeSingle();
+        const fresh = (data && Array.isArray(data.data)) ? data.data.find(x => x && String(x.id) === String(item.id)) : null;
+        const i = (DATA.leads||[]).findIndex(x => x && String(x.id) === String(item.id));
+        if(fresh && i >= 0) DATA.leads[i] = fresh; try{ renderLeadsStarts(); }catch(_){} }catch(_){}
+      return;
+    }
     /* The data is kept whatever went wrong. What changes is what we CALL it. */
     const kind = syncClassify(e);
     queuePendingSync(key, item);
@@ -8128,7 +8191,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['today','callfollowups','mywork','mydesk','myrole','myteam','standup','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8140,7 +8203,9 @@ const CC_SUBTABS = {
   /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
   gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
   /* 2026-10-14 (her call): My Desk and To talk about live inside My Work */
-  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' }, { t:'standup', l:'To talk about', i:'i-talk' } ],
+  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' }, { t:'standup', l:'To talk about', i:'i-talk' },
+    /* 2026-10-18 (her ask): Client Goals, weekly care hours and CDS consumers; owners set the goals (client-goals.js) */
+    { t:'clientgoals', l:'Client Goals', i:'i-target' } ],
   /* 2026-10-08 (her call): one Nurse Scheduling tab, not two */
   nursing:[ { t:'nursevisits', l:'Office view', i:'i-steth' }, { t:'nurseportal', l:'What a nurse sees', i:'i-phone' } ],
 };
@@ -8540,7 +8605,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -8774,7 +8839,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018j'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018n'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -8821,6 +8886,7 @@ function renderActiveTab(){
   /* desk.js: guarded the same way */
   if(typeof dkPill==='function') dkPill();
   if(activeTab==='mydesk' && typeof dkOpen==='function') dkOpen();
+  if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   if(activeTab==='calls') renderCalls();
@@ -9659,6 +9725,15 @@ function leadWaitingUI(fromChange){
 /* LEAD TURNS (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18).
    ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live. The rules live in lead-rules.js (the server
    runs the same file in lead-watch), so the Hub and the server agree on who is next up. Out = the Team page's out_until. */
+/* Cover reasons (audit step 3, Samantha 2026-10-18, ops_settings.overdue_causes_live): when someone covers a teammate's
+   work, the Hub asks why, and keeps it with who covered (card: covering.reason, the field the Team Work build reserved;
+   lead: helpers[].why). Off: nothing is asked. Returns the reason, '' when off, or null when the person cancels. */
+async function coverReasonAsk(ownerFirst){
+  if(!((DATA.ops_settings||{}).overdue_causes_live===true)) return '';
+  const w=await ccPrompt('Why are you covering for '+(ownerFirst||'your teammate')+'? (for example: '+(ownerFirst||'they')+' is out, with another family, or it couldn\'t wait)', '');
+  if(w===null) return null;
+  return String(w||'').trim()||'not given';
+}
 function leadTurns(){ return (typeof LeadRules!=='undefined'&&LeadRules.rotationSettings)?LeadRules.rotationSettings(DATA.ops_settings||{}):{ live:false, people:[] }; }
 function leadTurnsOn(){ const r=leadTurns(); return r.live&&r.people.some(p=>p.on); }
 function leadTurnIsOut(name){
@@ -9682,7 +9757,7 @@ function leadTurnFormUI(){
   if(how&&how.options[0]) how.options[0].textContent='Next up: '+(nx||'nobody right now');
   if(who){ const keep=who.value; who.innerHTML=people.map(p=>'<option value="'+escapeHtmlComms(p.name)+'">'+escapeHtmlComms(p.name)+'</option>').join(''); if(keep) who.value=keep;
     who.style.display=how&&how.value!=='turn'?'':'none'; }
-  if(tn) tn.textContent=how&&how.value!=='turn'?'It counts as that person’s turn.':(nx?'Leads take turns. The next one goes to the other Care Coordinator.':'Nobody is in the turn list right now, so this lead goes to the payer default.');
+  if(tn) tn.textContent=how&&how.value==='returning'&&LeadRules.returningApartOn(DATA.ops_settings||{})?'A returning client goes to them and does not use a turn.':how&&how.value!=='turn'?'It counts as that person’s turn.':(nx?'Leads take turns. The next one goes to the other Care Coordinator.':'Nobody is in the turn list right now, so this lead goes to the payer default.');
 }
 function openLeadModal(id){
   if(window.CallLead) CallLead.clearForm();   /* Make this a lead: a form opened any other way has no call marks */
@@ -9939,7 +10014,14 @@ async function ldLogCall(outcome, note, cbDate, cbTime, nx){
   const l=commsLead; if(!l||!outcome) return;
   const a=ccActor();
   /* Lead turns (Stage 1) + follow-up rules (Stage 2): a teammate calling someone else's lead is recorded as helping */
-  if(typeof leadTurnsOn==='function'&&leadTurnsOn()&&l.assigned_coordinator) LeadRules.noteHelper(l, a.name||a.email, { what:'a call', by:a.email });
+  if(typeof leadTurnsOn==='function'&&leadTurnsOn()&&l.assigned_coordinator){
+    const ownerF=String(l.assigned_coordinator).split(/\s+/)[0], meF=String(a.name||'').split(/\s+/)[0];
+    const covering=!!ownerF&&!!meF&&ownerF.toLowerCase()!==meF.toLowerCase();
+    const why=covering?await coverReasonAsk(ownerF):'';
+    const n0=Array.isArray(l.helpers)?l.helpers.length:0;
+    LeadRules.noteHelper(l, a.name||a.email, { what:'a call', by:a.email });
+    if(covering&&Array.isArray(l.helpers)&&l.helpers.length>n0) l.helpers[l.helpers.length-1].why=why===null?'not given':why;
+  }
   const label={connected:'connected',voicemail:'voicemail',no_answer:'no answer',
                requested_callback:'they asked us to call back',wrong_number:'wrong number'}[outcome]||outcome;
   const firstTime=!l.first_human_contact_at;
@@ -10429,7 +10511,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261017b'; sc.onload=go; document.head.appendChild(sc); } }
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261018b'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -11178,6 +11260,10 @@ function renderTodayHero(){
   h.innerHTML='<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>';
   try{ renderSinceYouLeft(); }catch(e){}
   heroLoadShifts();
+  /* celebrate.js (2026-10-18, fun step 2): every visit tomorrow has a caregiver = the Full house stamp on Today in AxisCare */
+  if(window.CEL) CEL.fullHouse();
+  /* more-fun.js (2026-10-18): a sun for each day this week, and the best run */
+  if(window.FUN) FUN.sunshine();
 }
 async function heroLoadShifts(){
   const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
@@ -11525,6 +11611,11 @@ function renderOverviewTop(nOverdue,nDue){
   const hr=new Date().getHours();
   const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
   document.getElementById('todayHeading').textContent = greet+(navUserFirst?(', '+navUserFirst):'');
+  /* seasons.js (2026-10-18, fun step 4): the season's scene by the greeting, a minute of weather on the top bar, and
+     Anniversaries this week (each behind its own owner switch) */
+  if(window.SEA) SEA.onDashboard();
+  /* more-fun.js (2026-10-18): Client Goals small, Friday wins, client anniversaries (switch) */
+  if(window.FUN) FUN.onDashboard();
   /* 2026-10-05: the greeting uses My Work's own lanes and the one meaning of late, so it agrees with every
      other number on the page. */
   let L={act:0,due:0,lateMine:0,lateUnowned:0}; try{ L=opsTodayCounts(); }catch(e){}
@@ -12667,7 +12758,7 @@ async function saveLead(opts){
       const how=String((document.getElementById('lead_turn_how')||{}).value||'turn');
       const who=how==='turn'||idx>=0?leadNextUp():String((document.getElementById('lead_turn_who')||{}).value||'');
       if(!who&&how!=='turn'){ alert('Pick who the family asked for.'); return; }
-      if(who){ LeadRules.giveTurn(merged, who, { how:idx>=0?'turn':how, by:a.email||'', leads:DATA.leads||[] }); turnNote=who+'’s lead'+(how==='turn'||idx>=0?' (next up).':' ('+LeadRules.TURN_HOW[how]+').'); }
+      if(who){ LeadRules.giveTurn(merged, who, { how:idx>=0?'turn':how, by:a.email||'', leads:DATA.leads||[], apart:LeadRules.returningApartOn(DATA.ops_settings||{}) }); turnNote=who+'’s lead'+(how==='turn'||idx>=0?' (next up).':' ('+LeadRules.TURN_HOW[how]+(merged.owner_turn&&merged.owner_turn.apart?', not a turn':'')+').'); }
       else { merged.assigned_coordinator=PAYER_COORDINATOR[merged.funding_source]||''; turnNote='Nobody is in the turn list right now, so this lead went to '+(merged.assigned_coordinator||'nobody')+'.'; }
     } else if(wantOwner&&wantOwner.split(/\s+/)[0].toLowerCase()!==prevOwner.split(/\s+/)[0].toLowerCase()){
       if(!ccIsOwner(a.email)){ alert('Only Samantha or Zachary can change who owns a lead. Everything else on the form was saved.'); }
@@ -18165,6 +18256,44 @@ async function inqToggle(k, btn){
   const sv=document.getElementById('inqSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next website form.':'Off.');
   inqSetFill();
 }
+/* Causes and cover reasons (audit step 3, Samantha 2026-10-18). Owners only. */
+function ocSetFill(){
+  const now=document.getElementById('ocSetNow'), b=document.getElementById('ocToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).overdue_causes_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Only misses marked "mine" count, and covering asks why.':'<b style="color:#B7791F;">Off.</b> Every miss counts as before, and covering asks nothing.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function ocToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).overdue_causes_live===true);
+  const ok=await ccConfirm(on?'Turn on causes and cover reasons?\n\n· each overdue follow-up gets a cause; only "mine" counts toward a review\n· the owner marks it in My month and has a day before it counts\n· once it is part of a review, only Zachary or you change it\n· covering a teammate\'s inquiry, call or relationship call asks why\n\nNothing is sent to anyone.'
+    :'Turn it off? Every miss counts again, and covering asks nothing.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.overdue_causes_live=on; if(on&&!m.overdue_causes_live_since) m.overdue_causes_live_since=new Date().toISOString(); return ['causes and cover reasons '+(on?'ON':'OFF')]; }, 'causes and cover reasons');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ocSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  ocSetFill();
+}
+/* Time off and coverage never count (audit step 2, Samantha 2026-10-18). Owners only. */
+function fcSetFill(){
+  const now=document.getElementById('fcSetNow'), b=document.getElementById('fcToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).fair_counts_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Time off and covering never count against anyone.':'<b style="color:#B7791F;">Off.</b> Time off is not looked at: an absent owner is still texted and counted, as before.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function fcToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).fair_counts_live===true);
+  const ok=await ccConfirm(on?'Turn on "time off and coverage never count"?\n\n· someone out on the Team page is not texted at 5 minutes; the person on duty is, as cover\n· they are never counted late or as a missed inquiry while out\n· what goes overdue while they are out never counts toward a review\n· a teammate covering a lead is never counted for the time before it reached them\n\nNothing is sent to any family.'
+    :'Turn it off? Time off goes back to not being looked at.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.fair_counts_live=on; if(on&&!m.fair_counts_live_since) m.fair_counts_live_since=new Date().toISOString(); return ['time off and coverage never count '+(on?'ON':'OFF')]; }, 'time off and coverage');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('fcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  fcSetFill();
+}
 /* Team numbers and reviews settings (Stage 5, policy 2026-10-18). Owners only. The reviews live on the server (cc-team). */
 function tnSetFill(){
   const now=document.getElementById('tnSetNow'); if(!now) return;
@@ -18176,6 +18305,7 @@ function tnSetFill(){
   ['tnSaveBtn','tnToggleBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=owner?'':'none'; });
   const tb=document.getElementById('tnToggleBtn'); if(tb) tb.textContent=on?'Turn off team numbers and reviews':'Turn on team numbers and reviews';
   try{ cctBtnSync(); }catch(e){}
+  try{ bmSetFill(); }catch(e){}
 }
 async function tnSave(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -18197,6 +18327,24 @@ async function tnToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   tnSetFill();
+}
+/* Balanced measures (audit step 7): relationship calls on time, concern follow-ups on time, help given and received, and
+   the median time to a first call, beside the Team numbers. Shown, never scored. Owners only. */
+function bmSetFill(){
+  const now=document.getElementById('bmSetNow'), b=document.getElementById('bmToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).balanced_measures_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off.</b> ')+'Relationship calls made on time, concern follow-ups done on time, help given to and received from a teammate, and the median time to a new lead\'s first call, beside the numbers above. Shown, never scored.'+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Hide them':'Show them'; b.style.display=owner?'':'none'; }
+}
+async function bmToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).balanced_measures_live===true);
+  if(!(await ccConfirm(on?'Show the balanced measures in Team and My month?\n\nEach Care Coordinator sees their own; you and Zachary see everyone. They start a conversation and never count toward a review.':'Hide the balanced measures?'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.balanced_measures_live=on; if(on) m.balanced_measures_live_since=new Date().toISOString(); return ['balanced measures '+(on?'ON':'OFF')]; }, 'balanced measures');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  bmSetFill();
 }
 /* Bonus program settings (Stage 4, policy 2026-10-18). Owners only. The records live on the server (cc-bonus). */
 const BP_DEFAULT={ start:'2026-11-01', amount:100, min_hours:20, decider:'samantha@mo-care.com' };
@@ -18240,6 +18388,25 @@ async function bpToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('bpSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   bpSetFill();
+}
+/* Concerns, follow-ups and the welcome call (audit step 4, Samantha 2026-10-18). Owners only. */
+function rdSetFill(){
+  const now=document.getElementById('rdSetNow'), b=document.getElementById('rdToggleBtn'); if(!now) return;
+  const on=relDetailsOn(), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Conversations can carry a concern and a follow-up, and the welcome call is logged before its step closes.':'<b style="color:#B7791F;">Off.</b> Relationship calls log as before, and the welcome call step closes with Done.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function rdToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!relDetailsOn();
+  const ok=await ccConfirm(on?'Turn on concerns, follow-ups and the logged welcome call?\n\n· a conversation can record a concern (sent to Client Care as an issue) and a follow-up someone owns by a date\n· the welcome call step opens the call log; voicemails and no answers are kept as attempts, and only a real conversation closes it\n\nNothing is sent to any family.'
+    :'Turn it off? Relationship calls go back to the simple log, and the welcome call step closes with Done.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.relcall_details_live=on; if(on&&!m.relcall_details_live_since) m.relcall_details_live_since=new Date().toISOString(); return ['relationship call details '+(on?'ON':'OFF')]; }, 'relationship call details');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('rdSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  rdSetFill();
 }
 /* Relationship calls settings (Stage 3, policy 2026-10-18). Owners only. */
 function rcOn(){ return typeof RelationshipRules!=='undefined'&&RelationshipRules.on(DATA.ops_settings||{}); }
@@ -18322,13 +18489,57 @@ async function ltToggle(btn){
   const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   ltSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* Returning clients apart (audit step 6): on, a returning client goes to their old Care Coordinator WITHOUT using a turn,
+   and Team shows returning clients on their own line. Off: as before (it uses that person's turn). Owners only. */
+function raSetFill(){
+  const now=document.getElementById('raSetNow'), b=document.getElementById('raToggleBtn'); if(!now) return;
+  const on=LeadRules.returningApartOn(DATA.ops_settings||{}), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">Apart.</b> A returning client goes to their old Care Coordinator and does not use a turn; the next new lead goes to whoever was next anyway.'
+    :'<b style="color:#B7791F;">Uses a turn.</b> A returning client goes to their old Care Coordinator and counts as that person’s turn (as today).')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Count returning clients as a turn again':'Keep returning clients apart'; b.style.display=owner?'':'none'; }
+}
+async function raToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!LeadRules.returningApartOn(DATA.ops_settings||{});
+  if(!(await ccConfirm(on?'Keep returning clients apart?\n\nFrom now on a returning client still goes to their old Care Coordinator, but it does not use their turn. Team shows returning clients on their own line, so it stays visible if one person ends up with more families. Returning clients already given keep counting as they did.'
+    :'Count returning clients as a turn again? From now on a returning client uses their old Care Coordinator’s turn, as before.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.returning_apart_live=on; if(on) m.returning_apart_live_since=new Date().toISOString(); return ['returning clients '+(on?'apart':'use a turn')]; }, 'returning clients');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  raSetFill();
+}
+/* The database guards who owns a lead (audit step 8): on, the database itself refuses an owner change by anyone but
+   Samantha or Zachary while lead turns are on, and a change to a lead's first owner by anyone. Owners only. */
+function ogSetFill(){
+  const now=document.getElementById('ogSetNow'), b=document.getElementById('ogToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).owner_guard_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> The database itself refuses an owner change unless you or Zachary make it (while lead turns are on), and never lets a lead\'s first owner change.'
+    :'<b style="color:#B7791F;">Off.</b> Only the Hub screens stop an owner change.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the database guard':'Turn on the database guard'; b.style.display=owner?'':'none'; }
+}
+async function ogToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).owner_guard_live===true);
+  if(!(await ccConfirm(on?'Turn on the database guard?\n\nFrom now on the database refuses an owner change by anyone but you or Zachary while lead turns are on, and refuses any change to a lead\'s first owner (who a bonus goes to). A refused save tells the person why and puts the lead back.':'Turn off the database guard? Only the Hub screens will stop an owner change.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.owner_guard_live=on; if(on) m.owner_guard_live_since=new Date().toISOString(); return ['database owner guard '+(on?'ON':'OFF')]; }, 'database owner guard');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  ogSetFill();
+}
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ ltSetFill(); }catch(e){}
+  try{ ogSetFill(); }catch(e){}
+  try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
+  try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
+  try{ fcSetFill(); }catch(e){}
+  try{ ocSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}
   { const r=LeadRules.rungSettings(DATA.ops_settings||{}), b=document.getElementById('lrBackup'), m=document.getElementById('lrManager'); if(b) b.value=r.backup_min; if(m) m.value=r.manager_min; }
@@ -18843,6 +19054,8 @@ async function cgdOpenProfile(axid, tab){
     +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">Level '+lvl+'</span>':'')
     +(function(){ const t=c.hire_date?Math.floor((Date.now()-new Date(String(c.hire_date).slice(0,10)+'T12:00:00').getTime())/864e5):null;
         return (t!=null&&t>=0&&t<60)?'<span class="tag-chip" style="background:var(--honey-chip,#F7E7CD);color:var(--honey-ink,#8A4E0C);">New hire, day '+t+'</span>':''; })()
+    /* celebrate.js (2026-10-18, fun step 2): orientation done = the cap stamp; it pops in once per person in the first two weeks */
+    +(window.CEL?CEL.orientedChip(Object.assign({ axiscare_id:String(c.id) }, ov||{}, g||{})):'')
     +'<span class="field-note">AxisCare ID '+esc(String(c.id))+'</span>'
     +'<span id="cgdAppLink"></span>'
     +'<span style="flex:1;"></span>'
@@ -18917,6 +19130,8 @@ async function cgdOpenProfile(axid, tab){
       '<div id="cgdThread" style="max-width:720px;"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
     +'</div>'
     +'<div id="cgdSec-history" style="display:none;">'+card('History','<div id="cgdHist"></div>')+'</div>';
+  /* seasons.js (2026-10-18, fun step 4): the week of their work anniversary, a banner under their name (owner switch) */
+  try{ const bn=window.SEA?SEA.profileBanner(c):''; const hd=bn&&full.querySelector('.pp-avatar'); if(hd) hd.parentElement.insertAdjacentHTML('afterend', bn); }catch(e){}
   cgdRenderSkills(c,g);
   try{ if(window.CGP2) CGP2.mount(document.getElementById('cgdCgp'), { mode:'employee', axiscare_id:String(c.id),
     legacy_candidate_id:(g&&g.candidate_id!=null)?String(g.candidate_id):'', first:c.first||'', last:c.last||'',
@@ -19454,7 +19669,8 @@ function cgdPerformanceHtml(c,nm){
     /* HR steps 1 and 3 (2026-10-18): formal records are for Samantha and Zach only; nobody else sees the card at all. */
     +(ccCan('approve_discipline') ? card('Formal records <span class="field-note" style="font-weight:400;">(Samantha and Zach only)</span>',
       (wus.length ? wus.slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||''))).map(a=>{
-          const st={draft:'draft',pending_approval:'waiting for approval',approved:'approved, not issued yet',issued:'issued'}[a.status]||String(a.status||'');
+          const st=({draft:'draft',pending_approval:'waiting for approval',approved:'approved, waiting for a signature',issued:'issued'}[a.status]||String(a.status||''))
+            +(a.ack?' · '+({signed:'signed by '+(a.ack.signed_name||'them'),refused:'refused to sign, witnessed',did_not_sign:'did not sign'}[a.ack.status]||a.ack.status):'');
           const when=String(a.issued_at||a.approved_at||a.created_at||'').slice(0,10);
           const pw=(typeof WriteupRules!=='undefined'&&WriteupRules.protectedWords)?WriteupRules.protectedWords(a):[];
           return '<div style="padding:6px 0;border-top:1px solid var(--border);font-size:13px;"><b>'+esc(a.level||'Write-up')+'</b> · '+esc(st)+(when?' · '+esc(when):'')
@@ -23059,6 +23275,7 @@ async function apLoad(btn){
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     try{ await prnLoad(true); }catch(_){ /* before PRN2's tables exist: nothing to show */ }
     apFillPositions(); apRenderFilter(); apRender();
+    try{ if(window.FUN) FUN.garden(); }catch(e){}   /* more-fun.js (2026-10-18): hiring as a garden */
     if(window.ApText) ApText.load();   /* 574: the 'texted 2h ago' chips */
     apInvLoad();
     /* If somebody's page is open, it is looking at a row we just replaced. */
@@ -24546,6 +24763,8 @@ function ppGoBack(from){
 }
 window.ppGoBack = ppGoBack;
 function ppStagesHtml(now, ended){
+  /* progress-paths.js (2026-10-18, fun step 3): the same four stages as a road with a little car */
+  if(window.PATHS) return PATHS.road(now, ended);
   if(ended) return '<div class="pp-stages"><span class="pp-stg pp-end">' + escapeHtmlComms(ended) + '</span></div>';
   return '<div class="pp-stages" aria-label="Where they are">' + PP_STAGES.map((s, i) =>
     '<span class="pp-stg' + (i < now ? ' pp-done' : i === now ? ' pp-now' : '') + '">' + s + '</span>').join('') + '</div>';
@@ -24692,6 +24911,8 @@ function apRenderProfile(){
     + '</div>';
 
   /* ---- the tabs ---- */
+  /* progress-paths.js (2026-10-18, her "please do 3"): an offered person's three mileposts tick from the hiring records */
+  try{ if(window.PATHS && !ended && apStageNow(r, b) === 2) PATHS.roadFill(r.id, document.getElementById('apProfLeft')); }catch(e){}
   const told = apToldHtml(r), flags = apFlagsHtml(r);
 
   /* Overview: anything that needs a look first, then the facts at a glance */
@@ -28778,6 +28999,8 @@ async function opsTakeIt(id){
   /* Lead turns (Stage 1, policy 2026-10-18): on an inquiry card, taking it is helping. You make the first contact; the
      lead and its card stay the owner's ("helping never changes ownership"). Off: as before, it becomes yours. */
   if(was&&leadTurnsOn()&&it.kind==='new_lead'&&String(it.id||'').indexOf('ops_lead_')===0){
+    const why=await coverReasonAsk(String(wasName).split(' ')[0]); if(why===null) return;
+    if(why) it.covering=Object.assign({}, it.covering||{}, { for:was, by:me, at, reason:why });
     it.help_from=me; it.helping_since=at; it.help_asked_at=it.help_asked_at||at;
     it.also_for=[...new Set([...(Array.isArray(it.also_for)?it.also_for:[]), me])];
     if(it.escalation && !it.escalation.cleared_at){ it.escalation.cleared_at=at; it.escalation.cleared_why='a teammate is helping'; }
@@ -28785,7 +29008,7 @@ async function opsTakeIt(id){
     opEvent('item_helped',{item:it, summary:(a.name||me)+' is helping '+wasName+' with '+(it.about||it.title||'an inquiry')});
     await persist('ops_items',it);
     const l=(DATA.leads||[]).find(x=>x&&String(x.id)===String(it.source_id));
-    if(l){ LeadRules.noteHelper(l, a.name||me, { what:'first contact', by:me, at }); await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} }
+    if(l){ LeadRules.noteHelper(l, a.name||me, { what:'first contact', by:me, at }); if(why&&Array.isArray(l.helpers)&&l.helpers.length) l.helpers[l.helpers.length-1].why=why; await persist('leads', l); try{ if(typeof renderLeadsStarts==='function') renderLeadsStarts(); }catch(e){} }
     ccToast('✓ You’re helping '+String(wasName).split(' ')[0]+'. '+(l?LeadRules.ownerIntro(l):'It stays '+String(wasName).split(' ')[0]+'’s.'));
     myWorkRefresh(); return;
   }
@@ -28853,27 +29076,85 @@ async function covOutcome(itemId, how){
 }
 /* Relationship calls (Stage 3): log the call from the card. Talked = done (the next call comes later); voicemail or no
    answer = recorded, the card stays. Who made it is recorded; a teammate helping never changes whose family it is. */
-function relCallLog(itemId, btn){
-  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
-  const O=RelationshipRules.OUTCOMES, esc=escapeHtmlComms;
-  const el=ccPopOpen(btn||document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">'+esc(it.title||'Relationship call')+'</div>'
+/* Audit step 4 (Samantha 2026-10-18, ops_settings.relcall_details_live): a real conversation can carry a concern (filed to
+   Client Care as an issue, like any other concern) and a follow-up someone owns by a date (a card for them). */
+function relDetailsOn(){ return (DATA.ops_settings||{}).relcall_details_live===true; }
+function relLogPopup(title, btn, onGo){
+  const O=RelationshipRules.OUTCOMES, esc=escapeHtmlComms, det=relDetailsOn();
+  const ppl=(typeof OPS_PEOPLE!=='undefined'&&OPS_PEOPLE||[]).filter(p=>p&&p.primary_email);
+  const me=String((ccActor()||{}).email||'').toLowerCase();
+  const inp='width:100%;margin-top:6px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
+  const el=ccPopOpen(btn||document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">'+esc(title||'Relationship call')+'</div>'
     +Object.keys(O).map(k=>'<label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:13.5px;"><input type="radio" name="relO" value="'+k+'" style="width:auto;margin:0;"'+(k==='talked'?' checked':'')+'> '+esc(O[k])+'</label>').join('')
-    +'<input id="relNote" placeholder="What did they say? (short note)" style="width:100%;margin-top:8px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
-    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="relGo" style="padding:7px 14px;font-size:13px;">Log it</button><button class="ghost" id="relNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:320 });
+    +'<input id="relNote" placeholder="What did they say? (short note)" style="'+inp+'margin-top:8px;">'
+    +(det?'<div id="relMore"><div class="field-note" style="margin-top:8px;"><b>Any concern?</b> It goes to Client Care as an issue.</div><textarea id="relConcern" rows="2" placeholder="Leave empty if none" style="'+inp+'"></textarea>'
+      +'<div class="field-note" style="margin-top:8px;"><b>Follow-up needed?</b> Someone owns it by a date.</div><input id="relFuWhat" placeholder="What needs doing (leave empty if nothing)" style="'+inp+'">'
+      +'<div style="display:flex;gap:6px;"><select id="relFuOwner" style="'+inp+'flex:1;">'+ppl.map(p=>'<option value="'+esc(String(p.primary_email).toLowerCase())+'"'+(String(p.primary_email).toLowerCase()===me?' selected':'')+'>'+esc(p.full_name||p.primary_email)+'</option>').join('')+'</select>'
+      +'<input id="relFuDue" type="date" min="'+today()+'" style="'+inp+'width:150px;"></div></div>':'')
+    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="relGo" style="padding:7px 14px;font-size:13px;">Log it</button><button class="ghost" id="relNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:340 });
+  const more=el.querySelector('#relMore');
+  el.querySelectorAll('input[name=relO]').forEach(r=>r.onchange=()=>{ if(more) more.style.display=(el.querySelector('input[name=relO]:checked')||{}).value==='talked'?'':'none'; });
   el.querySelector('#relNo').onclick=ccPopClose;
   el.querySelector('#relGo').onclick=async ()=>{
     const outcome=(el.querySelector('input[name=relO]:checked')||{}).value, note=(el.querySelector('#relNote').value||'').trim();
     if(outcome==='talked'&&!note){ alert('Add a short note: what did they say?'); return; }
-    ccPopClose(); await relCallSave(itemId, outcome, note);
+    const v=id=>String((el.querySelector('#'+id)||{}).value||'').trim();
+    const concern=det&&outcome==='talked'?v('relConcern'):'';
+    const fw=det&&outcome==='talked'?v('relFuWhat'):'', fo=v('relFuOwner'), fd=v('relFuDue');
+    if(fw&&(!fo||!fd)){ alert('A follow-up needs who owns it and by when.'); return; }
+    if(fw&&fd<today()){ alert('The follow-up date can\'t be in the past.'); return; }
+    ccPopClose(); await onGo({ outcome, note, concern, followup:fw?{ what:fw, owner:fo, due:fd }:null });
   };
 }
-async function relCallSave(itemId, outcome, note){
+/* after a logged conversation: the concern goes to Client Care (issues-run intake, the same door as any concern) and the
+   follow-up becomes a card for its owner. Never silent: a failure says so and keeps the concern on the call record. */
+async function relDetailsAfter(l, e){
+  if(!e) return;
+  const a=ccActor()||{}, who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.client_first_name,l.client_last_name].filter(Boolean).join(' ').trim()||[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a client';
+  if(e.concern){
+    let r=null; try{ r=await CCIssue.call('intake=1', { category:'needs_triage', summary:'From the '+e.title.toLowerCase()+': '+e.concern, client_name:who, urgency:'',
+      reported_by_name:[l.first_name,l.last_name].filter(Boolean).join(' ').trim(), reported_by_role:'family', source:'relationship_call', source_ref:String(l.id), taken_by:a.email||'', confirm_new:true }); }catch(err){ r={ error:String(err&&err.message||err) }; }
+    if(r&&!r.error){ e.issue_id=r.issue_id||r.id||''; ccToast('✓ The concern is with Client Care'+(r.owner?' ('+(opsOwnerName(r.owner)||r.owner)+')':'')+'.'); }
+    else { e.concern_error=String((r&&r.error)||'not sent'); alert('The call is logged, but the concern could not be sent to Client Care ('+e.concern_error+'). It is kept on the call. Please report it from Client Care too.'); }
+  }
+  if(e.followup){
+    const it={ id:'ops_relfu_'+l.id+'_'+Date.now(), kind:'relationship_followup', source_id:String(l.id), domain:'client_care', status:'open', opened_by:a.email||'',
+      title:'Follow up: '+who+' (from the '+e.title.toLowerCase()+')', about:who, detail:e.followup.what, next_action:e.followup.what,
+      owner:e.followup.owner, due:LeadRules.chicagoInstant(e.followup.due,'17:00'), urgency:'normal', created_at:new Date().toISOString(), last_activity_at:new Date().toISOString() };
+    it.owner_name=it.owner?opsOwnerName(it.owner):''; DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it); await persist('ops_items', it); e.followup.card=it.id;
+  }
+  await persist('leads', l);
+}
+function relCallLog(itemId, btn){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  relLogPopup(it.title, btn, d=>relCallSave(itemId, d.outcome, d.note, d));
+}
+/* the welcome call (the journey step fw.family), logged the same way: attempts are kept, and only a conversation closes the
+   step (onTalked completes it). Used by client-journey.js while step 4 is on. */
+function relWelcomeLog(leadId, btn, onTalked){
+  const l=(DATA.leads||[]).find(x=>String(x.id)===String(leadId)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
+  const who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.client_first_name,l.client_last_name].filter(Boolean).join(' ').trim()||'the family';
+  relLogPopup('Welcome call: '+who, btn, async d=>{
+    const a=ccActor()||{}, now=new Date().toISOString();
+    const e=RelationshipRules.record(l, 'welcome', { outcome:d.outcome, note:d.note, concern:d.concern, followup:d.followup, by:a.email||'', by_name:a.name||'', owner:l.assigned_coordinator||'', at:now });
+    if(!e){ alert('That could not be logged.'); return; }
+    await persist('leads', l); await relDetailsAfter(l, e);
+    if(d.outcome==='talked'){ if(typeof onTalked==='function') await onTalked(e); }
+    else ccToast('✓ Logged ('+RelationshipRules.OUTCOMES[d.outcome].toLowerCase()+'). The welcome call stays open until you talk with them.');
+  });
+}
+async function relCallSave(itemId, outcome, note, extra){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
   const a=ccActor()||{}, now=new Date().toISOString();
-  const e=RelationshipRules.record(l, it.call_key, { outcome, note, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
+  const covering=!!it.owner&&String(it.owner).toLowerCase()!==String(a.email||'').toLowerCase();
+  const why=covering?await coverReasonAsk(String(it.owner_name||opsOwnerName(it.owner)||'').split(' ')[0]):'';
+  if(why===null) return;
+  const e=RelationshipRules.record(l, it.call_key, { outcome, note, concern:extra&&extra.concern, followup:extra&&extra.followup, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
   if(!e){ alert('That could not be logged.'); return; }
+  if(why){ e.cover_reason=why; it.covering=Object.assign({}, it.covering||{}, { for:it.owner, by:a.email||'', at:now, reason:why }); }
   await persist('leads', l);
+  await relDetailsAfter(l, e);
   const words=RelationshipRules.OUTCOMES[outcome];
   if(outcome==='talked'){ it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=words+(note?': '+note:''); }
   else { it.last_activity_at=now; }
@@ -28882,6 +29163,17 @@ async function relCallSave(itemId, outcome, note){
   await persist('ops_items', it);
   ccToast(outcome==='talked'?'✓ Logged. '+it.title.split(':')[0]+' is done.':'✓ Logged. The card stays until you talk with them.');
   myWorkRefresh();
+}
+async function relFollowupDone(itemId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const what=await ccPrompt('What did you do? (kept with the family)', ''); if(what===null) return;
+  if(!String(what).trim()){ alert('Say what you did.'); return; }
+  const a=ccActor()||{}, now=new Date().toISOString();
+  it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=String(what).trim();
+  opsLog(it, (a.name||'Someone')+': '+it.close_note);
+  const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id));
+  if(l){ l.comm_log=Array.isArray(l.comm_log)?l.comm_log:[]; l.comm_log.push({ kind:'relationship_call', at:now, by:a.email||'', body:'✓ Follow-up done: '+it.close_note }); await persist('leads', l); }
+  await persist('ops_items', it); ccToast('✓ Done'); myWorkRefresh();
 }
 async function famCallDone(itemId, how){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
@@ -29174,7 +29466,7 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
-    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call') && it.status==='open'){
+    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
       if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
@@ -29184,6 +29476,9 @@ function obligationOpenAction(it){
       if(it.kind==='family_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("famCallDone('"+id+"','called')",'I called the family',true)+b("famCallDone('"+id+"','knew')",'They already knew')
         +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
+      if(it.kind==='relationship_followup') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+        +b("relFollowupDone('"+id+"')",'Done',true)+b("openLeadProfile('"+esc(String(it.source_id||''))+"')",'Open the family')
+        +'<span class="field-note">Promised on a relationship call. Say what you did when you mark it done.</span></div>';
       if(it.kind==='relationship_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("relCallLog('"+id+"', this)",'Log the call',true)+b("openLeadProfile('"+esc(String(it.source_id||''))+"')",'Open the family')
         +'<span class="field-note">A relationship call, not a supervisory visit. The Hub never calls or texts the family.</span></div>';
@@ -29715,6 +30010,11 @@ function renderMyWork(){
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
   if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  /* the drawing kit (2026-10-18, her "build step 1"): caught up with nothing to help with shows the porch at sunset */
+  if(window.HS && !h && !act.length && !lateL.length && !due.length && !pinned.length && !myWorkTeamHtml(b))
+    h+=HS.empty({ scene:'porch', say:'All caught up.', sub:'Every family has what they need today. Anything new will land here on its own.',
+      links:[].concat((typeof dkAllowed==='function'&&dkAllowed())?[['Open My Desk',"switchTab('mydesk')"]]:[],
+        later.length?[['Show what is later','MYWORK_LATER_OPEN=true;renderMyWork()']]:[]) });
   /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
   const team=myWorkTeamHtml(b);
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
@@ -33531,6 +33831,8 @@ const OPS_KINDS = {
   discipline:     { label:'Approval',      hours:24 },
   /* HR step 5 (2026-10-18): a coaching talk (or kind words to pass on) assigned on HR > Coaching; the database writes this card */
   coaching:       { label:'Coaching',      hours:120 },
+  /* HR step 8 (2026-10-18): a signed or refused notice's PDF to upload to AxisCare (its system takes no files); hr-ack writes this card */
+  hr_file:        { label:'HR filing',     hours:72 },
   request:        { label:'Request',       hours:72 },
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
@@ -36205,6 +36507,7 @@ function opsClose(id, anchorId){
   if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
+  if(it.kind==='hr_file'){ location.hash='hr/formal'; return; }
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
@@ -39081,12 +39384,18 @@ function lsPaint(){
   if(lbl) lbl.textContent=d.date?(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})):'';
   if(d.error){ box.innerHTML=top+'<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
   if(!(d.rows||[]).length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
+  /* the drawing kit (2026-10-18): "Only open shifts" with none open is the road with every house lit */
+  const lcF=(typeof LC==='object'&&LC)||{};
+  if(!rowsF.length&&lcF.open&&!String(lcF.q||'').trim()&&window.HS){ box.innerHTML=top+HS.empty({ scene:'road', say:'Every visit has a caregiver.',
+    sub:'Every house on the road is lit on '+(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))+'. Open shifts would show here first, in red.',
+    links:[['Show all '+d.rows.length+' visits','lcOnlyOpen(false)']] }); return; }
   if(!rowsF.length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">None of the '+d.rows.length+' visits on '+esc(d.date)+' match.</div>'; return; }
   const t12=s=>{ const m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; const h=Number(m[1])%12||12; return h+(m[2]==='00'?'':':'+m[2])+(Number(m[1])>=12?'p':'a'); };
   const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
   const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
   const unF=rowsF.filter(v=>!v.caregiver).length;
-  box.innerHTML=top+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
+  const allLit=(!unF&&!lcF.open&&!String(lcF.q||'').trim()&&window.HS)?HS.banner({ scene:'road', say:'Every visit has a caregiver.', sub:isToday?'Every house on the road is lit today.':'Every house on the road is lit for this day.' }):'';
+  box.innerHTML=top+allLit+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
     +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
     +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
     +rowsF.map(v=>{

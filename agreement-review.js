@@ -4,6 +4,7 @@
    and to the Hub Family Circle, with running-late and caregiver-change texts exactly as ticked. Then a checklist of what
    AxisCare's API cannot set (family sign-in, email choices), done by hand and ticked off here.
    The office may fix typos in names, phones, emails and addresses; the family's signed choices are never edited here.
+   2026-10-18b: "Can book in the app" Yes / No is shown too; approving sets whether they may book in the Booking App.
    Nothing is sent to the family. Opened by agreement-card.js (CAR.open). Server: client-agreement contacts* actions. */
 (function () {
   'use strict';
@@ -28,7 +29,7 @@
   function choices(c) {
     const list = (o, names) => Object.keys(names).filter(k => o[k]).map(k => names[k]).join(', ') || 'none';
     return `<div class="field-note" style="margin-top:6px;line-height:1.6">Signed choices (from the agreement, not changed here):
-      Health information (HIPAA): <b>${yn(c.hipaa)}</b> · Medical decisions: <b>${yn(c.medical)}</b> · POA: <b>${esc(c.poa.length ? c.poa.join(', ') : 'not marked')}</b><br>
+      Health information (HIPAA): <b>${yn(c.hipaa)}</b> · Medical decisions: <b>${yn(c.medical)}</b> · POA: <b>${esc(c.poa.length ? c.poa.join(', ') : 'not marked')}</b> · Can book in the app: <b>${c.book == null ? 'not asked on this wording' : yn(c.book)}</b><br>
       Texts: <b>${esc(list(c.texts, { late: 'running late', change: 'caregiver change' }))}</b> · AxisCare access: <b>${esc(list(c.axis, { care_notes: 'care notes', invoices: 'invoices' }))}</b>
       · Emails: <b>${esc(list(c.emails, { weekly_calendar: 'weekly calendar', care_plans: 'care plans', office_messages: 'office messages', invoices: 'invoices' }))}</b></div>`;
   }

@@ -140,6 +140,8 @@
       try{ if(typeof dkShiftApply === 'function') await dkShiftApply(el); }catch(e){ console.error('end of shift: my desk step', e); }
       ccPopClose();
       ccToast(out.to.length ? '✓ Handoff posted to ' + out.to.map(first).join(' and ') + '. Nobody was texted.' : '✓ Your shift is wrapped up. Nobody else is on duty, so nothing was handed off.');
+      /* celebrate.js (2026-10-18, fun step 2): the sunset with what you got done today, in words, only for you */
+      if(window.CEL) CEL.shiftEnd({ handed: out.handed, names: out.to.map(first) });
       if(typeof myWorkRefresh === 'function') myWorkRefresh();
     };
   }

@@ -58,6 +58,23 @@ async()=>{
   ok('asked · it used Angiel’s turn, so Krystal is next up', $('lead_turn_how').options[0].textContent==='Next up: Krystal', $('lead_turn_how').options[0].textContent);
   closeModal('leadModalBackdrop');
 
+  /* ── audit step 6: returning clients apart ── */
+  DATA.ops_settings.returning_apart_live=true;
+  openLeadModal(); await sleep(60);
+  set('lead_turn_how','returning'); leadTurnFormUI();
+  ok('step 6 · returning, apart on: the form says it does not use a turn', /does not use a turn/.test(($('lead_turn_note')||{}).textContent||''), ($('lead_turn_note')||{}).textContent);
+  set('lead_turn_who','Angiel'); set('lead_first_name','Rae'); set('lead_last_name','Back'); payPrivate();
+  await saveLead(); await sleep(120);
+  const rb=lastLead(); DATA.leads.find(x=>x.id===rb.id)||DATA.leads.push(rb);
+  ok('step 6 · Rae (returning) is Angiel’s, stamped apart, and the toast says not a turn', rb.assigned_coordinator==='Angiel'&&rb.owner_turn.how==='returning'&&rb.owner_turn.apart===true&&L.toasts.some(t=>/returning client, not a turn/.test(t)), { t:rb.owner_turn, toasts:L.toasts.slice(-2) });
+  openLeadModal(); await sleep(60);
+  ok('step 6 · Krystal is still next up (Rae did not use Angiel’s turn)', $('lead_turn_how').options[0].textContent==='Next up: Krystal', $('lead_turn_how').options[0].textContent);
+  closeModal('leadModalBackdrop');
+  lhSetFill();
+  ok('step 6 · settings: Apart, and Krystal (not an owner) sees no button', /Apart\./.test($('raSetNow').textContent)&&$('raToggleBtn').style.display==='none', $('raSetNow').textContent);
+  DATA.ops_settings.returning_apart_live=false; lhSetFill();
+  ok('step 6 · settings off: uses a turn (as today)', /Uses a turn\./.test($('raSetNow').textContent));
+
   /* ── an existing lead: only an owner can change who owns it ── */
   openLeadModal(d.id); await sleep(60);
   ok('existing · the owner box shows, read-only for Krystal (not an owner)', shown($('lead_assigned_coordinator'))&&$('lead_assigned_coordinator').readOnly===true&&/Only Samantha or Zachary/.test($('lead_owner_note').textContent));

@@ -336,9 +336,12 @@
       + '<div class="n9-top"><h3>' + (j.status === 'active' ? 'Start of Care complete' : 'Start of Care · step ' + (nextI + 1) + ' of 9' + (v.next ? ': ' + esc(v.next.def.title) : '')) + n9Agreement() + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '') + '</h3>'
       + '<span class="field-note">' + esc(payer) + ' · <button class="linklike" onclick="cjAssignCc(this)">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is the Care Coordinator</span></div>'
       + n9Dates()
-      + '<div class="n9-rail" role="tablist" aria-label="Start of Care steps">' + v.rows.map((x, i) => {
+      /* progress-paths.js (2026-10-18, fun step 3): the same nine buttons, drawn as stepping stones to the family's house */
+      + (window.PATHS ? PATHS.stones(v.rows.map((x, i) => ({ k:x.key, n:i + 1, title:x.def.title, label:N9_SHORT[x.key] || x.def.title,
+          cls:(x.status === 'not_needed' ? 'x' : R.DONE.indexOf(x.status) > -1 ? 'd' : (v.next && x.key === v.next.key) ? 'n' : '') + (r && x.key === r.key ? ' s' : '') })), j.status === 'active')
+      : '<div class="n9-rail" role="tablist" aria-label="Start of Care steps">' + v.rows.map((x, i) => {
           const c = x.status === 'not_needed' ? 'x' : R.DONE.indexOf(x.status) > -1 ? 'd' : (v.next && x.key === v.next.key) ? 'n' : '';
-          return '<button type="button" role="tab" class="' + c + (r && x.key === r.key ? ' s' : '') + '" data-n9a="pick" data-k="' + esc(x.key) + '" aria-label="Step ' + (i + 1) + ': ' + esc(x.def.title) + '"><i></i><small>' + (i + 1) + ' ' + esc(N9_SHORT[x.key] || x.def.title) + '</small></button>'; }).join('') + '</div>';
+          return '<button type="button" role="tab" class="' + c + (r && x.key === r.key ? ' s' : '') + '" data-n9a="pick" data-k="' + esc(x.key) + '" aria-label="Step ' + (i + 1) + ': ' + esc(x.def.title) + '"><i></i><small>' + (i + 1) + ' ' + esc(N9_SHORT[x.key] || x.def.title) + '</small></button>'; }).join('') + '</div>');
     if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
     if(v.stop) h += '<div class="cj-flash cj-flash-stop">' + esc(v.stop.why) + '</div>';
     if(j.status === 'active' && !sel) h += '<div class="n9-cov ok">' + esc(cpName()) + ' is a current client. Normal check-ins take over from here. Every step stays below as the record.</div>';
@@ -362,7 +365,12 @@
     head.innerHTML = '';
     const box = start || head; box.innerHTML = h;
     wireForm(box); n9Wire(box);
+    /* celebrate.js (2026-10-18, fun step 2): a first visit AxisCare reported gets the Care began stamp; its Care Coordinator sees the key turn once */
+    try{ const fv = ((d.steps || []).find(x => x.step_key === 'soc.first') || {}).evidence; if(window.CEL && fv && fv.actual_first_visit) CEL.firstVisit(box, j, fv.actual_first_visit, cpName()); }catch(e){}
     try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
+    /* progress-paths.js (fun step 3): the first two weeks as a sun for each day, above the sentence that already says it */
+    try{ const ax = ((d.steps || []).find(x => x.step_key === 'soc.axis') || {}).evidence, f = ax && ax.auto && ax.auto.first_assigned && ax.auto.first_assigned.facts;
+      if(window.PATHS && f && f.total) PATHS.suns(box, j, f); }catch(e){}
   }
   window.cjNinePreview = function(b){ return ninePreview(b); };
   window.cjToggleHist = function(){ CJ.hist = !CJ.hist; render(); };
@@ -532,7 +540,7 @@
     const basics = def.verify === 'lead_basics' ? basicsOf() : null, missing = basics && basics.some(x => !x[1]);
     if(r.st.state === 'blocked' || r.st.state === 'waiting') h += '<button class="primary" data-act="unblock">' + (r.st.state === 'waiting' ? 'It\'s back now' : 'Unblock') + '</button>';
     else if(def.proof === 'verified'){ const sa = stepAction(r); if(sa) h += sa; if(!missing) h += '<button class="' + (sa ? 'secondary' : 'primary') + '" data-act="check">Check now</button>'; }
-    else h += (stepAction(r) ? stepAction(r).replace('class="primary"', 'class="secondary"') : '') + '<button class="primary" data-act="complete">' + (fields.length ? 'Save and finish this step' : 'Done') + '</button>';
+    else h += (stepAction(r) ? stepAction(r).replace('class="primary"', 'class="secondary"') : '') + '<button class="primary" data-act="complete">' + (welcomeLogged(r) ? 'Log the welcome call' : fields.length ? 'Save and finish this step' : 'Done') + '</button>';
     if(owner() && (r.stop || r.status === 'blocked')) h += '<button class="cj-violet-btn" data-act="exc-open">Owner exception…</button>';
     /* everything else waits behind one quiet button */
     h += '<button class="secondary cj-cant" onclick="cjMore()" aria-expanded="' + (CJ.more ? 'true' : 'false') + '">Can\'t do this yet ' + (CJ.more ? '▴' : '▾') + '</button>';
@@ -632,6 +640,8 @@
   async function openFile(path){
     try{ const d = await call({ action:'file_url', journey_id:CJ.data.journey.journey_id, path }); window.open(d.url, '_blank', 'noopener'); }catch(e){ ccToast('Couldn\'t open the file: ' + e.message); }
   }
+  /* audit step 4 (ops_settings.relcall_details_live): the welcome call (fw.family) closes only after a logged conversation */
+  function welcomeLogged(r){ return !!r && r.key === 'fw.family' && (typeof DATA !== 'undefined' && (DATA.ops_settings || {}).relcall_details_live === true) && typeof relWelcomeLog === 'function'; }
   async function act(key, a, card, btn){
     const errBox = card.querySelector('[data-err]'), say = t => { if(errBox) errBox.textContent = t; else ccToast(t); };
     const m = k => { const el = card.querySelector('[data-m="' + k + '"]'); return el ? el.value.trim() : ''; };
@@ -641,6 +651,11 @@
     let body = null;
     if(a === 'check'){ body = { action:'refresh', journey_id:j.journey_id }; }
     else if(a === 'complete' || a === 'manual'){
+      if(a === 'complete' && welcomeLogged(r) && !CJ.welcomeOk){
+        if(!j.lead_id){ say('This journey has no inquiry record to log the call on.'); return; }
+        relWelcomeLog(j.lead_id, btn, async (e) => { CJ.form[key] = Object.assign({}, CJ.form[key] || {}, { welcome_call:{ at:e.at, by:e.by, note:e.note } }); CJ.welcomeOk = true; try{ await act(key, 'complete', card, null); } finally { CJ.welcomeOk = false; } });
+        return;
+      }
       const files = (CJ.files[key] || []).filter(f => f.path).map(f => f.path);
       if((CJ.files[key] || []).some(f => !f.path)){ say('Wait for the proof to finish uploading.'); return; }
       const input = { answer:CJ.form[key] || {}, files, manual_reason:a === 'manual' ? m('manual_reason') : '' };
