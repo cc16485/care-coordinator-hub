@@ -153,6 +153,14 @@
       const tg = [].concat(to || []).filter(Boolean);
       const line = 'Note' + (tg.length ? ' for ' + tg.map(e => String(nameOf(e)).split(' ')[0]).join(', ') : '') + ': ' + text;
       if(typeof opsLog === 'function') opsLog(it, line); else { it.history = (it.history || []).concat([{ at:iso(), by:me().name, text:line }]); }
+      /* TAGS REACH MY WORK (2026-10-18, the Today page map, her yes): a person tagged on a card has it in their My Work
+         too (also_for, which My Work counts as theirs), until the card closes. talk_also_for remembers who a tag added.
+         A sensitive card still shows only to the people opsCanSee allows. Desk flags have no card and stay on the desk. */
+      const owner = lc(it.owner), add = tg.map(lc).filter(e => e && e !== owner);
+      if(add.length){
+        it.also_for = [...new Set((Array.isArray(it.also_for) ? it.also_for : []).map(lc).concat(add))];
+        it.talk_also_for = [...new Set((Array.isArray(it.talk_also_for) ? it.talk_also_for : []).map(lc).concat(add))];
+      }
       await persist('ops_items', it);
     }catch(e){}
   }

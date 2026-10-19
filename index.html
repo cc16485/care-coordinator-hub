@@ -7523,7 +7523,7 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
-<script src="standup-board.js?v=13"></script>
+<script src="standup-board.js?v=14"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=8"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
@@ -29978,6 +29978,7 @@ function renderMyWork(){
   try{ if(typeof cctBtnSync==='function') cctBtnSync(); }catch(e){}   /* Stage 5: the My month / Team button */
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
+  try{ opsReconcileInbox(); }catch(e){ console.warn('[inbox cards]', e); }   /* Today gap cards (2026-10-18): messages and meeting requests */
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
@@ -33894,6 +33895,7 @@ const OPS_KINDS = {
   /* HR step 8 (2026-10-18): a signed or refused notice's PDF to upload to AxisCare (its system takes no files); hr-ack writes this card */
   hr_file:        { label:'HR filing',     hours:72 },
   request:        { label:'Request',       hours:72 },
+  open_shift:     { label:'Open shift',    hours:12 },   /* 2026-10-18: an AxisCare visit with no caregiver and no coverage case (coverage-watch) */
   client_issue:   { label:'Client issue',  hours:24 },
   staffing_issue: { label:'Staffing',      hours:24 },
   capture:        { label:'Captured',      hours:8  },
@@ -36465,6 +36467,78 @@ function opsReconcileDiscipline(){
   touched.forEach(i=>persist('ops_items', i));
 }
 
+/* TODAY GAP CARDS (2026-10-18, Samantha: yes to the Today page map, https://claude.ai/artifact/E2F6WwU5Qa5LMsqtYBuPPK).
+   Two kinds of work only ever showed on the Dashboard, so nobody had them on their list:
+   · a message sent to the Staffing Coordinator or to the Owners (staffing_tasks). Since the old Staffing page retired
+     (2026-10-04) a message to Staffing had no screen at all where it could be marked done.
+   · a one-to-one meeting request (meetings, status requested). A request "with the Staffing Coordinator" reached nobody.
+   Each becomes one card in My Work. A message's card goes to whoever holds the Staffing seat (or the owners, marked
+   sensitive so only they and the sender see it); closing the card marks the message done, and a message marked done
+   anywhere (the Owners Hub too) closes its card. A meeting request's card goes to the person it asks for (Samantha,
+   the Staffing seat, or the Client Care owner) and closes when it is accepted, declined or done; the meeting itself
+   stays on Team Meetings. Messages to "coordinators" are no longer written by anything, so they are left alone. */
+function opsReconcileInbox(){
+  DATA.ops_items = DATA.ops_items || [];
+  const byId = new Map(DATA.ops_items.filter(i=>i&&i.id).map(i=>[i.id,i]));
+  const touched = new Map(), tasks = new Map();
+  const now = new Date().toISOString();
+  const seat = ()=>{ try{ const r=routeSeatNow('staffing'); return (r&&r.person)||ccNoticeTo('scheduling_coverage'); }catch(e){ return ccNoticeTo('scheduling_coverage'); } };
+  const owners = ()=>{ const o=(typeof ccOwnerEmails==='function'?ccOwnerEmails():[]).slice().sort((x,y)=>(y==='samantha@mo-care.com')-(x==='samantha@mo-care.com')); return o.length?o:['samantha@mo-care.com']; };
+  const first = n=>String(n||'Someone').split(/[\s@]/)[0];
+  const URG = { 'Today':'today', 'This week':'normal', 'When you can':'normal' };
+  const closedByPerson = it=>it && ['done','closed','resolved','dismissed'].includes(String(it.status)) && it.closed_by && !['system','automation'].includes(String(it.closed_by));
+
+  (DATA.staffing_tasks||[]).forEach(t=>{
+    if(!t || !t.id || !['to_staffing','to_owners'].includes(t.direction)) return;
+    const id='ops_stask_'+t.id, it=byId.get(id), forOwners=t.direction==='to_owners';
+    if(t.status==='open' && !it){
+      const at=t.created_at||now, urg=URG[t.urgency]||'normal';
+      const os=owners(), owner=forOwners?os[0]:seat();
+      const card={ id, kind:'request', source:'staffing_task', source_id:t.id, status:'open', urgency:urg,
+        domain:forOwners?'program_administration':'scheduling_coverage', sensitive:forOwners||undefined,
+        title:(forOwners?'Message for the Owners':'Message for Staffing')+' from '+first(t.from_name||t.from_email)+(t.about?': '+t.about:''),
+        detail:String(t.message||'').slice(0,600)+(t.caregiver?' (caregiver: '+t.caregiver+')':''),
+        next_action:'Do what it asks, then close this card. Closing it marks the message done for '+first(t.from_name||t.from_email)+'.',
+        about:t.about||'', lead_id:t.lead_id||null, owner, owner_name:opsOwnerName(owner)||owner,
+        also_for:forOwners?os.slice(1):undefined, created_at:at, last_activity_at:at, due:opsDueFor('request',urg,at),
+        created_by:t.from_email||t.from_name||'', created_by_email:t.from_email||'', opened_by:'system',
+        history:[{ at:now, by:'Hub', text:'Sent to '+(forOwners?'the Owners':'the Staffing Coordinator')+' by '+(t.from_name||t.from_email||'someone')+'. It only showed on the Dashboard before, so it is a card now.' }] };
+      DATA.ops_items.push(card); byId.set(id,card); touched.set(id,card);
+    } else if(it && it.status==='open' && t.status!=='open'){
+      it.status='done'; it.closed_at=now; it.closed_by='system'; it.auto_closed_reason='Marked done'+(t.done_by?' by '+t.done_by:''); touched.set(id,it);
+    } else if(closedByPerson(it) && t.status==='open'){
+      t.status='done'; t.done_at=it.closed_at||now; t.done_by=opsOwnerName(it.closed_by)||it.closed_by; tasks.set(t.id,t);
+    }
+  });
+
+  (DATA.meetings||[]).forEach(m=>{
+    if(!m || !m.id) return;
+    const id='ops_mtg_'+m.id, it=byId.get(id);
+    if(m.status==='requested' && !it){
+      const at=m.created_at||now, os=owners();
+      const owner = m.with==='samantha' ? 'samantha@mo-care.com' : m.with==='staffing' ? seat() : m.with==='care' ? ccNoticeTo('client_care') : os[0];
+      if(String(owner).toLowerCase()===String(m.requested_by_email||'').toLowerCase()) return;   // nobody asks themselves
+      const card={ id, kind:'request', source:'meeting', source_id:m.id, status:'open', urgency:'normal', domain:'program_administration',
+        title:first(m.requested_by_name||m.requested_by_email)+' asked for a meeting: '+String(m.topic||'').slice(0,120),
+        detail:(m.when_pref?'When they would like: '+m.when_pref+'. ':'')+'It stays on Team Meetings, where you accept it or suggest another time.',
+        next_action:'Open Team Meetings, then Accept (with a time) or suggest another time. This card closes by itself when you do.',
+        link:'#teammeetings', owner, owner_name:opsOwnerName(owner)||owner, also_for:m.with==='team'?os.slice(1):undefined,
+        created_at:at, last_activity_at:at, due:opsDueFor('request','normal',at),
+        created_by:m.requested_by_email||'', created_by_email:m.requested_by_email||'', opened_by:'system',
+        history:[{ at:now, by:'Hub', text:'Meeting request from '+(m.requested_by_name||m.requested_by_email||'someone')+'. It only showed on the Dashboard before, so it is a card now.' }] };
+      DATA.ops_items.push(card); byId.set(id,card); touched.set(id,card);
+    } else if(it && it.status==='open' && m.status!=='requested'){
+      it.status='done'; it.closed_at=now; it.closed_by='system';
+      it.auto_closed_reason = m.status==='accepted' ? 'Accepted'+(m.scheduled_for?' for '+m.scheduled_for:'') : m.status==='declined' ? 'Another time suggested' : 'Done';
+      touched.set(id,it);
+    }
+  });
+
+  touched.forEach(i=>persist('ops_items', i));
+  tasks.forEach(t=>persist('staffing_tasks', t));
+  return touched.size + tasks.size;
+}
+
 function opsOpen(kind){
   return (DATA.ops_items||[])
     .filter(i=>i.status==='open' && (!kind || i.kind===kind) && opsCanSee(i))
@@ -36871,6 +36945,7 @@ async function renderOps(btn){
     opsReconcileCalls();
     opsReconcileLeads();
     opsReconcileDiscipline();
+    opsReconcileInbox();
   }catch(e){ /* still show whatever is already saved */ }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
   opsRenderStatus();
