@@ -41,6 +41,7 @@
   </header>
   <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your offer…</p></div>
 </div>
+<script src="applicant-road.js?v=1"></script><!-- 2026-10-18: the road to your first shift (a picture only; reads and sends nothing) -->
 <script>
 const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
@@ -105,6 +106,8 @@ function render(){
   const offerDone = !!s.offer_signed_at, pdDone = !!s.pd_signed_at;
   let h = PREVIEW ? '<div style="background:#EEF4FB;border:1.5px solid #9CC0E6;border-radius:12px;padding:10px 12px;font-size:14px;margin:0 0 12px"><b>Preview with made-up answers.</b> Nothing is saved, signed or sent. The pay rate and classification are examples; a real letter shows the ones on the offer.</div>' : '';
   h += '<h1>' + (offerDone && pdDone ? 'Thank you, ' + esc(FIRST) + '.' : 'Your offer, ' + esc(FIRST) + '.') + '</h1>';
+  /* 2026-10-18: the road to your first shift (Offer is stop 2; once both are signed, Paperwork is next) */
+  if (window.ARoad) h += ARoad.html(offerDone && pdDone ? 3 : 2);
   h += '<div class="steps"><span class="' + (offerDone ? 'done' : 'on') + '">1 · Offer letter' + (offerDone ? ' ✓' : '') + '</span><span class="' + (pdDone ? 'done' : offerDone ? 'on' : '') + '">2 · Position description' + (pdDone ? ' ✓' : '') + '</span></div>';
   if (offerDone && pdDone) {
     h += '<div class="okmsg"><b>Both documents are signed.</b> ' + (LIVE ? 'Your Step 1 paperwork is on its way by text and email, sent automatically now that your signed offer is saved.' : 'The office will be in touch about your Step 1 paperwork.') + ' Your signed copies are below; each link works for ten minutes and you can reopen this page for new ones while your link is valid.</div>';

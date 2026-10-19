@@ -58,6 +58,7 @@
   <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your Step 1…</p></div>
 </div>
 <div class="saving" id="saving">Saving…</div>
+<script src="applicant-road.js?v=1"></script><!-- 2026-10-18: the road to your first shift (a picture only; reads and sends nothing) -->
 <script>
 const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
@@ -251,7 +252,7 @@ function screenHtml(s){
   if (REVIEW && (s === '1' || s === '9')) return h + reviewSummary(s);
   if (s === '1') {
     const w = V.who;
-    h += '<h1>Welcome, ' + esc(w.first) + '!</h1><p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
+    h += '<h1>Welcome, ' + esc(w.first) + '!</h1>' + (window.ARoad ? ARoad.html(3) : '') + '<p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
     h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals || (!ANS[f.when.id] && V.forms.find((x) => x.when && x.when.id === f.when.id) === f)).map((f) => '<li style="margin:0 0 6px">' + esc(f.when && !ANS[f.when.id] ? 'Driver or Non-Driver Agreement (you choose on the driving screen)' : f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
     if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
     else h += '<button class="go" onclick="go(\'' + (nextScreen() || '2') + '\')">' + (V.completed_at ? 'See your signed copies' : 'Continue where I left off') + '</button>';
@@ -259,7 +260,7 @@ function screenHtml(s){
     return h;
   }
   if (s === '9') {
-    h += '<h1>All done, ' + esc(V.who.first) + '.</h1><p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
+    h += '<h1>All done, ' + esc(V.who.first) + '.</h1>' + (window.ARoad ? ARoad.html(4) : '') + '<p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
     if (HPROOF) h += proofBox();
     h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
     setTimeout(loadCopies, 50);

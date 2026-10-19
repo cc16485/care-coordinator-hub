@@ -23,6 +23,7 @@
 <body>
 <div class="wrap">
   <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="aroad"></div>
   <div id="main">
     <h1>Finished your Step 2 in Viventium?</h1>
     <div class="card">
@@ -32,7 +33,11 @@
     </div>
   </div>
 </div>
+<script src="applicant-road.js?v=1"></script><!-- 2026-10-18: the road to your first shift (a picture only; reads and sends nothing) -->
 <script>
+/* 2026-10-18: the road to your first shift; Step 2 is Payroll setup (stop 5) */
+const ROAD = at => { try{ if(window.ARoad) document.getElementById('aroad').innerHTML = ARoad.html(at); }catch(e){} };
+ROAD(5);
 const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
 const q = new URLSearchParams(location.search); const LINK = { c: q.get('c') || '', e: q.get('e') || '', t: q.get('t') || '' };
@@ -50,6 +55,7 @@ async function done(){
   } catch(e){ j = { error: 'We could not reach the office system. Please try again in a minute, or call or text (417) 234-8494.' }; }
   const m = document.getElementById('main');
   if(j && j.ok){
+    if(j.state === 'done' || j.state === 'verified') ROAD(6);
     const first = j.first ? ', ' + esc(j.first) : '';
     if(j.state === 'verified') m.innerHTML = '<h1>Already verified</h1><div class="ok">Thank you' + first + '. The office has already verified your Step 2. Watch for the Orientation Video Call booking link.</div>';
     else if(j.state === 'noted') m.innerHTML = '<h1>Thank you</h1><div class="ok">We have noted it' + first + '. The office will follow up with you.</div>';

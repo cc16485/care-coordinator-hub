@@ -9,8 +9,8 @@
    3. FUN.fridayWins: Friday noon (Chicago) to Sunday, the team's week in words, with names: new families whose AxisCare
       start date is this week, caregivers whose orientation finished, fully covered days, kind words, the week's hours.
       A line with nothing behind it is left out.
-   4. FUN.garden: on the Applicants page, the last 30 days of applicants as a garden (seeds Applied, sprouts Interview,
-      buds Offered, blooms Working), counted with the page's own stage rule. A bed opens the matching list.
+   4. FUN.garden: on the Applicants page, the last 30 days of applicants as a garden in six beds (Applied, Interview,
+      Offered, Checks & references, Orientation, Working). A bed opens the matching list.
    5. FUN.clientAnniv: behind ops_settings.client_anniversaries_live, active clients reaching a whole year with us this
       week, from the AxisCare start date the client list carries (client-census-report start_date; Desktop step). */
 (function(){
@@ -166,41 +166,75 @@
       + '<div><b class="h">This week at Caring Companions</b><ul>' + lines.map(l => '<li>' + esc(l) + '</li>').join('') + '</ul></div>';
   }
 
-  /* ── 4. hiring as a garden ── */
-  function garden(){
-    const list = document.getElementById('apList'); if(!list || typeof AP_ROWS === 'undefined' || typeof apStageNow !== 'function') return;
-    const since = new Date(Date.now() - 30 * 864e5).toISOString();
-    const n = [0, 0, 0, 0];
+  /* ── 4. hiring as a garden: six beds (2026-10-18, her "put in more steps, like Background Checks & References,
+     Orientation, and then Working") ──
+     Applied, Interview and Offered come from the page's own rule (apStageNow). For people at Offered, the server's
+     onboarding step (hire-profile {stages}, the same one Team Builder shows) splits them: Step 1 not signed stays
+     Offered; Step 1 signed = Checks & references; orientation booked or done = Orientation; approved = Working. Until
+     that answer arrives (or if it can't be read) they stay in Offered: never a guess. */
+  const GSTAGE = {};   /* applicant id -> { at, key } */
+  const ONB_BED = { step1_not_done:2, step1_done:3, orientation_set:4, needs_dementia:4, ready:4, approved:5 };
+  async function gardenStages(ids){
+    const want = ids.filter(id => !(GSTAGE[id] && Date.now() - GSTAGE[id].at < 5 * 60000));
+    for(let i = 0; i < want.length; i += 60){
+      try{
+        const r = await sb.functions.invoke('hire-profile', { body:{ action:'stages', applicant_ids:want.slice(i, i + 60) } });
+        const st = (r && r.data && r.data.stages) || {};
+        want.slice(i, i + 60).forEach(id => { const x = st[id]; GSTAGE[id] = { at:Date.now(), key:x && !x.error ? ((x.approved_at && 'approved') || (x.tb && x.tb.key) || null) : null }; });
+      }catch(e){ return false; }
+    }
+    return true;
+  }
+  function gardenCounts(){
+    const since = new Date(Date.now() - 30 * 864e5).toISOString(), n = [0, 0, 0, 0, 0, 0], offered = [];
     (AP_ROWS || []).forEach(r => {
       if(!r || String(r.created_at || '') < since) return;
       if(['declined', 'pool', 'left'].includes(r.status)) return;
-      const s = apStageNow(r, (typeof AP_BOOK !== 'undefined' && AP_BOOK[r.id]) || null); if(s >= 0 && s <= 3) n[s]++;
+      const s = apStageNow(r, (typeof AP_BOOK !== 'undefined' && AP_BOOK[r.id]) || null);
+      if(s === 3){ n[5]++; return; }
+      if(s === 2){ offered.push(r.id); const g = GSTAGE[r.id]; const bed = g && g.key != null && ONB_BED[g.key] != null ? ONB_BED[g.key] : 2; n[bed]++; return; }
+      if(s >= 0 && s <= 1) n[s]++;
     });
+    return { n, offered };
+  }
+  function garden(){
+    const list = document.getElementById('apList'); if(!list || typeof AP_ROWS === 'undefined' || typeof apStageNow !== 'function') return;
+    const { n, offered } = gardenCounts();
+    drawGarden(list, n);
+    if(offered.length && offered.some(id => !(GSTAGE[id] && Date.now() - GSTAGE[id].at < 5 * 60000)))
+      gardenStages(offered).then(okd => { if(okd) drawGarden(document.getElementById('apList'), gardenCounts().n); });
+  }
+  function drawGarden(list, n){
+    if(!list) return;
     css();
     let el = document.getElementById('funGarden');
     if(!el){ el = document.createElement('div'); el.id = 'funGarden'; el.className = 'fun-garden'; list.insertAdjacentElement('beforebegin', el); }
-    const X = [70, 210, 350, 490], bedW = 120;
-    const plant = (i, k) => {   /* up to 5 plants per bed; more is shown as the number */
-      const x = X[i] - 40 + k * 20, top = [0, 22, 38, 52][i];
+    const W = 720, X = [60, 180, 300, 420, 540, 660], bedW = 110;
+    const plant = (i, k) => {   /* up to 5 plants per bed; the number below says how many */
+      const x = X[i] - 36 + k * 18, lift = (k % 2) * 4, top = [0, 22, 34, 44, 52, 60][i], y = 122 - top - lift;
       if(i === 0) return '<ellipse cx="' + x + '" cy="' + (121 + (k % 2) * 3) + '" rx="5" ry="3.5" fill="#7A4A1F"/>';
-      let g = '<line x1="' + x + '" y1="122" x2="' + x + '" y2="' + (122 - top - (k % 2) * 4) + '" stroke="' + T + '" stroke-width="3"/>';
-      const y = 122 - top - (k % 2) * 4;
+      let g = '<line x1="' + x + '" y1="122" x2="' + x + '" y2="' + y + '" stroke="' + T + '" stroke-width="3"/>';
       if(i === 1) g += '<path d="M' + x + ' ' + (y + 6) + ' q ' + (k % 2 ? 12 : -12) + ' -2 ' + (k % 2 ? 14 : -14) + ' -12 q ' + (k % 2 ? -11 : 11) + ' 1 ' + (k % 2 ? -14 : 14) + ' 12 Z" fill="' + M + '" stroke="' + N + '" stroke-width="1.3"/>';
       if(i === 2) g += '<ellipse cx="' + x + '" cy="' + (y - 4) + '" rx="5" ry="7" fill="#F6C7D4" stroke="' + N + '" stroke-width="1.4"/>';
-      if(i === 3) g += '<circle cx="' + x + '" cy="' + (y - 4) + '" r="9" fill="' + H + '" stroke="' + N + '" stroke-width="1.4"/><circle cx="' + x + '" cy="' + (y - 4) + '" r="3" fill="' + N + '"/>';
+      if(i === 3) g += '<path d="M' + (x - 9) + ' ' + (y + 8) + ' q 4 -6 9 -2 M' + (x + 9) + ' ' + (y + 8) + ' q -4 -6 -9 -2" fill="none" stroke="' + T + '" stroke-width="2"/><ellipse cx="' + x + '" cy="' + (y - 5) + '" rx="6.5" ry="8" fill="#F6C7D4" stroke="' + N + '" stroke-width="1.4"/><path d="M' + x + ' ' + (y - 13) + ' v6" stroke="#E79AB0" stroke-width="2"/>';
+      if(i === 4){ for(let a = 0; a < 5; a++) g += '<ellipse cx="' + x + '" cy="' + (y - 11) + '" rx="3.6" ry="6.5" fill="#fff" stroke="' + N + '" stroke-width="1.1" transform="rotate(' + (a * 72) + ' ' + x + ' ' + (y - 5) + ')"/>'; g += '<circle cx="' + x + '" cy="' + (y - 5) + '" r="3.4" fill="' + H + '" stroke="' + N + '" stroke-width="1"/>'; }
+      if(i === 5) g += '<path d="M' + x + ' ' + (y + 14) + ' q -10 -2 -12 -10 q 9 1 12 10 Z" fill="' + M + '" stroke="' + N + '" stroke-width="1.1"/><circle cx="' + x + '" cy="' + (y - 4) + '" r="10" fill="' + H + '" stroke="' + N + '" stroke-width="1.4"/><circle cx="' + x + '" cy="' + (y - 4) + '" r="3.5" fill="' + N + '"/>';
       return g;
     };
-    const LBL = ['Applied', 'Interview', 'Offered', 'Working'], GO = ['new', 'booked', 'starting', null];
-    let h = '<svg viewBox="0 0 560 170" role="img" aria-label="Applicants in the last 30 days: ' + LBL.map((l, i) => l + ' ' + n[i]).join(', ') + '"><rect width="560" height="170" rx="12" fill="' + P + '"/><circle cx="530" cy="30" r="14" fill="' + H + '" opacity=".7"/>'
-      + '<rect x="0" y="122" width="560" height="48" fill="' + L + '"/><path d="M0 122 Q 280 114 560 122" fill="none" stroke="' + N + '" stroke-width="2"/>';
-    for(let i = 0; i < 4; i++){
+    const LBL = ['Applied', 'Interview', 'Offered', 'Checks & references', 'Orientation', 'Working'], GO = ['new', 'booked', 'starting', 'starting', 'starting', null];
+    let h = '<svg viewBox="0 0 ' + W + ' 176" role="img" aria-label="Applicants in the last 30 days: ' + LBL.map((l, i) => l + ' ' + n[i]).join(', ') + '"><rect width="' + W + '" height="176" rx="12" fill="' + P + '"/><circle cx="' + (W - 30) + '" cy="28" r="14" fill="' + H + '" opacity=".7"/>'
+      + '<rect x="0" y="122" width="' + W + '" height="54" fill="' + L + '"/><path d="M0 122 Q ' + (W / 2) + ' 114 ' + W + ' 122" fill="none" stroke="' + N + '" stroke-width="2"/>';
+    for(let i = 0; i < 6; i++){
       const shown = Math.min(5, n[i]);
-      h += '<g class="fun-bed"' + (GO[i] ? ' onclick="apSetFilter(\'' + GO[i] + '\')"' : '') + '><title>' + esc(LBL[i] + ': ' + n[i] + (GO[i] ? '. Click to see them.' : '')) + '</title><rect x="' + (X[i] - bedW / 2) + '" y="20" width="' + bedW + '" height="150" fill="transparent"/>';
+      h += '<g class="fun-bed" data-bed="' + i + '"' + (GO[i] ? ' onclick="apSetFilter(\'' + GO[i] + '\')"' : '') + '><title>' + esc(LBL[i] + ': ' + n[i] + (GO[i] ? '. Click to see them.' : '')) + '</title><rect x="' + (X[i] - bedW / 2) + '" y="16" width="' + bedW + '" height="160" fill="transparent"/>';
       for(let k = 0; k < shown; k++) h += plant(i, k);
       if(!n[i]) h += '<text x="' + X[i] + '" y="112" text-anchor="middle" font-size="11" fill="#8a978f">empty</text>';
-      h += '<text x="' + X[i] + '" y="152" text-anchor="middle" font-size="12.5" font-weight="700" fill="#55677a">' + LBL[i] + ' · ' + n[i] + '</text></g>';
+      const two = LBL[i] === 'Checks & references';
+      h += '<text x="' + X[i] + '" y="' + (two ? 146 : 152) + '" text-anchor="middle" font-size="12" font-weight="700" fill="#55677a">' + (two ? 'Checks &amp;' : esc(LBL[i])) + '</text>'
+        + (two ? '<text x="' + X[i] + '" y="160" text-anchor="middle" font-size="12" font-weight="700" fill="#55677a">references</text>' : '')
+        + '<text x="' + X[i] + '" y="' + (two ? 173 : 168) + '" text-anchor="middle" font-size="12" font-weight="800" fill="' + N + '">' + n[i] + '</text></g>';
     }
-    el.innerHTML = h + '</svg><div class="field-note" style="margin-top:4px;">The last 30 days. Seeds have applied, sprouts have an interview, buds have an offer, blooms are working. Click a bed to see those people.</div>';
+    el.innerHTML = '<div class="pth-wrap" style="overflow-x:auto;"><div style="min-width:560px;">' + h + '</svg></div></div><div class="field-note" style="margin-top:4px;">The last 30 days. Seeds have applied, sprouts have an interview, buds have an offer, opening buds are in checks and references, white flowers are in orientation, sunflowers are working. Click a bed to see those people.</div>';
   }
 
   /* ── 5. client anniversaries ── */
@@ -223,5 +257,5 @@
 
   function onDashboard(){ [dashMini, sunshine, fridayWins, clientAnniv].forEach(f => { try{ Promise.resolve(f()).catch(e => console.warn('fun', e)); }catch(e){ console.warn('fun', e); } }); }
   window.FUN = { onDashboard, dashMini, sunshine, fridayWins, winsLines, winsWindow, garden, clientAnniv, bestRun,
-    _reset(){ CEN = { at:0, d:null }; RUN = { at:0, d:null }; } };
+    _reset(){ CEN = { at:0, d:null }; RUN = { at:0, d:null }; Object.keys(GSTAGE).forEach(k => delete GSTAGE[k]); } };
 })();

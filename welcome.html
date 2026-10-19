@@ -57,6 +57,7 @@
     <img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions">
   </header>
 
+  <div id="aroad" class="hide"></div>
   <div id="loadView"><p class="lede" style="margin-top:30px;">Loading…</p></div>
 
   <!-- A message with nothing to do: invalid link, done, closed. -->
@@ -97,6 +98,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="applicant-road.js?v=1"></script><!-- 2026-10-18: the road to your first shift (a picture only; reads and sends nothing) -->
 <script>
 const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
 const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
@@ -122,6 +124,8 @@ let MINE = null;          // what welcome_mine returned
 let HAVE_BOOKING = false; // moving a time vs booking a first one
 
 function show(view){
+  /* 2026-10-18: the road to your first shift, at Orientation (stop 6), with the booking views */
+  try{ const rd = document.getElementById('aroad'); if(rd){ if((view === 'bookedView' || view === 'pickView') && window.ARoad){ rd.innerHTML = ARoad.html(6); rd.classList.remove('hide'); } else rd.classList.add('hide'); } }catch(e){}
   ['loadView','msgView','bookedView','pickView'].forEach(v => g(v).classList.toggle('hide', v !== view));
   window.scrollTo(0, 0);
 }
