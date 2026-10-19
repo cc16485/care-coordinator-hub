@@ -74,8 +74,8 @@
   /* Out = the Team page's "Out until" date: out from now through that day (it has no start date). */
   function outOn(staff, email, ymd){
     const e = lc(email), s = (Array.isArray(staff) ? staff : []).find(x => x && lc(x.email || x.primary_email) === e);
-    const until = s ? String(s.out_until || '').slice(0, 10) : '';
-    return until && ymd <= until ? { until, why:'out until ' + until } : null;
+    const until = s ? String(s.out_until || '').slice(0, 10) : '', from = s ? String(s.out_from || '').slice(0, 10) : '';
+    return until && ymd <= until && !(from && ymd < from) ? { until, why:'out until ' + until } : null;   /* planned time off (2026-10-18): not out before out_from */
   }
   /* The coordinators working at a moment, first-up first. First up: the earliest shift end that is more than 30 minutes
      away (so after 1:30 Angiel is first while Krystal finishes); when everyone ends within 30 minutes, the latest end. */
