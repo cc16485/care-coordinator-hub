@@ -62,11 +62,16 @@
   }
 
   /* ── 2. the road: now = 0 Applied, 1 Interview, 2 Offered, 3 Working ── */
-  function road(now, ended){
+  /* posts (optional, while Offered): [references & checks, start paperwork, orientation], each true (done), false (not yet)
+     or null (not known). Without them the mileposts stay plain signposts. */
+  function road(now, ended, posts){
     css();
     const SIGN = ['Applied', 'Interview', 'Offered', 'Working'], POST = ['References & checks', 'Start paperwork', 'Orientation'];
     const X = [60, 200, 340, 820], PX = [460, 580, 700];
-    const fill = ended ? 0 : X[now];
+    const known = !ended && now === 2 && Array.isArray(posts);
+    let lastDone = -1; if(known) for(let i = 0; i < 3; i++){ if(posts[i] === true) lastDone = i; else break; }
+    const nextUp = known ? posts.findIndex(p => p !== true) : -1;
+    const fill = ended ? 0 : known && lastDone >= 0 ? PX[lastDone] : X[now];
     let h = '<rect width="900" height="150" rx="12" fill="' + P + '"/>' + (now === 3 && !ended ? '<circle cx="860" cy="30" r="15" fill="' + H + '" opacity=".7"/>' : '')
       + '<path d="M0 150 L0 100 Q 450 82 900 100 L900 150 Z" fill="' + L + '"/>'
       + '<rect x="0" y="104" width="900" height="24" fill="#fff" stroke="' + N + '" stroke-width="1.6"/>'
@@ -79,16 +84,17 @@
         + '<text x="' + x + '" y="51" text-anchor="middle" font-size="13" font-weight="800" fill="' + (done ? '#fff' : N) + '">' + s + '</text>';
     });
     POST.forEach((s, i) => {
-      const x = PX[i], past = !ended && now === 3;
-      h += '<line x1="' + x + '" y1="104" x2="' + x + '" y2="82" stroke="' + N + '" stroke-width="2"/><circle cx="' + x + '" cy="78" r="7" fill="' + (past ? T : '#fff') + '" stroke="' + N + '" stroke-width="1.8"/>'
-        + '<text x="' + x + '" y="145" text-anchor="middle" font-size="11" font-weight="700" fill="#55677a">' + esc(s) + '</text>';
+      const x = PX[i], done = (!ended && now === 3) || (known && posts[i] === true), up = known && i === nextUp;
+      h += '<line x1="' + x + '" y1="104" x2="' + x + '" y2="82" stroke="' + N + '" stroke-width="2"/><circle cx="' + x + '" cy="78" r="' + (up ? 8 : 7) + '" fill="' + (done ? T : up ? H : '#fff') + '" stroke="' + N + '" stroke-width="1.8"' + (known ? ' data-post="' + i + '" data-state="' + (posts[i] === true ? 'done' : posts[i] === false ? 'todo' : 'unknown') + '"' : '') + '/>'
+        + (done ? '<path d="M' + (x - 3.5) + ' 78 l2.5 2.5 4.5-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>' : '')
+        + '<text x="' + x + '" y="145" text-anchor="middle" font-size="11" font-weight="' + (up ? 800 : 700) + '" fill="' + (done ? T : up ? N : '#55677a') + '">' + esc(s) + '</text>';
     });
     if(!ended){
-      const cx = X[now] - 30;
+      const cx = (known && lastDone >= 0 ? PX[lastDone] : X[now]) - 30;
       h += '<g transform="translate(' + cx + ' 92)"><rect x="0" y="6" width="44" height="15" rx="5" fill="' + T + '" stroke="' + N + '" stroke-width="2"/><path d="M8 6 L14 -1 H32 L38 6" fill="#fff" stroke="' + N + '" stroke-width="2"/><circle cx="11" cy="22" r="5" fill="' + N + '"/><circle cx="34" cy="22" r="5" fill="' + N + '"/></g>';
       if(now === 3) h += '<g transform="translate(856 54)"><path d="M0 18 L18 4 L36 18" fill="' + T + '" stroke="' + N + '" stroke-width="2"/><rect x="5" y="17" width="26" height="20" fill="#fff" stroke="' + N + '" stroke-width="2"/><rect x="9" y="21" width="7" height="7" fill="' + H + '"/></g>';
     }
-    return '<div class="pth-wrap" style="margin-top:8px;"><div class="pth-road pp-stages" aria-label="Where they are: ' + (ended ? esc(ended) : SIGN[now]) + '">'
+    return '<div class="pth-wrap" style="margin-top:8px;"><div class="pth-road pp-stages" aria-label="Where they are: ' + (ended ? esc(ended) : SIGN[now] + (known && lastDone >= 0 ? ', ' + POST[lastDone] + ' done' : '')) + '">'
       + '<svg viewBox="0 0 900 150" role="img" aria-hidden="true">' + h + '</svg>'
       + (ended ? '<div class="field-note" style="margin-top:4px;"><span class="pp-stg pp-end">' + esc(ended) + '</span></div>' : '') + '</div></div>';
   }
@@ -144,5 +150,39 @@
     }catch(e){ console.warn('paths: suns', e); }
   }
 
-  window.PATHS = { stones, road, suns, sunsHtml, _cache:SUNS };
+  /* ── the road's mileposts from the hiring records (2026-10-18, her "please do 3") ──
+     hire-profile {stages} gives Step 1 (signed of total) and the readiness card's id; caregiver-journey {get} gives the
+     readiness rail. References & checks = the rail's screening and approval rows; Start paperwork = Step 1 signed (and
+     Step 2, when the rail has it); Orientation = the rail's orientation row. Anything not read stays null (a plain
+     signpost), never a guess. Read only. */
+  const ROAD = {};   /* applicant id -> { at, posts } */
+  async function roadPosts(id){
+    const c = ROAD[id]; if(c && Date.now() - c.at < 5 * 60000) return c.posts;
+    let st = null, rail = null;
+    try{ const r = await sb.functions.invoke('hire-profile', { body:{ action:'stages', applicant_ids:[String(id)] } }); st = r && r.data && r.data.stages && r.data.stages[String(id)]; }catch(e){}
+    if(!st || st.error) return null;
+    if(st.journey_id){ try{ const r = await sb.functions.invoke('caregiver-journey', { body:{ action:'get', journey_id:st.journey_id } }); rail = r && r.data && r.data.view && r.data.view.rail; }catch(e){} }
+    const railDone = keys => { if(!Array.isArray(rail)) return null; const rows = rail.filter(x => keys.includes(x.key)); return rows.length ? rows.every(x => x.state === 'done') : null; };
+    /* the server's own stage names, in order (applicant-status.ts STAGES): before the readiness card exists, a stage
+       earlier than a milepost means that milepost is not done yet */
+    const STG = ['Application', 'Prescreening', 'Interview booking', 'Interview', 'Offer', 'Offer signature', 'Step 1', 'Background & References', 'Step 2 in Viventium', 'Orientation', 'Training', 'Approved to Work'];
+    const idx = STG.indexOf(String(st.stage || '')), before = n => idx >= 0 && idx < n ? false : null;
+    if(st.approved_at){ ROAD[id] = { at:Date.now(), posts:[true, true, true] }; return ROAD[id].posts; }
+    const s1 = st.step1 && st.step1.of ? st.step1.signed >= st.step1.of : (st.journey_id || idx >= 7 ? true : before(7));
+    const s2 = railDone(['step2']);
+    const refs = railDone(['screening', 'approval']), ori = railDone(['orientation']);
+    const posts = [refs !== null ? refs : before(7), s1 === null ? null : (s1 && s2 !== false), ori !== null ? ori : before(9)];
+    ROAD[id] = { at:Date.now(), posts };
+    return posts;
+  }
+  async function roadFill(id, host){
+    try{
+      if(!id || !host) return;
+      const posts = await roadPosts(id); if(!posts) return;
+      const wrap = host.querySelector('.pth-road'); if(!wrap || !document.body.contains(wrap)) return;
+      const box = wrap.closest('.pth-wrap'); if(box) box.outerHTML = road(2, '', posts);
+    }catch(e){ console.warn('paths: road', e); }
+  }
+
+  window.PATHS = { stones, road, suns, sunsHtml, roadFill, roadPosts, _cache:SUNS, _road:ROAD };
 })();

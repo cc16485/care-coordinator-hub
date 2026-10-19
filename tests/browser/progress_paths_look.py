@@ -34,6 +34,35 @@ async()=>{
   ok('road · ended: no car, says why', !/translate\(\d+ 92\)/.test(ended) && /Not moving forward/.test(ended));
   ok('the person page uses the road', /pth-road/.test(ppStagesHtml(1,'')));
 
+  /* ── mileposts from the hiring records ── */
+  let HP={}, J={}, calls=[];
+  sb.functions={ invoke:async(name,{body})=>{ calls.push(name+':'+body.action); if(name==='hire-profile') return { data:{ ok:true, stages:HP }, error:null };
+    if(name==='caregiver-journey') return { data:J[body.journey_id]||{}, error:null }; return { data:null, error:null }; } };
+  const host=()=>{ const h=document.createElement('div'); h.innerHTML='<div class="card">'+PATHS.road(2,'')+'</div>'; document.body.prepend(h); return h; };
+  const states=h=>[...h.querySelectorAll('circle[data-post]')].map(c=>c.getAttribute('data-state')).join(',');
+  HP={ a1:{ stage:'Offer signature', step1:null, journey_id:null } };
+  let h1=host(); await PATHS.roadFill('a1', h1);
+  ok('mileposts · offer not signed yet: none done, references next (honey)', states(h1)==='todo,todo,todo' && /r="8" fill="#F0A63A"[^>]*data-post="0"/.test(h1.innerHTML), [states(h1), calls]);
+  HP={ a2:{ stage:'Background & References', step1:{ signed:13, of:13 }, journey_id:'j2' } };
+  J={ j2:{ view:{ rail:[{key:'offer',state:'done'},{key:'step1',state:'done'},{key:'screening',state:'done'},{key:'approval',state:'done'},{key:'step2',state:'todo'},{key:'orientation',state:'todo'}] } } };
+  let h2=host(); await PATHS.roadFill('a2', h2);
+  ok('mileposts · checks and references done, Step 2 not yet: first ticked, paperwork next, the car moved up', states(h2)==='done,todo,todo' && /translate\(430 92\)/.test(h2.innerHTML) && /References &amp; checks done/.test(h2.innerHTML), [states(h2), h2.innerHTML.match(/translate\(\d+ 92\)/)]);
+  HP={ a3:{ stage:'Training', step1:{ signed:13, of:13 }, journey_id:'j3' } };
+  J={ j3:{ view:{ rail:[{key:'screening',state:'done'},{key:'approval',state:'done'},{key:'step2',state:'done'},{key:'orientation',state:'done'},{key:'training',state:'now'}] } } };
+  let h3=host(); await PATHS.roadFill('a3', h3);
+  ok('mileposts · all three done, the car at Orientation', states(h3)==='done,done,done' && /translate\(670 92\)/.test(h3.innerHTML));
+  HP={ a4:{ stage:'Approved to Work', approved_at:'2026-10-10T00:00:00Z' } };
+  let h4=host(); await PATHS.roadFill('a4', h4); ok('mileposts · approved to work: all done', states(h4)==='done,done,done');
+  HP={ a5:{ stage:'Step 1', step1:{ signed:3, of:13 }, journey_id:'j5' } }; J={ j5:{} };
+  let h5=host(); await PATHS.roadFill('a5', h5);
+  ok('mileposts · readiness card not read: what is known only (Step 1 unfinished, the rest earlier than now)', states(h5)==='todo,todo,todo');
+  HP={ a6:{ error:'could not be read' } };
+  let h6=host(); await PATHS.roadFill('a6', h6);
+  ok('mileposts · the server could not read them: plain signposts, no guess', states(h6)==='' && !!h6.querySelector('.pth-road'));
+  const n0=calls.length; let h7=host(); await PATHS.roadFill('a2', h7);
+  ok('mileposts · a second look within 5 minutes reads nothing new', calls.length===n0 && states(h7)==='done,todo,todo');
+  [h1,h2,h3,h4,h5,h6,h7].forEach(h=>h.remove());
+
   /* ── suns ── */
   sb.auth=Object.assign({}, sb.auth, { getSession:async()=>({ data:{ session:{ access_token:'t' } } }) });
   const from='2026-10-21';   /* a Wednesday */
@@ -70,7 +99,8 @@ async()=>{
   const src=async f=>(await (await window.__origFetch(f+'?x='+Date.now())).text());
   const cj=await src('client-journey.js');
   ok('wired · the Start of Care card draws the stones and asks for the suns', /PATHS\.stones\(v\.rows\.map/.test(cj) && /PATHS\.suns\(box, j, f\)/.test(cj));
-  ok('wired · script tag', /<script src="progress-paths\.js\?v=1">/.test(await src('index.html')));
+  ok('wired · the person page asks for the mileposts while Offered', /PATHS\.roadFill\(r\.id, document\.getElementById\('apProfLeft'\)\)/.test(await src('index.html')));
+  ok('wired · script tag', /<script src="progress-paths\.js\?v=2">/.test(await src('index.html')));
   }catch(e){ R.push(['FAIL','threw',String(e&&e.stack||e).slice(0,500)]); }
   return R;
 }
@@ -95,7 +125,7 @@ with sync_playwright() as pw:
     if shot:
         os.makedirs(shot, exist_ok=True)
         pg.locator('#stonesBox').screenshot(path=os.path.join(shot, 'stones.png'))
-        pg.evaluate("const r=document.createElement('div'); r.id='roadBox'; r.style.cssText='width:900px;background:#fff;padding:12px'; r.innerHTML=PATHS.road(2,''); document.body.prepend(r);")
+        pg.evaluate("const r=document.createElement('div'); r.id='roadBox'; r.style.cssText='width:900px;background:#fff;padding:12px'; r.innerHTML=PATHS.road(2,'',[true,false,false]); document.body.prepend(r);")
         pg.locator('#roadBox').screenshot(path=os.path.join(shot, 'road.png'))
         pg.locator('#sunBox').screenshot(path=os.path.join(shot, 'suns.png'))
     b.close()

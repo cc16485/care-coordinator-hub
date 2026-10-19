@@ -46,7 +46,7 @@ async()=>{
 
   ok('pure · overnight visit counts 12 hours', CGO.visitHours({ time:'20:00', end:'08:00' })===12 && CGO.visitHours({ time:'08:00', end:'12:30' })===4.5 && CGO.visitHours({ time:'', end:'' })===0);
   const s=CGO.summarize(window.__fakeWeek('2026-10-12').slice(0,8));
-  ok('pure · summary: booked, worked, open, clients', s.hours===49&&s.worked===20&&s.open===5&&s.clients===3&&s.visits===8, s);
+  ok('pure · summary: covered, booked, worked, open, clients', s.hours===44&&s.booked===49&&s.worked===20&&s.open===5&&s.clients===2&&s.visits===7, s);
   ok('pure · week starts Monday', CGO.weekStart('2026-10-18')==='2026-10-12'&&CGO.weekStart('2026-10-12')==='2026-10-12');
 
   switchTab('mywork'); await sleep(30);
@@ -55,7 +55,8 @@ async()=>{
   switchTab('clientgoals'); await sleep(250);
   ok('tab opens with both cards', document.getElementById('tab-clientgoals').classList.contains('active')&&/Weekly care hours/.test(txt())&&/CDS consumers/.test(txt()));
   ok('hours · read this week from coverage-shifts as a Mon-Sun range', L.reads[0]&&L.reads[0].live_schedule===true&&L.reads[0].start===CGO.weekStart(new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)), L.reads[0]);
-  ok('hours · this week numbers', /49 hours booked/.test(txt())&&/20 worked so far/.test(txt())&&/5 hours still need a caregiver/.test(txt()), txt().slice(0,600));
+  ok('hours · this week counts only visits with a caregiver; booked-with-nobody shows apart', /44 hours with a caregiver/.test(txt())&&/20 worked so far/.test(txt())&&/2 clients/.test(txt())&&/7 visits/.test(txt())&&/5 more hours booked with nobody yet \(not counted\)/.test(txt()), txt().slice(0,600));
+  ok('pure · summary keeps booked apart from covered', (()=>{ const x=CGO.summarize(window.__fakeWeek('2026-10-12').slice(0,8)); return x.hours===44&&x.booked===49&&x.open===5&&x.clients===2; })());
   await sleep(200);
   ok('hours · read the five weeks before, one at a time', L.reads.length===6, L.reads.length);
   ok('Krystal (not an owner) · no Set a goal, no +1', !/Set a goal/.test(txt())&&!document.querySelector('.cgo-plus')&&/Samantha or Zachary sets it/.test(txt()));
@@ -65,42 +66,72 @@ async()=>{
   CGO.paint(); await sleep(30);
   ok('Samantha · Set a goal on both cards, +1 New consumer', document.querySelectorAll('.cgo-set').length===2&&!!document.querySelector('.cgo-plus'));
   cgoEditGoal('client_hours'); await sleep(20);
-  ok('editor · slider and number', !!document.getElementById('cgoRange_client_hours')&&!!document.getElementById('cgoNum_client_hours'));
-  document.getElementById('cgoNum_client_hours').value='80';
+  ok('editor · slider and number for the first goal', !!document.getElementById('cgoRange_client_hours_0')&&!!document.getElementById('cgoNum_client_hours_0'));
+  const typeIn=(id,v)=>{ const el=document.getElementById(id); el.value=v; el.dispatchEvent(new Event('input',{bubbles:true})); };
+  typeIn('cgoNum_client_hours_0','80');
+  ok('editor · the slider follows the number', document.getElementById('cgoRange_client_hours_0').value==='80');
   CGO.paint(); await sleep(10);
-  ok('editor · a half-typed goal survives a repaint', document.getElementById('cgoNum_client_hours').value==='80');
-  document.getElementById('cgoBy_client_hours').value='2026-12-31';
+  ok('editor · a half-typed goal survives a repaint', document.getElementById('cgoNum_client_hours_0').value==='80');
+  typeIn('cgoBy_client_hours_0','2026-12-31');
   await cgoSaveGoal('client_hours'); await sleep(40);
   const w=L.writes.find(x=>x.k==='cc_goals'&&x.v.id==='client_hours');
-  ok('save · cc_goals client_hours with who and when', w&&w.v.goal===80&&w.v.by==='2026-12-31'&&w.v.set_by==='sam@mo-care.com'&&w.v.history.length===1, w);
+  ok('save · cc_goals client_hours with who and when', w&&w.v.goal===80&&w.v.by==='2026-12-31'&&w.v.steps.length===1&&w.v.set_by==='sam@mo-care.com'&&w.v.history.length===1, w);
   ok('save · the Dashboard main row is kept', DATA.cc_goals.some(x=>x.id==='main'));
-  ok('save · audit line', L.events.some(e=>/weekly care hours goal to 80/.test(e.summary)), L.events);
-  ok('trail · drawn with percent and to-go words', !!document.querySelector('.cgo-trail')&&/61%/.test(txt())&&/31 hours to go/.test(txt())&&/about 2 more clients/.test(txt()), txt().slice(0,900));
+  ok('save · audit line', L.events.some(e=>/weekly care hours goal to 80 by 2026-12-31/.test(e.summary)), L.events);
+  ok('trail · drawn with percent and to-go words', !!document.querySelector('.cgo-trail')&&/55%/.test(txt())&&/36 hours to go/.test(txt())&&/about 2 more clients/.test(txt()), txt().slice(0,900));
   await sleep(1300);
   const walker=(document.querySelector('.cgo-walker')||{getAttribute:()=>'MISSING '+txt().slice(0,400)}).getAttribute('transform');
   ok('trail · the walker moved up the hill', /translate\(/.test(walker)&&!/translate\(24 /.test(walker), walker);
   ok('bars · goal line and a star on a week that reached it', /Goal 80/.test(document.getElementById('cgoBars').textContent)&&document.querySelectorAll('#cgoBars polygon').length>=1);
   ok('streak · past weeks at the goal are counted', /5 weeks in a row at the goal/.test(document.getElementById('cgoStreak').textContent), document.getElementById('cgoStreak').textContent);
+  ok('one goal: no goal list', !document.querySelector('#cgoHours .cgo-steps'));
 
+  /* ── a second goal with its own date ── */
+  cgoEditGoal('client_hours'); await sleep(10);
+  ok('second goal · the editor opens with the saved goal', document.getElementById('cgoNum_client_hours_0').value==='80' && document.getElementById('cgoBy_client_hours_0').value==='2026-12-31');
+  cgoDraftAdd('client_hours'); await sleep(10);
+  ok('second goal · + Add another goal makes a second row, a step above', document.getElementById('cgoNum_client_hours_1').value==='180');
+  typeIn('cgoNum_client_hours_1','100'); typeIn('cgoBy_client_hours_1','2027-06-01');
+  cgoDraftAdd('client_hours'); await sleep(10); typeIn('cgoNum_client_hours_2','200'); typeIn('cgoBy_client_hours_2','2026-01-15');
+  await cgoSaveGoal('client_hours'); await sleep(40);
+  const w2=L.writes.filter(x=>x.v.id==='client_hours').pop().v;
+  ok('second goal · saved in date order; the next one is 100 (80 was reached in a past week, the Jan 15 one is gone by)', w2.steps.map(x=>x.goal+'@'+x.by).join(',')==='200@2026-01-15,80@2026-12-31,100@2027-06-01' && w2.goal===100 && w2.by==='2027-06-01', w2);
+  const sh=((document.querySelector('#cgoHours .cgo-steps')||{}).textContent||'').replace(/\s+/g,' ');
+  ok('second goal · the list: 80 reached with when, Next: 100 by Jun 1, the missed one said quietly', /80 hours reached the week of/.test(sh) && /Next: 100 hours by Jun 1/.test(sh) && /Jan 15 goal: 44 of 200 hours/.test(sh), sh);
+  ok('second goal · the card climbs to 100 now', /of 100 hours/.test(txt()) && /Goal 100/.test(document.getElementById('cgoBars').textContent) && /80/.test(document.getElementById('cgoBars').textContent));
+  ok('second goal · audit says both', L.events.some(e=>/goals to 200 by 2026-01-15, then 80 by 2026-12-31, then 100 by 2027-06-01/.test(e.summary)), L.events.slice(-1));
+  cgoEditGoal('client_hours'); await sleep(10); cgoDraftRemove('client_hours',0); await sleep(10);
+  ok('second goal · Remove takes a row out', !document.getElementById('cgoNum_client_hours_2') && document.getElementById('cgoNum_client_hours_0').value==='80', [JSON.stringify(CGO.state.draft), !!document.getElementById('cgoNum_client_hours_2')]);
+  typeIn('cgoNum_client_hours_1','abc'); await cgoSaveGoal('client_hours');
+  ok('second goal · a goal that is not a number is refused, nothing saved', L.toasts.some(t=>/Each goal needs to be a whole number/.test(t)) && L.writes.filter(x=>x.v.id==='client_hours').pop().v.steps.length===3);
+  typeIn('cgoNum_client_hours_1','100'); await cgoSaveGoal('client_hours'); await sleep(30);
+
+  /* ── CDS with two goals ── */
   cgoEditGoal('cds_consumers'); await sleep(10);
-  document.getElementById('cgoNum_cds_consumers').value='3'; await cgoSaveGoal('cds_consumers'); await sleep(20);
-  ok('CDS · a street of 3 dark houses', document.querySelectorAll('#cgoStreet .cgo-house').length===3&&!document.querySelector('#cgoStreet .cgo-house.lit'));
+  typeIn('cgoNum_cds_consumers_0','3'); typeIn('cgoBy_cds_consumers_0','2026-12-01');
+  cgoDraftAdd('cds_consumers'); await sleep(10); typeIn('cgoNum_cds_consumers_1','5'); typeIn('cgoBy_cds_consumers_1','2027-03-01');
+  await cgoSaveGoal('cds_consumers'); await sleep(20);
+  ok('CDS · 3 dark houses to the next goal, 2 fainter ones for the later goal', document.querySelectorAll('#cgoStreet .cgo-house').length===5&&document.querySelectorAll('#cgoStreet .cgo-house.later').length===2&&!document.querySelector('#cgoStreet .cgo-house.lit'));
   await cgoBump(1); await cgoBump(1); await sleep(20);
   const c=L.writes.filter(x=>x.v.id==='cds_consumers').pop()||{v:{}};
   ok('CDS · +1 twice saves count 2 with a log', c.v.count===2&&c.v.log.length===2&&c.v.goal===3&&c.v.log[1].by==='sam@mo-care.com', c.v);
   ok('CDS · 2 lit houses, 1 to go', document.querySelectorAll('#cgoStreet .cgo-house.lit').length===2&&/1 more to go/.test(txt()));
   await cgoBump(1); await sleep(20);
-  ok('CDS · reaching the goal says so', L.toasts.some(t=>/CDS goal is reached/.test(t))&&/Goal reached!/.test(document.getElementById('cgoCds').textContent), L.toasts);
+  ok('CDS · reaching the first goal says so and names the next', L.toasts.some(t=>/The CDS goal of 3 is reached! Next: 5 by Mar 1\./.test(t)) && /of 5 consumers/.test(document.getElementById('cgoCds').textContent) && /3 reached/.test(document.getElementById('cgoCds').textContent), L.toasts.slice(-2));
+  ok('CDS · the saved goal moves to the next one', DATA.cc_goals.find(x=>x.id==='cds_consumers').goal===5);
   await cgoSetCount(); await sleep(20);
-  ok('CDS · Set the exact number (18): extra houses past the goal', JSON.parse(JSON.stringify(DATA.cc_goals.find(x=>x.id==='cds_consumers'))).count===18&&document.querySelectorAll('#cgoStreet .cgo-house.extra').length===15);
+  ok('CDS · Set the exact number (18): extra houses past the last goal', JSON.parse(JSON.stringify(DATA.cc_goals.find(x=>x.id==='cds_consumers'))).count===18&&document.querySelectorAll('#cgoStreet .cgo-house.extra').length===13);
   await cgoBump(-1); await sleep(20);
   ok('CDS · -1 saves 17', DATA.cc_goals.find(x=>x.id==='cds_consumers').count===17&&/marked one as left/.test(txt()));
 
+  CGO.state.weeks={}; CGO.state.at=0; try{ localStorage.clear(); }catch(e){} await cgoLoad(true); await sleep(300);
+  ok('the big number and the goal list agree once the older weeks arrive (80 reached back then, so 100 is next)', /of 100 hours/.test(txt()) && !/of 80 hours/.test(txt()) && /Next: 100 hours by Jun 1/.test(document.getElementById('cgoHours').textContent.replace(/\s+/g,' ')), txt().slice(0,400));
   (0,eval)(`ME={ email:'kry@mo-care.com', name:'Krystal Land', shift:'day' }`);
   const before=L.writes.length; await cgoBump(1); await cgoSaveGoal('client_hours');
   ok('Krystal · cannot change the count or a goal, even by calling it', L.writes.length===before&&L.toasts.some(t=>/Only Samantha or Zachary/.test(t)));
   CGO.paint(); await sleep(10);
-  ok('Krystal · sees the goals Samantha set', /of 80 hours/.test(txt())&&/17 of 3 consumers|17 of 3/.test(txt())&&/Set by Samantha/.test(txt()));
+  ok('Krystal · sees the goals Samantha set, with the goal list', /of 100 hours/.test(txt())&&/17 of 5 consumers/.test(txt())&&/Set by Samantha/.test(txt())&&/Next: 100 hours by Jun 1/.test(txt()));
+  ok('an old single goal (no steps) still reads', CGO.stepsOf({ goal:25, by:'2026-12-01' }).length===1 && CGO.stepsOf({ goal:25 })[0].goal===25 && CGO.stepsOf(null).length===0);
 
   window.__failWeeks=true; CGO.state.weeks={}; CGO.state.at=0; await cgoLoad(true); await sleep(60);
   ok('AxisCare down · says so with Try again (no silent failure)', /Could not read this week from AxisCare: AxisCare responded 503/.test(txt())&&/Try again/.test(txt()), txt().slice(0,300));
@@ -126,8 +157,8 @@ with sync_playwright() as pw:
     if shot:
         os.makedirs(shot, exist_ok=True)
         pg.evaluate("""async()=>{ window.__failWeeks=false; (0,eval)(`ME={ email:'sam@mo-care.com', name:'Samantha Troutman', shift:'manager' }`);
-          const g=DATA.cc_goals.find(x=>x.id==='cds_consumers'); g.goal=25; g.count=16; g.by='2027-06-01';
-          DATA.cc_goals.find(x=>x.id==='client_hours').goal=80; CGO.state.weeks={}; CGO.state.at=0; await cgoLoad(true); }""")
+          const g=DATA.cc_goals.find(x=>x.id==='cds_consumers'); g.steps=[{goal:25,by:'2026-12-01'},{goal:40,by:'2027-06-01'}]; g.goal=25; g.count=16;
+          const hh=DATA.cc_goals.find(x=>x.id==='client_hours'); hh.steps=[{goal:80,by:'2026-12-31'},{goal:100,by:'2027-06-01'}]; CGO.state.weeks={}; CGO.state.at=0; await cgoLoad(true); }""")
         pg.wait_for_timeout(1800)
         pg.locator('#tab-clientgoals').screenshot(path=os.path.join(shot, 'client-goals.png'))
         pg.set_viewport_size({'width': 390, 'height': 900}); pg.wait_for_timeout(300)
