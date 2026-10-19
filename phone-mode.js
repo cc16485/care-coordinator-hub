@@ -1256,7 +1256,7 @@
     window.myWorkRefresh = function () {};
     window.addEventListener('scx-hydrated', function () { draw(); });
     if (window.HR) draw(want);
-    else { var sc = document.createElement('script'); sc.src = 'hr.js?v=20261018o'; sc.onload = function () { draw(want); }; document.head.appendChild(sc); }
+    else { var sc = document.createElement('script'); sc.src = 'hr.js?v=20261018p'; sc.onload = function () { draw(want); }; document.head.appendChild(sc); }
     document.addEventListener('visibilitychange', function () { if (!document.hidden) draw(); });
   }
   function phStart() {
