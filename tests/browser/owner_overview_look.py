@@ -102,6 +102,10 @@ async()=>{
   ok('her own row · just Open (helping is for other people\'s work)', rowOf('own1')&&!/Help with this/.test(rowOf('own1').innerText), rowOf('own1')&&rowOf('own1').innerText);
   lhSetFill();
   ok('settings · On, with the button for Samantha', /On\./.test($('ovSetNow').textContent)&&$('ovToggleBtn').style.display==='');
+  ok('server routing · off, with the button for Samantha', /Off\./.test($('rbSetNow').textContent)&&$('rbToggleBtn').style.display==='');
+  window.tkMerge=async(apply)=>{ const m=JSON.parse(JSON.stringify(DATA.ops_settings)); apply(m, DATA.ops_settings); DATA.ops_settings=m; return { changed:true, error:null }; };
+  await rbToggle(); await sleep(20);
+  ok('server routing · Samantha turns it on', DATA.ops_settings.routing_by_settings_live===true&&/On\./.test($('rbSetNow').textContent));
   return R;
 }
 """
