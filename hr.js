@@ -101,6 +101,11 @@
           + '.hr-note{display:block;margin:8px 0;padding:6px 10px;border:1px dashed #94A3B8;background:#F8FAFC;color:#334155;font:400 12.5px system-ui,-apple-system,sans-serif;border-radius:8px}'
           + '.hr-check{display:flex;gap:8px;align-items:flex-start;margin-top:4px}.hr-check input{margin-top:3px}'
           + '.hr-serious{font-size:11px;font-weight:700;color:#B42318;background:#FDECEA;border-radius:999px;padding:1px 8px}'
+          + '.hr-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px}.hr-chip{font:600 12.5px system-ui,-apple-system,sans-serif;border:1px solid var(--border);background:#fff;color:var(--navy);border-radius:999px;padding:5px 11px;cursor:pointer}'
+          + '.hr-chip[aria-pressed=true]{background:var(--navy);border-color:var(--navy);color:#fff}.hr-chip.x[aria-pressed=true]{background:#B42318;border-color:#B42318}.hr-chip:focus-visible{outline:2px solid var(--teal);outline-offset:2px}'
+          + '.hr-sec{display:grid;gap:8px;margin-top:14px}.hr-sec-h{font:700 15.5px/1.3 Georgia,serif;color:var(--navy);padding-bottom:4px;border-bottom:1px solid var(--border)}'
+          + '.hr-rc{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:grid;gap:5px;min-width:0}.hr-rc-top{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between}.hr-rc-r{font-weight:700;font-size:13.5px;color:var(--navy)}'
+          + '.hr-tags{display:flex;gap:6px;flex-wrap:wrap}.hr-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:999px;background:#E3F3F2;color:#1F6E69}.hr-rc .hr-quote{max-width:80ch;font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}.hr-rc-c{font-size:12.5px;color:#B42318}'
           + '.hr-hb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0}.hr-hb-bar input[type=search]{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}'
           + '.hr-role p,.hr-role li{font-size:14px;line-height:1.6;max-width:68ch}.hr-sel{user-select:all;font-weight:700}'
           + '@media (max-width:760px){.hr-wrap{grid-template-columns:1fr;padding:12px}.hr-menu{position:static;flex-direction:row;flex-wrap:wrap}.hr-item-note{display:none}.hr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}';
@@ -695,7 +700,8 @@
   }
 
   /* ---------- handbook (approved 2026-10-18; stored in app_data 'hr_handbook') ---------- */
-  let hb = null, hbQ = '', hbSerious = false;
+  let hb = null, hbQ = '', hbSerious = false, hbKind = '';
+  const HB_KIND = { attendance: 'Attendance', evv: 'Clocking in and out', documentation: 'Notes and records', conduct: 'Conduct', client_safety: 'Client safety', confidentiality: 'Confidentiality', money_property: 'Money and property', safety: 'Safety', substances: 'Drugs and alcohol', technology: 'Technology', protected: 'Protects the employee', other: 'Other' };
   async function loadHandbook() {
     if (hb) return hb;
     try { const { data, error } = await sb.from('app_data').select('data').eq('key', 'hr_handbook').maybeSingle(); if (error || !data) return null; hb = data.data || []; return hb; }
@@ -711,18 +717,30 @@
         + '<div class="field-note" style="margin-bottom:6px;">Approved by Samantha on 2026-10-18. A threshold opens a review, never discipline on its own. The first time is coaching; the same issue again after coaching goes to Zach; serious ones go straight to Zach.</div>'
         + watched.map((w) => '<div class="hr-row hr-row-top"><span><b>' + esc(w.what) + '</b><br><span class="field-note">' + esc(w.threshold) + '</span></span><span class="hr-quote">' + esc(w.words) + '</span></div>').join('') + '</div>'
         + '<div class="card hr-card"><div class="hr-card-h">Every rule Zach can cite (' + rules.length + ')</div>'
-        + '<div class="hr-hb-bar"><input id="hrHbQ" type="search" placeholder="Search: no call, phone, gifts, 2K" value="' + esc(hbQ) + '" oninput="HR.hbSearch(this.value)"><label class="field-note"><input type="checkbox" id="hrHbS" ' + (hbSerious ? 'checked' : '') + ' onchange="HR.hbSerious(this.checked)"> Serious only</label></div>'
+        + '<div class="hr-hb-bar"><input id="hrHbQ" type="search" placeholder="Search: no call, phone, gifts, 2K" value="' + esc(hbQ) + '" oninput="HR.hbSearch(this.value)"></div>'
+        + '<div class="hr-chips" id="hrHbChips"></div>'
         + '<div id="hrHbList"></div></div>';
       drawRules();
     });
   }
   function drawRules() {
     const el = document.getElementById('hrHbList'); if (!el || !hb) return;
+    const all = hb.filter((x) => x.t === 'rule');
+    const chip = (label, on, cls, call) => '<button type="button" class="hr-chip' + (cls ? ' ' + cls : '') + '" aria-pressed="' + (on ? 'true' : 'false') + '" onclick="' + call + '">' + esc(label) + '</button>';
+    const ch = document.getElementById('hrHbChips');
+    if (ch) ch.innerHTML = chip('All topics', !hbKind, '', "HR.hbKind('')")
+      + Object.keys(HB_KIND).filter((k) => all.some((x) => x.k === k)).map((k) => chip(HB_KIND[k], hbKind === k, '', "HR.hbKind('" + k + "')")).join('')
+      + chip('Serious only', hbSerious, 'x', 'HR.hbSerious(' + !hbSerious + ')');
     const q = hbQ.trim().toLowerCase();
-    const hits = hb.filter((x) => x.t === 'rule' && (!hbSerious || x.x) && (!q || (x.s + ' ' + x.r + ' ' + x.q).toLowerCase().includes(q)));
-    el.innerHTML = '<div class="field-note" style="margin:4px 0 6px;">' + hits.length + ' rule' + (hits.length === 1 ? '' : 's') + '</div>'
-      + hits.slice(0, 200).map((x) => '<div class="hr-rule"><div><b>' + esc(x.s) + '</b> · ' + esc(x.r) + (x.x ? ' <span class="hr-serious">Serious</span>' : '') + '</div><div class="hr-quote">' + esc(x.q) + '</div></div>').join('')
-      + (hits.length > 200 ? '<div class="field-note">Showing the first 200. Search to narrow it down.</div>' : '');
+    const hits = all.filter((x) => (!hbKind || x.k === hbKind) && (!hbSerious || x.x) && (!q || (x.s + ' ' + x.r + ' ' + x.q + ' ' + (x.c || '')).toLowerCase().includes(q)));
+    const groups = [];
+    hits.forEach((x) => { let g = groups[groups.length - 1]; if (!g || g.s !== x.s) { g = { s: x.s, items: [] }; groups.push(g); } g.items.push(x); });
+    el.innerHTML = '<div class="field-note" style="margin:8px 0 0;">' + hits.length + ' of ' + all.length + ' rules</div>'
+      + (groups.length ? groups.map((g) => '<section class="hr-sec"><div class="hr-sec-h">' + esc(g.s) + '</div>'
+        + g.items.map((x) => '<div class="hr-rc"><div class="hr-rc-top"><span class="hr-rc-r">' + esc(x.r) + '</span><span class="hr-tags"><span class="hr-tag">' + esc(HB_KIND[x.k] || x.k || 'Other') + '</span>'
+          + (x.x ? '<span class="hr-serious">Serious</span>' : '') + '</span></div><div class="hr-quote">' + esc(x.q) + '</div>'
+          + (x.c && !x.q.includes(x.c) ? '<div class="hr-rc-c">' + esc(x.c) + '</div>' : '') + '</div>').join('') + '</section>').join('')
+        : '<div class="field-note" style="padding:16px 0;">No rule matches. Try a shorter word, or clear the topic.</div>');
   }
 
   /* ---------- Zach's role (everyone) ---------- */
@@ -738,5 +756,5 @@
   }
 
   window.HR = { render, go, mark, startFormal, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
-    callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
+    callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, hbKind: (k) => { hbKind = hbKind === k ? '' : k; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
