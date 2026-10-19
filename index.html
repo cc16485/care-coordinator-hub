@@ -4266,7 +4266,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
         <div id="jo_err" style="display:none;color:var(--red);font-size:13px;margin-top:10px;"></div>
         <div class="jo-save">
-          <button class="primary" id="jo_send" onclick="submitJobOffer()">Save offer &amp; send their start link</button>
+          <button class="primary" id="jo_send" onclick="submitJobOffer()">Save offer &amp; send the offer letter</button>
           <span class="field-note" style="flex:1 1 260px;">Saving texts and emails them their start link straight away, which is what gets reference checks moving today.</span>
         </div>
         </div>
@@ -21486,7 +21486,7 @@ async function submitJobOffer(){
   const first=g('jo_first'), last=g('jo_last');
   if(!first||!last){ err.textContent='First and last name are required.'; err.style.display='block'; return; }
   const phone=joNormPhone(g('jo_phone')), email=g('jo_email');
-  if(!phone&&!email){ err.textContent='Add a mobile phone or an email so the welcome message can reach them.'; err.style.display='block'; return; }
+  if(!phone&&!email){ err.textContent='Add a mobile phone or an email so the offer letter can reach them.'; err.style.display='block'; return; }
   const rate=parseFloat(g('jo_rate').replace(/[^0-9.]/g,''));
   const offer={ first_name:first,last_name:last,phone:phone||null,email:email||null,
     position:g('jo_position'),onboarding_plan:g('jo_plan')||null,interview_date:g('jo_date')||null,offered_by:g('jo_by')||null,
@@ -21505,8 +21505,8 @@ async function submitJobOffer(){
     const res=await r.json();
     /* SLICE 1c: the duplicate rule (both paths). The server refused and showed the open offer; nothing was saved or sent.
        An authorized person (Samantha, Zachary, the Approve to Advance list) may re-offer with a typed reason. */
-    if(r.status===409 && res.duplicate){ joShowDuplicate(res); btn.disabled=false; btn.textContent='Save offer & send their start link'; return; }
-    if(r.status===403 && res.duplicate){ err.textContent=res.error; err.style.display='block'; btn.disabled=false; btn.textContent='Save offer & send their start link'; window.JO_REOFFER_REASON=null; return; }
+    if(r.status===409 && res.duplicate){ joShowDuplicate(res); btn.disabled=false; btn.textContent='Save offer & send the offer letter'; return; }
+    if(r.status===403 && res.duplicate){ err.textContent=res.error; err.style.display='block'; btn.disabled=false; btn.textContent='Save offer & send the offer letter'; window.JO_REOFFER_REASON=null; return; }
     if(!r.ok||res.error) throw new Error(res.error||('save failed ('+r.status+')'));
     window.JO_REOFFER_REASON=null; const joDup=document.getElementById('jo_dup'); if(joDup) joDup.style.display='none';
     /* The terms, back onto the person. Their profile is then the whole story
@@ -21560,12 +21560,11 @@ async function submitJobOffer(){
     catch(e){ steps.push('! Not in Background & References yet: '+(e&&e.message?e.message:'error')+'. Use Add on that tab.'); }
     if(res.prn_track) steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the PRN CNA Team pay track ($20/hr), recorded in their history'
       : '! PRN CNA Team pay track: ' + res.prn_track + ' (open their page and try again)');
-    steps.push('✓ Welcome text + email are queued. They send automatically when Staffing enters '+first+' in Viventium (so the "watch for the Viventium email" message lands right as that email goes out)');
     document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
     renderInterviews();
   }catch(e){
     err.textContent='Could not send: '+(e&&e.message?e.message:'error'); err.style.display='block';
-    btn.disabled=false; btn.textContent='Save offer & send their start link';
+    btn.disabled=false; btn.textContent='Save offer & send the offer letter';
   }
 }
 /* SLICE 1c: the duplicate refusal, shown in the form. The existing open offer with its state, and Re-offer with a typed
@@ -21650,7 +21649,7 @@ function joReset(){
   ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('jo_position').value='Caregiver'; joSyncPlan();
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
-  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer & send their start link';
+  const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer & send the offer letter';
 }
 
 /* ---------------- Interviews tab (job offers, read-only view) ---------------- */
