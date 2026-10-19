@@ -4649,6 +4649,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today, and it is the first screen you see when you sign in.</p>
 <div id="ovSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;"><button class="secondary" id="ovToggleBtn" onclick="ovToggle(this)">Turn on the Owner Overview</button><span class="field-note" id="ovSaved"></span></div>
+<!-- Server jobs off Samantha, batch 2 (2026-10-18): ops_settings.routing_by_settings_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Server jobs follow the settings:</b> <span id="rbSetNow"></span></div>
+  <button class="secondary" id="rbToggleBtn" onclick="rbToggle(this)" style="margin-top:4px;">Turn on</button>
+</div>
 <!-- Team numbers and reviews (Stage 5 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.team_live and
      ops_settings.team.hr_lead. The reviews themselves stay on the server (cc-team). -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Team numbers and reviews</div>
@@ -18320,6 +18325,7 @@ function tnSetFill(){
   try{ cctBtnSync(); }catch(e){}
   try{ bmSetFill(); }catch(e){}
   try{ ovSetFill(); }catch(e){}
+  try{ rbSetFill(); }catch(e){}
 }
 async function tnSave(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -18341,6 +18347,26 @@ async function tnToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   tnSetFill();
+}
+/* Server jobs follow the settings (server jobs off Samantha, batch 2). Owners only. On: GHE reminders, Medicaid visits,
+   nurse visit checks and RN review stop falling back to Samantha by name: they use the work area's owner, then the
+   Springfield lead (and the GHE "still not booked" email and digest go to Payer Programs' escalation person). */
+function rbSetFill(){
+  const now=document.getElementById('rbSetNow'), b=document.getElementById('rbToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).routing_by_settings_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> GHE reminders, Medicaid visits, nurse visit checks and RN review go to the work area\'s owner, then the Springfield lead, never to you by name.'
+    :'<b style="color:#B7791F;">Off.</b> Those four jobs still fall back to you by name when nobody owns Payer Programs.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function rbToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).routing_by_settings_live===true);
+  if(!(await ccConfirm(on?'Turn on: server jobs follow the settings?\n\nGHE reminders, Medicaid visits, nurse visit checks and RN review stop falling back to you by name. With nobody owning Payer Programs today, that work goes to Krystal (the Springfield lead), and the GHE "still not booked" email and digest go to Payer Programs\' escalation person.':'Turn off? Those four jobs go back to falling back to you by name.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.routing_by_settings_live=on; if(on) m.routing_by_settings_live_since=new Date().toISOString(); return ['server jobs follow the settings '+(on?'ON':'OFF')]; }, 'server routing');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ovSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  rbSetFill();
 }
 /* Owner Overview switch (audit step 9). Owners only. */
 function ovSetFill(){
