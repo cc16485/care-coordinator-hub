@@ -1,5 +1,5 @@
 """Owner Overview as the first screen (Samantha 2026-10-18): an owner with it on lands on it at sign-in; pressing Dashboard
-then stays on the Dashboard; a link that names a page (#leadsstarts) still lands there; Krystal, and everyone while it is
+then pressing Today opens My Work (2026-10-19: the Dashboard retired); a link that names a page (#leadsstarts) still lands there; Krystal, and everyone while it is
 off, land on the Dashboard as before. A fresh page for each case; made-up people only. (python3 tests/browser/owner_overview_land_look.py)"""
 import os, mimetypes
 from playwright.sync_api import sync_playwright
@@ -16,8 +16,8 @@ SETUP = r"""
   renderActiveTab();
 }
 """
-CASES = [('owner, on', 'sam@mo-care.com', True, '', 'owneroverview'), ('Krystal, on', 'kry@mo-care.com', True, '', 'today'),
-         ('owner, off', 'sam@mo-care.com', False, '', 'today'), ('owner, on, a link to Leads', 'sam@mo-care.com', True, '#leadsstarts', 'leadsstarts')]
+CASES = [('owner, on', 'sam@mo-care.com', True, '', 'owneroverview'), ('Krystal, on', 'kry@mo-care.com', True, '', 'mywork'),
+         ('owner, off', 'sam@mo-care.com', False, '', 'mywork'), ('owner, on, a link to Leads', 'sam@mo-care.com', True, '#leadsstarts', 'leadsstarts')]
 def serve(route):
     path = route.request.url.split('://', 1)[1].split('/', 1)[1].split('?')[0] or 'index.html'
     f = os.path.join(ROOT, path)
@@ -38,9 +38,9 @@ with sync_playwright() as pw:
         got = pg.evaluate("()=>activeTab")
         R.append(['PASS' if got == want else 'FAIL', name + ' · lands on ' + want, got])
         if name == 'owner, on':
-            pg.evaluate("()=>{ switchTab('today'); renderActiveTab(); }"); pg.wait_for_timeout(300)
+            pg.evaluate("()=>{ ccGroupClick('today'); renderActiveTab(); }"); pg.wait_for_timeout(300)   # 2026-10-19: Today opens My Work (the Dashboard retired)
             got2 = pg.evaluate("()=>activeTab")
-            R.append(['PASS' if got2 == 'today' else 'FAIL', 'owner, on · after landing, pressing Dashboard stays on the Dashboard', got2])
+            R.append(['PASS' if got2 == 'mywork' else 'FAIL', 'owner, on · after landing, pressing Today opens My Work and stays there', got2])
         R.append(['PASS' if not errs else 'FAIL', name + ' · no page errors', errs[:2]])
         pg.close()
     b.close()

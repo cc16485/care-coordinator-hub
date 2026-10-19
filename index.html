@@ -1163,10 +1163,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-today">
     <!-- audit step 9 (2026-10-18): the Owner Overview, owners only, shown while ops_settings.owner_overview_live is on (owner-overview.js) -->
     <div class="fpill" data-tab="owneroverview" onclick="switchTab('owneroverview')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Owner Overview</div>
-    <div class="fpill" data-tab="today" onclick="switchTab('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Dashboard</div>
+    <!-- NEW TODAY (2026-10-19, her yes to https://claude.ai/artifact/EFKms6fU32DfSTyTZPX1kS): no Dashboard pill; what it was
+         for is the strip on top of My Work. Call Follow Ups moved to Conversations as "AI call reader". -->
     <!-- 2026-10-14 (her call): Dashboard, Call Follow Ups, My Work (My Desk and To talk about inside it), Team Meetings,
          Calendar. Reports moved to Leads (it is only about leads). -->
-    <div class="fpill" data-tab="callfollowups" onclick="switchTab('callfollowups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Call Follow Ups</div>
     <div class="fpill" data-parent="myworkgrp" onclick="ccParentClick('myworkgrp')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> My Work<span class="subtab-badge red" id="gb-mywork" style="display:none;"></span></div>
     <!-- 2026-10-06 My Desk (Stage 1): each person's own planner page and sticky notes. desk.js draws it; the pill shows only
          for the people My Desk is switched on for (Settings, My Desk). -->
@@ -1207,6 +1207,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
+    <!-- 2026-10-19: the AI's reading of each call and text, for checking its work (was Call Follow Ups on Today) -->
+    <div class="fpill" data-tab="callfollowups" onclick="switchTab('callfollowups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> AI call reader</div>
 </div>
   <div class="fsubbar" id="fsub-interviews">
     <div class="fpill" data-tab="recruit" onclick="switchTab('recruit')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruit</div>
@@ -1566,7 +1568,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: LEADS ===================== -->
     <!-- ===================== TAB: TODAY / OVERVIEW ===================== -->
-    <section class="tabpanel active" id="tab-today">
+    <section class="tabpanel" id="tab-today">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:18px;">
         <div>
           <div id="todaySub" style="font-size:12.5px;font-weight:700;color:#2F6FB0;text-transform:uppercase;letter-spacing:.04em;"></div>
@@ -1586,10 +1588,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- Today cockpit Phase 5 (2026-10-05): an end-of-shift handoff to me sits on top until I tap Got it. end-shift.js. -->
       <div id="hoCardDash"></div>
       <!-- My Desk (Stage 5, her yes 2026-10-06): one line about MY OWN desk. Owners never see anyone else's desk numbers here. desk.js. -->
-      <div id="dkDashLine"></div>
-      <div id="suTodayLine" style="margin-bottom:16px;"></div>
-      <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
-      <div id="staffingView" style="margin-bottom:16px;"></div>
+      <!-- 2026-10-19: the desk line and the Staffing view moved to the top of My Work; To talk about retired -->
       <div id="todayGlance"></div>
       <div id="todayHero"></div>
       <!-- Booked today: interviews and assessments, the same two lists as the Morning Brief. -->
@@ -1607,24 +1606,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <span class="field-note" id="myDayCount" style="font-size:12px;"></span>
         </div>
         <div id="myDayList"></div>
-      </div>
-      <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
-          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Team scorecard</b>
-          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (To talk about is on My Work.)</span>
-        </div>
-        <div id="standupRows" style="margin-top:6px;"></div>
-        <details class="guide" style="margin:10px 0 6px;border:none;background:none;">
-          <summary style="padding:6px 0;font-size:12.5px;color:var(--text-muted);">🗣 The huddle questions (from Samantha's playbook) ▼</summary>
-          <div class="guide-body" style="padding:0 0 8px;font-size:13px;line-height:1.55;">
-            <b>Safety &amp; coverage:</b> Are all clients safe and fully covered today? If not, where is the risk? Where do we have open hours or coverage gaps today?<br>
-            <b>Staffing focus:</b> Based on open hours and care needs, what is today's hiring focus? (type of caregiver, skills, schedule, location)<br>
-            <b>Critical issues:</b> What urgent client or family concerns must be handled today? What start of care, schedule change, or admission is at risk? What compliance, billing, or documentation issue needs attention?<br>
-            <b>Blockers:</b> What is the single biggest blocker that could slow today down?<br>
-            <b>Round-robin close, everyone answers:</b> "My priority today is ______." It must connect to client safety, coverage, hiring, or retention.
-          </div>
-        </details>
       </div>
       <div class="card" id="attnCard" style="padding:2px 18px;margin-bottom:16px;display:none;">
         <div id="careAlerts"></div>
@@ -1676,13 +1657,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div id="careQueue"></div>
       </div>
 
-      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <b style="font-size:14px;color:var(--navy);">📜 Communication Log</b>
-          <span class="field-note">permanent record: every handoff, staffing request and meeting stays here; nothing can be deleted or cleared</span>
-        </div>
-        <div id="commLog" style="margin-top:8px;"></div>
-      </div>
     </section>
 
     <!-- ===================== TAB: START OF CARE ===================== -->
@@ -1811,6 +1785,32 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         </div>
       </div>
       <div class="card" style="padding:18px;"><div id="meetingsPageList"></div></div>
+      <!-- 2026-10-19: the Team scorecard, the huddle questions and the Communication Log moved here from the Dashboard -->
+      <div class="card" id="standupCard" style="padding:15px 18px 9px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
+          <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Team scorecard</b>
+          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. </span>
+        </div>
+        <div id="standupRows" style="margin-top:6px;"></div>
+        <details class="guide" style="margin:10px 0 6px;border:none;background:none;">
+          <summary style="padding:6px 0;font-size:12.5px;color:var(--text-muted);">🗣 The huddle questions (from Samantha's playbook) ▼</summary>
+          <div class="guide-body" style="padding:0 0 8px;font-size:13px;line-height:1.55;">
+            <b>Safety &amp; coverage:</b> Are all clients safe and fully covered today? If not, where is the risk? Where do we have open hours or coverage gaps today?<br>
+            <b>Staffing focus:</b> Based on open hours and care needs, what is today's hiring focus? (type of caregiver, skills, schedule, location)<br>
+            <b>Critical issues:</b> What urgent client or family concerns must be handled today? What start of care, schedule change, or admission is at risk? What compliance, billing, or documentation issue needs attention?<br>
+            <b>Blockers:</b> What is the single biggest blocker that could slow today down?<br>
+            <b>Round-robin close, everyone answers:</b> "My priority today is ______." It must connect to client safety, coverage, hiring, or retention.
+          </div>
+        </details>
+      </div>
+      <div class="card" style="padding:16px 18px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <b style="font-size:14px;color:var(--navy);">📜 Communication Log</b>
+          <span class="field-note">permanent record: every handoff, staffing request and meeting stays here; nothing can be deleted or cleared</span>
+        </div>
+        <div id="commLog" style="margin-top:8px;"></div>
+      </div>
     </section>
 
     <!-- ===================== TAB: HOME =====================
@@ -1831,7 +1831,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- ===================== TAB: MY TEAM ===================== -->
     <section class="tabpanel" id="tab-myteam"><div id="myTeamWrap"></div></section>
 
-    <section class="tabpanel" id="tab-mywork">
+    <section class="tabpanel active" id="tab-mywork">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">My Work</h2>
@@ -1842,6 +1842,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="secondary" id="bnBtn" style="display:none;" onclick="bnOpen()" title="Your new-client bonuses (pay is private)">Bonuses</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
+      <!-- NEW TODAY (2026-10-19): the strip is what the Dashboard was for, on one line (renderTodayStrip) -->
+      <style>
+        .ts-strip{ display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; margin:6px 0 10px; }
+        .ts-tile{ background:#fff; border:1px solid var(--border); border-radius:10px; padding:9px 12px; display:grid; gap:2px; text-align:left; font:inherit; color:inherit; min-width:0; }
+        button.ts-tile{ cursor:pointer; } button.ts-tile:hover{ border-color:var(--navy); }
+        .ts-k{ font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
+        .ts-v{ font-size:14px; font-weight:700; color:var(--navy); } .ts-v.ts-red{ color:var(--red); }
+        .ts-s{ font-size:12px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .ts-panel{ background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin:-2px 0 12px; }
+        .ts-row{ display:flex; gap:8px; align-items:baseline; padding:6px 0; border-top:1px solid var(--border); cursor:pointer; font-size:13px; }
+        .ts-row:first-of-type{ border-top:0; }
+        @media (max-width:900px){ .ts-strip{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      </style>
+      <div id="todayStrip"></div>
+      <div id="dkDashLine"></div>
+      <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
+      <div id="staffingView" style="margin-bottom:12px;"></div>
       <div id="hoCardWork"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
       <div id="myWorkApprovals" style="display:none;"><div id="approvalsCard"></div></div>
@@ -1904,7 +1921,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
            screens; they stop being places somebody must remember to check. -->
       <div class="field-note" style="text-align:center;padding:14px 10px 4px;">
         Older views: <button class="linklike" onclick="switchTab('ops')">All open work</button>
-        · <button class="linklike" onclick="switchTab('today')">Overview</button>
         · <button class="linklike" onclick="switchTab('calls')">Calls</button>
       </div>
     </section>
@@ -7464,7 +7480,7 @@ The HomeTogether team</pre>
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=5"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=6"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7636,7 +7652,7 @@ let DATA = { caregivers: [], caregiver_overlay: [], caregiver_availability: [], 
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
-let activeTab = 'today';
+let activeTab = 'mywork';   /* 2026-10-19: My Work is the first screen (the Dashboard retired) */
 let activeLeadsSubtab = 'pipeline';
 let fqBranchFilter = 'all';
 let fqSearch = '';
@@ -8222,7 +8238,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','today','callfollowups','mywork','mydesk','myrole','myteam','standup','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8234,7 +8250,8 @@ const CC_SUBTABS = {
   /* Client path step 3 (2026-09-28): Start of Care and New Clients are two halves of ONE step */
   gettingready:[ { t:'soc', l:'Before staffing', i:'i-hospital' }, { t:'clientqueue', l:'First shift', i:'i-family' } ],
   /* 2026-10-14 (her call): My Desk and To talk about live inside My Work */
-  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' }, { t:'standup', l:'To talk about', i:'i-talk' },
+  /* 2026-10-19: To talk about retired (a flag is a chip on its card; Team Meetings' Prepare a meeting lists every flag) */
+  myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' },
     /* 2026-10-18 (her ask): Client Goals, weekly care hours and CDS consumers; owners set the goals (client-goals.js) */
     { t:'clientgoals', l:'Client Goals', i:'i-target' } ],
   /* 2026-10-08 (her call): one Nurse Scheduling tab, not two */
@@ -8619,6 +8636,7 @@ async function cmAddEvent(){
 async function cmDelEvent(id){ if(!(await ccConfirm('Delete this event?'))) return; await removeItem('corner_events', id); DATA.corner_events=(DATA.corner_events||[]).filter(x=>x.id!==id); renderCommunity(); }
 function ccGroupOf(tab){ for(const g in CC_GROUPS) if(CC_GROUPS[g].includes(tab)) return g; return 'today'; }
 function ccGroupClick(g){
+  if(g==='today'){ switchTab('mywork'); return; }   /* 2026-10-19: Today opens My Work for everyone */
   const last=localStorage.getItem('cch_last_'+g), tabs=CC_GROUPS[g];
   switchTab(tabs.includes(last)?last:tabs[0]);
 }
@@ -8627,6 +8645,7 @@ function ccGroupClick(g){
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
+  callfollowups:'AI call reader',
   schedguide:'How scheduling works',
   cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'HR',
   recruit:'Recruit',
@@ -8637,7 +8656,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  callfollowups:'Call Follow Ups', meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
@@ -8776,7 +8795,9 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
      "State submissions" filter, with the same people (Getting ready included) and the same aging. */
   statesubs:'leadsstarts',
   /* 2026-10-05: one-to-one meeting requests moved into Team Meetings (Today) */
-  meetings:'teammeetings' };
+  meetings:'teammeetings',
+  /* NEW TODAY (2026-10-19): the Dashboard is the strip on top of My Work; To talk about lives in Team Meetings */
+  today:'mywork', standup:'teammeetings' };
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   tab=GOTO_ALIAS[tab]||tab;
@@ -8920,7 +8941,7 @@ function renderActiveTab(){
   if(activeTab==='comms') renderCommsPage();
   if(activeTab==='inbox') renderInboxCc();
   /* standup-board.js: guarded, so the rest of the Hub never depends on that file loading */
-  if(activeTab==='teammeetings'){ renderMeetingsPage(); if(typeof tmOpen==='function') tmOpen(); }
+  if(activeTab==='teammeetings'){ renderMeetingsPage(); if(typeof tmOpen==='function') tmOpen(); try{ renderStandup(); }catch(e){} try{ renderCommLog(); }catch(e){} }   /* 2026-10-19: scorecard + log moved here */
   if(activeTab==='standup' && typeof suOpen==='function') suOpen();
   /* desk.js: guarded the same way */
   if(typeof dkPill==='function') dkPill();
@@ -11297,6 +11318,76 @@ function renderTodayHero(){
   /* more-fun.js (2026-10-18): a sun for each day this week, and the best run */
   if(window.FUN) FUN.sunshine();
 }
+/* ── NEW TODAY (2026-10-19, her yes to https://claude.ai/artifact/EFKms6fU32DfSTyTZPX1kS) ────────────────────────────────
+   The Dashboard tab is gone. What it was for sits on one line on top of My Work: Since you left, Coverage, Today in
+   AxisCare, Booked today and Responsible now. Each tile reads what the Hub already has and opens where the work is; the
+   work itself is a card in My Work. Nothing here changes anything or contacts anyone. */
+let TS_OPEN=false;
+function todayOvernight(){
+  const win=heroAfterHoursStart().getTime();
+  const born=x=>{ const p=Date.parse(x||''); return !isNaN(p)&&p>=win; };
+  const robot=/^automation:|^(attendance|coverage|timekeeper)-watch$|^timekeeper$|-run$|-sweep$|^cara$/i;
+  const ops=(DATA.ops_items||[]).filter(i=>i&&i.status==='open'&&opsCanSee(i)&&born(i.created_at)
+      &&!robot.test(String(i.created_by||''))&&!robot.test(String(i.opened_by||'')))
+    .sort((a,c)=>String(c.created_at||'').localeCompare(String(a.created_at||'')));
+  const leads=(DATA.leads||[]).filter(l=>l.status!=='Converted'&&l.status!=='Lost'&&born(l.created_at));
+  return { ops, leads };
+}
+async function tsShifts(){
+  if((TB_CACHE && Date.now()-TB_AT<5*60000) || TB_LOADING) return;
+  TB_LOADING=true;
+  try{
+    const ses=await sb.auth.getSession(); const tok=ses&&ses.data&&ses.data.session&&ses.data.session.access_token;
+    const r=await fetch(CONFIG.supabase_url+'/functions/v1/coverage-shifts',{ method:'POST', headers:{ Authorization:'Bearer '+tok, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify({ today_board:true }) });
+    TB_CACHE=await r.json(); TB_AT=Date.now();
+  }catch(e){ TB_CACHE={ error:String(e&&e.message||e) }; TB_AT=Date.now(); }
+  finally{ TB_LOADING=false; }
+  renderTodayStrip();
+}
+function tsToggle(){ TS_OPEN=!TS_OPEN; renderTodayStrip(); if(TS_OPEN){ try{ renderSinceYouLeft(); }catch(e){} } }
+function renderTodayStrip(){
+  const box=document.getElementById('todayStrip'); if(!box) return;
+  const esc=escapeHtmlComms, first=n=>String(n||'').trim().split(/\s+/)[0];
+  const tile=(k,v,sub,go,red)=>(go?'<button class="ts-tile" onclick="'+go+'">':'<div class="ts-tile">')
+    +'<span class="ts-k">'+esc(k)+'</span><span class="ts-v'+(red?' ts-red':'')+'">'+esc(v)+'</span><span class="ts-s">'+esc(sub||'')+'</span>'+(go?'</button>':'</div>');
+  /* 1 · since you left */
+  const ov=todayOvernight(), nOv=ov.ops.length+ov.leads.length;
+  const names=[...ov.ops.map(i=>first(i.about||i.title)), ...ov.leads.map(l=>first(l.first_name||l.name))].filter(Boolean);
+  const t1=tile('Since you left', nOv?nOv+' came in':'Nothing new', nOv?names.slice(0,3).join(', ')+(names.length>3?'…':''):'Quiet since '+heroAfterHoursStart().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/Chicago'}), 'tsToggle()');
+  /* 2 · coverage */
+  const cov=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest')
+    .sort((a,b)=>String((a.shift_date||'')+(a.shift_time||'')).localeCompare(String((b.shift_date||'')+(b.shift_time||''))));
+  const t2=tile('Coverage', cov.length?cov.length+' open case'+(cov.length===1?'':'s'):'No open cases', cov.length?(cov[0].client||'a client')+', '+(cov[0].shift_date?new Date(cov[0].shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'')+(cov[0].shift_time?' '+String(cov[0].shift_time).split('-')[0]:''):'Every case is settled', "switchTab('coverage')", cov.length>0);
+  /* 3 · today in AxisCare */
+  const d=(TB_CACHE && Date.now()-TB_AT<5*60000)?TB_CACHE:null; if(!d) tsShifts();
+  const t3=!d?tile('Today in AxisCare','Checking…','',"switchTab('liveschedule')")
+    : d.error?tile('Today in AxisCare','Not answering','AxisCare did not answer just now',"switchTab('liveschedule')",true)
+    : tile('Today in AxisCare', (d.total||0)+' visits', (d.open||[]).length?(d.open.length+' open shift'+(d.open.length===1?'':'s')+': '+first(d.open[0].client)+', '+(d.open[0].time||'')):'Every visit has a caregiver', (d.open||[]).length?"switchTab('coverage')":"switchTab('liveschedule')", (d.open||[]).length>0);
+  /* 4 · booked today */
+  let iv=null, as=0;
+  try{ if(BT_IV && !BT_IV.error) iv=btInterviewsOn(btChiToday(), BT_IV.bookings, BT_IV.applicants, btAfternoonRule(DATA.ops_settings)).length; }catch(e){}
+  try{ as=btAssessmentsOn(btChiToday(), DATA.care_assessments, DATA.leads).length; }catch(e){}
+  if(!BT_IV || Date.now()-BT_IV_AT>2*60000){ try{ btLoadInterviews(); }catch(e){} }
+  const t4=tile('Booked today', iv===null?(BT_IV&&BT_IV.error?'Interviews not loaded':'Checking…'):(iv+' interview'+(iv===1?'':'s')), as+' assessment'+(as===1?'':'s'), iv?"switchTab('interviews')":(as?"switchTab('leadsstarts')":''), BT_IV&&BT_IV.error);
+  /* 5 · responsible now (the Staffing seat) */
+  let seat=null; try{ seat=routeSeatNow('staffing'); }catch(e){}
+  const nm=seat&&seat.person?String(opsOwnerName(seat.person)||''):'';
+  const who=seat&&seat.person?(nm&&!/@/.test(nm)?first(nm):(s=>s.charAt(0).toUpperCase()+s.slice(1))(String(seat.person).split('@')[0])):'';
+  const FROM={ 'when nobody is scheduled':'nobody scheduled, so the default', 'In charge now':'covering as In charge', 'first on the alert list':'first on the alert list' };
+  const t5=tile('Responsible now', who||'Nobody on Staffing', who?('Staffing seat'+(seat.from&&seat.from!=='the schedule'?' ('+(FROM[seat.from]||seat.from)+')':'')):'Set the duty schedule', '', !who);
+  let panel='';
+  if(TS_OPEN){
+    const when=x=>{ const t=Date.parse(x||''); return isNaN(t)?'':new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/Chicago'}); };
+    const row=(main,sub,go)=>'<div class="ts-row" onclick="'+go+'"><span style="flex:1;min-width:0;">'+main+'</span><span class="field-note">'+esc(sub)+'</span></div>';
+    panel='<div class="ts-panel"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><b style="color:var(--navy);">Came in since '+esc(when(heroAfterHoursStart().toISOString()))+'</b><span style="flex:1"></span><button class="linklike" onclick="tsToggle()">Fold away</button></div>'
+      +(nOv?ov.ops.slice(0,12).map(i=>row('<b>'+esc(i.about||i.title||'')+'</b> '+esc(i.about&&i.title?'· '+String(i.title).slice(0,90):''), when(i.created_at), "if(typeof suOpenWork==='function')suOpenWork('"+esc(String(i.id).replace(/[^A-Za-z0-9_-]/g,''))+"');else switchTab('mywork')")).join('')
+          +ov.leads.slice(0,6).map(l=>row('<b>'+esc([l.first_name,l.last_name].filter(Boolean).join(' ')||l.name||'New lead')+'</b> · new lead', when(l.created_at), "switchTab('leadsstarts')")).join('')
+        :'<div class="field-note">Nothing came in.</div>')
+      +'<div id="sylSlot" style="margin-top:10px;"></div><div id="sylWrap"></div></div>';
+  }
+  box.innerHTML='<div class="ts-strip">'+t1+t2+t3+t4+t5+'</div>'+panel;
+}
+
 async function heroLoadShifts(){
   const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
   const chipEl=document.getElementById('tbShiftChip');
@@ -11494,6 +11585,7 @@ async function btLoadInterviews(){
   }catch(e){ BT_IV = { error: String(e && e.message || e || 'error') }; }
   finally{ BT_IV_AT = Date.now(); BT_IV_LOADING = false; }
   renderTodayBooked();
+  try{ renderTodayStrip(); }catch(e){}
 }
 /* Settings: the afternoon rule. Business config, so it is edited here and every change is recorded. */
 function aivFill(){
@@ -21072,7 +21164,8 @@ function renderMeetingsCc(){
 /* "🎥 Meeting" button in the Overview header: opens the request form inside
    the attention card (creating the Meetings section if it's empty today). */
 function ccmtgSolo(){
-  if(activeTab!=='today') switchTab('today'); // the form lives on the Overview
+  /* 2026-10-19: the Dashboard is gone; meeting requests are asked for on Team Meetings */
+  if(activeTab!=='teammeetings'){ switchTab('teammeetings'); return; }
   window._ccmtgWantForm=true;
   renderMeetingsCc();
   window._ccmtgWantForm=false;
@@ -30014,6 +30107,9 @@ function renderMyWork(){
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   try{ opsReconcileInbox(); }catch(e){ console.warn('[inbox cards]', e); }   /* Today gap cards (2026-10-18): messages and meeting requests */
+  try{ renderTodayStrip(); }catch(e){ console.warn('[today strip]', e); }   /* NEW TODAY (2026-10-19) */
+  try{ if(typeof dkDashRender==='function') dkDashRender(); }catch(e){}
+  try{ if(typeof svRender==='function') svRender(); }catch(e){}
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';

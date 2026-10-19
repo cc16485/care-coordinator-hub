@@ -72,10 +72,11 @@ function board(who) {
   }
 
   /* the Dashboard hero: the one list behind overnight, pass-alongs and family updates asks opsCanSee */
-  const hero = cut('function renderTodayHero(', 'async function heroLoadShifts(');
+  const hero = cut('function renderTodayHero(', '/* ── NEW TODAY (2026-10-19');
   ck('Dashboard hero: its open-card list asks opsCanSee', /const open=\(DATA\.ops_items\|\|\[\]\)\.filter\(i=>i\.status==='open'&&opsCanSee\(i\)\);/.test(hero));
   ck('Dashboard hero: overnight, pass-alongs and family updates all come from that list', /const onOps=open\./.test(hero) && /const myPass=open\./.test(hero) && /const famCalls=open\./.test(hero) && !/DATA\.ops_items/.test(hero.replace("const open=(DATA.ops_items||[])", '')), 'another read of DATA.ops_items in the hero');
 
+  ck('new Today strip: Since you left asks opsCanSee too', /i&&i\.status==='open'&&opsCanSee\(i\)&&born\(i\.created_at\)/.test(cut('function todayOvernight(){', 'async function tsShifts(')));
   /* since you were last here: events about a card you can't open are left out */
   for (const [who, sees] of [[KRYS, false], [OWNER, true]]) {
     const events = [{ at: NOW, actor_email: ZACH, verb: 'closed', summary: 'Closed: ' + SECRET, item_id: 'ops_secret' },

@@ -46,7 +46,7 @@
     if(!roles || !Object.keys(roles).length) return;   /* who is an owner is not known yet */
     ST.landed = true;
     if(!allowed() || String(location.hash || '').length > 1) return;
-    if(typeof activeTab !== 'undefined' && activeTab !== 'today') return;
+    if(typeof activeTab !== 'undefined' && activeTab !== 'today' && activeTab !== 'mywork') return;   /* 2026-10-19: My Work is the first screen now */
     setTimeout(() => { if(typeof switchTab === 'function') switchTab('owneroverview'); }, 0);
   }
   function open_(){ try{ return (DATA.ops_items || []).filter(i => i && i.status === 'open' && (typeof opsCanSee !== 'function' || opsCanSee(i))); }catch(_){ return []; } }
