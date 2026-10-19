@@ -23482,7 +23482,7 @@ async function apLoad(btn){
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     try{ await prnLoad(true); }catch(_){ /* before PRN2's tables exist: nothing to show */ }
     apFillPositions(); apRenderFilter(); apRender();
-    try{ if(window.FUN) FUN.garden(); }catch(e){}   /* more-fun.js (2026-10-18): hiring as a garden */
+    /* 2026-10-19: the hiring garden is off this page (her call); FUN.garden stays in more-fun.js, unused */
     if(window.ApText) ApText.load();   /* 574: the 'texted 2h ago' chips */
     apInvLoad();
     /* If somebody's page is open, it is looking at a row we just replaced. */
