@@ -11164,7 +11164,7 @@ function renderTodayHero(){
   const myFirst=String((ME&&ME.name)||'').split(/\s+/)[0]||'';
   const t=today(), now=Date.now();
   const yd=new Date(now-864e5).toLocaleDateString('en-CA');
-  const open=(DATA.ops_items||[]).filter(i=>i.status==='open');
+  const open=(DATA.ops_items||[]).filter(i=>i.status==='open'&&opsCanSee(i));   // privacy 2026-10-18: an employment item's title never shows to someone who can't open it
   const win=heroAfterHoursStart().getTime();
   const born=x=>{ const p=Date.parse(x||''); return !isNaN(p)&&p>=win; };
   /* Overnight means PEOPLE: a note someone banked, a text a caregiver sent,
@@ -28360,7 +28360,9 @@ async function ccSinceFetch(){
       if(!r.error) CC_SINCE=(r.data||[])
         .filter(e=>CC_SINCE_NOISE.indexOf(String(e.verb||''))<0)
         .filter(e=>!(typeof CC_VERBS!=='undefined'&&CC_VERBS.isDiagnostic(String(e.verb||''))))
-        .filter(e=>String(e.actor_email||'').toLowerCase()!==String(ME.email).toLowerCase());
+        .filter(e=>String(e.actor_email||'').toLowerCase()!==String(ME.email).toLowerCase())
+        /* privacy 2026-10-18: nothing about a card the viewer may not open (an employment item) */
+        .filter(e=>{ const o=e.item_id?(DATA.ops_items||[]).find(i=>i&&i.id===e.item_id):null; return !o||opsCanSee(o); });
     } else {
       /* First sign-in on this browser: nothing to compare against yet.
          Start the clock now; from here on absence is measured honestly. */
