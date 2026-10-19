@@ -4600,6 +4600,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="rcToggleBtn" onclick="rcToggle(this)">Turn on relationship calls</button>
   <span class="field-note" id="rcSaved"></span>
 </div>
+<!-- Relationship call details (audit step 4, Samantha 2026-10-18): ops_settings.relcall_details_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Concerns, follow-ups and the welcome call</div>
+<p class="hint">When a relationship call reaches the family, the log also asks: any concern (it goes to Client Care as an issue, like any other concern) and any follow-up (someone owns it by a date, as a card for them). The welcome call is logged the same way: pressing Done on "Call the family after the first visit" opens the call log, voicemails and no answers are kept as attempts, and the step closes only after a real conversation with a note. Only Samantha or Zachary can turn this on or off.</p>
+<div id="rdSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="rdToggleBtn" onclick="rdToggle(this)">Turn on</button>
+  <span class="field-note" id="rdSaved"></span>
+</div>
 <!-- Bonus program (Stage 4 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.bonus_live and
      ops_settings.bonus {start, amount, min_hours, payroll, decider}. The bonus records themselves stay on the server (cc-bonus). -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Bonus program</div>
@@ -7403,7 +7411,7 @@ The HomeTogether team</pre>
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=20"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
-<script src="relationship-rules.js?v=1"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
+<script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=1"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=3"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
@@ -7455,7 +7463,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=21"></script>
+<script src="client-journey.js?v=22"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
 <script src="review-ask.js?v=1"></script>
@@ -18318,6 +18326,25 @@ async function bpToggle(btn){
   const sv=document.getElementById('bpSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   bpSetFill();
 }
+/* Concerns, follow-ups and the welcome call (audit step 4, Samantha 2026-10-18). Owners only. */
+function rdSetFill(){
+  const now=document.getElementById('rdSetNow'), b=document.getElementById('rdToggleBtn'); if(!now) return;
+  const on=relDetailsOn(), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Conversations can carry a concern and a follow-up, and the welcome call is logged before its step closes.':'<b style="color:#B7791F;">Off.</b> Relationship calls log as before, and the welcome call step closes with Done.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function rdToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!relDetailsOn();
+  const ok=await ccConfirm(on?'Turn on concerns, follow-ups and the logged welcome call?\n\n· a conversation can record a concern (sent to Client Care as an issue) and a follow-up someone owns by a date\n· the welcome call step opens the call log; voicemails and no answers are kept as attempts, and only a real conversation closes it\n\nNothing is sent to any family.'
+    :'Turn it off? Relationship calls go back to the simple log, and the welcome call step closes with Done.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.relcall_details_live=on; if(on&&!m.relcall_details_live_since) m.relcall_details_live_since=new Date().toISOString(); return ['relationship call details '+(on?'ON':'OFF')]; }, 'relationship call details');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('rdSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  rdSetFill();
+}
 /* Relationship calls settings (Stage 3, policy 2026-10-18). Owners only. */
 function rcOn(){ return typeof RelationshipRules!=='undefined'&&RelationshipRules.on(DATA.ops_settings||{}); }
 function rcSetFill(){
@@ -18404,6 +18431,7 @@ function lhSetFill(){
   try{ ltSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
+  try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
   try{ fcSetFill(); }catch(e){}
@@ -28934,31 +28962,85 @@ async function covOutcome(itemId, how){
 }
 /* Relationship calls (Stage 3): log the call from the card. Talked = done (the next call comes later); voicemail or no
    answer = recorded, the card stays. Who made it is recorded; a teammate helping never changes whose family it is. */
-function relCallLog(itemId, btn){
-  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
-  const O=RelationshipRules.OUTCOMES, esc=escapeHtmlComms;
-  const el=ccPopOpen(btn||document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">'+esc(it.title||'Relationship call')+'</div>'
+/* Audit step 4 (Samantha 2026-10-18, ops_settings.relcall_details_live): a real conversation can carry a concern (filed to
+   Client Care as an issue, like any other concern) and a follow-up someone owns by a date (a card for them). */
+function relDetailsOn(){ return (DATA.ops_settings||{}).relcall_details_live===true; }
+function relLogPopup(title, btn, onGo){
+  const O=RelationshipRules.OUTCOMES, esc=escapeHtmlComms, det=relDetailsOn();
+  const ppl=(typeof OPS_PEOPLE!=='undefined'&&OPS_PEOPLE||[]).filter(p=>p&&p.primary_email);
+  const me=String((ccActor()||{}).email||'').toLowerCase();
+  const inp='width:100%;margin-top:6px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;';
+  const el=ccPopOpen(btn||document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">'+esc(title||'Relationship call')+'</div>'
     +Object.keys(O).map(k=>'<label style="display:flex;gap:8px;align-items:center;padding:6px 4px;font-size:13.5px;"><input type="radio" name="relO" value="'+k+'" style="width:auto;margin:0;"'+(k==='talked'?' checked':'')+'> '+esc(O[k])+'</label>').join('')
-    +'<input id="relNote" placeholder="What did they say? (short note)" style="width:100%;margin-top:8px;padding:8px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;box-sizing:border-box;">'
-    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="relGo" style="padding:7px 14px;font-size:13px;">Log it</button><button class="ghost" id="relNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:320 });
+    +'<input id="relNote" placeholder="What did they say? (short note)" style="'+inp+'margin-top:8px;">'
+    +(det?'<div id="relMore"><div class="field-note" style="margin-top:8px;"><b>Any concern?</b> It goes to Client Care as an issue.</div><textarea id="relConcern" rows="2" placeholder="Leave empty if none" style="'+inp+'"></textarea>'
+      +'<div class="field-note" style="margin-top:8px;"><b>Follow-up needed?</b> Someone owns it by a date.</div><input id="relFuWhat" placeholder="What needs doing (leave empty if nothing)" style="'+inp+'">'
+      +'<div style="display:flex;gap:6px;"><select id="relFuOwner" style="'+inp+'flex:1;">'+ppl.map(p=>'<option value="'+esc(String(p.primary_email).toLowerCase())+'"'+(String(p.primary_email).toLowerCase()===me?' selected':'')+'>'+esc(p.full_name||p.primary_email)+'</option>').join('')+'</select>'
+      +'<input id="relFuDue" type="date" min="'+today()+'" style="'+inp+'width:150px;"></div></div>':'')
+    +'<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" id="relGo" style="padding:7px 14px;font-size:13px;">Log it</button><button class="ghost" id="relNo" style="padding:7px 14px;font-size:13px;">Cancel</button></div>', { width:340 });
+  const more=el.querySelector('#relMore');
+  el.querySelectorAll('input[name=relO]').forEach(r=>r.onchange=()=>{ if(more) more.style.display=(el.querySelector('input[name=relO]:checked')||{}).value==='talked'?'':'none'; });
   el.querySelector('#relNo').onclick=ccPopClose;
   el.querySelector('#relGo').onclick=async ()=>{
     const outcome=(el.querySelector('input[name=relO]:checked')||{}).value, note=(el.querySelector('#relNote').value||'').trim();
     if(outcome==='talked'&&!note){ alert('Add a short note: what did they say?'); return; }
-    ccPopClose(); await relCallSave(itemId, outcome, note);
+    const v=id=>String((el.querySelector('#'+id)||{}).value||'').trim();
+    const concern=det&&outcome==='talked'?v('relConcern'):'';
+    const fw=det&&outcome==='talked'?v('relFuWhat'):'', fo=v('relFuOwner'), fd=v('relFuDue');
+    if(fw&&(!fo||!fd)){ alert('A follow-up needs who owns it and by when.'); return; }
+    if(fw&&fd<today()){ alert('The follow-up date can\'t be in the past.'); return; }
+    ccPopClose(); await onGo({ outcome, note, concern, followup:fw?{ what:fw, owner:fo, due:fd }:null });
   };
 }
-async function relCallSave(itemId, outcome, note){
+/* after a logged conversation: the concern goes to Client Care (issues-run intake, the same door as any concern) and the
+   follow-up becomes a card for its owner. Never silent: a failure says so and keeps the concern on the call record. */
+async function relDetailsAfter(l, e){
+  if(!e) return;
+  const a=ccActor()||{}, who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.client_first_name,l.client_last_name].filter(Boolean).join(' ').trim()||[l.first_name,l.last_name].filter(Boolean).join(' ').trim()||'a client';
+  if(e.concern){
+    let r=null; try{ r=await CCIssue.call('intake=1', { category:'needs_triage', summary:'From the '+e.title.toLowerCase()+': '+e.concern, client_name:who, urgency:'',
+      reported_by_name:[l.first_name,l.last_name].filter(Boolean).join(' ').trim(), reported_by_role:'family', source:'relationship_call', source_ref:String(l.id), taken_by:a.email||'', confirm_new:true }); }catch(err){ r={ error:String(err&&err.message||err) }; }
+    if(r&&!r.error){ e.issue_id=r.issue_id||r.id||''; ccToast('✓ The concern is with Client Care'+(r.owner?' ('+(opsOwnerName(r.owner)||r.owner)+')':'')+'.'); }
+    else { e.concern_error=String((r&&r.error)||'not sent'); alert('The call is logged, but the concern could not be sent to Client Care ('+e.concern_error+'). It is kept on the call. Please report it from Client Care too.'); }
+  }
+  if(e.followup){
+    const it={ id:'ops_relfu_'+l.id+'_'+Date.now(), kind:'relationship_followup', source_id:String(l.id), domain:'client_care', status:'open', opened_by:a.email||'',
+      title:'Follow up: '+who+' (from the '+e.title.toLowerCase()+')', about:who, detail:e.followup.what, next_action:e.followup.what,
+      owner:e.followup.owner, due:LeadRules.chicagoInstant(e.followup.due,'17:00'), urgency:'normal', created_at:new Date().toISOString(), last_activity_at:new Date().toISOString() };
+    it.owner_name=it.owner?opsOwnerName(it.owner):''; DATA.ops_items=DATA.ops_items||[]; DATA.ops_items.push(it); await persist('ops_items', it); e.followup.card=it.id;
+  }
+  await persist('leads', l);
+}
+function relCallLog(itemId, btn){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  relLogPopup(it.title, btn, d=>relCallSave(itemId, d.outcome, d.note, d));
+}
+/* the welcome call (the journey step fw.family), logged the same way: attempts are kept, and only a conversation closes the
+   step (onTalked completes it). Used by client-journey.js while step 4 is on. */
+function relWelcomeLog(leadId, btn, onTalked){
+  const l=(DATA.leads||[]).find(x=>String(x.id)===String(leadId)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
+  const who=(typeof cpLeadClientName==='function'&&cpLeadClientName(l))||[l.client_first_name,l.client_last_name].filter(Boolean).join(' ').trim()||'the family';
+  relLogPopup('Welcome call: '+who, btn, async d=>{
+    const a=ccActor()||{}, now=new Date().toISOString();
+    const e=RelationshipRules.record(l, 'welcome', { outcome:d.outcome, note:d.note, concern:d.concern, followup:d.followup, by:a.email||'', by_name:a.name||'', owner:l.assigned_coordinator||'', at:now });
+    if(!e){ alert('That could not be logged.'); return; }
+    await persist('leads', l); await relDetailsAfter(l, e);
+    if(d.outcome==='talked'){ if(typeof onTalked==='function') await onTalked(e); }
+    else ccToast('✓ Logged ('+RelationshipRules.OUTCOMES[d.outcome].toLowerCase()+'). The welcome call stays open until you talk with them.');
+  });
+}
+async function relCallSave(itemId, outcome, note, extra){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id)); if(!l){ alert('This family\'s record is not loaded. Refresh and try again.'); return; }
   const a=ccActor()||{}, now=new Date().toISOString();
   const covering=!!it.owner&&String(it.owner).toLowerCase()!==String(a.email||'').toLowerCase();
   const why=covering?await coverReasonAsk(String(it.owner_name||opsOwnerName(it.owner)||'').split(' ')[0]):'';
   if(why===null) return;
-  const e=RelationshipRules.record(l, it.call_key, { outcome, note, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
+  const e=RelationshipRules.record(l, it.call_key, { outcome, note, concern:extra&&extra.concern, followup:extra&&extra.followup, by:a.email||'', by_name:a.name||'', owner:it.owner_name||opsOwnerName(it.owner)||'', at:now });
   if(!e){ alert('That could not be logged.'); return; }
   if(why){ e.cover_reason=why; it.covering=Object.assign({}, it.covering||{}, { for:it.owner, by:a.email||'', at:now, reason:why }); }
   await persist('leads', l);
+  await relDetailsAfter(l, e);
   const words=RelationshipRules.OUTCOMES[outcome];
   if(outcome==='talked'){ it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=words+(note?': '+note:''); }
   else { it.last_activity_at=now; }
@@ -28967,6 +29049,17 @@ async function relCallSave(itemId, outcome, note){
   await persist('ops_items', it);
   ccToast(outcome==='talked'?'✓ Logged. '+it.title.split(':')[0]+' is done.':'✓ Logged. The card stays until you talk with them.');
   myWorkRefresh();
+}
+async function relFollowupDone(itemId){
+  const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  const what=await ccPrompt('What did you do? (kept with the family)', ''); if(what===null) return;
+  if(!String(what).trim()){ alert('Say what you did.'); return; }
+  const a=ccActor()||{}, now=new Date().toISOString();
+  it.status='done'; it.closed_at=now; it.closed_by=a.email||''; it.close_note=String(what).trim();
+  opsLog(it, (a.name||'Someone')+': '+it.close_note);
+  const l=(DATA.leads||[]).find(x=>String(x.id)===String(it.source_id));
+  if(l){ l.comm_log=Array.isArray(l.comm_log)?l.comm_log:[]; l.comm_log.push({ kind:'relationship_call', at:now, by:a.email||'', body:'✓ Follow-up done: '+it.close_note }); await persist('leads', l); }
+  await persist('ops_items', it); ccToast('✓ Done'); myWorkRefresh();
 }
 async function famCallDone(itemId, how){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
@@ -29251,7 +29344,7 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
-    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call') && it.status==='open'){
+    if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
       if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
@@ -29261,6 +29354,9 @@ function obligationOpenAction(it){
       if(it.kind==='family_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("famCallDone('"+id+"','called')",'I called the family',true)+b("famCallDone('"+id+"','knew')",'They already knew')
         +'<span class="field-note">The Hub never calls or texts the family itself.</span></div>';
+      if(it.kind==='relationship_followup') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
+        +b("relFollowupDone('"+id+"')",'Done',true)+b("openLeadProfile('"+esc(String(it.source_id||''))+"')",'Open the family')
+        +'<span class="field-note">Promised on a relationship call. Say what you did when you mark it done.</span></div>';
       if(it.kind==='relationship_call') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("relCallLog('"+id+"', this)",'Log the call',true)+b("openLeadProfile('"+esc(String(it.source_id||''))+"')",'Open the family')
         +'<span class="field-note">A relationship call, not a supervisory visit. The Hub never calls or texts the family.</span></div>';

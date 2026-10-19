@@ -534,7 +534,7 @@
     const basics = def.verify === 'lead_basics' ? basicsOf() : null, missing = basics && basics.some(x => !x[1]);
     if(r.st.state === 'blocked' || r.st.state === 'waiting') h += '<button class="primary" data-act="unblock">' + (r.st.state === 'waiting' ? 'It\'s back now' : 'Unblock') + '</button>';
     else if(def.proof === 'verified'){ const sa = stepAction(r); if(sa) h += sa; if(!missing) h += '<button class="' + (sa ? 'secondary' : 'primary') + '" data-act="check">Check now</button>'; }
-    else h += (stepAction(r) ? stepAction(r).replace('class="primary"', 'class="secondary"') : '') + '<button class="primary" data-act="complete">' + (fields.length ? 'Save and finish this step' : 'Done') + '</button>';
+    else h += (stepAction(r) ? stepAction(r).replace('class="primary"', 'class="secondary"') : '') + '<button class="primary" data-act="complete">' + (welcomeLogged(r) ? 'Log the welcome call' : fields.length ? 'Save and finish this step' : 'Done') + '</button>';
     if(owner() && (r.stop || r.status === 'blocked')) h += '<button class="cj-violet-btn" data-act="exc-open">Owner exception…</button>';
     /* everything else waits behind one quiet button */
     h += '<button class="secondary cj-cant" onclick="cjMore()" aria-expanded="' + (CJ.more ? 'true' : 'false') + '">Can\'t do this yet ' + (CJ.more ? '▴' : '▾') + '</button>';
@@ -634,6 +634,8 @@
   async function openFile(path){
     try{ const d = await call({ action:'file_url', journey_id:CJ.data.journey.journey_id, path }); window.open(d.url, '_blank', 'noopener'); }catch(e){ ccToast('Couldn\'t open the file: ' + e.message); }
   }
+  /* audit step 4 (ops_settings.relcall_details_live): the welcome call (fw.family) closes only after a logged conversation */
+  function welcomeLogged(r){ return !!r && r.key === 'fw.family' && (typeof DATA !== 'undefined' && (DATA.ops_settings || {}).relcall_details_live === true) && typeof relWelcomeLog === 'function'; }
   async function act(key, a, card, btn){
     const errBox = card.querySelector('[data-err]'), say = t => { if(errBox) errBox.textContent = t; else ccToast(t); };
     const m = k => { const el = card.querySelector('[data-m="' + k + '"]'); return el ? el.value.trim() : ''; };
@@ -643,6 +645,11 @@
     let body = null;
     if(a === 'check'){ body = { action:'refresh', journey_id:j.journey_id }; }
     else if(a === 'complete' || a === 'manual'){
+      if(a === 'complete' && welcomeLogged(r) && !CJ.welcomeOk){
+        if(!j.lead_id){ say('This journey has no inquiry record to log the call on.'); return; }
+        relWelcomeLog(j.lead_id, btn, async (e) => { CJ.form[key] = Object.assign({}, CJ.form[key] || {}, { welcome_call:{ at:e.at, by:e.by, note:e.note } }); CJ.welcomeOk = true; try{ await act(key, 'complete', card, null); } finally { CJ.welcomeOk = false; } });
+        return;
+      }
       const files = (CJ.files[key] || []).filter(f => f.path).map(f => f.path);
       if((CJ.files[key] || []).some(f => !f.path)){ say('Wait for the proof to finish uploading.'); return; }
       const input = { answer:CJ.form[key] || {}, files, manual_reason:a === 'manual' ? m('manual_reason') : '' };
