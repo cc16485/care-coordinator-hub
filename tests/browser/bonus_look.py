@@ -79,6 +79,25 @@ async()=>{
   ok('Zach · an under-review bonus says Samantha decides (no exception or not-earned buttons)', /Samantha decides/.test(txt())&&!/Approve as an exception/.test(txt())&&!/Not earned/.test(txt()));
   bnClose();
 
+  /* ── audit step 5: the payroll summary, and the owners' Leaving note ── */
+  LISTS.kry.lines=[line('k',{ recipient:'Krystal', recipient_email:'kry@mo-care.com' }), line('b',{ status:'approved', status_words:'Approved' }), line('c',{ recipient:'Krystal', recipient_email:'kry@mo-care.com', status:'approved', status_words:'Approved' }),
+    line('d',{ recipient:'Krystal', recipient_email:'kry@mo-care.com', status:'approved', status_words:'Approved' }),
+    line('p1',{ status:'paid', paid_on:'2026-12-11' }), line('p2',{ recipient:'Krystal', recipient_email:'kry@mo-care.com', status:'paid', paid_on:'2026-12-11' }), line('p3',{ status:'paid', paid_on:'2026-11-27' })];
+  ROLE='kry'; await bnOpen(); await sleep(50);
+  const sm=()=>(document.getElementById('bnSummary')||{}).innerText||'';
+  ok('summary · next payroll per person and the total ($100 Angiel, $200 Krystal, $300)', /Angiel: 1 bonus, \$100/.test(sm())&&/Krystal: 2 bonuses, \$200/.test(sm())&&/Total \$300/.test(sm()), sm());
+  ok('summary · each payroll date, newest first, with its total', /Paid on the 2026-12-11 payroll[\s\S]*Total \$200[\s\S]*Paid on the 2026-11-27 payroll[\s\S]*Total \$100/.test(sm()), sm());
+  ok('summary · payroll never sees a Leaving note', !document.querySelector('.bn-leaving'));
+  bnClose();
+  LISTS.sam.lines[1].leaving={ kind:'Resignation', last_day:'2026-12-15' };
+  ROLE='sam'; await bnOpen(); await sleep(50);
+  ok('owners · a leaving Care Coordinator\'s bonus says so, and that nothing changes by itself', /Leaving: Resignation, last day 2026-12-15\. Nothing changes by itself; you decide this one for final pay\./.test(txt()), txt());
+  ok('owners · the summary shows for owners too', !!document.getElementById('bnSummary'));
+  bnClose();
+  ROLE='ang'; await bnOpen(); await sleep(50);
+  ok('a Care Coordinator · no payroll summary', !document.getElementById('bnSummary'));
+  bnClose();
+
   /* ── settings ── */
   window.OPS_PEOPLE=[{ primary_email:'kry@mo-care.com', full_name:'Krystal Land' }, { primary_email:'sam@mo-care.com', full_name:'Samantha T' }];
   (0,eval)(`OPS_PEOPLE=window.OPS_PEOPLE`);

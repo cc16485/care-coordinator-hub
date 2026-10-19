@@ -8,6 +8,9 @@
        one not earned, each with a written reason, and records the one-time Viventium overtime check
    The switch (ops_settings.bonus_live) and the program settings are in Settings > Leads > Bonus program. Nothing here
    contacts anyone.
+   Audit step 5 (2026-10-18): a payroll summary (approved and not yet paid, per person; then what was paid on each payroll
+   date), and, for the owners only, a "Leaving" note on the bonuses of someone with an offboarding. Leaving changes
+   nothing by itself: what happens to those bonuses is Samantha's decision 3 (attorney and Viventium).
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -47,7 +50,25 @@
   function row(l, actions){
     return '<div class="bn-row" data-id="' + esc(l.id) + '"><div style="flex:1 1 260px;min-width:0;"><b>' + esc(l.client) + '</b> ' + chip(l)
       + '<div class="bn-sub">' + esc(l.recipient) + ' · first visit ' + esc(l.first_visit) + ' · ' + money(l.amount) + '</div>'
-      + '<div class="bn-sub" style="color:var(--text)">' + esc(l.words || '') + (l.decision_why ? ' · ' + esc(l.decision_why) : '') + '</div></div>' + (actions || '') + '</div>';
+      + '<div class="bn-sub" style="color:var(--text)">' + esc(l.words || '') + (l.decision_why ? ' · ' + esc(l.decision_why) : '') + '</div>'
+      + (l.leaving ? '<div class="bn-sub bn-leaving" style="color:#B23B2E;font-weight:600;">Leaving: ' + esc(l.leaving.kind || 'offboarding started') + (l.leaving.last_day ? ', last day ' + esc(l.leaving.last_day) : '')
+        + '. Nothing changes by itself; you decide this one for final pay.</div>' : '')
+      + '</div>' + (actions || '') + '</div>';
+  }
+  /* the payroll summary: approved and not yet paid, per person; then what went out on each payroll date (newest first) */
+  function summary(lines){
+    const sum = a => a.reduce((t, l) => t + Number(l.amount || 0), 0);
+    const byPerson = a => { const m = new Map(); a.forEach(l => { const k = l.recipient || '?'; m.set(k, (m.get(k) || []).concat(l)); }); return [...m.entries()].sort((x, y) => x[0].localeCompare(y[0])); };
+    const toPay = lines.filter(l => l.status === 'approved'), paid = lines.filter(l => l.status === 'paid' && l.paid_on);
+    let h = '<div class="bn-k">Payroll summary</div><div id="bnSummary">';
+    h += '<div class="bn-row"><div style="flex:1;"><b>For the next payroll</b> <span class="bn-sub">approved, not paid yet</span>'
+      + (toPay.length ? byPerson(toPay).map(([p, a]) => '<div class="bn-sub" style="color:var(--text)">' + esc(p) + ': ' + a.length + ' bonus' + (a.length === 1 ? '' : 'es') + ', ' + money(sum(a)) + '</div>').join('')
+        + '<div class="bn-sub"><b>Total ' + money(sum(toPay)) + '</b></div>' : '<div class="bn-sub">Nothing to enter.</div>') + '</div></div>';
+    const dates = [...new Set(paid.map(l => l.paid_on))].sort().reverse().slice(0, 6);
+    dates.forEach(d => { const a = paid.filter(l => l.paid_on === d);
+      h += '<div class="bn-row"><div style="flex:1;"><b>Paid on the ' + esc(d) + ' payroll</b>' + byPerson(a).map(([p, x]) => '<div class="bn-sub" style="color:var(--text)">' + esc(p) + ': ' + x.length + ', ' + money(sum(x)) + '</div>').join('')
+        + '<div class="bn-sub">Total ' + money(sum(a)) + '</div></div></div>'; });
+    return h + '</div>';
   }
   function draw(){
     const box = document.querySelector('#bnModal .bn-dlg'); if(!box) return; const d = ST.data || {};
@@ -58,6 +79,7 @@
     if(!d.live) h += '<div class="bn-banner">The bonus program is switched off. ' + (me.owner ? 'Turn it on in Settings > Leads > Bonus program.' : 'Samantha or Zachary turns it on.') + '</div>';
     h += '<div class="bn-k">Your bonuses</div>' + (mine.length ? mine.map(l => row(l)).join('') : '<div class="bn-sub">None yet. A bonus starts here when a private-pay client whose lead was yours has their first visit.</div>');
     if(me.payroll || me.owner){
+      h += summary(lines);
       const toPay = lines.filter(l => l.status === 'approved');
       h += '<div class="bn-k">Approved, to enter in Viventium</div>';
       if(!d.ot_checked) h += '<div class="bn-banner">Before the first payout, Samantha confirms with Viventium how bonuses count toward overtime. Marking paid waits for that.'
