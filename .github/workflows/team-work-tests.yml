@@ -1,0 +1,33 @@
+# Team Work and My Work tests (2026-10-18, Samantha: "the automatic check that runs the Team Work and My Work tests on
+# every Hub PR"). Runs the two rule tests and the two browser tests on every pull request. Read only: made-up cards,
+# the Hub files served from disk, every Supabase request blocked, nothing sent.
+name: Team Work and My Work tests
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Team Work rules
+        run: node tests/team-work-test.js
+      - name: My Work tiers rules
+        run: node tests/my-work-tiers-test.js
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install the test browser
+        run: |
+          pip install playwright==1.47.0
+          python -m playwright install --with-deps chromium
+      - name: Team Work on the real page
+        run: python tests/browser/team_work_look.py
+      - name: My Work tiers on the real page
+        run: python tests/browser/my_work_tiers_look.py
