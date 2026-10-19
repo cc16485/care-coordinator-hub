@@ -11,7 +11,10 @@
      · How the agency is doing, the last 7 days, including "times work reached you"
    It READS what the Hub already has and opens the screen where each thing is done. It never changes an owner, never
    marks anything seen or done, and never contacts anyone. Owners only, behind ops_settings.owner_overview_live.
-   Not yet (later plan steps): Help with this from here (step 4), and the full weekly numbers (step 5).
+   Helping from here (plan step 4, Samantha 2026-10-18 "start"): on care at risk, team support and overdue rows that are
+   not yours: Help with this (you are added as a helper; it stays theirs), then My part is done or This is finished;
+   Make this mine is a separate step with a reason. These are the same team actions My Work uses (team-actions.js).
+   Not yet (a later plan step): the full weekly numbers.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -45,6 +48,16 @@
   const B = (fn, label, primary) => '<button class="' + (primary ? 'primary' : 'ghost') + '" onclick="' + fn + '">' + label + '</button>';
   const item = (t, m, btn) => '<div class="ov-it"><div class="t">' + t + '</div>' + (m ? '<div class="m">' + m + '</div>' : '') + (btn || '') + '</div>';
   const box = (title, n, body, full) => '<div class="ov-box"' + (full ? ' style="grid-column:1/-1"' : '') + '><h4>' + esc(title) + (n != null ? ' <span class="n">' + esc(n) + '</span>' : '') + '</h4>' + body + '</div>';
+  /* the team actions on a row that is not yours (team-actions.js); anchors are the row's own buttons */
+  function acts(i, m){
+    if(!window.TA || !i || lc(i.owner) === m) return B("OV.card('" + esc(i.id) + "')", 'Open');
+    const id = esc(i.id), a = 'ovA_' + id;
+    if(lc(i.help_from) === m) return '<div class="m" style="margin-top:4px;">You are helping · still ' + esc(first(nameOf(i.owner))) + '’s</div>'
+      + B("OV.part('" + id + "','" + a + "p')", 'My part is done', true).replace('<button', '<button id="' + a + 'p"') + ' '
+      + B("OV.finish('" + id + "','" + a + "f')", 'This is finished').replace('<button', '<button id="' + a + 'f"') + ' ' + B("OV.card('" + id + "')", 'Open');
+    return B("OV.help('" + id + "')", 'Help with this', true) + ' ' + B("OV.card('" + id + "')", 'Open') + ' '
+      + B("OV.mine('" + id + "','" + a + "t')", 'Make this mine').replace('<button', '<button id="' + a + 't"');
+  }
   const safe = (f, fallback) => { try{ return f(); }catch(e){ console.warn('owner overview', e); return fallback; } };
 
   /* ── the parts read on the page ── */
@@ -76,11 +89,11 @@
   }
   function urgent(m){
     return open_().filter(i => window.TA && TA.critical(i)).map(i => { const e = i.escalation || {};
-      return item('<span class="ov-red">●</span> ' + esc(i.title || i.about || 'Care at risk'), 'Owner ' + esc(nameOf(i.owner)) + (i.claimed_by ? ' · ' + esc(i.claimed_by_name || nameOf(i.claimed_by)) + ' is on it' : '') + (e.to && !e.cleared_at ? ' · reached ' + esc(nameOf(e.to)) + (e.at ? ' ' + esc(ago(e.at)) : '') : '') + (lc(e.to) === m && !e.cleared_at ? ' · <span class="ov-red">waiting on you</span>' : ''),
-        B("OV.card('" + esc(i.id) + "')", 'Open', true)); });
+      return item('<span class="ov-red">●</span> ' + esc(i.title || i.about || 'Care at risk'), 'If someone is in danger, call 911 now. · Owner ' + esc(nameOf(i.owner)) + (i.claimed_by ? ' · ' + esc(i.claimed_by_name || nameOf(i.claimed_by)) + ' is on it' : '') + (e.to && !e.cleared_at ? ' · reached ' + esc(nameOf(e.to)) + (e.at ? ' ' + esc(ago(e.at)) : '') : '') + (lc(e.to) === m && !e.cleared_at ? ' · <span class="ov-red">waiting on you</span>' : ''),
+        acts(i, m)); });
   }
-  function support(){
-    return open_().filter(i => i.help_asked_at).map(i => item(esc(i.title || i.about || 'A task'), esc(nameOf(i.owner)) + ' owns · ' + (i.help_from ? esc(nameOf(i.help_from)) + ' helping' : '<span class="ov-red">asked the team ' + esc(ago(i.help_asked_at)) + ', nobody yet</span>'), B("OV.card('" + esc(i.id) + "')", 'Open')));
+  function support(m){
+    return open_().filter(i => i.help_asked_at).map(i => item(esc(i.title || i.about || 'A task'), esc(nameOf(i.owner)) + ' owns · ' + (i.help_from ? esc(lc(i.help_from) === m ? 'you are' : nameOf(i.help_from) + ' is') + ' helping' : '<span class="ov-red">asked the team ' + esc(ago(i.help_asked_at)) + ', nobody yet</span>'), acts(i, m)));
   }
   function people(){
     const its = open_(), out = duty().out.map(lc);
@@ -89,11 +102,11 @@
       .map(p => '<div class="ov-it" style="display:flex;justify-content:space-between;gap:8px"><div><b>' + esc(p.name) + '</b><div class="m">' + p.mine + ' open, ' + (p.late ? '<span class="ov-red">' + p.late + ' late</span>' : '0 late') + (p.o ? ' · out today' : '') + '</div></div>'
         + '<span class="ov-status ' + (p.o ? 'ov-warn' : p.late >= 5 ? 'ov-bad' : p.late ? 'ov-warn' : 'ov-ok') + '">' + (p.o ? 'Out' : p.late >= 5 ? 'Behind' : p.late ? 'Some late' : 'On track') + '</span></div>');
   }
-  function overdue(all){
+  function overdue(all, m){
     const late = safe(() => opsOverdue().filter(i => !(typeof opsParked === 'function' && opsParked(i))), []);
     const key = i => safe(() => opsPriorityKey(i), 9);
     late.sort((a, b) => (key(a) - key(b)) || String(a.due).localeCompare(String(b.due)));
-    const row = i => item(esc(i.title || i.about || 'A task'), 'Owner ' + esc(nameOf(i.owner)) + ' · due ' + esc(ago(i.due)), B("OV.card('" + esc(i.id) + "')", 'Open'));
+    const row = i => item(esc(i.title || i.about || 'A task'), 'Owner ' + esc(nameOf(i.owner)) + ' · due ' + esc(ago(i.due)) + (i.help_from && lc(i.help_from) !== m ? ' · ' + esc(first(nameOf(i.help_from))) + ' helping' : ''), acts(i, m));
     if(!all) return { n:late.length, html:late.slice(0, 5).map(row) };
     const by = {}; late.forEach(i => { const o = nameOf(i.owner) || 'Nobody'; (by[o] = by[o] || []).push(i); });
     return { n:late.length, html:Object.keys(by).sort().map(o => '<div class="ov-it"><b>' + esc(o) + ' (' + by[o].length + ')</b></div>' + by[o].map(row).join('')) };
@@ -130,7 +143,7 @@
   function draw(all){
     const w = document.getElementById('ovWrap'); if(!w) return; css();
     if(!allowed()){ w.innerHTML = '<p class="field-note">The Owner Overview is for Samantha and Zachary, once it is turned on (Settings > Owner Overview).</p>'; return; }
-    const m = me(), du = duty(), dec = decisions(m), urg = urgent(m), sup = support(), od = overdue(all), ppl = people();
+    const m = me(), du = duty(), dec = decisions(m), urg = urgent(m), sup = support(m), od = overdue(all, m), ppl = people();
     const last = ST.last;   /* read once when the page loaded, so a redraw never resets "since you looked" */
     const closed = last ? (D().ops_items || []).filter(i => i && i.closed_at && i.closed_at > last).length : 0, made = last ? (D().ops_items || []).filter(i => i && i.created_at && i.created_at > last).length : 0;
     const asks = dec.filter(x => x.indexOf('ov-it m ov-red') < 0).length + urg.filter(x => /waiting on you/.test(x)).length;
@@ -166,5 +179,13 @@
   }
   function postCall(){ try{ LS.view = 'followups'; activeLeadsSubtab = 'followups'; }catch(_){} go('leadsstarts'); try{ lsShowView(); }catch(_){} }
   function atw(offerId){ if(offerId && window.CRX && typeof CRX.open === 'function') CRX.open(offerId); else go('cgorient'); }
-  window.OV = { render, draw, pillSync, go, card, postCall, atw, bonus:() => { if(typeof bnOpen === 'function') bnOpen(); }, team:() => { if(typeof cctOpen === 'function') cctOpen(); }, all:() => draw(true), allowed };
+  /* helping: the team actions, then this screen redraws (the popups finish on their own, so wait for them to close) */
+  let showAll = false;
+  const redraw = () => { try{ draw(showAll); }catch(e){} };
+  const afterPop = () => { const t = setInterval(() => { if(!document.querySelector('.ccpop')){ clearInterval(t); redraw(); } }, 300); setTimeout(() => clearInterval(t), 600000); };
+  async function help(id){ if(!window.TA) return; await TA.helpWith(id); redraw(); }
+  function part(id, anchor){ if(!window.TA) return; TA.partDone(id, anchor); afterPop(); }
+  function finish(id, anchor){ if(!window.TA) return; TA.finish(id, anchor); afterPop(); }
+  function mine(id, anchor){ if(!window.TA) return; TA.transfer(id, anchor); afterPop(); }
+  window.OV = { render, draw, pillSync, go, card, postCall, atw, help, part, finish, mine, bonus:() => { if(typeof bnOpen === 'function') bnOpen(); }, team:() => { if(typeof cctOpen === 'function') cctOpen(); }, all:() => { showAll = true; draw(true); }, allowed };
 })();
