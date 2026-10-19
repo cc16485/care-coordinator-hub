@@ -32,10 +32,12 @@
   /* 2026-10-18 (first look at real numbers): hours counts only visits WITH a caregiver. A visit nobody was ever put on
      is not care given, so it no longer counts toward the goal; it shows on its own line ("booked with nobody yet"). */
   function summarize(rows){
-    const s = { hours:0, booked:0, worked:0, open:0, visits:0, clients:0 };
+    const s = { hours:0, booked:0, worked:0, open:0, visits:0, clients:0, days:{} };
     const clients = new Set();
     (rows || []).forEach(v => {
       const h = visitHours(v); if(!h) return;
+      /* each day's visits and how many had nobody (the Dashboard's sunshine reads this) */
+      const dy = String(v.date || '').slice(0, 10); if(dy){ const x = s.days[dy] = s.days[dy] || { n:0, open:0 }; x.n++; if(!v.caregiver) x.open++; }
       s.booked += h;
       if(!v.caregiver){ s.open += h; return; }
       s.visits++; s.hours += h;
@@ -521,7 +523,16 @@
     return changeCount(n, 0, true);
   }
   function cgoOpen(){ paint(); load(false); }
+  /* this week's numbers for other screens (the Dashboard's mini hill, sunshine and Friday wins), sharing the 5-minute read */
+  let twBusy = null;
+  async function thisWeek(){
+    const now = weekStart(chiToday());
+    if(CG.weeks[now] && !CG.weeks[now].error && CG.at && Date.now() - CG.at < 5 * 60000) return CG.weeks[now];
+    if(twBusy) return twBusy;
+    twBusy = (async () => { try{ CG.weeks[now] = await readWeek(now); CG.at = Date.now(); return CG.weeks[now]; }catch(e){ return null; } finally{ twBusy = null; } })();
+    return twBusy;
+  }
 
   Object.assign(window, { cgoOpen, cgoLoad:load, cgoEditGoal, cgoSaveGoal, cgoBump, cgoSetCount, cgoDraft, cgoDraftAdd, cgoDraftRemove,
-    CGO:{ state:CG, visitHours, summarize, weekStart, hoursCheer, cdsCheer, streak, paint, stepsOf, plan } });
+    CGO:{ state:CG, visitHours, summarize, weekStart, hoursCheer, cdsCheer, streak, paint, stepsOf, plan, thisWeek, row } });
 })();

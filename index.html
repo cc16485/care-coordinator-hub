@@ -7471,7 +7471,8 @@ The HomeTogether team</pre>
 <script src="hub-scenes.js?v=1"></script>
 <script src="celebrate.js?v=1"></script>
 <script src="progress-paths.js?v=2"></script>
-<script src="seasons.js?v=1"></script><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
+<script src="seasons.js?v=1"></script>
+<script src="more-fun.js?v=1"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -7508,7 +7509,7 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
-<script src="client-goals.js?v=2"></script><!-- 2026-10-18: Client Goals on My Work -->
+<script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
@@ -11254,6 +11255,8 @@ function renderTodayHero(){
   heroLoadShifts();
   /* celebrate.js (2026-10-18, fun step 2): every visit tomorrow has a caregiver = the Full house stamp on Today in AxisCare */
   if(window.CEL) CEL.fullHouse();
+  /* more-fun.js (2026-10-18): a sun for each day this week, and the best run */
+  if(window.FUN) FUN.sunshine();
 }
 async function heroLoadShifts(){
   const body=document.getElementById('tbShiftBody'), nEl=document.getElementById('tbShiftN');
@@ -11604,6 +11607,8 @@ function renderOverviewTop(nOverdue,nDue){
   /* seasons.js (2026-10-18, fun step 4): the season's scene by the greeting, a minute of weather on the top bar, and
      Anniversaries this week (each behind its own owner switch) */
   if(window.SEA) SEA.onDashboard();
+  /* more-fun.js (2026-10-18): Client Goals small, Friday wins, client anniversaries (switch) */
+  if(window.FUN) FUN.onDashboard();
   /* 2026-10-05: the greeting uses My Work's own lanes and the one meaning of late, so it agrees with every
      other number on the page. */
   let L={act:0,due:0,lateMine:0,lateUnowned:0}; try{ L=opsTodayCounts(); }catch(e){}
@@ -23262,6 +23267,7 @@ async function apLoad(btn){
     AP_POS = pos.data || []; AP_POSTINGS = post.data || [];
     try{ await prnLoad(true); }catch(_){ /* before PRN2's tables exist: nothing to show */ }
     apFillPositions(); apRenderFilter(); apRender();
+    try{ if(window.FUN) FUN.garden(); }catch(e){}   /* more-fun.js (2026-10-18): hiring as a garden */
     if(window.ApText) ApText.load();   /* 574: the 'texted 2h ago' chips */
     apInvLoad();
     /* If somebody's page is open, it is looking at a row we just replaced. */
