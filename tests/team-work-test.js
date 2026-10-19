@@ -121,6 +121,11 @@ ck('an urgent call follow-up is time-sensitive, not the text ladder', TW.track(c
 ck('an urgent coverage card is care at risk', TW.track(card({ kind:'coverage', urgency:'urgent' }), c1) === 'care');
 ck('an urgent escalation on any card is care at risk', TW.track(card({ kind:'call_followup', escalation:{ level:'urgent' } }), c1) === 'care');
 
+/* ── stale is late, not care at risk (Today's 12-hour rule) ── */
+ck('a missed clock-in 36 hours old is late, not care at risk', TW.track(card({ kind:'staffing_issue', opened_by:'timekeeper', created_at:new Date(now1 - 36 * 36e5).toISOString() }), c1) === 'today');
+ck('a coverage card for a shift that started 5 hours ago is not care at risk', TW.track(card({ kind:'coverage', _mins:-299 }), c1) === 'today');
+ck('a missed clock-in 20 minutes old is care at risk', TW.track(card({ kind:'staffing_issue', opened_by:'timekeeper', created_at:new Date(now1 - 20 * 60000).toISOString() }), c1) === 'care');
+
 /* ── closed, nothing else ── */
 ck('a closed card goes nowhere', TW.place(card({ kind:'coverage', opened_by:'callout', status:'done' }), c1).tab === 'closed');
 
