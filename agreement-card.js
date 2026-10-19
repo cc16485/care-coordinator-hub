@@ -71,7 +71,7 @@
         const slot = box.querySelector(`[data-cag-revbox="${b.dataset.cagRev}"]`);
         if (slot.innerHTML) { slot.innerHTML = ''; return; }
         const show = () => window.CAR.open(slot, b.dataset.cagRev, null);
-        if (window.CAR) show(); else { const sc = document.createElement('script'); sc.src = 'agreement-review.js?v=20261016a'; sc.onload = show; document.head.appendChild(sc); }
+        if (window.CAR) show(); else { const sc = document.createElement('script'); sc.src = 'agreement-review.js?v=20261018b'; sc.onload = show; document.head.appendChild(sc); }
       };
     });
     box.querySelectorAll('[data-cag-print]').forEach(b => {

@@ -111,11 +111,14 @@ const esc=t=>String(t==null?'':t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const Q=new URLSearchParams(location.search);
 /* 2026-10-17 (the 8-hour weekly minimum): each agreement shows the pages of the master it was started on, found by its
    pdf_sha256. A draft started on an earlier master can't be signed (the server refuses), so it says to start a new one.
-   2026-10-18 (Samantha: overtime counted Monday to Sunday): rev-2026-10-18 is the current master; only page 3 changed. */
-const PAGE_DIRS={'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11':'agreement-pages/rev-2026-10-18/',
+   2026-10-18 (Samantha: overtime counted Monday to Sunday): rev-2026-10-18; only page 3 changed.
+   2026-10-18b (Samantha: the Booking App terms, signed at the care assessment): rev-2026-10-18b is the current master. Section 9
+   is the Booking App (pages 3 to 9 reflowed) and each Exhibit I contact has "Can book in the app" Yes / No (pages 22 and 23). */
+const PAGE_DIRS={'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa':'agreement-pages/rev-2026-10-18b/',
+  'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11':'agreement-pages/rev-2026-10-18/',
   'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
   'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9':'agreement-pages/rev-2026-10/'};
-let PAGES_DIR='agreement-pages/rev-2026-10-18/';
+let PAGES_DIR='agreement-pages/rev-2026-10-18b/';
 function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
@@ -254,7 +257,7 @@ function showOffice(){
 let POS=null, saveTimer=null;
 const OFFICE_KEYS=new Set(['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate','rates.wellness_care','rates.personal_care','rates.advanced_care']);
 const ONE_OF=[['level.wellness_care','level.personal_care','level.advanced_care'],['car.accept','car.decline'],['comm.accept','comm.decline'],
-  ...[1,2,3,4].flatMap(n=>[['c'+n+'.hipaa_yes','c'+n+'.hipaa_no'],['c'+n+'.medical_yes','c'+n+'.medical_no']])];
+  ...[1,2,3,4].flatMap(n=>[['c'+n+'.hipaa_yes','c'+n+'.hipaa_no'],['c'+n+'.medical_yes','c'+n+'.medical_no'],['c'+n+'.book_yes','c'+n+'.book_no']])];
 const SERVER_ONLY=k=>k.startsWith('ini.')||k.startsWith('sig.')||k.startsWith('ci.sig.')||k.startsWith('date.')||k==='poa.initials'||k==='ci.client_s_name';
 const pad2=n=>String(n).padStart(2,'0');
 const initials=name=>{ const w=String(name||'').trim().split(/\s+/).filter(Boolean); return w.length?(w[0][0]+(w.length>1?w[w.length-1][0]:'')).toUpperCase():''; };
@@ -407,7 +410,8 @@ function missing(){
   if(!has('c1.cell_phone')&&!has('c1.home_phone')) p.push({field:'c1.cell_phone',error:'A phone number for the primary contact'});
   for(const n of [1,2,3,4]){ if(!has('c'+n+'.name')) continue;
     if(!has('c'+n+'.hipaa_yes')&&!has('c'+n+'.hipaa_no')) p.push({field:'c'+n+'.hipaa_yes',error:'Contact '+n+': may we share health information? Yes or No'});
-    if(!has('c'+n+'.medical_yes')&&!has('c'+n+'.medical_no')) p.push({field:'c'+n+'.medical_yes',error:'Contact '+n+': makes medical decisions? Yes or No'}); }
+    if(!has('c'+n+'.medical_yes')&&!has('c'+n+'.medical_no')) p.push({field:'c'+n+'.medical_yes',error:'Contact '+n+': makes medical decisions? Yes or No'});
+    if(POS&&POS['c'+n+'.book_yes']&&!has('c'+n+'.book_yes')&&!has('c'+n+'.book_no')) p.push({field:'c'+n+'.book_yes',error:'Contact '+n+': can book in the Booking App? Yes or No'}); }
   need('backup.full_name','Backup caregiver name (required)'); need('backup.primary_phone','Backup caregiver phone');
   if(!Object.keys(a).some(k=>k.startsWith('access.')&&POS[k]&&POS[k].type==='check'&&a[k]===true)) p.push({field:'access.1_client_responsible_party',error:'How caregivers get into the home'});
   if(!has('car.accept')&&!has('car.decline')) p.push({field:'car.accept',error:'Use of my car: Accept or Decline'});
