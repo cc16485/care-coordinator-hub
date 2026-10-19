@@ -435,7 +435,7 @@
                 + '<div class="field-note">Follow-up actions: what happens next, who does it, and when you check in</div><textarea id="hrRf' + id + '" rows="2"></textarea>'
                 + '<label class="field-note">Check whether it improved on <input type="date" id="hrRc' + id + '" value="' + esc(ymd(addDays(todayStr() + 'T12:00:00', 30))) + '"></label>'
               : '<div class="field-note">Help we agreed to give (a different shift time, help with the app...) and who in the office does it</div><textarea id="hrRf' + id + '" rows="2"></textarea>')
-            + '<label class="field-note hr-check"><input type="checkbox" id="hrRw2' + id + '"> I told them this was a coaching call, and that if it keeps happening, the next step is an official write-up, which can lead to termination.</label>')
+            + (c.subject_type === 'office' ? '' : '<label class="field-note hr-check"><input type="checkbox" id="hrRw2' + id + '"> I told them this was a coaching call, and that if it keeps happening, the next step is an official write-up, which can lead to termination.</label>'))
           + '<div class="hr-err" id="hrRerr' + id + '"></div><button class="primary hr-btn" onclick="HR.done(\'' + id + '\')">' + (rec ? 'Mark passed on' : 'Mark coaching done') + '</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button></div>';
       } else if (f === 'help') {
         h += '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">How to have this conversation</div><ol class="hr-tips">' + TIPS.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ol>'
@@ -585,11 +585,13 @@
     const answers = qs.map((q, i) => { const el = document.getElementById('hrRa' + i + '_' + id); return { q, a: el ? el.value.trim() : '' }; });
     if (answers.some((x) => !x.a)) { err.textContent = 'Write down what they said to each question first.'; return; }
     const response = qs.length ? answers.map((x) => 'Asked: ' + x.q + '\nThey said: ' + x.a).join('\n\n') : (g('hrRr') ? g('hrRr').value.trim() : '');
-    if (!rec && !(g('hrRw2') && g('hrRw2').checked)) { err.textContent = 'Tick the box once you have told them that if it continues, official write-ups come next.'; return; }
+    /* office coaching (a team review) is never discipline: no write-up warning (her approval 2026-10-18) */
+    if (!rec && c.subject_type !== 'office' && !(g('hrRw2') && g('hrRw2').checked)) { err.textContent = 'Tick the box once you have told them that if it continues, official write-ups come next.'; return; }
     if (!rec && callsLive(id)) {
       if (!confirmedCall(id)) { err.textContent = 'First make the coaching call and confirm it above.'; return; }
-      const pl = { discussed: g('hrRw').value.trim(), response, help_agreed: g('hrRh').value.trim(), followup: g('hrRf').value.trim(), warning_given: 'true', check_on: g('hrRc').value,
-        expectation: g('hrRe').value.trim() ? g('hrRe').value.trim() + '\nTold them: this was a coaching call; if it keeps happening, the next step is an official write-up, which can lead to termination.' : '' };
+      const office = c.subject_type === 'office';
+      const pl = { discussed: g('hrRw').value.trim(), response, help_agreed: g('hrRh').value.trim(), followup: g('hrRf').value.trim(), warning_given: office ? 'false' : 'true', check_on: g('hrRc').value,
+        expectation: g('hrRe').value.trim() ? g('hrRe').value.trim() + (office ? '' : '\nTold them: this was a coaching call; if it keeps happening, the next step is an official write-up, which can lead to termination.') : '' };
       if (!pl.discussed || !pl.response || !pl.expectation || !pl.help_agreed || !pl.followup) { err.textContent = 'Fill in every box above first.'; return; }
       if (await act(id, 'done', pl)) { FORM[id] = 0; after(); }
       return;

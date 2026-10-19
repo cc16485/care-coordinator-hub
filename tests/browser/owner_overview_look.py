@@ -10,8 +10,10 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 STUB = r"""
 (()=>{
   const W=window; W.__log={ writes:[], alerts:[], toasts:[], tabs:[] };
-  (0,eval)(`sb={ from:(t)=>{ const p={ select(){return p;}, eq(){return p;}, in(){return p;}, not(){return p;}, order(){return p;}, limit(){return p;},
-      maybeSingle:async()=>({data:null,error:null}), then(a){ return Promise.resolve(t==='client_admission_case'?{data:[{ case_id:'c1', axiscare_name:'Walt Wise', observed_label:'Active in AxisCare, no lead', observed_at:new Date(Date.now()-3600e3).toISOString(), needs_owner_decision:true },{ case_id:'c2', axiscare_name:'Not Me', needs_owner_decision:false }],error:null}:{data:[],error:null}).then(a); } }; return p; },
+  W.__ivRows=[{ status:'attended', outcome_at:new Date(Date.now()-2*864e5).toISOString() }, { status:'attended', outcome_at:new Date(Date.now()-3*864e5).toISOString() }, { status:'noshow', outcome_at:new Date(Date.now()-3*864e5).toISOString() }, { status:'attended', outcome_at:new Date(Date.now()-9*864e5).toISOString() }];
+  W.__hireRows=[{ hired_at:new Date(Date.now()-1*864e5).toISOString() }];
+  (0,eval)(`sb={ from:(t)=>{ const p={ select(){return p;}, eq(){return p;}, in(){return p;}, not(){return p;}, order(){return p;}, limit(){return p;}, gte(){return p;},
+      maybeSingle:async()=>({data:null,error:null}), then(a){ return Promise.resolve(t==='interview_bookings'?{data:window.__ivRows,error:null}:t==='job_applicants'?{data:window.__hireRows,error:null}:t==='client_admission_case'?{data:[{ case_id:'c1', axiscare_name:'Walt Wise', observed_label:'Active in AxisCare, no lead', observed_at:new Date(Date.now()-3600e3).toISOString(), needs_owner_decision:true },{ case_id:'c2', axiscare_name:'Not Me', needs_owner_decision:false }],error:null}:{data:[],error:null}).then(a); } }; return p; },
     rpc:async()=>({data:null,error:null}), functions:{ invoke:async()=>({data:null,error:null}) }, auth:{ getSession:async()=>({data:{session:{access_token:'t'}}}) } };`);
   W.persist=async(k,v)=>{ W.__log.writes.push({ k }); };
   W.ccToast=m=>W.__log.toasts.push(m); W.alert=m=>W.__log.alerts.push(m); W.opEvent=()=>{}; W.ccConfirm=async()=>true;
@@ -27,13 +29,18 @@ STUB = r"""
     { id:'l1', kind:'task', status:'open', owner:'kry@mo-care.com', title:'Family callback promised by noon', due:H(-2), created_at:H(-30) },
     { id:'l2', kind:'task', status:'open', owner:'kry@mo-care.com', title:'Care plan update', due:H(-26), created_at:H(-60) },
     ...[3,4,5,6,7].map(n=>({ id:'l'+n, kind:'task', status:'open', owner:'ang@mo-care.com', title:'Late task '+n, due:H(-n), created_at:H(-50) })),
-    { id:'x1', kind:'task', status:'done', owner:'kry@mo-care.com', title:'Old', closed_at:H(-0.1), created_at:H(-80), escalation:{ to:'sam@mo-care.com', at:H(-48) } } ];
+    { id:'x1', kind:'task', status:'done', owner:'kry@mo-care.com', title:'Old', closed_at:H(-0.1), created_at:H(-80), escalation:{ to:'sam@mo-care.com', at:H(-48) } },
+    { id:'x2', kind:'task', status:'done', owner:'kry@mo-care.com', title:'On time', due:H(-20), closed_at:H(-21), created_at:H(-40) },
+    { id:'x3', kind:'task', status:'done', owner:'kry@mo-care.com', title:'Late', due:H(-30), closed_at:H(-25), created_at:H(-40) },
+    { id:'x4', kind:'task', status:'done', owner:'kry@mo-care.com', title:'Auto', due:H(-30), closed_at:H(-25), closed_by:'system', created_at:H(-40) },
+    { id:'x5', kind:'task', status:'done', owner:'kry@mo-care.com', title:'Last week on time', due:H(-200), closed_at:H(-201), created_at:H(-220) },
+    { id:'x6', kind:'task', status:'open', owner:'kry@mo-care.com', title:'Asked last week', escalation:{ to:'sam@mo-care.com', at:H(-200) } } ];
   DATA.discipline_actions=[{ id:'w1', status:'pending_approval', level:'Final warning', caregiver:'Pat Doe', sent_for_approval_at:H(-5) }, { id:'w2', status:'draft', level:'Verbal', caregiver:'Lee' }];
   DATA.post_call_followups=[{ id:'p1', status:'pending_approval' }, { id:'p2', status:'sent' }];
   DATA.sop_library=[{ id:'s1', status:'draft' }, { id:'s2', status:'published' }];
   DATA.leads=[{ id:'n1', created_at:H(-24), first_human_attempt_at:H(-23.8), assigned_coordinator:'Krystal' }, { id:'n2', created_at:H(-48), first_shift_at:H(-30) }];
   DATA.coverage_cases=[{ id:'cc1', status:'resolved', resolved_at:H(-10), resolved_how:'covered' }, { id:'cc2', status:'resolved', resolved_at:H(-20), resolved_how:'uncovered' }];
-  DATA.timekeeper_cases=[{ id:'t1', kind:'clock_in', created_at:H(-5) }, { id:'t2', kind:'clock_out', created_at:H(-5) }];
+  DATA.timekeeper_cases=[{ id:'t1', kind:'clock_in', created_at:H(-5) }, { id:'t2', kind:'clock_out', created_at:H(-5) }, { id:'t3', kind:'clock_in', created_at:H(-200) }, { id:'t4', kind:'clock_in', created_at:H(-210) }];
   W.Bonus={ call:async()=>({ lines:[{ id:'b1', recipient:'Krystal', client:'Rose Able', status:'ready', status_words:'Ready for approval' }, { id:'b2', recipient:'Angiel', client:'X', status:'paid' }] }) };
   W.CcTeam={ call:async()=>({ error:'team service down' }) };
   W.CRX={ call:async()=>({ rows:[{ offer_id:'o1', name:'Nia New', ready_for_final:true }, { offer_id:'o2', name:'Done Already', ready_for_final:true, approved_to_work:true, axiscare:'confirmed' }] }), open:(id)=>W.__log.tabs.push('crx:'+id) };
@@ -67,7 +74,9 @@ async()=>{
   ok('overdue · five shown, then See all 8', (t.match(/Owner [A-Z][a-z]+ [A-Z][a-z]+ · due/g)||[]).length===5&&/See all 8, grouped by owner/.test(t), t);
   OV.all(); await sleep(30);
   ok('overdue · See all groups by owner', /Angiel Rose \(6\)/.test(txt())&&/Krystal Land \(2\)/.test(txt()), txt());
-  ok('numbers · call-offs 1 of 2, median first call over 2 new leads, 1 missed clock-in, 1 started, 3 times work reached her (a decision, an escalation, one from 2 days ago)', /1 of 2\s*call-offs covered/.test(t)&&/\d+ min\s*median first call to a new lead \(2 new\)/.test(t)&&/1\s*missed clock-ins/.test(t)&&/1\s*clients started/.test(t)&&/3\s*times work reached you/.test(t), t.slice(-500));
+  ok('numbers · this week vs last: call-offs 50%, work on time 50% (system closes left out) down 50 pts from 100%, 1 missed clock-in (-1, better), 2 interviews → 1 hire, times work reached her 3 (+2)', /50%\s*call-offs covered \(2\)/.test(t)&&/50%\s*work closed on time \(2 closed\)\s*-50 pts vs last week/.test(t)&&/1\s*missed clock-ins\s*-1 vs last week/.test(t)&&/2 → 1\s*interviews to hires\s*\+1 hires vs last week/.test(t)&&/3\s*times work reached you\s*\+2 vs last week/.test(t), t.slice(-900));
+  const red=[...document.querySelectorAll('.ov-stat .d')].find(d=>/-50 pts/.test(d.textContent)), grn=[...document.querySelectorAll('.ov-stat .d')].find(d=>/-1 vs last week/.test(d.textContent));
+  ok('numbers · worse is red, better is green (fewer missed clock-ins is better)', red&&/178, 59, 46|B23B2E/i.test(red.getAttribute('style'))&&grn&&/31, 122, 77|1F7A4D/i.test(grn.getAttribute('style')), [red&&red.getAttribute('style'), grn&&grn.getAttribute('style')]);
   ok('looking saves nothing (only the help buttons below do)', L.writes.length===writes0, L.writes.slice(writes0));
   OV.atw('o1'); OV.bonus();
   ok('open · Approve to Work opens that card; bonuses open the Bonuses window', L.tabs.includes('crx:o1')&&L.tabs.includes('bonus'), L.tabs);

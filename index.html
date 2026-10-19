@@ -4532,6 +4532,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="team-work">
+<h3>Team Work</h3>
+<p class="hint">The on-duty pile in My Work (approved 2026-10-18): call-offs, missed clock-ins, same-day scheduling and time-sensitive family requests the Hub opened, until someone takes them. Each card shows the responsible role, its deadline and its escalation path. The family always keeps its own Care Coordinator. While it is off, owners see the tab as a preview and nobody's My Work changes.</p>
+<div id="twSet"></div>
+</div>
+
 <div class="settings-section" data-set="my-desk">
 <h3>📒 My Desk</h3>
 <p class="hint">Each person's own planner page and sticky notes, under Today. Only the person sees their desk (owners can look at it). Nothing on a desk texts, emails or reminds anyone. While it is being tried, tick who sees it.</p>
@@ -4640,7 +4646,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <!-- Owner Overview (audit step 9, 2026-10-18): ops_settings.owner_overview_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Owner Overview</div>
-<p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today.</p>
+<p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today, and it is the first screen you see when you sign in.</p>
 <div id="ovSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;"><button class="secondary" id="ovToggleBtn" onclick="ovToggle(this)">Turn on the Owner Overview</button><span class="field-note" id="ovSaved"></span></div>
 <!-- Team numbers and reviews (Stage 5 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.team_live and
@@ -7437,7 +7443,7 @@ The HomeTogether team</pre>
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=2"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=4"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7489,7 +7495,7 @@ The HomeTogether team</pre>
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
-<script src="training-walkthrough.js?v=1"></script><!-- staff try the new-hire journey (2026-10-11) -->
+<script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=22"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=6"></script>
@@ -7516,8 +7522,9 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=8"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
+<script src="team-work.js?v=3"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
-<script src="desk.js?v=14"></script>
+<script src="desk.js?v=15"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
@@ -8845,7 +8852,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018n'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261018o'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -15507,6 +15514,7 @@ function fillSettingsPanel(){
   try{ settingsFocusApply(); }catch(_){}
   try{ prnSetFill(); }catch(_){}
   try{ if(typeof dkSetFill==='function') dkSetFill(); }catch(_){}
+  try{ if(window.TW) TW.setFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
@@ -18338,7 +18346,7 @@ async function tnToggle(btn){
 function ovSetFill(){
   const now=document.getElementById('ovSetNow'), b=document.getElementById('ovToggleBtn'); if(!now) return;
   const on=(DATA.ops_settings||{}).owner_overview_live===true, owner=ccIsOwner();
-  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary see Owner Overview under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary land on it when you sign in, and see it under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off the Owner Overview':'Turn on the Owner Overview'; b.style.display=owner?'':'none'; }
   try{ if(window.OV) OV.pillSync(); }catch(e){}
 }
@@ -26318,7 +26326,7 @@ function apjWalkthrough(){
   const sc = document.createElement('script'); sc.src = 'applicant-walkthrough.js?v=20261012'; sc.onload = go; sc.onerror = () => { box.innerHTML = '<div class="field-note">Could not load the walkthrough. Reload the page.</div>'; }; document.head.appendChild(sc);
 }
 function apjOpen(){
-  if(window.TW) TW.mount();
+  if(window.TWalk) TWalk.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
@@ -28722,6 +28730,8 @@ function myWorkTabs(b){
   if(discMayApproveAny()) t.push(['approvals','Approvals']);
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
+  /* Team Work (Stage 1, 2026-10-18): next to Today for everyone once it is on; owners see it as a preview while off */
+  if(window.TW && TW.visible()) t.splice(1,0,['team',TW.on()?'Team Work':'Team Work (preview)']);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
   /* 2026-10-14: call follow-ups are their own tab on Today (Call Follow Ups), no longer inside My Work */
   return t;
@@ -28926,7 +28936,8 @@ function opsTodayCounts(){
   /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
   const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamSummary(i));
   const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
-  return { act:n(0), late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
+  const twCare=(window.TW&&TW.on())?TW.careForMe().length:0;   /* Team Work (Stage 1): care at risk stays in the number */
+  return { act:n(0)+twCare, late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
 }
 /* "by 2:00 PM", "was due Sep 29, 2:36 PM", "by Fri Oct 9". A date-only due is a whole day, never a time. */
 function opsDueText(it){
@@ -29245,13 +29256,18 @@ function opsTeamDecision(it, me){
 function opsTeamSummary(it, me){ return opsTeamEscalated(it, me) && !opsTeamCritical(it, me) && !opsTeamDecision(it, me); }
 function myWorkBuckets(){
   const me=String(opsMeKey()||'').toLowerCase();
-  const open=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
+  const openAll=(DATA.ops_items||[]).filter(i=>i.status==='open' && opsCanSee(i));
+  /* Team Work (Stage 1, 2026-10-18): while it is on, the on-duty pile is its own tab, so it leaves every other list here;
+     a covering card someone took is theirs to see (it stays the absent coordinator's). Off: nothing changes. */
+  const twIds=(window.TW&&TW.on())?TW.teamIds():new Set();
+  const open=openAll.filter(i=>!twIds.has(i.id));
+  const twMine=i=>!!(window.TW&&TW.on()&&me&&String(i.claimed_by||'').toLowerCase()===me&&i.covering&&String(i.covering.by||'').toLowerCase()===me);
   /* also_for (2026-10-06): a red shift-note flag is Client Care's, and also on the Incidents owner's list */
   /* Up for grabs (2026-10-13): while it is offered it is off my own lists (it shows in "Offered to the team") */
   const offered=i=>!!(window.TP&&TP.isOffered(i));
   const mine=open.filter(i=>!offered(i)).filter(i=>me && ((i.owner||'').toLowerCase()===me || (Array.isArray(i.also_for)&&i.also_for.some(x=>String(x).toLowerCase()===me))
     /* Projects (2026-10-06): a project's team, and the owners inside the alert window */
-    || (typeof pjSees==='function'&&pjSees(i,me))));
+    || (typeof pjSees==='function'&&pjSees(i,me)) || twMine(i)));
   const now=Date.now();
   const endOfToday=(()=>{ const e=new Date(); e.setHours(23,59,59,999); return e.getTime(); })();
   /* THE CHASE. A parked item carries the date it should come back. When that
@@ -29310,6 +29326,7 @@ function myWorkBuckets(){
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
     pool:       window.TP ? TP.shelf(me) : [],
+    team:       (window.TW&&TW.visible()) ? TW.list().map(x=>x.it) : [],
     approvals:  (discMayApproveAny() ? discForMe() : [])
   };
 }
@@ -29427,6 +29444,8 @@ const MYWORK_ACT_STALE_MS=12*36e5;
 function myWorkLane(it){
   if(opsTeamCritical(it)) return 0;   /* critical team work escalated to me is right now, however late it already is */
   if(opsPastDay(it)) return 3;
+  /* Team Work (Stage 1): an ordinary card due while its owner isn't working counts from the end of their next stretch */
+  if(window.TW&&TW.on()){ const sd=TW.shiftDue(it, TW.ctx()); if(sd!=null) it=Object.assign({}, it, { due:new Date(sd).toISOString() }); }
   const k=opsPriorityKey(it), d=Date.parse(it.due||'');
   if(k[0]<=1) return (!isNaN(d) && Date.now()-d>MYWORK_ACT_STALE_MS) ? 1 : 0;
   return k[0]===2 ? 1 : 2;
@@ -29446,7 +29465,7 @@ function myWorkSelectable(all){
 function myWorkRows(){
   const b=myWorkBuckets();
   /* Up for grabs draws its own cards (pool.js); none of them are mine to tick or close with a key */
-  let rows=(MYWORK_TAB==='pool'?[]:(b[MYWORK_TAB]||[])).slice()
+  let rows=((MYWORK_TAB==='pool'||MYWORK_TAB==='team')?[]:(b[MYWORK_TAB]||[])).slice()
     .sort((a,c)=>String(a.due||a.created_at||'').localeCompare(String(c.due||c.created_at||'')));
   /* fix 4: on Today, someone else's escalated work is their summary card, not my cards */
   if(MYWORK_TAB==='today') rows=rows.filter(r=>!opsTeamSummary(r));   /* critical ones stay: Act now */
@@ -29923,6 +29942,7 @@ function opsWaitOpen(id, anchorId){
    person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
 function myWorkTabBadge(k,b){
   if(k==='mine'||k==='escalated'||k==='waiting') return '';
+  if(k==='team'){ const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))).length;   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
   if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
   const n=(b[k]||[]).length;
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
@@ -29964,6 +29984,7 @@ function renderMyWork(){
 
   if(MYWORK_TAB==='callpractice'){ wrap.innerHTML=''; if(window.CPR) CPR.render(wrap); return; }
   if(MYWORK_TAB==='pool'){ wrap.innerHTML=''; if(window.TP) TP.render(wrap); return; }
+  if(MYWORK_TAB==='team'){ wrap.innerHTML=''; if(window.TW) TW.render(wrap); return; }
 
   const rows=myWorkRows();
   const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
@@ -30031,10 +30052,12 @@ function renderMyWork(){
   /* fix 4 (2026-10-17): someone else's work escalated to me, one card per person, above Act now */
   const team=myWorkTeamHtml(b);
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
+  /* Team Work (Stage 1): care at risk from the on-duty pile stays on Today for whoever is on duty */
+  if(window.TW&&TW.on()){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
-    act.length?act.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing needs you right this minute. Good.'));
+    act.length?act.map(it=>myWorkCard(it,ix(it))).join(''):none((window.TW&&TW.on()&&TW.careForMe().length)?'Nothing else right this minute.':'Nothing needs you right this minute. Good.'));
   if(lateL.length) h+=lane('LATE, STILL MATTERS','past due and still needs doing, longest late first','var(--amber)',lateL.length,
     lateL.map(it=>myWorkCard(it,ix(it))).join(''));
   h+=lane('DUE TODAY','everything else that needs doing today','var(--navy)',due.length,
