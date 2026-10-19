@@ -42,6 +42,7 @@ STUB = r"""
     { id:'relk', kind:'relationship_call', opened_by:'system', status:'open', title:'Day 7 call: fake family', owner:K, owner_name:'Krystal Land', client_ax:'101', due:at('13:30'), created_at:at('08:00','05') },
     { id:'coach', kind:'coaching', opened_by:'hr-agent', status:'open', title:'Coaching: fake caregiver, late clock-ins', owner:K, owner_name:'Krystal Land', due:at('12:00'), created_at:at('08:00','05') },
     { id:'disc', kind:'discipline', opened_by:'system', sensitive:true, status:'open', title:'Write-up draft (fake)', owner:S, owner_name:'Samantha Troutman', created_at:at('09:00') },
+    { id:'pastday', kind:'call_followup', opened_by:'call-tasks', status:'open', title:'Cancel the 10/5 visit (fake)', owner:K, owner_name:'Krystal Land', due:at('17:00','05'), created_at:at('09:00','05'), source:{ call_at:at('09:00','05') } },
     { id:'amine', kind:'request', opened_by:'person', status:'open', title:'Call the hospital case manager (fake)', owner:A, owner_name:'Angiel Test', due:at('16:00'), created_at:at('13:10') } ];
   W.__n0=DATA.ops_items.length;
 })();
@@ -87,6 +88,8 @@ async()=>{
   ok('missed clock-in card: the approved 10/20/35 ladder', /10 min: the person in charge. 20 min: text to Samantha. 35 min: text to Zach/.test(mc), mc);
   const fr=q('famreq');
   ok('family request: Angiel\'s family, the card\'s own deadline', /Angiel’s family/.test(fr) && /Deadline 5:00 PM/.test(fr) && !/set by rule/.test(fr), fr);
+  const pd=document.querySelector('details .tw-card[data-id="pastday"]');
+  ok('a card whose visit day is over is folded under PAST ITS DAY', !!pd && /PAST ITS DAY · 1/.test(mw()), mw().slice(-600));
   ok('care at risk is listed first', (document.querySelector('.tw-card')||{dataset:{}}).dataset.id==='mci');
   if(window.__shot) await window.__shot('team-angiel');
 

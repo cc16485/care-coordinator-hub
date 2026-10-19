@@ -95,9 +95,13 @@
   function track(it, ctx){
     const e = it.escalation, k = lc(it.kind);
     const staffing = lc(it.domain) === 'scheduling_coverage' || /^(coverage|staffing_issue|staffing)$/.test(k);
-    if((e && !e.cleared_at && e.level === 'urgent') || /timekeeper/.test(lc(it.opened_by)) || (staffing && lc(it.urgency) === 'urgent')) return 'care';
+    /* Same rule as Today's Act now: more than 12 hours past due is no longer happening right now (it is late, and it
+       still shows, just not as care at risk). A shift that started over 2 hours ago is past too. */
+    const due = ms(it.due) != null ? ms(it.due) : ms(it.created_at);
+    const stale = due != null && ctx.now - due > 12 * HOUR;
     const m = ctx.minsToShift ? ctx.minsToShift(it) : null;
-    if(m != null && m <= 180) return 'care';
+    if(!stale && ((e && !e.cleared_at && e.level === 'urgent') || /timekeeper/.test(lc(it.opened_by)) || (staffing && lc(it.urgency) === 'urgent'))) return 'care';
+    if(!stale && m != null && m <= 180 && m >= -120) return 'care';
     return teamKind(it) ? 'today' : 'ordinary';
   }
   function deadline(it, ctx){
@@ -304,19 +308,24 @@
   }
   function render(wrap){
     if(!wrap) return;
-    const c = ctx(), rows = list(), duty = onDuty(c), ymd = ymdChicago(c.now);
+    const c = ctx(), duty = onDuty(c), ymd = ymdChicago(c.now); let rows = list();
     const outToday = (c.coordinators || []).filter(e => outOn(c.staff, e, ymd));
     const lane = (label, note, color, xs) => xs.length ? '<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:12.5px;letter-spacing:.06em;color:' + color + ';">' + label + ' · ' + xs.length + '</b><span class="field-note">' + note + '</span></div>' + xs.map(cardHtml).join('') : '';
     let h = on() ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FDF3E2;color:#8A5A00;"><b>Preview, switched off.</b> Only owners see this tab. Nothing has moved: everyone’s My Work is exactly as before until Team Work is turned on in Settings.</div>';
     h += '<div class="card" style="padding:12px 16px;margin-bottom:10px;background:#EAF4F6;"><b style="color:var(--navy);">The team’s pile.</b> The Hub made these and nobody has taken them yet. Whoever is on duty works from the top. Take it and it moves to your My Work with your name on it. The family keeps its own Care Coordinator either way.'
       + '<div class="field-note" style="margin-top:6px;">On duty now: ' + (duty.length ? duty.map((e, i) => esc(first(e)) + (i === 0 && duty.length > 1 ? ' (first up)' : '')).join(', ') : '<b>nobody on the schedule</b> (care at risk follows the ladder)')
       + (outToday.length ? ' · Out today: ' + outToday.map(e => esc(first(e))).join(', ') : '') + '</div></div>';
+    /* Past its day (the same rule My Work folds by): the visit or shift is over; folded away until opened */
+    const past = x => { try{ return typeof W.opsPastDay === 'function' && W.opsPastDay(x.it); }catch(e){ return false; } };
+    const pastRows = rows.filter(past); rows = rows.filter(x => !past(x));
     const care = rows.filter(x => x.tc.track === 'care'), cover = rows.filter(x => x.tc.track !== 'care' && x.tc.covering),
       rest = rows.filter(x => x.tc.track !== 'care' && !x.tc.covering);
     h += lane('CARE AT RISK', 'someone may be without care; anyone can act first', 'var(--red)', care)
       + lane('TIME-SENSITIVE', 'soonest deadline first', 'var(--navy)', rest)
-      + lane('COVERING', 'a coordinator is out today; it stays theirs, you do the task', '#8A5A00', cover);
-    if(!rows.length) h += '<div class="card" style="padding:22px;text-align:center;">Nothing waiting for the team right now.</div>';
+      + lane('COVERING', 'a coordinator is out today; it stays theirs, you do the task', '#8A5A00', cover)
+      + (pastRows.length ? '<details style="margin-top:14px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;letter-spacing:.06em;color:var(--text-muted);">PAST ITS DAY \u00b7 ' + pastRows.length
+        + ' <span class="field-note" style="font-weight:400;letter-spacing:0;">the visit or shift these were about is over; close them or keep the ones that still need doing</span></summary>' + pastRows.map(cardHtml).join('') + '</details>' : '');
+    if(!rows.length && !pastRows.length) h += '<div class="card" style="padding:22px;text-align:center;">Nothing waiting for the team right now.</div>';
     wrap.innerHTML = h;
   }
 

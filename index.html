@@ -7522,7 +7522,7 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=8"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="team-work.js?v=2"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=3"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=14"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
@@ -29942,7 +29942,7 @@ function opsWaitOpen(id, anchorId){
    person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
 function myWorkTabBadge(k,b){
   if(k==='mine'||k==='escalated'||k==='waiting') return '';
-  if(k==='team'){ const n=(b.team||[]).length; return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
+  if(k==='team'){ const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))).length;   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
   if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
   const n=(b[k]||[]).length;
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
