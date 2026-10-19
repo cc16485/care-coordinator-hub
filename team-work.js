@@ -44,7 +44,9 @@
     if(!it) return false;
     if(it.sensitive) return true;
     const k = lc(it.kind), d = lc(it.domain);
-    return CONFIDENTIAL_KINDS.indexOf(k) > -1 || CONFIDENTIAL_DOMAINS.indexOf(d) > -1 || /^hr[_-]/.test(k) || /coach/.test(k);
+    /* caregiver attendance patterns feed coaching and write-ups (the HR path), so they stay with their owner */
+    return CONFIDENTIAL_KINDS.indexOf(k) > -1 || CONFIDENTIAL_DOMAINS.indexOf(d) > -1 || /^hr[_-]/.test(k) || /coach/.test(k)
+      || /attendance-threshold|hr-agent|writeup|write-up|discipline/.test(lc(it.opened_by));
   }
   function personMade(it){ return PERSON_OPENERS.indexOf(lc(it.opened_by)) > -1; }
   function offered(it){ const p = it && it.pool; return !!(p && p.by && !p.taken_at && !p.withdrawn_at); }
@@ -87,9 +89,13 @@
   }
 
   /* ── the three tracks (rule 7) ────────────────────────────────────────────────────────────────────────────────── */
+  /* Care at risk is the approved 0/10/20/35 ladder's own scope (team-actions.js critical): an urgent escalation, a missed
+     clock-in, urgent staffing work, or a shift within 3 hours with nobody. A red shift-note flag or an urgent call
+     follow-up is time-sensitive, not the text ladder. */
   function track(it, ctx){
-    const e = it.escalation;
-    if(lc(it.urgency) === 'urgent' || /timekeeper/.test(lc(it.opened_by)) || (e && !e.cleared_at && e.level === 'urgent')) return 'care';
+    const e = it.escalation, k = lc(it.kind);
+    const staffing = lc(it.domain) === 'scheduling_coverage' || /^(coverage|staffing_issue|staffing)$/.test(k);
+    if((e && !e.cleared_at && e.level === 'urgent') || /timekeeper/.test(lc(it.opened_by)) || (staffing && lc(it.urgency) === 'urgent')) return 'care';
     const m = ctx.minsToShift ? ctx.minsToShift(it) : null;
     if(m != null && m <= 180) return 'care';
     return teamKind(it) ? 'today' : 'ordinary';
@@ -176,6 +182,8 @@
   const nameOf = e => { try{ return (typeof W.opsOwnerName === 'function' && W.opsOwnerName(e)) || String(e || '').split('@')[0]; }catch(_){ return String(e || '').split('@')[0]; } };
   const first = e => String(nameOf(e) || '').split(' ')[0];
   const on = () => settings().team_work_live === true;
+  /* Office hours only: a coordinator's caregiver shift (direct care, field response, advanced care) is not office duty */
+  const OFFICE_AREAS = ['operations', 'staffing', 'in_charge', 'after_hours'];
   /* The tab: everyone once it is on; while it is off, owners see it as a preview. */
   const visible = () => on() || isOwner();
 
@@ -183,7 +191,7 @@
      inactive rows never count. Returns that stretch's end (ms) or null when they aren't working. */
   function shiftEnd(email, t){
     const e = lc(email), when = new Date(t);
-    const ws = ((D().duty_windows) || []).filter(w => lc(w.person) === e && (typeof W.dutyCoversAt === 'function' ? W.dutyCoversAt(w, when) : false));
+    const ws = ((D().duty_windows) || []).filter(w => lc(w.person) === e && OFFICE_AREAS.indexOf(w.area) > -1 && (typeof W.dutyCoversAt === 'function' ? W.dutyCoversAt(w, when) : false));
     if(!ws.length) return null;
     let best = null;
     ws.forEach(w => {
@@ -318,7 +326,7 @@
     const owner = isOwner(), cc = coordinators(), staff = D().coordinator_staff || [];
     const today = ymdChicago(Date.now());
     const hours = cc.map(e => {
-      const ws = ((D().duty_windows) || []).filter(w => lc(w.person) === e && w.active !== false && w.recur && !(typeof W.rowPlanned === 'function' && W.rowPlanned(w)));
+      const ws = ((D().duty_windows) || []).filter(w => lc(w.person) === e && OFFICE_AREAS.indexOf(w.area) > -1 && w.active !== false && w.recur && !(typeof W.rowPlanned === 'function' && W.rowPlanned(w)));
       const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const txt = ws.length ? ws.map(w => (w.recur.days || []).map(d => days[d]).join(', ') + ' ' + (typeof W.dutyClockRange === 'function' ? W.dutyClockRange(w.recur.from, w.recur.to) : w.recur.from + '-' + w.recur.to)).join('; ') : '<b style="color:var(--red);">no hours on the duty schedule</b>';
       return '<li>' + esc(nameOf(e)) + ': ' + txt + '</li>';
