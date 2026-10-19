@@ -6,7 +6,7 @@ from playwright.sync_api import sync_playwright
 BASE = os.environ.get('BASE', 'http://localhost:8796')
 FAKE = r"""(o) => {
   const iso = (d) => new Date(Date.now() - d * 864e5).toISOString(), today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
-  window.__CO = [{ id: '11111111-1111-4111-8111-111111111111', caregiver: 'Jordan Test', kind: 'coaching', topic: 'Late arrivals', status: 'open', assigned_to: 'krystal@mo-care.com', assigned_by: 'zach@mo-care.com', due_on: today, facts: [], talking_points: 'Hi Jordan. What has been getting in the way? [STOP: let them answer. Write down what they say.]', created_at: iso(1) }];
+  window.__CO = [{ id: '11111111-1111-4111-8111-111111111111', caregiver: 'Jordan Test', kind: 'coaching', topic: 'Late arrivals', status: 'open', assigned_to: 'krystal@mo-care.com', assigned_by: 'zach@mo-care.com', due_on: today, facts: [], talking_points: 'Hi Jordan. What has been getting in the way? [STOP: let them answer. Write down what they say.]', created_at: iso(1), subject_type: o.office ? 'office' : 'caregiver' }];
   window.__CALLS = o.calls; window.__LIVE = o.live; window.__INV = [];
   const q = (t) => { const p = new Proxy(function () {}, { get(_, k) {
     if (k === 'then') return (a, b) => Promise.resolve({ data: t === 'hr_coaching' ? window.__CO : [], error: null }).then(a, b);
@@ -78,6 +78,15 @@ with sync_playwright() as pw:
     pg3, errs3 = page(b, {'who': 'krystal', 'live': False, 'off': True, 'calls': []})
     ok('switched off, Krystal: no Coaching call panel at all, and her form is as today', pg3.inner_text('#hrCall' + CID).strip() == '' and pg3.evaluate("(()=>{HR.form('" + CID + "','record'); return !!document.getElementById('hrRd" + CID + "');})()"))
     ok('no page errors (Krystal, off)', not errs3, errs3)
+    # 4 · office coaching (a team review), switched on: no write-up warning anywhere
+    pg4, errs4 = page(b, {'who': 'zach', 'live': True, 'office': True, 'calls': [{'id': 'o1', 'state': 'confirmed', 'call_at': now, 'seconds': 300, 'tapped_by': 'zach@mo-care.com', 'practice': False}]})
+    pg4.evaluate("HR.form('" + CID + "','record')"); pg4.wait_for_timeout(400)
+    ok('office coaching: the write-up form has no write-up warning tick', pg4.query_selector('#hrRw2' + CID) is None and 'official write-up' not in pg4.inner_text('#hrCoachList'))
+    pg4.fill('#hrRw' + CID, 'Went through the follow-up list'); pg4.fill('#hrRa0_' + CID, 'Too many leads at once'); pg4.fill('#hrRe' + CID, 'Done or moved with a note'); pg4.fill('#hrRh' + CID, 'Moved two leads'); pg4.fill('#hrRf' + CID, 'Check Friday')
+    pg4.click('text=Mark coaching done'); pg4.wait_for_timeout(500)
+    rp = pg4.evaluate('window.__RPC')
+    ok('...done sends no warning and no warning words in the expectation', rp and rp[1]['p'].get('warning_given') == 'false' and 'write-up' not in rp[1]['p'].get('expectation', ''), rp)
+    ok('no page errors (office)', not errs4, errs4)
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
