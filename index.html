@@ -4674,6 +4674,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="fcToggleBtn" onclick="fcToggle(this)">Turn on</button>
   <span class="field-note" id="fcSaved"></span>
 </div>
+<!-- Planned time off (2026-10-18): ops_settings.planned_time_off_live shows an "Out from" date on the Owners Hub Team page -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Plan time off ahead:</b> <span id="ptSetNow"></span></div>
+  <button class="secondary" id="ptToggleBtn" onclick="ptToggle(this)" style="margin-top:4px;">Turn on</button>
+</div>
 <!-- Causes and cover reasons (audit step 3, Samantha 2026-10-18): ops_settings.overdue_causes_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Why it happened, and why someone covered</div>
 <p class="hint">Each follow-up that went overdue gets a cause: mine, staffing shortage, client or family decision, approved leave (set by itself while someone is out), or a phone or Hub problem. Only "mine" counts toward a review, and anything else needs a short note. The owner marks it in My month and has a day before it can count; once it is part of a review, only Zachary or Samantha can change it. When someone covers a teammate's inquiry, call or relationship call, the Hub asks why and keeps the answer. Only Samantha or Zachary can turn this on or off.</p>
@@ -7448,7 +7453,7 @@ The HomeTogether team</pre>
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=4"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=5"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7527,7 +7532,7 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=8"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="team-work.js?v=3"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=4"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=14"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
@@ -9756,7 +9761,8 @@ function leadTurns(){ return (typeof LeadRules!=='undefined'&&LeadRules.rotation
 function leadTurnsOn(){ const r=leadTurns(); return r.live&&r.people.some(p=>p.on); }
 function leadTurnIsOut(name){
   const t=today(), f=String(name||'').trim().split(/\s+/)[0].toLowerCase();
-  return !!f&&(DATA.coordinator_staff||[]).some(s=>s&&String(s.out_until||'').slice(0,10)>=t&&String(s.name||'').trim().split(/\s+/)[0].toLowerCase()===f);
+  /* planned time off (2026-10-18): out only from out_from (when set) through out_until */
+  return !!f&&(DATA.coordinator_staff||[]).some(s=>s&&String(s.out_until||'').slice(0,10)>=t&&!(String(s.out_from||'').slice(0,10)>t)&&String(s.name||'').trim().split(/\s+/)[0].toLowerCase()===f);
 }
 function leadNextUp(){ return leadTurnsOn()?LeadRules.nextUp(DATA.leads||[], DATA.ops_settings||{}, { isOut:leadTurnIsOut }):null; }
 /* the form: a new lead shows "Next up: Angiel" (or asked for by name / returning client); an existing lead's owner box is
@@ -18300,6 +18306,25 @@ function fcSetFill(){
   now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Time off and covering never count against anyone.':'<b style="color:#B7791F;">Off.</b> Time off is not looked at: an absent owner is still texted and counted, as before.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
 }
+/* Planned time off (2026-10-18). Owners only. On: the Owners Hub Team page shows an "Out from" date beside "Out until",
+   so time off can be entered ahead. Everything that reads time off already respects it; with no Out from, nothing changes. */
+function ptSetFill(){
+  const now=document.getElementById('ptSetNow'), b=document.getElementById('ptToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).planned_time_off_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> The Team page has an Out from date, so time off can be entered ahead; someone is out only from that day through Out until.'
+    :'<b style="color:#B7791F;">Off.</b> Time off starts the day Out until is set.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function ptToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).planned_time_off_live===true);
+  if(!(await ccConfirm(on?'Turn on planned time off?\n\nThe Owners Hub Team page gets an Out from date beside Out until (you and Zachary enter it). Until that day the person is not out: their leads, coverage and counts work as normal.':'Turn off planned time off? The Out from box goes away; dates already entered still count.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.planned_time_off_live=on; if(on) m.planned_time_off_live_since=new Date().toISOString(); return ['planned time off '+(on?'ON':'OFF')]; }, 'planned time off');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('fcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  ptSetFill();
+}
 async function fcToggle(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
   const on=!((DATA.ops_settings||{}).fair_counts_live===true);
@@ -18597,6 +18622,7 @@ function lhSetFill(){
   try{ bpSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
   try{ fcSetFill(); }catch(e){}
+  try{ ptSetFill(); }catch(e){}
   try{ ocSetFill(); }catch(e){}
   try{ if(typeof lwScriptsFill==='function') lwScriptsFill(); }catch(e){}
   try{ if(typeof lwPartnerFill==='function') lwPartnerFill(); }catch(e){}

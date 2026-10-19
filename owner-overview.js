@@ -80,7 +80,7 @@
   function duty(){
     const core = (typeof DUTY_CORE !== 'undefined' ? DUTY_CORE : ['operations', 'in_charge', 'staffing', 'owner_escalation']);
     const rows = safe(() => dutyNow().filter(x => core.indexOf(x.area) > -1), []);
-    const out = (D().coordinator_staff || []).filter(s => s && String(s.out_until || '').slice(0, 10) >= today()).map(s => first(s.name || s.email));
+    const out = (D().coordinator_staff || []).filter(s => s && String(s.out_until || '').slice(0, 10) >= today() && !(String(s.out_from || '').slice(0, 10) > today())).map(s => first(s.name || s.email));   /* planned time off: not out before out_from */
     return { rows, out, gaps:rows.filter(r => r.gap) };
   }
   function decisions(m){
