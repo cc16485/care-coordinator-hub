@@ -7454,7 +7454,8 @@ The HomeTogether team</pre>
 <script src="scheduling-guide.js?v=3"></script>
 <script src="new-hires.js?v=3"></script>
 <script src="hub-scenes.js?v=1"></script>
-<script src="celebrate.js?v=1"></script><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
+<script src="celebrate.js?v=1"></script>
+<script src="progress-paths.js?v=1"></script><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -24656,6 +24657,8 @@ function ppGoBack(from){
 }
 window.ppGoBack = ppGoBack;
 function ppStagesHtml(now, ended){
+  /* progress-paths.js (2026-10-18, fun step 3): the same four stages as a road with a little car */
+  if(window.PATHS) return PATHS.road(now, ended);
   if(ended) return '<div class="pp-stages"><span class="pp-stg pp-end">' + escapeHtmlComms(ended) + '</span></div>';
   return '<div class="pp-stages" aria-label="Where they are">' + PP_STAGES.map((s, i) =>
     '<span class="pp-stg' + (i < now ? ' pp-done' : i === now ? ' pp-now' : '') + '">' + s + '</span>').join('') + '</div>';
