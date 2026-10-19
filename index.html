@@ -7455,7 +7455,8 @@ The HomeTogether team</pre>
 <script src="new-hires.js?v=3"></script>
 <script src="hub-scenes.js?v=1"></script>
 <script src="celebrate.js?v=1"></script>
-<script src="progress-paths.js?v=1"></script><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
+<script src="progress-paths.js?v=1"></script>
+<script src="seasons.js?v=1"></script><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
@@ -11574,6 +11575,9 @@ function renderOverviewTop(nOverdue,nDue){
   const hr=new Date().getHours();
   const greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
   document.getElementById('todayHeading').textContent = greet+(navUserFirst?(', '+navUserFirst):'');
+  /* seasons.js (2026-10-18, fun step 4): the season's scene by the greeting, a minute of weather on the top bar, and
+     Anniversaries this week (each behind its own owner switch) */
+  if(window.SEA) SEA.onDashboard();
   /* 2026-10-05: the greeting uses My Work's own lanes and the one meaning of late, so it agrees with every
      other number on the page. */
   let L={act:0,due:0,lateMine:0,lateUnowned:0}; try{ L=opsTodayCounts(); }catch(e){}
@@ -19027,6 +19031,8 @@ async function cgdOpenProfile(axid, tab){
       '<div id="cgdThread" style="max-width:720px;"><div class="field-note">Loading the thread…</div></div>','cgdThreadCard')
     +'</div>'
     +'<div id="cgdSec-history" style="display:none;">'+card('History','<div id="cgdHist"></div>')+'</div>';
+  /* seasons.js (2026-10-18, fun step 4): the week of their work anniversary, a banner under their name (owner switch) */
+  try{ const bn=window.SEA?SEA.profileBanner(c):''; const hd=bn&&full.querySelector('.pp-avatar'); if(hd) hd.parentElement.insertAdjacentHTML('afterend', bn); }catch(e){}
   cgdRenderSkills(c,g);
   try{ if(window.CGP2) CGP2.mount(document.getElementById('cgdCgp'), { mode:'employee', axiscare_id:String(c.id),
     legacy_candidate_id:(g&&g.candidate_id!=null)?String(g.candidate_id):'', first:c.first||'', last:c.last||'',
