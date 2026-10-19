@@ -9,7 +9,7 @@
    Everything else moves to the tab it belongs to; nothing is deleted:
      · the stage bar and the four tracks (client-journey.js #cpPath)  → the Start of Care tab
      · Active + Pause care / End care (client-care.js #ccCare)         → More while care is simply active; a pause, an
-                                                                          ending or an open checklist still shows
+                                                                          ending, a planned end or an open checklist still shows
      · the Google review box (review-ask.js #ccReview)                 → the Overview, only when there is an ask to make or
                                                                           follow up; "Ask for a Google review" → More
      · the journey card (#cjHead): its tiles and yes line              → the Overview; its links → More; its contact,
@@ -31,7 +31,8 @@
     /* care: plain "Active" or "Starting care" with its buttons goes to the menu (the header line says the status); anything
        with news in it (a pause, an ending, an open checklist) stays where people see it */
     if(care && care.state){
-      const quiet = (care.state === 'active' || care.state === 'starting') && !care.checklist;
+      /* a planned end (2026-10-15) is news too: "Care ends after <date> (planned)" and its 21-day steps stay in sight */
+      const quiet = (care.state === 'active' || care.state === 'starting') && !care.checklist && !care.planned;
       out.hideCare = quiet;
       if(quiet){
         if(care.can && care.can.pause) out.menu.push({ key:'pause', label:'Pause care', call:['ccCareForm', 'pause'] });
@@ -103,7 +104,7 @@
     const rd = RV && RV.ax && RV.data ? RV.data : null;
     const chk = cd ? (cd.changes || []).filter(c => (c.kind === 'pause' || c.kind === 'end') && (c.checklist || []).length).slice(-1)[0] : null;
     return {
-      care:cd ? { state:cd.state, can:cd.can || {}, checklist:!!(chk && (chk.kind === 'end' || cd.state === 'paused')), payer:cd.payer || '' } : null,
+      care:cd ? { state:cd.state, can:cd.can || {}, checklist:!!(chk && (chk.kind === 'end' || cd.state === 'paused')), planned:!!cd.planned_end, payer:cd.payer || '' } : null,
       review:rd ? { open:!!rd.open, followup:!!rd.followup, can_suggest:!!rd.can_suggest } : null,
       cj:CJ && CJ.data && CJ.data.journey && CJ.view ? CJ : null
     };

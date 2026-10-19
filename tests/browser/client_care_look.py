@@ -6,7 +6,7 @@ import re
 from playwright.sync_api import sync_playwright
 import os
 src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client_journey_look.py')).read()
-ns = {}; exec(src.split('with sync_playwright() as pw:')[0], ns)
+ns = {'__file__': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client_journey_look.py')}; exec(src.split('with sync_playwright() as pw:')[0], ns)
 STUB, DATA = ns['STUB'], ns['DATA']
 FAKE = r"""
 (()=>{
@@ -63,7 +63,7 @@ T = r"""async()=>{
   [...B().querySelectorAll('button')].find(b=>/Resume care/.test(b.textContent)).click(); await sleep(150); dlg().querySelector('#ccGo').click(); await sleep(700);
   ok('Resume: back to Active, and the care history shows the pause and the resume with who and when', /Active/.test(B().innerText) && C.calls.some(b=>b.action==='care_resume') && /Care history/.test(B().innerText), B().innerText);
   [...B().querySelectorAll('button')].find(b=>/End care/.test(b.textContent)).click(); await sleep(150);
-  ok('End care: her nine reasons, the effective date (no later than today) and who told us', dlg().querySelector('#ccR').options.length===10 && /Needs exceed our scope/.test(dlg().innerText) && dlg().querySelector('#ccD').max===new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago'}).format(new Date()) && dlg().querySelector('#ccN'), dlg().innerText);
+  ok('End care: her nine reasons, the effective date (a future day plans the end, 2026-10-15) and who told us', dlg().querySelector('#ccR').options.length===10 && /Needs exceed our scope/.test(dlg().innerText) && !dlg().querySelector('#ccD').max && dlg().querySelector('#ccN'), dlg().innerText);
   await shot('end_form');
   dlg().querySelector('#ccR').value='deceased'; dlg().querySelector('#ccGo').click(); await sleep(700);
   ok('...ended (deceased): the profile says Deceased and offers nothing; kept for the record only', /Deceased/.test(B().innerText) && !B().querySelector('button') && /No outreach of any kind/.test(B().innerText), B().innerText);

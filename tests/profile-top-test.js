@@ -13,6 +13,7 @@ ck('plain Active: the care block leaves the top, Pause care and End care go to M
 ck('paused: the block stays (since when, follow-up, Resume), nothing moves to More', (p => !p.hideCare && keys(p) === '')(P.plan({ care:{ state:'paused', can:{ resume:true, end:true }, checklist:true } })));
 ck('past, deceased, or an open checklist: the block stays', !P.plan({ care:{ state:'past', can:{} } }).hideCare && !P.plan({ care:{ state:'deceased', can:{} } }).hideCare
   && !P.plan({ care:{ state:'active', can:{ pause:true }, checklist:true } }).hideCare);
+ck('a planned end (2026-10-15) on an active client: the block stays so the plan and its 21-day steps are seen', (p => !p.hideCare && !p.menu.length)(P.plan({ care:{ state:'active', can:{ pause:true, end:true }, planned:true } })));
 ck('starting care: the status is on the header line, Pause care and End care go to More', (p => p.hideCare && keys(p) === 'pause,end')(P.plan({ care:{ state:'starting', can:{ pause:true, end:true } } })));
 ck('a lead\'s next step never shows a bare phone number under it', P.pickNext({ lead:{ text:'Call Joe', sub:'4175550122', source:'lead' } }).sub === '' && P.pickNext({ lead:{ text:'Call Joe', sub:'about the visit', source:'lead' } }).sub === 'about the visit');
 ck('a lead with no AxisCare client: nothing about care', (p => !p.hideCare && !p.menu.length)(P.plan({ care:null })));
