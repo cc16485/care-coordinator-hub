@@ -469,6 +469,18 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('turns · someone out is skipped', R.nextUp(leads, SET, { isOut:n => n === 'Angiel' }) === 'Krystal');
   ck('turns · someone switched off is skipped', R.nextUp(leads, { lead_rotation_live:true, lead_rotation:{ people:[{ name:'Krystal' }, { name:'Angiel', on:false }] } }) === 'Krystal');
   ck('turns · nobody eligible → null (the caller falls back and says so)', R.nextUp(leads, SET, { isOut:() => true }) === null && R.nextUp([], { lead_rotation:{ people:[] } }) === null);
+  /* audit step 6: returning clients apart */
+  { const L2 = [], g2 = (who, how, apart) => { const l = { id:'r' + L2.length }; L2.push(l); R.giveTurn(l, who, { how, leads:L2, at:'2026-10-06T15:00:00Z', apart }); return l; };
+    g2(R.nextUp(L2, SET));                                   /* Krystal by turn */
+    const ret = g2('Krystal', 'returning', true);
+    ck('step 6 · apart on: a returning client goes to Krystal, stamped apart, and does NOT use her turn (Angiel is next)', ret.assigned_coordinator === 'Krystal' && ret.owner_turn.apart === true && R.nextUp(L2, SET) === 'Angiel' && /does not use a turn/.test(ret.comm_log[0].body), ret.owner_turn);
+    ck('step 6 · the apart turn still gets the next number (so the order of turns stays clear)', ret.owner_turn.seq === 2 && R.lastTurn(L2).seq === 2 && R.lastTurn(L2, { counted:true }).seq === 1);
+    const old = g2('Angiel', 'returning', false);
+    ck('step 6 · off: a returning client uses the turn, as before (Krystal next)', !old.owner_turn.apart && R.nextUp(L2, SET) === 'Krystal' && /counts as Angiel’s turn/.test(old.comm_log[0].body));
+    const ask = g2('Krystal', 'asked', true);
+    ck('step 6 · apart never applies to asked for by name (it still uses the turn)', !ask.owner_turn.apart && R.nextUp(L2, SET) === 'Angiel');
+    ck('step 6 · the switch is read only when exactly true', R.returningApartOn({ returning_apart_live:true }) && !R.returningApartOn({ returning_apart_live:'yes' }) && !R.returningApartOn(null));
+  }
   give('Krystal'); /* Krystal covered while Angiel was out */
   ck('turns · no makeup turn: after Krystal covered, Angiel is next, then Krystal', R.nextUp(leads, SET) === 'Angiel');
   const ch = { assigned_coordinator:'Angiel', original_owner:{ name:'Angiel', at:'x', how:'turn' } };

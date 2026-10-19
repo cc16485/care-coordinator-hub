@@ -4576,13 +4576,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <!-- Lead turns (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18): who owns a new
      lead, by turn. ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live; only Samantha or Zachary can change it. -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Lead turns</div>
-<p class="hint">Each new lead goes to the next Care Coordinator in this list, so everyone gets the same number of chances. Someone switched off or out on the Team page is skipped, with no makeup turn. Asked for by name and returning clients go to that person and use their turn. Taking an inquiry card is helping: the lead stays its owner's. Only Samantha or Zachary can change this or change a lead's owner. Nothing here contacts a family.</p>
+<p class="hint">Each new lead goes to the next Care Coordinator in this list, so everyone gets the same number of chances. Someone switched off or out on the Team page is skipped, with no makeup turn. Asked for by name goes to that person and uses their turn; a returning client goes to their old Care Coordinator and uses their turn unless returning clients are kept apart (below). Taking an inquiry card is helping: the lead stays its owner's. Only Samantha or Zachary can change this or change a lead's owner. Nothing here contacts a family.</p>
 <div id="ltSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div id="ltPeople"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
   <input id="ltAdd" placeholder="First name" style="max-width:160px;"><button class="secondary" onclick="ltAddPerson(this)">Add to the list</button>
   <button class="secondary" id="ltToggleBtn" onclick="ltToggle(this)">Turn on lead turns</button>
   <span class="field-note" id="ltSaved"></span>
+</div>
+<!-- Returning clients apart (audit step 6, Samantha's decision 1, 2026-10-18): ops_settings.returning_apart_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Returning clients:</b> <span id="raSetNow"></span></div>
+  <button class="secondary" id="raToggleBtn" onclick="raToggle(this)" style="margin-top:4px;">Keep returning clients apart</button>
 </div>
 <!-- Follow-up rules (Stage 2 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.lead_followup_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Follow-up rules</div>
@@ -7410,10 +7415,10 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1017"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=20"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
-<script src="team.js?v=3"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
+<script src="team.js?v=4"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -9722,7 +9727,7 @@ function leadTurnFormUI(){
   if(how&&how.options[0]) how.options[0].textContent='Next up: '+(nx||'nobody right now');
   if(who){ const keep=who.value; who.innerHTML=people.map(p=>'<option value="'+escapeHtmlComms(p.name)+'">'+escapeHtmlComms(p.name)+'</option>').join(''); if(keep) who.value=keep;
     who.style.display=how&&how.value!=='turn'?'':'none'; }
-  if(tn) tn.textContent=how&&how.value!=='turn'?'It counts as that person’s turn.':(nx?'Leads take turns. The next one goes to the other Care Coordinator.':'Nobody is in the turn list right now, so this lead goes to the payer default.');
+  if(tn) tn.textContent=how&&how.value==='returning'&&LeadRules.returningApartOn(DATA.ops_settings||{})?'A returning client goes to them and does not use a turn.':how&&how.value!=='turn'?'It counts as that person’s turn.':(nx?'Leads take turns. The next one goes to the other Care Coordinator.':'Nobody is in the turn list right now, so this lead goes to the payer default.');
 }
 function openLeadModal(id){
   if(window.CallLead) CallLead.clearForm();   /* Make this a lead: a form opened any other way has no call marks */
@@ -12716,7 +12721,7 @@ async function saveLead(opts){
       const how=String((document.getElementById('lead_turn_how')||{}).value||'turn');
       const who=how==='turn'||idx>=0?leadNextUp():String((document.getElementById('lead_turn_who')||{}).value||'');
       if(!who&&how!=='turn'){ alert('Pick who the family asked for.'); return; }
-      if(who){ LeadRules.giveTurn(merged, who, { how:idx>=0?'turn':how, by:a.email||'', leads:DATA.leads||[] }); turnNote=who+'’s lead'+(how==='turn'||idx>=0?' (next up).':' ('+LeadRules.TURN_HOW[how]+').'); }
+      if(who){ LeadRules.giveTurn(merged, who, { how:idx>=0?'turn':how, by:a.email||'', leads:DATA.leads||[], apart:LeadRules.returningApartOn(DATA.ops_settings||{}) }); turnNote=who+'’s lead'+(how==='turn'||idx>=0?' (next up).':' ('+LeadRules.TURN_HOW[how]+(merged.owner_turn&&merged.owner_turn.apart?', not a turn':'')+').'); }
       else { merged.assigned_coordinator=PAYER_COORDINATOR[merged.funding_source]||''; turnNote='Nobody is in the turn list right now, so this lead went to '+(merged.assigned_coordinator||'nobody')+'.'; }
     } else if(wantOwner&&wantOwner.split(/\s+/)[0].toLowerCase()!==prevOwner.split(/\s+/)[0].toLowerCase()){
       if(!ccIsOwner(a.email)){ alert('Only Samantha or Zachary can change who owns a lead. Everything else on the form was saved.'); }
@@ -18427,9 +18432,30 @@ async function ltToggle(btn){
   const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   ltSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* Returning clients apart (audit step 6): on, a returning client goes to their old Care Coordinator WITHOUT using a turn,
+   and Team shows returning clients on their own line. Off: as before (it uses that person's turn). Owners only. */
+function raSetFill(){
+  const now=document.getElementById('raSetNow'), b=document.getElementById('raToggleBtn'); if(!now) return;
+  const on=LeadRules.returningApartOn(DATA.ops_settings||{}), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">Apart.</b> A returning client goes to their old Care Coordinator and does not use a turn; the next new lead goes to whoever was next anyway.'
+    :'<b style="color:#B7791F;">Uses a turn.</b> A returning client goes to their old Care Coordinator and counts as that person’s turn (as today).')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Count returning clients as a turn again':'Keep returning clients apart'; b.style.display=owner?'':'none'; }
+}
+async function raToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!LeadRules.returningApartOn(DATA.ops_settings||{});
+  if(!(await ccConfirm(on?'Keep returning clients apart?\n\nFrom now on a returning client still goes to their old Care Coordinator, but it does not use their turn. Team shows returning clients on their own line, so it stays visible if one person ends up with more families. Returning clients already given keep counting as they did.'
+    :'Count returning clients as a turn again? From now on a returning client uses their old Care Coordinator’s turn, as before.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.returning_apart_live=on; if(on) m.returning_apart_live_since=new Date().toISOString(); return ['returning clients '+(on?'apart':'use a turn')]; }, 'returning clients');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  raSetFill();
+}
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ ltSetFill(); }catch(e){}
+  try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}

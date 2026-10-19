@@ -15,7 +15,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
   const ST = { data:null, busy:false };
   const KIND = { first_call:'first call', promise:'call we promised', follow_up:'follow-up', check_back:'check-back', second_try:'second try', relationship_call:'relationship call' };
-  const ROWS = [['leads_assigned', 'Leads assigned'], ['assessments_owned', 'Assessments on their leads'], ['assessments_helped', 'Assessments helped with'], ['starts', 'New clients started'],
+  const ROWS = [['leads_assigned', 'Leads assigned'], ['leads_returning', 'Of those, returning clients'], ['assessments_owned', 'Assessments on their leads'], ['assessments_helped', 'Assessments helped with'], ['starts', 'New clients started'],
     ['retained_30', 'Retained at 30 days'], ['overdue_now', 'Overdue follow-ups and calls now'], ['bonuses', 'Bonuses earned']];
   const css = () => { if(document.getElementById('cctCss')) return; const s = document.createElement('style'); s.id = 'cctCss';
     s.textContent = '.cct-bg{position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}'
