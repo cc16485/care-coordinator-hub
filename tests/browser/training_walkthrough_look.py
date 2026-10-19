@@ -19,22 +19,22 @@ T = r"""async()=>{
   document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('active')); document.getElementById('tab-apjourney').classList.add('active');
   const box=document.getElementById('twBox');
   for(let el=box; el; el=el.parentElement){ if(getComputedStyle(el).display==='none') el.style.display='block'; }
-  ok('the card is on the Applicant journey tab and the script loaded', !!box && box.closest('#tab-apjourney') && typeof window.TW==='object');
-  await TW.mount();
+  ok('the card is on the Applicant journey tab and the script loaded', !!box && box.closest('#tab-apjourney') && typeof window.TWalk==='object');
+  await TWalk.mount();
   let t=box.innerText;
   ok('it says what it is: their own phone, the job offer through the Orientation Video Call, a made-up SSN, (TRAINING), 14 days, nothing to AxisCare', /Try the new-hire journey yourself/.test(t) && /your own phone/.test(t) && /Orientation Video Call/.test(t) && /made-up/.test(t) && /\(TRAINING\)/.test(t) && /14 days/.test(t) && /AxisCare/.test(t), t);
   ok('first name prefilled from the sign-in; phone and email blank', document.getElementById('twFirst').value==='Kay' && document.getElementById('twPhone').value==='' && document.getElementById('twEmail').value==='');
   ok('others\' open walkthroughs show, with no End for a non-owner', /Zed \(TRAINING\) · by Zed Office/.test(t) && !/>End</.test(box.innerHTML), box.innerHTML.slice(-600));
   document.getElementById('twPhone').value='417-555-0100'; document.getElementById('twEmail').value='kay@home.com';
-  await TW.start(box.querySelector('button.primary'));
+  await TWalk.start(box.querySelector('button.primary'));
   const st=CALLS.find(c=>c[1].action==='start');
   ok('Start calls the server with her first name, phone and email', st && st[0]==='training-walkthrough' && st[1].first==='Kay' && st[1].phone==='417-555-0100' && st[1].email==='kay@home.com', st);
   t=box.innerText;
   ok('after Start: her walkthrough open, where messages go, the text waiting until 8am, My practice profile and End', /Your walkthrough is open/.test(t) && /Kay \(TRAINING\)/.test(t) && /417-555-0100/.test(t) && /the text waits until 8am/.test(t) && /End my walkthrough/.test(t) && !document.getElementById('twPhone'), t);
-  await TW.end('w-kay');
+  await TWalk.end('w-kay');
   ok('End ends hers and the form comes back', CALLS.some(c=>c[1].action==='end' && c[1].offer_id==='w-kay') && !!document.getElementById('twPhone') && /Ended/.test(box.innerText), box.innerText);
-  MAY=true; await TW.mount();
-  ok('an owner sees End on others\' walkthroughs', /TW\.end\('w-zed'/.test(box.innerHTML));
+  MAY=true; await TWalk.mount();
+  ok('an owner sees End on others\' walkthroughs', /TWalk\.end\('w-zed'/.test(box.innerHTML));
   ok('no em dash in the card', !/—/.test(box.innerText));
   return R; }"""
 with sync_playwright() as pw:
@@ -45,7 +45,7 @@ with sync_playwright() as pw:
         pg.goto(f'http://127.0.0.1:{PORT}/index.html?proof=training'); pg.wait_for_timeout(1500)
         out = pg.evaluate(T)
         if w == 1280: R += out
-        pg.evaluate("TW.mount()"); pg.wait_for_timeout(200)
+        pg.evaluate("TWalk.mount()"); pg.wait_for_timeout(200)
         over = pg.evaluate("(()=>{const b=document.getElementById('twBox'); return b.scrollWidth - b.clientWidth})()")
         R.append(['PASS' if over <= 1 else 'FAIL', f'no sideways scroll in the card at {w}px', '' if over <= 1 else str(over)])
         pg.locator('#twBox').screenshot(path=os.path.join(tempfile.gettempdir(), f'tw_look_{w}.png'))
