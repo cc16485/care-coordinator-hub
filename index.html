@@ -15191,7 +15191,7 @@ function mbFill(){
       +'<input type="checkbox" class="mbChk" data-name="'+escapeHtmlComms(p.name)+'" data-email="'+escapeHtmlComms(p.email)+'" '+(on?'checked':'')+'>'
       +escapeHtmlComms(p.name)+' <span class="field-note">'+escapeHtmlComms(p.email)+'</span>'
       +'<span style="flex:1"></span>'
-      +'<span class="field-note" style="display:flex;align-items:center;gap:5px;" title="Adds the admin sections: family-update calls, short-notice call-off write-ups, EVV misses, and today\'s open shifts from AxisCare.">'
+      +'<span class="field-note" style="display:flex;align-items:center;gap:5px;" title="Adds the admin sections: family-update calls, short-notice call-off write-ups, yesterday\'s missed clock-ins and clock-outs, and today\'s open shifts from AxisCare.">'
       +'<input type="checkbox" class="mbAdm" data-email="'+escapeHtmlComms(p.email)+'" '+(adm?'checked':'')+'> full picture</span></label>';
   }).join('');
 }
