@@ -1372,7 +1372,7 @@ function renderStaffHome(){
     +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks. Two calls per match, then done','checkins',false)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
     +row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
-    +row('⛔',blocked,'Blocked from first client contact','Orientation/dementia training incomplete, so can\'t be scheduled yet','training',true)
+    +row('⛔',blocked,'Blocked from first client contact','Agency Orientation (or a Medicaid caregiver\'s dementia training, until Nov 16) not done yet, so they can\'t be scheduled yet','training',true)
     +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">🤝 Team &amp; Reports</div>'
@@ -7311,8 +7311,105 @@ function renderOB(){
 
 // ── TRAINING RENDER ───────────────────────────────────────────────────
 let trFilterVal='all';
+
+/* ── MEDICAID CAREGIVERS (Samantha, 2026-10-19) ───────────────────────────
+   "I need to know all caregivers who have worked with medicaid clients because I will need to show proof of their
+   training if I get audited later." AxisCare's visits say who has been in which client's home; the Hub says which
+   clients are Medicaid (IHS/ADW): a confirmed state care plan, a payer mark of Medicaid, a lead or New Clients row whose
+   payer is Medicaid. Each match is written onto the caregiver as medicaid_clients and KEPT FOR GOOD (the AxisCare
+   window only reaches back about 60 days, so a visit is recorded the first time it is seen and never removed).
+   Caregivers from the WellSky days are ticked by hand on their training record (medicaid_hand). The rules file
+   (medicaidCaregiver / ihsTraining) does the deciding; this only finds and records. */
+let MEDICAID_SYNC = { ran:false, running:false, at:'', err:'', found:0 };
+async function medicaidClientIds(){
+  const D = (typeof DATA !== 'undefined' && DATA) || {};
+  const isMed = v => /medicaid|ihs|adw|dsds/i.test(String(v || ''));
+  const ids = new Map();   // ax -> where we learned it
+  (D.medicaid_plans || []).forEach(p => {
+    if(!p || !p.axiscare_client_id) return;
+    if(p.kind === 'plan') ids.set(String(p.axiscare_client_id), 'state care plan');
+    else if(p.kind === 'payer_mark' && p.payer === 'medicaid' && !ids.has(String(p.axiscare_client_id))) ids.set(String(p.axiscare_client_id), 'marked Medicaid');
+  });
+  (D.leads || []).forEach(l => { if(l && l.axiscare_client_id && isMed(l.funding_source) && !ids.has(String(l.axiscare_client_id))) ids.set(String(l.axiscare_client_id), 'lead payer'); });
+  try{
+    if(typeof sb !== 'undefined' && sb){
+      const { data } = await sb.from('client_queue').select('axiscare_client_id,payer').not('axiscare_client_id','is',null);
+      (data || []).forEach(r => { if(isMed(r.payer) && !ids.has(String(r.axiscare_client_id))) ids.set(String(r.axiscare_client_id), 'New Clients payer'); });
+    }
+  }catch(e){ /* the other sources still count */ }
+  return ids;
+}
+async function medicaidSync(btn){
+  if(MEDICAID_SYNC.running) return;
+  MEDICAID_SYNC.running = true; MEDICAID_SYNC.err = '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Checking AxisCare…'; }
+  try{
+    const med = await medicaidClientIds();
+    const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts',{
+      method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':TRAINING_HUB_ANON,'Authorization':'Bearer '+TRAINING_HUB_ANON,'Content-Type':'application/json'},
+      body:JSON.stringify({mode:'pairs', days:62})});
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    let changed = 0;
+    for(const p of (data.pairs || [])){
+      const src = med.get(String(p.client_id)); if(!src) continue;
+      const c = caregivers.find(x => x && String(x.axiscare_id || '') === String(p.caregiver_id)); if(!c) continue;
+      const list = Array.isArray(c.medicaid_clients) ? c.medicaid_clients.slice() : [];
+      const i = list.findIndex(m => String(m.client_id) === String(p.client_id));
+      const cur = i >= 0 ? list[i] : null;
+      const first = cur && cur.first_date && cur.first_date < p.first_date ? cur.first_date : p.first_date;
+      const last = cur && cur.last_date && cur.last_date > p.last_date ? cur.last_date : p.last_date;
+      if(cur && cur.first_date === first && cur.last_date === last) continue;
+      const rec = { client_id:String(p.client_id), client:p.client || (cur && cur.client) || '', first_date:first, last_date:last, source:src, seen_at:new Date().toISOString().slice(0,10) };
+      if(i >= 0) list[i] = rec; else list.push(rec);
+      c.medicaid_clients = list; changed++;
+    }
+    if(changed) await saveCaregivers({ quiet:true });
+    MEDICAID_SYNC.found = changed; MEDICAID_SYNC.at = new Date().toISOString();
+  }catch(e){
+    MEDICAID_SYNC.err = String((e && e.message) || e);
+  }finally{
+    MEDICAID_SYNC.running = false; MEDICAID_SYNC.ran = true;
+    if(btn){ btn.disabled = false; btn.textContent = '↻ Check AxisCare for Medicaid visits'; }
+    if(typeof activeTab === 'undefined' || document.getElementById('tr-tbody')) renderTR();
+  }
+}
+function medicaidHow(c){
+  const ax = Array.isArray(c.medicaid_clients) && c.medicaid_clients.length, hand = String(c.medicaid_hand || '') === 'yes';
+  return ax && hand ? 'AxisCare visits and marked by hand' : ax ? 'AxisCare visits' : hand ? 'Marked by hand (before AxisCare)' : '';
+}
+/* what an auditor would ask for that is not on file: the training the IHS rules required, and its signed proof */
+function medicaidGaps(c){
+  const ihs = trainStatus(c).ihs || {}, g = [];
+  if(!c.orient_date) g.push('Agency Orientation'); else if(!c.orient_proof) g.push('Agency Orientation proof');
+  if(!c.alz_date) g.push('Dementia training'); else if(!c.alz_proof) g.push('Dementia training proof');
+  if(!c.ojt_date || c.ojt_signed !== 'yes') g.push('On-the-job, in person'); else if(!c.ojt_proof) g.push('On-the-job, in person proof');
+  if(!c.ojt_online) g.push('On-the-job, online'); else if(!c.ojt_online_proof) g.push('On-the-job, online proof');
+  if(ihs.annualStatus === 'Overdue') g.push('Annual in-service'); else if(c.annual_date && !c.annual_proof) g.push('Annual in-service proof');
+  if(ihs.annualShort) g.push('Annual in-service hours (' + c.annual_hrs + ' of 5)');
+  return g;
+}
+function medicaidCSV(){
+  const list = caregivers.filter(c => __elig().medicaidCaregiver(c));
+  const rows = [['Caregiver','AxisCare ID','Hire date','How we know','Medicaid clients (first to last visit seen)','Hand note',
+    'Agency Orientation','Orientation proof','Dementia training','Dementia hours','Dementia proof',
+    'On-the-job in person','OJT signed','OJT in person proof','On-the-job online','OJT online proof',
+    'First client contact','Annual in-service','Annual hours','Annual proof','Not on file']];
+  list.forEach(c => rows.push([
+    `${c.first} ${c.last}`, c.axiscare_id || '', c.hire_date || '', medicaidHow(c),
+    (c.medicaid_clients || []).map(m => `${m.client} (${m.first_date} to ${m.last_date})`).join('; '), c.medicaid_hand_note || '',
+    c.orient_date || '', c.orient_proof || '', c.alz_date || '', c.alz_hrs || '', c.alz_proof || '',
+    c.ojt_date || '', c.ojt_signed || '', c.ojt_proof || '', c.ojt_online || '', c.ojt_online_proof || '',
+    c.first_contact || '', c.annual_date || '', c.annual_hrs || '', c.annual_proof || '', medicaidGaps(c).join('; ')]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = `medicaid_caregivers_training_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
 function trFilter(f,btn){ trFilterVal=f; document.querySelectorAll('#panel-training .fb').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderTR(); }
 function renderTR(){
+  if(!MEDICAID_SYNC.ran && !MEDICAID_SYNC.running && caregivers.length) setTimeout(() => medicaidSync(), 0);
   const q=((document.querySelector('#panel-training input')||{value:''}).value||globalSearch).toLowerCase();
   const blocked=caregivers.filter(c=>!trainStatus(c).preContactDone);
   /* 2c: new hires only; current caregivers are never listed here for having no profile */
@@ -7320,7 +7417,7 @@ function renderTR(){
   const profBlocked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].blocked);
   const profUnchecked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].new_hire&&!pgOf[c.id].checked&&pgOf[c.id].err);
   document.getElementById('train-alert').innerHTML=(blocked.length
-    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, pre-contact training incomplete: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
+    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, Agency Orientation (or, for a Medicaid caregiver until Nov 16, dementia training) not done yet: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profBlocked.length
     ?`<div class="alert-banner">🪪 ${profBlocked.length} new hire${profBlocked.length===1?'':'s'}: profile needed before first shift. Publish their caregiver profile (the photo is required) before their first client visit: ${profBlocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profUnchecked.length
@@ -7332,11 +7429,20 @@ function renderTR(){
     const matchQ=!q||n.includes(q);
     let matchF=true;
     if(trFilterVal==='blocked') matchF=!ts.preContactDone;
-    else if(trFilterVal==='ojt-due') matchF=!ts.thirtyDone&&!!ts.thirtyDeadline;
-    else if(trFilterVal==='annual-due') matchF=ts.annualStatus==='Due Soon'||ts.annualStatus==='Overdue';
+    if(trFilterVal==='medicaid') matchF=!!(ts.ihs&&ts.ihs.medicaid);
     return matchQ&&matchF;
   });
   const tbody=document.getElementById('tr-tbody');
+  const medBox=document.getElementById('tr-medicaid');
+  if(medBox){
+    const st=MEDICAID_SYNC.running?'Checking AxisCare for visits with Medicaid clients…'
+      :MEDICAID_SYNC.err?`<span style="color:var(--red)">Could not check AxisCare: ${wcEsc(MEDICAID_SYNC.err)}. The list below is what was already recorded.</span>`
+      :MEDICAID_SYNC.at?`AxisCare checked ${new Date(MEDICAID_SYNC.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}${MEDICAID_SYNC.found?`, ${MEDICAID_SYNC.found} new visit record${MEDICAID_SYNC.found===1?'':'s'} saved`:', nothing new'}.`:'';
+    medBox.style.display=trFilterVal==='medicaid'?'block':'none';
+    medBox.innerHTML=`<div style="font-size:.82rem;line-height:1.5">Everyone who has worked with a Medicaid (IHS or ADW) client, kept for good for audits. AxisCare visits are added on their own; for someone from the WellSky days, open their record (✏️) and tick <b>Worked with a Medicaid client</b>. Until Nov 16, 2026 these caregivers still need dementia training, on-the-job training within 30 days and the yearly 5 hours.</div>
+      <div style="font-size:.78rem;color:var(--gray);margin-top:.3rem">${st}</div>
+      <div style="margin-top:.45rem;display:flex;gap:.4rem;flex-wrap:wrap"><button class="fb" onclick="SCX.medicaidSync(this)">↻ Check AxisCare for Medicaid visits</button><button class="fb" onclick="SCX.medicaidCSV()">⬇ Download the list with training proof</button></div>`;
+  }
   document.getElementById('tr-empty').style.display=list.length?'none':'block';
   if(!list.length){tbody.innerHTML='';return;}
 
@@ -7349,49 +7455,53 @@ function renderTR(){
     const preLabel=ts.preContactDone?(profBlock?'🪪 Profile needed before first shift':'✓ Cleared to Schedule'):'⛔ Blocked';
     const profLine=pg&&window.CGP2?CGP2.gateHtml(c,pg):'';
     const orientLine=c.orient_date?`<span class="chk-date">Agency Orientation (2hr): ${fmtD(c.orient_date)} ✓${c.orient_proof?` <a class="proof-link" href="#" data-proof="${String(c.orient_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">Agency Orientation: missing</span>`;
-    const alzLine=c.alz_date?`<span class="chk-date">ALZ/Dementia (4hr): ${fmtD(c.alz_date)} ✓${c.alz_proof?` <a class="proof-link" href="#" data-proof="${String(c.alz_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date" style="color:var(--red)">ALZ/Dementia Training: missing</span>`;
-    const alzHrsLine=c.alz_hrs?(parseInt(c.alz_hrs)>=4?`<span class="chk-date" style="color:var(--green)">ALZ hours: ${c.alz_hrs} ✓</span>`:`<span class="chk-date" style="color:var(--amber)">⚠ ALZ hours: ${c.alz_hrs}/4 required</span>`):'';
-    // 30-day cell
-    const ddStr=ts.thirtyDeadline?ts.thirtyDeadline.toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
-    const daysLeft30=ts.thirtyDeadline?daysLeft(ts.thirtyDeadline):null;
-    let thirtyBadge, thirtyLabel;
-    if(ts.thirtyDone){ thirtyBadge='b-green'; thirtyLabel='✓ Complete'; }
-    else if(ts.thirtyPassed){ thirtyBadge='b-red'; thirtyLabel='Overdue'; }
-    else if(daysLeft30!==null&&daysLeft30<=7){ thirtyBadge='b-amber'; thirtyLabel=`Due in ${daysLeft30}d`; }
-    else { thirtyBadge='b-gray'; thirtyLabel='Pending'; }
-    const ojtLine=c.ojt_date?`<span class="chk-date">OJT In-Home/Office (4hr): ${fmtD(c.ojt_date)}${c.ojt_signed==='yes'?` ✓${c.ojt_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}`:` ⚠ no signed proof${c.ojt_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:''}`}</span>`:`<span class="chk-date" style="color:${ts.thirtyPassed?'var(--red)':'var(--gray)'}">OJT In-Home/Office (4hr): pending</span>`;
-    const ojtOnlineLine=c.ojt_online?`<span class="chk-date">OJT Online (2hr): ${fmtD(c.ojt_online)} ✓${c.ojt_online_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_online_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:' <span style="color:#f97316;font-size:.67rem">no proof</span>'}</span>`:`<span class="chk-date">OJT Online (2hr): pending</span>`;
-    const proofLine='';
-    // Annual cell
-    let annBadge,annLabel;
-    if(ts.isFirstYear){ annBadge='b-blue'; annLabel='Exempt: Year 1'; }
-    else if(ts.annualStatus==='Overdue'){ annBadge='b-red'; annLabel='Overdue'; }
-    else if(ts.annualStatus==='Due Soon'){ annBadge='b-amber'; annLabel='Due Soon'; }
-    else if(ts.annualStatus==='Current'){ annBadge='b-green'; annLabel='Current'; }
-    else { annBadge='b-gray'; annLabel='Not on file'; }
-    const annDateLine=c.annual_date?`<span class="chk-date">Last: ${fmtD(c.annual_date)}${ts.annualNextDue?` · Next: ${ts.annualNextDue.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:''}</span>`:
-      (ts.isFirstYear?'<span class="chk-date">Required from year 2</span>':'<span class="chk-date">No training on file</span>');
-    const annHrsLine=(!ts.isFirstYear&&c.annual_hrs)?(parseInt(c.annual_hrs)>=5?`<span class="chk-date" style="color:var(--green)">Hours: ${c.annual_hrs}/5 ✓</span>`:`<span class="chk-date" style="color:var(--amber)">⚠ Hours: ${c.annual_hrs}/5 required</span>`):'';
+    /* ORIENTATION ONLY (Samantha, 2026-10-15): dementia, on-the-job and annual in-service training are OPTIONAL,
+       assigned by the office for a client's needs. Their dates show as records; nothing here says missing,
+       due, overdue or required. */
+    const optRec=(label,date,extra)=>date?`<span class="chk-date">${label}: ${fmtD(date)} ✓${extra||''}</span>`:'';
+    const alzLine=optRec('Dementia care'+(c.alz_hrs?` (${c.alz_hrs}hr)`:''),c.alz_date,`${c.alz_proof?` <a class="proof-link" href="#" data-proof="${String(c.alz_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:''}`);
+    const ojtLine=optRec('On-the-job, in person',c.ojt_date,`${c.ojt_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:''}`);
+    const ojtOnlineLine=optRec('On-the-job, online',c.ojt_online,`${c.ojt_online_proof?` <a class="proof-link" href="#" data-proof="${String(c.ojt_online_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄</a>`:''}`);
+    const optAny=!!(c.alz_date||c.ojt_date||c.ojt_online);
+    const optBadge=optAny?'b-green':'b-gray', optLabel=optAny?'On record':'None recorded';
+    const annDateLine=c.annual_date?`<span class="chk-date">Last: ${fmtD(c.annual_date)}${c.annual_hrs?` · ${c.annual_hrs}hr`:''}</span>`:'';
     const annProofLine=c.annual_proof?`<a class="proof-link" href="#" data-proof="${String(c.annual_proof).replace(/"/g,'&quot;')}" onclick="SCX.viewProof(this.dataset.proof);return false">📄 proof</a>`:'';
+    let annBadge=c.annual_date?'b-green':'b-gray', annLabel=c.annual_date?'On record':'None recorded';
+    /* a Medicaid caregiver: the IHS training still counts until Nov 16, and what is missing is named for the audit */
+    const ihs=ts.ihs||{};
+    let optB=optBadge, optL=optLabel, optMiss='', annMiss='', medChip='';
+    if(ihs.medicaid){
+      const miss=[]; if(!ihs.alzDone) miss.push('Dementia care'); if(!ihs.ojtDone) miss.push('On-the-job');
+      const word=ihs.applies?'needed':'not on record';
+      optB=miss.length?(ihs.applies?'b-red':'b-amber'):'b-green';
+      optL=miss.length?(ihs.applies?'Medicaid: needed by Nov 16':'Medicaid: not all on record'):'Medicaid: done';
+      optMiss=miss.map(m=>`<span class="chk-date" style="color:${ihs.applies?'var(--red)':'var(--amber)'}">${m}: ${word}${m==='On-the-job'&&ihs.applies&&ihs.thirtyDeadline?` (due ${fmtD(ihs.thirtyDeadline.toISOString().slice(0,10))})`:''}</span>`).join('');
+      if(ihs.isFirstYear){ annBadge='b-gray'; annLabel='Medicaid: year 1, not due'; }
+      else if(ihs.annualStatus==='Overdue'){ annBadge=ihs.applies?'b-red':'b-amber'; annLabel=ihs.applies?'Medicaid: overdue':'Medicaid: not on record'; }
+      else if(ihs.annualStatus==='Due Soon'){ annBadge='b-amber'; annLabel='Medicaid: due soon'; }
+      else { annBadge='b-green'; annLabel='Medicaid: current'; }
+      if(ihs.annualShort) annMiss=`<span class="chk-date" style="color:var(--amber)">Hours: ${wcEsc(c.annual_hrs)} of 5</span>`;
+      const cl=(c.medicaid_clients||[]).map(m=>`${m.client} (${m.first_date} to ${m.last_date})`).join(', ');
+      medChip=`<div><span class="tag-chip" style="background:#EEF2FF;color:#3730A3" title="${wcEsc(medicaidHow(c)+(cl?': '+cl:'')+(c.medicaid_hand_note?'. '+c.medicaid_hand_note:''))}">Medicaid caregiver</span></div>`;
+    }
     // Overall
-    const oBadge={Current:'b-green','Annual Due Soon':'b-amber','Annual Overdue':'b-red','Training Overdue':'b-red','OJT Pending':'b-gray','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
+    const oBadge={Current:'b-green','Client Contact Blocked':'b-red','Training Overdue':'b-red','Annual Overdue':'b-red','OJT Pending':'b-amber','Annual Due Soon':'b-amber'}[ts.overall]||'b-gray';
     return `<tr>
-      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`, '', 'checks', 'checks')}</div></td>
+      <td><div>${personName({caregiver_id:c.id}, `${c.first} ${c.last}`, '', 'checks', 'checks')}</div>${medChip}</td>
       <td><span class="chk-date">${fmtD(c.hire_date)||''}</span></td>
-      <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${alzLine}${alzHrsLine}${profLine?`<span class="chk-date">${profLine}</span>`:''}</div></td>
+      <td><div class="chk"><span class="badge ${preBadge}">${preLabel}</span>${orientLine}${profLine?`<span class="chk-date">${profLine}</span>`:''}</div></td>
       <td>${(()=>{
         if(!c.first_contact){ return ts.preContactDone?`<div class="chk"><span class="badge b-gray">Not recorded</span><span class="chk-date" style="color:var(--gray)">Required in training file</span></div>`:`<div class="chk"></div>`; }
         const fcD=pd(c.first_contact);
         const orientOk=c.orient_date&&pd(c.orient_date)<=fcD;
-        const alzOk=c.alz_date&&pd(c.alz_date)<=fcD;
-        const preOk=orientOk&&alzOk;
+        const preOk=!!orientOk;
         const statusBadge=preOk?'b-green':'b-red';
         const statusLabel=preOk?'✓ Compliant':'⚠ Training gap';
-        const note=!orientOk?'Orientation not done before contact':!alzOk?'ALZ training not done before contact':'Pre-contact training was complete';
+        const note=!orientOk?'Orientation not done before contact':'Orientation was done before contact';
         return `<div class="chk"><span class="badge ${statusBadge}">${statusLabel}</span><span class="chk-date">${fmtD(c.first_contact)}</span><span class="chk-date" style="color:${preOk?'var(--green)':'var(--red)'}">${note}</span></div>`;
       })()}</td>
-      <td><div class="chk"><span class="badge ${thirtyBadge}">${thirtyLabel}</span><span class="chk-date">Deadline: ${ddStr||'Not set'}</span>${ojtLine}${ojtOnlineLine}</div></td>
-      <td><div class="chk"><span class="badge ${annBadge}">${annLabel}</span>${annDateLine}${annHrsLine}${annProofLine}</div></td>
+      <td><div class="chk"><span class="badge ${optB}">${optL}</span>${alzLine}${ojtLine}${ojtOnlineLine}${optMiss}</div></td>
+      <td><div class="chk"><span class="badge ${annBadge}">${annLabel}</span>${annDateLine}${annMiss}${annProofLine}</div></td>
       <td><span class="badge ${oBadge}">${ts.overall}</span></td>
       <td><div class="acts"><button class="ibtn" onclick="openCGModal('training',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
@@ -7399,15 +7509,12 @@ function renderTR(){
 
   // Stats
   const bl=caregivers.filter(c=>!trainStatus(c).preContactDone).length;
-  const ojtOv=caregivers.filter(c=>{const ts=trainStatus(c);return !ts.thirtyDone&&ts.thirtyPassed;}).length;
-  const annOv=caregivers.filter(c=>trainStatus(c).annualStatus==='Overdue').length;
   const allOk=caregivers.filter(c=>trainStatus(c).overall==='Current').length;
   document.getElementById('tr-stats').innerHTML=`
     <div class="stat"><div class="lbl">Total Caregivers</div><div class="val v-navy">${caregivers.length}</div></div>
     <div class="stat"><div class="lbl">Client Contact Blocked</div><div class="val v-red">${bl}</div></div>
-    <div class="stat"><div class="lbl">Training Overdue</div><div class="val v-red">${ojtOv}</div></div>
-    <div class="stat"><div class="lbl">Annual Overdue</div><div class="val v-red">${annOv}</div></div>
-    <div class="stat"><div class="lbl">All Current</div><div class="val v-green">${allOk}</div></div>`;
+    <div class="stat"><div class="lbl">Orientation Done</div><div class="val v-green">${allOk}</div></div>
+    <div class="stat"><div class="lbl">Medicaid Caregivers</div><div class="val v-navy">${caregivers.filter(c=>__elig().medicaidCaregiver(c)).length}</div></div>`;
 }
 
 // ── ACTIVE COMPLIANCE RENDER ──────────────────────────────────────────
@@ -8165,13 +8272,15 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
   document.getElementById('cg-modal-title').textContent=id?'Edit Caregiver':'Add Caregiver';
   const c=id?caregivers.find(x=>x.id===id):null;
   const g=k=>document.getElementById(k);
-  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-supv-date','cg-supv-proof','cg-perf-date','cg-perf-proof','cg-cna-exp','cg-cna-proof','cg-dl-exp','cg-dl-proof','cg-ins-exp','cg-ins-proof'];
+  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-medicaid-note','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-supv-date','cg-supv-proof','cg-perf-date','cg-perf-proof','cg-cna-exp','cg-cna-proof','cg-dl-exp','cg-dl-proof','cg-ins-exp','cg-ins-proof'];
   if(c){
     g('cg-first').value=c.first;g('cg-last').value=c.last;g('cg-hire').value=c.hire_date||'';
     g('cg-oos').value=c.oos||'no';g('cg-orient').value=c.orient_date||'';g('cg-alz').value=c.alz_date||'';
     g('cg-orient-proof').value=c.orient_proof||'';g('cg-alz-hrs').value=c.alz_hrs||'';g('cg-alz-proof').value=c.alz_proof||'';g('cg-first-contact').value=c.first_contact||'';g('cg-ojt-online-proof').value=c.ojt_online_proof||'';
     g('cg-ojt-date').value=c.ojt_date||'';g('cg-ojt-signed').value=c.ojt_signed||'no';
     g('cg-ojt-proof').value=c.ojt_proof||'';g('cg-ojt-online').value=c.ojt_online||'';
+    g('cg-medicaid-hand').value=c.medicaid_hand==='yes'?'yes':'no';g('cg-medicaid-note').value=c.medicaid_hand_note||'';
+    { const m=document.getElementById('cg-medicaid-ax'); if(m) m.innerHTML=(c.medicaid_clients||[]).length?'Seen in AxisCare: '+c.medicaid_clients.map(x=>wcEsc(`${x.client} (${x.first_date} to ${x.last_date})`)).join(', '):'No AxisCare visits with a Medicaid client recorded.'; }
     g('cg-annual').value=c.annual_date||'';g('cg-annual-hrs').value=c.annual_hrs||'';g('cg-annual-proof').value=c.annual_proof||'';
     g('cg-ethics-date').value=c.ethics_date||'';g('cg-ethics-proof').value=c.ethics_proof||'';
     g('cg-rights-date').value=c.rights_date||'';g('cg-rights-proof').value=c.rights_proof||'';
@@ -8182,7 +8291,7 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
     g('cg-supv-date').value=c.supv_date||'';g('cg-supv-proof').value=c.supv_proof||'';
     g('cg-perf-date').value=c.perf_date||'';g('cg-perf-proof').value=c.perf_proof||'';
     g('cg-cna-exp').value=c.cna_expires||'';g('cg-cna-proof').value=c.cna_proof||'';g('cg-dl-exp').value=c.dl_expires||'';g('cg-dl-proof').value=c.dl_proof||'';g('cg-ins-exp').value=c.auto_ins_expires||'';g('cg-ins-proof').value=c.auto_ins_proof||'';   /* SLICE 6 */
-  } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; }
+  } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; g('cg-medicaid-hand').value='no'; { const m=document.getElementById('cg-medicaid-ax'); if(m) m.innerHTML=''; } }
   /* 2026-10-14 step 3: the checks here are shown, not edited (Record a result on their page) */
   ['cg-oig','cg-oig-s','cg-oig-proof','cg-edl','cg-edl-s','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-s','cg-fcsr-proof','cg-fp','cg-fp-date','cg-fp-proof']
     .forEach(k => { const el = document.getElementById(k); if(el){ el.disabled = true; el.title = 'Recorded on their caregiver page (Training & checks), with its proof'; } });
@@ -8198,6 +8307,7 @@ async function saveCG(){
     orient_date:g('cg-orient'),orient_proof:g('cg-orient-proof'),alz_date:g('cg-alz'),alz_hrs:g('cg-alz-hrs'),alz_proof:g('cg-alz-proof'),first_contact:g('cg-first-contact'),
     ojt_date:g('cg-ojt-date'),ojt_signed:g('cg-ojt-signed'),ojt_proof:g('cg-ojt-proof'),ojt_online:g('cg-ojt-online'),ojt_online_proof:g('cg-ojt-online-proof'),
     annual_date:g('cg-annual'),annual_hrs:g('cg-annual-hrs'),annual_proof:g('cg-annual-proof'),
+    medicaid_hand:g('cg-medicaid-hand')==='yes'?'yes':'',medicaid_hand_note:g('cg-medicaid-note'),
     ethics_date:g('cg-ethics-date'),ethics_proof:g('cg-ethics-proof'),
     rights_date:g('cg-rights-date'),rights_proof:g('cg-rights-proof'),
     /* 2026-10-14 step 3: checks are recorded on the caregiver's page (Record a result, with proof and who); this form keeps them */
@@ -8209,6 +8319,8 @@ async function saveCG(){
     perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof'),
     /* SLICE 6 (2026-10-10): typed credential expiries with proof; the rules file watches them */
     cna_expires:g('cg-cna-exp'),cna_proof:g('cg-cna-proof'),dl_expires:g('cg-dl-exp'),dl_proof:g('cg-dl-proof'),auto_ins_expires:g('cg-ins-exp'),auto_ins_proof:g('cg-ins-proof')};
+  /* who ticked "worked with a Medicaid client" and when: it decides training rules and lands in an audit file */
+  if((d.medicaid_hand||'')!==((oldCG&&oldCG.medicaid_hand)||'')){ d.medicaid_hand_by=(typeof ME!=='undefined'&&ME&&ME.email)||''; d.medicaid_hand_at=new Date().toISOString(); }
   let savedCG;
   if(editingCG){ const i=caregivers.findIndex(x=>x.id===editingCG); caregivers[i]={...caregivers[i],...d}; savedCG=caregivers[i]; }
   else { const rec={id:safeTmpId(),...d}; caregivers.push(rec); savedCG=rec; }
@@ -8849,7 +8961,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
       <li>After the call, tick the checklist and press <b>Orientation Video Call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
-      <li>Pressing done also adds them to the caregiver roster (hire date today). Training and Compliance then track their orientation and dementia training.</li>
+      <li>Pressing done also adds them to the caregiver roster (hire date today). Training and Compliance then track their orientation.</li>
       <li>If the Hub says they were not found, set them to <b>In Training</b> in AxisCare, then press <b>Send orientation link</b> on their row under <b>Done recently</b>. Until then a card stays on Needs Attention.</li>
       <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
     </ol>
@@ -8864,7 +8976,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
       <li><b>Caregiver profile:</b> open <b>🪪 Caregiver profile</b>. "Before your first visit, the family sees a short profile of you, so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Read each part aloud. Ask any [ask: …] questions and type their answers in their own words (take the brackets out). Type their changes and press <b>Save</b>.
         Then press <b>Send photo link</b> and say: "I'm sending you a text and an email now with your own link. Please add a photo, it's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving. You can check the words there too."</li>
-      <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your training is online, on your phone or computer, on your own schedule, and you can do it in pieces: Agency Orientation (about 2 hours), then Alzheimer's &amp; Dementia Care (about 4 hours), both before your first client; then on-the-job training within 30 days. Once you're done and your profile is published, we'll let you know you're cleared to work. Please save our office number: (417) 234-8494."</li>
+      <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your orientation is online, on your phone or computer, on your own schedule. It's 2 hours of orientation, and you can do it in pieces. Please finish it before your first client visit. Once your orientation is done and your profile is published, we'll let you know you're cleared to work. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
     <p style="margin:.5rem 0 .2rem"><b>After the call:</b> make sure they are In Training in AxisCare, tick the checklist, press <b>Orientation Video Call done – send orientation link</b>, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
@@ -8991,7 +9103,7 @@ async function wcAct(id, action, reason, btn){
 
 /* ── Orientation Video Call done -> caregiver roster (Samantha, 2026-10-02) ──
    Pressing "Orientation Video Call done – send orientation link" also adds them to the caregiver roster with today's hire date
-   (Central), so Training and Compliance track their orientation and dementia training from day one. Same record as
+   (Central), so Training and Compliance track their orientation from day one. Same record as
    the office 🎓 Promote, except orient_date stays '' (orientation is done online AFTER this; it is never marked done
    here). Never twice: a roster record carrying this candidate id means it already happened. The Background &
    References record is removed ONLY after the roster reached the shared workspace; if that save fails, nothing is
@@ -9052,7 +9164,7 @@ function wcRosterMsg(r){
    catch-up for Orientation Video Calls marked done before this change. */
 async function wcRosterAdd(id, btn){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
-  if(!(await ccConfirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation and dementia training. They move out of Background & References. Nothing is sent to them.'))) return;
+  if(!(await ccConfirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation. They move out of Background & References. Nothing is sent to them.'))) return;
   if(btn) btn.disabled = true;
   try{ alert(wcRosterMsg(await wcAddToRoster(w))); renderWelcomeCalls(); }
   catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was changed.'); }
@@ -9998,17 +10110,16 @@ function openProfile(first, last){
   html+=`<div class="sect-lbl">Training</div>`;
   if(cg){
     const ts=trainStatus(cg);
-    const daysLeft30=ts.thirtyDeadline?daysLeft(ts.thirtyDeadline):null;
+    /* Orientation only (2026-10-15): the rest are optional records, shown when on file, never "Missing" or a deadline. */
+    const opt='<span style="color:var(--gray)">Optional, none recorded</span>';
     html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.6rem .8rem;margin:.5rem 0 .75rem">`;
     html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:.3rem .75rem;font-size:.8rem">`;
-    html+=`<div><span style="color:var(--gray);font-size:.72rem">Agency Orientation (2hr)</span><br>${cg.orient_date?`<strong>${fmtD(cg.orient_date)}</strong> <span style="color:var(--green)">✓</span>`:'<span style="color:var(--red)">Missing</span>'}</div>`;
-    html+=`<div><span style="color:var(--gray);font-size:.72rem">ALZ/Dementia (4hr)</span><br>${cg.alz_date?`<strong>${fmtD(cg.alz_date)}</strong>${cg.alz_hrs?` · ${cg.alz_hrs}hr`:''} <span style="color:var(--green)">✓</span>`:'<span style="color:var(--red)">Missing</span>'}</div>`;
-    html+=`<div><span style="color:var(--gray);font-size:.72rem">OJT In-Home (4hr)</span><br>${cg.ojt_date?`<strong>${fmtD(cg.ojt_date)}</strong> <span style="color:var(--green)">✓</span>`:'<span style="color:var(--amber)">Pending</span>'}</div>`;
-    html+=`<div><span style="color:var(--gray);font-size:.72rem">OJT Online (2hr)</span><br>${cg.ojt_online?`<strong>${fmtD(cg.ojt_online)}</strong> <span style="color:var(--green)">✓</span>`:'<span style="color:var(--amber)">Pending</span>'}</div>`;
+    html+=`<div><span style="color:var(--gray);font-size:.72rem">Agency Orientation (2hr), required</span><br>${cg.orient_date?`<strong>${fmtD(cg.orient_date)}</strong> <span style="color:var(--green)">✓</span>`:'<span style="color:var(--red)">Missing</span>'}</div>`;
     html+=`<div><span style="color:var(--gray);font-size:.72rem">First Client Contact</span><br>${cg.first_contact?`<strong>${fmtD(cg.first_contact)}</strong>`:miss}</div>`;
-    html+=`<div><span style="color:var(--gray);font-size:.72rem">30-Day Deadline</span><br>${ts.thirtyDeadline?`<strong>${ts.thirtyDeadline.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</strong> ${ts.thirtyDone?'<span style="color:var(--green)">✓ Done</span>':ts.thirtyPassed?'<span style="color:var(--red)">⚠ Overdue</span>':`<span style="color:${daysLeft30<=7?'var(--red)':'var(--amber)'}">${daysLeft30}d left</span>`}`:miss}</div>`;
+    html+=`<div><span style="color:var(--gray);font-size:.72rem">Dementia care (optional)</span><br>${cg.alz_date?`<strong>${fmtD(cg.alz_date)}</strong>${cg.alz_hrs?` · ${cg.alz_hrs}hr`:''} <span style="color:var(--green)">✓</span>`:opt}</div>`;
+    html+=`<div><span style="color:var(--gray);font-size:.72rem">On-the-job (optional)</span><br>${(cg.ojt_date||cg.ojt_online)?`<strong>${fmtD(cg.ojt_date||cg.ojt_online)}</strong> <span style="color:var(--green)">✓</span>`:opt}</div>`;
     html+=`</div>`;
-    const oBadge={Current:'b-green','Annual Due Soon':'b-amber','Annual Overdue':'b-red','Training Overdue':'b-red','OJT Pending':'b-gray','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
+    const oBadge={Current:'b-green','Client Contact Blocked':'b-red'}[ts.overall]||'b-gray';
     html+=`<div style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border)"><span class="badge ${oBadge}">${ts.overall}</span></div>`;
     html+=`</div>`;
   } else {
@@ -10830,17 +10941,18 @@ function renderEVVCorrections() {
    one-hour private link. Nothing is sent to anyone. ───── */
 const TPF_ITEMS = [
   { k: 'orient', label: 'Agency orientation (2 hours)', date: 'orient_date', proof: 'orient_proof' },
-  { k: 'alz', label: "Dementia / Alzheimer's training (4 hours)", date: 'alz_date', hrs: 'alz_hrs', minHrs: 4, proof: 'alz_proof' },
-  { k: 'ojt', label: 'On-the-job training, in person (supervisor sign-off)', date: 'ojt_date', signed: 'ojt_signed', proof: 'ojt_proof' },
-  { k: 'ojt_online', label: 'On-the-job training, online part', date: 'ojt_online', proof: 'ojt_online_proof' },
-  { k: 'annual', label: 'Annual training (5 hours, from year 2)', date: 'annual_date', hrs: 'annual_hrs', minHrs: 5, proof: 'annual_proof', yearTwo: true },
+  /* Optional from 2026-10-15 (Samantha: orientation is the only required training). Kept so a certificate the office
+     has can still be recorded with its proof; an empty optional item is never "missing" and never counts as needed. */
+  { k: 'alz', label: "Dementia care (optional)", date: 'alz_date', hrs: 'alz_hrs', minHrs: 4, proof: 'alz_proof', optional: true },
+  { k: 'ojt', label: 'On-the-job, in person (optional)', date: 'ojt_date', signed: 'ojt_signed', proof: 'ojt_proof', optional: true },
+  { k: 'ojt_online', label: 'On-the-job, online (optional)', date: 'ojt_online', proof: 'ojt_online_proof', optional: true },
+  { k: 'annual', label: 'Annual in-service (optional)', date: 'annual_date', hrs: 'annual_hrs', minHrs: 5, proof: 'annual_proof', optional: true },
 ];
 let TPF_FILTER = 'todo', TPF_Q = '';
 const tpfEsc = (t) => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const tpfIsFile = (p) => !!p && !/^https?:\/\//i.test(String(p));
 function tpfState(c, it){
-  if (it.yearTwo) { try { if (trainStatus(c).isFirstYear) return 'na'; } catch (e) {} }
-  if (!c[it.date]) return 'missing';
+  if (!c[it.date]) return it.optional ? 'na' : 'missing';
   if (!c[it.proof]) return 'no_proof';
   return tpfIsFile(c[it.proof]) ? 'ok' : 'link_only';
 }
@@ -10856,28 +10968,28 @@ function tpfOpen(){
 function tpfRender(){
   const b = document.getElementById('tpfBody'); if (!b) return;
   const all = tpfActive().map(c => ({ c, st: TPF_ITEMS.map(it => tpfState(c, it)) }));
-  const need = x => x.st.some(s => s === 'missing' || s === 'no_proof' || s === 'link_only');
+  const need = x => x.st.some((s, i) => !TPF_ITEMS[i].optional && (s === 'missing' || s === 'no_proof' || s === 'link_only'));
   const rows = all.filter(x => (TPF_FILTER === 'all' || need(x)) && (!TPF_Q || (x.c.first + ' ' + x.c.last).toLowerCase().includes(TPF_Q.toLowerCase())))
     .sort((a, z) => (a.c.last || '').localeCompare(z.c.last || ''));
   const done = all.filter(x => !need(x)).length;
   const cell = (c, it, s) => {
-    const btn = '<button class="ibtn" style="font-size:.72rem" onclick="SCX.tpfRecord(' + tpfEsc(JSON.stringify(String(c.id))) + ',\'' + it.k + '\')">' + (s === 'ok' ? 'Replace' : s === 'missing' ? 'Record' : 'Upload the PDF') + '</button>';
-    if (s === 'na') return '<span style="color:#8A7F70;font-size:.75rem">year 1: not due</span>';
+    const btn = '<button class="ibtn" style="font-size:.72rem" onclick="SCX.tpfRecord(' + tpfEsc(JSON.stringify(String(c.id))) + ',\'' + it.k + '\')">' + (s === 'ok' ? 'Replace' : (s === 'missing' || s === 'na') ? 'Record' : 'Upload the PDF') + '</button>';
+    if (s === 'na') return '<span style="color:#8A7F70;font-size:.75rem">optional, none recorded</span><div style="margin-top:.2rem">' + btn + '</div>';
     const d = c[it.date] ? '<div style="font-size:.75rem">' + tpfEsc(c[it.date]) + (it.hrs && c[it.hrs] ? ' · ' + tpfEsc(c[it.hrs]) + ' h' : '') + '</div>' : '';
     const pf = c[it.proof] ? ' <a href="#" data-proof="' + tpfEsc(c[it.proof]) + '" onclick="SCX.viewProof(this.dataset.proof);return false" title="Open the proof">📄</a>' : '';
     const tag = s === 'ok' ? '<span style="color:#15803D;font-weight:700;font-size:.75rem">✓ PDF on file</span>' : s === 'no_proof' ? '<span style="color:#B45309;font-weight:700;font-size:.75rem">date, no proof</span>' : s === 'link_only' ? '<span style="color:#B45309;font-weight:700;font-size:.75rem">a link only</span>' : '<span style="color:#B91C1C;font-weight:700;font-size:.75rem">missing</span>';
     return tag + pf + d + '<div style="margin-top:.2rem">' + btn + '</div>';
   };
   let h = '<div style="display:flex;align-items:flex-start;gap:.6rem;border-bottom:2px solid #E8E2D8;padding-bottom:.6rem"><div style="flex:1"><div style="font-size:1.2rem;font-weight:800;color:#0D365F">📄 Training proof catch-up</div>'
-    + '<div class="field-note">Every active caregiver, each required training with its certificate. Recording needs the date and the PDF; the file is kept in the private document store and opens on their profile and in the personnel file export. Nothing is sent to anyone.</div></div><button class="ibtn" onclick="document.getElementById(\'tpfPanel\').style.display=\'none\'">Close</button></div>';
-  h += '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin:.6rem 0"><b style="color:#0D365F">' + done + ' of ' + all.length + ' complete with proof</b>'
+    + '<div class="field-note">Every active caregiver: the required Agency Orientation with its certificate, plus any optional training on file. Recording needs the date and the PDF; the file is kept in the private document store and opens on their profile and in the personnel file export. Nothing is sent to anyone.</div></div><button class="ibtn" onclick="document.getElementById(\'tpfPanel\').style.display=\'none\'">Close</button></div>';
+  h += '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin:.6rem 0"><b style="color:#0D365F">' + done + ' of ' + all.length + ' with orientation on file with proof</b>'
     + [['todo', 'Still needs something'], ['all', 'Everyone']].map(([k, l]) => '<button class="ibtn" style="font-size:.72rem;' + (TPF_FILTER === k ? 'background:#0D365F;color:#fff;border-color:#0D365F' : '') + '" onclick="SCX.tpfFilter(\'' + k + '\')">' + l + '</button>').join('')
     + '<input placeholder="Caregiver…" value="' + tpfEsc(TPF_Q) + '" oninput="SCX.tpfSearch(this.value)" style="flex:1;min-width:160px;padding:.3rem .5rem;border:1px solid #E8E2D8;border-radius:6px"><span class="field-note">' + rows.length + ' shown</span></div>';
   h += rows.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.8rem"><thead><tr><th style="text-align:left;padding:.3rem">Caregiver</th>' + TPF_ITEMS.map(it => '<th style="text-align:left;padding:.3rem;font-size:.75rem">' + tpfEsc(it.label) + '</th>').join('') + '<th></th></tr></thead><tbody>'
     + rows.map(x => '<tr style="border-top:1px solid #F4F2ED;vertical-align:top"><td style="padding:.35rem"><b>' + tpfEsc((x.c.first || '') + ' ' + (x.c.last || '')) + '</b>' + (x.c.hire_date ? '<div class="field-note">hired ' + tpfEsc(x.c.hire_date) + '</div>' : '') + '</td>'
       + TPF_ITEMS.map((it, i) => '<td style="padding:.35rem">' + cell(x.c, it, x.st[i]) + '</td>').join('')
       + '<td style="padding:.35rem"><button class="ibtn" style="font-size:.72rem" onclick="window.CRX&&CRX.exportFile(this,' + tpfEsc(JSON.stringify(String(x.c.id))) + ')" title="The personnel file for an audit: every date and proof, as a PDF; logged with your name">⇩ Personnel file</button></td></tr>').join('') + '</tbody></table></div>'
-    : '<div class="field-note">Everyone is complete with proof.</div>';
+    : '<div class="field-note">Everyone has their orientation on file with proof.</div>';
   b.innerHTML = h;
 }
 function tpfRecord(cgId, k){
@@ -10922,7 +11034,7 @@ async function tpfSave(cgId, k){
   if (ok === false) { err.textContent = 'The shared save did not go through. The file is uploaded; press Save again.'; btn.disabled = false; btn.textContent = 'Save'; return; }
   document.getElementById('tpfRec').remove(); tpfRender(); try { renderTR(); } catch (e) {}
 }
-window.SCX = {tpfOpen, tpfRecord, tpfSave, tpfFilter: (k) => { TPF_FILTER = k; tpfRender(); }, tpfSearch: (q) => { TPF_Q = q; tpfRender(); }, viewProof: bgrViewProof, getOffers: () => OFFERS, offerIntoChecks, offerStep1Link, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
+window.SCX = {medicaidSync, medicaidCSV, tpfOpen, tpfRecord, tpfSave, tpfFilter: (k) => { TPF_FILTER = k; tpfRender(); }, tpfSearch: (q) => { TPF_Q = q; tpfRender(); }, viewProof: bgrViewProof, getOffers: () => OFFERS, offerIntoChecks, offerStep1Link, bookOfficeOrientation, officeOrientPreview, loadOffers, renderHirePipeline, renderBGRTab, renderPeopleChecks, renderReferenceActivity, bgrOnOpen, bgrRenderSub, acFilter, addStaffHandoffItem, addStaffUser, attTypeUi, batchOIGCheck, calNext, calPrev, closeModal, confirmCSVImport, confirmNotHire, confirmSendInvite, copyBLToClipboard, deleteOrientConfirm, downloadCSVTemplate, exportComplianceCSV, gcalSyncAll, generateOrientSessions, gotoTab, handleCSVFile, hbCreateWriteup, hbTplChanged, logAttEvent, obFilter, oigCheckFromCGModal, oigCheckFromOBModal, openCGModal, openImportModal, openNewWriteup, openOrientModal, openOrientModalWithScope, postStaffHandoff, previewCSV, renderAC, renderAttendance, renderOB, renderOrientations, renderTR, renderWriteups, saveAttSettings, saveCG, saveCancelDetails, saveEVVCorrection, saveManualRef, saveOB, saveOrient, saveOrientSettings, saveSettings, scanClockins, setPastView, submitAdminPwd, syncFromTrainingHub, toggleACSelectAll, toggleEVVReasonOther, toggleGuide, toggleOfficeOrient, toggleRecurEnd, toggleRecurFields, trFilter, updateMrefPreview, updateOrientGenPreview};
 /* The offer cards are built with inline onclick handlers, so these have to be
    reachable as globals, not just through SCX. */
 window.loadOffers = loadOffers;
