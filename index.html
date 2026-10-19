@@ -4589,6 +4589,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="field-note"><b>Returning clients:</b> <span id="raSetNow"></span></div>
   <button class="secondary" id="raToggleBtn" onclick="raToggle(this)" style="margin-top:4px;">Keep returning clients apart</button>
 </div>
+<!-- The database guards who owns a lead (audit step 8, Samantha 2026-10-18): ops_settings.owner_guard_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Database guard:</b> <span id="ogSetNow"></span></div>
+  <button class="secondary" id="ogToggleBtn" onclick="ogToggle(this)" style="margin-top:4px;">Turn on the database guard</button>
+</div>
 <!-- Follow-up rules (Stage 2 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.lead_followup_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Follow-up rules</div>
 <p class="hint">If the first call reaches nobody, a second try is due within 2 days. After that, logging a call needs the next follow-up date (unless an assessment is booked or they are waiting on something with a check-back date). A lead with no next step shows red until it has one or is closed. Saving for future needs a check-back date, and the family's Care Coordinator gets a card that day. Reminders for staff only: nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
@@ -7944,6 +7949,17 @@ async function persist(key, item){
     document.getElementById('syncPill').textContent = '☁ Synced';
     clearPendingSync(key, item.id);
   }catch(e){
+    /* audit step 8: the database refused a change of who owns a lead (or of its first owner). Not a sync problem, so it is
+       never queued to retry: the person is told why, and the lead is read back from the database as it really is. */
+    if(key==='leads' && /LEAD_OWNER_GUARD/.test(String((e && (e.message || e.details)) || ''))){
+      syncRecordError(key, item, e, 'server'); syncSay('✗ Not saved · owner change refused');
+      alert('Not saved. Only Samantha or Zachary can change who owns a lead, and a lead\'s first owner never changes. The lead has been put back as it is on file; make your other change again if you need to.');
+      try{ const { data } = await sb.from('app_data').select('data').eq('key','leads').maybeSingle();
+        const fresh = (data && Array.isArray(data.data)) ? data.data.find(x => x && String(x.id) === String(item.id)) : null;
+        const i = (DATA.leads||[]).findIndex(x => x && String(x.id) === String(item.id));
+        if(fresh && i >= 0) DATA.leads[i] = fresh; try{ renderLeadsStarts(); }catch(_){} }catch(_){}
+      return;
+    }
     /* The data is kept whatever went wrong. What changes is what we CALL it. */
     const kind = syncClassify(e);
     queuePendingSync(key, item);
@@ -18480,9 +18496,29 @@ async function raToggle(btn){
   const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
   raSetFill();
 }
+/* The database guards who owns a lead (audit step 8): on, the database itself refuses an owner change by anyone but
+   Samantha or Zachary while lead turns are on, and a change to a lead's first owner by anyone. Owners only. */
+function ogSetFill(){
+  const now=document.getElementById('ogSetNow'), b=document.getElementById('ogToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).owner_guard_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> The database itself refuses an owner change unless you or Zachary make it (while lead turns are on), and never lets a lead\'s first owner change.'
+    :'<b style="color:#B7791F;">Off.</b> Only the Hub screens stop an owner change.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the database guard':'Turn on the database guard'; b.style.display=owner?'':'none'; }
+}
+async function ogToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).owner_guard_live===true);
+  if(!(await ccConfirm(on?'Turn on the database guard?\n\nFrom now on the database refuses an owner change by anyone but you or Zachary while lead turns are on, and refuses any change to a lead\'s first owner (who a bonus goes to). A refused save tells the person why and puts the lead back.':'Turn off the database guard? Only the Hub screens will stop an owner change.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.owner_guard_live=on; if(on) m.owner_guard_live_since=new Date().toISOString(); return ['database owner guard '+(on?'ON':'OFF')]; }, 'database owner guard');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  ogSetFill();
+}
 function lhSetFill(){
   if(typeof LeadRules==='undefined') return;
   try{ ltSetFill(); }catch(e){}
+  try{ ogSetFill(); }catch(e){}
   try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
