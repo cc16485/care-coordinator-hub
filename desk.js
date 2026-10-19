@@ -589,11 +589,12 @@
       + (hd % 4 === 1 ? '<div class="dk-coffee" style="left:' + (60 + hd % 300) + 'px;bottom:' + (40 + hd % 90) + 'px"></div>' : '')
       + '<button class="dk-dogear' + (pf.dogear ? ' dk-on' : '') + '" ' + (R ? 'disabled tabindex="-1"' : 'data-dk="dogear"') + ' title="' + (pf.dogear ? 'Unfold the corner' : 'Fold the corner to come back to this page') + '" aria-label="Fold the corner"></button>'
       + '<div class="dk-head">' + (d.getMonth() === 9 ? '<svg class="dk-doodle" aria-hidden="true"><use href="#dk-leaf"/></svg>' : '')
-      +   '<div><div class="dk-dow">' + dowName(day) + (day === t ? ' · today' : '') + '</div><h2 class="dk-date">' + fmtLong(day) + '</h2><div class="dk-motto">' + (MOTTO[d.getDay()] || '') + '</div></div>'
+      +   '<div><div class="dk-dow">' + dowName(day) + (day === t ? ' · today' : '') + '</div><h2 class="dk-date">' + fmtLong(day) + '</h2><div class="dk-motto">' + (porchOn(day, pf) ? 'All crossed off. Enjoy the quiet.' : (MOTTO[d.getDay()] || '')) + '</div></div>'
       +   '<span class="dk-sp"></span><div class="dk-nav">' + (day !== t ? '<button class="dk-back" data-dk="go" data-day="' + t + '">Back to today</button>' : '')
       +     '<button class="dk-round" data-dk="go" data-day="' + prev + '" aria-label="Previous page">' + icon('prev') + '</button>'
       +     '<button class="dk-round" data-dk="go" data-day="' + next + '" aria-label="Next page">' + icon('next') + '</button>'
       +     '<button class="dk-round" data-dk="month" aria-label="Month" title="Month">' + icon('day') + '</button></div></div>'
+      + (porchOn(day, pf) ? '<div class="dk-porch" aria-hidden="true">' + HS.svg('porch') + '</div>' : '')
       + (left.length ? '<div class="dk-left"><span>' + left.length + ' left on ' + dowName(prevBiz(t)) + "'s page</span><span class=\"dk-sp\"></span>"
           + '<button class="dk-lbtn" data-dk="lo-bring">Bring them over</button><button class="dk-lbtn dk-ghosty" data-dk="lo-look">Let me look</button>'
           + '<button class="dk-lbtn dk-x" data-dk="lo-x" aria-label="Leave them there" title="Leave them there">' + icon('x') + '</button></div>' : '')
@@ -613,6 +614,8 @@
       + '<button class="dk-curl" data-dk="go" data-day="' + next + '" aria-label="Turn the page" title="Turn to ' + fmtShort(next) + '"></button>'
       + '</article>';
   }
+  /* the porch shows when the page has its completion stamp (every to-do crossed off, three or more) */
+  const porchOn = (day, pf) => meadow() && !!(pf && pf.stamp) && typeof HS !== 'undefined' && typeof HS.svg === 'function';
   function plannerHtml(day){
     const prev = prevBiz(day), next = nextBiz(day);
     const peek = (cls, d) => '<button class="dk-peek dk-' + cls + (DK.receive === d ? ' dk-receive' : '') + '" data-dk="go" data-day="' + d + '" data-dkdrop="day" data-dayto="' + d + '" aria-label="' + fmtShort(d) + '"><span class="dk-pl">' + fmtTiny(d) + '</span>'
@@ -670,6 +673,17 @@
     try{ if(localStorage.getItem('dk-week-tucked-' + mon) === '1') return null; }catch(e){}
     return mon;
   }
+  /* Meadow's Friday card: a road through the hills with a signpost for each weekday; a finished page puts a honey flag on
+     its post. Words only, no totals, never compared. */
+  function weekRoad(days){
+    const posts = days.map((dd, i) => { const x = 40 + i * 70, done = !!(DK.pages[dd] || {}).stamp;
+      return '<g transform="translate(' + x + ' 54)"><line x1="0" y1="0" x2="0" y2="34" stroke="#0D365F" stroke-width="2.4"/>'
+        + '<rect x="-20" y="-6" width="40" height="16" rx="3" fill="#fff" stroke="#0D365F" stroke-width="2"/><text x="0" y="5.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="9" font-weight="800" fill="#0D365F">' + DOW[D(dd).getDay()].slice(0, 3).toUpperCase() + '</text>'
+        + (done ? '<path d="M2 -6 v-18 l14 5 l-14 5" fill="#F0A63A" stroke="#0D365F" stroke-width="1.6" stroke-linejoin="round"/>' : '') + '</g>'; }).join('');
+    return '<svg class="dk-wroad" viewBox="0 0 360 110" role="img" aria-label="Your week as a road; a flag marks each day you finished your page"><rect width="360" height="110" rx="12" fill="#EAF4F6"/>'
+      + '<circle cx="320" cy="24" r="12" fill="#F0A63A" opacity=".75"/><path d="M0 110 L0 84 Q 120 66 240 82 T 360 74 L360 110 Z" fill="#CADDD9"/>'
+      + '<path d="M0 100 Q 180 84 360 96" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/><path d="M0 100 Q 180 84 360 96" fill="none" stroke="#F0A63A" stroke-width="2" stroke-dasharray="6 7"/>' + posts + '</svg>';
+  }
   function weekCard(anchor){
     const mon = fridayWeek(); if(!mon) return;
     const days = [0, 1, 2, 3, 4].map(k => addDays(mon, k));
@@ -677,7 +691,7 @@
     const st = days.map(dd => '<span>' + ((DK.pages[dd] || {}).stamp ? '<svg><use href="#dk-st-' + esc(DK.pages[dd].stamp) + '"/></svg>' : '<i></i>') + DOW[D(dd).getDay()].slice(0, 3).toUpperCase() + '</span>').join('');
     if(typeof ccPopOpen !== 'function') return;
     const el = ccPopOpen(anchor, '<div class="dk-weekbox"><div class="dk-tkick">' + esc(fmtShort(mon)) + ' to ' + esc(fmtShort(days[4])) + '</div><b style="font-size:18px;color:#0D365F;font-family:Young Serif,Georgia,serif;font-weight:400">Your week</b>'
-      + '<div class="dk-wstamps">' + st + '</div>'
+      + (meadow() ? weekRoad(days) : '<div class="dk-wstamps">' + st + '</div>')
       + (fin.length ? '<div style="font-weight:700;margin-top:10px">Finally crossed off</div><div class="dk-wfin">' + fin.map(t => '<div>' + esc(t) + '</div>').join('') + '</div>' : '')
       + '<div class="dk-wbye">Have a good weekend, ' + esc(String(myName()).split(' ')[0]) + '.</div>'
       + '<div style="margin-top:12px"><button class="primary" data-wk="away">Tuck it away</button></div>'
@@ -883,6 +897,14 @@
   const kWhen = k => k.said_on ? fmtShort(String(k.said_on).slice(0, 10)) : '';
   function kLine(k){ return esc(k.who || 'Someone') + (k.about ? ', about ' + esc(k.about) + (k.about_role ? ' (' + esc(k.about_role) + ')' : '') : '') + '<br>' + [KSRC[k.source] || '', kWhen(k)].filter(Boolean).map(esc).join(' · '); }
   function jarSvg(n){
+    if(meadow()){
+      let hearts = '';
+      for(let i = 0; i < Math.min(n, 12); i++){ const x = 24 + (i * 15) % 36, y = 82 - Math.floor(i / 3) * 10 - (i % 2) * 3;
+        hearts += '<path d="M' + x + ' ' + y + ' c-3 -4 -9 -1 -6 3 l6 5 l6 -5 c3 -4 -3 -7 -6 -3Z" fill="#F0A63A" stroke="#0D365F" stroke-width="1.1" transform="rotate(' + ((i * 37) % 30 - 15) + ' ' + x + ' ' + y + ')"/>'; }
+      return '<svg viewBox="0 0 84 100" aria-hidden="true"><rect x="22" y="6" width="40" height="11" rx="3" fill="#F0A63A" stroke="#0D365F" stroke-width="2"/>'
+        + '<path d="M24 17h36c0 4 8 6 8 14v55c0 6-4 9-10 9H26c-6 0-10-3-10-9V31c0-8 8-10 8-14z" fill="#EAF4F6" stroke="#0D365F" stroke-width="2.4"/>' + hearts
+        + '<rect x="27" y="38" width="30" height="14" rx="2" fill="#fff" stroke="#0D365F" stroke-width="1.4"/><text x="42" y="47.5" text-anchor="middle" font-family="system-ui, sans-serif" font-size="6" font-weight="800" fill="#0D365F" letter-spacing=".3">KIND WORDS</text></svg>';
+    }
     let slips = ''; const cols = ['#f8c5d2', '#fde68a', '#bde2ee', '#cde8c2', '#ffe4ac'];
     for(let i = 0; i < Math.min(n, 14); i++){ const x = 22 + (i * 17) % 40, y = 84 - Math.floor(i / 3) * 9 - (i % 2) * 3;
       slips += '<rect x="' + x + '" y="' + y + '" width="16" height="8" rx="1.5" fill="' + cols[i % 5] + '" transform="rotate(' + ((i * 37) % 30 - 15) + ' ' + (x + 8) + ' ' + (y + 4) + ')"/>'; }
@@ -1163,11 +1185,11 @@
   }
   function everyoneHtml(){
     const ev = DK.ev;
-    let h = '<div class="dk-mat dk-mat-teal" id="dkMat"><h2 class="dk-evh">Everyone\'s desks</h2><p class="dk-evsub">Today\'s page on each desk. Click one to stop by; they will see that you did. A desk appears on its own for anyone set up as an Owner, Care Coordinator or Staffing Coordinator (by Hub role or job title).</p>';
+    let h = '<div class="dk-mat dk-mat-meadow" id="dkMat">' + sceneryHtml() + '<h2 class="dk-evh">Everyone\'s desks</h2><p class="dk-evsub">Today\'s page on each desk. Click one to stop by; they will see that you did. A desk appears on its own for anyone set up as an Owner, Care Coordinator or Staffing Coordinator (by Hub role or job title).</p>';
     if(!ev) return h + '<div class="dk-msg">Opening the desks…</div></div>';
     if(ev.err) return h + '<div class="dk-msg">The desks couldn\'t be opened just now.</div></div>';
     h += '<div class="dk-evgrid">' + ev.ids.map(id => {
-      const p = personById(id) || {}, mat = ((ev.settings || []).find(x => x.person_id === id) || {}).mat || 'teal';
+      const p = personById(id) || {}, mat = matOf(((ev.settings || []).find(x => x.person_id === id) || {}).mat);
       const arr = (ev.lines || []).filter(l => l.person_id === id && l.kind !== 'ghost').sort((a, b) => a.pos - b.pos);
       const st = (ev.stickies || []).filter(x => x.person_id === id).slice(0, 4);
       return '<button class="dk-evcard dk-mat-' + esc(mat) + '" data-dk="desk" data-who="' + esc(id) + '"><span class="dk-evn">' + esc(String(p.full_name || '').split(' ')[0]) + "'s Desk</span>"
@@ -1178,9 +1200,41 @@
     }).join('') + (ev.ids.length ? '' : '<div class="dk-msg">Nobody else has a desk yet.</div>') + '</div></div>';
     return h;
   }
+  /* MEADOW (2026-10-18, Samantha: "i would like my desk to have the same look as the rest of the hubs fun upgrades", then
+     "build the Meadow look as shown: default for everyone, old mats stay in Make it yours, all three fun moments"; mockup
+     https://claude.ai/artifact/Pqe5A3L4UH46b4Jgb76GPY). The desk in the Hub's drawing kit (hub-scenes.js): sky, hills with
+     lit houses, a honey sun, navy outlines with teal, honey and mint. The default for every desk; teal felt, navy linen,
+     sage and cork stay under Make it yours. Its moments follow the kit's rules: good news only, no totals, never compared,
+     still for reduced motion. */
+  const MATS = ['meadow','teal','navy','sage','cork'];
+  const matOf = m => MATS.includes(m) ? m : 'meadow';
+  const meadow = () => matOf((DK.settings || {}).mat) === 'meadow';
+  /* the scenery behind the desk: hills, two lit houses, the sun, grass; the season on the hills when seasons_live is on */
+  function sceneryHtml(){
+    const house = (x, y, s) => '<g transform="translate(' + x + ' ' + y + ') scale(' + s + ')"><path d="M0 18 L18 4 L36 18" fill="#0F7A73" stroke="#0D365F" stroke-width="2.2" stroke-linejoin="round"/>'
+      + '<rect x="5" y="17" width="26" height="20" rx="1.5" fill="#fff" stroke="#0D365F" stroke-width="2.2"/><rect class="dk-lit" x="9" y="21" width="7" height="7" rx="1" fill="#F0A63A"/><rect x="20" y="25" width="6.5" height="12" rx="1" fill="#0D365F"/></g>';
+    let sea = '';
+    try{
+      const on = typeof DATA !== 'undefined' && DATA.ops_settings && DATA.ops_settings.seasons_live === true;
+      const which = on && window.SEA && typeof SEA.seasonOf === 'function' ? SEA.seasonOf(T()) : '';
+      const bits = { autumn:['#F0A63A', '#C17A12', '#D9622B'], winter:['#ffffff', '#ffffff', '#EAF4F6'], spring:['#F6C7D4', '#ffffff', '#F0A63A'], summer:['#F7D9A6', '#F0A63A', '#ffffff'] }[which];
+      if(bits) for(let i = 0; i < 9; i++){
+        const x = 60 + i * 107 % 900, y = 40 + (i * 37) % 44, c = bits[i % 3];
+        sea += which === 'autumn' ? '<path d="M' + x + ' ' + y + ' c6 -10 18 -6 12 4 Z" fill="' + c + '" stroke="#0D365F" stroke-width="1.2" transform="rotate(' + (i * 40) + ' ' + x + ' ' + y + ')"/>'
+          : which === 'winter' ? '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + c + '" stroke="#CADDD9" stroke-width="1"/>'
+          : which === 'spring' ? '<ellipse cx="' + x + '" cy="' + y + '" rx="5" ry="3.5" fill="' + c + '" stroke="#0D365F" stroke-width="1" transform="rotate(' + (i * 30) + ' ' + x + ' ' + y + ')"/>'
+          : '<circle class="dk-lit" cx="' + x + '" cy="' + (y - 20) + '" r="2.4" fill="' + c + '"/>';
+      }
+      if(which) sea = '<g class="dk-sea" data-season="' + which + '">' + sea + '</g>';
+    }catch(e){ sea = ''; }
+    return '<div class="dk-sun" aria-hidden="true"></div><svg class="dk-hills" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">'
+      + '<path d="M0 120 L0 58 Q 250 18 500 52 T 1000 34 L1000 120 Z" fill="#CADDD9"/><path d="M0 120 L0 88 Q 350 62 625 90 T 1000 76 L1000 120 Z" fill="#8FD1C7" opacity=".55"/>'
+      + house(60, 54, 1) + house(910, 38, .9)
+      + '<g fill="none" stroke="#0F7A73" stroke-width="2.2" stroke-linecap="round"><path d="M290 92 q4 -12 8 0 q4 -12 8 0"/><path d="M730 98 q4 -12 8 0 q4 -12 8 0"/></g>' + sea + '</svg>';
+  }
   function matClass(){
     const st = DK.settings || {};
-    return ' dk-mat-' + (['teal','navy','sage','cork'].includes(st.mat) ? st.mat : 'teal') + (st.ink === 'teal' || st.ink === 'plum' ? ' dk-ink-' + st.ink : '') + (st.neat ? ' dk-neat' : '');
+    return ' dk-mat-' + matOf(st.mat) + (st.ink === 'teal' || st.ink === 'plum' ? ' dk-ink-' + st.ink : '') + (st.neat ? ' dk-neat' : '');
   }
   async function openMonth(month){
     DK.month = month;
@@ -1245,9 +1299,9 @@
   function prefs(){
     const st = DK.settings || {};
     const grp = (k, title, opts) => '<div style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C17A12;margin-bottom:6px">' + title + '</div><div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + opts.map(([v, l, sw]) => '<button class="dk-pref' + (String(st[k] == null ? (k === 'mat' ? 'teal' : k === 'ink' ? 'navy' : 'false') : st[k]) === String(v) ? ' dk-on' : '') + '" data-pk="' + k + '" data-pv="' + v + '">' + (sw ? '<span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:' + sw + '"></span>' : '') + l + '</button>').join('') + '</div></div>';
+      + opts.map(([v, l, sw]) => '<button class="dk-pref' + (String(st[k] == null ? (k === 'mat' ? 'meadow' : k === 'ink' ? 'navy' : 'false') : st[k]) === String(v) ? ' dk-on' : '') + '" data-pk="' + k + '" data-pv="' + v + '">' + (sw ? '<span style="width:14px;height:14px;border-radius:50%;display:inline-block;background:' + sw + '"></span>' : '') + l + '</button>').join('') + '</div></div>';
     const html = '<div class="dk-prefbox"><b style="font-size:16px;color:#0D365F">Make it yours</b><p class="field-note" style="margin:4px 0 0">Your desk, your way. Owners who stop by see it the way you set it up.</p>'
-      + grp('mat', 'Desk mat', [['teal','Teal felt','#1d6f7d'],['navy','Navy linen','#24405e'],['sage','Sage','#5f8370'],['cork','Cork','#b08452']])
+      + grp('mat', 'Desk mat', [['meadow','Meadow','#8FD1C7'],['teal','Teal felt','#1d6f7d'],['navy','Navy linen','#24405e'],['sage','Sage','#5f8370'],['cork','Cork','#b08452']])
       + grp('ink', 'Pen', [['navy','Navy ink','#0D365F'],['teal','Teal ink','#155A68'],['plum','Plum ink','#5b2a5e']])
       + grp('neat', 'Writing', [['false','Handwriting'],['true','Neat print']])
       + '<p class="field-note" style="margin-top:14px">Also yours: the photo on your desk (click it) and the little labels under your sticky pads.' + (st.photo ? ' <button class="dk-pref" data-pk="photo" data-pv="">Take my photo off</button>' : '') + '</p></div>';
@@ -1286,10 +1340,10 @@
       + (ro() ? '' : '<button class="dk-eraser" data-dkdrop="erase" data-dk="erase-help" title="Drop a line or a sticky here to erase it">ERASE</button>')
       + '<button class="dk-help" data-dk="help">How to</button></div></div>';
     if(DK.view === 'everyone') return everyoneHtml();
-    if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + seasonCorner() + monthHtml() + '</div>';
+    if(DK.view === 'month') return '<div class="dk-mat' + matClass() + '" id="dkMat">' + (meadow() ? sceneryHtml() : seasonCorner()) + monthHtml() + '</div>';
     const strip = ro() ? '<div class="dk-strip">You are at ' + esc(firstName(DK.who)) + "'s desk. " + esc(firstName(DK.who)) + ' will see you stopped by.</div>' : '';
     const vis = !ro() && DK.visits.length ? '<div class="dk-visit">' + icon('steps') + DK.visits.map(v => esc(firstName(v.visitor_person_id)) + ' stopped by your desk today at ' + esc(new Date(v.at).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit', timeZone:TZ }))).join('. ') + '.</div>' : '';
-    return '<div class="dk-mat' + matClass() + '" id="dkMat">' + seasonCorner() + strip + vis + '<div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
+    return '<div class="dk-mat' + matClass() + '" id="dkMat">' + (meadow() ? sceneryHtml() : seasonCorner()) + strip + vis + '<div class="dk-stickies">' + DK.stickies.filter(s => !s.erased_at).map(stickyHtml).join('') + '</div>'
       + '<div class="dk-grid">' + left + plannerHtml(DK.day) + right + '</div></div>';
   }
   function render(){
@@ -2225,10 +2279,63 @@ button.dk-chip{ border:0; cursor:pointer; } .dk-clip{ background:var(--teal-pale
 .dk-evm{ font-size:12px; color:var(--pencil); margin-top:6px; }
 .dk-evstk{ position:absolute; right:-8px; top:20px; display:flex; flex-direction:column; gap:4px; }
 .dk-evstk i{ width:26px; height:24px; background:var(--sc); transform:rotate(var(--r)); box-shadow:0 3px 5px -2px var(--shadow); }
+/* ── MEADOW (2026-10-18): the desk in the Hub's drawing kit. Only on .dk-mat-meadow; the other mats look as they did. ── */
+.dk-mat-meadow{ --mat:#EAF4F6; --mat-2:#FAF9F6; --shadow:rgba(13,54,95,.16); overflow:hidden; padding-bottom:96px;
+  background:linear-gradient(180deg,#EAF4F6 0%,#F6FAF9 55%,#FAF9F6 100%); border:2px solid #0D365F; box-shadow:0 18px 40px -24px rgba(13,54,95,.35); }
+.dk-mat-meadow::before{ border-color:rgba(13,54,95,.18); }
+.dk-mat-meadow > .dk-sun{ position:absolute; right:7%; top:22px; width:64px; height:64px; border-radius:50%; background:#F0A63A; opacity:.72; pointer-events:none; }
+.dk-mat-meadow > .dk-hills{ position:absolute; left:0; right:0; bottom:0; width:100%; height:120px; pointer-events:none; display:block; }
+.dk-mat-meadow > .dk-grid, .dk-mat-meadow > .dk-stickies, .dk-mat-meadow > .dk-strip, .dk-mat-meadow > .dk-visit{ position:relative; z-index:1; }
+.dk-mat-meadow .dk-lit{ animation:dkTwinkle 3.6s ease-in-out infinite alternate; }
+@keyframes dkTwinkle{ from{ opacity:1; } to{ opacity:.55; } }
+/* words that sat white on the dark felt are navy on the sky */
+.dk-mat-meadow .dk-msg, .dk-mat-meadow .dk-mh2, .dk-mat-meadow .dk-mh2 h2, .dk-mat-meadow .dk-evh{ color:#0D365F; }
+.dk-mat-meadow .dk-plabel, .dk-mat-meadow .dk-padh, .dk-mat-meadow .dk-visit, .dk-mat-meadow .dk-evsub, .dk-mat-meadow .dk-mfoot,
+.dk-mat-meadow .dk-tempty, .dk-mat-meadow .dk-tmore, .dk-mat-meadow .dk-mw{ color:#3D5A73; }
+.dk-mat-meadow .dk-plabel[contenteditable="true"]{ outline-color:rgba(13,54,95,.4); }
+.dk-mat-meadow .dk-help{ border:2px solid #0D365F; background:#fff; color:#0D365F !important; }
+.dk-mat-meadow .dk-onmat{ border-color:#0D365F !important; background:#fff !important; color:#0D365F !important; }
+.dk-mat-meadow .dk-mini.dk-wk{ background:rgba(255,255,255,.6); color:#5B6B7C; } .dk-mat-meadow .dk-mini.dk-wk .dk-md, .dk-mat-meadow .dk-mini.dk-wk .dk-md b{ color:#5B6B7C; }
+.dk-mat-meadow .dk-tback{ background:rgba(255,255,255,.55); border-color:#0D365F; } .dk-mat-meadow .dk-tfront{ background:#EAF4F6; border-color:#0D365F; }
+.dk-mat-meadow .dk-steam i{ background:#8FD1C7; }
+/* the planner: navy outlines, navy rings, a honey ribbon, mint ticks */
+.dk-mat-meadow .dk-page{ border:2.4px solid #0D365F; box-shadow:6px 8px 0 rgba(13,54,95,.12); }
+.dk-mat-meadow .dk-peek{ border:2px solid #0D365F; box-shadow:none; }
+.dk-mat-meadow .dk-rings i{ background:#fff; border:2.2px solid #0D365F; box-shadow:none; }
+.dk-mat-meadow .dk-ribbon{ background:#F0A63A; border-left:2px solid #0D365F; border-right:2px solid #0D365F; }
+.dk-mat-meadow .dk-ptab{ border:2px solid #0D365F; border-left:0; box-shadow:none; }
+.dk-mat-meadow .dk-ptab[data-dk="go"]{ --c:#EAF4F6 !important; } .dk-mat-meadow .dk-ptab[data-dk="month"]{ --c:#FFE4AC !important; } .dk-mat-meadow .dk-ptab[data-dk="later"]{ --c:#CADDD9 !important; }
+.dk-mat-meadow .dk-dow{ color:#0F7A73; }
+.dk-mat-meadow .dk-round{ border:2px solid #0D365F; }
+.dk-mat-meadow .dk-tick{ stroke:#0D365F; }
+.dk-mat-meadow .dk-done .dk-cb{ background:radial-gradient(circle, #8FD1C7 0 9px, transparent 9.5px); }
+.dk-mat-meadow .dk-time{ background:#FFF1D6; color:#8A5A00; box-shadow:inset 0 0 0 1.5px #F0A63A; }
+.dk-mat-meadow .dk-left{ border:2px solid #F0A63A; background:#FFF4E3; transform:none; border-radius:8px; }
+.dk-mat-meadow .dk-curl{ border-top:2px solid #0D365F; border-left:2px solid #0D365F; }
+/* the things on the desk, in the same hand */
+.dk-mat-meadow .dk-pad{ border:2px solid #0D365F; box-shadow:3px 3px 0 rgba(13,54,95,.15); }
+.dk-mat-meadow .dk-sticky{ outline:2px solid #0D365F; outline-offset:-2px; box-shadow:4px 5px 0 rgba(13,54,95,.14); }
+.dk-mat-meadow .dk-fb, .dk-mat-meadow .dk-ftab{ background:#FFE4AC; border:2.2px solid #0D365F; box-shadow:none; }
+.dk-mat-meadow .dk-ftab{ border-bottom:0; }
+.dk-mat-meadow .dk-ff{ background:#FFE4AC; border:2.2px solid #0D365F; }
+.dk-mat-meadow .dk-flabel{ border:2px solid #0D365F; box-shadow:none; } .dk-mat-meadow .dk-flabel b{ color:#0D365F; }
+.dk-mat-meadow .dk-eraser{ background:linear-gradient(90deg,#F8C5D2 0 64%, #8FD1C7 64% 100%); border:2px solid #0D365F; box-shadow:3px 3px 0 rgba(13,54,95,.15); color:#0D365F !important; }
+.dk-mat-meadow .dk-polaroid{ outline:2.4px solid #0D365F; box-shadow:4px 5px 0 rgba(13,54,95,.14); }
+.dk-mat-meadow .dk-face{ border:2.4px solid #0D365F; box-shadow:4px 5px 0 rgba(13,54,95,.14); }
+.dk-mat-meadow .dk-reptab{ border:2px solid #0D365F; background:#fff; }
+.dk-mat-meadow .dk-weektuck{ background:#FFE4AC; color:#0D365F; outline:2px solid #0D365F; }
+.dk-mat-meadow .dk-evcard{ background:#EAF4F6; border:2px solid #0D365F; } .dk-mat-meadow .dk-evn{ color:#0D365F; }
+.dk-evcard.dk-mat-meadow{ background:linear-gradient(180deg,#EAF4F6,#FAF9F6); outline:2px solid #0D365F; } .dk-evcard.dk-mat-meadow .dk-evn{ color:#0D365F; }
+.dk-mat-meadow .dk-stamp{ color:#0F7A73; }
+/* page all crossed off: the porch with the lights on */
+.dk-porch{ margin:4px 0 10px; max-width:300px; border:1.5px solid #CADDD9; border-radius:12px; overflow:hidden; }
+.dk-porch .hs-svg{ border-radius:0; }
+/* Friday: the road with a flag for each finished page */
+.dk-wroad{ display:block; width:100%; height:auto; margin:10px 0 4px; border-radius:12px; border:1.5px solid #CADDD9; }
 @media (hover:none){ .dk-grip{ display:flex; } .dk-tools{ display:none; } }
 @media (prefers-reduced-motion: reduce){ .dk *, .dk *::before, .dk *::after{ animation-duration:.001s !important; transition-duration:.001s !important; } }
 `;
 
   Object.assign(window, { dkOpen, dkPill, dkSetFill, dkSetSave, dkKindToggle, dkTellToggle, dkTellsMap:() => tellsMap(), dkAllowed, dkWarm, dkQuickJot, dkJotOpen, dkShiftHtml, dkShiftApply, dkRefresh, dkJotWork, dkDashRender, dkDrawer:toggleDrawer });
-  window.DKX = { repeatDue, repeatWords, repeatsMissing, ensureRepeats, repeatOpen, repeatSkip, repeatStop, lastBiz, mugOpen, mugKind, kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
+  window.DKX = { weekRoad, sceneryHtml, matOf, repeatDue, repeatWords, repeatsMissing, ensureRepeats, repeatOpen, repeatSkip, repeatStop, lastBiz, mugOpen, mugKind, kindOpen, jarOpen, clipOpen, kindState, tucked, deskContext, openLink, followUp, chromeTick, toggleDrawer, linkify, fridayWeek, weekCard, talkToggle, talkSync, openDesk, openEveryone, stampCheck, openMonth, zoomOut, zoomIn, photoPicked, parseTime, carryInfo, inPlace, blockOf, slots, access, bizDiff, nextBiz, prevBiz, moveLine, eraseLine, toggle, addLine, flipTo, load, render, undoLast:() => { const b = $('#dkToast button'); if(b) b.click(); } };
 })();

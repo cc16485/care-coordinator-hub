@@ -51,8 +51,13 @@ async()=>{
   /* the season corner follows the owners' switch */
   ok('season corner · switch off: none', !W().querySelector('.dk-season'));
   DATA.ops_settings.seasons_live=true; switchTab('today'); await sleep(150); switchTab('mydesk'); await sleep(300);
+  /* 2026-10-18 Meadow (the default mat) puts the season on its hills instead of the corner; the other mats keep the corner */
+  const sea=W().querySelector('.dk-hills .dk-sea');
+  ok('season · Meadow: the season on the hills, behind everything, no clicks', !!sea && sea.getAttribute('data-season')===SEA.seasonOf() && getComputedStyle(W().querySelector('.dk-hills')).pointerEvents==='none' && !W().querySelector('.dk-season'), sea && sea.outerHTML.slice(0,120));
+  window.__db.desk_settings=[Object.assign(window.__db.desk_settings[0]||{}, { person_id:'p_k', mat:'teal' })]; await window.DKX.load(true); await sleep(300);
   const sc=W().querySelector('.dk-season');
-  ok('season corner · switch on: the season by the calendar, behind everything, no clicks', !!sc && sc.getAttribute('data-season')===SEA.seasonOf() && getComputedStyle(sc).pointerEvents==='none', sc && sc.outerHTML.slice(0,120));
+  ok('season corner · switch on (teal felt): the season by the calendar, behind everything, no clicks', !!sc && sc.getAttribute('data-season')===SEA.seasonOf() && getComputedStyle(sc).pointerEvents==='none', sc && sc.outerHTML.slice(0,120));
+  window.__db.desk_settings[0].mat='meadow'; await window.DKX.load(true); await sleep(300);
 
   /* stamps and colors */
   const sun=document.getElementById('dk-st-sun'), cup=document.getElementById('dk-st-cup'), house=document.getElementById('dk-st-house');
