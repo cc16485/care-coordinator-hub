@@ -52,7 +52,9 @@
     const out = [];
     (list || []).forEach((a) => {
       const who = a.caregiver || 'A caregiver', created = a.created_at;
-      if ((a.status === 'draft' || a.status === 'pending_approval') && created) {
+      if ((a.status === 'draft' || a.status === 'pending_approval') && created && !a.facts_checked_at) {
+        out.push({ who, what: (a.level || 'Write-up') + ': check the facts', due: addBusinessDays(created, 2), id: a.id });   /* step 9: the SOP's first step */
+      } else if ((a.status === 'draft' || a.status === 'pending_approval') && created) {
         out.push({ who, what: (a.level || 'Write-up') + ': decide it', due: addBusinessDays(created, 3), id: a.id });
       } else if (a.status === 'approved') {
         out.push({ who, what: (a.level || 'Write-up') + ': meet with the caregiver', due: addBusinessDays(a.approved_at || created, 5), id: a.id });
