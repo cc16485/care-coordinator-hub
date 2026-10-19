@@ -4532,6 +4532,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="my-work-tiers">
+<h3>My Work layout</h3>
+<p class="hint">Today grouped by what the work is (approved 2026-10-18): Needs you now, Relationship builders, Your leads, Your clients and tasks, and Hub reminders (compact, last, never in the red number). All mine is grouped the same way. While it is off, owners can preview it on Today.</p>
+<div id="mwtSet"></div>
+</div>
+
 <div class="settings-section" data-set="team-work">
 <h3>Team Work</h3>
 <p class="hint">The on-duty pile in My Work (approved 2026-10-18): call-offs, missed clock-ins, same-day scheduling and time-sensitive family requests the Hub opened, until someone takes them. Each card shows the responsible role, its deadline and its escalation path. The family always keeps its own Care Coordinator. While it is off, owners see the tab as a preview and nobody's My Work changes.</p>
@@ -7533,6 +7539,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-work.js?v=4"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=15"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
@@ -15520,6 +15527,7 @@ function fillSettingsPanel(){
   try{ prnSetFill(); }catch(_){}
   try{ if(typeof dkSetFill==='function') dkSetFill(); }catch(_){}
   try{ if(window.TW) TW.setFill(); }catch(_){}
+  try{ if(window.MWT) MWT.setFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
@@ -28980,7 +28988,7 @@ function opsLateUnowned(){ return opsOverdue().filter(i=>!i.owner && !opsParked(
 /* The four lanes of Today, counted once for every place that shows them. */
 function opsTodayCounts(){
   /* 2026-10-17 (fix 3): the same lanes Today draws (myWorkLane), on the same cards (team escalations are a summary) */
-  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamSummary(i));
+  const b=myWorkBuckets(), cards=b.today.filter(i=>!opsTeamSummary(i) && !(window.MWT&&MWT.on()&&MWT.tierOf(i)==='rem'));   /* My Work tiers: reminders never in the red number */
   const n=k=>cards.filter(i=>myWorkLane(i)===k).length;
   const twCare=(window.TW&&TW.on())?TW.careForMe().length:0;   /* Team Work (Stage 1): care at risk stays in the number */
   return { act:n(0)+twCare, late:n(1), due:n(2), past:n(3), lateMine:opsLateFor(opsMeKey()).length, lateUnowned:opsLateUnowned().length };
@@ -30065,6 +30073,8 @@ function renderMyWork(){
     /* narrowed from a team card: say so, with a way back to everyone */
     const narrow=(MYWORK_TAB==='escalated'&&MYWORK_ESC_WHO)
       ?'<div class="field-note" style="margin:0 0 8px;">Showing '+escapeHtmlComms(String(opsOwnerName(MYWORK_ESC_WHO)||MYWORK_ESC_WHO).split(' ')[0])+'’s only · <span style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_ESC_WHO=\'\';renderMyWork()">Show everyone</span></div>':'';
+    /* My Work tiers: All mine is grouped the same way */
+    if(MYWORK_TAB==='mine' && window.MWT && MWT.active()){ wrap.innerHTML=narrow+MWT.previewLink()+(rows.length?myWorkBulkBar(rows):'')+MWT.tiersHtml({ rows, card:it=>myWorkCard(it, rows.indexOf(it)), approvals:0, all:true }); return; }
     wrap.innerHTML=narrow+(rows.length ? myWorkBulkBar(rows)+rows.map((it,i)=>myWorkCard(it,i)).join('')
       : '<div class="card" style="padding:22px;text-align:center;">'+msg+'</div>');
     return;
@@ -30103,11 +30113,22 @@ function renderMyWork(){
   if(window.TW&&TW.on()){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
-  h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
+  /* My Work tiers (Stage 2, 2026-10-18): Needs you now, then the four groups, instead of the time lanes. Past its day,
+     Waiting & watching and Offered to the team stay as they are below. */
+  const tiers=!!(window.MWT&&MWT.active());
+  if(window.MWT) h=MWT.previewLink()+h;
+  if(tiers){
+    const nowRows=act.filter(i=>MWT.tierOf(i)!=='rem');
+    h+=lane('NEEDS YOU NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',nowRows.length,
+      nowRows.length?nowRows.map(it=>myWorkCard(it,ix(it))).join(''):none((window.TW&&TW.on()&&TW.careForMe().length)?'Nothing else right this minute.':'Nothing needs you right this minute. Good.'));
+    h+=MWT.tiersHtml({ rows:lateL.concat(due, act.filter(i=>MWT.tierOf(i)==='rem'), motion, later), card:it=>myWorkCard(it,ix(it)),
+      approvals:(b.approvals||[]).length, unowned:MWT.unownedForMe() });
+  }
+  if(!tiers) h+=lane('ACT NOW','right now: missed clock-ins, emergencies, a shift about to start with nobody','var(--red)',act.length,
     act.length?act.map(it=>myWorkCard(it,ix(it))).join(''):none((window.TW&&TW.on()&&TW.careForMe().length)?'Nothing else right this minute.':'Nothing needs you right this minute. Good.'));
-  if(lateL.length) h+=lane('LATE, STILL MATTERS','past due and still needs doing, longest late first','var(--amber)',lateL.length,
+  if(!tiers && lateL.length) h+=lane('LATE, STILL MATTERS','past due and still needs doing, longest late first','var(--amber)',lateL.length,
     lateL.map(it=>myWorkCard(it,ix(it))).join(''));
-  h+=lane('DUE TODAY','everything else that needs doing today','var(--navy)',due.length,
+  if(!tiers) h+=lane('DUE TODAY','everything else that needs doing today','var(--navy)',due.length,
     due.length?due.map(it=>myWorkCard(it,ix(it))).join(''):none('Nothing else due today.'));
   if(past.length) h+=lane('PAST ITS DAY','the visit or shift these were about is over; close them or keep the ones that still need doing','var(--text-muted)',past.length,
     (MYWORK_PAST_OPEN
@@ -30115,14 +30136,14 @@ function renderMyWork(){
         +'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_PAST_OPEN=false;renderMyWork()">Fold away</span> '
       : '<button class="ghost" style="padding:6px 12px;font-size:12.5px;" onclick="MYWORK_PAST_OPEN=true;renderMyWork()">Look through them</button> ')
     +'<button class="ghost" id="pastCloseAll" style="padding:6px 12px;font-size:12.5px;" onclick="myWorkPastCloseAll()">Close all '+past.length+'…</button>');
-  h+=lane('CLIENTS IN MOTION','your next steps for each client, before anything is late','var(--navy)',motion.length||null,
+  if(!tiers) h+=lane('CLIENTS IN MOTION','your next steps for each client, before anything is late','var(--navy)',motion.length||null,
     motion.length?motion.map(it=>myWorkCard(it,-1)).join(''):none('No client steps waiting on you.'));
   const watch=myWorkStrips();
   h+=lane('WAITING & WATCHING','comes back on its own; nothing waits without a wake-up','var(--navy)',b.waiting.length||null,
     watch||none('Nothing waiting.'));
   const offeredBody=window.TP?TP.offeredLaneBody():'';
   if(offeredBody) h+=lane('OFFERED TO THE TEAM','up for grabs; yours again if nobody takes it in time','var(--teal)',null,offeredBody);
-  h+=lane('LATER','yours, not due today','var(--text-muted)',later.length,
+  if(!tiers) h+=lane('LATER','yours, not due today','var(--text-muted)',later.length,
     !later.length?none('Nothing else on your list.')
     :(MYWORK_LATER_OPEN
       ? later.map(it=>myWorkCard(it,-1)).join('')+'<span class="field-note" style="cursor:pointer;text-decoration:underline;" onclick="MYWORK_LATER_OPEN=false;renderMyWork()">Fold away</span>'
