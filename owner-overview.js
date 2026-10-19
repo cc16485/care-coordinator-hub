@@ -14,7 +14,7 @@
    Helping from here (plan step 4, Samantha 2026-10-18 "start"): on care at risk, team support and overdue rows that are
    not yours: Help with this (you are added as a helper; it stays theirs), then My part is done or This is finished;
    Make this mine is a separate step with a reason. These are the same team actions My Work uses (team-actions.js).
-   Not yet (a later plan step): the full weekly numbers.
+   How the agency is doing (plan step 5): seven numbers for the last 7 days against the 7 before.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -83,7 +83,7 @@
     if(a.adm) a.adm.forEach(c => out.push(item('New client needs your decision: ' + esc(c.axiscare_name || 'a client'), esc(c.observed_label || '') + (c.observed_at ? ' · ' + esc(ago(c.observed_at)) : ''), B("OV.go('clientqueue')", 'Open', true))));
     if(a.bonus && a.bonus.length) out.push(item(a.bonus.length + ' bonus' + (a.bonus.length === 1 ? '' : 'es') + ' waiting on a decision', a.bonus.map(l => esc(first(l.recipient)) + ' (' + esc(l.client) + ', ' + esc(l.status_words || l.status) + ')').join(' · '), B('OV.bonus()', 'Open', true)));
     if(a.reviews && a.reviews.length) out.push(item(a.reviews.length + ' management review' + (a.reviews.length === 1 ? '' : 's') + ' unresolved', a.reviews.map(r => esc(r.person) + ' (' + esc(r.status) + ')').join(' · '), B('OV.team()', 'Open', true)));
-    const errs = Object.keys(a.err || {});
+    const errs = Object.keys(a.err || {}).filter(k => k !== 'iv');   /* interviews belong to the numbers, which say so themselves */
     if(errs.length) out.push('<div class="ov-it m ov-red">Could not check: ' + esc(errs.map(k => a.err[k]).join('; ')) + '. Open those screens directly.</div>');
     return out;
   }
@@ -111,21 +111,46 @@
     const by = {}; late.forEach(i => { const o = nameOf(i.owner) || 'Nobody'; (by[o] = by[o] || []).push(i); });
     return { n:late.length, html:Object.keys(by).sort().map(o => '<div class="ov-it"><b>' + esc(o) + ' (' + by[o].length + ')</b></div>' + by[o].map(row).join('')) };
   }
-  function numbers(m){
-    const from = Date.now() - 7 * 864e5, inWk = iso => iso && Date.parse(iso) >= from;
+  /* HOW THE AGENCY IS DOING (plan step 5, Samantha 2026-10-18): the last 7 days against the 7 before, each with which
+     way is better. Visits are AxisCare's, so coverage is call-offs covered (the Hub's own record), and it says so. */
+  function weekOf(m, from, to){
+    const inW = iso => { const t = iso ? Date.parse(iso) : NaN; return t >= from && t < to; };
     const leads = (D().leads || []).filter(l => l && !(l.spam && l.spam.at));
-    const fresh = leads.filter(l => inWk(l.created_at));
+    const fresh = leads.filter(l => inW(l.created_at));
     const hours = safe(() => LeadRules.responseHours(S()), null);
     const mins = fresh.filter(l => l.first_human_attempt_at).map(l => safe(() => Math.max(0, Math.round((Date.parse(l.first_human_attempt_at) - Date.parse(LeadRules.clockStart(l, hours))) / 60000)), null)).filter(x => x != null).sort((a, b) => a - b);
-    const med = mins.length ? mins[Math.floor((mins.length - 1) / 2)] : null;
-    const cov = (D().coverage_cases || []).filter(c => c && c.resolved_at && inWk(c.resolved_at) && !['open', 'flagged'].includes(c.status) && !c.interest);
-    const covered = cov.filter(c => c.resolved_how === 'covered').length;
-    const clockins = (D().timekeeper_cases || []).filter(t => t && t.kind !== 'clock_out' && inWk(t.created_at || (t.shift_date ? t.shift_date + 'T12:00:00Z' : ''))).length;
-    const starts = leads.filter(l => inWk(l.first_shift_at)).length;
-    const reached = (D().ops_items || []).filter(i => i && ((i.escalation && lc(i.escalation.to) === m && inWk(i.escalation.at)) || (i.decision && lc(i.decision.to) === m && inWk(i.decision.asked_at)))).length;
-    const st = (v, l) => '<div class="ov-stat"><div class="v">' + esc(v) + '</div><div class="l">' + esc(l) + '</div></div>';
-    return '<div class="ov-stats">' + st(cov.length ? covered + ' of ' + cov.length : 'none', 'call-offs covered') + st(med == null ? 'no calls' : med + ' min', 'median first call to a new lead (' + fresh.length + ' new)')
-      + st(clockins, 'missed clock-ins') + st(starts, 'clients started') + st(reached, 'times work reached you') + '</div>';
+    const cov = (D().coverage_cases || []).filter(c => c && c.resolved_at && inW(c.resolved_at) && !['open', 'flagged'].includes(c.status) && !c.interest);
+    const endOf = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d)) ? Date.parse(d + 'T23:59:59-05:00') : Date.parse(d);
+    const closed = (D().ops_items || []).filter(i => i && i.status === 'done' && i.due && inW(i.closed_at) && i.closed_by !== 'system');
+    const iv = (ST.async.iv || []).filter(b => inW(b.outcome_at)), hired = (ST.async.hires || []).filter(a => inW(a.hired_at));
+    return {
+      covered: cov.length ? Math.round(100 * cov.filter(c => c.resolved_how === 'covered').length / cov.length) : null, cov_n: cov.length,
+      ontime: closed.length ? Math.round(100 * closed.filter(i => Date.parse(i.closed_at) <= endOf(i.due)).length / closed.length) : null, closed_n: closed.length,
+      first: mins.length ? (mins.length % 2 ? mins[(mins.length - 1) / 2] : Math.round((mins[mins.length / 2 - 1] + mins[mins.length / 2]) / 2)) : null, new_n: fresh.length,
+      clockins: (D().timekeeper_cases || []).filter(t => t && t.kind !== 'clock_out' && inW(t.created_at || (t.shift_date ? t.shift_date + 'T12:00:00Z' : ''))).length,
+      starts: leads.filter(l => inW(l.first_shift_at)).length,
+      interviews: ST.async.iv ? iv.length : null, hires: ST.async.hires ? hired.length : null,
+      reached: (D().ops_items || []).filter(i => i && ((i.escalation && lc(i.escalation.to) === m && inW(i.escalation.at)) || (i.decision && lc(i.decision.to) === m && inW(i.decision.asked_at)))).length
+    };
+  }
+  function numbers(m){
+    const now = Date.now(), W = 7 * 864e5, a = weekOf(m, now - W, now + 1), b = weekOf(m, now - 2 * W, now - W);
+    /* the change against last week, coloured by which way is better (up = better, or down = better) */
+    const chg = (x, y, upGood, unit) => { if(x == null || y == null) return '<div class="d">no week before to compare</div>'; const d = x - y;
+      if(!d) return '<div class="d">same as last week</div>'; const good = upGood ? d > 0 : d < 0;
+      return '<div class="d" style="color:' + (good ? '#1F7A4D' : '#B23B2E') + ';font-weight:700;">' + (d > 0 ? '+' : '') + d + (unit || '') + ' vs last week</div>'; };
+    const st = (v, l, d) => '<div class="ov-stat"><div class="v">' + esc(v) + '</div><div class="l">' + esc(l) + '</div>' + d + '</div>';
+    const pct = x => x == null ? 'none' : x + '%';
+    const err = ST.async.err || {};
+    return '<div class="ov-stats">'
+      + st(pct(a.covered), 'call-offs covered (' + a.cov_n + ')', chg(a.covered, b.covered, true, ' pts'))
+      + st(pct(a.ontime), 'work closed on time (' + a.closed_n + ' closed)', chg(a.ontime, b.ontime, true, ' pts'))
+      + st(a.first == null ? 'no calls' : a.first + ' min', 'median first call to a new lead (' + a.new_n + ' new)', chg(a.first, b.first, false, ' min'))
+      + st(a.clockins, 'missed clock-ins', chg(a.clockins, b.clockins, false))
+      + st(a.starts, 'clients started', chg(a.starts, b.starts, true))
+      + st(a.interviews == null ? (err.iv ? 'could not read' : '…') : a.interviews + ' → ' + a.hires, 'interviews to hires', a.interviews == null ? '' : chg(a.hires, b.hires, true, ' hires'))
+      + st(a.reached, 'times work reached you', chg(a.reached, b.reached, false)) + '</div>'
+      + '<div class="field-note" style="margin-top:6px;">Last 7 days against the 7 before. Visits live in AxisCare, so coverage here is call-offs the team covered. Green is better, red is worse.</div>';
   }
 
   /* ── the parts that come from the server (each says so if it could not be read) ── */
@@ -135,6 +160,12 @@
     if(window.Bonus && typeof Bonus.call === 'function') tasks.push(Bonus.call({ action:'list' }).then(d => { if(d.error) a.err.bonus = 'bonuses (' + d.error + ')'; else a.bonus = (d.lines || []).filter(l => l.status === 'ready' || l.status === 'under_review'); }).catch(() => { a.err.bonus = 'bonuses'; }));
     if(window.CcTeam && typeof CcTeam.call === 'function') tasks.push(CcTeam.call({ action:'list' }).then(d => { if(d.error) a.err.team = 'management reviews (' + d.error + ')'; else a.reviews = (d.reviews || []).filter(r => ['open', 'coaching'].includes(r.status)); }).catch(() => { a.err.team = 'management reviews'; }));
     if(window.CRX && typeof CRX.call === 'function') tasks.push(CRX.call({ action:'list' }).then(d => { if(d && d.error) a.err.atw = 'Approve to Work (' + d.error + ')'; else a.atw = (d.rows || []).filter(r => (r.ready_for_final && !r.approved_to_work) || (r.approved_to_work && r.axiscare === 'failed')); }).catch(() => { a.err.atw = 'Approve to Work'; }));
+    const since = new Date(Date.now() - 14 * 864e5).toISOString();
+    if(typeof sb !== 'undefined' && sb && sb.from){
+      const q = f => { try{ return Promise.resolve(f()); }catch(e){ return Promise.reject(e); } };
+      tasks.push(q(() => sb.from('interview_bookings').select('outcome_at,status').gte('outcome_at', since)).then(r => { if(r.error) a.err.iv = 'interviews'; else a.iv = (r.data || []).filter(x => x.status === 'attended'); }).catch(() => { a.err.iv = 'interviews'; }));
+      tasks.push(q(() => sb.from('job_applicants').select('hired_at').gte('hired_at', since)).then(r => { if(r.error) a.err.iv = 'hires'; else a.hires = r.data || []; }).catch(() => { a.err.iv = 'hires'; }));
+    }
     if(typeof sb !== 'undefined' && sb && sb.from) tasks.push(Promise.resolve(sb.from('client_admission_case').select('case_id,axiscare_name,observed_label,observed_at,needs_owner_decision').eq('status', 'open')).then(r => { if(r.error) a.err.adm = 'new-client decisions'; else a.adm = (r.data || []).filter(c => c.needs_owner_decision); }).catch(() => { a.err.adm = 'new-client decisions'; }));
     await Promise.all(tasks); ST.async = a; ST.loading = false; draw();
   }
@@ -160,7 +191,7 @@
       + box('Team support', sup.length, sup.length ? sup.join('') : '<div class="ov-none">Nobody has asked the team for help.</div>')
       + box('By person', null, ppl.length ? ppl.join('') : '<div class="ov-none">No open work.</div>')
       + box('Overdue or at risk', od.n, (od.html.length ? od.html.join('') : '<div class="ov-none">Nothing is late.</div>') + (od.n > 5 && !all ? '<div class="ov-it">' + B('OV.all()', 'See all ' + od.n + ', grouped by owner') + '</div>' : ''))
-      + box('How the agency is doing', 'last 7 days', numbers(m), true) + '</div>'
+      + box('How the agency is doing', 'this week', numbers(m), true) + '</div>'
       + '<p class="field-note" style="margin-top:10px;">Exceptions only. Looking here never changes an owner or marks anything done; Open takes you to where it is handled.</p></div>';
     w.innerHTML = html;
   }
