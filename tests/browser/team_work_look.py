@@ -31,7 +31,9 @@ STUB = r"""
   DATA.coordinator_staff=[{ id:'sk', name:'Krystal Land', email:K }, { id:'sa', name:'Angiel Test', email:A }, { id:'ss', name:'Samantha Troutman', email:S }];
   DATA.duty_windows=[
     { id:'dk', area:'operations', person:K, recur:{ days:[1,2,3,4,5], from:'08:00', to:'14:00' } },
-    { id:'da', area:'staffing',   person:A, recur:{ days:[1,2,3,4,5], from:'13:00', to:'17:00' } } ];
+    { id:'da', area:'staffing',   person:A, recur:{ days:[1,2,3,4,5], from:'13:00', to:'17:00' } },
+    /* Angiel also works as a caregiver mornings: not office duty */
+    { id:'dc', area:'direct_care', person:A, recur:{ days:[1,2,3,4,5], from:'08:00', to:'12:00' } } ];
   DATA.ops_settings={};
   DATA.ops_items=[
     { id:'calloff', kind:'coverage', opened_by:'callout', status:'open', title:'Call-off: tonight 6 to 9 PM (fake client)', detail:'Regular caregiver texted she cannot make it.', owner:K, owner_name:'Krystal Land', client_ax:'101', created_at:at('14:40') },
@@ -76,6 +78,7 @@ async()=>{
   if(window.__shot) await window.__shot('today-angiel');
   myWorkGo('team'); await sleep(150);
   const txt=mw();
+  ok('Angiel\'s caregiver hours (direct care, 8 to 12) are not office duty', TW.shiftEnd('angiel@mo-care.com', new Date('2026-10-07T10:00:00-05:00').getTime())===null);
   ok('on duty line: Angiel only at 2:40 PM', /On duty now: Angiel(?!,)/.test(txt), txt.slice(0,600));
   const q=id=>{ const e=document.querySelector('.tw-card[data-id="'+id+'"]'); return e?e.innerText:'(missing; tab text: '+mw().slice(0,700)+' tabs '+tabs().join('|')+')'; };
   const co=q('calloff');

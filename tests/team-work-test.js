@@ -114,6 +114,13 @@ ck('Krystal\'s card due 4 PM Tuesday counts to 2 PM Wednesday', TW.shiftDue(kEve
 ck('a card due while its owner is working keeps its own time', TW.shiftDue(card({ kind:'relationship_call', opened_by:'system', owner:K, due:new Date(at('2026-10-20', '11:00')).toISOString() }), c1) === null);
 ck('Team Work and care at risk keep their own time', TW.shiftDue(Object.assign({}, mci, { due:new Date(at('2026-10-20', '22:00')).toISOString() }), c1) === null);
 
+/* ── found on the real cards 2026-10-18 ── */
+ck('a caregiver attendance-threshold card (HR path) never reaches Team Work', TW.place(card({ kind:'staffing_issue', opened_by:'attendance-threshold', owner:K }), c1).tab !== 'team');
+ck('a red shift-note flag is time-sensitive, not the text ladder', TW.track(card({ kind:'care_note', opened_by:'care-note-flag', urgency:'urgent' }), c1) === 'today');
+ck('an urgent call follow-up is time-sensitive, not the text ladder', TW.track(card({ kind:'call_followup', opened_by:'call-tasks', urgency:'urgent' }), c1) === 'today');
+ck('an urgent coverage card is care at risk', TW.track(card({ kind:'coverage', urgency:'urgent' }), c1) === 'care');
+ck('an urgent escalation on any card is care at risk', TW.track(card({ kind:'call_followup', escalation:{ level:'urgent' } }), c1) === 'care');
+
 /* ── closed, nothing else ── */
 ck('a closed card goes nowhere', TW.place(card({ kind:'coverage', opened_by:'callout', status:'done' }), c1).tab === 'closed');
 
