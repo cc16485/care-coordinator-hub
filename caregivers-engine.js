@@ -3445,11 +3445,22 @@ function openWriteup(id){
     notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'Zach')+'. Next: meet with them, then they sign that they received it (below). Signing does not mean they agree.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print / PDF</button>'+closeBtn;
   }else{
-    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ack?' · '+creqEsc(ACK_WORD[a.ack.status]||a.ack.status):'')+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+'. <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
-    acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print</button>'+closeBtn;
+    notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ack?' · '+creqEsc(ACK_WORD[a.ack.status]||a.ack.status):'')
+      +(a.followup_at?' · 30-day follow-up done '+String(a.followup_at).slice(0,10)+(a.followup_note?': '+creqEsc(a.followup_note):''):'')+(a.ax_noted?' · ✅ proof noted on the AxisCare record':a.ax_note_error?' · ⚠ AxisCare note failed: '+creqEsc(a.ax_note_error)+'. <a href="#" onclick="pushAxNote(\''+a.id+'\');return false;">retry</a>':'');
+    /* HR step 9 (2026-10-18): the SOP's last step, the 30-day follow-up, is recorded here and closes its reminder */
+    acts.innerHTML=(attCanDecide()&&!a.followup_at?'<button class="fb" style="background:#0d3a5f;color:#fff" onclick="wuFollowup()">✓ Record the 30-day follow-up</button>':'')
+      +'<button class="fb" onclick="printWriteup()">🖨 Print</button>'+closeBtn;
   }
   document.getElementById('writeup-modal').classList.add('open');
   wuAckLoad(id);
+}
+async function wuFollowup(){
+  const a=DISC_ACTIONS.find(x=>x.id===_writeupId); if(!a) return;
+  const note=await ccPrompt('The 30-day follow-up: how is it going? (for example "No more late arrivals since the warning")','');
+  if(!note||!note.trim()) return;
+  a.followup_at=new Date().toISOString(); a.followup_by=String((typeof ME!=='undefined'&&ME&&ME.email)||'').toLowerCase(); a.followup_note=note.trim().slice(0,600);
+  await attPersist('discipline_actions',a);
+  renderWriteups(); openWriteup(a.id);
 }
 async function sendForApproval(){
   const a=DISC_ACTIONS.find(x=>x.id===_writeupId);
@@ -10976,6 +10987,7 @@ for (const [n, f] of Object.entries({
   /* HR steps 6 and 8 (2026-10-18): the write-up checklist, Draft with AI, No write-up, and getting it signed */
   wuSave, wuDraftAi, wuProtected, noWriteup,
   wuAckStart, wuAckSend, wuAckRefuseForm, wuAckRecord, wuAckOpen, wuAckUploaded, wuAckCancel,
+  wuFollowup,
 })) window[n] = f;
 window.intakeImport = intakeImport;
 window.openPerson = openPerson;
