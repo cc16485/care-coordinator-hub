@@ -1612,7 +1612,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <svg style="width:20px;height:20px;flex:none;" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg>
           <b style="font-size:16px;font-weight:800;color:var(--navy);letter-spacing:-0.01em;">Team scorecard</b>
-          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (To talk about is its own tab.)</span>
+          <span class="field-note">One row per person: closed, due, late. Click a row to open their book. (To talk about is on My Work.)</span>
         </div>
         <div id="standupRows" style="margin-top:6px;"></div>
         <details class="guide" style="margin:10px 0 6px;border:none;background:none;">
@@ -1620,7 +1620,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-body" style="padding:0 0 8px;font-size:13px;line-height:1.55;">
             <b>Safety &amp; coverage:</b> Are all clients safe and fully covered today? If not, where is the risk? Where do we have open hours or coverage gaps today?<br>
             <b>Staffing focus:</b> Based on open hours and care needs, what is today's hiring focus? (type of caregiver, skills, schedule, location)<br>
-            <b>Critical issues:</b> What urgent client or family concerns must be handled today? What start of care, schedule change, or admission is at risk? What compliance, EVV, billing, or documentation issue needs attention?<br>
+            <b>Critical issues:</b> What urgent client or family concerns must be handled today? What start of care, schedule change, or admission is at risk? What compliance, billing, or documentation issue needs attention?<br>
             <b>Blockers:</b> What is the single biggest blocker that could slow today down?<br>
             <b>Round-robin close, everyone answers:</b> "My priority today is ______." It must connect to client safety, coverage, hiring, or retention.
           </div>
@@ -7528,9 +7528,9 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=2"></script><!-- a calmer profile top (2026-10-15) -->
-<script src="standup-board.js?v=14"></script>
+<script src="standup-board.js?v=15"></script>
 <script src="staffing-view.js?v=1"></script>
-<script src="end-shift.js?v=8"></script>
+<script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-work.js?v=4"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -7541,7 +7541,7 @@ The HomeTogether team</pre>
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=11"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=12"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -8848,6 +8848,10 @@ function ccRenderPulse(){
   const gr=(DATA.ghe_forms||[]).filter(g=>g.status==='ready'&&!g.superseded_by).length;
   if(gr) chips.push('<span class="tp-chip" onclick="switchTab(\'nursevisits\')" title="Completed GHEs waiting for the coordinator\'s Fusion upload"><b>'+gr+'</b> GHE'+(gr===1?'':'s')+' ready for Fusion</span>');
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
+  /* ONE COUNT EVERYWHERE (2026-10-18, the Today page map, her yes): the red badge on Today is the same "need you now"
+     number as this chip and the greeting. It used to count old activities and lead follow-up dates. */
+  const tb=document.getElementById('todayBadge');
+  if(tb){ tb.style.display=L.act?'inline-flex':'none'; tb.textContent=L.act||''; }
 }
 function renderActiveTab(){
   svApplyDateText();
@@ -11214,9 +11218,8 @@ function renderTodayHero(){
     return !cc || (myFirst && (cc===String(ME.name||'').toLowerCase() || cc.split(/\s+/)[0]===myFirst.toLowerCase())); };
   const myLeadsDue=openLeads.filter(l=>l.follow_up_due&&l.follow_up_due<=t&&mineName(l.assigned_coordinator));
   const b=myWorkBuckets();
-  const covOpen=(DATA.coverage_cases||[]).filter(c=>c.status==='open');
+  const covOpen=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest');   /* 2026-10-18: like Staffing view and My Work */
   const famCalls=open.filter(i=>String(i.id||'').startsWith('ops_note_'));
-  const evv=(DATA.attendance_events||[]).filter(e=>e.shift_date===yd&&/^evv_missing/.test(String(e.type||'')));
 
   const chip=(n,label,color,tab)=>'<div class="tg-chip" style="border-top-color:'+color+';" onclick="switchTab(\''+tab+'\')">'
     +'<div class="n" style="color:'+color+';">'+n+'</div><div class="l">'+esc(label)+'</div></div>';
@@ -11224,12 +11227,12 @@ function renderTodayHero(){
   if(onOps.length+onLeads.length) chips.push(chip(onOps.length+onLeads.length,'overnight','var(--navy)','mywork'));
   if(myPass.length) chips.push(chip(myPass.length,'pass-alongs','#B45309','mywork'));
   if(myLeadsDue.length) chips.push(chip(myLeadsDue.length,'leads to call','var(--navy)','leadsstarts').replace('onclick="','onclick="LS.filter=\'Follow-up due\';'));
-  chips.push(chip(b.today.length,'for you today',b.today.length?'var(--red)':'var(--teal)','mywork'));
+  /* one count (2026-10-18): the same "need you now" number as the header chip and the greeting, not every lane */
+  { let act=0; try{ act=opsTodayCounts().act; }catch(e){} chips.push(chip(act,'need you now',act?'var(--red)':'var(--teal)','mywork')); }
   chips.push(chip(covOpen.length,'coverage cases',covOpen.length?'var(--red)':'var(--teal)','coverage'));
   chips.push('<div class="tg-chip" id="tbShiftChip" style="border-top-color:var(--gray);" onclick="switchTab(\'coverage\')">'
     +'<div class="n" id="tbShiftN" style="color:var(--gray);">…</div><div class="l">open shifts today</div></div>');
   if(famCalls.length) chips.push(chip(famCalls.length,'family updates','#C2720E','ops'));
-  if(evv.length) chips.push(chip(evv.length,'EVV misses','#B45309','cgattendance'));
   g.innerHTML='<div class="tg-strip">'+chips.join('')+'</div>';
 
   const card=(icon,title,color,rowsHtml,note)=>rowsHtml
@@ -11274,13 +11277,6 @@ function renderTodayHero(){
   if(famCalls.length) right+=card('💛','Keep the family updated ('+famCalls.length+')','#C2720E',
     famCalls.map(i=>row('<b>'+esc(i.about||i.title||'')+'</b>',esc(String(i.detail||'').slice(0,110)),'ops')).join(''),
     'A caregiver rated a note medium or high. A person decides and calls, never a robot.');
-  if(evv.length){
-    const inn=[...new Set(evv.filter(e=>e.type==='evv_missing_in').map(e=>e.caregiver))];
-    const out=[...new Set(evv.filter(e=>e.type==='evv_missing_out').map(e=>e.caregiver))];
-    right+=card('⏰',"Yesterday's EVV misses",'#B45309',
-      (inn.length?row('<b>No clock-in:</b> '+esc(inn.join(', ')),'','cgattendance','Review'):'')
-      +(out.length?row('<b>No clock-out:</b> '+esc(out.join(', ')),'','cgattendance','Review'):''));
-  }
   h.innerHTML='<div class="hero-grid"><div>'+left+'</div><div>'+right+'</div></div>';
   try{ renderSinceYouLeft(); }catch(e){}
   heroLoadShifts();
@@ -11536,9 +11532,7 @@ function renderToday(){
   document.getElementById('todayDone').innerHTML =
     doneToday.map(a=>'<div style="padding:6px 0;font-size:13px;color:var(--text-muted);">✓ '+escapeHtmlComms(a.title)+(a.done_by?', '+escapeHtmlComms(a.done_by):'')+'</div>').join('')
     || '<div class="field-note">Nothing checked off yet today.</div>';
-  const badge = document.getElementById('todayBadge');
-  const n = overdueA.length+overdueL.length+dueA.length+dueL.length;
-  if(badge){ badge.style.display = n?'inline-flex':'none'; badge.textContent = n; }
+  try{ ccRenderPulse(); }catch(e){}   /* the Today badge is the header's number (2026-10-18) */
   renderMgrStrip();
   renderApprovalsCc();
   renderCoordMsgs();

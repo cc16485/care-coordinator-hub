@@ -789,7 +789,7 @@
         + String(c.shift_time || '').split('-').map(x => { const m = /^(\d{1,2}):(\d{2})$/.exec(x.trim()); if(!m) return x; let h = +m[1]; const ap = h < 12 ? 'am' : 'pm'; h = h % 12 || 12; return h + (m[2] === '00' ? '' : ':' + m[2]) + ap; }).join('-'),
         (c.calling_off ? c.calling_off + ' called off · ' : '') + ((c.asked || []).length ? (c.asked || []).length + ' asked' : 'nobody asked yet')));
     ops.filter(i => i.kind === 'client_issue').forEach(i => add('Client issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
-    ops.filter(i => ['staffing_issue', 'evv_fix', 'confirm_times', 'coverage_outcome', 'family_call', 'coverage'].includes(i.kind)).forEach(i => add('Staffing issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
+    ops.filter(i => ['staffing_issue', 'confirm_times', 'coverage_outcome', 'family_call', 'coverage'].includes(i.kind)).forEach(i => add('Staffing issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ops.filter(i => ['promise_update', 'promise_lapsed'].includes(i.kind) && Date.parse(i.due || '') <= eod).forEach(i => add('Promises due', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     suSort(suSeen().filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('From the old Stand-Up board', 'su', i.id,
       (i.urgent ? 'URGENT · ' : '') + (i.summary || ''), (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.assigned_to || 'Unassigned')) + ' · ' + suAge(i).label));

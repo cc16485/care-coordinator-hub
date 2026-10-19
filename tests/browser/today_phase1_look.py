@@ -141,7 +141,8 @@ async()=>{
   ok('one card: Updates & While You Were Out', !!info && /Updates & While You Were Out/.test(info.innerText) && $$('#todayHero .hc-t').filter(x=>/While you were out/i.test(x.textContent)).length===1);
   ok('a person’s overnight item is there', /Family called about Ruth \(fake\)/.test(info.innerText));
   ok('the nightly EVV-count item is NOT (it was getting through before)', !/EVV problems/.test(info.innerText));
-  ok('the tile says "for you today" with My Work’s count', /\b7\s*for you today/i.test($('#todayGlance').innerText.replace(/\n/g,' ')) || new RegExp(myWorkBuckets().today.length+'\\s*for you today','i').test($('#todayGlance').innerText.replace(/\n/g,' ')), $('#todayGlance').innerText);
+  /* one count (2026-10-18): the tile says the same "need you now" number as the header chip */
+  ok('the tile says "need you now" with the header chip\'s number', new RegExp(opsTodayCounts().act+'\\s*need you now','i').test($('#todayGlance').innerText.replace(/\n/g,' ')), $('#todayGlance').innerText);
   CC_SINCE=[{ at:new Date().toISOString(), actor_name:'Jess Lee', summary:'closed the Smith (fake) case' }]; renderSinceYouLeft();
   CC_SINCE=[{ at:new Date().toISOString(), actor_name:'Jess Lee', summary:'closed the Smith (fake) case', verb:'item_resolved' }]
     .concat(Array.from({length:40},(_, i)=>({ at:new Date(Date.now()-i*1000).toISOString(), actor_name:'Cara', verb:'item_escalated', summary:"Escalated to Krystal Land: it's overdue (it was due Sep 26, 10:30 AM)" })));
