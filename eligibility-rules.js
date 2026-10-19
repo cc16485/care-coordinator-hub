@@ -62,11 +62,12 @@ function chkStatus(lastStr, interval, warnDays){
    The returned shape keeps the informational fields (ojtDone, isFirstYear) so older callers keep working. */
 function trainStatus(c){
   const hire = pd(c.hire_date);
-  const preContactDone = !!c.orient_date;
+  const ihs = ihsTraining(c);
+  /* cleared for client contact: orientation, and for a Medicaid caregiver until 11-16 dementia training too */
+  const preContactDone = !!c.orient_date && (!ihs.applies || ihs.alzDone);
   const ojtDone = !!(c.ojt_date && c.ojt_signed==='yes' && c.ojt_online);
   const msPerYear = 365*86400000;
   const isFirstYear = !!(hire && (__ELIG_TODAY__ - hire) < msPerYear);
-  const ihs = ihsTraining(c);
   const overall = !preContactDone ? 'Client Contact Blocked' : ihs.applies ? ihs.overall : 'Current';
   return {preContactDone,ojtDone,isFirstYear,overall,ihs};
 }
@@ -381,7 +382,7 @@ function eligibility(c){
   const unverified = [];
   const ihs = f.ts.ihs;
   const historical = longServing && noEvidenceAtAll;
-  if(!f.ts.preContactDone){
+  if(!c.orient_date){
     (historical ? unverified : blockers).push({code:'orientation', kind:ELIG_LEGAL,
       why: historical
         ? 'No orientation record, and none has ever been imported for this caregiver. Verify before treating it as incomplete.'

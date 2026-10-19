@@ -13,8 +13,7 @@ const EM = /—/, REMOTE = /\bremote(ly)?\b/i;
 
 const NEW_SMS_PARA = "Once your background check and references are complete, we'll text you to book a quick 15-minute Orientation Video Call. After that, you'll do your paid training from home on your phone or computer.";
 const STEP3 = "Once your background check and references are complete, we'll send Step 2 of your Viventium paperwork and a link to book a quick Orientation Video Call. Join from your phone or computer.";
-/* Orientation only (2026-10-15): Step 4 is the paid orientation, no dementia training */
-const STEP4 = "After the call, we'll text you a private link to your paid orientation. Do it on your phone or computer, in pieces if you like.";
+const STEP4 = "After the call, we'll text you a private link to your paid orientation and Alzheimer's and dementia training. Do it on your phone or computer, in pieces if you like.";
 
 // ---- the Hub preview, run for real against a tiny fake page ----
 const cut = (from, to) => { const a = html.indexOf(from), b = html.indexOf(to, a + 1); if (a < 0 || b < 0) throw new Error('not found: ' + from); return html.slice(a, b); };
@@ -25,8 +24,8 @@ vm.runInContext(cut('function escapeHtmlComms(', '\n') + '\n' + cut('function jo
 ctx.joPreviewMsgs();
 const prevSms = els.jo_prev_sms.textContent, prevEmail = els.jo_prev_email.innerHTML.replace(/&#39;/g, "'");
 ck('Hub preview text: the Orientation Video Call, then paid training from home', prevSms.includes(NEW_SMS_PARA) && !/new employee orientation/i.test(prevSms), prevSms);
-ck('Hub preview email: Step 3 Orientation Video Call + Step 4 paid orientation from home',
-   prevEmail.includes('Step 3: Your 15-Minute Orientation Video Call') && prevEmail.includes(STEP3) && prevEmail.includes('Step 4: Paid Orientation From Home') && prevEmail.includes(STEP4) && !/dementia/i.test(prevEmail)
+ck('Hub preview email: Step 3 Orientation Video Call + Step 4 paid training from home',
+   prevEmail.includes('Step 3: Your 15-Minute Orientation Video Call') && prevEmail.includes(STEP3) && prevEmail.includes('Step 4: Paid Training From Home') && prevEmail.includes(STEP4)
    && !/Schedule Your Paid Orientation|new employee orientation/i.test(prevEmail), prevEmail);
 // 2026-10-11 (Samantha: "that text should not be going out"): the welcome preview is off the offer form and the Hub no longer sends it.
 ck('the Viventium welcome preview is gone from the offer form, and the Hub no longer sends it', !html.includes('id="jo_prev_sms"') && !/send_welcome/.test(fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8')));
@@ -38,7 +37,7 @@ const J = globalThis.window.AP_JOURNEY;
 const w = J.find((x) => x.name === 'Welcome / what happens next (Viventium)') || {};
 ck('journey: the welcome text is the preview text, word for word', w.text === prevSms.replace(/^Hi Ava!/, 'Hi {first}!'), [w.text, prevSms]);
 ck('journey: subject without an em dash', w.subject === 'Welcome to Caring Companions, here’s what happens next', w.subject);
-ck('journey: the email summary names Step 3 Orientation Video Call and Step 4 paid orientation from home', /Step 3 your 15-minute Orientation Video Call/.test(w.email_summary) && /Step 4 paid orientation from home/.test(w.email_summary) && !/dementia/i.test(w.email_summary), w.email_summary);
+ck('journey: the email summary names Step 3 Orientation Video Call and Step 4 paid training from home', /Step 3 your 15-minute Orientation Video Call/.test(w.email_summary) && /Step 4 paid training from home/.test(w.email_summary), w.email_summary);
 const oc = J.find((x) => x.name === 'Orientation booking confirmation') || {};
 ck('journey: in-office booking confirmation asks for the Viventium Step 2 originals, no SSN card, no voided check',
    oc.text.includes('the original ID documents you uploaded in Viventium Step 2 (for example, your photo ID)') && !/Social Security|voided/i.test(oc.text) && !EM.test(oc.text), oc.text);
@@ -59,7 +58,7 @@ ck('start.html thank-you: Orientation Video Call + paid training from home, no "
 if (process.env.TRAINING_ROOT) {
   const jo = fs.readFileSync(path.join(process.env.TRAINING_ROOT, 'supabase/functions/job-offer/index.ts'), 'utf8');
   ck('Training job-offer sends the same text paragraph', jo.includes(NEW_SMS_PARA));
-  ck('Training job-offer sends the same Step 3 and Step 4', jo.includes(STEP3) && jo.includes(STEP4) && jo.includes('Step 3: Your 15-Minute Orientation Video Call') && jo.includes('Step 4: Paid Orientation From Home'));
+  ck('Training job-offer sends the same Step 3 and Step 4', jo.includes(STEP3) && jo.includes(STEP4) && jo.includes('Step 3: Your 15-Minute Orientation Video Call') && jo.includes('Step 4: Paid Training From Home'));
   ck('Training job-offer subject matches the journey', jo.includes("subject: '" + w.subject + "'"));
 }
 

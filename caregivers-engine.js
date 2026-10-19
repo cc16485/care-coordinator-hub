@@ -1372,7 +1372,7 @@ function renderStaffHome(){
     +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks. Two calls per match, then done','checkins',false)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
     +row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
-    +row('⛔',blocked,'Blocked from first client contact','Agency Orientation not done yet, so they can\'t be scheduled yet','training',true)
+    +row('⛔',blocked,'Blocked from first client contact','Agency Orientation (or a Medicaid caregiver\'s dementia training, until Nov 16) not done yet, so they can\'t be scheduled yet','training',true)
     +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">🤝 Team &amp; Reports</div>'
@@ -7417,7 +7417,7 @@ function renderTR(){
   const profBlocked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].blocked);
   const profUnchecked=caregivers.filter(c=>pgOf[c.id]&&pgOf[c.id].new_hire&&!pgOf[c.id].checked&&pgOf[c.id].err);
   document.getElementById('train-alert').innerHTML=(blocked.length
-    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, Agency Orientation not done yet: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
+    ?`<div class="alert-banner">⛔ ${blocked.length} caregiver(s) not cleared for client contact, Agency Orientation (or, for a Medicaid caregiver until Nov 16, dementia training) not done yet: ${blocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profBlocked.length
     ?`<div class="alert-banner">🪪 ${profBlocked.length} new hire${profBlocked.length===1?'':'s'}: profile needed before first shift. Publish their caregiver profile (the photo is required) before their first client visit: ${profBlocked.map(c=>`<b>${c.first} ${c.last}</b>`).join(', ')}</div>`:'')
     +(profUnchecked.length
