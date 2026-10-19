@@ -4637,6 +4637,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="tnSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div class="grid2" style="grid-template-columns:220px 1fr;align-items:end;"><div><label>HR lead (decides reviews)</label><select id="tnHr"></select></div>
 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding-bottom:2px;"><button class="secondary" id="tnSaveBtn" onclick="tnSave(this)">Save</button><button class="secondary" id="tnToggleBtn" onclick="tnToggle(this)">Turn on team numbers and reviews</button><span class="field-note" id="tnSaved"></span></div></div>
+<!-- Balanced measures (audit step 7, Samantha 2026-10-18): ops_settings.balanced_measures_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:4px 0 10px;">
+  <div class="field-note"><b>More balanced measures:</b> <span id="bmSetNow"></span></div>
+  <button class="secondary" id="bmToggleBtn" onclick="bmToggle(this)" style="margin-top:4px;">Show them</button>
+</div>
 <!-- Time off and coverage (audit step 2, Samantha 2026-10-18): ops_settings.fair_counts_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Time off and coverage never count</div>
 <p class="hint">While someone is out on the Team page (out until a date), their new inquiries text the person on duty instead of them, and nothing counts against them: no late first call, no missed inquiry, and nothing that goes overdue while they are out counts toward a review, even after they come back. A teammate who receives a lead because its owner is out is covering, so the clock before that never counts against them either. Only Samantha or Zachary can turn this on or off.</p>
@@ -7418,7 +7423,7 @@ The HomeTogether team</pre>
 <script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
-<script src="team.js?v=4"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
+<script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18271,6 +18276,7 @@ function tnSetFill(){
   ['tnSaveBtn','tnToggleBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=owner?'':'none'; });
   const tb=document.getElementById('tnToggleBtn'); if(tb) tb.textContent=on?'Turn off team numbers and reviews':'Turn on team numbers and reviews';
   try{ cctBtnSync(); }catch(e){}
+  try{ bmSetFill(); }catch(e){}
 }
 async function tnSave(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -18292,6 +18298,24 @@ async function tnToggle(btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   tnSetFill();
+}
+/* Balanced measures (audit step 7): relationship calls on time, concern follow-ups on time, help given and received, and
+   the median time to a first call, beside the Team numbers. Shown, never scored. Owners only. */
+function bmSetFill(){
+  const now=document.getElementById('bmSetNow'), b=document.getElementById('bmToggleBtn'); if(!now) return;
+  const on=(DATA.ops_settings||{}).balanced_measures_live===true, owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off.</b> ')+'Relationship calls made on time, concern follow-ups done on time, help given to and received from a teammate, and the median time to a new lead\'s first call, beside the numbers above. Shown, never scored.'+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Hide them':'Show them'; b.style.display=owner?'':'none'; }
+}
+async function bmToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!((DATA.ops_settings||{}).balanced_measures_live===true);
+  if(!(await ccConfirm(on?'Show the balanced measures in Team and My month?\n\nEach Care Coordinator sees their own; you and Zachary see everyone. They start a conversation and never count toward a review.':'Hide the balanced measures?'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.balanced_measures_live=on; if(on) m.balanced_measures_live_since=new Date().toISOString(); return ['balanced measures '+(on?'ON':'OFF')]; }, 'balanced measures');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
+  bmSetFill();
 }
 /* Bonus program settings (Stage 4, policy 2026-10-18). Owners only. The records live on the server (cc-bonus). */
 const BP_DEFAULT={ start:'2026-11-01', amount:100, min_hours:20, decider:'samantha@mo-care.com' };
