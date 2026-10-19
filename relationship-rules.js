@@ -50,18 +50,25 @@
     return null;
   }
   /* record a logged call on the lead (who, when, outcome, a short note); returns the entry, or null when not valid */
+  /* the welcome call is the client journey's own step; with step 4 on (ops_settings.relcall_details_live) its attempts are
+     logged here too (key 'welcome'), and the step closes only after a logged conversation */
+  const WELCOME = { key:'welcome', title:'Welcome call' };
   function record(l, key, o){
-    o = o || {}; const c = CALLS.find(x => x.key === key);
+    o = o || {}; const c = CALLS.find(x => x.key === key) || (key === 'welcome' ? WELCOME : null);
     if(!l || !c || !OUTCOMES[o.outcome]) return null;
     const e = { key, title:c.title, outcome:o.outcome, note:String(o.note || '').trim().slice(0, 400), at:o.at || new Date().toISOString(),
       by:String(o.by || ''), by_name:String(o.by_name || ''), owner:String(o.owner || '') };
+    /* audit step 4: a concern the family raised, and a follow-up someone owns by a date (only on a real conversation) */
+    if(o.outcome === 'talked' && String(o.concern || '').trim()) e.concern = String(o.concern).trim().slice(0, 600);
+    if(o.outcome === 'talked' && o.followup && String(o.followup.what || '').trim()) e.followup = { what:String(o.followup.what).trim().slice(0, 300), owner:String(o.followup.owner || ''), due:String(o.followup.due || '') };
     l.relationship_calls = entries(l).concat([e]).slice(-30);
     l.comm_log = Array.isArray(l.comm_log) ? l.comm_log : [];
     l.comm_log.push({ kind:'relationship_call', at:e.at, by:e.by, body:'📞 ' + c.title + ': ' + OUTCOMES[o.outcome].toLowerCase() + (e.note ? ' (' + e.note + ')' : '')
-      + (e.owner && e.by_name && e.owner.split(/\s+/)[0].toLowerCase() !== e.by_name.split(/\s+/)[0].toLowerCase() ? '. ' + e.by_name.split(/\s+/)[0] + ' helped; it stays ' + e.owner.split(/\s+/)[0] + '’s family.' : '') });
+      + (e.owner && e.by_name && e.owner.split(/\s+/)[0].toLowerCase() !== e.by_name.split(/\s+/)[0].toLowerCase() ? '. ' + e.by_name.split(/\s+/)[0] + ' helped; it stays ' + e.owner.split(/\s+/)[0] + '’s family.' : '')
+      + (e.concern ? '. Concern raised: ' + e.concern : '') + (e.followup ? '. Follow-up: ' + e.followup.what + (e.followup.due ? ' by ' + e.followup.due : '') : '') });
     return e;
   }
-  const api = { CALLS, OUTCOMES, on, since, firstVisitDay, done, attempts, stopped, nextCall, record };
+  const api = { CALLS, WELCOME, OUTCOMES, on, since, firstVisitDay, done, attempts, stopped, nextCall, record };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.RelationshipRules = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
