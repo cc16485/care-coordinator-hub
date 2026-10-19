@@ -246,6 +246,15 @@
     if(error) throw error;
     return Array.isArray(data && data.data) ? data.data : [];
   }
+  /* PRIVACY (2026-10-18): a flag on a card the viewer may not open (an employment item: write-ups, coaching, HR file)
+     never shows here. Flagging copies the card's title onto this shared list, so without this anyone saw it. Only what
+     is drawn is filtered; every change is still made to the newest copy of one item, so nothing hidden is lost. */
+  function suVisible(x){
+    if(!x || x.source !== 'work' || !x.ops_id || typeof opsCanSee !== 'function') return true;
+    const o = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).find(i => i && i.id === x.ops_id);
+    return !o || opsCanSee(o);
+  }
+  const suSeen = () => (SU.items || []).filter(suVisible);
   async function suLoad(force){
     if(SU.busy) return SU.busy;
     if(SU.items && !force && Date.now() - SU.at < 20000) return;
@@ -386,7 +395,7 @@
     const box = document.getElementById('suWrap'); if(!box) return;
     if(!SU.items){ box.innerHTML = '<div class="field-note">Loading…</div>'; return; }
     const list = people(), m = me();
-    const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
+    const open = suSort(suSeen().filter(i => !i.archived_at && i.status !== 'done'));
     const groups = new Map();
     /* an item sits under the person it is with and under everyone tagged on it */
     open.forEach(i => { const name = whoOf(i, list), k = lc(i.assigned_to_email) || 'name:' + lc(name);
@@ -398,7 +407,7 @@
     let hub = []; try{ hub = prepList().filter(r => r.kind !== 'su' && !(r.kind === 'ops' && flaggedOps.has(String(r.id)))); }catch(e){}   /* already flagged: shown once, above */
     const W8 = worthRows(hub);
     const week = Date.now() - 7 * 864e5;
-    const recent = SU.items.filter(i => i.status === 'done' && !i.archived_at && (Date.parse(i.talked_at || i.done_at || '') || 0) > week)
+    const recent = suSeen().filter(i => i.status === 'done' && !i.archived_at && (Date.parse(i.talked_at || i.done_at || '') || 0) > week)
       .sort((a, b) => String(b.talked_at || b.done_at || '').localeCompare(String(a.talked_at || a.done_at || '')));
     let lastSec = '';
     box.innerHTML = '<div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">'
@@ -482,7 +491,7 @@
   const suListHtml = (shown, list) => shown.length ? shown.map(i => suCard(i, list)).join('') : '<div class="field-note">Nothing here.</div>';
   function suSet(k, v, keepFocus){
     SU.f[k] = v;
-    if(keepFocus){ const l = document.getElementById('suList'); if(l) l.innerHTML = suListHtml(suSort(suFilter(SU.items || [], SU.f, me().email)), people()); return; }
+    if(keepFocus){ const l = document.getElementById('suList'); if(l) l.innerHTML = suListHtml(suSort(suFilter(suSeen(), SU.f, me().email)), people()); return; }
     suRender();
   }
   /* the add/edit form */
@@ -573,7 +582,7 @@
     const box = document.getElementById('suTodayLine'); if(!box) return;
     if(!SU.items){ suLoad().then(suTodayRender); return; }
     const list = people(), m = me();
-    const open = suSort(SU.items.filter(i => !i.archived_at && i.status !== 'done'));
+    const open = suSort(suSeen().filter(i => !i.archived_at && i.status !== 'done'));
     const mine = open.filter(i => lc(i.assigned_to_email) === m.email).length;
     const taggedMe = open.filter(i => (Array.isArray(i.tagged) ? i.tagged : []).map(lc).includes(m.email) && lc(i.assigned_to_email) !== m.email).length;
     const row = i => '<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);cursor:pointer;" onclick="switchTab(\'standup\')">'
@@ -594,7 +603,7 @@
   /* the line on each My Team card (renderMyTeam calls this) */
   function suTeamCountHtml(email){
     if(!SU.items){ if(!SU._teamAsked){ SU._teamAsked = true; suLoad().then(() => { try{ if(typeof activeTab !== 'undefined' && activeTab === 'myteam') renderMyTeam(); }catch(e){} }); } return ''; }
-    const c = suOpenFor(SU.items, email);
+    const c = suOpenFor(suSeen(), email);
     return '<span style="cursor:pointer;" onclick="suSet(\'who\',\'' + esc(lc(email)) + '\');switchTab(\'standup\')">' + c.open + ' to talk about'
       + (c.urgent ? ' · <b style="color:var(--red);">' + c.urgent + ' urgent</b>' : '') + '</span>';
   }
@@ -756,13 +765,13 @@
     const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
     const tom = new Date(Date.now() + 864e5).toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
     const eod = (() => { const e = new Date(); e.setHours(23, 59, 59, 999); return e.getTime(); })();
-    const ops = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.status === 'open');
+    const ops = ((typeof DATA !== 'undefined' && DATA.ops_items) || []).filter(i => i && i.status === 'open' && (typeof opsCanSee !== 'function' || opsCanSee(i)));   // privacy 2026-10-18
     const seen = new Set(), out = [];
     const ownerTag = i => (typeof opsOwnerTag === 'function' ? opsOwnerTag(i) : (i.owner_name || i.owner || 'Unassigned'));
     const add = (sec, kind, id, title, sub) => { const k = kind + ':' + id; if(seen.has(k)) return; seen.add(k); out.push({ sec, kind, id: String(id), title, sub }); };
     const tier0 = i => typeof opsPriorityKey === 'function' && opsPriorityKey(i)[0] === 0;
     /* what people flagged to talk about comes first */
-    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done' && (i.source === 'desk' || i.source === 'work'))).forEach(i => add('Flagged to talk about', 'su', i.id,
+    suSort(suSeen().filter(i => !i.archived_at && i.status !== 'done' && (i.source === 'desk' || i.source === 'work'))).forEach(i => add('Flagged to talk about', 'su', i.id,
       i.summary || '', (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.reported_by || 'Someone')) + (i.source === 'desk' ? "'s desk" : ', My Work')));
     ops.filter(i => i.urgency === 'urgent' || (i.escalation && !i.escalation.cleared_at && i.escalation.level === 'urgent') || tier0(i))
       .forEach(i => add('Urgent and high-risk, not resolved', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
@@ -774,7 +783,7 @@
     ops.filter(i => i.kind === 'client_issue').forEach(i => add('Client issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ops.filter(i => ['staffing_issue', 'evv_fix', 'confirm_times', 'coverage_outcome', 'family_call', 'coverage'].includes(i.kind)).forEach(i => add('Staffing issues', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
     ops.filter(i => ['promise_update', 'promise_lapsed'].includes(i.kind) && Date.parse(i.due || '') <= eod).forEach(i => add('Promises due', 'ops', i.id, i.about || i.title || '', ownerTag(i)));
-    suSort((SU.items || []).filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('From the old Stand-Up board', 'su', i.id,
+    suSort(suSeen().filter(i => !i.archived_at && i.status !== 'done')).forEach(i => add('From the old Stand-Up board', 'su', i.id,
       (i.urgent ? 'URGENT · ' : '') + (i.summary || ''), (i.assigned_to_email ? nameOf(i.assigned_to_email) : (i.assigned_to || 'Unassigned')) + ' · ' + suAge(i).label));
     const c = tmCarry(TM.items || [], SU.items || [], today, 'Daily Stand-Up');
     (c.open || []).forEach(i => add('Carried over: the Stand-Up board', 'su', i.id, i.summary || '', 'from ' + (c.prior ? c.prior.meeting_name : 'the last meeting')));
