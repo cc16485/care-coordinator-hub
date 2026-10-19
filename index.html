@@ -4640,7 +4640,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <!-- Owner Overview (audit step 9, 2026-10-18): ops_settings.owner_overview_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Owner Overview</div>
-<p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today.</p>
+<p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today, and it is the first screen you see when you sign in.</p>
 <div id="ovSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;"><button class="secondary" id="ovToggleBtn" onclick="ovToggle(this)">Turn on the Owner Overview</button><span class="field-note" id="ovSaved"></span></div>
 <!-- Team numbers and reviews (Stage 5 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.team_live and
@@ -7437,7 +7437,7 @@ The HomeTogether team</pre>
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=3"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=4"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -18338,7 +18338,7 @@ async function tnToggle(btn){
 function ovSetFill(){
   const now=document.getElementById('ovSetNow'), b=document.getElementById('ovToggleBtn'); if(!now) return;
   const on=(DATA.ops_settings||{}).owner_overview_live===true, owner=ccIsOwner();
-  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary see Owner Overview under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary land on it when you sign in, and see it under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off the Owner Overview':'Turn on the Owner Overview'; b.style.display=owner?'':'none'; }
   try{ if(window.OV) OV.pillSync(); }catch(e){}
 }

@@ -14,6 +14,7 @@
    Helping from here (plan step 4, Samantha 2026-10-18 "start"): on care at risk, team support and overdue rows that are
    not yours: Help with this (you are added as a helper; it stays theirs), then My part is done or This is finished;
    Make this mine is a separate step with a reason. These are the same team actions My Work uses (team-actions.js).
+   First screen (2026-10-18): an owner with it on lands here at sign-in, unless a link named another page.
    How the agency is doing (plan step 5): seven numbers for the last 7 days against the 7 before.
    ===================================================================================================================== */
 (function(){
@@ -28,11 +29,26 @@
   const ago = iso => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); if(!(m >= 0)) return ''; return m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + 'h ago' : Math.round(m / 1440) + 'd ago'; };
   const today = () => new Date().toLocaleDateString('en-CA', { timeZone:'America/Chicago' });
   const LAST = 'ov_last_look';
+  const T0 = Date.now();   /* when this page loaded */
   const ST = { async:{}, loading:false };
   function on(){ return S().owner_overview_live === true; }
   function allowed(){ return on() && typeof ccIsOwner === 'function' && ccIsOwner(); }
   /* the Today pill shows only for owners while it is on */
-  function pillSync(){ const p = document.querySelector('.fpill[data-tab="owneroverview"]'); if(p) p.style.display = allowed() ? '' : 'none'; }
+  function pillSync(){ const p = document.querySelector('.fpill[data-tab="owneroverview"]'); if(p) p.style.display = allowed() ? '' : 'none'; land(); }
+  /* the first screen at sign-in (Samantha 2026-10-18): once per page load, as soon as the settings are in, an owner with
+     the Overview on lands here instead of the Dashboard. Never when a link named a page (#something), and never again
+     after that first look, so pressing Dashboard stays on the Dashboard. */
+  function land(){
+    if(ST.landed) return;
+    if(Date.now() - T0 > 20000){ ST.landed = true; return; }   /* too late: never move someone who is already working */
+    const st = D().ops_settings; if(!st || !Object.keys(st).length) return;   /* settings not loaded yet: decide on a later draw */
+    const roles = typeof CC_ROLE_BY_EMAIL !== 'undefined' ? CC_ROLE_BY_EMAIL : null;
+    if(!roles || !Object.keys(roles).length) return;   /* who is an owner is not known yet */
+    ST.landed = true;
+    if(!allowed() || String(location.hash || '').length > 1) return;
+    if(typeof activeTab !== 'undefined' && activeTab !== 'today') return;
+    setTimeout(() => { if(typeof switchTab === 'function') switchTab('owneroverview'); }, 0);
+  }
   function open_(){ try{ return (DATA.ops_items || []).filter(i => i && i.status === 'open' && (typeof opsCanSee !== 'function' || opsCanSee(i))); }catch(_){ return []; } }
   const css = () => { if(document.getElementById('ovCss')) return; const s = document.createElement('style'); s.id = 'ovCss';
     s.textContent = '.ov{max-width:1080px}.ov-top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:10px}'
