@@ -260,7 +260,7 @@
     const alarm = notRead.length || retrying.length ? '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FDF3F1;border:1px solid #F0C9C2;font-size:13px;">'
       + '<b style="color:#A83A2F;">' + (notRead.length ? notRead.length + ' call' + (notRead.length === 1 ? '' : 's') + ' or text' + (notRead.length === 1 ? '' : 's') + ' could not be read.' : '') + '</b>'
       + (retrying.length ? ' ' + retrying.length + ' being tried again.' : '') + ' Nothing is lost quietly: <a href="#" onclick="CPR.setFilter(\'unread\');return false;">see them</a>' + (notRead.length ? ' and listen to them in GoHighLevel.' : '.') + '</div>' : '';
-    let head = alarm + '<div class="field-note" style="margin:0 0 6px;">' + beatLine() + 'Last ' + DAYS + ' days: <b>' + all.length + '</b> calls and texts read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + ' it would have made · <b>' + nWork
+    let head = alarm + '<div class="field-note" style="margin:0 0 6px;">' + beatLine() + 'Last ' + DAYS + ' days: <b>' + all.length + '</b> calls and texts read · <b>' + nCards + '</b> card' + (nCards === 1 ? '' : 's') + (live() ? ' it made' : ' it would have made') + ' · <b>' + nWork
       + '</b> jobs it found already handled (in a workflow or on the call) · <b>' + nPeople + '</b> cards people made for the same people within a day · '
       + '<a href="#" onclick="CPR.refresh();return false;">Refresh</a></div>'
       + linesLine(all)
