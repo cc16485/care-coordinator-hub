@@ -400,6 +400,8 @@
       + (c.talking_points ? '<div class="hr-sub">Suggested talking points</div><div class="hr-quote">' + tpHtml(c.talking_points) + '</div>' : '')
       + (c.help_note ? '<div class="field-note" style="margin-top:6px;"><b>Asked Zach:</b> ' + esc(c.help_note) + (c.help_reply ? '<br><b>' + esc(nameOf(c.help_reply_by)) + ':</b> ' + esc(c.help_reply) : ' <i>(waiting for a reply)</i>') + '</div>' : '')
       + (c.handoff_note ? '<div class="field-note"><b>Asked to hand off:</b> ' + esc(c.handoff_note) + '</div>' : '');
+    /* COACHING CALLS (2026-10-18, part C2): the recorded call, filled in by drawCalls() */
+    if (!rec && (c.status === 'open' || c.call_id)) h += '<div id="hrCall' + id + '"></div>';
     if (c.status === 'done') {
       h += '<div class="hr-sub">' + (rec ? 'Passed on' : 'The conversation') + ' · ' + esc(fmtYmd(c.held_on)) + ' · ' + esc(String(c.method || '').replace('_', ' ')) + '</div>'
         + '<div class="field-note"><b>' + (rec ? 'What you told them' : 'Discussed') + ':</b> ' + esc(c.discussed) + '</div><div class="field-note"><b>' + (rec ? 'How they took it' : 'What they said') + ':</b><br>' + esc(c.response).replace(/\n/g, '<br>') + '</div>'
@@ -414,15 +416,23 @@
     if (can) {
       const f = FORM[c.id];
       if (f === 'record') {
-        h += '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">' + (rec ? 'Record that you passed it on' : 'Record the conversation (all required)') + '</div>'
-          + '<label class="field-note">Date <input type="date" id="hrRd' + id + '" value="' + esc(todayStr()) + '"></label> '
-          + '<label class="field-note">How <select id="hrRm' + id + '"><option value="in_person">In person</option><option value="phone">Phone</option><option value="video">Video</option></select></label>'
+        const live = !rec && callsLive(c.id), okCall = live ? confirmedCall(c.id) : null;
+        h += '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">' + (rec ? 'Record that you passed it on' : live ? 'Write up the coaching call (all required)' : 'Record the conversation (all required)') + '</div>'
+          + (live
+            ? (okCall ? '<div class="field-note"><b>The call:</b> ' + esc(callWhen(okCall)) + (okCall.seconds ? ' · ' + esc(mmss(okCall.seconds)) : '') + ' · ' + (okCall.state === 'exception' ? 'excused' : 'confirmed') + '</div>'
+              : '<div class="hr-err">First make the coaching call and confirm it above. Only a confirmed recorded call completes the coaching.</div>')
+            : '<label class="field-note">Date <input type="date" id="hrRd' + id + '" value="' + esc(todayStr()) + '"></label> '
+              + '<label class="field-note">How <select id="hrRm' + id + '"><option value="in_person">In person</option><option value="phone">Phone</option><option value="video">Video</option></select></label>')
           + '<div class="field-note" style="margin-top:6px;">' + (rec ? 'What you told them' : 'What you discussed') + '</div><textarea id="hrRw' + id + '" rows="2"></textarea>'
           + (rec || !stopQuestions(c.talking_points).length
             ? '<div class="field-note">' + (rec ? 'How they took it' : 'Their response') + '</div><textarea id="hrRr' + id + '" rows="2"></textarea>'
             : stopQuestions(c.talking_points).map((q, i) => '<div class="field-note">You asked: <b>' + esc(q) + '</b><br>What they said</div><textarea id="hrRa' + i + '_' + id + '" rows="2"></textarea>').join(''))
           + (rec ? '' : '<div class="field-note">What is expected from now on</div><textarea id="hrRe' + id + '" rows="2"></textarea>'
-            + '<div class="field-note">Help we agreed to give (a different shift time, help with the app...) and who in the office does it</div><textarea id="hrRf' + id + '" rows="2"></textarea>'
+            + (live
+              ? '<div class="field-note">Help we agreed to give (a different shift time, help with the app...)</div><textarea id="hrRh' + id + '" rows="2"></textarea>'
+                + '<div class="field-note">Follow-up actions: what happens next, who does it, and when you check in</div><textarea id="hrRf' + id + '" rows="2"></textarea>'
+                + '<label class="field-note">Check whether it improved on <input type="date" id="hrRc' + id + '" value="' + esc(ymd(addDays(todayStr() + 'T12:00:00', 30))) + '"></label>'
+              : '<div class="field-note">Help we agreed to give (a different shift time, help with the app...) and who in the office does it</div><textarea id="hrRf' + id + '" rows="2"></textarea>')
             + '<label class="field-note hr-check"><input type="checkbox" id="hrRw2' + id + '"> I told them this was a coaching call, and that if it keeps happening, the next step is an official write-up, which can lead to termination.</label>')
           + '<div class="hr-err" id="hrRerr' + id + '"></div><button class="primary hr-btn" onclick="HR.done(\'' + id + '\')">' + (rec ? 'Mark passed on' : 'Mark coaching done') + '</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button></div>';
       } else if (f === 'help') {
@@ -434,7 +444,7 @@
           + '<div class="field-note">Why does it have to wait?</div><textarea id="hrPr' + id + '" rows="1"></textarea><button class="primary hr-btn" onclick="HR.postpone(\'' + id + '\')">Postpone</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button>'
           + '<div class="field-note">Zach sees how often a talk is postponed.</div></div>';
       } else {
-        h += '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.form(\'' + id + '\',\'record\')">' + (rec ? 'Record that I told them' : 'Record the conversation') + '</button>'
+        h += '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.form(\'' + id + '\',\'record\')">' + (rec ? 'Record that I told them' : callsLive(c.id) ? 'Write up the coaching call' : 'Record the conversation') + '</button>'
           + (rec ? '' : ' <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',\'help\')">Help me with this conversation</button>')
           + ' <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',\'postpone\')">Postpone</button></div>'
           + '<div class="hr-actions field-note"><a href="#" onclick="HR.close(\'' + id + '\',\'flag_wrong\');return false;">This flag is wrong</a> · '
@@ -462,6 +472,109 @@
       + (others.length ? '<div class="hr-sub">' + (o ? 'Assigned to others (' : 'Your teammates\' (') + others.length + ')</div>' + others.map(coachCard).join('') : '')
       + (checks.length ? '<div class="hr-sub">30 days on: did it help? (' + checks.length + ')</div>' + checks.map(coachCard).join('') : '')
       + (recent.length ? '<details class="hr-more"><summary class="hr-sub">Recently finished (' + recent.length + ')</summary>' + recent.map(coachCard).join('') + '</details>' : '');
+    wireCalls();
+  }
+  /* ---------- COACHING CALLS, part C2 (Samantha 2026-10-18: "start part 2, the Hub screens") ----------
+     The server (hr-coach-call, part C1) finds the call GoHighLevel logged after Call now, says whether it counts and why
+     not, and keeps the recording private. Off until ops_settings.hr_coaching_calls_live; until then only Samantha and
+     Zach see this panel, as practice, and coaching completes as before. */
+  const CALLS = {}, POLL = {};
+  const CALL_WORD = { waiting: 'Looking for the call. It shows here a few minutes after you hang up.', no_call: 'No call found', attempt: 'Does not count',
+    qualifies: 'Counts once you confirm you spoke with them', confirmed: 'Confirmed: this call counts', exception: 'Excused (phone system)', cancelled: 'Cancelled' };
+  const mmss = (n) => { n = Number(n) || 0; return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+  const callWhen = (k) => { const t = k && (k.call_at || k.tap_at); return t ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+  const callsLive = (id) => !!(CALLS[id] && CALLS[id].live);
+  const confirmedCall = (id) => ((CALLS[id] && CALLS[id].calls) || []).find((k) => !k.practice && (k.state === 'confirmed' || k.state === 'exception')) || null;
+  async function cc(body) {
+    const { data, error } = await sb.functions.invoke('hr-coach-call', { body });
+    let msg = ''; if (error) { try { msg = (await error.context.json()).error; } catch (e) { msg = error.message; } }
+    if (error || !data || data.ok === false) throw new Error(msg || (data && data.error) || 'The server did not answer.');
+    return data;
+  }
+  function wireCalls() {
+    document.querySelectorAll('[id^="hrCall"]').forEach((el) => { const id = el.id.slice(6); if (CALLS[id]) drawCalls(id); else loadCalls(id); });
+  }
+  async function loadCalls(id) {
+    try { CALLS[id] = await cc({ action: 'list', coaching_id: id }); } catch (e) { CALLS[id] = { off: true, why: e.message }; }
+    drawCalls(id);
+    const waiting = ((CALLS[id] && CALLS[id].calls) || []).some((k) => k.state === 'waiting');
+    clearTimeout(POLL[id]); if (waiting && document.getElementById('hrCall' + id)) POLL[id] = setTimeout(() => loadCalls(id), 60000);
+  }
+  function drawCalls(id) {
+    const el = document.getElementById('hrCall' + id), d = CALLS[id]; if (!el) return;
+    if (!d) { el.innerHTML = '<div class="field-note">Loading the coaching call…</div>'; return; }
+    if (d.off) { el.innerHTML = ''; return; }   /* not switched on for this person yet */
+    const c = (coach || []).find((x) => x.id === id) || {}, o = owner(), me = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
+    const openRec = c.status === 'open', mins = Math.round((d.min_seconds || 180) / 60);
+    let h = '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">Coaching call</div>'
+      + (d.live ? '' : '<div class="hr-note">Practice: only you and Zach see this until coaching calls are switched on. Calls made here never complete a coaching record.</div>')
+      + (openRec ? '<div class="field-note">Start the call with: <b>"This call is being recorded for our coaching records."</b> It counts when they answer, it lasts at least ' + mins + ' minutes, GoHighLevel has the recording, and you confirm you spoke with them. A voicemail never counts.</div>'
+        + '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.callNow(\'' + esc(id) + '\',this)">📞 Call now</button> <button class="secondary hr-btn" onclick="HR.pickCalls(\'' + esc(id) + '\',this)">Pick the call from my recent calls</button></div>' : '');
+    (d.calls || []).forEach((k) => {
+      const kid = esc(k.id), linked = !!k.call_at;
+      h += '<div class="hr-row"><span><b>' + esc(callWhen(k)) + '</b>' + (k.seconds != null && linked ? ' · ' + esc(mmss(k.seconds)) : '') + (k.practice ? ' · practice' : '')
+        + '<br><span class="' + (k.state === 'attempt' || k.state === 'no_call' ? 'hr-late' : 'field-note') + '">' + esc(CALL_WORD[k.state] || k.state) + (k.reason ? ': ' + esc(k.reason) : '') + '</span>'
+        + (k.state === 'exception' && k.exception_reason ? '<br><span class="field-note">' + esc(k.exception_reason) + '</span>' : '') + '</span><span>'
+        + (k.state === 'waiting' ? '<button class="secondary hr-btn" onclick="HR.lookAgain(\'' + kid + '\',\'' + esc(id) + '\',this)">Look again</button> ' : '')
+        + (k.state === 'qualifies' && (o || String(k.tapped_by).toLowerCase() === me) ? '<button class="primary hr-btn" onclick="HR.confirmCall(\'' + kid + '\',\'' + esc(id) + '\',this)">Yes, I spoke with them</button> ' : '')
+        + (linked && k.state !== 'waiting' ? '<button class="secondary hr-btn" onclick="HR.playCall(\'' + kid + '\',this)">▶ Play</button> ' : '')
+        + (o && k.state === 'attempt' && /no recording/i.test(k.reason || '') ? '<button class="secondary hr-btn" onclick="HR.excuseCall(\'' + kid + '\',\'' + esc(id) + '\')">Excuse: the phone system failed</button>' : '')
+        + '</span></div><div id="hrPlay' + kid + '"></div>';
+    });
+    el.innerHTML = h + '<div id="hrPick' + esc(id) + '"></div></div>';
+  }
+  async function callNow(id, btn) {
+    btn.disabled = true;
+    try {
+      const d = await cc({ action: 'tap', coaching_id: id });
+      alert('Your phone is ringing. Answer it and you are connected to them from the office line.\n\nStart with: "' + (d.say_first || 'This call is being recorded for our coaching records.') + '"\n\nAfter you hang up, the call shows on this card within a few minutes.');
+      await loadCalls(id);
+    } catch (e) { alert(e.message); } finally { btn.disabled = false; }
+  }
+  async function lookAgain(callId, id, btn) {
+    btn.disabled = true;
+    try { await cc({ action: 'find', call_id: callId }); } catch (e) { alert(e.message); }
+    await loadCalls(id);
+  }
+  async function pickCalls(id, btn) {
+    const box = document.getElementById('hrPick' + id); if (!box) return;
+    btn.disabled = true; box.innerHTML = '<div class="field-note">Looking at your recent calls with them…</div>';
+    try {
+      const d = await cc({ action: 'candidates', coaching_id: id });
+      box.innerHTML = '<div class="hr-sub">Your calls with them in the last 2 weeks</div>' + ((d.calls || []).length
+        ? d.calls.map((k) => '<div class="hr-row"><span>' + esc(callWhen({ call_at: k.at })) + ' · ' + esc(mmss(k.seconds)) + ' · ' + esc(k.status || '') + '</span><button class="secondary hr-btn" onclick="HR.usePick(\'' + esc(id) + '\',\'' + esc(k.message_id) + '\',this)">Use this call</button></div>').join('')
+        : '<div class="field-note">No calls from you to them in the last 2 weeks.</div>');
+    } catch (e) { box.innerHTML = '<div class="hr-err">' + esc(e.message) + '</div>'; } finally { btn.disabled = false; }
+  }
+  async function usePick(id, msgId, btn) {
+    btn.disabled = true;
+    try { await cc({ action: 'pick', coaching_id: id, message_id: msgId }); } catch (e) { alert(e.message); }
+    await loadCalls(id);
+  }
+  async function confirmCall(callId, id, btn) {
+    if (!(await ccConfirm('Did you speak with them on this call?'))) return;
+    btn.disabled = true;
+    try { await cc({ action: 'confirm', call_id: callId }); } catch (e) { alert(e.message); btn.disabled = false; return; }
+    await loadCalls(id); if (view === 'coaching') drawCoaching();
+  }
+  async function excuseCall(callId, id) {
+    const why = await ccPrompt('What failed in the phone system? (This call connected, but GoHighLevel has no recording.)', '');
+    if (!why) return;
+    try { await cc({ action: 'exception', call_id: callId, reason: why }); } catch (e) { alert(e.message); return; }
+    await loadCalls(id); if (view === 'coaching') drawCoaching();
+  }
+  async function playCall(callId, btn) {
+    const holder = document.getElementById('hrPlay' + callId); if (!holder) return;
+    if (holder.dataset.loaded) { holder.hidden = !holder.hidden; return; }
+    btn.disabled = true;
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const r = await fetch(CONFIG.supabase_url + '/functions/v1/hr-coach-call', { method: 'POST',
+        headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json', apikey: CONFIG.supabase_anon_key }, body: JSON.stringify({ action: 'play', call_id: callId }) });
+      if (!r.ok) { let m = ''; try { m = (await r.json()).error; } catch (e) {} throw new Error(m || 'No recording'); }
+      holder.innerHTML = '<audio controls style="width:100%;margin-top:6px;" src="' + URL.createObjectURL(await r.blob()) + '"></audio><div class="field-note">This play is logged.</div>';
+      holder.dataset.loaded = '1';
+    } catch (e) { alert(e.message); } finally { btn.disabled = false; }
   }
   const after = async () => { await loadCoaching(true); if (view === 'coaching') drawCoaching(); else if (view === 'oversight') drawOversight(); else render(view); };
   async function done(id) {
@@ -471,6 +584,14 @@
     if (answers.some((x) => !x.a)) { err.textContent = 'Write down what they said to each question first.'; return; }
     const response = qs.length ? answers.map((x) => 'Asked: ' + x.q + '\nThey said: ' + x.a).join('\n\n') : (g('hrRr') ? g('hrRr').value.trim() : '');
     if (!rec && !(g('hrRw2') && g('hrRw2').checked)) { err.textContent = 'Tick the box once you have told them that if it continues, official write-ups come next.'; return; }
+    if (!rec && callsLive(id)) {
+      if (!confirmedCall(id)) { err.textContent = 'First make the coaching call and confirm it above.'; return; }
+      const pl = { discussed: g('hrRw').value.trim(), response, help_agreed: g('hrRh').value.trim(), followup: g('hrRf').value.trim(), warning_given: 'true', check_on: g('hrRc').value,
+        expectation: g('hrRe').value.trim() ? g('hrRe').value.trim() + '\nTold them: this was a coaching call; if it keeps happening, the next step is an official write-up, which can lead to termination.' : '' };
+      if (!pl.discussed || !pl.response || !pl.expectation || !pl.help_agreed || !pl.followup) { err.textContent = 'Fill in every box above first.'; return; }
+      if (await act(id, 'done', pl)) { FORM[id] = 0; after(); }
+      return;
+    }
     const p = { held_on: g('hrRd').value, method: g('hrRm').value, discussed: g('hrRw').value.trim(), response,
       expectation: rec ? 'None (a compliment)' : (g('hrRe').value.trim() ? g('hrRe').value.trim() + '\nTold them: this was a coaching call; if it keeps happening, the next step is an official write-up, which can lead to termination.' : ''),
       followup: rec ? '' : g('hrRf').value.trim() };
@@ -612,5 +733,6 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, mark, startFormal, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
+  window.HR = { render, go, mark, startFormal, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
+    callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
