@@ -68,21 +68,30 @@ async()=>{
   window.clCensusLoad=async()=>{ throw new Error('down'); }; (0,eval)('clCensusLoad=window.clCensusLoad');
   sb.from=of;
 
-  /* ── 4. the garden ── */
+  /* ── 4. the garden, six beds ── */
   const apl=document.getElementById('apList');
   const now=Date.now(), I=d=>new Date(now-d*864e5).toISOString();
   (0,eval)(`AP_ROWS=[ {id:'a1',status:'new',created_at:'${I(2)}'}, {id:'a2',status:'new',created_at:'${I(3)}'}, {id:'a3',status:'new',created_at:'${I(40)}'},
-    {id:'b1',status:'new',created_at:'${I(5)}'}, {id:'o1',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'},
+    {id:'b1',status:'new',created_at:'${I(5)}'},
+    {id:'o1',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'}, {id:'o2',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'},
+    {id:'o3',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'}, {id:'o4',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'}, {id:'o5',status:'offer',created_at:'${I(9)}',offer_sent_at:'${I(4)}'},
     {id:'w1',status:'hired',created_at:'${I(20)}',started_at:'${I(1)}'}, {id:'d1',status:'declined',created_at:'${I(2)}'} ]; AP_BOOK={ b1:{ status:'booked' } };`);
-  FUN.garden();
-  const gd=document.getElementById('funGarden'), gl=gd?gd.querySelector('svg').getAttribute('aria-label'):'';
-  ok('garden · the last 30 days by stage (declined and older ones left out)', /Applied 2, Interview 1, Offered 1, Working 1/.test(gl), gl);
+  let stCalls=[], STG={ o1:{ tb:{ key:'step1_not_done' } }, o2:{ tb:{ key:'step1_done' } }, o3:{ tb:{ key:'orientation_set' } }, o4:{ approved_at:'2026-10-10', tb:{ key:'approved' } }, o5:{ error:'could not be read' } };
+  sb.functions={ invoke:async(name,{body})=>{ stCalls.push(name+':'+body.action+':'+(body.applicant_ids||[]).length); return { data:{ ok:true, stages:STG }, error:null }; } };
+  FUN._reset(); FUN.garden();
+  const lab=()=>(document.querySelector('#funGarden svg')||{getAttribute:()=>''}).getAttribute('aria-label');
+  ok('garden · first draw: offered people wait in Offered until their step is read', /Applied 2, Interview 1, Offered 5, Checks & references 0, Orientation 0, Working 1/.test(lab()), lab());
+  await sleep(50);
+  ok('garden · asked the server once for the five offered people', stCalls.length===1 && stCalls[0]==='hire-profile:stages:5', stCalls);
+  ok('garden · six beds from their real step (the unreadable one stays in Offered)', /Applied 2, Interview 1, Offered 2, Checks & references 1, Orientation 1, Working 2/.test(lab()), lab());
+  const gd=document.getElementById('funGarden');
   ok('garden · it sits above the applicant list', gd && gd.nextElementSibling===apl);
   let picked=null; const os=window.apSetFilter; window.apSetFilter=k=>{ picked=k; }; (0,eval)('apSetFilter=window.apSetFilter');
   gd.querySelectorAll('.fun-bed')[1].dispatchEvent(new MouseEvent('click',{bubbles:true}));
   ok('garden · a bed opens the matching list', picked==='booked', picked);
   window.apSetFilter=os; (0,eval)('apSetFilter=window.apSetFilter');
-  FUN.garden(); ok('garden · drawn once', document.querySelectorAll('#funGarden').length===1);
+  FUN.garden(); await sleep(30);
+  ok('garden · drawn once, and a second look within 5 minutes asks nothing new', document.querySelectorAll('#funGarden').length===1 && stCalls.length===1);
 
   /* ── 5. client anniversaries ── */
   const yrs=(n)=>{ const d=new Date(today+'T12:00:00Z'); d.setUTCFullYear(d.getUTCFullYear()-n); return d.toISOString().slice(0,10); };
@@ -98,7 +107,7 @@ async()=>{
   ok('client anniversaries · on: this week\'s, active clients only, years and start date, nothing sent', !!ca && /Rose Able · 1 year with Caring Companions/.test(ca.innerText) && /Ed Morgan · 3 years with Caring Companions/.test(ca.innerText) && !/This Week/.test(ca.innerText) && !/Past Client/.test(ca.innerText) && /Nothing goes to the family on its own/.test(ca.innerText), ca && ca.innerText);
 
   const src=async f=>(await (await window.__origFetch(f+'?x='+Date.now())).text()); const ih=await src('index.html');
-  ok('wired · Dashboard, the AxisCare card, the applicant list, script tag', /if\(window\.FUN\) FUN\.onDashboard\(\);/.test(ih) && /if\(window\.FUN\) FUN\.sunshine\(\);/.test(ih) && /FUN\.garden\(\)/.test(ih) && /<script src="more-fun\.js\?v=1">/.test(ih));
+  ok('wired · Dashboard, the AxisCare card, the applicant list, script tag', /if\(window\.FUN\) FUN\.onDashboard\(\);/.test(ih) && /if\(window\.FUN\) FUN\.sunshine\(\);/.test(ih) && /FUN\.garden\(\)/.test(ih) && /<script src="more-fun\.js\?v=2">/.test(ih));
   ok('no em dashes in anything these say', ![...document.querySelectorAll('#funMini,#funWins,#funGarden,#funClientAnniv,.fun-sunshine')].some(e=>/—/.test(e.innerText)));
   }catch(e){ R.push(['FAIL','threw',String(e&&e.stack||e).slice(0,500)]); }
   return R;
@@ -125,7 +134,8 @@ with sync_playwright() as pw:
         os.makedirs(shot, exist_ok=True)
         pg.evaluate("async()=>{ switchTab('today'); await new Promise(r=>setTimeout(r,200)); window.scrollTo(0,0); await FUN.dashMini(); await FUN.fridayWins(true); }")
         pg.wait_for_timeout(600)
-        for sel, nm in [('#funMini', 'mini'), ('#funWins', 'wins'), ('#funClientAnniv', 'client-anniv'), ('#tbShiftCard', 'sunshine'), ('#funGarden', 'garden')]:
+        pg.evaluate("const c=document.createElement('div'); c.id='gardenShot'; c.style.cssText='position:fixed;top:0;left:0;width:860px;background:#fff;padding:12px;z-index:99999'; c.innerHTML=(document.getElementById('funGarden')||{}).innerHTML||''; document.body.appendChild(c);")
+        for sel, nm in [('#funMini', 'mini'), ('#funWins', 'wins'), ('#funClientAnniv', 'client-anniv'), ('#tbShiftCard', 'sunshine'), ('#gardenShot', 'garden')]:
             try: pg.locator(sel).first.screenshot(path=os.path.join(shot, nm + '.png'))
             except Exception as e: print('no shot', nm, str(e)[:80])
     b.close()
