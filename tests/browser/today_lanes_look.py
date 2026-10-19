@@ -7,6 +7,12 @@ from playwright.sync_api import sync_playwright
 
 ROOT = os.environ.get('HUB_ROOT', '/Users/samantha/Claude/Projects/cc-hub-live')
 PORT = os.environ.get('PORT', '8765')
+try:   # say plainly when the static server is not running (otherwise the page never loads and the error is cryptic)
+    import urllib.request; _served = urllib.request.urlopen('http://localhost:%s/index.html' % PORT, timeout=3).read()
+except Exception:
+    sys.exit('No static server on port %s. Start one on the Hub folder first: python3 -m http.server %s (in %s), then run this again.' % (PORT, PORT, ROOT))
+if _served != open(os.path.join(ROOT, 'index.html'), 'rb').read():   # another session's server on the same port serves a different copy
+    sys.exit('Port %s serves a different copy of the Hub than %s. Run: HUB_ROOT=<this folder> PORT=<a free port> python3 %s, with python3 -m http.server <that port> in this folder.' % (PORT, ROOT, sys.argv[0]))
 
 STUB = r"""
 (()=>{

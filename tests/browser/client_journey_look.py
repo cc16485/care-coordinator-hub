@@ -1,9 +1,9 @@
 """The client journey, as a Care Coordinator lives it (Stages 1-3, 2026-10-06). The real Hub page, offline, with made-up
 TEST clients; the client-journey service is played by a small in-page stand-in that follows the same rules file. Screenshots
-of every moment go to /tmp/cj_*.png. (python3 tests/browser/client_journey_look.py, static server on 8765)"""
-import re, json
+of every moment go to /tmp/cj_*.png. (PORT=<port> python3 tests/browser/client_journey_look.py, static server on that port, 8765 by default)"""
+import re, json, os
 from playwright.sync_api import sync_playwright
-src = open('/Users/samantha/Claude/Projects/cc-hub-live/tests/browser/standup_look.py').read()
+src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'standup_look.py')).read()
 STUB = re.search(r'STUB = r"""(.*?)"""', src, re.S).group(1)
 CAT = open('/Users/samantha/Claude/Projects/Staffing-Coordinator-Hub/client-journey/catalog-v1.json').read()
 DATA = r"""
@@ -87,6 +87,7 @@ async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,800)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   const H=()=>document.getElementById('cjHead'), ST=()=>document.getElementById('cjStart'), S=window.__svc;
+  const TL=()=>(document.getElementById('cpTopLinks')||{ textContent:'', querySelectorAll:()=>[] });   /* since 2026-10-15 (profile-top.js) the card's links live in the More menu at the top */
   const next=()=>H().querySelector('.cj-next[data-step]'), btn=(box,act)=>box.querySelector('[data-act="'+act+'"]');
   const shot=async(name)=>{ window.__shot=name; await sleep(60); };
   // switched off: a Care Coordinator sees nothing new
@@ -99,7 +100,7 @@ async()=>{
   ok('started: one line (payer, who is the Care Coordinator, start date) and one progress bar', /Medicaid IHS \/ HCBS/.test(H().innerText) && /Angie is their Care Coordinator/.test(H().innerText) && /Start not set/.test(H().innerText) && !!document.querySelector('#cpPath .cj-path-bar') && /Talking/.test(document.querySelector('#cpPath .cj-path-now').textContent) && document.querySelectorAll('#cpPath .cj-path-t').length===4, [H().innerText, document.getElementById('cpPath').innerText]);  /* One Path stage 1: the Path card replaces the progress bar */
   ok('...no row of ten stage chips on top (they are under See every step)', !H().querySelector('.cj-rail'));
   ok('the next step says whose it is and exactly what is missing: Home address, with an Add button (no Check now while something is missing)', next() && /Next for Angie/.test(next().innerText) && /Confirm the client's basics/.test(next().innerText) && /Home address/.test(next().innerText) && !!next().querySelector('.cj-add') && next().querySelectorAll('.cj-need li.ok').length===3 && !btn(next(),'check'), next()&&next().innerText);
-  ok('...no "Also ready" or "Coming next" lists; "See every step" says 1 more is ready; everything else waits behind "Can\'t do this yet"', !/also ready now/i.test(H().innerText) && !/coming next/i.test(H().innerText) && /See every step \(1 more ready now\)/.test(H().innerText) && !btn(next(),'wait-open') && !!next().querySelector('.cj-cant'), H().innerText);
+  ok('...no "Also ready" or "Coming next" lists; "See every step" says 1 more is ready; everything else waits behind "Can\'t do this yet"', !/also ready now/i.test(H().innerText) && !/coming next/i.test(H().innerText) && /See every step \(1 more ready now\)/.test(TL().textContent) && !btn(next(),'wait-open') && !!next().querySelector('.cj-cant'), H().innerText);
   ok('top and bottom are one block: who we are talking to is the first line, and Last real conversation and Wants to start sit inside the journey card; the Overview has no second set', /Last real conversation/i.test(document.getElementById('cjFacts').innerText) && !/Talking to/i.test(document.getElementById('cjFacts').innerText) && /Wants to start/i.test(document.getElementById('cjFacts').innerText) && !/Next action/i.test(document.getElementById('cjFacts').innerText) && !document.getElementById('cpcGrid').innerHTML && !/Still needed/.test(document.getElementById('cpcNeeded').innerText), document.getElementById('cjFacts').innerText);
   ok('the old Start of Care checklist and First shift card are hidden while there is a journey', document.getElementById('lp_soc_body').style.display==='none');
   // the Care Coordinator's view and My Work
@@ -133,7 +134,7 @@ async()=>{
   ok('...ticked: done; Count the prior 21-day notices is next', next().dataset.step==='med.notices');
   // hard stop
   set('count',2); btn(next(),'complete').click(); await sleep(500);
-  ok('2 prior notices: STOP. The step turns red with the owner-exception words; the progress bar turns red, "Stopped at Pre-checks"', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && /PAPERWORK[\s\S]*\(blocked\)/.test(document.getElementById('cpPath').innerText) && /Stopped at/.test(H().innerText), [next().innerText, document.getElementById('cpPath').innerText]);
+  ok('2 prior notices: STOP. The step turns red with the owner-exception words; the progress bar turns red, "Stopped at Pre-checks"', next().classList.contains('cj-next-red') && /Blocked/.test(next().innerText) && /2 or more prior 21-day notices/.test(next().innerText) && /PAPERWORK[\s\S]*\(blocked\)/i.test(document.getElementById('cpPath').innerText) && /Stopped at/.test(H().innerText), [next().innerText, document.getElementById('cpPath').innerText]);
   ok('...the Care Coordinator has no exception button', !btn(next(),'exc-open'));
   ok('...the top says plainly that it stopped, not "Done"', /Stopped at "Count the prior 21-day notices"/.test(H().innerText) && !/✓ Done: Count the prior/.test(H().innerText), H().innerText.slice(0,500));
   ok('...the older stage path and stage chip step aside (one progress system on screen)', document.getElementById('cpcPath').style.display==='none');
@@ -182,11 +183,12 @@ async()=>{
   btn(next(),'complete').click(); await sleep(500);
   set('decision','assess'); btn(next(),'complete').click(); await sleep(500);
   ok('care plan and "decide to assess" done: Book the assessment is next (Assessment on the bar), with its own "Book the assessment visit" button on the step', next().dataset.step==='asmt.book' && /^Assessment/.test(document.querySelector('#cpPath .cj-path-now').textContent) && /CARE[\s\S]*Book/i.test(document.getElementById('cpPath').innerText) && /Book the assessment visit/.test(next().innerText), [document.getElementById('cpPath').innerText, next().innerText]);
-  ok('one card: the lead card and the AI summary are put away; the links at the bottom open them', document.getElementById('lp_head_card').style.display==='none' && document.getElementById('lp_ai_card').style.display==='none' && /Edit intake form/.test(H().innerText) && /AI summary/.test(H().innerText) && /More…/.test(H().innerText));
+  ok('one card: the lead card and the AI summary are put away; the links in the More menu open them', document.getElementById('lp_head_card').style.display==='none' && document.getElementById('lp_ai_card').style.display==='none' && /Edit intake form/.test(TL().textContent) && /AI summary/.test(TL().textContent) && /Show the older lead card/.test(TL().textContent), TL().textContent);
   ok('before the family says yes, the Leads workspace speaks on the Overview and the journey card steps aside there', document.getElementById('cjHead').style.display==='none' || !document.getElementById('lwHost') || document.getElementById('lwHost').style.display==='none');
-  [...H().querySelectorAll('.cj-every .linklike')].find(b=>/More…/.test(b.textContent)).click(); await sleep(150);
-  ok('...More… flips to Hide the rest (the older lead card opens once the Leads workspace hands over at yes)', /Hide the rest/.test(H().innerText), [document.getElementById('lp_head_card').style.display, H().querySelector('.cj-every')&&H().querySelector('.cj-every').innerText, typeof activeTab!=='undefined'&&activeTab]);
-  [...H().querySelectorAll('.cj-every .linklike')].find(b=>/Hide the rest/.test(b.textContent)).click(); await sleep(150);
+  /* since the calmer profile top (2026-10-15) "More…" lives in the More menu as "Show the older lead card" */
+  [...TL().querySelectorAll('button')].find(b=>/Show the older lead card/.test(b.textContent))?.click(); await sleep(150);
+  ok('...Show the older lead card flips to Hide the older lead card', /Hide the older lead card/.test(TL().textContent), TL().textContent);
+  [...TL().querySelectorAll('button')].find(b=>/Hide the older lead card/.test(b.textContent))?.click(); await sleep(150);
   ok('...the contact line: who, the phone (calls from the office line) and the stage words with Mark lost (clean-up 6.7: no dropdown)', !!H().querySelector('.cj-contact a[data-oc-phone]') && /Talking/.test(H().querySelector('.cj-contact').innerText) && /Mark lost/.test(H().querySelector('.cj-contact').innerText) && !H().querySelector('.cj-status'), H().querySelector('.cj-contact')&&H().querySelector('.cj-contact').innerText);
   // the whole journey tab
   cpShowTab('start'); await sleep(150);
@@ -266,10 +268,10 @@ async()=>{
   await openLeadProfile('N10','summary'); await sleep(500);
   const P=()=>document.getElementById('cpPath');
   ok('Path: on top of the profile, the stage words with New lit (nobody has talked to them yet) and four tracks', /New/.test(P().querySelector('.cj-path-now').textContent) && P().querySelectorAll('.cj-path-t').length===4
-     && /CARE[\s\S]*PAPERWORK[\s\S]*TEAM[\s\S]*SCHEDULE/.test(P().innerText), P().innerText);
+     && /CARE[\s\S]*PAPERWORK[\s\S]*TEAM[\s\S]*SCHEDULE/i.test(P().innerText), P().innerText);
   ok('...each track says where it stands or what starts it', /Starts with:/.test(P().innerText), P().innerText);
   ok('...the old progress bar is gone (the stage is said once)', !H().querySelector('.cj-prog'));
-  const teamT=[...P().querySelectorAll('.cj-path-t')].find(b=>/TEAM/.test(b.innerText)); teamT.click(); await sleep(300);
+  const teamT=[...P().querySelectorAll('.cj-path-t')].find(b=>/team/i.test(b.innerText)); teamT.click(); await sleep(300);
   ok('...clicking a track opens its step on Start of Care', /team\./.test((next()||{dataset:{}}).dataset.step||'') && document.querySelector('[data-cp-pane="start"]').offsetParent!==null, (next()||{dataset:{}}).dataset.step);
   await openLeadProfile('S1','start'); await sleep(400);
   ok('...and it follows the profile you open (the Path is redrawn for each person)', !/Opal/.test(P().innerText) && P().querySelectorAll('.cj-path-w').length===5);
@@ -279,7 +281,7 @@ async()=>{
   window.__as('sam@mo-care.com','Samantha Owner'); DATA.ops_settings.client_journey_routing={ medicaid:'angie@mo-care.com' };
   location.hash='#settings/client-journeys'; await sleep(700); if(typeof fillSettingsPanel==='function') fillSettingsPanel(); await sleep(200);
   const CS=document.getElementById('cjSet');
-  ok('Settings, Client journeys: an owner sees the switch and who gets each payer (six rows, Medicaid set to Angie)', CS && /Turn on/.test(CS.innerText) && CS.querySelectorAll('select[data-route]').length===6 && CS.querySelector('select[data-route="medicaid"]').value==='angie@mo-care.com', CS&&CS.innerHTML.slice(0,500));
+  ok('Settings, Client journeys: an owner sees the switch and who gets each payer (seven rows since Medicare GUIDE, Medicaid set to Angie)', CS && /Turn on/.test(CS.innerText) && CS.querySelectorAll('select[data-route]').length===7 && CS.querySelector('select[data-route="medicaid"]').value==='angie@mo-care.com', CS&&CS.innerHTML.slice(0,500));
   ok('...opened from the Admin page link, only this setting shows', document.getElementById('cjSettings').style.display!=='none' && [...document.querySelectorAll('#tab-settings [data-set]')].filter(x=>x.style.display!=='none').length===1);
   await shot('settings');
   window.__as('krystal@mo-care.com','Krystal Land'); cjSetFill();
@@ -295,12 +297,12 @@ with sync_playwright() as pw:
     pin(pg)  # same answer at any hour (tests/browser/clock_pin.py)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
-    pg.goto('http://localhost:8765/index.html?proof=cj'); pg.wait_for_timeout(1200)
+    pg.goto('http://localhost:' + os.environ.get('PORT', '8765') + '/index.html?proof=cj'); pg.wait_for_timeout(1200)
     pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', DATA)
     # screenshots: the test pauses by setting window.__shot; take them via a poller
     import threading
     R = pg.evaluate(T)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
-for r in R: print(r[0], '·', r[1], ('→ ' + r[2]) if r[2] else '')
+for r in R: print(r[0], '·', r[1], ('→ ' + str(r[2])) if r[2] else '')
 print(f"{sum(1 for r in R if r[0]=='PASS')} / {len(R)}")
 raise SystemExit(0 if all(r[0] == 'PASS' for r in R) else 1)
