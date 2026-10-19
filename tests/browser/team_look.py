@@ -83,12 +83,26 @@ async()=>{
   ok('coaching done · sends her note', L.calls.some(c=>c.body.do==='coaching_done'&&c.body.note==='Covered next dates'));
   cctClose();
 
+  /* ── audit step 7: balanced measures ── */
+  ROLE='zach'; await cctOpen(); await sleep(50);
+  ok('step 7 · off (no balance from the server): no balanced measures table', !document.getElementById('cctBal'));
+  cctClose();
+  const BAL=(o)=>Object.assign({ rel_calls:{ due:2, on_time:1 }, followups:{ due:0, on_time:0 }, help_given:1, help_received:0, first_call_median_min:12, first_call_n:3 }, o||{});
+  LISTS.zach.months=[M('Krystal',{ overdue_now:2, balance:BAL() }), M('Angiel',{ balance:BAL({ help_given:0, help_received:1, first_call_median_min:null, first_call_n:0 }) })];
+  ROLE='zach'; await cctOpen(); await sleep(50);
+  const bt=()=>(document.getElementById('cctBal')||{}).innerText||'';
+  ok('step 7 · on: the table shows calls on time, follow-ups, help both ways and the median first call', /Relationship calls on time\s+1 of 2/.test(bt())&&/Concern follow-ups on time\s+none due/.test(bt())&&/Helped a teammate\s+1\s+0/.test(bt())&&/Got help from a teammate\s+0\s+1/.test(bt())&&/12 min \(3 leads\)\s+no calls yet/.test(bt()), bt());
+  cctClose();
+
   /* ── settings ── */
   lhSetFill();
+  ok('step 7 · settings: off, and Krystal sees no button', /Off\./.test(document.getElementById('bmSetNow').textContent)&&document.getElementById('bmToggleBtn').style.display==='none');
   ok('settings · Krystal sees them read-only, no buttons', document.getElementById('tnHr').disabled&&document.getElementById('tnSaveBtn').style.display==='none');
   (0,eval)(`ME={ email:'sam@mo-care.com', name:'Samantha T', shift:'day' }`);
   window.tkMerge=async(apply,what)=>{ const m=JSON.parse(JSON.stringify(DATA.ops_settings)); const ch=apply(m, DATA.ops_settings); DATA.ops_settings=m; return { changed:ch, error:null }; };
   lhSetFill(); document.getElementById('tnHr').value='zach@mo-care.com'; await tnSave(); await sleep(30);
+  window.ccConfirm=async()=>true; await bmToggle(); await sleep(30);
+  ok('step 7 · Samantha turns the balanced measures on', DATA.ops_settings.balanced_measures_live===true&&/On\./.test(document.getElementById('bmSetNow').textContent));
   ok('settings · Samantha saves the HR lead', DATA.ops_settings.team.hr_lead==='zach@mo-care.com'&&/Saved/.test(document.getElementById('tnSaved').textContent));
   return R;
 }

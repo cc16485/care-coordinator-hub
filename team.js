@@ -82,6 +82,15 @@
     if(months.length){
       h += '<table class="cct-t"><tr><th></th>' + months.map(m => '<th class="n">' + esc(m.person) + '</th>').join('') + '</tr>'
         + ROWS.map(([k, label]) => '<tr><td>' + label + '</td>' + months.map(m => '<td class="n' + (k === 'overdue_now' && m[k] ? ' cct-red' : '') + '">' + esc(val(m, k)) + '</td>').join('') + '</tr>').join('') + '</table>';
+      /* audit step 7: balanced measures (only when the server sends them, i.e. the switch is on) */
+      if(months.some(m => m.balance)){
+        const fr = (x) => x && x.due ? x.on_time + ' of ' + x.due : 'none due';
+        const BAL = [['Relationship calls on time', m => fr(m.balance.rel_calls)], ['Concern follow-ups on time', m => fr(m.balance.followups)],
+          ['Helped a teammate', m => m.balance.help_given], ['Got help from a teammate', m => m.balance.help_received],
+          ['Median time to first call', m => m.balance.first_call_median_min == null ? 'no calls yet' : m.balance.first_call_median_min + ' min (' + m.balance.first_call_n + ' lead' + (m.balance.first_call_n === 1 ? '' : 's') + ')']];
+        h += '<div class="cct-k">Balanced measures</div><table class="cct-t" id="cctBal"><tr><th></th>' + months.map(m => '<th class="n">' + esc(m.person) + '</th>').join('') + '</tr>'
+          + BAL.map(([label, f]) => '<tr><td>' + label + '</td>' + months.map(m => '<td class="n">' + esc(m.balance ? f(m) : '') + '</td>').join('') + '</tr>').join('') + '</table>';
+      }
       if(me.owner) h += '<p class="cct-sub" style="margin-top:6px;">The numbers start a conversation; they never decide it. Someone with fewer new clients may be carrying a heavier caseload.</p>';
     }
     if((d.my_overdue || []).length) h += '<div class="cct-k">Overdue for you now</div>' + d.my_overdue.map(o => '<div class="cct-sub" style="color:var(--text)">' + esc(KIND[o.kind] || o.kind) + ': ' + esc(o.client) + ' (since ' + esc(o.since) + ')' + (o.lead_id ? ' <button class="linklike" onclick="cctClose();openLeadProfile(\'' + esc(o.lead_id) + '\')">Open</button>' : '') + '</div>').join('');
