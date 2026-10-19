@@ -110,7 +110,7 @@
     return out.sort((a, b) => String(b.n.at).localeCompare(String(a.n.at)));
   }
   /* My own open work with something new on it (a helper's part done, a decision answered) belongs on Today. */
-  function needsMeNow(it){ return it.status === 'open' && lc(it.owner) === me() && unseen(it).some(n => n.kind === 'part_done' || n.kind === 'decision'); }
+  function needsMeNow(it){ return it.status === 'open' && lc(it.owner) === me() && unseen(it).some(n => n.kind === 'part_done' || n.kind === 'decision' || n.kind === 'help_declined'); }
 
   /* ── popups ── */
   function pop(anchorId, html, width){ return ccPopOpen(document.getElementById(anchorId) || document.body, html, { width:width || 340 }); }
@@ -126,6 +126,7 @@
     const m = me(); if(!m) return;
     if(lc(it.owner) === m) return say('This is already yours.');
     it.help_from = m; it.help_asked_at = it.help_asked_at || nowIso(); it.helping_since = nowIso();
+    if(window.AH) AH.volunteered(it);   /* Stage 2: recorded as help given (accepted by definition) */
     opsLog(it, myName() + ' is helping. Still ' + firstOf(it.owner) + '’s.');
     notify(it, it.owner, 'helping', myName() + ' is helping with this.');
     try{ opEvent('help_joined', { item:it, summary:myName() + ' is helping with ' + (it.about || it.title || 'this') + ' (still ' + firstOf(it.owner) + '’s)' }); }catch(e){}
@@ -147,6 +148,7 @@
       const did = el.querySelector('#taDid').value.trim(), next = el.querySelector('#taNext').value.trim();
       if(!did) return warn('Say what you did, so ' + o + ' doesn’t have to ask.');
       ccPopClose();
+      if(window.AH) AH.done(it, did);   /* Stage 2: the ask is recorded as done */
       if(lc(it.help_from) === me()){ it.help_from = null; it.help_asked_at = null; }
       opsLog(it, myName() + ' did their part: ' + did + (next ? '. Left for ' + o + ': ' + next : ''));
       notify(it, it.owner, 'part_done', did, next);
@@ -172,6 +174,7 @@
       const at = nowIso();
       it.status = 'done'; it.closed_at = at; it.closed_by = me(); it.close_note = why; it.resolution_code = 'finished_by_helper';
       it.finished_for = { owner:lc(it.owner), by:me(), by_name:myName(), at, note:why, reopen_until:new Date(Date.now() + DAY).toISOString() };
+      if(window.AH) AH.done(it, why);
       if(lc(it.help_from) === me()){ it.help_from = null; it.help_asked_at = null; }
       opsLog(it, 'Finished by ' + myName() + ': ' + why);
       notify(it, it.owner, 'finished', why);
@@ -195,6 +198,8 @@
 
   /* ── Needs team support (was "Ask for help"; never leadership by default) ── */
   function askSupport(id, anchorId){
+    /* Stage 2 (2026-10-19): tracked Ask for help (ask-help.js) while ops_settings.ask_help_live is on */
+    if(window.AH && AH.on()) return AH.ask(id, anchorId);
     const it = item(id); if(!it) return;
     const sug = teammate(it);
     ccPickPerson(document.getElementById(anchorId) || document.body, {
@@ -308,7 +313,8 @@
 
   /* ── what a card shows ── */
   const WORD = { helping:'is helping', part_done:'did their part', finished:'finished it', support:'asked you for team support',
-                 decide:'asks you to decide', decision:'decided', transferred:'took responsibility', reopened:'reopened it' };
+                 decide:'asks you to decide', decision:'decided', transferred:'took responsibility', reopened:'reopened it',
+                 help_ask:'asked you for help', help_accepted:'accepted', help_declined:'declined', help_withdrawn:'withdrew the ask' };
   function cardTop(it){
     let h = '';
     if(critical(it)) h += '<div class="ta-911" style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#FBECEA;color:#9B2C22;font-size:13px;font-weight:700;">'
@@ -323,6 +329,7 @@
       h += '<div style="margin-top:8px;padding:8px 10px;border-radius:8px;background:#FDF3E2;font-size:13px;"><b>' + esc(first(n.by_name)) + ' did their part:</b> ' + esc(n.text)
         + (n.next ? '<br><b>Your turn:</b> ' + esc(n.next) : '') + '</div>';
     });
+    if(window.AH && AH.on()){ h += AH.statusHtml(it); return h; }   /* Stage 2: asked / accepted / declined / no answer / done */
     if(it.help_from && lc(it.help_from) !== me() && lc(it.owner) === me())
       h += '<div class="field-note" style="margin-top:6px;">' + esc(firstOf(it.help_from)) + ' is helping. It stays yours.</div>';
     return h;
@@ -332,6 +339,8 @@
     const id = esc(it.id), anchor = 'act_' + id, o = firstOf(it.owner);
     let h = '';
     if(decisionFor(it)) h += '<button class="primary" style="padding:6px 13px;font-size:12.5px;" onclick="TA.answer(\'' + id + '\',\'' + anchor + '\')">Answer</button>';
+    /* Stage 2: asked and not answered yet: Accept or Decline, nothing else */
+    if(window.AH && AH.on() && AH.pendingFor(it)) return h + AH.askButtons(it);
     if(lc(it.help_from) === me()){
       h += '<button class="' + (h ? 'ghost' : 'primary') + '" style="padding:6px 13px;font-size:12.5px;" onclick="TA.partDone(\'' + id + '\',\'' + anchor + '\')">My part is done…</button>'
         + '<button class="ghost" style="padding:6px 13px;font-size:12.5px;" onclick="TA.finish(\'' + id + '\',\'' + anchor + '\')">This is finished…</button>';

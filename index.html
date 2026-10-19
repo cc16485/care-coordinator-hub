@@ -4553,6 +4553,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="ask-help">
+<h3>Ask for help</h3>
+<p class="hint">Asking for help is tracked (approved 2026-10-18): who was asked, what for and by when; they accept (saying what they'll do) or decline (saying why); no answer in 15 minutes for urgent work, or by the end of their shift, shows as "Help not answered". The card stays the owner's and open. Nothing is texted or emailed.</p>
+<div id="ahSet"></div>
+</div>
+
 <div class="settings-section" data-set="my-work-tiers">
 <h3>My Work layout</h3>
 <p class="hint">Today grouped by what the work is (approved 2026-10-18): Needs you now, Relationship builders, Your leads, Your clients and tasks, and Hub reminders (compact, last, never in the red number). All mine is grouped the same way. While it is off, owners can preview it on Today.</p>
@@ -7561,7 +7567,7 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-work.js?v=5"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
-<script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
+<script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
@@ -15625,6 +15631,7 @@ function fillSettingsPanel(){
   try{ if(typeof dkSetFill==='function') dkSetFill(); }catch(_){}
   try{ if(window.TW) TW.setFill(); }catch(_){}
   try{ if(window.MWT) MWT.setFill(); }catch(_){}
+  try{ if(window.AH) AH.setFill(); }catch(_){}
   try{ aiSetFill(); }catch(_){}
   try{ cpSetFill(); cpLoad(); }catch(_){}
   try{ mnSetFill(); }catch(_){}
@@ -29462,7 +29469,8 @@ function myWorkBuckets(){
     /* Work somebody asked ME about. They still own it — this is a question,
        not a handover — so it is deliberately not part of `mine`. */
     helping:    open.filter(i=>String(i.help_from||'').toLowerCase()===me && me
-                              && String(i.owner||'').toLowerCase()!==me),
+                              && String(i.owner||'').toLowerCase()!==me
+                              && (!window.AH || AH.helpingOk(i))),   /* Stage 2: a pending ask is in ASKED TO HELP, not Helping */
     /* Due today, already late, or a parked item whose check-back has arrived.
        PLUS: unclaimed work that can't afford to hide behind the Unassigned
        pill. Today answers "what might need me today?" — and an urgent
@@ -29490,7 +29498,9 @@ function myWorkBuckets(){
                 .concat(mine.filter(i=>!parked(i) && typeof pjHot==='function' && pjHot(i)))
                 /* 2026-10-17: a helper did their part, or leadership answered: my turn, today */
                 .concat(window.TA?mine.filter(i=>TA.needsMeNow(i)):[])
-                .concat(window.TA?open.filter(i=>TA.decisionFor(i, me)):[])),
+                .concat(window.TA?open.filter(i=>TA.decisionFor(i, me)):[])
+                /* Stage 2: help I asked for that was declined or not answered comes back to my Today */
+                .concat(window.AH&&AH.on()?mine.filter(i=>AH.unanswered(i)):[])),
     /* Reviews are ordinary items owned by the reviewer. This is a lens on
        `mine`, not a removal from it, so a review is never only in one place. */
     reviews:    mine.filter(i=>i.kind==='review' && !parked(i)),
@@ -30218,9 +30228,9 @@ function renderMyWork(){
   const none=t=>'<div class="field-note" style="padding:4px 2px 2px;">'+t+'</div>';
   let h='';
   /* Up for grabs: nothing urgent or due today, so the team's offered work comes to me */
-  if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length) h+=TP.caughtUpHtml();
+  if(window.TP && !act.length && !lateL.length && !due.length && !pinned.length && !(window.AH&&AH.on()&&AH.asksForMe().length)) h+=TP.caughtUpHtml();   /* not caught up while someone is waiting on my answer */
   /* the drawing kit (2026-10-18, her "build step 1"): caught up with nothing to help with shows the porch at sunset */
-  if(window.HS && !h && !act.length && !lateL.length && !due.length && !pinned.length && !myWorkTeamHtml(b))
+  if(window.HS && !h && !act.length && !lateL.length && !due.length && !pinned.length && !myWorkTeamHtml(b) && !(window.AH&&AH.on()&&AH.asksForMe().length))
     h+=HS.empty({ scene:'porch', say:'All caught up.', sub:'Every family has what they need today. Anything new will land here on its own.',
       links:[].concat((typeof dkAllowed==='function'&&dkAllowed())?[['Open My Desk',"switchTab('mydesk')"]]:[],
         later.length?[['Show what is later','MYWORK_LATER_OPEN=true;renderMyWork()']]:[]) });
@@ -30229,6 +30239,8 @@ function renderMyWork(){
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   /* Team Work (Stage 1): care at risk from the on-duty pile stays on Today for whoever is on duty */
   if(window.TW&&TW.on()){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
+  /* Stage 2: someone asked me for help; accept or decline (the card stays theirs) */
+  if(window.AH&&AH.on()){ const ah=AH.laneHtml(it=>myWorkCard(it,-1)); if(ah) h+=ah; }
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   /* My Work tiers (Stage 2, 2026-10-18): Needs you now, then the four groups, instead of the time lanes. Past its day,
