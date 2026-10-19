@@ -42,42 +42,51 @@ async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,800)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   switchTab('leadsstarts'); await sleep(500); renderLeadsStarts(); await sleep(200);
-  const T=()=>document.getElementById('lbBoard').innerText, rows=()=>[...document.querySelectorAll('#lbBoard .lb-row')];
-  const names=()=>rows().map(r=>r.querySelector('.lb-name').childNodes[0].textContent.trim());
+  /* 2026-10-18 test refresh: the board's rows are compact now (a name button, then details that fold open under the row),
+     and the default order is Most important; this test checks the grouped view, so it asks for Due first. Since
+     2026-10-14 (her decision: no IHS or ADW Medicaid from 11-16) a Medicaid family needs a person now: Change payer. */
+  lbSort('due'); await sleep(150);
+  const T=()=>document.getElementById('lbBoard').innerText, rows=()=>[...document.querySelectorAll('#lbBoard .lb-row.lbc')];
+  const names=()=>rows().map(r=>r.querySelector('.lbc-name').textContent.trim());
+  const det=r=>{ const d=r.nextElementSibling; return d && d.classList.contains('lbc-det') ? d : null; };
+  const full=r=>(r.textContent+' '+(det(r)?det(r).textContent:'')).replace(/\s+/g,' ');
   const tiles=[...document.querySelectorAll('#lbNumbers .lb-tile')].map(t=>t.innerText.replace(/\s+/g,' ').trim());
-  ok('the numbers (a sixth, missing required, added 2026-10-07): 6 need you now · 1 new nobody has tried · 0 assessments today · 1 waiting (Clifford\'s check-back is today, so he moved up) · median –', tiles[0]==='6 need you now' && tiles[1]==='1 new, nobody has tried' && tiles[2]==='0 assessments today' && tiles[3]==='1 waiting' && tiles[4]==='0 missing required' && /median first attempt today/.test(tiles[5]), tiles);
+  ok('the numbers: 8 need you now (the two Medicaid families now need a person) · 1 new nobody has tried · 0 assessments today · 0 waiting · 0 missing required · median –', tiles[0]==='8 need you now' && tiles[1]==='1 new, nobody has tried' && tiles[2]==='0 assessments today' && tiles[3]==='0 waiting' && tiles[4]==='0 missing required' && /median first attempt today/.test(tiles[5]), tiles);
   ok('groups in order: Need you now, Scheduled, Waiting', T().indexOf('NEED YOU NOW')<T().indexOf('SCHEDULED') && T().indexOf('SCHEDULED')<T().indexOf('WAITING'));
-  ok('Need you now, most urgent first: NEW overdue → replied → promised call late → plan not written → follow-up late → check-back due', names().slice(0,6).join('|')==='Ruth Ann Keller|Marjorie Teague|Harold Pruitt|Walter Brandt|Evelyn Marsh|Clifford Haney', names());
-  const r0=rows()[0].innerText;
-  ok('the NEW row: "NEW · 12 min" + OVERDUE, Niece calling about Ruth Ann? no: first line of the notes is why; Republic; Call is the filled button', /NEW · 12 min/.test(r0) && /OVERDUE: first call was due at 5 minutes/.test(r0) && /Aunt home from Mercy Thursday, needs help mornings/.test(r0) && /Call Patrice: first attempt/.test(r0) && rows()[0].querySelector('.lb-btn-primary').textContent==='Call' && rows()[0].querySelector('.lb-btn-primary').getAttribute('data-oc-phone')==='4175550164', r0);
-  const r1=rows()[1].innerText;
+  ok('Need you now, most urgent first: NEW overdue → replied → promised call late → the two Medicaid families → plan not written → follow-up late → check-back due', names().slice(0,8).join('|')==='Ruth Ann Keller|Marjorie Teague|Harold Pruitt|Dorothy Lindqvist|Lorene Abbott|Walter Brandt|Evelyn Marsh|Clifford Haney', names());
+  const r0=full(rows()[0]);
+  ok('the NEW row: "NEW · 12 min" + OVERDUE, why from the notes, Republic; Call is the filled button and calls from the office line', /NEW · 12 min/.test(r0) && /OVERDUE: first call was due at 5 minutes/.test(r0) && /Aunt home from Mercy Thursday, needs help mornings/.test(r0) && /Call Patrice: first attempt/.test(r0) && /Republic/.test(r0) && rows()[0].querySelector('.lb-btn-primary').textContent==='Call' && rows()[0].querySelector('.lb-btn-primary').getAttribute('data-oc-phone')==='4175550164', r0);
+  const r1=full(rows()[1]);
   ok('the replied row tells the story: Wants care by Fri · Private pay · Mon–Fri 9 am–1 pm · about 20 hrs/wk · Nixa; They texted 9:48 am; Text back is primary', /Replied 22 min ago/.test(r1) && /Wants care by Fri · Private pay · Mon–Fri 9 am–1 pm · about 20 hrs\/wk · Nixa/.test(r1) && /They texted 9:48 am/.test(r1) && rows()[1].querySelector('.lb-btn-primary').textContent==='Text back', r1);
-  const r2=rows()[2].innerText;
+  const r2=full(rows()[2]);
   ok('the promised-call row: "Call promised 9 am" · "1 h 10 min late" · last = 14-min call Thu 3 pm "quoted $32/hr"', /Call promised 9 am/.test(r2) && /1 h 10 min late/.test(r2) && /14-min call, we talked Thu 3 pm · "quoted \$32\/hr"/.test(r2), r2);
-  ok('Dorothy (assessment booked Thursday) is under Scheduled, not Need you now', names().indexOf('Dorothy Lindqvist')>5, names());
-  ok('referral shows as Mercy Rehab on the row that has it', /Referral · Mercy Rehab/.test(T()), '');
-  ok('the Waiting group: Lorene (the state, since Sep 20, Next check Mon) and the check-back-due Clifford moved UP to Need you now', /The state[\s\S]*since Sep 20[\s\S]*Next check Mon/.test(T()) && /Check back today[\s\S]*Family not ready since/.test(T()), T().slice(T().indexOf('WAITING')));
-  ok('Scheduled has day headers and Bernard at 10 am tomorrow; Dorothy Thursday', /TOMORROW\n10 am\nfollow-up\nBernard Oakes/.test(T()) && /THURSDAY\nThu\nassessment at the home\nDorothy Lindqvist/.test(T()), T().slice(T().indexOf('SCHEDULED'), T().indexOf('WAITING')));
-  ok('Need you now rows have exactly one filled button; Scheduled and Waiting rows none; every row has ···', rows().slice(0,6).every(r=>r.querySelectorAll('.lb-btn-primary').length===1) && rows().slice(6).every(r=>r.querySelectorAll('.lb-btn-primary').length===0) && rows().every(r=>r.querySelector('.lb-more')), rows().map(r=>r.querySelectorAll('.lb-btn-primary').length));
-  ok('owner shown with an initial; Clifford is Samantha\'s', rows().every(r=>r.querySelector('.lb-av')) && /S\s*Samantha/.test(T()), '');
-  /* a row click opens the profile; a button click does not */
-  rows()[1].click(); await sleep(50);
-  ok('clicking the row opens the profile on Summary', window.__log.opened.slice(-1)[0]==='marj:summary', window.__log.opened);
+  const dor=rows().find(r=>/Dorothy/.test(r.textContent));
+  ok('a Medicaid family (Dorothy) needs a person now: we no longer take Medicaid, Change payer is the one button', /Medicaid: not accepted/.test(full(dor)) && dor.querySelector('.lb-btn-primary').textContent==='Change payer', full(dor));
+  ok('referral shows as Mercy Rehab on the row that has it', /Referral · Mercy Rehab/.test(full(dor)));
+  ok('the Waiting group is empty and says so; Clifford\'s check-back is due, so he moved up to Need you now', /Nobody is waiting\./.test(T()) && /Check back today[\s\S]*Family not ready since/.test(full(rows().find(r=>/Clifford/.test(r.textContent)))));
+  ok('Scheduled has day headers and Bernard at 10 am tomorrow', /TOMORROW[\s\S]*Bernard Oakes[\s\S]*10 am/.test(T().slice(T().indexOf('SCHEDULED'), T().indexOf('WAITING'))), T().slice(T().indexOf('SCHEDULED'), T().indexOf('WAITING')));
+  ok('Need you now rows have exactly one filled button; Scheduled rows none; every row has ··· in its details', rows().slice(0,8).every(r=>r.querySelectorAll('.lb-btn-primary').length===1) && rows().slice(8).every(r=>r.querySelectorAll('.lb-btn-primary').length===0) && rows().every(r=>det(r) && det(r).querySelector('.lb-more')), rows().map(r=>r.querySelectorAll('.lb-btn-primary').length));
+  ok('owner shown with an initial; Clifford is Samantha\'s', rows().every(r=>r.querySelector('.lb-av')) && rows().find(r=>/Clifford/.test(r.textContent)).querySelector('.lb-av').textContent==='S');
+  /* a row click shows the details; the name opens the profile; a button click does not open twice */
+  const marj=rows()[1]; marj.click(); await sleep(50);
+  ok('clicking the row folds its details open (and opens nothing)', !det(rows()[1]).hidden && window.__log.opened.length===0, window.__log.opened);
+  rows()[1].querySelector('.lbc-name').click(); await sleep(50);
+  ok('clicking the name opens the profile on Summary', window.__log.opened.slice(-1)[0]==='marj:summary', window.__log.opened);
   rows()[1].querySelector('.lb-btn-primary').click(); await sleep(50);
   ok('Text back opens the conversation (profile Summary) and does not double-open', window.__log.opened.length===2 && window.__log.opened.slice(-1)[0]==='marj:summary', window.__log.opened);
   /* Set follow-up on Evelyn (late): pick Friday 2:30, note → she moves to Scheduled */
-  const eve=rows().find(r=>/Evelyn Marsh/.test(r.innerText));
-  ok('the late follow-up row: Call is primary, Log call beside it, the rest behind ···', eve.querySelector('.lb-btn-primary').textContent==='Call' && [...eve.querySelectorAll('.lb-btn')].some(b=>b.textContent==='Log call') && eve.querySelector('.lb-more'), eve.innerText);
-  eve.querySelector('.lb-more').click(); await sleep(80);
+  const eve=rows().find(r=>/Evelyn Marsh/.test(r.textContent));
+  ok('the late follow-up row: Call is primary, Log call in its details, the rest behind ···', eve.querySelector('.lb-btn-primary').textContent==='Call' && [...det(eve).querySelectorAll('.lb-btn')].some(b=>b.textContent==='Log call') && det(eve).querySelector('.lb-more'), full(eve));
+  det(eve).querySelector('.lb-more').click(); await sleep(80);
   [...document.querySelectorAll('.ccpop .ccpick-row')].find(x=>/Set a follow-up/.test(x.textContent)).click(); await sleep(120);
   const pop=document.querySelector('.ccpop'); pop.querySelector('#lbFuDate').value='2026-10-09'; pop.querySelector('#lbFuTime').value='14:30'; pop.querySelector('#lbFuNote').value='Did Genworth send the policy?'; pop.querySelector('#lbFuGo').click(); await sleep(300);
   const w=window.__log.writes.filter(x=>x.id==='eve').slice(-1)[0];
-  ok('saved: follow_up_due Fri, time 2:30, note; the row is now under Scheduled · Friday · 2:30 pm', w && w.id==='eve' && w.follow_up_due==='2026-10-09' && w.follow_up_time==='14:30' && /FRIDAY[\s\S]*2:30 pm[\s\S]*Evelyn Marsh/.test(T()) && !/Follow-up 3 days late/.test(T()), [w && w.follow_up_due, w && w.follow_up_time]);
-  ok('...and Need you now went from 6 to 5', document.querySelector('#lbNumbers .lb-tile').innerText.replace(/\s+/g,' ').trim()==='5 need you now', document.querySelector('#lbNumbers .lb-tile').innerText);
+  ok('saved: follow_up_due Fri, time 2:30, note; the row is now under Scheduled · Friday · 2:30 pm', w && w.id==='eve' && w.follow_up_due==='2026-10-09' && w.follow_up_time==='14:30' && /FRIDAY[\s\S]*Evelyn Marsh[\s\S]*2:30 pm/.test(T()) && !/Follow-up 3 days late/.test(T()), [w && w.follow_up_due, w && w.follow_up_time, T().slice(T().indexOf('SCHEDULED'), T().indexOf('WAITING'))]);
+  ok('...and Need you now went from 8 to 7', document.querySelector('#lbNumbers .lb-tile').innerText.replace(/\s+/g,' ').trim()==='7 need you now', document.querySelector('#lbNumbers .lb-tile').innerText);
   /* the ··· menu */
-  rows()[0].querySelector('.lb-more').click(); await sleep(80);
+  det(rows()[0]).querySelector('.lb-more').click(); await sleep(80);
   const items=[...document.querySelectorAll('.ccpop .ccpick-row')].map(x=>x.textContent);
-  ok('··· menu: open profile, edit the inquiry, schedule, follow-up, They said yes, mark lost, spam (a web inquiry)', items.length===7 && /They said yes/.test(items.join()) && /Mark lost/.test(items.join()) && /spam/.test(items.join()), items);
+  ok('··· menu: open profile, edit the inquiry, schedule, follow-up, save for future, They said yes, mark lost, spam (a web inquiry)', items.length===8 && /Save for future/.test(items.join()) && /They said yes/.test(items.join()) && /Mark lost/.test(items.join()) && /spam/.test(items.join()), items);
   ccPopCloseAll();
   /* look-ups */
   lbFilter('set:past'); await sleep(100);
@@ -89,7 +98,8 @@ async()=>{
   lbFilter('All'); lbOwner('Samantha'); await sleep(50);
   ok('the owner lens: Samantha\'s families only (Clifford)', names().length===1 && names()[0]==='Clifford Haney', names());
   lbOwner(''); await sleep(50);
-  ok('the look-up row has Said yes this month, Receiving care, Past, Archived, Spam, State submissions and the drafts archive link', /Said yes this month 0/.test(document.getElementById('lbLookup').innerText) && /All follow-up drafts/.test(document.getElementById('lbLookup').innerText), document.getElementById('lbLookup').innerText);
+  ok('the look-up row has Said yes this month, Future opportunities, Receiving care, Past, Archived, Spam, State submissions and the drafts archive link', /Said yes this month 0/.test(document.getElementById('lbLookup').innerText) && /Future opportunities/.test(document.getElementById('lbLookup').innerText) && /All follow-up drafts/.test(document.getElementById('lbLookup').innerText), document.getElementById('lbLookup').innerText);
+  lbSort('imp');
   return R;
 }
 """

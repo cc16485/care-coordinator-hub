@@ -39,14 +39,15 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
 
   // who sees it
-  (0,eval)("ME={ email:'angiel@mo-care.com', name:'Angiel Falig', shift:'day' };"); switchTab('today'); await sleep(100);
-  ok('the pill is hidden for someone not ticked (Angiel)', !vis('#fsub-today [data-tab="mydesk"]'));
+  /* 2026-10-14 (her call) My Desk moved inside My Work: its pill is in My Work's own strip (#fsub2), not on the Today bar */
+  (0,eval)("ME={ email:'angiel@mo-care.com', name:'Angiel Falig', shift:'day' };"); switchTab('mywork'); await sleep(100);
+  ok('the pill is hidden for someone not ticked (Angiel)', vis('#fsub2 [data-tab="mywork"]') && !vis('#fsub2 [data-tab="mydesk"]'));
   ok('...who still counts as having a desk by her job title', X.access({ desk_access:{ mode:'everyone' } }, 'angiel@mo-care.com', true) === true);
   switchTab('mydesk'); await sleep(150);
   ok('opening it anyway says it is not switched on, and touches no data', /isn't switched on for you yet/.test(document.getElementById('dkWrap').innerText) && !window.__calls.includes('load'));
   ok('off means off for everyone', !X.access({ desk_access:{ mode:'off', people:['krystal@mo-care.com'] } }, 'krystal@mo-care.com', true) && !X.access({}, 'krystal@mo-care.com', true));
-  (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };"); switchTab('today'); await sleep(100);
-  ok('the pill shows for Krystal (ticked)', vis('#fsub-today [data-tab="mydesk"]'));
+  (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };"); switchTab('mywork'); await sleep(100);
+  ok('the pill shows for Krystal (ticked), in My Work\'s strip', vis('#fsub2 [data-tab="mydesk"]'));
 
   // yesterday's leftovers, made before opening
   const prev=X.prevBiz(today);
@@ -173,6 +174,9 @@ async()=>{
 """
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={ 'width':1400, 'height':1000 })
+    import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from clock_pin import pin  # 2026-10-18: a weekday morning, so the test gives the same answer on weekends and at night
+    pin(pg)
     pg.route('**/*', lambda r: r.abort() if ('supabase.co' in r.request.url or 'fonts.g' in r.request.url) else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://localhost:8765/index.html?proof=desk'); pg.wait_for_timeout(1200)

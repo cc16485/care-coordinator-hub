@@ -88,7 +88,7 @@ async()=>{
   const pr=db.desk_repeats.find(r=>r.body==='Payroll (fake)');
   ok('...saves a rule for Krystal (every 2 weeks from Oct 9, 9 am, unsigned) and the line becomes its first instance', pr && pr.person_id==='p_k' && pr.from_person_id===null && pr.rule.kind==='biweekly' && pr.rule.anchor==='2026-10-09' && pr.time_text==='9 am' && db.desk_lines.find(l=>l.id===pl.id).link.repeat_id===pr.id, pr);
   ok('the Repeating list under the Later folder shows it with Change and Stop', (document.querySelector('[data-dk="rep-open"]').click(), true) && (await sleep(150), /Repeating \(2\)/.test(W().innerText) && /Payroll \(fake\)[\s\S]*every 2 weeks on Friday/.test(W().innerText) && W().querySelectorAll('[data-dk="rep-stop"]').length===2), W().innerText.slice(W().innerText.indexOf('Repeating')));
-  window.confirm=()=>true; X.repeatStop(pr.id); await sleep(200);
+  /* 2026-10-18: the Hub asks on the page now (ccConfirm, #429), not the browser's pop-up */ window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm'); await X.repeatStop(pr.id); await sleep(200);
   ok('Stop repeating: the rule is switched off; the line already on the page stays', db.desk_repeats.find(r=>r.id===pr.id).active===false && !db.desk_lines.find(l=>l.id===pl.id).erased_at);
   /* an OWNER on Krystal's desk */
   window.__me='p_s'; (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' };"); window.DK.me=null; await X.load(true); await sleep(300);
@@ -115,6 +115,9 @@ async()=>{
 """
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 1360, 'height': 1000})
+    import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from clock_pin import pin  # 2026-10-18: a weekday morning, so the test gives the same answer on weekends and at night
+    pin(pg)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://localhost:8765/index.html?proof=repeats'); pg.wait_for_timeout(1200)

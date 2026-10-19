@@ -122,7 +122,7 @@ async()=>{
   ok('a change made today shows on the visit with Undo', /Changed today by Krystal: caregiver Kim Aide → Lia Listed/.test(document.querySelector('.vc-panel').innerText) && document.querySelector('.vc-panel .vc-undo'));
   document.querySelector('.vc-panel .vc-x').click(); window.__vcUndo=[];
   // the owner's switch
-  const asked=[]; window.confirm=t=>{ asked.push(t); return true; }; window.__merged=[]; window.tkMerge=async(fn)=>{ const m={}; const ch=fn(m); window.__merged.push(m); return { changed:ch, error:null }; };
+  const asked=[]; /* 2026-10-18: the Hub asks on the page now (ccConfirm, #429), not the browser's pop-up */ window.ccConfirm=async t=>{ asked.push(t); return true; }; (0,eval)('ccConfirm=window.ccConfirm'); window.__merged=[]; window.tkMerge=async(fn)=>{ const m={}; const ch=fn(m); window.__merged.push(m); return { changed:ch, error:null }; };
   B().querySelector('.vc-switch button').click(); await sleep(150);
   ok('the switch asks first and saves only that setting', /^Turn off changing visits from the Live Schedule\?/.test(asked[0]) && JSON.stringify(window.__merged[0])==='{"visit_change_live":false}' && /Changing visits from the Hub: Off/.test(B().innerText));
   return R;
@@ -130,6 +130,9 @@ async()=>{
 """
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width':1300,'height':1000})
+    import os as _os, sys as _sys; _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
+    from clock_pin import pin  # 2026-10-18: a weekday morning, so the test gives the same answer on weekends and at night
+    pin(pg)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://localhost:8765/index.html?proof=lc'); pg.wait_for_timeout(1200)
