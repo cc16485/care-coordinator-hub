@@ -336,9 +336,12 @@
       + '<div class="n9-top"><h3>' + (j.status === 'active' ? 'Start of Care complete' : 'Start of Care · step ' + (nextI + 1) + ' of 9' + (v.next ? ': ' + esc(v.next.def.title) : '')) + n9Agreement() + (j.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '') + '</h3>'
       + '<span class="field-note">' + esc(payer) + ' · <button class="linklike" onclick="cjAssignCc(this)">' + esc(j.assigned_cc ? first(j.assigned_cc) : 'Nobody') + '</button> is the Care Coordinator</span></div>'
       + n9Dates()
-      + '<div class="n9-rail" role="tablist" aria-label="Start of Care steps">' + v.rows.map((x, i) => {
+      /* progress-paths.js (2026-10-18, fun step 3): the same nine buttons, drawn as stepping stones to the family's house */
+      + (window.PATHS ? PATHS.stones(v.rows.map((x, i) => ({ k:x.key, n:i + 1, title:x.def.title, label:N9_SHORT[x.key] || x.def.title,
+          cls:(x.status === 'not_needed' ? 'x' : R.DONE.indexOf(x.status) > -1 ? 'd' : (v.next && x.key === v.next.key) ? 'n' : '') + (r && x.key === r.key ? ' s' : '') })), j.status === 'active')
+      : '<div class="n9-rail" role="tablist" aria-label="Start of Care steps">' + v.rows.map((x, i) => {
           const c = x.status === 'not_needed' ? 'x' : R.DONE.indexOf(x.status) > -1 ? 'd' : (v.next && x.key === v.next.key) ? 'n' : '';
-          return '<button type="button" role="tab" class="' + c + (r && x.key === r.key ? ' s' : '') + '" data-n9a="pick" data-k="' + esc(x.key) + '" aria-label="Step ' + (i + 1) + ': ' + esc(x.def.title) + '"><i></i><small>' + (i + 1) + ' ' + esc(N9_SHORT[x.key] || x.def.title) + '</small></button>'; }).join('') + '</div>';
+          return '<button type="button" role="tab" class="' + c + (r && x.key === r.key ? ' s' : '') + '" data-n9a="pick" data-k="' + esc(x.key) + '" aria-label="Step ' + (i + 1) + ': ' + esc(x.def.title) + '"><i></i><small>' + (i + 1) + ' ' + esc(N9_SHORT[x.key] || x.def.title) + '</small></button>'; }).join('') + '</div>');
     if(CJ.flash) h += '<div class="cj-flash">' + esc(CJ.flash) + '</div>';
     if(v.stop) h += '<div class="cj-flash cj-flash-stop">' + esc(v.stop.why) + '</div>';
     if(j.status === 'active' && !sel) h += '<div class="n9-cov ok">' + esc(cpName()) + ' is a current client. Normal check-ins take over from here. Every step stays below as the record.</div>';
@@ -365,6 +368,9 @@
     /* celebrate.js (2026-10-18, fun step 2): a first visit AxisCare reported gets the Care began stamp; its Care Coordinator sees the key turn once */
     try{ const fv = ((d.steps || []).find(x => x.step_key === 'soc.first') || {}).evidence; if(window.CEL && fv && fv.actual_first_visit) CEL.firstVisit(box, j, fv.actual_first_visit, cpName()); }catch(e){}
     try{ if(typeof cpRenderCommand === 'function') cpRenderCommand(); }catch(e){}
+    /* progress-paths.js (fun step 3): the first two weeks as a sun for each day, above the sentence that already says it */
+    try{ const ax = ((d.steps || []).find(x => x.step_key === 'soc.axis') || {}).evidence, f = ax && ax.auto && ax.auto.first_assigned && ax.auto.first_assigned.facts;
+      if(window.PATHS && f && f.total) PATHS.suns(box, j, f); }catch(e){}
   }
   window.cjNinePreview = function(b){ return ninePreview(b); };
   window.cjToggleHist = function(){ CJ.hist = !CJ.hist; render(); };
