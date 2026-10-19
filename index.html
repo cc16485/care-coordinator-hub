@@ -7465,7 +7465,7 @@ The HomeTogether team</pre>
 <script src="new-hires.js?v=3"></script>
 <script src="hub-scenes.js?v=1"></script>
 <script src="celebrate.js?v=1"></script>
-<script src="progress-paths.js?v=1"></script>
+<script src="progress-paths.js?v=2"></script>
 <script src="seasons.js?v=1"></script><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
@@ -7503,7 +7503,7 @@ The HomeTogether team</pre>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="team-actions.js?v=1"></script><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=13"></script>
-<script src="client-goals.js?v=1"></script><!-- 2026-10-18: Client Goals on My Work -->
+<script src="client-goals.js?v=2"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
@@ -24861,6 +24861,8 @@ function apRenderProfile(){
     + '</div>';
 
   /* ---- the tabs ---- */
+  /* progress-paths.js (2026-10-18, her "please do 3"): an offered person's three mileposts tick from the hiring records */
+  try{ if(window.PATHS && !ended && apStageNow(r, b) === 2) PATHS.roadFill(r.id, document.getElementById('apProfLeft')); }catch(e){}
   const told = apToldHtml(r), flags = apFlagsHtml(r);
 
   /* Overview: anything that needs a look first, then the facts at a glance */
