@@ -29,7 +29,9 @@
   const CONFIDENTIAL_DOMAINS = ['caregiver_performance', 'hr', 'human_resources'];
   /* The on-duty pile: operational work either coordinator can do while on duty (rule 2). */
   const TEAM_KINDS = ['coverage', 'staffing_issue', 'staffing', 'coverage_outcome', 'family_call', 'call_followup', 'confirm_times',
-    'evv_fix', 'evv_review', 'late_notice', 'visit_risk', 'callout', 'call_off', 'running_late', 'missed_clockin', 'missed_clockout'];
+    'evv_fix', 'evv_review', 'late_notice', 'visit_risk', 'callout', 'call_off', 'running_late', 'missed_clockin', 'missed_clockout',
+    /* 2026-10-18: open shifts from coverage-watch (ops_open_<id>), added by the Today / follow-up work */
+    'open_shift'];
   const TEAM_OPENERS = /^(timekeeper|late-watch|callout|quiet-callout|confirm_times|axiscare-watch|ongoing-sweep|call-tasks|attendance-watch)/;
   /* A person made it, so a person decided whose it is (rule 1: explicitly assigned). */
   const PERSON_OPENERS = ['person', 'quick-capture', 'phone', 'capture'];

@@ -126,6 +126,10 @@ ck('a missed clock-in 36 hours old is late, not care at risk', TW.track(card({ k
 ck('a coverage card for a shift that started 5 hours ago is not care at risk', TW.track(card({ kind:'coverage', _mins:-299 }), c1) === 'today');
 ck('a missed clock-in 20 minutes old is care at risk', TW.track(card({ kind:'staffing_issue', opened_by:'timekeeper', created_at:new Date(now1 - 20 * 60000).toISOString() }), c1) === 'care');
 
+/* ── new card kinds from the Today / follow-up work (2026-10-18) ── */
+ck('an open shift (ops_open_, coverage-watch) is Team Work', TW.place(card({ id:'ops_open_1', kind:'open_shift', opened_by:'coverage-watch', owner:K, urgency:'today' }), c1).tab === 'team');
+ck('a promise not kept (cfp_) and an unreadable call (cfu_) are call follow-ups, so Team Work', TW.place(card({ id:'cfp_1', kind:'call_followup', owner:K }), c1).tab === 'team' && TW.place(card({ id:'cfu_1', kind:'call_followup', owner:K }), c1).tab === 'team');
+
 /* ── closed, nothing else ── */
 ck('a closed card goes nowhere', TW.place(card({ kind:'coverage', opened_by:'callout', status:'done' }), c1).tab === 'closed');
 
