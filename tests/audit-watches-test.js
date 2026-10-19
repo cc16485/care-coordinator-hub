@@ -1,6 +1,6 @@
 /* node tests/audit-watches-test.js
    SLICE 6 (Samantha "yes to all", 2026-10-10): the expiry watches in the one eligibility rules file: OIG monthly (HHS-OIG
-   2013 bulletin, Missouri MMAC), the five annual in-service hours as a task, typed credential expiries (CNA, driver's
+   2013 bulletin, Missouri MMAC), the five annual in-service hours as a task (optional from 2026-10-15, no longer judged), typed credential expiries (CNA, driver's
    license, auto insurance) as tasks, never a work restriction. */
 require('../eligibility-rules.js');
 const F = require('./eligibility-fixtures.js');
@@ -20,7 +20,13 @@ e = E.eligibility(Object.assign(base(), { oig_date: iso(-29) }));
 ck('6 · OIG 29 days old is still current', e.state === 'eligible', e.lapses);
 ck('6 · the OIG warning window is 7 days', E.eligibilityFacts(Object.assign(base(), { oig_date: iso(-25) })).oig.status === 'Due Soon' && E.eligibilityFacts(Object.assign(base(), { oig_date: iso(-20) })).oig.status === 'Current');
 e = E.eligibility(Object.assign(base(), { annual_hrs: '3' }));
-ck('6 · annual hours 3 of 5 after year one: a task, not a lapse, still eligible', e.state === 'eligible' && e.tasks.some(t => t.code === 'annual_hours' && /3 of 5/.test(t.why)) && !e.lapses.length, e.tasks);
+ck('orientation only (2026-10-15): annual hours 3 of 5 after year one are history, no task, eligible', e.state === 'eligible' && !e.tasks.some(t => t.code === 'annual_hours') && !e.lapses.length, e.tasks);
+e = E.eligibility(Object.assign(base(), { annual_date: iso(-500), annual_hrs: '' }));
+ck('orientation only: annual in-service over a year old is not a lapse', e.state === 'eligible' && !codes(e).includes('annual_training'), codes(e));
+e = E.eligibility(Object.assign(base(), { hire_date: iso(-60), orient_date: iso(-55), alz_date: '', ojt_date: '', ojt_signed: '', ojt_online: '' }));
+ck('orientation only: no dementia and no OJT 60 days after hire is eligible, nothing raised', e.state === 'eligible' && !codes(e).some(c => ['alz', 'ojt', 'ojt_overdue'].includes(c)), codes(e));
+e = E.eligibility(Object.assign(base(), { hire_date: iso(-5), orient_date: '', alz_date: '' }));
+ck('orientation only: a new hire with no orientation is blocked by orientation alone', e.state === 'not_eligible' && JSON.stringify(e.blockers.map(b => b.code)) === '["orientation"]', e.blockers);
 e = E.eligibility(Object.assign(base(), { annual_hrs: '' }));
 ck('6 · blank hours are not judged', !e.tasks.some(t => t.code === 'annual_hours'));
 e = E.eligibility(Object.assign(base(), { hire_date: iso(-100), annual_date: '', annual_hrs: '2' }));

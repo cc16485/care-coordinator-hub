@@ -19,7 +19,7 @@
 
    TODAY is resolved per call rather than captured at load, because the evaluator
    is a long-lived process and a captured date would go stale overnight — a
-   caregiver's OJT deadline would pass without the running process noticing.
+   caregiver's monthly OIG check would go overdue without the process noticing.
    ============================================================================= */
 (function(root){
 'use strict';
@@ -53,44 +53,64 @@ function chkStatus(lastStr, interval, warnDays){
   return { status: left<0?'Overdue':left<=warnDays?'Due Soon':'Current', nextDue:next, days:left };
 }
 
+/* ORIENTATION ONLY (Samantha, 2026-10-15): "remove the alzheimer's and dementia training and the on-the-job
+   training ... that was a requirement for IHS and that and the 5 hours per year is no longer required."
+   The one training required before the first client visit is the Agency Orientation. Dementia, on-the-job,
+   annual in-service and bloodborne pathogens stay in the Training Platform as OPTIONAL courses the office
+   assigns for a client's needs. Their dates are still recorded as history; nothing here calls them required,
+   missing, due or overdue, and none of them can block, lapse or restrict anybody.
+   The returned shape keeps the informational fields (ojtDone, isFirstYear) so older callers keep working. */
 function trainStatus(c){
   const hire = pd(c.hire_date);
-  const preContactDone = !!(c.orient_date && c.alz_date);
-  const thirtyDeadline = hire ? addDays(hire,30) : null;
-  const thirtyPassed = thirtyDeadline && __ELIG_TODAY__ > thirtyDeadline;
+  const preContactDone = !!c.orient_date;
   const ojtDone = !!(c.ojt_date && c.ojt_signed==='yes' && c.ojt_online);
-  const thirtyDone = preContactDone && ojtDone;
-  // Check OJT was within 30 days
-  let ojtOnTime = false;
-  if(ojtDone && hire && thirtyDeadline){
-    const ojtD = pd(c.ojt_date), ojtOD = pd(c.ojt_online);
-    ojtOnTime = ojtD<=thirtyDeadline && ojtOD<=thirtyDeadline;
-  }
-  // Annual: exempt if within first 12 months of hire
   const msPerYear = 365*86400000;
-  const isFirstYear = hire && (__ELIG_TODAY__ - hire) < msPerYear;
-  let annualStatus = 'Exempt (Year 1)';
-  let annualNextDue = null;
+  const isFirstYear = !!(hire && (__ELIG_TODAY__ - hire) < msPerYear);
+  const ihs = ihsTraining(c);
+  const overall = !preContactDone ? 'Client Contact Blocked' : ihs.applies ? ihs.overall : 'Current';
+  return {preContactDone,ojtDone,isFirstYear,overall,ihs};
+}
+
+/* MEDICAID CAREGIVERS (Samantha, 2026-10-19): "Keep only for caregivers who have worked with IHS. I need to know all
+   caregivers who have worked with medicaid clients because I will need to show proof of their training if I get
+   audited later." A caregiver is a Medicaid caregiver when AxisCare shows a visit with a Medicaid (IHS/ADW) client
+   (medicaid_clients, kept on the record for good, filled by the Training tab) or the office ticked it by hand for the
+   WellSky days (medicaid_hand = 'yes'). For them the old IHS training rules (19 CSR 15-7.021(22)) still count until
+   IHS/ADW Medicaid ends on 2026-11-16 (Central day, the same switch as supervisory visits): dementia training before
+   the first client, on-the-job training within 30 days of hire, and from year two the yearly 5-hour in-service.
+   From 2026-11-16 nothing here blocks anybody; the status is still worked out so the audit list can show it. */
+const MEDICAID_TRAINING_UNTIL = '2026-11-16';
+function medicaidCaregiver(c){
+  return !!(c && (String(c.medicaid_hand||'') === 'yes' || (Array.isArray(c.medicaid_clients) && c.medicaid_clients.length)));
+}
+function medicaidTrainingApplies(c, now){ return medicaidCaregiver(c) && centralDay(now) < MEDICAID_TRAINING_UNTIL; }
+function ihsTraining(c){
+  const hire = pd(c.hire_date);
+  const alzDone = !!c.alz_date;
+  const thirtyDeadline = hire ? addDays(hire,30) : null;
+  const thirtyPassed = !!(thirtyDeadline && __ELIG_TODAY__ > thirtyDeadline);
+  const ojtDone = !!(c.ojt_date && c.ojt_signed==='yes' && c.ojt_online);
+  const isFirstYear = !!(hire && (__ELIG_TODAY__ - hire) < 365*86400000);
+  let annualStatus = 'Exempt (Year 1)', annualNextDue = null;
   if(!isFirstYear){
-    if(!c.annual_date){ annualStatus='Overdue'; }
+    if(!c.annual_date) annualStatus = 'Overdue';
     else {
-      const lastA = pd(c.annual_date);
-      annualNextDue = addDays(lastA, 365);
+      annualNextDue = addDays(pd(c.annual_date), 365);
       const left = daysLeft(annualNextDue);
-      annualStatus = left<0?'Overdue':left<=30?'Due Soon':'Current';
+      annualStatus = left<0 ? 'Overdue' : left<=30 ? 'Due Soon' : 'Current';
     }
   }
-  // Overall
-  let overall;
-  if(!preContactDone) overall='Client Contact Blocked';
-  else if(!thirtyDone && thirtyPassed) overall='Training Overdue';
-  else if(!thirtyDone) overall='OJT Pending';
-  else if(annualStatus==='Overdue') overall='Annual Overdue';
-  else if(annualStatus==='Due Soon') overall='Annual Due Soon';
-  else overall='Current';
-
-  return {preContactDone,thirtyDeadline,thirtyDone,thirtyPassed,ojtDone,ojtOnTime,
-          isFirstYear,annualStatus,annualNextDue,overall};
+  const hrs = parseFloat(c.annual_hrs);
+  const annualShort = !isFirstYear && !!c.annual_date && annualStatus !== 'Overdue' && !isNaN(hrs) && hrs < 5;
+  const applies = medicaidTrainingApplies(c);
+  let overall = 'Current';
+  if(!alzDone) overall = 'Client Contact Blocked';
+  else if(!ojtDone && thirtyPassed) overall = 'Training Overdue';
+  else if(!ojtDone) overall = 'OJT Pending';
+  else if(annualStatus === 'Overdue') overall = 'Annual Overdue';
+  else if(annualStatus === 'Due Soon') overall = 'Annual Due Soon';
+  return { medicaid: medicaidCaregiver(c), applies, until: MEDICAID_TRAINING_UNTIL, alzDone, thirtyDeadline, thirtyPassed,
+           ojtDone, isFirstYear, annualStatus, annualNextDue, annualShort, overall };
 }
 
 /* REFERENCE POLICY, set 12 Aug 2026.
@@ -314,7 +334,7 @@ function eligibilityFacts(c){
   const fcsr = chkStatus(c.fcsr_date, 365, 30);
   const reg = fcsrRegStatus(c);
   const hire = pd(c.hire_date);
-  const ojtDeadline = hire ? addDays(hire, 30) : null;
+  const ojtDeadline = ts.ihs.thirtyDeadline;
   return { ts, oig, edl, fcsr, reg, hire, ojtDeadline };
 }
 
@@ -342,58 +362,57 @@ function eligibility(c){
      absence of a field means "we have not looked there yet" far more often
      than it means "this did not happen".
 
-     Orientation and dementia training are populated by the Training Hub sync
-     (course slugs agency-orientation and dementia-care). A caregiver who has
-     been working for months with no record at all is almost certainly a record
-     that was never imported. A caregiver hired last week with no record has
-     genuinely not done it yet.
+     Orientation is populated by the Training Hub sync (course slug
+     agency-orientation). A caregiver who has been working for months with no
+     record at all is almost certainly a record that was never imported. A
+     caregiver hired last week with no record has genuinely not done it yet.
 
      So: recent hire + absent = a real blocker.
          tenured + absent + no evidence anywhere = needs historical verification,
-         which is work for a human and NEVER a hard work restriction. */
+         which is work for a human and NEVER a hard work restriction.
+
+     Dementia training is OPTIONAL from 2026-10-15 (see trainStatus): it is not
+     a blocker and its absence is never reported, except for a Medicaid
+     caregiver until 2026-11-16 (see ihsTraining). */
   const GRACE_DAYS = 45;              // long enough to complete it, short enough to notice
   const tenureDays = f.hire ? Math.floor((__ELIG_TODAY__ - f.hire)/86400000) : null;
   const longServing = tenureDays !== null && tenureDays > GRACE_DAYS;
-  const noEvidenceAtAll = !c.orient_date && !c.alz_date && !c.orient_proof && !c.alz_proof
-                          && !c.th_synced;
+  const noEvidenceAtAll = !c.orient_date && !c.orient_proof && !c.th_synced;
   const unverified = [];
+  const ihs = f.ts.ihs;
+  const historical = longServing && noEvidenceAtAll;
   if(!f.ts.preContactDone){
-    const historical = longServing && noEvidenceAtAll;
-    if(!c.orient_date){
-      (historical ? unverified : blockers).push({code:'orientation', kind:ELIG_LEGAL,
-        why: historical
-          ? 'No orientation record, and none has ever been imported for this caregiver. Verify before treating it as incomplete.'
-          : 'Orientation not attended.'});
-    }
-    if(!c.alz_date){
-      (historical ? unverified : blockers).push({code:'alz', kind:ELIG_LEGAL,
-        why: historical
-          ? "No dementia-training record, and none has ever been imported. Verify before treating it as incomplete."
-          : "Alzheimer's / dementia training not completed."});
-    }
+    (historical ? unverified : blockers).push({code:'orientation', kind:ELIG_LEGAL,
+      why: historical
+        ? 'No orientation record, and none has ever been imported for this caregiver. Verify before treating it as incomplete.'
+        : 'Orientation not attended.'});
+  }
+  if(ihs.applies && !ihs.alzDone){
+    const hist = longServing && noEvidenceAtAll && !c.alz_proof;
+    (hist ? unverified : blockers).push({code:'alz', kind:ELIG_LEGAL, medicaid:true,
+      why: hist
+        ? 'Medicaid caregiver: no dementia-training record, and none has ever been imported. Verify before treating it as incomplete.'
+        : 'Medicaid caregiver: dementia training not completed (required while serving IHS/ADW clients, until Nov 16, 2026).'});
   }
 
   // ── CAREGIVER PROFILE: new hires only, explicit false only (see profileGate) ──
   const pg = profileGate(c);
   if(pg.blocked) blockers.push({code:'caregiver_profile', kind:ELIG_AGENCY, why:pg.why});
 
-  // ── OJT: a task until the 30-day deadline, a work restriction after ───
-  /* A missed OJT deadline is a LAPSE — something that took work away from
-     somebody who had it. If they never cleared the pre-work gate they were
-     never working, so it stays a task and the real blocker speaks for itself.
-     Without this, a caregiver who never attended orientation would be handed
-     a DO NOT SCHEDULE note citing OJT, which is both wrong and confusing. */
-  if(!f.ts.thirtyDone){
-    if(f.ts.thirtyPassed && f.ts.preContactDone && !blockers.length && !unverified.length){
-      lapses.push({ code:'ojt_overdue', kind:ELIG_LEGAL, restriction:true,
-        why:'Required OJT not completed within 30 days of hire',
+  /* On-the-job training (and its old 30-day deadline) is optional from 2026-10-15: no task, no lapse, except for a
+     Medicaid caregiver until 2026-11-16. A missed deadline is then a LAPSE only for somebody who had cleared the
+     pre-work gate; otherwise it stays a task and the real blocker speaks for itself. */
+  if(ihs.applies && !ihs.ojtDone){
+    if(ihs.thirtyPassed && f.ts.preContactDone && !blockers.length && !unverified.length){
+      lapses.push({ code:'ojt_overdue', kind:ELIG_LEGAL, restriction:true, medicaid:true,
+        why:'Medicaid caregiver: required OJT not completed within 30 days of hire',
         due: f.ojtDeadline ? f.ojtDeadline.toISOString().slice(0,10) : null });
     } else {
-      tasks.push({ code:'ojt', kind:ELIG_LEGAL,
-        high: !!f.ts.thirtyPassed,
-        why: f.ts.thirtyPassed
-          ? 'On-the-job training is past its 30-day deadline.'
-          : 'On-the-job training due within 30 days of hire.',
+      tasks.push({ code:'ojt', kind:ELIG_LEGAL, medicaid:true,
+        high: ihs.thirtyPassed,
+        why: ihs.thirtyPassed
+          ? 'Medicaid caregiver: on-the-job training is past its 30-day deadline.'
+          : 'Medicaid caregiver: on-the-job training due within 30 days of hire.',
         due: f.ojtDeadline ? f.ojtDeadline.toISOString().slice(0,10) : null });
     }
   }
@@ -419,14 +438,12 @@ function eligibility(c){
   if(eff(c.oig_status,  f.oig.status)  === 'Overdue') lapses.push({code:'oig_expired',  kind:ELIG_LEGAL, why:'OIG check is overdue (monthly, agency policy).'});
   if(eff(c.edl_status,  f.edl.status)  === 'Overdue') lapses.push({code:'edl_expired',  kind:ELIG_LEGAL, why:'EDL check is overdue (quarterly, agency policy).'});
   if(eff(c.fcsr_status, f.fcsr.status) === 'Overdue') lapses.push({code:'fcsr_expired', kind:ELIG_LEGAL, why:'FCSR check is overdue (annual).'});
-  if(f.ts.annualStatus === 'Overdue')
-    lapses.push({code:'annual_training', kind:ELIG_LEGAL, why:'Annual training is overdue.'});
-  /* SLICE 6 (2026-10-10, her decision 3): the five hours a year after year one (19 CSR 15-7.021(22)(B)) are checked, not
-     only the date. Short hours are a task, never a work restriction. Hours unknown (blank) are not judged. */
-  if(!f.ts.isFirstYear && c.annual_date && f.ts.annualStatus !== 'Overdue'){
-    const hrs = parseFloat(c.annual_hrs);
-    if(!isNaN(hrs) && hrs < 5) tasks.push({code:'annual_hours', kind:ELIG_LEGAL, why:'Annual in-service hours short: ' + hrs + ' of 5 recorded in the last year.'});
-  }
+  /* Annual in-service (the 5 hours a year) is optional from 2026-10-15: annual_date / annual_hrs are history only,
+     except for a Medicaid caregiver until 2026-11-16 (overdue = lapse; short hours = a task, never a restriction). */
+  if(ihs.applies && ihs.annualStatus === 'Overdue')
+    lapses.push({code:'annual_training', kind:ELIG_LEGAL, medicaid:true, why:'Medicaid caregiver: annual training is overdue.'});
+  if(ihs.applies && ihs.annualShort)
+    tasks.push({code:'annual_hours', kind:ELIG_LEGAL, medicaid:true, why:'Medicaid caregiver: annual in-service hours short: ' + c.annual_hrs + ' of 5 recorded in the last year.'});
   /* SLICE 6 (her decision 2): typed credential expiries with proof (CNA, driver's license, auto insurance). Expired or due
      within 30 days = a task for the office (agency policy); the roster rows are blank for everyone until typed. */
   const credExp = [['cna_expires','cna_expired','CNA credential'], ['dl_expires','dl_expired',"Driver's license"], ['auto_ins_expires','auto_ins_expired','Auto insurance']];
@@ -460,7 +477,7 @@ function eligibility(c){
     summary: state==='eligible'
       ? 'All required pre-work conditions satisfied.'
       : state==='needs_verification'
-      ? 'Working, but the training record was never imported. Verify it rather than assuming it is missing.'
+      ? 'Working, but the orientation record was never imported. Verify it rather than assuming it is missing.'
       : reasons.map(r=>r.why).join(' '),
     /* a hard work restriction is a lapse that says so */
     restricted: lapses.some(l=>l.restriction===true),
@@ -479,7 +496,6 @@ function eligibility(c){
    for two years has an empty history, which is correct: nothing happened. */
 function eligEntry(c, e, extra){
   const now = new Date().toISOString();
-  const ojt = (e.lapses.find(l=>l.code==='ojt_overdue') || {});
   return Object.assign({
     at: now,
     state: e.state,
@@ -487,7 +503,6 @@ function eligEntry(c, e, extra){
     reason: e.summary,
     codes: e.reasons.map(r=>r.code),
     restricted: !!e.restricted,
-    ojt_due: ojt.due || (e.facts.ojtDeadline ? e.facts.ojtDeadline.toISOString().slice(0,10) : null),
     by: (typeof root.ME!=='undefined' && root.ME && root.ME.email) ? root.ME.email : 'system'
   }, extra||{});
 }
@@ -513,13 +528,19 @@ function eligRecord(c, e){
      compliance record somebody may have to defend. `detected_at` keeps both
      facts, because when we noticed also matters. */
   if(entry.event === 'restricted'){
-    const dl = e.facts.ojtDeadline;
+    const due = (e.lapses.find(l=>l.restriction===true && l.due) || {}).due;
+    const dl = pd(due);
     entry.became_overdue = dl ? addDays(dl,1).toISOString().slice(0,10)
                               : new Date().toISOString().slice(0,10);
     entry.detected_at    = new Date().toISOString().slice(0,10);
   }
   if(entry.event === 'restored'){
-    entry.cleared_on  = c.ojt_date || null;      // when the work was actually done
+    /* The only restriction there ever was is the old OJT 30-day one. From 2026-10-15 OJT is optional, so a
+       restoration after it says so rather than pretending the course was done. */
+    if(String(last.codes||'').split(',').includes('ojt_overdue')){
+      entry.cleared_on = c.ojt_date || null;
+      if(!c.ojt_date) entry.note = 'On-the-job training is no longer required (owner decision 2026-10-15).';
+    }
     entry.restored_on = new Date().toISOString().slice(0,10);
     const wasRestrictedAt = [...c.eligibility_history].reverse().find(h=>h.event==='restricted');
     if(wasRestrictedAt) entry.restriction_started = wasRestrictedAt.at;
@@ -556,5 +577,6 @@ root.CCElig = { chkStatus, trainStatus, refPolicy, refDecisionCovers, refScore, 
                 eligRecordRefDecision, ELIG_LEGAL, ELIG_MGMT, ELIG_AGENCY,
                 PROFILE_REQUIRED_FROM, profileNewHire, profileGate,
                 SUPERVISORY_CONCERN_FROM, supervisoryConcernOnly, centralDay,
+                MEDICAID_TRAINING_UNTIL, medicaidCaregiver, medicaidTrainingApplies, ihsTraining,
                 _helpers:{ pd, addDays, daysLeft, fmtD, today } };
 })(typeof globalThis!=='undefined' ? globalThis : this);

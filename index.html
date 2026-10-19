@@ -2094,7 +2094,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <li><b>They fill in the start link</b> (references, FCSR details) and appear in <b>Background &amp; References</b>, where <b><svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Ask refs</b> emails their references the form. Phone-only references are yours to call.</li>
           <li><b>You run OIG, EDL, FCSR and Case.net</b> (and fingerprints if they lived outside Missouri). With 2 positive references and every check clear, they move to <b>Ready for Orientation</b> by themselves. A flagged check is always decided by a person.</li>
           <li><b>Viventium Step 2, then the Orientation Video Call.</b> Press <b>Orientation Video Call done – send orientation link</b> and they do orientation online. The office orientation is the backup.</li>
-          <li><b>Training:</b> 2 hours of orientation and 4 hours of dementia training before the first client, then 6 hours of supervised on-the-job training within 30 days (5 hours a year from year two). The Training Platform sends the reminders and "cleared to work".</li>
+          <li><b>Training:</b> 2 hours of orientation before the first client; that is the only training required. Dementia, on-the-job and other courses are optional, assigned by the office when a client needs them. The Training Platform sends the reminders and "cleared to work".</li>
           <li><b>First shifts:</b> the availability link, then a "how did your first shift go?" text the morning after.</li>
         </ol>
         <div class="field-note" style="margin-top:8px;">Anything that does not send shows up as a <b>"Didn't go through"</b> card on Needs Attention. Every message and its exact wording is below. Messages that are switched off (practice) are switched on in Settings, or on the Owners Hub Admin page under <b>Switches</b>.</div>
@@ -2654,13 +2654,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div class="tab-guide-body" id="guide-body-training">
           <div class="guide-section-lbl" style="border-top:none;padding-top:0;margin-top:0">How caregivers get here</div>
           <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">New hires appear here when their Orientation Video Call is marked done (hire date that day), or when they are <strong>promoted</strong> after an office orientation session. You can also add them manually with <strong>+ Add Caregiver</strong>.</div></div>
-          <div class="guide-section-lbl">Training milestones to track</div>
-          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Agency Orientation + ALZ Training</strong> (6 hrs total): must be completed before the caregiver can be scheduled with their first client.</div></div>
-          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>First Client Contact</strong>: log the date the caregiver was first scheduled with a client. This starts the 30-day OJT clock.</div></div>
-          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>OJT In-Home + Online</strong> (12 hrs total): must be completed within 30 days of first client contact. The <strong>30-Day Training Due</strong> filter highlights anyone approaching or past this deadline.</div></div>
-          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Annual 5-Hour Training</strong>: required every year starting year 2. Use the <strong>Annual Due</strong> filter to see who is coming up.</div></div>
+          <div class="guide-section-lbl">Training to track</div>
+          <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Agency Orientation</strong> (2 hours): the one training required, and it must be done before the caregiver can be scheduled with their first client.</div></div>
+          <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>First Client Contact</strong>: log the date the caregiver was first scheduled with a client, for the training file.</div></div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Optional training</strong> (dementia care, on-the-job skills, annual in-service): not required. The office assigns a course in the Training Platform when a client's needs call for it. Dates and certificates show here as records; nothing is ever due or overdue.</div></div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Medicaid caregivers</strong>: anyone who has worked with a Medicaid (IHS or ADW) client. They are kept on the <strong>Worked with Medicaid clients</strong> list for good, with their training proof, for audits. Until Nov 16, 2026 they still need dementia training, on-the-job training within 30 days and the yearly 5 hours.</div></div>
           <div class="guide-section-lbl">Flags to watch</div>
-          <div class="guide-step"><div class="guide-step-num">⛔</div><div class="guide-step-body">The <strong>Client Contact Blocked</strong> filter shows caregivers who have not completed their orientation/ALZ training and should NOT yet be scheduled with clients.</div></div>
+          <div class="guide-step"><div class="guide-step-num">⛔</div><div class="guide-step-body">The <strong>Client Contact Blocked</strong> filter shows caregivers who have not completed Agency Orientation and should NOT yet be scheduled with clients.</div></div>
         </div>
       </div>
       <div id="train-alert"></div>
@@ -2669,21 +2669,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <input type="text" placeholder="Search caregiver..." oninput="SCX.renderTR()">
         <button class="fb active" onclick="SCX.trFilter('all',this)">All</button>
         <button class="fb" onclick="SCX.trFilter('blocked',this)">⛔ Client Contact Blocked</button>
-        <button class="fb" onclick="SCX.trFilter('ojt-due',this)">30-Day Training Due</button>
-        <button class="fb" onclick="SCX.trFilter('annual-due',this)">Annual Due</button>
+        <button class="fb" onclick="SCX.trFilter('medicaid',this)" title="Everyone who has worked with a Medicaid (IHS or ADW) client, with their training proof, for audits">🏛 Worked with Medicaid clients</button>
         <button class="fb" onclick="SCX.tpfOpen()" title="Every active caregiver's training, each with its certificate PDF (for the MMAC audit)">📄 Training proof catch-up</button>
         <button class="fb" onclick="SCX.syncFromTrainingHub(this)" title="Pull completion dates, hire dates and first-contact dates straight from training.mo-care.com">☁ Sync from Training Hub</button>
         <a class="fb" href="https://training.mo-care.com" target="_blank" rel="noopener" title="Open the Training Hub, the caregiver training dashboard" style="text-decoration:none;background:rgba(255,198,113,.35);font-weight:700">🎓 Open Training Hub ↗</a>
         <button class="add-btn" onclick="SCX.openCGModal('training')">+ Add Caregiver</button>
       </div>
+      <div id="tr-medicaid" style="display:none;background:#EEF2FF;border:1px solid #C7D2FE;border-radius:10px;padding:.7rem .85rem;margin:0 0 .75rem"></div>
       <div class="tbl-wrap">
         <table>
           <thead><tr>
             <th>Caregiver</th><th>Hire Date</th>
-            <th>Agency Orientation + ALZ <span style="font-weight:400;opacity:.7">6hr, cleared to schedule</span></th>
+            <th>Agency Orientation <span style="font-weight:400;opacity:.7">2hr, required before the first client</span></th>
             <th>First Client Contact</th>
-            <th>OJT In-Home + Online <span style="font-weight:400;opacity:.7">6hr, all 12hr due within 30 days</span></th>
-            <th>Annual 5hr <span style="font-weight:400;opacity:.7">yr 2+</span></th>
+            <th>Dementia + On-the-job <span style="font-weight:400;opacity:.7">optional, for a client's needs</span></th>
+            <th>Annual in-service <span style="font-weight:400;opacity:.7">optional</span></th>
             <th>Overall</th><th>Actions</th>
           </tr></thead>
           <tbody id="tr-tbody"></tbody>
@@ -3371,26 +3371,31 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Lived outside MO 5 yrs?</label>
         <select id="cg-oos"><option value="no">No</option><option value="yes">Yes, fingerprint required</option></select>
       </div>
-      <div class="sect-lbl">Basic Training: 12 Hours Total (all must be completed within 30 days of employment)</div>
-      <p style="font-size:.75rem;color:var(--gray);margin:-.25rem 0 .75rem;padding:0 .1rem">⚠ Agency Orientation and ALZ/Dementia must also be completed <strong>before first client contact</strong>.</p>
+      <div class="sect-lbl">Training</div>
+      <p style="font-size:.75rem;color:var(--gray);margin:-.25rem 0 .75rem;padding:0 .1rem">⚠ Agency Orientation (2 hours) is the one training required, <strong>before first client contact</strong>. Dementia and on-the-job training are optional, assigned for a client's needs; record them here when done.</p>
       <div class="grp"><label>Agency Orientation (2hr) Date</label><input type="date" id="cg-orient"></div>
       <div class="grp"><label>Agency Orientation Signed Proof</label><input type="url" id="cg-orient-proof" placeholder="https://drive.google.com/..."></div>
-      <div class="grp"><label>Alzheimer's &amp; Dementia Training (4hr) Date</label><input type="date" id="cg-alz"></div>
-      <div class="grp"><label>ALZ Training Hours Completed</label><input type="number" id="cg-alz-hrs" min="0" max="20" placeholder="Required: 4"></div>
-      <div class="grp"><label>ALZ Training Signed Proof</label><input type="url" id="cg-alz-proof" placeholder="https://drive.google.com/..."></div>
-      <div class="grp"><label>OJT In-Home/In-Office (4hr) Date</label><input type="date" id="cg-ojt-date"></div>
+      <div class="grp"><label>Dementia Care Training (optional) Date</label><input type="date" id="cg-alz"></div>
+      <div class="grp"><label>Dementia Training Hours Completed</label><input type="number" id="cg-alz-hrs" min="0" max="20" placeholder="e.g. 4"></div>
+      <div class="grp"><label>Dementia Training Signed Proof</label><input type="url" id="cg-alz-proof" placeholder="https://drive.google.com/..."></div>
+      <div class="grp"><label>On-the-Job, In Person (optional) Date</label><input type="date" id="cg-ojt-date"></div>
       <div class="grp"><label>OJT In-Person Signed Proof</label>
         <select id="cg-ojt-signed"><option value="no">No</option><option value="yes">Yes</option></select>
       </div>
       <div class="grp"><label>OJT In-Person Proof Link (Google Drive)</label><input type="url" id="cg-ojt-proof" placeholder="https://drive.google.com/..."></div>
-      <div class="grp"><label>OJT Online Training (2hr) Date</label><input type="date" id="cg-ojt-online"></div>
+      <div class="grp"><label>On-the-Job, Online (optional) Date</label><input type="date" id="cg-ojt-online"></div>
       <div class="grp"><label>OJT Online Signed Proof</label><input type="url" id="cg-ojt-online-proof" placeholder="https://drive.google.com/..."></div>
       <div class="sect-lbl">First Client Contact</div>
       <div class="grp"><label>Date of First Client Contact <span style="font-size:.72rem;color:var(--teal)">(required in training file)</span></label><input type="date" id="cg-first-contact"></div>
-      <div class="sect-lbl">Annual In-Service Training (5hr/yr, Year 2+ only)</div>
+      <div class="sect-lbl">Annual In-Service Training (optional)</div>
       <div class="grp"><label>Last Annual Training Date</label><input type="date" id="cg-annual"></div>
-      <div class="grp"><label>Annual In-Service Hours Completed</label><input type="number" id="cg-annual-hrs" min="0" max="20" placeholder="Required: 5"></div>
+      <div class="grp"><label>Annual In-Service Hours Completed</label><input type="number" id="cg-annual-hrs" min="0" max="20" placeholder="e.g. 5"></div>
       <div class="grp"><label>Annual Training Signed Proof</label><input type="url" id="cg-annual-proof" placeholder="https://drive.google.com/..."></div>
+      <div class="sect-lbl">Medicaid (IHS or ADW) clients</div>
+      <p style="font-size:.75rem;color:var(--gray);margin:-.25rem 0 .75rem;padding:0 .1rem">Caregivers who have worked with a Medicaid client stay on the Medicaid list for good, so their training proof can be shown in an audit. Until Nov 16, 2026 they still need dementia training, on-the-job training within 30 days and the yearly 5 hours. AxisCare visits are added on their own.</p>
+      <div class="grp"><label>Worked with a Medicaid client before AxisCare (WellSky days)</label><select id="cg-medicaid-hand"><option value="no">No</option><option value="yes">Yes</option></select></div>
+      <div class="grp"><label>Which client(s) and when (for the audit file)</label><input type="text" id="cg-medicaid-note" placeholder="e.g. Mary S., IHS, 2025 to Aug 2026"></div>
+      <div class="field-note" id="cg-medicaid-ax" style="font-size:.75rem;color:var(--gray);margin:-.25rem 0 .75rem"></div>
       <div class="sect-lbl">Signed Acknowledgments (Required in Employee File)</div>
       <div class="grp"><label>Code of Ethics Signed Date</label><input type="date" id="cg-ethics-date"></div>
       <div class="grp"><label>Code of Ethics Proof Link</label><input type="url" id="cg-ethics-proof" placeholder="https://drive.google.com/..."></div>
@@ -5044,7 +5049,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand. The Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
 <div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls, since they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice. The caregiver, the schedule and the first shift are read from AxisCare when you open the card: do them in AxisCare as usual and the card fills in. The first shift counts only when AxisCare shows a real clock-in and clock-out, and that date becomes the client's Actual SOC. If AxisCare can't show it, record it by hand with a reason.</div>
 <div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…). History is never overwritten.</div>
-<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation + ALZ Training before their first client, check the Caregivers section before scheduling anyone new. A new hire also needs a published caregiver profile (photo required) before their first shift; the Hub shows <b>Profile needed before first shift</b> until it is. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation before their first client, check the Caregivers section before scheduling anyone new. A new hire also needs a published caregiver profile (photo required) before their first shift; the Hub shows <b>Profile needed before first shift</b> until it is. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
 </div>
 </details>
 
@@ -7453,7 +7458,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-library.js?v=1017"></script>
+<script src="email-library.js?v=1019"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
@@ -7505,12 +7510,12 @@ The HomeTogether team</pre>
 <script src="seasons.js?v=1"></script>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
-<script src="journey-rules.js?v=5"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
+<script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=5"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
-<script src="hepb-card.js?v=1"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
+<script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=22"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
@@ -17854,7 +17859,7 @@ function cgdRenderList(){
       const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
       if(!g) return true;                                  // no hub data connected
       const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
-      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date||!g.alz_date;
+      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
       return bad||unk; });
   }
   else { rows=all.filter(c=>c.active); }
@@ -17872,7 +17877,7 @@ function cgdRenderList(){
     const bad=g&&(String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||''));
     const compl = !g&&!ov ? ['#B45309','needs data connection']
       : bad ? ['var(--red)','background issue']
-      : (g&&g.oig_status&&g.orient_date&&g.alz_date) ? ['var(--green)','compliance recorded']
+      : (g&&g.oig_status&&g.orient_date) ? ['var(--green)','compliance recorded']
       : ['#B45309','answers needed'];
     return '<div onclick="cgdOpenProfile(\''+esc(c.id)+'\')" style="display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid #F3EFE7;cursor:pointer;font-size:13.5px;" onmouseover="this.style.background=\'#FBFAF7\'" onmouseout="this.style.background=\'\'">'
       +'<span style="width:9px;height:9px;border-radius:99px;background:'+compl[0]+';flex-shrink:0;" title="'+compl[1]+'"></span>'
@@ -19953,9 +19958,10 @@ function cgdComplianceHtml(c,g){
     +chk('FCSR','MO Family Care Safety Registry',g.fcsr_status||(g.fcsr_date?'Clear':''),/issues/i,g.fcsr_date,g.fcsr_proof,365,'renewed annually','fcsr')
     +chk('FCSR registration','MO Family Care Safety Registry, within 15 days of starting work',g.fcsr_reg_date?'Registered':'',null,g.fcsr_reg_date,g.fcsr_reg_proof,null,'once','fcsr_reg')
     +chk('Agency Orientation','Required before first client contact',g.orient_date?'completed':'',null,g.orient_date,g.orient_proof,null,'once')
-    +chk('Alzheimer’s / dementia training','Requirement mapping awaits your ruling',g.alz_date?('recorded'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'')
-    +chk('OJT (on-the-job training)','Within 30 days of hire',g.ojt_date?'completed':'',null,g.ojt_date,g.ojt_proof||g.ojt_online_proof,null,'once')
-    +chk('Annual training','5 hours each year',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,365,'renewed annually')
+    /* Optional from 2026-10-15 (Samantha): shown as records only, no due date, never office action */
+    +chk('Dementia care training','Optional, assigned for a client\'s needs',g.alz_date?('recorded'+(g.alz_hrs?' ('+esc(String(g.alz_hrs))+'h)':'')):'',null,g.alz_date,g.alz_proof,null,'')
+    +chk('On-the-job training','Optional, assigned for a client\'s needs',(g.ojt_date||g.ojt_online)?'completed':'',null,g.ojt_date||g.ojt_online,g.ojt_proof||g.ojt_online_proof,null,'')
+    +chk('Annual in-service','Optional',g.annual_date?('completed'+(g.annual_hrs?' ('+esc(String(g.annual_hrs))+'h)':'')):'',null,g.annual_date,g.annual_proof,null,'')
     +(g.fp&&g.fp!=='N/A'?chk('Fingerprints','Required for this caregiver',g.fp,/issues/i,g.fp_date,g.fp_proof,null,'','fp'):'')
     +'<div id="cgdTrainEvidence" style="margin-top:6px;"></div>';
 }
@@ -19975,9 +19981,9 @@ async function cgdLoadTraining(c,nm){
       +'<div style="font-size:13px;padding:2px 0;">Agency Orientation: '+(or&&or.status==='complete'
         ?'<span style="color:var(--green);">completed '+esc(String(or.completed_at||'').slice(0,10))+'</span> <span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">counts, mapping approved</span>'
         :'<span class="field-note">'+esc((or&&or.status)||'not recorded')+'</span>')+'</div>'
-      +'<div style="font-size:13px;padding:2px 0;">Alzheimer\'s &amp; Dementia: '+(alz&&alz.status==='complete'
-        ?'<span style="color:var(--green);">completed '+esc(String(alz.completed_at||'').slice(0,10))+'</span> <span class="tag-chip" style="background:#FFF7ED;color:#B45309;" title="Evidence recorded. Whether it satisfies the CC requirement awaits her mapping ruling">evidence only, mapping held</span>'
-        :'<span class="field-note">'+esc((alz&&alz.status)||'not recorded')+'</span>')+'</div>'
+      +'<div style="font-size:13px;padding:2px 0;">Dementia care (optional): '+(alz&&alz.status==='complete'
+        ?'<span style="color:var(--green);">completed '+esc(String(alz.completed_at||'').slice(0,10))+'</span>'
+        :'<span class="field-note">'+esc((alz&&alz.status)||'not taken')+'</span>')+'</div>'
       +'<div class="field-note">Native/imported provenance lives on the Training Platform record. Nothing here restores anything.</div></div>';
   }catch(e){ if(link) link.textContent='unavailable'; }
 }
@@ -21489,8 +21495,8 @@ function joPreviewMsgs(){
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Orientation Video Call</b></p>'
     +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick Orientation Video Call. Join from your phone or computer.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Training From Home</b></p>'
-    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation and Alzheimer\'s and dementia training. Do it on your phone or computer, in pieces if you like.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Orientation From Home</b></p>'
+    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation. Do it on your phone or computer, in pieces if you like.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
@@ -25266,8 +25272,8 @@ async function apTrainingMount(r){
   }
   const day = iso => iso ? new Date(String(iso).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'long', day:'numeric', year:'numeric'}) : '';
   const course = slug => (h.trainings||[]).find(t=>t.slug===slug);
-  const line = (label, c) => {
-    if(!c) return apProfRow(label, '<span class="field-note">not started</span>');
+  const line = (label, c, optional) => {
+    if(!c) return apProfRow(label, '<span class="field-note">' + (optional ? 'not assigned' : 'not started') + '</span>');
     if(c.status === 'complete') return apProfRow(label,
       '<span style="color:#15803D;font-weight:700;">done</span>' + (c.completed_at ? ' · ' + esc(day(c.completed_at)) : ''));
     return apProfRow(label, '<span style="color:#B45309;">'
@@ -25275,9 +25281,10 @@ async function apTrainingMount(r){
   };
   host.innerHTML =
       line('Agency orientation', course('agency-orientation'))
-    + line('Dementia care', course('dementia-care'))
-    + line('On the job training', course('on-the-job-training'))
-    + apProfRow('Annual in-service', h.inservice_last_date
+    /* optional from 2026-10-15: only orientation is required */
+    + line('Dementia care (optional)', course('dementia-care'), true)
+    + line('On the job training (optional)', course('on-the-job-training'), true)
+    + apProfRow('Annual in-service (optional)', h.inservice_last_date
         ? esc(day(h.inservice_last_date)) + (h.inservice_hours_12mo != null
             ? ' · ' + esc(h.inservice_hours_12mo) + ' hours in the last year' : '')
         : '<span class="field-note">none recorded</span>')
@@ -26377,13 +26384,13 @@ function apjWalkthrough(){
   box.style.display = 'block'; box.innerHTML = '<div class="field-note">Opening…</div>';
   const go = () => window.AW && AW.mount('awBox');
   if (window.AW) return go();
-  const sc = document.createElement('script'); sc.src = 'applicant-walkthrough.js?v=20261012'; sc.onload = go; sc.onerror = () => { box.innerHTML = '<div class="field-note">Could not load the walkthrough. Reload the page.</div>'; }; document.head.appendChild(sc);
+  const sc = document.createElement('script'); sc.src = 'applicant-walkthrough.js?v=20261019'; sc.onload = go; sc.onerror = () => { box.innerHTML = '<div class="field-note">Could not load the walkthrough. Reload the page.</div>'; }; document.head.appendChild(sc);
 }
 function apjOpen(){
   if(window.TWalk) TWalk.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261019'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
     .then(apjRender)
     .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
   apjLoadCtx();
@@ -26459,7 +26466,7 @@ function apjRender(){
     'background checks':'When a background check turns something up.',
     'start paperwork':'New-hire paperwork, Step 2 in Viventium.',
     'Orientation Video Call (remote orientation)':'The short video call that starts orientation from home.',
-    'orientation & training':'Orientation and required training.',
+    'orientation & training':'Orientation, plus any optional training a client needs.',
     'first shift':'Getting them onto the schedule.',
     'after first shift (PRN only)':'PRN CNA Team only.',
     'current caregivers (profile catch-up)':'Caregivers already working with us.',
