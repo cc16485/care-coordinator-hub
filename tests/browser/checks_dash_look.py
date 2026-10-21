@@ -19,6 +19,7 @@ const ocAttrs = (dial) => ' href="tel:' + dial + '"';
 const bgrCheckProofHtml = p => p ? '<a class="proof-link">PDF</a>' : '';
 let HYDRATED = true, OFFERS = [], _bgrDrawerKey = null;
 let candidates = __CANDS__;
+var caregivers = [{ id: 501, offer_id:'o8', first:'Leah', last:'Grant' }];
 function bgrEnsureDrawer(){ if(document.getElementById('bgrDrawer')) return;
   const bd=document.createElement('div'); bd.id='bgrDrawerBackdrop'; bd.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,54,95,.28);z-index:9998';
   const dr=document.createElement('div'); dr.id='bgrDrawer'; dr.style.cssText='position:fixed;top:0;right:0;bottom:0;width:470px;background:#fff;z-index:9999;overflow-y:auto';
@@ -53,6 +54,7 @@ async(CODE)=>{
   const panel=document.getElementById('panel-onboarding'); panel.classList.add('mode-people');
   for(let el=panel; el; el=el.parentElement){ el.style.display = el.classList && el.classList.contains('tabpanel') ? 'block' : (getComputedStyle(el).display==='none' ? 'block' : el.style.display); }
   window.CRX = { list: () => [{ offer_id:'o9', name:'Rosa Diaz', ready_for_final:true }, { offer_id:'o8', name:'Leah Grant', next:{ key:'cg.profile.published', title:'Caregiver profile published', owner:'Staffing Coordinator' } }, { offer_id:'o7', name:'Done Person', approved_to_work:true, axiscare:'ok' }], open(){}, chip(){ return ''; }, call: async (b) => b.action === 'level_get' ? { claimed:{ level:2, said:{ experience:'3 years', level2:'Yes' } }, evidence:[], verified_level:1, approved:{ level:1, default:true }, may_approve:false } : {} };
+  CKD_OIG.rows = [{ candidate_id: 2, practice:false, evidence:{ match_count: 0 } }]; CKD_OIG.at = Date.now();
   renderCkd();
   const party = document.getElementById('ckdParty'); const partyText = party ? party.innerText.replace(/\s+/g,' ') : ''; if(party) party.querySelector('#ckdPartyX').click(); renderCkd();
   const dash=document.getElementById('ckdDash');
@@ -78,7 +80,7 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ ckdOpen(1); }"); pg.wait_for_timeout(400)
     pg.wait_for_timeout(300)
     person = pg.locator('#bgrDrawer').inner_text()
-    duty_boxes = pg.evaluate("()=>{ const d=document.createElement('div'); d.innerHTML=mrefDutiesHTML(['Bathing']); return [d.querySelectorAll('.mref-duty').length, d.querySelectorAll('.mref-duty:checked').length]; }")
+    duty_boxes = pg.evaluate("()=>{ const d=document.createElement('div'); d.innerHTML=mrefDutiesHTML(['bathing']); return [d.querySelectorAll('.mref-duty').length, d.querySelectorAll('.mref-duty:checked').length]; }")
     pg.screenshot(path=os.path.join(OUT, 'checks_person.png'), clip={'x': 1440 - 470, 'y': 0, 'width': 470, 'height': 1000})
     pg.evaluate("()=>{ bgrCloseDrawer(); ckdFilter('s2'); }"); s2_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').all_inner_texts()
     pg.evaluate("()=>{ ckdFilter('s1'); }"); refs_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
@@ -97,7 +99,7 @@ ck('test people and not-hired people are left out; the cleared one is on the lis
 ck('after the video call: Leah at orientation with her next step, Rosa waiting on Samantha or Zachary, approved people gone', any(r.startswith('Leah Grant') and 'Orientation, profile, badge' in r and 'Caregiver profile published.' in r for r in rows) and any(r.startswith('Rosa Diaz') and 'Ready to approve' in r and 'Waiting on Samantha or Zachary' in r for r in rows) and not any('Done Person' in r for r in rows), rows)
 ck('oldest first', rows[0].startswith('Claire Sample') and any(r.startswith('Denise Sample') for r in rows[-3:]), rows)
 ck('references and checks side by side: the Hub already sent Susie the form, and the checks lane says Run OIG', 'References: Form sent to Susie Boss' in rows[0] and 'Call if you like' in rows[0] and '(417) 555-0101' in rows[0] and 'Record answer' in rows[0] and 'Checks: Run the OIG check' in rows[0] and rows[0].endswith('Run OIG'), rows[0])
-ck('no references given: ask for them, and run OIG at the same time', any(r.startswith('Kristin') and 'References: No references given yet' in r and 'Add references' in r and r.endswith('Run OIG') for r in rows), rows)
+ck('no references given: ask for them, and run OIG at the same time', any(r.startswith('Kristin') and 'References: No references given yet' in r and 'Add references' in r and r.endswith('Record OIG') for r in rows), rows)
 ck('Holly: ask for references and record EDL, both at once', any(r.startswith('Holly') and 'Add references' in r and r.endswith('Record EDL') for r in rows), rows)
 ck('Denise: references done in green words, FCSR ordered', any(r.startswith('Denise') and 'References: Done: 2 good, 1 from work.' in r and 'FCSR ordered' in r and r.endswith('Record FCSR') for r in rows), rows)
 ck('a flagged check says review', any(r.startswith('Flagged') and r.endswith('Review') for r in rows), rows)
@@ -112,6 +114,8 @@ ck('stop tiles filter the list; Show test people adds them back', refs_rows == 5
 ck('the party only comes back if this browser forgets it saw it', party_back == 1, party_back)
 ck('Level of Care card: Claimed 2, Verified 1, Approved 1 to start, what is missing, hiring not held up', all(x in person for x in ['Claimed: Level 2', 'Verified: Level 1', 'Approved: Level 1 (to start)', 'Level 2 is waiting on one person', 'Never holds up hiring', 'Record a license lookup']), person[-900:])
 ck('the reference form has 19 duty boxes and keeps what was ticked', duty_boxes == [19, 1], duty_boxes)
+ck('the OIG search the Hub ran by itself shows on the checks line, a person still records it', any(r.startswith('Kristin') and 'The Hub searched the OIG list: no matches. Record it as Clear.' in r and 'Record OIG' in r for r in rows), rows)
+ck('the badge is its own line at the orientation stop, closed by Mailed', any(r.startswith('Leah Grant') and 'Badge: Make their employee badge and mail it.' in r and r.endswith('Mailed') for r in rows), rows)
 ck('no em dash on the dashboard or checklist', '—' not in R['html'] and '—' not in person)
 print(f'checks_dash_look: {ok} passed, {fail} failed'); print('screenshots:', os.path.join(OUT, 'checks_dash.png'), os.path.join(OUT, 'checks_person.png'))
 raise SystemExit(1 if fail else 0)

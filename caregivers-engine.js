@@ -7266,8 +7266,21 @@ function ckdRefToWork(c){
   const pend = ckdRefSlots(c).filter(n => (c['r'+n+'s'] || 'Pending') === 'Pending');
   return pend.find(n => c['r'+n+'_phone']) || pend[0] || null;
 }
+const CKD_OIG = { rows:null, at:0, busy:false };
+function ckdOigSearch(c){
+  if(!CKD_OIG.busy && Date.now() - CKD_OIG.at > 120000 && typeof sb !== 'undefined'){
+    CKD_OIG.busy = true;
+    Promise.resolve(sb.from('app_data').select('data').eq('key', 'oig_auto_search').maybeSingle())
+      .then(r => { CKD_OIG.rows = (r && !r.error && r.data && Array.isArray(r.data.data)) ? r.data.data : (CKD_OIG.rows || []); })
+      .catch(() => {}).finally(() => { CKD_OIG.busy = false; CKD_OIG.at = Date.now(); try{ renderCkd(); }catch(_){} });
+  }
+  return (CKD_OIG.rows || []).find(x => String(x.candidate_id) === String(c.id) && !x.practice) || null;
+}
 function ckdCheckNext(c){
   const id = c.id;
+  const auto = (c.oig !== 'CLEAR' && c.oig !== 'FLAGGED' && !c.oig_date) ? ckdOigSearch(c) : null;
+  if(auto){ const n = (auto.evidence && auto.evidence.match_count) || 0;
+    return { text:'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state, then record it.' : 'no matches. Record it as Clear.'), label:'Record OIG', on:'bgrRecordCheck(' + id + ',\'oig\')', how:'oig' }; }
   if(c.oig !== 'CLEAR' && c.oig !== 'FLAGGED')
     return c.oig_date ? { text:'Record the OIG result.', label:'Record OIG', on:'bgrRecordCheck('+id+',\'oig\')' }
                       : { text:'Run the OIG check. It takes one click.', label:'Run OIG', on:'bgrRunOIG('+id+',this)' };
@@ -7290,8 +7303,9 @@ function ckdRefNext(c){
     const req = (typeof bgrReqsFor === 'function' ? bgrReqsFor(c) : []).find(r => Number(r.slot) === n && !r.responded_at);
     const sent = req && req.sent_at ? new Date(req.sent_at) : null;
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
+    const how = req && req.texted_at ? 'texted and emailed' : 'sent';
     if(days !== null && days < 5)
-      return { text:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
+      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
     return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
   if(!ckdRefSlots(c).length) return { text:'No references given yet. Type them in from their record.', label:'Add references', on:'openOBModal('+id+')' };
@@ -7418,8 +7432,14 @@ function ckdLists(){
     notHired: cands.filter(c => c.not_hired).length };
 }
 /* a person's actions: stop 1 has a references line and a checks line; every other stop has one */
+function ckdRosterFor(j){ return j && j.offer_id && typeof caregivers !== 'undefined' ? caregivers.find(g => String(g.offer_id) === String(j.offer_id)) || null : null; }
 function ckdActsFor(p){
-  if(p.j) return [Object.assign({ lane:'' }, ckdRosterNext(p.j))];
+  if(p.j){
+    const out = [Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
+    if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
+    else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
+    return out;
+  }
   if(p.stop === 1 || p.stop === 0) return ckdLanes(p.c);
   return [Object.assign({ lane:'' }, ckdStepNext(p.c, p.stop))];
 }
@@ -7566,14 +7586,17 @@ function ckdRefreshPerson(){
    words, the interviewer's view), Verified (worked out by the server from the evidence) and Approved (only a person on the
    Approve to Work list) are shown side by side and never stand in for each other. Hiring never waits on it. The server
    (caregiver-journey level_get / level_evidence / level_approve) decides and records; this only shows and asks. */
+/* [key, label]: the keys are the server's (caregiver-journey level rules); the labels are the design's words */
 const LVL_DUTIES = {
-  2: ['Bathing', 'Showering', 'Dressing', 'Grooming', 'Toileting', 'Continence care', 'Mobility assistance', 'Transfers with a gait belt', 'Walking assistance', 'Wheelchair assistance'],
-  3: ['Hoyer lift', 'Bedbound clients', 'Frequent repositioning', 'Hospice support (non-medical)', 'Two-person transfers', 'High fall-risk clients', "Parkinson's disease", 'Stroke recovery', 'Complex mobility assistance']
+  2: [['bathing','Bathing'], ['showering','Showering'], ['dressing','Dressing'], ['grooming','Grooming'], ['toileting','Toileting'], ['continence_care','Continence care'], ['mobility_assistance','Mobility assistance'], ['transfers_gait_belt','Transfers with a gait belt'], ['walking_assistance','Walking assistance'], ['wheelchair_assistance','Wheelchair assistance']],
+  3: [['hoyer_lift','Hoyer lift'], ['bedbound_clients','Bedbound clients'], ['frequent_repositioning','Frequent repositioning'], ['hospice_support','Hospice support (non-medical)'], ['two_person_transfers','Two-person transfers'], ['high_fall_risk','High fall-risk clients'], ['parkinsons',"Parkinson's disease"], ['stroke_recovery','Stroke recovery'], ['complex_mobility','Complex mobility assistance']]
 };
+const lvlKeys = lv => LVL_DUTIES[lv].map(d => d[0]);
+const lvlLabel = k => { for(const lv of [2, 3]){ const d = LVL_DUTIES[lv].find(x => x[0] === k || x[1] === k); if(d) return d[1]; } return k; };
 const LVL = {};   /* offer_id -> { data, err, busy, at } */
 function mrefDutiesHTML(seen){
   const has = new Set(seen || []);
-  const box = (lv) => LVL_DUTIES[lv].map(d => '<label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:.82rem"><input type="checkbox" class="mref-duty" value="' + bgrEsc(d) + '"' + (has.has(d) ? ' checked' : '') + ' style="width:auto"> ' + bgrEsc(d) + '</label>').join('');
+  const box = (lv) => LVL_DUTIES[lv].map(([k, l]) => '<label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:.82rem"><input type="checkbox" class="mref-duty" value="' + bgrEsc(k) + '"' + (has.has(k) || has.has(l) ? ' checked' : '') + ' style="width:auto"> ' + bgrEsc(l) + '</label>').join('');
   return '<label>Which of these did they see them do? <span style="font-weight:500;color:var(--gray)">(this is what can raise their Level of Care)</span></label>'
     + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:4px 0 2px">Level 2, personal care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(2) + '</div>'
     + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:8px 0 2px">Level 3, advanced care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(3) + '</div>';
@@ -7597,7 +7620,7 @@ function lvlLoad(c, force){
 /* the dates on a reference, as the server wants them (text as they said it; the server checks they are there) */
 async function lvlFromReference(c, slot, m){
   if(!c || !c.offer_id) return;
-  const d2 = (m.duties_seen || []).filter(d => LVL_DUTIES[2].includes(d)), d3 = (m.duties_seen || []).filter(d => LVL_DUTIES[3].includes(d));
+  const d2 = (m.duties_seen || []).filter(d => lvlKeys(2).includes(d)), d3 = (m.duties_seen || []).filter(d => lvlKeys(3).includes(d));
   const base = { action:'level_evidence', offer_id:String(c.offer_id), kind:'reference', source:m.employer_confirmed || c['r'+slot+'_company'] || '', who:m.name || c['r'+slot+'n'] || '',
     from:m.emp_from || '', to:m.emp_to || (m.still ? 'still there' : ''), proof:'reference ' + slot + ' (' + (m.via || 'phone') + ', ' + (m.date || '') + ')', note:'From the reference answer recorded by ' + (m.staff || 'the office') };
   const bad = [];
@@ -7615,13 +7638,14 @@ function lvlCardHTML(c){
   if(!st.data) return '<div class="ckd-box"><b>Level 1</b><div class="ckd-box-sub">' + (st.err ? 'Their Level of Care card could not load (' + bgrEsc(st.err) + '). Everyone starts at Level 1, so hiring carries on.' : 'Everyone starts at Level 1.') + '</div></div>';
   const d = st.data, ap = d.approved || {}, cl = d.claimed || {}, said = cl.said || {};
   const chip = (t, on) => '<span class="ckd-pill' + (on ? ' ckd-done' : '') + '">' + bgrEsc(t) + '</span>';
-  const words = [said.experience ? 'Experience: ' + said.experience : '', said.level2 ? 'Level 2 clients: ' + said.level2 : '', said.preferred_levels ? 'Prefers: ' + said.preferred_levels : '', cl.interviewer_level ? 'Interviewer suggested Level ' + cl.interviewer_level : ''].filter(Boolean);
+  const exp = Array.isArray(said.experience) ? said.experience.map(x => [x.where, [x.from, x.to].filter(Boolean).join(' to ')].filter(Boolean).join(', ')).filter(Boolean).join('; ') : (said.experience || '');
+  const words = [exp ? 'Experience: ' + exp : '', said.level2 ? 'Level 2 clients: ' + said.level2 : '', said.preferred_levels ? 'Prefers: ' + said.preferred_levels : '', cl.interviewer_level ? 'Interviewer suggested Level ' + cl.interviewer_level : ''].filter(Boolean);
   const want = Math.max(2, Math.min(3, (cl.level || 2)));
   const wait = (d.verified_level || 1) >= want ? 'Level ' + want + ' is verified. ' + (d.may_approve ? 'You can approve it.' : 'Waiting on Samantha or Zachary to approve.')
     : 'Level ' + want + ' is waiting on one person or record that confirms the ' + (want === 3 ? 'advanced' : 'personal') + ' care duties, with dates.';
   const ev = (d.evidence || []).map(e => '<div class="ckd-box-sub">Level ' + e.level + ' · ' + bgrEsc({ reference:'Work reference', employment:'Past employer', credential:'License or registry', document:'Certificate or letter' }[e.kind] || e.kind)
     + (e.who ? ' · ' + bgrEsc(e.who) : '') + (e.source ? ', ' + bgrEsc(e.source) : '') + (e.from || e.to ? ' · ' + bgrEsc([e.from, e.to].filter(Boolean).join(' to ')) : '')
-    + ((e.duties || []).length ? ' · ' + bgrEsc(e.duties.join(', ')) : '') + ' · recorded by ' + bgrEsc(String(e.by || '').split('@')[0]) + '</div>').join('');
+    + ((e.duties || []).length ? ' · ' + bgrEsc(e.duties.map(lvlLabel).join(', ')) : '') + (e.credential && e.credential.type ? ' · ' + bgrEsc(e.credential.type + ' ' + (e.credential.number || '') + ', ' + (e.credential.status || '')) : '') + ' · recorded by ' + bgrEsc(String(e.by || '').split('@')[0]) + '</div>').join('');
   const k = bgrEsc(String(c.offer_id));
   const canApprove = d.may_approve && (d.verified_level || 1) > (ap.level || 1);
   return '<div class="ckd-box">'
@@ -7642,7 +7666,7 @@ function lvlCardHTML(c){
 async function lvlRecord(candId, kind){
   const c = candidates.find(x => x.id === candId); if(!c || !c.offer_id) return;
   const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10060;
-  const duty = lv => LVL_DUTIES[lv].map(x => '<label style="display:flex;gap:6px;align-items:center;font-size:.82rem"><input type="checkbox" class="lvd" data-lv="' + lv + '" value="' + bgrEsc(x) + '" style="width:auto"> ' + bgrEsc(x) + '</label>').join('');
+  const duty = lv => LVL_DUTIES[lv].map(([k, l]) => '<label style="display:flex;gap:6px;align-items:center;font-size:.82rem"><input type="checkbox" class="lvd" data-lv="' + lv + '" value="' + bgrEsc(k) + '" style="width:auto"> ' + bgrEsc(l) + '</label>').join('');
   const title = { employment:'Log a call to a past employer', credential:'Record a license lookup', document:'Record a certificate or letter' }[kind];
   w.innerHTML = '<div class="modal" style="max-width:560px"><h3>' + bgrEsc(title) + ' · ' + bgrEsc(ckdName(c)) + '</h3>'
     + (kind === 'credential'
@@ -7666,7 +7690,7 @@ async function lvlRecord(candId, kind){
     const calls = [];
     if(kind === 'credential'){
       if(!q('lvNum').value.trim() || !q('lvActive').checked || !q('lvDate').value){ alert('Add the number, the date you looked it up, and tick that it shows active.'); return; }
-      calls.push({ level:2, kind, source:q('lvType').value + ' registry', who:q('lvType').value, duties:[], from:q('lvDate').value, to:'', proof:q('lvType').value + ' ' + q('lvNum').value.trim() + ', active, looked up ' + q('lvDate').value, note:q('lvProof').value });
+      calls.push({ level:2, kind, source:q('lvType').value + ' registry', who:q('lvType').value, duties:[], credential:{ type:q('lvType').value, number:q('lvNum').value.trim(), status:'active', looked_up:q('lvDate').value }, proof:q('lvType').value + ' ' + q('lvNum').value.trim() + ', active, looked up ' + q('lvDate').value, note:q('lvProof').value });
     } else {
       const ticked = lv => [...w.querySelectorAll('.lvd[data-lv="' + lv + '"]:checked')].map(x => x.value);
       if(!q('lvFrom').value.trim() || (!ticked(2).length && !ticked(3).length)){ alert('Add when they worked there and tick at least one duty.'); return; }
@@ -7683,8 +7707,19 @@ async function lvlApprove(offerId, level, btn){
   if(!(await ccConfirm('Approve Level ' + level + '?\n\nThis records your name, the time and the evidence it rests on (permanent). Scheduling follows it.'))) return;
   const note = (await ccPrompt('Optional note:', '')) || '';
   if(btn) btn.disabled = true;
-  try{ await lvlCall({ action:'level_approve', offer_id:String(offerId), level, note }); const st = LVL[String(offerId)]; if(st) st.at = 0; const c = candidates.find(x => String(x.offer_id) === String(offerId)); if(c) lvlLoad(c, true); }
+  try{ const r = await lvlCall({ action:'level_approve', offer_id:String(offerId), level, note });
+    if(r.axiscare && r.axiscare.state === 'failed') alert('Level ' + level + ' is approved in the Hub, but AxisCare did not take it. Open their readiness card and press Retry.');
+    const st = LVL[String(offerId)]; if(st) st.at = 0; const c = candidates.find(x => String(x.offer_id) === String(offerId)); if(c) lvlLoad(c, true); }
   catch(e){ if(btn) btn.disabled = false; alert('Not approved: ' + e.message); }
+}
+async function ckdBadgeMailed(offerId, btn){
+  const g = (typeof caregivers !== 'undefined' ? caregivers : []).find(x => String(x.offer_id) === String(offerId)); if(!g) return;
+  if(!(await ccConfirm('Record that ' + (g.first || 'their') + '\'s employee badge went in the mail today? This records your name and the time.'))) return;
+  if(btn) btn.disabled = true;
+  g.badge_mailed_at = new Date().toISOString(); g.badge_mailed_by = ((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || '');
+  const ok = await saveCaregivers();
+  if(!ok){ alert('Not saved. The badge is not recorded as mailed yet. Try again in a moment.'); delete g.badge_mailed_at; delete g.badge_mailed_by; if(btn) btn.disabled = false; return; }
+  renderCkd();
 }
 /* "How do I do this?" for a coordinator learning the job: short steps per kind of action, in her words. */
 const CKD_HOW = {
@@ -7713,9 +7748,11 @@ const CKD_HOW = {
     'Day 8 with nothing? The Hub gives you a card to call them.'],
   step2check: ['Open them in Viventium.', 'Press Check Step 2 and tick each form you can see is really done. Telling us is not the same as done.',
     'If something is missing, use Still open to text them which one.'],
-  welcomecall: ['Press Invite. They get a link to book a 15-minute video call.', 'On the call you check their ID on camera for the I-9 and welcome them.',
-    'Press Done at the end. Their orientation and profile links go out, and they move to the caregiver list.'],
+  welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
+    'On the call you check their ID on camera for the I-9 and welcome them.',
+    'Press Done at the end. Their orientation link goes out from our training site, and they move to the caregiver list.'],
   approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],
   card: ['Open their readiness card. It lists every requirement and says which one is next.', 'Each line says what proof it needs. Record or confirm it there.']
 };
 function ckdHowKey(a){
@@ -9738,7 +9775,9 @@ function wcYmdLabel(ymd){
   const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return String(ymd || '');
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1];
 }
-const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
+const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof',
+  /* 2026-10-21: the approved Level of Care and the badge travel with the person */
+  'care_level_approved', 'care_level_by', 'care_level_by_email', 'care_level_at', 'care_level_note', 'care_level_evidence', 'care_level_history', 'badge_mailed_at', 'badge_mailed_by', 'badge_not_needed', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
   'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names',
   /* SLICE 4: the audited Step 2 record travels with the person */
   'step2_sent_note', 'step2_resent_at', 'step2_resent_by', 'step2_msg', 'step2_done_how', 'step2_receipt', 'step2_verified_at', 'step2_verified_by', 'step2_checklist', 'step2_i9_s2_by', 'step2_i9_s2_at', 'step2_note', 'step2_still_open_at', 'step2_still_open_by', 'step2_still_open_task', 'step2_reminders', 'step2_history', 'step2_invite'];
@@ -11747,7 +11786,7 @@ window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
