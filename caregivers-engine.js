@@ -7235,7 +7235,7 @@ function ckdIsTest(first, last){
 function ckdName(c){ return ((c.first||'') + ' ' + (c.last||'')).trim(); }
 function ckdActive(c){ return !!c && !c.not_hired && (CKD_SHOW_TEST || !ckdIsTest(c.first, c.last)); }
 const CKD_CHECKS = [
-  { k:'oig',     label:'OIG',      ok:'CLEAR', bad:'FLAGGED',      how:'The Hub checks the federal list for you' },
+  { k:'oig',     label:'OIG',      ok:'CLEAR', bad:'FLAGGED',      how:'One click: the Hub searches the federal list' },
   { k:'edl',     label:'EDL',      ok:'Clear', bad:'Issues Found', how:'Search the state EDL list, attach the PDF' },
   { k:'fcsr',    label:'FCSR',     ok:'Clear', bad:'Issues Found', how:'Order it in the state system, then record the result' },
   { k:'casenet', label:'Case.net', ok:'Clear', bad:'Issues Found', how:'Search Missouri courts, attach the PDF' },
@@ -7281,7 +7281,14 @@ function ckdRefNext(c){
   if(n){
     const nm = String(c['r'+n+'n'] || '').trim() || 'their reference';
     const tl = obRefCellTypeLine(c, n);
-    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + '.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
+    /* 2026-10-21 (Samantha: references run at the same time as the checks): say what the Hub already did for this
+       reference, so a coordinator calls when it helps instead of guessing. */
+    const req = (typeof bgrReqsFor === 'function' ? bgrReqsFor(c) : []).find(r => Number(r.slot) === n && !r.responded_at);
+    const sent = req && req.sent_at ? new Date(req.sent_at) : null;
+    const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
+    if(days !== null && days < 5)
+      return { text:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
+    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
   if(!ckdRefSlots(c).length) return { text:'No references given yet. Type them in from their record.', label:'Add references', on:'openOBModal('+id+')' };
   return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'openOBModal('+id+')' };
@@ -7321,20 +7328,36 @@ function ckdPill(s){
   const cls = { done:'ckd-pill ckd-done', half:'ckd-pill ckd-half', bad:'ckd-pill ckd-bad', todo:'ckd-pill' }[s.state] || 'ckd-pill';
   return '<span class="' + cls + '">' + (s.state === 'done' ? '<svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> ' : '') + bgrEsc(s.label) + '</span>';
 }
-function ckdRowHTML(c){
-  const w = ckdWait(c), nx = ckdNext(c);
+/* Each person's next steps: references and checks run at the same time (Samantha 2026-10-21), so a person in the middle
+   of both shows one line for each. Review, Step 1 waiting and all clear stay one line. */
+function ckdLanes(c){
+  const st = obDeriveStatus(c);
+  if(st === 'Ready for Orientation' || st === 'Needs Review' || ckdStep1Waiting(c)) return [Object.assign({ lane:'' }, ckdNext(c))];
+  const ref = ckdRefNext(c), chk = ckdCheckNext(c);
+  const out = [];
+  out.push(Object.assign({ lane:'References' }, ref || { text:'Done: 2 good, 1 from work.', label:'', on:'', done:true }));
+  out.push(Object.assign({ lane:'Checks' }, chk || { text:'Done: all four clear.', label:'', on:'', done:true }));
+  return CKD_FILTER === 'checks' ? out.reverse() : out;
+}
+function ckdLaneHTML(c, nx){
   let phone = '';
   if(nx.slot){
     const ph = c['r'+nx.slot+'_phone'], em = c['r'+nx.slot+'_email'], p = ph ? obFmtPhone(ph) : null;
     phone = p ? ' <a class="ckd-phone"' + ocAttrs(p.dial, { email:em }) + '>' + bgrEsc(p.show) + '</a>'
               : (em ? ' <a class="ckd-phone" href="mailto:' + bgrEsc(em) + '">' + bgrEsc(em) + '</a>' : '');
   }
+  return '<div class="ckd-next">'
+    + '<span class="ckd-next-text' + (nx.warn ? ' ckd-warn' : '') + (nx.done ? ' ckd-lane-done' : '') + '">' + (nx.lane ? '<b class="ckd-lane">' + nx.lane + ':</b> ' : '') + bgrEsc(nx.text) + phone + '</span>'
+    + (nx.label ? '<button type="button" class="ckd-go' + (nx.wait || nx.done || nx.quiet ? ' ckd-go-quiet' : '') + '" onclick="' + nx.on + '">' + bgrEsc(nx.label) + '</button>' : '')
+    + '</div>';
+}
+function ckdRowHTML(c){
+  const w = ckdWait(c);
   return '<div class="ckd-row">'
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="ckdOpen(' + c.id + ')">' + bgrEsc(ckdName(c)) + '</button>'
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
     + '<div class="ckd-pills">' + ckdSteps(c).map(ckdPill).join('') + '</div>'
-    + '<div class="ckd-next"><span class="ckd-next-text' + (nx.warn ? ' ckd-warn' : '') + '">' + bgrEsc(nx.text) + phone + '</span>'
-    +   '<button type="button" class="ckd-go' + (nx.wait || nx.done ? ' ckd-go-quiet' : '') + '" onclick="' + nx.on + '">' + bgrEsc(nx.label) + '</button></div>'
+    + '<div class="ckd-lanes">' + ckdLanes(c).map(nx => ckdLaneHTML(c, nx)).join('') + '</div>'
     + '</div>';
 }
 function renderCkd(){
@@ -7466,6 +7489,8 @@ function ckdPersonHTML(c){
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
+    +   (typeof sdEligible === 'function' && sdEligible(c) ? '<button type="button" class="ckd-link" onclick="bgrScreeningDesk(' + id + ')">Screening desk (FCSR sheet)</button>' : '')
+    +   (window.CRX && c.offer_id ? CRX.chip(c.offer_id) : '')
     +   '<button type="button" class="ckd-link" onclick="openOBModal(' + id + ')">Full record</button>'
     +   ([1,2,3,4].some(n => c['r'+n+'_manual']) ? '<button type="button" class="ckd-link" onclick="refReport(' + id + ')">Reference record</button>' : '')
     +   '<button type="button" class="ckd-link" style="color:#B42318" onclick="openNotHireModal(' + id + ')">Not hiring them</button>'

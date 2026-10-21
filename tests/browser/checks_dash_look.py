@@ -25,6 +25,7 @@ function bgrEnsureDrawer(){ if(document.getElementById('bgrDrawer')) return;
   document.body.appendChild(bd); document.body.appendChild(dr); }
 function bgrCloseDrawer(){}
 function lifecycleRows(){ return []; }
+function bgrReqsFor(c){ return c.id === 1 ? [{ slot:1, sent_at:new Date(Date.now() - 2*864e5).toISOString() }] : c.id === 3 ? [{ slot:9, sent_at:new Date(Date.now() - 7*864e5).toISOString() }] : []; }
 async function offerToCandidate(){ return { ok:true }; }
 async function bgrSyncRefAnswers(){ return { merged:0, cleared:0, err:'' }; }
 function renderOB(){ renderCkd(); } function renderAlerts(){}
@@ -86,10 +87,10 @@ ck('the old table, toolbar and strips are hidden', R['oldHidden'])
 ck('tiles: 4 need references, 5 need checks, 1 done', R['tiles'][0].startswith('4 Call references') and R['tiles'][1].startswith('5 Run background checks') and R['tiles'][2].startswith('1 Done'), R['tiles'])
 ck('test people and not-hired people are left out; the cleared one is not in the waiting list', len(rows) == 5 and not any('Test' in r or 'Practice' in r or 'Gone' in r or 'Ready Person' in r for r in rows), rows)
 ck('oldest first', rows[0].startswith('Claire Sample') and rows[-1].startswith('Denise Sample'), rows)
-ck('a reference you can call comes first, with the phone and Record answer', 'Call Susie Boss (Professional · Lakeview Childcare)' in rows[0] and '(417) 555-0101' in rows[0] and rows[0].endswith('Record answer'), rows[0])
-ck('no references given: ask for them', any(r.startswith('Kristin') and 'No references given yet' in r and r.endswith('Add references') for r in rows), rows)
-ck('references first: no references given, so Holly is asked for them before EDL', any(r.startswith('Holly') and r.endswith('Add references') for r in rows), rows)
-ck('FCSR ordered: record the result when it comes', any(r.startswith('Denise') and 'FCSR ordered' in r and r.endswith('Record FCSR') for r in rows), rows)
+ck('references and checks side by side: the Hub already sent Susie the form, and the checks lane says Run OIG', 'References: Form sent to Susie Boss' in rows[0] and 'Call if you like' in rows[0] and '(417) 555-0101' in rows[0] and 'Record answer' in rows[0] and 'Checks: Run the OIG check' in rows[0] and rows[0].endswith('Run OIG'), rows[0])
+ck('no references given: ask for them, and run OIG at the same time', any(r.startswith('Kristin') and 'References: No references given yet' in r and 'Add references' in r and r.endswith('Run OIG') for r in rows), rows)
+ck('Holly: ask for references and record EDL, both at once', any(r.startswith('Holly') and 'Add references' in r and r.endswith('Record EDL') for r in rows), rows)
+ck('Denise: references done in green words, FCSR ordered', any(r.startswith('Denise') and 'References: Done: 2 good, 1 from work.' in r and 'FCSR ordered' in r and r.endswith('Record FCSR') for r in rows), rows)
 ck('a flagged check says review', any(r.startswith('Flagged') and r.endswith('Review') for r in rows), rows)
 ck('no fingerprint anywhere: not on the dashboard, not in the checklist', 'ingerprint' not in R['html'] and 'ingerprint' not in person)
 ck('out-of-state person with every check clear counts as done', R['tiles'][2].startswith('1 '))
