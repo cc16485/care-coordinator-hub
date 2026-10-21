@@ -10,7 +10,7 @@ JS = open(os.path.join(HERE, '..', '..', 'hire-profile.js')).read()
 FAKE = """
 window.ASK = []; window.REFUSE = false;
 window.sb = { functions: { invoke: async (fn, { body }) => { ASK.push({ fn, body });
-  if (fn === 'hire-profile') return { data: { ids: { offer_id: 'off-1' } } };
+  if (fn === 'hire-profile') return { data: { ids: { offer_id: 'off-1' }, documents: [{ label: 'Step 1: Employee Application (signed)' }, { label: 'Step 1: Details for the Background Checks (signed)', at: '2026-10-19T22:52:00Z' }] } };
   if (body.action === 'screening') return { data: { ok: true, may_reveal: true, identity: { ssn: 'ending 4321', dob: true, license: null } } };
   if (body.action === 'reveal') { if (REFUSE) return { data: { ok: false, error: 'Your role does not allow this.' } };
     return { data: { ok: true, value: body.field === 'ssn' ? '987654321' : '1990-05-05', expires_in: 3 } }; }
@@ -21,7 +21,7 @@ ok = lambda n, c, d='': R.append(('PASS' if c else 'FAIL', n, '' if c else str(d
 with sync_playwright() as pw:
     br = pw.chromium.launch(); pg = br.new_page(viewport={'width': 390, 'height': 700}); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.route('http://hub.test/', lambda route, req: route.fulfill(status=200, content_type='text/html', body='<html><body><div id="apIdRows"></div></body></html>'))
+    pg.route('http://hub.test/', lambda route, req: route.fulfill(status=200, content_type='text/html', body='<html><body><div id="apIdRows"></div><div id="docs"></div></body></html>'))
     pg.goto('http://hub.test/')
     pg.add_script_tag(content=FAKE); pg.add_script_tag(content=JS)
     pg.evaluate("HP.identity(document.getElementById('apIdRows'), { applicant_id: 'a1' })"); pg.wait_for_timeout(400)
@@ -50,6 +50,16 @@ with sync_playwright() as pw:
     pg.evaluate('REFUSE = true'); pg.locator('button:has-text("Click to reveal")').first.click(); pg.wait_for_timeout(150); pg.click('button:has-text("Reveal for 5 minutes")'); pg.wait_for_timeout(300)
     ok('a refusal shows the server\'s words and no number', 'Your role does not allow this.' in pg.inner_text('#apIdRows') and '987654321' not in pg.inner_text('#apIdRows'))
     ok('no em dash', '—' not in pg.inner_text('#apIdRows'))
+    pg.evaluate('REFUSE = false')
+    pg.evaluate("HP.mount(document.getElementById('docs'), { applicant_id: 'a1' }, ['docs'])"); pg.wait_for_timeout(400)
+    ok('2026-10-21: the background-details card has Reveal SSN / DOB as a button (no new tab); other cards do not', pg.locator('#docs button:has-text("Reveal SSN / DOB")').count() == 1 and pg.locator('#docs a[target=_blank]').count() == 0)
+    n_tabs = len(pg.context.pages)
+    pg.click('#docs button:has-text("Reveal SSN / DOB")'); pg.wait_for_timeout(500)
+    ok('the click opens the two rows right under the documents, in this page', len(pg.context.pages) == n_tabs and pg.locator('#docs .hp-docreveal button:has-text("Click to reveal")').count() == 2 and 'ending 4321' in pg.inner_text('#docs .hp-docreveal'))
+    pg.locator('#docs .hp-docreveal button:has-text("Click to reveal")').first.click(); pg.wait_for_timeout(150)
+    pg.fill('#hpIdReason', 'FCSR registration'); pg.click('#docs button:has-text("Reveal for 5 minutes")'); pg.wait_for_timeout(400)
+    ok('...and reveals there, for this offer', '987654321' in pg.inner_text('#docs .hp-docreveal') and [a['body'] for a in pg.evaluate('ASK') if a['body'].get('action') == 'reveal'][-1]['offer_id'] == 'off-1')
+    pg.screenshot(path=os.path.join(OUT, 'card_reveal.png'), full_page=True)
     ok('no page errors', not errs, errs)
     br.close()
 for r in R: print(r[0], '·', r[1], r[2])

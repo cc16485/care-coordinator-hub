@@ -89,7 +89,14 @@
   function revealBtn(p, d){
     const oid = (p.ids || {}).offer_id;
     if(!oid || !/Details for the Background Check/i.test(d.label || '')) return '';
-    return '<a class="ibtn" style="text-decoration:none;white-space:nowrap" href="step1.html?review=' + esc(oid) + '#reveal" target="_blank" rel="noopener" title="Opens their Step 1 at the Reveal box: type why, then the number shows for five minutes. Every reveal is logged.">&#128274; Reveal SSN / DOB</a>';
+    /* 2026-10-21: inline, not a new tab. Inside GoHighLevel the Hub's sign-in lives in the frame, so a new tab is signed out
+       and Step 1 said "This link is not valid". The rows open under the documents, in this signed-in page. */
+    return '<button class="ibtn" style="white-space:nowrap" onclick="HP.revealHere(\'' + esc(oid) + '\',this)" title="Shows the Social Security number and date of birth rows here: type why, then the number shows for five minutes. Every reveal is logged.">&#128274; Reveal SSN / DOB</button>';
+  }
+  function revealHere(oid, btn){
+    let host = btn; while(host && !(host.querySelector && host.querySelector('.hp-docreveal'))) host = host.parentElement;
+    const el = host && host.querySelector('.hp-docreveal'); if(!el) return;
+    el.style.display = 'block'; identity(el, { offer_id: oid }); el.scrollIntoView({ block: 'nearest' });
   }
   function docsHtml(p){
     const docs = p.documents || [];
@@ -97,7 +104,8 @@
       + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
           '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:.4rem .55rem;display:flex;gap:.5rem;align-items:center"><span style="flex:1;font-size:.82rem"><b>' + esc(d.label) + '</b>'
           + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span>' + revealBtn(p, d) + '<button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
-        : '<div class="field-note" style="margin-top:.3rem">Nothing signed yet.</div>') + '</div>';
+        : '<div class="field-note" style="margin-top:.3rem">Nothing signed yet.</div>')
+      + '<div class="hp-docreveal" style="display:none;margin-top:.5rem;border:1px solid #E8E2D8;border-radius:8px;padding:.3rem .7rem"></div></div>';
   }
   function timelineHtml(p){
     const tl = (p.timeline || []).filter(x => FILTER === 'all' || x.type === FILTER);
@@ -332,5 +340,5 @@
   }
   function idHide(key){ clearInterval(IDV.timers[key]); delete IDV.timers[key]; delete IDV.shown[key]; idDraw(); }
   async function idCopy(key){ try{ await navigator.clipboard.writeText(IDV.shown[key] ? IDV.shown[key].value : ''); }catch(_){} }
-  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, idAsk, idReveal, idHide, idCopy };
+  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, revealHere, idAsk, idReveal, idHide, idCopy };
 })();
