@@ -20,6 +20,8 @@ const bgrCheckProofHtml = p => p ? '<a class="proof-link">PDF</a>' : '';
 let HYDRATED = true, OFFERS = [], _bgrDrawerKey = null;
 let candidates = __CANDS__;
 var caregivers = [{ id: 501, offer_id:'o8', first:'Leah', last:'Grant' }];
+async function saveCandidates(){ return true; } async function ccConfirm(){ return false; } async function saveCaregivers(){ return true; }
+window.DATA = window.DATA || {}; DATA.pay_rates = [{ id:'rates', rates:{ prn_caregiver:{ min:18, max:18 }, prn_cna:{ min:20, max:20 } } }];
 function bgrEnsureDrawer(){ if(document.getElementById('bgrDrawer')) return;
   const bd=document.createElement('div'); bd.id='bgrDrawerBackdrop'; bd.style.cssText='display:none;position:fixed;inset:0;background:rgba(15,54,95,.28);z-index:9998';
   const dr=document.createElement('div'); dr.id='bgrDrawer'; dr.style.cssText='position:fixed;top:0;right:0;bottom:0;width:470px;background:#fff;z-index:9999;overflow-y:auto';
@@ -45,6 +47,7 @@ CANDS = [
   P(id=7, first='Test', last='Signer', added=day(14), oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending'),
   P(id=8, first='Pat', last='Practice', added=day(14), oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending'),
   P(id=9, first='Gone', last='Person', added=day(20), not_hired=True),
+  P(id=10, first='Quiet', last='Person', added=day(1), position='Caregiver', r1n='A Boss', r1_type='professional', r1s='Positive', r2n='B Pal', r2s='Positive', oig='CLEAR', edl='Clear', fcsr='Clear', casenet='Clear', step2_sent_at=day(12) + 'T15:00:00Z'),
 ]
 T = r"""
 async(CODE)=>{
@@ -82,6 +85,7 @@ with sync_playwright() as pw:
     person = pg.locator('#bgrDrawer').inner_text()
     duty_boxes = pg.evaluate("()=>{ const d=document.createElement('div'); d.innerHTML=mrefDutiesHTML(['bathing']); return [d.querySelectorAll('.mref-duty').length, d.querySelectorAll('.mref-duty:checked').length]; }")
     pg.screenshot(path=os.path.join(OUT, 'checks_person.png'), clip={'x': 1440 - 470, 'y': 0, 'width': 470, 'height': 1000})
+    leave = pg.evaluate("async ()=>{ ckdLeaveOpen(10); const m=document.getElementById('ckdLeave'); const t=m.innerText.replace(/\\s+/g,' '); m.querySelector('input[value=other_job]').click(); m.querySelector('#lvGo').click(); await new Promise(r=>setTimeout(r,300)); const c=candidates.find(x=>x.id===10); return { t, gone: !!c.not_hired, why: c.not_hired_reason, open: !!document.getElementById('ckdLeave'), listed: [...document.querySelectorAll('#ckdDash .ckd-row:not(.ckd-row-h)')].some(r=>r.innerText.startsWith('Quiet Person')) }; }")
     pg.evaluate("()=>{ bgrCloseDrawer(); ckdFilter('s2'); }"); s2_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').all_inner_texts()
     pg.evaluate("()=>{ ckdFilter('s1'); }"); refs_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
     pg.evaluate("()=>{ ckdFilter('all'); ckdToggleTest(); }"); with_tests = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
@@ -94,10 +98,10 @@ def ck(name, cond, extra=''):
 rows = R['rows']
 ck('no page errors', not errs, errs)
 ck('the old table, toolbar and strips are hidden', R['oldHidden'])
-ck('seven stop tiles: everyone 6, checks and references 5, send Step 2 1', len(R['tiles']) == 7 and R['tiles'][5].startswith('1 Orientation') and R['tiles'][6].startswith('1 Ready to approve') and R['tiles'][0].startswith('8 Everyone') and R['tiles'][1].startswith('5 Checks and references') and R['tiles'][2].startswith('1 Send Step 2'), R['tiles'])
-ck('test people and not-hired people are left out; the cleared one is on the list at Send Step 2', len(rows) == 8 and not any('Test' in r or 'Practice' in r or 'Gone' in r for r in rows) and any(r.startswith('Ready Person') and 'Send Step 2' in r and 'Checks and references done' in r and r.endswith('I sent Step 2') for r in rows), rows)
+ck('seven stop tiles: everyone 6, checks and references 5, send Step 2 1', len(R['tiles']) == 7 and R['tiles'][5].startswith('1 Orientation') and R['tiles'][6].startswith('1 Ready to approve') and R['tiles'][0].startswith('9 Everyone') and R['tiles'][1].startswith('5 Checks and references') and R['tiles'][2].startswith('1 Send Step 2'), R['tiles'])
+ck('test people and not-hired people are left out; the cleared one is on the list at Send Step 2', len(rows) == 9 and not any('Test' in r or 'Practice' in r or 'Gone' in r for r in rows) and any(r.startswith('Ready Person') and 'Send Step 2' in r and 'Checks and references done' in r and r.endswith('I sent Step 2') for r in rows), rows)
 ck('after the video call: Leah at orientation with her next step, Rosa waiting on Samantha or Zachary, approved people gone', any(r.startswith('Leah Grant') and 'Orientation, profile, badge' in r and 'Caregiver profile published.' in r for r in rows) and any(r.startswith('Rosa Diaz') and 'Ready to approve' in r and 'Waiting on Samantha or Zachary' in r for r in rows) and not any('Done Person' in r for r in rows), rows)
-ck('oldest first', rows[0].startswith('Claire Sample') and any(r.startswith('Denise Sample') for r in rows[-3:]), rows)
+ck('oldest first', rows[0].startswith('Claire Sample') and any(r.startswith('Denise Sample') for r in rows[-4:]), rows)
 ck('references and checks side by side: the Hub already sent Susie the form, and the checks lane says Run OIG', 'References: Form sent to Susie Boss' in rows[0] and 'Call if you like' in rows[0] and '(417) 555-0101' in rows[0] and 'Record answer' in rows[0] and 'Checks: Run the OIG check' in rows[0] and rows[0].endswith('Run OIG'), rows[0])
 ck('no references given: ask for them, and run OIG at the same time', any(r.startswith('Kristin') and 'References: No references given yet' in r and 'Add references' in r and r.endswith('Record OIG') for r in rows), rows)
 ck('Holly: ask for references and record EDL, both at once', any(r.startswith('Holly') and 'Add references' in r and r.endswith('Record EDL') for r in rows), rows)
@@ -107,7 +111,7 @@ ck('no fingerprint anywhere: not on the dashboard, not in the checklist', 'inger
 ck('the party: the cleared person gets the ribbon and confetti once', 'Ready is cleared!' in R['partyText'] and 'Nothing is sent' in R['partyText'] and not R['againParty'], R['partyText'])
 ck('Start here is the oldest thing only you can do', 'start here' in R['start'].lower() and 'Claire Sample: Run the OIG check' in R['start'] and 'How do I do this?' in R['start'], R['start'])
 ck('progress pills: References 1 of 2, OIG, EDL, FCSR, Case.net', 'References 1 of 2 OIG EDL FCSR Case.net' in rows[0], rows[0])
-ck('More has the rare jobs, test people and the full table', all(x in R['more'] for x in ['Pre-Hire Audit', 'Reference activity', 'Not hired (1)', 'Show test people (2)', 'Full table', 'Sync reference answers now']), R['more'])
+ck('More has the rare jobs, test people and the full table', all(x in R['more'] for x in ['Pre-Hire Audit', 'Reference activity', 'Taken off the list (1)', 'Show test people (2)', 'Full table', 'Sync reference answers now']), R['more'])
 ck('the checklist opens on Your next action with How do I do this', 'your next action' in person.lower() and 'How do I do this?' in person and 'Stop 2 of 7' in person, person)
 ck('the checklist: name, 1 of 5 done, both references, four checks', 'Claire Sample' in person and '0 of 5 done' in person and 'Susie Boss' in person and 'Pat Friend' in person and all(x in person for x in ['OIG', 'EDL', 'FCSR', 'Case.net']) and 'Call (417) 555-0101' in person, person)
 ck('stop tiles filter the list; Show test people adds them back', refs_rows == 5 and len(s2_rows) == 1 and with_tests == 10, (refs_rows, s2_rows, with_tests))
@@ -116,6 +120,9 @@ ck('Level of Care card: Claimed 2, Verified 1, Approved 1 to start, what is miss
 ck('the reference form has 19 duty boxes and keeps what was ticked', duty_boxes == [19, 1], duty_boxes)
 ck('the OIG search the Hub ran by itself shows on the checks line, a person still records it', any(r.startswith('Kristin') and 'The Hub searched the OIG list: no matches. Record it as Clear.' in r and 'Record OIG' in r for r in rows), rows)
 ck('the badge is its own line at the orientation stop, closed by Mailed', any(r.startswith('Leah Grant') and 'Badge: Make their employee badge and mail it.' in r and r.endswith('Mailed') for r in rows), rows)
+ck('gone quiet: 12 days since Step 2 went, the row says call them, maybe PRN, or take them off', any(r.startswith('Quiet Person') and 'No word: Nothing from Quiet in 12 days. Call them: maybe PRN fits better, or take them off the list.' in r and 'What now?' in r for r in rows), rows)
+ck('take off the list: PRN offered first with the rate from the pay rates card, four reasons', all(x.lower() in leave['t'].lower() for x in ['would PRN work better?', 'a PRN Caregiver spot ($18.00 /hr)', 'Stopped answering', 'Took another job', 'Changed their mind', 'We decided not to hire', 'background review']), leave['t'])
+ck('taking them off marks them with the reason and they leave the list', leave['gone'] and leave['why'] == 'other_job' and not leave['open'] and not leave['listed'], leave)
 ck('no em dash on the dashboard or checklist', '—' not in R['html'] and '—' not in person)
 print(f'checks_dash_look: {ok} passed, {fail} failed'); print('screenshots:', os.path.join(OUT, 'checks_dash.png'), os.path.join(OUT, 'checks_person.png'))
 raise SystemExit(1 if fail else 0)

@@ -7436,12 +7436,107 @@ function ckdRosterFor(j){ return j && j.offer_id && typeof caregivers !== 'undef
 function ckdActsFor(p){
   if(p.j){
     const out = [Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
+    out.push({ lane:'', text:'', label:'Take off', on:'ckdLeaveOpen(null,\'' + bgrEsc(String(p.j.offer_id)) + '\')', quiet:true, small:true });
     if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
     else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
     return out;
   }
-  if(p.stop === 1 || p.stop === 0) return ckdLanes(p.c);
-  return [Object.assign({ lane:'' }, ckdStepNext(p.c, p.stop))];
+  const c = p.c, extra = [];
+  if(c.prn_offer && !c.prn_offer.answer) extra.push({ lane:'PRN', text:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call ' + (c.first || 'them') + ' and record their answer.', label:'Their answer', on:'ckdPrnAnswer(' + c.id + ')', how:'prn' });
+  const q = ckdQuiet(c, p.stop);
+  if(q && !(c.prn_offer && !c.prn_offer.answer)) extra.push({ lane:'No word', text:'Nothing from ' + (c.first || 'them') + ' in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', label:'What now?', on:'ckdLeaveOpen(' + c.id + ')', how:'quiet' });
+  if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(extra);
+  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(extra);
+}
+const ckdDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+/* GONE QUIET (her answer 2026-10-21: "Yes, after 10 days"): only where they owe us the next move: Step 1, Step 2, booking the
+   welcome video call. A hint only; nobody is ever taken off by the Hub. */
+function ckdQuiet(c, stop){
+  const since = stop === 0 ? (c.addedAt || c.added) : stop === 3 && !c.step2_done_at ? c.step2_sent_at : stop === 4 ? (() => { const w = ckdWc(c); return w && w.invited_at && w.status !== 'booked' && w.status !== 'done' ? w.invited_at : null; })() : null;
+  if(!since) return 0;
+  const d = Math.floor((Date.now() - new Date(String(since).length === 10 ? since + 'T12:00:00' : since).getTime()) / 864e5);
+  return d >= 10 ? d : 0;
+}
+/* ── TAKE OFF THE LIST (2026-10-21, Samantha: "We need a clear way to take someone out of onboarding if they ghost, or let
+   us know that they took another position, etc.") Her answers: four reasons (a background finding still goes through the
+   background review); a goodbye only when they told us, after the office sees the words; offer a PRN spot first, to
+   everyone (CNAs: the PRN CNA Team; everyone else: PRN Caregiver), the rate read from the Approved hourly pay rates.
+   The server (caregiver-journey leave) stops everything at once: their reference requests, reminders, cards and the
+   readiness card. Before that server step is installed, the Hub still marks them and says what may keep going. ── */
+const CKD_LEAVE = {
+  ghosted:      { label:'Stopped answering', bye:'' },
+  other_job:    { label:'Took another job', bye:'Hi {first}, thank you so much for letting us know. We are glad we got to meet you, and we wish you the very best in your new job. If anything changes, you are always welcome back at Caring Companions. Just call us at (417) 234-8494.' },
+  changed_mind: { label:'Changed their mind', bye:'Hi {first}, thank you so much for letting us know. We are glad we got to meet you, and we wish you the very best. If anything changes, you are always welcome back at Caring Companions. Just call us at (417) 234-8494.' },
+  our_decision: { label:'We decided not to hire', bye:'Hi {first}, thank you for your interest in joining Caring Companions. After careful review, we won\'t be moving forward with your application at this time. We appreciate the time you invested and wish you all the best.' }
+};
+function ckdPrnTrack(c){ return /\bcna\b/i.test(String((c && (c.position || c.credential)) || '')) ? 'prn_cna' : 'prn_caregiver'; }
+function ckdPrnRate(track){ try{ const r = (typeof payRatesRec === 'function' ? payRatesRec() : {}).rates || {}; return r[track] && typeof payRangeText === 'function' ? payRangeText(r[track]) : ''; }catch(e){ return ''; } }
+function ckdLeaveOpen(id, offerId){
+  const c = id != null ? candidates.find(x => x.id === id) : null;
+  const j = !c && offerId ? ckdJourneyRows().find(r => String(r.offer_id) === String(offerId)) : null;
+  if(!c && !j) return;
+  const name = c ? ckdName(c) : (j.name || 'them'), first = c ? (c.first || name) : String(name).split(' ')[0];
+  const track = ckdPrnTrack(c || ckdRosterFor(j)), rate = ckdPrnRate(track), tname = track === 'prn_cna' ? 'the PRN CNA Team' : 'a PRN Caregiver spot';
+  const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10060; w.id = 'ckdLeave';
+  w.innerHTML = '<div class="modal" style="max-width:540px"><h3>Take ' + bgrEsc(name) + ' off the onboarding list</h3>'
+    + (c && !(c.prn_offer && c.prn_offer.answer === 'no') ? '<div class="ckd-msg ckd-soft" style="margin:.4rem 0 .8rem"><b>Before you do: would PRN work better?</b> If their life changed, offer ' + tname + (rate ? ' (' + bgrEsc(rate) + ')' : '') + ': flexible shifts they can accept or decline. Call them first.'
+      + '<div style="margin-top:.5rem"><button class="ibtn" id="lvPrn" style="background:var(--teal);color:#fff;border-color:var(--teal)">I offered PRN, waiting on their answer</button></div>'
+      + (rate ? '' : '<div class="field-note" style="margin-top:.35rem">No PRN rate is set yet on the Approved hourly pay rates card, so the Hub does not say one.</div>') + '</div>' : '')
+    + '<div class="grp"><label>Why are they leaving?</label>' + Object.keys(CKD_LEAVE).map(k => '<label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem;padding:.2rem 0"><input type="radio" name="lvWhy" value="' + k + '" style="width:auto"> ' + CKD_LEAVE[k].label + '</label>').join('')
+    + '<div class="field-note">Something came up on a background check? Use the background review on their record instead, so they get the one notice worded for it.</div></div>'
+    + '<div class="grp"><label>Note (optional)</label><input type="text" id="lvNote" placeholder="for example: took a job at a hospital, said maybe in the spring"></div>'
+    + '<p style="font-size:.8rem;color:var(--gray)">This stops everything for them: reference reminders, Step 2 reminders, cards. Their record is kept, and you can bring them back from More, Taken off the list.</p>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.6rem"><button class="ibtn" id="lvCancel">Cancel</button><button class="ibtn" id="lvGo" style="background:#B42318;color:#fff;border-color:#B42318">Take off the list</button></div></div>';
+  document.body.appendChild(w);
+  const q = s_ => w.querySelector(s_);
+  q('#lvCancel').onclick = () => w.remove();
+  if(q('#lvPrn')) q('#lvPrn').onclick = async () => { await ckdPrnOffered(c, track); w.remove(); };
+  q('#lvGo').onclick = async () => {
+    const why = (w.querySelector('input[name=lvWhy]:checked') || {}).value;
+    if(!why){ alert('Pick why they are leaving.'); return; }
+    q('#lvGo').disabled = true;
+    const ok = await ckdLeave(c, j, why, q('#lvNote').value.trim());
+    w.remove();
+    if(ok && c) await ckdGoodbye(c, why);
+  };
+}
+async function ckdPrnOffered(c, track){
+  if(!c) return;
+  c.prn_offer = { track, at:new Date().toISOString(), by:((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || ''), answer:null };
+  const ok = await saveCandidates();
+  if(ok === false) alert('Not saved. Try again in a moment.');
+  renderCkd();
+}
+async function ckdPrnAnswer(id){
+  const c = candidates.find(x => x.id === id); if(!c || !c.prn_offer) return;
+  const yes = await ccConfirm('Did ' + (c.first || 'they') + ' say yes to PRN?\n\nOK = yes, they want PRN shifts. Cancel = no (you can take them off the list next).');
+  c.prn_offer.answer = yes ? 'yes' : 'no'; c.prn_offer.answered_at = new Date().toISOString();
+  await saveCandidates(); renderCkd();
+  if(yes) alert('Recorded. ' + (c.first || 'They') + ' stays on the list as PRN. Samantha is designing how a PRN hire continues (offer, pay track), so for now tell Samantha or Zachary.');
+  else ckdLeaveOpen(id);
+}
+async function ckdLeave(c, j, why, note){
+  const body = { action:'leave', reason:why, note };
+  if(c){ body.candidate_id = String(c.id); if(c.offer_id) body.offer_id = String(c.offer_id); } else body.offer_id = String(j.offer_id);
+  let server = null, err = '';
+  try{ server = await lvlCall(body); }catch(e){ err = (e && e.message) || String(e); }
+  if(c){
+    c.not_hired = true; c.not_hired_reason = why; c.not_hired_notes = note; c.not_hired_date = new Date().toISOString().split('T')[0];
+    c.left_at = new Date().toISOString(); c.left_by = ((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || '');
+    await saveCandidates();
+  }
+  try{ if(window.CRX && CRX._clear) CRX._clear(); }catch(_){}
+  bgrCloseDrawer(); renderOB(); renderAlerts();
+  if(err) alert('Taken off the list here. ' + (c ? '' : 'Not done: ') + 'The server did not stop their reminders yet (' + err + ').' + (c ? '\n\nTheir reference reminders and Step 2 reminders may keep going until the server step is installed. Tell Claude.' : ''));
+  else if(server && server.axiscare_card) alert('Done. They are already in AxisCare, so set them inactive there. You have a card for it.');
+  return c ? true : !err;
+}
+async function ckdGoodbye(c, why){
+  const t = CKD_LEAVE[why] && CKD_LEAVE[why].bye; if(!t || !c.phone) return;
+  const msg = t.replace('{first}', c.first || '');
+  if(!(await ccConfirm('Send ' + (c.first || 'them') + ' this text? (8am to 6pm; nothing is sent if you press Cancel)\n\n"' + msg + '"'))) return;
+  try{ await sendCandidateSMS({ first:c.first, last:c.last, phone:c.phone, email:c.email || '', message:msg }); alert('Text sent.'); }
+  catch(e){ alert('The text could not be sent (' + e.message + '). Nothing was sent. You may want to call ' + (c.first || 'them') + '.'); }
 }
 function ckdRoadHTML(stop, bad){
   return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of 7">' + CKD_STOPS.map((_, i) =>
@@ -7508,7 +7603,7 @@ function renderCkd(){
     +   '<button type="button" class="ckd-link" onclick="bgrSub(\'refs\')">Reference activity</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
     +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Not hired (' + L.notHired + ')</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
     +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
     +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
@@ -7752,6 +7847,8 @@ const CKD_HOW = {
     'On the call you check their ID on camera for the I-9 and welcome them.',
     'Press Done at the end. Their orientation link goes out from our training site, and they move to the caregiver list.'],
   approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  quiet: ['Call them. Life changes: ask if flexible PRN shifts would work better for them.', 'If PRN fits, press What now? and then I offered PRN.', 'If they are done, press What now? and pick why. The Hub stops their reminders and keeps their record.'],
+  prn: ['Call them and ask if PRN (flexible shifts they can accept or decline) works for them.', 'Press Their answer. Yes keeps them on the list as PRN. No opens Take off the list.'],
   badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],
   card: ['Open their readiness card. It lists every requirement and says which one is next.', 'Each line says what proof it needs. Record or confirm it there.']
 };
@@ -7834,7 +7931,7 @@ function ckdPersonHTML(c){
     +   (window.CRX && c.offer_id ? CRX.chip(c.offer_id) : '')
     +   '<button type="button" class="ckd-link" onclick="openOBModal(' + id + ')">Full record</button>'
     +   ([1,2,3,4].some(n => c['r'+n+'_manual']) ? '<button type="button" class="ckd-link" onclick="refReport(' + id + ')">Reference record</button>' : '')
-    +   '<button type="button" class="ckd-link" style="color:#B42318" onclick="openNotHireModal(' + id + ')">Not hiring them</button>'
+    +   '<button type="button" class="ckd-link" style="color:#B42318" onclick="ckdLeaveOpen(' + id + ')">Take off the list</button>'
     + '</div></div>';
 }
 
@@ -7926,7 +8023,7 @@ function renderOB(){
       <td>
         ${c.not_hired?`
           <span class="badge b-red">🚫 Not Hired</span>
-          ${c.not_hired_reason?`<span class="sub" style="color:#ef4444">${{background:'BG Issue',reference:'Ref Concern',noshow:'No-Show',withdrew:'Withdrew',other:'Other'}[c.not_hired_reason]||c.not_hired_reason}</span>`:''}
+          ${c.not_hired_reason?`<span class="sub" style="color:#ef4444">${{background:'BG Issue',reference:'Ref Concern',noshow:'No-Show',withdrew:'Withdrew',other:'Other',ghosted:'Stopped answering',other_job:'Took another job',changed_mind:'Changed their mind',our_decision:'We decided'}[c.not_hired_reason]||c.not_hired_reason}</span>`:''}
           ${c.not_hired_notes?`<span class="sub" style="color:var(--gray);font-style:italic">${c.not_hired_notes}</span>`:''}
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
         `:`
@@ -8702,7 +8799,13 @@ async function confirmNotHire(){
 async function reactivateOB(id){
   const c=candidates.find(x=>x.id===id);
   if(!c||!(await ccConfirm(`Reactivate ${c.first} ${c.last}? They will return to the active pipeline.`))) return;
-  delete c.not_hired; delete c.not_hired_reason; delete c.not_hired_notes; delete c.not_hired_date;
+  /* 2026-10-21: the server reopens their readiness card and the reference requests 'leave' closed (owners and the Approve
+     to Work list). If it says no, they stay off the list. */
+  if(c.left_at){
+    try{ await lvlCall({ action:'come_back', candidate_id:String(c.id), offer_id:c.offer_id ? String(c.offer_id) : undefined, note:'Brought back from the Hub' }); }
+    catch(e){ if(!/unknown action|not found/i.test(e.message || '')){ alert('Not brought back: ' + e.message); return; } }
+  }
+  delete c.not_hired; delete c.not_hired_reason; delete c.not_hired_notes; delete c.not_hired_date; delete c.left_at; delete c.left_by;
   saveCandidates(); renderOB(); renderAlerts();
 }
 
@@ -11786,7 +11889,7 @@ window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;

@@ -1001,6 +1001,38 @@ window.AP_JOURNEY = [
   "failure_visible": true
  },
  {
+  "stage": "leaving onboarding",
+  "order": 30.8,
+  "name": "Goodbye when they took another job",
+  "trigger": "Office presses Take off the list, picks 'Took another job', then OK on the exact words.",
+  "automatic": false,
+  "button": "Onboarding: their checklist, Take off the list (or What now?)",
+  "timing": "Only when the office presses OK.",
+  "channel": "text",
+  "rule": "Her rule 2026-10-21: a goodbye only when they told us. Stopped answering gets nothing. Cancel sends nothing.",
+  "subject": null,
+  "text": "Hi {first}, thank you so much for letting us know. We are glad we got to meet you, and we wish you the very best in your new job. If anything changes, you are always welcome back at Caring Companions. Just call us at (417) 234-8494.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "leaving onboarding",
+  "order": 30.81,
+  "name": "Goodbye when they changed their mind",
+  "trigger": "Office presses Take off the list, picks 'Changed their mind', then OK on the exact words.",
+  "automatic": false,
+  "button": "Onboarding: their checklist, Take off the list (or What now?)",
+  "timing": "Only when the office presses OK.",
+  "channel": "text",
+  "rule": "Her rule 2026-10-21: a goodbye only when they told us. Stopped answering gets nothing. Cancel sends nothing.",
+  "subject": null,
+  "text": "Hi {first}, thank you so much for letting us know. We are glad we got to meet you, and we wish you the very best. If anything changes, you are always welcome back at Caring Companions. Just call us at (417) 234-8494.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
   "stage": "first shift",
   "order": 31,
   "name": "Availability link",
