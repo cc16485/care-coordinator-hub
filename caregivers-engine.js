@@ -2429,7 +2429,7 @@ async function offerToCandidate(offerId, btn, opts){
   alert(rec.first + ' ' + rec.last + ' is now in Background & References.\n\n' +
     (gotRefs ? gotRefs + ' reference' + (gotRefs === 1 ? '' : 's') + ' came across from their start link.'
              : 'No start-link submission found yet, so references are still blank.') +
-    (rec.fp === 'Required' ? '\nThey lived outside Missouri, so a fingerprint check is required.' : ''));
+    '');
 }
 
 /* ── OFFERED PEOPLE GO STRAIGHT INTO BACKGROUND & REFERENCES (2026-10-08, Samantha) ──
@@ -2529,7 +2529,7 @@ async function intakeFillFromForm(candId, intakeId, btn){
   try{ await sb.from('hire_intake').update({ seen_at: new Date().toISOString() }).eq('id', row.id); const l = INTAKE_ROWS.find(r => r.id === row.id); if(l) l.seen_at = new Date().toISOString(); }catch(e){}
   renderOB(); renderAlerts();
   alert(name + ': ' + (added ? added + ' reference' + (added === 1 ? '' : 's') + ' came in from their start form.' : 'their start form is on the row now, but it had no new references.')
-    + (c.fp === 'Required' ? '\n\nThey lived outside Missouri, so a fingerprint check is required.' : ''));
+    );
 }
 function renderOfferedStrip(){
   const box = document.getElementById('obOfferedStrip'); if(!box) return;
@@ -5386,8 +5386,10 @@ async function bgrSaveAttempt(btn){
    we promised to remove). This is the deliberate home for those two writes: it
    runs ONLY when a human clicks it, never at boot, and it records an audit
    line. It sends nothing. */
-async function bgrSyncRefAnswers(btn){
-  if(!HYDRATED){ alert('Open Background & References first so the shared data loads, then sync.'); return; }
+async function bgrSyncRefAnswers(btn, opts){
+  /* quiet (the checks dashboard, 2026-10-21): no pop-ups; returns { merged, cleared, err } for the page to show */
+  const quiet = !!(opts && opts.quiet);
+  if(!HYDRATED){ if(quiet) return { merged:0, cleared:0, err:'the shared data has not loaded' }; alert('Open Background & References first so the shared data loads, then sync.'); return; }
   if(btn){ btn.disabled = true; btn._t = btn.textContent; btn.textContent = 'Syncing…'; }
   let merged = 0, cleared = 0, err = null;
   try { merged = (await refReconcile()) || 0; } catch(e){ err = e; }
@@ -5409,6 +5411,7 @@ async function bgrSyncRefAnswers(btn){
   try { renderPeopleChecks(); } catch(e){}
   try { renderReferenceActivity(); } catch(e){}
   if(btn){ btn.disabled = false; btn.textContent = btn._t || '↻ Sync reference answers'; }
+  if(quiet) return { merged, cleared, err: err ? String((err && err.message) || err) : '' };
   if(err){ alert('The sync hit a problem and may be incomplete: ' + ((err && err.message) || err) + '\n\nNothing was sent. You can run it again.'); return; }
   if(!merged && !cleared){ alert('Nothing new to sync. Any emailed answers were already on their candidate.'); return; }
   alert('Synced. '
@@ -5530,7 +5533,7 @@ function sdRender(){
     + line('Date of birth (MM-DD-YYYY)', dobV) + line('Gender', has('gender') ? sdEsc(F.gender) : notYet)
     + line('Mailing address', sdEsc(F.address) + cp(F.address)) + line('County', has('county') ? sdEsc(F.county) + cp(F.county) : notYet)
     + line('Telephone (no dashes)', sdEsc(digits) + cp(digits)) + line('Email (required)', sdEsc(F.email) + cp(F.email))
-    + line('Lived outside Missouri', F.lived_outside_mo === 'yes' ? 'Yes: ' + sdEsc((F.states_lived||[]).join(', ')) + ' <span style="color:#B45309;font-weight:700">(fingerprint check required)</span>' : F.lived_outside_mo === 'no' ? 'No' : '')
+    + line('Lived outside Missouri', F.lived_outside_mo === 'yes' ? 'Yes: ' + sdEsc((F.states_lived||[]).join(', ')) : F.lived_outside_mo === 'no' ? 'No' : '')
     + line('EDL/FCSR consent signed', d.consent_signed_at ? sdEsc(sdWhen(d.consent_signed_at)) : '<span style="color:#B91C1C">not yet: no check may be ordered before the consent</span>');
   h += '<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0"><a class="ibtn" style="text-decoration:none" target="_blank" rel="noopener" href="https://health.mo.gov/safety/fcsr/">Open the FCSR site (DHSS)</a><a class="ibtn" style="text-decoration:none" target="_blank" rel="noopener" href="https://health.mo.gov/business-professionals/employee-disqualification-list-edl">Open the EDL portal (DHSS)</a></div>'
     + '<div style="font-size:.74rem;color:#8A7F70">The Hub never sends anything to these sites. Record each result with its document through Record EDL and Record FCSR.</div>';
@@ -5622,8 +5625,6 @@ function bgrChecksSummary(board){
   chips.push(mk('EDL', board.edl, ['Clear'], !!board.edl_date));
   chips.push(mk('FCSR', board.fcsr, ['Clear'], !!board.fcsr_date));
   chips.push(mk('Case.net', board.casenet, ['Clear'], !!board.casenet_date));
-  if(board.oos === 'yes') chips.push(mk('FP', board.fp, ['Clear'], !!board.fp_date));
-  else chips.push(bgrOff('FP n/a'));
   return { chips, problem };
 }
 
@@ -5675,11 +5676,7 @@ function bgrTriage(r){
     if(board.oig !== 'CLEAR' && !board.oig_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'OIG check not run yet', next:'Run OIG', group:'nextstep' };
     if(board.edl !== 'Clear' && !board.edl_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'EDL result not recorded', next:'Record EDL', group:'nextstep' };
     if(board.fcsr !== 'Clear' && !board.fcsr_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
-    if(board.oos === 'yes' && board.fp !== 'Clear'){
-      return board.fp_date
-        ? { stage:'Checks in progress', waitingOn:'External check', why:'Fingerprint submitted, awaiting the result', next:'Awaiting fingerprint result', group:'others' }
-        : { stage:'Checks in progress', waitingOn:'Us', why:'Fingerprint required, not scheduled', next:'Schedule fingerprint', group:'nextstep' };
-    }
+    /* No fingerprints from 2026-10-21 (IHS ending). */
     return { stage:'Checks in progress', waitingOn:'Unknown', why:'Needs review', next:'Needs review', group:'others' };
   }
   // 4) offer exists, no submission — send is NOT recorded, so we do not claim
@@ -5959,7 +5956,7 @@ function bgrOpenDrawer(key){
 function bgrCloseDrawer(){
   const dr = document.getElementById('bgrDrawer'); if(dr) dr.style.transform = 'translateX(102%)';
   const bd = document.getElementById('bgrDrawerBackdrop'); if(bd) bd.style.display = 'none';
-  _bgrDrawerKey = null;
+  _bgrDrawerKey = null; CKD_OPEN = null;
 }
 /* After a write re-renders the list (which rebuilds BGR_ROW_INDEX with fresh
    rows), refresh an open drawer so it shows the new state for the same person. */
@@ -5987,7 +5984,6 @@ function bgrDrawerHTML(r, t){
     /* CASE.NET: the court site opens in its own tab (the Hub never types into it); the office records what it found */
     bgBtns.push('<a class="ibtn" style="text-decoration:none" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener" title="Missouri Case.net name search: search their full name, save the result page as a PDF">Search Case.net &#8599;</a>');
     bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'casenet\')">Record Case.net</button>');
-    if(b.oos === 'yes') bgBtns.push('<button class="ibtn" onclick="bgrRecordCheck('+b.id+',\'fp\')">Record fingerprint</button>');
     const refsPending = [1,2,3,4].some(n => b['r'+n+'n'] && b['r'+n+'s'] === 'Pending');
     if(refsPending) refBtns.push('<button class="ibtn" onclick="askReferences('+b.id+',this)">&#128233; Ask refs</button>');
     if([1,2,3,4].some(n => b['r'+n+'n'])) refBtns.push('<button class="ibtn" onclick="bgrRecordForPerson('+b.id+')">Record answer</button>');
@@ -6682,6 +6678,7 @@ function bgrRenderSub(which){
 function renderBGRTab(){
   try{ renderOB(); }catch(e){}
   bgrOnOpen();
+  ckdAutoRun();
 }
 
 /* When shared data finishes loading, the legacy views refresh via renderAll,
@@ -7218,6 +7215,297 @@ function renderImportStrip(){
           + '<button class="ibtn ibtn-strong" style="margin-left:auto" onclick="intakeImport(\''+esc(i.id)+'\',this)">Import</button></div>';
       }).join('');
 }
+/* ── CHECKS DASHBOARD (2026-10-21) ──────────────────────────────────────────
+   Samantha: People & Checks was "too busy and crazy. We need it simple, a dashboard for our staffing coordinator to
+   complete the reference checks and background checks." She approved the mockup
+   (https://claude.ai/artifact/DBNyPzPxhxNkmhJpCLCuxr) and chose: no fingerprints, hide test people, add the old
+   offers, sync reference answers when the page opens. One list, oldest first, ONE next step per person; a click opens
+   that person's checklist. Every button calls the handler the old table used (openManualRef, bgrRunOIG,
+   bgrRecordCheck, openOBModal...), so nothing here writes data on its own. The old table is one click away under More. */
+let CKD_FILTER = 'all';
+let CKD_SHOW_TEST = false;
+let CKD_OPEN = null;
+const CKD_RUN = { at:0, busy:false, wanted:false, note:'', err:'', notAdded:null, syncedAt:null };
+/* Test people (Test Signer, Test Camera, Pat Practice...): first or last name "Test", or last name "Practice". Shown
+   again from More. */
+function ckdIsTest(first, last){
+  const f = String(first||'').trim().toLowerCase(), l = String(last||'').trim().toLowerCase();
+  return f === 'test' || l === 'test' || l === 'practice';
+}
+function ckdName(c){ return ((c.first||'') + ' ' + (c.last||'')).trim(); }
+function ckdActive(c){ return !!c && !c.not_hired && (CKD_SHOW_TEST || !ckdIsTest(c.first, c.last)); }
+const CKD_CHECKS = [
+  { k:'oig',     label:'OIG',      ok:'CLEAR', bad:'FLAGGED',      how:'The Hub checks the federal list for you' },
+  { k:'edl',     label:'EDL',      ok:'Clear', bad:'Issues Found', how:'Search the state EDL list, attach the PDF' },
+  { k:'fcsr',    label:'FCSR',     ok:'Clear', bad:'Issues Found', how:'Order it in the state system, then record the result' },
+  { k:'casenet', label:'Case.net', ok:'Clear', bad:'Issues Found', how:'Search Missouri courts, attach the PDF' },
+];
+function ckdRefSlots(c){ return [1,2,3,4].filter(n => String(c['r'+n+'n']||'').trim() || c['r'+n+'_phone'] || c['r'+n+'_email']); }
+function ckdGoodRefs(c){ return [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length; }
+function ckdChecksLeft(c){ return CKD_CHECKS.filter(x => c[x.k] !== x.ok); }
+function ckdStep1Waiting(c){
+  if(!c || c.onboarding_path !== 'new') return false;
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(c.offer_id || ''));
+  return !(c.step1_done_at || (c.step1_landed && c.step1_landed.done) || (o && o.step1_done_at));
+}
+/* The pills: done, partly done, not started, or a problem. */
+function ckdSteps(c){
+  const rp = refPolicy(c), good = ckdGoodRefs(c);
+  const refLabel = (good >= 2 && !rp.ok && !rp.blocked) ? 'References: 1 from work needed' : 'References ' + Math.min(good, 2) + ' of 2';
+  const out = [{ k:'refs', label:refLabel, state: rp.ok ? 'done' : rp.blocked ? 'bad' : good ? 'half' : 'todo' }];
+  CKD_CHECKS.forEach(x => out.push({ k:x.k, label:x.label,
+    state: c[x.k] === x.ok ? 'done' : c[x.k] === x.bad ? 'bad' : (x.k === 'fcsr' && c.fcsr_date) ? 'half' : 'todo' }));
+  return out;
+}
+/* The reference to work next: a pending one with a phone first, then any pending one. */
+function ckdRefToWork(c){
+  const pend = ckdRefSlots(c).filter(n => (c['r'+n+'s'] || 'Pending') === 'Pending');
+  return pend.find(n => c['r'+n+'_phone']) || pend[0] || null;
+}
+function ckdCheckNext(c){
+  const id = c.id;
+  if(c.oig !== 'CLEAR' && c.oig !== 'FLAGGED')
+    return c.oig_date ? { text:'Record the OIG result.', label:'Record OIG', on:'bgrRecordCheck('+id+',\'oig\')' }
+                      : { text:'Run the OIG check. It takes one click.', label:'Run OIG', on:'bgrRunOIG('+id+',this)' };
+  if(c.edl !== 'Clear' && c.edl !== 'Issues Found') return { text:'Search the EDL list and record what you find.', label:'Record EDL', on:'bgrRecordCheck('+id+',\'edl\')' };
+  if(c.fcsr !== 'Clear' && c.fcsr !== 'Issues Found')
+    return c.fcsr_date ? { text:'FCSR ordered ' + (fmtD(c.fcsr_date) || '') + '. Record the result when it comes back.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' }
+                       : { text:'Order FCSR in the state system, then record it.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' };
+  if(c.casenet !== 'Clear' && c.casenet !== 'Issues Found') return { text:'Search Case.net and record what you find.', label:'Record Case.net', on:'bgrRecordCheck('+id+',\'casenet\')' };
+  return null;
+}
+function ckdRefNext(c){
+  const id = c.id, rp = refPolicy(c);
+  if(rp.ok) return null;
+  const n = ckdRefToWork(c);
+  if(n){
+    const nm = String(c['r'+n+'n'] || '').trim() || 'their reference';
+    const tl = obRefCellTypeLine(c, n);
+    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + '.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
+  }
+  if(!ckdRefSlots(c).length) return { text:'No references given yet. Type them in from their record.', label:'Add references', on:'openOBModal('+id+')' };
+  return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'openOBModal('+id+')' };
+}
+/* ONE next step. The filter decides which kind comes first; otherwise references come first (they take the longest),
+   then the checks. */
+function ckdNext(c){
+  const id = c.id, st = obDeriveStatus(c), rp = refPolicy(c);
+  if(st === 'Ready for Orientation') return { text:'All clear. They move on to orientation by themselves.', label:'Open', on:'ckdOpen('+id+')', done:true };
+  if(st === 'Needs Review')
+    return { text: rp.blocked ? rp.why : 'A check came back with something on it. Review it with management.', label:'Review',
+             on: (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal('+id+')' : 'ckdOpen('+id+')', warn:true };
+  if(ckdStep1Waiting(c)) return { text:'Waiting on their Step 1, which holds their signed permission for checks.', label:'Open', on:'ckdOpen('+id+')', wait:true };
+  const ref = ckdRefNext(c), chk = ckdCheckNext(c);
+  if(CKD_FILTER === 'checks') return chk || ref;
+  if(CKD_FILTER === 'refs') return ref || chk;
+  return ref || chk || { text:'Nothing left to do here.', label:'Open', on:'ckdOpen('+id+')' };
+}
+function ckdAddedMs(c){ const t = c.addedAt || (c.added ? c.added + 'T00:00:00' : null); const d = t ? new Date(t) : null; return d && !isNaN(d) ? d.getTime() : null; }
+function ckdWait(c){
+  const ms = ckdAddedMs(c); if(ms === null) return { text:'', color:'var(--gray)' };
+  const d = Math.max(0, Math.floor((Date.now() - ms) / 86400000));
+  return { text: d === 0 ? 'New today' : d + ' day' + (d === 1 ? '' : 's') + ' waiting', color: d >= 10 ? '#B42318' : d >= 5 ? '#9C6410' : 'var(--gray)' };
+}
+function ckdLists(){
+  const all = (typeof candidates !== 'undefined' ? candidates : []).filter(ckdActive);
+  const ready = c => obDeriveStatus(c) === 'Ready for Orientation';
+  const open = all.filter(c => !ready(c));
+  return { all: open,
+    refs:   open.filter(c => !refPolicy(c).ok),
+    checks: open.filter(c => ckdChecksLeft(c).length),
+    done:   all.filter(ready),
+    tests:  (typeof candidates !== 'undefined' ? candidates : []).filter(c => !c.not_hired && ckdIsTest(c.first, c.last)).length,
+    notHired: (typeof candidates !== 'undefined' ? candidates : []).filter(c => c.not_hired).length };
+}
+function ckdPill(s){
+  const cls = { done:'ckd-pill ckd-done', half:'ckd-pill ckd-half', bad:'ckd-pill ckd-bad', todo:'ckd-pill' }[s.state] || 'ckd-pill';
+  return '<span class="' + cls + '">' + (s.state === 'done' ? '<svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> ' : '') + bgrEsc(s.label) + '</span>';
+}
+function ckdRowHTML(c){
+  const w = ckdWait(c), nx = ckdNext(c);
+  let phone = '';
+  if(nx.slot){
+    const ph = c['r'+nx.slot+'_phone'], em = c['r'+nx.slot+'_email'], p = ph ? obFmtPhone(ph) : null;
+    phone = p ? ' <a class="ckd-phone"' + ocAttrs(p.dial, { email:em }) + '>' + bgrEsc(p.show) + '</a>'
+              : (em ? ' <a class="ckd-phone" href="mailto:' + bgrEsc(em) + '">' + bgrEsc(em) + '</a>' : '');
+  }
+  return '<div class="ckd-row">'
+    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="ckdOpen(' + c.id + ')">' + bgrEsc(ckdName(c)) + '</button>'
+    +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
+    + '<div class="ckd-pills">' + ckdSteps(c).map(ckdPill).join('') + '</div>'
+    + '<div class="ckd-next"><span class="ckd-next-text' + (nx.warn ? ' ckd-warn' : '') + '">' + bgrEsc(nx.text) + phone + '</span>'
+    +   '<button type="button" class="ckd-go' + (nx.wait || nx.done ? ' ckd-go-quiet' : '') + '" onclick="' + nx.on + '">' + bgrEsc(nx.label) + '</button></div>'
+    + '</div>';
+}
+function renderCkd(){
+  const box = document.getElementById('ckdDash'); if(!box) return;
+  if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
+  const L = ckdLists();
+  const q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
+  let list = CKD_FILTER === 'refs' ? L.refs : CKD_FILTER === 'checks' ? L.checks : CKD_FILTER === 'done' ? L.done : L.all;
+  if(q) list = list.filter(c => ckdName(c).toLowerCase().includes(q) || (typeof obRefMatchSlots === 'function' && obRefMatchSlots(c, q).length));
+  list = list.slice().sort((a, b) => (ckdAddedMs(a) || 0) - (ckdAddedMs(b) || 0));
+  const tile = (k, n, title, sub, tone) => '<button type="button" class="ckd-tile' + (CKD_FILTER === k ? ' ckd-tile-on' : '') + '" onclick="ckdFilter(\'' + k + '\')" aria-pressed="' + (CKD_FILTER === k) + '">'
+    + '<span class="ckd-tile-n"' + (tone ? ' style="color:' + tone + '"' : '') + '>' + n + '</span><span class="ckd-tile-t">' + title + '</span><span class="ckd-tile-s">' + sub + '</span></button>';
+  const heading = CKD_FILTER === 'all' ? (L.all.length + ' ' + (L.all.length === 1 ? 'person is' : 'people are') + ' waiting on you. Oldest first.')
+    : CKD_FILTER === 'done' ? 'Cleared. They move on to orientation by themselves.'
+    : 'Showing ' + list.length + '. <button type="button" class="ckd-link" onclick="ckdFilter(\'all\')">Show everyone</button>';
+  /* what happened when the page opened: a short line, and a red one when something failed (never silent) */
+  const run = [];
+  if(CKD_RUN.busy) run.push('<div class="ckd-msg">Bringing in reference answers and older offers…</div>');
+  if(CKD_RUN.err) run.push('<div class="ckd-msg ckd-err">' + bgrEsc(CKD_RUN.err) + '</div>');
+  if(CKD_RUN.note) run.push('<div class="ckd-msg">' + bgrEsc(CKD_RUN.note) + '</div>');
+  const waiting = (CKD_RUN.notAdded || []);
+  if(waiting.length) run.push('<div class="ckd-msg ckd-soft"><b>' + waiting.length + ' offered ' + (waiting.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> '
+    + waiting.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
+  box.innerHTML = ''
+    + '<div class="ckd-head"><div><h2 class="ckd-h">References &amp; background checks</h2><div class="ckd-sub">' + heading + '</div></div>'
+    +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
+    + '<div class="ckd-tiles">'
+    +   tile('refs', L.refs.length, 'Call references', 'Need 2 good ones each, 1 from work')
+    +   tile('checks', L.checks.length, 'Run background checks', 'OIG, EDL, FCSR, Case.net')
+    +   tile('done', L.done.length, 'Done, off to orientation', 'Move on by themselves', '#15803D')
+    + '</div>'
+    + run.join('')
+    + '<div class="ckd-list">'
+    +   '<div class="ckd-row ckd-row-h"><span>Person</span><span>Progress</span><span>Your next step</span></div>'
+    +   (list.length ? list.map(ckdRowHTML).join('') : '<div class="ckd-empty">' + (q ? 'Nobody matches that search.' : CKD_FILTER === 'done' ? 'Nobody is cleared right now.' : 'Nobody is waiting. Nice work.') + '</div>')
+    + '</div>'
+    + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
+    +   '<button type="button" class="ckd-link" onclick="bgrSub(\'audit\')">Pre-Hire Audit binder</button>'
+    +   '<button type="button" class="ckd-link" onclick="bgrSub(\'refs\')">Reference activity</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
+    +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Not hired (' + L.notHired + ')</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
+    +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
+    +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'all\')">Full table</button>'
+    + '</div>';
+  if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
+  ckdRefreshPerson();
+}
+let _ckdSearchT = null;
+function ckdSearchInput(){ clearTimeout(_ckdSearchT); _ckdSearchT = setTimeout(renderCkd, 200); }
+function ckdFilter(k){ CKD_FILTER = (CKD_FILTER === k && k !== 'all') ? 'all' : k; renderCkd(); }
+function ckdToggleTest(){ CKD_SHOW_TEST = !CKD_SHOW_TEST; renderCkd(); }
+/* The old table, for the rare jobs the dashboard leaves out (stats, Not hired, every column at once). */
+function ckdOldView(filter){
+  const p = document.getElementById('panel-onboarding'); if(!p) return;
+  p.classList.add('ckd-old-on');
+  const btn = [...document.querySelectorAll('#panel-onboarding .controls .fb')].find(b => (b.getAttribute('onclick') || '').indexOf("'" + filter + "'") > -1);
+  try{ obFilter(filter, btn || null); }catch(e){}
+  try{ renderOB(); }catch(e){}
+  const bar = document.getElementById('ckdOldBar'); if(bar) bar.scrollIntoView({ block:'start' });
+}
+function ckdSimpleView(){
+  const p = document.getElementById('panel-onboarding'); if(p) p.classList.remove('ckd-old-on');
+  renderCkd();
+}
+
+/* ── One person's checklist: the side panel (the old drawer's shell, this page's contents). ── */
+function ckdOpen(id){
+  const c = (typeof candidates !== 'undefined' ? candidates : []).find(x => x.id === id); if(!c) return;
+  bgrEnsureDrawer();
+  _bgrDrawerKey = null; CKD_OPEN = id;
+  document.getElementById('bgrDrawer').innerHTML = ckdPersonHTML(c);
+  document.getElementById('bgrDrawerBackdrop').style.display = 'block';
+  const dr = document.getElementById('bgrDrawer');
+  requestAnimationFrame(() => { dr.style.transform = 'translateX(0)'; });
+}
+function ckdRefreshPerson(){
+  if(CKD_OPEN === null) return;
+  const bd = document.getElementById('bgrDrawerBackdrop');
+  if(!bd || bd.style.display === 'none'){ CKD_OPEN = null; return; }
+  const c = candidates.find(x => x.id === CKD_OPEN);
+  if(c) document.getElementById('bgrDrawer').innerHTML = ckdPersonHTML(c);
+}
+function ckdPersonHTML(c){
+  const id = c.id, steps = ckdSteps(c), done = steps.filter(s => s.state === 'done').length, rp = refPolicy(c), w = ckdWait(c);
+  const o = c.offer_id && typeof OFFERS !== 'undefined' ? OFFERS.find(x => String(x.id) === String(c.offer_id)) : null;
+  const meta = [c.position || (o && o.position) || '', o && o.created_at ? 'offered ' + bgrD(o.created_at) : '', w.text].filter(Boolean);
+  const refBox = n => {
+    const s = c['r'+n+'s'] || 'Pending', nm = String(c['r'+n+'n'] || '').trim() || 'Name not given';
+    const tl = obRefCellTypeLine(c, n), sent = obRefSentLine(c, n), mn = c['r'+n+'_manual'];
+    const ph = c['r'+n+'_phone'], em = c['r'+n+'_email'], p = ph ? obFmtPhone(ph) : null;
+    const tone = { Positive:['Good','#15803D'], Conditional:['Conditional','#9C6410'], Negative:['Negative','#B42318'], Pending:['Not answered','#9C6410'] }[s] || [s, 'var(--gray)'];
+    const lines = [tl, sent ? sent.replace(/^\S+\s/, '') : '', mn && mn.date ? 'Answered ' + (fmtD(mn.date) || '') + (mn.via ? ' by ' + mn.via : '') : ''].filter(Boolean);
+    const acts = s === 'Pending'
+      ? (p ? '<a class="ckd-go"' + ocAttrs(p.dial, { email:em }) + '>Call ' + bgrEsc(p.show) + '</a>' : '')
+        + '<button type="button" class="ckd-go ckd-go-line" onclick="openManualRef(' + id + ',' + n + ')">Record answer</button>'
+        + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">Email the form</button>' : '')
+        + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">Text the form</button>' : '')
+      : '<button type="button" class="ckd-link" onclick="openManualRef(' + id + ',' + n + ')">See or change the answer</button>';
+    return '<div class="ckd-box' + (s === 'Positive' ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + bgrEsc(nm) + '</b>'
+      + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + '</div>'
+      + '<span class="ckd-box-st" style="color:' + tone[1] + '">' + bgrEsc(tone[0]) + '</span></div>'
+      + '<div class="ckd-box-acts">' + acts + '</div></div>';
+  };
+  const chkBox = x => {
+    const v = c[x.k], ok = v === x.ok, bad = v === x.bad;
+    const on = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'bgrRunOIG(' + id + ',this)' : 'bgrRecordCheck(' + id + ',\'' + x.k + '\')';
+    const label = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'Run now' : (ok || bad) ? 'Change' : 'Record result';
+    const date = c[x.k + '_date'] ? fmtD(c[x.k + '_date']) : '';
+    const st = ok ? 'Clear' + (date ? ' · ' + date : '') : bad ? 'Something found' + (date ? ' · ' + date : '') : (x.k === 'fcsr' && date ? 'Ordered ' + date : x.how);
+    const site = x.k === 'casenet' && !ok ? '<a class="ckd-link" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener">Open Case.net</a>' : '';
+    return '<div class="ckd-box' + (ok ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + x.label + '</b><div class="ckd-box-sub"' + (bad ? ' style="color:#B42318;font-weight:700"' : '') + '>' + bgrEsc(st) + '</div>'
+      + (c[x.k + '_proof'] ? '<div class="ckd-box-sub">' + bgrCheckProofHtml(c[x.k + '_proof']) + '</div>' : '') + '</div>'
+      + '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0">' + site + '<button type="button" class="ckd-go' + (ok || bad ? ' ckd-go-line' : '') + '" onclick="' + on + '">' + label + '</button></span></div></div>';
+  };
+  const slots = ckdRefSlots(c);
+  return ''
+    + '<div class="ckd-p">'
+    + '<div class="ckd-p-head"><div><h2 class="ckd-h" style="font-size:22px">' + bgrEsc(ckdName(c)) + '</h2><div class="ckd-sub">' + bgrEsc(meta.join(' · ')) + '</div></div>'
+    +   '<button type="button" class="ckd-x" onclick="bgrCloseDrawer()" aria-label="Close">&times;</button></div>'
+    + '<div class="ckd-bar"><div class="ckd-bar-track"><div class="ckd-bar-fill" style="width:' + Math.round(done / steps.length * 100) + '%"></div></div><b>' + done + ' of ' + steps.length + ' done</b></div>'
+    + (ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>' : '')
+    + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
+    +   (rp.blocked ? '<div class="ckd-msg ckd-err">' + bgrEsc(rp.why) + '</div>' : '')
+    +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
+    +   '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="openOBModal(' + id + ')">+ Add or fix a reference</button></div>'
+    + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
+    + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
+    + '<div class="ckd-p-foot">'
+    +   '<button type="button" class="ckd-link" onclick="openOBModal(' + id + ')">Full record</button>'
+    +   ([1,2,3,4].some(n => c['r'+n+'_manual']) ? '<button type="button" class="ckd-link" onclick="refReport(' + id + ')">Reference record</button>' : '')
+    +   '<button type="button" class="ckd-link" style="color:#B42318" onclick="openNotHireModal(' + id + ')">Not hiring them</button>'
+    + '</div></div>';
+}
+
+/* ── When the page opens: bring in reference answers and the older offers (her choice 2026-10-21). Runs from the tab
+   opening only (renderBGRTab), never at boot, at most every 10 minutes. Sends nothing. ── */
+async function ckdAutoRun(){
+  if(!HYDRATED){ CKD_RUN.wanted = true; return; }
+  if(CKD_RUN.busy || Date.now() - CKD_RUN.at < 10 * 60000) return;
+  CKD_RUN.busy = true; CKD_RUN.wanted = false; CKD_RUN.at = Date.now(); CKD_RUN.err = ''; CKD_RUN.note = '';
+  try{ renderCkd(); }catch(e){}
+  const notes = [];
+  /* older offers with no row: the same quiet add the old "Add to the table" button used; test offers left out */
+  let rows = [];
+  try{ rows = lifecycleRows().filter(r => r.offer && !r.board && !r.roster && !ckdIsTest(r.offer.first_name, r.offer.last_name)); }catch(e){ CKD_RUN.err = 'The older offers could not be read: ' + ((e && e.message) || e) + '.'; }
+  let added = 0; const notAdded = [];
+  for(const r of rows){
+    let x = null;
+    try{ x = await offerToCandidate(String(r.offer.id), null, { quiet:true }); }catch(e){ x = { ok:false, why:(e && e.message) || 'error' }; }
+    if(x && x.ok){ if(!x.already) added++; }
+    else notAdded.push({ name:r.name, why: /^Not yet/.test((x && x.why) || '') ? 'waiting on their Step 1' : /moves them/.test((x && x.why) || '') ? 'moving over by itself' : ((x && x.why) || 'could not be read') });
+  }
+  CKD_RUN.notAdded = notAdded;
+  if(added) notes.push(added + ' older offer' + (added === 1 ? '' : 's') + ' added to the list');
+  const res = await bgrSyncRefAnswers(null, { quiet:true });
+  if(res && res.err) CKD_RUN.err = (CKD_RUN.err ? CKD_RUN.err + ' ' : '') + 'Reference answers did not sync: ' + res.err + '. Nothing was sent. Try "Sync reference answers now" under More.';
+  else if(res && res.merged) notes.push(res.merged + ' new reference answer' + (res.merged === 1 ? '' : 's') + ' brought in');
+  CKD_RUN.note = notes.length ? notes.join(' · ') + '.' : '';
+  CKD_RUN.syncedAt = new Date();
+  CKD_RUN.busy = false;
+  try{ renderOB(); renderAlerts(); }catch(e){}
+}
+async function ckdSyncNow(btn){ CKD_RUN.at = 0; if(btn){ btn.disabled = true; btn.textContent = 'Syncing…'; } await ckdAutoRun(); }
+try{ window.addEventListener('scx-hydrated', function(){
+  const p = document.getElementById('panel-onboarding');
+  if(CKD_RUN.wanted && p && p.offsetParent !== null) ckdAutoRun();
+}); }catch(e){}
+
 function renderOB(){
   /* GoHighLevel's pre-hire documents for the check cells: read once, then draw again (2026-10-04) */
   if(typeof phdLoad === 'function' && typeof PHD !== 'undefined' && !PHD.rows && !PHD.err && !PHD.busy) phdLoad().then(() => { if(PHD.rows) renderOB(); });
@@ -7226,6 +7514,7 @@ function renderOB(){
   try{ renderHirePipeline(); }catch(e){}
   try{ renderImportStrip(); }catch(e){}
   try{ renderOfferedStrip(); }catch(e){}
+  try{ renderCkd(); }catch(e){ console.warn('checks dashboard', e); }
   const q=String(((document.getElementById('ob-search')||document.querySelector('#panel-onboarding input')||{value:''}).value||globalSearch)).trim().toLowerCase();
   const today=new Date(); today.setHours(0,0,0,0);
   const list=candidates.filter(c=>{
@@ -7248,8 +7537,6 @@ function renderOB(){
   tbody.innerHTML=list.map(c=>{
     const st=obDeriveStatus(c);
     const stBadge=st==='Ready for Orientation'?'b-green':st==='Needs Review'?'b-red':'b-gray';
-    const fpShow=c.oos==='yes';
-    const fpBadge={Clear:'b-green',Required:'b-amber',Submitted:'b-blue','N/A':'b-gray','Issues Found':'b-red'}[c.fp]||'b-gray';
     const addedTs = c.addedAt || (c.added ? c.added+'T00:00:00' : null);
     const addedDate = addedTs ? new Date(addedTs) : null;
     const daysPending = addedDate ? Math.floor((today - addedDate)/86400000) : null;
@@ -7270,7 +7557,6 @@ function renderOB(){
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'edl')" title="Record the EDL result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.edl==='Clear'?'b-green':c.edl==='Issues Found'?'b-red':'b-gray'}">${c.edl||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.edl_date?`<span class="chk-date">${fmtD(c.edl_date)}</span>`:''}${bgrCheckProofHtml(c.edl_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'edl'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'fcsr')" title="Record the FCSR result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.fcsr==='Clear'?'b-green':c.fcsr==='Issues Found'?'b-red':'b-gray'}">${c.fcsr||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fcsr_date?`<span class="chk-date">${fmtD(c.fcsr_date)}</span>`:''}${bgrCheckProofHtml(c.fcsr_proof)}${typeof phdCellHtml==='function'?phdCellHtml(c.id,'fcsr'):''}</div></td>
       <td><div class="chk"><span onclick="bgrRecordCheck(${c.id},'casenet')" title="Record the Case.net result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${c.casenet==='Clear'?'b-green':c.casenet==='Issues Found'?'b-red':'b-gray'}">${c.casenet||'Pending'}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.casenet_date?`<span class="chk-date">${fmtD(c.casenet_date)}</span>`:''}${bgrCheckProofHtml(c.casenet_proof)}</div></td>
-      <td><div class="chk">${fpShow?`<span onclick="bgrRecordCheck(${c.id},'fp')" title="Record the fingerprint result" style="cursor:pointer;display:inline-block;border-radius:6px;padding:1px 4px" onmouseover="this.style.background='#EEF2F7'" onmouseout="this.style.background=''"><span class="badge ${fpBadge}">${c.fp}</span> <span style="color:var(--teal);font-size:.62rem;font-weight:700">✎</span></span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${bgrCheckProofHtml(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
       <td>
         ${c.not_hired?`
           <span class="badge b-red">🚫 Not Hired</span>
@@ -11125,6 +11411,9 @@ window.bgrCloseRefPicker = bgrCloseRefPicker;
 window.bgrRefPickChoose = bgrRefPickChoose;
 window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
+/* checks dashboard (2026-10-21) */
+window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
+window.ckdSimpleView = ckdSimpleView; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;

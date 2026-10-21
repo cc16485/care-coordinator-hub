@@ -258,8 +258,8 @@ function candidateProgress(c){
   if(c.edl !== 'Clear')  out.blockers.push({code:'edl',  why:'EDL check not clear.'});
   if(c.fcsr !== 'Clear') out.blockers.push({code:'fcsr', why:'FCSR background check not clear.'});
   if(c.casenet !== 'Clear') out.blockers.push({code:'casenet', why:'Case.net court records search not clear.'});
-  if(c.oos === 'yes' && c.fp !== 'Clear')
-    out.blockers.push({code:'fingerprints', why:'Out-of-state history: fingerprints required and not clear.'});
+  /* NO FINGERPRINTS (Samantha, 2026-10-21: "I don't need finger print anymore since we are stopping Medicaid IHS").
+     Living outside Missouri no longer adds a check; the oos/fp fields stay on the record as history only. */
   out.ready = out.status === 'Ready for Orientation';
   return out;
 }
@@ -284,10 +284,10 @@ function obDeriveStatus(c){
   /* Case.net (Missouri court records name search), a background check on both paths from 2026-10-11 (Samantha: "add
      case.net to the old process too"). The new path's approvals already wait for it. */
   const casenetOk=c.casenet==='Clear';
-  const fpOk=c.oos!=='yes'||(c.fp==='Clear');
-  if(c.oig==='FLAGGED'||c.edl==='Issues Found'||c.fcsr==='Issues Found'||c.casenet==='Issues Found'||c.fp==='Issues Found') return 'Needs Review';
+  /* Fingerprints are no longer a check (2026-10-21, see candidateProgress). */
+  if(c.oig==='FLAGGED'||c.edl==='Issues Found'||c.fcsr==='Issues Found'||c.casenet==='Issues Found') return 'Needs Review';
   if(rp.blocked) return 'Needs Review';
-  if(rp.ok&&oigOk&&edlOk&&bgOk&&casenetOk&&fpOk) return 'Ready for Orientation';
+  if(rp.ok&&oigOk&&edlOk&&bgOk&&casenetOk) return 'Ready for Orientation';
   return 'Awaiting';
 }
 
