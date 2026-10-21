@@ -83,12 +83,20 @@
     }
     return h;
   }
+  /* 2026-10-21 (Samantha: "where can krystal find the uncovered info"): the signed PDF never prints the SSN or date of birth, so
+     the background-details card gets a Reveal button that opens their Step 1 office view at the Reveal box (reason, five
+     minutes, logged by the server). */
+  function revealBtn(p, d){
+    const oid = (p.ids || {}).offer_id;
+    if(!oid || !/Details for the Background Check/i.test(d.label || '')) return '';
+    return '<a class="ibtn" style="text-decoration:none;white-space:nowrap" href="step1.html?review=' + esc(oid) + '#reveal" target="_blank" rel="noopener" title="Opens their Step 1 at the Reveal box: type why, then the number shows for five minutes. Every reveal is logged.">&#128274; Reveal SSN / DOB</a>';
+  }
   function docsHtml(p){
     const docs = p.documents || [];
     return '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
       + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
           '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:.4rem .55rem;display:flex;gap:.5rem;align-items:center"><span style="flex:1;font-size:.82rem"><b>' + esc(d.label) + '</b>'
-          + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span><button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
+          + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span>' + revealBtn(p, d) + '<button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
         : '<div class="field-note" style="margin-top:.3rem">Nothing signed yet.</div>') + '</div>';
   }
   function timelineHtml(p){

@@ -52,6 +52,8 @@ with sync_playwright() as pw:
     pg.locator('#rvBox button:has-text("Hide")').click(); pg.wait_for_timeout(200)
     ok('Hide wipes it at once', '1990-05-05' not in pg.inner_text('#main'))
     ok('no em dash in the box', '—' not in pg.inner_text('#rvBox'))
+    pg = ctx.new_page(); pg.on('pageerror', lambda e: errs.append(str(e)[:200])); pg.route('**/functions/v1/step1-sign', handle); pg.goto(PAGE + '#reveal'); pg.wait_for_timeout(2500)
+    ok('#reveal (the profile button) opens straight at the Reveal box with the reason box ready', pg.evaluate("document.activeElement && document.activeElement.id === 'rv_reason'") and pg.evaluate("(() => { const r = document.getElementById('rvBox').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; })()"))
     ok('no page errors', not errs, errs)
     br.close()
 for r in R: print(r[0], '·', r[1], r[2])
