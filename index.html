@@ -7534,7 +7534,7 @@ The HomeTogether team</pre>
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=6"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=7"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
@@ -25151,7 +25151,8 @@ function apRenderProfile(){
     + apProfRow('Moved from', b && b.rescheduled_from
         ? esc(new Date(b.rescheduled_from).toLocaleString('en-US',{weekday:'short', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'})) : '')
     + apProfRow('Changed by them', AP_CHURN[r.id]
-        ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ', self-serve changes used up, phone only now' : '') : '');
+        ? '×' + AP_CHURN[r.id] + (AP_CHURN[r.id]>=2 ? ', self-serve changes used up, phone only now' : '') : '')
+    + (apIsOffered(r) ? '<div id="apIdRows"></div>' : '');   /* 2026-10-21: SSN + date of birth, click to reveal (hire-profile.js HP.identity) */
 
   const pane = (k, html) => AP_TABS_HAVE.includes(k) ? '<div id="apPane-' + k + '" role="tabpanel" style="display:none;">' + html + '</div>' : '';
   document.getElementById('apProfRight').innerHTML =
@@ -25188,6 +25189,7 @@ function apRenderProfile(){
       + (window.HP ? '<div class="card" style="padding:4px 18px 16px;"><div id="apHpHistory"></div></div>' : '<div class="field-note">The history did not load. Refresh the page.</div>'));
   /* the start paperwork and training read into their boxes even before their tab is opened */
   if(AP_TABS_HAVE.includes('hiring')) apOnboardMount(r);
+  try{ const idEl = document.getElementById('apIdRows'); if(idEl && window.HP && HP.identity) HP.identity(idEl, { applicant_id: r.id }); }catch(e){}
   if(AP_TABS_HAVE.includes('checks')) apTrainingMount(r);
   apTab(AP_TAB);
 }

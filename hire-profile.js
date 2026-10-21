@@ -273,5 +273,64 @@
   }
   function watch(){ const box = document.getElementById('offersList'); if(!box || box.dataset.hpWatch) return; box.dataset.hpWatch = '1'; new MutationObserver(() => fillOfferProgress()).observe(box, { childList:true, subtree:true }); fillOfferProgress(); }
   document.addEventListener('DOMContentLoaded', watch); setInterval(watch, 3000);
-  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress };
+  /* 2026-10-21 (Samantha: "can we have that info here" ... "so the click to reveal"): Social Security number and date of birth
+     rows on the applicant's At a glance, each with Reveal. Any active office user (step1-sign checks the sign-in); a typed
+     reason; the number shows for five minutes, then is wiped. It lives only in IDV while the countdown runs: never in
+     storage, a URL, a log or the console. The server logs who, when and why. */
+  let IDV = { el: null, oid: null, ident: null, shown: {}, timers: {}, reason: '', ask: null, err: '' };
+  async function s1(body){
+    const r = await sb.functions.invoke('step1-sign', { body });
+    if(r.error){ let why = ''; try{ if(r.error.context && r.error.context.json) why = (await r.error.context.json()).error || ''; }catch(_){} throw new Error(why || r.error.message || 'the Step 1 server did not answer'); }
+    if(!r.data || r.data.ok !== true) throw new Error((r.data && r.data.error) || 'the Step 1 server did not answer');
+    return r.data;
+  }
+  function idWipe(){ Object.keys(IDV.timers).forEach(k => clearInterval(IDV.timers[k])); IDV.timers = {}; IDV.shown = {}; }
+  async function identity(el, k){
+    if(!el) return;
+    if(IDV.el !== el){ idWipe(); IDV = { el, oid: null, ident: null, shown: {}, timers: {}, reason: '', ask: null, err: '' }; }
+    try{
+      const p = await call(Object.assign({ action:'get' }, k));
+      const oid = (p.ids || {}).offer_id; if(!oid || IDV.el !== el) return;
+      const d = await s1({ action: 'screening', offer_id: String(oid) });
+      if(IDV.el !== el) return;
+      IDV.oid = String(oid); IDV.ident = d.identity || null; idDraw();
+    }catch(e){ if(IDV.el === el) el.innerHTML = '<div class="field-note" style="color:#B91C1C">Could not check the locked details: ' + esc(e.message) + '</div>'; }
+  }
+  function idRow(label, html){ return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559">' + label + '</span><span style="text-align:right">' + html + '</span></div>'; }
+  function idDraw(){
+    const el = IDV.el; if(!el || !el.isConnected){ idWipe(); return; }
+    const I = IDV.ident; if(!I){ el.innerHTML = ''; return; }
+    const one = (key, label, on, base) => {
+      if(!on) return idRow(label, '<span style="color:#A89C8B">not given yet</span>');
+      if(I.purged_at) return idRow(label, esc(base) + ' <span class="field-note">(purged)</span>');
+      const v = IDV.shown[key];
+      if(v) return idRow(label, '<span style="font-family:ui-monospace,Menlo,monospace;font-size:15px;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:1px 8px">' + esc(v.value) + '</span> <button class="ibtn" style="font-size:.72rem" onclick="HP.idCopy(\'' + key + '\')">Copy</button> <span class="field-note">hides in ' + Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) + 's</span> <button class="ibtn" style="font-size:.72rem" onclick="HP.idHide(\'' + key + '\')">Hide</button>');
+      return idRow(label, esc(base) + ' <button class="ibtn" style="font-size:.72rem" onclick="HP.idAsk(\'' + key + '\')">&#128274; Click to reveal</button>');
+    };
+    let h = one('ssn', 'Social Security number', !!I.ssn, 'on file, ' + (I.ssn || '')) + one('dob', 'Date of birth', !!I.dob, 'on file');
+    if(IDV.ask) h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:8px 10px;margin-top:8px;font-size:13px">'
+      + '<label for="hpIdReason" style="font-weight:700">Why are you opening the ' + (IDV.ask === 'ssn' ? 'Social Security number' : 'date of birth') + '?</label>'
+      + '<div style="display:flex;gap:6px;margin-top:5px;flex-wrap:wrap"><input id="hpIdReason" maxlength="200" placeholder="FCSR registration" value="' + esc(IDV.reason) + '" style="flex:1;min-width:160px;padding:6px 8px;border:1px solid #E8E2D8;border-radius:6px" onkeydown="if(event.key===\'Enter\')HP.idReveal()">'
+      + '<button class="ibtn" onclick="HP.idReveal(this)">Reveal for 5 minutes</button><button class="ibtn" onclick="HP.idAsk(null)">Cancel</button></div>'
+      + '<div class="field-note" style="margin-top:4px">Shows for five minutes. Logged with your name, the time and this reason.</div></div>';
+    if(IDV.err) h += '<div style="color:#B91C1C;font-size:13px;margin-top:6px">' + esc(IDV.err) + '</div>';
+    el.innerHTML = h;
+  }
+  function idAsk(key){ const r = document.getElementById('hpIdReason'); if(r) IDV.reason = r.value; IDV.ask = key; IDV.err = ''; idDraw(); const n = document.getElementById('hpIdReason'); if(n) n.focus(); }
+  async function idReveal(btn){
+    const key = IDV.ask, r = document.getElementById('hpIdReason'); if(!key) return;
+    const reason = (r ? r.value : IDV.reason).trim(); IDV.reason = reason;
+    if(reason.length < 5){ IDV.err = 'Please type why first (at least five characters), for example "FCSR registration".'; idDraw(); const n = document.getElementById('hpIdReason'); if(n) n.focus(); return; }
+    if(btn){ btn.disabled = true; btn.textContent = 'Opening…'; }
+    try{
+      const d = await s1({ action: 'reveal', offer_id: IDV.oid, field: key, reason });
+      IDV.shown[key] = { value: String(d.value || ''), until: Date.now() + (Number(d.expires_in) || 300) * 1000 };
+      IDV.ask = null; IDV.err = '';
+      clearInterval(IDV.timers[key]); IDV.timers[key] = setInterval(() => { if(!IDV.shown[key] || Date.now() >= IDV.shown[key].until) idHide(key); else idDraw(); }, 1000);
+    }catch(e){ IDV.err = e.message || 'Could not reveal it.'; }
+    idDraw();
+  }
+  function idHide(key){ clearInterval(IDV.timers[key]); delete IDV.timers[key]; delete IDV.shown[key]; idDraw(); }
+  async function idCopy(key){ try{ await navigator.clipboard.writeText(IDV.shown[key] ? IDV.shown[key].value : ''); }catch(_){} }
+  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, idAsk, idReveal, idHide, idCopy };
 })();
