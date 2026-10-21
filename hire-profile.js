@@ -326,7 +326,9 @@
     Object.keys(got).forEach(k => { IDV.shown[k] = { value: got[k], until: Infinity }; });
     idDraw();
   }
-  const fmtId = (k, v) => k === 'ssn' && /^\d{9}$/.test(v) ? v.slice(0, 3) + '-' + v.slice(3, 5) + '-' + v.slice(5) : v;
+  /* SSN 123-45-6789; date of birth MM-DD-YYYY (Samantha 2026-10-21: "Please make DOB MM-DD-YYYY"; the server sends YYYY-MM-DD) */
+  const fmtId = (k, v) => k === 'ssn' && /^\d{9}$/.test(v) ? v.slice(0, 3) + '-' + v.slice(3, 5) + '-' + v.slice(5)
+    : k === 'dob' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v.slice(5, 7) + '-' + v.slice(8, 10) + '-' + v.slice(0, 4) : v;
   function idRow(label, html){ return '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559">' + label + '</span><span style="text-align:right">' + html + '</span></div>'; }
   function idDraw(){
     const el = IDV.el; if(!el || !el.isConnected){ idWipe(); return; }
@@ -363,6 +365,6 @@
     idDraw();
   }
   function idHide(key){ clearInterval(IDV.timers[key]); delete IDV.timers[key]; delete IDV.shown[key]; idDraw(); }
-  async function idCopy(key){ try{ await navigator.clipboard.writeText(IDV.shown[key] ? IDV.shown[key].value : ''); }catch(_){} }
+  async function idCopy(key){ try{ await navigator.clipboard.writeText(IDV.shown[key] ? (key === 'dob' ? fmtId(key, IDV.shown[key].value) : IDV.shown[key].value) : ''); }catch(_){} }
   window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, revealHere, idAsk, idReveal, idHide, idCopy };
 })();
