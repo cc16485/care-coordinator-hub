@@ -4443,7 +4443,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>To the PRN CNA Team (call-offs and one-time shifts)</label>
 <textarea id="set_cov_prn" rows="2" placeholder="Hi {first_name}, it's Caring Companions. PRN opportunity: {client} at {address}, {when}. {care}Can you take it? Reply YES or NO. No pressure either way."></textarea>
-<div class="field-note" style="margin:-4px 0 8px;">Leave pay out: a PRN CNA is always $20/hr, and nothing changes pay by shift.</div>
+<div class="field-note" style="margin:-4px 0 8px;">Leave pay out: a PRN Team member is always paid their team's PRN rate (on the Approved hourly pay rates card), and nothing changes pay by shift.</div>
 <label>Instant reply to a YES</label>
 <textarea id="set_cov_ack_yes" rows="2" placeholder="Got it, {first_name}. Thank you! The office will confirm with you shortly."></textarea>
 <label>Reply to a YES that came after someone else already got it</label>
@@ -19563,6 +19563,25 @@ async function prnCall(body){
 const prnD10 = s => { const d = String(s||'').replace(/\D/g,''); return d.length >= 10 ? d.slice(-10) : ''; };
 const prnMoney = v => '$' + Number(v).toFixed(2).replace(/\.00$/,'') + '/hr';
 const prnDate = x => x ? new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+/* TWO PRN TEAMS (2026-10-21, Samantha: "Yes to all 8 PRN Caregiver recommendations. Use 10 as the starting team goal."):
+   the PRN CNA Team and the PRN Caregiver Team. One pay track at a time, as before. Every rate is read from the Approved
+   hourly pay rates card (her rates: caregiver $16 ongoing / $18 PRN, CNA $18 ongoing / $20 PRN), never typed in. */
+const PRN_TEAM = {
+  cna:       { name:'PRN CNA Team',       who:'PRN CNAs',       position:'CNA',       prnKey:'prn_cna',       ongoingKey:'cna',       goalKey:'prn_team_minimum',      goal:20 },
+  caregiver: { name:'PRN Caregiver Team', who:'PRN caregivers', position:'Caregiver', prnKey:'prn_caregiver', ongoingKey:'caregiver', goalKey:'prn_caregiver_minimum', goal:10 }
+};
+/* a track, a role or an applicant -> 'cna' | 'caregiver' (old records with no team are the CNA team) */
+function prnTeamOf(x){
+  if(!x) return 'cna';
+  if(x.team) return x.team === 'caregiver' ? 'caregiver' : 'cna';
+  if(x.key === 'prn_caregiver' || x.position === 'prn_caregiver' || x.requires_cna === false) return 'caregiver';
+  return 'cna';
+}
+function prnRateWord(team, which){
+  try{ const r = ((typeof payRatesRec === 'function' ? payRatesRec() : {}).rates || {})[PRN_TEAM[team][which === 'ongoing' ? 'ongoingKey' : 'prnKey']];
+    return r && r.min != null && r.min !== '' ? '$' + Number(r.min).toFixed(2).replace(/\.00$/, '') + '/hr' : ''; }catch(e){ return ''; }
+}
+const prnTrackWord = (track, team) => track === 'prn_team' ? PRN_TEAM[team || 'cna'].name : 'Ongoing caregiver';
 const PRN_TRACK_WORD = { prn_team:'PRN CNA Team', ongoing:'Ongoing caregiver' };
 function cgdPrnFor(axid){ return (PRN_T.tracks||[]).find(t=>String(t.axiscare_caregiver_id||'')===String(axid)) || null; }
 async function cgdPrnMount(c){
@@ -19596,9 +19615,9 @@ async function cgdPrnMount(c){
   const kv = (k, v) => '<div style="display:flex;gap:8px;font-size:13.5px;padding:2px 0;"><span class="field-note" style="min-width:150px;">' + k + '</span><span style="min-width:0;">' + v + '</span></div>';
   host.innerHTML = box(
     '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;">'
-      + '<b style="color:var(--navy);font-size:14.5px;">' + esc(PRN_TRACK_WORD[tr.track]) + '</b>'
+      + '<b style="color:var(--navy);font-size:14.5px;">' + esc(prnTrackWord(tr.track, prnTeamOf(tr))) + '</b>'
       + '<span style="font-size:12px;font-weight:800;color:' + (isPrn ? '#1c6b45;background:#e8f1ec' : '#1F4E79;background:#E3EEF8') + ';border-radius:999px;padding:2px 10px;">' + esc(prnMoney(tr.rate)) + '</span>'
-      + '<span class="field-note">since ' + esc(prnDate(tr.since)) + (isPrn ? ' · counts toward the 20+ PRN Team' : ' · not on the PRN Team or in its count') + '</span></div>'
+      + '<span class="field-note">since ' + esc(prnDate(tr.since)) + (isPrn ? ' · counts toward the ' + (Number((DATA.ops_settings||{})[PRN_TEAM[prnTeamOf(tr)].goalKey]) || PRN_TEAM[prnTeamOf(tr)].goal) + '+ ' + PRN_TEAM[prnTeamOf(tr)].name : ' · not on a PRN Team or in its count') + '</span></div>'
     + (isPrn
         ? kv('Days', esc(words(p.days, AP_PRN_DAY)) || '<span class="field-note">none given</span>')
           + kv('Times', esc(words(p.times, AP_PRN_TIME)) || '<span class="field-note">none given</span>')
@@ -19613,33 +19632,42 @@ async function cgdPrnMount(c){
               : '<b style="color:#B45309;">not yet</b> <span class="field-note">(add them to the caregiver roster with their phone and AxisCare number)</span>')
           + kv('Availability confirmed', av && av.updated_at ? esc(prnDate(av.updated_at)) + (av.source === 'application' ? ' <span class="field-note">(from their application)</span>' : av.source === 'step1' ? ' <span class="field-note">(from their signed Step 1; they can update it any time)</span>' : '') : '<span class="field-note">not on file</span>')
         : '')
-    + kv('AxisCare classes', isPrn
+    + kv('AxisCare classes', isPrn && prnTeamOf(tr) === 'caregiver'
+        /* PRN Caregiver Team: its own class, no CNA class (2026-10-21) */
+        ? (hasPrn ? '<span style="color:var(--green);">✓ PRN Team</span>' : '<button class="fb" onclick="cgdPrnMark(\'' + esc(tr.applicant_id) + '\',this)">Mark as PRN Team in AxisCare</button>')
+        : isPrn
         ? (hasPrn && hasCna ? '<span style="color:var(--green);">✓ PRN Team and CNA</span>' + (tr.axiscare_marked_by ? ' <span class="field-note">(' + esc(tr.axiscare_marked_by) + ', ' + esc(prnDate(tr.axiscare_marked_at)) + ')</span>' : '')
            : (hasPrn ? '<span style="color:var(--green);">✓ PRN Team</span> <span class="field-note">(no CNA class on their record)</span> ' : '')
              + '<button class="fb" onclick="cgdPrnMark(\'' + esc(tr.applicant_id) + '\',this)">' + (hasPrn ? 'Add CNA in AxisCare' : 'Mark as PRN Team in AxisCare') + '</button>')
         : (hasPrn ? '<b style="color:#B45309;">still has PRN Team in AxisCare</b> <span class="field-note">(take it off there)</span>' : 'CNA' + (hasCna ? ' ✓' : ' <span class="field-note">(not on their AxisCare record)</span>')))
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">'
       + (isPrn ? '<button class="fb" onclick="cgdPrnMoveOpen(\'ongoing\')">Move to ongoing…</button>' : '<button class="fb" onclick="cgdPrnMoveOpen(\'prn_team\')">Back on the PRN Team…</button>')
+      /* decision 6: a PRN caregiver who earns a CNA moves to the PRN CNA Team, a deliberate recorded step */
+      + (isPrn && prnTeamOf(tr) === 'caregiver' ? '<button class="fb" onclick="cgdPrnMoveOpen(\'to_cna_team\')">They earned their CNA…</button>' : '')
       + '<span class="field-note" id="cgdPrnMsg"></span></div>'
     + '<div id="cgdPrnMove" style="display:none;margin-top:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;"></div>'
     + (hist.length ? '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Pay-track history (' + hist.length + ')</summary>'
         + hist.map(h => '<div style="font-size:13px;padding:5px 0;border-bottom:1px dashed var(--border);">' + esc(prnDate(h.effective_date)) + ' · '
-          + (h.from_track ? esc(PRN_TRACK_WORD[h.from_track]) + ' ' + esc(prnMoney(h.from_rate)) + ' → ' : '') + '<b>' + esc(PRN_TRACK_WORD[h.to_track]) + ' ' + esc(prnMoney(h.to_rate)) + '</b>'
+          + (h.from_track ? esc(prnTrackWord(h.from_track, h.from_team || prnTeamOf(tr))) + ' ' + esc(prnMoney(h.from_rate)) + ' → ' : '') + '<b>' + esc(prnTrackWord(h.to_track, h.to_team || prnTeamOf(tr))) + ' ' + esc(prnMoney(h.to_rate)) + '</b>'
           + ' · ' + esc(h.changed_by) + ' · ' + esc(h.reason) + '</div>').join('') + '</details>' : ''));
-  host.dataset.app = tr.applicant_id; host.dataset.from = tr.track;
+  host.dataset.app = tr.applicant_id; host.dataset.from = tr.track; host.dataset.team = prnTeamOf(tr);
 }
 function cgdPrnMoveOpen(to){
   const f = document.getElementById('cgdPrnMove'), host = document.getElementById('cgdPrn'); if(!f || !host) return;
   const esc = escapeHtmlComms, today = new Date().toLocaleDateString('en-CA',{ timeZone:'America/Chicago' });
-  const toOngoing = to === 'ongoing';
-  f.innerHTML = '<b style="color:var(--navy);font-size:14px;">' + (toOngoing ? 'Move to ongoing' : 'Back on the PRN Team') + '</b>'
-    + '<div class="field-note" style="margin:3px 0 8px;line-height:1.55;">' + (toOngoing
-        ? 'Only when they have asked for a regular client schedule. From the date below they are an ongoing caregiver at the CNA rate ($18/hr), leave the PRN Team and its count, and PRN Team comes off in AxisCare (CNA stays). Their history keeps that they were on the PRN Team.'
-        : 'From the date below they are back on the PRN CNA Team at $20/hr and in its count, and PRN Team goes back on in AxisCare.') + '</div>'
+  const toOngoing = to === 'ongoing', toCna = to === 'to_cna_team';
+  const team = toCna ? 'cna' : (host.dataset.team || 'cna'), T = PRN_TEAM[team], money = w => w || 'their rate on the pay rates card';
+  const rO = prnRateWord(team, 'ongoing'), rP = prnRateWord(team, 'prn');
+  f.innerHTML = '<b style="color:var(--navy);font-size:14px;">' + (toCna ? 'They earned their CNA' : toOngoing ? 'Move to ongoing' : 'Back on the ' + esc(T.name)) + '</b>'
+    + '<div class="field-note" style="margin:3px 0 8px;line-height:1.55;">' + (toCna
+        ? 'From the date below they move from the PRN Caregiver Team to the PRN CNA Team at ' + esc(money(rP)) + ', and the CNA class goes on in AxisCare. Record their CNA on their record too. Their history keeps both teams.'
+        : toOngoing
+        ? 'Only when they have asked for a regular client schedule. From the date below they are an ongoing caregiver at ' + esc(money(rO)) + ', leave the ' + esc(T.name) + ' and its count, and PRN Team comes off in AxisCare' + (team === 'cna' ? ' (CNA stays)' : '') + '. Their history keeps that they were on the PRN Team.'
+        : 'From the date below they are back on the ' + esc(T.name) + ' at ' + esc(money(rP)) + ' and in its count, and PRN Team goes back on in AxisCare.') + '</div>'
     + '<div class="grid2"><div><label>Effective date</label><input type="date" id="cgdPrnEff" value="' + today + '"></div>'
-    + '<div><label>Reason</label><input id="cgdPrnWhy" value="' + esc(toOngoing ? 'Transitioned to ongoing scheduled shifts' : 'Returned to the PRN CNA Team') + '"></div></div>'
-    + '<div style="background:#FEF3C7;border:1px solid #F5D9A0;border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px;">Payroll: change their pay in Viventium to <b>' + (toOngoing ? '$18/hr' : '$20/hr') + '</b> from this date. The Hub does not change payroll.</div>'
-    + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" onclick="cgdPrnMoveGo(\'' + esc(host.dataset.app) + '\',\'' + esc(host.dataset.from) + '\',\'' + to + '\',this)">Confirm: ' + (toOngoing ? 'move to ongoing' : 'back on the PRN Team') + '</button>'
+    + '<div><label>Reason</label><input id="cgdPrnWhy" value="' + esc(toCna ? 'Earned their CNA' : toOngoing ? 'Transitioned to ongoing scheduled shifts' : 'Returned to the ' + T.name) + '"></div></div>'
+    + '<div style="background:#FEF3C7;border:1px solid #F5D9A0;border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px;">Payroll: change their pay in Viventium to <b>' + esc(money(toOngoing ? rO : rP)) + '</b> from this date. The Hub does not change payroll.</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px;"><button class="primary" onclick="cgdPrnMoveGo(\'' + esc(host.dataset.app) + '\',\'' + esc(host.dataset.from) + '\',\'' + to + '\',this)">Confirm: ' + (toCna ? 'move to the PRN CNA Team' : toOngoing ? 'move to ongoing' : 'back on the PRN Team') + '</button>'
     + '<button class="ghost" onclick="document.getElementById(\'cgdPrnMove\').style.display=\'none\'">Cancel</button></div>';
   f.style.display = 'block';
 }
@@ -19932,10 +19960,11 @@ async function cgdPrnMoveGo(appId, from, to, btn){
   if(!eff || !why){ alert('The effective date and the reason are both needed.'); return; }
   btn.disabled = true; btn.textContent = 'Saving…';
   try{
-    const r = await prnCall({ action:'move', applicant_id:appId, from, to, effective_date:eff, reason:why });
+    const r = to === 'to_cna_team' ? await prnCall({ action:'to_cna_team', applicant_id:appId, effective_date:eff, reason:why })
+      : await prnCall({ action:'move', applicant_id:appId, from, to, effective_date:eff, reason:why });
     if(r.outcome !== 'moved'){ btn.disabled = false; btn.textContent = 'Confirm'; alert(r.detail || PRN_SAY[r.outcome] || r.outcome); return; }
     const ax = r.axiscare || {};
-    await cgdPrnAfter((to === 'ongoing' ? 'Moved to ongoing, recorded in their history.' : 'Back on the PRN Team, recorded in their history.')
+    await cgdPrnAfter((to === 'to_cna_team' ? 'Moved to the PRN CNA Team, recorded in their history.' : to === 'ongoing' ? 'Moved to ongoing, recorded in their history.' : 'Back on the PRN Team, recorded in their history.')
       + (ax.outcome === 'updated' || ax.outcome === 'already' ? ' AxisCare updated.' : ax.outcome === 'not_linked' ? '' : ' AxisCare was NOT changed (' + (ax.detail || ax.outcome) + '): change the PRN Team class there by hand.'));
   }catch(e){ btn.disabled = false; btn.textContent = 'Confirm'; alert('Could not save: ' + (e && e.message || 'error')); }
 }
@@ -22196,10 +22225,13 @@ async function prnDashLoad(){
     const ids = apps.map(a=>a.id);
     const bk = ids.length ? ((await sb.from('interview_bookings').select('applicant_id,status').in('applicant_id', ids).eq('status','booked')).data||[]) : [];
     let census = null; try{ census = await cgdCensus(); }catch(_){ census = null; }
-    box.innerHTML = prnDashHtml({ tracks:PRN_T.tracks||[], history:PRN_T.history||[], shifts:PRN_T.shifts||[], apps:PRN_T.apps||{}, prnApps:apps, booked:bk,
-      postings:(post.data||[]).filter(p=>keys.includes(p.position)), checkins:(ck.data||[]), census, avail:DATA.caregiver_availability||[],
-      minimum:Number((DATA.ops_settings||{}).prn_team_minimum)||20, now:Date.now() });
-  }catch(e){ box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load the PRN CNA Team: '+esc(e&&e.message||'error')+'</div>'; }
+    /* 2026-10-21: one card per PRN team, each counted against its own goal */
+    box.innerHTML = ['cna', 'caregiver'].map(team => { const T = PRN_TEAM[team], mine = k => prnTeamOf({ key:k }) === team;
+      return prnDashHtml({ team, tracks:(PRN_T.tracks||[]).filter(t=>prnTeamOf(t)===team), history:(PRN_T.history||[]).filter(h=>(h.to_team||h.from_team) ? prnTeamOf({ team:h.to_team||h.from_team })===team : team==='cna'),
+        shifts:PRN_T.shifts||[], apps:PRN_T.apps||{}, prnApps:apps.filter(a=>mine(a.position)), booked:bk,
+        postings:(post.data||[]).filter(p=>keys.includes(p.position) && mine(p.position)), checkins:(ck.data||[]), census, avail:DATA.caregiver_availability||[],
+        minimum:Number((DATA.ops_settings||{})[T.goalKey])||T.goal, now:Date.now() }); }).join('<div style="height:12px"></div>');
+  }catch(e){ box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not load the PRN Teams: '+esc(e&&e.message||'error')+'</div>'; }
 }
 /* Pure: the numbers and the table from what's already recorded (tested on its own). */
 function prnDashNumbers(d){
@@ -22234,7 +22266,8 @@ function prnDashNumbers(d){
     fresh:fresh.length, moved:moved.length, below:active.length < d.minimum, always_on:alwaysOn, rows };
 }
 function prnDashHtml(d){
-  const esc = escapeHtmlComms, n = prnDashNumbers(d);
+  const esc = escapeHtmlComms, n = prnDashNumbers(d), team = d.team || 'cna', T = PRN_TEAM[team];
+  const rP = prnRateWord(team, 'prn'), rO = prnRateWord(team, 'ongoing');
   const DW = { mon:'Mon', tue:'Tue', wed:'Wed', thu:'Thu', fri:'Fri', sat:'Sat', sun:'Sun' }, TW = { morning:'morning', afternoon:'daytime', evening:'evening', overnight:'overnight' };
   const summary = w => { const ds = Object.keys(DW).filter(k=>(w[k]||[]).length); const ts = [...new Set(ds.flatMap(k=>w[k]))];
     return ds.length ? ds.map(k=>DW[k]).join(', ') + ' · ' + ['morning','afternoon','evening','overnight'].filter(t=>ts.includes(t)).map(t=>TW[t]).join(', ') : ''; };
@@ -22242,15 +22275,15 @@ function prnDashHtml(d){
   const stat = (v,l,c) => '<span style="display:inline-flex;align-items:baseline;gap:6px;"><b style="font-size:24px;color:'+(c||'var(--navy)')+';">'+v+'</b><span style="font-size:13.5px;">'+l+'</span></span>';
   const NOTICE = { few_hours:'a few hours', '24h':'24h', '48h':'48h+' };
   return '<div class="card" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
-    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="font-size:17px;color:var(--navy);">PRN CNA Recruiting: ALWAYS ON</b>'
+    + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="font-size:17px;color:var(--navy);">'+esc(T.name)+' recruiting: ALWAYS ON</b>'
       + (n.always_on ? '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">ad live, no end date</span>'
                      : '<span style="font-size:12px;font-weight:800;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:2px 10px;">the PRN ad is not live: check Job postings</span>') + '</div>'
     + (n.below
-        ? '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:10px;padding:10px 12px;color:#991B1B;font-weight:700;">Below PRN Team minimum ('+n.active+' of '+n.minimum+') · continuous recruiting active</div>'
-        : '<div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:10px;padding:10px 12px;color:#166534;font-weight:700;">'+n.minimum+'+ PRN CNAs ('+n.active+') · recruiting stays on</div>')
-    + '<div style="display:flex;gap:20px;flex-wrap:wrap;">' + stat(n.active,'active PRN CNAs') + stat(n.available,'available (confirmed in '+PRN_AVAIL_DAYS+' days)')
+        ? '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:10px;padding:10px 12px;color:#991B1B;font-weight:700;">Below the '+esc(T.name)+' goal ('+n.active+' of '+n.minimum+') · continuous recruiting active</div>'
+        : '<div style="background:#DCFCE7;border:1px solid #86EFAC;border-radius:10px;padding:10px 12px;color:#166534;font-weight:700;">'+n.minimum+'+ '+esc(T.who)+' ('+n.active+') · recruiting stays on</div>')
+    + '<div style="display:flex;gap:20px;flex-wrap:wrap;">' + stat(n.active,'active '+T.who) + stat(n.available,'available (confirmed in '+PRN_AVAIL_DAYS+' days)')
       + stat(n.onboarding,'onboarding') + stat(n.interviewing,'interviewing') + stat(n.fresh,'new applicants') + stat(n.moved,'moved to ongoing','#1F4E79') + '</div>'
-    + '<div class="field-note">Active counts toward the minimum. Moved to ongoing is a win (PRN into your regular team) and is not counted. One pay track at a time: PRN Team $20/hr, ongoing $18/hr.</div>'
+    + '<div class="field-note">Active counts toward the minimum. Moved to ongoing is a win (PRN into your regular team) and is not counted. One pay track at a time'+(rP||rO ? ': '+esc(T.name)+' '+esc(rP||'rate not set')+', ongoing '+esc(rO||'rate not set') : '')+'.</div>'
     + (n.rows.length
         ? '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13.5px;"><thead><tr style="text-align:left;color:var(--text-muted);">'
           + ['Name','Town','Availability','Same day','Confirmed','Last PRN shift','Taken','Backed out'].map(h=>'<th style="padding:6px 8px;border-bottom:1px solid var(--border);">'+h+'</th>').join('') + '</tr></thead><tbody>'
@@ -22264,7 +22297,7 @@ function prnDashHtml(d){
               + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;">'+r.taken+'</td>'
               + '<td style="padding:6px 8px;border-bottom:1px solid #F2EFE8;'+(r.backed_out?'color:#B45309;font-weight:700;':'')+'">'+r.backed_out+'</td></tr>').join('')
           + '</tbody></table></div>'
-        : '<div class="field-note">No active PRN CNAs yet. They appear here once a PRN hire is linked to their caregiver record (their caregiver page offers "Link them").</div>')
+        : '<div class="field-note">No active '+esc(T.who)+' yet. They appear here once a PRN hire is linked to their caregiver record (their caregiver page offers "Link them").</div>')
     + '</div>';
 }
 
@@ -24069,7 +24102,7 @@ function apToOffer(id, answers){
     /* PRN2: a PRN CNA Team hire is offered as a CNA, PRN, at the PRN Team rate. One rate: the PRN Team is $20, and
        moving to ongoing later is its own recorded step at the CNA rate, never both. */
     if(pos && pos.track === 'prn'){
-      const sel = document.getElementById('jo_position'); if(sel) sel.value = 'CNA';
+      const sel = document.getElementById('jo_position'); if(sel) sel.value = PRN_TEAM[prnTeamOf(pos)].position;
       v('jo_hours', 'PRN');
     }
     if(r.will_build_up !== null && r.will_build_up !== undefined)
@@ -24087,9 +24120,9 @@ function apToOffer(id, answers){
       if(rc) notes.value += ' Ask their references about: ' + rc.replace(/\s+/g, ' ').slice(0, 300) + (/[.!?]$/.test(rc) ? '' : '.');
     }
     /* PRN2: the AxisCare note carries the offer's notes, so whoever sets them up in Viventium sees the one rate. */
-    if(pos && pos.track === 'prn' && notes && !/PRN CNA Team/.test(notes.value)){
+    if(pos && pos.track === 'prn' && notes && !/PRN (CNA|Caregiver) Team/.test(notes.value)){
       const rt = document.getElementById('jo_rate').value;
-      notes.value = 'PRN CNA Team' + (rt ? ', $' + Number(rt).toFixed(2).replace(/\.00$/,'') + '/hr' : '') + '. ' + notes.value;
+      notes.value = PRN_TEAM[prnTeamOf(pos)].name + (rt ? ', $' + Number(rt).toFixed(2).replace(/\.00$/,'') + '/hr' : '') + '. ' + notes.value;
     }
     /* The interview answers are the AxisCare attributes, so nobody types them
        a second time. Only the ones we actually asked about are touched. */
@@ -24946,24 +24979,25 @@ function apPrnHtml(r){
   const esc = escapeHtmlComms, p = r.prn || {}, role = apPrnRole(r);
   const words = (list, map) => (Array.isArray(list) ? list : []).map(k => map[k] || k).join(', ');
   const yn = v => v===true ? 'Yes' : v===false ? '<b style="color:#B45309;">No</b>' : '<span class="field-note">not answered</span>';
-  const rate = role && role.pay_min ? '$' + Number(role.pay_min).toFixed(2).replace(/\.00$/,'') + '/hr' : '$20/hr';
+  const team = prnTeamOf(role || r), T = PRN_TEAM[team];
+  const rate = prnRateWord(team, 'prn') || (role && role.pay_min ? '$' + Number(role.pay_min).toFixed(2).replace(/\.00$/,'') + '/hr' : 'the PRN rate'), ongoing = prnRateWord(team, 'ongoing');
   const pay = r.pay_ack_at
     ? '<span style="color:#15803D;font-weight:700;">✓ Accepted</span> ' + esc(new Date(r.pay_ack_at).toLocaleString('en-US',{month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'}))
       + (r.pay_ack_version ? ' <span class="field-note">(' + esc(r.pay_ack_version) + ')</span>' : '')
     : '<b style="color:#B91C1C;">Not accepted</b>';
   return '<div style="background:#FBF6EA;border:1px solid #ECD9AE;border-radius:11px;padding:12px 14px;">'
     + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">'
-      + '<b style="font-size:14.5px;color:var(--navy);">PRN CNA</b>'
+      + '<b style="font-size:14.5px;color:var(--navy);">' + esc(T.name) + '</b>'
       + '<span style="font-size:12px;font-weight:800;color:#1c6b45;background:#e8f1ec;border-radius:999px;padding:2px 10px;">' + esc(rate) + ' PRN Team</span>'
       + '</div>'
     /* One pay track at a time (her rule, 2026-09-29). $20 is the offer; $18 is only the note. */
-    + '<div class="field-note" style="margin:0 0 8px;line-height:1.55;">Tell them: $20/hr on the PRN Team. We text them opportunities; they accept or decline, '
-      + 'no pressure, but once they accept and are confirmed we count on them. (If they would like to switch to taking an ongoing client, our CNAs are paid $18/hr.)</div>'
+    + '<div class="field-note" style="margin:0 0 8px;line-height:1.55;">Tell them: ' + esc(rate) + ' on the ' + esc(T.name) + '. We text them opportunities; they accept or decline, '
+      + 'no pressure, but once they accept and are confirmed we count on them.' + (ongoing ? ' (If they would like to switch to taking an ongoing client, that is ' + esc(ongoing) + '.)' : '') + '</div>'
     + apProfRow('Days', esc(words(p.days, AP_PRN_DAY)) || '<b style="color:#B45309;">none given</b>')
     + apProfRow('Times', esc(words(p.times, AP_PRN_TIME)) || '<b style="color:#B45309;">none given</b>')
     + apProfRow('Notice', esc(AP_PRN_NOTICE[p.notice] || '') || '<span class="field-note">not given</span>')
     + apProfRow('Interested in', esc(words(p.interests, AP_PRN_INT)))
-    + apProfRow('Currently a CNA', yn(p.cna))
+    + (team === 'cna' ? apProfRow('Currently a CNA', yn(p.cna)) : '')
     + apProfRow('A year or more of experience', yn(p.one_year))
     + apProfRow('PRN Team pay', pay)
     + apPrnTrackRows(r)
@@ -24974,7 +25008,7 @@ function apPrnHtml(r){
 function apPrnTrackRows(r){
   const tr = (PRN_T.tracks||[]).find(t => String(t.applicant_id) === String(r.id)); if(!tr) return '';
   const esc = escapeHtmlComms, d = x => x ? new Date(String(x).slice(0,10)+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
-  return apProfRow('Pay track', '<b>' + (tr.track==='prn_team' ? 'PRN CNA Team' : 'Ongoing caregiver') + '</b>, ' + esc(prnMoney(tr.rate)) + ' since ' + esc(d(tr.since)))
+  return apProfRow('Pay track', '<b>' + esc(prnTrackWord(tr.track, prnTeamOf(tr))) + '</b>, ' + esc(prnMoney(tr.rate)) + ' since ' + esc(d(tr.since)))
     + apProfRow('Caregiver record', tr.axiscare_caregiver_id ? 'linked (AxisCare ' + esc(String(tr.axiscare_caregiver_id)) + ')'
         : '<span class="field-note">not linked yet: once they are a caregiver in AxisCare, their caregiver page offers "Link them"</span>');
 }
@@ -25277,7 +25311,7 @@ function apRenderProfile(){
   document.getElementById('apProfRight').innerHTML =
       ppTabBarHtml(AP_TABS_HAVE, AP_TAB, 'apTab')
     + pane('overview', attention
-        + (apIsPrn(r) ? apProfCard('PRN CNA Team', apPrnHtml(r), 'When they can be called for shifts, and the pay they accepted.') : '')
+        + (apIsPrn(r) ? apProfCard(PRN_TEAM[prnTeamOf(apPrnRole(r) || r)].name, apPrnHtml(r), 'When they can be called for shifts, and the pay they accepted.') : '')
         + apProfCard('At a glance', glance, ''))
     + pane('interview',
         apProfCard('What they told us', told, 'Their own answers, on the day they applied.')
@@ -42140,7 +42174,7 @@ async function hwMatch(btn){
         return '<div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--border);">'
           +'<b style="font-size:15px;font-weight:700;color:var(--navy);min-width:160px;">'+esc(x.name)+'</b>'
           +((typeof cgdPrnFor==='function' && (cgdPrnFor(x.axiscare_id)||{}).track==='prn_team')
-            ? '<span class="cara-rchip" style="background:#FBF1D9;color:#8A5A00;">PRN Team: a regular schedule would mean moving to ongoing ($18)</span>' : '')
+            ? '<span class="cara-rchip" style="background:#FBF1D9;color:#8A5A00;">PRN Team: a regular schedule would mean moving to ongoing' + (function(){ const w = prnRateWord(prnTeamOf(cgdPrnFor(x.axiscare_id)), 'ongoing'); return w ? ' (' + w + ')' : ''; })() + '</span>' : '')
           +chips.join('')+'</div>';
       }).join('')
       : '<div style="font-size:13.5px;color:var(--text-muted);padding:6px 0;">Nobody fits that schedule. Everyone who has filled the availability form says these hours are outside their windows.</div>')
