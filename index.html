@@ -1219,8 +1219,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          reached, and the signing link lives on its card. Offers are still made FROM the person and tracked ON the
          person's lifecycle row; job_offers is untouched. -->
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Offers<span class="subtab-badge" id="offersBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Background &amp; References<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
+    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Onboarding<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')" style="display:none" title="Folded into Onboarding (2026-10-21); open it from Onboarding, More"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
     <!-- 2026-10-01 (Samantha): the reference page sits at the far right, apart from the working tabs -->
     <span style="flex:1 1 auto;"></span>
     <div class="fpill" style="margin-left:auto;" data-tab="apjourney" onclick="switchTab('apjourney')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Applicant journey</div>
@@ -2368,7 +2368,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .bgr-subnav button.active{color:var(--navy);border-bottom-color:var(--gold,#F0A63A);}
       </style>
       <div class="bgr-subnav" role="tablist">
-        <button id="bgr-tab-people"     class="active" onclick="bgrSub('people')"><svg class=navi aria-hidden=true><use href=icons.svg#i-box></use></svg> People &amp; Checks</button>
+        <button id="bgr-tab-people"     class="active" onclick="bgrSub('people')"><svg class=navi aria-hidden=true><use href=icons.svg#i-box></use></svg> People</button>
         <button id="bgr-tab-audit"      onclick="bgrSub('audit')"><svg class=navi aria-hidden=true><use href=icons.svg#i-shield></use></svg> Pre-Hire Audit</button>
         <button id="bgr-tab-refs"       onclick="bgrSub('refs')"><svg class=navi aria-hidden=true><use href=icons.svg#i-phone></use></svg> Reference Activity</button>
         <button id="bgr-tab-howitworks" onclick="bgrSub('howitworks')"><svg class=navi aria-hidden=true><use href=icons.svg#i-book></use></svg> How It Works</button>
@@ -2405,16 +2405,16 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-h{margin:0;font-size:24px;font-weight:800;color:#0D365F;letter-spacing:-.01em}
         .ckd-sub{font-size:14.5px;color:#55677a;margin-top:3px}
         .ckd-search{font:inherit;font-size:14.5px;padding:10px 14px;border:1px solid #e4e1d8;border-radius:10px;width:280px;max-width:100%;background:#fff}
-        .ckd-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
-        .ckd-tile{font:inherit;text-align:left;cursor:pointer;background:#fff;color:#0D365F;border:2px solid #e4e1d8;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+        .ckd-tiles{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+        .ckd-tile{font:inherit;text-align:left;cursor:pointer;background:#fff;color:#0D365F;border:2px solid #e4e1d8;border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:2px}
         .ckd-tile:hover{border-color:#1F7A8C}
         .ckd-tile-on{background:#0D365F;color:#fff;border-color:#0D365F}
         .ckd-tile-on .ckd-tile-s{color:#E8C988}.ckd-tile-on .ckd-tile-n{color:#fff!important}
-        .ckd-tile-n{font-size:32px;font-weight:800;line-height:1}
-        .ckd-tile-t{font-size:15.5px;font-weight:700}
+        .ckd-tile-n{font-size:24px;font-weight:800;line-height:1}
+        .ckd-tile-t{font-size:12.5px;font-weight:700;line-height:1.25}
         .ckd-tile-s{font-size:12.5px;color:#55677a}
         .ckd-list{background:#fff;border:1px solid #e4e1d8;border-radius:14px;overflow:hidden}
-        .ckd-row{display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,430px);gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e4e1d8}
+        .ckd-row{display:grid;grid-template-columns:190px 180px minmax(0,1fr) minmax(0,430px);gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e4e1d8}
         .ckd-row-h{border-top:none;background:#f6f5f0;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#55677a;padding:10px 18px}
         .ckd-who{display:flex;flex-direction:column;gap:2px;min-width:0}
         .ckd-name{font:inherit;font-size:15.5px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer}
@@ -2428,6 +2428,38 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-bad{border-color:#B42318;color:#B42318;background:#FEF3F2;font-weight:700}
         .ckd-next{display:flex;align-items:center;gap:12px;justify-content:space-between}
         .ckd-lanes{display:flex;flex-direction:column;gap:8px}
+        .ckd-where{display:flex;flex-direction:column;gap:5px}
+        .ckd-road{display:inline-flex;align-items:center;gap:4px}
+        .ckd-road i{display:inline-block;width:11px;height:11px;border-radius:999px;background:#fff;border:1.5px solid #c9c4b6;box-sizing:border-box}
+        .ckd-road i.on{background:#1F7A8C;border-color:#1F7A8C}
+        .ckd-road i.now{width:16px;height:16px;background:#F0A63A;border:2px solid #0D365F}
+        .ckd-road i.bad{width:16px;height:16px;background:#FEF3F2;border:2px solid #B42318}
+        .ckd-stop{font-size:12.5px;font-weight:700;color:#0D365F}
+        .ckd-kick{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9C6410}
+        .ckd-start{display:flex;align-items:center;gap:16px;justify-content:space-between;background:#fff;border:2px solid #0D365F;border-radius:16px;padding:16px 20px}
+        .ckd-start-calm{border-color:#CDE7E4;background:#F4F9F8}
+        .ckd-start-t{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+        .ckd-start-t b{font-size:17px;color:#0D365F;line-height:1.35}
+        .ckd-go-big{font-size:14.5px;padding:11px 18px}
+        .ckd-party{background:#0D365F;border-color:#0D365F;color:#F0C978;font-weight:700}
+        .ckd-nextcard{border:2.5px solid #0D365F;border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 6px 18px rgba(13,54,95,.08)}
+        .ckd-nextcard-calm{border-color:#CDE7E4;box-shadow:none}
+        .ckd-nextcard-t{font-size:17px;color:#0D365F;line-height:1.35}
+        .ckd-how{background:#F4F9F8;border:1px solid #CDE7E4;border-radius:12px;padding:10px 14px}
+        .ckd-how summary{cursor:pointer;font-weight:700;color:#103D47;font-size:14px}
+        .ckd-how ol{margin:8px 0 2px;padding-left:20px;display:grid;gap:5px;font-size:13.5px;line-height:1.45}
+        .ckd-party-shade{position:fixed;inset:0;background:rgba(13,54,95,.28);z-index:10050;display:grid;place-items:center;padding:16px}
+        .ckd-party-card{background:#fff;border-radius:22px;max-width:440px;width:100%;overflow:hidden;box-shadow:0 18px 50px rgba(13,54,95,.28);animation:ckdIn .5s cubic-bezier(.2,1.3,.4,1) both}
+        .ckd-party-art{display:block;width:100%;height:auto}
+        .ckd-party-in{padding:16px 22px 20px;display:flex;flex-direction:column;gap:8px;align-items:center;text-align:center}
+        .ckd-party-in h3{margin:0;font-size:22px;font-weight:800;color:#0D365F}
+        .ckd-party-in p{margin:0;font-size:14px;line-height:1.5}
+        .ckd-party-btns{display:flex;gap:14px;align-items:center;margin-top:4px}
+        .ckd-party-note{font-size:12px;color:#55677a}
+        .ckd-rosette{animation:ckdPop .7s cubic-bezier(.2,1.4,.4,1) .15s both;transform-box:fill-box;transform-origin:center}
+        @keyframes ckdIn{from{opacity:0;transform:translateY(14px) scale(.96)}to{opacity:1;transform:none}}
+        @keyframes ckdPop{0%{opacity:0;transform:scale(.3) rotate(-20deg)}100%{opacity:1;transform:none}}
+        @media (prefers-reduced-motion:reduce){.ckd-party-card,.ckd-rosette{animation:none}}
         .ckd-lane{color:#0D365F}
         .ckd-lane-done{color:#15803D}
         .ckd-next-text{font-size:13.5px;line-height:1.35}
@@ -2464,7 +2496,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-box-acts:empty{display:none}
         .ckd-p-foot{display:flex;gap:16px;flex-wrap:wrap;border-top:1px solid #e4e1d8;padding-top:12px}
         @media (max-width:900px){
-          .ckd-tiles{grid-template-columns:minmax(0,1fr)}
+          .ckd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .ckd-start{flex-direction:column;align-items:stretch}
           .ckd-row{grid-template-columns:minmax(0,1fr)}
           .ckd-row-h{display:none}
         }
@@ -2592,6 +2625,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- ===== CAREGIVERS: Orientations (moved from Staffing hub) ===== -->
 <section class="tabpanel" id="tab-cgorient">
     <div class="panel" id="panel-orientations">
+      <div style="margin-bottom:8px"><button class="secondary" onclick="switchTab('cgbackground')">Back to Onboarding</button></div>
       <!-- 2026-10-11 (Samantha: "do all three"): a heading and one-line purpose, like the other tabs. -->
       <div style="margin-bottom:14px;">
         <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Orientations</h2>
@@ -3711,6 +3745,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp mref-pro"><label>Full time or part time?</label>
         <select id="mref-hours"><option value="">--</option><option value="full">Full time</option><option value="part">Part time</option><option value="both">Both at different times</option><option value="unsure">Not sure</option></select>
       </div>
+      <!-- Level of Care (2026-10-21, her approved Oct 8 design): the duties a work reference saw them do. One Positive work
+           reference that names Level 2 duties with dates verifies Level 2. Drawn by mrefDutiesHTML() in caregivers-engine.js. -->
+      <div class="grp mref-pro" id="mref-duties-wrap" style="grid-column:1/-1"></div>
       <div class="grp mref-pro"><label>Eligible for rehire?</label>
         <select id="mref-rehire" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="yes">Yes</option><option value="no">No</option><option value="policy">Our policy doesn't allow us to say</option></select>
       </div>
@@ -7605,7 +7642,7 @@ The HomeTogether team</pre>
 <script src="scheduling-guide.js?v=3"></script>
 <script src="new-hires.js?v=3"></script>
 <script src="hub-scenes.js?v=1"></script>
-<script src="celebrate.js?v=1"></script>
+<script src="celebrate.js?v=2"></script>
 <script src="progress-paths.js?v=2"></script>
 <script src="seasons.js?v=1"></script>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
@@ -8731,7 +8768,7 @@ const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
-  cgbackground:'Background & References', cgorient:'Orientations', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'HR',
+  cgbackground:'Onboarding', cgorient:'Orientation Video Calls', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'HR',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',

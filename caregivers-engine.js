@@ -6040,6 +6040,10 @@ const BGRV_CHECKS = {
   fcsr: { label: 'FCSR', flagged: ['Issues Found'], clear: 'Clear', results: ['waiver_needed', 'no_waiver', 'cannot_employ'] },
   edl:  { label: 'EDL', flagged: ['Issues Found'], clear: 'Clear', results: ['cannot_employ'] },
   oig:  { label: 'OIG', flagged: ['FLAGGED'], clear: 'CLEAR', results: ['cannot_employ'] },
+  /* 2026-10-21: no new fingerprints (her rule); Case.net gets a review path. A court record found is our decision, never a notice
+     that names the record. */
+  casenet: { label: 'Case.net', flagged: ['Issues Found'], clear: 'Clear', results: ['cannot_employ'] },
+  /* kept only so a review opened before 2026-10-21 still shows; nothing records a fingerprint now */
   fp:   { label: 'Fingerprints', flagged: ['Issues Found'], clear: 'Clear', results: ['waiver_needed', 'no_waiver'] },
 };
 const BGRV_RESULT = { review: 'Needs review', waiver_needed: 'Waiver needed', no_waiver: 'No waiver needed', cannot_employ: "Can't be employed" };
@@ -7262,8 +7266,21 @@ function ckdRefToWork(c){
   const pend = ckdRefSlots(c).filter(n => (c['r'+n+'s'] || 'Pending') === 'Pending');
   return pend.find(n => c['r'+n+'_phone']) || pend[0] || null;
 }
+const CKD_OIG = { rows:null, at:0, busy:false };
+function ckdOigSearch(c){
+  if(!CKD_OIG.busy && Date.now() - CKD_OIG.at > 120000 && typeof sb !== 'undefined'){
+    CKD_OIG.busy = true;
+    Promise.resolve(sb.from('app_data').select('data').eq('key', 'oig_auto_search').maybeSingle())
+      .then(r => { CKD_OIG.rows = (r && !r.error && r.data && Array.isArray(r.data.data)) ? r.data.data : (CKD_OIG.rows || []); })
+      .catch(() => {}).finally(() => { CKD_OIG.busy = false; CKD_OIG.at = Date.now(); try{ renderCkd(); }catch(_){} });
+  }
+  return (CKD_OIG.rows || []).find(x => String(x.candidate_id) === String(c.id) && !x.practice) || null;
+}
 function ckdCheckNext(c){
   const id = c.id;
+  const auto = (c.oig !== 'CLEAR' && c.oig !== 'FLAGGED' && !c.oig_date) ? ckdOigSearch(c) : null;
+  if(auto){ const n = (auto.evidence && auto.evidence.match_count) || 0;
+    return { text:'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state, then record it.' : 'no matches. Record it as Clear.'), label:'Record OIG', on:'bgrRecordCheck(' + id + ',\'oig\')', how:'oig' }; }
   if(c.oig !== 'CLEAR' && c.oig !== 'FLAGGED')
     return c.oig_date ? { text:'Record the OIG result.', label:'Record OIG', on:'bgrRecordCheck('+id+',\'oig\')' }
                       : { text:'Run the OIG check. It takes one click.', label:'Run OIG', on:'bgrRunOIG('+id+',this)' };
@@ -7286,8 +7303,9 @@ function ckdRefNext(c){
     const req = (typeof bgrReqsFor === 'function' ? bgrReqsFor(c) : []).find(r => Number(r.slot) === n && !r.responded_at);
     const sent = req && req.sent_at ? new Date(req.sent_at) : null;
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
+    const how = req && req.texted_at ? 'texted and emailed' : 'sent';
     if(days !== null && days < 5)
-      return { text:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
+      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
     return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
   if(!ckdRefSlots(c).length) return { text:'No references given yet. Type them in from their record.', label:'Add references', on:'openOBModal('+id+')' };
@@ -7299,7 +7317,7 @@ function ckdNext(c){
   const id = c.id, st = obDeriveStatus(c), rp = refPolicy(c);
   if(st === 'Ready for Orientation') return { text:'All clear. They move on to orientation by themselves.', label:'Open', on:'ckdOpen('+id+')', done:true };
   if(st === 'Needs Review')
-    return { text: rp.blocked ? rp.why : 'A check came back with something on it. Review it with management.', label:'Review',
+    return { text: rp.blocked ? rp.why : 'A check came back with something on it. Samantha or Zachary decide: open the review with them.', label:'Review',
              on: (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal('+id+')' : 'ckdOpen('+id+')', warn:true };
   if(ckdStep1Waiting(c)) return { text:'Waiting on their Step 1, which holds their signed permission for checks.', label:'Open', on:'ckdOpen('+id+')', wait:true };
   const ref = ckdRefNext(c), chk = ckdCheckNext(c);
@@ -7312,17 +7330,6 @@ function ckdWait(c){
   const ms = ckdAddedMs(c); if(ms === null) return { text:'', color:'var(--gray)' };
   const d = Math.max(0, Math.floor((Date.now() - ms) / 86400000));
   return { text: d === 0 ? 'New today' : d + ' day' + (d === 1 ? '' : 's') + ' waiting', color: d >= 10 ? '#B42318' : d >= 5 ? '#9C6410' : 'var(--gray)' };
-}
-function ckdLists(){
-  const all = (typeof candidates !== 'undefined' ? candidates : []).filter(ckdActive);
-  const ready = c => obDeriveStatus(c) === 'Ready for Orientation';
-  const open = all.filter(c => !ready(c));
-  return { all: open,
-    refs:   open.filter(c => !refPolicy(c).ok),
-    checks: open.filter(c => ckdChecksLeft(c).length),
-    done:   all.filter(ready),
-    tests:  (typeof candidates !== 'undefined' ? candidates : []).filter(c => !c.not_hired && ckdIsTest(c.first, c.last)).length,
-    notHired: (typeof candidates !== 'undefined' ? candidates : []).filter(c => c.not_hired).length };
 }
 function ckdPill(s){
   const cls = { done:'ckd-pill ckd-done', half:'ckd-pill ckd-half', bad:'ckd-pill ckd-bad', todo:'ckd-pill' }[s.state] || 'ckd-pill';
@@ -7351,29 +7358,129 @@ function ckdLaneHTML(c, nx){
     + (nx.label ? '<button type="button" class="ckd-go' + (nx.wait || nx.done || nx.quiet ? ' ckd-go-quiet' : '') + '" onclick="' + nx.on + '">' + bgrEsc(nx.label) + '</button>' : '')
     + '</div>';
 }
-function ckdRowHTML(c){
-  const w = ckdWait(c);
+/* ── ONBOARDING: one list, seven stops (2026-10-21) ──────────────────────────
+   Samantha approved the design (https://claude.ai/artifact/Unte1HckNu6G7aTsUVt5XQ): "I approve the onboarding design with
+   your recommended answers to decisions 2 to 6. Go ahead and build it." Seven stops, Step 1 to approved to work:
+     0 Step 1 · 1 checks, references, experience · 2 send Step 2 · 3 check Step 2 · 4 welcome video call ·
+     5 orientation, profile, badge · 6 ready to approve
+   Until their welcome video call a person is a checks row (candidates); after it they are on the caregiver roster and their
+   readiness card (caregiver-journey, read through CRX.list) says where they are. Nothing new is stored: every stop is read
+   from the record that already says it, and every button is the one the old screens used. */
+const CKD_STOPS = ['Step 1', 'Checks and references', 'Send Step 2', 'Check Step 2', 'Welcome video call', 'Orientation, profile, badge', 'Ready to approve'];
+function ckdJourneyRows(){ try{ return (window.CRX && typeof CRX.list === 'function') ? (CRX.list(() => renderCkd()) || []) : []; }catch(e){ return []; } }
+function ckdJourneyFor(c){ return c && c.offer_id ? ckdJourneyRows().find(r => String(r.offer_id) === String(c.offer_id)) || null : null; }
+function ckdWc(c){ try{ return typeof wcRowFor === 'function' ? wcRowFor(c) : null; }catch(e){ return null; } }
+/* where a checks row is: the record's own stamps, in order */
+function ckdStopOf(c){
+  if(ckdStep1Waiting(c)) return 0;
+  if(obDeriveStatus(c) !== 'Ready for Orientation') return 1;
+  if(!c.step2_sent_at) return 2;
+  if(!c.step2_verified_at) return 3;
+  return 4;
+}
+/* a roster row's stop, from its readiness card */
+function ckdJourneyStop(r){ return r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed') ? 6 : 5; }
+/* the next step for stops 2 to 4 (stop 1 has its two lanes) */
+function ckdStepNext(c, stop){
+  const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+  if(stop === 2){
+    const j = ckdJourneyFor(c);
+    if(c.onboarding_path === 'new' && j && j.next && j.next.key === 'cg.approve.advance')
+      return { text:'Checks are done. Waiting on Samantha or Zachary to say go for Step 2.', label:'Open card', on:'CRX.open(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
+    return { text:'Send Step 2 in Viventium, then come back and press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
+  }
+  if(stop === 3){
+    if(c.step2_done_at) return { text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
+    return { text:'Waiting on ' + first + ' to finish Step 2 (sent ' + day(c.step2_sent_at) + '). The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
+  }
+  const w = ckdWc(c);
+  if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
+  if(w && w.status === 'noshow') return { text:first + ' missed the welcome video call. Call them, then invite again.', label:'Invite again', on:'wcInvite(' + id + ',this)', warn:true, how:'welcomecall' };
+  if(w && w.invited_at) return { text:'Invited to the welcome video call ' + day(w.invited_at) + '. Waiting on ' + first + ' to book.', label:'Send again', on:'wcInvite(' + id + ',this)', wait:true, how:'welcomecall' };
+  return { text:'Step 2 is checked. Invite ' + first + ' to the 15-minute welcome video call.', label:'Invite', on:'wcInvite(' + id + ',this)', how:'welcomecall' };
+}
+function ckdRosterNext(r){
+  const open = 'CRX.open(\'' + bgrEsc(String(r.offer_id)) + '\')';
+  if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
+  if(r.ready_for_final) return { text:'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
+  const n = r.next || {};
+  const mine = !n.owner || /coordinator|staff/i.test(String(n.owner));
+  return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine ? ' (' + n.owner + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
+}
+/* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
+function ckdPeople(){
+  const out = [], seen = new Set();
+  (typeof candidates !== 'undefined' ? candidates : []).filter(ckdActive).forEach(c => {
+    if(c.offer_id) seen.add(String(c.offer_id));
+    out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
+  });
+  ckdJourneyRows().forEach(r => {
+    if(!r || r.approved_to_work && r.axiscare !== 'failed') return;
+    if(r.offer_id && seen.has(String(r.offer_id))) return;
+    const parts = String(r.name || '').trim().split(/\s+/);
+    if(!CKD_SHOW_TEST && ckdIsTest(parts[0], parts.slice(1).join(' '))) return;
+    out.push({ stop:ckdJourneyStop(r), name:r.name || 'Name not recorded', ms:null, j:r });
+  });
+  return out;
+}
+function ckdLists(){
+  const ppl = ckdPeople();
+  const cands = (typeof candidates !== 'undefined' ? candidates : []);
+  return { all:ppl, byStop:CKD_STOPS.map((_, i) => ppl.filter(p => p.stop === i)),
+    tests: cands.filter(c => !c.not_hired && ckdIsTest(c.first, c.last)).length,
+    notHired: cands.filter(c => c.not_hired).length };
+}
+/* a person's actions: stop 1 has a references line and a checks line; every other stop has one */
+function ckdRosterFor(j){ return j && j.offer_id && typeof caregivers !== 'undefined' ? caregivers.find(g => String(g.offer_id) === String(j.offer_id)) || null : null; }
+function ckdActsFor(p){
+  if(p.j){
+    const out = [Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
+    if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
+    else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
+    return out;
+  }
+  if(p.stop === 1 || p.stop === 0) return ckdLanes(p.c);
+  return [Object.assign({ lane:'' }, ckdStepNext(p.c, p.stop))];
+}
+function ckdRoadHTML(stop, bad){
+  return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of 7">' + CKD_STOPS.map((_, i) =>
+    '<i class="' + (i < stop ? 'on' : i === stop ? (bad ? 'bad' : 'now') : '') + '"></i>').join('') + '</span>';
+}
+function ckdRowHTML(p){
+  const c = p.c, j = p.j, acts = ckdActsFor(p);
+  const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : { text:'On the caregiver list', color:'var(--gray)' };
+  const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.open(\'' + bgrEsc(String(j.offer_id)) + '\')';
+  const party = c && p.stop >= 2 && p.stop <= 4 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
-    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="ckdOpen(' + c.id + ')">' + bgrEsc(ckdName(c)) + '</button>'
+    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
-    + '<div class="ckd-pills">' + ckdSteps(c).map(ckdPill).join('') + '</div>'
-    + '<div class="ckd-lanes">' + ckdLanes(c).map(nx => ckdLaneHTML(c, nx)).join('') + '</div>'
+    + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span></div>'
+    + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'
+    + '<div class="ckd-lanes">' + acts.map(nx => ckdLaneHTML(c || {}, nx)).join('') + '</div>'
     + '</div>';
+}
+/* the oldest thing only the coordinator can do (never a wait, a review someone else decides, or a done line) */
+function ckdStartHere(ppl){
+  for(const p of ppl.slice().sort((a, b) => (a.ms || 9e15) - (b.ms || 9e15))){
+    const a = ckdActsFor(p).find(x => x.label && !x.wait && !x.done && !x.quiet && !x.warn);
+    if(a) return { p, a };
+  }
+  return null;
 }
 function renderCkd(){
   const box = document.getElementById('ckdDash'); if(!box) return;
   if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
+  if(typeof wcLoad === 'function' && typeof WC_AT !== 'undefined' && Date.now() - WC_AT > 30000){ WC_AT = Date.now(); Promise.resolve(wcLoad()).then(() => { try{ renderCkd(); }catch(e){} }).catch(() => {}); }
   const L = ckdLists();
   const q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
-  let list = CKD_FILTER === 'refs' ? L.refs : CKD_FILTER === 'checks' ? L.checks : CKD_FILTER === 'done' ? L.done : L.all;
-  if(q) list = list.filter(c => ckdName(c).toLowerCase().includes(q) || (typeof obRefMatchSlots === 'function' && obRefMatchSlots(c, q).length));
-  list = list.slice().sort((a, b) => (ckdAddedMs(a) || 0) - (ckdAddedMs(b) || 0));
-  const tile = (k, n, title, sub, tone) => '<button type="button" class="ckd-tile' + (CKD_FILTER === k ? ' ckd-tile-on' : '') + '" onclick="ckdFilter(\'' + k + '\')" aria-pressed="' + (CKD_FILTER === k) + '">'
-    + '<span class="ckd-tile-n"' + (tone ? ' style="color:' + tone + '"' : '') + '>' + n + '</span><span class="ckd-tile-t">' + title + '</span><span class="ckd-tile-s">' + sub + '</span></button>';
-  const heading = CKD_FILTER === 'all' ? (L.all.length + ' ' + (L.all.length === 1 ? 'person is' : 'people are') + ' waiting on you. Oldest first.')
-    : CKD_FILTER === 'done' ? 'Cleared. They move on to orientation by themselves.'
-    : 'Showing ' + list.length + '. <button type="button" class="ckd-link" onclick="ckdFilter(\'all\')">Show everyone</button>';
-  /* what happened when the page opened: a short line, and a red one when something failed (never silent) */
+  const stopF = /^s\d$/.test(CKD_FILTER) ? Number(CKD_FILTER.slice(1)) : null;
+  let list = stopF === null ? L.all : L.byStop[stopF];
+  if(q) list = list.filter(p => p.name.toLowerCase().includes(q) || (p.c && typeof obRefMatchSlots === 'function' && obRefMatchSlots(p.c, q).length));
+  list = list.slice().sort((a, b) => (a.ms || 9e15) - (b.ms || 9e15));
+  const start = ckdStartHere(L.all);
+  const tile = (k, n, title) => '<button type="button" class="ckd-tile' + (CKD_FILTER === k ? ' ckd-tile-on' : '') + '" onclick="ckdFilter(\'' + k + '\')" aria-pressed="' + (CKD_FILTER === k) + '">'
+    + '<span class="ckd-tile-n">' + n + '</span><span class="ckd-tile-t">' + title + '</span></button>';
   const run = [];
   if(CKD_RUN.busy) run.push('<div class="ckd-msg">Bringing in reference answers and older offers…</div>');
   if(CKD_RUN.err) run.push('<div class="ckd-msg ckd-err">' + bgrEsc(CKD_RUN.err) + '</div>');
@@ -7381,20 +7488,22 @@ function renderCkd(){
   const waiting = (CKD_RUN.notAdded || []);
   if(waiting.length) run.push('<div class="ckd-msg ckd-soft"><b>' + waiting.length + ' offered ' + (waiting.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> '
     + waiting.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
+  const mine = L.all.filter(p => ckdActsFor(p).some(a => a.label && !a.wait && !a.done && !a.quiet)).length;
   box.innerHTML = ''
-    + '<div class="ckd-head"><div><h2 class="ckd-h">References &amp; background checks</h2><div class="ckd-sub">' + heading + '</div></div>'
+    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + L.all.length + ' new ' + (L.all.length === 1 ? 'hire' : 'hires') + ' from Step 1 to approved to work · ' + mine + ' with something for you. Oldest first.</div></div>'
     +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
-    + '<div class="ckd-tiles">'
-    +   tile('refs', L.refs.length, 'Call references', 'Need 2 good ones each, 1 from work')
-    +   tile('checks', L.checks.length, 'Run background checks', 'OIG, EDL, FCSR, Case.net')
-    +   tile('done', L.done.length, 'Done, off to orientation', 'Move on by themselves', '#15803D')
-    + '</div>'
+    + (start ? '<div class="ckd-start"><div class="ckd-start-t"><span class="ckd-kick">Start here</span><b>' + bgrEsc(start.p.name) + ': ' + bgrEsc(start.a.text) + '</b>'
+        + '<button type="button" class="ckd-link" onclick="' + (start.p.c ? 'ckdOpen(' + start.p.c.id + ')' : 'CRX.open(\'' + bgrEsc(String(start.p.j.offer_id)) + '\')') + '">How do I do this?</button></div>'
+        + '<button type="button" class="ckd-go ckd-go-big" onclick="' + start.a.on + '">' + bgrEsc(start.a.label) + '</button></div>'
+      : '<div class="ckd-start ckd-start-calm"><div class="ckd-start-t"><span class="ckd-kick">Start here</span><b>Nothing is waiting on you right now. Everyone else is waiting on a caregiver, a reference or an owner.</b></div></div>')
+    + '<div class="ckd-tiles">' + tile('all', L.all.length, 'Everyone') + CKD_STOPS.slice(1).map((t, i) => tile('s' + (i + 1), L.byStop[i + 1].length, t)).join('') + '</div>'
     + run.join('')
     + '<div class="ckd-list">'
-    +   '<div class="ckd-row ckd-row-h"><span>Person</span><span>Progress</span><span>Your next step</span></div>'
-    +   (list.length ? list.map(ckdRowHTML).join('') : '<div class="ckd-empty">' + (q ? 'Nobody matches that search.' : CKD_FILTER === 'done' ? 'Nobody is cleared right now.' : 'Nobody is waiting. Nice work.') + '</div>')
+    +   '<div class="ckd-row ckd-row-h"><span>Person</span><span>Where they are</span><span>Progress</span><span>Your next step</span></div>'
+    +   (list.length ? list.map(ckdRowHTML).join('') : '<div class="ckd-empty">' + (q ? 'Nobody matches that search.' : 'Nobody at this stop right now.') + '</div>')
     + '</div>'
     + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
+    +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
     +   '<button type="button" class="ckd-link" onclick="bgrSub(\'audit\')">Pre-Hire Audit binder</button>'
     +   '<button type="button" class="ckd-link" onclick="bgrSub(\'refs\')">Reference activity</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
@@ -7407,6 +7516,34 @@ function renderCkd(){
     + '</div>';
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
   ckdRefreshPerson();
+  ckdCelebrate(L.all);
+}
+/* THE LITTLE PARTY (her ask 2026-10-21: "celebrate when someone ... has completed background checks and references").
+   The first time this coordinator's list shows a person past the checks, a ribbon and confetti, once; after that the small
+   ribbon on their row. Good news only, nothing sent, nothing counted or compared, still for reduced motion. "Seen" is kept
+   in this browser only (CEL's own memory), a convenience and never a record. */
+function ckdCelebrate(ppl){
+  const fresh = ppl.filter(p => p.c && p.stop >= 2 && p.stop <= 4 && p.c.resolvedAt && (Date.now() - new Date(p.c.resolvedAt).getTime()) < 14 * 864e5);
+  if(!fresh.length || document.getElementById('ckdParty')) return;
+  const first = window.CEL && typeof CEL._firstTime === 'function' ? CEL._firstTime : (k => { try{ if(localStorage.getItem('ckd_' + k)) return false; localStorage.setItem('ckd_' + k, '1'); return true; }catch(e){ return false; } });
+  const p = fresh.find(x => first('cleared_' + x.c.id)); if(!p) return;
+  const c = p.c, name = ckdName(c), firstName = c.first || name;
+  const sh = document.createElement('div'); sh.id = 'ckdParty'; sh.className = 'ckd-party-shade';
+  sh.innerHTML = '<div class="ckd-party-card" role="dialog" aria-label="Checks and references done">'
+    + '<svg aria-hidden="true" viewBox="0 0 440 190" class="ckd-party-art"><rect width="440" height="190" fill="#EAF4F6"/>'
+    + '<g class="ckd-bits"><rect x="50" y="30" width="9" height="14" rx="2" fill="#F0A63A" transform="rotate(20 54 37)"/><rect x="380" y="40" width="9" height="14" rx="2" fill="#0D365F" transform="rotate(35 384 47)"/><rect x="90" y="120" width="8" height="12" rx="2" fill="#1F7A8C" transform="rotate(-30 94 126)"/><rect x="340" y="110" width="8" height="12" rx="2" fill="#C17A12" transform="rotate(-15 344 116)"/><circle cx="140" cy="60" r="4" fill="#8FD1C7"/><circle cx="310" cy="70" r="4" fill="#F0A63A"/></g>'
+    + '<path d="M0 160 Q 110 136 220 150 T 440 146 L440 190 L0 190 Z" fill="#CADDD9"/>'
+    + '<g transform="translate(220 92)"><g class="ckd-rosette"><path d="M-24 30 L-38 82 L-22 74 L-14 90 L-4 38 Z" fill="#1F7A8C" stroke="#0D365F" stroke-width="2"/><path d="M24 30 L38 82 L22 74 L14 90 L4 38 Z" fill="#1F7A8C" stroke="#0D365F" stroke-width="2"/>'
+    + '<circle r="52" fill="#F0A63A" stroke="#0D365F" stroke-width="2.5"/><circle r="40" fill="#fff" stroke="#0D365F" stroke-width="2"/><path d="M-18 2 L-6 14 L20 -14" fill="none" stroke="#1F7A8C" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>'
+    + '<div class="ckd-party-in"><span class="ckd-kick">Checks and references done</span><h3>' + bgrEsc(firstName) + ' is cleared!</h3>'
+    + '<p>OIG, EDL, FCSR and Case.net are clear, with two good references and one from work. Nice work getting here.</p>'
+    + '<div class="ckd-party-btns"><button type="button" class="ckd-go ckd-go-big" id="ckdPartyGo">Next: send Step 2</button><button type="button" class="ckd-link" id="ckdPartyX">Close</button></div>'
+    + '<span class="ckd-party-note">Plays once for you. Then a small ribbon stays on their row. Nothing is sent to ' + bgrEsc(firstName) + '.</span></div></div>';
+  document.body.appendChild(sh);
+  const shut = () => sh.remove();
+  sh.querySelector('#ckdPartyX').onclick = shut; sh.onclick = e => { if(e.target === sh) shut(); };
+  sh.querySelector('#ckdPartyGo').onclick = () => { shut(); ckdOpen(c.id); };
+  try{ if(window.CEL && typeof CEL._confetti === 'function') CEL._confetti(sh.querySelector('.ckd-rosette'), 26); }catch(e){}
 }
 let _ckdSearchT = null;
 function ckdSearchInput(){ clearTimeout(_ckdSearchT); _ckdSearchT = setTimeout(renderCkd, 200); }
@@ -7442,6 +7579,207 @@ function ckdRefreshPerson(){
   if(!bd || bd.style.display === 'none'){ CKD_OPEN = null; return; }
   const c = candidates.find(x => x.id === CKD_OPEN);
   if(c) document.getElementById('bgrDrawer').innerHTML = ckdPersonHTML(c);
+}
+/* ── LEVEL OF CARE CARD (2026-10-21, stage E; her approved Oct 8 design, decision 4: approvers are Samantha and Zachary) ──
+   Everyone starts at Level 1. Level 2 or 3 needs ONE credible outside source naming the duties, with dates: a work
+   reference, a past employer, an active CNA/HHA/LPN/RN (Level 2 only), or a dated certificate or letter. Claimed (their
+   words, the interviewer's view), Verified (worked out by the server from the evidence) and Approved (only a person on the
+   Approve to Work list) are shown side by side and never stand in for each other. Hiring never waits on it. The server
+   (caregiver-journey level_get / level_evidence / level_approve) decides and records; this only shows and asks. */
+/* [key, label]: the keys are the server's (caregiver-journey level rules); the labels are the design's words */
+const LVL_DUTIES = {
+  2: [['bathing','Bathing'], ['showering','Showering'], ['dressing','Dressing'], ['grooming','Grooming'], ['toileting','Toileting'], ['continence_care','Continence care'], ['mobility_assistance','Mobility assistance'], ['transfers_gait_belt','Transfers with a gait belt'], ['walking_assistance','Walking assistance'], ['wheelchair_assistance','Wheelchair assistance']],
+  3: [['hoyer_lift','Hoyer lift'], ['bedbound_clients','Bedbound clients'], ['frequent_repositioning','Frequent repositioning'], ['hospice_support','Hospice support (non-medical)'], ['two_person_transfers','Two-person transfers'], ['high_fall_risk','High fall-risk clients'], ['parkinsons',"Parkinson's disease"], ['stroke_recovery','Stroke recovery'], ['complex_mobility','Complex mobility assistance']]
+};
+const lvlKeys = lv => LVL_DUTIES[lv].map(d => d[0]);
+const lvlLabel = k => { for(const lv of [2, 3]){ const d = LVL_DUTIES[lv].find(x => x[0] === k || x[1] === k); if(d) return d[1]; } return k; };
+const LVL = {};   /* offer_id -> { data, err, busy, at } */
+function mrefDutiesHTML(seen){
+  const has = new Set(seen || []);
+  const box = (lv) => LVL_DUTIES[lv].map(([k, l]) => '<label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:.82rem"><input type="checkbox" class="mref-duty" value="' + bgrEsc(k) + '"' + (has.has(k) || has.has(l) ? ' checked' : '') + ' style="width:auto"> ' + bgrEsc(l) + '</label>').join('');
+  return '<label>Which of these did they see them do? <span style="font-weight:500;color:var(--gray)">(this is what can raise their Level of Care)</span></label>'
+    + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:4px 0 2px">Level 2, personal care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(2) + '</div>'
+    + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:8px 0 2px">Level 3, advanced care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(3) + '</div>';
+}
+async function lvlCall(body){
+  if(!window.CRX || typeof CRX.call !== 'function') throw new Error('the readiness card did not load');
+  const r = await CRX.call(body);
+  if(r && r.error) throw new Error(r.error);
+  return r || {};
+}
+function lvlLoad(c, force){
+  const k = c && c.offer_id ? String(c.offer_id) : ''; if(!k) return null;
+  const st = LVL[k] || (LVL[k] = {});
+  if(!st.busy && (force || !st.at || Date.now() - st.at > 60000)){
+    st.busy = true;
+    lvlCall({ action:'level_get', offer_id:k }).then(d => { st.data = d; st.err = ''; }).catch(e => { st.err = (e && e.message) || String(e); })
+      .finally(() => { st.busy = false; st.at = Date.now(); try{ ckdRefreshPerson(); }catch(_){} });
+  }
+  return st;
+}
+/* the dates on a reference, as the server wants them (text as they said it; the server checks they are there) */
+async function lvlFromReference(c, slot, m){
+  if(!c || !c.offer_id) return;
+  const d2 = (m.duties_seen || []).filter(d => lvlKeys(2).includes(d)), d3 = (m.duties_seen || []).filter(d => lvlKeys(3).includes(d));
+  const base = { action:'level_evidence', offer_id:String(c.offer_id), kind:'reference', source:m.employer_confirmed || c['r'+slot+'_company'] || '', who:m.name || c['r'+slot+'n'] || '',
+    from:m.emp_from || '', to:m.emp_to || (m.still ? 'still there' : ''), proof:'reference ' + slot + ' (' + (m.via || 'phone') + ', ' + (m.date || '') + ')', note:'From the reference answer recorded by ' + (m.staff || 'the office') };
+  const bad = [];
+  for(const [lv, duties] of [[2, d2], [3, d3]]){
+    if(!duties.length) continue;
+    try{ await lvlCall(Object.assign({}, base, { level:lv, duties })); }catch(e){ bad.push('Level ' + lv + ': ' + e.message); }
+  }
+  if(LVL[String(c.offer_id)]) LVL[String(c.offer_id)].at = 0;
+  if(bad.length) alert('The reference is saved. The duties did not count toward their Level of Care yet:\n' + bad.join('\n') + '\n\nThey are kept on the reference, so nothing is lost.');
+}
+function lvlCardHTML(c){
+  if(!c.offer_id) return '<div class="ckd-box"><div class="ckd-box-sub">Level 1. Their Level of Care card opens once they have an offer in the Hub.</div></div>';
+  const st = lvlLoad(c) || {};
+  if(!st.data && st.busy) return '<div class="ckd-box"><div class="ckd-box-sub">Loading their Level of Care…</div></div>';
+  if(!st.data) return '<div class="ckd-box"><b>Level 1</b><div class="ckd-box-sub">' + (st.err ? 'Their Level of Care card could not load (' + bgrEsc(st.err) + '). Everyone starts at Level 1, so hiring carries on.' : 'Everyone starts at Level 1.') + '</div></div>';
+  const d = st.data, ap = d.approved || {}, cl = d.claimed || {}, said = cl.said || {};
+  const chip = (t, on) => '<span class="ckd-pill' + (on ? ' ckd-done' : '') + '">' + bgrEsc(t) + '</span>';
+  const exp = Array.isArray(said.experience) ? said.experience.map(x => [x.where, [x.from, x.to].filter(Boolean).join(' to ')].filter(Boolean).join(', ')).filter(Boolean).join('; ') : (said.experience || '');
+  const words = [exp ? 'Experience: ' + exp : '', said.level2 ? 'Level 2 clients: ' + said.level2 : '', said.preferred_levels ? 'Prefers: ' + said.preferred_levels : '', cl.interviewer_level ? 'Interviewer suggested Level ' + cl.interviewer_level : ''].filter(Boolean);
+  const want = Math.max(2, Math.min(3, (cl.level || 2)));
+  const wait = (d.verified_level || 1) >= want ? 'Level ' + want + ' is verified. ' + (d.may_approve ? 'You can approve it.' : 'Waiting on Samantha or Zachary to approve.')
+    : 'Level ' + want + ' is waiting on one person or record that confirms the ' + (want === 3 ? 'advanced' : 'personal') + ' care duties, with dates.';
+  const ev = (d.evidence || []).map(e => '<div class="ckd-box-sub">Level ' + e.level + ' · ' + bgrEsc({ reference:'Work reference', employment:'Past employer', credential:'License or registry', document:'Certificate or letter' }[e.kind] || e.kind)
+    + (e.who ? ' · ' + bgrEsc(e.who) : '') + (e.source ? ', ' + bgrEsc(e.source) : '') + (e.from || e.to ? ' · ' + bgrEsc([e.from, e.to].filter(Boolean).join(' to ')) : '')
+    + ((e.duties || []).length ? ' · ' + bgrEsc(e.duties.map(lvlLabel).join(', ')) : '') + (e.credential && e.credential.type ? ' · ' + bgrEsc(e.credential.type + ' ' + (e.credential.number || '') + ', ' + (e.credential.status || '')) : '') + ' · recorded by ' + bgrEsc(String(e.by || '').split('@')[0]) + '</div>').join('');
+  const k = bgrEsc(String(c.offer_id));
+  const canApprove = d.may_approve && (d.verified_level || 1) > (ap.level || 1);
+  return '<div class="ckd-box">'
+    + '<div class="ckd-box-acts">' + chip('Claimed: ' + (cl.level ? 'Level ' + cl.level : 'not said'), false) + chip('Verified: Level ' + (d.verified_level || 1), false) + chip('Approved: Level ' + (ap.level || 1) + (ap.default !== false ? ' (to start)' : ''), true) + '</div>'
+    + (words.length ? '<div class="ckd-box-sub">Their words: ' + bgrEsc(words.join(' · ')) + '</div>' : '')
+    + '<div class="ckd-msg ckd-soft" style="margin:0">' + bgrEsc(wait) + '</div>'
+    + (ev ? '<div><b style="font-size:13px">What we have</b>' + ev + '</div>' : '')
+    + '<div class="ckd-box-acts">'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'employment\')">Log a call to a past employer</button>'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'credential\')">Record a license lookup</button>'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'document\')">Record a certificate or letter</button>'
+    + '</div>'
+    + '<div class="ckd-box-sub">A work reference counts too: tick the duties they saw when you record the answer.</div>'
+    + (canApprove ? '<button type="button" class="ckd-go" style="align-self:flex-start" onclick="lvlApprove(\'' + k + '\',' + d.verified_level + ',this)">Approve Level ' + d.verified_level + '</button>' : '')
+    + '<div class="ckd-box-sub">Can\'t verify it? They stay Level 1 and are hired on time.</div>'
+    + '</div>';
+}
+async function lvlRecord(candId, kind){
+  const c = candidates.find(x => x.id === candId); if(!c || !c.offer_id) return;
+  const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10060;
+  const duty = lv => LVL_DUTIES[lv].map(([k, l]) => '<label style="display:flex;gap:6px;align-items:center;font-size:.82rem"><input type="checkbox" class="lvd" data-lv="' + lv + '" value="' + bgrEsc(k) + '" style="width:auto"> ' + bgrEsc(l) + '</label>').join('');
+  const title = { employment:'Log a call to a past employer', credential:'Record a license lookup', document:'Record a certificate or letter' }[kind];
+  w.innerHTML = '<div class="modal" style="max-width:560px"><h3>' + bgrEsc(title) + ' · ' + bgrEsc(ckdName(c)) + '</h3>'
+    + (kind === 'credential'
+      ? '<p style="font-size:.8rem;color:var(--gray)">An active CNA or HHA, or an LPN or RN license, verifies Level 2. It never verifies Level 3 by itself.</p>'
+        + '<div class="grp"><label>Which one</label><select id="lvType"><option>CNA</option><option>HHA</option><option>LPN</option><option>RN</option></select></div>'
+        + '<div class="grp"><label>Number</label><input type="text" id="lvNum"></div>'
+        + '<label style="display:flex;gap:6px;align-items:center;font-size:.85rem"><input type="checkbox" id="lvActive" style="width:auto"> The state lookup shows it active</label>'
+        + '<div class="grp"><label>Date you looked it up</label><input type="date" id="lvDate"></div>'
+      : '<p style="font-size:.8rem;color:var(--gray)">' + (kind === 'employment' ? 'Ask which duties they did. A job title or a place on its own is not enough.' : 'It needs a date, who it is from, and the duties it names.') + '</p>'
+        + '<div class="grp"><label>' + (kind === 'employment' ? 'Who you spoke to' : 'Who it is from') + '</label><input type="text" id="lvWho"></div>'
+        + '<div class="grp"><label>Employer or place</label><input type="text" id="lvSrc"></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="grp"><label>Started</label><input type="text" id="lvFrom" placeholder="e.g. March 2023"></div><div class="grp"><label>Finished</label><input type="text" id="lvTo" placeholder="e.g. June 2025"></div></div>'
+        + '<div style="font-size:.78rem;font-weight:700;color:#0D365F;margin-top:6px">Level 2 duties they confirmed</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px">' + duty(2) + '</div>'
+        + '<div style="font-size:.78rem;font-weight:700;color:#0D365F;margin-top:8px">Level 3 duties they confirmed</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px">' + duty(3) + '</div>')
+    + '<div class="grp" style="margin-top:8px"><label>' + (kind === 'document' ? 'Where the document is (required)' : 'Note (optional)') + '</label><input type="text" id="lvProof"></div>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="ibtn" id="lvX">Cancel</button><button class="ibtn" id="lvGo" style="background:var(--teal);color:#fff;border-color:var(--teal)">Save</button></div></div>';
+  document.body.appendChild(w);
+  const q = id => w.querySelector('#' + id);
+  q('lvX').onclick = () => w.remove();
+  q('lvGo').onclick = async () => {
+    const calls = [];
+    if(kind === 'credential'){
+      if(!q('lvNum').value.trim() || !q('lvActive').checked || !q('lvDate').value){ alert('Add the number, the date you looked it up, and tick that it shows active.'); return; }
+      calls.push({ level:2, kind, source:q('lvType').value + ' registry', who:q('lvType').value, duties:[], credential:{ type:q('lvType').value, number:q('lvNum').value.trim(), status:'active', looked_up:q('lvDate').value }, proof:q('lvType').value + ' ' + q('lvNum').value.trim() + ', active, looked up ' + q('lvDate').value, note:q('lvProof').value });
+    } else {
+      const ticked = lv => [...w.querySelectorAll('.lvd[data-lv="' + lv + '"]:checked')].map(x => x.value);
+      if(!q('lvFrom').value.trim() || (!ticked(2).length && !ticked(3).length)){ alert('Add when they worked there and tick at least one duty.'); return; }
+      if(kind === 'document' && !q('lvProof').value.trim()){ alert('Say where the document is kept.'); return; }
+      const one = lv => ({ level:lv, kind, source:q('lvSrc').value, who:q('lvWho').value, duties:ticked(lv), from:q('lvFrom').value, to:q('lvTo').value, proof:kind === 'document' ? q('lvProof').value : '', note:kind === 'document' ? '' : q('lvProof').value });
+      if(ticked(2).length) calls.push(one(2)); if(ticked(3).length) calls.push(one(3));
+    }
+    q('lvGo').disabled = true;
+    try{ for(const b of calls) await lvlCall(Object.assign({ action:'level_evidence', offer_id:String(c.offer_id) }, b)); w.remove(); lvlLoad(c, true); }
+    catch(e){ q('lvGo').disabled = false; alert('Not saved: ' + e.message); }
+  };
+}
+async function lvlApprove(offerId, level, btn){
+  if(!(await ccConfirm('Approve Level ' + level + '?\n\nThis records your name, the time and the evidence it rests on (permanent). Scheduling follows it.'))) return;
+  const note = (await ccPrompt('Optional note:', '')) || '';
+  if(btn) btn.disabled = true;
+  try{ const r = await lvlCall({ action:'level_approve', offer_id:String(offerId), level, note });
+    if(r.axiscare && r.axiscare.state === 'failed') alert('Level ' + level + ' is approved in the Hub, but AxisCare did not take it. Open their readiness card and press Retry.');
+    const st = LVL[String(offerId)]; if(st) st.at = 0; const c = candidates.find(x => String(x.offer_id) === String(offerId)); if(c) lvlLoad(c, true); }
+  catch(e){ if(btn) btn.disabled = false; alert('Not approved: ' + e.message); }
+}
+async function ckdBadgeMailed(offerId, btn){
+  const g = (typeof caregivers !== 'undefined' ? caregivers : []).find(x => String(x.offer_id) === String(offerId)); if(!g) return;
+  if(!(await ccConfirm('Record that ' + (g.first || 'their') + '\'s employee badge went in the mail today? This records your name and the time.'))) return;
+  if(btn) btn.disabled = true;
+  g.badge_mailed_at = new Date().toISOString(); g.badge_mailed_by = ((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || '');
+  const ok = await saveCaregivers();
+  if(!ok){ alert('Not saved. The badge is not recorded as mailed yet. Try again in a moment.'); delete g.badge_mailed_at; delete g.badge_mailed_by; if(btn) btn.disabled = false; return; }
+  renderCkd();
+}
+/* "How do I do this?" for a coordinator learning the job: short steps per kind of action, in her words. */
+const CKD_HOW = {
+  refcall: ['Press Call. It opens the reference in the office phone, so the call comes from our number.',
+    'Say who you are and that they were listed as a reference. Ask if they have five minutes.',
+    'Press Record answer and read each question out loud. Tick the duties they say the person did, like bathing or transfers.',
+    'Save. If they sound unsure, pick Conditional. Samantha or Zachary decide from there.',
+    'No answer? Log a voicemail. After a few days the Hub asks the applicant for a better number or another reference.'],
+  addrefs: ['Open their record (the pencil) and type each reference: name, phone, email, and whether it is work or personal.',
+    'We need two good references, and at least one has to be from a past job.',
+    'Save. The Hub texts and emails each reference the form by itself.'],
+  oig: ['Press Run OIG. The Hub searches the federal exclusion list by their name.',
+    'If there is no match, press Clear. If a name matches, check the date of birth and state before deciding.',
+    'The search result is saved as the proof by itself.'],
+  edl: ['Open the Missouri EDL search and type their full name.', 'Save the result page as a PDF.', 'Press Record EDL, pick the result, and attach the PDF.'],
+  fcsr: ['Open the Screening desk (FCSR sheet) on their checklist for the details the state asks for.',
+    'Order the FCSR screening in the state system. Record it with the date you ordered it.',
+    'When the result comes back, press Record FCSR again, pick the result, and attach it.'],
+  casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
+  review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
+    'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
+  advance: ['The checks and references are done. An owner says go before Step 2.', 'Nothing for you to do: Samantha or Zachary have a card for it.'],
+  step2send: ['Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
+    'The Hub sends them their Step 2 message and reminds them on day 3 and day 6.'],
+  step2wait: ['Nothing to do yet. They are finishing Step 2 in Viventium.', 'If they tell you on the phone that they are done, press They said done.',
+    'Day 8 with nothing? The Hub gives you a card to call them.'],
+  step2check: ['Open them in Viventium.', 'Press Check Step 2 and tick each form you can see is really done. Telling us is not the same as done.',
+    'If something is missing, use Still open to text them which one.'],
+  welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
+    'On the call you check their ID on camera for the I-9 and welcome them.',
+    'Press Done at the end. Their orientation link goes out from our training site, and they move to the caregiver list.'],
+  approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],
+  card: ['Open their readiness card. It lists every requirement and says which one is next.', 'Each line says what proof it needs. Record or confirm it there.']
+};
+function ckdHowKey(a){
+  if(a.how) return a.how;
+  const on = String(a.on || '');
+  if(/openManualRef/.test(on)) return 'refcall';
+  if(/openOBModal/.test(on)) return 'addrefs';
+  if(/bgrRunOIG|'oig'/.test(on)) return 'oig';
+  if(/'edl'/.test(on)) return 'edl';
+  if(/'fcsr'/.test(on)) return 'fcsr';
+  if(/'casenet'/.test(on)) return 'casenet';
+  if(/bgrvOpenModal/.test(on) || a.warn) return 'review';
+  return '';
+}
+function ckdNextCardHTML(c){
+  const p = { c, stop:ckdStopOf(c) };
+  const acts = ckdActsFor(p).filter(a => a.label && !a.done);
+  const a = acts.find(x => !x.wait && !x.quiet) || acts[0];
+  if(!a) return '<div class="ckd-nextcard ckd-nextcard-calm"><span class="ckd-kick">Your next action</span><b>Nothing for you right now.</b></div>';
+  const how = CKD_HOW[ckdHowKey(a)] || [];
+  let phone = '';
+  if(a.slot){ const ph = c['r'+a.slot+'_phone'], p2 = ph ? obFmtPhone(ph) : null; if(p2) phone = '<a class="ckd-go ckd-go-big"' + ocAttrs(p2.dial, { email:c['r'+a.slot+'_email'] }) + '>Call ' + bgrEsc(p2.show) + '</a>'; }
+  return '<div class="ckd-nextcard"><span class="ckd-kick">Your next action' + (a.lane ? ' · ' + a.lane : '') + '</span>'
+    + '<b class="ckd-nextcard-t">' + bgrEsc(a.text) + '</b>'
+    + '<div class="ckd-box-acts">' + phone + '<button type="button" class="ckd-go' + (phone ? ' ckd-go-line' : ' ckd-go-big') + '" onclick="' + a.on + '">' + bgrEsc(a.label) + '</button></div>'
+    + (how.length ? '<details class="ckd-how"><summary>How do I do this?</summary><ol>' + how.map(x => '<li>' + bgrEsc(x) + '</li>').join('') + '</ol></details>' : '')
+    + '</div>';
 }
 function ckdPersonHTML(c){
   const id = c.id, steps = ckdSteps(c), done = steps.filter(s => s.state === 'done').length, rp = refPolicy(c), w = ckdWait(c);
@@ -7481,12 +7819,15 @@ function ckdPersonHTML(c){
     + '<div class="ckd-p-head"><div><h2 class="ckd-h" style="font-size:22px">' + bgrEsc(ckdName(c)) + '</h2><div class="ckd-sub">' + bgrEsc(meta.join(' · ')) + '</div></div>'
     +   '<button type="button" class="ckd-x" onclick="bgrCloseDrawer()" aria-label="Close">&times;</button></div>'
     + '<div class="ckd-bar"><div class="ckd-bar-track"><div class="ckd-bar-fill" style="width:' + Math.round(done / steps.length * 100) + '%"></div></div><b>' + done + ' of ' + steps.length + ' done</b></div>'
+    + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of 7: ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
+    + ckdNextCardHTML(c)
     + (ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>' : '')
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
     +   (rp.blocked ? '<div class="ckd-msg ckd-err">' + bgrEsc(rp.why) + '</div>' : '')
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
     +   '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="openOBModal(' + id + ')">+ Add or fix a reference</button></div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
+    + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Experience and Level of Care</h3><span>Never holds up hiring</span></div>' + lvlCardHTML(c) + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
     +   (typeof sdEligible === 'function' && sdEligible(c) ? '<button type="button" class="ckd-link" onclick="bgrScreeningDesk(' + id + ')">Screening desk (FCSR sheet)</button>' : '')
@@ -8438,6 +8779,7 @@ function openManualRef(candidateId, slot){
   const g=k=>document.getElementById(k);
   g('mref-staff').value=existing.staff||'';
   g('mref-via').value=existing.via||'Phone call';
+  try{ const dw=g('mref-duties-wrap'); if(dw) dw.innerHTML=mrefDutiesHTML(existing.duties_seen||[]); }catch(e){}
   g('mref-date').value=existing.date||new Date().toISOString().split('T')[0];
   g('mref-name').value=c[`r${slot}n`]||existing.name||'';
   /* Older records said 'Professional' / 'Personal'; the board now stores the
@@ -8558,8 +8900,9 @@ async function saveManualRef(){
   const a=mrefCollect();
   const score=scoreManualRef(a.recommend,a.reliability,a.interpersonal,a.honesty,a.concerns,
     { type:a.type, rehire:a.rehire, trust_family:a.trust_family });
+  const duties=[...document.querySelectorAll('#mref-duties-wrap .mref-duty:checked')].map(x=>x.value);
   const manual=Object.assign({staff:g('mref-staff'),via:g('mref-via'),date:g('mref-date'),name:g('mref-name'),
-    relationship:g('mref-rel')}, a, {date_check:''});
+    relationship:g('mref-rel')}, a, {date_check:'', duties_seen:duties});
   const i=candidates.findIndex(x=>x.id===_mrefCandId);
   if(i<0) return;
   const id=candidates[i].id, slot=_mrefSlot;
@@ -8575,6 +8918,8 @@ async function saveManualRef(){
   /* R3: the dates check and the PDF happen after the answer is saved, so a
      failure in either never loses the answer. */
   await obAfterRefRecorded(id, slot, { save:true, quiet:false });
+  /* Level of Care: a Positive work reference that names duties, with dates, is evidence for Level 2 or 3 */
+  if(score==='Positive' && a.type==='professional' && duties.length) await lvlFromReference(candidates.find(x=>x.id===id), slot, manual);
 }
 
 let cgReturnTab='training';
@@ -9137,12 +9482,13 @@ function step2Html(c){
 }
 /* "📹 Invite to Orientation Video Call": gated on Step 2 done; after inviting, the
    booked/done state or "Invited [date] · Re-send". */
+function ckdStep2Ok(c){ return !!(c && (c.step2_verified_at || (c.onboarding_path !== 'new' && c.step2_done_at))); }
 function wcInviteHtml(c){
   const w = wcRowFor(c);
   if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Orientation Video Call done ${wcDay(w.done_at)}</span>`;
   if(w && w.status === 'booked' && w.starts_at) return `<span class="badge" style="background:#E0F2FE;color:#075985;font-size:.66rem">📹 Booked ${wcEsc(wcWhen(w.starts_at))}</span>`;
   const invitedAt = (w && w.invited_at) || c.welcome_invited_at;
-  const ok = !!(c.step2_verified_at || c.step2_done_at);   /* SLICE 4: verified (or the old done tick) */
+  const ok = ckdStep2Ok(c);   /* SLICE 4: verified; the old done tick counts only on the old path (2026-10-21) */
   const tip = ok ? '' : 'Viventium Step 2 must be verified first';
   if(invitedAt) return `<span style="font-size:.7rem;color:#0e7490;font-weight:600">📹 Invited ${wcDay(invitedAt)}${w && w.status === 'noshow' ? ' (missed the call)' : ''} ·</span>`
     + `<span title="${tip}"><button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">Re-send</button></span>`;
@@ -9150,7 +9496,7 @@ function wcInviteHtml(c){
 }
 async function wcInvite(id, btn){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
-  if(!(c.step2_verified_at || c.step2_done_at)){ alert('Viventium Step 2 must be verified first. Press Verify once Viventium shows every task complete.'); return; }
+  if(!ckdStep2Ok(c)){ alert('Viventium Step 2 must be verified first. Press Verify once Viventium shows every task complete.'); return; }
   if(safeIsTmp(c.id)){ alert(c.first + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   if(!c.phone && !c.email){ alert(c.first + ' has no phone number or email on file. Add one first (✏️ on the Background tab). Nothing was sent.'); return; }
   const name = (c.first + ' ' + c.last).trim();
@@ -9429,7 +9775,9 @@ function wcYmdLabel(ymd){
   const m = String(ymd || '').match(/^(\d{4})-(\d{2})-(\d{2})$/); if(!m) return String(ymd || '');
   return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m[2] - 1] + ' ' + (+m[3]) + ', ' + m[1];
 }
-const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
+const WC_CARRY = ['casenet', 'casenet_date', 'casenet_proof',
+  /* 2026-10-21: the approved Level of Care and the badge travel with the person */
+  'care_level_approved', 'care_level_by', 'care_level_by_email', 'care_level_at', 'care_level_note', 'care_level_evidence', 'care_level_history', 'badge_mailed_at', 'badge_mailed_by', 'badge_not_needed', 'offer_id', 'intake_id', 'position', 'welcome_call_id', 'welcome_invited_at',
   'step2_sent_at', 'step2_sent_by', 'step2_done_at', 'step2_done_by', 'previous_names',
   /* SLICE 4: the audited Step 2 record travels with the person */
   'step2_sent_note', 'step2_resent_at', 'step2_resent_by', 'step2_msg', 'step2_done_how', 'step2_receipt', 'step2_verified_at', 'step2_verified_by', 'step2_checklist', 'step2_i9_s2_by', 'step2_i9_s2_at', 'step2_note', 'step2_still_open_at', 'step2_still_open_by', 'step2_still_open_task', 'step2_reminders', 'step2_history', 'step2_invite'];
@@ -11438,7 +11786,7 @@ window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
