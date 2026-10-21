@@ -13,7 +13,7 @@ const FIXTURES = [
   ["Conditional, no decision",     K({r3s:"Conditional"}),                       "not_eligible"],
   ["Conditional + decision",       K({r3s:"Conditional",ref_decision:{outcome:"proceed",refs:"Positive|Positive|Conditional|"}}), "eligible"],
   ["decision then Negative",       K({r3s:"Conditional",r4s:"Negative",ref_decision:{outcome:"proceed",refs:"Positive|Positive|Conditional|"}}), "not_eligible"],
-  ["out-of-state no fingerprints", K({oos:"yes"}),                               "not_eligible"],
+  ["out-of-state no fingerprints", K({oos:"yes"}),                               "eligible"],   /* no fingerprints from 2026-10-21 */
   ["in-state no fingerprints",     K({}),                                        "eligible"],
   /* Orientation only (Samantha, 2026-10-15): dementia, OJT and annual in-service are optional, never a blocker or lapse. */
   ["orientation but no ALZ",       K({alz_date:""}),                             "eligible"],

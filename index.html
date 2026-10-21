@@ -2110,7 +2110,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <li><b>They book an in-person interview</b> (about 20 minutes), after answering the screening questions. Confirmation and reminders go by themselves; the day-before text asks YES or NO, and a NO frees the time. <b>Did not show</b> marks a No-Show; <b>✕ Cancel</b> or <b>Move</b> when plans change.</li>
           <li><b>After the interview:</b> <b><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Hire, make the offer</b>, <b><svg class=navi aria-hidden=true><use href=icons.svg#i-box></use></svg> Candidate pool</b> or <b>Not hiring</b>. Saving the offer sends their private start link.</li>
           <li><b>They fill in the start link</b> (references, FCSR details) and appear in <b>Background &amp; References</b>, where <b><svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Ask refs</b> emails their references the form. Phone-only references are yours to call.</li>
-          <li><b>You run OIG, EDL, FCSR and Case.net</b> (and fingerprints if they lived outside Missouri). With 2 positive references and every check clear, they move to <b>Ready for Orientation</b> by themselves. A flagged check is always decided by a person.</li>
+          <li><b>You run OIG, EDL, FCSR and Case.net</b> . With 2 positive references and every check clear, they move to <b>Ready for Orientation</b> by themselves. A flagged check is always decided by a person.</li>
           <li><b>Viventium Step 2, then the Orientation Video Call.</b> Press <b>Orientation Video Call done – send orientation link</b> and they do orientation online. The office orientation is the backup.</li>
           <li><b>Training:</b> 2 hours of orientation before the first client; that is the only training required. Dementia, on-the-job and other courses are optional, assigned by the office when a client needs them. The Training Platform sends the reminders and "cleared to work".</li>
           <li><b>First shifts:</b> the availability link, then a "how did your first shift go?" text the morning after.</li>
@@ -2396,8 +2396,88 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- People & Checks: attention-first, read-only projection (renderer in
            caregivers-engine.js). The legacy pipeline + full table stay below as
            a detailed view so no editing affordance is lost. -->
-      <!-- People & Checks is one clean view: the candidates table below. -->
-      <div class="bgr-people" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <!-- People & Checks is the checks dashboard (2026-10-21, Samantha: "simple, a dashboard for our staffing coordinator"),
+           drawn by renderCkd() in caregivers-engine.js. The old table and its toolbar (class ckd-old) only show after
+           More > Full table / Not hired / How long people take. -->
+      <style>
+        #panel-onboarding:not(.ckd-old-on) .ckd-old{display:none!important}
+        #panel-onboarding.ckd-old-on #ckdDash{display:none}
+        #ckdDash{display:flex;flex-direction:column;gap:18px;margin-bottom:16px;color:#16283a}
+        #ckdDash .ckd-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap}
+        .ckd-h{margin:0;font-size:24px;font-weight:800;color:#0D365F;letter-spacing:-.01em}
+        .ckd-sub{font-size:14.5px;color:#55677a;margin-top:3px}
+        .ckd-search{font:inherit;font-size:14.5px;padding:10px 14px;border:1px solid #e4e1d8;border-radius:10px;width:280px;max-width:100%;background:#fff}
+        .ckd-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+        .ckd-tile{font:inherit;text-align:left;cursor:pointer;background:#fff;color:#0D365F;border:2px solid #e4e1d8;border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:3px}
+        .ckd-tile:hover{border-color:#1F7A8C}
+        .ckd-tile-on{background:#0D365F;color:#fff;border-color:#0D365F}
+        .ckd-tile-on .ckd-tile-s{color:#E8C988}.ckd-tile-on .ckd-tile-n{color:#fff!important}
+        .ckd-tile-n{font-size:32px;font-weight:800;line-height:1}
+        .ckd-tile-t{font-size:15.5px;font-weight:700}
+        .ckd-tile-s{font-size:12.5px;color:#55677a}
+        .ckd-list{background:#fff;border:1px solid #e4e1d8;border-radius:14px;overflow:hidden}
+        .ckd-row{display:grid;grid-template-columns:200px minmax(0,1fr) minmax(0,430px);gap:16px;align-items:center;padding:14px 18px;border-top:1px solid #e4e1d8}
+        .ckd-row-h{border-top:none;background:#f6f5f0;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#55677a;padding:10px 18px}
+        .ckd-who{display:flex;flex-direction:column;gap:2px;min-width:0}
+        .ckd-name{font:inherit;font-size:15.5px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer}
+        .ckd-name:hover{text-decoration:underline}
+        .ckd-wait{font-size:12.5px;font-weight:600}
+        .ckd-pills{display:flex;gap:6px;flex-wrap:wrap}
+        .ckd-pill{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid #c9c4b6;color:#55677a;background:#fff;white-space:nowrap}
+        .ckd-pill .navi{width:12px;height:12px}
+        .ckd-done{background:#1F7A8C;border-color:#1F7A8C;color:#fff;font-weight:700}
+        .ckd-half{border-color:#C17A12;color:#9C6410;background:#FFF8E9;font-weight:700}
+        .ckd-bad{border-color:#B42318;color:#B42318;background:#FEF3F2;font-weight:700}
+        .ckd-next{display:flex;align-items:center;gap:12px;justify-content:space-between}
+        .ckd-lanes{display:flex;flex-direction:column;gap:8px}
+        .ckd-lane{color:#0D365F}
+        .ckd-lane-done{color:#15803D}
+        .ckd-next-text{font-size:13.5px;line-height:1.35}
+        .ckd-warn{color:#B42318;font-weight:600}
+        .ckd-phone{color:#1F7A8C;font-weight:700;text-decoration:none;white-space:nowrap}
+        .ckd-go{flex-shrink:0;font:inherit;font-size:13.5px;font-weight:700;color:#fff;background:#1F7A8C;border:1.5px solid #1F7A8C;border-radius:9px;padding:8px 14px;cursor:pointer;text-decoration:none;white-space:nowrap;display:inline-block}
+        .ckd-go:hover{background:#155A68;border-color:#155A68}
+        .ckd-go-line,.ckd-go-quiet{background:#fff;color:#1F7A8C}
+        .ckd-go-line:hover,.ckd-go-quiet:hover{background:#EAF4F6}
+        .ckd-link{font:inherit;font-size:13.5px;color:#1F7A8C;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+        .ckd-more{display:flex;gap:16px;flex-wrap:wrap;align-items:center;font-size:13.5px;color:#55677a}
+        .ckd-more-l{font-weight:700}
+        .ckd-msg{font-size:13.5px;background:#EAF4F6;color:#103D47;border-radius:10px;padding:10px 14px}
+        .ckd-soft{background:#f6f5f0;color:#16283a}
+        .ckd-err{background:#FEF3F2;color:#B42318;font-weight:600}
+        .ckd-empty{padding:26px 18px;color:#55677a;font-size:14px;border-top:1px solid #e4e1d8}
+        .ckd-p{padding:22px 22px 28px;display:flex;flex-direction:column;gap:18px;color:#16283a}
+        .ckd-p-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+        .ckd-x{font-size:24px;line-height:1;color:#55677a;background:none;border:none;cursor:pointer;padding:2px 8px}
+        .ckd-bar{display:flex;align-items:center;gap:12px;font-size:13.5px;color:#0D365F}
+        .ckd-bar-track{flex:1;height:9px;background:#f2f0e9;border-radius:999px;overflow:hidden}
+        .ckd-bar-fill{height:9px;background:#1F7A8C}
+        .ckd-sec{display:flex;flex-direction:column;gap:9px}
+        .ckd-sec-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+        .ckd-sec-h h3{margin:0;font-size:15.5px;font-weight:800;color:#0D365F}
+        .ckd-sec-h span{font-size:12.5px;color:#55677a}
+        .ckd-box{border:1px solid #e4e1d8;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+        .ckd-box-ok{background:#F4F9F8}
+        .ckd-box-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+        .ckd-box-top b{font-size:14.5px}
+        .ckd-box-sub{font-size:12.5px;color:#55677a;margin-top:2px}
+        .ckd-box-st{font-size:12.5px;font-weight:700;white-space:nowrap}
+        .ckd-box-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+        .ckd-box-acts:empty{display:none}
+        .ckd-p-foot{display:flex;gap:16px;flex-wrap:wrap;border-top:1px solid #e4e1d8;padding-top:12px}
+        @media (max-width:900px){
+          .ckd-tiles{grid-template-columns:minmax(0,1fr)}
+          .ckd-row{grid-template-columns:minmax(0,1fr)}
+          .ckd-row-h{display:none}
+        }
+      </style>
+
+      <div class="bgr-people" id="ckdDash"></div>
+      <div class="card bgr-people ckd-old" id="ckdOldBar" style="padding:10px 16px;margin-bottom:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:#EAF4F6;border-color:#CDE7E4">
+        <b style="color:#103D47">Full table</b><span class="field-note" style="flex:1">Every column at once. The simple list is what to work from.</span>
+        <button class="secondary" onclick="ckdSimpleView()">Back to the simple list</button>
+      </div>
+      <div class="bgr-people ckd-old" style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:10px">
         <button class="ibtn" onclick="bgrSyncRefAnswers(this)" title="Bring any reference answers that came in through the online form onto their candidate, and clear anyone now fully done. Sends nothing.">&#8635; Sync reference answers</button>
         <button class="ibtn" onclick="bgrMakeRefPdfs(this)" title="Make a PDF for every answered reference that does not have one yet, and file it to the caregiver's GoHighLevel contact. Messages nobody.">&#128196; Make reference PDFs</button>
         <button class="ibtn" onclick="openOBModal()" title="Someone who came in another way (no offer in the Hub): add them by hand with their references.">+ Add a person</button>
@@ -2440,19 +2520,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run the OIG, EDL, FCSR and Case.net checks.</strong> Use the buttons on their row and record each result. All of them must be clear before they can move on.</div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>FCSR</strong> is done by hand in the state system. Log the date ordered, then mark it clear or failed when the result arrives.</div></div>
           <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Press "<svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Ask refs". Anyone with an <b>email</b> gets the form automatically, with questions for a <b>professional</b> or a <b>personal</b> reference. Anyone with only a phone number is never texted automatically: call them and press <b><svg class=navi aria-hidden=true><use href=icons.svg#i-phone></use></svg> Record</b>, or send the form with <b><svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Email</b>, or <b><svg class=navi aria-hidden=true><use href=icons.svg#i-chat></use></svg> Text</b> once they said OK on the phone. A quiet emailed reference gets one reminder after 2 days, the applicant is asked to help at 5 days, and the office gets a card at 9. Two positive references are needed.<span class="tip">Answers score themselves, show on the candidate, and are saved as a PDF in the caregiver's profile. Automatic emails go weekdays, 8am to 6pm.</span></div></div>
-          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Fingerprint:</strong> schedule it if required, and log the date completed.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅ + Case.net ✅</strong> (and fingerprints ✅ if they lived outside Missouri), the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the Orientation Video Call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
-          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅ + Case.net ✅</strong>, the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the Orientation Video Call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
           <div class="guide-section-lbl">Processing stats</div>
           <div class="guide-step"><div class="guide-step-num">·</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking. We aim to get applicants to orientation as fast as possible.</div></div>
         </div>
       </div>
 
       <!-- Offered people who are not in the table yet (offers from before 2026-10-08): Add buttons, never added by themselves. Drawn by renderOfferedStrip() in caregivers-engine.js. -->
-      <div class="card bgr-people" id="obOfferedStrip" style="display:none;padding:12px 16px;margin-bottom:14px;border-left:3px solid #6366F1"></div>
+      <div class="card bgr-people ckd-old" id="obOfferedStrip" style="display:none;padding:12px 16px;margin-bottom:14px;border-left:3px solid #6366F1"></div>
       <div class="card bgr-people" id="obImportStrip" style="display:none;padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--teal)"></div>
-      <div class="card bgr-people" id="obAutoImport" style="display:none;padding:8px 16px;margin:-6px 0 14px;"></div>
-      <div class="card bgr-people" style="padding:14px 16px 4px;margin-bottom:14px;">
+      <div class="card bgr-people ckd-old" id="obAutoImport" style="display:none;padding:8px 16px;margin:-6px 0 14px;"></div>
+      <div class="card bgr-people ckd-old" style="padding:14px 16px 4px;margin-bottom:14px;">
       <div class="stats bgr-people" id="ob-stats"></div>
       <div class="controls bgr-people">
         <input type="text" id="ob-search" placeholder="Search candidate or reference (name, phone, email)" oninput="SCX.renderOB()">
@@ -2499,7 +2578,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <th>EDL Check</th>
             <th>FCSR BG</th>
             <th>Case.net</th>
-            <th>Fingerprint BG</th>
             <th>Status</th><th style="min-width:120px">Actions</th>
           </tr></thead>
           <tbody id="ob-tbody"></tbody>
@@ -3282,7 +3360,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Cell Phone</label><input type="text" id="ob-phone" placeholder="4175551234"></div>
       <div class="grp"><label>Email</label><input type="email" id="ob-email" placeholder="email@example.com"></div>
       <div class="grp"><label>Lived outside MO in last 5 years?</label>
-        <select id="ob-oos"><option value="">Unknown</option><option value="no">No</option><option value="yes">Yes, fingerprint required</option></select>
+        <select id="ob-oos"><option value="">Unknown</option><option value="no">No</option><option value="yes">Yes</option></select>
       </div>
       <div class="sect-lbl">References</div>
       <div class="grp"><label>Ref 1 Name</label><input type="text" id="ob-r1n" placeholder="Full name"></div>
@@ -3387,7 +3465,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp"><label>Hire Date</label><input type="date" id="cg-hire"></div>
       <div class="grp"><label>AxisCare ID <span style="font-size:.72rem;color:var(--teal)">(from their AxisCare profile, used for status sync)</span></label><input type="text" id="cg-axiscare-id" placeholder="e.g. 12345"></div>
       <div class="grp"><label>Lived outside MO 5 yrs?</label>
-        <select id="cg-oos"><option value="no">No</option><option value="yes">Yes, fingerprint required</option></select>
+        <select id="cg-oos"><option value="no">No</option><option value="yes">Yes</option></select>
       </div>
       <div class="sect-lbl">Training</div>
       <p style="font-size:.75rem;color:var(--gray);margin:-.25rem 0 .75rem;padding:0 .1rem">⚠ Agency Orientation (2 hours) is the one training required, <strong>before first client contact</strong>. Dementia and on-the-job training are optional, assigned for a client's needs; record them here when done.</p>
@@ -23960,7 +24038,7 @@ function apToOffer(id, answers){
     const notes=document.getElementById('jo_notes');
     if(notes && !notes.value){
       notes.value = 'Applied on mo-care.com' + (r.channel?' via '+r.channel:'')
-        + (r.lived_outside_mo?'. Lived outside Missouri, so a fingerprint check is required':'') + '.';
+        + '.';
       /* 2026-10-12 (the new interview): what they told us they are looking for (question 2), and what to ask their
          references, travel with the offer so whoever schedules them and whoever checks references sees it. */
       const q2 = (typeof IQ !== 'undefined' ? IQ : []).find(q => q.seeded_as === 'v2-02');

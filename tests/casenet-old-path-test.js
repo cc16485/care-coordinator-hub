@@ -13,7 +13,7 @@ ck('Case.net Pending: Awaiting', st({ casenet: 'Pending' }) === 'Awaiting');
 ck('Case.net Clear with the rest: Ready for Orientation', st({ casenet: 'Clear' }) === 'Ready for Orientation');
 ck('Case.net Issues Found: Needs Review (like OIG, EDL, FCSR)', st({ casenet: 'Issues Found' }) === 'Needs Review');
 ck('Case.net Clear does not override another check: FCSR pending stays Awaiting', st({ casenet: 'Clear', fcsr: 'Pending' }) === 'Awaiting');
-ck('out of state still needs fingerprints too', st({ casenet: 'Clear', oos: 'yes', fp: 'Required' }) === 'Awaiting' && st({ casenet: 'Clear', oos: 'yes', fp: 'Clear' }) === 'Ready for Orientation');
+ck('no fingerprints from 2026-10-21: out of state, nothing recorded, still Ready', st({ casenet: 'Clear', oos: 'yes', fp: 'Required' }) === 'Ready for Orientation');
 const p = E.candidateProgress(Object.assign({}, base));
 ck('the outstanding list names Case.net', p.blockers.some((b) => b.code === 'casenet' && /Case\.net/.test(b.why)) && !p.ready, p.blockers);
 const snap = E.hiringSnapshot(Object.assign({}, base, { casenet: 'Clear' }));

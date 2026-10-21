@@ -122,7 +122,6 @@
       <div id="oosWrap" style="display:none;">
         <label for="states">Which states, and roughly when?</label>
         <input id="states" placeholder="e.g. Arkansas, 2022 to 2024">
-        <div class="hint">Living out of state means Missouri also requires a fingerprint background check. We will set that up for you and cover it, it just adds a step.</div>
       </div>
     </div>
 
@@ -194,10 +193,6 @@
       complete, we will text you to book a quick 15-minute Orientation Video Call, and you will do your
       paid training from home.
     </div>
-    <p id="fpNote" style="display:none;font-size:14.5px;background:#F0F7F4;border-radius:10px;padding:12px 14px;text-align:left;">
-      Because you have lived outside Missouri in the last five years, we will also set up a
-      fingerprint appointment for you. Someone from the office will call with the details.
-    </p>
     <button class="go" style="max-width:320px;margin:18px auto 0;" onclick="printCopy()">📄 Download a copy of what I signed</button>
     <p class="foot">Questions? Call or text <a href="tel:+14172348494">(417) 234-8494</a>.</p>
   </div>
@@ -405,7 +400,6 @@ async function submitForm(){
     SIGNED = row;
     g('formView').style.display = 'none';
     g('doneView').style.display = 'block';
-    if (row.lived_outside_mo) g('fpNote').style.display = 'block';
     window.scrollTo(0,0);
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Send this in and get started';
