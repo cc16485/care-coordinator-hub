@@ -477,7 +477,7 @@ async function init(){
   V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f; planFromServer();
   ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {}; HPROOF = V.hepb_proof_link || '';
   for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
-  if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; return render(); }
+  if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; render(); if (location.hash === '#reveal') { const bx = document.getElementById('rvBox'); if (bx) { bx.scrollIntoView({ block: 'center' }); const rs = document.getElementById('rv_reason'); if (rs) rs.focus({ preventScroll: true }); } } return; }
   /* 2026-10-13 (Samantha): reopening the link goes straight to the FIRST form not signed yet (signed forms stay signed) */
   SCREEN = V.completed_at ? '9' : (!V.esign_consent_at ? '1' : (ORDER.includes(V.current_screen) && V.current_screen !== '1' ? V.current_screen : '2'));
   if (!V.completed_at && V.esign_consent_at) { const first = nextScreen(); if (first && ORDER.indexOf(first) < ORDER.indexOf(SCREEN)) SCREEN = first; }
