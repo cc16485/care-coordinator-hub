@@ -276,7 +276,7 @@ function screenHtml(s){
   const secs = P.sections === 'all' ? f.sections.map((_, i) => i) : typeof P.sections === 'function' ? P.sections(f) : P.sections;
   if (!P.decide) h += '<h1>' + esc(P.title) + '</h1>';
   h += '<h2 class="ft">' + esc(f.title) + ' <span style="font-size:12.5px;color:var(--muted);font-weight:600">version ' + f.version + '</span></h2>';
-  if (REVIEW) h += reviewFormLine(P.form);
+  if (REVIEW) h += reviewFormLine(P.form) + (P.form === 'edl_fcsr_consent' ? revealBox() : '');
   else if (locked) h += '<div class="signed">Signed by ' + esc(SIGS[P.form].typed_name) + ' on ' + when(SIGS[P.form].at) + '. A signed form is never changed.</div>';
   if (s === '2') h += '<div class="doc"><h3>From your offer</h3><p><b>' + esc(V.who.first + ' ' + V.who.last) + '</b><br>' + esc(V.who.phone) + (V.who.email ? '<br>' + esc(V.who.email) : '') + '</p><p class="small">If any of this is wrong, call or text the office at ' + PHONE + ' and we will fix it on your offer.</p></div>';
   if (s === '6' && (V.hints.availability || V.hints.travel)) h += '<div class="why"><b>From your application:</b> ' + esc([V.hints.availability, V.hints.travel ? 'travel: ' + V.hints.travel : ''].filter(Boolean).join(' · ')) + '. Set your committed availability below.</div>';
@@ -527,6 +527,44 @@ async function reviewPdf(k){
   const w = window.open('', '_blank'); const r = await reviewCall({ action: 'open', form: k });
   if (r.j && r.j.url) { if (w) w.location = r.j.url; else window.open(r.j.url, '_blank'); } else if (w) w.document.body.innerHTML = '<p style="font-family:sans-serif">' + esc((r.j && r.j.error) || 'Could not open the PDF.') + '</p>';
 }
+/* 2026-10-21 (Samantha: "it still opens the pdf and doesnt let us"): the reveal, right here in the office view. Any active
+   office user (the server decides); one field, a typed reason, five minutes on screen, then wiped. The value lives only in RV
+   while its countdown runs: never in storage, a URL, a log or the console. The server logs who, when and why. */
+let RV = {}, RVT = {};
+const RV_FIELDS = [['ssn', 'Social Security number'], ['dob', 'Date of birth'], ['license', 'Driver\'s license number']];
+function revealBox(){
+  if (!REVIEW || !IDENT) return '';
+  const on = { ssn: !!IDENT.ssn, dob: !!IDENT.dob, license: !!IDENT.license };
+  if (!on.ssn && !on.dob && !on.license) return '';
+  const rows = RV_FIELDS.filter(([k]) => on[k]).map(([k, label]) => {
+    const v = RV[k];
+    const shown = v ? '<span style="font-family:ui-monospace,Menlo,monospace;font-size:1.05rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:2px 8px">' + esc(v.value) + '</span> <button class="mini" onclick="rvCopy(\'' + k + '\')">Copy</button> <span style="color:#8A7F70;font-size:.85rem">hides in ' + Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) + 's</span> <button class="mini" onclick="rvHide(\'' + k + '\')">Hide</button>'
+      : '<button class="mini" onclick="rvReveal(\'' + k + '\',this)">Reveal (5 min)</button>';
+    return '<div class="row" style="padding:6px 0"><b>' + esc(label) + ':</b> ' + shown + '</div>';
+  }).join('');
+  return '<div class="doc" id="rvBox"><h3>Reveal for the checks</h3><p class="why">Office staff only. Type why first (for example "FCSR registration"). Each reveal shows for five minutes and is logged with who, when and why.</p>'
+    + '<label class="q" for="rv_reason">Why are you opening it?</label><input type="text" id="rv_reason" maxlength="200" placeholder="FCSR registration" value="' + esc(RV.__reason || '') + '">'
+    + rows + '<div class="err" id="rv_err" style="color:#B91C1C;font-size:.9rem;margin-top:6px"></div></div>';
+}
+async function rvReveal(k, btn){
+  const err = document.getElementById('rv_err'), rs = document.getElementById('rv_reason');
+  const reason = rs ? rs.value.trim() : '';
+  if (reason.length < 5) { if (err) err.textContent = 'Please type why first (at least five characters), for example "FCSR registration".'; if (rs) rs.focus(); return; }
+  const tok = staffToken(); if (!tok) { if (err) err.textContent = 'Please sign in to the Hub first, then open this again.'; return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+  let r, j = {};
+  try { r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + tok }, body: JSON.stringify({ action: 'reveal', offer_id: REVIEW, field: k, reason }) }); try { j = await r.json(); } catch (e) {} }
+  catch (e) { j = { error: 'The server did not answer. Try again.' }; }
+  if (!r || r.status !== 200 || !j.ok) { if (btn) { btn.disabled = false; btn.textContent = 'Reveal (5 min)'; } if (err) err.textContent = j.error || 'Could not reveal it.'; return; }
+  RV.__reason = reason;
+  RV[k] = { value: String(j.value || ''), until: Date.now() + (Number(j.expires_in) || 300) * 1000 };
+  clearInterval(RVT[k]); RVT[k] = setInterval(() => { if (!RV[k] || Date.now() >= RV[k].until) rvHide(k); else rvDraw(); }, 1000);
+  rvDraw();
+}
+function rvHide(k){ clearInterval(RVT[k]); delete RVT[k]; delete RV[k]; rvDraw(); }
+function rvDraw(){ const box = document.getElementById('rvBox'); if (!box) return; const rs = document.getElementById('rv_reason'); if (rs) RV.__reason = rs.value; box.outerHTML = revealBox(); }
+async function rvCopy(k){ try { await navigator.clipboard.writeText(RV[k] ? RV[k].value : ''); } catch (e) {} }
+window.addEventListener('pagehide', () => { Object.keys(RVT).forEach((k) => clearInterval(RVT[k])); RV = {}; RVT = {}; });
 function reviewSummary(s){
   const d = V.esign_consent_detail || {};
   let h = '<h1>' + (s === '1' ? 'Step 1 for ' : 'Step 1 signatures for ') + esc(V.who.first + ' ' + V.who.last) + '</h1>';
@@ -536,7 +574,7 @@ function reviewSummary(s){
   h += '<div class="doc"><h3>Every form</h3>' + listed.map((f) => { const g = SIG_OF(f.key); const scr = ORDER.find((k) => PLAN[k].form === f.key && PLAN[k].sign) || ORDER.find((k) => PLAN[k].form === f.key);
     return '<div class="row"><b>' + esc(f.title) + '</b><br>' + (g ? '✓ Signed by ' + esc(g.typed_name) + ', ' + when(g.at) + ', version ' + esc(g.version) + (g.version_mismatch ? ' (current wording is version ' + esc(g.current_version) + ')' : '') : 'Not signed yet')
       + '<div style="margin-top:6px"><button class="mini" onclick="go(\'' + (f.key === 'employee_application' ? '2' : scr) + '\')">See the screen</button>' + (g && g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + f.key + '\')">Signed PDF</button>' : '') + '</div></div>'; }).join('') + '</div>';
-  h += '<div class="doc"><h3>For the background checks</h3><p>Social Security number: ' + (IDENT.ssn ? 'on file, ' + esc(IDENT.ssn) : 'not given yet') + ' · date of birth: ' + (IDENT.dob ? 'on file' : 'not given yet') + ' · driver\'s license: ' + (IDENT.license ? 'on file, ' + esc(IDENT.license) : 'not given') + '. Only Caring Companions office staff can reveal one, from Background &amp; References, and every reveal is logged.</p></div>';
+  h += '<div class="doc"><h3>For the background checks</h3><p>Social Security number: ' + (IDENT.ssn ? 'on file, ' + esc(IDENT.ssn) : 'not given yet') + ' · date of birth: ' + (IDENT.dob ? 'on file' : 'not given yet') + ' · driver\'s license: ' + (IDENT.license ? 'on file, ' + esc(IDENT.license) : 'not given') + '. Only Caring Companions office staff can reveal one, below or from Background &amp; References, and every reveal is logged.</p></div>'; h += revealBox();
   return h + reviewNav(s);
 }
 /* ───── the preview's stand-in for the server: only the words, the required-answer check and the PDF come from the server's
