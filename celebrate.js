@@ -177,5 +177,5 @@
 
   /* for the look test: paint the Full house card from a given AxisCare answer */
   function paintFor(d){ FH = { day:chiDay(1), at:Date.now(), d, busy:false }; const card = document.getElementById('tbShiftCard'); if(card) paintFull(card); }
-  window.CEL = { firstVisit, orientedChip, fullHouse, shiftEnd, doneToday, stampHtml, _firstTime:firstTime, _paintFor:paintFor };
+  window.CEL = { firstVisit, orientedChip, fullHouse, shiftEnd, doneToday, stampHtml, _firstTime:firstTime, _paintFor:paintFor, _confetti:confetti };
 })();
