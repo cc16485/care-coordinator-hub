@@ -7308,8 +7308,8 @@ function ckdRefNext(c){
       return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
     return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
-  if(!ckdRefSlots(c).length) return { text:'No references given yet. Type them in from their record.', label:'Add references', on:'openOBModal('+id+')' };
-  return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'openOBModal('+id+')' };
+  if(!ckdRefSlots(c).length) return { text:'No references given yet. Ask ' + (c.first || 'them') + ' for two, one from a past job, and add them here.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
+  return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
 }
 /* ONE next step. The filter decides which kind comes first; otherwise references come first (they take the longest),
    then the checks. */
@@ -7821,6 +7821,48 @@ async function ckdBadgeMailed(offerId, btn){
   if(!ok){ alert('Not saved. The badge is not recorded as mailed yet. Try again in a moment.'); delete g.badge_mailed_at; delete g.badge_mailed_by; if(btn) btn.disabled = false; return; }
   renderCkd();
 }
+/* ADD A REFERENCE (2026-10-21, Samantha: "when i click add reference it opens the large form in background...why do we
+   still have that form?"): a small window over their checklist with only what a reference needs, saved into the next
+   empty slot (or the slot being fixed). The full record stays behind "Full record". New-path people's references come
+   from Step 1 by themselves; this is for the rest (older offers, a new or better reference). */
+function ckdRefForm(id, slot){
+  const c = candidates.find(x => x.id === id); if(!c) return;
+  const n = slot || [1,2,3,4].find(k => !String(c['r'+k+'n'] || '').trim() && !c['r'+k+'_phone'] && !c['r'+k+'_email']);
+  if(!n){ alert(ckdName(c) + ' already has four references. Fix one of them instead.'); return; }
+  const v = k => bgrEsc(c['r'+n+k] || ''), type = obRefType(c['r'+n+'_type']);
+  const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10060; w.id = 'ckdRefForm';
+  w.innerHTML = '<div class="modal" style="max-width:520px"><h3>' + (slot ? 'Fix reference ' + n : 'Add a reference') + ' · ' + bgrEsc(ckdName(c)) + '</h3>'
+    + '<p style="font-size:.8rem;color:var(--gray);margin:.2rem 0 .7rem">We need two good references, and one has to be from a past job.</p>'
+    + '<div class="grp"><label>Their name</label><input type="text" id="rfName" value="' + v('n') + '"></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="grp"><label>Phone</label><input type="tel" id="rfPhone" value="' + v('_phone') + '" placeholder="417-555-0000"></div>'
+    + '<div class="grp"><label>Email</label><input type="email" id="rfEmail" value="' + v('_email') + '"></div></div>'
+    + '<div class="grp"><label>Who are they?</label>'
+    + '<label style="display:flex;gap:6px;align-items:center;font-size:.88rem"><input type="radio" name="rfType" value="professional" style="width:auto"' + (type !== 'personal' ? ' checked' : '') + '> From a past job (a supervisor or employer)</label>'
+    + '<label style="display:flex;gap:6px;align-items:center;font-size:.88rem"><input type="radio" name="rfType" value="personal" style="width:auto"' + (type === 'personal' ? ' checked' : '') + '> Personal (knows them outside of work)</label></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="grp"><label>Company, or how they know them</label><input type="text" id="rfCo" value="' + (type === 'personal' ? v('_rel') : v('_company')) + '" placeholder="Brookdale, or Neighbor"></div>'
+    + '<div class="grp"><label>How long (optional)</label><input type="text" id="rfLong" value="' + v('_howlong') + '" placeholder="3 years"></div></div>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="ibtn" id="rfX">Cancel</button><button class="ibtn" id="rfGo" style="background:var(--teal);color:#fff;border-color:var(--teal)">Save reference</button></div></div>';
+  document.body.appendChild(w);
+  const q = k => w.querySelector('#' + k);
+  q('rfX').onclick = () => w.remove();
+  setTimeout(() => { try{ q('rfName').focus(); }catch(_){} }, 50);
+  q('rfGo').onclick = async () => {
+    const name = q('rfName').value.trim(), phone = q('rfPhone').value.trim(), email = q('rfEmail').value.trim();
+    const t = (w.querySelector('input[name=rfType]:checked') || {}).value || 'professional';
+    if(!name){ alert('Add their name.'); return; }
+    if(!phone && !email){ alert('Add a phone number or an email, so we can reach them.'); return; }
+    if(email && typeof obEmailLooksRight === 'function' && !obEmailLooksRight(email)){ alert('That email does not look right.'); return; }
+    q('rfGo').disabled = true;
+    const was = {}; ['n','_phone','_email','_type','_company','_rel','_howlong','s'].forEach(k => was[k] = c['r'+n+k]);
+    c['r'+n+'n'] = name; c['r'+n+'_phone'] = phone; c['r'+n+'_email'] = email; c['r'+n+'_type'] = t;
+    if(t === 'personal'){ c['r'+n+'_rel'] = q('rfCo').value.trim(); } else { c['r'+n+'_company'] = q('rfCo').value.trim(); }
+    c['r'+n+'_howlong'] = q('rfLong').value.trim();
+    if(!c['r'+n+'s']) c['r'+n+'s'] = 'Pending';
+    const ok = await saveCandidates();
+    if(ok === false){ Object.keys(was).forEach(k => { if(was[k] === undefined) delete c['r'+n+k]; else c['r'+n+k] = was[k]; }); q('rfGo').disabled = false; alert('Not saved. Nothing changed. Try again in a moment.'); return; }
+    w.remove(); renderOB();
+  };
+}
 /* "How do I do this?" for a coordinator learning the job: short steps per kind of action, in her words. */
 const CKD_HOW = {
   refcall: ['Press Call. It opens the reference in the office phone, so the call comes from our number.',
@@ -7828,9 +7870,9 @@ const CKD_HOW = {
     'Press Record answer and read each question out loud. Tick the duties they say the person did, like bathing or transfers.',
     'Save. If they sound unsure, pick Conditional. Samantha or Zachary decide from there.',
     'No answer? Log a voicemail. After a few days the Hub asks the applicant for a better number or another reference.'],
-  addrefs: ['Open their record (the pencil) and type each reference: name, phone, email, and whether it is work or personal.',
-    'We need two good references, and at least one has to be from a past job.',
-    'Save. The Hub texts and emails each reference the form by itself.'],
+  addrefs: ['Call or text them and ask for two references, one from a past job (a supervisor or employer).',
+    'Press Add a reference and type each one: name, phone or email, and whether it is from work.',
+    'Save. Then send each reference the form (Email the form or Text the form), or call them and record the answer.'],
   oig: ['Press Run OIG. The Hub searches the federal exclusion list by their name.',
     'If there is no match, press Clear. If a name matches, check the date of birth and state before deciding.',
     'The search result is saved as the proof by itself.'],
@@ -7899,10 +7941,11 @@ function ckdPersonHTML(c){
         + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">Email the form</button>' : '')
         + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">Text the form</button>' : '')
       : '<button type="button" class="ckd-link" onclick="openManualRef(' + id + ',' + n + ')">See or change the answer</button>';
+    const fix = '<button type="button" class="ckd-link" onclick="ckdRefForm(' + id + ',' + n + ')">Fix their details</button>';
     return '<div class="ckd-box' + (s === 'Positive' ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + bgrEsc(nm) + '</b>'
       + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + '</div>'
       + '<span class="ckd-box-st" style="color:' + tone[1] + '">' + bgrEsc(tone[0]) + '</span></div>'
-      + '<div class="ckd-box-acts">' + acts + '</div></div>';
+      + '<div class="ckd-box-acts">' + acts + (s === 'Pending' ? fix : '') + '</div></div>';
   };
   const chkBox = x => {
     const v = c[x.k], ok = v === x.ok, bad = v === x.bad;
@@ -7927,14 +7970,14 @@ function ckdPersonHTML(c){
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
     +   (rp.blocked ? '<div class="ckd-msg ckd-err">' + bgrEsc(rp.why) + '</div>' : '')
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
-    +   '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="openOBModal(' + id + ')">+ Add or fix a reference</button></div>'
+    +   (slots.length < 4 ? '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="ckdRefForm(' + id + ')">+ Add a reference</button>' : '') + '</div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Experience and Level of Care</h3><span>Never holds up hiring</span></div>' + lvlCardHTML(c) + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
     +   (typeof sdEligible === 'function' && sdEligible(c) ? '<button type="button" class="ckd-link" onclick="bgrScreeningDesk(' + id + ')">Screening desk (FCSR sheet)</button>' : '')
     +   (window.CRX && c.offer_id ? CRX.chip(c.offer_id) : '')
-    +   '<button type="button" class="ckd-link" onclick="openOBModal(' + id + ')">Full record</button>'
+    +   '<button type="button" class="ckd-link" onclick="bgrCloseDrawer();openOBModal(' + id + ')">Full record</button>'
     +   ([1,2,3,4].some(n => c['r'+n+'_manual']) ? '<button type="button" class="ckd-link" onclick="refReport(' + id + ')">Reference record</button>' : '')
     +   '<button type="button" class="ckd-link" style="color:#B42318" onclick="ckdLeaveOpen(' + id + ')">Take off the list</button>'
     + '</div></div>';
@@ -11894,7 +11937,7 @@ window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
