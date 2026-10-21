@@ -64,6 +64,7 @@
     "nurse_staff",
     "nurse_visits",
     "offboardings",
+    "oig_auto_search",
     "on_call_schedule",
     "op_routing",
     "ops_items",

@@ -235,7 +235,9 @@ async function loadTasks(){
   if (!REQ) return;
   let d = null;
   try { const r = await sb.functions.invoke('reference-tasks', { body: { action: 'view', r: REQ } }); d = r.data; } catch (e) { d = null; }
-  if (!d || d.practice !== true) return;
+  /* 2026-10-21 (Level of Care, her approved Oct 8 design): the server may show the task questions to every work reference
+     (show: true), not only practice hires; their "I saw it myself" answers can verify a level. */
+  if (!d || (d.practice !== true && d.show !== true)) return;
   PRACTICE = d; const first = d.first || who.split(' ')[0];
   PRACTICE_TASKS = [...new Set((d.entries || []).flatMap(e => (e.tasks || []).map(t => t.key)))];
   g('taskCards').innerHTML = (d.entries || []).map(e => '<div class="card"><p class="q">' + escH(first) + ' listed these tasks from ' + (e.kind === 'family' ? 'their family or private-client care' : 'their time at ' + escH(e.where)) + (e.when ? ', ' + escH(e.when) : '') + '.</p>'
