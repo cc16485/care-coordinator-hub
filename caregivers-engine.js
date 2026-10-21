@@ -7520,7 +7520,10 @@ async function ckdLeave(c, j, why, note){
   if(c){ body.candidate_id = String(c.id); if(c.offer_id) body.offer_id = String(c.offer_id); } else body.offer_id = String(j.offer_id);
   let server = null, err = '';
   try{ server = await lvlCall(body); }catch(e){ err = (e && e.message) || String(e); }
-  if(c){
+  if(c && server && server.ok){
+    /* the server wrote the record (leave_patch); read it back rather than writing the same fields a second time */
+    try{ if(typeof loadAllData === 'function') await loadAllData(); else { c.not_hired = true; c.not_hired_reason = why; } }catch(_){ c.not_hired = true; c.not_hired_reason = why; }
+  } else if(c && !(/already|409/i.test(err))){
     c.not_hired = true; c.not_hired_reason = why; c.not_hired_notes = note; c.not_hired_date = new Date().toISOString().split('T')[0];
     c.left_at = new Date().toISOString(); c.left_by = ((typeof ME !== 'undefined' && ME && (ME.email || ME.name)) || '');
     await saveCandidates();
