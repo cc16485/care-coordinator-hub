@@ -28,7 +28,7 @@ with sync_playwright() as pw:
     pg.goto('http://hub.test/'); pg.add_script_tag(content=FAKE); pg.add_script_tag(content=JS)
     pg.evaluate("HP.identity(document.getElementById('apIdRows'), { applicant_id: 'a1' })"); pg.wait_for_timeout(500)
     t = pg.inner_text('#apIdRows')
-    ok('with no click: the full SSN (dashes) and the date of birth show, each with Copy', '987-65-4321' in t and '1990-05-05' in t and pg.locator('#apIdRows button:has-text("Copy")').count() == 2 and pg.locator('#apIdRows button:has-text("Click to reveal")').count() == 0, t)
+    ok('with no click: the full SSN (dashes) and the date of birth (MM-DD-YYYY) show, each with Copy', '987-65-4321' in t and '05-05-1990' in t and '1990-05-05' not in t and pg.locator('#apIdRows button:has-text("Copy")').count() == 2 and pg.locator('#apIdRows button:has-text("Click to reveal")').count() == 0, t)
     rv = reveals(pg)
     ok('one logged request per field, this offer, reason "Shown on their profile"', rv == [{'action': 'reveal', 'offer_id': 'off-1', 'field': 'ssn', 'reason': 'Shown on their profile'}, {'action': 'reveal', 'offer_id': 'off-1', 'field': 'dob', 'reason': 'Shown on their profile'}], rv)
     pg.screenshot(path=os.path.join(OUT, 'glance_auto.png'), full_page=True)
