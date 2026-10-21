@@ -7512,7 +7512,9 @@ async function ckdPrnAnswer(id){
   const yes = await ccConfirm('Did ' + (c.first || 'they') + ' say yes to PRN?\n\nOK = yes, they want PRN shifts. Cancel = no (you can take them off the list next).');
   c.prn_offer.answer = yes ? 'yes' : 'no'; c.prn_offer.answered_at = new Date().toISOString();
   await saveCandidates(); renderCkd();
-  if(yes) alert('Recorded. ' + (c.first || 'They') + ' stays on the list as PRN. Samantha is designing how a PRN hire continues (offer, pay track), so for now tell Samantha or Zachary.');
+  /* decision 7: they keep the same offer and sign a short PRN addendum on it (Staffing #577 notes); the addendum is not
+     built until Samantha approves its words, so for now an owner finishes it by hand */
+  if(yes) alert('Recorded. ' + (c.first || 'They') + ' stays on the list, marked PRN. The short PRN addendum they will sign is waiting on Samantha\'s wording, so tell Samantha or Zachary for now.');
   else ckdLeaveOpen(id);
 }
 async function ckdLeave(c, j, why, note){
