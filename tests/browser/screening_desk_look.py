@@ -36,7 +36,7 @@ async(CODE)=>{
   await bgrScreeningDesk(901); await sleep(120);
   let body=document.getElementById('sdBody').innerText;
   ok('the desk opens: on file with last four only, the FCSR sheet, the clearance statement, the DHSS links, no reveal buttons for someone not on the list',
-     /on file, ending 3456/.test(body) && /Ava Smith/.test(body) && /must clear before this person has any participant contact/.test(body) && /never permission to work/.test(body) && /not on the Screening staff list/.test(body) && !/Reveal \(5 min\)/.test(body) && document.querySelectorAll('#sdBody a[href*="health.mo.gov"]').length===2 && !/529123456/.test(body), body.slice(0,400));
+     /on file, ending 3456/.test(body) && /Ava Smith/.test(body) && /must clear before this person has any participant contact/.test(body) && /never permission to work/.test(body) && /not an active office account/.test(body) && !/Reveal \(5 min\)/.test(body) && document.querySelectorAll('#sdBody a[href*="health.mo.gov"]').length===2 && !/529123456/.test(body), body.slice(0,400));
   ok('fingerprints flagged because they lived outside Missouri; the consent time is shown', /fingerprint check required/.test(body) && /consent signed/i.test(body), body.slice(0,400));
   sdClose();
   mayReveal=true; await bgrScreeningDesk(901); await sleep(120);

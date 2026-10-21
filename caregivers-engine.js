@@ -5445,8 +5445,8 @@ async function bgrRunOIG(boardId, btn){
 /* ── SLICE 2c (Samantha "start slice 2c", 2026-10-10): the Screening desk ────────────────────────────────────────────
    For a candidate whose offer is on the NEW onboarding path (fictional until the switch date). The desk shows what the
    locked record holds ("on file, ending 1234"), the FCSR registration sheet (the facts the DHSS form asks for, in order),
-   the links to the DHSS sites (we never type into them from here), the reveal log, and, for a person on the Admin page's
-   Screening staff list, the Reveal buttons: one field, a reason, five minutes on screen, then wiped. The value lives only
+   the links to the DHSS sites (we never type into them from here), the reveal log, and, for any active office user (2026-10-21, her rule;
+   the Screening staff list no longer gates it), the Reveal buttons: one field, a reason, five minutes on screen, then wiped. The value lives only
    in this page's memory while the countdown runs: never in storage, never in a log, never in a note. */
 let SD = { candId: null, offerId: null, data: null, shown: {}, timers: {} };
 function sdEligible(b){
@@ -5497,9 +5497,9 @@ function sdRender(){
     return line(label, v);
   };
   let h = '<div style="font-weight:800;color:#0D365F;font-size:1rem">&#128274; Screening desk · ' + sdEsc(((c.first||'') + ' ' + (c.last||'')).trim()) + '</div>'
-    + '<div style="font-size:.76rem;color:#6E6559;margin:.15rem 0 .4rem">The locked details are kept encrypted on the server; a reveal shows one for five minutes to a named screening staff member, and every reveal is logged with who, when and why.</div>'
+    + '<div style="font-size:.76rem;color:#6E6559;margin:.15rem 0 .4rem">The locked details are kept encrypted on the server; a reveal shows one for five minutes to any office staff member, and every reveal is logged with who, when and why.</div>'
     + '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.8rem">FCSR registration and every required screening (EDL, FCSR, OIG, fingerprints if they lived outside Missouri) must <b>clear before this person has any participant contact</b>. The 15-day registration deadline is never permission to work.</div>';
-  if(!d.may_reveal) h += '<div style="font-size:.78rem;color:#8A7F70;margin-top:.5rem">You are not on the Screening staff list, so the details stay locked for you. An owner adds people on the Owners Hub Admin page.</div>';
+  if(!d.may_reveal) h += '<div style="font-size:.78rem;color:#8A7F70;margin-top:.5rem">Your sign-in is not an active office account, so the details stay locked for you.</div>';
   h += '<div style="' + lbl + '">On the locked record' + (I && I.captured_at ? ' <span style="font-weight:400;text-transform:none;letter-spacing:0">· captured ' + sdEsc(sdWhen(I.captured_at)) + ' · ' + (I.reveals||0) + ' reveal' + ((I.reveals||0)===1?'':'s') + ' so far</span>' : '') + '</div>';
   if(!I) h += '<div style="font-size:.84rem;color:#6E6559">Nothing on file yet: they have not reached the background check screen of Step 1.' + (d.consent_signed_at ? '' : ' The EDL and FCSR consent is not signed yet.') + '</div>';
   else h += field('ssn', 'Social Security number') + field('dob', 'Date of birth') + field('license', "Driver's license number") + (I.license_state || I.license_expires ? line('License state / expires', sdEsc([I.license_state, I.license_expires].filter(Boolean).join(' · '))) : '');
