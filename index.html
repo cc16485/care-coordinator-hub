@@ -3745,6 +3745,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div class="grp mref-pro"><label>Full time or part time?</label>
         <select id="mref-hours"><option value="">--</option><option value="full">Full time</option><option value="part">Part time</option><option value="both">Both at different times</option><option value="unsure">Not sure</option></select>
       </div>
+      <!-- Level of Care (2026-10-21, her approved Oct 8 design): the duties a work reference saw them do. One Positive work
+           reference that names Level 2 duties with dates verifies Level 2. Drawn by mrefDutiesHTML() in caregivers-engine.js. -->
+      <div class="grp mref-pro" id="mref-duties-wrap" style="grid-column:1/-1"></div>
       <div class="grp mref-pro"><label>Eligible for rehire?</label>
         <select id="mref-rehire" onchange="SCX.updateMrefPreview()"><option value="">--</option><option value="yes">Yes</option><option value="no">No</option><option value="policy">Our policy doesn't allow us to say</option></select>
       </div>

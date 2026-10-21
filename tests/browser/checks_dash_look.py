@@ -34,7 +34,7 @@ function renderOB(){ renderCkd(); } function renderAlerts(){}
   + cut('/* ── CHECKS DASHBOARD (2026-10-21)', 'function renderOB(){')
 P = lambda **k: k
 CANDS = [
-  P(id=1, first='Claire', last='Sample', added=day(13), position='Caregiver', r1n='Susie Boss', r1_type='professional', r1_company='Lakeview Childcare', r1_phone='4175550101', r1s='Pending',
+  P(id=1, first='Claire', last='Sample', added=day(13), offer_id='of1', position='Caregiver', r1n='Susie Boss', r1_type='professional', r1_company='Lakeview Childcare', r1_phone='4175550101', r1s='Pending',
     r2n='Pat Friend', r2_type='personal', r2s='Positive', oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending', oos='yes', fp='Required'),
   P(id=2, first='Kristin', last='Sample', added=day(12), oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending'),
   P(id=3, first='Holly', last='Sample', added=day(12), oig='CLEAR', oig_date=day(10), edl='Pending', fcsr='Pending', casenet='Pending'),
@@ -52,7 +52,7 @@ async(CODE)=>{
   document.querySelectorAll('.tabpanel').forEach(t=>t.style.display='none');
   const panel=document.getElementById('panel-onboarding'); panel.classList.add('mode-people');
   for(let el=panel; el; el=el.parentElement){ el.style.display = el.classList && el.classList.contains('tabpanel') ? 'block' : (getComputedStyle(el).display==='none' ? 'block' : el.style.display); }
-  window.CRX = { list: () => [{ offer_id:'o9', name:'Rosa Diaz', ready_for_final:true }, { offer_id:'o8', name:'Leah Grant', next:{ key:'cg.profile.published', title:'Caregiver profile published', owner:'Staffing Coordinator' } }, { offer_id:'o7', name:'Done Person', approved_to_work:true, axiscare:'ok' }], open(){}, chip(){ return ''; } };
+  window.CRX = { list: () => [{ offer_id:'o9', name:'Rosa Diaz', ready_for_final:true }, { offer_id:'o8', name:'Leah Grant', next:{ key:'cg.profile.published', title:'Caregiver profile published', owner:'Staffing Coordinator' } }, { offer_id:'o7', name:'Done Person', approved_to_work:true, axiscare:'ok' }], open(){}, chip(){ return ''; }, call: async (b) => b.action === 'level_get' ? { claimed:{ level:2, said:{ experience:'3 years', level2:'Yes' } }, evidence:[], verified_level:1, approved:{ level:1, default:true }, may_approve:false } : {} };
   renderCkd();
   const party = document.getElementById('ckdParty'); const partyText = party ? party.innerText.replace(/\s+/g,' ') : ''; if(party) party.querySelector('#ckdPartyX').click(); renderCkd();
   const dash=document.getElementById('ckdDash');
@@ -76,7 +76,9 @@ with sync_playwright() as pw:
     if party_back: pg.screenshot(path=os.path.join(OUT, 'checks_party.png'), clip={'x': 470, 'y': 150, 'width': 500, 'height': 600})
     pg.evaluate("()=>{ const p=document.getElementById('ckdParty'); if(p) p.remove(); }")
     pg.evaluate("()=>{ ckdOpen(1); }"); pg.wait_for_timeout(400)
+    pg.wait_for_timeout(300)
     person = pg.locator('#bgrDrawer').inner_text()
+    duty_boxes = pg.evaluate("()=>{ const d=document.createElement('div'); d.innerHTML=mrefDutiesHTML(['Bathing']); return [d.querySelectorAll('.mref-duty').length, d.querySelectorAll('.mref-duty:checked').length]; }")
     pg.screenshot(path=os.path.join(OUT, 'checks_person.png'), clip={'x': 1440 - 470, 'y': 0, 'width': 470, 'height': 1000})
     pg.evaluate("()=>{ bgrCloseDrawer(); ckdFilter('s2'); }"); s2_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').all_inner_texts()
     pg.evaluate("()=>{ ckdFilter('s1'); }"); refs_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
@@ -108,6 +110,8 @@ ck('the checklist opens on Your next action with How do I do this', 'your next a
 ck('the checklist: name, 1 of 5 done, both references, four checks', 'Claire Sample' in person and '0 of 5 done' in person and 'Susie Boss' in person and 'Pat Friend' in person and all(x in person for x in ['OIG', 'EDL', 'FCSR', 'Case.net']) and 'Call (417) 555-0101' in person, person)
 ck('stop tiles filter the list; Show test people adds them back', refs_rows == 5 and len(s2_rows) == 1 and with_tests == 10, (refs_rows, s2_rows, with_tests))
 ck('the party only comes back if this browser forgets it saw it', party_back == 1, party_back)
+ck('Level of Care card: Claimed 2, Verified 1, Approved 1 to start, what is missing, hiring not held up', all(x in person for x in ['Claimed: Level 2', 'Verified: Level 1', 'Approved: Level 1 (to start)', 'Level 2 is waiting on one person', 'Never holds up hiring', 'Record a license lookup']), person[-900:])
+ck('the reference form has 19 duty boxes and keeps what was ticked', duty_boxes == [19, 1], duty_boxes)
 ck('no em dash on the dashboard or checklist', '—' not in R['html'] and '—' not in person)
 print(f'checks_dash_look: {ok} passed, {fail} failed'); print('screenshots:', os.path.join(OUT, 'checks_dash.png'), os.path.join(OUT, 'checks_person.png'))
 raise SystemExit(1 if fail else 0)

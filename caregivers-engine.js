@@ -6040,6 +6040,10 @@ const BGRV_CHECKS = {
   fcsr: { label: 'FCSR', flagged: ['Issues Found'], clear: 'Clear', results: ['waiver_needed', 'no_waiver', 'cannot_employ'] },
   edl:  { label: 'EDL', flagged: ['Issues Found'], clear: 'Clear', results: ['cannot_employ'] },
   oig:  { label: 'OIG', flagged: ['FLAGGED'], clear: 'CLEAR', results: ['cannot_employ'] },
+  /* 2026-10-21: no new fingerprints (her rule); Case.net gets a review path. A court record found is our decision, never a notice
+     that names the record. */
+  casenet: { label: 'Case.net', flagged: ['Issues Found'], clear: 'Clear', results: ['cannot_employ'] },
+  /* kept only so a review opened before 2026-10-21 still shows; nothing records a fingerprint now */
   fp:   { label: 'Fingerprints', flagged: ['Issues Found'], clear: 'Clear', results: ['waiver_needed', 'no_waiver'] },
 };
 const BGRV_RESULT = { review: 'Needs review', waiver_needed: 'Waiver needed', no_waiver: 'No waiver needed', cannot_employ: "Can't be employed" };
@@ -7556,6 +7560,132 @@ function ckdRefreshPerson(){
   const c = candidates.find(x => x.id === CKD_OPEN);
   if(c) document.getElementById('bgrDrawer').innerHTML = ckdPersonHTML(c);
 }
+/* ── LEVEL OF CARE CARD (2026-10-21, stage E; her approved Oct 8 design, decision 4: approvers are Samantha and Zachary) ──
+   Everyone starts at Level 1. Level 2 or 3 needs ONE credible outside source naming the duties, with dates: a work
+   reference, a past employer, an active CNA/HHA/LPN/RN (Level 2 only), or a dated certificate or letter. Claimed (their
+   words, the interviewer's view), Verified (worked out by the server from the evidence) and Approved (only a person on the
+   Approve to Work list) are shown side by side and never stand in for each other. Hiring never waits on it. The server
+   (caregiver-journey level_get / level_evidence / level_approve) decides and records; this only shows and asks. */
+const LVL_DUTIES = {
+  2: ['Bathing', 'Showering', 'Dressing', 'Grooming', 'Toileting', 'Continence care', 'Mobility assistance', 'Transfers with a gait belt', 'Walking assistance', 'Wheelchair assistance'],
+  3: ['Hoyer lift', 'Bedbound clients', 'Frequent repositioning', 'Hospice support (non-medical)', 'Two-person transfers', 'High fall-risk clients', "Parkinson's disease", 'Stroke recovery', 'Complex mobility assistance']
+};
+const LVL = {};   /* offer_id -> { data, err, busy, at } */
+function mrefDutiesHTML(seen){
+  const has = new Set(seen || []);
+  const box = (lv) => LVL_DUTIES[lv].map(d => '<label style="display:flex;align-items:center;gap:6px;font-weight:500;font-size:.82rem"><input type="checkbox" class="mref-duty" value="' + bgrEsc(d) + '"' + (has.has(d) ? ' checked' : '') + ' style="width:auto"> ' + bgrEsc(d) + '</label>').join('');
+  return '<label>Which of these did they see them do? <span style="font-weight:500;color:var(--gray)">(this is what can raise their Level of Care)</span></label>'
+    + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:4px 0 2px">Level 2, personal care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(2) + '</div>'
+    + '<div style="font-size:.74rem;font-weight:700;color:#0D365F;margin:8px 0 2px">Level 3, advanced care</div><div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 10px">' + box(3) + '</div>';
+}
+async function lvlCall(body){
+  if(!window.CRX || typeof CRX.call !== 'function') throw new Error('the readiness card did not load');
+  const r = await CRX.call(body);
+  if(r && r.error) throw new Error(r.error);
+  return r || {};
+}
+function lvlLoad(c, force){
+  const k = c && c.offer_id ? String(c.offer_id) : ''; if(!k) return null;
+  const st = LVL[k] || (LVL[k] = {});
+  if(!st.busy && (force || !st.at || Date.now() - st.at > 60000)){
+    st.busy = true;
+    lvlCall({ action:'level_get', offer_id:k }).then(d => { st.data = d; st.err = ''; }).catch(e => { st.err = (e && e.message) || String(e); })
+      .finally(() => { st.busy = false; st.at = Date.now(); try{ ckdRefreshPerson(); }catch(_){} });
+  }
+  return st;
+}
+/* the dates on a reference, as the server wants them (text as they said it; the server checks they are there) */
+async function lvlFromReference(c, slot, m){
+  if(!c || !c.offer_id) return;
+  const d2 = (m.duties_seen || []).filter(d => LVL_DUTIES[2].includes(d)), d3 = (m.duties_seen || []).filter(d => LVL_DUTIES[3].includes(d));
+  const base = { action:'level_evidence', offer_id:String(c.offer_id), kind:'reference', source:m.employer_confirmed || c['r'+slot+'_company'] || '', who:m.name || c['r'+slot+'n'] || '',
+    from:m.emp_from || '', to:m.emp_to || (m.still ? 'still there' : ''), proof:'reference ' + slot + ' (' + (m.via || 'phone') + ', ' + (m.date || '') + ')', note:'From the reference answer recorded by ' + (m.staff || 'the office') };
+  const bad = [];
+  for(const [lv, duties] of [[2, d2], [3, d3]]){
+    if(!duties.length) continue;
+    try{ await lvlCall(Object.assign({}, base, { level:lv, duties })); }catch(e){ bad.push('Level ' + lv + ': ' + e.message); }
+  }
+  if(LVL[String(c.offer_id)]) LVL[String(c.offer_id)].at = 0;
+  if(bad.length) alert('The reference is saved. The duties did not count toward their Level of Care yet:\n' + bad.join('\n') + '\n\nThey are kept on the reference, so nothing is lost.');
+}
+function lvlCardHTML(c){
+  if(!c.offer_id) return '<div class="ckd-box"><div class="ckd-box-sub">Level 1. Their Level of Care card opens once they have an offer in the Hub.</div></div>';
+  const st = lvlLoad(c) || {};
+  if(!st.data && st.busy) return '<div class="ckd-box"><div class="ckd-box-sub">Loading their Level of Care…</div></div>';
+  if(!st.data) return '<div class="ckd-box"><b>Level 1</b><div class="ckd-box-sub">' + (st.err ? 'Their Level of Care card could not load (' + bgrEsc(st.err) + '). Everyone starts at Level 1, so hiring carries on.' : 'Everyone starts at Level 1.') + '</div></div>';
+  const d = st.data, ap = d.approved || {}, cl = d.claimed || {}, said = cl.said || {};
+  const chip = (t, on) => '<span class="ckd-pill' + (on ? ' ckd-done' : '') + '">' + bgrEsc(t) + '</span>';
+  const words = [said.experience ? 'Experience: ' + said.experience : '', said.level2 ? 'Level 2 clients: ' + said.level2 : '', said.preferred_levels ? 'Prefers: ' + said.preferred_levels : '', cl.interviewer_level ? 'Interviewer suggested Level ' + cl.interviewer_level : ''].filter(Boolean);
+  const want = Math.max(2, Math.min(3, (cl.level || 2)));
+  const wait = (d.verified_level || 1) >= want ? 'Level ' + want + ' is verified. ' + (d.may_approve ? 'You can approve it.' : 'Waiting on Samantha or Zachary to approve.')
+    : 'Level ' + want + ' is waiting on one person or record that confirms the ' + (want === 3 ? 'advanced' : 'personal') + ' care duties, with dates.';
+  const ev = (d.evidence || []).map(e => '<div class="ckd-box-sub">Level ' + e.level + ' · ' + bgrEsc({ reference:'Work reference', employment:'Past employer', credential:'License or registry', document:'Certificate or letter' }[e.kind] || e.kind)
+    + (e.who ? ' · ' + bgrEsc(e.who) : '') + (e.source ? ', ' + bgrEsc(e.source) : '') + (e.from || e.to ? ' · ' + bgrEsc([e.from, e.to].filter(Boolean).join(' to ')) : '')
+    + ((e.duties || []).length ? ' · ' + bgrEsc(e.duties.join(', ')) : '') + ' · recorded by ' + bgrEsc(String(e.by || '').split('@')[0]) + '</div>').join('');
+  const k = bgrEsc(String(c.offer_id));
+  const canApprove = d.may_approve && (d.verified_level || 1) > (ap.level || 1);
+  return '<div class="ckd-box">'
+    + '<div class="ckd-box-acts">' + chip('Claimed: ' + (cl.level ? 'Level ' + cl.level : 'not said'), false) + chip('Verified: Level ' + (d.verified_level || 1), false) + chip('Approved: Level ' + (ap.level || 1) + (ap.default !== false ? ' (to start)' : ''), true) + '</div>'
+    + (words.length ? '<div class="ckd-box-sub">Their words: ' + bgrEsc(words.join(' · ')) + '</div>' : '')
+    + '<div class="ckd-msg ckd-soft" style="margin:0">' + bgrEsc(wait) + '</div>'
+    + (ev ? '<div><b style="font-size:13px">What we have</b>' + ev + '</div>' : '')
+    + '<div class="ckd-box-acts">'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'employment\')">Log a call to a past employer</button>'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'credential\')">Record a license lookup</button>'
+    +   '<button type="button" class="ckd-link" onclick="lvlRecord(' + c.id + ',\'document\')">Record a certificate or letter</button>'
+    + '</div>'
+    + '<div class="ckd-box-sub">A work reference counts too: tick the duties they saw when you record the answer.</div>'
+    + (canApprove ? '<button type="button" class="ckd-go" style="align-self:flex-start" onclick="lvlApprove(\'' + k + '\',' + d.verified_level + ',this)">Approve Level ' + d.verified_level + '</button>' : '')
+    + '<div class="ckd-box-sub">Can\'t verify it? They stay Level 1 and are hired on time.</div>'
+    + '</div>';
+}
+async function lvlRecord(candId, kind){
+  const c = candidates.find(x => x.id === candId); if(!c || !c.offer_id) return;
+  const w = document.createElement('div'); w.className = 'overlay open'; w.style.zIndex = 10060;
+  const duty = lv => LVL_DUTIES[lv].map(x => '<label style="display:flex;gap:6px;align-items:center;font-size:.82rem"><input type="checkbox" class="lvd" data-lv="' + lv + '" value="' + bgrEsc(x) + '" style="width:auto"> ' + bgrEsc(x) + '</label>').join('');
+  const title = { employment:'Log a call to a past employer', credential:'Record a license lookup', document:'Record a certificate or letter' }[kind];
+  w.innerHTML = '<div class="modal" style="max-width:560px"><h3>' + bgrEsc(title) + ' · ' + bgrEsc(ckdName(c)) + '</h3>'
+    + (kind === 'credential'
+      ? '<p style="font-size:.8rem;color:var(--gray)">An active CNA or HHA, or an LPN or RN license, verifies Level 2. It never verifies Level 3 by itself.</p>'
+        + '<div class="grp"><label>Which one</label><select id="lvType"><option>CNA</option><option>HHA</option><option>LPN</option><option>RN</option></select></div>'
+        + '<div class="grp"><label>Number</label><input type="text" id="lvNum"></div>'
+        + '<label style="display:flex;gap:6px;align-items:center;font-size:.85rem"><input type="checkbox" id="lvActive" style="width:auto"> The state lookup shows it active</label>'
+        + '<div class="grp"><label>Date you looked it up</label><input type="date" id="lvDate"></div>'
+      : '<p style="font-size:.8rem;color:var(--gray)">' + (kind === 'employment' ? 'Ask which duties they did. A job title or a place on its own is not enough.' : 'It needs a date, who it is from, and the duties it names.') + '</p>'
+        + '<div class="grp"><label>' + (kind === 'employment' ? 'Who you spoke to' : 'Who it is from') + '</label><input type="text" id="lvWho"></div>'
+        + '<div class="grp"><label>Employer or place</label><input type="text" id="lvSrc"></div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="grp"><label>Started</label><input type="text" id="lvFrom" placeholder="e.g. March 2023"></div><div class="grp"><label>Finished</label><input type="text" id="lvTo" placeholder="e.g. June 2025"></div></div>'
+        + '<div style="font-size:.78rem;font-weight:700;color:#0D365F;margin-top:6px">Level 2 duties they confirmed</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px">' + duty(2) + '</div>'
+        + '<div style="font-size:.78rem;font-weight:700;color:#0D365F;margin-top:8px">Level 3 duties they confirmed</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 10px">' + duty(3) + '</div>')
+    + '<div class="grp" style="margin-top:8px"><label>' + (kind === 'document' ? 'Where the document is (required)' : 'Note (optional)') + '</label><input type="text" id="lvProof"></div>'
+    + '<div style="display:flex;gap:.5rem;justify-content:flex-end;margin-top:.8rem"><button class="ibtn" id="lvX">Cancel</button><button class="ibtn" id="lvGo" style="background:var(--teal);color:#fff;border-color:var(--teal)">Save</button></div></div>';
+  document.body.appendChild(w);
+  const q = id => w.querySelector('#' + id);
+  q('lvX').onclick = () => w.remove();
+  q('lvGo').onclick = async () => {
+    const calls = [];
+    if(kind === 'credential'){
+      if(!q('lvNum').value.trim() || !q('lvActive').checked || !q('lvDate').value){ alert('Add the number, the date you looked it up, and tick that it shows active.'); return; }
+      calls.push({ level:2, kind, source:q('lvType').value + ' registry', who:q('lvType').value, duties:[], from:q('lvDate').value, to:'', proof:q('lvType').value + ' ' + q('lvNum').value.trim() + ', active, looked up ' + q('lvDate').value, note:q('lvProof').value });
+    } else {
+      const ticked = lv => [...w.querySelectorAll('.lvd[data-lv="' + lv + '"]:checked')].map(x => x.value);
+      if(!q('lvFrom').value.trim() || (!ticked(2).length && !ticked(3).length)){ alert('Add when they worked there and tick at least one duty.'); return; }
+      if(kind === 'document' && !q('lvProof').value.trim()){ alert('Say where the document is kept.'); return; }
+      const one = lv => ({ level:lv, kind, source:q('lvSrc').value, who:q('lvWho').value, duties:ticked(lv), from:q('lvFrom').value, to:q('lvTo').value, proof:kind === 'document' ? q('lvProof').value : '', note:kind === 'document' ? '' : q('lvProof').value });
+      if(ticked(2).length) calls.push(one(2)); if(ticked(3).length) calls.push(one(3));
+    }
+    q('lvGo').disabled = true;
+    try{ for(const b of calls) await lvlCall(Object.assign({ action:'level_evidence', offer_id:String(c.offer_id) }, b)); w.remove(); lvlLoad(c, true); }
+    catch(e){ q('lvGo').disabled = false; alert('Not saved: ' + e.message); }
+  };
+}
+async function lvlApprove(offerId, level, btn){
+  if(!(await ccConfirm('Approve Level ' + level + '?\n\nThis records your name, the time and the evidence it rests on (permanent). Scheduling follows it.'))) return;
+  const note = (await ccPrompt('Optional note:', '')) || '';
+  if(btn) btn.disabled = true;
+  try{ await lvlCall({ action:'level_approve', offer_id:String(offerId), level, note }); const st = LVL[String(offerId)]; if(st) st.at = 0; const c = candidates.find(x => String(x.offer_id) === String(offerId)); if(c) lvlLoad(c, true); }
+  catch(e){ if(btn) btn.disabled = false; alert('Not approved: ' + e.message); }
+}
 /* "How do I do this?" for a coordinator learning the job: short steps per kind of action, in her words. */
 const CKD_HOW = {
   refcall: ['Press Call. It opens the reference in the office phone, so the call comes from our number.',
@@ -7660,6 +7790,7 @@ function ckdPersonHTML(c){
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
     +   '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="openOBModal(' + id + ')">+ Add or fix a reference</button></div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
+    + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Experience and Level of Care</h3><span>Never holds up hiring</span></div>' + lvlCardHTML(c) + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
     +   (typeof sdEligible === 'function' && sdEligible(c) ? '<button type="button" class="ckd-link" onclick="bgrScreeningDesk(' + id + ')">Screening desk (FCSR sheet)</button>' : '')
@@ -8611,6 +8742,7 @@ function openManualRef(candidateId, slot){
   const g=k=>document.getElementById(k);
   g('mref-staff').value=existing.staff||'';
   g('mref-via').value=existing.via||'Phone call';
+  try{ const dw=g('mref-duties-wrap'); if(dw) dw.innerHTML=mrefDutiesHTML(existing.duties_seen||[]); }catch(e){}
   g('mref-date').value=existing.date||new Date().toISOString().split('T')[0];
   g('mref-name').value=c[`r${slot}n`]||existing.name||'';
   /* Older records said 'Professional' / 'Personal'; the board now stores the
@@ -8731,8 +8863,9 @@ async function saveManualRef(){
   const a=mrefCollect();
   const score=scoreManualRef(a.recommend,a.reliability,a.interpersonal,a.honesty,a.concerns,
     { type:a.type, rehire:a.rehire, trust_family:a.trust_family });
+  const duties=[...document.querySelectorAll('#mref-duties-wrap .mref-duty:checked')].map(x=>x.value);
   const manual=Object.assign({staff:g('mref-staff'),via:g('mref-via'),date:g('mref-date'),name:g('mref-name'),
-    relationship:g('mref-rel')}, a, {date_check:''});
+    relationship:g('mref-rel')}, a, {date_check:'', duties_seen:duties});
   const i=candidates.findIndex(x=>x.id===_mrefCandId);
   if(i<0) return;
   const id=candidates[i].id, slot=_mrefSlot;
@@ -8748,6 +8881,8 @@ async function saveManualRef(){
   /* R3: the dates check and the PDF happen after the answer is saved, so a
      failure in either never loses the answer. */
   await obAfterRefRecorded(id, slot, { save:true, quiet:false });
+  /* Level of Care: a Positive work reference that names duties, with dates, is evidence for Level 2 or 3 */
+  if(score==='Positive' && a.type==='professional' && duties.length) await lvlFromReference(candidates.find(x=>x.id===id), slot, manual);
 }
 
 let cgReturnTab='training';
@@ -9310,12 +9445,13 @@ function step2Html(c){
 }
 /* "📹 Invite to Orientation Video Call": gated on Step 2 done; after inviting, the
    booked/done state or "Invited [date] · Re-send". */
+function ckdStep2Ok(c){ return !!(c && (c.step2_verified_at || (c.onboarding_path !== 'new' && c.step2_done_at))); }
 function wcInviteHtml(c){
   const w = wcRowFor(c);
   if(w && w.status === 'done') return `<span class="badge" style="background:#DCFCE7;color:#15803D;font-size:.66rem">📹 Orientation Video Call done ${wcDay(w.done_at)}</span>`;
   if(w && w.status === 'booked' && w.starts_at) return `<span class="badge" style="background:#E0F2FE;color:#075985;font-size:.66rem">📹 Booked ${wcEsc(wcWhen(w.starts_at))}</span>`;
   const invitedAt = (w && w.invited_at) || c.welcome_invited_at;
-  const ok = !!(c.step2_verified_at || c.step2_done_at);   /* SLICE 4: verified (or the old done tick) */
+  const ok = ckdStep2Ok(c);   /* SLICE 4: verified; the old done tick counts only on the old path (2026-10-21) */
   const tip = ok ? '' : 'Viventium Step 2 must be verified first';
   if(invitedAt) return `<span style="font-size:.7rem;color:#0e7490;font-weight:600">📹 Invited ${wcDay(invitedAt)}${w && w.status === 'noshow' ? ' (missed the call)' : ''} ·</span>`
     + `<span title="${tip}"><button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" ${ok ? '' : 'disabled'} title="${tip}" onclick="event.stopPropagation();wcInvite(${c.id},this)">Re-send</button></span>`;
@@ -9323,7 +9459,7 @@ function wcInviteHtml(c){
 }
 async function wcInvite(id, btn){
   const c = candidates.find(x => String(x.id) === String(id)); if(!c) return;
-  if(!(c.step2_verified_at || c.step2_done_at)){ alert('Viventium Step 2 must be verified first. Press Verify once Viventium shows every task complete.'); return; }
+  if(!ckdStep2Ok(c)){ alert('Viventium Step 2 must be verified first. Press Verify once Viventium shows every task complete.'); return; }
   if(safeIsTmp(c.id)){ alert(c.first + ' is still being saved. Nothing was sent. Try again in a moment.'); return; }
   if(!c.phone && !c.email){ alert(c.first + ' has no phone number or email on file. Add one first (✏️ on the Background tab). Nothing was sent.'); return; }
   const name = (c.first + ' ' + c.last).trim();
@@ -11611,7 +11747,7 @@ window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
-window.ckdSimpleView = ckdSimpleView; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
+window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
 window.bgrRecordCheck = bgrRecordCheck;
 window.bgrCloseCheckModal = bgrCloseCheckModal;
