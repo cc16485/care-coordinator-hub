@@ -547,6 +547,20 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('fair counts · the team table counts only the normal one: 1 late, 1 miss, 1 excused', ang.late === 1 && ang.misses === 1 && ang.excused === 1, n.now.by_owner);
 }
 
+/* ONE TEXT PER FAMILY (Speed to lead design, Samantha 2026-10-22): the switch, the quiet stamp, and the words on the lead */
+{
+  ck('one text · off unless ops_settings.lead_one_text is true', R.oneText({ lead_one_text:true }) === true && R.oneText({}) === false && R.oneText({ lead_one_text:'yes' }) === false && R.oneText(null) === false);
+  const base = { id:'q1', first_name:'Ann', created_at:'2026-10-06T14:40:00Z', assigned_coordinator:'Krystal' };
+  const q = R.stampRung(R.stampRung(R.stampRung(JSON.parse(JSON.stringify(base)), 'owner', { to:'kry@mo-care.com', sent:true }, '2026-10-06T14:46:00Z'),
+    'backup', { to:'sam@mo-care.com', sent:false, quiet:true }, '2026-10-06T14:56:00Z'), 'manager', { to:'sam@mo-care.com', sent:false, quiet:true, owner:'kry@mo-care.com', minutes:30 }, '2026-10-06T15:11:00Z');
+  ck('one text · a quiet 15 and 30 are stamped quiet, and the 30 still counts a miss', q.rungs.backup_quiet === true && q.rungs.manager_quiet === true && !q.rungs.owner_quiet && q.speed_miss && q.speed_miss.owner === 'kry@mo-care.com', q.rungs);
+  const tl = R.timeline(q, { now:'2026-10-06T15:20:00Z', hours:HRS, names:{ 'kry@mo-care.com':'Krystal Land', 'sam@mo-care.com':'Samantha Troutman' } }).map(x => x.text);
+  ck('one text · the lead says what happened, never "Could not text" for a step that was never meant to text',
+    tl.some(t => /^Texted Krystal at 5 minutes/.test(t)) && tl.some(t => /^On Samantha's desk too \(backup\), nobody had called\. No text: one text per family$/.test(t))
+    && tl.some(t => /^Waited 30 minutes, nobody had called: counted as a miss, on Samantha's desk\. No text: one text per family$/.test(t)) && !tl.some(t => /Could not text/.test(t)), tl);
+  ck('one text · no em dashes in the new words', !tl.some(t => /\u2014/.test(t)));
+}
+
 /* the Hub page and the server run the same file (STAFFING_ROOT points at another Staffing checkout, e.g. a worktree) */
 const serverCopy = path.join(process.env.STAFFING_ROOT || path.join(__dirname, '..', '..', 'Staffing-Coordinator-Hub'), 'supabase', 'functions', '_shared', 'lead-rules.js');
 ck('the Hub page and the server run the same lead-rules.js', fs.existsSync(serverCopy) && fs.readFileSync(serverCopy, 'utf8') === fs.readFileSync(path.join(__dirname, '..', 'lead-rules.js'), 'utf8'));
