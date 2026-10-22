@@ -7379,7 +7379,7 @@ function ckdStopOf(c){
   return 4;
 }
 /* a roster row's stop, from its readiness card */
-function ckdJourneyStop(r){ return r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed') ? 6 : 5; }
+function ckdJourneyStop(r){ return r.ready_for_final || r.checkin_open || (r.approved_to_work && r.axiscare === 'failed') ? 6 : 5; }
 /* the next step for stops 2 to 4 (stop 1 has its two lanes) */
 function ckdStepNext(c, stop){
   const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
@@ -7393,15 +7393,20 @@ function ckdStepNext(c, stop){
     if(c.step2_done_at) return { text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
     return { text:'Waiting on ' + first + ' to finish Step 2 (sent ' + day(c.step2_sent_at) + '). The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
   }
+  /* IN TRAINING PLAN v2, PART B (2026-10-22): Step 2 checked with the button switch on = add them to AxisCare, then one button */
+  const inv = c.step2_invite || {};
+  if(inv.state === 'button' && !inv.orientation) return { text:'Step 2 is checked. Add ' + first + ' to AxisCare as In Training, then send their orientation information.', label:'AxisCare setup', on:'axSetupOpen(' + id + ')', how:'axsetup' };
   const w = ckdWc(c);
   if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
   if(w && w.status === 'noshow') return { text:first + ' missed the welcome video call. Call them, then invite again.', label:'Invite again', on:'wcInvite(' + id + ',this)', warn:true, how:'welcomecall' };
+  if(w && w.invited_at && inv.orientation) return { text:'Orientation information sent ' + day(inv.at || w.invited_at) + '. Waiting on ' + first + ' to book the welcome video call and start orientation.', label:'Send again', on:'axSetupOpen(' + id + ')', wait:true, how:'axsetup' };
   if(w && w.invited_at) return { text:'Invited to the welcome video call ' + day(w.invited_at) + '. Waiting on ' + first + ' to book.', label:'Send again', on:'wcInvite(' + id + ',this)', wait:true, how:'welcomecall' };
   return { text:'Step 2 is checked. Invite ' + first + ' to the 15-minute welcome video call.', label:'Invite', on:'wcInvite(' + id + ',this)', how:'welcomecall' };
 }
 function ckdRosterNext(r){
   const open = 'CRX.open(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
+  if(r.checkin_open) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
   if(r.ready_for_final) return { text:'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
   const n = r.next || {};
@@ -7416,7 +7421,7 @@ function ckdPeople(){
     out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
   });
   ckdJourneyRows().forEach(r => {
-    if(!r || r.approved_to_work && r.axiscare !== 'failed') return;
+    if(!r || r.approved_to_work && r.axiscare !== 'failed' && !r.checkin_open) return;
     if(r.offer_id && seen.has(String(r.offer_id))) return;
     const parts = String(r.name || '').trim().split(/\s+/);
     if(!CKD_SHOW_TEST && ckdIsTest(parts[0], parts.slice(1).join(' '))) return;
@@ -7893,6 +7898,14 @@ const CKD_HOW = {
   welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
     'On the call you check their ID on camera for the I-9 and welcome them.',
     'Press Done at the end. Their orientation link goes out from our training site, and they move to the caregiver list.'],
+  axsetup: ['Press AxisCare setup. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
+    'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
+    'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
+    'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call.'],
+  checkin: ['They finished orientation and are Active in AxisCare. The Hub texted them the AxisCare app guide.',
+    'Call them. Make sure everything is on file and complete, and answer any questions about orientation or the job.',
+    'Make sure the AxisCare app is downloaded and they can sign in. Ask if they would like a quick test clock-in.',
+    'Tick each one on their card and press Done. No answer? Press No answer and try again tomorrow. Shift texts wait for this call.'],
   approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
   quiet: ['Call them. Life changes: ask if flexible PRN shifts would work better for them.', 'If PRN fits, press What now? and then I offered PRN.', 'If they are done, press What now? and pick why. The Hub stops their reminders and keeps their record.'],
   prn: ['Call them and ask if PRN (flexible shifts they can accept or decline) works for them.', 'Press Their answer. Yes keeps them on the list as PRN. No opens Take off the list.'],
@@ -9557,6 +9570,64 @@ async function s2After(id, d){
   try{ if(typeof loadAllData === 'function') await loadAllData(); }catch(_){}
   renderOrientReadyQueue(); if(typeof renderOB === 'function') renderOB();
 }
+/* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the AxisCare setup card. What to type into AxisCare (the birth
+   date through Step 1's own logged reveal, kept only in this open window), a Check AxisCare button, and one big
+   Send orientation information button. The server checks AxisCare's zip code and birth date against Step 1 before anything goes. */
+function axSetupHtml(d, dob, chk, msg){
+  const e = wcEsc, a = d.address || {}, line = (label, v, key) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559;min-width:110px">' + label + '</span><span style="flex:1;text-align:right;font-weight:600;min-width:0;overflow-wrap:anywhere">' + (v ? e(v) : '<span style="color:#A89C8B;font-weight:400">not given</span>') + '</span>' + (v ? '<button class="ibtn" style="font-size:.72rem" onclick="axCopy(this,\'' + key + '\')">Copy</button>' : '') + '</div>';
+  const fmtDob = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v.slice(5, 7) + '-' + v.slice(8, 10) + '-' + v.slice(0, 4) : '';
+  window.__axVals = { first:d.first, last:d.last, phone:d.phone, email:d.email, street:[a.address1, a.address2].filter(Boolean).join(' '), city:a.city, state:a.state, zip:a.zip, dob:fmtDob(dob) };
+  let h = '<div style="font-size:13.5px;color:#5C544A;margin-bottom:8px">Add ' + e(d.first || 'them') + ' in AxisCare as a caregiver with status <b>In Training</b>. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.</div>'
+    + line('First name', d.first, 'first') + line('Last name', d.last, 'last') + line('Mobile phone', d.phone, 'phone') + line('Email', d.email, 'email')
+    + line('Street', window.__axVals.street, 'street') + line('City', a.city, 'city') + line('State', a.state, 'state') + line('Zip code', a.zip, 'zip')
+    + line('Birth date', window.__axVals.dob || (d.has_dob ? '' : ''), 'dob')
+    + '<div class="field-note" style="margin-top:4px">' + (d.has_dob ? 'The birth date is shown from their Step 1, and the showing is logged. It is never saved on this screen.' : 'No birth date on their Step 1. Ask them for it before you send.') + '</div>';
+  if(chk) h += '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;' + (chk.ok ? 'background:#E7F6EC;color:#1F5C38">&#10003; AxisCare has them In Training, and the zip code and birth date match.' : 'background:#FFF7ED;color:#8A4E0C"><b>Not ready to send yet:</b><ul style="margin:4px 0 0 18px;padding:0">' + (chk.problems || []).map(x => '<li>' + e(x) + '</li>').join('') + '</ul>') + '</div>';
+  if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
+  if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
+  return h;
+}
+async function axCopy(btn, key){
+  const v = (window.__axVals || {})[key] || ''; if(!v) return;
+  try{ await navigator.clipboard.writeText(v); btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy'; }, 1200); }catch(_){ prompt('Copy this:', v); }
+}
+async function axSetupOpen(id){
+  const c = wcSrcFor(id); if(!c) return;
+  const w = document.createElement('div'); w.className = 'ccpop-wrap';
+  w.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto';
+  w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">AxisCare setup: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="ibtn" id="axCheck">Check AxisCare</button><span style="flex:1"></span><button class="btn" id="axSend" style="font-size:15px;padding:10px 18px">Send orientation information</button></div></div>';
+  document.body.appendChild(w);
+  const body = w.querySelector('#axBody'), close = () => { window.__axVals = null; w.remove(); };
+  w.querySelector('#axClose').onclick = close;
+  let d = null, dob = '';
+  try{
+    d = await s2Call({ action:'axis_sheet', candidate_id:String(id) });
+    if(d.has_dob && d.offer_id){ try{ const r = await sb.functions.invoke('step1-sign', { body:{ action:'reveal', offer_id:String(d.offer_id), field:'dob', reason:'Typed into AxisCare (add as In Training)' } }); if(r.data && r.data.ok) dob = String(r.data.value || ''); }catch(_){} }
+    body.innerHTML = axSetupHtml(d, dob, null, '');
+    if(d.sent) w.querySelector('#axSend').textContent = 'Send again';
+  }catch(e){ body.innerHTML = '<div style="color:#B91C1C">' + wcEsc(e.message) + '</div>'; w.querySelector('#axSend').disabled = true; w.querySelector('#axCheck').disabled = true; return; }
+  w.querySelector('#axCheck').onclick = async (ev) => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Checking…';
+    try{ const r = await s2Call({ action:'axis_sheet', candidate_id:String(id), check:true }); body.innerHTML = axSetupHtml(d, dob, r.check, ''); }
+    catch(e){ body.innerHTML = axSetupHtml(d, dob, null, '<span style="color:#B91C1C">' + wcEsc(e.message) + '</span>'); }
+    b.disabled = false; b.textContent = 'Check AxisCare';
+  };
+  w.querySelector('#axSend').onclick = async (ev) => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Checking AxisCare and sending…';
+    const { data, error } = await sb.functions.invoke('step2-handoff', { body:{ action:'send_orientation', candidate_id:String(id) } });
+    let j = data || {}; if(error){ try{ j = await error.context.json(); }catch(_){ j = { error: error.message }; } }
+    const inv = j.invite || {};
+    if(j.error && !inv.state){ body.innerHTML = axSetupHtml(d, dob, j.check || null, '<span style="color:#B91C1C">' + wcEsc(j.error) + '</span>'); b.disabled = false; b.textContent = d.sent ? 'Send again' : 'Send orientation information'; return; }
+    const how = [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ');
+    const msg = inv.state === 'sent' ? '<b style="color:#1F5C38">Sent by ' + how + '.</b> Their orientation link, profile link and welcome call booking are in one message.' + ((inv.not_sent || []).length ? '<div class="field-note">Not sent: ' + wcEsc(inv.not_sent.join('; ')) + '</div>' : '')
+      : inv.state === 'held' ? '<b>The email went. The text goes at 8am</b> (texts go 8am to 6pm).'
+      : '<span style="color:#B91C1C"><b>Did not go:</b> ' + wcEsc(inv.why || (inv.not_sent || []).join('; ') || 'refused') + '. A card is on Needs Attention.</span>';
+    body.innerHTML = axSetupHtml(d, dob, j.check || null, msg);
+    b.textContent = 'Send again'; b.disabled = false;
+    await s2After(id, j);
+  };
+}
 async function step2Sent(id, resend){
   const c = wcSrcFor(id); if(!c) return;
   const name = (c.first + ' ' + c.last).trim();
@@ -9596,7 +9667,7 @@ async function step2Verify(id){
     w.querySelector('#s2go').disabled = true;
     try{ const d = await s2Call({ action:'verify', candidate_id:String(id), ticked, i9_section2: i9, note }); w.remove();
       const inv = d.invite || {};
-      alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe Orientation Video Call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to Orientation Video Call yourself.' : inv.state === 'failed' ? '\n\nThe Orientation Video Call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
+      alert('Verified.' + (d.confirmed && d.confirmed.length ? '\n\n' + d.confirmed.length + ' readiness-card row' + (d.confirmed.length === 1 ? '' : 's') + ' confirmed in your name.' : '') + (inv.state === 'sent' ? '\n\nThe Orientation Video Call invitation went by ' + [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ') + '.' : inv.state === 'button' ? '\n\nNext: add them to AxisCare as In Training, then press AxisCare setup on their onboarding row to send their orientation information. Nothing was sent yet.' : inv.state === 'practice' ? '\n\nWelcome-call invitation: practice (switch off). Press Invite to Orientation Video Call yourself.' : inv.state === 'failed' ? '\n\nThe Orientation Video Call invitation did not go: ' + (inv.why || (inv.not_sent || []).join('; ')) + ' (a card is on Needs Attention).' : ''));
       await s2After(id, d);
     }catch(e){ w.querySelector('#s2go').disabled = false; alert('Not verified: ' + e.message); }
   };
@@ -11956,6 +12027,7 @@ window.obRefSendClose = obRefSendClose;
 window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + Orientation Video Calls. */
 Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcRights, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
-Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });   /* offered people into Background & References (2026-10-08) */
+Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });
+Object.assign(window, { axSetupOpen, axCopy });   /* 2026-10-22 In Training plan v2, Part B: the AxisCare setup card (inline onclicks) */   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();
