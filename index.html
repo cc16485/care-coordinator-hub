@@ -10116,7 +10116,7 @@ function logManualCall(){
   if(!commsLead) return;
   const esc=escapeHtmlComms;
   const anchor=document.activeElement&&document.activeElement.tagName==='BUTTON'?document.activeElement:document.body;
-  const OUT=[['connected','✅ Connected: we actually talked'],
+  const OUT=[['connected','✅ We talked with them'],
              ['voicemail','🎙 Voicemail'],
              ['no_answer','📵 No answer'],
              ['requested_callback','📅 They asked us to call back…'],
@@ -36532,13 +36532,13 @@ function opsReconcileLeads(){
           const n=ldAttempts(l);
           nt=n+' attempt'+(n===1?'':'s')+' · no real conversation yet, '+who2;
           nd='Last attempt '+(la?callsFmtWhen(la.at)+(la.outcome?' ('+String(la.outcome).replace('_',' ')+')':''):'')
-            +'. Nobody has actually spoken with this family.';
+            +'. Nobody has spoken with this family yet.';
           na='Try again. A different time of day often lands.';
         }
         if(nt && it.title!==nt){ it.title=nt; it.detail=nd; if(na) it.next_action=na; touched.set(it.id,it); }
         /* Once a real conversation exists, a card must never keep claiming
            nobody has spoken with them. */
-        if(l.first_human_contact_at && /Nobody has actually spoken/.test(String(it.detail||''))){
+        if(l.first_human_contact_at && /Nobody has (actually )?spoken/.test(String(it.detail||''))){
           const lc2=ldLastConnected(l);
           it.detail=lc2?('Connected '+callsFmtWhen(lc2.at)+(lc2.note?': "'+String(lc2.note).slice(0,140)+'"':'')):'';
           touched.set(it.id,it);
@@ -36633,7 +36633,7 @@ function opsReconcileLeads(){
             ? 'The number we have is wrong. Find a working number before trying again.'
           : !contacted ? 'Call them. A person, as soon as you can.'
           : (stg==='reaching_out' && !(nextDue>t))
-            ? 'Try again. Nobody has actually spoken with this family yet.'
+            ? 'Try again. Nobody has spoken with this family yet.'
           : (nextDue>t) ? 'Waiting until '+nextDue+'. Nothing to do yet.'
           : 'Follow up as promised, then log it on the lead.';
         if(it.next_action!==action){ it.next_action=action; touched.set(it.id,it); }
