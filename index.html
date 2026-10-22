@@ -2069,24 +2069,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- Applicant journey & messages (2026-10-01): every message an applicant gets, its wording, timing, trigger and
          whether it shows in GoHighLevel Conversations. Data: applicant-journey.js, loaded the first time this opens. -->
     <section class="tabpanel" id="tab-apjourney">
-      <div class="card" style="padding:18px;">
-        <div style="font-size:19px;font-weight:800;color:var(--navy);">Applicant journey &amp; messages</div>
-        <div class="field-note" style="margin-top:4px;">Every text and email an applicant or new hire gets, from applying to their first shifts: when it goes, what sends it, and the exact words. Messages marked <b>In GoHighLevel</b> also show in that person's GoHighLevel conversation.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;align-items:center;">
-          <input id="apjSearch" placeholder="Search the messages…" oninput="apjRender()" style="flex:1;min-width:200px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit;">
-          <label class="field-note" style="display:flex;gap:5px;align-items:center;"><input type="checkbox" id="apjApplicantOnly" onchange="apjRender()" checked> Messages to the applicant only</label>
-        </div>
-      </div>
-      <!-- ONE REAL PERSON'S JOURNEY (2026-10-13, Samantha: "one complete view ... the actual screens applicants see, not just
-           completion labels"). Search anyone with an offer; open their page on the Hiring tab (the whole journey step by step,
-           their real Step 1 screens and answers, signed documents, checks, Step 2, the video call, training, Approve to Work),
-           or their Step 1 screens on their own. Read only. -->
-      <div class="card" style="padding:14px 18px;margin-top:14px;">
-        <div style="font-size:15px;font-weight:800;color:var(--navy);">See a real applicant's journey</div>
-        <div class="field-note" style="margin-top:4px;">Type a name, phone or email. Their page shows every step from the application to Approved to Work, the Step 1 screens they saw with their own answers, every signed document, and who owns the next step.</div>
-        <input id="apjPerson" placeholder="Name, phone or email…" oninput="apjPersonFind()" style="margin-top:10px;width:100%;max-width:420px;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font:inherit;">
-        <div id="apjPersonList" style="margin-top:8px;"></div>
-      </div>
+      <!-- 2026-10-21 (Samantha): the "Applicant journey & messages" search box and the "See a real applicant's journey"
+           finder were removed from the top of this tab. A person's journey still opens from their offer. -->
       <!-- THE WHOLE JOURNEY, AS THE APPLICANT SEES IT (2026-10-11, Samantha: every stage from the application to Approved to
            Work, "the actual applicant-facing screens and messages"). Stage by stage: the real page in preview mode beside the
            messages that stage sends. Made-up applicant; nothing is saved, signed, booked or sent. (applicant-walkthrough.js) -->
@@ -26628,25 +26612,6 @@ const APJ_STAGES = [
   ['Oklahoma applicants (Companion)','Oklahoma','i-send']   /* 808 */ ];
 let APJ_CTX = null;
 /* The applicant walkthrough (2026-10-11): loaded the first time it is opened */
-/* 2026-10-13: find a real person with an offer (the same offer list the Offers tab reads) */
-let APJ_FIND_T = null;
-async function apjPersonFind(){
-  clearTimeout(APJ_FIND_T); APJ_FIND_T = setTimeout(async () => {
-    const box = document.getElementById('apjPersonList'), q = (document.getElementById('apjPerson').value || '').trim().toLowerCase(); if(!box) return;
-    if(q.length < 2){ box.innerHTML = ''; return; }
-    if(!Array.isArray(OFFERS) || !OFFERS.length){ box.innerHTML = '<div class="field-note">Reading the offers…</div>'; try{ await loadOffers(); }catch(_){} }
-    const dq = q.replace(/\D/g, '');
-    const nameOf = o => String(o.name || ((o.first_name || '') + ' ' + (o.last_name || ''))).trim();
-    const hits = (OFFERS || []).filter(o => { const n = nameOf(o).toLowerCase(); return n.includes(q) || (o.email || '').toLowerCase().includes(q) || (dq.length >= 4 && String(o.phone || '').replace(/\D/g, '').includes(dq)); })
-      .sort((a, z) => String(z.created_at || '').localeCompare(String(a.created_at || ''))).slice(0, 12);
-    const esc2 = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-    box.innerHTML = hits.length ? hits.map(o => '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin-top:6px;">'
-        + '<span style="flex:1;min-width:200px;"><b>' + esc2(nameOf(o)) + '</b> <span class="field-note">' + esc2(o.position || '') + ' · offer ' + esc2(String(o.created_at || '').slice(0, 10)) + ' · ' + (o.onboarding_path === 'new' ? 'new path' : 'old path') + (/(TEST|TRAINING)/.test(nameOf(o)) ? ' · practice' : '') + '</span></span>'
-        + '<button class="ibtn" onclick="HP.open({offer_id:\'' + esc2(o.id) + '\'})">Their whole journey</button>'
-        + (o.onboarding_path === 'new' ? '<a class="ibtn" style="text-decoration:none" href="step1.html?review=' + esc2(o.id) + '" target="_blank" rel="noopener">Their Step 1 screens</a>' : '')
-        + '</div>').join('') : '<div class="field-note">Nobody with an offer matches. Applicants without an offer are on the Applicants tab.</div>';
-  }, 250);
-}
 function apjWalkthrough(){
   const box = document.getElementById('awBox'); if (!box) return;
   if (box.style.display === 'block') { box.style.display = 'none'; box.innerHTML = ''; return; }
@@ -26722,7 +26687,7 @@ function apjRender(){
   const box = document.getElementById('apjBody'); if(!box || !window.AP_JOURNEY) return;
   const esc = escapeHtmlComms;
   const q = ((document.getElementById('apjSearch')||{}).value||'').trim().toLowerCase();
-  const onlyApplicant = !!(document.getElementById('apjApplicantOnly')||{}).checked;
+  const apjOnlyEl = document.getElementById('apjApplicantOnly'), onlyApplicant = apjOnlyEl ? apjOnlyEl.checked : true;   /* box removed 2026-10-21: keep applicant-only */
   const showOld = !!(document.getElementById('apjShowOld')||{}).checked;
   const STAGE_NOTE = {
     'any time (office text)':'Whenever the office wants to reach an applicant: a text from the Hub, from the office number, with the words you choose.',
