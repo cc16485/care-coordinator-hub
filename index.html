@@ -1861,6 +1861,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="dkDashLine"></div>
       <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
       <div id="staffingView" style="margin-bottom:12px;"></div>
+      <!-- New clients scoreboard (bonus v2, 2026-10-22, her mockup): the team goal and each Care Coordinator's new clients; dollars only for her own and owners.
+           Static slot above the My Work tabs (Today opens on My Work); new-clients.js draws it. renderMyWork never touches it. -->
+      <div id="todayNewClients"></div>
       <div id="hoCardWork"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
       <div id="myWorkApprovals" style="display:none;"><div id="approvalsCard"></div></div>
@@ -4794,6 +4797,22 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="bpToggleBtn" onclick="bpToggle(this)">Turn on the bonus program</button>
   <span class="field-note" id="bpSaved"></span>
 </div>
+<!-- New bonus rules and the scoreboard (bonus v2, Samantha 2026-10-22): ops_settings.bonus_v2_live and
+     ops_settings.bonus {amount_v2, min_visits, team_goal:{count, prize}}. new-clients.js draws this and the Today card. -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">New bonus rules and the scoreboard</div>
+<p class="hint">Your new rules: $75 for every new client, no matter the hours, to the Care Coordinator who did the home visit. It shows as pending from the first completed shift and is earned at day 30 if the client is still with us and has had at least 3 completed visits. Any Caring Companions payer counts (private pay, LTC, VA, GUIDE). A team goal for the month. Today shows a scoreboard: the team goal and each person's client counts for everyone, and dollars only on her own card (owners see all). The 8am email gets a New clients line with no dollars. Bonuses already on file keep the rules they started with. The $25 app-client bonus waits until app visits are recorded somewhere the Hub can count. Only Samantha or Zachary can change this.</p>
+<div id="bvSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div class="grid2" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));align-items:end;">
+<div><label for="bvAmount">Amount per new client ($)</label><input type="number" id="bvAmount" min="1" step="1"></div>
+<div><label for="bvVisits">Completed visits by day 30</label><input type="number" id="bvVisits" min="1" step="1"></div>
+<div><label for="bvGoal">Team goal (new clients a month)</label><input type="number" id="bvGoal" min="1" step="1"></div>
+<div><label for="bvPrize">Team prize</label><input id="bvPrize" maxlength="80"></div>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0 10px;">
+  <button class="secondary" id="bvSaveBtn" onclick="bvSave(this)">Save the new rules</button>
+  <button class="secondary" id="bvToggleBtn" onclick="bvToggle(this)">Turn on the new rules and the scoreboard</button>
+  <span class="field-note" id="bvSaved"></span>
+</div>
 <!-- Owner Overview (audit step 9, 2026-10-18): ops_settings.owner_overview_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Owner Overview</div>
 <p class="hint">One screen for you and Zachary, read in under a minute: your decisions, care at risk, asks for team support, each person's open and late work, what is overdue, and how the agency did the last 7 days. Exceptions only; looking never changes an owner. It shows as the first pill under Today, and it is the first screen you see when you sign in.</p>
@@ -7607,7 +7626,8 @@ The HomeTogether team</pre>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
-<script src="bonus.js?v=2"></script><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
+<script src="bonus.js?v=2"></script>
+<script src="new-clients.js?v=1"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="owner-overview.js?v=6"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
@@ -18908,6 +18928,7 @@ function lhSetFill(){
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
+  try{ bvSetFill(); }catch(e){}
   try{ tnSetFill(); }catch(e){}
   try{ fcSetFill(); }catch(e){}
   try{ ptSetFill(); }catch(e){}
