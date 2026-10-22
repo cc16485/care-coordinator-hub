@@ -1187,6 +1187,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        working. -->
   <div class="fsubbar" id="fsub-leads">
     <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads board</div>
+    <div class="fpill" data-tab="myspeed" onclick="switchTab('myspeed')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> My speed</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
@@ -5671,6 +5672,10 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
      field blocks, the written field expectation) lives at
      team-schedule.html in this repo — THAT file is the one to edit; this
      tab just frames it, and the same page prints as the office copy. -->
+<!-- Speed to lead (2026-10-22): each coordinator's own speed page (my-speed.js). Private: it only ever shows the signed-in person. -->
+<section class="tabpanel" id="tab-myspeed">
+  <div id="mySpeedBox"><div class="muted">Loading…</div></div>
+</section>
 <section class="tabpanel" id="tab-reports">
   <div class="toolbar">
     <b style="font-size:16px;color:var(--navy);"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</b>
@@ -7630,7 +7635,8 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1019"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=21"></script><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
+<script src="lead-rules.js?v=21"></script>
+<script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=1"></script><!-- Speed to lead (2026-10-22, her design): Leads > My speed, each coordinator's own numbers --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script>
 <script src="new-clients.js?v=1"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
@@ -8395,7 +8401,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','myspeed','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],campaigns:['referrers','campaigns','ltcpolicy','feedback','community'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -9078,6 +9084,7 @@ function renderActiveTab(){
   if(activeTab==='myteam') renderMyTeam();
   if(activeTab==='referrers') renderReferrers();
   if(activeTab==='reports') renderReports();
+  if(activeTab==='myspeed' && typeof renderMySpeed==='function') renderMySpeed();
   if(activeTab==='leadsstarts') renderLeadsStarts();
   if(activeTab==='clientsboard') renderClientsBoard();
   if(activeTab==='community') renderCommunity();
