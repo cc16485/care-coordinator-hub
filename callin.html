@@ -86,7 +86,7 @@ function render(msg){
   let h='<div class="card"><div class="big">'+esc(D.what)+'</div>'
     +(D.must_cover?'<span class="must">MUST BE COVERED</span>':'')
     +(D.open&&D.mins_to_start!=null?'<span class="'+(D.mins_to_start<180?'late':'soon')+'">'+esc(startsIn(D.mins_to_start))+'</span>':'')
-    +'<div class="note" style="margin-top:6px;">'+(D.calling_off?esc(D.calling_off)+' called off':'Opened')+(D.called_in_at?' at '+esc(D.called_in_at):'')+'.</div></div>';
+    +'<div class="note" style="margin-top:6px;">'+(D.calling_off?esc(D.calling_off)+(D.taken_off?' was taken off the shift in AxisCare (not counted as a call-in)':' called off'):'Opened')+(D.called_in_at?' at '+esc(D.called_in_at):'')+'.</div></div>';
   if(!D.open && D.filled){
     const f=D.filled, ax=f.axiscare;
     h+='<div class="done">'+(f.covered_by?'Filled'+(f.by?' by '+esc(first(f.by)):'')+': '+esc(f.covered_by)+' covers it'+(f.at?' ('+esc(f.at)+')':'')+'.':
@@ -106,7 +106,7 @@ function render(msg){
       +(CANDS?candHtml():'<button class="ghost" id="bCands">Show who else can be asked</button><div class="note">The same list and rules as the board. Only the people you tick are texted. Caregivers aren\'t texted 9pm to 8am unless the shift starts within 3 hours.</div>')+'</div>';
   }
   h+='<div class="card"><h2>Call</h2>'
-    +(D.can_call.caller&&D.calling_off?'<button class="ghost" data-call="caller" data-name="'+esc(first(D.calling_off))+'">📞 Call '+esc(first(D.calling_off))+' (called off)</button>':'')
+    +(D.can_call.caller&&D.calling_off?'<button class="ghost" data-call="caller" data-name="'+esc(first(D.calling_off))+'">📞 Call '+esc(first(D.calling_off))+(D.taken_off?' (was on the shift)':' (called off)')+'</button>':'')
     +(D.can_call.client?'<button class="ghost" data-call="client" data-name="'+esc(first(D.client))+'">🏠 Call '+esc(first(D.client))+'\'s home</button>':'')
     +'<div class="note">Rings your phone first, then connects from the office number. The client and family are never texted from here.</div><div class="note" id="callMsg"></div></div>';
   if(D.open){

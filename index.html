@@ -11412,7 +11412,7 @@ function renderTodayHero(){
   let right='';
   if(covOpen.length) right+=card('🚨','Coverage cases open ('+covOpen.length+')','var(--red)',
     covOpen.slice(0,5).map(c=>row('<b>'+esc(c.client||'?')+'</b>, '+esc([c.shift_date,c.shift_time].filter(Boolean).join(' ')),
-      (c.calling_off?esc(c.calling_off)+' called off · ':'')+((c.asked||[]).length?(c.asked.length+' asked so far'):'nobody asked yet'),'coverage','Work it')).join('')
+      (c.calling_off?esc(c.calling_off)+' '+covOffWords(c)+' · ':'')+((c.asked||[]).length?(c.asked.length+' asked so far'):'nobody asked yet'),'coverage','Work it')).join('')
     +(covOpen.length>5?'<div class="field-note" style="padding-top:6px;">plus '+(covOpen.length-5)+' more on the board</div>':''));
   right+='<div class="hero-card" id="tbShiftCard" style="border-left-color:var(--teal);"><div class="hc-t">🗓&nbsp; Today in AxisCare</div>'
     +'<div class="field-note" id="tbShiftBody">Checking today\'s schedule…</div></div>';
@@ -37760,6 +37760,11 @@ function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
    (shift_pattern open_ongoing), or the case was opened as an "Open shift"
    by hand. A call-off whose slot turns out to be truly open counts —
    what matters is what needs filling, not how the case began. */
+/* Taken off in AxisCare is not a call-in (Samantha, 2026-10-22): a case Cara opened from an unassigned shift names the
+   person who was on it, but AxisCare never says why they came off (the client may have cancelled, or the office approved the
+   time off). Those cases say "taken off the shift", never "called off" (Staffing _shared/not-a-callin.ts). */
+function covTakenOff(c){ return !!c&&(c.opened_by==='axiscare-watch'||c.not_a_callin===true); }
+function covOffWords(c){ return covTakenOff(c)?'was taken off the shift':'called off'; }
 function covIsOngoing(c){
   if(!c||String(c.kind)==='interest') return false;
   const p=c.shift_pattern;
@@ -37922,7 +37927,7 @@ function caraNeedsCard(c){
     fact('Client', esc(c.client||'(not identified)')+(c.client_city?' <span class="field-note">'+esc(c.client_city)+'</span>':'')),
     fact('Shift', when+' <span class="field-note">'+esc(R[c.reason]||c.reason||'')+'</span>'
       +(caraPatternChip(c)?' '+caraPatternChip(c):'')),
-    fact('Called off', esc(c.calling_off||'(not recorded on the case)'))
+    fact(covTakenOff(c)?'Was on the shift':'Called off', esc(c.calling_off||'(not recorded on the case)'))
   ];
   if(why==='pending'){ const yl=covYesList(c);
     facts.push(fact(yl.length>1?'Said yes':'Can cover', esc(yl.length?yl.map(a=>a.name).join(', '):String(c.pending_fill&&c.pending_fill.name||'')), true)); }
@@ -37963,7 +37968,7 @@ function caraWorkingCard(c){
   return '<div class="card" style="padding:14px 16px;margin:0;">'
     +'<div style="font-size:15.5px;font-weight:700;color:var(--navy);">'+esc(c.client||'(not identified)')+(when?' <span class="field-note" style="font-weight:500;">'+when+'</span>':'')+'</div>'
     +'<div class="field-note" style="font-size:12.5px;margin-top:3px;">'
-      +(c.calling_off?esc(c.calling_off)+' called off &middot; ':'')+'open '+covAgo(c.opened_at)
+      +(c.calling_off?esc(c.calling_off)+' '+covOffWords(c)+' &middot; ':'')+'open '+covAgo(c.opened_at)
       +(c.client_city?' &middot; '+esc(c.client_city):'')+'</div>'
     +'<div style="margin-top:9px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;">'
     +'<span style="background:var(--green-bg);color:var(--green);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:700;">'
@@ -41052,7 +41057,7 @@ function covOpenBody(c,tallies){
     +'<button class="addlead" onclick="covResolve(\''+id+'\',\'covered\')">Covered ✓</button>'
     +'<button class="ghost" onclick="covResolve(\''+id+'\',\'uncovered\')">Close uncovered</button>'
     +'</div>'
-    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?'. The exact AxisCare shift is attached; confirming a fill replaces them on it.':'')+'</div>':'')
+    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' '+covOffWords(c)+(c.axiscare_visit_id?'. The exact AxisCare shift is attached; confirming a fill replaces them on it.':'')+'</div>':'')
     +'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
       +'<div id="covWord_'+id+'">'+covWordingPreview(c)+'</div></details>'
     +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
@@ -41083,7 +41088,7 @@ function covClosedBody(c,tallies){
       : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
         +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
     +'</div>'
-    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' called off'+(c.axiscare_visit_id?'. Exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
+    +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' '+covOffWords(c)+(c.axiscare_visit_id?'. Exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
     +(open?'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
       +'<div id="covWord_'+esc(c.id)+'">'+covWordingPreview(c)+'</div>'
       +'</details>':'')

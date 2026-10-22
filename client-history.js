@@ -167,7 +167,7 @@
     (loc.assessments || []).forEach((x, i) => { if(ok(x.created_at)) out.push({ id:'asmt:' + (x.id || i), src:'local', at:x.created_at, chip:'journey', title:'Care assessment ' + s(x.status || 'recorded').toLowerCase(), sub:'', detail:'', who:whoOf(x.created_by, ctx.names) }); });
     (loc.checkins || []).forEach((c, i) => { const at = c.created_at || c.checkin_date; if(ok(at)) out.push({ id:'chk:' + (c.id || i), src:'local', at, chip:'note', title:'Check-in' + (c.escalated ? ', escalated' : ''), sub:'', detail:s(c.notes || c.note), who:whoOf(c.by || c.created_by, ctx.names), bad:!!c.escalated }); });
     (loc.callouts || []).forEach((c, i) => {
-      if(ok(c.opened_at)) out.push({ id:'cov:' + (c.id || i), src:'local', at:c.opened_at, chip:'care', title:s(c.calling_off || 'A caregiver') + ' called off ' + [ymdWords(c.shift_date), c.shift_time].filter(Boolean).join(' '),
+      if(ok(c.opened_at)) out.push({ id:'cov:' + (c.id || i), src:'local', at:c.opened_at, chip:'care', title:s(c.calling_off || 'A caregiver') + (c.opened_by === 'axiscare-watch' || c.not_a_callin === true ? ' was taken off the shift ' : ' called off ') + [ymdWords(c.shift_date), c.shift_time].filter(Boolean).join(' '),
         sub:c.covered_by ? 'covered by ' + c.covered_by : 'not covered', detail:s(c.reason), who:'', important:'Caregiver change', bad:!c.covered_by });
       if(ok(c.resolved_at)) out.push({ id:'covr:' + (c.id || i), src:'local', at:c.resolved_at, chip:'care', title:'Callout resolved' + (c.resolved_how || c.status ? ' (' + s(c.resolved_how || c.status).replace(/_/g, ' ') + ')' : ''), sub:'', detail:'', who:'' });
     });
