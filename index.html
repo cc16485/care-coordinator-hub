@@ -21741,8 +21741,8 @@ function joPreviewMsgs(){
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Orientation Video Call</b></p>'
     +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick Orientation Video Call. Join from your phone or computer.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Training From Home</b></p>'
-    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation and Alzheimer\'s and dementia training. Do it on your phone or computer, in pieces if you like.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Orientation From Home</b></p>'
+    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation. Do it on your phone or computer, in pieces if you like.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
@@ -26624,7 +26624,7 @@ function apjOpen(){
   if(window.TWalk) TWalk.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261019'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
     .then(apjRender)
     .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
   apjLoadCtx();

@@ -33,7 +33,7 @@ const STRIP = /\{[^}]*\}|\[[^\]]*\]|https?:\/\/\S+|\(private:[^)]*\)|\(?417\)?[ 
 /* sentences assembled from parts in the code: each part must still be there */
 const PARTS = {
   25: [['a reminder that your in-person Caring Companions orientation at our office is tomorrow', ['a reminder that ', 'your in-person Caring Companions orientation at our office', ' is tomorrow, ']]],
-  28: [['Sign-off version: Hi', []], ['you still have required training to finish (due by', ['a friendly reminder from Caring Companions: ', 'you still have required training to finish${duePhrase}']]],
+  28: [['Sign-off version: Hi', []], ['you still have training to finish', ['a friendly reminder from Caring Companions: ', 'you still have training to finish${duePhrase}']]],
 }
 const w = {}; new Function('window', fs.readFileSync(JOURNEY, 'utf8'))(w)
 const drift = []
