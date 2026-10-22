@@ -91,6 +91,7 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ bgrCloseDrawer(); ckdFilter('s2'); }"); s2_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').all_inner_texts()
     pg.evaluate("()=>{ ckdFilter('s1'); }"); refs_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
     pg.evaluate("()=>{ ckdFilter('all'); ckdToggleTest(); }"); with_tests = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
+    tabs = pg.evaluate("()=>[getComputedStyle(document.querySelector('.bgr-subnav')).display, document.querySelectorAll('#bgr-tab-audit, #bgr-tab-refs, #bgr-tab-howitworks').length]")
     b.close()
 ok = fail = 0
 def ck(name, cond, extra=''):
@@ -113,7 +114,8 @@ ck('no fingerprint anywhere: not on the dashboard, not in the checklist', 'inger
 ck('the party: the cleared person gets the ribbon and confetti once', 'Ready is cleared!' in R['partyText'] and 'Nothing is sent' in R['partyText'] and not R['againParty'], R['partyText'])
 ck('Start here is the oldest thing only you can do', 'start here' in R['start'].lower() and 'Claire Sample: Run the OIG check' in R['start'] and 'How do I do this?' in R['start'], R['start'])
 ck('progress pills: References 1 of 2, OIG, EDL, FCSR, Case.net', 'References 1 of 2 OIG EDL FCSR Case.net' in rows[0], rows[0])
-ck('More has the rare jobs, test people and the full table', all(x in R['more'] for x in ['Pre-Hire Audit', 'Reference activity', 'Taken off the list (1)', 'Show test people (2)', 'Full table', 'Sync reference answers now']), R['more'])
+ck('Only People shows, no Pre-Hire Audit / Reference Activity / How It Works tabs', tabs == ['none', 0], tabs)
+ck('More has the rare jobs, test people and the full table', all(x not in R['more'] for x in ['Pre-Hire Audit', 'Reference activity']) and all(x in R['more'] for x in ['Taken off the list (1)', 'Show test people (2)', 'Full table', 'Sync reference answers now']), R['more'])
 ck('the checklist opens on Your next action with How do I do this', 'your next action' in person.lower() and 'How do I do this?' in person and 'Stop 2 of 7' in person, person)
 ck('the checklist: name, 1 of 5 done, both references, four checks', 'Claire Sample' in person and '0 of 5 done' in person and 'Susie Boss' in person and 'Pat Friend' in person and all(x in person for x in ['OIG', 'EDL', 'FCSR', 'Case.net']) and 'Call (417) 555-0101' in person, person)
 ck('stop tiles filter the list; Show test people adds them back', refs_rows == 5 and len(s2_rows) == 1 and with_tests == 10, (refs_rows, s2_rows, with_tests))
