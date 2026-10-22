@@ -9486,7 +9486,6 @@ const WC_MEET = 'https://meet.google.com/yqj-nzuo-tgp';
 const WC_TZ = 'America/Chicago';
 const WC_TICKS = [
   ['i9_checked', 'I-9 documents checked on camera'],
-  ['app_setup', 'AxisCare app set up (code 16485)'],
   ['profile_reviewed', 'Caregiver profile reviewed'],
   ['photo_link_sent', 'Photo link sent'],
 ];
@@ -9821,7 +9820,7 @@ function renderWelcomeCalls(){
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
       <span style="font-size:.95rem">📹</span>
       <span style="font-size:.95rem;font-weight:700;color:var(--navy)">Orientation Video Calls</span>
-      <span style="font-size:.75rem;color:var(--gray)">15-minute Google Meet calls in one shared room. I-9 documents, AxisCare app, caregiver profile.</span>
+      <span style="font-size:.75rem;color:var(--gray)">15-minute Google Meet calls in one shared room. I-9 documents, caregiver profile.</span>
       <button class="ibtn" style="margin-left:auto" onclick="wcLoad()">↻ Refresh</button>
     </div>
     ${body}
@@ -9848,15 +9847,14 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
     <h4 style="margin:.9rem 0 .3rem;color:var(--navy)">The call script</h4>
     <p style="margin:.3rem 0"><b>Before the call:</b> check that Step 2 is done, then open <b>🪪 Caregiver profile</b> and press <b>Draft with AI</b>. Read the draft through so you are ready to read it aloud.</p>
     <ol style="margin:0;padding-left:1.3rem">
-      <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, set up the app you'll use to clock in, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
+      <li><b>Welcome:</b> "Hi [first name], it's [your name] from Caring Companions. Welcome to the team! Can you hear and see me okay? This call takes about 15 minutes: we'll check your ID for your employment paperwork, go over your caregiver profile together, and walk through what happens next. This call and your orientation are paid time."</li>
       <li><b>ID check for the I-9:</b> "You uploaded photos of your documents in Viventium. Now I need to see the same original documents on camera. Hold up your [document 1], front first please, now the back. Thank you, and your [document 2], front and back." After the call, tick the remote examination box and complete Section 2 in Viventium (E-Verify remote procedure).</li>
       <li><b>Viventium:</b> confirm that Step 2 is done. If it is not, reschedule.</li>
       <li><b>Client Rights, Code of Ethics and HIPAA:</b> "In Step 1 you signed that you received and reviewed our Client Rights, our Code of Ethics and our HIPAA policy. Let's go over each one together now." Explain each in your own words and answer their questions. Then ask: "Do you understand all three?" When they confirm, tick <b>${WC_RIGHTS_LABEL}</b>. The Hub records your name and the time when you press done. This must happen before their first shift.</li>
       <li><b>Hire them in AxisCare (office, while you talk):</b> if they are still an applicant in AxisCare, hire them now and set their status to <b>In Training</b>. Check that their mobile phone or email in AxisCare is the one they use: that is how their orientation link finds them.</li>
-      <li><b>AxisCare app:</b> "Open the App Store (iPhone) or Google Play (Android) and search for AxisCare Mobile. Install it and open it. Enter our company code: 16485. [Office: full instructions coming.] You'll clock in when you arrive at a client's home and clock out when you leave. If you ever forget, call the office right away."</li>
       <li><b>Caregiver profile:</b> open <b>🪪 Caregiver profile</b>. "Before your first visit, the family sees a short profile of you, so they know who's coming. I've written a first draft from your application and interview. Let me read it to you; tell me what you'd change or add." Read each part aloud. Ask any [ask: …] questions and type their answers in their own words (take the brackets out). Type their changes and press <b>Save</b>.
         Then press <b>Send photo link</b> and say: "I'm sending you a text and an email now with your own link. Please add a photo, it's required: a clear, friendly photo from the shoulders up, in good light. A short video of about 30 seconds is encouraged: say hi and tell families one thing you love about caregiving. You can check the words there too."</li>
-      <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your orientation is online, on your phone or computer, on your own schedule. It's 2 hours of orientation, and you can do it in pieces. Please finish it before your first client visit. Once your orientation is done and your profile is published, we'll let you know you're cleared to work. Please save our office number: (417) 234-8494."</li>
+      <li><b>What happens next:</b> "Right after this call you'll get a text and an email with your own private orientation link (if it's after 6pm, it comes at 9am). Your orientation is online, on your phone or computer, on your own schedule. It's 2 hours of orientation, and you can do it in pieces. Please finish it before your first client visit. Once your orientation is done and your profile is published, we'll let you know you're cleared to work. You'll set up the AxisCare app after your orientation. We'll text you a guide, and our staffing coordinator will call to help. Please save our office number: (417) 234-8494."</li>
       <li><b>Close:</b> "What questions do you have for me? Thank you, [first name], we're really glad you're here."</li>
     </ol>
     <p style="margin:.5rem 0 .2rem"><b>After the call:</b> make sure they are In Training in AxisCare, tick the checklist, press <b>Orientation Video Call done – send orientation link</b>, and complete I-9 Section 2 in Viventium. When their photo is in, open <b>🪪 Caregiver profile</b> and press <b>Publish</b>. The profile must be published before their first shift.</p>
