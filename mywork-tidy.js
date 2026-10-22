@@ -142,7 +142,7 @@
   function oldList(){ const now = Date.now(); return (D().ops_items || []).filter(i => i && i.status === 'open' && daysLate(i, now) > 7); }
   function oldFill(){
     const box = document.getElementById('mwtOld'), now = document.getElementById('mwtSetNow'), tb = document.getElementById('mwtToggleBtn');
-    if(now) now.innerHTML = (on() ? '<b style="color:#1E8449;">On.</b> Team Work says its rules once, owners can clear many cards at once, and the top of My Work is one line.' : '<b style="color:#B7791F;">Off.</b> My Work and Team Work are as before.') + (owner() ? '' : ' Only Samantha or Zachary can change this.');
+    if(now) now.innerHTML = (on() ? '<b style="color:#1E8449;">On.</b> Team Work says its rules once, owners can clear many cards at once, and the top of My Work is one line. Coverage cards are quieter too: no EVV review cards, one weekly "Make it official?" card, and "Was it covered?" closes itself from AxisCare.' : '<b style="color:#B7791F;">Off.</b> My Work and Team Work are as before.') + (owner() ? '' : ' Only Samantha or Zachary can change this.');
     if(tb){ tb.textContent = on() ? 'Turn off the tidier My Work' : 'Turn on the tidier My Work'; tb.style.display = owner() ? '' : 'none'; }
     if(!box) return;
     if(!owner()){ box.innerHTML = '<div class="field-note">Only Samantha or Zachary can clear old cards.</div>'; return; }
@@ -160,7 +160,7 @@
   async function toggle(btn){
     if(!owner()){ alert('Only Samantha or Zachary can change this.'); return; }
     const want = !on();
-    const ok = typeof W.ccConfirm === 'function' ? await W.ccConfirm(want ? 'Turn on the tidier My Work?\n\n· Team Work says its escalation rules once at the top, and owners can select many cards and clear them with a reason\n· call cards 2 days past their day move to Past its day; "Make it official?" is one weekly list; EVV review cards are not shown\n· the top of My Work is one short line, and the tabs are Today, Team Work, All mine, Waiting and More\n· Settings > Clear old cards lists every card more than 7 days late\n\nNothing is sent to anyone, and escalation is unchanged.' : 'Turn off the tidier My Work? Everything goes back to how it was. Cards already cleared stay cleared.') : true;
+    const ok = typeof W.ccConfirm === 'function' ? await W.ccConfirm(want ? 'Turn on the tidier My Work?\n\n· Team Work says its escalation rules once at the top, and owners can select many cards and clear them with a reason\n· call cards 2 days past their day move to Past its day; "Make it official?" is one weekly list; EVV review cards are not shown\n· on the server too: no new EVV review cards, "Make it official?" made as one weekly card, and a "Was it covered?" card closes by itself once AxisCare shows someone clocked in\n· the top of My Work is one short line, and the tabs are Today, Team Work, All mine, Waiting and More\n· Settings > Clear old cards lists every card more than 7 days late\n\nNothing is sent to anyone, and escalation is unchanged.' : 'Turn off the tidier My Work? Everything goes back to how it was. Cards already cleared stay cleared.') : true;
     if(!ok) return;
     if(btn) btn.disabled = true;
     const r = typeof W.tkMerge === 'function' ? await W.tkMerge(m => { m.mywork_tidy_live = want; if(want && !m.mywork_tidy_live_since) m.mywork_tidy_live_since = new Date().toISOString(); return ['tidier My Work ' + (want ? 'ON' : 'OFF')]; }, 'tidier My Work') : { error:{ message:'saving is not available here' } };
