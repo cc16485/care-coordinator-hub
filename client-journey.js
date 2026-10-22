@@ -888,6 +888,23 @@
     return n.title;
   }
   const PAYER_SHORT = { private:'Private Pay', medicaid:'Medicaid', va:'VA', ltc:'LTC', guide:'GUIDE', other:'Other' };
+  /* 2026-10-22 (her: "fix the phone lead no name"): the old AI named callers "(phone lead)" when GoHighLevel had no name,
+     and a card made then still carries it. That is no name: show the lead's name if it has one now, else who called and
+     their number, else say the name is not on file. (Fill from the call on the lead gives it a real name.) */
+  const NO_NAME = /^\s*\(?phone lead\)?\s*$/i;
+  function aboutOf(it, j){
+    const a = String(it && it.about || '').trim();
+    if(a && !NO_NAME.test(a)) return a;
+    const l = j ? leadOf(j) : null;
+    if(l){
+      const client = [l.client_first_name, l.client_last_name].map(x => String(x || '').trim()).filter(x => x && !NO_NAME.test(x)).join(' ');
+      if(client) return client;
+      const caller = [l.first_name, l.last_name].map(x => String(x || '').trim()).filter(x => x && !NO_NAME.test(x)).join(' ');
+      if(caller) return caller + ' (caller)';
+      if(String(l.phone || '').trim()) return 'Name not on file · ' + String(l.phone).trim();
+    }
+    return 'Name not on file';
+  }
   /* My Work's card for a client in motion: progress, the next thing in plain words, when, Open */
   function workCard(it, focused){
     const j = journeyFor({ journey_id:it.journey_id }), k = it.card_kind || 'next', pct = progressOf(j);
@@ -896,7 +913,7 @@
     const red = k === 'blocked' || k === 'attention' || when === 'late' || when === 'start date passed';
     const what = k === 'blocked' ? 'Blocked: ' + String(it.title || '').replace(/^BLOCKED: /, '') : k === 'attention' ? 'Needs attention: ' + String(it.title || '').replace(/^NEEDS ATTENTION: /, '') : plainNext(j, it);
     return '<div class="wkcard wk-jr wk-jr-' + esc(k) + (focused ? ' focused' : '') + '" data-id="' + esc(it.id) + '">'
-      + '<div class="wk-jr-main"><div class="wk-jr-top"><b>' + esc(it.about || '') + '</b>' + (it.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '')
+      + '<div class="wk-jr-main"><div class="wk-jr-top"><b>' + esc(aboutOf(it, j)) + '</b>' + (it.is_test ? ' <span class="cj-chip cj-s-exc">TEST</span>' : '')
       + (j && j.payer ? ' <span class="wk-jr-pay">' + esc(PAYER_SHORT[j.payer] || j.payer) + '</span>' : j ? ' <span class="wk-jr-pay">Payer not known yet</span>' : '') + '</div>'
       + '<div class="wk-jr-prog"><div class="cj-bar"><i style="width:' + pct + '%"' + (k === 'waiting' ? ' class="cj-bar-wait"' : red ? ' class="cj-bar-stop"' : '') + '></i></div><span>' + esc(j ? j.stage_label || '' : '') + '</span></div>'
       + '<div class="wk-jr-what' + (k === 'waiting' ? ' cj-wait' : red ? ' cj-red' : '') + '">' + esc(what) + (when ? ' <span class="' + (red ? 'cj-red' : 'field-note') + '">· ' + esc(when) + '</span>' : '') + '</div></div>'
