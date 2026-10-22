@@ -71,7 +71,8 @@
     (Array.isArray(l.contact_events) ? l.contact_events : []).forEach(e => {
       if(!e || !e.at || e.outcome === 'inquiry') return;
       const out = e.actor === 'human' && e.direction === 'out', inn = e.direction === 'in' && e.actor === 'family';
-      if(!out && !inn) return;
+      const met = e.actor === 'human' && e.direction === 'in' && e.outcome === 'connected';   /* they called and we answered, or they walked in */
+      if(!out && !inn && !met) return;
       if(!best || String(e.at) > String(best.at)) best = { at:e.at, e, out };
     });
     const visit = (ctx.assessments || []).filter(a => a && a.visit_date && a.status !== 'Scheduled').map(a => a.visit_date).sort().pop();
@@ -83,7 +84,7 @@
     const e = best.e, when = dateWords(e.at, now, true);
     const ch = e.channel === 'sms' ? 'texted' : e.channel === 'email' ? 'emailed' : 'called';
     let what;
-    if(!best.out) what = (first || 'They') + ' ' + ch;
+    if(!best.out) what = e.channel === 'in_person' ? (first || 'They') + ' walked in' : (first || 'They') + ' ' + ch;
     else if(e.channel === 'sms') what = 'We texted';
     else if(e.channel === 'email') what = 'We emailed';
     else if(e.outcome === 'connected') what = 'Call' + (first ? ' with ' + first : '');
@@ -117,7 +118,10 @@
     const hours = v.hours ? 'About ' + v.hours + ' hrs a week' + (v.usd ? ' · ' + money(v.usd) + '/mo' : '') : (v.txt || '');
     const facts = [String(l.client_city || '').trim(), hours].filter(Boolean).map(s => '<span>' + esc(s) + '</span>');
     if(v.lvl && READY_WORDS[v.lvl]) facts.push('<span class="lcr ' + READY_WORDS[v.lvl][1] + '">' + READY_WORDS[v.lvl][0] + '</span>');
-    if(h.fromWeb && h.fromWeb(l)) facts.push('<span class="lc-web">From website</span>');
+    /* 2026-10-22: How did they reach us? (its tag and who referred them) while that switch is on; else the website pill as before */
+    const rb = root.ReachedBy && root.ReachedBy.liveOn(((typeof DATA !== 'undefined' ? DATA : root.DATA) || {}).ops_settings || {}) ? root.ReachedBy.tagHtml(l) : '';
+    if(rb) facts.push(rb);
+    else if(h.fromWeb && h.fromWeb(l)) facts.push('<span class="lc-web">From website</span>');
     const chips = (r.chips || []).filter(c => c.tone === 'missing' || c.tone === 'bad');
     const lc = lastContact(l, now, x.ctx);
     /* a Scheduled row's "10 am" needs its day on a card (the list had day headings) */
