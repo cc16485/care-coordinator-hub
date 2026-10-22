@@ -67,8 +67,11 @@
       if(a.prep){ const pw = p => !p || p.state === 'n/a' ? '' : p.state === 'confirmed' ? '<b style="color:#15803D">' + (p.unchanged ? 'already matched' : 'written and read back') + '</b>' + (p.read ? ' (' + esc(p.read) + ')' : '') : p.state === 'failed' ? '<b style="color:#B91C1C">' + esc(p.detail || 'failed') + '</b>' : p.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b>' : 'waiting for the read-back';
         if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
         if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
+      /* IN TRAINING PLAN v2 (2026-10-22): the check-in call from the Staffing Coordinator, after the read-back */
+      if(a.checkin) h += checkinBlock(a.checkin);
       if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
     } else if(a.ready_for_final){
+      if(a.auto_approve_live) h += '<div style="font-size:.78rem;color:#15803D;margin-bottom:.2rem">The Hub approves them by itself within the hour (every required step is done). You can also press the button now.</div>';
       h += '<div>Every requirement above is complete. ' + (a.may_approve_work ? 'Press Approve to Work to record your name and the exact time, set them Active in AxisCare and read it back, then send the cleared text.' : 'Only a person on the Approve to Work list (Admin page) can press the button.') + '</div>';
       if(!a.switches.axiscare_live) h += '<div style="font-size:.76rem;color:#B45309;margin-top:.2rem">The AxisCare update switch is off: the press records practice and nothing is written to AxisCare.</div>';
       if(a.may_approve_work) h += '<div style="margin-top:.5rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.approve(this)">✓ Approve to Work</button></div>';
@@ -77,6 +80,25 @@
     }
     return h + '</div>';
   }
+  /* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the check-in call. Three ticks and the test clock-in choice save
+     as they are pressed; Done finishes it (the server refuses until all are in); No answer keeps it for the next business day. */
+  const CHECKIN = [['on_file', 'Everything on file and complete'], ['questions', 'Questions about orientation and the job answered'], ['app', 'AxisCare app downloaded and they can sign in']];
+  function checkinBlock(c){
+    let h = '<div style="border-top:1px solid #EEE9DF;margin-top:.5rem;padding-top:.5rem"><div style="font-weight:800;color:#0D365F">Check-in call</div>';
+    if(c.done) return h + '<div style="color:#15803D;margin-top:.2rem">✓ Done ' + esc(when(c.at)) + (c.test_clock ? ' · test clock-in: ' + (c.test_clock.choice === 'done' ? 'done' : 'no thanks') : '') + '</div></div>';
+    h += '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">Shift texts wait until this call is done.' + (c.tries && c.tries.length ? ' No answer ' + c.tries.length + (c.tries.length === 1 ? ' time' : ' times') + ', last ' + esc(when(c.tries[c.tries.length - 1].at)) + '.' : '') + '</div>';
+    CHECKIN.forEach(([k, label]) => { h += '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;cursor:pointer"><input type="checkbox" ' + (c.ticks && c.ticks[k] ? 'checked ' : '') + 'onchange="CRX.checkinTick(\'' + k + '\',this)"> ' + esc(label) + '</label>'; });
+    const tc = c.test_clock && c.test_clock.choice;
+    h += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:3px 0"><span>Quick test clock-in:</span>'
+      + '<label style="cursor:pointer"><input type="radio" name="crTestClock" ' + (tc === 'done' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'done\',this)"> done</label>'
+      + '<label style="cursor:pointer"><input type="radio" name="crTestClock" ' + (tc === 'declined' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'declined\',this)"> no thanks</label></div>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.4rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.checkinDone(this)">✓ Done</button><button class="ibtn" onclick="CRX.checkinNoAnswer(this)">No answer</button></div>';
+    return h + '</div>';
+  }
+  async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){ box.checked = !box.checked; box.disabled = false; alert('Not saved: ' + (e.message || e)); } }
+  async function checkinClock(v, box){ try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, test_clock: v }), { who: CUR.who }); render(); }catch(e){ alert('Not saved: ' + (e.message || e)); } }
+  async function checkinDone(btn){ await act({ action:'checkin', finish: true }, btn); }
+  async function checkinNoAnswer(btn){ const note = (await ccPrompt('No answer. A note (optional, for example "left a voicemail"):', '')) || ''; await act({ action:'checkin', no_answer: true, note }, btn); }
   function card(){
     const d = CUR; if(!d) return '';
     if(!d.journey) return '<div style="font-weight:800;color:#0D365F;font-size:1rem">Readiness</div><div style="font-size:.85rem;color:#6E6559;margin-top:.4rem">No readiness card yet: it starts the moment both offer documents are signed.</div><div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="CRX.close()">Close</button></div>';
@@ -216,5 +238,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
 })();

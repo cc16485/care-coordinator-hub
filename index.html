@@ -7656,7 +7656,7 @@ The HomeTogether team</pre>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="live-calendar.js?v=4"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=6"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=7"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=10"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
@@ -34313,6 +34313,8 @@ const OPS_KINDS = {
   oig_match_review:      { label:'Possible OIG match: review',       hours:4  },
   /* SLICE 7 (2026-10-10): AxisCare preparation cards */
   axiscare_hire_missing: { label:'Not hired in AxisCare yet',         hours:24 },
+  axiscare_setup:        { label:'Add to AxisCare, then send orientation', hours:24 },   /* 2026-10-22 In Training plan v2 */
+  checkin_call:          { label:'Check-in call',                     hours:24 },   /* 2026-10-22 In Training plan v2 */
   axiscare_prep_failed:  { label:'AxisCare hire date or level failed', hours:8  },
   /* SLICE 8 (2026-10-11): the nightly client audit (Payer Programs owner) */
   ihs_start_late:        { label:'Late start: justification owed',     hours:4  },
