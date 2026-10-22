@@ -7611,8 +7611,6 @@ function renderCkd(){
     + '</div>'
     + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
     +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
-    +   '<button type="button" class="ckd-link" onclick="bgrSub(\'audit\')">Pre-Hire Audit binder</button>'
-    +   '<button type="button" class="ckd-link" onclick="bgrSub(\'refs\')">Reference activity</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
     +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
     +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
