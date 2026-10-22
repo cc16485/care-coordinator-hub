@@ -16,7 +16,10 @@ MORE = r"""
       reading:{ prefill:{ relationship:'Daughter', number_of_hours:'30', safety:['fallRisk','livesAlone'], physician_name:'Dr. Patel', client_city:'Nixa', interest_notes:'Diane called back; her mom is alone all morning.' },
         heard:['relationship','number_of_hours','safety','physician_name','client_city','interest_notes'],
         profile:{ facts:{}, attributes:{}, people:[{ name:'Mark Teague', relationship:'Son', note:'pays the bills' }] }, care_plan:{ fields:{ safety_concerns:'Alone all morning' }, narrative:'', axiscare_tasks:[] }, medicaid_mentioned:false } },
-    { message_id:'m2', lead_id:'dia', msg_at:'2026-10-06T13:00:00Z', direction:'outbound', seconds:300, staff:'krystal@mo-care.com', status:'no_transcript', tries:4, decided:null, reading:null, note:'GoHighLevel has no transcript for this call' }];
+    { message_id:'m2', lead_id:'dia', msg_at:'2026-10-06T13:00:00Z', direction:'outbound', seconds:300, staff:'krystal@mo-care.com', status:'no_transcript', tries:4, decided:null, reading:null, note:'GoHighLevel has no transcript for this call' },
+    { message_id:'m1', lead_id:'dia', msg_at:'2026-10-06T12:00:00Z', direction:'inbound', seconds:200, staff:'krystal@mo-care.com', status:'skipped', tries:1, decided:null, reading:null, note:'the AI would not read this call' },
+    { message_id:'m0', lead_id:'dia', msg_at:'2026-10-06T11:00:00Z', direction:'inbound', seconds:200, staff:'krystal@mo-care.com', status:'error', tries:4, decided:null, reading:null, note:'the AI service answered 529 (overloaded_error)' },
+    { message_id:'mN', lead_id:'dia', msg_at:'2026-10-06T10:00:00Z', direction:'inbound', seconds:200, staff:'krystal@mo-care.com', status:'skipped', tries:1, decided:null, reading:null, note:'the AI found nothing it could fill in from this call' }];
   window.__rpc=[]; window.__asked=0;
   sb.from=(t)=>{ const st={ f:{} }; const p={ select(){return p;}, eq(k,v){ st.f[k]=v; return p;}, in(){return p;}, gte(){return p;}, order(){return p;}, limit(){return p;},
       then(a){ if(t==='call_learned') window.__asked++; return Promise.resolve({ data: t==='call_learned' ? JSON.parse(JSON.stringify(window.__rows.filter(r=>r.lead_id===st.f.lead_id))) : [], error:null }).then(a); } }; return p; };
@@ -47,6 +50,8 @@ async()=>{
   ok('practice: every button and tick is off', [...b.querySelectorAll('button, input')].every(x=>x.disabled), [...b.querySelectorAll('button,input')].filter(x=>!x.disabled).map(x=>x.outerHTML.slice(0,80)));
   const notes=document.querySelector('.cl2-notes');
   ok('a call with no transcript says so on the profile (never quiet)', notes && /no transcript/.test(notes.innerText) && /Listen to the call/.test(notes.innerText), notes && notes.innerText);
+  ok('a call the AI would not read says so; one that failed 4 times says why and that it stopped', /the AI would not read this call/.test(notes.innerText) && /could not be read \(the AI service answered 529 \(overloaded_error\)\)\. It stopped trying/.test(notes.innerText), notes.innerText);
+  ok('a call with nothing to fill in is not listed (nothing to do)', (notes.innerText.match(/·/g)||[]).length && !/nothing it could fill in/.test(notes.innerText), notes.innerText);
   /* LIVE, not an owner */
   DATA.ops_settings.call_learn_live=true; window.__owner=false; await open();
   ok('live: everyone sees it, no Practice label, buttons on', box() && !/Practice/.test(box().innerText) && !box().querySelector('.cl2-bar .primary').disabled, box() && box().innerText);

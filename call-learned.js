@@ -150,13 +150,14 @@
     const rows = S.rows[l.id] || [];
     if(S.err[l.id]) return '<div class="card lw-card"><b>Learned on this call</b> <span class="field-note">Could not be read just now (' + esc(S.err[l.id]) + '). It tries again in a minute.</span></div>';
     const open = rows.filter(r => r.status === 'read' && !r.decided);
-    const notes = rows.filter(r => !r.decided && (r.status === 'no_transcript' || r.status === 'error' || r.status === 'waiting'));
+    const notes = rows.filter(r => !r.decided && (r.status === 'no_transcript' || r.status === 'error' || r.status === 'waiting' || (r.status === 'skipped' && /would not read/.test(r.note || ''))));
     const wrong = rows.filter(r => r.decided === 'wrong');
     if(!open.length && !notes.length && !wrong.length) return '';
     const shown = S.shown && open.some(r => r.message_id === S.shown) ? S.shown : (open[0] || {}).message_id;
     let h = open.map(r => boxHtml(l, r, r.message_id === shown)).join('');
     if(notes.length || wrong.length) h += '<div class="card lw-card cl2-notes">' + notes.map(r => '<div class="field-note">' + esc(callLine(r)) + ': '
-      + (r.status === 'waiting' ? 'waiting for GoHighLevel\'s transcript, reading it soon.' : r.status === 'no_transcript' ? '<b>no transcript</b>, so nothing could be learned. Listen to the call and type anything new into the lead.' : '<b style="color:#A83A2F;">could not be read</b> (' + esc(r.note || 'error') + '). It tries again.') + '</div>').join('')
+      + (r.status === 'waiting' ? 'waiting for GoHighLevel\'s transcript, reading it soon.' : r.status === 'no_transcript' ? '<b>no transcript</b>, so nothing could be learned. Listen to the call and type anything new into the lead.' : r.status === 'skipped' ? '<b>the AI would not read this call</b>. Listen to it and type anything new into the lead.'
+      : '<b style="color:#A83A2F;">could not be read</b> (' + esc(r.note || 'error') + ').' + (Number(r.tries || 0) >= 4 ? ' It stopped trying: listen to the call and type anything new into the lead.' : ' It tries again.')) + '</div>').join('')
       + wrong.map(r => '<div class="field-note">' + esc(callLine(r)) + ': marked wrong by ' + esc(who(r.decided_by)) + (r.decided_note ? ' ("' + esc(r.decided_note) + '")' : '') + '.</div>').join('') + '</div>';
     return h;
   }
