@@ -5213,6 +5213,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="cgdFilters">
       <button class="filter-pill active" data-cf="active" onclick="cgdFilter('active',this)">Active</button>
+      <button class="filter-pill" data-cf="training" onclick="cgdFilter('training',this)" title="In Training in AxisCare: new hires still onboarding, not offered shifts">Onboarding (In Training)</button>
       <button class="filter-pill" data-cf="inactive" onclick="cgdFilter('inactive',this)">Inactive</button>
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
@@ -18019,6 +18020,10 @@ async function cgdOpen(){ // tab open
   cgdRenderList();
   cgcLineRender();
 }
+/* IN TRAINING IS ONBOARDING (Samantha 2026-10-22): AxisCare calls In Training "active", but a new hire In Training is still
+   onboarding until their orientation is done. The one rule here: working = active AND not In Training (server: _shared/in-training.ts). */
+function cgdTraining(c){ return !!c && c.active===true && /^in\s*training$/i.test(String(c.status_label||'').trim()); }
+function cgdWorking(c){ return !!c && c.active===true && !cgdTraining(c); }
 function cgdFilter(f,btn){ CGD.filter=f; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b===btn)); cgdRenderList(); }
 let cgdSearchT=null;
 function cgdSearchGo(v){ CGD.q=v; clearTimeout(cgdSearchT); cgdSearchT=setTimeout(cgdRenderList,180); }
@@ -18051,33 +18056,34 @@ function cgdRenderList(){
   cgaxRender();
   const esc=escapeHtmlComms;
   const all=CGD.census.caregivers||[];
-  const nAct=all.filter(c=>c.active).length;
+  const nAct=all.filter(cgdWorking).length, nTrain=all.filter(cgdTraining).length;
   const cnt=document.getElementById('cgdCount');
-  if(cnt) cnt.textContent=nAct+' active caregivers · live from AxisCare ('+all.length+' total on record)';
+  if(cnt) cnt.textContent=nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)';
   const q=cgdNorm(CGD.q);
   /* 452 (2026-10-05): the profile catch-up for current caregivers. caregiver-profile-panel.js draws it. */
   if(CGD.filter==='profiles' && !q && typeof CGP2!=='undefined' && CGP2.catchupRender){
-    CGP2.catchupRender(el, all.filter(c=>c.active).map(c=>{ const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
+    CGP2.catchupRender(el, all.filter(cgdWorking).map(c=>{ const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
       return { id:c.id, first:c.first||'', last:c.last||'', mobile:c.mobile||'', email:c.email||'', hire_date:c.hire_date||'', legacy:(g&&g.candidate_id)||'' }; }));
     return;
   }
   let rows;
   if(q){ rows=all.filter(c=>cgdNorm(c.first+c.last).includes(q)||String(c.mobile||'').replace(/\D/g,'').includes(String(CGD.q).replace(/\D/g,'')||'ZZZ')); }
   else if(CGD.filter==='inactive'){ rows=all.filter(c=>!c.active); }
-  else if(CGD.filter==='needsdata'){ rows=all.filter(c=>c.active && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id)); }
+  else if(CGD.filter==='training'){ rows=all.filter(cgdTraining); }
+  else if(CGD.filter==='needsdata'){ rows=all.filter(c=>cgdWorking(c) && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id)); }
   else if(CGD.filter==='attention'){
-    rows=all.filter(c=>{ if(!c.active) return false;
+    rows=all.filter(c=>{ if(!cgdWorking(c)) return false;
       const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
       if(!g) return true;                                  // no hub data connected
       const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
       const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
       return bad||unk; });
   }
-  else { rows=all.filter(c=>c.active); }
+  else { rows=all.filter(cgdWorking); }
   rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
   const cap = (CGD.filter==='inactive'&&!q) ? 200 : 600;
   const shown=rows.slice(0,cap);
-  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">Nobody matches this view.</div>'; return; }
+  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">'+(CGD.filter==='training'&&!q?'Nobody is In Training in AxisCare right now.':'Nobody matches this view.')+'</div>'; return; }
   el.innerHTML='<div class="card" style="padding:0;overflow:hidden;">'+shown.map(c=>{
     const nm=(c.first+' '+c.last).trim();
     const g=cgdLegacyFor(c.id,nm), ov=cgdOverlayFor(c.id);
@@ -18095,7 +18101,8 @@ function cgdRenderList(){
       +'<b style="min-width:170px;color:var(--navy);">'+esc(nm)+'</b>'
       +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">L'+lvl+'</span>':'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">no level</span>')
       +(!c.active?'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'inactive')+'</span>':'')
-      +((!g&&!ov&&c.active)?'<span class="tag-chip" style="background:#FFF7ED;color:#B45309;" title="AxisCare says they exist. The Hub just has no operational data connected yet">needs data connection</span>':'')
+      +(cgdTraining(c)?'<span class="tag-chip" style="background:#F7E7CD;color:#8A4E0C;" title="In Training in AxisCare: onboarding until their orientation is done. Not offered shifts.">In Training · onboarding</span>':'')
+      +((!g&&!ov&&cgdWorking(c))?'<span class="tag-chip" style="background:#FFF7ED;color:#B45309;" title="AxisCare says they exist. The Hub just has no operational data connected yet">needs data connection</span>':'')
       +'<span style="flex:1;"></span>'
       +'<span class="field-note">'+esc(c.city||'')+'</span>'
       +'<span class="field-note" style="min-width:110px;">'+esc(c.mobile||'no mobile')+'</span>'
@@ -19375,7 +19382,8 @@ async function cgdOpenProfile(axid, tab){
     +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:4px;">'
     +'<div class="pp-avatar" aria-hidden="true">'+esc(((c.first||' ')[0]+(c.last||' ')[0]).toUpperCase())+'</div>'
     +'<b style="font-size:23px;letter-spacing:-0.02em;color:var(--navy);">'+esc(nm)+'</b>'
-    +(c.active?'<span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">Active</span>'
+    +(cgdTraining(c)?'<span class="tag-chip" style="background:#F7E7CD;color:#8A4E0C;" title="In Training in AxisCare: onboarding until their orientation is done. Not offered shifts.">In Training · onboarding</span>'
+      :c.active?'<span class="tag-chip" style="background:#E7F6EC;color:#1F7A4D;">Active</span>'
               :'<span class="tag-chip" style="background:#F3EDE3;color:#6E6559;">'+esc(c.status_label||'Inactive')+'</span>')
     +(lvl?'<span class="tag-chip" style="background:#E1F1ED;color:#1F7A8C;">Level '+lvl+'</span>':'')
     +(function(){ const t=c.hire_date?Math.floor((Date.now()-new Date(String(c.hire_date).slice(0,10)+'T12:00:00').getTime())/864e5):null;
@@ -19645,7 +19653,8 @@ async function cgdPrnMount(c){
               const last=took.map(x=>x.shift_date||String(x.recorded_at).slice(0,10)).sort().pop();
               return kv('PRN shifts taken', took.length ? took.length + (last ? ' <span class="field-note">(last ' + esc(prnDate(last)) + ')</span>' : '') : '<span class="field-note">none yet</span>')
                 + (out.length ? kv('Backed out after confirming', '<b style="color:#B45309;">' + out.length + '</b>') : ''); })()
-          + kv('Can be asked for open shifts', (DATA.caregivers||[]).some(g=>String(g.axiscare_id||'')===String(c.id) && g.phone && g.active!==false) ? 'yes'
+          + kv('Can be asked for open shifts', cgdTraining(c) ? '<b style="color:#B45309;">not yet</b> <span class="field-note">(In Training in AxisCare: onboarding until their orientation is done)</span>'
+              : (DATA.caregivers||[]).some(g=>String(g.axiscare_id||'')===String(c.id) && g.phone && g.active!==false) ? 'yes'
               : '<b style="color:#B45309;">not yet</b> <span class="field-note">(add them to the caregiver roster with their phone and AxisCare number)</span>')
           + kv('Availability confirmed', av && av.updated_at ? esc(prnDate(av.updated_at)) + (av.source === 'application' ? ' <span class="field-note">(from their application)</span>' : av.source === 'step1' ? ' <span class="field-note">(from their signed Step 1; they can update it any time)</span>' : '') : '<span class="field-note">not on file</span>')
         : '')
