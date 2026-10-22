@@ -1762,7 +1762,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- ===================== TAB: CLIENT GOALS (My Work, 2026-10-18) =====================
          Weekly care hours (read from AxisCare) and CDS consumers (a count the owners keep), each against a goal only
          Samantha or Zachary sets. client-goals.js draws it; saved in app_data cc_goals. Nothing is sent to anyone. -->
-    <section class="tabpanel" id="tab-clientgoals"><div id="cgoWrap"></div></section>
+    <!-- New clients scoreboard (bonus v2, 2026-10-22: moved here from the top of My Work, her call): the team goal and each Care
+         Coordinator's new clients this month, dollars only for her own and owners. new-clients.js. -->
+    <section class="tabpanel" id="tab-clientgoals"><div id="cgoNewClients"></div><div id="cgoWrap"></div></section>
 
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
          Meeting notes and action items (moved in from the Team Hub; each action item is a
@@ -1862,8 +1864,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div id="dkDashLine"></div>
       <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
       <div id="staffingView" style="margin-bottom:12px;"></div>
-      <!-- New clients scoreboard (bonus v2, 2026-10-22, her mockup): the team goal and each Care Coordinator's new clients; dollars only for her own and owners.
-           Static slot above the My Work tabs (Today opens on My Work); new-clients.js draws it. renderMyWork never touches it. -->
+      <!-- New clients (bonus v2): 2026-10-22 her call "remove too much stuff at the top ... move that to the Client Goals tab".
+           Here only the "+$75, you just earned" moment shows, and only while there is one. new-clients.js; renderMyWork never touches it. -->
       <div id="todayNewClients"></div>
       <div id="hoCardWork"></div>
       <div class="subtab-bar" id="myWorkTabs"></div>
@@ -7639,7 +7641,7 @@ The HomeTogether team</pre>
 <script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=1"></script><!-- Speed to lead (2026-10-22, her design): Leads > My speed, each coordinator's own numbers --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script>
-<script src="new-clients.js?v=1"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
+<script src="new-clients.js?v=2"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
 <script src="owner-overview.js?v=6"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
@@ -7694,7 +7696,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=22"></script>
+<script src="client-journey.js?v=23"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script>

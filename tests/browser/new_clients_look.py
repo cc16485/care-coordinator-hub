@@ -56,9 +56,10 @@ STUB = r"""
 T = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-  const L=window.__log, $=id=>document.getElementById(id), txt=()=>($('todayNewClients')||{}).textContent||'';
+  const L=window.__log, $=id=>document.getElementById(id), txt=()=>($('cgoNewClients')||{}).textContent||'', top=()=>($('todayNewClients')||{}).textContent||'';
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   switchTab('mywork'); await sleep(150);
+  ok('the scoreboard lives on Client Goals now, not at the top of My Work', !!$('cgoNewClients')&&$('cgoNewClients').closest('#tab-clientgoals')&&!$('todayNewClients').closest('#tab-clientgoals'));
   const as=async e=>{ (0,eval)(`ME={ email:'${e}@mo-care.com', name:'${e}', shift:'day' };`); await NewClients.refresh(true); await sleep(80); };
 
   /* ── off ── */
@@ -74,19 +75,20 @@ async()=>{
   await as('kry');
   const t=txt();
   ok('on · Krystal sees the team goal: 4 of 8, 4 more to go', /Team goal: 8 new clients = team lunch/.test(t)&&/4 of 8 · 4 more to go/.test(t), t.slice(0,300));
-  const cards=[...$('todayNewClients').querySelectorAll('.nc-grid .nc-card')];
+  const cards=[...$('cgoNewClients').querySelectorAll('.nc-grid .nc-card')];
+  ok('My Work top: nothing there for Krystal (no moment of her own)', top()==='', top());
   ok('on · her own card: dollars ($75 pending, $75 pending on Helen)', /Krystal \(you\)/.test(cards[0].textContent)&&/\$75/.test(cards[0].textContent)&&/\$75 pending · Day 9 of 30/.test(cards[0].textContent), cards[0].textContent);
   ok('on · Angiel’s card: counts only, no dollars, and it says why', !/\$/.test(cards[1].textContent)&&/Made it to day 30/.test(cards[1].textContent)&&/private to her and the owners/.test(cards[1].textContent), cards[1].textContent);
   ok('on · Krystal sees Angiel’s client made it, without dollars', /Angiel’s new client Carol Sample made it to day 30\./.test(t)&&!/You just earned/.test(t), t.slice(0,400));
   window.__shot1=true;
   await as('ang');
-  ok('on · Angiel sees her moment: +$75, You just earned $75', /You just earned \$75/.test(txt())&&/Carol Sample made it to day 30\. 4 of 8 toward team lunch\./.test(txt()), txt().slice(0,300));
+  ok('on · Angiel sees her moment at the top of My Work: +$75, and where the scoreboard is', /You just earned \$75/.test(top())&&/Carol Sample made it to day 30\. 4 of 8 toward team lunch\. The scoreboard is on Client Goals\./.test(top()), top().slice(0,300));
   $('todayNewClients').querySelector('.nc-moment button').click(); await sleep(50);
-  ok('Got it: the moment goes away (this browser) and stays away', !/You just earned/.test(txt()));
+  ok('Got it: the moment goes away (this browser) and My Work is empty again', !/You just earned/.test(top()+txt())&&top()==='');
   await NewClients.refresh(true); await sleep(50);
-  ok('…after a refresh too', !/You just earned/.test(txt()));
+  ok('…after a refresh too', !/You just earned/.test(top()+txt()));
   await as('sam');
-  const c2=[...$('todayNewClients').querySelectorAll('.nc-grid .nc-card')];
+  const c2=[...$('cgoNewClients').querySelectorAll('.nc-grid .nc-card')];
   ok('on · an owner sees dollars on both cards, no practice banner', c2.every(c=>/\$75/.test(c.textContent))&&!/Practice preview/.test(txt()));
 
   /* ── settings ── */
@@ -117,10 +119,10 @@ with sync_playwright() as pw:
     pg.evaluate('s=>(0,eval)(s)', STUB)
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        pg.evaluate("()=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; DATA.ops_settings.bonus_v2_live=true; switchTab('mywork'); }")
+        pg.evaluate("()=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; DATA.ops_settings.bonus_v2_live=true; switchTab('clientgoals'); }")
         for who, name in (('kry', '1-krystal-sees'), ('ang', '2-angiel-sees')):
             pg.evaluate("e=>{ (0,eval)(`ME={ email:'${e}@mo-care.com', name:'${e}', shift:'day' };`); return NewClients.refresh(true); }", who); pg.wait_for_timeout(500)
-            pg.evaluate("()=>{ const e=document.getElementById('todayNewClients'); e.scrollIntoView(); window.scrollBy(0,-90); }"); pg.wait_for_timeout(200)
+            pg.evaluate("()=>{ const e=document.getElementById('cgoNewClients'); e.scrollIntoView(); window.scrollBy(0,-90); }"); pg.wait_for_timeout(200)
             pg.screenshot(path=os.path.join(SHOTS, name + '.png'))
         b.close(); print('saved to', SHOTS); raise SystemExit(0)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
