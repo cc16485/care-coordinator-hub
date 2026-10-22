@@ -285,8 +285,11 @@
   /* ── the tab ── */
   function fmtTime(t){ const d = new Date(t), now = new Date(); const same = d.toDateString() === now.toDateString();
     return (same ? '' : d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + ' ') + d.toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' }); }
-  function cardHtml(x){
-    const it = x.it, tc = x.tc;
+  /* tidy (mywork-tidy.js, 2026-10-22, only while ops_settings.mywork_tidy_live): the escalation words are said once at
+     the top instead of on each card, and owners get a box on each card to clear many at once */
+  const tidy = () => !!(W.MWTidy && W.MWTidy.on());
+  function cardHtml(x, o){
+    const it = x.it, tc = x.tc, td = !!(o && o.tidy);
     const fam = tc.family ? first(tc.family) + '’s family' : '';
     const chip = (t, bg, fg) => '<span style="border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;background:' + bg + ';color:' + fg + ';white-space:nowrap;">' + esc(t) + '</span>';
     const routed = lc(it.owner) && !tc.covering ? ' (routed to ' + first(it.owner) + ')' : '';
@@ -294,6 +297,7 @@
     try{ if(typeof W.obligationOpenAction === 'function') act = W.obligationOpenAction(it) || ''; }catch(e){}
     return '<div class="card tw-card" data-id="' + esc(it.id) + '" style="padding:12px 14px;margin:0 0 8px;border-left:4px solid ' + (tc.track === 'care' ? 'var(--red)' : tc.late ? 'var(--amber,#B7791F)' : 'var(--teal,#1F7A8C)') + ';">'
       + '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">'
+      + (td ? W.MWTidy.box(it.id) : '')
       + '<div style="flex:1 1 300px;min-width:0;"><b>' + esc(it.title || it.about || 'Untitled') + '</b>'
       + (it.detail ? '<div class="field-note" style="margin-top:2px;">' + esc(String(it.detail).slice(0, 300)) + '</div>' : '') + '</div>'
       + '<div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="primary" style="padding:6px 13px;font-size:13px;" onclick="TW.take(\'' + esc(it.id) + '\')"'
@@ -304,7 +308,7 @@
       + (fam ? chip(fam, '#E8F4EC', '#1E6B45') : chip('No family coordinator on file', 'var(--bg)', 'var(--text-muted)'))
       + (tc.covering ? chip('Covering for ' + first(tc.covering.person) + ', ' + tc.covering.why, '#FDF3E2', '#8A5A00') : '')
       + '</div>'
-      + '<div class="field-note" style="margin-top:6px;">' + esc(tc.escalation.words) + '</div>'
+      + (td && tc.track !== 'care' ? '' : '<div class="field-note" style="margin-top:6px;">' + esc(tc.escalation.words) + '</div>')
       + (act ? '<div>' + act + '</div>' : '')
       + '</div>';
   }
@@ -312,21 +316,28 @@
     if(!wrap) return;
     const c = ctx(), duty = onDuty(c), ymd = ymdChicago(c.now); let rows = list();
     const outToday = (c.coordinators || []).filter(e => outOn(c.staff, e, ymd));
-    const lane = (label, note, color, xs) => xs.length ? '<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:12.5px;letter-spacing:.06em;color:' + color + ';">' + label + ' · ' + xs.length + '</b><span class="field-note">' + note + '</span></div>' + xs.map(cardHtml).join('') : '';
+    const td = tidy(), card = x => cardHtml(x, { tidy:td });
+    const lane = (label, note, color, xs) => xs.length ? '<div style="margin:16px 0 8px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:12.5px;letter-spacing:.06em;color:' + color + ';">' + label + ' · ' + xs.length + '</b><span class="field-note">' + note + '</span></div>' + xs.map(card).join('') : '';
     let h = on() ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FDF3E2;color:#8A5A00;"><b>Preview, switched off.</b> Only owners see this tab. Nothing has moved: everyone’s My Work is exactly as before until Team Work is turned on in Settings.</div>';
     h += '<div class="card" style="padding:12px 16px;margin-bottom:10px;background:#EAF4F6;"><b style="color:var(--navy);">The team’s pile.</b> The Hub made these and nobody has taken them yet. Whoever is on duty works from the top. Take it and it moves to your My Work with your name on it. The family keeps its own Care Coordinator either way.'
       + '<div class="field-note" style="margin-top:6px;">On duty now: ' + (duty.length ? duty.map((e, i) => esc(first(e)) + (i === 0 && duty.length > 1 ? ' (first up)' : '')).join(', ') : '<b>nobody on the schedule</b> (care at risk follows the ladder)')
-      + (outToday.length ? ' · Out today: ' + outToday.map(e => esc(first(e))).join(', ') : '') + '</div></div>';
+      + (outToday.length ? ' · Out today: ' + outToday.map(e => esc(first(e))).join(', ') : '') + '</div>'
+      + (td ? '<div class="field-note" style="margin-top:6px;">' + esc(W.MWTidy.RULES) + '</div>' : '') + '</div>';
+    /* tidy: EVV review and "Make it official?" leave the pile; a call card 2 days past its day joins Past its day */
+    const byKind = {};
+    if(td){ const now = Date.now(); rows = rows.filter(x => { const k = W.MWTidy.sortOut(x.it, now); if(!k) return true; (byKind[k] = byKind[k] || []).push(x); return false; });
+      h += W.MWTidy.toolbar(rows.concat(byKind.past || [])); }
     /* Past its day (the same rule My Work folds by): the visit or shift is over; folded away until opened */
     const past = x => { try{ return typeof W.opsPastDay === 'function' && W.opsPastDay(x.it); }catch(e){ return false; } };
-    const pastRows = rows.filter(past); rows = rows.filter(x => !past(x));
+    const pastRows = rows.filter(past).concat(byKind.past || []); rows = rows.filter(x => !past(x));
     const care = rows.filter(x => x.tc.track === 'care'), cover = rows.filter(x => x.tc.track !== 'care' && x.tc.covering),
       rest = rows.filter(x => x.tc.track !== 'care' && !x.tc.covering);
     h += lane('CARE AT RISK', 'someone may be without care; anyone can act first', 'var(--red)', care)
       + lane('TIME-SENSITIVE', 'soonest deadline first', 'var(--navy)', rest)
       + lane('COVERING', 'a coordinator is out today; it stays theirs, you do the task', '#8A5A00', cover)
       + (pastRows.length ? '<details style="margin-top:14px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:700;letter-spacing:.06em;color:var(--text-muted);">PAST ITS DAY \u00b7 ' + pastRows.length
-        + ' <span class="field-note" style="font-weight:400;letter-spacing:0;">the visit or shift these were about is over; close them or keep the ones that still need doing</span></summary>' + pastRows.map(cardHtml).join('') + '</details>' : '');
+        + ' <span class="field-note" style="font-weight:400;letter-spacing:0;">the visit or shift these were about is over; close them or keep the ones that still need doing</span></summary>' + pastRows.map(card).join('') + '</details>' : '')
+      + (td ? W.MWTidy.extras(byKind) : '');
     if(!rows.length && !pastRows.length) h += '<div class="card" style="padding:22px;text-align:center;">Nothing waiting for the team right now.</div>';
     wrap.innerHTML = h;
   }

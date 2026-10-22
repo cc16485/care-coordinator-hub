@@ -4773,6 +4773,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="rbToggleBtn" onclick="rbToggle(this)">Turn on How did they reach us?</button>
   <span class="field-note" id="rbSaved"></span>
 </div>
+<!-- My Work, tidier (2026-10-22, her mockup https://claude.ai/artifact/12fzWPbw75wAZcHdF3Ufa6): ops_settings.mywork_tidy_live. mywork-tidy.js. -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Tidier My Work and Clear old cards</div>
+<p class="hint">Team Work says its escalation rules once at the top instead of on every card, and owners can tick many cards and clear them with one reason (kept on each card; Undo for a day). Call cards 2 days past their day move to Past its day, "Make it official?" is one weekly list, and EVV review cards are not shown. The top of My Work is one short line, and the tabs are Today, Team Work, All mine, Waiting and More. Below: every open card more than 7 days late, to clear with a reason. Nothing is sent to anyone. Only Samantha or Zachary can change this.</p>
+<div id="mwtSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="mwtToggleBtn" onclick="MWTidy.toggle(this)">Turn on the tidier My Work</button>
+  <span class="field-note" id="mwtSaved"></span>
+</div>
+<div id="mwtOld" style="margin:0 0 12px;"></div>
 <!-- Relationship calls (Stage 3 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.relationship_calls_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Relationship calls</div>
 <p class="hint">After a client's first visit: the welcome call is the client journey's own step (due by the end of the next business day). Then the 7-day relationship call (due by day 7) and, once it is logged, the 30-day call (due by day 30) each come as one card for the client's Care Coordinator, with Log the call. Relationship calls are never supervisory visits or notes. Nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
@@ -7724,7 +7733,8 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="team-work.js?v=5"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="mywork-tidy.js?v=1"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
+<script src="team-work.js?v=6"></script><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
@@ -11517,7 +11527,8 @@ function tsToggle(){ TS_OPEN=!TS_OPEN; renderTodayStrip(); if(TS_OPEN){ try{ ren
 function renderTodayStrip(){
   const box=document.getElementById('todayStrip'); if(!box) return;
   const esc=escapeHtmlComms, first=n=>String(n||'').trim().split(/\s+/)[0];
-  const tile=(k,v,sub,go,red)=>(go?'<button class="ts-tile" onclick="'+go+'">':'<div class="ts-tile">')
+  const parts=[];   /* tidy (2026-10-22): the same five facts, drawn as one line while ops_settings.mywork_tidy_live */
+  const tile=(k,v,sub,go,red)=>(parts.push({k,v,sub,go,red}),go?'<button class="ts-tile" onclick="'+go+'">':'<div class="ts-tile">')
     +'<span class="ts-k">'+esc(k)+'</span><span class="ts-v'+(red?' ts-red':'')+'">'+esc(v)+'</span><span class="ts-s">'+esc(sub||'')+'</span>'+(go?'</button>':'</div>');
   /* 1 · since you left */
   const ov=todayOvernight(), nOv=ov.ops.length+ov.leads.length;
@@ -11554,7 +11565,7 @@ function renderTodayStrip(){
         :'<div class="field-note">Nothing came in.</div>')
       +'<div id="sylSlot" style="margin-top:10px;"></div><div id="sylWrap"></div></div>';
   }
-  box.innerHTML='<div class="ts-strip">'+t1+t2+t3+t4+t5+'</div>'+panel;
+  box.innerHTML=(window.MWTidy&&MWTidy.on()?MWTidy.stripHtml(parts):'<div class="ts-strip">'+t1+t2+t3+t4+t5+'</div>')+panel;
 }
 
 async function heroLoadShifts(){
@@ -18939,6 +18950,7 @@ function lhSetFill(){
   try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
+  try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ rbSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
@@ -30357,7 +30369,7 @@ function opsWaitOpen(id, anchorId){
    person keep theirs: Unassigned, Approvals, Reviews, Helping, Up for grabs. */
 function myWorkTabBadge(k,b){
   if(k==='mine'||k==='escalated'||k==='waiting') return '';
-  if(k==='team'){ const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))).length;   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
+  if(k==='team'){ const tdy=window.MWTidy&&MWTidy.on(), tnow=Date.now(); const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))&&!(tdy&&MWTidy.sortOut(i,tnow))).length;   /* tidy (2026-10-22): EVV, Make it official and call cards past their day are not counted */   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
   if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
   const n=(b[k]||[]).length;
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
@@ -30380,7 +30392,8 @@ function renderMyWork(){
      cannot approve — must not leave the screen showing nothing. */
   if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB='today';
   const tabs=document.getElementById('myWorkTabs');
-  if(tabs) tabs.innerHTML=TABS.map(([k,label])=>
+  if(tabs&&window.MWTidy&&MWTidy.on()) tabs.innerHTML=MWTidy.tabsHtml(TABS, MYWORK_TAB, k=>myWorkTabBadge(k,b));   /* tidy (2026-10-22): Today, Team Work, All mine, Waiting, More */
+  else if(tabs) tabs.innerHTML=TABS.map(([k,label])=>
     /* on press, not on click (2026-10-06, "i cant click on those"): a background redraw between pressing and letting go
        used to swallow the click */
     '<div class="subtab'+(MYWORK_TAB===k?' active':'')+'" onpointerdown="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')" onclick="if(MYWORK_TAB!==\''+k+'\')myWorkGo(\''+k+'\')">'
