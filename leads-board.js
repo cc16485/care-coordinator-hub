@@ -157,7 +157,16 @@
     if(!box || !R) return;
     opts = opts || {};
     const today = R.ymd(new Date()), now = new Date().toISOString();
-    const work = rows.filter(r => r.set === 'work' && r.l).map(r => { const st = r.st; const br = R.boardRow(r.l, Object.assign(ctxFor(r.l, st), { now, today })); return { r:br, l:r.l, st, lead:r.l }; });
+    const work = rows.filter(r => r.set === 'work' && r.l).map(r => { const st = r.st, cx = Object.assign(ctxFor(r.l, st), { now, today }); const br = R.boardRow(r.l, cx); return { r:br, l:r.l, st, lead:r.l, ctx:cx }; });
+    /* 2026-10-22 (her approved mockup): the CDS card look, while ops_settings.leads_cards_live is on, or an owner's own preview */
+    const owner = typeof ccIsOwner === 'function' && ccIsOwner();
+    const cards = !!(window.LeadCards && LeadCards.showing(DATA.ops_settings || {}, owner));
+    const previewBar = window.LeadCards && owner && !LeadCards.liveOn(DATA.ops_settings || {})
+      ? (cards ? '<div class="lc-preview"><b>Preview of the new card look.</b> Only you see it, in this browser. Everyone else still has the list.<span style="flex:1;"></span><button class="lb-btn" onclick="lcPreview(false)">Back to the list</button></div>'
+        : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="lcPreview(true)">Preview the new card look (only you see it)</button></div>') : '';
+    const sub = document.getElementById('lsSubtitle');
+    if(sub){ if(!sub.dataset.list) sub.dataset.list = sub.textContent;
+      sub.textContent = cards ? 'Every family from their first call until they say yes, in three steps. Red cards are late or new and sit at the top. Once they say yes they move to Client Care → Getting ready.' : sub.dataset.list; }
     /* numbers */
     const hours = R.responseHours(DATA.ops_settings || {});
     const nowRows = work.filter(x => x.r.group === 'now'), newUntouched = work.filter(x => x.r.reason === 'new_overdue' || x.r.reason === 'new_running');
@@ -166,14 +175,17 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     /* Lead turns (Stage 1, policy 2026-10-18): who gets the next new lead, only while turns are on */
     const nextTile = opts.nextUp ? '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:var(--navy);font-size:18px;">' + esc(opts.nextUp) + '</span><span class="lb-tile-l">next up for a new lead</span></div>' : '';
-    if(nums) nums.innerHTML = nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
+    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = previewBar + LeadCards.summary(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
+    else if(nums){ nums.style.display = ''; nums.innerHTML = previewBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
       + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
-      + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>';
+      + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>'; }
     /* filters: owner + stage words */
     const owners = [...new Set(work.map(x => first(x.r.owner)).filter(Boolean))].sort();
     const F = [['All', 'All'], ['now', 'Need you now'], ['new', 'New'], ['talking', 'Talking'], ['assessment', 'Assessment'], ['waiting', 'Waiting']];
-    if(fl) fl.innerHTML = '<label for="lbOwner" class="lb-k" style="margin-right:4px;">Showing</label><select id="lbOwner" onchange="lbOwner(this.value)"><option value="">Everyone\'s families</option>' + owners.map(o => '<option value="' + esc(o) + '"' + (LB.owner === o ? ' selected' : '') + '>' + esc(o) + '\'s</option>').join('') + '</select>'
+    const ownerPick = '<label for="lbOwner" class="lb-k" style="margin-right:4px;">Showing</label><select id="lbOwner" onchange="lbOwner(this.value)"><option value="">Everyone\'s families</option>' + owners.map(o => '<option value="' + esc(o) + '"' + (LB.owner === o ? ' selected' : '') + '>' + esc(o) + '\'s</option>').join('') + '</select>';
+    if(fl && cards) fl.innerHTML = ownerPick + (LB.filter !== 'All' ? '<button class="filter-pill" onclick="lbFilter(\'All\')">← Back to the cards</button>' : '');
+    else if(fl) fl.innerHTML = ownerPick
       + F.map(f => '<button class="filter-pill' + (LB.filter === f[0] ? ' active' : '') + '" onclick="lbFilter(\'' + f[0] + '\')">' + f[1] + ' <span style="opacity:.65;">' + work.filter(x => lbIn(x, f[0])).length + '</span></button>').join('');
     /* the look-ups (the sets that are not the working board) */
     const count = s => rows.filter(r => r.set === s).length;
@@ -208,7 +220,9 @@
     const top = (window.LeadRecorder && LB.filter === 'All' ? LeadRecorder.html() : '') + (window.CallLead && LB.filter === 'All' ? CallLead.oldAiHtml() : '')
       /* the drawing kit (2026-10-18): nobody in Needs you now is the quiet phone */
       + (window.HS && (LB.filter === 'All' || LB.filter === 'now') && !by.now.length ? HS.banner({ scene:'phone', say:'Every new family has heard from us.', sub:'No one is waiting on a call from us right now. A new inquiry shows here the moment it comes in.' }) : '');
-    if(LB.sort === 'imp'){
+    if(cards && LB.filter === 'All'){
+      box.innerHTML = top + LeadCards.html(shown, now, { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null });
+    } else if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
       box.innerHTML = top + bar + '<div class="card lb-group"><div class="lb-group-head" style="background:var(--bg);"><span class="lb-group-title" style="color:var(--navy);">Most important first</span><span class="field-note">' + list.length + ' · a new family nobody has tried and a family waiting on our answer stay on top; then how ready they sound, then what they are worth a month. Click a line for the details.</span></div>'
         + (list.length ? HEAD + list.map(x => compactHtml(x.r, x.l, x.v)).join('') : '<div class="lb-empty">Nobody here.</div>') + '</div>';

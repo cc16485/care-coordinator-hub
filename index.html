@@ -4745,6 +4745,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="fuToggleBtn" onclick="fuToggle(this)">Turn on follow-up rules</button>
   <span class="field-note" id="fuSaved"></span>
 </div>
+<!-- Leads as cards (2026-10-22, her approved mockup https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): ops_settings.leads_cards_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Leads page look</div>
+<p class="hint">The Leads page as cards, like the CDS hub: three steps across the top (To call, Home visit, Deciding) and one card per family, with the date the lead came in, the last contact, what is late in red, and the next thing to do. Only the look changes: alerts, saved calls and texts, They said yes and every rule work the same. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
+<div id="lcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the card look for everyone</button>
+  <span class="field-note" id="lcSaved"></span>
+</div>
 <!-- Relationship calls (Stage 3 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.relationship_calls_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Relationship calls</div>
 <p class="hint">After a client's first visit: the welcome call is the client journey's own step (due by the end of the next business day). Then the 7-day relationship call (due by day 7) and, once it is logged, the 30-day call (due by day 30) each come as one card for the client's Care Coordinator, with Log the call. Relationship calls are never supervisory visits or notes. Nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
@@ -5028,7 +5036,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Leads</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until they say yes. Work the top group from the top down. Once they say yes they move to Client Care → Getting ready. Click a family to open everything about them.</div>
+          <div id="lsSubtitle" class="field-note" style="font-size:13.5px;margin-top:3px;max-width:78ch;">Every family from their first call until they say yes. Work the top group from the top down. Once they say yes they move to Client Care → Getting ready. Click a family to open everything about them.</div>
         </div>
         <span style="flex:1;"></span>
         <button class="linklike" onclick="lsLoadFacts(true)">↻ Refresh</button>
@@ -7658,7 +7666,8 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="leads-board.js?v=17"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="lead-cards.js?v=1"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
+<script src="leads-board.js?v=18"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
@@ -18739,6 +18748,25 @@ async function fuToggle(btn){
   const sv=document.getElementById('fuSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   fuSetFill(); try{ opsReconcileLeads(); }catch(e){} try{ renderLeadsStarts(); }catch(e){}
 }
+/* Leads as cards (2026-10-22): the look switch, owners only. Off = the list as before (an owner may preview the cards). */
+function lcSetFill(){
+  const now=document.getElementById('lcSetNow'), b=document.getElementById('lcToggleBtn'); if(!now) return;
+  const on=!!(window.LeadCards&&LeadCards.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the Leads page as cards.':'<b style="color:#B7791F;">Off.</b> Everyone sees the list as before.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the card look (back to the list)':'Turn on the card look for everyone'; b.style.display=owner?'':'none'; }
+}
+async function lcToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the Leads page look.'); return; }
+  const on=!(window.LeadCards&&LeadCards.liveOn(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on the card look for everyone?\n\nThe Leads page shows three steps (To call, Home visit, Deciding) and one card per family. Nothing else changes, and nothing is sent to any family.'
+    :'Turn off the card look? Everyone goes back to the list.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.leads_cards_live=on; if(on&&!m.leads_cards_live_since) m.leads_cards_live_since=new Date().toISOString(); return ['Leads card look '+(on?'ON':'OFF')]; }, 'Leads card look');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('lcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  lcSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 /* Lead turns settings (Stage 1, policy 2026-10-18). The list order is the turn order. Owners only. */
 function ltSetFill(){
   const now=document.getElementById('ltSetNow'), box=document.getElementById('ltPeople'), b=document.getElementById('ltToggleBtn'); if(!now||!box) return;
@@ -18826,6 +18854,7 @@ function lhSetFill(){
   try{ ogSetFill(); }catch(e){}
   try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
+  try{ lcSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
