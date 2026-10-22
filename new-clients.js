@@ -1,5 +1,8 @@
 /* =====================================================================================================================
-   NEW CLIENTS SCOREBOARD (bonus v2, Samantha 2026-10-22: "$75 for every new client no matter the hours ... I want to make
+   NEW CLIENTS SCOREBOARD (2026-10-22 later, her call: "remove too much stuff at the top ... move that to the Client Goals
+   tab"): the full scoreboard draws on Client Goals (#cgoNewClients); the top of My Work (#todayNewClients) shows only the
+   "+$75, you just earned" moment, and only while she has one she has not seen.
+   (bonus v2, Samantha 2026-10-22: "$75 for every new client no matter the hours ... I want to make
    the ladies excited to get new clients"; mockup https://claude.ai/artifact/79mQxzxzEqGTebQPhPvMVS). On Today:
    · the team goal (8 new clients in a month = team lunch, in Settings) for everyone
    · a card per Care Coordinator: new clients this month and where each one is (pending from the first shift, earned at day
@@ -53,16 +56,20 @@
       + (rows || '<div class="nc-sub">No new clients yet this month.</div>') + (more ? '<div class="nc-note">and ' + more + ' more</div>' : '')
       + (p.money ? '' : '<div class="nc-note">Her dollars are private to her and the owners; you see her client counts.</div>') + '</div>';
   }
+  /* her own unseen "+$75" moments (the only thing on My Work) */
+  function momentsHtml(d){
+    const g = (d && d.goal) || {};
+    return ((d && d.moments) || []).filter(m => m.you && m.amount && !seen(m.id)).map(m => '<div class="nc-moment" role="status"><span class="nc-big">+' + money(m.amount) + '</span><div><b style="font-size:18px;">You just earned ' + money(m.amount) + '</b>'
+      + '<div style="opacity:.9;">' + esc(m.client) + ' made it to day 30. ' + esc(g.got) + ' of ' + esc(g.count) + ' toward ' + esc(g.prize) + '. The scoreboard is on Client Goals.</div></div><button type="button" onclick="ncSeen(\'' + esc(m.id) + '\')">Got it</button></div>').join('');
+  }
   function html(d){
     if(!d || d.off) return '';
     if(d.error) return '<div class="nc-card nc-note">The new clients scoreboard could not load (' + esc(d.error) + ').</div>';
     const g = d.goal || {}, pct = g.count ? Math.min(100, Math.round(100 * g.got / g.count)) : 0;
-    const mine = (d.moments || []).filter(m => m.you && m.amount && !seen(m.id));
     const team = (d.moments || []).filter(m => !m.you);
     return '<div class="nc-wrap" aria-label="New clients this month">'
       + (d.v2 === false ? '<div class="nc-practice"><b>Practice preview.</b> Only Samantha and Zachary see this until the new bonus rules are turned on in Settings.</div>' : '')
-      + mine.map(m => '<div class="nc-moment" role="status"><span class="nc-big">+' + money(m.amount) + '</span><div><b style="font-size:18px;">You just earned ' + money(m.amount) + '</b>'
-        + '<div style="opacity:.9;">' + esc(m.client) + ' made it to day 30. ' + esc(g.got) + ' of ' + esc(g.count) + ' toward ' + esc(g.prize) + '.</div></div><button type="button" onclick="ncSeen(\'' + esc(m.id) + '\')">Got it</button></div>').join('')
+      + momentsHtml(d)
       + team.map(m => '<div class="nc-team">' + esc(m.name) + '’s new client ' + esc(m.client) + ' made it to day 30.' + (m.amount ? ' (' + money(m.amount) + ')' : '') + '</div>').join('')
       + '<div class="nc-card"><div class="nc-goal-top"><span class="nc-goal-t">Team goal: ' + esc(g.count) + ' new clients = ' + esc(g.prize) + '</span>'
       + '<span class="nc-goal-n">' + (g.reached ? 'Reached! ' + esc(g.prize) + ' is on' : esc(g.got) + ' of ' + esc(g.count) + ' · ' + esc(g.left) + ' more to go') + '</span></div>'
@@ -70,10 +77,14 @@
       + '<div class="nc-sub">New clients with a first shift this month, both of you together. $75 for each one after day 30 and 3 visits.</div></div>'
       + '<div class="nc-grid">' + (d.people || []).map(personCard).join('') + '</div></div>';
   }
-  function draw(){ const box = document.getElementById('todayNewClients'); if(!box) return; css(); box.innerHTML = html(NC.data); }
+  function draw(){
+    css();
+    const board = document.getElementById('cgoNewClients'); if(board) board.innerHTML = html(NC.data);
+    const top = document.getElementById('todayNewClients'); if(top){ const m = NC.data && !NC.data.off && !NC.data.error ? momentsHtml(NC.data) : ''; top.innerHTML = m ? '<div class="nc-wrap">' + m + '</div>' : ''; }
+  }
   async function refresh(force){
-    const box = document.getElementById('todayNewClients'); if(!box) return;
-    if(!live() && !owner()){ NC.data = null; box.innerHTML = ''; return; }
+    const box = document.getElementById('cgoNewClients'), top = document.getElementById('todayNewClients'); if(!box) return;
+    if(!live() && !owner()){ NC.data = null; box.innerHTML = ''; if(top) top.innerHTML = ''; return; }
     /* off: nothing is asked until an owner clicks the preview link (the page stays quiet while it is off) */
     if(!live() && !NC.preview){ css(); box.innerHTML = '<div style="margin:0 0 12px;font-size:13px;"><button type="button" class="linklike" onclick="ncPreview()">Preview the new clients scoreboard (owners only)</button></div>'; return; }
     if(NC.busy || (!force && Date.now() - NC.at < 5 * 60e3 && NC.data)) { draw(); return; }
