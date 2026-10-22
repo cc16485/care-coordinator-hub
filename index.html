@@ -4753,6 +4753,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the card look for everyone</button>
   <span class="field-note" id="lcSaved"></span>
 </div>
+<!-- How did they reach us? (2026-10-22, her mockup board 3 of https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): ops_settings.lead_reached_by_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">How did they reach us?</div>
+<p class="hint">Add lead asks how the family reached us: Called us, Website form, Facebook form, Referral form, Walked in or Email. Called us or Walked in counts as the first conversation, so the family never gets the first-call alerts; a form still starts the 5-minute clock. It replaces the "We're talking to them on this call" box, and changing an existing lead to Called us stops its first-call alerts too. Leads cards show it as a tag, with who referred them. Source and Referred By stay as they are. Only Samantha or Zachary can turn this on or off.</p>
+<div id="rbSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="rbToggleBtn" onclick="rbToggle(this)">Turn on How did they reach us?</button>
+  <span class="field-note" id="rbSaved"></span>
+</div>
 <!-- Relationship calls (Stage 3 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.relationship_calls_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Relationship calls</div>
 <p class="hint">After a client's first visit: the welcome call is the client journey's own step (due by the end of the next business day). Then the 7-day relationship call (due by day 7) and, once it is logged, the 30-day call (due by day 30) each come as one card for the client's Care Coordinator, with Log the call. Relationship calls are never supervisory visits or notes. Nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
@@ -6917,6 +6925,11 @@ The HomeTogether team</pre>
      lead typed during the call records that conversation. On by default for a Phone lead; only on a NEW lead. -->
 <div id="leadTalkedRow" style="grid-column:1/-1;display:none;"><label style="display:flex;gap:8px;align-items:center;font-weight:600;margin:0;">
 <input type="checkbox" id="lead_talked_now" style="width:auto;margin:0;"> We're talking to them on this call (counts as the first conversation)</label></div>
+<!-- 2026-10-22 (her: "a lead that calls us should be marked as a Call, just like leads from a website form"): How did they
+     reach us? Only while ops_settings.lead_reached_by_live; the box above steps aside then. Called us or Walked in counts as
+     the first conversation (reached-by.js). Source and Referred By stay as they are. -->
+<div id="leadReachedRow" style="grid-column:1/-1;display:none;"><label>How did they reach us?</label>
+<div id="leadReachedPills" class="rb-pills"></div><input type="hidden" id="lead_reached_by"><span id="leadReachedNote" class="rb-note"></span></div>
 <div style="grid-column:1/-1;"><label>Referred By</label>
   <!-- Picked from the partners we already keep records on, because a typed
        name is how "Mercy", "Mercy Hospital" and "mercy hosp" become three
@@ -7667,7 +7680,8 @@ The HomeTogether team</pre>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
 <script src="medicaid-plans.js?v=9"></script>
 <script src="staffing-sheet.js?v=2"></script>
-<script src="lead-cards.js?v=1"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
+<script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
+<script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
 <script src="leads-board.js?v=18"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
@@ -9952,6 +9966,7 @@ function openLeadModal(id){
   /* what shows depends on the answers (these only show and hide; they never change a value) */
   toggleClientNameFields(!!l.client_name_not_provided);
   leadTalkedUI(false);
+  if(window.ReachedBy) ReachedBy.formUI(l);
   // Full address stays folded on a first call (city is enough); pop it open
   // when this lead already has one so edits never hide saved data.
   const af=document.getElementById('leadAddrFold');
@@ -12963,6 +12978,7 @@ function leadTalkedUI(fromChange){
   const isNew=!document.getElementById('lead_id').value;
   row.style.display=isNew?'':'none';
   if(isNew) box.checked=(document.getElementById('lead_source').value==='Phone');
+  if(window.ReachedBy&&ReachedBy.liveOn(DATA.ops_settings||{})) row.style.display='none';   /* How did they reach us? replaces it */
 }
 async function saveLead(opts){
   opts=opts||{};
@@ -13031,8 +13047,11 @@ async function saveLead(opts){
   if(idx<0&&window.CallCoach) CallCoach.stamp(merged);   /* saved from Taking a call: who took it (call coaching) */
   /* 2026-10-15: typed in with + Add Lead while on the phone with the family: that call is the first real conversation
      (the same record a logged connected call writes), so no first-call clock, no late alerts, not New */
+  /* 2026-10-22: while How did they reach us? is on, its answer decides it (Called us or Walked in = the first conversation) */
+  const rbOn=!!(window.ReachedBy&&ReachedBy.liveOn(DATA.ops_settings||{}));
+  if(rbOn){ const a=ccActor()||{}; ReachedBy.applyOnSave(merged, String((document.getElementById('lead_reached_by')||{}).value||''), { isNew:idx<0, fromCall:!!fromCall, by:a.email||'', push:ldPush }); }
   { const tb=document.getElementById('lead_talked_now');
-    if(idx<0&&!fromCall&&tb&&tb.checked&&!merged.first_human_contact_at){
+    if(!rbOn&&idx<0&&!fromCall&&tb&&tb.checked&&!merged.first_human_contact_at){
       const a=ccActor()||{}, at=new Date().toISOString();
       ldPush(merged,{at,channel:'call',direction:'in',outcome:'connected',actor:'human',by:a.email||'',note:'Talked on the call this lead was typed in from'});
       merged.comm_log=Array.isArray(merged.comm_log)?merged.comm_log:[];
@@ -18778,6 +18797,25 @@ async function lcToggle(btn){
   const sv=document.getElementById('lcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   lcSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* How did they reach us? (2026-10-22): the switch, owners only. Off = the form and the cards as before. */
+function rbSetFill(){
+  const now=document.getElementById('rbSetNow'), b=document.getElementById('rbToggleBtn'); if(!now) return;
+  const on=!!(window.ReachedBy&&ReachedBy.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Add lead asks how they reached us; Called us or Walked in counts as the first conversation.':'<b style="color:#B7791F;">Off.</b> Add lead has the "talking to them on this call" box, as before.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off How did they reach us?':'Turn on How did they reach us?'; b.style.display=owner?'':'none'; }
+}
+async function rbToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn How did they reach us? on or off.'); return; }
+  const on=!(window.ReachedBy&&ReachedBy.liveOn(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on How did they reach us?\n\nAdd lead asks Called us, Website form, Facebook form, Referral form, Walked in or Email. Called us or Walked in counts as the first conversation (no first-call alerts). The Leads cards show it as a tag. Nothing is sent to any family.'
+    :'Turn off How did they reach us? Add lead goes back to the "talking to them on this call" box. Answers already saved stay on the leads.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.lead_reached_by_live=on; if(on&&!m.lead_reached_by_live_since) m.lead_reached_by_live_since=new Date().toISOString(); return ['How did they reach us? '+(on?'ON':'OFF')]; }, 'How did they reach us?');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('rbSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  rbSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 /* Lead turns settings (Stage 1, policy 2026-10-18). The list order is the turn order. Owners only. */
 function ltSetFill(){
   const now=document.getElementById('ltSetNow'), box=document.getElementById('ltPeople'), b=document.getElementById('ltToggleBtn'); if(!now||!box) return;
@@ -18866,6 +18904,7 @@ function lhSetFill(){
   try{ raSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
+  try{ rbSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
