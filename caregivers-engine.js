@@ -7366,7 +7366,9 @@ function ckdLaneHTML(c, nx){
    Until their welcome video call a person is a checks row (candidates); after it they are on the caregiver roster and their
    readiness card (caregiver-journey, read through CRX.list) says where they are. Nothing new is stored: every stop is read
    from the record that already says it, and every button is the one the old screens used. */
-const CKD_STOPS = ['Step 1', 'Checks and references', 'Send Step 2', 'Check Step 2', 'Welcome video call', 'Orientation, profile, badge', 'Ready to approve'];
+/* 2026-10-22 (Samantha, the In Training plan v2): after Step 2 is checked, the orientation information goes out (AxisCare In Training
+   first); then orientation, the welcome video call, profile and badge; then Approved and Active, and the check-in call */
+const CKD_STOPS = ['Step 1', 'Checks and references', 'Send Step 2', 'Check Step 2', 'Send orientation information', 'Orientation, video call, profile, badge', 'Approved, then check-in call'];
 function ckdJourneyRows(){ try{ return (window.CRX && typeof CRX.list === 'function') ? (CRX.list(() => renderCkd()) || []) : []; }catch(e){ return []; } }
 function ckdJourneyFor(c){ return c && c.offer_id ? ckdJourneyRows().find(r => String(r.offer_id) === String(c.offer_id)) || null : null; }
 function ckdWc(c){ try{ return typeof wcRowFor === 'function' ? wcRowFor(c) : null; }catch(e){ return null; } }
@@ -7407,7 +7409,7 @@ function ckdRosterNext(r){
   const open = 'CRX.open(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text:'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
   const n = r.next || {};
   const mine = !n.owner || /coordinator|staff/i.test(String(n.owner));
@@ -7897,7 +7899,7 @@ const CKD_HOW = {
     'If something is missing, use Still open to text them which one.'],
   welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
     'On the call you check their ID on camera for the I-9 and welcome them.',
-    'Press Done at the end. Their orientation link goes out from our training site, and they move to the caregiver list.'],
+    'Press Done at the end. With the Send orientation information button on, their orientation link already went with the welcome message; otherwise it goes out from our training site now.'],
   axsetup: ['Press AxisCare setup. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
     'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
     'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
