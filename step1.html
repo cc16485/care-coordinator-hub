@@ -45,6 +45,7 @@
   .signed{background:#DCFCE7;color:var(--green);border-radius:10px;padding:12px 14px;font-size:14.5px;margin-bottom:14px;font-weight:600;}
   .secure{font-size:12.5px;color:var(--muted);margin-top:8px;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
   .copies a{display:block;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin:8px 0;text-decoration:none;font-weight:600;}
+  input.bad{border-color:#b42318 !important;box-shadow:0 0 0 2px rgba(180,35,24,.15)}
   .saving{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;font-size:12.5px;padding:6px 12px;border-radius:999px;opacity:0;transition:opacity .2s} .saving.on{opacity:.9}
   .lock{opacity:.7;pointer-events:none}
   .seg.vert{flex-direction:column} .seg.vert button{text-align:left;width:100%;min-width:0;line-height:1.35}
@@ -410,7 +411,13 @@ async function save(answers, screen){
   const el = document.getElementById('saving'); el.classList.add('on');
   const r = await call({ action: 'save', screen, answers });
   el.classList.remove('on');
-  if (r.status !== 200) { const e = document.getElementById('e_screen'); if (e) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not save. Check your connection and try again.'; } }
+  const e = document.getElementById('e_screen');
+  if (r.status !== 200) { if (e) { e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'Could not save. Check your connection and try again.'; delete e.dataset.fix; } return r; }
+  /* 2026-10-22: a phone or an email the server could not accept is left off, outlined in red and named here, never dropped silently */
+  document.querySelectorAll('input.bad').forEach((x) => x.classList.remove('bad'));
+  for (const x of (r.j && r.j.fix_at) || []) { const box = document.querySelector('input[data-id="' + x.id + '"][data-i="' + x.row + '"][data-k="' + x.k + '"]'); if (box) box.classList.add('bad'); }
+  if (r.j && r.j.fix && r.j.fix.length) { if (e) { e.style.display = 'block'; e.dataset.fix = '1'; e.textContent = 'Please check ' + r.j.fix.join('; ') + '. It did not look right, so it was not saved. A phone is numbers only, like 417-555-1234. An email looks like name@gmail.com.'; } }
+  else if (e && e.dataset.fix) { e.style.display = 'none'; delete e.dataset.fix; }
   return r;
 }
 async function saveAndGo(next){ await flush(); await save({}, next); SCREEN = next; render(); }

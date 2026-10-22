@@ -12,11 +12,12 @@ PAGE = 'file://' + os.path.join(ROOT, 'step1.html') + '?o=x&e=1&t=y'
 VIEW = json.load(open(sys.argv[1])); OUT = sys.argv[2] if len(sys.argv) > 2 else '/tmp'
 VIEW.update({'esign_consent_at': '2026-10-11T00:00:00Z', 'current_screen': '3', 'answers': {'lived_outside_mo': 'no'}, 'signatures': {}, 'completed_at': None, 'prefill': {}})
 saves = []
+FIX = []
 def handle(route, request):
     b = json.loads(request.post_data or '{}'); a = b.get('action')
     if a == 'view': return route.fulfill(status=200, content_type='application/json', body=json.dumps(VIEW))
     if a == 'save': saves.append(b)
-    return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True}))
+    return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, **({'fix': FIX, 'fix_at': [{'id': 'professional_refs', 'row': 0, 'k': 'phone'}]} if a == 'save' and FIX else {})}))
 last = lambda k: next((s['answers'][k] for s in reversed(saves) if k in (s.get('answers') or {})), None)
 R = []
 ok = lambda n, c, d='': R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:300]))
@@ -66,7 +67,7 @@ with sync_playwright() as pw:
     ok('family care: her final wording (paid or unpaid), and several payment sources saved', "Your caregiving experience matters, whether it was paid or unpaid." in pg.inner_text('#main') and (last('family_care') or [{}])[0].get('paid') == ['Not paid', 'A VA program'], last('family_care'))
     ok('family care shows its tasks without a "did you give care" question', fam.locator('input[data-k="tasks"]').count() == 16)
     fam.screenshot(path=os.path.join(OUT, 'exp_3_family.png'))
-    VIEW['current_screen'] = '4'; VIEW['answers'] = {'jobs': [{**j, 'may_contact': 'yes', 'email': 'jane@hh.com'}]}
+    VIEW['current_screen'] = '4'; VIEW['answers'] = {'jobs': [{**j, 'may_contact': 'yes', 'email': 'jane@hh.com'}]}; VIEW['signatures'] = {'employee_application': {'at': '2026-10-11T12:00:00Z', 'name': 'Ava Lee'}}   # reopening goes to the first unsigned form (2026-10-13)
     pg.goto(PAGE); pg.wait_for_timeout(700)
     m = pg.inner_text('#main')
     ok('references: her reminder beside the contact boxes', pg.locator('.tip', has_text='Please provide accurate contact information for someone who knows your work.').count() == 1)
@@ -76,6 +77,15 @@ with sync_playwright() as pw:
     ok('every reference card asks for a phone, an email and "May we contact them?"', pg.locator('.card').first.locator('input[data-k="phone"]').count() == 1 and pg.locator('.card').first.locator('input[data-k="email"]').count() == 1 and 'May we contact them?' in pg.locator('.card').first.inner_text())
     ok('a backup reference can be added; it never counts against them', pg.locator('button', has_text='+ Add a backup reference').count() == 1 and 'never counts against you' in m)
     pg.screenshot(path=os.path.join(OUT, 'exp_4_refs.png'), full_page=True)
+    # 2026-10-22: a phone the server could not keep is named back on the page, never dropped silently
+    FIX[:] = ['Professional reference 1: their phone']
+    pg.locator('.card').first.locator('input[data-k="phone"]').fill('417-555-0202 cell'); pg.wait_for_timeout(1100)
+    e = pg.locator('#e_screen')
+    ok('a phone the server could not keep: the page says which one and how to write it', e.is_visible() and 'Please check Professional reference 1: their phone' in e.inner_text() and '417-555-1234' in e.inner_text() and pg.locator('.card').first.locator('input.bad[data-k="phone"]').count() == 1, e.inner_text() if e.count() else 'no #e_screen')
+    pg.screenshot(path=os.path.join(OUT, 'exp_4b_fix.png'))
+    FIX[:] = []
+    pg.locator('.card').first.locator('input[data-k="phone"]').fill('417-555-0202'); pg.wait_for_timeout(1100)
+    ok('once it is fixed the message and the red outline go away', not pg.locator('#e_screen').is_visible() and pg.locator('input.bad').count() == 0)
     ok('no page errors', not errs, errs)
     # ── the reference form ──
     RID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee'
