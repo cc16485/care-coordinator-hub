@@ -54,11 +54,12 @@ window.callAction = async (fn, body) => {
   if (a === 'invite') { M[body.contact_id].app_status = 'active'; M[body.contact_id].app_can_book = true; return { status: 200, data: { ok: true, words: 'Hi Lisa, you can now see Dorothy Ray\\'s visits and book extra visits at family.mo-care.com.' } } }
   if (a === 'can_book') { M[body.contact_id].app_can_book = body.on; return { status: 200, data: { ok: true } } }
   if (a === 'revoke') { M[body.contact_id].app_status = 'revoked'; return { status: 200, data: { ok: true } } }
-  if (a === 'welcome' && !body.send) { const k = body.kind || window.__savedKind || null; return { status: 200, data: { preview: true, name: M[body.contact_id].name, client: 'Dorothy', can_text: false, can_email: true, axis_email_on_file: window.__axisOn, include_axis: window.__axisOn !== false, hipaa_ok: window.__hipaa !== false,
+  if (a === 'welcome' && !body.send) { const k = body.kind || window.__savedKind || null; return { status: 200, data: { preview: true, name: M[body.contact_id].name, client: 'Dorothy', can_text: false, can_email: true, axis_email_on_file: window.__axisOn, include_axis: window.__axisOn !== false, hipaa_ok: window.__hipaa !== false || (!!M[body.contact_id].hipaa_office_ok_at && window.__hipaaAxis !== false), hipaa_axis: window.__hipaaAxis === undefined ? null : window.__hipaaAxis, hipaa_office: M[body.contact_id].hipaa_office_ok_at ? { at: M[body.contact_id].hipaa_office_ok_at, by: M[body.contact_id].hipaa_office_ok_by } : null,
       kinds: [{ key: 'regular', label: 'Regular Scheduled Care' }, { key: 'flexible', label: 'Flexible Booking Care' }, { key: 'both', label: 'Combination of Both' }], kind: k, saved_kind: window.__savedKind || null, sent: window.__sent || null,
       text: k ? (window.__axisOn === false ? 'Hi Ann, short ' + k + '.' : 'Hi Ann, long ' + k + ' with 16485.axiscare.com.') : null, text_with_axis: k ? 'Hi Ann, long ' + k + ' with 16485.axiscare.com.' : null, text_without_axis: k ? 'Hi Ann, short ' + k + '.' : null,
       email_subject: k ? 'Welcome to Caring Companions' : null, email_html: k ? '<p>EMAIL ' + k + '</p>' : null } } };
   if (a === 'welcome' && body.send) { M[body.contact_id].welcome_sent_at = '2099-01-02T15:14:00Z'; M[body.contact_id].welcome_sent_by = 'Krystal'; M[body.contact_id].welcome_version = body.kind; M[body.contact_id].welcome_how = 'email'; return { status: 200, data: { ok: true, by_text: false, by_email: true, version: body.kind } } }
+  if (a === 'hipaa_ok') { if (body.on && window.__hipaaAxis === false) return { status: 409, data: { error: 'AxisCare says Ann does NOT have HIPAA permission.' } }; M[body.contact_id].hipaa_office_ok_at = body.on ? '2099-01-02T16:00:00Z' : null; M[body.contact_id].hipaa_office_ok_by = body.on ? 'Krystal' : null; return { status: 200, data: { ok: true } } }
   if (a === 'welcome_skip') { M[body.contact_id].welcome_skip_at = '2099-01-01'; M[body.contact_id].welcome_skip_reason = body.reason; return { status: 200, data: { ok: true } } }
   if (a === 'scheduling_type') { PLANS[0].care_scheduling_type = body.kind; return { status: 200, data: { ok: true } } }
   if (a === 'schedule') return { status: 502, data: { error: 'no app service is set for OK in the Hub settings' } };
@@ -116,6 +117,24 @@ with sync_playwright() as p:
     pg.evaluate("window.__sent=null; window.__hipaa=false; window.__axisOn=false"); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(100)
     t = pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
     ck('no HIPAA permission: said plainly, no Send button; email not on AxisCare: warned, AxisCare part off', 'No HIPAA permission' in t and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send")') is None and "isn't on Dorothy's AxisCare record" in t and not pg.is_checked('#famwax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), t)
+    # her rule 2026-10-23: HIPAA OK in the Hub (who and when); AxisCare's explicit No still wins
+    W_ = '#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011'
+    hb = W_ + ' button:has-text("gave HIPAA permission")'
+    ck('no HIPAA on file: a button to mark HIPAA OK in the Hub', pg.query_selector(hb) is not None, pg.inner_text(W_))
+    n = len(pg.evaluate('__calls')); pg.click(hb); pg.wait_for_timeout(40)
+    ck('HIPAA OK asks once first (nothing sent yet)', len(pg.evaluate('__calls')) == n and 'Press again to confirm' in pg.inner_text(W_))
+    pg.click(W_ + ' button:has-text("Press again to confirm")'); pg.wait_for_timeout(150)
+    t = pg.inner_text(W_)
+    ck('second press: recorded through the office door, the welcome reopens with who marked it and a Send button', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True} in [c[1] for c in pg.evaluate('__calls')] and 'HIPAA OK marked in the Hub by Krystal' in t and 'No HIPAA permission' not in t and pg.query_selector(W_ + ' button:has-text("Send welcome")') is not None, t)
+    ck('the Care circle line says HIPAA OK in the Hub, and by whom', 'HIPAA OK in the Hub (Krystal)' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
+    pg.click(W_ + ' button:has-text("Take it back")'); pg.wait_for_timeout(150)
+    t = pg.inner_text(W_)
+    ck('Take it back: recorded, the welcome shows no HIPAA permission again', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': False} in [c[1] for c in pg.evaluate('__calls')] and 'No HIPAA permission' in t and pg.query_selector(W_ + ' button:has-text("Send welcome")') is None, t)
+    pg.evaluate("window.__hipaaAxis=false; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_at='2099-01-02T16:00:00Z'; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_by='Krystal'")
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
+    t = pg.inner_text(W_)
+    ck('AxisCare says No: even with a Hub OK, no Send and no HIPAA OK button; says to change it in AxisCare', 'AxisCare says' in t and 'change it in AxisCare' in t and pg.query_selector(hb) is None and pg.query_selector(W_ + ' button:has-text("Send welcome")') is None, t)
+    pg.evaluate("window.__hipaaAxis=undefined; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_at=null; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_by=null")
     pg.evaluate("M['00000001-aaaa-4bbb-8ccc-000000000011'].welcome_sent_at=null")
     pg.click('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("No welcome for this person")'); pg.wait_for_timeout(40); pg.fill('#famwskr-cp_-00000001-aaaa-4bbb-8ccc-000000000011', 'Live-in client'); pg.click('#famwsk-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Save")'); pg.wait_for_timeout(100)
     ck('"No welcome for this person" with a reason: recorded, shown on the line', {'action': 'welcome_skip', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True, 'reason': 'Live-in client'} in [c[1] for c in pg.evaluate('__calls')] and 'No welcome: Live-in client' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))

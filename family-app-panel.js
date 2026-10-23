@@ -29,6 +29,7 @@
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
     if (st === 'active') {
       return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
+        (m.hipaa_office_ok_at && m.hipaa_authorized !== true ? '<span class="field-note">HIPAA OK in the Hub' + (m.hipaa_office_ok_by ? ' (' + e(m.hipaa_office_ok_by) + ')' : '') + '</span>' : '') +
         btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book','" + id + "','" + e(px) + "'," + (!m.app_can_book) + ")") +
         btn('Send welcome', "FAMAPP.welcome('" + id + "','" + e(px) + "')", 'btn-primary') +
         btn('Turn app off', "FAMAPP.act('revoke','" + id + "','" + e(px) + "')") + '</div>'
@@ -97,7 +98,7 @@
       var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? ' by ' + e(d.sent.by) : '') + (d.sent.version ? ' (' + e(KIND[d.sent.version] || d.sent.version) + ')' : '') + '.</div>' : ''
       box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send welcome.</div>' : '') +
         '<b>Welcome for ' + e(d.name) + '</b>' + sent +
-        (d.hipaa_ok ? '' : '<div style="color:#b91c1c;font-weight:600;">No HIPAA permission for ' + e(d.name) + ' on file, so the welcome can\'t go. Check their permission in AxisCare first.</div>') +
+        hipaaBox(d, contactId, px) +
         choose +
         (!d.kind ? '<div class="field-note" style="margin-top:6px;">Pick one to see the welcome.</div>' :
           axis +
@@ -113,6 +114,31 @@
           '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">No welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
         '<div class="fam-wmsg" style="margin-top:4px;"></div>'
     }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
+  /* Her rule 2026-10-23: the office can mark HIPAA OK in the Hub (who and when), so the welcome needn't wait for AxisCare's
+     nightly copy. AxisCare's explicit No still wins: then there is no button, only where to fix it. */
+  function hipaaBox(d, contactId, px) {
+    var ref = '\'' + e(contactId) + '\',\'' + e(px) + '\''
+    if (d.hipaa_ok) return d.hipaa_office && d.hipaa_axis !== true ? '<div class="field-note" style="color:var(--green,#15803d);">HIPAA OK marked in the Hub' + (d.hipaa_office.by ? ' by ' + e(d.hipaa_office.by) : '') + ' ' + e(when(d.hipaa_office.at)) + '. <button class="linklike" style="font-size:12px;" onclick="FAMAPP.hipaaOk(' + ref + ',false,this)">Take it back</button></div>' : ''
+    if (d.hipaa_axis === false) return '<div style="color:#b91c1c;font-weight:600;">AxisCare says ' + e(d.name) + ' does NOT have HIPAA permission, so the welcome can\'t go. If that\'s wrong, change it in AxisCare (the Hub copies it overnight).</div>'
+    return '<div style="color:#b91c1c;font-weight:600;">No HIPAA permission for ' + e(d.name) + ' on file yet, so the welcome can\'t go. (AxisCare\'s answer copies over each night.)</div>' +
+      '<div style="margin:4px 0;"><button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.hipaaOk(' + ref + ',true,this)">' + e(String(d.name || '').split(' ')[0] || 'They') + ' gave HIPAA permission: mark HIPAA OK in the Hub</button> <span class="fam-hmsg"></span></div>'
+  }
+  function hipaaOk(contactId, px, on, b) {
+    if (on && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Press again to confirm HIPAA OK (recorded with your name)'; return Promise.resolve() }
+    var kind = (W[px + '-' + contactId] || {}).kind
+    b.disabled = true
+    return call({ action: 'hipaa_ok', contact_id: contactId, on: !!on }).then(function () {
+      var c = ctxs[px]
+      return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) old.remove()
+        return welcome(contactId, px, false, kind || undefined)
+      })
+    }).catch(function (err) {
+      b.disabled = false
+      var m = b.parentNode && b.parentNode.querySelector('.fam-hmsg')
+      if (m) m.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>'; else b.insertAdjacentHTML('afterend', ' <span style="color:#b91c1c;">' + e(err.message) + '</span>')
+    })
   }
   function firstOf(d) { return d.client || 'the client' }
   function welcomeAxis(contactId, px, on) {
@@ -391,5 +417,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()
