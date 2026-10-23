@@ -24,23 +24,30 @@
     return '<span class="field-note" style="color:#B45309;">Welcome not sent yet</span>'
   }
   function circleLine(m, px) {
-    var id = Number(m.id), st = m.app_status
+    var id = e(m.id), st = m.app_status   // circle_contacts.id is a uuid (Number() made it NaN, so every press sent no one)
     var btn = function (label, js, cls) { return '<button class="btn ' + (cls || 'btn-ghost') + ' btn-sm" style="padding:2px 9px;font-size:12px;" onclick="' + js + '">' + label + '</button>' }
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
     if (st === 'active') {
       return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
-        btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book'," + id + ",'" + e(px) + "'," + (!m.app_can_book) + ")") +
-        btn('Send welcome', "FAMAPP.welcome(" + id + ",'" + e(px) + "')", 'btn-primary') +
-        btn('Turn app off', "FAMAPP.act('revoke'," + id + ",'" + e(px) + "')") + '</div>'
+        btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book','" + id + "','" + e(px) + "'," + (!m.app_can_book) + ")") +
+        btn('Send welcome', "FAMAPP.welcome('" + id + "','" + e(px) + "')", 'btn-primary') +
+        btn('Turn app off', "FAMAPP.act('revoke','" + id + "','" + e(px) + "')") + '</div>'
     }
-    if (st === 'revoked') return head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite'," + id + ",'" + e(px) + "')") + '</div>'
+    if (st === 'revoked') return head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite','" + id + "','" + e(px) + "')") + '</div>'
     if (m.stopped_at || m.axiscare_removed_at) return ''
     if (!m.email) return head + '<span class="field-note">Booking App: add an email to invite them</span></div>'
     // Her ask 2026-10-17: ONE press invites them and opens the welcome to read; it goes only when Send welcome is pressed.
-    return head + btn('Invite and send welcome', "FAMAPP.act('invite'," + id + ",'" + e(px) + "',null,true)", 'btn-primary') + '</div>'
+    return head + btn('Invite and send welcome', "FAMAPP.act('invite','" + id + "','" + e(px) + "',null,true)", 'btn-primary') + '</div>'
+  }
+  /* The same person can be drawn twice (the hidden Family Circles list and the open profile): use the one on screen, so a
+     message never lands somewhere nobody can see it. */
+  function lineOf(px, contactId) {
+    var all = document.querySelectorAll('[id="fam-' + px + '-' + contactId + '"]')
+    for (var i = 0; i < all.length; i++) if (all[i].offsetParent !== null) return all[i]
+    return all[0] || null
   }
   function act(action, contactId, px, on, thenWelcome) {
-    var line = document.getElementById('fam-' + px + '-' + contactId)
+    var line = lineOf(px, contactId)
     if (action === 'revoke' && line && !line.dataset.sure) { line.dataset.sure = '1'; line.insertAdjacentHTML('beforeend', '<span class="fam-sure" style="color:#B45309;font-weight:600;">They won\'t be able to see anything. Press Turn app off again to confirm.</span>'); return Promise.resolve() }
     if (line) line.style.opacity = '.55'
     var body = { action: action, contact_id: contactId }
@@ -51,7 +58,7 @@
       return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
         if (action === 'invite' && thenWelcome) return welcome(contactId, px, true)   // straight to the welcome preview
         if (action === 'invite' && d.words) {
-          var l2 = document.getElementById('fam-' + px + '-' + contactId)
+          var l2 = lineOf(px, contactId)
           if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-words" style="background:var(--teal-pale,#EAF4F6);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;">' +
             '<b>They can sign in now.</b> Nothing was sent. Press <b>Send welcome</b> to text and email them the steps, or send this yourself from the office line:<div style="margin:6px 0;padding:6px 8px;background:#fff;border-radius:6px;" id="famw-' + e(px) + '-' + contactId + '">' + e(d.words) + '</div>' +
             '<button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.copy(\'famw-' + e(px) + '-' + contactId + '\', this)">Copy the words</button></div>')
@@ -71,7 +78,7 @@
   // ── Welcome by text + email (her approved wording, 2026-10-17). A person presses Send; nothing goes on its own. ─────
   var W = {}
   function welcome(contactId, px, justInvited, kind) {
-    var line = document.getElementById('fam-' + px + '-' + contactId); if (!line) return Promise.resolve()
+    var line = lineOf(px, contactId); if (!line) return Promise.resolve()
     var old = document.getElementById('famwel-' + px + '-' + contactId)
     if (old && !kind) { old.remove(); if (!justInvited) return Promise.resolve() }
     if (!old || !kind) line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the welcome ready…</div>')
@@ -85,7 +92,7 @@
         : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
       var how = [d.can_text ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
       var choose = '<div style="margin:6px 0 4px;font-weight:600;">How will this client schedule their care?</div><div role="radiogroup" style="display:flex;flex-direction:column;gap:3px;">' +
-        d.kinds.map(function (k) { return '<label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="famwk-' + id + '" value="' + e(k.key) + '"' + (d.kind === k.key ? ' checked' : '') + ' onchange="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\',false,this.value)"> ' + e(k.label) + '</label>' }).join('') + '</div>' +
+        d.kinds.map(function (k) { return '<label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="famwk-' + id + '" value="' + e(k.key) + '"' + (d.kind === k.key ? ' checked' : '') + ' onchange="FAMAPP.welcome(\'' + e(contactId) + '\',\'' + e(px) + '\',false,this.value)"> ' + e(k.label) + '</label>' }).join('') + '</div>' +
         (d.saved_kind ? '' : '<div class="field-note">Saved on the client for next time. Flexible turns the App plan on; Regular and Combination leave it off (you can still change it).</div>')
       var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? ' by ' + e(d.sent.by) : '') + (d.sent.version ? ' (' + e(KIND[d.sent.version] || d.sent.version) + ')' : '') + '.</div>' : ''
       box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send welcome.</div>' : '') +
@@ -94,16 +101,16 @@
         choose +
         (!d.kind ? '<div class="field-note" style="margin-top:6px;">Pick one to see the welcome.</div>' :
           axis +
-          '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + id + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(' + contactId + ',\'' + e(px) + '\', this.checked)"> Include the AxisCare Family Portal steps</label>' +
+          '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + id + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(\'' + e(contactId) + '\',\'' + e(px) + '\', this.checked)"> Include the AxisCare Family Portal steps</label>' +
           '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + id + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
           '<div class="field-note" style="margin:6px 0 2px;">The email: "' + e(d.email_subject) + '"</div>' +
           '<iframe title="Welcome email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
           '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
           '') +
         '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
-          (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(' + contactId + ',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send welcome') + '</button>' : '') +
-          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(' + contactId + ',\'' + e(px) + '\')">' + (justInvited ? 'Not now' : 'Cancel') + '</button>' +
-          '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(' + contactId + ',\'' + e(px) + '\', this)">No welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
+          (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send welcome') + '</button>' : '') +
+          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(\'' + e(contactId) + '\',\'' + e(px) + '\')">' + (justInvited ? 'Not now' : 'Cancel') + '</button>' +
+          '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">No welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
         '<div class="fam-wmsg" style="margin-top:4px;"></div>'
     }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
@@ -128,7 +135,7 @@
   function welcomeSkip(contactId, px, b) {
     var holder = document.getElementById('famwsk-' + px + '-' + contactId); if (!holder) return Promise.resolve()
     var inp = document.getElementById('famwskr-' + px + '-' + contactId)
-    if (!inp) { holder.innerHTML = '<input id="famwskr-' + e(px) + '-' + contactId + '" maxlength="200" placeholder="Why (for the record)" style="font-size:12px;min-width:200px;"> <button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(' + contactId + ',\'' + e(px) + '\', this)">Save</button>'; return Promise.resolve() }
+    if (!inp) { holder.innerHTML = '<input id="famwskr-' + e(px) + '-' + contactId + '" maxlength="200" placeholder="Why (for the record)" style="font-size:12px;min-width:200px;"> <button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">Save</button>'; return Promise.resolve() }
     if (!inp.value.trim()) { inp.focus(); return Promise.resolve() }
     b.disabled = true
     return call({ action: 'welcome_skip', contact_id: contactId, on: true, reason: inp.value.trim() }).then(function () {
