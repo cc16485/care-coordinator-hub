@@ -29,6 +29,7 @@
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
     if (st === 'active') {
       return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
+        (m.phone_confirmed_at && m.phone_confirmed_number === m.phone ? '<span class="field-note">Number confirmed' + (m.phone_confirmed_by ? ' (' + e(m.phone_confirmed_by) + ')' : '') + '</span>' : '') +
         (m.hipaa_office_ok_at && m.hipaa_authorized !== true ? '<span class="field-note">HIPAA OK in the Hub' + (m.hipaa_office_ok_by ? ' (' + e(m.hipaa_office_ok_by) + ')' : '') + '</span>' : '') +
         btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book','" + id + "','" + e(px) + "'," + (!m.app_can_book) + ")") +
         btn('Send welcome', "FAMAPP.welcome('" + id + "','" + e(px) + "')", 'btn-primary') +
@@ -91,7 +92,7 @@
       var axis = !d.kind ? '' : d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so they can activate the AxisCare Family Portal.</div>'
         : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on ' + e(firstOf(d)) + '\'s AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send it without the AxisCare part.</div>'
         : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
-      var how = [d.can_text ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
+      var how = [d.can_text && !d.text_held ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
       var choose = '<div style="margin:6px 0 4px;font-weight:600;">How will this client schedule their care?</div><div role="radiogroup" style="display:flex;flex-direction:column;gap:3px;">' +
         d.kinds.map(function (k) { return '<label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="famwk-' + id + '" value="' + e(k.key) + '"' + (d.kind === k.key ? ' checked' : '') + ' onchange="FAMAPP.welcome(\'' + e(contactId) + '\',\'' + e(px) + '\',false,this.value)"> ' + e(k.label) + '</label>' }).join('') + '</div>' +
         (d.saved_kind ? '' : '<div class="field-note">Saved on the client for next time. Flexible turns the App plan on; Regular and Combination leave it off (you can still change it).</div>')
@@ -106,7 +107,8 @@
           '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + id + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
           '<div class="field-note" style="margin:6px 0 2px;">The email: "' + e(d.email_subject) + '"</div>' +
           '<iframe title="Welcome email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
-          '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
+          '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : d.text_held ? 'Nothing can go yet: no email, and the text is held.' : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
+          phoneBox(d, contactId, px) +
           '') +
         '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
           (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send welcome') + '</button>' : '') +
@@ -124,11 +126,24 @@
     return '<div style="color:#b91c1c;font-weight:600;">No HIPAA permission for ' + e(d.name) + ' on file yet, so the welcome can\'t go. (AxisCare\'s answer copies over each night.)</div>' +
       '<div style="margin:4px 0;"><button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.hipaaOk(' + ref + ',true,this)">' + e(String(d.name || '').split(' ')[0] || 'They') + ' gave HIPAA permission: mark HIPAA OK in the Hub</button> <span class="fam-hmsg"></span></div>'
   }
-  function hipaaOk(contactId, px, on, b) {
-    if (on && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = 'Press again to confirm HIPAA OK (recorded with your name)'; return Promise.resolve() }
+  function hipaaOk(contactId, px, on, b) { return recordThenReopen('hipaa_ok', contactId, px, on, b, 'Press again to confirm HIPAA OK (recorded with your name)') }
+  /* Her rule 2026-10-23: a number from AxisCare isn't texted until a person confirms it. The welcome says when the text is held
+     and offers Confirm number (who and when recorded); a number marked wrong before only says where to fix it. */
+  function phoneBox(d, contactId, px) {
+    var ref = '\'' + e(contactId) + '\',\'' + e(px) + '\'', first = e(String(d.name || '').split(' ')[0] || 'their')
+    if (d.text_held) return '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;color:#92400E;">' + e(d.text_held) +
+      (d.phone_trust === 'unconfirmed' ? '<div style="margin-top:4px;"><button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.confirmPhone(' + ref + ',true,this)">Confirm ' + e(d.phone) + ' is ' + first + '\'s number</button> <span class="fam-hmsg"></span></div>' : '') + '</div>'
+    var textNow = d.sent && d.can_text && d.hipaa_ok && d.kind && !/text/.test(String(d.sent.how || '')) && !d.sent.to
+      ? ' <button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.welcomeSend(' + ref + ', this, true)">Send the text now (the email already went)</button>' : ''
+    return (d.phone_confirmed ? '<div class="field-note" style="color:var(--green,#15803d);">Number confirmed in the Hub' + (d.phone_confirmed.by ? ' by ' + e(d.phone_confirmed.by) : '') + ' ' + e(when(d.phone_confirmed.at)) + '. <button class="linklike" style="font-size:12px;" onclick="FAMAPP.confirmPhone(' + ref + ',false,this)">Take it back</button></div>' : '') +
+      (textNow ? '<div style="margin:4px 0;">' + textNow + '</div>' : '')
+  }
+  function confirmPhone(contactId, px, on, b) { return recordThenReopen('confirm_phone', contactId, px, on, b, 'Press again: you checked this is their own number (recorded with your name)') }
+  function recordThenReopen(action, contactId, px, on, b, sureText) {
+    if (on && !b.dataset.sure) { b.dataset.sure = '1'; b.textContent = sureText; return Promise.resolve() }
     var kind = (W[px + '-' + contactId] || {}).kind
     b.disabled = true
-    return call({ action: 'hipaa_ok', contact_id: contactId, on: !!on }).then(function () {
+    return call({ action: action, contact_id: contactId, on: !!on }).then(function () {
       var c = ctxs[px]
       return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
         var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) old.remove()
@@ -146,16 +161,27 @@
     var from = on ? d.text_without_axis : d.text_with_axis, to = on ? d.text_with_axis : d.text_without_axis
     if (ta.value.trim() === String(from || '').trim()) ta.value = to   // only swap words the office hasn't changed
   }
-  function welcomeSend(contactId, px, b) {
+  function welcomeSend(contactId, px, b, textOnly) {
     var d = W[px + '-' + contactId] || {}
     var ta = document.getElementById('famwt-' + px + '-' + contactId), ax = document.getElementById('famwax-' + px + '-' + contactId)
     var box = document.getElementById('famwel-' + px + '-' + contactId), msg = box && box.querySelector('.fam-wmsg')
     if (!d.kind) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">Pick how this client schedules care first.</span>'; return Promise.resolve() }
     if (!ta || !ta.value.trim()) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">The text is empty.</span>'; return Promise.resolve() }
     var label = b.textContent; b.disabled = true; b.textContent = 'Sending…'
-    return call({ action: 'welcome', contact_id: contactId, send: true, kind: d.kind, again: !!d.sent, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }).then(function (r) {
-      box.innerHTML = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [r.by_text ? 'text' : '', r.by_email ? 'email' : ''].filter(Boolean).join(' and ') + ' (' + e(KIND[r.version] || '') + ').</span> Noted on the Care circle card and saved in this Family Circle\'s messages.'
-      var c = ctxs[px]; if (c && c.reload) c.reload()
+    var body = { action: 'welcome', contact_id: contactId, send: true, kind: d.kind, again: !!d.sent, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }
+    if (textOnly) { body.by_email = false; body.again = true }
+    return call(body).then(function (r) {
+      var said = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [r.by_text ? 'text' : '', r.by_email ? 'email' : ''].filter(Boolean).join(' and ') + ' (' + e(KIND[r.version] || '') + ').</span> Noted on the Care circle card and saved in this Family Circle\'s messages.' +
+        (r.text_held ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin-top:6px;color:#92400E;font-weight:600;">' + e(r.text_held) + (/isn't confirmed/.test(r.text_held) ? ' Press Send welcome on their line to confirm it, then Send the text now.' : '') + '</div>' : '') +
+        (r.text_failed ? '<div style="color:#b91c1c;font-weight:600;margin-top:6px;">The text didn\'t go through. There\'s a Needs Attention card with why.</div>' : '')
+      box.innerHTML = said
+      /* the reload redraws the circle, which drops this box: put the result back under the person so it stays on screen */
+      var c = ctxs[px]
+      return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        if (document.getElementById('famwel-' + px + '-' + contactId)) return
+        var l2 = lineOf(px, contactId)
+        if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famwel-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">' + said + '</div>')
+      })
     }).catch(function (err) { b.disabled = false; b.textContent = label; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
   function welcomeSkip(contactId, px, b) {
@@ -417,5 +443,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, confirmPhone: confirmPhone, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()
