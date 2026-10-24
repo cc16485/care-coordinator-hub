@@ -428,9 +428,14 @@
     if (!circ || !circ.id) return ''
     var first = String(clientName || circ.client_name || 'this client').split(' ')[0]
     var id = 'famabout-' + px
+    /* Caregiver Preview (2026-10-24): once its switch is on, the About, What they enjoy and the care summary are kept on the
+       profile's own Caregiver Preview tab; this box becomes a pointer to it (one place, one copy). */
+    if (((typeof DATA !== 'undefined' && DATA && DATA.ops_settings) || {}).caregiver_preview_live === true)
+      return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;font-size:13.5px;">What caregivers see about ' + e(first) +
+        ' on shift offers is kept on the <a href="javascript:void(0)" onclick="cpShowTab(\'cgprev\')">Caregiver Preview</a> tab.</div>'
     return '<div style="margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">' +
       '<div style="font-weight:600;font-size:13.5px;">About ' + e(first) + ', for caregivers</div>' +
-      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit requested in the Booking App, and on Cara\'s shift page once they confirm it\'s them. First name only. No address or medical details.</div>' +
+      '<div class="field-note">A few friendly sentences caregivers see when they\'re offered a visit in the Booking App, and on Cara\'s shift page when they open their shift link. First name only. No address or medical details.</div>' +
       '<textarea id="' + id + '" maxlength="400" rows="3" style="width:100%;margin-top:6px;font:inherit;font-size:13.5px;" placeholder="For example: ' + e(first) + ' loves gardening and old movies, and enjoys a short walk when it\'s nice out.">' + e(circ.caregiver_about || '') + '</textarea>' +
       '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.aboutSave(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">Save</button>' +
       '<span class="field-note" id="' + id + '-msg">' + (circ.caregiver_about_at ? 'Last saved ' + e(new Date(circ.caregiver_about_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_about_by ? ' by ' + e(String(circ.caregiver_about_by).split('@')[0]) : '') : '') + '</span></div>' +

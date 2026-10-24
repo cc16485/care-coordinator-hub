@@ -23,7 +23,7 @@ STUB = r"""
   W.opEvent=()=>{}; W.alert=m=>W.__log.alerts.push(m); W.ccConfirm=async()=>true; W.ccToast=()=>{};
   (0,eval)("covResolve=async(id,how,name)=>{ window.__log.resolved.push([id,how,name]); }");
   const P=(o)=>Object.assign({ eligibility:{ ok:true, why:'Can be offered and confirmed' }, reasons:[], concerns:[], score:0, channel:'text', asked_at:iso(-60) }, o);
-  W.__board={ pattern:{ kind:'ongoing', label:'Open every Saturday' }, note:'A yes is interest only. Nothing is assigned until you confirm and AxisCare shows them on the visit.', time_flex:'exact', handoff_ok:false, people:[
+  W.__board={ profile:{ label:'Not started', tone:'none', has_intro:false, care_review:false, axiscare_client_id:'777' }, pattern:{ kind:'ongoing', label:'Open every Saturday' }, note:'A yes is interest only. Nothing is assigned until you confirm and AxisCare shows them on the visit.', time_flex:'exact', handoff_ok:false, people:[
     P({ ask_id:'a1', name:'Maria Lane (fake)', column:'full', said:'full', reply:'Yes I can do Saturday!', replied_at:iso(-50), recommended:true, why:'Cara recommends them for this shift', reasons:['6 visits with this client','the shift is inside their availability'], can_confirm:true, wants_regular:true,
       history:[{ state:'no', channel:'text', reply:'not sure yet', at:iso(-55), for:'2026-10-31|08:00-17:00' }, { state:'yes', kind:'part', from:'08:00', to:'12:00', channel:'page', at:iso(-52) }] }),
     P({ ask_id:'a2', name:'Dee Hours (fake)', column:'full', said:'full', reply:'yes', replied_at:iso(-40), why:'Another yes ranks higher', concerns:['Overtime risk: 38h already this week + 9h = 47h'], can_confirm:true }),
@@ -78,6 +78,7 @@ async()=>{
   ok('a question shows their exact words', /“Are there stairs\?”/.test(tab()));
   CB.pick('b1','a1'); await sleep(250); let dm=tab(); document.querySelectorAll('#tab-coverage details').forEach(x=>x.open=true); dm=tab();
   ok('one time or every week: the board says "Open every Saturday"', /Open every Saturday/.test(dm));
+  ok('Caregiver Preview: nothing approved = the board says the shift page shows just the shift, with a link to the tab', /No approved Caregiver Preview: the shift page shows just the shift\./.test(dm) && [...document.querySelectorAll('#tab-coverage a')].some(a=>a.getAttribute('data-open-tab')==='cgprev'&&/Open the Caregiver Preview/.test(a.textContent)));
   ok('changed answers: the current answer on top, every earlier answer kept (newest first, with when and how)', /Earlier answers \(2\)/.test(dm) && /Part of it: 8am to 12pm/.test(dm) && /“not sure yet”/.test(dm) && dm.indexOf('Part of it: 8am')<dm.indexOf('not sure yet'), dm.slice(0,1800));
   ok('she wants it every week: chip on the board and the note in her answer', /wants it every week/.test(dm) && /Would like this as their regular weekly shift/.test(dm));
   L.calls=[]; [...document.querySelectorAll('#tab-coverage a')].find(x=>/Take back their shift page link/.test(x.textContent)).click(); await sleep(300);
@@ -117,7 +118,7 @@ with sync_playwright() as pw:
     if SHOT:   # the board on a case, Maria's answer open (taken after the checks: the sync API can't shoot mid-evaluate)
         pg.evaluate("()=>{ DATA.ops_settings={ cara_board_live:true }; switchTab('coverage'); caraShowCase('b1'); }"); pg.wait_for_timeout(900)
         pg.evaluate("()=>{ CB.pick('b1','a1'); }"); pg.wait_for_timeout(400)
-        el = pg.query_selector('#tab-coverage'); (el or pg).screenshot(path=SHOT)
+        pg.add_style_tag(content='header.topbar{position:static!important}'); el = pg.query_selector('#tab-coverage'); (el or pg).screenshot(path=SHOT)
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))

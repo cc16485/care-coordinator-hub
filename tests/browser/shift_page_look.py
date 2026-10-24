@@ -17,7 +17,10 @@ SERVER = r"""
     enjoys:['Gardening','Old movies','Card games'], help:['Companionship','Meal preparation','Light housekeeping'], needs:["Dementia or Alzheimer's care"], home:['Cats in the home'], level:2,
     care_line:'Coffee at 10 is her favorite part of the day', time_flex:'exact', flex_minutes:null, handoff_ok:true, scene:'garden', shift_from:'08:00', shift_to:'17:00', shift_key:'2026-10-31|08:00-17:00', pattern:window.__pattern });
   const real=window.fetch;
-  window.fetch=async(url,o)=>{ url=String(url); if(!url.includes('/functions/v1/shift-offer')) return real(url,o);
+  window.fetch=async(url,o)=>{ url=String(url);
+    if(url.includes('/functions/v1/caregiver-preview')){ const b=JSON.parse(o.body); window.__calls.push(Object.assign({fn:'caregiver-preview',auth:(o.headers||{}).Authorization||''},b));
+      return new Response(JSON.stringify(Object.assign(DET(),{ preview:true, sample:true, version:b.version, caregiver_first:'there', day:'Saturday, October 31', time:'8am to 12pm', hours:4, pattern:null, about:b.version==='draft'?'Ruth taught school for 30 years.':DET().about })),{status:200}); }
+    if(!url.includes('/functions/v1/shift-offer')) return real(url,o);
     const b=JSON.parse(o.body); window.__calls.push(Object.assign({auth:(o.headers||{}).Authorization||''},b));
     const R=(x,s)=>new Response(JSON.stringify(x),{status:s||200});
     if(window.__state!=='open' && b.action!=='preview') return R({ ok:true, state:window.__state });
@@ -83,7 +86,7 @@ with sync_playwright() as pw:
     R += pg.evaluate(T, 'link')
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        pg.evaluate("()=>{ CHOICE=null; renderDetails(); window.scrollTo(0,0) }"); pg.wait_for_timeout(300); pg.screenshot(path=os.path.join(SHOTS, '1-every-week.png'), full_page=True)
+        pg.evaluate("()=>{ D.answered=null; CHOICE=null; renderDetails(); window.scrollTo(0,0) }"); pg.wait_for_timeout(300); pg.screenshot(path=os.path.join(SHOTS, '1-every-week.png'), full_page=True)
         pg.evaluate("()=>{ CHOICE='full'; renderDetails(); }"); pg.wait_for_timeout(300); pg.screenshot(path=os.path.join(SHOTS, '2-yes-regular.png'), full_page=True)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors (caregiver link)', errs[:3]]); cx.close()
     cx, pg, errs = page(b, '?c=cv1&a=ask_1&e=9999999999&t=' + 'x' * 43, "window.__pattern={ kind:'one_time', weekday:'Saturday', label:'This week only', sub:'The regular caregiver is back after this.', upcoming:null };")
@@ -102,7 +105,16 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ [...document.querySelectorAll('.ans')][0].click() }"); pg.wait_for_timeout(150); pg.evaluate("()=>{ document.getElementById('sendAns').click() }"); pg.wait_for_timeout(250)
     t = pg.inner_text('body'); calls = pg.evaluate('window.__calls')
     R.append(['PASS' if 'Preview only: nothing was saved' in t and not any(c['action'] == 'answer' for c in calls) else 'FAIL', 'office preview: an answer saves nothing', t[:300]])
-    R.append(['PASS' if not errs else 'FAIL', 'no page errors (preview)', errs[:3]]); cx.close(); b.close()
+    R.append(['PASS' if not errs else 'FAIL', 'no page errors (preview)', errs[:3]]); cx.close()
+    for v, want in (('approved', 'retired schoolteacher'), ('draft', 'taught school for 30 years')):
+        cx, pg, errs = page(b, '?preview=1&client=500&v=' + v, "try{localStorage.setItem('sb-zngsgedlsxinbygwmxwn-auth-token', JSON.stringify({access_token:'staff-token'}))}catch(e){}")
+        t = pg.inner_text('body'); calls = pg.evaluate('window.__calls')
+        R.append(['PASS' if want in t and ('Draft' if v == 'draft' else 'Approved') + ' version, on a sample shift. Nothing is sent or saved.' in t and 'Hi there' in t and calls[0].get('fn') == 'caregiver-preview' and calls[0]['axiscare_client_id'] == '500' and calls[0]['version'] == v and calls[0]['auth'] == 'Bearer staff-token' else 'FAIL', 'Caregiver Preview (' + v + '): a client\'s profile on a sample shift, no open shift needed', [t[:300], calls[:1]]])
+        pg.evaluate("()=>{ [...document.querySelectorAll('.ans')][0].click() }"); pg.wait_for_timeout(150); pg.evaluate("()=>{ document.getElementById('sendAns').click() }"); pg.wait_for_timeout(250)
+        t = pg.inner_text('body'); calls = pg.evaluate('window.__calls')
+        R.append(['PASS' if 'Preview only: on a real shift offer, this answer would go to the office.' in t and len(calls) == 1 else 'FAIL', 'Caregiver Preview (' + v + '): an answer goes nowhere', [t[:300], calls]])
+        R.append(['PASS' if not errs else 'FAIL', 'no page errors (Caregiver Preview ' + v + ')', errs[:3]]); cx.close()
+    b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
 sys.exit(0 if all(r[0] == 'PASS' for r in R) else 1)
