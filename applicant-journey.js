@@ -1111,7 +1111,7 @@ window.AP_JOURNEY = [
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true,
-  "warning": "Built but NOT switched on: the shift-confirm step is not running on the Hub, so this text is not being sent today."
+  "warning": "Retired 2026-10-23 (Samantha, Cara decision 5): never sent. Caregivers with established schedules get no daily text; first-shift and schedule-change reminders come in Cara Phase 4, with wording she approves first."
  },
  {
   "stage": "first shift",
