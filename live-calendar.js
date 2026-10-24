@@ -222,10 +222,11 @@
         + '<div class="field-note" style="margin-top:4px;">Overnight visits are changed in AxisCare.</div>';
       if(kind === 'off') mid = '<div style="font-size:13.5px;">' + esc(v.caregiver) + ' comes off this visit, and it shows as open (nobody).</div>';
       /* 2026-10-24 reasons by id (visit_reasons_live): defaults come from each reason's MEANING, never its name. A new caregiver
-         = our change; a new day or time = no reason; taking someone off = the office must choose (called off, or our change?). */
+         = our change; a new day or time = "Client Added or Changed Visit" (AxisCare id 10, meaning "moved": AxisCare wants a
+         reason for every edit, her point 2026-10-24); taking someone off = the office must choose (called off, or our change?). */
       const byM = m => (VC.reasons.find(r => r.meaning === m) || {}).id;
-      const rl = reasonsFor(kind), def = VC.reasonsLive ? (kind === 'cg' ? byM('swap') : kind === 'time' ? 0 : '') : (rl.find(r => KIND[kind].def.test(r.name)) || rl[0] || {}).id;
-      const opts = VC.reasonsLive ? (kind === 'time' ? [{ id:0, name:'No reason (a new day or time)' }] : kind === 'off' ? [{ id:'', name:'Choose why: did they call off, or is it our change?' }] : []).concat(VC.reasons) : VC.reasons;
+      const rl = reasonsFor(kind), def = VC.reasonsLive ? (kind === 'cg' ? byM('swap') : kind === 'time' ? (byM('moved') ?? '') : '') : (rl.find(r => KIND[kind].def.test(r.name)) || rl[0] || {}).id;
+      const opts = VC.reasonsLive ? ((kind === 'off' || (kind === 'time' && byM('moved') == null)) ? [{ id:'', name: kind === 'off' ? 'Choose why: did they call off, or is it our change?' : 'Pick a reason' }] : []).concat(VC.reasons) : VC.reasons;
       body.innerHTML = head + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px;">' + tabs + '</div>' + mid
         + '<div style="margin-top:10px;font-size:12.5px;font-weight:700;color:var(--navy);">Why (AxisCare keeps this with the change)</div>'
         + '<select class="vc-r" style="width:100%;font-size:13px;">' + opts.map(r => '<option value="' + r.id + '"' + (r.id === def ? ' selected' : '') + '>' + esc(r.name) + '</option>').join('') + '</select>'
@@ -251,7 +252,7 @@
       if(!x){ res.innerHTML = '<div class="field-note" style="color:var(--red);">' + (kind === 'cg' ? 'Pick a caregiver.' : 'Nothing would change.') + '</div>'; return; }
       if(kind === 'time'){ const s = x.set.start || v.start, e = x.set.end || v.end; if(!(s < e)){ res.innerHTML = '<div class="field-note" style="color:var(--red);">The end must be after the start on the same day.</div>'; return; } }
       const sel = body.querySelector('.vc-r'), rn = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-      if(sel.value === ''){ res.innerHTML = '<div class="field-note" style="color:var(--red);">Choose why first: did they call off, or is it our change? A call-off counts on their attendance; our change never does.</div>'; return; }
+      if(sel.value === ''){ res.innerHTML = '<div class="field-note" style="color:var(--red);">' + (kind === 'off' ? 'Choose why first: did they call off, or is it our change? A call-off counts on their attendance; our change never does.' : 'Pick a reason first.') + '</div>'; return; }
       body.querySelector('.vc-preview').innerHTML = '<div class="vc-review" style="background:#F8FAFC;border:1.5px solid var(--navy);border-radius:9px;padding:10px 12px;font-size:13.5px;">'
         + '<div style="font-weight:800;color:var(--navy);margin-bottom:4px;">In AxisCare, this one visit will change:</div>' + x.words
         + '<div style="margin-top:4px;">Reason: ' + esc(rn) + '</div><div class="field-note" style="margin-top:4px;">' + esc(v.client) + ' · ' + esc(dayWords(v.date)) + ' only. The repeating schedule is not changed. Nobody is texted.</div>'
