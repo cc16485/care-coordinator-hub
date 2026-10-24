@@ -148,7 +148,7 @@
      with one of AxisCare's own reasons, reads it back and records it; Undo works the same day. Nobody is texted. ── */
   const VCQ = 'Turn on changing visits from the Live Schedule?\n\nOffice staff can click a visit on the Live Schedule and change its caregiver, take the caregiver off, or change its time or day. Each change shows exactly what will change in AxisCare first, needs one of AxisCare\'s change reasons, touches only that one visit, is read back from AxisCare, and can be undone the same day. Visits that have started or are verified are never changed. Nobody is texted.';
   const VCQ_OFF = 'Turn off changing visits from the Live Schedule? The calendar still shows everything; changes are made in AxisCare.';
-  const VC = { reasons:null, live:null };
+  const VC = { reasons:null, live:null, reasonsLive:false };
   async function vcCall(body){
     const { data:{ session } } = await sb.auth.getSession(); if(!session) throw new Error('Sign in first.');
     const r = await fetch(CONFIG.supabase_url + '/functions/v1/visit-change', { method:'POST', headers:{ Authorization:'Bearer ' + session.access_token, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
@@ -192,7 +192,7 @@
     catch(e){ body.innerHTML = '<div style="color:var(--red);">' + esc(e.message || e) + '</div>'; return; }
     if(g.error || !g.visit){ body.innerHTML = '<div style="color:var(--red);">' + esc(g.error || 'Couldn’t read the visit.') + '</div>'
       + (g.seen ? '<div class="field-note" style="margin-top:6px;">For Claude: AxisCare answered with ' + esc([].concat(g.seen.top || []).join(', ')) + (g.seen.results ? ' (results: ' + esc([].concat(g.seen.results).join(', ')) + ')' : '') + '</div>' : ''); return; }
-    VC.reasons = rs.reasons || []; VC.live = g.live === true;
+    VC.reasons = rs.reasons || []; VC.live = g.live === true; if(rs.reasons_live !== undefined) VC.reasonsLive = rs.reasons_live === true;
     const v = g.visit;
     /* A visit AxisCare didn't actually return (no day or start time) is never offered for a change: the lock that stops
        a change landing on a visit that moved meanwhile needs the real visit to compare against. */
@@ -221,10 +221,14 @@
         + '<label style="font-size:12.5px;margin:0;">Start<input type="time" class="vc-s" value="' + esc(v.start) + '" style="display:block;"></label><label style="font-size:12.5px;margin:0;">End<input type="time" class="vc-e" value="' + esc(v.end) + '" style="display:block;"></label></div>'
         + '<div class="field-note" style="margin-top:4px;">Overnight visits are changed in AxisCare.</div>';
       if(kind === 'off') mid = '<div style="font-size:13.5px;">' + esc(v.caregiver) + ' comes off this visit, and it shows as open (nobody).</div>';
-      const rl = reasonsFor(kind), def = (rl.find(r => KIND[kind].def.test(r.name)) || rl[0] || {}).id;
+      /* 2026-10-24 reasons by id (visit_reasons_live): defaults come from each reason's MEANING, never its name. A new caregiver
+         = our change; a new day or time = no reason; taking someone off = the office must choose (called off, or our change?). */
+      const byM = m => (VC.reasons.find(r => r.meaning === m) || {}).id;
+      const rl = reasonsFor(kind), def = VC.reasonsLive ? (kind === 'cg' ? byM('swap') : kind === 'time' ? 0 : '') : (rl.find(r => KIND[kind].def.test(r.name)) || rl[0] || {}).id;
+      const opts = VC.reasonsLive ? (kind === 'time' ? [{ id:0, name:'No reason (a new day or time)' }] : kind === 'off' ? [{ id:'', name:'Choose why: did they call off, or is it our change?' }] : []).concat(VC.reasons) : VC.reasons;
       body.innerHTML = head + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 8px;">' + tabs + '</div>' + mid
         + '<div style="margin-top:10px;font-size:12.5px;font-weight:700;color:var(--navy);">Why (AxisCare keeps this with the change)</div>'
-        + '<select class="vc-r" style="width:100%;font-size:13px;">' + VC.reasons.map(r => '<option value="' + r.id + '"' + (r.id === def ? ' selected' : '') + '>' + esc(r.name) + '</option>').join('') + '</select>'
+        + '<select class="vc-r" style="width:100%;font-size:13px;">' + opts.map(r => '<option value="' + r.id + '"' + (r.id === def ? ' selected' : '') + '>' + esc(r.name) + '</option>').join('') + '</select>'
         + '<div class="vc-preview" style="margin-top:10px;"></div><div class="vc-res" style="margin-top:8px;"></div>'
         + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="cara-btn vc-go">Review the change</button></div>';
       body.querySelectorAll('.vc-tab').forEach(b => b.onclick = () => { kind = b.dataset.k; pick = null; draw(); });
@@ -247,6 +251,7 @@
       if(!x){ res.innerHTML = '<div class="field-note" style="color:var(--red);">' + (kind === 'cg' ? 'Pick a caregiver.' : 'Nothing would change.') + '</div>'; return; }
       if(kind === 'time'){ const s = x.set.start || v.start, e = x.set.end || v.end; if(!(s < e)){ res.innerHTML = '<div class="field-note" style="color:var(--red);">The end must be after the start on the same day.</div>'; return; } }
       const sel = body.querySelector('.vc-r'), rn = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+      if(sel.value === ''){ res.innerHTML = '<div class="field-note" style="color:var(--red);">Choose why first: did they call off, or is it our change? A call-off counts on their attendance; our change never does.</div>'; return; }
       body.querySelector('.vc-preview').innerHTML = '<div class="vc-review" style="background:#F8FAFC;border:1.5px solid var(--navy);border-radius:9px;padding:10px 12px;font-size:13.5px;">'
         + '<div style="font-weight:800;color:var(--navy);margin-bottom:4px;">In AxisCare, this one visit will change:</div>' + x.words
         + '<div style="margin-top:4px;">Reason: ' + esc(rn) + '</div><div class="field-note" style="margin-top:4px;">' + esc(v.client) + ' · ' + esc(dayWords(v.date)) + ' only. The repeating schedule is not changed. Nobody is texted.</div>'

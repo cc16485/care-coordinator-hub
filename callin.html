@@ -90,7 +90,7 @@ function render(msg){
   if(!D.open && D.filled){
     const f=D.filled, ax=f.axiscare;
     h+='<div class="done">'+(f.covered_by?'Filled'+(f.by?' by '+esc(first(f.by)):'')+': '+esc(f.covered_by)+' covers it'+(f.at?' ('+esc(f.at)+')':'')+'.':
-        'Closed'+(f.by?' by '+esc(first(f.by)):'')+': '+esc({uncovered:'not covered',covered_other_way:'covered another way',client_cancelled:'the client cancelled'}[f.how]||'closed')+'.'+(f.note?' '+esc(f.note):''))+'</div>'
+        'Closed'+(f.by?' by '+esc(first(f.by)):'')+': '+esc({uncovered:'not covered',covered_other_way:'covered another way',client_cancelled:'the client cancelled',couldnt_staff:'we couldn\'t staff it'}[f.how]||'closed')+'.'+(f.note?' '+esc(f.note):''))+'</div>'
       +(ax?'<div class="card"><h2>AxisCare</h2><div class="note" style="color:'+(ax.status==='assigned'||ax.status==='already'?'var(--green)':'var(--red)')+';">'+esc(ax.detail||ax.status)+'</div></div>':'');
   }
   if(D.open){
