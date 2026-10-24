@@ -80,6 +80,15 @@
     return h;
   }
   /* every answer they've given, newest first, with how and when (2026-10-24: "keeping the complete response history") */
+  /* CAREGIVER PREVIEW (2026-10-24): when the client's shift page will show only the shift, or the care summary is held back */
+  function profileNote(d) {
+    const pr = d && d.profile; if (!pr) return '';
+    const link = (typeof cpOpenLink === 'function') ? cpOpenLink({ axiscare_client_id: pr.axiscare_client_id }, 'cgprev', 'Open the Caregiver Preview') : '';
+    const t = pr.care_review ? 'The care plan changed since the Caregiver Preview was approved, so the shift page shows no care details until it is reviewed.'
+      : !pr.has_intro ? 'No approved Caregiver Preview: the shift page shows just the shift.'
+      : pr.tone === 'draft' ? 'Caregiver Preview changes are waiting for approval (the shift page shows the approved version).' : '';
+    return t ? '<div class="field-note" style="margin-top:6px;">' + E(t) + (link ? ' ' + link : '') + '</div>' : '';
+  }
   function historyHtml(p) {
     const h = (p.history || []).slice().reverse();
     if (!h.length) return '';
@@ -161,6 +170,7 @@
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;"><b style="color:var(--navy);font-size:14.5px;">Who answered</b>'
       + '<span class="field-note">' + E(d.note || '') + '</span></div>'
       + (d.pattern ? '<div style="margin-top:6px;display:inline-block;font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 11px;' + (d.pattern.kind === 'ongoing' ? 'background:var(--green-bg);color:var(--green);' : 'background:#e3f0f2;color:#14606F;') + '">' + E(d.pattern.label) + '</div>' : '')
+      + profileNote(d)
       + rulesHtml(c, d)
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:9px;">' + cols + '</div>'
       + (waiting.length ? '<div class="field-note" style="margin-top:7px;">Not answered yet: ' + waiting.map((p) => '<a href="javascript:void(0)" onclick="CB.pick(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\')">' + E(p.name) + '</a>').join(', ') + '</div>' : '')

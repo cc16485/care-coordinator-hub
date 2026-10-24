@@ -5819,6 +5819,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="start" onclick="cpShowTab('start')">Start of Care</button>
     <button type="button" class="cp-tab" data-cp="family" onclick="cpShowTab('family')">Family &amp; Contacts</button>
     <button type="button" class="cp-tab" data-cp="care" onclick="cpShowTab('care')">Care</button>
+    <button type="button" class="cp-tab" data-cp="cgprev" onclick="cpShowTab('cgprev')" style="display:none;">Caregiver Preview</button><!-- caregiver-preview.js (2026-10-24) -->
     <button type="button" class="cp-tab" data-cp="team" onclick="cpShowTab('team')">Team &amp; Schedule</button>
     <button type="button" class="cp-tab" data-cp="checkins" onclick="cpShowTab('checkins')">Check-ins</button>
     <button type="button" class="cp-tab" data-cp="payer" onclick="cpShowTab('payer')">Payer</button>
@@ -5994,6 +5995,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
     <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
   </div>
+  <div class="cp-pane" data-cp-pane="cgprev"><div id="cgpHost"></div></div>
   <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
   <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
@@ -7654,7 +7656,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261024b"></script>
+<script src="family-app-panel.js?v=20261024c"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -7731,7 +7733,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=3"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=4"></script><script src="caregiver-preview.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
@@ -10669,7 +10671,8 @@ function cpShowTab(t){
   document.querySelectorAll('#leadProfileView .cp-pane').forEach(p=>p.classList.toggle('on',p.dataset.cpPane===CP.tab));
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
   try{ if(typeof lwTab==='function') lwTab(); }catch(e){}
-  if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
+  if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }
+  if(CP.tab==='cgprev'&&window.CGP) CGP.load();   /* Caregiver Preview: read fresh each time it is opened */   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 /* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Activity & Documents. */
 async function cpRenderEvvForms(){
@@ -10754,6 +10757,7 @@ async function openClient(seed, tab){
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
     else if(typeof cqUnmountProfile==='function') cqUnmountProfile(); }
   CP.careSub='asmt';
+  if(window.CGP) CGP.mount({ ax, lead, name:(r&&r.client_name)||(lead?cpLeadClientName(lead):'')||(launch&&launch.client_name)||'' });
   cpShowTab(tab||'summary');
   window.scrollTo(0,0);
   if(typeof cjMountProfile==='function') cjMountProfile({ lead, ax });

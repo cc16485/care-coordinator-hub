@@ -78,6 +78,9 @@ const QS = new URLSearchParams(location.search)
 const PREVIEW = QS.get('preview') === '1'
 const LINK = { c: QS.get('c') || '', a: QS.get('a') || '', e: QS.get('e') || '', t: QS.get('t') || '' }
 const PV = { case_id: QS.get('case') || '', ask_id: QS.get('ask') || '' }
+/* Caregiver Preview (2026-10-24): ?preview=1&client=<AxisCare id>&lead=<id>&v=approved|draft is a client's profile on a
+   sample shift (no open shift needed), from the Caregiver Preview tab. Nothing is sent or saved. */
+const PROFILE = PREVIEW && (QS.get('client') || QS.get('lead')) ? { axiscare_client_id: QS.get('client') || '', lead_id: QS.get('lead') || '', version: QS.get('v') === 'draft' ? 'draft' : 'approved' } : null
 const PHONE = '(417) 234-8494'
 const $ = (id) => document.getElementById(id)
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
@@ -94,7 +97,8 @@ async function call(body) {
   try {
     const headers = { 'Content-Type': 'application/json' }
     if (PREVIEW) headers.Authorization = 'Bearer ' + staffToken()
-    const r = await fetch(SUPA_URL + '/functions/v1/shift-offer', { method: 'POST', headers, body: JSON.stringify(PREVIEW ? Object.assign({}, PV, body) : Object.assign({}, LINK, body)) })
+    const r = PROFILE ? await fetch(SUPA_URL + '/functions/v1/caregiver-preview', { method: 'POST', headers, body: JSON.stringify(Object.assign({}, PROFILE, body)) })
+      : await fetch(SUPA_URL + '/functions/v1/shift-offer', { method: 'POST', headers, body: JSON.stringify(PREVIEW ? Object.assign({}, PV, body) : Object.assign({}, LINK, body)) })
     return await r.json().catch(() => ({ error: 'We could not read the answer. Please try again.' }))
   } catch (e) { return { error: 'No connection. Please check your signal and try again.' } }
 }
@@ -108,7 +112,8 @@ const SCENES = {
 }
 
 function shell(inner) {
-  $('app').innerHTML = (PREVIEW ? '<div class="pv">Office preview: what this caregiver would see. Nothing is saved.</div>' : '')
+  $('app').innerHTML = (PROFILE ? '<div class="pv">' + (PROFILE.version === 'draft' ? 'Draft' : 'Approved') + ' version, on a sample shift. Nothing is sent or saved.</div>'
+    : PREVIEW ? '<div class="pv">Office preview: what this caregiver would see. Nothing is saved.</div>' : '')
     + '<div class="brand">Caring Companions · Open shift</div>' + inner
     + '<div class="foot">This page is just for you. Please don\'t forward it.<br>Questions? Call the office at ' + PHONE + '.</div>'
 }
@@ -192,6 +197,7 @@ async function send() {
   const body = { kind: k === 'q' ? 'question' : k, note: ($('note') && $('note').value) || '', shift_key: D.shift_key, regular: !!($('regular') && $('regular').checked) }
   if (k === 'part' || k === 'diff') { body.from = $('from').value; body.to = $('to').value }
   if (k === 'q') body.question = $('question').value
+  if (PROFILE) return renderDetails('Preview only: on a real shift offer, this answer would go to the office.')
   const r = PREVIEW ? await call(Object.assign({ action: 'preview_answer' }, body)) : await call(Object.assign({ action: 'answer' }, body))
   if (r.state && r.state !== 'open') return stopped(r.state)
   if (r.changed) { CHOICE = null; return loadDetails().then(() => { const e = $('err2'); if (e) e.textContent = 'The shift changed while you were looking. Here are the new details.' }) }
