@@ -7425,6 +7425,7 @@ The HomeTogether team</pre>
 <div><label>Primary Care Physician</label><input id="assess_physician_name"></div>
 <div><label>Physician Phone</label><input id="assess_physician_phone"></div>
 <div style="grid-column:1/-1"><label>Preferred Hospital</label><input id="assess_preferred_hospital"></div>
+<div style="grid-column:1/-1" id="lsHost_asmt"></div><!-- Life Story (life-story.js, 2026-10-24) -->
 <div>
 <label>Payer</label>
 <select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
@@ -7734,7 +7735,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=4"></script><script src="caregiver-preview.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=4"></script><script src="caregiver-preview.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
@@ -14258,6 +14259,9 @@ function openAssessmentModal(id, fromLead){
     if(!vd&&!id&&lp) document.getElementById('assess_visit_date').value=lp.date;
     document.getElementById('assess_visit_time').value=vt; }
   document.getElementById('assess_coordinator').value = (a&&a.coordinator)||'';
+  /* Life Story (2026-10-24): the family's three answers from the intake show here already filled; the nurse confirms or adds */
+  if(window.LSTORY){ const lsLead=(a&&a.lead_id&&(DATA.leads||[]).find(l=>l.id===a.lead_id))||fromLead||null;
+    LSTORY.mount('lsHost_asmt', { lead:lsLead, ax:document.getElementById('assess_axiscare_client_id').value||'', name:document.getElementById('assess_client_name').value||'' }, 'assessment'); }
   // Physician info moved here from the lead form — old leads that captured it
   // hand it forward automatically.
   document.getElementById('assess_physician_name').value = (a&&a.physician_name) || (fromLead&&fromLead.physician_name) || '';
@@ -35466,7 +35470,7 @@ function lpiRender(){
     +(notes?'<p class="lp-quote">'+esc(notes.length>700?notes.slice(0,700)+'…':notes)+'</p><p class="lp-prov">From the call notes, as typed'+(notes.length>700?'. The rest is under Why they\'re reaching out, and in Activity &amp; Documents.':'.')+'</p>'
       :'<p class="lp-prov">No call notes yet.'+(locked?'':' <button class="lp-link" onclick="lpiEdit(\'why\')">Add them</button>')+'</p>')
     +(l.ai_needs_summary?'<div class="lp-ai"><span class="lp-tag ai">AI</span> '+esc(l.ai_needs_summary)+'<div class="lp-prov">Written by AI from the call notes. Not checked by a person.</div></div>':'')+'</div>';
-  box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status">'+(LPI.flash&&LPI.flash.lead===l.id?esc(LPI.flash.text):'')+'</span>'+LPI_CH.map(chapter).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
+  box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status">'+(LPI.flash&&LPI.flash.lead===l.id?esc(LPI.flash.text):'')+'</span>'+LPI_CH.map(c=>chapter(c)+(c.key==='person'&&window.LSTORY?LSTORY.html({ lead:l, ax:CP.ax||'', name:client },'intake'):'')).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
 }
 /* ── GATE 3 · FACTS IN THE CHAPTERS (her approval, 2026-09-28) ─────────────────────────────────
    Sixteen questions no lead field records are kept in the fact record (client_fact), each with who
@@ -41542,11 +41546,11 @@ async function cl360RenderInto(r, out, px, panes){
     [px+'cp_pets','Pets', prof.pets],
     [px+'cp_entrance','Entrance & parking', prof.entrance],
     [px+'cp_home','The home (stairs, equipment, quirks)', prof.home_notes],
-    [px+'cp_life','Life story (who they were, what they love)', prof.life_story],
+    [px+'cp_life',(window.LSTORY&&LSTORY.visible())?'Anything else about who they are':'Life story (who they were, what they love)', prof.life_story],
   ];
   const noneBox = (id,checked,label)=>'<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:var(--text-muted);margin-top:2px;">'
       + '<input type="checkbox" id="'+id+'" style="width:auto;" '+(checked?'checked':'')+'> '+label+'</label>';
-  const home = homeFields.map(f=>'<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">'+f[1]+'</label>'
+  const home = (window.LSTORY?LSTORY.html({ lead:lead||null, ax:axisId||'', name:name||'' },'home'+px):'') + homeFields.map(f=>'<label style="font-size:12.5px;font-weight:700;color:var(--text-muted);display:block;margin:8px 0 3px;">'+f[1]+'</label>'
       + '<textarea id="'+f[0]+'" rows="2" style="width:100%;font-size:13px;">'+esc(f[2]||'')+'</textarea>'
       + (f[0]===px+'cp_pets'?noneBox(px+'cp_pets_none', prof.pets_none===true, 'Explicitly: no pets in the home (blank is not an answer)'):'')
       + (f[0]===px+'cp_entrance'?noneBox(px+'cp_ent_none', prof.entrance_none===true, 'Explicitly: no special entrance instructions'):'')
@@ -41774,6 +41778,8 @@ async function cl360SaveProfile(px){
     home_notes: g('cp_home').trim(), life_story: g('cp_life').trim(),
     care_level: prev.care_level || '',   // Change 6b: kept as history; AxisCare's class is the level
     updated_at: new Date().toISOString(), updated_by: (ME && ME.name) || '' };
+  /* Life Story answers save with Home & Life (2026-10-24): on the client's profile, or on the inquiry before they're in AxisCare */
+  if(window.LSTORY&&LSTORY.visible()){ if(r.axiscare_client_id) LSTORY.applyToProfile(item, 'home'+px); else if(r.lead) LSTORY.save('home'+px); }
   DATA.client_profiles = (DATA.client_profiles||[]).filter(p=>p.id!==item.id).concat([item]);
   persist('client_profiles', item);
   const n = document.getElementById(px+'cp_saved'); if(n){ n.textContent = 'Saved.'; setTimeout(()=>{ n.textContent=''; }, 2500); }
