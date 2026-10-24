@@ -1,6 +1,6 @@
 """Reasons by AxisCare id (2026-10-24). The real Hub page, offline; AxisCare is faked. Proves: switch off = the Live
 Schedule picks reasons exactly as before; on = defaults come from each reason's MEANING (a renamed reason keeps it): a new
-caregiver = our change, a new day or time = no reason, taking someone off = the office must choose (call-off or our change);
+caregiver = our change, a new day or time = "Client Added or Changed Visit" (id 10), taking someone off = the office must choose (call-off or our change);
 Settings shows each reason and what Cara does (practice says what would change); owners can change a meaning (saved with
 tkMerge); Cara's Today shows a quiet "Cancelled today" line only when the switch is on. (python3 tests/browser/visit_reasons_look.py)"""
 import re, os, sys
@@ -16,7 +16,7 @@ EXTRA = r"""
   const f0=window.fetch;
   window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}');
     if(/visit-change/.test(String(u)) && b.action==='reasons'){ window.__vc.push(b);
-      return new Response(JSON.stringify({ live:window.__vcLive, reasons_live:window.__rl, reasons:[{id:5,name:'Office Changed Caregiver'},{id:6,name:'Caregiver Called Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Schedule Change - Client Schedule Change'},{id:13,name:'Office Entry Error'}].map(r=>Object.assign(r,{meaning:MEAN[r.id]})) }),{status:200}); }
+      return new Response(JSON.stringify({ live:window.__vcLive, reasons_live:window.__rl, reasons:[{id:5,name:'Office Changed Caregiver'},{id:6,name:'Caregiver Called Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Client Added or Changed Visit'},{id:13,name:'Office Entry Error'}].map(r=>Object.assign(r,{meaning:MEAN[r.id]})) }),{status:200}); }
     return f0(u,o); };
   window.__rl=false;
   window.__rep={ at:new Date().toISOString(), live:false, by_id:false, list_read:true, would:[{ visit:'s=1:d=x', client:'Dan P', when:'2026-10-25T08:00:00', reason:'Staffing Change - Caregiver Change', before:'opens a call-off case', by_id:'open-shift card, never a call-off' }], acted:[],
@@ -44,10 +44,10 @@ async()=>{
   P=await open();
   ok('on: a new caregiver defaults to OUR change (by meaning, even renamed)', selText(P)==='Office Changed Caregiver', selText(P));
   P=await open('time');
-  ok('on: a new day or time defaults to NO reason', selText(P)==='No reason (a new day or time)' && P.querySelector('.vc-r').value==='0');
+  ok('on: a new day or time defaults to "Client Added or Changed Visit" (AxisCare id 10, found by its meaning, renamed or not)', selText(P)==='Client Added or Changed Visit' && P.querySelector('.vc-r').value==='10' && !/No reason/.test(P.querySelector('.vc-r').innerText), selText(P));
   P.querySelector('.vc-s').value='10:00'; P.querySelector('.vc-e').value='15:00'; P.querySelector('.vc-go').click(); await sleep(60);
   P.querySelector('.vc-confirm').click(); await sleep(250);
-  ok('...and sends reason 0 (none) for the move', window.__vc.find(x=>x.action==='change')?.reason_id===0, window.__vc);
+  ok('...and sends reason 10 for the move', window.__vc.find(x=>x.action==='change')?.reason_id===10, window.__vc);
   document.querySelector('.vc-panel .vc-done-btn')?.click(); window.__vc=[];
   P=await open('off');
   ok('on: taking someone off has NO default: the office must choose', P.querySelector('.vc-r').value==='' && /Choose why/.test(selText(P)));
