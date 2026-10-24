@@ -198,7 +198,7 @@
       : (ck ? '' : '<div class="card" style="padding:12px 15px;margin:0 0 10px;"><b style="color:var(--navy);">Nothing needs you right now.</b></div>');
     /* 2. what is waiting for office approval */
     h += '<div style="height:8px;"></div>' + H('Waiting for your OK', 'a yes is interest only; you confirm, AxisCare shows it', pending.length);
-    h += pending.length ? pending.sort(soon).map((c) => '<div class="card" style="padding:14px 16px;margin:0 0 10px;background:#FFFCF5;border:1.5px solid var(--gold);"><div style="margin-bottom:5px;">' + chip(c) + ' <b style="color:var(--navy);">' + E(c.client || '?') + '</b> <span class="field-note">' + E(typeof caraWhen === 'function' ? caraWhen(c) : '') + '</span></div>' + recHtml(c) + '</div>').join('')
+    h += pending.length ? pending.sort(soon).map((c) => '<div class="card" style="padding:14px 16px;margin:0 0 10px;background:#FFFCF5;border:1.5px solid var(--gold);"><div style="margin-bottom:5px;">' + chip(c) + ' <b style="color:var(--navy);">' + E(c.client || '?') + '</b> <span class="field-note">' + E(typeof caraWhen === 'function' ? caraWhen(c) : '') + '</span></div>' + (window.CB && CB.on() ? CB.html(c) : recHtml(c)) + '</div>').join('')
       : '<div class="field-note" style="margin-bottom:10px;">No yeses waiting.</div>';
     /* 3. which shifts Cara is working on */
     h += H('Cara is working on', 'asks are out, waiting on replies', working.length);

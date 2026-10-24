@@ -21,6 +21,8 @@ STUB = r"""
     auth:{ getSession:async()=>({data:{session:{access_token:'t'}}}) } };
     ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' }; CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL={ 'samantha@mo-care.com':['owner_admin'] };`);
   W.persist=async(k,v)=>{ W.__log.writes.push(k+':'+v.id); };
+  /* the response board (cara-board.js) has its own test; here Today's Waiting for your OK shows the Cara recommends card */
+  if(W.CB) W.CB.on=()=>false;
   W.opEvent=()=>{}; W.alert=m=>W.__log.alerts.push(m); W.ccConfirm=async()=>true; W.ccPrompt=async(q)=>{ W.__log.prompts.push(q); return '2'; };
   (0,eval)("covResolve=async(id,how,name)=>{ window.__log.resolved.push([id,how,name]); }");
   const realFetch=W.fetch;

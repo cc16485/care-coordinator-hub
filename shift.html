@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0D365F">
+<title>Open shift · Caring Companions</title>
+<!-- ============================================================
+     CARA'S SHIFT OPPORTUNITY PAGE (Samantha, 2026-10-24): a caregiver's own
+     link from a shift offer. No code and no password (her call): the link
+     opens the shift, the client's first name, the office's About and What
+     they enjoy, one time or every week, and, when the office shares them,
+     what they'd help with, the skills and level and Good to know; Exact
+     time / Flexible start / Hand-off allowed. Never an address, a last
+     name, pay or photos. Five answers, saved onto their own ask; a yes is
+     interest only. A shift that changed, filled or closed shows only that.
+     Server: shift-offer.
+     Office preview: ?preview=1&case=<id>&ask=<id> with a Hub sign-in in this
+     browser (nothing is saved).
+     ============================================================ -->
+<style>
+  :root{ --navy:#0D365F; --teal:#1F7A8C; --teal-dk:#155A68; --teal-pale:#EAF4F6; --mint:#8FD1C7; --honey:#F0A63A; --honey-ink:#8a5a00; --honey-bg:#fbf1df;
+         --cream:#f7f5ef; --ink:#16283a; --muted:#55677a; --line:#e9e4d8; --green:#1d7a4f; --green-bg:#e6f4ec; --red:#a33a2b; --red-bg:#f8e7e3; }
+  *{ box-sizing:border-box; }
+  html,body{ background:var(--cream); }
+  body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:var(--ink); font-size:17px; line-height:1.45;
+        padding:16px max(16px, env(safe-area-inset-right,0px)) 40px max(16px, env(safe-area-inset-left,0px)); }
+  main{ max-width:520px; margin:0 auto; }
+  .brand{ font-size:12px; letter-spacing:.09em; font-weight:800; color:var(--teal); text-transform:uppercase; }
+  h1{ font-family:Georgia,'Times New Roman',serif; font-size:26px; color:var(--navy); margin:8px 0 2px; line-height:1.2; }
+  h2{ font-family:Georgia,'Times New Roman',serif; font-size:21px; color:var(--navy); margin:18px 0 10px; line-height:1.25; }
+  .sub{ font-size:15px; color:var(--muted); }
+  .card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px 15px; margin:12px 0; }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; }
+  .k{ font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; font-weight:800; }
+  .v{ font-weight:800; color:var(--navy); font-size:16.5px; }
+  .chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:7px; }
+  .chips span{ background:var(--teal-pale); color:var(--teal-dk); border-radius:999px; padding:4px 11px; font-size:14px; font-weight:700; }
+  .chips.like span{ background:var(--honey-bg); color:var(--honey-ink); }
+  .flag{ display:inline-block; font-size:13px; font-weight:800; border-radius:999px; padding:3px 11px; background:var(--green-bg); color:var(--green); margin:3px 4px 0 0; }
+  .flag.ex{ background:var(--teal-pale); color:var(--teal-dk); }
+  .hero{ border-radius:18px; overflow:hidden; margin:12px 0 4px; background:var(--teal-pale); }
+  .hero svg{ display:block; width:100%; height:auto; }
+  .prn{ background:var(--honey-bg); color:var(--honey-ink); border-radius:12px; padding:9px 12px; font-weight:700; font-size:15px; margin:10px 0; }
+  .ans{ display:flex; gap:12px; align-items:center; width:100%; min-height:60px; font:inherit; font-size:17px; font-weight:800; text-align:left; border-radius:16px;
+        padding:10px 15px; margin:0 0 10px; cursor:pointer; border:2px solid var(--line); background:#fff; color:var(--ink); }
+  .ans .ic{ width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:17px; flex:0 0 32px; color:#fff; }
+  .ans.full .ic{ background:var(--green); } .ans.part .ic{ background:#14606F; } .ans.diff .ic{ background:var(--teal); } .ans.no .ic{ background:var(--red); } .ans.q .ic{ background:var(--honey); color:var(--ink); }
+  .ans[aria-pressed="true"]{ border-color:var(--navy); box-shadow:0 0 0 3px var(--mint); }
+  .ans:focus-visible,.go:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{ outline:3px solid var(--mint); outline-offset:2px; }
+  .ans:active{ transform:scale(.99); }
+  .times{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0 10px; }
+  label.k{ display:block; margin-bottom:3px; }
+  select, textarea{ width:100%; font:inherit; font-size:17px; padding:11px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); }
+  .go{ width:100%; min-height:56px; font:inherit; font-size:18px; font-weight:800; border:0; border-radius:16px; background:var(--navy); color:#fff; cursor:pointer; margin-top:6px; }
+  .go[disabled]{ opacity:.55; cursor:default; }
+  .go.light{ background:#fff; color:var(--navy); border:2px solid var(--line); }
+  .ok{ background:var(--green-bg); color:var(--green); border-radius:16px; padding:16px; font-weight:800; text-align:center; font-size:17px; }
+  .info{ background:var(--honey-bg); color:var(--honey-ink); border-radius:14px; padding:13px 15px; font-weight:700; }
+  .err{ color:var(--red); font-weight:700; margin-top:8px; font-size:15px; }
+  .foot{ font-size:13px; color:var(--muted); text-align:center; margin-top:18px; }
+  .pat{ display:flex; flex-direction:column; gap:2px; border-radius:14px; padding:10px 13px; margin:12px 0 2px; }
+  .pat b{ font-size:16.5px; } .pat span{ font-size:14.5px; }
+  .pat.on{ background:var(--green-bg); color:var(--green); } .pat.one{ background:var(--teal-pale); color:var(--teal-dk); }
+  .reg{ display:flex; gap:10px; align-items:flex-start; background:var(--green-bg); color:var(--green); font-weight:700; border-radius:12px; padding:11px 12px; margin:4px 0 8px; font-size:15.5px; }
+  .reg input{ width:22px; height:22px; flex:0 0 22px; margin:1px 0 0; }
+  .pv{ background:#0D365F; color:#fff; border-radius:12px; padding:9px 12px; font-size:14px; font-weight:700; margin-bottom:10px; }
+  .loading{ color:var(--muted); padding:40px 0; text-align:center; }
+  @media (prefers-reduced-motion:reduce){ .ans:active{ transform:none; } }
+</style>
+</head>
+<body>
+<main id="app"><div class="loading">Loading the shift…</div></main>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co'
+const QS = new URLSearchParams(location.search)
+const PREVIEW = QS.get('preview') === '1'
+const LINK = { c: QS.get('c') || '', a: QS.get('a') || '', e: QS.get('e') || '', t: QS.get('t') || '' }
+const PV = { case_id: QS.get('case') || '', ask_id: QS.get('ask') || '' }
+const PHONE = '(417) 234-8494'
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const t12 = (hm) => { const m = /^(\d\d):(\d\d)$/.exec(String(hm || '')); if (!m) return String(hm || ''); const h = +m[1]; return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h >= 12 ? 'pm' : 'am') }
+const hrs = (n) => n == null ? '' : (n % 1 ? n.toFixed(1) : n) + (n === 1 ? ' hour' : ' hours')
+let D = null, CHOICE = null
+
+/* the office's preview uses their Hub sign-in from this browser */
+function staffToken() {
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^sb-.*-auth-token$/.test(k)) { const j = JSON.parse(localStorage.getItem(k)); return j && (j.access_token || (j.currentSession && j.currentSession.access_token)) || '' } } } catch (e) {}
+  return ''
+}
+async function call(body) {
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (PREVIEW) headers.Authorization = 'Bearer ' + staffToken()
+    const r = await fetch(SUPA_URL + '/functions/v1/shift-offer', { method: 'POST', headers, body: JSON.stringify(PREVIEW ? Object.assign({}, PV, body) : Object.assign({}, LINK, body)) })
+    return await r.json().catch(() => ({ error: 'We could not read the answer. Please try again.' }))
+  } catch (e) { return { error: 'No connection. Please check your signal and try again.' } }
+}
+
+/* our own illustrations (never a photo): a few brand-colour scenes */
+const SCENES = {
+  garden: '<svg viewBox="0 0 340 150" aria-hidden="true"><rect width="340" height="150" fill="#EAF4F6"/><circle cx="286" cy="36" r="20" fill="#F0A63A" opacity=".85"/><path d="M0 118 Q90 94 170 112 T340 104 V150 H0Z" fill="#8FD1C7"/><path d="M0 134 Q100 114 190 128 T340 122 V150 H0Z" fill="#1F7A8C"/><g fill="#14606F"><rect x="74" y="92" width="4" height="30"/><rect x="104" y="86" width="4" height="36"/><rect x="134" y="96" width="4" height="26"/></g><circle cx="76" cy="88" r="10" fill="#F0A63A"/><circle cx="106" cy="80" r="12" fill="#E8C988"/><circle cx="136" cy="92" r="9" fill="#F0A63A"/><path d="M210 120 q20-40 40 0z" fill="#14606F"/><circle cx="230" cy="96" r="7" fill="#fff"/></svg>',
+  coffee: '<svg viewBox="0 0 340 150" aria-hidden="true"><rect width="340" height="150" fill="#fbf1df"/><rect x="0" y="112" width="340" height="38" fill="#E8C988"/><rect x="120" y="66" width="70" height="50" rx="10" fill="#fff"/><path d="M190 76 q24 0 24 16 t-24 16" fill="none" stroke="#fff" stroke-width="8"/><rect x="130" y="70" width="50" height="10" rx="4" fill="#C17A12" opacity=".7"/><path d="M140 52 q-8-12 0-22 M156 54 q-8-12 0-22 M172 52 q-8-12 0-22" stroke="#8FD1C7" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="268" cy="96" r="20" fill="#1F7A8C" opacity=".25"/><circle cx="62" cy="40" r="16" fill="#F0A63A" opacity=".7"/></svg>',
+  porch: '<svg viewBox="0 0 340 150" aria-hidden="true"><rect width="340" height="150" fill="#EAF4F6"/><circle cx="276" cy="38" r="18" fill="#F0A63A" opacity=".85"/><path d="M0 126 Q120 108 240 122 T340 118 V150 H0Z" fill="#8FD1C7"/><rect x="96" y="66" width="104" height="60" rx="4" fill="#fff"/><path d="M84 70 L148 30 L212 70Z" fill="#0D365F"/><rect x="138" y="90" width="20" height="36" rx="2" fill="#C17A12"/><rect x="108" y="80" width="20" height="18" rx="2" fill="#8FD1C7"/><rect x="168" y="80" width="20" height="18" rx="2" fill="#8FD1C7"/><rect x="226" y="104" width="34" height="6" rx="3" fill="#14606F"/><rect x="230" y="110" width="4" height="14" fill="#14606F"/><rect x="252" y="110" width="4" height="14" fill="#14606F"/></svg>',
+  sunrise: '<svg viewBox="0 0 340 150" aria-hidden="true"><rect width="340" height="150" fill="#fbf1df"/><circle cx="170" cy="112" r="44" fill="#F0A63A"/><path d="M0 112 H340 V150 H0Z" fill="#1F7A8C"/><path d="M0 124 Q90 110 170 122 T340 118 V150 H0Z" fill="#14606F"/><g stroke="#E8C988" stroke-width="4" stroke-linecap="round"><path d="M170 52 v-16 M120 70 l-12-12 M220 70 l12-12 M98 104 h-16 M242 104 h16"/></g></svg>'
+}
+
+function shell(inner) {
+  $('app').innerHTML = (PREVIEW ? '<div class="pv">Office preview: what this caregiver would see. Nothing is saved.</div>' : '')
+    + '<div class="brand">Caring Companions · Open shift</div>' + inner
+    + '<div class="foot">This page is just for you. Please don\'t forward it.<br>Questions? Call the office at ' + PHONE + '.</div>'
+}
+function stopped(state) {
+  const m = state === 'closed' ? 'This shift has been covered. Thank you for looking!' : state === 'ended' ? 'This shift has already started. Thank you!'
+    : state === 'changed' ? 'This shift\'s day or hours changed. The office will send you the new details.'
+    : 'This shift isn\'t available any more. Thank you!'
+  shell('<h1>Thank you</h1><div class="info" style="margin-top:12px">' + m + '</div>')
+}
+function basics(v) {
+  return '<div class="card"><div class="grid">'
+    + '<div><div class="k">When</div><div class="v">' + esc(v.day) + '</div></div>'
+    + '<div><div class="k">Time</div><div class="v">' + esc(v.time) + '</div></div>'
+    + '<div><div class="k">Where</div><div class="v">' + esc(v.town || 'Ask the office') + '</div></div>'
+    + '<div><div class="k">Hours</div><div class="v">' + esc(hrs(v.hours)) + '</div></div></div></div>'
+}
+
+/* step 2: the details and the answer */
+async function loadDetails() {
+  const r = PREVIEW ? await call({ action: 'preview' }) : await call({ action: 'view' })
+  if (r.error) return shell('<h1>Sorry</h1><div class="err">' + esc(r.error) + '</div>')
+  if (r.state && r.state !== 'open') return stopped(r.state)
+  D = r; renderDetails()
+}
+function renderDetails(done) {
+  const d = D, who = esc(d.client_first)
+  const rules = (d.time_flex === 'flexible_start' ? '<span class="flag">Start can move up to ' + (d.flex_minutes >= 60 ? (d.flex_minutes / 60) + ' hr' + (d.flex_minutes > 60 ? 's' : '') : d.flex_minutes + ' min') + '</span>' : '<span class="flag ex">Exact time</span>')
+    + (d.handoff_ok ? '<span class="flag">Two caregivers can split it</span>' : '')
+  let h = (d.prn ? '<div class="prn">PRN opportunity. Take it or pass, no pressure either way.</div>' : '')
+    + '<div class="hero">' + (SCENES[d.scene] || SCENES.porch) + '</div>'
+    + '<div class="sub" style="margin-top:6px">Hi ' + esc(d.caregiver_first) + ', we have an open shift you might like.</div>'
+    + (d.pattern ? '<div class="pat ' + (d.pattern.kind === 'ongoing' ? 'on' : 'one') + '"><b>' + esc(d.pattern.label) + '</b><span>' + esc(d.pattern.sub) + '</span></div>' : '')
+    + '<h1>Meet ' + who + '</h1>'
+    + (d.about ? '<p style="margin:8px 0">' + esc(d.about) + '</p>' : '<div class="sub">' + who + '\'s caregiver needs you on this day.</div>')
+    + (d.enjoys && d.enjoys.length ? '<div class="k" style="margin-top:8px">' + who + ' enjoys</div><div class="chips like">' + d.enjoys.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
+    + basics(d)
+    + '<div class="card"><div class="k">Time</div><div>' + rules + '</div>'
+    + (d.help && d.help.length ? '<div class="k" style="margin-top:12px">You\'ll help with</div><div class="chips">' + d.help.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
+    + (d.needs && d.needs.length || d.level ? '<div class="k" style="margin-top:12px">Skills needed</div><div style="font-size:15.5px">' + [d.level ? 'Level ' + d.level + ' shift' : '', ...(d.needs || [])].filter(Boolean).map(esc).join(' · ') + '</div>' : '')
+    + (d.home && d.home.length || d.care_line ? '<div class="k" style="margin-top:12px">Good to know</div><div style="font-size:15.5px">' + [...(d.home || []), d.care_line || ''].filter(Boolean).map(esc).join(' · ') + '</div>' : '')
+    + '</div>'
+  if (done) h += '<div class="ok" style="margin-top:14px">' + esc(done) + '</div><button class="go light" type="button" id="changeBtn" style="margin-top:10px">Change my answer</button>'
+  else h += (d.answered ? '<div class="info">You answered: ' + esc(d.answered.what) + '. You can change it below.</div>' : '')
+    + '<h2>Can you help ' + who + ' on ' + esc(String(d.day).split(',')[0]) + '?</h2>'
+    + [['full', '✓', 'Yes, I can work the whole shift'], ['part', '◐', 'Yes, but only part of it'], ['diff', '↔', 'I can work different hours that day'], ['no', '✕', 'No, I can\'t work'], ['q', '?', 'I have a question']]
+      .map(([k, ic, t]) => '<button class="ans ' + k + '" type="button" data-k="' + k + '" aria-pressed="' + (CHOICE === k) + '"><span class="ic">' + ic + '</span>' + t + '</button>').join('')
+    + '<div id="more"></div><div class="err" id="err2"></div>'
+  shell(h)
+  if (done) { $('changeBtn').onclick = () => { CHOICE = null; renderDetails() }; return }
+  document.querySelectorAll('.ans').forEach((b) => b.onclick = () => { CHOICE = b.dataset.k; document.querySelectorAll('.ans').forEach((x) => x.setAttribute('aria-pressed', x === b)); more() })
+  if (CHOICE) more()
+}
+function options(from, to, sel) {
+  const out = [], m = (t) => +t.slice(0, 2) * 60 + +t.slice(3, 5)
+  let a = m(from), z = m(to); if (z <= a) z += 1440
+  for (let x = a; x <= z && x < 1440; x += 15) { const t = String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); out.push('<option value="' + t + '"' + (t === sel ? ' selected' : '') + '>' + t12(t) + '</option>') }
+  return out.join('')
+}
+function more() {
+  const d = D, k = CHOICE, box = $('more')
+  /* every-week shift: "I'd like this as my regular shift" goes with any yes (a wish; the office talks with them) */
+  const reg = d.pattern && d.pattern.kind === 'ongoing' && k !== 'no' && k !== 'q'
+    ? '<label class="reg"><input type="checkbox" id="regular"> I\'d like this every ' + esc(d.pattern.weekday || 'week') + ' as my regular shift</label>' : ''
+  const note = reg + '<label class="k" for="note" style="margin-top:6px">A note for the office (optional)</label><textarea id="note" rows="2" maxlength="300" placeholder="Anything we should know"></textarea>'
+  if (k === 'part' || k === 'diff') {
+    const lo = k === 'part' ? (d.shift_from || '06:00') : '05:00', hi = k === 'part' ? (d.shift_to || '22:00') : '23:45'
+    box.innerHTML = '<div class="card"><div class="k">' + (k === 'part' ? 'Which part can you work?' : 'What hours can you work that day?') + '</div>'
+      + '<div class="times"><div><label class="k" for="from">From</label><select id="from">' + options(lo, hi, k === 'part' ? d.shift_from : '') + '</select></div>'
+      + '<div><label class="k" for="to">To</label><select id="to">' + options(lo, hi, k === 'part' ? d.shift_to : '') + '</select></div></div>'
+      + note + '<button class="go" type="button" id="sendAns">Send my hours</button></div>'
+  } else if (k === 'q') {
+    box.innerHTML = '<div class="card"><label class="k" for="question">Your question</label><textarea id="question" rows="3" maxlength="500" placeholder="Ask anything about this shift"></textarea>'
+      + '<button class="go" type="button" id="sendAns">Send my question</button></div>'
+  } else {
+    box.innerHTML = '<div class="card">' + note + '<button class="go" type="button" id="sendAns">' + (k === 'full' ? 'Send: yes, the whole shift' : 'Send: I can\'t work') + '</button></div>'
+  }
+  $('sendAns').onclick = send
+}
+async function send() {
+  const k = CHOICE, b = $('sendAns'); b.disabled = true; $('err2').textContent = ''
+  const body = { kind: k === 'q' ? 'question' : k, note: ($('note') && $('note').value) || '', shift_key: D.shift_key, regular: !!($('regular') && $('regular').checked) }
+  if (k === 'part' || k === 'diff') { body.from = $('from').value; body.to = $('to').value }
+  if (k === 'q') body.question = $('question').value
+  const r = PREVIEW ? await call(Object.assign({ action: 'preview_answer' }, body)) : await call(Object.assign({ action: 'answer' }, body))
+  if (r.state && r.state !== 'open') return stopped(r.state)
+  if (r.changed) { CHOICE = null; return loadDetails().then(() => { const e = $('err2'); if (e) e.textContent = 'The shift changed while you were looking. Here are the new details.' }) }
+  if (r.error) { b.disabled = false; $('err2').textContent = r.error; return }
+  const done = PREVIEW ? 'Preview only: nothing was saved. This would be saved as "' + r.would_save + '".'
+    : body.kind === 'full' ? 'Thank you! The office will confirm with you. Nothing is set until they do.'
+    : body.kind === 'no' ? 'Thanks for letting us know. We\'ll keep you in mind for the next one.'
+    : body.kind === 'question' ? 'Your question went to the office. They\'ll text you back from ' + PHONE + '.'
+    : 'Got it. The office will see your hours and let you know. Nothing is set until they confirm.'
+  if (!PREVIEW && r.answered) D.answered = r.answered
+  renderDetails(done)
+}
+;(async function start() {
+  if (PREVIEW) { if (!staffToken()) return shell('<h1>Sign in first</h1><div class="info">Open the Hub in this browser and sign in, then use Preview again.</div>'); return loadDetails() }
+  if (!LINK.c || !LINK.t) return shell('<h1>Sorry</h1><div class="err">This link is not complete. Please call the office at ' + PHONE + '.</div>')
+  loadDetails()
+})()
+</script>
+</body>
+</html>
