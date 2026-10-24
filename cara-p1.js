@@ -89,9 +89,9 @@
   /* ── Send Cara's list (one tap, the office approves) ───────────────────── */
   /* Cara's picks = the picker's default ticks: the PRN who fit, everyone in Group 1, the top 5 of Group 2; never
      anyone already working then, outside their availability, overlapping another yes, into overtime, or a new hire whose
-     profile isn't published. */
+     profile isn't published, or a lapsed eligibility check (still listed; a person can tick them). */
   function defaultPicks(d) {
-    const bad = (x) => x.working_then || x.outside_avail || (x.overlaps || []).length || (x.hours && x.hours.level === 'ot') || (typeof cgpgAx === 'function' && (cgpgAx(x.axiscare_id, x.name) || {}).blocked);
+    const bad = (x) => x.working_then || x.outside_avail || x.cleared_note || (x.overlaps || []).length || (x.hours && x.hours.level === 'ot') || (typeof cgpgAx === 'function' && (cgpgAx(x.axiscare_id, x.name) || {}).blocked);
     return [...(d.group0 || []), ...(d.group1 || []), ...(d.group2 || []).slice(0, 5)].filter((x) => !bad(x));
   }
   async function sendCaraList(id) {
@@ -121,9 +121,11 @@
     if (x.hours && x.hours.text) h += ' · <b style="color:' + (x.hours.level === 'ot' ? 'var(--red)' : '#8A4E0C') + ';">⏳ ' + E(x.hours.text) + '</b>';
     (x.overlaps || []).forEach((o) => { h += ' · <b style="color:var(--red);">↔ ' + E(o) + '</b>'; });
     if (x.skills_note) h += ' · <b style="color:#8A4E0C;">🧩 ' + E(x.skills_note) + '</b>';
+    /* a lapsed eligibility check (OIG and the like): listed, flagged, never dropped (Samantha 2026-10-23) */
+    if (x.cleared_note) h += ' · <b style="color:var(--red);">⚠ ' + E(x.cleared_note) + '</b>';
     return h;
   }
-  const uncheck = (x) => !!((x.overlaps || []).length || (x.hours && x.hours.level === 'ot'));
+  const uncheck = (x) => !!((x.overlaps || []).length || (x.hours && x.hours.level === 'ot') || x.cleared_note);   /* a lapsed check: listed, unticked; a person can still tick them */
 
   /* ── the old list next to the new one (owners, while cara_list_live is off) ── */
   const PREV = {};
