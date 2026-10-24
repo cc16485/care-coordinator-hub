@@ -29,7 +29,24 @@
     ['nv', 'Needs Verification', '⚠', '#5a4a8a', '#eeebf7', '#d3cbee'],
   ];
   const ST = {};      // per case: { key, loading, data, err, open }
-  const keyOf = (c) => (c.asked || []).map((a) => [a.id, a.state, a.replied_at, a.condition, a.answer_kind].join('|')).join(',') + '|' + (c.time_flex || '') + (c.handoff_ok ? 'h' : '') + (c.flex_minutes || '');
+  const keyOf = (c) => (c.asked || []).map((a) => [a.id, a.state, a.replied_at, a.condition, a.answer_kind, a.wants_regular ? 'r' : ''].join('|')).join(',') + '|' + (c.shift_date || '') + (c.shift_time || '') + '|' + (c.time_flex || '') + (c.handoff_ok ? 'h' : '') + (c.flex_minutes || '');
+  async function callFn(fn, body) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session || !session.access_token) throw new Error('Sign in to the hub first.');
+    const r = await fetch(CONFIG.supabase_url + '/functions/v1/' + fn, { method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const out = await r.json().catch(() => null);
+    if (!r.ok || !out || out.error) throw new Error((out && out.error) || ('The server answered ' + r.status));
+    return out;
+  }
+  /* TAKE BACK A SHIFT PAGE LINK (2026-10-24): that person's link stops opening at once; their answers stay */
+  async function linkBack(caseId, askId, on) {
+    const c = (DATA.coverage_cases || []).find((x) => x && x.id === caseId), a = c && (c.asked || []).find((x) => String(x.id) === String(askId));
+    if (on && !(await ccConfirm('Take back ' + ((a && a.name) || 'their') + '\'s shift page link? It stops opening right away. Their answers stay on the case.'))) return;
+    try { await callFn('shift-offer', { action: on ? 'revoke' : 'restore', case_id: caseId, ask_id: askId });
+      if (a) { a.link_revoked = on; a.link_revoked_by = on ? ((typeof ME !== 'undefined' && ME.name) || '') : null; a.link_revoked_at = on ? new Date().toISOString() : null; }
+      if (typeof ccToast === 'function') ccToast(on ? 'Link taken back' : 'Link given back'); rerender();
+    } catch (e) { alert('Not saved: ' + (e.message || e)); }
+  }
   async function call(body) {
     const { data: { session } } = await sb.auth.getSession();
     if (!session || !session.access_token) throw new Error('Sign in to the hub first.');
@@ -62,13 +79,26 @@
     if (!h) h = '<div class="field-note">' + (p.column === 'waiting' ? 'No answer yet.' : 'No words recorded (marked by the office).') + '</div>';
     return h;
   }
+  /* every answer they've given, newest first, with how and when (2026-10-24: "keeping the complete response history") */
+  function historyHtml(p) {
+    const h = (p.history || []).slice().reverse();
+    if (!h.length) return '';
+    const w = (x) => x.kind === 'part' && x.from ? 'Part of it: ' + t12(x.from) + ' to ' + t12(x.to) : x.kind === 'diff' && x.from ? 'Different hours: ' + t12(x.from) + ' to ' + t12(x.to)
+      : x.state === 'yes' ? 'Yes' : x.state === 'no' ? 'No' : x.state === 'inquiry' ? 'A question' : String(x.state || '');
+    return '<details style="margin-top:6px;"><summary class="field-note" style="cursor:pointer;">Earlier answers (' + h.length + ')</summary>'
+      + h.map((x) => '<div style="font-size:12.5px;padding:3px 0;border-top:1px dashed var(--border);"><b>' + E(w(x)) + '</b> <span class="field-note">' + E(x.channel === 'page' ? 'shift page' : 'text') + (x.at ? ' · ' + E(when(x.at)) : '') + (x.for ? ' · for ' + E(String(x.for).replace('|', ' ')) : '') + '</span>'
+        + (x.reply ? '<div class="field-note">“' + E(String(x.reply).slice(0, 200)) + '”</div>' : '') + '</div>').join('') + '</details>';
+  }
   function drawer(c, p) {
     const ok = p.eligibility && p.eligibility.ok;
+    const ask = (c.asked || []).find((x) => String(x.id) === String(p.ask_id)) || {};
     return '<div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--bg);">'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;"><b style="font-size:15px;color:var(--navy);">' + E(p.name) + '</b>'
       + (p.prn ? '<span style="font-size:11px;font-weight:800;color:#8A5A00;background:#FBF1D9;border-radius:999px;padding:1px 8px;">PRN</span>' : '')
       + '<span class="field-note">' + E(p.channel) + (p.replied_at ? ' · ' + E(when(p.replied_at)) : '') + (p.asked_at ? ' · asked ' + E(when(p.asked_at)) : '') + '</span></div>'
       + saidHtml(p)
+      + (p.wants_regular ? '<div style="margin-top:5px;font-size:13px;font-weight:700;color:var(--green);">Would like this as their regular weekly shift. Talk with them; set it up in Caregiver Matching if you agree.</div>' : '')
+      + historyHtml(p)
       + '<div style="margin-top:6px;font-size:13px;"><b style="color:' + (ok ? 'var(--green)' : 'var(--red)') + ';">' + (ok ? '✓ Eligible' : '✕ Not eligible') + '</b> <span class="field-note">' + E(p.eligibility ? p.eligibility.why : '') + '</span></div>'
       + '<div style="margin-top:4px;font-size:13px;font-weight:700;color:' + (p.recommended ? 'var(--green)' : 'var(--navy)') + ';">' + E(p.why) + '</div>'
       + ((p.reasons || []).length ? p.reasons.map((r) => '<div style="font-size:13px;"><span style="color:var(--green);font-weight:800;">&#10003;</span> ' + E(r) + '</div>').join('') : '')
@@ -79,6 +109,9 @@
         : p.column === 'partial' ? '<span class="field-note">' + (c.handoff_ok ? 'Hand-off is allowed for this shift: talk it through, or wait for a full-shift yes.' : 'Hand-off isn\'t allowed for this shift, so part of it can\'t be confirmed.') + '</span>'
         : p.column === 'question' ? '<span class="field-note">Text back from the office line, then mark their answer on the case.</span>' : '')
       + '<a href="shift.html?preview=1&case=' + encodeURIComponent(c.id) + '&ask=' + encodeURIComponent(p.ask_id || '') + '" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;margin-left:auto;">Preview ' + E(first(p.name)) + '\'s shift page &#8599;</a>'
+      + (ask.link_revoked
+        ? '<span class="field-note">Link taken back' + (ask.link_revoked_by ? ' by ' + E(ask.link_revoked_by) : '') + '.</span> <a href="javascript:void(0)" onclick="CB.linkBack(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\',false)" style="font-size:12.5px;">Give it back</a>'
+        : '<a href="javascript:void(0)" onclick="CB.linkBack(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\',true)" style="font-size:12.5px;color:var(--red);">Take back their shift page link</a>')
       + '</div></div>';
   }
   function rulesHtml(c, d) {
@@ -114,6 +147,8 @@
       + '<span style="font-weight:700;">' + E(p.name) + '</span>' + (p.prn ? ' <span style="font-size:10.5px;font-weight:800;color:#8A5A00;">PRN</span>' : '')
       + '<span style="display:block;font-size:12px;color:var(--text-muted);">' + E(p.column === 'partial' && p.offer_from ? t12(p.offer_from) + ' to ' + t12(p.offer_to) : p.condition ? p.condition : p.channel + (p.replied_at ? ' · ' + when(p.replied_at) : '')) + '</span>'
       + (p.recommended ? '<span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--green-bg);color:var(--green);">Cara\'s pick</span>' : '')
+      + (p.wants_regular ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--green-bg);color:var(--green);">wants it every week</span>' : '')
+      + (p.stale ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#f8e7e3;color:var(--red);">answered for old hours</span>' : '')
       + ((p.concerns || []).some((x) => /Overtime risk/.test(x)) ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#FFF4E3;color:#8A4E0C;">overtime risk</span>' : '')
       + '</button>';
     const cols = COLS.map(([k, label, ic, fg, bg, bd]) => { const list = people.filter((p) => p.column === k);
@@ -125,11 +160,12 @@
     return '<div style="margin-top:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:#FFFCF5;">'
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;"><b style="color:var(--navy);font-size:14.5px;">Who answered</b>'
       + '<span class="field-note">' + E(d.note || '') + '</span></div>'
+      + (d.pattern ? '<div style="margin-top:6px;display:inline-block;font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 11px;' + (d.pattern.kind === 'ongoing' ? 'background:var(--green-bg);color:var(--green);' : 'background:#e3f0f2;color:#14606F;') + '">' + E(d.pattern.label) + '</div>' : '')
       + rulesHtml(c, d)
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:9px;">' + cols + '</div>'
       + (waiting.length ? '<div class="field-note" style="margin-top:7px;">Not answered yet: ' + waiting.map((p) => '<a href="javascript:void(0)" onclick="CB.pick(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\')">' + E(p.name) + '</a>').join(', ') + '</div>' : '')
       + (sel ? drawer(c, sel) : '<div class="field-note" style="margin-top:7px;">Click a name to see exactly what they said and why Cara would or wouldn\'t pick them.</div>')
       + '</div>';
   }
-  window.CB = { on, html, load, pick, saveRules };
+  window.CB = { on, html, load, pick, saveRules, linkBack };
 })();

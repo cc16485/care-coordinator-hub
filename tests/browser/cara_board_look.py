@@ -23,11 +23,13 @@ STUB = r"""
   W.opEvent=()=>{}; W.alert=m=>W.__log.alerts.push(m); W.ccConfirm=async()=>true; W.ccToast=()=>{};
   (0,eval)("covResolve=async(id,how,name)=>{ window.__log.resolved.push([id,how,name]); }");
   const P=(o)=>Object.assign({ eligibility:{ ok:true, why:'Can be offered and confirmed' }, reasons:[], concerns:[], score:0, channel:'text', asked_at:iso(-60) }, o);
-  W.__board={ note:'A yes is interest only. Nothing is assigned until you confirm and AxisCare shows them on the visit.', time_flex:'exact', handoff_ok:false, people:[
-    P({ ask_id:'a1', name:'Maria Lane (fake)', column:'full', said:'full', reply:'Yes I can do Saturday!', replied_at:iso(-50), recommended:true, why:'Cara recommends them for this shift', reasons:['6 visits with this client','the shift is inside their availability'], can_confirm:true }),
+  W.__board={ pattern:{ kind:'ongoing', label:'Open every Saturday' }, note:'A yes is interest only. Nothing is assigned until you confirm and AxisCare shows them on the visit.', time_flex:'exact', handoff_ok:false, people:[
+    P({ ask_id:'a1', name:'Maria Lane (fake)', column:'full', said:'full', reply:'Yes I can do Saturday!', replied_at:iso(-50), recommended:true, why:'Cara recommends them for this shift', reasons:['6 visits with this client','the shift is inside their availability'], can_confirm:true, wants_regular:true,
+      history:[{ state:'no', channel:'text', reply:'not sure yet', at:iso(-55), for:'2026-10-31|08:00-17:00' }, { state:'yes', kind:'part', from:'08:00', to:'12:00', channel:'page', at:iso(-52) }] }),
     P({ ask_id:'a2', name:'Dee Hours (fake)', column:'full', said:'full', reply:'yes', replied_at:iso(-40), why:'Another yes ranks higher', concerns:['Overtime risk: 38h already this week + 9h = 47h'], can_confirm:true }),
     P({ ask_id:'a3', name:'Jess Part (fake)', column:'partial', said:'partial', channel:'shift page', answer_kind:'part', offer_from:'08:00', offer_to:'13:00', note:'school pickup at 2', replied_at:iso(-30), why:'Not recommended alone: they can cover only part of the shift', can_confirm:false }),
     P({ ask_id:'a4', name:'Heather Ask (fake)', column:'question', said:'question', reply:'Are there stairs?', replied_at:iso(-20), why:'Waiting on an answer to their question', can_confirm:false }),
+    P({ ask_id:'a8', name:'Olive Oldhours (fake)', column:'full', said:'full', reply:'yes', replied_at:iso(-45), stale:true, why:'Not recommended: answered for the earlier hours', can_confirm:false }),
     P({ ask_id:'a5', name:'Taylor No (fake)', column:'no', said:'no', reply:'sorry cant', replied_at:iso(-25), why:'Said no', can_confirm:false }),
     P({ ask_id:'a6', name:'Hal Lapsed (fake)', column:'nv', said:'full', reply:'yes', replied_at:iso(-35), eligibility:{ ok:false, why:'Needs Verification: OIG check over 30 days' }, why:'Not recommended: Needs Verification: OIG check over 30 days', can_confirm:false }),
     P({ ask_id:'a7', name:'Wendy Wait (fake)', column:'waiting', said:'waiting', why:'Has not answered yet', can_confirm:false }) ] };
@@ -37,13 +39,14 @@ STUB = r"""
       if(b.action==='board') return new Response(JSON.stringify(W.__board),{status:200});
       if(b.action==='set_time_rules') return new Response(JSON.stringify({ ok:true, time_flex:b.time_flex, flex_minutes:b.time_flex==='flexible_start'?b.flex_minutes:null, handoff_ok:b.handoff_ok }),{status:200});
       return new Response(JSON.stringify({ group0:[],group1:[],group2:[],prn_other:[],prn_ongoing:[],excluded:[],meta:{} }),{status:200}); }
+    if(url.includes('/functions/v1/shift-offer')){ const b=JSON.parse(o.body); W.__log.calls.push(Object.assign({fn:'shift-offer'},b)); return new Response(JSON.stringify({ ok:true }),{status:200}); }
     return realFetch(url,o); };
   const [d,t]=chi(300), [,e]=chi(840);
   const A=(id,name,state,extra)=>Object.assign({ id, name, state, at:iso(-60) }, extra||{});
   DATA.ops_settings={};
   DATA.coverage_cases=[{ id:'b1', status:'open', reason:'call_off', client:'Ruth Kay (fake)', shift_date:d, shift_time:t+'-'+e, opened_at:iso(-90), admin_alerted:iso(-89),
     asked:[A('a1','Maria Lane (fake)','yes',{replied_at:iso(-50), reply:'Yes I can do Saturday!'}), A('a2','Dee Hours (fake)','yes',{replied_at:iso(-40)}), A('a3','Jess Part (fake)','yes',{answer_kind:'part'}),
-           A('a4','Heather Ask (fake)','inquiry'), A('a5','Taylor No (fake)','no'), A('a6','Hal Lapsed (fake)','yes'), A('a7','Wendy Wait (fake)','waiting')] }];
+           A('a4','Heather Ask (fake)','inquiry'), A('a5','Taylor No (fake)','no'), A('a6','Hal Lapsed (fake)','yes'), A('a8','Olive Oldhours (fake)','yes'), A('a7','Wendy Wait (fake)','waiting')] }];
 })();
 """
 T = r"""
@@ -57,7 +60,7 @@ async()=>{
   DATA.ops_settings={ cara_board_live:true }; renderCoverage(); await sleep(700);
   const t=tab();
   ok('switch on: the board replaces the confirm block (one place to pick); the banner points to it', /Who answered/.test(t) && !/can cover: pick the best fit/i.test(t) && /Answers are sorted below\. Only a full-shift yes from someone eligible can be confirmed\./.test(t), t.slice(0,800));
-  ok('five boxes with their counts: full 2, part or different hours 1, question 1, no 1, Needs Verification 1', /Yes, full shift \(2\)/.test(t) && /Part or different hours \(1\)/.test(t) && /Question \(1\)/.test(t) && /No \(1\)/.test(t) && /Needs Verification \(1\)/.test(t), t.slice(0,1200));
+  ok('five boxes with their counts: full 3, part or different hours 1, question 1, no 1, Needs Verification 1', /Yes, full shift \(3\)/.test(t) && /Part or different hours \(1\)/.test(t) && /Question \(1\)/.test(t) && /No \(1\)/.test(t) && /Needs Verification \(1\)/.test(t), t.slice(0,1200));
   ok('who hasn\'t answered is listed apart', /Not answered yet: Wendy Wait \(fake\)/.test(t));
   ok('the chips say Cara\'s pick, overtime risk, and the partial hours', /Cara's pick/.test(t) && /overtime risk/.test(t) && /8am to 1pm/.test(t));
   CB.pick('b1','a1'); await sleep(200); let dr=tab();
@@ -73,6 +76,16 @@ async()=>{
   ok('Needs Verification: not eligible with the reason; no Confirm; says it can\'t be offered or confirmed', /✕ Not eligible/.test(dr) && /OIG check over 30 days/.test(dr) && /Can't be offered or confirmed until the record is verified/.test(dr) && ![...document.querySelectorAll('#tab-coverage button')].some(b=>/^Confirm Hal/.test(b.textContent)), dr.slice(0,1500));
   CB.pick('b1','a4'); await sleep(200);
   ok('a question shows their exact words', /“Are there stairs\?”/.test(tab()));
+  CB.pick('b1','a1'); await sleep(250); let dm=tab(); document.querySelectorAll('#tab-coverage details').forEach(x=>x.open=true); dm=tab();
+  ok('one time or every week: the board says "Open every Saturday"', /Open every Saturday/.test(dm));
+  ok('changed answers: the current answer on top, every earlier answer kept (newest first, with when and how)', /Earlier answers \(2\)/.test(dm) && /Part of it: 8am to 12pm/.test(dm) && /“not sure yet”/.test(dm) && dm.indexOf('Part of it: 8am')<dm.indexOf('not sure yet'), dm.slice(0,1800));
+  ok('she wants it every week: chip on the board and the note in her answer', /wants it every week/.test(dm) && /Would like this as their regular weekly shift/.test(dm));
+  L.calls=[]; [...document.querySelectorAll('#tab-coverage a')].find(x=>/Take back their shift page link/.test(x.textContent)).click(); await sleep(300);
+  ok('take back her link: goes to the shift-offer server, then shows who took it back with Give it back', L.calls.some(c=>c.fn==='shift-offer'&&c.action==='revoke'&&c.ask_id==='a1') && /Link taken back by Samantha Troutman/.test(tab()) && /Give it back/.test(tab()), [L.calls, tab().slice(0,600)]);
+  L.calls=[]; [...document.querySelectorAll('#tab-coverage a')].find(x=>/Give it back/.test(x.textContent)).click(); await sleep(300);
+  ok('give it back', L.calls.some(c=>c.fn==='shift-offer'&&c.action==='restore') && /Take back their shift page link/.test(tab()));
+  CB.pick('b1','a8'); await sleep(250);
+  ok('the shift changed after she said yes: "answered for old hours", no Confirm', /answered for old hours/.test(tab()) && ![...document.querySelectorAll('#tab-coverage button')].some(b=>/^Confirm Olive/.test(b.textContent)));
   L.calls=[]; const sel=document.getElementById('cbtf_b1'); sel.value='flexible_start'; sel.dispatchEvent(new Event('change')); await sleep(400);
   ok('time rules: flexible start saved through the server, hand-off stays a separate setting (still off)', L.calls.some(c=>c.action==='set_time_rules'&&c.time_flex==='flexible_start'&&c.handoff_ok===false) && DATA.coverage_cases[0].time_flex==='flexible_start', L.calls);
   L.calls=[]; const ho=document.getElementById('cbho_b1'); ho.checked=true; ho.dispatchEvent(new Event('change')); await sleep(400);

@@ -439,7 +439,18 @@
       '<div class="field-note">Up to 6 short things, separated by commas. Caregivers see them on Cara\'s shift page. Nothing private.</div>' +
       '<input id="famenjoy-' + px + '" maxlength="200" style="width:100%;margin-top:6px;font:inherit;font-size:13.5px;" placeholder="Gardening, old movies, card games" value="' + e((circ.caregiver_enjoys || []).join(', ')) + '">' +
       '<div style="display:flex;gap:8px;align-items:center;margin-top:4px;"><button class="btn btn-ghost btn-sm" style="padding:2px 9px;font-size:12px;" onclick="FAMAPP.enjoysSave(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">Save</button>' +
-      '<span class="field-note" id="famenjoy-' + px + '-msg">' + (circ.caregiver_enjoys_at ? 'Last saved ' + e(new Date(circ.caregiver_enjoys_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_enjoys_by ? ' by ' + e(String(circ.caregiver_enjoys_by).split('@')[0]) : '') : '') + '</span></div></div>'
+      '<span class="field-note" id="famenjoy-' + px + '-msg">' + (circ.caregiver_enjoys_at ? 'Last saved ' + e(new Date(circ.caregiver_enjoys_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_enjoys_by ? ' by ' + e(String(circ.caregiver_enjoys_by).split('@')[0]) : '') : '') + '</span></div>' +
+      /* 2026-10-24: the care-plan parts show on shift pages only when the office ticks this (off by default) */
+      '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13.5px;"><input type="checkbox" style="width:auto;margin-top:3px;"' + (circ.caregiver_share_care ? ' checked' : '') + ' onchange="FAMAPP.shareCare(\'' + e(circ.id) + '\',\'' + e(px) + '\',this)">' +
+      '<span><b>Share the care needs on shift pages</b><br><span class="field-note">What ' + e(first) + '\'s caregiver would help with, the care level, the skills needed, and pets or smoking in the home, from the care plan. Off: shift pages show only the shift, the About and What ' + e(first) + ' enjoys.</span>' +
+      '<span class="field-note" id="famshare-' + px + '-msg" style="display:block;">' + (circ.caregiver_share_care_at ? 'Last changed ' + e(new Date(circ.caregiver_share_care_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + (circ.caregiver_share_care_by ? ' by ' + e(String(circ.caregiver_share_care_by).split('@')[0]) : '') : '') + '</span></span></label></div>'
+  }
+  function shareCare(circleId, px, box) {
+    var msg = document.getElementById('famshare-' + px + '-msg'), on = !!box.checked
+    box.disabled = true; if (msg) msg.textContent = 'Saving…'
+    return call({ action: 'share_care', circle_id: circleId, on: on }).then(function (d) {
+      box.disabled = false; box.checked = !!d.on; if (msg) msg.textContent = d.on ? 'Shared: shift pages show the care needs.' : 'Not shared: shift pages show only the shift, the About and What they enjoy.'
+    }).catch(function (err) { box.disabled = false; box.checked = !on; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
   function enjoysSave(circleId, px, b) {
     var inp = document.getElementById('famenjoy-' + px), msg = document.getElementById('famenjoy-' + px + '-msg')
@@ -457,5 +468,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, confirmPhone: confirmPhone, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, enjoysSave: enjoysSave, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, confirmPhone: confirmPhone, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, enjoysSave: enjoysSave, shareCare: shareCare, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()

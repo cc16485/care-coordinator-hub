@@ -8,15 +8,16 @@
 <title>Open shift · Caring Companions</title>
 <!-- ============================================================
      CARA'S SHIFT OPPORTUNITY PAGE (Samantha, 2026-10-24): a caregiver's own
-     link from a shift offer. Before the code: their first name, the day,
-     the time, the hours and the town. A one-time code texted to the phone
-     that got the offer opens the rest: the client's first name, the office's
-     About and What they enjoy, what they'd help with, the skills and level,
-     Good to know, and Exact time / Flexible start / Hand-off allowed. Never
-     an address, a last name, pay or photos. Five answers, saved onto their
-     own ask; a yes is interest only. Server: shift-offer.
+     link from a shift offer. No code and no password (her call): the link
+     opens the shift, the client's first name, the office's About and What
+     they enjoy, one time or every week, and, when the office shares them,
+     what they'd help with, the skills and level and Good to know; Exact
+     time / Flexible start / Hand-off allowed. Never an address, a last
+     name, pay or photos. Five answers, saved onto their own ask; a yes is
+     interest only. A shift that changed, filled or closed shows only that.
+     Server: shift-offer.
      Office preview: ?preview=1&case=<id>&ask=<id> with a Hub sign-in in this
-     browser (no code is sent, nothing is saved).
+     browser (nothing is saved).
      ============================================================ -->
 <style>
   :root{ --navy:#0D365F; --teal:#1F7A8C; --teal-dk:#155A68; --teal-pale:#EAF4F6; --mint:#8FD1C7; --honey:#F0A63A; --honey-ink:#8a5a00; --honey-bg:#fbf1df;
@@ -51,8 +52,7 @@
   .ans:active{ transform:scale(.99); }
   .times{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0 10px; }
   label.k{ display:block; margin-bottom:3px; }
-  select, textarea, input.code{ width:100%; font:inherit; font-size:17px; padding:11px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); }
-  input.code{ font-size:28px; letter-spacing:.35em; text-align:center; font-weight:800; }
+  select, textarea{ width:100%; font:inherit; font-size:17px; padding:11px; border:2px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); }
   .go{ width:100%; min-height:56px; font:inherit; font-size:18px; font-weight:800; border:0; border-radius:16px; background:var(--navy); color:#fff; cursor:pointer; margin-top:6px; }
   .go[disabled]{ opacity:.55; cursor:default; }
   .go.light{ background:#fff; color:var(--navy); border:2px solid var(--line); }
@@ -60,6 +60,11 @@
   .info{ background:var(--honey-bg); color:var(--honey-ink); border-radius:14px; padding:13px 15px; font-weight:700; }
   .err{ color:var(--red); font-weight:700; margin-top:8px; font-size:15px; }
   .foot{ font-size:13px; color:var(--muted); text-align:center; margin-top:18px; }
+  .pat{ display:flex; flex-direction:column; gap:2px; border-radius:14px; padding:10px 13px; margin:12px 0 2px; }
+  .pat b{ font-size:16.5px; } .pat span{ font-size:14.5px; }
+  .pat.on{ background:var(--green-bg); color:var(--green); } .pat.one{ background:var(--teal-pale); color:var(--teal-dk); }
+  .reg{ display:flex; gap:10px; align-items:flex-start; background:var(--green-bg); color:var(--green); font-weight:700; border-radius:12px; padding:11px 12px; margin:4px 0 8px; font-size:15.5px; }
+  .reg input{ width:22px; height:22px; flex:0 0 22px; margin:1px 0 0; }
   .pv{ background:#0D365F; color:#fff; border-radius:12px; padding:9px 12px; font-size:14px; font-weight:700; margin-bottom:10px; }
   .loading{ color:var(--muted); padding:40px 0; text-align:center; }
   @media (prefers-reduced-motion:reduce){ .ans:active{ transform:none; } }
@@ -78,9 +83,7 @@ const $ = (id) => document.getElementById(id)
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const t12 = (hm) => { const m = /^(\d\d):(\d\d)$/.exec(String(hm || '')); if (!m) return String(hm || ''); const h = +m[1]; return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h >= 12 ? 'pm' : 'am') }
 const hrs = (n) => n == null ? '' : (n % 1 ? n.toFixed(1) : n) + (n === 1 ? ' hour' : ' hours')
-let V = null, D = null, CHOICE = null
-const sessKey = 'cara_shift_' + LINK.c + '_' + LINK.a
-const SESSION = { get() { try { return sessionStorage.getItem(sessKey) || '' } catch (e) { return '' } }, set(v) { try { sessionStorage.setItem(sessKey, v) } catch (e) {} } }
+let D = null, CHOICE = null
 
 /* the office's preview uses their Hub sign-in from this browser */
 function staffToken() {
@@ -105,12 +108,13 @@ const SCENES = {
 }
 
 function shell(inner) {
-  $('app').innerHTML = (PREVIEW ? '<div class="pv">Office preview: what this caregiver would see. No code is sent and nothing is saved.</div>' : '')
+  $('app').innerHTML = (PREVIEW ? '<div class="pv">Office preview: what this caregiver would see. Nothing is saved.</div>' : '')
     + '<div class="brand">Caring Companions · Open shift</div>' + inner
     + '<div class="foot">This page is just for you. Please don\'t forward it.<br>Questions? Call the office at ' + PHONE + '.</div>'
 }
 function stopped(state) {
   const m = state === 'closed' ? 'This shift has been covered. Thank you for looking!' : state === 'ended' ? 'This shift has already started. Thank you!'
+    : state === 'changed' ? 'This shift\'s day or hours changed. The office will send you the new details.'
     : 'This shift isn\'t available any more. Thank you!'
   shell('<h1>Thank you</h1><div class="info" style="margin-top:12px">' + m + '</div>')
 }
@@ -122,44 +126,9 @@ function basics(v) {
     + '<div><div class="k">Hours</div><div class="v">' + esc(hrs(v.hours)) + '</div></div></div></div>'
 }
 
-/* step 1: anyone holding the link sees only this */
-function renderView(v) {
-  if (v.state && v.state !== 'open') return stopped(v.state)
-  if (SESSION.get()) return loadDetails()
-  shell('<h1>Hi ' + esc(v.caregiver_first) + '</h1><div class="sub">We have an open shift you might like.</div>'
-    + (v.prn ? '<div class="prn">PRN opportunity. Take it or pass, no pressure either way.</div>' : '')
-    + basics(v)
-    + (v.answered ? '<div class="info">You already answered: ' + esc(v.answered.what) + '. You can change it while the shift is open.</div>' : '')
-    + '<div class="card" style="text-align:center"><div style="font-weight:800;color:var(--navy);font-size:18px">See who it\'s for and answer</div>'
-    + '<div class="sub" style="margin:6px 0 10px">We\'ll text a 6-digit code to the phone this offer came to. No password needed.</div>'
-    + '<button class="go" id="sendBtn" type="button">Text me a code</button><div id="codeBox"></div><div class="err" id="err1"></div></div>')
-  $('sendBtn').onclick = sendCode
-}
-async function sendCode() {
-  const b = $('sendBtn'); b.disabled = true; b.textContent = 'Sending…'; $('err1').textContent = ''
-  const r = await call({ action: 'send_code' })
-  if (r.error || !r.sent) { b.disabled = false; b.textContent = 'Text me a code'; $('err1').textContent = r.error || 'The code didn\'t go out.'; return }
-  b.style.display = 'none'
-  $('codeBox').innerHTML = '<div class="sub" style="margin:4px 0 8px">Sent to the phone ending in ' + esc(r.to_last4) + '. It works for 10 minutes.</div>'
-    + '<label class="k" for="code">Your code</label><input class="code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="······">'
-    + '<button class="go" id="verifyBtn" type="button" style="margin-top:10px">See the shift</button>'
-    + '<button class="go light" id="againBtn" type="button" style="margin-top:8px">Send a new code</button>'
-  $('verifyBtn').onclick = verify; $('againBtn').onclick = () => { $('codeBox').innerHTML = ''; b.style.display = ''; b.disabled = false; b.textContent = 'Text me a code' }
-  $('code').focus()
-}
-async function verify() {
-  const code = ($('code').value || '').replace(/\D/g, '')
-  if (code.length !== 6) { $('err1').textContent = 'Please enter all 6 numbers.'; return }
-  const b = $('verifyBtn'); b.disabled = true; $('err1').textContent = ''
-  const r = await call({ action: 'verify', code })
-  if (r.error || !r.session) { b.disabled = false; $('err1').textContent = r.error || 'That didn\'t work.'; return }
-  SESSION.set(r.session); loadDetails()
-}
-
 /* step 2: the details and the answer */
 async function loadDetails() {
-  const r = PREVIEW ? await call({ action: 'preview' }) : await call({ action: 'details', session: SESSION.get() })
-  if (r.need_code) { SESSION.set(''); return renderView(V || {}) }
+  const r = PREVIEW ? await call({ action: 'preview' }) : await call({ action: 'view' })
   if (r.error) return shell('<h1>Sorry</h1><div class="err">' + esc(r.error) + '</div>')
   if (r.state && r.state !== 'open') return stopped(r.state)
   D = r; renderDetails()
@@ -170,6 +139,8 @@ function renderDetails(done) {
     + (d.handoff_ok ? '<span class="flag">Two caregivers can split it</span>' : '')
   let h = (d.prn ? '<div class="prn">PRN opportunity. Take it or pass, no pressure either way.</div>' : '')
     + '<div class="hero">' + (SCENES[d.scene] || SCENES.porch) + '</div>'
+    + '<div class="sub" style="margin-top:6px">Hi ' + esc(d.caregiver_first) + ', we have an open shift you might like.</div>'
+    + (d.pattern ? '<div class="pat ' + (d.pattern.kind === 'ongoing' ? 'on' : 'one') + '"><b>' + esc(d.pattern.label) + '</b><span>' + esc(d.pattern.sub) + '</span></div>' : '')
     + '<h1>Meet ' + who + '</h1>'
     + (d.about ? '<p style="margin:8px 0">' + esc(d.about) + '</p>' : '<div class="sub">' + who + '\'s caregiver needs you on this day.</div>')
     + (d.enjoys && d.enjoys.length ? '<div class="k" style="margin-top:8px">' + who + ' enjoys</div><div class="chips like">' + d.enjoys.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
@@ -198,7 +169,10 @@ function options(from, to, sel) {
 }
 function more() {
   const d = D, k = CHOICE, box = $('more')
-  const note = '<label class="k" for="note" style="margin-top:6px">A note for the office (optional)</label><textarea id="note" rows="2" maxlength="300" placeholder="Anything we should know"></textarea>'
+  /* every-week shift: "I'd like this as my regular shift" goes with any yes (a wish; the office talks with them) */
+  const reg = d.pattern && d.pattern.kind === 'ongoing' && k !== 'no' && k !== 'q'
+    ? '<label class="reg"><input type="checkbox" id="regular"> I\'d like this every ' + esc(d.pattern.weekday || 'week') + ' as my regular shift</label>' : ''
+  const note = reg + '<label class="k" for="note" style="margin-top:6px">A note for the office (optional)</label><textarea id="note" rows="2" maxlength="300" placeholder="Anything we should know"></textarea>'
   if (k === 'part' || k === 'diff') {
     const lo = k === 'part' ? (d.shift_from || '06:00') : '05:00', hi = k === 'part' ? (d.shift_to || '22:00') : '23:45'
     box.innerHTML = '<div class="card"><div class="k">' + (k === 'part' ? 'Which part can you work?' : 'What hours can you work that day?') + '</div>'
@@ -215,11 +189,12 @@ function more() {
 }
 async function send() {
   const k = CHOICE, b = $('sendAns'); b.disabled = true; $('err2').textContent = ''
-  const body = { kind: k === 'q' ? 'question' : k, note: ($('note') && $('note').value) || '' }
+  const body = { kind: k === 'q' ? 'question' : k, note: ($('note') && $('note').value) || '', shift_key: D.shift_key, regular: !!($('regular') && $('regular').checked) }
   if (k === 'part' || k === 'diff') { body.from = $('from').value; body.to = $('to').value }
   if (k === 'q') body.question = $('question').value
-  const r = PREVIEW ? await call(Object.assign({ action: 'preview_answer' }, body)) : await call(Object.assign({ action: 'answer', session: SESSION.get() }, body))
-  if (r.need_code) { SESSION.set(''); return renderView(V || {}) }
+  const r = PREVIEW ? await call(Object.assign({ action: 'preview_answer' }, body)) : await call(Object.assign({ action: 'answer' }, body))
+  if (r.state && r.state !== 'open') return stopped(r.state)
+  if (r.changed) { CHOICE = null; return loadDetails().then(() => { const e = $('err2'); if (e) e.textContent = 'The shift changed while you were looking. Here are the new details.' }) }
   if (r.error) { b.disabled = false; $('err2').textContent = r.error; return }
   const done = PREVIEW ? 'Preview only: nothing was saved. This would be saved as "' + r.would_save + '".'
     : body.kind === 'full' ? 'Thank you! The office will confirm with you. Nothing is set until they do.'
@@ -232,9 +207,7 @@ async function send() {
 ;(async function start() {
   if (PREVIEW) { if (!staffToken()) return shell('<h1>Sign in first</h1><div class="info">Open the Hub in this browser and sign in, then use Preview again.</div>'); return loadDetails() }
   if (!LINK.c || !LINK.t) return shell('<h1>Sorry</h1><div class="err">This link is not complete. Please call the office at ' + PHONE + '.</div>')
-  const r = await call({ action: 'view' })
-  if (r.error) return shell('<h1>Sorry</h1><div class="err">' + esc(r.error) + '</div>')
-  V = r; renderView(r)
+  loadDetails()
 })()
 </script>
 </body>
