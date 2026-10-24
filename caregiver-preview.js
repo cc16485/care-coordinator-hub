@@ -14,6 +14,8 @@
 (function () {
   const E = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let ctx = { ax: '', lead: '', name: '' }, V = null, busy = false, showPreview = false, msg = '';
+  let ai = null, aiMsg = '';   /* the AI draft waiting in the boxes, not saved (Life Story step 2, 2026-10-24) */
+  const aiOn = () => !!((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).cgp_ai_draft_live || owner();
   const live = () => !!((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).caregiver_preview_live;
   const owner = () => (typeof CC_ROLES !== 'undefined' && Array.isArray(CC_ROLES) && CC_ROLES.includes('owner_admin'));
   const visible = () => live() || owner();
@@ -35,7 +37,7 @@
   /* called when a profile opens: remember the client, show or hide the tab */
   function mount(p) {
     ctx = { ax: String((p && p.ax) || ''), lead: String((p && p.lead && p.lead.id) || (p && p.lead_id) || ''), name: String((p && p.name) || '') };
-    V = null; showPreview = false; msg = '';
+    V = null; showPreview = false; msg = ''; ai = null; aiMsg = '';
     const b = document.querySelector('#cpTabs .cp-tab[data-cp="cgprev"]'); if (b) b.style.display = visible() ? '' : 'none';
     const h = host(); if (h) h.innerHTML = '';
   }
@@ -69,12 +71,26 @@
       + frame('approved', both ? 'What caregivers see now (approved)' : 'What caregivers see') + (both ? frame('draft', 'After approval (draft)') : '') + '</div>'
       + '<div class="field-note" style="margin-top:6px;">A sample shift (next Saturday, 8am to 12pm). On a real offer, the day, time and town are the real shift\'s.</div>';
   }
+  function aiBox() {
+    if (!aiOn()) return '';
+    const btn = '<button type="button" class="secondary" style="padding:5px 12px;font-size:12.5px;" onclick="CGP.draft()"' + (busy ? ' disabled' : '') + '>Draft it from the Life Story</button>'
+      + (((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).cgp_ai_draft_live ? '' : ' <span class="field-note" style="color:#92400E;">Practice: only owners see this.</span>');
+    if (!ai) return '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + btn + (aiMsg ? '<span class="field-note">' + E(aiMsg) + '</span>' : '') + '</div>';
+    const src = (ai.sources || []).map((s) => E(s.label) + ' (' + E(s.via === 'profile' ? 'profile' : s.via) + (s.by ? ', ' + E(String(s.by).split(' ')[0]) : '') + ')').join(' · ');
+    return '<div style="margin-top:8px;padding:10px 12px;border-radius:10px;background:#FFF4E0;font-size:13px;display:grid;gap:4px;">'
+      + '<b style="color:#8A5A00;">AI draft, not saved yet.</b> <span>Read it, change anything, then Save draft. It still needs approval before caregivers see it.</span>'
+      + (src ? '<span class="field-note">Drawn only from the Life Story: ' + src + '</span>' : '')
+      + ((ai.left_out || []).length ? '<span class="field-note">Left out on purpose: ' + E(ai.left_out.join(', ')) + '</span>' : '')
+      + ((ai.dropped || []).length ? '<span class="field-note">Not used, because they aren\'t in the Life Story: ' + E(ai.dropped.join(', ')) + '</span>' : '')
+      + '<span><a href="javascript:void(0)" onclick="CGP.dropDraft()" style="font-size:12.5px;">Discard the AI draft</a></span></div>';
+  }
   function introCard() {
-    const d = V.intro.draft, a = V.intro.approved, aboutChanged = (d.about || '') !== (a.about || ''), enjChanged = (d.enjoys || []).join('|') !== (a.enjoys || []).join('|');
+    const d0 = V.intro.draft, d = ai ? { about: ai.about, enjoys: ai.enjoys } : d0, a = V.intro.approved, aboutChanged = (d.about || '') !== (a.about || ''), enjChanged = (d.enjoys || []).join('|') !== (a.enjoys || []).join('|');
     const tag = (on) => on ? ' <span style="font-size:11px;font-weight:800;color:#8A5A00;">· draft, not approved yet</span>' : '';
     return '<div class="card" style="padding:14px 16px;margin-top:12px;">'
       + '<div style="font-weight:800;color:var(--navy);">Introduction</div>'
       + '<div class="field-note">A few friendly words so a caregiver gets to know ' + E(first()) + '. First name only. No address, diagnoses or family matters.</div>'
+      + aiBox()
       + '<label style="display:block;margin-top:10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);">About ' + E(first()) + tag(aboutChanged) + '</label>'
       + '<textarea id="cgpAbout" maxlength="400" rows="3" style="width:100%;margin-top:4px;font:inherit;font-size:14px;" placeholder="For example: ' + E(first()) + ' taught school for 30 years and loves a good laugh.">' + E(d.about || '') + '</textarea>'
       + '<label style="display:block;margin-top:10px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);">What ' + E(first()) + ' enjoys' + tag(enjChanged) + '</label>'
@@ -119,7 +135,8 @@
   function saveIntro() {
     const about = (document.getElementById('cgpAbout') || {}).value || '';
     const enjoys = String((document.getElementById('cgpEnjoys') || {}).value || '').split(',').map((x) => x.trim()).filter(Boolean);
-    return act({ action: 'save', about, enjoys }, 'Draft saved. Approve it when it\'s ready.');
+    const fromAi = !!ai; ai = null; aiMsg = '';
+    return act({ action: 'save', about, enjoys, ai_draft: fromAi }, 'Draft saved. Approve it when it\'s ready.');
   }
   const share = (on) => act({ action: 'save', share_care: !!on }, on ? 'Draft saved: care summary on.' : 'Draft saved: care summary off.');
   function items() {
@@ -135,6 +152,14 @@
     busy = false; render();
   }
   function preview() { showPreview = !showPreview; render(); }
+  /* the AI draft: from the Life Story only, into the boxes, nothing saved */
+  async function draft() {
+    if (busy) return; busy = true; aiMsg = 'Drafting from the Life Story…'; render();
+    try { const r = await callFn({ action: 'draft' }); if (r.ok && r.draft) { ai = r.draft; aiMsg = ''; } else { ai = null; aiMsg = r.why || 'No draft.'; } }
+    catch (e) { ai = null; aiMsg = e.message; }
+    busy = false; render();
+  }
+  function dropDraft() { ai = null; aiMsg = ''; render(); }
 
-  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview };
+  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft };
 })();

@@ -37,6 +37,8 @@ STUB = r"""
   const real=W.fetch;
   W.fetch=async(url,o)=>{ url=String(url); if(!url.includes('/functions/v1/caregiver-preview')) return real(url,o);
     const b=JSON.parse(o.body); W.__log.calls.push(b); const R=(x,s)=>new Response(JSON.stringify(x),{status:s||200});
+    if(b.action==='draft'){ if(S.noLife) return R({ ok:false, why:"Nothing in Ruth's Life Story yet. Add an answer on Home & Life (or ask at the next call), then try again." });
+      return R({ ok:true, draft:{ ok:true, about:'Ruth taught third grade for 30 years and still loves her rose garden.', enjoys:['Rose gardening','Old movies','Cardinals baseball'], sources:[{label:'Work and life',via:'intake call',by:'Krystal Land'},{label:'Enjoys talking about or doing',via:'intake call',by:'Krystal Land'}], dropped:['Knitting'], left_out:['a health detail'] } }); }
     if(b.action==='save'){ if('about' in b){ S.d.about=b.about; } if('enjoys' in b) S.d.enjoys=b.enjoys; if('share_care' in b){ S.dOn=b.share_care; S.careBy=S.who; } if('hidden' in b){ S.hidden=b.hidden; S.careBy=S.who; }
       S.hist.push({ at:new Date().toISOString(), by:NAMES[S.who], what:'changed the draft' }); }
     if(b.action==='approve'){ const v=view(), did=[]; if(v.can.approve_intro){ S.a={...S.d}; S.carried=false; did.push('the introduction'); } if(v.can.approve_care){ S.aOn=S.dOn; S.aHidden=[...S.hidden]; S.aKeys=ITEMS.filter(x=>!S.hidden.includes(x.key)).map(x=>x.key); S.review=false; S.careBy=null; did.push('the care summary'); }
@@ -87,7 +89,26 @@ async()=>{
   ok('recent changes list who did what', /Recent changes/.test(t) && /Samantha Troutman approved the care summary/.test(t));
   S.review=true; await CGP.load(); t=tab();
   ok('care plan changed: the status says review and the care card says caregivers see no care details until approved again', /Care plan changed: review/.test(t) && /Caregivers see no care details until someone looks and approves it again/.test(t), t.slice(0,600));
-  ok('nothing sent: only the Caregiver Preview server was asked (get, save, approve)', L.calls.every(x=>['get','save','approve'].includes(x.action)));
+  /* step 2: Draft it from the Life Story */
+  S.review=false; (0,eval)("CC_ROLES=['care_coordinator']"); DATA.ops_settings={}; await CGP.load(); await sleep(50);
+  ok('AI draft, switch off: a coordinator does not see the button', !/Draft it from the Life Story/.test(tab()));
+  (0,eval)("CC_ROLES=['owner_admin']"); await CGP.load(); await sleep(50);
+  ok('AI draft, switch off: an owner sees it, marked practice', /Draft it from the Life Story/.test(tab()) && /Practice: only owners see this/.test(tab()));
+  [...document.querySelectorAll('#cgpHost button')].find(b=>/Draft it from the Life Story/.test(b.textContent)).click(); await sleep(300); t=tab();
+  ok('the draft fills the boxes (not saved), says it is an AI draft, shows the Life Story sources, what was left out and what was not used', document.getElementById('cgpAbout').value.startsWith('Ruth taught third grade') && document.getElementById('cgpEnjoys').value==='Rose gardening, Old movies, Cardinals baseball' && /AI draft, not saved yet/.test(t) && /Drawn only from the Life Story: Work and life \(intake call, Krystal\)/.test(t) && /Left out on purpose: a health detail/.test(t) && /Not used, because they aren't in the Life Story: Knitting/.test(t) && !L.calls.slice(-1).some(c=>c.action==='save'), t.slice(0,900));
+  ok('... it still needs approval (said plainly)', /It still needs approval before caregivers see it/.test(t));
+  [...document.querySelectorAll('#cgpHost a')].find(a=>/Discard the AI draft/.test(a.textContent)).click(); await sleep(100);
+  ok('discard: the boxes go back to the saved draft', !/AI draft, not saved yet/.test(tab()) && document.getElementById('cgpAbout').value!=='Ruth taught third grade for 30 years and still loves her rose garden.' && document.getElementById('cgpAbout').value===S.d.about);
+  [...document.querySelectorAll('#cgpHost button')].find(b=>/Draft it from the Life Story/.test(b.textContent)).click(); await sleep(300);
+  document.getElementById('cgpAbout').value='Ruth taught third grade for 30 years and loves her roses.';
+  [...document.querySelectorAll('#cgpHost button')].find(b=>/Save draft/.test(b.textContent)).click(); await sleep(300);
+  const sv=L.calls.filter(c=>c.action==='save').pop();
+  ok('Save draft keeps the person\'s edit and marks it as from an AI draft', sv.ai_draft===true && sv.about==='Ruth taught third grade for 30 years and loves her roses.' && sv.enjoys.join()==='Rose gardening,Old movies,Cardinals baseball', sv);
+  S.noLife=true; [...document.querySelectorAll('#cgpHost button')].find(b=>/Draft it from the Life Story/.test(b.textContent)).click(); await sleep(300);
+  ok('an empty Life Story: says what to do, fills nothing', /Nothing in Ruth's Life Story yet/.test(tab()) && !/AI draft, not saved yet/.test(tab()));
+  DATA.ops_settings={ cgp_ai_draft_live:true }; (0,eval)("CC_ROLES=['care_coordinator']"); await CGP.load(); await sleep(50);
+  ok('AI draft, switch on: coordinators see the button (no practice note)', /Draft it from the Life Story/.test(tab()) && !/Practice: only owners see this/.test(tab()));
+  ok('nothing sent: only the Caregiver Preview server was asked (get, save, approve, draft)', L.calls.every(x=>['get','save','approve','draft'].includes(x.action)));
   /* Family & Contacts */
   const circ={ id:'cc1', client_name:'Ruth Kay', caregiver_about:'Ruth loves her garden.' };
   let box=FAMAPP.aboutBox(circ,'cp_','Ruth Kay');
@@ -119,6 +140,8 @@ with sync_playwright() as pw:
         pg.add_style_tag(content='header.topbar{position:static!important}')
         pg.evaluate("()=>{ window.__S.review=false; window.__S.d.about='Ruth taught third grade for 30 years and loves a good laugh.'; window.__S.d.enjoys=['Gardening','Old movies','Card games','Cardinals baseball']; window.__S.hidden=['home:cats']; window.__S.who='kry'; DATA.ops_settings={}; (0,eval)(\"CC_ROLES=['owner_admin']\"); return CGP.load(); }")
         pg.wait_for_timeout(500); el = pg.query_selector('[data-cp-pane=\"cgprev\"]'); (el or pg).screenshot(path=os.path.join(SHOTS, 'cgp-tab.png'))
+        pg.evaluate("()=>{ window.__S.noLife=false; window.__S.d={...window.__S.a}; DATA.ops_settings={}; return CGP.load().then(()=>CGP.draft()); }"); pg.wait_for_timeout(500)
+        el = pg.query_selector('[data-cp-pane=\"cgprev\"]'); (el or pg).screenshot(path=os.path.join(SHOTS, 'cgp-ai-draft.png'))
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
