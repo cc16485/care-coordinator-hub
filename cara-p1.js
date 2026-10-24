@@ -220,7 +220,7 @@
         + '<a href="javascript:void(0)" onclick="caraOpenCase(\'' + E(c.id) + '\')" style="font-size:12.5px;font-weight:700;">Open &rarr;</a></div>'; }).join('') + '</div>'
       : '<div class="field-note" style="margin-bottom:10px;">Every shift in the next 72 hours has someone confirmed or no open case.</div>';
     if (S.filled.length) h += H('Filled today', '', S.filled.length) + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;">' + S.filled.map(caraFilledCard).join('') + '</div>';
-    return h + '<div class="field-note" style="font-size:11.5px;margin-top:8px;">This view refreshes itself every minute.</div>';
+    return h + (window.VR ? VR.todayLine() : '') + '<div class="field-note" style="font-size:11.5px;margin-top:8px;">This view refreshes itself every minute.</div>';
   }
   /* the owner's way into the preview, shown on the current Today while the switch is off */
   function previewLink() {
