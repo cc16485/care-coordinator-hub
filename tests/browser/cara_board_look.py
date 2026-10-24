@@ -61,6 +61,7 @@ async()=>{
   ok('who hasn\'t answered is listed apart', /Not answered yet: Wendy Wait \(fake\)/.test(t));
   ok('the chips say Cara\'s pick, overtime risk, and the partial hours', /Cara's pick/.test(t) && /overtime risk/.test(t) && /8am to 1pm/.test(t));
   CB.pick('b1','a1'); await sleep(200); let dr=tab();
+  ok('each person has a Preview of their shift page (office only, opens in a new tab)', [...document.querySelectorAll('#tab-coverage a')].some(x=>/shift\.html\?preview=1&case=b1&ask=a1/.test(x.getAttribute('href')||'')&&x.target==='_blank'));
   ok('a click shows the exact answer, when and how, eligibility, and why Cara picks them', /“Yes I can do Saturday!”/.test(dr) && /✓ Eligible/.test(dr) && /Cara recommends them for this shift/.test(dr) && /6 visits with this client/.test(dr) && /text · /.test(dr), dr.slice(0,1500));
   [...document.querySelectorAll('#tab-coverage button')].find(b=>/^Confirm Maria/.test(b.textContent)).click(); await sleep(150);
   ok('Confirm uses covResolve (the one confirm path) for that person', JSON.stringify(L.resolved)==='[["b1","covered","Maria Lane (fake)"]]', L.resolved);

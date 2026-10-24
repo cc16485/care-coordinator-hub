@@ -78,6 +78,7 @@
         : p.column === 'nv' ? '<span class="field-note">Can\'t be offered or confirmed until the record is verified.</span>'
         : p.column === 'partial' ? '<span class="field-note">' + (c.handoff_ok ? 'Hand-off is allowed for this shift: talk it through, or wait for a full-shift yes.' : 'Hand-off isn\'t allowed for this shift, so part of it can\'t be confirmed.') + '</span>'
         : p.column === 'question' ? '<span class="field-note">Text back from the office line, then mark their answer on the case.</span>' : '')
+      + '<a href="shift.html?preview=1&case=' + encodeURIComponent(c.id) + '&ask=' + encodeURIComponent(p.ask_id || '') + '" target="_blank" rel="noopener" style="font-size:12.5px;font-weight:700;margin-left:auto;">Preview ' + E(first(p.name)) + '\'s shift page &#8599;</a>'
       + '</div></div>';
   }
   function rulesHtml(c, d) {
