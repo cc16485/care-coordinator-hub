@@ -4427,6 +4427,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
 <div class="settings-section" data-set="callout-texts">
 <h3>📣 Callout texts (canned responses)</h3>
+<div id="slpHost"></div><!-- shift page link pilot (shift-link-pilot.js, 2026-10-24) -->
 <p class="hint">Every message the callout engine sends, in your words. Blank means the standard wording shown in grey. Fill-ins that get replaced per text: <code>{first_name}</code> the caregiver's name, <code>{client}</code> the client's first name, <code>{when}</code> day and time, <code>{address}</code> street name and city (never the house number), <code>{care}</code> the care note, <code>{pattern}</code> "could become your regular Friday shift" / "One time only" when the calendar says which. "Last-minute" wording is used for same-day shifts only; future shifts use the open-shift message.</p>
 <label>To caregivers who work with the client</label>
 <textarea id="set_cov_tier1" rows="2" placeholder="Hi {first_name}, can you cover {client} {when}? {pattern}It's Caring Companions. Reply YES or NO."></textarea>
@@ -7733,7 +7734,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=4"></script><script src="caregiver-preview.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=4"></script><script src="cara-board.js?v=4"></script><script src="caregiver-preview.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
@@ -15286,6 +15287,7 @@ function covMsgsFill(){
     set_cov_ack_late:'coverage_msg_ack_late', set_cov_confirmed:'coverage_msg_confirmed',
     set_cov_covered:'coverage_msg_covered', set_cov_avail_invite:'coverage_msg_avail_invite', set_avail_ck_on:'avail_checkin_msg_on_file', set_avail_ck_none:'avail_checkin_msg_none', set_oh_msg:'open_hours_msg', set_oh_ack:'open_hours_ack_msg', set_cov_escalation:'coverage_msg_escalation', set_cov_admin_alert:'coverage_msg_admin_alert', set_cov_asmt_url:'assessment_calendar_url', set_cov_medicaid_url:'medicaid_calendar_url', set_cov_circle_change:'circle_msg_caregiver_change' };
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
+  if(window.SLP) SLP.render();
 }
 /* ── GHL booking calendars (Profile First, step A, 2026-09-28) ─────────────
    The widget URLs live in ops_settings (assessment_calendar_url, medicaid_calendar_url) so swapping a
@@ -40985,7 +40987,9 @@ function covFollowUpsFor(c,a){ return (c.followups||[]).filter(f=>f&&(f.ask_ids|
 function covFollowDefaults(c){
   const st=DATA.ops_settings||{};
   const fill=t=>String(t).replaceAll('{client}',covClientShort(c)).replaceAll('{when}',covWhenText(c));
+  /* {link} (2026-10-24): each person's own shift page link, for people who may get one (the switch on, or the owners' pilot) */
   return {
+    link: fill(String(st.coverage_msg_followup_link||'')||"Hi {first_name}, just checking on {client}'s shift {when}. Here are the details again: {link} Or reply YES or NO."),
     still: fill(String(st.coverage_msg_followup||'')||"Hi {first_name}, it's Caring Companions. Still looking for someone for {client} {when}. Can you take it? Reply YES or NO. Questions welcome."),
     bonus: fill(String(st.coverage_msg_followup_bonus||'')||"Hi {first_name}, it's Caring Companions. {client} {when} is still open, and there is a $___ bonus for whoever takes it. Can you take it? Reply YES or NO.")
   };
@@ -40997,6 +41001,7 @@ function covFollowOpen(id){
   if(!people.length){ alert('Nobody has been texted on this case yet, so there is nobody to follow up with.'); return; }
   COV_FOLLOW_OPEN[id]=true;
   const d=covFollowDefaults(c), yesN=covYesList(c).length;
+  const linkable=!!(window.SLP&&(SLP.live()||SLP.pilot().length)), allLinked=!!(window.SLP&&SLP.live());
   box.innerHTML='<div class="card" style="padding:12px 14px;margin-top:8px;border-left:4px solid var(--teal);">'
     +'<b style="color:var(--navy);">📨 Follow up with the people we already asked</b>'
     +'<div class="field-note" style="margin-top:4px;">Only people this case has texted. Ticked = still waiting on an answer. Untick anyone you\'d rather leave alone; tick a "no" if a bonus might change their mind.'
@@ -41005,9 +41010,10 @@ function covFollowOpen(id){
       return '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px;cursor:pointer;"><input type="checkbox" data-follow="'+esc(id)+'" value="'+esc(a.id)+'"'+(a.state==='no'?'':' checked')+'> <b>'+esc(a.name)+'</b> <span style="color:'+col+';font-weight:700;">'+lbl+'</span><span class="field-note">asked '+covClock(a.at)+(fu.length?' · followed up '+fu.length+'× (last '+covClock(fu[fu.length-1].at)+')':'')+'</span></label>'; }).join('')+'</div>'
     +'<div style="margin-top:8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;"><span class="field-note">Start from:</span>'
     +'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'still\')">Still looking</button>'
-    +'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'bonus\')">Offer a bonus</button></div>'
-    +'<textarea id="covFollowMsg_'+esc(id)+'" rows="3" style="width:100%;font-size:13px;margin-top:4px;">'+esc(d.still)+'</textarea>'
-    +'<div class="field-note" style="margin-top:3px;">Keep <b>{first_name}</b> as written; it becomes each person\'s name. Replies land on this case like any other ask.</div>'
+    +'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'bonus\')">Offer a bonus</button>'
+    +(linkable?'<button class="ghost" style="font-size:12px;padding:3px 9px;" onclick="covFollowPreset(\''+esc(id)+'\',\'link\')">With their shift page link</button>':'')+'</div>'
+    +'<textarea id="covFollowMsg_'+esc(id)+'" rows="3" style="width:100%;font-size:13px;margin-top:4px;">'+esc(allLinked?d.link:d.still)+'</textarea>'
+    +'<div class="field-note" style="margin-top:3px;">Keep <b>{first_name}</b> as written; it becomes each person\'s name.'+(linkable?' <b>{link}</b> becomes each person\'s own shift page link'+(allLinked?'':' (only pilot caregivers can get one; untick everyone else, or take {link} out)')+'.':'')+' Replies land on this case like any other ask.</div>'
     +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
     +'<button class="addlead" onclick="covFollowSend(\''+esc(id)+'\')">Send the follow-up</button>'
     +'<button class="ghost" onclick="covFollowClose(\''+esc(id)+'\')">Cancel</button></div></div>';

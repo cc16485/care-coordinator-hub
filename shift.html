@@ -180,7 +180,10 @@ function more() {
   const note = reg + '<label class="k" for="note" style="margin-top:6px">A note for the office (optional)</label><textarea id="note" rows="2" maxlength="300" placeholder="Anything we should know"></textarea>'
   if (k === 'part' || k === 'diff') {
     const lo = k === 'part' ? (d.shift_from || '06:00') : '05:00', hi = k === 'part' ? (d.shift_to || '22:00') : '23:45'
+    /* a shift that needs one caregiver for the whole time (exact start, no hand-off): say so, so part isn't assumed OK (2026-10-24) */
+    const whole = d.time_flex !== 'flexible_start' && !d.handoff_ok
     box.innerHTML = '<div class="card"><div class="k">' + (k === 'part' ? 'Which part can you work?' : 'What hours can you work that day?') + '</div>'
+      + (whole ? '<div class="info" style="margin:6px 0 4px">This shift needs one caregiver for the whole time. Send your hours anyway and the office will let you know if they can use them.</div>' : '')
       + '<div class="times"><div><label class="k" for="from">From</label><select id="from">' + options(lo, hi, k === 'part' ? d.shift_from : '') + '</select></div>'
       + '<div><label class="k" for="to">To</label><select id="to">' + options(lo, hi, k === 'part' ? d.shift_to : '') + '</select></div></div>'
       + note + '<button class="go" type="button" id="sendAns">Send my hours</button></div>'
