@@ -4,6 +4,9 @@
    One page at the right end of the Scheduling strip: which tab handles which problem, step by step guides, the exact
    texts caregivers get (read from the live settings, so the words never go stale) and what Cara does on her own. It
    replaces the old scheduling-guide.html page. Reads only; nothing here sends or saves.
+   2026-10-24 (her ask after the AxisCare reasons were renamed and "reasons by AxisCare id" went on): the call-off steps
+   follow the response board and Send Cara's list; a new section on which AxisCare reason to pick and what Cara does with
+   it; cancelling a visit; "Let Cara run it"; the Live Schedule asking why.
    ============================================================================= */
 (function () {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -15,7 +18,8 @@
   const ph = (id) => { const el = document.getElementById(id); return el ? el.getAttribute('placeholder') || '' : ''; };
 
   const WHERE = [
-    ['A caregiver calls off', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Build the ask list, send, pick from the yeses.'],
+    ['A caregiver calls off', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Send Cara\'s list, then confirm the best yes on the board.'],
+    ['A client cancels a visit, or we can\'t staff it', go('liveschedule', '', 'Live Schedule'), 'In AxisCare: put it on "Canceled Shift" with "Client Cancelled Shift" or "Office Unable to Staff".'],
     ['Nobody has clocked in, or out', go('', 'clockins', 'Cara: Missed clock-ins & outs'), 'Call them from the office line. If they can\'t work, open a coverage case.'],
     ['A client\'s regular shift has nobody on it', go('', 'ongoing', 'Cara: Ongoing shifts'), 'Ask who wants it, the same way as a call-off.'],
     ['Regular hours to fill, or a new client', go('teambuilder', '', 'Scheduling: Caregiver Matching'), 'Ask the whole team, then pencil in the green names.'],
@@ -35,22 +39,34 @@
   function guides() {
     const grace = S().timekeeper_grace_min || 5;
     return steps('📞 A caregiver calls off', true, [
-      'It becomes one case on Cara. If they called the office, press <b>📞 Someone\'s calling off</b>. If the office unassigned the visit in AxisCare with a call-in reason, Cara opens the case herself within about 5 minutes.' + chip(on('coverage_watch_live'), 'watching AxisCare', 'not watching'),
+      'It becomes one case on Cara. If they called the office, press <b>📞 Someone\'s calling off</b>. If the office takes them off the visit in AxisCare with <b>Caregiver Called Off</b> or <b>Caregiver No Show</b>, Cara opens the case herself within about 5 minutes.' + chip(on('coverage_watch_live'), 'watching AxisCare', 'not watching'),
       'The admins on the call-in list get a text with their own link to the case.' + chip(on('callin_reminders_live'), 'reminders on', 'reminders off'),
       'Open the case. The line at the top says what to do now.',
-      'Press <b>Build the ask list</b>. Cara ranks everyone who may be asked, people who have worked with this client first. Do Not Return, No shift texts, inactive and not-yet-approved caregivers are never listed. Untick anyone you don\'t want, then send.',
-      'Answers come back by themselves as yes, no or a question. Text questions back from the office line.',
-      'When someone says yes, the top line says so. Press <b>Pick (their name) ✓</b>. The Hub puts them on the AxisCare visit and reads it back to check.',
+      'Press <b>Send Cara\'s list</b> (or <b>Build the ask list</b> to choose yourself). Cara ranks everyone who may be asked, people who have worked with this client first. Do Not Return, No shift texts, inactive, Needs Verification and not-yet-approved caregivers are never listed. Untick anyone you don\'t want, then send.' + chip(on('cara_list_live'), 'Cara\'s list on', 'Cara\'s list off'),
+      'Or hand it to Cara: <b>Let Cara run it</b> asks 5 at a time, 20 minutes apart (10 for a shift within a day), and stops at the first full-shift yes for you to confirm. <b>Take it back</b> stops her any time.' + chip(on('cara_run_live'), 'on', 'owners only, practice'),
+      'Answers land on the board under <b>Who answered</b>: Yes, full shift · Part or different hours · Question · No · Needs Verification. Click a name for their exact words and why Cara would or wouldn\'t pick them. Part shifts that fit together are shown as a pair. Text questions back from the office line.' + chip(on('cara_board_live'), 'board on', 'board off'),
+      'Press <b>Confirm (their name) ✓</b> on the board. Only a full-shift yes from someone eligible can be confirmed. The Hub puts them on the AxisCare visit and reads it back to check.',
       'When the case closes, the person picked gets "You\'re confirmed" and the others who said yes get the "covered" text. The family hears who is coming instead only if their Family Circle opted in.' + chip(on('family_caregiver_change_text_approved'), 'family text on', 'family text off'),
-      'If nobody can cover it: <b>More for this shift</b>, then <b>Close uncovered</b>. A card lands on My Work to call the family.',
-    ], 'Cara never texts a caregiver about a shift unless a person picked them.')
+      'If nobody can cover it: <b>More for this shift</b>, then <b>Close uncovered</b>, and in AxisCare put the visit on "Canceled Shift" with <b>Office Unable to Staff</b>. A card lands on My Work to call the family.',
+    ], 'Cara never texts a caregiver about a shift unless a person picked them, or a coordinator handed the case to her with Let Cara run it.')
+    + steps('🗂️ Which reason to pick in AxisCare', false, [
+      'Ask one question: <b>why isn\'t the original caregiver going?</b> Then pick the reason. Cara reads the reason together with who is on the visit.' + chip(on('visit_reasons_live'), 'Cara reads them by id', 'Cara matches words (old way)'),
+      '<b>Caregiver Called Off</b>: they told us they can\'t work. Opens a call-off case and counts on their attendance. Use it even when you already have the replacement and swap straight to them: the call-off is still recorded.',
+      '<b>Caregiver No Show</b>: they didn\'t come. Opens a call-off case, and a card asks you to confirm the no-call/no-show (it is never logged by itself, because it starts a termination review).',
+      '<b>Office Changed Caregiver</b>: we moved people. Never a call-off and never on attendance. If the visit is left with nobody, it shows as an open-shift card.',
+      '<b>Client Cancelled Shift</b>: the client cancelled, for any reason (unavailable, in the hospital). Put the visit on "Canceled Shift". It is not an open shift, Cara texts nobody, and any call-off case for it closes as cancelled.',
+      '<b>Office Unable to Staff</b>: we couldn\'t find anyone. Put the visit on "Canceled Shift". Cara makes an urgent "call the family" card for a person.',
+      '<b>Client Added or Changed Visit</b>: a new visit the client asked for, or a new day or time. If nobody is on it, it shows as an open-shift card.',
+      '<b>Office Entry Error</b>: we entered the schedule wrong. Documentation Update, the EVV Corrections and "Booked by family in app" are for records and timekeeping only.',
+      'A reason Cara doesn\'t know yet gets one card asking what it means. A cancel reason with a caregiver still on the visit gets one card asking which is right.',
+    ], 'Whatever the reason: a visit on "Canceled Shift" is cancelled and is never a caregiver, a cover or a missed clock-in. A visit deleted in AxisCare counts as cancelled only with a cancel reason; otherwise a person is asked. What each reason means: Settings, Callout texts, What AxisCare reasons mean.')
     + steps('⏰ Someone hasn\'t clocked in', false, [
       'About ' + esc(grace) + ' minutes after a shift starts with no clock-in, Cara opens it on <b>Missed clock-ins & outs</b>.' + chip(on('timekeeper_watch_live'), 'watching', 'not watching'),
       'When caregiver texts are on, the caregiver gets one text asking them to clock in.' + chip(on('timekeeper_text_live'), 'texts on', 'texts off'),
       'Call the caregiver from the office line. If they\'re on the way, there is nothing else to do: it clears itself when the clock-in lands.',
       'If they can\'t make it, press <b>If they cannot work, open a coverage case</b>, then follow the call-off steps.',
       'After a shift ends with no clock-out, the caregiver gets one reminder text to clock out. If it still doesn\'t land, a Call card opens to confirm the times with the client (below).',
-    ], 'The minutes and the wording are in Settings, Missed clock-ins and Missed clock-outs.')
+    ], 'The minutes and the wording are in Settings, Missed clock-ins and Missed clock-outs. Visits on "Canceled Shift" are never treated as a missed clock-in.')
     + steps('📣 Regular open hours: ask the whole team', false, [
       'Go to <b>Scheduling, Caregiver Matching</b>, press <b>New care team plan</b> and pick <b>Open hours, no client yet</b>. Type the town, pick the days, and pick <b>Two halves</b> or <b>One day shift</b>.',
       'On the plan, press <b>See the text and who gets it</b>. Check the words and the head count.' + chip(on('open_hours_live'), 'texting on', 'texting off'),
@@ -73,7 +89,8 @@
     ])
     + steps('🗓️ Changing one visit', false, [
       'Open <b>Live Schedule</b> and click the visit.',
-      'Pick <b>Change the caregiver</b> or <b>Change the time or day</b>, and the reason AxisCare keeps with it.' + chip(on('visit_change_live'), 'changes on', 'changes off'),
+      'Pick <b>Change the caregiver</b>, <b>Take the caregiver off</b> or <b>Change the time or day</b>, and the reason AxisCare keeps with it.' + chip(on('visit_change_live'), 'changes on', 'changes off'),
+      'The reason is filled in for you: a new caregiver is <b>Office Changed Caregiver</b>, a new day or time is <b>Client Added or Changed Visit</b>. Taking someone off has no default: choose <b>Caregiver Called Off</b> (on their attendance) or <b>Office Changed Caregiver</b> (never on attendance).' + chip(on('visit_reasons_live'), 'by meaning', 'old defaults'),
       'Press <b>Review the change</b>, then <b>Confirm</b>. The Hub changes that one visit in AxisCare and reads it back. Nobody is texted. It can be undone the same day.',
     ], 'A visit AxisCare doesn\'t send back, or one that has started, is changed in AxisCare instead.');
   }
@@ -112,7 +129,12 @@
     return '<div class="card" style="padding:12px 16px;margin:0 0 10px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">🤖 What Cara does on her own, and what she never does</div>'
       + '<div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:6px;">'
       + '<div style="flex:1 1 300px;"><div style="font-weight:700;font-size:13px;color:var(--green);">On her own</div><ul style="margin:4px 0 0 18px;padding:0;font-size:13px;line-height:1.5;">'
-      + row('Watches AxisCare every 5 minutes for a shift unassigned with a call-in reason, and opens the case', 'coverage_watch_live')
+      + row('Watches AxisCare every 5 minutes for a shift taken off with "Caregiver Called Off" or "Caregiver No Show", and opens the case', 'coverage_watch_live')
+      + row('Reads every AxisCare reason by its id, so a renamed reason keeps its meaning', 'visit_reasons_live')
+      + row('Records a call-off even when the office swapped straight to the replacement, and takes it back off if the reason is changed', 'visit_reasons_live')
+      + row('Closes a call-off case as cancelled when the visit is cancelled in AxisCare, with no texts', 'visit_reasons_live')
+      + row('Makes a "call the family" card for a visit we couldn\'t staff', 'visit_reasons_live')
+      + row('Asks in waves on a case a coordinator handed her (Let Cara run it), and stops at the first full-shift yes', 'cara_run_live')
       + row('Finds schedules with several open dates every hour, and lists them on Ongoing shifts', 'coverage_watch_live')
       + row('Reminds the admins until someone has a call-in', 'callin_reminders_live')
       + row('Watches clock-ins and clock-outs', 'timekeeper_watch_live')
@@ -121,7 +143,9 @@
       + row('Thanks a caregiver who says yes to open hours', 'open_hours_ack_live')
       + row('Ranks who to ask, and has the list ready', null)
       + '</ul></div><div style="flex:1 1 300px;"><div style="font-weight:700;font-size:13px;color:var(--red);">Never</div><ul style="margin:4px 0 0 18px;padding:0;font-size:13px;line-height:1.5;">'
-      + row('Texts a caregiver about a shift unless a person picked them')
+      + row('Texts a caregiver about a shift unless a person picked them, or handed the case to her (Let Cara run it)')
+      + row('Counts an office caregiver change as a call-off, or "Canceled Shift" as a caregiver or a cover')
+      + row('Calls or texts a family about a visit we couldn\'t staff (a person calls)')
       + row('Puts anyone on a visit in AxisCare unless a person confirmed them')
       + row('Texts anyone on No shift texts, or on that client\'s Do Not Return list')
       + row('Texts caregivers about shifts between 9pm and 8am, unless the shift starts within 3 hours')
