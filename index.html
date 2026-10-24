@@ -41080,6 +41080,10 @@ function covEditWording(id){
         +'<div class="field-note" style="margin-top:6px;">To everyone else:</div>'+ta('covWordO',3,r.other))
     +'<div class="field-note" style="margin-top:6px;">One-line care note about '+esc(first)+' for caregivers who <b>don\'t</b> know them (fills the <b>{care}</b> spot). Nothing private: no door codes, no house number, no diagnosis they don\'t need. Remembered for next time:</div>'
     +ta('covWordC',2,care,'e.g. Needs help with care in bed and bathing; his wife is there and helps.')
+    /* 2026-10-24 (her call): the note shows on Cara's shift page only when someone ticks this, so extra information
+       reaches caregivers on purpose. Unticked by default; the text message's {care} spot is unchanged. */
+    +'<label style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;font-size:13px;"><input type="checkbox" id="covWordS_'+esc(id)+'" style="width:auto;margin-top:2px;"'+(c.care_note_share===true?' checked':'')+'>'
+    +'<span><b>Share on shift page</b> <span class="field-note">Shows this note as "Good to know" on the caregiver\'s shift page. Unticked, it stays off the shift page.'+(c.care_note_share===true&&c.care_note_share_by?' Ticked by '+esc(c.care_note_share_by)+'.':'')+'</span></span></label>'
     +'<div class="field-note" style="margin-top:4px;">Keep <b>{first_name}</b>, <b>{address}</b>, <b>{where}</b> and <b>{care}</b> exactly as written. They become each caregiver\'s name, the street and city, and the care note when the texts send. This changes THIS shift only; to change the wording for every callout, tell Claude.</div>'
     +'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">'
     +'<button class="addlead" onclick="covSaveWording(\''+esc(id)+'\')">Save wording</button>'
@@ -41114,6 +41118,9 @@ async function covSaveWording(id){
   const care=v('covWordC');
   if(care!==null){
     c.care_note=care;
+    const sh=document.getElementById('covWordS_'+id), on=!!(sh&&sh.checked&&care);
+    if(on&&c.care_note_share!==true){ c.care_note_share=true; c.care_note_share_by=ccActor().name; c.care_note_share_at=new Date().toISOString(); }
+    else if(!on){ delete c.care_note_share; delete c.care_note_share_by; delete c.care_note_share_at; }
     if(care&&c.client_axiscare_id){
       const blurb={ id:String(c.client_axiscare_id), blurb:care, updated_at:new Date().toISOString() };
       DATA.client_care_blurbs=(DATA.client_care_blurbs||[]).filter(x=>String(x.id)!==blurb.id).concat([blurb]);

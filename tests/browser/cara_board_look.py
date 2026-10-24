@@ -94,6 +94,15 @@ async()=>{
   const td=document.getElementById('caraCC').innerText;
   ok('owner preview: the board shows on Today\'s Waiting for your OK too', /Waiting for your OK/.test(td) && /Who answered/.test(td), td.slice(0,800));
   try{ localStorage.removeItem('cara_p1_preview'); }catch(e){}
+  { const d=document.createElement('div'); d.id='covWord_b1'; document.body.appendChild(d); const c=DATA.coverage_cases[0]; c.care_note='Coffee at 10 is her favorite part of the day';
+    covEditWording('b1'); const sh=document.getElementById('covWordS_b1');
+    ok('Good to know: "Share on shift page" sits under the care note, unticked by default', sh && sh.checked===false && /Share on shift page/.test(d.innerText) && /Unticked, it stays off the shift page/.test(d.innerText), d.innerText.slice(0,600));
+    L.writes=[]; await covSaveWording('b1');
+    ok('... saved unticked: the note stays off the shift page', c.care_note_share!==true);
+    covEditWording('b1'); document.getElementById('covWordS_b1').checked=true; await covSaveWording('b1');
+    ok('... ticked and saved: shared, with who ticked it', c.care_note_share===true && c.care_note_share_by==='Samantha Troutman' && L.writes.some(w=>w==='coverage_cases:b1'), [c.care_note_share, c.care_note_share_by, L.writes]);
+    covEditWording('b1'); document.getElementById('covWordS_b1').checked=false; await covSaveWording('b1');
+    ok('... unticked again: off the shift page', c.care_note_share!==true && !c.care_note_share_by); d.remove(); L.writes=[]; }
   ok('nothing saved from the page itself; nothing texted', !L.writes.length && !L.calls.some(c=>c.action==='send_selected'), [L.writes, L.calls.map(c=>c.action)]);
   return R;
 }
