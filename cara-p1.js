@@ -125,6 +125,16 @@
     if (x.cleared_note) h += ' · <b style="color:var(--red);">⚠ ' + E(x.cleared_note) + '</b>';
     return h;
   }
+  /* NEEDS VERIFICATION (Samantha 2026-10-23): expired or missing clearances are listed so the office knows why, with no tick
+     box: the server never offers them a shift until they are verified as eligible */
+  function nvHtml(d) {
+    const nv = (d && d.needs_verification) || [];
+    if (!nv.length) return '';
+    return '<div style="margin-top:8px;padding:7px 10px;background:#FFF1EE;border:1px solid #F2C9C0;border-radius:8px;">'
+      + '<div style="font-size:12.5px;font-weight:700;color:var(--red);">Needs Verification (' + nv.length + '): can\'t be offered a shift until verified as eligible</div>'
+      + nv.map((x) => '<div style="font-size:12.5px;padding:2px 0;"><b>' + E(x.name) + '</b> <span class="field-note">' + E(String(x.needs_verification || '').replace(/^Needs Verification: /, '')) + (x.history && x.history.visits ? ' · ' + x.history.visits + ' visits with this client' : '') + '</span></div>').join('')
+      + '</div>';
+  }
   const uncheck = (x) => !!((x.overlaps || []).length || (x.hours && x.hours.level === 'ot') || x.cleared_note);   /* a lapsed check: listed, unticked; a person can still tick them */
 
   /* ── the old list next to the new one (owners, while cara_list_live is off) ── */
@@ -141,6 +151,7 @@
       + '<div style="font-weight:800;font-size:12.5px;color:var(--navy);">Preview: Cara\'s new list (nothing is sent from here)</div>'
       + '<div class="field-note" style="margin:2px 0 6px;">' + E((d.meta && d.meta.cara_list && [d.meta.cara_list.skills, d.meta.cara_list.hours, d.meta.cara_list.client_state].filter(Boolean).join(' · ')) || '') + '</div>'
       + rows.map((x, i) => '<div style="font-size:12.5px;padding:2px 0;"><b>' + (i + 1) + '. ' + E(x.name) + '</b> <span class="field-note">' + E(x.why || '') + rowFlags(x) + (x.working_then ? ' · already working then' : '') + (x.outside_avail ? ' · ' + E(x.outside_avail) : '') + '</span></div>').join('')
+      + nvHtml(d)
       + ((d.excluded || []).filter((x) => /^Skills rules/.test(x.why)).length ? '<div class="field-note" style="margin-top:4px;">Left out by the skills rules: ' + d.excluded.filter((x) => /^Skills rules/.test(x.why)).map((x) => E(x.name) + ' (' + E(x.why.replace(/^Skills rules: /, '')) + ')').join('; ') + '</div>' : '')
       + '</div>';
   }
@@ -221,5 +232,5 @@
   /* "said yes" is interest, wherever the case shows a state */
   function wordsOn() { try { if (on() && typeof COV_STATE_UI !== 'undefined') COV_STATE_UI.yes = ['✅ said yes (not assigned)', 'var(--green)']; } catch (e) {} }
 
-  window.CP1 = { on, listOn, urgency, chip, fillWord, recHtml, recLoad, sendCaraList, defaultPicks, rowFlags, uncheck, previewList, previewHtml, flagVisitLine, beforeFlagConfirm, todayHtml, previewLink, preview: setPreview, wordsOn };
+  window.CP1 = { nvHtml, on, listOn, urgency, chip, fillWord, recHtml, recLoad, sendCaraList, defaultPicks, rowFlags, uncheck, previewList, previewHtml, flagVisitLine, beforeFlagConfirm, todayHtml, previewLink, preview: setPreview, wordsOn };
 })();

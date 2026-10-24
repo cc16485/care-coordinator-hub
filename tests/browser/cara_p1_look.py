@@ -41,7 +41,8 @@ STUB = r"""
     group2:[{ name:'Ben Unknown (fake)', axiscare_id:'2', why:'active caregiver', avail_unknown:'Availability unknown: nothing on file', avail_state:'unknown' },
             { name:'Fran Overlap (fake)', axiscare_id:'6', why:'active caregiver', overlaps:['Said yes to another open shift then: Ida 08:00-10:00'] },
             { name:'Gus Busy (fake)', axiscare_id:'7', why:'active caregiver', working_then:{ detail:'2pm-6pm with Joe' } },
-            { name:'Hal Lapsed (fake)', axiscare_id:'8', why:'active caregiver', cleared_note:'Not cleared to work: OIG check over 30 days' }] };
+            ],
+    needs_verification:[{ name:'Hal Lapsed (fake)', axiscare_id:'8', why:'active caregiver', history:{ visits:3 }, needs_verification:'Needs Verification: OIG check over 30 days' }] };
   DATA.ops_settings={};
   DATA.coverage_cases=[
     { id:'crit', status:'open', reason:'call_off', client:'Critical Client (fake)', shift_date:dC, shift_time:tC+'-'+eC, asked:[], opened_at:iso(-30), admin_alerted:iso(-29), prebuilt:W.__cands, prebuilt_at:iso(-5) },
@@ -96,7 +97,7 @@ async()=>{
   const box=document.getElementById('tab-coverage').innerText;
   ok('picker: Unknown availability, overtime risk and the overlapping yes are shown', /Availability unknown: nothing on file/.test(box) && /Overtime risk: 38h/.test(box) && /Said yes to another open shift then/.test(box), box.slice(0,1500));
   const ck=n=>{ const el=[...document.querySelectorAll('input[data-pick="crit"]')].find(i=>i.value===n); return el&&el.checked; };
-  ok('picker: a lapsed check stays on the list with its note (never dropped), unticked so a person decides', ck('Hal Lapsed (fake)')===false && /Hal Lapsed \(fake\)[\s\S]{0,200}Not cleared to work: OIG check over 30 days/.test(box), box.slice(0,2500));
+  ok('picker: Needs Verification is listed with the reason so the office knows why, and has no tick box (cannot be offered)', /Needs Verification \(1\): can't be offered a shift until verified as eligible[\s\S]{0,80}Hal Lapsed \(fake\)[\s\S]{0,40}OIG check over 30 days/.test(box) && !document.querySelector('input[data-pick="crit"][value="Hal Lapsed (fake)"]'), box.slice(0,2500));
   ok('picker: overtime and overlapping people start unticked; Unknown stays ticked (shown, not hidden)', ck('Amy Fit (fake)')===true && ck('Dee Hours (fake)')===false && ck('Fran Overlap (fake)')===false && ck('Ben Unknown (fake)')===true);
   ok('picker: "Send Cara\'s list" is there, and the preview of the new list is offered (list switch off)', /Send Cara's list/.test(box) && /Compare with Cara's new list/.test(box));
   L.calls=[]; await CP1.previewList('crit'); await sleep(200);
