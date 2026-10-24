@@ -15,7 +15,7 @@ SERVER = r"""
   const DET=()=>({ ok:true, state:window.__state, caregiver_first:'Maria', prn:window.__prn, day:'Saturday, October 31', time:'8am to 5pm', hours:9, town:'Nixa', answered:null,
     client_first:'Ruth', about:'Ruth is a retired schoolteacher with a quick laugh. She loves her garden and a good cup of coffee in the afternoon.',
     enjoys:['Gardening','Old movies','Card games'], help:['Companionship','Meal preparation','Light housekeeping'], needs:["Dementia or Alzheimer's care"], home:['Cats in the home'], level:2,
-    care_line:'Coffee at 10 is her favorite part of the day', time_flex:'exact', flex_minutes:null, handoff_ok:true, scene:'garden', shift_from:'08:00', shift_to:'17:00', shift_key:'2026-10-31|08:00-17:00', pattern:window.__pattern });
+    care_line:'Coffee at 10 is her favorite part of the day', time_flex:'exact', flex_minutes:null, handoff_ok:window.__handoff!==false, scene:'garden', shift_from:'08:00', shift_to:'17:00', shift_key:'2026-10-31|08:00-17:00', pattern:window.__pattern });
   const real=window.fetch;
   window.fetch=async(url,o)=>{ url=String(url);
     if(url.includes('/functions/v1/caregiver-preview')){ const b=JSON.parse(o.body); window.__calls.push(Object.assign({fn:'caregiver-preview',auth:(o.headers||{}).Authorization||''},b));
@@ -94,6 +94,13 @@ with sync_playwright() as pw:
     t = pg.inner_text('body'); R.append(['PASS' if 'This week only' in t and 'The regular caregiver is back after this.' in t and 'as my regular shift' not in t else 'FAIL', 'a one-time cover: "This week only", and no regular-shift box', t[:400]])
     if SHOTS: pg.evaluate("()=>{ CHOICE=null; renderDetails(); window.scrollTo(0,0) }"); pg.wait_for_timeout(300); pg.screenshot(path=os.path.join(SHOTS, '3-this-week-only.png'), full_page=False)
     cx.close()
+    cx, pg, errs = page(b, '?c=cv1&a=ask_1&e=9999999999&t=' + 'x' * 43, "window.__handoff=false;")
+    pg.evaluate("()=>{ [...document.querySelectorAll('.ans')][1].click() }"); pg.wait_for_timeout(150)
+    t = pg.inner_text('body'); R.append(['PASS' if 'This shift needs one caregiver for the whole time. Send your hours anyway and the office will let you know if they can use them.' in t else 'FAIL', 'a whole-shift-only shift (exact time, no hand-off): part of it says so plainly', t[-600:]])
+    pg.evaluate("()=>{ window.__handoff=true }"); cx.close()
+    cx, pg, errs = page(b, '?c=cv1&a=ask_1&e=9999999999&t=' + 'x' * 43)
+    pg.evaluate("()=>{ [...document.querySelectorAll('.ans')][1].click() }"); pg.wait_for_timeout(150)
+    t = pg.inner_text('body'); R.append(['PASS' if 'needs one caregiver for the whole time' not in t and 'which part can you work?' in t.lower() else 'FAIL', 'hand-off allowed: no such note', t[-400:]]); cx.close()
     for st, want in (('closed', 'This shift has been covered. Thank you for looking!'), ('changed', "This shift's day or hours changed. The office will send you the new details."), ('gone', "This shift isn't available any more. Thank you!")):
         cx, pg, errs = page(b, '?c=cv1&a=ask_1&e=9999999999&t=' + 'x' * 43, "window.__state='" + st + "';")
         t = pg.inner_text('body'); R.append(['PASS' if want in t and 'Ruth' not in t and 'Maria' not in t else 'FAIL', 'state ' + st + ': only the message, nothing about the client', t[:300]]); cx.close()
