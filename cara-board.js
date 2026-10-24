@@ -144,6 +144,17 @@
       load(id);
     } catch (e) { alert('Not saved: ' + (e.message || e)); }
   }
+  /* PART SHIFTS THAT FIT TOGETHER (Cara Phase 2 Part A, her example 8a to 1p + 1p to 5p): shown for the office to consider.
+     Nothing is offered or confirmed from here; a hand-off is the office's call, and only where the shift allows it. */
+  function combosHtml(c, d) {
+    const cm = d.combos || [], nh = d.parts_without_hours || [];
+    if (!cm.length && !nh.length) return '';
+    return '<div style="margin-top:9px;padding:9px 11px;border:1px dashed #b9dbe0;border-radius:10px;background:#F5FAFB;font-size:13px;">'
+      + (cm.length ? '<b style="color:#14606F;">◐ Part shifts that fit together</b>' + cm.map((x) => '<div style="margin-top:4px;">' + E(x.first.name) + ' ' + E(x.first.from) + ' to ' + E(x.first.to) + ' + ' + E(x.second.name) + ' ' + E(x.second.from) + ' to ' + E(x.second.to)
+          + ' <span class="field-note">(hand-off at ' + E(x.handoff_at) + '. ' + E(x.note) + ')</span></div>').join('') : '')
+      + (nh.length ? '<div class="field-note" style="margin-top:' + (cm.length ? 6 : 0) + 'px;">Part of it, hours not given: ' + nh.map((x) => E(x.name) + (x.said ? ' (“' + E(x.said) + '”)' : '')).join(', ') + '</div>' : '')
+      + '<div class="field-note" style="margin-top:4px;">Cara keeps asking for one caregiver for the whole shift; these stay here for you to consider.</div></div>';
+  }
   /* the board for one case (an empty string when there is nothing to show yet) */
   function html(c) {
     if (!c || c.status !== 'open' || String(c.kind) === 'interest' || !(c.asked || []).length) return '';
@@ -158,6 +169,7 @@
       + (p.recommended ? '<span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--green-bg);color:var(--green);">Cara\'s pick</span>' : '')
       + (p.wants_regular ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:var(--green-bg);color:var(--green);">wants it every week</span>' : '')
       + (p.stale ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#f8e7e3;color:var(--red);">answered for old hours</span>' : '')
+      + ((d.declined || []).some((x) => x.ask_id === p.ask_id) ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#f1f3f6;color:var(--text-muted);">office: not this one</span>' : '')
       + ((p.concerns || []).some((x) => /Overtime risk/.test(x)) ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#FFF4E3;color:#8A4E0C;">overtime risk</span>' : '')
       + '</button>';
     const cols = COLS.map(([k, label, ic, fg, bg, bd]) => { const list = people.filter((p) => p.column === k);
@@ -173,6 +185,7 @@
       + profileNote(d)
       + rulesHtml(c, d)
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:9px;">' + cols + '</div>'
+      + combosHtml(c, d)
       + (waiting.length ? '<div class="field-note" style="margin-top:7px;">Not answered yet: ' + waiting.map((p) => '<a href="javascript:void(0)" onclick="CB.pick(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\')">' + E(p.name) + '</a>').join(', ') + '</div>' : '')
       + (sel ? drawer(c, sel) : '<div class="field-note" style="margin-top:7px;">Click a name to see exactly what they said and why Cara would or wouldn\'t pick them.</div>')
       + '</div>';
