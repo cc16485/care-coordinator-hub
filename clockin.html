@@ -68,6 +68,20 @@ async function call(action, extra){
   if(!r.ok) throw new Error((j&&j.error)||('Something went wrong ('+r.status+').'));
   return j;
 }
+/* CARA PHASE 3: what Cara read in each reply. Practice (switch off) says what it would do; a text is never arrival. */
+const READ_WORDS={ here:'says they are there', late:'says they are running late', cant:'says they can\'t come', unsure:'not sure they can come: needs clarification, call them', other:'something else' };
+function p3Reads(){
+  const P3=D.phase3||{}; let h='';
+  if(P3.here_claim) h+='<div class="note" style="margin-top:8px;"><b>'+esc(D.caregiver_first)+' texted that they are there</b> ('+esc(P3.here_claim.at)+'). That is not arrival: call '+esc(D.client_first)+' to confirm, then fix the clock-in in AxisCare.</div>';
+  (P3.reads||[]).forEach(r=>{ h+='<div class="note">Cara read: '+esc(READ_WORDS[r.kind]||r.kind)+(r.acted?'':'. Practice: '+esc(r.would||'nothing happens yet'))+'.</div>'; });
+  return h;
+}
+function handoffBox(){
+  const H=(D.phase3||{}).handoff; if(!H||!D.open) return '';
+  if(H.asked) return '<div class="card"><div class="done">'+esc(H.asked.by)+' asked '+esc(H.first)+' to stay ('+esc(H.asked.at)+').</div><div class="note">'+esc(H.first)+'\'s answer comes to the office line.</div></div>';
+  if(!(D.phase3||{}).handoff_live) return '<div class="card"><div class="note">'+esc(H.first)+' is on shift with '+esc(D.client_first)+' before this one. Asking them to stay is switched off.</div></div>';
+  return '<div class="card"><h2>'+esc(H.first)+' is there now</h2><button class="navy" id="bStay">Ask '+esc(H.first)+' to stay</button><div class="note">Texts '+esc(H.first)+' once: can you stay until '+esc(D.caregiver_first)+' gets there? Only when you tap.</div></div>';
+}
 function render(msg){
   const app=document.getElementById('app');
   if(!D){ app.innerHTML='<div class="card"><div class="err">'+esc(msg||'This link is not valid.')+'</div></div>'; return; }
@@ -78,7 +92,10 @@ function render(msg){
     +(D.open?'<span class="late">'+esc(D.minutes_past_start)+' min past start, no clock-in</span>':'')
     +'<div class="note">'+(D.texted_at?esc(D.caregiver_first)+' was texted at '+esc(D.texted_at)+'.':'No text went to '+esc(D.caregiver_first)+'.')+'</div>'
     +((D.replies||[]).length?'<div style="margin-top:10px;"><h2>'+esc(D.caregiver_first)+' replied</h2>'+D.replies.map(r=>'<div style="background:#F1F5F9;border-radius:10px;padding:8px 11px;margin-top:6px;font-size:14.5px;">'+esc(r.text)+'<div class="note">'+esc(r.at||'')+'</div></div>').join('')+'</div>':'')
+    +p3Reads()
     +'</div>';
+  /* CARA PHASE 3: who is on shift before them; one tap asks them to stay (switch late_handoff_live) */
+  h+=handoffBox();
   /* 432: what they said on a call (in or out, the office line), whether these texts are paused, and the family by a tap */
   const C=D.late_call;
   if(C){
@@ -123,6 +140,7 @@ function render(msg){
   on('bCov', ()=>act('coverage', ()=>({ note:(document.getElementById('note')||{}).value||'' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bCov2', ()=>act('coverage', ()=>({ note:'Said on the call' }), 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bSnooze', ()=>act('snooze'));
+  on('bStay', ()=>act('ask_stay', null, 'Text '+((D.phase3||{}).handoff||{}).first+' to ask if they can stay?'));
 }
 function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
   document.getElementById('cYes').onclick=()=>{ e.innerHTML=''; res(true); }; document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; res(false); }; }); }

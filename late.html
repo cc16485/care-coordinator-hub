@@ -84,7 +84,7 @@ function render(msg){
     +(D.call.missed_clockin_paused_until?'<div class="note">The missed clock-in texts to the admins are paused until '+esc(D.call.missed_clockin_paused_until)+'. If there\'s still no clock-in then, they start again.</div>':'')
     +'</div>';
   h+='<div class="card"><div class="big">'+esc(D.caregiver_first)+' · '+esc(D.client_first)+'\'s '+esc(D.shift_time)+' shift</div>'
-    +'<span class="late">'+(D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Running late, expected about '+esc(D.eta):'Running late, no time given yet'))+'</span>'
+    +'<span class="late">'+(D.kind==='cant_make_it'&&D.sure===false&&D.unsure_live?'Needs clarification: not sure they can make it. Call them.':D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Running late, expected about '+esc(D.eta):'Running late, no time given yet'))+'</span>'
     +(D.eta&&D.eta_by?'<div class="note">Time '+esc(D.eta_by)+'.</div>':'')
     +(D.sure===false?'<div class="note">The Hub wasn\'t sure which visit this is, or the message was unclear. Check with '+esc(D.caregiver_first)+'.</div>':'')
     +'<div style="margin-top:10px;"><h2>What '+esc(D.caregiver_first)+' said</h2>'+(D.said||[]).map(s=>'<div class="said">'+esc(s.text)+'<div class="note">'+(s.channel==='call'?'Call':'Text')+' at '+esc(s.at)+'</div></div>').join('')+'</div></div>';
@@ -94,6 +94,13 @@ function render(msg){
       +(D.kind==='late'?'<h2 style="margin-top:12px;">Change the time</h2><div class="note">If they told you a different time on the phone, or the Hub read it wrong.</div><div class="row"><input type="time" id="eta" value="'+esc(D.eta_hhmm||'')+'"><button class="ghost" id="bEta" style="margin-top:6px;">Save time</button></div>':'')
       +(D.kind==='cant_make_it'?'<button class="navy" id="bCov">Open a coverage case</button><div class="note">The call-in process takes the shift from there.</div>':'')
       +'</div>';
+  }
+  /* CARA PHASE 3: who is on shift before them; one tap asks them to stay (switch late_handoff_live) */
+  if(D.handoff&&!D.closed){
+    const H=D.handoff;
+    h+=H.asked?'<div class="card"><div class="done">'+esc(H.asked.by)+' asked '+esc(H.first)+' to stay ('+esc(H.asked.at)+').</div></div>'
+      :!D.handoff_live?'<div class="card"><div class="note">'+esc(H.first)+' is on shift with '+esc(D.client_first)+' before this one. Asking them to stay is switched off.</div></div>'
+      :'<div class="card"><h2>'+esc(H.first)+' is there now</h2><button class="navy" id="bStay">Ask '+esc(H.first)+' to stay</button><div class="note">Texts '+esc(H.first)+' once: can you stay until '+esc(D.caregiver_first)+' gets there? Only when you tap.</div></div>';
   }
   if(D.kind==='late'){
     h+='<div class="card"><h2>'+esc(D.client_first)+'\'s family</h2>';
@@ -122,6 +129,7 @@ function render(msg){
   on('bCov', ()=>act('coverage', null, 'Open a coverage case for this shift? The call-in process takes it from there.'));
   on('bFam', ()=>act('family', ()=>{ const t=((document.getElementById('famText')||{}).value||'').trim(); if(!t) throw new Error('The text is empty.'); return { text:t }; }, 'Text '+(F.first_names||[]).join(', ')+' now?'));
   on('bSkip', ()=>act('skip'));
+  on('bStay', ()=>act('ask_stay', null, 'Text '+(D.handoff||{}).first+' to ask if they can stay?'));
   on('bArr', ()=>act('arrived', ()=>({ text:((document.getElementById('arrText')||{}).value||'').trim() }), 'Tell the family '+D.caregiver_first+' arrived?'));
 }
 function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
