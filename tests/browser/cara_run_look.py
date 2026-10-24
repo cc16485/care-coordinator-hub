@@ -28,14 +28,14 @@ STUB = r"""
   const ev=(min,kind,actor,summary)=>({ at:iso(min), kind, actor, summary, run_no:1, detail:{} });
   W.__states={
     running:{ run:{ case_id:'r1', status:'running', practice:false, started_by:'Kay Coord (fake)', started_at:iso(-40), wave:2, wave_base:0, next_wave_at:iso(15), declined:[] },
-      events:[ev(-40,'started','Kay Coord (fake)','Kay Coord (fake) let Cara run it. Waves of 5, 20 minutes apart, 3 at most.'), ev(-40,'wave','Cara','Wave 1 sent to 5: Pat Prn (fake), Maria Lane (fake), Dee Hours (fake), Jess Part (fake), Hal Hill (fake). Next wave not before 9:20am.'),
-        ev(-20,'wave','Cara','Wave 2 sent to 5: Ann A (fake), Bo B (fake), Cy C (fake), Di D (fake), Ed E (fake). Next wave not before 9:40am.')],
+      events:[ev(-40,'started','Kay Coord (fake)','Kay Coord (fake) let Cara run it. Waves of 5, 20 minutes apart, 3 at most.'), ev(-40,'wave','Cara','Wave 1 sent to 5: Pat Prn (fake), Maria Lane (fake), Dee Hours (fake), Jess Part (fake), Hal Hill (fake).'),
+        ev(-20,'wave','Cara','Wave 2 sent to 5: Ann A (fake), Bo B (fake), Cy C (fake), Di D (fake), Ed E (fake).')],
       asks:[{ id:'a1', name:'Pat Prn (fake)', wave:1, state:'no' }, { id:'a2', name:'Maria Lane (fake)', wave:1, state:'waiting' }, { id:'a3', name:'Jess Part (fake)', wave:1, state:'yes' }, { id:'a9', name:'Ann A (fake)', wave:2, state:'waiting' }],
       needs:null, switch_on:true, live:true, practice_only:false, can_start:false, start_refused:null, rules },
   };
   W.__states.paused=JSON.parse(JSON.stringify(W.__states.running));
   Object.assign(W.__states.paused.run,{ status:'paused', paused_ask_id:'a2', paused_name:'Maria Lane (fake)', paused_at:iso(-2), confirm_by:iso(18) });
-  W.__states.paused.events.push(ev(-2,'paused','Cara','Maria Lane (fake) said yes to the whole shift. Cara stopped asking and told the office (texted 2). Waiting for a confirm until 9:58am.'));
+  W.__states.paused.events.push(ev(-2,'paused','Cara','Maria Lane (fake) said yes to the whole shift. Cara stopped asking and told the office (texted 2). Waiting for a confirm.'));
   W.__states.paused.needs='Confirm Maria Lane (fake) in AxisCare, or tap "Not this one" so Cara keeps asking';
   W.__states.needs=JSON.parse(JSON.stringify(W.__states.running));
   Object.assign(W.__states.needs.run,{ status:'needs_office', wave:3, needs:'3 waves sent and no full-shift yes that can be confirmed', declined:[{ ask_id:'a2', name:'Maria Lane (fake)', by:'Kay Coord (fake)', why:'too far' }] });
@@ -118,7 +118,8 @@ with sync_playwright() as pw:
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
     if SHOT:   # the panel paused on a yes, with the board below
-        pg.evaluate("()=>{ DATA.ops_settings={ cara_run_live:true, cara_board_live:true }; Object.assign(window.__run, JSON.parse(JSON.stringify(window.__states.paused))); DATA.coverage_cases[0].asked=[{ id:'a2', name:'Maria Lane (fake)', state:'yes' }, { id:'a3', name:'Jess Part (fake)', state:'yes', answer_kind:'part' }, { id:'a4', name:'Hal Hill (fake)', state:'yes', answer_kind:'part' }]; window.__board.declined=[]; switchTab('coverage'); caraShowCase('r1'); CRUN.load('r1'); }"); pg.wait_for_timeout(1200)
+        pg.evaluate("()=>{ DATA.ops_settings={ cara_run_live:true, cara_board_live:true }; Object.assign(window.__run, JSON.parse(JSON.stringify(window.__states.paused))); DATA.coverage_cases[0].asked=[{ id:'a2', name:'Maria Lane (fake)', state:'yes' }, { id:'a3', name:'Jess Part (fake)', state:'yes', answer_kind:'part' }, { id:'a4', name:'Hal Hill (fake)', state:'yes', answer_kind:'part' }]; window.__board.declined=[]; switchTab('coverage'); caraShowCase('r1'); CRUN.load('r1'); CB.load('r1'); }"); pg.wait_for_timeout(1200)
+        pg.evaluate("()=>{ CB.pick('r1','a2'); }"); pg.wait_for_timeout(400)
         pg.evaluate("()=>{ document.querySelectorAll('#crun_r1 details').forEach(d=>d.open=true); }")
         pg.add_style_tag(content='header.topbar{position:static!important}'); el = pg.query_selector('#tab-coverage'); (el or pg).screenshot(path=SHOT)
     b.close()
