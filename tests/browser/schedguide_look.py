@@ -18,12 +18,13 @@ async()=>{
   last.click(); await sleep(250);
   const P=document.getElementById('tab-schedguide'), t=P.innerText;
   ok('it opens inside Scheduling with its own title', activeTab==='schedguide' && document.querySelector('.ftab.active,.ftab.on')?.dataset.g==='scheduling' && /How scheduling works/.test(t), [activeTab]);
-  ok('which tab for which problem: 10 rows', P.querySelectorAll('table tr').length===10 && /A caregiver calls off/.test(t) && /Client Care: Team Builder/.test(t), P.querySelectorAll('table tr').length);
+  ok('which tab for which problem: 11 rows (2026-10-24: + a client cancels or we can\'t staff; Team Builder is Caregiver Matching now)', P.querySelectorAll('table tr').length===11 && /A caregiver calls off/.test(t) && /Scheduling: Caregiver Matching/.test(t) && /Client Cancelled Shift/.test(t), P.querySelectorAll('table tr').length);
   [...P.querySelectorAll('table a')].find(a=>/Missed clock-ins/.test(a.textContent)).click(); await sleep(200);
   ok('a row\'s link goes to that tab (Cara, Missed clock-ins & outs)', activeTab==='coverage' && COV_SUB==='clockins', [activeTab, COV_SUB]);
   switchTab('schedguide'); await sleep(200);
   const t2=document.getElementById('tab-schedguide').innerText;
-  ok('step-by-step guides: call-off, clock-in, open hours, team, EVV, one visit', ['A caregiver calls off','Someone hasn','Regular open hours','Building a new client','Fixing an EVV record','Changing one visit'].every(x=>t2.includes(x)), t2.slice(0,300));
+  ok('step-by-step guides: call-off, which reason, clock-in, open hours, team, missing clock-in/out, one visit', ['A caregiver calls off','Which reason to pick in AxisCare','Someone hasn','Regular open hours','Building a new client','A missing clock-in or clock-out','Changing one visit'].every(x=>t2.includes(x)), t2.slice(0,300));
+  ok('2026-10-24: the reasons by name with what Cara does, the board, Send Cara\'s list and Let Cara run it', ['Caregiver Called Off','Caregiver No Show','Office Changed Caregiver','Client Cancelled Shift','Office Unable to Staff','Client Added or Changed Visit','Office Entry Error','Send Cara\'s list','Who answered','Let Cara run it'].every(x=>document.getElementById('tab-schedguide').textContent.includes(x)), ['Caregiver Called Off','Caregiver No Show','Office Changed Caregiver','Client Cancelled Shift','Office Unable to Staff','Client Added or Changed Visit','Office Entry Error','Send Cara\'s list','Who answered','Let Cara run it'].filter(x=>!document.getElementById('tab-schedguide').textContent.includes(x)));
   ok('the clock-in guide uses the live minutes (7)', /About 7 minutes after a shift starts/.test(document.getElementById('tab-schedguide').innerHTML));
   ok('texts word for word: her own words when set, marked', /our own words for \{client\}/.test(t2) && /your own words/.test(t2), '');
   ok('...the standard wording otherwise (open hours, from Settings)', /We have regular hours open in \{town\}/.test(t2) && /Thanks, \{first_name\}! We got your answer/.test(t2));
