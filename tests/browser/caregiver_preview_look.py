@@ -33,7 +33,7 @@ STUB = r"""
       care:{ readable:true, draft_on:S.dOn, approved_on:S.aOn, review:S.review, items:ITEMS.map(x=>({...x, draft:!S.hidden.includes(x.key), approved:S.aOn&&S.aKeys.includes(x.key)})) },
       state:{ label, tone:S.review?'review':(iP||cP)?'draft':(S.a.about||S.aOn)?'approved':'none', intro_pending:iP, care_pending:cP, care_review:S.review, carried:S.carried, last_approved:S.last },
       can:{ edit:true, approve_intro:iP, approve_care:cP&&!second, why:second?'You changed the care summary, so someone else approves it (a second look for care details).':'' },
-      approvers:['Samantha','Zach','Krystal'], history:S.hist.slice().reverse() }; };
+      approvers:['Samantha','Zach','Krystal'], history:S.hist.slice().reverse(), suggestions:(S.sugg||[]).filter(x=>!x.closed) }; };
   const real=W.fetch;
   W.fetch=async(url,o)=>{ url=String(url); if(!url.includes('/functions/v1/caregiver-preview')) return real(url,o);
     const b=JSON.parse(o.body); W.__log.calls.push(b); const R=(x,s)=>new Response(JSON.stringify(x),{status:s||200});
@@ -44,6 +44,7 @@ STUB = r"""
     if(b.action==='approve'){ const v=view(), did=[]; if(v.can.approve_intro){ S.a={...S.d}; S.carried=false; did.push('the introduction'); } if(v.can.approve_care){ S.aOn=S.dOn; S.aHidden=[...S.hidden]; S.aKeys=ITEMS.filter(x=>!S.hidden.includes(x.key)).map(x=>x.key); S.review=false; S.careBy=null; did.push('the care summary'); }
       if(!did.length) return R({ error:v.can.why||'Nothing is waiting for approval.' },409);
       S.last={ at:new Date().toISOString(), by:NAMES[S.who] }; S.hist.push({ at:S.last.at, by:NAMES[S.who], what:'approved '+did.join(' and ') }); return R({ ...view(), approved:did, note:v.can.why||null }); }
+    if(b.action==='suggestion_close'){ const x=(S.sugg||[]).find(y=>y.id===b.id); if(!x||x.closed) return R({ error:'Someone already handled that suggestion.' },409); x.closed=b.used?'used':'not_used'; }
     return R(view()); };
   DATA.ops_settings={};
 })();
@@ -108,7 +109,17 @@ async()=>{
   ok('an empty Life Story: says what to do, fills nothing', /Nothing in Ruth's Life Story yet/.test(tab()) && !/AI draft, not saved yet/.test(tab()));
   DATA.ops_settings={ cgp_ai_draft_live:true }; (0,eval)("CC_ROLES=['care_coordinator']"); await CGP.load(); await sleep(50);
   ok('AI draft, switch on: coordinators see the button (no practice note)', /Draft it from the Life Story/.test(tab()) && !/Practice: only owners see this/.test(tab()));
-  ok('nothing sent: only the Caregiver Preview server was asked (get, save, approve, draft)', L.calls.every(x=>['get','save','approve','draft'].includes(x.action)));
+  /* From the family (2026-10-25): suggestions from the Booking App wait here; nothing changes by itself */
+  ok('no suggestions: no From the family card', !/From the family/.test(tab()));
+  S.sugg=[{ id:7, contact_name:'Lisa Kay', text:'Mom goes by Ruthie, and she loves Wheel of Fortune.', created_at:'2026-10-25T15:00:00Z' }, { id:8, contact_name:'Tom Kay', text:'No cats anymore.', created_at:'2026-10-25T16:00:00Z' }];
+  await CGP.load(); await sleep(50);
+  ok('From the family (2): each suggestion with who sent it, and that caregivers don\'t see these', /From the family \(2\)/.test(tab()) && /Mom goes by Ruthie/.test(tab()) && /Lisa Kay/.test(tab()) && /Caregivers don't see these/.test(tab()), tab().slice(0,600));
+  const draftBefore=S.d.about;
+  CGP.suggestion(7,true); await sleep(200);
+  ok('Used it: closes that one only; the draft is unchanged (the office edits it themselves)', /From the family \(1\)/.test(tab()) && !/Mom goes by Ruthie/.test(tab()) && /No cats anymore/.test(tab()) && S.d.about===draftBefore && L.calls.some(c=>c.action==='suggestion_close'&&c.id===7&&c.used===true));
+  CGP.suggestion(8,false); await sleep(200);
+  ok('Not using it: the card goes away when none are left', !/From the family/.test(tab()) && L.calls.some(c=>c.action==='suggestion_close'&&c.id===8&&c.used===false));
+  ok('nothing sent: only the Caregiver Preview server was asked (get, save, approve, draft, suggestion_close)', L.calls.every(x=>['get','save','approve','draft','suggestion_close'].includes(x.action)));
   /* Family & Contacts */
   const circ={ id:'cc1', client_name:'Ruth Kay', caregiver_about:'Ruth loves her garden.' };
   let box=FAMAPP.aboutBox(circ,'cp_','Ruth Kay');
