@@ -21,7 +21,8 @@ async (mode) => {
     review: [ { name: 'Jody Dake', kind: 'call', label: 'Overtime', why: 'Overtime risk: 50h already this week + 8h = 58h', contacted: C('', 'no', '2026-10-25T00:42:00Z') },
               { name: 'Deborah Hall', kind: 'call', label: 'Overtime', why: 'Overtime risk: 34h already this week + 8h = 42h', contacted: null } ],
     dont: [ { name: 'Mary Evans', label: 'Clearance', why: 'Needs Verification: dementia training' }, { name: 'Ariel Smith', label: 'In Training', why: 'In Training' }, { name: 'Katie Parker', label: 'Called off', why: 'the person who called off' } ],
-    hidden: 31 };
+    hidden: 31, meta: { schedule: { checked: true, held: null } } };
+  if (mode === 'held') { LIST.ready = []; LIST.review = []; LIST.meta.schedule = { checked: false, held: "AxisCare's schedule could not be read (AxisCare responded 503)" }; }
   const RUN = { run: { status: 'running', next_wave_at: new Date(Date.now() + 5 * 60000).toISOString() }, rules: { size: 10, gap: 5, urgent: true }, events: [] };
   const realFetch = window.fetch;
   window.fetch = async (u, o) => { if (String(u).includes('/functions/v1/coverage-run')) { const b = JSON.parse(o.body); sent.push(b);
@@ -31,7 +32,7 @@ async (mode) => {
       return new Response(JSON.stringify({ sent: b.recipients || [], failed: [] }), { status: 200 }); }
     return realFetch(u, o); };
   window.ccConfirm = async () => true; window.alert = () => {};
-  DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { simple_card_live: mode === 'on', cara_board_live: true, cara_run_live: true });
+  DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { simple_card_live: mode === 'on' || mode === 'held', cara_board_live: true, cara_run_live: true });
   window.ccCan = () => mode === 'owner';
   try { localStorage.removeItem('simple_card_preview'); } catch (e) {}
   DATA.coverage_cases = [kase];
@@ -55,7 +56,7 @@ async (mode) => {
 R = {}
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
-    for mode in ('office_off', 'owner', 'on'):
+    for mode in ('office_off', 'owner', 'on', 'held'):
         pg = b.new_page(viewport={'width': 1200, 'height': 1600})
         pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
         pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
@@ -86,4 +87,5 @@ ck('everything else is folded under "More for this shift"', 'More for this shift
 ck('reasons read plainly ("Worked in the last 2 weeks · availability not on file")', 'Worked in the last 2 weeks · availability not on file' in t and '(Unknown)' not in t, t)
 ck('after sending, nothing ticked: no "Text the 0 ticked" button', 'Text the 0 ticked' not in R['on'].get('after', '') and 'Tick people to text them now' in R['on'].get('after', ''), R['on'].get('after', '')[:600])
 ck('"Text the 3 ticked" sends exactly the 3 next in line', R['on']['sent'] and R['on']['sent'][0]['recipients'] == ['Grace Levering', 'Karlesa Alejandro', 'Ashley Lloyd'], R['on'].get('sent'))
+ck('AxisCare unreadable: the card says so first and that nobody is texted', "AxisCare's schedule could not be read (AxisCare responded 503). Nobody is texted until it can be checked" in R['held']['txt'], R['held']['txt'][:500])
 print(f'simple_card_look: {ok} passed, {fail} failed'); raise SystemExit(1 if fail else 0)

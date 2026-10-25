@@ -59,7 +59,10 @@
     const ctl = !r || r.status === 'stopped' || r.status === 'needs_office' ? (window.CRUN ? btn(r ? 'Let Cara keep asking' : 'Let Cara run it', 'CRUN.start(\'' + id + '\')', '') : '')
       : (r.status === 'running' || r.status === 'paused') && window.CRUN ? btn('Stop Cara', 'CRUN.stop(\'' + id + '\')', '') : '';
     const chip = (t, color) => '<span style="background:#fff;border-radius:8px;padding:4px 10px;font-weight:600;font-size:13px;' + (color ? 'color:' + color + ';' : '') + '">' + t + '</span>';
-    return '<div style="background:#E6F4F3;border-radius:12px;padding:12px 14px;margin-top:10px;display:flex;flex-direction:column;gap:8px;">'
+    /* her top priority (2026-10-25): AxisCare's schedule could not be read = nobody is texted; say so first */
+    const held = s.list && s.list.meta && s.list.meta.schedule && s.list.meta.schedule.held;
+    return (held ? '<div role="alert" style="margin-top:10px;background:#FDECEA;color:#B42318;border-radius:10px;padding:10px 14px;font-weight:600;">' + E(held) + '. Nobody is texted until it can be checked, so nobody gets offered a shift that clashes with one they already have. Try again in a minute, or call people.</div>' : '')
+      + '<div style="background:#E6F4F3;border-radius:12px;padding:12px 14px;margin-top:10px;display:flex;flex-direction:column;gap:8px;">'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;"><div style="font-size:14.5px;min-width:0;">' + status + '</div>' + ctl + '</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + chip(tx.length + ' texted') + chip(wait + ' waiting') + chip(no + ' said no') + (yes ? chip(yes + ' said yes', '#1D6B43') : chip('Nobody has said yes yet', '#8A4416'))
       + (r && r.status === 'running' && r.next_wave_at && Date.parse(r.next_wave_at) > Date.now() ? chip('Next wave at ' + E(clock(r.next_wave_at))) : '') + '</div></div>';
