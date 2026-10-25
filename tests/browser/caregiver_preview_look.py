@@ -33,7 +33,7 @@ STUB = r"""
       care:{ readable:true, draft_on:S.dOn, approved_on:S.aOn, review:S.review, items:ITEMS.map(x=>({...x, draft:!S.hidden.includes(x.key), approved:S.aOn&&S.aKeys.includes(x.key)})) },
       state:{ label, tone:S.review?'review':(iP||cP)?'draft':(S.a.about||S.aOn)?'approved':'none', intro_pending:iP, care_pending:cP, care_review:S.review, carried:S.carried, last_approved:S.last },
       can:{ edit:true, approve_intro:iP, approve_care:cP&&!second, why:second?'You changed the care summary, so someone else approves it (a second look for care details).':'' },
-      approvers:['Samantha','Zach','Krystal'], history:S.hist.slice().reverse(), suggestions:(S.sugg||[]).filter(x=>!x.closed) }; };
+      approvers:['Samantha','Zach','Krystal'], history:S.hist.slice().reverse(), suggestions:(S.sugg||[]).filter(x=>!x.closed), family:S.family||null }; };
   const real=W.fetch;
   W.fetch=async(url,o)=>{ url=String(url); if(!url.includes('/functions/v1/caregiver-preview')) return real(url,o);
     const b=JSON.parse(o.body); W.__log.calls.push(b); const R=(x,s)=>new Response(JSON.stringify(x),{status:s||200});
@@ -44,6 +44,8 @@ STUB = r"""
     if(b.action==='approve'){ const v=view(), did=[]; if(v.can.approve_intro){ S.a={...S.d}; S.carried=false; did.push('the introduction'); } if(v.can.approve_care){ S.aOn=S.dOn; S.aHidden=[...S.hidden]; S.aKeys=ITEMS.filter(x=>!S.hidden.includes(x.key)).map(x=>x.key); S.review=false; S.careBy=null; did.push('the care summary'); }
       if(!did.length) return R({ error:v.can.why||'Nothing is waiting for approval.' },409);
       S.last={ at:new Date().toISOString(), by:NAMES[S.who] }; S.hist.push({ at:S.last.at, by:NAMES[S.who], what:'approved '+did.join(' and ') }); return R({ ...view(), approved:did, note:v.can.why||null }); }
+    if(b.action==='remove_photo'){ S.family.photo=null; S.hist.push({ at:new Date().toISOString(), by:NAMES[S.who], what:'removed the photo' }); }
+    if(b.action==='use_family_words'){ S.d.about=S.family.about; S.d.enjoys=S.family.enjoys.slice(); S.hist.push({ at:new Date().toISOString(), by:NAMES[S.who], what:"changed About (from the family's Booking App profile)" }); }
     if(b.action==='suggestion_close'){ const x=(S.sugg||[]).find(y=>y.id===b.id); if(!x||x.closed) return R({ error:'Someone already handled that suggestion.' },409); x.closed=b.used?'used':'not_used'; }
     return R(view()); };
   DATA.ops_settings={};
@@ -119,7 +121,22 @@ async()=>{
   ok('Used it: closes that one only; the draft is unchanged (the office edits it themselves)', /From the family \(1\)/.test(tab()) && !/Mom goes by Ruthie/.test(tab()) && /No cats anymore/.test(tab()) && S.d.about===draftBefore && L.calls.some(c=>c.action==='suggestion_close'&&c.id===7&&c.used===true));
   CGP.suggestion(8,false); await sleep(200);
   ok('Not using it: the card goes away when none are left', !/From the family/.test(tab()) && L.calls.some(c=>c.action==='suggestion_close'&&c.id===8&&c.used===false));
-  ok('nothing sent: only the Caregiver Preview server was asked (get, save, approve, draft, suggestion_close)', L.calls.every(x=>['get','save','approve','draft','suggestion_close'].includes(x.action)));
+  /* The family's own Booking App profile (2026-10-25): separate, shown to read, copied only on purpose */
+  ok('no family profile: no family card', !/The family's Booking App profile/.test(tab()));
+  S.family={ written:true, about:'Mom taught third grade for 30 years.', enjoys:['Roses','Cardinals'], life:[{label:'Loves to talk about',text:'Her grandkids'}], updated_by:'Lisa Kay', updated_at:'2026-10-25T15:00:00Z', history:[{ at:'2026-10-25T15:00:00Z', by:'Lisa Kay', changes:[{field:'About', before:'Mom taught school.', after:'Mom taught third grade for 30 years.'}] }] };
+  const before=S.d.about; await CGP.load(); await sleep(50);
+  ok('the family card: their words, who wrote it, separate from shifts', /The family's Booking App profile/.test(tab()) && /taught third grade/.test(tab()) && /Her grandkids/.test(tab()) && /Lisa Kay/.test(tab()) && /neither changes the other/.test(tab()), tab().slice(0,700));
+  ok('looking changes nothing: the office draft is untouched', S.d.about===before);
+  CGP.useFamily(); await sleep(200);
+  ok('Use the family\'s words: copied into the office draft only (waiting for approval)', S.d.about==='Mom taught third grade for 30 years.' && /Changes waiting for approval/.test(tab()) && L.calls.some(c=>c.action==='use_family_words'));
+  /* the client's photo (2026-10-25) */
+  S.family.written=true; S.family.photo={ url:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', view:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', by:'Lisa Kay', at:'2026-10-25T15:30:00Z', ai:'checked' };
+  await CGP.load(); await sleep(50);
+  const dl=[...document.querySelectorAll('#cgpHost a')].find(a=>/Download for AxisCare/.test(a.textContent));
+  ok('the photo: who added it, only confirmed caregivers see it, Download for AxisCare (a download link), how to add it in AxisCare', /Photo added by Lisa Kay/.test(tab()) && /Only the caregiver confirmed/.test(tab()) && !!dl && dl.hasAttribute('download') && /upload it to the photo spot/.test(tab()) && !!document.querySelector('#cgpHost img'), tab().slice(0,800));
+  CGP.removePhoto(); await sleep(250);
+  ok('Remove photo: asks, then removes it', !/Photo added by/.test(tab()) && L.calls.some(c=>c.action==='remove_photo'));
+  ok('nothing sent: only the Caregiver Preview server was asked', L.calls.every(x=>['get','save','approve','draft','suggestion_close','use_family_words','remove_photo'].includes(x.action)));
   /* Family & Contacts */
   const circ={ id:'cc1', client_name:'Ruth Kay', caregiver_about:'Ruth loves her garden.' };
   let box=FAMAPP.aboutBox(circ,'cp_','Ruth Kay');
