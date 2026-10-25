@@ -113,6 +113,18 @@
     const two = '<div class="field-note" style="margin-top:8px;">Showing caregivers more care detail needs a second person to approve.</div>';
     return head + review + toggle + (rows ? '<div style="margin-top:8px;">' + rows + '</div>' : '') + none + (c.draft_on ? two : '') + '</div>';
   }
+  /* FROM THE FAMILY (2026-10-25): suggestions sent from the Booking App's "What caregivers see". Nothing changes by itself:
+     use it by editing the draft below and approving as usual, then mark it Used; or Not using it. */
+  function familyCard() {
+    const list = V.suggestions || [];
+    if (!list.length) return '';
+    return '<div class="card" style="padding:14px 16px;margin-top:12px;border-color:#F3D9B5;background:#FFFBF4;"><div style="font-weight:800;color:var(--navy);font-size:15px;">From the family (' + list.length + ')</div>'
+      + '<div class="field-note" style="margin:2px 0 8px;">Sent from the Booking App. Caregivers don\'t see these. To use one, change the draft below and approve it as usual.</div>'
+      + list.map((x) => '<div style="padding:8px 0;border-top:1px dashed var(--border);"><div style="font-size:14px;white-space:pre-wrap;">' + E(x.text) + '</div>'
+        + '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px;"><span class="field-note" style="flex:1;">' + E(x.contact_name || 'A family member') + ', ' + E(when(x.created_at)) + '</span>'
+        + '<button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.suggestion(' + Number(x.id) + ',true)"' + (busy ? ' disabled' : '') + '>Used it</button>'
+        + '<button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.suggestion(' + Number(x.id) + ',false)"' + (busy ? ' disabled' : '') + '>Not using it</button></div></div>').join('') + '</div>';
+  }
   function historyCard() {
     if (!V.history.length) return '';
     return '<div class="card" style="padding:12px 16px;margin-top:12px;"><div style="font-weight:800;color:var(--navy);font-size:13.5px;">Recent changes</div>'
@@ -123,7 +135,7 @@
     h.innerHTML = (V.live ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FFFBF4;border-color:#F3D9B5;font-size:13px;"><b>Practice.</b> Caregivers don\'t see this tab\'s version yet. Shift offers still use the About on Family &amp; Contacts until the Caregiver Preview switch is on.</div>')
       + '<div class="card" style="padding:14px 16px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">What caregivers see about ' + E(first()) + '</div>'
       + '<div class="field-note" style="margin:2px 0 10px;">Shown when a caregiver is offered a shift with ' + E(first()) + ' (Cara\'s shift page and the Booking App). Incomplete is fine: offers still go out with just the shift.</div>'
-      + statusBar() + previewBox() + '</div>' + introCard() + careCard() + historyCard();
+      + statusBar() + previewBox() + '</div>' + familyCard() + introCard() + careCard() + historyCard();
   }
 
   async function act(body, done) {
@@ -160,6 +172,7 @@
     busy = false; render();
   }
   function dropDraft() { ai = null; aiMsg = ''; render(); }
+  const suggestion = (id, used) => act({ action: 'suggestion_close', id, used: !!used }, used ? 'Marked as used.' : 'Marked as not used.');
 
-  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft };
+  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft, suggestion };
 })();
