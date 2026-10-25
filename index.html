@@ -19742,6 +19742,7 @@ async function cgdPrnMount(c){
         ? kv('Days', esc(words(p.days, AP_PRN_DAY)) || '<span class="field-note">none given</span>')
           + kv('Times', esc(words(p.times, AP_PRN_TIME)) || '<span class="field-note">none given</span>')
           + kv('Notice', esc(AP_PRN_NOTICE[p.notice] || '') || '<span class="field-note">not given</span>')
+          + cgdPrnShortRow(tr.applicant_id, p, kv)
           + kv('Interested in', esc(words(p.interests, AP_PRN_INT)) || '<span class="field-note">nothing picked</span>')
           + (function(){ const mine=(PRN_T.shifts||[]).filter(x=>String(x.axiscare_caregiver_id)===String(c.id));
               const took=mine.filter(x=>x.kind==='confirmed'), out=mine.filter(x=>x.kind==='backed_out');
@@ -19772,6 +19773,36 @@ async function cgdPrnMount(c){
           + (h.from_track ? esc(prnTrackWord(h.from_track, h.from_team || prnTeamOf(tr))) + ' ' + esc(prnMoney(h.from_rate)) + ' → ' : '') + '<b>' + esc(prnTrackWord(h.to_track, h.to_team || prnTeamOf(tr))) + ' ' + esc(prnMoney(h.to_rate)) + '</b>'
           + ' · ' + esc(h.changed_by) + ' · ' + esc(h.reason) + '</div>').join('') + '</details>' : ''));
   host.dataset.app = tr.applicant_id; host.dataset.from = tr.track; host.dataset.team = prnTeamOf(tr);
+}
+/* SHORT NOTICE (Samantha 2026-10-24, Cara's wave rules): a PRN member who asked for more notice than a shift gives is never
+   offered it on short notice, unless they told the office it's OK. "Call-offs and same-day" ticked with 24 or 48 hours'
+   notice is a question to ask them, never decided for them. The answer is recorded here (prn-team short_notice). */
+const PRN_SN_HOW = { call:'by phone', text:'by text', in_person:'in person' };
+function cgdPrnShortRow(appId, p, kv){
+  const esc = escapeHtmlComms, notice = String(p.notice || '');
+  if(!notice || notice === 'same_day') return '';
+  const nw = esc(AP_PRN_NOTICE[notice] || notice), rec = p.short_notice || null;
+  const conflict = (Array.isArray(p.interests) ? p.interests : []).indexOf('calloffs') > -1 && typeof p.short_notice_ok !== 'boolean';
+  const state = rec
+    ? (rec.ok ? '<b style="color:var(--green);">Short notice OK</b>: Cara may ask them about shifts with less notice.' : '<b>Keep their notice</b> (' + nw + '): no short-notice shifts.')
+      + ' <span class="field-note">(' + esc(rec.by || '') + ', ' + esc(prnDate(String(rec.at || '').slice(0, 10))) + ', ' + esc(PRN_SN_HOW[rec.how] || rec.how || '') + (rec.note ? ': "' + esc(rec.note) + '"' : '') + ')</span>'
+    : conflict
+    ? '<b style="color:#B45309;">To clarify:</b> they picked "Call-offs and same-day" but asked for ' + nw + ' notice. Until someone asks them, Cara won\'t offer them shifts on shorter notice.'
+    : 'Not asked. Cara keeps to their ' + nw + ' notice.';
+  const form = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;">'
+    + '<select id="cgdSnHow" style="width:auto;"><option value="call">They told us by phone</option><option value="text">By text</option><option value="in_person">In person</option></select>'
+    + '<input id="cgdSnNote" maxlength="300" placeholder="Their words (optional)" style="flex:1;min-width:160px;">'
+    + '<button class="fb" onclick="cgdPrnShort(\'' + esc(appId) + '\',true,this)">Short notice is OK</button>'
+    + '<button class="fb" onclick="cgdPrnShort(\'' + esc(appId) + '\',false,this)">Keep their notice</button>'
+    + '<span class="field-note" id="cgdSnMsg"></span></div>';
+  return kv('Short notice', '<div>' + state + '</div>' + (rec ? '<details style="margin-top:4px;"><summary class="field-note" style="cursor:pointer;">Change their answer</summary>' + form + '</details>' : form));
+}
+async function cgdPrnShort(appId, ok, btn){
+  const how = (document.getElementById('cgdSnHow')||{}).value || 'call', note = ((document.getElementById('cgdSnNote')||{}).value || '').trim();
+  const msg = document.getElementById('cgdSnMsg'); btn.disabled = true;
+  try{ await prnCall({ action:'short_notice', applicant_id:appId, ok, how, note });
+       await cgdPrnAfter(ok ? 'Recorded: short notice is OK.' : 'Recorded: keep their notice.'); }
+  catch(e){ btn.disabled = false; if(msg) msg.textContent = 'Could not save: ' + (e && e.message || 'error'); }
 }
 function cgdPrnMoveOpen(to){
   const f = document.getElementById('cgdPrnMove'), host = document.getElementById('cgdPrn'); if(!f || !host) return;
