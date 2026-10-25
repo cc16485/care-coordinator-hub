@@ -113,6 +113,7 @@
     if (S.err) h += '<div style="color:var(--red);margin-top:10px;">' + E(S.err) + '</div>';
     else if (!d) h += '<div class="field-note" style="margin-top:12px;">Building the list…</div>';
     else {
+      if (d.meta && d.meta.schedule && d.meta.schedule.held) h += '<div role="alert" style="margin-top:10px;background:#FDECEA;color:#B42318;border-radius:10px;padding:9px 12px;font-weight:600;">' + E(d.meta.schedule.held) + '. Nobody is texted until it can be checked.</div>';
       h += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">' + chip('Ready to ask · ' + d.ready.length + ' (' + d.ready.filter((x) => x.contacted).length + ' contacted)', '#E8F5EE', '#1D6B43')
         + chip('Possible with your review · ' + d.review.length, '#FFF3DC', '#8A5300') + chip('Do not ask · ' + d.dont.length, '#F2F4F7', '#475467') + '</div>';
       h += group('1. Ready to ask', 'Cara contacts these by herself: familiar first, then the PRN Team, then everyone else who qualifies.', '#E8F5EE', '#1D6B43',

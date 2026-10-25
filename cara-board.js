@@ -156,7 +156,10 @@
       + '<div class="field-note" style="margin-top:4px;">Cara keeps asking for one caregiver for the whole shift; these stay here for you to consider.</div></div>';
   }
   /* the board for one case (an empty string when there is nothing to show yet) */
-  function html(c) {
+  /* o.compact (the simple case card, 2026-10-24): only Yes / Part of the shift / Question; a "no" and the wait list live on the
+     card's own list, and the time and hand-off settings under "More for this shift" */
+  function html(c, o) {
+    o = o || {};
     if (!c || c.status !== 'open' || String(c.kind) === 'interest' || !(c.asked || []).length) return '';
     const st = ST[c.id];
     if (!st || st.key !== keyOf(c)) { if (!(st && st.loading)) setTimeout(() => load(c.id), 0); return '<div class="field-note" style="margin-top:9px;">Cara is sorting the answers…</div>'; }
@@ -172,7 +175,7 @@
       + ((d.declined || []).some((x) => x.ask_id === p.ask_id) ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#f1f3f6;color:var(--text-muted);">office: not this one</span>' : '')
       + ((p.concerns || []).some((x) => /Overtime risk/.test(x)) ? ' <span style="display:inline-block;margin-top:3px;font-size:11px;font-weight:800;border-radius:6px;padding:0 6px;background:#FFF4E3;color:#8A4E0C;">overtime risk</span>' : '')
       + '</button>';
-    const cols = COLS.map(([k, label, ic, fg, bg, bd]) => { const list = people.filter((p) => p.column === k);
+    const cols = COLS.filter(([k]) => !o.compact || ['full', 'partial', 'question'].includes(k) || (k === 'nv' && people.some((p) => p.column === 'nv'))).map(([k, label, ic, fg, bg, bd]) => { const list = people.filter((p) => p.column === k);
       return '<div style="background:' + bg + ';border:1px solid ' + bd + ';border-radius:12px;padding:9px;min-width:0;">'
         + '<div style="font-weight:800;font-size:13px;color:' + fg + ';margin-bottom:7px;">' + ic + ' ' + label + ' (' + list.length + ')</div>'
         + (list.length ? list.map(chip).join('') : '<div class="field-note" style="font-size:12px;">None</div>') + '</div>'; }).join('');
@@ -182,13 +185,12 @@
       + '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;"><b style="color:var(--navy);font-size:14.5px;">Who answered</b>'
       + '<span class="field-note">' + E(d.note || '') + '</span></div>'
       + (d.pattern ? '<div style="margin-top:6px;display:inline-block;font-size:12.5px;font-weight:800;border-radius:999px;padding:3px 11px;' + (d.pattern.kind === 'ongoing' ? 'background:var(--green-bg);color:var(--green);' : 'background:#e3f0f2;color:#14606F;') + '">' + E(d.pattern.label) + '</div>' : '')
-      + profileNote(d)
-      + rulesHtml(c, d)
+      + (o.compact ? '' : profileNote(d) + rulesHtml(c, d))
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:9px;">' + cols + '</div>'
       + combosHtml(c, d)
-      + (waiting.length ? '<div class="field-note" style="margin-top:7px;">Not answered yet: ' + waiting.map((p) => '<a href="javascript:void(0)" onclick="CB.pick(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\')">' + E(p.name) + '</a>').join(', ') + '</div>' : '')
+      + (waiting.length && !o.compact ? '<div class="field-note" style="margin-top:7px;">Not answered yet: ' + waiting.map((p) => '<a href="javascript:void(0)" onclick="CB.pick(\'' + E(c.id) + '\',\'' + E(p.ask_id) + '\')">' + E(p.name) + '</a>').join(', ') + '</div>' : '')
       + (sel ? drawer(c, sel) : '<div class="field-note" style="margin-top:7px;">Click a name to see exactly what they said and why Cara would or wouldn\'t pick them.</div>')
       + '</div>';
   }
-  window.CB = { on, html, load, pick, saveRules, linkBack };
+  window.CB = { on, html, load, pick, saveRules, linkBack, rulesHtml: (c) => { const st = ST[c.id]; return st && st.data ? profileNote(st.data) + rulesHtml(c, st.data) : ''; } };
 })();
