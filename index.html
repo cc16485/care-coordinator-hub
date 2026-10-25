@@ -7735,7 +7735,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=1"></script><script src="cara-board.js?v=5"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=2"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=1"></script><script src="simple-card.js?v=1"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=2"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
@@ -41240,7 +41240,7 @@ function covNextStep(c){
   return { k:'ask', text:'👉 Nobody has been asked yet. Choose who to ask below.' };
 }
 function covOpenBody(c,tallies){
-  const ns=covNextStep(c), id=esc(c.id);
+  const ns=covNextStep(c), id=esc(c.id), scOn=!!(window.SC&&SC.on(c));   /* the simple card has its own list: no picker under More */
   const follow=covFollowCandidates(c).length&&(ns.k==='waiting'||ns.k==='questions');
   const banner='<div style="margin-top:8px;padding:9px 12px;border-radius:9px;background:#F0F7FF;border:1px solid #CFE0F5;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
     +'<b style="font-size:14px;color:var(--navy);flex:1;min-width:240px;">'+((ns.k==='yes'&&window.CB&&CB.on()&&String(c.kind)!=='interest')?'Answers are sorted below. Only a full-shift yes from someone eligible can be confirmed.':ns.text)+'</b>'
@@ -41266,13 +41266,19 @@ function covOpenBody(c,tallies){
     +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
     +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
     +(c.callout_started_at?'<div class="field-note" style="margin-top:3px;">📣 Callout texting started '+covAgo(c.callout_started_at)+' ago'+(tallies?' · '+tallies:'')+'</div>':'')
-    +(ns.k==='ask'||ns.k==='family'||ns.k==='waiting'?'':covPickerHtml(c))
+    +(scOn||ns.k==='ask'||ns.k==='family'||ns.k==='waiting'?'':covPickerHtml(c))
     +(ns.k==='yes'?'':covConfirmHtml(c))
     +(ns.k==='questions'?'':'<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>')
     +covLoopHtml(c)
     +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-muted);">'+covSummary(c)+'</div>'
     +'</details>';
-  return banner+cipCaseHtml(c)+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more;
+  /* THE SIMPLE CASE CARD (2026-10-24, simple-card.js, switch simple_card_live): one status line, three actions, the compact
+     answers and one list in three groups; Cara's history and the time and hand-off settings join "More for this shift" */
+  if(scOn){
+    const extra=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
+    return SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) });
+  }
+  return banner+cipCaseHtml(c)+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
 }
 function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
 function covClosedBody(c,tallies){
