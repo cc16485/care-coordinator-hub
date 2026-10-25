@@ -11,8 +11,8 @@ SHOTS = os.environ.get('SHOTS')
 SERVER = r"""
 (()=>{
   window.__calls=[];
-  const V=()=>({ state:'open', answer:'sent', first_name:'Maria', client:'Dot', town:'Nixa', date:'2026-10-22', day:'Thu, Oct 22', kind:'set', start:'10:00', end:'13:00',
-    window_start:'10:00', window_end:'13:00', hours:3, tasks:['Companionship','Meal preparation'], note:'Soup please', choices:['10:00'], picked:null, mode:'first', asked_for_you:false,
+  const V=()=>({ state:window.__state||'open', picked:'10:00', photo:window.__photo||null, answer:'sent', first_name:'Maria', client:'Dot', town:'Nixa', date:'2026-10-22', day:'Thu, Oct 22', kind:'set', start:'10:00', end:'13:00',
+    window_start:'10:00', window_end:'13:00', hours:3, tasks:['Companionship','Meal preparation'], note:'Soup please', choices:['10:00'], mode:'first', asked_for_you:false,
     about:'Dot taught school for 30 years.', home:['Cats in the home'], profile: window.__profile || null });
   const real=window.fetch;
   window.fetch=async(url,o)=>{ url=String(url); if(!url.includes('/functions/v1/family-offer')) return real(url,o);
@@ -54,6 +54,13 @@ with sync_playwright() as pw:
     ok('switch on: the request itself still shows (when, help with, the family note) and the answer buttons', 'Thu, Oct 22' in t and 'Companionship, Meal preparation' in t and 'Soup please' in t and "I'll accept this shift" in t, t)
     ok('no page errors (on)', not errs, errs)
     if SHOTS: os.makedirs(SHOTS, exist_ok=True); pg.screenshot(path=os.path.join(SHOTS, 'visit-offer-profile.png'), full_page=True)
+    cx.close()
+    cx, pg, errs = page(b, prof + "window.__photo='data:image/gif;base64,R0lGODlhAQABAAAAACw=';")
+    ok('an OPEN offer never shows the photo, even if there is one', not pg.query_selector('img'))
+    cx.close()
+    cx, pg, errs = page(b, prof + "window.__photo='data:image/gif;base64,R0lGODlhAQABAAAAACw='; window.__state='yours';")
+    t = pg.inner_text('body')
+    ok('confirmed on the visit: the photo shows, with please don\'t save or share', pg.query_selector('img[alt="Photo of Dot"]') is not None and "You're confirmed" in t and "Please don't save or share this photo" in t, t[:400])
     cx.close()
     cx, pg, errs = page(b, "window.__profile={ about:null, enjoys:[], help:[], needs:[], home:[], level:null, scene:'porch', basics:true };")
     t = pg.inner_text('body')

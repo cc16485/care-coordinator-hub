@@ -90,7 +90,12 @@ function done(msg, cls) { shell('<div class="' + (cls || 'ok') + '">' + esc(msg)
 function draw(err) {
   const v = V
   // Her approval 2026-10-17 (decision E): an accepted shift is confirmed; changes go through the office, no cancel button here.
-  if (v.state === 'yours') return done("You're confirmed for " + v.day + ', ' + t12(v.picked || v.start) + '. This is a confirmed shift on your AxisCare schedule. To change it, call the office at ' + PHONE + ' right away, the same as any shift.')
+  if (v.state === 'yours') {
+    done("You're confirmed for " + v.day + ', ' + t12(v.picked || v.start) + '. This is a confirmed shift on your AxisCare schedule. To change it, call the office at ' + PHONE + ' right away, the same as any shift.')
+    /* 2026-10-25: the client's photo, only for the caregiver confirmed on the visit, so they know who they're meeting */
+    if (v.photo) $('app').insertAdjacentHTML('beforeend', '<div class="card" style="text-align:center"><img src="' + esc(v.photo) + '" alt="Photo of ' + esc(v.client) + '" style="width:160px;height:160px;object-fit:cover;border-radius:14px"><p class="note">This is ' + esc(v.client) + ', so you know who you\'re visiting. Please don\'t save or share this photo.</p></div>')
+    return
+  }
   if (v.state === 'taken') return done('Someone else took this one. Thank you!', 'info')
   if (v.state === 'cancelled') return done('The family cancelled this visit. Thank you!', 'info')
   if (v.state === 'ended') return done('This visit is no longer needed. Thank you!', 'info')

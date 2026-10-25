@@ -121,11 +121,20 @@
     const rows = [['About', f.about]].concat((f.life || []).map((x) => [x.label, x.text])).concat([['Enjoys', (f.enjoys || []).join(', ')]]).filter((r) => r[1]);
     const hist = (f.history || []).slice(0, 5).map((h) => '<div style="font-size:12px;padding:3px 0;border-top:1px dashed var(--border);"><b>' + E(h.by) + '</b> ' + E(when(h.at)) + ': '
       + (h.changes || []).map((c) => E(c.field) + (c.before ? ' (was “' + E(c.before) + '”)' : '')).join('; ') + '</div>').join('');
+    const ph = f.photo;
+    /* 2026-10-25: the client's photo the family added (only the caregiver confirmed on a Booking App visit sees it). AxisCare's
+       API can't take a photo, so Download for AxisCare saves it to upload into the client's photo spot in AxisCare by hand. */
+    const photoBox = ph ? '<div style="display:flex;gap:12px;align-items:flex-start;margin:6px 0 10px;"><img src="' + E(ph.view || '') + '" alt="Photo of ' + E(first()) + '" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--border);">'
+      + '<div><div class="field-note">Photo added by ' + E(ph.by || 'the family') + ', ' + E(when(ph.at)) + (ph.ai === 'unavailable' ? ' (the AI check was unavailable)' : '') + '. Only the caregiver confirmed on a Booking App visit sees it.</div>'
+      + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;"><a class="btn btn-sm" style="padding:5px 12px;" href="' + E(ph.url || '') + '" download>Download for AxisCare</a>'
+      + '<button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.removePhoto()"' + (busy ? ' disabled' : '') + '>Remove photo</button></div>'
+      + '<div class="field-note" style="margin-top:4px;">In AxisCare, open ' + E(first()) + '\'s profile and upload it to the photo spot. Then caregivers see it on every shift.</div></div></div>' : '';
     return '<div class="card" style="padding:14px 16px;margin-top:12px;border-color:#BFE3DD;background:#F4FAF9;"><div style="font-weight:800;color:var(--navy);font-size:15px;">The family\'s Booking App profile</div>'
-      + '<div class="field-note" style="margin:2px 0 8px;">Written by ' + E(f.updated_by || 'the family') + ', ' + E(when(f.updated_at)) + '. Caregivers see this on visits the family requests in the Booking App. It is separate from your Caregiver Preview, which shows on shifts; neither changes the other.</div>'
+      + '<div class="field-note" style="margin:2px 0 8px;">' + (f.written ? 'Written by ' + E(f.updated_by || 'the family') + ', ' + E(when(f.updated_at)) + '. ' : 'The family hasn\'t written the words yet. ') + 'Caregivers see this on visits the family requests in the Booking App. It is separate from your Caregiver Preview, which shows on shifts; neither changes the other.</div>'
+      + photoBox
       + rows.map((r) => '<div style="font-size:13.5px;margin-top:4px;"><span class="field-note">' + E(r[0]) + ':</span> ' + E(r[1]) + '</div>').join('')
-      + '<div style="margin-top:10px;"><button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.useFamily()"' + (busy ? ' disabled' : '') + '>Use the family\'s words</button>'
-      + ' <span class="field-note">Copies them into your draft below. Approve it to use it on shifts.</span></div>'
+      + (f.written ? '<div style="margin-top:10px;"><button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.useFamily()"' + (busy ? ' disabled' : '') + '>Use the family\'s words</button>'
+      + ' <span class="field-note">Copies them into your draft below. Approve it to use it on shifts.</span></div>' : '')
       + (hist ? '<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">Recent changes by the family</summary>' + hist + '</details>' : '') + '</div>';
   }
   /* FROM THE FAMILY (2026-10-25): suggestions sent from the Booking App's "What caregivers see". Nothing changes by itself:
@@ -187,8 +196,12 @@
     busy = false; render();
   }
   function dropDraft() { ai = null; aiMsg = ''; render(); }
+  async function removePhoto() {
+    const ok = typeof ccConfirm === 'function' ? await ccConfirm('Remove the photo of ' + first() + '?\n\nIt is deleted. The family can add a new one in the Booking App.') : true;
+    if (ok) return act({ action: 'remove_photo' }, 'Photo removed.');
+  }
   const useFamily = () => act({ action: 'use_family_words' }, 'Copied the family\'s words into your draft. Approve it to use it on shifts.');
   const suggestion = (id, used) => act({ action: 'suggestion_close', id, used: !!used }, used ? 'Marked as used.' : 'Marked as not used.');
 
-  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft, suggestion, useFamily };
+  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft, suggestion, useFamily, removePhoto };
 })();

@@ -85,7 +85,7 @@
       '<div class="field-note" style="margin:2px 0 8px;">What caregivers see on Booking App offers. Separate from your Caregiver Preview, which shows on shifts.</div>' +
       d.profiles.map(function (f) {
         var rows = [['About', f.about], ['Their work and life', f.work], ['Loves to talk about', f.talk], ['Little things that make the day better', f.little], ['Enjoys', (f.enjoys || []).join(', ')]].filter(function (r) { return r[1] })
-        return '<div style="padding:8px 0;border-top:1px dashed var(--border);"><b>' + e(name(f.axiscare_client_id)) + '</b> <span class="field-note">by ' + e(f.updated_by_name || '') + ', ' + e(when(f.updated_at)) + '</span>' +
+        return '<div style="padding:8px 0;border-top:1px dashed var(--border);">' + (f.photo_url ? '<img src="' + e(f.photo_url) + '" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:8px;float:right;margin-left:8px;">' : '') + '<b>' + e(name(f.axiscare_client_id)) + '</b> <span class="field-note">by ' + e(f.updated_by_name || '') + ', ' + e(when(f.updated_at)) + '</span>' +
           rows.map(function (r) { return '<div style="font-size:13px;margin-top:3px;"><span class="field-note">' + e(r[0]) + ':</span> ' + e(r[1]) + '</div>' }).join('') + '</div>'
       }).join('') + '</div>'
   }
