@@ -194,7 +194,7 @@
     h += H('Needs you now', 'soonest and most urgent first', needs.length + (ck ? 1 : 0));
     if (ck) h += '<div class="card" style="padding:11px 14px;margin:0 0 8px;border:1.5px solid var(--red);"><b style="color:var(--red);">' + ck + ' missed clock-in' + (ck === 1 ? '' : 's') + ' or out</b> <span class="field-note">Arrival isn\'t confirmed until AxisCare shows the clock-in or you\'ve called the client.</span> <a href="javascript:void(0)" onclick="covSubGo(\'clockins\')" style="font-weight:700;">Open &rarr;</a></div>';
     const pickBtn = (c) => caraNeedsReason(c) === 'pick' && String(c.kind) !== 'interest' ? ' <button class="addlead" style="font-size:12px;padding:3px 10px;" onclick="CP1.sendCaraList(\'' + E(c.id) + '\')">Send Cara\'s list</button>' : ''
-    h += needs.length ? needs.map((c) => '<div style="position:relative;">' + '<div style="margin:0 0 3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' + chip(c) + ' <span class="field-note">' + E(urgency(c).why) + '</span>' + pickBtn(c) + '</div>' + caraNeedsCard(c) + '</div>').join('')
+    h += needs.length ? needs.map((c) => '<div style="position:relative;">' + '<div style="margin:0 0 3px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">' + chip(c) + ' <span class="field-note">' + E(urgency(c).why) + '</span>' + pickBtn(c) + (window.LM ? LM.buttons(c) : '') + '</div>' + caraNeedsCard(c) + '</div>').join('')
       : (ck ? '' : '<div class="card" style="padding:12px 15px;margin:0 0 10px;"><b style="color:var(--navy);">Nothing needs you right now.</b></div>');
     /* 2. what is waiting for office approval */
     h += '<div style="height:8px;"></div>' + H('Waiting for your OK', 'a yes is interest only; you confirm, AxisCare shows it', pending.length);
@@ -217,7 +217,7 @@
     h += risk.length ? '<div class="card" style="padding:8px 14px;margin:0 0 10px;">' + risk.map((c) => { const f = fillWord(c);
       return '<div style="font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;">' + chip(c) + ' <b>' + E(c.client || '?') + '</b> <span class="field-note">' + E(typeof caraWhen === 'function' ? caraWhen(c) : '') + '</span> <span style="color:' + f[1] + ';font-weight:700;">' + E(f[0]) + '</span><span style="flex:1;"></span>'
         + (!(c.asked || []).length && String(c.kind) !== 'interest' ? '<button class="addlead" style="font-size:12px;padding:3px 10px;" onclick="CP1.sendCaraList(\'' + E(c.id) + '\')">Send Cara\'s list</button> ' : '')
-        + '<a href="javascript:void(0)" onclick="caraOpenCase(\'' + E(c.id) + '\')" style="font-size:12.5px;font-weight:700;">Open &rarr;</a></div>'; }).join('') + '</div>'
+        + (window.LM ? LM.buttons(c) + ' ' : '') + '<a href="javascript:void(0)" onclick="caraOpenCase(\'' + E(c.id) + '\')" style="font-size:12.5px;font-weight:700;">Open &rarr;</a></div>'; }).join('') + '</div>'
       : '<div class="field-note" style="margin-bottom:10px;">Every shift in the next 72 hours has someone confirmed or no open case.</div>';
     if (S.filled.length) h += H('Filled today', '', S.filled.length) + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;">' + S.filled.map(caraFilledCard).join('') + '</div>';
     return h + (window.VR ? VR.todayLine() : '') + '<div class="field-note" style="font-size:11.5px;margin-top:8px;">This view refreshes itself every minute.</div>';

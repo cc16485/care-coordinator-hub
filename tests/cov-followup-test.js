@@ -30,7 +30,7 @@ function world(c, opts){
     opEvent:(v,o)=>events.push([v,o]), renderCoverage:()=>{rendered++;}, ccActor:()=>({name:'Samantha'}),
     alert:m=>alerted.push(m), confirm:m=>{ confirmMsg=m; return opts.decline?false:true; }, ccConfirm:async m=>{ confirmMsg=m; return opts.decline?false:true; }, setTimeout:(f)=>f(),
     Date, String, Object, Array, JSON, console, Math };
-  const vm=require('vm'); vm.createContext(ctx);
+  const vm=require('vm'); ctx.window=ctx; vm.createContext(ctx);   /* the page's code reads window.SLP (shift-link pilot, 2026-10-24) */
   vm.runInContext(src+'\nthis.X={covFollowCandidates,covFollowUpsFor,covFollowDefaults,covFollowOpen,covFollowPreset,covFollowClose,covFollowSend,covAskRow};',ctx);
   return { X:ctx.X, ctx, els, boxes, mkBox, posted, events, alerted, get rendered(){return rendered}, get confirmMsg(){return confirmMsg} };
 }
