@@ -113,6 +113,21 @@
     const two = '<div class="field-note" style="margin-top:8px;">Showing caregivers more care detail needs a second person to approve.</div>';
     return head + review + toggle + (rows ? '<div style="margin-top:8px;">' + rows + '</div>' : '') + none + (c.draft_on ? two : '') + '</div>';
   }
+  /* THE FAMILY'S OWN PROFILE (2026-10-25, her rule): the family writes it in the Booking App and it shows on Booking App offers.
+     It is separate from this Caregiver Preview (shifts): nothing here changes it, and it never changes this. "Use the family's
+     words" copies it into this draft, which is approved as usual. */
+  function famProfileCard() {
+    const f = V.family; if (!f) return '';
+    const rows = [['About', f.about]].concat((f.life || []).map((x) => [x.label, x.text])).concat([['Enjoys', (f.enjoys || []).join(', ')]]).filter((r) => r[1]);
+    const hist = (f.history || []).slice(0, 5).map((h) => '<div style="font-size:12px;padding:3px 0;border-top:1px dashed var(--border);"><b>' + E(h.by) + '</b> ' + E(when(h.at)) + ': '
+      + (h.changes || []).map((c) => E(c.field) + (c.before ? ' (was “' + E(c.before) + '”)' : '')).join('; ') + '</div>').join('');
+    return '<div class="card" style="padding:14px 16px;margin-top:12px;border-color:#BFE3DD;background:#F4FAF9;"><div style="font-weight:800;color:var(--navy);font-size:15px;">The family\'s Booking App profile</div>'
+      + '<div class="field-note" style="margin:2px 0 8px;">Written by ' + E(f.updated_by || 'the family') + ', ' + E(when(f.updated_at)) + '. Caregivers see this on visits the family requests in the Booking App. It is separate from your Caregiver Preview, which shows on shifts; neither changes the other.</div>'
+      + rows.map((r) => '<div style="font-size:13.5px;margin-top:4px;"><span class="field-note">' + E(r[0]) + ':</span> ' + E(r[1]) + '</div>').join('')
+      + '<div style="margin-top:10px;"><button type="button" class="secondary" style="padding:5px 12px;" onclick="CGP.useFamily()"' + (busy ? ' disabled' : '') + '>Use the family\'s words</button>'
+      + ' <span class="field-note">Copies them into your draft below. Approve it to use it on shifts.</span></div>'
+      + (hist ? '<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">Recent changes by the family</summary>' + hist + '</details>' : '') + '</div>';
+  }
   /* FROM THE FAMILY (2026-10-25): suggestions sent from the Booking App's "What caregivers see". Nothing changes by itself:
      use it by editing the draft below and approving as usual, then mark it Used; or Not using it. */
   function familyCard() {
@@ -135,7 +150,7 @@
     h.innerHTML = (V.live ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FFFBF4;border-color:#F3D9B5;font-size:13px;"><b>Practice.</b> Caregivers don\'t see this tab\'s version yet. Shift offers still use the About on Family &amp; Contacts until the Caregiver Preview switch is on.</div>')
       + '<div class="card" style="padding:14px 16px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">What caregivers see about ' + E(first()) + '</div>'
       + '<div class="field-note" style="margin:2px 0 10px;">Shown when a caregiver is offered a shift with ' + E(first()) + ' (Cara\'s shift page and the Booking App). Incomplete is fine: offers still go out with just the shift.</div>'
-      + statusBar() + previewBox() + '</div>' + familyCard() + introCard() + careCard() + historyCard();
+      + statusBar() + previewBox() + '</div>' + famProfileCard() + familyCard() + introCard() + careCard() + historyCard();
   }
 
   async function act(body, done) {
@@ -172,7 +187,8 @@
     busy = false; render();
   }
   function dropDraft() { ai = null; aiMsg = ''; render(); }
+  const useFamily = () => act({ action: 'use_family_words' }, 'Copied the family\'s words into your draft. Approve it to use it on shifts.');
   const suggestion = (id, used) => act({ action: 'suggestion_close', id, used: !!used }, used ? 'Marked as used.' : 'Marked as not used.');
 
-  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft, suggestion };
+  window.CGP = { mount, load, visible, saveIntro, share, items, approve, preview, draft, dropDraft, suggestion, useFamily };
 })();

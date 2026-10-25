@@ -43,10 +43,11 @@ with sync_playwright() as pw:
     ok('switch off: as before (About row, Good to know, the family note), no Meet, no picture', 'About Dot' in t and 'Dot taught school' in t and 'Cats in the home' in t and 'Soup please' in t and 'Meet Dot' not in t and not pg.query_selector('.hero svg'), t[:500])
     ok('never "extra visit"; says it came from the Booking App', 'extra' not in t.lower() and 'A family asked for a visit in the Booking App' in t, t[:200])
     ok('no page errors (off)', not errs, errs); cx.close()
-    prof = "window.__profile={ about:'Dot taught school for 30 years and still loves a crossword.', enjoys:['Gardening','Sweet tea'], help:['Companionship'], needs:[\"Dementia or Alzheimer's care\"], home:['Cats in the home','Someone smokes in the home'], level:1, scene:'garden', basics:false };"
+    prof = "window.__profile={ about:'Dot taught school for 30 years and still loves a crossword.', enjoys:['Gardening','Sweet tea'], help:['Companionship'], needs:[\"Dementia or Alzheimer's care\"], home:['Cats in the home','Someone smokes in the home'], level:1, scene:'garden', basics:false, life:[{label:'Loves to talk about',text:'Her grandkids and the Cardinals'}], source:'family' };"
     cx, pg, errs = page(b, prof)
     t = pg.inner_text('body')
     ok('switch on: Meet Dot, the approved About, What she enjoys, a picture (no photo)', 'Meet Dot' in t and 'still loves a crossword' in t and 'Gardening' in t and 'Sweet tea' in t and pg.query_selector('.hero svg') is not None and not pg.query_selector('img'), t[:600])
+    ok('the family\'s own answers show with their labels', 'loves to talk about' in t.lower() and 'Her grandkids and the Cardinals' in t, t[:800])
     ok('switch on: the About shows once (not again as a row)', t.count('taught school') == 1, t[:600])
     ok('switch on: Good to know joins the care plan and the profile, no repeats', 'Cats in the home. Someone smokes in the home.' in t and t.count('Cats in the home') == 1, t)
     ok('switch on: Skills needed when the office approved sharing them', "Level 1, Dementia or Alzheimer's care" in t, t)

@@ -74,6 +74,8 @@ function profileTop(v) {
   const p = v.profile; if (!p) return ''
   return '<div class="hero">' + (SCENES[p.scene] || SCENES.porch) + '</div><h2 class="meet">Meet ' + esc(v.client) + '</h2>'
     + (p.about ? '<p style="margin:6px 0">' + esc(p.about) + '</p>' : '')
+    /* 2026-10-25: the family's own words (their work and life, what they love to talk about, the little things) */
+    + (p.life || []).map((x) => '<div class="k">' + esc(x.label) + '</div><p style="margin:3px 0">' + esc(x.text) + '</p>').join('')
     + (p.enjoys && p.enjoys.length ? '<div class="k">' + esc(v.client) + ' enjoys</div><div class="chips">' + p.enjoys.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
 }
 async function call(body) {
