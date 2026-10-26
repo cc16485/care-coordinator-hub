@@ -4,7 +4,8 @@
      · Partner profile: the partner's code, link and QR code, copy buttons for the link and a ready text; owners add a
        partner to the program and pause or resume it
      · Referrers > Program (owners only): each program partner's referrals, home visits, clients started, conversion and
-       how the referrals came in; billed revenue says "not available yet" (the Hub has no AxisCare billing per client)
+       how the referrals came in; billed revenue is read on request from AxisCare by the partner-revenue server function
+       (owners only; completed visits × each visit's charge rate, an estimate, never saved)
      · Sources to check (owners only): links that came in without a partner being attached, each decided with one click
      · Saving a lead: an established referral source changes only for an owner, with a reason, kept in source_history
      · Make this a lead: the partner the call named is picked in Referred By (the usual box; yellow like the rest)
@@ -23,6 +24,9 @@
   const pageLive = () => !!((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).partner_link_page_live;
   const day = d => d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }) : '';
   const STATUS_TONE = { invited:'pl-inv', active:'pl-act', paused:'pl-pau' };
+  /* billed revenue (2026-10-26): read from AxisCare only when an owner asks; kept on this page, never saved */
+  const REV = { data:null, busy:false, error:'' };
+  const money = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits:0, maximumFractionDigits:0 });
   const css = () => { if(document.getElementById('plCss')) return; const s = document.createElement('style'); s.id = 'plCss';
     s.textContent = '.pl-card{padding:16px 18px;margin-bottom:14px}.pl-k{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}'
       + '.pl-code{font-size:20px;font-weight:800;color:var(--navy);letter-spacing:.04em;font-variant-numeric:tabular-nums}'
@@ -165,19 +169,45 @@
         .map(x => '<div class="pl-tile"><b>' + esc(x[0]) + '</b><span>' + esc(x[1]) + '</span></div>').join('') + '</div>';
     h += '<div class="pl-k" style="margin-top:4px;">Sources to check' + (items.length ? ' · ' + items.length : '') + '</div>'
       + (items.length ? items.map(checkRow).join('') : '<div class="field-note" style="margin:6px 0 10px;">Nothing to check. Links that come in without a partner attached show here.</div>');
-    h += '<div class="pl-k" style="margin-top:14px;">Partners</div>';
+    h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;"><span class="pl-k">Partners</span><span style="flex:1"></span>'
+      + (rows.length ? '<button class="fb" style="font-size:12px;padding:4px 10px;" onclick="plRevenue()"' + (REV.busy ? ' disabled' : '') + '>' + (REV.busy ? 'Reading AxisCare…' : REV.data ? 'Read AxisCare again' : 'Get billed revenue from AxisCare') + '</button>' : '') + '</div>'
+      + (REV.error ? '<div class="pl-note">' + esc(REV.error) + '</div>' : '')
+      + (REV.data ? '<div class="field-note" style="margin-top:4px;">Billed revenue read from AxisCare ' + esc(new Date(REV.data.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. An estimate: completed visits times each visit\'s charge rate, not invoices or payments.'
+        + (REV.data.more_than_read ? ' ' + REV.data.more_than_read + ' more clients weren\'t read this time.' : '') + '</div>' : '');
     h += rows.length ? '<div class="pl-scroll"><table class="pl-tbl"><thead><tr><th>Partner</th><th>Status</th><th>Referred</th><th>Home visits</th><th>Started</th><th>Conversion</th><th>Billed revenue</th><th>How they came</th><th>Link</th></tr></thead><tbody>'
       + rows.map(r => '<tr><td><a href="javascript:void(0)" onclick="openRefProfile(\'' + esc(r.id) + '\')"><b>' + esc(r.name) + '</b></a><div class="field-note">' + esc(r.code) + (r.last_referral ? ' · last ' + esc(day(r.last_referral)) : '') + '</div></td>'
         + '<td><span class="pl-pill ' + STATUS_TONE[r.status] + '" style="margin:0;">' + esc(R().STATUS[r.status]) + '</span></td>'
         + '<td>' + r.referrals + '</td><td>' + r.consultations + '</td><td>' + r.started + '</td><td>' + pct(r.conversion) + '</td>'
-        + '<td><span class="field-note" title="The Hub doesn\'t hold AxisCare billing for each client yet">not available yet</span></td>'
+        + '<td>' + revCell(r) + '</td>'
         + '<td class="field-note">' + (Object.keys(r.ways).length ? Object.entries(r.ways).map(([k, n]) => n + ' ' + esc(k)).join(' · ') : 'none yet') + '</td>'
         + '<td><button class="fb" style="font-size:12px;padding:4px 9px;" onclick="plCopyLink(\'' + esc(r.id) + '\')">Copy</button></td></tr>').join('')
       + '</tbody></table></div>'
       : '<div class="field-note" style="margin-top:6px;">No partner is in the program yet. Open a partner and choose "Add to the program".</div>';
     h += '<div class="field-note" style="margin-top:10px;">Started = the first clock-in AxisCare showed for that family. Home visits = an assessment booked or a lead past the first call. '
-      + 'Billed revenue isn\'t shown because the Hub doesn\'t hold AxisCare billing for each client yet. Counts are every referral credited to the partner, all time.</div></div>';
+      + 'Billed revenue is an estimate from AxisCare: completed visits since each referred client\'s first shift, times each visit\'s charge rate. It isn\'t invoices or what was paid, and it\'s only read when you ask. Counts are every referral credited to the partner, all time.</div></div>';
     return h;
+  }
+  function revCell(r){
+    if(!REV.data) return '<span class="field-note">not read yet</span>';
+    const p = (REV.data.partners || {})[r.id];
+    if(!p) return r.started ? '<span class="field-note">no AxisCare id on the started client</span>' : '<span class="field-note">no clients started</span>';
+    if(!p.read) return '<span class="field-note" style="color:#B23B2E;">couldn\'t read AxisCare</span>';
+    return '<b>' + esc(money(p.billed)) + '</b> <span class="field-note">est. · ' + esc(String(p.hours)) + ' hrs</span>'
+      + (p.unread ? '<div class="field-note">' + p.unread + ' client' + (p.unread === 1 ? '' : 's') + ' not read</div>' : '')
+      + (p.no_rate_clients ? '<div class="field-note">some visits have no rate in AxisCare</div>' : '');
+  }
+  async function revenue(){
+    if(!owner() || REV.busy) return;
+    REV.busy = true; REV.error = ''; render();
+    try{
+      const { data, error } = await sb.functions.invoke('partner-revenue', { body:{} });
+      if(error){ let m = ''; try{ const j = await error.context.json(); m = j && j.error; }catch(e){}
+        const st = error.context && error.context.status;
+        REV.error = m || (st === 404 ? 'The billed revenue reader isn\'t set up on the server yet.' : 'Couldn\'t read billed revenue just now. Try again in a minute.'); }
+      else if(data && data.error) REV.error = data.error;
+      else REV.data = data;
+    }catch(e){ REV.error = 'Couldn\'t read billed revenue just now. Try again in a minute.'; }
+    REV.busy = false; render();
   }
   function checkRow(it){
     const l = leads().find(x => String(x.id) === it.lead_id) || {}, tgt = leads().find(x => String(x.id) === it.target_id) || l;
@@ -229,6 +259,6 @@
   function render(){ const box = document.getElementById('plProgram'); if(box) box.innerHTML = programHtml(); }
   function redraw(){ render(); try{ if(typeof REF_PROF !== 'undefined' && REF_PROF && typeof renderRefProfile === 'function') renderRefProfile(); }catch(e){} }
 
-  window.PartnerLinks = { profileCard, onSave, afterCallFill, leadSourceHtml, programHtml, render, add, setStatus, qr, decide };
-  window.plAdd = add; window.plStatus = setStatus; window.plCopyLink = copyLink; window.plCopyText = copyText; window.plQr = qr; window.plDecide = decide; window.plOpenLead = openLead;
+  window.PartnerLinks = { profileCard, onSave, afterCallFill, leadSourceHtml, programHtml, render, add, setStatus, qr, decide, revenue, _rev:REV };
+  window.plRevenue = revenue; window.plAdd = add; window.plStatus = setStatus; window.plCopyLink = copyLink; window.plCopyText = copyText; window.plQr = qr; window.plDecide = decide; window.plOpenLead = openLead;
 })();
