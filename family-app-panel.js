@@ -235,7 +235,7 @@
       W['ax-' + px + '-' + contactId] = d
       var box = document.getElementById('famaxw-' + px + '-' + contactId), id = e(px) + '-' + contactId, ref = '\'' + e(contactId) + '\',\'' + e(px) + '\''
       var axis = d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so Activate account will work for them.</div>'
-        : d.axis_email_on_file === false ? '<div style="color:#b91c1c;font-weight:600;">Their email isn\'t on the client\'s AxisCare record, so Activate account won\'t work for them. Add them as a responsible party in AxisCare first.</div>'
+        : d.axis_email_on_file === false ? '<div style="color:#b91c1c;font-weight:600;">Their email isn\'t on the client\'s AxisCare record, so Activate account won\'t work for them. Add them as a responsible party in AxisCare, or (past three people) as a Contact linked to the client, first.</div>'
         : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
       var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? (d.sent.by === 'automatic' ? ' (automatic)' : ' by ' + e(d.sent.by)) : '') + '.</div>' : ''
       var failed = d.failed ? '<div style="color:#b91c1c;margin:6px 0;">The automatic send couldn\'t go ' + e(when(d.failed.at)) + ': ' + e(d.failed.why || '') + '</div>' : ''
