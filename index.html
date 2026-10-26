@@ -4755,6 +4755,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="field-note"><b>Returning clients:</b> <span id="raSetNow"></span></div>
   <button class="secondary" id="raToggleBtn" onclick="raToggle(this)" style="margin-top:4px;">Keep returning clients apart</button>
 </div>
+<!-- Medicaid goes to CDS (her rule and wording 2026-10-26, IHS/ADW end 2026-11-16): ops_settings.medicaid_cds_live -->
+<div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
+  <div class="field-note"><b>Medicaid goes to CDS:</b> <span id="m2cSetNow"></span></div>
+  <button class="secondary" id="m2cToggleBtn" onclick="m2cToggle(this)" style="margin-top:4px;">Turn on Medicaid goes to CDS</button>
+</div>
 <!-- The database guards who owns a lead (audit step 8, Samantha 2026-10-18): ops_settings.owner_guard_live -->
 <div style="border-left:3px solid var(--border);padding:2px 0 2px 10px;margin:0 0 10px;">
   <div class="field-note"><b>Database guard:</b> <span id="ogSetNow"></span></div>
@@ -6598,7 +6603,7 @@ The HomeTogether team</pre>
           <li>"Tell me what a hard day looks like right now for you and your mom/dad."</li>
           <li>"What's prompting the call today? Was there a fall, a hospital stay, or just a slow build?"</li>
           <li>"Who's helping right now, and how are <em>you</em> holding up?"</li>
-          <li>"Did your loved one ever serve in the military?" &nbsp;·&nbsp; "Are they on Medicaid, or do you think they might qualify?"</li>
+          <li>"Did your loved one ever serve in the military?" &nbsp;·&nbsp; "Are they on Medicaid, or do you think they might qualify?"<span data-m2c="new" style="display:none"><br>If yes: "Our sister company, Caring Companions Consumer Directed Services, can help with that. They can hire someone the family already knows, or help them find caregivers to choose from. I'll pass you their number: (417) 218-2888, or caringcds.com."</span></li>
           <li>"Has a doctor mentioned memory issues or a dementia diagnosis?" <span class="pb2-note" style="display:inline">(opens the GUIDE benefit)</span></li>
         </ul>
       </div>
@@ -7441,8 +7446,9 @@ The HomeTogether team</pre>
 <div style="grid-column:1/-1" id="lsHost_asmt"></div><!-- Life Story (life-story.js, 2026-10-24) -->
 <div>
 <label>Payer</label>
-<select id="assess_payer"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
+<select id="assess_payer" onchange="try{m2cPayerNote()}catch(e){}"><option value="">Not recorded</option><option>Medicaid</option><option>LTC Insurance</option><option>VA</option><option>Private Pay</option><option>CDS</option><option>Medicare GUIDE</option><option>Other</option></select>
 <div class="field-note" id="assess_payer_note"></div>
+<div class="field-note" id="assess_payer_m2c" style="display:none;color:#1F5F3F;"><b>Refer to CDS, not a Caring Companions payer.</b> Say: "Our sister company, Caring Companions Consumer Directed Services, can help with that. They can hire someone the family already knows, or help them find caregivers to choose from. I'll pass you their number: (417) 218-2888, or caringcds.com."</div>
 </div>
 <div>
 <label>Transcript Source</label>
@@ -7658,7 +7664,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-library.js?v=1019"></script>
+<script src="email-library.js?v=1026"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=21"></script>
 <script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=1"></script><!-- Speed to lead (2026-10-22, her design): Leads > My speed, each coordinator's own numbers --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
@@ -14291,6 +14297,7 @@ function openAssessmentModal(id, fromLead){
     sel.value = fromIntake || (a&&a.payer) || '';
     sel.disabled = !!fromIntake;
     if(note) note.textContent = fromIntake ? 'From the intake. Change it on the Payer tab (the intake form).' : (lp ? 'The intake has no payer yet. Set it on the Payer tab.' : ''); }
+  try{ m2cApply(); }catch(e){}
   document.getElementById('assess_transcript_source').value = (a&&a.transcript_source)||'Otter';
   document.getElementById('assess_transcript_link').value = (a&&a.transcript_link)||'';
   document.getElementById('assess_transcript_text').value = (a&&a.transcript_text)||'';
@@ -17758,8 +17765,9 @@ function renderLpSoc(){
     body.innerHTML =
       '<div class="field-note" style="margin-bottom:8px;">They said yes? Pick how this case is arriving and the right checklist opens. FUSION, authorizations and care-plan entry route to the evening coordinator automatically.</div>'
       +'<select id="lp_soc_pathway" style="width:100%;">'
-      +Object.entries(SOC_PATHWAYS).map(([k,p])=>'<option value="'+k+'"'+(k==='A1'?' selected':'')+'>'+esc(p.label)+'</option>').join('')
+      +Object.entries(SOC_PATHWAYS).filter(([k])=>!ccMedicaidCds()||!['A1','A2','B'].includes(k)).map(([k,p])=>'<option value="'+k+'"'+(k===(ccMedicaidCds()?'PP':'A1')?' selected':'')+'>'+esc(p.label)+'</option>').join('')
       +'</select>'
+      +(ccMedicaidCds()?'<div class="field-note" style="margin-top:6px;">Medicaid? Refer them to Caring Companions Consumer Directed Services: (417) 218-2888 or caringcds.com. We no longer start agency Medicaid care.</div>':'')
       +'<button class="primary" style="margin-top:8px;" onclick="socStart()">▶ Begin Start of Care</button>';
     return;
   }
@@ -18948,6 +18956,43 @@ async function raToggle(btn){
   const sv=document.getElementById('ltSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved.';
   raSetFill();
 }
+/* Medicaid goes to CDS (her rule and wording, 2026-10-26; agency Medicaid ends 2026-11-16). On: Medicaid is never a
+   Caring Companions payer for a new family. The payer lists say "Medicaid → refer to CDS", picking it shows her script,
+   the Start of Care picker offers no Medicaid paths, the AI call summary never sets Medicaid, and Offer a Job no longer
+   ticks "Payor - Medicaid" for new hires. Off: everything as before. Owners only. */
+const M2C_SCRIPT='Our sister company, Caring Companions Consumer Directed Services, can help with that. They can hire someone the family already knows, or help them find caregivers to choose from. I\'ll pass you their number: (417) 218-2888, or caringcds.com.';
+function ccMedicaidCds(){ return (DATA.ops_settings||{}).medicaid_cds_live===true; }
+function m2cApply(){
+  const on=ccMedicaidCds();
+  document.querySelectorAll('[data-m2c]').forEach(el=>{ el.style.display=(el.getAttribute('data-m2c')==='new')===on?'':'none'; });
+  const sel=document.getElementById('assess_payer');
+  if(sel){ const o=[...sel.options].find(x=>x.value==='Medicaid'||x.dataset.m2c==='1'); if(o){ o.dataset.m2c='1'; o.value='Medicaid'; o.textContent=on?'Medicaid → refer to CDS':'Medicaid'; } }
+  try{ m2cPayerNote(); }catch(e){}
+}
+function m2cPayerNote(){
+  const sel=document.getElementById('assess_payer'), note=document.getElementById('assess_payer_m2c'); if(!sel||!note) return;
+  const show=ccMedicaidCds()&&sel.value==='Medicaid';
+  note.style.display=show?'':'none';
+}
+function m2cSetFill(){
+  const now=document.getElementById('m2cSetNow'), b=document.getElementById('m2cToggleBtn');
+  const on=ccMedicaidCds(), owner=ccIsOwner();
+  if(now) now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Medicaid is never a Caring Companions payer for a new family: the payer lists say "Medicaid → refer to CDS" and show the script, Start of Care has no Medicaid paths, the AI call summary never sets Medicaid, and Offer a Job no longer ticks Payor - Medicaid.'
+    :'<b style="color:#B7791F;">Off.</b> Medicaid shows in the payer lists and Start of Care as before.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off Medicaid goes to CDS':'Turn on Medicaid goes to CDS'; b.style.display=owner?'':'none'; }
+  m2cApply();
+}
+async function m2cToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
+  const on=!ccMedicaidCds();
+  if(!(await ccConfirm(on?'Turn on Medicaid goes to CDS?\n\nFrom now on Medicaid is never a Caring Companions payer for a new family. Picking Medicaid shows the script that sends them to Caring Companions Consumer Directed Services, (417) 218-2888. Clients already on Medicaid keep their records as they are.'
+    :'Turn off Medicaid goes to CDS? The payer lists and Start of Care go back to how they were.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.medicaid_cds_live=on; if(on) m.medicaid_cds_live_since=new Date().toISOString(); return ['Medicaid goes to CDS '+(on?'on':'off')]; }, 'Medicaid goes to CDS');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('m2cSetNow'); if(out.error&&sv) sv.textContent='Could not save: '+out.error.message;
+  m2cSetFill();
+}
 /* The database guards who owns a lead (audit step 8): on, the database itself refuses an owner change by anyone but
    Samantha or Zachary while lead turns are on, and a change to a lead's first owner by anyone. Owners only. */
 function ogSetFill(){
@@ -18972,6 +19017,7 @@ function lhSetFill(){
   try{ ltSetFill(); }catch(e){}
   try{ ogSetFill(); }catch(e){}
   try{ raSetFill(); }catch(e){}
+  try{ m2cSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
@@ -21777,6 +21823,8 @@ function joInit(){
       +'<button type="button" class="jo-yes" data-k="'+a[0]+'" onclick="joSetAttr(\''+a[0]+'\',true,this)" style="border:1px solid var(--green);background:var(--green-bg);color:var(--green);border-radius:6px;padding:2px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">Yes</button>'
       +'<button type="button" class="jo-no" data-k="'+a[0]+'" onclick="joSetAttr(\''+a[0]+'\',false,this)" style="border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:6px;padding:2px 10px;font-size:11.5px;font-weight:700;cursor:pointer;">No</button>'
       +'</div>').join('');
+    /* Medicaid goes to CDS (2026-10-26): a new hire is not ticked for Medicaid clients */
+    if(ccMedicaidCds()){ const nb=document.querySelector('#jo_attrs .jo-no[data-k="payor_medicaid"]'); if(nb) joSetAttr('payor_medicaid',false,nb); }
   }
   if(!document.getElementById('jo_date').value) document.getElementById('jo_date').value=today();
   if(!document.getElementById('jo_by').value && ME.name) document.getElementById('jo_by').value=ME.name;
@@ -35124,7 +35172,10 @@ function lrnItems(s, l){
   (Array.isArray(f.needs)?f.needs:[]).forEach((w,i)=>{ if(String(w).trim()) out.push({ key:'needs:'+i, kind:'add', field:'needs', label:'Care need', words:String(w), choices:LPI_L.needs, guess:lrnGuess(LRN_NEED_GUESS,w), notes:'interest_notes' }); });
   (Array.isArray(f.medical_conditions)?f.medical_conditions:[]).forEach((w,i)=>{ if(String(w).trim()) out.push({ key:'cond:'+i, kind:'add', field:'medical_conditions', label:'Health condition', words:String(w), choices:LPI_L.cond, guess:lrnGuess(LRN_COND_GUESS,w), notes:'medical_notes' }); });
   ['mobility','urgency','funding_source'].forEach(k=>{ const w=String(f[k]||'').trim(); if(!w) return;
-    out.push({ key:k, kind:'one', field:k, label:LRN_ONE[k].label, words:w, choices:LRN_ONE[k].choices, guess:lrnGuess(LRN_ONE[k].guess,w), current:String(l[k]||'') }); });
+    let choices=LRN_ONE[k].choices, guess=lrnGuess(LRN_ONE[k].guess,w);
+    /* Medicaid goes to CDS (2026-10-26): a call about Medicaid suggests CDS, never Medicaid as our payer */
+    if(k==='funding_source'&&ccMedicaidCds()){ choices=Object.assign({},choices); delete choices.medicaid; if(guess==='medicaid') guess='cds'; }
+    out.push({ key:k, kind:'one', field:k, label:LRN_ONE[k].label, words:w, choices, guess, current:String(l[k]||'') }); });
   if(String(f.relationship||'').trim()) out.push({ key:'relationship', kind:'text', field:'relationship', label:'Caller\'s relationship', words:String(f.relationship).trim(), current:String(l.relationship||'') });
   if(String(l.interest_notes||'').indexOf('AI call summary, not reviewed ('+String(s.at||'').slice(0,10)+'):')>=0)
     out.push({ key:'summary', kind:'relabel', label:'The AI\'s summary in the notes', words:'Mark it reviewed' });
