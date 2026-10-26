@@ -86,7 +86,16 @@ T = r"""async()=>{
   ok('Samantha: the Program view, tracking only', /Referral Partner Program/.test(pg()) && /tracking only, no rewards/.test(pg()), pg().slice(0,300));
   ok('...tiles: 2 partners (1 not paused), families referred, home visits, clients started, conversion', /2\s*partners \(1 not paused\)/.test(pg()) && /families referred/.test(pg()) && /home visits/.test(pg()) && /clients started/.test(pg()) && /referred who started/.test(pg()), pg());
   ok('...Sources to check: the returning family and the unknown code, each with why', /Sources to check · 2/i.test(pg()) && /Dorothy Hayes[\s\S]*family we already know/.test(pg()) && /doesn't match a saved partner/.test(pg()), pg());
-  ok('...the partners table: Jane 2 referred (her link + Krystal\'s phone one above), 0 home visits, 1 started, 50%, 1 link and 1 typed in; billed revenue "not available yet"', /Ozark Senior Moves[\s\S]*Active\s+2\s+0\s+1\s+50%\s+not available yet\s+1 link · 1 typed in/.test(pg()), pg());
+  ok('...the partners table: Jane 2 referred (her link + Krystal\'s phone one above), 0 home visits, 1 started, 50%, 1 link and 1 typed in; billed revenue "not available yet"', /Ozark Senior Moves[\s\S]*Active\s+2\s+0\s+1\s+50%\s+not read yet\s+1 link · 1 typed in/.test(pg()), pg());
+  /* billed revenue, read from AxisCare only when an owner asks */
+  ok('Billed revenue: "not read yet" until asked, with a Get billed revenue from AxisCare button', /Get billed revenue from AxisCare/.test(pg()) && /not read yet/.test(pg()));
+  window.__inv=[]; (0,eval)("sb.functions.invoke=async(fn,o)=>{ window.__inv.push(fn); if(window.__revFail) return { data:null, error:{ context:{ status:404, json:async()=>({}) } } }; return { data:{ at:'2026-10-26T15:00:00Z', through:'2026-10-26', clients:2, more_than_read:0, partners:{ jane:{ clients:2, read:1, unread:1, visits:4, hours:36.5, billed:572, no_rate_clients:1 } } }, error:null }; }");
+  window.__revFail=true; await plRevenue(); await sleep(150);
+  ok('...the server piece not deployed yet: says so, nothing else changes', /isn't set up on the server yet/.test(pg()) && /not read yet/.test(pg()), pg());
+  window.__revFail=false; await plRevenue(); await sleep(150);
+  ok('...read: Jane shows $572 est. · 36.5 hrs, 1 client not read, some visits without a rate; labelled an estimate, not invoices', /\$572\s*est\. · 36\.5 hrs/.test(pg()) && /1 client not read/.test(pg()) && /some visits have no rate/.test(pg()) && /not invoices or payments/.test(pg()) && window.__inv.slice(-1)[0]==='partner-revenue', pg());
+  ok('...a partner with nobody started says so (not $0)', /Grace Community Church[\s\S]*no clients started/.test(pg()));
+  ok('...nothing was saved by reading it', !window.__P.some(x=>/revenue/i.test(JSON.stringify(x))));
   /* recheck AxisCare later, read only */
   plDecide('plc_PL2'); await sleep(200);
   const dlg=()=>document.getElementById('plDecOv');
@@ -139,7 +148,7 @@ T = r"""async()=>{
   /* on the lead */
   const h=PartnerLinks.leadSourceHtml(DATA.leads.find(l=>l.id==='PL4'));
   ok('The lead\'s partner card: how it came in, and the source history', /Came in by typed in/.test(h) && /Referral source history \(1\)/.test(h) && /CoxHealth → Ozark Senior Moves/.test(h), h);
-  ok('No rewards anywhere on the new screens', !/reward|commission|eligib|\$\d/i.test(document.getElementById('plProgram').innerText.replace('tracking only, no rewards','')));
+  ok('No rewards anywhere on the new screens', !/reward|commission|eligib/i.test(document.getElementById('plProgram').innerText.replace('tracking only, no rewards','')));
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
