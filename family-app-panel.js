@@ -15,31 +15,76 @@
   function settings() { return (window.DATA && window.DATA.ops_settings) || {} }
 
   // ── Family Circle line ──────────────────────────────────────────────────────────────────────────────────────────
-  /* Her rule 2026-10-17: the welcome is sent by a person, and the Hub notes when, by whom and which version. */
+  /* Her rule 2026-10-17: the welcome is sent by a person, and the Hub notes when, by whom and which version.
+     2026-10-25 HER CHANGE: two separate emails. The AxisCare Family Portal email goes on its own to everyone in the circle who
+     can use it (the Hub shows when, or why it couldn't); the Booking App email is sent by hand, and never for a client whose
+     Booking App is turned off (FAMAPP.bookingSwitch). */
   var KIND = { regular: 'Regular', flexible: 'Flexible', both: 'Combination' }
   function when(iso) { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) } catch (x) { return '' } }
   function sentLine(m) {
-    if (m.welcome_sent_at) return '<span class="field-note" style="color:var(--green);">Welcome sent ' + e(when(m.welcome_sent_at)) + (m.welcome_sent_by ? ' by ' + e(m.welcome_sent_by) : '') + ' (' + e(KIND[m.welcome_version] || m.welcome_version || '') + (m.welcome_how ? ', ' + e(m.welcome_how) : '') + ')</span>'
-    if (m.welcome_skip_at) return '<span class="field-note">No welcome: ' + e(m.welcome_skip_reason || '') + '</span>'
-    return '<span class="field-note" style="color:#B45309;">Welcome not sent yet</span>'
+    if (m.welcome_sent_at) return '<span class="field-note" style="color:var(--green);">Booking App email sent ' + e(when(m.welcome_sent_at)) + (m.welcome_sent_by ? ' by ' + e(m.welcome_sent_by) : '') + ' (' + e(KIND[m.welcome_version] || m.welcome_version || '') + (m.welcome_how ? ', ' + e(m.welcome_how) : '') + ')</span>'
+    return '<span class="field-note">Booking App email not sent</span>'
   }
-  function circleLine(m, px) {
+  function btnOf(label, js, cls) { return '<button class="btn ' + (cls || 'btn-ghost') + ' btn-sm" style="padding:2px 9px;font-size:12px;" onclick="' + js + '">' + label + '</button>' }
+  /* The AxisCare welcome line: sent (automatic or by whom), couldn't go (why), "No welcome", or waiting. */
+  function axisLine(m, px) {
+    if (m.stopped_at || m.axiscare_removed_at || !m.email) return ''
+    var id = e(m.id), ref = "'" + id + "','" + e(px) + "'"
+    var head = '<div class="fam-line" id="famax-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
+    var st
+    if (m.axis_welcome_sent_at) st = '<span class="field-note" style="color:var(--green);">AxisCare welcome sent ' + e(when(m.axis_welcome_sent_at)) + (m.axis_welcome_sent_by === 'automatic' ? ' (automatic)' : m.axis_welcome_sent_by ? ' by ' + e(m.axis_welcome_sent_by) : '') + '</span>'
+    else if (m.welcome_skip_at) st = '<span class="field-note">No AxisCare welcome: ' + e(m.welcome_skip_reason || '') + '</span>'
+    else if (m.axis_welcome_failed_at) st = '<span style="color:#b91c1c;font-weight:600;">AxisCare welcome couldn\'t go ' + e(when(m.axis_welcome_failed_at)) + ': ' + e(m.axis_welcome_failed_why || '') + '</span>'
+    else st = '<span class="field-note" style="color:#B45309;">AxisCare welcome not sent yet' + (settings().family_axis_welcome_auto === true ? ' (it goes on its own once they can use it)' : '') + '</span>'
+    return head + st + (m.welcome_skip_at ? '' : btnOf(m.axis_welcome_sent_at ? 'Send AxisCare welcome again' : 'Send AxisCare welcome', 'FAMAPP.axisWelcome(' + ref + ')', m.axis_welcome_sent_at ? '' : 'btn-primary')) + '</div>'
+  }
+  function circleLine(m, px, circ) {
     var id = e(m.id), st = m.app_status   // circle_contacts.id is a uuid (Number() made it NaN, so every press sent no one)
-    var btn = function (label, js, cls) { return '<button class="btn ' + (cls || 'btn-ghost') + ' btn-sm" style="padding:2px 9px;font-size:12px;" onclick="' + js + '">' + label + '</button>' }
+    var btn = btnOf
+    var off = !!(circ && circ.booking_app_off_at)
     var head = '<div class="fam-line" id="fam-' + e(px) + '-' + id + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;font-size:12.5px;">'
+    var ax = axisLine(m, px)
     if (st === 'active') {
-      return head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
+      return ax + head + '<span style="color:var(--green);font-weight:600;">Booking App: on</span><span class="field-note">' + (m.app_can_book ? 'can book visits' : 'can see visits, can\'t book') + '</span>' + sentLine(m) +
+        (off ? '<span style="color:#B45309;font-weight:600;">The Booking App is off for this client; they can still sign in until you turn the app off for them.</span>' : '') +
         (m.phone_confirmed_at && m.phone_confirmed_number === m.phone ? '<span class="field-note">Number confirmed' + (m.phone_confirmed_by ? ' (' + e(m.phone_confirmed_by) + ')' : '') + '</span>' : '') +
         (m.hipaa_office_ok_at && m.hipaa_authorized !== true ? '<span class="field-note">HIPAA OK in the Hub' + (m.hipaa_office_ok_by ? ' (' + e(m.hipaa_office_ok_by) + ')' : '') + '</span>' : '') +
-        btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book','" + id + "','" + e(px) + "'," + (!m.app_can_book) + ")") +
-        btn('Send welcome', "FAMAPP.welcome('" + id + "','" + e(px) + "')", 'btn-primary') +
+        (off ? '' : btn(m.app_can_book ? 'Turn booking off' : 'Turn booking on', "FAMAPP.act('can_book','" + id + "','" + e(px) + "'," + (!m.app_can_book) + ")") +
+        btn('Send Booking App email', "FAMAPP.welcome('" + id + "','" + e(px) + "')", 'btn-primary')) +
         btn('Turn app off', "FAMAPP.act('revoke','" + id + "','" + e(px) + "')") + '</div>'
     }
-    if (st === 'revoked') return head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite','" + id + "','" + e(px) + "')") + '</div>'
     if (m.stopped_at || m.axiscare_removed_at) return ''
-    if (!m.email) return head + '<span class="field-note">Booking App: add an email to invite them</span></div>'
-    // Her ask 2026-10-17: ONE press invites them and opens the welcome to read; it goes only when Send welcome is pressed.
-    return head + btn('Invite and send welcome', "FAMAPP.act('invite','" + id + "','" + e(px) + "',null,true)", 'btn-primary') + '</div>'
+    if (off) return ax
+    if (st === 'revoked') return ax + head + '<span class="field-note">Booking App: turned off</span>' + btn('Turn on again', "FAMAPP.act('invite','" + id + "','" + e(px) + "')") + '</div>'
+    if (!m.email) return head + '<span class="field-note">Add an email for the AxisCare welcome and the Booking App</span></div>'
+    // Her ask 2026-10-17: ONE press invites them and opens the Booking App email to read; it goes only when Send is pressed.
+    return ax + head + '<span class="field-note">Booking App: not invited</span>' + btn('Invite and send Booking App email', "FAMAPP.act('invite','" + id + "','" + e(px) + "',null,true)") + '</div>'
+  }
+  /* The client's Booking App on/off (her rule 2026-10-25): off = no invites and no Booking App email for this client. */
+  function bookingSwitch(circ, px) {
+    if (!circ || !circ.id) return ''
+    var cid = e(circ.id), ref = "'" + cid + "','" + e(px) + "'"
+    var off = !!circ.booking_app_off_at
+    return '<div id="fambs-' + e(px) + '-' + cid + '" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 8px;font-size:12.5px;">' +
+      '<b style="color:var(--navy);">Booking App for this client:</b>' +
+      (off ? '<span style="color:#B45309;font-weight:600;">Off</span><span class="field-note">' + e(when(circ.booking_app_off_at)) + (circ.booking_app_off_by ? ' by ' + e(circ.booking_app_off_by) : '') + (circ.booking_app_off_reason ? ': ' + e(circ.booking_app_off_reason) : '') + '. No invites and no Booking App email.</span>' + btnOf('Turn on', 'FAMAPP.bookingSet(' + ref + ',true,this)')
+        : '<span style="color:var(--green);font-weight:600;">On</span><span class="field-note">Send the Booking App email to the families who would use it.</span>' + btnOf('Turn off', 'FAMAPP.bookingSet(' + ref + ',false,this)')) +
+      '<span class="fam-bmsg"></span></div>'
+  }
+  function bookingSet(circleId, px, on, b) {
+    var row = document.getElementById('fambs-' + px + '-' + circleId), msg = row && row.querySelector('.fam-bmsg')
+    var inp = document.getElementById('fambsr-' + px + '-' + circleId)
+    if (!on && !inp) { if (msg) msg.innerHTML = '<input id="fambsr-' + e(px) + '-' + e(circleId) + '" maxlength="200" placeholder="Why (optional)" style="font-size:12px;min-width:180px;"> <button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.bookingSet(\'' + e(circleId) + '\',\'' + e(px) + '\',false,this)">Turn off the Booking App</button>'; return Promise.resolve() }
+    b.disabled = true
+    return call({ action: 'booking_app', circle_id: circleId, on: !!on, reason: inp ? inp.value.trim() : '' }).then(function (d) {
+      var c = ctxs[px]
+      return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        if (d.still_signed_in && d.still_signed_in.length) {
+          var r2 = document.getElementById('fambs-' + px + '-' + circleId)
+          if (r2) r2.insertAdjacentHTML('afterend', '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:0 0 8px;font-size:12.5px;color:#92400E;">' + e(d.still_signed_in.join(', ')) + (d.still_signed_in.length === 1 ? ' still has' : ' still have') + ' a Booking App login. Press Turn app off under each person if they should lose it.</div>')
+        }
+      })
+    }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
   /* The same person can be drawn twice (the hidden Family Circles list and the open profile): use the one on screen, so a
      message never lands somewhere nobody can see it. */
@@ -62,7 +107,7 @@
         if (action === 'invite' && d.words) {
           var l2 = lineOf(px, contactId)
           if (l2) l2.insertAdjacentHTML('afterend', '<div class="fam-words" style="background:var(--teal-pale,#EAF4F6);border-radius:8px;padding:8px 10px;margin:4px 0 6px;font-size:12.5px;">' +
-            '<b>They can sign in now.</b> Nothing was sent. Press <b>Send welcome</b> to text and email them the steps, or send this yourself from the office line:<div style="margin:6px 0;padding:6px 8px;background:#fff;border-radius:6px;" id="famw-' + e(px) + '-' + contactId + '">' + e(d.words) + '</div>' +
+            '<b>They can sign in now.</b> Nothing was sent. Press <b>Send Booking App email</b> to text and email them the app steps, or send this yourself from the office line:<div style="margin:6px 0;padding:6px 8px;background:#fff;border-radius:6px;" id="famw-' + e(px) + '-' + contactId + '">' + e(d.words) + '</div>' +
             '<button class="btn btn-ghost btn-sm" style="font-size:12px;" onclick="FAMAPP.copy(\'famw-' + e(px) + '-' + contactId + '\', this)">Copy the words</button></div>')
         }
       })
@@ -89,31 +134,26 @@
       W[px + '-' + contactId] = d
       var box = document.getElementById('famwel-' + px + '-' + contactId)
       var id = e(px) + '-' + contactId
-      var axis = !d.kind ? '' : d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so they can activate the AxisCare Family Portal.</div>'
-        : d.axis_email_on_file === false ? '<div style="color:#B45309;font-weight:600;">Their email isn\'t on ' + e(firstOf(d)) + '\'s AxisCare record yet, so AxisCare\'s Activate account won\'t work for them. Add them as a responsible party in AxisCare first, or send it without the AxisCare part.</div>'
-        : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
       var how = [d.can_text && !d.text_held ? 'text' : '', d.can_email ? 'email' : ''].filter(Boolean)
       var choose = '<div style="margin:6px 0 4px;font-weight:600;">How will this client schedule their care?</div><div role="radiogroup" style="display:flex;flex-direction:column;gap:3px;">' +
         d.kinds.map(function (k) { return '<label style="display:flex;gap:6px;align-items:center;"><input type="radio" name="famwk-' + id + '" value="' + e(k.key) + '"' + (d.kind === k.key ? ' checked' : '') + ' onchange="FAMAPP.welcome(\'' + e(contactId) + '\',\'' + e(px) + '\',false,this.value)"> ' + e(k.label) + '</label>' }).join('') + '</div>' +
         (d.saved_kind ? '' : '<div class="field-note">Saved on the client for next time. Flexible turns the App plan on; Regular and Combination leave it off (you can still change it).</div>')
       var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? ' by ' + e(d.sent.by) : '') + (d.sent.version ? ' (' + e(KIND[d.sent.version] || d.sent.version) + ')' : '') + '.</div>' : ''
-      box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send welcome.</div>' : '') +
-        '<b>Welcome for ' + e(d.name) + '</b>' + sent +
+      box.innerHTML = (justInvited ? '<div style="color:var(--green,#15803d);font-weight:600;">' + e(d.name) + ' can sign in now. Nothing is sent until you press Send Booking App email.</div>' : '') +
+        '<b>Booking App email for ' + e(d.name) + '</b>' + sent +
         hipaaBox(d, contactId, px) +
         choose +
-        (!d.kind ? '<div class="field-note" style="margin-top:6px;">Pick one to see the welcome.</div>' :
-          axis +
-          '<label style="display:flex;gap:6px;align-items:center;margin:6px 0;"><input type="checkbox" id="famwax-' + id + '"' + (d.include_axis ? ' checked' : '') + ' onchange="FAMAPP.welcomeAxis(\'' + e(contactId) + '\',\'' + e(px) + '\', this.checked)"> Include the AxisCare Family Portal steps</label>' +
+        (!d.kind ? '<div class="field-note" style="margin-top:6px;">Pick one to see the Booking App email.</div>' :
           '<div class="field-note">The text (you can change it):</div><textarea id="famwt-' + id + '" rows="5" style="width:100%;font-size:13px;">' + e(d.text) + '</textarea>' +
           '<div class="field-note" style="margin:6px 0 2px;">The email: "' + e(d.email_subject) + '"</div>' +
-          '<iframe title="Welcome email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
+          '<iframe title="Booking App email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
           '<div class="field-note">' + (how.length ? 'Goes by ' + how.join(' and ') + (d.can_text ? '' : ' (no text: no phone with Texts OK)') : d.text_held ? 'Nothing can go yet: no email, and the text is held.' : 'No way to reach them: add an email, or a phone with Texts OK.') + '</div>' +
           phoneBox(d, contactId, px) +
           '') +
         '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
-          (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send welcome') + '</button>' : '') +
+          (d.kind && how.length && d.hipaa_ok ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.welcomeSend(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">' + (d.sent ? 'Send it again' : 'Send Booking App email') + '</button>' : '') +
           '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.welcome(\'' + e(contactId) + '\',\'' + e(px) + '\')">' + (justInvited ? 'Not now' : 'Cancel') + '</button>' +
-          '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(\'' + e(contactId) + '\',\'' + e(px) + '\', this)">No welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
+          '</div>' +
         '<div class="fam-wmsg" style="margin-top:4px;"></div>'
     }).catch(function (err) { var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
@@ -145,7 +185,9 @@
     b.disabled = true
     return call({ action: action, contact_id: contactId, on: !!on }).then(function () {
       var c = ctxs[px]
+      var wasAxis = !!document.getElementById('famaxw-' + px + '-' + contactId)   // reopen the box it was pressed in
       return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        if (wasAxis) { var oa = document.getElementById('famaxw-' + px + '-' + contactId); if (oa) oa.remove(); return axisWelcome(contactId, px) }
         var old = document.getElementById('famwel-' + px + '-' + contactId); if (old) old.remove()
         return welcome(contactId, px, false, kind || undefined)
       })
@@ -155,24 +197,18 @@
       if (m) m.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>'; else b.insertAdjacentHTML('afterend', ' <span style="color:#b91c1c;">' + e(err.message) + '</span>')
     })
   }
-  function firstOf(d) { return d.client || 'the client' }
-  function welcomeAxis(contactId, px, on) {
-    var d = W[px + '-' + contactId], ta = document.getElementById('famwt-' + px + '-' + contactId); if (!d || !ta) return
-    var from = on ? d.text_without_axis : d.text_with_axis, to = on ? d.text_with_axis : d.text_without_axis
-    if (ta.value.trim() === String(from || '').trim()) ta.value = to   // only swap words the office hasn't changed
-  }
   function welcomeSend(contactId, px, b, textOnly) {
     var d = W[px + '-' + contactId] || {}
-    var ta = document.getElementById('famwt-' + px + '-' + contactId), ax = document.getElementById('famwax-' + px + '-' + contactId)
+    var ta = document.getElementById('famwt-' + px + '-' + contactId)
     var box = document.getElementById('famwel-' + px + '-' + contactId), msg = box && box.querySelector('.fam-wmsg')
     if (!d.kind) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">Pick how this client schedules care first.</span>'; return Promise.resolve() }
     if (!ta || !ta.value.trim()) { if (msg) msg.innerHTML = '<span style="color:#b91c1c;">The text is empty.</span>'; return Promise.resolve() }
     var label = b.textContent; b.disabled = true; b.textContent = 'Sending…'
-    var body = { action: 'welcome', contact_id: contactId, send: true, kind: d.kind, again: !!d.sent, text: ta.value.trim(), include_axis: !!(ax && ax.checked) }
+    var body = { action: 'welcome', contact_id: contactId, send: true, kind: d.kind, again: !!d.sent, text: ta.value.trim() }
     if (textOnly) { body.by_email = false; body.again = true }
     return call(body).then(function (r) {
-      var said = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [r.by_text ? 'text' : '', r.by_email ? 'email' : ''].filter(Boolean).join(' and ') + ' (' + e(KIND[r.version] || '') + ').</span> Noted on the Care circle card and saved in this Family Circle\'s messages.' +
-        (r.text_held ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin-top:6px;color:#92400E;font-weight:600;">' + e(r.text_held) + (/isn't confirmed/.test(r.text_held) ? ' Press Send welcome on their line to confirm it, then Send the text now.' : '') + '</div>' : '') +
+      var said = '<span style="color:var(--green,#15803d);font-weight:600;">Sent by ' + [r.by_text ? 'text' : '', r.by_email ? 'email' : ''].filter(Boolean).join(' and ') + ' (' + e(KIND[r.version] || '') + ').</span> Noted under the person and saved in this Family Circle\'s messages.' +
+        (r.text_held ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin-top:6px;color:#92400E;font-weight:600;">' + e(r.text_held) + (/isn't confirmed/.test(r.text_held) ? ' Press Send Booking App email on their line to confirm it, then Send the text now.' : '') + '</div>' : '') +
         (r.text_failed ? '<div style="color:#b91c1c;font-weight:600;margin-top:6px;">The text didn\'t go through. There\'s a Needs Attention card with why.</div>' : '')
       box.innerHTML = said
       /* the reload redraws the circle, which drops this box: put the result back under the person so it stays on screen */
@@ -184,6 +220,50 @@
       })
     }).catch(function (err) { b.disabled = false; b.textContent = label; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
+  /* The AxisCare welcome by hand (2026-10-25): the same email that goes on its own. Preview, then Send; email only. */
+  function axisLineOf(px, contactId) {
+    var all = document.querySelectorAll('[id="famax-' + px + '-' + contactId + '"]')
+    for (var i = 0; i < all.length; i++) if (all[i].offsetParent !== null) return all[i]
+    return all[0] || null
+  }
+  function axisWelcome(contactId, px) {
+    var line = axisLineOf(px, contactId); if (!line) return Promise.resolve()
+    var old = document.getElementById('famaxw-' + px + '-' + contactId)
+    if (old) { old.remove(); return Promise.resolve() }
+    line.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famaxw-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">Getting the AxisCare welcome ready…</div>')
+    return call({ action: 'axis_welcome', contact_id: contactId }).then(function (d) {
+      W['ax-' + px + '-' + contactId] = d
+      var box = document.getElementById('famaxw-' + px + '-' + contactId), id = e(px) + '-' + contactId, ref = '\'' + e(contactId) + '\',\'' + e(px) + '\''
+      var axis = d.axis_email_on_file === true ? '<div style="color:var(--green,#15803d);">Their email is on AxisCare, so Activate account will work for them.</div>'
+        : d.axis_email_on_file === false ? '<div style="color:#b91c1c;font-weight:600;">Their email isn\'t on the client\'s AxisCare record, so Activate account won\'t work for them. Add them as a responsible party in AxisCare first.</div>'
+        : '<div class="field-note">Couldn\'t check AxisCare just now.</div>'
+      var sent = d.sent ? '<div style="background:#FBF0DD;border-radius:6px;padding:6px 8px;margin:6px 0;">Already sent' + (d.sent.to ? ' to ' + e(d.sent.to) + ' (same email)' : '') + ' ' + e(when(d.sent.at)) + (d.sent.by ? (d.sent.by === 'automatic' ? ' (automatic)' : ' by ' + e(d.sent.by)) : '') + '.</div>' : ''
+      var failed = d.failed ? '<div style="color:#b91c1c;margin:6px 0;">The automatic send couldn\'t go ' + e(when(d.failed.at)) + ': ' + e(d.failed.why || '') + '</div>' : ''
+      box.innerHTML = '<b>AxisCare welcome for ' + e(d.name) + '</b> <span class="field-note">(email only; it never mentions the Booking App)</span>' + sent + failed +
+        hipaaBox(d, contactId, px) + axis +
+        '<div class="field-note" style="margin:6px 0 2px;">The email: "' + e(d.email_subject) + '"</div>' +
+        '<iframe title="AxisCare welcome email preview" sandbox="" style="width:100%;height:420px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:#FAF9F6;" srcdoc="' + e(d.email_html) + '"></iframe>' +
+        '<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">' +
+          (d.hipaa_ok && d.axis_email_on_file !== false ? '<button class="btn btn-primary btn-sm" onclick="FAMAPP.axisSend(' + ref + ', this)">' + (d.sent ? 'Send it again' : 'Send AxisCare welcome') + '</button>' : '') +
+          '<button class="btn btn-ghost btn-sm" onclick="FAMAPP.axisWelcome(' + ref + ')">Cancel</button>' +
+          '<button class="btn btn-ghost btn-sm" style="font-size:11.5px;" onclick="FAMAPP.welcomeSkip(' + ref + ', this)">No AxisCare welcome for this person</button> <span id="famwsk-' + id + '"></span></div>' +
+        '<div class="fam-wmsg" style="margin-top:4px;"></div>'
+    }).catch(function (err) { var box = document.getElementById('famaxw-' + px + '-' + contactId); if (box) box.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
+  function axisSend(contactId, px, b) {
+    var d = W['ax-' + px + '-' + contactId] || {}
+    var box = document.getElementById('famaxw-' + px + '-' + contactId), msg = box && box.querySelector('.fam-wmsg')
+    var label = b.textContent; b.disabled = true; b.textContent = 'Sending…'
+    return call({ action: 'axis_welcome', contact_id: contactId, send: true, again: !!d.sent }).then(function () {
+      var said = '<span style="color:var(--green,#15803d);font-weight:600;">AxisCare welcome sent by email.</span> Noted under the person.'
+      var c = ctxs[px]
+      return Promise.resolve(c && c.reload ? c.reload() : null).then(function () {
+        var l2 = axisLineOf(px, contactId)
+        if (l2 && !document.getElementById('famaxw-' + px + '-' + contactId)) l2.insertAdjacentHTML('afterend', '<div class="fam-welcome" id="famaxw-' + e(px) + '-' + contactId + '" style="border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px;margin:4px 0 8px;font-size:12.5px;">' + said + '</div>')
+        else if (box) box.innerHTML = said
+      })
+    }).catch(function (err) { b.disabled = false; b.textContent = label; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
+  }
   function welcomeSkip(contactId, px, b) {
     var holder = document.getElementById('famwsk-' + px + '-' + contactId); if (!holder) return Promise.resolve()
     var inp = document.getElementById('famwskr-' + px + '-' + contactId)
@@ -191,7 +271,7 @@
     if (!inp.value.trim()) { inp.focus(); return Promise.resolve() }
     b.disabled = true
     return call({ action: 'welcome_skip', contact_id: contactId, on: true, reason: inp.value.trim() }).then(function () {
-      var box = document.getElementById('famwel-' + px + '-' + contactId); if (box) box.innerHTML = '<span class="field-note">Noted: no welcome for this person. The reminder won\'t ask again.</span>'
+      var box = document.getElementById('famaxw-' + px + '-' + contactId); if (box) box.innerHTML = '<span class="field-note">Noted: no AxisCare welcome for this person. It won\'t go on its own, and the reminder won\'t ask again.</span>'
       var c = ctxs[px]; if (c && c.reload) c.reload()
     }).catch(function (err) { b.disabled = false; holder.insertAdjacentHTML('beforeend', ' <span style="color:#b91c1c;">' + e(err.message) + '</span>') })
   }
@@ -473,5 +553,5 @@
       b.disabled = false; ta.value = d.text || ''; if (msg) msg.textContent = d.text ? 'Saved. Caregivers see this on visit offers.' : 'Cleared. Caregivers see no About.'
     }).catch(function (err) { b.disabled = false; if (msg) msg.innerHTML = '<span style="color:#b91c1c;">' + e(err.message) + '</span>' })
   }
-  window.FAMAPP = { setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, confirmPhone: confirmPhone, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, enjoysSave: enjoysSave, shareCare: shareCare, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeAxis: welcomeAxis, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
+  window.FAMAPP = { axisWelcome: axisWelcome, axisSend: axisSend, bookingSwitch: bookingSwitch, bookingSet: bookingSet, setType: setType, welcomeSkip: welcomeSkip, hipaaOk: hipaaOk, confirmPhone: confirmPhone, lateBilled: lateBilled, review: review, fillClose: fillClose, helpFill: helpFill, appTasks: appTasks, aboutBox: aboutBox, aboutSave: aboutSave, enjoysSave: enjoysSave, shareCare: shareCare, circleLine: circleLine, register: function (px, reload) { ctxs[px] = { reload: reload } }, act: act, copy: copy, welcome: welcome, welcomeSend: welcomeSend, render: render, schedule: schedule, place: place, fee: fee, feeCheck: feeCheck, feeBilled: feeBilled, plan: plan }
 })()

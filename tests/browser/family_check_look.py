@@ -34,7 +34,7 @@ const T = {
   circle_contacts: [
     { id: 1, circle_id: 'c1', name: 'Lisa Ray', relationship: 'Daughter', email: 'l@x.test', phone: '555', sms_consent: false, hipaa_authorized: false, source: 'axiscare' },
     { id: 2, circle_id: 'c1', name: 'Old Son', source: 'axiscare', axiscare_removed_at: '2026-10-01' },
-    { id: 3, circle_id: 'c2', name: 'Gina Good', relationship: 'Wife', email: 'g@x.test', phone: '556', sms_consent: true, hipaa_authorized: true, source: 'axiscare', is_primary: true, app_status: 'active', welcome_sent_at: '2026-10-17T15:00:00Z' },
+    { id: 3, circle_id: 'c2', name: 'Gina Good', relationship: 'Wife', email: 'g@x.test', phone: '556', sms_consent: true, hipaa_authorized: true, source: 'axiscare', is_primary: true, app_status: 'active', welcome_sent_at: '2026-10-17T15:00:00Z', axis_welcome_sent_at: '2026-10-17T15:00:00Z' },
     { id: 4, circle_id: 'c2', name: 'Neighbor Ned', phone: '557', sms_consent: false, hipaa_authorized: true, source: 'office' },
     { id: 5, circle_id: 'c3', name: 'Nobody Linked', email: 'n@x.test' } ],
   app_data: { data: [{ automation: 'circles-sync', at: new Date(Date.now() - 3600e3).toISOString(), ok: true }] } };
@@ -67,7 +67,7 @@ with sync_playwright() as p:
     ck('the nightly sync line shows', 'Family contacts sync from AxisCare every night' in t, t)
     ck('each client opens their profile on the Family tab', pg.locator('a[data-open-client="55"][data-open-tab="family"]').count() == 1)
     pg.evaluate("FCK.setFilter('all')"); t = pg.inner_text('#fck_box')
-    ck('All: Good Family shows, with main contact, app on, welcome sent, and Ned typed by office (info only)', 'Good Family' in t and 'main contact' in t and 'Booking App on' in t and 'welcome sent' in t and 'typed by office' in t and '1 not in AxisCare' in t, t)
+    ck('All: Good Family shows, with main contact, app on, AxisCare welcome + Booking App email sent, and Ned typed by office (info only)', 'Good Family' in t and 'main contact' in t and 'Booking App on' in t and 'AxisCare welcome sent' in t and 'Booking App email sent' in t and 'typed by office' in t and '1 not in AxisCare' in t, t)
     ck('Lisa has no HIPAA so no welcome-not-sent nag for her', 'welcome not sent' not in t, t)
     pg.evaluate("FCK.search('ned')"); t = pg.inner_text('#fck_box')
     ck('search finds a family member and shows their client', 'Good Family' in t and 'Dorothy' not in t, t)
