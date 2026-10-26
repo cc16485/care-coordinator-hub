@@ -191,13 +191,16 @@
   function decide(itemId){
     const it = R().checks(leads(), orgs()).find(x => x.id === itemId); if(!it || !owner()) return;
     css();
-    const tgt = leads().find(x => String(x.id) === it.target_id) || {}, has = R().established(tgt);
+    const tgt = leads().find(x => String(x.id) === it.target_id) || {}, has = R().established(tgt), src = leads().find(x => String(x.id) === it.lead_id) || tgt;
+    const nowSrc = tgt.referral_org_id ? ((org(tgt.referral_org_id) || {}).name || tgt.referral_source_name) : (tgt.referral_source_name || '');
     const choices = orgs().filter(o => o && !o.archived).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
     const ov = document.createElement('div'); ov.className = 'pl-ov'; ov.id = 'plDecOv';
     ov.innerHTML = '<div class="pl-dlg" role="dialog" aria-modal="true"><h3>Decide the referral source</h3><div class="field-note">' + esc(it.why) + '</div>'
+      + '<div class="pl-note">' + (has ? 'This family\'s referral source now: <b>' + esc(nowSrc) + '</b>. Crediting replaces it; the old one stays in the history.' : 'This family has no referral source recorded yet.') + '</div>'
+      + (it.kind === 'known_family' && typeof ckFind === 'function' ? '<div class="pl-acts"><button class="fb" id="plDecAx">Check AxisCare again</button></div><div class="field-note" id="plDecAxOut" style="margin-top:4px;"></div>' : '')
       + '<label for="plDecOrg">Partner to credit</label><select id="plDecOrg"><option value="">Pick a partner…</option>'
       + choices.map(o => '<option value="' + esc(o.id) + '"' + (String(o.id) === it.org_id ? ' selected' : '') + '>' + esc(o.name) + (R().codeOf(o) ? ' (' + esc(R().codeOf(o)) + ')' : '') + '</option>').join('') + '</select>'
-      + '<label for="plDecWhy">Reason ' + (has ? '<span style="color:#B23B2E;">(needed: this family already has a source)</span>' : '(optional)') + '</label><textarea id="plDecWhy" rows="2" placeholder="What you checked"></textarea>'
+      + '<label for="plDecWhy">Reason <span style="color:#B23B2E;">(needed to credit)</span></label><textarea id="plDecWhy" rows="2" placeholder="What you checked"></textarea>'
       + '<div class="pl-err" id="plDecErr"></div><div class="pl-acts"><button class="primary" id="plDecCredit">Credit the partner</button><button class="fb" id="plDecKeep">Keep the current source</button>'
       + '<button class="secondary" onclick="document.getElementById(\'plDecOv\').remove()">Cancel</button></div></div>';
     document.body.appendChild(ov);
@@ -208,6 +211,18 @@
       ov.remove(); say(decision === 'keep' ? 'Kept the current source.' : 'Credited to the partner.'); redraw();
     };
     ov.querySelector('#plDecCredit').onclick = () => go('credit');
+    /* read only: the same live AxisCare and Family Circle lookup the "is this the same family?" check uses; changes nothing */
+    const axb = ov.querySelector('#plDecAx');
+    if(axb) axb.onclick = async () => {
+      const out = ov.querySelector('#plDecAxOut'); axb.disabled = true; out.textContent = 'Checking AxisCare…';
+      const q = ckQuery({ phones:[src.phone, src.client_phone], first:src.client_first_name || src.first_name, last:src.client_last_name || src.last_name, dob:src.client_dob, email:src.email });
+      const f = await ckFind(q, src.id, true);
+      const known = (f.leads || []).map(h => 'an earlier inquiry for ' + (((h.lead.client_first_name || h.lead.first_name || '') + ' ' + (h.lead.client_last_name || h.lead.last_name || '')).trim() || 'this family'))
+        .concat((f.clients || []).map(m => (m.active === true ? 'current' : m.active === false ? 'former' : 'Family Circle') + ' client ' + m.name));
+      out.innerHTML = (f.note ? esc(f.note) + ' ' : '') + (known.length ? '<b>Found:</b> ' + esc(known.join('; ')) + '. This may be a family we already know.' : (f.note ? '' : '<b>No match</b> in AxisCare, the Family Circles or earlier inquiries: this looks like a new family.'))
+        + ' <span class="field-note">(checked ' + esc(new Date().toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' })) + '; nothing was changed)</span>';
+      axb.disabled = false;
+    };
     ov.querySelector('#plDecKeep').onclick = () => go('keep');
   }
   function openLead(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id); else if(typeof openLeadModal === 'function') openLeadModal(id); }

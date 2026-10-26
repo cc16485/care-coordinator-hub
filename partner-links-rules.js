@@ -132,8 +132,8 @@
     return out.sort((a, b) => String(b.at).localeCompare(String(a.at)));
   }
   /**
-   * Resolve one item. decision: 'keep' (leave the source as it is) or 'credit' (the partner gets the referral; needs a
-   * reason when the family's record already has a source). Returns { error } or { changes:[lead,...] } with the records
+   * Resolve one item. decision: 'keep' (leave the source as it is) or 'credit' (the partner gets the referral; always
+   * needs a reason, and the old source is kept in the history). Returns { error } or { changes:[lead,...] } with the records
    * to save. Owners only (the screen checks; this refuses too).
    */
   function resolve(item, decision, leads, orgs, o) {
@@ -147,11 +147,13 @@
     if (decision !== 'credit') return { error:'Unknown decision.' };
     const org = (orgs || []).find(x => x && String(x.id) === String(o.org_id || item.org_id));
     if (!org) return { error:'Pick the partner to credit.' };
+    /* her rule (2026-10-26): crediting is always an owner decision with a reason, and never replaces a source silently */
     if (established(target) && !why) return { error:'This family already has a referral source. Write why it should change.' };
+    if (!why) return { error:'Write why you are crediting this partner (what you checked).' };
     const before = srcOf(target);
     target.source = 'Referral'; target.referral_org_id = String(org.id); target.referral_source_name = org.name; target.referral_via = 'link';
     if (!target.partner_code) target.partner_code = item.code;
-    pushHistory(target, { at, by, how:'sources_check', from:before, to:srcOf(target), why:why || 'Came through the partner\'s link; the owner checked it.' });
+    pushHistory(target, { at, by, how:'sources_check', from:before, to:srcOf(target), why });
     src.partner_link_seen = Object.assign({}, src.partner_link_seen, { resolved:Object.assign(done, { org_id:String(org.id) }) });
     return { changes:src === target ? [src] : [src, target] };
   }

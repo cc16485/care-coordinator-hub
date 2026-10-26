@@ -87,6 +87,21 @@ T = r"""async()=>{
   ok('...tiles: 2 partners (1 not paused), families referred, home visits, clients started, conversion', /2\s*partners \(1 not paused\)/.test(pg()) && /families referred/.test(pg()) && /home visits/.test(pg()) && /clients started/.test(pg()) && /referred who started/.test(pg()), pg());
   ok('...Sources to check: the returning family and the unknown code, each with why', /Sources to check · 2/i.test(pg()) && /Dorothy Hayes[\s\S]*family we already know/.test(pg()) && /doesn't match a saved partner/.test(pg()), pg());
   ok('...the partners table: Jane 2 referred (her link + Krystal\'s phone one above), 0 home visits, 1 started, 50%, 1 link and 1 typed in; billed revenue "not available yet"', /Ozark Senior Moves[\s\S]*Active\s+2\s+0\s+1\s+50%\s+not available yet\s+1 link · 1 typed in/.test(pg()), pg());
+  /* recheck AxisCare later, read only */
+  plDecide('plc_PL2'); await sleep(200);
+  const dlg=()=>document.getElementById('plDecOv');
+  ok('Decide: shows the family has no source yet, and offers Check AxisCare again (the AxisCare case)', /no referral source recorded yet/.test(dlg().innerText) && document.getElementById('plDecAx'), dlg().innerText);
+  window.__ckq=null; (0,eval)("ckLookup=async(q)=>{ window.__ckq=q; return { matches:[], axiscare_ok:true }; }");
+  const before=JSON.stringify(DATA.leads.find(l=>l.id==='PL2')); window.__P.length=0;
+  document.getElementById('plDecAx').click(); await sleep(300);
+  ok('...Check AxisCare again: asks the live lookup with the family\'s phone and name, shows the answer, saves nothing', window.__ckq && /No match/.test(document.getElementById('plDecAxOut').innerText) && /nothing was changed/.test(document.getElementById('plDecAxOut').innerText) && !window.__P.length && JSON.stringify(DATA.leads.find(l=>l.id==='PL2'))===before, [window.__ckq, document.getElementById('plDecAxOut').innerText]);
+  (0,eval)("ckLookup=async(q)=>{ return { matches:[{ name:'Dorothy Hayes', active:true, why:['phone'] }], axiscare_ok:true }; }");
+  document.getElementById('plDecAx').click(); await sleep(300);
+  ok('...a match says so ("current client Dorothy Hayes")', /current client Dorothy Hayes/.test(document.getElementById('plDecAxOut').innerText), document.getElementById('plDecAxOut').innerText);
+  (0,eval)("ckLookup=async(q)=>{ throw new Error('AxisCare answered 429'); }");
+  document.getElementById('plDecAx').click(); await sleep(300);
+  ok('...AxisCare still down: says it couldn\'t be checked, and the item stays on the list', /couldn't be checked just now/.test(document.getElementById('plDecAxOut').innerText) && /Dorothy Hayes/.test(pg()), document.getElementById('plDecAxOut').innerText);
+  dlg().remove();
   /* decide one */
   plDecide('plc_PL2'); await sleep(200);
   document.getElementById('plDecKeep').click(); await sleep(300);
@@ -95,9 +110,11 @@ T = r"""async()=>{
   plDecide('plc_PL3'); await sleep(200);
   document.getElementById('plDecCredit').click(); await sleep(150);
   ok('...Credit with no partner picked: asks for one, nothing saved', /Pick the partner to credit/.test(document.getElementById('plDecErr').textContent));
-  document.getElementById('plDecOrg').value='jane'; document.getElementById('plDecCredit').click(); await sleep(300);
+  document.getElementById('plDecOrg').value='jane'; document.getElementById('plDecCredit').click(); await sleep(150);
+  ok('...Credit with a partner but no reason: asks for one, nothing saved', /Write why you are crediting/.test(document.getElementById('plDecErr').textContent) && last('leads')[1].id==='PL2');
+  document.getElementById('plDecWhy').value='Bo said Jane gave him the card'; document.getElementById('plDecCredit').click(); await sleep(300);
   const d2=last('leads');
-  ok('...Credit Jane: the inquiry becomes her referral, with the history', d2 && d2[1].id==='PL3' && d2[1].referral_org_id==='jane' && d2[1].source_history[0].how==='sources_check', d2&&d2[1]);
+  ok('...Credit Jane: the inquiry becomes her referral, with the history', d2 && d2[1].id==='PL3' && d2[1].referral_org_id==='jane' && d2[1].source_history[0].how==='sources_check' && /gave him the card/.test(d2[1].source_history[0].why), d2&&d2[1]);
   /* add + pause */
   openRefProfile('cox'); await sleep(200);
   ok('Samantha on a partner not in the program: Add to the program', /Add to the program/.test(left()));

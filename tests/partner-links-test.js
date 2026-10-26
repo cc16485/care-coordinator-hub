@@ -90,9 +90,13 @@ ck('only an owner can decide', P.resolve(it, 'keep', L, ORGS, CC).error === 'Onl
 let r = P.resolve(it, 'keep', L, ORGS, OWNER);
 ck('Keep the current source: the item is closed with who and when; the family\'s source is untouched', r.changes.length === 1 && L.find(x => x.id === 'dup1').partner_link_seen.resolved.decision === 'keep' && L.find(x => x.id === 'dup1').source === 'Website' && !L.find(x => x.id === 'dup1').referral_org_id
   && !P.checks(L, ORGS).some(x => x.lead_id === 'dup1'), r);
-L = clone(LEADS); it = P.checks(L, ORGS).find(x => x.lead_id === 'ax1'); r = P.resolve(it, 'credit', L, ORGS, OWNER);
+L = clone(LEADS); it = P.checks(L, ORGS).find(x => x.lead_id === 'ax1');
+r = P.resolve(it, 'credit', L, ORGS, OWNER);
+ck('Credit with no reason is refused even when the family has no source yet (always an owner decision with a reason)', /Write why you are crediting/.test(r.error || '') && !L.find(x => x.id === 'ax1').referral_org_id && !L.find(x => x.id === 'ax1').partner_link_seen.resolved, r);
+r = P.resolve(it, 'credit', L, ORGS, Object.assign({}, OWNER, { why: 'Rechecked AxisCare: no match, a new family' }));
 const ax = L.find(x => x.id === 'ax1');
-ck('Credit the partner (AxisCare was down; the owner checked): source Referral, partner attached, by link, history "sources_check"', !r.error && ax.referral_org_id === 'jane' && ax.source === 'Referral' && ax.referral_via === 'link' && ax.source_history[0].how === 'sources_check' && ax.partner_link_seen.resolved.org_id === 'jane', ax);
+ck('Credit the partner (AxisCare was down; the owner checked): source Referral, partner attached, by link, history "sources_check"', !r.error && ax.referral_org_id === 'jane' && ax.source === 'Referral' && ax.referral_via === 'link' && ax.source_history[0].how === 'sources_check' && /Rechecked AxisCare/.test(ax.source_history[0].why) && ax.partner_link_seen.resolved.org_id === 'jane', ax);
+ck('...nothing is lost while it waits: the link details stay on the inquiry until an owner decides, and after', !!L.find(x => x.id === 'ax1').partner_link_seen.code && LEADS.find(x => x.id === 'ax1').partner_link_seen.code === 'JANE-K7');
 L = clone(LEADS); it = P.checks(L, ORGS).find(x => x.lead_id === 'fold1');
 ck('crediting a folded family that already has a source needs a reason', /Write why/.test(P.resolve(it, 'credit', L, ORGS, OWNER).error));
 r = P.resolve(it, 'credit', L, ORGS, Object.assign({}, OWNER, { why: 'Called the family; Jane sent them' }));
@@ -102,6 +106,9 @@ ck('...with a reason: the KEPT record changes (CoxHealth to Jane), its history s
 L = clone(LEADS); it = P.checks(L, ORGS).find(x => x.lead_id === 'unk1');
 ck('an unknown code: crediting needs the owner to pick a partner', P.resolve(it, 'credit', L, ORGS, OWNER).error === 'Pick the partner to credit.');
 ck('...and the family\'s typed source (Mercy Hospital) is established, so a reason is needed too', /Write why/.test(P.resolve(it, 'credit', L, ORGS, Object.assign({}, OWNER, { org_id: 'amy' })).error));
+r = P.resolve(it, 'credit', L, ORGS, Object.assign({}, OWNER, { org_id: 'amy', why: 'Bo said Amy at Mercy gave him the card' }));
+const bo = L.find(x => x.id === 'unk1');
+ck('...with a reason, the typed source is replaced and kept in the history (never silently)', !r.error && bo.referral_org_id === 'amy' && bo.source_history[0].from.referral_source_name === 'Mercy Hospital' && /gave him the card/.test(bo.source_history[0].why), bo);
 
 /* the Program numbers */
 const rows = P.numbers(ORGS, LEADS), J = rows.find(x => x.id === 'jane');
