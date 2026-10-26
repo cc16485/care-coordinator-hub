@@ -155,7 +155,7 @@
         : '<div class="field-note">No open deadlines.</div>')
       + '<div class="field-note hr-foot">From the Corrective Action SOP: facts in 2 business days, a decision in 3, the meeting within 5 business days of the decision, and a 30-day follow-up.</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Signatures</div><div class="field-note" id="hrAckN">Loading…</div></div>'
-      + '<div class="card hr-card"><div class="hr-card-h">HR agent practice</div><div class="field-note" id="hrPracN">Loading…</div></div>'
+      + '<div class="card hr-card"><div class="hr-card-h">Performance agent practice</div><div class="field-note" id="hrPracN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Coaching oversight</div><div class="field-note" id="hrCoachN">Loading…</div></div>';
     loadCoaching(true).then((cs) => { const el = document.getElementById('hrCoachN'); if (!el) return;
       if (cs === null) { el.textContent = 'Coaching could not be read. Reload the page to try again.'; return; }
@@ -196,7 +196,7 @@
   }
   function renderPractice(box) {
     box.innerHTML = '<div class="hr-h">Agent practice</div>'
-      + '<div class="card hr-card"><div class="field-note">Every morning the HR agent reads attendance, missed shift notes and kind words, and writes down what it would flag. Nothing is sent to anyone while it practices. Mark each one: <b>Right call</b> or <b>Wrong call</b> (say why). When you and Zach agree with what it catches, it can be switched on.</div>'
+      + '<div class="card hr-card"><div class="field-note">Every morning the Performance agent reads attendance, missed shift notes and kind words, and writes down what it would flag. Nothing is sent to anyone while it practices. Mark each one: <b>Right call</b> or <b>Wrong call</b> (say why). When you and Zach agree with what it catches, it can be switched on.</div>'
       + '<div class="hr-hb-bar" style="margin-top:8px;"><label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'todo' ? 'checked' : '') + ' onchange="HR.pf(\'todo\')"> Not marked yet</label>'
       + '<label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'all' ? 'checked' : '') + ' onchange="HR.pf(\'all\')"> All</label></div></div>'
       + '<div id="hrPracList"><div class="field-note">Loading…</div></div>';
