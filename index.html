@@ -7516,10 +7516,10 @@ The HomeTogether team</pre>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script>
-<script src="partner-rules.js?v=2"></script>
-<script src="referral-desk.js?v=5"></script>
-<script src="partner-links-rules.js?v=1"></script><script src="partner-links.js?v=2"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
-<script src="partner-emails.js?v=1"></script>
+<script src="partner-rules.js?v=3"></script>
+<script src="referral-desk.js?v=6"></script>
+<script src="partner-links-rules.js?v=2"></script><script src="partner-links.js?v=3"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-emails.js?v=2"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="writeup-rules.js?v=4"></script>
@@ -7545,7 +7545,7 @@ The HomeTogether team</pre>
 <script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=2"></script><script src="simple-card.js?v=2"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
-<script src="desk.js?v=17"></script>
+<script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=6"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
@@ -9438,7 +9438,7 @@ async function cmpRecipients(){
   if(src==='leads_lost') out=leadsCounted().filter(l=>l.email&&l.status==='Lost').map(l=>({email:l.email,name:leadName(l)}));
   /* Step 5 (2026-10-08): a partner email goes only to partners of its type, only to people who haven't had it (partner-emails.js) */
   if(src==='orgs'){ const e=cmpLib().find(x=>x.key===cmpKey);
-    out=(typeof peBulkRecipients==='function'&&e&&e.aud==='referrers') ? peBulkRecipients(e).map(r=>({email:r.email,name:r.name})) : (DATA.referral_orgs||[]).filter(o=>o.email).map(o=>({email:o.email,name:o.people||o.name||''})); }
+    out=(typeof peBulkRecipients==='function'&&e&&e.aud==='referrers') ? peBulkRecipients(e).map(r=>({email:r.email,name:r.name})) : (DATA.referral_orgs||[]).filter(o=>o.email&&!ccIsAmbassador(o)).map(o=>({email:o.email,name:o.people||o.name||''})); }
   if(src==='caregivers'){
     try{
       const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
@@ -11745,7 +11745,7 @@ function renderOverviewTop(nOverdue,nDue){
   const converted=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||l.created_at||'')>=mIso).length;
   const openLeads=DATA.leads.filter(l=>l.status!=='Converted'&&l.status!=='Lost').length;
   const t30=new Date(Date.now()-30*86400000).toISOString();
-  const quietOrgs=(DATA.referral_orgs||[]).filter(o=>{const la=orgLastTouch(o.id);return !la||la<t30;}).length;
+  const quietOrgs=ccDeskOrgs().filter(o=>{const la=orgLastTouch(o.id);return !la||la<t30;}).length;
   const kpi=(label,val,trend,trendColor,sub,icon,wellBg,wellFg)=>
     '<div class="kpi"><div class="kl"><span>'+label+'</span><span class="kw" style="background:'+wellBg+';color:'+wellFg+';">'+icon+'</span></div>'
     +'<div class="kv">'+val+(trend?'<span class="kt" style="color:'+trendColor+';">'+trend+'</span>':'')+'</div>'
@@ -11780,7 +11780,7 @@ function openActivityModal(leadId, orgId){
   document.getElementById('act_due').value=today();
   const ls=document.getElementById('act_lead'), os=document.getElementById('act_org');
   ls.innerHTML='<option value="">Not set</option>'+DATA.leads.filter(l=>l.status!=='Lost').map(l=>'<option value="'+l.id+'"'+(l.id===leadId?' selected':'')+'>'+escapeHtmlComms((l.first_name||'')+' '+(l.last_name||''))+'</option>').join('');
-  os.innerHTML='<option value="">Not set</option>'+(DATA.referral_orgs||[]).map(o=>'<option value="'+o.id+'"'+(o.id===orgId?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>').join('');
+  os.innerHTML='<option value="">Not set</option>'+ccDeskOrgs().map(o=>'<option value="'+o.id+'"'+(o.id===orgId?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>').join('');
   document.getElementById('activityModalBackdrop').classList.add('open');
 }
 async function saveActivity(){
@@ -11830,6 +11830,11 @@ async function saveOrg(){
   closeModal('orgModalBackdrop');
   renderReferrers();
 }
+/* Community Ambassadors (2026-10-26, her rule): owners handle them on Referral Partners > Program. They never appear in
+   the desk's lists, Today counts or anyone's work; an APPROVED (active) ambassador can be picked as "Referred by". */
+function ccIsAmbassador(o){ return !!o && o.program_track==='ambassador'; }
+function ccDeskOrgs(){ return (DATA.referral_orgs||[]).filter(o=>!ccIsAmbassador(o)); }
+function ccPickOrgs(){ return (DATA.referral_orgs||[]).filter(o=>!ccIsAmbassador(o)||o.program_status==='active'); }
 function orgLastTouch(orgId){
   const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===orgId);
   return acts.length?acts.map(a=>a.at).sort().pop():null;
@@ -11849,7 +11854,7 @@ function orgReferralCount(o){
 function leadFillRefOrgs(sel){
   const el=document.getElementById('lead_referral_org_id'); if(!el) return;
   el.innerHTML='<option value="">Not one of our partners</option>'
-    + (DATA.referral_orgs||[]).slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');})
+    + ccPickOrgs().slice().sort(function(a,b){return (a.name||'').localeCompare(b.name||'');})
       .map(function(o){ return '<option value="'+escapeHtmlComms(o.id)+'"'+(o.id===sel?' selected':'')+'>'+escapeHtmlComms(o.name)+'</option>'; }).join('');
 }
 /* Picking a partner fills the words too, so the row still reads properly
@@ -11871,7 +11876,7 @@ function renderReferrers(){
   try{ if(window.PartnerLinks) PartnerLinks.render(); }catch(e){ console.warn('partner program', e); }
   renderRefDashboard();
   const q=(document.getElementById('refSearch').value||'').toLowerCase();
-  const orgs=(DATA.referral_orgs||[]).filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
+  const orgs=ccDeskOrgs().filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
   const wrap=document.getElementById('referrersWrap');
   if(!orgs.length){ wrap.innerHTML='<div class="card"><div class="empty">No referral organizations yet. Add the hospitals, rehabs and offices that send (or should send) you clients.</div></div>'; return; }
   const t30=new Date(Date.now()-30*86400000).toISOString();
@@ -11920,7 +11925,7 @@ function fieldWeekCounts(){
 }
 function renderRefDashboard(){
   const esc=escapeHtmlComms;
-  const orgs=DATA.referral_orgs||[];
+  const orgs=ccDeskOrgs();
   document.getElementById('refSub').textContent = orgs.length+' referral source'+(orgs.length===1?'':'s')+' · Springfield & SW Missouri';
   const monthStart=new Date(); monthStart.setDate(1); monthStart.setHours(0,0,0,0);
   const mIso=monthStart.toISOString();

@@ -121,5 +121,41 @@ const t = P.totals(rows);
 ck('totals: 3 partners (2 not paused), 3 referred, 2 home visits, 1 started, 33%', t.partners === 3 && t.active === 2 && t.referrals === 3 && t.consultations === 2 && t.started === 1 && t.conversion === 33, t);
 ck('no money anywhere: no revenue, amounts or rewards in the numbers', !/revenue|reward|amount|\$/i.test(JSON.stringify(rows)));
 
+/* Community Ambassadors (step 2, 2026-10-26) */
+const AMB = (o) => Object.assign({ id: 'amb1', name: 'Linda Ortiz', type: 'Community Ambassador', program_track: 'ambassador', program_status: 'applied', email: 'linda@example.com', phone: '417-555-0123',
+  applied_at: '2026-10-26T15:00:00Z', application: { first_name: 'Linda', last_name: 'Ortiz', town: 'Nixa', share: ['Friends and family'], works_in_healthcare: false, works_for_us: false, flags: [] } }, o)
+const AORGS = [AMB(), AMB({ id: 'amb2', name: 'Dana Smith', email: 'dana@x.com', phone: '', application: { first_name: 'Dana', works_in_healthcare: true, healthcare_where: 'Nurse at Mercy', works_for_us: false } }),
+  AMB({ id: 'amb3', name: 'Ray Cole', email: 'ray@x.com', phone: '4175550777', program_status: 'info_requested', application: { first_name: 'Ray', works_for_us: true } }),
+  AMB({ id: 'amb4', name: 'Old No', email: 'no@x.com', phone: '', program_status: 'declined' }),
+  AMB({ id: 'amb5', name: 'Jo Live', email: 'jo@x.com', phone: '', program_status: 'active', partner_code: 'JO-K2' }),
+  { id: 'jane', name: 'Ozark Senior Moves', partner_code: 'JANE-K7', program_status: 'active' }]
+const apps = P.applications(AORGS)
+ck('ambassadors: the applications list holds applied and waiting-on-answer only, oldest first (not declined, not approved)', apps.map((o) => o.id).join() === 'amb1,amb2,amb3', apps.map((o) => o.id))
+const fl = (id, ctx) => P.ambFlags(AORGS.find((o) => o.id === id), ctx || { orgs: AORGS, leads: [{ id: 'l', first_name: 'Ray', last_name: 'Cole', phone: '(417) 555-0777' }], caregivers: [] })
+ck('...healthcare work is a flag with where, not a refusal', fl('amb2').some((f) => f.key === 'healthcare' && /Nurse at Mercy/.test(f.words)) && P.applications(AORGS).some((o) => o.id === 'amb2'))
+ck('...works for us is a flag', fl('amb3').some((f) => f.key === 'employee'))
+ck('...the same phone as a family inquiry is "possibly already known"', fl('amb3').some((f) => f.key === 'duplicate' && /family inquiry \(Ray Cole\)/.test(f.words)), fl('amb3'))
+ck('...the same email as a caregiver, or as a person at a partner, is flagged too', P.ambFlags(AMB(), { orgs: [AMB(), { id: 'x', name: 'Grace Church', contacts: [{ name: 'Linda O', email: 'LINDA@example.com' }] }], leads: [], caregivers: [{ first: 'Linda', last: 'Ortiz', phone: '4175550123' }] })
+  .find((f) => f.key === 'duplicate').words.match(/a person at Grace Church|a caregiver record/g).length === 2)
+ck('...an ordinary applicant has no flags', fl('amb1').length === 0, fl('amb1'))
+ck('nothing is active before approval: no code, not in the program, not pickable, not matched from a call', !P.codeOf(AORGS[0]) && !P.inProgram(AORGS[0]) && !P.pickable(AORGS[0]) && P.partnerFromCall(AORGS, 'Linda Ortiz', '') === null)
+ck('...a declined or waiting applicant isn\'t pickable either; an approved one and ordinary partners are', !P.pickable(AORGS[3]) && !P.pickable(AORGS[2]) && P.pickable(AORGS[4]) && P.pickable(AORGS[5]) && P.partnerFromCall(AORGS, 'Jo Live', '').org.id === 'amb5')
+const L1 = clone(AMB()); let ar = P.approve(L1, AORGS, 'samantha@mo-care.com', '2026-10-27T15:00:00Z', seq([0, 0]))
+ck('approve: a code from their first name, active, who and when, in the log; now in the program and pickable', ar.code === 'LINDA-AA' && L1.partner_code === 'LINDA-AA' && L1.program_status === 'active' && L1.approved_by === 'samantha@mo-care.com'
+  && L1.program_log.slice(-1)[0].did === 'approved' && P.inProgram(L1) && P.pickable(L1) && P.linkFor(L1.partner_code) === 'https://mo-care.com/r/?p=LINDA-AA', L1)
+ck('...approving twice is refused', /Already approved/.test(P.approve(L1, AORGS, 'x').error))
+ck('...only ambassador records go through approval', /Not an ambassador/.test(P.approve({ id: 'p', name: 'X' }, AORGS, 'x').error))
+const L2 = clone(AMB())
+ck('ask a question: needs the question; then waiting on their answer, the question kept', /Write the question/.test(P.requestInfo(L2, ' ', 'x').error) && P.requestInfo(L2, 'Which group?', 'sam').ok && L2.program_status === 'info_requested' && L2.info_requests[0].question === 'Which group?')
+const L3 = clone(AMB())
+ck('decline: needs a reason (owners only see it); then declined with who and when', /short reason/.test(P.decline(L3, '', 'x').error) && P.decline(L3, 'Outside our area', 'sam').ok && L3.program_status === 'declined' && L3.declined_reason === 'Outside our area' && !L3.partner_code)
+const W = P.welcomeEmail(L1)
+ck('welcome email: their first name, link, QR code page, three steps, printed materials on request, the guidelines link, private families, the volunteer note',
+  /Hi Linda/.test(W.html) && W.html.includes('https://mo-care.com/r/?p=LINDA-AA') && W.html.includes('https://mo-care.com/r/qr/?p=LINDA-AA') && /reply to this email or call \(417\) 234-8494 and we'll mail them/.test(W.html.replace(/&#39;|\\'/g, "'"))
+  && W.html.includes('mo-care.com/ambassadors/#guidelines') && /won't share details about who contacts us/.test(W.html.replace(/\\'/g, "'")) && /voluntary and unpaid, and isn.t employment/.test(W.html) && W.subject === 'Welcome to Caring Companions Community Ambassadors', W.html.slice(0, 400))
+ck('...and no money anywhere in it', !/\$|reward|commission|earn|paid for/i.test(W.html.replace(/voluntary and unpaid/, '')))
+const Q = P.infoEmail(L2, 'Which <group>?')
+ck('question email: their question shown safely, reply or call', /quick question/.test(Q.subject) && Q.html.includes('Which &lt;group&gt;?') && /reply to this email or call us/.test(Q.html))
+ck('decline note: kind, no reason given', /not able to add you/.test(P.declineEmail(L3).html) && !P.declineEmail(L3).html.includes('Outside our area'))
 let pass = 0; for (const [n, ok, d] of res) { console.log((ok ? '  ✓ ' : '  ✗ ') + n + (ok ? '' : '\n      ' + d)); if (ok) pass++; }
 console.log(`\n${pass}/${res.length} passed`); process.exit(pass === res.length ? 0 : 1);
