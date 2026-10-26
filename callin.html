@@ -86,11 +86,11 @@ function render(msg){
   let h='<div class="card"><div class="big">'+esc(D.what)+'</div>'
     +(D.must_cover?'<span class="must">MUST BE COVERED</span>':'')
     +(D.open&&D.mins_to_start!=null?'<span class="'+(D.mins_to_start<180?'late':'soon')+'">'+esc(startsIn(D.mins_to_start))+'</span>':'')
-    +'<div class="note" style="margin-top:6px;">'+(D.calling_off?esc(D.calling_off)+(D.taken_off?' was taken off the shift in AxisCare (not counted as a call-in)':' called off'):'Opened')+(D.called_in_at?' at '+esc(D.called_in_at):'')+'.</div></div>';
+    +'<div class="note" style="margin-top:6px;">'+(D.calling_off?esc(D.calling_off)+(D.not_a_callin?' did not call in (marked not a call-in'+(D.not_a_callin.by?' by '+esc(first(D.not_a_callin.by)):'')+')':D.taken_off?' was taken off the shift in AxisCare (not counted as a call-in)':' called off'):'Opened')+(D.called_in_at?' at '+esc(D.called_in_at):'')+'.</div></div>';
   if(!D.open && D.filled){
     const f=D.filled, ax=f.axiscare;
     h+='<div class="done">'+(f.covered_by?'Filled'+(f.by?' by '+esc(first(f.by)):'')+': '+esc(f.covered_by)+' covers it'+(f.at?' ('+esc(f.at)+')':'')+'.':
-        'Closed'+(f.by?' by '+esc(first(f.by)):'')+': '+esc({uncovered:'not covered',covered_other_way:'covered another way',client_cancelled:'the client cancelled',couldnt_staff:'we couldn\'t staff it'}[f.how]||'closed')+'.'+(f.note?' '+esc(f.note):''))+'</div>'
+        'Closed'+(f.by?' by '+esc(first(f.by)):'')+': '+esc({uncovered:'not covered',covered_other_way:'covered another way',client_cancelled:'the client cancelled',couldnt_staff:'we couldn\'t staff it',not_a_callin:'not a call-in'}[f.how]||'closed')+'.'+(f.note?' '+esc(f.note):''))+'</div>'
       +(ax?'<div class="card"><h2>AxisCare</h2><div class="note" style="color:'+(ax.status==='assigned'||ax.status==='already'?'var(--green)':'var(--red)')+';">'+esc(ax.detail||ax.status)+'</div></div>':'');
   }
   if(D.open){
@@ -113,6 +113,11 @@ function render(msg){
     h+='<div class="card"><h2>Close it</h2><select id="closeHow"><option value="">How was it settled?</option><option value="other_way">Covered another way</option><option value="client_cancelled">Client cancelled</option><option value="uncovered">Couldn\'t cover it</option></select>'
       +'<textarea id="closeNote" rows="2" maxlength="300" placeholder="Note (optional)"></textarea><button class="navy" id="bClose">Close the call-in</button></div>';
   }
+  /* NOT A CALL-IN (2026-10-26, Angiel's call): open or already closed, nothing goes on their attendance */
+  if(D.calling_off&&!D.not_a_callin&&!D.taken_off){
+    h+='<div class="card"><h2>Not a call-in?</h2><div class="note">If '+esc(first(D.calling_off))+' never called off (Cara misread a call or a text), say so here. '+(D.open?'The call-in closes, ':'')+'nothing goes on '+esc(first(D.calling_off))+'\'s attendance, and nobody else is asked.</div>'
+      +'<textarea id="ncNote" rows="2" maxlength="300" placeholder="What really happened (optional), e.g. she was there and forgot to clock in"></textarea><button class="navy" id="bNotCallin">Not a call-in</button></div>';
+  }
   h+='<div class="err" id="err">'+esc(msg||'')+'</div>';
   app.innerHTML=h;
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
@@ -123,6 +128,7 @@ function render(msg){
     act('ask', ()=>({ recipients:names }), 'Text '+names.length+' caregiver'+(names.length===1?'':'s')+' now? ('+names.map(first).join(', ')+')'); });
   on('bClose', ()=>{ const how=(document.getElementById('closeHow')||{}).value; if(!how){ document.getElementById('err').textContent='Pick how it was settled.'; return; }
     act('close', ()=>({ how, note:(document.getElementById('closeNote')||{}).value||'' }), 'Close the call-in? Caregivers still waiting get the "no action needed" text.'); });
+  on('bNotCallin', ()=>act('not_callin', ()=>({ note:(document.getElementById('ncNote')||{}).value||'' }), 'Mark this as not a call-in? '+first(D.calling_off)+' will not be counted as calling off.'));
   document.querySelectorAll('[data-confirm]').forEach(b=>b.onclick=()=>confirmFlow(b.getAttribute('data-confirm')));
   document.querySelectorAll('[data-call]').forEach(b=>b.onclick=()=>bridge(b.getAttribute('data-call'), b.getAttribute('data-name')));
 }
@@ -168,6 +174,7 @@ async function act(action, extraFn, ask){
     else if(j.claimed_by_other){ good=false; say=j.claimed_by_other.by+' already has it'+(j.claimed_by_other.at?' (since '+j.claimed_by_other.at+')':'')+'. Tap Take it over if you are taking it.'; }
     else if(j.filled) say='Done. '+j.filled.covered_by+' covers it.'+(j.filled.axiscare&&j.filled.axiscare.status!=='assigned'&&j.filled.axiscare.status!=='already'?' AxisCare: '+j.filled.axiscare.detail:'')+(j.others_told?' The other admins were told.':'');
     else if(action==='ask') say='Asked '+(j.sent||[]).length+'.'+((j.already_asked||[]).length?' Already asked: '+j.already_asked.join(', ')+'.':'')+((j.failed||[]).length?' Not sent: '+j.failed.join('; ')+'.':'')+((j.not_eligible||[]).length?' Not on the list any more: '+j.not_eligible.join(', ')+'.':'');
+    else if(action==='not_callin') say='Done. Marked not a call-in'+(j.attendance==='removed'?', and the call-in came off '+first(D.calling_off||'')+'\'s attendance':j.attendance==='kept_acted_on'?'. Someone already acted on the attendance record, so check it on Performance > Attendance':'')+'.'+(j.others_told?' The other admins were told.':'');
     else if(j.others_told) say='Done. The other admins were told.';
     render(); const el=document.getElementById('err'); if(el&&say){ el.className=good?'okmsg':'err'; el.textContent=say; } }
   catch(e){ const el=document.getElementById('err'); if(el) el.textContent=e.message; }

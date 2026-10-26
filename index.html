@@ -37951,7 +37951,7 @@ function covYesList(c){ return (c.asked||[]).filter(a=>a&&a.state==='yes'); }
    person who was on it, but AxisCare never says why they came off (the client may have cancelled, or the office approved the
    time off). Those cases say "taken off the shift", never "called off" (Staffing _shared/not-a-callin.ts). */
 function covTakenOff(c){ return !!c&&(c.opened_by==='axiscare-watch'||c.not_a_callin===true); }
-function covOffWords(c){ return covTakenOff(c)?'was taken off the shift':'called off'; }
+function covOffWords(c){ return c&&c.not_a_callin===true&&c.opened_by!=='axiscare-watch'?'did not call in (marked not a call-in)':covTakenOff(c)?'was taken off the shift':'called off'; }
 function covIsOngoing(c){
   if(!c||String(c.kind)==='interest') return false;
   const p=c.shift_pattern;
@@ -40584,6 +40584,25 @@ async function covFlagConfirm(id){
   await persist('coverage_cases',c);
   caraShowCase(c.id);   // straight to the case's workspace, picker ready
 }
+/* NOT A CALL-IN (2026-10-26, Angiel Falig's call: Cara read "I'm already driving" as a call-off). Open or already
+   closed: the server marks the case, closes an open one, takes the call-in off their attendance if nobody acted on it
+   yet, and closes the "Confirm: did they call off?" card. Same action as the call-in text link. */
+async function covNotCallin(id){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  const who=String(c.calling_off||'').trim().split(/\s+/)[0]||'They';
+  const note=await ccPrompt('Not a call-in: '+who+' will not be counted as calling off. What really happened? (optional)');
+  if(note===null) return;
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    const resp=await fetch(`${CONFIG.supabase_url}/functions/v1/callin-alert`,{ method:'POST',
+      headers:{ 'Authorization':`Bearer ${session.access_token}`,'Content-Type':'application/json' },
+      body:JSON.stringify({ action:'not_callin', case_id:id, note:String(note||'') })});
+    const out=await resp.json().catch(()=>({}));
+    if(!resp.ok||!out.ok){ ccToast('Not saved: '+(out.error||('the hub service answered '+resp.status))); return; }
+    ccToast('✓ Marked not a call-in'+(out.attendance==='removed'?'. The call-in came off '+who+'\'s attendance.':out.attendance==='kept_acted_on'?'. Someone already acted on the attendance record: check Performance > Attendance.':'.'));
+  }catch(e){ ccToast('Not saved: could not reach the hub service.'); return; }
+  await covReloadCases();
+}
 async function covFlagDismiss(id){
   const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
   if(!(await ccConfirm('Dismiss this flag? Cara won\'t flag this call again.'))) return;
@@ -41275,6 +41294,7 @@ function covOpenBody(c,tallies){
     +'<span style="flex:1;"></span>'
     +'<button class="addlead" onclick="covResolve(\''+id+'\',\'covered\')">Covered ✓</button>'
     +'<button class="ghost" onclick="covResolve(\''+id+'\',\'uncovered\')">Close uncovered</button>'
+    +(c.calling_off&&!covTakenOff(c)?'<button class="ghost" onclick="covNotCallin(\''+esc(c.id)+'\')">Not a call-in</button>':'')
     +'</div>'
     +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' '+covOffWords(c)+(c.axiscare_visit_id?'. The exact AxisCare shift is attached; confirming a fill replaces them on it.':'')+'</div>':'')
     +'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:5px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
@@ -41310,7 +41330,7 @@ function covClosedBody(c,tallies){
         +'<button class="ghost" onclick="covAsk(\''+esc(c.id)+'\')">＋ I asked someone</button>'
         +'<button class="addlead" onclick="covResolve(\''+esc(c.id)+'\',\'covered\')">Covered ✓</button>'
         +'<button class="ghost" onclick="covResolve(\''+esc(c.id)+'\',\'uncovered\')">Close uncovered</button>'
-      : '<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
+      : (c.calling_off&&!covTakenOff(c)?'<button class="ghost" onclick="covNotCallin(\''+esc(c.id)+'\')">Not a call-in</button>':'')+'<button class="ghost" onclick="covReopen(\''+esc(c.id)+'\')">Reopen</button>'
         +(c.resolved_how==='covered'?'<button class="ghost" style="color:var(--red);" onclick="covBackedOut(\''+esc(c.id)+'\')">They backed out</button>':''))
     +'</div>'
     +(c.calling_off?'<div class="field-note" style="margin-top:5px;">📵 '+esc(c.calling_off)+' '+covOffWords(c)+(c.axiscare_visit_id?'. Exact AxisCare shift attached; confirming a fill replaces them on it.':'')+'</div>':'')
