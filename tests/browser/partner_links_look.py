@@ -40,6 +40,13 @@ T = r"""async()=>{
   window.__as('krystal@mo-care.com','Krystal Land');
   switchTab('referrers'); await sleep(300);
   ok('Krystal: no Program view, no Sources to check (owners only)', document.getElementById('plProgram') && document.getElementById('plProgram').innerHTML==='' && !/Sources to check/.test(document.getElementById('tab-referrers').innerText));
+  const vis=e=>!!e&&getComputedStyle(e).display!=='none'&&e.offsetParent!==null;
+  ok('Referral Partners is its own page: its own menu item is the one lit, and its row holds only Referral Partners', document.querySelector('.ftab.active[data-g="partners"]') && vis(document.getElementById('fsub-partners')) && document.querySelectorAll('#fsub-partners .fpill').length===1 && !vis(document.getElementById('fsub-campaigns')));
+  ok('the retired tabs are gone: no LTC Policy, Community, Story Game, 20-Hour Offer or 417 Series anywhere in the menu, and no LTC Policy or Community page', !/LTC Policy|Story Game|20-Hour Offer|417 Series/.test(document.getElementById('fbar').parentNode.innerText) && ![...document.querySelectorAll('.fpill')].some(x=>/^\s*Community/.test(x.textContent)) && !document.getElementById('tab-ltcpolicy') && !document.getElementById('tab-community'));
+  ok('the Hub\'s Marketing row keeps Campaigns and Feedback', [...document.querySelectorAll('#fsub-campaigns .fpill')].map(x=>x.dataset.tab).join()==='campaigns,feedback');
+  location.hash='ltcpolicy'; await sleep(300);
+  ok('an old #ltcpolicy link no longer opens anything retired (and nothing breaks)', !document.getElementById('tab-ltcpolicy'));
+  location.hash=''; switchTab('referrers'); await sleep(200);
   ok('...the existing desk and the organization list still draw', /This week/.test(document.getElementById('refDesk').innerText) && /CoxHealth/.test(document.getElementById('referrersWrap').innerText));
   openRefProfile('jane'); await sleep(300);
   const left=()=>document.getElementById('refProfLeft').innerText;
