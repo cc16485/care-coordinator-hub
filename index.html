@@ -4654,6 +4654,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<!-- STEP 1 ALERT (Samantha 2026-10-26, Desktop 1136): when someone finishes Step 1, every admin gets one text and one email
+     to start the background checks and references (ops_settings.step1_alert_live; the server is _shared/step1-alert.ts). -->
+<div class="settings-section" data-set="step1-alert">
+<h3>🔔 Step 1 alert</h3>
+<p class="hint">When a new hire finishes Step 1, every admin gets one text and one email to start their background checks (OIG, EDL, FCSR) and references, with a link to Claim their card. The email goes at once, any hour. The text goes at once from 7am to 8pm; someone who finishes at night is texted at 7am. Never for a practice hire or a training walkthrough.</p>
+<div id="s1aSet" class="field-note" style="margin:6px 0 4px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <button class="secondary" id="s1aSetBtn" onclick="s1aToggle(this)">Turn on</button>
+  <span class="field-note" id="s1aSetSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="orientation-reminders">
 <h3>🔔 Office orientation reminders</h3>
 <p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their Orientation Video Call reminders instead.</p>
@@ -15657,6 +15669,7 @@ function fillSettingsPanel(){
   try{ freshRender(); }catch(_){}
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
+  try{ s1aSetFill(); }catch(_){}
   mbFill();
   try{ aivFill(); }catch(e){}
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -18152,6 +18165,31 @@ async function orrToggle(btn){
   await orrSetFill();
 }
 window.orrToggle=orrToggle;
+
+/* STEP 1 ALERT (Samantha 2026-10-26, Desktop 1136). Her switch: ops_settings.step1_alert_live, OFF until she turns it on.
+   Turning it on stamps step1_alert_live_since, so only someone who finishes Step 1 from then on is alerted (never a backlog).
+   Who gets it is the same "all admin" list as call-in alerts (Settings, Missed clock-ins). Owners only. */
+function s1aSetFill(){
+  const box=document.getElementById('s1aSet'), b=document.getElementById('s1aSetBtn'); if(!box) return;
+  const st=DATA.ops_settings||{}, on=st.step1_alert_live===true, owner=ccIsOwner(), esc=escapeHtmlComms;
+  let L=[]; try{ L=tkAdminsNow(); }catch(_){}
+  box.innerHTML=(on?'<b style="color:#1E8449;">On.</b> ':'<b style="color:#B7791F;">Off.</b> Nobody is texted or emailed when Step 1 is complete; the Needs Attention card still comes. ')
+    +'Goes to: '+(L.length?L.map(a=>esc(a.name)+(a.phone?'':' <b style="color:#C0392B;">(no phone in the staff list, email only)</b>')).join(', '):'<b style="color:#C0392B;">nobody (add admins under Missed clock-ins)</b>')
+    +'. The same list as call-in alerts: change it under Missed clock-ins.'+(owner?'':' Only Samantha or Zachary can turn this on or off.');
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
+}
+async function s1aToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
+  const on=!((DATA.ops_settings||{}).step1_alert_live===true);
+  if(!(await ccConfirm(on?'Turn on the Step 1 alert?\n\nFrom now on, when a new hire finishes Step 1, every admin on the list gets:\n· one email at once, any hour\n· one text at once from 7am to 8pm (someone who finishes at night is texted at 7am)\n\nBoth say to start their background checks and references and to Claim their card so nobody does it twice. Nobody who already finished Step 1 is alerted. A text or email that can\'t go out shows up on Needs Attention.'
+                :'Turn off the Step 1 alert? Nobody is texted or emailed when Step 1 is complete. The Needs Attention card for Recruiting & Orientation still comes.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.step1_alert_live=on; if(on) m.step1_alert_live_since=new Date().toISOString(); return ['Step 1 alert '+(on?'ON':'OFF')]; }, 'Step 1 alert');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('s1aSetSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next person who finishes Step 1.':'Off.');
+  s1aSetFill();
+}
+window.s1aToggle=s1aToggle;
 
 /* ═══ CAREGIVER AUTO-CONNECT (AC2, 2026-10-03; her plan "yes to all": https://claude.ai/artifact/FJUZg3aU2neZBgGNDbCCLm) ═══
    The hourly server check (caregiver-connect, Desktop 438) connects each AxisCare caregiver to their Hub record when it
