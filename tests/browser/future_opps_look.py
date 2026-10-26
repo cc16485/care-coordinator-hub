@@ -45,7 +45,11 @@ async()=>{
   const L=id=>DATA.leads.find(l=>l.id===id), B=()=>document.getElementById('lbBoard'), M=()=>document.getElementById('foModal');
   const sugg=()=>{ const c=M().querySelector('input[name=foR]:checked'); return c?c.value:''; };
   /* the suggestion follows her tiers */
-  FutureOpps.save('br'); ok('Branson (Taney, Tier 2): suggests "No caregiver available" (we serve it, conditionally)', sugg()==='no_caregiver' && /Tier 2/.test(M().innerText), M().innerText.slice(0,400));
+  FutureOpps.save('br');
+  { const dl=M().querySelector('.fo-dlg').getBoundingClientRect(), rs=[...M().querySelectorAll('.fo-opt input[type=radio]')], bs=[...M().querySelectorAll('.fo-opt b')];
+    ok('2026-10-26: each round button is small and its words sit inside the window, beside it', rs.length===8 && rs.every(r=>r.getBoundingClientRect().width<30) && bs.every(b=>{ const r=b.getBoundingClientRect(); return r.left>=dl.left && r.right<=dl.right && r.width>80; }),
+      rs.map(r=>r.getBoundingClientRect().width).concat(bs.map(b=>Math.round(b.getBoundingClientRect().width)))); }
+  ok('Branson (Taney, Tier 2): suggests "No caregiver available" (we serve it, conditionally)', sugg()==='no_caregiver' && /Tier 2/.test(M().innerText), M().innerText.slice(0,400));
   FutureOpps.save('ca'); ok('Cassville (Barry, Tier 3): suggests "Potential future expansion area"', sugg()==='expansion' && /Tier 3/.test(M().innerText));
   FutureOpps.save('ro'); ok('Rolla (Phelps, in no tier): suggests "Outside our current service area"', sugg()==='outside_area' && /not in our service area/.test(M().innerText));
   M().querySelector('input[value=other]').click(); M().querySelector('#foGo').click(); await sleep(50);
