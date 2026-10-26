@@ -60,5 +60,9 @@ ck('a website referrer is linked to one of the partner\'s people only on an exac
 ck('the weekly My Work card has one fixed id per owner per week (never doubles), and a new id next week', P.weeklyCardId('krystal@mo-care.com', '2026-10-06') === P.weeklyCardId('krystal@mo-care.com', '2026-10-11') && P.weeklyCardId('krystal@mo-care.com', '2026-10-12') !== P.weeklyCardId('krystal@mo-care.com', '2026-10-11'))
 ck('urgent referrals are not on the weekly list (they are leads, on the Leads board)', !P.week(ORGS, ctx, '*').some((x) => /urgent/i.test(x.reasons.join())))
 ck('an archived partner never shows', !P.week(ORGS.concat([{ id: 'arch', name: 'Gone', archived: true, created_at: '2024-01-01' }]), ctx, '*').some((x) => x.id === 'arch'))
+/* Community Ambassadors (2026-10-26): never on anyone's week or in Needs an owner */
+{ const AM = [{ id: 'a1', name: 'Linda Ortiz', program_track: 'ambassador', program_status: 'applied', created_at: '2026-10-25T00:00:00Z' }, { id: 'a2', name: 'Jo Live', program_track: 'ambassador', program_status: 'active', partner_code: 'JO-K2', created_at: '2026-10-20T00:00:00Z' }]
+  const all = ORGS.concat(AM)
+  ck('ambassadors (applied or approved) never in Needs an owner, and never on anyone\'s week, even "Everyone"', !P.needsOwner(all).some((o) => o.program_track === 'ambassador') && !P.week(all, ctx, '*').some((x) => /^a\d/.test(x.id)) && P.needsOwner(all).length === P.needsOwner(ORGS).length) }
 let pass = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok ? '' : '  ' + d)); if (ok) pass++ }
 console.log(`\n${pass} passed, ${res.length - pass} failed`); process.exit(pass === res.length ? 0 : 1)

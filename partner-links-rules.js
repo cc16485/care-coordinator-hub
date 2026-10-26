@@ -30,7 +30,7 @@
   function normalCode(raw) { const c = s(raw).toUpperCase(); return /^[A-Z0-9-]{3,20}$/.test(c) ? c : ''; }
   const codeOf = o => normalCode(o && o.partner_code);
   function statusOf(o) { if (!codeOf(o)) return null; const v = s(o.program_status).toLowerCase(); return STATUS[v] ? v : 'active'; }
-  const inProgram = o => !!o && !o.archived && !!codeOf(o);
+  const inProgram = o => !!o && !o.archived && !!codeOf(o) && !(o.program_track === 'ambassador' && o.program_status !== 'active' && o.program_status !== 'paused');
 
   /** a new code: the first word of the name (up to 6 letters) and two characters nobody can misread, never one in use */
   function newCode(name, orgs, rand) {
@@ -89,7 +89,7 @@
 
   /** the partner a call named, when exactly one saved partner (or a person there) has that name, or the caller's number */
   function partnerFromCall(orgs, typed, phone) {
-    const live = (orgs || []).filter(o => o && !o.archived), n = norm(typed), p = d10(phone);
+    const live = (orgs || []).filter(o => o && !o.archived && !(o.program_track === 'ambassador' && o.program_status !== 'active')), n = norm(typed), p = d10(phone);
     const byName = n ? live.filter(o => norm(o.name) === n || (o.contacts || []).some(c => c && !c.archived && norm(c.name) === n)) : [];
     if (byName.length === 1) return { org:byName[0], why:'name' };
     if (byName.length > 1) return null;
@@ -174,7 +174,7 @@
       const ways = {};
       mine.forEach(l => { const k = VIA[l.referral_via] || 'other'; ways[k] = (ways[k] || 0) + 1; });
       const started = mine.filter(l => l.first_shift_at).length;
-      return { id:String(o.id), name:o.name, type:o.type || '', code:codeOf(o), status:statusOf(o), referrals:mine.length,
+      return { id:String(o.id), name:o.name, type:o.type || '', ambassador:o.program_track === 'ambassador', code:codeOf(o), status:statusOf(o), referrals:mine.length,
         consultations:mine.filter(consulted).length, started, conversion:mine.length ? Math.round(started / mine.length * 100) : null,
         ways, last_referral:mine.map(l => l.created_at).filter(Boolean).sort().pop() || null, lead_ids:mine.map(l => String(l.id)) };
     }).sort((a, b) => b.referrals - a.referrals || b.started - a.started || String(a.name).localeCompare(String(b.name)));
@@ -185,6 +185,92 @@
     t.conversion = t.referrals ? Math.round(t.started / t.referrals * 100) : null; return t;
   }
 
+  /* ── Community Ambassadors (step 2, Samantha approved 2026-10-26) ──────────────────────────────────────────────────
+     An application arrives from mo-care.com/ambassadors as a referral_orgs item: program_track 'ambassador', status
+     'applied', no code. Owners only: approve (the code and link are made then, never before), ask a question, or
+     decline. Healthcare workers, our own staff and possible duplicates are FLAGGED, never refused automatically.
+     Nothing here is about money. */
+  const isAmbassador = o => !!o && o.program_track === 'ambassador';
+  const AMB_STATUS = { applied:'Applied', info_requested:'Waiting on their answer', active:'Approved', declined:'Declined', paused:'Paused' };
+  /** someone who may be picked as "Referred by", matched from a call, or credited: anyone but an ambassador not yet approved */
+  const pickable = o => !!o && !o.archived && (!isAmbassador(o) || o.program_status === 'active');
+  const applications = orgs => (orgs || []).filter(o => isAmbassador(o) && !o.archived && (o.program_status === 'applied' || o.program_status === 'info_requested'))
+    .sort((a, b) => String(a.applied_at || a.created_at || '').localeCompare(String(b.applied_at || b.created_at || '')));
+  /** what an owner should look at: healthcare work, works for us, maybe already known (same email or phone elsewhere) */
+  function ambFlags(o, ctx) {
+    ctx = ctx || {};
+    const a = o.application || {}, out = [], e = s(o.email).toLowerCase(), p = d10(o.phone);
+    if (a.works_in_healthcare) out.push({ key:'healthcare', words:'Works in healthcare or a regulated field' + (a.healthcare_where ? ': ' + a.healthcare_where : '') });
+    if (a.works_for_us) out.push({ key:'employee', words:'Says they work for Caring Companions' });
+    const same = x => (e && s(x.email).toLowerCase() === e) || (p && (d10(x.phone) === p || d10(x.client_phone) === p));
+    const dup = [];
+    (ctx.orgs || []).forEach(x => { if (!x || x.id === o.id || x.archived) return;
+      if (same(x)) dup.push(isAmbassador(x) ? 'another ambassador record (' + x.name + ')' : 'partner ' + x.name);
+      (x.contacts || []).forEach(c => { if (c && !c.archived && same(c)) dup.push('a person at ' + x.name); }); });
+    (ctx.leads || []).forEach(l => { if (l && !l.spam && same(l)) dup.push('a family inquiry (' + ([l.first_name, l.last_name].filter(Boolean).join(' ') || 'no name') + ')'); });
+    (ctx.caregivers || []).forEach(c => { if (c && same(c)) dup.push('a caregiver record (' + ([c.first, c.last].filter(Boolean).join(' ') || 'no name') + ')'); });
+    if (dup.length) out.push({ key:'duplicate', words:'Possibly already known: ' + [...new Set(dup)].slice(0, 3).join('; ') });
+    return out;
+  }
+  /** approve: the code, the active status and the log; returns { error } or { code } */
+  function approve(o, orgs, by, at, rand) {
+    if (!isAmbassador(o)) return { error:'Not an ambassador application.' };
+    if (o.program_status === 'active' && codeOf(o)) return { error:'Already approved.' };
+    const code = codeOf(o) || newCode((o.application && o.application.first_name) || o.name, orgs, rand);
+    if (!code) return { error:'Couldn\'t make a code that isn\'t already used.' };
+    at = at || new Date().toISOString();
+    o.partner_code = code; o.program_status = 'active'; o.approved_at = at; o.approved_by = s(by);
+    o.program_added_at = o.program_added_at || at; o.program_added_by = o.program_added_by || s(by);
+    o.program_log = (o.program_log || []).concat([{ at, by:s(by), did:'approved', code }]);
+    return { code };
+  }
+  function requestInfo(o, question, by, at) {
+    const q = s(question); if (!q) return { error:'Write the question you want to ask.' };
+    at = at || new Date().toISOString();
+    o.program_status = 'info_requested'; o.info_requests = (o.info_requests || []).concat([{ at, by:s(by), question:q }]);
+    o.program_log = (o.program_log || []).concat([{ at, by:s(by), did:'asked a question' }]);
+    return { ok:true };
+  }
+  function decline(o, reason, by, at) {
+    const r = s(reason); if (!r) return { error:'Write a short reason (only owners see it).' };
+    at = at || new Date().toISOString();
+    o.program_status = 'declined'; o.declined_at = at; o.declined_by = s(by); o.declined_reason = r;
+    o.program_log = (o.program_log || []).concat([{ at, by:s(by), did:'declined' }]);
+    return { ok:true };
+  }
+  const QR_PAGE = 'https://mo-care.com/r/qr/?p=';
+  const htmlEsc = v => s(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const firstOf = o => s((o.application && o.application.first_name) || s(o.name).split(' ')[0]) || 'there';
+  const wrap = inner => '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.7;color:#16283a;max-width:560px">' + inner
+    + '<p style="color:#57606a;margin-top:22px">Caring Companions In-Home Senior Care<br>(417) 234-8494 · mo-care.com</p></div>';
+  /** the welcome email (digital welcome kit): link, QR code, three simple steps, guidelines, the volunteer note */
+  function welcomeEmail(o) {
+    const code = codeOf(o), link = linkFor(code), first = firstOf(o);
+    return { subject:'Welcome to Caring Companions Community Ambassadors',
+      html:wrap('<p>Hi ' + htmlEsc(first) + ',</p>'
+        + '<p>Thank you for becoming a Caring Companions Community Ambassador. We\'re so glad you\'re helping families in our community find good care at home.</p>'
+        + '<p><b>Your personal link</b><br><a href="' + link + '">' + link + '</a></p>'
+        + '<p><b>Your QR code</b><br><a href="' + QR_PAGE + code + '">Open your QR code</a> to save it to your phone or print it.</p>'
+        + '<p><b>How to help</b></p><ol style="padding-left:20px;margin:0 0 12px">'
+        + '<li>When someone mentions they\'re worried about a parent or loved one at home, share your link or show your QR code.</li>'
+        + '<li>The family reaches out to us themselves, and our care coordinators take it from there.</li>'
+        + '<li>Want printed cards with your QR code and a few brochures? Just reply to this email or call (417) 234-8494 and we\'ll mail them.</li></ol>'
+        + '<p><b>A message you can copy and send</b><br><span style="color:#45566a">' + htmlEsc(shareText(code)) + '</span></p>'
+        + '<p>Please take a minute with our <a href="https://mo-care.com/ambassadors/#guidelines">Ambassador Guidelines</a>. We keep every family\'s information private, so we won\'t share details about who contacts us. And as a reminder, being an ambassador is voluntary and unpaid, and isn\'t employment.</p>'
+        + '<p>Thank you for helping your neighbors,<br>Samantha and the Caring Companions team</p>') };
+  }
+  function infoEmail(o, question) {
+    return { subject:'A quick question about your ambassador application',
+      html:wrap('<p>Hi ' + htmlEsc(firstOf(o)) + ',</p><p>Thank you for applying to be a Caring Companions Community Ambassador. Before we finish, we have a quick question:</p>'
+        + '<p style="background:#F4F8FB;border-radius:10px;padding:12px 14px">' + htmlEsc(question) + '</p><p>Just reply to this email or call us at (417) 234-8494.</p><p>Thank you,<br>The Caring Companions team</p>') };
+  }
+  function declineEmail(o) {
+    return { subject:'Thank you for your interest in Community Ambassadors',
+      html:wrap('<p>Hi ' + htmlEsc(firstOf(o)) + ',</p><p>Thank you for your interest in becoming a Caring Companions Community Ambassador. We\'re not able to add you to the program right now, but we truly appreciate you thinking of us.</p>'
+        + '<p>If someone you know ever needs help at home, we\'re always here at (417) 234-8494.</p><p>Warmly,<br>The Caring Companions team</p>') };
+  }
+
   return { LINK_BASE, STATUS, normalCode, codeOf, statusOf, inProgram, newCode, linkFor, shareText, established, sourceChange, restore, pushHistory,
-    partnerFromCall, checks, resolve, numbers, totals, VIA };
+    partnerFromCall, checks, resolve, numbers, totals, VIA,
+    isAmbassador, AMB_STATUS, pickable, applications, ambFlags, approve, requestInfo, decline, welcomeEmail, infoEmail, declineEmail, QR_PAGE };
 });

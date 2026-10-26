@@ -90,13 +90,15 @@
       sent_this_week: sentThisWeek.length, reasons, owner: ownerOf(o) };
   }
   /** the week's list for one owner (or everyone when owner is '*'): due by Sunday or sent this week, best first */
+  /* Community Ambassadors (2026-10-26, her rule): owners handle them; never on anyone's week or in Needs an owner */
+  const isAmb = o => !!o && o.program_track === 'ambassador';
   function week(orgs, ctx, owner) {
     const mine = e => owner === '*' || (!!e && e === lc(owner));
-    return (orgs || []).filter(o => o && !o.archived).map(o => look(o, ctx)).filter(x => x.on_week && mine(x.owner.email))
+    return (orgs || []).filter(o => o && !o.archived && !isAmb(o)).map(o => look(o, ctx)).filter(x => x.on_week && mine(x.owner.email))
       .sort((a, b) => (b.sent_this_week ? 1 : 0) - (a.sent_this_week ? 1 : 0) || TIER_RANK[a.tier] - TIER_RANK[b.tier] || (POT[a.potential] ?? 2) - (POT[b.potential] ?? 2)
         || String(a.due).localeCompare(String(b.due)) || String(a.name).localeCompare(String(b.name)));
   }
-  function needsOwner(orgs) { return (orgs || []).filter(o => o && !o.archived && ownerOf(o).how === 'needs_owner'); }
+  function needsOwner(orgs) { return (orgs || []).filter(o => o && !o.archived && !isAmb(o) && ownerOf(o).how === 'needs_owner'); }
   /** referral leads not linked to a partner, grouped by the name typed (or the organization a website referral named) */
   function unlinked(leads) {
     const g = {};
@@ -113,5 +115,5 @@
   }
   /** the weekly My Work card for one owner: a fixed id per owner per week, so it can never double */
   function weeklyCardId(owner, today) { return 'ops_pw_' + norm(String(owner).split('@')[0]).slice(0, 20) + '_' + weekOf(today).start.replace(/-/g, ''); }
-  return { DEFAULTS, settings, ownerOf, leadsOf, look, week, needsOwner, unlinked, contactFor, weekOf, weeklyCardId, addDays, daysBetween };
+  return { DEFAULTS, settings, ownerOf, leadsOf, look, week, needsOwner, isAmb, unlinked, contactFor, weekOf, weeklyCardId, addDays, daysBetween };
 });
