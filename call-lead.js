@@ -175,6 +175,8 @@
       if(String(now).trim().toLowerCase() !== String(v).trim().toLowerCase() && f[2] !== 'check') differs.push([k, now, v]);
     });
     try{ leadStartUI(); if(!leadId) toggleClientNameFields(false); toggleDementiaFollowUp(); togglePriceQuotedAmount(document.getElementById('lead_price_quoted').checked); leadPayorUI(); }catch(e){}
+    /* Partner links (2026-10-26): the partner the call named (or the caller's number) is picked in Referred By, yellow like the rest */
+    try{ if(window.PartnerLinks) PartnerLinks.afterCallFill(p); }catch(e){}
     /* yellow: for a grid on an existing lead, only the ticks the call added */
     heard.forEach(k => {
       const f = fieldOf(k);
