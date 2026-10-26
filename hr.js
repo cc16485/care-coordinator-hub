@@ -111,10 +111,10 @@
           + '@media (max-width:760px){.hr-wrap{grid-template-columns:1fr;padding:12px}.hr-menu{position:static;flex-direction:row;flex-wrap:wrap}.hr-item-note{display:none}.hr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}';
         document.head.appendChild(st);
       }
-      root.innerHTML = '<div class="hr-wrap"><nav class="hr-menu" id="hrMenu" aria-label="HR"></nav><div class="hr-main" id="hrMain"></div></div>';
+      root.innerHTML = '<div class="hr-wrap"><nav class="hr-menu" id="hrMenu" aria-label="Performance"></nav><div class="hr-main" id="hrMain"></div></div>';
     }
     const o = owner();
-    document.getElementById('hrMenu').innerHTML = '<div class="hr-menu-head">' + (o ? "Zach's HR desk" : 'HR') + '</div>'
+    document.getElementById('hrMenu').innerHTML = '<div class="hr-menu-head">' + (o ? "Zach's Performance desk" : 'Performance') + '</div>'
       + allowed().map((v) => '<button type="button" class="hr-item' + (v.id === view ? ' on' : '') + '" onclick="HR.go(\'' + v.id + '\')">'
         + '<span class="hr-item-label">' + esc(v.label) + '</span><span class="hr-item-note">' + esc(v.note) + '</span></button>').join('');
     const main = document.getElementById('hrMain');

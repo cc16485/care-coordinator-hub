@@ -1224,7 +1224,7 @@
     var d = document.getElementById('phApp');
     if (!d) {
       d = document.createElement('div'); d.id = 'phApp';
-      d.innerHTML = '<div class="ph-top"><b>HR<small id="phWho">Caring Companions</small></b><button type="button" id="phHrOut">Sign out</button></div><div id="phHr"></div>';
+      d.innerHTML = '<div class="ph-top"><b>Performance<small id="phWho">Caring Companions</small></b><button type="button" id="phHrOut">Sign out</button></div><div id="phHr"></div>';
       document.body.appendChild(d);
       /* hr.js draws into #hrRoot and moves the Write-Ups and Attendance panels in beside it; the Hub's windows (the
          write-up notice, Start a write-up) sit inside the hidden computer screen, so they come out to the page */
@@ -1256,7 +1256,7 @@
     window.myWorkRefresh = function () {};
     window.addEventListener('scx-hydrated', function () { draw(); });
     if (window.HR) draw(want);
-    else { var sc = document.createElement('script'); sc.src = 'hr.js?v=20261018p'; sc.onload = function () { draw(want); }; document.head.appendChild(sc); }
+    else { var sc = document.createElement('script'); sc.src = 'hr.js?v=20261026a'; sc.onload = function () { draw(want); }; document.head.appendChild(sc); }
     document.addEventListener('visibilitychange', function () { if (!document.hidden) draw(); });
   }
   function phStart() {
