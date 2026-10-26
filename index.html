@@ -5170,6 +5170,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="flex:1;"></span>
     <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
   </div>
+  <div id="plProgram"></div><!-- Referral Partner Program (partner-links.js, 2026-10-26): owners only, empty for everyone else -->
   <div id="refDesk"></div><!-- the Referral Partner Desk (referral-desk.js, Step 2, 2026-10-08): this week, needs an owner, link referrals -->
   <div class="kpi-grid" id="refKpis" style="grid-template-columns:repeat(4,1fr);"></div>
 
@@ -7725,6 +7726,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=2"></script>
 <script src="referral-desk.js?v=5"></script>
+<script src="partner-links-rules.js?v=1"></script><script src="partner-links.js?v=1"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=1"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
@@ -7740,7 +7742,7 @@ The HomeTogether team</pre>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
 <script src="leads-board.js?v=18"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=10"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=11"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=15"></script>
@@ -7753,7 +7755,7 @@ The HomeTogether team</pre>
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=16"></script>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
-<script src="call-lead.js?v=5"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
+<script src="call-lead.js?v=6"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
 <script src="lead-recorder.js?v=2"></script>
 <script src="future-opps.js?v=3"></script>
@@ -12075,6 +12077,7 @@ function leadRefOrgPicked(){
 function renderReferrers(){
   const esc=escapeHtmlComms;
   try{ if(typeof pdRender==='function') pdRender(); }catch(e){ console.warn('partner desk', e); }
+  try{ if(window.PartnerLinks) PartnerLinks.render(); }catch(e){ console.warn('partner program', e); }
   renderRefDashboard();
   const q=(document.getElementById('refSearch').value||'').toLowerCase();
   const orgs=(DATA.referral_orgs||[]).filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
@@ -12265,6 +12268,8 @@ function renderRefProfile(){
 
   /* the Referral Partner Desk (Step 2): owner, tier and why, potential, details, the people there */
   try{ if(typeof pdProfileCard==='function') document.getElementById('refProfLeft').insertAdjacentHTML('afterbegin', pdProfileCard(o)); }catch(e){ console.warn('partner profile', e); }
+  /* Partner links (2026-10-26): the code, link and QR code, at the top */
+  try{ if(window.PartnerLinks) document.getElementById('refProfLeft').insertAdjacentHTML('afterbegin', PartnerLinks.profileCard(o)); }catch(e){ console.warn('partner link', e); }
   const ideas=acts.filter(a=>a.kind==='idea');
   const history=acts.filter(a=>a.kind!=='idea');
 
@@ -13108,6 +13113,8 @@ async function saveLead(opts){
      (lpLead, CP.lead) and the conversation panel (commsLead) holding the old one, so their next save
      wrote the old intake values back to the database. */
   const fromCall=window.CallLead?CallLead.stamp(merged):null;   /* Make this a lead / Add from this call: the call and its care plan draft go onto the lead */
+  /* Partner links (her rule 2026-10-26): an established referral source changes only for an owner, with a reason, kept in its history */
+  if(window.PartnerLinks) await PartnerLinks.onSave(idx>=0?DATA.leads[idx]:null, merged, { fromCall:!!fromCall });
   if(idx<0&&window.CallCoach) CallCoach.stamp(merged);   /* saved from Taking a call: who took it (call coaching) */
   /* 2026-10-15: typed in with + Add Lead while on the phone with the family: that call is the first real conversation
      (the same record a logged connected call writes), so no first-call clock, no late alerts, not New */

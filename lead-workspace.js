@@ -135,6 +135,8 @@
       + (l.family_contact_unknown && !l.phone && !l.email ? '<div class="field-note" style="margin-top:4px;">We don\'t have the family\'s number yet: ask the referrer.</div>' : '')
       /* Referral Partner Desk (Step 2): which of the partner's people referred (one exact phone/email match is offered) */
       + (typeof pdLeadWhoHtml === 'function' && org ? pdLeadWhoHtml(l, org) : '')
+      /* Partner links (2026-10-26): how the referral came in, and every change to the source */
+      + (window.PartnerLinks ? PartnerLinks.leadSourceHtml(l) : '')
       + (org && (org.phone || org.email) ? '<div class="field-note">' + (org.phone ? tel(org.phone, org.email) : '') + (org.phone && org.email ? ' · ' : '') + (org.email ? esc(org.email) : '') + '</div>' : '') + '</div>'
       + (pl.due.length ? '<div class="lw-fact-k" style="margin-top:10px;">Due to go (a draft, you send it)</div>' + pl.due.map(d => '<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;font-weight:700;color:var(--navy);">' + esc(d.title) + '</span><button class="lb-btn" onclick="lwPartnerDraft(this, \'' + esc(d.kind) + '\')">Draft it</button></div>').join('') : '')
       + (pl.sent.length ? '<div class="lw-fact-k" style="margin-top:10px;">They heard from us</div>' + pl.sent.slice(0, 5).map(m => '<div style="font-size:12.5px;margin-top:4px;"><b>' + esc(RR.PARTNER_LABEL[m.kind] || 'An update') + '</b> · ' + esc(fmt(m.at)) + ' · ' + esc(m.channel) + (m.by ? ' · ' + esc(first(ctx.names[String(m.by).toLowerCase()] || String(m.by).split('@')[0])) : '') + '</div>').join('') : '<div class="field-note" style="margin-top:8px;">Nothing has gone to them yet about this family.</div>')
