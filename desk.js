@@ -858,7 +858,8 @@
           : '<li class="dk-row' + (l.done_at ? ' dk-done' : '') + '" data-dkid="' + l.id + '"><button class="dk-cb" data-dd="toggle" aria-label="Check off"><svg viewBox="0 0 24 24"><use href="#dk-box"/><path class="dk-tick" d="' + TICKS[hash(l.id) % 3] + '"/></svg></button><span class="dk-tw"><span class="dk-txt">' + linkify(l.body) + '</span>'
           + (l.link && l.link.name && l.link.type !== 'work' ? '<span class="dk-chips"><button class="dk-chip dk-clip" data-dd="link">' + icon('clip') + esc(l.link.name) + '</button></span>' : '') + '</span></li>').join('')
       + '<li class="dk-jot"><span class="dk-mode">' + icon('box') + '</span><input id="dkDJot" maxlength="1000" placeholder="jot something down…" autocomplete="off" aria-label="Jot something down"></li></ol>'
-      + '<button class="dk-open" data-dd="open">Open My Desk</button>';
+      + '<button class="dk-open" data-dd="open">Open My Desk</button>'
+      + (typeof mySpeedHtml === 'function' ? mySpeedHtml() : '');   /* 2026-10-26: My speed lives here now, not a Leads tab (my-speed.js) */
   }
   /* Select any words in the Hub, then "Jot it on my desk". */
   let pill = null;
