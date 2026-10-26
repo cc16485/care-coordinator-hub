@@ -848,7 +848,7 @@
         + '<textarea class="ph-in" rows="3" data-ivq="' + esc(q.id) + '" placeholder="What they said (the recording catches it too)">' + esc(a.note || '') + '</textarea></div>';
     });
     /* 2026-10-13 (her "yes to all", reviewer point 3): after the questions, before the honest picture. Only on a tap. */
-    h += '<div class="ph-card"><div class="ph-k">After question 6</div><div class="ph-t" style="font-size:16px">Check before they leave</div>'
+    h += '<div class="ph-card"><div class="ph-k">After the last question</div><div class="ph-t" style="font-size:16px">Check before they leave</div>'
       + '<div class="ph-s">Ends part 1 of the recording, writes it out, and lists anything the questions did not cover, so you can ask now. Then press Start recording for part 2. Usually a couple of minutes.</div>'
       + '<div class="ph-btns"><button class="ph-b" data-iv="check">Check before they leave</button></div><div id="phIvCheck"></div></div>';
     h += '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>'
