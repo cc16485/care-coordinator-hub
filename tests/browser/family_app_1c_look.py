@@ -14,7 +14,7 @@ def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:7
 ck('index: panel loaded after the caregiver panel', re.search(r'caregiver-profile-panel\.js[^\n]*\n<script src="family-app-panel\.js\?v=', HTML))
 ck('index: Family bookings pill, panel and badge', 'data-tab="familybookings"' in HTML and 'id="tab-familybookings"' in HTML and 'id="famBookings"' in HTML and 'id="famPillBadge"' in HTML)
 ck('index: in the Scheduling group, titled, rendered on open', "'familybookings','carematch'" in HTML and "familybookings:'Family bookings'" in HTML and "activeTab==='familybookings' && window.FAMAPP) FAMAPP.render()" in HTML)
-ck('index: the Care circle card shows the app line and can reload itself', "FAMAPP.circleLine(m, px)" in HTML and "FAMAPP.register(px, cl360CircleLoad)" in HTML and "await cl360CircleLoad();" in HTML)
+ck('index: the Care circle card shows the app line and can reload itself', "FAMAPP.circleLine(m, px, circ)" in HTML and "FAMAPP.bookingSwitch(circ, px)" in HTML and "FAMAPP.register(px, cl360CircleLoad)" in HTML and "await cl360CircleLoad();" in HTML)
 tmp = tempfile.mkdtemp(prefix='fam1c-')
 scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', HTML, re.S)
 bad = []
@@ -62,13 +62,17 @@ window.callAction = async (fn, body) => {
   if (a === 'welcome' && body.send) { M[body.contact_id].welcome_sent_at = '2099-01-02T15:14:00Z'; M[body.contact_id].welcome_sent_by = 'Krystal'; M[body.contact_id].welcome_version = body.kind; M[body.contact_id].welcome_how = 'email'; return { status: 200, data: { ok: true, by_text: false, by_email: true, version: body.kind } } }
   if (a === 'confirm_phone') { const m = M[body.contact_id]; m.phone = '870-350-6164'; m.phone_confirmed_by = body.on ? 'Krystal' : null; m.phone_confirmed_at = body.on ? '2099-01-02T16:05:00Z' : null; m.phone_confirmed_number = body.on ? m.phone : null; window.__trust = body.on ? 'ok' : 'unconfirmed'; return { status: 200, data: { ok: true } } }
   if (a === 'hipaa_ok') { if (body.on && window.__hipaaAxis === false) return { status: 409, data: { error: 'AxisCare says Ann does NOT have HIPAA permission.' } }; M[body.contact_id].hipaa_office_ok_at = body.on ? '2099-01-02T16:00:00Z' : null; M[body.contact_id].hipaa_office_ok_by = body.on ? 'Krystal' : null; return { status: 200, data: { ok: true } } }
+  if (a === 'axis_welcome' && !body.send) return { status: 200, data: { preview: true, name: M[body.contact_id].name, hipaa_ok: true, hipaa_axis: true, hipaa_office: null, axis_email_on_file: window.__axisOn !== false, sent: null, failed: null, email_subject: 'Welcome to Caring Companions: follow Dorothy\\'s care online', email_html: '<p>AXIS EMAIL</p>' } };
+  if (a === 'axis_welcome' && body.send) { M[body.contact_id].axis_welcome_sent_at = '2099-01-02T15:20:00Z'; M[body.contact_id].axis_welcome_sent_by = 'Krystal'; return { status: 200, data: { ok: true, by_email: true } } }
+  if (a === 'booking_app') { window.__circ.booking_app_off_at = body.on ? null : '2099-01-02T15:30:00Z'; window.__circ.booking_app_off_by = body.on ? null : 'Krystal'; window.__circ.booking_app_off_reason = body.on ? null : body.reason; return { status: 200, data: { ok: true, on: body.on, still_signed_in: body.on ? [] : ['Ann'] } } }
   if (a === 'welcome_skip') { M[body.contact_id].welcome_skip_at = '2099-01-01'; M[body.contact_id].welcome_skip_reason = body.reason; return { status: 200, data: { ok: true } } }
   if (a === 'scheduling_type') { PLANS[0].care_scheduling_type = body.kind; return { status: 200, data: { ok: true } } }
   if (a === 'schedule') return { status: 502, data: { error: 'no app service is set for OK in the Hub settings' } };
   if (a === 'place') { const b = B.find(x => x.id === body.booking_id); b.status = 'placed'; b.caregiver_name = 'Maria L.'; return { status: 200, data: { ok: true } } }
   return { status: 400, data: { error: 'unknown' } };
 };
-window.drawCircle = async () => { document.getElementById('cp_cl360Circle').innerHTML = Object.values(M).map(m => '<div><b>' + m.name + '</b>' + FAMAPP.circleLine(m, 'cp_') + '</div>').join('') };
+window.__circ = { id: 'c1', client_name: 'Dorothy Ray', booking_app_off_at: null };
+window.drawCircle = async () => { document.getElementById('cp_cl360Circle').innerHTML = FAMAPP.bookingSwitch(window.__circ, 'cp_') + Object.values(M).map(m => '<div><b>' + m.name + '</b>' + FAMAPP.circleLine(m, 'cp_', window.__circ) + '</div>').join('') };
 </script>
 <script>const FAM={ cache:{} };  /* the Hub's own FAM (index.html), kept here so a name clash shows up in this test */</script>
 <script>__PANEL__</script>
@@ -80,14 +84,14 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('file://' + page); pg.wait_for_timeout(50)
     t = pg.inner_text('#cp_cl360Circle')
-    ck('circle: one invite-and-welcome button for someone with an email; Tom needs an email; Ann shows on + can book', 'Invite and send welcome' in t and 'add an email to invite them' in t and 'Booking App: on' in t and 'can book visits' in t, t)
-    pg.click('#fam-cp_-00000009-aaaa-4bbb-8ccc-000000000009 button'); pg.wait_for_timeout(80)
+    ck('circle: one invite button for someone with an email; Tom needs an email; Ann shows on + can book; everyone with an email has an AxisCare welcome line', 'Invite and send Booking App email' in t and 'Add an email for the AxisCare welcome and the Booking App' in t and 'AxisCare welcome not sent yet' in t and 'Booking App: on' in t and 'can book visits' in t, t)
+    pg.click('#fam-cp_-00000009-aaaa-4bbb-8ccc-000000000009 button:has-text("Invite and send Booking App email")'); pg.wait_for_timeout(80)
     t = pg.inner_text('#cp_cl360Circle')
     calls = pg.evaluate('__calls')
     # her ask 2026-10-17: one press invites AND opens the welcome to read; nothing is sent until Send welcome
     pg.wait_for_timeout(120); t = pg.inner_text('#cp_cl360Circle')
     ck('one press: invites (office door), then the welcome preview opens; nothing sent yet', ['family-app-office', {'action': 'invite', 'contact_id': '00000009-aaaa-4bbb-8ccc-000000000009', 'can_book': True}] in calls and
-       any(c[1].get('action') == 'welcome' and c[1].get('contact_id') == '00000009-aaaa-4bbb-8ccc-000000000009' and not c[1].get('send') for c in pg.evaluate('__calls')) and 'can sign in now. Nothing is sent until you press Send welcome' in t and 'Not now' in t, t)
+       any(c[1].get('action') == 'welcome' and c[1].get('contact_id') == '00000009-aaaa-4bbb-8ccc-000000000009' and not c[1].get('send') for c in pg.evaluate('__calls')) and 'can sign in now. Nothing is sent until you press Send Booking App email' in t and 'Not now' in t, t)
     pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Turn booking off")'); pg.wait_for_timeout(80)
     ck('booking off for one person', pg.evaluate('__calls')[-1][1] == {'action': 'can_book', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': False} and "can't book" in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
     n = len(pg.evaluate('__calls'))
@@ -97,30 +101,29 @@ with sync_playwright() as p:
     ck('turn off: done on the second press; Turn on again offered', pg.evaluate('__calls')[-1][1] == {'action': 'revoke', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011'} and 'Turn on again' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
 
     pg.evaluate("M['00000001-aaaa-4bbb-8ccc-000000000011'].app_status='active'; window.__axisOn=true; drawCircle()"); pg.wait_for_timeout(40)
-    ck('the Care circle line says the welcome hasn\'t gone yet', 'Welcome not sent yet' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(80)
+    ck('the Booking App line says its email hasn\'t gone', 'Booking App email not sent' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
-    ck('welcome: first asks how the client schedules care (three choices, none picked), no words and no Send yet', 'How will this client schedule their care?' in t and 'Regular Scheduled Care' in t and 'Flexible Booking Care' in t and 'Combination of Both' in t and 'Pick one to see the welcome' in t
-       and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 input[type=radio]:checked') is None and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")') is None, t)
+    ck('welcome: first asks how the client schedules care (three choices, none picked), no words and no Send yet', 'How will this client schedule their care?' in t and 'Regular Scheduled Care' in t and 'Flexible Booking Care' in t and 'Combination of Both' in t and 'Pick one to see the Booking App email' in t
+       and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 input[type=radio]:checked') is None and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")') is None, t)
     pg.check('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 input[value=flexible]'); pg.wait_for_timeout(100)
     t = pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
-    ck('picking Flexible: that version\'s text and email preview, the AxisCare check, how it goes', pg.input_value('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011') == 'Hi Ann, long flexible with 16485.axiscare.com.' and 'is on AxisCare' in t and 'Goes by email' in t and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 iframe') is not None
+    ck('picking Flexible: that version\'s text and email preview, how it goes; no AxisCare part to tick any more', pg.input_value('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011') == 'Hi Ann, long flexible with 16485.axiscare.com.' and 'Goes by email' in t and pg.query_selector('#famwax-cp_-00000001-aaaa-4bbb-8ccc-000000000011') is None and 'AxisCare' not in t and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 iframe') is not None
        and {'action': 'welcome', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'kind': 'flexible'} in [c[1] for c in pg.evaluate('__calls')], t)
-    pg.uncheck('#famwax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'); ck('unticking the AxisCare part swaps to the short words', pg.input_value('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011') == 'Hi Ann, short flexible.')
-    pg.fill('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011', 'My own words'); pg.check('#famwax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'); ck('words the office changed are never overwritten', pg.input_value('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011') == 'My own words')
-    pg.click('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
-    ck('send: the chosen version and the office\'s words go', pg.evaluate('__calls')[-1][1] == {'action': 'welcome', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'send': True, 'kind': 'flexible', 'again': False, 'text': 'My own words', 'include_axis': True})
+    pg.fill('#famwt-cp_-00000001-aaaa-4bbb-8ccc-000000000011', 'My own words')
+    pg.click('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
+    ck('send: the chosen version and the office\'s words go', pg.evaluate('__calls')[-1][1] == {'action': 'welcome', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'send': True, 'kind': 'flexible', 'again': False, 'text': 'My own words'})
     pg.wait_for_timeout(60)
-    ck('the Care circle line shows when, who and which version', 'Welcome sent' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011') and 'by Krystal (Flexible, email)' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
+    ck('the Booking App line shows when, who and which version', 'Booking App email sent' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011') and 'by Krystal (Flexible, email)' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
     ck('the "Sent by" result stays on screen under the person after the circle redraws', pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011') is not None and 'Sent by email' in pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
     pg.evaluate("window.__sent={at:'2099-01-02T15:14:00Z',by:'Krystal',version:'flexible'}; window.__savedKind='flexible'")
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(100)
-    if pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011') is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(100)
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(100)
+    if pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011') is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(100)
     t = pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
     ck('opening it again: says it was already sent (when, who, version), the saved version is picked, the button says Send it again', 'Already sent' in t and 'by Krystal (Flexible)' in t and pg.is_checked('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 input[value=flexible]') and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send it again")') is not None, t)
-    pg.evaluate("window.__sent=null; window.__hipaa=false; window.__axisOn=false"); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(100)
+    pg.evaluate("window.__sent=null; window.__hipaa=false; window.__axisOn=false"); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(100)
     t = pg.inner_text('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
-    ck('no HIPAA permission: said plainly, no Send button; email not on AxisCare: warned, AxisCare part off', 'No HIPAA permission' in t and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send")') is None and "isn't on Dorothy's AxisCare record" in t and not pg.is_checked('#famwax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), t)
+    ck('no HIPAA permission: said plainly, no Send button', 'No HIPAA permission' in t and pg.query_selector('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send")') is None, t)
     # her rule 2026-10-23: HIPAA OK in the Hub (who and when); AxisCare's explicit No still wins
     W_ = '#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011'
     hb = W_ + ' button:has-text("gave HIPAA permission")'
@@ -129,27 +132,27 @@ with sync_playwright() as p:
     ck('HIPAA OK asks once first (nothing sent yet)', len(pg.evaluate('__calls')) == n and 'Press again to confirm' in pg.inner_text(W_))
     pg.click(W_ + ' button:has-text("Press again to confirm")'); pg.wait_for_timeout(150)
     t = pg.inner_text(W_)
-    ck('second press: recorded through the office door, the welcome reopens with who marked it and a Send button', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True} in [c[1] for c in pg.evaluate('__calls')] and 'HIPAA OK marked in the Hub by Krystal' in t and 'No HIPAA permission' not in t and pg.query_selector(W_ + ' button:has-text("Send welcome")') is not None, t)
+    ck('second press: recorded through the office door, the welcome reopens with who marked it and a Send button', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True} in [c[1] for c in pg.evaluate('__calls')] and 'HIPAA OK marked in the Hub by Krystal' in t and 'No HIPAA permission' not in t and pg.query_selector(W_ + ' button:has-text("Send Booking App email")') is not None, t)
     ck('the Care circle line says HIPAA OK in the Hub, and by whom', 'HIPAA OK in the Hub (Krystal)' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
     pg.click(W_ + ' button:has-text("Take it back")'); pg.wait_for_timeout(150)
     t = pg.inner_text(W_)
-    ck('Take it back: recorded, the welcome shows no HIPAA permission again', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': False} in [c[1] for c in pg.evaluate('__calls')] and 'No HIPAA permission' in t and pg.query_selector(W_ + ' button:has-text("Send welcome")') is None, t)
+    ck('Take it back: recorded, the welcome shows no HIPAA permission again', {'action': 'hipaa_ok', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': False} in [c[1] for c in pg.evaluate('__calls')] and 'No HIPAA permission' in t and pg.query_selector(W_ + ' button:has-text("Send Booking App email")') is None, t)
     pg.evaluate("window.__hipaaAxis=false; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_at='2099-01-02T16:00:00Z'; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_by='Krystal'")
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
     t = pg.inner_text(W_)
-    ck('AxisCare says No: even with a Hub OK, no Send and no HIPAA OK button; says to change it in AxisCare', 'AxisCare says' in t and 'change it in AxisCare' in t and pg.query_selector(hb) is None and pg.query_selector(W_ + ' button:has-text("Send welcome")') is None, t)
+    ck('AxisCare says No: even with a Hub OK, no Send and no HIPAA OK button; says to change it in AxisCare', 'AxisCare says' in t and 'change it in AxisCare' in t and pg.query_selector(hb) is None and pg.query_selector(W_ + ' button:has-text("Send Booking App email")') is None, t)
     pg.evaluate("window.__hipaaAxis=undefined; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_at=null; M['00000001-aaaa-4bbb-8ccc-000000000011'].hipaa_office_ok_by=null")
     # her rule 2026-10-23: a held text is said plainly; Confirm number (who and when); then Send the text now
     pg.evaluate("window.__hipaaAxis=undefined; window.__hipaa=true; window.__trust='unconfirmed'; window.__sent=null")
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(30); pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
     t = pg.inner_text(W_)
     ck('unconfirmed number: the welcome says the text will be held, goes by email only, offers Confirm number', "isn't confirmed yet, so the text was held" in t and 'Goes by email' in t and 'Goes by text' not in t and pg.query_selector(W_ + ' button:has-text("Confirm 870-350-6164 is Ann")') is not None, t)
-    pg.click(W_ + ' button:has-text("Send welcome")'); pg.wait_for_timeout(120)
+    pg.click(W_ + ' button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
     t = pg.inner_text(W_)
     ck('after sending: says sent by email AND that the text was held, plainly', 'Sent by email' in t and "the text was held" in t and 'Send the text now' in t, t)
     pg.evaluate("window.__sent={at:'2099-01-02T15:14:00Z',by:'Krystal',version:'regular',how:'email'}")
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
-    if pg.query_selector(W_) is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
+    if pg.query_selector(W_) is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
     n = len(pg.evaluate('__calls')); pg.click(W_ + ' button:has-text("Confirm 870-350-6164")'); pg.wait_for_timeout(40)
     ck('Confirm number asks once first (nothing sent yet)', len(pg.evaluate('__calls')) == n and 'Press again' in pg.inner_text(W_))
     pg.click(W_ + ' button:has-text("Press again")'); pg.wait_for_timeout(150)
@@ -160,11 +163,26 @@ with sync_playwright() as p:
     ls = pg.evaluate('window.__lastSend') or {}
     ck('Send the text now: only the text goes (by_email false, again)', ls.get('by_email') is False and ls.get('again') is True and 'Sent by text' in pg.inner_text(W_), [ls, pg.inner_text(W_)])
     pg.evaluate("window.__trust=undefined; window.__sent=null; M['00000001-aaaa-4bbb-8ccc-000000000011'].phone_confirmed_by=null; M['00000001-aaaa-4bbb-8ccc-000000000011'].phone_confirmed_at=null")
-    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
-    if pg.query_selector(W_) is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send welcome")'); pg.wait_for_timeout(120)
-    pg.evaluate("M['00000001-aaaa-4bbb-8ccc-000000000011'].welcome_sent_at=null")
-    pg.click('#famwel-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("No welcome for this person")'); pg.wait_for_timeout(40); pg.fill('#famwskr-cp_-00000001-aaaa-4bbb-8ccc-000000000011', 'Live-in client'); pg.click('#famwsk-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Save")'); pg.wait_for_timeout(100)
-    ck('"No welcome for this person" with a reason: recorded, shown on the line', {'action': 'welcome_skip', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True, 'reason': 'Live-in client'} in [c[1] for c in pg.evaluate('__calls')] and 'No welcome: Live-in client' in pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
+    pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
+    if pg.query_selector(W_) is None: pg.click('#fam-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send Booking App email")'); pg.wait_for_timeout(120)
+    # 2026-10-25: the AxisCare welcome is its own line and box (email only); "No welcome" lives there
+    pg.evaluate("window.__axisOn=true")
+    pg.click('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send AxisCare welcome")'); pg.wait_for_timeout(100)
+    t = pg.inner_text('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011')
+    ck('AxisCare welcome box: its own preview, email only, never the Booking App; Send button', 'AxisCare welcome for Ann' in t and 'never mentions the Booking App' in t and pg.query_selector('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011 iframe') is not None and pg.query_selector('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011 textarea') is None and pg.query_selector('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send AxisCare welcome")') is not None, t)
+    pg.click('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send AxisCare welcome")'); pg.wait_for_timeout(120)
+    ck('AxisCare welcome send: through the office door; the line shows when and who', {'action': 'axis_welcome', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'send': True, 'again': False} in [c[1] for c in pg.evaluate('__calls')] and 'AxisCare welcome sent' in pg.inner_text('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011') and 'by Krystal' in pg.inner_text('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'))
+    pg.evaluate("M['00000001-aaaa-4bbb-8ccc-000000000011'].axis_welcome_sent_at=null; drawCircle()"); pg.wait_for_timeout(40)
+    pg.click('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Send AxisCare welcome")'); pg.wait_for_timeout(100)
+    pg.click('#famaxw-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("No AxisCare welcome for this person")'); pg.wait_for_timeout(40); pg.fill('#famwskr-cp_-00000001-aaaa-4bbb-8ccc-000000000011', 'Live-in client'); pg.click('#famwsk-cp_-00000001-aaaa-4bbb-8ccc-000000000011 button:has-text("Save")'); pg.wait_for_timeout(100)
+    ck('"No AxisCare welcome for this person" with a reason: recorded, shown on the AxisCare line', {'action': 'welcome_skip', 'contact_id': '00000001-aaaa-4bbb-8ccc-000000000011', 'on': True, 'reason': 'Live-in client'} in [c[1] for c in pg.evaluate('__calls')] and 'No AxisCare welcome: Live-in client' in pg.inner_text('#famax-cp_-00000001-aaaa-4bbb-8ccc-000000000011'), pg.inner_text('#cp_cl360Circle'))
+    # her rule 2026-10-25: the client's Booking App off takes it off: no invite, no Booking App email; AxisCare stays
+    pg.click('#fambs-cp_-c1 button:has-text("Turn off")'); pg.wait_for_timeout(40); pg.fill('#fambsr-cp_-c1', 'Not interested'); pg.click('#fambs-cp_-c1 button:has-text("Turn off the Booking App")'); pg.wait_for_timeout(150)
+    t = pg.inner_text('#cp_cl360Circle')
+    ck('Booking App off for the client: recorded with why; no invite or Booking App email buttons; logins named; AxisCare lines stay', {'action': 'booking_app', 'circle_id': 'c1', 'on': False, 'reason': 'Not interested'} in [c[1] for c in pg.evaluate('__calls')] and 'Booking App for this client:' in t and 'Off' in pg.inner_text('#fambs-cp_-c1') and 'Not interested' in t
+       and pg.query_selector('#cp_cl360Circle button:has-text("Invite and send Booking App email")') is None and pg.query_selector('#cp_cl360Circle button:has-text("Send Booking App email")') is None and 'still has a Booking App login' in t and 'AxisCare welcome' in t, t)
+    pg.click('#fambs-cp_-c1 button:has-text("Turn on")'); pg.wait_for_timeout(120)
+    ck('Booking App back on: the buttons come back', {'action': 'booking_app', 'circle_id': 'c1', 'on': True, 'reason': ''} in [c[1] for c in pg.evaluate('__calls')] and pg.query_selector('#cp_cl360Circle button:has-text("Send Booking App email")') is not None, pg.inner_text('#cp_cl360Circle'))
     pg.evaluate("window.__hipaa=true; window.__axisOn=true; window.__savedKind=null")
     pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#famBookings')

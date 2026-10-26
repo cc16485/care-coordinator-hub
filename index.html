@@ -7671,7 +7671,7 @@ The HomeTogether team</pre>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261005j"></script>
-<script src="family-app-panel.js?v=20261024c"></script>
+<script src="family-app-panel.js?v=20261025w"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -9103,7 +9103,7 @@ function renderActiveTab(){
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
-    if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261018a'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
@@ -23462,6 +23462,8 @@ function fcCircleBody(c, people, linked, esc, inProfile){
 
       + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
           +'<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\'' + esc(c.id) + '\')">Link to a client</button></div>')
+      /* 2026-10-25 her rule: the client's Booking App on/off (off = no invites, no Booking App email) */
+      + (linked && window.FAMAPP && FAMAPP.bookingSwitch ? FAMAPP.bookingSwitch(c, 'fcl_') : '')
       + (people.length ? people.map(function(p){
           const ax = p.source==='axiscare' && p.axiscare_list_number;
           const yn = function(v){ return v===true?'yes':v===false?'no':'not answered'; };
@@ -23492,7 +23494,7 @@ function fcCircleBody(c, people, linked, esc, inProfile){
             /* 2026-10-18 her ask: the Booking App line (Invite and send welcome, AxisCare + app sign-in steps) under each person.
                Linked circles only (the app needs the client). Inside the profile too: the profile's Family & Contacts tab shows
                THIS box (Client 360's Care circle card has no slot there), so it is where the office sees the family. */
-            + (linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_') + '</div>' : '');
+            + (linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_', c) + '</div>' : '');
         }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
 
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">'
@@ -41733,14 +41735,14 @@ async function cl360RenderInto(r, out, px, panes){
     if(!circ){ box.innerHTML = '<div class="field-note">No Family Circle is linked to '+esc(name.split(' ')[0])+' yet. Create or link one in Family Circles.</div>'; return; }
     const p2 = await sb.from('circle_contacts').select('*').eq('circle_id', circ.id);
     const members = (p2.data||[]).filter(m=>!m.axiscare_removed_at);
-    box.innerHTML = (window.FAMAPP && FAMAPP.aboutBox ? FAMAPP.aboutBox(circ, px, name) : '') + (members.length
+    box.innerHTML = (window.FAMAPP && FAMAPP.aboutBox ? FAMAPP.aboutBox(circ, px, name) : '') + (window.FAMAPP && FAMAPP.bookingSwitch ? FAMAPP.bookingSwitch(circ, px) : '') + (members.length
       ? members.map(m=>'<div style="font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--border);">'
           + '<b>'+esc(m.name||'(no name)')+'</b>'
           + (m.role||m.relationship ? ' · '+esc(m.role||m.relationship) : '')
           + (m.can_make_medical_decisions ? ' · <b>medical decisions ok</b>' : (m.decision_maker ? ' · <b>decision maker</b>' : ''))
           + (m.hipaa_authorized ? ' · HIPAA ok' : '')
           + (m.phone ? '<div class="field-note">'+esc(m.phone)+(m.email?' · '+esc(m.email):'')+'</div>' : (m.email?'<div class="field-note">'+esc(m.email)+'</div>':''))
-          + (window.FAMAPP ? FAMAPP.circleLine(m, px) : '')
+          + (window.FAMAPP ? FAMAPP.circleLine(m, px, circ) : '')
           + '</div>').join('')
       : '<div class="field-note">Circle exists but has no people yet. Add them in Family Circles.</div>');
   }catch(e){ const box=document.getElementById(px+'cl360Circle'); if(box) box.innerHTML='<div class="field-note">Could not load the circle.</div>'; } };
