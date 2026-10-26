@@ -1,4 +1,4 @@
-"""My speed (Speed to lead, Samantha 2026-10-22, design approved). The real Hub page, offline (files served from this folder, no server
+"""My speed (Speed to lead, Samantha 2026-10-22, design approved; 2026-10-26 moved from a Leads tab into the My Desk drawer). The real Hub page, offline (files served from this folder, no server
 needed), made-up families only; nothing is saved, texted, emailed or called. Her rules checked: only your own families, good news only,
 no names or ranking on the team goal, time off never breaks a streak, the Monday celebration.
 Clock pinned to Thursday 22 October 2026, 2:00 PM Chicago. (python3 tests/browser/my_speed_look.py; SHOTS=<dir> saves screenshots)"""
@@ -18,7 +18,10 @@ STUB = r"""
   const at=(iso,m)=>new Date(Date.parse(iso)+m*60000).toISOString();
   const L=(id,who,created,tryMin,o)=>Object.assign({ id, first_name:id, last_name:'Fam', created_at:created, assigned_coordinator:who,
     first_human_attempt_at: tryMin==null?undefined:at(created,tryMin), contact_events:[{ at:created, channel:'web', direction:'in', outcome:'inquiry', actor:'family' }] }, o||{});
-  DATA.ops_settings={};
+  (0,eval)("CC_ROLE_BY_EMAIL={ 'krystal@mo-care.com':['care_coordinator'], 'angiel@mo-care.com':['care_coordinator'] }; CC_ROLES_CHECKED=true;");
+  DATA.ops_settings={ desk_access:{ mode:'everyone' } };
+  W.dkStore={ async me(){ return 'p_k'; }, async load(){ return { lines:[], stickies:[], settings:null, pages:[] }; }, async insert(t,r){ return r; }, async update(){ return null; },
+    async loadDays(){ return { lines:[], pages:[] }; }, async visits(){ return []; }, async remove(){ return true; }, async saveSettings(){ return true; }, async savePage(){ return true; } };
   DATA.leads=[
     L('Ann','Krystal','2026-10-19T14:00:00Z',2), L('Bea','Krystal','2026-10-20T15:00:00Z',4), L('Cal','Krystal','2026-10-21T16:00:00Z',3),
     L('Dee','Krystal','2026-10-22T15:00:00Z',1),
@@ -33,22 +36,25 @@ async()=>{
   const box=()=>document.getElementById('mySpeedBox').innerText;
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   as('krystal@mo-care.com','Krystal Land');
-  switchTab('myspeed'); await sleep(150);
-  ok('Leads has a My speed pill', [...document.querySelectorAll('.fpill[data-tab="myspeed"]')].some(p=>/My speed/.test(p.innerText)));
-  ok('the tab opens and draws the page', document.getElementById('tab-myspeed').classList.contains('active') || getComputedStyle(document.getElementById('tab-myspeed')).display!=='none', box().slice(0,300));
-  ok('it is Krystal\'s own page', /Your speed/.test(box()) && /Just for you, Krystal\. Nobody else sees this page\./.test(box()), box().slice(0,300));
+  switchTab('leadsstarts'); await sleep(150);
+  ok('Leads has no My speed tab any more', !document.querySelector('[data-tab="myspeed"]') && !document.getElementById('tab-myspeed'));
+  await dkWarm(); await DKX.toggleDrawer(true); await sleep(200);
+  const dr=document.getElementById('dkDrawer');
+  ok('the My Desk drawer opens with today\'s page and Your speed under it', dr && !dr.hidden && /My Desk/.test(dr.innerText) && dr.querySelector('#mySpeedBox'), dr && dr.innerText.slice(0,300));
+  ok('it says only you see it', /Your speed/i.test(box()) && /only you see this/i.test(box()), box().slice(0,300));
   ok('her streak: 6 families in a row within 5 minutes, one house each', /6 families in a row heard from you within 5 minutes/.test(box()) && document.querySelectorAll('#mySpeedBox svg path[fill="#FFC671"]').length>=6, box());
   ok('time off never breaks a streak is said', /Time off never breaks a streak/.test(box()));
-  ok('team goal counts everyone this week, with no names', /A 5-minute week: 4 of 6 families so far/.test(box()) && !/Angiel|Zed|Yan/.test(box()), box());
+  ok('team goal counts everyone this week, with no names', /Team 5-minute week: 4 of 6 families so far/.test(box()) && !/Angiel|Zed|Yan/.test(box()), box());
   ok('her middle wait this month and her best week', /Your middle wait this month/.test(box()) && /Your best week/.test(box()), box());
+  document.querySelector('#mySpeedBox details').open=true;
   ok('how it counts: office hours, call from GoHighLevel', /Office hours only/.test(box()) && /call from GoHighLevel/.test(box()));
   ok('good news only: no ranking, no nudging words', !/rank #|slowest|behind|you should|hurry|worst|—/i.test(box().replace('No names, no ranking','')), box());
   ok('no celebration on a Thursday', !/Last week was a 5-minute week/.test(box()));
 
-  as('angiel@mo-care.com','Angiel Test'); renderMySpeed(); await sleep(50);
+  as('angiel@mo-care.com','Angiel Test'); await DKX.toggleDrawer(false); await DKX.toggleDrawer(true); await sleep(100);
   ok('Angiel sees only her own: a neutral new-streak line, never a "you broke it" message', /Your next family starts a new streak/.test(box()) && !/Krystal|Ann|broke|missed/i.test(box()), box());
   ok('nothing was saved, texted, emailed or called', window.__log.writes.length===0 && window.__log.fn.length===0, window.__log);
-  as('krystal@mo-care.com','Krystal Land'); renderMySpeed();
+  as('krystal@mo-care.com','Krystal Land'); await DKX.toggleDrawer(false); await DKX.toggleDrawer(true); await sleep(100);
   return R;
 }
 """
@@ -59,7 +65,7 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   /* the 5-minute week is the whole team's: make every family last week fast */
   DATA.leads.forEach(l=>{ if(l.first_human_attempt_at) l.first_human_attempt_at=new Date(Date.parse(l.created_at)+2*60000).toISOString(); });
-  switchTab('myspeed'); await sleep(150);
+  await dkWarm(); await DKX.toggleDrawer(true); await sleep(200);
   const t=document.getElementById('mySpeedBox').innerText;
   ok('Monday after a 5-minute week: the celebration shows', /Last week was a 5-minute week/.test(t), t.slice(0,400));
   return R;
@@ -81,7 +87,7 @@ def run(b, clock, script, tag):
     pg.goto('http://myspeed.local/index.html?proof=myspeed'); pg.wait_for_timeout(1500)
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(script); R.append(['PASS' if not errs else 'FAIL', tag + ': no page errors', errs[:3]])
-    if SHOTS: pg.locator('#tab-myspeed').screenshot(path=os.path.join(SHOTS, 'my_speed_' + tag + '.png'))
+    if SHOTS: pg.locator('#dkDrawer').screenshot(path=os.path.join(SHOTS, 'my_speed_' + tag + '.png'))
     cx.close()
     return R
 with sync_playwright() as pw:
