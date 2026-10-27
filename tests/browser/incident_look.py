@@ -102,9 +102,12 @@ with sync_playwright() as pw:
         if (body.action === 'start' || body.action === 'relink') return { data:{ ok:true, practice:false, report:{ id:'00000000-0000-4000-8000-000000000001', client_ax:'501', client_name:'Test Client', caregiver:body.caregiver || 'Tess Caregiver', happened_on:body.happened_on || '2026-10-26' }, link:'https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), draft:'Hi Tess, this is Caring Companions. We need your incident report: https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), phone_last4:'0100' } };
         if (body.action === 'send') return { data:{ ok:true, outcome:'sent' } };
         if (body.action === 'list') return { data:{ ok:true, live:true, reports: body.client_ax ? [{ id:'00000000-0000-4000-8000-000000000001', status:'waiting', caregiver:'Tess Caregiver', happened_on:'2026-10-26', sent_at:'2026-10-27T15:00:00Z' }]
-          : [{ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_ax:'501', client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', told_late:true,
+          : body.caregiver ? [{ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', told_late:true, reviewed_at:null }]
+          : [{ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_ax:'501', reviewed_at:window.REVIEWED ? '2026-10-27T17:00:00Z' : null, reviewed_by_name:'Krystal Test',
+              review:window.REVIEWED ? { family:{ told:'yes', who:'Jan', when:'3pm' }, medical:{ what:'none' }, careplan:{ change:true, note:'Gait belt' }, ane:{ suspect:false } } : null, client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', told_late:true,
               answers:{ what:'She slid off the seat.', hurt:'Yes' }, questions:[{ k:'what', label:'What happened?' }, { k:'hurt', label:'Was Test hurt?' }] }] } };
         if (body.action === 'open') return { data:{ ok:true, url:'https://signed.test/x.pdf' } };
+        if (body.action === 'review') { window.REVIEWED = body; return { data:{ ok:true, summary:'Family told (Jan, 3pm) · No care needed · care plan to change · not abuse or neglect', careplan_card:true } }; }
         return { data:{ error:'unknown' } } } } };
     }""")
     q.add_script_tag(url=BASE + '/shift-flags.js'); q.add_script_tag(url=BASE + '/incidents.js'); q.wait_for_timeout(300)
@@ -129,6 +132,18 @@ with sync_playwright() as pw:
     ok('Open the report: who signed and when, the not-called warning, the answers, Open the PDF', 'Signed by Tess Caregiver' in t and 'was not called or texted' in t and 'She slid off the seat.' in t and q.is_visible('#incPdf'), t)
     q.click('#incPdf'); q.wait_for_timeout(300)
     ok('...the PDF opens through the logged door', q.query_selector('#incPdfOut a[href="https://signed.test/x.pdf"]') is not None)
+    ok('a signed report not reviewed yet shows the office review, nothing saved yet', 'Office review' in t and q.is_visible('#rvSave') and not q.evaluate('window.REVIEWED'))
+    q.click('#incBody input[name=rvAne][value=yes]'); q.wait_for_timeout(100)
+    ok('"Could this be abuse or neglect: yes" shows the state hotline to call first', q.is_visible('#rvAneYes') and '1-800-392-0210' in q.inner_text('#rvAneYes') and q.query_selector('#rvAneYes a[href="tel:18003920210"]'))
+    q.click('#incBody input[name=rvAne][value=no]')
+    q.click('#incBody input[name=rvFam][value=yes]'); q.fill('#rvFamWho', 'Jan, daughter'); q.fill('#rvFamWhen', 'Oct 26, 3pm')
+    q.click('#incBody input[name=rvMed][value=none]'); q.click('#incBody input[name=rvCp][value=yes]'); q.fill('#rvCpTxt', 'Gait belt for every bathroom transfer')
+    q.screenshot(path='tests/browser/incident_office_review.png')
+    q.click('#rvSave'); q.wait_for_timeout(500)
+    rv = q.evaluate('window.REVIEWED') or {}
+    ok('Save sends the checklist: family who and when, medical, care plan change, not abuse', rv.get('family', {}).get('who') == 'Jan, daughter' and rv.get('medical', {}).get('what') == 'none' and rv.get('careplan', {}).get('change') is True and rv.get('ane', {}).get('suspect') is False, rv)
+    t = q.inner_text('#incBody')
+    ok('...then the report shows the saved review, with no form', 'By Krystal Test' in t and 'Told: Jan' in t and 'Needs a change: Gait belt' in t and not q.query_selector('#rvSave'), t[-400:])
     q.screenshot(path='tests/browser/incident_office_read.png')
     q.evaluate("() => INC.close()")
     q.evaluate("() => { window.cnRender = () => { document.getElementById('cp_shift_notes').innerHTML = INC.profileHtml('501') }; cnRender() }"); q.wait_for_timeout(400)
@@ -136,6 +151,9 @@ with sync_playwright() as pw:
     ok('the client\'s profile: Incident reports, the waiting one, + New incident report', 'Incident reports' in t and 'Waiting for Tess' in t and 'New incident report' in t, t)
     q.click('#cp_shift_notes button:has-text("New incident report")'); q.wait_for_timeout(200)
     ok('New incident report from the profile: the client filled in, the caregiver to pick', 'Test Client' in q.inner_text('#incBody') and q.input_value('#incCg') == '' and q.query_selector('#incCgList option[value="Pat Doe"]'))
+    q.evaluate("() => INC.close()"); q.evaluate("() => { document.body.insertAdjacentHTML('beforeend', '<div id=cgdIncidents></div>'); INC.caregiverMount('cgdIncidents', 'Tess Caregiver') }"); q.wait_for_timeout(400)
+    t = q.inner_text('#cgdIncidents')
+    ok("a caregiver's Performance tab: Incident reports, signed, waiting for review, not called at the time", 'Incident reports' in t and 'Test Client' in t and 'waiting for the office review' in t and 'not called at the time' in t, t)
     ok('no page errors (office side)', not errs2, errs2)
     b.close()
 

@@ -7513,7 +7513,7 @@ The HomeTogether team</pre>
 })();
 </script>
 <script src="shift-flags.js?v=2"></script>
-<script src="incidents.js?v=1"></script>
+<script src="incidents.js?v=2"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -19431,7 +19431,7 @@ async function cgdOpenProfile(axid, tab){
     +'</div>'
 
     /* HR step 3 (2026-10-18): recognition first, then attendance, coaching and (Samantha and Zach only) formal records */
-    +'<div id="cgdSec-performance" style="display:none;"><div id="cgdKind"></div>'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div></div>'
+    +'<div id="cgdSec-performance" style="display:none;"><div id="cgdKind"></div>'+cgdPerformanceHtml(c,nm)+'<div id="cgdMissedNotes"></div><div id="cgdLate"></div><div id="cgdEvvForms"></div><div id="cgdIncidents"></div></div>'
 
     +'<div id="cgdSec-work" style="display:none;">'+cgdWorkHtml(c,g,nm)+'</div>'
 
@@ -19456,6 +19456,7 @@ async function cgdOpenProfile(axid, tab){
   cgdProfGateMount(c,g);
   cgdPrnMount(c);
   cgdMissedNotesMount(c);
+  if(window.INC) INC.caregiverMount('cgdIncidents', (c.first+' '+c.last).trim());   /* incident reports, Stage 2 (2026-10-27) */
   try{ cgcMount(c, g); }catch(e){ console.warn('caregiver connect card:', e); }
   /* pre-hire documents from GoHighLevel: read, then redraw the two cards */
   if(g) phdLoad().then(()=>{ if(String(CGD.openId)!==String(c.id)) return;
