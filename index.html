@@ -7513,7 +7513,7 @@ The HomeTogether team</pre>
 })();
 </script>
 <script src="shift-flags.js?v=2"></script>
-<script src="incidents.js?v=4"></script>
+<script src="incidents.js?v=6"></script>
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -8906,7 +8906,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261027a'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261027c'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -36992,7 +36992,7 @@ function opsClose(id, anchorId){
   if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
-  if(it.kind==='hr_file'){ location.hash='hr/formal'; return; }
+  if(it.kind==='hr_file'){ location.hash=it.link?String(it.link).replace(/^#/,''):'hr/formal'; return; }   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
