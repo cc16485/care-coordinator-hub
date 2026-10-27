@@ -102,7 +102,7 @@ with sync_playwright() as pw:
       window.CP = { ax:'501', r:{ client_name:'Test Client' } };
       window.ccToast = (m) => { window.TOAST = m }; window.ccConfirm = async () => true; window.persist = async (k, it) => { window.SAVED.push(it) }; window.opsLog = () => {};
       window.sb = { functions:{ invoke: async (fn, { body }) => { window.API.push(body);
-        const INV = () => ({ inv_asked_at: window.ASKED ? '2026-10-27T18:00:00Z' : null, inv_asked_by_name: 'Krystal Test', inv_ask: window.ASKED ? { why: window.ASKED.why, note: window.ASKED.note } : null,
+        const INV = () => window.AUTO ? { inv_asked_at: '2026-10-27T18:00:00Z', inv_asked_by: 'system', inv_asked_by_name: 'Automatic', inv_ask: { why: ['signed', 'late'], note: 'Signed by Tess Caregiver.' }, inv_at: null } : ({ inv_asked_at: window.ASKED ? '2026-10-27T18:00:00Z' : null, inv_asked_by_name: 'Krystal Test', inv_ask: window.ASKED ? { why: window.ASKED.why, note: window.ASKED.note } : null,
           inv_at: window.FOUND ? '2026-10-27T19:00:00Z' : null, inv_by_name: 'Zach Test', inv_findings: window.FOUND ? { outcome: window.FOUND.outcome, findings: window.FOUND.findings } : null });
         if (body.action === 'investigate') { window.ASKED = body; return { data:{ ok:true, summary:'x' } }; }
         if (body.action === 'findings') { window.FOUND = body; return { data:{ ok:true, outcome:'A coaching conversation' } }; }
@@ -225,6 +225,10 @@ with sync_playwright() as pw:
     ok('...Save sends his findings and the outcome', fd.get('action') == 'findings' and fd.get('outcome') == 'coaching' and 'forgot to call' in fd.get('findings', ''), fd)
     t = q.inner_text('#incBody')
     ok('...then it shows Looked into by Zach, with no form', 'Looked into by Zach Test' in t and 'coaching' in t.lower() and not q.query_selector('#invSave'), t[-400:])
+    q.evaluate("() => { window.ISHR = false; window.AUTO = true; INC.close(); INC.open('00000000-0000-4000-8000-000000000001') }"); q.wait_for_timeout(400)
+    t = q.inner_text('#incBody')
+    ok('every signed report: "Sent to Zach automatically", the office-not-told warning, no Ask button, Tell Zach for anything to add', 'Sent to Zach automatically' in t and "office wasn't told" in t and not q.query_selector('#invOpen') and 'Use Tell Zach' in t, t[-500:])
+    q.evaluate("() => { window.AUTO = false; window.ISHR = true; }")
     q.evaluate("() => { INC.close(); window.FOUND = null; document.body.insertAdjacentHTML('beforeend', '<div id=hrInc></div><div id=hrIncN></div><a id=hrlink></a>'); window.HR = { go: (v) => { window.WENT = v } }; INC.hrMount('hrInc'); INC.hrDash('hrIncN') }"); q.wait_for_timeout(500)
     t = q.inner_text('#hrInc')
     ok("Zach's Incidents page: to look into, work injuries with the workers' comp day (late in red), every client report", 'To look into' in t and 'Test Client' in t and "doesn't match the shift notes" in t

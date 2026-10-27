@@ -240,7 +240,7 @@
   }
 
   /* ── HR (2026-10-27): hand a report to Zach to look into; Zach (or Samantha) writes what he found. Each saved once. ── */
-  const INV_WHY = [['notes','The report doesn\'t match the shift notes'],['late','The office wasn\'t told when it happened'],['story','Stories don\'t match (client, family or caregiver)'],['ane','Possible abuse or neglect'],['other','Something else']];
+  const INV_WHY = [['signed','Every signed incident report goes to Zach (automatic)'],['notes','The report doesn\'t match the shift notes'],['late','The office wasn\'t told when it happened'],['story','Stories don\'t match (client, family or caregiver)'],['ane','Possible abuse or neglect'],['other','Something else']];
   const INV_OUT = [['explained','Nothing more to do (it was explained)'],['coaching','A coaching conversation'],['formal','A formal case (write-up)'],['ended','Ending their work with us'],['other','Something else']];
   const label = (list, k) => ((S.inv && (list === INV_WHY ? S.inv.why : S.inv.outcome) || {})[k]) || (list.find(x => x[0] === k) || ['', k])[1];
   function invHtml(r){
@@ -248,19 +248,21 @@
     const headH = '<div style="font-weight:800;color:var(--navy)">Zach (HR) looks into it</div>';
     if(r.status === 'cancelled') return '';
     if(!r.inv_asked_at) return '<div style="' + box + '">' + headH
-      + '<div class="field-note">For when something doesn\'t add up, like the report not matching the shift notes. Zach looks into it so the care coordinators don\'t have to.</div>'
+      + '<div class="field-note">Every report goes to Zach by itself once it is signed. If something doesn\'t add up before then, like the caregiver not filling it in, send it to him now.</div>'
       + '<div id="invAskBox" style="display:none;margin-top:.4rem"><div style="font-size:13px;font-weight:700;color:var(--navy);margin:.3rem 0 .2rem">Why does it need a closer look?</div>'
-      + INV_WHY.map(([v, t]) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="checkbox" name="invWhy" value="' + v + '" style="width:auto;margin:0"> ' + esc(label(INV_WHY, v)) + '</label>').join('')
+      + INV_WHY.filter(x => x[0] !== 'signed').map(([v, t]) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="checkbox" name="invWhy" value="' + v + '" style="width:auto;margin:0"> ' + esc(label(INV_WHY, v)) + '</label>').join('')
       + '<div id="invAne" style="display:none;background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.3rem 0"><b>If you suspect abuse or neglect, call the hotline now: <a href="tel:18003920210">' + esc(S.hotline || '1-800-392-0210') + '</a>.</b> Asking Zach doesn\'t replace that call.</div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.5rem 0 .2rem">What did you notice?</div><textarea id="invNote" rows="3" style="width:100%" placeholder="For example: her report says Carol wasn\'t hurt, but her shift note says Carol hit her hip."></textarea>'
       + '<div style="margin-top:.5rem"><button class="primary" id="invSend">Send it to Zach</button></div></div>'
       + '<div id="invOpenRow" style="margin-top:.4rem"><button class="secondary" id="invOpen">Ask Zach to look into it</button></div><div id="invOut" class="field-note" style="margin-top:.3rem"></div></div>';
     const a = r.inv_ask || {}, f = r.inv_findings;
-    let h = '<div style="' + box + '">' + headH + '<div style="font-size:13.5px;margin:.2rem 0"><b>Asked by ' + esc(r.inv_asked_by_name || r.inv_asked_by) + '</b>, ' + esc(when(r.inv_asked_at)) + ': '
-      + esc((a.why || []).map(k => label(INV_WHY, k)).join(' · ')) + '</div>' + (a.note ? '<div style="font-size:13.5px;white-space:pre-wrap;margin:.2rem 0">"' + esc(a.note) + '"</div>' : '');
+    const auto = r.inv_asked_by === 'system';   /* 2026-10-27: every signed client report goes to Zach automatically */
+    let h = '<div style="' + box + '">' + headH + '<div style="font-size:13.5px;margin:.2rem 0">' + (auto ? '<b>Sent to Zach automatically</b> when it was signed, ' + esc(when(r.inv_asked_at))
+        + ((a.why || []).includes('late') ? '. <b style="color:#b45309">' + esc(label(INV_WHY, 'late')) + '.</b>' : '.')
+      : '<b>Asked by ' + esc(r.inv_asked_by_name || r.inv_asked_by) + '</b>, ' + esc(when(r.inv_asked_at)) + ': ' + esc((a.why || []).map(k => label(INV_WHY, k)).join(' · '))) + '</div>' + (a.note ? '<div style="font-size:13.5px;white-space:pre-wrap;margin:.2rem 0">"' + esc(a.note) + '"</div>' : '');
     if(r.inv_at) return h + '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-top:.4rem;font-size:13.5px"><b>Looked into by ' + esc(r.inv_by_name || r.inv_by) + '</b>, ' + esc(when(r.inv_at)) + '. What happens next: <b>' + esc(label(INV_OUT, f && f.outcome)) + '</b>'
       + (f && f.findings ? '<div style="white-space:pre-wrap;margin-top:.3rem">' + esc(f.findings) + '</div>' : '') + (f && f.spoke_with ? '<div class="field-note" style="margin-top:.2rem">Talked with: ' + esc(f.spoke_with) + '</div>' : '') + '</div></div>';
-    if(!S.hr) return h + '<div class="field-note">With Zach to look into. He writes what he found here.</div></div>';
+    if(!S.hr) return h + '<div class="field-note">With Zach to look into. He writes what he found here.' + (auto ? ' Something to add, like the report not matching the shift notes? Use Tell Zach on ' + esc(first(r.caregiver)) + '\'s Performance tab.' : '') + '</div></div>';
     return h + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">What did you find?</div><textarea id="invFind" rows="4" style="width:100%" placeholder="What the shift notes, AxisCare and the people you talked with show."></textarea>'
       + '<input id="invWho" placeholder="Who you talked with (optional)" style="margin-top:.3rem">'
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">What happens next?</div>'
@@ -295,6 +297,7 @@
   const compBy = r => { const d = new Date(Date.parse(r.started_at) || Date.now()); d.setDate(d.getDate() + 5); return d; };
   const injOpen = r => r.kind === 'employee_injury' && r.status !== 'cancelled' && !r.reviewed_at;
   const invOpen = r => r.inv_asked_at && !r.inv_at;
+  const whyText = r => { const w = (r.inv_ask && r.inv_ask.why || []).filter(k => k !== 'signed').map(k => label(INV_WHY, k)); return (r.inv_asked_by === 'system' ? ['signed report'] : []).concat(w).join(' · '); };
   const fmt = d => d.toLocaleDateString('en-US', { timeZone:'America/Chicago', weekday:'short', month:'short', day:'numeric' });
   const who = r => r.kind === 'employee_injury' ? '<b>' + esc(r.caregiver) + '</b> · work injury' + (r.client_name ? ' at ' + esc(r.client_name) : '') : '<b>' + esc(r.client_name) + '</b> · ' + esc(r.caregiver);
   const openBtn = r => '<button class="secondary hr-btn" onclick="INC.open(\'' + esc(r.id) + '\')">Open</button>';
@@ -309,7 +312,7 @@
     const look = rows.filter(invOpen), inj = rows.filter(r => r.kind === 'employee_injury' && r.status !== 'cancelled'), done = rows.filter(r => r.inv_at);
     const client = rows.filter(r => r.kind !== 'employee_injury');
     host.innerHTML = '<div class="card hr-card"><div class="hr-card-h">To look into</div>'
-        + (look.length ? look.map(r => row(r, '<span class="field-note">' + esc((r.inv_ask && r.inv_ask.why || []).map(k => label(INV_WHY, k)).join(' · ')) + ' · asked by ' + esc(r.inv_asked_by_name || '') + ', ' + esc(when(r.inv_asked_at)) + '</span>')).join('')
+        + (look.length ? look.map(r => row(r, '<span class="field-note">' + esc(whyText(r)) + ' · asked by ' + esc(r.inv_asked_by_name || '') + ', ' + esc(when(r.inv_asked_at)) + '</span>')).join('')
           : '<div class="field-note">Nothing is waiting. The office sends you a report with "Ask Zach to look into it" on the report.</div>') + '</div>'
       + '<div class="card hr-card"><div class="hr-card-h">Work injuries</div>'
         + (inj.length ? inj.map(r => row(r, injOpen(r) ? '<span class="field-note">' + esc(statusWord(r)) + '</span>' + compLine(r) : '<span class="field-note">checklist done</span>')).join('')
@@ -326,7 +329,7 @@
     const look = rows.filter(invOpen), inj = rows.filter(injOpen).sort((a, b) => compBy(a) - compBy(b));
     const line = (r, right) => '<div class="hr-row"><span>' + who(r) + ' · ' + esc(day(r.happened_on)) + '</span><span style="display:flex;gap:8px;align-items:center">' + right + openBtn(r) + '</span></div>';
     el.innerHTML = (look.length || inj.length
-      ? look.map(r => line(r, '<span class="field-note">look into: ' + esc((r.inv_ask && r.inv_ask.why || []).map(k => label(INV_WHY, k)).join(' · ')) + '</span>')).join('') + inj.map(r => line(r, compLine(r))).join('')
+      ? look.map(r => line(r, '<span class="field-note">look into: ' + esc(whyText(r)) + '</span>')).join('') + inj.map(r => line(r, compLine(r))).join('')
       : 'Nothing is waiting on you.') + ' <a href="#" onclick="HR.go(\'incidents\');return false;">Open Incidents</a>';
   }
 
