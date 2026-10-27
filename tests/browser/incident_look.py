@@ -23,12 +23,12 @@ Q = [{'k': 'time', 'type': 'text', 'label': 'About what time did it happen?', 'h
 with sync_playwright() as pw:
     b = pw.chromium.launch()
     # ── 1. the caregiver's page ──
-    calls = []; state = {'status': 'waiting', 'practice': True}
+    calls = []; state = {'status': 'waiting', 'practice': True, 'kind': 'client'}
     def fn(route):
         body = json.loads(route.request.post_data or '{}'); calls.append(body)
         if body.get('action') == 'view':
             return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'first': 'Tess', 'client_first': 'Test', 'client_short': 'Test C.', 'happened_on': '2026-10-26',
-                'note_words': 'Test slipped in the bathroom, says she is ok.', 'questions': Q, 'true_words': 'What I wrote here is true and complete to the best of my knowledge.', 'status': state['status'], 'practice': state['practice'], 'office_phone': '(417) 234-8494'}))
+                'note_words': 'Test slipped in the bathroom, says she is ok.', 'questions': Q, 'true_words': 'What I wrote here is true and complete to the best of my knowledge.', 'status': state['status'], 'practice': state['practice'], 'kind': state['kind'], 'office_phone': '(417) 234-8494'}))
         if body.get('action') == 'submit':
             return route.fulfill(status=200, content_type='application/json', body=json.dumps({'ok': True, 'copy_url': 'https://example.test/copy.pdf', 'practice': state['practice']}))
         route.fulfill(status=404, body='{}')
@@ -83,6 +83,9 @@ with sync_playwright() as pw:
     ok('opened again after signing: already signed, thank you', 'already filled in and signed' in p.inner_text('#main'))
     state['status'] = 'expired'; p.goto(BASE + '/incident.html?t=' + 'C' * 43); p.wait_for_timeout(600)
     ok('an expired link says to call the office for a new one', 'expired' in p.inner_text('#main') and '234-8494' in p.inner_text('#main'))
+    state['status'] = 'waiting'; state['kind'] = 'employee_injury'; p.goto(BASE + '/incident.html?t=' + 'D' * 43); p.wait_for_timeout(600)
+    ok('a work injury link: sorry you were hurt, call the office for medical care', "sorry you were hurt" in p.inner_text('#main') and 'medical care' in p.inner_text('#main'))
+    state['kind'] = 'client'
     p.goto(BASE + '/incident.html'); p.wait_for_timeout(400)
     ok('no link code: not active, call the office', 'not active' in p.inner_text('#main'))
     ok('no page errors (caregiver page)', not errs, errs)
@@ -99,6 +102,7 @@ with sync_playwright() as pw:
       window.CP = { ax:'501', r:{ client_name:'Test Client' } };
       window.ccToast = (m) => { window.TOAST = m }; window.ccConfirm = async () => true; window.persist = async (k, it) => { window.SAVED.push(it) }; window.opsLog = () => {};
       window.sb = { functions:{ invoke: async (fn, { body }) => { window.API.push(body);
+        if (body.action === 'list' && body.ids && body.ids[0] === 'inj1') return { data:{ ok:true, live:true, reports:[{ id:'inj1', kind:'employee_injury', status:'submitted', caregiver:'Tess Caregiver', client_name:'', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', comp_due:'Nov 1', reviewed_at:null, answers:{ body:'lower back' }, questions:[{ k:'body', label:'What part of your body was hurt?' }] }] } };
         if (body.action === 'start' || body.action === 'relink') return { data:{ ok:true, practice:false, report:{ id:'00000000-0000-4000-8000-000000000001', client_ax:'501', client_name:'Test Client', caregiver:body.caregiver || 'Tess Caregiver', happened_on:body.happened_on || '2026-10-26' }, link:'https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), draft:'Hi Tess, this is Caring Companions. We need your incident report: https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), phone_last4:'0100' } };
         if (body.action === 'send') return { data:{ ok:true, outcome:'sent' } };
         if (body.action === 'list') return { data:{ ok:true, live:true, reports: body.client_ax ? [{ id:'00000000-0000-4000-8000-000000000001', status:'waiting', caregiver:'Tess Caregiver', happened_on:'2026-10-26', sent_at:'2026-10-27T15:00:00Z' }]
@@ -107,6 +111,7 @@ with sync_playwright() as pw:
               review:window.REVIEWED ? { family:{ told:'yes', who:'Jan', when:'3pm' }, medical:{ what:'none' }, careplan:{ change:true, note:'Gait belt' }, ane:{ suspect:false } } : null, client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', told_late:true,
               answers:{ what:'She slid off the seat.', hurt:'Yes' }, questions:[{ k:'what', label:'What happened?' }, { k:'hurt', label:'Was Test hurt?' }] }] } };
         if (body.action === 'open') return { data:{ ok:true, url:'https://signed.test/x.pdf' } };
+        if (body.action === 'review' && body.comp) { window.IREVIEWED = body; return { data:{ ok:true, summary:'Doctor or urgent care · reported · Light duty', safety_card:true } }; }
         if (body.action === 'review') { window.REVIEWED = body; return { data:{ ok:true, summary:'Family told (Jan, 3pm) · No care needed · care plan to change · not abuse or neglect', careplan_card:true } }; }
         return { data:{ error:'unknown' } } } } };
     }""")
@@ -154,6 +159,20 @@ with sync_playwright() as pw:
     q.evaluate("() => INC.close()"); q.evaluate("() => { document.body.insertAdjacentHTML('beforeend', '<div id=cgdIncidents></div>'); INC.caregiverMount('cgdIncidents', 'Tess Caregiver') }"); q.wait_for_timeout(400)
     t = q.inner_text('#cgdIncidents')
     ok("a caregiver's Performance tab: Incident reports, signed, waiting for review, not called at the time", 'Incident reports' in t and 'Test Client' in t and 'waiting for the office review' in t and 'not called at the time' in t, t)
+    q.click('#cgdIncidents button:has-text("New work injury report")'); q.wait_for_timeout(200)
+    ok('+ New work injury report on her Performance tab: the form, her name filled in and fixed, the client optional', 'Work injury report: Tess Caregiver' in q.inner_text('#incBody') and q.input_value('#incCg') == 'Tess Caregiver' and q.get_attribute('#incCg', 'readonly') is not None and q.is_visible('#incWhere'))
+    q.click('#incGo'); q.wait_for_timeout(300)
+    st = [x for x in q.evaluate('API') if x.get('action') == 'start'][-1]
+    ok('...it starts a work injury report (no client, no flag)', st.get('kind') == 'employee_injury' and st.get('caregiver') == 'Tess Caregiver' and not st.get('source_item_id') and not st.get('client_ax'), st)
+    q.evaluate("() => INC.close()"); q.evaluate("() => INC.open('inj1')"); q.wait_for_timeout(400)
+    t = q.inner_text('#incBody')
+    ok('a signed work injury: the workers\' comp checklist with the report-by day', 'Work injury report' in t and "Workers' comp checklist" in t and 'Nov 1' in t and q.is_visible('#irSave'), t[:500])
+    q.click('#incBody input[name=irMed][value=doctor]'); q.fill('#irMedTxt', 'Urgent care, strain'); q.click('#incBody input[name=irComp][value=yes]'); q.fill('#irCompWhen', 'Oct 27'); q.fill('#irCompClaim', 'WC-1')
+    q.click('#incBody input[name=irWork][value=light]'); q.fill('#irUntil', 'Nov 3'); q.click('#incBody input[name=irSafe][value=yes]'); q.fill('#irSafeTxt', 'Transfer board')
+    q.screenshot(path='tests/browser/incident_injury_review.png')
+    q.click('#irSave'); q.wait_for_timeout(400)
+    iv = q.evaluate('window.IREVIEWED') or {}
+    ok('...Save sends the checklist (medical, comp claim, light duty until, the fix)', iv.get('comp', {}).get('claim') == 'WC-1' and iv.get('work', {}).get('until') == 'Nov 3' and iv.get('safety', {}).get('fix') is True and iv.get('medical', {}).get('what') == 'doctor', iv)
     ok('no page errors (office side)', not errs2, errs2)
     b.close()
 

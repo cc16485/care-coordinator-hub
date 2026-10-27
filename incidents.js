@@ -9,6 +9,8 @@
      · Families are never contacted by any of this.
    Stage 2 (2026-10-27, "continue"): the office reviews a signed report (family told, medical care, care plan change, abuse
    or neglect with the state hotline), which closes the card; and a caregiver's reports are listed on their Performance tab.
+   Stage 3 (2026-10-27): the employee work injury report, started from the caregiver's Performance tab, reviewed by HR with
+   the workers' comp checklist, never on a client's profile.
    Practice until ops_settings.incident_reports_live: it all works end to end, but nothing is texted and no card is made.
    ===================================================================================================================== */
 (function(){
@@ -52,17 +54,21 @@
   }
   function roster(){ return (((typeof DATA !== 'undefined') && DATA.caregivers) || []).map(g => ((g.first || '') + ' ' + (g.last || '')).trim()).filter(Boolean).sort(); }
   function startForm(o){
-    sheet(head('Incident report: ' + (o.client_name || 'client'), 'The caregiver who was there fills it in on their phone and signs it. You check the text before it goes.')
+    const inj = o.kind === 'employee_injury';
+    sheet(head(inj ? 'Work injury report: ' + (o.caregiver || 'caregiver') : 'Incident report: ' + (o.client_name || 'client'),
+        inj ? 'The caregiver who was hurt fills it in on their phone and signs it. It goes to HR, never onto a client\'s profile.' : 'The caregiver who was there fills it in on their phone and signs it. You check the text before it goes.')
       + '<div class="fg">'
-      + '<div class="grp"><label>Caregiver who was there</label><input id="incCg" list="incCgList" value="' + esc(o.caregiver || '') + '" placeholder="First and last name"><datalist id="incCgList">' + roster().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist></div>'
+      + '<div class="grp"><label>' + (inj ? 'Caregiver who was hurt' : 'Caregiver who was there') + '</label><input id="incCg" list="incCgList" value="' + esc(o.caregiver || '') + '" placeholder="First and last name"' + (inj && o.caregiver ? ' readonly' : '') + '><datalist id="incCgList">' + roster().map(n => '<option value="' + esc(n) + '">').join('') + '</datalist></div>'
       + '<div class="grp"><label>Day it happened</label><input type="date" id="incDay" value="' + esc(o.happened_on || '') + '" max="' + today() + '"></div>'
+      + (inj ? '<div class="grp full"><label>Client\'s home it happened at (optional)</label><input id="incWhere" placeholder="Leave blank if it was on the road or at the office"></div>' : '')
       + '</div><div style="margin-top:.7rem"><button class="primary" id="incGo">Make the report link</button></div><div id="incOut"></div>');
     document.getElementById('incGo').onclick = async () => {
       const cg = document.getElementById('incCg').value.trim(), d = document.getElementById('incDay').value;
       if(cg.split(/\s+/).length < 2) return alert('Type the caregiver\'s first and last name.');
       if(!d) return alert('Pick the day it happened.');
       const btn = document.getElementById('incGo'); btn.disabled = true;
-      try{ const r = await api(Object.assign({ action:'start', caregiver:cg, happened_on:d }, o.source_item_id ? { source_item_id:o.source_item_id } : {}, { client_ax:o.client_ax || '', client_name:o.client_name || '' }));
+      try{ const r = await api(Object.assign({ action:'start', caregiver:cg, happened_on:d }, o.source_item_id ? { source_item_id:o.source_item_id } : {},
+          inj ? { kind:'employee_injury', client_name:((document.getElementById('incWhere') || {}).value || '').trim() } : { client_ax:o.client_ax || '', client_name:o.client_name || '' }));
         if(o.onStarted) try{ await o.onStarted(r); }catch(e){}
         sendBox(r); }
       catch(e){ btn.disabled = false; alert(e.message + ' Nothing was started.'); }
@@ -70,7 +76,7 @@
   }
   function sendBox(r){
     const rep = r.report;
-    sheet(head('Text ' + first(rep.caregiver) + ' the report link', esc(rep.client_name) + ' · ' + esc(day(rep.happened_on)))
+    sheet(head('Text ' + first(rep.caregiver) + ' the report link', (rep.kind === 'employee_injury' ? 'Work injury' + (rep.client_name ? ' at ' + esc(rep.client_name) : '') : esc(rep.client_name)) + ' · ' + esc(day(rep.happened_on)))
       + (r.practice ? practiceNote : '')
       + '<div class="field-note">' + (r.phone_last4 ? 'Goes to their phone ending ' + esc(r.phone_last4) + ', from the office line.' : '<b style="color:#b91c1c">No usable phone on their record.</b> Call them and read the questions together, or add their phone on the Caregivers page.')
       + ' Check the words, then Send. Keep the link in it.</div>'
@@ -102,16 +108,17 @@
     let r;
     try{ const d = await api({ action:'list', ids:[id] }); r = (d.reports || [])[0]; if(!r) throw new Error('That report is not on file.'); S.live = d.live; S.hotline = d.hotline; }
     catch(e){ sheet(head('Incident report', '<span style="color:#b91c1c">' + esc(e.message) + '</span>')); return; }
-    const sub = esc(r.client_name) + ' · ' + esc(day(r.happened_on)) + ' · ' + esc(r.caregiver) + (r.practice ? ' · <b style="color:#b45309">practice</b>' : '');
-    let h = head('Incident report', sub);
+    const inj = r.kind === 'employee_injury';
+    const sub = (inj ? esc(r.caregiver) + (r.client_name ? ' · at ' + esc(r.client_name) : '') : esc(r.client_name) + ' · ' + esc(r.caregiver)) + ' · ' + esc(day(r.happened_on)) + (r.practice ? ' · <b style="color:#b45309">practice</b>' : '');
+    let h = head(inj ? 'Work injury report' : 'Incident report', sub);
     if(r.status === 'submitted'){
       h += '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-bottom:.5rem;font-size:13.5px"><b>Signed by ' + esc(r.signed_name) + '</b>, ' + esc(when(r.submitted_at)) + '.'
         + (r.told_late ? ' <b style="color:#b45309">The office was not called or texted when it happened.</b>' : '') + '</div>'
         + (r.questions || []).map(q => { const v = r.answers[q.k]; return '<div style="margin:.35rem 0"><div style="font-size:12.5px;font-weight:700;color:var(--navy)">' + esc(q.label) + '</div><div style="font-size:14px;white-space:pre-wrap">' + esc(Array.isArray(v) ? v.join(', ') : v) + '</div></div>'; }).join('')
         + '<div style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><button class="secondary" id="incPdf">📄 Open the signed PDF</button><span id="incPdfOut" class="field-note"></span></div>'
-        + reviewHtml(r);
+        + (inj ? injuryReviewHtml(r) : reviewHtml(r));
       sheet(h);
-      if(!r.reviewed_at) reviewWire(r);
+      if(!r.reviewed_at) (inj ? injuryReviewWire : reviewWire)(r);
       document.getElementById('incPdf').onclick = async () => {
         try{ const d = await api({ action:'open', id:r.id }); document.getElementById('incPdfOut').innerHTML = '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" style="font-weight:700">Open it now</a> (5 minutes; this open is logged)'; }
         catch(e){ alert(e.message); }
@@ -179,6 +186,53 @@
     };
   }
 
+  /* ── Stage 3 (2026-10-27): the workers' comp checklist on a signed work injury report (HR). Missouri expects the
+     employer to report a work injury to its workers' comp insurance within 5 days; the Hub shows that day and never files
+     anything itself. ── */
+  const IMED = [['none','No medical care needed'],['first_aid','First aid only'],['doctor','Doctor or urgent care'],['er','The ER']];
+  const IWORK = [['full','Back to full duty'],['light','Light duty for now'],['off','Off work for now']];
+  function injuryReviewHtml(r){
+    const box = 'border-top:1px solid var(--border);margin-top:.8rem;padding-top:.6rem';
+    if(r.reviewed_at){
+      const v = r.review || {}, m = v.medical || {}, c = v.comp || {}, w = v.work || {}, f = v.safety || {};
+      const line = (k, t) => '<div style="font-size:13.5px;margin:.15rem 0"><b>' + esc(k) + ':</b> ' + esc(t) + '</div>';
+      return '<div style="' + box + '"><div style="font-weight:800;color:var(--navy)">Workers\' comp checklist</div><div class="field-note">By ' + esc(r.reviewed_by_name || r.reviewed_by) + ', ' + esc(when(r.reviewed_at)) + '</div>'
+        + line('Medical care', (IMED.find(x => x[0] === m.what) || ['', m.what])[1] + (m.note ? ' (' + m.note + ')' : ''))
+        + line('Workers\' comp insurance', c.reported === 'yes' ? 'Reported ' + c.when + ', claim ' + c.claim : 'Not reported: ' + (c.why || ''))
+        + line('Work', (IWORK.find(x => x[0] === w.status) || ['', w.status])[1] + (w.until ? ' until ' + w.until : ''))
+        + line('Safety fix', f.fix ? f.note : 'None needed') + (v.note ? line('Note', v.note) : '') + '</div>';
+    }
+    const rad = (n, v, t) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="radio" name="' + n + '" value="' + v + '" style="width:auto;margin:0"> ' + esc(t) + '</label>';
+    const q = (t) => '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">' + t + '</div>';
+    const sub = (id, ph) => '<div id="' + id + '" style="display:none;margin:.2rem 0 0 1.4rem">' + ph + '</div>';
+    return '<div style="' + box + '"><div style="font-weight:800;color:var(--navy)">Workers\' comp checklist</div>'
+      + '<div style="background:#FFF7E6;border:1px solid #F0A63A;border-radius:8px;padding:.4rem .6rem;font-size:13px;margin:.3rem 0">Report it to the workers\' comp insurance by <b>' + esc(r.comp_due || '') + '</b> (5 days from when the office learned of it). The Hub doesn\'t file anything; you do.</div>'
+      + q('1. Did they need medical care?') + IMED.map(([v, t]) => rad('irMed', v, t)).join('') + sub('irMedNote', '<input id="irMedTxt" placeholder="Where they were seen and what they were told">')
+      + q('2. Reported to the workers\' comp insurance?') + rad('irComp', 'yes', 'Yes') + sub('irCompYes', '<input id="irCompWhen" placeholder="When you reported it"> <input id="irCompClaim" placeholder="Claim number" style="margin-top:.25rem">')
+        + rad('irComp', 'not_needed', 'Not needed') + sub('irCompNo', '<input id="irCompWhy" placeholder="Why not (for example: no care needed, first aid only)">')
+      + q('3. Can they work?') + IWORK.map(([v, t]) => rad('irWork', v, t)).join('') + sub('irWorkUntil', '<input id="irUntil" placeholder="Until when (or until the doctor says)">')
+      + q('4. Does something need fixing so it doesn\'t happen again?') + rad('irSafe', 'no', 'No') + rad('irSafe', 'yes', 'Yes (makes a card)') + sub('irSafeNote', '<input id="irSafeTxt" placeholder="What needs fixing">')
+      + q('Anything else (optional)') + '<textarea id="irNote" rows="2" style="width:100%"></textarea>'
+      + '<div style="margin-top:.5rem"><button class="primary" id="irSave">Save the checklist and close the card</button></div><div id="irOut" class="field-note" style="margin-top:.3rem"></div></div>';
+  }
+  function injuryReviewWire(r){
+    const body = document.getElementById('incBody'); if(!body) return;
+    const val = n => (body.querySelector('input[name="' + n + '"]:checked') || {}).value || '';
+    const show = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? 'block' : 'none'; };
+    const sync = () => { show('irMedNote', val('irMed') === 'doctor' || val('irMed') === 'er'); show('irCompYes', val('irComp') === 'yes'); show('irCompNo', val('irComp') === 'not_needed');
+      show('irWorkUntil', !!val('irWork') && val('irWork') !== 'full'); show('irSafeNote', val('irSafe') === 'yes'); };
+    body.addEventListener('change', sync); sync();
+    document.getElementById('irSave').onclick = async () => {
+      const t = id => ((document.getElementById(id) || {}).value || '').trim();
+      if(!val('irSafe')){ document.getElementById('irOut').innerHTML = '<b style="color:#b91c1c">Does something need fixing so it doesn\'t happen again?</b>'; return; }
+      const rv = { medical:{ what:val('irMed'), note:t('irMedTxt') }, comp:{ reported:val('irComp'), when:t('irCompWhen'), claim:t('irCompClaim'), why:t('irCompWhy') },
+        work:{ status:val('irWork'), until:t('irUntil') }, safety:{ fix:val('irSafe') === 'yes', note:t('irSafeTxt') }, note:t('irNote') };
+      const b = document.getElementById('irSave'); b.disabled = true;
+      try{ const d = await api(Object.assign({ action:'review', id:r.id }, rv)); toast('Saved: ' + d.summary + (d.safety_card ? '. A card was made for the fix.' : '')); refreshAll(); open(r.id); }
+      catch(e){ b.disabled = false; document.getElementById('irOut').innerHTML = '<b style="color:#b91c1c">' + esc(e.message) + '</b>'; }
+    };
+  }
+
   /* ── Stage 2: a caregiver's reports, on their Performance tab ── */
   async function caregiverMount(hostId, name){
     const host = document.getElementById(hostId); if(!host) return;
@@ -186,10 +240,11 @@
     let rows = [], err = '';
     try{ rows = (await api({ action:'list', caregiver:nm })).reports || []; }catch(e){ err = /not found|Failed to send|404/i.test(e.message) ? '' : e.message; }
     if(!document.getElementById(hostId)) return;
-    if(!rows.length && !err){ host.innerHTML = ''; return; }
-    const word = r => r.status === 'submitted' ? (r.reviewed_at ? 'Signed and reviewed' : 'Signed, waiting for the office review') + (r.told_late ? ' · office not called at the time' : '') : r.status === 'cancelled' ? 'Cancelled' : 'Waiting for them to fill it in';
-    host.innerHTML = '<div class="card" style="padding:14px 16px;margin-top:10px"><b style="font-size:15px;color:var(--navy)">Incident reports</b>'
-      + (err ? '<div class="field-note">Could not load: ' + esc(err) + '</div>' : rows.map(r => '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-top:1px solid var(--border)"><span>' + esc(day(r.happened_on)) + ': ' + esc(r.client_name) + '</span><span class="field-note">' + esc(word(r)) + (r.practice ? ' · practice' : '') + '</span>'
+    const word = r => r.status === 'submitted' ? (r.reviewed_at ? 'Signed and reviewed' : r.kind === 'employee_injury' ? 'Signed, waiting for the workers\' comp checklist' : 'Signed, waiting for the office review') + (r.told_late ? ' · office not called at the time' : '') : r.status === 'cancelled' ? 'Cancelled' : 'Waiting for them to fill it in';
+    S.cgName = nm;
+    host.innerHTML = '<div class="card" style="padding:14px 16px;margin-top:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px;color:var(--navy)">Incident reports</b><span style="flex:1"></span>'
+      + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.injuryFor()">+ New work injury report</button></div>'
+      + (err ? '<div class="field-note">Could not load: ' + esc(err) + '</div>' : !rows.length ? '<div class="field-note">None on file.</div>' : rows.map(r => '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-top:1px solid var(--border)"><span>' + esc(day(r.happened_on)) + ': ' + (r.kind === 'employee_injury' ? '<b>Work injury</b>' + (r.client_name ? ' at ' + esc(r.client_name) : '') : esc(r.client_name)) + '</span><span class="field-note">' + esc(word(r)) + (r.practice ? ' · practice' : '') + '</span>'
           + '<a href="javascript:void(0)" onclick="INC.open(\'' + esc(r.id) + '\')" style="font-weight:700">Open</a></div>').join(''))
       + '</div>';
   }
@@ -228,6 +283,8 @@
     try{ if(typeof cnRender === 'function') cnRender(); }catch(e){}
   }
 
-  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay, caregiverMount };
+  /* Stage 3: a work injury report for the caregiver whose profile is open */
+  function injuryFor(){ if(!S.cgName) return alert('Open a caregiver\'s profile first.'); startForm({ kind:'employee_injury', caregiver:S.cgName, happened_on:today() }); }
+  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay, caregiverMount, injuryFor };
   window.incCardHtml = cardHtml;
 })();
