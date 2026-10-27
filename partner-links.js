@@ -170,7 +170,7 @@
     h += '<div class="pl-tiles" style="margin-top:10px;">'
       + [[t.partners, 'partners (' + t.active + ' not paused)'], [t.referrals, 'families referred'], [t.consultations, 'home visits'], [t.started, 'clients started'], [pct(t.conversion), 'referred who started']]
         .map(x => '<div class="pl-tile"><b>' + esc(x[0]) + '</b><span>' + esc(x[1]) + '</span></div>').join('') + '</div>';
-    h += ambHtml();
+    h += ambClosedHtml();
     h += '<div class="pl-k" style="margin-top:14px;">Sources to check' + (items.length ? ' · ' + items.length : '') + '</div>'
       + (items.length ? items.map(checkRow).join('') : '<div class="field-note" style="margin:6px 0 10px;">Nothing to check. Links that come in without a partner attached show here.</div>');
     h += '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;"><span class="pl-k">Partners</span><span style="flex:1"></span>'
@@ -213,7 +213,15 @@
     }catch(e){ REV.error = 'Couldn\'t read billed revenue just now. Try again in a minute.'; }
     REV.busy = false; render();
   }
-  /* ── Community Ambassador applications (owners only; step 2, 2026-10-26) ── */
+  /* ── Community Ambassador applications CLOSED (her decision 5, 2026-10-26): the public program was replaced by Friends &
+     Family referrals. No approvals any more; applications already on file are only counted (kept, never deleted). */
+  function ambClosedHtml(){
+    const n = orgs().filter(o => R().isAmbassador(o)).length;
+    if(!n) return '';
+    return '<div class="pl-k" style="margin-top:4px;">Community Ambassadors</div><div class="field-note" id="plAmbClosed" style="margin:6px 0 4px;">Applications closed on Oct 26. '
+      + n + ' on file, kept as they are.</div>';
+  }
+  /* ── Community Ambassador applications (owners only; step 2, 2026-10-26; no longer shown, see ambClosedHtml) ── */
   const AMB = { busy:false, msg:'' };
   const ambCtx = () => ({ orgs:orgs(), leads:leads(), caregivers:(typeof DATA !== 'undefined' && DATA.caregivers) || [] });
   function ambHtml(){
@@ -356,6 +364,5 @@
   function redraw(){ render(); try{ if(typeof REF_PROF !== 'undefined' && REF_PROF && typeof renderRefProfile === 'function') renderRefProfile(); }catch(e){} }
 
   window.PartnerLinks = { profileCard, onSave, afterCallFill, leadSourceHtml, programHtml, render, add, setStatus, qr, decide, revenue, _rev:REV, ambApprove, ambAsk, ambDecline, ambSend };
-  window.plAmbApprove = ambApprove; window.plAmbAsk = ambAsk; window.plAmbDecline = ambDecline;
   window.plRevenue = revenue; window.plAdd = add; window.plStatus = setStatus; window.plCopyLink = copyLink; window.plCopyText = copyText; window.plQr = qr; window.plDecide = decide; window.plOpenLead = openLead;
 })();
