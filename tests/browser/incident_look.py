@@ -167,7 +167,7 @@ with sync_playwright() as pw:
     q.evaluate("() => INC.close()"); q.evaluate("() => { document.body.insertAdjacentHTML('beforeend', '<div id=cgdIncidents></div>'); INC.caregiverMount('cgdIncidents', 'Tess Caregiver') }"); q.wait_for_timeout(400)
     t = q.inner_text('#cgdIncidents')
     ok("a caregiver's Performance tab: Incident reports, signed, waiting for review, not called at the time", 'Incident reports' in t and 'Test Client' in t and 'waiting for the office review' in t and 'not called at the time' in t, t)
-    ok('a coordinator sees Tell Zach on the Performance tab, and no New coaching talk (owners only)', q.locator('#cgdIncidents button:has-text("Tell Zach")').count() == 1 and q.locator('#cgdIncidents button:has-text("New coaching talk")').count() == 0)
+    ok('a staffing coordinator sees Tell Zach on the Performance tab, and no New coaching talk', q.locator('#cgdIncidents button:has-text("Tell Zach")').count() == 1 and q.locator('#cgdIncidents button:has-text("New coaching talk")').count() == 0)
     q.evaluate("() => { window.RPC = []; window.sb.rpc = async (fn, args) => { window.RPC.push([fn, args]); return { data:{ ok:true }, error:null } } }")
     q.click('#cgdIncidents button:has-text("Tell Zach")'); q.wait_for_timeout(200)
     t = q.inner_text('#incBody')
@@ -181,6 +181,9 @@ with sync_playwright() as pw:
     ok('...Send to Zach goes through the database door: a concern, her name, the words, the day, serious', rc[0] == 'hr_case_add' and rc[1]['p']['type'] == 'concern' and rc[1]['p']['caregiver'] == 'Tess Caregiver'
       and 'hit her hip' in rc[1]['p']['what'] and rc[1]['p']['serious'] == 'true' and len(rc[1]['p']['happened_on']) == 10, rc)
     ok('...then it closes and says only Zach and Samantha can see it', not q.is_visible('#incSheet') and 'Only Zach and Samantha' in (q.evaluate('window.TOAST') or ''))
+    q.evaluate("() => { window.ME = { email:'krystal@mo-care.com' }; window.CC_ROLE_BY_EMAIL = { 'krystal@mo-care.com':['care_coordinator'] }; INC.caregiverMount('cgdIncidents', 'Tess Caregiver') }"); q.wait_for_timeout(400)
+    ok('a care coordinator sees + New coaching talk there (her change: coordinators start coaching too)', q.locator('#cgdIncidents button:has-text("New coaching talk")').count() == 1)
+    q.evaluate("() => { window.ME = undefined; window.CC_ROLE_BY_EMAIL = undefined; }")
     q.evaluate("() => { window.ccCan = () => true; INC.caregiverMount('cgdIncidents', 'Tess Caregiver') }"); q.wait_for_timeout(400)
     ok('an owner also sees + New coaching talk there', q.locator('#cgdIncidents button:has-text("New coaching talk")').count() == 1)
     q.evaluate("() => { window.ccCan = undefined; }")

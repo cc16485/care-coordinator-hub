@@ -11,6 +11,9 @@
   'use strict';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const owner = () => { try { return typeof ccCan === 'function' && ccCan('approve_discipline'); } catch (e) { return false; } };
+  const myEmail = () => String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
+  /* who may start a coaching talk (2026-10-27, her change: "care coordinators can initiate a coaching call too!") */
+  const canCoach = () => { if (owner()) return true; try { return ((CC_ROLE_BY_EMAIL || {})[myEmail()] || []).indexOf('care_coordinator') > -1; } catch (e) { return false; } };
   const W = () => (typeof WriteupRules !== 'undefined' ? WriteupRules : null);
   const VIEWS = [
     { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
@@ -255,13 +258,15 @@
     startFormal(id, true);   /* already confirmed above */
   }
 
-  /* + New coaching talk (owners only): a coaching talk nobody's flag started. The database checks the owner and assigns it
-     the same way as the agent's (hr_case_add -> hr_coaching_act assign). */
+  /* + New coaching talk (owners and Care Coordinators, her change 2026-10-27: "care coordinators can initiate a coaching
+     call too!", e.g. a caregiver arranging days off with the family instead of the office): a coaching talk nobody's flag
+     started. The database checks who is asking and makes the same coaching record as an assigned one (hr_case_add). Zach
+     sees every one on Coaching oversight. */
   function newCoachHtml(name) {
     const roster = (((typeof DATA !== 'undefined') && DATA.caregivers) || []).map((g) => ((g.first || '') + ' ' + (g.last || '')).trim()).filter(Boolean).sort();
     return '<div class="hr-form" id="hrNc"><div class="hr-sub" style="margin-top:0;">New coaching talk</div>'
       + '<label class="field-note">Caregiver <input id="hrNcCg" list="hrNcList" value="' + esc(name || '') + '" style="min-width:220px;"></label><datalist id="hrNcList">' + roster.map((n) => '<option value="' + esc(n) + '">').join('') + '</datalist>'
-      + '<label class="field-note">What is it about? <input id="hrNcTopic" placeholder="For example: calling the office when something happens on a shift" style="width:100%;"></label>'
+      + '<label class="field-note">What is it about? <input id="hrNcTopic" placeholder="For example: scheduling goes through the office, not the family" style="width:100%;"></label>'
       + '<label class="field-note">What happened <textarea id="hrNcWhat" rows="3" placeholder="The facts, with the day."></textarea></label>'
       + '<label class="field-note">The day <input type="date" id="hrNcDay" value="' + esc(todayStr()) + '"></label>'
       + '<div><button class="secondary hr-btn" id="hrNcFill">Fill in talking points</button></div>'
@@ -269,8 +274,9 @@
       + '<div style="margin-top:6px;"><button class="primary hr-btn" id="hrNcGo">Assign</button> <button class="secondary hr-btn" onclick="document.getElementById(\'hrNcBox\').innerHTML=\'\'">Cancel</button></div><div class="hr-err" id="hrNcErr"></div></div>';
   }
   function newCoach(name) {
-    const host = document.getElementById('hrNcBox'); if (!host || !owner()) return;
+    const host = document.getElementById('hrNcBox'); if (!host || !canCoach()) return;
     host.innerHTML = newCoachHtml(name);
+    const to = document.getElementById('hrNcATo'); if (to && !owner() && [...to.options].some((o) => o.value === myEmail())) to.value = myEmail();   /* a coordinator's own talk by default */
     const v = (id) => (document.getElementById(id).value || '').trim();
     const fill = () => { document.getElementById('hrNcATp').value = talkingPoints({ caregiver: v('hrNcCg'), title: v('hrNcTopic'), facts: [{ date: v('hrNcDay'), what: v('hrNcWhat') }], rule: 'owner_coaching' }); };
     document.getElementById('hrNcFill').onclick = fill;
@@ -576,7 +582,7 @@
     return h + '</div>';
   }
   function renderCoaching(box) {
-    box.innerHTML = '<div class="hr-h">Coaching</div>' + (owner() ? '<div style="margin:0 0 10px;"><button class="primary hr-btn" onclick="HR.newCoach()">+ New coaching talk</button></div>' : '')
+    box.innerHTML = '<div class="hr-h">Coaching</div>' + (canCoach() ? '<div style="margin:0 0 10px;"><button class="primary hr-btn" onclick="HR.newCoach()">+ New coaching talk</button></div>' : '')
       + '<div id="hrNcBox"></div><div id="hrCoachList"><div class="field-note">Loading…</div></div>';
     loadCoaching(true).then(drawCoaching);
     const want = window.HR_NEWCOACH; window.HR_NEWCOACH = null; if (want !== undefined && want !== null) newCoach(want);

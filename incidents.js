@@ -341,7 +341,7 @@
     S.cgName = nm;
     host.innerHTML = '<div class="card" style="padding:14px 16px;margin-top:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px;color:var(--navy)">Incident reports</b><span style="flex:1"></span>'
       + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.tellZach()">Tell Zach</button>'
-      + (isOwner() ? '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.newCoaching()">+ New coaching talk</button>' : '')
+      + (canCoach() ? '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.newCoaching()">+ New coaching talk</button>' : '')
       + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.injuryFor()">+ New work injury report</button></div>'
       + (err ? '<div class="field-note">Could not load: ' + esc(err) + '</div>' : !rows.length ? '<div class="field-note">None on file.</div>' : rows.map(r => '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-top:1px solid var(--border)"><span>' + esc(day(r.happened_on)) + ': ' + (r.kind === 'employee_injury' ? '<b>Work injury</b>' + (r.client_name ? ' at ' + esc(r.client_name) : '') : esc(r.client_name)) + '</span><span class="field-note">' + esc(word(r)) + (r.practice ? ' · practice' : '') + '</span>'
           + '<a href="javascript:void(0)" onclick="INC.open(\'' + esc(r.id) + '\')" style="font-weight:700">Open</a></div>').join(''))
@@ -384,9 +384,11 @@
 
   /* ── Tell Zach (2026-10-27, Samantha: "Tell Zach on the caregiver's Performance tab for anyone in the office ...
      Coordinators ask, Zach decides."). Anyone in the office writes what they saw; it goes to Zach (and Samantha) only.
-     Zach decides on his Performance page: a coaching talk, a formal case, or nothing more. Owners can also add a coaching
-     talk themselves (+ New coaching talk, on Performance > Coaching). ── */
+     Zach decides on his Performance page: a coaching talk, a formal case, or nothing more. Owners and Care Coordinators can
+     also start a coaching talk themselves (+ New coaching talk, on Performance > Coaching). ── */
   const isOwner = () => { try{ return typeof ccCan === 'function' && ccCan('approve_discipline'); }catch(e){ return false; } };
+  /* owners and Care Coordinators start coaching talks (her change 2026-10-27); staffing coordinators use Tell Zach */
+  const canCoach = () => { if(isOwner()) return true; try{ const me = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase(); return ((CC_ROLE_BY_EMAIL || {})[me] || []).indexOf('care_coordinator') > -1; }catch(e){ return false; } };
   function tellZach(){
     const nm = S.cgName; if(!nm) return alert('Open a caregiver\'s profile first.');
     sheet(head('Tell Zach about ' + nm, 'Only Zach and Samantha see this. Zach decides what happens next; you don\'t need to look into it.')
