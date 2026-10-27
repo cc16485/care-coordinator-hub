@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>Incident report, Caring Companions</title>
-<!-- AN INCIDENT REPORT TO FILL IN AND SIGN (Stage 1, Samantha 2026-10-27). Opened only from the private link the office
+<!-- AN INCIDENT REPORT TO FILL IN AND SIGN (Stage 1, Samantha 2026-10-27; Stage 3 adds the work injury report, kind
+     employee_injury, with its own questions from the server). Opened only from the private link the office
      texts (?t=<code>; 7 days). The caregiver who was there answers the questions, ticks that it is true, signs with a finger
      and types their name. The server (incident-report) holds the questions and decides everything; this page lays them out.
      The answers are kept in this tab only while they type (sessionStorage), so a phone call in the middle loses nothing;
@@ -140,8 +141,10 @@ async function load() {
   if (V.status !== 'waiting') return dead('This report can no longer be filled in here. Call the office at ' + PHONE + '.');
   const saved = store.get(), sa = saved.a || {};
   $('main').innerHTML = (V.practice ? '<p class="practice"><b>Practice.</b> This is a test of the report page. Nothing is filed and nobody is told.</p>' : '')
-    + '<h1>Hi ' + esc(V.first || 'there') + ', please tell us what happened with ' + esc(V.client_first || 'your client') + '</h1>'
-    + '<p class="lede">This is about ' + esc(dayWords(V.happened_on)) + '. Answer in your own words. It takes about 5 minutes, and your answers stay on this page if you get interrupted.</p>'
+    + (V.kind === 'employee_injury'
+      ? '<h1>Hi ' + esc(V.first || 'there') + ', we\'re sorry you were hurt</h1>' + '<p class="lede">Please tell us what happened on ' + esc(dayWords(V.happened_on)) + '. If you need medical care, call the office now.'
+      : '<h1>Hi ' + esc(V.first || 'there') + ', please tell us what happened with ' + esc(V.client_first || 'your client') + '</h1>' + '<p class="lede">This is about ' + esc(dayWords(V.happened_on)) + '.')
+    + ' Answer in your own words. It takes about 5 minutes, and your answers stay on this page if you get interrupted.</p>'
     + '<a class="call" href="tel:4172348494">Need to talk first? Call the office</a>'
     + (V.note_words ? '<div class="small" style="margin:0 0 4px">What you wrote in your shift note:</div><div class="note">“' + esc(V.note_words) + '”</div>' : '')
     + V.questions.map((q) => question(q, sa)).join('')
