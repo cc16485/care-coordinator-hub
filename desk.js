@@ -117,7 +117,7 @@
     if(Date.now() - KNOWN.at < 60000) return KNOWN.list;
     const out = new Map(), add = n => { n = String(n || '').replace(/\s+/g, ' ').trim(); if(n.split(' ').length >= 2 && n.length >= 5) out.set(n.toLowerCase(), n); };
     try{ ((typeof DATA !== 'undefined' && DATA.leads) || []).forEach(l => { if(l.spam) return; add((l.first_name || '') + ' ' + (l.last_name || '')); add((l.client_first_name || '') + ' ' + (l.client_last_name || '')); }); }catch(e){}
-    try{ ((typeof DATA !== 'undefined' && DATA.referral_orgs) || []).forEach(o => { if(o && o.program_track === 'ambassador' && o.program_status !== 'active') return; add(o.name); }); }catch(e){}
+    try{ ((typeof DATA !== 'undefined' && DATA.referral_orgs) || []).forEach(o => { if(o && o.program_track && !(o.program_track === 'ambassador' && o.program_status === 'active')) return; add(o.name); }); }catch(e){}
     KNOWN = { at:Date.now(), list:[...out.values()].sort((a, b) => b.length - a.length) };
     return KNOWN.list;
   }

@@ -29,7 +29,8 @@
   const st = () => (typeof DATA !== 'undefined' && DATA.ops_settings) || {};
   const ctx = () => ({ today:todayYmd(), leads:(DATA.leads || []), activities:(DATA.referral_activities || []), planned:(DATA.activities || []), settings:st() });
   /* Community Ambassadors stay off the desk; an APPROVED one can still be picked when linking a referral (2026-10-26) */
-  const orgs = () => (DATA.referral_orgs || []).filter(o => !(o && o.program_track === 'ambassador') || o.program_status === 'active');
+  /* professional partners only (any program_track is another program, 2026-10-26), except an approved ambassador, who can still be picked */
+  const orgs = () => (DATA.referral_orgs || []).filter(o => o && (!o.program_track || (o.program_track === 'ambassador' && o.program_status === 'active')));
   const org = id => orgs().find(o => o.id === id) || null;
   /* who can own a partner: Care Coordinators (and the Springfield lead and owners); everyone on the team if the roles aren't known */
   const OWNER_ROLES = ['care_coordinator', 'springfield_lead', 'owner_admin'];

@@ -64,5 +64,7 @@ ck('an archived partner never shows', !P.week(ORGS.concat([{ id: 'arch', name: '
 { const AM = [{ id: 'a1', name: 'Linda Ortiz', program_track: 'ambassador', program_status: 'applied', created_at: '2026-10-25T00:00:00Z' }, { id: 'a2', name: 'Jo Live', program_track: 'ambassador', program_status: 'active', partner_code: 'JO-K2', created_at: '2026-10-20T00:00:00Z' }]
   const all = ORGS.concat(AM)
   ck('ambassadors (applied or approved) never in Needs an owner, and never on anyone\'s week, even "Everyone"', !P.needsOwner(all).some((o) => o.program_track === 'ambassador') && !P.week(all, ctx, '*').some((x) => /^a\d/.test(x.id)) && P.needsOwner(all).length === P.needsOwner(ORGS).length) }
+ck('any other program (Friends & Family people, any program_track) is never in Needs an owner or on anyone\'s week (2026-10-26)',
+  !P.needsOwner([{ id: 'ff', name: 'Barb', program_track: 'friends' }]).length && !P.week([{ id: 'ff', name: 'Barb', program_track: 'friends', owner_email: 'coord@mo-care.com' }], { today: T, leads: [], activities: [], settings: ST }, '*').length)
 let pass = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok ? '' : '  ' + d)); if (ok) pass++ }
 console.log(`\n${pass} passed, ${res.length - pass} failed`); process.exit(pass === res.length ? 0 : 1)

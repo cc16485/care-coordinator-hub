@@ -91,7 +91,9 @@
   }
   /** the week's list for one owner (or everyone when owner is '*'): due by Sunday or sent this week, best first */
   /* Community Ambassadors (2026-10-26, her rule): owners handle them; never on anyone's week or in Needs an owner */
-  const isAmb = o => !!o && o.program_track === 'ambassador';
+  /* 2026-10-26 (her layout): anyone in a non-professional program (any program_track: Community Ambassadors, later Friends &
+     Family people) is never on anyone's week or in Needs an owner */
+  const isAmb = o => !!o && !!o.program_track;
   function week(orgs, ctx, owner) {
     const mine = e => owner === '*' || (!!e && e === lc(owner));
     return (orgs || []).filter(o => o && !o.archived && !isAmb(o)).map(o => look(o, ctx)).filter(x => x.on_week && mine(x.owner.email))
