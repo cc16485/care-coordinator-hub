@@ -16,6 +16,7 @@
     { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
     { id: 'practice', label: 'Agent practice', note: 'Check what it would flag', owner: true },
     { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true },
+    { id: 'incidents', label: 'Incidents', note: 'To look into, work injuries', owner: true },   /* 2026-10-27 */
     { id: 'oversight', label: 'Coaching oversight', note: 'Is coaching happening', owner: true },
     { id: 'coaching', label: 'Coaching', note: 'Conversations to have', owner: false },
     { id: 'attendance', label: 'Attendance', note: 'Call-ins, late arrivals, no-shows', owner: false },
@@ -125,7 +126,7 @@
     box.hidden = !!PANEL_OF[view];
     if (PANEL_OF[view]) { if (typeof scxEnsure === 'function') scxEnsure(SCX_OF[view]); return; }
     box.innerHTML = '';
-    ({ home: renderHome, practice: renderPractice, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, handbook: renderHandbook, role: renderRole })[view](box);
+    ({ home: renderHome, practice: renderPractice, incidents: renderIncidents, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, handbook: renderHandbook, role: renderRole })[view](box);
   }
   function go(v) { view = v; render(v); try { window.scrollTo(0, 0); } catch (e) {} }
 
@@ -154,6 +155,7 @@
       + (dl.length ? dl.slice(0, 12).map((x) => '<div class="hr-row"><span><b>' + esc(x.who) + '</b> · ' + esc(x.what) + '</span><span class="' + (x.due.getTime() < now ? 'hr-late' : 'field-note') + '">' + (x.due.getTime() < now ? 'was due ' : 'due ') + esc(fmtDay(x.due)) + '</span></div>').join('')
         : '<div class="field-note">No open deadlines.</div>')
       + '<div class="field-note hr-foot">From the Corrective Action SOP: facts in 2 business days, a decision in 3, the meeting within 5 business days of the decision, and a 30-day follow-up.</div></div>'
+      + '<div class="card hr-card"><div class="hr-card-h">Incidents and work injuries</div><div class="field-note" id="hrIncN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Signatures</div><div class="field-note" id="hrAckN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Performance agent practice</div><div class="field-note" id="hrPracN">Loading…</div></div>'
       + '<div class="card hr-card"><div class="hr-card-h">Coaching oversight</div><div class="field-note" id="hrCoachN">Loading…</div></div>';
@@ -178,7 +180,15 @@
         : late.map((k) => line(k, 'not signed in 5 business days: record it as Did not sign', 'hr-late')).join('')
           + wait.filter((k) => !k.unsigned_too_long).map((k) => line(k, k.sent_at ? 'link texted, waiting' : (k.via === 'in_person' ? 'signing in person' : 'link made, not texted yet'))).join('')
           + up.map((k) => line(k, 'upload the PDF to AxisCare')).join(''); });
+    /* 2026-10-27: reports the office asked Zach to look into, and work injuries with their workers' comp report-by day */
+    if (window.INC && INC.hrDash) INC.hrDash('hrIncN'); else { const el = document.getElementById('hrIncN'); if (el) el.textContent = 'Reload the page to see incident reports.'; }
     loadTerminations().then((t) => { const el = document.getElementById('hrTermN'); if (el) el.textContent = t === null ? '?' : String(t.filter((x) => x.status !== 'complete').length); });
+  }
+
+  /* ---------- Incidents (2026-10-27): reports handed to Zach, work injuries, every client incident report (incidents.js) ---------- */
+  function renderIncidents(box) {
+    box.innerHTML = '<div class="hr-h">Incidents and work injuries</div><div id="hrInc"><div class="field-note">Loading…</div></div>';
+    if (window.INC && INC.hrMount) INC.hrMount('hrInc'); else document.getElementById('hrInc').innerHTML = '<div class="field-note">Reload the page to see incident reports.</div>';
   }
 
   async function loadAcks() {
