@@ -7,6 +7,8 @@
      · A person presses Send. Nothing is texted by itself when a flag fires.
      · ONE reminder text after 24 hours if it is still not filled in; then the card turns red ("Call Ashley").
      · Families are never contacted by any of this.
+   Stage 2 (2026-10-27, "continue"): the office reviews a signed report (family told, medical care, care plan change, abuse
+   or neglect with the state hotline), which closes the card; and a caregiver's reports are listed on their Performance tab.
    Practice until ops_settings.incident_reports_live: it all works end to end, but nothing is texted and no card is made.
    ===================================================================================================================== */
 (function(){
@@ -98,7 +100,7 @@
   async function open(id){
     sheet(head('Incident report', 'Loading…'));
     let r;
-    try{ const d = await api({ action:'list', ids:[id] }); r = (d.reports || [])[0]; if(!r) throw new Error('That report is not on file.'); S.live = d.live; }
+    try{ const d = await api({ action:'list', ids:[id] }); r = (d.reports || [])[0]; if(!r) throw new Error('That report is not on file.'); S.live = d.live; S.hotline = d.hotline; }
     catch(e){ sheet(head('Incident report', '<span style="color:#b91c1c">' + esc(e.message) + '</span>')); return; }
     const sub = esc(r.client_name) + ' · ' + esc(day(r.happened_on)) + ' · ' + esc(r.caregiver) + (r.practice ? ' · <b style="color:#b45309">practice</b>' : '');
     let h = head('Incident report', sub);
@@ -106,8 +108,10 @@
       h += '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-bottom:.5rem;font-size:13.5px"><b>Signed by ' + esc(r.signed_name) + '</b>, ' + esc(when(r.submitted_at)) + '.'
         + (r.told_late ? ' <b style="color:#b45309">The office was not called or texted when it happened.</b>' : '') + '</div>'
         + (r.questions || []).map(q => { const v = r.answers[q.k]; return '<div style="margin:.35rem 0"><div style="font-size:12.5px;font-weight:700;color:var(--navy)">' + esc(q.label) + '</div><div style="font-size:14px;white-space:pre-wrap">' + esc(Array.isArray(v) ? v.join(', ') : v) + '</div></div>'; }).join('')
-        + '<div style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><button class="secondary" id="incPdf">📄 Open the signed PDF</button><span id="incPdfOut" class="field-note"></span></div>';
+        + '<div style="margin-top:.6rem;display:flex;gap:.5rem;align-items:center"><button class="secondary" id="incPdf">📄 Open the signed PDF</button><span id="incPdfOut" class="field-note"></span></div>'
+        + reviewHtml(r);
       sheet(h);
+      if(!r.reviewed_at) reviewWire(r);
       document.getElementById('incPdf').onclick = async () => {
         try{ const d = await api({ action:'open', id:r.id }); document.getElementById('incPdfOut').innerHTML = '<a href="' + esc(d.url) + '" target="_blank" rel="noopener" style="font-weight:700">Open it now</a> (5 minutes; this open is logged)'; }
         catch(e){ alert(e.message); }
@@ -127,6 +131,69 @@
     };
   }
 
+  /* ── Stage 2 (2026-10-27): the office's review of a signed report. Every question answered, saved once. A person calls
+     the family; the Hub never does. Suspected abuse or neglect: the state hotline first, then its report number here. ── */
+  const MED = [['none','No care needed'],['doctor','Saw or called their doctor'],['urgent','Urgent care or the ER'],['911','911 was called'],['declined','Care was offered and declined']];
+  function reviewHtml(r){
+    const box = 'border-top:1px solid var(--border);margin-top:.8rem;padding-top:.6rem';
+    if(r.reviewed_at){
+      const v = r.review || {}, f = v.family || {}, m = v.medical || {}, c = v.careplan || {}, a = v.ane || {};
+      const line = (k, t) => '<div style="font-size:13.5px;margin:.15rem 0"><b>' + esc(k) + ':</b> ' + esc(t) + '</div>';
+      return '<div style="' + box + '"><div style="font-weight:800;color:var(--navy)">Office review</div><div class="field-note">By ' + esc(r.reviewed_by_name || r.reviewed_by) + ', ' + esc(when(r.reviewed_at)) + '</div>'
+        + line('Family', f.told === 'yes' ? 'Told: ' + f.who + ', ' + f.when : 'Not told: ' + (f.why || ''))
+        + line('Medical care', (MED.find(x => x[0] === m.what) || ['', m.what])[1] + (m.note ? ' (' + m.note + ')' : ''))
+        + line('Care plan', c.change ? 'Needs a change: ' + c.note : 'No change')
+        + line('Abuse, neglect or exploitation', a.suspect ? 'Suspected. Hotline called ' + a.hotline_at + ', report ' + a.reference : 'No')
+        + (v.note ? line('Note', v.note) : '') + '</div>';
+    }
+    const rad = (n, v, t, chk) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="radio" name="' + n + '" value="' + v + '" style="width:auto;margin:0"' + (chk ? ' checked' : '') + '> ' + esc(t) + '</label>';
+    const q = (t) => '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">' + t + '</div>';
+    const sub = (id, ph) => '<div id="' + id + '" style="display:none;margin:.2rem 0 0 1.4rem">' + ph + '</div>';
+    return '<div style="' + box + '"><div style="font-weight:800;color:var(--navy)">Office review</div><div class="field-note">Answer each one, then save. It closes the card. It can\'t be changed after.</div>'
+      + q('1. Was the family told?') + rad('rvFam', 'yes', 'Yes, a person called them') + sub('rvFamYes', '<input id="rvFamWho" placeholder="Who (name, relationship)"> <input id="rvFamWhen" placeholder="When (day, time)" style="margin-top:.25rem">')
+        + rad('rvFam', 'not_needed', 'Not needed') + sub('rvFamNo', '<input id="rvFamWhy" placeholder="Why not">')
+      + q('2. Did ' + esc(first(r.client_name)) + ' need medical care?') + MED.map(([v, t]) => rad('rvMed', v, t)).join('') + sub('rvMedNote', '<input id="rvMedTxt" placeholder="Who, where, what they said">')
+      + q('3. Does the care plan need to change?') + rad('rvCp', 'no', 'No') + rad('rvCp', 'yes', 'Yes (makes a card for Client Care)') + sub('rvCpNote', '<input id="rvCpTxt" placeholder="What needs to change">')
+      + q('4. Could this be abuse, neglect or exploitation?') + rad('rvAne', 'no', 'No') + rad('rvAne', 'yes', 'Yes, or I\'m not sure')
+        + sub('rvAneYes', '<div style="background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.2rem 0"><b>Call the Missouri Adult Abuse and Neglect Hotline now: <a href="tel:18003920210">' + esc(S.hotline || '1-800-392-0210') + '</a>.</b> We are mandated reporters. Then write down when you called and the report number.</div><input id="rvAneAt" placeholder="When you called"> <input id="rvAneRef" placeholder="Report number" style="margin-top:.25rem">')
+      + q('Anything else (optional)') + '<textarea id="rvNote" rows="2" style="width:100%"></textarea>'
+      + '<div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center"><button class="primary" id="rvSave">Save the review and close the card</button></div><div id="rvOut" class="field-note" style="margin-top:.3rem"></div></div>';
+  }
+  function reviewWire(r){
+    const body = document.getElementById('incBody'); if(!body) return;
+    const val = n => (body.querySelector('input[name="' + n + '"]:checked') || {}).value || '';
+    const show = (id, on) => { const el = document.getElementById(id); if(el) el.style.display = on ? 'block' : 'none'; };
+    const sync = () => { show('rvFamYes', val('rvFam') === 'yes'); show('rvFamNo', val('rvFam') === 'not_needed'); show('rvMedNote', !!val('rvMed') && val('rvMed') !== 'none');
+      show('rvCpNote', val('rvCp') === 'yes'); show('rvAneYes', val('rvAne') === 'yes'); };
+    body.addEventListener('change', sync); sync();
+    document.getElementById('rvSave').onclick = async () => {
+      const t = id => ((document.getElementById(id) || {}).value || '').trim();
+      const ane = val('rvAne');
+      const rv = { family:{ told:val('rvFam'), who:t('rvFamWho'), when:t('rvFamWhen'), why:t('rvFamWhy') }, medical:{ what:val('rvMed'), note:t('rvMedTxt') },
+        careplan:{ change:val('rvCp') === 'yes', note:t('rvCpTxt') }, ane:ane === 'yes' ? { suspect:true, hotline_at:t('rvAneAt'), reference:t('rvAneRef') } : ane === 'no' ? { suspect:false } : {}, note:t('rvNote') };
+      if(!val('rvCp')){ document.getElementById('rvOut').innerHTML = '<b style="color:#b91c1c">Does the care plan need to change?</b>'; return; }
+      const b = document.getElementById('rvSave'); b.disabled = true;
+      try{ const d = await api(Object.assign({ action:'review', id:r.id }, rv)); toast('Reviewed: ' + d.summary + (d.careplan_card ? '. A care plan card is on Client Care\'s My Work.' : ''));
+        refreshAll(r.client_ax); open(r.id); }
+      catch(e){ b.disabled = false; document.getElementById('rvOut').innerHTML = '<b style="color:#b91c1c">' + esc(e.message) + '</b>'; }
+    };
+  }
+
+  /* ── Stage 2: a caregiver's reports, on their Performance tab ── */
+  async function caregiverMount(hostId, name){
+    const host = document.getElementById(hostId); if(!host) return;
+    const nm = String(name || '').trim(); if(nm.split(/\s+/).length < 2){ host.innerHTML = ''; return; }
+    let rows = [], err = '';
+    try{ rows = (await api({ action:'list', caregiver:nm })).reports || []; }catch(e){ err = /not found|Failed to send|404/i.test(e.message) ? '' : e.message; }
+    if(!document.getElementById(hostId)) return;
+    if(!rows.length && !err){ host.innerHTML = ''; return; }
+    const word = r => r.status === 'submitted' ? (r.reviewed_at ? 'Signed and reviewed' : 'Signed, waiting for the office review') + (r.told_late ? ' · office not called at the time' : '') : r.status === 'cancelled' ? 'Cancelled' : 'Waiting for them to fill it in';
+    host.innerHTML = '<div class="card" style="padding:14px 16px;margin-top:10px"><b style="font-size:15px;color:var(--navy)">Incident reports</b>'
+      + (err ? '<div class="field-note">Could not load: ' + esc(err) + '</div>' : rows.map(r => '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-top:1px solid var(--border)"><span>' + esc(day(r.happened_on)) + ': ' + esc(r.client_name) + '</span><span class="field-note">' + esc(word(r)) + (r.practice ? ' · practice' : '') + '</span>'
+          + '<a href="javascript:void(0)" onclick="INC.open(\'' + esc(r.id) + '\')" style="font-weight:700">Open</a></div>').join(''))
+      + '</div>';
+  }
+
   /* ── on a card: the incident card itself, and a flag that already has a report ── */
   function cardHtml(it){
     if(!it || !it.incident_id) return '';
@@ -138,7 +205,7 @@
     const k = String(ax || '');
     if(k && !S.byClient[k] && !S.busy[k]) load(k);
     const rows = (S.byClient[k] && S.byClient[k].reports) || [];
-    const word = r => r.status === 'submitted' ? 'Signed ' + when(r.submitted_at) : r.status === 'cancelled' ? 'Cancelled' : r.sent_at ? 'Waiting for ' + first(r.caregiver) + ' (texted ' + when(r.sent_at) + ')' : 'Not texted yet';
+    const word = r => r.status === 'submitted' ? 'Signed ' + when(r.submitted_at) + (r.reviewed_at ? ', reviewed' : ', not reviewed yet') : r.status === 'cancelled' ? 'Cancelled' : r.sent_at ? 'Waiting for ' + first(r.caregiver) + ' (texted ' + when(r.sent_at) + ')' : 'Not texted yet';
     return '<div class="cn-prof"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:12.5px;color:var(--navy)">Incident reports</b><span style="flex:1"></span>'
       + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.fromProfile()">+ New incident report</button></div>'
       + (S.byClient[k] && S.byClient[k].error ? '<div class="field-note">Could not load the reports: ' + esc(S.byClient[k].error) + '</div>'
@@ -161,6 +228,6 @@
     try{ if(typeof cnRender === 'function') cnRender(); }catch(e){}
   }
 
-  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay };
+  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay, caregiverMount };
   window.incCardHtml = cardHtml;
 })();
