@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Incident report, Caring Companions</title>
+<!-- AN INCIDENT REPORT TO FILL IN AND SIGN (Stage 1, Samantha 2026-10-27). Opened only from the private link the office
+     texts (?t=<code>; 7 days). The caregiver who was there answers the questions, ticks that it is true, signs with a finger
+     and types their name. The server (incident-report) holds the questions and decides everything; this page lays them out.
+     The answers are kept in this tab only while they type (sessionStorage), so a phone call in the middle loses nothing;
+     they are cleared once it is signed. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%}
+  .wrap{max-width:640px;margin:0 auto;padding:18px 16px 70px;} header{text-align:center;padding:8px 0 4px;} header img{height:48px;max-width:100%}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;}
+  .lede{font-size:16px;margin:0 0 14px;}
+  .practice{background:#FFF7E6;border:1.5px dashed var(--gold);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 12px}
+  .note{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:10px;padding:10px 12px;margin:0 0 14px;font-size:15px;font-family:Georgia,serif;overflow-wrap:anywhere}
+  .q{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 10px}
+  .q label.t{display:block;font-size:16px;font-weight:600;margin:0 0 7px;color:var(--navy)} .q .hint{font-size:13.5px;color:var(--muted);margin:-4px 0 6px}
+  .q .opt{font-weight:400;color:var(--muted);font-size:14px}
+  input[type=text],textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;min-height:48px;-webkit-appearance:none;appearance:none}
+  textarea{min-height:110px;resize:vertical}
+  .choices{display:flex;flex-wrap:wrap;gap:8px}
+  .choices label{display:flex;align-items:center;gap:8px;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:16px;cursor:pointer;min-height:48px;background:#fff;flex:1 1 140px}
+  .choices input{width:22px;height:22px;margin:0;accent-color:var(--gold);flex:none}
+  .choices label:has(input:checked){border-color:var(--navy);background:#F2F6FA}
+  .stack .choices label{flex-basis:100%}
+  input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  .statement{border:1.5px solid var(--navy);border-radius:12px;background:#fff;padding:14px 16px;font-size:16.5px;line-height:1.6;margin:14px 0 10px}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:16px;margin:10px 0;cursor:pointer} .chk input{width:26px;height:26px;margin:1px 0 0;flex:none;accent-color:var(--gold)}
+  .padwrap{background:#fff;border:1.5px solid var(--border);border-radius:12px;padding:6px;margin:6px 0 4px;position:relative}
+  canvas{display:block;width:100%;height:150px;touch-action:none;border-radius:8px;background:#fff}
+  .padline{position:absolute;left:18px;right:18px;bottom:34px;border-bottom:1px solid #c9c2b4;pointer-events:none}
+  .padrow{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;color:var(--muted)}
+  .padrow button{background:none;border:0;color:var(--navy);font:inherit;font-weight:700;padding:8px;cursor:pointer}
+  label.n{display:block;font-size:15px;font-weight:600;margin:12px 0 6px;}
+  button.go{width:100%;min-height:54px;background:var(--gold);color:#122F52;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:14px;cursor:pointer;touch-action:manipulation}
+  button.go:disabled{opacity:.6}
+  .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:15px;margin-top:10px;}
+  .okmsg{background:#F0F7F4;color:var(--green);border-radius:10px;padding:14px 16px;font-size:16px;border:1.5px solid #9BD3B0}
+  .okmsg b{display:block;font-size:18px;color:var(--navy);margin-bottom:4px}
+  .small{font-size:13.5px;color:var(--muted);margin:10px 0 0;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
+  .call{display:block;text-align:center;background:var(--navy);color:#fff;text-decoration:none;font-weight:800;border-radius:10px;padding:13px;margin:0 0 14px;font-size:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your report…</p></div>
+</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const FN = SUPA_URL + '/functions/v1/incident-report';
+const T = new URLSearchParams(location.search).get('t') || '';
+const PHONE = '(417) 234-8494';
+const KEEP = 'inc_draft_' + T.slice(0, 12);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (id) => document.getElementById(id);
+async function call(body) {
+  try {
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, t: T }) });
+    return { s: r.status, j: await r.json().catch(() => ({})) };
+  } catch (e) { return { s: 0, j: { error: 'You seem to be offline. Check your connection and try again. Your answers are still here.' } }; }
+}
+function dead(msg) { $('main').innerHTML = '<div class="dead">' + esc(msg || ('This link is not active. Call the office at ' + PHONE + '.')) + '</div>'; }
+const dayWords = (ymd) => /^\d{4}-\d{2}-\d{2}$/.test(ymd || '') ? new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'long', month: 'long', day: 'numeric' }) : 'that day';
+let V = null, strokes = [];
+const store = { get() { try { return JSON.parse(sessionStorage.getItem(KEEP) || '{}') || {}; } catch (e) { return {}; } },
+  set(v) { try { sessionStorage.setItem(KEEP, JSON.stringify(v)); } catch (e) { /* private browsing: nothing kept, still works */ } },
+  clear() { try { sessionStorage.removeItem(KEEP); } catch (e) {} } };
+
+function question(q, saved) {
+  const id = 'q_' + q.k, v = saved[q.k];
+  let h = '<div class="q' + (q.type === 'choice' && (q.opts || []).some((o) => o.length > 22) ? ' stack' : '') + '" id="w_' + q.k + '"' + (q.when ? ' data-when="' + esc(q.when.k) + '" data-in="' + esc(JSON.stringify(q.when.in)) + '"' : '') + '>'
+    + '<label class="t" for="' + id + '">' + esc(q.label) + (q.optional ? ' <span class="opt">(optional)</span>' : '') + '</label>'
+    + (q.hint ? '<div class="hint">' + esc(q.hint) + '</div>' : '');
+  if (q.type === 'text') h += '<input type="text" id="' + id + '" data-k="' + q.k + '" value="' + esc(v || '') + '">';
+  else if (q.type === 'long') h += '<textarea id="' + id + '" data-k="' + q.k + '">' + esc(v || '') + '</textarea>';
+  else h += '<div class="choices">' + q.opts.map((o, i) => '<label><input type="' + (q.type === 'multi' ? 'checkbox' : 'radio') + '" name="' + id + '" data-k="' + q.k + '" value="' + esc(o) + '"'
+      + ((q.type === 'multi' ? (Array.isArray(v) && v.includes(o)) : v === o) ? ' checked' : '') + (i === 0 ? ' id="' + id + '"' : '') + '> <span>' + esc(o) + '</span></label>').join('') + '</div>';
+  return h + '</div>';
+}
+function answers() {
+  const a = {};
+  for (const q of V.questions) {
+    if (q.type === 'text' || q.type === 'long') { const el = $('q_' + q.k); if (el && el.value.trim()) a[q.k] = el.value.trim(); }
+    else { const on = [...document.querySelectorAll('input[name="q_' + q.k + '"]:checked')].map((x) => x.value); if (on.length) a[q.k] = q.type === 'multi' ? on : on[0]; }
+  }
+  return a;
+}
+function showHide() {
+  const a = answers();
+  document.querySelectorAll('[data-when]').forEach((w) => { const list = JSON.parse(w.getAttribute('data-in')); w.style.display = list.includes(a[w.getAttribute('data-when')]) ? '' : 'none'; });
+}
+function changed(e) {
+  const t = e && e.target;
+  if (t && t.type === 'checkbox' && t.getAttribute('data-k') === 'help') {     // "No one" and the others don't go together
+    const boxes = [...document.querySelectorAll('input[name="q_help"]')];
+    if (t.value === 'No one' && t.checked) boxes.forEach((b) => { if (b !== t) b.checked = false; });
+    else if (t.checked) boxes.forEach((b) => { if (b.value === 'No one') b.checked = false; });
+  }
+  showHide(); store.set({ a: answers(), name: ($('nm') || {}).value || '' });
+}
+
+/* ── the finger signature: strokes of [x, y], each 0 to 1 inside the box ── */
+function pad() {
+  const c = $('pad'), ctx = c.getContext('2d');
+  const fit = () => { const r = c.getBoundingClientRect(), d = window.devicePixelRatio || 1; c.width = r.width * d; c.height = r.height * d; ctx.setTransform(d, 0, 0, d, 0, 0); draw(); };
+  const draw = () => { const r = c.getBoundingClientRect(); ctx.clearRect(0, 0, r.width, r.height); ctx.strokeStyle = '#0D365F'; ctx.lineWidth = 2.4; ctx.lineCap = ctx.lineJoin = 'round';
+    for (const s of strokes) { ctx.beginPath(); s.forEach((p, i) => { const x = p[0] * r.width, y = p[1] * r.height; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); if (s.length === 1) ctx.lineTo(s[0][0] * r.width + 1, s[0][1] * r.height); ctx.stroke(); } };
+  const at = (e) => { const r = c.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]; };
+  let cur = null;
+  c.addEventListener('pointerdown', (e) => { e.preventDefault(); c.setPointerCapture(e.pointerId); cur = [at(e)]; strokes.push(cur); draw(); });
+  c.addEventListener('pointermove', (e) => { if (!cur) return; e.preventDefault(); const p = at(e), l = cur[cur.length - 1]; if (Math.abs(p[0] - l[0]) + Math.abs(p[1] - l[1]) > 0.004) { cur.push(p); draw(); } });
+  const end = () => { cur = null; };
+  c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  $('clr').onclick = () => { strokes = []; draw(); };
+  window.addEventListener('resize', fit); fit();
+}
+
+function filed(copy, practice) {
+  store.clear();
+  $('main').innerHTML = '<div class="okmsg"><b>Thank you. Your report is signed and sent to the office.</b>Someone from the office may call you with a question. Next time something like this happens, please call the office right away too: ' + esc(PHONE) + '.'
+    + (copy ? '<p class="small"><a href="' + esc(copy) + '" target="_blank" rel="noopener">Open your copy (PDF)</a> · this link works for 10 minutes.</p>' : '') + '</div>'
+    + (practice ? '<p class="practice" style="margin-top:12px">Practice: this was a test. Nothing was filed.</p>' : '');
+  window.scrollTo(0, 0);
+}
+async function load() {
+  if (!T) return dead();
+  const r = await call({ action: 'view' });
+  if (r.s !== 200) return dead(r.j.error);
+  V = r.j;
+  if (V.status === 'submitted') { $('main').innerHTML = '<div class="okmsg"><b>This report is already filled in and signed. Thank you.</b>If you need to add something, call the office at ' + esc(PHONE) + '.</div>'; return; }
+  if (V.status === 'expired') return dead('This link has expired. Call the office at ' + PHONE + ' for a new one.');
+  if (V.status !== 'waiting') return dead('This report can no longer be filled in here. Call the office at ' + PHONE + '.');
+  const saved = store.get(), sa = saved.a || {};
+  $('main').innerHTML = (V.practice ? '<p class="practice"><b>Practice.</b> This is a test of the report page. Nothing is filed and nobody is told.</p>' : '')
+    + '<h1>Hi ' + esc(V.first || 'there') + ', please tell us what happened with ' + esc(V.client_first || 'your client') + '</h1>'
+    + '<p class="lede">This is about ' + esc(dayWords(V.happened_on)) + '. Answer in your own words. It takes about 5 minutes, and your answers stay on this page if you get interrupted.</p>'
+    + '<a class="call" href="tel:4172348494">Need to talk first? Call the office</a>'
+    + (V.note_words ? '<div class="small" style="margin:0 0 4px">What you wrote in your shift note:</div><div class="note">“' + esc(V.note_words) + '”</div>' : '')
+    + V.questions.map((q) => question(q, sa)).join('')
+    + '<div class="statement">' + esc(V.true_words) + '</div>'
+    + '<label class="chk"><input type="checkbox" id="ok"> <span>What I wrote is true and complete.</span></label>'
+    + '<label class="n">Sign here with your finger</label>'
+    + '<div class="padwrap"><canvas id="pad" aria-label="Signature box"></canvas><div class="padline"></div><div class="padrow"><span>Sign above the line</span><button type="button" id="clr">Clear</button></div></div>'
+    + '<label class="n" for="nm">Type your full name (first and last)</label>'
+    + '<input type="text" id="nm" autocomplete="name" autocapitalize="words" enterkeyhint="done" value="' + esc(saved.name || '') + '">'
+    + '<button class="go" id="go" type="button">Sign and send my report</button>'
+    + '<div class="err" id="err"></div>'
+    + '<p class="small">Your answers, your signature, the time and your device are kept with the report. Questions? Call the office at ' + esc(PHONE) + '.</p>';
+  $('main').addEventListener('input', changed); $('main').addEventListener('change', changed);
+  showHide(); pad();
+  $('go').onclick = submit;
+}
+function oops(msg, focusK) {
+  const err = $('err'); err.textContent = msg; err.style.display = 'block';
+  const w = focusK && $('w_' + focusK); if (w) { w.scrollIntoView({ behavior: 'smooth', block: 'center' }); w.style.borderColor = '#B00020'; setTimeout(() => { w.style.borderColor = ''; }, 4000); }
+}
+async function submit() {
+  $('err').style.display = 'none';
+  const a = answers(), name = $('nm').value.trim();
+  for (const q of V.questions) {             // the same checks as the server, so the answer that's missing is found on the page
+    if (q.optional) continue;
+    if (q.when && !q.when.in.includes(a[q.when.k])) continue;
+    const v = a[q.k];
+    if (!v || (Array.isArray(v) && !v.length)) return oops('Please answer: ' + q.label, q.k);
+    if (q.min && String(v).length < q.min) return oops('Please say a little more: ' + q.label, q.k);
+  }
+  if (!$('ok').checked) return oops('Tick the box to say what you wrote is true.');
+  if (!strokes.flat().length) return oops('Sign in the box with your finger.');
+  if (name.split(/\s+/).length < 2) return oops('Type your full first and last name.');
+  $('go').disabled = true; $('go').textContent = 'Sending…';
+  const r = await call({ action: 'submit', answers: a, typed_name: name, strokes, consent: true });
+  if (r.s === 200) return filed(r.j.copy_url, r.j.practice);
+  $('go').disabled = false; $('go').textContent = 'Sign and send my report';
+  oops(r.j.error || 'That did not go through. Try again, or call the office at ' + PHONE + '.');
+}
+load();
+</script>
+</body>
+</html>

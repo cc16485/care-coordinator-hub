@@ -42,9 +42,16 @@ async()=>{
   ok('the yellow flag: its own level, no incident step, and no call link without a number', yel && /Yellow flag · look within 24 hours/.test(yel.innerText) && !/Write it up as an incident/.test(yel.innerText) && !yel.querySelector('.cn-call') && /Call the caregiver/.test(yel.innerText), yel && yel.innerText.slice(0,600));
   ok('an older flag with no level looks as it did', old && !old.querySelector('.cn-flag') && /An older flag with no level/.test(old.innerText));
   // steps
+  /* 2026-10-27 incident report (Stage 1): the step opens the report form; the server makes the Incidents owner's card */
   await cnStep('ops_carenote_9_601','incident'); await sleep(200);
-  const inc=DATA.ops_items.find(x=>x.source_id==='ops_carenote_9_601' && /^Incident: /.test(x.title));
-  ok('Write it up as an incident: a card on the Incidents owner\'s My Work (Samantha)', inc && inc.owner==='sam@mo-care.com' && inc.domain==='incidents' && /a fall or injury/.test(inc.title), inc);
+  const incSheet=document.getElementById('incSheet');
+  ok('Write it up as an incident: opens the incident report form with the flag\'s caregiver, nothing started yet', incSheet && incSheet.classList.contains('open') && document.getElementById('incCg').value===(DATA.ops_items.find(x=>x.id==='ops_carenote_9_601').caregiver||'') && window.__log.fn.length===0, incSheet && incSheet.innerText.slice(0,300));
+  const realInvoke=sb.functions.invoke, started=[];
+  sb.functions.invoke=async (fn,{body})=>{ started.push([fn,body]); return { data:{ ok:true, practice:true, report:{ id:'00000000-0000-4000-8000-000000000009', client_name:'Ruth Barnes (fake)', caregiver:body.caregiver, happened_on:body.happened_on }, link:'https://cc.mo-care.com/incident.html?t='+'Z'.repeat(43), draft:'Hi', phone_last4:'' } }; };
+  if(!document.getElementById('incCg').value) document.getElementById('incCg').value='Kim Test';
+  document.getElementById('incGo').click(); await sleep(250); sb.functions.invoke=realInvoke; INC.close();
+  ok('...Make the link starts it from the flag, and the flag records the step', started.length===1 && started[0][0]==='incident-report' && started[0][1].source_item_id==='ops_carenote_9_601'
+    && (DATA.ops_items.find(x=>x.id==='ops_carenote_9_601').cn_actions||[]).some(a=>a.what==='incident'), started);
   await cnStep('ops_carenote_9_601','family'); await sleep(100);
   ok('Tell the family opens the draft a person sends (never sends by itself)', window.__n3==='ops_carenote_9_601' && window.__log.fn.length===0);
   await cnDid('ops_carenote_9_601','called'); await sleep(200);
@@ -98,7 +105,8 @@ async()=>{
   ok('Dashboard overnight: a red flag says Red flag and why, not the first words of the note', /Red flag/.test(dv.innerText) && /Ruth slipped getting out of the bath/.test(dv.innerText) && !/wrote after/.test(dv.innerText) && /suOpenWork\('ops_carenote_red2'\)/.test(dv.innerHTML), dv.innerHTML);
   dv.innerHTML=dashOvernightRow({ id:'old9', kind:'care_note', about:'Nora Fine (fake)', title:"Possible concern on Nora's Tue, Oct 6 visit: something else worth a look", detail:'Kim wrote after the visit: "x"' }, rowF, whenF, '');
   ok('...an older flag says what it is ("Shift note", "Possible concern: ...")', /Shift note/.test(dv.innerText) && /Possible concern: Nora's Tue, Oct 6 visit/.test(dv.innerText) && !/wrote after/.test(dv.innerText), dv.innerText);
-  ok('nothing was texted or emailed', window.__log.fn.length===0 && window.__log.rpc.length===0);
+  /* record_event is the Hub's activity record (who did what), not a message */
+  ok('nothing was texted or emailed', window.__log.fn.length===0 && window.__log.rpc.filter(x=>x!=='record_event').length===0, JSON.stringify([window.__log.fn, window.__log.rpc]).slice(0,600));
   window.__me={ email:'krystal@mo-care.com', name:'Krystal Land' }; (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
   return R;
 }
