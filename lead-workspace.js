@@ -205,7 +205,7 @@
     const yesOk = !!(l.first_human_contact_at && !l.said_yes_at && !lost);
     const reply = r.reason === 'replied' ? (RR.timeline(l, ctx).find(x => x.kind === 'family') || null) : null;
     /* 2026-10-15: the Basics card first (lead-basics.js) */
-    let h = (window.LeadBasics ? LeadBasics.html(l) : '') + '<div class="card lw-card lw-top">'
+    let h = (window.CallLearned ? CallLearned.html(l) : '') + (window.LeadBasics ? LeadBasics.html(l) : '') + '<div class="card lw-card lw-top">'
       + '<div class="lw-top-row"><div style="flex:1 1 380px;min-width:0;">'
       + '<div class="lw-story"><b>' + esc(r.why || ('Inquiry' + (r.name ? ' for ' + r.name : ''))) + '</b>' + (r.last ? ' <span class="field-note">· ' + esc(r.last) + '</span>' : '') + '</div>'
       + (r.need ? '<div class="lw-need">' + esc(r.need) + '</div>' : '')

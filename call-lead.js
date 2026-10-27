@@ -160,7 +160,10 @@
   /** v2 "fill everything": a NEW lead gets every box the call gave; an EXISTING lead (Add from this call) gets the boxes
    *  still empty, the new ticks added to its grids, the call's notes added below its own, and any box where the call
    *  said something different is listed for a person to decide (never overwritten). */
-  function fillForm(d, leadId){
+  /* opts (Learned on this call, 2026-10-22): replace = boxes where a person picked "Use the new one" (the call's answer goes in,
+     yellow); learned = the call_learned row, marked added once the lead is saved. */
+  function fillForm(d, leadId, opts){
+    opts = opts || {};
     openLeadModal(leadId || undefined);   /* the regular form (clears any earlier marks first) */
     const p = d.prefill || {}, heard = new Set(d.heard || []), differs = [];
     Object.keys(p).forEach(k => {
@@ -170,7 +173,7 @@
       const now = boxNow(f), v = p[k];
       if(k === 'interest_notes'){ const el = document.getElementById(f[1]); el.value = [dropOldAi(now), 'From ' + ((d.calls || []).length > 1 ? 'the calls up to ' : 'the ') + (callWhen(d.call && d.call.at) || '') + ' call: ' + v].filter(Boolean).join('\n\n'); return; }
       if(f[2] === 'checks'){ const add = (v || []).filter(x => (now || []).indexOf(x) < 0); if(!add.length){ heard.delete(k); return; } leadFieldFill(f, { [k]: (now || []).concat(add) }); return; }
-      if(blank(now)){ leadFieldFill(f, p); return; }
+      if(blank(now) || (opts.replace && opts.replace.has(k))){ leadFieldFill(f, p); return; }
       heard.delete(k);
       if(String(now).trim().toLowerCase() !== String(v).trim().toLowerCase() && f[2] !== 'check') differs.push([k, now, v]);
     });
@@ -205,7 +208,7 @@
       + '</div>';
     if(sub) sub.insertAdjacentHTML('afterend', banner);
     CL.pending = { message_id: d.call.message_id, at: d.call.at || '', contact_id: (d.contact && d.contact.id) || '', care_plan: (nPlan || nTasks) ? cp : null, lead_id: leadId || '',
-      calls: (d.calls && d.calls.length ? d.calls : [d.call]).filter(Boolean), profile: (nFacts || nAttr || nPeople) ? pf : null, talked: d.transcript === true };
+      calls: (d.calls && d.calls.length ? d.calls : [d.call]).filter(Boolean), profile: (nFacts || nAttr || nPeople) ? pf : null, talked: d.transcript === true, learned: opts.learned || '', replace_facts: opts.replaceFacts || [] };
   }
   /* touching a yellow box means a person checked it */
   document.addEventListener('input', e => {
@@ -265,6 +268,7 @@
     if(p.profile){
       const pr = Object.assign({ facts: {}, people: [], filed: {} }, lead.call_profile || {});
       pr.facts = Object.assign({}, p.profile.facts || {}, pr.facts);          /* what is already there stays */
+      (p.replace_facts || []).forEach(k => { if(p.profile.facts && k in p.profile.facts) pr.facts[k] = p.profile.facts[k]; });   /* ...unless a person picked "Use the new one" */
       const names = new Set((pr.people || []).map(x => String(x.name).toLowerCase()));
       pr.people = (pr.people || []).concat((p.profile.people || []).filter(x => x && x.name && !names.has(String(x.name).toLowerCase())));
       pr.updated_at = new Date().toISOString(); pr.said_by = [lead.first_name, lead.last_name].filter(x => x && !PLACEHOLDER.test(x)).join(' ') || '';
@@ -285,6 +289,12 @@
   /** after the save: tag the GoHighLevel contact "lead"; a failure is shown, never quiet. */
   async function afterSave(lead, p){
     if(!p) return;
+    if(p.learned){   /* Learned on this call: the box is done; the family is already a lead, so nothing is tagged */
+      try{ const r = await sb.rpc('call_learned_decide', { p_message_id: p.learned, p_decided: 'added' }); if(r && r.error) throw r.error; }
+      catch(e){ say('Saved, but the call\'s box could not be marked done: ' + (e && e.message || e)); }
+      if(window.CallLearned) CallLearned.refresh(lead.id);
+      return;
+    }
     /* the old AI's recap drafts for this family: marked dropped (kept in the drafts archive), so "Draft ready" goes away */
     try{
       for(const f of ((typeof DATA !== 'undefined' && DATA.post_call_followups) || [])){
@@ -639,5 +649,5 @@
     finally{ if(a) a.textContent = was; }
   }
 
-  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, fillLearned: fillForm, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
 })();
