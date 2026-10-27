@@ -30,7 +30,8 @@
   function normalCode(raw) { const c = s(raw).toUpperCase(); return /^[A-Z0-9-]{3,20}$/.test(c) ? c : ''; }
   const codeOf = o => normalCode(o && o.partner_code);
   function statusOf(o) { if (!codeOf(o)) return null; const v = s(o.program_status).toLowerCase(); return STATUS[v] ? v : 'active'; }
-  const inProgram = o => !!o && !o.archived && !!codeOf(o) && !(o.program_track === 'ambassador' && o.program_status !== 'active' && o.program_status !== 'paused');
+  /* Friends & Family people (program_track 'friends', 2026-10-27) have their own tab, not the professional Program view */
+  const inProgram = o => !!o && !o.archived && !!codeOf(o) && o.program_track !== 'friends' && !(o.program_track === 'ambassador' && o.program_status !== 'active' && o.program_status !== 'paused');
 
   /** a new code: the first word of the name (up to 6 letters) and two characters nobody can misread, never one in use */
   function newCode(name, orgs, rand) {

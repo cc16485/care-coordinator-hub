@@ -58,7 +58,7 @@ T = r"""async()=>{
   ok('Feedback still shows its tools (unchanged)', document.getElementById('tab-feedback').innerText.trim().length>100, document.getElementById('tab-feedback').innerText.slice(0,200));
   switchTab('friendsfamily'); await sleep(200);
   const ff=document.getElementById('tab-friendsfamily').innerText;
-  ok('Friends & Family: a separate area that says nothing is turned on yet (no invitations, no rewards)', /Friends & Family/.test(ff) && /Nothing here is turned on yet/.test(ff) && /Off until legal approval/.test(ff), ff);
+  ok('Friends & Family: a Care Coordinator sees "Owners run this program" (step 4, owners only)', /Friends & Family/.test(ff) && /Owners run this program/.test(ff), ff);
   ok('...no names, no amounts, no buttons that do anything', !/Barb|Linda|\$\d/.test(ff) && !document.querySelectorAll('#tab-friendsfamily button').length, ff);
   /* old links */
   for(const [h,t] of [['referrers','referrers'],['campaigns','campaigns'],['marketing','campaigns'],['feedback','feedback'],['referrals-marketing','section'],['friends-family','friendsfamily']]){

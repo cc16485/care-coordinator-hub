@@ -5215,16 +5215,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <h2 style="margin:2px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Friends &amp; Family</h2>
     <div class="field-note" style="font-size:14px;margin-top:3px;">Referrals from our caregivers, private-pay clients and their families. A separate program from professional Referral Partners.</div>
   </div>
-  <div class="card" id="ffSoon" style="padding:16px 18px;">
-    <b style="font-size:15px;color:var(--navy);">Being built</b>
-    <p class="field-note" style="font-size:13.5px;margin:6px 0 10px;">Nothing here is turned on yet. No invitations are sent, and no rewards are offered or paid.</p>
-    <div class="ff-grid">
-      <div class="ff-tile"><b>Invitations</b><span>Automatic, 30 days after a caregiver or a private-pay client starts. Off for a two-week preview first.</span></div>
-      <div class="ff-tile"><b>Links and QR codes</b><span>Each person gets their own, made for them. No sign-up.</span></div>
-      <div class="ff-tile"><b>Referrals</b><span>Who referred each new family, and whether they started care.</span></div>
-      <div class="ff-tile"><b>Rewards</b><span>Off until legal approval.</span></div>
-    </div>
-  </div>
+  <!-- Step 4 (2026-10-27, her approval): owners only; ff-tab.js draws it from the ff-invite-check server function -->
+  <div id="ffMount"><div class="field-note">Loading…</div></div>
 </section>
 
 <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
@@ -7546,7 +7538,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script>
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=2"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=3"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
@@ -8926,6 +8918,8 @@ function renderActiveTab(){
   if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
     if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
+  if(activeTab==='friendsfamily'){ const go=()=>{ try{ window.FFT&&FFT.mount(); }catch(e){ console.warn('friends and family', e); } };
+    if(window.FFT) go(); else { const sc=document.createElement('script'); sc.src='ff-tab.js?v=1'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
