@@ -28,7 +28,13 @@ FAKE = r"""
       { kind:'client', key:'cl_113', name:'Lu Lark', client:'Lu Lark', status:'held', why:['No family email on file'], channels:[] }] };
   const invites=[{ person_key:'fam_1', kind:'family', name:'Dana Ridge', client_name:'Rose Ridge', code:'DANA-K7', status:'sent', channels:[{ channel:'email', ok:true }], last_sent_at:'2026-11-19T15:22:00Z', sends:1 },
     { person_key:'cg_3', kind:'caregiver', name:'Cal Cole', code:'CAL-M4', status:'partial', channels:[{ channel:'text', ok:true }, { channel:'email', ok:false, why:'GoHighLevel did not take it' }], last_sent_at:'2026-11-19T15:23:00Z', sends:1 }];
-  W.__ff={ ok:true, run, invites, switches:{ live:false, paused:false, log:[] }, cap:60 };
+  const rewards=[
+    { lead_id:'R1', client_name:'Nora New', status:'ready', amount:100, referrer:'Dana Ridge', referrer_kind:'family', referrer_client:'Rose Ridge', first_visit:'2026-10-20', hours:24, payment_checked_at:'2026-11-20T16:00:00Z', payment_checked_by:'Samantha Owner', reasons:[], words:'Ready for approval' },
+    { lead_id:'R2', client_name:'Opal Able', status:'under_review', amount:100, referrer:'Ann Able', referrer_kind:'caregiver', first_visit:'2026-10-21', hours:25, payment_checked_at:'2026-11-20T16:00:00Z', reasons:['the caregiver shares a last name with the client or the caller (maybe their own relative)'], words:'Under review: the caregiver shares a last name with the client or the caller (maybe their own relative)' },
+    { lead_id:'R3', client_name:'Few Hours', status:'on_the_way', amount:100, referrer:'Ann Able', referrer_kind:'caregiver', first_visit:'2026-10-25', hours:12, reasons:['the new client pays with long-term care insurance (reviewed separately)'], words:'12 of 20 hours · payment not checked yet' },
+    { lead_id:'R4', client_name:'Carl Credit', status:'approved', amount:100, referrer:'Dana Ridge', referrer_kind:'family', referrer_client:'Rose Ridge', first_visit:'2026-10-01', hours:30, payment_checked_at:'2026-11-01T16:00:00Z', words:'Approved' },
+    { lead_id:'R5', client_name:'Pam Paid', status:'paid', amount:100, referrer:'Ann Able', referrer_kind:'caregiver', first_visit:'2026-09-20', hours:40, words:'Paid on the 2026-11-13 payroll' }];
+  W.__ff={ ok:true, run, invites, rewards, amount:100, min_hours:20, switches:{ live:false, paused:false, log:[] }, cap:60 };
   sb.functions={ invoke: async (name, o)=>{ W.__calls.push([name, JSON.parse(JSON.stringify(o.body||{}))]);
     const b=o.body||{};
     if(name!=='ff-invite-check') return { data:null, error:{ message:'unexpected '+name } };
@@ -82,7 +88,28 @@ T = r"""async()=>{
   ok('Payer needed: Hal Hart once (two family members, one client), with what to do', (pay.match(/Hal Hart/g)||[]).length===1 && /Set how they pay on their inquiry/.test(pay), pay.slice(0,300));
   const refs=document.getElementById('ffRefs').innerText;
   ok("Referrals received: Pat Neighbor, referred by Dana Ridge (family of Rose Ridge); a professional partner's referral is not here", /Pat Neighbor[\s\S]*Referred by Dana Ridge \(family of Rose Ridge\)/.test(refs) && !/Mo Mercy/.test(refs), refs);
-  ok('no dollar amounts anywhere on the tab', !/\$\d/.test(txt()));
+  ok('dollar amounts appear only in the owners\' rewards section', !/\$\d/.test(txt().replace(document.getElementById('ffRewards').innerText, '')) && /\$100/.test(document.getElementById('ffRewards').innerText));
+  const rw=id=>tab().querySelector('.ff-row[data-rw="'+id+'"]'), rt=id=>rw(id).innerText;
+  ok('Rewards: Nora, Ready, referred by Dana (family of Rose Ridge), credit on Rose Ridge\'s invoice, payment ticked by Samantha, an Approve button', /Nora New[\s\S]*Ready for approval/.test(rt('R1')) && /credit on Rose Ridge's invoice/.test(rt('R1')) && /Payment received for these hours \(Samantha Owner\)/.test(rt('R1')) && rw('R1').querySelector('input').checked && [...rw('R1').querySelectorAll('button')].some(b=>b.textContent==='Approve'), rt('R1'));
+  ok('...Opal: Under review with the reason, bonus through Viventium, "Approve anyway"', /Under review/.test(rt('R2')) && /maybe their own relative/.test(rt('R2')) && /bonus through Viventium/.test(rt('R2')) && /Approve anyway/.test(rt('R2')), rt('R2'));
+  ok('...Few Hours: 12 of 20, payment not ticked, and what to review once earned', /12 of 20 hours/.test(rt('R3')) && !rw('R3').querySelector('input').checked && /To review once earned: the new client pays with long-term care insurance/.test(rt('R3')), rt('R3'));
+  ok('...Carl approved: "Mark credit applied" and Reopen; Pam paid: no buttons', /Mark credit applied/.test(rt('R4')) && /Reopen/.test(rt('R4')) && !rw('R5').querySelectorAll('button').length && /Paid on the 2026-11-13 payroll/.test(rt('R5')));
+  window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
+  window.__calls=[]; const cb=rw('R3').querySelector('input'); cb.checked=true; cb.dispatchEvent(new Event('change')); await sleep(250);
+  ok('ticking "payment received" goes to the server', window.__calls.some(c=>c[1].action==='reward' && c[1].lead_id==='R3' && c[1].op==='payment' && c[1].on===true), window.__calls);
+  window.__calls=[]; [...rw('R1').querySelectorAll('button')].find(b=>b.textContent==='Approve').click(); await sleep(250);
+  ok('Approve asks first, then approves on the server', window.__calls.some(c=>c[1].action==='reward' && c[1].lead_id==='R1' && c[1].op==='approve' && !c[1].why), window.__calls);
+  window.__calls=[]; window.__prompt='  '; FFT.reward('R2','approve','why'); await sleep(200);
+  ok('Approve anyway without a reason is not sent', !window.__calls.some(c=>c[1].action==='reward'), window.__calls);
+  window.__calls=[]; window.__prompt='Not related, checked with Ann'; FFT.reward('R2','approve','why'); await sleep(250);
+  ok('...with a reason it is sent with the reason', window.__calls.some(c=>c[1].op==='approve' && c[1].why==='Not related, checked with Ann'), window.__calls);
+  window.__calls=[]; window.__prompt='2026-11-21'; [...rw('R4').querySelectorAll('button')].find(b=>/Mark credit applied/.test(b.textContent)).click(); await sleep(250);
+  ok('Mark credit applied asks for the date it went on the invoice, then saves it', window.__calls.some(c=>c[1].op==='done' && c[1].lead_id==='R4' && c[1].date==='2026-11-21'), window.__calls);
+  window.__calls=[]; window.__prompt='next week'; FFT.reward('R4','done',true); await sleep(200);
+  ok('...a date that isn\'t a date is not sent', !window.__calls.some(c=>c[1].op==='done'), window.__calls);
+  window.__calls=[]; window.__prompt='A returning client'; FFT.reward('R3','not_earned'); await sleep(250);
+  ok('Not earned asks why and sends it', window.__calls.some(c=>c[1].op==='not_earned' && c[1].why==='A returning client'), window.__calls);
+  window.__prompt='She asked us not to';
   window.__calls=[]; const live=document.getElementById('ffLive'); live.checked=true; live.dispatchEvent(new Event('change')); await sleep(400);
   ok('turning Invitations on asks first, then flips it on the server and shows who did it', window.__calls.some(c=>c[1].action==='switch' && c[1].name==='ff_invites_live' && c[1].on===true) && /Invitations ON/.test(txt()) && /by Samantha Owner/.test(txt()), [window.__calls, txt().slice(0,300)]);
   window.ccConfirm=async()=>false; (0,eval)('ccConfirm=window.ccConfirm'); window.__calls=[];

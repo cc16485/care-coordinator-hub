@@ -9,6 +9,9 @@
      · who was invited, when, by text or email, whether it went through; Resend
      · Payer needed: clients held only because the Hub doesn't know how they pay
      · referrals received: new inquiries that came in through someone's personal link (from the Hub's own inquiries)
+     · the $100 (step 5, 2026-10-27, "live as I decided"): each referred client with a first visit, hours of 20 from AxisCare,
+       the "payment received" tick, Ready / Under review with the reasons; Approve, Not earned, then Credit applied (family,
+       the date it went on the invoice in AxisCare) or Paid (caregiver, the Viventium payroll date). Nothing pays by itself.
    A Care Coordinator sees "Owners run this program" and nothing else: no names, no rewards (her rule).
    ===================================================================================================================== */
 (function(){
@@ -30,6 +33,7 @@
       + '.ff-row button{padding:5px 11px;font-size:12px}.ff-banner{background:#FDF3E3;color:#7A4A0B;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13px}'
       + '.ff-filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.ff-filters button{padding:4px 11px;font-size:12.5px;border-radius:999px}'
       + '.ff-filters button[aria-pressed="true"]{background:var(--teal,#1F7A8C);color:#fff;border-color:transparent}'
+      + '.ff-pay{display:flex !important;gap:7px;align-items:center;justify-content:flex-start;margin-top:5px;color:var(--text);font-weight:600;width:auto}.ff-pay input{width:auto !important;margin:0;flex:0 0 auto}.ff-sw input{width:auto !important;margin:0}'
       + '@media (max-width:760px){.ff-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}';
     document.head.appendChild(s); };
   async function call(body){
@@ -101,6 +105,29 @@
         + '<div class="ff-sub" style="color:var(--text)">' + esc(ch) + '</div></div><button class="secondary" onclick="FFT.resend(\'' + esc(x.person_key) + '\')">Resend</button></div>';
     }).join('') : '<div class="ff-sub" style="padding:8px 0;">Nobody yet.' + (sw.live ? '' : ' Invitations are off.') + '</div>') + '</div>';
 
+    /* the $100 lines */
+    const rw = Array.isArray(d.rewards) ? d.rewards : [];
+    const RT = { on_the_way:'waiting', ready:'ready', under_review:'bad', approved:'ready', not_earned:'held', applied:'ready', paid:'ready' };
+    const RW = { on_the_way:'On the way', ready:'Ready for approval', under_review:'Under review', approved:'Approved', not_earned:'Not earned', applied:'Credit applied', paid:'Paid' };
+    const open = rw.filter(x => ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)).length;
+    h += '<div id="ffRewards"><div class="ff-k">The $' + esc(d.amount || 100) + ' rewards</div>'
+      + '<div class="ff-sub">Earned when the referred client has ' + esc(d.min_hours || 20) + ' completed hours (from AxisCare) and you tick that payment for those hours was received. You approve each one.' + (open ? ' ' + open + ' open.' : '') + '</div>'
+      + (rw.length ? rw.map(x => {
+        const fam = x.referrer_kind !== 'caregiver', lid = esc(x.lead_id);
+        const pay = ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)
+          ? '<label class="ff-sub ff-pay"><input type="checkbox"' + (x.payment_checked_at ? ' checked' : '') + (x.status === 'approved' ? ' disabled' : '') + ' onchange="FFT.reward(\'' + lid + '\', \'payment\', this.checked)"> Payment received for these hours' + (x.payment_checked_by ? ' (' + esc(x.payment_checked_by) + ')' : '') + '</label>' : '';
+        const btns = (x.status === 'ready' ? '<button onclick="FFT.reward(\'' + lid + '\', \'approve\')">Approve</button>' : '')
+          + (x.status === 'under_review' ? '<button class="secondary" onclick="FFT.reward(\'' + lid + '\', \'approve\', \'why\')">Approve anyway</button>' : '')
+          + (['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status) && x.status !== 'approved' ? '<button class="secondary" onclick="FFT.reward(\'' + lid + '\', \'not_earned\')">Not earned</button>' : '')
+          + (x.status === 'approved' ? '<button onclick="FFT.reward(\'' + lid + '\', \'done\', ' + (fam ? 'true' : 'false') + ')">' + (fam ? 'Mark credit applied' : 'Mark paid') + '</button>' : '')
+          + (['approved', 'not_earned'].includes(x.status) ? '<button class="secondary" onclick="FFT.reward(\'' + lid + '\', \'reopen\')">Reopen</button>' : '');
+        return '<div class="ff-row" data-rw="' + lid + '"><div class="who"><b>' + esc(x.client_name) + '</b> <span class="ff-chip ff-' + (RT[x.status] || 'held') + '">' + esc(RW[x.status] || x.status) + '</span> <span class="ff-sub">$' + esc(x.amount || 100) + '</span>'
+          + '<div class="ff-sub">Referred by ' + esc(x.referrer) + (fam ? (x.referrer_client ? ' (family of ' + esc(x.referrer_client) + '): credit on ' + esc(x.referrer_client) + '\'s invoice' : ' (family): credit on their invoice') : ' (caregiver): bonus through Viventium') + ' · first visit ' + esc(day(x.first_visit)) + '</div>'
+          + '<div class="ff-sub" style="color:var(--text)">' + esc(x.words || '') + (x.decision_why ? ' · ' + esc(x.decision_why) : '') + '</div>'
+          + ((x.status === 'on_the_way' && (x.reasons || []).length) ? '<div class="ff-sub" style="color:#B23B2E">To review once earned: ' + esc(x.reasons.join('; ')) + '</div>' : '')
+          + pay + '</div>' + btns + '</div>';
+      }).join('') : '<div class="ff-sub" style="padding:8px 0;">None yet. A line starts when someone who came through a Friends &amp; Family link has their first visit.</div>') + '</div>';
+
     /* payer needed (one line per client) */
     const pn = new Map();
     for(const p of people) if((p.why || []).some(w => /^Payer needed/.test(w))){ const k = p.client_ax || p.client || p.name; if(!pn.has(k)) pn.set(k, { client:p.client || p.name, why:(p.why || []).find(w => /^Payer needed/.test(w)) }); }
@@ -135,7 +162,24 @@
     if(!yes) return;
     say('Sending…'); const r = await call({ action:'resend', key }); say(r.error ? r.error : 'Sent again.'); load();
   }
+  const todayC = () => new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0, 10);
+  async function reward(lid, op, arg){
+    const body = { action:'reward', lead_id:lid, op };
+    if(op === 'payment') body.on = arg === true;
+    if(op === 'not_earned' || op === 'reopen' || (op === 'approve' && arg === 'why')){
+      const w = window.prompt(op === 'not_earned' ? 'Why is it not earned?' : op === 'reopen' ? 'Why reopen it?' : 'Why approve it despite the review?', '');
+      if(w == null) { draw(); return; } if(!w.trim()){ say('Say why, so the record shows it.'); draw(); return; } body.why = w.trim();
+    }
+    if(op === 'approve' && arg !== 'why'){ let yes = false; const q = 'Approve this $100?'; try{ yes = await ccConfirm(q); }catch(e){ yes = window.confirm(q); } if(!yes) return; }
+    if(op === 'done'){
+      const dt = window.prompt(arg ? 'The date the $100 credit went on the invoice in AxisCare (YYYY-MM-DD):' : 'The Viventium payroll date the $100 bonus is on (YYYY-MM-DD):', todayC());
+      if(dt == null) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(dt.trim())){ say('Use the form 2026-11-21.'); return; } body.date = dt.trim();
+    }
+    const r = await call(body);
+    if(r.error) say(r.error); else say({ payment: body.on ? 'Payment received, noted.' : 'Payment tick removed.', approve:'Approved.', not_earned:'Marked not earned.', done: arg ? 'Credit applied, noted.' : 'Paid, noted.', reopen:'Reopened.' }[op] || 'Saved.');
+    load();
+  }
   function mount(){ draw(); if(owner()) load(); }   /* a Care Coordinator's page never asks the server */
-  window.FFT = { mount, load, draw, flip, skip, unskip, resend, referrals,
+  window.FFT = { mount, load, draw, flip, skip, unskip, resend, referrals, reward,
     show(k){ ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();
