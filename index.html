@@ -1150,9 +1150,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
     <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
-    <div class="ftab" data-g="partners" onclick="ccGroupClick('partners')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referral Partners</div><!-- 2026-10-26 (her call): its own page, so the GHL "Referral Partners" link shows only the partners -->
+    <div class="ftab" data-g="partners" onclick="ccGroupClick('partners')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrals &amp; Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div><!-- 2026-10-26 (her layout): one section, four tabs; the old Marketing item (Campaigns, Feedback) lives here now. Old #referrers, #campaigns and #marketing links still land here -->
     <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
-    <div class="ftab" data-g="campaigns" onclick="ccGroupClick('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sprout"/></svg> Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Services</span>
     <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
@@ -1277,12 +1276,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-partners">
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referral Partners</div>
-  </div>
-  <!-- 2026-10-26 (her call): LTC Policy, Community (Caregivers Corner), Story Game, 20-Hour Offer and 417 Series retired from the menu; their saved records are untouched -->
-  <div class="fsubbar" id="fsub-campaigns">
+    <div class="fpill" data-tab="friendsfamily" onclick="switchTab('friendsfamily')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Friends &amp; Family</div>
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
   </div>
+  <!-- 2026-10-26 (her call): LTC Policy, Community (Caregivers Corner), Story Game, 20-Hour Offer and 417 Series retired from the menu; their saved records are untouched -->
 
   <div class="fsubbar" id="fsub-sops">
     <!-- 2026-10-17 (her call): SOPs holds only things you read to check how we do something. Later the same day (her
@@ -5179,9 +5177,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="flex:1;"></span>
     <button class="primary" onclick="openOrgModal()">＋ Add organization</button>
   </div>
-  <div id="plProgram"></div><!-- Referral Partner Program (partner-links.js, 2026-10-26): owners only, empty for everyone else -->
-  <div id="refDesk"></div><!-- the Referral Partner Desk (referral-desk.js, Step 2, 2026-10-08): this week, needs an owner, link referrals -->
   <div class="kpi-grid" id="refKpis" style="grid-template-columns:repeat(4,1fr);"></div>
+  <!-- the directory (partner-directory.js, 2026-10-26 her layout): every professional partner, searchable, one row each -->
+  <div class="pdir-head"><b style="font-size:15.5px;font-weight:800;color:var(--navy);">Directory</b></div>
+  <div id="referrersWrap"></div>
+  <div id="refDesk"></div><!-- the Referral Partner Desk (referral-desk.js, Step 2, 2026-10-08): this week, needs an owner, link referrals -->
 
   <!-- Field expectation scoreboard: the community-marketing blocks are an
        EXPECTATION, not an aspiration (Samantha, 2026-08-01: "we get busy and
@@ -5203,12 +5203,28 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </div>
     <div id="refDueList"></div>
   </div>
-  <div class="toolbar">
-    <b style="font-size:15.5px;font-weight:800;color:var(--navy);">All organizations</b>
-    <input id="refSearch" placeholder="🔍 Search organizations & people…" style="max-width:280px;" oninput="renderReferrers()">
-    <span class="spacer"></span>
+  <div id="plProgram"></div><!-- Referral Partner Program (partner-links.js, 2026-10-26): owners only, empty for everyone else -->
+</section>
+
+<!-- ===================== TAB: FRIENDS & FAMILY (2026-10-26, her layout) =====================
+     Referrals from our caregivers, private-pay clients and their families. Layout only for now: nothing here sends,
+     invites or pays anyone. Its people never join the professional directory or anyone's outreach list. -->
+<section class="tabpanel" id="tab-friendsfamily">
+  <div style="margin-bottom:14px;">
+    <div style="font-size:12.5px;font-weight:700;color:#2F6FB0;text-transform:uppercase;letter-spacing:.04em;">Referrals &amp; Marketing</div>
+    <h2 style="margin:2px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Friends &amp; Family</h2>
+    <div class="field-note" style="font-size:14px;margin-top:3px;">Referrals from our caregivers, private-pay clients and their families. A separate program from professional Referral Partners.</div>
   </div>
-  <div id="referrersWrap"></div>
+  <div class="card" id="ffSoon" style="padding:16px 18px;">
+    <b style="font-size:15px;color:var(--navy);">Being built</b>
+    <p class="field-note" style="font-size:13.5px;margin:6px 0 10px;">Nothing here is turned on yet. No invitations are sent, and no rewards are offered or paid.</p>
+    <div class="ff-grid">
+      <div class="ff-tile"><b>Invitations</b><span>Automatic, 30 days after a caregiver or a private-pay client starts. Off for a two-week preview first.</span></div>
+      <div class="ff-tile"><b>Links and QR codes</b><span>Each person gets their own, made for them. No sign-up.</span></div>
+      <div class="ff-tile"><b>Referrals</b><span>Who referred each new family, and whether they started care.</span></div>
+      <div class="ff-tile"><b>Rewards</b><span>Off until legal approval.</span></div>
+    </div>
+  </div>
 </section>
 
 <!-- ===================== TAB: CARE ASSESSMENTS ===================== -->
@@ -7528,10 +7544,10 @@ The HomeTogether team</pre>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script>
-<script src="partner-rules.js?v=3"></script>
-<script src="referral-desk.js?v=6"></script>
-<script src="partner-links-rules.js?v=2"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
-<script src="partner-emails.js?v=2"></script>
+<script src="partner-rules.js?v=4"></script>
+<script src="referral-desk.js?v=8"></script>
+<script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=2"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-emails.js?v=3"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=1"></script>
 <script src="writeup-rules.js?v=4"></script>
@@ -8233,7 +8249,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers'],campaigns:['campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8654,7 +8670,7 @@ const CC_SECTION_TITLES = {
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', bookingapp:'Booking App', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
-  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback',
+  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
 };
 /* ---------- Approved hourly pay rates ----------
@@ -11845,8 +11861,10 @@ async function saveOrg(){
 /* Community Ambassadors (2026-10-26, her rule): owners handle them on Referral Partners > Program. They never appear in
    the desk's lists, Today counts or anyone's work; an APPROVED (active) ambassador can be picked as "Referred by". */
 function ccIsAmbassador(o){ return !!o && o.program_track==='ambassador'; }
-function ccDeskOrgs(){ return (DATA.referral_orgs||[]).filter(o=>!ccIsAmbassador(o)); }
-function ccPickOrgs(){ return (DATA.referral_orgs||[]).filter(o=>!ccIsAmbassador(o)||o.program_status==='active'); }
+/* professional partners only: any program_track is another program (Community Ambassadors; later Friends & Family people),
+   kept off every coordinator list (her layout, 2026-10-26). An approved ambassador can still be picked as a lead's referrer. */
+function ccDeskOrgs(){ return (DATA.referral_orgs||[]).filter(o=>o&&!o.program_track); }
+function ccPickOrgs(){ return (DATA.referral_orgs||[]).filter(o=>o&&(!o.program_track||(ccIsAmbassador(o)&&o.program_status==='active'))); }
 function orgLastTouch(orgId){
   const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===orgId);
   return acts.length?acts.map(a=>a.at).sort().pop():null;
@@ -11887,38 +11905,9 @@ function renderReferrers(){
   try{ if(typeof pdRender==='function') pdRender(); }catch(e){ console.warn('partner desk', e); }
   try{ if(window.PartnerLinks) PartnerLinks.render(); }catch(e){ console.warn('partner program', e); }
   renderRefDashboard();
-  const q=(document.getElementById('refSearch').value||'').toLowerCase();
-  const orgs=ccDeskOrgs().filter(o=>!q||(o.name+' '+(o.people||'')).toLowerCase().includes(q));
-  const wrap=document.getElementById('referrersWrap');
-  if(!orgs.length){ wrap.innerHTML='<div class="card"><div class="empty">No referral organizations yet. Add the hospitals, rehabs and offices that send (or should send) you clients.</div></div>'; return; }
-  const t30=new Date(Date.now()-30*86400000).toISOString();
-  wrap.innerHTML=orgs.map(o=>{
-    const last=orgLastTouch(o.id);
-    const quiet=!last||last<t30;
-    const refs=orgReferralCount(o);
-    const acts=(DATA.referral_activities||[]).filter(a=>a.org_id===o.id).sort((a,b)=>b.at<a.at?-1:1);
-    return '<div class="card" style="padding:14px 16px;margin-bottom:10px;">'
-      +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
-      +'<b style="font-size:14.5px;color:var(--navy);cursor:pointer;text-decoration:underline;text-decoration-color:#CBD5E1;'
-        +'text-underline-offset:3px;" onclick="openRefProfile(\''+esc(o.id)+'\')">'+esc(o.name)+'</b>'
-      +'<span class="tag-chip">'+esc(o.type||'')+'</span>'
-      +(refs?'<span class="badge ok">'+refs+' referral'+(refs===1?'':'s')+'</span>':'')
-      +(quiet?'<span class="badge bad">😴 gone quiet'+(last?', last touch '+String(last).slice(0,10):', never touched')+'</span>':'<span class="badge muted">last touch '+String(last).slice(0,10)+'</span>')
-      +'<span style="flex:1;"></span>'
-      +'<button class="linklike" onclick="openActivityModal(null,\''+o.id+'\')">📅 Schedule</button>'
-      +'<button class="linklike" onclick="openOrgModal(\''+o.id+'\')">Edit</button>'
-      +'</div>'
-      +(o.people?'<div class="field-note" style="margin-top:4px;">👥 '+esc(o.people)+'</div>':'')
-      +'<details style="margin-top:8px;"><summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--navy);">Activity log ('+acts.length+') &amp; log a touch</summary>'
-      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">'
-      +'<select id="ra_kind_'+o.id+'" style="width:auto;font-size:13px;"><option value="dropby">🏢 Drop-by</option><option value="call">☎ Call</option><option value="email">✉️ Email</option><option value="appointment">🤝 Appointment</option><option value="event">🎪 Event</option></select>'
-      +'<input id="ra_note_'+o.id+'" placeholder="Who you saw / what happened…" style="flex:1;min-width:180px;font-size:13px;">'
-      +'<button class="primary" onclick="logOrgActivity(\''+o.id+'\')">Log it</button>'
-      +'</div>'
-      +(acts.length?acts.slice(0,12).map(a=>'<div style="font-size:12.5px;padding:4px 0;color:var(--text);border-bottom:1px dashed var(--border);">'
-        +(ACT_ICON[a.kind]||'🤝')+' '+String(a.at).slice(0,10)+': '+esc(a.note||a.kind)+(a.by?' <span style="color:var(--text-muted);">('+esc(a.by)+')</span>':'')+'</div>').join(''):'<div class="field-note">No touches logged yet.</div>')
-      +'</details></div>';
-  }).join('');
+  /* the old card list (search, touch log inside each card) became the directory, 2026-10-26: same records, one row per
+     partner; Log a touch, Schedule and Edit open the same tools, and the touch history is on the profile */
+  try{ if(window.PartnerDirectory) PartnerDirectory.render(); }catch(e){ console.warn('partner directory', e); }
 }
 /* This week's face-to-face field touches (Mon-start week), counted per
    coordinator by the email that logged them. Standing target: 2 each.
@@ -44699,7 +44688,7 @@ function ccOpenRef(sub){
      sections in their own right. */
   var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
-                        growth:'campaigns', marketing:'campaigns',
+                        growth:'campaigns', marketing:'campaigns', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
                         /* 'leads' stopped being an alias 2026-09-19: it is a
                            real top-level group now, found without help. */
                         'leads-marketing':'campaigns',
