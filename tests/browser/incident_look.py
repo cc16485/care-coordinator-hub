@@ -102,12 +102,20 @@ with sync_playwright() as pw:
       window.CP = { ax:'501', r:{ client_name:'Test Client' } };
       window.ccToast = (m) => { window.TOAST = m }; window.ccConfirm = async () => true; window.persist = async (k, it) => { window.SAVED.push(it) }; window.opsLog = () => {};
       window.sb = { functions:{ invoke: async (fn, { body }) => { window.API.push(body);
+        const INV = () => ({ inv_asked_at: window.ASKED ? '2026-10-27T18:00:00Z' : null, inv_asked_by_name: 'Krystal Test', inv_ask: window.ASKED ? { why: window.ASKED.why, note: window.ASKED.note } : null,
+          inv_at: window.FOUND ? '2026-10-27T19:00:00Z' : null, inv_by_name: 'Zach Test', inv_findings: window.FOUND ? { outcome: window.FOUND.outcome, findings: window.FOUND.findings } : null });
+        if (body.action === 'investigate') { window.ASKED = body; return { data:{ ok:true, summary:'x' } }; }
+        if (body.action === 'findings') { window.FOUND = body; return { data:{ ok:true, outcome:'A coaching conversation' } }; }
+        if (body.action === 'list' && body.hr) return { data:{ ok:true, live:true, hr:true, hotline:'1-800-392-0210', reports:[
+          Object.assign({ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', started_at:'2026-10-27T15:00:00Z', told_late:true }, INV()),
+          { id:'inj1', kind:'employee_injury', status:'submitted', caregiver:'Pat Doe', client_name:'', happened_on:'2026-10-20', started_at:'2026-10-20T15:00:00Z', reviewed_at:null },
+          { id:'inj2', kind:'employee_injury', status:'waiting', caregiver:'Tess Caregiver', client_name:'', happened_on:'2026-10-26', started_at:new Date().toISOString(), reviewed_at:null, practice:true }] } };
         if (body.action === 'list' && body.ids && body.ids[0] === 'inj1') return { data:{ ok:true, live:true, reports:[{ id:'inj1', kind:'employee_injury', status:'submitted', caregiver:'Tess Caregiver', client_name:'', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', comp_due:'Nov 1', reviewed_at:null, answers:{ body:'lower back' }, questions:[{ k:'body', label:'What part of your body was hurt?' }] }] } };
         if (body.action === 'start' || body.action === 'relink') return { data:{ ok:true, practice:false, report:{ id:'00000000-0000-4000-8000-000000000001', client_ax:'501', client_name:'Test Client', caregiver:body.caregiver || 'Tess Caregiver', happened_on:body.happened_on || '2026-10-26' }, link:'https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), draft:'Hi Tess, this is Caring Companions. We need your incident report: https://cc.mo-care.com/incident.html?t=' + 'Z'.repeat(43), phone_last4:'0100' } };
         if (body.action === 'send') return { data:{ ok:true, outcome:'sent' } };
-        if (body.action === 'list') return { data:{ ok:true, live:true, reports: body.client_ax ? [{ id:'00000000-0000-4000-8000-000000000001', status:'waiting', caregiver:'Tess Caregiver', happened_on:'2026-10-26', sent_at:'2026-10-27T15:00:00Z' }]
+        if (body.action === 'list') return { data:{ ok:true, live:true, hr:!!window.ISHR, reports: body.client_ax ? [{ id:'00000000-0000-4000-8000-000000000001', status:'waiting', caregiver:'Tess Caregiver', happened_on:'2026-10-26', sent_at:'2026-10-27T15:00:00Z' }]
           : body.caregiver ? [{ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', told_late:true, reviewed_at:null }]
-          : [{ id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_ax:'501', reviewed_at:window.REVIEWED ? '2026-10-27T17:00:00Z' : null, reviewed_by_name:'Krystal Test',
+          : [{ ...INV(), id:'00000000-0000-4000-8000-000000000001', status:'submitted', client_ax:'501', reviewed_at:window.REVIEWED ? '2026-10-27T17:00:00Z' : null, reviewed_by_name:'Krystal Test',
               review:window.REVIEWED ? { family:{ told:'yes', who:'Jan', when:'3pm' }, medical:{ what:'none' }, careplan:{ change:true, note:'Gait belt' }, ane:{ suspect:false } } : null, client_name:'Test Client', caregiver:'Tess Caregiver', happened_on:'2026-10-26', signed_name:'Tess Caregiver', submitted_at:'2026-10-27T16:00:00Z', told_late:true,
               answers:{ what:'She slid off the seat.', hurt:'Yes' }, questions:[{ k:'what', label:'What happened?' }, { k:'hurt', label:'Was Test hurt?' }] }] } };
         if (body.action === 'open') return { data:{ ok:true, url:'https://signed.test/x.pdf' } };
@@ -173,6 +181,37 @@ with sync_playwright() as pw:
     q.click('#irSave'); q.wait_for_timeout(400)
     iv = q.evaluate('window.IREVIEWED') or {}
     ok('...Save sends the checklist (medical, comp claim, light duty until, the fix)', iv.get('comp', {}).get('claim') == 'WC-1' and iv.get('work', {}).get('until') == 'Nov 3' and iv.get('safety', {}).get('fix') is True and iv.get('medical', {}).get('what') == 'doctor', iv)
+    # ── HR (2026-10-27): the office hands a report to Zach; Zach writes what he found; his Incidents page and dashboard ──
+    q.evaluate("() => INC.close()"); q.evaluate("() => INC.open('00000000-0000-4000-8000-000000000001')"); q.wait_for_timeout(400)
+    ok('a signed report has "Ask Zach to look into it" (the form stays closed until pressed)', q.is_visible('#invOpen') and not q.is_visible('#invSend'))
+    q.click('#invOpen'); q.wait_for_timeout(100)
+    q.click('#incBody input[name=invWhy][value=ane]'); q.wait_for_timeout(100)
+    ok('...possible abuse or neglect: the hotline comes first', q.is_visible('#invAne') and '1-800-392-0210' in q.inner_text('#invAne'))
+    q.click('#incBody input[name=invWhy][value=ane]'); q.click('#incBody input[name=invWhy][value=notes]')
+    q.fill('#invNote', 'Her report says Test was not hurt; her shift note says Test hit her hip.')
+    q.screenshot(path='tests/browser/incident_ask_zach.png')
+    q.click('#invSend'); q.wait_for_timeout(500)
+    ak = q.evaluate('window.ASKED') or {}
+    ok('Send it to Zach: why and what was noticed', ak.get('action') == 'investigate' and ak.get('why') == ['notes'] and 'hit her hip' in ak.get('note', ''), ak)
+    t = q.inner_text('#incBody')
+    ok("...a care coordinator then sees it's with Zach, with no findings form", 'Asked by Krystal Test' in t and "doesn't match the shift notes" in t and 'With Zach to look into' in t and not q.query_selector('#invSave'), t[-500:])
+    q.evaluate("() => { window.ISHR = true; INC.close(); INC.open('00000000-0000-4000-8000-000000000001') }"); q.wait_for_timeout(400)
+    ok('Zach opens it: What did you find, What happens next', q.is_visible('#invSave') and q.locator('#incBody input[name=invOut]').count() == 5)
+    q.fill('#invFind', 'Talked with Tess: she forgot to call and only wrote it in her note. The daughter checked the hip, it is fine.')
+    q.click('#incBody input[name=invOut][value=coaching]')
+    q.screenshot(path='tests/browser/incident_zach_findings.png')
+    q.click('#invSave'); q.wait_for_timeout(500)
+    fd = q.evaluate('window.FOUND') or {}
+    ok('...Save sends his findings and the outcome', fd.get('action') == 'findings' and fd.get('outcome') == 'coaching' and 'forgot to call' in fd.get('findings', ''), fd)
+    t = q.inner_text('#incBody')
+    ok('...then it shows Looked into by Zach, with no form', 'Looked into by Zach Test' in t and 'coaching' in t.lower() and not q.query_selector('#invSave'), t[-400:])
+    q.evaluate("() => { INC.close(); window.FOUND = null; document.body.insertAdjacentHTML('beforeend', '<div id=hrInc></div><div id=hrIncN></div><a id=hrlink></a>'); window.HR = { go: (v) => { window.WENT = v } }; INC.hrMount('hrInc'); INC.hrDash('hrIncN') }"); q.wait_for_timeout(500)
+    t = q.inner_text('#hrInc')
+    ok("Zach's Incidents page: to look into, work injuries with the workers' comp day (late in red), every client report", 'To look into' in t and 'Test Client' in t and "doesn't match the shift notes" in t
+      and 'Work injuries' in t and 'Pat Doe' in t and "workers' comp report was due" in t and q.query_selector('#hrInc .hr-late') and 'Every client incident report' in t, t)
+    d = q.inner_text('#hrIncN')
+    ok("Zach's dashboard: what to look into and the injury due day; practice left out", 'look into' in d and 'Pat Doe' in d and 'Tess Caregiver · work injury' not in d and 'Open Incidents' in d, d)
+    q.click('#hrIncN a:has-text("Open Incidents")'); ok('...Open Incidents goes to the page', q.evaluate('window.WENT') == 'incidents')
     ok('no page errors (office side)', not errs2, errs2)
     b.close()
 
