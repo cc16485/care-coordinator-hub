@@ -8919,7 +8919,7 @@ function renderActiveTab(){
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
     if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='friendsfamily'){ const go=()=>{ try{ window.FFT&&FFT.mount(); }catch(e){ console.warn('friends and family', e); } };
-    if(window.FFT) go(); else { const sc=document.createElement('script'); sc.src='ff-tab.js?v=2'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.FFT) go(); else { const sc=document.createElement('script'); sc.src='ff-tab.js?v=3'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='nursevisits') renderNurseVisits();
   if(activeTab==='nurseportal') nursePortalRender();
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
