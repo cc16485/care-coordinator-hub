@@ -91,7 +91,13 @@
     if(what === 'family'){ n3Open(id); await save(it, 'family', 'Opened Tell the family'); refresh(); return; }
     if(btn) btn.disabled = true;
     try{
-      if(what === 'incident'){
+      if(what === 'incident' && window.INC){
+        /* 2026-10-27 incident report (Stage 1): the caregiver fills in and signs a real report; the server makes the
+           Incidents owner's card. The flag records the step once the report is started. */
+        if(btn) btn.disabled = false;
+        window.INC.fromFlag(it, async () => { await save(it, 'incident', 'Started an incident report for ' + (it.caregiver || 'the caregiver')); refresh(); });
+        return;
+      } else if(what === 'incident'){
         const owner = domainOwner('incidents') || String(it.owner || me().email).toLowerCase();
         const w = await newWork(it, { kind:'client_issue', domain:'incidents', title:'Incident: ' + (it.about || who) + ', ' + (it.flag_kind || 'shift note') + (it.visit_day ? ' (' + it.visit_day + ')' : ''),
           detail:String(it.detail || '').slice(0, 1500), owner, owner_name:(typeof opsOwnerName === 'function' && opsOwnerName(owner)) || '' });
