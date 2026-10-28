@@ -19,7 +19,8 @@ function world(cases){
     esc:x=>String(x==null?'':x), covIsOngoing:c=>!!(c.shift_pattern&&c.shift_pattern.kind==='open_ongoing'),
     alert:m=>{alerted=m;}, Date, String, Object, Array, JSON, console };
   const vm=require('vm'); vm.createContext(ctx);
-  vm.runInContext('const COV_WORD_OPEN={};\n'+src+'\nthis.X={covPatLine,covComposeMsgs,covWordingRaw,covWordingPreview,covSaveWording,covResetWording,COV_WORD_OPEN};',ctx);
+  const prnDefaults=html.split('\n').filter(l=>/^const PRN_(FAMILIAR|TEAM)_DEFAULT = /.test(l)).join('\n');
+  vm.runInContext('const COV_WORD_OPEN={};\n'+prnDefaults+'\n'+src+'\nthis.X={covPatLine,covComposeMsgs,covWordingRaw,covWordingPreview,covSaveWording,covResetWording,COV_WORD_OPEN};',ctx);
   return { X:ctx.X, DATA:ctx.DATA, els, persisted, events, get alerted(){return alerted}, get rendered(){return rendered} };
 }
 const tomorrow=(()=>{ const t=new Date(new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10)+'T12:00:00'); t.setDate(t.getDate()+1); return t.toISOString().slice(0,10); })();
@@ -71,5 +72,15 @@ const sweepCase=()=>({ id:'cwo_s1', client:'Dan Probstfield', client_axiscare_id
   await w.X.covSaveWording('ci1'); c=w.DATA.coverage_cases[0];
   ck('interest edit stored on msg_interest only', String(c.msg_interest||'').includes('Call the office')&&!c.msg_tier1&&!c.msg_other);
 
+  // PRN step 1 (prn_order_live): the shift preview shows both approved PRN texts; off: the old PRN text, as before
+  w=world([sweepCase()]); w.DATA.ops_settings={ prn_order_live:true };
+  let pv=w.X.covWordingPreview({ ...w.DATA.coverage_cases[0], shift_pattern:null });
+  ck('switch on: preview shows the PRN text for those who know the client', pv.includes('PRN Teams, who know this client:') && pv.includes("You cared for Dan in (the month they last saw them), so you'd be a familiar face."), pv);
+  ck('switch on: preview shows the continuity-team text for everyone else on the PRN Teams', pv.includes("You're part of our care continuity team, and Dan in (the client's town) needs someone"), pv);
+  ck('switch on: the old "PRN opportunity" text is not shown', !pv.includes('PRN opportunity'));
+  w=world([sweepCase()]); pv=w.X.covWordingPreview({ ...w.DATA.coverage_cases[0], shift_pattern:null });
+  ck('switch off: the PRN Teams line shows the old text, as before', pv.includes('<b>PRN Teams:</b>') && pv.includes('PRN opportunity'), pv);
+
   console.log(log.join('\n')); console.log(fails?fails+' FAILED':log.length+'/'+log.length+' passed'); process.exit(fails?1:0);
+
 })();
