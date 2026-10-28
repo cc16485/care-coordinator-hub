@@ -332,6 +332,12 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   ck('a booked visit → the confirmation line with the day', sc5.key === 'asmt_booked' && /confirming our visit Thu to meet with you and Marjorie/.test(sc5.text), sc5);
   ck('no em dash in any default line or hint', !Object.values(R.SCRIPT_DEFAULT).join(' ').includes('—') && !JSON.stringify(sc.hint + sc2.hint + sc4.hint).includes('—'));
   ck('every editable key has a label and a default', R.SCRIPT_KEYS.every(k => R.SCRIPT_LABEL[k] && R.SCRIPT_DEFAULT[k]));
+  const ac = R.afterCall({ first_name:'Linda', client_first_name:'Dorothy' }, { me:'Krystal Smith' });
+  ck('after-call text: her words, the what-to-expect link, first names only', /^Hi Linda! This is Krystal with Caring Companions\. It was nice speaking with you today about Dorothy!/.test(ac) && ac.includes('mo-care.com/what-to-expect') && !ac.includes('—'), ac);
+  ck('after-call text: Settings wording wins, and an unknown client reads "your loved one"', R.afterCall({ first_name:'Linda' }, { me:'Krystal', scripts:{ after_call:'Hi {first}, about {client}.' } }) === 'Hi Linda, about your loved one.');
+  ck('after-call button: only after we have talked with them, before the yes, once', R.afterCallDue({ phone:'4175550100', first_human_contact_at:'2026-10-28T15:00:00Z', status:'Contacted' })
+    && !R.afterCallDue({ phone:'4175550100', status:'New' }) && !R.afterCallDue({ phone:'4175550100', first_human_contact_at:'x', what_to_expect_sent_at:'y' })
+    && !R.afterCallDue({ phone:'4175550100', first_human_contact_at:'x', said_yes_at:'y' }) && !R.afterCallDue({ phone:'4175550100', first_human_contact_at:'x', status:'Lost' }) && !R.afterCallDue({ first_human_contact_at:'x' }));
   /* can we staff it */
   const people = [{ name:'A', town:'Nixa', windows:{ mon:['morning'], tue:['morning'], wed:['morning'], thu:['morning'], fri:['morning'] } }, { name:'B', town:'Ozark', windows:{ mon:['morning', 'afternoon'], tue:['morning'], wed:['morning'], thu:['morning'], fri:['morning'], sat:['morning'] } },
     { name:'C', town:'Nixa', windows:{ mon:['evening'], tue:['evening'] } }, { name:'D', town:'', windows:{} }];
