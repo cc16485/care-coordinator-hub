@@ -262,24 +262,27 @@
      call too!", e.g. a caregiver arranging days off with the family instead of the office): a coaching talk nobody's flag
      started. The database checks who is asking and makes the same coaching record as an assigned one (hr_case_add). Zach
      sees every one on Coaching oversight. */
-  function newCoachHtml(name) {
+  function newCoachHtml(name, pre) {
     const roster = (((typeof DATA !== 'undefined') && DATA.caregivers) || []).map((g) => ((g.first || '') + ' ' + (g.last || '')).trim()).filter(Boolean).sort();
     return '<div class="hr-form" id="hrNc"><div class="hr-sub" style="margin-top:0;">New coaching talk</div>'
       + '<label class="field-note">Caregiver <input id="hrNcCg" list="hrNcList" value="' + esc(name || '') + '" style="min-width:220px;"></label><datalist id="hrNcList">' + roster.map((n) => '<option value="' + esc(n) + '">').join('') + '</datalist>'
-      + '<label class="field-note">What is it about? <input id="hrNcTopic" placeholder="For example: scheduling goes through the office, not the family" style="width:100%;"></label>'
-      + '<label class="field-note">What happened <textarea id="hrNcWhat" rows="3" placeholder="The facts, with the day."></textarea></label>'
-      + '<label class="field-note">The day <input type="date" id="hrNcDay" value="' + esc(todayStr()) + '"></label>'
+      + '<label class="field-note">What is it about? <input id="hrNcTopic" value="' + esc(pre.topic || '') + '" placeholder="For example: scheduling goes through the office, not the family" style="width:100%;"></label>'
+      + '<label class="field-note">What happened <textarea id="hrNcWhat" rows="3" placeholder="The facts, with the day.">' + esc(pre.what || '') + '</textarea></label>'
+      + '<label class="field-note">The day <input type="date" id="hrNcDay" value="' + esc(pre.day || todayStr()) + '"></label>'
       + '<div><button class="secondary hr-btn" id="hrNcFill">Fill in talking points</button></div>'
       + coachFields('hrNcA', null)
       + '<div style="margin-top:6px;"><button class="primary hr-btn" id="hrNcGo">Assign</button> <button class="secondary hr-btn" onclick="document.getElementById(\'hrNcBox\').innerHTML=\'\'">Cancel</button></div><div class="hr-err" id="hrNcErr"></div></div>';
   }
-  function newCoach(name) {
+  /* pre (2026-10-28, incident stage 4): { name, topic, what, day, rule } from an incident report where the office wasn't called; a plain name otherwise. */
+  function newCoach(arg) {
     const host = document.getElementById('hrNcBox'); if (!host || !canCoach()) return;
-    host.innerHTML = newCoachHtml(name);
+    const pre = arg && typeof arg === 'object' ? arg : { name: arg || '' };
+    host.innerHTML = newCoachHtml(pre.name, pre);
     const to = document.getElementById('hrNcATo'); if (to && !owner() && [...to.options].some((o) => o.value === myEmail())) to.value = myEmail();   /* a coordinator's own talk by default */
     const v = (id) => (document.getElementById(id).value || '').trim();
-    const fill = () => { document.getElementById('hrNcATp').value = talkingPoints({ caregiver: v('hrNcCg'), title: v('hrNcTopic'), facts: [{ date: v('hrNcDay'), what: v('hrNcWhat') }], rule: 'owner_coaching' }); };
+    const fill = () => { document.getElementById('hrNcATp').value = talkingPoints({ caregiver: v('hrNcCg'), title: v('hrNcTopic'), facts: [{ date: v('hrNcDay'), what: v('hrNcWhat') }], rule: pre.rule && v('hrNcTopic') === pre.topic ? pre.rule : 'owner_coaching' }); };
     document.getElementById('hrNcFill').onclick = fill;
+    if (pre.rule) { fill(); host.scrollIntoView({ block: 'start' }); }
     document.getElementById('hrNcGo').onclick = async (e) => {
       if (!v('hrNcATp')) fill();
       const nm = v('hrNcCg'), g = (((typeof DATA !== 'undefined') && DATA.caregivers) || []).find((x) => ((x.first || '') + ' ' + (x.last || '')).trim().toLowerCase() === nm.toLowerCase());
@@ -436,6 +439,11 @@
         help: 'How can we help? Would a different start time work better for you, or is there something we can do?',
         expect: 'Going forward, please arrive at the scheduled start, and if you\'re running late, call the office before the shift starts.',
         note: 'Only if they did not call ahead: not calling makes it twice as bad, because we don\'t get the chance to let the client or their family know, and it makes our company look unprofessional and unreliable.' },
+      incident_late: { kind: 'thank you for filling in the incident report', what: 'calling the office right away when something happens on a shift',
+        facts: (f0.date ? 'On ' + fmt(f0.date) + ', ' : '') + 'something happened on your shift that needed an incident report, and the report says the office wasn\'t called or texted when it happened. When we hear right away, we can check on the client, let the family know, and help you with what to do next.',
+        why: 'What made it hard to call the office right then?',
+        help: 'How can we help? Is the office number saved in your phone, or is there something else that would make it easier?',
+        expect: 'Going forward, when something happens on a shift, like a fall, an injury, or a client who doesn\'t seem right, call the office at (417) 234-8494 right then, before you leave. Then fill in the report.' },
       w05: { kind: 'thank you for the care you give', what: 'shift notes',
         facts: 'The shifts on ' + list(facts) + ' didn\'t have a note. The note is how the family and the office know how the visit went, and every shift needs one.',
         why: 'What has been getting in the way?',

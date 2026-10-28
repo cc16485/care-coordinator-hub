@@ -110,7 +110,7 @@
   async function open(id){
     sheet(head('Incident report', 'Loading…'));
     let r;
-    try{ const d = await api({ action:'list', ids:[id] }); r = (d.reports || [])[0]; if(!r) throw new Error('That report is not on file.'); S.live = d.live; S.hotline = d.hotline; S.inv = d.inv; S.hr = d.hr; }
+    try{ const d = await api({ action:'list', ids:[id] }); r = (d.reports || [])[0]; if(!r) throw new Error('That report is not on file.'); S.live = d.live; S.hotline = d.hotline; S.inv = d.inv; S.hr = d.hr; S.lastRep = r; }
     catch(e){ sheet(head('Incident report', '<span style="color:#b91c1c">' + esc(e.message) + '</span>')); return; }
     const inj = r.kind === 'employee_injury';
     const sub = (inj ? esc(r.caregiver) + (r.client_name ? ' · at ' + esc(r.client_name) : '') : esc(r.client_name) + ' · ' + esc(r.caregiver)) + ' · ' + esc(day(r.happened_on)) + (r.practice ? ' · <b style="color:#b45309">practice</b>' : '');
@@ -260,8 +260,9 @@
     let h = '<div style="' + box + '">' + headH + '<div style="font-size:13.5px;margin:.2rem 0">' + (auto ? '<b>Sent to Zach automatically</b> when it was signed, ' + esc(when(r.inv_asked_at))
         + ((a.why || []).includes('late') ? '. <b style="color:#b45309">' + esc(label(INV_WHY, 'late')) + '.</b>' : '.')
       : '<b>Asked by ' + esc(r.inv_asked_by_name || r.inv_asked_by) + '</b>, ' + esc(when(r.inv_asked_at)) + ': ' + esc((a.why || []).map(k => label(INV_WHY, k)).join(' · '))) + '</div>' + (a.note ? '<div style="font-size:13.5px;white-space:pre-wrap;margin:.2rem 0">"' + esc(a.note) + '"</div>' : '');
-    if(r.inv_at) return h + '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-top:.4rem;font-size:13.5px"><b>Looked into by ' + esc(r.inv_by_name || r.inv_by) + '</b>, ' + esc(when(r.inv_at)) + '. What happens next: <b>' + esc(label(INV_OUT, f && f.outcome)) + '</b>'
+    if(r.inv_at) return h + lateHtml(r) + '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-top:.4rem;font-size:13.5px"><b>Looked into by ' + esc(r.inv_by_name || r.inv_by) + '</b>, ' + esc(when(r.inv_at)) + '. What happens next: <b>' + esc(label(INV_OUT, f && f.outcome)) + '</b>'
       + (f && f.findings ? '<div style="white-space:pre-wrap;margin-top:.3rem">' + esc(f.findings) + '</div>' : '') + (f && f.spoke_with ? '<div class="field-note" style="margin-top:.2rem">Talked with: ' + esc(f.spoke_with) + '</div>' : '') + '</div></div>';
+    h += lateHtml(r);
     if(!S.hr) return h + '<div class="field-note">With Zach to look into. He writes what he found here.' + (auto ? ' Something to add, like the report not matching the shift notes? Use Tell Zach on ' + esc(first(r.caregiver)) + '\'s Performance tab.' : '') + '</div></div>';
     return h + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">What did you find?</div><textarea id="invFind" rows="4" style="width:100%" placeholder="What the shift notes, AxisCare and the people you talked with show."></textarea>'
       + '<input id="invWho" placeholder="Who you talked with (optional)" style="margin-top:.3rem">'
@@ -269,6 +270,24 @@
       + INV_OUT.map(([v, t]) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="radio" name="invOut" value="' + v + '" style="width:auto;margin:0"> ' + esc(label(INV_OUT, v)) + '</label>').join('')
       + '<div class="field-note">Coaching and write-ups are still done on their own HR pages; this records the decision. It can\'t be changed after.</div>'
       + '<div style="margin-top:.5rem"><button class="primary" id="invSave">Save what I found</button></div><div id="invOut2" class="field-note" style="margin-top:.3rem"></div></div>';
+  }
+  /* Stage 4 (2026-10-28): the caregiver's report says the office wasn't called or texted when it happened, so Zach is offered
+     a coaching talk about calling the office, filled in from the report. He still picks who holds it and when; nothing is assigned on its own. */
+  const lateCoach = r => r.told_late && r.kind !== 'employee_injury' && r.status === 'submitted' && !r.practice && S.hr
+    && (!r.inv_at || (r.inv_findings && r.inv_findings.outcome) === 'coaching');
+  function lateHtml(r){
+    if(!lateCoach(r)) return '';
+    return '<div style="background:#FFF7E6;border:1px solid #F3D58A;border-radius:8px;padding:.5rem .7rem;margin:.5rem 0;font-size:13.5px"><b>Suggested: a coaching talk about calling the office.</b> '
+      + esc(first(r.caregiver)) + '\'s report says the office wasn\'t called or texted when it happened.'
+      + '<div style="margin-top:.4rem"><button class="secondary" style="font-size:12.5px;padding:4px 10px" onclick="INC.coachLate(\'' + esc(r.id) + '\')">Start a coaching talk</button>'
+      + ' <span class="field-note">Opens the coaching form filled in from this report. You pick who holds it and when.</span></div></div>';
+  }
+  function coachLate(id){
+    const r = (S.hrRows || []).concat(S.lastRep ? [S.lastRep] : []).find(x => x.id === id); if(!r) return;
+    window.HR_NEWCOACH = { name:r.caregiver, rule:'incident_late', day:r.happened_on || '', topic:'Calling the office right away when something happens on a shift',
+      what:'On ' + day(r.happened_on) + ', during a shift with ' + (r.client_name || 'a client') + ', something happened that needed an incident report. ' + first(r.caregiver) + '\'s report says the office was not called or texted when it happened.' };
+    close();
+    if(location.hash === '#hr/coaching' && window.HR) HR.go('coaching'); else location.hash = 'hr/coaching';
   }
   function invWire(r){
     const body = document.getElementById('incBody'); if(!body) return;
@@ -303,7 +322,7 @@
   const openBtn = r => '<button class="secondary hr-btn" onclick="INC.open(\'' + esc(r.id) + '\')">Open</button>';
   const compLine = r => { const d = compBy(r), late = d.getTime() < Date.now(); return '<span class="' + (late ? 'hr-late' : 'field-note') + '">' + (late ? 'workers\' comp report was due ' : 'report to workers\' comp by ') + esc(fmt(d)) + '</span>'; };
   const statusWord = r => r.status === 'cancelled' ? 'cancelled' : r.status === 'waiting' ? 'waiting for them to fill it in' : r.reviewed_at ? 'signed and reviewed' : 'signed, not reviewed yet';
-  async function hrReports(){ const d = await api({ action:'list', hr:true }); S.inv = d.inv; S.hr = d.hr; S.hotline = d.hotline; return d.reports || []; }
+  async function hrReports(){ const d = await api({ action:'list', hr:true }); S.inv = d.inv; S.hr = d.hr; S.hotline = d.hotline; S.hrRows = d.reports || []; return S.hrRows; }
   async function hrMount(hostId){
     const host = document.getElementById(hostId); if(!host) return;
     let rows; try{ rows = await hrReports(); }catch(e){ host.innerHTML = '<div class="field-note">The reports could not be read: ' + esc(e.message) + '</div>'; return; }
@@ -319,6 +338,8 @@
           : '<div class="field-note">None on file. Start one from the caregiver\'s Performance tab (+ New work injury report).</div>')
         + '<div class="field-note hr-foot">Report a work injury to the workers\' comp insurance within 5 days of the office learning of it. The Hub doesn\'t file anything; you do.</div></div>'
       + (done.length ? '<div class="card hr-card"><div class="hr-card-h">Looked into</div>' + done.map(r => row(r, '<span class="field-note">' + esc(label(INV_OUT, r.inv_findings && r.inv_findings.outcome)) + ', ' + esc(when(r.inv_at)) + '</span>')).join('') + '</div>' : '')
+      + (rows.some(lateCoach) ? '<div class="card hr-card"><div class="hr-card-h">Coaching suggested</div>' + rows.filter(lateCoach).map(r => row(r, '<span class="field-note">office not called at the time</span><button class="secondary hr-btn" onclick="INC.coachLate(\'' + esc(r.id) + '\')">Start a coaching talk</button>')).join('')
+          + '<div class="field-note hr-foot">From reports that say the office wasn\'t called or texted when it happened. Leaves this list once you record what you found as anything other than coaching.</div></div>' : '')
       + '<div class="card hr-card"><div class="hr-card-h">Every client incident report</div>'
         + (client.length ? client.map(r => row(r, '<span class="field-note">' + esc(statusWord(r)) + (r.told_late ? ' · office not called at the time' : '') + '</span>')).join('') : '<div class="field-note">None on file.</div>') + '</div>';
   }
@@ -415,6 +436,6 @@
 
   /* Stage 3: a work injury report for the caregiver whose profile is open */
   function injuryFor(){ if(!S.cgName) return alert('Open a caregiver\'s profile first.'); startForm({ kind:'employee_injury', caregiver:S.cgName, happened_on:today() }); }
-  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay, caregiverMount, injuryFor, hrMount, hrDash, tellZach, newCoaching };
+  window.INC = { fromFlag, fromProfile, open, close, cardHtml, profileHtml, flagDay, caregiverMount, injuryFor, hrMount, hrDash, tellZach, newCoaching, coachLate };
   window.incCardHtml = cardHtml;
 })();
