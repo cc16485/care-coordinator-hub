@@ -5,7 +5,8 @@ flag opens the report form with the flag's client, caregiver and day; Make the l
 Open the report; the client's profile list. (python3 -m http.server 8793 in the repo, then python3 tests/browser/incident_look.py)"""
 import json
 from playwright.sync_api import sync_playwright
-BASE = 'http://localhost:8793'
+import os
+BASE = 'http://localhost:' + os.environ.get('INC_PORT', '8793')
 R = []
 def ok(n, c, d=''): R.append(['PASS' if c else 'FAIL', n, '' if c else str(d)[:500]])
 Q = [{'k': 'time', 'type': 'text', 'label': 'About what time did it happen?', 'hint': 'For example: 2:15 pm'},
@@ -217,6 +218,14 @@ with sync_playwright() as pw:
     ok("...a care coordinator then sees it's with Zach, with no findings form", 'Asked by Krystal Test' in t and "doesn't match the shift notes" in t and 'With Zach to look into' in t and not q.query_selector('#invSave'), t[-500:])
     q.evaluate("() => { window.ISHR = true; INC.close(); INC.open('00000000-0000-4000-8000-000000000001') }"); q.wait_for_timeout(400)
     ok('Zach opens it: What did you find, What happens next', q.is_visible('#invSave') and q.locator('#incBody input[name=invOut]').count() == 5)
+    t = q.inner_text('#incBody')
+    ok('stage 4: the office wasn\'t called, so Zach sees "Suggested: a coaching talk about calling the office"', 'Suggested: a coaching talk about calling the office' in t, t[-600:])
+    q.click('#incBody button:has-text("Start a coaching talk")'); q.wait_for_timeout(200)
+    nc = q.evaluate('window.HR_NEWCOACH') or {}
+    ok('...Start a coaching talk opens Coaching filled in from the report (caregiver, day, topic, what happened); nothing is assigned yet',
+       q.evaluate('location.hash') == '#hr/coaching' and nc.get('name') == 'Tess Caregiver' and nc.get('day') == '2026-10-26' and nc.get('rule') == 'incident_late'
+       and 'calling the office' in nc.get('topic', '').lower() and 'Test Client' in nc.get('what', '') and not q.is_visible('#incSheet') and not any(x.get('action') == 'findings' for x in q.evaluate('API')), nc)
+    q.evaluate("() => { window.HR_NEWCOACH = null; INC.open('00000000-0000-4000-8000-000000000001') }"); q.wait_for_timeout(400)
     q.fill('#invFind', 'Talked with Tess: she forgot to call and only wrote it in her note. The daughter checked the hip, it is fine.')
     q.click('#incBody input[name=invOut][value=coaching]')
     q.screenshot(path='tests/browser/incident_zach_findings.png')
@@ -225,14 +234,17 @@ with sync_playwright() as pw:
     ok('...Save sends his findings and the outcome', fd.get('action') == 'findings' and fd.get('outcome') == 'coaching' and 'forgot to call' in fd.get('findings', ''), fd)
     t = q.inner_text('#incBody')
     ok('...then it shows Looked into by Zach, with no form', 'Looked into by Zach Test' in t and 'coaching' in t.lower() and not q.query_selector('#invSave'), t[-400:])
+    ok('...after he records coaching, the suggestion stays so he can start the talk', 'Suggested: a coaching talk' in t, t[-400:])
     q.evaluate("() => { window.ISHR = false; window.AUTO = true; INC.close(); INC.open('00000000-0000-4000-8000-000000000001') }"); q.wait_for_timeout(400)
     t = q.inner_text('#incBody')
+    ok('...the office (not HR) never sees the coaching suggestion', 'Suggested: a coaching talk' not in t)
     ok('every signed report: "Sent to Zach automatically", the office-not-told warning, no Ask button, Tell Zach for anything to add', 'Sent to Zach automatically' in t and "office wasn't told" in t and not q.query_selector('#invOpen') and 'Use Tell Zach' in t, t[-500:])
     q.evaluate("() => { window.AUTO = false; window.ISHR = true; }")
     q.evaluate("() => { INC.close(); window.FOUND = null; document.body.insertAdjacentHTML('beforeend', '<div id=hrInc></div><div id=hrIncN></div><a id=hrlink></a>'); window.HR = { go: (v) => { window.WENT = v } }; INC.hrMount('hrInc'); INC.hrDash('hrIncN') }"); q.wait_for_timeout(500)
     t = q.inner_text('#hrInc')
     ok("Zach's Incidents page: to look into, work injuries with the workers' comp day (late in red), every client report", 'To look into' in t and 'Test Client' in t and "doesn't match the shift notes" in t
       and 'Work injuries' in t and 'Pat Doe' in t and "workers' comp report was due" in t and q.query_selector('#hrInc .hr-late') and 'Every client incident report' in t, t)
+    ok("...a Coaching suggested list with the late report and its Start button", 'Coaching suggested' in t and q.locator('#hrInc button:has-text("Start a coaching talk")').count() == 1, t)
     d = q.inner_text('#hrIncN')
     ok("Zach's dashboard: what to look into and the injury due day; practice left out", 'look into' in d and 'Pat Doe' in d and 'Tess Caregiver · work injury' not in d and 'Open Incidents' in d, d)
     q.click('#hrIncN a:has-text("Open Incidents")'); ok('...Open Incidents goes to the page', q.evaluate('window.WENT') == 'incidents')

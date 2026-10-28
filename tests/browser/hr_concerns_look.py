@@ -77,6 +77,14 @@ with sync_playwright() as pw:
     ok('...and the form closes', not pg.query_selector('#hrNc'))
     pg.evaluate("window.HR_NEWCOACH = 'Ashley Test'; HR.go('coaching')"); pg.wait_for_timeout(700)
     ok('+ New coaching talk from a caregiver\'s Performance tab opens the form with their name', pg.is_visible('#hrNc') and pg.input_value('#hrNcCg') == 'Ashley Test')
+    # stage 4 (2026-10-28): from an incident report where the office wasn't called
+    pg.evaluate("window.HR_NEWCOACH = { name:'Ashley Test', rule:'incident_late', day:'2026-10-26', topic:'Calling the office right away when something happens on a shift', what:'On Mon, Oct 26, during a shift with Test Client, something happened that needed an incident report.' }; HR.go('coaching')"); pg.wait_for_timeout(700)
+    tp = pg.input_value('#hrNcATp') if pg.query_selector('#hrNcATp') else ''
+    ok('from a late incident report: the form opens filled in (caregiver, topic, day, what happened) with calling-the-office talking points',
+       pg.input_value('#hrNcCg') == 'Ashley Test' and 'Calling the office' in pg.input_value('#hrNcTopic') and pg.input_value('#hrNcDay') == '2026-10-26' and 'Test Client' in pg.input_value('#hrNcWhat')
+       and 'October 26' in tp and "office wasn't called" in tp and '(417) 234-8494' in tp and 'not a write-up' in tp, tp)
+    ok('...nothing is assigned until Assign is pressed', not [x for x in pg.evaluate('RPC') if x[0] == 'hr_case_add' and x[1]['p'].get('caregiver') == 'Ashley Test'])
+    pg.screenshot(path='tests/browser/hr_incident_late_coaching.png')
     # a Care Coordinator (her change 2026-10-27: "care coordinators can initiate a coaching call too!")
     pg.evaluate("""() => { window.ccCan = () => false; (0, eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Test', shift:'day' };"); HR.render('coaching') }"""); pg.wait_for_timeout(800)
     menu = pg.inner_text('.hr-menu')
