@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Caring Companions</title>
+<!-- family-form.html · SEND TO FAMILY, the family's page (Samantha 2026-10-28: "build it with your picks: Billing owner enters
+     payment forms, no 3-digit code unless AxisCare needs it, start with the four pieces"). The office sends ONE person in a
+     client's Family Circle a link (the secret rides after #, so it never reaches a server log) to one piece: the payment
+     authorization, a Family Circle check, or Medicare GUIDE. A 6-digit code to the same phone or email opens it, like signing
+     the agreement from home. Talks only to the public family-form door. Nothing is kept in the browser. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap">
+<style>
+:root{--navy:#0E3860;--teal:#1F7A8C;--teal-soft:#E3F3F2;--honey:#FFC671;--bg:#F6F9FD;--line:#E2E8F0;--ink:#16283A;--muted:#5B6B7D;--bad:#B42318;--bad-soft:#FDECEC;--ok:#166534;--ok-soft:#E8F6EC}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Poppins,"Helvetica Neue",Arial,sans-serif}
+.top{background:var(--navy);color:#fff;padding:16px max(18px,env(safe-area-inset-left,0px)) 16px max(18px,env(safe-area-inset-right,0px))}
+.top b{display:block;font-size:17px}.top span{font-size:13.5px;opacity:.85}
+main{max-width:560px;margin:0 auto;padding:20px max(18px,env(safe-area-inset-left,0px)) 60px max(18px,env(safe-area-inset-right,0px))}
+h1{font-size:22px;color:var(--navy);margin:0 0 8px;line-height:1.3}
+h2{font-size:16px;color:var(--navy);margin:20px 0 8px}
+p{margin:0 0 12px}
+.muted{color:var(--muted);font-size:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;margin:12px 0}
+label.f{display:block;font-size:13.5px;font-weight:600;color:var(--navy);margin:12px 0 4px}
+input[type=text],input[type=tel],input[type=email],textarea,select{width:100%;font:16px Poppins,Arial,sans-serif;padding:11px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:var(--ink)}
+input:focus,textarea:focus,select:focus,button:focus-visible{outline:3px solid var(--honey);outline-offset:1px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{font:600 16px Poppins,Arial,sans-serif;border-radius:12px;padding:13px 18px;border:2px solid var(--teal);background:var(--teal);color:#fff;cursor:pointer;width:100%;margin-top:12px}
+button.ghost{background:#fff;color:var(--teal)}
+button:disabled{opacity:.6;cursor:default}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--teal);border-radius:12px;overflow:hidden;margin:6px 0 4px}
+.seg button{margin:0;border:0;border-radius:0;background:#fff;color:var(--teal)}
+.seg button[aria-pressed=true]{background:var(--teal);color:#fff}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;font-size:14.5px}
+.chk input{width:22px;height:22px;flex:none;margin-top:2px;accent-color:var(--teal)}
+.words{background:var(--teal-soft);border-radius:10px;padding:12px 14px;font-size:14px;margin:14px 0 0}
+.err{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:10px 14px;font-size:14px;margin:12px 0 0}
+.err ul{margin:4px 0 0;padding-left:18px}
+.done{background:var(--ok-soft);color:var(--ok);border-radius:12px;padding:14px 16px;font-weight:600}
+.code{font-size:26px;letter-spacing:8px;text-align:center}
+.person{border-top:1px solid var(--line);padding:12px 0}
+.person:first-child{border-top:0}
+.person b{color:var(--navy)}
+.opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.opts label{border:1px solid #cbd5e1;border-radius:999px;padding:6px 12px;font-size:13.5px;cursor:pointer}
+.opts input{margin-right:4px;accent-color:var(--teal)}
+.foot{margin-top:28px;font-size:13px;color:var(--muted);text-align:center}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="top"><b>Caring Companions</b><span id="sub">In-Home Senior Care · (417) 234-8494</span></div>
+<main id="app"><p class="muted">Loading…</p></main>
+<p class="foot">Questions? Call Caring Companions at (417) 234-8494.</p>
+<script>
+(function(){
+'use strict';
+const URL_ = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/family-form';
+const m = /(?:^|[#&])t=([A-Za-z0-9_-]{40,60})/.exec(location.hash || '');
+const T = m ? m[1] : '';
+try { if (T) history.replaceState(null, '', location.pathname); } catch (e) {}
+window.addEventListener('hashchange', () => { if (/t=/.test(location.hash)) location.reload(); });   /* the same link tapped again in this tab */
+let S = '', HEAD = null, DATA = null;
+const app = document.getElementById('app');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const $ = id => document.getElementById(id);
+async function call(body){
+  let r; try { r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ t: T }, S ? { s: S } : {}, body)) }); }
+  catch (e) { return { s: 0, j: { error: 'We could not reach Caring Companions. Check your internet and try again.' } }; }
+  return { s: r.status, j: await r.json().catch(() => ({ error: 'Something went wrong. Please try again.' })) };
+}
+function fail(msg){ app.innerHTML = '<h1>This link can\'t be opened</h1><p>' + esc(msg) + '</p>'; }
+function problems(box, j){ box.hidden = false; box.innerHTML = esc(j.error || 'Something went wrong.') + (j.problems && j.problems.length ? '<ul>' + j.problems.map(p => '<li>' + esc(p) + '</li>').join('') + '</ul>' : ''); box.scrollIntoView({ block: 'center' }); }
+function thanks(title, more){ app.innerHTML = '<h1>' + esc(title) + '</h1><div class="done">Thank you. Caring Companions has it.</div>' + (more || '') + '<p class="muted" style="margin-top:14px">You can close this page.</p>'; }
+
+async function start(){
+  if (!T) return fail('This link is not complete. Open it again from the text or email we sent.');
+  const { s, j } = await call({ action: 'open' });
+  if (j.state === 'done') return thanks('This is already done');
+  if (s !== 200) return fail(j.error || 'This link does not work.');
+  HEAD = j;
+  $('sub').textContent = j.piece_name + (j.client_first ? ' · for ' + j.client_first : '');
+  const first = String(j.to_name || '').split(/\s+/)[0];
+  app.innerHTML = '<h1>Hi ' + esc(first) + '</h1><p>To keep this private, we\'ll send you a 6-digit code first.</p>'
+    + j.options.map(o => '<button type="button" class="' + (o.via === 'email' ? 'ghost' : '') + '" data-via="' + o.via + '">' + (o.via === 'sms' ? 'Text' : 'Email') + ' me a code at ' + esc(o.to) + '</button>').join('')
+    + '<div id="codeBox" hidden><label class="f" for="code">Type the 6-digit code</label><input id="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="7" class="code">'
+    + '<button type="button" id="go">Open it</button></div><div class="err" id="err" hidden></div>';
+  app.querySelectorAll('[data-via]').forEach(b => b.onclick = async () => {
+    b.disabled = true; const r = await call({ action: 'code', via: b.dataset.via }); b.disabled = false;
+    if (r.s !== 200) return problems($('err'), r.j);
+    $('err').hidden = true; $('codeBox').hidden = false; $('code').focus();
+    b.textContent = 'Sent to ' + r.j.to + '. Send again';
+  });
+  app.addEventListener('click', async e => {
+    if (e.target.id !== 'go') return;
+    e.target.disabled = true; const r = await call({ action: 'verify', code: $('code').value }); e.target.disabled = false;
+    if (r.s !== 200) return problems($('err'), r.j);
+    S = r.j.s; DATA = r.j.data || {};
+    ({ payment: payment, circle: circle, guide: guide })[HEAD.piece]();
+  });
+}
+
+/* ── the payment authorization ── */
+function payment(){
+  const first = (HEAD.client_first || '');
+  app.innerHTML = '<h1>Payment for ' + esc(first ? first + '\'s' : 'your') + ' care</h1>'
+    + '<p class="muted">We charge the card or bank account on file every Thursday for that week\'s invoice. ' + esc(DATA.card_fee || '') + '</p>'
+    + '<div class="seg" role="group" aria-label="Card or bank account"><button type="button" id="mCard" aria-pressed="true">Card</button><button type="button" id="mBank" aria-pressed="false">Bank account</button></div>'
+    + '<div class="card"><div id="cardF">'
+    +   '<label class="f" for="holder">Name on the card</label><input id="holder" type="text" autocomplete="cc-name">'
+    +   '<label class="f" for="num">Card number</label><input id="num" type="text" inputmode="numeric" autocomplete="cc-number">'
+    +   '<div class="two"><div><label class="f" for="exp">Expires (mm/yy)</label><input id="exp" type="text" inputmode="numeric" autocomplete="cc-exp" placeholder="08/29" maxlength="5"></div>'
+    +   '<div><label class="f" for="zip">Billing ZIP</label><input id="zip" type="text" inputmode="numeric" autocomplete="postal-code" maxlength="5"></div></div>'
+    +   '<p class="muted" style="margin-top:10px">We don\'t need the 3-digit code on the back of the card.</p>'
+    + '</div><div id="bankF" hidden>'
+    +   '<label class="f" for="bholder">Name on the account</label><input id="bholder" type="text" autocomplete="name">'
+    +   '<label class="f" for="btype">Checking or savings</label><select id="btype"><option value="">Pick one</option><option value="checking">Checking</option><option value="savings">Savings</option></select>'
+    +   '<label class="f" for="routing">Routing number</label><input id="routing" type="text" inputmode="numeric" maxlength="9" placeholder="9 digits, bottom left of a check">'
+    +   '<label class="f" for="acct">Account number</label><input id="acct" type="text" inputmode="numeric" maxlength="17">'
+    +   '<div class="two"><div><label class="f" for="bphone">Phone</label><input id="bphone" type="tel" autocomplete="tel"></div><div><label class="f" for="bzip">ZIP</label><input id="bzip" type="text" inputmode="numeric" maxlength="5"></div></div>'
+    + '</div>'
+    + '<label class="f" for="mail">Email for invoices (optional)</label><input id="mail" type="email" autocomplete="email" placeholder="We email each week\'s invoice here">'
+    + '<label class="chk"><input type="checkbox" id="future"><span>Use this for all future invoices until I say otherwise.</span></label>'
+    + '<div class="words">' + esc(DATA.words || '') + '</div>'
+    + '<label class="chk"><input type="checkbox" id="agree"><span>I agree, and typing my name below is my signature.</span></label>'
+    + '<label class="f" for="sig">Your first and last name</label><input id="sig" type="text" autocomplete="name" style="font-family:\'Brush Script MT\',cursive;font-size:22px">'
+    + '<button type="button" id="send">Sign and send</button><div class="err" id="err" hidden></div></div>';
+  let method = 'card';
+  const setM = card => { method = card ? 'card' : 'bank'; $('mCard').setAttribute('aria-pressed', card); $('mBank').setAttribute('aria-pressed', !card); $('cardF').hidden = !card; $('bankF').hidden = card; };
+  $('mCard').onclick = () => setM(true); $('mBank').onclick = () => setM(false);
+  $('exp').addEventListener('input', e => { const d = e.target.value.replace(/\D/g, '').slice(0, 4); e.target.value = d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; });
+  $('send').onclick = async e => {
+    const v = id => ($(id).value || '').trim();
+    const body = method === 'card'
+      ? { method, holder_name: v('holder'), card_number: v('num'), exp: v('exp'), zip: v('zip') }
+      : { method, holder_name: v('bholder'), bank_type: v('btype'), routing: v('routing'), account: v('acct'), phone: v('bphone'), zip: v('bzip') };
+    Object.assign(body, { action: 'submit', invoice_email: v('mail'), all_future: $('future').checked, agree: $('agree').checked, signer_name: v('sig') });
+    e.target.disabled = true; const r = await call(body); e.target.disabled = false;
+    if (r.s !== 200) return problems($('err'), r.j);
+    thanks('Payment form signed', '<div class="card"><b>' + esc(r.j.label) + '</b><p class="muted" style="margin:6px 0 0">Signed ' + esc(new Date(r.j.signed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })) + ' by ' + esc(body.signer_name) + '</p><p class="muted" style="margin:8px 0 0">' + esc(r.j.words) + '</p></div><p class="muted">Take a screenshot if you\'d like a copy. We only keep the last 4 digits once it\'s set up.</p>');
+  };
+}
+
+/* ── the Family Circle check ── */
+function circle(){
+  const ppl = DATA.people || [];
+  app.innerHTML = '<h1>Who should we keep in touch with?</h1><p class="muted">These are the people we have for ' + esc(HEAD.client_first || 'your loved one') + '. Tell us if anything changed. We\'ll update our records and call you if we have questions.</p>'
+    + '<div class="card">' + (ppl.length ? ppl.map((p, i) => '<div class="person" data-id="' + esc(p.id) + '"><b>' + esc(p.name) + '</b>' + (p.relationship ? ' <span class="muted">· ' + esc(p.relationship) + '</span>' : '')
+      + '<div class="muted">' + esc([p.phone ? fmtPhone(p.phone) : '', p.email].filter(Boolean).join(' · ') || 'No phone or email on file') + '</div>'
+      + '<div class="opts"><label><input type="radio" name="w' + i + '" value="keep" checked>Looks right</label><label><input type="radio" name="w' + i + '" value="change">Needs a change</label><label><input type="radio" name="w' + i + '" value="remove">Remove</label></div>'
+      + '<div class="chg" hidden><div class="two"><div><label class="f">New phone</label><input type="tel" class="ph"></div><div><label class="f">New email</label><input type="email" class="em"></div></div><label class="f">What changed?</label><input type="text" class="nt"></div></div>').join('')
+      : '<p class="muted">We don\'t have anyone listed yet.</p>') + '</div>'
+    + '<h2>Anyone to add?</h2><div class="card" id="adds"></div><button type="button" class="ghost" id="addOne">+ Add someone</button>'
+    + '<label class="f" for="note">Anything else we should know? (optional)</label><textarea id="note" rows="3"></textarea>'
+    + '<button type="button" id="send">Send to Caring Companions</button><div class="err" id="err" hidden></div>';
+  app.querySelectorAll('.person').forEach(row => row.querySelectorAll('input[type=radio]').forEach(r => r.onchange = () => { row.querySelector('.chg').hidden = r.value !== 'change' || !r.checked; }));
+  const addRow = () => { const d = document.createElement('div'); d.className = 'person add'; d.innerHTML = '<label class="f">Name (first and last)</label><input type="text" class="nm"><div class="two"><div><label class="f">Relationship</label><input type="text" class="rl"></div><div><label class="f">Phone</label><input type="tel" class="ph"></div></div><label class="f">Email</label><input type="email" class="em">'; $('adds').appendChild(d); };
+  addRow(); $('addOne').onclick = addRow;
+  $('send').onclick = async e => {
+    const people = [...app.querySelectorAll('.person[data-id]')].map(row => { const w = (row.querySelector('input[type=radio]:checked') || {}).value || 'keep';
+      return { id: row.dataset.id, name: row.querySelector('b').textContent, what: w, phone: row.querySelector('.ph').value, email: row.querySelector('.em').value, note: row.querySelector('.nt').value }; });
+    const add = [...app.querySelectorAll('.person.add')].map(d => ({ name: d.querySelector('.nm').value, relationship: d.querySelector('.rl').value, phone: d.querySelector('.ph').value, email: d.querySelector('.em').value })).filter(x => x.name.trim());
+    e.target.disabled = true; const r = await call({ action: 'submit', people, add, note: $('note').value }); e.target.disabled = false;
+    if (r.s !== 200) return problems($('err'), r.j);
+    thanks(r.j.changes ? 'Thanks, we\'ll update our records' : 'Thanks for checking', r.j.changes ? '<p class="muted" style="margin-top:12px">Someone from our office will make the changes and may call you to confirm.</p>' : '');
+  };
+}
+function fmtPhone(d){ d = String(d || ''); return d.length === 10 ? '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6) : d; }
+
+/* ── Medicare GUIDE (wording from mo-care.com/medicare-guide; nothing new is promised) ── */
+function guide(){
+  app.innerHTML = '<h1>Medicare GUIDE: respite for families living with dementia</h1>'
+    + '<p>GUIDE is a Medicare program for people living with dementia at home. Every enrolled family gets a dedicated dementia care navigator and 24/7 support, and families further along in the disease also receive up to 20 four-hour respite visits a year, at no additional cost.</p>'
+    + '<p>Caring Companions is an approved GUIDE respite provider in southwest Missouri.</p>'
+    + '<div class="card"><b>Who it\'s for</b><p class="muted" style="margin:6px 0 0">Traditional Medicare (not a Medicare Advantage plan), a dementia diagnosis, living in a private home or independent living, not on hospice, and an unpaid family caregiver.</p></div>'
+    + '<p><a href="https://mo-care.com/medicare-guide" target="_blank" rel="noopener">Read the full details and check eligibility on our website</a></p>'
+    + '<label class="f" for="best">Best time to call you (optional)</label><input id="best" type="text" placeholder="For example: weekdays after 3pm">'
+    + '<button type="button" id="yes">Yes, call me about it</button><button type="button" class="ghost" id="no">Not for us right now</button><div class="err" id="err" hidden></div>';
+  const go = async (answer, btn) => { btn.disabled = true; const r = await call({ action: 'submit', answer, best_time: $('best').value }); btn.disabled = false;
+    if (r.s !== 200) return problems($('err'), r.j);
+    thanks(answer === 'call_me' ? 'We\'ll call you' : 'Got it', answer === 'call_me' ? '<p class="muted" style="margin-top:12px">Someone from our office will call to walk through whether GUIDE fits.</p>' : '<p class="muted" style="margin-top:12px">If that changes, call us any time.</p>'); };
+  $('yes').onclick = e => go('call_me', e.target); $('no').onclick = e => go('not_now', e.target);
+}
+start();
+})();
+</script>
+</body>
+</html>
