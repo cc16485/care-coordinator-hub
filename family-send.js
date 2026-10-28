@@ -2,8 +2,9 @@
    forms, no 3-digit code unless AxisCare needs it, start with the four pieces").
    On a client's Start of Care tab (under the Client Care Agreement) and on the Payer tab (payment picked). The office picks
    the piece and ONE person from this client's Family Circle; anyone who can't get it shows why. The card keeps the history:
-   sent, opened, done, cancelled. A returned payment form shows the last 4 only; the Billing owner (or an owner) can Show the
-   full numbers once, to type into AxisCare, then "Entered in AxisCare" erases them. A shown number lives only in this page's
+   sent, opened, done, cancelled. A returned payment form shows the last 4 only; a care coordinator, the Billing owner or an
+   owner can Show the full numbers once, to type into AxisCare (Samantha 2026-10-28: "Care Coordinators can input payment
+   info into axiscare"), then "Entered in AxisCare" erases them. A shown number lives only in this page's
    memory for 5 minutes: never stored, never logged. Talks only to the family-send function. Reads the page-level CP. */
 (function () {
   'use strict';
@@ -57,7 +58,7 @@
       else h += '<div style="margin-top:8px;font-variant-numeric:tabular-nums;letter-spacing:.06em">•••• •••• •••• ' + esc(p.last4) + '</div>';
       h += S.data.can_show ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">' + (shown ? '' : '<button class="secondary" data-fs-show="' + esc(p.id) + '">Show to enter in AxisCare</button>')
           + '<button class="primary" data-fs-entered="' + esc(p.id) + '">Entered in AxisCare</button></div>'
-        : '<div class="field-note" style="margin-top:6px">Only ' + esc(S.data.billing_owner || 'the person who handles Billing') + ' or an owner can see the full numbers.</div>';
+        : '<div class="field-note" style="margin-top:6px">Only a care coordinator, ' + esc(S.data.billing_owner || 'the person who handles Billing') + ' or an owner can see the full numbers.</div>';
       h += '<div class="field-note" style="margin-top:6px">The numbers erase themselves ' + esc(when(p.erase_by)) + ' if this isn\'t marked.</div>';
     } else h += '<div class="field-note" style="margin-top:6px">Card or bank numbers erased' + (p.erased_why === 'entered' ? ' after entering in AxisCare.' : p.erased_why === 'replaced' ? ' (a newer form replaced it).' : ' after 7 days.') + ' The last 4 and the signature stay.</div>';
     return h + '</div>';

@@ -1,7 +1,7 @@
 """Send to family (Samantha 2026-10-28: "build it with your picks: Billing owner enters payment forms, no 3-digit code unless
 AxisCare needs it, start with the four pieces"). Offline: files served from disk, every server answer faked, made-up people.
 (1) The Hub card on a bare page (family-send.js): the history, the send sheet (pieces, Family Circle people with reasons, the
-text preview), sending, a returned payment form with last 4 only, Show (the Billing owner) with its countdown, Entered.
+text preview), sending, a returned payment form with last 4 only, Show (a care coordinator) with its countdown, Entered.
 (2) family-form.html at phone size: the code, then the payment form (card and bank), the circle check and GUIDE.
 python3 tests/browser/family_send_look.py"""
 import json, pathlib, mimetypes
@@ -68,11 +68,11 @@ with sync_playwright() as pw:
     ok('Send text: the client, the piece, Linda, by text; the sheet closes', sent and sent[-1] == {'action': 'send', 'client_ax': '290', 'client_name': 'Dorothy Sample', 'piece': 'payment', 'contact_id': 'linda', 'channels': ['sms']}
        and q.evaluate('TOAST') == 'Payment authorization sent to Linda Sample.' and q.locator('#cp_fsend input[name=fsPiece]').count() == 0, sent)
     q.click('#cp_fsend [data-fs-row=s1]'); q.wait_for_timeout(100)
-    ok('a coordinator opens the returned form: masked, and told who can see the numbers; no Show button', '•••• •••• •••• 1111' in q.inner_text('#cp_fsend') and 'billie@mo-care.com' in q.inner_text('#cp_fsend') and q.locator('#cp_fsend [data-fs-show]').count() == 0)
+    ok('a staffing coordinator opens the returned form: masked, and told who can see the numbers; no Show button', '•••• •••• •••• 1111' in q.inner_text('#cp_fsend') and 'Only a care coordinator, billie@mo-care.com or an owner' in q.inner_text('#cp_fsend') and q.locator('#cp_fsend [data-fs-show]').count() == 0, q.inner_text('#cp_fsend'))
     q.evaluate("() => { FAKE.can_show = true; FSEND.reload() }"); q.wait_for_timeout(300)
     q.click('#cp_fsend [data-fs-show]'); q.wait_for_timeout(300)
     t = q.inner_text('#cp_fsend')
-    ok('the Billing owner\'s Show: the number grouped in 4s, hidden again in 5 minutes', '4111 1111 1111 1111' in t and 'Hidden again in' in t, t)
+    ok('a care coordinator\'s Show: the number grouped in 4s, hidden again in 5 minutes', '4111 1111 1111 1111' in t and 'Hidden again in' in t, t)
     ok('...never written to the browser\'s storage', q.evaluate("() => JSON.stringify(Object.assign({}, localStorage, sessionStorage)).indexOf('4111') === -1"))
     q.screenshot(path='tests/browser/family_send_show.png', full_page=True)
     q.click('#cp_fsend [data-fs-entered]'); q.wait_for_timeout(400)
