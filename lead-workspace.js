@@ -227,8 +227,11 @@
       + (sc.text || sc.hint ? '<div class="lw-script">' + (sc.text ? '<div class="lw-quote-k" style="color:#A8660E;">Script · ' + esc(sc.title) + (sc.custom ? ' (your wording)' : '') + '</div>' + esc(sc.text) : '') + (sc.hint ? '<div class="lw-hint">' + esc(sc.hint) + '</div>' : '') + '</div>' : '')
       + '<div class="lb-actions">' + btn(l, r.primary, true) + r.secondary.filter(a => !(a.kind === 'log' && recLive())).map(a => btn(l, a, false)).join('')
       + (r.primary.kind !== 'text' && !r.secondary.some(a => a.kind === 'text') && l.phone ? '<button class="lb-btn" onclick="lwText(this)">Text ' + esc(callerFirst) + '</button>' : '')
+      + (R().afterCallDue(l, { autoLive:(DATA.ops_settings || {}).what_to_expect_text_live === true }) ? '<button class="lb-btn" onclick="lwText(this, LeadRules.afterCall(CP.lead, { me:(ccActor().name||\'\'), scripts:(DATA.ops_settings||{}).lead_scripts||{} }), \'what_to_expect\')">Text ' + esc(callerFirst) + ' what to expect</button>' : '')
       + (recLive() || (r.primary.kind !== 'log' && !r.secondary.some(a => a.kind === 'log')) ? '<button class="lb-btn" onclick="lwLog(this)"><span class="lr-off">Log a call</span><span class="lr-on">Log a call from another phone</span></button>' : '')
       + (r.primary.kind !== 'followup' && !r.secondary.some(a => a.kind === 'followup' || a.kind === 'open') ? '<button class="lb-btn" onclick="lwFollowUp(this)">Set a follow-up</button>' : '') + '</div>'
+      + (l.what_to_expect_sent_at ? '<div class="field-note" style="margin-top:6px;">✓ What to expect text sent ' + esc(new Date(l.what_to_expect_sent_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })) + (l.what_to_expect_sent_by === 'automatic' ? ' (automatic)' : '') + '.</div>'
+        : (DATA.ops_settings || {}).what_to_expect_text_live === true && R().madeFromCall(l) && !l.said_yes_at && !l.auto_msgs_stopped_at ? '<div class="field-note" style="margin-top:6px;">The what to expect text goes to ' + esc(callerFirst) + ' automatically (7 AM to 8 PM).</div>' : '')
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
     h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
@@ -307,11 +310,11 @@
     await persist('leads', l); render();
   }
   /* a text, typed by a person, sent as that person (the same door the Family tab uses); their reply is then answered */
-  function lwText(b, prefill){
+  function lwText(b, prefill, mark){   /* mark 'what_to_expect': remember it went, so the button steps aside */
     const l = lead(); if(!l || typeof ccPopOpen !== 'function') return;
     if(!l.phone){ alert('This family has no phone number on the inquiry. Add one first.'); return; }
     const el = ccPopOpen(b || document.body, '<div style="font-size:13.5px;font-weight:700;margin-bottom:6px;">Text ' + esc(first(l.first_name) || 'them') + ' at ' + esc(l.phone) + '</div>'
-      + '<textarea id="lwTextIn" rows="4" style="width:100%;box-sizing:border-box;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" placeholder="Your words. It goes out from the office number, from you.">' + esc(prefill || '') + '</textarea>'
+      + '<textarea id="lwTextIn" rows="' + (prefill && prefill.length > 200 ? 9 : 4) + '" style="width:100%;box-sizing:border-box;font-size:13.5px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;" placeholder="Your words. It goes out from the office number, from you.">' + esc(prefill || '') + '</textarea>'
       + '<div style="display:flex;gap:8px;margin-top:10px;align-items:center;"><button class="primary" id="lwTextGo" style="padding:7px 14px;font-size:13px;">Send text</button><button class="ghost" id="lwTextNo" style="padding:7px 14px;font-size:13px;">Cancel</button><span class="field-note" id="lwTextMsg"></span></div>', { width:380 });
     el.querySelector('#lwTextNo').onclick = ccPopClose;
     el.querySelector('#lwTextGo').onclick = async () => {
@@ -321,6 +324,7 @@
       try{ window.commsLead = l; try{ commsLead = l; }catch(e){}
         await commsCall({ action:'send_sms', message:text });
         ldPush(l, { channel:'sms', direction:'out', outcome:'sent', actor:'human', by:ccActor().email, ref:text.slice(0, 120) });
+        if(mark === 'what_to_expect') l.what_to_expect_sent_at = new Date().toISOString();
         await persist('leads', l); ccPopClose(); try{ opsReconcileLeads(); }catch(e){} redrawBoard(); render(); try{ if(typeof cjMountProfile === 'function' && l.said_yes_at) cjMountProfile({ lead:l, ax:'' }); }catch(e){} if(typeof ccToast === 'function') ccToast('Sent.'); }
       catch(e){ go.disabled = false; msg.textContent = 'Could not send: ' + e.message; }
     };

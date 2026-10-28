@@ -155,6 +155,9 @@
   function merge(l, db){
     if(!l || !db || typeof db !== 'object') return l;
     const mine = new Set((l.contact_events || []).map(e => e && e.ref).filter(Boolean));
+    /* 2026-10-28: the automatic what-to-expect text stamps the lead on the server; a page that loaded the lead earlier keeps the stamp */
+    if(db.what_to_expect_sent_at && !l.what_to_expect_sent_at){ l.what_to_expect_sent_at = db.what_to_expect_sent_at; l.what_to_expect_sent_by = db.what_to_expect_sent_by; }
+    if(db.auto_msgs_stopped_at && !l.auto_msgs_stopped_at){ l.auto_msgs_stopped_at = db.auto_msgs_stopped_at; l.auto_msgs_stop_reason = db.auto_msgs_stop_reason; }
     const add = (db.contact_events || []).filter(e => e && String(e.ref || '').indexOf('ghl:') === 0 && !mine.has(e.ref));
     if(!add.length) return l;
     l.contact_events = (l.contact_events || []).concat(add).sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));

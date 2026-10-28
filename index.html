@@ -7473,7 +7473,7 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1026"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=21"></script>
+<script src="lead-rules.js?v=23"></script>
 <script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=2"></script><!-- Speed to lead (2026-10-22, her design): each coordinator's own numbers; 2026-10-26 in the My Desk drawer, no Leads tab --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script>
@@ -7555,7 +7555,7 @@ The HomeTogether team</pre>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
 <script src="leads-board.js?v=18"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=11"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="standup-board.js?v=15"></script>
@@ -7570,7 +7570,7 @@ The HomeTogether team</pre>
 <script src="client-goals.js?v=3"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="call-lead.js?v=6"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
-<script src="lead-recorder.js?v=2"></script>
+<script src="lead-recorder.js?v=3"></script>
 <script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
 <script src="call-practice.js?v=12"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
@@ -18408,7 +18408,11 @@ const INQ_SWITCHES=[
   /* 2026-10-22 Speed to lead design (Samantha: "maybe just one notification about the lead"): lead-rules.js oneText */
   { k:'lead_one_text', name:'One text per family', what:'With speed to lead on, only the 5-minute text goes out. At 15 minutes the backup still gets the family on My Work, and at 30 the person in charge gets the card and a miss is counted, with no text. The 8am brief lists the families who waited over 30 minutes.',
     on:'Turn on one text per family?\n\nFrom the next check (within 2 minutes), a new inquiry nobody has called gets ONE text, at 5 minutes, to whoever has it. The 15 and 30 minute steps still happen on My Work and Leads, and a 30-minute wait is still counted as a miss and listed in the 8am brief, but nobody is texted for them.',
-    off:'Turn off one text per family? Speed to lead goes back to three texts: 5 minutes to the owner, 15 to the backup, 30 to the person in charge.' } ];
+    off:'Turn off one text per family? Speed to lead goes back to three texts: 5 minutes to the owner, 15 to the backup, 30 to the person in charge.' },
+  /* 2026-10-28, her approved exception ("send the what-to-expect text automatically when a coordinator makes a call into a lead") */
+  { k:'what_to_expect_text_live', name:'What to expect text after a lead call', what:'When someone makes a call into a lead (Make this a lead, or Yes on New family?), the family gets ONE text with mo-care.com/what-to-expect, in the wording under What we say to families. 7 AM to 8 PM only; a lead made at night gets it at 7 AM. Never to anyone opted out. A text that cannot go puts a card on Needs Attention.',
+    on:'Turn on the what to expect text?\n\nFrom the next check (within 15 minutes), each lead made from a call from now on gets ONE text with the what to expect page, 7 AM to 8 PM. Leads made before now are never texted.',
+    off:'Turn off the what to expect text? Leads made from a call get no automatic text; coordinators can still send it with the "Text ... what to expect" button.' } ];
 function inqSetFill(){
   const box=document.getElementById('inqSet'); if(!box) return; const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
   box.innerHTML=INQ_SWITCHES.map(sw=>{ const on=st[sw.k]===true; return '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">'

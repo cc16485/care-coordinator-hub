@@ -4,6 +4,7 @@ the outcome buttons; the five steps carry dates; the older lead card, AI card an
 only what the next stage needs; the timeline is newest first with the Hub's own acknowledgment; the rail reads availability;
 Owner, a note, Waiting on and a typed text all write through the Hub's own doors; a family who said yes gets the journey, not
 the workspace. (python3 tests/browser/leads_workspace_look.py, static server on 8765; writes workspace.png)"""
+import os
 from playwright.sync_api import sync_playwright
 STUB = r"""
 (()=>{
@@ -73,6 +74,17 @@ async()=>{
   const tp=document.querySelector('.ccpop'); tp.querySelector('#lwTextIn').value='Hi Diane, Krystal here. 4:15 works, I will call you then.'; tp.querySelector('#lwTextGo').click(); await sleep(300); w=lastLead('dia');
   ok('a typed text goes through the comms door as Krystal, is recorded as a human text, and her reply is now answered: the next card moves on', window.__log.sms.length===1 && window.__log.sms[0].action==='send_sms' && /4:15 works/.test(window.__log.sms[0].message) && w.contact_events.slice(-1)[0].actor==='human' && w.contact_events.slice(-1)[0].channel==='sms' && !/Replied 22 min ago/.test(T()), [window.__log.sms, T().slice(0,200)]);
   ok('...and the timeline shows "Krystal texted" with the words', /Krystal texted "Hi Diane, Krystal here/.test(host.querySelector('.lw-tl-row').innerText), host.querySelector('.lw-tl-row').innerText);
+  /* 2026-10-28 her words: after we have talked with them, "Text Diane what to expect" prefills her after-call text; a person sends it, once */
+  ok('before anyone has talked with Diane there is no what-to-expect button', ![...host.querySelectorAll('.lb-btn')].some(x=>/what to expect/.test(x.textContent)));
+  DATA.leads.find(x=>x.id==='dia').first_human_contact_at='2026-10-06T15:00:00Z'; await openClient({ lead_id:'dia' }, 'summary'); await sleep(400);
+  const wb=[...host.querySelectorAll('.lb-btn')].find(x=>/Text Diane what to expect/.test(x.textContent));
+  ok('after the call: "Text Diane what to expect" is on the next card', !!wb, [...host.querySelectorAll('.lb-btn')].map(x=>x.textContent));
+  wb.click(); await sleep(150);
+  const wt=document.querySelector('.ccpop #lwTextIn').value;
+  ok('...it opens her words, filled in: Diane, Krystal, Marjorie and the link, for a person to read first', /^Hi Diane! This is Krystal with Caring Companions\. It was nice speaking with you today about Marjorie!/.test(wt) && wt.includes('mo-care.com/what-to-expect'), wt);
+  document.querySelector('.ccpop #lwTextGo').click(); await sleep(300); w=lastLead('dia');
+  ok('...Send texts it as Krystal and remembers it went; the button steps aside and the card says when', window.__log.sms.slice(-1)[0].message===wt && !!w.what_to_expect_sent_at
+    && ![...host.querySelectorAll('.lb-btn')].some(x=>/what to expect/.test(x.textContent)) && /What to expect text sent/.test(T()), [w.what_to_expect_sent_at, T().slice(0,400)]);
   /* a brand-new website inquiry: the first-call script with the website hint, red only where needed, nobody owns it */
   await openClient({ lead_id:'new1' }, 'summary'); await sleep(400);
   ok('Patrice (new, 12 min, nobody has tried): NEW · 12 min, the first-call script with her name, Ruth Ann and Krystal, the website hint, Call is the filled button', /NEW · 12 min/.test(T()) && /Hi Patrice, this is Krystal with Caring Companions\. Thank you for reaching out about care for Ruth Ann/.test(T()) && /website form/.test(T()) && host.querySelector('.lw-next .lb-btn-primary').textContent==='Call from the office line', T().slice(0,600));
@@ -83,7 +95,7 @@ async()=>{
   /* the settings block */
   switchTab('settings'); await sleep(300); lwScriptsFill();
   const sbx=document.getElementById('lwScripts');
-  ok('Settings → Leads has the 12 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===12 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('following up about care')>-1, sbx && sbx.querySelectorAll('textarea').length);
+  ok('Settings → Leads has the 14 script lines, blank, with the standard wording in grey', sbx && sbx.querySelectorAll('textarea[data-script]').length===14 && sbx.querySelector('textarea[data-script="voicemail"]').placeholder.indexOf('following up about care')>-1, sbx && sbx.querySelectorAll('textarea').length);
   return R;
 }
 """
@@ -91,7 +103,7 @@ with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 1360, 'height': 1000})
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.goto('http://localhost:8765/index.html?proof=leadsws'); pg.wait_for_timeout(1200)
+    pg.goto(os.environ.get('HUB_URL', 'http://localhost:8765') + '/index.html?proof=leadsws'); pg.wait_for_timeout(1200)
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T)
     pg.evaluate("async()=>{ await openClient({ lead_id:'dia' }, 'summary'); }"); pg.wait_for_timeout(500)
