@@ -4490,6 +4490,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <button class="primary" onclick="covMsgsSave(this)">Save callout texts</button>
 <span class="field-note" id="covMsgsSaved"></span>
 </div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:16px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Caregiver profiles to families</div>
+<p class="hint">Before a caregiver who is new to a client arrives, the family gets that caregiver's profile: the day before, 8 AM to 6 PM, by email to everyone with an email and by text to anyone with texting OK. Once per caregiver per family. When it can't go (no published profile, family not linked, nobody to reach, or no time left), the client's Care Coordinator gets a card on My Work instead. Samantha approved it 2026-10-28.</p>
+<div id="pinNow" class="field-note" style="margin:6px 0;"></div>
+<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="secondary" id="pinToggleBtn" onclick="pinToggle(this)">Turn on</button><span class="field-note" id="pinSaved"></span></div>
+<label>Text for a first visit ({first} = family member, {caregiver} = "Sarah T.", {cgfirst} = "Sarah", {client} = client's first name, {when} = "Friday, Oct 30 at 9:00 AM", {link} = their profile)</label>
+<textarea id="set_pin_first" rows="3"></textarea>
+<label>Text for a new caregiver (same words to fill in)</label>
+<textarea id="set_pin_new" rows="3"></textarea>
+<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><button class="primary" onclick="pinSaveWords(this)">Save profile texts</button><span class="field-note" id="pinWordsSaved"></span></div>
+<div style="margin-top:10px;display:flex;gap:8px;align-items:center;"><button class="secondary" onclick="pinLoad(this)">Show the last 14 days</button><span class="field-note" id="pinLoadNote"></span></div>
+<div id="pinRuns" style="margin-top:6px;"></div>
 </div>
 
 <div class="settings-section" id="suSettings" data-set="talk-emails">
@@ -15108,6 +15119,65 @@ function covMsgsFill(){
   for(const [el,k] of Object.entries(map)){ const n=document.getElementById(el); if(n) n.value=String(st[k]||''); }
   if(window.SLP) SLP.render();
   if(window.VR) VR.render();
+  pinFill();
+}
+/* ── Caregiver profiles to families (Samantha 2026-10-28: "Approved as written, including the 5 decisions as you suggested.
+   Build it with the switch off and start the practice week."). The server is profile-intro-watch (every 15 minutes); it reads
+   ops_settings.profile_intro_live and the two texts on every run, so nothing here needs a deploy. Blank text = her approved words. */
+const PIN_TEXT={ first:'Hi {first}, this is Caring Companions. {caregiver} will be with {client} for the first visit on {when}. Here is a little about {cgfirst}, so it is never a stranger at the door: {link} Questions? Call us at (417) 234-8494.',
+  new:'Hi {first}, this is Caring Companions. {caregiver} will be with {client} on {when}. {cgfirst} has not been out to see {client} before, so here is a little about {cgfirst} first: {link} Questions? Call us at (417) 234-8494.' };
+function pinFill(){
+  const st=DATA.ops_settings||{}, now=document.getElementById('pinNow'), b=document.getElementById('pinToggleBtn'); if(!now) return;
+  const on=st.profile_intro_live===true, owner=ccIsOwner();
+  now.innerHTML=!st.profile_intro_approved?'<b style="color:#B7791F;">Not installed yet.</b>'
+    :on?'<b style="color:#1E8449;">On.</b> Profiles go to families by themselves.':'<b style="color:#B7791F;">Off (practice).</b> Every 15 minutes the Hub lists what it would send and the cards it would make. Nothing is sent.';
+  if(!owner) now.innerHTML+=' Only Samantha or Zachary can turn it on or off.';
+  if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner&&st.profile_intro_approved?'':'none'; }
+  const f=document.getElementById('set_pin_first'), n=document.getElementById('set_pin_new');
+  if(f){ f.value=String(st.profile_intro_text_first||''); f.placeholder=PIN_TEXT.first; }
+  if(n){ n.value=String(st.profile_intro_text_new||''); n.placeholder=PIN_TEXT.new; }
+}
+async function pinToggle(btn){
+  if(!ccIsOwner()) return;
+  const on=!((DATA.ops_settings||{}).profile_intro_live===true);
+  if(!(await ccConfirm(on?'Turn on caregiver profiles to families?\n\nFrom the next check (within 15 minutes), a family whose next visit tomorrow is with a caregiver new to them gets that caregiver\'s profile: email to everyone with an email, text to anyone with texting OK, 8 AM to 6 PM. When it can\'t go, the client\'s Care Coordinator gets a card.'
+    :'Turn off caregiver profiles to families? It goes back to practice: the Hub only lists what it would send. The Introduce button on each caregiver\'s profile still works.'))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.profile_intro_live=on; if(on&&!m.profile_intro_live_since) m.profile_intro_live_since=new Date().toISOString(); return ['Caregiver profiles to families '+(on?'ON':'OFF')]; }, 'caregiver profiles to families');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('pinSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On from the next check.':'Off (practice).');
+  pinFill();
+}
+async function pinSaveWords(btn){
+  const vals={ profile_intro_text_first:String((document.getElementById('set_pin_first')||{}).value||'').trim(), profile_intro_text_new:String((document.getElementById('set_pin_new')||{}).value||'').trim() };
+  const bad=Object.values(vals).find(v=>v&&(!v.includes('{link}')||/\u2014/.test(v)));
+  const s=document.getElementById('pinWordsSaved');
+  if(bad){ if(s) s.textContent=bad.includes('{link}')?'Please use a comma or period instead of a long dash.':'Each text needs {link}, or families get no profile.'; return; }
+  if(btn) btn.disabled=true;
+  const { error }=await ccMergeSave('ops_settings', (m, base)=>{ const ch=[];
+    for(const [k,v] of Object.entries(vals)){ if(v){ if(base[k]!==v){ m[k]=v; ch.push(k); } } else if(k in m){ delete m[k]; ch.push(k); } }
+    return ch; });
+  if(btn) btn.disabled=false;
+  if(s) s.textContent=error?('Could not save: '+error.message):'Saved. The next profile uses these words.';
+}
+async function pinLoad(btn){
+  const box=document.getElementById('pinRuns'), note=document.getElementById('pinLoadNote'), esc=escapeHtmlComms; if(!box) return;
+  if(btn) btn.disabled=true; if(note) note.textContent='Loading…';
+  let d=null; try{ d=(await callAction('profile-intro-watch',{ action:'view' })).data; }catch(e){ d={ error:e.message }; }
+  if(btn) btn.disabled=false;
+  if(!d||d.error){ if(note) note.textContent='Could not load: '+((d&&d.error)||'no answer'); return; }
+  if(note) note.textContent=d.history_through?'Visit history learned through '+d.history_through+'.':'Still learning a year of visits from AxisCare.';
+  const day=(x)=>new Date(x+'T12:00:00Z').toLocaleDateString('en-US',{ weekday:'short', month:'short', day:'numeric', timeZone:'UTC' });
+  const when=(v)=>{ const t=String(v||'').slice(11,16), h=Number(t.slice(0,2)); return day(String(v).slice(0,10))+' '+((h%12)||12)+':'+t.slice(3,5)+(h<12?' AM':' PM'); };
+  const KIND={ profile:'Profile not ready', circle:'Family not linked', nobody:'Nobody to reach', no_time:'No time left: call the family', failed:'Didn\'t go through' };
+  box.innerHTML=(d.runs||[]).length?(d.runs||[]).map(r=>'<div style="border-top:1px solid var(--border);padding:8px 0;">'
+    +'<b>'+esc(day(r.run_day))+'</b> <span class="badge '+(r.live?'ok':'muted')+'" style="font-size:10px;">'+(r.live?'Live':'Practice')+'</span>'
+    +(r.live?' '+Number(r.sent||0)+' sent':'')
+    +((r.problems||[]).length?'<div class="field-note" style="color:var(--red);">Couldn\'t check: '+esc((r.problems||[]).join('; '))+'</div>':'')
+    +(r.would||[]).map(w=>'<div class="field-note" style="margin-top:4px;">'+(r.live?'':'Would send: ')+'<b>'+esc(w.caregiver)+'</b> to '+esc(w.client)+'\'s family ('+esc((w.to||[]).map(t=>t.name+' by '+[t.text?'text':'',t.email?'email':''].filter(Boolean).join(' and ')).join(', '))+') for '+esc(when(w.visit))+'. '+(w.reason==='first_visit'?'First visit.':'New caregiver.')+'<br><span style="color:var(--gray);">"'+esc(w.example)+'"</span></div>').join('')
+    +(r.cards||[]).map(c=>'<div class="field-note" style="margin-top:4px;color:#92400E;">'+(r.live?'Card: ':'Would make a card: ')+'<b>'+esc(KIND[c.kind]||c.kind)+'</b>. '+esc(c.detail)+'</div>').join('')
+    +(!(r.would||[]).length&&!(r.cards||[]).length&&!(r.problems||[]).length?'<div class="field-note">No caregiver new to a family that day.</div>':'')
+    +'</div>').join(''):'<div class="field-note">It hasn\'t run yet.</div>';
 }
 /* ── GHL booking calendars (Profile First, step A, 2026-09-28) ─────────────
    The widget URLs live in ops_settings (assessment_calendar_url, medicaid_calendar_url) so swapping a
