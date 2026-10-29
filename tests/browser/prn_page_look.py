@@ -72,6 +72,33 @@ with sync_playwright() as pw:
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_member.png'), full_page=True)
     ok('no page errors (member)', not errs, errs); b.close()
 
+    # STEP 7: the twice-yearly questions, on call, milestones
+    V7 = dict(VIEW, feedback={ 'round': '2026-11', 'until': '2026-11-30', 'questions': ['What would make being on the PRN Team better for you?', 'Is there anything we could do to make picking up shifts easier?'], 'answered': False, 'waiting': False },
+      oncall={ 'pattern': 'every_other_weekend', 'pattern_word': 'Every other weekend', 'confirmed': [{ 'start_date': '2026-11-07', 'end_date': '2026-11-08' }],
+        'patterns': { 'every_weekend': 'Every weekend', 'every_other_weekend': 'Every other weekend', 'one_weekend_month': 'One weekend a month', 'weekday': 'A weekday', 'not_now': 'Not right now' },
+        'words': 'On call means you reply within 15 minutes and can start a shift within 1 hour. A weekend runs Saturday 7am to Sunday 11pm; a weekday runs 7am to 11pm. The office confirms each date with you first.' },
+      thanks=[{ 'kind': 'milestone', 'at': '', 'text': 'You stepped in for your first PRN shift. Thank you for standing in the gap.' }, { 'kind': 'milestone', 'at': '', 'text': 'You kept every shift you said yes to this season. Families count on that, and so do we.' }])
+    def m7(body):
+        a = body.get('action')
+        if a == 'view': return 200, V7
+        return 200, { 'ok': True, 'message': { 'feedback': 'Thank you, Grace! The office reads every answer.', 'oncall': 'Thank you! The office will confirm any dates with you first.' }.get(a, 'ok') }
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, m7)
+    ft = pg.inner_text('#feedback')
+    ok('their page (step 7): the two questions, open until Nov 30', 'What would make PRN better?' in ft and 'What would make being on the PRN Team better for you?' in ft and 'picking up shifts easier' in ft and 'Nov 30' in ft, ft)
+    pg.fill('#fbA1', 'More weekend notice'); pg.click('#fbSend'); pg.wait_for_timeout(200)
+    fc = [c['body'] for c in calls if c['body'].get('action') == 'feedback']
+    ok('...answers are sent with their link; thanks them', fc and fc[-1]['a1'] == 'More weekend notice' and fc[-1]['a2'] == '' and fc[-1].get('t') and 'The office reads every answer' in pg.inner_text('#fbMsg'), fc)
+    ht = pg.inner_text('#hours')
+    ok('on call under My hours: the question, what it means, their choice marked, their confirmed weekend; no pay', 'Would you like to be on call sometimes?' in ht and 'reply within 15 minutes' in ht and pg.locator('[data-oc="every_other_weekend"]').get_attribute('class').endswith('on')
+       and "You're on call: Sat, Nov 7 to Sun, Nov 8" in ht and '$' not in ht, ht)
+    pg.click('[data-oc="weekday"]'); pg.wait_for_timeout(200)
+    ok('...tapping a choice sends it, and it is marked', any(c['body'].get('action') == 'oncall' and c['body'].get('pattern') == 'weekday' for c in calls) and pg.locator('[data-oc="weekday"]').get_attribute('class').endswith('on'))
+    tt = pg.inner_text('#thanks')
+    ok('milestones: first shift, and kept every yes this season', 'your first PRN shift' in tt and 'kept every shift you said yes to this season' in tt, tt)
+    ok('no page errors (step 7)', not errs, errs); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    ok('...no round and not on the CNA Team: no questions, no on-call question', pg.locator('#feedback').count() == 0 and 'on call' not in pg.inner_text('#hours').lower()); b.close()
+
     # STEP 6: the monthly update at the top of their page
     VU = dict(VIEW, update={ 'month': '2026-10', 'title': 'Your PRN Team update for October', 'facts': ['In October our PRN Teams stepped in for 3 shifts, for 2 different families. Thank you for standing in the gap.'],
       'paragraph': 'Thank you for everything you did this month.', 'from': 'Samantha', 'kind_word': 'She made Mom laugh.', 'tip': None, 'steady': 'Want steady hours? Text us and we will talk about what is open.' })
@@ -151,7 +178,9 @@ async()=>{
     members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[]}, page:{ last_looked:'2026-10-28T15:00:00Z', looking:{on:true,note:'any morning next week'}, break_until:'2026-11-15' }}],
     items:[{id:'looking:g:2026-10-28',kind:'looking',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'looking:2026-10-28',title:'Grace is looking for hours',detail:'"any morning next week". From their PRN Team page.'},
            {id:'course:g:dementia-care',kind:'course',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'course:dementia-care',title:"Grace would like to take Alzheimer's & Dementia Care",detail:'Assign it on the Training Platform.'},
-           {id:'idea:g:9',kind:'idea',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'idea:9',title:'Grace shared an idea',detail:'"A group text"'}],
+           {id:'idea:g:9',kind:'idea',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'idea:9',title:'Grace shared an idea',detail:'"A group text"'},
+           {id:'feedback:g:41',kind:'feedback',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'feedback:41',title:'Grace answered "What would make PRN better?"',detail:'1: More weekend notice · 2: (left blank)'},
+           {id:'oncall:g:42',kind:'oncall',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'oncall:42',title:'Grace would like to be on call: every other weekend',detail:'From their PRN Team page. Confirm dates with them in On call, then mark it done here.'}],
     oncall:{ stipend:null, patterns:{}, offers:[], weekends:[] } };
   let MONTHLY={ ok:true, month:'2026-10', month_word:'October', live:false, switch_on:false, page_live:false, facts:['In October our PRN Teams stepped in for 3 shifts, for 2 different families. Thank you for standing in the gap.','Welcome to our newest members, Denise and Tina!'],
     paragraph:'', kind_word:'', tip:'', steady:'Want steady hours? Text us and we will talk about what is open.', saved_by:null, sent_by:null, sent_at:null, members:3, sent_to:0 };
@@ -187,6 +216,9 @@ async()=>{
   ok('...ticked: saved on the case with who ticked it', kc.prn_page_off===true && kc.prn_page_off_by && persisted && persisted[0]==='coverage_cases' && /Ticked by/.test(host.innerText), [kc, persisted]);
   await covPrnPageOff('cvk', false); ok('...unticked: cleared', !('prn_page_off' in kc));
   ok('...not on a regular weekly opening', !/Keep off the PRN page/.test(covWordingPreview({ id:'w', status:'open', kind:'interest', client:'X' })));
+  ok('This week (step 7): her answers to the questions (Read) and an on-call offer from her page (Open On call, Done)', /Grace answered "What would make PRN better\?"/.test(wk) && /More weekend notice/.test(wk) && /Grace would like to be on call: every other weekend/.test(wk)
+    && [...document.querySelectorAll('#prnWeek button')].some(b=>b.innerText==='Open On call'), wk);
+  await PW.mark('feedback:g:41','handled'); ok('...Read marks the answers handled', CALLS.some(c=>c.action==='mark' && c.kind==='handled' && c.ref==='feedback:41'));
   await PW.mark('course:g:dementia-care','handled'); ok('...Assigned marks the course line handled', CALLS.some(c=>c.action==='mark' && c.kind==='handled' && c.ref==='course:dementia-care'));
   await PW.mark('looking:g:2026-10-28','called'); ok('...Called on looking for hours', CALLS.some(c=>c.action==='mark' && c.kind==='called' && c.ref==='looking:2026-10-28'));
   PW.tab('teams'); await sleep(80);
@@ -204,7 +236,9 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===6, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===7, sw);
+  ok('Settings (step 7): the twice-yearly questions, off; the invite wording box shows the standard text', /Twice-yearly "What would make PRN better\?" questions: off/.test(sw)
+    && document.getElementById('set_prn_feedback_msg').placeholder==="Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.", sw);
   ok('Settings (step 6): Send the monthly PRN Team update, off; its wording box shows the standard text', /Send the monthly PRN Team update: off/.test(sw)
     && document.getElementById('set_prn_monthly_msg').placeholder==="Hi {first_name}, the Caring Companions PRN Team update for {month} is on your PRN Team page: {link} Thank you for standing in the gap with us.", sw);
   ok('Settings (step 5b): Open shifts and "I\'m Interested", off', /Open shifts and "I'm Interested" on the PRN Team page: off/.test(sw), sw);

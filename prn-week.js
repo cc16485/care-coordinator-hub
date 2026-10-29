@@ -25,7 +25,7 @@
   var FN = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/prn-week';
   var e = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var W = null, OPEN = {}, M = null;   // M: the monthly PRN Team update (step 6)
-  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], welcome: ['✋', '#EDE9FE', '#5B21B6'], nobackup: ['⚑', '#FEE2E2', '#991B1B'] };
+  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], welcome: ['✋', '#EDE9FE', '#5B21B6'], nobackup: ['⚑', '#FEE2E2', '#991B1B'], feedback: ['✎', '#E0F2FE', '#075985'], oncall: ['☏', '#FEF3C7', '#92400E'] };
   var isOwner = function () { try { return typeof ccCan === 'function' && ccCan('manage_settings'); } catch (x) { return false; } };
   var fmt = function (d) { return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; };
 
@@ -43,7 +43,8 @@
     var page = m.axiscare_id ? '<button class="fb" onclick="PW.page(\'' + e(m.axiscare_id) + '\')">Open their page</button>' : '';
     var btns = it.kind === 'looking' ? page + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'called\')">Called</button>'
       : it.kind === 'course' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Assign it on the Training Platform first">Assigned</button>'
-      : it.kind === 'idea' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')">Read</button>'
+      : it.kind === 'idea' || it.kind === 'feedback' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')">Read</button>'
+      : it.kind === 'oncall' ? '<button class="fb" onclick="PW.tab(\'oncall\')">Open On call</button><button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Confirm dates with them in On call first">Done</button>'
       : it.kind === 'welcome' ? page + '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Record the call</button>'
       : it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
       : it.kind === 'milestone' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'card_mailed\')">Card mailed</button>'
