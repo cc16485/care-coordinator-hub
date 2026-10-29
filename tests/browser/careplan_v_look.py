@@ -110,7 +110,7 @@ async()=>{
   const txt=()=>document.getElementById('cpvRoot').innerText;
   ok('the review screen: version 1 Draft ready, the plan, the tasks', /Version 1 · Draft ready/.test(txt()) && /Bathing - Shower/.test(txt()) && /Before approval/.test(txt()));
   ok('each task shows the six parts; lines without a source are yellow "Ask before approving"', ['When','How to help','Equipment and supplies','Their preferences','Safety','Report to the office if'].every(w=>txt().includes(w)) && c('[data-cpv="task.0.report_if"]').classList.contains('cpv-ask') && c('[data-cpv="task.0.report_if"]').placeholder==='Ask before approving');
-  ok('...and where each line came from', /From visit: safety.falls_note/.test(txt()));
+  ok('...and where each line came from', /From visit \(family\): safety.falls_note/.test(txt()));
   const ap=()=>c('[data-cpva="approve"]');
   ok('Approve is locked: report-if, preferences, medicines, the question, the owner reviews and the services tick', ap().disabled && /Report to the office if/i.test(txt()) && /needs an owner's review/.test(txt()) && /I checked that each task/.test(txt()));
   ok('no urgent button for a start that is not urgent', !c('[data-cpva="approveurgent"]'));

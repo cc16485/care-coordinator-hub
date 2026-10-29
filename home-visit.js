@@ -109,6 +109,7 @@
     if (eq && (v.equipment || []).indexOf(eq) < 0) { v.equipment = (v.equipment || []).concat([eq]); mark('visit.equipment:' + eq); }
     const gs = callGoals(d.client_goals);
     if (gs && (v.goals || []).every((g) => nil(g && g.text))) { gs.forEach((t, i) => { v.goals[i] = { text: t }; mark('visit.goals.' + i + '.text'); }); v.goals_from_call = true; }
+    keepCallSaid(v);
     v.call_filled_at = new Date().toISOString();
   }
   /* what the lead already holds about the caregiver (its attributes), into the Preferences screen's empty answers, once, in blue */
@@ -126,7 +127,44 @@
     pr.skills = Array.isArray(pr.skills) ? pr.skills : [];
     Object.keys(SK).forEach((k) => { const sk = SK[k]; if ((at[k] === 'yes' || at[k] === 'preferred') && pr.skills.indexOf(sk) < 0) { pr.skills.push(sk); mark('visit.prefs.skills:' + sk); } });
     (v.attendees || []).forEach((p) => { if (p.role === 'primary' && !Array.isArray(p.roles)) p.roles = ['primary']; });
+    keepCallSaid(v);
     v.lead_prefs_at = new Date().toISOString();
+  }
+  /* ---------- Stage 3 (2026-10-29, her "Stage 3 approved as written"): how each answer is known ----------
+     What a phone call or the lead put in a box is kept (call_said), so a later change shows as "doesn't match" instead of
+     the call's words being lost. A blue answer the family confirms becomes "family told us" (checked). Seen is ticked by
+     the coordinator, only on what can be seen. */
+  function keepCallSaid(v) {
+    v.call_said = v.call_said || {};
+    Object.keys(v.from_call || {}).forEach((k) => { if (k in v.call_said) return; const i = k.indexOf(':'); v.call_said[k] = i > -1 ? true : getIn(v, k); });
+  }
+  const getIn = (v, path) => path.replace(/^visit\./, '').split('.').reduce((o, k) => (o == null ? undefined : o[k]), v);
+  const SEEN_KEYS = { 'visit.equipment': 'Equipment', 'visit.safety.hazards': 'Home hazards', 'visit.home.entry': 'Getting in', 'visit.home.stairs': 'Stairs', 'visit.acts.mobility.level': 'Walking', 'visit.acts.transfers.level': 'Transfers' };
+  const seenBtn = (k) => { const on = !!((ST.a.visit.seen_visit || {})[k]); return '<button type="button" class="hv-seen' + (on ? ' on' : '') + '" data-hva="seen" data-p="' + E(k) + '" aria-pressed="' + on + '" title="Tick when you saw it yourself">' + (on ? 'Seen at the visit' : 'Seen?') + '</button>'; };
+  const normV = (x) => (Array.isArray(x) ? x.slice().sort().join(',') : String(x == null ? '' : x)).trim().toLowerCase();
+  /* what a call said that the visit changed: [key, label, said, now] */
+  function mismatches(v) {
+    const out = [], ok = v.mismatch_ok || {};
+    Object.keys(v.call_said || {}).forEach((k) => {
+      if (ok[k]) return;
+      const i = k.indexOf(':');
+      if (i > -1) { const path = k.slice(0, i), val = k.slice(i + 1), cur = getIn(v, path), on = Array.isArray(cur) ? cur.indexOf(val) > -1 : cur === val;
+        if (!on) out.push([k, labelOf(path), val, Array.isArray(cur) ? (cur.join(', ') || 'none') : (cur || 'not answered')]); return; }
+      const now = getIn(v, k);
+      if (normV(now) !== normV(v.call_said[k])) out.push([k, labelOf(k), String(v.call_said[k] || ''), String(now || 'cleared')]);
+    });
+    return out;
+  }
+  function labelOf(path) { const b = boxes().find((x) => x.path === path); if (b) return b.label;
+    return ({ 'visit.equipment': 'Equipment', 'visit.allergies': 'Allergies', 'visit.safety.ec.name': 'Emergency contact', 'visit.safety.ec.phone': "Emergency contact's phone", 'visit.safety.ec.rel': 'Emergency contact: relationship', 'visit.prefs.skills': 'Skills they need' })[path] || path.replace(/^visit\./, '').replace(/[._]/g, ' '); }
+  /* the mark of one answer: call (not checked), checked, heard, seen, told */
+  function markOf(v, path) {
+    const fc = v.from_call || {}, pre = path + ':';
+    if ((v.seen_visit || {})[path]) return 'seen';
+    if (fc[path] || Object.keys(fc).some((k) => k.indexOf(pre) === 0)) return 'call';
+    if ((v.heard || {})[path]) return 'heard';
+    if ((v.checked || {})[path]) return 'checked';
+    return 'told';
   }
   function callBy() {
     const l = ST.lead; if (!l) return '';
@@ -252,7 +290,9 @@
   /* ---------- small pieces ---------- */
   const field = (path, ph, opt) => {
     opt = opt || {};
-    const v = get(path), cls = 'hv-f' + (opt.from || (ST.a.visit.from_call || {})[path] ? ' hv-from' : '') + ((ST.a.visit.heard || {})[path] ? ' hv-heard' : '');
+    const blue = (ST.a.visit.from_call || {})[path];
+    if (blue && !opt.noCheck) return '<span class="hv-fw">' + field(path, ph, Object.assign({}, opt, { noCheck: true })) + '<button type="button" class="hv-chkb" data-hva="checked" data-p="' + E(path) + '">Checked with the family</button></span>';
+    const v = get(path), cls = 'hv-f' + (opt.from || blue ? ' hv-from' : '') + ((ST.a.visit.heard || {})[path] ? ' hv-heard' : '');
     return opt.rows ? '<textarea class="' + cls + '" rows="' + opt.rows + '" data-hv="' + E(path) + '" placeholder="' + E(ph || '') + '">' + E(v || '') + '</textarea>'
       : '<input class="' + cls + '" ' + (opt.type ? 'type="' + opt.type + '"' : '') + ' data-hv="' + E(path) + '" value="' + E(v || '') + '" placeholder="' + E(ph || '') + '"' + (opt.attrs || '') + '>';
   };
@@ -260,7 +300,7 @@
   const pills = (path, opts, multi) => '<div class="hv-seg' + ((ST.a.visit.heard || {})[path] ? ' hv-heardseg' : '') + '">' + opts.map((o) => {
     const cur = get(path), on = multi ? (Array.isArray(cur) && cur.indexOf(o[0]) > -1) : cur === o[0];
     return '<button type="button" class="' + (on ? 'on' : '') + ((ST.a.visit.from_call || {})[path + ':' + o[0]] ? ' hv-pfrom' : '') + '" data-hvp="' + E(path) + '" data-v="' + E(o[0]) + '"' + (multi ? ' data-multi="1"' : '') + ' aria-pressed="' + on + '">' + E(o[1]) + '</button>';
-  }).join('') + '</div>';
+  }).join('') + (Object.keys(ST.a.visit.from_call || {}).some((k) => k.indexOf(path + ':') === 0) ? '<button type="button" class="hv-chkb" data-hva="checked" data-p="' + E(path) + '">Checked with the family</button>' : '') + '</div>';
   const yn = (path) => pills(path, YN);
   const card = (title, inner, right) => '<section class="hv-card"><div class="hv-ch"><h2>' + E(title) + '</h2>' + (right || '') + '</div>' + inner + '</section>';
 
@@ -336,8 +376,8 @@
       + '<p class="hv-n" style="margin:0">Asked at every visit. The care plan can\'t be approved until each one is answered.</p>'
       + q('Any falls in the last 6 months?', yn(SY + 'falls')) + (s.falls === 'yes' ? follow(SY + 'falls_note', 'How, where, and was anyone hurt?') : '')
       + q('Lives alone?', yn(SY + 'lives_alone'))
-      + q('Walking', pills('visit.acts.mobility.level', PERSONAL.find((r) => r[0] === 'mobility')[3]))
-      + q('Getting up and down (transfers)', pills('visit.acts.transfers.level', PERSONAL.find((r) => r[0] === 'transfers')[3]))
+      + q('Walking', '<div class="hv-sqr">' + pills('visit.acts.mobility.level', PERSONAL.find((r) => r[0] === 'mobility')[3]) + seenBtn('visit.acts.mobility.level') + '</div>')
+      + q('Getting up and down (transfers)', '<div class="hv-sqr">' + pills('visit.acts.transfers.level', PERSONAL.find((r) => r[0] === 'transfers')[3]) + seenBtn('visit.acts.transfers.level') + '</div>')
       + (lv('transfers') === 'full' ? q('Needs more than one person, or a lift, to transfer?', yn(SY + 'two_person'), 'Caregivers never do two-person transfers.') : '')
       + q('Memory concerns?', yn('visit.memory'))
       + q('Needs supervision to be safe (judgment)?', yn('visit.supervision'))
@@ -346,7 +386,7 @@
       + q('Can they call for help in an emergency?', pills(SY + 'summon', window.CPV ? CPV.SUMMON : []))
       + q('Oxygen in the home?', yn(SY + 'oxygen')) + (s.oxygen === 'yes' ? follow(SY + 'oxygen_note', 'Where it is kept, and how it is used') : '')
       + q('Does anyone smoke in the home?', yn('visit.prefs.smoking'))
-      + q('Home hazards you can see', pills(SY + 'hazards', window.CPV ? CPV.HAZARDS : [], true)) + ((s.hazards || []).some((h) => h !== 'none') ? follow(SY + 'hazards_note', 'Where, and anything the family will fix') : '')
+      + q('Home hazards you can see', '<div class="hv-sqr">' + pills(SY + 'hazards', window.CPV ? CPV.HAZARDS : [], true) + seenBtn(SY + 'hazards') + '</div>') + ((s.hazards || []).some((h) => h !== 'none') ? follow(SY + 'hazards_note', 'Where, and anything the family will fix') : '')
       + '<div class="hv-sq hv-sqw"><div><b>Allergies</b><span class="hv-n">Medicines and food. Read back what we have and confirm it.</span></div>'
       + '<div class="hv-stack">' + field('visit.allergies', 'List every one', { rows: 2 }) + '<div class="hv-seg"><button type="button" class="hv-b2" data-hva="noallergy">None known</button></div>'
       + '<div class="hv-row" style="min-height:0"><span class="hv-n">Confirmed with the family?</span>' + pills(SY + 'allergies_ok', [['yes', 'Yes, confirmed']]) + '</div></div></div>'
@@ -362,13 +402,14 @@
     if (!l || v.safety_filled_at || v.finished_at) return;
     const ec = v.safety.ec = v.safety.ec || {};
     if (!isSelf(l) && nil(ec.name) && callerName(l) && l.phone) { ec.name = callerName(l); ec.rel = l.relationship || ''; ec.phone = l.phone; ['name', 'rel', 'phone'].forEach((k) => { (v.from_call = v.from_call || {})['visit.safety.ec.' + k] = true; }); }
+    keepCallSaid(v);
     v.safety_filled_at = new Date().toISOString();
   }
   /* every answer the visit holds, for the care plan draft: path, label, section, value (with where it came from) */
   function factsFor(a) {
     const keep = ST.a; ST.a = a;
     try {
-      const v = a.visit || {}, out = [], mark = (p) => (v.from_call || {})[p] ? ' (said on a phone call, not checked at the visit)' : (v.heard || {})[p] ? ' (heard on the recording, kept)' : '';
+      const v = a.visit || {}, out = [], mark = (p) => ({ call: ' (said on a phone call, not checked at the visit)', heard: ' (heard on the recording, kept)', seen: ' (seen by the coordinator at the visit)', checked: ' (said on a phone call, checked with the family at the visit)', told: '' })[markOf(v, p)];
       const add = (path, label, section, val) => { if (!blank(val)) out.push({ path, label, section, value: String(val) + mark(path) }); };
       boxes().forEach((b) => add(b.path, b.label, b.section, blank(get(b.path)) ? '' : shown(b, get(b.path))));
       const s = v.safety || {}, w = (list, k) => ((list.find((x) => x[0] === k) || [0, k])[1]);
@@ -436,7 +477,7 @@
         '<div class="hv-g2">' + lab('Primary doctor', field('physician_name', 'Name', { from: !!ST.a.physician_name })) + lab("Doctor's phone", field('physician_phone', '', { from: !!ST.a.physician_phone })) + '</div>'
         + '<div class="hv-g2">' + lab('Preferred hospital', field('preferred_hospital', '', { from: !!ST.a.preferred_hospital })) + lab('Preferred pharmacy', field('visit.pharmacy')) + '</div>')
       + '</div>'
-      + card('Mobility and equipment', '<p class="hv-n" style="margin:0">Tap everything they use or have in the home.</p>' + pills('visit.equipment', EQUIP.map((x) => [x, x]), true) + lab('Other', field('visit.equipment_other')));
+      + card('Mobility and equipment', '<p class="hv-n" style="margin:0">Tap everything they use or have in the home.</p>' + pills('visit.equipment', EQUIP.map((x) => [x, x]), true) + lab('Other', field('visit.equipment_other')), seenBtn('visit.equipment'));
   }
   function actRow(r) {
     const p = 'visit.acts.' + r[0];
@@ -521,7 +562,7 @@
     const stairs = h.stairs === 'yes' || ((v.safety || {}).hazards || []).indexOf('stairs') > -1;
     return '<h1>Home and safety</h1><div class="hv-sub">What a caregiver needs to know before they walk in the door.</div>'
       + '<div class="hv-g2">'
-      + card('Getting in', pills('visit.home.entry', ENTRY)
+      + card('Getting in', pills('visit.home.entry', ENTRY) + '<div>' + seenBtn('visit.home.entry') + '</div>'
         + lab('How, and where', field('visit.home.entry_note', 'Which door, where the key or lockbox is', { rows: 2 }), 'Don\'t type a door or lockbox code here. It goes in AxisCare.')
         + (h.entry === 'key' || h.entry === 'lockbox' ? '<div class="hv-row" style="min-height:0"><span class="hv-n">Code or key details</span>' + pills('visit.home.code_in_axis', [['yes', 'In AxisCare'], ['todo', 'Still to add to AxisCare']]) + '</div>' : '')
         + lab('Parking', field('visit.home.parking', 'Driveway, street, which side')))
@@ -530,7 +571,7 @@
         + '<div class="hv-n">What a caregiver does in an emergency is the same for every client and is set in Settings.</div>')
       + '</div>'
       + (pr.cats === 'yes' || pr.dogs === 'yes' ? card('Pets', lab('Names, and where they stay during visits', field('visit.home.pets_note', '', { rows: 2 }))) : '')
-      + card('Stairs', '<div class="hv-row"><b>Any stairs inside, or to get in?</b>' + yn('visit.home.stairs') + '</div>' + (stairs ? lab('Where, and is there a rail?', field('visit.home.stairs_note')) : ''))
+      + card('Stairs', '<div class="hv-row"><b>Any stairs inside, or to get in?</b>' + yn('visit.home.stairs') + '</div>' + '<div>' + seenBtn('visit.home.stairs') + '</div>' + (stairs ? lab('Where, and is there a rail?', field('visit.home.stairs_note')) : ''))
       + card('Where things are kept', '<div class="hv-g2">'
         + lab('Equipment (walker, shower chair, lift)', field('visit.home.equipment_where')) + lab('Cleaning supplies', field('visit.home.cleaning_where'))
         + lab('Towels and linens', field('visit.home.linens_where')) + lab('The medicine list', field('visit.home.medlist_where'), 'Where it is kept. We don\'t collect it.')
@@ -900,6 +941,9 @@
       + '.hv-need{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;min-height:44px;padding:8px 10px;border:1px solid #EEEAE3;border-radius:10px;background:#fff;font:inherit;font-size:14px;cursor:pointer}'
       + '.hv-main{position:relative}.hv-needs[hidden]{display:none}'
       + '@media (max-width:700px){.hv-warn2{grid-template-columns:minmax(0,1fr)}.hv-shift{grid-template-columns:110px minmax(0,1fr) 44px}.hv-shift .hv-star{grid-column:2}}'
+      + '.hv-fw{display:flex;flex-direction:column;gap:4px;min-width:0}.hv-chkb{align-self:flex-start;min-height:32px;padding:0 10px;border-radius:16px;border:1px solid #9CC3C6;background:#F3F8F8;color:#14565D;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}'
+      + '.hv-sqr{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}@media (max-width:700px){.hv-sqr{align-items:flex-start}}'
+      + '.hv-seen{min-height:36px;padding:0 12px;border-radius:18px;border:1.5px dashed #9CA8AA;background:#fff;color:#465255;font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}.hv-seen.on{border:1.5px solid #2E6B3A;background:#E4F1E5;color:#2E6B3A}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
       + '.hv-chip{font-size:13px;font-weight:700;padding:6px 10px;border-radius:10px;text-align:center;background:#E3F0EF;color:#14565D}'
@@ -1034,6 +1078,9 @@
         else { const on = get(p) !== v; set(p, on ? v : ''); pb.parentElement.querySelectorAll('button').forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); if (on) { pb.classList.add('on'); pb.setAttribute('aria-pressed', 'true'); } }
         if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; pb.parentElement.classList.remove('hv-heardseg'); }
         if (ST.a.visit.from_call && ST.a.visit.from_call[p + ':' + v]) { delete ST.a.visit.from_call[p + ':' + v]; pb.classList.remove('hv-pfrom'); }
+        /* and the other way: confirming on the safety check clears the blue on what was confirmed */
+        if ((p === 'visit.safety.allergies_ok' || p === 'visit.safety.ec_ok') && get(p) === 'yes') { const vv = ST.a.visit, fc = vv.from_call || {}, ks = p === 'visit.safety.allergies_ok' ? ['visit.allergies'] : Object.keys(fc).filter((x) => /^visit\.safety\.ec\./.test(x));
+          ks.forEach((x) => { if (fc[x]) { delete fc[x]; (vv.checked = vv.checked || {})[x] = new Date().toISOString(); } }); safetyRefresh(); }
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
         { const m = p.match(/^visit\.acts\.([a-z_]+)\.level$/), r = m && HOUSE.concat(PERSONAL).find((x) => x[0] === m[1]); const h = r && document.getElementById('hvHelp_' + r[0]); if (h) h.innerHTML = helpHtml(r); }
         if (/^visit\.(home\.|prefs\.(cats|dogs)$|safety\.hazards$)/.test(p)) { const hs = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.home + '"]'); if (hs && ST.sec === S_.home) hs.innerHTML = secHome(); }
@@ -1044,6 +1091,17 @@
       const a = e.target.closest('[data-hva]'); if (!a) return;
       const act = a.getAttribute('data-hva'), i = +a.getAttribute('data-i');
       if (act === 'addperson') { ST.a.visit.attendees.push({ name: '', rel: '', role: 'family' }); document.getElementById('hvPeople').innerHTML = peopleHtml(); saveSoon(); return; }
+      if (act === 'checked' || act === 'seen') {
+        const k = a.getAttribute('data-p'), v = ST.a.visit;
+        if (act === 'checked') { v.from_call = v.from_call || {}; Object.keys(v.from_call).filter((x) => x === k || x.indexOf(k + ':') === 0).forEach((x) => delete v.from_call[x]); (v.checked = v.checked || {})[k] = new Date().toISOString();
+          /* one confirmation, not two: checking the allergies or the emergency contact is the safety check's confirmation too */
+          v.safety = v.safety || {};
+          if (k === 'visit.allergies') v.safety.allergies_ok = 'yes';
+          if (/^visit\.safety\.ec\./.test(k) && !Object.keys(v.from_call).some((x) => /^visit\.safety\.ec\./.test(x))) v.safety.ec_ok = 'yes'; }
+        else { v.seen_visit = v.seen_visit || {}; if (v.seen_visit[k]) delete v.seen_visit[k]; else v.seen_visit[k] = { by: me(), at: new Date().toISOString() }; }
+        const el = document.querySelector('#hvRoot .hv-sec[data-sec="' + ST.sec + '"]'); if (el) { el.innerHTML = SEC_FN[ST.sec](); if (ST.sec === S_.story) lifeMount(); if (ST.sec === S_.sign) sigInit(); }
+        saveSoon(); return;
+      }
       if (act === 'needs') { const el = document.getElementById('hvNeedsList'); el.hidden = !el.hidden; if (!el.hidden) el.innerHTML = needsListHtml(); return; }
       if (act === 'needsclose') { document.getElementById('hvNeedsList').hidden = true; return; }
       if (act === 'needsgo') { document.getElementById('hvNeedsList').hidden = true; show(+a.getAttribute('data-sec')); const p = a.getAttribute('data-p');
@@ -1137,6 +1195,7 @@
     if (!l && a.lead_id) l = (D().leads || []).find((x) => x.id === a.lead_id) || null;
     ST.a = ensureVisit(a, l); ST.lead = l; ST.sec = 0;
     callFill(ST.a, l); leadPrefs(ST.a, l); safetyPrefill(ST.a, l);
+    if (!ST.a.visit.finished_at) keepCallSaid(ST.a.visit);   /* a visit started before Stage 3: what is still blue is what the call said */
     if (o.sec != null) ST.sec = +o.sec;
     await saveNow();
     render();
@@ -1164,5 +1223,10 @@
     const sv = document.getElementById('hvSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
   }
 
-  window.HV = { open, close, settingsFill, settingsSave, factsFor, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
+    /* for the care plan screen: the same answers, read from any assessment */
+  const withA = (a, fn) => { const keep = ST.a; ST.a = a; try { return fn(); } finally { ST.a = keep; } };
+  const mismatchesFor = (a) => withA(a, () => mismatches(a.visit || {}));
+  const needsFor = (a) => withA(a, () => needsList().map((x) => ({ label: x[0], sec: x[1], path: x[2] })));
+  const markFor = (a, path) => markOf((a && a.visit) || {}, path);
+  window.HV = { open, close, settingsFill, settingsSave, factsFor, mismatchesFor, needsFor, markFor, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
 })();
