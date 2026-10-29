@@ -6158,7 +6158,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <button type="button" class="subtab" data-cs="notes" onclick="cpCareSub('notes')">Care notes</button>
     </div>
     <div class="cp-care-sub" data-cs="asmt"><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
-    <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_review_slot"></div></div>
+    <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_gm"></div><div id="cp_review_slot"></div></div>
     <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
     <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
   </div>
@@ -7654,7 +7654,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=7"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=8"></script><script src="gap-mentor.js?v=1"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -10849,6 +10849,8 @@ function cpRenderCare(){
           +'</div>').join('')
       :'<div class="field-note">No reviews logged yet.</div>')
     +'</div>';
+  /* PRN step 8a: Gap Mentors (gap-mentor.js), under the reviews: ask one, the answers, and their notes */
+  try{ if(window.GM) GM.mountClient('cp_gm', ax, (CP.r&&CP.r.client_name)||''); }catch(e){ console.warn('gap mentors card', e); }
   /* Care needs (Track 3c, care-needs.js, only while its Admin switch is on) and the Caregiver packet (care-packet.js)
      mount into their own sub-tabs; clear them so a previous client's card never shows */
   ['cp_needs','cp_packet'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
@@ -15940,6 +15942,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_feedback_live', name:'Twice-yearly "What would make PRN better?" questions', needsPage:true,
     on:'In May and November (the first 30 days), two questions show on their page and each member gets one invite text (weekdays 10am to 5pm, 20 a day). Answers show on This week.',
     off:'Off: no questions on their page and no invite. You can still see them in What they see while a round is open.' },
+  /* PRN STEP 8a: Gap Mentors (gap-mentor.js on a client's Care tab; prn-page offers and notes) */
+  { key:'prn_mentor_live', name:'Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page', needsPage:true,
+    on:'Coordinators can ask from a client\'s Care tab, Care plan reviews. Gap Mentors see the visit in Offered to You, say if they can do it, and fill in a short note after. Nothing is texted.',
+    off:'Off: owners see "Ask a Gap Mentor" marked practice, and an ask is refused. Name Gap Mentors any time in PRN Teams, Our teams.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
 const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";
@@ -19838,7 +19844,7 @@ async function cgdOpenProfile(axid, tab){
     +'<div id="cgdSec-overview">'
     +'<div id="cgcCard"></div>'
     +'<div id="cgdOrient"></div>'   /* 2026-10-28: Orientation & Training near the top of every profile (orientation-proof.js) */
-    +'<div id="cgdPrn"></div>'
+    +'<div id="cgdPrn"></div><div id="cgdGapRef"></div>'
     +card('At a glance',
       kv('Status', esc(c.status_label||(c.active?'Active':'Inactive')))
       +kv('Classes', esc((c.classes||[]).join(' · ')||'none recorded'))
@@ -19917,6 +19923,7 @@ async function cgdOpenProfile(axid, tab){
   cgdLoadReadiness(c);
   cgdProfGateMount(c,g);
   cgdPrnMount(c);
+  try{ if(window.GM) GM.cgMount(document.getElementById('cgdGapRef'), String(c.id)); }catch(e){}   /* PRN step 8a: refreshers in the home */
   try{ if(window.OP) OP.profile(String(c.id), g); }catch(e){ console.warn('orientation section:', e); }
   cgdMissedNotesMount(c);
   if(window.INC) INC.caregiverMount('cgdIncidents', (c.first+' '+c.last).trim());   /* incident reports, Stage 2 (2026-10-27) */

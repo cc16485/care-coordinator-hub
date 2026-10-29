@@ -201,7 +201,8 @@
           + '<div class="field-note" style="margin-top:2px;">' + since + ' · ' + sn + '</div>'
           + '<div style="font-size:13px;margin-top:4px;">' + wc + '</div>'
           + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '')
-          + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '') + '</div>'
+          + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '')
+          + (team === 'cna' ? gapHtml(t.applicant_id, pi.gap_mentor) : '') + '</div>'
           + '<div class="pw-btns">' + (ax ? '<button class="fb" onclick="PW.page(\'' + e(ax) + '\')">Open their page</button>' : '')
           + '<button class="fb" onclick="PW.see(\'' + e(t.applicant_id) + '\')">What they see</button>'
           + '<button class="fb" onclick="PW.copyLink(\'' + e(t.applicant_id) + '\',this)" title="Their PRN Team page link, to text them yourself">Copy page link</button></div></div>';
@@ -210,6 +211,20 @@
         + '<span class="field-note">' + mine.length + ' on the team' + (goal ? ' · goal ' + goal : '') + '</span></div>'
         + (rows || '<div class="field-note" style="padding:8px 0;">Nobody on this team yet. A PRN offer adds them here.</div>') + '</div>';
     }).join('');
+  }
+  /* PRN STEP 8a: Gap Mentor, named by the office for the skills it verified (PRN CNA Team only; an honor, always optional) */
+  var GAP_OPEN = {};
+  function gapHtml(aid, gm) {
+    var sk = (W && W.mentor_skills) || {}, id = e(aid);
+    var line = gm ? '<span class="pw-chip" style="background:#E0F2F1;color:#0F5F5B;">Gap Mentor: ' + e((gm.skills || []).map(function (k) { return sk[k] || k; }).join(', ')) + '</span>'
+      + ' <span class="field-note">verified: ' + e(gm.evidence) + (gm.by ? ' (' + e(gm.by) + ')' : '') + '</span>' : '';
+    var btn = '<button class="fb" onclick="PW.gapOpen(\'' + id + '\')">' + (gm ? 'Change Gap Mentor' : 'Make a Gap Mentor') + '</button>';
+    var form = !GAP_OPEN[aid] ? '' : '<div class="pw-draft" style="margin-top:6px;"><div class="field-note">Skills you verified with references, a past employer or the CNA registry (online training alone is not enough):</div>'
+      + Object.keys(sk).map(function (k) { return '<label style="display:inline-flex;gap:5px;align-items:center;margin:4px 10px 0 0;font-size:13px;"><input type="checkbox" class="pwGapSk_' + id + '" value="' + e(k) + '" style="width:auto;"' + (gm && (gm.skills || []).indexOf(k) >= 0 ? ' checked' : '') + '>' + e(sk[k]) + '</label>'; }).join('')
+      + '<input type="text" id="pwGapEv_' + id + '" maxlength="400" placeholder="How you verified it, for example: references from Mercy, registry-checked CNA" value="' + e(gm ? gm.evidence : '') + '" style="width:100%;margin-top:6px;font-size:13px;">'
+      + '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;"><button class="primary" onclick="PW.gapSave(\'' + id + '\',this)">Save</button>' + (gm ? '<button class="fb" onclick="PW.gapSave(\'' + id + '\',this,true)">No longer a Gap Mentor</button>' : '')
+      + '<span class="field-note" id="pwGapSt_' + id + '"></span></div></div>';
+    return '<div style="margin-top:5px;">' + line + ' ' + btn + form + '</div>';
   }
   /* What they see: the approved sample of a member's own PRN Team page until the real one (step 5) */
   /* What they see (step 5a): pick a member and see their own PRN Team page, read-only; each look is recorded on the server */
@@ -328,6 +343,16 @@
       if (btn) btn.disabled = true;
       try { await call({ action: 'oncall_offer', applicant_id: aid, pattern: pat, note: note }); await load(); }
       catch (x) { if (st) st.textContent = x.message; if (btn) btn.disabled = false; }
+    },
+    gapOpen: function (aid) { GAP_OPEN[aid] = !GAP_OPEN[aid]; draw(); },
+    gapSave: async function (aid, btn, off) {
+      var st = document.getElementById('pwGapSt_' + aid), say = function (t) { if (st) st.textContent = t; };
+      var skills = [].slice.call(document.querySelectorAll('.pwGapSk_' + aid)).filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+      var ev = String((document.getElementById('pwGapEv_' + aid) || {}).value || '').trim();
+      if (!off && /\u2014/.test(ev)) return say('Please use a comma or a period instead of an em dash.');
+      if (btn) btn.disabled = true;
+      try { await call(off ? { action: 'mentor_set', applicant_id: aid, on: false } : { action: 'mentor_set', applicant_id: aid, on: true, skills: skills, evidence: ev }); GAP_OPEN[aid] = false; await load(); }
+      catch (x) { say(x.message); if (btn) btn.disabled = false; }
     },
     moSave: async function (btn) {
       var v = moVals(); if (/\u2014/.test(v.paragraph + v.kind_word + v.tip)) return moSay('Please use a comma or a period instead of an em dash.', true);
