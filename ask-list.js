@@ -41,6 +41,7 @@
   const chip = (txt, bg, fg) => '<span style="background:' + bg + ';color:' + fg + ';border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap;">' + E(txt) + '</span>';
   function contacted(x) {
     const k = x.contacted; if (!k) return '<span class="field-note">Not contacted</span>';
+    if (k.interested_on_page) return '<b style="color:#1D6B43;">Interested</b> (from their PRN page) ' + E(clock(k.at));   // PRN step 5b
     const ans = k.state === 'yes' ? 'said yes' : k.state === 'no' ? '<b>said no</b>' : k.state === 'inquiry' ? 'asked a question' : 'waiting';
     return (k.by_text ? 'Texted ' : 'Asked ') + E(clock(k.at)) + ' · ' + ans;
   }

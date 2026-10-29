@@ -8,7 +8,9 @@
      hours", Offered to You (answering opens the shift page they already know), their familiar clients (first names only),
      the thank-yous and kind words the office already sent them, My hours (days and times, hours a week, outside-hours
      texts, short notice, a break), optional courses, and Talk to us. Never pay, ratings, other people or addresses.
-     Open shifts with "I'm Interested" come in part 5b.
+     PRN STEP 5b: open shifts they can pick up, each with "I'm Interested" (a Yes on that shift; a coordinator always confirms
+     in AxisCare). Only shifts the office's own ask list would offer them; clients they know first; a client's first name only
+     when they know them. Switch ops_settings.prn_open_shifts_live (off: not shown to members; the office preview shows them).
      Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
      Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
      ============================================================ -->
@@ -157,7 +159,8 @@ function render() {
   const since = d.since ? dWord(d.since, { month: 'long', year: 'numeric' }) : ''
   const offered = (d.offered || []).map((o) => '<div class="card shift"><div class="top"><div><h4>' + esc(o.client_first) + (o.town ? ' in ' + esc(o.town) : '') + '</h4>'
       + '<div class="when">' + esc(dWord(o.shift_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (o.shift_time ? ' · ' + esc(t12(o.shift_time.slice(0, 5))) + ' to ' + esc(t12(o.shift_time.slice(6, 11))) : '') + '</div></div></div>'
-      + (o.answered ? '<div class="answered show">You answered: ' + esc({ yes: 'Yes', no: 'No', inquiry: 'with a question' }[o.answered] || o.answered) + '. A coordinator confirms before you are scheduled.</div>' : '')
+      + (o.from_page ? '<div class="answered show">You said you\'re interested. A coordinator confirms before you are scheduled.</div>'
+        : o.answered ? '<div class="answered show">You answered: ' + esc({ yes: 'Yes', no: 'No', inquiry: 'with a question' }[o.answered] || o.answered) + '. A coordinator confirms before you are scheduled.</div>' : '')
       + '<div class="btns">' + (o.link ? '<a class="b pri" href="' + esc(o.link) + '">' + (o.answered ? 'See this shift' : 'See this shift and answer') + '</a>' : '<button class="b pri" onclick="toast(\'Preview only. Nothing was sent or saved.\')">See this shift and answer</button>') + '</div></div>').join('')
     || '<div class="card empty">Nothing offered to you right now. When we text you about a shift, it shows here too.</div>'
   const clients = (d.clients || []).map((c) => '<div class="card client"><div class="dot">' + esc(String(c.first || '?').charAt(0)) + '</div><div><h4>' + esc(c.first) + '</h4><div class="small">Last visit ' + esc(dWord(c.last_visit)) + (c.glad ? " · You said you'd gladly go back" : '') + (c.star ? ' · Their family asked for you again' : '') + '</div></div></div>').join('')
@@ -180,8 +183,12 @@ function render() {
     + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
     + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'
     + '<p class="small" style="margin-top:8px">' + (d.looking && d.looking.on ? 'The office can see you\'re looking for hours, until ' + esc(dWord(d.looking.until)) + '.' : 'This stays on for 7 days.') + '</p><p class="msg" id="lookMsg"></p></div></div>'
-    + '<section id="shifts"><h2 class="serif">Shifts</h2><p class="sub">Shifts we\'ve asked you about. A coordinator always confirms before you\'re scheduled.</p><h3 class="grp">Offered to You <span>' + (d.offered || []).length + '</span></h3>' + offered
-    + '<p class="small" style="margin-top:6px">Soon you\'ll also see other open shifts you can pick from here. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>'
+    + '<section id="shifts"><h2 class="serif">Shifts</h2><p class="sub">Shifts we\'ve asked you about' + (d.open_live || d.preview ? ', and open shifts you can pick up' : '') + '. A coordinator always confirms before you\'re scheduled.</p><h3 class="grp">Offered to You <span>' + (d.offered || []).length + '</span></h3>' + offered
+    + (d.open_live || d.preview ? '<h3 class="grp">Open shifts you can pick up <span id="openN"></span></h3>'
+        + (d.preview && !d.open_live ? '<p class="small" style="margin-bottom:6px"><b>Waiting:</b> open shifts are switched off, so members don\'t see this part yet.</p>' : '')
+        + '<div id="openBox"><div class="card empty">Looking for open shifts…</div></div><p class="msg" id="openMsg"></p>'
+        + '<p class="small" style="margin-top:6px">Saying you\'re interested doesn\'t schedule you. A coordinator looks at it and confirms with you first. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>'
+      : '<p class="small" style="margin-top:6px">Soon you\'ll also see other open shifts you can pick from here. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>')
     + '<section id="clients"><h2 class="serif">My clients</h2><p class="sub">Clients you know. When they need someone, you\'re a familiar face.</p>' + clients + '</section>'
     + '<section id="thanks"><h2 class="serif">Thank-yous</h2>' + thanks + '</section>'
     + '<section id="hours"><h2 class="serif">My hours</h2><div class="card">'
@@ -201,6 +208,7 @@ function render() {
     + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
     + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'
   wire()
+  if ($('openBox')) loadOpen()
   /* the 60-day check-in opens the page at My hours */
   if (location.hash === '#hours' && $('hours')) setTimeout(() => $('hours').scrollIntoView({ block: 'start' }), 60)
 }
@@ -230,6 +238,27 @@ function wire() {
   document.querySelectorAll('button.req').forEach((b) => b.onclick = async () => { const r = await act({ action: 'course', slug: b.dataset.slug }, $('crsMsg')); if (r && r.ok) { b.disabled = true; b.textContent = 'Asked ✓' } })
   $('ideaBtn').onclick = () => $('ideaBox').classList.toggle('show')
   $('ideaSend').onclick = async () => { const r = await act({ action: 'idea', text: $('ideaTxt').value }, $('ideaMsg')); if (r && r.ok) $('ideaTxt').value = '' }
+}
+
+/* OPEN SHIFTS (step 5b): loaded after the page, so it opens fast. Clients they know first. */
+const shiftWhen = (o) => esc(dWord(o.shift_date, { weekday: 'short', month: 'short', day: 'numeric' })) + ' · ' + esc(t12(o.shift_time.slice(0, 5))) + ' to ' + esc(t12(o.shift_time.slice(6, 11))) + (o.hours ? ' · ' + esc(o.hours) + ' hours' : '')
+async function loadOpen() {
+  let r
+  try { r = await call({ action: PV ? 'open_preview' : 'open' }) } catch (e) { r = { shifts: [], why: "We couldn't load open shifts just now. Check back soon." } }
+  const list = Array.isArray(r.shifts) ? r.shifts : []
+  if ($('openN')) $('openN').textContent = list.length
+  $('openBox').innerHTML = list.map((o, i) => '<div class="card shift"' + (o.familiar ? ' style="border-color:var(--honey)"' : '') + '><div class="top"><div>'
+      + (o.familiar ? '<span class="team" style="background:#FDF1DC;color:#8A5300">A client you know</span>' : '')
+      + '<h4>' + (o.familiar && o.client_first ? esc(o.client_first) + (o.town ? ' in ' + esc(o.town) : '') : 'A client' + (o.town ? ' in ' + esc(o.town) : '')) + '</h4>'
+      + '<div class="when">' + shiftWhen(o) + '</div>' + (o.outside_my_times ? '<div class="small">Outside your usual times, in case it works.</div>' : '') + '</div></div>'
+      + '<div class="btns"><button class="b pri" data-int="' + i + '">I\'m Interested</button></div><p class="msg" id="intMsg' + i + '"></p></div>').join('')
+    || '<div class="card empty">' + esc(r.why || 'No open shifts that fit you right now. Turn on "I\'m looking for hours" and the office will keep you in mind.') + '</div>'
+  document.querySelectorAll('[data-int]').forEach((b) => b.onclick = async () => {
+    const o = list[+b.dataset.int]
+    const res = await act({ action: 'interested', case_id: o.case_id, shift_key: o.shift_key }, $('intMsg' + b.dataset.int))
+    if (res && res.ok) { b.disabled = true; b.textContent = 'Interested ✓'; setTimeout(load, 2500) }
+    else if (res && (res.changed || res.already)) setTimeout(load, 2500)
+  })
 }
 
 async function load() {
