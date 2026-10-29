@@ -45,8 +45,14 @@
     const ans = k.state === 'yes' ? 'said yes' : k.state === 'no' ? '<b>said no</b>' : k.state === 'inquiry' ? 'asked a question' : 'waiting';
     return (k.by_text ? 'Texted ' : 'Asked ') + E(clock(k.at)) + ' · ' + ans;
   }
+  /* 2026-10-29 (plan section 5, switch prn_team_signs_live; owners see it while off): a PRN member who tapped "I'm looking for
+     hours" on their page. It never changes the order or who is asked. */
+  function lookingTag(x) {
+    let on = false; try { on = (DATA.ops_settings || {}).prn_team_signs_live === true || (typeof ccCan === 'function' && ccCan('manage_settings')); } catch (e) { on = false; }
+    return x.looking && on ? ' <span style="background:#FEF3C7;color:#92400E;border-radius:6px;padding:1px 6px;font-size:11.5px;font-weight:700;white-space:nowrap;">Looking for hours</span>' : '';
+  }
   function row(x, matchHtml, whyHtml) {
-    return '<tr style="border-top:1px solid #EEF2F6;"><td style="padding:9px 12px;font-weight:600;">' + E(x.name) + '</td><td style="padding:9px 6px;">' + matchHtml
+    return '<tr style="border-top:1px solid #EEF2F6;"><td style="padding:9px 12px;font-weight:600;">' + E(x.name) + lookingTag(x) + '</td><td style="padding:9px 6px;">' + matchHtml
       + '</td><td style="padding:9px 6px;font-size:13px;">' + contacted(x) + '</td><td style="padding:9px 12px 9px 6px;font-size:13px;color:#33475B;">' + whyHtml + '</td></tr>';
   }
   function table(rows) {

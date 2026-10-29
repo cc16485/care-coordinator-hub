@@ -88,7 +88,10 @@
     const id = E(c.id), R = s.list.ready || [], done = R.filter((x) => x.contacted), next = R.filter((x) => !x.contacted);
     s.tick = s.tick || new Set(next.slice(0, 3).map((x) => x.name));
     const shown = s.showMore ? next : next.slice(0, 5), rest = next.length - shown.length;
-    const label = (x) => (x.label ? '<span style="font-size:11.5px;font-weight:700;color:#1D6B43;background:#E8F5EE;border-radius:6px;padding:1px 7px;margin-left:6px;">' + E(x.label) + '</span>' : '');
+    /* 2026-10-29: "Looking for hours" (switch prn_team_signs_live; owners see it while off), never changes the order */
+    let lk = false; try { lk = (DATA.ops_settings || {}).prn_team_signs_live === true || (typeof ccCan === 'function' && ccCan('manage_settings')); } catch (e) { lk = false; }
+    const label = (x) => (x.label ? '<span style="font-size:11.5px;font-weight:700;color:#1D6B43;background:#E8F5EE;border-radius:6px;padding:1px 7px;margin-left:6px;">' + E(x.label) + '</span>' : '')
+      + (x.looking && lk ? '<span style="font-size:11.5px;font-weight:700;color:#92400E;background:#FEF3C7;border-radius:6px;padding:1px 7px;margin-left:6px;">Looking for hours</span>' : '');
     const rows = done.map((x) => '<tr style="border-top:1px solid #EEF2F6;">' + td('') + td('<b>' + E(x.name) + '</b>' + label(x)) + td(E(tidy(x.why)), 'color:#33475B;font-size:13px;') + td(statusOf(x), 'font-size:13px;') + '</tr>').join('')
       + shown.map((x, i) => '<tr style="border-top:' + (i === 0 && done.length ? '2px solid #CFE8DA' : '1px solid #EEF2F6') + ';background:#FBFDFC;">'
         + td('<input type="checkbox" aria-label="Tick ' + E(x.name) + '"' + (s.tick.has(x.name) ? ' checked' : '') + ' onchange="SC.tick(\'' + id + '\',' + E(JSON.stringify(x.name)).replace(/"/g, '&quot;') + ',this.checked)">', 'width:30px;')

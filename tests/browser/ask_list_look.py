@@ -13,7 +13,7 @@ async (mode) => {
     ready: [ { name: 'Maria L', axiscare_id: '1', label: 'Familiar', why: '12 visits with this client, 9 overnight', contacted: { at: '2026-10-25T00:42:00Z', state: 'waiting', how: 'Cara wave 1', by_text: true } },
              { name: 'Caroline M', axiscare_id: '2', label: 'Familiar', why: '4 visits with this client', contacted: { at: '2026-10-25T00:42:00Z', state: 'no', how: 'Cara wave 1', by_text: true } },
              { name: 'Jessica T', axiscare_id: '3', label: 'PRN Team', why: 'PRN, fits', contacted: null },
-             { name: 'Grace H', axiscare_id: '4', label: 'PRN CNA Team', why: 'PRN, fits', contacted: { at: '2026-10-25T01:10:00Z', state: 'yes', how: 'their PRN Team page', by_text: false, interested_on_page: true } } ],
+             { name: 'Grace H', axiscare_id: '4', label: 'PRN CNA Team', why: 'PRN, fits', contacted: { at: '2026-10-25T01:10:00Z', state: 'yes', how: 'their PRN Team page', by_text: false, interested_on_page: true }, looking: true } ],
     review: [ { name: 'Amy D', axiscare_id: '5', kind: 'care', label: 'Level', why: 'Level 1 caregiver; client needs Level 2', cg_level: 1, client_level: 2, contacted: null, approval: null,
                 blocking: [{ key: 'bathing', label: 'Bathing or showering', level: 2 }],
                 care: { cg_level: 1, tasks: [{ key: 'bathing', label: 'Bathing or showering', level: 2, verified: false }, { key: 'meals_housekeeping', label: 'Meals and light housekeeping', level: 1, verified: true }] } },
@@ -73,6 +73,7 @@ ck('three groups with counts: ready (4, 3 contacted), review (2), do not ask (2)
    all(x in L for x in ['Ready to ask · 4 (3 contacted)', 'Possible with your review · 2', 'Do not ask · 2', 'Not shown: 31 not active in AxisCare']), L)
 ck('each person: contacted or not, the answer, and why', all(x in L for x in ['Maria L', 'waiting', 'said no', 'Jessica T', 'Not contacted', '12 visits with this client, 9 overnight', 'Needs Verification: TB test expired', 'Do-Not-Return for this client']), L)
 ck('PRN step 5b: a Yes from their PRN Team page is tagged "Interested (from their PRN page)"', 'Grace H' in L and 'Interested (from their PRN page)' in L, L)
+ck('2026-10-29: Grace (looking for hours) carries the tag for owners while the switch is off, and not for the office', 'Grace H Looking for hours' in R['owner']['list'] and 'Looking for hours' not in R['on']['list'], [R['owner'].get('list','')[:300]])
 ck('review rows say what stands in the way; your-call rows can be asked anyway', 'In the way: Bathing or showering' in L and 'Ask anyway' in L and 'Your call · Overtime' in L, L)
 ck('the review: the client\'s tasks against the caregiver, their level unchanged, approve disabled until each task is decided', 'stays as it is' in R['on']['reviewOpen'] and 'Not verified' in R['on']['reviewOpen'] and R['on']['approveDisabledUndecided'], R['on']['reviewOpen'])
 ck('a task needed tonight: says they can\'t take the shift, approve stays disabled', "can't take this shift: Bathing or showering is needed tonight" in R['on']['needed'] and R['on']['approveDisabledNeeded'], R['on']['needed'])
