@@ -7653,7 +7653,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=10"></script><script src="gap-mentor.js?v=2"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=11"></script><script src="gap-mentor.js?v=2"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15957,6 +15957,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_mentor_suggest_live', name:'Gap Mentor suggestions (needs Gap Mentors on too)', needsPage:true,
     on:'The Hub suggests a care update or a refresher on the client\'s Care tab, the caregiver\'s record and This week, with the reason. Nobody is asked until a coordinator taps Ask.',
     off:'Off: only owners see the suggestions, marked practice.' },
+  /* 2026-10-29: which on-call shift each confirmed date is, for payroll ($25 a shift, $50 a whole day, in her plan) */
+  { key:'prn_oncall_shift_live', name:'On call: pick the shift when confirming (daytime, overnight or whole day)',
+    on:'Confirming someone for on call needs the shift. The On call tab counts each person\'s daytime, overnight and whole days for payroll, and their page shows their shift.',
+    off:'Off: confirming works as before, dates only. Owners see the shift choice and the payroll counts marked practice.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
 const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";

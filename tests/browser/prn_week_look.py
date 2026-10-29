@@ -53,6 +53,21 @@ async()=>{
   ok('offers show; the two on-call shifts, and pay kept to the PRN plan (her call 2026-10-29)', /Grace Lee: Every other weekend/.test(txt()) && /daytime 7am to 5pm and overnight 5pm to 7am/.test(txt()) && /never shown on their page/.test(txt()));
   document.getElementById('pwOfWho').value='t'; document.getElementById('pwOfPat').value='one_weekend_month'; await PW.offer();
   ok('Record their offer sends who and what', CALLS.some(c=>c.action==='oncall_offer' && c.applicant_id==='t' && c.pattern==='one_weekend_month'));
+  /* 2026-10-29: the shift on each confirmed date, and the payroll counts */
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { shifts:{ day:'Daytime, 7am to 5pm', overnight:'Overnight, 5pm to 7am', whole:'Whole day, 24 hours' }, shift_live:true,
+    weekends: WEEK.oncall.weekends.map((w,i)=>i===1?Object.assign({},w,{ confirmed:[{ id:7, applicant_id:'g', name:'Grace Lee', shift:'overnight' }] }):w),
+    payroll:[{ month:'2026-11', members:[{ applicant_id:'g', name:'Grace Lee', day:0, overnight:2, whole:1, not_recorded:0 }] }, { month:'2026-10', members:[] }] });
+  await PW.load(); await sleep(50);
+  const t2=box.querySelectorAll('.pw-wk');
+  ok('shift choice (switch on): each weekend has "Which shift"; Grace shows as overnight', !!document.getElementById('pwShift0') && [...document.getElementById('pwShift0').options].map(o=>o.text).join('|')==='Which shift…|Daytime, 7am to 5pm|Overnight, 5pm to 7am|Whole day, 24 hours' && /Grace Lee · overnight/.test(t2[1].innerText), t2[1].innerText);
+  let alerted=''; window.alert=(m)=>{ alerted=m; };
+  const n0=CALLS.length; document.getElementById('pwPick0').value='t'; await PW.confirm(0); await sleep(30);
+  ok('...confirm without a shift: asks for it, sends nothing', /Pick the shift first/.test(alerted) && CALLS.length===n0);
+  document.getElementById('pwPick0').value='t'; document.getElementById('pwShift0').value='whole'; await PW.confirm(0); await sleep(50);
+  ok('...with the whole day: sent with the shift', CALLS.some(c=>c.action==='oncall_confirm' && c.applicant_id==='t' && c.shift==='whole'));
+  ok('...payroll counts by month: Grace 2 overnight, 1 whole day; counts only, never dollars', /On-call days for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(box.querySelector('.pw-grid').parentElement.innerText.split('On-call days for payroll')[1]||''), txt());
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { shift_live:false }); await PW.load(); await sleep(30);
+  ok('...switch off: owners see it marked practice', /Practice:\s*the shift choice shows to owners only/.test(txt()) && !!document.getElementById('pwShift0'));
   /* a non-owner with the switch off sees nothing */
   CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator']; await PW.load();
   ok('switch off: someone who is not an owner sees nothing', box.innerHTML==='');
