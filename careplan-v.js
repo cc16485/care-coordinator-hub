@@ -119,7 +119,7 @@
     const n = Math.max(0, ...versionsOf(p).map((v) => v.n || 0)) + 1;
     const v = base ? JSON.parse(JSON.stringify(base)) : { fields: {}, tasks: [], asks: [] };
     Object.assign(v, { n, status: 'draft', created_at: now(), created_by: me(), from, base: base ? base.n : null, history: [{ at: now(), by: me(), what: 'Version ' + n + ' started (' + from + ')' }] });
-    ['approved_by', 'approved_email', 'approved_at', 'approved_kind', 'exception_reason', 'push', 'urgent', 'superseded_by', 'error', 'drafting_since', 'owner_reviews', 'scope_ok', 'risks_at_approval', 'urgent_mark'].forEach((k) => delete v[k]);
+    ['care_needs', 'missed_done', 'approved_by', 'approved_email', 'approved_at', 'approved_kind', 'exception_reason', 'push', 'urgent', 'superseded_by', 'error', 'drafting_since', 'owner_reviews', 'scope_ok', 'risks_at_approval', 'urgent_mark'].forEach((k) => delete v[k]);
     p.versions.push(v); return v;
   }
 
@@ -205,6 +205,90 @@
   }
 
   /* ---------- the checks before approval ---------- */
+  /* ---------- Stage 3 (2026-10-29, her "Stage 3 approved as written"): care needs for matching, sent at approval ----------
+     Worked out from the visit by the table she approved; shown to the approver, who can untick any; saved through the same door
+     as the Care needs card (client-fact, care plan layer, the approver's name), never over a newer answer. An answer said only on
+     a phone call and never checked is not sent; an unanswered one sends nothing (missing never means no). */
+  const SKILL_W = { bathing: 'Bathing or showering', dressing_grooming: 'Dressing and grooming', toileting: 'Toileting and incontinence care', feeding: 'Feeding', walking_wheelchair: 'Walking or wheelchair help',
+    meals_housekeeping: 'Meals and light housekeeping', med_reminders: 'Medication reminders', transportation: 'Driving clients to appointments and errands', dementia_care: "Dementia or Alzheimer's care",
+    parkinsons_care: "Parkinson's care", transfers_gait_belt: 'Transfers with a gait belt', hoyer_lift: 'A Hoyer or other mechanical lift', bedbound_care: 'Bedbound care and repositioning',
+    hospice_support: 'Hospice and end-of-life support', catheter_bag: 'Emptying a catheter bag and cleaning around the site', ostomy_bag: 'Emptying an ostomy bag and cleaning around the site' };
+  const skillLabel = (k) => { const m = window.CCMatch && (CCMatch.SKILLS || []).find((x) => x.key === k); return (m && m.label) || SKILL_W[k] || k; };
+  function needsFrom(a) {
+    const v = (a && a.visit) || {}, fc = v.from_call || {}, out = {}, lv = (k) => ((v.acts || {})[k] || {}).level || '';
+    const LW = { standby: 'Stand-by', full: 'Full help', cues: 'Verbal cues', none: 'None', helps: 'Client helps', needed: 'Reminders needed', not_needed: 'Not needed' };
+    const said = (what, k) => what + ': ' + (LW[lv(k)] || lv(k));
+    const callOnly = (path, val) => fc[path] || (val != null && fc[path + ':' + val]);
+    const skill = (k, val, from) => { out['need_' + k] = { kind: 'need_' + k, value: val, label: skillLabel(k), shown: val === 'required' ? 'Required' : 'No', from }; };
+    const yes = (lev, list) => list.indexOf(lev) > -1;
+    if (yes(lv('bathing'), ['standby', 'full'])) skill('bathing', 'required', said('Bathing', 'bathing')); else if (lv('bathing') === 'none') skill('bathing', 'no', said('Bathing', 'bathing'));
+    if (yes(lv('dressing'), ['cues', 'standby', 'full'])) skill('dressing_grooming', 'required', said('Dressing', 'dressing')); else if (lv('dressing') === 'none') skill('dressing_grooming', 'no', said('Dressing', 'dressing'));
+    if (yes(lv('toileting'), ['standby', 'full'])) skill('toileting', 'required', said('Toileting', 'toileting')); else if (lv('toileting') === 'none') skill('toileting', 'no', said('Toileting', 'toileting'));
+    if (yes(lv('eating'), ['cues', 'full'])) skill('feeding', 'required', said('Eating', 'eating')); else if (lv('eating') === 'none') skill('feeding', 'no', said('Eating', 'eating'));
+    if (yes(lv('mobility'), ['standby', 'full'])) skill('walking_wheelchair', 'required', said('Walking', 'mobility')); else if (lv('mobility') === 'none') skill('walking_wheelchair', 'no', said('Walking', 'mobility'));
+    if (yes(lv('meals'), ['helps', 'full']) || yes(lv('light_house'), ['helps', 'full'])) skill('meals_housekeeping', 'required', 'Meals or light housekeeping');
+    else if (lv('meals') === 'not_needed' && lv('light_house') === 'not_needed') skill('meals_housekeeping', 'no', 'Meals and light housekeeping: not needed');
+    if (lv('meds') === 'needed') skill('med_reminders', 'required', 'Medication reminders: needed'); else if (lv('meds') === 'not_needed') skill('med_reminders', 'no', 'Medication reminders: not needed');
+    if (lv('transport') === 'full') skill('transportation', 'required', 'Transportation: full help'); else if (lv('transport') === 'none') skill('transportation', 'no', 'Transportation: none');
+    ((v.prefs || {}).skills || []).forEach((k) => { if (!callOnly('visit.prefs.skills', k)) skill(k, 'required', 'Skills they need'); });
+    const s = v.safety || {};
+    if (s.two_person === 'yes' || s.two_person === 'no') out.need_more_than_one_to_transfer = { kind: 'need_more_than_one_to_transfer', value: s.two_person, label: 'Needs more than one person to transfer', shown: s.two_person === 'yes' ? 'Yes' : 'No', from: 'Safety check' };
+    const pr = v.prefs || {}, G = { female_required: 'Female, required', female_preferred: 'Female, preferred', male_required: 'Male, required', male_preferred: 'Male, preferred', no_preference: 'No preference' };
+    if (pr.gender && !callOnly('visit.prefs.gender', pr.gender)) out.pref_caregiver_gender = { kind: 'pref_caregiver_gender', value: pr.gender, label: 'Caregiver gender', shown: G[pr.gender] || pr.gender, from: 'Preferences' };
+    if (pr.spanish && !callOnly('visit.prefs.spanish', pr.spanish)) out.need_spanish = { kind: 'need_spanish', value: pr.spanish, label: 'Spanish-speaking caregiver', shown: ({ required: 'Required', preferred: 'Preferred', no: 'No' })[pr.spanish], from: 'Preferences' };
+    [['cats', 'home_cats', 'Cats in the home'], ['dogs', 'home_dogs', 'Dogs in the home'], ['smoking', 'home_smoking', 'Someone smokes in the home']].forEach(([k, kind, l]) => {
+      if ((pr[k] === 'yes' || pr[k] === 'no') && !callOnly('visit.prefs.' + k, pr[k])) out[kind] = { kind, value: pr[k], label: l, shown: pr[k] === 'yes' ? 'Yes' : 'No', from: k === 'smoking' ? 'Safety check' : 'Preferences' }; });
+    return Object.values(out);
+  }
+  /* the client's Journey (where needs are kept): from the lead, else from the AxisCare client */
+  async function episodeOf(a) {
+    const q = async (pr) => { const r = await pr; if (r.error) throw r.error; return r.data || []; };
+    if (a.lead_id) { const src = await q(sb.from('episode_source').select('episode_id').eq('system', 'lead').eq('role', 'origin').eq('source_ref', String(a.lead_id))); if (src[0]) return src[0].episode_id; }
+    const ax = String(a.axiscare_client_id || '').trim();
+    if (/^\d+$/.test(ax)) {
+      const ps = await q(sb.from('person_source_id').select('person_id').eq('system', 'axiscare').eq('entity_type', 'client').eq('source_id', ax));
+      if (ps[0]) { const eps = await q(sb.from('journey_episode').select('episode_id,state').eq('person_id', ps[0].person_id)); const act = eps.find((e) => ['provisional', 'open', 'converted', 'established'].indexOf(e.state) > -1); if (act) return act.episode_id; }
+    }
+    return null;
+  }
+  const SENDING = {};
+  async function sendNeeds(a, p, v) {
+    const cn = v.care_needs; if (!cn || !(cn.items || []).length || SENDING[p.id]) return;
+    SENDING[p.id] = true;
+    try {
+      let ep = null;
+      try { ep = await episodeOf(a); } catch (e) { cn.status = 'failed'; cn.error = 'Could not find the client\'s Start of Care: ' + String(e.message || e); return; }
+      if (!ep) { cn.status = 'waiting'; cn.checked_at = now(); return; }
+      const kinds = cn.items.map((x) => x.kind), cur = {};
+      const r = await sb.from('client_fact_current').select('fact_id,kind,layer,value,recorded_at').eq('episode_id', ep).in('layer', ['plan', 'current']).in('kind', kinds);
+      if (r.error) { cn.status = 'failed'; cn.error = 'Could not read the care needs on file: ' + r.error.message; return; }
+      (r.data || []).forEach((f) => { const w = cur[f.kind]; if (!w || (f.layer === 'current' && w.layer !== 'current') || String(f.recorded_at) > String(w.recorded_at)) cur[f.kind] = f; });
+      cn.results = cn.results || {};
+      for (const it of cn.items) {
+        if (cn.results[it.kind] && cn.results[it.kind].ok) continue;
+        const f = cur[it.kind];
+        if (f && JSON.stringify(f.value) === JSON.stringify(it.value)) { cn.results[it.kind] = { ok: true, outcome: 'same' }; continue; }
+        /* never over someone's newer answer: a need confirmed after this plan was approved stays */
+        if (f && String(f.recorded_at) > String(v.approved_at)) { cn.results[it.kind] = { ok: true, outcome: 'kept_newer', value: f.value }; continue; }
+        try {
+          const d = await lpfCall({ action: 'record', episode_id: ep, kind: it.kind, layer: 'plan', value: it.value, certainty: 'confirmed', change_kind: f ? 'update' : 'first', supersedes_fact_id: f ? f.fact_id : null, reason: null,
+            said_how: 'staff_observation', said_at: v.approved_at });
+          const okk = d && (d.outcome === 'recorded' || (d.body && d.body.outcome === 'recorded'));
+          cn.results[it.kind] = okk ? { ok: true, outcome: 'recorded' } : { ok: false, outcome: 'refused', why: String((d && (d.message || (d.body && d.body.message) || d.outcome)) || 'refused').slice(0, 200) };
+        } catch (e) { cn.results[it.kind] = { ok: false, outcome: 'refused', why: String(e.message || e).slice(0, 200) }; }
+      }
+      const bad = cn.items.filter((x) => !(cn.results[x.kind] || {}).ok).length;
+      cn.status = bad ? 'partly' : 'sent'; cn.sent_at = now(); cn.episode = ep;
+    } finally { SENDING[p.id] = false; await save(p, a); paint(a); }
+  }
+  /* a plan approved before the client's Start of Care began sends its needs once the journey exists */
+  const RETRY = {};
+  function retryNeeds(a) {
+    const p = planFor(a); if (!p || !Array.isArray(p.versions)) return;
+    const v = p.versions.filter((x) => (x.status === 'approved' || x.status === 'active') && x.care_needs && ['waiting', 'failed', 'partly'].indexOf(x.care_needs.status) > -1).slice(-1)[0];
+    if (!v || (RETRY[p.id] && Date.now() - RETRY[p.id] < 60000)) return;
+    RETRY[p.id] = Date.now(); sendNeeds(a, p, v);
+  }
   function checks(a, v) {
     const lead = leadOf(a), out = [], add = (key, label, ok, essential, kind, go) => out.push({ key, label, ok: !!ok, essential: !!essential, kind: kind || 'check', go: go || '' });
     const miss = safetyMissing((a && a.visit) || {});
@@ -221,6 +305,9 @@
       if (c.kind === 'block') add('block_' + c.key, c.label, false, true, 'block');
       else { const r = (v.owner_reviews || {})[c.key]; add('risk_' + c.key, c.label + (r ? ' · reviewed by ' + r.by + ': ' + r.note : ' · needs an owner\'s review'), !!r, true, 'risk'); }
     });
+    /* Stage 3 flags: what a call said that the visit changed (approval waits), and the recording reader's missed or unclear list */
+    (window.HV && HV.mismatchesFor ? HV.mismatchesFor(a) : []).forEach((m) => add('mm_' + m[0], "Doesn't match: " + m[1] + '. The phone call or intake said "' + m[2] + '"; the visit says "' + m[3] + '"', false, true, 'mismatch'));
+    (((a.visit || {}).after || {}).missed || []).forEach((m, i) => add('missed_' + i, 'Missed or unclear: ' + m.title + (m.text ? '. ' + m.text : ''), (v.missed_done || {})[i], false, 'missed'));
     add('scope', 'I checked that each task is within our services and the caregiver\'s training', v.scope_ok, true, 'scope');
     return out;
   }
@@ -295,6 +382,8 @@
     if (kind === 'exception') { if (!g.exception) return render(); const r = (document.getElementById('cpvExReason') || {}).value || ''; if (r.trim().length < 5) { S.msg = 'Say why, so the exception is on the record.'; return render(); } v.exception_reason = r.trim(); }
     v.status = 'approved'; v.approved_by = me(); v.approved_email = myEmail(); v.approved_at = now(); v.approved_kind = kind;
     v.risks_at_approval = concerns(a, leadOf(a), v).map((c) => c.key);
+    const off = v.needs_off || {}, items = needsFrom(a).filter((x) => !off[x.kind]);
+    v.care_needs = { items: items.map((x) => ({ kind: x.kind, value: x.value, label: x.label, shown: x.shown })), unticked: needsFrom(a).filter((x) => off[x.kind]).map((x) => x.label), status: items.length ? 'sending' : 'none', results: {} };
     if (kind === 'urgent') {
       v.urgent = { why: g.urgent, finish_by: finishBy(a, v.approved_at), items: g.missingNonessential.map((c) => c.label) };
       await card('finish', a, p, { owner: myEmail(), urgency: 'high', due: v.urgent.finish_by, title: 'Finish ' + (a.client_name || '') + "'s care plan (urgent start)",
@@ -306,6 +395,7 @@
     log(v, 'Approved' + (kind === 'urgent' ? ' for an urgent start' : kind === 'exception' ? ' with an owner exception: ' + v.exception_reason : ''));
     await closeCard('review', p, '', 'Approved');
     await save(p, a); S.msg = 'Approved. Send it to AxisCare when you are ready.'; render();
+    if (items.length) await sendNeeds(a, p, v);
   }
   async function newFrom(n) {
     const a = S.a, p = ensurePlan(a), base = versionsOf(p).find((v) => v.n === n); if (!base) return;
@@ -383,7 +473,8 @@
       + '.cpv-res{font-size:14px;padding:5px 0;border-top:1px solid #E7ECEB}';
     document.head.appendChild(s);
   }
-  const srcText = (src) => (src || []).map((s) => s.path ? 'visit: ' + s.path.replace(/^visit\./, '') : s.call ? 'phone call' : s.earlier ? 'earlier plan' : s.quote ? 'recording ' + hms(s.at) + ': "' + s.quote + '"' : '').filter(Boolean).join(' · ');
+  const MARK_W = { call: 'phone call, not checked', checked: 'phone call, checked with the family', heard: 'recording', seen: 'seen at the visit', told: 'family' };
+  const srcText = (src) => (src || []).map((s) => s.path ? 'visit (' + (MARK_W[S.a && window.HV && HV.markFor ? HV.markFor(S.a, s.path) : 'told'] || 'family') + '): ' + s.path.replace(/^visit\./, '') : s.call ? 'phone call' : s.earlier ? 'earlier plan' : s.quote ? 'recording ' + hms(s.at) + ': "' + s.quote + '"' : '').filter(Boolean).join(' · ');
   const hms = (s) => { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s / 3600) + ':' + String(Math.floor(s / 60) % 60).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
   function lineHtml(path, x, edit, rows) {
     const ask = !x || x.ask || nil(x.text), tx = x ? x.text : '';
@@ -415,8 +506,16 @@
         + (edit && c.kind === 'scope' ? '<div style="margin-top:6px"><button type="button" class="cpv-b2" data-cpva="scope">' + (c.ok ? 'Untick' : 'Tick: I checked') + '</button></div>' : '')
         + (edit && c.kind === 'ask' ? '<div style="margin-top:6px"><button type="button" class="cpv-b2" data-cpva="askdone" data-i="' + E(c.key.replace(/^ask_/, '')) + '">' + (c.ok ? 'Not answered' : 'Answered') + '</button></div>' : '')
         + (c.go === 'visit' && !c.ok ? '<div style="margin-top:6px"><button type="button" class="cpv-b2" data-cpva="visit">Open the visit\'s safety check</button></div>' : '')
+        + (edit && c.kind === 'mismatch' ? '<div style="display:flex;gap:6px;margin-top:6px"><input class="cpv-f" id="cpvMm_' + E(c.key.replace(/^mm_/, '').replace(/[^a-z0-9]/gi, '_')) + '" placeholder="Note (optional)"><button type="button" class="cpv-b2" data-cpva="mmok" data-k="' + E(c.key.replace(/^mm_/, '')) + '">Checked</button></div>' : '')
+        + (edit && c.kind === 'missed' ? '<div style="margin-top:6px"><button type="button" class="cpv-b2" data-cpva="misseddone" data-i="' + E(c.key.replace(/^missed_/, '')) + '">' + (c.ok ? 'Not answered' : 'Answered') + '</button></div>' : '')
         + '</div></div>').join('');
     if (edit) {
+      const nl = window.HV && HV.needsFor ? HV.needsFor(a).filter((x) => !/safety|Falls|Lives alone|Oxygen|smokes|Allerg|Emergency|Walking|transfers|Memory|supervision|decline|call for help|hazards/i.test(x.label) || x.sec !== 2) : [];
+      if (nl.length) h += '<div class="cpv-res" style="margin-top:10px"><b>Still needs attention in the visit</b>' + nl.map((x) => '<div class="cpv-src">· ' + E(x.label) + ' <button type="button" class="cpv-b2" style="min-height:30px;font-size:12px" data-cpva="needsgo" data-sec="' + x.sec + '">Open</button></div>').join('') + '</div>';
+      const nd = needsFrom(a), off = v.needs_off || {};
+      h += '<div class="cpv-res" style="margin-top:10px"><b>Care needs for matching</b><div class="cpv-src">Sent to caregiver matching when this is approved, with your name. Untick any that are not right.</div>'
+        + (nd.length ? nd.map((x) => '<label style="display:flex;gap:8px;align-items:flex-start;padding:4px 0;font-size:14px"><input type="checkbox" data-cpvneed="' + E(x.kind) + '"' + (off[x.kind] ? '' : ' checked') + ' style="width:auto;margin-top:3px"><span><b>' + E(x.label) + '</b>: ' + E(x.shown) + ' <span class="cpv-src">(' + E(x.from) + ')</span></span></label>').join('')
+          : '<div class="cpv-src">None yet: the visit has no answers that become care needs.</div>') + '</div>';
       if (g.blocked) h += '<div class="cpv-bad">This plan can\'t be approved while an unsafe issue is open. Change the plan so it\'s safe.</div>';
       h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
         + '<button type="button" class="cpv-b" data-cpva="approve" ' + (g.normal && canApprove() ? '' : 'disabled') + '>Approve version ' + v.n + '</button>'
@@ -436,8 +535,18 @@
     return '<div class="cpv-card"><h2>Approval</h2><div class="cpv-res">Approved by ' + E(v.approved_by) + ' ' + E(String(v.approved_at || '').slice(0, 10)) + (v.approved_kind === 'urgent' ? ' for an urgent start' : v.approved_kind === 'exception' ? ' with an owner exception' : '') + '</div>'
       + Object.keys(rv).map((k) => '<div class="cpv-res">Owner review by ' + E(rv[k].by) + ': ' + E(rv[k].note) + '</div>').join('')
       + (v.scope_ok ? '<div class="cpv-res">' + E(v.scope_ok.by) + ' checked each task is within our services and the caregiver\'s training</div>' : '')
+      + needsHtml(v)
       + (fresh.length ? '<div class="cpv-bad"><b>New safety concern since this was approved:</b> ' + E(fresh.map((c) => c.label).join('; ')) + '. The plan caregivers follow may not be safe. Change this plan to review it.</div>' : '')
       + '</div>';
+  }
+  function needsHtml(v) {
+    const cn = v.care_needs; if (!cn || cn.status === 'none') return '';
+    const W = { same: 'already on file', recorded: 'sent', kept_newer: 'kept the newer answer on file', refused: 'not sent' };
+    const head = { sending: 'Sending to caregiver matching…', waiting: 'Waiting for Start of Care: the needs are sent when the client\'s journey starts.', sent: 'Sent to caregiver matching.', partly: 'Not every need was sent.', failed: 'Not sent: ' + (cn.error || '') }[cn.status] || '';
+    return '<div class="cpv-res"><b>Care needs for matching</b><div class="' + (cn.status === 'partly' || cn.status === 'failed' ? 'cpv-bad' : 'cpv-src') + '">' + E(head) + '</div>'
+      + cn.items.map((x) => { const r = (cn.results || {})[x.kind]; return '<div class="cpv-src">' + (r ? (r.ok ? '✓ ' : '✗ ') : '· ') + E(x.label) + ': ' + E(x.shown) + (r ? ' (' + E(W[r.outcome] || r.outcome) + (r.outcome === 'kept_newer' && r.value != null ? ': ' + E(String(r.value).replace(/_/g, ' ').replace(/^./, (m) => m.toUpperCase())) : '') + (r.why ? ': ' + E(r.why) : '') + ')' : '') + '</div>'; }).join('')
+      + ((cn.unticked || []).length ? '<div class="cpv-src">Left out by the approver: ' + E(cn.unticked.join(', ')) + '</div>' : '')
+      + (cn.status === 'partly' || cn.status === 'failed' || cn.status === 'waiting' ? '<button type="button" class="cpv-b2" style="margin-top:6px" data-cpva="needsretry">Try again now</button>' : '') + '</div>';
   }
   function pushHtml(v) {
     if (['approved', 'active'].indexOf(v.status) < 0) return '';
@@ -508,6 +617,8 @@
       clearTimeout(S.t); S.t = setTimeout(async () => { log(v, 'Edited'); await save(planFor(S.a), S.a); }, 1200);
     });
     root.addEventListener('change', async (e) => {
+      const nk = e.target.getAttribute && e.target.getAttribute('data-cpvneed');
+      if (nk) { const vv = cur(); if (!vv || vv.status !== 'draft') return; vv.needs_off = vv.needs_off || {}; if (e.target.checked) delete vv.needs_off[nk]; else vv.needs_off[nk] = true; await save(planFor(S.a), S.a); return; }
       const k = e.target.getAttribute && e.target.getAttribute('data-cpvsel'); if (!k) return;
       const v = cur(); if (!v || v.status !== 'draft') return;
       if (k === 'addtask') { const c = (S.catalog || []).find((x) => String(x.id) === e.target.value); if (c) { const days = Object.keys(((S.a.visit || {}).week) || {}).filter((d) => ((S.a.visit.week[d]) || {}).from).map((d) => ({ sun: 'N', mon: 'M', tue: 'T', wed: 'W', thu: 'R', fri: 'F', sat: 'S' })[d]);
@@ -523,9 +634,11 @@
       if (act === 'ver') { S.n = +b.getAttribute('data-n'); return render(); }
       if (act === 'draftnow') { draft(S.a, { from: 'visit' }); return; }
       if (act === 'recupdate') { draft(S.a, { from: 'recording' }); return; }
-      if (act === 'visit') { close(); if (window.HV) HV.open({ id: S.a.id, sec: 2 }); return; }
+      if (act === 'visit') { const id = S.a.id; close(); if (window.HV) HV.open({ id, sec: 2 }); return; }
       if (act === 'newver') { await newFrom(v.n); return; }
       if (act === 'send') { await send(); return; }
+      if (act === 'needsretry') { const vv = cur(); if (vv && vv.care_needs) { RETRY[p.id] = 0; await sendNeeds(S.a, p, vv); } return; }
+      if (act === 'needsgo') { const sec = +b.getAttribute('data-sec'), id = S.a.id; close(); if (window.HV) HV.open({ id, sec }); return; }
       if (!v || v.status !== 'draft') return;
       if (act === 'day') { const t = v.tasks[+b.getAttribute('data-i')], d = b.getAttribute('data-v'); t.days = (t.days || []).indexOf(d) > -1 ? t.days.filter((x) => x !== d) : (t.days || []).concat([d]); t.edited_sched = true; }
       else if (act === 'deltask') { const t = v.tasks.splice(+b.getAttribute('data-i'), 1)[0]; log(v, 'Removed ' + (t && t.name)); }
@@ -533,6 +646,10 @@
       else if (act === 'na' || act === 'naundo') { const t = v.tasks[+b.getAttribute('data-i')], k = b.getAttribute('data-k'); if (!t || NA_PARTS.indexOf(k) < 0) return;
         t.parts[k] = act === 'na' ? { text: '', src: [], ask: false, edited: true, na: true } : { text: '', src: [], ask: true, edited: true };
         log(v, t.name + ': ' + (k === 'equipment' ? 'equipment and supplies' : 'their preferences') + (act === 'na' ? ' marked not needed' : ' to be written')); }
+      else if (act === 'mmok') { const k = b.getAttribute('data-k'), n = (document.getElementById('cpvMm_' + k.replace(/[^a-z0-9]/gi, '_')) || {}).value || '';
+        const vis = S.a.visit; (vis.mismatch_ok = vis.mismatch_ok || {})[k] = { by: me(), at: now(), note: n.trim() }; log(v, "Checked what doesn't match: " + k + (n.trim() ? ' (' + n.trim() + ')' : ''));
+        try { await persist('care_assessments', S.a); } catch (e) {} }
+      else if (act === 'misseddone') { const i = b.getAttribute('data-i'); v.missed_done = v.missed_done || {}; v.missed_done[i] = !v.missed_done[i]; }
       else if (act === 'askdone') { const i = b.getAttribute('data-i'); v.asks_done = v.asks_done || {}; v.asks_done[i] = !v.asks_done[i]; }
       else if (act === 'riskok') { if (!isOwner()) return; const k = b.getAttribute('data-k'), n = (document.getElementById('cpvRisk_risk_' + k) || {}).value || ''; if (n.trim().length < 3) { S.msg = 'Say how the plan handles it.'; return render(); }
         v.owner_reviews = v.owner_reviews || {}; v.owner_reviews[k] = { by: me(), at: now(), note: n.trim() }; log(v, 'Owner reviewed: ' + k);
@@ -552,7 +669,7 @@
   function paint(a) { if (S.a && a && S.a.id === a.id && document.getElementById('cpvRoot')) render(); }
   function open(assessmentId) {
     const a = (D().care_assessments || []).find((x) => x && x.id === assessmentId); if (!a) return;
-    S.a = a; S.n = null; S.msg = ''; S.busy = ''; render(); loadSide(a);
+    S.a = a; S.n = null; S.msg = ''; S.busy = ''; render(); loadSide(a); retryNeeds(a);
   }
   function close() { const r = document.getElementById('cpvRoot'); if (r) r.remove(); S.a = null; try { if (typeof cpRenderCare === 'function') cpRenderCare(); } catch (e) {} }
   /* the older care plan form (the pasted-transcript path) no longer sends anything: what it holds becomes a draft version,
@@ -632,8 +749,8 @@
     const sv = document.getElementById('emSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved. Every care plan uses it from now on.';
   }
   /* the one line the Care tab shows */
-  function label(a) { const p = planFor(a); if (!p) return 'no care plan yet'; const v = latest(p), act = activeOf(p); if (!v) return 'no care plan yet';
+  function label(a) { try { retryNeeds(a); } catch (e) {} const p = planFor(a); if (!p) return 'no care plan yet'; const v = latest(p), act = activeOf(p); if (!v) return 'no care plan yet';
     return 'care plan v' + v.n + ' ' + (STATUS_W[v.status] || v.status).toLowerCase() + (act && act !== v ? ' (v' + act.n + ' active)' : '') + (v.urgent && !v.urgent.done_at ? ', urgent start' : ''); }
 
-  window.CPV = { open, close, autoDraft, draft, label, fromForm, emergency, emText, emSettingsHtml, emSave, officePhone, EM_DEFAULT, safetyMissing, concerns, checks, gate, finishBy, urgentWhy, merge, instructions, safetyWatch, HAZARDS, SUMMON, _s: S, _versions: versionsOf, _plan: planFor };
+  window.CPV = { open, close, autoDraft, draft, label, fromForm, needsFrom, sendNeeds, retryNeeds, emergency, emText, emSettingsHtml, emSave, officePhone, EM_DEFAULT, safetyMissing, concerns, checks, gate, finishBy, urgentWhy, merge, instructions, safetyWatch, HAZARDS, SUMMON, _s: S, _versions: versionsOf, _plan: planFor };
 })();
