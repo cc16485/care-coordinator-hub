@@ -421,6 +421,17 @@
     }
     return h + '</div>';
   }
+  /* an approved version keeps what it was approved with; a safety concern that is new since then shows in red at once */
+  function approvedHtml(a, v) {
+    if (['approved', 'active'].indexOf(v.status) < 0) return '';
+    const had = new Set(v.risks_at_approval || []), fresh = concerns(a, leadOf(a), v).filter((c) => !had.has(c.key));
+    const rv = v.owner_reviews || {};
+    return '<div class="cpv-card"><h2>Approval</h2><div class="cpv-res">Approved by ' + E(v.approved_by) + ' ' + E(String(v.approved_at || '').slice(0, 10)) + (v.approved_kind === 'urgent' ? ' for an urgent start' : v.approved_kind === 'exception' ? ' with an owner exception' : '') + '</div>'
+      + Object.keys(rv).map((k) => '<div class="cpv-res">Owner review by ' + E(rv[k].by) + ': ' + E(rv[k].note) + '</div>').join('')
+      + (v.scope_ok ? '<div class="cpv-res">' + E(v.scope_ok.by) + ' checked each task is within our services and the caregiver\'s training</div>' : '')
+      + (fresh.length ? '<div class="cpv-bad"><b>New safety concern since this was approved:</b> ' + E(fresh.map((c) => c.label).join('; ')) + '. The plan caregivers follow may not be safe. Change this plan to review it.</div>' : '')
+      + '</div>';
+  }
   function pushHtml(v) {
     if (['approved', 'active'].indexOf(v.status) < 0) return '';
     const x = v.push;
@@ -473,7 +484,7 @@
         + (edit && S.catalog ? '<select class="cpv-f" style="margin-top:10px" data-cpvsel="addtask"><option value="">+ Add a task from AxisCare\'s list…</option>' + S.catalog.filter((c) => !(v.tasks || []).some((t) => +t.adl_id === +c.id)).map((c) => '<option value="' + c.id + '">' + E(c.name) + '</option>').join('') + '</select>' : '')
         + '</div>'
         + '<details class="cpv-card"><summary style="cursor:pointer;font-weight:700">History</summary>' + (v.history || []).map((x) => '<div class="cpv-res">' + E(String(x.at).slice(0, 16).replace('T', ' ')) + ' · ' + E(x.by) + ' · ' + E(x.what) + '</div>').join('') + '</details>'
-        + '</div><div>' + (v.status === 'before' || v.status === 'superseded' ? '' : checksHtml(a, v)) + pushHtml(v) + '</div></div>';
+        + '</div><div>' + (edit ? checksHtml(a, v) : approvedHtml(a, v)) + pushHtml(v) + '</div></div>';
     }
     root.innerHTML = h + '</div>';
   }

@@ -165,6 +165,9 @@ async()=>{
   HV.close && await HV.close(); await HV.open({ id:a.id }); await sleep(100);
   q('[data-hvs="2"]').click(); tap('visit.safety.oxygen','yes'); tap('visit.prefs.smoking','yes'); await sleep(1600);
   const sc=card('ops_cp_safety_');
+  CPV.open(a.id); await sleep(80); c('[data-cpva="ver"][data-n="1"]').click(); await sleep(50);
+  ok('the active version shows what it was approved with, no live checklist, and the new concern in red', /Approval/.test(txt()) && !/Before approval/.test(txt()) && /New safety concern since this was approved: Oxygen in a home where someone smokes/.test(txt()) && /Owner review by Samantha/.test(txt()));
+  CPV.close();
   ok('a new safety concern after approval raises an urgent card for owners at once', sc && sc.urgency==='high' && sc.owner==='' && /Oxygen in a home where someone smokes/.test(sc.detail) && /version 1 was approved/.test(sc.detail), (DATA.ops_items||[]).map(x=>x.id));
   await HV.close(); await sleep(50);
   /* ---------- an urgent start ---------- */
