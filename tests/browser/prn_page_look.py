@@ -51,6 +51,13 @@ with sync_playwright() as pw:
     pg.click('.grid button[data-d="tue"][data-t="afternoon"]'); pg.fill('#tgt', '15'); pg.check('#outOk'); pg.click('#hrsSave'); pg.wait_for_timeout(200)
     hc = [c for c in calls if c['body'].get('action') == 'hours'][-1]['body']
     ok('My hours: saves the grid, 15 hours, outside-hours texts', hc['windows']['tue'] == ['afternoon'] and hc['windows']['mon'] == ['morning'] and hc['target_hours'] == '15' and hc['outside_ok'] is True, hc)
+    b2, pg2, calls2, errs2 = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43 + '#hours', member)
+    top = pg2.evaluate("()=>({ y: scrollY, top: document.getElementById('hours').getBoundingClientRect().top, max: document.documentElement.scrollHeight - innerHeight })")
+    pg2.click('#hrsSame'); pg2.wait_for_timeout(200)
+    sc = [c for c in calls2 if c['body'].get('action') == 'hours']
+    ok('the 60-day check-in link opens at My hours; "These are still right" saves what is on file, unchanged', top['y'] > 300 and (abs(top['top'] - 60) < 20 or top['y'] >= top['max'] - 2) and sc and sc[-1]['body']['windows']['mon'] == ['morning'] and sc[-1]['body']['windows']['sat'] == ['evening']
+       and sc[-1]['body']['target_hours'] == '12' and sc[-1]['body']['outside_ok'] is False and 'Saved, Grace' in pg2.inner_text('#hrsMsg') and not errs2, [top, sc, errs2])
+    b2.close()
     pg.click('[data-sn="yes"]'); pg.wait_for_timeout(200)
     ok('short notice: yes, saved by them', any(c['body'].get('action') == 'short_notice' and c['body'].get('ok') is True for c in calls) and pg.locator('[data-sn="yes"]').get_attribute('class').endswith('on'))
     pg.click('#brkSet'); pg.wait_for_timeout(100)
@@ -125,7 +132,19 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  await prnStep1Toggle('prn_page_live'); ok('...it turns on by itself', DATA.ops_settings.prn_page_live===true && DATA.ops_settings.prn_welcome_live===undefined);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===4, sw);
+  ok('...their wording boxes show the approved wording as the standard', document.getElementById('set_prn_page_ready_msg').placeholder.startsWith("Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts")
+    && /on your PRN Team page: \{link\}$/.test(document.getElementById('set_prn_reconfirm_page_msg').placeholder));
+  await prnStep1Toggle('prn_page_ready_live'); prnStep5Fill();
+  ok('...a link text on while the page is closed says it is waiting', /page is ready" text: ON \(waiting: the page isn't open yet, so nothing goes\)/.test(document.getElementById('prnStep5Switches').innerText), document.getElementById('prnStep5Switches').innerText);
+  await prnStep1Toggle('prn_page_ready_live');
+  document.getElementById('set_prn_page_ready_msg').value='Your page, {first_name}.'; await prnStep5Save();
+  ok('...wording without {link} is refused', /needs \{link\}/.test(document.getElementById('prnStep5Status').innerText) && DATA.ops_settings.prn_page_ready_msg===undefined);
+  document.getElementById('set_prn_page_ready_msg').value='Your page, {first_name}: {link}'; await prnStep5Save();
+  ok('...her own wording is saved', DATA.ops_settings.prn_page_ready_msg==='Your page, {first_name}: {link}');
+  document.getElementById('set_prn_page_ready_msg').value=''; await prnStep5Save();
+  ok('...emptied, back to the standard wording', !('prn_page_ready_msg' in DATA.ops_settings));
+  await prnStep1Toggle('prn_page_live'); ok('...it turns on by itself', DATA.ops_settings.prn_page_live===true && DATA.ops_settings.prn_welcome_live===undefined && DATA.ops_settings.prn_page_ready_live===false);
   return R;
 }
 """
