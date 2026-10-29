@@ -24,9 +24,9 @@ async()=>{
   window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b);
       return new Response(JSON.stringify(b.action==='week'?WEEK:{outcome:b.action==='send_thanks'?'sent':'recorded'}),{status:200}); } return realFetch(u,o); };
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
-  location.hash='#prnteams'; await sleep(700); await PW.load(); await sleep(100);
+  location.hash='#recruit'; await sleep(500); rcView('prn'); await sleep(200); await PW.load(); await sleep(100);
   const box=document.getElementById('prnWeek'), txt=()=>box.innerText;
-  ok('#prnteams shows This week and On call at the top of PRN Teams', /This week/.test(txt()) && /On call · PRN CNA Team/.test(txt()) && box.compareDocumentPosition(document.getElementById('prnDash')) & 4, txt().slice(0,200));
+  ok('Recruit, PRN Teams (stacked view) shows This week and On call at the top', /This week/.test(txt()) && /On call · PRN CNA Team/.test(txt()) && box.compareDocumentPosition(document.getElementById('prnDash')) & 4, txt().slice(0,200));
   ok('switch off: owners see it marked Practice', /Practice: only owners see this/.test(txt()));
   ok('the list is Krystal\'s, with three lines', /Krystal's list/.test(txt()) && box.querySelectorAll('.pw-line').length===3);
   ok('each line has Not this one', [...box.querySelectorAll('.pw-line')].every(l=>/Not this one/.test(l.innerText)));
@@ -77,7 +77,7 @@ with sync_playwright() as pw:
     pg.goto(f'http://localhost:{PORT}/index.html?proof=prnweek'); pg.wait_for_timeout(1200)
     pg.evaluate('s=>(0,eval)(s)', H)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
-    pg.evaluate("()=>{ location.hash='#prnteams'; }"); pg.wait_for_timeout(500); pg.evaluate("async()=>{ PW._state().live=false; await PW.load(); PW.open('thanks:g:cv1'); }"); pg.wait_for_timeout(300)
+    pg.evaluate("()=>{ location.hash='#recruit'; rcView('prn'); }"); pg.wait_for_timeout(500); pg.evaluate("async()=>{ PW._state().live=false; await PW.load(); PW.open('thanks:g:cv1'); }"); pg.wait_for_timeout(300)
     pg.locator('#prnWeek').screenshot(path=os.environ.get('SHOT', '/tmp/prn_week.png')); b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))

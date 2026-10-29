@@ -103,7 +103,18 @@
      the element it hides is parsed. */
   html.embedded.focused .fbar{ display:none; }
   /* #prnteams (its own GHL sidebar link): just the PRN Teams, without Recruit's other views */
-  html.prnonly #tab-recruit .offnav{ display:none; }
+  html.prnonly #tab-recruit .offnav:not(.prn-nav){ display:none; }
+  /* 2026-10-29 (Samantha: "I thought it would be more PRN Team tabs"): opened from that link, the PRN Teams are a home of
+     their own: no hiring tabs row, no Recruit heading, their own five tabs (prn-week.js PW.tab). From inside Recruit it is
+     the same stacked view as before. */
+  html.prnonly #fsub-interviews, html.prnonly #rcHead{ display:none !important; }
+  .prn-home-only{ display:none; }
+  html.prnonly .prn-home-only{ display:block; }
+  .prn-home-head{ margin:2px 0 14px; }
+  .prn-home-head h2{ margin:0; font-size:24px; font-weight:800; letter-spacing:-0.02em; color:var(--navy); }
+  .prn-tm{ padding:10px 0; border-top:1px solid #F2EFE8; display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start; }
+  .prn-tm-main{ flex:1 1 320px; min-width:0; }
+  .prn-tm-tag{ font-size:11.5px; font-weight:800; border-radius:999px; padding:2px 9px; }
   /* 2026-10-28: orientation proof (orientation-proof.js) */
   .op-card{padding:14px 16px;margin-bottom:10px;border-left:4px solid var(--green);}
   .op-card.op-attn{border-left-color:#DC2626;}
@@ -3872,7 +3883,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 
     <!-- ===================== TAB: RECRUIT ===================== -->
     <section class="tabpanel" id="tab-recruit">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      <div id="rcHead" style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
           <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Recruit</h2>
           <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everything that brings applicants in: what we post, what each role pays and asks, and where it goes.</div>
@@ -3893,7 +3904,23 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
 
       <!-- PRN4 (2026-09-29): the PRN CNA Team bench against its minimum. Read only. -->
-      <div class="rcview" id="rcview-prn" style="display:none;"><div id="prnWeek"></div><div id="prnDash"><div class="field-note">Loading the PRN Teams…</div></div></div>
+      <div class="rcview" id="rcview-prn" style="display:none;">
+        <!-- 2026-10-29: the PRN Teams home, only when opened from its own link (#prnteams) -->
+        <div class="prn-home-only prn-home-head">
+          <h2>PRN Teams</h2>
+          <div class="field-note" style="font-size:13.5px;margin-top:3px;">We stand in the gap. Our PRN CNA Team and PRN Caregiver Team: who to welcome, thank and call this week, who they are, and what they see.</div>
+          <div class="offnav prn-nav" style="margin-top:12px;">
+            <button class="offnav-b" id="prnt-week" onclick="PW.tab('week')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> This week</button>
+            <button class="offnav-b" id="prnt-teams" onclick="PW.tab('teams')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Our teams</button>
+            <button class="offnav-b" id="prnt-oncall" onclick="PW.tab('oncall')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> On call</button>
+            <button class="offnav-b" id="prnt-recruiting" onclick="PW.tab('recruiting')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Recruiting</button>
+            <button class="offnav-b" id="prnt-see" onclick="PW.tab('see')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> What they see</button>
+          </div>
+        </div>
+        <div id="prnWeek"></div><div id="prnTeams" class="prn-home-only"></div><div id="prnOnCall" class="prn-home-only"></div>
+        <div id="prnDash"><div class="field-note">Loading the PRN Teams…</div></div>
+        <div id="prnSee" class="prn-home-only"></div>
+      </div>
       <div class="rcview" id="rcview-postings" style="display:none;">
       <!-- Postings we own. These publish to mo-care.com/careers with the structured data Google reads for free. -->
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
@@ -7605,7 +7632,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=1"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -45142,7 +45169,7 @@ function ccOpenRef(sub){
          above and set their own filter, so this never runs for them. */
       if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
-        if(h==='prnteams'){ rcCurrent='prn'; switchTab('recruit'); rcView('prn'); ok=true; }
+        if(h==='prnteams'){ rcCurrent='prn'; switchTab('recruit'); rcView('prn'); try{ PW.tab(PW._tab||'week'); }catch(e){} ok=true; }
         else if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
         else if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(typeof CC_RETIRED_TABS!=='undefined' && CC_RETIRED_TABS[h]){ switchTab(h); ok=true; }   /* a retired list: its board and filter */
