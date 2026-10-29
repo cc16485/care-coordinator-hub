@@ -72,6 +72,8 @@ with sync_playwright() as pw:
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_member.png'), full_page=True)
     ok('no page errors (member)', not errs, errs); b.close()
 
+    src = open('index.html').read()
+    ok("step 8b: a Gap Mentor note or set-aside never counts as the client's latest plan review", "filter(x=>x&&!/^mentor_/.test(String(x.kind||''))&&String(x.axiscare_client_id||'')===ax)" in src)
     # STEP 8a: a Gap Mentor's page
     V8 = dict(VIEW, mentor={ 'skills': ['Hoyer lift transfers'], 'waiting': False, 'first_done': False, 'rules': 'You observe, practice and listen. You never change the care plan, diagnose or give medical advice: anything medical goes to the family, their doctor or home health. In an emergency call 911, then the office.',
       'offers': [{ 'id': 7, 'kind': 'refresher', 'kind_label': 'Refresher with a caregiver in the home', 'client_first': 'Ruth', 'visit_date': '2026-11-05', 'visit_time': '09:00-10:00', 'skill': 'Hoyer lift transfers', 'caregiver_first': 'Amy', 'note': None, 'answer': None, 'familiar': True }],
@@ -254,6 +256,31 @@ async()=>{
   await GM.ask(); await sleep(80);
   const ak=CALLS.find(c=>c.action==='mentor_ask');
   ok('...Ask a Gap Mentor sends the visit, the caregiver, the skill and the family\'s OK', ak && ak.client_ax==='501' && ak.client_name==='Ruth Lane' && ak.visit_time==='09:00-10:00' && ak.caregiver_ax==='77' && ak.caregiver_name==='Amy Dale' && ak.skill==='hoyer' && ak.family_ok===true, ak);
+  /* step 8b: suggestions from shift notes and Care Match */
+  const iso=(d)=>new Date(Date.now()-d*864e5).toISOString();
+  DATA.ops_items=[{ id:'cn1', kind:'care_note', level:'yellow', flag_kind:'eating or drinking', client_ax:'501', about:'Ruth Lane', caregiver:'Amy Dale', caregiver_ax:'77', created_at:iso(3) },
+    { id:'cn2', kind:'care_note', level:'yellow', flag_kind:'a fall or injury', client_ax:'501', about:'Ruth Lane', caregiver:'Amy Dale', caregiver_ax:'77', created_at:iso(5) },
+    { id:'cn3', kind:'care_note', level:'red', flag_kind:'skin or a wound', client_ax:'502', about:'Mary Cole', caregiver:'Bo Lee', caregiver_ax:'78', created_at:iso(2), cn_actions:[{ what:'ok' }] },
+    { id:'cn4', kind:'care_note', level:'yellow', flag_kind:'mood', client_ax:'503', about:'Al Fox', caregiver:'Bo Lee', caregiver_ax:'78', created_at:iso(2) },
+    { id:'cn5', kind:'care_note', level:'red', flag_kind:'confusion or a change in behavior', client_ax:'504', about:'Jo Ray', caregiver:'Bo Lee', caregiver_ax:'78', created_at:iso(40) }];
+  DATA.client_checkins=[{ id:'ci1', axiscare_client_id:'503', client:'Al Fox', rating:'concern', notes:'Seems more tired', at:iso(4) }];
+  const sg=GM.suggestFor('501');
+  ok('suggestions (step 8b): two yellow decline flags = a care update for Ruth, with the reasons', sg.some(g=>g.kind==='care_update' && g.why.length===2 && /eating or drinking/.test(g.why.join()) && /a fall or injury/.test(g.why.join())), sg);
+  ok('...a fall on Amy\'s own shift note = a refresher with Amy (fall prevention)', sg.some(g=>g.kind==='refresher' && g.caregiver_ax==='77' && g.caregiver_name==='Amy Dale' && g.skill==='falls'), sg);
+  ok('...a flag closed as "not a concern": nothing (Mary)', GM.suggestFor('502').length===0);
+  ok('...one yellow "mood" flag alone: no care update; a Care Match concern: a care update (Al)', GM.suggestFor('503').length===1 && /Care Match .*a concern \("Seems more tired"\)/.test(GM.suggestFor('503')[0].why[0]), GM.suggestFor('503'));
+  ok('...older than 30 days: nothing (Jo)', GM.suggestFor('504').length===0);
+  GM.mountClient('gmHostT','501','Ruth Lane'); await sleep(150);
+  ok('...on Ruth\'s Care tab: "Suggested by the Hub", the reasons, and that nobody is asked until you tap Ask', /Suggested by the Hub/.test(gh.innerText) && /A care update visit/.test(gh.innerText) && /A refresher with Amy Dale/.test(gh.innerText) && /Nobody is asked or contacted until you tap Ask/.test(gh.innerText), gh.innerText);
+  GM.fromSuggest(1); await sleep(40);
+  ok('...Ask a Gap Mentor from the refresher suggestion fills in the kind, Amy, the skill and why', document.getElementById('gmKind').value==='refresher' && document.getElementById('gmCg').value==='77' && document.getElementById('gmSkill').value==='falls' && /^Why: Shift note/.test(document.getElementById('gmNote').value));
+  GM.toggle(); await sleep(20);
+  let saved=null; window.persist=async(k,v)=>{ saved=[k,v]; }; (0,eval)('persist=window.persist');
+  await GM.setAside('cu:501'); await sleep(20);
+  ok('..."Not needed now" sets it aside for 30 days, kept with the care records (never a review)', saved && saved[0]==='care_plan_reviews' && saved[1].kind==='mentor_set_aside' && saved[1].suggestion==='cu:501' && !GM.suggestFor('501').some(g=>g.kind==='care_update'), saved);
+  const ss=GM.skillSuggest({ hoyer_lift:{ have:'yes', evidence:'attested' }, transfers_gait_belt:{ have:'yes', evidence:'observed' }, dementia_care:{ have:'yes' } });
+  ok('the caregiver\'s record: a refresher is suggested for a high-risk skill we only know because they told us (Hoyer), not one we saw (transfers)', ss.length===1 && ss[0].skill==='hoyer', ss);
+  ok('This week: Gap Mentor suggestions (owners, practice while off)', /Gap Mentor suggestions/.test(GM.weekHtml()) && /Al Fox/.test(GM.weekHtml()) && /Practice: only owners/.test(GM.weekHtml()));
   const cg=document.createElement('div'); GM.cgMount(cg,'77');
   ok("the caregiver's record: refreshers in the home, apart from online courses", /Refreshers in the home/.test(cg.innerText) && /Refresher with Grace \(CNA\), Nov 3: Hoyer lift transfers/.test(cg.innerText) && /apart from online courses/.test(cg.innerText), cg.innerText);
   /* the case card's "Keep off the PRN page" (decision 13) */
@@ -285,7 +312,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===8, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===9, sw);
+  ok('Settings (step 8b): Gap Mentor suggestions, off', /Gap Mentor suggestions \(needs Gap Mentors on too\): off/.test(sw), sw);
   ok('Settings (step 8a): Gap Mentors, off', /Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page: off/.test(sw), sw);
   ok('Settings (step 7): the twice-yearly questions, off; the invite wording box shows the standard text', /Twice-yearly "What would make PRN better\?" questions: off/.test(sw)
     && document.getElementById('set_prn_feedback_msg').placeholder==="Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.", sw);
