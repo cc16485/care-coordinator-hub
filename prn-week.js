@@ -9,6 +9,8 @@
         "Not this one" takes a line off.
    2. ON CALL (PRN CNA Team only): the next 8 weekends (Saturday 7am to Sunday 11pm), who is confirmed, the gaps in red,
       what each member offered, Confirm and Take back. An offer alone never puts anyone on call. No stipend amount (hers to set).
+   3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
+      opens the five questions; what they say is kept on their PRN answers (short notice and on call in their own records).
    The server (prn-week) decides every line and keeps every record; this file only draws them and passes the taps on.
    Shown to everyone once ops_settings.prn_week_live is on; before that, to owners only, marked Practice.
    ============================================================================= */
@@ -17,7 +19,7 @@
   var FN = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/prn-week';
   var e = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var W = null, OPEN = {};
-  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], nobackup: ['⚑', '#FEE2E2', '#991B1B'] };
+  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], welcome: ['✋', '#EDE9FE', '#5B21B6'], nobackup: ['⚑', '#FEE2E2', '#991B1B'] };
   var isOwner = function () { try { return typeof ccCan === 'function' && ccCan('manage_settings'); } catch (x) { return false; } };
   var fmt = function (d) { return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; };
 
@@ -33,12 +35,14 @@
   function lineHtml(it) {
     var ic = ICON[it.kind] || ICON.checkin, m = (W.members || []).find(function (x) { return x.applicant_id === it.applicant_id; }) || {};
     var page = m.axiscare_id ? '<button class="fb" onclick="PW.page(\'' + e(m.axiscare_id) + '\')">Open their page</button>' : '';
-    var btns = it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
+    var btns = it.kind === 'welcome' ? page + '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Record the call</button>'
+      : it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
       : it.kind === 'milestone' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'card_mailed\')">Card mailed</button>'
       : it.kind === 'goback' ? '<button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'yes\')">Glad to go back</button><button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'no\')">Rather not</button>'
       : it.kind === 'nobackup' ? '<button class="fb" onclick="PW.client(\'' + e(it.id) + '\')">Open ' + e(String(it.client || '').split(' ')[0]) + '\'s page</button><button class="fb" onclick="PW.cmark(\'' + e(it.id) + '\',\'intro_planned\')" title="A person gets the family\'s OK and schedules it in AxisCare as normal paid time">Intro visit planned</button>'
       : page + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'called\')">Called</button>';
     var notThis = it.kind === 'goback' ? '' : '<button class="fb" onclick="PW.' + (it.kind === 'nobackup' ? 'cmark' : 'mark') + '(\'' + e(it.id) + '\',\'not_this_one\')" title="' + (it.kind === 'nobackup' ? 'Takes this line off for this month' : 'Takes this line off') + '">Not this one</button>';
+    if (it.kind === 'welcome' && OPEN[it.id]) return lineTop(it, ic, btns, notThis) + callForm(it);
     var draft = it.kind !== 'thanks' || !OPEN[it.id] ? '' :
       '<div class="pw-draft"><div class="field-note" style="margin-bottom:6px;">Drafted for you. Edit it if you like; it goes from the office number under your name.</div>'
       + '<textarea id="pwMsg_' + e(it.id) + '" rows="3" style="width:100%;">' + e(it.draft) + '</textarea>'
@@ -47,14 +51,32 @@
         : '<span class="field-note">Texting thank-yous is off (Settings, PRN Teams). Thank them another way, then:</span>')
       + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'thanks_sent\')">Thanked another way</button>'
       + '<span class="field-note" id="pwSt_' + e(it.id) + '"></span></div></div>';
+    return lineTop(it, ic, btns, notThis) + draft;
+  }
+  function lineTop(it, ic, btns, notThis) {
     return '<div class="pw-line"><div class="pw-ic" style="background:' + ic[1] + ';color:' + ic[2] + ';">' + ic[0] + '</div>'
       + '<div style="flex:1;min-width:0;"><b style="color:var(--navy);">' + e(it.title) + '</b>' + (it.team ? ' <span class="field-note">· ' + e(it.team) + '</span>' : '') + '<div style="font-size:13px;">' + e(it.detail) + '</div></div>'
-      + '<div class="pw-btns">' + btns + notThis + '</div></div>' + draft;
+      + '<div class="pw-btns">' + btns + notThis + '</div></div>';
+  }
+  /* PRN STEP 4: the welcome call (five minutes, plan section 3). What they say is kept on their PRN answers. */
+  function callForm(it) {
+    var id = e(it.id), sel = function (k, opts) { return '<select id="pwW' + k + '_' + id + '" style="font-size:12.5px;width:auto;">' + opts.map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('') + '</select>'; };
+    var row = function (q, field) { return '<label style="display:block;margin-top:8px;font-size:13px;"><b>' + q + '</b><div style="margin-top:3px;">' + field + '</div></label>'; };
+    return '<div class="pw-draft"><div class="field-note">Five minutes to say hello. Ask, then record what they said.</div>'
+      + row('Which towns and times suit you?', '<input id="pwWtowns_' + id + '" placeholder="e.g. Springfield and Nixa, weekday mornings" style="width:100%;">')
+      + row('Is short notice ever OK?', sel('short', [['', 'Choose…'], ['yes', 'Yes'], ['no', 'No'], ['not_asked', 'Didn\'t ask']]))
+      + row('Would you like more hours someday?', sel('more', [['', 'Choose…'], ['yes', 'Yes'], ['maybe', 'Maybe'], ['no', 'No']]))
+      + row('What kind of clients do you enjoy?', '<input id="pwWenjoys_' + id + '" placeholder="Optional" style="width:100%;">')
+      + (it.team_key === 'cna' ? row('Would you like to be on call sometimes?', sel('oncall', [['', 'Didn\'t say'], ['every_weekend', 'Every weekend'], ['every_other_weekend', 'Every other weekend'], ['one_weekend_month', 'One weekend a month'], ['weekday', 'A weekday'], ['not_now', 'Not right now']])) : '')
+      + '<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;"><input type="checkbox" id="pwWoffice_' + id + '" style="width:auto;"> Interested in office work someday (we hire our Care Coordinators from within)</label>'
+      + row('Anything else?', '<input id="pwWnote_' + id + '" placeholder="Optional" style="width:100%;">')
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;"><button class="primary" onclick="PW.welcome(\'' + id + '\',this)">Save the welcome call</button>'
+      + '<span class="field-note" id="pwSt_' + id + '"></span></div></div>';
   }
 
   function weekHtml() {
     var practice = !W.live ? '<div class="pw-practice">Practice: only owners see this until "This week" is turned on (Settings, PRN Teams).</div>' : '';
-    var lines = (W.items || []).length ? W.items.map(lineHtml).join('') : '<div class="field-note" style="padding:8px 0;">Nothing this week. Every PRN member has been thanked, carded and checked in with.</div>';
+    var lines = (W.items || []).length ? W.items.map(lineHtml).join('') : '<div class="field-note" style="padding:8px 0;">Nothing this week. Every PRN member has been welcomed, thanked, carded and checked in with.</div>';
     return '<div class="card pw-card">' + practice
       + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">This week</h3>'
       + '<span class="field-note">' + e(W.owner) + '\'s list · a handful at a time · each one is a tap</span></div>'
@@ -128,6 +150,17 @@
       var it = item(id); if (!it) return;
       try { await call({ action: 'goback_mark', applicant_id: it.applicant_id, ref: it.ref, answer: answer, note: it.answer || '' }); await load(); }
       catch (x) { if (typeof ccAlert === 'function') ccAlert('Could not record it: ' + x.message); else alert('Could not record it: ' + x.message); }
+    },
+    welcome: async function (id, btn) {
+      var it = item(id); if (!it) return;
+      var v = function (k) { var el = document.getElementById('pwW' + k + '_' + id); return el ? (el.type === 'checkbox' ? el.checked : String(el.value || '').trim()) : ''; };
+      var st = document.getElementById('pwSt_' + id);
+      if (btn) btn.disabled = true;
+      try {
+        var r = await call({ action: 'welcome_call', applicant_id: it.applicant_id, towns_times: v('towns'), short_notice: v('short'), more_hours: v('more'), enjoys: v('enjoys'), oncall: v('oncall') || '', office_interest: v('office') === true, note: v('note') });
+        if (st) st.textContent = 'Saved.' + (r.oncall && r.oncall.indexOf('failed') === 0 ? ' Their on-call answer could not be saved (' + r.oncall + '); record it under On call.' : '');
+        delete OPEN[id]; setTimeout(load, 700);
+      } catch (x) { if (st) st.textContent = x.message; if (btn) btn.disabled = false; }
     },
     client: function (id) { var it = item(id); if (!it) return; try { openClientProfile(it.client_ax || it.client); } catch (x) { /* */ } },
     cmark: async function (id, kind) {

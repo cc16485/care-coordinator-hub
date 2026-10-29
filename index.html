@@ -4664,6 +4664,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="prnStep3Status"></span>
 </div>
 <div id="prnStep3Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+<h4 style="margin:18px 0 4px;color:var(--navy);">Team welcome (PRN step 4)</h4>
+<p class="hint">One welcome text, once, when a new PRN member is linked in AxisCare (only people linked in the last 7 days, so nobody is welcomed late). Weekdays 10am to 5pm, from the office number. For their first 2 weeks, This week shows "Welcome call with ___" so someone calls to say hello. Fill-ins: <code>{first_name}</code>, <code>{team}</code> (PRN CNA Team or PRN Caregiver Team). Leave it empty to use the standard wording.</p>
+<label>The welcome text</label>
+<textarea id="set_prn_welcome_msg" rows="4"></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="prnStep4Save(this)">Save</button>
+  <span class="field-note" id="prnStep4Status"></span>
+</div>
+<div id="prnStep4Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 <div class="settings-section" id="orientProofSettings" data-set="orientation-proof">
 <h3>🎓 Orientation proof</h3>
@@ -15823,6 +15832,35 @@ async function prnStep3Save(btn){
   if(btn) btn.disabled = false;
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
+/* PRN STEP 4 (Samantha 2026-10-29, her wording): the welcome text when a new PRN member is linked in AxisCare. */
+const PRN_WELCOME_DEFAULT = "Hi {first_name}, welcome to Caring Companions' {team}! Our PRN Teams are our care continuity team: when a client needs coverage, you're among the first people we call. Saying no is always OK, and once you say yes, families count on you. We'll call you this week to say hello. We're so glad you're here!";
+const PRN_STEP4_SWITCHES = [
+  { key:'prn_welcome_live', name:'Welcome text to new PRN members',
+    on:'Each new PRN member gets the welcome text once, on the first weekday morning after they are linked in AxisCare, from the office number. The welcome call shows on This week either way.',
+    off:'Off: no welcome text goes out (a practice run lists who would get it). The welcome call still shows on This week.' },
+];
+function prnStep4Fill(){
+  const st = DATA.ops_settings||{};
+  const t = document.getElementById('set_prn_welcome_msg'); if(t){ t.value = String(st.prn_welcome_msg||''); t.placeholder = PRN_WELCOME_DEFAULT; }
+  const box = document.getElementById('prnStep4Switches'); if(!box) return;
+  box.innerHTML = PRN_STEP4_SWITCHES.map(w=>{ const on = st[w.key]===true;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;"><button class="fb" style="flex:0 0 auto;" onclick="prnStep1Toggle(\''+w.key+'\',this)">'+(on?'Turn off':'Turn on')+'</button>'
+      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')
+      +'<div class="field-note">'+escapeHtmlComms(on?w.on:w.off)+'</div></div></div>'; }).join('');
+}
+async function prnStep4Save(btn){
+  const s = document.getElementById('prnStep4Status');
+  const msg = String((document.getElementById('set_prn_welcome_msg')||{}).value||'').trim();
+  if(/\u2014/.test(msg)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }
+  if(msg.length > 600){ if(s) s.textContent='Keep it to one text (under 600 characters).'; return; }
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m, base)=>{ const ch=[];
+    if(msg===''){ if('prn_welcome_msg' in m){ delete m.prn_welcome_msg; ch.push('PRN welcome wording back to standard'); } }
+    else if(base.prn_welcome_msg!==msg){ m.prn_welcome_msg = msg; ch.push('PRN welcome wording'); }
+    return ch; }, 'PRN Teams settings');
+  if(btn) btn.disabled = false;
+  if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
+}
 /* ORIENTATION PROOF (Samantha 2026-10-28): three switches, all off until she reviews the practice results. */
 const OP_SWITCHES = [
   { key:'orientation_audit_live', name:'Daily AxisCare orientation audit',
@@ -15870,6 +15908,7 @@ function prnStep1Fill(){
   const st = DATA.ops_settings||{};
   prnStep2Fill();
   prnStep3Fill();
+  prnStep4Fill();
   const f = document.getElementById('set_prn_fam_msg'); if(f){ f.value = String(st.coverage_msg_prn_familiar||''); f.placeholder = PRN_FAMILIAR_DEFAULT; }
   const t = document.getElementById('set_prn_team_msg'); if(t){ t.value = String(st.coverage_msg_prn_team||''); t.placeholder = PRN_TEAM_DEFAULT; }
   const box = document.getElementById('prnStep1Switches'); if(!box) return;
@@ -15892,7 +15931,7 @@ async function prnStep1Save(btn){
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
 async function prnStep1Toggle(key, btn){
-  const w = PRN_STEP1_SWITCHES.concat(PRN_STEP2_SWITCHES, PRN_STEP3_SWITCHES).find(x=>x.key===key); if(!w) return;
+  const w = PRN_STEP1_SWITCHES.concat(PRN_STEP2_SWITCHES, PRN_STEP3_SWITCHES, PRN_STEP4_SWITCHES).find(x=>x.key===key); if(!w) return;
   const on = !((DATA.ops_settings||{})[key]===true);
   if(!(await ccConfirm((on?'Turn on: ':'Turn off: ')+w.name+'?\n\n'+(on?w.on:w.off)))) return;
   if(btn) btn.disabled = true;
