@@ -183,7 +183,7 @@ function render() {
     + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
     + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'
     + '<p class="small" style="margin-top:8px">' + (d.looking && d.looking.on ? 'The office can see you\'re looking for hours, until ' + esc(dWord(d.looking.until)) + '.' : 'This stays on for 7 days.') + '</p><p class="msg" id="lookMsg"></p></div></div>'
-    + '<section id="shifts"><h2 class="serif">Shifts</h2><p class="sub">Shifts we\'ve asked you about. A coordinator always confirms before you\'re scheduled.</p><h3 class="grp">Offered to You <span>' + (d.offered || []).length + '</span></h3>' + offered
+    + '<section id="shifts"><h2 class="serif">Shifts</h2><p class="sub">Shifts we\'ve asked you about' + (d.open_live || d.preview ? ', and open shifts you can pick up' : '') + '. A coordinator always confirms before you\'re scheduled.</p><h3 class="grp">Offered to You <span>' + (d.offered || []).length + '</span></h3>' + offered
     + (d.open_live || d.preview ? '<h3 class="grp">Open shifts you can pick up <span id="openN"></span></h3>'
         + (d.preview && !d.open_live ? '<p class="small" style="margin-bottom:6px"><b>Waiting:</b> open shifts are switched off, so members don\'t see this part yet.</p>' : '')
         + '<div id="openBox"><div class="card empty">Looking for open shifts…</div></div><p class="msg" id="openMsg"></p>'
