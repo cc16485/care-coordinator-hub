@@ -185,7 +185,7 @@ function render() {
         + (d.update.paragraph ? '<p style="margin-top:8px;white-space:pre-wrap">' + esc(d.update.paragraph) + (d.update.from ? '<br><b>' + esc(d.update.from) + '</b>' : '') + '</p>' : '')
         + (d.update.kind_word ? '<p class="kind" style="margin-top:8px">"' + esc(d.update.kind_word) + '"<small>Kind words from a family</small></p>' : '')
         + (d.update.tip ? '<p style="margin-top:8px"><b>Something new:</b> ' + esc(d.update.tip) + '</p>' : '')
-        + '<p class="small" style="margin-top:8px">' + esc(d.update.steady) + ' <a href="sms:+14172348494">Text us</a></p></div>' : '')
+        + '<p class="small" style="margin-top:8px"><a href="sms:+14172348494">' + esc(d.update.steady) + '</a></p></div>' : '')
     + '<div class="card"><div class="look"><div><b>I\'m looking for hours</b><div class="small">Let the office know you\'d like work this week.</div></div><button class="switch' + (d.looking && d.looking.on ? ' on' : '') + '" id="lookSw" aria-label="I\'m looking for hours" aria-pressed="' + (d.looking && d.looking.on ? 'true' : 'false') + '"></button></div>'
     + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
     + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'
