@@ -37,6 +37,12 @@ async()=>{
   await prnStep1Toggle('prn_order_live'); await sleep(50);
   ok('and off again', DATA.ops_settings.prn_order_live===false);
   ok('the Recruit menu says PRN Teams', /PRN Teams/.test(document.getElementById('rcnav-prn').innerText));
+  location.hash='#prnteams'; await sleep(400);
+  const vis2=(id)=>{ const e=document.getElementById(id); return !!e && getComputedStyle(e).display!=='none' && e.offsetParent!==null; };
+  ok('#prnteams (its own GHL sidebar link) opens Recruit on PRN Teams', vis2('tab-recruit') && vis2('rcview-prn') && !vis2('rcview-numbers'), [vis2('tab-recruit'), vis2('rcview-prn')]);
+  ok('#prnteams shows just the PRN Teams: Recruit\'s other views are hidden', document.documentElement.classList.contains('prnonly') && getComputedStyle(document.querySelector('#tab-recruit .offnav')).display==='none');
+  location.hash='#settings/prn'; await sleep(300);
+  ok('leaving #prnteams brings Recruit\'s views back for other links', !document.documentElement.classList.contains('prnonly'));
   return R;
 }
 """

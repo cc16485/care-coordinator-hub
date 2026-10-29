@@ -102,6 +102,8 @@
   /* Kept with the class that sets it, in the head, so the rule exists before
      the element it hides is parsed. */
   html.embedded.focused .fbar{ display:none; }
+  /* #prnteams (its own GHL sidebar link): just the PRN Teams, without Recruit's other views */
+  html.prnonly #tab-recruit .offnav{ display:none; }
   html.setonly header.topbar, html.setonly .fbar, html.setonly .fsubbar, html.setonly #settingsFocusBar,
   html.setonly #settingsHead{ display:none !important; }
   html.setonly #tab-settings > .card{ max-width:none !important; border:0 !important; box-shadow:none !important; padding:2px 4px !important; }
@@ -44916,7 +44918,10 @@ function ccOpenRef(sub){
     return false;
   }
   function applyHash(){
-    var raw=(location.hash||'').replace(/^#/,''); if(!raw) return false;
+    var raw=(location.hash||'').replace(/^#/,'');
+    /* 2026-10-28 (Samantha): the PRN Teams get their own GHL sidebar link, #prnteams: Recruit opened on PRN Teams alone */
+    document.documentElement.classList.toggle('prnonly', raw.toLowerCase()==='prnteams');
+    if(!raw) return false;
     var ok=false;
     if(raw.indexOf('/')>-1) ok=applyDeepRoute(raw);
     var h=raw.toLowerCase();
@@ -44928,7 +44933,8 @@ function ccOpenRef(sub){
          above and set their own filter, so this never runs for them. */
       if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
-        if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
+        if(h==='prnteams'){ rcCurrent='prn'; switchTab('recruit'); rcView('prn'); ok=true; }
+        else if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
         else if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(typeof CC_RETIRED_TABS!=='undefined' && CC_RETIRED_TABS[h]){ switchTab(h); ok=true; }   /* a retired list: its board and filter */
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
