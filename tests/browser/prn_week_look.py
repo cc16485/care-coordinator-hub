@@ -50,7 +50,7 @@ async()=>{
   document.getElementById('pwPick0').value='t'; await PW.confirm(0); await sleep(50);
   ok('Confirm sends that weekend for that person', CALLS.some(c=>c.action==='oncall_confirm' && c.applicant_id==='t' && c.start_date==='2026-10-31' && c.end_date==='2026-11-01'));
   await PW.cancel(7); ok('Take back sends the confirmed date\'s id', CALLS.some(c=>c.action==='oncall_cancel' && c.id===7));
-  ok('offers show, and stipend says not set yet', /Grace Lee: Every other weekend/.test(txt()) && /Stipend amount: not set yet/.test(txt()));
+  ok('offers show; the two on-call shifts, and pay kept to the PRN plan (her call 2026-10-29)', /Grace Lee: Every other weekend/.test(txt()) && /daytime 7am to 5pm and overnight 5pm to 7am/.test(txt()) && /never shown on their page/.test(txt()));
   document.getElementById('pwOfWho').value='t'; document.getElementById('pwOfPat').value='one_weekend_month'; await PW.offer();
   ok('Record their offer sends who and what', CALLS.some(c=>c.action==='oncall_offer' && c.applicant_id==='t' && c.pattern==='one_weekend_month'));
   /* a non-owner with the switch off sees nothing */

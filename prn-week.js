@@ -7,8 +7,9 @@
         A milestone (10 PRN shifts, a year on the team): a handwritten card, then "Card mailed"
         Would like more hours / Check in (nobody in touch for 30 days): open their page and call, then "Called"
         "Not this one" takes a line off.
-   2. ON CALL (PRN CNA Team only): the next 8 weekends (Saturday 7am to Sunday 11pm), who is confirmed, the gaps in red,
-      what each member offered, Confirm and Take back. An offer alone never puts anyone on call. No stipend amount (hers to set).
+   2. ON CALL (PRN CNA Team only): the next 8 weekends, who is confirmed, the gaps in red, what each member offered, Confirm
+      and Take back. Two shifts a day (her call 2026-10-29): daytime 7am to 5pm, overnight 5pm to 7am; both = a whole day.
+      An offer alone never puts anyone on call. The pay is in her PRN plan, never shown on their page.
    3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
       opens the five questions; what they say is kept on their PRN answers (short notice and on call in their own records).
    5. (step 5a, 2026-10-29) THEIR PRN TEAM PAGE: What they see shows a member's real page (prn.html?preview=, read-only, each look
@@ -148,7 +149,7 @@
       : '<span class="field-note">Nobody has offered yet. Ask in the welcome call, then record it here.</span>';
     var pats = Object.keys(oc.patterns || {}).map(function (k) { return '<option value="' + e(k) + '">' + e(oc.patterns[k]) + '</option>'; }).join('');
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
-      + '<div class="field-note">An offer alone never puts someone on call: confirm each date with them first. A weekend is Saturday 7am to Sunday 11pm. Reply within 15 minutes, start within 1 hour. Stipend amount: not set yet.</div>'
+      + '<div class="field-note">An offer alone never puts someone on call: confirm each date with them first. On call comes in two shifts: daytime 7am to 5pm and overnight 5pm to 7am; both make a whole day. Confirm which shift with them. Reply within 15 minutes, start within 1 hour. On-call pay is in the PRN plan and is never shown on their page.</div>'
       + '<div class="pw-grid">' + tiles + '</div>'
       + '<div style="margin-top:12px;"><b style="font-size:13px;">What they\'ve offered:</b> ' + offers + '</div>'
       + (cna.length ? '<div class="pw-offer"><select id="pwOfWho" style="font-size:12.5px;width:auto;">' + cna.map(function (m) { return '<option value="' + e(m.applicant_id) + '">' + e(m.name) + '</option>'; }).join('') + '</select>'
