@@ -20,7 +20,7 @@ async()=>{
   const fam=document.getElementById('set_prn_fam_msg'), team=document.getElementById('set_prn_team_msg');
   ok('empty boxes show the approved texts', fam.value==='' && /You cared for \{client\} in \{month\}, so you'd be a familiar face\./.test(fam.placeholder) && /You're part of our care continuity team/.test(team.placeholder), [fam.placeholder, team.placeholder]);
   const sw=document.getElementById('prnStep1Switches').innerText;
-  ok('three switches, all off', (sw.match(/: off/g)||[]).length===3 && /Never text anyone working right now/.test(sw) && /Ask familiar first, then the PRN Teams, with the new PRN texts/.test(sw) && /Count covered PRN shifts automatically/.test(sw), sw);
+  ok('four switches, all off', (sw.match(/: off/g)||[]).length===4 && /Link PRN hires automatically when sure/.test(sw) && /Never text anyone working right now/.test(sw) && /Ask familiar first, then the PRN Teams, with the new PRN texts/.test(sw) && /Count covered PRN shifts automatically/.test(sw), sw);
   document.getElementById('set_prn_cg_min').value='12'; await prnSetSave(); await sleep(50);
   ok('saving the PRN Caregiver Team goal records just that', DATA.ops_settings.prn_caregiver_minimum===12 && DATA.ops_settings.prn_team_minimum===20 && /PRN Caregiver Team goal/.test(merges.at(-1)[1].join()), merges.at(-1));
   team.value='Hi {first_name} — test'; await prnStep1Save(); await sleep(50);
@@ -30,9 +30,9 @@ async()=>{
   team.value=''; await prnStep1Save(); await sleep(50);
   ok('emptying the box goes back to the approved wording', !('coverage_msg_prn_team' in DATA.ops_settings) && /back to the approved wording/.test(merges.at(-1)[1].join()));
   const btns=[...document.querySelectorAll('#prnStep1Switches button')];
-  await prnStep1Toggle('prn_order_live', btns[1]); await sleep(50);
+  await prnStep1Toggle('prn_order_live', btns[1]); /* the order switch is the second of four */ await sleep(50);
   const sw2=document.getElementById('prnStep1Switches').innerText;
-  ok('turning on the order switch sets only that switch', DATA.ops_settings.prn_order_live===true && DATA.ops_settings.working_now_live===undefined && DATA.ops_settings.prn_count_live===undefined);
+  ok('turning on the order switch sets only that switch', DATA.ops_settings.prn_order_live===true && DATA.ops_settings.working_now_live===undefined && DATA.ops_settings.prn_count_live===undefined && DATA.ops_settings.prn_autolink_live===undefined);
   ok('with Cara\'s wave rules off, it says her waves still ask PRN first', /Cara's wave rules are on/.test(sw2), sw2);
   await prnStep1Toggle('prn_order_live'); await sleep(50);
   ok('and off again', DATA.ops_settings.prn_order_live===false);
