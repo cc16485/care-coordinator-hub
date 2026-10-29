@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Live-In Caregiver Agreement, Caring Companions</title>
+<!-- THE LIVE-IN CAREGIVER AGREEMENT, SIGNED ON A PHONE (Samantha 2026-10-29: "have Sheryelle and Rhonda sign the live-in
+     packet"; design approved the same day). Opened only from the private link an owner texts from the office line
+     (?t=<code>; 7 days). The caregiver reads the 12 real pages, ticks, types their full name and signs with a finger. The
+     server (livein-sign) holds the agreement and decides everything; this page lays it out. Nothing is kept in this
+     browser's storage. Page images: livein-pages/rev-2026-10/ (from the master the server signs, same sha256). -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --navy:#0D365F; --gold:#F0A63A; --bg:#faf9f6; --card:#fff; --border:#e4e1d8; --text:#16283a; --muted:#6E6559; --green:#15803D; --red:#B00020; }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:'Public Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;line-height:1.55;-webkit-text-size-adjust:100%}
+  .wrap{max-width:720px;margin:0 auto;padding:18px 16px 70px;} header{text-align:center;padding:8px 0 4px;} header img{height:48px;max-width:100%}
+  h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;}
+  .lede{font-size:16px;margin:0 0 14px;}
+  .practice{background:#FFF7E6;border:1.5px dashed var(--gold);border-radius:10px;padding:10px 12px;font-size:14px;margin:0 0 12px}
+  .pg{background:#fff;border:1px solid var(--border);border-radius:8px;margin:0 0 6px;overflow:hidden} .pg img{display:block;width:100%;height:auto}
+  .pgno{font-size:13px;color:var(--muted);text-align:right;margin:0 0 12px}
+  .statement{border:1.5px solid var(--navy);border-radius:12px;background:#fff;padding:14px 16px;font-size:15.5px;line-height:1.6;margin:10px 0}
+  .chk{display:flex;gap:10px;align-items:flex-start;font-size:16px;margin:12px 0;cursor:pointer} .chk input{width:26px;height:26px;margin:1px 0 0;flex:none;accent-color:var(--navy)}
+  label.q{display:block;font-size:15px;font-weight:600;margin:14px 0 6px;color:var(--navy)}
+  input[type=text]{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid #c9c2b4;border-radius:8px;background:#fff;min-height:48px;-webkit-appearance:none;appearance:none}
+  .padwrap{position:relative} canvas.sig{display:block;width:100%;height:160px;background:#fff;border:1px solid #c9c2b4;border-radius:8px;touch-action:none}
+  .clear{position:absolute;right:8px;top:8px;font:inherit;font-size:14px;background:#fff;border:1px solid #c9c2b4;border-radius:6px;padding:6px 12px;color:var(--text);min-height:36px}
+  input:focus,button:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
+  button.go{width:100%;min-height:54px;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:15px;font:inherit;font-size:17px;font-weight:800;margin-top:16px;cursor:pointer;touch-action:manipulation}
+  button.go:disabled{opacity:.6}
+  .err{display:none;background:#FDECEC;color:var(--red);border-radius:8px;padding:10px 12px;font-size:15px;margin-top:10px;}
+  .okmsg{background:#F0F7F4;color:var(--text);border-radius:10px;padding:16px;font-size:16px;border:1.5px solid #9BD3B0}
+  .okmsg b{display:block;font-size:19px;color:var(--navy);margin-bottom:6px}
+  a.copy{display:block;text-align:center;border:2px solid var(--navy);color:var(--navy);text-decoration:none;font-weight:800;font-size:16px;padding:13px;border-radius:10px;margin-top:14px}
+  .small{font-size:13.5px;color:var(--muted);margin:10px 0 0;} .dead{background:#fff;border:1px solid var(--border);border-radius:12px;padding:20px;font-size:16px;} a{color:var(--navy);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="https://images.leadconnectorhq.com/image/f_webp/q_80/r_1200/u_https://assets.cdn.filesafe.space/Recp0AhyMh8lrtKJ9kaj/media/691b9707bb3d037e0ad689bf.png" alt="Caring Companions"></header>
+  <div id="main"><p class="lede" style="text-align:center;color:var(--muted)">Opening your agreement…</p></div>
+</div>
+<script>
+const SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const FN = SUPA_URL + '/functions/v1/livein-sign';
+const PAGES = { e35b98102d4664ce79df96168cac354b0d006783f58a78fe33d4939c40fc322c: 'livein-pages/rev-2026-10/' };
+const T = new URLSearchParams(location.search).get('t') || '';
+const PHONE = '(417) 234-8494';
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const $ = (id) => document.getElementById(id);
+async function call(body) {
+  try {
+    const r = await fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: SUPA_ANON, Authorization: 'Bearer ' + SUPA_ANON }, body: JSON.stringify({ ...body, t: T }) });
+    return { s: r.status, j: await r.json().catch(() => ({})) };
+  } catch (e) { return { s: 0, j: { error: 'You seem to be offline. Check your connection and try again.' } }; }
+}
+function dead(msg) { $('main').innerHTML = '<div class="dead">' + esc(msg || ('This link is not active. Call the office at ' + PHONE + '.')) + '</div>'; }
+const practiceNote = () => (V && V.practice ? '<p class="practice"><b>Practice.</b> This is a test of the signing page. Nothing is filed and nobody is told.</p>' : '');
+let V = null, P = null;
+const pad2 = (n) => String(n).padStart(2, '0');
+const today = () => new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+async function load() {
+  if (!T) return dead();
+  const r = await call({ action: 'view' });
+  if (r.s !== 200) return dead(r.j.error);
+  V = r.j;
+  if (V.status === 'signed' || V.status === 'countersigned') { $('main').innerHTML = '<div class="okmsg"><b>This agreement is already signed. Thank you.</b>If you have a question, call the office at ' + esc(PHONE) + '.</div>'; return; }
+  if (V.status === 'expired') return dead('This link has expired. Call the office at ' + PHONE + ' for a new one.');
+  if (V.status !== 'waiting') return dead('This agreement can no longer be signed here. Call the office at ' + PHONE + '.');
+  const dir = PAGES[V.master_sha];
+  if (!dir) return dead('This agreement could not be shown. Call the office at ' + PHONE + '.');
+  read(dir);
+}
+
+/* 1. read every page */
+function read(dir) {
+  let h = practiceNote() + '<h1>Hi ' + esc(V.first || 'there') + '</h1>'
+    + '<p class="lede">Please read the Live-In Caregiver Agreement. It is ' + V.pages + ' pages. When you reach the end, you can sign it right here.</p>';
+  for (let p = 1; p <= V.pages; p++) h += '<div class="pg"><img src="' + dir + 'p' + pad2(p) + '.jpg" alt="Live-In Caregiver Agreement, page ' + p + ' of ' + V.pages + '"' + (p > 2 ? ' loading="lazy"' : '') + ' width="1020" height="1320"></div><p class="pgno">Page ' + p + ' of ' + V.pages + '</p>';
+  h += '<button class="go" id="next" type="button">I\'ve read it. Go to sign</button><p class="small" style="text-align:center">Questions? Call the office at ' + esc(PHONE) + '.</p>';
+  $('main').innerHTML = h; $('next').onclick = sign; window.scrollTo(0, 0);
+}
+
+/* 2. sign */
+function sign() {
+  $('main').innerHTML = practiceNote() + '<h1>Sign the agreement</h1>'
+    + '<div class="statement">' + esc(V.statement) + '</div>'
+    + '<label class="chk"><input type="checkbox" id="ok"> <span>' + esc(V.consent) + '</span></label>'
+    + '<label class="q" for="nm">Type your full name (first and last)</label>'
+    + '<input type="text" id="nm" autocomplete="name" autocapitalize="words" enterkeyhint="done">'
+    + '<label class="q" for="sig">Sign with your finger</label>'
+    + '<div class="padwrap"><canvas class="sig" id="sig" aria-label="Signature box: sign with your finger"></canvas><button class="clear" id="clr" type="button">Clear</button></div>'
+    + '<p class="small">Today\'s date is added for you: ' + esc(today()) + '</p>'
+    + '<button class="go" id="go" type="button">Sign</button>'
+    + '<div class="err" id="err"></div>'
+    + '<p class="small">Your name, your signature, the time and your device are kept with the agreement as your electronic signature. <a href="#" id="back">Read the agreement again</a></p>';
+  P = pad($('sig')); $('clr').onclick = () => P.clear(); $('go').onclick = submit;
+  $('back').onclick = (e) => { e.preventDefault(); read(PAGES[V.master_sha]); };
+  window.scrollTo(0, 0);
+}
+async function submit() {
+  const err = $('err'); err.style.display = 'none';
+  const name = $('nm').value.trim().replace(/\s+/g, ' ');
+  const say = (m) => { err.textContent = m; err.style.display = 'block'; };
+  if (!$('ok').checked) return say('Tick the box to confirm you read the agreement and agree to it.');
+  if (name.split(' ').length < 2) return say('Type your full first and last name.');
+  if (!P.has) return say('Sign in the box with your finger.');
+  $('go').disabled = true; $('go').textContent = 'Signing…';
+  const r = await call({ action: 'sign', typed_name: name, consent: true, master_sha: V.master_sha, signature: P.png() });
+  if (r.s === 200) return done(r.j.copy_url);
+  $('go').disabled = false; $('go').textContent = 'Sign';
+  say(r.j.error || 'That did not go through. Try again, or call the office at ' + PHONE + '.');
+}
+
+/* 3. signed */
+function done(copy) {
+  const when = new Date().toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  $('main').innerHTML = practiceNote() + '<div class="okmsg"><b>Thank you, ' + esc(V.first || '') + '. Your agreement is signed.</b>'
+    + 'Signed ' + esc(when) + '. Caring Companions will add its signature, and the office keeps the signed copy in your file.'
+    + (copy ? '<a class="copy" href="' + esc(copy) + '" target="_blank" rel="noopener">Save my copy (PDF)</a><p class="small">The copy link works for 10 minutes. Need another copy later? Call the office at ' + esc(PHONE) + '.</p>' : '')
+    + '</div>';
+  window.scrollTo(0, 0);
+}
+
+/* finger signature (the same pad as the Client Care Agreement) */
+function pad(canvas) {
+  const st = { has: false };
+  const size = () => { const r = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1; canvas.width = r.width * d; canvas.height = r.height * d; const c = canvas.getContext('2d'); c.scale(d, d); c.lineWidth = 2.6; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#0D365F'; st.has = false; };
+  size(); let down = false, last = null; const ctx = () => canvas.getContext('2d');
+  const pt = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', (e) => { down = true; last = pt(e); canvas.setPointerCapture(e.pointerId); e.preventDefault(); });
+  canvas.addEventListener('pointermove', (e) => { if (!down) return; const p = pt(e), c = ctx(); c.beginPath(); c.moveTo(last.x, last.y); c.lineTo(p.x, p.y); c.stroke(); last = p; st.has = true; e.preventDefault(); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => canvas.addEventListener(t, () => { down = false; }));
+  st.clear = size; st.png = () => canvas.toDataURL('image/png'); return st;
+}
+load();
+</script>
+</body>
+</html>

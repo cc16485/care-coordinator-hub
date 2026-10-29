@@ -24,6 +24,7 @@
     { id: 'coaching', label: 'Coaching', note: 'Conversations to have', owner: false },
     { id: 'attendance', label: 'Attendance', note: 'Call-ins, late arrivals, no-shows', owner: false },
     { id: 'terminations', label: 'Terminations', note: 'From decision to paperwork', owner: true },
+    { id: 'livein', label: 'Live-In Agreement', note: 'Signed on their phone', owner: true },   /* 2026-10-29 */
     { id: 'handbook', label: 'Handbook', note: 'The rules the agent cites', owner: false },
     { id: 'role', label: "Zach's role", note: 'For everyone at Caring Companions', owner: false }
   ];
@@ -129,7 +130,7 @@
     box.hidden = !!PANEL_OF[view];
     if (PANEL_OF[view]) { if (typeof scxEnsure === 'function') scxEnsure(SCX_OF[view]); return; }
     box.innerHTML = '';
-    ({ home: renderHome, practice: renderPractice, incidents: renderIncidents, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, handbook: renderHandbook, role: renderRole })[view](box);
+    ({ home: renderHome, practice: renderPractice, incidents: renderIncidents, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, livein: renderLivein, handbook: renderHandbook, role: renderRole })[view](box);
   }
   function go(v) { view = v; render(v); try { window.scrollTo(0, 0); } catch (e) {} }
 
@@ -828,6 +829,95 @@
     });
   }
 
+  /* ---------- Live-In Caregiver Agreement (Samantha 2026-10-29: "have Sheryelle and Rhonda sign the live-in packet") ----------
+     The server (livein-sign) keeps the list of people, the private links, the signatures and the PDFs; this card only lays
+     them out. Make a link, then Send from the office line (their words, which must keep the link) or Copy it. When they
+     sign, Samantha gets a My Work task and presses Add my signature here; the finished PDF is kept in hr-docs. */
+  let lv = null; const lvLink = {};
+  async function livein(body) {
+    try { const { data, error } = await sb.functions.invoke('livein-sign', { body });
+      if (error) { let m = error.message; try { const j = await error.context.json(); if (j && j.error) m = j.error; } catch (e) {} throw new Error(m); }
+      if (data && data.error) throw new Error(data.error); return data; }
+    catch (e) { throw new Error((e && e.message) || 'Could not reach the server.'); }
+  }
+  const lvDay = (iso) => (iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '');
+  function renderLivein(box) {
+    box.innerHTML = '<div class="hr-h">Live-In Caregiver Agreement</div><div class="card hr-card" id="hrLvBox"><div class="field-note">Loading…</div></div>';
+    livein({ action: 'list' }).then((d) => { lv = d; drawLivein(); })
+      .catch((e) => { const el = document.getElementById('hrLvBox'); if (el) el.innerHTML = '<div class="hr-err">Could not load: ' + esc(e.message) + ' Reload the page to try again.</div>'; });
+  }
+  function drawLivein() {
+    const el = document.getElementById('hrLvBox'); if (!el || !lv) return;
+    const real = (lv.rows || []).filter((r) => !r.practice);
+    el.innerHTML = '<div class="field-note" style="margin-bottom:6px;">12 pages · Rev. 10/2026 · links last 7 days. They read every page on their phone, type their name and sign with a finger. Then you add the Caring Companions signature.</div>'
+      + lv.people.map((p) => lvPerson(p, real.find((r) => r.caregiver === p.name && r.status !== 'cancelled'))).join('');
+  }
+  function lvPerson(p, r) {
+    const k = p.name.replace(/[^A-Za-z]/g, ''), btn = (cls, fn, label) => '<button class="' + cls + ' hr-btn" onclick="HR.lv(\'' + fn + '\',\'' + k + '\')">' + label + '</button>';
+    let state, body = '';
+    if (!r) state = 'Not sent yet';
+    else if (r.status === 'waiting') state = (r.sent_at ? 'Texted ' + lvDay(r.sent_at) : 'Link made ' + lvDay(r.started_at) + ', not texted yet') + (r.opened_at ? ' · opened ' + lvDay(r.opened_at) : '');
+    else if (r.status === 'signed') state = '<b style="color:#15803D">Signed ' + esc(lvDay(r.signed_at)) + ', needs your signature</b>';
+    else state = '<b style="color:#15803D">Done</b> · countersigned by ' + esc(r.rep_name || '') + ' ' + esc(lvDay(r.countersigned_at));
+    const fresh = lvLink[k];
+    if (fresh && r && r.status === 'waiting' && fresh.id === r.id) {
+      body = '<div class="hr-form"><label for="lvMsg' + k + '" class="field-note">The text (edit if you like; keep the link)' + (fresh.phone_last4 ? ' · goes to the phone ending ' + esc(fresh.phone_last4) : ' · <b>no phone on file: copy the link instead</b>') + '</label>'
+        + '<textarea id="lvMsg' + k + '" rows="6">' + esc(fresh.draft) + '</textarea>'
+        + '<div class="hr-actions">' + (fresh.phone_last4 ? btn('primary', 'send', 'Send from the office line') + ' ' : '') + btn('secondary', 'copy', 'Copy the link instead') + '</div><div class="hr-err" id="lvErr' + k + '"></div></div>';
+    } else if (!r) body = '<div class="hr-actions">' + btn('primary', 'start', 'Make the link') + '</div>';
+    else if (r.status === 'waiting') body = '<div class="hr-actions">' + btn('secondary', 'start', 'Make a new link') + ' <span class="field-note">The earlier link stops working.</span></div>';
+    else if (r.status === 'signed') body = '<div class="hr-form" id="lvPad' + k + '" hidden><span class="field-note">Sign for Caring Companions as ' + esc((typeof ME !== 'undefined' && ME && ME.email) || '') + '</span>'
+        + '<canvas id="lvSig' + k + '" style="width:100%;max-width:420px;height:130px;background:#fff;border:1px solid var(--border);border-radius:8px;touch-action:none"></canvas>'
+        + '<div class="hr-actions">' + btn('primary', 'countersign', 'Sign and save') + ' ' + btn('secondary', 'clear', 'Clear') + '</div></div>'
+        + '<div class="hr-actions" id="lvBtns' + k + '">' + btn('primary', 'pad', 'Add my signature') + ' ' + btn('secondary', 'open', 'Open signed PDF') + '</div>';
+    else body = '<div class="hr-actions">' + btn('secondary', 'open', 'Open signed PDF') + '</div>';
+    return '<div class="hr-row hr-row-top" style="display:block"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>' + esc(p.name) + '</b><span class="field-note">' + state + '</span></div>'
+      + (p.on_roster ? '' : '<div class="hr-late">Not found on the caregiver roster: the link works, but Send cannot find a phone.</div>')
+      + body + '<div class="hr-err" id="lvE' + k + '"></div></div>';
+  }
+  const lvPads = {};
+  async function lvAct(fn, k) {
+    const p = lv && lv.people.find((x) => x.name.replace(/[^A-Za-z]/g, '') === k); if (!p) return;
+    const r = (lv.rows || []).find((x) => !x.practice && x.caregiver === p.name && x.status !== 'cancelled');
+    const err = (m) => { const e = document.getElementById('lvErr' + k) || document.getElementById('lvE' + k); if (e) e.textContent = m; };
+    const reload = async () => { lv = await livein({ action: 'list' }); drawLivein(); };
+    try {
+      if (fn === 'start') {
+        if (r && !(await ccConfirm('Make a new link for ' + p.name + '? The earlier link stops working.'))) return;
+        const d = await livein({ action: 'start', name: p.name }); lvLink[k] = { id: d.row.id, link: d.link, draft: d.draft, phone_last4: d.phone_last4 }; await reload();
+      } else if (fn === 'send') {
+        const msg = document.getElementById('lvMsg' + k).value;
+        if (!(await ccConfirm('Text this to ' + p.name + ' from the office line now?'))) return;
+        const d = await livein({ action: 'send', id: lvLink[k].id, message: msg });
+        delete lvLink[k]; await reload(); if (typeof ccToast === 'function') ccToast(d.outcome === 'practice' ? 'Practice: nothing was texted.' : 'Sent to ' + p.name + '.');
+      } else if (fn === 'copy') {
+        const l = lvLink[k].link; let ok = false;
+        try { await navigator.clipboard.writeText(l); ok = true; } catch (e) {}
+        if (ok) { if (typeof ccToast === 'function') ccToast('Link copied. Paste it into your text to ' + p.name + '.'); }
+        else window.prompt('Copy this link and send it to ' + p.name + ':', l);
+      } else if (fn === 'pad') {
+        document.getElementById('lvPad' + k).hidden = false; document.getElementById('lvBtns' + k).hidden = true; lvPads[k] = lvPad(document.getElementById('lvSig' + k));
+      } else if (fn === 'clear') { lvPads[k] && lvPads[k].clear();
+      } else if (fn === 'countersign') {
+        if (!lvPads[k] || !lvPads[k].has) { err('Sign in the box first.'); return; }
+        await livein({ action: 'countersign', id: r.id, signature: lvPads[k].png() }); delete lvPads[k]; await reload();
+        if (typeof ccToast === 'function') ccToast('Signed. The finished agreement is saved in HR papers.');
+      } else if (fn === 'open') {
+        const d = await livein({ action: 'open', id: r.id }); window.open(d.url, '_blank', 'noopener');
+      }
+    } catch (e) { err('Not done: ' + e.message); }
+  }
+  function lvPad(canvas) {   /* the same finger pad as livein.html and the Client Care Agreement */
+    const st = { has: false };
+    const size = () => { const b = canvas.getBoundingClientRect(), d = window.devicePixelRatio || 1; canvas.width = b.width * d; canvas.height = b.height * d; const c = canvas.getContext('2d'); c.scale(d, d); c.lineWidth = 2.6; c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = '#0D365F'; st.has = false; };
+    size(); let down = false, last = null; const ctx = () => canvas.getContext('2d');
+    const pt = (e) => { const b = canvas.getBoundingClientRect(); return { x: e.clientX - b.left, y: e.clientY - b.top }; };
+    canvas.addEventListener('pointerdown', (e) => { down = true; last = pt(e); canvas.setPointerCapture(e.pointerId); e.preventDefault(); });
+    canvas.addEventListener('pointermove', (e) => { if (!down) return; const q = pt(e), c = ctx(); c.beginPath(); c.moveTo(last.x, last.y); c.lineTo(q.x, q.y); c.stroke(); last = q; st.has = true; e.preventDefault(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => canvas.addEventListener(t, () => { down = false; }));
+    st.clear = size; st.png = () => canvas.toDataURL('image/png'); return st;
+  }
+
   /* ---------- handbook (approved 2026-10-18; stored in app_data 'hr_handbook') ---------- */
   let hb = null, hbQ = '', hbSerious = false, hbKind = '';
   const HB_KIND = { attendance: 'Attendance', evv: 'Clocking in and out', documentation: 'Notes and records', conduct: 'Conduct', client_safety: 'Client safety', confidentiality: 'Confidentiality', money_property: 'Money and property', safety: 'Safety', substances: 'Drugs and alcohol', technology: 'Technology', protected: 'Protects the employee', other: 'Other' };
@@ -884,6 +974,6 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
+  window.HR = { render, go, lv: lvAct, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
     callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, hbKind: (k) => { hbKind = hbKind === k ? '' : k; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
