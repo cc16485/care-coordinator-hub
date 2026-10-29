@@ -5030,6 +5030,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
+<div class="settings-section" id="hvSettings" data-set="home-visit">
+<h3>Home visit</h3>
+<p class="hint">The rates and minimums the iPad home visit shows on its care level screen. Changing them here changes what the next visit shows; agreements already signed are not touched.</p>
+<div id="hvSet"></div>
+</div>
 <div class="settings-section" id="cjSettings" data-set="client-journeys">
 <h3>🧭 Client journeys</h3>
 <p class="hint">Each new client's start of care as one journey on their profile: the next required step, who owns it, and proof on each step. Who gets a new client nobody has picked is set by payer here. Nobody is texted or emailed.</p>
@@ -7655,7 +7660,7 @@ The HomeTogether team</pre>
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=23"></script>
+<script src="client-journey.js?v=24"></script>
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script>
@@ -7685,7 +7690,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=2"></script><script src="simple-card.js?v=2"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=2"></script><script src="simple-card.js?v=2"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="home-visit.js?v=1"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -10783,12 +10788,12 @@ function cpRenderCare(){
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">📝 Assessments & care plan</b><span style="flex:1;"></span>'
     +(lead?'<button class="secondary" onclick="asmtBook('+q(lead.id)+')">📅 Book the visit</button>':'')
-    +(canAdd?'<button class="secondary" onclick="cpNewAssessment()">＋ New assessment</button>':'')+'</div>'
+    +(canAdd&&window.HV?'<button class="primary" onclick="cpHomeVisit()">Start the home visit</button>':'')+(canAdd?'<button class="secondary" onclick="cpNewAssessment()">＋ New assessment</button>':'')+'</div>'
     +(as.length?as.map(a=>{ const plan=(DATA.care_plans||[]).find(p=>p.assessment_id===a.id);
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--border);font-size:13.5px;">'
           +'<b>'+esc(a.visit_date||String(a.created_at||'').slice(0,10))+'</b><span class="field-note">'+esc(a.status||'recorded')+(a.coordinator?' · '+esc(a.coordinator):'')+'</span>'
           +(plan?'<span class="field-note">care plan '+esc(plan.status||'drafted')+'</span>'+(axPlanNote(plan,a)?'<span class="field-note" style="'+(/not confirmed|check AxisCare/.test(axPlanNote(plan,a))?'color:#92400E;':'')+'">'+esc(axPlanNote(plan,a))+'</span>':''):'<span class="field-note">no care plan yet</span>')
-          +'<span style="flex:1;"></span><button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
+          +'<span style="flex:1;"></span>'+(window.HV?'<button class="linklike" onclick="HV.open({id:'+q(a.id)+'})">'+(a.visit?'Open home visit':'Open on the iPad')+'</button>':'')+'<button class="linklike" onclick="openAssessmentModal('+q(a.id)+')">Open assessment</button>'
           +'<button class="linklike" onclick="openPlanForAssessment('+q(a.id)+')">'+(plan?'Open care plan':'Write the care plan')+'</button></div>'; }).join('')
       :'<div class="field-note">No assessment recorded yet.</div>')
     /* 2026-10-14: the care plan draft the phone calls started (Make this a lead), until a plan is written from a visit */
@@ -10838,6 +10843,9 @@ function cpRenderCare(){
   if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261018'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
+/* 2026-10-29: the home visit on the iPad (home-visit.js), from the lead or the client */
+function cpHomeVisit(){ if(!window.HV) return; if(CP.lead) HV.open({ leadId:CP.lead.id }); else HV.open({ ax:CP.ax, name:CP.r?CP.r.client_name:'' }); }
+window.cpHomeVisit=cpHomeVisit;
 async function cpNewAssessment(){
   const lead=CP.lead;
   if(lead){ scheduleAssessmentFromLead(lead.id); return; }
@@ -16040,6 +16048,7 @@ function fillSettingsPanel(){
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
   try{ s1aSetFill(); }catch(_){}
+  try{ if(window.HV) HV.settingsFill(); }catch(_){}
   mbFill();
   try{ aivFill(); }catch(e){}
   document.getElementById('set_supabase_url').value = CONFIG.supabase_url||'';
@@ -24790,7 +24799,9 @@ function recMount(hostId, kind, subjectId, label){
       + '<span class="field-note">Worth saying on the recording itself, in the first few seconds, so the transcript is its own proof. '
       /* 2026-10-11 (Samantha: "keep audio one year", "keep the transcript forever"; Desktop 621 sets keep_audio_days 365) */
       /* 2026-10-14 (Samantha: "2 years", Desktop 649) */
-      + 'The audio is kept for 1 year, then deleted. The written transcript, observations and AI review are kept for 2 years. '
+      + (kind==='interview' ? 'The audio is kept for 1 year, then deleted. The written transcript, observations and AI review are kept for 2 years. '
+        /* 2026-10-29 home visit: purge-recordings deletes assessment audio on the same 1-year rule and never clears its transcript */
+        : 'The audio is kept for 1 year, then deleted. The written transcript stays with their record. ')
       /* 2026-10-13 (approved consent line) */
       + 'Tell them: "The recording is written out by software and summarized to help me review it."</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
