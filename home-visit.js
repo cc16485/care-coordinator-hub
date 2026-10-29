@@ -71,6 +71,75 @@
   };
   const NURSE = [['yes', 'Yes'], ['no', 'No'], ['later', 'Ask later']];
 
+  /* ---------- from the phone calls (2026-10-29, her "yes, build the phone call pre-fill: blue boxes plus the reminder cards") ----------
+     What Make this a lead / Fill from the call saved on the lead. Short, clear answers go into EMPTY boxes once, in blue
+     ("from the phone call, check it with the family"); the longer descriptions show as a card to talk from. Never a typed box. */
+  const COND_W = { dementia: 'Dementia', alzheimers: "Alzheimer's", parkinsons: "Parkinson's", stroke: 'Stroke', diabetes: 'Diabetes', copd: 'COPD' };
+  const MOB_EQ = { walker: 'Walker', wheelchair: 'Wheelchair' };
+  const PC_W = { bathing: 'Bathing', dressing: 'Dressing', toileting: 'Toileting', transfers: 'Transfers', dementia: 'Dementia care' };
+  const LIVING_W = { alone: 'Lives alone', spouse_partner: 'Lives with a spouse or partner', family: 'Lives with family', paid_help: 'Lives with paid help', facility: 'Lives in a facility', other: 'Other' };
+  const WHY_W = { fall: 'a fall', discharge: 'a hospital discharge', caregiver_cant_continue: "their caregiver can't continue", memory_worse: 'memory getting worse', provider_cant_staff: "their provider can't staff", new_diagnosis: 'a new diagnosis', other: 'other' };
+  const fromCall = (l) => !!(l && (l.call_profile || l.care_plan_draft || (Array.isArray(l.from_calls) && l.from_calls.length)));
+  const nil = (x) => x == null || String(x).trim() === '';
+  function callGoals(t) {
+    const parts = String(t || '').replace(/([.!?])\s+(?=[A-Z])/g, '$1\n').split(/\n+|;\s*/).map((x) => x.replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean);
+    return parts.length && parts.length <= 3 && parts.every((x) => x.length <= 140) ? parts : null;
+  }
+  function callFill(a, l) {
+    const v = a.visit;
+    if (!fromCall(l) || v.call_filled_at || v.finished_at) return;
+    const mark = (p) => { (v.from_call = v.from_call || {})[p] = true; };
+    const f = (l.call_profile || {}).facts || {}, d = (l.care_plan_draft || {}).fields || {};
+    if (nil(v.allergies) && !nil(f.allergies)) { v.allergies = String(f.allergies).trim(); mark('visit.allergies'); }
+    const cs = v.conditions = Array.isArray(v.conditions) ? v.conditions : [];
+    (Array.isArray(l.medical_conditions) ? l.medical_conditions : []).map((k) => COND_W[k]).filter(Boolean).forEach((name) => {
+      if (cs.some((c) => c && String(c.name || '').toLowerCase() === name.toLowerCase())) return;
+      let i = cs.findIndex((c) => !c || (nil(c.name) && nil(c.onset) && nil(c.effect)));
+      if (i < 0) { cs.push({}); i = cs.length - 1; }
+      cs[i] = Object.assign({}, cs[i], { name }); mark('visit.conditions.' + i + '.name');
+    });
+    const eq = MOB_EQ[l.mobility];
+    if (eq && (v.equipment || []).indexOf(eq) < 0) { v.equipment = (v.equipment || []).concat([eq]); mark('visit.equipment:' + eq); }
+    const gs = callGoals(d.client_goals);
+    if (gs && (v.goals || []).every((g) => nil(g && g.text))) { gs.forEach((t, i) => { v.goals[i] = { text: t }; mark('visit.goals.' + i + '.text'); }); v.goals_from_call = true; }
+    v.call_filled_at = new Date().toISOString();
+  }
+  function callBy() {
+    const l = ST.lead; if (!l) return '';
+    const n = ((l.call_profile || {}).said_by) || [l.first_name, l.last_name].filter((x) => x && !/^\(.*\)$/.test(x)).join(' ');
+    return n ? 'Said by ' + n + (l.relationship ? ', ' + l.relationship : '') : '';
+  }
+  /* the reminder card on a screen: the longer things the calls said, to talk from */
+  function callCard(rows) {
+    rows = rows.filter((r) => !nil(r[1]));
+    if (!rows.length) return '';
+    const by = callBy();
+    return '<section class="hv-card hv-callc"><div class="hv-ch"><h2>From the phone call</h2>' + (by ? '<span class="hv-tag">' + E(by) + '</span>' : '') + '</div>'
+      + '<div class="hv-n" style="margin:0">Check it with the family and tap their answers below. Blue boxes came from the call.</div>'
+      + rows.map((r) => '<div class="hv-cr"><b>' + E(r[0]) + '</b><span>' + E(String(r[1]).trim()) + '</span></div>').join('') + '</section>';
+  }
+  function callRows(which) {
+    const l = ST.lead; if (!fromCall(l)) return [];
+    const f = (l.call_profile || {}).facts || {}, d = (l.care_plan_draft || {}).fields || {};
+    if (which === 'story') return [
+      ['Why now', [].concat(f.why_now || []).map((x) => WHY_W[x] || x).join(', ')],
+      ['Living situation', LIVING_W[f.living_situation] || ''],
+      ['What they hope for', ST.a.visit.goals_from_call ? '' : d.client_goals]];
+    if (which === 'health') return [['Health', d.medical_conditions], ['Medicines named', d.medications], ['Other health details', l.medical_notes], ['Safety worries', d.safety_concerns]];
+    if (which === 'daily') return [['Asked for help with', (Array.isArray(l.personal_care) ? l.personal_care : []).map((k) => PC_W[k] || k).join(', ')], ['Daily living', d.adl_needs], ['Around the home', d.iadl_needs]];
+    return [];
+  }
+  function callPeople() {
+    const l = ST.lead; if (!fromCall(l)) return [];
+    const have = new Set((ST.a.visit.attendees || []).map((p) => String(p.name || '').trim().toLowerCase()));
+    return ((l.call_profile || {}).people || []).filter((p) => p && p.name && !have.has(String(p.name).trim().toLowerCase()));
+  }
+  function callPeopleHtml() {
+    const ps = callPeople(); if (!ps.length) return '';
+    return '<div class="hv-callp"><div class="hv-n" style="margin:0 0 4px">Named on the phone call. Tap to add anyone who is here or on the phone.</div>'
+      + ps.map((p) => '<button type="button" class="hv-b2" data-hva="addcallperson" data-v="' + E(p.name) + '">+ ' + E(p.name) + (p.relationship ? ', ' + E(p.relationship) : '') + '</button>').join('') + '</div>';
+  }
+
   function rates() { const r = (D().ops_settings || {}).visit_rates || {}; return { wellness: Number(r.wellness) || 30, personal: Number(r.personal) || 32, advanced: Number(r.advanced) || 34 }; }
   function mins() { const m = (D().ops_settings || {}).visit_minimums || {}; return { visit: Number(m.visit) || 4, week: Number(m.week) || 8 }; }
 
@@ -161,14 +230,14 @@
   /* ---------- small pieces ---------- */
   const field = (path, ph, opt) => {
     opt = opt || {};
-    const v = get(path), cls = 'hv-f' + (opt.from ? ' hv-from' : '') + ((ST.a.visit.heard || {})[path] ? ' hv-heard' : '');
+    const v = get(path), cls = 'hv-f' + (opt.from || (ST.a.visit.from_call || {})[path] ? ' hv-from' : '') + ((ST.a.visit.heard || {})[path] ? ' hv-heard' : '');
     return opt.rows ? '<textarea class="' + cls + '" rows="' + opt.rows + '" data-hv="' + E(path) + '" placeholder="' + E(ph || '') + '">' + E(v || '') + '</textarea>'
       : '<input class="' + cls + '" ' + (opt.type ? 'type="' + opt.type + '"' : '') + ' data-hv="' + E(path) + '" value="' + E(v || '') + '" placeholder="' + E(ph || '') + '"' + (opt.attrs || '') + '>';
   };
   const lab = (t, inner, note) => '<label class="hv-l">' + E(t) + (note ? '<span class="hv-n">' + E(note) + '</span>' : '') + inner + '</label>';
   const pills = (path, opts, multi) => '<div class="hv-seg' + ((ST.a.visit.heard || {})[path] ? ' hv-heardseg' : '') + '">' + opts.map((o) => {
     const cur = get(path), on = multi ? (Array.isArray(cur) && cur.indexOf(o[0]) > -1) : cur === o[0];
-    return '<button type="button" class="' + (on ? 'on' : '') + '" data-hvp="' + E(path) + '" data-v="' + E(o[0]) + '"' + (multi ? ' data-multi="1"' : '') + ' aria-pressed="' + on + '">' + E(o[1]) + '</button>';
+    return '<button type="button" class="' + (on ? 'on' : '') + ((ST.a.visit.from_call || {})[path + ':' + o[0]] ? ' hv-pfrom' : '') + '" data-hvp="' + E(path) + '" data-v="' + E(o[0]) + '"' + (multi ? ' data-multi="1"' : '') + ' aria-pressed="' + on + '">' + E(o[1]) + '</button>';
   }).join('') + '</div>';
   const yn = (path) => pills(path, YN);
   const card = (title, inner, right) => '<section class="hv-card"><div class="hv-ch"><h2>' + E(title) + '</h2>' + (right || '') + '</div>' + inner + '</section>';
@@ -180,7 +249,7 @@
       + '<div class="hv-sub">' + (l ? 'Lead' + (l.status ? ': ' + E(l.status) : '') + ' · ' : '') + 'Coordinator: ' + E(ST.a.coordinator || me()) + '</div></div></div>'
       + '<div class="hv-cols">'
       + '<div class="hv-stack">'
-      + card("Who's here today", '<div id="hvPeople">' + peopleHtml() + '</div>', '<button type="button" class="hv-b2" data-hva="addperson">+ Add someone</button>')
+      + card("Who's here today", '<div id="hvPeople">' + peopleHtml() + '</div><div id="hvCallPeople">' + callPeopleHtml() + '</div>', '<button type="button" class="hv-b2" data-hva="addperson">+ Add someone</button>')
       + card('Already known from the phone call',
         '<p class="hv-n" style="margin:0">Check these with the family and change anything that\'s wrong.</p><div class="hv-g2">'
         + lab('Address', field('address', 'Street, town', { from: !!ST.a.address }))
@@ -211,6 +280,7 @@
   function sec2() {
     const v = ST.a.visit;
     return '<h1>Their story</h1><div class="hv-sub">Let the conversation flow. Jot what stands out; the recording catches the rest.</div>'
+      + callCard(callRows('story'))
       + '<div class="hv-g2">'
       + card('What prompted the call', '<p class="hv-ask">"What made you feel in-home care was needed now, or a change in agencies?"</p>' + field('visit.story.trigger', '', { rows: 4, from: !!v.story.trigger }))
       + card("What's been going on lately", '<p class="hv-ask">"To start, can you tell me a little about what\'s been going on? What are the main concerns or changes you\'ve noticed?"</p>' + field('visit.story.overview', '', { rows: 4 }))
@@ -233,7 +303,7 @@
   }
   function sec3() {
     const v = ST.a.visit;
-    return '<h1>Health</h1>'
+    return '<h1>Health</h1>' + callCard(callRows('health'))
       + card('Health conditions', '<div id="hvConds">' + condHtml() + '</div>', '<button type="button" class="hv-b2" data-hva="addcond">+ Add a condition</button>')
       + '<div class="hv-g2">'
       + card('Memory, safety and pain',
@@ -255,6 +325,7 @@
   }
   function sec4() {
     return '<h1>Daily activities</h1><div class="hv-sub">"These help us see what\'s going well and where a caregiver can make life easier and safer for you."</div>'
+      + callCard(callRows('daily'))
       + card('Around the house', '<div class="hv-act hv-th"><span>ACTIVITY</span><span>LEVEL OF NEED</span><span>NOTES</span></div>'
         + HOUSE.map((r) => actRow(r) + (r[0] === 'meds' ? '<div class="hv-g3 hv-medq">'
           + lab('Who fills the pill organizer?', field('visit.meds.fills'))
@@ -581,6 +652,9 @@
       + '.hv-li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #EEEAE3}.hv-li span:first-child{color:#465255}.hv-li span:last-child{font-weight:600;text-align:right}'
       + '.hv-note{background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:10px 12px;font-size:14px}'
       + '.hv-foot{display:flex;justify-content:space-between;gap:12px;max-width:1100px;margin-top:18px}'
+      + '.hv-callc{background:#F3F8F8;border-color:#C2D7D8}.hv-cr{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid #DCE8E8;font-size:15px;line-height:1.45}.hv-cr b{color:#14565D;font-size:14px}'
+      + '.hv-callp{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:10px;border-top:1px dashed #C2D7D8}.hv-callp .hv-n{flex-basis:100%}'
+      + '.hv-seg button.hv-pfrom{box-shadow:0 0 0 3px #9CC3C6}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
       + '.hv-chip{font-size:13px;font-weight:700;padding:6px 10px;border-radius:10px;text-align:center;background:#E3F0EF;color:#14565D}'
@@ -594,7 +668,7 @@
       + '.hv-aud{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);width:min(520px,92vw);z-index:4001;box-shadow:0 4px 18px rgba(0,0,0,.25);border-radius:30px}'
       + '@media (max-width:900px){#hvRoot{flex-direction:column}.hv-rail{width:auto;flex-direction:row;padding:8px;border-right:none;border-bottom:1px solid #E4E0D8;overflow-x:auto}.hv-rail .hv-brand,.hv-rail .hv-who,.hv-rail .hv-gap{display:none}.hv-barlogo{display:block}.hv-rail button{white-space:nowrap}'
       + '.hv-cols,.hv-g2,.hv-g3,.hv-act{grid-template-columns:minmax(0,1fr)}.hv-week{grid-template-columns:repeat(auto-fill,minmax(124px,1fr))}.hv-person{grid-template-columns:36px minmax(0,1fr) 44px;grid-template-areas:"av n x" ". r ." ". s s"}.hv-body{padding:16px}'
-      + '.hv-spk,.hv-fill{grid-template-columns:minmax(0,1fr)}.hv-fa{justify-content:flex-start}.hv-miss{flex-wrap:wrap}}';
+      + '.hv-spk,.hv-fill,.hv-cr{grid-template-columns:minmax(0,1fr)}.hv-fa{justify-content:flex-start}.hv-miss{flex-wrap:wrap}}';
     document.head.appendChild(s);
   }
   function railHtml() {
@@ -684,6 +758,7 @@
       set(p, el.value);
       if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; el.classList.remove('hv-heard'); }
       el.classList.remove('hv-from');
+      if (ST.a.visit.from_call && ST.a.visit.from_call[p]) delete ST.a.visit.from_call[p];
       if (p === 'visit.rate') ST.a.visit.rate_typed = true;
       if (p.indexOf('visit.week.') === 0) { const s = document.getElementById('hvWeekSum'); if (s) s.innerHTML = weekSummary(); const d = el.closest('.hv-day'); if (d) d.classList.toggle('on', !!dayHours(p.split('.')[2])); }
       if (/^visit\.attendees\.\d+\.name$/.test(p)) { /* the bar's head count */ }
@@ -702,13 +777,19 @@
         if (pb.getAttribute('data-multi')) { const cur = Array.isArray(get(p)) ? get(p).slice() : []; const i = cur.indexOf(v); if (i > -1) cur.splice(i, 1); else cur.push(v); set(p, cur); pb.classList.toggle('on', i < 0); pb.setAttribute('aria-pressed', String(i < 0)); }
         else { const on = get(p) !== v; set(p, on ? v : ''); pb.parentElement.querySelectorAll('button').forEach((b) => { b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }); if (on) { pb.classList.add('on'); pb.setAttribute('aria-pressed', 'true'); } }
         if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; pb.parentElement.classList.remove('hv-heardseg'); }
+        if (ST.a.visit.from_call && ST.a.visit.from_call[p + ':' + v]) { delete ST.a.visit.from_call[p + ':' + v]; pb.classList.remove('hv-pfrom'); }
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
         saveSoon(); return;
       }
       const a = e.target.closest('[data-hva]'); if (!a) return;
       const act = a.getAttribute('data-hva'), i = +a.getAttribute('data-i');
       if (act === 'addperson') { ST.a.visit.attendees.push({ name: '', rel: '', role: 'family' }); document.getElementById('hvPeople').innerHTML = peopleHtml(); saveSoon(); return; }
-      if (act === 'delperson') { ST.a.visit.attendees.splice(i, 1); document.getElementById('hvPeople').innerHTML = peopleHtml(); saveSoon(); return; }
+      if (act === 'addcallperson') {
+        const p = callPeople().find((x) => x.name === a.getAttribute('data-v')); if (!p) return;
+        ST.a.visit.attendees.push({ name: p.name, rel: p.relationship || '', role: 'family' });
+        document.getElementById('hvPeople').innerHTML = peopleHtml(); document.getElementById('hvCallPeople').innerHTML = callPeopleHtml(); saveSoon(); return;
+      }
+      if (act === 'delperson') { ST.a.visit.attendees.splice(i, 1); document.getElementById('hvPeople').innerHTML = peopleHtml(); const cp = document.getElementById('hvCallPeople'); if (cp) cp.innerHTML = callPeopleHtml(); saveSoon(); return; }
       if (act === 'addcond') { ST.a.visit.conditions.push({}); document.getElementById('hvConds').innerHTML = condHtml(); return; }
       if (act === 'delcond') { ST.a.visit.conditions.splice(i, 1); document.getElementById('hvConds').innerHTML = condHtml(); saveSoon(); return; }
       if (act === 'star') { ST.a.visit.top_goal = i; root.querySelectorAll('.hv-star').forEach((b, j) => { b.classList.toggle('on', j === i); b.textContent = j === i ? 'Most important' : 'Star'; b.setAttribute('aria-pressed', String(j === i)); }); saveSoon(); return; }
@@ -781,6 +862,7 @@
     }
     if (!l && a.lead_id) l = (D().leads || []).find((x) => x.id === a.lead_id) || null;
     ST.a = ensureVisit(a, l); ST.lead = l; ST.sec = 0;
+    callFill(ST.a, l);
     await saveNow();
     render();
   }
