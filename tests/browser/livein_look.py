@@ -12,7 +12,7 @@ CONSENT = 'I have read all 12 pages of the Live-In Caregiver Agreement, I had th
 R = []
 def ok(n, c, d=''): R.append(['PASS' if c else 'FAIL', n, '' if c else str(d)[:400]])
 def draw(page, sel):
-    bx = page.locator(sel).bounding_box()
+    page.locator(sel).scroll_into_view_if_needed(); bx = page.locator(sel).bounding_box()
     page.mouse.move(bx['x'] + 20, bx['y'] + 80); page.mouse.down()
     for i in range(1, 12): page.mouse.move(bx['x'] + 20 + i * 22, bx['y'] + (40 if i % 2 else 110))
     page.mouse.up()
