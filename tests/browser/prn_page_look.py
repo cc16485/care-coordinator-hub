@@ -72,6 +72,29 @@ with sync_playwright() as pw:
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_member.png'), full_page=True)
     ok('no page errors (member)', not errs, errs); b.close()
 
+    # STEP 8a: a Gap Mentor's page
+    V8 = dict(VIEW, mentor={ 'skills': ['Hoyer lift transfers'], 'waiting': False, 'first_done': False, 'rules': 'You observe, practice and listen. You never change the care plan, diagnose or give medical advice: anything medical goes to the family, their doctor or home health. In an emergency call 911, then the office.',
+      'offers': [{ 'id': 7, 'kind': 'refresher', 'kind_label': 'Refresher with a caregiver in the home', 'client_first': 'Ruth', 'visit_date': '2026-11-05', 'visit_time': '09:00-10:00', 'skill': 'Hoyer lift transfers', 'caregiver_first': 'Amy', 'note': None, 'answer': None, 'familiar': True }],
+      'mine': [{ 'id': 6, 'kind': 'care_update', 'kind_label': 'Care update visit', 'client_first': 'Mary', 'visit_date': '2026-10-29', 'visit_time': '13:00-14:00', 'skill': None, 'caregiver_first': None, 'note': None, 'answer': 'yes', 'familiar': False,
+        'status': 'assigned', 'note_due': True, 'done': False, 'rules': 'x', 'fields': [['mobility', 'Mobility and transfers'], ['eating', 'Eating and drinking'], ['skin', 'Skin']] }] })
+    def m8(body):
+        a = body.get('action')
+        if a == 'view': return 200, V8
+        return 200, { 'ok': True, 'message': { 'mentor_answer': 'Thank you! The office will confirm with you before it is set.', 'mentor_note': 'Thank you, Grace! The office has your note.' }.get(a, 'ok') }
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, m8)
+    mt = pg.inner_text('#mentor')
+    ok('their page (step 8a): Gap Mentor for Hoyer; the refresher with Amy for Ruth, a client they know; the rules; no last names', "You're one of our Gap Mentors for Hoyer lift transfers" in mt and 'Refresher with a caregiver in the home · Ruth' in mt
+       and 'Amy' in mt and 'A client you know' in mt and 'never change the care plan, diagnose or give medical advice' in mt and 'Lane' not in mt and 'Dale' not in mt, mt)
+    pg.locator('[data-ma="0"][data-ans="yes"]').click(); pg.wait_for_timeout(200)
+    ok('..."I can do it" sends that visit with their link', any(c['body'].get('action') == 'mentor_answer' and c['body'].get('id') == 7 and c['body'].get('answer') == 'yes' and c['body'].get('t') for c in calls) and 'office will confirm' in pg.inner_text('#maMsg0'))
+    ok('...their own visit: the "What\'s changed" note opens on the day', 'Care update visit · Mary' in mt and pg.locator('#mn0_mobility').count() == 1 and pg.locator('#mn0_skin').count() == 1)
+    pg.fill('#mn0_mobility', 'Needs two people to stand now'); pg.fill('#mn0_eating', 'Eating about half'); pg.click('[data-mn="0"]'); pg.wait_for_timeout(200)
+    nc = [c['body'] for c in calls if c['body'].get('action') == 'mentor_note']
+    ok('...the note is sent with each part', nc and nc[-1]['id'] == 6 and nc[-1]['mobility'] == 'Needs two people to stand now' and nc[-1]['eating'] == 'Eating about half' and nc[-1]['skin'] == '' and 'The office has your note' in pg.inner_text('#mnMsg0'), nc)
+    ok('no page errors (step 8a)', not errs, errs); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    ok('...not a Gap Mentor: no Gap Mentor section', pg.locator('#mentor').count() == 0); b.close()
+
     # STEP 7: the twice-yearly questions, on call, milestones
     V7 = dict(VIEW, feedback={ 'round': '2026-11', 'until': '2026-11-30', 'questions': ['What would make being on the PRN Team better for you?', 'Is there anything we could do to make picking up shifts easier?'], 'answered': False, 'waiting': False },
       oncall={ 'pattern': 'every_other_weekend', 'pattern_word': 'Every other weekend', 'confirmed': [{ 'start_date': '2026-11-07', 'end_date': '2026-11-08' }],
@@ -184,8 +207,10 @@ async()=>{
     oncall:{ stipend:null, patterns:{}, offers:[], weekends:[] } };
   let MONTHLY={ ok:true, month:'2026-10', month_word:'October', live:false, switch_on:false, page_live:false, facts:['In October our PRN Teams stepped in for 3 shifts, for 2 different families. Thank you for standing in the gap.','Welcome to our newest members, Denise and Tina!'],
     paragraph:'', kind_word:'', tip:'', steady:'Want steady hours? Text us and we will talk about what is open.', saved_by:null, sent_by:null, sent_at:null, members:3, sent_to:0 };
+  const MLIST={ ok:true, live:true, visits:[{ id:7, kind:'refresher', client_ax:'501', client_name:'Ruth Lane', visit_date:'2026-11-03', visit_time:'09:00-10:00', skill:'hoyer', caregiver_name:'Amy Dale', status:'open', asked_by:'Krystal Land',
+    answers:[{ applicant_id:'g', name:'Grace Hill', answer:'yes' }, { applicant_id:'d', name:'Denise Gough', answer:'no' }] }] };
   const CALLS=[]; const realFetch=window.fetch;
-  window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b); return new Response(JSON.stringify(b.action==='week'?WEEK:b.action==='monthly'?MONTHLY:b.action==='monthly_send'?{outcome:'sent',sent:['Grace Hill'],already:0,no_phone:[],refused:['Tom Ray (asked not to get texts)'],failed:[]}:b.action==='page_link'?{link:'https://cc.mo-care.com/prn.html?p=g&e=1&t=x',live:false,days:30}:{outcome:'recorded'}),{status:200}); } return realFetch(u,o); };
+  window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b); return new Response(JSON.stringify(b.action==='week'?WEEK:b.action==='monthly'?MONTHLY:b.action==='mentor_list'?MLIST:b.action==='mentor_ask'?{outcome:'asked',id:7}:b.action==='mentor_set'?{outcome:'saved'}:b.action==='monthly_send'?{outcome:'sent',sent:['Grace Hill'],already:0,no_phone:[],refused:['Tom Ray (asked not to get texts)'],failed:[]}:b.action==='page_link'?{link:'https://cc.mo-care.com/prn.html?p=g&e=1&t=x',live:false,days:30}:{outcome:'recorded'}),{status:200}); } return realFetch(u,o); };
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
   let alerted=''; window.ccAlert=(m)=>{ alerted=m; }; (0,eval)('ccAlert=window.ccAlert');
   location.hash='#prnteams'; await sleep(800); PW.tab('week'); await PW.load(); await sleep(150);
@@ -207,6 +232,30 @@ async()=>{
   await PW.moSend(sendBtn); await sleep(100);
   ok('...send: saves, sends, then says who was reached and who was not (no silent failures)', CALLS.some(c=>c.action==='monthly_send' && c.month==='2026-10') && /Sent to 1\. Not reached: Tom Ray \(asked not to get texts\) \(not cleared for texts\)\. Each one is also on Needs Attention\./.test(document.getElementById('pwMoSt').innerText), document.getElementById('pwMoSt').innerText);
   ok('...afterwards: sent by, 2 of 3, read-only, and a button for the one not reached', /Sent by Krystal Land on Nov 2 · 2 of 3 members/.test(document.getElementById('pwMonthly').innerText) && document.getElementById('pwMoPara').disabled && /Send to the 1 not reached yet/.test(document.getElementById('pwMonthly').innerText), document.getElementById('pwMonthly').innerText);
+  /* step 8a: Our teams, Make a Gap Mentor */
+  PW.tab('teams'); await sleep(60);
+  ok('Our teams (step 8a): a PRN CNA can be made a Gap Mentor', [...document.querySelectorAll('#prnTeams button')].some(b=>b.innerText==='Make a Gap Mentor'));
+  const W2=PW._state(); W2.mentor_skills={ hoyer:'Hoyer lift transfers', dementia:'Dementia care' }; PW.gapOpen('g'); await sleep(40);
+  document.querySelector('.pwGapSk_g[value="hoyer"]').checked=true; document.getElementById('pwGapEv_g').value='References from Mercy, registry-checked CNA';
+  await PW.gapSave('g'); ok('...saves the verified skills and how they were verified', CALLS.some(c=>c.action==='mentor_set' && c.applicant_id==='g' && c.on===true && c.skills.join()==='hoyer' && c.evidence==='References from Mercy, registry-checked CNA'));
+  PW.tab('week'); await sleep(40);
+  /* the client's Care tab: Ask a Gap Mentor */
+  DATA.ops_settings=Object.assign({},DATA.ops_settings,{ prn_mentor_live:true, prn_page_live:true }); DATA.caregivers=[{ axiscare_id:'77', first:'Amy', last:'Dale' }];
+  const gh=document.createElement('div'); gh.id='gmHostT'; document.body.appendChild(gh);
+  DATA.care_plan_reviews=[{ id:'gm7', kind:'mentor_report', axiscare_client_id:'501', title:"What's changed, from Denise (Gap Mentor), Nov 3", report:{ mobility:'Needs two people to stand now' }, reminder:'GUIDE client: share this with their GUIDE care navigator through Continuum. Their care plan changes only together with them.', at:'2026-11-03T18:00:00Z' },
+    { id:'gm8', kind:'mentor_refresher', axiscare_client_id:'501', caregiver_ax:'77', caregiver_name:'Amy Dale', title:'Refresher with Grace (CNA), Nov 3: Hoyer lift transfers', report:{ practiced:'Hoyer bed to chair', comfort:'yes' }, at:'2026-11-03T19:00:00Z' }];
+  GM.mountClient('gmHostT','501','Ruth Lane'); await sleep(150);
+  const gt=gh.innerText;
+  ok('Care tab (step 8a): the ask, Grace can do it (put in AxisCare), Denise said not this time, and the notes with the GUIDE reminder', /Refresher with a caregiver in the home/.test(gt) && /Grace Hill can do it: put in AxisCare/.test(gt) && /1 said not this time/.test(gt)
+    && /What's changed, from Denise/.test(gt) && /Needs two people to stand now/.test(gt) && /GUIDE care navigator through Continuum/.test(gt) && /The Care Coordinator decides any care plan change/.test(gt), gt);
+  GM.toggle(); await sleep(30);
+  document.getElementById('gmKind').value='refresher'; document.getElementById('gmDate').value='2026-11-05'; document.getElementById('gmFrom').value='09:00'; document.getElementById('gmTo').value='10:00';
+  document.getElementById('gmSkill').value='hoyer'; document.getElementById('gmCg').value='77'; document.getElementById('gmFam').checked=true; document.getElementById('gmNote').value='She uses a Hoyer from bed to chair.';
+  await GM.ask(); await sleep(80);
+  const ak=CALLS.find(c=>c.action==='mentor_ask');
+  ok('...Ask a Gap Mentor sends the visit, the caregiver, the skill and the family\'s OK', ak && ak.client_ax==='501' && ak.client_name==='Ruth Lane' && ak.visit_time==='09:00-10:00' && ak.caregiver_ax==='77' && ak.caregiver_name==='Amy Dale' && ak.skill==='hoyer' && ak.family_ok===true, ak);
+  const cg=document.createElement('div'); GM.cgMount(cg,'77');
+  ok("the caregiver's record: refreshers in the home, apart from online courses", /Refreshers in the home/.test(cg.innerText) && /Refresher with Grace \(CNA\), Nov 3: Hoyer lift transfers/.test(cg.innerText) && /apart from online courses/.test(cg.innerText), cg.innerText);
   /* the case card's "Keep off the PRN page" (decision 13) */
   const kc={ id:'cvk', status:'open', client:'Ruth Lane', shift_date:'2026-11-02', shift_time:'09:00-13:00', asked:[] }; DATA.coverage_cases=[kc];
   let persisted=null; window.persist=async(k,v)=>{ persisted=[k,v&&v.id]; }; (0,eval)('persist=window.persist');
@@ -236,7 +285,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===7, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===8, sw);
+  ok('Settings (step 8a): Gap Mentors, off', /Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page: off/.test(sw), sw);
   ok('Settings (step 7): the twice-yearly questions, off; the invite wording box shows the standard text', /Twice-yearly "What would make PRN better\?" questions: off/.test(sw)
     && document.getElementById('set_prn_feedback_msg').placeholder==="Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.", sw);
   ok('Settings (step 6): Send the monthly PRN Team update, off; its wording box shows the standard text', /Send the monthly PRN Team update: off/.test(sw)
