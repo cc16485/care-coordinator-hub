@@ -11,6 +11,9 @@
       what each member offered, Confirm and Take back. An offer alone never puts anyone on call. No stipend amount (hers to set).
    3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
       opens the five questions; what they say is kept on their PRN answers (short notice and on call in their own records).
+   4. (2026-10-29) THE PRN TEAMS HOME: opened from its own link (#prnteams), five tabs: This week, Our teams (everyone on a
+      team, onboarding too, with their welcome call answers and familiar clients), On call, Recruiting (the goal numbers) and
+      What they see (the approved sample of their PRN Team page until step 5). From inside Recruit, the stacked view as before.
    The server (prn-week) decides every line and keeps every record; this file only draws them and passes the taps on.
    Shown to everyone once ops_settings.prn_week_live is on; before that, to owners only, marked Practice.
    ============================================================================= */
@@ -123,21 +126,89 @@
       + '</div>';
   }
 
+  /* ── THE PRN TEAMS HOME (2026-10-29, Samantha: "I thought it would be more PRN Team tabs"): opened from its own link
+     (#prnteams), five tabs instead of one long page. From inside Recruit, the same stacked view as before. ── */
+  var TAB = 'week', PANES = { week: 'prnWeek', teams: 'prnTeams', oncall: 'prnOnCall', recruiting: 'prnDash', see: 'prnSee' };
+  var isHome = function () { return document.documentElement.classList.contains('prnonly'); };
+  var put = function (id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; };
+  function panes() {
+    Object.keys(PANES).forEach(function (k) {
+      var el = document.getElementById(PANES[k]), b = document.getElementById('prnt-' + k);
+      if (el) el.style.display = isHome() ? (k === TAB ? '' : 'none') : '';
+      if (b) b.classList.toggle('on', k === TAB);
+    });
+  }
+  var offNote = '<div class="card pw-card"><div class="field-note">This shows to owners only until "This week" is turned on (Settings, PRN Teams).</div></div>';
+  var yn = { yes: 'yes', no: 'no', maybe: 'maybe', not_asked: 'not asked' };
+  var ONC = { every_weekend: 'every weekend', every_other_weekend: 'every other weekend', one_weekend_month: 'one weekend a month', weekday: 'a weekday', not_now: 'not right now' };
+  /* Our teams: everyone on a PRN Team, linked or still onboarding, from the Hub's own records (PRN_T), plus familiar clients */
+  function teamsHtml() {
+    var T = (typeof PRN_T !== 'undefined' && PRN_T) || { tracks: [], apps: {} };
+    if (!T.at) return '<div class="card pw-card"><div class="field-note">Loading the teams…</div></div>';
+    var teamOf = function (t) { return t.team === 'caregiver' ? 'caregiver' : 'cna'; };
+    var fam = {}; ((W && W.members) || []).forEach(function (m) { fam[m.applicant_id] = m.familiar; });
+    var st = (typeof DATA !== 'undefined' && DATA.ops_settings) || {};
+    return ['cna', 'caregiver'].map(function (team) {
+      var D = (typeof PRN_TEAM !== 'undefined' && PRN_TEAM[team]) || { name: team === 'cna' ? 'PRN CNA Team' : 'PRN Caregiver Team', goal: 0, goalKey: '' };
+      var mine = (T.tracks || []).filter(function (t) { return t.track === 'prn_team' && teamOf(t) === team; });
+      var goal = Number(st[D.goalKey]) || D.goal;
+      var rows = mine.map(function (t) {
+        var a = (T.apps || {})[t.applicant_id] || {}, p = a.prn || {}, w = p.welcome, f = fam[t.applicant_id];
+        var name = [a.first_name, a.last_name].filter(Boolean).join(' ') || 'A PRN member', ax = t.axiscare_caregiver_id ? String(t.axiscare_caregiver_id) : '';
+        var tag = ax ? '<span class="prn-tm-tag" style="background:#DCFCE7;color:#166534;">In AxisCare</span>' : '<span class="prn-tm-tag" style="background:#FEF3C7;color:#92400E;">Onboarding</span>';
+        var since = 'On the team since ' + fmt(t.since) + (ax ? (t.linked_at ? ' · linked in AxisCare ' + fmt(t.linked_at) : '') : ' · not linked in AxisCare yet');
+        var sn = p.short_notice_ok === true ? 'Short notice OK' : p.short_notice_ok === false ? 'Keeps their notice' : 'Short notice: not asked yet';
+        var wc = w ? 'Welcome call ' + fmt(w.at) + (w.by ? ' (' + e(w.by) + ')' : '') + ': ' + e(w.towns_times) + ' · more hours ' + e(yn[w.more_hours] || w.more_hours)
+            + (w.enjoys ? ' · enjoys ' + e(w.enjoys) : '') + (w.oncall ? ' · on call ' + e(ONC[w.oncall] || w.oncall) : '') + (w.office_interest ? ' · interested in office work someday' : '')
+          : (ax ? 'No welcome call yet' : 'Welcome call once they are linked in AxisCare');
+        var chips = !f ? '' : (f.clients || []).length ? (f.clients || []).map(function (c) { return '<span class="pw-chip">' + (c.star ? '★ ' : '') + e(c.client) + (c.glad ? ' · glad to go back' : '') + '</span>'; }).join('')
+          : '<span class="field-note">' + (f.why ? e(f.why.charAt(0).toUpperCase() + f.why.slice(1)) + '.' : 'No familiar clients yet.') + '</span>';
+        return '<div class="prn-tm"><div class="prn-tm-main"><b style="color:var(--navy);">' + e(name) + '</b> ' + tag
+          + '<div class="field-note" style="margin-top:2px;">' + since + ' · ' + sn + '</div>'
+          + '<div style="font-size:13px;margin-top:4px;">' + wc + '</div>'
+          + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '') + '</div>'
+          + '<div class="pw-btns">' + (ax ? '<button class="fb" onclick="PW.page(\'' + e(ax) + '\')">Open their page</button>' : '')
+          + '<button class="fb" onclick="PW.tab(\'see\')">What they see</button></div></div>';
+      }).join('');
+      return '<div class="card pw-card"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">' + e(D.name) + '</h3>'
+        + '<span class="field-note">' + mine.length + ' on the team' + (goal ? ' · goal ' + goal : '') + '</span></div>'
+        + (rows || '<div class="field-note" style="padding:8px 0;">Nobody on this team yet. A PRN offer adds them here.</div>') + '</div>';
+    }).join('');
+  }
+  /* What they see: the approved sample of a member's own PRN Team page until the real one (step 5) */
+  function seeHtml() {
+    return '<div class="card pw-card"><div class="pw-practice">Sample with made-up people. The real PRN Team page comes in step 5: then this tab lets you pick a member and see exactly what they see.</div>'
+      + '<div class="field-note" style="margin-bottom:8px;">What a PRN member will see on their phone: Offered to You, Familiar Clients First, Available Opportunities, On call, My clients, Thank-yous, My hours and Talk to us. Nothing you tap here is sent.</div>'
+      + '<iframe src="prn-team-page-sample.html?preview=1" title="Sample PRN Team page" style="width:100%;max-width:440px;height:820px;border:1px solid var(--border);border-radius:18px;display:block;margin:0 auto;background:#fff;"></iframe></div>';
+  }
+
   function draw() {
     var box = document.getElementById('prnWeek'); if (!box) return;
-    if (!W) { box.innerHTML = ''; return; }
-    if (!W.live && !isOwner()) { box.innerHTML = ''; return; }
-    box.innerHTML = weekHtml() + familiarHtml() + onCallHtml();
+    var see = document.getElementById('prnSee'); if (see && !see.innerHTML) see.innerHTML = seeHtml();
+    var show = W && (W.live || isOwner());
+    if (isHome()) {
+      put('prnWeek', show ? weekHtml() : (W ? offNote : ''));
+      put('prnOnCall', show ? onCallHtml() : (W ? offNote : ''));
+      put('prnTeams', teamsHtml());
+    } else {
+      put('prnTeams', ''); put('prnOnCall', '');
+      box.innerHTML = show ? weekHtml() + familiarHtml() + onCallHtml() : '';
+    }
+    panes();
   }
   async function load() {
     var box = document.getElementById('prnWeek'); if (!box) return;
+    panes();
+    try { if (isHome() && typeof prnLoad === 'function') await prnLoad(); } catch (x) { /* the teams say "Loading" until it can */ }
     try { W = await call({ action: 'week' }); draw(); }
-    catch (x) { box.innerHTML = isOwner() ? '<div class="field-note" style="color:var(--red);margin-bottom:10px;">This week could not load: ' + e(x.message) + '</div>' : ''; }
+    catch (x) { draw(); if (isOwner()) box.innerHTML = '<div class="field-note" style="color:var(--red);margin-bottom:10px;">This week could not load: ' + e(x.message) + '</div>'; }
   }
   var item = function (id) { return (W && W.items || []).find(function (x) { return x.id === id; }); };
 
   window.PW = {
     load: load,
+    tab: function (k) { if (!PANES[k]) return; TAB = k; draw(); if (k === 'recruiting' && typeof prnDashLoad === 'function' && !/card/.test((document.getElementById('prnDash') || {}).innerHTML || '')) prnDashLoad(); },
+    get _tab() { return TAB; },
     open: function (id) { OPEN[id] = !OPEN[id]; draw(); },
     page: function (ax) { try { gotoTab('cgdir'); setTimeout(function () { cgdOpenProfile(String(ax)); }, 300); } catch (x) { /* */ } },
     mark: async function (id, kind) {
