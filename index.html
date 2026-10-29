@@ -142,6 +142,28 @@
   .pw-on{color:#166534;font-weight:700;} .pw-on a{color:#991B1B;text-decoration:none;margin-left:4px;}
   .pw-chip{display:inline-block;background:#F1EFE9;border-radius:999px;padding:2px 10px;margin:2px 4px 2px 0;font-size:12.5px;}
   .pw-offer{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:10px;}
+  /* the on-call calendar (2026-10-29, her decisions 22 to 27) */
+  .oc-cal{overflow-x:auto;margin-top:10px;}
+  .oc-grid{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:6px;min-width:840px;}
+  .oc-h{font-size:12px;font-weight:700;color:var(--gray);text-align:center;}
+  .oc-day{border:1px solid var(--border);border-radius:10px;padding:6px;background:#fff;font-size:12.5px;}
+  .oc-day.past{background:var(--bg);opacity:.75;} .oc-day.today{border-color:var(--teal);box-shadow:0 0 0 1px var(--teal) inset;}
+  .oc-d{font-weight:800;color:var(--navy);margin-bottom:3px;}
+  .oc-s{border-radius:7px;padding:4px 6px;margin-top:4px;line-height:1.35;}
+  .oc-s .oc-l{font-size:11px;font-weight:700;color:var(--gray);display:block;}
+  .oc-s.gap{border:1px dashed #F87171;background:#FEF2F2;} .oc-s.gap .oc-l{color:#991B1B;}
+  .oc-s.ok{background:#DCFCE7;}
+  .oc-who{display:flex;align-items:center;gap:4px;flex-wrap:wrap;} .oc-who b{color:#166534;} .oc-who.ask b{color:#92400E;} .oc-who.miss b{color:#991B1B;text-decoration:line-through;}
+  .oc-x{border:0;background:none;padding:0 2px;margin:0;width:auto;cursor:pointer;font-size:12px;color:#991B1B;}
+  .oc-btn{border:1px solid var(--border);background:#fff;border-radius:6px;padding:1px 6px;margin:0;width:auto;cursor:pointer;font-size:11.5px;color:var(--navy);}
+  .oc-ask{background:#FEF3C7;border-radius:6px;padding:2px 4px;margin-top:3px;}
+  .oc-pick{display:flex;flex-direction:column;gap:4px;margin-top:4px;} .oc-pick select{font-size:12px;padding:2px 4px;}
+  .oc-ppl{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .oc-p{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;padding:6px 0;border-top:1px solid #F2EFE8;}
+  .oc-tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;}
+  .oc-tag.ok{background:#DCFCE7;color:#166534;} .oc-tag.no{background:#F1EFE9;color:#6E6559;} .oc-tag.bad{background:#FEE2E2;color:#991B1B;}
+  .onc-box{border:1px solid #F5C66B;background:#FFF8E6;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:13.5px;}
+  .onc-box .onc-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;}
   html.setonly header.topbar, html.setonly .fbar, html.setonly .fsubbar, html.setonly #settingsFocusBar,
   html.setonly #settingsHead{ display:none !important; }
   html.setonly #tab-settings > .card{ max-width:none !important; border:0 !important; box-shadow:none !important; padding:2px 4px !important; }
@@ -4713,6 +4735,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint" style="margin-top:4px;">The monthly update itself is written and sent from PRN Teams, This week. Never 9pm to 8am; each member gets it at most once a month.</p>
 <label>The twice-yearly questions invite (PRN step 7; May and November, weekdays 10am to 5pm)</label>
 <textarea id="set_prn_feedback_msg" rows="3"></textarea>
+<label>The On-Call Expectations PRN CNAs read and sign (her approved words; leave empty for those)</label>
+<textarea id="set_prn_oncall_terms" rows="9"></textarea>
+<p class="hint" style="margin-top:4px;">Any change to these words is a new version: every PRN CNA reads and signs again before they can sign up. What each person signed is kept exactly as they saw it.</p>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
   <button class="primary" onclick="prnStep5Save(this)">Save</button>
   <span class="field-note" id="prnStep5Status"></span>
@@ -7653,7 +7678,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=13"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=14"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15961,6 +15986,13 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_oncall_shift_live', name:'On call: pick the shift when confirming (daytime, overnight or whole day)',
     on:'Confirming someone for on call needs the shift. The On call tab counts each person\'s daytime, overnight and whole days for payroll, and their page shows their shift.',
     off:'Off: confirming works as before, dates only. Owners see the shift choice and the payroll counts marked practice.' },
+  /* 2026-10-29 the on-call calendar (her decisions 22 to 27): sign-up on their page, and on-call first on open shifts */
+  { key:'prn_oncall_signup_live', name:'On call: PRN CNAs sign the On-Call Expectations and sign up by shift on their page', needsPage:true,
+    on:'PRN CNAs read and sign the On-Call Expectations on their page, then ask for open on-call shifts one at a time (next 4 weeks). Each ask waits on the On call calendar until you confirm it. Only someone who signed the current expectations, and hasn\'t missed an on-call shift, can be put on call.',
+    off:'Off: members don\'t see on-call sign-up, and you can put anyone on call from the calendar without a signature. You can see what they would see in What they see.' },
+  { key:'prn_oncall_first_live', name:'On call first: an open shift during someone\'s on-call time goes to them first',
+    on:'The open shift shows "On call now" with a Call button and Covering it / Didn\'t answer / Didn\'t cover. The automatic texts wait until you record how the call went, at most 20 minutes after the shift opened. A miss: that on-call shift is not paid and they can\'t sign up again.',
+    off:'Off: nothing waits. Owners see the "On call now" box on open shifts, marked practice.' },
   /* 2026-10-29 (plan sections 5 and 8): per-person signs in Our teams, and the "Looking for hours" tag on ask lists */
   { key:'prn_team_signs_live', name:'Our teams signs and the "Looking for hours" tag on ask lists',
     on:'Our teams shows when we last reached out personally, their last PRN shift, more hours, and "worth a call" only when two signs line up. Ask lists tag PRN members looking for hours. Nothing is sent.',
@@ -15970,10 +16002,17 @@ const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team
 const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";
 const PRN_MONTHLY_DEFAULT = "Hi {first_name}, the Caring Companions PRN Team update for {month} is on your PRN Team page: {link} Thank you for standing in the gap with us.";
 const PRN_RECONFIRM_PAGE_DEFAULT = "Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update on your PRN Team page: {link}";
+/* her approved On-Call Expectations (2026-10-29); the server keeps the same default (_shared/prn-oncall.ts TERMS_DEFAULT) */
+const PRN_ONCALL_TERMS_DEFAULT = ['PRN CNA On-Call Expectations','When you sign up for an on-call shift, families are counting on you.',
+  '1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.','2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.',
+  '3. Be ready to start a shift within 1 hour.','4. If the office calls you about an open shift during your on-call time, you cover it.',
+  "5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.",
+  '6. If something comes up, call the office at least 24 hours before your on-call shift starts.'].join('\n');
 function prnStep5Fill(){
   const st = DATA.ops_settings||{};
   [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT],['set_prn_monthly_msg','prn_monthly_msg',PRN_MONTHLY_DEFAULT],['set_prn_feedback_msg','prn_feedback_msg',PRN_FEEDBACK_DEFAULT]].forEach(([id,k,d])=>{
     const t = document.getElementById(id); if(t){ t.value = String(st[k]||''); t.placeholder = d; } });
+  const ot = document.getElementById('set_prn_oncall_terms'); if(ot){ ot.value = String(st.prn_oncall_terms||''); ot.placeholder = PRN_ONCALL_TERMS_DEFAULT; }
   const box = document.getElementById('prnStep5Switches'); if(!box) return;
   const pageOpen = st.prn_page_live===true;
   box.innerHTML = PRN_STEP5_SWITCHES.map(w=>{ const on = st[w.key]===true;
@@ -15991,11 +16030,18 @@ async function prnStep5Save(btn){
     if(m.length > 600){ if(s) s.textContent='Keep each to one text (under 600 characters).'; return; }
     if(m && !m.includes('{link}')){ if(s) s.textContent='Each text needs {link} where their page link goes.'; return; }
   }
+  const terms = String((document.getElementById('set_prn_oncall_terms')||{}).value||'').trim();
+  if(/\u2014/.test(terms)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }
+  if(terms && (terms.length < 20 || terms.length > 4000)){ if(s) s.textContent='The On-Call Expectations need to be between 20 and 4000 characters.'; return; }
+  const termsNow = String((DATA.ops_settings||{}).prn_oncall_terms||'').trim();
+  if(terms !== termsNow && !(await ccConfirm('Change the On-Call Expectations?\n\nEvery PRN CNA will need to read and sign the new version before they can sign up for on call again.'))) return;
   if(btn) btn.disabled = true;
   const out = await tkMerge((m, base)=>{ const ch=[];
     for(const [k,n,msg] of msgs){
       if(msg===''){ if(k in m){ delete m[k]; ch.push(n+' back to standard'); } }
       else if(base[k]!==msg){ m[k] = msg; ch.push(n); } }
+    if(terms===''){ if('prn_oncall_terms' in m){ delete m.prn_oncall_terms; ch.push('On-Call Expectations back to her approved words'); } }
+    else if(base.prn_oncall_terms!==terms){ m.prn_oncall_terms = terms; ch.push('On-Call Expectations'); }
     return ch; }, 'PRN Teams settings');
   if(btn) btn.disabled = false;
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
@@ -41737,7 +41783,7 @@ function covOpenBody(c,tallies){
     const extra=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
     return SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) });
   }
-  return banner+cipCaseHtml(c)+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
+  return banner+cipCaseHtml(c)+(window.ONC?ONC.html(c):'')+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
 }
 function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
 function covClosedBody(c,tallies){

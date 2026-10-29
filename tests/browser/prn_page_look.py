@@ -315,9 +315,10 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===11, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===13, sw);
   ok('Settings: Our teams signs and the "Looking for hours" tag, off', /Our teams signs and the "Looking for hours" tag on ask lists: off/.test(sw), sw);
   ok('Settings: the on-call shift choice, off', /On call: pick the shift when confirming \(daytime, overnight or whole day\): off/.test(sw), sw);
+  ok('Settings: on-call sign-up and on call first (the calendar, 2026-10-29), both off', /On call: PRN CNAs sign the On-Call Expectations and sign up by shift on their page: off/.test(sw) && /On call first: an open shift during someone's on-call time goes to them first: off/.test(sw), sw);
   ok('Settings (step 8b): Field Support Visit suggestions, off', /Field Support Visit suggestions \(needs Field Support Visits on too\): off/.test(sw), sw);
   ok('Settings (step 8a): Field Support Visits, off; never "Gap Mentor"', /Field Support Visits: ask from a client's Care tab, and the visits on the PRN Team page: off/.test(sw) && !/Gap Mentor/.test(sw), sw);
   ok('Settings (step 7): the twice-yearly questions, off; the invite wording box shows the standard text', /Twice-yearly "What would make PRN better\?" questions: off/.test(sw)

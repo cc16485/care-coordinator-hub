@@ -12,6 +12,8 @@
      in AxisCare). Only shifts the office's own ask list would offer them; clients they know first; a client's first name only
      when they know them. Switch ops_settings.prn_open_shifts_live (off: not shown to members; the office preview shows them).
      PRN STEP 6: the month's PRN Team update at the top (the last one sent, for 40 days).
+     ON-CALL SIGN-UP (2026-10-29, her decisions 23, 24, 27; PRN CNA Team; switch ops_settings.prn_oncall_signup_live): read and
+     sign the On-Call Expectations, then ask for open on-call shifts one at a time; the office confirms each.
      PRN STEP 7: the twice-yearly "What would make PRN better?" questions (May and November), on call under My hours (PRN CNA
      Team only, never pay), and more milestones in Thank-yous.
      PRN STEP 8a: for PRN CNAs approved for Field Support Visits (named Gap Mentors until 2026-10-29), the visits they could do (I can do it / Not this time) and a short note after each one.
@@ -93,6 +95,14 @@ button.b:disabled{opacity:.55;cursor:default}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .chip{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
 .chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.terms{white-space:pre-wrap;font-size:14px;background:var(--soft);border-radius:12px;padding:12px;margin-top:8px;color:var(--navy)}
+.ocrow{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--line);font-size:13px}
+.ocrow .dt{font-weight:600;color:var(--navy)}
+.slot{font:inherit;font-size:12.5px;font-weight:600;border-radius:10px;padding:8px 4px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;text-align:center;line-height:1.2}
+.slot.pick{background:var(--teal);border-color:var(--teal);color:#fff}
+.slot.mine{background:#DCFCE7;border-color:#86EFAC;color:#166534;cursor:default}
+.slot.asked{background:#FEF3C7;border-color:#FCD34D;color:#92400E}
+.slot.taken,.slot.past{background:#f1f2f3;color:var(--muted);border-color:#f1f2f3;cursor:default}
 .course{display:flex;justify-content:space-between;gap:10px;align-items:center}
 .course h4{font-size:15px;color:var(--navy)}
 footer{text-align:center;font-size:12px;color:var(--muted);padding:10px 16px 24px}
@@ -158,6 +168,64 @@ function stateCard(title, text, office) {
     + (office ? '<p class="small" style="margin-top:12px">Caring Companions · <a href="sms:+14172348494">' + esc(office) + '</a></p>' : '') + '</div>'
 }
 
+/* ON CALL (2026-10-29, her decisions 23, 24, 27): read and sign the On-Call Expectations once (again if the words change),
+   then tap open shifts in the next 4 weeks and ask for them; the office confirms each one. A shift you're on is given back
+   by calling the office at least 24 hours ahead. Never another person's name. */
+const OC_PICK = new Set()
+const SLOTW = { day: 'Day<br>7am to 5pm', overnight: 'Night<br>5pm to 7am' }
+function onCallSection(d) {
+  const su = d.oncall && d.oncall.signup
+  if (!su) return ''
+  if (!su.ready) return '<section id="oncall"><h2 class="serif">On call</h2><div class="card empty">On call can\'t load just now. Check back soon.</div></section>'
+  const wait = su.waiting ? '<p class="small" style="margin-bottom:6px"><b>Waiting:</b> on-call sign-up is switched off, so members don\'t see this part yet.</p>' : ''
+  const call = '<a href="tel:+14172348494">' + esc(d.office || '(417) 234-8494') + '</a>'
+  let body
+  if (su.blocked) body = '<div class="card"><p>On call isn\'t open to you right now. Call the office with any questions: ' + call + '.</p></div>'
+  else if (!su.signed) body = '<div class="card">' + (su.signed_before ? '<p class="small"><b>The On-Call Expectations changed.</b> Please read and sign them again before you sign up.</p>' : '<p class="small">Before your first on-call shift, please read and sign these.</p>')
+    + '<div class="terms">' + esc(su.terms) + '</div>'
+    + '<label class="fld" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="ocAgree" style="width:20px;height:20px;flex:0 0 auto;margin-top:2px"> I have read and agree to the On-Call Expectations.</label>'
+    + '<label class="fld">Type your full name<br><input type="text" id="ocName" autocomplete="name" maxlength="80" placeholder="First and last name"></label>'
+    + '<div class="btns"><button class="b pri" id="ocSign">Sign</button></div><p class="msg" id="ocSignMsg"></p></div>'
+  else {
+    const rows = su.slots.map((r) => '<div class="ocrow"><span class="dt">' + esc(dWord(r.date, { weekday: 'short', month: 'short', day: 'numeric' })) + '</span>'
+      + ['day', 'overnight'].map((sl) => { const v = r[sl], k = r.date + '|' + sl
+          if (v.state === 'mine') return '<span class="slot mine">You\'re on call<br>' + (sl === 'day' ? '7am to 5pm' : '5pm to 7am') + '</span>'
+          if (v.state === 'asked') return '<button class="slot asked" data-ocw="' + esc(v.id) + '" title="Take back your ask">Waiting for<br>the office ✕</button>'
+          if (v.state === 'taken') return '<span class="slot taken">Taken</span>'
+          if (v.state === 'past') return '<span class="slot past">' + (sl === 'day' ? 'Day' : 'Night') + '</span>'
+          return '<button class="slot' + (OC_PICK.has(k) ? ' pick' : '') + '" data-ocp="' + esc(k) + '" aria-pressed="' + (OC_PICK.has(k) ? 'true' : 'false') + '">' + SLOTW[sl] + '</button>' }).join('') + '</div>').join('')
+    const mine = su.slots.flatMap((r) => ['day', 'overnight'].filter((sl) => r[sl].state === 'mine').map((sl) => esc(dWord(r.date, { weekday: 'short', month: 'short', day: 'numeric' })) + ' ' + (sl === 'day' ? 'daytime' : 'overnight')))
+    body = '<div class="card">' + (mine.length ? '<p><b>You\'re on call:</b> ' + mine.join(', ') + '. Thank you!</p>' : '')
+      + '<p class="small"' + (mine.length ? ' style="margin-top:6px"' : '') + '>Tap the open shifts you\'d like, then ask. The office confirms each one with you. Nothing is set until they do.</p>'
+      + '<div style="margin-top:8px">' + rows + '</div>'
+      + '<div class="btns"><button class="b pri" id="ocAsk">Ask for these shifts</button></div><p class="msg" id="ocAskMsg"></p>'
+      + '<p class="small" style="margin-top:8px">Need to give back a shift you\'re on? Call the office at least ' + esc(su.give_back_hours) + ' hours before it starts: ' + call + '.</p>'
+      + '<p class="small" style="margin-top:6px">You signed the On-Call Expectations. <a href="javascript:void 0" id="ocShowTerms">Read them again</a></p><div class="terms" id="ocTerms" style="display:none">' + esc(su.terms) + '</div></div>'
+  }
+  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + wait + body + '</section>'
+}
+function wireOnCall() {
+  document.querySelectorAll('[data-ocp]').forEach((b) => b.onclick = () => { const k = b.dataset.ocp; OC_PICK.has(k) ? OC_PICK.delete(k) : OC_PICK.add(k); b.classList.toggle('pick', OC_PICK.has(k)); b.setAttribute('aria-pressed', OC_PICK.has(k) ? 'true' : 'false') })
+  if ($('ocShowTerms')) $('ocShowTerms').onclick = () => { const t = $('ocTerms'); t.style.display = t.style.display === 'none' ? '' : 'none' }
+  if ($('ocSign')) $('ocSign').onclick = async () => {
+    const m = $('ocSignMsg')
+    if (!$('ocAgree').checked) { m.className = 'msg err'; m.textContent = 'Check the box to say you have read and agree.'; return }
+    const r = await act({ action: 'oncall_sign', agree: true, typed_name: $('ocName').value, version: D.oncall.signup.version }, m)
+    if (r && r.ok) setTimeout(load, 1200)
+  }
+  if ($('ocAsk')) $('ocAsk').onclick = async () => {
+    const m = $('ocAskMsg')
+    if (!OC_PICK.size) { m.className = 'msg err'; m.textContent = 'Tap the shifts you would like first.'; return }
+    const r = await act({ action: 'oncall_ask', slots: [...OC_PICK].map((k) => ({ date: k.split('|')[0], slot: k.split('|')[1] })) }, m)
+    if (r && r.ok) { OC_PICK.clear(); setTimeout(load, 1500) }
+  }
+  document.querySelectorAll('[data-ocw]').forEach((b) => b.onclick = async () => {
+    if (PV) return toast('Preview only. Nothing was sent or saved.')
+    if (!confirm('Take back your ask for this shift?')) return
+    const r = await act({ action: 'oncall_withdraw', id: Number(b.dataset.ocw) }, $('ocAskMsg')); if (r && r.ok) setTimeout(load, 900)
+  })
+}
+
 function render() {
   const d = D, h = d.hours || {}, w = h.windows || {}
   const since = d.since ? dWord(d.since, { month: 'long', year: 'numeric' }) : ''
@@ -180,7 +248,7 @@ function render() {
   $('app').innerHTML = (d.preview ? '<div class="sample office"><span><b>Office preview</b> of ' + esc(d.first) + '\'s page · nothing you tap here is sent' + (d.live ? '' : ' · the page is switched off for members') + '</span></div>' : '')
     + '<header><img class="logo" src="cc-logo.png" alt="Caring Companions"><div class="me"><div><h1 class="serif">Hi, ' + esc(d.first) + '!</h1><span class="team">' + esc(d.team_label) + '</span></div></div>'
     + '<p class="motto"><b>We Stand in the Gap.</b> Part of our care continuity team' + (since ? ' since ' + esc(since) : '') + '.</p></header>'
-    + '<nav><a href="#shifts">Shifts</a><a href="#clients">My clients</a><a href="#thanks">Thank-yous</a><a href="#hours">My hours</a><a href="#learn">Learn</a><a href="#talk">Talk to us</a></nav>'
+    + '<nav><a href="#shifts">Shifts</a><a href="#clients">My clients</a><a href="#thanks">Thank-yous</a><a href="#hours">My hours</a>' + (d.oncall && d.oncall.signup ? '<a href="#oncall">On call</a>' : '') + '<a href="#learn">Learn</a><a href="#talk">Talk to us</a></nav>'
     + '<main>'
     + (h.break_until ? '<div class="card update"><h3>You\'re on a break until ' + esc(dWord(h.break_until, { weekday: 'long', month: 'short', day: 'numeric' })) + '</h3><p>We won\'t text you about shifts until then. Welcome back anytime: end your break under My hours.</p></div>' : '')
     + (d.update ? '<div class="card update" id="monthly"><h3>' + esc(d.update.title) + '</h3>'
@@ -235,17 +303,19 @@ function render() {
     + (h.break_until ? '<p class="small" style="margin-top:6px">You\'re on a break until ' + esc(dWord(h.break_until)) + '.</p><div class="btns"><button class="b" id="brkEnd">End my break now</button></div>'
       : '<p class="small" style="margin-top:6px">Pick the date you\'ll be back. We won\'t text you about shifts until then.</p><input type="date" id="brkDate" min="' + esc(d.today) + '"><div class="btns"><button class="b" id="brkSet">Start my break</button></div>')
     + '<p class="msg" id="brkMsg"></p>'
-    + (d.oncall ? '<label class="fld">Would you like to be on call sometimes?</label><p class="small" style="margin-top:4px">' + esc(d.oncall.words) + '</p>'
+    + (d.oncall && !d.oncall.signup ? '<label class="fld">Would you like to be on call sometimes?</label><p class="small" style="margin-top:4px">' + esc(d.oncall.words) + '</p>'
         + '<div class="yn" style="flex-wrap:wrap">' + Object.keys(d.oncall.patterns).map((k) => '<button class="chip' + (d.oncall.pattern === k ? ' on' : '') + '" data-oc="' + esc(k) + '">' + esc(d.oncall.patterns[k]) + '</button>').join('') + '</div>'
         + ((d.oncall.confirmed || []).length ? '<p class="small" style="margin-top:8px"><b>You\'re on call:</b> ' + d.oncall.confirmed.map((c) => esc(dWord(c.start_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (c.end_date !== c.start_date ? ' to ' + esc(dWord(c.end_date, { weekday: 'short', month: 'short', day: 'numeric' })) : '')
             + (c.shift ? ' (' + esc({ day: 'daytime, 7am to 5pm', overnight: 'overnight, 5pm to 7am', whole: 'the whole day' }[c.shift] || c.shift) + ')' : '')).join(', ') + '. Thank you!</p>' : '')
         + '<p class="msg" id="ocMsg"></p>' : '')
     + '</div></section>'
+    + onCallSection(d)
     + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'
     + '<section id="talk"><h2 class="serif">Talk to us</h2><div class="card"><div class="btns" style="margin-top:0"><a class="b pri" href="sms:+14172348494">Text the office</a><a class="b" href="tel:+14172348494">Call</a><button class="b" id="ideaBtn">Share an idea</button></div>'
     + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
     + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'
   wire()
+  wireOnCall()
   wireMentor()
   if ($('openBox')) loadOpen()
   /* the 60-day check-in opens the page at My hours */

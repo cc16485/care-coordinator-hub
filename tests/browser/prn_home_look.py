@@ -23,7 +23,7 @@ async()=>{
     members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[{client:'Mary Smith',visits:3,last:'2026-10-01',glad:true,star:true}]}},
              {applicant_id:'y',name:'Yara Moss',team:'cna',axiscare_id:null,familiar:{why:'not linked to AxisCare yet',clients:[]}}],
     items:[{id:'welcome:g',kind:'welcome',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',team_key:'cna',ref:'welcome',title:'Welcome call with Grace',detail:'New on the PRN CNA Team.'}],
-    oncall:{ stipend:null, patterns:{every_weekend:'Every weekend'}, offers:[], weekends:[{saturday:'2026-10-31',sunday:'2026-11-01',confirmed:[],gap:true}] } };
+    oncall:{ stipend:null, patterns:{every_weekend:'Every weekend'}, offers:[], weekends:[], records_ready:true, people:[], calendar:[{date:'2026-10-31',past:false,day:{confirmed:[],asked:[],gap:true},overnight:{confirmed:[],asked:[],gap:true}}] } };
   const realFetch=window.fetch;
   window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')) return new Response(JSON.stringify(WEEK),{status:200}); return realFetch(u,o); };
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
@@ -43,7 +43,7 @@ async()=>{
   ok('...someone moved to ongoing is not on a PRN Team', !/Olive/.test(tt));
   ok('...only This week is hidden now', !vis('prnWeek') && vis('prnTeams'));
   PW.tab('oncall'); await sleep(60);
-  ok('On call: the weekend calendar, its gap', vis('prnOnCall') && /No PRN CNA on call/.test(document.getElementById('prnOnCall').innerText));
+  ok('On call: the calendar, its open shifts', vis('prnOnCall') && /2 open shifts in the next 4 weeks/.test(document.getElementById('prnOnCall').innerText) && !!document.querySelector('#prnOnCall .oc-s.gap'));
   PW.tab('recruiting'); await sleep(60);
   ok('Recruiting: the goal numbers live here now', vis('prnDash') && /ALWAYS ON/.test(document.getElementById('prnDash').innerText) && !vis('prnOnCall'));
   PW.tab('see'); await sleep(400);
