@@ -28,19 +28,19 @@ async()=>{
   ok('the welcome call line: who, their team, the text went out, Open their page, Record the call, Not this one', gl && /PRN CNA Team/.test(gl.innerText) && /The welcome text went out/.test(gl.innerText) && /Open their page/.test(gl.innerText) && /Record the call/.test(gl.innerText) && /Not this one/.test(gl.innerText), gl&&gl.innerText);
   PW.open('welcome:g'); await sleep(50);
   const f=box.innerText;
-  ok('Record the call opens the five questions, plus on call for the PRN CNA Team', ['Which towns and times suit you?','Is short notice ever OK?','Would you like more hours someday?','What kind of clients do you enjoy?','Would you like to be on call sometimes?','Interested in office work someday'].every(q=>f.includes(q)), f.slice(0,900));
+  ok('Record the call opens the five questions, plus (PRN CNA Team) how to sign up for on call on their page', ['Which towns and times suit you?','Is short notice ever OK?','Would you like more hours someday?','What kind of clients do you enjoy?','sign up for on-call shifts on their PRN Team page','Interested in office work someday'].every(q=>f.includes(q)) && !f.includes('Would you like to be on call sometimes?'), f.slice(0,900));
   await PW.welcome('welcome:g'); await sleep(50);
   ok('saving without towns and times says what is missing', /Which towns and times suit them\?/.test(document.getElementById('pwSt_welcome:g').textContent), document.getElementById('pwSt_welcome:g').textContent);
   document.getElementById('pwWtowns_welcome:g').value='Springfield and Nixa, weekday mornings';
   document.getElementById('pwWshort_welcome:g').value='yes'; document.getElementById('pwWmore_welcome:g').value='maybe';
-  document.getElementById('pwWenjoys_welcome:g').value='memory care'; document.getElementById('pwWoncall_welcome:g').value='one_weekend_month';
+  document.getElementById('pwWenjoys_welcome:g').value='memory care'; 
   document.getElementById('pwWoffice_welcome:g').checked=true;
   await PW.welcome('welcome:g'); await sleep(50);
   const c=CALLS.filter(x=>x.action==='welcome_call').pop();
-  ok('Save records every answer for Grace', c && c.applicant_id==='g' && c.towns_times==='Springfield and Nixa, weekday mornings' && c.short_notice==='yes' && c.more_hours==='maybe' && c.enjoys==='memory care' && c.oncall==='one_weekend_month' && c.office_interest===true, c);
+  ok('Save records every answer for Grace', c && c.applicant_id==='g' && c.towns_times==='Springfield and Nixa, weekday mornings' && c.short_notice==='yes' && c.more_hours==='maybe' && c.enjoys==='memory care' && c.oncall==='' && c.office_interest===true, c);
   await sleep(800);
   PW.open('welcome:t'); await sleep(50);
-  ok('Tina (PRN Caregiver Team): no on-call question', !/Would you like to be on call sometimes\?/.test(box.innerText) && /Which towns and times suit you\?/.test(box.innerText), box.innerText.slice(0,700));
+  ok('Tina (PRN Caregiver Team): no on-call note', !/sign up for on-call shifts/.test(box.innerText) && /Which towns and times suit you\?/.test(box.innerText), box.innerText.slice(0,700));
   await PW.mark('welcome:t','not_this_one');
   ok('Not this one takes the welcome line off', CALLS.some(x=>x.action==='mark' && x.kind==='not_this_one' && x.ref==='welcome' && x.applicant_id==='t'));
   /* settings */

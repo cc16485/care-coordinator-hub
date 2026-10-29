@@ -17,9 +17,17 @@ async()=>{
            {id:'milestone:t:shifts',kind:'milestone',applicant_id:'t',name:'Tom Ray',team:'PRN CNA Team',ref:'shifts:10',title:'Tom reached 10 PRN shifts',detail:'A handwritten card goes in the mail.'},
            {id:'checkin:t:2026-10-26',kind:'checkin',applicant_id:'t',name:'Tom Ray',team:'PRN CNA Team',ref:'checkin:2026-10-26',title:'Check in with Tom',detail:'No personal contact recorded yet. Worth a call.'}],
     oncall:{ stipend:null, patterns:{every_weekend:'Every weekend',every_other_weekend:'Every other weekend',one_weekend_month:'One weekend a month',weekday:'A weekday',not_now:'Not right now'},
-      offers:[{applicant_id:'g',name:'Grace Lee',pattern:'every_other_weekend',pattern_word:'Every other weekend'}],
-      weekends:Array.from({length:8},(_,i)=>{ const sat=new Date(Date.UTC(2026,9,31+i*7)).toISOString().slice(0,10), sun=new Date(Date.UTC(2026,10,1+i*7)).toISOString().slice(0,10);
-        return { saturday:sat, sunday:sun, confirmed: i===1?[{id:7,applicant_id:'g',name:'Grace Lee'}]:[], gap:i!==1 }; }) } };
+      offers:[{applicant_id:'g',name:'Grace Lee',pattern:'every_other_weekend',pattern_word:'Every other weekend'}], weekends:[], records_ready:true, signup_live:false, first_live:false,
+      miss_kinds:{ no_answer:"Didn't answer our call", not_covered:"Didn't cover the shift" },
+      people:[{applicant_id:'g',name:'Grace Lee',signed:true,signed_at:'2026-10-28T15:00:00Z',blocked:false},{applicant_id:'t',name:'Tom Ray',signed:false,signed_old:false,blocked:true,miss:{kind:'no_answer',word:"Didn't answer our call",at:'2026-10-27T15:00:00Z'}}],
+      /* the calendar (her decisions 22 to 27): 4 weeks from Monday Oct 26; Grace confirmed Oct 31 daytime; Tom asked Nov 1 overnight; Tom missed Oct 27 */
+      calendar:Array.from({length:28},(_,i)=>{ const d=new Date(Date.UTC(2026,9,26+i)).toISOString().slice(0,10), cell=()=>({confirmed:[],asked:[],gap:d>='2026-10-28'});
+        const x={ date:d, past:d<'2026-10-28', day:cell(), overnight:cell() };
+        if(d==='2026-10-31'){ x.day.confirmed=[{id:7,applicant_id:'g',name:'Grace Lee',whole:false,shift_recorded:true,missed:null}]; x.day.gap=false; }
+        if(d==='2026-11-01'){ x.overnight.asked=[{id:9,applicant_id:'t',name:'Tom Ray'}]; }
+        if(d==='2026-10-27'){ x.day.confirmed=[{id:5,applicant_id:'t',name:'Tom Ray',whole:false,shift_recorded:true,missed:'no_answer'}]; }
+        if(d==='2026-10-28'){ x.day.confirmed=[{id:8,applicant_id:'g',name:'Grace Lee',whole:false,shift_recorded:true,missed:null}]; x.day.gap=false; }
+        return x; }) } };
   const CALLS=[]; const realFetch=window.fetch;
   window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b);
       return new Response(JSON.stringify(b.action==='week'?WEEK:{outcome:b.action==='send_thanks'?'sent':'recorded'}),{status:200}); } return realFetch(u,o); };
@@ -44,30 +52,42 @@ async()=>{
   ok('Card mailed records the milestone line', CALLS.some(c=>c.action==='mark' && c.kind==='card_mailed' && c.ref==='shifts:10' && c.applicant_id==='t'));
   await PW.mark('checkin:t:2026-10-26','called');
   ok('Called records this week\'s check-in', CALLS.some(c=>c.action==='mark' && c.kind==='called' && c.ref==='checkin:2026-10-26'));
-  const tiles=box.querySelectorAll('.pw-wk');
-  ok('8 weekends; the confirmed one shows Grace, the others are red gaps', tiles.length===8 && /Grace Lee/.test(tiles[1].innerText) && tiles[0].classList.contains('gap') && !tiles[1].classList.contains('gap') && /No PRN CNA on call/.test(tiles[0].innerText));
-  ok('only PRN CNA Team members can be confirmed (Tasha is on the PRN Caregiver Team)', ![...document.getElementById('pwPick0').options].some(o=>/Tasha/.test(o.text)) && [...document.getElementById('pwPick0').options].some(o=>/Tom Ray/.test(o.text)));
-  document.getElementById('pwPick0').value='t'; await PW.confirm(0); await sleep(50);
-  ok('Confirm sends that weekend for that person', CALLS.some(c=>c.action==='oncall_confirm' && c.applicant_id==='t' && c.start_date==='2026-10-31' && c.end_date==='2026-11-01'));
-  await PW.cancel(7); ok('Take back sends the confirmed date\'s id', CALLS.some(c=>c.action==='oncall_cancel' && c.id===7));
-  ok('offers show; the two on-call shifts, and pay kept to the PRN plan (her call 2026-10-29)', /Grace Lee: Every other weekend/.test(txt()) && /daytime 7am to 5pm and overnight 5pm to 7am/.test(txt()) && /never shown on their page/.test(txt()));
-  document.getElementById('pwOfWho').value='t'; document.getElementById('pwOfPat').value='one_weekend_month'; await PW.offer();
-  ok('Record their offer sends who and what', CALLS.some(c=>c.action==='oncall_offer' && c.applicant_id==='t' && c.pattern==='one_weekend_month'));
-  /* 2026-10-29: the shift on each confirmed date, and the payroll counts */
+  /* THE ON-CALL CALENDAR (her decisions 22 to 27) */
+  const days=box.querySelectorAll('.oc-day'), dayOf=(d)=>[...box.querySelectorAll('.oc-day')][Math.round((Date.parse(d)-Date.parse('2026-10-26'))/864e5)];
+  ok('22: the calendar: Mon to Sun headers, 28 days, today marked, past days dimmed', days.length===28 && [...box.querySelectorAll('.oc-h')].map(h=>h.innerText).join()==='Mon,Tue,Wed,Thu,Fri,Sat,Sun'
+    && dayOf('2026-10-28').classList.contains('today') && dayOf('2026-10-26').classList.contains('past'));
+  ok('...each day has a daytime and an overnight shift; Grace on Oct 31 daytime; open shifts marked', /Day 7a to 5p/.test(dayOf('2026-10-31').innerText) && /Night 5p to 7a/.test(dayOf('2026-10-31').innerText)
+    && /Grace Lee/.test(dayOf('2026-10-31').querySelectorAll('.oc-s')[0].innerText) && dayOf('2026-10-31').querySelectorAll('.oc-s')[1].classList.contains('gap') && /Open/.test(dayOf('2026-10-31').querySelectorAll('.oc-s')[1].innerText), dayOf('2026-10-31').innerText);
+  ok('...the count of open shifts', /\d+ open shifts in the next 4 weeks/.test(txt()));
+  ok('...a miss shows struck through, never a Take back', /Tom Ray/.test(dayOf('2026-10-27').innerText) && /didn't answer/.test(dayOf('2026-10-27').innerText) && !dayOf('2026-10-27').querySelector('.oc-x'));
+  ok('23: Tom\'s ask waits on Nov 1 overnight, with confirm and Not this one', /Tom Ray\s*asked/.test(dayOf('2026-11-01').innerText) && /can't sign up/.test(dayOf('2026-11-01').innerText), dayOf('2026-11-01').innerText);
+  await PW.ocOk(9); ok('...✓ confirms the ask by its id', CALLS.some(c=>c.action==='oncall_confirm' && c.ask_id===9));
+  await PW.ocNo(9); ok('...✕ is "Not this one"', CALLS.some(c=>c.action==='oncall_decline' && c.ask_id===9));
+  await PW.cancel(7); ok('Take back sends the confirmed shift\'s id', CALLS.some(c=>c.action==='oncall_cancel' && c.id===7));
+  PW.ocOpen('2026-11-02|day'); await sleep(30);
+  const put=document.getElementById('ocPut_2026-11-02|day');
+  ok('+ on an open shift: only PRN CNAs who signed and are not blocked (Grace; not Tom, not Tasha)', put && [...put.options].map(o=>o.text).join()==='Grace Lee', put && [...put.options].map(o=>o.text));
+  await PW.ocPut('2026-11-02','day'); await sleep(30);
+  ok('...Put on call sends the date and shift', CALLS.some(c=>c.action==='oncall_confirm' && c.applicant_id==='g' && c.date==='2026-11-02' && c.shift==='day'));
+  PW.ocOpen('2026-11-03|overnight'); await sleep(30); document.getElementById('ocWhole_2026-11-03|overnight').checked=true; await PW.ocPut('2026-11-03','overnight'); await sleep(30);
+  ok('...both shifts = the whole day', CALLS.some(c=>c.action==='oncall_confirm' && c.date==='2026-11-03' && c.shift==='whole'));
+  PW.ocMissOpen('8'); await sleep(30);
+  ok('25: today\'s on-call shift has Missed, with the two kinds', /Didn't answer our call/.test(dayOf('2026-10-28').innerText) && /Didn't cover the shift/.test(dayOf('2026-10-28').innerText), dayOf('2026-10-28').innerHTML);
+  let alerted=''; window.alert=(m)=>{ alerted=m; }; window.ccAlert=(m)=>{ alerted=m; }; (0,eval)('ccAlert=window.ccAlert');
+  const realF=window.fetch; window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week') && JSON.parse(o.body).action==='oncall_mark'){ CALLS.push(JSON.parse(o.body)); return new Response(JSON.stringify({outcome:'missed',name:'Grace Lee',taken_back:[{date:'2026-11-07',shift:'overnight',kind:'confirmed'}],failed:[]}),{status:200}); } return realF(u,o); };
+  await PW.ocMiss(8,'not_covered'); await sleep(50); window.fetch=realF;
+  ok('...a miss sends it, then says what was taken back and to call them', CALLS.some(c=>c.action==='oncall_mark' && c.oncall_id===8 && c.kind==='not_covered') && /Taken back: Nov 7 overnight/.test(alerted) && /Call them/.test(alerted), alerted);
+  ok('24/25: the team list: who signed, who can\'t sign up, and (owners) let them sign up again', /Grace Lee\s*Signed the expectations/.test(txt()) && /Tom Ray\s*Not signed yet/.test(txt()) && /Can't sign up: didn't answer our call/.test(txt()) && /Let them sign up again/.test(txt()), txt());
+  window.prompt=()=>'Talked it through'; await PW.ocLift('t'); ok('...sends the reason', CALLS.some(c=>c.action==='oncall_lift' && c.applicant_id==='t' && c.reason==='Talked it through'));
+  ok('the rules in a sentence or two; pay kept to the PRN plan; earlier preferences still listed', /daytime 7am to 5pm, overnight 5pm to 7am/.test(txt()) && /never shown on their page/.test(txt()) && /Earlier on-call preferences .*Grace Lee, every other weekend/.test(txt()));
+  ok('sign-up switch off: said so', /Sign-up on their page is off/.test(txt()));
   WEEK.oncall=Object.assign({}, WEEK.oncall, { shifts:{ day:'Daytime, 7am to 5pm', overnight:'Overnight, 5pm to 7am', whole:'Whole day, 24 hours' }, shift_live:true,
-    weekends: WEEK.oncall.weekends.map((w,i)=>i===1?Object.assign({},w,{ confirmed:[{ id:7, applicant_id:'g', name:'Grace Lee', shift:'overnight' }] }):w),
-    payroll:[{ month:'2026-11', members:[{ applicant_id:'g', name:'Grace Lee', day:0, overnight:2, whole:1, not_recorded:0 }] }, { month:'2026-10', members:[] }] });
+    payroll:[{ month:'2026-11', members:[{ applicant_id:'g', name:'Grace Lee', day:0, overnight:2, whole:1, not_recorded:0, missed:1 }] }, { month:'2026-10', members:[] }] });
   await PW.load(); await sleep(50);
-  const t2=box.querySelectorAll('.pw-wk');
-  ok('shift choice (switch on): each weekend has "Which shift"; Grace shows as overnight', !!document.getElementById('pwShift0') && [...document.getElementById('pwShift0').options].map(o=>o.text).join('|')==='Which shift…|Daytime, 7am to 5pm|Overnight, 5pm to 7am|Whole day, 24 hours' && /Grace Lee · overnight/.test(t2[1].innerText), t2[1].innerText);
-  let alerted=''; window.alert=(m)=>{ alerted=m; };
-  const n0=CALLS.length; document.getElementById('pwPick0').value='t'; await PW.confirm(0); await sleep(30);
-  ok('...confirm without a shift: asks for it, sends nothing', /Pick the shift first/.test(alerted) && CALLS.length===n0);
-  document.getElementById('pwPick0').value='t'; document.getElementById('pwShift0').value='whole'; await PW.confirm(0); await sleep(50);
-  ok('...with the whole day: sent with the shift', CALLS.some(c=>c.action==='oncall_confirm' && c.applicant_id==='t' && c.shift==='whole'));
-  ok('...payroll counts by month: Grace 2 overnight, 1 whole day; counts only, never dollars', /On-call days for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(box.querySelector('.pw-grid').parentElement.innerText.split('On-call days for payroll')[1]||''), txt());
-  WEEK.oncall=Object.assign({}, WEEK.oncall, { shift_live:false }); await PW.load(); await sleep(30);
-  ok('...switch off: owners see it marked practice', /Practice:\s*the shift choice shows to owners only/.test(txt()) && !!document.getElementById('pwShift0'));
+  ok('payroll counts by month, missed ones not paid, counts only, never dollars', /On-call shifts for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day, 1 missed \(not paid\)/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(txt().split('On-call shifts for payroll')[1]||''), txt());
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:false }); await PW.load(); await sleep(30);
+  ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1190\)/.test(txt()));
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:true, shift_live:false }); await PW.load(); await sleep(30);
   /* a non-owner with the switch off sees nothing */
   CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator']; await PW.load();
   ok('switch off: someone who is not an owner sees nothing', box.innerHTML==='');
