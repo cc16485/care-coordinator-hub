@@ -60,15 +60,20 @@
   const OUTCOMES = [['ready', 'Ready to start'], ['follow_up', 'Needs follow-up'], ['not_ready', 'Family not ready'], ['cannot', "Can't accept"]];
   const PAYERS = [['private', 'Private pay'], ['ltc', 'Long-term care insurance'], ['va', 'VA benefits'], ['guide', 'Medicare GUIDE']];
   const YN = [['yes', 'Yes'], ['no', 'No']];
+  /* 2026-10-29 (her: "fix caregiver and contact preferences to reflect what we currently ask"): the same choices the Hub keeps,
+     Care needs (care-needs.js), the lead's attributes, People involved (LPP_ROLES) and the Family Circle texts, and that
+     the Client Care Agreement's contact page asks. The paper form's group text, check-ins, surveys and personality are gone. */
   const PREF = {
-    gender: [['male', 'Male'], ['female', 'Female'], ['none', 'No preference']],
-    change_to: [['client', 'Client'], ['family', 'Family'], ['other', 'Other']],
-    method: [['text', 'Text'], ['call', 'Phone call'], ['email', 'Email'], ['note', 'Written note']],
-    time: [['morning', 'Morning'], ['afternoon', 'Afternoon'], ['evening', 'Evening']],
-    group_text: [['yes', 'Yes, group text'], ['no', 'Contact each person']],
-    checkin_to: [['client', 'Client'], ['family', 'Family'], ['both', 'Both']],
-    survey_by: [['mail', 'Mail'], ['email', 'Email'], ['text', 'Text']],
+    gender: [['female_required', 'Female, required'], ['female_preferred', 'Female, preferred'], ['male_required', 'Male, required'], ['male_preferred', 'Male, preferred'], ['no_preference', 'No preference']],
+    spanish: [['required', 'Required'], ['preferred', 'Preferred'], ['no', 'No']],
   };
+  const SKILL_KEYS = ['dementia_care', 'parkinsons_care', 'transfers_gait_belt', 'hoyer_lift', 'bedbound_care', 'hospice_support', 'catheter_bag', 'ostomy_bag', 'transportation'];
+  const SKILL_W = { dementia_care: "Dementia or Alzheimer's care", parkinsons_care: "Parkinson's care", transfers_gait_belt: 'Transfers with a gait belt', hoyer_lift: 'A Hoyer or other mechanical lift',
+    bedbound_care: 'Bedbound care and repositioning', hospice_support: 'Hospice and end-of-life support', catheter_bag: 'Emptying a catheter bag', ostomy_bag: 'Emptying an ostomy bag', transportation: 'Driving to appointments and errands' };
+  const skills = () => SKILL_KEYS.map((k) => { const m = window.CCMatch && (CCMatch.SKILLS || []).find((x) => x.key === k); return [k, (m && m.label) || SKILL_W[k]]; });
+  const ROLES = [['primary', 'Primary contact'], ['medical_decisions', 'Medical decisions'], ['poa_health', 'Health care POA'], ['poa_financial', 'Financial POA'], ['billing', 'Billing'], ['emergency', 'Emergency contact']];
+  const REACH = [['call', 'Call'], ['text', 'Text'], ['email', 'Email']];
+  const TEXTS = [['changes', 'Caregiver changes'], ['late', 'Running late']];
   const NURSE = [['yes', 'Yes'], ['no', 'No'], ['later', 'Ask later']];
 
   /* ---------- from the phone calls (2026-10-29, her "yes, build the phone call pre-fill: blue boxes plus the reminder cards") ----------
@@ -103,6 +108,23 @@
     const gs = callGoals(d.client_goals);
     if (gs && (v.goals || []).every((g) => nil(g && g.text))) { gs.forEach((t, i) => { v.goals[i] = { text: t }; mark('visit.goals.' + i + '.text'); }); v.goals_from_call = true; }
     v.call_filled_at = new Date().toISOString();
+  }
+  /* what the lead already holds about the caregiver (its attributes), into the Preferences screen's empty answers, once, in blue */
+  function leadPrefs(a, l) {
+    const v = a.visit, at = (l && l.client_attributes) || {};
+    if (!l || v.lead_prefs_at || v.finished_at) return;
+    const mark = (p) => { (v.from_call = v.from_call || {})[p] = true; }, pr = v.prefs, strict = l.gender_pref_normalized === true;
+    const g = (x) => x === 'preferred' || (x === 'yes' && !strict) ? 'preferred' : x === 'yes' ? 'required' : '';
+    if (nil(pr.gender)) { const f = g(at.female_caregiver), m = g(at.male_caregiver), val = f && !m ? 'female_' + f : m && !f ? 'male_' + m : '';
+      if (val) { pr.gender = val; mark('visit.prefs.gender:' + val); } }
+    if (nil(pr.spanish)) { const sp = at.spanish_speaking === 'yes' ? 'required' : at.spanish_speaking === 'preferred' ? 'preferred' : at.spanish_speaking === 'no' ? 'no' : '';
+      if (sp) { pr.spanish = sp; mark('visit.prefs.spanish:' + sp); } }
+    ['cats', 'dogs', 'smoking'].forEach((k) => { if (nil(pr[k]) && (at[k] === 'yes' || at[k] === 'no')) { pr[k] = at[k]; mark('visit.prefs.' + k + ':' + at[k]); } });
+    const SK = { dementia: 'dementia_care', alzheimers: 'dementia_care', parkinsons: 'parkinsons_care', gait_belt: 'transfers_gait_belt', hoyer_lift: 'hoyer_lift', bed_bound: 'bedbound_care', hospice: 'hospice_support', transportation: 'transportation' };
+    pr.skills = Array.isArray(pr.skills) ? pr.skills : [];
+    Object.keys(SK).forEach((k) => { const sk = SK[k]; if ((at[k] === 'yes' || at[k] === 'preferred') && pr.skills.indexOf(sk) < 0) { pr.skills.push(sk); mark('visit.prefs.skills:' + sk); } });
+    (v.attendees || []).forEach((p) => { if (p.role === 'primary' && !Array.isArray(p.roles)) p.roles = ['primary']; });
+    v.lead_prefs_at = new Date().toISOString();
   }
   function callBy() {
     const l = ST.lead; if (!l) return '';
@@ -171,11 +193,7 @@
       allergies: '', pharmacy: '',
       equipment: [], equipment_other: '',
       acts: {}, meds: {},
-      prefs: {
-        gender: '', personality: '', skills: [], language: '', other: '',
-        contact: l && !isSelf(l) ? { name: callerName(l), rel: l.relationship || '', phone: l.phone || '', email: l.email || '' } : { name: '', rel: '', phone: '', email: '' },
-        change_to: '', method: '', time: '', group_text: '', group_include: [], checkin_to: '', survey_by: '',
-      },
+      prefs: { gender: '', spanish: '', cats: '', dogs: '', smoking: '', skills: [], other: '' },
       week: {}, start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
       sign: { client: { png: '', name: '', date: '' }, assessor: { png: '', name: me(), date: '' } },
     };
@@ -339,27 +357,34 @@
   }
   function sec5() {
     const c = 'visit.prefs.';
-    const others = (ST.a.visit.attendees || []).filter((p) => p.name).map((p) => [p.name, p.name]);
     return '<h1>Caregiver and contact preferences</h1>'
-      + '<div class="hv-g2">'
       + card('The caregiver',
         '<b class="hv-q2">Caregiver gender</b>' + pills(c + 'gender', PREF.gender)
-        + lab('Personality they\'d click with', field(c + 'personality', 'Or "no preference"'))
-        + '<b class="hv-q2">Skills needed</b>' + pills(c + 'skills', [['dementia', 'Dementia care'], ['lift', 'Lift or transfer'], ['language', 'Language']], true)
-        + lab('Language', field(c + 'language', 'If a language is needed'))
-        + lab('Anything else they asked for', field(c + 'other')))
-      + card('Care updates',
-        lab('Main contact for updates', '<div class="hv-g2">' + field(c + 'contact.name', 'Name') + field(c + 'contact.rel', 'Relationship') + field(c + 'contact.phone', 'Phone', { type: 'tel' }) + field(c + 'contact.email', 'Email', { type: 'email' }) + '</div>')
-        + '<b class="hv-q2">Who to call about schedule or caregiver changes</b>' + pills(c + 'change_to', PREF.change_to)
-        + '<b class="hv-q2">Best way to reach the client</b>' + pills(c + 'method', PREF.method)
-        + '<b class="hv-q2">Best time to reach them</b>' + pills(c + 'time', PREF.time))
-      + '</div>'
-      + card('Keeping everyone in the loop', '<div class="hv-g3">'
-        + '<div class="hv-stack"><b class="hv-q2">Group text for updates?</b><span class="hv-n">Schedule changes, caregiver updates</span>' + pills(c + 'group_text', PREF.group_text)
-        + (others.length ? '<span class="hv-n">Include:</span>' + pills(c + 'group_include', others, true) : '') + '</div>'
-        + '<div class="hv-stack"><b class="hv-q2">Routine check-ins go to</b><span class="hv-n">"We check in regularly to be sure care is going well."</span>' + pills(c + 'checkin_to', PREF.checkin_to) + '</div>'
-        + '<div class="hv-stack"><b class="hv-q2">Surveys by</b><span class="hv-n">How they\'d like to hear from us</span>' + pills(c + 'survey_by', PREF.survey_by) + '</div>'
-        + '</div><div class="hv-n">These are saved as their wishes. Nothing is sent to the family from this screen.</div>');
+        + '<b class="hv-q2">Spanish-speaking caregiver</b>' + pills(c + 'spanish', PREF.spanish)
+        + '<b class="hv-q2">Skills they need</b><span class="hv-n">Hands-on care (bathing, dressing, toileting) is on Daily activities.</span>' + pills(c + 'skills', skills(), true)
+        + '<div class="hv-g3">'
+        + '<div class="hv-stack"><b class="hv-q2">Cats in the home</b>' + yn(c + 'cats') + '</div>'
+        + '<div class="hv-stack"><b class="hv-q2">Dogs in the home</b>' + yn(c + 'dogs') + '</div>'
+        + '<div class="hv-stack"><b class="hv-q2">Someone smokes in the home</b>' + yn(c + 'smoking') + '</div></div>'
+        + '<div class="hv-n">The agreement asks them to secure pets and not smoke during visits.</div>'
+        + lab('Anything else they asked for in a caregiver', field(c + 'other', 'For example: someone patient, a quiet personality, likes to cook')))
+      + card('How we stay in touch', '<div id="hvTouch">' + touchHtml() + '</div>'
+        + '<div class="hv-n">The same questions as the contact page of the Client Care Agreement. Saved with the visit; nothing is sent to the family from this screen.</div>');
+  }
+  /* one block per person in the room: their roles, how and when to reach them, which texts they want, and (not the client) whether we may discuss care with them */
+  function touchHtml() {
+    const ps = (ST.a.visit.attendees || []).map((p, i) => [p, i]).filter((x) => x[0].name);
+    if (!ps.length) return '<div class="hv-n">Add the people in the room on Start the visit first.</div>';
+    return ps.map(([p, i]) => {
+      const b = 'visit.attendees.' + i + '.';
+      return '<div class="hv-touch"><div class="hv-tn"><b>' + E(p.name) + '</b><span class="hv-n">' + E(p.rel || '') + '</span></div>'
+        + (p.role === 'client' ? '' : '<div class="hv-stack"><span class="hv-n">Their roles</span>' + pills(b + 'roles', ROLES, true) + '</div>')
+        + '<div class="hv-g2"><div class="hv-stack"><span class="hv-n">Best way to reach them</span>' + pills(b + 'reach_way', REACH) + '</div>'
+        + lab('Best time', field(b + 'reach_time', 'For example: after 3 pm'))
+        + '<div class="hv-stack"><span class="hv-n">Texts they want</span>' + pills(b + 'texts', TEXTS, true) + '</div>'
+        + (p.role === 'client' ? '' : '<div class="hv-stack"><span class="hv-n">May we discuss care with them?</span>' + yn(b + 'permission') + '</div>')
+        + '</div></div>';
+    }).join('');
   }
   /* hours of one day's visit, from "09:00" to "13:00" */
   function dayHours(d) { const w = (ST.a.visit.week || {})[d] || {}; if (!w.from || !w.to) return 0; const m = (t) => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1] || 0); }; let h = (m(w.to) - m(w.from)) / 60; if (h < 0) h += 24; return Math.round(h * 4) / 4; }
@@ -463,14 +488,12 @@
     add(3, 'Daily activities', 'visit.meds.where', 'Where the pill organizer is kept'); add(3, 'Daily activities', 'visit.meds.may_know', 'Can the client know where it is?', YN);
     add(3, 'Daily activities', 'visit.meds.refills', 'Where prescriptions are refilled');
     const c = 'visit.prefs.';
-    add(4, 'Preferences', c + 'gender', 'Caregiver gender', PREF.gender); add(4, 'Preferences', c + 'personality', "Personality they'd click with");
-    add(4, 'Preferences', c + 'language', 'Language needed'); add(4, 'Preferences', c + 'other', 'Anything else they asked for in a caregiver');
-    add(4, 'Preferences', c + 'contact.name', 'Main contact for updates: name'); add(4, 'Preferences', c + 'contact.rel', 'Main contact: relationship');
-    add(4, 'Preferences', c + 'contact.phone', 'Main contact: phone'); add(4, 'Preferences', c + 'contact.email', 'Main contact: email');
-    add(4, 'Preferences', c + 'change_to', 'Who to call about schedule or caregiver changes', PREF.change_to);
-    add(4, 'Preferences', c + 'method', 'Best way to reach the client', PREF.method); add(4, 'Preferences', c + 'time', 'Best time to reach them', PREF.time);
-    add(4, 'Preferences', c + 'group_text', 'Group text for updates?', PREF.group_text); add(4, 'Preferences', c + 'checkin_to', 'Routine check-ins go to', PREF.checkin_to);
-    add(4, 'Preferences', c + 'survey_by', 'Surveys by', PREF.survey_by);
+    add(4, 'Preferences', c + 'gender', 'Caregiver gender', PREF.gender); add(4, 'Preferences', c + 'spanish', 'Spanish-speaking caregiver', PREF.spanish);
+    add(4, 'Preferences', c + 'cats', 'Cats in the home', YN); add(4, 'Preferences', c + 'dogs', 'Dogs in the home', YN); add(4, 'Preferences', c + 'smoking', 'Someone smokes in the home', YN);
+    add(4, 'Preferences', c + 'other', 'Anything else they asked for in a caregiver');
+    (v.attendees || []).forEach((p, i) => { if (!p.name) return; const b = 'visit.attendees.' + i + '.';
+      add(4, 'Preferences', b + 'reach_way', p.name + ': best way to reach them', REACH); add(4, 'Preferences', b + 'reach_time', p.name + ': best time to reach them');
+      if (p.role !== 'client') add(4, 'Preferences', b + 'permission', p.name + ': may we discuss care with them?', YN); });
     return out;
   }
   const shown = (b, val) => (b.options ? ((b.options.find((o) => o[0] === val) || [0, val])[1]) : String(val));
@@ -654,6 +677,7 @@
       + '.hv-foot{display:flex;justify-content:space-between;gap:12px;max-width:1100px;margin-top:18px}'
       + '.hv-callc{background:#F3F8F8;border-color:#C2D7D8}.hv-cr{display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:8px 0;border-top:1px solid #DCE8E8;font-size:15px;line-height:1.45}.hv-cr b{color:#14565D;font-size:14px}'
       + '.hv-callp{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:10px;border-top:1px dashed #C2D7D8}.hv-callp .hv-n{flex-basis:100%}'
+      + '.hv-touch{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid #EEEAE3}.hv-touch:first-child{border-top:none;padding-top:0}.hv-tn{display:flex;gap:10px;align-items:baseline}.hv-tn b{font-size:17px}'
       + '.hv-seg button.hv-pfrom{box-shadow:0 0 0 3px #9CC3C6}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
@@ -703,6 +727,7 @@
     (ST.a.visit.seen = ST.a.visit.seen || {})[ST.sec] = true;
     ST.sec = i;
     document.querySelectorAll('#hvRoot .hv-sec').forEach((el) => { el.style.display = +el.getAttribute('data-sec') === i ? '' : 'none'; });
+    if (i === 4) { const t = document.getElementById('hvTouch'); if (t) t.innerHTML = touchHtml(); }
     if (i === 5) { refreshLevels(); }
     if (i === 6) { const ag = document.getElementById('hvAgree'); if (ag) ag.innerHTML = agreeHtml(); sigInit(); }
     if (i === AFTER) { const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody(); afterLoad(); }
@@ -862,7 +887,7 @@
     }
     if (!l && a.lead_id) l = (D().leads || []).find((x) => x.id === a.lead_id) || null;
     ST.a = ensureVisit(a, l); ST.lead = l; ST.sec = 0;
-    callFill(ST.a, l);
+    callFill(ST.a, l); leadPrefs(ST.a, l);
     await saveNow();
     render();
   }

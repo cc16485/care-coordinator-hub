@@ -49,7 +49,7 @@ async()=>{
   ok('one care assessment, tied to the lead, saved at once', DATA.care_assessments.length===1 && a.lead_id==='lead_betty' && last() && last().id===a.id && a.status==='Scheduled' && a.visit && a.visit.v===1, a);
   ok('filled from the phone call: client, address, doctor, who set it, hours', a.client_name==='Betty Harlow (fake)' && /1418 E Cherry St, Springfield, MO 65802/.test(a.address) && a.physician_name==='Dr. Reyes (fake)'
     && /Loved one: Karen Price \(fake\), Daughter/.test(a.visit.part1.set_by) && /20 hours, Mon Wed Fri/.test(a.visit.part1.hours_days) && a.visit.story.trigger==='Fall in the bathroom Oct 12', a.visit.part1);
-  ok("who's in the room starts with Betty (client) and Karen (primary contact); Karen is the contact for updates", a.visit.attendees.length===2 && a.visit.attendees[0].role==='client' && a.visit.attendees[1].role==='primary' && a.visit.prefs.contact.phone==='(417) 555-0172');
+  ok("who's in the room starts with Betty (client) and Karen (primary contact); Karen starts as the primary contact", a.visit.attendees.length===2 && a.visit.attendees[0].role==='client' && a.visit.attendees[1].role==='primary' && (a.visit.attendees[1].roles||[]).join()==='primary');
   ok('a Contacted lead moves to Assessment Scheduled', lead.status==='Assessment Scheduled' && L.persists.some(x=>x[0]==='leads'));
   const rail=qa('#hvRail [data-hvs]').map(b=>b.innerText.replace(/\s+/g,' ').trim());
   ok('seven screens in her order, then After the visit (stage 3), first one showing', rail.join('|')==='1 Start the visit|2 Their story|3 Health|4 Daily activities|5 Preferences|6 Schedule and level|7 Sign-off|8 After the visit' && q('.hv-sec[data-sec="0"]').style.display==='' && q('.hv-sec[data-sec="1"]').style.display==='none', rail);
