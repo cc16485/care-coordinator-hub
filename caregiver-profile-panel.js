@@ -23,7 +23,7 @@
   var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'caregiver-profiles';
-  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete,photo_hidden,video_hidden';
+  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete,photo_hidden,video_hidden,quick,quick_answers,approval_sent_at,approval_words,approved_at,approved_by,change_request,change_request_at';
   var IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   var VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
   var FIELDS = [
@@ -60,11 +60,32 @@
     return out;
   }
 
+  /* 1181 QUICK PROFILE (Samantha, 2026-10-29: "photo plus 3 short answers, office writes it with Beef it up, caregiver
+     replies OK to approve"). Where a quick profile stands; the server's publish check is the real rule (the exact words
+     they OK'd must still be the words on file). */
+  function wordsNow(row) { var o = {}; FIELDS.forEach(function (f) { o[f[0]] = noDash(row && row[f[0]]).trim(); }); return o; }
+  function okdWords(row) { var a = row && row.approval_words; return !!(a && FIELDS.every(function (f) { return String(a[f[0]] == null ? '' : a[f[0]]).trim() === wordsNow(row)[f[0]]; })); }
+  function quickStage(row) {
+    if (!row || !row.quick) return '';
+    if (row.approved_at) return okdWords(row) ? 'okd' : 'changed';
+    if (row.change_request && Date.parse(row.change_request_at || 0) >= Date.parse(row.approval_sent_at || 0)) return 'change';
+    if (row.approval_sent_at) return 'waitok';
+    if (row.submitted_at && row.photo_path && row.consent) return 'write';
+    return row.link_sent_at ? 'sent' : 'none';
+  }
   function status(row) {
     if (!row) return ['Not started', '#F3F4F6', '#4B5563'];
     if (row.status === 'withdrawn') return ['Withdrawn', '#FEE2E2', '#991B1B'];
     if (row.published && row.needs_review) return ['Published, older: check it', '#FEF3C7', '#92400E'];
     if (row.published) return ['Published', '#DCFCE7', '#15803D'];
+    var qs = quickStage(row);
+    if (qs === 'okd') return ['They OK\'d it: publish', '#DCFCE7', '#15803D'];
+    if (qs === 'changed') return ['Words changed: send for their OK again', '#FEF3C7', '#92400E'];
+    if (qs === 'change') return ['They asked for a change', '#FEE2E2', '#991B1B'];
+    if (qs === 'waitok') return ['Waiting for their OK', '#E0F2FE', '#075985'];
+    if (qs === 'write') return ['Answers in: write it for them', '#E0F7F6', '#0F766E'];
+    if (qs === 'sent') return ['Quick link sent, waiting', '#E0F2FE', '#075985'];
+    if (qs === 'none') return ['Quick link not sent yet', '#F3F4F6', '#4B5563'];
     /* 452: a current caregiver fills it in themselves; it is ready for you once they send it complete */
     if (row.self_complete) {
       if (row.submitted_at && row.photo_path && row.consent) return ['Sent in: check and publish', '#E0F7F6', '#0F766E'];   /* 522: the video is optional */
@@ -174,7 +195,7 @@
     var map = { about: 'about', experience: 'experience', why_this_work: 'why' };
     return '<div style="margin-top:.8rem;border:1.5px solid var(--teal,#54BDB8);border-radius:11px;padding:.7rem .8rem;background:#F4FBFB">'
       + '<div style="display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.3rem"><b style="color:var(--navy,#0E3860)">A fuller version</b>'
-      + '<span style="font-size:.74rem;color:#64748B">from their words' + (B.step1 ? ', their Step 1 application' : (B.app ? ' and their application' : '')) + '. Choose per section, then press Save.</span>'
+      + '<span style="font-size:.74rem;color:#64748B">from their ' + (m.row && m.row.quick ? 'quick answers' : 'words') + (B.step1 ? ', their Step 1 application' : (B.app ? ' and their application' : '')) + '. Choose per section, then press Save.</span>'
       + '<span style="flex:1"></span><button class="ibtn" onclick="CGP2.act(\'' + k + '\',\'beefclose\',this)">Close</button></div>'
       + FIELDS.map(function (f) {
         var sug = s[map[f[0]]] || '', cur = (document.getElementById(k + '-' + f[0]) || {}).value;
@@ -223,9 +244,9 @@
           + '<button class="ibtn" onclick="CGP2.link(\'' + k + '\',\'' + esc(s.id) + '\',this)">Yes, link it</button></div>';
       }).join('');
       h += '<div style="font-size:.8rem;color:var(--gray,#6B7280);margin-bottom:.5rem">'
-        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit. Current caregivers fill it in themselves from their own link.' : 'No profile yet. Draft it with AI before the Orientation Video Call, then read it to them on the call.')
+        + (x.mode === 'employee' ? 'No profile yet. Families see this card before a visit. Current caregivers send a photo and 3 quick answers from their own link; you write it, and they OK it.' : 'No profile yet. Draft it with AI before the Orientation Video Call, then read it to them on the call.')
         + '</div>' + (x.mode === 'employee'
-          ? btn('catchup', '📲 Set up their link (they fill it in)', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Starts their profile for them to fill in themselves; then press Send profile link')
+          ? btn('quickstart', '📲 Set up their quick link (photo and 3 questions)', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Starts their quick profile; then press Send quick link')
           : btn('draft', '✨ Draft with AI', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)'))
         + '<div id="' + k + '-msg" style="font-size:.8rem;margin-top:.45rem"></div>';
       m.host.innerHTML = h; if (m.msg) say(m, m.msg[0], m.msg[1]); return;
@@ -237,7 +258,7 @@
         + hideLine(k, row, 'photo')
         + (row.photo_path ? '' : '<div style="font-size:.66rem;color:#92400E;margin-top:.2rem">Older photo. Upload a proper one.</div>')
         : '<div style="width:96px;height:96px;border-radius:12px;border:1.5px dashed #CBD5E1;display:flex;align-items:center;justify-content:center;font-size:.7rem;color:#64748B;padding:.3rem">No photo yet (required)</div>')
-      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' + hideLine(k, row, 'video') : (row.self_complete ? '<div style="font-size:.68rem;color:#B00020;margin-top:.25rem">No video yet (required)</div>' : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>'))
+      + (row.video_path ? '<a href="' + esc(publicUrl(row.video_path)) + '" target="_blank" rel="noopener" style="display:block;font-size:.72rem;margin-top:.25rem">▶ Their video</a>' + hideLine(k, row, 'video') : '<div style="font-size:.68rem;color:#94A3B8;margin-top:.25rem">No video (optional)</div>')
       + '<label class="ibtn" style="display:block;margin-top:.35rem;cursor:pointer;font-size:.68rem">Replace photo<input type="file" accept="image/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'photo\',this)"></label>'
       + '<label class="ibtn" style="display:block;margin-top:.25rem;cursor:pointer;font-size:.68rem">' + (row.video_path ? 'Replace video' : 'Add a video') + '<input type="file" accept="video/*" style="display:none" onchange="CGP2.upload(\'' + k + '\',\'video\',this)"></label>'
       + '</div><div style="flex:1;min-width:240px">';
@@ -246,8 +267,25 @@
       + 'It came from the older intro list, which families were already being shown, so it stays live and is linked in family texts. '
       + (row.photo_path && row.consent ? btn('reviewed', '✓ Checked: words, photo and their OK', 'margin-top:.3rem') : '<span style="color:#64748B">Still needed: ' + [row.photo_path ? '' : 'a proper photo (Replace photo, or Send photo link)', row.consent ? '' : 'their OK (they tick it on their page)'].filter(Boolean).join(' and ') + '.</span>')
       + '</div>';
-    if (row.self_complete) h += '<div style="background:#F0F7FF;border:1px solid #BFD7F2;border-radius:9px;padding:.45rem .7rem;margin-bottom:.5rem;font-size:.78rem">'
-      + '<b style="color:var(--navy,#0E3860)">Current caregiver: they fill this in themselves</b> from their profile link, in their own words, with a photo and a video (both required). Read it, fix anything that should not go to a family, then publish.</div>';
+    var qs = quickStage(row);
+    if (row.quick) {
+      var qa = row.quick_answers || {};
+      h += '<div style="background:#F0F7FF;border:1px solid #BFD7F2;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.78rem;line-height:1.5">'
+        + '<b style="color:var(--navy,#0E3860)">Quick profile: they send a photo and 3 answers, you write it, they OK it.</b>'
+        + (row.submitted_at ? '<div style="margin-top:.3rem"><b>Their answers</b> (sent ' + esc(day(row.submitted_at)) + '):<br>Years a caregiver: <b>' + esc(qa.years || '') + '</b><br>Three words: <b>' + esc(qa.words || '') + '</b><br>Loves outside work: <b>' + esc(qa.outside || '') + '</b></div>'
+          : '<div style="margin-top:.3rem;color:#64748B">No answers yet. ' + (row.link_sent_at ? 'Their quick link went ' + esc(day(row.link_sent_at)) + '.' : 'Press Send quick link.') + '</div>')
+        + '<div style="margin-top:.35rem;color:#475569">' + ({
+          write: 'Next: press ✨ Write it for them, choose what to use, Save, then 📲 Send it to them to OK.',
+          waitok: 'Sent to them to OK ' + day(row.approval_sent_at) + '. They tap Looks good on their page, or reply OK by text. If they said OK by text or phone, press ✓ They said OK.',
+          change: '',
+          okd: 'They OK\'d these words ' + day(row.approved_at) + (row.approved_by ? ' (' + row.approved_by + ')' : '') + '. Press ✓ Publish.',
+          changed: 'The words changed after they OK\'d them. Send it to them to OK again before publishing.'
+        }[qs] || '') + '</div></div>';
+      if (row.change_request && qs === 'change') h += '<div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
+        + '<b style="color:#991B1B">They asked for a change</b> (' + esc(day(row.change_request_at)) + '): "' + esc(row.change_request) + '"<br><span style="color:#64748B">Make the change, Save, then 📲 Send it to them to OK again.</span></div>';
+    } else if (row.self_complete) h += '<div style="background:#F0F7FF;border:1px solid #BFD7F2;border-radius:9px;padding:.45rem .7rem;margin-bottom:.5rem;font-size:.78rem">'
+      + '<b style="color:var(--navy,#0E3860)">Current caregiver: they fill this in themselves</b> from their profile link, in their own words, with a photo (required) and a short hello video if they like. Read it, fix anything that should not go to a family, then publish.'
+      + (!row.submitted_at && !row.published ? ' ' + btn('quickswitch', 'Switch to the quick version', 'margin-top:.3rem', 'They send a photo and 3 quick answers instead; you write it and they OK it') : '') + '</div>';
     var ps = prompts(row);
     if (ps.length) h += '<div style="background:#FFF8EC;border:1.5px solid #F0A63A;border-radius:9px;padding:.5rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
       + '<b style="color:#92400E">Ask on the call</b> (type their answer in their words, and take the [brackets] out):<ul style="margin:.25rem 0 0;padding-left:1.1rem">'
@@ -259,14 +297,17 @@
       h += '<label style="display:block;font-size:.74rem;font-weight:700;color:var(--navy,#0E3860);margin:.5rem 0 .15rem">' + esc(f[1]) + ' <span style="font-weight:400;color:#64748B">' + esc(f[2]) + '</span></label>'
         + '<textarea id="' + k + '-' + f[0] + '" style="width:100%;box-sizing:border-box;min-height:62px;font:inherit;font-size:.82rem;padding:.4rem .5rem;border:' + (flag ? '2px solid #F0A63A;background:#FFFBF2' : '1px solid var(--border,#E2E8F0)') + ';border-radius:7px">' + esc(v) + '</textarea>';
     });
-    h += '<div style="font-size:.7rem;color:#64748B;margin-top:.2rem">' + (row.self_complete ? 'In their own words. ' : 'Written about them, using their first name. ') + 'The card shows their first name and last initial.</div>'
+    h += '<div style="font-size:.7rem;color:#64748B;margin-top:.2rem">' + (row.self_complete && !row.quick ? 'In their own words. ' : 'Written about them, using their first name. ') + 'The card shows their first name and last initial.</div>'
       + '<div style="display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.55rem">'
       + btn('save', '💾 Save', 'background:var(--navy,#0E3860);color:#fff;border-color:var(--navy,#0E3860)')
-      + (FIELDS.some(function (f) { return String(row[f[0]] || '').trim(); }) ? btn('beef', '✨ Beef it up with AI', '', 'A fuller version from their words and their application. You compare and choose; nothing is saved until you press Save.') : '')
+      + (FIELDS.some(function (f) { return String(row[f[0]] || '').trim(); }) ? btn('beef', '✨ Beef it up with AI', '', 'A fuller version from their words and their application. You compare and choose; nothing is saved until you press Save.')
+        : (row.quick && row.submitted_at ? btn('beef', '✨ Write it for them', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Writes all three sections from their 3 answers and their application. You choose; nothing is saved until you press Save.') : ''))
+      + (row.quick && !row.published && row.submitted_at ? btn('sendok', row.approval_sent_at ? '📲 Send it to them to OK again' : '📲 Send it to them to OK', '', 'Texts and emails their link, where they see these words and tap Looks good or ask for a change')
+        + (qs === 'okd' ? '' : btn('recordok', '✓ They said OK (text or phone)', '', 'Record that they OK\'d the words now on file')) : '')
       + (row.self_complete ? '' : btn('draft', '✨ Redo draft', '', 'Ask the AI for a fresh draft from their application and interview'))
-      + (row.published && !row.needs_review ? '' : btn('send', row.self_complete ? (row.link_sent_at ? '📲 Send profile link again' : '📲 Send profile link') : (row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link'), '', row.self_complete ? 'Texts and emails their personal link to fill in their profile' : 'Texts and emails their personal link to add a photo and video'))
+      + (row.published && !row.needs_review || (row.quick && row.approval_sent_at) ? '' : btn('send', row.quick ? (row.link_sent_at ? '📲 Send quick link again' : '📲 Send quick link') : row.self_complete ? (row.link_sent_at ? '📲 Send profile link again' : '📲 Send profile link') : (row.link_sent_at ? '📲 Send photo link again' : '📲 Send photo link'), '', row.self_complete ? 'Texts and emails their personal link to fill in their profile' : 'Texts and emails their personal link to add a photo and video'))
       + (row.published ? btn('intro', '💌 Introduce to a family', 'background:var(--teal,#54BDB8);color:#fff;border-color:var(--teal,#54BDB8)', 'Text and email a family this card, after you see a preview') : '')
-      + (row.published ? btn('unpublish', 'Unpublish', 'color:#B00020;border-color:#FCA5A5') : btn('publish', '✓ Publish', 'background:#15803D;color:#fff;border-color:#15803D', 'Needs a photo, their permission, and no [ask] prompts left'))
+      + (row.published ? btn('unpublish', 'Unpublish', 'color:#B00020;border-color:#FCA5A5') : btn('publish', '✓ Publish', 'background:#15803D;color:#fff;border-color:#15803D', row.quick ? 'Needs a photo, their permission, and their OK of these exact words' : 'Needs a photo, their permission, and no [ask] prompts left'))
       + '</div><div id="' + k + '-msg" style="font-size:.8rem;margin-top:.45rem;white-space:pre-wrap"></div>'
       + '<div style="font-size:.7rem;color:#64748B;margin-top:.45rem;line-height:1.5">'
       + [row.drafted_at ? 'Drafted ' + day(row.drafted_at) + (row.drafted_by ? ' by ' + esc(who(row.drafted_by)) : '') : '',
@@ -414,6 +455,33 @@
         if (hr.error) { say(m, 'Did not save: ' + hr.error.message, true); return; }
         try { if (typeof root.opEvent === 'function') root.opEvent(hide ? 'profile_media_hidden' : 'profile_media_shown', { summary: name + '\'s profile ' + word + (hide ? ' hidden from' : ' shown to') + ' families' }); } catch (e) { /* the record is a nicety */ }
         m.msg = [hide ? ('Hidden. Families no longer see ' + name.split(' ')[0] + '\'s ' + word + '.') : ('Shown. Families see ' + name.split(' ')[0] + '\'s ' + word + ' again.'), false];
+        await reload(k); return;
+      }
+      if (what === 'quickstart' || what === 'quickswitch') {
+        if (what === 'quickswitch' && !(await ccConfirm('Switch ' + name + ' to the quick version?\n\nThey send a photo and 3 quick answers, you write it, and they OK it. Then press Send quick link.'))) return;
+        say(m, 'Setting up their quick profile…');
+        var qk = await call({ action: 'catchup', quick: true, axiscare_id: x.axiscare_id || (row && row.axiscare_id) || '', first: x.first || '', last: x.last || '', legacy_candidate_id: x.legacy_candidate_id || '' });
+        m.msg = [qk.skipped === 'published' ? 'Their profile is already published.' : 'Ready. Now press Send quick link.', false];
+        await reload(k); return;
+      }
+      if (what === 'sendok') {
+        var dirty = FIELDS.some(function (f) { var el = document.getElementById(k + '-' + f[0]); return el && noDash(el.value).trim() !== noDash(row[f[0]]).trim(); });
+        if (dirty) { say(m, 'Press Save first, so they see the words you have now.', true); return; }
+        var pv = await call({ action: 'send_approval', profile_id: row.id, dry: true, phone: x.phone || '', email: x.email || '' });
+        var to2 = [pv.to && pv.to.phone ? 'TEXT to ' + pv.to.phone + ' (only if they said yes to texts, 8am to 6pm Central)' : '', pv.to && pv.to.email ? 'EMAIL to ' + pv.to.email : ''].filter(Boolean);
+        if (!to2.length) { alert(name + ' has no phone number or email on file. Add one first. Nothing was sent.'); return; }
+        if (!(await ccConfirm('Send ' + name + ' their profile to OK?\n\nThis sends a ' + to2.join(' and an ') + '.\n\nTEXT:\n' + pv.text + '\n\nEMAIL: ' + pv.subject))) return;
+        var so = await call({ action: 'send_approval', profile_id: row.id, phone: x.phone || '', email: x.email || '' });
+        m.msg = [sent(so), !(so.texted || so.emailed)];
+        alert((so.texted || so.emailed ? 'Sent for their OK.\n\n' : 'It did NOT go.\n\n') + sent(so));
+        await reload(k); return;
+      }
+      if (what === 'recordok') {
+        var dirty2 = FIELDS.some(function (f) { var el = document.getElementById(k + '-' + f[0]); return el && noDash(el.value).trim() !== noDash(row[f[0]]).trim(); });
+        if (dirty2) { say(m, 'Press Save first. Their OK is for the words on file.', true); return; }
+        if (!(await ccConfirm(name + ' said OK to these exact words, by text or phone?\n\nIt is recorded with your name. If you change the words later, they OK them again.'))) return;
+        await call({ action: 'record_ok', profile_id: row.id });
+        m.msg = ['Recorded. Now press ✓ Publish.', false];
         await reload(k); return;
       }
       if (what === 'catchup') {
@@ -682,6 +750,12 @@
   function cuClass(pp, row) {
     if (String(pp.hire_date || '').slice(0, 10) >= NEWHIRE_FROM) return 'newhire';
     if (row && row.published && !row.needs_review) return 'published';
+    /* 1181: a quick profile moves through write → their OK → publish */
+    var qs = quickStage(row);
+    if (qs === 'write' || qs === 'change' || qs === 'changed') return 'write';
+    if (qs === 'waitok') return 'waitok';
+    if (qs === 'okd') return 'check';
+    if (qs === 'sent') return 'qsent';
     if (row && row.submitted_at && row.photo_path && row.consent) return 'check';   /* 522: the video is optional */
     if (row && row.self_complete && row.link_sent_at) return 'sent';
     return 'none';
@@ -704,13 +778,13 @@
     } catch (e) { CU.err = (e && e.message) || 'error'; CU.rows = null; }
   }
   function cuGroups() {
-    var g = { check: [], none: [], sent: [], published: [], newhire: [] };
+    var g = { check: [], write: [], waitok: [], qsent: [], none: [], sent: [], published: [], newhire: [] };
     CU.people.forEach(function (p) { g[cuClass(p, CU.rows[p.id])].push(p); });
     return g;
   }
   function cuAgain(g) {
     var cut = Date.now() - AGAIN_DAYS * 864e5;
-    return g.sent.filter(function (p) { var r = CU.rows[p.id]; return r && Date.parse(r.link_sent_at || 0) < cut; });
+    return g.qsent.filter(function (p) { var r = CU.rows[p.id]; return r && Date.parse(r.link_sent_at || 0) < cut; });
   }
   function cuInTextHours() { var h = Number(new Date().toLocaleString('en-US', { timeZone: 'America/Chicago', hour: '2-digit', hour12: false })) % 24; return h >= 8 && h < 18; }
   function cuHow(p) { return p.mobile && p.email ? 'text and email' : p.mobile ? 'text only (no email on file)' : p.email ? 'email only (no mobile on file)' : ''; }
@@ -723,11 +797,12 @@
   function cuDraw() {
     var el = CU.el; if (!el || !document.body.contains(el)) return;
     if (CU.err) { el.innerHTML = '<div class="card" style="padding:16px">Could not load the profiles: ' + esc(CU.err) + ' <button class="ibtn" onclick="CGP2.catchupReload()">Try again</button></div>'; return; }
-    var g = cuGroups(), again = cuAgain(g), need = g.none.length + g.sent.length + g.check.length, cur = CU.people.length - g.newhire.length;
+    var g = cuGroups(), again = cuAgain(g), toQuick = g.none.concat(g.sent), cur = CU.people.length - g.newhire.length, need = cur - g.published.length;
     var chip = function (t, bg, fg) { return '<span style="background:' + bg + ';color:' + fg + ';border-radius:999px;padding:.12rem .6rem;font-size:.74rem;font-weight:700;white-space:nowrap">' + t + '</span>'; };
     var row = function (p) {
       var r = CU.rows[p.id], st = cuClass(p, r);
-      var when = st === 'sent' ? 'Link sent ' + day(r.link_sent_at) : st === 'check' ? 'Sent in ' + day(r.submitted_at) : st === 'published' ? 'Published ' + day(r.published_at) : st === 'newhire' ? 'Hired ' + day(p.hire_date) : '';
+      var when = st === 'sent' ? 'Long-form link sent ' + day(r.link_sent_at) : st === 'qsent' ? 'Quick link sent ' + day(r.link_sent_at) : st === 'write' ? status(r)[0] + (r.submitted_at ? ' · answers in ' + day(r.submitted_at) : '')
+        : st === 'waitok' ? 'Sent for their OK ' + day(r.approval_sent_at) : st === 'check' ? (r.quick ? 'They OK\'d it ' + day(r.approved_at) : 'Sent in ' + day(r.submitted_at)) : st === 'published' ? 'Published ' + day(r.published_at) : st === 'newhire' ? 'Hired ' + day(p.hire_date) : '';
       return '<div onclick="cgdOpenProfile(\'' + esc(p.id) + '\')" style="display:flex;gap:10px;align-items:center;padding:8px 14px;border-bottom:1px solid #F3EFE7;cursor:pointer;font-size:13.5px">'
         + '<b style="min-width:170px;color:var(--navy,#0E3860)">' + esc((p.first + ' ' + p.last).trim()) + '</b>'
         + '<span class="field-note" style="flex:1">' + esc(when) + '</span>'
@@ -741,31 +816,35 @@
     };
     var h = '<div class="card" style="padding:14px 16px">'
       + '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (need ? need + ' of ' + cur + ' current caregivers don\'t have a published profile yet' : 'Every current caregiver has a published profile') + '</div>'
-      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('Not sent yet · ' + g.none.length, '#F3F4F6', '#4B5563') + chip('Link sent, waiting · ' + g.sent.length, '#E0F2FE', '#075985')
-      + chip('Sent in, needs your check · ' + g.check.length, '#E0F7F6', '#0F766E') + chip('Published · ' + g.published.length, '#DCFCE7', '#15803D') + '</div>'
-      + '<div class="field-note" style="margin-bottom:8px">They fill it in themselves: three questions in their own words, a photo (required) and a short hello video if they like, and their permission. You check and publish each one from their page. Texts go 8am to 6pm; the email goes either way. Nothing is sent until you press a button.</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">' + chip('No quick link yet · ' + toQuick.length, '#F3F4F6', '#4B5563') + chip('Quick link sent, waiting · ' + g.qsent.length, '#E0F2FE', '#075985')
+      + chip('Write it for them · ' + g.write.length, '#E0F7F6', '#0F766E') + chip('Waiting for their OK · ' + g.waitok.length, '#E0F2FE', '#075985')
+      + chip('Ready to publish · ' + g.check.length, '#DCFCE7', '#15803D') + chip('Published · ' + g.published.length, '#DCFCE7', '#15803D') + '</div>'
+      + '<div class="field-note" style="margin-bottom:8px">The quick version: they send a friendly photo and answer 3 quick questions (years a caregiver, three words that describe them, one thing they love outside work) and give their permission. You open each one, press ✨ Write it for them, Save, and send it to them to OK. Once they OK it, you publish. Texts go 8am to 6pm; the email goes either way. Nothing is sent until you press a button.</div>'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="primary" ' + (g.none.length && !CU.busy ? '' : 'disabled ') + 'onclick="CGP2.catchupSend(\'new\',this)">📲 Send profile links to everyone who needs one (' + g.none.length + ')</button>'
+      + '<button class="primary" ' + (toQuick.length && !CU.busy ? '' : 'disabled ') + 'title="Everyone with no profile yet, and everyone still waiting on the longer version" onclick="CGP2.catchupSend(\'new\',this)">📲 Send the quick link to everyone who needs one (' + toQuick.length + ')</button>'
       + '<button class="ghost" ' + (CU.busy ? 'disabled ' : '') + 'title="One text and email to every current caregiver saying the hello video is now optional. Never twice to the same person." onclick="CGP2.noticeSend(this)">📣 Tell everyone the video is optional</button>'
       + '<button class="ghost" ' + (again.length && !CU.busy ? '' : 'disabled ') + 'title="Anyone whose link went ' + AGAIN_DAYS + '+ days ago and who has not sent it in" onclick="CGP2.catchupSend(\'again\',this)">Send again to those waiting ' + AGAIN_DAYS + '+ days (' + again.length + ')</button>'
       + '</div>' + (CU.result ? '<div style="margin-top:10px;font-size:13px;white-space:pre-wrap;color:' + (CU.result[1] ? '#B00020' : '#15803D') + '">' + esc(CU.result[0]) + '</div>' : '')
       + '</div>'
-      + sec('SENT IN: CHECK AND PUBLISH', g.check, 'Open each one, read it, then press ✓ Publish.')
-      + sec('NOT SENT YET', g.none)
-      + sec('LINK SENT, WAITING FOR THEM', g.sent)
+      + sec('READY TO PUBLISH', g.check, 'Open each one, read it, then press ✓ Publish.')
+      + sec('WRITE IT FOR THEM', g.write, 'Their photo and answers are in (or they asked for a change). Open each one, press ✨ Write it for them, Save, then 📲 Send it to them to OK.')
+      + sec('WAITING FOR THEIR OK', g.waitok, 'They tap Looks good on their page, or reply OK. If they said OK by text or phone, open them and press ✓ They said OK.')
+      + sec('QUICK LINK SENT, WAITING FOR THEIR PHOTO AND ANSWERS', g.qsent)
+      + sec('NO QUICK LINK YET', g.none)
+      + sec('LONG-FORM LINK SENT, NOT FILLED IN (THE QUICK LINK REPLACES IT)', g.sent)
       + sec('PUBLISHED', g.published)
       + sec('NEW HIRES (THEIR ORIENTATION VIDEO CALL FLOW, NOT SENT FROM HERE)', g.newhire);
     el.innerHTML = h;
   }
   async function catchupSend(which, btn) {
     if (CU.busy) return;
-    var g = cuGroups(), list = which === 'again' ? cuAgain(g) : g.none;
+    var g = cuGroups(), list = which === 'again' ? cuAgain(g) : g.none.concat(g.sent);
     var reach = list.filter(function (p) { return cuHow(p); }), none = list.filter(function (p) { return !cuHow(p); });
     if (!reach.length) { alert('Nobody on this list has a mobile or email on file. Nothing was sent.'); return; }
     var pop = typeof root.ccPopOpen === 'function' ? root.ccPopOpen : null;
-    var html = '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (which === 'again' ? 'Send the link again to ' : 'Send profile links to ') + reach.length + ' caregiver' + (reach.length === 1 ? '' : 's') + '?</div>'
+    var html = '<div style="font-size:15px;font-weight:800;color:var(--navy,#0E3860)">' + (which === 'again' ? 'Send the quick link again to ' : 'Send the quick link to ') + reach.length + ' caregiver' + (reach.length === 1 ? '' : 's') + '?</div>'
       + (cuInTextHours() ? '' : '<div style="background:#FFF8EC;border:1px solid #F0D8A8;border-radius:8px;padding:6px 9px;margin:8px 0;font-size:12.5px"><b>It is outside 8am to 6pm, so only the emails would go now.</b> Better to press this between 8am and 6pm so they get the text too.</div>')
-      + '<div class="field-note" style="margin:6px 0">Each gets their own link by ' + 'text and email where we have them. They write it themselves; nothing is published until you check it.</div>'
+      + '<div class="field-note" style="margin:6px 0">Each gets their own link by ' + 'text and email where we have them: a photo and 3 quick questions. You write it from their answers, they OK it, then you publish.</div>'
       + '<div style="max-height:220px;overflow:auto;font-size:12.5px;border:1px solid #E2E8F0;border-radius:8px;padding:6px 9px">' + reach.map(function (p) { return esc((p.first + ' ' + p.last).trim()) + ' <span style="color:#64748B">· ' + esc(cuHow(p)) + '</span>'; }).join('<br>') + '</div>'
       + (none.length ? '<div style="font-size:12.5px;color:#B00020;margin-top:6px">Can\'t be reached (no mobile or email in AxisCare): ' + none.map(function (p) { return esc((p.first + ' ' + p.last).trim()); }).join(', ') + '</div>' : '')
       + '<div style="display:flex;gap:8px;margin-top:10px"><button class="primary" id="cuGo">Send to ' + reach.length + '</button><button class="ghost" id="cuNo">Cancel</button></div><div id="cuProg" class="field-note" style="margin-top:6px"></div>';
@@ -777,14 +856,14 @@
         var p = reach[i], nm = (p.first + ' ' + p.last).trim();
         if (el) el.querySelector('#cuProg').textContent = 'Sending ' + (i + 1) + ' of ' + reach.length + '…';
         try {
-          var cu = await call({ action: 'catchup', axiscare_id: String(p.id), first: p.first || '', last: p.last || '', legacy_candidate_id: p.legacy || '' });
+          var cu = await call({ action: 'catchup', quick: true, axiscare_id: String(p.id), first: p.first || '', last: p.last || '', legacy_candidate_id: p.legacy || '' });
           if (cu.skipped === 'published') continue;
           var sres = await call({ action: 'send_link', profile_id: cu.profile.id, phone: p.mobile || '', email: p.email || '' });
           if (sres.texted || sres.emailed) { ok++; if (sres.texted) tx++; if (sres.emailed) em++; }
           if (sres.not_sent && sres.not_sent.length) fails.push(nm + ': ' + sres.not_sent.join('; '));
         } catch (e) { fails.push(nm + ': ' + ((e && e.message) || e)); }
       }
-      try { if (typeof root.opEvent === 'function') root.opEvent('profile_links_sent', { summary: 'Caregiver profile links ' + (which === 'again' ? 'sent again' : 'sent') + ' to ' + ok + ' current caregivers (' + tx + ' texts, ' + em + ' emails)' }); } catch (e) { /* the record is a nicety */ }
+      try { if (typeof root.opEvent === 'function') root.opEvent('profile_links_sent', { summary: 'Quick caregiver profile links ' + (which === 'again' ? 'sent again' : 'sent') + ' to ' + ok + ' current caregivers (' + tx + ' texts, ' + em + ' emails)' }); } catch (e) { /* the record is a nicety */ }
       CU.result = ['Sent to ' + ok + ' of ' + reach.length + ' (' + tx + ' by text, ' + em + ' by email).' + (fails.length ? '\n\nNot everything went:\n' + fails.join('\n') : ''), !!fails.length && !ok];
       CU.busy = false; if (el && typeof root.ccPopClose === 'function') root.ccPopClose();
       CU.rows = null; await catchupRender();
@@ -842,6 +921,6 @@
     chipHtml: chipHtml, status: status, rowFor: rowFor, loadForCandidates: loadForCandidates, prompts: prompts, noDash: noDash,
     introPick: introPick, introReason: introReason, cardName: cardName, photoOf: photoOf,
     cacheState: cacheState, isLive: isLive,
-    beefUse: beefUse, catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, noticeSend: noticeSend, cuClass: cuClass, CU: CU,
+    quickStage: quickStage, beefUse: beefUse, catchupRender: catchupRender, catchupSend: catchupSend, catchupReload: catchupReload, noticeSend: noticeSend, cuClass: cuClass, CU: CU,
     gateReady: function () { return !!G.rows; }, gateLoad: gateLoad, gateFor: gateFor, gateForAx: gateForAx, gateHtml: gateHtml, gateOpen: gateOpen, gateOverride: gateOverride };
 })(typeof window !== 'undefined' ? window : globalThis);
