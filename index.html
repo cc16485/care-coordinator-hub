@@ -102,6 +102,8 @@
   /* Kept with the class that sets it, in the head, so the rule exists before
      the element it hides is parsed. */
   html.embedded.focused .fbar{ display:none; }
+  /* #prnteams (its own GHL sidebar link): just the PRN Teams, without Recruit's other views */
+  html.prnonly #tab-recruit .offnav{ display:none; }
   html.setonly header.topbar, html.setonly .fbar, html.setonly .fsubbar, html.setonly #settingsFocusBar,
   html.setonly #settingsHead{ display:none !important; }
   html.setonly #tab-settings > .card{ max-width:none !important; border:0 !important; box-shadow:none !important; padding:2px 4px !important; }
@@ -3858,12 +3860,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="offnav-b" id="rcnav-postings"  onclick="rcView('postings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Job postings</button>
         <button class="offnav-b" id="rcnav-positions" onclick="rcView('positions')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Positions &amp; pre-screens</button>
         <button class="offnav-b" id="rcnav-script"    onclick="rcView('script')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-talk"/></svg> Interview questions</button>
-        <button class="offnav-b" id="rcnav-prn"       onclick="rcView('prn')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> PRN CNA Team</button>
+        <button class="offnav-b" id="rcnav-prn"       onclick="rcView('prn')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-steth"/></svg> PRN Teams</button>
         <button class="offnav-b" id="rcnav-dnr"       onclick="rcView('dnr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-alert"/></svg> Do not rehire</button>
       </div>
 
       <!-- PRN4 (2026-09-29): the PRN CNA Team bench against its minimum. Read only. -->
-      <div class="rcview" id="rcview-prn" style="display:none;"><div id="prnDash"><div class="field-note">Loading the PRN CNA Team…</div></div></div>
+      <div class="rcview" id="rcview-prn" style="display:none;"><div id="prnDash"><div class="field-note">Loading the PRN Teams…</div></div></div>
       <div class="rcview" id="rcview-postings" style="display:none;">
       <!-- Postings we own. These publish to mo-care.com/careers with the structured data Google reads for free. -->
       <div class="card" style="padding:16px 18px;margin-bottom:14px;">
@@ -4443,7 +4445,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_cov_other_sameday" rows="2" placeholder="Hi {first_name}, it's Caring Companions. Last-minute fill-in for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
 <label>To everyone else, shift is a FUTURE day</label>
 <textarea id="set_cov_other_advance" rows="2" placeholder="Hi {first_name}, it's Caring Companions. We have an open shift for {client} at {address}: {when}. {pattern}{care}Can you take it? Reply YES or NO. Questions welcome."></textarea>
-<label>To the PRN CNA Team (call-offs and one-time shifts)</label>
+<label>To the PRN Teams (call-offs and one-time shifts)</label>
 <textarea id="set_cov_prn" rows="2" placeholder="Hi {first_name}, it's Caring Companions. PRN opportunity: {client} at {address}, {when}. {care}Can you take it? Reply YES or NO. No pressure either way."></textarea>
 <div class="field-note" style="margin:-4px 0 8px;">Leave pay out: a PRN Team member is always paid their team's PRN rate (on the Approved hourly pay rates card), and nothing changes pay by shift.</div>
 <label>Instant reply to a YES</label>
@@ -4594,9 +4596,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 <div class="settings-section" id="prnSettings" data-set="prn">
-<h3>🩺 PRN CNA Team</h3>
-<p class="hint">The minimum bench shown on Recruit → PRN CNA Team, and the 60-day availability check-in text (weekdays 10am to 5pm, at most 20 a day, nobody twice in 14 days, STOP respected). Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own one-tap link; keep it in).</p>
-<div class="grid2"><div><label>PRN Team minimum</label><input id="set_prn_min" inputmode="numeric" placeholder="20"></div><div></div></div>
+<h3>🩺 PRN Teams</h3>
+<p class="hint">The goal for each team shown on Recruit → PRN Teams, and the 60-day availability check-in text (weekdays 10am to 5pm, at most 20 a day, nobody twice in 14 days, STOP respected). Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own one-tap link; keep it in).</p>
+<div class="grid2"><div><label>PRN CNA Team goal</label><input id="set_prn_min" inputmode="numeric" placeholder="20"></div><div><label>PRN Caregiver Team goal</label><input id="set_prn_cg_min" inputmode="numeric" placeholder="10"></div></div>
 <label>The check-in text</label>
 <textarea id="set_prn_msg" rows="2" placeholder="Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update: {link}"></textarea>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
@@ -4604,6 +4606,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="fb" id="prnLiveBtn" onclick="prnSetToggle(this)">Turn on check-in texts</button>
   <span class="field-note" id="prnSetStatus"></span>
 </div>
+<h4 style="margin:18px 0 4px;color:var(--navy);">Asking for open shifts (PRN step 1)</h4>
+<p class="hint">Who is asked first when a shift opens, and what PRN members are texted. Fill-ins: <code>{first_name}</code>, <code>{client}</code>, <code>{town}</code>, <code>{when}</code>, <code>{month}</code> (when they last cared for this client), <code>{care}</code> (the care note on the shift). Leave a box empty for the approved wording.</p>
+<label>To a PRN member who has cared for this client</label>
+<textarea id="set_prn_fam_msg" rows="3"></textarea>
+<label>To a PRN member who hasn't</label>
+<textarea id="set_prn_team_msg" rows="3"></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="prnStep1Save(this)">Save the wording</button>
+  <span class="field-note" id="prnStep1Status"></span>
+</div>
+<div id="prnStep1Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 <div class="settings-section" id="tkSettings" data-set="missed-clockins">
 <h3>⏰ Missed clock-ins</h3>
@@ -15640,6 +15653,8 @@ async function aiSetSave(btn){
 function prnSetFill(){
   const st = DATA.ops_settings||{};
   const m = document.getElementById('set_prn_min'); if(m) m.value = st.prn_team_minimum!=null ? String(st.prn_team_minimum) : '';
+  const mc = document.getElementById('set_prn_cg_min'); if(mc) mc.value = st.prn_caregiver_minimum!=null ? String(st.prn_caregiver_minimum) : '';
+  prnStep1Fill();
   const t = document.getElementById('set_prn_msg'); if(t) t.value = String(st.prn_reconfirm_msg||'');
   const on = st.prn_reconfirm_live===true, b = document.getElementById('prnLiveBtn'), s = document.getElementById('prnSetStatus');
   if(b) b.textContent = on ? 'Turn off check-in texts' : 'Turn on check-in texts';
@@ -15650,12 +15665,15 @@ async function prnSetSave(btn){
   const raw = String((document.getElementById('set_prn_min')||{}).value||'').trim();
   const min = raw==='' ? null : Math.round(Number(raw));
   if(raw!=='' && !(min>=1 && min<=200)){ if(s) s.textContent='The minimum must be a whole number from 1 to 200.'; return; }
+  const rawC = String((document.getElementById('set_prn_cg_min')||{}).value||'').trim();
+  const minC = rawC==='' ? null : Math.round(Number(rawC));
+  if(rawC!=='' && !(minC>=1 && minC<=200)){ if(s) s.textContent='The PRN Caregiver Team goal must be a whole number from 1 to 200.'; return; }
   const msg = String((document.getElementById('set_prn_msg')||{}).value||'').trim();
   if(msg && !msg.includes('{link}')){ if(s) s.textContent='Keep {link} in the text: it is their one-tap link.'; return; }
   if(btn) btn.disabled = true;
   const out = await tkMerge((m, base)=>{ const ch=[];
     const set=(k,v,label)=>{ if(v==null||v===''){ if(k in m){ delete m[k]; ch.push(label+' back to standard'); } return; } if(JSON.stringify(base[k])!==JSON.stringify(v)){ m[k]=v; ch.push(label); } };
-    set('prn_team_minimum', min, 'PRN Team minimum'); set('prn_reconfirm_msg', msg, 'PRN check-in wording'); return ch; }, 'PRN CNA Team settings');
+    set('prn_team_minimum', min, 'PRN CNA Team goal'); set('prn_caregiver_minimum', minC, 'PRN Caregiver Team goal'); set('prn_reconfirm_msg', msg, 'PRN check-in wording'); return ch; }, 'PRN Teams settings');
   if(btn) btn.disabled = false;
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
@@ -15664,10 +15682,58 @@ async function prnSetToggle(btn){
   if(!(await ccConfirm(on ? 'Turn on the PRN check-in texts? From the next weekday run, PRN CNAs whose availability is 60+ days old get one text with their one-tap link.'
                  : 'Turn off the PRN check-in texts? They go back to practice: worked out, nothing sent.'))) return;
   if(btn) btn.disabled = true;
-  const out = await tkMerge((m)=>{ m.prn_reconfirm_live = on; return [on ? 'PRN check-in texts ON' : 'PRN check-in texts OFF']; }, 'PRN CNA Team settings');
+  const out = await tkMerge((m)=>{ m.prn_reconfirm_live = on; return [on ? 'PRN check-in texts ON' : 'PRN check-in texts OFF']; }, 'PRN Teams settings');
   if(btn) btn.disabled = false;
   prnSetFill();
   const s = document.getElementById('prnSetStatus'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
+}
+/* PRN STEP 1 (Samantha 2026-10-28): the two PRN shift texts and three switches, each off until she turns it on. */
+const PRN_STEP1_SWITCHES = [
+  { key:'working_now_live', name:'Never text anyone working right now',
+    on:'Anyone clocked in on a visit is not texted about an open shift, even one that doesn\'t overlap. They show under Not contacted ("Working right now with Mary until 1pm") and are back in their place when they clock out.',
+    off:'Off: only people working during the open shift itself are skipped (as today).' },
+  { key:'prn_order_live', name:'Ask familiar first, then the PRN Teams, with the new PRN texts',
+    on:'People who have cared for the client go first (regular or PRN, favorites first), then the PRN Caregiver and PRN CNA Teams, then everyone else. PRN members get the texts above.',
+    off:'Off: PRN members who fit are asked first and get the old "PRN opportunity" text (as today).' },
+  { key:'prn_autolink_live', name:'Link PRN hires automatically when sure',
+    on:'Every morning, a PRN hire whose phone or email matches exactly one Active AxisCare caregiver is linked and tagged PRN TEAM in AxisCare, and it is recorded. Anyone unsure (two matches, inactive, not in AxisCare after 7 days, or tagged PRN in AxisCare but not on the list) gets a Needs Attention card.',
+    off:'Off: it is worked out each morning but nothing is linked, tagged or carded. Link them from their caregiver page (as today).' },
+  { key:'prn_count_live', name:'Count covered PRN shifts automatically',
+    on:'When a PRN member is confirmed on a shift, it is counted on their record (for thank-yous and milestones) without an office tap.',
+    off:'Off: a PRN shift is counted only when the office taps it (as today).' },
+];
+function prnStep1Fill(){
+  const st = DATA.ops_settings||{};
+  const f = document.getElementById('set_prn_fam_msg'); if(f){ f.value = String(st.coverage_msg_prn_familiar||''); f.placeholder = PRN_FAMILIAR_DEFAULT; }
+  const t = document.getElementById('set_prn_team_msg'); if(t){ t.value = String(st.coverage_msg_prn_team||''); t.placeholder = PRN_TEAM_DEFAULT; }
+  const box = document.getElementById('prnStep1Switches'); if(!box) return;
+  box.innerHTML = PRN_STEP1_SWITCHES.map(w=>{ const on = st[w.key]===true;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;"><button class="fb" style="flex:0 0 auto;" onclick="prnStep1Toggle(\''+w.key+'\',this)">'+(on?'Turn off':'Turn on')+'</button>'
+      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')
+      +'<div class="field-note">'+escapeHtmlComms(on?w.on:w.off)+'</div>'
+      +(w.key==='prn_order_live' && on && st.cara_wave_rules_live!==true ? '<div class="field-note" style="color:var(--amber);">"Let Cara run it" uses this order only while Cara\'s wave rules are on (cara_wave_rules_live). They are off, so her waves still ask PRN members first.</div>' : '')
+      +'</div></div>'; }).join('');
+}
+async function prnStep1Save(btn){
+  const s = document.getElementById('prnStep1Status');
+  const fam = String((document.getElementById('set_prn_fam_msg')||{}).value||'').trim(), team = String((document.getElementById('set_prn_team_msg')||{}).value||'').trim();
+  if(/\u2014/.test(fam+team)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m, base)=>{ const ch=[];
+    const set=(k,v,label)=>{ if(v===''){ if(k in m){ delete m[k]; ch.push(label+' back to the approved wording'); } return; } if(base[k]!==v){ m[k]=v; ch.push(label); } };
+    set('coverage_msg_prn_familiar', fam, 'PRN text (knows the client)'); set('coverage_msg_prn_team', team, 'PRN text (new to the client)'); return ch; }, 'PRN Teams settings');
+  if(btn) btn.disabled = false;
+  if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
+}
+async function prnStep1Toggle(key, btn){
+  const w = PRN_STEP1_SWITCHES.find(x=>x.key===key); if(!w) return;
+  const on = !((DATA.ops_settings||{})[key]===true);
+  if(!(await ccConfirm((on?'Turn on: ':'Turn off: ')+w.name+'?\n\n'+(on?w.on:w.off)))) return;
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m)=>{ m[key] = on; return [w.name+(on?' ON':' OFF')]; }, 'PRN Teams settings');
+  if(btn) btn.disabled = false;
+  prnSetFill();
+  const s = document.getElementById('prnStep1Status'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
 }
 /* One setting at a time (opened from the Owners Hub Admin page, #settings/<name>): the others are hidden, with a way back
    to all of them. The page-wide Save button shows only for the settings that use it. */
@@ -40227,6 +40293,10 @@ function covComposeMsgs(f,opts){
     other: fill(String(f.msg_other||'')||otherDefault),
     /* PRN3: the PRN wording, same default as the engine. No pay: a PRN member's rate is always $20. */
     prn: fill(String(st.coverage_msg_prn||'')||"Hi {first_name}, it's Caring Companions. PRN opportunity: {client} at {address}, {when}. {care}Can you take it? Reply YES or NO. No pressure either way."),
+    /* PRN step 1 (switch prn_order_live): the two approved PRN texts, same defaults as the engine (coverage-run PRN_FAMILIAR_MSG / PRN_TEAM_MSG) */
+    prn_step1: st.prn_order_live===true,
+    prn_familiar: st.prn_order_live!==true ? '' : fill(String(st.coverage_msg_prn_familiar||'')||PRN_FAMILIAR_DEFAULT).replaceAll('{town}',raw?'{town}':"(the client's town)").replaceAll('{month}',raw?'{month}':'(the month they last saw them)'),
+    prn_team: st.prn_order_live!==true ? '' : fill(String(st.coverage_msg_prn_team||'')||PRN_TEAM_DEFAULT).replaceAll('{town}',raw?'{town}':"(the client's town)"),
   };
 }
 let COV_PENDING=null;
@@ -40608,7 +40678,7 @@ function covPickerHtml(c){
     const prnTag=x=>'<span style="font-size:11px;font-weight:800;color:#8A5A00;background:#FBF1D9;border-radius:999px;padding:1px 8px;margin-right:4px;">PRN</span>';
     const prnRow=(x,g,checked,note)=>row(x,g,checked).replace('<b>'+esc(x.name)+'</b>', prnTag(x)+'<b>'+esc(x.name)+'</b>').replace('<span class="field-note">', '<span class="field-note">'+(note?'<b style="color:#8A5A00;">'+esc(note)+'</b> · ':''));
     body=((g0.length||pOther.length)
-        ? '<div style="font-weight:700;font-size:12.5px;color:#8A5A00;margin:2px 0;">PRN CNA Team who fit ('+g0.length+')</div>'
+        ? '<div style="font-weight:700;font-size:12.5px;color:#8A5A00;margin:2px 0;">PRN Teams who fit ('+g0.length+')</div>'
           +(g0.length?g0.map(x=>prnRow(x,0,true,'fits: their day, time and notice')).join(''):'<div class="field-note" style="padding:2px 0;">No PRN CNA fits this one.</div>')
           +pOther.map(x=>prnRow(x,0,false,'PRN, '+((x.prn&&x.prn.why)||'does not fit'))).join('')
           +'<div style="height:6px;"></div>'
@@ -40619,7 +40689,7 @@ function covPickerHtml(c){
       +(g2n?d.group2.map((x,i)=>row(x,2,isInterest?i<8:i<5)).join(''):'<div class="field-note" style="padding:2px 0;">Nobody else eligible.</div>')
       +(isInterest&&g2n>8?'<div class="field-note" style="padding:2px 0;">Top 8 checked. Tick more to reach the wider team.</div>':'')
       +(pOng.length?'<div style="margin-top:8px;padding:7px 10px;background:#FBF6EA;border:1px solid #ECD9AE;border-radius:8px;">'
-        +'<div style="font-size:12.5px;font-weight:700;color:#8A5A00;">PRN CNA Team members who fit this schedule ('+pOng.length+')</div>'
+        +'<div style="font-size:12.5px;font-weight:700;color:#8A5A00;">PRN Team members who fit this schedule ('+pOng.length+')</div>'
         +'<div class="field-note" style="margin:2px 0 4px;">Taking a regular schedule would mean moving to ongoing at $18. Ask only someone who has told us they want regular hours; if they take it, use Move to ongoing on their caregiver page.</div>'
         +pOng.map(x=>prnRow(x,'o',false,'')).join('')+'</div>':'')
       +(window.CP1?CP1.nvHtml(d):'')   /* Cara: Needs Verification, listed, never offerable (2026-10-23) */
@@ -41087,11 +41157,16 @@ async function covFollowSend(id){
     renderCoverage();
   }catch(e){ alert('Could not send: '+String(e.message||e)); }
 }
+/* PRN STEP 1 WORDING (approved by Samantha 2026-10-28), the same defaults as the server (coverage-run PRN_FAMILIAR_MSG / PRN_TEAM_MSG) */
+const PRN_FAMILIAR_DEFAULT = "Hi {first_name}, it's Caring Companions. {client} in {town} needs someone {when}. You cared for {client} in {month}, so you'd be a familiar face. Can you take it? Reply YES or NO. No pressure either way.";
+const PRN_TEAM_DEFAULT = "Hi {first_name}, it's Caring Companions. You're part of our care continuity team, and {client} in {town} needs someone {when}. {care}Can you take it? Reply YES or NO. No pressure either way.";
 function covWordingPreview(c){
   const m=covComposeMsgs(c);
   return '<div style="margin-top:4px;padding:7px 10px;background:var(--bg);border-radius:7px;font-size:12.5px;">'
     +(m.interest?'<b>Everyone you pick:</b> '+esc(m.tier1)
-      :(covIsOngoing(c)?'':'<b>PRN CNA Team:</b> '+esc(m.prn)+'<br style="margin-bottom:4px;">')
+      :(covIsOngoing(c)?'':(m.prn_step1
+          ? '<b>PRN Teams, who know this client:</b> '+esc(m.prn_familiar)+'<br style="margin-bottom:4px;"><b>PRN Teams, everyone else:</b> '+esc(m.prn_team)+'<br style="margin-bottom:4px;">'
+          : '<b>PRN Teams:</b> '+esc(m.prn)+'<br style="margin-bottom:4px;">'))
         +'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))
     +'</div>'
     +'<div style="margin-top:6px;"><button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="covEditWording(\''+esc(c.id)+'\')">✏️ Change the wording</button>'
@@ -44844,7 +44919,10 @@ function ccOpenRef(sub){
     return false;
   }
   function applyHash(){
-    var raw=(location.hash||'').replace(/^#/,''); if(!raw) return false;
+    var raw=(location.hash||'').replace(/^#/,'');
+    /* 2026-10-28 (Samantha): the PRN Teams get their own GHL sidebar link, #prnteams: Recruit opened on PRN Teams alone */
+    document.documentElement.classList.toggle('prnonly', raw.toLowerCase()==='prnteams');
+    if(!raw) return false;
     var ok=false;
     if(raw.indexOf('/')>-1) ok=applyDeepRoute(raw);
     var h=raw.toLowerCase();
@@ -44856,7 +44934,8 @@ function ccOpenRef(sub){
          above and set their own filter, so this never runs for them. */
       if(h==='coverage' && typeof caraSetOpenBoard==='function') caraSetOpenBoard();
       try{
-        if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
+        if(h==='prnteams'){ rcCurrent='prn'; switchTab('recruit'); rcView('prn'); ok=true; }
+        else if(h==='hourswatch'){ switchTab('hourswatch'); ok=true; }   /* Schedule Watch is gone: switchTab lands it on Cara */
         else if(typeof CC_GROUPS!=='undefined' && CC_GROUPS[h]){ ccGroupClick(h); ok=true; }
         else if(typeof CC_RETIRED_TABS!=='undefined' && CC_RETIRED_TABS[h]){ switchTab(h); ok=true; }   /* a retired list: its board and filter */
         else if(document.getElementById('tab-'+h)){ switchTab(h); ok=true; }
