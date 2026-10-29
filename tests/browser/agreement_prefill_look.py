@@ -56,7 +56,7 @@ def run(browser, name):
     page.goto(BASE + '/agreement.html?ax=296'); page.wait_for_selector('#startBtn'); page.wait_for_function("document.getElementById('pfNote').innerText.indexOf('Looking')<0")
     ck(f'{name}: set-up picks the home visit\'s level and rate', page.locator('[data-t="level.personal_care"].on').count() == 1 and page.input_value('[data-k="level.hourly_rate"]') == '32')
     note = page.inner_text('#pfNote')
-    ck(f'{name}: set-up says how many boxes will be filled in, from where, and why someone was left off', '13 boxes will be filled in' in note and 'AxisCare, Family Circle' in note and 'home visit' in note and 'Amy Lee' in note, note)
+    ck(f'{name}: set-up says how many boxes will be filled in, from where, and why someone was left off', '13 boxes will be filled in' in note and 'from AxisCare and the Family Circle.' in note and 'home visit' in note and 'Amy Lee' in note, note)
     page.screenshot(path=os.path.join(OUT, f'agreement-prefill-setup-{name}.png'))
     page.click('#startBtn'); page.wait_for_selector('#sName')
     s = [c for c in st['calls'] if c.get('action') == 'start'][0]

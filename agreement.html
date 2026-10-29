@@ -248,11 +248,12 @@ function showOffice(){
   <div id="pfNote" class="note">Looking up what we already know about this client…</div>
   <div id="offErr"></div><p><button class="btn" id="startBtn" type="button">Start filling in the agreement</button></p>`;
   wire($('view'));
+  const andList=xs=>xs.length<2?xs.join(''):xs.slice(0,-1).join(', ')+' and '+xs[xs.length-1];
   /* 2026-10-29: the home visit's level and rate are picked for you, and the office sees what will be filled in */
   call({action:'prefill',client_ax:Q.get('ax')}).then(p=>{
     const box=$('pfNote'); if(!box) return;
     if(!Object.keys(A).length) for(const [k,v] of Object.entries(p.office||{})){ A[k]=v; const b=document.querySelector('[data-t="'+k+'"]'); if(b) b.classList.add('on'); const i=document.querySelector('input[data-k="'+k+'"]'); if(i) i.value=v; }
-    box.innerHTML=(p.count?`<b>${p.count} boxes will be filled in</b> from ${esc(p.sources.join(', '))}. The family checks them on the pages (they show in blue) and only taps the choices, initials and signature.`
+    box.innerHTML=(p.count?`<b>${p.count} boxes will be filled in</b> from ${esc(andList(p.sources.map(x=>({'Family Circle':'the Family Circle','Lead':'the lead','Home visit':'the home visit'})[x]||x)))}. The family checks them on the pages (they show in blue) and only taps the choices, initials and signature.`
       :'Nothing on file to fill in yet, so the boxes start blank.')+(p.visit_found&&Object.keys(p.office||{}).length?' The level and rate above come from the home visit.':'')
       +(p.notes&&p.notes.length?'<ul style="margin:6px 0 0 18px;padding:0">'+p.notes.map(n=>'<li>'+esc(n)+'</li>').join('')+'</ul>':'');
   }).catch(e=>{ const box=$('pfNote'); if(box) box.innerHTML='Could not look up the client\'s details ('+esc(e.message)+'). The agreement still starts; the boxes may be blank.'; });
