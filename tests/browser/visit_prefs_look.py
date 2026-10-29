@@ -41,7 +41,7 @@ async()=>{
   ok('caregiver gender: the Hub\'s five choices (required or preferred)', opts('visit.prefs.gender').join('|')==='Female, required|Female, preferred|Male, required|Male, preferred|No preference', opts('visit.prefs.gender'));
   ok('Spanish-speaking caregiver: Required, Preferred, No', opts('visit.prefs.spanish').join('|')==='Required|Preferred|No');
   ok("skills: the Hub's match skill names (dementia, Parkinson's, gait belt, Hoyer, bedbound, hospice, catheter, ostomy, driving)", opts('visit.prefs.skills').length===9 && opts('visit.prefs.skills').includes("Dementia or Alzheimer's care") && opts('visit.prefs.skills').includes('A Hoyer or other mechanical lift'), opts('visit.prefs.skills'));
-  ok('cats, dogs and smoking in the home, yes or no', ['cats','dogs','smoking'].every(k=>opts('visit.prefs.'+k).join('|')==='Yes|No'));
+  ok('cats and dogs in the home, yes or no; smoking is asked once, on the safety check, and shown here', ['cats','dogs'].every(k=>opts('visit.prefs.'+k).join('|')==='Yes|No') && opts('visit.prefs.smoking').length===2 && !q('.hv-sec[data-sec="4"] [data-hvp="visit.prefs.smoking"]') && /Asked on the safety check/.test(t));
   ok('the paper form\'s group text, check-ins, surveys and personality are gone', !/group text|check-ins|Surveys|Personality they/i.test(t), t.slice(0,800));
   const on=(p,val)=>q('[data-hvp="'+p+'"][data-v="'+val+'"]');
   ok('from the lead, in blue: Female required (the lead says required), Spanish preferred, dogs yes, cats no, dementia care', v.prefs.gender==='female_required' && on('visit.prefs.gender','female_required').classList.contains('hv-pfrom')
