@@ -10,7 +10,9 @@
      texts or emails them (?t=<their token>). No sign-in: everything goes through the caregiver-profile function, which
      only knows them by that token. The office drafted the words before the Orientation Video Call; here they add a photo
      (required), a short video if they like, check the words and give their permission. Once the office publishes the
-     profile this page is read-only. -->
+     profile this page is read-only.
+     1181 QUICK PROFILE (Samantha, 2026-10-29): a current caregiver sends a photo and 3 short answers; the office writes it;
+     this page then shows them the words to OK ("Looks good") or to ask for a change. -->
 <style>
   :root{
     --navy:#0E3860; --teal:#54BDB8; --honey:#F0A63A;
@@ -67,6 +69,10 @@
   .ro p{white-space:pre-wrap;margin-top:4px;}
   .ro h3{color:var(--navy);font-size:15px;margin-top:14px;}
   a.tel{color:var(--navy);font-weight:700;}
+  .qbtns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+  .qbtns button{flex:1;min-width:150px;padding:15px;border-radius:12px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;}
+  .qbtns .yes{background:var(--green);color:#fff;border:none;}
+  .qbtns .chg{background:#fff;color:var(--navy);border:1.5px solid var(--border);}
 </style>
 </head>
 <body>
@@ -107,7 +113,20 @@
       <div class="preview" id="videoPrev"><video id="videoEl" controls playsinline></video></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="quickCard" style="display:none">
+      <h2>3 quick questions <span class="need">Needed</span></h2>
+      <div class="hint">A few words is plenty. We write your profile from these and send it to you to look over.</div>
+      <label class="f" for="qPreferred">What you like to be called<span class="sub">Only if it is different from <b id="qFirstName"></b>.</span></label>
+      <input type="text" id="qPreferred" maxlength="40" autocomplete="nickname" placeholder="e.g. Sam, Kate">
+      <label class="f" for="qYears">1. How many years have you been a caregiver?<span class="sub">Caring for family counts too.</span></label>
+      <input type="text" id="qYears" maxlength="30" inputmode="text" placeholder="e.g. 5, or less than 1">
+      <label class="f" for="qWords">2. Three words that describe you as a caregiver</label>
+      <input type="text" id="qWords" maxlength="80" placeholder="e.g. patient, cheerful, dependable">
+      <label class="f" for="qOutside">3. One thing you love doing outside of work</label>
+      <input type="text" id="qOutside" maxlength="100" placeholder="e.g. gardening, time with my grandkids">
+    </div>
+
+    <div class="card" id="wordsCard">
       <h2 id="wordsHead">What families will read about you</h2>
       <div class="hint" id="wordsHint">It is written about you, using your first name, the way a family will see it. Change anything that does not sound like you.</div>
 
@@ -157,6 +176,35 @@
     <p class="lede" id="doneSelf" style="display:none">The office will look it over and publish it. Want to change something? Open this link again any time before then, or call <a class="tel" href="tel:4172348494">417-234-8494</a>.</p>
   </div>
 
+  <div id="writing" class="center" style="display:none">
+    <div class="big">✍️</div>
+    <h2>Thank you, we have your answers!</h2>
+    <p class="lede">We are writing your profile now. We will text you when it is ready for you to look over. Questions? Call <a class="tel" href="tel:4172348494">417-234-8494</a>.</p>
+  </div>
+
+  <div id="approve" style="display:none">
+    <h1>Hi <span id="apName"></span>, here is your profile</h1>
+    <p class="lede">We wrote this from your answers. Families see it before you visit. Does it sound like you?</p>
+    <div class="card ro" id="apCard"></div>
+    <div id="apAsked" class="card" style="display:none;background:#F4F8FF;border-color:#CBD9EC"><b style="color:var(--navy)">Thank you, we got your note.</b> We will fix it and send it to you again. If it already looks right now, tap Looks good.</div>
+    <div class="qbtns">
+      <button class="yes" id="apYes" onclick="approveOk()">👍 Looks good</button>
+      <button class="chg" id="apChg" onclick="$('apChange').style.display='block';$('apText').focus()">Change something</button>
+    </div>
+    <div id="apChange" class="card" style="display:none;margin-top:14px">
+      <label class="f" for="apText" style="margin-top:0">What would you like changed?</label>
+      <textarea id="apText" maxlength="600" placeholder="e.g. Please say I have two grandkids."></textarea>
+      <button class="go" id="apSend" onclick="approveChange()">Send to the office</button>
+    </div>
+    <div class="err" id="apErr"></div>
+  </div>
+
+  <div id="approved" class="center" style="display:none">
+    <div class="big">✅</div>
+    <h2>Thank you, you OK'd your profile!</h2>
+    <p class="lede">The office will publish it, and families will see it before you visit. Want to change something later? Call <a class="tel" href="tel:4172348494">417-234-8494</a>.</p>
+  </div>
+
   <div id="published" style="display:none">
     <div class="center" style="padding-bottom:6px">
       <div class="big">🌟</div>
@@ -178,9 +226,9 @@ const MAX_VIDEO = 100 * 1024 * 1024;     // the bucket's own limit
 const IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
 const VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
 const $ = id => document.getElementById(id);
-const show = id => ['loading', 'nolink', 'form', 'done', 'published'].forEach(x => $(x).style.display = x === id ? 'block' : 'none');
+const show = id => ['loading', 'nolink', 'form', 'done', 'published', 'writing', 'approve', 'approved'].forEach(x => $(x).style.display = x === id ? 'block' : 'none');
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-let ME = null, havePhoto = false, haveVideo = false, SELF = false;
+let ME = null, havePhoto = false, haveVideo = false, SELF = false, QUICK = false;
 /* 452 (Samantha, 2026-10-05): a caregiver already working with us fills in their whole profile themselves: three
    questions in their own words and a photo. The hello video is optional for everyone (522, 2026-10-08). New hires keep
    the page as it was. */
@@ -197,6 +245,53 @@ function selfMode() {
   Object.entries(SELF_Q).forEach(([k, [q, hint]], i) => { $('lab-' + k).textContent = (i + 1) + '. ' + q; $('sub-' + k).textContent = hint; });
   $('go').textContent = 'Send my profile';
   $('doneHead').textContent = "Thank you, it's sent!"; $('doneNew').style.display = 'none'; $('doneSelf').style.display = 'block';
+}
+
+/* 1181: the quick version. They send a photo and 3 short answers; the three long boxes are not shown. */
+function quickMode() {
+  QUICK = true;
+  $('hiVerb').textContent = 'set up';
+  $('ledeNew').style.display = 'none'; $('ledeSelf').style.display = 'block';
+  $('ledeSelf').textContent = "Families see a short profile of you before a visit, so they know a friendly face is coming. We'll write it for you! Add a friendly photo and answer 3 quick questions. It takes about 2 minutes.";
+  $('wordsCard').style.display = 'none'; $('quickCard').style.display = 'block';
+  $('qFirstName').textContent = ME.first_name || 'your first name';
+  const a = ME.quick_answers || {};
+  $('qPreferred').value = ME.preferred_name || ''; $('qYears').value = a.years || ''; $('qWords').value = a.words || ''; $('qOutside').value = a.outside || '';
+  $('go').textContent = 'Send my photo and answers';
+}
+function wordsHtml(m) {
+  return (m.photo_url ? '<div style="text-align:center"><img src="' + esc(m.photo_url) + '" alt="" style="width:140px;height:140px;object-fit:cover;border-radius:16px"></div>' : '')
+    + '<h3>About me</h3><p>' + esc(m.about || '') + '</p>'
+    + '<h3>My experience caring for others</h3><p>' + esc(m.experience || '') + '</p>'
+    + '<h3>Why I enjoy caregiving</h3><p>' + esc(m.why_this_work || '') + '</p>';
+}
+function showApprove(m) {
+  $('apName').textContent = m.preferred_name || m.first_name || 'there';
+  $('apCard').innerHTML = wordsHtml(m);
+  $('apAsked').style.display = m.change_sent ? 'block' : 'none';
+  show('approve');
+}
+async function approveOk() {
+  $('apErr').style.display = 'none'; $('apYes').disabled = true;
+  try {
+    await fn({ action: 'approve', t: T, ok: true, words: { about: ME.about || '', experience: ME.experience || '', why_this_work: ME.why_this_work || '' } });
+    show('approved'); window.scrollTo(0, 0);
+  } catch (e) {
+    $('apErr').textContent = e.message; $('apErr').style.display = 'block';
+    if (/updated/.test(e.message)) { try { ME = await fn({ action: 'mine', t: T }); $('apCard').innerHTML = wordsHtml(ME); } catch (_) {} }
+  }
+  $('apYes').disabled = false;
+}
+async function approveChange() {
+  $('apErr').style.display = 'none';
+  const text = $('apText').value.trim();
+  if (!text) { $('apErr').textContent = 'Please tell us what you would like changed.'; $('apErr').style.display = 'block'; return; }
+  $('apSend').disabled = true;
+  try {
+    await fn({ action: 'approve', t: T, change: text });
+    $('apChange').style.display = 'none'; $('apText').value = ''; $('apAsked').style.display = 'block'; window.scrollTo(0, 0);
+  } catch (e) { $('apErr').textContent = e.message + ' What you typed is still here.'; $('apErr').style.display = 'block'; }
+  $('apSend').disabled = false;
 }
 
 async function fn(body) {
@@ -229,6 +324,8 @@ async function start() {
   try { ME = await fn({ action: 'mine', t: T }); }
   catch (e) { $('nolink').querySelector('p').textContent = e.status === 404 ? e.message : 'We could not open your profile just now. Please try again in a minute, or call 417-234-8494.'; show('nolink'); return; }
   if (ME.published) { showPublished(ME); return; }
+  if (ME.quick && ME.stage === 'approve') { showApprove(ME); return; }
+  if (ME.quick && ME.stage === 'approved') { show('approved'); return; }
   $('hiName').textContent = ME.preferred_name || ME.first_name || 'there';
   $('firstName').textContent = ME.first_name || 'your first name';
   $('preferred').value = ME.preferred_name || '';
@@ -236,7 +333,8 @@ async function start() {
   $('experience').value = ME.experience || '';
   $('why').value = ME.why_this_work || '';
   $('consent').checked = !!ME.consent;
-  if (ME.self_complete) selfMode();
+  if (ME.quick) quickMode();
+  else if (ME.self_complete) selfMode();
   if (ME.photo_url) { havePhoto = true; $('photoImg').src = ME.photo_url; $('photoPrev').style.display = 'block'; $('photoPickTxt').textContent = 'Choose a different photo'; }
   if (ME.video_url) { haveVideo = true; $('videoEl').src = ME.video_url; $('videoPrev').style.display = 'block'; $('videoPickTxt').textContent = 'Choose a different video'; }
   ['about', 'experience', 'why'].forEach(k => $(k).addEventListener('input', markAsks));
@@ -323,8 +421,17 @@ function fail(msg) { $('err').textContent = msg; $('err').style.display = 'block
 async function save() {
   $('err').style.display = 'none';
   const photo = $('photo').files[0], video = $('video').files[0];
+  /* 1181: the quick version hears everything still missing at once, in page order */
+  if (QUICK) {
+    const miss = [];
+    if (!photo && !havePhoto) miss.push('a photo of yourself');
+    if (!$('qYears').value.trim()) miss.push('how many years you have been a caregiver');
+    if (!$('qWords').value.trim()) miss.push('three words that describe you');
+    if (!$('qOutside').value.trim()) miss.push('one thing you love doing outside of work');
+    if (miss.length) return fail('Almost there. Please add ' + miss.join(', ') + '.');
+  }
   /* 452: a current caregiver hears everything still missing at once, in page order */
-  if (SELF) {
+  if (SELF && !QUICK) {
     const miss = [];
     if (!photo && !havePhoto) miss.push('a photo of yourself');
     ['about', 'experience', 'why'].forEach(k => { if (!$(k).value.trim() || /\[/.test($(k).value)) miss.push('your answer to "' + SELF_Q[k][0] + '"'); });
@@ -349,6 +456,11 @@ async function save() {
       video_path = await upload('video', video, ext, VID[ext]);
     }
     prog.textContent = 'Saving…';
+    if (QUICK) {
+      await fn({ action: 'submit', t: T, preferred_name: $('qPreferred').value, quick: { years: $('qYears').value, words: $('qWords').value, outside: $('qOutside').value },
+        photo_path, video_path, consent: true });
+      show('writing'); window.scrollTo(0, 0); return;
+    }
     await fn({ action: 'submit', t: T, preferred_name: $('preferred').value, about: $('about').value, experience: $('experience').value,
       why_this_work: $('why').value, photo_path, video_path, consent: true });
     show('done'); window.scrollTo(0, 0);
