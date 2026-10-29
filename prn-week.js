@@ -7,9 +7,10 @@
         A milestone (10 PRN shifts, a year on the team): a handwritten card, then "Card mailed"
         Would like more hours / Check in (nobody in touch for 30 days): open their page and call, then "Called"
         "Not this one" takes a line off.
-   2. ON CALL (PRN CNA Team only): the next 8 weekends, who is confirmed, the gaps in red, what each member offered, Confirm
-      and Take back. Two shifts a day (her call 2026-10-29): daytime 7am to 5pm, overnight 5pm to 7am; both = a whole day.
-      An offer alone never puts anyone on call. The pay is in her PRN plan, never shown on their page.
+   2. ON CALL (PRN CNA Team only; the calendar, her decisions 22 to 27 on 2026-10-29): every day for 4 weeks, daytime 7am to
+      5pm and overnight 5pm to 7am, who is on call, who asked from their page (one tap confirms) and the open shifts; who
+      signed the On-Call Expectations; misses (not paid, can't sign up again; an owner can lift it). The pay is in her PRN plan,
+      never shown on their page.
    3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
       opens the five questions; what they say is kept on their PRN answers (short notice and on call in their own records).
    5. (step 5a, 2026-10-29) THEIR PRN TEAM PAGE: What they see shows a member's real page (prn.html?preview=, read-only, each look
@@ -45,7 +46,7 @@
     var btns = it.kind === 'looking' ? page + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'called\')">Called</button>'
       : it.kind === 'course' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Assign it on the Training Platform first">Assigned</button>'
       : it.kind === 'idea' || it.kind === 'feedback' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')">Read</button>'
-      : it.kind === 'oncall' ? '<button class="fb" onclick="PW.tab(\'oncall\')">Open On call</button><button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Confirm dates with them in On call first">Done</button>'
+      : it.kind === 'oncall' ? '<button class="fb" onclick="PW.tab(\'oncall\')">Open On call</button><button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Confirm or say Not this one on the calendar first">Done</button>'
       : it.kind === 'welcome' ? page + '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Record the call</button>'
       : it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
       : it.kind === 'milestone' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'card_mailed\')">Card mailed</button>'
@@ -78,7 +79,7 @@
       + row('Is short notice ever OK?', sel('short', [['', 'Choose…'], ['yes', 'Yes'], ['no', 'No'], ['not_asked', 'Didn\'t ask']]))
       + row('Would you like more hours someday?', sel('more', [['', 'Choose…'], ['yes', 'Yes'], ['maybe', 'Maybe'], ['no', 'No']]))
       + row('What kind of clients do you enjoy?', '<input id="pwWenjoys_' + id + '" placeholder="Optional" style="width:100%;">')
-      + (it.team_key === 'cna' ? row('Would you like to be on call sometimes?', sel('oncall', [['', 'Didn\'t say'], ['every_weekend', 'Every weekend'], ['every_other_weekend', 'Every other weekend'], ['one_weekend_month', 'One weekend a month'], ['weekday', 'A weekday'], ['not_now', 'Not right now']])) : '')
+      + (it.team_key === 'cna' ? '<div class="field-note" style="margin-top:8px;"><b>On call:</b> tell them they can sign up for on-call shifts on their PRN Team page, one shift at a time, after reading and signing the On-Call Expectations.</div>' : '')
       + '<label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px;"><input type="checkbox" id="pwWoffice_' + id + '" style="width:auto;"> Interested in office work someday (we hire our Care Coordinators from within)</label>'
       + row('Anything else?', '<input id="pwWnote_' + id + '" placeholder="Optional" style="width:100%;">')
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;"><button class="primary" onclick="PW.welcome(\'' + id + '\',this)">Save the welcome call</button>'
@@ -135,38 +136,74 @@
       + (W.familiar_note ? '<div class="field-note" style="color:var(--red);margin-top:4px;">' + e(W.familiar_note) + '</div>' : '') + rows + '</div>';
   }
 
+  /* ON CALL (2026-10-29, her decisions 22 to 27): a calendar of every day, 4 weeks from this Monday, daytime 7am to 5pm and
+     overnight 5pm to 7am. Each shift: who is on call (✕ takes it back; "Missed" records a miss), who asked from their page
+     (✓ confirms, ✕ is "Not this one") or Open (+ puts a signed member on it). Below: who signed the On-Call Expectations and
+     who can't sign up after a miss (an owner can let them again), and the payroll counts. */
+  var OC_OPEN = '', OC_MISS = '';
+  var WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var dShort = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
   function onCallHtml() {
-    var oc = W.oncall || { weekends: [], offers: [] }, cna = (W.members || []).filter(function (m) { return m.team === 'cna'; });
-    /* 2026-10-29: which shift each confirmed date is (switch prn_oncall_shift_live; owners see it as practice while off) */
+    var oc = W.oncall || {}, cal = oc.calendar || [], ppl = oc.people || [];
     var askShift = !!oc.shifts && (oc.shift_live || isOwner());
-    var shiftPick = function (id) { return '<select id="' + id + '" style="font-size:12.5px;padding:3px 6px;max-width:170px;"><option value="">Which shift…</option>'
-      + Object.keys(oc.shifts).map(function (k) { return '<option value="' + e(k) + '">' + e(oc.shifts[k]) + '</option>'; }).join('') + '</select>'; };
     var payroll = !askShift ? '' : (oc.payroll || []).map(function (p) {
-      var rows = (p.members || []).map(function (m) { var bits = [m.day ? m.day + ' daytime' : '', m.overnight ? m.overnight + ' overnight' : '', m.whole ? m.whole + ' whole day' + (m.whole === 1 ? '' : 's') : '', m.not_recorded ? m.not_recorded + ' with no shift recorded' : ''].filter(Boolean);
-        return '<div style="font-size:13px;">' + e(m.name) + ': ' + e(bits.join(', ')) + '</div>'; }).join('');
+      var rows = (p.members || []).map(function (m) { var bits = [m.day ? m.day + ' daytime' : '', m.overnight ? m.overnight + ' overnight' : '', m.whole ? m.whole + ' whole day' + (m.whole === 1 ? '' : 's') : '', m.not_recorded ? m.not_recorded + ' with no shift recorded' : '',
+          m.missed ? m.missed + ' missed (not paid)' : ''].filter(Boolean);
+        return '<div style="font-size:13px;">' + e(m.name) + ': ' + e(bits.join(', ') || 'none') + '</div>'; }).join('');
       return '<div style="margin-top:6px;"><b style="font-size:13px;">' + e(new Date(p.month + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })) + '</b>' + (rows || '<div class="field-note">Nobody on call.</div>') + '</div>'; }).join('');
-    var pick = function (id) { return '<select id="' + id + '" style="font-size:12.5px;padding:3px 6px;max-width:150px;"><option value="">Confirm someone…</option>'
-      + cna.map(function (m) { return '<option value="' + e(m.applicant_id) + '">' + e(m.name) + '</option>'; }).join('') + '</select>'; };
-    var tiles = oc.weekends.map(function (w, i) {
-      var who = w.confirmed.map(function (c) { return '<div class="pw-on">✓ ' + e(c.name) + (c.shift ? ' · ' + e(SHORT[c.shift] || c.shift) : '') + ' <a href="javascript:void 0" title="Take back" onclick="PW.cancel(' + Number(c.id) + ')">✕</a></div>'; }).join('');
-      return '<div class="pw-wk' + (w.gap ? ' gap' : '') + '"><div class="pw-d">' + fmt(w.saturday) + ' to ' + fmt(w.sunday) + '</div>'
-        + (who || '<div class="pw-none">No PRN CNA on call</div>')
-        + (cna.length ? '<div style="margin-top:6px;">' + pick('pwPick' + i) + (askShift ? ' ' + shiftPick('pwShift' + i) : '') + ' <button class="fb" onclick="PW.confirm(' + i + ',this)">Confirm</button></div>' : '') + '</div>';
-    }).join('');
-    var offers = oc.offers.length ? oc.offers.map(function (o) { return '<span class="pw-chip">' + e(o.name) + ': ' + e(o.pattern_word) + (o.note ? ' (' + e(o.note) + ')' : '') + '</span>'; }).join('')
-      : '<span class="field-note">Nobody has offered yet. Ask in the welcome call, then record it here.</span>';
-    var pats = Object.keys(oc.patterns || {}).map(function (k) { return '<option value="' + e(k) + '">' + e(oc.patterns[k]) + '</option>'; }).join('');
+    var person = function (aid) { return ppl.find(function (p) { return p.applicant_id === aid; }) || {}; };
+    var mayPut = ppl.filter(function (p) { return !p.blocked && (p.signed || !oc.signup_live); });
+    var today = W.today || '';
+    var cell = function (d, sl) {
+      var c = d[sl], key = d.date + '|' + sl, lbl = sl === 'day' ? 'Day 7a to 5p' : 'Night 5p to 7a';
+      var who = c.confirmed.map(function (p) {
+        if (p.missed) return '<div class="oc-who miss" title="' + e((oc.miss_kinds || {})[p.missed] || 'Missed') + ': not paid">✗ <b>' + e(p.name) + '</b> <span class="field-note">' + e(p.missed === 'no_answer' ? "didn't answer" : "didn't cover") + '</span></div>';
+        var missing = OC_MISS === String(p.id) ? '<div class="oc-pick"><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'no_answer\')">Didn\'t answer our call</button><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'not_covered\')">Didn\'t cover the shift</button><button class="oc-btn" onclick="PW.ocMissOpen(\'\')">Cancel</button></div>' : '';
+        return '<div class="oc-who">✓ <b>' + e(p.name) + '</b>' + (p.whole ? ' <span class="field-note">whole day</span>' : '') + (!p.shift_recorded ? ' <span class="field-note">no shift recorded</span>' : '')
+          + (!d.past ? '<button class="oc-x" title="Take back (they called at least 24 hours ahead, or plans changed)" onclick="PW.cancel(' + Number(p.id) + ')">✕</button>' : '')
+          + (d.date <= today && d.date >= addD(today, -14) ? ' <button class="oc-btn" title="They didn\'t answer the office, or didn\'t cover a shift" onclick="PW.ocMissOpen(\'' + Number(p.id) + '\')">Missed</button>' : '') + '</div>' + missing;
+      }).join('');
+      var asks = d.past ? '' : c.asked.map(function (p) {
+        var pp = person(p.applicant_id);
+        return '<div class="oc-ask oc-who ask"><b>' + e(p.name) + '</b> asked' + (pp.blocked ? ' <span class="field-note">(can\'t sign up)</span>' : '')
+          + ' <button class="oc-btn" title="Confirm it" onclick="PW.ocOk(' + Number(p.id) + ',this)">✓</button><button class="oc-btn" title="Not this one" onclick="PW.ocNo(' + Number(p.id) + ')">✕</button></div>'; }).join('');
+      var put = !d.past && !c.confirmed.some(function (p) { return !p.missed; }) && mayPut.length
+        ? (OC_OPEN === key ? '<div class="oc-pick"><select id="ocPut_' + e(key) + '">' + mayPut.map(function (p) { return '<option value="' + e(p.applicant_id) + '">' + e(p.name) + '</option>'; }).join('') + '</select>'
+            + '<label style="font-size:11.5px;display:flex;gap:4px;align-items:center;"><input type="checkbox" id="ocWhole_' + e(key) + '" style="width:auto;margin:0;"> both shifts (whole day)</label>'
+            + '<div><button class="oc-btn" onclick="PW.ocPut(\'' + e(d.date) + '\',\'' + sl + '\',this)">Put on call</button> <button class="oc-btn" onclick="PW.ocOpen(\'\')">Cancel</button></div></div>'
+          : ' <button class="oc-btn" title="Put someone on call (agree it with them first)" onclick="PW.ocOpen(\'' + e(key) + '\')">+</button>') : '';
+      return '<div class="oc-s' + (c.gap ? ' gap' : c.confirmed.length ? ' ok' : '') + '"><span class="oc-l">' + lbl + (c.gap && !c.confirmed.length && !c.asked.length ? ' · Open' : '') + put + '</span>' + who + asks + '</div>';
+    };
+    var days = cal.map(function (d) { return '<div class="oc-day' + (d.past ? ' past' : '') + (d.date === today ? ' today' : '') + '"><div class="oc-d">' + e(dShort(d.date)) + '</div>' + cell(d, 'day') + cell(d, 'overnight') + '</div>'; }).join('');
+    var gaps = cal.reduce(function (n, d) { return n + (d.day.gap ? 1 : 0) + (d.overnight.gap ? 1 : 0); }, 0);
+    var people = ppl.length ? ppl.map(function (p) {
+      var sig = p.signed ? '<span class="oc-tag ok">Signed the expectations' + (p.signed_at ? ' ' + e(fmt(p.signed_at)) : '') + '</span>'
+        : p.signed_old ? '<span class="oc-tag no">Signed an older version: signs again on their page</span>' : '<span class="oc-tag no">Not signed yet</span>';
+      var blk = p.blocked ? ' <span class="oc-tag bad">Can\'t sign up: ' + e(p.miss ? p.miss.word.toLowerCase() : 'missed') + (p.miss && p.miss.at ? ', ' + e(fmt(p.miss.at)) : '') + '</span>'
+        + (isOwner() ? ' <button class="fb" onclick="PW.ocLift(\'' + e(p.applicant_id) + '\',this)">Let them sign up again</button>' : ' <span class="field-note">An owner can let them sign up again.</span>') : '';
+      return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + sig + blk + '</div>'; }).join('') : '<div class="field-note">Nobody is on the PRN CNA Team yet.</div>';
+    var older = (oc.offers || []).filter(function (o) { return o.pattern !== 'not_now'; });
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
-      + '<div class="field-note">An offer alone never puts someone on call: confirm each date with them first. On call comes in two shifts: daytime 7am to 5pm and overnight 5pm to 7am; both make a whole day. Confirm which shift with them. Reply within 15 minutes, start within 1 hour. On-call pay is in the PRN plan and is never shown on their page.</div>'
-      + (askShift && !oc.shift_live ? '<div class="field-note" style="margin-top:4px;"><b>Practice:</b> the shift choice shows to owners only until it is switched on (Settings, PRN Teams).</div>' : '')
-      + '<div class="pw-grid">' + tiles + '</div>'
-      + (payroll ? '<div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:10px;"><b style="font-size:13.5px;color:var(--navy);">On-call days for payroll</b> <span class="field-note">counted from the confirmed dates; the pay is in the PRN plan</span>' + payroll + '</div>' : '')
-      + '<div style="margin-top:12px;"><b style="font-size:13px;">What they\'ve offered:</b> ' + offers + '</div>'
-      + (cna.length ? '<div class="pw-offer"><select id="pwOfWho" style="font-size:12.5px;width:auto;">' + cna.map(function (m) { return '<option value="' + e(m.applicant_id) + '">' + e(m.name) + '</option>'; }).join('') + '</select>'
-        + '<select id="pwOfPat" style="font-size:12.5px;width:auto;">' + pats + '</select><input id="pwOfNote" placeholder="Note (optional)" style="font-size:12.5px;width:200px;">'
-        + '<button class="fb" onclick="PW.offer(this)">Record their offer</button><span class="field-note" id="pwOfSt"></span></div>' : '')
+      + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1191). Asks, misses and signatures show once it has run.</div>' : '')
+      + (!oc.signup_live ? '<div class="field-note" style="margin-top:4px;"><b>Sign-up on their page is off</b> (Settings, PRN Teams): members can\'t ask for shifts yet, and you can put anyone on call without a signature.</div>' : '')
+      + '<div class="field-note">Two shifts a day: daytime 7am to 5pm, overnight 5pm to 7am. Members sign up one shift at a time on their PRN Team page after signing the On-Call Expectations; you confirm each one. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
+      + '<div class="field-note" style="margin-top:6px;"><b>' + gaps + ' open shift' + (gaps === 1 ? '' : 's') + '</b> in the next 4 weeks.</div>'
+      + '<div class="oc-cal"><div class="oc-grid">' + WD.map(function (w) { return '<div class="oc-h">' + w + '</div>'; }).join('') + days + '</div></div>'
+      + '<div style="margin-top:14px;"><b style="font-size:13.5px;color:var(--navy);">The PRN CNA Team</b><div class="oc-ppl">' + people + '</div></div>'
+      + (payroll ? '<div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:10px;"><b style="font-size:13.5px;color:var(--navy);">On-call shifts for payroll</b> <span class="field-note">counted from the confirmed shifts; missed ones are not paid; the pay is in the PRN plan</span>' + payroll + '</div>' : '')
+      + (older.length ? '<div class="field-note" style="margin-top:10px;">Earlier on-call preferences (before sign-up by shift): ' + older.map(function (o) { return e(o.name) + ', ' + e(String(o.pattern_word || '').toLowerCase()); }).join('; ') + '</div>' : '')
       + '</div>';
   }
+  /* after a miss: what was taken back, and a Call button (from the office line) to tell them */
+  function onCallMissed(r) {
+    if (!r || r.outcome !== 'missed') return;
+    var back = (r.taken_back || []).map(function (x) { return dShort(x.date) + ' ' + (SHORT[x.shift] || x.shift) + (x.kind === 'asked' ? ' (asked)' : ''); });
+    var msg = 'Recorded. ' + r.name + ' can\'t sign up for on call again until an owner lets them.' + (back.length ? ' Taken back: ' + back.join(', ') + '.' : '') + (r.failed && r.failed.length ? ' Could not take back: ' + r.failed.join(', ') + '. Take them back by hand.' : '') + ' Call them to let them know.';
+    if (typeof ccAlert === 'function') ccAlert(msg); else alert(msg);
+  }
+  window.PW_onCallMissed = onCallMissed;
+  var addD = function (d, n) { return d ? new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10) : ''; };
+
 
   /* ── THE PRN TEAMS HOME (2026-10-29, Samantha: "I thought it would be more PRN Team tabs"): opened from its own link
      (#prnteams), five tabs instead of one long page. From inside Recruit, the same stacked view as before. ── */
@@ -336,26 +373,43 @@
         delete OPEN[id]; setTimeout(load, 900);
       } catch (x) { if (st) st.textContent = x.message; if (btn) btn.disabled = false; }
     },
-    confirm: async function (i, btn) {
-      var w = W.oncall.weekends[i], sel = document.getElementById('pwPick' + i), aid = sel && sel.value;
-      if (!aid) return;
-      var nm = sel.options[sel.selectedIndex].text, sh = document.getElementById('pwShift' + i), shift = sh ? sh.value : '';
-      if (sh && W.oncall.shift_live && !shift) { alert('Pick the shift first: daytime, overnight or the whole day.'); return; }
-      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + fmt(w.saturday) + ' to ' + fmt(w.sunday) + (shift ? ', ' + (W.oncall.shifts[shift] || shift).toLowerCase() : '') + '?\n\nOnly confirm a date and shift you have agreed with them.'))) return;
+    ocOpen: function (key) { OC_OPEN = key; OC_MISS = ''; draw(); },
+    ocMissOpen: function (id) { OC_MISS = String(id || ''); OC_OPEN = ''; draw(); },
+    ocOk: async function (askId, btn) {
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Confirm this on-call shift?\n\nThey asked for it on their PRN Team page. It shows as confirmed on their page.'))) return;
       if (btn) btn.disabled = true;
-      try { await call(Object.assign({ action: 'oncall_confirm', applicant_id: aid, start_date: w.saturday, end_date: w.sunday }, shift ? { shift: shift } : {})); await load(); }
+      try { await call({ action: 'oncall_confirm', ask_id: askId }); await load(); } catch (x) { alert('Could not confirm: ' + x.message); if (btn) btn.disabled = false; }
+    },
+    ocNo: async function (askId) {
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Not this one? Their ask comes off the calendar (it stays in the history). Let them know if it helps.'))) return;
+      try { await call({ action: 'oncall_decline', ask_id: askId }); await load(); } catch (x) { alert('Not saved: ' + x.message); }
+    },
+    ocPut: async function (date, slot, btn) {
+      var key = date + '|' + slot, sel = document.getElementById('ocPut_' + key), whole = (document.getElementById('ocWhole_' + key) || {}).checked;
+      if (!sel || !sel.value) return;
+      var nm = sel.options[sel.selectedIndex].text, shift = whole ? 'whole' : slot;
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + dShort(date) + ', ' + (shift === 'whole' ? 'the whole day (7am to 7am)' : slot === 'day' ? 'daytime (7am to 5pm)' : 'overnight (5pm to 7am)') + '?\n\nOnly confirm a shift you have agreed with them.'))) return;
+      if (btn) btn.disabled = true;
+      try { await call({ action: 'oncall_confirm', applicant_id: sel.value, date: date, shift: shift }); OC_OPEN = ''; await load(); }
       catch (x) { alert('Could not confirm: ' + x.message); if (btn) btn.disabled = false; }
     },
-    cancel: async function (id) {
-      if (typeof ccConfirm === 'function' && !(await ccConfirm('Take this on-call date back? It stays in the history, marked taken back.'))) return;
-      try { await call({ action: 'oncall_cancel', id: id }); await load(); } catch (x) { alert('Could not take it back: ' + x.message); }
+    ocMiss: async function (id, kind) {
+      var word = kind === 'no_answer' ? "didn't answer the office's call" : "didn't cover the shift";
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Record that they ' + word + '?\n\nThat on-call shift is not paid, their other on-call shifts and asks are taken back, and they can\'t sign up again until an owner lets them. Kept as written.'))) return;
+      try { var r = await call({ action: 'oncall_mark', oncall_id: id, kind: kind }); OC_MISS = ''; await load(); onCallMissed(r); }
+      catch (x) { alert('Not saved: ' + x.message); }
     },
-    offer: async function (btn) {
-      var aid = (document.getElementById('pwOfWho') || {}).value, pat = (document.getElementById('pwOfPat') || {}).value, note = (document.getElementById('pwOfNote') || {}).value, st = document.getElementById('pwOfSt');
-      if (!aid || !pat) return;
+    ocLift: async function (aid, btn) {
+      var reason = window.prompt('Why can they sign up for on call again? (kept with your name)');
+      if (reason == null) return; reason = String(reason).trim();
+      if (reason.length < 3) { alert('Say why, in a few words.'); return; }
+      if (/—/.test(reason)) { alert('Please use a comma or a period instead of an em dash.'); return; }
       if (btn) btn.disabled = true;
-      try { await call({ action: 'oncall_offer', applicant_id: aid, pattern: pat, note: note }); await load(); }
-      catch (x) { if (st) st.textContent = x.message; if (btn) btn.disabled = false; }
+      try { await call({ action: 'oncall_lift', applicant_id: aid, reason: reason }); await load(); } catch (x) { alert('Not saved: ' + x.message); if (btn) btn.disabled = false; }
+    },
+    cancel: async function (id) {
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Take this on-call shift back? It stays in the history, marked taken back. (They give a shift back by calling at least 24 hours ahead.)'))) return;
+      try { await call({ action: 'oncall_cancel', id: id }); await load(); } catch (x) { alert('Could not take it back: ' + x.message); }
     },
     gapOpen: function (aid) { GAP_OPEN[aid] = !GAP_OPEN[aid]; draw(); },
     gapSave: async function (aid, btn, off) {
