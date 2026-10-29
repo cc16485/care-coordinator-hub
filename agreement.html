@@ -18,6 +18,10 @@
      no Hub sign-in: it asks for a 6-digit code sent to the phone or email the link went to, then shows the same real
      pages to fill in, initial and sign, through the public agreement-sign door. The office sends the link from the fill
      page ("Send to sign from home") and countersigns in the Hub as usual.
+     2026-10-29 (Samantha: "the more they only have to tap the better"): the server fills the typing boxes from AxisCare,
+     the Family Circle, the lead and the home visit when the agreement starts (blue boxes to check), the set-up screen picks
+     the home visit's level and rate, names are tapped for "Who is signing" and the backup caregiver, numbers open the
+     number keypad, and the vehicle boxes are "Not needed" after Decline. Every choice, initial and signature stays a tap.
      ============================================================ -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -60,6 +64,11 @@
   input.ft{ background:rgba(240,166,58,.16); border-bottom:2px solid var(--honey); border-radius:3px 3px 0 0; color:#0D365F; min-height:0; }
   input.ft:focus{ outline:none; background:rgba(31,122,140,.16); border-bottom-color:var(--teal); }
   .ft.pv{ color:#8a9aaa; }
+  /* 2026-10-29: filled in from the Hub, for the family to check (blue), and a vehicle box not needed after "Decline" */
+  input.ft.pf{ background:rgba(31,122,140,.13); border-bottom-color:var(--teal); }
+  input.ft:disabled{ background:repeating-linear-gradient(135deg,#f1f1ef 0 4px,#fff 4px 8px); border-bottom-color:#d5d9dd; color:#8a9aaa; }
+  .chips{ display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 2px; } .chips .pill{ font-size:16px; padding:9px 14px; min-height:46px; }
+  .pfkey{ display:inline-block; width:22px; height:14px; vertical-align:middle; background:rgba(31,122,140,.13); border-bottom:2px solid var(--teal); margin-right:6px; }
   /* 874: never wider than the 17pt gap between the closest two boxes, so on a phone they never cover each other */
   .fc{ width:min(30px, calc(var(--s) * 16px)); height:min(30px, calc(var(--s) * 16px)); transform:translate(-50%,-50%); display:flex; align-items:center; justify-content:center; font-family:inherit; font-size:20px; font-weight:800; color:#0D365F; padding:0; }
   button.fc{ background:rgba(240,166,58,.18); border:2px solid var(--honey); border-radius:min(8px, calc(var(--s) * 3px)); cursor:pointer; font-size:min(20px, calc(var(--s) * 11px)); }
@@ -121,7 +130,7 @@ const PAGE_DIRS={'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3
 let PAGES_DIR='agreement-pages/rev-2026-10-18b/';
 function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
-let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
+let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, PREFILL={}, PFV={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
 /* 874: opened from a family's link? The secret rides after # so it never reaches a server log. */
 const HASH=new URLSearchParams(location.hash.slice(1)), REMOTE=/^[A-Za-z0-9_-]{40,60}$/.test(HASH.get('t')||'')?HASH.get('t'):'';
 let SESSION=''; try{ SESSION=sessionStorage.getItem('cag-s-'+REMOTE.slice(0,12))||''; }catch(e){}
@@ -189,7 +198,7 @@ function showCode(o){
   $('codeGo').onclick=go1; $('code').onkeydown=e=>{ if(e.key==='Enter') go1(); };
 }
 async function remoteOpen(d){
-  FORM=d.form; AG=d.agreement; A=Object.assign({},AG.answers||{}); OFFICE=(AG.office&&AG.office.answers)||{}; pagesFor(AG);
+  FORM=d.form; AG=d.agreement; A=Object.assign({},AG.answers||{}); OFFICE=(AG.office&&AG.office.answers)||{}; PREFILL=Object.assign({},AG.office&&AG.office.prefill); PFV=Object.assign({},AG.office&&AG.office.prefill_values); pagesFor(AG);
   if(oldDraft(AG)){ $('view').innerHTML='<h1>We updated this agreement</h1><div class="err" style="font-size:18px">This link is for an earlier version of the agreement. Please call or text us at (417) 234-8494 and we\'ll send you a new link.</div>'; return; }
   recallSigner(); if(!SIGNER.name&&d.to_name) SIGNER.name=d.to_name;
   if(AG.status!=='draft'){ $('view').innerHTML='<h1>Thank you!</h1><div class="ok" style="font-size:19px">This agreement is already signed.</div>'; return; }
@@ -209,7 +218,7 @@ async function boot(session){
   }catch(e){ $('view').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
 }
 async function load(ag){
-  AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{}; recallSigner(); pagesFor(ag);
+  AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{}; PREFILL=Object.assign({},ag.office&&ag.office.prefill); PFV=Object.assign({},ag.office&&ag.office.prefill_values); recallSigner(); pagesFor(ag);
   $('backLink').href='index.html';
   if(oldDraft(ag)){ $('view').innerHTML='<div class="err">This agreement was started before the wording was updated on October 17, 2026 (scheduled care now has an 8 hours a week minimum), so it can\'t be signed. Go back to the client and tap <b>Start another</b> to begin a new one.</div>'; return; }
   if(ag.status==='draft'){ await positions(); go('fill'); }
@@ -236,8 +245,17 @@ function showOffice(){
   <div class="grid"><div>${txt('level.hourly_rate','Hourly rate ($)','text','inputmode="decimal" placeholder="30"')}</div><div><label>Start date (optional)</label><input type="date" id="startDate"></div></div>
   <label>Addenda this client also signs</label><div class="opts"><button type="button" class="pill" data-ad="va">VA Community Care</button><button type="button" class="pill" data-ad="guide">Medicare GUIDE</button></div>
   <div class="field-note" style="font-size:14px;color:var(--muted);margin-top:6px">Addenda are noted on the agreement record; print and sign them on paper for now.</div></div>
+  <div id="pfNote" class="note">Looking up what we already know about this client…</div>
   <div id="offErr"></div><p><button class="btn" id="startBtn" type="button">Start filling in the agreement</button></p>`;
   wire($('view'));
+  /* 2026-10-29: the home visit's level and rate are picked for you, and the office sees what will be filled in */
+  call({action:'prefill',client_ax:Q.get('ax')}).then(p=>{
+    const box=$('pfNote'); if(!box) return;
+    if(!Object.keys(A).length) for(const [k,v] of Object.entries(p.office||{})){ A[k]=v; const b=document.querySelector('[data-t="'+k+'"]'); if(b) b.classList.add('on'); const i=document.querySelector('input[data-k="'+k+'"]'); if(i) i.value=v; }
+    box.innerHTML=(p.count?`<b>${p.count} boxes will be filled in</b> from ${esc(p.sources.join(', '))}. The family checks them on the pages (they show in blue) and only taps the choices, initials and signature.`
+      :'Nothing on file to fill in yet, so the boxes start blank.')+(p.visit_found&&Object.keys(p.office||{}).length?' The level and rate above come from the home visit.':'')
+      +(p.notes&&p.notes.length?'<ul style="margin:6px 0 0 18px;padding:0">'+p.notes.map(n=>'<li>'+esc(n)+'</li>').join('')+'</ul>':'');
+  }).catch(e=>{ const box=$('pfNote'); if(box) box.innerHTML='Could not look up the client\'s details ('+esc(e.message)+'). The agreement still starts; the boxes may be blank.'; });
   $('view').querySelectorAll('[data-ad]').forEach(b=>{ b.onclick=()=>b.classList.toggle('on'); });
   $('startBtn').onclick=async()=>{
     const office={}; ['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate'].forEach(k=>{ if(A[k]!=null) office[k]=A[k]; });
@@ -282,6 +300,13 @@ const at=f=>{ const [x0,y0,x1,y1]=f.box; return `left:${(x0/6.12).toFixed(3)}%;t
 const centre=f=>{ const [x0,y0,x1,y1]=f.box; return `left:${((x0+x1)/2/6.12).toFixed(3)}%;top:${((y0+y1)/2/7.92).toFixed(3)}%`; };
 /* an initials button starts at the box's left edge and grows into the page margin, so the printed label stays readable */
 const startAt=f=>{ const [x0,y0,x1,y1]=f.box; return `left:${(x0/6.12).toFixed(3)}%;top:${((y0+y1)/2/7.92).toFixed(3)}%`; };
+/* 2026-10-29: the number keypad for numbers, the email keyboard for emails, so less hunting on a tablet */
+const keypad=k=>/phone/.test(k)?'inputmode="tel"':/email/.test(k)?'inputmode="email" autocapitalize="off"':/zip|\.year$|date_of_birth|expiration_date/.test(k)?'inputmode="numeric"':'';
+/* the vehicle boxes are "complete if Accept above": after Decline they are not needed */
+/* blue while the box still holds what the Hub filled in */
+const isPf=k=>!!PREFILL[k]&&String(A[k]||'').trim()!==''&&String(A[k]).trim()===String(PFV[k]==null?'':PFV[k]).trim();
+const carOff=k=>k.startsWith('vehicle.')&&A['car.decline']===true;
+function carBoxes(){ document.querySelectorAll('input[data-k^="vehicle."]').forEach(i=>{ const off=carOff(i.dataset.k); i.disabled=off; i.placeholder=off?'Not needed':''; }); }
 const groupOf=k=>(ONE_OF.find(g=>g.includes(k))||[]).join(',');
 function fieldHtml(k,f,mode){
   const off=OFFICE_KEYS.has(k);
@@ -304,7 +329,7 @@ function fieldHtml(k,f,mode){
     return `<div class="f fc ro${on?' on':''}" style="${centre(f)}" data-key="${k}">${on?'✓':''}</div>`;
   }
   const v=(off?OFFICE[k]:A[k])||'';
-  if(!off) return `<input class="f ft" style="${at(f)}" data-k="${k}" data-key="${k}" value="${esc(v)}" aria-label="${esc(k)}" autocomplete="off">`;
+  if(!off) return `<input class="f ft${isPf(k)?' pf':''}" style="${at(f)}" data-k="${k}" data-key="${k}" value="${esc(v)}" aria-label="${esc(k)}" autocomplete="off" ${keypad(k)}${carOff(k)?' disabled placeholder="Not needed"':''}>`;
   return `<div class="f ft ro" style="${at(f)}" data-key="${k}">${esc(off&&k==='level.hourly_rate'?String(v).replace(/^\$/,''):v)}</div>`;
 }
 function pagesHtml(mode){
@@ -326,8 +351,27 @@ function showField(k){
 function go(s){ step=s; ({fill:vFill,handoff:vHandoff,family:vFamily,office:vOffice})[s](); window.scrollTo(0,0); }
 /* the signer card and the fill-in wiring are the same for the office and the family: anyone may type in (Samantha 2026-10-16:
    "sometimes the adult kids want to fill it out"). The office fills what it can; the family can type into any blank too. */
+/* 2026-10-29: the people on the agreement, to tap instead of typing a name */
+function peopleOnIt(){
+  const out=[], seen=new Set(), add=(name,rel,role,n)=>{ const nm=String(name||'').trim(), key=nm.toLowerCase().replace(/[^a-z]/g,''); if(!nm||seen.has(key)) return; seen.add(key); out.push({name:nm,rel:String(rel||'').trim(),role,n}); };
+  add(A['client.client_s_name'],'','client',0);
+  for(const n of [1,2,3,4]) add(A['c'+n+'.name'],A['c'+n+'.relationship'],'representative',n);
+  add(A['poa.name'],A['poa.relationship'],'representative',0);
+  return out;
+}
+function signerChips(){
+  const ps=peopleOnIt(); if(!ps.length) return '';
+  return `<div class="chips" aria-label="Tap who is signing">${ps.map((p,i)=>`<button type="button" class="pill${SIGNER.name.trim().toLowerCase()===p.name.toLowerCase()?' on':''}" data-who="${i}">${esc(p.name)}${p.role==='client'?' (the client)':p.rel?' ('+esc(p.rel)+')':''}</button>`).join('')}</div>`;
+}
+/* the backup caregiver (page 16) is usually someone already on the agreement: one tap copies their name and phones */
+function backupCard(){
+  const ps=peopleOnIt().filter(p=>p.n);
+  if(!ps.length||String(A['backup.full_name']||'').trim()) return '';
+  return `<div class="card" id="backupCard"><div class="kick">Backup caregiver (page 16)</div><p style="margin:0;font-size:16px;color:var(--muted)">If someone on the agreement is the backup, tap their name. Otherwise type it on page 16.</p>
+    <div class="chips">${ps.map((p,i)=>`<button type="button" class="pill" data-backup="${p.n}">${esc(p.name)}</button>`).join('')}</div></div>`;
+}
 function signerCard(){
-  return `<div class="card" id="signerCard"><div class="kick">Who is signing today?</div>
+  return `<div class="card" id="signerCard"><div class="kick">Who is signing today?</div>${signerChips()}
     <div class="grid"><div><label>Full name of the person signing</label><input type="text" id="sName" value="${esc(SIGNER.name)}" autocomplete="off"></div>
     <div id="relBox" class="${SIGNER.role==='representative'?'':'hide'}"><label>Relationship to the client</label><input type="text" id="sRel" value="${esc(SIGNER.relationship)}" autocomplete="off"></div></div>
     <div class="opts" style="margin-top:12px"><button type="button" class="pill${SIGNER.role==='client'?' on':''}" data-role="client">The client</button><button type="button" class="pill${SIGNER.role==='representative'?' on':''}" data-role="representative">Someone signing for the client</button></div></div>`;
@@ -338,7 +382,13 @@ function wireFill(again){
     document.querySelectorAll('[data-tap].on').forEach(e=>{ e.textContent=ini; }); document.querySelectorAll('[data-tap]:not(.on)').forEach(e=>{ e.textContent='Tap to initial'; }); };
   $('sRel').oninput=()=>{ SIGNER.relationship=$('sRel').value; rememberSigner(); };
   $('view').querySelectorAll('[data-role]').forEach(b=>{ b.onclick=()=>{ SIGNER.role=b.dataset.role; rememberSigner(); const y=window.scrollY; again(); window.scrollTo(0,y); }; });
-  $('view').querySelectorAll('input[data-k]').forEach(i=>{ i.oninput=()=>{ const v=i.value.trim(); if(v) A[i.dataset.k]=i.value; else delete A[i.dataset.k];
+  $('view').querySelectorAll('[data-who]').forEach(b=>{ b.onclick=()=>{ const p=peopleOnIt()[+b.dataset.who]; if(!p) return;
+    SIGNER.name=p.name; SIGNER.role=p.role; SIGNER.relationship=p.role==='representative'?p.rel:''; rememberSigner(); const y=window.scrollY; again(); window.scrollTo(0,y); }; });
+  $('view').querySelectorAll('[data-backup]').forEach(b=>{ b.onclick=()=>{ const c='c'+b.dataset.backup+'.', cell=A[c+'cell_phone']||'', home=A[c+'home_phone']||'';
+    const set={'backup.full_name':A[c+'name'],'backup.relationship_to_client':A[c+'relationship'],'backup.primary_phone':cell||home,'backup.secondary_phone':cell?home:''};
+    for(const [k,v] of Object.entries(set)){ if(v) A[k]=v; else delete A[k]; const i=document.querySelector('input[data-k="'+k+'"]'); if(i){ i.value=v||''; i.classList.toggle('pf',isPf(k)); } }
+    const y=window.scrollY; soon(); again(); window.scrollTo(0,y); }; });
+  $('view').querySelectorAll('input[data-k]').forEach(i=>{ i.oninput=()=>{ const v=i.value.trim(); if(v) A[i.dataset.k]=i.value; else delete A[i.dataset.k]; i.classList.toggle('pf',isPf(i.dataset.k));
     if(i.dataset.k==='client.client_s_name') document.querySelectorAll('[data-pv="ci.client_s_name"]').forEach(e=>{ e.textContent=i.value; }); soon(); }; });
   $('view').querySelectorAll('[data-t]').forEach(b=>{ b.onclick=()=>{
     const k=b.dataset.t, on=A[k]!==true, clear=o=>{ delete A[o]; document.querySelectorAll('[data-t="'+o+'"]').forEach(x=>{ x.classList.remove('on'); x.textContent=''; x.setAttribute('aria-pressed','false'); }); };
@@ -346,7 +396,7 @@ function wireFill(again){
     if(on&&k==='photos.no_photos') ['photos.share_with_my_family','photos.marketing'].forEach(clear);
     if(on&&(k==='photos.share_with_my_family'||k==='photos.marketing')) clear('photos.no_photos');
     if(on) A[k]=true; else delete A[k];
-    b.classList.toggle('on',on); b.textContent=on?'✓':''; b.setAttribute('aria-pressed',String(on)); soon();
+    b.classList.toggle('on',on); b.textContent=on?'✓':''; b.setAttribute('aria-pressed',String(on)); if(k.startsWith('car.')) carBoxes(); soon();
   }; });
 }
 function missingHtml(p){ return '<div class="err"><b>Still needed before signing:</b><ul>'+p.map(x=>`<li><a href="#" data-goto="${esc(x.field)}">${esc(x.error)}</a></li>`).join('')+'</ul></div>'; }
@@ -389,11 +439,25 @@ function vFill(){
   $('bar').classList.remove('hide');
   $('view').innerHTML=`<div class="kick">For the office</div><h1>Fill in the agreement</h1>
    <p class="lead">Type into the blanks and tick the boxes right on the pages as you talk with the family. Fill in as much as you like: the family can also type into any blank when you hand them the tablet.</p>
-   ${signerCard()}${homeCard()}${pagesHtml('office')}`;
-  fitText(); wireFill(vFill); wireHome();
+   ${prefillCard()}${signerCard()}${backupCard()}${homeCard()}${pagesHtml('office')}`;
+  fitText(); wireFill(vFill); wireHome(); wirePrefill();
   $('backBtn').style.visibility='hidden'; $('barMsg').textContent='';
   $('nextBtn').textContent='Hand to the family';
   $('nextBtn').onclick=async()=>{ $('barMsg').textContent='Saving…'; if(!await save()) return; $('barMsg').textContent=''; go('handoff'); };
+}
+/* 2026-10-29: what was filled in from the Hub, and a way to fill the blanks again (a draft from before, or new Family Circle people) */
+function prefillCard(){
+  const n=Object.keys(PREFILL).filter(isPf).length, notes=(AG.office&&AG.office.prefill_notes)||[];
+  return `<div class="card" id="pfCard"><p style="margin:0 0 8px">${n?`<span class="pfkey"></span><b>${n} boxes</b> were filled in from what we already know (AxisCare, the Family Circle, the lead and the home visit). Check them with the family; anyone can change one.`:'Nothing was filled in from the Hub yet.'}</p>
+    ${notes.length?'<ul style="margin:0 0 8px 18px;padding:0;font-size:15.5px;color:var(--muted)">'+notes.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':''}
+    <button type="button" class="btn ghost" id="pfAgain" style="min-height:44px;padding:8px 16px;font-size:16px">Fill in empty boxes from the Hub</button> <span id="pfMsg" style="font-size:15px"></span></div>`;
+}
+function wirePrefill(){
+  $('pfAgain').onclick=async()=>{ const b=$('pfAgain'); b.disabled=true; $('pfMsg').textContent='Looking…';
+    try{ if(!(await save())) throw new Error('Not saved first'); const r=await call({action:'fill_blanks',id:AG.id}); const y=window.scrollY;
+      AG=r.agreement; A=Object.assign({},AG.answers||{}); PREFILL=Object.assign({},AG.office&&AG.office.prefill); PFV=Object.assign({},AG.office&&AG.office.prefill_values);
+      vFill(); window.scrollTo(0,y); $('pfMsg').textContent=r.filled?r.filled+' more filled in.':'Nothing new to fill in.'; }
+    catch(e){ $('pfMsg').innerHTML='<span style="color:var(--red)">'+esc(e.message)+'</span>'; b.disabled=false; } };
 }
 function soon(){ clearTimeout(saveTimer); if(step==='fill') $('barMsg').textContent=''; saveTimer=setTimeout(async()=>{ if((step==='fill'||step==='family')&&await save()&&step==='fill') $('barMsg').textContent='Saved'; },1500); }
 async function save(){ clearTimeout(saveTimer); try{ await call({action:'save',id:AG.id,answers:famAnswers()}); if(step==='family') famBar(); return true; }catch(e){ $('barMsg').innerHTML='<span style="color:var(--red)">Not saved: '+esc(e.message)+'</span>'; return false; } }
@@ -438,8 +502,8 @@ function vFamily(){
   const ini=initials(SIGNER.name);
   $('view').innerHTML=`<h1>Your Client Care Agreement</h1>
    <div class="note zoomtip">Tip: on a phone, spread two fingers on the page to zoom in, so the blanks and boxes are easier to tap.</div>
-   <p class="lead">Please look it over. You can type into any blank or change a box if something needs fixing. Then tap each yellow <b>Tap to initial</b> box to put your initials${ini?' (<b>'+esc(ini)+'</b>)':''} on it, and tap <b>Tap to sign</b>.</p>
-   ${signerCard()}${pagesHtml('family')}`;
+   <p class="lead">Please look it over. ${Object.keys(PREFILL).some(isPf)?'We filled in what we already know (the <span class="pfkey"></span>blue boxes); please check those. ':''}You can type into any blank or change a box if something needs fixing. Then tap each yellow <b>Tap to initial</b> box to put your initials${ini?' (<b>'+esc(ini)+'</b>)':''} on it, and tap <b>Tap to sign</b>.</p>
+   ${signerCard()}${backupCard()}${pagesHtml('family')}`;
   fitText(); wireFill(vFamily);
   $('bar').classList.remove('hide'); $('backBtn').style.visibility=REMOTE?'hidden':'visible'; $('backBtn').textContent='Office: back';
   $('backBtn').onclick=()=>{ $('backBtn').textContent='Back'; go('fill'); };
@@ -565,7 +629,7 @@ function showDone(email,declined,steps){
   const opener=(action,btn)=>async()=>{ $('dErr').innerHTML=''; btn.disabled=true; try{ const r=await call({action,id:AG.id}); window.open(r.url,'_blank','noopener'); }catch(e){ $('dErr').innerHTML='<div class="err">'+esc(e.message)+'</div>'; } btn.disabled=false; };
   $('openPdf').onclick=opener('open',$('openPdf')); $('printCopy').onclick=opener('copy_print',$('printCopy'));
 }
-window.__AG_TEST={ get POS(){return POS;}, get A(){return A;}, get TAPS(){return TAPS;}, get SIGNER(){return SIGNER;} };
+window.__AG_TEST={ get POS(){return POS;}, get A(){return A;}, get PREFILL(){return PREFILL;}, get TAPS(){return TAPS;}, get SIGNER(){return SIGNER;} };
 })();
 </script>
 </body>
