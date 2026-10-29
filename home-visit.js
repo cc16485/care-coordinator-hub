@@ -194,6 +194,7 @@
       equipment: [], equipment_other: '',
       acts: {}, meds: {},
       prefs: { gender: '', spanish: '', cats: '', dogs: '', smoking: '', skills: [], other: '' },
+      safety: { ec: {} },
       week: {}, start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
       sign: { client: { png: '', name: '', date: '' }, assessor: { png: '', name: me(), date: '' } },
     };
@@ -241,6 +242,7 @@
     const i = (D().care_assessments || []).findIndex((x) => x.id === ST.a.id);
     if (i >= 0) DATA.care_assessments[i] = ST.a; else (DATA.care_assessments = DATA.care_assessments || []).push(ST.a);
     try { await persist('care_assessments', ST.a); } catch (e) {}
+    try { if (window.CPV) CPV.safetyWatch(ST.a); } catch (e) {}
     const pill = document.getElementById('syncPill'), s = document.getElementById('hvSaved');
     if (s) s.textContent = pill && /Not saved|✗|⚠/.test(pill.textContent) ? 'Not saved yet. It will try again.' : 'Saved ' + new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   }
@@ -314,6 +316,81 @@
       + card('Life story', '<div id="hvLife"><div class="hv-n">Loading…</div></div>', '<span class="hv-tag">Saves to Home &amp; Life</span>')
       + '</div>';
   }
+  /* ---------- the safety screen everyone answers (Care plan Stage 1, her decision 4) ----------
+     Short questions for everyone; a follow-up opens only when an answer calls for it. The care plan can't be approved
+     until every one is answered, and existing allergies and the emergency contact are confirmed with the family. */
+  const SY = 'visit.safety.';
+  function safetyHtml() {
+    const v = ST.a.visit, s = v.safety || {}, lv = (k) => ((v.acts || {})[k] || {}).level;
+    const miss = window.CPV ? CPV.safetyMissing(v) : [];
+    const q = (label, inner, note) => '<div class="hv-sq"><div><b>' + E(label) + '</b>' + (note ? '<span class="hv-n">' + E(note) + '</span>' : '') + '</div>' + inner + '</div>';
+    const follow = (path, ph) => '<div class="hv-fu">' + field(path, ph, { rows: 2 }) + '</div>';
+    return '<div class="hv-ch"><h2>Safety check</h2><span class="hv-tag' + (miss.length ? ' hv-sug' : '') + '">' + (miss.length ? miss.length + ' to answer' : 'All answered') + '</span></div>'
+      + '<p class="hv-n" style="margin:0">Asked at every visit. The care plan can\'t be approved until each one is answered.</p>'
+      + q('Any falls in the last 6 months?', yn(SY + 'falls')) + (s.falls === 'yes' ? follow(SY + 'falls_note', 'How, where, and was anyone hurt?') : '')
+      + q('Lives alone?', yn(SY + 'lives_alone'))
+      + q('Walking', pills('visit.acts.mobility.level', PERSONAL.find((r) => r[0] === 'mobility')[3]))
+      + q('Getting up and down (transfers)', pills('visit.acts.transfers.level', PERSONAL.find((r) => r[0] === 'transfers')[3]))
+      + (lv('transfers') === 'full' ? q('Needs more than one person, or a lift, to transfer?', yn(SY + 'two_person'), 'Caregivers never do two-person transfers.') : '')
+      + q('Memory concerns?', yn('visit.memory'))
+      + q('Needs supervision to be safe (judgment)?', yn('visit.supervision'))
+      + (v.memory === 'yes' || v.supervision === 'yes' ? follow(SY + 'cognition_note', 'What happens, and when? (wandering, the stove, getting lost, mixing up pills)') : '')
+      + q('Any recent decline in what they can do?', yn(SY + 'decline')) + (s.decline === 'yes' ? follow(SY + 'decline_note', 'What changed, and when?') : '')
+      + q('Can they call for help in an emergency?', pills(SY + 'summon', window.CPV ? CPV.SUMMON : []))
+      + q('Oxygen in the home?', yn(SY + 'oxygen')) + (s.oxygen === 'yes' ? follow(SY + 'oxygen_note', 'Where it is kept, and how it is used') : '')
+      + q('Does anyone smoke in the home?', yn('visit.prefs.smoking'))
+      + q('Home hazards you can see', pills(SY + 'hazards', window.CPV ? CPV.HAZARDS : [], true)) + ((s.hazards || []).some((h) => h !== 'none') ? follow(SY + 'hazards_note', 'Where, and anything the family will fix') : '')
+      + '<div class="hv-sq hv-sqw"><div><b>Allergies</b><span class="hv-n">Medicines and food. Read back what we have and confirm it.</span></div>'
+      + '<div class="hv-stack">' + field('visit.allergies', 'List every one', { rows: 2 }) + '<div class="hv-seg"><button type="button" class="hv-b2" data-hva="noallergy">None known</button></div>'
+      + '<div class="hv-row" style="min-height:0"><span class="hv-n">Confirmed with the family?</span>' + pills(SY + 'allergies_ok', [['yes', 'Yes, confirmed']]) + '</div></div></div>'
+      + '<div class="hv-sq hv-sqw"><div><b>Emergency contact</b><span class="hv-n">Who we call first. Read it back and confirm it.</span></div>'
+      + '<div class="hv-stack"><div class="hv-g3">' + field(SY + 'ec.name', 'Name') + field(SY + 'ec.rel', 'Relationship') + field(SY + 'ec.phone', 'Phone', { type: 'tel' }) + '</div>'
+      + '<div class="hv-row" style="min-height:0"><span class="hv-n">Confirmed with the family?</span>' + pills(SY + 'ec_ok', [['yes', 'Yes, confirmed']]) + '</div></div></div>';
+  }
+  const SAFETY_PATHS = /^visit\.(safety\.|memory$|supervision$|prefs\.smoking$|acts\.(mobility|transfers)\.level$|allergies$)/;
+  function safetyRefresh() { const el = document.getElementById('hvSafety'); if (el) el.innerHTML = safetyHtml(); }
+  /* once: the emergency contact starts as the caller from the lead, in blue, to read back and confirm */
+  function safetyPrefill(a, l) {
+    const v = a.visit; v.safety = v.safety || {};
+    if (!l || v.safety_filled_at || v.finished_at) return;
+    const ec = v.safety.ec = v.safety.ec || {};
+    if (!isSelf(l) && nil(ec.name) && callerName(l) && l.phone) { ec.name = callerName(l); ec.rel = l.relationship || ''; ec.phone = l.phone; ['name', 'rel', 'phone'].forEach((k) => { (v.from_call = v.from_call || {})['visit.safety.ec.' + k] = true; }); }
+    v.safety_filled_at = new Date().toISOString();
+  }
+  /* every answer the visit holds, for the care plan draft: path, label, section, value (with where it came from) */
+  function factsFor(a) {
+    const keep = ST.a; ST.a = a;
+    try {
+      const v = a.visit || {}, out = [], mark = (p) => (v.from_call || {})[p] ? ' (said on a phone call, not checked at the visit)' : (v.heard || {})[p] ? ' (heard on the recording, kept)' : '';
+      const add = (path, label, section, val) => { if (!blank(val)) out.push({ path, label, section, value: String(val) + mark(path) }); };
+      boxes().forEach((b) => add(b.path, b.label, b.section, blank(get(b.path)) ? '' : shown(b, get(b.path))));
+      const s = v.safety || {}, w = (list, k) => ((list.find((x) => x[0] === k) || [0, k])[1]);
+      add('visit.safety.falls', 'Falls in the last 6 months', 'Safety', s.falls); add('visit.safety.falls_note', 'The fall', 'Safety', s.falls_note);
+      add('visit.safety.lives_alone', 'Lives alone', 'Safety', s.lives_alone); add('visit.safety.two_person', 'Needs more than one person or a lift to transfer', 'Safety', s.two_person);
+      add('visit.safety.cognition_note', 'Memory and judgment: what happens', 'Safety', s.cognition_note);
+      add('visit.safety.decline', 'Recent decline', 'Safety', s.decline); add('visit.safety.decline_note', 'What changed', 'Safety', s.decline_note);
+      add('visit.safety.summon', 'Can call for help', 'Safety', s.summon && window.CPV ? w(CPV.SUMMON, s.summon) : s.summon);
+      add('visit.safety.oxygen', 'Oxygen in the home', 'Safety', s.oxygen); add('visit.safety.oxygen_note', 'The oxygen', 'Safety', s.oxygen_note);
+      add('visit.safety.hazards', 'Home hazards seen', 'Safety', (s.hazards || []).map((h) => window.CPV ? w(CPV.HAZARDS, h) : h).join(', '));
+      add('visit.safety.hazards_note', 'About the hazards', 'Safety', s.hazards_note);
+      add('visit.allergies', 'Allergies', 'Safety', v.allergies + (s.allergies_ok === 'yes' ? ' (confirmed with the family)' : ''));
+      add('visit.safety.ec', 'Emergency contact', 'Safety', [((s.ec || {}).name || ''), ((s.ec || {}).rel || ''), ((s.ec || {}).phone || '')].filter(Boolean).join(', ') + (s.ec_ok === 'yes' ? ' (confirmed)' : ''));
+      add('visit.memory', 'Memory concerns', 'Health', v.memory); add('visit.supervision', 'Needs supervision for safety', 'Health', v.supervision);
+      add('visit.pain', 'Has pain', 'Health', v.pain);
+      add('visit.equipment', 'Equipment they use or have', 'Health', (v.equipment || []).join(', '));
+      const days = DAYS.filter((d) => dayHours(d[0])).map((d) => d[1] + ' ' + v.week[d[0]].from + ' to ' + v.week[d[0]].to);
+      add('visit.week', 'Schedule agreed', 'Schedule', days.join(', ')); add('visit.start', 'Hoped-for start', 'Schedule', v.start);
+      add('visit.level', 'Care level', 'Schedule', ((LEVELS.find((L) => L[0] === v.level) || [0, ''])[1]));
+      add('visit.comments', 'General comments', 'Schedule', v.comments);
+      add('visit.attendees', 'People in the room', 'Start', (v.attendees || []).filter((p) => p.name).map((p) => p.name + (p.rel ? ' (' + p.rel + ')' : '')).join(', '));
+      (v.goals || []).forEach((g, i) => { if (g && g.text && v.top_goal === i) add('visit.top_goal', 'Most important goal', 'Their story', g.text); });
+      const life = (ST.lead && ST.lead.life) || {};
+      ['work', 'enjoys', 'little'].forEach((k) => { const x = life[k]; add('life.' + k, { work: 'Life story: work and life', enjoys: 'Life story: enjoys', little: 'Life story: little things that make the day better' }[k], 'Their story', x && (x.text || x)); });
+      if (v.after) { add('visit.after.summary', 'Summary of the recording', 'After the visit', v.after.summary);
+        (v.after.missed || []).forEach((m, i) => add('visit.after.missed.' + i, 'Missed or unclear', 'After the visit', m.title + ': ' + m.text)); }
+      return out;
+    } finally { ST.a = keep; }
+  }
   function condHtml() {
     return '<div class="hv-cond hv-th"><span>CONDITION</span><span>ABOUT WHEN</span><span>HOW IT AFFECTS DAILY LIFE</span><span></span></div>'
       + (ST.a.visit.conditions || []).map((c, i) => '<div class="hv-cond">' + field('visit.conditions.' + i + '.name', 'Condition') + field('visit.conditions.' + i + '.onset', 'Year') + field('visit.conditions.' + i + '.effect', 'How it affects the day')
@@ -322,17 +399,15 @@
   function sec3() {
     const v = ST.a.visit;
     return '<h1>Health</h1>' + callCard(callRows('health'))
+      + '<section class="hv-card hv-safe" id="hvSafety">' + safetyHtml() + '</section>'
       + card('Health conditions', '<div id="hvConds">' + condHtml() + '</div>', '<button type="button" class="hv-b2" data-hva="addcond">+ Add a condition</button>')
       + '<div class="hv-g2">'
-      + card('Memory, safety and pain',
-        '<div class="hv-row"><b>Memory concerns?</b>' + yn('visit.memory') + '</div>'
-        + '<div class="hv-row"><b>Needs supervision for safety?</b>' + yn('visit.supervision') + '</div>'
-        + '<div class="hv-row"><b>Has pain?</b>' + yn('visit.pain') + '</div>'
+      + card('Pain',
+        '<div class="hv-row"><b>Has pain?</b>' + yn('visit.pain') + '</div>'
         + lab('Where?', field('visit.pain_where'))
         + lab('What makes it harder or easier?', field('visit.pain_easier')))
-      + card('Allergies, doctors and pharmacy',
-        lab('Allergies', field('visit.allergies', 'List every one', { rows: 2 }), 'Medicines and food. Specify all.')
-        + '<div class="hv-g2">' + lab('Primary doctor', field('physician_name', 'Name', { from: !!ST.a.physician_name })) + lab("Doctor's phone", field('physician_phone', '', { from: !!ST.a.physician_phone })) + '</div>'
+      + card('Doctors and pharmacy',
+        '<div class="hv-g2">' + lab('Primary doctor', field('physician_name', 'Name', { from: !!ST.a.physician_name })) + lab("Doctor's phone", field('physician_phone', '', { from: !!ST.a.physician_phone })) + '</div>'
         + '<div class="hv-g2">' + lab('Preferred hospital', field('preferred_hospital', '', { from: !!ST.a.preferred_hospital })) + lab('Preferred pharmacy', field('visit.pharmacy')) + '</div>')
       + '</div>'
       + card('Mobility and equipment', '<p class="hv-n" style="margin:0">Tap everything they use or have in the home.</p>' + pills('visit.equipment', EQUIP.map((x) => [x, x]), true) + lab('Other', field('visit.equipment_other')));
@@ -365,7 +440,7 @@
         + '<div class="hv-g3">'
         + '<div class="hv-stack"><b class="hv-q2">Cats in the home</b>' + yn(c + 'cats') + '</div>'
         + '<div class="hv-stack"><b class="hv-q2">Dogs in the home</b>' + yn(c + 'dogs') + '</div>'
-        + '<div class="hv-stack"><b class="hv-q2">Someone smokes in the home</b>' + yn(c + 'smoking') + '</div></div>'
+        + '<div class="hv-stack"><b class="hv-q2">Someone smokes in the home</b><span class="hv-n">Asked on the safety check (Health): ' + E(({ yes: 'Yes', no: 'No' })[ST.a.visit.prefs.smoking] || 'not answered yet') + '</span></div></div>'
         + '<div class="hv-n">The agreement asks them to secure pets and not smoke during visits.</div>'
         + lab('Anything else they asked for in a caregiver', field(c + 'other', 'For example: someone patient, a quiet personality, likes to cook')))
       + card('How we stay in touch', '<div id="hvTouch">' + touchHtml() + '</div>'
@@ -679,6 +754,9 @@
       + '.hv-callp{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:10px;border-top:1px dashed #C2D7D8}.hv-callp .hv-n{flex-basis:100%}'
       + '.hv-touch{display:flex;flex-direction:column;gap:10px;padding:14px 0;border-top:1px solid #EEEAE3}.hv-touch:first-child{border-top:none;padding-top:0}.hv-tn{display:flex;gap:10px;align-items:baseline}.hv-tn b{font-size:17px}'
       + '.hv-seg button.hv-pfrom{box-shadow:0 0 0 3px #9CC3C6}'
+      + '.hv-safe{border:2px solid #9CC3C6}.hv-sq{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}.hv-sq b{display:block;font-size:15px}.hv-sq .hv-n{display:block}'
+      + '.hv-sqw{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);align-items:start}.hv-fu{padding:0 0 8px 18px;border-left:3px solid #9CC3C6;margin-left:4px}'
+      + '@media (max-width:700px){.hv-sq,.hv-sqw{grid-template-columns:minmax(0,1fr)}}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
       + '.hv-chip{font-size:13px;font-weight:700;padding:6px 10px;border-radius:10px;text-align:center;background:#E3F0EF;color:#14565D}'
@@ -728,6 +806,8 @@
     ST.sec = i;
     document.querySelectorAll('#hvRoot .hv-sec').forEach((el) => { el.style.display = +el.getAttribute('data-sec') === i ? '' : 'none'; });
     if (i === 4) { const t = document.getElementById('hvTouch'); if (t) t.innerHTML = touchHtml(); }
+    if (i === 2) safetyRefresh();
+    if (i === 3) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="3"]'); if (d) d.innerHTML = sec4(); }
     if (i === 5) { refreshLevels(); }
     if (i === 6) { const ag = document.getElementById('hvAgree'); if (ag) ag.innerHTML = agreeHtml(); sigInit(); }
     if (i === AFTER) { const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody(); afterLoad(); }
@@ -804,11 +884,13 @@
         if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; pb.parentElement.classList.remove('hv-heardseg'); }
         if (ST.a.visit.from_call && ST.a.visit.from_call[p + ':' + v]) { delete ST.a.visit.from_call[p + ':' + v]; pb.classList.remove('hv-pfrom'); }
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
+        if (SAFETY_PATHS.test(p)) safetyRefresh();
         saveSoon(); return;
       }
       const a = e.target.closest('[data-hva]'); if (!a) return;
       const act = a.getAttribute('data-hva'), i = +a.getAttribute('data-i');
       if (act === 'addperson') { ST.a.visit.attendees.push({ name: '', rel: '', role: 'family' }); document.getElementById('hvPeople').innerHTML = peopleHtml(); saveSoon(); return; }
+      if (act === 'noallergy') { set('visit.allergies', 'None known'); if (ST.a.visit.from_call) delete ST.a.visit.from_call['visit.allergies']; safetyRefresh(); saveSoon(); return; }
       if (act === 'addcallperson') {
         const p = callPeople().find((x) => x.name === a.getAttribute('data-v')); if (!p) return;
         ST.a.visit.attendees.push({ name: p.name, rel: p.relationship || '', role: 'family' });
@@ -854,14 +936,18 @@
     const recorded = typeof REC !== 'undefined' && REC.groupKind === 'assessment' && REC.groupSubject === String(ST.a.id);
     if (recording()) { if (!(await ask('Stop the recording and finish the visit?'))) return; try { recStop(); } catch (e) {} }
     const v = ST.a.visit;
+    const miss = window.CPV ? CPV.safetyMissing(v) : [];
+    if (miss.length && !(await ask('The safety check still has ' + miss.length + ' to answer:\n' + miss.map((m) => '· ' + m[0]).join('\n') + '\n\nOK = finish anyway (the care plan can\'t be approved until they are answered) · Cancel = answer them now'))) { show(2); return; }
     if (!v.sign.client.png && !(await ask('Nobody has signed the assessment yet. Finish anyway?'))) return;
-    v.finished_at = new Date().toISOString(); v.finished_by = me();
+    v.finished_at = new Date().toISOString(); v.finished_by = me(); v.finished_by_email = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
     if (ST.a.status === 'Scheduled' || !ST.a.status) ST.a.status = 'Completed — Awaiting Plan';
     await saveNow();
-    toast((v.outcome ? 'Visit saved. Now record "' + (OUTCOMES.find((o) => o[0] === v.outcome) || [0, ''])[1] + '" on Start of Care, step 3.' : 'Visit saved. Record how it ended on Start of Care, step 3.')
+    toast((window.CPV ? 'The care plan draft is being written; it will be on the Care tab to review. ' : '') + (v.outcome ? 'Visit saved. Now record "' + (OUTCOMES.find((o) => o[0] === v.outcome) || [0, ''])[1] + '" on Start of Care, step 3.' : 'Visit saved. Record how it ended on Start of Care, step 3.')
       + (recorded ? ' Back at the office, open the visit and tap After the visit to read the recording.' : ''));
     const root = document.getElementById('hvRoot'); if (root) root.remove();
     clearInterval(ST.tick);
+    /* Care plan Stage 1 (her decision 2): the draft starts as soon as the visit is finished; nothing waits on the iPad */
+    try { if (window.CPV) CPV.autoDraft(ST.a); } catch (e) {}
     try { if (ST.lead && typeof asmtToProfile === 'function') await asmtToProfile(ST.lead); } catch (e) {}
     try { if (typeof renderAssessments === 'function') renderAssessments(); } catch (e) {}
     try { if (typeof cpRenderCare === 'function') cpRenderCare(); } catch (e) {}
@@ -887,7 +973,8 @@
     }
     if (!l && a.lead_id) l = (D().leads || []).find((x) => x.id === a.lead_id) || null;
     ST.a = ensureVisit(a, l); ST.lead = l; ST.sec = 0;
-    callFill(ST.a, l); leadPrefs(ST.a, l);
+    callFill(ST.a, l); leadPrefs(ST.a, l); safetyPrefill(ST.a, l);
+    if (o.sec != null) ST.sec = +o.sec;
     await saveNow();
     render();
   }
@@ -913,5 +1000,5 @@
     const sv = document.getElementById('hvSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
   }
 
-  window.HV = { open, close, settingsFill, settingsSave, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
+  window.HV = { open, close, settingsFill, settingsSave, factsFor, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
 })();
