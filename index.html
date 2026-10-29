@@ -7690,7 +7690,8 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=2"></script><script src="simple-card.js?v=2"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="home-visit.js?v=2"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=2"></script><script src="simple-card.js?v=2"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="home-visit.js?v=4"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -24774,6 +24775,12 @@ async function recWake(on){
   }catch(e){ REC.wl = null; }
 }
 document.addEventListener('visibilitychange', () => {
+  /* 2026-10-29 long visits: back on the screen after the iPad locked, the microphone may be gone; say so at once */
+  if(window.RECP && REC.parts && document.visibilityState === 'visible'){
+    const tr = REC.stream && REC.stream.getAudioTracks()[0];
+    if(tr && tr.readyState === 'ended') RECP.lost(); else if(RECP.state() === 'recording') recWake(true);
+    RECP.ui(); return;
+  }
   if(!REC.mr || REC.mr.state !== 'recording') return;
   if(document.visibilityState === 'visible'){ recWake(true);
     const s = document.getElementById('recState'); if(s) s.textContent = 'recording';
@@ -24806,23 +24813,30 @@ function recMount(hostId, kind, subjectId, label){
       + 'Tell them: "The recording is written out by software and summarized to help me review it."</span></span></label>'
     + '<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">'
       + '<button class="secondary" id="recGo" onclick="recStart()" disabled style="' + big + '">● Start recording</button>'
+      + '<button class="fb" id="recPauseB" onclick="RECP.pause()" style="display:none;' + big + '">❚❚ Pause</button>'
+      + '<button class="secondary" id="recResumeB" onclick="RECP.resume()" style="display:none;' + big + '">● Resume</button>'
       + '<button class="fb" id="recStopB" onclick="recStop()" style="display:none;' + big + '">■ Stop</button>'
       + '<span id="recTimer" style="font-variant-numeric:tabular-nums;font-weight:700;color:var(--navy);' + (phone?'font-size:20px;':'') + '"></span>'
     + '</div>'
     + '<div id="recKeep" class="field-note" style="display:none;margin-top:6px;">Keep this screen open while you record. It is also being saved on this device as you go.</div>'
+    + '<div id="recLost" style="display:none;margin-top:9px;background:#FDECEA;border:1px solid #F0B8B0;border-radius:9px;padding:9px 11px;font-size:13px;"></div>'
+    + '<div id="recUp" class="field-note" style="display:none;margin-top:6px;"></div>'
     + '<div id="recErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
     + '<div id="recList" style="margin-top:10px;"></div>'
     + '</div>';
   recLoadList();
   recRecoverShow();
+  if(window.RECP) RECP.ui();
 }
 
 /* An unfinished recording for this person, still on this device: offer to upload it (or let it go). */
 async function recRecoverShow(){
   const box = document.getElementById('recRecover'); if(!box) return;
-  const all = (await recDbSessions()).filter(s => s.kind === REC.kind && String(s.subject) === REC.subject && (!REC.sess || s.id !== REC.sess));
-  if(!all.length){ box.innerHTML = ''; return; }
-  box.innerHTML = all.map(s => {
+  const mine = (await recDbSessions()).filter(s => s.kind === REC.kind && String(s.subject) === REC.subject && (!REC.sess || s.id !== REC.sess));
+  const all = mine.filter(s => !s.group), grouped = mine.filter(s => s.group);
+  const groups = grouped.length && window.RECP ? RECP.groupBoxes(grouped) : '';
+  if(!all.length && !groups){ box.innerHTML = ''; return; }
+  box.innerHTML = groups + all.map(s => {
     const when = new Date(s.startedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' });
     return '<div style="margin-top:9px;background:#FFF8E8;border:1px solid #F5D9A0;border-radius:9px;padding:9px 11px;font-size:13px;">'
       + '<b>An unfinished recording from ' + escapeHtmlComms(when) + ' is saved on this device.</b> It was not uploaded yet.'
@@ -24866,6 +24880,12 @@ async function recStart(){
     err.style.display='block'; return;
   }
   const mime = recMime();
+  /* 2026-10-29: an in-home assessment runs 90 minutes, so it records in 10-minute parts that upload as it goes (rec-parts.js) */
+  if(REC.kind === 'assessment' && window.RECP){
+    document.getElementById('recConsent').disabled = true;
+    const keep = document.getElementById('recKeep'); if(keep) keep.style.display = '';
+    return RECP.begin(mime);
+  }
   REC.chunks = [];
   REC.mr = new MediaRecorder(REC.stream, mime ? { mimeType:mime } : undefined);
   REC.startedAt = Date.now();
@@ -24888,6 +24908,7 @@ async function recStart(){
 }
 
 function recStop(){
+  if(window.RECP && REC.parts){ RECP.stop(); return; }
   if(REC.mr && REC.mr.state !== 'inactive') REC.mr.stop();
   if(REC.tick){ clearInterval(REC.tick); REC.tick = null; }
   document.getElementById('recStopB').style.display='none';
@@ -24899,7 +24920,9 @@ function recStop(){
 async function recUpload(blob, seconds, meta){
   const err = document.getElementById('recErr');
   const ext = (blob.type.indexOf('mp4') > -1) ? 'mp4' : 'webm';
-  const path = meta.kind + '/' + meta.subject + '/' + Date.now() + '.' + ext;
+  const path = meta.group   /* a part of a long visit: its own folder, numbered in order */
+    ? meta.kind + '/' + meta.subject + '/' + meta.group + '/' + String(meta.part).padStart(3,'0') + '.' + ext
+    : meta.kind + '/' + meta.subject + '/' + Date.now() + '.' + ext;
   try{
     const up = await sb.storage.from('recordings').upload(path, blob, { contentType: blob.type });
     if(up.error) throw up.error;
@@ -24907,18 +24930,21 @@ async function recUpload(blob, seconds, meta){
       kind: meta.kind, subject_id: meta.subject, subject_label: meta.label,
       storage_path: path, mime: blob.type, seconds: seconds,
       consent_given: true,
+      ...(meta.group ? { session_id: meta.group, part: meta.part, offset_seconds: meta.offset || 0 } : {}),
       consent_by: meta.by || (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
       recorded_by: meta.by || (typeof ME !== 'undefined' && (ME.name || ME.email)) || null,
     }).select('id').single();
     if(ins.error) throw ins.error;
-    const st = document.getElementById('recState'); if(st) st.textContent = 'transcribing…';
+    const st = document.getElementById('recState'); if(st && !(window.RECP && RECP.state() !== 'off')) st.textContent = 'transcribing…';
     await recLoadList();
     sb.functions.invoke('transcribe-recording', { body:{ recording_id: ins.data.id } })
       .then(()=>recPoll(ins.data.id))
       .catch(()=>recPoll(ins.data.id));
     return true;
   }catch(e){
-    if(err){ err.textContent = 'Could not upload the recording: ' + (e&&e.message||'error')
+    if(err && meta.group){ err.textContent = 'Could not send part ' + meta.part + ' to the office: ' + (e&&e.message||'error')
+      + '. It is saved on this device and will try again by itself.'; err.style.display='block'; }
+    else if(err){ err.textContent = 'Could not upload the recording: ' + (e&&e.message||'error')
       + '. It is still saved on this device: open this screen again and press Upload it.'; err.style.display='block'; }
     return false;
   }
@@ -24963,7 +24989,7 @@ async function recPoll(id, tries){
   try{
     const { data } = await sb.from('recordings').select('status').eq('id', id).maybeSingle();
     if(data && (data.status==='done' || data.status==='failed')){
-      document.getElementById('recState') && (document.getElementById('recState').textContent = '');
+      if(!(window.RECP && RECP.state() !== 'off')) document.getElementById('recState') && (document.getElementById('recState').textContent = '');
       await recLoadList();
       return;
     }
@@ -24986,6 +25012,7 @@ async function recLoadList(){
 function recListHtml(rows){
   const esc = escapeHtmlComms;
   if(!rows.length) return '';
+  if(window.RECP && rows.some(r => r.session_id)) return RECP.listHtml(rows, recListHtml);   /* a long visit's parts show as one */
   const STATE = { recorded:'waiting to be transcribed', transcribing:'transcribing…', done:'', failed:'could not be transcribed' };
   return rows.map(r=>{
     const when = new Date(r.created_at).toLocaleString('en-US',{month:'short', day:'numeric', hour:'numeric', minute:'2-digit'});

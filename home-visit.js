@@ -184,7 +184,7 @@
       + '<div class="hv-n" style="font-size:14px">Read this out loud before you start:</div>'
       + '<blockquote class="hv-q">"With everyone\'s OK, I\'d like to record our conversation today so I don\'t miss anything you tell me. The recording is written out by software and summarized to help me review it."</blockquote>'
       + '<div id="hvRec"></div>'
-      + '<div class="hv-n">Pause is not needed: stop and start again for a private moment. Each part is kept.</div>'
+      + '<div class="hv-n">A private moment? Tap Pause at the top, then Resume. A long visit is fine: it saves and sends in 10-minute parts as you go, so keep the iPad on this screen and don\'t lock it.</div>'
       + '</section></div>';
   }
   function peopleHtml() {
@@ -368,7 +368,8 @@
       + '.hv-rail button.done .hv-num{background:#1F6F78;border-color:#1F6F78;color:#fff}'
       + '.hv-main{flex:1;display:flex;flex-direction:column;min-width:0}'
       + '.hv-bar{height:60px;flex:none;display:flex;align-items:center;gap:14px;padding:0 24px;background:#fff;border-bottom:1px solid #E4E0D8}'
-      + '.hv-dot{width:12px;height:12px;border-radius:6px;background:#8C999B;flex:none}.hv-dot.rec{background:#C2362B}'
+      + '@media (max-width:600px){.hv-bar{height:auto;min-height:56px;flex-wrap:wrap;padding:8px 14px;gap:8px}.hv-bar .hv-n{display:none}}'
+      + '.hv-dot{width:12px;height:12px;border-radius:6px;background:#8C999B;flex:none}.hv-dot.rec{background:#C2362B}.hv-dot.hold{background:#D99A1E}'
       + '.hv-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:26px 28px 40px}'
       + '.hv-sec{display:flex;flex-direction:column;gap:18px;max-width:1100px}'
       + '#hvRoot h1{margin:0;font-size:28px;color:#1E2B2F}#hvRoot h2{margin:0;font-size:19px;color:#1E2B2F}'
@@ -416,14 +417,20 @@
       + '<div class="hv-gap" style="flex:1"></div><button type="button" data-hva="close"><span class="hv-num">×</span>Close</button>';
   }
   function barHtml() {
-    const rec = typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording' && REC.kind === 'assessment' && REC.subject === String(ST.a.id);
-    const secs = rec ? Math.floor((Date.now() - REC.startedAt) / 1000) : 0;
+    /* stage 2 (2026-10-29): the recorder runs in 10-minute parts (rec-parts.js), with Pause, and says when the iPad stopped it */
+    const st = window.RECP && typeof REC !== 'undefined' && REC.groupKind === 'assessment' && REC.groupSubject === String(ST.a.id) ? RECP.state() : 'off';
+    const rec = st !== 'off';
+    const secs = rec ? Math.floor(RECP.elapsed()) : 0;
     const clock = Math.floor(secs / 3600) + ':' + String(Math.floor(secs / 60) % 60).padStart(2, '0') + ':' + String(secs % 60).padStart(2, '0');
     const n = (ST.a.visit.attendees || []).filter((p) => p.name).length;
+    const word = st === 'paused' ? 'Paused ' + clock : st === 'lost' ? 'Recording stopped at ' + clock : rec ? 'Recording ' + clock : 'Not recording';
     /* 2026-10-29 (Samantha: "add our logo to the assessment screen on the ipad"): the rail shows it sideways; upright and on a phone the rail is a tab strip, so the bar carries it */
-    return '<img class="hv-barlogo" src="cc-logo.png" alt="Caring Companions"><span class="hv-dot' + (rec ? ' rec' : '') + '"></span><strong style="font-variant-numeric:tabular-nums">' + (rec ? 'Recording ' + clock : 'Not recording') + '</strong>'
+    return '<img class="hv-barlogo" src="cc-logo.png" alt="Caring Companions"><span class="hv-dot' + (st === 'recording' ? ' rec' : st === 'paused' ? ' hold' : st === 'lost' ? ' rec' : '') + '"></span><strong style="font-variant-numeric:tabular-nums' + (st === 'lost' ? ';color:#C2362B' : '') + '">' + word + '</strong>'
       + (n ? '<span class="hv-n" style="font-size:15px">' + n + ' ' + (n === 1 ? 'person' : 'people') + ' in the room</span>' : '')
       + '<span class="hv-tag" id="hvSaved">Saves as you go</span><span style="flex:1"></span>'
+      + (st === 'recording' ? '<button type="button" class="hv-b2" data-hva="pauserec">Pause</button>' : '')
+      + (st === 'paused' ? '<button type="button" class="hv-b" data-hva="resumerec">Resume</button>' : '')
+      + (st === 'lost' ? '<button type="button" class="hv-b" data-hva="keeprec">Keep recording</button>' : '')
       + (rec ? '<button type="button" class="hv-b2 hv-stop" data-hva="stoprec">Stop recording</button>' : '');
   }
   function footHtml() {
@@ -517,12 +524,15 @@
         refreshLevels(); saveSoon(); return;
       }
       if (act === 'clearsig') { const w = a.getAttribute('data-v'); ST.a.visit.sign[w] = { png: '', name: (ST.a.visit.sign[w] || {}).name || '', date: '' }; const cv = root.querySelector('canvas[data-sig="' + w + '"]'); if (cv) cv.getContext('2d').clearRect(0, 0, cv.width, cv.height); saveSoon(); return; }
-      if (act === 'stoprec') { if (await ask('Stop the recording? It uploads now. You can start a new one if the conversation keeps going.')) { try { recStop(); } catch (er) {} } return; }
+      if (act === 'pauserec') { try { RECP.pause(); } catch (er) {} return; }
+      if (act === 'resumerec') { try { RECP.resume(); } catch (er) {} return; }
+      if (act === 'keeprec') { try { recStart(); } catch (er) {} return; }   /* straight from the tap: the iPad only gives the microphone back to a tap */
+      if (act === 'stoprec') { if (await ask('Stop the recording? The last part goes to the office now. To carry on later, start a new recording.')) { try { recStop(); } catch (er) {} } return; }
       if (act === 'close') { await close(); return; }
       if (act === 'finish') { await finish(); return; }
     });
   }
-  const recording = () => typeof REC !== 'undefined' && REC.mr && REC.mr.state === 'recording';
+  const recording = () => typeof REC !== 'undefined' && ((window.RECP && RECP.state() !== 'off') || (REC.mr && REC.mr.state === 'recording'));
   async function close() {
     if (recording()) { if (!(await ask('The recording is still going. Close anyway? It keeps recording until you stop it on this visit.'))) return; }
     await saveNow();
