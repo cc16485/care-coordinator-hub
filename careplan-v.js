@@ -544,7 +544,7 @@
     const W = { same: 'already on file', recorded: 'sent', kept_newer: 'kept the newer answer on file', refused: 'not sent' };
     const head = { sending: 'Sending to caregiver matching…', waiting: 'Waiting for Start of Care: the needs are sent when the client\'s journey starts.', sent: 'Sent to caregiver matching.', partly: 'Not every need was sent.', failed: 'Not sent: ' + (cn.error || '') }[cn.status] || '';
     return '<div class="cpv-res"><b>Care needs for matching</b><div class="' + (cn.status === 'partly' || cn.status === 'failed' ? 'cpv-bad' : 'cpv-src') + '">' + E(head) + '</div>'
-      + cn.items.map((x) => { const r = (cn.results || {})[x.kind]; return '<div class="cpv-src">' + (r ? (r.ok ? '✓ ' : '✗ ') : '· ') + E(x.label) + ': ' + E(x.shown) + (r ? ' (' + E(W[r.outcome] || r.outcome) + (r.why ? ': ' + E(r.why) : '') + ')' : '') + '</div>'; }).join('')
+      + cn.items.map((x) => { const r = (cn.results || {})[x.kind]; return '<div class="cpv-src">' + (r ? (r.ok ? '✓ ' : '✗ ') : '· ') + E(x.label) + ': ' + E(x.shown) + (r ? ' (' + E(W[r.outcome] || r.outcome) + (r.outcome === 'kept_newer' && r.value != null ? ': ' + E(String(r.value).replace(/_/g, ' ').replace(/^./, (m) => m.toUpperCase())) : '') + (r.why ? ': ' + E(r.why) : '') + ')' : '') + '</div>'; }).join('')
       + ((cn.unticked || []).length ? '<div class="cpv-src">Left out by the approver: ' + E(cn.unticked.join(', ')) + '</div>' : '')
       + (cn.status === 'partly' || cn.status === 'failed' || cn.status === 'waiting' ? '<button type="button" class="cpv-b2" style="margin-top:6px" data-cpva="needsretry">Try again now</button>' : '') + '</div>';
   }

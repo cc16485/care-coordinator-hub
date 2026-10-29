@@ -115,7 +115,7 @@ async()=>{
   ok('once the journey exists: sent through the same door, care plan layer, confirmed, at the approval time', L.facts.length>0 && L.facts.every(f=>f.action==='record' && f.episode_id==='ep1' && f.layer==='plan' && f.certainty==='confirmed' && f.said_at===vv.approved_at), L.facts[0]);
   ok('an answer already on file is not sent again (bathing)', !sent.includes('need_bathing') && res.need_bathing.outcome==='same');
   ok('an older different answer is updated, replacing it by id (dementia)', L.facts.some(f=>f.kind==='need_dementia_care' && f.change_kind==='update' && f.supersedes_fact_id==='f2' && f.value==='required'));
-  ok('a newer answer on file is never overwritten (medication reminders)', !sent.includes('need_med_reminders') && res.need_med_reminders.outcome==='kept_newer');
+  ok('a newer answer on file is never overwritten (medication reminders)', !sent.includes('need_med_reminders') && res.need_med_reminders.outcome==='kept_newer' && /kept the newer answer on file: No/.test(txt()));
   ok('a refusal says so, Not every need was sent, with Try again', vv.care_needs.status==='partly' && res.need_meals_housekeeping.ok===false && /Not every need was sent/.test(txt()) && !!c('[data-cpva="needsretry"]') && /stale/.test(txt()));
   window.__refuse=null; const before=L.facts.length; c('[data-cpva="needsretry"]').click(); await sleep(300);
   vv=CPV._plan(a).versions[0];
