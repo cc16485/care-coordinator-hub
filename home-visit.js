@@ -394,7 +394,7 @@
         add(b + 'likes', 'How we help with ' + r[1] + ': how they like it done', 'Daily activities', hp.likes);
         add(b + 'watch', 'How we help with ' + r[1] + ': what to watch for', 'Daily activities', hp.watch); });
       const hm = v.home || {};
-      add('visit.home.entry', 'How the caregiver gets in', 'Home and safety', hm.entry ? ((ENTRY.find((x) => x[0] === hm.entry) || [0, hm.entry])[1] + (hm.code_in_axis === 'yes' ? ' (the code or key details are in AxisCare)' : '')) : '');
+      add('visit.home.entry', 'How the caregiver gets in', 'Home and safety', hm.entry ? ((ENTRY.find((x) => x[0] === hm.entry) || [0, hm.entry])[1] + (hm.code_in_axis === 'yes' ? ' (the code or key details are in AxisCare, where the caregiver finds them before the visit; the code is never written in the plan)' : hm.code_in_axis === 'todo' ? ' (the code or key details are still to be added to AxisCare)' : '')) : '');
       add('visit.home.stairs', 'Stairs inside or to get in', 'Home and safety', hm.stairs);
       add('visit.home.call_order', 'The order the office calls the family', 'Home and safety', hm.call_order);
       const sh = (v.shift || []).filter((r) => r && !nil(r.what));
@@ -548,7 +548,8 @@
     const w = v.week[first[0]], a = mins_(w.from), z = mins_(w.to) > a ? mins_(w.to) : a + 240;
     const tasks = SHIFT_ORDER.filter((x) => helps(x[0]));
     if (!tasks.length) return [];
-    const rows = [{ t: hhmm(a), what: 'Arrive, say hello, and see how ' + (((v.story || {}).called) || 'they') + ' are today' }];
+    const who = String(((v.story || {}).called) || '').trim();
+    const rows = [{ t: hhmm(a), what: 'Arrive, say hello, and see how ' + (who ? who + ' is' : 'they are') + ' doing today' }];
     const step = Math.max(15, Math.floor((z - a - 30) / (tasks.length + 1) / 15) * 15);
     tasks.forEach((x, i) => rows.push({ t: hhmm(a + 15 + i * step), what: x[1] }));
     if (helps('mobility') || helps('transfers')) rows.push({ t: '', what: 'Throughout: stand by when walking and getting up' });
@@ -897,7 +898,7 @@
       + '.hv-shift{display:grid;grid-template-columns:130px minmax(0,1fr) auto 44px;gap:8px;align-items:center;padding:4px 0}.hv-shift .hv-star:disabled{opacity:.45}'
       + '.hv-needsb.on{border-color:#D99A1E;color:#7A5200;background:#FFF8E8}.hv-needs{position:absolute;right:16px;top:64px;z-index:5;width:min(420px,calc(100% - 32px));max-height:70vh;overflow:auto;background:#fff;border:1px solid #CFCAC0;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.18);padding:12px 14px;display:flex;flex-direction:column;gap:6px}'
       + '.hv-need{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;min-height:44px;padding:8px 10px;border:1px solid #EEEAE3;border-radius:10px;background:#fff;font:inherit;font-size:14px;cursor:pointer}'
-      + '.hv-main{position:relative}'
+      + '.hv-main{position:relative}.hv-needs[hidden]{display:none}'
       + '@media (max-width:700px){.hv-warn2{grid-template-columns:minmax(0,1fr)}.hv-shift{grid-template-columns:110px minmax(0,1fr) 44px}.hv-shift .hv-star{grid-column:2}}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'

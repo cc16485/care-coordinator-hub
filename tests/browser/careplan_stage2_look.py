@@ -87,7 +87,7 @@ async()=>{
   v.week={ tue:{ from:'09:00', to:'13:00' }, thu:{ from:'09:00', to:'13:00' } };
   q('[data-hvs="6"]').click(); await sleep(40);
   const sh=v.shift.map(r=>(r.t||'')+' '+r.what);
-  ok('a typical shift builds itself from the schedule and the help, in time order', sh[0]==='09:00 Arrive, say hello, and see how Betty are today'.replace('Betty are','Betty are') && /Medication reminder/.test(sh[1]) && /shower or bath/.test(sh[2]) && sh.some(x=>/Make the meal/.test(x)) && /12:45 Write the visit note in AxisCare/.test(sh[sh.length-1]), sh);
+  ok('a typical shift builds itself from the schedule and the help, in time order', sh[0]==='09:00 Arrive, say hello, and see how Betty is doing today' && /Medication reminder/.test(sh[1]) && /shower or bath/.test(sh[2]) && sh.some(x=>/Make the meal/.test(x)) && /12:45 Write the visit note in AxisCare/.test(sh[sh.length-1]), sh);
   const stars=()=>qa('[data-hva="shiftstar"]');
   stars()[1].click(); stars()[2].click(); stars()[3].click(); await sleep(20);
   ok('three stars allowed; a fourth is locked', v.shift.filter(r=>r.star).length===3 && stars()[0].disabled);
@@ -99,6 +99,7 @@ async()=>{
   /* still needs attention */
   const nb=()=>q('[data-hva="needs"]');
   const n0=+((nb().innerText.match(/^(\d+)/)||[0,0])[1]);
+  ok('the closed list takes no space on the screen', getComputedStyle(document.getElementById('hvNeedsList')).display==='none');
   ok('the top bar counts what still needs attention', n0>0 && /still needs attention/.test(nb().innerText), nb().innerText);
   nb().click(); await sleep(20);
   const items=[...document.querySelectorAll('#hvNeedsList [data-hva="needsgo"]')].map(b=>b.innerText.replace(/\s+/g,' '));
@@ -110,7 +111,7 @@ async()=>{
   /* facts for the draft */
   const f=HV.factsFor(a), fp=Object.fromEntries(f.map(x=>[x.path,x.value]));
   ok('the draft gets the new answers: story, warning signs, how we help, getting in, call order, the shift with its top 3', fp['visit.story.good_care'] && /Dizzy when she stands up/.test(fp['visit.conditions.0.notice']) && /Run the water warm/.test(fp['visit.acts.bathing.help.steps'])
-    && /Lockbox \(the code or key details are in AxisCare\)/.test(fp['visit.home.entry']) && /Karen Price/.test(fp['visit.home.call_order']) && /\(TOP 3\)/.test(fp['visit.shift']), Object.keys(fp).filter(k=>/story|condition|help|home|shift/.test(k)));
+    && /Lockbox \(the code or key details are in AxisCare, where the caregiver finds them before the visit/.test(fp['visit.home.entry']) && /Karen Price/.test(fp['visit.home.call_order']) && /\(TOP 3\)/.test(fp['visit.shift']), Object.keys(fp).filter(k=>/story|condition|help|home|shift/.test(k)));
   ok('Stage 1 gap fixed: a named health condition reaches the draft', fp['visit.conditions.0.name']==='High blood pressure');
   /* emergency wording */
   const em=CPV.emergency(a), et=em.map(b=>b.title+': '+b.text).join('\n');
