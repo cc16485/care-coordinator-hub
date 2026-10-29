@@ -4701,8 +4701,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <div id="prnStep4Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
 <h4 style="margin:18px 0 4px;color:var(--navy);">Their PRN Team page (PRN step 5a)</h4>
-<p class="hint">Each PRN member's own phone page, from their own link: looking for hours, shifts we've asked them about, their clients, thank-yous, My hours (with short notice and a break), optional courses and Talk to us. You can always see any member's page from PRN Teams, What they see. Nothing texts the link yet: its wording comes to you first.</p>
+<p class="hint">Each PRN member's own phone page, from their own link: looking for hours, shifts we've asked them about, their clients, thank-yous, My hours (with short notice and a break), optional courses and Talk to us. You can always see any member's page from PRN Teams, What they see.</p>
 <div id="prnStep5Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+<p class="hint" style="margin-top:14px;">The three texts that carry the page link each need the page open as well, so a link is never sent to a page that isn't open. Weekdays 10am to 5pm, from the office number, with the same do-not-text checks as every caregiver text. Fill-ins: <code>{first_name}</code>, <code>{link}</code> (their own page link). Leave a box empty to use the standard wording. The welcome uses the welcome text above, with "Here's your own PRN Team page: {link}" before its last sentence (or where you put <code>{link}</code>).</p>
+<label>"Your PRN Team page is ready" (once, to members who joined before)</label>
+<textarea id="set_prn_page_ready_msg" rows="3"></textarea>
+<label>The 60-day check-in, opening their page</label>
+<textarea id="set_prn_reconfirm_page_msg" rows="3"></textarea>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="prnStep5Save(this)">Save</button>
+  <span class="field-note" id="prnStep5Status"></span>
+</div>
 </div>
 <div class="settings-section" id="orientProofSettings" data-set="orientation-proof">
 <h3>🎓 Orientation proof</h3>
@@ -15904,14 +15913,47 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_page_live', name:'Open the PRN Team page to members',
     on:'PRN members can open their own page from their link: looking for hours, their shifts, clients, thank-yous, My hours, courses and Talk to us. What they tap shows on This week.',
     off:'Off: a member who opens their link sees "isn\'t open yet" and nothing is saved. You can still see every member\'s page from PRN Teams, What they see.' },
+  { key:'prn_page_ready_live', name:'"Your PRN Team page is ready" text', needsPage:true,
+    on:'Each PRN member linked in AxisCare gets it once (anyone who joined in the last week gets the welcome instead). At most 20 a day.',
+    off:'Off: nobody gets it (a practice run lists who would).' },
+  { key:'prn_welcome_link_live', name:'Page link in the welcome text', needsPage:true,
+    on:'The welcome text to a new PRN member carries their own page link.',
+    off:'Off: the welcome text goes out exactly as before, without the link.' },
+  { key:'prn_reconfirm_page_live', name:'60-day check-in opens their PRN Team page', needsPage:true,
+    on:'The 60-day availability check-in opens their PRN Team page at My hours. Saving there answers it.',
+    off:'Off: the check-in opens the My Hours page, exactly as before.' },
 ];
+const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
+const PRN_RECONFIRM_PAGE_DEFAULT = "Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update on your PRN Team page: {link}";
 function prnStep5Fill(){
   const st = DATA.ops_settings||{};
+  [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT]].forEach(([id,k,d])=>{
+    const t = document.getElementById(id); if(t){ t.value = String(st[k]||''); t.placeholder = d; } });
   const box = document.getElementById('prnStep5Switches'); if(!box) return;
+  const pageOpen = st.prn_page_live===true;
   box.innerHTML = PRN_STEP5_SWITCHES.map(w=>{ const on = st[w.key]===true;
+    const wait = on && w.needsPage && !pageOpen ? ' <span class="field-note" style="color:var(--text-muted);">(waiting: the page isn\'t open yet, so nothing goes)</span>' : '';
     return '<div style="display:flex;gap:10px;align-items:flex-start;"><button class="fb" style="flex:0 0 auto;" onclick="prnStep1Toggle(\''+w.key+'\',this)">'+(on?'Turn off':'Turn on')+'</button>'
-      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')
+      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')+wait
       +'<div class="field-note">'+escapeHtmlComms(on?w.on:w.off)+'</div></div></div>'; }).join('');
+}
+async function prnStep5Save(btn){
+  const s = document.getElementById('prnStep5Status');
+  const msgs = [['set_prn_page_ready_msg','prn_page_ready_msg','"page is ready" wording'],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg','check-in page wording']]
+    .map(([id,k,n])=>[k,n,String((document.getElementById(id)||{}).value||'').trim()]);
+  for(const [,,m] of msgs){
+    if(/\u2014/.test(m)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }
+    if(m.length > 600){ if(s) s.textContent='Keep each to one text (under 600 characters).'; return; }
+    if(m && !m.includes('{link}')){ if(s) s.textContent='Each text needs {link} where their page link goes.'; return; }
+  }
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m, base)=>{ const ch=[];
+    for(const [k,n,msg] of msgs){
+      if(msg===''){ if(k in m){ delete m[k]; ch.push(n+' back to standard'); } }
+      else if(base[k]!==msg){ m[k] = msg; ch.push(n); } }
+    return ch; }, 'PRN Teams settings');
+  if(btn) btn.disabled = false;
+  if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
 /* ORIENTATION PROOF (Samantha 2026-10-28): three switches, all off until she reviews the practice results. */
 const OP_SWITCHES = [
