@@ -237,7 +237,8 @@ function render() {
     + '<p class="msg" id="brkMsg"></p>'
     + (d.oncall ? '<label class="fld">Would you like to be on call sometimes?</label><p class="small" style="margin-top:4px">' + esc(d.oncall.words) + '</p>'
         + '<div class="yn" style="flex-wrap:wrap">' + Object.keys(d.oncall.patterns).map((k) => '<button class="chip' + (d.oncall.pattern === k ? ' on' : '') + '" data-oc="' + esc(k) + '">' + esc(d.oncall.patterns[k]) + '</button>').join('') + '</div>'
-        + ((d.oncall.confirmed || []).length ? '<p class="small" style="margin-top:8px"><b>You\'re on call:</b> ' + d.oncall.confirmed.map((c) => esc(dWord(c.start_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (c.end_date !== c.start_date ? ' to ' + esc(dWord(c.end_date, { weekday: 'short', month: 'short', day: 'numeric' })) : '')).join(', ') + '. Thank you!</p>' : '')
+        + ((d.oncall.confirmed || []).length ? '<p class="small" style="margin-top:8px"><b>You\'re on call:</b> ' + d.oncall.confirmed.map((c) => esc(dWord(c.start_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (c.end_date !== c.start_date ? ' to ' + esc(dWord(c.end_date, { weekday: 'short', month: 'short', day: 'numeric' })) : '')
+            + (c.shift ? ' (' + esc({ day: 'daytime, 7am to 5pm', overnight: 'overnight, 5pm to 7am', whole: 'the whole day' }[c.shift] || c.shift) + ')' : '')).join(', ') + '. Thank you!</p>' : '')
         + '<p class="msg" id="ocMsg"></p>' : '')
     + '</div></section>'
     + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'

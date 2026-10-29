@@ -137,20 +137,30 @@
 
   function onCallHtml() {
     var oc = W.oncall || { weekends: [], offers: [] }, cna = (W.members || []).filter(function (m) { return m.team === 'cna'; });
+    /* 2026-10-29: which shift each confirmed date is (switch prn_oncall_shift_live; owners see it as practice while off) */
+    var askShift = !!oc.shifts && (oc.shift_live || isOwner());
+    var shiftPick = function (id) { return '<select id="' + id + '" style="font-size:12.5px;padding:3px 6px;max-width:170px;"><option value="">Which shift…</option>'
+      + Object.keys(oc.shifts).map(function (k) { return '<option value="' + e(k) + '">' + e(oc.shifts[k]) + '</option>'; }).join('') + '</select>'; };
+    var payroll = !askShift ? '' : (oc.payroll || []).map(function (p) {
+      var rows = (p.members || []).map(function (m) { var bits = [m.day ? m.day + ' daytime' : '', m.overnight ? m.overnight + ' overnight' : '', m.whole ? m.whole + ' whole day' + (m.whole === 1 ? '' : 's') : '', m.not_recorded ? m.not_recorded + ' with no shift recorded' : ''].filter(Boolean);
+        return '<div style="font-size:13px;">' + e(m.name) + ': ' + e(bits.join(', ')) + '</div>'; }).join('');
+      return '<div style="margin-top:6px;"><b style="font-size:13px;">' + e(new Date(p.month + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })) + '</b>' + (rows || '<div class="field-note">Nobody on call.</div>') + '</div>'; }).join('');
     var pick = function (id) { return '<select id="' + id + '" style="font-size:12.5px;padding:3px 6px;max-width:150px;"><option value="">Confirm someone…</option>'
       + cna.map(function (m) { return '<option value="' + e(m.applicant_id) + '">' + e(m.name) + '</option>'; }).join('') + '</select>'; };
     var tiles = oc.weekends.map(function (w, i) {
-      var who = w.confirmed.map(function (c) { return '<div class="pw-on">✓ ' + e(c.name) + ' <a href="javascript:void 0" title="Take back" onclick="PW.cancel(' + Number(c.id) + ')">✕</a></div>'; }).join('');
+      var who = w.confirmed.map(function (c) { return '<div class="pw-on">✓ ' + e(c.name) + (c.shift ? ' · ' + e(SHORT[c.shift] || c.shift) : '') + ' <a href="javascript:void 0" title="Take back" onclick="PW.cancel(' + Number(c.id) + ')">✕</a></div>'; }).join('');
       return '<div class="pw-wk' + (w.gap ? ' gap' : '') + '"><div class="pw-d">' + fmt(w.saturday) + ' to ' + fmt(w.sunday) + '</div>'
         + (who || '<div class="pw-none">No PRN CNA on call</div>')
-        + (cna.length ? '<div style="margin-top:6px;">' + pick('pwPick' + i) + ' <button class="fb" onclick="PW.confirm(' + i + ',this)">Confirm</button></div>' : '') + '</div>';
+        + (cna.length ? '<div style="margin-top:6px;">' + pick('pwPick' + i) + (askShift ? ' ' + shiftPick('pwShift' + i) : '') + ' <button class="fb" onclick="PW.confirm(' + i + ',this)">Confirm</button></div>' : '') + '</div>';
     }).join('');
     var offers = oc.offers.length ? oc.offers.map(function (o) { return '<span class="pw-chip">' + e(o.name) + ': ' + e(o.pattern_word) + (o.note ? ' (' + e(o.note) + ')' : '') + '</span>'; }).join('')
       : '<span class="field-note">Nobody has offered yet. Ask in the welcome call, then record it here.</span>';
     var pats = Object.keys(oc.patterns || {}).map(function (k) { return '<option value="' + e(k) + '">' + e(oc.patterns[k]) + '</option>'; }).join('');
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
       + '<div class="field-note">An offer alone never puts someone on call: confirm each date with them first. On call comes in two shifts: daytime 7am to 5pm and overnight 5pm to 7am; both make a whole day. Confirm which shift with them. Reply within 15 minutes, start within 1 hour. On-call pay is in the PRN plan and is never shown on their page.</div>'
+      + (askShift && !oc.shift_live ? '<div class="field-note" style="margin-top:4px;"><b>Practice:</b> the shift choice shows to owners only until it is switched on (Settings, PRN Teams).</div>' : '')
       + '<div class="pw-grid">' + tiles + '</div>'
+      + (payroll ? '<div style="margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:10px;"><b style="font-size:13.5px;color:var(--navy);">On-call days for payroll</b> <span class="field-note">counted from the confirmed dates; the pay is in the PRN plan</span>' + payroll + '</div>' : '')
       + '<div style="margin-top:12px;"><b style="font-size:13px;">What they\'ve offered:</b> ' + offers + '</div>'
       + (cna.length ? '<div class="pw-offer"><select id="pwOfWho" style="font-size:12.5px;width:auto;">' + cna.map(function (m) { return '<option value="' + e(m.applicant_id) + '">' + e(m.name) + '</option>'; }).join('') + '</select>'
         + '<select id="pwOfPat" style="font-size:12.5px;width:auto;">' + pats + '</select><input id="pwOfNote" placeholder="Note (optional)" style="font-size:12.5px;width:200px;">'
@@ -172,6 +182,7 @@
   }
   var offNote = '<div class="card pw-card"><div class="field-note">This shows to owners only until "This week" is turned on (Settings, PRN Teams).</div></div>';
   var yn = { yes: 'yes', no: 'no', maybe: 'maybe', not_asked: 'not asked' };
+  var SHORT = { day: 'daytime', overnight: 'overnight', whole: 'whole day' };
   var ONC = { every_weekend: 'every weekend', every_other_weekend: 'every other weekend', one_weekend_month: 'one weekend a month', weekday: 'a weekday', not_now: 'not right now' };
   /* Our teams: everyone on a PRN Team, linked or still onboarding, from the Hub's own records (PRN_T), plus familiar clients */
   function teamsHtml() {
@@ -328,10 +339,11 @@
     confirm: async function (i, btn) {
       var w = W.oncall.weekends[i], sel = document.getElementById('pwPick' + i), aid = sel && sel.value;
       if (!aid) return;
-      var nm = sel.options[sel.selectedIndex].text;
-      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + fmt(w.saturday) + ' to ' + fmt(w.sunday) + '?\n\nOnly confirm a date you have agreed with them.'))) return;
+      var nm = sel.options[sel.selectedIndex].text, sh = document.getElementById('pwShift' + i), shift = sh ? sh.value : '';
+      if (sh && W.oncall.shift_live && !shift) { alert('Pick the shift first: daytime, overnight or the whole day.'); return; }
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + fmt(w.saturday) + ' to ' + fmt(w.sunday) + (shift ? ', ' + (W.oncall.shifts[shift] || shift).toLowerCase() : '') + '?\n\nOnly confirm a date and shift you have agreed with them.'))) return;
       if (btn) btn.disabled = true;
-      try { await call({ action: 'oncall_confirm', applicant_id: aid, start_date: w.saturday, end_date: w.sunday }); await load(); }
+      try { await call(Object.assign({ action: 'oncall_confirm', applicant_id: aid, start_date: w.saturday, end_date: w.sunday }, shift ? { shift: shift } : {})); await load(); }
       catch (x) { alert('Could not confirm: ' + x.message); if (btn) btn.disabled = false; }
     },
     cancel: async function (id) {

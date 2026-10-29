@@ -99,7 +99,7 @@ with sync_playwright() as pw:
 
     # STEP 7: the twice-yearly questions, on call, milestones
     V7 = dict(VIEW, feedback={ 'round': '2026-11', 'until': '2026-11-30', 'questions': ['What would make being on the PRN Team better for you?', 'Is there anything we could do to make picking up shifts easier?'], 'answered': False, 'waiting': False },
-      oncall={ 'pattern': 'every_other_weekend', 'pattern_word': 'Every other weekend', 'confirmed': [{ 'start_date': '2026-11-07', 'end_date': '2026-11-08' }],
+      oncall={ 'pattern': 'every_other_weekend', 'pattern_word': 'Every other weekend', 'confirmed': [{ 'start_date': '2026-11-07', 'end_date': '2026-11-08', 'shift': 'overnight' }],
         'patterns': { 'every_weekend': 'Every weekend', 'every_other_weekend': 'Every other weekend', 'one_weekend_month': 'One weekend a month', 'weekday': 'A weekday', 'not_now': 'Not right now' },
         'words': 'On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am the next morning. Take one, or both for a whole day. On call means you reply within 15 minutes and can start a shift within 1 hour. The office confirms each date and shift with you first.' },
       thanks=[{ 'kind': 'milestone', 'at': '', 'text': 'You stepped in for your first PRN shift. Thank you for standing in the gap.' }, { 'kind': 'milestone', 'at': '', 'text': 'You kept every shift you said yes to this season. Families count on that, and so do we.' }])
@@ -115,7 +115,7 @@ with sync_playwright() as pw:
     ok('...answers are sent with their link; thanks them', fc and fc[-1]['a1'] == 'More weekend notice' and fc[-1]['a2'] == '' and fc[-1].get('t') and 'The office reads every answer' in pg.inner_text('#fbMsg'), fc)
     ht = pg.inner_text('#hours')
     ok('on call under My hours: the question, what it means, their choice marked, their confirmed weekend; no pay', 'Would you like to be on call sometimes?' in ht and 'daytime, 7am to 5pm, and overnight, 5pm to 7am' in ht and 'reply within 15 minutes' in ht and pg.locator('[data-oc="every_other_weekend"]').get_attribute('class').endswith('on')
-       and "You're on call: Sat, Nov 7 to Sun, Nov 8" in ht and '$' not in ht, ht)
+       and "You're on call: Sat, Nov 7 to Sun, Nov 8 (overnight, 5pm to 7am)" in ht and '$' not in ht, ht)
     pg.click('[data-oc="weekday"]'); pg.wait_for_timeout(200)
     ok('...tapping a choice sends it, and it is marked', any(c['body'].get('action') == 'oncall' and c['body'].get('pattern') == 'weekday' for c in calls) and pg.locator('[data-oc="weekday"]').get_attribute('class').endswith('on'))
     tt = pg.inner_text('#thanks')
@@ -312,7 +312,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===9, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===10, sw);
+  ok('Settings: the on-call shift choice, off', /On call: pick the shift when confirming \(daytime, overnight or whole day\): off/.test(sw), sw);
   ok('Settings (step 8b): Gap Mentor suggestions, off', /Gap Mentor suggestions \(needs Gap Mentors on too\): off/.test(sw), sw);
   ok('Settings (step 8a): Gap Mentors, off', /Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page: off/.test(sw), sw);
   ok('Settings (step 7): the twice-yearly questions, off; the invite wording box shows the standard text', /Twice-yearly "What would make PRN better\?" questions: off/.test(sw)
