@@ -351,6 +351,8 @@
         + '<div class="n9-next cj-next" data-step="' + esc(r.key) + '"><div class="k">' + (sel && sel !== v.next ? (R.DONE.indexOf(r.status) > -1 ? 'Done · ' : r.status === 'later' ? 'Coming up · ' : '') + 'Step ' + (R.NINE_STAGES.indexOf(r.def.stage) + 1) + ' <button class="linklike" data-n9a="pick" data-k="">back to the current step</button>' : 'Next action · step ' + (nextI + 1)) + '</div>'
         + '<h4>' + esc(r.def.title) + '</h4>' + (r.status === 'later' ? '<div class="field-note">' + esc(r.why) + '</div>' : '')
         + n9StepBody(r)
+        /* 2026-10-29: the Care Assessment step opens the iPad home visit (home-visit.js) */
+        + (r.key === 'soc.assess' && R.DONE.indexOf(r.status) < 0 && window.HV ? '<div class="cj-actions">' + stepAction(r) + '</div>' : '')
         + (R.DONE.indexOf(r.status) > -1 && r.def.proof !== 'verified' ? '<div class="cj-actions"><button class="ghost" data-act="reopen-open">Go back to this step…</button></div>' + modeHtml(r) : '')
         + '<div class="cj-err" data-err></div>'
         + (r.def.howto && r.def.howto.length ? '<details class="cj-howto"><summary>Show me how</summary><ol>' + r.def.howto.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol></details>' : '')
@@ -417,7 +419,7 @@
   /* the button the step itself needs, from the older lead card (shown only when that step is up) */
   function stepAction(r){
     const l = (typeof CP !== 'undefined' && CP.lead) || null; if(!l) return '';
-    const A = { 'asmt.book':['asmtBook(lpLead.id)', 'Book the assessment visit'], 'asmt.outcome':['scheduleAssessmentFromLead(lpLead.id)', 'Open the assessment'],
+    const A = { 'asmt.book':['asmtBook(lpLead.id)', 'Book the assessment visit'], 'asmt.outcome':['scheduleAssessmentFromLead(lpLead.id)', 'Open the assessment'], 'soc.assess':['(window.HV?HV.open({leadId:lpLead.id}):scheduleAssessmentFromLead(lpLead.id))', 'Start the home visit'],
       'ax.client':['lpConvertLead()', 'Convert → AxisCare client'], 'team.staffed':['openStaffingModal(lpLead.id)', 'Send to Staffing'] }[r.key];
     return A ? '<button class="primary" onclick="' + A[0] + '">' + esc(A[1]) + '</button>' : '';
   }
