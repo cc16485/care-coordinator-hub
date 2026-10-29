@@ -224,7 +224,10 @@
     add('scope', 'I checked that each task is within our services and the caregiver\'s training', v.scope_ok, true, 'scope');
     return out;
   }
-  const partEmpty = (t, k) => { const x = t.parts && t.parts[k]; return k === 'how' ? !x || !(x.steps || []).some((s) => !nil(s.text)) : !x || nil(x.text); };
+  /* 2026-10-29 (her "Add the Not needed tap for equipment and preferences only"): one tap answers those two for a task they
+     don't apply to; safety and report-if must always be written */
+  const NA_PARTS = ['equipment', 'preferences'];
+  const partEmpty = (t, k) => { const x = t.parts && t.parts[k]; if (x && x.na && NA_PARTS.indexOf(k) > -1) return false; return k === 'how' ? !x || !(x.steps || []).some((s) => !nil(s.text)) : !x || nil(x.text); };
   function gate(a, v) {
     const cs = checks(a, v), urgent = urgentWhy(a, v);
     const essentialOk = cs.filter((c) => c.essential).every((c) => c.ok), allOk = cs.every((c) => c.ok);
@@ -316,7 +319,7 @@
   }
   /* AxisCare: only an approved version; per-task results; ACTIVE only when every plan task reads back */
   function instructions(t) {
-    const p = t.parts || {}, line = (k, l) => { const x = p[k]; if (k === 'how') { const st = ((x && x.steps) || []).map((s, i) => (i + 1) + '. ' + s.text); return st.length ? l.toUpperCase() + ':\n' + st.join('\n') : ''; } return x && x.text ? l.toUpperCase() + ': ' + x.text : ''; };
+    const p = t.parts || {}, line = (k, l) => { const x = p[k]; if (k === 'how') { const st = ((x && x.steps) || []).map((s, i) => (i + 1) + '. ' + s.text); return st.length ? l.toUpperCase() + ':\n' + st.join('\n') : ''; } return x && x.text && !x.na ? l.toUpperCase() + ': ' + x.text : ''; };
     return PARTS.map(([k, l]) => line(k, l)).filter(Boolean).join('\n').slice(0, 2000);
   }
   async function send() {
@@ -329,8 +332,11 @@
     p.axiscare_tasks = (v.tasks || []).map((t) => ({ adl_id: +t.adl_id, name: t.name, key: t.key || null, days: t.days || [], require: +t.require === 2 ? 2 : 1, when: +t.require === 2 ? 0 : (+t.when || 0), instructions: instructions(t) }));
     p.reviewed_by = v.approved_by; p.approved_version = v.n; p.client_name = a.client_name || p.client_name;
     await save(p, a);
-    const note = 'CARE PLAN v' + v.n + ': ' + (a.client_name || '') + ' (approved by ' + v.approved_by + ' ' + String(v.approved_at).slice(0, 10) + ')\n'
+    /* the emergency steps go first: the care plan note is cut at 6,000 characters on the way to AxisCare, and that part must never be lost */
+    const full = 'CARE PLAN v' + v.n + ': ' + (a.client_name || '') + ' (approved by ' + v.approved_by + ' ' + String(v.approved_at).slice(0, 10) + ')\n\n'
+      + 'IF SOMETHING GOES WRONG\n\n' + emText(a) + '\n\n'
       + FIELDS.filter(([k]) => p[k]).map(([k, l]) => l.toUpperCase() + ':\n' + p[k]).join('\n\n');
+    const note = full.slice(0, 6000), cut = full.length > 6000;
     S.busy = 'Reading what AxisCare already has…'; render();
     let pv; try { pv = await cptCall({ action: 'preview', plan_id: p.id }); } catch (e) { pv = { error: String(e.message || e) }; }
     if (pv.error || pv.outcome === 'no_axiscare_id' || pv.outcome === 'fix_tasks') { S.busy = ''; S.msg = 'Nothing was sent. ' + (pv.error || pv.detail || (pv.task_errors || []).join(' ')); return render(); }
@@ -341,7 +347,7 @@
     if (!out || !out.record) { v.push = { at: now(), by: me(), error: (out && (out.error || (out.task_errors || []).join(' '))) || 'Nothing was sent.', verified: false }; log(v, 'Send to AxisCare failed: ' + v.push.error); await save(p, a); return render(); }
     const rb = out.record.readback || [];
     const verified = rb.length === (v.tasks || []).length && rb.every((x) => x.in_axiscare && x.as_planned) && !out.record.readback_error;
-    v.push = { at: out.record.at, by: me(), steps: out.record.steps || [], readback: rb, readback_error: out.record.readback_error || null, verified, others: (pv.others || []).map((o) => o.name) };
+    v.push = { at: out.record.at, by: me(), steps: out.record.steps || [], readback: rb, readback_error: out.record.readback_error || null, verified, others: (pv.others || []).map((o) => o.name), note_cut: cut ? full.length : 0 };
     p.axiscare_tasks_push = out.record;
     if (verified) {
       versionsOf(p).forEach((o) => { if (o !== v && o.status === 'active') { o.status = 'superseded'; o.superseded_by = v.n; } });
@@ -397,7 +403,8 @@
         ? (edit ? '<div><textarea class="cpv-f' + (!(how.steps || []).length ? ' cpv-ask' : '') + '" rows="4" data-cpv="task.' + i + '.how" placeholder="Ask before approving. One step per line, in order.">' + E((how.steps || []).map((s) => s.text).join('\n')) + '</textarea>'
             + ((how.steps || []).some((s) => (s.src || []).length) ? '<div class="cpv-src">' + (how.steps || []).map((s, j) => (j + 1) + ': ' + E(srcText(s.src) || 'written by a person')).join('<br>') + '</div>' : '') + '</div>'
           : '<ol style="margin:6px 0 0;padding-left:18px">' + (how.steps || []).map((s) => '<li>' + E(s.text) + '</li>').join('') + '</ol>')
-        : lineHtml('task.' + i + '.' + k, p[k], edit, 2))).join('') + '</div></div>';
+        : NA_PARTS.indexOf(k) > -1 && p[k] && p[k].na ? '<div class="cpv-ro"><span class="cpv-tag">Not needed for this task</span>' + (edit ? ' <button type="button" class="cpv-b2" data-cpva="naundo" data-i="' + i + '" data-k="' + k + '">Write it instead</button>' : '') + '</div>'
+        : '<div>' + lineHtml('task.' + i + '.' + k, p[k], edit, 2) + (edit && NA_PARTS.indexOf(k) > -1 && partEmpty(t, k) ? '<button type="button" class="cpv-b2" style="min-height:36px;font-size:13px;margin-top:4px" data-cpva="na" data-i="' + i + '" data-k="' + k + '">Not needed for this task</button>' : '') + '</div>')).join('') + '</div></div>';
   }
   function checksHtml(a, v) {
     const g = gate(a, v), edit = v.status === 'draft';
@@ -443,6 +450,7 @@
         + (x.steps || []).map((s) => { const r = s.step === 'task' ? rb[s.name] : null, good = s.ok && (!r || (r.in_axiscare && r.as_planned));
           return '<div class="cpv-res">' + (good ? '✓ ' : '✗ ') + E(s.step === 'note' ? 'Care plan note' : s.name + (s.action ? ', ' + s.action : '')) + (s.detail ? ' <span class="cpv-src">' + E(s.detail) + '</span>' : '') + (r && s.ok && !(r.in_axiscare && r.as_planned) ? ' <span class="cpv-src">sent, but AxisCare does not show it as planned</span>' : '') + '</div>'; }).join('')
         + (x.readback_error ? '<div class="cpv-bad">Could not read AxisCare back: ' + E(x.readback_error) + '</div>' : '')
+        + (x.note_cut ? '<div class="cpv-bad" style="background:#FFF1C9;color:#5A4200">The care plan note was ' + x.note_cut + ' characters; AxisCare got the first 6,000 (the emergency steps first). The tasks carry their own instructions in full.</div>' : '')
         + ((x.others || []).length ? '<div class="cpv-src" style="margin-top:6px">Also in AxisCare, not on this plan (left as they are): ' + E(x.others.join(', ')) + '</div>' : '')
         + '<div class="cpv-src">' + E(new Date(x.at).toLocaleString()) + ' by ' + E(x.by) + '</div>';
     }
@@ -484,6 +492,7 @@
         + (edit && S.catalog ? '<select class="cpv-f" style="margin-top:10px" data-cpvsel="addtask"><option value="">+ Add a task from AxisCare\'s list…</option>' + S.catalog.filter((c) => !(v.tasks || []).some((t) => +t.adl_id === +c.id)).map((c) => '<option value="' + c.id + '">' + E(c.name) + '</option>').join('') + '</select>' : '')
         + '</div>'
         + '<details class="cpv-card"><summary style="cursor:pointer;font-weight:700">History</summary>' + (v.history || []).map((x) => '<div class="cpv-res">' + E(String(x.at).slice(0, 16).replace('T', ' ')) + ' · ' + E(x.by) + ' · ' + E(x.what) + '</div>').join('') + '</details>'
+        + emHtml(a)
         + '</div><div>' + (edit ? checksHtml(a, v) : approvedHtml(a, v)) + pushHtml(v) + '</div></div>';
     }
     root.innerHTML = h + '</div>';
@@ -521,6 +530,9 @@
       if (act === 'day') { const t = v.tasks[+b.getAttribute('data-i')], d = b.getAttribute('data-v'); t.days = (t.days || []).indexOf(d) > -1 ? t.days.filter((x) => x !== d) : (t.days || []).concat([d]); t.edited_sched = true; }
       else if (act === 'deltask') { const t = v.tasks.splice(+b.getAttribute('data-i'), 1)[0]; log(v, 'Removed ' + (t && t.name)); }
       else if (act === 'scope') { v.scope_ok = v.scope_ok ? null : { by: me(), at: now() }; log(v, v.scope_ok ? 'Checked each task is within our services and the caregiver\'s training' : 'Unticked the services check'); }
+      else if (act === 'na' || act === 'naundo') { const t = v.tasks[+b.getAttribute('data-i')], k = b.getAttribute('data-k'); if (!t || NA_PARTS.indexOf(k) < 0) return;
+        t.parts[k] = act === 'na' ? { text: '', src: [], ask: false, edited: true, na: true } : { text: '', src: [], ask: true, edited: true };
+        log(v, t.name + ': ' + (k === 'equipment' ? 'equipment and supplies' : 'their preferences') + (act === 'na' ? ' marked not needed' : ' to be written')); }
       else if (act === 'askdone') { const i = b.getAttribute('data-i'); v.asks_done = v.asks_done || {}; v.asks_done[i] = !v.asks_done[i]; }
       else if (act === 'riskok') { if (!isOwner()) return; const k = b.getAttribute('data-k'), n = (document.getElementById('cpvRisk_risk_' + k) || {}).value || ''; if (n.trim().length < 3) { S.msg = 'Say how the plan handles it.'; return render(); }
         v.owner_reviews = v.owner_reviews || {}; v.owner_reviews[k] = { by: me(), at: now(), note: n.trim() }; log(v, 'Owner reviewed: ' + k);
@@ -560,9 +572,68 @@
     log(v, 'Saved from the care plan form'); await save(p, a); await cards(a, p);
     open(a.id);
   }
+  /* ---------- what a caregiver does when something goes wrong (Stage 2) ----------
+     Samantha approved this wording word for word on 2026-10-29 ("Approved as drafted: never lift ... (417) 234-8494 reaches
+     after hours too. Put it in Settings for owners."), from her Care Library fall rule, the Employee Handbook (4S, 4T, 4V, 4W,
+     5D, 5E, 5AQ, 5AR) and the agreement's Exhibit D. Owners change it in Settings > Home visit (ops_settings.emergency_wording).
+     {name} {they} {them} {is} {asks} {seems} {passes} {contact} {office} are filled in for each client. */
+  const EM_DEFAULT = {
+    office: '(417) 234-8494',
+    blocks: [
+      { key: 'life', title: 'If it might be life-threatening', text: 'Chest pain, trouble breathing, signs of a stroke (face drooping, arm weakness, slurred speech), not responding, severe bleeding, a seizure, choking, a serious allergic reaction, or a serious fall:\n1. Call 911 right away and follow what the dispatcher tells you.\n2. Stay with {name} until help arrives, unless you are not safe.\n3. Then call the office.\nWhen in doubt, call 911.' },
+      { key: 'fall', title: 'If {name} falls', text: '1. Do not lift {them} or help {them} up, even if {they} {asks}.\n2. Stay with {them}. Check for pain, bleeding or a bump on the head.\n3. Keep {them} comfortable and warm on the floor with a pillow and blanket.\n4. Call 911 if {they} {is} hurt or if you are not sure.\n5. Call the office every time, even if {they} {seems} fine. Every fall gets an incident report.' },
+      { key: 'door', title: "If {name} doesn't answer the door", text: '1. Knock and say who you are.\n2. Call {name}.\n3. Check the instructions in AxisCare.\n4. Call the office, and wait for what to do next.' },
+      { key: 'unsafe', title: 'If you feel unsafe', text: '1. Leave the area if you need to.\n2. Call 911 if you are in danger.\n3. Then call the office.' },
+      { key: 'hospice', title: 'If {name} is on hospice', text: "If {they} {passes} away during your visit, follow the hospice's instructions instead of calling 911, then call the office.", only: 'hospice' },
+      { key: 'who', title: 'Who to call', text: "The office first: {office}.\nThe office calls {contact} for you.\nAnything you're unsure about: stop, stay calm, and call the office. You are never expected to handle it alone." },
+    ],
+  };
+  function emWording() { const w = (D().ops_settings || {}).emergency_wording; return w && Array.isArray(w.blocks) && w.blocks.length ? w : EM_DEFAULT; }
+  function officePhone() { return emWording().office || EM_DEFAULT.office; }
+  /* the wording for one client: their name, pronouns from the lead (they/them when not known), their emergency contact, warning signs */
+  function emergency(a) {
+    const v = (a && a.visit) || {}, l = leadOf(a), g = String((l && l.client_gender) || '').toLowerCase();
+    const called = String(((v.story || {}).called) || '').trim(), first = called || String((a && a.client_name) || '').trim().split(/\s+/)[0] || 'the client';
+    const pr = g === 'female' ? { they: 'she', them: 'her', is: 'is', asks: 'asks', seems: 'seems', passes: 'passes' } : g === 'male' ? { they: 'he', them: 'him', is: 'is', asks: 'asks', seems: 'seems', passes: 'passes' }
+      : { they: 'they', them: 'them', is: 'are', asks: 'ask', seems: 'seem', passes: 'pass' };
+    const ec = (v.safety || {}).ec || {};
+    const their = { she: 'her', he: 'his', they: 'their' }[pr.they];
+    const contact = ec.name ? ec.name + (ec.rel ? ', ' + their + ' ' + String(ec.rel).toLowerCase() + ',' : '') : 'the family';
+    const hospice = /hospice/i.test(JSON.stringify(v.conditions || [])) || ((v.prefs || {}).skills || []).indexOf('hospice_support') > -1 || ((l && l.client_attributes) || {}).hospice === 'yes';
+    const fill = (t) => String(t || '').replace(/\{(name|they|them|is|asks|seems|passes|contact|office)\}/g, (m, k) => k === 'name' ? first : k === 'contact' ? contact : k === 'office' ? officePhone() : pr[k]);
+    const out = emWording().blocks.filter((b) => !b.only || (b.only === 'hospice' && hospice)).map((b) => ({ key: b.key, title: fill(b.title), text: fill(b.text) }));
+    const low = (t) => (/^[A-Z][a-z]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);   /* "Dizzy when..." reads "If dizzy when..."; a name or acronym stays */
+    const warn = (v.conditions || []).filter((c) => c && c.name && (c.notice || c.todo)).map((c) => 'If ' + low(String(c.notice || ('anything changes with ' + c.name)).trim().replace(/\.$/, '')) + ': ' + low(String(c.todo || 'call the office.').trim()) + (/[.!?]$/.test(String(c.todo || '.').trim()) ? '' : '.'));
+    if (warn.length) out.splice(out.length - 1, 0, { key: 'warn', title: 'Warning signs for ' + first, text: warn.join('\n') });
+    return out;
+  }
+  const emText = (a) => emergency(a).map((b) => b.title.toUpperCase() + ':\n' + b.text).join('\n\n');
+  function emHtml(a) { return '<div class="cpv-card"><h2>If something goes wrong</h2><div class="cpv-src">The same for every client, set by owners in Settings, with ' + E(String(((a.visit || {}).story || {}).called || a.client_name || '').split(/\s+/)[0]) + '\'s details filled in.</div>'
+    + emergency(a).map((b) => '<div class="cpv-res"><b>' + E(b.title) + '</b><div style="white-space:pre-wrap">' + E(b.text) + '</div></div>').join('') + '</div>'; }
+  /* Settings > Home visit, owners only */
+  function emSettingsHtml() {
+    const w = emWording();
+    return '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px"><b>What a caregiver does when something goes wrong</b>'
+      + '<div class="field-note">Shown on every care plan and sent to AxisCare with it. {name} becomes the client\'s name, {they} {them} {is} {asks} {seems} {passes} follow the client, {contact} is their emergency contact, {office} is the number below. Approved by Samantha Oct 29, 2026.</div>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px;margin-top:8px">Office phone, day and night<input id="emSet_office" value="' + E(w.office || EM_DEFAULT.office) + '" style="width:200px"></label>'
+      + w.blocks.map((b, i) => '<label class="field-note" style="display:flex;flex-direction:column;gap:4px;margin-top:8px">' + E(b.title) + (b.only ? ' (only for hospice clients)' : '')
+        + '<textarea id="emSet_' + i + '" rows="' + Math.min(7, String(b.text).split('\n').length + 1) + '" style="width:100%">' + E(b.text) + '</textarea></label>').join('')
+      + '<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="secondary" onclick="CPV.emSave(this)">Save the wording</button><span class="field-note" id="emSetSaved"></span></div></div>';
+  }
+  async function emSave(btn) {
+    if (!isOwner()) { alert('Only owners can change this wording.'); return; }
+    const w = emWording(), blocks = w.blocks.map((b, i) => Object.assign({}, b, { text: String((document.getElementById('emSet_' + i) || {}).value || '').trim() }));
+    if (blocks.some((b) => !b.text)) { alert('Every part needs its wording.'); return; }
+    const office = String((document.getElementById('emSet_office') || {}).value || '').trim();
+    if (!/\d{3}.*\d{4}/.test(office)) { alert('Enter the office phone number.'); return; }
+    if (btn) btn.disabled = true;
+    const out = await tkMerge((st) => { st.emergency_wording = { office, blocks, by: me(), at: now() }; return ['Emergency wording for caregivers changed']; }, 'Emergency wording');
+    if (btn) btn.disabled = false;
+    const sv = document.getElementById('emSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved. Every care plan uses it from now on.';
+  }
   /* the one line the Care tab shows */
   function label(a) { const p = planFor(a); if (!p) return 'no care plan yet'; const v = latest(p), act = activeOf(p); if (!v) return 'no care plan yet';
     return 'care plan v' + v.n + ' ' + (STATUS_W[v.status] || v.status).toLowerCase() + (act && act !== v ? ' (v' + act.n + ' active)' : '') + (v.urgent && !v.urgent.done_at ? ', urgent start' : ''); }
 
-  window.CPV = { open, close, autoDraft, draft, label, fromForm, safetyMissing, concerns, checks, gate, finishBy, urgentWhy, merge, instructions, safetyWatch, HAZARDS, SUMMON, _s: S, _versions: versionsOf, _plan: planFor };
+  window.CPV = { open, close, autoDraft, draft, label, fromForm, emergency, emText, emSettingsHtml, emSave, officePhone, EM_DEFAULT, safetyMissing, concerns, checks, gate, finishBy, urgentWhy, merge, instructions, safetyWatch, HAZARDS, SUMMON, _s: S, _versions: versionsOf, _plan: planFor };
 })();

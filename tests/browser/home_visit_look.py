@@ -52,7 +52,7 @@ async()=>{
   ok("who's in the room starts with Betty (client) and Karen (primary contact); Karen starts as the primary contact", a.visit.attendees.length===2 && a.visit.attendees[0].role==='client' && a.visit.attendees[1].role==='primary' && (a.visit.attendees[1].roles||[]).join()==='primary');
   ok('a Contacted lead moves to Assessment Scheduled', lead.status==='Assessment Scheduled' && L.persists.some(x=>x[0]==='leads'));
   const rail=qa('#hvRail [data-hvs]').map(b=>b.innerText.replace(/\s+/g,' ').trim());
-  ok('seven screens in her order, then After the visit (stage 3), first one showing', rail.join('|')==='1 Start the visit|2 Their story|3 Health|4 Daily activities|5 Preferences|6 Schedule and level|7 Sign-off|8 After the visit' && q('.hv-sec[data-sec="0"]').style.display==='' && q('.hv-sec[data-sec="1"]').style.display==='none', rail);
+  ok('seven screens in her order, then After the visit (stage 3), first one showing', rail.join('|')==='1 Start the visit|2 Their story|3 Health|4 Daily activities|5 Home and safety|6 Preferences|7 Schedule and level|8 Sign-off|9 After the visit' && q('.hv-sec[data-sec="0"]').style.display==='' && q('.hv-sec[data-sec="1"]').style.display==='none', rail);
   const s1=q('.hv-sec[data-sec="0"]').innerText;
   ok('screen 1: read-aloud line, the recorder with consent first, phone-call answers marked', /The recording is written out by software and summarized to help me review it/.test(s1) && q('#recConsent') && q('#recGo').disabled && /I have asked everyone in the room out loud/.test(s1) && /written transcript stays with their record/.test(s1) && qa('.hv-from').length>=4, s1.slice(0,900));
   /* type and tap: saves as it goes */
@@ -74,10 +74,10 @@ async()=>{
   tap('visit.acts.light_house.level','helps'); ok('household help only = Wellness', HV._suggest()==='wellness');
   tap('visit.acts.bathing.level','standby'); ok('stand-by bathing = Personal', HV._suggest()==='personal');
   /* schedule, payer, level */
-  q('[data-hvs="5"]').click(); await sleep(30);
+  q('[data-hvs="6"]').click(); await sleep(30);
   ok('the suggested tag sits on Personal Care', /Personal Care\s*Suggested/.test(q('#hvLevels').innerText), q('#hvLevels').innerText);
-  const pay=q('.hv-sec[data-sec="5"]').innerText;
-  ok('payer: four choices, the intake\'s ticked and locked, Medicaid points to CDS, no Medicaid choice', qa('.hv-sec[data-sec="5"] .hv-seg button[disabled]').length===4 && q('.hv-sec[data-sec="5"] .hv-seg button.on[disabled]').innerText==='Private pay' && /Caring Companions Direct Services \(CDS\)/.test(pay) && !qa('.hv-sec[data-sec="5"] button').some(b=>/^Medicaid/.test(b.innerText)), pay.slice(0,700));
+  const pay=q('.hv-sec[data-sec="6"]').innerText;
+  ok('payer: four choices, the intake\'s ticked and locked, Medicaid points to CDS, no Medicaid choice', qa('.hv-sec[data-sec="6"] .hv-seg button[disabled]').length===4 && q('.hv-sec[data-sec="6"] .hv-seg button.on[disabled]').innerText==='Private pay' && /Caring Companions Direct Services \(CDS\)/.test(pay) && !qa('.hv-sec[data-sec="6"] button').some(b=>/^Medicaid/.test(b.innerText)), pay.slice(0,700));
   ok('rates come from Settings', /\$31/.test(q('#hvLevels').innerText) && /\$33/.test(q('#hvLevels').innerText) && /\$35/.test(q('#hvLevels').innerText));
   q('[data-hva="level"][data-v="personal"]').click(); await sleep(20);
   ok('picking Personal fills the rate from Settings', a.visit.level==='personal' && a.visit.rate==='33' && q('#hvRate').value==='33');
@@ -91,7 +91,7 @@ async()=>{
   tap('visit.outcome','ready');
   q('[data-hvs="2"]').click(); tap('visit.equipment','Hoyer lift'); ok('a Hoyer lift = Advanced', HV._suggest()==='advanced');
   /* sign-off and the agreement card */
-  q('[data-hvs="6"]').click(); await sleep(60);
+  q('[data-hvs="7"]').click(); await sleep(60);
   const ag=q('#hvAgree').innerText;
   ok('agreement card carries level, rate, schedule and contacts; not in AxisCare yet = a note, no link', /Personal Care, \$32\.50 an hour/.test(ag) && /Mon 9:00am to 1:00pm, Wed 9:00am to 1:00pm/.test(ag) && /Karen Price \(fake\), Mike Harlow \(fake\)/.test(ag) && !q('#hvAgree a') && /next update/.test(ag), ag);
   const cv=q('canvas[data-sig="client"]'), r=cv.getBoundingClientRect();
@@ -99,7 +99,7 @@ async()=>{
   try{ cv.setPointerCapture=()=>{}; }catch(e){}
   pe('pointerdown',20,60); pe('pointermove',80,40); pe('pointermove',160,80); pe('pointerup',160,80);
   ok('a finger signature saves as a picture with today\'s date', /^data:image\/png/.test(a.visit.sign.client.png) && /^\d{4}-\d\d-\d\d$/.test(a.visit.sign.client.date));
-  a.axiscare_client_id='4321'; q('[data-hvs="5"]').click(); q('[data-hvs="6"]').click(); await sleep(30);
+  a.axiscare_client_id='4321'; q('[data-hvs="6"]').click(); q('[data-hvs="7"]').click(); await sleep(30);
   const link=q('#hvAgree a');
   ok('once in AxisCare: the agreement opens on the same iPad', link && /agreement\.html\?ax=4321&cn=Betty%20Harlow%20\(fake\)/.test(link.getAttribute('href')), link&&link.outerHTML);
   a.axiscare_client_id='';
@@ -146,18 +146,18 @@ with sync_playwright() as pw:
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T)
     pg.evaluate("async()=>{ await HV.open({ leadId:'lead_betty' }); }"); pg.wait_for_timeout(300)
-    for i in range(7):
+    for i in range(8):
         pg.evaluate(f"()=>document.querySelector('#hvRoot [data-hvs=\"{i}\"]').click()"); pg.wait_for_timeout(120)
         o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'iPad (1180 wide), screen {i+1}: nothing runs off the side', o])
         if SHOTS:
             os.makedirs(SHOTS, exist_ok=True); pg.screenshot(path=os.path.join(SHOTS, f'hv-ipad-{i+1}.png'), full_page=False)
     pg.set_viewport_size({'width': 820, 'height': 1180})
-    for i in [0, 3, 5]:
+    for i in [0, 3, 4, 6]:
         pg.evaluate(f"()=>document.querySelector('#hvRoot [data-hvs=\"{i}\"]').click()"); pg.wait_for_timeout(120)
         o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'iPad upright (820 wide), screen {i+1}: nothing runs off the side', o])
         if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'hv-upright-{i+1}.png'))
     pg.set_viewport_size({'width': 390, 'height': 844})
-    for i in [0, 3, 5, 6]:
+    for i in [0, 3, 4, 6, 7]:
         pg.evaluate(f"()=>document.querySelector('#hvRoot [data-hvs=\"{i}\"]').click()"); pg.wait_for_timeout(120)
         o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'phone (390 wide), screen {i+1}: nothing runs off the side', o])
         if SHOTS: pg.screenshot(path=os.path.join(SHOTS, f'hv-phone-{i+1}.png'))

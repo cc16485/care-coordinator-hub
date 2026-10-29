@@ -91,13 +91,13 @@ async()=>{
   ok('"None known" is a real answer for allergies', a.visit.allergies==='None known');
   ok('...but it still has to be confirmed with the family, and so does the emergency contact', CPV.safetyMissing(a.visit).map(m=>m[0]).join('|')==='Allergies confirmed with the family|Emergency contact confirmed with the family', CPV.safetyMissing(a.visit));
   /* Finish with the safety check unfinished */
-  q('[data-hvs="6"]').click(); await sleep(30); window.__ask=false; q('[data-hva="finish"]').click(); await sleep(150);
+  q('[data-hvs="7"]').click(); await sleep(30); window.__ask=false; q('[data-hva="finish"]').click(); await sleep(150);
   ok('Finish with safety answers missing: lists them; Cancel goes back to the safety check', /safety check still has 2 to answer/.test(L.asks.slice(-1)[0]) && HV._st.sec===2 && !a.visit.finished_at, L.asks.slice(-1)[0]);
   window.__ask=true; tap('visit.safety.allergies_ok','yes'); tap('visit.safety.ec_ok','yes'); await sleep(20);
   ok('every safety answer in: the tag says All answered', /All answered/.test(st()));
   tap('visit.acts.bathing.level','standby'); a.visit.equipment=['Shower chair','Grab bars']; a.visit.week={ tue:{ from:'09:00', to:'13:00' }, thu:{ from:'09:00', to:'13:00' } };
   /* ---------- finishing starts the draft by itself ---------- */
-  q('[data-hvs="6"]').click(); await sleep(30); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="7"]').click(); await sleep(30); q('[data-hva="finish"]').click(); await sleep(700);
   const d0=L.drafts[0]||{}, fp=(d0.facts||[]).map(f=>f.path);
   ok('Finish starts the draft at once, from the whole visit (visit mode, safety answers, schedule)', L.drafts.length===1 && d0.mode==='visit' && d0.assessment_id===a.id && fp.includes('visit.safety.falls_note') && fp.includes('visit.allergies') && fp.includes('visit.week') && d0.week.tue.from==='09:00', fp.slice(0,10));
   ok('...each answer says where it came from (the emergency contact was from the phone call, then confirmed)', (d0.facts.find(f=>f.path==='visit.safety.ec')||{}).value.indexOf('(confirmed)')>-1);
@@ -114,6 +114,13 @@ async()=>{
   const ap=()=>c('[data-cpva="approve"]');
   ok('Approve is locked: report-if, preferences, medicines, the question, the owner reviews and the services tick', ap().disabled && /Report to the office if/i.test(txt()) && /needs an owner's review/.test(txt()) && /I checked that each task/.test(txt()));
   ok('no urgent button for a start that is not urgent', !c('[data-cpva="approveurgent"]'));
+  ok('"Not needed for this task" is offered on an empty preferences part, never on safety or report-if (and not on a filled equipment part)', !!c('[data-cpva="na"][data-i="0"][data-k="preferences"]') && !c('[data-cpva="na"][data-k="safety"]') && !c('[data-cpva="na"][data-k="report_if"]') && !c('[data-cpva="na"][data-i="0"][data-k="equipment"]'));
+  c('[data-cpva="na"][data-i="0"][data-k="preferences"]').click(); await sleep(30);
+  { const vv=CPV._plan(a).versions[0], t0=vv.tasks[0];
+    ok('one tap: preferences answered as not needed, the check for it clears, and it is left out of the AxisCare instructions', t0.parts.preferences.na && /Not needed for this task/.test(txt()) && !CPV.gate(a,vv).cs.some(x=>x.key==='pref_'+t0.id) && !/THEIR PREFERENCES/.test(CPV.instructions(t0)) && /Bathing - Shower: their preferences marked not needed/.test(JSON.stringify(vv.history)));
+    ok('...report-if is still required', CPV.gate(a,vv).cs.some(x=>x.key==='task_'+t0.id && !x.ok && /report to the office if/.test(x.label))); }
+  c('[data-cpva="naundo"][data-i="0"][data-k="preferences"]').click(); await sleep(30);
+  ok('"Write it instead" brings the box back, marked Ask before approving', !!c('[data-cpv="task.0.preferences"]') && c('[data-cpv="task.0.preferences"]').classList.contains('cpv-ask'));
   /* a coordinator can't clear a high-risk concern */
   ok("a coordinator sees the concerns but can't mark them reviewed", !c('[data-cpva="riskok"]'));
   ctype('[data-cpv="task.0.report_if"]','Dizzy standing, a new bruise, or she refuses two showers in a row.');
@@ -144,6 +151,7 @@ async()=>{
   v=CPV._plan(a).versions[0];
   ok('a partial push shows what worked and what did not, and stays Approved (not Active)', v.status==='approved' && !v.push.verified && /✓ Care plan note/.test(txt()) && /✗ Bathing - Shower/.test(txt()) && /Not every task is confirmed/.test(txt()) && CPV._plan(a).axiscare_synced===false, txt().slice(-600));
   ok('...the approved version was what went: its six parts as the task instructions, and the plan text the Hub reads', /HOW TO HELP:\n1\. Ask before starting\./.test(CPV._plan(a).axiscare_tasks[0].instructions) && /REPORT TO THE OFFICE IF: Dizzy/.test(CPV._plan(a).axiscare_tasks[0].instructions) && /None she takes herself/.test(CPV._plan(a).medications));
+  { const nt=(L.cpt.filter(x=>x.action==='push').slice(-1)[0]||{}).note_text||''; ok('...the AxisCare note puts the emergency steps first (never cut off), then the plan', /^CARE PLAN v1/.test(nt) && nt.indexOf('IF SOMETHING GOES WRONG')>-1 && nt.indexOf('IF SOMETHING GOES WRONG')<nt.indexOf('DAILY LIVING') && /Do not lift/.test(nt) && nt.length<=6000, nt.slice(0,300)); }
   ok('...AxisCare tasks not on the plan are left alone (never removed by this)', L.cpt.filter(x=>x.action==='push').every(x=>!(x.remove||[]).length) && /Companionship/.test(txt()));
   window.__pushMode='ok'; c('[data-cpva="send"]').click(); await sleep(250);
   v=CPV._plan(a).versions[0];
@@ -178,7 +186,7 @@ async()=>{
   Object.assign(u.visit,{ allergies:'Sulfa', memory:'no', supervision:'no', equipment:['Shower chair'], week:{ mon:{ from:'09:00', to:'12:00' }, wed:{ from:'09:00', to:'12:00' } } });
   u.visit.prefs.smoking='no'; u.visit.acts.mobility={ level:'none' }; u.visit.acts.transfers={ level:'none' }; u.visit.acts.bathing={ level:'standby' };
   const t0=new Date(); u.visit.start=t0.getFullYear()+'-'+String(t0.getMonth()+1).padStart(2,'0')+'-'+String(t0.getDate()).padStart(2,'0');
-  q('[data-hvs="6"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="7"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
   CPV.open(u.id); await sleep(120);
   ok('an ASAP lead: the plan shows Urgent start and why', /Urgent start/.test(txt()) && /as soon as possible/.test(txt()));
   const urg=()=>c('[data-cpva="approveurgent"]');
@@ -204,7 +212,7 @@ async()=>{
   const m=HV._st.a; Object.assign(m.visit.safety,{ falls:'no', lives_alone:'no', oxygen:'no', decline:'no', summon:'phone', hazards:['none'], allergies_ok:'yes', ec_ok:'yes' });
   Object.assign(m.visit,{ allergies:'None known', memory:'no', supervision:'no' }); m.visit.prefs.smoking='no'; m.visit.acts.mobility={ level:'none' }; m.visit.acts.transfers={ level:'standby' }; m.visit.acts.bathing={ level:'standby' };
   m.visit.safety.ec={ name:'Ann Lee (fake)', phone:'(417) 555-0101' };
-  q('[data-hvs="6"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="7"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
   CPV.open(m.id); await sleep(100);
   ok('a lift task for a Medicaid client: blocked as outside our Medicaid services', /Transfer - Hoyer Lift for a Medicaid client is outside our Medicaid services/.test(txt()) && ap().disabled);
   CPV.close(); window.__hoyer=false;

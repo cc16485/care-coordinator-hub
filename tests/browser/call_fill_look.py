@@ -69,7 +69,7 @@ async()=>{
   wk.click(); await sleep(20);
   ok('tapping the call\'s Walker button is a person deciding: the ring goes', !wk.classList.contains('hv-pfrom') && !(v.from_call||{})['visit.equipment:Walker']);
   /* the After screen never offers a box the call filled */
-  q('[data-hvs="7"]').click(); await sleep(250); q('[data-hva="readrec"]').click(); await sleep(250);
+  q('[data-hvs="8"]').click(); await sleep(250); q('[data-hva="readrec"]').click(); await sleep(250);
   const paths=((L.bodies[0]||{}).fields||[]).map(f=>f.path);
   ok("the After screen's reader is never offered a box the call filled", paths.length>20 && !paths.includes('visit.conditions.0.name') && !paths.includes('visit.goals.0.text') && !paths.includes('visit.allergies'), paths.slice(0,8));
   await HV.close(); await sleep(50);
