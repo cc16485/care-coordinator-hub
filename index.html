@@ -104,6 +104,16 @@
   html.embedded.focused .fbar{ display:none; }
   /* #prnteams (its own GHL sidebar link): just the PRN Teams, without Recruit's other views */
   html.prnonly #tab-recruit .offnav{ display:none; }
+  /* 2026-10-28: orientation proof (orientation-proof.js) */
+  .op-card{padding:14px 16px;margin-bottom:10px;border-left:4px solid var(--green);}
+  .op-card.op-attn{border-left-color:#DC2626;}
+  .op-card h3{margin:0 0 6px;color:var(--navy);font-size:15px;font-weight:800;}
+  .op-ok{color:#166534;font-weight:700;} .op-bad{color:#991B1B;font-weight:700;}
+  .op-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;}
+  .op-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;} .op-table th{text-align:left;color:var(--text-muted);padding:6px 8px;border-bottom:1px solid var(--border);} .op-table td{padding:7px 8px;border-bottom:1px solid #F2EFE8;vertical-align:top;}
+  .op-modal{position:fixed;inset:0;background:rgba(9,38,71,.5);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;}
+  .op-box{background:#fff;border-radius:14px;padding:18px 20px;max-width:480px;width:100%;}
+  .op-box label{display:block;font-size:13px;font-weight:700;margin-top:10px;}
   /* PRN step 2: This week and on call (prn-week.js) */
   .pw-card{padding:16px 18px;margin-bottom:12px;}
   .pw-card .pw-practice{background:#FFF4E0;color:#9C6410;border-radius:8px;padding:6px 10px;font-size:12.5px;font-weight:700;margin-bottom:10px;}
@@ -2812,6 +2822,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">⛔</div><div class="guide-step-body">The <strong>Client Contact Blocked</strong> filter shows caregivers who have not completed Agency Orientation and should NOT yet be scheduled with clients.</div></div>
         </div>
       </div>
+      <div id="tr-orient"></div><!-- 2026-10-28: Needs orientation proof (orientation-proof.js) -->
       <div id="train-alert"></div>
       <div class="stats" id="tr-stats"></div>
       <div class="controls">
@@ -4643,6 +4654,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="prnStep2Status"></span>
 </div>
 <div id="prnStep2Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+<div class="settings-section" id="orientProofSettings" data-set="orientation-proof">
+<h3>🎓 Orientation proof</h3>
+<p class="hint">No caregiver is approved to work without verified orientation: the Training Platform certificate, a completion document entered there, or a historical record someone in the office verified. Nobody is ever deactivated by the Hub. The list of who needs proof is on Caregivers, Orientation &amp; Training.</p>
+<label>Left out of the audit (AxisCare numbers, comma separated: office staff, the Canceled Shift placeholder)</label>
+<input id="set_orient_exclude" placeholder="110, 604, 261, 618">
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+  <button class="primary" onclick="opSetSave(this)">Save</button>
+  <span class="field-note" id="opSetStatus"></span>
+</div>
+<div id="opSwitches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 <div class="settings-section" id="tkSettings" data-set="missed-clockins">
 <h3>⏰ Missed clock-ins</h3>
@@ -7563,6 +7585,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
+<script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=1"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -8400,6 +8423,7 @@ function scxRender(tab){
   if(!window.SCX) return;
   const fn = { cgbackground:'renderBGRTab', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups', offers:'loadOffers' }[tab];
   try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
+  if(tab==='cgtraining' && window.OP) OP.cleanup();   /* 2026-10-28: Needs orientation proof, at the top of the tab */
 }
 
 function ccRenderSub2(tab){
@@ -15760,6 +15784,49 @@ async function prnStep2Save(btn){
   if(btn) btn.disabled = false;
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
+/* ORIENTATION PROOF (Samantha 2026-10-28): three switches, all off until she reviews the practice results. */
+const OP_SWITCHES = [
+  { key:'orientation_audit_live', name:'Daily AxisCare orientation audit',
+    on:'Every morning, everyone AxisCare says is Active without verified orientation gets one Needs Attention card for the Training & Compliance owner, with what to do. It closes itself once they are verified. Nobody is deactivated.',
+    off:'Off: the audit runs in practice and lists who it would flag; no cards.' },
+  { key:'orientation_cert_autogen_live', name:'Make missing certificates from completion records',
+    on:'Each morning, a caregiver who finished orientation on the Training Platform but whose certificate was never saved gets it made from that completion record, with the original date.',
+    off:'Off: the list shows who could get one; a person can still press Make certificate.' },
+  { key:'orientation_gate_live', name:'Approve to Work requires verified orientation',
+    on:'A new hire\'s Orientation step only counts as done with the certificate or an office-verified record behind it, so Approve to Work (pressed or automatic) waits until then.',
+    off:'Off: Orientation counts as done from its completion date, as before.' },
+];
+function opSetFill(){
+  const st = DATA.ops_settings||{};
+  const x = document.getElementById('set_orient_exclude'); if(x) x.value = Array.isArray(st.orientation_audit_exclude) ? st.orientation_audit_exclude.join(', ') : '';
+  const box = document.getElementById('opSwitches'); if(!box) return;
+  box.innerHTML = OP_SWITCHES.map(w=>{ const on = st[w.key]===true;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;"><button class="fb" style="flex:0 0 auto;" onclick="opSetToggle(\''+w.key+'\',this)">'+(on?'Turn off':'Turn on')+'</button>'
+      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')
+      +'<div class="field-note">'+escapeHtmlComms(on?w.on:w.off)+'</div></div></div>'; }).join('');
+}
+async function opSetSave(btn){
+  const s = document.getElementById('opSetStatus');
+  const raw = String((document.getElementById('set_orient_exclude')||{}).value||'').trim();
+  const ids = raw ? raw.split(/[\s,]+/).filter(Boolean) : [];
+  if(ids.some(x=>!/^\d{1,9}$/.test(x))){ if(s) s.textContent='Use AxisCare numbers only, separated by commas.'; return; }
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m, base)=>{ const ch=[];
+    if(!ids.length){ if('orientation_audit_exclude' in m){ delete m.orientation_audit_exclude; ch.push('orientation audit left-out list back to standard'); } return ch; }
+    if(JSON.stringify(base.orientation_audit_exclude)!==JSON.stringify(ids)){ m.orientation_audit_exclude = ids; ch.push('orientation audit left-out list'); } return ch; }, 'Orientation proof settings');
+  if(btn) btn.disabled = false;
+  if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
+}
+async function opSetToggle(key, btn){
+  const w = OP_SWITCHES.find(x=>x.key===key); if(!w) return;
+  const on = !((DATA.ops_settings||{})[key]===true);
+  if(!(await ccConfirm((on?'Turn on: ':'Turn off: ')+w.name+'?\n\n'+(on?w.on:w.off)))) return;
+  if(btn) btn.disabled = true;
+  const out = await tkMerge((m)=>{ m[key] = on; return [w.name+(on?' ON':' OFF')]; }, 'Orientation proof settings');
+  if(btn) btn.disabled = false;
+  opSetFill();
+  const s = document.getElementById('opSetStatus'); if(s && out.error) s.textContent = 'Could not save: '+out.error.message;
+}
 function prnStep1Fill(){
   const st = DATA.ops_settings||{};
   prnStep2Fill();
@@ -15823,6 +15890,7 @@ function fillSettingsPanel(){
   covMsgsFill();
   try{ settingsFocusApply(); }catch(_){}
   try{ prnSetFill(); }catch(_){}
+  try{ opSetFill(); }catch(_){}
   try{ if(typeof dkSetFill==='function') dkSetFill(); }catch(_){}
   try{ if(window.TW) TW.setFill(); }catch(_){}
   try{ if(window.MWT) MWT.setFill(); }catch(_){}
@@ -19574,6 +19642,7 @@ async function cgdOpenProfile(axid, tab){
 
     +'<div id="cgdSec-overview">'
     +'<div id="cgcCard"></div>'
+    +'<div id="cgdOrient"></div>'   /* 2026-10-28: Orientation & Training near the top of every profile (orientation-proof.js) */
     +'<div id="cgdPrn"></div>'
     +card('At a glance',
       kv('Status', esc(c.status_label||(c.active?'Active':'Inactive')))
@@ -19653,6 +19722,7 @@ async function cgdOpenProfile(axid, tab){
   cgdLoadReadiness(c);
   cgdProfGateMount(c,g);
   cgdPrnMount(c);
+  try{ if(window.OP) OP.profile(String(c.id), g); }catch(e){ console.warn('orientation section:', e); }
   cgdMissedNotesMount(c);
   if(window.INC) INC.caregiverMount('cgdIncidents', (c.first+' '+c.last).trim());   /* incident reports, Stage 2 (2026-10-27) */
   try{ cgcMount(c, g); }catch(e){ console.warn('caregiver connect card:', e); }

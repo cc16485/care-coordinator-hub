@@ -6432,6 +6432,8 @@ async function bgrPushDocToGHL(candId, which, proof, labelOverride){
    short-lived signed URL. */
 async function bgrViewProof(proof){
   if(!proof) return;
+  /* 2026-10-28: a Training Platform certificate or completion document (training:...) opens through the Hub's server */
+  if(/^training:/.test(proof)){ if(window.OP) return OP.open(proof); alert('Could not open the document.'); return; }
   if(/^https?:\/\//i.test(proof)){ window.open(proof, '_blank', 'noopener'); return; }
   try{
     const { data, error } = await sb.storage.from('lead-docs').createSignedUrl(proof, 3600);
