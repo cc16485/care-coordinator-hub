@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><meta name="theme-color" content="#0D365F">
+<title>My PRN Team page · Caring Companions</title>
+<!-- ============================================================
+     PRN STEP 5a · A PRN MEMBER'S OWN PRN TEAM PAGE (Samantha 2026-10-29; the sample she approved 2026-10-28).
+     Opened from their own sealed link (?p=&e=&t=, 30 days). No login and no password. Shows their team, "I'm looking for
+     hours", Offered to You (answering opens the shift page they already know), their familiar clients (first names only),
+     the thank-yous and kind words the office already sent them, My hours (days and times, hours a week, outside-hours
+     texts, short notice, a break), optional courses, and Talk to us. Never pay, ratings, other people or addresses.
+     Open shifts with "I'm Interested" come in part 5b.
+     Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
+     Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
+     ============================================================ -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0D365F;--teal:#1F7A8C;--honey:#F0A63A;--cream:#faf9f6;--ink:#2b3a47;--soft:#EAF4F6;--line:#e4e8ea;--muted:#6b7a86;--card:#fff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);font-family:'Poppins',system-ui,sans-serif;color:var(--ink);font-size:16px;line-height:1.45}
+.serif{font-family:'Fraunces',Georgia,serif;font-weight:700}
+.frame{max-width:430px;margin:0 auto;background:var(--cream);min-height:100vh;box-shadow:0 0 40px rgba(13,54,95,.15)}
+@media(min-width:700px){body{padding:24px 0}.frame{border-radius:28px;overflow:hidden;min-height:auto}}
+.sample{background:var(--navy);color:#fff;font-size:13px;padding:10px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.sample b{color:#FBD38D}
+.sample select{font:inherit;font-size:13px;border-radius:8px;border:0;padding:4px 6px}
+header{background:#fff;padding:14px 16px 18px;border-bottom:1px solid var(--line)}
+header .logo{height:44px;display:block}
+.me{display:flex;gap:14px;align-items:center;margin-top:14px}
+.me img{width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--soft)}
+.me h1{font-size:22px;color:var(--navy);line-height:1.15}
+.team{display:inline-block;margin-top:4px;background:var(--soft);color:var(--teal);font-weight:600;font-size:13px;padding:3px 10px;border-radius:999px}
+.motto{margin-top:12px;font-size:14px;color:var(--muted)}
+.motto b{color:var(--navy)}
+nav{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;background:var(--cream);padding:10px 12px;border-bottom:1px solid var(--line)}
+nav a{flex:0 0 auto;text-decoration:none;color:var(--navy);font-weight:600;font-size:13px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--line)}
+main{padding:14px 14px 40px}
+section{margin-top:22px;scroll-margin-top:60px}
+section>h2{font-size:20px;color:var(--navy);margin-bottom:4px}
+section>p.sub{font-size:13px;color:var(--muted);margin-bottom:10px}
+.card{background:var(--card);border-radius:18px;padding:14px;border:1px solid var(--line);margin-bottom:10px}
+.update{border-left:6px solid var(--honey)}
+.update h3{font-size:16px;color:var(--navy)}
+.update p{font-size:14px;margin-top:6px}
+.update .from{font-size:13px;color:var(--muted);margin-top:8px}
+.look{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.look b{color:var(--navy)}
+.switch{position:relative;width:52px;height:30px;flex:0 0 52px;border-radius:999px;background:#c9d2d8;border:0;cursor:pointer;transition:background .2s}
+.switch:after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}
+.switch.on{background:var(--teal)}.switch.on:after{left:25px}
+.look-note{margin-top:10px;display:none}
+.look-note.show{display:block}
+input[type=text],textarea{width:100%;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.small{font-size:13px;color:var(--muted)}
+.ok{font-size:13px;color:var(--teal);font-weight:600;margin-top:8px}
+h3.grp{font-size:15px;color:var(--teal);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+h3.grp span{background:var(--soft);border-radius:999px;padding:1px 9px;font-size:12px}
+.shift .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.shift h4{font-size:17px;color:var(--navy);line-height:1.2}
+.shift .when{font-weight:600;font-size:15px;margin-top:2px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--soft);color:var(--teal)}
+.tag.fam{background:#fdf1dc;color:#9a6312}
+.tag.out{background:#eef0f2;color:var(--muted)}
+.tag.mentor{background:#e8e3f4;color:#5b4a8a}
+.det{font-size:14px;margin-top:8px}
+.det b{color:var(--navy)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button.b,a.b{font:inherit;font-size:14px;font-weight:600;border-radius:12px;padding:10px 14px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
+button.b.pri,a.b.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+button.b:disabled{opacity:.55;cursor:default}
+.answered{margin-top:12px;background:var(--soft);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--navy);display:none}
+.answered.show{display:block}
+.empty{font-size:14px;color:var(--muted);text-align:center;padding:12px}
+.client{display:flex;gap:12px;align-items:center}
+.client .dot{width:44px;height:44px;border-radius:50%;background:var(--soft);color:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 44px}
+.client h4{color:var(--navy);font-size:16px}
+.kind{font-size:15px;font-style:italic;color:var(--navy)}
+.kind small{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:6px}
+.miles{display:flex;gap:8px;flex-wrap:wrap}
+.mile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;flex:1 1 45%}
+.mile b{display:block;color:var(--navy);font-size:15px}
+.mile.todo{opacity:.55}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{font-weight:600;color:var(--navy);text-align:right}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.course{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.course h4{font-size:15px;color:var(--navy)}
+footer{text-align:center;font-size:12px;color:var(--muted);padding:10px 16px 24px}
+.cna-only{}
+body.caregiver .cna-only{display:none}
+.sample.office{background:#F0A63A;color:#122F52;font-weight:600}
+.sample.office b{color:#122F52}
+.pvtoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#122F52;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.pvtoast.show{opacity:1}
+
+.grid{display:grid;grid-template-columns:52px repeat(4,1fr);gap:6px;align-items:center;margin-top:8px}
+.grid .dh{font-size:12px;color:var(--muted);font-weight:600;text-align:center}
+.grid .dn{font-size:14px;font-weight:600;color:var(--navy)}
+.grid button{font:inherit;font-size:12px;font-weight:600;min-height:38px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+.grid button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+label.fld{display:block;font-size:14px;font-weight:600;color:var(--navy);margin-top:14px}
+input[type=number],input[type=date]{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:#fff;margin-top:6px}
+.yn{display:flex;gap:8px;margin-top:6px}
+.msg{font-size:14px;margin-top:10px;font-weight:600;color:var(--teal)}
+.msg.err{color:#a33a2b}
+.state{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 18px;margin:30px 14px;text-align:center}
+.state h1{font-size:22px;color:var(--navy);margin-bottom:8px}
+a.b{display:inline-block;text-decoration:none;line-height:1.3}
+@media(min-width:700px){.frame{min-height:100vh}}
+</style></head>
+<body>
+<div class="frame" id="app"><div class="state"><h1>One moment…</h1><p class="small">Opening your page.</p></div></div>
+<script>
+const SUPA = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/prn-page'
+const QS = new URLSearchParams(location.search)
+const PV = QS.get('preview') || ''
+const LINK = { p: QS.get('p') || '', e: QS.get('e') || '', t: QS.get('t') || '' }
+const DAYS = [['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']]
+const TIMES = [['morning','Morning'],['afternoon','Day'],['evening','Evening'],['overnight','Overnight']]
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const dWord = (ymd, o) => { if (!/^\d{4}-\d\d-\d\d/.test(String(ymd || ''))) return ''; return new Date(String(ymd).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'short', day: 'numeric' }) }
+const t12 = (hm) => { const m = /^(\d\d):(\d\d)$/.exec(String(hm || '')); if (!m) return ''; const h = +m[1]; return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h >= 12 ? 'pm' : 'am') }
+let D = null
+
+function staffToken() {
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^sb-.*-auth-token$/.test(k)) { const j = JSON.parse(localStorage.getItem(k)); return j && (j.access_token || (j.currentSession && j.currentSession.access_token)) || '' } } } catch (e) {}
+  return ''
+}
+async function call(body) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (PV) headers.Authorization = 'Bearer ' + staffToken()
+  const r = await fetch(SUPA, { method: 'POST', headers, body: JSON.stringify(PV ? Object.assign({ applicant_id: PV }, body) : Object.assign({}, LINK, body)) })
+  const j = await r.json().catch(() => ({}))
+  return Object.assign({ _status: r.status }, j)
+}
+function toast(t) { let el = $('pvtoast'); if (!el) { el = document.createElement('div'); el.id = 'pvtoast'; el.className = 'pvtoast'; document.body.appendChild(el) } el.textContent = t; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1800) }
+/* every change goes through here; the office preview changes nothing */
+async function act(body, msgEl) {
+  if (PV) { toast('Preview only. Nothing was sent or saved.'); return null }
+  if (msgEl) { msgEl.className = 'msg'; msgEl.textContent = 'Saving…' }
+  const r = await call(body)
+  if (msgEl) { msgEl.className = r.ok ? 'msg' : 'msg err'; msgEl.textContent = r.ok ? (r.message || 'Saved.') : (r.error || r.message || 'Something went wrong. Please try again.') }
+  return r
+}
+function stateCard(title, text, office) {
+  $('app').innerHTML = '<div class="state"><img class="logo" src="cc-logo.png" alt="Caring Companions" style="height:40px;margin:0 auto 14px;display:block"><h1 class="serif">' + esc(title) + '</h1><p>' + esc(text) + '</p>'
+    + (office ? '<p class="small" style="margin-top:12px">Caring Companions · <a href="sms:+14172348494">' + esc(office) + '</a></p>' : '') + '</div>'
+}
+
+function render() {
+  const d = D, h = d.hours || {}, w = h.windows || {}
+  const since = d.since ? dWord(d.since, { month: 'long', year: 'numeric' }) : ''
+  const offered = (d.offered || []).map((o) => '<div class="card shift"><div class="top"><div><h4>' + esc(o.client_first) + (o.town ? ' in ' + esc(o.town) : '') + '</h4>'
+      + '<div class="when">' + esc(dWord(o.shift_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (o.shift_time ? ' · ' + esc(t12(o.shift_time.slice(0, 5))) + ' to ' + esc(t12(o.shift_time.slice(6, 11))) : '') + '</div></div></div>'
+      + (o.answered ? '<div class="answered show">You answered: ' + esc({ yes: 'Yes', no: 'No', inquiry: 'with a question' }[o.answered] || o.answered) + '. A coordinator confirms before you are scheduled.</div>' : '')
+      + '<div class="btns">' + (o.link ? '<a class="b pri" href="' + esc(o.link) + '">' + (o.answered ? 'See this shift' : 'See this shift and answer') + '</a>' : '<button class="b pri" onclick="toast(\'Preview only. Nothing was sent or saved.\')">See this shift and answer</button>') + '</div></div>').join('')
+    || '<div class="card empty">Nothing offered to you right now. When we text you about a shift, it shows here too.</div>'
+  const clients = (d.clients || []).map((c) => '<div class="card client"><div class="dot">' + esc(String(c.first || '?').charAt(0)) + '</div><div><h4>' + esc(c.first) + '</h4><div class="small">Last visit ' + esc(dWord(c.last_visit)) + (c.glad ? " · You said you'd gladly go back" : '') + (c.star ? ' · Their family asked for you again' : '') + '</div></div></div>').join('')
+    || '<div class="card empty">' + esc(d.clients_why || "When you've cared for a client, they show here, so you're a familiar face when they need someone.") + '</div>'
+  const miles = (d.thanks || []).filter((t) => t.kind === 'milestone').map((t) => '<div class="mile"><b>' + esc(t.text) + '</b></div>').join('')
+  const thanks = (miles ? '<div class="miles" style="margin-bottom:10px">' + miles + '</div>' : '') + ((d.thanks || []).filter((t) => t.kind !== 'milestone').map((t) => '<div class="card"><p class="kind">"' + esc(t.text) + '"<small>' + (t.kind === 'kind_words' ? 'Kind words' : 'Thank-you') + (t.from ? ' from ' + esc(t.from) : '') + (t.at ? ', ' + esc(dWord(t.at)) : '') + '</small></p></div>').join('')
+    || (miles ? '' : '<div class="card empty">Thank-yous and kind words from families will show here.</div>'))
+  const grid = '<div class="grid"><span></span>' + TIMES.map((t) => '<span class="dh">' + t[1] + '</span>').join('')
+    + DAYS.map((dd) => '<span class="dn">' + dd[1] + '</span>' + TIMES.map((t) => '<button type="button" data-d="' + dd[0] + '" data-t="' + t[0] + '" class="' + ((w[dd[0]] || []).includes(t[0]) ? 'on' : '') + '" aria-pressed="' + ((w[dd[0]] || []).includes(t[0]) ? 'true' : 'false') + '" aria-label="' + dd[1] + ' ' + t[1] + '"></button>').join('')).join('') + '</div>'
+  const sn = h.short_notice_ok
+  const courses = (d.courses || []).map((c) => '<div class="card course"><div><h4>' + esc(c.title) + '</h4><div class="small">' + esc(c.about) + ' Online, at your own pace, about ' + c.hours + ' hours.</div></div>'
+    + '<button class="b req" data-slug="' + esc(c.slug) + '"' + (c.requested ? ' disabled>Asked ✓' : '>I\'d like this') + '</button></div>').join('')
+  $('app').innerHTML = (d.preview ? '<div class="sample office"><span><b>Office preview</b> of ' + esc(d.first) + '\'s page · nothing you tap here is sent' + (d.live ? '' : ' · the page is switched off for members') + '</span></div>' : '')
+    + '<header><img class="logo" src="cc-logo.png" alt="Caring Companions"><div class="me"><div><h1 class="serif">Hi, ' + esc(d.first) + '!</h1><span class="team">' + esc(d.team_label) + '</span></div></div>'
+    + '<p class="motto"><b>We Stand in the Gap.</b> Part of our care continuity team' + (since ? ' since ' + esc(since) : '') + '.</p></header>'
+    + '<nav><a href="#shifts">Shifts</a><a href="#clients">My clients</a><a href="#thanks">Thank-yous</a><a href="#hours">My hours</a><a href="#learn">Learn</a><a href="#talk">Talk to us</a></nav>'
+    + '<main>'
+    + (h.break_until ? '<div class="card update"><h3>You\'re on a break until ' + esc(dWord(h.break_until, { weekday: 'long', month: 'short', day: 'numeric' })) + '</h3><p>We won\'t text you about shifts until then. Welcome back anytime: end your break under My hours.</p></div>' : '')
+    + '<div class="card"><div class="look"><div><b>I\'m looking for hours</b><div class="small">Let the office know you\'d like work this week.</div></div><button class="switch' + (d.looking && d.looking.on ? ' on' : '') + '" id="lookSw" aria-label="I\'m looking for hours" aria-pressed="' + (d.looking && d.looking.on ? 'true' : 'false') + '"></button></div>'
+    + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
+    + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'
+    + '<p class="small" style="margin-top:8px">' + (d.looking && d.looking.on ? 'The office can see you\'re looking for hours, until ' + esc(dWord(d.looking.until)) + '.' : 'This stays on for 7 days.') + '</p><p class="msg" id="lookMsg"></p></div></div>'
+    + '<section id="shifts"><h2 class="serif">Shifts</h2><p class="sub">Shifts we\'ve asked you about. A coordinator always confirms before you\'re scheduled.</p><h3 class="grp">Offered to You <span>' + (d.offered || []).length + '</span></h3>' + offered
+    + '<p class="small" style="margin-top:6px">Soon you\'ll also see other open shifts you can pick from here. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>'
+    + '<section id="clients"><h2 class="serif">My clients</h2><p class="sub">Clients you know. When they need someone, you\'re a familiar face.</p>' + clients + '</section>'
+    + '<section id="thanks"><h2 class="serif">Thank-yous</h2>' + thanks + '</section>'
+    + '<section id="hours"><h2 class="serif">My hours</h2><div class="card">'
+    + (d.on_schedule ? '<p class="small">Tap the times that usually work for you.</p>' + grid
+      + '<label class="fld">Hours a week you\'d like<br><input type="number" id="tgt" min="0" max="80" inputmode="numeric" value="' + (h.target_hours == null ? '' : esc(h.target_hours)) + '" style="width:110px"></label>'
+      + '<label class="fld" style="display:flex;gap:10px;align-items:center"><input type="checkbox" id="outOk"' + (h.outside_ok ? ' checked' : '') + ' style="width:20px;height:20px"> Also text me about shifts outside these times</label>'
+      + '<div class="btns"><button class="b pri" id="hrsSave">Save my hours</button></div><p class="msg" id="hrsMsg"></p>'
+      + (h.updated_at ? '<p class="small">Last updated ' + esc(dWord(h.updated_at)) + '.</p>' : '')
+      : '<p class="small">Your days and times can be set once you\'re on the schedule.</p>')
+    + '<label class="fld">Is short notice ever OK?</label><div class="yn"><button class="chip' + (sn === true ? ' on' : '') + '" data-sn="yes">Yes, sometimes</button><button class="chip' + (sn === false ? ' on' : '') + '" data-sn="no">No, I need notice</button></div><p class="msg" id="snMsg"></p>'
+    + '<label class="fld">Taking a break?</label>'
+    + (h.break_until ? '<p class="small" style="margin-top:6px">You\'re on a break until ' + esc(dWord(h.break_until)) + '.</p><div class="btns"><button class="b" id="brkEnd">End my break now</button></div>'
+      : '<p class="small" style="margin-top:6px">Pick the date you\'ll be back. We won\'t text you about shifts until then.</p><input type="date" id="brkDate" min="' + esc(d.today) + '"><div class="btns"><button class="b" id="brkSet">Start my break</button></div>')
+    + '<p class="msg" id="brkMsg"></p></div></section>'
+    + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'
+    + '<section id="talk"><h2 class="serif">Talk to us</h2><div class="card"><div class="btns" style="margin-top:0"><a class="b pri" href="sms:+14172348494">Text the office</a><a class="b" href="tel:+14172348494">Call</a><button class="b" id="ideaBtn">Share an idea</button></div>'
+    + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
+    + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'
+  wire()
+}
+
+function wire() {
+  $('lookSw').onclick = async (e) => {
+    const on = !e.currentTarget.classList.contains('on')
+    if (on) { e.currentTarget.classList.add('on'); $('lookNote').classList.add('show'); return }
+    if (PV) return toast('Preview only. Nothing was sent or saved.')
+    const r = await act({ action: 'looking', on: false }, $('lookMsg')); if (r && r.ok) load()
+  }
+  $('lookSave').onclick = async () => { const r = await act({ action: 'looking', on: true, note: $('lookTxt').value }, $('lookMsg')); if (r && r.ok) setTimeout(load, 900) }
+  document.querySelectorAll('.grid button').forEach((b) => b.onclick = () => { b.classList.toggle('on'); b.setAttribute('aria-pressed', b.classList.contains('on') ? 'true' : 'false') })
+  if ($('hrsSave')) $('hrsSave').onclick = () => {
+    const windows = {}; DAYS.forEach((dd) => { windows[dd[0]] = [...document.querySelectorAll('.grid button.on[data-d="' + dd[0] + '"]')].map((b) => b.dataset.t) })
+    act({ action: 'hours', windows, target_hours: $('tgt').value, outside_ok: $('outOk').checked }, $('hrsMsg'))
+  }
+  document.querySelectorAll('[data-sn]').forEach((b) => b.onclick = async () => {
+    const r = await act({ action: 'short_notice', ok: b.dataset.sn === 'yes' }, $('snMsg'))
+    if (r && r.ok) document.querySelectorAll('[data-sn]').forEach((x) => x.classList.toggle('on', x === b))
+  })
+  if ($('brkSet')) $('brkSet').onclick = async () => { if (!$('brkDate').value) { $('brkMsg').className = 'msg err'; $('brkMsg').textContent = 'Pick the date you\'ll be back.'; return } const r = await act({ action: 'break', until: $('brkDate').value }, $('brkMsg')); if (r && r.ok) setTimeout(load, 1200) }
+  if ($('brkEnd')) $('brkEnd').onclick = async () => { const r = await act({ action: 'break', until: '' }, $('brkMsg')); if (r && r.ok) setTimeout(load, 1200) }
+  document.querySelectorAll('button.req').forEach((b) => b.onclick = async () => { const r = await act({ action: 'course', slug: b.dataset.slug }, $('crsMsg')); if (r && r.ok) { b.disabled = true; b.textContent = 'Asked ✓' } })
+  $('ideaBtn').onclick = () => $('ideaBox').classList.toggle('show')
+  $('ideaSend').onclick = async () => { const r = await act({ action: 'idea', text: $('ideaTxt').value }, $('ideaMsg')); if (r && r.ok) $('ideaTxt').value = '' }
+}
+
+async function load() {
+  if (!PV && !(LINK.p && LINK.t)) return stateCard('Your PRN Team page', 'Please open this page from the link in our text. If you need a fresh link, text us.', '(417) 234-8494')
+  let r
+  try { r = await call({ action: PV ? 'preview' : 'view' }) } catch (e) { return stateCard('We couldn\'t open your page', 'Please check your connection and try again.', '(417) 234-8494') }
+  if (r.ok) { D = r; return render() }
+  if (r.closed) return stateCard('Almost ready', r.message, r.office)
+  if (r.expired) return stateCard('This link has expired', r.message, r.office)
+  if (r.gone) return stateCard('Your PRN Team page', r.message, r.office)
+  return stateCard('We couldn\'t open this page', r.error || 'Please try again in a minute.', PV ? '' : '(417) 234-8494')
+}
+load()
+</script>
+</body></html>

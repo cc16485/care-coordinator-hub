@@ -4700,6 +4700,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="prnStep4Status"></span>
 </div>
 <div id="prnStep4Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
+<h4 style="margin:18px 0 4px;color:var(--navy);">Their PRN Team page (PRN step 5a)</h4>
+<p class="hint">Each PRN member's own phone page, from their own link: looking for hours, shifts we've asked them about, their clients, thank-yous, My hours (with short notice and a break), optional courses and Talk to us. You can always see any member's page from PRN Teams, What they see. Nothing texts the link yet: its wording comes to you first.</p>
+<div id="prnStep5Switches" style="margin-top:10px;display:flex;flex-direction:column;gap:8px;"></div>
 </div>
 <div class="settings-section" id="orientProofSettings" data-set="orientation-proof">
 <h3>🎓 Orientation proof</h3>
@@ -7637,7 +7640,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15896,6 +15899,20 @@ async function prnStep4Save(btn){
   if(btn) btn.disabled = false;
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
+/* PRN STEP 5a (Samantha 2026-10-29): each PRN member's own PRN Team page (prn.html, server prn-page). */
+const PRN_STEP5_SWITCHES = [
+  { key:'prn_page_live', name:'Open the PRN Team page to members',
+    on:'PRN members can open their own page from their link: looking for hours, their shifts, clients, thank-yous, My hours, courses and Talk to us. What they tap shows on This week.',
+    off:'Off: a member who opens their link sees "isn\'t open yet" and nothing is saved. You can still see every member\'s page from PRN Teams, What they see.' },
+];
+function prnStep5Fill(){
+  const st = DATA.ops_settings||{};
+  const box = document.getElementById('prnStep5Switches'); if(!box) return;
+  box.innerHTML = PRN_STEP5_SWITCHES.map(w=>{ const on = st[w.key]===true;
+    return '<div style="display:flex;gap:10px;align-items:flex-start;"><button class="fb" style="flex:0 0 auto;" onclick="prnStep1Toggle(\''+w.key+'\',this)">'+(on?'Turn off':'Turn on')+'</button>'
+      +'<div><b>'+escapeHtmlComms(w.name)+':</b> '+(on?'<span style="color:var(--green);font-weight:700;">ON</span>':'<span style="color:var(--text-muted);font-weight:700;">off</span>')
+      +'<div class="field-note">'+escapeHtmlComms(on?w.on:w.off)+'</div></div></div>'; }).join('');
+}
 /* ORIENTATION PROOF (Samantha 2026-10-28): three switches, all off until she reviews the practice results. */
 const OP_SWITCHES = [
   { key:'orientation_audit_live', name:'Daily AxisCare orientation audit',
@@ -15944,6 +15961,7 @@ function prnStep1Fill(){
   prnStep2Fill();
   prnStep3Fill();
   prnStep4Fill();
+  prnStep5Fill();
   const f = document.getElementById('set_prn_fam_msg'); if(f){ f.value = String(st.coverage_msg_prn_familiar||''); f.placeholder = PRN_FAMILIAR_DEFAULT; }
   const t = document.getElementById('set_prn_team_msg'); if(t){ t.value = String(st.coverage_msg_prn_team||''); t.placeholder = PRN_TEAM_DEFAULT; }
   const box = document.getElementById('prnStep1Switches'); if(!box) return;
@@ -15966,7 +15984,7 @@ async function prnStep1Save(btn){
   if(s) s.textContent = out.error ? ('Could not save: '+out.error.message) : (out.changed.length ? 'Saved: '+out.changed.join(', ')+'.' : 'Nothing changed.');
 }
 async function prnStep1Toggle(key, btn){
-  const w = PRN_STEP1_SWITCHES.concat(PRN_STEP2_SWITCHES, PRN_STEP3_SWITCHES, PRN_STEP4_SWITCHES).find(x=>x.key===key); if(!w) return;
+  const w = PRN_STEP1_SWITCHES.concat(PRN_STEP2_SWITCHES, PRN_STEP3_SWITCHES, PRN_STEP4_SWITCHES, PRN_STEP5_SWITCHES).find(x=>x.key===key); if(!w) return;
   const on = !((DATA.ops_settings||{})[key]===true);
   if(!(await ccConfirm((on?'Turn on: ':'Turn off: ')+w.name+'?\n\n'+(on?w.on:w.off)))) return;
   if(btn) btn.disabled = true;
@@ -20031,6 +20049,8 @@ async function cgdPrnMount(c){
       + (isPrn ? '<button class="fb" onclick="cgdPrnMoveOpen(\'ongoing\')">Move to ongoing…</button>' : '<button class="fb" onclick="cgdPrnMoveOpen(\'prn_team\')">Back on the PRN Team…</button>')
       /* decision 6: a PRN caregiver who earns a CNA moves to the PRN CNA Team, a deliberate recorded step */
       + (isPrn && prnTeamOf(tr) === 'caregiver' ? '<button class="fb" onclick="cgdPrnMoveOpen(\'to_cna_team\')">They earned their CNA…</button>' : '')
+      /* PRN step 5a (2026-10-29, her ask "I need to be able to see what the PRN can see"): their own page, read-only, each look recorded */
+      + (isPrn ? '<button class="fb" onclick="window.open(\'prn.html?preview=' + esc(tr.applicant_id) + '\',\'_blank\')">See what ' + esc(String(c.first || 'they').split(' ')[0]) + ' sees</button>' : '')
       + '<span class="field-note" id="cgdPrnMsg"></span></div>'
     + '<div id="cgdPrnMove" style="display:none;margin-top:10px;background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px 14px;"></div>'
     + (hist.length ? '<details style="margin-top:10px;"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy);">Pay-track history (' + hist.length + ')</summary>'

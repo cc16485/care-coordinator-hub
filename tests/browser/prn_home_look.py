@@ -48,7 +48,7 @@ async()=>{
   ok('Recruiting: the goal numbers live here now', vis('prnDash') && /ALWAYS ON/.test(document.getElementById('prnDash').innerText) && !vis('prnOnCall'));
   PW.tab('see'); await sleep(400);
   const fr=document.querySelector('#prnSee iframe');
-  ok('What they see: the approved sample, marked as a sample until step 5', vis('prnSee') && fr && /prn-team-page-sample\.html/.test(fr.src) && /Sample with made-up people/.test(document.getElementById('prnSee').innerText));
+  ok("What they see: the first member's real page (step 5a), with the approved sample one tap away", vis('prnSee') && fr && /prn\.html\?preview=g$/.test(fr.src) && !!document.querySelector('#prnSee a[href^="prn-team-page-sample.html"]'));
   /* someone who isn't an owner, while This week is off: told so plainly; Our teams still shows */
   WEEK.live=false; CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator']; PW.tab('week'); await PW.load(); await sleep(100);
   ok('not an owner, This week off: says it shows to owners only until it is turned on', /owners only until "This week" is turned on/.test(document.getElementById('prnWeek').innerText) && !/Welcome call with Grace/.test(document.getElementById('prnWeek').innerText));
