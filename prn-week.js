@@ -248,12 +248,12 @@
     var see = document.getElementById('prnSee'); if (see && (TAB === 'see' || !see.innerHTML) && see.getAttribute('data-for') !== SEE + '|' + (W ? 1 : 0)) { see.innerHTML = seeHtml(); see.setAttribute('data-for', SEE + '|' + (W ? 1 : 0)); }
     var show = W && (W.live || isOwner());
     if (isHome()) {
-      put('prnWeek', show ? weekHtml() + monthlyHtml() : (W ? offNote : ''));
+      put('prnWeek', show ? weekHtml() + monthlyHtml() + (window.GM ? GM.weekHtml() : '') : (W ? offNote : ''));
       put('prnOnCall', show ? onCallHtml() : (W ? offNote : ''));
       put('prnTeams', teamsHtml());
     } else {
       put('prnTeams', ''); put('prnOnCall', '');
-      box.innerHTML = show ? weekHtml() + monthlyHtml() + familiarHtml() + onCallHtml() : '';
+      box.innerHTML = show ? weekHtml() + monthlyHtml() + (window.GM ? GM.weekHtml() : '') + familiarHtml() + onCallHtml() : '';
     }
     panes();
   }

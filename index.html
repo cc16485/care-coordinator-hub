@@ -7654,7 +7654,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=8"></script><script src="gap-mentor.js?v=1"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=9"></script><script src="gap-mentor.js?v=2"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15946,6 +15946,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_mentor_live', name:'Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page', needsPage:true,
     on:'Coordinators can ask from a client\'s Care tab, Care plan reviews. Gap Mentors see the visit in Offered to You, say if they can do it, and fill in a short note after. Nothing is texted.',
     off:'Off: owners see "Ask a Gap Mentor" marked practice, and an ask is refused. Name Gap Mentors any time in PRN Teams, Our teams.' },
+  /* PRN STEP 8b: the Hub suggests a Gap Mentor visit from shift notes, Care Match and self-reported skills (gap-mentor.js) */
+  { key:'prn_mentor_suggest_live', name:'Gap Mentor suggestions (needs Gap Mentors on too)', needsPage:true,
+    on:'The Hub suggests a care update or a refresher on the client\'s Care tab, the caregiver\'s record and This week, with the reason. Nobody is asked until a coordinator taps Ask.',
+    off:'Off: only owners see the suggestions, marked practice.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
 const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";
@@ -35049,7 +35053,8 @@ function clDue(r, issues){
     /* R1 (2026-09-29, her ruling): the LATEST check-in decides; a later one without the box clears the flag, history stays */
     if(ci&&ci.escalated) add('ckconcern','bad','check-in escalated'+(ci.concerns_raised?': '+String(ci.concerns_raised).slice(0,50):''),'checkins',ci.checkin_date);
     else if(ci&&ciDecliningAx(ax)) add('ckconcern','warn','satisfaction dropping','checkins');
-    const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
+    /* PRN step 8b: a Gap Mentor's note or a set-aside suggestion (kinds mentor_*) is never a plan review, so it never hides one due */
+    const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&!/^mentor_/.test(String(x.kind||''))&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
     if(!rv) add('review','warn','first plan review needed','care:reviews');
     else {
       if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care:reviews');
