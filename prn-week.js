@@ -11,6 +11,9 @@
       what each member offered, Confirm and Take back. An offer alone never puts anyone on call. No stipend amount (hers to set).
    3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
       opens the five questions; what they say is kept on their PRN answers (short notice and on call in their own records).
+   5. (step 5a, 2026-10-29) THEIR PRN TEAM PAGE: What they see shows a member's real page (prn.html?preview=, read-only, each look
+      recorded); Our teams shows looking for hours, a break and when they last looked, with Copy page link; This week gains
+      looking for hours, a course they'd like and an idea they shared.
    4. (2026-10-29) THE PRN TEAMS HOME: opened from its own link (#prnteams), five tabs: This week, Our teams (everyone on a
       team, onboarding too, with their welcome call answers and familiar clients), On call, Recruiting (the goal numbers) and
       What they see (the approved sample of their PRN Team page until step 5). From inside Recruit, the stacked view as before.
@@ -38,7 +41,10 @@
   function lineHtml(it) {
     var ic = ICON[it.kind] || ICON.checkin, m = (W.members || []).find(function (x) { return x.applicant_id === it.applicant_id; }) || {};
     var page = m.axiscare_id ? '<button class="fb" onclick="PW.page(\'' + e(m.axiscare_id) + '\')">Open their page</button>' : '';
-    var btns = it.kind === 'welcome' ? page + '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Record the call</button>'
+    var btns = it.kind === 'looking' ? page + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'called\')">Called</button>'
+      : it.kind === 'course' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')" title="Assign it on the Training Platform first">Assigned</button>'
+      : it.kind === 'idea' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'handled\')">Read</button>'
+      : it.kind === 'welcome' ? page + '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Record the call</button>'
       : it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
       : it.kind === 'milestone' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'card_mailed\')">Card mailed</button>'
       : it.kind === 'goback' ? '<button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'yes\')">Glad to go back</button><button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'no\')">Rather not</button>'
@@ -157,6 +163,9 @@
         var name = [a.first_name, a.last_name].filter(Boolean).join(' ') || 'A PRN member', ax = t.axiscare_caregiver_id ? String(t.axiscare_caregiver_id) : '';
         var tag = ax ? '<span class="prn-tm-tag" style="background:#DCFCE7;color:#166534;">In AxisCare</span>' : '<span class="prn-tm-tag" style="background:#FEF3C7;color:#92400E;">Onboarding</span>';
         var since = 'On the team since ' + fmt(t.since) + (ax ? (t.linked_at ? ' · linked in AxisCare ' + fmt(t.linked_at) : '') : ' · not linked in AxisCare yet');
+        var pg = ((W && W.members) || []).find(function (m) { return m.applicant_id === t.applicant_id; }), pi = (pg && pg.page) || {};
+        var pageBits = [pi.looking && pi.looking.on ? '<b style="color:#92400E;">Looking for hours</b>' + (pi.looking.note ? ' (' + e(pi.looking.note) + ')' : '') : '',
+          pi.break_until ? 'On a break until ' + fmt(pi.break_until) : '', pi.last_looked ? 'Last looked at their page ' + fmt(pi.last_looked) : ''].filter(Boolean).join(' · ');
         var sn = p.short_notice_ok === true ? 'Short notice OK' : p.short_notice_ok === false ? 'Keeps their notice' : 'Short notice: not asked yet';
         var wc = w ? 'Welcome call ' + fmt(w.at) + (w.by ? ' (' + e(w.by) + ')' : '') + ': ' + e(w.towns_times) + ' · more hours ' + e(yn[w.more_hours] || w.more_hours)
             + (w.enjoys ? ' · enjoys ' + e(w.enjoys) : '') + (w.oncall ? ' · on call ' + e(ONC[w.oncall] || w.oncall) : '') + (w.office_interest ? ' · interested in office work someday' : '')
@@ -166,9 +175,11 @@
         return '<div class="prn-tm"><div class="prn-tm-main"><b style="color:var(--navy);">' + e(name) + '</b> ' + tag
           + '<div class="field-note" style="margin-top:2px;">' + since + ' · ' + sn + '</div>'
           + '<div style="font-size:13px;margin-top:4px;">' + wc + '</div>'
-          + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '') + '</div>'
+          + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '')
+          + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '') + '</div>'
           + '<div class="pw-btns">' + (ax ? '<button class="fb" onclick="PW.page(\'' + e(ax) + '\')">Open their page</button>' : '')
-          + '<button class="fb" onclick="PW.tab(\'see\')">What they see</button></div></div>';
+          + '<button class="fb" onclick="PW.see(\'' + e(t.applicant_id) + '\')">What they see</button>'
+          + '<button class="fb" onclick="PW.copyLink(\'' + e(t.applicant_id) + '\',this)" title="Their PRN Team page link, to text them yourself">Copy page link</button></div></div>';
       }).join('');
       return '<div class="card pw-card"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">' + e(D.name) + '</h3>'
         + '<span class="field-note">' + mine.length + ' on the team' + (goal ? ' · goal ' + goal : '') + '</span></div>'
@@ -176,15 +187,25 @@
     }).join('');
   }
   /* What they see: the approved sample of a member's own PRN Team page until the real one (step 5) */
+  /* What they see (step 5a): pick a member and see their own PRN Team page, read-only; each look is recorded on the server */
+  var SEE = '';
   function seeHtml() {
-    return '<div class="card pw-card"><div class="pw-practice">Sample with made-up people. The real PRN Team page comes in step 5: then this tab lets you pick a member and see exactly what they see.</div>'
-      + '<div class="field-note" style="margin-bottom:8px;">What a PRN member will see on their phone: Offered to You, Familiar Clients First, Available Opportunities, On call, My clients, Thank-yous, My hours and Talk to us. Nothing you tap here is sent.</div>'
-      + '<iframe src="prn-team-page-sample.html?preview=1" title="Sample PRN Team page" style="width:100%;max-width:440px;height:820px;border:1px solid var(--border);border-radius:18px;display:block;margin:0 auto;background:#fff;"></iframe></div>';
+    var T = (typeof PRN_T !== 'undefined' && PRN_T) || { tracks: [], apps: {} };
+    var mem = (T.tracks || []).filter(function (t) { return t.track === 'prn_team'; });
+    if (!SEE && mem.length) SEE = mem[0].applicant_id;
+    var nm = function (t) { var a = (T.apps || {})[t.applicant_id] || {}; return [a.first_name, a.last_name].filter(Boolean).join(' ') || 'A PRN member'; };
+    var pick = mem.length ? '<select id="pwSeePick" onchange="PW.see(this.value)" style="font-size:13px;width:auto;">' + mem.map(function (t) { return '<option value="' + e(t.applicant_id) + '"' + (t.applicant_id === SEE ? ' selected' : '') + '>' + e(nm(t)) + '</option>'; }).join('') + '</select>' : '';
+    return '<div class="card pw-card"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">What they see</h3>' + pick
+      + (W && !W.page_live ? '<span class="field-note">The page is switched off for members (Settings, PRN Teams), so only you see it here.</span>' : '') + '</div>'
+      + '<div class="field-note" style="margin:6px 0 10px;">Their own PRN Team page, exactly as it looks to them right now. Nothing you tap here is sent, and each look is recorded.</div>'
+      + (SEE ? '<iframe src="prn.html?preview=' + encodeURIComponent(SEE) + '" title="Their PRN Team page" style="width:100%;max-width:440px;height:820px;border:1px solid var(--border);border-radius:18px;display:block;margin:0 auto;background:#fff;"></iframe>'
+        : '<div class="field-note">Nobody is on a PRN Team yet.</div>')
+      + '<div class="field-note" style="margin-top:10px;text-align:center;"><a href="prn-team-page-sample.html?preview=1" target="_blank" rel="noopener">The approved sample, with made-up people</a></div></div>';
   }
 
   function draw() {
     var box = document.getElementById('prnWeek'); if (!box) return;
-    var see = document.getElementById('prnSee'); if (see && !see.innerHTML) see.innerHTML = seeHtml();
+    var see = document.getElementById('prnSee'); if (see && (TAB === 'see' || !see.innerHTML) && see.getAttribute('data-for') !== SEE + '|' + (W ? 1 : 0)) { see.innerHTML = seeHtml(); see.setAttribute('data-for', SEE + '|' + (W ? 1 : 0)); }
     var show = W && (W.live || isOwner());
     if (isHome()) {
       put('prnWeek', show ? weekHtml() : (W ? offNote : ''));
@@ -207,6 +228,15 @@
 
   window.PW = {
     load: load,
+    see: function (aid) { SEE = String(aid || ''); TAB = 'see'; if (!isHome()) { try { window.open('prn.html?preview=' + encodeURIComponent(SEE), '_blank'); } catch (x) { /* */ } return; } draw(); },
+    copyLink: async function (aid, btn) {
+      try {
+        var r = await call({ action: 'page_link', applicant_id: aid });
+        try { await navigator.clipboard.writeText(r.link); } catch (x) { window.prompt('Their PRN Team page link (30 days):', r.link); }
+        if (btn) { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy page link'; }, 1800); }
+        if (!r.live && typeof ccAlert === 'function') ccAlert('Copied. The PRN Team page is still switched off (Settings, PRN Teams), so the link shows "isn\'t open yet" until it is on.');
+      } catch (x) { if (typeof ccAlert === 'function') ccAlert('Could not make the link: ' + x.message); else alert('Could not make the link: ' + x.message); }
+    },
     tab: function (k) { if (!PANES[k]) return; TAB = k; draw(); if (k === 'recruiting' && typeof prnDashLoad === 'function' && !/card/.test((document.getElementById('prnDash') || {}).innerHTML || '')) prnDashLoad(); },
     get _tab() { return TAB; },
     open: function (id) { OPEN[id] = !OPEN[id]; draw(); },
