@@ -72,6 +72,38 @@ with sync_playwright() as pw:
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_member.png'), full_page=True)
     ok('no page errors (member)', not errs, errs); b.close()
 
+    # STEP 5b: open shifts and I'm Interested
+    OPEN = [{ 'case_id': 'c9', 'shift_date': '2026-11-02', 'shift_time': '09:00-13:00', 'hours': 4, 'town': 'Ozark', 'familiar': True, 'client_first': 'Ruth', 'outside_my_times': False, 'shift_key': '2026-11-02|09:00-13:00' },
+            { 'case_id': 'c8', 'shift_date': '2026-10-31', 'shift_time': '18:00-22:00', 'hours': 4, 'town': 'Nixa', 'familiar': False, 'client_first': None, 'outside_my_times': True, 'shift_key': '2026-10-31|18:00-22:00' }]
+    VO = dict(VIEW, open_live=True)
+    def member5b(body):
+        a = body.get('action')
+        if a == 'view': return 200, VO
+        if a == 'open': return 200, { 'ok': True, 'shifts': OPEN, 'open_live': True, 'why': None }
+        if a == 'interested': return 200, { 'ok': True, 'message': 'Thank you, Grace! The office will look at it and let you know. Nothing is set until they confirm it with you.' }
+        return 200, { 'ok': True }
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member5b)
+    pg.wait_for_timeout(300); txt = pg.inner_text('#shifts')
+    ok('open shifts: loaded after the page, with their link', any(c['body'].get('action') == 'open' and c['body'].get('p') for c in calls) and 'Open shifts you can pick up' in txt and pg.inner_text('#openN') == '2', txt)
+    ok('...a client they know first: "A client you know", Ruth in Ozark, Mon Nov 2 9am to 1pm, 4 hours', txt.index('A client you know') < txt.index('Ruth in Ozark') < txt.index('A client in Nixa') and 'Mon, Nov 2 · 9am to 1pm · 4 hours' in txt, txt)
+    ok('...a client they don\'t know: no name, just the town; outside their usual times says so', 'A client in Nixa' in txt and 'Outside your usual times' in txt and txt.count('A client you know') == 1, txt)
+    ok('...says a coordinator confirms first; no pay, no em dash', "Saying you're interested doesn't schedule you" in txt and '$' not in txt and '—' not in txt)
+    pg.locator('[data-int="1"]').click(); pg.wait_for_timeout(200)
+    ic = [c['body'] for c in calls if c['body'].get('action') == 'interested']
+    ok("I'm Interested: sends that shift and the hours they saw", ic and ic[-1]['case_id'] == 'c8' and ic[-1]['shift_key'] == '2026-10-31|18:00-22:00' and ic[-1].get('t'), ic)
+    ok('...thanks them and says nothing is set until the office confirms', 'Nothing is set until they confirm it with you' in pg.inner_text('#intMsg1') and pg.locator('[data-int="1"]').inner_text() == 'Interested ✓')
+    ok('no page errors (open shifts)', not errs, errs); b.close()
+    VO2 = dict(VO, offered=[dict(VIEW['offered'][0], answered='yes', from_page=True)])
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, VO2) if body.get('action') == 'view' else (200, { 'ok': True, 'shifts': [], 'why': None }))
+    pg.wait_for_timeout(300); txt = pg.inner_text('#shifts')
+    ok('...afterwards it shows in Offered to You as "You said you\'re interested"; none left: a kind empty line', "You said you're interested" in txt and 'No open shifts that fit you right now' in txt, txt); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, VO) if body.get('action') == 'view' else (200, { 'ok': True, 'shifts': [], 'why': "We can't check the schedule right now, so open shifts aren't shown. Check back soon." }))
+    pg.wait_for_timeout(300)
+    ok("...AxisCare can't be read: no open shifts, and says why", "We can't check the schedule right now" in pg.inner_text('#shifts') and pg.locator('[data-int]').count() == 0); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    pg.wait_for_timeout(300)
+    ok('open shifts switched off: the member page never asks for them', not any(c['body'].get('action') == 'open' for c in calls) and 'Soon you' in pg.inner_text('#shifts')); b.close()
+
     V2 = dict(VIEW, hours=dict(VIEW['hours'], break_until='2026-11-15'))
     b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, V2) if body.get('action') == 'view' else (200, { 'ok': True, 'message': "Welcome back! You'll hear about shifts again." }))
     ok('on a break: said at the top, with End my break now', "You're on a break until Sunday, Nov 15" in pg.inner_text('body') and pg.locator('#brkEnd').count() == 1)
@@ -84,13 +116,16 @@ with sync_playwright() as pw:
     ok('an expired link: says so, with the office number to text', 'This link has expired' in pg.inner_text('body') and pg.locator('a[href="sms:+14172348494"]').count() == 1); b.close()
 
     PV = dict(VIEW, preview=True, live=False); PV['offered'] = [dict(VIEW['offered'][0], link=None)]
-    b, pg, calls, errs = page(pw, '?preview=0f1e2d3c-4b5a-4968-8776-655443322110', lambda body: (200, PV) if body.get('action') == 'preview' else (500, { 'error': 'should never be called' }))
+    b, pg, calls, errs = page(pw, '?preview=0f1e2d3c-4b5a-4968-8776-655443322110', lambda body: (200, PV) if body.get('action') == 'preview' else (200, { 'ok': True, 'shifts': OPEN, 'open_live': False }) if body.get('action') == 'open_preview' else (500, { 'error': 'should never be called' }))
     pg.evaluate("()=>{ localStorage.setItem('sb-zngsgedlsxinbygwmxwn-auth-token', JSON.stringify({ access_token: 'office-token' })); }"); pg.reload(); pg.wait_for_timeout(700)
     t2 = pg.inner_text('body')
     ok('office preview: the banner, read-only, with their sign-in', "Office preview of Grace's page · nothing you tap here is sent · the page is switched off for members" in t2 and calls[-1]['auth'] == 'Bearer office-token' and calls[-1]['body'].get('applicant_id'))
     n = len(calls); pg.click('#lookSw'); pg.click('#lookSave'); pg.click('[data-sn="no"]'); pg.click('#hrsSave'); pg.click('button.req[data-slug="dementia-care"]'); pg.wait_for_timeout(300)
     ok('...nothing you tap is sent', len(calls) == n and 'Preview only' in pg.inner_text('#pvtoast'))
     ok('...no shift link in the preview', pg.locator('a:has-text("See this shift")').count() == 0)
+    ok('...open shifts: what they would see, marked waiting while the switch is off', any(c['body'].get('action') == 'open_preview' for c in calls) and 'Waiting:' in t2 and 'Ruth in Ozark' in pg.inner_text('#shifts'))
+    n = len(calls); pg.locator('[data-int="0"]').click(); pg.wait_for_timeout(200)
+    ok("...I'm Interested in the preview sends nothing", len(calls) == n)
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_preview.png'))
     ok('no page errors (preview)', not errs, errs); b.close()
 
@@ -132,7 +167,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===4, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===5, sw);
+  ok('Settings (step 5b): Open shifts and "I\'m Interested", off', /Open shifts and "I'm Interested" on the PRN Team page: off/.test(sw), sw);
   ok('...their wording boxes show the approved wording as the standard', document.getElementById('set_prn_page_ready_msg').placeholder.startsWith("Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts")
     && /on your PRN Team page: \{link\}$/.test(document.getElementById('set_prn_reconfirm_page_msg').placeholder));
   await prnStep1Toggle('prn_page_ready_live'); prnStep5Fill();

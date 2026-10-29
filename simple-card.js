@@ -77,6 +77,7 @@
   }
   function statusOf(x) {
     const k = x.contacted; if (!k) return '';
+    if (k.interested_on_page) return '<span style="color:#1D6B43;font-weight:700;">Interested (from their PRN page)</span>';   // PRN step 5b
     if (k.state === 'yes') return '<span style="color:#1D6B43;font-weight:700;">said yes</span>';
     if (k.state === 'no') return '<span style="color:#B42318;">' + (k.by_text ? 'Texted ' + E(clock(k.at)) + ' · ' : '') + 'said no</span>';
     if (k.state === 'inquiry') return '<span style="color:#8A5300;">asked a question</span>';
