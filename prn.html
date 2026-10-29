@@ -14,7 +14,7 @@
      PRN STEP 6: the month's PRN Team update at the top (the last one sent, for 40 days).
      PRN STEP 7: the twice-yearly "What would make PRN better?" questions (May and November), on call under My hours (PRN CNA
      Team only, never pay), and more milestones in Thank-yous.
-     PRN STEP 8a: for Gap Mentors, the visits they could do (I can do it / Not this time) and a short note after each one.
+     PRN STEP 8a: for PRN CNAs approved for Field Support Visits (named Gap Mentors until 2026-10-29), the visits they could do (I can do it / Not this time) and a short note after each one.
      Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
      Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
      ============================================================ -->
@@ -203,8 +203,8 @@ function render() {
         + '<div id="openBox"><div class="card empty">Looking for open shifts…</div></div><p class="msg" id="openMsg"></p>'
         + '<p class="small" style="margin-top:6px">Saying you\'re interested doesn\'t schedule you. A coordinator looks at it and confirms with you first. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>'
       : '<p class="small" style="margin-top:6px">Soon you\'ll also see other open shifts you can pick from here. Want steady hours? <a href="sms:+14172348494">Text us</a>.</p></section>')
-    + (d.mentor ? '<section id="mentor"><h2 class="serif">Gap Mentor</h2><p class="sub">You\'re one of our Gap Mentors for ' + esc((d.mentor.skills || []).join(', ')) + '. Thank you. Saying not this time never counts against you.</p>'
-        + (d.mentor.waiting ? '<p class="small"><b>Waiting:</b> Gap Mentor visits are switched off, so members don\'t see this part yet.</p>' : '')
+    + (d.mentor ? '<section id="mentor"><h2 class="serif">Field Support Visits</h2><p class="sub">You\'re approved for Field Support Visits for ' + esc((d.mentor.skills || []).join(', ')) + '. Thank you. Saying not this time never counts against you.</p>'
+        + (d.mentor.waiting ? '<p class="small"><b>Waiting:</b> Field Support Visits are switched off, so members don\'t see this part yet.</p>' : '')
         + ((d.mentor.mine || []).map((m, i) => '<div class="card shift"><div class="top"><div><h4>' + esc(m.kind_label) + ' · ' + esc(m.client_first) + '</h4><div class="when">' + mWhen(m) + '</div>'
             + (m.caregiver_first ? '<div class="small">With ' + esc(m.caregiver_first) + (m.skill ? ', ' + esc(m.skill) : '') + '</div>' : '') + '</div></div>'
             + (m.done ? '<div class="answered show">Your note is in. Thank you!</div>'
@@ -213,13 +213,13 @@ function render() {
                   : '<label class="fld">' + esc(f[1]) + '<textarea id="mn' + i + '_' + f[0] + '" rows="2" maxlength="400" style="width:100%;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-top:6px"></textarea></label>').join('')
                 + '<p class="small" style="margin-top:8px">' + esc(m.rules) + '</p><div class="btns"><button class="b pri" data-mn="' + i + '">Send my note</button></div><p class="msg" id="mnMsg' + i + '"></p></div>'
               : '<div class="answered show">The office put this in the schedule for you. Your note opens on the day.</div>') + '</div>').join(''))
-        + '<h3 class="grp">Gap Mentor visits you could do <span>' + (d.mentor.offers || []).length + '</span></h3>'
+        + '<h3 class="grp">Field Support Visits you could do <span>' + (d.mentor.offers || []).length + '</span></h3>'
         + ((d.mentor.offers || []).map((o, i) => '<div class="card shift"' + (o.familiar ? ' style="border-color:var(--honey)"' : '') + '><div class="top"><div>' + (o.familiar ? '<span class="team" style="background:#FDF1DC;color:#8A5300">A client you know</span>' : '')
             + '<h4>' + esc(o.kind_label) + ' · ' + esc(o.client_first) + '</h4><div class="when">' + mWhen(o) + '</div>'
             + (o.skill ? '<div class="small">' + esc(o.skill) + (o.caregiver_first ? ', with ' + esc(o.caregiver_first) : '') + '</div>' : '') + (o.note ? '<div class="small">' + esc(o.note) + '</div>' : '') + '</div></div>'
             + (o.answer ? '<div class="answered show">' + (o.answer === 'yes' ? 'You said you can do it. The office will confirm with you before it is set.' : 'You said not this time.') + '</div>' : '')
             + '<div class="btns"><button class="b pri" data-ma="' + i + '" data-ans="yes">I can do it</button><button class="b" data-ma="' + i + '" data-ans="no">Not this time</button></div><p class="msg" id="maMsg' + i + '"></p></div>').join('')
-          || '<div class="card empty">No Gap Mentor visits right now. We\'ll show them here when a client or caregiver could use you.</div>')
+          || '<div class="card empty">No Field Support Visits right now. We\'ll show them here when a client or caregiver could use you.</div>')
         + '<p class="small" style="margin-top:6px">' + esc(d.mentor.rules) + '</p></section>' : '')
     + '<section id="clients"><h2 class="serif">My clients</h2><p class="sub">Clients you know. When they need someone, you\'re a familiar face.</p>' + clients + '</section>'
     + '<section id="thanks"><h2 class="serif">Thank-yous</h2>' + thanks + '</section>'

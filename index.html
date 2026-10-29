@@ -7653,7 +7653,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=11"></script><script src="gap-mentor.js?v=2"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=12"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15950,11 +15950,11 @@ const PRN_STEP5_SWITCHES = [
     on:'In May and November (the first 30 days), two questions show on their page and each member gets one invite text (weekdays 10am to 5pm, 20 a day). Answers show on This week.',
     off:'Off: no questions on their page and no invite. You can still see them in What they see while a round is open.' },
   /* PRN STEP 8a: Gap Mentors (gap-mentor.js on a client's Care tab; prn-page offers and notes) */
-  { key:'prn_mentor_live', name:'Gap Mentors: "Ask a Gap Mentor" and their visits on the PRN Team page', needsPage:true,
-    on:'Coordinators can ask from a client\'s Care tab, Care plan reviews. Gap Mentors see the visit in Offered to You, say if they can do it, and fill in a short note after. Nothing is texted.',
-    off:'Off: owners see "Ask a Gap Mentor" marked practice, and an ask is refused. Name Gap Mentors any time in PRN Teams, Our teams.' },
+  { key:'prn_mentor_live', name:'Field Support Visits: ask from a client\'s Care tab, and the visits on the PRN Team page', needsPage:true,
+    on:'Coordinators can ask from a client\'s Care tab, Care plan reviews. PRN CNAs approved for Field Support Visits see the visit on their page, say if they can do it, and fill in a short note after. Nothing is texted.',
+    off:'Off: owners see "Ask for a Field Support Visit" marked practice, and an ask is refused. Approve PRN CNAs for Field Support Visits any time in PRN Teams, Our teams.' },
   /* PRN STEP 8b: the Hub suggests a Gap Mentor visit from shift notes, Care Match and self-reported skills (gap-mentor.js) */
-  { key:'prn_mentor_suggest_live', name:'Gap Mentor suggestions (needs Gap Mentors on too)', needsPage:true,
+  { key:'prn_mentor_suggest_live', name:'Field Support Visit suggestions (needs Field Support Visits on too)', needsPage:true,
     on:'The Hub suggests a care update or a refresher on the client\'s Care tab, the caregiver\'s record and This week, with the reason. Nobody is asked until a coordinator taps Ask.',
     off:'Off: only owners see the suggestions, marked practice.' },
   /* 2026-10-29: which on-call shift each confirmed date is, for payroll ($25 a shift, $50 a whole day, in her plan) */

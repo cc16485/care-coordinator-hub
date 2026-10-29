@@ -1,5 +1,5 @@
 /* =============================================================================
-   PRN STEP 8a · GAP MENTORS in the Hub (Samantha 2026-10-29: "Yes, build step 8 (Gap Mentors) with its switches off"; plan
+   PRN STEP 8a · FIELD SUPPORT VISITS in the Hub (named "Gap Mentors" until her call 2026-10-29; "mentor" in code means the same) (Samantha 2026-10-29: "Yes, build step 8 (Gap Mentors) with its switches off"; plan
    section 4b; server prn-week mentor_* and prn-page mentor_answer / mentor_note; rules in _shared/prn-mentor.ts)
    =============================================================================
    GM.mountClient(hostId, ax, name)  the client's Care tab, Care plan reviews: "Ask a Gap Mentor" (a refresher with a caregiver,
@@ -15,7 +15,7 @@
      refresher    a fall or safety flag on a caregiver's own shift note for that client; or a high-risk skill (Hoyer lift,
                   transfers) we only know because they told us (shown on the caregiver's record).
      Not from the Hub's records (no record to read): new equipment, 12 months without a lift task, a caregiver asking. Those stay
-     with "Ask a Gap Mentor" by hand. "Not needed now" sets a suggestion aside for 30 days (care_plan_reviews kind mentor_set_aside).
+     with "Ask for a Field Support Visit" by hand. "Not needed now" sets a suggestion aside for 30 days (care_plan_reviews kind mentor_set_aside).
    GM.suggestFor(ax) / GM.suggestAll() / GM.skillSuggest(skills); the This week card GM.weekHtml(). Switch
    ops_settings.prn_mentor_suggest_live (off: owners see them marked practice).
    ============================================================================= */
@@ -81,7 +81,7 @@
       + '<div style="font-weight:700;color:#8A4E0C;font-size:13.5px;">Suggested by the Hub' + (suggestLive() ? '' : ' (practice)') + '</div>'
       + list.map(function (g, i) { return '<div style="margin-top:6px;font-size:13px;"><b>' + e(g.kind === 'care_update' ? 'A care update visit' : 'A refresher with ' + (g.caregiver_name || 'their caregiver')) + '</b>'
         + g.why.map(function (w) { return '<div class="field-note">' + e(w) + '</div>'; }).join('')
-        + '<div style="margin-top:4px;"><button class="fb" onclick="GM.fromSuggest(' + i + ')">Ask a Gap Mentor</button> <button class="fb" onclick="GM.setAside(\'' + e(g.key) + '\',this)" title="Sets it aside for 30 days">Not needed now</button></div></div>'; }).join('')
+        + '<div style="margin-top:4px;"><button class="fb" onclick="GM.fromSuggest(' + i + ')">Ask for a Field Support Visit</button> <button class="fb" onclick="GM.setAside(\'' + e(g.key) + '\',this)" title="Sets it aside for 30 days">Not needed now</button></div></div>'; }).join('')
       + '<div class="field-note" style="margin-top:6px;">The Hub only suggests. Nobody is asked or contacted until you tap Ask.</div></div>';
   }
 
@@ -117,19 +117,19 @@
       + row('The caregiver it is with (refresher)', sel('gmCg', cgs, 'Pick the caregiver'), 'gmCgRow')
       + '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px;"><input type="checkbox" id="gmFam" style="width:auto;margin-top:2px;"><span><b>The family said OK</b> <span class="field-note">Needed for a refresher or a care update: it is an extra person in their home.</span></span></label>'
       + '<label style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;"><input type="checkbox" id="gmGuide" style="width:auto;"> GUIDE client <input type="checkbox" id="gmVa" style="width:auto;margin-left:12px;"> VA client</label>'
-      + row('Note for the Gap Mentor (nothing private: no door codes or diagnoses)', '<textarea id="gmNote" rows="2" style="width:100%;font-size:13px;" maxlength="500"></textarea>')
-      + '<div class="field-note" style="margin-top:6px;">It shows on the page of each Gap Mentor it could go to (has the skill, not on a break, not on this client\'s Do Not Return list, free in AxisCare then). Clients they know first. Nothing is texted. Company-paid: put it in AxisCare as a non-billable visit once you pick someone.</div>'
-      + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;"><button class="addlead" onclick="GM.ask(this)">Ask the Gap Mentors</button><button class="ghost" onclick="GM.toggle()">Cancel</button></div>'
+      + row('Note for the PRN CNA (nothing private: no door codes or diagnoses)', '<textarea id="gmNote" rows="2" style="width:100%;font-size:13px;" maxlength="500"></textarea>')
+      + '<div class="field-note" style="margin-top:6px;">It shows on the page of each PRN CNA approved for Field Support Visits it could go to (has the skill, not on a break, not on this client\'s Do Not Return list, free in AxisCare then). Clients they know first. Nothing is texted. Company-paid: put it in AxisCare as a non-billable visit once you pick someone.</div>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;"><button class="addlead" onclick="GM.ask(this)">Send the ask</button><button class="ghost" onclick="GM.toggle()">Cancel</button></div>'
       + '<div class="field-note" id="gmSt" style="margin-top:6px;"></div></div>';
   }
   function visitHtml(v) {
-    var st = { open: 'Waiting for a Gap Mentor', assigned: 'In AxisCare for ' + (v.assigned_name || 'a Gap Mentor'), done: 'Done · note in', cancelled: 'Cancelled' }[v.status] || v.status;
+    var st = { open: 'Waiting for a PRN CNA to say yes', assigned: 'In AxisCare for ' + (v.assigned_name || 'a PRN CNA'), done: 'Done · note in', cancelled: 'Cancelled' }[v.status] || v.status;
     var yes = (v.answers || []).filter(function (a) { return a.answer === 'yes'; }), no = (v.answers || []).filter(function (a) { return a.answer === 'no'; });
     return '<div style="padding:8px 0;border-top:1px solid var(--border);font-size:13px;">'
       + '<b>' + e(KINDS[v.kind] || v.kind) + '</b> · ' + e(fmt(v.visit_date)) + ', ' + e(span(v.visit_time)) + (v.skill ? ' · ' + e(SKILLS[v.skill] || v.skill) : '') + (v.caregiver_name ? ' · with ' + e(v.caregiver_name) : '')
       + ' <span class="field-note">· ' + e(st) + ' · asked by ' + e(v.asked_by) + '</span>'
       + (v.status === 'open' ? '<div style="margin-top:4px;">' + (yes.length ? yes.map(function (a) { return '<button class="fb" onclick="GM.assign(' + Number(v.id) + ',\'' + e(a.applicant_id) + '\',\'' + e(a.name) + '\',this)">' + e(a.name) + ' can do it: put in AxisCare</button>'; }).join(' ')
-          : '<span class="field-note">No Gap Mentor has said yes yet.</span>') + (no.length ? ' <span class="field-note">' + no.length + ' said not this time.</span>' : '')
+          : '<span class="field-note">Nobody has said yes yet.</span>') + (no.length ? ' <span class="field-note">' + no.length + ' said not this time.</span>' : '')
           + ' <button class="fb" onclick="GM.cancel(' + Number(v.id) + ',this)">Cancel the ask</button></div>' : '')
       + '</div>';
   }
@@ -138,14 +138,14 @@
     if (!live() && !isOwner()) { host.innerHTML = ''; return; }
     var L = CUR.list, ns = notes(function (r) { return String(r.axiscare_client_id || '') === CUR.ax; });
     host.innerHTML = '<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-      + '<div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">🤝 Gap Mentors</b>'
-      + (live() ? '' : '<span class="field-note">Practice: only owners see this until Gap Mentors are switched on (Settings, PRN Teams).</span>')
-      + '<span style="flex:1;"></span><button class="secondary" onclick="GM.toggle()">Ask a Gap Mentor</button></div>'
+      + '<div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">🤝 Field Support Visits</b>'
+      + (live() ? '' : '<span class="field-note">Practice: only owners see this until Field Support Visits are switched on (Settings, PRN Teams).</span>')
+      + '<span style="flex:1;"></span><button class="secondary" onclick="GM.toggle()">Ask for a Field Support Visit</button></div>'
       + '<div class="field-note" style="margin-top:2px;">Our PRN CNA Team, for a refresher with a caregiver, a care update when ' + e(String(CUR.name || '').split(' ')[0] || 'a client') + ' is changing, or a concern-only supervisory visit. They observe and practice; the Care Coordinator decides any care plan change.</div>'
       + (!CUR.open && (suggestLive() || isOwner()) ? suggestHtml(CUR.sugg = suggestFor(CUR.ax)) : '')
       + (CUR.open ? formHtml() : '')
       + (L === null ? '<div class="field-note" style="margin-top:6px;">Loading…</div>' : L.error ? '<div class="field-note" style="margin-top:6px;color:var(--red);">' + e(L.error) + '</div>'
-        : (L.visits || []).map(visitHtml).join('') || '<div class="field-note" style="margin-top:6px;">No Gap Mentor visits yet.</div>')
+        : (L.visits || []).map(visitHtml).join('') || '<div class="field-note" style="margin-top:6px;">No Field Support Visits yet.</div>')
       + (ns.length ? '<div style="margin-top:10px;font-weight:700;color:var(--navy);font-size:13.5px;">Their notes</div>' + ns.map(noteHtml).join('') : '')
       + '</div>';
   }
@@ -173,8 +173,8 @@
     weekHtml: function () {
       if (!suggestLive() && !isOwner()) return '';
       var all = suggestAll(); if (!all.length) return '';
-      return '<div class="card pw-card"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">Gap Mentor suggestions</h3>'
-        + '<span class="field-note">' + (suggestLive() ? 'From shift notes and Care Match. Open the client to ask a Gap Mentor.' : 'Practice: only owners see this until Gap Mentor suggestions are switched on (Settings, PRN Teams).') + '</span></div>'
+      return '<div class="card pw-card"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">Field Support Visit suggestions</h3>'
+        + '<span class="field-note">' + (suggestLive() ? 'From shift notes and Care Match. Open the client to ask for a Field Support Visit.' : 'Practice: only owners see this until Field Support Visit suggestions are switched on (Settings, PRN Teams).') + '</span></div>'
         + all.slice(0, 8).map(function (g) { return '<div class="pw-line" style="display:block;"><b>' + e(g.client_name || 'A client') + '</b>: ' + e(g.kind === 'care_update' ? 'a care update visit' : 'a refresher with ' + (g.caregiver_name || 'their caregiver'))
           + '<div class="field-note">' + e(g.why.join(' · ')) + '</div>'
           + '<button class="fb" onclick="try{openClientProfile(\'' + e(g.client_ax) + '\')}catch(x){}">Open their Care tab</button></div>'; }).join('')
@@ -204,10 +204,10 @@
       if (!el) return;
       var rs = notes(function (r) { return r.kind === 'mentor_refresher' && String(r.caregiver_ax || '') === String(ax); });
       var sk = []; try { var c = (CGD.census && CGD.census.caregivers || []).find(function (x) { return String(x.id) === String(ax); }); if (c && typeof cgdSkillsMerged === 'function') sk = skillSuggest(cgdSkillsMerged(ax, cgdLegacyFor(ax, (c.first + ' ' + c.last).trim())).skills); } catch (x) { sk = []; }
-      var skHtml = sk.length && (suggestLive() || isOwner()) ? '<div class="card" style="padding:12px 16px;margin-bottom:10px;background:#FFF7E8;border:1px solid #F0D9A8;"><b style="color:#8A4E0C;">Suggested: a refresher with a Gap Mentor' + (suggestLive() ? '' : ' (practice)') + '</b>'
-        + '<div class="field-note">' + e(sk.map(function (x) { return x.label; }).join(' and ')) + ': we only know because they told us. A Gap Mentor can see it at a client\'s home (Ask a Gap Mentor on that client\'s Care tab).</div></div>' : '';
+      var skHtml = sk.length && (suggestLive() || isOwner()) ? '<div class="card" style="padding:12px 16px;margin-bottom:10px;background:#FFF7E8;border:1px solid #F0D9A8;"><b style="color:#8A4E0C;">Suggested: a refresher at a Field Support Visit' + (suggestLive() ? '' : ' (practice)') + '</b>'
+        + '<div class="field-note">' + e(sk.map(function (x) { return x.label; }).join(' and ')) + ': we only know because they told us. A PRN CNA can see it at a client\'s home (Ask for a Field Support Visit on that client\'s Care tab).</div></div>' : '';
       el.innerHTML = skHtml + (rs.length ? '<div class="card" style="padding:14px 16px;margin-bottom:10px;"><div style="font-weight:800;color:var(--navy);font-size:14px;margin-bottom:4px;">Refreshers in the home</div>'
-        + '<div class="field-note">Hands-on practice with a Gap Mentor at a client\'s home. Kept apart from online courses.</div>' + rs.map(noteHtml).join('') + '</div>' : '');
+        + '<div class="field-note">Hands-on practice at a Field Support Visit in a client\'s home. Kept apart from online courses.</div>' + rs.map(noteHtml).join('') + '</div>' : '');
     },
     _state: function () { return CUR; }
   };
