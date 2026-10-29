@@ -228,13 +228,13 @@
   var GAP_OPEN = {};
   function gapHtml(aid, gm) {
     var sk = (W && W.mentor_skills) || {}, id = e(aid);
-    var line = gm ? '<span class="pw-chip" style="background:#E0F2F1;color:#0F5F5B;">Gap Mentor: ' + e((gm.skills || []).map(function (k) { return sk[k] || k; }).join(', ')) + '</span>'
+    var line = gm ? '<span class="pw-chip" style="background:#E0F2F1;color:#0F5F5B;">Field Support Visits: ' + e((gm.skills || []).map(function (k) { return sk[k] || k; }).join(', ')) + '</span>'
       + ' <span class="field-note">verified: ' + e(gm.evidence) + (gm.by ? ' (' + e(gm.by) + ')' : '') + '</span>' : '';
-    var btn = '<button class="fb" onclick="PW.gapOpen(\'' + id + '\')">' + (gm ? 'Change Gap Mentor' : 'Make a Gap Mentor') + '</button>';
+    var btn = '<button class="fb" onclick="PW.gapOpen(\'' + id + '\')">' + (gm ? 'Change Field Support Visits' : 'Approve for Field Support Visits') + '</button>';
     var form = !GAP_OPEN[aid] ? '' : '<div class="pw-draft" style="margin-top:6px;"><div class="field-note">Skills you verified with references, a past employer or the CNA registry (online training alone is not enough):</div>'
       + Object.keys(sk).map(function (k) { return '<label style="display:inline-flex;gap:5px;align-items:center;margin:4px 10px 0 0;font-size:13px;"><input type="checkbox" class="pwGapSk_' + id + '" value="' + e(k) + '" style="width:auto;"' + (gm && (gm.skills || []).indexOf(k) >= 0 ? ' checked' : '') + '>' + e(sk[k]) + '</label>'; }).join('')
       + '<input type="text" id="pwGapEv_' + id + '" maxlength="400" placeholder="How you verified it, for example: references from Mercy, registry-checked CNA" value="' + e(gm ? gm.evidence : '') + '" style="width:100%;margin-top:6px;font-size:13px;">'
-      + '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;"><button class="primary" onclick="PW.gapSave(\'' + id + '\',this)">Save</button>' + (gm ? '<button class="fb" onclick="PW.gapSave(\'' + id + '\',this,true)">No longer a Gap Mentor</button>' : '')
+      + '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;"><button class="primary" onclick="PW.gapSave(\'' + id + '\',this)">Save</button>' + (gm ? '<button class="fb" onclick="PW.gapSave(\'' + id + '\',this,true)">No longer doing Field Support Visits</button>' : '')
       + '<span class="field-note" id="pwGapSt_' + id + '"></span></div></div>';
     return '<div style="margin-top:5px;">' + line + ' ' + btn + form + '</div>';
   }
