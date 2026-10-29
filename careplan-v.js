@@ -119,7 +119,7 @@
     const n = Math.max(0, ...versionsOf(p).map((v) => v.n || 0)) + 1;
     const v = base ? JSON.parse(JSON.stringify(base)) : { fields: {}, tasks: [], asks: [] };
     Object.assign(v, { n, status: 'draft', created_at: now(), created_by: me(), from, base: base ? base.n : null, history: [{ at: now(), by: me(), what: 'Version ' + n + ' started (' + from + ')' }] });
-    ['approved_by', 'approved_at', 'approved_kind', 'exception_reason', 'push', 'finish_by', 'finish_items', 'finish_done_at', 'owner_reviews', 'scope_ok', 'risks_at_approval', 'urgent_mark'].forEach((k) => delete v[k]);
+    ['approved_by', 'approved_email', 'approved_at', 'approved_kind', 'exception_reason', 'push', 'urgent', 'superseded_by', 'error', 'drafting_since', 'owner_reviews', 'scope_ok', 'risks_at_approval', 'urgent_mark'].forEach((k) => delete v[k]);
     p.versions.push(v); return v;
   }
 
@@ -360,7 +360,7 @@
     s.textContent = '#cpvRoot{position:fixed;inset:0;z-index:4100;background:#F6F8F7;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#1B2A2E;font-size:15px}'
       + '#cpvRoot *{box-sizing:border-box}.cpv-in{max-width:1180px;margin:0 auto;padding:20px max(16px,env(safe-area-inset-left,0px)) 60px}'
       + '.cpv-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.cpv-top h1{margin:0;font-size:24px;flex:1;min-width:220px}'
-      + '.cpv-b{min-height:44px;padding:0 18px;border-radius:12px;border:none;background:#1F6F78;color:#fff;font:inherit;font-weight:700;cursor:pointer}.cpv-b:disabled{background:#AEBBBD;cursor:not-allowed}'
+      + '.cpv-b{min-height:44px;padding:0 18px;border-radius:12px;border:none;background:#1F6F78;color:#fff;font:inherit;font-weight:700;cursor:pointer}.cpv-b.cpv-red{background:#A3352A}.cpv-b:disabled,.cpv-b.cpv-red:disabled{background:#AEBBBD;cursor:not-allowed}'
       + '.cpv-b2{min-height:44px;padding:0 14px;border-radius:12px;border:1.5px solid #CFCAC0;background:#fff;color:#1B2A2E;font:inherit;font-weight:600;cursor:pointer}'
       + '.cpv-tag{display:inline-block;font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;background:#E3F0EF;color:#14565D;margin-right:6px}.cpv-tag.red{background:#FBE7E3;color:#A3352A}.cpv-tag.amb{background:#FFF1C9;color:#7A5200}.cpv-tag.grn{background:#E4F1E5;color:#2E6B3A}'
       + '.cpv-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px;align-items:start}@media (max-width:900px){.cpv-grid{grid-template-columns:minmax(0,1fr)}}'
@@ -413,7 +413,7 @@
       if (g.blocked) h += '<div class="cpv-bad">This plan can\'t be approved while an unsafe issue is open. Change the plan so it\'s safe.</div>';
       h += '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">'
         + '<button type="button" class="cpv-b" data-cpva="approve" ' + (g.normal && canApprove() ? '' : 'disabled') + '>Approve version ' + v.n + '</button>'
-        + (g.urgent ? '<button type="button" class="cpv-b" style="background:#A3352A" data-cpva="approveurgent" ' + (g.urgentOk && canApprove() ? '' : 'disabled') + '>Approve for an urgent start</button>'
+        + (g.urgent ? '<button type="button" class="cpv-b cpv-red" data-cpva="approveurgent" ' + (g.urgentOk && canApprove() ? '' : 'disabled') + '>Approve for an urgent start</button>'
           + '<div class="cpv-src">Every safety check and every task\'s instructions are still required. Only the parts marked "can follow" may be finished after, within 3 days or before the second shift.</div>' : '')
         + (g.exception ? '<input class="cpv-f" id="cpvExReason" placeholder="Owner exception: why approve with the rest unfinished"><button type="button" class="cpv-b2" data-cpva="approveexception">Approve with an owner exception</button>' : '')
         + (!g.urgent ? '<details><summary class="cpv-src" style="cursor:pointer">Mark this start urgent</summary><input class="cpv-f" id="cpvUrgReason" placeholder="Why it is urgent" style="margin-top:6px"><button type="button" class="cpv-b2" style="margin-top:6px" data-cpva="markurgent">Mark urgent</button></details>' : '')

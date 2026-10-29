@@ -197,6 +197,7 @@ async()=>{
   /* ---------- unsafe issues block every approval ---------- */
   u.visit.acts.transfers={ level:'full' }; u.visit.safety.two_person='yes';
   c('[data-cpva="newver"]').click(); await sleep(60);
+  ok('a new version starts clean: no urgent banner, approval or owner reviews carried over from version 1', !CPV._plan(u).versions[1].urgent && !CPV._plan(u).versions[1].approved_by && !/finish by/.test(txt().split('Before approval')[0]) && getComputedStyle(urg()).backgroundColor==='rgb(174, 187, 189)');
   ok('needs more than one person to transfer, no lift: unsafe, no approval of any kind', /a lift must be in place first/.test(txt()) && ap().disabled && urg().disabled && /can't be approved while an unsafe issue is open/.test(txt()));
   CPV.close(); u.visit.acts.transfers={ level:'none' }; u.visit.safety.two_person='';
   window.__hoyer=true; await HV.open({ leadId:'lead_mcd' }); await sleep(100);
