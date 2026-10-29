@@ -203,6 +203,13 @@
         var pg = ((W && W.members) || []).find(function (m) { return m.applicant_id === t.applicant_id; }), pi = (pg && pg.page) || {};
         var pageBits = [pi.looking && pi.looking.on ? '<b style="color:#92400E;">Looking for hours</b>' + (pi.looking.note ? ' (' + e(pi.looking.note) + ')' : '') : '',
           pi.break_until ? 'On a break until ' + fmt(pi.break_until) : '', pi.last_looked ? 'Last looked at their page ' + fmt(pi.last_looked) : ''].filter(Boolean).join(' · ');
+        /* 2026-10-29 (plan section 8, switch prn_team_signs_live; owners see it as practice): last heard from us, last PRN shift,
+           more hours, and "worth a call" only when two signs line up. Never shown as a mark against anyone. */
+        var sg = pi.signs, showSigns = sg && W && (W.signs_live || isOwner());
+        var signs = !showSigns ? '' : '<div class="field-note" style="margin-top:4px;">' + ['Last heard from us: ' + (sg.last_contact ? fmt(sg.last_contact) : 'no personal contact yet'),
+            'Last PRN shift: ' + (sg.last_shift ? fmt(sg.last_shift) : 'none yet'), sg.wants_more ? 'Would like about ' + e(sg.wants_more) + ' hours a week' : ''].filter(Boolean).join(' · ')
+          + (W.signs_live ? '' : ' <span style="color:#8A4E0C;">(practice)</span>') + '</div>'
+          + (sg.drifting ? '<div style="margin-top:4px;font-size:13px;color:#8A4E0C;"><b>Worth a call:</b> ' + e(sg.drifting_why.join(', ')) + '.</div>' : '');
         var sn = p.short_notice_ok === true ? 'Short notice OK' : p.short_notice_ok === false ? 'Keeps their notice' : 'Short notice: not asked yet';
         var wc = w ? 'Welcome call ' + fmt(w.at) + (w.by ? ' (' + e(w.by) + ')' : '') + ': ' + e(w.towns_times) + ' · more hours ' + e(yn[w.more_hours] || w.more_hours)
             + (w.enjoys ? ' · enjoys ' + e(w.enjoys) : '') + (w.oncall ? ' · on call ' + e(ONC[w.oncall] || w.oncall) : '') + (w.office_interest ? ' · interested in office work someday' : '')
@@ -213,7 +220,7 @@
           + '<div class="field-note" style="margin-top:2px;">' + since + ' · ' + sn + '</div>'
           + '<div style="font-size:13px;margin-top:4px;">' + wc + '</div>'
           + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '')
-          + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '')
+          + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '') + signs
           + (team === 'cna' ? gapHtml(t.applicant_id, pi.gap_mentor) : '') + '</div>'
           + '<div class="pw-btns">' + (ax ? '<button class="fb" onclick="PW.page(\'' + e(ax) + '\')">Open their page</button>' : '')
           + '<button class="fb" onclick="PW.see(\'' + e(t.applicant_id) + '\')">What they see</button>'

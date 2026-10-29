@@ -7653,7 +7653,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=12"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=13"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -7703,7 +7703,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=3"></script><script src="simple-card.js?v=3"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=4"></script><script src="home-visit.js?v=9"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -15961,6 +15961,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_oncall_shift_live', name:'On call: pick the shift when confirming (daytime, overnight or whole day)',
     on:'Confirming someone for on call needs the shift. The On call tab counts each person\'s daytime, overnight and whole days for payroll, and their page shows their shift.',
     off:'Off: confirming works as before, dates only. Owners see the shift choice and the payroll counts marked practice.' },
+  /* 2026-10-29 (plan sections 5 and 8): per-person signs in Our teams, and the "Looking for hours" tag on ask lists */
+  { key:'prn_team_signs_live', name:'Our teams signs and the "Looking for hours" tag on ask lists',
+    on:'Our teams shows when we last reached out personally, their last PRN shift, more hours, and "worth a call" only when two signs line up. Ask lists tag PRN members looking for hours. Nothing is sent.',
+    off:'Off: only owners see them, marked practice.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
 const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";

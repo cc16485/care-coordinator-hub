@@ -200,7 +200,8 @@ async()=>{
   (0,eval)(`PRN_T = { at: Date.now(), history: [], shifts: [], tracks: [ { applicant_id:'g', track:'prn_team', team:'cna', since:'2026-10-19', axiscare_caregiver_id:'11', linked_at:'2026-10-27T15:00:00Z' } ],
     apps: { g:{ first_name:'Grace', last_name:'Hill', prn:{} } } }; prnLoad = async()=>PRN_T; prnDashLoad = async()=>{};`);
   const WEEK={ ok:true, today:'2026-10-29', live:true, page_live:false, owner:'Krystal', more:0, familiar_note:null,
-    members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[]}, page:{ last_looked:'2026-10-28T15:00:00Z', looking:{on:true,note:'any morning next week'}, break_until:'2026-11-15' }}],
+    members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[]}, page:{ last_looked:'2026-10-28T15:00:00Z', looking:{on:true,note:'any morning next week'}, break_until:'2026-11-15',
+      signs:{ last_contact:'2026-10-11', last_shift:'2026-09-01', wants_more:20, looking:false, drifting:true, drifting_why:['no answer to the 60-day check-in','no PRN shift in 45+ days'] } }}],
     items:[{id:'looking:g:2026-10-28',kind:'looking',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'looking:2026-10-28',title:'Grace is looking for hours',detail:'"any morning next week". From their PRN Team page.'},
            {id:'course:g:dementia-care',kind:'course',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'course:dementia-care',title:"Grace would like to take Alzheimer's & Dementia Care",detail:'Assign it on the Training Platform.'},
            {id:'idea:g:9',kind:'idea',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'idea:9',title:'Grace shared an idea',detail:'"A group text"'},
@@ -299,6 +300,8 @@ async()=>{
   await PW.mark('looking:g:2026-10-28','called'); ok('...Called on looking for hours', CALLS.some(c=>c.action==='mark' && c.kind==='called' && c.ref==='looking:2026-10-28'));
   PW.tab('teams'); await sleep(80);
   const tt=document.getElementById('prnTeams').innerText;
+  ok('Our teams (signs, owners as practice): last heard from us, last PRN shift, more hours, and "worth a call" with the two reasons', /Last heard from us: Oct 11 · Last PRN shift: Sep 1 · Would like about 20 hours a week \(practice\)/.test(document.getElementById('prnTeams').innerText)
+    && /Worth a call: no answer to the 60-day check-in, no PRN shift in 45\+ days\./.test(document.getElementById('prnTeams').innerText), document.getElementById('prnTeams').innerText);
   ok('Our teams: looking for hours (her note), on a break, last looked', /Looking for hours \(any morning next week\)/.test(tt) && /On a break until Nov 15/.test(tt) && /Last looked at their page Oct 28/.test(tt), tt);
   const copyBtn=[...document.querySelectorAll('#prnTeams button')].find(b=>/Copy page link/.test(b.innerText));
   try{ Object.defineProperty(navigator,'clipboard',{ value:{ writeText: async(t)=>{ window.__clip=t; } }, configurable:true }); }catch(e){}
@@ -312,7 +315,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===10, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===11, sw);
+  ok('Settings: Our teams signs and the "Looking for hours" tag, off', /Our teams signs and the "Looking for hours" tag on ask lists: off/.test(sw), sw);
   ok('Settings: the on-call shift choice, off', /On call: pick the shift when confirming \(daytime, overnight or whole day\): off/.test(sw), sw);
   ok('Settings (step 8b): Field Support Visit suggestions, off', /Field Support Visit suggestions \(needs Field Support Visits on too\): off/.test(sw), sw);
   ok('Settings (step 8a): Field Support Visits, off; never "Gap Mentor"', /Field Support Visits: ask from a client's Care tab, and the visits on the PRN Team page: off/.test(sw) && !/Gap Mentor/.test(sw), sw);
