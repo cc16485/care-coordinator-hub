@@ -45,8 +45,8 @@ async()=>{
   const a=HV._st.a;
   type('visit.story.morning','Up about 7, coffee'); type('visit.allergies','');
   const rail=qa('#hvRail [data-hvs]').map(b=>b.innerText.replace(/\s+/g,' ').trim());
-  ok('8 steps; After the visit is the 8th, set apart at the bottom above Close', rail.length===8 && rail[7]==='8 After the visit' && q('#hvRail [data-hvs="7"]').previousElementSibling.classList.contains('hv-gap'), rail);
-  q('[data-hvs="7"]').click(); await sleep(300);
+  ok('9 steps; After the visit is the 9th, set apart at the bottom above Close', rail.length===9 && rail[8]==='9 After the visit' && q('#hvRail [data-hvs="8"]').previousElementSibling.classList.contains('hv-gap'), rail);
+  q('[data-hvs="8"]').click(); await sleep(300);
   const top=q('#hvAfterRec').innerText;
   ok('the recording: 2 parts, about 15 minutes, all written out, and a Read the recording button', /2 parts/.test(top) && /about 15 minutes/.test(top) && /All written out/.test(top) && q('[data-hva="readrec"]') && q('[data-hva="readrec"]').innerText==='Read the recording', top);
   ok('opening the screen calls nothing (reading only happens on a tap)', L.invokes.length===0);
@@ -89,7 +89,7 @@ async()=>{
   seg.parentElement.querySelector('[data-v="full"]').click(); await sleep(20);
   ok('...tapping another pill is a person deciding: the yellow goes', a.visit.acts.bathing.level==='full' && !a.visit.heard['visit.acts.bathing.level'] && !seg.parentElement.classList.contains('hv-heardseg'));
   /* someone types into a box before Keep */
-  q('[data-hvs="1"]').click(); type('visit.story.evening','Typed by Krystal'); q('[data-hvs="7"]').click(); await sleep(300);
+  q('[data-hvs="1"]').click(); type('visit.story.evening','Typed by Krystal'); q('[data-hvs="8"]').click(); await sleep(300);
   const evRow=qa('.hv-fill').find(r=>/A day at home: evening/.test(r.innerText));
   ok('a box typed in after the reading: no Keep, and what was typed stays', a.visit.story.evening==='Typed by Krystal' && /stays as typed/.test(evRow.innerText) && !evRow.querySelector('[data-hva="fillkeep"]'));
   q('[data-hva="fillskip"][data-p="visit.goals.2.text"]').click(); await sleep(30);
@@ -115,14 +115,14 @@ async()=>{
   const before=JSON.stringify(a.visit);
   q('[data-hva="readrec"]').click(); await sleep(300);
   ok('an error says so in words, and nothing changed', /Could not read the recording: The reader did not answer: overloaded/.test(q('#hvReadMsg').innerText) && JSON.stringify(a.visit)===before && q('[data-hva="readrec"]').innerText==='Read it again');
-  const scr=q('.hv-sec[data-sec="7"]').innerText;
+  const scr=q('.hv-sec[data-sec="8"]').innerText;
   ok('no "AI" words and no em dashes on the screen', !/\bAI\b/.test(scr) && !scr.includes('—'), scr.match(/.{30}\bAI\b.{30}/));
   ok('only the reader was called, and only on taps; nothing texted or emailed', L.invokes.every(n=>n==='visit-review') && !L.fetches.some(u=>/functions\/v1|sms|mail/.test(u)), [L.invokes, L.fetches.slice(-3)]);
   /* no recording */
-  window.__recs=[]; q('[data-hvs="6"]').click(); q('[data-hvs="7"]').click(); await sleep(250);
+  window.__recs=[]; q('[data-hvs="7"]').click(); q('[data-hvs="8"]').click(); await sleep(250);
   ok('a visit with no recording says so, with no Read button', /no recording on the Hub/.test(q('#hvAfterRec').innerText) && !q('[data-hva="readrec"]'));
   window.__recs=[{ id:'r1', kind:'assessment', status:'transcribing', consent_given:true, part:1, seconds:600, offset_seconds:0 }];
-  q('[data-hvs="6"]').click(); q('[data-hvs="7"]').click(); await sleep(250);
+  q('[data-hvs="7"]').click(); q('[data-hvs="8"]').click(); await sleep(250);
   ok('still being written out: says so; Read waits until a part is written out', /1 still being written out/.test(q('#hvAfterRec').innerText) && !q('[data-hva="readrec"]'), q('#hvAfterRec').innerText);
   window.__recs=[{ id:'r1', kind:'assessment', status:'done', consent_given:true, part:1, seconds:600, offset_seconds:0, storage_path:'p1' }, { id:'r2', kind:'assessment', status:'done', consent_given:true, part:2, seconds:310, offset_seconds:598, storage_path:'p2' }];
   return R;
@@ -145,7 +145,7 @@ with sync_playwright() as pw:
     pg.goto('http://hv.local/index.html?proof=after'); pg.wait_for_timeout(1500)
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T)
-    pg.evaluate("()=>{ document.querySelector('#hvRoot [data-hvs=\"6\"]').click(); document.querySelector('#hvRoot [data-hvs=\"7\"]').click(); window.__answer=Object.assign({}, window.__answer||{}); }"); pg.wait_for_timeout(300)
+    pg.evaluate("()=>{ document.querySelector('#hvRoot [data-hvs=\"7\"]').click(); document.querySelector('#hvRoot [data-hvs=\"8\"]').click(); window.__answer=Object.assign({}, window.__answer||{}); }"); pg.wait_for_timeout(300)
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (820, 1180, 'iPad upright (820 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(150)
         o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'{name}, After the visit: nothing runs off the side', o])

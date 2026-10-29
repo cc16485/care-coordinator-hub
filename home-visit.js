@@ -23,8 +23,10 @@
   const ask = (m) => (typeof ccConfirm === 'function' ? ccConfirm(m) : Promise.resolve(confirm(m)));
   const toast = (m) => { try { ccToast(m); } catch (e) {} };
 
-  const SECS = ['Start the visit', 'Their story', 'Health', 'Daily activities', 'Preferences', 'Schedule and level', 'Sign-off', 'After the visit'];
-  const AFTER = 7;   /* stage 3 (2026-10-29): back at the office, what the recording heard */
+  /* 2026-10-29 Care plan Stage 2 (her "Stage 2 approved as written"): Home and safety sits between Daily activities and Preferences */
+  const SECS = ['Start the visit', 'Their story', 'Health', 'Daily activities', 'Home and safety', 'Preferences', 'Schedule and level', 'Sign-off', 'After the visit'];
+  const S_ = { start: 0, story: 1, health: 2, daily: 3, home: 4, prefs: 5, plan: 6, sign: 7 };
+  const AFTER = 8;   /* stage 3 (2026-10-29): back at the office, what the recording heard */
   const NCF = [['not_needed', 'Not needed'], ['helps', 'Client helps'], ['full', 'Full help']];
   const NSF = [['none', 'None'], ['standby', 'Stand-by'], ['full', 'Full help']];
   const NF = [['none', 'None'], ['full', 'Full help']];
@@ -194,7 +196,7 @@
       equipment: [], equipment_other: '',
       acts: {}, meds: {},
       prefs: { gender: '', spanish: '', cats: '', dogs: '', smoking: '', skills: [], other: '' },
-      safety: { ec: {} },
+      safety: { ec: {} }, home: {}, shift: [],
       week: {}, start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
       sign: { client: { png: '', name: '', date: '' }, assessor: { png: '', name: me(), date: '' } },
     };
@@ -310,6 +312,11 @@
         + lab('Afternoon', field('visit.story.afternoon', '', { rows: 5 }), 'Appointments? Interests? Outings? Lunch? Nap or rest?')
         + lab('Evening', field('visit.story.evening', '', { rows: 5 }), 'Bedtime? Dinner? Medications? Trouble dressing or bathing?')
         + '</div>')
+      + card('What matters to them', '<div class="hv-g3">'
+        + lab('What good care looks like to you', field('visit.story.good_care', 'In their own words', { rows: 3 }), '"If this goes well, what will be different?"')
+        + lab('What they still do themselves', field('visit.story.self', 'What they want to keep doing', { rows: 3 }), 'Their independence, and their dignity')
+        + lab('What they like to be called', field('visit.story.called', 'Name or nickname'), 'Mrs. Harlow, Betty, Mom?')
+        + '</div>')
       + '<div class="hv-g2">'
       + card('Top 3 goals', '<p class="hv-n" style="margin:0">Tap the star on the one that matters most.</p>' + [0, 1, 2].map((i) => '<div class="hv-goal"><b>' + (i + 1) + '</b>' + field('visit.goals.' + i + '.text', 'Goal ' + (i + 1))
         + '<button type="button" class="hv-star' + (v.top_goal === i ? ' on' : '') + '" data-hva="star" data-i="' + i + '" aria-pressed="' + (v.top_goal === i) + '">' + (v.top_goal === i ? 'Most important' : 'Star') + '</button></div>').join(''))
@@ -375,6 +382,23 @@
       add('visit.safety.hazards_note', 'About the hazards', 'Safety', s.hazards_note);
       add('visit.allergies', 'Allergies', 'Safety', v.allergies + (s.allergies_ok === 'yes' ? ' (confirmed with the family)' : ''));
       add('visit.safety.ec', 'Emergency contact', 'Safety', [((s.ec || {}).name || ''), ((s.ec || {}).rel || ''), ((s.ec || {}).phone || '')].filter(Boolean).join(', ') + (s.ec_ok === 'yes' ? ' (confirmed)' : ''));
+      /* Stage 1 fix (2026-10-29): conditions already filled in were never sent (the catalogue above only lists empty rows) */
+      (v.conditions || []).forEach((c, i) => { if (!c || nil(c.name)) return; const b = 'visit.conditions.' + i + '.';
+        add(b + 'name', 'Health condition', 'Health', c.name); add(b + 'onset', 'About when (' + c.name + ')', 'Health', c.onset); add(b + 'effect', 'How it affects the day (' + c.name + ')', 'Health', c.effect);
+        add(b + 'notice', 'Warning sign for ' + c.name + ': what we would notice', 'Health', c.notice); add(b + 'todo', 'Warning sign for ' + c.name + ': what the caregiver should do', 'Health', c.todo); });
+      /* Stage 2: the coordinator's own step-by-step notes for each activity with help; the draft's instructions come from these first */
+      HOUSE.concat(PERSONAL).forEach((r) => { const hp = (((v.acts || {})[r[0]]) || {}).help || {}, b = 'visit.acts.' + r[0] + '.help.';
+        add(b + 'steps', 'How we help with ' + r[1] + ': the steps, in order (the coordinator\'s notes)', 'Daily activities', hp.steps);
+        add(b + 'self', 'How we help with ' + r[1] + ': what they do themselves', 'Daily activities', hp.self);
+        add(b + 'supplies', 'How we help with ' + r[1] + ': where the supplies are', 'Daily activities', hp.supplies);
+        add(b + 'likes', 'How we help with ' + r[1] + ': how they like it done', 'Daily activities', hp.likes);
+        add(b + 'watch', 'How we help with ' + r[1] + ': what to watch for', 'Daily activities', hp.watch); });
+      const hm = v.home || {};
+      add('visit.home.entry', 'How the caregiver gets in', 'Home and safety', hm.entry ? ((ENTRY.find((x) => x[0] === hm.entry) || [0, hm.entry])[1] + (hm.code_in_axis === 'yes' ? ' (the code or key details are in AxisCare)' : '')) : '');
+      add('visit.home.stairs', 'Stairs inside or to get in', 'Home and safety', hm.stairs);
+      add('visit.home.call_order', 'The order the office calls the family', 'Home and safety', hm.call_order);
+      const sh = (v.shift || []).filter((r) => r && !nil(r.what));
+      add('visit.shift', 'A typical shift, in order (the coordinator agreed it); a line marked TOP 3 is a must-do', 'Schedule', sh.map((r) => (r.t ? r.t + ' ' : '') + r.what + (r.star ? ' (TOP 3)' : '')).join('; '));
       add('visit.memory', 'Memory concerns', 'Health', v.memory); add('visit.supervision', 'Needs supervision for safety', 'Health', v.supervision);
       add('visit.pain', 'Has pain', 'Health', v.pain);
       add('visit.equipment', 'Equipment they use or have', 'Health', (v.equipment || []).join(', '));
@@ -394,7 +418,9 @@
   function condHtml() {
     return '<div class="hv-cond hv-th"><span>CONDITION</span><span>ABOUT WHEN</span><span>HOW IT AFFECTS DAILY LIFE</span><span></span></div>'
       + (ST.a.visit.conditions || []).map((c, i) => '<div class="hv-cond">' + field('visit.conditions.' + i + '.name', 'Condition') + field('visit.conditions.' + i + '.onset', 'Year') + field('visit.conditions.' + i + '.effect', 'How it affects the day')
-        + '<button type="button" class="hv-x" data-hva="delcond" data-i="' + i + '" aria-label="Remove this condition">×</button></div>').join('');
+        + '<button type="button" class="hv-x" data-hva="delcond" data-i="' + i + '" aria-label="Remove this condition">×</button></div>'
+        /* Stage 2: the warning signs, only once the condition has a name */
+        + (c && !nil(c.name) ? '<div class="hv-warn2"><span class="hv-n">Warning signs for ' + E(c.name) + ' (optional)</span>' + field('visit.conditions.' + i + '.notice', 'What we would notice') + field('visit.conditions.' + i + '.todo', 'What to do') + '</div>' : '')).join('');
   }
   function sec3() {
     const v = ST.a.visit;
@@ -414,7 +440,26 @@
   }
   function actRow(r) {
     const p = 'visit.acts.' + r[0];
-    return '<div class="hv-act"><div><div class="hv-an">' + E(r[1]) + '</div><div class="hv-ask">' + E(r[2]) + '</div></div>' + pills(p + '.level', r[3]) + field(p + '.note', 'Notes') + '</div>';
+    return '<div class="hv-act"><div><div class="hv-an">' + E(r[1]) + '</div><div class="hv-ask">' + E(r[2]) + '</div></div>' + pills(p + '.level', r[3]) + field(p + '.note', 'Notes') + '</div>'
+      + '<div id="hvHelp_' + r[0] + '">' + helpHtml(r) + '</div>';
+  }
+  /* Stage 2: "How we help", only under an activity where help is needed. Five short answers the care plan's instructions are drawn from. */
+  const NO_HELP = ['', 'none', 'not_needed'];
+  const helps = (k) => { const lv = (((ST.a.visit.acts || {})[k]) || {}).level || ''; return NO_HELP.indexOf(lv) < 0; };
+  const HELP_ASK = {
+    bathing: 'Shower or bath? Which days and time? Where are the towels and clothes?', dressing: 'Where are the clothes kept? What is hard (buttons, shoes, socks)?',
+    toileting: 'Day and night? Where are the supplies (briefs, wipes, gloves)?', transfers: 'Bed, chair, toilet, car? What do they hold on to?', mobility: 'Walker or cane? Inside and outside? Where are the trip spots?',
+    eating: 'Cutting food? Diet? Where do they like to eat?', meals: 'What do they like? Any diet? What is in the kitchen, and where?', meds: 'When? Where is the pill box? What if a dose was missed?',
+    light_house: 'Which rooms, and what do they like done first?', heavy_house: 'Which jobs, how often?', laundry: 'Where is the washer? Which loads, which days?', shopping: 'Which stores? Who pays, and how?',
+    transport: 'Where to? Whose car? Do they need help getting in and out?', appts: 'Which appointments, and where is the calendar?', phone: 'Which phone? Where is the charger?',
+  };
+  function helpHtml(r) {
+    if (!helps(r[0])) return '';
+    const b = 'visit.acts.' + r[0] + '.help.';
+    return '<div class="hv-help"><div class="hv-ch"><b>How we help: ' + E(r[1]) + '</b><span class="hv-n">' + E(HELP_ASK[r[0]] || '') + '</span></div><div class="hv-g2">'
+      + lab('The steps, in order', field(b + 'steps', 'One step per line', { rows: 4 }))
+      + '<div class="hv-stack">' + lab('What they do themselves', field(b + 'self')) + lab('Where the supplies are', field(b + 'supplies')) + '</div>'
+      + lab('How they like it done', field(b + 'likes', '', { rows: 2 })) + lab('What to watch for', field(b + 'watch', '', { rows: 2 })) + '</div></div>';
   }
   function sec4() {
     return '<h1>Daily activities</h1><div class="hv-sub">"These help us see what\'s going well and where a caregiver can make life easier and safer for you."</div>'
@@ -461,6 +506,88 @@
         + '</div></div>';
     }).join('');
   }
+  /* ---------- Home and safety (Care plan Stage 2, her decisions: its own screen; the door code stays in AxisCare) ---------- */
+  const ENTRY = [['key', 'A key'], ['lockbox', 'Lockbox'], ['family', 'Family lets them in'], ['other', 'Other']];
+  function callOrder() {
+    const v = ST.a.visit, ec = (v.safety || {}).ec || {}, out = [];
+    if (ec.name) out.push(ec.name + (ec.rel ? ' (' + ec.rel + ')' : '') + (ec.phone ? ', ' + ec.phone : ''));
+    (v.attendees || []).filter((p) => p.name && p.role !== 'client' && !(ec.name && p.name.toLowerCase() === ec.name.toLowerCase())).forEach((p) => out.push(p.name + (p.rel ? ' (' + p.rel + ')' : '')));
+    return out.map((x, i) => (i + 1) + '. ' + x).join('\n');
+  }
+  function secHome() {
+    const v = ST.a.visit, h = v.home = v.home || {}, pr = v.prefs || {};
+    if (nil(h.call_order) && callOrder()) h.call_order = callOrder();   /* starts from How we stay in touch; the coordinator changes the order */
+    const office = window.CPV ? CPV.officePhone() : '(417) 234-8494';
+    const stairs = h.stairs === 'yes' || ((v.safety || {}).hazards || []).indexOf('stairs') > -1;
+    return '<h1>Home and safety</h1><div class="hv-sub">What a caregiver needs to know before they walk in the door.</div>'
+      + '<div class="hv-g2">'
+      + card('Getting in', pills('visit.home.entry', ENTRY)
+        + lab('How, and where', field('visit.home.entry_note', 'Which door, where the key or lockbox is', { rows: 2 }), 'Don\'t type a door or lockbox code here. It goes in AxisCare.')
+        + (h.entry === 'key' || h.entry === 'lockbox' ? '<div class="hv-row" style="min-height:0"><span class="hv-n">Code or key details</span>' + pills('visit.home.code_in_axis', [['yes', 'In AxisCare'], ['todo', 'Still to add to AxisCare']]) + '</div>' : '')
+        + lab('Parking', field('visit.home.parking', 'Driveway, street, which side')))
+      + card('Who to call', '<div class="hv-li" style="border-top:none"><span>The office first, day or night</span><span>' + E(office) + '</span></div>'
+        + lab('The office calls the family in this order', field('visit.home.call_order', 'One person per line', { rows: 3 }), 'From How we stay in touch and the emergency contact. Change the order if the family wants.')
+        + '<div class="hv-n">What a caregiver does in an emergency is the same for every client and is set in Settings.</div>')
+      + '</div>'
+      + (pr.cats === 'yes' || pr.dogs === 'yes' ? card('Pets', lab('Names, and where they stay during visits', field('visit.home.pets_note', '', { rows: 2 }))) : '')
+      + card('Stairs', '<div class="hv-row"><b>Any stairs inside, or to get in?</b>' + yn('visit.home.stairs') + '</div>' + (stairs ? lab('Where, and is there a rail?', field('visit.home.stairs_note')) : ''))
+      + card('Where things are kept', '<div class="hv-g2">'
+        + lab('Equipment (walker, shower chair, lift)', field('visit.home.equipment_where')) + lab('Cleaning supplies', field('visit.home.cleaning_where'))
+        + lab('Towels and linens', field('visit.home.linens_where')) + lab('The medicine list', field('visit.home.medlist_where'), 'Where it is kept. We don\'t collect it.')
+        + lab('Important papers (POA, advance directive)', field('visit.home.papers_where'), 'Where they are kept, if the family wants us to know. We don\'t collect them.') + '</div>');
+  }
+  /* ---------- A typical shift (Stage 2, her decision: built by itself, then the coordinator adjusts it) ---------- */
+  const SHIFT_ORDER = [['meds', 'Medication reminder'], ['bathing', 'Help with the shower or bath'], ['dressing', 'Dressing and grooming'], ['toileting', 'Toileting'],
+    ['light_house', 'Light housekeeping'], ['laundry', 'Laundry'], ['heavy_house', 'Heavier housekeeping'], ['meals', 'Make the meal and eat together'], ['eating', 'Help with eating'],
+    ['shopping', 'Shopping and errands'], ['transport', 'Drive to appointments or errands'], ['appts', 'Go over appointments'], ['phone', 'Phone and computer help']];
+  const mins_ = (t) => { const p = String(t || '').split(':'); return (+p[0]) * 60 + (+p[1] || 0); };
+  const hhmm = (m) => String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  function buildShift() {
+    const v = ST.a.visit, first = DAYS.find((d) => dayHours(d[0]));
+    if (!first) return [];
+    const w = v.week[first[0]], a = mins_(w.from), z = mins_(w.to) > a ? mins_(w.to) : a + 240;
+    const tasks = SHIFT_ORDER.filter((x) => helps(x[0]));
+    if (!tasks.length) return [];
+    const rows = [{ t: hhmm(a), what: 'Arrive, say hello, and see how ' + (((v.story || {}).called) || 'they') + ' are today' }];
+    const step = Math.max(15, Math.floor((z - a - 30) / (tasks.length + 1) / 15) * 15);
+    tasks.forEach((x, i) => rows.push({ t: hhmm(a + 15 + i * step), what: x[1] }));
+    if (helps('mobility') || helps('transfers')) rows.push({ t: '', what: 'Throughout: stand by when walking and getting up' });
+    rows.push({ t: hhmm(z - 15), what: 'Write the visit note in AxisCare' });
+    return rows;
+  }
+  function shiftHtml() {
+    const v = ST.a.visit, rows = v.shift || [];
+    if (!rows.length) return '<div class="hv-n">Add the days and times above, and the help needed on Daily activities. The shift builds itself from them.</div>';
+    const stars = rows.filter((r) => r.star).length;
+    return '<div class="hv-n" style="margin-bottom:6px">Star the top 3 must-do tasks (' + stars + ' of 3). Change anything; it is a starting point.</div>'
+      + rows.map((r, i) => '<div class="hv-shift"><input class="hv-f" type="time" data-hv="visit.shift.' + i + '.t" value="' + E(r.t || '') + '" aria-label="Time">'
+        + field('visit.shift.' + i + '.what', 'What happens')
+        + '<button type="button" class="hv-star' + (r.star ? ' on' : '') + '" data-hva="shiftstar" data-i="' + i + '" aria-pressed="' + !!r.star + '"' + (!r.star && stars >= 3 ? ' disabled' : '') + '>' + (r.star ? 'Top 3' : 'Star') + '</button>'
+        + '<button type="button" class="hv-x" data-hva="shiftdel" data-i="' + i + '" aria-label="Remove this line">×</button></div>').join('')
+      + '<div style="display:flex;gap:8px;margin-top:8px"><button type="button" class="hv-b2" data-hva="shiftadd">+ Add a line</button><button type="button" class="hv-b2" data-hva="shiftbuild">Build it again from the schedule</button></div>';
+  }
+  /* ---------- Still needs attention (Stage 2): a count in the top bar, each item jumps to its box ---------- */
+  function needsList() {
+    const v = ST.a.visit, h = v.home || {}, out = [];
+    (window.CPV ? CPV.safetyMissing(v) : []).forEach((m) => out.push([m[0], S_.health, m[1]]));
+    if (nil(h.entry)) out.push(['How the caregiver gets in', S_.home, 'visit.home.entry']);
+    HOUSE.concat(PERSONAL).filter((r) => helps(r[0])).forEach((r) => {
+      const hp = (((v.acts || {})[r[0]]) || {}).help || {};
+      if (nil(hp.steps)) out.push(['How we help with ' + r[1].toLowerCase() + ': the steps', S_.daily, 'visit.acts.' + r[0] + '.help.steps']);
+      if (nil(hp.supplies)) out.push(['Where the supplies are for ' + r[1].toLowerCase(), S_.daily, 'visit.acts.' + r[0] + '.help.supplies']);
+    });
+    return out;
+  }
+  function needsRefresh() {
+    const el = document.getElementById('hvNeedsList'); if (el && !el.hidden) el.innerHTML = needsListHtml();
+    const b = document.querySelector('#hvBar [data-hva="needs"]'); if (b) { const n = needsList().length; b.textContent = n ? n + ' still needs attention' : 'All answered'; b.classList.toggle('on', !!n); b.setAttribute('aria-label', 'Still needs attention: ' + n); }
+  }
+  function needsListHtml() {
+    const l = needsList();
+    return '<div class="hv-ch"><b>Still needs attention</b><button type="button" class="hv-b2" data-hva="needsclose">Close</button></div>'
+      + (l.length ? l.map((x, i) => '<button type="button" class="hv-need" data-hva="needsgo" data-sec="' + x[1] + '" data-p="' + E(x[2]) + '">' + E(x[0]) + '<span class="hv-n">' + E(SECS[x[1]]) + '</span></button>').join('') : '<div class="hv-n">Nothing left. Everything the care plan needs is answered.</div>');
+  }
+
   /* hours of one day's visit, from "09:00" to "13:00" */
   function dayHours(d) { const w = (ST.a.visit.week || {})[d] || {}; if (!w.from || !w.to) return 0; const m = (t) => { const p = String(t).split(':'); return (+p[0]) * 60 + (+p[1] || 0); }; let h = (m(w.to) - m(w.from)) / 60; if (h < 0) h += 24; return Math.round(h * 4) / 4; }
   function weekSummary() {
@@ -491,10 +618,12 @@
   }
   function sec6() {
     const v = ST.a.visit;
+    if (!(v.shift || []).length && !v.shift_cleared) v.shift = buildShift();
     return '<h1>Schedule, payment and care level</h1>'
       + card('Care proposal: days and times', '<div class="hv-week">' + DAYS.map((d) => '<div class="hv-day' + (dayHours(d[0]) ? ' on' : '') + '"><b>' + d[1] + '</b>'
         + field('visit.week.' + d[0] + '.from', '', { type: 'time', attrs: ' aria-label="' + d[1] + ' start"' }) + field('visit.week.' + d[0] + '.to', '', { type: 'time', attrs: ' aria-label="' + d[1] + ' end"' }) + '</div>').join('') + '</div>'
         + '<div class="hv-sum" id="hvWeekSum">' + weekSummary() + '</div>' + lab('Hoped-for start', field('visit.start', '', { type: 'date', attrs: ' style="max-width:220px"' })))
+      + card('A typical shift', '<div id="hvShift">' + shiftHtml() + '</div>')
       + card('How care will be paid', payerHtml())
       + card('Care level', '<div id="hvLevels">' + levelHtml() + '</div>' + '<div class="hv-row" style="justify-content:flex-start;gap:14px">' + lab('Rate quoted ($ an hour)', field('visit.rate', '', { attrs: ' inputmode="decimal" style="max-width:170px" id="hvRate"' })) + '<span class="hv-n">Fills in from the level. Change it only if you quoted something different.</span></div>')
       + '<div class="hv-g2">'
@@ -543,6 +672,12 @@
     add(1, 'Their story', 'visit.story.overview', "What's been going on lately");
     ['morning', 'afternoon', 'evening'].forEach((k) => add(1, 'Their story', 'visit.story.' + k, 'A day at home: ' + k));
     [0, 1, 2].forEach((i) => add(1, 'Their story', 'visit.goals.' + i + '.text', 'Goal ' + (i + 1)));
+    add(1, 'Their story', 'visit.story.good_care', 'What good care looks like to the family'); add(1, 'Their story', 'visit.story.self', 'What they still do themselves');
+    add(1, 'Their story', 'visit.story.called', 'What they like to be called');
+    add(S_.home, 'Home and safety', 'visit.home.entry_note', 'How the caregiver gets in (never a door or lockbox code)'); add(S_.home, 'Home and safety', 'visit.home.parking', 'Parking');
+    add(S_.home, 'Home and safety', 'visit.home.pets_note', 'Pets: names, and where they stay during visits'); add(S_.home, 'Home and safety', 'visit.home.stairs_note', 'Stairs: where, and is there a rail');
+    [['equipment_where', 'Where equipment is kept'], ['cleaning_where', 'Where cleaning supplies are kept'], ['linens_where', 'Where towels and linens are kept'], ['medlist_where', 'Where the medicine list is kept']]
+      .forEach((x) => add(S_.home, 'Home and safety', 'visit.home.' + x[0], x[1]));
     const nc = (v.conditions || []).length;
     for (let i = 0; i < nc + 3; i++) {
       const c = (v.conditions || [])[i] || {};
@@ -563,12 +698,12 @@
     add(3, 'Daily activities', 'visit.meds.where', 'Where the pill organizer is kept'); add(3, 'Daily activities', 'visit.meds.may_know', 'Can the client know where it is?', YN);
     add(3, 'Daily activities', 'visit.meds.refills', 'Where prescriptions are refilled');
     const c = 'visit.prefs.';
-    add(4, 'Preferences', c + 'gender', 'Caregiver gender', PREF.gender); add(4, 'Preferences', c + 'spanish', 'Spanish-speaking caregiver', PREF.spanish);
-    add(4, 'Preferences', c + 'cats', 'Cats in the home', YN); add(4, 'Preferences', c + 'dogs', 'Dogs in the home', YN); add(4, 'Preferences', c + 'smoking', 'Someone smokes in the home', YN);
-    add(4, 'Preferences', c + 'other', 'Anything else they asked for in a caregiver');
+    add(S_.prefs, 'Preferences', c + 'gender', 'Caregiver gender', PREF.gender); add(S_.prefs, 'Preferences', c + 'spanish', 'Spanish-speaking caregiver', PREF.spanish);
+    add(S_.prefs, 'Preferences', c + 'cats', 'Cats in the home', YN); add(S_.prefs, 'Preferences', c + 'dogs', 'Dogs in the home', YN); add(S_.prefs, 'Preferences', c + 'smoking', 'Someone smokes in the home', YN);
+    add(S_.prefs, 'Preferences', c + 'other', 'Anything else they asked for in a caregiver');
     (v.attendees || []).forEach((p, i) => { if (!p.name) return; const b = 'visit.attendees.' + i + '.';
-      add(4, 'Preferences', b + 'reach_way', p.name + ': best way to reach them', REACH); add(4, 'Preferences', b + 'reach_time', p.name + ': best time to reach them');
-      if (p.role !== 'client') add(4, 'Preferences', b + 'permission', p.name + ': may we discuss care with them?', YN); });
+      add(S_.prefs, 'Preferences', b + 'reach_way', p.name + ': best way to reach them', REACH); add(S_.prefs, 'Preferences', b + 'reach_time', p.name + ': best time to reach them');
+      if (p.role !== 'client') add(S_.prefs, 'Preferences', b + 'permission', p.name + ': may we discuss care with them?', YN); });
     return out;
   }
   const shown = (b, val) => (b.options ? ((b.options.find((o) => o[0] === val) || [0, val])[1]) : String(val));
@@ -692,7 +827,7 @@
     } catch (e) { toast('Could not play the recording: ' + (e && e.message || e)); }
   }
 
-  const SEC_FN = [sec1, sec2, sec3, sec4, sec5, sec6, sec7, afterSec];
+  const SEC_FN = [sec1, sec2, sec3, sec4, secHome, sec5, sec6, sec7, afterSec];
 
   /* ---------- the frame ---------- */
   function css() {
@@ -757,6 +892,13 @@
       + '.hv-safe{border:2px solid #9CC3C6}.hv-sq{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}.hv-sq b{display:block;font-size:15px}.hv-sq .hv-n{display:block}'
       + '.hv-sqw{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);align-items:start}.hv-fu{padding:0 0 8px 18px;border-left:3px solid #9CC3C6;margin-left:4px}'
       + '@media (max-width:700px){.hv-sq,.hv-sqw{grid-template-columns:minmax(0,1fr)}}'
+      + '.hv-warn2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:0 0 10px 12px;border-left:3px solid #E8C66A;margin:-2px 0 6px 4px}.hv-warn2 .hv-n{grid-column:1/-1}'
+      + '.hv-help{background:#F3F8F8;border:1px solid #C2D7D8;border-radius:12px;padding:12px 14px;margin:0 0 10px;display:flex;flex-direction:column;gap:10px}.hv-help .hv-ch{flex-wrap:wrap;justify-content:flex-start}'
+      + '.hv-shift{display:grid;grid-template-columns:130px minmax(0,1fr) auto 44px;gap:8px;align-items:center;padding:4px 0}.hv-shift .hv-star:disabled{opacity:.45}'
+      + '.hv-needsb.on{border-color:#D99A1E;color:#7A5200;background:#FFF8E8}.hv-needs{position:absolute;right:16px;top:64px;z-index:5;width:min(420px,calc(100% - 32px));max-height:70vh;overflow:auto;background:#fff;border:1px solid #CFCAC0;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.18);padding:12px 14px;display:flex;flex-direction:column;gap:6px}'
+      + '.hv-need{display:flex;justify-content:space-between;gap:10px;align-items:center;text-align:left;min-height:44px;padding:8px 10px;border:1px solid #EEEAE3;border-radius:10px;background:#fff;font:inherit;font-size:14px;cursor:pointer}'
+      + '.hv-main{position:relative}'
+      + '@media (max-width:700px){.hv-warn2{grid-template-columns:minmax(0,1fr)}.hv-shift{grid-template-columns:110px minmax(0,1fr) 44px}.hv-shift .hv-star{grid-column:2}}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
       + '.hv-chip{font-size:13px;font-weight:700;padding:6px 10px;border-radius:10px;text-align:center;background:#E3F0EF;color:#14565D}'
@@ -790,6 +932,7 @@
     return '<img class="hv-barlogo" src="cc-logo.png" alt="Caring Companions"><span class="hv-dot' + (st === 'recording' ? ' rec' : st === 'paused' ? ' hold' : st === 'lost' ? ' rec' : '') + '"></span><strong style="font-variant-numeric:tabular-nums' + (st === 'lost' ? ';color:#C2362B' : '') + '">' + word + '</strong>'
       + (n ? '<span class="hv-n" style="font-size:15px">' + n + ' ' + (n === 1 ? 'person' : 'people') + ' in the room</span>' : '')
       + '<span class="hv-tag" id="hvSaved">Saves as you go</span><span style="flex:1"></span>'
+      + (function () { const n = needsList().length; return '<button type="button" class="hv-b2 hv-needsb' + (n ? ' on' : '') + '" data-hva="needs" aria-label="Still needs attention: ' + n + '">' + (n ? n + ' still needs attention' : 'All answered') + '</button>'; })()
       + (st === 'recording' ? '<button type="button" class="hv-b2" data-hva="pauserec">Pause</button>' : '')
       + (st === 'paused' ? '<button type="button" class="hv-b" data-hva="resumerec">Resume</button>' : '')
       + (st === 'lost' ? '<button type="button" class="hv-b" data-hva="keeprec">Keep recording</button>' : '')
@@ -805,11 +948,12 @@
     (ST.a.visit.seen = ST.a.visit.seen || {})[ST.sec] = true;
     ST.sec = i;
     document.querySelectorAll('#hvRoot .hv-sec').forEach((el) => { el.style.display = +el.getAttribute('data-sec') === i ? '' : 'none'; });
-    if (i === 4) { const t = document.getElementById('hvTouch'); if (t) t.innerHTML = touchHtml(); }
-    if (i === 2) safetyRefresh();
-    if (i === 3) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="3"]'); if (d) d.innerHTML = sec4(); }
-    if (i === 5) { refreshLevels(); }
-    if (i === 6) { const ag = document.getElementById('hvAgree'); if (ag) ag.innerHTML = agreeHtml(); sigInit(); }
+    if (i === S_.prefs) { const t = document.getElementById('hvTouch'); if (t) t.innerHTML = touchHtml(); }
+    if (i === S_.health) safetyRefresh();
+    if (i === S_.daily || i === S_.home || i === S_.plan) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (d) d.innerHTML = SEC_FN[i](); }
+    if (i === S_.plan) { refreshLevels(); }
+    if (i === S_.sign) { const ag = document.getElementById('hvAgree'); if (ag) ag.innerHTML = agreeHtml(); sigInit(); }
+    needsRefresh();
     if (i === AFTER) { const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody(); afterLoad(); }
     document.getElementById('hvRail').innerHTML = railHtml();
     document.getElementById('hvFoot').innerHTML = footHtml();
@@ -822,7 +966,7 @@
     let root = document.getElementById('hvRoot');
     if (!root) { root = document.createElement('div'); root.id = 'hvRoot'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Home visit'); document.body.appendChild(root); }
     root.innerHTML = '<nav class="hv-rail" id="hvRail" aria-label="Visit sections"></nav>'
-      + '<div class="hv-main"><div class="hv-bar" id="hvBar">' + barHtml() + '</div><div class="hv-body">'
+      + '<div class="hv-main"><div class="hv-bar" id="hvBar">' + barHtml() + '</div><div id="hvNeedsList" class="hv-needs" hidden></div><div class="hv-body">'
       + SEC_FN.map((f, i) => '<div class="hv-sec" data-sec="' + i + '" style="display:none">' + f() + '</div>').join('')
       + '<div id="hvFoot"></div></div></div>';
     wire(root);
@@ -865,6 +1009,7 @@
       el.classList.remove('hv-from');
       if (ST.a.visit.from_call && ST.a.visit.from_call[p]) delete ST.a.visit.from_call[p];
       if (p === 'visit.rate') ST.a.visit.rate_typed = true;
+      needsRefresh();
       if (p.indexOf('visit.week.') === 0) { const s = document.getElementById('hvWeekSum'); if (s) s.innerHTML = weekSummary(); const d = el.closest('.hv-day'); if (d) d.classList.toggle('on', !!dayHours(p.split('.')[2])); }
       if (/^visit\.attendees\.\d+\.name$/.test(p)) { /* the bar's head count */ }
       saveSoon();
@@ -873,6 +1018,11 @@
       const lb = e.target.getAttribute && e.target.getAttribute('data-hvvoice'); if (!lb || !ST.a.visit.after) return;
       (ST.a.visit.after.names = ST.a.visit.after.names || {})[lb] = e.target.value;
       const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody(); saveSoon();
+    });
+    root.addEventListener('change', (e) => {
+      const p = e.target.getAttribute && e.target.getAttribute('data-hv');
+      if (p && /^visit\.conditions\.\d+\.name$/.test(p)) { const c = document.getElementById('hvConds'); if (c) c.innerHTML = condHtml(); }
+      if (p && /^visit\.week\./.test(p) && !(ST.a.visit.shift || []).length) { ST.a.visit.shift = buildShift(); const el = document.getElementById('hvShift'); if (el) el.innerHTML = shiftHtml(); }
     });
     root.addEventListener('click', async (e) => {
       const s = e.target.closest('[data-hvs]'); if (s) { show(+s.getAttribute('data-hvs')); return; }
@@ -884,12 +1034,24 @@
         if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; pb.parentElement.classList.remove('hv-heardseg'); }
         if (ST.a.visit.from_call && ST.a.visit.from_call[p + ':' + v]) { delete ST.a.visit.from_call[p + ':' + v]; pb.classList.remove('hv-pfrom'); }
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
+        { const m = p.match(/^visit\.acts\.([a-z_]+)\.level$/), r = m && HOUSE.concat(PERSONAL).find((x) => x[0] === m[1]); const h = r && document.getElementById('hvHelp_' + r[0]); if (h) h.innerHTML = helpHtml(r); }
+        if (/^visit\.(home\.|prefs\.(cats|dogs)$|safety\.hazards$)/.test(p)) { const hs = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.home + '"]'); if (hs && ST.sec === S_.home) hs.innerHTML = secHome(); }
+        needsRefresh();
         if (SAFETY_PATHS.test(p)) safetyRefresh();
         saveSoon(); return;
       }
       const a = e.target.closest('[data-hva]'); if (!a) return;
       const act = a.getAttribute('data-hva'), i = +a.getAttribute('data-i');
       if (act === 'addperson') { ST.a.visit.attendees.push({ name: '', rel: '', role: 'family' }); document.getElementById('hvPeople').innerHTML = peopleHtml(); saveSoon(); return; }
+      if (act === 'needs') { const el = document.getElementById('hvNeedsList'); el.hidden = !el.hidden; if (!el.hidden) el.innerHTML = needsListHtml(); return; }
+      if (act === 'needsclose') { document.getElementById('hvNeedsList').hidden = true; return; }
+      if (act === 'needsgo') { document.getElementById('hvNeedsList').hidden = true; show(+a.getAttribute('data-sec')); const p = a.getAttribute('data-p');
+        setTimeout(() => { const t = document.querySelector('#hvRoot .hv-sec[data-sec="' + a.getAttribute('data-sec') + '"] [data-hv="' + p + '"], #hvRoot .hv-sec[data-sec="' + a.getAttribute('data-sec') + '"] [data-hvp="' + p + '"]');
+          if (t) { t.scrollIntoView({ block: 'center' }); if (t.focus) t.focus(); } }, 30); return; }
+      if (act === 'shiftstar') { const r = ST.a.visit.shift[i]; if (!r) return; if (!r.star && ST.a.visit.shift.filter((x) => x.star).length >= 3) return; r.star = !r.star; document.getElementById('hvShift').innerHTML = shiftHtml(); saveSoon(); return; }
+      if (act === 'shiftdel') { ST.a.visit.shift.splice(i, 1); if (!ST.a.visit.shift.length) ST.a.visit.shift_cleared = true; document.getElementById('hvShift').innerHTML = shiftHtml(); saveSoon(); return; }
+      if (act === 'shiftadd') { (ST.a.visit.shift = ST.a.visit.shift || []).push({ t: '', what: '' }); document.getElementById('hvShift').innerHTML = shiftHtml(); saveSoon(); return; }
+      if (act === 'shiftbuild') { if ((ST.a.visit.shift || []).length && !(await ask('Build the typical shift again from the schedule? Your changes to it are replaced.'))) return; ST.a.visit.shift = buildShift(); delete ST.a.visit.shift_cleared; document.getElementById('hvShift').innerHTML = shiftHtml(); saveSoon(); return; }
       if (act === 'noallergy') { set('visit.allergies', 'None known'); if (ST.a.visit.from_call) delete ST.a.visit.from_call['visit.allergies']; safetyRefresh(); saveSoon(); return; }
       if (act === 'addcallperson') {
         const p = callPeople().find((x) => x.name === a.getAttribute('data-v')); if (!p) return;
@@ -987,7 +1149,8 @@
       + LEVELS.map((L) => '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">' + E(L[1]) + ' ($ an hour)<input id="hvSet_' + L[0] + '" inputmode="decimal" value="' + r[L[0]] + '" style="width:110px"></label>').join('')
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a visit, at least<input id="hvSet_visit" inputmode="decimal" value="' + m.visit + '" style="width:110px"></label>'
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a week, at least<input id="hvSet_week" inputmode="decimal" value="' + m.week + '" style="width:110px"></label>'
-      + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>';
+      + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>'
+      + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '');
   }
   async function settingsSave(btn) {
     if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the rates.'); return; }
