@@ -9073,7 +9073,7 @@ function renderActiveTab(){
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261028a'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261029lv'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
@@ -37566,7 +37566,8 @@ function opsClose(id, anchorId){
   if(it.kind==='journey'){ if(it.link) location.hash=String(it.link).replace(/^#/,''); return; }
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
-  if(it.kind==='hr_file'){ location.hash=it.link?String(it.link).replace(/^#/,''):'hr/formal'; return; }   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
+  if(it.kind==='hr_file'){ location.hash=it.link?String(it.link).replace(/^#/,''):'hr/formal'; return; }
+  if(it.kind==='livein_countersign'){ location.hash='hr/livein'; return; }   /* closes only when the Live-In Agreement is countersigned (2026-10-29) */   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
