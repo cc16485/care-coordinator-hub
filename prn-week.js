@@ -24,7 +24,7 @@
   'use strict';
   var FN = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/prn-week';
   var e = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
-  var W = null, OPEN = {};
+  var W = null, OPEN = {}, M = null;   // M: the monthly PRN Team update (step 6)
   var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], welcome: ['✋', '#EDE9FE', '#5B21B6'], nobackup: ['⚑', '#FEE2E2', '#991B1B'] };
   var isOwner = function () { try { return typeof ccCan === 'function' && ccCan('manage_settings'); } catch (x) { return false; } };
   var fmt = function (d) { return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; };
@@ -91,6 +91,30 @@
       + '<span class="field-note">' + e(W.owner) + '\'s list · a handful at a time · each one is a tap</span></div>'
       + lines + (W.more ? '<div class="field-note" style="margin-top:6px;">' + W.more + ' more after these.</div>' : '')
       + '<div class="field-note" style="margin-top:8px;">Coming with later steps: who is looking for hours and interest to review.</div></div>';
+  }
+
+  /* PRN STEP 6: the monthly PRN Team update. The Hub drafts the facts about last month (team numbers only, never names next to
+     numbers), the office writes the personal paragraph (required) and may add a kind word and a tip, then one tap texts every
+     member a short line with their own page link. Switch prn_monthly_live, and the page must be open. */
+  function monthlyHtml() {
+    if (!M) return '';
+    var sent = !!M.sent_at, dis = sent ? ' disabled' : '';
+    var why = sent ? '' : !M.page_live ? 'Waiting: the PRN Team page isn\'t open yet, so the update can\'t link to it.' : !M.switch_on ? 'Sending is switched off (Settings, PRN Teams). You can write and save it now.' : '';
+    var fld = function (id, label, val, rows, ph) { return '<label style="display:block;margin-top:10px;font-size:13px;"><b>' + label + '</b><textarea id="' + id + '" rows="' + rows + '" style="width:100%;font-size:13px;margin-top:3px;" placeholder="' + e(ph) + '"' + dis + '>' + e(val || '') + '</textarea></label>'; };
+    return '<div class="card pw-card" id="pwMonthly">'
+      + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">Monthly PRN Team update · ' + e(M.month_word) + '</h3>'
+      + '<span class="field-note">' + (sent ? 'Sent by ' + e(M.sent_by) + ' on ' + e(fmt(M.sent_at)) + ' · ' + M.sent_to + ' of ' + M.members + ' members' : 'One short text to every PRN member, with their own page link. The full update shows at the top of their page.') + '</span></div>'
+      + '<div style="margin-top:8px;padding:10px 12px;background:var(--bg);border-radius:10px;font-size:13.5px;">' + (M.facts || []).map(function (f) { return '<div>' + e(f) + '</div>'; }).join('')
+      + '<div class="field-note" style="margin-top:4px;">From the PRN records: the whole team only, never a name next to a number.</div></div>'
+      + fld('pwMoPara', 'Your paragraph (needed)', M.paragraph, 4, 'A few warm words from you or Krystal, in your own voice.')
+      + fld('pwMoKind', 'A kind word from a family (optional)', M.kind_word, 2, 'No caregiver\'s name unless they said it\'s OK.')
+      + fld('pwMoTip', 'A course or tip (optional)', M.tip, 2, "For example: Our Alzheimer's & Dementia Care course is open. Tap I'd like this on your page.")
+      + '<div class="field-note" style="margin-top:6px;">Every update ends with: ' + e(M.steady) + '</div>'
+      + (sent ? (M.sent_to < M.members ? '<div style="margin-top:10px;"><button class="addlead" onclick="PW.moSend(this)">Send to the ' + (M.members - M.sent_to) + ' not reached yet</button></div>' : '')
+        : '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;"><button class="ghost" onclick="PW.moSave(this)">Save</button>'
+          + '<button class="addlead" onclick="PW.moSend(this)"' + (M.live ? '' : ' disabled') + '>Save and send to ' + M.members + ' members</button></div>')
+      + (why ? '<div class="field-note" style="margin-top:6px;">' + e(why) + '</div>' : '')
+      + '<div class="field-note" id="pwMoSt" style="margin-top:6px;"></div></div>';
   }
 
   /* PRN STEP 3: each member's familiar clients (cared for in the last 6 months, no concern either way, didn't say no) */
@@ -208,12 +232,12 @@
     var see = document.getElementById('prnSee'); if (see && (TAB === 'see' || !see.innerHTML) && see.getAttribute('data-for') !== SEE + '|' + (W ? 1 : 0)) { see.innerHTML = seeHtml(); see.setAttribute('data-for', SEE + '|' + (W ? 1 : 0)); }
     var show = W && (W.live || isOwner());
     if (isHome()) {
-      put('prnWeek', show ? weekHtml() : (W ? offNote : ''));
+      put('prnWeek', show ? weekHtml() + monthlyHtml() : (W ? offNote : ''));
       put('prnOnCall', show ? onCallHtml() : (W ? offNote : ''));
       put('prnTeams', teamsHtml());
     } else {
       put('prnTeams', ''); put('prnOnCall', '');
-      box.innerHTML = show ? weekHtml() + familiarHtml() + onCallHtml() : '';
+      box.innerHTML = show ? weekHtml() + monthlyHtml() + familiarHtml() + onCallHtml() : '';
     }
     panes();
   }
@@ -221,10 +245,13 @@
     var box = document.getElementById('prnWeek'); if (!box) return;
     panes();
     try { if (isHome() && typeof prnLoad === 'function') await prnLoad(); } catch (x) { /* the teams say "Loading" until it can */ }
-    try { W = await call({ action: 'week' }); draw(); }
+    try { W = await call({ action: 'week' }); draw(); loadMonthly(); }
     catch (x) { draw(); if (isOwner()) box.innerHTML = '<div class="field-note" style="color:var(--red);margin-bottom:10px;">This week could not load: ' + e(x.message) + '</div>'; }
   }
   var item = function (id) { return (W && W.items || []).find(function (x) { return x.id === id; }); };
+  async function loadMonthly() { try { M = await call({ action: 'monthly' }); } catch (x) { M = null; } draw(); }
+  var moVals = function () { var v = function (id) { var el = document.getElementById(id); return el ? String(el.value || '').trim() : ''; }; return { paragraph: v('pwMoPara'), kind_word: v('pwMoKind'), tip: v('pwMoTip') }; };
+  var moSay = function (t, bad) { var el = document.getElementById('pwMoSt'); if (el) { el.textContent = t; el.style.color = bad ? 'var(--red)' : ''; } };
 
   window.PW = {
     load: load,
@@ -301,6 +328,28 @@
       try { await call({ action: 'oncall_offer', applicant_id: aid, pattern: pat, note: note }); await load(); }
       catch (x) { if (st) st.textContent = x.message; if (btn) btn.disabled = false; }
     },
-    _state: function () { return W; }, _draw: draw, _set: function (w) { W = w; draw(); }
+    moSave: async function (btn) {
+      var v = moVals(); if (/\u2014/.test(v.paragraph + v.kind_word + v.tip)) return moSay('Please use a comma or a period instead of an em dash.', true);
+      if (!v.paragraph) return moSay('Write your paragraph first.', true);
+      if (btn) btn.disabled = true;
+      try { await call(Object.assign({ action: 'monthly_save', month: M.month }, v)); M = Object.assign({}, M, v); moSay('Saved.'); }
+      catch (x) { moSay(x.message, true); } finally { if (btn) btn.disabled = false; }
+    },
+    moSend: async function (btn) {
+      var v = moVals();
+      if (!M.sent_at) { if (!v.paragraph) return moSay('Write your paragraph first.', true); if (/\u2014/.test(v.paragraph + v.kind_word + v.tip)) return moSay('Please use a comma or a period instead of an em dash.', true); }
+      var n = M.members - M.sent_to;
+      var okGo = typeof ccConfirm === 'function' ? await ccConfirm('Text the ' + M.month_word + ' PRN Team update to ' + n + ' PRN member' + (n === 1 ? '' : 's') + ' now? Each gets a short text with their own page link.') : true;
+      if (!okGo) return;
+      if (btn) btn.disabled = true;
+      try {
+        if (!M.sent_at) await call(Object.assign({ action: 'monthly_save', month: M.month }, v));
+        var r = await call({ action: 'monthly_send', month: M.month });
+        var miss = [].concat(r.no_phone.map(function (x) { return x + ' (no phone)'; }), r.refused.map(function (x) { return x + ' (not cleared for texts)'; }), r.failed.map(function (x) { return x + " (didn't go through)"; }));
+        await loadMonthly();
+        moSay('Sent to ' + r.sent.length + '.' + (miss.length ? ' Not reached: ' + miss.join(', ') + '. Each one is also on Needs Attention.' : ''), !!miss.length);
+      } catch (x) { moSay(x.message, true); if (btn) btn.disabled = false; }
+    },
+    _state: function () { return W; }, _draw: draw, _set: function (w) { W = w; draw(); }, _setMonthly: function (m) { M = m; draw(); }
   };
 })();

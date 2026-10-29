@@ -72,6 +72,16 @@ with sync_playwright() as pw:
     pg.screenshot(path=os.path.join(SHOTS, 'prn_page_member.png'), full_page=True)
     ok('no page errors (member)', not errs, errs); b.close()
 
+    # STEP 6: the monthly update at the top of their page
+    VU = dict(VIEW, update={ 'month': '2026-10', 'title': 'Your PRN Team update for October', 'facts': ['In October our PRN Teams stepped in for 3 shifts, for 2 different families. Thank you for standing in the gap.'],
+      'paragraph': 'Thank you for everything you did this month.', 'from': 'Samantha', 'kind_word': 'She made Mom laugh.', 'tip': None, 'steady': 'Want steady hours? Text us and we will talk about what is open.' })
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, VU) if body.get('action') == 'view' else (200, { 'ok': True }))
+    ut = pg.inner_text('#monthly') if pg.locator('#monthly').count() else ''
+    ok('their page (step 6): the October update at the top, signed Samantha, the kind word, the steady-hours line', 'Your PRN Team update for October' in ut and 'stepped in for 3 shifts' in ut and 'Thank you for everything you did this month.' in ut and 'Samantha' in ut
+       and 'She made Mom laugh.' in ut and 'Want steady hours?' in ut and pg.evaluate("()=>document.getElementById('monthly').getBoundingClientRect().top < document.getElementById('shifts').getBoundingClientRect().top") and not errs, ut); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    ok('...no update sent: nothing shows', pg.locator('#monthly').count() == 0); b.close()
+
     # STEP 5b: open shifts and I'm Interested
     OPEN = [{ 'case_id': 'c9', 'shift_date': '2026-11-02', 'shift_time': '09:00-13:00', 'hours': 4, 'town': 'Ozark', 'familiar': True, 'client_first': 'Ruth', 'outside_my_times': False, 'shift_key': '2026-11-02|09:00-13:00' },
             { 'case_id': 'c8', 'shift_date': '2026-10-31', 'shift_time': '18:00-22:00', 'hours': 4, 'town': 'Nixa', 'familiar': False, 'client_first': None, 'outside_my_times': True, 'shift_key': '2026-10-31|18:00-22:00' }]
@@ -143,13 +153,40 @@ async()=>{
            {id:'course:g:dementia-care',kind:'course',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'course:dementia-care',title:"Grace would like to take Alzheimer's & Dementia Care",detail:'Assign it on the Training Platform.'},
            {id:'idea:g:9',kind:'idea',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'idea:9',title:'Grace shared an idea',detail:'"A group text"'}],
     oncall:{ stipend:null, patterns:{}, offers:[], weekends:[] } };
+  let MONTHLY={ ok:true, month:'2026-10', month_word:'October', live:false, switch_on:false, page_live:false, facts:['In October our PRN Teams stepped in for 3 shifts, for 2 different families. Thank you for standing in the gap.','Welcome to our newest members, Denise and Tina!'],
+    paragraph:'', kind_word:'', tip:'', steady:'Want steady hours? Text us and we will talk about what is open.', saved_by:null, sent_by:null, sent_at:null, members:3, sent_to:0 };
   const CALLS=[]; const realFetch=window.fetch;
-  window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b); return new Response(JSON.stringify(b.action==='week'?WEEK:b.action==='page_link'?{link:'https://cc.mo-care.com/prn.html?p=g&e=1&t=x',live:false,days:30}:{outcome:'recorded'}),{status:200}); } return realFetch(u,o); };
+  window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b); return new Response(JSON.stringify(b.action==='week'?WEEK:b.action==='monthly'?MONTHLY:b.action==='monthly_send'?{outcome:'sent',sent:['Grace Hill'],already:0,no_phone:[],refused:['Tom Ray (asked not to get texts)'],failed:[]}:b.action==='page_link'?{link:'https://cc.mo-care.com/prn.html?p=g&e=1&t=x',live:false,days:30}:{outcome:'recorded'}),{status:200}); } return realFetch(u,o); };
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
   let alerted=''; window.ccAlert=(m)=>{ alerted=m; }; (0,eval)('ccAlert=window.ccAlert');
   location.hash='#prnteams'; await sleep(800); PW.tab('week'); await PW.load(); await sleep(150);
   const wk=document.getElementById('prnWeek').innerText;
   ok('This week: looking for hours first, then the course and the idea', wk.indexOf('Grace is looking for hours') > -1 && wk.indexOf('Grace is looking for hours') < wk.indexOf('would like to take') && /Grace shared an idea/.test(wk), wk.slice(0,400));
+  await sleep(150);
+  const mo=document.getElementById('pwMonthly'); const mt=mo?mo.innerText:'';
+  ok('This week (step 6): the October update with the facts from the records, your paragraph box, and why it can\'t send yet', /Monthly PRN Team update · October/.test(mt) && /stepped in for 3 shifts, for 2 different families/.test(mt) && /Denise and Tina/.test(mt)
+    && !!document.getElementById('pwMoPara') && /the PRN Team page isn't open yet/.test(mt) && mo.querySelector('button.addlead').disabled, mt);
+  await PW.moSave(); ok('...Save with no paragraph: asks for it, sends nothing', /Write your paragraph first/.test(document.getElementById('pwMoSt').innerText) && !CALLS.some(c=>c.action==='monthly_save'));
+  document.getElementById('pwMoPara').value='Thank you — all'; await PW.moSave(); ok('...an em dash is refused before anything is sent', /em dash/.test(document.getElementById('pwMoSt').innerText) && !CALLS.some(c=>c.action==='monthly_save'));
+  document.getElementById('pwMoPara').value='Thank you for everything you did this month.'; document.getElementById('pwMoKind').value='She made Mom laugh.'; await PW.moSave();
+  ok('...Save sends your paragraph and kind word', CALLS.some(c=>c.action==='monthly_save' && c.month==='2026-10' && c.paragraph==='Thank you for everything you did this month.' && c.kind_word==='She made Mom laugh.' && c.tip===''));
+  MONTHLY=Object.assign({},MONTHLY,{ live:true, switch_on:true, page_live:true, paragraph:'Thank you for everything you did this month.' }); window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
+  PW._setMonthly(MONTHLY); await sleep(50);
+  const sendBtn=[...document.querySelectorAll('#pwMonthly button')].find(b=>/Save and send to 3 members/.test(b.innerText));
+  ok('...switched on: "Save and send to 3 members"', sendBtn && !sendBtn.disabled);
+  MONTHLY=Object.assign({},MONTHLY,{ sent_at:'2026-11-02T16:00:00Z', sent_by:'Krystal Land', sent_to:2 });
+  await PW.moSend(sendBtn); await sleep(100);
+  ok('...send: saves, sends, then says who was reached and who was not (no silent failures)', CALLS.some(c=>c.action==='monthly_send' && c.month==='2026-10') && /Sent to 1\. Not reached: Tom Ray \(asked not to get texts\) \(not cleared for texts\)\. Each one is also on Needs Attention\./.test(document.getElementById('pwMoSt').innerText), document.getElementById('pwMoSt').innerText);
+  ok('...afterwards: sent by, 2 of 3, read-only, and a button for the one not reached', /Sent by Krystal Land on Nov 2 · 2 of 3 members/.test(document.getElementById('pwMonthly').innerText) && document.getElementById('pwMoPara').disabled && /Send to the 1 not reached yet/.test(document.getElementById('pwMonthly').innerText), document.getElementById('pwMonthly').innerText);
+  /* the case card's "Keep off the PRN page" (decision 13) */
+  const kc={ id:'cvk', status:'open', client:'Ruth Lane', shift_date:'2026-11-02', shift_time:'09:00-13:00', asked:[] }; DATA.coverage_cases=[kc];
+  let persisted=null; window.persist=async(k,v)=>{ persisted=[k,v&&v.id]; }; (0,eval)('persist=window.persist');
+  const host=document.createElement('div'); host.id='covWord_cvk'; host.innerHTML=covWordingPreview(kc); document.body.appendChild(host);
+  ok('case card: "Keep off the PRN page", unticked by default', /Keep off the PRN page/.test(host.innerText) && !host.querySelector('input[type=checkbox]').checked, host.innerText);
+  await covPrnPageOff('cvk', true);
+  ok('...ticked: saved on the case with who ticked it', kc.prn_page_off===true && kc.prn_page_off_by && persisted && persisted[0]==='coverage_cases' && /Ticked by/.test(host.innerText), [kc, persisted]);
+  await covPrnPageOff('cvk', false); ok('...unticked: cleared', !('prn_page_off' in kc));
+  ok('...not on a regular weekly opening', !/Keep off the PRN page/.test(covWordingPreview({ id:'w', status:'open', kind:'interest', client:'X' })));
   await PW.mark('course:g:dementia-care','handled'); ok('...Assigned marks the course line handled', CALLS.some(c=>c.action==='mark' && c.kind==='handled' && c.ref==='course:dementia-care'));
   await PW.mark('looking:g:2026-10-28','called'); ok('...Called on looking for hours', CALLS.some(c=>c.action==='mark' && c.kind==='called' && c.ref==='looking:2026-10-28'));
   PW.tab('teams'); await sleep(80);
@@ -167,7 +204,9 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===5, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===6, sw);
+  ok('Settings (step 6): Send the monthly PRN Team update, off; its wording box shows the standard text', /Send the monthly PRN Team update: off/.test(sw)
+    && document.getElementById('set_prn_monthly_msg').placeholder==="Hi {first_name}, the Caring Companions PRN Team update for {month} is on your PRN Team page: {link} Thank you for standing in the gap with us.", sw);
   ok('Settings (step 5b): Open shifts and "I\'m Interested", off', /Open shifts and "I'm Interested" on the PRN Team page: off/.test(sw), sw);
   ok('...their wording boxes show the approved wording as the standard', document.getElementById('set_prn_page_ready_msg').placeholder.startsWith("Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts")
     && /on your PRN Team page: \{link\}$/.test(document.getElementById('set_prn_reconfirm_page_msg').placeholder));
