@@ -147,7 +147,7 @@ function world(opts = {}) {
 
   // ---- guide and layout ----
   const G = W.X.WC_GUIDE;
-  ck('guide: one line says done adds them to the roster and Training and Compliance track them', /Pressing done also adds them to the caregiver roster \(hire date today\)\. Training and Compliance then track their orientation and dementia training\./.test(G));
+  ck('guide: one line says done adds them to the roster and Caregivers, Orientation & Training tracks them (2026-10-28: Training & Compliance folded into Caregivers; orientation only)', /Pressing done also adds them to the caregiver roster \(hire date today\)\. Caregivers, Orientation &amp; Training then tracks their orientation\./.test(G));
   const tab = html.slice(html.indexOf('<section class="tabpanel" id="tab-cgorient">'), html.indexOf('<section class="tabpanel" id="tab-cgtraining">'));
   ck('tab: the old "How This Tab Works" guide is gone', !/How This Tab Works/.test(tab) && !/guide-body-orient"/.test(tab));
   const iWc = tab.indexOf('id="wc-section"'), iReady = tab.indexOf('id="orient-ready-queue"'), iOffice = tab.indexOf('id="orient-office"');
