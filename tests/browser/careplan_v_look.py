@@ -114,6 +114,13 @@ async()=>{
   const ap=()=>c('[data-cpva="approve"]');
   ok('Approve is locked: report-if, preferences, medicines, the question, the owner reviews and the services tick', ap().disabled && /Report to the office if/i.test(txt()) && /needs an owner's review/.test(txt()) && /I checked that each task/.test(txt()));
   ok('no urgent button for a start that is not urgent', !c('[data-cpva="approveurgent"]'));
+  ok('"Not needed for this task" is offered on an empty preferences part, never on safety or report-if (and not on a filled equipment part)', !!c('[data-cpva="na"][data-i="0"][data-k="preferences"]') && !c('[data-cpva="na"][data-k="safety"]') && !c('[data-cpva="na"][data-k="report_if"]') && !c('[data-cpva="na"][data-i="0"][data-k="equipment"]'));
+  c('[data-cpva="na"][data-i="0"][data-k="preferences"]').click(); await sleep(30);
+  { const vv=CPV._plan(a).versions[0], t0=vv.tasks[0];
+    ok('one tap: preferences answered as not needed, the check for it clears, and it is left out of the AxisCare instructions', t0.parts.preferences.na && /Not needed for this task/.test(txt()) && !CPV.gate(a,vv).cs.some(x=>x.key==='pref_'+t0.id) && !/THEIR PREFERENCES/.test(CPV.instructions(t0)) && /Bathing - Shower: their preferences marked not needed/.test(JSON.stringify(vv.history)));
+    ok('...report-if is still required', CPV.gate(a,vv).cs.some(x=>x.key==='task_'+t0.id && !x.ok && /report to the office if/.test(x.label))); }
+  c('[data-cpva="naundo"][data-i="0"][data-k="preferences"]').click(); await sleep(30);
+  ok('"Write it instead" brings the box back, marked Ask before approving', !!c('[data-cpv="task.0.preferences"]') && c('[data-cpv="task.0.preferences"]').classList.contains('cpv-ask'));
   /* a coordinator can't clear a high-risk concern */
   ok("a coordinator sees the concerns but can't mark them reviewed", !c('[data-cpva="riskok"]'));
   ctype('[data-cpv="task.0.report_if"]','Dizzy standing, a new bruise, or she refuses two showers in a row.');

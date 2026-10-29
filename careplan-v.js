@@ -224,7 +224,10 @@
     add('scope', 'I checked that each task is within our services and the caregiver\'s training', v.scope_ok, true, 'scope');
     return out;
   }
-  const partEmpty = (t, k) => { const x = t.parts && t.parts[k]; return k === 'how' ? !x || !(x.steps || []).some((s) => !nil(s.text)) : !x || nil(x.text); };
+  /* 2026-10-29 (her "Add the Not needed tap for equipment and preferences only"): one tap answers those two for a task they
+     don't apply to; safety and report-if must always be written */
+  const NA_PARTS = ['equipment', 'preferences'];
+  const partEmpty = (t, k) => { const x = t.parts && t.parts[k]; if (x && x.na && NA_PARTS.indexOf(k) > -1) return false; return k === 'how' ? !x || !(x.steps || []).some((s) => !nil(s.text)) : !x || nil(x.text); };
   function gate(a, v) {
     const cs = checks(a, v), urgent = urgentWhy(a, v);
     const essentialOk = cs.filter((c) => c.essential).every((c) => c.ok), allOk = cs.every((c) => c.ok);
@@ -316,7 +319,7 @@
   }
   /* AxisCare: only an approved version; per-task results; ACTIVE only when every plan task reads back */
   function instructions(t) {
-    const p = t.parts || {}, line = (k, l) => { const x = p[k]; if (k === 'how') { const st = ((x && x.steps) || []).map((s, i) => (i + 1) + '. ' + s.text); return st.length ? l.toUpperCase() + ':\n' + st.join('\n') : ''; } return x && x.text ? l.toUpperCase() + ': ' + x.text : ''; };
+    const p = t.parts || {}, line = (k, l) => { const x = p[k]; if (k === 'how') { const st = ((x && x.steps) || []).map((s, i) => (i + 1) + '. ' + s.text); return st.length ? l.toUpperCase() + ':\n' + st.join('\n') : ''; } return x && x.text && !x.na ? l.toUpperCase() + ': ' + x.text : ''; };
     return PARTS.map(([k, l]) => line(k, l)).filter(Boolean).join('\n').slice(0, 2000);
   }
   async function send() {
@@ -400,7 +403,8 @@
         ? (edit ? '<div><textarea class="cpv-f' + (!(how.steps || []).length ? ' cpv-ask' : '') + '" rows="4" data-cpv="task.' + i + '.how" placeholder="Ask before approving. One step per line, in order.">' + E((how.steps || []).map((s) => s.text).join('\n')) + '</textarea>'
             + ((how.steps || []).some((s) => (s.src || []).length) ? '<div class="cpv-src">' + (how.steps || []).map((s, j) => (j + 1) + ': ' + E(srcText(s.src) || 'written by a person')).join('<br>') + '</div>' : '') + '</div>'
           : '<ol style="margin:6px 0 0;padding-left:18px">' + (how.steps || []).map((s) => '<li>' + E(s.text) + '</li>').join('') + '</ol>')
-        : lineHtml('task.' + i + '.' + k, p[k], edit, 2))).join('') + '</div></div>';
+        : NA_PARTS.indexOf(k) > -1 && p[k] && p[k].na ? '<div class="cpv-ro"><span class="cpv-tag">Not needed for this task</span>' + (edit ? ' <button type="button" class="cpv-b2" data-cpva="naundo" data-i="' + i + '" data-k="' + k + '">Write it instead</button>' : '') + '</div>'
+        : '<div>' + lineHtml('task.' + i + '.' + k, p[k], edit, 2) + (edit && NA_PARTS.indexOf(k) > -1 && partEmpty(t, k) ? '<button type="button" class="cpv-b2" style="min-height:36px;font-size:13px;margin-top:4px" data-cpva="na" data-i="' + i + '" data-k="' + k + '">Not needed for this task</button>' : '') + '</div>')).join('') + '</div></div>';
   }
   function checksHtml(a, v) {
     const g = gate(a, v), edit = v.status === 'draft';
@@ -526,6 +530,9 @@
       if (act === 'day') { const t = v.tasks[+b.getAttribute('data-i')], d = b.getAttribute('data-v'); t.days = (t.days || []).indexOf(d) > -1 ? t.days.filter((x) => x !== d) : (t.days || []).concat([d]); t.edited_sched = true; }
       else if (act === 'deltask') { const t = v.tasks.splice(+b.getAttribute('data-i'), 1)[0]; log(v, 'Removed ' + (t && t.name)); }
       else if (act === 'scope') { v.scope_ok = v.scope_ok ? null : { by: me(), at: now() }; log(v, v.scope_ok ? 'Checked each task is within our services and the caregiver\'s training' : 'Unticked the services check'); }
+      else if (act === 'na' || act === 'naundo') { const t = v.tasks[+b.getAttribute('data-i')], k = b.getAttribute('data-k'); if (!t || NA_PARTS.indexOf(k) < 0) return;
+        t.parts[k] = act === 'na' ? { text: '', src: [], ask: false, edited: true, na: true } : { text: '', src: [], ask: true, edited: true };
+        log(v, t.name + ': ' + (k === 'equipment' ? 'equipment and supplies' : 'their preferences') + (act === 'na' ? ' marked not needed' : ' to be written')); }
       else if (act === 'askdone') { const i = b.getAttribute('data-i'); v.asks_done = v.asks_done || {}; v.asks_done[i] = !v.asks_done[i]; }
       else if (act === 'riskok') { if (!isOwner()) return; const k = b.getAttribute('data-k'), n = (document.getElementById('cpvRisk_risk_' + k) || {}).value || ''; if (n.trim().length < 3) { S.msg = 'Say how the plan handles it.'; return render(); }
         v.owner_reviews = v.owner_reviews || {}; v.owner_reviews[k] = { by: me(), at: now(), note: n.trim() }; log(v, 'Owner reviewed: ' + k);
