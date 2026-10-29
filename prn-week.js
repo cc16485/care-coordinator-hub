@@ -184,7 +184,7 @@
       return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + sig + blk + '</div>'; }).join('') : '<div class="field-note">Nobody is on the PRN CNA Team yet.</div>';
     var older = (oc.offers || []).filter(function (o) { return o.pattern !== 'not_now'; });
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
-      + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1190). Asks, misses and signatures show once it has run.</div>' : '')
+      + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1191). Asks, misses and signatures show once it has run.</div>' : '')
       + (!oc.signup_live ? '<div class="field-note" style="margin-top:4px;"><b>Sign-up on their page is off</b> (Settings, PRN Teams): members can\'t ask for shifts yet, and you can put anyone on call without a signature.</div>' : '')
       + '<div class="field-note">Two shifts a day: daytime 7am to 5pm, overnight 5pm to 7am. Members sign up one shift at a time on their PRN Team page after signing the On-Call Expectations; you confirm each one. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
       + '<div class="field-note" style="margin-top:6px;"><b>' + gaps + ' open shift' + (gaps === 1 ? '' : 's') + '</b> in the next 4 weeks.</div>'

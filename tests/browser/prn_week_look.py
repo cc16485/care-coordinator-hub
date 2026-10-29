@@ -86,7 +86,7 @@ async()=>{
   await PW.load(); await sleep(50);
   ok('payroll counts by month, missed ones not paid, counts only, never dollars', /On-call shifts for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day, 1 missed \(not paid\)/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(txt().split('On-call shifts for payroll')[1]||''), txt());
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:false }); await PW.load(); await sleep(30);
-  ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1190\)/.test(txt()));
+  ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1191\)/.test(txt()));
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:true, shift_live:false }); await PW.load(); await sleep(30);
   /* a non-owner with the switch off sees nothing */
   CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator']; await PW.load();

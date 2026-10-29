@@ -4,7 +4,7 @@ server call is answered here, nothing is sent or saved. (PORT=<static server por
 import os, json
 from playwright.sync_api import sync_playwright
 PORT = os.environ.get('PORT', '8811')
-TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again."
+TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts."  # her approved words, all six points (the server sends these)
 def slots():
     out = []
     for i in range(28):
@@ -42,6 +42,8 @@ with sync_playwright() as pw:
     b, pg, calls, errs = page(pw, LINK, lambda body: (200, V) if body.get('action') == 'view' else (200, { 'ok': True, 'message': 'Thank you, Grace. You can sign up for on-call shifts now.' }))
     t = pg.inner_text('#oncall')
     ok('24: not signed: the expectations, word for word, a box and their name; no shifts yet', 'PRN CNA On-Call Expectations' in t and "you won't be paid for that on-call shift" in t and pg.locator('#ocAgree').count() == 1 and pg.locator('[data-ocp]').count() == 0, t)
+    pg.locator('#oncall').screenshot(path=os.environ.get('SHOT', '/tmp/prn_oncall_sign.png'))
+    ok('...all six points show', all(f'{i}. ' in t for i in range(1, 7)), t)
     ok('...an On call link in the menu', 'On call' in pg.inner_text('nav'))
     pg.fill('#ocName', 'Grace Hill'); pg.click('#ocSign'); pg.wait_for_timeout(150)
     ok('...the box first: nothing is sent', not any(c.get('action') == 'oncall_sign' for c in calls) and 'Check the box' in pg.inner_text('#ocSignMsg'))
