@@ -11,6 +11,7 @@
      PRN STEP 5b: open shifts they can pick up, each with "I'm Interested" (a Yes on that shift; a coordinator always confirms
      in AxisCare). Only shifts the office's own ask list would offer them; clients they know first; a client's first name only
      when they know them. Switch ops_settings.prn_open_shifts_live (off: not shown to members; the office preview shows them).
+     PRN STEP 6: the month's PRN Team update at the top (the last one sent, for 40 days).
      Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
      Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
      ============================================================ -->
@@ -179,6 +180,12 @@ function render() {
     + '<nav><a href="#shifts">Shifts</a><a href="#clients">My clients</a><a href="#thanks">Thank-yous</a><a href="#hours">My hours</a><a href="#learn">Learn</a><a href="#talk">Talk to us</a></nav>'
     + '<main>'
     + (h.break_until ? '<div class="card update"><h3>You\'re on a break until ' + esc(dWord(h.break_until, { weekday: 'long', month: 'short', day: 'numeric' })) + '</h3><p>We won\'t text you about shifts until then. Welcome back anytime: end your break under My hours.</p></div>' : '')
+    + (d.update ? '<div class="card update" id="monthly"><h3>' + esc(d.update.title) + '</h3>'
+        + (d.update.facts || []).map((f) => '<p>' + esc(f) + '</p>').join('')
+        + (d.update.paragraph ? '<p style="margin-top:8px;white-space:pre-wrap">' + esc(d.update.paragraph) + (d.update.from ? '<br><b>' + esc(d.update.from) + '</b>' : '') + '</p>' : '')
+        + (d.update.kind_word ? '<p class="kind" style="margin-top:8px">"' + esc(d.update.kind_word) + '"<small>Kind words from a family</small></p>' : '')
+        + (d.update.tip ? '<p style="margin-top:8px"><b>Something new:</b> ' + esc(d.update.tip) + '</p>' : '')
+        + '<p class="small" style="margin-top:8px">' + esc(d.update.steady) + ' <a href="sms:+14172348494">Text us</a></p></div>' : '')
     + '<div class="card"><div class="look"><div><b>I\'m looking for hours</b><div class="small">Let the office know you\'d like work this week.</div></div><button class="switch' + (d.looking && d.looking.on ? ' on' : '') + '" id="lookSw" aria-label="I\'m looking for hours" aria-pressed="' + (d.looking && d.looking.on ? 'true' : 'false') + '"></button></div>'
     + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
     + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'

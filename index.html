@@ -4708,6 +4708,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <textarea id="set_prn_page_ready_msg" rows="3"></textarea>
 <label>The 60-day check-in, opening their page</label>
 <textarea id="set_prn_reconfirm_page_msg" rows="3"></textarea>
+<label>The monthly PRN Team update text (PRN step 6; also <code>{month}</code>, last month's name)</label>
+<textarea id="set_prn_monthly_msg" rows="3"></textarea>
+<p class="hint" style="margin-top:4px;">The monthly update itself is written and sent from PRN Teams, This week. Never 9pm to 8am; each member gets it at most once a month.</p>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
   <button class="primary" onclick="prnStep5Save(this)">Save</button>
   <span class="field-note" id="prnStep5Status"></span>
@@ -7649,7 +7652,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=6"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15927,12 +15930,17 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_open_shifts_live', name:'Open shifts and "I\'m Interested" on the PRN Team page', needsPage:true,
     on:'Members see open one-time shifts their ask list would offer them (clients they know first) and can tap I\'m Interested. That is a Yes on the shift: the office gets the Yes card, and nobody is scheduled until a coordinator confirms in AxisCare.',
     off:'Off: members don\'t see open shifts. You can still see what they would see in What they see.' },
+  /* PRN STEP 6: the monthly PRN Team update (prn-week monthly/monthly_save/monthly_send) */
+  { key:'prn_monthly_live', name:'Send the monthly PRN Team update', needsPage:true,
+    on:'In PRN Teams, This week, "Save and send" texts every PRN member a short line with their own page link; the update shows at the top of their page.',
+    off:'Off: you can write and save the update in PRN Teams, This week, but nothing is sent.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
+const PRN_MONTHLY_DEFAULT = "Hi {first_name}, the Caring Companions PRN Team update for {month} is on your PRN Team page: {link} Thank you for standing in the gap with us.";
 const PRN_RECONFIRM_PAGE_DEFAULT = "Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update on your PRN Team page: {link}";
 function prnStep5Fill(){
   const st = DATA.ops_settings||{};
-  [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT]].forEach(([id,k,d])=>{
+  [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT],['set_prn_monthly_msg','prn_monthly_msg',PRN_MONTHLY_DEFAULT]].forEach(([id,k,d])=>{
     const t = document.getElementById(id); if(t){ t.value = String(st[k]||''); t.placeholder = d; } });
   const box = document.getElementById('prnStep5Switches'); if(!box) return;
   const pageOpen = st.prn_page_live===true;
@@ -15944,7 +15952,7 @@ function prnStep5Fill(){
 }
 async function prnStep5Save(btn){
   const s = document.getElementById('prnStep5Status');
-  const msgs = [['set_prn_page_ready_msg','prn_page_ready_msg','"page is ready" wording'],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg','check-in page wording']]
+  const msgs = [['set_prn_page_ready_msg','prn_page_ready_msg','"page is ready" wording'],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg','check-in page wording'],['set_prn_monthly_msg','prn_monthly_msg','monthly update text']]
     .map(([id,k,n])=>[k,n,String((document.getElementById(id)||{}).value||'').trim()]);
   for(const [,,m] of msgs){
     if(/\u2014/.test(m)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }
@@ -41509,7 +41517,18 @@ function covWordingPreview(c){
         +'<b>Works with this client:</b> '+esc(m.tier1)+'<br style="margin-bottom:4px;"><b>Everyone else:</b> '+esc(m.other))
     +'</div>'
     +'<div style="margin-top:6px;"><button class="ghost" style="font-size:12px;padding:4px 10px;" onclick="covEditWording(\''+esc(c.id)+'\')">✏️ Change the wording</button>'
-    +((c.msg_tier1||c.msg_other||c.msg_interest||c.care_note)?'<span class="field-note" style="margin-left:8px;">Edited for this shift.</span>':'')+'</div>';
+    +((c.msg_tier1||c.msg_other||c.msg_interest||c.care_note)?'<span class="field-note" style="margin-left:8px;">Edited for this shift.</span>':'')+'</div>'
+    /* PRN step 5b / decision 13 (2026-10-28): "Keep off the PRN page", unticked by default. Ticked, the shift never shows as
+       an open shift on any PRN member's page (texts are unchanged). */
+    +(c.status==='open'&&String(c.kind)!=='interest'&&!covIsOngoing(c)?'<label style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;font-size:13px;"><input type="checkbox" style="width:auto;margin-top:2px;"'+(c.prn_page_off===true?' checked':'')+' onchange="covPrnPageOff(\''+esc(c.id)+'\',this.checked)">'
+      +'<span><b>Keep off the PRN page</b> <span class="field-note">Ticked, this shift never shows as an open shift on PRN members\' pages (for example a sensitive family situation). Texts are unchanged.'+(c.prn_page_off===true&&c.prn_page_off_by?' Ticked by '+esc(c.prn_page_off_by)+'.':'')+'</span></span></label>':'');
+}
+async function covPrnPageOff(id,on){
+  const c=(DATA.coverage_cases||[]).find(x=>x.id===id); if(!c) return;
+  if(on){ c.prn_page_off=true; c.prn_page_off_by=ccActor().name; c.prn_page_off_at=new Date().toISOString(); }
+  else{ delete c.prn_page_off; delete c.prn_page_off_by; delete c.prn_page_off_at; }
+  await persist('coverage_cases',c);
+  const box=document.getElementById('covWord_'+id); if(box) box.innerHTML=covWordingPreview(c);
 }
 /* What the editor shows: the case's own wording if it has one, else the
    agency template with {client}/{when}/{pattern} already filled in, so what
