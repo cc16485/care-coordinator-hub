@@ -358,7 +358,9 @@
     s.textContent = '#hvRoot{position:fixed;inset:0;z-index:4000;display:flex;background:#F7F5F0;color:#1E2B2F;font-size:15px;-webkit-text-size-adjust:100%}'
       + '#hvRoot *{box-sizing:border-box}'
       + '.hv-rail{width:232px;flex:none;background:#fff;border-right:1px solid #E4E0D8;padding:22px 14px;display:flex;flex-direction:column;gap:4px;overflow-y:auto}'
-      + '.hv-rail .hv-brand{font-size:12px;font-weight:700;color:#1F6F78;letter-spacing:.06em;padding:0 12px 6px}'
+      + '.hv-rail .hv-brand{padding:0 12px 14px}.hv-rail .hv-brand img{display:block;width:100%;max-width:190px;height:auto}'
+      + '.hv-barlogo{display:none;height:34px;width:auto;flex:none}'
+      + '@media (max-width:600px){.hv-bar{padding:0 14px;gap:10px}.hv-bar .hv-tag{display:none}.hv-barlogo{height:28px}}'
       + '.hv-rail .hv-who{padding:0 12px 16px}.hv-rail .hv-who b{font-size:18px;display:block}'
       + '.hv-rail button{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border-radius:10px;color:#3B4A4F;background:none;border:none;font:inherit;font-size:15px;text-align:left;cursor:pointer}'
       + '.hv-rail button.on{background:#E3F0EF;color:#14565D;font-weight:700}'
@@ -404,12 +406,12 @@
       + '.hv-li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #EEEAE3}.hv-li span:first-child{color:#465255}.hv-li span:last-child{font-weight:600;text-align:right}'
       + '.hv-note{background:#FFF8E8;border:1px solid #F5D9A0;border-radius:10px;padding:10px 12px;font-size:14px}'
       + '.hv-foot{display:flex;justify-content:space-between;gap:12px;max-width:1100px;margin-top:18px}'
-      + '@media (max-width:900px){#hvRoot{flex-direction:column}.hv-rail{width:auto;flex-direction:row;padding:8px;border-right:none;border-bottom:1px solid #E4E0D8;overflow-x:auto}.hv-rail .hv-brand,.hv-rail .hv-who,.hv-rail .hv-gap{display:none}.hv-rail button{white-space:nowrap}'
+      + '@media (max-width:900px){#hvRoot{flex-direction:column}.hv-rail{width:auto;flex-direction:row;padding:8px;border-right:none;border-bottom:1px solid #E4E0D8;overflow-x:auto}.hv-rail .hv-brand,.hv-rail .hv-who,.hv-rail .hv-gap{display:none}.hv-barlogo{display:block}.hv-rail button{white-space:nowrap}'
       + '.hv-cols,.hv-g2,.hv-g3,.hv-act{grid-template-columns:minmax(0,1fr)}.hv-week{grid-template-columns:repeat(auto-fill,minmax(124px,1fr))}.hv-person{grid-template-columns:36px minmax(0,1fr) 44px;grid-template-areas:"av n x" ". r ." ". s s"}.hv-body{padding:16px}}';
     document.head.appendChild(s);
   }
   function railHtml() {
-    return '<div class="hv-brand">CARING COMPANIONS</div><div class="hv-who"><b>' + E(ST.a.client_name || 'Home visit') + '</b><span class="hv-n">Home visit, ' + E(ST.a.visit_date || '') + '</span></div>'
+    return '<div class="hv-brand"><img src="cc-logo.png" alt="Caring Companions"></div><div class="hv-who"><b>' + E(ST.a.client_name || 'Home visit') + '</b><span class="hv-n">Home visit, ' + E(ST.a.visit_date || '') + '</span></div>'
       + SECS.map((t, i) => '<button type="button" data-hvs="' + i + '" class="' + (i === ST.sec ? 'on' : (ST.a.visit.seen || {})[i] ? 'done' : '') + '"' + (i === ST.sec ? ' aria-current="step"' : '') + '><span class="hv-num">' + (i + 1) + '</span>' + E(t) + '</button>').join('')
       + '<div class="hv-gap" style="flex:1"></div><button type="button" data-hva="close"><span class="hv-num">×</span>Close</button>';
   }
@@ -418,7 +420,8 @@
     const secs = rec ? Math.floor((Date.now() - REC.startedAt) / 1000) : 0;
     const clock = Math.floor(secs / 3600) + ':' + String(Math.floor(secs / 60) % 60).padStart(2, '0') + ':' + String(secs % 60).padStart(2, '0');
     const n = (ST.a.visit.attendees || []).filter((p) => p.name).length;
-    return '<span class="hv-dot' + (rec ? ' rec' : '') + '"></span><strong style="font-variant-numeric:tabular-nums">' + (rec ? 'Recording ' + clock : 'Not recording') + '</strong>'
+    /* 2026-10-29 (Samantha: "add our logo to the assessment screen on the ipad"): the rail shows it sideways; upright and on a phone the rail is a tab strip, so the bar carries it */
+    return '<img class="hv-barlogo" src="cc-logo.png" alt="Caring Companions"><span class="hv-dot' + (rec ? ' rec' : '') + '"></span><strong style="font-variant-numeric:tabular-nums">' + (rec ? 'Recording ' + clock : 'Not recording') + '</strong>'
       + (n ? '<span class="hv-n" style="font-size:15px">' + n + ' ' + (n === 1 ? 'person' : 'people') + ' in the room</span>' : '')
       + '<span class="hv-tag" id="hvSaved">Saves as you go</span><span style="flex:1"></span>'
       + (rec ? '<button type="button" class="hv-b2 hv-stop" data-hva="stoprec">Stop recording</button>' : '');
