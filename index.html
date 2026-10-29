@@ -1145,7 +1145,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
     <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
     <div class="ftab" data-g="hr" onclick="ccGroupClick('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> HR<span class="subtab-badge red" id="gb-hr" style="display:none"></span></div>
-    <div class="ftab" data-g="caregivers" onclick="ccGroupClick('caregivers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training &amp; Compliance</div>
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
@@ -1229,11 +1228,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span style="flex:1 1 auto;"></span>
     <div class="fpill" style="margin-left:auto;" data-tab="apjourney" onclick="switchTab('apjourney')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Applicant journey</div>
   </div>
-  <div class="fsubbar" id="fsub-caregivers">
-    <div class="fpill" data-tab="trainhub" onclick="switchTab('trainhub')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training</div>
-    <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training Compliance</div>
-    <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Ongoing Background Checks</div>
-  </div>
   <!-- Performance folded into Caregivers (her call, 2026-09-20): every one
        of these tabs is per-caregiver material, and the directory is now the
        front door. Caregiver 360 RETIRED (her call, same day): its cards now
@@ -1242,6 +1236,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-cgdir">
     <div class="fpill" data-tab="cgdir" onclick="switchTab('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Directory</div>
     <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
+    <!-- 2026-10-28 (Samantha): Training & Compliance folded into Caregivers. With orientation the only required training,
+         it no longer needs its own section; background checks and training are facts about each current caregiver. -->
+    <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Background Checks</div>
+    <div class="fpill" data-tab="cgtraining" onclick="switchTab('cgtraining')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Orientation &amp; Training</div>
+    <div class="fpill" data-tab="trainhub" onclick="switchTab('trainhub')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Training Platform</div>
   </div>
   <!-- Three views of one scheduling operation (IA revised 2026-09-15):
        Cara owns coverage and, since 2026-10-12 (her call), what Schedule Watch
@@ -5560,7 +5559,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <div class="guide-step"><span class="num">2</span>Use the <b>Due Soon</b> and <b>Overdue</b> filters to plan your visits. Due Soon shows anyone within the window set in Settings (default 60 days).</div>
 <div class="guide-step"><span class="num">3</span>During the visit, work through the checklist (punctuality, task completion against the care plan, client interaction, safety practices, EVV/documentation compliance) and rate overall performance.</div>
 <div class="guide-step"><span class="num">4</span>Log a proof link (signed form, upload to Drive). This is what an auditor will ask for.</div>
-<div class="guide-step flag"><span class="num">!</span>Completing a visit here also updates the caregiver's "Last Supervisory Visit Date" in Staffing Hub's Active Compliance tab: same underlying caregiver record, two views.</div>
+<div class="guide-step flag"><span class="num">!</span>Completing a visit here also updates the caregiver's "Last Supervisory Visit Date" on the Caregivers, Background Checks tab: same underlying caregiver record, two views.</div>
 </div>
 </details>
 
@@ -8253,7 +8252,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory'],hr:['hr'],caregivers:['trainhub','cgtraining','cgcompliance'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8662,7 +8661,7 @@ const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
-  cgbackground:'Onboarding', cgorient:'Orientation Video Calls', cgtraining:'Training', cgcompliance:'Active Compliance', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
+  cgbackground:'Onboarding', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
@@ -8671,7 +8670,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
-  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', bookingapp:'Booking App', nursevisits:'Nurse Scheduling', nurseportal:'Nurse Scheduling: what a nurse sees',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', friendsfamily:'Friends &amp; Family',
@@ -14942,7 +14941,7 @@ async function svMirrorToRoster(record){
         await ccCaregiverPut(cg);
       } else alert('The visit is saved, but it could not be matched to exactly one caregiver on the roster'+(vid?' (no caregiver has AxisCare number '+vid+')':' (pick the caregiver so it carries their AxisCare number)')+'. Add the date on their page.');
     }
-  }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on the Training tab.'); }
+  }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on Caregivers, Orientation & Training.'); }
 }
 
 /* The short note (from 2026-11-16): date, caregiver, client, what prompted it, what went well, anything to coach,
@@ -44767,8 +44766,10 @@ function ccOpenRef(sub){
                         communication:'team', conversations:'team', messages:'team',
                         hiring:'interviews', recruit:'interviews', onboard:'interviews',
                         'recruit-onboard':'interviews', recruiting:'interviews',
-                        training:'caregivers', compliance:'caregivers',
-                        'training-compliance':'caregivers',
+                        /* Training & Compliance folded into Caregivers 2026-10-28: its old
+                           links land on the same pages, now Caregivers tabs */
+                        caregivers:'cgdir', training:'cgtraining', compliance:'cgcompliance',
+                        'training-compliance':'cgtraining',
                         'client-care':'clients', clientcare:'clients',
                         newclients:'clientqueue', statesubmissions:'statesubs',
                         overview:'today', reports:'reports',

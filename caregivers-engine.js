@@ -5075,7 +5075,7 @@ async function intakeImport(intakeId, btn){
   if (existing) { openOBModal(existing.id); return; }
   /* Already moved to the caregiver roster (Orientation Video Call done or office Promote): importing again would make a duplicate. */
   const hired = (typeof caregivers !== 'undefined' ? caregivers : []).find(g => g.intake_id != null && g.intake_id !== '' && String(g.intake_id) === String(intakeId));
-  if (hired) { alert(((hired.first || '') + ' ' + (hired.last || '')).trim() + ' is already on the caregiver roster (Training tab). Nothing was imported.'); return; }
+  if (hired) { alert(((hired.first || '') + ' ' + (hired.last || '')).trim() + ' is already on the caregiver roster (Caregivers, Orientation & Training). Nothing was imported.'); return; }
   if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
   let who = '';
   try { const { data:{ session } } = await sb.auth.getSession(); who = (session && session.user && session.user.email) || ''; } catch(e){}
@@ -5642,7 +5642,7 @@ function bgrTriage(r){
     return { stage:'Needs review', waitingOn:'Us', why:'A check is flagged or a reference is negative', next:'Review and decide', group:'attention' };
   // 1b) moved on to the caregiver roster: done here, nothing to import
   if(r.roster && !board)
-    return { stage:'On the caregiver roster', waitingOn:'Nobody', why:'Hired'+(r.roster.hire_date?' '+r.roster.hire_date:'')+'. Training and Compliance track them now', next:'Training tab', group:'roster' };
+    return { stage:'On the caregiver roster', waitingOn:'Nobody', why:'Hired'+(r.roster.hire_date?' '+r.roster.hire_date:'')+'. Caregivers, Orientation & Training tracks them now', next:'Caregivers, Orientation & Training', group:'roster' };
   // 2) submitted but not imported
   if(intake && !board)
     return { stage:'Submitted, not imported', waitingOn:'Us', why:'Their start-link submission has not been imported', next:'Import', group:'nextstep' };
@@ -5696,7 +5696,7 @@ const BGR_GROUPS = [
   { key:'others',       title:'Waiting on others',   note:'reference, applicant, or an external check' },
   { key:'startunknown', title:'Start not confirmed', note:'offer made, no submission, send status not recorded' },
   { key:'ready',        title:'Ready',               note:'all required checks clear' },
-  { key:'roster',       title:'On the caregiver roster', note:'hired; Training and Compliance track them now' },
+  { key:'roster',       title:'On the caregiver roster', note:'hired; Caregivers, Orientation & Training tracks them now' },
   { key:'closed',       title:'Closed',              note:'not hired' },
 ];
 /* "Us" is operational blue (our action), not amber; the waiting states are
@@ -9812,7 +9812,7 @@ function renderWelcomeCalls(){
           <button class="ibtn" onclick="wcAct('${wcEsc(w.id)}','now','',this)">📞 Call them now</button>
         </div>`).join('') : '<div style="font-size:.8rem;color:var(--gray)">Nobody is waiting to book.</div>')
       + `<details style="margin-top:.8rem"${done.some(w => { const r = window.CGP2 && CGP2.rowFor(w.candidate_id); return r && r.photo_path && !r.published; }) ? ' open' : ''}><summary style="cursor:pointer;font-size:.78rem;font-weight:700;color:var(--navy)">Done recently (last 14 days, ${done.length})</summary>
-          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)} <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Finds them in AxisCare (In Training, by phone or email) and sends their orientation link. Never sends twice." onclick="wcOrientLink('${wcEsc(w.id)}',this)">Send orientation link</button>${wcNeedsRoster(w) ? ` <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem;color:#B45309;border-color:#FCD9A8" title="Not on the caregiver roster yet. Adds them with today's hire date so Training and Compliance track them." onclick="wcRosterAdd('${wcEsc(w.id)}',this)">Add to caregiver roster</button>` : ''}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
+          ${done.length ? done.map(w => `<div style="font-size:.78rem;color:var(--navy);padding:.3rem 0;border-bottom:1px solid #f1f1f1;display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .5rem"><span>✓ <b>${wcEsc(wcName(w))}</b> · ${wcDay(w.done_at)}${w.done_by ? ' by ' + wcEsc(String(w.done_by).split('@')[0]) : ''}${w.notes ? ` · <span style="color:var(--gray)">${wcEsc(w.notes)}</span>` : ''}</span> ${cgpBtnHtml(w.candidate_id)} <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem" title="Finds them in AxisCare (In Training, by phone or email) and sends their orientation link. Never sends twice." onclick="wcOrientLink('${wcEsc(w.id)}',this)">Send orientation link</button>${wcNeedsRoster(w) ? ` <button class="ibtn" style="font-size:.7rem;padding:.18rem .55rem;color:#B45309;border-color:#FCD9A8" title="Not on the caregiver roster yet. Adds them with today's hire date so Caregivers, Orientation &amp; Training tracks them." onclick="wcRosterAdd('${wcEsc(w.id)}',this)">Add to caregiver roster</button>` : ''}</div>`).join('') : '<div style="font-size:.78rem;color:var(--gray);padding:.3rem 0">None yet.</div>'}
         </details>`;
   el.innerHTML = `<div style="background:linear-gradient(135deg,#f0f9ff,#fefce8);border:1.5px solid #7DD3FC;border-radius:12px;padding:.85rem 1rem">
     <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
@@ -9838,7 +9838,7 @@ const WC_GUIDE = `<details style="margin-top:.8rem;background:#fff;border:1px so
       <li>Had an interview no-show? Use <b>Call them now</b> on someone waiting.</li>
       <li>During the call, if they are still an applicant in AxisCare, hire them in AxisCare and set their status to <b>In Training</b>. Their phone number or email in AxisCare must match the one they gave us.</li>
       <li>After the call, tick the checklist and press <b>Orientation Video Call done – send orientation link</b>. The Training Platform finds them in AxisCare (In Training, by phone or email, never by name), assigns their courses and sends their orientation link by text and email. Texts only go 8am to 6pm: after 6pm it goes at 9am.</li>
-      <li>Pressing done also adds them to the caregiver roster (hire date today). Training and Compliance then track their orientation.</li>
+      <li>Pressing done also adds them to the caregiver roster (hire date today). Caregivers, Orientation &amp; Training then tracks their orientation.</li>
       <li>If the Hub says they were not found, set them to <b>In Training</b> in AxisCare, then press <b>Send orientation link</b> on their row under <b>Done recently</b>. Until then a card stays on Needs Attention.</li>
       <li>Once their photo is in, the profile chip says <b>Photo in, ready to publish</b>. Open <b>🪪 Caregiver profile</b>, check the photo and the words, and press <b>Publish</b>. The profile must be published before their first shift: until it is, the Hub shows <b>Profile needed before first shift</b> for them.</li>
     </ol>
@@ -10036,13 +10036,13 @@ function wcRosterMsg(r){
   if(r.status === 'already') return 'Already on the caregiver roster' + (r.hire_date ? ' (hire date ' + wcYmdLabel(r.hire_date) + ')' : '') + '.';
   if(r.status === 'save_failed') return 'NOT added to the caregiver roster: the save did not reach the shared workspace'
     + (r.why ? ' (' + r.why + ')' : '') + '. They are still in Background & References. Check your connection, then press Add to caregiver roster on their row under Done recently.';
-  return 'Not added to the caregiver roster: their Background & References record was not found. If they are not on the Training tab, add them there with + Add Caregiver.';
+  return 'Not added to the caregiver roster: their Background & References record was not found. If they are not on Caregivers, Orientation & Training, add them there with + Add Caregiver.';
 }
 /* The button on a Done recently row whose person is not on the roster yet: the retry after a failed save, and the
    catch-up for Orientation Video Calls marked done before this change. */
 async function wcRosterAdd(id, btn){
   const w = WC_ROWS.find(x => String(x.id) === String(id)); if(!w) return;
-  if(!(await ccConfirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nTraining and Compliance then track their orientation. They move out of Background & References. Nothing is sent to them.'))) return;
+  if(!(await ccConfirm('Add ' + wcName(w) + ' to the caregiver roster with today\'s hire date?\n\nCaregivers, Orientation & Training then tracks their orientation. They move out of Background & References. Nothing is sent to them.'))) return;
   if(btn) btn.disabled = true;
   try{ alert(wcRosterMsg(await wcAddToRoster(w))); renderWelcomeCalls(); }
   catch(e){ alert('That did not go through: ' + ((e && e.message) || e) + '\n\nNothing was changed.'); }
@@ -10611,7 +10611,7 @@ async function promoteToCaregiver(candidateId){
   /* 2c: a new hire needs a published caregiver profile before their first shift */
   const live=!!(window.CGP2&&CGP2.isLive&&CGP2.isLive(CGP2.rowFor(c.id)));
   alert(`🎉 ${c.first} ${c.last} has been promoted! They now appear in Training and Active Compliance.`
-    +(live?'':`\n\nProfile needed before first shift: their caregiver profile is not published yet. Publish it (the photo is required) before their first client visit. The Training tab shows it until then.`));
+    +(live?'':`\n\nProfile needed before first shift: their caregiver profile is not published yet. Publish it (the photo is required) before their first client visit. Caregivers, Orientation & Training shows it until then.`));
 }
 async function closeOutCandidate(candidateId){
   const c = candidates.find(x=>x.id===candidateId);
