@@ -46,6 +46,12 @@ async()=>{
   ok('profile: nothing on record: Send orientation link and Verify a past record', /No orientation on record/.test(t) && /Send orientation link/.test(t) && /Verify a past record/.test(t), t);
   await OP.link('2'); await sleep(30);
   ok('Send orientation link: sent, and it says how', CALLS.some(c=>c.action==='send_link' && c.axiscare_id==='2') && /Sent by sms and email/.test(document.getElementById('opSt_2').innerText));
+  STATUS['13']={ ok:true, axiscare_id:'13', state:'missing', date:null, why:'No orientation on record', can_make_certificate:false, proof:null, excluded:false, settings:{}, earlier:[{ training_id:'t-old', completed_at:'2025-09-12', document:'training:prior/rachel-old.pdf' }] };
+  CGD.openId='13'; await OP.profile('13', { id:113 }); t=document.getElementById('cgdOrient').innerText;
+  ok('rehire: the earlier record is offered, with its date and document', /Earlier Training Platform record found: orientation completed Sep 12, 2025/.test(t) && /Use this record/.test(t), t);
+  await OP.useEarlier('13', 0);
+  const ue=CALLS.find(c=>c.action==='verify_record' && c.axiscare_id==='13');
+  ok('Use this record: verified with the earlier document and its own date, after the confirmation', ue && ue.document==='training:prior/rachel-old.pdf' && ue.date==='2025-09-12' && ue.attest===true, ue);
   /* 2. the past-record dialog */
   window.cgdLegacyFor=()=>({ id:12 });
   OP.verifyOpen('2'); await sleep(30);
@@ -55,7 +61,7 @@ async()=>{
   document.getElementById('opVDate').value='2024-03-02'; save(); await sleep(30);
   ok('dialog: nothing saved without the "I looked at it" confirmation', /Confirm you looked/.test(document.getElementById('opVErr').innerText) && !UPLOADS.length);
   document.getElementById('opVAtt').checked=true; save(); await sleep(150);
-  const vr=CALLS.find(c=>c.action==='verify_record');
+  const vr=CALLS.find(c=>c.action==='verify_record' && c.axiscare_id==='2');
   ok('dialog: uploads to the caregiver\'s training folder, then the server saves it with the date and the confirmation', UPLOADS.length===1 && /^training\/12\/orient-\d+-old_orientation\.pdf$/.test(UPLOADS[0]) && vr && vr.document===UPLOADS[0] && vr.date==='2024-03-02' && vr.attest===true, [UPLOADS, vr]);
   ok('dialog: closes when saved', !document.getElementById('opVerify'));
   /* 3. the cleanup list */

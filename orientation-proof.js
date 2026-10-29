@@ -41,7 +41,16 @@
     if (typeof bgrViewProof === 'function') return bgrViewProof(ref);
   }
 
+  /* a rehire: an earlier Training record under the same name, offered for the office to confirm (never linked on its own) */
+  function earlierHtml(st, ax) {
+    return (st.earlier || []).map(function (x, i) {
+      return '<div class="op-earlier">Earlier Training Platform record found: orientation completed ' + e(fmt(x.completed_at)) + ' · <a href="javascript:void 0" onclick="OP.open(\'' + e(x.document) + '\')">View document</a> · '
+        + '<button class="fb" onclick="OP.useEarlier(\'' + e(ax) + '\',' + i + ',this)">Use this record</button></div>';
+    }).join('');
+  }
+  var EARLIER = {};
   function actions(st, ax) {
+    EARLIER[ax] = st.earlier || [];
     var b = [];
     if (st.can_make_certificate && st.state !== 'verified') b.push('<button class="fb" onclick="OP.make(\'' + e(ax) + '\',this)">Make certificate</button>');
     if (st.state === 'missing' || st.state === 'in_progress') b.push('<button class="fb" onclick="OP.link(\'' + e(ax) + '\',this)">Send orientation link</button>');
@@ -74,6 +83,7 @@
     var act = actions(st, ax);
     box.innerHTML = '<div class="card op-card' + (st.state === 'verified' ? '' : ' op-attn') + '"><h3>Orientation &amp; Training</h3>'
       + '<div class="op-row"><b>Agency Orientation</b> <span class="field-note">(required before working)</span><div>' + statusLine(st) + '</div></div>'
+      + earlierHtml(st, ax)
       + (act ? '<div class="op-acts">' + act + '<span class="field-note" id="opSt_' + e(ax) + '"></span></div>' : '')
       + (opt.length ? '<div class="field-note" style="margin-top:8px;">Optional training: ' + opt.join(' · ') + '</div>' : '')
       + (st.excluded ? '<div class="field-note" style="margin-top:6px;">Left out of the orientation audit (office staff or not a caregiver).</div>' : '')
@@ -88,7 +98,7 @@
     catch (x) { box.innerHTML = '<div class="field-note" style="color:var(--red);">Could not check orientation: ' + e(x.message) + '</div>'; return; }
     var rows = (LIST.flagged || []).map(function (f) {
       return '<tr><td><a href="javascript:void 0" onclick="OP.profileOf(\'' + e(f.axiscare_id) + '\')">' + e(f.name) + '</a></td><td>' + e(LABEL[f.state] || f.state) + (f.date ? '<div class="field-note">date on record ' + e(fmt(f.date)) + '</div>' : '') + '</td>'
-        + '<td class="field-note">' + e(f.why) + '</td><td>' + actions(f, f.axiscare_id) + '<span class="field-note" id="opSt_' + e(f.axiscare_id) + '"></span></td></tr>';
+        + '<td class="field-note">' + e(f.why) + earlierHtml(f, f.axiscare_id) + '</td><td>' + actions(f, f.axiscare_id) + '<span class="field-note" id="opSt_' + e(f.axiscare_id) + '"></span></td></tr>';
     }).join('');
     var s = LIST.settings || {};
     box.innerHTML = '<div class="card op-card' + ((LIST.flagged || []).length ? ' op-attn' : '') + '"><h3>Needs orientation proof</h3>'
@@ -132,6 +142,13 @@
   window.OP = {
     profile: profile, cleanup: cleanup, open: open, verifyOpen: verifyOpen,
     profileOf: function (ax) { try { gotoTab('cgdir'); setTimeout(function () { cgdOpenProfile(String(ax)); }, 300); } catch (x) { /* */ } },
+    useEarlier: async function (ax, i, btn) {
+      var x = (EARLIER[ax] || [])[i]; if (!x) return;
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Use the earlier orientation record (completed ' + fmt(x.completed_at) + ')?\n\nConfirm you looked at this document and it shows this same person completed orientation.'))) return;
+      if (btn) btn.disabled = true;
+      try { await call({ action: 'verify_record', axiscare_id: String(ax), date: x.completed_at, document: x.document, attest: true, note: 'Rehire: earlier Training Platform record' }); refresh(ax); }
+      catch (err) { say(err.message); if (btn) btn.disabled = false; }
+    },
     make: async function (ax, btn) {
       if (typeof ccConfirm === 'function' && !(await ccConfirm('Make the orientation certificate from their Training Platform completion?\n\nIt keeps the original completion date and says it was made from that record today.'))) return;
       var st = document.getElementById('opSt_' + ax); if (btn) btn.disabled = true;
