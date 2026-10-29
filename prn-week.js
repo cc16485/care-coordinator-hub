@@ -17,7 +17,7 @@
   var FN = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/prn-week';
   var e = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var W = null, OPEN = {};
-  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'] };
+  var ICON = { thanks: ['♥', '#DCFCE7', '#166534'], milestone: ['★', '#FEF3C7', '#92400E'], hours: ['⏱', '#DBEAFE', '#1E40AF'], checkin: ['☎', '#F1EFE9', '#6E6559'], goback: ['↩', '#E0F2F1', '#0F5F5B'], nobackup: ['⚑', '#FEE2E2', '#991B1B'] };
   var isOwner = function () { try { return typeof ccCan === 'function' && ccCan('manage_settings'); } catch (x) { return false; } };
   var fmt = function (d) { return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; };
 
@@ -35,7 +35,10 @@
     var page = m.axiscare_id ? '<button class="fb" onclick="PW.page(\'' + e(m.axiscare_id) + '\')">Open their page</button>' : '';
     var btns = it.kind === 'thanks' ? '<button class="fb" onclick="PW.open(\'' + e(it.id) + '\')">Open text</button>'
       : it.kind === 'milestone' ? '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'card_mailed\')">Card mailed</button>'
+      : it.kind === 'goback' ? '<button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'yes\')">Glad to go back</button><button class="fb" onclick="PW.goback(\'' + e(it.id) + '\',\'no\')">Rather not</button>'
+      : it.kind === 'nobackup' ? '<button class="fb" onclick="PW.client(\'' + e(it.id) + '\')">Open ' + e(String(it.client || '').split(' ')[0]) + '\'s page</button><button class="fb" onclick="PW.cmark(\'' + e(it.id) + '\',\'intro_planned\')" title="A person gets the family\'s OK and schedules it in AxisCare as normal paid time">Intro visit planned</button>'
       : page + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'called\')">Called</button>';
+    var notThis = it.kind === 'goback' ? '' : '<button class="fb" onclick="PW.' + (it.kind === 'nobackup' ? 'cmark' : 'mark') + '(\'' + e(it.id) + '\',\'not_this_one\')" title="' + (it.kind === 'nobackup' ? 'Takes this line off for this month' : 'Takes this line off') + '">Not this one</button>';
     var draft = it.kind !== 'thanks' || !OPEN[it.id] ? '' :
       '<div class="pw-draft"><div class="field-note" style="margin-bottom:6px;">Drafted for you. Edit it if you like; it goes from the office number under your name.</div>'
       + '<textarea id="pwMsg_' + e(it.id) + '" rows="3" style="width:100%;">' + e(it.draft) + '</textarea>'
@@ -45,8 +48,8 @@
       + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'thanks_sent\')">Thanked another way</button>'
       + '<span class="field-note" id="pwSt_' + e(it.id) + '"></span></div></div>';
     return '<div class="pw-line"><div class="pw-ic" style="background:' + ic[1] + ';color:' + ic[2] + ';">' + ic[0] + '</div>'
-      + '<div style="flex:1;min-width:0;"><b style="color:var(--navy);">' + e(it.title) + '</b> <span class="field-note">· ' + e(it.team) + '</span><div style="font-size:13px;">' + e(it.detail) + '</div></div>'
-      + '<div class="pw-btns">' + btns + '<button class="fb" onclick="PW.mark(\'' + e(it.id) + '\',\'not_this_one\')" title="Takes this line off">Not this one</button></div></div>' + draft;
+      + '<div style="flex:1;min-width:0;"><b style="color:var(--navy);">' + e(it.title) + '</b>' + (it.team ? ' <span class="field-note">· ' + e(it.team) + '</span>' : '') + '<div style="font-size:13px;">' + e(it.detail) + '</div></div>'
+      + '<div class="pw-btns">' + btns + notThis + '</div></div>' + draft;
   }
 
   function weekHtml() {
@@ -56,7 +59,23 @@
       + '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">This week</h3>'
       + '<span class="field-note">' + e(W.owner) + '\'s list · a handful at a time · each one is a tap</span></div>'
       + lines + (W.more ? '<div class="field-note" style="margin-top:6px;">' + W.more + ' more after these.</div>' : '')
-      + '<div class="field-note" style="margin-top:8px;">Coming with later steps: who is looking for hours, interest to review, and clients with no PRN backup who knows them.</div></div>';
+      + '<div class="field-note" style="margin-top:8px;">Coming with later steps: who is looking for hours and interest to review.</div></div>';
+  }
+
+  /* PRN STEP 3: each member's familiar clients (cared for in the last 6 months, no concern either way, didn't say no) */
+  function familiarHtml() {
+    var mem = W.members || [];
+    if (!mem.length) return '';
+    var rows = mem.map(function (m) {
+      var f = m.familiar || { clients: [] }, list = f.clients || [];
+      var chips = list.length ? list.map(function (c) {
+        return '<span class="pw-chip" title="' + e(c.visits + ' visit' + (c.visits === 1 ? '' : 's') + ', last ' + fmt(c.last)) + '">' + (c.star ? '★ ' : '') + e(c.client) + (c.glad ? ' · glad to go back' : '') + '</span>';
+      }).join('') : '<span class="field-note">' + (f.why ? e(f.why.charAt(0).toUpperCase() + f.why.slice(1)) + '.' : 'No familiar clients yet.') + '</span>';
+      return '<div style="padding:6px 0;border-top:1px solid var(--border);"><b style="color:var(--navy);">' + e(m.name) + '</b> <span class="field-note">· ' + (m.team === 'caregiver' ? 'PRN Caregiver Team' : 'PRN CNA Team') + (list.length ? ' · ' + list.length + ' familiar' : '') + '</span><div style="margin-top:4px;">' + chips + '</div></div>';
+    }).join('');
+    return '<div class="card pw-card"><div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">Familiar clients</h3>'
+      + '<span class="field-note">who each member knows · the goal is two to four each · ★ the client favorited them</span></div>'
+      + (W.familiar_note ? '<div class="field-note" style="color:var(--red);margin-top:4px;">' + e(W.familiar_note) + '</div>' : '') + rows + '</div>';
   }
 
   function onCallHtml() {
@@ -86,7 +105,7 @@
     var box = document.getElementById('prnWeek'); if (!box) return;
     if (!W) { box.innerHTML = ''; return; }
     if (!W.live && !isOwner()) { box.innerHTML = ''; return; }
-    box.innerHTML = weekHtml() + onCallHtml();
+    box.innerHTML = weekHtml() + familiarHtml() + onCallHtml();
   }
   async function load() {
     var box = document.getElementById('prnWeek'); if (!box) return;
@@ -103,6 +122,17 @@
       var it = item(id); if (!it) return;
       var ref = kind === 'thanks_sent' ? 'shift:' + it.case_id : it.ref;
       try { await call({ action: 'mark', applicant_id: it.applicant_id, kind: kind, ref: ref }); delete OPEN[id]; await load(); }
+      catch (x) { if (typeof ccAlert === 'function') ccAlert('Could not record it: ' + x.message); else alert('Could not record it: ' + x.message); }
+    },
+    goback: async function (id, answer) {
+      var it = item(id); if (!it) return;
+      try { await call({ action: 'goback_mark', applicant_id: it.applicant_id, ref: it.ref, answer: answer, note: it.answer || '' }); await load(); }
+      catch (x) { if (typeof ccAlert === 'function') ccAlert('Could not record it: ' + x.message); else alert('Could not record it: ' + x.message); }
+    },
+    client: function (id) { var it = item(id); if (!it) return; try { openClientProfile(it.client_ax || it.client); } catch (x) { /* */ } },
+    cmark: async function (id, kind) {
+      var it = item(id); if (!it) return;
+      try { await call({ action: 'client_mark', ref: it.ref, kind: kind }); await load(); }
       catch (x) { if (typeof ccAlert === 'function') ccAlert('Could not record it: ' + x.message); else alert('Could not record it: ' + x.message); }
     },
     send: async function (id, btn) {
