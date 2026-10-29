@@ -216,14 +216,16 @@
   const skillLabel = (k) => { const m = window.CCMatch && (CCMatch.SKILLS || []).find((x) => x.key === k); return (m && m.label) || SKILL_W[k] || k; };
   function needsFrom(a) {
     const v = (a && a.visit) || {}, fc = v.from_call || {}, out = {}, lv = (k) => ((v.acts || {})[k] || {}).level || '';
+    const LW = { standby: 'Stand-by', full: 'Full help', cues: 'Verbal cues', none: 'None', helps: 'Client helps', needed: 'Reminders needed', not_needed: 'Not needed' };
+    const said = (what, k) => what + ': ' + (LW[lv(k)] || lv(k));
     const callOnly = (path, val) => fc[path] || (val != null && fc[path + ':' + val]);
     const skill = (k, val, from) => { out['need_' + k] = { kind: 'need_' + k, value: val, label: skillLabel(k), shown: val === 'required' ? 'Required' : 'No', from }; };
     const yes = (lev, list) => list.indexOf(lev) > -1;
-    if (yes(lv('bathing'), ['standby', 'full'])) skill('bathing', 'required', 'Bathing: ' + lv('bathing')); else if (lv('bathing') === 'none') skill('bathing', 'no', 'Bathing: none');
-    if (yes(lv('dressing'), ['cues', 'standby', 'full'])) skill('dressing_grooming', 'required', 'Dressing: ' + lv('dressing')); else if (lv('dressing') === 'none') skill('dressing_grooming', 'no', 'Dressing: none');
-    if (yes(lv('toileting'), ['standby', 'full'])) skill('toileting', 'required', 'Toileting: ' + lv('toileting')); else if (lv('toileting') === 'none') skill('toileting', 'no', 'Toileting: none');
-    if (yes(lv('eating'), ['cues', 'full'])) skill('feeding', 'required', 'Eating: ' + lv('eating')); else if (lv('eating') === 'none') skill('feeding', 'no', 'Eating: none');
-    if (yes(lv('mobility'), ['standby', 'full'])) skill('walking_wheelchair', 'required', 'Walking: ' + lv('mobility')); else if (lv('mobility') === 'none') skill('walking_wheelchair', 'no', 'Walking: none');
+    if (yes(lv('bathing'), ['standby', 'full'])) skill('bathing', 'required', said('Bathing', 'bathing')); else if (lv('bathing') === 'none') skill('bathing', 'no', said('Bathing', 'bathing'));
+    if (yes(lv('dressing'), ['cues', 'standby', 'full'])) skill('dressing_grooming', 'required', said('Dressing', 'dressing')); else if (lv('dressing') === 'none') skill('dressing_grooming', 'no', said('Dressing', 'dressing'));
+    if (yes(lv('toileting'), ['standby', 'full'])) skill('toileting', 'required', said('Toileting', 'toileting')); else if (lv('toileting') === 'none') skill('toileting', 'no', said('Toileting', 'toileting'));
+    if (yes(lv('eating'), ['cues', 'full'])) skill('feeding', 'required', said('Eating', 'eating')); else if (lv('eating') === 'none') skill('feeding', 'no', said('Eating', 'eating'));
+    if (yes(lv('mobility'), ['standby', 'full'])) skill('walking_wheelchair', 'required', said('Walking', 'mobility')); else if (lv('mobility') === 'none') skill('walking_wheelchair', 'no', said('Walking', 'mobility'));
     if (yes(lv('meals'), ['helps', 'full']) || yes(lv('light_house'), ['helps', 'full'])) skill('meals_housekeeping', 'required', 'Meals or light housekeeping');
     else if (lv('meals') === 'not_needed' && lv('light_house') === 'not_needed') skill('meals_housekeeping', 'no', 'Meals and light housekeeping: not needed');
     if (lv('meds') === 'needed') skill('med_reminders', 'required', 'Medication reminders: needed'); else if (lv('meds') === 'not_needed') skill('med_reminders', 'no', 'Medication reminders: not needed');
@@ -381,7 +383,7 @@
     v.status = 'approved'; v.approved_by = me(); v.approved_email = myEmail(); v.approved_at = now(); v.approved_kind = kind;
     v.risks_at_approval = concerns(a, leadOf(a), v).map((c) => c.key);
     const off = v.needs_off || {}, items = needsFrom(a).filter((x) => !off[x.kind]);
-    v.care_needs = { items: items.map((x) => ({ kind: x.kind, value: x.value, label: x.label, shown: x.shown })), unticked: Object.keys(off).filter((k) => off[k]), status: items.length ? 'sending' : 'none', results: {} };
+    v.care_needs = { items: items.map((x) => ({ kind: x.kind, value: x.value, label: x.label, shown: x.shown })), unticked: needsFrom(a).filter((x) => off[x.kind]).map((x) => x.label), status: items.length ? 'sending' : 'none', results: {} };
     if (kind === 'urgent') {
       v.urgent = { why: g.urgent, finish_by: finishBy(a, v.approved_at), items: g.missingNonessential.map((c) => c.label) };
       await card('finish', a, p, { owner: myEmail(), urgency: 'high', due: v.urgent.finish_by, title: 'Finish ' + (a.client_name || '') + "'s care plan (urgent start)",

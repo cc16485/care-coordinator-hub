@@ -102,7 +102,7 @@ async()=>{
   ok('every check done: approve unlocks', !c('[data-cpva="approve"]').disabled, txt().slice(txt().indexOf('Before approval'),txt().indexOf('Before approval')+900));
   c('[data-cpva="approve"]').click(); await sleep(300);
   let vv=CPV._plan(a).versions[0];
-  ok('approved with the needs; transportation left out by the approver', vv.status==='approved' && vv.care_needs.items.length===nd.length && !vv.care_needs.items.some(x=>x.kind==='need_transportation') && vv.care_needs.unticked.join()==='need_transportation');
+  ok('approved with the needs; transportation left out by the approver', vv.status==='approved' && vv.care_needs.items.length===nd.length && !vv.care_needs.items.some(x=>x.kind==='need_transportation') && vv.care_needs.unticked.join()==='Driving clients to appointments and errands');
   ok('no Start of Care yet: nothing sent, the plan says it waits for Start of Care', vv.care_needs.status==='waiting' && !L.facts.length && /Waiting for Start of Care/.test(txt()));
   /* Start of Care begins */
   window.__T.episode_source=[{ episode_id:'ep1', system:'lead', role:'origin', source_ref:'lead_betty' }];
