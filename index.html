@@ -4711,6 +4711,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>The monthly PRN Team update text (PRN step 6; also <code>{month}</code>, last month's name)</label>
 <textarea id="set_prn_monthly_msg" rows="3"></textarea>
 <p class="hint" style="margin-top:4px;">The monthly update itself is written and sent from PRN Teams, This week. Never 9pm to 8am; each member gets it at most once a month.</p>
+<label>The twice-yearly questions invite (PRN step 7; May and November, weekdays 10am to 5pm)</label>
+<textarea id="set_prn_feedback_msg" rows="3"></textarea>
 <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:8px;">
   <button class="primary" onclick="prnStep5Save(this)">Save</button>
   <span class="field-note" id="prnStep5Status"></span>
@@ -7652,7 +7654,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=6"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=7"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15934,13 +15936,18 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_monthly_live', name:'Send the monthly PRN Team update', needsPage:true,
     on:'In PRN Teams, This week, "Save and send" texts every PRN member a short line with their own page link; the update shows at the top of their page.',
     off:'Off: you can write and save the update in PRN Teams, This week, but nothing is sent.' },
+  /* PRN STEP 7: the twice-yearly questions (prn-page feedback, invite from prn-welcome's weekday run) */
+  { key:'prn_feedback_live', name:'Twice-yearly "What would make PRN better?" questions', needsPage:true,
+    on:'In May and November (the first 30 days), two questions show on their page and each member gets one invite text (weekdays 10am to 5pm, 20 a day). Answers show on This week.',
+    off:'Off: no questions on their page and no invite. You can still see them in What they see while a round is open.' },
 ];
 const PRN_PAGE_READY_DEFAULT = "Hi {first_name}, your Caring Companions PRN Team page is ready: {link} See the shifts we've asked you about, update your hours, or let us know you're looking for hours. It's just for you, so please don't share the link.";
+const PRN_FEEDBACK_DEFAULT = "Hi {first_name}, it's Caring Companions. We'd love to hear from you: two quick questions about the PRN Team are on your page: {link} Thank you for standing in the gap with us.";
 const PRN_MONTHLY_DEFAULT = "Hi {first_name}, the Caring Companions PRN Team update for {month} is on your PRN Team page: {link} Thank you for standing in the gap with us.";
 const PRN_RECONFIRM_PAGE_DEFAULT = "Hi {first_name}! We're updating our Caring Companions PRN Team availability. Are you still available for the times you gave us? Tap to confirm or update on your PRN Team page: {link}";
 function prnStep5Fill(){
   const st = DATA.ops_settings||{};
-  [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT],['set_prn_monthly_msg','prn_monthly_msg',PRN_MONTHLY_DEFAULT]].forEach(([id,k,d])=>{
+  [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT],['set_prn_monthly_msg','prn_monthly_msg',PRN_MONTHLY_DEFAULT],['set_prn_feedback_msg','prn_feedback_msg',PRN_FEEDBACK_DEFAULT]].forEach(([id,k,d])=>{
     const t = document.getElementById(id); if(t){ t.value = String(st[k]||''); t.placeholder = d; } });
   const box = document.getElementById('prnStep5Switches'); if(!box) return;
   const pageOpen = st.prn_page_live===true;
@@ -15952,7 +15959,7 @@ function prnStep5Fill(){
 }
 async function prnStep5Save(btn){
   const s = document.getElementById('prnStep5Status');
-  const msgs = [['set_prn_page_ready_msg','prn_page_ready_msg','"page is ready" wording'],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg','check-in page wording'],['set_prn_monthly_msg','prn_monthly_msg','monthly update text']]
+  const msgs = [['set_prn_page_ready_msg','prn_page_ready_msg','"page is ready" wording'],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg','check-in page wording'],['set_prn_monthly_msg','prn_monthly_msg','monthly update text'],['set_prn_feedback_msg','prn_feedback_msg','questions invite']]
     .map(([id,k,n])=>[k,n,String((document.getElementById(id)||{}).value||'').trim()]);
   for(const [,,m] of msgs){
     if(/\u2014/.test(m)){ if(s) s.textContent='Please use a comma or period instead of an em dash.'; return; }

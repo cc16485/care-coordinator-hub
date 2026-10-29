@@ -12,6 +12,8 @@
      in AxisCare). Only shifts the office's own ask list would offer them; clients they know first; a client's first name only
      when they know them. Switch ops_settings.prn_open_shifts_live (off: not shown to members; the office preview shows them).
      PRN STEP 6: the month's PRN Team update at the top (the last one sent, for 40 days).
+     PRN STEP 7: the twice-yearly "What would make PRN better?" questions (May and November), on call under My hours (PRN CNA
+     Team only, never pay), and more milestones in Thank-yous.
      Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
      Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
      ============================================================ -->
@@ -186,6 +188,10 @@ function render() {
         + (d.update.kind_word ? '<p class="kind" style="margin-top:8px">"' + esc(d.update.kind_word) + '"<small>Kind words from a family</small></p>' : '')
         + (d.update.tip ? '<p style="margin-top:8px"><b>Something new:</b> ' + esc(d.update.tip) + '</p>' : '')
         + '<p class="small" style="margin-top:8px"><a href="sms:+14172348494">' + esc(d.update.steady) + '</a></p></div>' : '')
+    + (d.feedback && !d.feedback.answered ? '<div class="card update" id="feedback"><h3>What would make PRN better?</h3>'
+        + (d.feedback.waiting ? '<p class="small"><b>Waiting:</b> the questions are switched off, so members don\'t see this yet.</p>' : '<p class="small">Two quick questions, open until ' + esc(dWord(d.feedback.until)) + '. Answer one or both. The office reads every answer.</p>')
+        + d.feedback.questions.map((q, i) => '<label class="fld">' + esc(q) + '<textarea id="fbA' + (i + 1) + '" rows="2" maxlength="280" style="width:100%;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-top:6px"></textarea></label>').join('')
+        + '<div class="btns"><button class="b pri" id="fbSend">Send my answers</button></div><p class="msg" id="fbMsg"></p></div>' : '')
     + '<div class="card"><div class="look"><div><b>I\'m looking for hours</b><div class="small">Let the office know you\'d like work this week.</div></div><button class="switch' + (d.looking && d.looking.on ? ' on' : '') + '" id="lookSw" aria-label="I\'m looking for hours" aria-pressed="' + (d.looking && d.looking.on ? 'true' : 'false') + '"></button></div>'
     + '<div class="look-note' + (d.looking && d.looking.on ? ' show' : '') + '" id="lookNote"><input type="text" id="lookTxt" maxlength="200" placeholder="Anything to add? For example: any morning next week" value="' + esc(d.looking && d.looking.note || '') + '">'
     + '<div class="btns"><button class="b pri" id="lookSave">' + (d.looking && d.looking.on ? 'Update my note' : 'Let the office know') + '</button></div>'
@@ -209,7 +215,12 @@ function render() {
     + '<label class="fld">Taking a break?</label>'
     + (h.break_until ? '<p class="small" style="margin-top:6px">You\'re on a break until ' + esc(dWord(h.break_until)) + '.</p><div class="btns"><button class="b" id="brkEnd">End my break now</button></div>'
       : '<p class="small" style="margin-top:6px">Pick the date you\'ll be back. We won\'t text you about shifts until then.</p><input type="date" id="brkDate" min="' + esc(d.today) + '"><div class="btns"><button class="b" id="brkSet">Start my break</button></div>')
-    + '<p class="msg" id="brkMsg"></p></div></section>'
+    + '<p class="msg" id="brkMsg"></p>'
+    + (d.oncall ? '<label class="fld">Would you like to be on call sometimes?</label><p class="small" style="margin-top:4px">' + esc(d.oncall.words) + '</p>'
+        + '<div class="yn" style="flex-wrap:wrap">' + Object.keys(d.oncall.patterns).map((k) => '<button class="chip' + (d.oncall.pattern === k ? ' on' : '') + '" data-oc="' + esc(k) + '">' + esc(d.oncall.patterns[k]) + '</button>').join('') + '</div>'
+        + ((d.oncall.confirmed || []).length ? '<p class="small" style="margin-top:8px"><b>You\'re on call:</b> ' + d.oncall.confirmed.map((c) => esc(dWord(c.start_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (c.end_date !== c.start_date ? ' to ' + esc(dWord(c.end_date, { weekday: 'short', month: 'short', day: 'numeric' })) : '')).join(', ') + '. Thank you!</p>' : '')
+        + '<p class="msg" id="ocMsg"></p>' : '')
+    + '</div></section>'
     + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'
     + '<section id="talk"><h2 class="serif">Talk to us</h2><div class="card"><div class="btns" style="margin-top:0"><a class="b pri" href="sms:+14172348494">Text the office</a><a class="b" href="tel:+14172348494">Call</a><button class="b" id="ideaBtn">Share an idea</button></div>'
     + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
@@ -243,6 +254,11 @@ function wire() {
   if ($('brkSet')) $('brkSet').onclick = async () => { if (!$('brkDate').value) { $('brkMsg').className = 'msg err'; $('brkMsg').textContent = 'Pick the date you\'ll be back.'; return } const r = await act({ action: 'break', until: $('brkDate').value }, $('brkMsg')); if (r && r.ok) setTimeout(load, 1200) }
   if ($('brkEnd')) $('brkEnd').onclick = async () => { const r = await act({ action: 'break', until: '' }, $('brkMsg')); if (r && r.ok) setTimeout(load, 1200) }
   document.querySelectorAll('button.req').forEach((b) => b.onclick = async () => { const r = await act({ action: 'course', slug: b.dataset.slug }, $('crsMsg')); if (r && r.ok) { b.disabled = true; b.textContent = 'Asked ✓' } })
+  if ($('fbSend')) $('fbSend').onclick = async () => { const r = await act({ action: 'feedback', a1: $('fbA1').value, a2: $('fbA2').value }, $('fbMsg')); if (r && r.ok) { $('fbSend').disabled = true; setTimeout(load, 1800) } }
+  document.querySelectorAll('[data-oc]').forEach((b) => b.onclick = async () => {
+    const r = await act({ action: 'oncall', pattern: b.dataset.oc }, $('ocMsg'))
+    if (r && r.ok) document.querySelectorAll('[data-oc]').forEach((x) => x.classList.toggle('on', x === b))
+  })
   $('ideaBtn').onclick = () => $('ideaBox').classList.toggle('show')
   $('ideaSend').onclick = async () => { const r = await act({ action: 'idea', text: $('ideaTxt').value }, $('ideaMsg')); if (r && r.ok) $('ideaTxt').value = '' }
 }
