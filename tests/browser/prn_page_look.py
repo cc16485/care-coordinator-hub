@@ -74,6 +74,17 @@ with sync_playwright() as pw:
 
     src = open('index.html').read()
     ok("step 8b: a Gap Mentor note or set-aside never counts as the client's latest plan review", "filter(x=>x&&!/^mentor_/.test(String(x.kind||''))&&String(x.axiscare_client_id||'')===ax)" in src)
+    # 2026-10-29: "Would you like more hours?" under My hours
+    VM = dict(VIEW, hours=dict(VIEW['hours'], more_hours={ 'answer': None, 'at': None, 'waiting': False }))
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, VM) if body.get('action') == 'view' else (200, { 'ok': True, 'message': 'Thank you, Grace! The office will be in touch about more hours.' }))
+    ht = pg.inner_text('#hours')
+    ok('their page: "Would you like more hours?" under My hours, with "Yes, I\'d like more" and "Not right now"', 'Would you like more hours?' in ht and "Yes, I'd like more" in ht and 'Not right now' in ht, ht)
+    pg.click('[data-mh="yes"]'); pg.wait_for_timeout(200)
+    ok('...a yes is sent with their link and marked', any(c['body'].get('action') == 'more_hours' and c['body'].get('answer') == 'yes' and c['body'].get('t') for c in calls) and pg.locator('[data-mh="yes"]').get_attribute('class').endswith('on') and 'in touch about more hours' in pg.inner_text('#mhMsg'))
+    ok('no page errors (more hours)', not errs, errs); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    ok('...switch off: no question', pg.locator('[data-mh]').count() == 0); b.close()
+
     # STEP 8a: a Gap Mentor's page
     V8 = dict(VIEW, mentor={ 'skills': ['Hoyer lift transfers'], 'waiting': False, 'first_done': False, 'rules': 'You observe, practice and listen. You never change the care plan, diagnose or give medical advice: anything medical goes to the family, their doctor or home health. In an emergency call 911, then the office.',
       'offers': [{ 'id': 7, 'kind': 'refresher', 'kind_label': 'Refresher with a caregiver in the home', 'client_first': 'Ruth', 'visit_date': '2026-11-05', 'visit_time': '09:00-10:00', 'skill': 'Hoyer lift transfers', 'caregiver_first': 'Amy', 'note': None, 'answer': None, 'familiar': True }],
@@ -200,7 +211,7 @@ async()=>{
   (0,eval)(`PRN_T = { at: Date.now(), history: [], shifts: [], tracks: [ { applicant_id:'g', track:'prn_team', team:'cna', since:'2026-10-19', axiscare_caregiver_id:'11', linked_at:'2026-10-27T15:00:00Z' } ],
     apps: { g:{ first_name:'Grace', last_name:'Hill', prn:{} } } }; prnLoad = async()=>PRN_T; prnDashLoad = async()=>{};`);
   const WEEK={ ok:true, today:'2026-10-29', live:true, page_live:false, owner:'Krystal', more:0, familiar_note:null,
-    members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[]}, page:{ last_looked:'2026-10-28T15:00:00Z', looking:{on:true,note:'any morning next week'}, break_until:'2026-11-15',
+    members:[{applicant_id:'g',name:'Grace Hill',team:'cna',axiscare_id:'11',familiar:{why:null,clients:[]}, page:{ last_looked:'2026-10-28T15:00:00Z', looking:{on:true,note:'any morning next week'}, break_until:'2026-11-15', more_hours:{ answer:'yes', at:'2026-10-27T15:00:00Z' },
       signs:{ last_contact:'2026-10-11', last_shift:'2026-09-01', wants_more:20, looking:false, drifting:true, drifting_why:['no answer to the 60-day check-in','no PRN shift in 45+ days'] } }}],
     items:[{id:'looking:g:2026-10-28',kind:'looking',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'looking:2026-10-28',title:'Grace is looking for hours',detail:'"any morning next week". From their PRN Team page.'},
            {id:'course:g:dementia-care',kind:'course',applicant_id:'g',name:'Grace Hill',team:'PRN CNA Team',ref:'course:dementia-care',title:"Grace would like to take Alzheimer's & Dementia Care",detail:'Assign it on the Training Platform.'},
@@ -302,6 +313,7 @@ async()=>{
   const tt=document.getElementById('prnTeams').innerText;
   ok('Our teams (signs, owners as practice): last heard from us, last PRN shift, more hours, and "worth a call" with the two reasons', /Last heard from us: Oct 11 · Last PRN shift: Sep 1 · Would like about 20 hours a week \(practice\)/.test(document.getElementById('prnTeams').innerText)
     && /Worth a call: no answer to the 60-day check-in, no PRN shift in 45\+ days\./.test(document.getElementById('prnTeams').innerText), document.getElementById('prnTeams').innerText);
+  ok('Our teams: their answer to "Would you like more hours?"', /Would like more hours \(told us Oct 27\)/.test(document.getElementById('prnTeams').innerText), document.getElementById('prnTeams').innerText);
   ok('Our teams: looking for hours (her note), on a break, last looked', /Looking for hours \(any morning next week\)/.test(tt) && /On a break until Nov 15/.test(tt) && /Last looked at their page Oct 28/.test(tt), tt);
   const copyBtn=[...document.querySelectorAll('#prnTeams button')].find(b=>/Copy page link/.test(b.innerText));
   try{ Object.defineProperty(navigator,'clipboard',{ value:{ writeText: async(t)=>{ window.__clip=t; } }, configurable:true }); }catch(e){}
@@ -315,7 +327,8 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===13, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===14, sw);
+  ok('Settings: "Would you like more hours?" on their page, off', /"Would you like more hours\?" on their PRN Team page: off/.test(sw), sw);
   ok('Settings: Our teams signs and the "Looking for hours" tag, off', /Our teams signs and the "Looking for hours" tag on ask lists: off/.test(sw), sw);
   ok('Settings: the on-call shift choice, off', /On call: pick the shift when confirming \(daytime, overnight or whole day\): off/.test(sw), sw);
   ok('Settings: on-call sign-up and on call first (the calendar, 2026-10-29), both off', /On call: PRN CNAs sign the On-Call Expectations and sign up by shift on their page: off/.test(sw) && /On call first: an open shift during someone's on-call time goes to them first: off/.test(sw), sw);

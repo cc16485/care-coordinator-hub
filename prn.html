@@ -298,6 +298,9 @@ function render() {
       + '<div class="btns"><button class="b pri" id="hrsSave">Save my hours</button>' + (h.updated_at ? '<button class="b" id="hrsSame">These are still right</button>' : '') + '</div><p class="msg" id="hrsMsg"></p>'
       + (h.updated_at ? '<p class="small">Last updated ' + esc(dWord(h.updated_at)) + '.</p>' : '')
       : '<p class="small">Your days and times can be set once you\'re on the schedule.</p>')
+    /* 2026-10-29 (plan section 3): "Would you like more hours?" here, where the 60-day check-in lands (switch prn_more_hours_live) */
+    + (h.more_hours ? '<label class="fld">Would you like more hours?</label>' + (h.more_hours.waiting ? '<p class="small" style="margin-top:4px"><b>Waiting:</b> this question is switched off, so members don\'t see it yet.</p>' : '')
+        + '<div class="yn"><button class="chip' + (h.more_hours.answer === 'yes' ? ' on' : '') + '" data-mh="yes">Yes, I\'d like more</button><button class="chip' + (h.more_hours.answer === 'no' ? ' on' : '') + '" data-mh="no">Not right now</button></div><p class="msg" id="mhMsg"></p>' : '')
     + '<label class="fld">Is short notice ever OK?</label><div class="yn"><button class="chip' + (sn === true ? ' on' : '') + '" data-sn="yes">Yes, sometimes</button><button class="chip' + (sn === false ? ' on' : '') + '" data-sn="no">No, I need notice</button></div><p class="msg" id="snMsg"></p>'
     + '<label class="fld">Taking a break?</label>'
     + (h.break_until ? '<p class="small" style="margin-top:6px">You\'re on a break until ' + esc(dWord(h.break_until)) + '.</p><div class="btns"><button class="b" id="brkEnd">End my break now</button></div>'
@@ -338,6 +341,10 @@ function wire() {
   if ($('hrsSave')) $('hrsSave').onclick = saveHours
   /* "still right" saves what's on file as it is, which confirms it (and answers the 60-day check-in) */
   if ($('hrsSame')) $('hrsSame').onclick = saveHours
+  document.querySelectorAll('[data-mh]').forEach((b) => b.onclick = async () => {
+    const r = await act({ action: 'more_hours', answer: b.dataset.mh }, $('mhMsg'))
+    if (r && r.ok) document.querySelectorAll('[data-mh]').forEach((x) => x.classList.toggle('on', x === b))
+  })
   document.querySelectorAll('[data-sn]').forEach((b) => b.onclick = async () => {
     const r = await act({ action: 'short_notice', ok: b.dataset.sn === 'yes' }, $('snMsg'))
     if (r && r.ok) document.querySelectorAll('[data-sn]').forEach((x) => x.classList.toggle('on', x === b))

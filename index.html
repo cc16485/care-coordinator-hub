@@ -7678,7 +7678,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=2"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=14"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=15"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15994,6 +15994,10 @@ const PRN_STEP5_SWITCHES = [
     on:'The open shift shows "On call now" with a Call button and Covering it / Didn\'t answer / Didn\'t cover. The automatic texts wait until you record how the call went, at most 20 minutes after the shift opened. A miss: that on-call shift is not paid and they can\'t sign up again.',
     off:'Off: nothing waits. Owners see the "On call now" box on open shifts, marked practice.' },
   /* 2026-10-29 (plan sections 5 and 8): per-person signs in Our teams, and the "Looking for hours" tag on ask lists */
+  /* 2026-10-29 (plan section 3): "Would you like more hours?" on their page, where the 60-day check-in lands */
+  { key:'prn_more_hours_live', name:'"Would you like more hours?" on their PRN Team page', needsPage:true,
+    on:'Under My hours (where the 60-day check-in opens their page), they answer "Yes, I\'d like more" or "Not right now". A yes shows on This week; Our teams shows their answer.',
+    off:'Off: the question isn\'t on their page. You can see it in What they see.' },
   { key:'prn_team_signs_live', name:'Our teams signs and the "Looking for hours" tag on ask lists',
     on:'Our teams shows when we last reached out personally, their last PRN shift, more hours, and "worth a call" only when two signs line up. Ask lists tag PRN members looking for hours. Nothing is sent.',
     off:'Off: only owners see them, marked practice.' },

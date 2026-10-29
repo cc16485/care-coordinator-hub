@@ -239,7 +239,9 @@
         var since = 'On the team since ' + fmt(t.since) + (ax ? (t.linked_at ? ' · linked in AxisCare ' + fmt(t.linked_at) : '') : ' · not linked in AxisCare yet');
         var pg = ((W && W.members) || []).find(function (m) { return m.applicant_id === t.applicant_id; }), pi = (pg && pg.page) || {};
         var pageBits = [pi.looking && pi.looking.on ? '<b style="color:#92400E;">Looking for hours</b>' + (pi.looking.note ? ' (' + e(pi.looking.note) + ')' : '') : '',
-          pi.break_until ? 'On a break until ' + fmt(pi.break_until) : '', pi.last_looked ? 'Last looked at their page ' + fmt(pi.last_looked) : ''].filter(Boolean).join(' · ');
+          pi.break_until ? 'On a break until ' + fmt(pi.break_until) : '', pi.last_looked ? 'Last looked at their page ' + fmt(pi.last_looked) : '',
+          /* 2026-10-29: their answer to "Would you like more hours?" on their page */
+          pi.more_hours ? (pi.more_hours.answer === 'yes' ? '<b style="color:#92400E;">Would like more hours</b>' : 'Not looking for more hours right now') + (pi.more_hours.at ? ' (told us ' + fmt(pi.more_hours.at) + ')' : '') : ''].filter(Boolean).join(' · ');
         /* 2026-10-29 (plan section 8, switch prn_team_signs_live; owners see it as practice): last heard from us, last PRN shift,
            more hours, and "worth a call" only when two signs line up. Never shown as a mark against anyone. */
         var sg = pi.signs, showSigns = sg && W && (W.signs_live || isOwner());
