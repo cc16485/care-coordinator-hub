@@ -55,11 +55,11 @@ async()=>{
   ok('walker from the call: the Walker button is on, with the blue ring', v.equipment.join()==='Walker' && wk.classList.contains('on') && wk.classList.contains('hv-pfrom'));
   ok('short goals from the call go into the three goal boxes, in blue', v.goals.map(g=>g.text).join('|')==='Stay at home.|Eat a real lunch every day.|Get back to church on Wednesdays.' && blue('visit.goals.1.text'));
   ok('filled once, saved', !!v.call_filled_at && L.persists.some(x=>x[0]==='care_assessments' && x[1].visit && x[1].visit.call_filled_at));
-  const st=sec(1).innerText, he=sec(2).innerText, da=sec(3).innerText;
+  const st=sec(2).innerText, he=sec(5).innerText, da=sec(4).innerText+'\n'+sec(6).innerText;
   ok('Their story: a From the phone call card with why now and living situation, saying who said it; goals not repeated (they are in the boxes)', /From the phone call/.test(st) && /Why now\s*a fall, memory getting worse/.test(st) && /Lives alone/.test(st) && /Said by Karen Price \(fake\), Daughter/.test(st) && !/What they hope for/.test(st), st.slice(0,600));
   ok('Health: the card has the health, medicines, other details and safety the call described', /From the phone call/.test(he) && /type 2 diabetes/.test(he) && /Metformin, donepezil/.test(he) && /Oxygen at night/.test(he) && /unsteady in the afternoon/.test(he), he.slice(0,700));
-  ok('Daily activities: the card has the help asked for, daily living and around the home', /Asked for help with\s*Bathing, Dressing/.test(da) && /stand-by help in the shower/.test(da) && /rides to church/.test(da), da.slice(0,700));
-  ok('the levels of need are left for the coordinator to tap (nothing ticked from the call)', !qa('.hv-sec[data-sec="3"] .hv-seg button.on').length);
+  ok('Around the house + Personal care: the cards have the help asked for, daily living and around the home', /Asked for help with\s*Bathing, Dressing/.test(da) && /stand-by help in the shower/.test(da) && /rides to church/.test(da), da.slice(0,700));
+  ok('the levels of need are left for the coordinator to tap (nothing ticked from the call)', !qa('.hv-sec[data-sec="4"] .hv-act .hv-seg button.on, .hv-sec[data-sec="6"] .hv-seg button.on').length);
   const cp=sec(0).innerText;
   ok("people named on the call (not already here) offered with one tap; the caller isn't repeated", /Named on the phone call/.test(cp) && qa('[data-hva="addcallperson"]').map(b=>b.innerText).join('|')==='+ Mike Harlow (fake), Son|+ Dr. Reyes (fake), Doctor', qa('[data-hva="addcallperson"]').map(b=>b.innerText));
   q('[data-hva="addcallperson"][data-v="Mike Harlow (fake)"]').click(); await sleep(50);
@@ -69,7 +69,7 @@ async()=>{
   wk.click(); await sleep(20);
   ok('tapping the call\'s Walker button is a person deciding: the ring goes', !wk.classList.contains('hv-pfrom') && !(v.from_call||{})['visit.equipment:Walker']);
   /* the After screen never offers a box the call filled */
-  q('[data-hvs="8"]').click(); await sleep(250); q('[data-hva="readrec"]').click(); await sleep(250);
+  q('[data-hvs="11"]').click(); await sleep(250); q('[data-hva="readrec"]').click(); await sleep(250);
   const paths=((L.bodies[0]||{}).fields||[]).map(f=>f.path);
   ok("the After screen's reader is never offered a box the call filled", paths.length>20 && !paths.includes('visit.conditions.0.name') && !paths.includes('visit.goals.0.text') && !paths.includes('visit.allergies'), paths.slice(0,8));
   await HV.close(); await sleep(50);
@@ -89,7 +89,7 @@ async()=>{
   await HV.open({ id:'asm_half' }); await sleep(150);
   v=HV._st.a.visit;
   ok('a visit already started: typed answers are never changed (allergies, goals); the same condition is not added twice; the wheelchair is added', v.allergies==='None known' && v.goals[0].text==='Stay home' && v.conditions.filter(c=>/parkinson/i.test(c.name||'')).length===1 && v.equipment.join()==='Wheelchair', v);
-  ok('...a long hope from the call is not squeezed into a goal box: it shows on the card instead', /What they hope for\s*Keep her out of the nursing home/.test(sec(1).innerText) && !v.goals_from_call);
+  ok('...a long hope from the call is not squeezed into a goal box: it shows on the card instead', /What they hope for\s*Keep her out of the nursing home/.test(sec(2).innerText) && !v.goals_from_call);
   await HV.close(); await sleep(50);
   DATA.care_assessments.find(x=>x.id==='asm_half').visit.finished_at='2026-10-29T20:00:00Z';
   DATA.care_assessments.push({ id:'asm_done', lead_id:'lead_betty', client_name:'x', status:'Completed', visit:{ v:1, attendees:[], finished_at:'2026-10-01T00:00:00Z', allergies:'', conditions:[{},{}], goals:[{},{},{}], equipment:[] } });
@@ -123,7 +123,7 @@ with sync_playwright() as pw:
     R.append(['PASS' if ('—' not in txt and not __import__('re').search(r'\bAI\b', txt)) else 'FAIL', 'no "AI" words and no em dashes on the visit screens', ''])
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (820, 1180, 'iPad upright (820 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(120)
-        for i in [0, 1, 2, 3]:
+        for i in [0, 2, 5, 4, 6]:
             pg.evaluate(f"()=>document.querySelector('#hvRoot [data-hvs=\"{i}\"]').click()"); pg.wait_for_timeout(100)
             o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'{name}, screen {i+1}: nothing runs off the side', o])
             if SHOTS:

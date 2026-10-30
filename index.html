@@ -7800,7 +7800,7 @@ The HomeTogether team</pre>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=7"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
-<script src="careplan-v.js?v=4"></script><script src="home-visit.js?v=9"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=10"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -10823,7 +10823,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261018b'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261028b'; sc.onload=go; document.head.appendChild(sc); } }
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261030a'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261028b'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -12509,7 +12509,15 @@ async function lpConvertLead(){
   if(pv.error||!pv.plan){ body.innerHTML='<div>'+esc(pv.error||'Could not build the record.')+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
   if(pv.linked){ body.innerHTML='<div>This lead is already linked to AxisCare client #'+esc(pv.linked)+'.</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
   const P=pv.plan;
-  if(!P.ok){ body.innerHTML='<div style="background:#FDECEA;border:1px solid #F5C2BC;border-radius:8px;padding:10px 12px;color:#8A1F17;">'+P.blockers.map(esc).join('<br>')+'</div><div style="margin-top:12px;">'+closeBtn+'</div>'; wireClose(); return; }
+  /* 2026-10-30 (Samantha: "we need to have a signed agreement before we would make them active in AxisCare", her pick "Wait
+     for it"): the server holds the client back until the Client Care Agreement is signed; paper counts once the office says so */
+  const agBlock=(P.blockers||[]).some(b=>/Client Care Agreement/.test(String(b)));
+  if(!P.ok){ body.innerHTML='<div style="background:#FDECEA;border:1px solid #F5C2BC;border-radius:8px;padding:10px 12px;color:#8A1F17;">'+P.blockers.map(esc).join('<br>')+'</div>'
+      +'<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">'+(agBlock?'<button class="secondary" id="ccvPaper">It was signed on paper</button>':'')+closeBtn+'</div>'; wireClose();
+    const pb=ov.querySelector('#ccvPaper');
+    if(pb) pb.onclick=async()=>{ if(!(await ccConfirm('The family signed a paper Client Care Agreement, and it is in the office? It still needs uploading to AxisCare Documents once the client is set up.'))) return;
+      l.agreement_paper={ by:(ccActor()||{}).email||'', at:new Date().toISOString() }; await persist('leads', l); close(); lpConvertLead(); };
+    return; }
   const phoneKey=P.client.homePhone!=null?'homePhone':(P.client.mobilePhone!=null?'mobilePhone':null);
   const fmt=(k,v)=>k==='residentialAddress'?[v.streetAddress1,v.city,v.state,v.postalCode].filter(Boolean).join(', '):k==='gender'?(v==='M'?'Male (M)':'Female (F)'):k==='dateOfBirth'||/Date$/.test(k)?(function(d){ const q=String(d).slice(0,10).split('-'); return q.length===3?new Date(+q[0],+q[1]-1,+q[2]).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):String(d); })(v):String(v);
   const rows=Object.keys(P.client).filter(k=>k!==phoneKey).map(k=>'<tr><td style="padding:4px 8px;color:var(--text-muted);white-space:nowrap;">'+esc(CCV_LABELS[k]||k)+'</td><td style="padding:4px 8px;font-weight:600;">'+esc(fmt(k,P.client[k]))+'</td></tr>').join('')

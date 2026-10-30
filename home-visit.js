@@ -23,10 +23,17 @@
   const ask = (m) => (typeof ccConfirm === 'function' ? ccConfirm(m) : Promise.resolve(confirm(m)));
   const toast = (m) => { try { ccToast(m); } catch (e) {} };
 
-  /* 2026-10-29 Care plan Stage 2 (her "Stage 2 approved as written"): Home and safety sits between Daily activities and Preferences */
-  const SECS = ['Start the visit', 'Their story', 'Health', 'Daily activities', 'Home and safety', 'Preferences', 'Schedule and level', 'Sign-off', 'After the visit'];
-  const S_ = { start: 0, story: 1, health: 2, daily: 3, home: 4, prefs: 5, plan: 6, sign: 7 };
-  const AFTER = 8;   /* stage 3 (2026-10-29): back at the office, what the recording heard */
+  /* 2026-10-30 (Samantha): "add an About Us as step 2 ... and what is in the folder ... see if they have any questions before we
+     begin talking about care"; "at the end let's do a home walk through if we are starting care" (her pick: Home and safety
+     moves to the end as the walk-through, nothing asked twice); then straight to the Client Care Agreement. */
+  /* 2026-10-30 later the same day (her: "think about the steps in how comfortable it would be to ask in what order as we are
+     getting to know the client, their family, and the clients needs"; she picked this order): friendly topics first, the
+     house before the body, bathing and toileting once there is trust, the price after their story. Daily activities is
+     split: Around the house comes early, Personal care after Health. Good days out is new. */
+  const SECS = ['Start the visit', 'About us', 'Their story', 'Good days out', 'Around the house', 'Health', 'Personal care', 'Preferences', 'Schedule and level', 'Home walk-through', 'Agreement and sign-off', 'After the visit'];
+  const S_ = { start: 0, about: 1, story: 2, outings: 3, house: 4, health: 5, personal: 6, prefs: 7, plan: 8, home: 9, sign: 10 };
+  const AFTER = 11;
+  const secOf = (k) => (PERSONAL.some((r) => r[0] === k) || k === 'personal' ? S_.personal : S_.house);   /* stage 3 (2026-10-29): back at the office, what the recording heard */
   const NCF = [['not_needed', 'Not needed'], ['helps', 'Client helps'], ['full', 'Full help']];
   const NSF = [['none', 'None'], ['standby', 'Stand-by'], ['full', 'Full help']];
   const NF = [['none', 'None'], ['full', 'Full help']];
@@ -188,7 +195,8 @@
       ['Living situation', LIVING_W[f.living_situation] || ''],
       ['What they hope for', ST.a.visit.goals_from_call ? '' : d.client_goals]];
     if (which === 'health') return [['Health', d.medical_conditions], ['Medicines named', d.medications], ['Other health details', l.medical_notes], ['Safety worries', d.safety_concerns]];
-    if (which === 'daily') return [['Asked for help with', (Array.isArray(l.personal_care) ? l.personal_care : []).map((k) => PC_W[k] || k).join(', ')], ['Daily living', d.adl_needs], ['Around the home', d.iadl_needs]];
+    if (which === 'house') return [['Around the home', d.iadl_needs]];
+    if (which === 'personal') return [['Asked for help with', (Array.isArray(l.personal_care) ? l.personal_care : []).map((k) => PC_W[k] || k).join(', ')], ['Daily living', d.adl_needs]];
     return [];
   }
   function callPeople() {
@@ -234,6 +242,7 @@
       equipment: [], equipment_other: '',
       acts: {}, meds: {},
       prefs: { gender: '', spanish: '', cats: '', dogs: '', smoking: '', skills: [], other: '' },
+      about: { shown: [], questions: '' }, outings: { interests: [], picks: [] },
       safety: { ec: {} }, home: {}, shift: [],
       week: {}, start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
       sign: { client: { png: '', name: '', date: '' }, assessor: { png: '', name: me(), date: '' } },
@@ -259,6 +268,10 @@
     const v = a.visit, b = blankVisit(l);
     for (const k of Object.keys(b)) if (v[k] == null) v[k] = b[k];
     for (const k of Object.keys(b.prefs)) if (v.prefs[k] == null) v.prefs[k] = b.prefs[k];
+    /* 2026-10-30 the screens moved (About us is 2nd, the walk-through comes after Schedule and level): old done marks follow them */
+    if (v.seen && !v.seen_v2) { const was = [[0], [2], [5], [4, 6], [9], [7], [8], [10], [11]], now = {}; Object.keys(v.seen).forEach((k) => (was[+k] || []).forEach((n) => { now[n] = v.seen[k]; })); v.seen = now; }
+    v.seen_v2 = true;
+    if (!v.about) v.about = { shown: [], questions: '' };
     return a;
   }
 
@@ -338,6 +351,103 @@
       + pills('visit.attendees.' + i + '.role', [['client', 'Client'], ['primary', 'Primary contact'], ['family', 'Family'], ['poa', 'Legal rep']])
       + '<button type="button" class="hv-x" data-hva="delperson" data-i="' + i + '" aria-label="Remove ' + E(p.name || 'this person') + '">×</button></div>').join('')
       || '<div class="hv-n">Add everyone in the room, and anyone on the phone.</div>';
+  }
+  /* ---------- Housekeeping talking points (2026-10-30, her: "list all the possible housekeeping tasks", the recording fills in
+     the rest). Light: the website's Light Housekeeping page ("What's included") and the folder's Wellness list; heavy: her own
+     paper form's words. Owners change them in Settings > Home visit (ops_settings.visit_house_jobs). ---------- */
+  const HOUSE_JOBS_D = {
+    light_house: ['Dusting', 'Vacuuming', 'Sweeping', 'Dishes', 'Kitchen cleanup', 'Changing bed sheets', 'Tidying the bathroom', 'Tidying the living areas',
+      'Taking out trash and recycling', 'Clearing walkways and stairs', 'Cords, rugs and night lights', 'Keeping daily things within easy reach', 'Sorting the mail', 'Help with pets', 'Adding to the grocery list'],
+    heavy_house: ['Mopping floors', 'Carrying laundry baskets', 'Taking the trash out to the curb'],
+  };
+  const HOUSE_NOT = 'moving furniture, washing outside windows, deep carpet cleaning, anything on a ladder or step stool, or outdoor and yard work';
+  function houseJobs() {
+    const c = (D().ops_settings || {}).visit_house_jobs || {}, pick = (k) => (Array.isArray(c[k]) && c[k].filter(Boolean).length ? c[k].map((t) => String(t).trim()).filter(Boolean) : HOUSE_JOBS_D[k]);
+    return [['light_house', 'Light housekeeping', pick('light_house')], ['heavy_house', 'Heavy housekeeping', pick('heavy_house')]];
+  }
+
+  /* ---------- Good days out (2026-10-30, her: "make another step/tab for Community Outings and pull ideas from our website or
+     even give us the full interactive to get ideas on outings"). The places are the website's own list (mo-care.com/outings,
+     assets/outings.json), read live so the visit always matches the site; the full page opens for the map and week planner.
+     The interests are the website page's own (outings.js INTERESTS). "How outings work" is the Good Days Out flyer. ---------- */
+  const OUT_URL = 'https://mo-care.com/assets/outings.json', OUT_PAGE = 'https://mo-care.com/outings';
+  const OUT_INTERESTS = [['friends', 'Making friends', ['senior-center', 'arts-music-classes']], ['active', 'Staying active', ['exercise', 'park-garden']],
+    ['learning', 'Learning something', ['library', 'museum-history']], ['nature', 'Fresh air and nature', ['park-garden']], ['history', 'History and stories', ['museum-history']],
+    ['arts', 'Music and art', ['arts-music-classes']], ['giving', 'Giving back', ['volunteering']], ['everyday', 'Little errands out', ['everyday']], ['events', 'Festivals and events', ['events-seasonal']]];
+  const OUT_HOW = ['Outings happen during scheduled visits, weekdays or weekends', 'You approve each place before we go', 'The caregiver drives and stays with them the whole time',
+    'Admission, meals and class fees are paid by the family, including the caregiver\'s admission', 'On hot or icy days, we swap in an indoor plan'];
+  const OUTING_BOXES = [['loved', 'What they loved doing, before it got harder'], ['miss', 'Places they miss going'], ['faith', 'Church or faith community'],
+    ['people', 'Friends or groups they would like to see'], ['limits', 'How long they can be out, getting in and out of a car, how far they can walk']];
+  const OUT = { items: null, err: '', busy: false };
+  function outLoad() {
+    if (OUT.items || OUT.busy) return;
+    OUT.busy = true;
+    fetch(OUT_URL, { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error('the website answered ' + r.status); return r.json(); })
+      .then((d) => { OUT.items = Array.isArray(d && d.items) ? d.items : []; }).catch((e) => { OUT.err = String((e && e.message) || e); })
+      .then(() => { OUT.busy = false; const el = document.getElementById('hvPlaces'); if (el) el.innerHTML = placesHtml(); });
+  }
+  function placesHtml() {
+    const ou = ST.a.visit.outings || {}, picks = ou.picks || [], ints = ou.interests || [];
+    if (!OUT.items) return '<div class="hv-n">' + (OUT.err ? 'The places could not be loaded (' + E(OUT.err) + '). Open the website page instead.' : 'Loading places from the website…') + '</div>';
+    const cats = new Set(); OUT_INTERESTS.filter((x) => ints.indexOf(x[0]) > -1).forEach((x) => x[2].forEach((c) => cats.add(c)));
+    const town = String((ST.lead && ST.lead.client_city) || '').trim().toLowerCase();
+    const list = OUT.items.filter((x) => x && (!cats.size || cats.has(x.category)))
+      .sort((a, b) => (String(b.town || '').toLowerCase() === town) - (String(a.town || '').toLowerCase() === town) || (+(a.minutes || 999)) - (+(b.minutes || 999)));
+    const head = '<div class="hv-n">' + (cats.size ? list.length + ' places that fit what they enjoy' : 'Tap what they enjoy above to narrow it down. All ' + list.length + ' places') + (town ? ', ' + E(ST.lead.client_city) + ' first' : '') + '.</div>';
+    return head + '<div class="hv-places">' + list.slice(0, 12).map((x) => { const on = picks.some((p) => p.id === x.id);
+      return '<div class="hv-place' + (on ? ' on' : '') + '"><div><b>' + E(x.name) + '</b><span class="hv-n">' + E(x.town || '') + (x.cost ? ' · ' + E(x.cost) : '') + '</span></div>'
+        + '<div class="hv-pw">' + E(x.what || '') + '</div>' + (x.access ? '<div class="hv-n">' + E(x.access) + '</div>' : '')
+        + '<button type="button" class="hv-b2" data-hva="outpick" data-v="' + E(x.id) + '" aria-pressed="' + on + '">' + (on ? '✓ They\'d like this' : 'They\'d like this') + '</button></div>'; }).join('') + '</div>'
+      + (list.length > 12 ? '<div class="hv-n">' + (list.length - 12) + ' more on the website page.</div>' : '');
+  }
+  function secOutings() {
+    const v = ST.a.visit, ou = v.outings = v.outings || {}, picks = ou.picks || [];
+    return '<h1>Good days out</h1><div class="hv-sub">"When you have a really good day, what are you doing?" Getting out is part of care, not an extra.</div>'
+      + '<div class="hv-g2">'
+      + card('What makes a good day', OUTING_BOXES.map((b) => lab(b[1], field('visit.outings.' + b[0], '', { rows: 2 }))).join(''))
+      + '<div class="hv-stack">'
+      + card('What they enjoy', pills('visit.outings.interests', OUT_INTERESTS.map((x) => [x[0], x[1]]), true))
+      + card('How outings work', '<ul class="hv-pts" style="font-size:15px">' + OUT_HOW.map((t) => '<li>' + E(t) + '</li>').join('') + '</ul>')
+      + '</div></div>'
+      + card('Places near them', '<div id="hvPlaces">' + placesHtml() + '</div>'
+        + '<a class="hv-b2" href="' + OUT_PAGE + '" target="_blank" rel="noopener">Open Good Days Out: every place, the map and the week planner</a>',
+        '<span class="hv-tag">' + picks.length + ' picked</span>');
+  }
+
+  /* ---------- About us (2026-10-30) ----------
+     Her ask: "have the care coordinator give the client/their family an overview of Caring Companions, basically our sales
+     pitch, and what is in the folder that we gave them, and see if they have any questions before we begin talking about care".
+     The talking points are the printed folder's own words (Rev. 10/2026), and owners change them in Settings > Home visit
+     (ops_settings.visit_about). No prices here: the playbook gives the price after their story, on Schedule and level. */
+  const ABOUT_POINTS = [
+    'Our caregivers are our employees, never contractors. Every caregiver is screened, insured and bonded, and we handle the taxes, insurance and backup coverage.',
+    'Care that grows with them, without changing agencies. Wellness, Personal and Advanced Care: every level includes everything in the one before it, and most families start small.',
+    'A caregiver matched with care, by skills, personality and schedule, using everything we learn today. You see their profile before the first visit.',
+    'Every caregiver has at least a year of paid caregiving experience, our background checks, and our orientation before their first visit with a client.',
+    'Familiar faces: we aim to keep the same small group of caregivers with your loved one.',
+    'You choose who stays in the loop: texts when a caregiver is running late or changes, a note after every visit, and a care plan we review at least every 90 days.',
+  ];
+  const ABOUT_FOLDER = [
+    'Our Levels of Care', 'Rates & Ways to Pay', 'The service sheet that fits them', 'Meet Your Caregiver', 'Client Handbook',
+    'Personalized Care Proposal (filled in after today)', 'Next Steps', 'Seeing Care Notes & Invoices in AxisCare', 'The Caring Companions App',
+  ];
+  function aboutCfg() {
+    const c = (D().ops_settings || {}).visit_about || {}, list = (x, d) => (Array.isArray(x) && x.filter((t) => String(t || '').trim()).length ? x.map((t) => String(t).trim()).filter(Boolean) : d);
+    return { points: list(c.points, ABOUT_POINTS), folder: list(c.folder, ABOUT_FOLDER) };
+  }
+  function secAbout() {
+    const v = ST.a.visit, ab = v.about = v.about || { shown: [], questions: '' }, cfg = aboutCfg(), shown = ab.shown || [];
+    return '<h1>About Caring Companions</h1><div class="hv-sub">Before we talk about care: who we are, what is in their folder, and any questions they have.</div>'
+      + '<div class="hv-cols"><div class="hv-stack">'
+      + card('Who we are', '<p class="hv-ask">Say it your way. These are the points to cover.</p><ul class="hv-pts">' + cfg.points.map((t) => '<li>' + E(t) + '</li>').join('') + '</ul>'
+        + '<div class="hv-n">Prices come later, on Schedule and level, once you know their story.</div>')
+      + card('Any questions before we talk about care?', '<p class="hv-ask">"Before we talk about your care, what questions do you have for us?"</p>'
+        + field('visit.about.questions', 'What they asked, and what you told them', { rows: 4 }))
+      + '</div>'
+      + card('What is in their folder', '<p class="hv-ask">Open the folder together. Tap each one as you show it.</p>'
+        + '<div class="hv-fold">' + cfg.folder.map((t) => { const on = shown.indexOf(t) > -1; return '<button type="button" class="hv-fi' + (on ? ' on' : '') + '" data-hvp="visit.about.shown" data-v="' + E(t) + '" data-multi="1" aria-pressed="' + on + '">' + E(t) + '</button>'; }).join('') + '</div>'
+        + '<div class="hv-n">Something fits them that isn\'t in the folder (Medicare GUIDE, Long-Term Care and VA, Caring CDS for Medicaid)? Add it and note it in their questions.</div>', '<span class="hv-tag">' + shown.filter((t) => cfg.folder.indexOf(t) > -1).length + ' of ' + cfg.folder.length + ' shown</span>')
+      + '</div>';
   }
   function sec2() {
     const v = ST.a.visit;
@@ -434,6 +544,10 @@
         add(b + 'supplies', 'How we help with ' + r[1] + ': where the supplies are', 'Daily activities', hp.supplies);
         add(b + 'likes', 'How we help with ' + r[1] + ': how they like it done', 'Daily activities', hp.likes);
         add(b + 'watch', 'How we help with ' + r[1] + ': what to watch for', 'Daily activities', hp.watch); });
+      houseJobs().forEach((g) => add('visit.acts.' + g[0] + '.jobs', g[1] + ': the jobs they want help with', 'Around the house', ((((v.acts || {})[g[0]]) || {}).jobs || []).join(', ')));
+      const ou = v.outings || {};
+      add('visit.outings.interests', 'Outings: what they enjoy', 'Good days out', (ou.interests || []).map((k) => (OUT_INTERESTS.find((x) => x[0] === k) || [0, k])[1]).join(', '));
+      add('visit.outings.picks', 'Outings: places the family liked (the family approves each place before we go)', 'Good days out', (ou.picks || []).map((x) => x.name + (x.town ? ' (' + x.town + ')' : '')).join('; '));
       const hm = v.home || {};
       add('visit.home.entry', 'How the caregiver gets in', 'Home and safety', hm.entry ? ((ENTRY.find((x) => x[0] === hm.entry) || [0, hm.entry])[1] + (hm.code_in_axis === 'yes' ? ' (the code or key details are in AxisCare, where the caregiver finds them before the visit; the code is never written in the plan)' : hm.code_in_axis === 'todo' ? ' (the code or key details are still to be added to AxisCare)' : '')) : '');
       add('visit.home.stairs', 'Stairs inside or to get in', 'Home and safety', hm.stairs);
@@ -481,7 +595,10 @@
   }
   function actRow(r) {
     const p = 'visit.acts.' + r[0];
+    const jobs = houseJobs().find((g) => g[0] === r[0]);
     return '<div class="hv-act"><div><div class="hv-an">' + E(r[1]) + '</div><div class="hv-ask">' + E(r[2]) + '</div></div>' + pills(p + '.level', r[3]) + field(p + '.note', 'Notes') + '</div>'
+      + (jobs ? '<div class="hv-jobs"><span class="hv-n">Talk them through it. Tap the jobs they want help with.</span>' + pills(p + '.jobs', jobs[2].map((t) => [t, t]), true)
+        + (r[0] === 'heavy_house' ? '<div class="hv-n">Not something caregivers do: ' + E(HOUSE_NOT) + '.</div>' : '') + '</div>' : '')
       + '<div id="hvHelp_' + r[0] + '">' + helpHtml(r) + '</div>';
   }
   /* Stage 2: "How we help", only under an activity where help is needed. Five short answers the care plan's instructions are drawn from. */
@@ -502,9 +619,9 @@
       + '<div class="hv-stack">' + lab('What they do themselves', field(b + 'self')) + lab('Where the supplies are', field(b + 'supplies')) + '</div>'
       + lab('How they like it done', field(b + 'likes', '', { rows: 2 })) + lab('What to watch for', field(b + 'watch', '', { rows: 2 })) + '</div></div>';
   }
-  function sec4() {
-    return '<h1>Daily activities</h1><div class="hv-sub">"These help us see what\'s going well and where a caregiver can make life easier and safer for you."</div>'
-      + callCard(callRows('daily'))
+  function secHouse() {
+    return '<h1>Around the house</h1><div class="hv-sub">"These help us see what\'s going well and where a caregiver can make life easier and safer for you."</div>'
+      + callCard(callRows('house'))
       + card('Around the house', '<div class="hv-act hv-th"><span>ACTIVITY</span><span>LEVEL OF NEED</span><span>NOTES</span></div>'
         + HOUSE.map((r) => actRow(r) + (r[0] === 'meds' ? '<div class="hv-g3 hv-medq">'
           + lab('Who fills the pill organizer?', field('visit.meds.fills'))
@@ -512,7 +629,11 @@
           + lab('Where is the organizer kept?', field('visit.meds.where'))
           + lab('Can the client know where it is?', yn('visit.meds.may_know'))
           + lab('Where are prescriptions refilled?', field('visit.meds.refills'))
-          + '</div>' : '')).join(''))
+          + '</div>' : '')).join(''));
+  }
+  function secPersonal() {
+    return '<h1>Personal care</h1><div class="hv-sub">Go gently. "Some of these can be hard to talk about. It helps us send the right caregiver, and you only share what you\'re comfortable with."</div>'
+      + callCard(callRows('personal'))
       + card('Personal care', '<div class="hv-act hv-th"><span>ACTIVITY</span><span>LEVEL OF NEED</span><span>NOTES</span></div>'
         + PERSONAL.map((r) => actRow(r) + (r[0] === 'toileting' ? '<div class="hv-row hv-medq"><b>Changing Depends?</b>' + yn('visit.acts.toileting.depends') + '</div>' : '')).join(''));
   }
@@ -560,7 +681,9 @@
     if (nil(h.call_order) && callOrder()) h.call_order = callOrder();   /* starts from How we stay in touch; the coordinator changes the order */
     const office = window.CPV ? CPV.officePhone() : '(417) 234-8494';
     const stairs = h.stairs === 'yes' || ((v.safety || {}).hazards || []).indexOf('stairs') > -1;
-    return '<h1>Home and safety</h1><div class="hv-sub">What a caregiver needs to know before they walk in the door.</div>'
+    const starting = v.outcome === 'ready';
+    return '<h1>Home walk-through</h1><div class="hv-sub">Walk through the home with the family: what a caregiver needs to know before they walk in the door. Tap Seen for what you saw yourself.</div>'
+      + (starting ? '' : '<div class="hv-note">This is for families who are starting care. ' + (v.outcome ? 'The visit ended as "' + E((OUTCOMES.find((o) => o[0] === v.outcome) || [0, v.outcome])[1]) + '", so you can skip it: tap Next.' : 'Pick "Ready to start" on Schedule and level first, or skip this and tap Next.') + '</div>')
       + '<div class="hv-g2">'
       + card('Getting in', pills('visit.home.entry', ENTRY) + '<div>' + seenBtn('visit.home.entry') + '</div>'
         + lab('How, and where', field('visit.home.entry_note', 'Which door, where the key or lockbox is', { rows: 2 }), 'Don\'t type a door or lockbox code here. It goes in AxisCare.')
@@ -612,11 +735,11 @@
   function needsList() {
     const v = ST.a.visit, h = v.home || {}, out = [];
     (window.CPV ? CPV.safetyMissing(v) : []).forEach((m) => out.push([m[0], S_.health, m[1]]));
-    if (nil(h.entry)) out.push(['How the caregiver gets in', S_.home, 'visit.home.entry']);
+    if (nil(h.entry) && (!v.outcome || v.outcome === 'ready')) out.push(['How the caregiver gets in', S_.home, 'visit.home.entry']);
     HOUSE.concat(PERSONAL).filter((r) => helps(r[0])).forEach((r) => {
       const hp = (((v.acts || {})[r[0]]) || {}).help || {};
-      if (nil(hp.steps)) out.push(['How we help with ' + r[1].toLowerCase() + ': the steps', S_.daily, 'visit.acts.' + r[0] + '.help.steps']);
-      if (nil(hp.supplies)) out.push(['Where the supplies are for ' + r[1].toLowerCase(), S_.daily, 'visit.acts.' + r[0] + '.help.supplies']);
+      if (nil(hp.steps)) out.push(['How we help with ' + r[1].toLowerCase() + ': the steps', secOf(r[0]), 'visit.acts.' + r[0] + '.help.steps']);
+      if (nil(hp.supplies)) out.push(['Where the supplies are for ' + r[1].toLowerCase(), secOf(r[0]), 'visit.acts.' + r[0] + '.help.supplies']);
     });
     return out;
   }
@@ -685,22 +808,25 @@
     const rows = [['Care level and rate', L ? L[1] + (v.rate ? ', $' + String(v.rate).replace(/^\$/, '') + ' an hour' : '') : 'Pick a level on the last screen'],
       ['Schedule', sched || 'No days yet'], ['Hoped-for start', v.start || 'Not set'],
       ['Contacts', (v.attendees || []).filter((p) => p.role !== 'client' && p.name).map((p) => p.name).join(', ') || 'None added']];
-    const ax = String(ST.a.axiscare_client_id || (ST.lead && ST.lead.axiscare_client_id) || '').trim();
+    /* 2026-10-30 (her: "go straight to the care agreement ... we need to have a signed agreement before we would make them active
+       in AxisCare"): the agreement starts from the lead; it moves to the client by itself once they are set up in AxisCare */
+    const ax = String(ST.a.axiscare_client_id || (ST.lead && ST.lead.axiscare_client_id) || '').trim(), lid = ST.lead ? String(ST.lead.id) : '';
+    const href = ax ? 'agreement.html?ax=' + encodeURIComponent(ax) : lid ? 'agreement.html?lead=' + encodeURIComponent(lid) : '';
     return '<div>' + rows.map((r) => '<div class="hv-li"><span>' + E(r[0]) + '</span><span>' + E(r[1]) + '</span></div>').join('') + '</div>'
-      + (ax ? '<a class="hv-b hv-big" href="agreement.html?ax=' + encodeURIComponent(ax) + '&cn=' + encodeURIComponent(ST.a.client_name || '') + '" target="_blank" rel="noopener">Open the agreement on this iPad</a>'
-        + '<div class="hv-n">Set the level and rate on its first screen from what is above.</div>'
-        : '<div class="hv-note">Signing before they are in AxisCare comes in the next update. For now the agreement opens once the client is set up in AxisCare (the Client Care Agreement card on their Start of Care tab), or use the paper agreement.</div>');
+      + (href ? '<a class="hv-b hv-big" href="' + href + '&cn=' + encodeURIComponent(ST.a.client_name || '') + '" target="_blank" rel="noopener">Open the Client Care Agreement</a>'
+        + '<div class="hv-n">Set the level and rate on its first screen from what is above. They sign it here, before anything is set up in AxisCare.</div>'
+        : '<div class="hv-note">This visit is not linked to a lead, so open the agreement from the client\'s Start of Care tab, or use the paper agreement.</div>');
   }
   function sec7() {
     const v = ST.a.visit;
-    return '<h1>Sign-off and agreement</h1><div class="hv-g2">'
+    return '<h1>Agreement and sign-off</h1><div class="hv-sub">' + (v.outcome === 'ready' ? 'They are starting care: go straight to the Client Care Agreement, then sign the assessment.' : 'Sign the assessment. The agreement is ready whenever they are.') + '</div><div class="hv-g2">'
+      + card('Client Care Agreement', '<div class="hv-n" style="font-size:15px">These carry over, so nobody types them twice:</div><div id="hvAgree">' + agreeHtml() + '</div>', '<span class="hv-tag">' + (v.agreement_signed ? 'Signed' : 'Not signed yet') + '</span>')
       + card('Sign the assessment',
         '<div class="hv-l">Client or legal representative</div>' + sigPad('client', 120)
         + '<div class="hv-g2">' + lab('Printed name', field('visit.sign.client.name', 'Name, and relationship if not the client')) + lab('Date', field('visit.sign.client.date', '', { type: 'date' })) + '</div>'
         + '<div class="hv-l" style="margin-top:6px">Assessor</div>' + sigPad('assessor', 96)
         + '<div class="hv-g2">' + lab('Printed name', field('visit.sign.assessor.name')) + lab('Date', field('visit.sign.assessor.date', '', { type: 'date' })) + '</div>'
         + '<div class="hv-n">This assessment is confidential and stored in keeping with HIPAA and state privacy laws.</div>')
-      + card('Client Care Agreement', '<div class="hv-n" style="font-size:15px">These carry over, so nobody types them twice:</div><div id="hvAgree">' + agreeHtml() + '</div>', '<span class="hv-tag">' + (v.agreement_signed ? 'Signed' : 'Not signed yet') + '</span>')
       + '</div>';
   }
   /* ---------- 8 After the visit (stage 3, 2026-10-29) ----------
@@ -710,35 +836,37 @@
   function boxes() {
     const out = [], add = (sec, section, path, label, options) => out.push({ sec, section, path, label, ...(options ? { options } : {}) });
     const v = ST.a.visit;
-    add(1, 'Their story', 'visit.story.trigger', 'What prompted the call');
-    add(1, 'Their story', 'visit.story.overview', "What's been going on lately");
-    ['morning', 'afternoon', 'evening'].forEach((k) => add(1, 'Their story', 'visit.story.' + k, 'A day at home: ' + k));
-    [0, 1, 2].forEach((i) => add(1, 'Their story', 'visit.goals.' + i + '.text', 'Goal ' + (i + 1)));
-    add(1, 'Their story', 'visit.story.good_care', 'What good care looks like to the family'); add(1, 'Their story', 'visit.story.self', 'What they still do themselves');
-    add(1, 'Their story', 'visit.story.called', 'What they like to be called');
-    add(S_.home, 'Home and safety', 'visit.home.entry_note', 'How the caregiver gets in (never a door or lockbox code)'); add(S_.home, 'Home and safety', 'visit.home.parking', 'Parking');
-    add(S_.home, 'Home and safety', 'visit.home.pets_note', 'Pets: names, and where they stay during visits'); add(S_.home, 'Home and safety', 'visit.home.stairs_note', 'Stairs: where, and is there a rail');
+    add(S_.about, 'About us', 'visit.about.questions', 'Their questions about Caring Companions, and what we told them');
+    add(S_.story, 'Their story', 'visit.story.trigger', 'What prompted the call');
+    add(S_.story, 'Their story', 'visit.story.overview', "What's been going on lately");
+    ['morning', 'afternoon', 'evening'].forEach((k) => add(S_.story, 'Their story', 'visit.story.' + k, 'A day at home: ' + k));
+    [0, 1, 2].forEach((i) => add(S_.story, 'Their story', 'visit.goals.' + i + '.text', 'Goal ' + (i + 1)));
+    add(S_.story, 'Their story', 'visit.story.good_care', 'What good care looks like to the family'); add(S_.story, 'Their story', 'visit.story.self', 'What they still do themselves');
+    add(S_.story, 'Their story', 'visit.story.called', 'What they like to be called');
+    add(S_.home, 'Home walk-through', 'visit.home.entry_note', 'How the caregiver gets in (never a door or lockbox code)'); add(S_.home, 'Home walk-through', 'visit.home.parking', 'Parking');
+    add(S_.home, 'Home walk-through', 'visit.home.pets_note', 'Pets: names, and where they stay during visits'); add(S_.home, 'Home walk-through', 'visit.home.stairs_note', 'Stairs: where, and is there a rail');
     [['equipment_where', 'Where equipment is kept'], ['cleaning_where', 'Where cleaning supplies are kept'], ['linens_where', 'Where towels and linens are kept'], ['medlist_where', 'Where the medicine list is kept']]
-      .forEach((x) => add(S_.home, 'Home and safety', 'visit.home.' + x[0], x[1]));
+      .forEach((x) => add(S_.home, 'Home walk-through', 'visit.home.' + x[0], x[1]));
     const nc = (v.conditions || []).length;
     for (let i = 0; i < nc + 3; i++) {
       const c = (v.conditions || [])[i] || {};
       if (!blank(c.name) || !blank(c.onset) || !blank(c.effect)) continue;
-      add(2, 'Health', 'visit.conditions.' + i + '.name', 'Health condition ' + (i + 1) + ': the condition');
-      add(2, 'Health', 'visit.conditions.' + i + '.onset', 'Health condition ' + (i + 1) + ': about when (year)');
-      add(2, 'Health', 'visit.conditions.' + i + '.effect', 'Health condition ' + (i + 1) + ': how it affects the day');
+      add(S_.health, 'Health', 'visit.conditions.' + i + '.name', 'Health condition ' + (i + 1) + ': the condition');
+      add(S_.health, 'Health', 'visit.conditions.' + i + '.onset', 'Health condition ' + (i + 1) + ': about when (year)');
+      add(S_.health, 'Health', 'visit.conditions.' + i + '.effect', 'Health condition ' + (i + 1) + ': how it affects the day');
     }
-    add(2, 'Health', 'visit.memory', 'Memory concerns?', YN); add(2, 'Health', 'visit.supervision', 'Needs supervision for safety?', YN); add(2, 'Health', 'visit.pain', 'Has pain?', YN);
-    add(2, 'Health', 'visit.pain_where', 'Pain: where'); add(2, 'Health', 'visit.pain_easier', 'Pain: what makes it harder or easier');
-    add(2, 'Health', 'visit.allergies', 'Allergies (medicines and food)');
-    add(2, 'Health', 'physician_name', 'Primary doctor'); add(2, 'Health', 'physician_phone', "Doctor's phone");
-    add(2, 'Health', 'preferred_hospital', 'Preferred hospital'); add(2, 'Health', 'visit.pharmacy', 'Preferred pharmacy');
-    add(2, 'Health', 'visit.equipment_other', 'Other equipment they use (not cane, walker, wheelchair, shower chair, grab bars, medical alert, gait belt, bed rails, Hoyer lift)');
-    HOUSE.concat(PERSONAL).forEach((r) => { add(3, 'Daily activities', 'visit.acts.' + r[0] + '.level', r[1] + ': level of need', r[3]); add(3, 'Daily activities', 'visit.acts.' + r[0] + '.note', r[1] + ': notes'); });
-    add(3, 'Daily activities', 'visit.acts.toileting.depends', 'Changing Depends?', YN);
-    add(3, 'Daily activities', 'visit.meds.fills', 'Who fills the pill organizer?'); add(3, 'Daily activities', 'visit.meds.nurse', 'Needs our nurse (RN/LPN)?', NURSE);
-    add(3, 'Daily activities', 'visit.meds.where', 'Where the pill organizer is kept'); add(3, 'Daily activities', 'visit.meds.may_know', 'Can the client know where it is?', YN);
-    add(3, 'Daily activities', 'visit.meds.refills', 'Where prescriptions are refilled');
+    add(S_.health, 'Health', 'visit.memory', 'Memory concerns?', YN); add(S_.health, 'Health', 'visit.supervision', 'Needs supervision for safety?', YN); add(S_.health, 'Health', 'visit.pain', 'Has pain?', YN);
+    add(S_.health, 'Health', 'visit.pain_where', 'Pain: where'); add(S_.health, 'Health', 'visit.pain_easier', 'Pain: what makes it harder or easier');
+    add(S_.health, 'Health', 'visit.allergies', 'Allergies (medicines and food)');
+    add(S_.health, 'Health', 'physician_name', 'Primary doctor'); add(S_.health, 'Health', 'physician_phone', "Doctor's phone");
+    add(S_.health, 'Health', 'preferred_hospital', 'Preferred hospital'); add(S_.health, 'Health', 'visit.pharmacy', 'Preferred pharmacy');
+    add(S_.health, 'Health', 'visit.equipment_other', 'Other equipment they use (not cane, walker, wheelchair, shower chair, grab bars, medical alert, gait belt, bed rails, Hoyer lift)');
+    HOUSE.concat(PERSONAL).forEach((r) => { const sc = secOf(r[0]), sn = SECS[sc]; add(sc, sn, 'visit.acts.' + r[0] + '.level', r[1] + ': level of need', r[3]); add(sc, sn, 'visit.acts.' + r[0] + '.note', r[1] + ': notes'); });
+    add(S_.personal, 'Personal care', 'visit.acts.toileting.depends', 'Changing Depends?', YN);
+    add(S_.house, 'Around the house', 'visit.meds.fills', 'Who fills the pill organizer?'); add(S_.house, 'Around the house', 'visit.meds.nurse', 'Needs our nurse (RN/LPN)?', NURSE);
+    add(S_.house, 'Around the house', 'visit.meds.where', 'Where the pill organizer is kept'); add(S_.house, 'Around the house', 'visit.meds.may_know', 'Can the client know where it is?', YN);
+    add(S_.house, 'Around the house', 'visit.meds.refills', 'Where prescriptions are refilled');
+    OUTING_BOXES.forEach((b) => add(S_.outings, 'Good days out', 'visit.outings.' + b[0], b[1], b[2]));
     const c = 'visit.prefs.';
     add(S_.prefs, 'Preferences', c + 'gender', 'Caregiver gender', PREF.gender); add(S_.prefs, 'Preferences', c + 'spanish', 'Spanish-speaking caregiver', PREF.spanish);
     add(S_.prefs, 'Preferences', c + 'cats', 'Cats in the home', YN); add(S_.prefs, 'Preferences', c + 'dogs', 'Dogs in the home', YN); add(S_.prefs, 'Preferences', c + 'smoking', 'Someone smokes in the home', YN);
@@ -748,7 +876,7 @@
       if (p.role !== 'client') add(S_.prefs, 'Preferences', b + 'permission', p.name + ': may we discuss care with them?', YN); });
     return out;
   }
-  const shown = (b, val) => (b.options ? ((b.options.find((o) => o[0] === val) || [0, val])[1]) : String(val));
+  const shown = (b, val) => (Array.isArray(val) ? val.join(', ') : b.options ? ((b.options.find((o) => o[0] === val) || [0, val])[1]) : String(val));
   function knownText() {
     const lines = boxes().filter((b) => !blank(get(b.path))).map((b) => b.section + ': ' + b.label + ': ' + shown(b, get(b.path)));
     const v = ST.a.visit, days = DAYS.filter((d) => dayHours(d[0]));
@@ -848,8 +976,8 @@
   }
   function redrawSecs(paths) {
     const secs = new Set(boxes().filter((b) => paths.indexOf(b.path) > -1).map((b) => b.sec));
-    paths.forEach((p) => { if (/^visit\.conditions\./.test(p)) secs.add(2); });
-    secs.forEach((i) => { const el = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (el) el.innerHTML = SEC_FN[i](); if (i === 1) lifeMount(); });
+    paths.forEach((p) => { if (/^visit\.conditions\./.test(p)) secs.add(S_.health); });
+    secs.forEach((i) => { const el = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (el) el.innerHTML = SEC_FN[i](); if (i === S_.story) lifeMount(); });
     const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody();
   }
   let AUD = null;
@@ -869,7 +997,7 @@
     } catch (e) { toast('Could not play the recording: ' + (e && e.message || e)); }
   }
 
-  const SEC_FN = [sec1, sec2, sec3, sec4, secHome, sec5, sec6, sec7, afterSec];
+  const SEC_FN = [sec1, secAbout, sec2, secOutings, secHouse, sec3, secPersonal, sec5, sec6, secHome, sec7, afterSec];
 
   /* ---------- the frame ---------- */
   function css() {
@@ -944,6 +1072,14 @@
       + '.hv-fw{display:flex;flex-direction:column;gap:4px;min-width:0}.hv-chkb{align-self:flex-start;min-height:32px;padding:0 10px;border-radius:16px;border:1px solid #9CC3C6;background:#F3F8F8;color:#14565D;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}'
       + '.hv-sqr{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}@media (max-width:700px){.hv-sqr{align-items:flex-start}}'
       + '.hv-seen{min-height:36px;padding:0 12px;border-radius:18px;border:1.5px dashed #9CA8AA;background:#fff;color:#465255;font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}.hv-seen.on{border:1.5px solid #2E6B3A;background:#E4F1E5;color:#2E6B3A}'
+      + '.hv-pts{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.45}'
+      + '.hv-fold{display:flex;flex-direction:column;gap:8px}.hv-fi{min-height:48px;padding:8px 14px 8px 44px;border-radius:12px;border:1.5px solid #CFCAC0;background:#fff;font:inherit;font-size:15px;text-align:left;color:#1E2B2F;cursor:pointer;position:relative}'
+      + '.hv-fi::before{content:"";position:absolute;left:14px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:6px;border:1.5px solid #9CA8AA;background:#fff}'
+      + '.hv-fi.on{border-color:#1F6F78;background:#F3F9F9;font-weight:600}.hv-fi.on::before{background:#1F6F78;border-color:#1F6F78;box-shadow:inset 0 0 0 4px #fff}'
+      + '.hv-if{display:block;font-size:11.5px;color:#6B7577;font-weight:400;line-height:1.2}'
+      + '.hv-jobs{display:flex;flex-direction:column;gap:6px;padding:0 0 12px}.hv-jobs .hv-seg button{min-height:40px;font-size:13.5px}'
+      + '.hv-places{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}.hv-place{border:1px solid #E4E0D8;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}.hv-place b{display:block;font-size:15px}'
+      + '.hv-place.on{border:2px solid #1F6F78;background:#F3F9F9}.hv-pw{font-size:13.5px;line-height:1.4;color:#2E3B3F;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}.hv-place .hv-b2{align-self:flex-start;margin-top:auto}'
       + '.hv-heardseg{background:#FFF4B8;border-radius:24px;padding:4px;box-shadow:0 0 0 1px #D9BC3A}'
       + '.hv-spk{display:grid;grid-template-columns:110px minmax(0,1fr) 240px;gap:12px;align-items:center;padding:8px 0;border-top:1px solid #EEEAE3}'
       + '.hv-chip{font-size:13px;font-weight:700;padding:6px 10px;border-radius:10px;text-align:center;background:#E3F0EF;color:#14565D}'
@@ -962,7 +1098,7 @@
   }
   function railHtml() {
     return '<div class="hv-brand"><img src="cc-logo.png" alt="Caring Companions"></div><div class="hv-who"><b>' + E(ST.a.client_name || 'Home visit') + '</b><span class="hv-n">Home visit, ' + E(ST.a.visit_date || '') + '</span></div>'
-      + SECS.map((t, i) => (i === AFTER ? '<div class="hv-gap" style="flex:1"></div>' : '') + '<button type="button" data-hvs="' + i + '" class="' + (i === ST.sec ? 'on' : (ST.a.visit.seen || {})[i] || (i === AFTER && ST.a.visit.after) ? 'done' : '') + '"' + (i === ST.sec ? ' aria-current="step"' : '') + '><span class="hv-num">' + (i + 1) + '</span>' + E(t) + '</button>').join('')
+      + SECS.map((t, i) => (i === AFTER ? '<div class="hv-gap" style="flex:1"></div>' : '') + '<button type="button" data-hvs="' + i + '" class="' + (i === ST.sec ? 'on' : (ST.a.visit.seen || {})[i] || (i === AFTER && ST.a.visit.after) ? 'done' : '') + '"' + (i === ST.sec ? ' aria-current="step"' : '') + '><span class="hv-num">' + (i + 1) + '</span><span>' + E(t) + (i === S_.home && !walk() ? '<small class="hv-if">if starting care</small>' : '') + '</span></button>').join('')
       + '<button type="button" data-hva="close"><span class="hv-num">×</span>Close</button>';
   }
   function barHtml() {
@@ -983,9 +1119,11 @@
       + (st === 'lost' ? '<button type="button" class="hv-b" data-hva="keeprec">Keep recording</button>' : '')
       + (rec ? '<button type="button" class="hv-b2 hv-stop" data-hva="stoprec">Stop recording</button>' : '');
   }
+  const walk = () => ST.a.visit.outcome === 'ready';
   function footHtml() {
-    return '<div class="hv-foot">' + (ST.sec > 0 ? '<button type="button" class="hv-b2" data-hvs="' + (ST.sec - 1) + '">Back</button>' : '<span></span>')
-      + (ST.sec < AFTER - 1 ? '<button type="button" class="hv-b" data-hvs="' + (ST.sec + 1) + '">Next: ' + E(SECS[ST.sec + 1]) + '</button>'
+    const next = ST.sec + 1 === S_.home && !walk() ? S_.sign : ST.sec + 1, back = ST.sec - 1 === S_.home && !walk() ? S_.plan : ST.sec - 1;
+    return '<div class="hv-foot">' + (ST.sec > 0 ? '<button type="button" class="hv-b2" data-hvs="' + back + '">Back</button>' : '<span></span>')
+      + (ST.sec < AFTER - 1 ? '<button type="button" class="hv-b" data-hvs="' + next + '">Next: ' + E(SECS[next]) + '</button>'
         : ST.sec === AFTER - 1 ? '<button type="button" class="hv-b" data-hva="finish">Finish the visit</button>'
         : '<button type="button" class="hv-b" data-hva="close">Close</button>') + '</div>';
   }
@@ -995,9 +1133,10 @@
     document.querySelectorAll('#hvRoot .hv-sec').forEach((el) => { el.style.display = +el.getAttribute('data-sec') === i ? '' : 'none'; });
     if (i === S_.prefs) { const t = document.getElementById('hvTouch'); if (t) t.innerHTML = touchHtml(); }
     if (i === S_.health) safetyRefresh();
-    if (i === S_.daily || i === S_.home || i === S_.plan) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (d) d.innerHTML = SEC_FN[i](); }
+    if (i === S_.house || i === S_.personal || i === S_.home || i === S_.plan) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (d) d.innerHTML = SEC_FN[i](); }
     if (i === S_.plan) { refreshLevels(); }
-    if (i === S_.sign) { const ag = document.getElementById('hvAgree'); if (ag) ag.innerHTML = agreeHtml(); sigInit(); }
+    if (i === S_.outings) outLoad();
+    if (i === S_.sign) { const d = document.querySelector('#hvRoot .hv-sec[data-sec="' + i + '"]'); if (d) d.innerHTML = SEC_FN[i](); sigInit(); }
     needsRefresh();
     if (i === AFTER) { const b = document.getElementById('hvAfterBody'); if (b) b.innerHTML = afterBody(); afterLoad(); }
     document.getElementById('hvRail').innerHTML = railHtml();
@@ -1083,6 +1222,9 @@
           ks.forEach((x) => { if (fc[x]) { delete fc[x]; (vv.checked = vv.checked || {})[x] = new Date().toISOString(); } }); safetyRefresh(); }
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
         { const m = p.match(/^visit\.acts\.([a-z_]+)\.level$/), r = m && HOUSE.concat(PERSONAL).find((x) => x[0] === m[1]); const h = r && document.getElementById('hvHelp_' + r[0]); if (h) h.innerHTML = helpHtml(r); }
+        if (p === 'visit.outings.interests') { const el = document.getElementById('hvPlaces'); if (el) el.innerHTML = placesHtml(); }
+        if (p === 'visit.outcome') { document.getElementById('hvRail').innerHTML = railHtml(); document.getElementById('hvFoot').innerHTML = footHtml(); }
+        if (p === 'visit.about.shown') { const t = pb.closest('.hv-card'); const g = t && t.querySelector('.hv-ch .hv-tag'); if (g) { const f = aboutCfg().folder; g.textContent = (get(p) || []).filter((x) => f.indexOf(x) > -1).length + ' of ' + f.length + ' shown'; } }
         if (/^visit\.(home\.|prefs\.(cats|dogs)$|safety\.hazards$)/.test(p)) { const hs = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.home + '"]'); if (hs && ST.sec === S_.home) hs.innerHTML = secHome(); }
         needsRefresh();
         if (SAFETY_PATHS.test(p)) safetyRefresh();
@@ -1101,6 +1243,11 @@
         else { v.seen_visit = v.seen_visit || {}; if (v.seen_visit[k]) delete v.seen_visit[k]; else v.seen_visit[k] = { by: me(), at: new Date().toISOString() }; }
         const el = document.querySelector('#hvRoot .hv-sec[data-sec="' + ST.sec + '"]'); if (el) { el.innerHTML = SEC_FN[ST.sec](); if (ST.sec === S_.story) lifeMount(); if (ST.sec === S_.sign) sigInit(); }
         saveSoon(); return;
+      }
+      if (act === 'outpick') {
+        const id = a.getAttribute('data-v'), ou = ST.a.visit.outings = ST.a.visit.outings || {}, picks = ou.picks = ou.picks || [], x = (OUT.items || []).find((y) => y.id === id), k = picks.findIndex((y) => y.id === id);
+        if (k > -1) picks.splice(k, 1); else if (x) picks.push({ id: x.id, name: x.name, town: x.town || '', category: x.category || '' });
+        const el = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.outings + '"]'); if (el) el.innerHTML = secOutings(); saveSoon(); return;
       }
       if (act === 'needs') { const el = document.getElementById('hvNeedsList'); el.hidden = !el.hidden; if (!el.hidden) el.innerHTML = needsListHtml(); return; }
       if (act === 'needsclose') { document.getElementById('hvNeedsList').hidden = true; return; }
@@ -1158,7 +1305,7 @@
     if (recording()) { if (!(await ask('Stop the recording and finish the visit?'))) return; try { recStop(); } catch (e) {} }
     const v = ST.a.visit;
     const miss = window.CPV ? CPV.safetyMissing(v) : [];
-    if (miss.length && !(await ask('The safety check still has ' + miss.length + ' to answer:\n' + miss.map((m) => '· ' + m[0]).join('\n') + '\n\nOK = finish anyway (the care plan can\'t be approved until they are answered) · Cancel = answer them now'))) { show(2); return; }
+    if (miss.length && !(await ask('The safety check still has ' + miss.length + ' to answer:\n' + miss.map((m) => '· ' + m[0]).join('\n') + '\n\nOK = finish anyway (the care plan can\'t be approved until they are answered) · Cancel = answer them now'))) { show(S_.health); return; }
     if (!v.sign.client.png && !(await ask('Nobody has signed the assessment yet. Finish anyway?'))) return;
     v.finished_at = new Date().toISOString(); v.finished_by = me(); v.finished_by_email = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
     if (ST.a.status === 'Scheduled' || !ST.a.status) ST.a.status = 'Completed — Awaiting Plan';
@@ -1196,7 +1343,7 @@
     ST.a = ensureVisit(a, l); ST.lead = l; ST.sec = 0;
     callFill(ST.a, l); leadPrefs(ST.a, l); safetyPrefill(ST.a, l);
     if (!ST.a.visit.finished_at) keepCallSaid(ST.a.visit);   /* a visit started before Stage 3: what is still blue is what the call said */
-    if (o.sec != null) ST.sec = +o.sec;
+    if (o.sec != null) ST.sec = typeof o.sec === 'string' ? (S_[o.sec] != null ? S_[o.sec] : 0) : +o.sec;
     await saveNow();
     render();
   }
@@ -1210,7 +1357,23 @@
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a visit, at least<input id="hvSet_visit" inputmode="decimal" value="' + m.visit + '" style="width:110px"></label>'
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a week, at least<input id="hvSet_week" inputmode="decimal" value="' + m.week + '" style="width:110px"></label>'
       + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>'
-      + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '');
+      + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '')
+      + (function () { const c = aboutCfg(), ta = (id, v) => '<textarea id="' + id + '" rows="7" style="width:100%;font:inherit;font-size:13px">' + E(v.join('\n')) + '</textarea>';
+        return '<div style="margin-top:16px"><b>Talking points on the iPad</b><div class="field-note">One per line. About us is step 2 of the visit; the folder list is what coordinators tick as they show it; the jobs are the taps under housekeeping. Leave a box empty to go back to the words from the folder and the website.</div>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Points to cover' + ta('hvSet_aboutPts', c.points) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">What is in their folder' + ta('hvSet_aboutFold', c.folder) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Light housekeeping jobs (Around the house)' + ta('hvSet_jobsLight', houseJobs()[0][2]) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Heavy housekeeping jobs (Around the house)' + ta('hvSet_jobsHeavy', houseJobs()[1][2]) + '</label>'
+          + '<button class="secondary" onclick="HV.aboutSave(this)">Save talking points</button> <span class="field-note" id="hvAboutSaved"></span></div>'; })();
+  }
+  async function aboutSave(btn) {
+    if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the About us points.'); return; }
+    const lines = (id) => String((document.getElementById(id) || {}).value || '').split('\n').map((t) => t.trim()).filter(Boolean);
+    const va = { points: lines('hvSet_aboutPts'), folder: lines('hvSet_aboutFold') }, hj = { light_house: lines('hvSet_jobsLight'), heavy_house: lines('hvSet_jobsHeavy') };
+    if (btn) btn.disabled = true;
+    const out = await tkMerge((st) => { st.visit_about = va; st.visit_house_jobs = hj; return ['Home visit talking points: ' + va.points.length + ' About us points, ' + va.folder.length + ' folder pieces, ' + (hj.light_house.length + hj.heavy_house.length) + ' housekeeping jobs']; }, 'Home visit talking points');
+    if (btn) btn.disabled = false;
+    const sv = document.getElementById('hvAboutSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
   }
   async function settingsSave(btn) {
     if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the rates.'); return; }
@@ -1228,5 +1391,5 @@
   const mismatchesFor = (a) => withA(a, () => mismatches(a.visit || {}));
   const needsFor = (a) => withA(a, () => needsList().map((x) => ({ label: x[0], sec: x[1], path: x[2] })));
   const markFor = (a, path) => markOf((a && a.visit) || {}, path);
-  window.HV = { open, close, settingsFill, settingsSave, factsFor, mismatchesFor, needsFor, markFor, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
+  window.HV = { open, close, settingsFill, settingsSave, aboutSave, factsFor, mismatchesFor, needsFor, markFor, _st: ST, _suggest: suggestLevel, _weekSummary: weekSummary, _boxes: boxes };
 })();
