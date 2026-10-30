@@ -1930,6 +1930,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ts-row:first-of-type{ border-top:0; }
         @media (max-width:900px){ .ts-strip{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
       </style>
+      <div id="ohPin"></div><!-- Overnight Handoff (2026-10-29): overnight-handoff.js, behind ops_settings.overnight_handoff_live -->
       <div id="todayStrip"></div>
       <div id="dkDashLine"></div>
       <!-- Today cockpit Phase 4 (2026-10-05): the Staffing view, open for whoever is on Staffing duty. staffing-view.js. -->
@@ -4856,6 +4857,21 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="mwtSet"></div>
 </div>
 
+<div class="settings-section" data-set="overnight-handoff">
+<h3>Overnight Handoff</h3>
+<p class="hint">Approved 2026-10-29. The 8am Morning Brief opens with the owner's note for the morning, then what happened overnight: what needs the office, what was handled, and what came in. My Work pins it at the top as a night sky turning to sunrise; each item can be moved onto someone's My Desk, and it stays until someone presses Close out the overnight. Owner Overview shows Got it and Done on the note, who closed it out, and from 9am a red line if nobody has. Monday covers the whole weekend. It replaces "While you were out" in the email. Nothing is texted to anyone. Only Samantha or Zachary can change this.</p>
+<div id="ohSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <label class="field-note" for="ohFrom">Overnight from</label><input type="time" id="ohFrom" value="20:00" style="width:auto;">
+  <label class="field-note" for="ohTo">to</label><input type="time" id="ohTo" value="07:00" style="width:auto;">
+  <button class="ghost" onclick="OH.saveHours()">Save the hours</button>
+</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="ohToggleBtn" onclick="OH.toggle(this)">Turn on the Overnight Handoff</button>
+  <span class="field-note" id="ohSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="team-work">
 <h3>Team Work</h3>
 <p class="hint">The on-duty pile in My Work (approved 2026-10-18): call-offs, missed clock-ins, same-day scheduling and time-sensitive family requests the Hub opened, until someone takes them. Each card shows the responsible role, its deadline and its escalation path. The family always keeps its own Care Coordinator. While it is off, owners see the tab as a preview and nobody's My Work changes.</p>
@@ -7653,7 +7669,7 @@ The HomeTogether team</pre>
 <script src="bonus.js?v=2"></script>
 <script src="new-clients.js?v=2"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=6"></script><script src="booking-app-activity.js?v=2"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=7"></script><script src="booking-app-activity.js?v=2"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -7742,7 +7758,8 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="mywork-tidy.js?v=2"></script><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
+<script src="mywork-tidy.js?v=2"></script>
+<script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=6"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=4"></script><script src="home-visit.js?v=9"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=1"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
@@ -7963,7 +7980,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching'];
+  const keys = ['caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching','overnight_handoff'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -19413,6 +19430,7 @@ function lhSetFill(){
   try{ lcSetFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
+  try{ if(window.OH) OH.settingsFill(); }catch(e){}
   try{ rbSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
@@ -30913,6 +30931,7 @@ function renderMyWork(){
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   try{ opsReconcileInbox(); }catch(e){ console.warn('[inbox cards]', e); }   /* Today gap cards (2026-10-18): messages and meeting requests */
   try{ renderTodayStrip(); }catch(e){ console.warn('[today strip]', e); }   /* NEW TODAY (2026-10-19) */
+  try{ if(window.OH) OH.pin(); }catch(e){ console.warn('[overnight handoff]', e); }   /* Overnight Handoff (2026-10-29): above everything while unread */
   try{ if(typeof dkDashRender==='function') dkDashRender(); }catch(e){}
   try{ if(typeof svRender==='function') svRender(); }catch(e){}
   if(typeof hoRender==='function') try{ hoRender(); }catch(e){}

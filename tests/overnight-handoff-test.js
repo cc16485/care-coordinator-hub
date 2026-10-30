@@ -1,0 +1,35 @@
+/* Overnight Handoff rules (overnight-handoff.js, Samantha 2026-10-29). node tests/overnight-handoff-test.js
+   The note-date rule must match the server's (Staffing repo _shared/overnight-handoff.ts noteDateFor). */
+const OH = require('../overnight-handoff.js');
+const R = []; const ok = (n, c, d) => R.push([c ? 'PASS' : 'FAIL', n, c ? '' : JSON.stringify(d)]);
+ok('off unless switched on', !OH.liveOn({}) && !OH.liveOn({ overnight_handoff_live:'yes' }) && OH.liveOn({ overnight_handoff_live:true }));
+ok('Thursday 11pm note is for Friday', OH.noteDateFor('2026-10-29 23:10:00') === '2026-10-30');
+ok('Friday 7:59am note is for Friday', OH.noteDateFor('2026-10-30 07:59:00') === '2026-10-30');
+ok('Friday 8am note is for Monday', OH.noteDateFor('2026-10-30 08:00:00') === '2026-11-02');
+ok('Saturday and Sunday notes are for Monday', OH.noteDateFor('2026-10-31 13:00:00') === '2026-11-02' && OH.noteDateFor('2026-11-01 06:00:00') === '2026-11-02');
+const note = { id:'note_2026-10-29', text:'Call the Harpers', by_name:'Samantha T' }, rep = { id:'report_2026-10-29', needs:[], sent_at:'x' };
+let s = OH.state([note], '2026-10-29 07:30:00');
+ok('before 8am: the note shows on its own', s.pin === 'note' && !s.flag && s.note.text === 'Call the Harpers', s);
+s = OH.state([note, rep], '2026-10-29 08:05:00');
+ok('after the brief: the whole handoff is pinned', s.pin === 'full' && !s.flag);
+s = OH.state([note, rep], '2026-10-29 09:00:00');
+ok('9am and unread: the Owner Overview flag', s.flag === true);
+s = OH.state([note, rep, { id:'read_2026-10-29', by:'k' }], '2026-10-29 09:30:00');
+ok('read: no flag; the note stays until Done', !s.flag && s.pin === 'note');
+s = OH.state([Object.assign({}, note, { done:{ at:'t' } }), rep, { id:'read_2026-10-29' }], '2026-10-29 09:30:00');
+ok('read and Done: nothing pinned', s.pin === '');
+s = OH.state([rep], '2026-10-31 10:00:00');
+ok('no flag on a weekend', !OH.state([{ id:'report_2026-10-31' }], '2026-10-31 10:00:00').flag);
+ok('an emptied note is no note', OH.state([{ id:'note_2026-10-29', text:'  ' }], '2026-10-29 07:00:00').pin === '');
+ok('yesterday\'s report is not this morning\'s', OH.state([{ id:'report_2026-10-28' }], '2026-10-29 10:00:00').pin === '');
+const who = { email:'Krystal@mo-care.com', name:'Krystal L' };
+let n2 = OH.mark(note, 'got_it', who, 'T1');
+ok('Got it keeps who and when', n2.got_it.by === 'krystal@mo-care.com' && n2.got_it.by_name === 'Krystal L' && n2.got_it.at === 'T1' && !n2.done);
+n2 = OH.mark(OH.mark(n2, 'got_it', { email:'z@x' }, 'T2'), 'done', who, 'T3');
+ok('pressing again never moves the first time; Done after', n2.got_it.at === 'T1' && n2.done.at === 'T3');
+ok('Done alone also counts as seen', OH.mark(note, 'done', who, 'T4').got_it.at === 'T4');
+ok('only Got it and Done', OH.mark(note, 'delete', who, 'T') === null && OH.mark(null, 'done', who, 'T') === null);
+ok('mark never changes the original', !note.got_it && !note.done);
+for (const [s_, n, d] of R) console.log(s_, '·', n, s_ === 'PASS' ? '' : d);
+console.log('overnight-handoff:', R.filter(r => r[0] === 'PASS').length, 'passed,', R.filter(r => r[0] !== 'PASS').length, 'failed');
+process.exit(R.every(r => r[0] === 'PASS') ? 0 : 1);
