@@ -7719,8 +7719,9 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
-<script src="leads-table.js?v=1"></script><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
-<script src="leads-board.js?v=19"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-table.js?v=1"></script>
+<script src="family-link.js?v=1"></script><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
+<script src="leads-board.js?v=20"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
@@ -36215,6 +36216,7 @@ function lppLine(l,b,p,ro,care){
     +'<div class="lp-prov">Permission to discuss care: <b>'+esc(LPP_PERM[perm]||perm)+'</b>'+(p&&p.permission!=='not_asked'?' · asked by '+esc(p.permission_asked_by||'')+', '+esc(lsDate(String(p.permission_asked_at||'').slice(0,10))):'')
       +(caller?' · name and phone come from the inquiry':'')+'</div>'
     +lppSignedLine(l,caller?name:p.name,email)
+    +(p&&!caller&&window.FamilyLink?FamilyLink.noteFor(p.person_key,l.id):'')   /* 2026-10-29: a linked caller, with Unlink */
     +(ro?'':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\''+(p?p.person_key:'caller')+'\',this)">'+(caller&&!p?'Add roles and permission':'Change')+'</button>'
       +(p&&!caller?' · <button class="lp-link" onclick="lppOpen(\''+p.person_key+'\',this,true)">Remove</button>':'')+'</div>')
     +(care?lpcLine(l,b,caller?(lpcSelf(l)?'client':'caller'):'person',p):'')
@@ -36247,15 +36249,17 @@ async function lppLoadCirc(){
 }
 function lppHtml(l,b,host){
   const esc=escapeHtmlComms;
-  if(!b||!b.ep) return '<p class="lp-prov">People can be added once this inquiry\'s Journey exists (it opens within a day of the first call).</p>';
-  if(b.peopleErr) return '<p class="lp-prov">People aren\'t available right now ('+esc(b.peopleErr)+').</p>';
+  /* 2026-10-29: callers linked to this family (Who did they call for?) show even before its Journey opens */
+  const fl=window.FamilyLink?FamilyLink.extraHtml(l.id):'', who=host==='lppIntakeHost'||host==='lppFamHost'?'<div class="lpp-acts"><button class="lp-link" onclick="flOpen(\''+esc(l.id)+'\')">Who did they call for?</button> <span class="lp-prov">when this caller is family of someone we already know</span></div>':'';
+  if(!b||!b.ep) return fl+'<p class="lp-prov">People can be added once this inquiry\'s Journey exists (it opens within a day of the first call).</p>'+(l.linked_to||l.archived?'':who);
+  if(b.peopleErr) return fl+'<p class="lp-prov">People aren\'t available right now ('+esc(b.peopleErr)+').</p>';
   const caller=lppCallerRow(b), others=lppPeople(b).filter(p=>!p.is_caller);
   /* once care has begun, Lead intake is history: people are kept current on Family & Contacts */
   const ro=host==='lppIntakeHost'&&!!(b.began||b.error);
   /* Gate 4b: on Family & Contacts, once they're an AxisCare client, each person can go into care (the client too) */
   const care=host==='lppFamHost'&&lpcOn(l);
   return '<div class="lpp" data-host="'+host+'">'+(care?lpcHead(l)+(lpcSelf(l)?'':lpcClientRow(l,b)):'')
-    +lppLine(l,b,caller,ro,care)+others.map(p=>lppLine(l,b,p,ro,care)).join('')
+    +lppLine(l,b,caller,ro,care)+others.map(p=>lppLine(l,b,p,ro,care)).join('')+fl+(ro||l.linked_to||l.archived?'':who)
     +(ro?'<p class="lp-prov">Care has begun, so this is who we knew at the start. Keep people current on Family &amp; Contacts.</p></div>':'<div class="lpp-acts"><button class="lp-link" onclick="lppOpen(\'new\',this)">Add a person</button> <span class="lp-prov">A second child, a case manager, the POA, a neighbor who checks in…</span></div>'
     +'<div class="lpp-formhost lpp-newhost"></div>'
     +'<p class="lp-prov" id="lppMsg-'+host+'" role="status">'+(LPP.msg&&LPP.msg.host===host?esc(LPP.msg.text):'')+'</p></div>');
@@ -36824,7 +36828,7 @@ function lsRows(){
     const r=lsRow({ lead:l, st, sc, launch, plan:pid?(DATA.staffing_plans||[]).find(p=>p.id===pid):null }); r.set=set;
     if(set!=='work'){ r.risk=[]; r.owe=false; r.tab='summary';
       r.move=set==='spam'?'Marked spam by '+lpscName(l.spam.by)+', '+lsDate(l.spam.at)+(leadSpamUndoable(l)?' (Not spam is in their profile\'s More menu)':'')
-        :set==='archived'?'Archived (restore it from their profile)':set==='future'?'Saved for future: '+((l.future&&l.future.reason)||''):set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
+        :set==='archived'?(l.linked_to?'Linked: called for '+(l.linked_to.name||'another family')+' (Unlink is on that family\'s People involved)':'Archived (restore it from their profile)'):set==='future'?'Saved for future: '+((l.future&&l.future.reason)||''):set==='care'?'Receiving care':(l.status==='Lost'?'Lost: '+(l.lost_reason||'no reason given'):'Care ended'); }
     rows.push(r);
   });
   rows.sort((a,b)=>(b.risk.length?1:0)-(a.risk.length?1:0)
@@ -36886,7 +36890,8 @@ function lsSignals(l){
 }
 function lsSearchHit(r){
   const l=r.l, c=r.c;
-  return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name].filter(Boolean).join(' '));
+  /* 2026-10-29: a family is found by the name or number of a caller linked to it, too */
+  return searchMatch([r.name, l&&l.first_name, l&&l.last_name, l&&l.phone, l&&l.email, l&&l.client_first_name, l&&l.client_last_name, l&&l.client_phone, c&&c.client_name, l&&window.FamilyLink?FamilyLink.searchWords(l, DATA.leads):''].filter(Boolean).join(' '));
 }
 const LS_FILTERS=['All','At risk','Updates owed','Follow-up due','New','Talking','Waiting on the state','State submissions','Assessment','Receiving care','Past','Archived','Spam'];
 function lsIn(r,f){

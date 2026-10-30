@@ -224,7 +224,9 @@
     if(cards && LB.filter === 'All'){
       /* 2026-10-29 (her "do the same for our leads"): the list the GoHighLevel way, made better (leads-table.js) */
       const helpers = { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
-        searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim() };
+        searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim(),
+        /* 2026-10-29: calls and texts that reach a linked caller's own lead after the link count as the family's last activity */
+        extraFor:l => window.FamilyLink ? { events:FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) } : null };
       box.innerHTML = top + (window.LeadTable ? LeadTable.html(shown, now, helpers) : LeadCards.html(shown, now, helpers));
     } else if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
@@ -274,10 +276,10 @@
     const l = lead(id); if(!l || typeof ccPopOpen !== 'function') return;
     const row = (t, fn) => '<div class="ccpick-row" data-fn="' + fn + '" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">' + t + '</div>';
     const el = ccPopOpen(btn, '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">' + esc(((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() || ((l.first_name || '') + ' ' + (l.last_name || '')).trim()) + '</div>'
-      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (window.FutureOpps ? row('Save for future…', 'future') : '') + (window.LeadRecorder && LeadRecorder.isLive() ? row('Log a call from another phone', 'log') : '') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
+      + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (window.FamilyLink ? row('Who did they call for?', 'calledfor') : '') + (window.FutureOpps ? row('Save for future…', 'future') : '') + (window.LeadRecorder && LeadRecorder.isLive() ? row('Log a call from another phone', 'log') : '') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
     el.querySelectorAll('.ccpick-row').forEach(r => { r.onmouseenter = () => r.style.background = 'var(--bg)'; r.onmouseleave = () => r.style.background = '';
       r.onclick = () => { const fn = r.dataset.fn; ccPopClose();
-        if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn); else if(fn === 'log') lbLog(id, btn); else if(fn === 'future') FutureOpps.save(id);
+        if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn); else if(fn === 'log') lbLog(id, btn); else if(fn === 'future') FutureOpps.save(id); else if(fn === 'calledfor') flOpen(id);
         else if(fn === 'yes') lbYes(id, btn); else if(fn === 'lost') lbLost(id); else if(fn === 'spam' && typeof lpMarkSpam === 'function') lpMarkSpam(id, btn); };
     });
   }
