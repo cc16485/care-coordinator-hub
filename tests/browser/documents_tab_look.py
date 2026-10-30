@@ -22,8 +22,8 @@ async()=>{
 
   document.querySelector('.ftab[data-g="sops"]').click(); await sleep(300);
   const row=document.getElementById('fsub-sops'), pills=[...row.querySelectorAll('.fpill')].map(p=>p.textContent.trim());
-  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Videos, Order Supplies (no Scripts)',
-     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Videos","Order Supplies"]', pills);
+  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Videos & Photos, Order Supplies (no Scripts)',
+     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Videos & Photos","Order Supplies"]', pills);
   ok('Scripts still opens from its old address (#playbook), content kept', document.getElementById('tab-playbook') && CC_GROUPS.sops.includes('playbook'));
   [...row.querySelectorAll('.fpill')].find(p=>/Forms & Templates/.test(p.textContent)).click(); await sleep(300);
   ok('Forms & Templates is first and opens inside the Hub', activeTab==='docs' && /forms\.html\?in=hub$/.test(document.getElementById('docsFrame').src), [activeTab, document.getElementById('docsFrame').src]);
@@ -37,6 +37,8 @@ async()=>{
   ok('Videos loads with its own header hidden', await until(()=>fv.contentDocument && fv.contentDocument.documentElement.classList.contains('inhub') && getComputedStyle(fv.contentDocument.querySelector('header')).display==='none'));
   switchTab('today'); location.hash='#videos'; await sleep(400);
   ok('#videos opens Videos', activeTab==='videos', activeTab);
+  switchTab('today'); location.hash='#photos'; await sleep(400);
+  ok('#photos opens Videos & Photos', activeTab==='videos', activeTab);
   switchTab('docs'); await sleep(200);
 
   // the library's own link to Client Folders moves the Hub to the next tab

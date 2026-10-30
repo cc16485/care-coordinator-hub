@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <script src="inhub.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Videos · Caring Companions</title>
+<title>Videos &amp; Photos · Caring Companions</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
 <link rel="icon" href="cc-logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,6 +24,11 @@
     approved  { by, at } once an owner says it is ready to use
     removed   { by, at, why }; the file stays for the record
   Nothing here deletes a file or an item.
+  PHOTOS (2026-10-30, her "can you also save all of the amazing photos you've created"): the same page, below the videos.
+  Private bucket agency-photos, list in app_data key agency_photos (agency-photos.sql). Each photo:
+    { id, name, set (the video or project it was made for), path, thumb (a small copy for the grid), size, filename, w, h,
+      made, by, at, removed { by, at, why } }
+  Same rules: everyone signed in views and downloads; only the owners add or remove; nothing is deleted.
 -->
 <style>
   :root{ --navy:#0D365F; --cta:#1F7A8C; --cta-h:#155A68; --honey:#F0A63A; --deep-honey:#C17A12;
@@ -91,6 +96,17 @@
   details.gone{ margin-top:18px; }
   details.gone summary{ font-size:13px; color:var(--muted); cursor:pointer; }
   details.gone .vid{ opacity:.7; }
+  .pgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; margin:6px 0 4px; }
+  .ph{ position:relative; border:0; padding:0; background:var(--panel); border-radius:10px; overflow:hidden; cursor:pointer; aspect-ratio:3/4; }
+  .ph img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ph:focus-visible{ outline:3px solid var(--cta); outline-offset:2px; }
+  .ph.gone{ opacity:.6; }
+  .lb{ position:fixed; inset:0; background:rgba(8,20,36,.86); z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+  .lb-in{ max-width:min(960px,100%); max-height:100%; display:flex; flex-direction:column; gap:10px; }
+  .lb img{ max-width:100%; max-height:calc(100vh - 120px); object-fit:contain; border-radius:10px; background:#000; align-self:center; }
+  .lb-bar{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; background:#fff; border-radius:12px; padding:10px 12px; }
+  .lb-bar b{ color:var(--navy); }
+  .lb-bar .sp{ flex:1; }
   .hide{ display:none !important; }
   html.inhub #gate{ background:transparent; min-height:0; padding:30px 18px; }
   html.inhub #gate .box{ border:1px solid var(--border); }
@@ -111,7 +127,7 @@
 <div id="gate">
   <div class="box">
     <img src="cc-logo.png" alt="Caring Companions">
-    <h1 class="serif">Videos</h1>
+    <h1 class="serif">Videos &amp; Photos</h1>
     <p>Same sign-in as your hub.</p>
     <label for="em">Email</label><input id="em" type="email" autocomplete="username" placeholder="you@mo-care.com">
     <label for="pw">Password</label><input id="pw" type="password" autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
@@ -123,13 +139,13 @@
 <div id="app" class="hide">
 <header>
   <img src="cc-logo-light.png" alt="">
-  <span class="ttl">Videos</span>
+  <span class="ttl">Videos &amp; Photos</span>
   <a class="back" href="index.html">&larr; Back to the hub</a>
   <span class="who" id="who"></span>
 </header>
 <main>
-  <h2 class="serif">Videos</h2>
-  <p class="lead">Every video we make, kept in one place: recruiting videos and ads, welcome and orientation, videos for families. Watch them here or download one to post. Anyone signed into the hub can watch. Nobody outside can.</p>
+  <h2 class="serif">Videos &amp; Photos</h2>
+  <p class="lead">Every video and photo we make, kept in one place. Watch or look at them here, or download one to post. Anyone signed into the hub can see them. Nobody outside can.</p>
 
   <div class="card">
     <div class="row">
@@ -153,7 +169,38 @@
     <div id="upMsg"></div>
     <div id="list"><div class="empty">Loading&hellip;</div></div>
   </div>
+
+  <h2 class="serif" id="photosTitle" style="margin-top:28px;">Photos</h2>
+  <p class="lead">The pictures we made for our videos and pages, grouped by what they were made for. Tap one to see it full size.</p>
+  <div class="card">
+    <div class="row">
+      <input id="pq" type="search" placeholder="Search photos" style="flex:1;min-width:180px;">
+      <button class="btn sm hide" id="pAddBtn" aria-expanded="false" aria-controls="pUpCard">+ Add photos</button>
+    </div>
+    <div id="pUpCard" class="up hide">
+      <div class="grid3">
+        <div style="grid-column:span 2;"><label for="pSet">What they were made for</label><input id="pSet" list="pSets" placeholder="For example: Never a Stranger at the Door"><datalist id="pSets"></datalist></div>
+        <div><label for="pMade">Day they were made</label><input id="pMade" type="date"></div>
+      </div>
+      <div class="drop" id="pDrop" role="button" tabindex="0">
+        <b>Drop photos here, or click to choose</b>
+        <div class="muted" style="margin-top:4px;">JPG, PNG or WebP. Up to 25MB each.</div>
+        <input type="file" id="pFileIn" class="hide" multiple accept="image/jpeg,image/png,image/webp">
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:10px;"><button class="btn sm ghost" id="pAddClose">Done adding</button></div>
+    </div>
+    <div id="pMsg"></div>
+    <div id="plist"><div class="empty">Loading&hellip;</div></div>
+  </div>
 </main>
+
+<div id="lb" class="lb hide" role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="lb-in">
+    <img id="lbImg" alt="">
+    <div class="lb-bar"><b id="lbName"></b><span class="sp"></span>
+      <button class="btn sm ghost" id="lbDl">Download</button><button class="btn sm danger hide" id="lbDel">Remove</button><button class="btn sm" id="lbClose">Close</button></div>
+  </div>
+</div>
 </div>
 
 <script>
@@ -162,6 +209,7 @@
   var SUPA_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'agency-videos', KEY = 'agency_videos', MAX = 200 * 1024 * 1024;
+  var PBUCKET = 'agency-photos', PKEY = 'agency_photos', PMAX = 25 * 1024 * 1024;
   var OWNERS = ['samantha@mo-care.com', 'zach@mo-care.com'];
   var sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
   var $ = function (id) { return document.getElementById(id); };
@@ -198,9 +246,13 @@
     ME = ((session.user && session.user.email) || '').toLowerCase(); $('who').textContent = ME;
     OWNER = OWNERS.indexOf(ME) > -1;
     $('addBtn').classList.toggle('hide', !OWNER);
+    $('pAddBtn').classList.toggle('hide', !OWNER);
+    $('pMade').value = today();
     $('uCat').innerHTML = CATS.map(function (c) { return '<option value="' + c[0] + '">' + esc(c[1]) + '</option>'; }).join('');
     $('uMade').value = today();
     load(new URLSearchParams(location.search).get('cat') || '');
+    PH.load();
+    if (location.hash === '#photos' || /[?&]show=photos/.test(location.search)) setTimeout(function () { $('photosTitle').scrollIntoView(); }, 300);
   }
 
   /* ---------- data ---------- */
@@ -360,6 +412,141 @@
       };
     });
   }
+
+  /* ================= PHOTOS ================= */
+  var PH = (function () {
+    var LIST = [], urls = {}, cur = null;
+    function msg(html, kind) { $('pMsg').innerHTML = html ? '<div class="msg ' + (kind || 'info') + '">' + html + '</div>' : ''; }
+    function load() {
+      return sb.from('app_data').select('data').eq('key', PKEY).maybeSingle().then(function (r) {
+        if (r.error) { $('plist').innerHTML = '<div class="msg err">Could not load the photos: ' + esc(r.error.message) + '</div>'; return; }
+        LIST = (r.data && Array.isArray(r.data.data)) ? r.data.data : [];
+        render();
+      });
+    }
+    function save(item) {
+      return sb.rpc('upsert_app_data_item', { target_key: PKEY, item: item }).then(function (r) {
+        if (r && r.error) throw new Error(r.error.message);
+        var i = LIST.findIndex(function (x) { return x.id === item.id; });
+        if (i > -1) LIST[i] = item; else LIST.push(item);
+        return item;
+      });
+    }
+    function sets() { var o = []; LIST.forEach(function (p) { var s = p.set || 'Other'; if (o.indexOf(s) < 0) o.push(s); }); return o; }
+    function render() {
+      var q = $('pq').value.trim().toLowerCase();
+      var match = function (p) { return !q || [p.name, p.set, p.filename].join(' ').toLowerCase().indexOf(q) > -1; };
+      var newest = function (a, b) { return ((b.made || b.at || '') + '').localeCompare((a.made || a.at || '') + '') || (a.filename || '').localeCompare(b.filename || ''); };
+      var cur = LIST.filter(function (p) { return !p.removed && match(p); }).sort(newest);
+      var gone = LIST.filter(function (p) { return p.removed && match(p); });
+      var order = []; cur.forEach(function (p) { var s = p.set || 'Other'; if (order.indexOf(s) < 0) order.push(s); });
+      var tile = function (p) { return '<button class="ph' + (p.removed ? ' gone' : '') + '" data-ph="' + p.id + '" title="' + esc(p.name) + '" aria-label="' + esc(p.name) + '"><img data-src="' + esc(p.thumb || p.path) + '" alt="' + esc(p.name) + '" loading="lazy"></button>'; };
+      var html = order.map(function (s) {
+        var inS = cur.filter(function (p) { return (p.set || 'Other') === s; });
+        return '<div class="group">' + esc(s) + ' <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500;">(' + inS.length + ')</span></div><div class="pgrid">' + inS.map(tile).join('') + '</div>';
+      }).join('');
+      if (!html) html = '<div class="empty">' + (LIST.length ? 'Nothing matches.' : 'No photos stored yet.') + '</div>';
+      if (gone.length) html += '<details class="gone"><summary>Removed (' + gone.length + '), kept for the record</summary><div class="pgrid">' + gone.map(tile).join('') + '</div></details>';
+      $('plist').innerHTML = html;
+      $('pSets').innerHTML = sets().map(function (s) { return '<option value="' + esc(s) + '">'; }).join('');
+      Array.prototype.forEach.call(document.querySelectorAll('[data-ph]'), function (b) { b.onclick = function () { open(b.getAttribute('data-ph')); }; });
+      thumbs();
+    }
+    /* small copies for the grid, signed in one request */
+    function thumbs() {
+      var imgs = Array.prototype.slice.call(document.querySelectorAll('#plist img[data-src]'));
+      var need = imgs.map(function (i) { return i.getAttribute('data-src'); }).filter(function (p, i, a) { return !urls[p] && a.indexOf(p) === i; });
+      var fill = function () { imgs.forEach(function (i) { var u = urls[i.getAttribute('data-src')]; if (u && i.src !== u) i.src = u; }); };
+      if (!need.length) { fill(); return; }
+      sb.storage.from(PBUCKET).createSignedUrls(need, 3600).then(function (r) {
+        (r.data || []).forEach(function (x) { if (x.signedUrl && x.path) urls[x.path] = x.signedUrl; });
+        fill();
+      });
+    }
+    function signed(p, download) {
+      return sb.storage.from(PBUCKET).createSignedUrl(p.path, 3600, download ? { download: p.filename || (p.name + '.jpg') } : undefined).then(function (r) {
+        if (r.error || !r.data) throw new Error(r.error ? r.error.message : 'unknown');
+        return r.data.signedUrl;
+      });
+    }
+    function open(id) {
+      cur = LIST.find(function (x) { return x.id === id; }); if (!cur) return;
+      $('lbName').textContent = cur.name + (cur.set ? ' · ' + cur.set : '');
+      $('lbImg').alt = cur.name; $('lbImg').src = urls[cur.thumb || cur.path] || '';
+      $('lbDel').classList.toggle('hide', !OWNER || !!cur.removed);
+      $('lb').classList.remove('hide'); $('lbClose').focus();
+      var me = cur;
+      signed(cur, false).then(function (u) { if (cur === me) $('lbImg').src = u; }, function () {});
+    }
+    function close() { $('lb').classList.add('hide'); $('lbImg').src = ''; cur = null; }
+    $('lbClose').addEventListener('click', close);
+    $('lb').addEventListener('click', function (e) { if (e.target === $('lb')) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('lb').classList.contains('hide')) close(); });
+    $('lbDl').addEventListener('click', function () {
+      if (!cur) return; var b = $('lbDl'); b.textContent = 'Getting it...';
+      signed(cur, true).then(function (u) { b.textContent = 'Download'; var a = document.createElement('a'); a.href = u; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); },
+                             function (e) { b.textContent = 'Download'; alert('Could not download it: ' + e.message); });
+    });
+    $('lbDel').addEventListener('click', function () {
+      if (!cur || !OWNER) return;
+      var why = prompt('Remove "' + cur.name + '" from the photos?\nThe photo is kept for the record and can still be seen under Removed. Why is it being removed?', '');
+      if (why === null) return;
+      if (why.trim().length < 5) { alert('Say why it is being removed (a few words).'); return; }
+      save(Object.assign({}, cur, { removed: { by: ME, at: new Date().toISOString(), why: why.trim().slice(0, 300) } }))
+        .then(function () { close(); render(); }, function (e) { alert('Not saved: ' + e.message); load(); });
+    });
+    $('pq').addEventListener('input', render);
+
+    /* ---------- add photos (owners only): the photo plus a small copy for the grid ---------- */
+    function small(file) {
+      return new Promise(function (ok) {
+        var img = new Image(), u = URL.createObjectURL(file);
+        img.onload = function () {
+          var k = Math.min(1, 480 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+          c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+          c.toBlob(function (b) { ok({ blob: b, w: img.naturalWidth, h: img.naturalHeight }); }, 'image/jpeg', 0.82);
+        };
+        img.onerror = function () { URL.revokeObjectURL(u); ok({ blob: null, w: 0, h: 0 }); };
+        img.src = u;
+      });
+    }
+    function put(path, body, type) {
+      return sb.storage.from(PBUCKET).upload(path, body, { contentType: type, upsert: false }).then(function (r) { if (r.error) throw new Error(r.error.message); return path; });
+    }
+    function showAdd(on) { $('pUpCard').classList.toggle('hide', !on); $('pAddBtn').classList.toggle('hide', on || !OWNER); $('pAddBtn').setAttribute('aria-expanded', on ? 'true' : 'false'); if (on) $('pSet').focus(); }
+    $('pAddBtn').addEventListener('click', function () { showAdd(true); });
+    $('pAddClose').addEventListener('click', function () { showAdd(false); });
+    var d = $('pDrop');
+    d.addEventListener('click', function (e) { if (e.target.tagName !== 'INPUT') $('pFileIn').click(); });
+    d.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('pFileIn').click(); } });
+    d.addEventListener('dragover', function (e) { e.preventDefault(); d.classList.add('over'); });
+    d.addEventListener('dragleave', function () { d.classList.remove('over'); });
+    d.addEventListener('drop', function (e) { e.preventDefault(); d.classList.remove('over'); add(e.dataTransfer.files); });
+    $('pFileIn').addEventListener('change', function () { add($('pFileIn').files); $('pFileIn').value = ''; });
+    function add(list) {
+      if (!OWNER) return;
+      var set = $('pSet').value.trim();
+      if (!set) { msg('Say what these photos were made for first.', 'err'); $('pSet').focus(); return; }
+      var files = Array.prototype.slice.call(list || []), big = files.filter(function (f) { return f.size > PMAX; });
+      files = files.filter(function (f) { return f.size <= PMAX && /^image\/(jpeg|png|webp)$/.test(f.type); });
+      if (!files.length) { msg(big.length ? 'Too big (over 25MB).' : 'Those are not JPG, PNG or WebP photos.', 'err'); return; }
+      var made = $('pMade').value || today(), done = 0, failed = [];
+      msg('Saving ' + files.length + ' photo' + (files.length > 1 ? 's' : '') + '...');
+      var next = function (i) {
+        if (i >= files.length) { render(); msg((done ? 'Saved ' + done + ' photo' + (done > 1 ? 's' : '') + '. ' : '') + (failed.length ? 'Not saved: ' + failed.map(esc).join('; ') : ''), failed.length ? 'err' : 'ok'); return; }
+        var f = files[i], id = uid(), folder = set.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'other';
+        var ext = (f.name.match(/\.[^.]+$/) || ['.jpg'])[0].toLowerCase(), meta;
+        small(f).then(function (m) { meta = m; return put(folder + '/' + id + ext, f, f.type); })
+          .then(function (path) { return meta.blob ? put(folder + '/thumbs/' + id + '.jpg', meta.blob, 'image/jpeg').then(function (t) { return [path, t]; }) : [path, '']; })
+          .then(function (pp) { return save({ id: id, name: nice(f.name), set: set, path: pp[0], thumb: pp[1] || undefined, size: f.size, filename: f.name, w: meta.w, h: meta.h, made: made, by: ME, at: new Date().toISOString() }); })
+          .then(function () { done++; }, function (e) { failed.push(f.name + ' (' + e.message + ')'); })
+          .then(function () { next(i + 1); });
+      };
+      next(0);
+    }
+    return { load: load };
+  })();
 })();
 </script>
 </body>
