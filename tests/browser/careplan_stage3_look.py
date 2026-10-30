@@ -54,7 +54,7 @@ async()=>{
   await HV.open({ leadId:'lead_betty' }); await sleep(150);
   const a=HV._st.a, v=a.visit;
   ok('what the call and the lead put in boxes is kept (allergies, walker, female caregiver, dogs, the emergency contact)', v.call_said['visit.allergies']==='Penicillin (hives)' && v.call_said['visit.equipment:Walker']===true && v.call_said['visit.prefs.gender:female_preferred']===true && v.call_said['visit.prefs.dogs:yes']===true && v.call_said['visit.safety.ec.name']==='Karen Price (fake)', v.call_said);
-  q('[data-hvs="2"]').click(); await sleep(40);
+  q('[data-hvs="5"]').click(); await sleep(40);
   const chk=q('#hvSafety [data-hva="checked"][data-p="visit.allergies"]');
   ok('a blue answer has "Checked with the family"', !!chk && q('[data-hv="visit.allergies"]').classList.contains('hv-from'));
   chk.click(); await sleep(30);
@@ -71,12 +71,13 @@ async()=>{
   const mm=HV.mismatchesFor(a);
   ok("the call's walker is gone at the visit: flagged as doesn't match, with what each said", mm.some(m=>m[0]==='visit.equipment:Walker' && /Equipment/.test(m[1]) && m[3]==='Wheelchair'), mm);
   ok('the facts the draft reads say how each answer is known (seen)', /seen by the coordinator/.test((HV.factsFor(a).find(f=>f.path==='visit.equipment')||{}).value));
-  q('[data-hvs="4"]').click(); await sleep(30);
-  ok('Home and safety offers Seen on getting in and stairs', seenKeys().includes('visit.home.entry') && seenKeys().includes('visit.home.stairs') && seenKeys().length===2, seenKeys());
-  q('[data-hvs="3"]').click(); await sleep(30);
-  ok('no Seen anywhere else (Daily activities has none)', !seenKeys().length);
+  q('[data-hvs="9"]').click(); await sleep(30);
+  ok('Home and safety (the Home walk-through) offers Seen on getting in and stairs', seenKeys().includes('visit.home.entry') && seenKeys().includes('visit.home.stairs') && seenKeys().length===2, seenKeys());
+  q('[data-hvs="4"]').click(); await sleep(30); const sk4=seenKeys();
+  q('[data-hvs="6"]').click(); await sleep(30);
+  ok('no Seen anywhere else (Around the house and Personal care have none)', !sk4.length && !seenKeys().length, [sk4, seenKeys()]);
   /* answers for the needs */
-  q('[data-hvs="2"]').click(); await sleep(20); tap('visit.safety.ec_ok','yes'); await sleep(20);
+  q('[data-hvs="5"]').click(); await sleep(20); tap('visit.safety.ec_ok','yes'); await sleep(20);
   ok('confirming the emergency contact on the safety check clears its blue boxes', !Object.keys(v.from_call||{}).some(k=>/safety\.ec\./.test(k)) && HV.markFor(a,'visit.safety.ec.name')==='checked');
   Object.assign(v.safety,{ falls:'no', lives_alone:'no', oxygen:'no', decline:'no', summon:'phone', hazards:['none'] });
   Object.assign(v,{ memory:'no', supervision:'no' }); v.prefs.smoking='no'; v.prefs.skills=['dementia_care'];
@@ -86,10 +87,10 @@ async()=>{
   ok("needs follow her table: bathing, dressing, walking, meals, medication reminders and dementia Required; eating and transportation No", nm.need_bathing==='required' && nm.need_dressing_grooming==='required' && nm.need_walking_wheelchair==='required' && nm.need_meals_housekeeping==='required' && nm.need_med_reminders==='required' && nm.need_dementia_care==='required' && nm.need_feeding==='no' && nm.need_transportation==='no', nm);
   ok('...transfers alone never sends gait belt; toileting (unanswered) sends nothing; no two-person (not asked)', !('need_transfers_gait_belt' in nm) && !('need_toileting' in nm) && !('need_more_than_one_to_transfer' in nm));
   ok('...the female caregiver and dogs said only by the lead and never checked are not sent; smoking (answered) is', !('pref_caregiver_gender' in nm) && !('home_dogs' in nm) && nm.home_smoking==='no');
-  q('[data-hvs="5"]').click(); await sleep(30); q('[data-hva="checked"][data-p="visit.prefs.gender"]').click(); await sleep(20);
+  q('[data-hvs="7"]').click(); await sleep(30); q('[data-hva="checked"][data-p="visit.prefs.gender"]').click(); await sleep(20);
   ok('once the gender is checked with the family, it is sent', CPV.needsFrom(a).some(x=>x.kind==='pref_caregiver_gender' && x.value==='female_preferred'));
   /* finish, draft, review */
-  q('[data-hvs="7"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(600);
+  q('[data-hvs="10"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(600);
   CPV.open(a.id); await sleep(150);
   ok('the care plan screen shows each line\'s mark (seen, family)', /From visit \(seen at the visit\): equipment/.test(txt()) && /From visit \(family\): acts.bathing.level/.test(txt()), txt().match(/From visit[^\n]{0,60}/g));
   ok("doesn't match is on the checklist and holds approval", /Doesn't match: Equipment/.test(txt()) && c('[data-cpva="approve"]').disabled);
@@ -151,7 +152,7 @@ with sync_playwright() as pw:
         o = overflow(pg, 'cpvRoot'); R.append(['PASS' if not o else 'FAIL', f'{name}, care plan screen: nothing runs off the side', o])
         if SHOTS:
             os.makedirs(SHOTS, exist_ok=True); pg.screenshot(path=os.path.join(SHOTS, f's3-cpv-{w}.png'))
-    pg.evaluate("async()=>{ const id=CPV._s.a.id; CPV.close(); await HV.open({ id, sec:2 }); }"); pg.wait_for_timeout(250)
+    pg.evaluate("async()=>{ const id=CPV._s.a.id; CPV.close(); await HV.open({ id, sec:'health' }); }"); pg.wait_for_timeout(250)
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(150)
         o = overflow(pg, 'hvRoot'); R.append(['PASS' if not o else 'FAIL', f'{name}, Health with Seen and Checked: nothing runs off the side', o])

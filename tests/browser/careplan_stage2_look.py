@@ -2,7 +2,7 @@
 wording approved word for word). The real Hub page, offline, made-up families. Proves: Their story asks what good care looks
 like, what they still do themselves and what they like to be called; a health condition's warning-sign boxes appear only once
 it has a name; a "How we help" panel opens only under an activity where help is needed, with that activity's own prompts, and
-goes away when help is not needed; Home and safety is its own screen (5th), with getting in (never a code box), parking, who to
+goes away when help is not needed; Home and safety is its own screen (the Home walk-through, 10th since 2026-10-30), with getting in (never a code box), parking, who to
 call in order (built from the emergency contact and the people in the room), pets only when there are pets, a stairs note only
 when there are stairs, and where things are kept; a typical shift builds itself from the schedule and the help needed, in time
 order, with at most 3 stars, editable, rebuilt only after asking; "Still needs attention" counts what is missing and jumps to
@@ -47,19 +47,19 @@ async()=>{
   await HV.open({ leadId:'lead_betty' }); await sleep(150);
   const a=HV._st.a, v=a.visit;
   const rail=qa('#hvRail [data-hvs]').map(b=>b.innerText.replace(/\s+/g,' ').trim());
-  ok('Home and safety is its own screen, 5th, between Daily activities and Preferences', rail.join('|')==='1 Start the visit|2 Their story|3 Health|4 Daily activities|5 Home and safety|6 Preferences|7 Schedule and level|8 Sign-off|9 After the visit', rail);
+  ok('Home and safety is its own screen: the Home walk-through, 10th, after Schedule and level (2026-10-30)', rail.join('|')==='1 Start the visit|2 About us|3 Their story|4 Good days out|5 Around the house|6 Health|7 Personal care|8 Preferences|9 Schedule and level|10 Home walk-through if starting care|11 Agreement and sign-off|12 After the visit', rail);
   /* story */
-  q('[data-hvs="1"]').click(); await sleep(30);
-  ok('Their story asks what good care looks like, what they still do themselves, what they like to be called', !!q('[data-hv="visit.story.good_care"]') && !!q('[data-hv="visit.story.self"]') && !!q('[data-hv="visit.story.called"]') && /What good care looks like to you/.test(sec(1).innerText));
+  q('[data-hvs="2"]').click(); await sleep(30);
+  ok('Their story asks what good care looks like, what they still do themselves, what they like to be called', !!q('[data-hv="visit.story.good_care"]') && !!q('[data-hv="visit.story.self"]') && !!q('[data-hv="visit.story.called"]') && /What good care looks like to you/.test(sec(2).innerText));
   type('visit.story.good_care','Mom eats lunch every day and feels safe in the shower'); type('visit.story.self','Picks her clothes, dries the dishes'); type('visit.story.called','Betty');
   /* conditions */
-  q('[data-hvs="2"]').click(); await sleep(30);
+  q('[data-hvs="5"]').click(); await sleep(30);
   ok('no warning-sign boxes for a condition with no name', !q('[data-hv="visit.conditions.0.notice"]'));
   type('visit.conditions.0.name','High blood pressure',true); await sleep(30);
   ok('once named, "What we would notice" and "What to do" appear for it', !!q('[data-hv="visit.conditions.0.notice"]') && !!q('[data-hv="visit.conditions.0.todo"]') && /Warning signs for High blood pressure/.test(q('#hvConds').innerText));
   type('visit.conditions.0.notice','Dizzy when she stands up'); type('visit.conditions.0.todo','Sit her down and call the office');
   /* how we help */
-  q('[data-hvs="3"]').click(); await sleep(30);
+  q('[data-hvs="6"]').click(); await sleep(30);
   ok('no How we help panel until an activity needs help', !qa('.hv-help').length);
   tap('visit.acts.bathing.level','standby'); await sleep(20);
   ok('Stand-by on bathing opens its panel, with bathing\'s own prompts and the five boxes', !!q('#hvHelp_bathing .hv-help') && /Shower or bath\? Which days and time\? Where are the towels and clothes\?/.test(q('#hvHelp_bathing').innerText) && ['steps','self','supplies','likes','watch'].every(k=>q('[data-hv="visit.acts.bathing.help.'+k+'"]')));
@@ -69,8 +69,8 @@ async()=>{
   tap('visit.acts.light_house.level','not_needed'); await sleep(20);
   ok('"Not needed" closes the panel again', !q('#hvHelp_light_house .hv-help'));
   /* home and safety */
-  q('[data-hvs="4"]').click(); await sleep(40);
-  const hs=()=>sec(4).innerText;
+  q('[data-hvs="9"]').click(); await sleep(40);
+  const hs=()=>sec(9).innerText;
   ok('Home and safety: getting in, parking, who to call, where things are kept', /Getting in/.test(hs()) && !!q('[data-hv="visit.home.parking"]') && /Who to call/.test(hs()) && /Where things are kept/.test(hs()) && !!q('[data-hv="visit.home.medlist_where"]'));
   ok('no box anywhere for a door or lockbox code; it says the code goes in AxisCare', !qa('[data-hv]').some(e=>/code/i.test(e.getAttribute('data-hv')) && e.tagName!=='BUTTON') && /goes in AxisCare/.test(hs()));
   tap('visit.home.entry','lockbox'); await sleep(30);
@@ -78,14 +78,14 @@ async()=>{
   tap('visit.home.code_in_axis','yes'); type('visit.home.entry_note','Back door; lockbox on the porch rail'); type('visit.home.parking','Driveway');
   ok('the office number is shown, and the call order starts from the emergency contact', /\(417\) 234-8494/.test(hs()) && /^1\. Karen Price \(fake\) \(Daughter\), \(417\) 555-0172/.test(v.home.call_order||''), v.home.call_order);
   ok('no pets card when there are no pets', !/Names, and where they stay/.test(hs()));
-  v.prefs.dogs='yes'; q('[data-hvs="3"]').click(); q('[data-hvs="4"]').click(); await sleep(30);
+  v.prefs.dogs='yes'; q('[data-hvs="8"]').click(); q('[data-hvs="9"]').click(); await sleep(30);
   ok('dogs: the pets card appears', /Names, and where they stay during visits/.test(hs()));
   ok('no stairs note until there are stairs', !q('[data-hv="visit.home.stairs_note"]'));
   tap('visit.home.stairs','yes'); await sleep(30);
   ok('stairs: "Where, and is there a rail?" appears', !!q('[data-hv="visit.home.stairs_note"]'));
   /* typical shift */
   v.week={ tue:{ from:'09:00', to:'13:00' }, thu:{ from:'09:00', to:'13:00' } };
-  q('[data-hvs="6"]').click(); await sleep(40);
+  q('[data-hvs="8"]').click(); await sleep(40);
   const sh=v.shift.map(r=>(r.t||'')+' '+r.what);
   ok('a typical shift builds itself from the schedule and the help, in time order', sh[0]==='09:00 Arrive, say hello, and see how Betty is doing today' && /Medication reminder/.test(sh[1]) && /shower or bath/.test(sh[2]) && sh.some(x=>/Make the meal/.test(x)) && /12:45 Write the visit note in AxisCare/.test(sh[sh.length-1]), sh);
   const stars=()=>qa('[data-hva="shiftstar"]');
@@ -105,7 +105,7 @@ async()=>{
   const items=[...document.querySelectorAll('#hvNeedsList [data-hva="needsgo"]')].map(b=>b.innerText.replace(/\s+/g,' '));
   ok('the list names each thing: safety answers, where the meal supplies are, the steps for medication reminders', items.some(x=>/Falls in the last 6 months/.test(x)) && items.some(x=>/supplies are for meal preparation/.test(x)) && items.some(x=>/medication reminders: the steps/.test(x)) && !items.some(x=>/How the caregiver gets in/.test(x)), items);
   document.querySelector('#hvNeedsList [data-hva="needsgo"][data-p="visit.acts.meals.help.supplies"]').click(); await sleep(80);
-  ok('tapping one jumps to that screen and box', HV._st.sec===3 && document.activeElement && document.activeElement.getAttribute('data-hv')==='visit.acts.meals.help.supplies');
+  ok('tapping one jumps to that screen and box', HV._st.sec===4 && document.activeElement && document.activeElement.getAttribute('data-hv')==='visit.acts.meals.help.supplies');
   type('visit.acts.meals.help.supplies','Soup in the pantry, bread on the counter'); await sleep(1100);
   ok('answering it takes the count down', +((nb().innerText.match(/^(\d+)/)||[0,0])[1])===n0-1, [n0, nb().innerText]);
   /* facts for the draft */
@@ -167,7 +167,7 @@ with sync_playwright() as pw:
     pg.evaluate("async()=>{ await HV.open({ leadId:'lead_betty' }); }"); pg.wait_for_timeout(200)
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (820, 1180, 'iPad upright (820 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(120)
-        for i, nm in [(3, 'Daily activities'), (4, 'Home and safety'), (6, 'Schedule')]:
+        for i, nm in [(4, 'Around the house'), (6, 'Personal care'), (9, 'Home walk-through'), (8, 'Schedule')]:
             pg.evaluate(f"()=>document.querySelector('#hvRoot [data-hvs=\"{i}\"]').click()"); pg.wait_for_timeout(120)
             o = overflow(pg); R.append(['PASS' if not o else 'FAIL', f'{name}, {nm}: nothing runs off the side', o])
             if SHOTS:

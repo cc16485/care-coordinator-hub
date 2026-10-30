@@ -30,15 +30,18 @@
 
   async function mount(boxId) {
     const box = document.getElementById(boxId); if (!box) return;
-    const ax = String((typeof CP !== 'undefined' && CP && CP.ax) || '');
+    /* 2026-10-30 (Samantha: "we need to have a signed agreement before we would make them active in AxisCare"): a lead not yet
+       in AxisCare starts its agreement from the lead; the server moves it to the client once they are set up in AxisCare */
+    const ax = String((typeof CP !== 'undefined' && CP && CP.ax) || ''), lid = String((typeof CP !== 'undefined' && CP && CP.lead && CP.lead.id) || '');
+    const hasAx = /^\d{1,12}$/.test(ax), key = hasAx ? { client_ax: ax } : { lead_id: lid };
     const head = '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div style="font-weight:800;color:var(--navy);font-size:15px">📝 Client Care Agreement</div>';
-    if (!/^\d{1,12}$/.test(ax)) {
-      box.innerHTML = '<div class="card" style="padding:14px;margin:10px 0">' + head + '</div><div class="field-note" style="margin-top:6px">The agreement can be signed on the tablet once this client is in AxisCare.</div></div>';
+    if (!hasAx && !lid) {
+      box.innerHTML = '<div class="card" style="padding:14px;margin:10px 0">' + head + '</div><div class="field-note" style="margin-top:6px">Open this client from their lead, or set them up in AxisCare, to start the agreement.</div></div>';
       return;
     }
     box.innerHTML = '<div class="card" style="padding:14px;margin:10px 0">' + head + '</div><div class="field-note" style="margin-top:6px">Loading…</div></div>';
     let list = [];
-    try { list = (await call({ action: 'list', client_ax: ax })).agreements || []; }
+    try { list = (await call(Object.assign({ action: 'list' }, key))).agreements || []; }
     catch (e) { box.innerHTML = '<div class="card" style="padding:14px;margin:10px 0">' + head + '</div><div class="field-note" style="margin-top:6px;color:#a33">' + esc(e.message) + '</div></div>'; return; }
     const open = list.filter(a => a.status === 'draft' || a.status === 'signed');
     const rows = list.map(a => {
@@ -47,7 +50,8 @@
       const rv = a.contacts_review, ppl = rv && rv.people ? Object.values(rv.people) : [];
       const cst = a.status !== 'countersigned' ? '' : !ppl.length ? ['Contacts not reviewed yet', '#8a6d00', '#fff7e0']
         : ppl.some(p => p.outcome === 'needs_another_try') ? ['Contacts: needs another try', '#a33', '#fdf0f0'] : ['Contacts reviewed', '#0f7a4d', '#e8f6ef'];
-      const rbtn = a.status === 'countersigned' ? `<button type="button" data-cag-rev="${esc(a.id)}">${ppl.length ? 'Contacts and checklist' : 'Review contacts'}</button>` : '';
+      const rbtn = a.status !== 'countersigned' ? '' : (a.client_ax || hasAx) ? `<button type="button" data-cag-rev="${esc(a.id)}">${ppl.length ? 'Contacts and checklist' : 'Review contacts'}</button>`
+        : '<span class="field-note">Review the contacts once they are set up in AxisCare</span>';
       const em = (a.copies && a.copies.emails) || [], last = em[em.length - 1]
       const mailNote = last ? (last.outcome === 'sent' ? ` · family copy emailed to ${esc(last.to)} ${esc(when(last.at))}` : ` · <span style="color:#a33">family copy not emailed: ${esc(last.detail || last.outcome)}</span>`) : ''
       const copyBtns = a.status === 'countersigned' && a.has_pdf ? `<button type="button" data-cag-print="${esc(a.id)}">Print family copy</button>${a.answers && a.answers['comm.decline'] === true ? '' : `<button type="button" data-cag-mail="${esc(a.id)}">Email family copy</button>`}` : ''
@@ -64,7 +68,7 @@
       <div class="field-note" style="margin:6px 0 4px">The tablet shows the real agreement pages. The office or the family types into the blanks, the family taps their initials and signs, and the office countersigns. The signed PDF is saved here. To have them sign from home, open it and use "Send to sign from home".</div>
       ${rows || '<div class="field-note" style="padding-top:6px">No agreement yet.</div>'}
       <div class="field-note" id="cagMsg" style="margin-top:6px"></div></div>`;
-    box.querySelector('[data-cag-new]').onclick = () => go('ax=' + encodeURIComponent(ax));
+    box.querySelector('[data-cag-new]').onclick = () => go(hasAx ? 'ax=' + encodeURIComponent(ax) : 'lead=' + encodeURIComponent(lid));
     box.querySelectorAll('[data-cag-go]').forEach(b => { b.onclick = () => go('id=' + encodeURIComponent(b.dataset.cagGo)); });
     box.querySelectorAll('[data-cag-rev]').forEach(b => {
       b.onclick = () => {

@@ -36,12 +36,12 @@ async()=>{
   const opts=p=>qa('[data-hvp="'+p+'"]').map(b=>b.innerText.trim());
   await HV.open({ leadId:'lead_betty' }); await sleep(200);
   const a=HV._st.a, v=a.visit;
-  q('[data-hvs="5"]').click(); await sleep(80);
-  const t=q('.hv-sec[data-sec="5"]').innerText;
+  q('[data-hvs="7"]').click(); await sleep(80);
+  const t=q('.hv-sec[data-sec="7"]').innerText;
   ok('caregiver gender: the Hub\'s five choices (required or preferred)', opts('visit.prefs.gender').join('|')==='Female, required|Female, preferred|Male, required|Male, preferred|No preference', opts('visit.prefs.gender'));
   ok('Spanish-speaking caregiver: Required, Preferred, No', opts('visit.prefs.spanish').join('|')==='Required|Preferred|No');
   ok("skills: the Hub's match skill names (dementia, Parkinson's, gait belt, Hoyer, bedbound, hospice, catheter, ostomy, driving)", opts('visit.prefs.skills').length===9 && opts('visit.prefs.skills').includes("Dementia or Alzheimer's care") && opts('visit.prefs.skills').includes('A Hoyer or other mechanical lift'), opts('visit.prefs.skills'));
-  ok('cats and dogs in the home, yes or no; smoking is asked once, on the safety check, and shown here', ['cats','dogs'].every(k=>opts('visit.prefs.'+k).join('|')==='Yes|No') && opts('visit.prefs.smoking').length===2 && !q('.hv-sec[data-sec="5"] [data-hvp="visit.prefs.smoking"]') && /Asked on the safety check/.test(t));
+  ok('cats and dogs in the home, yes or no; smoking is asked once, on the safety check, and shown here', ['cats','dogs'].every(k=>opts('visit.prefs.'+k).join('|')==='Yes|No') && opts('visit.prefs.smoking').length===2 && !q('.hv-sec[data-sec="7"] [data-hvp="visit.prefs.smoking"]') && /Asked on the safety check/.test(t));
   ok('the paper form\'s group text, check-ins, surveys and personality are gone', !/group text|check-ins|Surveys|Personality they/i.test(t), t.slice(0,800));
   const on=(p,val)=>q('[data-hvp="'+p+'"][data-v="'+val+'"]');
   ok('from the lead, in blue: Female required (the lead says required), Spanish preferred, dogs yes, cats no, dementia care', v.prefs.gender==='female_required' && on('visit.prefs.gender','female_required').classList.contains('hv-pfrom')
@@ -59,9 +59,9 @@ async()=>{
   ok('...and are saved to the assessment', L.persists.some(x=>x[0]==='care_assessments' && (x[1].visit.attendees[1].roles||[]).includes('poa_health')));
   q('[data-hvs="0"]').click(); q('[data-hva="addperson"]').click(); await sleep(30);
   const nm=q('[data-hv="visit.attendees.2.name"]'); nm.value='Mike Harlow (fake)'; nm.dispatchEvent(new Event('input',{bubbles:true}));
-  q('[data-hvs="5"]').click(); await sleep(50);
+  q('[data-hvs="7"]').click(); await sleep(50);
   ok('a person added on Start the visit shows up here', qa('#hvTouch .hv-touch').length===3 && /Mike Harlow/.test(q('#hvTouch').innerText));
-  q('[data-hvs="8"]').click(); await sleep(200); q('[data-hva="readrec"]').click(); await sleep(200);
+  q('[data-hvs="11"]').click(); await sleep(200); q('[data-hva="readrec"]').click(); await sleep(200);
   const paths=((L.bodies[0]||{}).fields||[]).map(f=>f.path);
   ok("the After screen's reader is offered the new boxes (smoking, other, each person's best way), never the old ones", paths.includes('visit.prefs.smoking') && paths.includes('visit.prefs.other') && paths.includes('visit.attendees.2.reach_way') && !paths.some(p=>/group_text|checkin_to|survey_by|personality|change_to/.test(p)) && !paths.includes('visit.prefs.gender'), paths.filter(p=>/prefs|attendees/.test(p)));
   await HV.close(); await sleep(50);
@@ -88,8 +88,8 @@ with sync_playwright() as pw:
     pg.goto('http://hv.local/index.html?proof=prefs'); pg.wait_for_timeout(1500)
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T)
-    pg.evaluate("async()=>{ DATA.care_assessments=[]; await HV.open({ leadId:'lead_betty' }); document.querySelector('#hvRoot [data-hvs=\"5\"]').click(); }"); pg.wait_for_timeout(300)
-    txt = pg.evaluate("()=>document.querySelector('#hvRoot .hv-sec[data-sec=\"5\"]').innerText")
+    pg.evaluate("async()=>{ DATA.care_assessments=[]; await HV.open({ leadId:'lead_betty' }); document.querySelector('#hvRoot [data-hvs=\"7\"]').click(); }"); pg.wait_for_timeout(300)
+    txt = pg.evaluate("()=>document.querySelector('#hvRoot .hv-sec[data-sec=\"7\"]').innerText")
     R.append(['PASS' if ('—' not in txt and not re.search(r'\bAI\b', txt)) else 'FAIL', 'no "AI" words and no em dashes on the screen', ''])
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (820, 1180, 'iPad upright (820 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(150)

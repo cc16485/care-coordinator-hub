@@ -74,7 +74,7 @@ async()=>{
   /* ---------- the safety screen ---------- */
   await HV.open({ leadId:'lead_betty' }); await sleep(150);
   const a=HV._st.a;
-  q('[data-hvs="2"]').click(); await sleep(50);
+  q('[data-hvs="5"]').click(); await sleep(50);
   const st=()=>q('#hvSafety').innerText;
   ok('Health opens with the safety check; it says how many are still to answer', /Safety check/.test(st()) && /\d+ to answer/.test(st()), st().slice(0,200));
   ok('the emergency contact starts as the caller from the lead, in blue, to confirm', a.visit.safety.ec.name==='Karen Price (fake)' && a.visit.safety.ec.phone==='(417) 555-0172' && q('[data-hv="visit.safety.ec.name"]').classList.contains('hv-from'));
@@ -91,13 +91,13 @@ async()=>{
   ok('"None known" is a real answer for allergies', a.visit.allergies==='None known');
   ok('...but it still has to be confirmed with the family, and so does the emergency contact', CPV.safetyMissing(a.visit).map(m=>m[0]).join('|')==='Allergies confirmed with the family|Emergency contact confirmed with the family', CPV.safetyMissing(a.visit));
   /* Finish with the safety check unfinished */
-  q('[data-hvs="7"]').click(); await sleep(30); window.__ask=false; q('[data-hva="finish"]').click(); await sleep(150);
-  ok('Finish with safety answers missing: lists them; Cancel goes back to the safety check', /safety check still has 2 to answer/.test(L.asks.slice(-1)[0]) && HV._st.sec===2 && !a.visit.finished_at, L.asks.slice(-1)[0]);
+  q('[data-hvs="10"]').click(); await sleep(30); window.__ask=false; q('[data-hva="finish"]').click(); await sleep(150);
+  ok('Finish with safety answers missing: lists them; Cancel goes back to the safety check', /safety check still has 2 to answer/.test(L.asks.slice(-1)[0]) && HV._st.sec===5 && !a.visit.finished_at, L.asks.slice(-1)[0]);
   window.__ask=true; tap('visit.safety.allergies_ok','yes'); tap('visit.safety.ec_ok','yes'); await sleep(20);
   ok('every safety answer in: the tag says All answered', /All answered/.test(st()));
   tap('visit.acts.bathing.level','standby'); a.visit.equipment=['Shower chair','Grab bars']; a.visit.week={ tue:{ from:'09:00', to:'13:00' }, thu:{ from:'09:00', to:'13:00' } };
   /* ---------- finishing starts the draft by itself ---------- */
-  q('[data-hvs="7"]').click(); await sleep(30); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="10"]').click(); await sleep(30); q('[data-hva="finish"]').click(); await sleep(700);
   const d0=L.drafts[0]||{}, fp=(d0.facts||[]).map(f=>f.path);
   ok('Finish starts the draft at once, from the whole visit (visit mode, safety answers, schedule)', L.drafts.length===1 && d0.mode==='visit' && d0.assessment_id===a.id && fp.includes('visit.safety.falls_note') && fp.includes('visit.allergies') && fp.includes('visit.week') && d0.week.tue.from==='09:00', fp.slice(0,10));
   ok('...each answer says where it came from (the emergency contact was from the phone call, then confirmed)', (d0.facts.find(f=>f.path==='visit.safety.ec')||{}).value.indexOf('(confirmed)')>-1);
@@ -171,7 +171,7 @@ async()=>{
   ok('...version 1 is still the active one', CPV._plan(a).versions[0].status==='active');
   /* a new safety concern on the approved plan */
   HV.close && await HV.close(); await HV.open({ id:a.id }); await sleep(100);
-  q('[data-hvs="2"]').click(); tap('visit.safety.oxygen','yes'); tap('visit.prefs.smoking','yes'); await sleep(1600);
+  q('[data-hvs="5"]').click(); tap('visit.safety.oxygen','yes'); tap('visit.prefs.smoking','yes'); await sleep(1600);
   const sc=card('ops_cp_safety_');
   CPV.open(a.id); await sleep(80); c('[data-cpva="ver"][data-n="1"]').click(); await sleep(50);
   ok('the active version shows what it was approved with, no live checklist, and the new concern in red', /Approval/.test(txt()) && !/Before approval/.test(txt()) && /New safety concern since this was approved: Oxygen in a home where someone smokes/.test(txt()) && /Owner review by Samantha/.test(txt()));
@@ -186,7 +186,7 @@ async()=>{
   Object.assign(u.visit,{ allergies:'Sulfa', memory:'no', supervision:'no', equipment:['Shower chair'], week:{ mon:{ from:'09:00', to:'12:00' }, wed:{ from:'09:00', to:'12:00' } } });
   u.visit.prefs.smoking='no'; u.visit.acts.mobility={ level:'none' }; u.visit.acts.transfers={ level:'none' }; u.visit.acts.bathing={ level:'standby' };
   const t0=new Date(); u.visit.start=t0.getFullYear()+'-'+String(t0.getMonth()+1).padStart(2,'0')+'-'+String(t0.getDate()).padStart(2,'0');
-  q('[data-hvs="7"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="10"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
   CPV.open(u.id); await sleep(120);
   ok('an ASAP lead: the plan shows Urgent start and why', /Urgent start/.test(txt()) && /as soon as possible/.test(txt()));
   const urg=()=>c('[data-cpva="approveurgent"]');
@@ -212,7 +212,7 @@ async()=>{
   const m=HV._st.a; Object.assign(m.visit.safety,{ falls:'no', lives_alone:'no', oxygen:'no', decline:'no', summon:'phone', hazards:['none'], allergies_ok:'yes', ec_ok:'yes' });
   Object.assign(m.visit,{ allergies:'None known', memory:'no', supervision:'no' }); m.visit.prefs.smoking='no'; m.visit.acts.mobility={ level:'none' }; m.visit.acts.transfers={ level:'standby' }; m.visit.acts.bathing={ level:'standby' };
   m.visit.safety.ec={ name:'Ann Lee (fake)', phone:'(417) 555-0101' };
-  q('[data-hvs="7"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
+  q('[data-hvs="10"]').click(); await sleep(20); q('[data-hva="finish"]').click(); await sleep(700);
   CPV.open(m.id); await sleep(100);
   ok('a lift task for a Medicaid client: blocked as outside our Medicaid services', /Transfer - Hoyer Lift for a Medicaid client is outside our Medicaid services/.test(txt()) && ap().disabled);
   CPV.close(); window.__hoyer=false;
@@ -273,7 +273,7 @@ with sync_playwright() as pw:
         o = overflow(pg, 'cpvRoot'); R.append(['PASS' if not o else 'FAIL', f'{name}, care plan screen: nothing runs off the side', o])
         if SHOTS:
             os.makedirs(SHOTS, exist_ok=True); pg.screenshot(path=os.path.join(SHOTS, f'cpv-{w}.png'))
-    pg.evaluate("async()=>{ CPV.close(); await HV.open({ leadId:'lead_betty' }); document.querySelector('#hvRoot [data-hvs=\"2\"]').click(); }"); pg.wait_for_timeout(200)
+    pg.evaluate("async()=>{ CPV.close(); await HV.open({ leadId:'lead_betty' }); document.querySelector('#hvRoot [data-hvs=\"5\"]').click(); }"); pg.wait_for_timeout(200)
     for w, h, name in [(1180, 820, 'iPad (1180 wide)'), (390, 844, 'phone (390 wide)')]:
         pg.set_viewport_size({'width': w, 'height': h}); pg.wait_for_timeout(150)
         o = overflow(pg, 'hvRoot'); R.append(['PASS' if not o else 'FAIL', f'{name}, safety check: nothing runs off the side', o])

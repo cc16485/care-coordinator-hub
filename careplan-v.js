@@ -634,7 +634,7 @@
       if (act === 'ver') { S.n = +b.getAttribute('data-n'); return render(); }
       if (act === 'draftnow') { draft(S.a, { from: 'visit' }); return; }
       if (act === 'recupdate') { draft(S.a, { from: 'recording' }); return; }
-      if (act === 'visit') { const id = S.a.id; close(); if (window.HV) HV.open({ id, sec: 2 }); return; }
+      if (act === 'visit') { const id = S.a.id; close(); if (window.HV) HV.open({ id, sec: 'health' }); return; }
       if (act === 'newver') { await newFrom(v.n); return; }
       if (act === 'send') { await send(); return; }
       if (act === 'needsretry') { const vv = cur(); if (vv && vv.care_needs) { RETRY[p.id] = 0; await sendNeeds(S.a, p, vv); } return; }

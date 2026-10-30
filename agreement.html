@@ -132,6 +132,9 @@ function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, PREFILL={}, PFV={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
 /* 874: opened from a family's link? The secret rides after # so it never reaches a server log. */
+/* 2026-10-30: the agreement can start from the lead, before the client is in AxisCare (Samantha: "we need to have a signed
+   agreement before we would make them active in AxisCare"); the server moves it to the client once they are set up there */
+const WHO=/^\d{1,12}$/.test(Q.get('ax')||'')?{client_ax:Q.get('ax')}:/^[A-Za-z0-9_-]{1,80}$/.test(Q.get('lead')||'')?{lead_id:Q.get('lead')}:{};
 const HASH=new URLSearchParams(location.hash.slice(1)), REMOTE=/^[A-Za-z0-9_-]{40,60}$/.test(HASH.get('t')||'')?HASH.get('t'):'';
 let SESSION=''; try{ SESSION=sessionStorage.getItem('cag-s-'+REMOTE.slice(0,12))||''; }catch(e){}
 const keepSession=v=>{ SESSION=v||''; try{ if(SESSION) sessionStorage.setItem('cag-s-'+REMOTE.slice(0,12),SESSION); else sessionStorage.removeItem('cag-s-'+REMOTE.slice(0,12)); }catch(e){} };
@@ -213,7 +216,7 @@ async function boot(session){
   ME.email=(session.user&&session.user.email)||''; $('who').textContent=ME.email;
   try{
     if(Q.get('id')){ const d=await call({action:'get',id:Q.get('id')}); FORM=d.form; await load(d.agreement); }
-    else if(/^\d{1,12}$/.test(Q.get('ax')||'')){ FORM=(await call({action:'form'})).form; showOffice(); }
+    else if(/^\d{1,12}$/.test(Q.get('ax')||'')||WHO.lead_id){ FORM=(await call({action:'form'})).form; showOffice(); }
     else $('view').innerHTML='<div class="err">Open this page from a client in the Hub (Start of Care → Client Care Agreement).</div>';
   }catch(e){ $('view').innerHTML='<div class="err">'+esc(e.message)+'</div>'; }
 }
@@ -240,7 +243,7 @@ function wire(root){
 
 /* ---------- office: set up (new agreement) ---------- */
 function showOffice(){
-  $('view').innerHTML=`<div class="kick">For the office</div><h1>Set up the agreement</h1><p class="lead">Next you fill in the agreement pages as you talk with the family. They only look it over, tap their initials and sign. AxisCare client #${esc(Q.get('ax'))}.</p>
+  $('view').innerHTML=`<div class="kick">For the office</div><h1>Set up the agreement</h1><p class="lead">Next you fill in the agreement pages as you talk with the family. They only look it over, tap their initials and sign. ${WHO.client_ax?'AxisCare client #'+esc(WHO.client_ax)+'.':'Not in AxisCare yet: it moves to the client once they are set up there.'}</p>
   <div class="card"><label>Level of care</label><div class="opts">${oneOf(['level.wellness_care','level.personal_care','level.advanced_care'],['Wellness Care','Personal Care','Advanced Care'])}</div>
   <div class="grid"><div>${txt('level.hourly_rate','Hourly rate ($)','text','inputmode="decimal" placeholder="30"')}</div><div><label>Start date (optional)</label><input type="date" id="startDate"></div></div>
   <label>Addenda this client also signs</label><div class="opts"><button type="button" class="pill" data-ad="va">VA Community Care</button><button type="button" class="pill" data-ad="guide">Medicare GUIDE</button></div>
@@ -250,7 +253,7 @@ function showOffice(){
   wire($('view'));
   const andList=xs=>xs.length<2?xs.join(''):xs.slice(0,-1).join(', ')+' and '+xs[xs.length-1];
   /* 2026-10-29: the home visit's level and rate are picked for you, and the office sees what will be filled in */
-  call({action:'prefill',client_ax:Q.get('ax')}).then(p=>{
+  call(Object.assign({action:'prefill'},WHO)).then(p=>{
     const box=$('pfNote'); if(!box) return;
     if(!Object.keys(A).length) for(const [k,v] of Object.entries(p.office||{})){ A[k]=v; const b=document.querySelector('[data-t="'+k+'"]'); if(b) b.classList.add('on'); const i=document.querySelector('input[data-k="'+k+'"]'); if(i) i.value=v; }
     box.innerHTML=(p.count?`<b>${p.count} boxes will be filled in</b> from ${esc(andList(p.sources.map(x=>({'Family Circle':'the Family Circle','Lead':'the lead','Home visit':'the home visit'})[x]||x)))}. The family checks them on the pages (they show in blue) and only taps the choices, initials and signature.`
@@ -264,7 +267,7 @@ function showOffice(){
     for(const l of ['wellness_care','personal_care','advanced_care']) if(office['level.'+l]===true) office['rates.'+l]=true;
     $('startBtn').disabled=true;
     try{
-      const d=await call({action:'start',client_ax:Q.get('ax'),office,start_date:$('startDate').value||null,addenda:[...$('view').querySelectorAll('[data-ad].on')].map(b=>b.dataset.ad)});
+      const d=await call(Object.assign({action:'start',office},WHO,{start_date:$('startDate').value||null,addenda:[...$('view').querySelectorAll('[data-ad].on')].map(b=>b.dataset.ad)}));
       history.replaceState(null,'','agreement.html?id='+encodeURIComponent(d.agreement.id)); A={}; await load(d.agreement);
     }catch(e){ $('offErr').innerHTML='<div class="err">'+esc(e.message)+problemsHtml(e.problems)+'</div>'; $('startBtn').disabled=false; }
   };
