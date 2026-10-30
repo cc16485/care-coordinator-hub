@@ -3,6 +3,7 @@
   "keys": [
     "activities",
     "agency_docs",
+    "agency_videos",
     "attendance_events",
     "audit_log",
     "automation_heartbeats",
