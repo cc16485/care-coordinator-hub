@@ -226,8 +226,10 @@
       const helpers = { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
         searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim(),
         /* 2026-10-29: calls and texts that reach a linked caller's own lead after the link count as the family's last activity */
-        extraFor:l => window.FamilyLink ? { events:FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) } : null };
-      box.innerHTML = top + (window.LeadTable ? LeadTable.html(shown, now, helpers) : LeadCards.html(shown, now, helpers));
+        extraFor:l => ({ events:window.FamilyLink ? FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) : [],
+          /* 2026-10-29: a call note waiting for someone's OK sits on the family's row (call-notes.js, behind its switch) */
+          html:window.CallNotes ? CallNotes.rowHtml(l) : '' }) };
+      box.innerHTML = top + (window.CallNotes ? CallNotes.summaryHtml() : '') + (window.LeadTable ? LeadTable.html(shown, now, helpers) : LeadCards.html(shown, now, helpers));
     } else if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
       box.innerHTML = top + bar + '<div class="card lb-group"><div class="lb-group-head" style="background:var(--bg);"><span class="lb-group-title" style="color:var(--navy);">Most important first</span><span class="field-note">' + list.length + ' · a new family nobody has tried and a family waiting on our answer stay on top; then how ready they sound, then what they are worth a month. Click a line for the details.</span></div>'
