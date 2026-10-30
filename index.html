@@ -4405,6 +4405,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
                    so the offer always matches the role they applied for. joFillPositions() replaces the five fixed ones. --></div>
             <div><label>Interview date</label><input id="jo_date" type="date"></div>
           </div>
+          <!-- 2026-10-30 (Samantha, after an interview): a PRN team is chosen on the offer, not only by the
+               prescreener they came in through. Shown for an applicant's offer, where the pay track can start. -->
+          <div id="jo_prn_wrap" style="display:none;margin-bottom:10px;">
+            <label>PRN team</label>
+            <select id="jo_prn" onchange="joPrnPick()">
+              <option value="">Not on a PRN team</option>
+              <option value="cna">PRN CNA Team</option>
+              <option value="caregiver">PRN Caregiver Team</option>
+            </select>
+            <div class="field-note" style="margin-top:2px;">Starts from the prescreener they came in through. Pick a team to offer them a spot on it, whichever prescreener they used.</div>
+          </div>
           <div class="grid2">
             <div><label>Interviewed / offered by</label><input id="jo_by" placeholder="Your name"></div>
             <div><label>Hourly rate discussed ($)</label><input id="jo_rate" inputmode="decimal" placeholder="e.g. 15.50"></div>
@@ -22360,11 +22371,12 @@ async function submitJobOffer(){
     /* The terms, back onto the person. Their profile is then the whole story
        from applying to starting, rather than half of it. */
     if(JO_APPLICANT){
-      /* PRN2: a PRN hire's pay track starts with the offer: "Joined the PRN CNA Team", kept in its history. */
-      const joR = AP_ROWS.find(x=>String(x.id)===String(JO_APPLICANT));
-      if(joR && typeof apIsPrn === 'function' && apIsPrn(joR)){
-        try{ const st = await prnCall({ action:'start', applicant_id: joR.id }); res.prn_track = st.outcome; PRN_T.at = 0; }
-        catch(e){ res.prn_track = 'failed: ' + (e && e.message || 'error'); }
+      /* PRN2: a PRN hire's pay track starts with the offer: "Joined the PRN CNA Team", kept in its history. The team
+         is the one picked on the offer (2026-10-30), whichever prescreener they came in through. */
+      const joTeam = document.getElementById('jo_prn').value;
+      if(joTeam){
+        try{ const st = await prnCall({ action:'start', applicant_id: JO_APPLICANT, team: joTeam }); res.prn_track = st.outcome; res.prn_team = st.team || joTeam; res.prn_rate = st.rate; PRN_T.at = 0; }
+        catch(e){ res.prn_track = 'failed: ' + (e && e.message || 'error'); res.prn_team = joTeam; }
       }
       try{
         await sb.from('job_applicants').update({
@@ -22406,8 +22418,9 @@ async function submitJobOffer(){
     if(res.onboarding_path) steps.push(res.onboarding_path==='new' ? '✓ Onboarding path: NEW (offer sent on or after the switch date '+(res.onboarding_switch_date||'')+')' : '✓ Onboarding path: current process'+(res.onboarding_switch_date?' (the switch date '+res.onboarding_switch_date+' has not been reached)':''));
     try{ const bc=(window.SCX&&SCX.offerIntoChecks)?await SCX.offerIntoChecks(res.id):null; if(bc) steps.push(bc.line); }
     catch(e){ steps.push('! Not in Background & References yet: '+(e&&e.message?e.message:'error')+'. Use Add on that tab.'); }
-    if(res.prn_track) steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the PRN CNA Team pay track ($20/hr), recorded in their history'
-      : '! PRN CNA Team pay track: ' + res.prn_track + ' (open their page and try again)');
+    if(res.prn_track){ const pT = PRN_TEAM[res.prn_team === 'caregiver' ? 'caregiver' : 'cna'];
+      steps.push(res.prn_track==='started'||res.prn_track==='already' ? '✓ On the ' + pT.name + ' pay track' + (res.prn_rate ? ' ($' + Number(res.prn_rate).toFixed(2).replace(/\.00$/,'') + '/hr)' : '') + ', recorded in their history'
+        : '! ' + pT.name + ' pay track: ' + res.prn_track + ' (open their page and try again)'); }
     document.getElementById('jo_steps').innerHTML=steps.map(s=>'<div style="color:'+(s[0]==='✓'?'var(--green)':'var(--amber)')+';">'+escapeHtmlComms(s)+'</div>').join('');
     renderInterviews();
   }catch(e){
@@ -22489,12 +22502,33 @@ function joSyncPlan(){
   const match=[...sel.options].find(o=>o.value===want||o.textContent.trim()===want);
   if(match) sel.value=match.value;
 }
+/* The PRN team picked on the offer (2026-10-30). Picking one makes it a PRN offer: the team's position, PRN hours, the
+   team's PRN rate from the pay rates card, and the team's name and rate first in the notes, which go to AxisCare.
+   "Not on a PRN team" takes the PRN line back off the notes. One rate only: moving to ongoing is its own step later. */
+const JO_PRN_LINE = /^PRN (CNA|Caregiver) Team(, \$[0-9.]+\/hr)?\. ?/;
+function joPrnRate(team){
+  try{ const r = ((typeof payRatesRec === 'function' ? payRatesRec() : {}).rates || {})[PRN_TEAM[team].prnKey];
+    return r && r.min != null && r.min !== '' ? Number(r.min) : null; }catch(e){ return null; }
+}
+function joPrnPick(rate){
+  const team = document.getElementById('jo_prn').value, notes = document.getElementById('jo_notes');
+  notes.value = notes.value.replace(JO_PRN_LINE, '');
+  if(!team) return;
+  const T = PRN_TEAM[team], sel = document.getElementById('jo_position');
+  if(sel){ if(![...sel.options].some(o => o.text === T.position)) sel.add(new Option(T.position)); sel.value = T.position; joSyncPlan(); }
+  document.getElementById('jo_hours').value = 'PRN';
+  const rt = rate != null ? rate : joPrnRate(team);
+  if(rt != null) document.getElementById('jo_rate').value = Number(rt).toFixed(2);
+  const shown = document.getElementById('jo_rate').value;
+  notes.value = T.name + (shown ? ', $' + Number(shown).toFixed(2).replace(/\.00$/,'') + '/hr' : '') + '. ' + notes.value;
+}
 function joReset(){
   const who=document.getElementById('jo_who'); if(who){ who.style.display='none'; who.innerHTML=''; }
 
   document.getElementById('joDone').style.display='none';
   document.getElementById('joForm').style.display='block';
-  ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes'].forEach(id=>document.getElementById(id).value='');
+  ['jo_first','jo_last','jo_phone','jo_email','jo_rate','jo_avail','jo_exp','jo_pers','jo_notes','jo_prn'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('jo_prn_wrap').style.display='none';
   document.getElementById('jo_position').value='Caregiver'; joSyncPlan();
   JO_ATTRS.forEach(a=>joState[a[0]]=true); joInited=false; joLevel=null; joInit();
   const btn=document.getElementById('jo_send'); btn.disabled=false; btn.textContent='Save offer & send the offer letter';
@@ -24803,10 +24837,9 @@ function apToOffer(id, answers){
     if(hrs) v('jo_hours', hrs);
     /* PRN2: a PRN CNA Team hire is offered as a CNA, PRN, at the PRN Team rate. One rate: the PRN Team is $20, and
        moving to ongoing later is its own recorded step at the CNA rate, never both. */
-    if(pos && pos.track === 'prn'){
-      const sel = document.getElementById('jo_position'); if(sel) sel.value = PRN_TEAM[prnTeamOf(pos)].position;
-      v('jo_hours', 'PRN');
-    }
+    /* The PRN team starts from the prescreener they came in through (2026-10-30: any offer can pick one). */
+    document.getElementById('jo_prn').value = pos && pos.track === 'prn' ? prnTeamOf(pos) : '';
+    document.getElementById('jo_prn_wrap').style.display = 'block';
     if(r.will_build_up !== null && r.will_build_up !== undefined)
       v('jo_build', r.will_build_up ? 'yes' : 'no');
     const notes=document.getElementById('jo_notes');
@@ -24821,11 +24854,9 @@ function apToOffer(id, answers){
       const rc = A && String(A.ref_check || '').trim();
       if(rc) notes.value += ' Ask their references about: ' + rc.replace(/\s+/g, ' ').slice(0, 300) + (/[.!?]$/.test(rc) ? '' : '.');
     }
-    /* PRN2: the AxisCare note carries the offer's notes, so whoever sets them up in Viventium sees the one rate. */
-    if(pos && pos.track === 'prn' && notes && !/PRN (CNA|Caregiver) Team/.test(notes.value)){
-      const rt = document.getElementById('jo_rate').value;
-      notes.value = PRN_TEAM[prnTeamOf(pos)].name + (rt ? ', $' + Number(rt).toFixed(2).replace(/\.00$/,'') + '/hr' : '') + '. ' + notes.value;
-    }
+    /* PRN2: the AxisCare note carries the offer's notes, so whoever sets them up in Viventium sees the one rate. A PRN
+       prescreener's role keeps the rate approved for it; joPrnPick fills the rest. */
+    if(document.getElementById('jo_prn').value) joPrnPick(pos && pos.track === 'prn' ? (document.getElementById('jo_rate').value || null) : null);
     /* The interview answers are the AxisCare attributes, so nobody types them
        a second time. Only the ones we actually asked about are touched. */
     if(A && typeof joSetAttr === 'function'){
