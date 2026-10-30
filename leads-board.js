@@ -162,11 +162,12 @@
     const owner = typeof ccIsOwner === 'function' && ccIsOwner();
     const cards = !!(window.LeadCards && LeadCards.showing(DATA.ops_settings || {}, owner));
     const previewBar = window.LeadCards && owner && !LeadCards.liveOn(DATA.ops_settings || {})
-      ? (cards ? '<div class="lc-preview"><b>Preview of the new card look.</b> Only you see it, in this browser. Everyone else still has the list.<span style="flex:1;"></span><button class="lb-btn" onclick="lcPreview(false)">Back to the list</button></div>'
-        : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="lcPreview(true)">Preview the new card look (only you see it)</button></div>') : '';
+      ? (cards ? '<div class="lc-preview"><b>Preview of the new Leads list.</b> Only you see it, in this browser. Everyone else still has the list.<span style="flex:1;"></span><button class="lb-btn" onclick="lcPreview(false)">Back to the list</button></div>'
+        : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="lcPreview(true)">Preview the new Leads list (only you see it)</button></div>') : '';
     const sub = document.getElementById('lsSubtitle');
     if(sub){ if(!sub.dataset.list) sub.dataset.list = sub.textContent;
-      sub.textContent = cards ? 'Every family from their first call until they say yes, in three steps. Red cards are late or new and sit at the top. Once they say yes they move to Client Care → Getting ready.' : sub.dataset.list; }
+      sub.textContent = cards ? (window.LeadTable ? 'Every family from their first call until they say yes. Click a column to sort by it. Red is late or new. Once they say yes they move to Client Care → Getting ready.'
+        : 'Every family from their first call until they say yes, in three steps. Red cards are late or new and sit at the top. Once they say yes they move to Client Care → Getting ready.') : sub.dataset.list; }
     /* numbers */
     const hours = R.responseHours(DATA.ops_settings || {});
     const nowRows = work.filter(x => x.r.group === 'now'), newUntouched = work.filter(x => x.r.reason === 'new_overdue' || x.r.reason === 'new_running');
@@ -221,7 +222,10 @@
       /* the drawing kit (2026-10-18): nobody in Needs you now is the quiet phone */
       + (window.HS && (LB.filter === 'All' || LB.filter === 'now') && !by.now.length ? HS.banner({ scene:'phone', say:'Every new family has heard from us.', sub:'No one is waiting on a call from us right now. A new inquiry shows here the moment it comes in.' }) : '');
     if(cards && LB.filter === 'All'){
-      box.innerHTML = top + LeadCards.html(shown, now, { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null });
+      /* 2026-10-29 (her "do the same for our leads"): the list the GoHighLevel way, made better (leads-table.js) */
+      const helpers = { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
+        searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim() };
+      box.innerHTML = top + (window.LeadTable ? LeadTable.html(shown, now, helpers) : LeadCards.html(shown, now, helpers));
     } else if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
       box.innerHTML = top + bar + '<div class="card lb-group"><div class="lb-group-head" style="background:var(--bg);"><span class="lb-group-title" style="color:var(--navy);">Most important first</span><span class="field-note">' + list.length + ' · a new family nobody has tried and a family waiting on our answer stay on top; then how ready they sound, then what they are worth a month. Click a line for the details.</span></div>'

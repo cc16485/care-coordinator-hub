@@ -1,5 +1,5 @@
 """Leads as cards (2026-10-22, her approved mockup https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): with the switch OFF the
-Leads page is the list as before and only an owner sees "Preview the new card look"; the owner's preview shows three steps
+Leads page is the list as before and only an owner sees "Preview the new Leads list"; the owner's preview shows three steps
 (To call, Home visit, Deciding) and one card per family with both dates; a coordinator still sees the list; the Settings
 switch is owners only and, once on, everyone sees the cards; every card button reaches what the list's buttons reach.
 The real page, offline, made-up people only; saves are recorded, never sent. (python3 tests/browser/lead_cards_look.py)
@@ -22,6 +22,7 @@ STUB = r"""
   W.ccConfirm=async()=>true;
   W.tkMerge=async(apply,what)=>{ const m=DATA.ops_settings||(DATA.ops_settings={}); apply(m); W.__log.writes.push({ k:'ops_settings', v:clone(m), what }); return { error:null }; };
   (0,eval)(`ME={ email:'sam@mo-care.com', name:'Samantha T', shift:'day' }; CC_ROLE_BY_EMAIL={ 'sam@mo-care.com':['owner_admin'], 'kry@mo-care.com':['care_coordinator'] }; CC_ROLES_CHECKED=true;`);
+  delete W.LeadTable;   /* 2026-10-29: the new list (leads-table.js) replaces the cards; this test keeps the card fallback honest */
   try{ localStorage.removeItem('lcPreview'); localStorage.removeItem('lcStep'); }catch(e){}
   DATA.coordinator_staff=[{ email:'kry@mo-care.com', name:'Krystal Land' }, { email:'sam@mo-care.com', name:'Samantha T' }];
   DATA.ops_settings={};
@@ -52,7 +53,7 @@ async()=>{
 
   /* ── off: the list as before ── */
   ok('off · the list as before (Need you now tile, no cards)', /need you now/.test(txt('lbNumbers'))&&!document.querySelector('.lc-card'), txt('lbNumbers').slice(0,300));
-  ok('off · an owner sees "Preview the new card look"', /Preview the new card look/.test(txt('lbNumbers')));
+  ok('off · an owner sees "Preview the new Leads list"', /Preview the new Leads list/.test(txt('lbNumbers')));
 
   /* ── the owner's preview ── */
   document.querySelector('.lb-preview-ask button').click(); await sleep(250);
@@ -87,7 +88,7 @@ async()=>{
 
   /* ── a coordinator never sees the preview ── */
   (0,eval)(`ME={ email:'kry@mo-care.com', name:'Krystal Land', shift:'day' };`); renderLeadsStarts(); await sleep(200);
-  ok('coordinator · the list, no preview link, even with the owner\'s preview on in this browser', !cards().length&&!/Preview the new card look/.test(txt('lbNumbers')), txt('lbNumbers').slice(0,200));
+  ok('coordinator · the list, no preview link, even with the owner\'s preview on in this browser', !cards().length&&!/Preview the new Leads list/.test(txt('lbNumbers')), txt('lbNumbers').slice(0,200));
   L.alerts.length=0; await lcToggle(); await sleep(50);
   ok('coordinator · cannot turn it on', !DATA.ops_settings.leads_cards_live&&L.alerts.some(a=>/Only Samantha or Zachary/.test(a)), L.alerts);
 

@@ -4942,10 +4942,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 <!-- Leads as cards (2026-10-22, her approved mockup https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): ops_settings.leads_cards_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Leads page look</div>
-<p class="hint">The Leads page as cards, like the CDS hub: three steps across the top (To call, Home visit, Deciding) and one card per family, with the date the lead came in, the last contact, what is late in red, and the next thing to do. Only the look changes: alerts, saved calls and texts, They said yes and every rule work the same. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
+<p class="hint">The Leads page as a list, like GoHighLevel and the CDS hub: tabs for All, To call, Home visit and Deciding with how many are late, a Sort menu and sortable columns, the phone, when the lead came in, the last activity, what is late in red, and the next thing to do, 20, 50 or 100 a page. Only the look changes: alerts, saved calls and texts, They said yes and every rule work the same. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
 <div id="lcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the card look for everyone</button>
+  <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the new Leads list for everyone</button>
   <span class="field-note" id="lcSaved"></span>
 </div>
 <!-- How did they reach us? (2026-10-22, her mockup board 3 of https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): ops_settings.lead_reached_by_live -->
@@ -7719,7 +7719,8 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
-<script src="leads-board.js?v=18"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-table.js?v=1"></script><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
+<script src="leads-board.js?v=19"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
@@ -19215,14 +19216,14 @@ async function fuToggle(btn){
 function lcSetFill(){
   const now=document.getElementById('lcSetNow'), b=document.getElementById('lcToggleBtn'); if(!now) return;
   const on=!!(window.LeadCards&&LeadCards.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
-  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the Leads page as cards.':'<b style="color:#B7791F;">Off.</b> Everyone sees the list as before.')+(owner?'':' Only Samantha or Zachary can change this.');
-  if(b){ b.textContent=on?'Turn off the card look (back to the list)':'Turn on the card look for everyone'; b.style.display=owner?'':'none'; }
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the new Leads list.':'<b style="color:#B7791F;">Off.</b> Everyone sees the older list.')+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the new Leads list (back to the older list)':'Turn on the new Leads list for everyone'; b.style.display=owner?'':'none'; }
 }
 async function lcToggle(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the Leads page look.'); return; }
   const on=!(window.LeadCards&&LeadCards.liveOn(DATA.ops_settings||{}));
-  const ok=await ccConfirm(on?'Turn on the card look for everyone?\n\nThe Leads page shows three steps (To call, Home visit, Deciding) and one card per family. Nothing else changes, and nothing is sent to any family.'
-    :'Turn off the card look? Everyone goes back to the list.');
+  const ok=await ccConfirm(on?'Turn on the new Leads list for everyone?\n\nThe Leads page shows tabs (All, To call, Home visit, Deciding) and one row per family you can sort by any column. Nothing else changes, and nothing is sent to any family.'
+    :'Turn off the new Leads list? Everyone goes back to the older list.');
   if(!ok) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.leads_cards_live=on; if(on&&!m.leads_cards_live_since) m.leads_cards_live_since=new Date().toISOString(); return ['Leads card look '+(on?'ON':'OFF')]; }, 'Leads card look');
