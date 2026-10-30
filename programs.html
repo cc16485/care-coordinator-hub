@@ -153,6 +153,8 @@
   @media (max-width:700px){ .ptable, .ptable tbody, .ptable tr, .ptable td{ display:block; width:100%; }
     .ptable tr:first-child{ display:none; } .ptable tr{ border-bottom:1px solid var(--border); padding:8px 0; }
     .ptable td{ border:none; padding:3px 0; } }
+  /* 2026-10-30 (her "our logo doesn't work on a dark background"): the white logo on the navy header; paper drops the navy, so print the regular one */
+  @media print{ header img[src="cc-logo-light.png"]{ content:url(cc-logo.png); } }
 </style>
 </head>
 <body>
@@ -171,7 +173,7 @@
 
 <div id="app" class="hide">
 <header>
-  <img src="cc-logo.png" alt="">
+  <img src="cc-logo-light.png" alt="">
   <span class="ttl">Payors &amp; <em>Programs</em></span>
   <a class="back" href="index.html">&larr; Back to the hub</a>
   <span class="who" id="who"></span>

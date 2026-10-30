@@ -105,6 +105,8 @@
   .hide{ display:none !important; }
   details summary{ cursor:pointer; font-weight:700; color:var(--cta); font-size:14px; }
   @media (max-width:700px){ .grid2{ grid-template-columns:1fr; } main{ padding:18px 14px 70px; } }
+  /* 2026-10-30 (her "our logo doesn't work on a dark background"): the white logo on the navy header; paper drops the navy, so print the regular one */
+  @media print{ header img[src="cc-logo-light.png"]{ content:url(cc-logo.png); } }
 </style>
 </head>
 <body>
@@ -127,7 +129,7 @@
 <!-- ============================= APP ============================= -->
 <div id="app" class="hide">
 <header>
-  <img src="cc-logo.png" alt="">
+  <img src="cc-logo-light.png" alt="">
   <span class="ttl">The Story Game</span>
   <a class="back" href="index.html">&larr; Back to the hub</a>
   <a class="back" href="playbook-video.html">What to say &rarr;</a>
