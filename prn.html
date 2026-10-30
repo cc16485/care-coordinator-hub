@@ -16,6 +16,7 @@
      sign the On-Call Expectations, then ask for open on-call shifts one at a time; the office confirms each.
      PRN STEP 7: the twice-yearly "What would make PRN better?" questions (May and November), on call under My hours (PRN CNA
      Team only, never pay), and more milestones in Thank-yous.
+     The welcome video (2026-10-29): her approved video, at the top for their first 45 days, then under Talk to us.
      PRN STEP 8a: for PRN CNAs approved for Field Support Visits (named Gap Mentors until 2026-10-29), the visits they could do (I can do it / Not this time) and a short note after each one.
      Office preview: ?preview=<their Hub applicant id> with a Hub sign-in in this browser. Read-only; each look is recorded.
      Server: prn-page. Switch ops_settings.prn_page_live (off: members see "isn't open yet").
@@ -226,9 +227,14 @@ function wireOnCall() {
   })
 }
 
+/* her approved PRN welcome video (prn-welcome.mp4, 1:46, her own voice) */
+const welcomeVideo = (top) => (top ? '<div class="card update" id="welcomeVideo"><h3>Welcome to the PRN Team</h3><p class="small" style="margin-bottom:8px">A short welcome from Samantha, about 2 minutes.</p>' : '<div id="welcomeVideo" style="margin-top:8px">')
+  + '<video controls playsinline preload="none" poster="prn-welcome.jpg" style="width:100%;border-radius:12px;background:#0D365F;display:block" aria-label="Welcome to the PRN Team, a video from Samantha">'
+  + '<source src="prn-welcome.mp4" type="video/mp4">Your phone can\'t play this video here.</video></div>'
 function render() {
   const d = D, h = d.hours || {}, w = h.windows || {}
   const since = d.since ? dWord(d.since, { month: 'long', year: 'numeric' }) : ''
+  const newMember = !d.since || !d.today || (Date.parse(d.today + 'T12:00:00Z') - Date.parse(String(d.since).slice(0, 10) + 'T12:00:00Z')) / 864e5 <= 45
   const offered = (d.offered || []).map((o) => '<div class="card shift"><div class="top"><div><h4>' + esc(o.client_first) + (o.town ? ' in ' + esc(o.town) : '') + '</h4>'
       + '<div class="when">' + esc(dWord(o.shift_date, { weekday: 'short', month: 'short', day: 'numeric' })) + (o.shift_time ? ' · ' + esc(t12(o.shift_time.slice(0, 5))) + ' to ' + esc(t12(o.shift_time.slice(6, 11))) : '') + '</div></div></div>'
       + (o.from_page ? '<div class="answered show">You said you\'re interested. A coordinator confirms before you are scheduled.</div>'
@@ -250,6 +256,10 @@ function render() {
     + '<p class="motto"><b>We Stand in the Gap.</b> Part of our care continuity team' + (since ? ' since ' + esc(since) : '') + '.</p></header>'
     + '<nav><a href="#shifts">Shifts</a><a href="#clients">My clients</a><a href="#thanks">Thank-yous</a><a href="#hours">My hours</a>' + (d.oncall && d.oncall.signup ? '<a href="#oncall">On call</a>' : '') + '<a href="#learn">Learn</a><a href="#talk">Talk to us</a></nav>'
     + '<main>'
+    /* 2026-10-29 (her call: "instead of the PRN video being in the orientation, we just have it on the PRN hub link they get"):
+       her approved welcome video. Open at the top for their first 45 days on the team; after that, a "Watch our welcome video"
+       link under Talk to us. Plays only when they tap it (no autoplay, no download before then). */
+    + (newMember ? welcomeVideo(true) : '')
     + (h.break_until ? '<div class="card update"><h3>You\'re on a break until ' + esc(dWord(h.break_until, { weekday: 'long', month: 'short', day: 'numeric' })) + '</h3><p>We won\'t text you about shifts until then. Welcome back anytime: end your break under My hours.</p></div>' : '')
     + (d.update ? '<div class="card update" id="monthly"><h3>' + esc(d.update.title) + '</h3>'
         + (d.update.facts || []).map((f) => '<p>' + esc(f) + '</p>').join('')
@@ -314,6 +324,7 @@ function render() {
     + '</div></section>'
     + onCallSection(d)
     + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'
+    + (newMember ? '' : '<details class="card" style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:600;color:var(--navy)">Watch our welcome video</summary>' + welcomeVideo(false) + '</details>')
     + '<section id="talk"><h2 class="serif">Talk to us</h2><div class="card"><div class="btns" style="margin-top:0"><a class="b pri" href="sms:+14172348494">Text the office</a><a class="b" href="tel:+14172348494">Call</a><button class="b" id="ideaBtn">Share an idea</button></div>'
     + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
     + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'

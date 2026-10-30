@@ -85,6 +85,20 @@ with sync_playwright() as pw:
     b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
     ok('...switch off: no question', pg.locator('[data-mh]').count() == 0); b.close()
 
+    # 2026-10-29: her welcome video on their page
+    VN = dict(VIEW, since='2026-10-20', today='2026-10-29')
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, lambda body: (200, VN) if body.get('action') == 'view' else (200, { 'ok': True }))
+    v = pg.locator('#welcomeVideo video')
+    ok('new to the team: her welcome video at the top of their page, plays only when tapped', v.count() == 1 and v.get_attribute('preload') == 'none' and v.get_attribute('autoplay') is None and v.get_attribute('playsinline') is not None
+       and pg.locator('#welcomeVideo source').get_attribute('src') == 'prn-welcome.mp4' and 'Welcome to the PRN Team' in pg.inner_text('#welcomeVideo')
+       and pg.evaluate("()=>document.getElementById('welcomeVideo').getBoundingClientRect().top < document.getElementById('shifts').getBoundingClientRect().top"), pg.inner_text('main')[:200])
+    ok('...no page errors (welcome video)', not errs, errs); b.close()
+    b, pg, calls, errs = page(pw, '?p=0f1e2d3c-4b5a-4968-8776-655443322110&e=1999999999&t=' + 'x' * 43, member)
+    ok('...on the team for months: not at the top, but "Watch our welcome video" under Talk to us', pg.locator('main > #welcomeVideo').count() == 0 and pg.locator('details:has-text("Watch our welcome video") #welcomeVideo video').count() == 1
+       and pg.evaluate("()=>{ const d=[...document.querySelectorAll('details')].find(x=>/Watch our welcome video/.test(x.innerText)); return d && d.getBoundingClientRect().top < document.getElementById('talk').getBoundingClientRect().top }")); b.close()
+    import os as _os
+    ok('the video file is in the Hub, about 10 MB', _os.path.exists('prn-welcome.mp4') and 9_000_000 < _os.path.getsize('prn-welcome.mp4') < 12_000_000)
+
     # STEP 8a: a Gap Mentor's page
     V8 = dict(VIEW, mentor={ 'skills': ['Hoyer lift transfers'], 'waiting': False, 'first_done': False, 'rules': 'You observe, practice and listen. You never change the care plan, diagnose or give medical advice: anything medical goes to the family, their doctor or home health. In an emergency call 911, then the office.',
       'offers': [{ 'id': 7, 'kind': 'refresher', 'kind_label': 'Refresher with a caregiver in the home', 'client_first': 'Ruth', 'visit_date': '2026-11-05', 'visit_time': '09:00-10:00', 'skill': 'Hoyer lift transfers', 'caregiver_first': 'Amy', 'note': None, 'answer': None, 'familiar': True }],
