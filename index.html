@@ -4990,6 +4990,22 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <span class="field-note" id="mwtSaved"></span>
 </div>
 <div id="mwtOld" style="margin:0 0 12px;"></div>
+<!-- AxisCare connection (2026-10-29, her A and B go): axis-connection.js. ops_settings.axis_shared_reader_live, axis_failure_cards_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">AxisCare connection</div>
+<p class="hint">How well the Hub is keeping up with AxisCare: whether scheduling information is current, the last good and failed read for each kind of AxisCare information, how many reads AxisCare turned away (429), and how many reads the server made. Nothing here contacts anyone. Only Samantha or Zachary can turn the switches on or off.</p>
+<div id="axcBox" style="margin:6px 0 8px;"><div class="field-note">Reading...</div></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;"><button class="secondary" onclick="AxisConn.fill(true)">Refresh</button></div>
+<div class="field-note" style="font-weight:700;margin-top:6px;">Shared AxisCare reader</div>
+<div id="axcReaderNow" class="field-note" style="margin:4px 0 6px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 8px;">
+  <button class="secondary" id="axcReaderBtn" onclick="AxisConn.toggle(AxisConn.READER, this)">Turn on the shared AxisCare reader</button>
+</div>
+<div class="field-note" style="font-weight:700;margin-top:6px;">Tell me when AxisCare can't be read</div>
+<div id="axcCardsNow" class="field-note" style="margin:4px 0 6px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;">
+  <button class="secondary" id="axcCardsBtn" onclick="AxisConn.toggle(AxisConn.CARDS, this)">Turn on AxisCare read cards</button>
+  <span class="field-note" id="axcSaved"></span>
+</div>
 <!-- Relationship calls (Stage 3 of the Care Coordinator Leads and Bonus plan, policy approved 2026-10-18): ops_settings.relationship_calls_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Relationship calls</div>
 <p class="hint">After a client's first visit: the welcome call is the client journey's own step (due by the end of the next business day). Then the 7-day relationship call (due by day 7) and, once it is logged, the 30-day call (due by day 30) each come as one card for the client's Care Coordinator, with Log the call. Relationship calls are never supervisory visits or notes. Nothing contacts a family. Only Samantha or Zachary can turn this on or off.</p>
@@ -7759,6 +7775,7 @@ The HomeTogether team</pre>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=2"></script>
+<script src="axis-connection.js?v=1"></script><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=7"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=4"></script><script src="home-visit.js?v=9"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
@@ -19433,6 +19450,7 @@ function lhSetFill(){
   try{ if(window.OH) OH.settingsFill(); }catch(e){}
   try{ rbSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
+  try{ if(window.AxisConn) AxisConn.fill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
   try{ bvSetFill(); }catch(e){}
