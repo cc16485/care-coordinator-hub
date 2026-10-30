@@ -51,7 +51,7 @@
   }
   function open_(){ try{ return (DATA.ops_items || []).filter(i => i && i.status === 'open' && (typeof opsCanSee !== 'function' || opsCanSee(i))); }catch(_){ return []; } }
   const css = () => { if(document.getElementById('ovCss')) return; const s = document.createElement('style'); s.id = 'ovCss';
-    s.textContent = '.ov{max-width:1080px}.ov-top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:10px}'
+    s.textContent = '.ov-top{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:10px}'
       + '.ov-top h2{margin:0;color:var(--navy);font-size:22px}.ov-status{display:inline-flex;gap:8px;align-items:center;font-weight:700;font-size:13px;padding:4px 12px;border-radius:99px}'
       + '.ov-ok{background:#E7F6EC;color:#1F7A4D}.ov-warn{background:#FDF3E3;color:#A8660E}.ov-bad{background:#FDE8E8;color:#B23B2E}'
       + '.ov-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.ov-chip{background:#fff;border:1px solid var(--border);border-radius:99px;padding:3px 11px;font-size:12.5px}.ov-chip b{color:var(--navy)}.ov-chip.gap{border-color:#B23B2E;color:#B23B2E}'
