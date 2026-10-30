@@ -373,7 +373,6 @@
     if(document.getElementById('cgoCss')) return;
     const st = document.createElement('style'); st.id = 'cgoCss';
     st.textContent = `
-#cgoWrap{max-width:1180px;}
 .cgo-top{display:flex;align-items:flex-end;gap:12px;margin:2px 0 14px;}
 .cgo-h{margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em;color:var(--navy);}
 .cgo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:16px;align-items:start;}
