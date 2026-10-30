@@ -14,7 +14,7 @@ SERVER_ONLY = lambda k: k.startswith(('ini.', 'sig.', 'ci.sig.', 'date.')) or k 
 OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
 INITIALS = {'1': 'Rates, billing, cancellations and the app', '2': 'Services, safety, home access and the emergency plan (Exhibits B and D)', '3': 'Transportation and use of my car',
             '4': 'Privacy and communication choices (photos, permission to communicate, HIPAA)', '5': 'I received the Client Handbook (Exhibits C and E) and agree to the Infectious Disease Waiver (Exhibit F)', '6': 'Non-solicitation and the $5,000 direct hire fee'}
-CURRENT = 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa'   # 2026-10-18b: drafts start on the current master, as the server does
+CURRENT = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309'   # 2026-10-30: drafts start on the current master, as the server does
 FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree to sign this Client Care Agreement electronically.', 'initials': INITIALS, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
@@ -186,15 +186,16 @@ with sync_playwright() as p:
             ctx.close()
         # 2026-10-17 (8-hour weekly minimum) and 2026-10-18 (overtime Monday to Sunday): each agreement shows the pages of the master it was started on
         # 2026-10-18b (the Booking App terms + "Can book in the app"): the 10-18 wording is now an earlier one too
-        NEW, THIRD, SECOND, FIRST = 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
-        for sha, status, label in ((NEW, 'draft', 'new'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
+        # 2026-10-30 (short visits a flat $5.00 more per hour): the 10-18b wording is now an earlier one too
+        NEW, FOURTH, THIRD, SECOND, FIRST = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309', 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (FOURTH, 'draft', 'old'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (FOURTH, 'signed', 'old-signed'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
             ctx = br.new_context(viewport={'width': 768, 'height': 1024})
             ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
             pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
             pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
             if label == 'new':
                 pg.wait_for_selector('.pg img'); srcs = pg.eval_on_selector_all('.pg img', 'xs => xs.map(x => x.getAttribute("src"))')
-                ck(f'{eng}: a new draft shows the Booking App pages (Section 9 on page 3, "Can book in the app" on page 22)', len(srcs) == 23 and all('rev-2026-10-18b/' in s for s in srcs) and any(s.endswith('rev-2026-10-18b/p22.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: a new draft shows the short-visit pages (page 2 the flat $5.00, page 11 Exhibit A)', len(srcs) == 23 and all('rev-2026-10-30/' in s for s in srcs) and any(s.endswith('rev-2026-10-30/p11.jpg') for s in srcs), srcs[:3])
             elif label == 'old':
                 pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on an earlier wording ({sha[:4]}) says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
             else:

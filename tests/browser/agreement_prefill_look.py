@@ -10,7 +10,7 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.pat
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 FIELDS = json.load(open(os.path.join(HERE, 'agreement_fields.json')))
 OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
-CURRENT = 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa'
+CURRENT = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309'
 FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree.', 'initials': {str(n): 'x' for n in range(1, 7)}, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
 FILLED = {'client.client_s_name': 'Edward Anderson', 'client.address': '123 Maple St', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '(417) 555-0100',
           'ci.date_of_birth': '03/04/1941', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Daughter', 'c1.cell_phone': '(417) 863-7309', 'c1.home_phone': '(417) 555-0200', 'c1.email': 'nancy@example.com',
