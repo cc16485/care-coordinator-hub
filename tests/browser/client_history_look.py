@@ -54,11 +54,14 @@ FIX = r"""
     changes:[{ change_id:'c1', kind:'pause', reason:'hospital', effective_date:'2026-10-13', followup_date:'2026-10-14', made_by:'krystal@mo-care.com', made_by_name:'Krystal Land', made_at:at(13,8,30), explanation:'Overnight at Mercy for observation after a dizzy spell.' },
       { change_id:'c2', kind:'resume', effective_date:'2026-10-14', made_by:'krystal@mo-care.com', made_by_name:'Krystal Land', made_at:at(14,9,0) }] };
   const of=W.fetch; W.__fn=[];
-  const GHLT={ '4175550100':{ contact_id:'g1', name:'Karen Hale', messages:[{ at:at(12,15,30), direction:'out', type:'SMS', body:'Tasha will be there Wednesday at 9. She is great with gardening talk!' }] },
-    '4175550177':{ contact_id:'g7', name:'Linda Hale', messages:[{ at:at(14,19,5), direction:'in', type:'SMS', body:'Grandma said Tasha made her laugh all morning. Thank you!' }, { at:at(14,19,6), direction:'in', type:'Call', body:'Call (completed)' }] } };
+  const GHLT={ '4175550100':{ v:2, contact_id:'g1', name:'Karen Hale', messages:[{ at:at(12,15,30), direction:'out', type:'SMS', body:'Tasha will be there Wednesday at 9. She is great with gardening talk!' }] },
+    '4175550177':{ v:2, contact_id:'g7', name:'Linda Hale', messages:[{ id:'t1', at:at(14,19,5), direction:'in', type:'SMS', body:'Grandma said Tasha made her laugh all morning. Thank you!' },
+      { id:'vm7abc', at:at(14,20,10), direction:'in', type:'Call', body:'Call (voicemail)', call:{ status:'voicemail', duration_s:38, recording:true } }] } };
   W.__ghl=[];
-  W.fetch=async(u,o)=>{ if(/functions\/v1\/ghl-thread/.test(String(u))){ const b=JSON.parse(o.body); W.__ghl.push(b.phone||b.email);
+  W.fetch=async(u,o)=>{ if(/functions\/v1\/ghl-thread/.test(String(u))){ const b=JSON.parse(o.body); W.__ghl.push(b.recording?'rec:'+b.recording:b.transcription?'words:'+b.transcription:(b.phone||b.email));
       if(W.__fail.ghl) return new Response(JSON.stringify({ error:W.__fail.ghl }),{ status:502 });
+      if(b.recording) return new Response(new Blob([new Uint8Array([82,73,70,70])]),{ status:200, headers:{ 'Content-Type':'audio/wav' } });
+      if(b.transcription) return new Response(JSON.stringify({ ok:true, text:'Hi, it is Linda. Can someone call me about Thursday?' }),{ status:200 });
       return new Response(JSON.stringify(Object.assign({ ok:true }, GHLT[b.phone]||{ contact_id:'', messages:[] })),{ status:200 }); }
     if(/functions\/v1\/client-journey/.test(String(u))){ const b=JSON.parse(o.body); W.__fn.push(b.action);
       if(W.__fail.journey&&b.action==='get') return new Response(JSON.stringify({ error:W.__fail.journey }),{ status:409 });
@@ -81,6 +84,12 @@ T = r"""async()=>{
   ok('a Family Circle member\'s text names who sent it', rows().some(r=>/Linda \(granddaughter\) texted us/.test(r) && /made her laugh/.test(r)), rows());
   ok('our text to the family names who it went to, and shows once', rows().filter(r=>/We texted Karen \(daughter\)/.test(r)).length===1 && !rows().some(r=>/Krystal texted/.test(r)), rows());
   ok('one lookup per member with a phone, none for a member without one', window.__ghl.length===2 && window.__ghl.indexOf('4175550177')>=0, window.__ghl);
+  ok('a family voicemail names who, with Listen and Show the words', rows().some(r=>/Linda \(granddaughter\) called us · left a voicemail/.test(r) && /Listen/.test(r) && /Show the words/.test(r)), rows());
+  B().querySelector('[data-ch-play="vm7abc"]').click(); await sleep(400);
+  ok('Listen puts a player right on the entry', !!B().querySelector('audio') && !/Could not play/.test(txt()), txt());
+  B().querySelector('[data-ch-words="vm7abc"]').click(); await sleep(400);
+  ok('Show the words puts the words right on the entry', /Can someone call me about Thursday\?/.test(txt()), txt());
+  ok('the recording and words were asked for that call only', window.__ghl.filter(x=>/^(rec|words):/.test(x)).join()==='rec:vm7abc,words:vm7abc', window.__ghl);
   ok('important changes are marked', /Schedule change/.test(txt()) && /Care needs change/.test(txt()) && /Care Coordinator change/.test(txt()) && /Important/.test(txt()), txt());
   ok('who did it is on the entry', /Care paused · Hospital stay · Krystal/.test(rows().join('\n')), rows());
   ok('EVV forms keep their own place beside it', !!document.getElementById('cp_evv_forms') && !B().contains(document.getElementById('cp_evv_forms')));
@@ -91,7 +100,7 @@ T = r"""async()=>{
   [...B().querySelectorAll('.ch-chip')].find(b=>/Care changes/.test(b.textContent)).click(); await sleep(150);
   ok('the Care changes chip shows only care changes', rows().length===3 && rows().filter(r=>/Care change/.test(r)).length===2 && rows().some(r=>/Record edit.*Schedule change/.test(r)), rows());
   [...B().querySelectorAll('.ch-chip')].find(b=>/^Calls/.test(b.textContent)).click(); await sleep(150);
-  ok('the Calls chip shows the two calls', rows().length===2 && rows().every(r=>/^.*Call/.test(r)), rows());
+  ok('the Calls chip shows the two calls and the family voicemail', rows().length===3 && rows().every(r=>/^.*Call/.test(r)), rows());
   ok('no em dashes on the card', !/\u2014/.test(txt()));
   /* a source fails */
   window.__fail.axiscare_change_log='permission denied'; window.__fail.ghl='GoHighLevel is not connected on this project.'; window.__fail.journey='Client journeys are switched off right now.';

@@ -114,7 +114,10 @@ const family = { members:[
   { key:'4175550100', contact_id:'G1', ghl_name:'Karen Hale', people:[{ name:'Karen Hale', relationship:'Daughter' }], messages:[
     { at:'2026-10-12T20:30:20Z', direction:'out', type:'SMS', body:'Tasha will be there Wednesday at 9.' },
     { at:'2026-10-14T13:05:00Z', direction:'in', type:'SMS', body:'Mom is a little tired today, can Tasha help her shower?' },
-    { at:'2026-10-14T13:20:00Z', direction:'in', type:'Call', body:'Call (completed)' },
+    { id:'gVm1', at:'2026-10-14T13:20:00Z', direction:'in', type:'Call', body:'Call (voicemail)', call:{ status:'voicemail', duration_s:38, recording:true } },
+    { id:'gC2', at:'2026-10-15T19:13:50Z', direction:'in', type:'Call', body:'Call (completed)', call:{ status:'completed', duration_s:260, recording:true } },
+    { id:'gC3', at:'2026-10-13T20:00:00Z', direction:'out', type:'Call', body:'Call (no-answer)', call:{ status:'no-answer', duration_s:0, recording:false } },
+    { id:'gC4', at:'2026-10-13T21:00:00Z', direction:'out', type:'Call', body:'', call:{ status:'canceled', duration_s:0, recording:false } },
     { at:'2026-10-13T16:00:00Z', direction:'out', type:'Email', body:'Your care schedule for next week.' } ] },
   { key:'4175550111', ghl_name:'Bob Hale', people:[{ name:'Bob Hale', relationship:'son' }, { name:'Linda Hale', relationship:'daughter-in-law' }], messages:[
     { at:'2026-10-11T22:00:00Z', direction:'in', type:'SMS', body:'Thank you all so much.' } ] },
@@ -124,12 +127,23 @@ const fb = H.build({ lead, family }, ctx), FI = fb.items;
 const fam = FI.filter(x => x.src === 'family');
 ck('a family member\'s text names them and says they texted us', fam.some(x => x.title === 'Karen (daughter) texted us' && /shower/.test(x.detail) && x.chip === 'msg'), fam.map(x => x.title));
 ck('our text and email to them name who we sent it to', fam.some(x => x.title === 'We texted Karen (daughter)') && fam.some(x => x.title === 'We emailed Karen (daughter)'));
-ck('calls from GoHighLevel are left to the call record', !fam.some(x => /call/i.test(x.title)));
+ck('a family voicemail names who, says so, and can be played', fam.some(x => x.title === 'Karen (daughter) called us · left a voicemail' && x.chip === 'call' && x.rec === 'gVm1'), fam.filter(x => x.chip === 'call'));
+ck('our unanswered call names who we called, nothing to play', fam.some(x => x.title === 'We called Karen (daughter) · no answer' && !x.rec));
+ck('an automated call GoHighLevel never placed is left out', !fam.some(x => /did not go through/.test(x.title)));
+const fc = H.build({ calls, family }, ctx).items;
+ck('a call the call record also has shows once, as the call record, with Listen carried over', fc.filter(x => x.chip === 'call' && Math.abs(Date.parse(x.at) - Date.parse('2026-10-15T19:14:00Z')) < 15 * 60000).length === 1
+  && fc.some(x => x.src === 'calls' && x.rec === 'gC2' && /Mom liked Tasha/.test(x.detail)), fc.filter(x => x.chip === 'call').map(x => [x.src, x.title, x.rec]));
 ck('a shared number names both people', fam.some(x => x.title === 'Bob (son) or Linda (daughter-in-law) (shared number) texted us'), fam.map(x => x.title));
 ck('a number GoHighLevel has under another name is not shown as theirs, and says so', !fam.some(x => /not hers/.test(x.detail)) && fb.problems.some(p => /Mary \(niece\)'s number under another name/.test(p.words)), fb.problems);
 ck('a member whose texts could not load is named, not silent', fb.problems.some(p => /Could not load the texts with Mike \(grandson\) \(GoHighLevel answered 502\)/.test(p.words)), fb.problems);
 ck('the inquiry log\'s copy of the same text shows once, as the named one', !FI.some(x => x.src === 'lead' && /texted/.test(x.title) && /Wednesday at 9/.test(x.detail)) && fam.some(x => x.title === 'We texted Karen (daughter)'), FI.filter(x => /Wednesday/.test(x.detail)).map(x => x.title));
-ck('family texts sit in Texts & emails', H.counts(FI).msg === fam.length + FI.filter(x => x.src !== 'family' && x.chip === 'msg').length && fam.length === 4);
+ck('family texts sit in Texts & emails, family calls in Calls', fam.filter(x => x.chip === 'msg').length === 4 && fam.filter(x => x.chip === 'call').length === 3, fam.map(x => x.chip + ' ' + x.title));
+/* the server's old answer (before v 2) read GoHighLevel's kinds one off; the page puts it right */
+const old = H.ghlMessages({ messages:[{ type:'SMS', direction:'in', status:'voicemail', body:'', at:'2026-10-14T13:00:00Z' }, { type:'Email', direction:'in', body:'Mom is tired', at:'2026-10-14T12:00:00Z' },
+  { type:'Voicemail', direction:'out', body:'Dear Karen, your schedule', at:'2026-10-14T11:00:00Z' }, { type:'Call', direction:'out', body:'x', at:'2026-10-14T10:00:00Z' }] });
+ck('old answer: its "SMS" is a call, "Email" a text, "Voicemail" an email, "Call" dropped', old.map(x => x.type).join() === 'Call,SMS,Email' && old[0].call.status === 'voicemail' && old[1].body === 'Mom is tired', old);
+ck('the new answer (v 2) is taken as it is', H.ghlMessages({ v:2, messages:[{ type:'SMS', body:'hi' }] })[0].type === 'SMS');
+ck('call words', H.callWords({ status:'completed', duration_s:260 }, true) === '4 min' && H.callWords({ status:'completed', duration_s:42 }, false) === '42 sec' && H.callWords({ status:'no-answer' }, true) === 'missed');
 
 /* no em dashes anywhere she reads */
 const src = fs.readFileSync(path.join(__dirname, '..', 'client-history.js'), 'utf8');

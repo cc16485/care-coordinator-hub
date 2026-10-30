@@ -178,11 +178,29 @@
     (loc.nurse_visits || []).forEach((v, i) => { const at = v.created_at || v.date; if(ok(at)) out.push({ id:'nv:' + (v.id || i), src:'local', at, chip:'journey', title:'Nurse visit', sub:'', detail:'', who:'' }); });
     (loc.start || []).forEach((e, i) => { if(ok(e.at)) out.push({ id:'start:' + i, src:'start', at:e.at, chip:'journey', title:s(e.text), sub:'', detail:'', who:'' }); });
   }
-  /* Family Circle texts and emails (her ask 2026-10-30: "noting who called/texted"). One entry per message GoHighLevel
-     has with each member, named: "Mary (daughter) texted us", "We emailed Mary (daughter)". Calls are left out here
-     because the call record already names a recognised family member's calls. A number GoHighLevel matched to a contact
-     with a different name is not shown as theirs. */
+  /* Family Circle texts, emails, calls and voicemails (her asks 2026-10-30: "noting who called/texted"; "put the text,
+     voicemail, etc right there in the communication tab"). One entry per message GoHighLevel has with each member, named:
+     "Mary (daughter) texted us", "We emailed Mary (daughter)", "Mary (daughter) called us · left a voicemail" with Listen.
+     A call the call record also has shows once, as the call record's (it has the summary), with the Listen button carried
+     over. A number GoHighLevel matched to a contact with a different name is not shown as theirs. */
   const FAM_KINDS = { SMS:'texted', Email:'emailed', WhatsApp:'messaged', 'Live chat':'messaged', Facebook:'messaged', Instagram:'messaged' };
+  /* ghl-thread before 2026-10-30 (no v:2) read GoHighLevel's numbers one off: its "SMS" were calls, "Email" texts,
+     "Voicemail" emails, and its "Call" was something else. Put right here so the words show before the server is updated. */
+  const OLD_KIND = { SMS:'Call', Email:'SMS', Voicemail:'Email', Call:'' };
+  function ghlMessages(d){
+    const list = Array.isArray(d && d.messages) ? d.messages : [];
+    if(d && d.v >= 2) return list;
+    return list.map(x => { const t = Object.prototype.hasOwnProperty.call(OLD_KIND, x.type) ? OLD_KIND[x.type] : x.type;
+      return t === 'Call' ? Object.assign({}, x, { type:'Call', body:'', call:{ status:s(x.status), duration_s:0, recording:false } }) : Object.assign({}, x, { type:t }); }).filter(x => x.type);
+  }
+  function callWords(c, inbound){
+    const st = s(c && c.status).toLowerCase(), d = Number(c && c.duration_s) || 0;
+    if(/voicemail/.test(st)) return inbound ? 'left a voicemail' : 'we left a voicemail';
+    if(/no.?answer|missed/.test(st)) return inbound ? 'missed' : 'no answer';
+    if(/busy/.test(st)) return 'busy';
+    if(/fail|cancel/.test(st)) return 'did not go through';
+    return d >= 60 ? Math.round(d / 60) + ' min' : d > 0 ? d + ' sec' : '';
+  }
   function famLabel(m){ const n = firstName(m.name), r = s(m.relationship).trim().toLowerCase(); return n ? n + (r ? ' (' + r + ')' : '') : (r || 'a family member'); }
   function sameName(a, b){ const x = norm(a).split(' ').filter(w => w.length > 1), y = norm(b).split(' ').filter(w => w.length > 1); return !x.length || !y.length || x.some(w => y.indexOf(w) >= 0); }
   function fromFamily(d, ctx, out){
@@ -197,10 +215,20 @@
         return;
       }
       m.messages.forEach((x, i) => {
-        const verb = FAM_KINDS[x.type]; if(!verb || !ok(x.at)) return;
-        const inbound = x.direction === 'in';
+        if(!ok(x.at)) return;
+        const inbound = x.direction === 'in', Label = label.charAt(0).toUpperCase() + label.slice(1);
+        if(x.type === 'Call' || x.type === 'Voicemail'){
+          const c = x.call || {};
+          if(/cancel/i.test(s(c.status)) && !(Number(c.duration_s) > 0)) return;   /* an automated call GoHighLevel never placed */
+          const how = x.type === 'Voicemail' ? '' : callWords(c, inbound);
+          out.push({ id:'famc:' + (m.key || label) + ':' + x.at + ':' + i, src:'family', at:x.at, chip:'call', fam_call:inbound ? 'in' : 'out', record_call:true,
+            title:x.type === 'Voicemail' ? 'We left ' + label + ' a voicemail' : (inbound ? Label + ' called us' : 'We called ' + label) + (how ? ' · ' + how : ''),
+            sub:'Family Circle', detail:x.body && !/^Call \(/.test(s(x.body)) ? s(x.body) : '', who:'', ghl:m.contact_id || '', rec:c.recording && x.id ? s(x.id) : '' });
+          return;
+        }
+        const verb = FAM_KINDS[x.type]; if(!verb) return;
         out.push({ id:'fam:' + (m.key || label) + ':' + x.at + ':' + i, src:'family', at:x.at, chip:'msg', fam_dir:inbound ? 'in' : 'out',
-          title:inbound ? label.charAt(0).toUpperCase() + label.slice(1) + ' ' + verb + ' us' : 'We ' + verb + ' ' + label,
+          title:inbound ? Label + ' ' + verb + ' us' : 'We ' + verb + ' ' + label,
           sub:'Family Circle', detail:x.body ? '"' + s(x.body) + '"' : '', who:'', ghl:m.contact_id || '' });
       });
     });
@@ -220,7 +248,15 @@
     const near = (a, b, ms) => Math.abs(Date.parse(a.at) - Date.parse(b.at)) <= ms;
     const keep = items.slice();
     const drop = new Set();
-    const recordCalls = keep.filter(x => x.record_call);
+    /* 0. a family call GoHighLevel has that the call record also has: keep the call record (its summary), carry Listen over */
+    keep.forEach(x => {
+      if(!x.fam_call) return;
+      const m = keep.find(c => c.src === 'calls' && near(c, x, 15 * 60000) && (!/ called us| called /.test(c.title) || (x.fam_call === 'in') === / called us/.test(c.title)));
+      if(!m) return;
+      drop.add(x);
+      if(x.rec && !m.rec) m.rec = x.rec;
+    });
+    const recordCalls = keep.filter(x => x.record_call && !drop.has(x));
     /* 1. a call on the inquiry's log that the call record also has: keep the call record, carry the note across */
     keep.forEach(x => {
       if(!x.lead_call) return;
@@ -279,11 +315,11 @@
   }
   function timeWords(at){ return new Date(at).toLocaleTimeString('en-US', { timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' }); }
 
-  const api = { CHIPS, TAG, PAGE, build, counts, filter, dedupe, groupCalls, dayWords, timeWords, whoOf };
+  const api = { CHIPS, TAG, PAGE, build, counts, filter, dedupe, groupCalls, dayWords, timeWords, whoOf, ghlMessages, callWords };
   if(typeof module !== 'undefined' && module.exports){ module.exports = api; return; }
 
   /* =============================================== the page =============================================== */
-  const H = { key:'', src:{}, errors:{}, start:[], chip:'all', shown:PAGE, open:{} };
+  const H = { key:'', src:{}, errors:{}, start:[], chip:'all', shown:PAGE, open:{}, media:{}, words:{} };
   /* the Hub page's own globals are top-level const/let, so they are reached by name, never through window */
   const has = n => { try{ return Function('return typeof ' + n + ' !== "undefined"')(); }catch(e){ return false; } };
   const G = n => has(n) ? Function('return ' + n)() : undefined;
@@ -313,6 +349,8 @@
       + '.ch-bad{color:var(--red);}'
       + '.ch-detail{white-space:pre-wrap;font-size:13px;margin-top:4px;padding:6px 10px;background:#faf9f6;border-radius:6px;}'
       + '.ch-more{font:inherit;font-size:12.5px;background:none;border:0;padding:0;margin-left:6px;color:var(--teal);cursor:pointer;text-decoration:underline;}'
+      + '.ch-media{margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}.ch-media audio{height:34px;max-width:100%;}.ch-media .ch-detail{flex-basis:100%;}'
+      + '.ch-play{font:inherit;font-size:12.5px;font-weight:700;padding:4px 12px;border-radius:99px;border:1px solid var(--teal);background:#EAF4F6;color:var(--teal);cursor:pointer;}'
       + '.ch-prob{font-size:12.5px;color:#92400E;background:#FFF7E6;border:1px solid #F3D9B5;border-radius:8px;padding:6px 10px;margin:6px 0;}'
       + '@media (max-width:560px){.ch-row{grid-template-columns:52px minmax(0,1fr);}.ch-row .ch-tag,.ch-row .ch-what{grid-column:2;}}';
     document.head.appendChild(st);
@@ -326,8 +364,44 @@
       + (x.sub ? '<span class="ch-sub">' + esc(x.sub) + '</span>' : '') + preview
       + (long ? (open ? '<div class="ch-detail">' + esc(x.detail) + '</div><button class="ch-more" data-ch-open="' + esc(x.id) + '">less</button>'
                      : '<span class="ch-sub" style="color:var(--text,#16283a);">' + esc(x.detail.slice(0, 140)) + '…<button class="ch-more" data-ch-open="' + esc(x.id) + '">more</button></span>') : '')
+      + (x.rec ? mediaHtml(x.rec) : '')
       + (x.ghl && G('GHL_LOC') ? ' <a class="ch-more" target="_blank" rel="noopener" href="https://app.hirecara.com/v2/location/' + encodeURIComponent(G('GHL_LOC')) + '/contacts/detail/' + encodeURIComponent(x.ghl) + '">GoHighLevel ↗</a>' : '')
       + '</div></div>';
+  }
+  /* a call's recording and words, right on the entry, read only when someone presses the button */
+  function mediaHtml(rec){
+    const m = H.media[rec], w = H.words[rec];
+    return '<div class="ch-media">'
+      + (m && m.url ? '<audio controls preload="auto" src="' + esc(m.url) + '"></audio>' : '<button class="ch-play" data-ch-play="' + esc(rec) + '"' + (m && m.loading ? ' disabled' : '') + '>' + (m && m.loading ? 'Loading…' : '▶ Listen') + '</button>')
+      + (w && w.text != null ? '' : ' <button class="ch-more" data-ch-words="' + esc(rec) + '"' + (w && w.loading ? ' disabled' : '') + '>' + (w && w.loading ? 'Reading…' : 'Show the words') + '</button>')
+      + (m && m.err ? '<span class="ch-sub">' + esc(m.err) + '</span>' : '')
+      + (w && w.err ? '<span class="ch-sub">' + esc(w.err) + '</span>' : '')
+      + (w && w.text != null ? '<div class="ch-detail">' + (w.text ? esc(w.text) : '<span class="field-note">GoHighLevel has no words written down for this call.</span>') + '</div>' : '')
+      + '</div>';
+  }
+  async function ghlAsk(body){
+    const sb = G('sb'), cfg = G('CONFIG') || {};
+    const got = await sb.auth.getSession(), sess = got && got.data && got.data.session;
+    if(!sess || !sess.access_token) throw new Error('Please sign in again.');
+    return fetch(cfg.supabase_url + '/functions/v1/ghl-thread', { method:'POST', headers:{ 'Authorization':'Bearer ' + sess.access_token, 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+  }
+  async function play(rec){
+    H.media[rec] = { loading:true }; render();
+    try{
+      const r = await ghlAsk({ recording:rec }), type = r.headers.get('content-type') || '';
+      if(!r.ok || /json/.test(type)){ const d = await r.json().catch(() => ({})); throw new Error(d.error || (r.status === 400 ? 'This call can be played once the Hub\'s GoHighLevel reader is updated.' : 'GoHighLevel answered ' + r.status + '.')); }
+      H.media[rec] = { url:URL.createObjectURL(await r.blob()) }; render();
+      const a = document.querySelector('#cp_history audio[src="' + H.media[rec].url + '"]'); if(a) a.play().catch(() => {});
+    }catch(e){ H.media[rec] = { err:'Could not play it: ' + s(e && e.message || e) }; render(); }
+  }
+  async function words(rec){
+    H.words[rec] = { loading:true }; render();
+    try{
+      const r = await ghlAsk({ transcription:rec }), d = await r.json().catch(() => ({}));
+      if(!r.ok || d.error) throw new Error(d.error || (r.status === 400 ? 'This call can be read once the Hub\'s GoHighLevel reader is updated.' : 'GoHighLevel answered ' + r.status + '.'));
+      H.words[rec] = { text:s(d.text) };
+    }catch(e){ H.words[rec] = { err:'Could not read it: ' + s(e && e.message || e) }; }
+    render();
   }
   function render(){
     const box = document.getElementById('cp_history'); if(!box) return;
@@ -353,7 +427,9 @@
       + '</div>';
     box.onclick = e => {
       const ch = e.target.closest('[data-ch-chip]'); if(ch){ H.chip = ch.dataset.chChip; H.shown = PAGE; render(); return; }
-      const op = e.target.closest('[data-ch-open]'); if(op){ H.open[op.dataset.chOpen] = !H.open[op.dataset.chOpen]; render(); }
+      const op = e.target.closest('[data-ch-open]'); if(op){ H.open[op.dataset.chOpen] = !H.open[op.dataset.chOpen]; render(); return; }
+      const pl = e.target.closest('[data-ch-play]'); if(pl){ play(pl.dataset.chPlay); return; }
+      const wd = e.target.closest('[data-ch-words]'); if(wd) words(wd.dataset.chWords);
     };
   }
   /* every read here is one the profile already made, under the person's own sign-in */
@@ -405,10 +481,10 @@
     const one = async g => {
       try{
         const r = await fetch(cfg.supabase_url + '/functions/v1/ghl-thread', { method:'POST', headers:{ 'Authorization':'Bearer ' + sess.access_token, 'Content-Type':'application/json' },
-          body:JSON.stringify({ phone:g.phone, email:g.email, limit:25 }) });
+          body:JSON.stringify({ phone:g.phone, email:g.email, limit:50 }) });
         const d = await r.json().catch(() => ({}));
         if(!r.ok || d.error) return Object.assign(g, { error:s(d.error) || 'GoHighLevel answered ' + r.status });
-        return Object.assign(g, { contact_id:d.contact_id || '', ghl_name:d.contact_id ? s(d.name) : '', messages:d.messages || [] });
+        return Object.assign(g, { contact_id:d.contact_id || '', ghl_name:d.contact_id ? s(d.name) : '', messages:ghlMessages(d) });
       }catch(e){ return Object.assign(g, { error:s(e && e.message || e) }); }
     };
     const todo = groups.slice(0, 10), done = [];
