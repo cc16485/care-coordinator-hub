@@ -22,14 +22,22 @@ async()=>{
 
   document.querySelector('.ftab[data-g="sops"]').click(); await sleep(300);
   const row=document.getElementById('fsub-sops'), pills=[...row.querySelectorAll('.fpill')].map(p=>p.textContent.trim());
-  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Order Supplies (no Scripts)',
-     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Order Supplies"]', pills);
+  ok('SOPs row: Procedures, Payors & Programs, Forms & Templates, Client Folders, Videos, Order Supplies (no Scripts)',
+     JSON.stringify(pills)==='["Procedures","Payors & Programs","Forms & Templates","Client Folders","Videos","Order Supplies"]', pills);
   ok('Scripts still opens from its old address (#playbook), content kept', document.getElementById('tab-playbook') && CC_GROUPS.sops.includes('playbook'));
   [...row.querySelectorAll('.fpill')].find(p=>/Forms & Templates/.test(p.textContent)).click(); await sleep(300);
   ok('Forms & Templates is first and opens inside the Hub', activeTab==='docs' && /forms\.html\?in=hub$/.test(document.getElementById('docsFrame').src), [activeTab, document.getElementById('docsFrame').src]);
   const f1=document.getElementById('docsFrame');
   ok('the library page loads in the frame with its own header hidden', await until(()=>f1.contentDocument && f1.contentDocument.documentElement.classList.contains('inhub') && getComputedStyle(f1.contentDocument.querySelector('header')).display==='none'));
   ok('the section title says Forms & Templates', /Forms &(amp;)? Templates/.test(CC_SECTION_TITLES.docs));
+  // 2026-10-30: Videos (videos.html) opens inside the Hub too
+  [...row.querySelectorAll('.fpill')].find(p=>/Videos/.test(p.textContent)).click(); await sleep(300);
+  const fv=document.getElementById('videosFrame');
+  ok('Videos opens videos.html inside the Hub', activeTab==='videos' && /videos\.html\?in=hub$/.test(fv.src), [activeTab, fv.src]);
+  ok('Videos loads with its own header hidden', await until(()=>fv.contentDocument && fv.contentDocument.documentElement.classList.contains('inhub') && getComputedStyle(fv.contentDocument.querySelector('header')).display==='none'));
+  switchTab('today'); location.hash='#videos'; await sleep(400);
+  ok('#videos opens Videos', activeTab==='videos', activeTab);
+  switchTab('docs'); await sleep(200);
 
   // the library's own link to Client Folders moves the Hub to the next tab
   await until(()=>f1.contentDocument.getElementById('toFolders'));

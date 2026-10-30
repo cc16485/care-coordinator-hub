@@ -1356,6 +1356,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Client Folders (client-folders.html) open inside the Hub, like Payors & Programs. -->
     <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
     <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
+    <!-- 2026-10-30 (her "When we make videos can you save them in the hub"): videos.html, every video we make, opened inside the Hub. -->
+    <div class="fpill" data-tab="videos" onclick="switchTab('videos')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Videos</div>
     <!-- 2026-10-17 (her ask "a tab in SOPs that says order supplies"): supplies.html, opened inside the Hub. -->
     <div class="fpill" data-tab="supplies" onclick="switchTab('supplies')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Order Supplies</div>
   </div>
@@ -5902,6 +5904,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <section class="tabpanel" id="tab-docs">
   <iframe id="docsFrame" title="Forms &amp; Templates" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
+<section class="tabpanel" id="tab-videos">
+  <iframe id="videosFrame" title="Videos" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
 <section class="tabpanel" id="tab-supplies">
   <iframe id="suppliesFrame" title="Order Supplies" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
@@ -8457,7 +8462,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8872,7 +8877,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -9157,6 +9162,7 @@ function renderActiveTab(){
   if(activeTab==='sops') sopRender();
   if(activeTab==='sopref') sopRefShow();
   if(activeTab==='docs') docsShow();
+  if(activeTab==='videos') videosShow();
   if(activeTab==='docfolders') ccHubFrame(document.getElementById('docFoldersFrame'), 'client-folders.html?in=hub');
   if(activeTab==='supplies') ccHubFrame(document.getElementById('suppliesFrame'), 'supplies.html?in=hub');
   if(activeTab==='clientqueue') cqRender();
@@ -44740,6 +44746,12 @@ function docsShow(cat){
   const f = document.getElementById('docsFrame');
   if(!cat && f && f.dataset.src && /forms\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
   ccHubFrame(f, 'forms.html?in=hub' + (cat ? '&cat=' + encodeURIComponent(cat) : ''));
+}
+/* SOPs > Videos (2026-10-30). Keeps where the person was when they come back. */
+function videosShow(){
+  const f = document.getElementById('videosFrame');
+  if(f && f.dataset.src && /videos\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
+  ccHubFrame(f, 'videos.html?in=hub');
 }
 function ccOpenDocs(cat){ switchTab('docs'); docsShow(cat || ''); return false; }
 /* "Open Payors & Programs at this program": from Scripts and anywhere else in the Hub */
