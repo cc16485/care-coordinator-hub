@@ -8,7 +8,7 @@
      otherwise the next weekday's. Staff press Got it, then Done; the owner sees who and when.
    · The 8am Morning Brief (Staffing repo lead-digest + _shared/overnight-handoff.ts) opens with the note and what
      happened overnight, and saves the same thing as report_<date>. My Work pins it above everything until somebody
-     presses I've read it (who, when and whether they were on duty are kept).
+     moves what is theirs to My Desk and presses Close out the overnight (who, when, on duty and how much went to a desk are kept).
    · Owner Overview: the note box, Got it / Done on this morning's note, and from 9am a red line while it is unread.
    Everything lives in app_data overnight_handoff: note_<date>, report_<date> (written by the server), read_<date>.
    Only while ops_settings.overnight_handoff_live is on. Nothing here texts, emails or calls anyone.
@@ -35,7 +35,7 @@
     return { today, report, read, note:live,
       /* the pin: the whole handoff until read; after that only a note nobody has marked Done */
       pin: report && !read ? 'full' : (live && !(live.done && live.done.at) ? 'note' : ''),
-      /* 9am Owner Overview flag: a weekday, the brief has gone, nobody has read it */
+      /* 9am Owner Overview flag: a weekday, the brief has gone, nobody has closed it out */
       flag: weekday(today) && hour >= FLAG_HOUR && !!report && !read,
       next: noteDateFor(nowChi) };
   }
@@ -78,7 +78,7 @@
     try{ const { data } = await sb.from('app_data').select('data').eq('key', KEY).maybeSingle();
       if(data && Array.isArray(data.data)){ const before = JSON.stringify(items()); D()[KEY] = data.data; if(JSON.stringify(data.data) !== before) redraw(); } }catch(e){}
   }
-  /* was the person pressing "I've read it" on duty right now (in charge or operations)? */
+  /* was the person closing out the overnight on duty right now (in charge or operations)? */
   function onDuty(email){ try{ return (W.dutyNow() || []).some(r => ['in_charge', 'operations'].indexOf(r.area) > -1 && r.holder && String(r.holder.person || '').toLowerCase() === email); }catch(e){ return false; } }
 
   /* ── the parts ── */
@@ -91,26 +91,55 @@
       + (withButtons && !d ? (g ? '' : '<button class="secondary" onclick="OH.press(\'got_it\')">Got it</button>') + '<button class="primary" onclick="OH.press(\'done\')">Done</button>' : '')
       + '</div></div>';
   }
-  function lineHtml(l){
-    const live = l.key && l.id ? ((D()[l.key] || []).find(x => x && x.id === l.id) || null) : null;
-    const since = live && live.status && live.status !== 'open' ? ' <span class="oh-ok">handled since</span>' : '';
-    const open = l.key === 'ops_items' && l.id ? ' onclick="OH.card(\'' + esc(l.id) + '\')" style="cursor:pointer"' : '';
-    return '<div class="oh-line"' + open + '><span class="oh-t">' + esc(chiT(l.at)) + '</span><span>' + esc(l.text) + since + '</span></div>';
+  /* My Desk (desk.js): the line goes on today's page with a paperclip back to its card or lead */
+  const deskOn = () => { try{ return typeof W.dkAllowed === 'function' && W.dkAllowed() && typeof W.dkQuickJot === 'function'; }catch(e){ return false; } };
+  const lineKey = (sec, l, i) => sec + ':' + (l.id || i);
+  const deskLink = l => l.key === 'ops_items' && l.id ? { type:'work', id:l.id, name:String(l.text).slice(0, 80) }
+    : l.key === 'leads' && l.id ? { type:'lead', lead_id:String(l.id), ax:'', name:String(l.text).replace(/^New lead:\s*/, '').split(',')[0].slice(0, 80) } : null;
+  const movedOf = s => (items().find(x => x && x.id === 'moved_' + s.today) || {}).lines || {};
+  function stillLive(l){ const live = l.key && l.id ? ((D()[l.key] || []).find(x => x && x.id === l.id) || null) : null; return !(live && live.status && live.status !== 'open'); }
+  function lineHtml(sec, l, i, moved){
+    const k = lineKey(sec, l, i), m = moved[k], since = !stillLive(l) ? ' <span class="oh-ok">handled since</span>' : '';
+    const open = l.key === 'ops_items' && l.id ? ' class="oh-go" onclick="OH.card(\'' + esc(l.id) + '\')"' : '';
+    const act = m ? '<span class="oh-moved">On ' + esc(first(m.by_name)) + '\'s desk</span>'
+      : deskOn() ? '<button class="oh-desk" onclick="OH.move(\'' + esc(k) + '\')">Move to my desk</button>' : '';
+    return '<div class="oh-line"><span class="oh-t">' + esc(chiT(l.at)) + '</span><span' + open + '>' + esc(l.text) + since + '</span><span class="oh-a">' + act + '</span></div>';
   }
+  /* the night sky behind the card: stars and a moon at the top, the sun coming up over the hills at the bottom */
+  const SCENE = '<svg class="oh-scene" viewBox="0 0 640 260" preserveAspectRatio="xMidYMid slice" aria-hidden="true">'
+    + '<defs><radialGradient id="ohGlow" cx="85%" cy="100%" r="60%"><stop offset="0" stop-color="#FFD27A" stop-opacity=".8"/><stop offset=".45" stop-color="#F0A63A" stop-opacity=".3"/><stop offset="1" stop-color="#F0A63A" stop-opacity="0"/></radialGradient></defs>'
+    + '<rect width="640" height="260" fill="url(#ohGlow)"/>'
+    + [[90,26,1.3],[170,58,1],[250,20,1.5],[330,48,1],[400,24,1.2],[470,64,.9],[200,96,.8],[60,80,.9],[300,104,.7],[430,112,.7],[120,140,.6],[360,150,.6]].map(([x,y,r],j) => '<circle class="oh-star" style="animation-delay:' + (j * .37).toFixed(2) + 's" cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#fff"/>').join('')
+    + '</svg>'
+    /* the moon, top right */
+    + '<svg class="oh-moon" viewBox="0 0 60 60" aria-hidden="true"><defs><mask id="ohCres"><rect width="60" height="60" fill="#fff"/><circle cx="40" cy="22" r="20" fill="#000"/></mask></defs>'
+    + '<circle cx="30" cy="30" r="22" fill="#F6F1DA" mask="url(#ohCres)"/></svg>'
+    /* the sun coming up, bottom right, behind the hills */
+    + '<svg class="oh-sunbox" viewBox="0 0 200 110" aria-hidden="true"><g class="oh-sun"><circle cx="100" cy="100" r="44" fill="#FFC85A"/>'
+    + [0,1,2,3,4,5,6].map(j => { const a = Math.PI * (j + 1) / 8, x1 = 100 - Math.cos(a) * 56, y1 = 100 - Math.sin(a) * 56, x2 = 100 - Math.cos(a) * 74, y2 = 100 - Math.sin(a) * 74; return '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#FFC85A" stroke-width="5" stroke-linecap="round"/>'; }).join('') + '</g></svg>'
+    + '<svg class="oh-hills" viewBox="0 0 640 40" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22 C90 4 170 10 250 22 C330 34 420 8 500 16 C560 22 610 14 640 8 L640 40 L0 40 Z" fill="#141B3D"/></svg>';
   function fullHtml(s){
-    const r = s.report, n = s.note;
-    const pills = (n ? '<span class="oh-pill r">Note from ' + esc(first(n.by_name) || 'Samantha') + '</span>' : '')
-      + '<span class="oh-pill ' + ((r.needs || []).length ? 'r' : 'g') + '">' + (r.needs || []).length + ' need you</span>'
-      + '<span class="oh-pill g">' + (r.handled || []).length + ' handled</span><span class="oh-pill b">' + (r.came_in || []).length + ' came in</span>';
-    const quiet = !n && !(r.needs || []).length && !(r.handled || []).length && !(r.came_in || []).length;
-    const sec = (t, arr, c) => arr && arr.length ? '<div class="oh-h ' + c + '">' + esc(t) + ' · ' + arr.length + '</div>' + arr.map(lineHtml).join('') : '';
-    return '<div class="oh-card" id="ohCard"><div class="oh-top"><b>Overnight Handoff</b><span class="field-note">' + esc(chiT(r.from)) + ' ' + esc(dayName(r.from.slice(0, 10)).split(',')[0]) + ' to ' + esc(chiT(r.to)) + ' · not read yet</span></div>'
+    const r = s.report, n = s.note, moved = movedOf(s);
+    const needs = r.needs || [], handled = r.handled || [], came = r.came_in || [];
+    const quiet = !n && !needs.length && !handled.length && !came.length;
+    const left = needs.filter((l, i) => !moved[lineKey('needs', l, i)] && stillLive(l)).length;
+    const tile = (num, word, c) => '<div class="oh-tile ' + c + '"><b>' + num + '</b><span>' + word + '</span></div>';
+    const sec = (key, t, arr, c) => arr.length ? '<div class="oh-h ' + c + '">' + esc(t) + ' · ' + arr.length + '</div>' + arr.map((l, i) => lineHtml(key, l, i, moved)).join('') : '';
+    return '<div class="oh-sky" id="ohCard">' + SCENE + '<div class="oh-in">'
+      + '<div class="oh-eyebrow">Last night · ' + esc(chiT(r.from)) + ' ' + esc(dayName(r.from.slice(0, 10)).split(',')[0]) + ' to ' + esc(chiT(r.to)) + '</div>'
+      + '<h3 class="oh-title">Overnight Handoff</h3>'
+      + '<div class="oh-sub">' + (quiet ? 'A quiet night. Nothing happened overnight that needs you.' : 'Read it, move what is yours to your desk, then close out the overnight.') + '</div>'
       + (n ? noteHtml(n, true) : '')
-      + '<div class="oh-pills">' + pills + '</div>'
-      + (ST.open || quiet ? (quiet ? '<div class="oh-quiet">Nothing happened overnight that needs you.</div>' : sec('Needs you this morning', r.needs, 'r') + sec('Handled overnight', r.handled, 'g') + sec('Came in overnight', r.came_in, 'b'))
-          + ((r.errors || []).length ? '<div class="oh-err">Could not read ' + esc(r.errors.join(', ')) + '. Check before relying on this list.</div>' : '') : '')
-      + '<div class="oh-row">' + (quiet ? '' : '<button class="ghost" onclick="OH.toggleOpen()">' + (ST.open ? 'Fold it' : 'Open it') + '</button>')
-      + '<button class="primary" onclick="OH.read()">I\'ve read it</button></div></div>';
+      + (quiet ? '' : '<div class="oh-tiles">' + tile(needs.length, 'need you', needs.length ? 'r' : 'g') + tile(handled.length, 'handled', 'g') + tile(came.length, 'came in', 'b') + '</div>')
+      + (needs.length ? '<div class="oh-panel">' + sec('needs', 'Needs you this morning', needs, 'r')
+          + (left && deskOn() ? '<div class="oh-row" style="margin-top:6px;"><button class="oh-desk all" onclick="OH.moveAll()">Move all ' + left + ' to my desk</button></div>' : '') + '</div>' : '')
+      + (handled.length || came.length ? '<div class="oh-panel">' + (ST.open ? sec('handled', 'Handled overnight', handled, 'g') + sec('came_in', 'Came in overnight', came, 'b')
+          : '<button class="oh-more" onclick="OH.toggleOpen()">Show what was handled (' + handled.length + ') and what came in (' + came.length + ')</button>') + '</div>' : '')
+      + ((r.errors || []).length ? '<div class="oh-err">Could not read ' + esc(r.errors.join(', ')) + '. Check before relying on this list.</div>' : '')
+      + (!deskOn() && needs.length ? '<div class="oh-sub" style="font-size:12.5px;">My Desk is not on for you, so handle these from My Work before you close out.</div>' : '')
+      + '<div class="oh-row oh-foot"><button class="oh-close" onclick="OH.closeOut()"><span aria-hidden="true">☀</span> Close out the overnight</button>'
+      + (ST.open && (handled.length || came.length) ? '<button class="oh-more" onclick="OH.toggleOpen()">Fold the rest</button>' : '') + '</div>'
+      + '</div></div>';
   }
   /* an owner's box for tomorrow's note */
   function writeHtml(s){
@@ -121,25 +150,43 @@
       + (cur ? '<button class="ghost" onclick="OH.clearNote()">Remove it</button><span class="field-note">Saved ' + esc(t12(cur.updated_at || cur.at)) + '</span>' : '') + '</div></div>';
   }
   const css = () => { if(document.getElementById('ohCss')) return; const st = document.createElement('style'); st.id = 'ohCss';
-    st.textContent = '.oh-card{background:#fff;border:2px solid var(--navy);border-radius:12px;padding:14px 16px;margin:0 0 12px;display:grid;gap:10px}'
-      + '.oh-top{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;align-items:baseline}.oh-top b{color:var(--navy);font-size:17px}'
-      + '.oh-note{background:#FFF4DE;border-radius:9px;padding:11px 13px;display:grid;gap:5px}.oh-k{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#A8660E}'
-      + '.oh-txt{font-size:15px;line-height:1.5;white-space:pre-wrap}.oh-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.oh-row button{padding:6px 14px;font-size:13px}'
-      + '.oh-pills{display:flex;flex-wrap:wrap;gap:6px}.oh-pill{font-size:12px;font-weight:700;border-radius:99px;padding:2px 10px}.oh-pill.r{background:#FDE8E8;color:#B23B2E}.oh-pill.g{background:#E7F6EC;color:#1F7A4D}.oh-pill.b{background:#E8EEF8;color:var(--navy)}'
-      + '.oh-h{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;margin-top:4px}.oh-h.r{color:#B23B2E}.oh-h.g{color:#1F7A4D}.oh-h.b{color:var(--navy)}'
-      + '.oh-line{display:grid;grid-template-columns:64px 1fr;gap:8px;font-size:14px;padding:3px 0}.oh-t{color:var(--text-muted);font-size:12px;padding-top:2px}'
-      + '.oh-ok{color:#1F7A4D;font-weight:600;font-size:12.5px}.oh-quiet{font-size:14px}.oh-err{color:#B23B2E;font-size:13px}'
+    /* one deliberate night-to-dawn look in both Hub themes: the card sets every color it uses */
+    st.textContent = '.oh-sky{position:relative;overflow:hidden;border-radius:16px;margin:0 0 14px;color:#F3F1FA;background:linear-gradient(180deg,#070D2B 0%,#121C4A 42%,#3A2E66 70%,#9A5163 88%,#E39A4C 100%);box-shadow:0 10px 30px rgba(10,14,48,.35)}'
+      + '.oh-scene{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.oh-in{position:relative;padding:20px 22px 30px;display:grid;gap:12px}'
+      + '.oh-star{animation:ohTw 3.2s ease-in-out infinite}@keyframes ohTw{0%,100%{opacity:.9}50%{opacity:.25}}'
+      + '.oh-moon{position:absolute;top:16px;right:22px;width:58px;height:58px;filter:drop-shadow(0 0 12px rgba(246,241,218,.45));pointer-events:none}.oh-sunbox{position:absolute;right:28px;bottom:14px;width:190px;height:105px;pointer-events:none;overflow:visible}.oh-hills{position:absolute;left:0;right:0;bottom:0;width:100%;height:46px;pointer-events:none}.oh-sun{animation:ohRise 2.4s cubic-bezier(.2,.7,.2,1) both}@keyframes ohRise{from{transform:translateY(60px)}to{transform:translateY(0)}}'
+      + '.oh-sky.oh-dawn{transition:filter 1s,opacity .5s .9s;filter:brightness(1.5) saturate(1.2);opacity:0}.oh-sky.oh-dawn .oh-sun{transition:transform 1s;transform:translateY(-40px)}.oh-sky.oh-dawn .oh-moon{transition:opacity .6s;opacity:0}'
+      + '.oh-eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#C9C3F0;padding-right:70px}'
+      + '.oh-title{margin:0;font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.01em;color:#fff;padding-right:70px;text-wrap:balance}'
+      + '.oh-sub{font-size:14px;color:#D6D2EE;max-width:62ch}'
+      + '.oh-note{background:#FFF4DE;color:#2A2140;border-radius:10px;padding:12px 14px;display:grid;gap:6px;box-shadow:0 4px 14px rgba(0,0,0,.25)}.oh-k{font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#A8660E}'
+      + '.oh-txt{font-size:16px;line-height:1.5;white-space:pre-wrap}.oh-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.oh-row button{padding:6px 14px;font-size:13px}'
+      + '.oh-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:520px}.oh-tile{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:10px 12px;display:grid}'
+      + '.oh-tile b{font-size:28px;line-height:1;font-variant-numeric:tabular-nums}.oh-tile span{font-size:12px;letter-spacing:.04em;color:#D6D2EE}.oh-tile.r b{color:#FF9F8A}.oh-tile.g b{color:#8FE0C9}.oh-tile.b b{color:#AFC6FF}'
+      + '.oh-panel{background:rgba(6,10,36,.55);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:10px 14px;display:grid;gap:2px;backdrop-filter:blur(3px)}'
+      + '.oh-h{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin:6px 0 2px}.oh-h.r{color:#FF9F8A}.oh-h.g{color:#8FE0C9}.oh-h.b{color:#AFC6FF}'
+      + '.oh-line{display:grid;grid-template-columns:62px minmax(0,1fr) auto;gap:10px;align-items:center;font-size:14.5px;padding:6px 0;border-top:1px solid rgba(255,255,255,.08)}.oh-h+.oh-line{border-top:0}'
+      + '.oh-t{color:#B9B3DC;font-size:12px;font-variant-numeric:tabular-nums}.oh-go{cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.3);text-underline-offset:3px}'
+      + '.oh-desk{background:transparent;color:#FFE1A8;border:1px solid rgba(255,225,168,.55);border-radius:99px;padding:4px 12px;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer}.oh-desk:hover,.oh-desk:focus-visible{background:rgba(255,225,168,.15);outline:none}'
+      + '.oh-desk.all{background:rgba(255,225,168,.14)}.oh-moved{font-size:12.5px;font-weight:700;color:#8FE0C9;white-space:nowrap}'
+      + '.oh-more{background:transparent;border:0;color:#C9C3F0;font-size:13px;font-weight:700;padding:4px 0;cursor:pointer;text-align:left;text-decoration:underline;text-underline-offset:3px}'
+      + '.oh-close{background:linear-gradient(180deg,#FFD27A,#F0A63A);color:#1B1640;border:0;border-radius:99px;padding:11px 22px!important;font-size:15px!important;font-weight:800;box-shadow:0 6px 18px rgba(240,166,58,.45);cursor:pointer}.oh-close:hover,.oh-close:focus-visible{filter:brightness(1.06);outline:2px solid #fff;outline-offset:2px}'
+      + '.oh-foot{margin-top:4px}.oh-ok{color:#1F7A4D;font-weight:600;font-size:12.5px}.oh-sky .oh-panel .oh-ok{color:#8FE0C9}.oh-err{color:#FFB4A6;font-size:13px}'
+      + '.oh-mini{padding:12px 16px}.oh-mini .oh-in{padding:0;gap:8px}'
       + '.oh-write{display:grid;gap:6px}.oh-write textarea{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--border);border-radius:8px}'
-      + '.oh-flag{color:#B23B2E;font-weight:700}@media(max-width:480px){.oh-line{grid-template-columns:1fr;gap:0}}';
+      + '.oh-flag{color:#B23B2E;font-weight:700}'
+      + '@media(max-width:560px){.oh-title{font-size:24px}.oh-moon{width:44px;height:44px;right:14px}.oh-sunbox{width:130px;height:72px;right:10px}.oh-line{grid-template-columns:1fr;gap:4px}.oh-tiles{gap:6px}.oh-tile b{font-size:22px}}'
+      + '@media(prefers-reduced-motion:reduce){.oh-star,.oh-sun{animation:none}.oh-sky.oh-dawn,.oh-sky.oh-dawn .oh-sun{transition:none}}';
     document.head.appendChild(st); };
 
   /* ── My Work: the pin above everything (index.html renderMyWork calls OH.pin()) ── */
   function pin(){
     const box = document.getElementById('ohPin'); if(!box) return;
     if(!on()){ box.innerHTML = ''; return; }
+    if(ST.closing) return;   /* the sunrise is playing */
     css(); const s = state(items(), chiNow());
     if(!s.report && Number(chiNow().slice(11, 13)) >= SEND_HOUR) refresh();
-    let h = s.pin === 'full' ? fullHtml(s) : s.pin === 'note' ? '<div class="oh-card">' + noteHtml(s.note, true) + '</div>' : '';
+    let h = s.pin === 'full' ? fullHtml(s) : s.pin === 'note' ? '<div class="oh-sky oh-mini">' + '<div class="oh-in">' + noteHtml(s.note, true) + '</div></div>' : '';
     if(owner()) h += '<details class="card" style="padding:10px 14px;margin:0 0 12px;"' + (ST.draft != null ? ' open' : '') + '><summary style="cursor:pointer;font-weight:700;color:var(--navy);font-size:13.5px;">Leave a note for the morning</summary><div style="margin-top:8px;">' + writeHtml(s) + '</div></details>';
     box.innerHTML = h;
   }
@@ -149,10 +196,11 @@
     css(); const s = state(items(), chiNow()), rd = s.read;
     let status = '';
     if(s.note) status += noteHtml(s.note, false) + (s.note.got_it && s.note.got_it.at ? '' : '<div class="field-note">Nobody has pressed Got it yet.</div>');
-    if(rd) status += '<div class="ov-it"><div class="t">Overnight Handoff read by ' + esc(first(rd.by_name)) + ' at ' + esc(t12(rd.at)) + (rd.on_duty ? ' (on duty)' : '') + '</div></div>';
-    else if(s.flag) status += '<div class="ov-it"><div class="t oh-flag">Overnight Handoff not read yet</div><div class="m">It went out at 8am. Nobody has pressed I\'ve read it on My Work.</div></div>';
-    else if(s.report) status += '<div class="ov-it"><div class="m">This morning\'s Overnight Handoff went out at ' + esc(t12(s.report.sent_at)) + '; not read yet.</div></div>';
-    return '<div class="ov-box" style="margin-bottom:12px;"><h4>Overnight Handoff' + (s.flag ? ' <span class="n" style="color:#B23B2E">not read</span>' : '') + '</h4>' + status + writeHtml(s) + '</div>';
+    if(rd) status += '<div class="ov-it"><div class="t">Overnight closed out by ' + esc(first(rd.by_name)) + ' at ' + esc(t12(rd.at)) + (rd.on_duty ? ' (on duty)' : '') + '</div>'
+      + (rd.moved ? '<div class="m">' + rd.moved + ' moved to a desk' + (rd.left ? ', ' + rd.left + ' that needed someone left off' : '') + '</div>' : (rd.left ? '<div class="m">' + rd.left + ' that needed someone were not moved to a desk</div>' : '')) + '</div>';
+    else if(s.flag) status += '<div class="ov-it"><div class="t oh-flag">Overnight not closed out yet</div><div class="m">It went out at 8am. Nobody has closed out the overnight on My Work.</div></div>';
+    else if(s.report) status += '<div class="ov-it"><div class="m">This morning\'s Overnight Handoff went out at ' + esc(t12(s.report.sent_at)) + '; not closed out yet.</div></div>';
+    return '<div class="ov-box" style="margin-bottom:12px;"><h4>Overnight Handoff' + (s.flag ? ' <span class="n" style="color:#B23B2E">not closed out</span>' : '') + '</h4>' + status + writeHtml(s) + '</div>';
   }
 
   /* ── actions ── */
@@ -164,12 +212,41 @@
     try{ if(typeof W.opEvent === 'function') W.opEvent('overnight_note_' + what, { summary:(actor().name || actor().email || 'Someone') + (what === 'done' ? ' did' : ' saw') + ' the morning note' }); }catch(e){}
     redraw();
   }
-  async function read(){
+  /* Move to my desk: the line goes on the presser's own desk page with a paperclip; the handoff remembers who took it */
+  async function moveLines(keys){
+    const s = state(items(), chiNow()); if(!s.report || !deskOn()) return 0;
+    const all = []; ['needs', 'handled', 'came_in'].forEach(sec => (s.report[sec] || []).forEach((l, i) => all.push([lineKey(sec, l, i), l])));
+    const a = actor(), at = new Date().toISOString(), done = {};
+    for(const [k, l] of all){
+      if(keys.indexOf(k) < 0 || movedOf(s)[k]) continue;
+      const ok = await W.dkQuickJot('Overnight: ' + l.text, false, deskLink(l));
+      if(ok) done[k] = { by:String(a.email || '').toLowerCase(), by_name:String(a.name || a.email || ''), at };
+    }
+    const n = Object.keys(done).length; if(!n){ try{ W.ccToast('Could not open your desk just now.'); }catch(e){} return 0; }
+    const cur = items().find(x => x && x.id === 'moved_' + s.today) || { id:'moved_' + s.today, kind:'moved', date:s.today, lines:{} };
+    await save(Object.assign({}, cur, { lines:Object.assign({}, cur.lines || {}, done) }));
+    try{ W.ccToast(n === 1 ? 'On your desk, with a paperclip.' : n + ' on your desk, each with a paperclip.'); }catch(e){}
+    pin(); return n;
+  }
+  const move = k => moveLines([k]);
+  function moveAll(){
+    const s = state(items(), chiNow()); if(!s.report) return 0;
+    const m = movedOf(s); return moveLines((s.report.needs || []).map((l, i) => [lineKey('needs', l, i), l]).filter(([k, l]) => !m[k] && stillLive(l)).map(([k]) => k));
+  }
+  /* Close out the overnight: kept with who, when, on duty, and how much went to a desk. The sunrise plays, then it goes. */
+  async function closeOut(){
     const s = state(items(), chiNow()); if(!s.report || s.read) return;
+    const m = movedOf(s), needs = s.report.needs || [];
+    const left = needs.filter((l, i) => !m[lineKey('needs', l, i)] && stillLive(l)).length;
+    if(left && typeof W.ccConfirm === 'function' && !(await W.ccConfirm(left + (left === 1 ? ' thing that needs' : ' things that need') + ' someone ' + (left === 1 ? 'is' : 'are') + ' not on a desk yet and not handled.\n\nClose out the overnight anyway?'))) return;
     const a = actor(), email = String(a.email || '').toLowerCase();
-    await save({ id:'read_' + s.today, kind:'read', date:s.today, by:email, by_name:String(a.name || email), at:new Date().toISOString(), on_duty:onDuty(email) });
-    try{ if(typeof W.opEvent === 'function') W.opEvent('overnight_handoff_read', { summary:(a.name || email) + ' read the Overnight Handoff' }); }catch(e){}
-    ST.open = false; redraw();
+    await save({ id:'read_' + s.today, kind:'read', closed:true, date:s.today, by:email, by_name:String(a.name || email), at:new Date().toISOString(), on_duty:onDuty(email), moved:Object.keys(m).length, left });
+    try{ if(typeof W.opEvent === 'function') W.opEvent('overnight_handoff_read', { summary:(a.name || email) + ' closed out the overnight' + (Object.keys(m).length ? ' (' + Object.keys(m).length + ' moved to a desk)' : '') }); }catch(e){}
+    const card = document.getElementById('ohCard'), still = W.matchMedia && W.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ST.open = false;
+    if(card && !still){ ST.closing = true; card.classList.add('oh-dawn'); await new Promise(r => setTimeout(r, 1500)); ST.closing = false; }
+    try{ W.ccToast('Good morning. The overnight is closed out.'); }catch(e){}
+    redraw();
   }
   async function saveNote(){
     if(!owner()){ alert('Only Samantha or Zachary can leave the morning note.'); return; }
@@ -190,7 +267,7 @@
   async function toggle(btn){
     if(!owner()){ alert('Only Samantha or Zachary can change this.'); return; }
     const want = !on();
-    const ok = typeof W.ccConfirm === 'function' ? await W.ccConfirm(want ? 'Turn on the Overnight Handoff?\n\n· the 8am Morning Brief opens with your note and what happened overnight (8pm to 7am; Monday covers the weekend)\n· My Work pins it at the top until someone presses I\'ve read it\n· Owner Overview shows Got it and Done on your note, and from 9am a red line if nobody has read it\n\nIt replaces "While you were out" in the email. Nothing is texted to anyone.' : 'Turn off the Overnight Handoff? The 8am email goes back to "While you were out", and the pin and note box go away. Notes already saved are kept.') : true;
+    const ok = typeof W.ccConfirm === 'function' ? await W.ccConfirm(want ? 'Turn on the Overnight Handoff?\n\n· the 8am Morning Brief opens with your note and what happened overnight (8pm to 7am; Monday covers the weekend)\n· My Work pins it at the top, night sky and all, until someone moves what is theirs to their desk and closes out the overnight\n· Owner Overview shows Got it and Done on your note, and from 9am a red line if nobody has closed it out\n\nIt replaces "While you were out" in the email. Nothing is texted to anyone.' : 'Turn off the Overnight Handoff? The 8am email goes back to "While you were out", and the pin and note box go away. Notes already saved are kept.') : true;
     if(!ok) return;
     if(btn) btn.disabled = true;
     const r = typeof W.tkMerge === 'function' ? await W.tkMerge(m => { m.overnight_handoff_live = want; if(want && !m.overnight_handoff_live_since) m.overnight_handoff_live_since = new Date().toISOString(); return ['Overnight Handoff ' + (want ? 'ON' : 'OFF')]; }, 'Overnight Handoff') : { error:{ message:'saving is not available here' } };
@@ -214,6 +291,6 @@
   }
   function card(id){ if(W.OV && typeof OV.card === 'function') return OV.card(id); try{ W.switchTab('mywork'); }catch(e){} }
 
-  W.OH = Object.assign({}, CORE, { on, pin, overviewHtml, press, read, saveNote, clearNote, toggle, saveHours, settingsFill, card, refresh,
-    toggleOpen:() => { ST.open = !ST.open; pin(); }, draft:v => { ST.draft = v; }, state:() => state(items(), chiNow()) });
+  W.OH = Object.assign({}, CORE, { on, pin, overviewHtml, press, closeOut, read:closeOut, move, moveAll, saveNote, clearNote, toggle, saveHours, settingsFill, card, refresh,
+    toggleOpen:() => { ST.open = !ST.open; pin(); }, deskOn, draft:v => { ST.draft = v; }, state:() => state(items(), chiNow()) });
 })(typeof window !== 'undefined' ? window : this);
