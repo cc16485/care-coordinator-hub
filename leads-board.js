@@ -164,9 +164,14 @@
     const previewBar = window.LeadCards && owner && !LeadCards.liveOn(DATA.ops_settings || {})
       ? (cards ? '<div class="lc-preview"><b>Preview of the new Leads list.</b> Only you see it, in this browser. Everyone else still has the list.<span style="flex:1;"></span><button class="lb-btn" onclick="lcPreview(false)">Back to the list</button></div>'
         : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="lcPreview(true)">Preview the new Leads list (only you see it)</button></div>') : '';
+    /* 2026-10-30 (her approved mockup 9ReTBpXJ7PwkbreCVSb8te): the calm look of the list, while ops_settings.leads_calm_live is on, or an owner's own preview */
+    const calm = !!(cards && window.LeadTable && LeadTable.calmShowing && LeadTable.calmShowing(DATA.ops_settings || {}, owner));
+    const calmBar = cards && window.LeadTable && LeadTable.calmShowing && owner && !LeadTable.calmLive(DATA.ops_settings || {})
+      ? (calm ? '<div class="lc-preview"><b>Preview of the calmer Leads list.</b> Only you see it, in this browser. Everyone else still has the colourful one.<span style="flex:1;"></span><button class="lb-btn" onclick="ltCalmPreview(false)">Back to the colourful list</button></div>'
+        : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="ltCalmPreview(true)">Preview the calmer Leads list (only you see it)</button></div>') : '';
     const sub = document.getElementById('lsSubtitle');
     if(sub){ if(!sub.dataset.list) sub.dataset.list = sub.textContent;
-      sub.textContent = cards ? (window.LeadTable ? 'Every family from their first call until they say yes. Click a column to sort by it. Red is late or new. Once they say yes they move to Client Care → Getting ready.'
+      sub.textContent = cards ? (window.LeadTable ? 'Every family from their first call until they say yes. Click a column to sort by it. ' + (calm ? 'Red needs you now, gold needs you today.' : 'Red is late or new.') + ' Once they say yes they move to Client Care → Getting ready.'
         : 'Every family from their first call until they say yes, in three steps. Red cards are late or new and sit at the top. Once they say yes they move to Client Care → Getting ready.') : sub.dataset.list; }
     /* numbers */
     const hours = R.responseHours(DATA.ops_settings || {});
@@ -176,7 +181,7 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     /* Lead turns (Stage 1, policy 2026-10-18): who gets the next new lead, only while turns are on */
     const nextTile = opts.nextUp ? '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:var(--navy);font-size:18px;">' + esc(opts.nextUp) + '</span><span class="lb-tile-l">next up for a new lead</span></div>' : '';
-    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = previewBar + LeadCards.summary(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
+    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = previewBar + calmBar + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
     else if(nums){ nums.style.display = ''; nums.innerHTML = previewBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
       + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
@@ -223,7 +228,7 @@
       + (window.HS && (LB.filter === 'All' || LB.filter === 'now') && !by.now.length ? HS.banner({ scene:'phone', say:'Every new family has heard from us.', sub:'No one is waiting on a call from us right now. A new inquiry shows here the moment it comes in.' }) : '');
     if(cards && LB.filter === 'All'){
       /* 2026-10-29 (her "do the same for our leads"): the list the GoHighLevel way, made better (leads-table.js) */
-      const helpers = { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
+      const helpers = { calm, btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
         searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim(),
         /* 2026-10-29: calls and texts that reach a linked caller's own lead after the link count as the family's last activity */
         extraFor:l => ({ events:window.FamilyLink ? FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) : [],
