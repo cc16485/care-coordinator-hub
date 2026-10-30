@@ -224,7 +224,9 @@
     if(cards && LB.filter === 'All'){
       /* 2026-10-29 (her "do the same for our leads"): the list the GoHighLevel way, made better (leads-table.js) */
       const helpers = { btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
-        searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim() };
+        searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim(),
+        /* 2026-10-29: calls and texts that reach a linked caller's own lead after the link count as the family's last activity */
+        extraFor:l => window.FamilyLink ? { events:FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) } : null };
       box.innerHTML = top + (window.LeadTable ? LeadTable.html(shown, now, helpers) : LeadCards.html(shown, now, helpers));
     } else if(LB.sort === 'imp'){
       const list = shown.slice().sort(impSort);
