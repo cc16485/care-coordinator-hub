@@ -11,7 +11,12 @@ SHOTS = sys.argv[1] if len(sys.argv) > 1 else ''
 ns = {'__file__': os.path.join(HERE, 'client_care_look.py')}; exec(open(os.path.join(HERE, 'client_care_look.py')).read().split('\nwith sync_playwright() as pw:')[0], ns)
 STUB, DATA, FAKE = ns['STUB'], ns['DATA'], ns['FAKE']
 GLANCE = {'801': {'dob': '1939-04-12', 'address': '1420 E Cherry St, Springfield, MO 65802', 'phone': '(417) 555-0134', 'start_date': '2025-03-03',
-                  'contact': {'name': 'Susan Ames', 'relationship': 'Daughter', 'phone': '(417) 555-0190', 'from': 'Family Circle'}}}
+                  'contact': {'name': 'Susan Ames', 'relationship': 'Daughter', 'phone': '(417) 555-0190', 'from': 'Family Circle'},
+                  'schedule': {'lines': [{'days': ['Monday', 'Wednesday', 'Friday'], 'start': '09:00', 'end': '13:00', 'caregiver': 'Toby H.', 'every_weeks': 1},
+                                         {'days': ['Saturday'], 'start': '10:00', 'end': '14:00', 'caregiver': None, 'every_weeks': 1}], 'weekly_hours': 16}},
+          '803': {'dob': None, 'address': None, 'phone': None, 'start_date': None, 'contact': None,
+                  'schedule': {'lines': [{'days': [d], 'start': '08:00', 'end': '12:00', 'caregiver': 'Cg ' + str(i) + '.', 'every_weeks': 1}
+                                         for i, d in enumerate(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])], 'weekly_hours': 28}}}
 SETUP = r"""
 (async()=>{ const W=window, of=W.fetch, G=%s;
   W.__glanceCalls=0;
@@ -22,7 +27,7 @@ SETUP = r"""
     return of(u,o); };
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   const ago=d=>new Date(Date.now()-d*864e5).toLocaleDateString('en-CA',{ timeZone:'America/Chicago' });
-  Object.assign(W.__care.state, { '801':'active', '802':'active' });
+  Object.assign(W.__care.state, { '801':'active', '802':'active', '803':'active' });
   DATA.client_checkins=[{ id:'ci802', client_name:'Walt Hale (TEST)', axiscare_client_id:'802', checkin_date:ago(5), coordinator:'Krystal' }];
   DATA.leads.push({ id:'N1', is_test:true, first_name:'Gail', last_name:'Ford', relationship:'daughter', phone:'4175550111', client_first_name:'Hank', client_last_name:'Ford (TEST)', funding_source:'private', status:'New', assigned_coordinator:'krystal@mo-care.com', created_at:new Date().toISOString() });
   window.__as('angie@mo-care.com','Angie Care');
@@ -48,6 +53,7 @@ with sync_playwright() as pw:
     ok('born with age, address and phone from AxisCare', 'Apr 12, 1939 (age 87)' in x['card'] and '1420 E Cherry St' in x['card'] and '(417) 555-0134' in x['card'], x)
     ok('main contact from the Family Circle, with Call on the office line', 'Susan Ames (Daughter)' in x['card'] and '(417) 555-0190' in x['call'] and '(417) 555-0134' in x['call'], x)
     ok('the labels her mockup named', all(k in x['card'] for k in ['Born', 'Address', 'Phone', 'Care level', 'Pays by', 'Care Coordinator', 'Main contact', 'Needs attention']), x)
+    ok('usual schedule: days, times, who, and weekly hours', 'Usual schedule' in x['card'] and 'Mon, Wed, Fri · 9 AM to 1 PM · with Toby H.' in x['card'] and 'Sat · 10 AM to 2 PM · no caregiver' in x['card'] and '16 hours a week' in x['card'], x)
     ok('when care started', 'Care started' in x['card'] and 'Mar 3, 2025' in x['card'], x)
     ok('on the Overview the header line, facts line, command area and requests card step aside', not x['top'] and not x['facts'] and not x['cmd'] and not x['changes'], x)
     ok('Who they are lives on Activity & Documents now', x['whoIn'] == 'cgMoreSlot', x)
@@ -68,6 +74,13 @@ with sync_playwright() as pw:
     pg.evaluate("async()=>{ await openClient({ ax:'802' },'summary'); }"); pg.wait_for_timeout(1500)
     x = pg.evaluate(READ)
     ok('AxisCare unreadable: the card says so and guesses nothing', x['on'] and 'could not be read from AxisCare' in x['card'] , x)
+
+    pg.evaluate("async()=>{ await openClient({ ax:'803' },'summary'); }"); pg.wait_for_timeout(1500)
+    x = pg.evaluate(READ)
+    ok('a busy week shows its first five lines and "show all 7"', 'Cg 4.' in x['card'] and 'Cg 5.' not in x['card'] and 'show all 7' in x['card'], x['card'])
+    pg.evaluate("()=>cgSchedAll()"); pg.wait_for_timeout(400)
+    x = pg.evaluate(READ)
+    ok('show all opens every line', 'Cg 6.' in x['card'] and 'show fewer' in x['card'], x['card'])
 
     pg.evaluate("async()=>{ await openLeadProfile('N1','summary'); }"); pg.wait_for_timeout(1500)
     x = pg.evaluate(READ)

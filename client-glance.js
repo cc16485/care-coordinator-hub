@@ -36,7 +36,35 @@
     return a > 0 && a < 130 ? a : null;
   }
 
-  /* x: { stageK, status, ax, name, glance:{dob,address,phone,start_date,contact}|null, glanceErr, lead, r, census,
+  /* The "Usual schedule" line: client-glance sends AxisCare's recurring schedule folded into
+     { lines:[{days:['Monday',…], start:'09:00', end:'13:00', caregiver:'Toby H.'|null, every_weeks}], weekly_hours } */
+  const DAY3 = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  function timeWords(t){
+    const m = /^(\d{1,2}):(\d{2})/.exec(String(t || '')); if(!m) return '';
+    const h = +m[1] % 24, ap = h < 12 ? 'AM' : 'PM', h12 = h % 12 || 12;
+    return h12 + (m[2] === '00' ? '' : ':' + m[2]) + ' ' + ap;
+  }
+  function dayWords(days){
+    const ix = (days || []).map(d => DAY3.indexOf(d)).filter(i => i > -1).sort((a, b) => a - b);
+    const out = [];
+    for(let i = 0; i < ix.length;){
+      let j = i; while(j + 1 < ix.length && ix[j + 1] === ix[j] + 1) j++;
+      const a = DAY3[ix[i]].slice(0, 3), b = DAY3[ix[j]].slice(0, 3);
+      if(j - i >= 2) out.push(a + ' to ' + b); else for(let k = i; k <= j; k++) out.push(DAY3[ix[k]].slice(0, 3));
+      i = j + 1;
+    }
+    return out.join(', ');
+  }
+  function scheduleLines(sc){
+    return ((sc && sc.lines) || []).map(g => {
+      const every = +g.every_weeks > 2 ? 'Every ' + g.every_weeks + ' weeks: ' : +g.every_weeks === 2 ? 'Every other ' : '';
+      const when = g.start === g.end ? '24 hours from ' + timeWords(g.start) : timeWords(g.start) + ' to ' + timeWords(g.end);
+      return { t:every + dayWords(g.days) + ' · ' + when, who:g.caregiver || '', open:!g.caregiver };
+    });
+  }
+  const hoursWords = h => { h = Math.round((+h || 0) * 10) / 10; return h ? h + (h === 1 ? ' hour' : ' hours') + ' a week' : ''; };
+
+  /* x: { stageK, status, ax, name, glance:{dob,address,phone,start_date,contact,schedule}|null, glanceErr, lead, r, census,
           payer, cc, level, care:[{tone,t}], due:[{kind,tone,label,tab}], today } → what the card says */
   function model(x){
     x = x || {};
@@ -66,13 +94,19 @@
         { k:'Main contact', v:contact ? contact.name + (contact.relationship ? ' (' + contact.relationship + ')' : '') : '', miss:'none yet', tab:'family', contact },
         { k:'Care started', v:dateWords(start), miss:loading ? 'reading AxisCare…' : 'no start date in AxisCare' }
       ],
+      /* null = this server doesn't send a schedule yet, so the line stays off */
+      schedule:x.glanceErr ? { lines:[], miss:'not read from AxisCare' }
+        : loading ? { lines:[], miss:'reading AxisCare…' }
+        : !('schedule' in g) ? null
+        : !g.schedule ? { lines:[], miss:'could not be read from AxisCare' }
+        : { lines:scheduleLines(g.schedule), hours:hoursWords(g.schedule.weekly_hours), miss:'no regular schedule in AxisCare' },
       err:x.glanceErr || '',
       care:(x.care || []).slice(0, 8),
       due
     };
   }
 
-  const api = { model, ageOn, dateWords, SHOW_FOR };
+  const api = { model, ageOn, dateWords, timeWords, dayWords, SHOW_FOR };
   if(typeof module !== 'undefined' && module.exports){ module.exports = api; return; }
 
   /* ------------------------------------------------------------------ the page ------------------------------------- */
@@ -83,6 +117,9 @@
   const TONE = { ok:['#E7F6EC', '#1F7A4D'], warn:['#FDF3E3', '#A8660E'], bad:['#FDE8E8', '#B23B2E'], dim:['#F1F5F9', '#64748B'], info:['#EEF4FB', '#0F4C81'] };
   const cache = {};   /* ax -> { at, data, err, p }: this page only, five minutes, never saved */
   let queued = false, obs = null, drawing = false;
+  /* A busy week (some clients have 10+ shift patterns) shows its first lines, then "show all" */
+  const SCHED_SHORT = 5, schedAll = {};
+  const CPax = () => String((G('CP') || {}).ax || '');
 
   async function fetchGlance(ax){
     const hit = cache[ax];
@@ -149,6 +186,13 @@
     const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
     return '<div class="card cg-card">'
       + '<div class="cg-grid">' + m.facts.map(fact).join('') + '</div>'
+      + (m.schedule ? '<div class="cg-f cg-sched"><div class="cg-k">Usual schedule</div>'
+        + (m.schedule.lines.length ? m.schedule.lines.map((x, i) => '<div class="cg-v"' + (i >= SCHED_SHORT && !schedAll[CPax()] ? ' style="display:none;"' : '') + '>' + esc(x.t) + ' · '
+            + (x.open ? '<span class="cg-open">no caregiver</span>' : 'with ' + esc(x.who)) + '</div>').join('')
+            + (m.schedule.lines.length > SCHED_SHORT ? '<button class="linklike" style="font-size:12px;margin-top:2px;" onclick="cgSchedAll()">'
+              + (schedAll[CPax()] ? 'show fewer' : 'show all ' + m.schedule.lines.length) + '</button>' : '')
+            + (m.schedule.hours ? '<div class="cg-k" style="margin-top:3px;">' + esc(m.schedule.hours) + '</div>' : '')
+          : '<div class="cg-v"><span class="cg-miss">' + esc(m.schedule.miss) + '</span></div>') + '</div>' : '')
       + (m.err ? '<div class="cg-err">Birth date, address and phone could not be read from AxisCare: ' + esc(m.err) + '</div>' : '')
       + (m.care.length ? '<div class="cg-row"><span class="cg-lbl">Safety</span>' + m.care.map(c => chip(c.tone, c.t)).join('') + '</div>' : '')
       + '<div class="cg-row cg-due"><span class="cg-lbl">Needs attention</span>'
@@ -169,6 +213,8 @@
       '.cg-k{font-size:12px;color:var(--text-muted);}',
       '.cg-v{font-size:14px;font-weight:600;color:var(--text,#16283a);overflow-wrap:anywhere;}',
       '.cg-miss{font-weight:400;color:var(--text-muted);}',
+      '.cg-sched{margin-top:14px;padding-top:12px;border-top:1px solid var(--border,#E2E8F0);}',
+      '.cg-open{color:var(--red,#B23B2E);}',
       '.cg-err{font-size:12.5px;color:var(--red);margin-top:8px;}',
       '.cg-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px;}',
       '.cg-due{padding-top:12px;border-top:1px solid var(--border);}',
@@ -221,6 +267,7 @@
     box.scrollIntoView({ behavior:'smooth', block:'start' });
   }
   function start(){ css(); watch(); draw(); }
-  Object.assign(root, { ClientGlance:api, cgDraw:draw, cgRequests:requests });
+  function schedToggle(){ const ax = CPax(); schedAll[ax] = !schedAll[ax]; queue(); }
+  Object.assign(root, { ClientGlance:api, cgDraw:draw, cgRequests:requests, cgSchedAll:schedToggle });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })(typeof globalThis !== 'undefined' ? globalThis : this);
