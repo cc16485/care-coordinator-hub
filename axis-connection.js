@@ -15,7 +15,10 @@
    ============================================================================= */
 (function (W) {
   'use strict';
-  const D = () => (W.DATA || {});
+  /* DATA and sb are the page's own let-variables (not on window), so they are read by name, as team-work.js does
+     (2026-10-30 fix: through window they were never there, so the switches always read Off and the box said "not signed in") */
+  const D = () => { try { return DATA || {}; } catch (_) { return {}; } };
+  const SB = () => { try { return sb || null; } catch (_) { return null; } };
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const owner = () => { try { return typeof W.ccIsOwner === 'function' && W.ccIsOwner(); } catch (_) { return false; } };
   const KINDS = [
@@ -42,8 +45,8 @@
   async function load(force) {
     if (!force && S.conn && Date.now() - S.at < 60000) return S;
     try {
-      if (!W.sb) throw new Error('not signed in');
-      const r = await W.sb.rpc('axis_connection', { p_minutes: 60 });
+      const db = SB(); if (!db) throw new Error('Sign in to see the AxisCare connection.');
+      const r = await db.rpc('axis_connection', { p_minutes: 60 });
       if (r.error) throw new Error(/axis_connection/.test(r.error.message || '') ? 'The AxisCare log is not installed yet.' : (r.error.message || 'could not read'));
       S = { at: Date.now(), conn: r.data || null, error: '' };
     } catch (e) { S = { at: Date.now(), conn: null, error: String((e && e.message) || e) }; }

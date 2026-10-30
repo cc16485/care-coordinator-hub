@@ -20,7 +20,7 @@ function world({ ops = {}, isOwner = true, answer = true, rpc } = {}) {
     tkMerge: async (apply, what) => { const m = { ...W.DATA.ops_settings }; const ch = apply(m); merged.push(m); logged.push({ what, ch }); W.DATA.ops_settings = m; return { error: null }; },
     sb: { rpc: rpc || (async () => ({ data: null, error: { message: 'Could not find the function public.axis_connection(p_minutes)' } })) },
   };
-  const ctx = { window: W, document: { getElementById: el }, alert: (t) => asked.push('ALERT ' + t), console, Date, Math, JSON, String, Number, Object, Array, isFinite, Promise, Map, Set };
+  const ctx = { window: W, DATA: W.DATA, sb: W.sb, document: { getElementById: el }, alert: (t) => asked.push('ALERT ' + t), console, Date, Math, JSON, String, Number, Object, Array, isFinite, Promise, Map, Set };
   vm.createContext(ctx); vm.runInContext(code, ctx);
   return { A: W.AxisConn, W, els, asked, merged, logged };
 }
