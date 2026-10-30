@@ -4967,6 +4967,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the new Leads list for everyone</button>
   <span class="field-note" id="lcSaved"></span>
 </div>
+<!-- Calmer Leads list (2026-10-30, her approved mockup https://claude.ai/artifact/9ReTBpXJ7PwkbreCVSb8te): ops_settings.leads_calm_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Calmer Leads list</div>
+<p class="hint">Colour on the Leads list only means "this needs you": a red edge and red words for families who need you now, gold for today, and everyone else in plain gray. The coloured circles and tags become one gray line of words under the name, "Missing" joins the Next line, and every main button looks the same. Tabs, sorting, the order of the rows and every button work the same. While it is off, an owner can preview it for themselves from the Leads page. Only Samantha or Zachary can turn this on or off.</p>
+<div id="ltcSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="ltcToggleBtn" onclick="ltcToggle(this)">Turn on the calmer Leads list for everyone</button>
+  <span class="field-note" id="ltcSaved"></span>
+</div>
 <!-- Call notes from recorded calls (2026-10-29, her "do the same for our leads" after the CDS hub): ops_settings.call_notes_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Call notes from recorded calls</div>
 <p class="hint">After every answered call on a lead, the call reader writes a short note and a suggested call back date. It waits on the family's Leads row and profile until someone presses "OK, save it" (the note goes on their call log and the call back date is set) or "Not about them". Read the whole call, Listen, and Add as a contact for people heard on the call. Notes are for the office only: nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
@@ -7768,10 +7776,10 @@ The HomeTogether team</pre>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
-<script src="leads-table.js?v=1"></script>
+<script src="leads-table.js?v=2"></script><!-- Calmer Leads list (2026-10-30): behind ops_settings.leads_calm_live -->
 <script src="family-link.js?v=1"></script>
 <script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
-<script src="leads-board.js?v=21"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="leads-board.js?v=22"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
@@ -19287,6 +19295,25 @@ async function lcToggle(btn){
   const sv=document.getElementById('lcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   lcSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* Calmer Leads list (2026-10-30): the switch, owners only. Off = the colourful list (an owner may preview the calm one). */
+function ltcSetFill(){
+  const now=document.getElementById('ltcSetNow'), b=document.getElementById('ltcToggleBtn'); if(!now) return;
+  const on=!!(window.LeadTable&&LeadTable.calmLive(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Everyone sees the calmer Leads list.':'<b style="color:#B7791F;">Off.</b> Everyone sees the colourful Leads list'+(window.LeadTable&&LeadTable.calmPreview()?' except you (preview, this browser).':'.'))+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off the calmer Leads list':'Turn on the calmer Leads list for everyone'; b.style.display=owner?'':'none'; }
+}
+async function ltcToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change the Leads list look.'); return; }
+  const on=!(window.LeadTable&&LeadTable.calmLive(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on the calmer Leads list for everyone?\n\nRed means a family needs you now, gold means today, and everything else is plain gray. Only the look changes. Nothing is sent to any family.'
+    :'Turn off the calmer Leads list? Everyone goes back to the colourful list.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.leads_calm_live=on; if(on&&!m.leads_calm_live_since) m.leads_calm_live_since=new Date().toISOString(); return ['Calmer Leads list '+(on?'ON':'OFF')]; }, 'Calmer Leads list');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('ltcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  ltcSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 /* Call notes (2026-10-29): the switch, owners only. Off = no call notes anywhere (an owner may preview them). */
 function cnSetFill(){
   const now=document.getElementById('cnSetNow'), b=document.getElementById('cnToggleBtn'), pv=document.getElementById('cnPreviewBtn'); if(!now) return;
@@ -19452,6 +19479,7 @@ function lhSetFill(){
   try{ m2cSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
+  try{ ltcSetFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ if(window.OH) OH.settingsFill(); }catch(e){}

@@ -106,6 +106,42 @@
   const READY_WORDS = { ready:['Sounds ready', 'lt-hot'], deciding:['Interested', 'lt-warm'], looking:['Just looking', 'lt-cool'] };
   const money = n => '$' + Math.round(n).toLocaleString('en-US');
 
+  /* ── the calm look (2026-10-30, her "so busy and colorful … still a lot to the eye"; approved mockup
+     https://claude.ai/artifact/9ReTBpXJ7PwkbreCVSb8te): colour only means "this needs you". Red = needs you now, gold = needs
+     you today, everyone else plain gray. No initials circles, no coloured tags, one button style. Behind
+     ops_settings.leads_calm_live, or an owner's own preview in this browser (ltCalm). Only the look changes. ── */
+  const CALM_KEY = 'ltCalm';
+  function calmLive(settings){ return !!(settings && settings.leads_calm_live === true); }
+  function calmPreview(){ try{ return !!root.localStorage && root.localStorage.getItem(CALM_KEY) === '1'; }catch(e){ return false; } }
+  function setCalmPreview(on){ try{ if(on) root.localStorage.setItem(CALM_KEY, '1'); else root.localStorage.removeItem(CALM_KEY); }catch(e){} }
+  function calmShowing(settings, isOwner){ return calmLive(settings) || (!!isOwner && calmPreview()); }
+  /* red rows need you now; the rest of the board's "now" group needs you today; everyone else can wait */
+  const calmTone = r => toneOf(r) === 'red' ? 'now' : r && r.group === 'now' ? 'today' : 'wait';
+  function calmCounts(work){
+    const n = { now:0, today:0, wait:0 }; (work || []).forEach(x => { n[calmTone(x.r)]++; }); return n;
+  }
+  /* the one line above the list: "6 families right now. 2 need you now · 1 today · 3 can wait" */
+  function calmSummary(work, opts){
+    style(); opts = opts || {};
+    const n = calmCounts(work), parts = [];
+    if(n.now) parts.push('<b class="lts-now">' + n.now + ' need' + (n.now === 1 ? 's' : '') + ' you now</b>');
+    if(n.today) parts.push('<b class="lts-today">' + n.today + ' today</b>');
+    if(n.wait) parts.push('<span>' + n.wait + ' can wait</span>');
+    return '<div class="lts-sum"><div class="lts-main">' + work.length + (work.length === 1 ? ' family' : ' families') + ' right now.' + (parts.length ? ' ' + parts.join(' · ') : '') + '</div>'
+      + '<div class="lts-sub">' + [opts.nextUp ? 'Next up for a new lead: <b>' + esc(opts.nextUp) + '</b>' : '', opts.median != null ? 'First calls today: <b>' + esc(opts.median) + ' min</b> (median)' : ''].filter(Boolean).join(' · ') + '</div></div>';
+  }
+  /* the facts under the name, as one gray line of words instead of coloured tags */
+  function calmFacts(x, h){
+    const l = x.l, v = x.v || {}, out = [];
+    if(l.funding_source) out.push((x.ctx && x.ctx.payer_label) || (R().PAYER_WORDS || {})[l.funding_source] || l.funding_source);
+    const RB = root.ReachedBy, rbOn = RB && RB.liveOn(((typeof DATA !== 'undefined' ? DATA : root.DATA) || {}).ops_settings || {}), k = rbOn ? RB.of(l) : '';
+    if(k){ out.push(RB.label(k)); const ref = String(l.referral_source_name || '').trim(); if(ref && !/^(online|website|web|facebook)$/i.test(ref)) out.push('Referred by ' + ref); }
+    else if(h.fromWeb && h.fromWeb(l)) out.push('Website');
+    if(v.lvl && READY_WORDS[v.lvl]) out.push(READY_WORDS[v.lvl][0]);
+    if(v.usd) out.push(money(v.usd) + '/mo');
+    return out;
+  }
+
   function row(x, now, h){
     const r = x.r, l = x.l, v = x.v || {}, id = esc(l.id), t = toneOf(r), hv = LC().hv;
     const pay = l.funding_source ? ((x.ctx && x.ctx.payer_label) || (R().PAYER_WORDS || {})[l.funding_source] || l.funding_source) : '';
@@ -128,6 +164,27 @@
     const yes = h.yesReady(l, r) && x.step === 'decide';
     const main = r.primary ? h.btn(l, Object.assign({}, r.primary, { label:hv(r.primary.label) }), !yes) : '';
     const owner = String(r.owner || '').trim().split(/\s+/)[0];
+    if(h.calm){
+      const ct = calmTone(r), facts = calmFacts(x, h);
+      const chipWords = chips.map(c => c.tone === 'missing' ? 'Missing: ' + c.text : c.text);
+      const cameCell = came ? esc(dayWords(came, now)) + (cameTime ? '<small>' + esc(cameTime) + '</small>' : '') : '<small>Not known</small>';
+      const lastCell = la ? '<span class="lt-act" title="' + esc(la.what + ', ' + dayWords(la.at, now) + ' ' + R().clockWords(new Date(Date.parse(la.at)).toISOString())) + '">' + esc(agoWords(la.at, now)) + '</span><small>' + esc(la.what) + '</small>' : '<small>Not yet</small>';
+      return '<article class="lt-row' + (ct === 'wait' ? '' : ' ltr-' + ct) + '" role="row" data-lead="' + id + '">'
+        + '<div class="lt-c-name"><span class="lt-nm"><button type="button" class="lt-namebtn" data-open-lead="' + id + '" data-open-tab="summary" title="Open their profile">' + esc(r.name || 'No name') + '</button>'
+          + (facts.length ? '<span class="lt-facts" title="' + esc(facts.join('\n')) + '">' + esc(facts.join(' · ')) + '</span>' : '') + '</span></div>'
+        + '<div class="lt-c-phone"><span class="lt-lbl">Phone</span>' + phone + '</div>'
+        + '<div class="lt-c-date"><span class="lt-lbl">Came in</span>' + cameCell + '</div>'
+        + '<div class="lt-c-date"><span class="lt-lbl">Last activity</span>' + lastCell + '</div>'
+        + '<div class="lt-c-due"><span class="lt-lbl">When</span><span class="ltw ltw-' + ct + '"' + (r.when.sub ? ' title="' + esc(hv(r.when.sub)) + '"' : '') + '>' + esc(due) + '</span>'
+          + '<small class="lt-own">' + (owner ? esc(owner) : 'No owner yet') + '</small></div>'
+        + '<div class="lt-c-about" title="' + esc([r.why || '', 'Next: ' + hv(r.next.text)].concat(chipWords).filter(Boolean).join('\n')) + '">' + (r.why ? '<span class="lt-who">' + esc(r.why) + '</span>' : '')
+          + '<span class="lt-next"><b>Next:</b> ' + esc(hv(r.next.text)) + (chipWords.length ? ' · ' + esc(chipWords[0]) + (chipWords.length > 1 ? ' +' + (chipWords.length - 1) + ' more' : '') : '') + '</span></div>'
+        + '<div class="lt-btns" data-no-open="1">' + main
+          + (yes ? '<button class="lb-btn" onclick="lbYes(\'' + id + '\', this)">They said yes</button>' : '')
+          + '<button class="lb-btn lb-more" aria-label="More actions for ' + esc(r.name || 'this family') + '" onclick="lbMore(\'' + id + '\', this)">···</button></div>'
+        + (x.extra ? '<div class="lt-extra">' + x.extra + '</div>' : '')
+        + '</article>';
+    }
     return '<article class="lt-row" role="row" data-lead="' + id + '">'
       + '<div class="lt-c-name"><span class="lt-av lt-av-' + t + '" aria-hidden="true">' + esc(initials(r.name)) + '</span>'
         + '<span class="lt-nm"><button type="button" class="lt-namebtn" data-open-lead="' + id + '" data-open-tab="summary" title="Open their profile">' + esc(r.name || 'No name') + '</button>'
@@ -181,9 +238,10 @@
       + '<button type="button" onclick="ltPage(' + (LT.page - 1) + ')"' + (LT.page ? '' : ' disabled') + '>Prev</button>'
       + '<button type="button" onclick="ltPage(' + (LT.page + 1) + ')"' + (LT.page + 1 < pages ? '' : ' disabled') + '>Next</button></span></div>' : '';
     const label = (tabs.find(t => t.key === LT.tab) || tabs[0]).label;
-    return '<div class="lt-tabs" role="tablist">' + tabsHtml + '</div>' + tools
+    const body = '<div class="lt-tabs" role="tablist">' + tabsHtml + '</div>' + tools
       + '<div class="lt-list" id="ltList">' + (page.length ? head + page.map(x => row(x, now, h)).join('') : '<div class="lt-empty">' + (h.searching ? 'Nobody matches that search.' : LT.tab === 'all' ? 'No open families right now.' : 'Nobody in ' + esc(label) + ' right now.') + '</div>') + '</div>'
       + pager;
+    return h.calm ? '<div class="lt-calm">' + body + '</div>' : body;
   }
 
   let styled = false;
@@ -226,7 +284,17 @@
       + '.lt-pagebtns{display:flex;gap:8px;align-items:center;}.lt-pagebtns select,.lt-pagebtns button{min-height:38px;padding:0 14px;border:1.5px solid #e4e1d8;border-radius:10px;background:#fff;font:inherit;font-size:14px;cursor:pointer;}.lt-pagebtns button:disabled{color:#a8b0b9;cursor:default;}'
       + '.lt-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}'
       + '@media (max-width:1100px){.lt-headrow{display:none;}.lt-row{grid-template-columns:1fr 1fr;align-items:start;}.lt-c-name,.lt-c-about,.lt-btns{grid-column:1/-1;}.lt-btns{justify-content:flex-start;}'
-      + '.lt-lbl{display:block;font-size:11px;font-weight:700;color:#8a96a3;text-transform:uppercase;letter-spacing:.04em;}}';
+      + '.lt-lbl{display:block;font-size:11px;font-weight:700;color:#8a96a3;text-transform:uppercase;letter-spacing:.04em;}}'
+      /* the calm look: colour only on the rows that need you (a left edge and the When words), everything else gray */
+      + '.lts-sum{margin:2px 0 12px;}.lts-main{font-size:15px;}.lts-now{color:#9B2C1A;}.lts-today{color:#8A5A08;}.lts-sub{font-size:13px;color:var(--text-muted);margin-top:2px;}'
+      + '.lt-calm .lt-count{background:#f1efe8;color:#3c4a58;}'
+      + '.lt-calm .lt-row{grid-template-columns:minmax(190px,1.4fr) 150px 88px 124px 136px minmax(200px,2.3fr) auto;}'
+      + '.lt-calm .ltr-now{box-shadow:inset 4px 0 0 #B42318;}.lt-calm .ltr-today{box-shadow:inset 4px 0 0 #C98A0E;}'
+      + '.lt-facts{font-size:12.5px;color:#6b7884;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+      + '.ltw{font-size:13.5px;font-weight:800;line-height:1.3;color:#6b7884;}.ltw-wait{font-weight:400;}.ltw-now{color:#9B2C1A;}.ltw-today{color:#8A5A08;}'
+      + '.lt-calm .lt-tel{color:var(--navy);}.lt-calm .lt-tel svg{color:#8a96a3;}'
+      + '.lt-calm .lt-btns .lb-btn{background:#fff;border:1.5px solid var(--navy);color:var(--navy);font-weight:700;border-radius:10px;}'
+      + '.lt-calm .lt-btns .lb-btn.lb-more{border-color:#e4e1d8;color:#55677a;}.lt-calm .lt-btns .lb-btn-dim{border-color:#e4e1d8;color:#8a96a3;}';
     document.head.appendChild(s);
   }
   const redraw = () => { try{ if(typeof root.renderLeadsStarts === 'function') root.renderLeadsStarts(); }catch(e){} };
@@ -234,10 +302,12 @@
   function ltSortBy(k){ LT.sort = k; LT.page = 0; save('ltSort', k); redraw(); }
   function ltSortCol(col){ ltSortBy(nextSort(LT.sort, col)); }
   function ltPage(n){ LT.page = Math.max(0, +n || 0); redraw(); try{ document.getElementById('ltList').scrollIntoView({ block:'start', behavior:'smooth' }); }catch(e){} }
+  function ltCalmPreview(on){ setCalmPreview(!!on); redraw(); }
   function ltPer(n){ LT.per = [20, 50, 100].indexOf(+n) > -1 ? +n : 50; LT.page = 0; save('ltPer', LT.per); redraw(); }
 
-  const api = { html, state:LT, phoneWords, initials, dayWords, agoWords, cameAt, lastActivity, sorter, nextSort, SORTS };
+  const api = { html, state:LT, phoneWords, initials, dayWords, agoWords, cameAt, lastActivity, sorter, nextSort, SORTS,
+    calmLive, calmPreview, calmShowing, calmTone, calmCounts, calmSummary, calmFacts };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.LeadTable = api;
-  Object.assign(root, { ltTab, ltSortBy, ltSortCol, ltPage, ltPer });
+  Object.assign(root, { ltTab, ltSortBy, ltSortCol, ltPage, ltPer, ltCalmPreview });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
