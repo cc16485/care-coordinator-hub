@@ -22,6 +22,8 @@ jobs:
         run: node tests/my-work-tiers-test.js
       - name: Ask for help rules
         run: node tests/ask-help-test.js
+      - name: Quieter call reader rules
+        run: node tests/quiet-calls-test.js
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -35,3 +37,5 @@ jobs:
         run: python tests/browser/my_work_tiers_look.py
       - name: Ask for help on the real page
         run: python tests/browser/ask_help_look.py
+      - name: Quieter call reader on the real page
+        run: python tests/browser/quiet_calls_look.py

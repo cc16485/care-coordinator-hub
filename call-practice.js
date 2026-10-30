@@ -218,6 +218,72 @@
       || '<div class="card" style="padding:18px;text-align:center;">No promises in this view.</div>';
   }
 
+  /* OPEN FROM CALLS (2026-10-29, the quieter call reader, plan M2yJiaLMGCekNzZrL6WdT6): the call follow-ups that are not
+     promises or care at risk leave Team Work and stay with their owner. This lists them, a person at a time, with Done and
+     the call they came from; below, the ones the Hub closed because their day passed, each with Reopen (a reopened card
+     is never closed that way again). While ops_settings.quiet_calls_live is off, owners see a preview of what would move. */
+  const quietLive = () => { try{ return !!(DATA && DATA.ops_settings && DATA.ops_settings.quiet_calls_live === true); }catch(e){ return false; } };
+  const isOwner = () => { try{ return typeof ccIsOwner === 'function' && !!ccIsOwner(); }catch(e){ return false; } };
+  const meEmail = () => { try{ return lc(typeof opsMeKey === 'function' ? opsMeKey() : (ME && ME.email)); }catch(e){ return ''; } };
+  const nameOf = e => { try{ return (typeof opsOwnerName === 'function' && opsOwnerName(e)) || String(e || '').split('@')[0]; }catch(_){ return String(e || '').split('@')[0]; } };
+  function openOffered(){ return quietLive() || isOwner(); }
+  function openCards(){
+    const T = window.TW; if(!T) return [];
+    const test = quietLive() ? T.quietOne : T.quietWould;
+    return ((DATA && DATA.ops_items) || []).filter(it => it && it.status === 'open' && lc(it.kind) === 'call_followup' && (typeof opsCanSee !== 'function' || opsCanSee(it)) && test(it))
+      .sort((a, b) => (Date.parse(a.due || '') || 0) - (Date.parse(b.due || '') || 0));
+  }
+  function dayClosed(){
+    const since = Date.now() - 7 * 864e5;
+    return ((DATA && DATA.ops_items) || []).filter(it => it && it.status === 'done' && it.resolution_code === 'day_passed' && Date.parse(it.closed_at || '') > since
+      && (typeof opsCanSee !== 'function' || opsCanSee(it))).sort((a, b) => String(b.closed_at).localeCompare(String(a.closed_at)));
+  }
+  function openRow(it, closed){
+    const d = Date.parse(it.due || ''), late = !closed && !isNaN(d) && d < Date.now();
+    const src = it.source || {}, mid = String(src.message_id || '');
+    return '<div class="cpr-open" data-id="' + esc(it.id) + '" style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13px;padding:7px 0;border-top:1px solid var(--border);">'
+      + '<span style="flex:1 1 280px;min-width:0;"><b>' + esc(it.title || 'Follow-up') + '</b>' + (it.about ? ' <span class="field-note">(' + esc(it.about) + ')</span>' : '')
+      + '<br><span class="field-note">' + esc(nameOf(it.owner) || 'Nobody owns this area') + (src.day ? ' · about ' + esc(day(src.day)) : '')
+      + (closed ? ' · closed ' + esc(when(it.closed_at)) : !isNaN(d) ? (late ? ' · was due ' : ' · due ') + esc(when(it.due)) : '') + '</span></span>'
+      + (mid ? '<a href="#" class="field-note" onclick="CPR.openCall(\'' + esc(mid) + '\');return false;">The call</a>' : '')
+      + (closed ? '<button class="ghost" style="padding:3px 10px;font-size:12px;" onclick="CPR.reopen(\'' + esc(it.id) + '\')">Reopen</button>'
+        : '<button class="ghost" style="padding:3px 10px;font-size:12px;" onclick="CPR.done(\'' + esc(it.id) + '\')">Done</button>') + '</div>';
+  }
+  function openView(){
+    const all = openCards(), people = [...new Set(all.map(it => lc(it.owner)).filter(Boolean))].sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    if(CPR.who == null) CPR.who = isOwner() ? '' : meEmail();
+    const q = lc(CPR.q);
+    const pick = list => list.filter(it => (!CPR.who || lc(it.owner) === CPR.who) && (!q || q.split(/\s+/).every(w => lc([it.title, it.about, it.detail].join(' ')).includes(w))));
+    const rows = pick(all), gone = quietLive() ? pick(dayClosed()) : [];
+    const sel = '<select id="cprWho" onchange="CPR.setWho(this.value)" style="width:auto;font-size:13px;padding:5px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
+      + '<option value="">Everyone (' + all.length + ')</option>' + people.map(e => '<option value="' + esc(e) + '"' + (CPR.who === e ? ' selected' : '') + '>' + esc(nameOf(e)) + ' (' + all.filter(it => lc(it.owner) === e).length + ')</option>').join('') + '</select>';
+    const pre = quietLive() ? '' : '<div class="card" style="padding:10px 14px;margin-bottom:10px;background:#FDF3E2;color:#8A5A00;"><b>Preview, switched off.</b> Only owners see this. These call follow-ups are still in Team Work. When <b>Quieter call reader</b> is on (Owners Hub, Admin), they leave Team Work, show here and as one line in each owner\'s Hub reminders, and the ones about a visit or shift day that ended more than 2 days ago close by themselves.</div>';
+    return pre + '<div class="card" style="padding:12px 14px;margin-bottom:10px;"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--navy);flex:1 1 auto;">'
+      + (quietLive() ? 'OPEN FROM CALLS' : 'WOULD LEAVE TEAM WORK') + ' (' + rows.length + ')</div>' + sel + '</div>'
+      + '<div class="field-note" style="margin:2px 0 4px;">Follow-ups from calls that are not a promise or care at risk. Each stays with its owner. Promises not kept and care at risk stay in Team Work.</div>'
+      + (rows.length ? rows.map(it => openRow(it, false)).join('') : '<div class="field-note" style="padding:6px 0;">Nothing open here.</div>') + '</div>'
+      + (gone.length ? '<details class="card" style="padding:12px 14px;margin-bottom:10px;"><summary style="cursor:pointer;font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">CLOSED BECAUSE THE DAY PASSED, LAST 7 DAYS (' + gone.length + ')</summary>'
+        + '<div class="field-note" style="margin:4px 0;">The visit or shift day these were about ended more than 2 days ago. Reopen any that still need doing; a reopened card stays open until a person closes it.</div>' + gone.map(it => openRow(it, true)).join('') + '</details>' : '');
+  }
+  async function openDone(id){
+    const it = ((DATA && DATA.ops_items) || []).find(x => x && x.id === id && x.status === 'open'); if(!it) return;
+    if(typeof opsCloseCommit === 'function') await opsCloseCommit(it, 'Done (from calls)', 'done');
+    try{ ccToast('Done. Closed with your name.'); }catch(e){}
+    redraw(false);
+  }
+  async function openReopen(id){
+    const it = ((DATA && DATA.ops_items) || []).find(x => x && x.id === id && x.status === 'done' && x.resolution_code === 'day_passed'); if(!it) return;
+    const at = new Date().toISOString(), who = (() => { try{ return ME.name || ME.email || ''; }catch(e){ return ''; } })();
+    it.status = 'open'; it.keep_open = true; it.last_activity_at = at;
+    ['closed_at', 'closed_by', 'resolution_code', 'close_reason'].forEach(k => { delete it[k]; });
+    it.history = (Array.isArray(it.history) ? it.history : []).concat([{ at, by: who, text: 'Reopened: it still needs doing. It stays open until a person closes it.' }]).slice(-60);
+    try{ opEvent('item_reopened', { item: it, summary: (it.about || it.title || '') + ': reopened (the day had passed)' }); }catch(e){}
+    if(typeof persist === 'function') await persist('ops_items', it);
+    try{ ccToast('Reopened. It\'s back with ' + String(nameOf(it.owner)).split(' ')[0] + '.'); }catch(e){}
+    if(typeof myWorkRefresh === 'function') myWorkRefresh();
+    redraw(false);
+  }
+
   /* Which office line (2026-10-14, her "all numbers we have in our subaccount linked"): calls and texts read per GoHighLevel
      number, so a line that never shows up stands out. Readings from before the line was kept are left out of the count. */
   function linesLine(all){
@@ -269,12 +335,14 @@
       + '<select id="cprDay" onchange="CPR.setDay(this.value)" style="flex:0 0 auto;width:auto;font-size:13px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
       + '<option value="">All ' + DAYS + ' days</option>' + Array.from({ length: DAYS }, (_, i) => { const ymd = chiYmd(Date.now() - i * 864e5); return '<option value="' + ymd + '"' + (CPR.day === ymd ? ' selected' : '') + '>' + (i === 0 ? 'Today' : i === 1 ? 'Yesterday' : esc(day(ymd))) + '</option>'; }).join('') + '</select></div>'
       + '<div class="field-note" style="margin:0 0 10px;">Show: ' + f('all', 'All') + f('cards', 'With cards') + f('urgent', 'Urgent') + f('none', 'No card') + f('unread', 'Couldn\'t read' + (notRead.length + retrying.length ? ' (' + (notRead.length + retrying.length) + ')' : ''))
+      + (openOffered() ? f('open', 'Open from calls (' + openCards().length + ')') : '')
       + f('promises', 'Promises' + (pLate ? ' (' + pLate + ' past due)' : pOpen ? ' (' + pOpen + ' owed)' : ''))
       + f('checks', 'Card checks' + ((CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length ? ' (' + (CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length + ' look done)' : ''))
       + ' <span style="margin:0 6px;color:var(--border);">|</span> ' + c('all', 'Calls and texts') + c('call', 'Calls') + c('text', 'Texts') + '</div>';
     /* the drawing kit (2026-10-18): promises being watched and none owed or past due is the mailbox with its flag down */
     if(window.HS && !CPR.msg && CPR.filter === 'all' && pw.length && !pLate && !pOpen) head += HS.banner({ scene:'mailbox', say:'All the follow-ups are done.', sub:'Every promise from a call or text has been kept. The flag goes up when a new one is owed.' });
     if(CPR.msg) head += '<div class="field-note" style="margin:-4px 0 10px;">Showing one ' + (rows[0] && rows[0].channel === 'text' ? 'text conversation' : 'call') + '. <a href="#" onclick="CPR.openCall(\'\');return false;">Back to all</a></div>';
+    if(CPR.filter === 'open' && !CPR.msg && openOffered()){ wrap.innerHTML = intro + head + openView(); return; }
     if(CPR.filter === 'checks' && !CPR.msg){ wrap.innerHTML = intro + head + checksView(); return; }
     if(CPR.filter === 'promises' && !CPR.msg){ wrap.innerHTML = intro + head + '<div class="field-note" style="margin:0 0 10px;">' + pLate + ' past due with no sign it was kept · ' + pOpen + ' still owed · ' + pKept + ' kept. Use the day box for promises due that day.</div>' + promisesView(); return; }
     if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls or texts in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
@@ -319,8 +387,11 @@
   window.CPR = { offered, load, render, peopleCards, teamActions,
     setQuery(v){ CPR.q = String(v || ''); clearTimeout(qTimer); qTimer = setTimeout(() => redraw(true), 200); },
     setDay(v){ CPR.day = String(v || ''); redraw(false); },
+    setWho(v){ CPR.who = lc(v); redraw(false); },
+    showOpen(who){ CPR.filter = 'open'; CPR.who = lc(who); CPR.msg = ''; },
+    done: openDone, reopen: openReopen,
     setChannel(k){ CPR.channel = k; redraw(false); },
     setFilter(k){ CPR.filter = k; CPR.msg = ''; const w = host(); if(w) render(w); },
-    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises' && CPR.filter !== 'checks') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
+    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises' && CPR.filter !== 'checks' && CPR.filter !== 'open') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
     refresh(){ CPR.rows = null; const w = host(); if(w) render(w); } };
 })();
