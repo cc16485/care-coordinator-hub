@@ -58,7 +58,8 @@
   function scheduleLines(sc){
     return ((sc && sc.lines) || []).map(g => {
       const every = +g.every_weeks > 2 ? 'Every ' + g.every_weeks + ' weeks: ' : +g.every_weeks === 2 ? 'Every other ' : '';
-      return { t:every + dayWords(g.days) + ' · ' + timeWords(g.start) + ' to ' + timeWords(g.end), who:g.caregiver || '', open:!g.caregiver };
+      const when = g.start === g.end ? '24 hours from ' + timeWords(g.start) : timeWords(g.start) + ' to ' + timeWords(g.end);
+      return { t:every + dayWords(g.days) + ' · ' + when, who:g.caregiver || '', open:!g.caregiver };
     });
   }
   const hoursWords = h => { h = Math.round((+h || 0) * 10) / 10; return h ? h + (h === 1 ? ' hour' : ' hours') + ' a week' : ''; };
@@ -116,6 +117,9 @@
   const TONE = { ok:['#E7F6EC', '#1F7A4D'], warn:['#FDF3E3', '#A8660E'], bad:['#FDE8E8', '#B23B2E'], dim:['#F1F5F9', '#64748B'], info:['#EEF4FB', '#0F4C81'] };
   const cache = {};   /* ax -> { at, data, err, p }: this page only, five minutes, never saved */
   let queued = false, obs = null, drawing = false;
+  /* A busy week (some clients have 10+ shift patterns) shows its first lines, then "show all" */
+  const SCHED_SHORT = 5, schedAll = {};
+  const CPax = () => String((G('CP') || {}).ax || '');
 
   async function fetchGlance(ax){
     const hit = cache[ax];
@@ -183,8 +187,10 @@
     return '<div class="card cg-card">'
       + '<div class="cg-grid">' + m.facts.map(fact).join('') + '</div>'
       + (m.schedule ? '<div class="cg-f cg-sched"><div class="cg-k">Usual schedule</div>'
-        + (m.schedule.lines.length ? m.schedule.lines.map(x => '<div class="cg-v">' + esc(x.t) + ' · '
+        + (m.schedule.lines.length ? m.schedule.lines.map((x, i) => '<div class="cg-v"' + (i >= SCHED_SHORT && !schedAll[CPax()] ? ' style="display:none;"' : '') + '>' + esc(x.t) + ' · '
             + (x.open ? '<span class="cg-open">no caregiver</span>' : 'with ' + esc(x.who)) + '</div>').join('')
+            + (m.schedule.lines.length > SCHED_SHORT ? '<button class="linklike" style="font-size:12px;margin-top:2px;" onclick="cgSchedAll()">'
+              + (schedAll[CPax()] ? 'show fewer' : 'show all ' + m.schedule.lines.length) + '</button>' : '')
             + (m.schedule.hours ? '<div class="cg-k" style="margin-top:3px;">' + esc(m.schedule.hours) + '</div>' : '')
           : '<div class="cg-v"><span class="cg-miss">' + esc(m.schedule.miss) + '</span></div>') + '</div>' : '')
       + (m.err ? '<div class="cg-err">Birth date, address and phone could not be read from AxisCare: ' + esc(m.err) + '</div>' : '')
@@ -261,6 +267,7 @@
     box.scrollIntoView({ behavior:'smooth', block:'start' });
   }
   function start(){ css(); watch(); draw(); }
-  Object.assign(root, { ClientGlance:api, cgDraw:draw, cgRequests:requests });
+  function schedToggle(){ const ax = CPax(); schedAll[ax] = !schedAll[ax]; queue(); }
+  Object.assign(root, { ClientGlance:api, cgDraw:draw, cgRequests:requests, cgSchedAll:schedToggle });
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
 })(typeof globalThis !== 'undefined' ? globalThis : this);

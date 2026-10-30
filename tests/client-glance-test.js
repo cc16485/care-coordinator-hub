@@ -51,6 +51,8 @@ ck('schedule lines: days, times and who', m.schedule.lines[0].t === 'Mon, Wed, F
 ck('a regular visit with nobody on it is flagged', m.schedule.lines[1].open);
 ck('every other week says so', m.schedule.lines[2].t === 'Every other Sun · 10 PM to 6 AM');
 ck('weekly hours', m.schedule.hours === '20 hours a week');
+m = C.model(Object.assign({}, base, { glance:{ schedule:{ lines:[{ days:['Monday', 'Tuesday', 'Sunday'], start:'19:00', end:'19:00', caregiver:'Ann B.', every_weeks:1 }], weekly_hours:72 } } }));
+ck('a 24-hour shift reads as 24 hours, not "7 PM to 7 PM"', m.schedule.lines[0].t === 'Mon, Tue, Sun · 24 hours from 7 PM', m.schedule.lines[0]);
 m = C.model(Object.assign({}, base, { glance:{ schedule:{ lines:[], weekly_hours:0 } } }));
 ck('no regular schedule says so', m.schedule.lines.length === 0 && m.schedule.miss === 'no regular schedule in AxisCare');
 m = C.model(Object.assign({}, base, { glance:{ schedule:null } }));
