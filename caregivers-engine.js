@@ -7382,8 +7382,22 @@ function ckdStopOf(c){
   if(!c.step2_verified_at) return 3;
   return 4;
 }
-/* a roster row's stop, from its readiness card */
-function ckdJourneyStop(r){ return r.ready_for_final || r.checkin_open || (r.approved_to_work && r.axiscare === 'failed') ? 6 : 5; }
+/* a readiness card's stop. Only someone really on the caregiver list is at stop 5 or 6. A card with no caregiver list record
+   (2026-10-30: Gretchen, Yasmine, Tina and Kionna were still on Step 1 but showed "Approved, then check-in call") goes by
+   the step the card says is next. */
+function ckdJourneyStop(r){
+  if(r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed')) return 6;
+  if(!ckdRosterFor(r)) return ckdCardStop(r);
+  return r.checkin_open ? 6 : 5;
+}
+function ckdCardStop(r){
+  const k = String((r.next && r.next.key) || '');
+  if(!k || /^cg\.(offer|step1|consent)\./.test(k)) return 0;
+  if(/^cg\.(check|refs|health|credential)\./.test(k)) return 1;
+  if(k === 'cg.approve.advance') return 2;
+  if(/^cg\.step2\./.test(k)) return 3;
+  return 4;
+}
 /* the next step for stops 2 to 4 (stop 1 has its two lanes) */
 function ckdStepNext(c, stop){
   const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
@@ -7410,8 +7424,13 @@ function ckdStepNext(c, stop){
 function ckdRosterNext(r){
   const open = 'CRX.open(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
-  if(r.checkin_open) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
+  if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
   if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(!ckdRosterFor(r)){
+    const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
+    if(ckdCardStop(r) === 0) return { text:'Step 1 is not finished. Waiting on ' + first + (n.title ? ' (next: ' + n.title + ')' : '') + '.', label:'Open card', on:open, wait:true, how:'card' };
+    return { text:(n.title ? n.title : 'Open their card to see what is next') + '.', label:'Open card', on:open, wait:true, how:'card' };
+  }
   if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
   const n = r.next || {};
   const mine = !n.owner || /coordinator|staff/i.test(String(n.owner));
@@ -7558,7 +7577,7 @@ function ckdRoadHTML(stop, bad){
 }
 function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
-  const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : { text:'On the caregiver list', color:'var(--gray)' };
+  const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
   const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.open(\'' + bgrEsc(String(j.offer_id)) + '\')';
   const party = c && p.stop >= 2 && p.stop <= 4 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
