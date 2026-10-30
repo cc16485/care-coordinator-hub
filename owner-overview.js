@@ -201,6 +201,7 @@
     html += '<div class="ov-chips">' + du.rows.map(r => '<span class="ov-chip' + (r.gap ? ' gap' : '') + '">' + esc(r.label) + ': ' + (r.gap ? 'nobody' : '<b>' + esc(first(nameOf(r.holder.person))) + '</b>') + '</span>').join('')
       + (du.out.length ? '<span class="ov-chip">Out today: <b>' + esc(du.out.join(', ')) + '</b></span>' : '')
       + (last ? '<span class="ov-chip">Since you looked ' + esc(ago(last)) + ': <b>' + closed + ' closed</b>, ' + made + ' new</span>' : '') + '</div>';
+    html += (window.OH && OH.on() ? OH.overviewHtml() : '');   /* Overnight Handoff (2026-10-29): her morning note and whether it was read */
     html += '<div class="ov-grid">'
       + box('Your decisions', dec.filter(x => x.indexOf('ov-it m ov-red') < 0).length, (dec.length ? dec.join('') : '<div class="ov-none">Nothing is waiting on your yes.</div>') + (ST.loading ? '<div class="ov-none">Checking bonuses, reviews, Approve to Work…</div>' : ''))
       + box('Urgent escalations', urg.length, urg.length ? urg.join('') : '<div class="ov-none">Nothing critical. Care is not at risk anywhere right now.</div>')
