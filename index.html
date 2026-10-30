@@ -6028,6 +6028,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Activity &amp; Documents</button>
   </div>
   <div class="cp-pane" data-cp-pane="summary">
+  <div id="cgCard"></div><!-- the client at a glance (2026-10-29, client-glance.js): for a client receiving care, the Overview is this one card -->
   <!-- A calmer top (2026-10-15): the Google review ask when there is one, and the journey card's tiles and yes line, moved here by profile-top.js -->
   <div id="ccReview"></div><!-- Google review asks (review-ask.js) -->
   <div id="cpOverJ"></div>
@@ -6217,7 +6218,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </div>
   <div class="cp-pane" data-cp-pane="history"><div class="profile-grid ch-grid">
     <div><!-- Step D (2026-10-15): ONE history list (client-history.js) replaces the stacked Calls, What changed, AxisCare changes and Timeline boxes --><div id="cp_history"></div></div>
-    <div><div id="cp_evv_forms"></div>
+    <div><div id="cgMoreSlot"></div><!-- while the at-a-glance card is on, Who they are and the profile links sit here (client-glance.js) --><div id="cp_evv_forms"></div>
 <div class="cp-lead">
       <div class="card" style="padding:18px;">
         <b style="font-size:16px;color:var(--navy);">Documents</b>
@@ -7736,6 +7737,7 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
+<script src="client-glance.js?v=1"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=9"></script>

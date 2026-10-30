@@ -84,7 +84,9 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ const b=[...document.querySelectorAll('#cpTopMenu .pt-item')].find(b=>b.textContent.trim()==='Pause care'); if(b) b.click(); }"); pg.wait_for_timeout(300)
     ok('Pause care from More opens the usual Pause care form', pg.evaluate("()=>!!document.querySelector('.cc-dlg #ccR')"))
     pg.evaluate("()=>{ document.querySelectorAll('.cc-dlg,.cc-ov').forEach(d=>d.remove()); }")
-    pg.evaluate("async()=>{ await openClient({ ax:'803' },'summary'); }"); pg.wait_for_timeout(1000)
+    # 2026-10-29: a client receiving care has the at-a-glance card on the Overview (client-glance.js), so the header line and
+    # its NEXT bar show on the other tabs; the bar is clicked from Check-ins here
+    pg.evaluate("async()=>{ await openClient({ ax:'803' },'checkins'); }"); pg.wait_for_timeout(1000)
     if pg.evaluate("()=>!!document.querySelector('#cpTop .pt-go')"): pg.click('#cpTop .pt-go'); pg.wait_for_timeout(300)
     ok('the uncovered-shift card opens Team & Schedule', pg.evaluate("()=>CP.tab==='team'"), pg.evaluate("()=>CP.tab"))
     pg.evaluate("async()=>{ await openLeadProfile('T1','summary'); }"); pg.wait_for_timeout(1000)
