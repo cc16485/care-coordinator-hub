@@ -1356,8 +1356,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Client Folders (client-folders.html) open inside the Hub, like Payors & Programs. -->
     <div class="fpill" data-tab="docs" onclick="switchTab('docs')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Forms &amp; Templates</div>
     <div class="fpill" data-tab="docfolders" onclick="switchTab('docfolders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clipboard"/></svg> Client Folders</div>
-    <!-- 2026-10-30 (her "When we make videos can you save them in the hub"): videos.html, every video we make, opened inside the Hub. -->
-    <div class="fpill" data-tab="videos" onclick="switchTab('videos')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Videos</div>
+    <!-- 2026-10-30 (her "When we make videos can you save them in the hub", then "can you also save all of the amazing photos"):
+         videos.html, every video and photo we make, opened inside the Hub. -->
+    <div class="fpill" data-tab="videos" onclick="switchTab('videos')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Videos &amp; Photos</div>
     <!-- 2026-10-17 (her ask "a tab in SOPs that says order supplies"): supplies.html, opened inside the Hub. -->
     <div class="fpill" data-tab="supplies" onclick="switchTab('supplies')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-box"/></svg> Order Supplies</div>
   </div>
@@ -5905,7 +5906,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <iframe id="docsFrame" title="Forms &amp; Templates" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
 <section class="tabpanel" id="tab-videos">
-  <iframe id="videosFrame" title="Videos" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+  <iframe id="videosFrame" title="Videos &amp; Photos" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
 <section class="tabpanel" id="tab-supplies">
   <iframe id="suppliesFrame" title="Order Supplies" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
@@ -8877,7 +8878,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -44747,7 +44748,7 @@ function docsShow(cat){
   if(!cat && f && f.dataset.src && /forms\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
   ccHubFrame(f, 'forms.html?in=hub' + (cat ? '&cat=' + encodeURIComponent(cat) : ''));
 }
-/* SOPs > Videos (2026-10-30). Keeps where the person was when they come back. */
+/* SOPs > Videos & Photos (2026-10-30). Keeps where the person was when they come back. */
 function videosShow(){
   const f = document.getElementById('videosFrame');
   if(f && f.dataset.src && /videos\.html/.test(f.dataset.src)) { ccHubFrame(f, f.dataset.src); return; }
@@ -45373,7 +45374,7 @@ function ccOpenRef(sub){
      NOT have one: an alias is checked first and would shadow the real thing.
      That is what happened to 'scheduling' and 'caregivers' when those became
      sections in their own right. */
-  var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', grow:'clients', phone:'calls', 'clients-care':'clients',
+  var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', photos:'videos', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
                         growth:'campaigns', marketing:'campaigns', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
                         /* 'leads' stopped being an alias 2026-09-19: it is a
