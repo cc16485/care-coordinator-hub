@@ -109,15 +109,40 @@ ck('day words: Today / Yesterday / weekday / another year', H.dayWords('2026-10-
   && H.dayWords('2026-10-12T18:00:00Z', NOW) === 'Mon Oct 12' && H.dayWords('2025-03-02T18:00:00Z', NOW) === 'Mar 2, 2025', [H.dayWords('2026-10-12T18:00:00Z', NOW), H.dayWords('2025-03-02T18:00:00Z', NOW)]);
 ck('times are Central', H.timeWords('2026-10-15T19:14:00Z') === '2:14 PM');
 
+/* 2026-10-30: the Family Circle's texts and emails, each naming who */
+const family = { members:[
+  { key:'4175550100', contact_id:'G1', ghl_name:'Karen Hale', people:[{ name:'Karen Hale', relationship:'Daughter' }], messages:[
+    { at:'2026-10-12T20:30:20Z', direction:'out', type:'SMS', body:'Tasha will be there Wednesday at 9.' },
+    { at:'2026-10-14T13:05:00Z', direction:'in', type:'SMS', body:'Mom is a little tired today, can Tasha help her shower?' },
+    { at:'2026-10-14T13:20:00Z', direction:'in', type:'Call', body:'Call (completed)' },
+    { at:'2026-10-13T16:00:00Z', direction:'out', type:'Email', body:'Your care schedule for next week.' } ] },
+  { key:'4175550111', ghl_name:'Bob Hale', people:[{ name:'Bob Hale', relationship:'son' }, { name:'Linda Hale', relationship:'daughter-in-law' }], messages:[
+    { at:'2026-10-11T22:00:00Z', direction:'in', type:'SMS', body:'Thank you all so much.' } ] },
+  { key:'4175550122', ghl_name:'Someone Else', people:[{ name:'Mary Fox', relationship:'niece' }], messages:[{ at:'2026-10-11T22:00:00Z', direction:'in', type:'SMS', body:'not hers' }] },
+  { key:'mike@x.com', people:[{ name:'Mike Hale', relationship:'grandson' }], error:'GoHighLevel answered 502' } ] };
+const fb = H.build({ lead, family }, ctx), FI = fb.items;
+const fam = FI.filter(x => x.src === 'family');
+ck('a family member\'s text names them and says they texted us', fam.some(x => x.title === 'Karen (daughter) texted us' && /shower/.test(x.detail) && x.chip === 'msg'), fam.map(x => x.title));
+ck('our text and email to them name who we sent it to', fam.some(x => x.title === 'We texted Karen (daughter)') && fam.some(x => x.title === 'We emailed Karen (daughter)'));
+ck('calls from GoHighLevel are left to the call record', !fam.some(x => /call/i.test(x.title)));
+ck('a shared number names both people', fam.some(x => x.title === 'Bob (son) or Linda (daughter-in-law) (shared number) texted us'), fam.map(x => x.title));
+ck('a number GoHighLevel has under another name is not shown as theirs, and says so', !fam.some(x => /not hers/.test(x.detail)) && fb.problems.some(p => /Mary \(niece\)'s number under another name/.test(p.words)), fb.problems);
+ck('a member whose texts could not load is named, not silent', fb.problems.some(p => /Could not load the texts with Mike \(grandson\) \(GoHighLevel answered 502\)/.test(p.words)), fb.problems);
+ck('the inquiry log\'s copy of the same text shows once, as the named one', !FI.some(x => x.src === 'lead' && /texted/.test(x.title) && /Wednesday at 9/.test(x.detail)) && fam.some(x => x.title === 'We texted Karen (daughter)'), FI.filter(x => /Wednesday/.test(x.detail)).map(x => x.title));
+ck('family texts sit in Texts & emails', H.counts(FI).msg === fam.length + FI.filter(x => x.src !== 'family' && x.chip === 'msg').length && fam.length === 4);
+
 /* no em dashes anywhere she reads */
 const src = fs.readFileSync(path.join(__dirname, '..', 'client-history.js'), 'utf8');
 ck('no em dashes in client-history.js', src.indexOf('\u2014') < 0);
 ck('no em dashes in any built entry', !JSON.stringify(I).includes('\u2014'));
+ck('no em dashes in the family entries', !JSON.stringify(fb).includes('\u2014'));
 
 /* the page carries it */
 const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 ck('index.html loads client-history.js', /<script src="client-history\.js\?v=\d+"><\/script>/.test(page));
 ck('the tab has the one History card and no stacked boxes', page.includes('<div id="cp_history"></div>') && !page.includes('<div id="cp_calls"></div>') && !page.includes('<div id="cp_ax_log"></div>') && !page.includes('<div id="cp_change_log"></div>') && !page.includes('id="cp_c_history"'));
+ck('her words: the tab is Communication & Documents, second after Overview', (t => t[0] === 'summary' && t[1] === 'history')([...page.slice(page.indexOf('<div id="cpTabs"'), page.indexOf('</div>', page.indexOf('<div id="cpTabs"'))).matchAll(/data-cp="(\w+)"/g)].map(m => m[1])) && page.includes(">Communication &amp; Documents</button>") && !page.includes('>Activity &amp; Documents<'));
+ck('the card is called Communication', src.includes('>Communication</b>'));
 ck('EVV forms keep their own section', page.includes('<div id="cp_evv_forms"></div>'));
 ck('the profile mounts it and hands over the start events', page.includes("if(typeof chMount==='function') chMount();") && page.includes("typeof chAddStart==='function') chAddStart(add);"));
 ck('the History card reads nothing new: no service_role, no new function name', !/service_role|functions\/v1\/client-history/.test(src));

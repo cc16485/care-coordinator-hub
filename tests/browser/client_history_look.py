@@ -36,6 +36,8 @@ FIX = r"""
     lead_change:[
       { id:1, field:'days_needed', kind:'changed', old_value:'Mon, Wed', new_value:'Mon, Wed, Thu', changed_at:at(12,11,5), changed_by:'krystal@mo-care.com', changed_via:'person' },
       { id:2, field:'number_of_hours', kind:'changed', old_value:'12', new_value:'16', changed_at:at(12,11,5), changed_by:'krystal@mo-care.com', changed_via:'person' }],
+    care_circles:[{ id:'C1' }],
+    circle_contacts:[{ id:'m1', name:'Karen Hale', relationship:'Daughter', phone:'(417) 555-0100' }, { id:'m2', name:'Linda Hale', relationship:'granddaughter', phone:'417-555-0177' }, { id:'m3', name:'Ed Hale', relationship:'son' }],
     op_events:[{ id:9, at:at(12,15,31), verb:'family_text_sent', summary:'Krystal texted Karen', actor_name:'Krystal Land', item_id:'H1' }]
   };
   W.__fail={};
@@ -52,7 +54,13 @@ FIX = r"""
     changes:[{ change_id:'c1', kind:'pause', reason:'hospital', effective_date:'2026-10-13', followup_date:'2026-10-14', made_by:'krystal@mo-care.com', made_by_name:'Krystal Land', made_at:at(13,8,30), explanation:'Overnight at Mercy for observation after a dizzy spell.' },
       { change_id:'c2', kind:'resume', effective_date:'2026-10-14', made_by:'krystal@mo-care.com', made_by_name:'Krystal Land', made_at:at(14,9,0) }] };
   const of=W.fetch; W.__fn=[];
-  W.fetch=async(u,o)=>{ if(/functions\/v1\/client-journey/.test(String(u))){ const b=JSON.parse(o.body); W.__fn.push(b.action);
+  const GHLT={ '4175550100':{ contact_id:'g1', name:'Karen Hale', messages:[{ at:at(12,15,30), direction:'out', type:'SMS', body:'Tasha will be there Wednesday at 9. She is great with gardening talk!' }] },
+    '4175550177':{ contact_id:'g7', name:'Linda Hale', messages:[{ at:at(14,19,5), direction:'in', type:'SMS', body:'Grandma said Tasha made her laugh all morning. Thank you!' }, { at:at(14,19,6), direction:'in', type:'Call', body:'Call (completed)' }] } };
+  W.__ghl=[];
+  W.fetch=async(u,o)=>{ if(/functions\/v1\/ghl-thread/.test(String(u))){ const b=JSON.parse(o.body); W.__ghl.push(b.phone||b.email);
+      if(W.__fail.ghl) return new Response(JSON.stringify({ error:W.__fail.ghl }),{ status:502 });
+      return new Response(JSON.stringify(Object.assign({ ok:true }, GHLT[b.phone]||{ contact_id:'', messages:[] })),{ status:200 }); }
+    if(/functions\/v1\/client-journey/.test(String(u))){ const b=JSON.parse(o.body); W.__fn.push(b.action);
       if(W.__fail.journey&&b.action==='get') return new Response(JSON.stringify({ error:W.__fail.journey }),{ status:409 });
       return new Response(JSON.stringify(b.action==='care_state'?CARE:b.action==='get'?J:{}),{ status:200 }); }
     return of(u,o); };
@@ -63,13 +71,16 @@ T = r"""async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   await openClient({ lead_id:'H1', ax:'48213' },'history'); await sleep(1200);
   const B=()=>document.getElementById('cp_history'), txt=()=>B().innerText;
-  ok('the tab shows ONE History card', !!B() && /History/.test(txt()) && !document.getElementById('cp_calls') && !document.getElementById('cp_ax_log') && !document.getElementById('cp_change_log'), txt());
+  ok('the tab shows ONE History card', !!B() && /Communication/.test(txt()) && !document.getElementById('cp_calls') && !document.getElementById('cp_ax_log') && !document.getElementById('cp_change_log'), txt());
   ok('her seven chips, in order', [...B().querySelectorAll('.ch-chip')].map(b=>b.firstChild.textContent).join('|')==='All|Calls|Texts & emails|Notes|Journey|Care changes|AxisCare', [...B().querySelectorAll('.ch-chip')].map(b=>b.textContent));
   const rows=()=>[...B().querySelectorAll('.ch-row')].map(r=>r.innerText.replace(/\s+/g,' '));
   ok('newest first: today\'s call is the first entry', /Karen \(daughter\) called us/.test(rows()[0]||''), rows());
   ok('every source is on the list', /Thursday start time/.test(txt()) && /Schedule sent/.test(txt()) && /changed 2 things/.test(txt()) && /Assessment at the home: done/.test(txt()) && /Care paused/.test(txt()) && /Care resumed/.test(txt()) && /texted/.test(txt()), txt());
   ok('the Oct 7 call shows once (inquiry log + call record + AxisCare call summary)', rows().filter(r=>/We called Karen/.test(r)).length===1 && !/Call summary posted/.test(txt()), rows());
-  ok('the copied text from the activity record is not a second entry', rows().filter(r=>/texted/i.test(r)).length===1, rows());
+  ok('the copied text from the activity record is not a second entry', rows().filter(r=>/We texted|Krystal texted/i.test(r)).length===1, rows());
+  ok('a Family Circle member\'s text names who sent it', rows().some(r=>/Linda \(granddaughter\) texted us/.test(r) && /made her laugh/.test(r)), rows());
+  ok('our text to the family names who it went to, and shows once', rows().filter(r=>/We texted Karen \(daughter\)/.test(r)).length===1 && !rows().some(r=>/Krystal texted/.test(r)), rows());
+  ok('one lookup per member with a phone, none for a member without one', window.__ghl.length===2 && window.__ghl.indexOf('4175550177')>=0, window.__ghl);
   ok('important changes are marked', /Schedule change/.test(txt()) && /Care needs change/.test(txt()) && /Care Coordinator change/.test(txt()) && /Important/.test(txt()), txt());
   ok('who did it is on the entry', /Care paused · Hospital stay · Krystal/.test(rows().join('\n')), rows());
   ok('EVV forms keep their own place beside it', !!document.getElementById('cp_evv_forms') && !B().contains(document.getElementById('cp_evv_forms')));
@@ -83,10 +94,11 @@ T = r"""async()=>{
   ok('the Calls chip shows the two calls', rows().length===2 && rows().every(r=>/^.*Call/.test(r)), rows());
   ok('no em dashes on the card', !/\u2014/.test(txt()));
   /* a source fails */
-  window.__fail.axiscare_change_log='permission denied'; window.__fail.journey='Client journeys are switched off right now.';
+  window.__fail.axiscare_change_log='permission denied'; window.__fail.ghl='GoHighLevel is not connected on this project.'; window.__fail.journey='Client journeys are switched off right now.';
   await chReload(); await sleep(900);
   [...B().querySelectorAll('.ch-chip')].find(b=>/^All/.test(b.textContent)).click(); await sleep(150);
   const F=[/Could not load AxisCare changes \(permission denied\)\. Everything else is shown\./.test(txt()), /Journey history is switched off right now/.test(txt()), /Karen \(daughter\) called us/.test(txt()), /Care paused/.test(txt()), !/Schedule sent/.test(txt())];
+  ok('texts that could not load name the member', /Could not load the texts with Linda \(granddaughter\) \(GoHighLevel is not connected on this project\.\)/.test(txt()), txt());
   ok('a failed source is named, and the rest still shows', /Could not load AxisCare changes \(permission denied\)\. Everything else is shown\./.test(txt()) && /Journey history is switched off right now/.test(txt()) && /Karen \(daughter\) called us/.test(txt()) && /Care paused/.test(txt()) && !/Schedule sent/.test(txt()), txt());
   return R; }"""
 with sync_playwright() as pw:

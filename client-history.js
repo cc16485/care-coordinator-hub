@@ -14,6 +14,8 @@
      · when one source can't load, the rest still shows, with a plain line saying what is missing
      · nothing new can be read here: every source is the same read the profile already made with the person's own
        sign-in (database rules), or the journey service's existing reads (get, care_state), which check the office role
+     · 2026-10-30, her ask: the Family Circle's texts and emails are on it too, each naming who ("Mary (daughter) texted
+       us"), read through ghl-thread, the office-only GoHighLevel read the profile's texts box already uses
 
    build(src, ctx) is pure (no page, no database) so tests/client-history-test.js runs it in node. mount() is the page.
    ===================================================================================================================== */
@@ -68,7 +70,9 @@
       else if(t.kind === 'auto') chip = /^Authorization/.test(txt) ? 'journey' : /^(Texted|Could not text) /.test(txt) ? 'note' : 'msg';
       else chip = 'note';
       const quoted = t.kind === 'family' || t.kind === 'sent';
-      out.push({ id:'lead:' + i, src:'lead', at:t.at, chip, title:txt, sub:'', detail:t.sub ? (quoted ? '"' + t.sub + '"' : t.sub) : '', who:'', lead_call:chip === 'call' });
+      /* a text or email with the family (not one to a referrer): the Family Circle's own copy names the person */
+      const lead_msg = chip === 'msg' && t.kind === 'family' ? 'in' : chip === 'msg' && t.kind === 'sent' && txt.indexOf(':') < 0 ? 'out' : '';
+      out.push({ id:'lead:' + i, src:'lead', at:t.at, chip, title:txt, sub:'', detail:t.sub ? (quoted ? '"' + t.sub + '"' : t.sub) : '', who:'', lead_call:chip === 'call', lead_msg });
     });
   }
 
@@ -174,6 +178,33 @@
     (loc.nurse_visits || []).forEach((v, i) => { const at = v.created_at || v.date; if(ok(at)) out.push({ id:'nv:' + (v.id || i), src:'local', at, chip:'journey', title:'Nurse visit', sub:'', detail:'', who:'' }); });
     (loc.start || []).forEach((e, i) => { if(ok(e.at)) out.push({ id:'start:' + i, src:'start', at:e.at, chip:'journey', title:s(e.text), sub:'', detail:'', who:'' }); });
   }
+  /* Family Circle texts and emails (her ask 2026-10-30: "noting who called/texted"). One entry per message GoHighLevel
+     has with each member, named: "Mary (daughter) texted us", "We emailed Mary (daughter)". Calls are left out here
+     because the call record already names a recognised family member's calls. A number GoHighLevel matched to a contact
+     with a different name is not shown as theirs. */
+  const FAM_KINDS = { SMS:'texted', Email:'emailed', WhatsApp:'messaged', 'Live chat':'messaged', Facebook:'messaged', Instagram:'messaged' };
+  function famLabel(m){ const n = firstName(m.name), r = s(m.relationship).trim().toLowerCase(); return n ? n + (r ? ' (' + r + ')' : '') : (r || 'a family member'); }
+  function sameName(a, b){ const x = norm(a).split(' ').filter(w => w.length > 1), y = norm(b).split(' ').filter(w => w.length > 1); return !x.length || !y.length || x.some(w => y.indexOf(w) >= 0); }
+  function fromFamily(d, ctx, out){
+    if(!d || !Array.isArray(d.members)) return;
+    d.members.forEach(m => {
+      if(!m) return;
+      const label = (m.people || [m]).map(famLabel).join(' or ') + ((m.people || []).length > 1 ? ' (shared number)' : '');
+      if(m.error){ if(ctx.problems) ctx.problems.push({ source:'family', words:'Could not load the texts with ' + label + ' (' + s(m.error) + ').' }); return; }
+      if(!Array.isArray(m.messages)) return;
+      if(m.ghl_name && !(m.people || [m]).some(p => sameName(p.name, m.ghl_name))){
+        if(ctx.problems) ctx.problems.push({ source:'family', words:'GoHighLevel has ' + label + '\'s number under another name (' + s(m.ghl_name) + '), so those texts are not shown as theirs.' });
+        return;
+      }
+      m.messages.forEach((x, i) => {
+        const verb = FAM_KINDS[x.type]; if(!verb || !ok(x.at)) return;
+        const inbound = x.direction === 'in';
+        out.push({ id:'fam:' + (m.key || label) + ':' + x.at + ':' + i, src:'family', at:x.at, chip:'msg', fam_dir:inbound ? 'in' : 'out',
+          title:inbound ? label.charAt(0).toUpperCase() + label.slice(1) + ' ' + verb + ' us' : 'We ' + verb + ' ' + label,
+          sub:'Family Circle', detail:x.body ? '"' + s(x.body) + '"' : '', who:'', ghl:m.contact_id || '' });
+      });
+    });
+  }
   /* the event record: only what nothing else already shows */
   function fromOps(rows, ctx, out){
     (Array.isArray(rows) ? rows : []).forEach(e => {
@@ -201,6 +232,13 @@
     });
     /* 2. the call summary we posted to AxisCare is the call itself */
     keep.forEach(x => { if(x.src === 'ax' && x.via === 'call-disposition' && recordCalls.some(c => Date.parse(x.at) >= Date.parse(c.at) - 60000 && near(c, x, 3 * 3600000))) drop.add(x); });
+    /* 2b. a text the inquiry's log has that the Family Circle's copy also has: keep the one that names the person */
+    const famMsgs = keep.filter(x => x.fam_dir);
+    keep.forEach(x => {
+      if(!x.lead_msg) return;
+      const d = norm(s(x.detail).replace(/^"|"$/g, ''));
+      if(famMsgs.some(f => f.fam_dir === x.lead_msg && near(f, x, 10 * 60000) && (!d || norm(f.detail).indexOf(d) >= 0 || d.indexOf(norm(f.detail)) >= 0))) drop.add(x);
+    });
     /* 3. the event record copies what a page did: drop it when something else is within 5 minutes in the same chip */
     keep.forEach(x => { if(x.src === 'ops' && keep.some(y => y !== x && y.src !== 'ops' && !drop.has(y) && y.chip === x.chip && near(x, y, 5 * 60000))) drop.add(x); });
     /* 4. exact repeats (same kind of thing, same words, same few minutes) from any two sources */
@@ -215,14 +253,15 @@
 
   /* src: { lead, calls, ax, edits, journey, care, local, ops } (each may be missing); errors: {source:message}
      ctx: { names, now, LeadRules, fieldLabel, fieldValue } → { items newest first, problems [{source, words}] } */
-  const SOURCE_WORDS = { calls:'calls', ax:'AxisCare changes', edits:'record edits', journey:'Journey history', care:'care changes (pause, resume, end)', ops:'the activity record', lead:'the inquiry\'s log' };
+  const SOURCE_WORDS = { calls:'calls', ax:'AxisCare changes', edits:'record edits', journey:'Journey history', care:'care changes (pause, resume, end)', ops:'the activity record', lead:'the inquiry\'s log', family:'texts with the Family Circle' };
   function build(src, ctx){
     src = src || {}; ctx = Object.assign({ names:{}, now:new Date().toISOString() }, ctx || {});
     const out = [];
     const run = (k, fn, v) => { try{ fn(v, ctx, out); }catch(e){ problems.push({ source:k, words:'Could not read ' + (SOURCE_WORDS[k] || k) + ': ' + s(e && e.message || e) }); } };
     const problems = [];
+    ctx.problems = problems;
     run('lead', fromLead, src.lead); run('calls', fromCalls, src.calls); run('ax', fromAx, src.ax); run('edits', fromEdits, src.edits);
-    run('journey', fromJourney, src.journey); run('care', fromCare, src.care); run('local', fromLocal, src.local); run('ops', fromOps, src.ops);
+    run('journey', fromJourney, src.journey); run('care', fromCare, src.care); run('local', fromLocal, src.local); run('ops', fromOps, src.ops); run('family', fromFamily, src.family);
     Object.keys(src.errors || {}).forEach(k => { const m = src.errors[k]; if(m) problems.push({ source:k, words:m === 'off' ? (SOURCE_WORDS[k] || k).replace(/^./, c => c.toUpperCase()) + ' is switched off right now.' : 'Could not load ' + (SOURCE_WORDS[k] || k) + ' (' + m + ').' }); });
     const items = dedupe(out.map(x => Object.assign({}, x, { at:iso(x.at) }))).sort((a, b) => b.at.localeCompare(a.at) || s(a.id).localeCompare(s(b.id)));
     return { items, problems };
@@ -303,8 +342,8 @@
     const now = new Date().toISOString();
     page.forEach(x => { const d = dayWords(x.at, now); if(d !== last){ rows += '<div class="ch-day">' + esc(d) + '</div>'; last = d; } rows += rowHtml(x); });
     const loading = H.pending > 0;
-    box.innerHTML = '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><b style="font-size:16px;color:var(--navy);">History</b>'
-      + '<span class="field-note">every call, text, note and change for this client, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="chReload()" title="Load again">↻</button></div>'
+    box.innerHTML = '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><b style="font-size:16px;color:var(--navy);">Communication</b>'
+      + '<span class="field-note">every call, text and email with the client and their family, plus notes and changes, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="chReload()" title="Load again">↻</button></div>'
       + '<div class="ch-chips">' + CHIPS.map(([k, l]) => '<button type="button" class="ch-chip' + (k === H.chip ? ' on' : '') + '" data-ch-chip="' + k + '">' + esc(l) + '<span class="n">' + c[k] + '</span></button>').join('') + '</div>'
       + b.problems.map(p => '<div class="ch-prob">' + esc(p.words) + ' Everything else is shown.</div>').join('')
       + (G('CP') && G('CP').lead ? '<div style="display:flex;gap:8px;margin:4px 0;"><input id="chNoteIn" style="flex:1;min-width:0;" placeholder="Add a note (a call goes through Log a call, so it counts)" onkeydown="if(event.key===\'Enter\')chNote()"><button class="secondary" onclick="chNote()">Add</button></div>' : '')
@@ -334,6 +373,7 @@
       edits: async () => lead ? q(G('sb').from('lead_change').select('id,field,kind,old_value,new_value,changed_at,changed_by,changed_via').eq('lead_id', s(lead.id)).order('changed_at', { ascending:false }).limit(300)) : [],
       journey: async () => { if(typeof root.cjCall !== 'function') return null; return root.cjCall(lead ? { action:'get', lead_id:lead.id } : ax ? { action:'get', axiscare_client_id:ax } : null); },
       care: async () => { if(!ax || typeof root.cjCall !== 'function') return null; return root.cjCall({ action:'care_state', axiscare_client_id:ax }); },
+      family: async () => ax ? familyTexts(ax) : null,
       ops: async () => { const ids = [lead && s(lead.id), ax].filter(Boolean); return ids.length ? q(G('sb').from('op_events').select('id,at,actor_email,actor_name,verb,summary,area,item_id').in('item_id', ids).order('at', { ascending:false }).limit(200)) : []; }
     };
     H.pending = Object.keys(jobs).length; render();
@@ -342,6 +382,38 @@
       catch(e){ if(H.key === key) H.errors[k] = why(e); }
       finally{ if(H.key === key){ H.pending--; render(); } }
     }));
+  }
+  /* the Family Circle's members, and each one's GoHighLevel conversation through ghl-thread: the same office-only read
+     the profile's texts box makes. One lookup per phone or email (two members sharing a number are one lookup), two at a
+     time so GoHighLevel isn't asked for everything at once. */
+  async function familyTexts(ax){
+    const sb = G('sb'), cfg = G('CONFIG') || {};
+    const c = await sb.from('care_circles').select('id').eq('axiscare_client_id', ax).eq('active', true);
+    if(c.error) throw c.error;
+    const ids = (c.data || []).map(x => x.id); if(!ids.length) return { members:[] };
+    const m = await sb.from('circle_contacts').select('id,name,relationship,phone,email').in('circle_id', ids);
+    if(m.error) throw m.error;
+    const digits = v => s(v).replace(/\D/g, '').slice(-10), groups = [];
+    (m.data || []).forEach(p => {
+      const ph = digits(p.phone), em = s(p.email).trim().toLowerCase(); if(ph.length !== 10 && !em) return;
+      const g = groups.find(x => (ph.length === 10 && x.phone === ph) || (!x.phone && em && x.email === em));
+      if(g) g.people.push(p); else groups.push({ key:ph || em, phone:ph.length === 10 ? ph : '', email:ph.length === 10 ? '' : em, people:[p] });
+    });
+    if(!groups.length) return { members:[] };
+    const got = await sb.auth.getSession(), sess = got && got.data && got.data.session;
+    if(!sess || !sess.access_token) throw new Error('please sign in again');
+    const one = async g => {
+      try{
+        const r = await fetch(cfg.supabase_url + '/functions/v1/ghl-thread', { method:'POST', headers:{ 'Authorization':'Bearer ' + sess.access_token, 'Content-Type':'application/json' },
+          body:JSON.stringify({ phone:g.phone, email:g.email, limit:25 }) });
+        const d = await r.json().catch(() => ({}));
+        if(!r.ok || d.error) return Object.assign(g, { error:s(d.error) || 'GoHighLevel answered ' + r.status });
+        return Object.assign(g, { contact_id:d.contact_id || '', ghl_name:d.contact_id ? s(d.name) : '', messages:d.messages || [] });
+      }catch(e){ return Object.assign(g, { error:s(e && e.message || e) }); }
+    };
+    const todo = groups.slice(0, 10), done = [];
+    while(todo.length) done.push(...await Promise.all(todo.splice(0, 2).map(one)));
+    return { members:done };
   }
   function localFacts(lead, ax){
     const D = G('DATA') || {}, r = (G('CL360_CURRENT') && G('CL360_CURRENT').cp_) || null;
