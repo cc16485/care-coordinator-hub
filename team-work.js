@@ -133,6 +133,21 @@
       words:'Late: the owner’s Late lane. 1 business day late: the person in charge. 3 business days: Owner Overview. No texts.' };
   }
 
+  /* ── QUIETER CALL READER (2026-10-29, her approval of plan M2yJiaLMGCekNzZrL6WdT6 with all three recommendations) ──
+     Switch ops_settings.quiet_calls_live (owners, Admin page). While on, a call follow-up (call_followup) is Team Work only
+     when it is a promise not kept (cfp_), a call nobody could read (cfu_), or care at risk: urgent, an incident, client care
+     for today (a change in a client's condition), or a visit within the care-at-risk window. Every other call card stays
+     with its owner: a short "From calls" line in their Hub reminders (my-work-tiers.js) and the AI call reader's
+     "Open from calls" list (call-practice.js). The server (call-tasks) closes one 2 days after the visit or shift day it was about.
+     Nothing here texts, emails or calls anyone. */
+  function callKept(it, ctx){
+    const id = String(it && it.id || ''), u = lc(it.urgency), d = lc(it.domain);
+    if(id.indexOf('cfp_') === 0 || id.indexOf('cfu_') === 0 || u === 'urgent' || d === 'incidents' || (d === 'client_care' && u === 'today')) return true;
+    return !!ctx && track(it, ctx) === 'care';
+  }
+  function quietOn(ctx){ return !!(ctx && ctx.settings && ctx.settings.quiet_calls_live === true); }
+  function quietCall(it, ctx){ return !!it && quietOn(ctx) && lc(it.kind) === 'call_followup' && !callKept(it, ctx); }
+
   /* ── where a card goes (rules 1 to 4, 10) ─────────────────────────────────────────────────────────────────────── */
   /* Returns { tab, why, ... }. tab: 'team' | 'mine' (owner = .person) | 'grabs' | 'unassigned' | 'closed'. */
   function place(it, ctx){
@@ -142,7 +157,7 @@
     if(offered(it)) return { tab:'grabs', person:owner, why:'offered' };
     /* The on-duty pile: operational work the Hub opened, until somebody takes it. Whoever it was routed to, it is the
        on-duty coordinator's to pick up, so an absent coordinator's call-off is simply Team Work, not "covering". */
-    const operational = !personMade(it) && teamKind(it);
+    const operational = !personMade(it) && teamKind(it) && !quietCall(it, ctx);
     if(operational && !claimed) return { tab:'team', why:'operational' };
     /* Covering (the day plan): a coordinator out today; their own work that is late or due today is done by whoever is
        on duty, and stays theirs. Projects and journeys wait for them. */
@@ -173,7 +188,7 @@
     return n.end;
   }
 
-  const CORE = { confidential, personMade, offered, teamKind, track, deadline, escalation, place, teamCard, onDuty, outOn, shiftDue,
+  const CORE = { confidential, personMade, offered, teamKind, track, deadline, escalation, place, teamCard, onDuty, outOn, shiftDue, callKept, quietCall,
     ymdChicago, TEAM_KINDS, MINE_KINDS, CONFIDENTIAL_KINDS };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
@@ -384,6 +399,9 @@
     return list().filter(x => x.tc.track === 'care');
   }
   function careHtml(){ return careForMe().map(cardHtml).join(''); }
-  W.TW = Object.assign({}, CORE, { on, visible, ctx, list, teamIds, take, render, careForMe, careHtml, cardHtml, setFill, toggle, familyCC, shiftEnd, nextShift,
+  /* the quieter call reader, for my-work-tiers.js and call-practice.js (preview: what would leave while it is off) */
+  const quietOne = it => quietCall(it, ctx());
+  const quietWould = it => !!it && it.status === 'open' && lc(it.kind) === 'call_followup' && !callKept(it, ctx());
+  W.TW = Object.assign({}, CORE, { quietOne, quietWould, on, visible, ctx, list, teamIds, take, render, careForMe, careHtml, cardHtml, setFill, toggle, familyCC, shiftEnd, nextShift,
     count: () => list().length, SW_ON, SW_OFF });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -34,10 +34,13 @@
     return !!it.sensitive || /coach|discipline|writeup|write_up|termination|investigation|^hr/.test(k)
       || /attendance-threshold|hr-agent/.test(lc(it.opened_by)) || lc(it.domain) === 'caregiver_performance';
   }
-  function tierOf(it){
+  /* quiet (2026-10-29, the quieter call reader): a call follow-up that is not a promise or care at risk is a Hub reminder,
+     drawn as one "From calls" line (team-work.js quietCall decides; the Hub passes it in) */
+  function tierOf(it, quiet){
     if(!it) return 'tasks';
     const k = lc(it.kind), step = lc(it.step_key);
     if(confidential(it)) return 'tasks';
+    if(quiet && quiet(it)) return 'rem';
     if(NEVER_REMINDER.indexOf(k) > -1) return 'tasks';
     if(k === 'relationship_call') return 'rel';
     if(k === 'journey' && step === 'fw.family') return 'rel';
@@ -66,6 +69,8 @@
   const isOwner = () => { try{ return !!W.ccIsOwner(); }catch(e){ return false; } };
   const me = () => { try{ return lc(W.opsMeKey ? W.opsMeKey() : W.ccActor().email); }catch(e){ return ''; } };
   const on = () => (D().ops_settings || {}).my_work_tiers_live === true;
+  const quiet = it => { try{ return !!(W.TW && typeof W.TW.quietOne === 'function' && W.TW.quietOne(it)); }catch(e){ return false; } };
+  const tierOfHub = it => tierOf(it, quiet);
   let PREVIEW = false;
   /* in use: on for everyone, or an owner previewing it while it is off */
   const active = () => on() || (PREVIEW && isOwner());
@@ -107,19 +112,34 @@
       + (late ? ' <span class="field-note">was due ' + esc(new Date(d).toLocaleDateString('en-US', { month:'short', day:'numeric' })) + '</span>' : '') + '</span>'
       + '<button class="ghost" style="padding:3px 10px;font-size:12px;" onclick="MWT.gotIt(\'' + esc(it.id) + '\')">Got it</button></div>';
   }
+  /* From calls: the call follow-ups that left Team Work, as ONE line that opens them on the AI call reader (her
+     recommendation 1: the work is not lost, and nobody is buried in it). Never in the red number. */
+  function fromCallsRow(calls, now){
+    if(!calls.length) return '';
+    const late = calls.filter(it => { const d = Date.parse(it.due || ''); return !isNaN(d) && d < now; }).length;
+    return '<div class="mwt-rem mwt-calls" style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:6px 2px;border-top:1px solid rgba(0,0,0,.07);">'
+      + '<span style="flex:1 1 260px;min-width:0;"><b>From calls:</b> ' + calls.length + ' follow-up' + (calls.length === 1 ? '' : 's') + ' the call reader gave you'
+      + (late ? ' <span class="field-note">(' + late + ' past ' + (late === 1 ? 'its' : 'their') + ' time)</span>' : '') + '</span>'
+      + '<button class="ghost" style="padding:3px 10px;font-size:12px;" onclick="MWT.openCalls()">Open them</button></div>';
+  }
+  function openCalls(){
+    try{ if(W.CPR && typeof W.CPR.showOpen === 'function') W.CPR.showOpen(me()); }catch(e){}
+    if(typeof W.switchTab === 'function') W.switchTab('callfollowups');
+  }
   /* The rows My Work's Today would show, grouped. o = { now:[], rows:[], card:(it)=>html, approvals:n, unowned:[] } */
   function tiersHtml(o){
     const now = Date.now(), e = new Date(); e.setHours(23, 59, 59, 999); const eod = e.getTime(), week = now + 7 * 864e5;
     const by = { rel:[], leads:[], tasks:[], rem:[] };
-    o.rows.forEach(it => by[tierOf(it)].push(it));
+    o.rows.forEach(it => by[tierOfHub(it)].push(it));
     (o.unowned || []).forEach(it => by.tasks.push(it));
     let h = '';
     TIERS.forEach(t => {
       const list = sortTier(by[t.k], now, eod);
       if(t.k === 'rem'){
         if(!list.length) return;
-        const first = list.slice(0, 5), rest = list.slice(5);
-        h += panel(t, first.map(remRow).join('') + (rest.length ? '<details><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#5D6670;margin-top:4px;">Show ' + rest.length + ' more</summary>' + rest.map(remRow).join('') + '</details>' : ''), list.length);
+        const calls = list.filter(quiet), plain = list.filter(it => !quiet(it));
+        const first = plain.slice(0, 5), rest = plain.slice(5);
+        h += panel(t, fromCallsRow(calls, now) + first.map(remRow).join('') + (rest.length ? '<details><summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:#5D6670;margin-top:4px;">Show ' + rest.length + ' more</summary>' + rest.map(remRow).join('') + '</details>' : ''), plain.length + (calls.length ? 1 : 0));
         return;
       }
       /* folded under "more, later": only cards dated over a week out; anything with no date (a failed send) always shows */
@@ -170,5 +190,5 @@
     setFill(); if(typeof W.myWorkRefresh === 'function') W.myWorkRefresh();
   }
 
-  W.MWT = Object.assign({}, CORE, { on, active, preview, previewLink, tiersHtml, unownedForMe, gotIt, setFill, toggle, SW_ON, SW_OFF });
+  W.MWT = Object.assign({}, CORE, { tierOf:tierOfHub, quiet, openCalls, on, active, preview, previewLink, tiersHtml, unownedForMe, gotIt, setFill, toggle, SW_ON, SW_OFF });
 })(typeof window !== 'undefined' ? window : globalThis);
