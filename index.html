@@ -4948,6 +4948,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="lcToggleBtn" onclick="lcToggle(this)">Turn on the new Leads list for everyone</button>
   <span class="field-note" id="lcSaved"></span>
 </div>
+<!-- Call notes from recorded calls (2026-10-29, her "do the same for our leads" after the CDS hub): ops_settings.call_notes_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Call notes from recorded calls</div>
+<p class="hint">After every answered call on a lead, the call reader writes a short note and a suggested call back date. It waits on the family's Leads row and profile until someone presses "OK, save it" (the note goes on their call log and the call back date is set) or "Not about them". Read the whole call, Listen, and Add as a contact for people heard on the call. Notes are for the office only: nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="cnSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="cnToggleBtn" onclick="cnToggle(this)">Turn on call notes for everyone</button>
+  <button class="secondary" id="cnPreviewBtn" onclick="cnPreview(!CallNotes.previewOn());cnSetFill();">Preview call notes (only me)</button>
+  <span class="field-note" id="cnSaved"></span>
+</div>
 <!-- How did they reach us? (2026-10-22, her mockup board 3 of https://claude.ai/artifact/UsJfjnivkUHXSRJjsRgi2U): ops_settings.lead_reached_by_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">How did they reach us?</div>
 <p class="hint">Add lead asks how the family reached us: Called us, Website form, Facebook form, Referral form, Walked in or Email. Called us or Walked in counts as the first conversation, so the family never gets the first-call alerts; a form still starts the 5-minute clock. It replaces the "We're talking to them on this call" box, and changing an existing lead to Called us stops its first-call alerts too. Leads cards show it as a tag, with who referred them. Source and Referred By stay as they are. Only Samantha or Zachary can turn this on or off.</p>
@@ -6049,6 +6058,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
             <div id="lp_name" style="font-size:18px;font-weight:800;color:var(--navy);"></div>
             <div id="lp_for" class="field-note"></div>
             <div id="lp_returning"></div>
+            <div id="lp_callnotes"></div><!-- 2026-10-29 call notes waiting for an OK (call-notes.js) -->
             <div id="famLead"></div>
           </div>
         </div>
@@ -7720,8 +7730,9 @@ The HomeTogether team</pre>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
 <script src="leads-table.js?v=1"></script>
-<script src="family-link.js?v=1"></script><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
-<script src="leads-board.js?v=20"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
+<script src="family-link.js?v=1"></script>
+<script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
+<script src="leads-board.js?v=21"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=3"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
@@ -11179,6 +11190,7 @@ function renderLeadProfile(){
   lpScRender();
   jcRenderStatus();
   ckRenderReturning();
+  try{ if(window.CallNotes) CallNotes.renderProfile(); }catch(e){ console.warn('call notes', e); }
   famMount('famLead', { lead_id:l.id }, 'lead');
   cpRenderCommand(); lpiRender();
   try{ if(typeof lwRender==='function') lwRender(); }catch(e){ console.warn('lead workspace:', e); }
@@ -19232,6 +19244,26 @@ async function lcToggle(btn){
   const sv=document.getElementById('lcSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   lcSetFill(); try{ renderLeadsStarts(); }catch(e){}
 }
+/* Call notes (2026-10-29): the switch, owners only. Off = no call notes anywhere (an owner may preview them). */
+function cnSetFill(){
+  const now=document.getElementById('cnSetNow'), b=document.getElementById('cnToggleBtn'), pv=document.getElementById('cnPreviewBtn'); if(!now) return;
+  const on=!!(window.CallNotes&&CallNotes.liveOn(DATA.ops_settings||{})), owner=ccIsOwner();
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Call notes wait on Leads for everyone.':'<b style="color:#B7791F;">Off.</b> Nobody sees call notes'+(window.CallNotes&&CallNotes.previewOn()?' except you (preview, this browser).':'.'))+(owner?'':' Only Samantha or Zachary can change this.');
+  if(b){ b.textContent=on?'Turn off call notes':'Turn on call notes for everyone'; b.style.display=owner?'':'none'; }
+  if(pv){ pv.textContent=window.CallNotes&&CallNotes.previewOn()?'Stop my preview':'Preview call notes (only me)'; pv.style.display=owner&&!on?'':'none'; }
+}
+async function cnToggle(btn){
+  if(!ccIsOwner()){ alert('Only Samantha or Zachary can change call notes.'); return; }
+  const on=!(window.CallNotes&&CallNotes.liveOn(DATA.ops_settings||{}));
+  const ok=await ccConfirm(on?'Turn on call notes for everyone?\n\nAfter each answered call on a lead, a short note and a call back date wait on Leads until someone presses OK. Nothing is sent to any family.'
+    :'Turn off call notes? Notes waiting stay saved and come back if you turn it on again.');
+  if(!ok) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.call_notes_live=on; if(on&&!m.call_notes_live_since) m.call_notes_live_since=new Date().toISOString(); return ['Call notes '+(on?'ON':'OFF')]; }, 'Call notes');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('cnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  cnSetFill(); try{ renderLeadsStarts(); }catch(e){}
+}
 /* How did they reach us? (2026-10-22): the switch, owners only. Off = the form and the cards as before. */
 function rbSetFill(){
   const now=document.getElementById('rbSetNow'), b=document.getElementById('rbToggleBtn'); if(!now) return;
@@ -19377,6 +19409,7 @@ function lhSetFill(){
   try{ m2cSetFill(); }catch(e){}
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
+  try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ rbSetFill(); }catch(e){}
   try{ rcSetFill(); }catch(e){}
