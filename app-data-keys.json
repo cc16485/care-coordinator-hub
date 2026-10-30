@@ -70,6 +70,7 @@
     "ops_items",
     "ops_settings",
     "orient_sessions",
+    "overnight_handoff",
     "pay_rates",
     "phone_suppress",
     "positions",
@@ -94,6 +95,7 @@
     "supply_items",
     "supply_requests",
     "timekeeper_cases",
+    "visit_reason_practice",
     "visit_watch"
   ]
 }
