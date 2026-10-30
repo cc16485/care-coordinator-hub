@@ -212,6 +212,23 @@
 
   function rates() { const r = (D().ops_settings || {}).visit_rates || {}; return { wellness: Number(r.wellness) || 30, personal: Number(r.personal) || 32, advanced: Number(r.advanced) || 34 }; }
   function mins() { const m = (D().ops_settings || {}).visit_minimums || {}; return { visit: Number(m.visit) || 4, week: Number(m.week) || 8 }; }
+  /* 2026-10-30 (Samantha: "1.5x if its for a couple who both need personal care, $5 additional per hour for shorter than 4 hour
+     shift"; her answer: a flat $5 an hour on any approved visit under the minimum). The couple rule is the Client Care
+     Agreement's "Enhanced couple care rate". Owners change both in Settings > Home visit (ops_settings.visit_extras). */
+  function extras() { const x = (D().ops_settings || {}).visit_extras || {}; return { couple: Number(x.couple_x) || 1.5, short: Number(x.short_fee) >= 0 && x.short_fee !== '' && x.short_fee != null ? Number(x.short_fee) : 5 }; }
+  const money = (n) => '$' + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, '');
+  const COUPLE = [['no', 'One client'], ['both', 'A couple, and both need hands-on care']];
+  /* the hourly rate the family pays: the quoted rate, times the couple rate, plus the short-visit amount on a day under the minimum */
+  function billed(v, short) { const base = Number(String(v.rate || '').replace(/[^\d.]/g, '')) || 0, x = extras(); if (!base) return 0; return base * (v.couple === 'both' ? x.couple : 1) + (short ? x.short : 0); }
+  function priceHtml() {
+    const v = ST.a.visit, x = extras(), mn = mins(), base = Number(String(v.rate || '').replace(/[^\d.]/g, '')) || 0;
+    if (!base) return '<span class="hv-n">Pick a care level to see the rate.</span>';
+    const shortDays = DAYS.filter((d) => { const h = dayHours(d[0]); return h > 0 && h < mn.visit; });
+    const rows = ['<div class="hv-li"><span>' + (v.couple === 'both' ? 'Couple care rate (' + x.couple + ' × ' + money(base) + ')' : 'Hourly rate') + '</span><span>' + money(billed(v, false)) + ' an hour</span></div>'];
+    shortDays.forEach((d) => rows.push('<div class="hv-li"><span>' + d[1] + ', ' + dayHours(d[0]) + ' hours (under ' + mn.visit + '): +' + money(x.short) + ' an hour</span><span>' + money(billed(v, true)) + ' an hour</span></div>'));
+    return rows.join('') + (shortDays.length ? '<div class="hv-n">A visit under ' + mn.visit + ' hours happens only when the office approves it.</div>' : '');
+  }
+  function priceRefresh() { const el = document.getElementById('hvPrice'); if (el) el.innerHTML = priceHtml(); }
 
   const ST = { a: null, lead: null, sec: 0, saveT: null, tick: null };
 
@@ -558,7 +575,8 @@
       add('visit.pain', 'Has pain', 'Health', v.pain);
       add('visit.equipment', 'Equipment they use or have', 'Health', (v.equipment || []).join(', '));
       const days = DAYS.filter((d) => dayHours(d[0])).map((d) => d[1] + ' ' + v.week[d[0]].from + ' to ' + v.week[d[0]].to);
-      add('visit.week', 'Schedule agreed', 'Schedule', days.join(', ')); add('visit.start', 'Hoped-for start', 'Schedule', v.start);
+      add('visit.week', 'Schedule agreed', 'Schedule', days.join(', '));
+      add('visit.couple', 'Couple care (both need hands-on care, billed at the couple rate)', 'Schedule', v.couple === 'both' ? 'Yes' : ''); add('visit.start', 'Hoped-for start', 'Schedule', v.start);
       add('visit.level', 'Care level', 'Schedule', ((LEVELS.find((L) => L[0] === v.level) || [0, ''])[1]));
       add('visit.comments', 'General comments', 'Schedule', v.comments);
       add('visit.attendees', 'People in the room', 'Start', (v.attendees || []).filter((p) => p.name).map((p) => p.name + (p.rel ? ' (' + p.rel + ')' : '')).join(', '));
@@ -758,9 +776,10 @@
   function weekSummary() {
     const hs = DAYS.map((d) => dayHours(d[0])).filter((h) => h > 0), tot = hs.reduce((a, b) => a + b, 0), mn = mins();
     if (!hs.length) return '<span class="hv-n">Add start and end times on the days they want care.</span>';
-    const short = hs.some((h) => h < mn.visit) || tot < mn.week;
+    const shortV = hs.some((h) => h < mn.visit), shortW = tot < mn.week;
     return '<span><b>' + tot + ' hours a week</b>, ' + hs.length + ' visit' + (hs.length === 1 ? '' : 's') + '</span>'
-      + '<span class="' + (short ? 'hv-warn' : 'hv-ok') + '">' + (short ? 'Below the ' + mn.visit + ' hours a visit and ' + mn.week + ' hours a week minimum' : 'Meets the ' + mn.visit + ' hours a visit and ' + mn.week + ' hours a week minimum') + '</span>';
+      + '<span class="' + (shortV || shortW ? 'hv-warn' : 'hv-ok') + '">' + (!shortV && !shortW ? 'Meets the ' + mn.visit + ' hours a visit and ' + mn.week + ' hours a week minimum'
+        : [shortV ? 'A visit under ' + mn.visit + ' hours: ' + money(extras().short) + ' more an hour, with the office\'s OK' : '', shortW ? 'Below the ' + mn.week + ' hours a week minimum' : ''].filter(Boolean).join('. ')) + '</span>';
   }
   /* the level her daily-activities answers point to: hands-on personal care is Personal; a lift or full transfers is Advanced */
   function suggestLevel() {
@@ -790,7 +809,10 @@
         + '<div class="hv-sum" id="hvWeekSum">' + weekSummary() + '</div>' + lab('Hoped-for start', field('visit.start', '', { type: 'date', attrs: ' style="max-width:220px"' })))
       + card('A typical shift', '<div id="hvShift">' + shiftHtml() + '</div>')
       + card('How care will be paid', payerHtml())
-      + card('Care level', '<div id="hvLevels">' + levelHtml() + '</div>' + '<div class="hv-row" style="justify-content:flex-start;gap:14px">' + lab('Rate quoted ($ an hour)', field('visit.rate', '', { attrs: ' inputmode="decimal" style="max-width:170px" id="hvRate"' })) + '<span class="hv-n">Fills in from the level. Change it only if you quoted something different.</span></div>')
+      + card('Care level', '<div id="hvLevels">' + levelHtml() + '</div>' + '<div class="hv-row" style="justify-content:flex-start;gap:14px">' + lab('Rate quoted ($ an hour)', field('visit.rate', '', { attrs: ' inputmode="decimal" style="max-width:170px" id="hvRate"' })) + '<span class="hv-n">Fills in from the level. Change it only if you quoted something different.</span></div>'
+        + '<div class="hv-row" style="justify-content:flex-start;gap:14px;flex-wrap:wrap"><b>Who is getting care?</b>' + pills('visit.couple', COUPLE) + '</div>'
+        + '<div class="hv-n">A couple who both need personal care, dementia care or hands-on help is ' + extras().couple + ' × the rate. A couple sharing only household help pays the regular rate.</div>'
+        + '<div id="hvPrice">' + priceHtml() + '</div>')
       + '<div class="hv-g2">'
       + card('General comments', field('visit.comments', 'Anything else to remember or recommend', { rows: 3 }))
       + card('How did the visit end?', pills('visit.outcome', OUTCOMES) + '<div class="hv-n">You record it on Start of Care, step 3, when you finish the visit. This keeps it in mind until then.</div>')
@@ -805,7 +827,10 @@
     const v = ST.a.visit, L = LEVELS.find((x) => x[0] === v.level), days = DAYS.filter((d) => dayHours(d[0]));
     const fmt = (t) => { if (!t) return ''; const p = t.split(':'), h = +p[0]; return ((h % 12) || 12) + ':' + p[1] + (h < 12 ? 'am' : 'pm'); };
     const sched = days.map((d) => d[1] + ' ' + fmt(v.week[d[0]].from) + ' to ' + fmt(v.week[d[0]].to)).join(', ');
+    const short = days.filter((d) => dayHours(d[0]) < mins().visit).map((d) => d[1]);
     const rows = [['Care level and rate', L ? L[1] + (v.rate ? ', $' + String(v.rate).replace(/^\$/, '') + ' an hour' : '') : 'Pick a level on the last screen'],
+      ...(v.couple === 'both' && v.rate ? [['Couple care rate', money(billed(v, false)) + ' an hour (' + extras().couple + ' × the rate)']] : []),
+      ...(short.length && v.rate ? [['Short visits (' + short.join(', ') + ')', money(billed(v, true)) + ' an hour, with the office\'s OK']] : []),
       ['Schedule', sched || 'No days yet'], ['Hoped-for start', v.start || 'Not set'],
       ['Contacts', (v.attendees || []).filter((p) => p.role !== 'client' && p.name).map((p) => p.name).join(', ') || 'None added']];
     /* 2026-10-30 (her: "go straight to the care agreement ... we need to have a signed agreement before we would make them active
@@ -1143,7 +1168,7 @@
     document.getElementById('hvFoot').innerHTML = footHtml();
     const b = document.querySelector('#hvRoot .hv-body'); if (b) b.scrollTop = 0;
   }
-  function refreshLevels() { const lv = document.getElementById('hvLevels'); if (lv) lv.innerHTML = levelHtml(); }
+  function refreshLevels() { const lv = document.getElementById('hvLevels'); if (lv) lv.innerHTML = levelHtml(); priceRefresh(); }
 
   function render() {
     css();
@@ -1192,9 +1217,9 @@
       if (ST.a.visit.heard && ST.a.visit.heard[p]) { delete ST.a.visit.heard[p]; el.classList.remove('hv-heard'); }
       el.classList.remove('hv-from');
       if (ST.a.visit.from_call && ST.a.visit.from_call[p]) delete ST.a.visit.from_call[p];
-      if (p === 'visit.rate') ST.a.visit.rate_typed = true;
+      if (p === 'visit.rate') { ST.a.visit.rate_typed = true; priceRefresh(); }
       needsRefresh();
-      if (p.indexOf('visit.week.') === 0) { const s = document.getElementById('hvWeekSum'); if (s) s.innerHTML = weekSummary(); const d = el.closest('.hv-day'); if (d) d.classList.toggle('on', !!dayHours(p.split('.')[2])); }
+      if (p.indexOf('visit.week.') === 0) { priceRefresh(); const s = document.getElementById('hvWeekSum'); if (s) s.innerHTML = weekSummary(); const d = el.closest('.hv-day'); if (d) d.classList.toggle('on', !!dayHours(p.split('.')[2])); }
       if (/^visit\.attendees\.\d+\.name$/.test(p)) { /* the bar's head count */ }
       saveSoon();
     });
@@ -1223,6 +1248,7 @@
         if (p.indexOf('visit.acts.') === 0 || p === 'visit.equipment') refreshLevels();
         { const m = p.match(/^visit\.acts\.([a-z_]+)\.level$/), r = m && HOUSE.concat(PERSONAL).find((x) => x[0] === m[1]); const h = r && document.getElementById('hvHelp_' + r[0]); if (h) h.innerHTML = helpHtml(r); }
         if (p === 'visit.outings.interests') { const el = document.getElementById('hvPlaces'); if (el) el.innerHTML = placesHtml(); }
+        if (p === 'visit.couple') priceRefresh();
         if (p === 'visit.outcome') { document.getElementById('hvRail').innerHTML = railHtml(); document.getElementById('hvFoot').innerHTML = footHtml(); }
         if (p === 'visit.about.shown') { const t = pb.closest('.hv-card'); const g = t && t.querySelector('.hv-ch .hv-tag'); if (g) { const f = aboutCfg().folder; g.textContent = (get(p) || []).filter((x) => f.indexOf(x) > -1).length + ' of ' + f.length + ' shown'; } }
         if (/^visit\.(home\.|prefs\.(cats|dogs)$|safety\.hazards$)/.test(p)) { const hs = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.home + '"]'); if (hs && ST.sec === S_.home) hs.innerHTML = secHome(); }
@@ -1356,6 +1382,8 @@
       + LEVELS.map((L) => '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">' + E(L[1]) + ' ($ an hour)<input id="hvSet_' + L[0] + '" inputmode="decimal" value="' + r[L[0]] + '" style="width:110px"></label>').join('')
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a visit, at least<input id="hvSet_visit" inputmode="decimal" value="' + m.visit + '" style="width:110px"></label>'
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a week, at least<input id="hvSet_week" inputmode="decimal" value="' + m.week + '" style="width:110px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Couple care (× the rate)<input id="hvSet_couple" inputmode="decimal" value="' + extras().couple + '" style="width:110px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Short visit ($ more an hour)<input id="hvSet_short" inputmode="decimal" value="' + extras().short + '" style="width:110px"></label>'
       + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>'
       + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '')
       + (function () { const c = aboutCfg(), ta = (id, v) => '<textarea id="' + id + '" rows="7" style="width:100%;font:inherit;font-size:13px">' + E(v.join('\n')) + '</textarea>';
@@ -1379,9 +1407,10 @@
     if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the rates.'); return; }
     const n = (id) => Number(String((document.getElementById(id) || {}).value || '').replace(/[^\d.]/g, ''));
     const vr = { wellness: n('hvSet_wellness'), personal: n('hvSet_personal'), advanced: n('hvSet_advanced') }, vm = { visit: n('hvSet_visit'), week: n('hvSet_week') };
-    if (Object.values(vr).concat(Object.values(vm)).some((x) => !(x > 0))) { alert('Every box needs a number above 0.'); return; }
+    const vx = { couple_x: n('hvSet_couple'), short_fee: n('hvSet_short') };
+    if (Object.values(vr).concat(Object.values(vm), [vx.couple_x, vx.short_fee]).some((x) => !(x > 0))) { alert('Every box needs a number above 0.'); return; }
     if (btn) btn.disabled = true;
-    const out = await tkMerge((s) => { s.visit_rates = vr; s.visit_minimums = vm; return ['Home visit rates ' + vr.wellness + '/' + vr.personal + '/' + vr.advanced + ', minimums ' + vm.visit + 'h a visit, ' + vm.week + 'h a week']; }, 'Home visit rates');
+    const out = await tkMerge((s) => { s.visit_rates = vr; s.visit_minimums = vm; s.visit_extras = vx; return ['Home visit rates ' + vr.wellness + '/' + vr.personal + '/' + vr.advanced + ', minimums ' + vm.visit + 'h a visit, ' + vm.week + 'h a week, couple ' + vx.couple_x + 'x, short visit +$' + vx.short_fee]; }, 'Home visit rates');
     if (btn) btn.disabled = false;
     const sv = document.getElementById('hvSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
   }
