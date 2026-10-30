@@ -40,4 +40,24 @@ m = C.model(Object.assign({}, base, { stageK:'past', status:'Past client' }));
 ck('a past client gets the card', m.show);
 ck('age: not yet their birthday', C.ageOn('1939-11-01', '2026-10-29') === 86 && C.ageOn('', '2026-10-29') === null);
 
+// Usual schedule (2026-10-30)
+ck('times read like a person says them', C.timeWords('09:00') === '9 AM' && C.timeWords('16:30') === '4:30 PM' && C.timeWords('12:00') === '12 PM' && C.timeWords('00:00') === '12 AM');
+ck('days: a run of three or more joins with "to"', C.dayWords(['Friday', 'Monday', 'Wednesday']) === 'Mon, Wed, Fri' && C.dayWords(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']) === 'Mon to Fri' && C.dayWords(['Saturday', 'Sunday']) === 'Sat, Sun');
+const sched = { lines:[{ days:['Monday', 'Wednesday', 'Friday'], start:'09:00', end:'13:00', caregiver:'Toby H.', every_weeks:1 },
+  { days:['Saturday'], start:'10:00', end:'14:00', caregiver:null, every_weeks:1 },
+  { days:['Sunday'], start:'22:00', end:'06:00', caregiver:'Rosa M.', every_weeks:2 }], weekly_hours:20 };
+m = C.model(Object.assign({}, base, { glance:{ schedule:sched } }));
+ck('schedule lines: days, times and who', m.schedule.lines[0].t === 'Mon, Wed, Fri · 9 AM to 1 PM' && m.schedule.lines[0].who === 'Toby H.' && !m.schedule.lines[0].open, m.schedule);
+ck('a regular visit with nobody on it is flagged', m.schedule.lines[1].open);
+ck('every other week says so', m.schedule.lines[2].t === 'Every other Sun · 10 PM to 6 AM');
+ck('weekly hours', m.schedule.hours === '20 hours a week');
+m = C.model(Object.assign({}, base, { glance:{ schedule:{ lines:[], weekly_hours:0 } } }));
+ck('no regular schedule says so', m.schedule.lines.length === 0 && m.schedule.miss === 'no regular schedule in AxisCare');
+m = C.model(Object.assign({}, base, { glance:{ schedule:null } }));
+ck('schedule not read: says so, never "no schedule"', m.schedule.miss === 'could not be read from AxisCare');
+m = C.model(Object.assign({}, base, { glance:{ dob:null } }));
+ck('an older server with no schedule field: the line stays off', m.schedule === null);
+m = C.model(Object.assign({}, base, { glance:null, glanceErr:'' }));
+ck('schedule while loading', m.schedule.miss === 'reading AxisCare…');
+
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);

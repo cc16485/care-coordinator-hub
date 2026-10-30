@@ -11,7 +11,9 @@ SHOTS = sys.argv[1] if len(sys.argv) > 1 else ''
 ns = {'__file__': os.path.join(HERE, 'client_care_look.py')}; exec(open(os.path.join(HERE, 'client_care_look.py')).read().split('\nwith sync_playwright() as pw:')[0], ns)
 STUB, DATA, FAKE = ns['STUB'], ns['DATA'], ns['FAKE']
 GLANCE = {'801': {'dob': '1939-04-12', 'address': '1420 E Cherry St, Springfield, MO 65802', 'phone': '(417) 555-0134', 'start_date': '2025-03-03',
-                  'contact': {'name': 'Susan Ames', 'relationship': 'Daughter', 'phone': '(417) 555-0190', 'from': 'Family Circle'}}}
+                  'contact': {'name': 'Susan Ames', 'relationship': 'Daughter', 'phone': '(417) 555-0190', 'from': 'Family Circle'},
+                  'schedule': {'lines': [{'days': ['Monday', 'Wednesday', 'Friday'], 'start': '09:00', 'end': '13:00', 'caregiver': 'Toby H.', 'every_weeks': 1},
+                                         {'days': ['Saturday'], 'start': '10:00', 'end': '14:00', 'caregiver': None, 'every_weeks': 1}], 'weekly_hours': 16}}}
 SETUP = r"""
 (async()=>{ const W=window, of=W.fetch, G=%s;
   W.__glanceCalls=0;
@@ -48,6 +50,7 @@ with sync_playwright() as pw:
     ok('born with age, address and phone from AxisCare', 'Apr 12, 1939 (age 87)' in x['card'] and '1420 E Cherry St' in x['card'] and '(417) 555-0134' in x['card'], x)
     ok('main contact from the Family Circle, with Call on the office line', 'Susan Ames (Daughter)' in x['card'] and '(417) 555-0190' in x['call'] and '(417) 555-0134' in x['call'], x)
     ok('the labels her mockup named', all(k in x['card'] for k in ['Born', 'Address', 'Phone', 'Care level', 'Pays by', 'Care Coordinator', 'Main contact', 'Needs attention']), x)
+    ok('usual schedule: days, times, who, and weekly hours', 'Usual schedule' in x['card'] and 'Mon, Wed, Fri · 9 AM to 1 PM · with Toby H.' in x['card'] and 'Sat · 10 AM to 2 PM · no caregiver' in x['card'] and '16 hours a week' in x['card'], x)
     ok('when care started', 'Care started' in x['card'] and 'Mar 3, 2025' in x['card'], x)
     ok('on the Overview the header line, facts line, command area and requests card step aside', not x['top'] and not x['facts'] and not x['cmd'] and not x['changes'], x)
     ok('Who they are lives on Activity & Documents now', x['whoIn'] == 'cgMoreSlot', x)
