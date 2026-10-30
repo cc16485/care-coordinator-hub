@@ -71,7 +71,7 @@ T = r"""async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   await openClient({ lead_id:'H1', ax:'48213' },'history'); await sleep(1200);
   const B=()=>document.getElementById('cp_history'), txt=()=>B().innerText;
-  ok('the tab shows ONE History card', !!B() && /History/.test(txt()) && !document.getElementById('cp_calls') && !document.getElementById('cp_ax_log') && !document.getElementById('cp_change_log'), txt());
+  ok('the tab shows ONE History card', !!B() && /Communication/.test(txt()) && !document.getElementById('cp_calls') && !document.getElementById('cp_ax_log') && !document.getElementById('cp_change_log'), txt());
   ok('her seven chips, in order', [...B().querySelectorAll('.ch-chip')].map(b=>b.firstChild.textContent).join('|')==='All|Calls|Texts & emails|Notes|Journey|Care changes|AxisCare', [...B().querySelectorAll('.ch-chip')].map(b=>b.textContent));
   const rows=()=>[...B().querySelectorAll('.ch-row')].map(r=>r.innerText.replace(/\s+/g,' '));
   ok('newest first: today\'s call is the first entry', /Karen \(daughter\) called us/.test(rows()[0]||''), rows());

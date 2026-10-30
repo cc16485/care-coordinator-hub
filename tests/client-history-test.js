@@ -141,6 +141,8 @@ ck('no em dashes in the family entries', !JSON.stringify(fb).includes('\u2014'))
 const page = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 ck('index.html loads client-history.js', /<script src="client-history\.js\?v=\d+"><\/script>/.test(page));
 ck('the tab has the one History card and no stacked boxes', page.includes('<div id="cp_history"></div>') && !page.includes('<div id="cp_calls"></div>') && !page.includes('<div id="cp_ax_log"></div>') && !page.includes('<div id="cp_change_log"></div>') && !page.includes('id="cp_c_history"'));
+ck('her words: the tab is Communication & Documents, second after Overview', (t => t[0] === 'summary' && t[1] === 'history')([...page.slice(page.indexOf('<div id="cpTabs"'), page.indexOf('</div>', page.indexOf('<div id="cpTabs"'))).matchAll(/data-cp="(\w+)"/g)].map(m => m[1])) && page.includes(">Communication &amp; Documents</button>") && !page.includes('>Activity &amp; Documents<'));
+ck('the card is called Communication', src.includes('>Communication</b>'));
 ck('EVV forms keep their own section', page.includes('<div id="cp_evv_forms"></div>'));
 ck('the profile mounts it and hands over the start events', page.includes("if(typeof chMount==='function') chMount();") && page.includes("typeof chAddStart==='function') chAddStart(add);"));
 ck('the History card reads nothing new: no service_role, no new function name', !/service_role|functions\/v1\/client-history/.test(src));

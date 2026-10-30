@@ -342,8 +342,8 @@
     const now = new Date().toISOString();
     page.forEach(x => { const d = dayWords(x.at, now); if(d !== last){ rows += '<div class="ch-day">' + esc(d) + '</div>'; last = d; } rows += rowHtml(x); });
     const loading = H.pending > 0;
-    box.innerHTML = '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><b style="font-size:16px;color:var(--navy);">History</b>'
-      + '<span class="field-note">every call, text, note and change for this client, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="chReload()" title="Load again">↻</button></div>'
+    box.innerHTML = '<div class="card" style="padding:16px 18px;margin-bottom:14px;"><div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;"><b style="font-size:16px;color:var(--navy);">Communication</b>'
+      + '<span class="field-note">every call, text and email with the client and their family, plus notes and changes, newest first</span><span style="flex:1;"></span><button class="linklike" onclick="chReload()" title="Load again">↻</button></div>'
       + '<div class="ch-chips">' + CHIPS.map(([k, l]) => '<button type="button" class="ch-chip' + (k === H.chip ? ' on' : '') + '" data-ch-chip="' + k + '">' + esc(l) + '<span class="n">' + c[k] + '</span></button>').join('') + '</div>'
       + b.problems.map(p => '<div class="ch-prob">' + esc(p.words) + ' Everything else is shown.</div>').join('')
       + (G('CP') && G('CP').lead ? '<div style="display:flex;gap:8px;margin:4px 0;"><input id="chNoteIn" style="flex:1;min-width:0;" placeholder="Add a note (a call goes through Log a call, so it counts)" onkeydown="if(event.key===\'Enter\')chNote()"><button class="secondary" onclick="chNote()">Add</button></div>' : '')

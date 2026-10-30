@@ -6053,6 +6053,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <div id="cjHead"></div>
   <div id="cpTabs" class="cp-tabs">
     <button type="button" class="cp-tab" data-cp="summary" onclick="cpShowTab('summary')">Overview</button>
+    <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Communication &amp; Documents</button><!-- her ask 2026-10-30: "say communication", second, near the front -->
     <button type="button" class="cp-tab" data-cp="intake" onclick="cpShowTab('intake')">Lead intake</button>
     <button type="button" class="cp-tab" data-cp="start" onclick="cpShowTab('start')">Start of Care</button>
     <button type="button" class="cp-tab" data-cp="family" onclick="cpShowTab('family')">Family &amp; Contacts</button>
@@ -6062,7 +6063,6 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button type="button" class="cp-tab" data-cp="checkins" onclick="cpShowTab('checkins')">Check-ins</button>
     <button type="button" class="cp-tab" data-cp="payer" onclick="cpShowTab('payer')">Payer</button>
     <button type="button" class="cp-tab" data-cp="home" onclick="cpShowTab('home')">Home &amp; Life</button>
-    <button type="button" class="cp-tab" data-cp="history" onclick="cpShowTab('history')">Activity &amp; Documents</button>
   </div>
   <div class="cp-pane" data-cp-pane="summary">
   <div id="cgCard"></div><!-- the client at a glance (2026-10-29, client-glance.js): for a client receiving care, the Overview is this one card -->
@@ -7772,7 +7772,7 @@ The HomeTogether team</pre>
 <script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
 <script src="leads-board.js?v=21"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
-<script src="client-history.js?v=4"></script><!-- Step D (2026-10-15): the client profile's one History list -->
+<script src="client-history.js?v=5"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="client-glance.js?v=2"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
@@ -10729,7 +10729,7 @@ function cpShowTab(t){
   if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }
   if(CP.tab==='cgprev'&&window.CGP) CGP.load();   /* Caregiver Preview: read fresh each time it is opened */   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
-/* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Activity & Documents. */
+/* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Communication & Documents. */
 async function cpRenderEvvForms(){
   const box=document.getElementById('cp_evv_forms'); if(!box) return;
   const ax=String(CP.ax||'');
@@ -36047,7 +36047,7 @@ function lpiRender(){
   const banner=b.began?'<div class="lp-banner">Care began '+esc(dd(b.began.ymd)||'')+' ('+esc(b.began.basis)+'). This is what we learned before care started, kept as it was. What\'s current lives on Care, Home &amp; Life and the other tabs.</div>'
     :b.error?'<div class="lp-banner warn">Couldn\'t check whether care has started ('+esc(b.error)+'), so editing is paused. Reopen the profile to try again.</div>':'';
   const story='<div class="lp-story"><h3 class="lp-h">The story so far</h3>'
-    +(notes?'<p class="lp-quote">'+esc(notes.length>700?notes.slice(0,700)+'…':notes)+'</p><p class="lp-prov">From the call notes, as typed'+(notes.length>700?'. The rest is under Why they\'re reaching out, and in Activity &amp; Documents.':'.')+'</p>'
+    +(notes?'<p class="lp-quote">'+esc(notes.length>700?notes.slice(0,700)+'…':notes)+'</p><p class="lp-prov">From the call notes, as typed'+(notes.length>700?'. The rest is under Why they\'re reaching out, and in Communication &amp; Documents.':'.')+'</p>'
       :'<p class="lp-prov">No call notes yet.'+(locked?'':' <button class="lp-link" onclick="lpiEdit(\'why\')">Add them</button>')+'</p>')
     +(l.ai_needs_summary?'<div class="lp-ai"><span class="lp-tag ai">AI</span> '+esc(l.ai_needs_summary)+'<div class="lp-prov">Written by AI from the call notes. Not checked by a person.</div></div>':'')+'</div>';
   box.innerHTML=banner+'<div class="lp-intake"><div class="lp-main">'+story+'<span id="lpiMsg" class="lp-prov" role="status">'+(LPI.flash&&LPI.flash.lead===l.id?esc(LPI.flash.text):'')+'</span>'+LPI_CH.map(c=>chapter(c)+(c.key==='person'&&window.LSTORY?LSTORY.html({ lead:l, ax:CP.ax||'', name:client },'intake'):'')).join('')+'</div><aside class="lp-side">'+side+'</aside></div>';
