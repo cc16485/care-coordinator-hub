@@ -87,7 +87,7 @@ async()=>{
   ok('a typed rate is never written over', a.visit.rate==='32.50' && a.visit.level==='wellness');
   q('[data-hva="level"][data-v="personal"]').click();
   await type('visit.week.mon.from','09:00'); await type('visit.week.mon.to','13:00');
-  ok('one 4-hour day: under the 8 hours a week minimum', /4 hours a week/.test(q('#hvWeekSum').innerText) && /Below the 4 hours a visit and 8 hours a week minimum/.test(q('#hvWeekSum').innerText), q('#hvWeekSum').innerText);
+  ok('one 4-hour day: under the 8 hours a week minimum', /4 hours a week/.test(q('#hvWeekSum').innerText) && /Below the 8 hours a week minimum/.test(q('#hvWeekSum').innerText) && !/under 4 hours/.test(q('#hvWeekSum').innerText), q('#hvWeekSum').innerText);
   await type('visit.week.wed.from','09:00'); await type('visit.week.wed.to','13:00');
   ok('two 4-hour days: meets the minimum; the days show as on', /8 hours a week/.test(q('#hvWeekSum').innerText) && /Meets the 4 hours a visit/.test(q('#hvWeekSum').innerText) && qa('.hv-day.on').length===2, q('#hvWeekSum').innerText);
   tap('visit.outcome','ready');
