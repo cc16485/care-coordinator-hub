@@ -57,11 +57,13 @@
   .hubtabs a:hover{ color:#fff; background:rgba(255,255,255,.08); }
   .hubtabs a.on{ background:var(--cream); color:var(--navy); font-weight:800; margin-bottom:-1px; }
   html.embedded header img, html.embedded header a[href="index.html"]{ display:none; }
+  /* 2026-10-30 (her "our logo doesn't work on a dark background"): the white logo on the navy header; paper drops the navy, so print the regular one */
+  @media print{ header img[src="cc-logo-light.png"]{ content:url(cc-logo.png); } }
 </style>
 </head>
 <body>
 <header>
-  <img src="cc-logo.png" alt="">
+  <img src="cc-logo-light.png" alt="">
   <span class="ttl">The 20-hour offer</span>
   <a href="index.html">&larr; Hub</a>
   <span class="sp"></span>
