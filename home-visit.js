@@ -436,27 +436,57 @@
      pitch, and what is in the folder that we gave them, and see if they have any questions before we begin talking about care".
      The talking points are the printed folder's own words (Rev. 10/2026), and owners change them in Settings > Home visit
      (ops_settings.visit_about). No prices here: the playbook gives the price after their story, on Schedule and level. */
+  /* 2026-10-30 later (her: "brainstorm best sales pitch ... make it easy for the care coordinator to quickly touch on"; she
+     approved the draft: "put the six promises on the About us screen with bold headlines, the opener and close, and the
+     background check detail under Not just anybody"). Each promise is "Headline | what to say". Every line is something
+     the folder, the website or the Hub really does; the checks are the Hub's own hiring rules (eligibility-rules.js:
+     FCSR, EDL, OIG, Case.net and two references before hire; OIG monthly, EDL every 90 days, FCSR yearly). */
+  const ABOUT_OPENER = '"Before we talk about care, let me tell you a little about who we are, so you know who you\'d be letting into your home."';
   const ABOUT_POINTS = [
-    'Our caregivers are our employees, never contractors. Every caregiver is screened, insured and bonded, and we handle the taxes, insurance and backup coverage.',
-    'Care that grows with them, without changing agencies. Wellness, Personal and Advanced Care: every level includes everything in the one before it, and most families start small.',
-    'A caregiver matched with care, by skills, personality and schedule, using everything we learn today. You see their profile before the first visit.',
-    'Every caregiver has at least a year of paid caregiving experience, our background checks, and our orientation before their first visit with a client.',
-    'Familiar faces: we aim to keep the same small group of caregivers with your loved one.',
-    'You choose who stays in the loop: texts when a caregiver is running late or changes, a note after every visit, and a care plan we review at least every 90 days.',
+    'Our people, not contractors | "Every caregiver is our employee: screened, insured and bonded. We handle the taxes, the insurance and the backup if someone is sick."',
+    'Not just anybody | "Before anyone works for us, they pass four background checks and give us two good references. After they\'re hired, we keep checking: every month, every three months and every year."',
+    'Never a stranger at the door | "Before the first visit you\'ll see your caregiver\'s profile, with their photo and a little about them. If someone different is coming, we text the family members who asked for it."',
+    'We notice when something\'s off | "If a caregiver hasn\'t clocked in a few minutes after the visit starts, the Hub catches it and the office is on it. If they\'re running late, we text the family members who asked for it."',
+    'You always know how it\'s going | "Your caregiver writes a note after every visit, and you can read the notes and invoices in AxisCare. We review the care plan at least every 90 days, and sooner when things change."',
+    'Care that grows with them | "We have three levels of care, and each one includes everything in the one before. Most families start small, and you never have to change agencies or start over with someone new."',
   ];
+  const ABOUT_CLOSE = '"That\'s us in a nutshell. Everything I just said is in this folder for you. What questions do you have before we talk about care?"';
+  const ABOUT_BEFORE = [
+    'At least a year of paid caregiving experience, and an in-person interview',
+    'Missouri\'s Family Care Safety Registry: the state\'s background check for people who care for others',
+    'Missouri\'s Employee Disqualification List: people the state has barred from working with seniors or people with disabilities',
+    'The federal exclusion list (HHS Office of Inspector General): people barred from working in healthcare programs',
+    'Missouri court records (Case.net)',
+    'Two good references, at least one from a past job. A bad or unsure reference goes to a supervisor before they can move forward',
+  ];
+  const ABOUT_AFTER = ['Every month: the federal exclusion list', 'Every 3 months: Missouri\'s Employee Disqualification List', 'Every year: the Family Care Safety Registry',
+    'Before their first visit: our orientation, and a profile with their photo'];
   const ABOUT_FOLDER = [
     'Our Levels of Care', 'Rates & Ways to Pay', 'The service sheet that fits them', 'Meet Your Caregiver', 'Client Handbook',
     'Personalized Care Proposal (filled in after today)', 'Next Steps', 'Seeing Care Notes & Invoices in AxisCare', 'The Caring Companions App',
   ];
   function aboutCfg() {
     const c = (D().ops_settings || {}).visit_about || {}, list = (x, d) => (Array.isArray(x) && x.filter((t) => String(t || '').trim()).length ? x.map((t) => String(t).trim()).filter(Boolean) : d);
-    return { points: list(c.points, ABOUT_POINTS), folder: list(c.folder, ABOUT_FOLDER) };
+    const one = (x, d) => (String(x || '').trim() || d);
+    return { opener: one(c.opener, ABOUT_OPENER), points: list(c.points, ABOUT_POINTS), close: one(c.close, ABOUT_CLOSE), before: list(c.before, ABOUT_BEFORE), after: list(c.after, ABOUT_AFTER), folder: list(c.folder, ABOUT_FOLDER) };
+  }
+  /* "Headline | what to say"; a line with no "|" shows as it is */
+  function pointHtml(t, cfg) {
+    const i = t.indexOf('|'), head = i > -1 ? t.slice(0, i).trim() : '', say = i > -1 ? t.slice(i + 1).trim() : t;
+    const checks = /^not just anybody$/i.test(head) ? '<details class="hv-more"><summary>If they want more about our background checks</summary>'
+      + '<b>Before anyone is hired (nobody starts until every one is clear)</b><ul>' + cfg.before.map((x) => '<li>' + E(x) + '</li>').join('') + '</ul>'
+      + '<b>After they\'re hired, we keep checking</b><ul>' + cfg.after.map((x) => '<li>' + E(x) + '</li>').join('') + '</ul>'
+      + '<div class="hv-n">Don\'t mention fingerprints (we don\'t fingerprint), and use these plain names, not FCSR, EDL or OIG.</div></details>' : '';
+    return '<li>' + (head ? '<b class="hv-ph">' + E(head) + '</b>' : '') + '<span>' + E(say) + '</span>' + checks + '</li>';
   }
   function secAbout() {
     const v = ST.a.visit, ab = v.about = v.about || { shown: [], questions: '' }, cfg = aboutCfg(), shown = ab.shown || [];
     return '<h1>About Caring Companions</h1><div class="hv-sub">Before we talk about care: who we are, what is in their folder, and any questions they have.</div>'
       + '<div class="hv-cols"><div class="hv-stack">'
-      + card('Who we are', '<p class="hv-ask">Say it your way. These are the points to cover.</p><ul class="hv-pts">' + cfg.points.map((t) => '<li>' + E(t) + '</li>').join('') + '</ul>'
+      + card('Who we are', '<p class="hv-ask">About 2 to 3 minutes. Glance at the headline and say it your way.</p>'
+        + '<div class="hv-say"><span class="hv-n">Open with</span>' + E(cfg.opener) + '</div>'
+        + '<ol class="hv-pts">' + cfg.points.map((t) => pointHtml(t, cfg)).join('') + '</ol>'
+        + '<div class="hv-say"><span class="hv-n">Close with</span>' + E(cfg.close) + '</div>'
         + '<div class="hv-n">Prices come later, on Schedule and level, once you know their story.</div>')
       + card('Any questions before we talk about care?', '<p class="hv-ask">"Before we talk about your care, what questions do you have for us?"</p>'
         + field('visit.about.questions', 'What they asked, and what you told them', { rows: 4 }))
@@ -1097,7 +1127,9 @@
       + '.hv-fw{display:flex;flex-direction:column;gap:4px;min-width:0}.hv-chkb{align-self:flex-start;min-height:32px;padding:0 10px;border-radius:16px;border:1px solid #9CC3C6;background:#F3F8F8;color:#14565D;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}'
       + '.hv-sqr{display:flex;flex-direction:column;align-items:flex-end;gap:2px;min-width:0}@media (max-width:700px){.hv-sqr{align-items:flex-start}}'
       + '.hv-seen{min-height:36px;padding:0 12px;border-radius:18px;border:1.5px dashed #9CA8AA;background:#fff;color:#465255;font:inherit;font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}.hv-seen.on{border:1.5px solid #2E6B3A;background:#E4F1E5;color:#2E6B3A}'
-      + '.hv-pts{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.45}'
+      + '.hv-pts{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:12px;font-size:16px;line-height:1.45}.hv-pts li span{display:block}.hv-ph{display:block;font-size:17px;color:#14565D}'
+      + '.hv-say{background:#F7F5F0;border-radius:12px;padding:10px 14px;font-size:15.5px;line-height:1.45;font-style:italic}.hv-say .hv-n{display:block;font-style:normal;font-weight:600}'
+      + '.hv-more{margin-top:6px;font-size:14px;line-height:1.45}.hv-more summary{min-height:44px;display:flex;align-items:center;color:#14565D;font-weight:600;cursor:pointer}.hv-more ul{margin:4px 0 8px;padding-left:20px}'
       + '.hv-fold{display:flex;flex-direction:column;gap:8px}.hv-fi{min-height:48px;padding:8px 14px 8px 44px;border-radius:12px;border:1.5px solid #CFCAC0;background:#fff;font:inherit;font-size:15px;text-align:left;color:#1E2B2F;cursor:pointer;position:relative}'
       + '.hv-fi::before{content:"";position:absolute;left:14px;top:50%;width:20px;height:20px;margin-top:-10px;border-radius:6px;border:1.5px solid #9CA8AA;background:#fff}'
       + '.hv-fi.on{border-color:#1F6F78;background:#F3F9F9;font-weight:600}.hv-fi.on::before{background:#1F6F78;border-color:#1F6F78;box-shadow:inset 0 0 0 4px #fff}'
@@ -1388,7 +1420,11 @@
       + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '')
       + (function () { const c = aboutCfg(), ta = (id, v) => '<textarea id="' + id + '" rows="7" style="width:100%;font:inherit;font-size:13px">' + E(v.join('\n')) + '</textarea>';
         return '<div style="margin-top:16px"><b>Talking points on the iPad</b><div class="field-note">One per line. About us is step 2 of the visit; the folder list is what coordinators tick as they show it; the jobs are the taps under housekeeping. Leave a box empty to go back to the words from the folder and the website.</div>'
-          + '<label class="field-note" style="display:block;margin-top:6px">Points to cover' + ta('hvSet_aboutPts', c.points) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Open with' + ta('hvSet_aboutOpen', [c.opener]) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">The promises, one per line: Headline | what to say' + ta('hvSet_aboutPts', c.points) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Close with' + ta('hvSet_aboutClose', [c.close]) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Background checks before hire (under Not just anybody)' + ta('hvSet_aboutBefore', c.before) + '</label>'
+          + '<label class="field-note" style="display:block;margin-top:6px">Checks after hire (under Not just anybody)' + ta('hvSet_aboutAfter', c.after) + '</label>'
           + '<label class="field-note" style="display:block;margin-top:6px">What is in their folder' + ta('hvSet_aboutFold', c.folder) + '</label>'
           + '<label class="field-note" style="display:block;margin-top:6px">Light housekeeping jobs (Around the house)' + ta('hvSet_jobsLight', houseJobs()[0][2]) + '</label>'
           + '<label class="field-note" style="display:block;margin-top:6px">Heavy housekeeping jobs (Around the house)' + ta('hvSet_jobsHeavy', houseJobs()[1][2]) + '</label>'
@@ -1397,7 +1433,7 @@
   async function aboutSave(btn) {
     if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the About us points.'); return; }
     const lines = (id) => String((document.getElementById(id) || {}).value || '').split('\n').map((t) => t.trim()).filter(Boolean);
-    const va = { points: lines('hvSet_aboutPts'), folder: lines('hvSet_aboutFold') }, hj = { light_house: lines('hvSet_jobsLight'), heavy_house: lines('hvSet_jobsHeavy') };
+    const va = { opener: lines('hvSet_aboutOpen').join(' '), points: lines('hvSet_aboutPts'), close: lines('hvSet_aboutClose').join(' '), before: lines('hvSet_aboutBefore'), after: lines('hvSet_aboutAfter'), folder: lines('hvSet_aboutFold') }, hj = { light_house: lines('hvSet_jobsLight'), heavy_house: lines('hvSet_jobsHeavy') };
     if (btn) btn.disabled = true;
     const out = await tkMerge((st) => { st.visit_about = va; st.visit_house_jobs = hj; return ['Home visit talking points: ' + va.points.length + ' About us points, ' + va.folder.length + ' folder pieces, ' + (hj.light_house.length + hj.heavy_house.length) + ' housekeeping jobs']; }, 'Home visit talking points');
     if (btn) btn.disabled = false;
