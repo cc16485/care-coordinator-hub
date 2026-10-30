@@ -89,9 +89,9 @@ async()=>{
   ok('search · "Kim" finds Walter (her linked family)', names().join('|')==='Walter Price', names());
   $('globalSearch').value='0199'; renderLeadsStarts(); await sleep(150);
   ok('search · her number finds Walter', names().join('|')==='Walter Price', names()); $('globalSearch').value=''; renderLeadsStarts(); await sleep(100);
-  K.contact_events.push({ at:new Date(Date.now()-5*60e3).toISOString(), channel:'call', direction:'in', actor:'family', outcome:'connected' }); renderLeadsStarts(); await sleep(150);
+  K.contact_events.push({ at:new Date(Date.now()+1000).toISOString(), channel:'call', direction:'in', actor:'family', outcome:'connected' }); renderLeadsStarts(); await sleep(150);
   const wr2=rows().find(r=>/Walter/.test(r.textContent));
-  ok('list · a later call on Kim\'s own number counts as Walter\'s last activity', /5 min ago/.test(wr2.textContent), wr2.querySelectorAll('.lt-c-date')[1].textContent);
+  ok('list · a later call on Kim\'s own number counts as Walter\'s last activity', /1 min ago/.test(wr2.textContent), wr2.querySelectorAll('.lt-c-date')[1].textContent);
   K.contact_events.pop();
   const note=FamilyLink.noteFor('pk1','L4');
   ok('profile · People involved says linked from her own call, with Unlink', /Linked from Kim’s own call/.test(note)&&/flUnlink\('K1'/.test(note), note);
