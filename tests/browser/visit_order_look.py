@@ -57,7 +57,15 @@ async()=>{
   ok('twelve screens in her order; the walk-through says it is only when starting care', rail.join('|')==='1 Start the visit|2 About us|3 Their story|4 Good days out|5 Around the house|6 Health|7 Personal care|8 Preferences|9 Schedule and level|10 Home walk-through if starting care|11 Agreement and sign-off|12 After the visit', rail);
   /* About us */
   await go(1); const ab=sec(1).innerText;
-  ok('About us: the folder\'s points to cover, no prices, a nudge that prices come later', /employees, never contractors/.test(ab) && /grows with them/.test(ab) && /at least every 90 days/.test(ab) && !/\$\d/.test(ab) && /Prices come later/.test(ab), ab.slice(0,700));
+  ok('About us: the folder\'s points to cover, no prices, a nudge that prices come later', /our employee: screened, insured and bonded/.test(ab) && /Care that grows with them/.test(ab) && /at least every 90 days/.test(ab) && !/\$\d/.test(ab) && /Prices come later/.test(ab), ab.slice(0,700));
+  const heads=qa('.hv-sec[data-sec="1"] .hv-ph').map(b=>b.textContent);
+  ok('the pitch: six promises, each a bold headline over what to say, in her order', heads.join('|')==="Our people, not contractors|Not just anybody|Never a stranger at the door|We notice when something's off|You always know how it's going|Care that grows with them", heads);
+  ok('the pitch opens and closes with her lines', /Open with.*so you know who you'd be letting into your home/s.test(ab) && /Close with.*What questions do you have before we talk about care/s.test(ab), ab.slice(0,400));
+  const more=q('.hv-sec[data-sec="1"] details.hv-more');
+  ok('the background check detail sits under Not just anybody only, folded', more && more.closest('li').querySelector('.hv-ph').textContent==='Not just anybody' && !more.open && qa('.hv-sec[data-sec="1"] details.hv-more').length===1);
+  const mt=more.textContent;
+  ok('before hire: experience, interview, the four checks by their plain names, two references with a supervisor on a bad one', /year of paid caregiving experience/.test(mt) && /in-person interview/.test(mt) && /Family Care Safety Registry/.test(mt) && /Employee Disqualification List/.test(mt) && /Office of Inspector General/.test(mt) && /Case\.net/.test(mt) && /Two good references, at least one from a past job/.test(mt) && /supervisor/.test(mt), mt);
+  ok('after hire: monthly, every 3 months, yearly, as the Hub rechecks; no fingerprints promised', /Every month: the federal exclusion list/.test(mt) && /Every 3 months: Missouri's Employee Disqualification List/.test(mt) && /Every year: the Family Care Safety Registry/.test(mt) && /Don't mention fingerprints/.test(mt), mt);
   const fold=qa('.hv-sec[data-sec="1"] .hv-fi').map(b=>b.textContent);
   ok('About us: the nine folder pieces to tick as they are shown', fold.length===9 && fold[0]==='Our Levels of Care' && fold.includes('Client Handbook') && fold.includes('Personalized Care Proposal (filled in after today)'), fold);
   tap('visit.about.shown','Client Handbook'); await sleep(20);
@@ -128,11 +136,11 @@ async()=>{
   await HV.close(); await sleep(50);
   /* Settings: owners change the talking points */
   const box=document.getElementById('hvSet'); HV.settingsFill();
-  document.getElementById('hvSet_aboutPts').value='We are local.\nWe pick up the phone.'; document.getElementById('hvSet_jobsHeavy').value='Mopping floors\nScrubbing the tub';
+  document.getElementById('hvSet_aboutPts').value='We are local.\nWe pick up the phone.'; document.getElementById('hvSet_aboutOpen').value='Hi, we are Caring Companions.'; document.getElementById('hvSet_jobsHeavy').value='Mopping floors\nScrubbing the tub';
   await HV.aboutSave(); await sleep(20);
   ok('Settings: owners save the About us points and the housekeeping jobs', box && DATA.ops_settings.visit_about.points.join('|')==='We are local.|We pick up the phone.' && DATA.ops_settings.visit_house_jobs.heavy_house.join('|')==='Mopping floors|Scrubbing the tub' && DATA.ops_settings.visit_about.folder.length===9, DATA.ops_settings);
   await HV.open({ leadId:'lead_betty' }); await sleep(150); await go(1);
-  ok('the visit shows the saved points', /We pick up the phone/.test(sec(1).innerText) && !/never contractors/.test(sec(1).innerText));
+  ok('the visit shows the saved points and opener', /Hi, we are Caring Companions\./.test(sec(1).innerText) && DATA.ops_settings.visit_about.close.length>10 && /We pick up the phone/.test(sec(1).innerText) && !/screened, insured and bonded/.test(sec(1).innerText));
   await go(4);
   ok('and the saved housekeeping jobs', qa('[data-hvp="visit.acts.heavy_house.jobs"]').map(b=>b.textContent).join('|')==='Mopping floors|Scrubbing the tub');
   await HV.close(); await sleep(50);
