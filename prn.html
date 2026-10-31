@@ -328,7 +328,10 @@ function render() {
             + (o.answer ? '<div class="answered show">' + (o.answer === 'yes' ? 'You said you can do it. The office will confirm with you before it is set.' : 'You said not this time.') + '</div>' : '')
             + '<div class="btns"><button class="b pri" data-ma="' + i + '" data-ans="yes">I can do it</button><button class="b" data-ma="' + i + '" data-ans="no">Not this time</button></div><p class="msg" id="maMsg' + i + '"></p></div>').join('')
           || '<div class="card empty">No Field Support Visits right now. We\'ll show them here when a client or caregiver could use you.</div>')
-        + '<p class="small" style="margin-top:6px">' + esc(d.mentor.rules) + '</p></section>' : '')
+        + '<p class="small" style="margin-top:6px">' + esc(d.mentor.rules) + '</p></section>'
+      /* 2026-10-31 (Samantha: "yes" to a short line for PRN CNAs not yet approved): what Field Support Visits are, and how to ask */
+      : d.team === 'cna' ? '<section id="mentor"><h2 class="serif">Field Support Visits</h2><div class="card"><p class="small" style="margin:0">Some of our PRN CNAs are approved for Field Support Visits: they visit a client\'s home to practice a skill with a caregiver, like a Hoyer lift transfer, or to see how a client is doing and tell the office what has changed. It\'s always your choice.</p>'
+        + '<p class="small" style="margin-top:8px">Interested? <a href="sms:+14172348494">Text us</a> and tell us which skills you have experience with.</p></div></section>' : '')
     + '<section id="clients"><h2 class="serif">My clients</h2><p class="sub">Clients you know. When they need someone, you\'re a familiar face.</p>' + clients + '</section>'
     + '<section id="thanks"><h2 class="serif">Thank-yous</h2>' + thanks + '</section>'
     + '<section id="hours"><h2 class="serif">My hours</h2><div class="card">'
