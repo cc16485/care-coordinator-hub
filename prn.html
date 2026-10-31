@@ -226,7 +226,11 @@ function onCallSection(d) {
       + '<p class="small" style="margin-top:8px">Need to give back a shift you\'re on? Call the office at least ' + esc(su.give_back_hours) + ' hours before it starts: ' + call + '.</p>'
       + '<p class="small" style="margin-top:6px">You signed the On-Call Expectations. <a href="javascript:void 0" id="ocShowTerms">Read them again</a></p><div class="terms" id="ocTerms" style="display:none">' + esc(su.terms) + '</div></div>'
   }
-  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + wait + body + '</section>'
+  /* 2026-10-31 (Samantha: on call must read as an optional offer, only sign up if you can be available; "show it and it is final"
+     for the $50 stipend, lifting the no-pay-on-the-page rule for this one line) */
+  const OC_OPTIONAL = '<div class="card" style="margin-bottom:10px"><p class="small" style="margin:0"><b>On call is optional.</b> It never counts against you if you don\'t sign up. Only sign up for a shift when you know you can be reachable and ready the whole time.</p>'
+    + '<p class="small" style="margin-top:8px"><b>On-call pay:</b> $50 for each 7am to 7pm on-call shift, plus your PRN rate for any hours you work.</p></div>'
+  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + OC_OPTIONAL + wait + body + '</section>'
 }
 function wireOnCall() {
   document.querySelectorAll('[data-ocm]').forEach((b) => b.onclick = () => { OC_MODE = b.dataset.ocm; document.querySelectorAll('[data-ocm]').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')) })
