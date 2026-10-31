@@ -28,7 +28,7 @@ async()=>{
   const subs=[...document.querySelectorAll('#covSubBar button')].map(b=>b.textContent.trim());
   ok('the Hours & matching tab shows the count (2)', subs.some(s=>/Hours & matching\s*2/.test(s)), subs);
   [...card.querySelectorAll('button')].find(b=>/Find them hours/.test(b.textContent)).click(); await sleep(300);
-  ok('Find them hours opens the Live Schedule week with only open shifts', activeTab==='liveschedule' && LC.open===true && LC.view==='week', [activeTab, LC.open, LC.view]);
+  ok('Find them hours opens Cara\'s board (Live Schedule is gone, 2026-10-31)', activeTab==='coverage', [activeTab]);
   /* Cara's ask list: the tag */
   DATA.coverage_cases=[{ id:'cv1', status:'open', reason:'calloff', client:'Ruth Kay', shift_date:'2099-10-20', shift_time:'09:00-13:00', asked:[] }];
   COV_PICK['cv1']={ data:{ group0:[], group1:[], group2:[{ name:'Nina Newhire', first:'Nina', axiscare_id:'2', new_hire:{ hired:'2026-10-02', days:10 }, free_then:true, why:'active caregiver' }, { name:'Oscar Oldhand', first:'Oscar', axiscare_id:'1', why:'active caregiver' }], prn_other:[], prn_ongoing:[], excluded:[], meta:{} } };

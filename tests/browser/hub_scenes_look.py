@@ -30,21 +30,6 @@ async()=>{
   DATA.ops_items=[mk('late1',-5)]; if(window.__store) window.__store.ops_items=JSON.parse(JSON.stringify(DATA.ops_items)); renderMyWork(); await sleep(80);
   ok('My Work · something late: no porch', !W.querySelector('.hs-empty'));
 
-  /* ── Live Schedule (day) ── */
-  const day=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10);
-  const box=document.getElementById('ls-board'); box.closest('.tabpanel') && null;
-  LC.view='day'; LC.open=false; LC.q='';
-  LS_STATE.date=day; LS_STATE.data={ date:day, rows:[ { date:day, time:'08:00', end:'12:00', client:'Ann Able', caregiver:'Bea B' }, { date:day, time:'13:00', end:'17:00', client:'Cal Cole', caregiver:'Dee D' } ] };
-  lsPaint();
-  ok('Live Schedule · every visit assigned: the road banner above the list', !!box.querySelector('.hs-banner[data-scene="road"]') && /Every visit has a caregiver/.test(box.innerText) && !!box.querySelector('table'), box.innerText.slice(0,200));
-  lcOnlyOpen(true);
-  ok('Live Schedule · "Only open shifts" with none: the big road scene and a way back', !!box.querySelector('.hs-empty[data-scene="road"]') && /Show all 2 visits/.test(box.innerText), box.innerText.slice(0,200));
-  box.querySelector('.hs-links button').click();
-  ok('...the way back shows every visit again', LC.open===false && !!box.querySelector('table'));
-  LS_STATE.data.rows.push({ date:day, time:'18:00', end:'20:00', client:'Eve Ellis', caregiver:null }); lsPaint();
-  ok('Live Schedule · one open visit: no scene', !box.querySelector('.hs-banner,.hs-empty'));
-  lcOnlyOpen(true); ok('Live Schedule · "Only open shifts" with one: no scene, the open visit shows', !box.querySelector('.hs-empty') && /Eve Ellis/.test(box.innerText)); lcOnlyOpen(false);
-
   /* ── no em dashes anywhere the kit speaks ── */
   ok('no em dashes in the scene words', ![...document.querySelectorAll('.hs-empty,.hs-banner')].some(e=>/—/.test(e.innerText)) && !/—/.test(W.innerText.replace(/[\s\S]*/,'')));
   }catch(e){ R.push(['FAIL','threw',String(e&&e.stack||e).slice(0,500)]); }

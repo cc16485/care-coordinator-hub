@@ -1313,8 +1313,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
     <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
-    <div class="fpill" data-tab="liveschedule" onclick="switchTab('liveschedule')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Live Schedule</div>
-    <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Live Schedule.
+    <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Cara.
          The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
     <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
     <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
@@ -5564,29 +5563,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div id="rt-board"><div class="field-note">Loading…</div></div>
 </section>
 
-<!-- ===================== TAB: LIVE SCHEDULE =====================
-     AxisCare's real-time view, inside the hub (her ask, 2026-09-18): every
-     visit for the chosen day, straight from the AxisCare API on demand.
-     Read-only window — AxisCare stays the system of record; the jump link
-     is right there for anything this view can't do. -->
-<section class="tabpanel" id="tab-liveschedule">
-<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-  <div>
-    <div style="font-size:.95rem;font-weight:800;color:var(--navy);">📅 Live Schedule <span class="field-note" id="ls-date-label"></span></div>
-    <div class="field-note" style="font-size:.74rem;">Straight from AxisCare when you load it. Unassigned visits show in red. Open a coverage case to work one.</div>
-  </div>
-  <span style="flex:1;"></span>
-  <button class="fb" id="ls-btn-today" onclick="lsPick(0,this)">Today</button>
-  <button class="fb" id="ls-btn-tomorrow" onclick="lsPick(1,this)">Tomorrow</button>
-  <input type="date" id="ls-date" style="width:auto;font-size:.8rem;" onchange="lsPickDate(this.value)">
-  <button class="addlead" style="font-size:.78rem" onclick="lsLoad(true)">↻ Refresh</button>
-  <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:var(--teal);text-decoration:none;">Open in AxisCare ↗</a>
-  <!-- Track 3d (2026-10-12): the match rule's dark report, read only (match-report.js) -->
-  <button class="fb" title="The shared match rule over the next 14 days, practice only: a report that changes nothing" onclick="(window.MR?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='match-report.js?v=20261012';sc.onload=ok;sc.onerror=no;document.head.appendChild(sc);})).then(()=>MR.open())">🧪 Matching check (practice only)</button>
-</div>
-<div id="ls-board" class="card" style="padding:1rem 1.25rem;"><div style="color:var(--text-muted);font-size:.85rem">Pick a day and it loads live from AxisCare.</div></div>
-</section>
-
 <!-- ===================== TAB: CARE MATCH CHECK-INS =====================
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
@@ -7757,14 +7733,14 @@ The HomeTogether team</pre>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
 <script src="open-hours.js?v=3"></script>
-<script src="scheduling-guide.js?v=4"></script>
-<script src="new-hires.js?v=3"></script>
+<script src="scheduling-guide.js?v=5"></script>
+<script src="new-hires.js?v=4"></script>
 <script src="hub-scenes.js?v=1"></script>
 <script src="celebrate.js?v=2"></script>
 <script src="progress-paths.js?v=2"></script>
 <script src="seasons.js?v=1"></script>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
-<script src="live-calendar.js?v=6"></script><script src="visit-reasons.js?v=1"></script>
+<script src="visit-reasons.js?v=1"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=7"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=10"></script><!-- the main profile of a hire (2026-10-11) -->
@@ -8488,7 +8464,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','liveschedule','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch','nursevisits','nurseportal'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8903,7 +8879,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', liveschedule:'Live Schedule', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', familybookings:'Family bookings', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
@@ -9050,7 +9026,10 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
   /* 2026-10-05: one-to-one meeting requests moved into Team Meetings (Today) */
   meetings:'teammeetings',
   /* NEW TODAY (2026-10-19): the Dashboard is the strip on top of My Work; To talk about lives in Team Meetings */
-  today:'mywork', standup:'teammeetings' };
+  today:'mywork', standup:'teammeetings',
+  /* 2026-10-31 (her call): the Live Schedule tab is gone, nobody in the office used it. Old links land on Cara.
+     The coverage-shifts live_schedule read stays: Client Goals, the Staffing view and Today still use it. */
+  liveschedule:'coverage' };
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   tab=GOTO_ALIAS[tab]||tab;
@@ -9182,7 +9161,6 @@ function renderActiveTab(){
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
-  if(activeTab==='liveschedule') lsRender();
   if(activeTab==='familybookings' && window.FAMAPP) FAMAPP.render();
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
@@ -11628,9 +11606,9 @@ function renderTodayStrip(){
   const t2=tile('Coverage', cov.length?cov.length+' open case'+(cov.length===1?'':'s'):'No open cases', cov.length?(cov[0].client||'a client')+', '+(cov[0].shift_date?new Date(cov[0].shift_date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}):'')+(cov[0].shift_time?' '+String(cov[0].shift_time).split('-')[0]:''):'Every case is settled', "switchTab('coverage')", cov.length>0);
   /* 3 · today in AxisCare */
   const d=(TB_CACHE && Date.now()-TB_AT<5*60000)?TB_CACHE:null; if(!d) tsShifts();
-  const t3=!d?tile('Today in AxisCare','Checking…','',"switchTab('liveschedule')")
-    : d.error?tile('Today in AxisCare','Not answering','AxisCare did not answer just now',"switchTab('liveschedule')",true)
-    : tile('Today in AxisCare', (d.total||0)+' visits', (d.open||[]).length?(d.open.length+' open shift'+(d.open.length===1?'':'s')+': '+first(d.open[0].client)+', '+(d.open[0].time||'')):'Every visit has a caregiver', (d.open||[]).length?"switchTab('coverage')":"switchTab('liveschedule')", (d.open||[]).length>0);
+  const t3=!d?tile('Today in AxisCare','Checking…','',"schedGo('coverage')")
+    : d.error?tile('Today in AxisCare','Not answering','AxisCare did not answer just now',"schedGo('coverage')",true)
+    : tile('Today in AxisCare', (d.total||0)+' visits', (d.open||[]).length?(d.open.length+' open shift'+(d.open.length===1?'':'s')+': '+first(d.open[0].client)+', '+(d.open[0].time||'')):'Every visit has a caregiver', (d.open||[]).length?"switchTab('coverage')":"schedGo('coverage')", (d.open||[]).length>0);
   /* 4 · booked today */
   let iv=null, as=0;
   try{ if(BT_IV && !BT_IV.error) iv=btInterviewsOn(btChiToday(), BT_IV.bookings, BT_IV.applicants, btAfternoonRule(DATA.ops_settings)).length; }catch(e){}
@@ -40581,80 +40559,6 @@ async function rtEscMin(code,v){
   var n=parseInt(v,10);
   row.esc_minutes=(Number.isFinite(n)&&n>0)?n:null;
   await rtSave(row); rtRender();
-}
-
-/* ── LIVE SCHEDULE (2026-09-18): AxisCare's day view, in the hub. ──────── */
-let LS_STATE={date:null,data:null,loading:false};
-function lsChiDay(off){ const d=new Date(Date.now()+ (off||0)*86400000);
-  return d.toLocaleString('sv-SE',{timeZone:'America/Chicago'}).slice(0,10); }
-function lsPick(off,btn){ LS_STATE.date=lsChiDay(off); const de=document.getElementById('ls-date'); if(de) de.value=LS_STATE.date; lsLoad(true); }
-function lsPickDate(v){ if(/^\d{4}-\d\d-\d\d$/.test(String(v||''))){ LS_STATE.date=v; lsLoad(true); } }
-function lsRender(){ if(!LS_STATE.data&&!LS_STATE.loading){ LS_STATE.date=LS_STATE.date||lsChiDay(0); const de=document.getElementById('ls-date'); if(de) de.value=LS_STATE.date; lsLoad(); } else lsPaint(); }
-async function lsLoad(force){
-  const box=document.getElementById('ls-board'); if(!box) return;
-  if(LS_STATE.loading) return;
-  LS_STATE.loading=true;
-  box.innerHTML='<div style="color:var(--text-muted);font-size:.85rem">Loading '+esc(LS_STATE.date||'today')+' from AxisCare…</div>';
-  try{
-    const { data:{ session } } = await sb.auth.getSession();
-    if(!session||!session.access_token) throw new Error('Sign in to the hub first.');
-    const r=await fetch(`${CONFIG.supabase_url}/functions/v1/coverage-shifts`,{
-      method:'POST', headers:{ Authorization:'Bearer '+session.access_token, apikey:CONFIG.supabase_anon_key, 'Content-Type':'application/json' },
-      body: JSON.stringify(typeof lcReqBody==='function'?lcReqBody():{ live_schedule:true, date:LS_STATE.date })});
-    const d=await r.json().catch(()=>null);
-    if(!r.ok||!d||d.error) throw new Error((d&&d.error)||('AxisCare answered '+r.status));
-    LS_STATE.data=d;
-  }catch(e){ LS_STATE.data={error:String(e.message||e)}; }
-  LS_STATE.loading=false;
-  lsPaint();
-}
-function lsPaint(){
-  const box=document.getElementById('ls-board'); if(!box) return;
-  const d=LS_STATE.data; if(!d) return;
-  /* calendar views (live-calendar.js): Week and Month draw themselves; Day keeps this list, with the same bar and filters */
-  const lcOut=typeof lcPaint==='function'?lcPaint():null; if(lcOut===true) return;
-  const top=(lcOut&&lcOut.top)||'';
-  const rowsF=typeof lcFiltered==='function'?lcFiltered(d.rows):(d.rows||[]);
-  const lbl=document.getElementById('ls-date-label');
-  if(lbl) lbl.textContent=d.date?(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})):'';
-  if(d.error){ box.innerHTML=top+'<div style="color:var(--red);font-size:.85rem">Could not load: '+esc(d.error)+' · <a href="https://16485.axiscare.com/?realtimeview.php" target="_blank" rel="noopener">open AxisCare instead ↗</a></div>'; return; }
-  if(!(d.rows||[]).length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">No visits scheduled on '+esc(d.date)+'.</div>'; return; }
-  /* the drawing kit (2026-10-18): "Only open shifts" with none open is the road with every house lit */
-  const lcF=(typeof LC==='object'&&LC)||{};
-  if(!rowsF.length&&lcF.open&&!String(lcF.q||'').trim()&&window.HS){ box.innerHTML=top+HS.empty({ scene:'road', say:'Every visit has a caregiver.',
-    sub:'Every house on the road is lit on '+(new Date(d.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'}))+'. Open shifts would show here first, in red.',
-    links:[['Show all '+d.rows.length+' visits','lcOnlyOpen(false)']] }); return; }
-  if(!rowsF.length){ box.innerHTML=top+'<div style="color:var(--text-muted);font-size:.85rem">None of the '+d.rows.length+' visits on '+esc(d.date)+' match.</div>'; return; }
-  const t12=s=>{ const m=String(s||'').match(/^(\d\d):(\d\d)$/); if(!m) return s||''; const h=Number(m[1])%12||12; return h+(m[2]==='00'?'':':'+m[2])+(Number(m[1])>=12?'p':'a'); };
-  const nowChi=new Date().toLocaleString('sv-SE',{timeZone:'America/Chicago'});
-  const isToday=d.date===nowChi.slice(0,10), nowHM=nowChi.slice(11,16);
-  const unF=rowsF.filter(v=>!v.caregiver).length;
-  const allLit=(!unF&&!lcF.open&&!String(lcF.q||'').trim()&&window.HS)?HS.banner({ scene:'road', say:'Every visit has a caregiver.', sub:isToday?'Every house on the road is lit today.':'Every house on the road is lit for this day.' }):'';
-  box.innerHTML=top+allLit+(typeof lcKeyHtml==='function'?lcKeyHtml(rowsF):'')+'<div class="field-note" style="margin-bottom:.5rem;">'+rowsF.length+' visit'+(rowsF.length===1?'':'s')+(unF?' · <b style="color:var(--red);">'+unF+' unassigned</b>':' · all assigned')+(rowsF.length!==d.rows.length?' (filtered)':'')+'</div>'
-    +'<table style="width:100%;border-collapse:collapse;font-size:.84rem;">'
-    +'<thead><tr style="text-align:left;color:var(--text-muted);font-size:.72rem;"><th style="padding:.3rem .4rem;">Time</th><th style="padding:.3rem .4rem;">Client</th><th style="padding:.3rem .4rem;">Caregiver</th><th style="padding:.3rem .4rem;">Status</th></tr></thead><tbody>'
-    +rowsF.map(v=>{
-      const un=!v.caregiver;
-      /* Color story (her call, 2026-09-18): GREEN = being worked right now,
-         TEAL = completed, red = unassigned or missing a clock-in, gray =
-         upcoming. One glance says what's live vs done. */
-      let st='', tint='';
-      if(un){ st='<b style="color:var(--red);">UNASSIGNED</b> · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>'; tint='background:#FFF6F5;'; }
-      else if(v.clock_out){ st='<span style="color:var(--teal);font-weight:700;">✔ completed '+t12(v.clock_in)+'–'+t12(v.clock_out)+'</span>'; tint='background:#F0F7F6;'; }
-      else if(v.clock_in){ st='<span style="color:var(--green);font-weight:800;">● being worked, clocked in '+t12(v.clock_in)+'</span>'; tint='background:var(--green-bg);'; }
-      else if(isToday&&v.time&&v.time<nowHM&&(!v.end||v.end>nowHM)) st='<span style="color:var(--red);font-weight:700;">no clock-in yet</span>';
-      else if(isToday&&v.end&&v.end<=nowHM) st='<span style="color:var(--text-muted);">ended (no EVV shown)</span>';
-      else st='<span style="color:var(--text-muted);">upcoming</span>';
-      /* the same colour code as the calendar (live-calendar.js) */
-      const sk=typeof lcStateOf==='function'?lcStateOf(v):null;
-      if(sk){ tint='background:'+sk.bg+';box-shadow:inset 5px 0 0 '+sk.bar+';'; st='<span class="ls-state" data-state="'+sk.key+'" style="color:'+sk.ink+';font-weight:800;">'+sk.label+(sk.key==='done'?' '+t12(v.clock_in)+'–'+t12(v.clock_out):sk.key==='live'?', clocked in '+t12(v.clock_in):'')+'</span>'+(un?' · <a href="#" onclick="switchTab(\'coverage\');covOpenAdd(\'calloff\');return false;">open a case</a>':''); }
-      return '<tr class="ls-row" style="border-top:1px solid var(--border);cursor:pointer;'+tint+'" title="Click to change this visit" onclick="if(typeof lcVisitOpen===\'function\'&&!event.target.closest(\'a\'))lcVisitOpen(\''+esc(v.visit_id)+'\')">'
-        +'<td style="padding:.35rem .4rem;white-space:nowrap;">'+t12(v.time)+(v.end?'–'+t12(v.end):'')+'</td>'
-        +'<td style="padding:.35rem .4rem;"><b>'+esc(v.client)+'</b></td>'
-        +'<td style="padding:.35rem .4rem;">'+(un?'':esc(v.caregiver))+'</td>'
-        +'<td style="padding:.35rem .4rem;">'+st+'</td></tr>';
-    }).join('')+'</tbody></table>'
-    +'<div class="field-note" style="margin-top:.5rem;">Loaded from AxisCare '+new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})+'. Click a visit to change it.</div>';
 }
 
 /* ── THE ADD PANEL'S TWO MODES (2026-09-18): call-off vs interest check. ── */
