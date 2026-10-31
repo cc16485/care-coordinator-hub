@@ -4633,6 +4633,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<!-- GONE QUIET (Samantha 2026-10-31): Recruit & Onboard > Offers folds an offer with no movement for this many days into one
+     "Gone quiet" line under the cards (ops_settings.offers_quiet_days, default 30; caregivers-engine.js offerIsQuiet). -->
+<div class="settings-section" data-set="offers-quiet">
+<h3>🗂 Offers: gone quiet</h3>
+<p class="hint">On Recruit &amp; Onboard &gt; Offers, an offer where nothing has moved for this many days folds into one "Gone quiet" line under the cards, so the cards on top are the people still moving. Nobody is texted and nothing is closed by itself.</p>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+  <label class="field-note" for="set_offq_days">Days with no movement</label>
+  <input id="set_offq_days" type="number" min="7" max="365" step="1" style="width:5.5rem">
+  <button class="secondary" onclick="offqSave(this)">Save</button>
+  <span class="field-note" id="offqSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="orientation-reminders">
 <h3>🔔 Office orientation reminders</h3>
 <p class="hint">The text the day before someone's in-person office orientation (the backup for someone who can't do it online), sent by the Hub instead of GoHighLevel. Online new hires get their Orientation Video Call reminders instead.</p>
@@ -15915,6 +15928,7 @@ function fillSettingsPanel(){
   try{ iimSetFill(); }catch(_){}
   try{ orrSetFill(); }catch(_){}
   try{ s1aSetFill(); }catch(_){}
+  try{ offqFill(); }catch(_){}
   try{ if(window.HV) HV.settingsFill(); }catch(_){}
   mbFill();
   try{ aivFill(); }catch(e){}
@@ -18436,6 +18450,23 @@ async function s1aToggle(btn){
   s1aSetFill();
 }
 window.s1aToggle=s1aToggle;
+
+/* GONE QUIET (Samantha 2026-10-31): how many days without movement before an offer folds under "Gone quiet" on Offers. */
+function offqFill(){
+  const el=document.getElementById('set_offq_days'); if(!el) return;
+  el.value=(typeof offerQuietDays==='function')?offerQuietDays():30;
+}
+async function offqSave(btn){
+  const sv=document.getElementById('offqSaved');
+  const n=Math.round(Number((document.getElementById('set_offq_days')||{}).value));
+  if(!(n>=7&&n<=365)){ if(sv) sv.textContent='A whole number of days, 7 to 365.'; return; }
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m.offers_quiet_days=n; return ['Offers gone quiet after '+n+' days']; }, 'Offers gone quiet');
+  if(btn) btn.disabled=false;
+  if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):'Saved. Offers folds after '+n+' days.';
+  try{ if(typeof renderOffers==='function'&&document.getElementById('offersList')) renderOffers(); }catch(_){}
+}
+window.offqSave=offqSave;
 
 /* ═══ CAREGIVER AUTO-CONNECT (AC2, 2026-10-03; her plan "yes to all": https://claude.ai/artifact/FJUZg3aU2neZBgGNDbCCLm) ═══
    The hourly server check (caregiver-connect, Desktop 438) connects each AxisCare caregiver to their Hub record when it

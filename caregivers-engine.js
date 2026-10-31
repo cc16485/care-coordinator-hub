@@ -1466,6 +1466,9 @@ function renderOffers(){
      who has moved on is the searchable list under it. Oldest first: the ones going stale surface. */
   const active=OFFERS.filter(o=>offerStage(o)===stage&&(stage==='rejected'||!offerMovedOn(o)))
     .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));
+  /* GONE QUIET (2026-10-31): only where people are still expected to move (Offer sent, Accepted) */
+  const foldable=stage==='sent'||stage==='accepted';
+  const quiet=foldable?active.filter(offerIsQuiet):[], moving=foldable?active.filter(o=>!offerIsQuiet(o)):active;
   if(note) note.innerHTML = ({
     sent:'Offer sent, waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves; once both are signed they move to Accepted.',
     rejected:'Declined, withdrawn, expired unsigned, or not hired. Nothing to do here; an expired offer can be resent from its card.',
@@ -1554,8 +1557,13 @@ function renderOffers(){
       '<div style="margin-top:.7rem;background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.6rem .75rem">'+
       '<div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">'+
       '<b style="font-size:.82rem;color:#0D365F">Next: '+now.label+'</b>'+
-      '<span style="flex:1"></span>'+now.btn+'</div>'+
+      '<span style="flex:1"></span>'+now.btn+
+      /* CLOSE OFFER (2026-10-31): for someone who stopped answering. The same server step as Withdraw: nothing is sent to
+         them, nothing is deleted, the reason is kept on the record, and the card moves to Offer rejected. */
+      (np||o.offer_withdrawn_at?'':'<button class="fb" style="color:#B91C1C;border-color:#FCA5A5" onclick="offerCloseAsk(\''+id+'\')">Close offer</button>')+
+      '</div>'+
       '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">'+now.note+'</div>'+
+      (np?'':'<div id="oc_'+id+'" style="display:none;margin-top:.5rem;font-size:.8rem"></div>')+
       '</div>'+
       (ladder?'<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.45rem">'+ladder+'</div>':'')+
 
@@ -1629,10 +1637,10 @@ function renderOffers(){
       '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>';
   };
 
-  box.innerHTML = active.length
-    ? active.map(o=>{
+  const card=o=>{
         const why=offerRejectedWhy(o);
         const s=why?[why,'#B91C1C','#FEE2E2']:nextStep(o);
+        const ros=why?{state:'no'}:offerOnRoster(o);
         /* Age earns a mention only once it is worth noticing. An offer sitting
            a week without moving is the thing this card exists to surface; a month, red. */
         const age=why?null:offerAgeDays(o.interview_date);
@@ -1645,11 +1653,20 @@ function renderOffers(){
           (age==null?'':'<span style="font-size:.72rem;'+(old?'font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:.1rem .5rem':stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
             (age===0?'today':age===1?'1 day ago':age+' days ago')+'</span>')+
           '<span style="flex:1"></span>'+
+          (ros.state==='maybe'?'<span title="Someone on the caregiver roster has this phone or email, but it is not certain it is the same person. Check, then Mark Step 1 done or Close offer." style="font-size:.72rem;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:.15rem .6rem">May already be working: check</span>':'')+
           '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
           '<span style="color:#A89C8B;font-size:.74rem">details ▾</span>'+
           '</summary>'+
           '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
-      }).join('')
+  };
+  box.innerHTML = active.length
+    ? (moving.length ? moving.map(card).join('') : '<div style="color:#A89C8B;font-size:.85rem;margin-bottom:.5rem">Nobody moving right now.</div>')+
+      (quiet.length
+        ? '<details id="offQuiet"'+(OFF_QUIET_OPEN?' open':'')+' ontoggle="OFF_QUIET_OPEN=this.open" style="margin-top:.4rem;border-top:1px dashed #E8E2D8;padding-top:.5rem">'+
+          '<summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6E6559;padding:.35rem 0">Gone quiet · '+quiet.length+
+          ' <span style="font-weight:400;color:#A89C8B">nothing has moved in '+offerQuietDays()+' days or more. Open one to close it if they are not coming.</span></summary>'+
+          '<div style="margin-top:.4rem">'+quiet.map(card).join('')+'</div></details>'
+        : '')
     : (stage==='completed' ? '' : '<div style="color:#A89C8B;font-size:.85rem">Nobody here right now.</div>');
 
   renderPastOffers();
@@ -1659,12 +1676,49 @@ function renderOffers(){
 function offerMovedOn(o){
   /* Orientation Video Call done moves them to the roster with their offer id (2026-10-02) */
   if((typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id))) return true;
+  if(offerOnRoster(o).state==='yes') return true;
   if(!candidates.some(c=>String(c.offer_id)===String(o.id))) return false;
   /* PRACTICE RUN FIX (2026-10-11): on the new path the Step 1 link lives on this card and the person is moved into
      Background & References BEFORE Step 1, so the card stays on Open offers until Step 1 is signed (or the offer is
      withdrawn). The old path is unchanged: in Background & References means moved on. */
   if(o.onboarding_path==='new' && !o.step1_done_at && !o.offer_withdrawn_at) return false;
   return true;
+}
+
+/* ALREADY WORKING (Samantha 2026-10-31, "auto-move people already working"): someone who came onto the roster another way,
+   so their offer was never tied to them, moves to Completed Step 1 by itself. Her connect rule (caregiver-connect-rules.js):
+   automatic only when CERTAIN, and a name alone never counts. Certain = exactly one roster caregiver has their phone or email,
+   that caregiver is active and not tied to a different offer, and no other open offer has the same phone or email.
+   Any other phone or email hit is 'maybe': the card says so and a person decides. Read only: nothing is saved to the roster. */
+function offerOnRoster(o){
+  const d=t=>String(t||'').replace(/\D/g,'').slice(-10), e=t=>String(t||'').trim().toLowerCase();
+  const ph=d(o.phone), em=e(o.email);
+  if(ph.length<10&&!em) return {state:'no'};
+  const same=x=>!!x&&((ph.length===10&&d(x.phone)===ph)||(!!em&&e(x.email)===em));
+  const hits=(typeof caregivers!=='undefined'?caregivers:[]).filter(same);
+  if(!hits.length) return {state:'no'};
+  const g=hits[0];
+  const certain=hits.length===1
+    && !(g.active===false||g.axiscare_status_active===false)
+    && (g.offer_id==null||String(g.offer_id)===String(o.id))
+    && !(typeof OFFERS!=='undefined'?OFFERS:[]).some(x=>String(x.id)!==String(o.id)&&same(x)&&!offerRejectedWhy(x));
+  return {state:certain?'yes':'maybe', cg:g};
+}
+
+/* GONE QUIET (Samantha 2026-10-31): an offer with no movement for this many days (her number, Settings > Offers, default 30)
+   folds into one "Gone quiet" line under the cards, so the cards on top are the people who are actually moving.
+   Movement = the newest of the interview, the offer, a signature, Step 1 going out, attributes entered. */
+function offerQuietDays(){
+  const n=Math.round(Number(((typeof DATA!=='undefined'&&DATA.ops_settings)||{}).offers_quiet_days));
+  return n>=7&&n<=365 ? n : 30;
+}
+function offerLastMoved(o){
+  return [o.interview_date,o.created_at,o.offer_sent_at,o.offer_signed_at,o.pd_signed_at,o.step1_sent_at,o.attributes_entered_at]
+    .map(x=>String(x||'').slice(0,10)).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x)).sort().pop()||'';
+}
+function offerIsQuiet(o){
+  const a=offerAgeDays(offerLastMoved(o));
+  return a!=null&&a>=offerQuietDays();
 }
 
 /* "Jul 31" reads faster than "2026-07-31" in a list you scan. The year only
@@ -1706,7 +1760,7 @@ function renderPastOffers(){
 
   box.innerHTML=rows.map(o=>{
     const c=candidates.find(x=>String(x.offer_id)===String(o.id));
-    const onRoster=!c && (typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id));
+    const onRoster=!c && ((typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id)) || offerOnRoster(o).state==='yes');
     const where=c ? (c.not_hired ? 'Not hired' : obDeriveStatus(c)) : (onRoster ? 'On the caregiver roster' : 'In background & references');
     const tone=where==='Ready for Orientation' ? ['#15803D','#DCFCE7']
              : where==='Not hired'             ? ['#B91C1C','#FEE2E2']
@@ -1896,6 +1950,30 @@ async function offerWithdraw(id, btn){
   catch(e){ if(box) box.innerHTML='<span style="color:#B91C1C">'+String(e.message||e).replace(/</g,'&lt;')+'</span>'; }
   if(btn) btn.textContent=t||'Withdraw';
 }
+/* CLOSE OFFER (Samantha 2026-10-31): two reasons, one tap each. Uses the server's withdraw step, so nothing is sent to the
+   person, nothing is deleted, who and when are recorded, and the reason is kept on the offer. */
+let OFF_QUIET_OPEN=false;
+const OFFER_CLOSE_REASONS=['Didn\'t finish Step 1','Not moving forward'];
+function offerCloseAsk(id){
+  const box=document.getElementById('oc_'+id); if(!box) return;
+  if(box.style.display==='block'){ box.style.display='none'; return; }
+  box.style.display='block';
+  box.innerHTML='<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap"><b style="color:#0D365F">Why close it?</b>'+
+    OFFER_CLOSE_REASONS.map((r,i)=>'<button class="fb" onclick="offerClose(\''+id+'\','+i+',this)">'+r+'</button>').join('')+
+    '<button class="fb" style="color:#6E6559" onclick="offerCloseAsk(\''+id+'\')">Cancel</button></div>'+
+    '<div style="color:#6E6559;margin-top:.3rem">Nothing is sent to them and nothing is deleted. The card moves to Offer rejected.</div>';
+}
+async function offerClose(id, i, btn){
+  const reason=OFFER_CLOSE_REASONS[i]; if(!reason) return;
+  const box=document.getElementById('oc_'+id);
+  try{
+    await offerAction(id,{action:'withdraw_offer',reason:'Closed: '+reason},btn,box);
+    if(box) box.innerHTML='<span style="color:#15803D">Closed ('+reason+'). It is under Offer rejected now.</span>';
+    if(typeof loadOffers==='function') loadOffers();
+  }catch(e){ if(box) box.innerHTML='<span style="color:#B91C1C">Could not close it: '+String(e.message||e).replace(/</g,'&lt;')+'</span>'; }
+}
+window.offerCloseAsk=offerCloseAsk; window.offerClose=offerClose;
+
 /* The same link as a QR code, drawn on screen (nothing leaves the page): the office holds the phone up to it. */
 function offerQr(url){
   try {
