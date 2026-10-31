@@ -365,6 +365,8 @@ function render() {
   if ($('openBox')) loadOpen()
   /* the 60-day check-in opens the page at My hours */
   if (location.hash === '#hours' && $('hours')) setTimeout(() => $('hours').scrollIntoView({ block: 'start' }), 60)
+  /* 2026-10-31: a Field Support Visit text opens their page at Field Support Visits */
+  if (location.hash === '#mentor' && $('mentor')) setTimeout(() => $('mentor').scrollIntoView({ block: 'start' }), 60)
 }
 
 function wire() {
