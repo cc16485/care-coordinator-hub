@@ -19,13 +19,13 @@
 
   const WHERE = [
     ['A caregiver calls off', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Send Cara\'s list, then confirm the best yes on the board.'],
-    ['A client cancels a visit, or we can\'t staff it', go('liveschedule', '', 'Live Schedule'), 'In AxisCare: put it on "Canceled Shift" with "Client Cancelled Shift" or "Office Unable to Staff".'],
+    ['A client cancels a visit, or we can\'t staff it', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'In AxisCare: put it on "Canceled Shift" with "Client Cancelled Shift" or "Office Unable to Staff".'],
     ['Nobody has clocked in, or out', go('', 'clockins', 'Cara: Missed clock-ins & outs'), 'Call them from the office line. If they can\'t work, open a coverage case.'],
     ['A client\'s regular shift has nobody on it', go('', 'ongoing', 'Cara: Ongoing shifts'), 'Ask who wants it, the same way as a call-off.'],
     ['Regular hours to fill, or a new client', go('teambuilder', '', 'Scheduling: Caregiver Matching'), 'Ask the whole team, then pencil in the green names.'],
     ['Who can we staff this week? Who wants more hours?', go('', 'hours', 'Cara: Hours & matching'), 'Check it on Mondays; text the availability link to anyone missing.'],
     ['A visit is missing a clock-in or clock-out', go('ops', '', 'Needs Attention'), 'Call the client to confirm the times from the card, then fix the visit in AxisCare.'],
-    ['See the schedule, or change one visit', go('liveschedule', '', 'Live Schedule'), 'Click a visit to change its caregiver or time.'],
+    ['See the schedule, or change one visit', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Open shifts are on Cara\'s board. Change a visit in AxisCare.'],
     ['How did a new pairing go?', go('carematch', '', 'Care Match Check-ins'), 'Call when a check-in is due and log both sides.'],
     ['GHEs and medication visits', go('nursevisits', '', 'Nurse Scheduling'), 'Who is due, which nurse, and the GHE forms.'],
     ['A caregiver asked for no shift texts', go('', 'dno', 'Cara: No shift texts'), 'Add them here; nobody can text them about shifts.'],
@@ -88,11 +88,9 @@
       '<b>Record the call</b> on the card, correct the visit in AxisCare, then tick <b>Fixed in AxisCare</b>. We no longer use the EVV correction form.',
     ])
     + steps('🗓️ Changing one visit', false, [
-      'Open <b>Live Schedule</b> and click the visit.',
-      'Pick <b>Change the caregiver</b>, <b>Take the caregiver off</b> or <b>Change the time or day</b>, and the reason AxisCare keeps with it.' + chip(on('visit_change_live'), 'changes on', 'changes off'),
-      'The reason is filled in for you: a new caregiver is <b>Office Changed Caregiver</b>, a new day or time is <b>Client Added or Changed Visit</b>. Taking someone off has no default: choose <b>Caregiver Called Off</b> (on their attendance) or <b>Office Changed Caregiver</b> (never on attendance).' + chip(on('visit_reasons_live'), 'by meaning', 'old defaults'),
-      'Press <b>Review the change</b>, then <b>Confirm</b>. The Hub changes that one visit in AxisCare and reads it back. Nobody is texted. It can be undone the same day.',
-    ], 'A visit AxisCare doesn\'t send back, or one that has started, is changed in AxisCare instead.');
+      'Open the visit in <b>AxisCare</b> and change the caregiver, or the time or day.',
+      'Pick the reason AxisCare keeps with it: a new caregiver is <b>Office Changed Caregiver</b>, a new day or time is <b>Client Added or Changed Visit</b>. Taking someone off: choose <b>Caregiver Called Off</b> (on their attendance) or <b>Office Changed Caregiver</b> (never on attendance).',
+    ]);
   }
 
   function texts() {

@@ -34,7 +34,7 @@
       : '<div style="font-size:12.5px;color:#8A4E0C;margin-top:2px;">🚗 Driver check (not enforced yet): ' + esc(t.why) + '</div>';
   }
   const dateWords = (d) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  function openShifts() { switchTab('liveschedule'); try { LC.open = true; if (typeof lcView === 'function') lcView('week'); else if (typeof lsPaint === 'function') lsPaint(); } catch (e) {} }
+  function openShifts() { schedGo('coverage'); }   /* Live Schedule is gone (2026-10-31): open shifts are on Cara's board */
   function render() {
     const box = document.getElementById('nhCard'); if (!box) return;
     if (typeof TB === 'undefined') { box.innerHTML = ''; return; }

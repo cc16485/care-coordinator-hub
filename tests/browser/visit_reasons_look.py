@@ -1,15 +1,40 @@
-"""Reasons by AxisCare id (2026-10-24). The real Hub page, offline; AxisCare is faked. Proves: switch off = the Live
-Schedule picks reasons exactly as before; on = defaults come from each reason's MEANING (a renamed reason keeps it): a new
-caregiver = our change, a new day or time = "Client Added or Changed Visit" (id 10), taking someone off = the office must choose (call-off or our change);
+"""Reasons by AxisCare id (2026-10-24). The real Hub page, offline; AxisCare is faked. Proves (the Live Schedule and its visit changes are gone, 2026-10-31):
 Settings shows each reason and what Cara does (practice says what would change); owners can change a meaning (saved with
 tkMerge); Cara's Today shows a quiet "Cancelled today" line only when the switch is on. (python3 tests/browser/visit_reasons_look.py)"""
 import re, os, sys
 from playwright.sync_api import sync_playwright
 here = os.path.dirname(os.path.abspath(__file__))
-lc = open(os.path.join(here, 'live_calendar_look.py')).read()
 src = open('/Users/samantha/Claude/Projects/cc-hub-live/tests/browser/standup_look.py').read()
 STUB = re.search(r'STUB = r"""(.*?)"""', src, re.S).group(1)
-DATA = re.search(r'DATA = r"""(.*?)"""', lc, re.S).group(1)
+DATA = r"""
+(()=>{
+  (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
+  window.__asks=[]; window.__oldServer=false;
+  sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
+  const ymdAdd=(ymd,n)=>{ const [y,m,d]=ymd.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
+  const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:client==='Ed Anderson'?'1':'2', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
+  window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}'); window.__asks.push(b);
+    if(/visit-change/.test(String(u))){ window.__vc.push(b);
+      if(b.action==='reasons') return new Response(JSON.stringify({ live:window.__vcLive, reasons:[{id:5,name:'Staffing Change - Caregiver Change'},{id:6,name:'Staffing Change - Caregiver Call Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Schedule Change - Client Schedule Change'},{id:13,name:'Administrative Correction - Office Error'}] }),{status:200});
+      if(b.action==='get'){ const st=window.__vcVisit; return new Response(JSON.stringify({ live:window.__vcLive, visit:st, undo:window.__vcUndo||[] }),{status:200}); }
+      if(b.action==='change'){ if(window.__vcRefuse) return new Response(JSON.stringify({ outcome:'changed_meanwhile', error:'Someone changed this visit since you opened it. Look again. Nothing was changed.' }),{status:409});
+        return new Response(JSON.stringify({ outcome:'changed', confirmed:true, change_id:b.change_id, words:'caregiver Kim Aide → Lia Listed', reason:'Staffing Change - Caregiver Change' }),{status:200}); }
+      if(b.action==='undo') return new Response(JSON.stringify({ outcome:'changed', words:'caregiver Lia Listed → Kim Aide' }),{status:200});
+    }
+    if(!/coverage-shifts/.test(String(u)) || !b.live_schedule) return new Response('{"open":[],"total":0}',{status:200});
+    const from=b.start||b.date, to=b.end||b.date, rows=[];
+    for(let d=from; d<=to; d=ymdAdd(d,1)){ rows.push(V(d,'09:00','14:00','Ed Anderson',null)); rows.push(V(d,'16:00','21:00','Ed Anderson','Kim Aide')); if(d.endsWith('-15')) rows.push(V(d,'08:00','12:00','Ruth Barnes','Di Aide')); }
+    const body=(window.__oldServer&&b.start)?{ date:'2026-10-06', total:2, unassigned:1, rows:rows.slice(0,2) }:{ date:from, start:b.start?from:undefined, end:b.start?to:undefined, total:rows.length, unassigned:rows.filter(r=>!r.caregiver).length, rows };
+    if(!b.start){ delete body.start; delete body.end; }
+    return new Response(JSON.stringify(body),{status:200}); };
+  try{ localStorage.removeItem('cch_lsview'); }catch(e){}
+  window.__vc=[]; window.__vcLive=true; window.__vcRefuse=false;
+  window.__vcVisit={ visit_id:'2026-10-1409:00Ed Anderson', client:'Ed Anderson', client_id:'1', caregiver_id:'5', caregiver:'Kim Aide', date:'2026-10-14', start:'09:00', end:'14:00', started:false, verified:false };
+  (0,eval)("TB.pool=[{ name:'Lia Listed', axiscare_id:'7', level:2, windows:null, visits:[] },{ name:'Bo Busy', axiscare_id:'8', level:2, windows:null, visits:[{ day:'2026-10-14', start:'08:00', end:'12:00', client:'Ruth Barnes' }] },{ name:'Kim Aide', axiscare_id:'5', level:2, windows:null, visits:[] }]; CC_ROLE_BY_EMAIL={ 'krystal@mo-care.com':['owner_admin'] };");
+  DATA.ops_settings={ visit_change_live:true };
+})();
+"""
+PORT = os.environ.get('PORT', '8765')
 EXTRA = r"""
 (()=>{
   const MEAN={5:'swap',6:'call_off',8:'no_show',10:'moved',13:'office_fix'};
@@ -31,31 +56,7 @@ T = r"""
 async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
-  LS_STATE.date='2026-10-14'; LC.view='day'; switchTab('liveschedule'); await sleep(200); await lsLoad(true); await sleep(150);
-  const open=async(k)=>{ document.querySelectorAll('.vc-ov').forEach(x=>x.remove()); await lcVisitOpen('2026-10-1409:00Ed Anderson'); await sleep(300); let P=document.querySelector('.vc-panel'); if(k){ P.querySelector('.vc-tab[data-k="'+k+'"]').click(); await sleep(60); P=document.querySelector('.vc-panel'); } return P; };
-  const selText=P=>P.querySelector('.vc-r').selectedOptions[0].text;
-  let P;
-  if(!window.__rl){ /* switch OFF (its own page load): the old name match; a renamed "Office Changed Caregiver" no longer matches "caregiver change" */
-    P=await open();
-    ok('off: a renamed reason defeats the old name match (why the switch must be on before renaming)', selText(P)!=='Office Changed Caregiver', selText(P));
-    return R; }
-  /* switch ON */
-  window.__vc=[];
-  P=await open();
-  ok('on: a new caregiver defaults to OUR change (by meaning, even renamed)', selText(P)==='Office Changed Caregiver', selText(P));
-  P=await open('time');
-  ok('on: a new day or time defaults to "Client Added or Changed Visit" (AxisCare id 10, found by its meaning, renamed or not)', selText(P)==='Client Added or Changed Visit' && P.querySelector('.vc-r').value==='10' && !/No reason/.test(P.querySelector('.vc-r').innerText), selText(P));
-  P.querySelector('.vc-s').value='10:00'; P.querySelector('.vc-e').value='15:00'; P.querySelector('.vc-go').click(); await sleep(60);
-  P.querySelector('.vc-confirm').click(); await sleep(250);
-  ok('...and sends reason 10 for the move', window.__vc.find(x=>x.action==='change')?.reason_id===10, window.__vc);
-  document.querySelector('.vc-panel .vc-done-btn')?.click(); window.__vc=[];
-  P=await open('off');
-  ok('on: taking someone off has NO default: the office must choose', P.querySelector('.vc-r').value==='' && /Choose why/.test(selText(P)));
-  P.querySelector('.vc-go').click(); await sleep(60);
-  ok('...review without choosing: asks "did they call off, or is it our change?", nothing sent', /Choose why first/.test(P.innerText) && !window.__vc.some(x=>x.action==='change'));
-  P.querySelector('.vc-r').value='6'; P.querySelector('.vc-go').click(); await sleep(60); P.querySelector('.vc-confirm').click(); await sleep(250);
-  ok('...choosing "Caregiver Called Off" sends reason 6', window.__vc.find(x=>x.action==='change')?.reason_id===6);
-  document.querySelector('.vc-panel .vc-done-btn')?.click();
+  /* 2026-10-31: the Live Schedule tab (and changing a visit from it) is gone; Settings and Today keep the reasons */
   /* Settings */
   DATA.ops_settings=Object.assign({}, DATA.ops_settings, { visit_reasons_live:false });
   let host=document.getElementById('vrHost'); VR.render(); await VR.load(true); await sleep(200); host=document.getElementById('vrHost');
@@ -77,12 +78,9 @@ with sync_playwright() as pw:
     pin(pg)
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
-    pg.goto('http://localhost:8765/index.html?proof=vr'); pg.wait_for_timeout(1200)
+    pg.goto(f'http://localhost:{PORT}/index.html?proof=vr'); pg.wait_for_timeout(1200)
     pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', DATA); pg.evaluate('s=>(0,eval)(s)', EXTRA)
     R = pg.evaluate(T)
-    pg.goto('http://localhost:8765/index.html?proof=vr2'); pg.wait_for_timeout(1200)
-    pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', DATA); pg.evaluate('s=>(0,eval)(s)', EXTRA); pg.evaluate('()=>{ window.__rl=true; }')
-    R += pg.evaluate(T)
     if os.environ.get('SHOT'):
         pg.evaluate("async()=>{ DATA.ops_settings.visit_reasons_live=false; switchTab('settings'); }"); pg.wait_for_timeout(400)
         el = pg.query_selector('#vrHost')
