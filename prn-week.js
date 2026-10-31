@@ -8,7 +8,7 @@
         Would like more hours / Check in (nobody in touch for 30 days): open their page and call, then "Called"
         "Not this one" takes a line off.
    2. ON CALL (PRN CNA Team only; the calendar, her decisions 22 to 27 on 2026-10-29): every day for 4 weeks, daytime 7am to
-      5pm and overnight 5pm to 7am, who is on call, who asked from their page (one tap confirms) and the open shifts; who
+      7pm and overnight 7pm to 7am, who is on call, who asked from their page (one tap confirms) and the open shifts; who
       signed the On-Call Expectations; misses (not paid, can't sign up again; an owner can lift it). The pay is in her PRN plan,
       never shown on their page.
    3. (step 4, 2026-10-29) WELCOME CALL: a new member's first 2 weeks after they're linked in AxisCare, "Record the call"
@@ -136,8 +136,8 @@
       + (W.familiar_note ? '<div class="field-note" style="color:var(--red);margin-top:4px;">' + e(W.familiar_note) + '</div>' : '') + rows + '</div>';
   }
 
-  /* ON CALL (2026-10-29, her decisions 22 to 27): a calendar of every day, 4 weeks from this Monday, daytime 7am to 5pm and
-     overnight 5pm to 7am. Each shift: who is on call (✕ takes it back; "Missed" records a miss), who asked from their page
+  /* ON CALL (2026-10-29, her decisions 22 to 27): a calendar of every day, 4 weeks from this Monday, daytime 7am to 7pm and
+     overnight 7pm to 7am. Each shift: who is on call (✕ takes it back; "Missed" records a miss), who asked from their page
      (✓ confirms, ✕ is "Not this one") or Open (+ puts a signed member on it). Below: who signed the On-Call Expectations and
      who can't sign up after a miss (an owner can let them again), and the payroll counts.
      EVERY WEEK (2026-10-30, her "yes to all 7"): every-week shifts and asks are marked; one ✓ confirms the whole series and
@@ -147,6 +147,24 @@
      caregivers from AxisCare with their status; Send invite texts their own My on-call link from the office line (switch
      prn_oncall_invite_live), Copy link hands it over, See their page previews it. Caregivers carry a "Caregiver" tag. */
   var INV = null, INV_OPEN = '';
+  /* 7AM TO 7PM (2026-10-30, her ask): the shifts are 7am to 7pm and 7pm to 7am; only the offered ones are open for sign-up
+     (ops_settings.prn_oncall_offered; nothing set = Friday, Saturday and Sunday 7am to 7pm). Owners open and close each day's
+     shift right here (saved like any setting, with their name). A shift that isn't offered shows "Not offered" on the calendar and
+     isn't counted as open; you can still put someone on it by hand with +. */
+  var OC_GRID = false;
+  var OC_DAYS = [['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun']];
+  function offeredHtml(oc) {
+    var off = oc.offered || {};
+    var line = '<div class="field-note" style="margin-top:6px;"><b>Open for sign-up:</b> ' + e(oc.offered_words || 'Friday, Saturday and Sunday 7am to 7pm') + (oc.offered_set ? '' : ' (the starting set)') + '.'
+      + (isOwner() ? ' <button class="fb" onclick="PW.ocGrid()">' + (OC_GRID ? 'Done' : 'Open or close shifts') + '</button>' : '') + '</div>';
+    if (!OC_GRID || !isOwner()) return line;
+    var rows = OC_DAYS.map(function (d) {
+      return '<div style="display:flex;gap:6px;align-items:center;margin-top:4px;"><b style="width:38px;font-size:13px;">' + d[1] + '</b>'
+        + [['day', '7am to 7pm'], ['overnight', '7pm to 7am']].map(function (sl) { var k = d[0] + ':' + sl[0], on = off[k] === true;
+          return '<button class="fb" aria-pressed="' + on + '" style="' + (on ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '') + '" onclick="PW.ocOffer(\'' + k + '\',this)">' + (on ? '✓ ' : '') + sl[1] + '</button>'; }).join('') + '</div>';
+    }).join('');
+    return line + '<div style="margin-top:6px;padding:10px 12px;background:var(--bg);border-radius:10px;"><div class="field-note">Tap a shift to open or close it for sign-up. PRN CNAs and invited caregivers see the change on their page right away. Shifts already confirmed stay as they are.</div>' + rows + '<div class="field-note" id="ocGridMsg" style="margin-top:6px;"></div></div>';
+  }
   var OC_OPEN = '', OC_MISS = '';
   var WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   var dShort = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
@@ -162,7 +180,7 @@
     var mayPut = ppl.filter(function (p) { return !p.blocked && (p.signed || !oc.signup_live); });
     var today = W.today || '';
     var cell = function (d, sl) {
-      var c = d[sl], key = d.date + '|' + sl, lbl = sl === 'day' ? 'Day 7a to 5p' : 'Night 5p to 7a';
+      var c = d[sl], key = d.date + '|' + sl, lbl = sl === 'day' ? 'Day 7a to 7p' : 'Night 7p to 7a';
       var who = c.confirmed.map(function (p) {
         if (p.missed) return '<div class="oc-who miss" title="' + e((oc.miss_kinds || {})[p.missed] || 'Missed') + ': not paid">✗ <b>' + e(p.name) + '</b> <span class="field-note">' + e(p.missed === 'no_answer' ? "didn't answer" : "didn't cover") + '</span></div>';
         var missing = OC_MISS === String(p.id) ? '<div class="oc-pick"><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'no_answer\')">Didn\'t answer our call</button><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'not_covered\')">Didn\'t cover the shift</button><button class="oc-btn" onclick="PW.ocMissOpen(\'\')">Cancel</button></div>' : '';
@@ -181,7 +199,8 @@
             + '<div><button class="oc-btn" onclick="PW.ocPut(\'' + e(d.date) + '\',\'' + sl + '\',this)">Put on call</button> <button class="oc-btn" onclick="PW.ocOpen(\'\')">Cancel</button></div></div>'
           : ' <button class="oc-btn" title="Put someone on call (agree it with them first)" onclick="PW.ocOpen(\'' + e(key) + '\')">+</button>') : '';
       var skipped = d.past ? '' : (c.skipped || []).map(function (p) { return '<div class="oc-who field-note" title="Their every-week shift, but someone else holds this week">↻ ' + e(p.name) + ': someone else has it this week</div>'; }).join('');
-      return '<div class="oc-s' + (c.gap ? ' gap' : c.confirmed.length ? ' ok' : '') + '"><span class="oc-l">' + lbl + (c.gap && !c.confirmed.length && !c.asked.length ? ' · Open' : '') + put + '</span>' + who + asks + skipped + '</div>';
+      var notOffered = c.offered === false && !c.confirmed.length && !c.asked.length;
+      return '<div class="oc-s' + (c.gap ? ' gap' : c.confirmed.length ? ' ok' : '') + '"' + (notOffered ? ' style="opacity:.55;"' : '') + '><span class="oc-l">' + lbl + (c.gap && !c.confirmed.length && !c.asked.length ? ' · Open' : notOffered ? ' · Not offered' : '') + put + '</span>' + who + asks + skipped + '</div>';
     };
     var days = cal.map(function (d) { return '<div class="oc-day' + (d.past ? ' past' : '') + (d.date === today ? ' today' : '') + '"><div class="oc-d">' + e(dShort(d.date)) + '</div>' + cell(d, 'day') + cell(d, 'overnight') + '</div>'; }).join('');
     var gaps = cal.reduce(function (n, d) { return n + (d.day.gap ? 1 : 0) + (d.overnight.gap ? 1 : 0); }, 0);
@@ -195,8 +214,9 @@
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
       + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1191). Asks, misses and signatures show once it has run.</div>' : '')
       + (!oc.signup_live ? '<div class="field-note" style="margin-top:4px;"><b>Sign-up on their page is off</b> (Settings, PRN Teams): members can\'t ask for shifts yet, and you can put anyone on call without a signature.</div>' : '')
-      + '<div class="field-note">Two shifts a day: daytime 7am to 5pm, overnight 5pm to 7am. Members take an open shift one time or every week on their PRN Team page after signing the On-Call Expectations; you confirm each one (an every-week shift once, then its weeks are added on their own, skipping any week someone else holds). To stop an every-week shift they call at least 24 hours ahead; use They called to stop it below. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
-      + '<div class="field-note" style="margin-top:6px;"><b>' + gaps + ' open shift' + (gaps === 1 ? '' : 's') + '</b> in the next 4 weeks.</div>'
+      + '<div class="field-note">Two shifts a day: daytime 7am to 7pm, overnight 7pm to 7am. Members take an open shift one time or every week on their PRN Team page after signing the On-Call Expectations; you confirm each one (an every-week shift once, then its weeks are added on their own, skipping any week someone else holds). To stop an every-week shift they call at least 24 hours ahead; use They called to stop it below. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
+      + offeredHtml(oc)
+      + '<div class="field-note" style="margin-top:6px;"><b>' + gaps + ' open shift' + (gaps === 1 ? '' : 's') + '</b> in the next 4 weeks (offered shifts nobody is on yet).</div>'
       + '<div class="oc-cal"><div class="oc-grid">' + WD.map(function (w) { return '<div class="oc-h">' + w + '</div>'; }).join('') + days + '</div></div>'
       + '<div style="margin-top:14px;"><b style="font-size:13.5px;color:var(--navy);">The PRN CNA Team and invited caregivers</b><div class="oc-ppl">' + people + '</div></div>'
       + inviteHtml(oc)
@@ -438,7 +458,7 @@
       var nm = sel.options[sel.selectedIndex].text, shift = whole ? 'whole' : slot, weekly = (document.getElementById('ocWeekly_' + key) || {}).checked;
       if (weekly && whole) { alert('Every week is one shift: daytime or overnight. For both, put them on each one.'); return; }
       var wdName = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + (weekly ? 'every ' + wdName + ' from ' + dShort(date) : dShort(date)) + ', ' + (shift === 'whole' ? 'the whole day (7am to 7am)' : slot === 'day' ? 'daytime (7am to 5pm)' : 'overnight (5pm to 7am)') + '?\n\nOnly confirm a shift you have agreed with them.' + (weekly ? ' It repeats every week until they call to stop it.' : '')))) return;
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Put ' + nm + ' on call ' + (weekly ? 'every ' + wdName + ' from ' + dShort(date) : dShort(date)) + ', ' + (shift === 'whole' ? 'the whole day (7am to 7am)' : slot === 'day' ? 'daytime (7am to 7pm)' : 'overnight (7pm to 7am)') + '?\n\nOnly confirm a shift you have agreed with them.' + (weekly ? ' It repeats every week until they call to stop it.' : '')))) return;
       if (btn) btn.disabled = true;
       try { await call(Object.assign({ action: 'oncall_confirm', applicant_id: sel.value, date: date, shift: shift }, weekly ? { every_week: true } : {})); OC_OPEN = ''; await load(); }
       catch (x) { alert('Could not confirm: ' + x.message); if (btn) btn.disabled = false; }
@@ -462,6 +482,19 @@
           + ((r.failed || []).length ? ' Could not take back: ' + r.failed.map(dShort).join(', ') + '. Take them back by hand.' : '');
         if (typeof ccAlert === 'function') ccAlert(msg); else alert(msg);
       } catch (y) { alert('Not saved: ' + y.message); if (btn) btn.disabled = false; }
+    },
+    ocGrid: function () { OC_GRID = !OC_GRID; draw(); },
+    ocOffer: async function (key, btn) {
+      if (!isOwner()) return;
+      if (typeof tkMerge !== 'function') { alert('Settings could not be reached. Reload the Hub and try again.'); return; }
+      var cur = Object.assign({}, (W.oncall || {}).offered || {}), turnOn = cur[key] !== true;
+      if (turnOn) cur[key] = true; else delete cur[key];
+      if (btn) btn.disabled = true;
+      var DW = { mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday', thu: 'Thursday', fri: 'Friday', sat: 'Saturday', sun: 'Sunday' };
+      var word = DW[key.split(':')[0]] + ' ' + (key.split(':')[1] === 'day' ? '7am to 7pm' : '7pm to 7am');
+      var out = await tkMerge(function (m) { m.prn_oncall_offered = cur; return [(turnOn ? 'opened ' : 'closed ') + word + ' for on-call sign-up']; }, 'on-call shifts offered');
+      if (out.error) { alert('Not saved: ' + out.error.message); if (btn) btn.disabled = false; return; }
+      await load();
     },
     invLoad: async function (btn) {
       if (btn) btn.disabled = true;

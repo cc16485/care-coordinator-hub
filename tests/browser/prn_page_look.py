@@ -126,7 +126,7 @@ with sync_playwright() as pw:
     V7 = dict(VIEW, feedback={ 'round': '2026-11', 'until': '2026-11-30', 'questions': ['What would make being on the PRN Team better for you?', 'Is there anything we could do to make picking up shifts easier?'], 'answered': False, 'waiting': False },
       oncall={ 'pattern': 'every_other_weekend', 'pattern_word': 'Every other weekend', 'confirmed': [{ 'start_date': '2026-11-07', 'end_date': '2026-11-08', 'shift': 'overnight' }],
         'patterns': { 'every_weekend': 'Every weekend', 'every_other_weekend': 'Every other weekend', 'one_weekend_month': 'One weekend a month', 'weekday': 'A weekday', 'not_now': 'Not right now' },
-        'words': 'On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am the next morning. Take one, or both for a whole day. On call means you reply within 15 minutes and can start a shift within 1 hour. The office confirms each date and shift with you first.' },
+        'words': 'On call comes in two shifts: daytime, 7am to 7pm, and overnight, 7pm to 7am the next morning. Take one, or both for a whole day. On call means you reply within 15 minutes and can start a shift within 1 hour. The office confirms each date and shift with you first.' },
       thanks=[{ 'kind': 'milestone', 'at': '', 'text': 'You stepped in for your first PRN shift. Thank you for standing in the gap.' }, { 'kind': 'milestone', 'at': '', 'text': 'You kept every shift you said yes to this season. Families count on that, and so do we.' }])
     def m7(body):
         a = body.get('action')
@@ -139,8 +139,8 @@ with sync_playwright() as pw:
     fc = [c['body'] for c in calls if c['body'].get('action') == 'feedback']
     ok('...answers are sent with their link; thanks them', fc and fc[-1]['a1'] == 'More weekend notice' and fc[-1]['a2'] == '' and fc[-1].get('t') and 'The office reads every answer' in pg.inner_text('#fbMsg'), fc)
     ht = pg.inner_text('#hours')
-    ok('on call under My hours: the question, what it means, their choice marked, their confirmed weekend; no pay', 'Would you like to be on call sometimes?' in ht and 'daytime, 7am to 5pm, and overnight, 5pm to 7am' in ht and 'reply within 15 minutes' in ht and pg.locator('[data-oc="every_other_weekend"]').get_attribute('class').endswith('on')
-       and "You're on call: Sat, Nov 7 to Sun, Nov 8 (overnight, 5pm to 7am)" in ht and '$' not in ht, ht)
+    ok('on call under My hours: the question, what it means, their choice marked, their confirmed weekend; no pay', 'Would you like to be on call sometimes?' in ht and 'daytime, 7am to 7pm, and overnight, 7pm to 7am' in ht and 'reply within 15 minutes' in ht and pg.locator('[data-oc="every_other_weekend"]').get_attribute('class').endswith('on')
+       and "You're on call: Sat, Nov 7 to Sun, Nov 8 (overnight, 7pm to 7am)" in ht and '$' not in ht, ht)
     pg.click('[data-oc="weekday"]'); pg.wait_for_timeout(200)
     ok('...tapping a choice sends it, and it is marked', any(c['body'].get('action') == 'oncall' and c['body'].get('pattern') == 'weekday' for c in calls) and pg.locator('[data-oc="weekday"]').get_attribute('class').endswith('on'))
     tt = pg.inner_text('#thanks')

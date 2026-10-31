@@ -56,7 +56,7 @@ async()=>{
   const days=box.querySelectorAll('.oc-day'), dayOf=(d)=>[...box.querySelectorAll('.oc-day')][Math.round((Date.parse(d)-Date.parse('2026-10-26'))/864e5)];
   ok('22: the calendar: Mon to Sun headers, 28 days, today marked, past days dimmed', days.length===28 && [...box.querySelectorAll('.oc-h')].map(h=>h.innerText).join()==='Mon,Tue,Wed,Thu,Fri,Sat,Sun'
     && dayOf('2026-10-28').classList.contains('today') && dayOf('2026-10-26').classList.contains('past'));
-  ok('...each day has a daytime and an overnight shift; Grace on Oct 31 daytime; open shifts marked', /Day 7a to 5p/.test(dayOf('2026-10-31').innerText) && /Night 5p to 7a/.test(dayOf('2026-10-31').innerText)
+  ok('...each day has a daytime and an overnight shift; Grace on Oct 31 daytime; open shifts marked', /Day 7a to 7p/.test(dayOf('2026-10-31').innerText) && /Night 7p to 7a/.test(dayOf('2026-10-31').innerText)
     && /Grace Lee/.test(dayOf('2026-10-31').querySelectorAll('.oc-s')[0].innerText) && dayOf('2026-10-31').querySelectorAll('.oc-s')[1].classList.contains('gap') && /Open/.test(dayOf('2026-10-31').querySelectorAll('.oc-s')[1].innerText), dayOf('2026-10-31').innerText);
   ok('...the count of open shifts', /\d+ open shifts in the next 4 weeks/.test(txt()));
   ok('...a miss shows struck through, never a Take back', /Tom Ray/.test(dayOf('2026-10-27').innerText) && /didn't answer/.test(dayOf('2026-10-27').innerText) && !dayOf('2026-10-27').querySelector('.oc-x'));
@@ -79,9 +79,9 @@ async()=>{
   ok('...a miss sends it, then says what was taken back and to call them', CALLS.some(c=>c.action==='oncall_mark' && c.oncall_id===8 && c.kind==='not_covered') && /Taken back: Nov 7 overnight/.test(alerted) && /Call them/.test(alerted), alerted);
   ok('24/25: the team list: who signed, who can\'t sign up, and (owners) let them sign up again', /Grace Lee\s*Signed the expectations/.test(txt()) && /Tom Ray\s*Not signed yet/.test(txt()) && /Can't sign up: didn't answer our call/.test(txt()) && /Let them sign up again/.test(txt()), txt());
   window.prompt=()=>'Talked it through'; await PW.ocLift('t'); ok('...sends the reason', CALLS.some(c=>c.action==='oncall_lift' && c.applicant_id==='t' && c.reason==='Talked it through'));
-  ok('the rules in a sentence or two; pay kept to the PRN plan; earlier preferences still listed', /daytime 7am to 5pm, overnight 5pm to 7am/.test(txt()) && /never shown on their page/.test(txt()) && /Earlier on-call preferences .*Grace Lee, every other weekend/.test(txt()));
+  ok('the rules in a sentence or two; pay kept to the PRN plan; earlier preferences still listed', /daytime 7am to 7pm, overnight 7pm to 7am/.test(txt()) && /never shown on their page/.test(txt()) && /Earlier on-call preferences .*Grace Lee, every other weekend/.test(txt()));
   ok('sign-up switch off: said so', /Sign-up on their page is off/.test(txt()));
-  WEEK.oncall=Object.assign({}, WEEK.oncall, { shifts:{ day:'Daytime, 7am to 5pm', overnight:'Overnight, 5pm to 7am', whole:'Whole day, 24 hours' }, shift_live:true,
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { shifts:{ day:'Daytime, 7am to 7pm', overnight:'Overnight, 7pm to 7am', whole:'Whole day, 24 hours' }, shift_live:true,
     payroll:[{ month:'2026-11', members:[{ applicant_id:'g', name:'Grace Lee', day:0, overnight:2, whole:1, not_recorded:0, missed:1 }] }, { month:'2026-10', members:[] }] });
   await PW.load(); await sleep(50);
   ok('payroll counts by month, missed ones not paid, counts only, never dollars', /On-call shifts for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day, 1 missed \(not paid\)/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(txt().split('On-call shifts for payroll')[1]||''), txt());
@@ -140,6 +140,25 @@ async()=>{
   [...box.querySelectorAll('button')].find(b=>/See their page/.test(b.innerText)).click();
   ok('...See their page opens the office preview of her page', /^oncall\.html\?preview=\d+$/.test(opened), opened);
   window.fetch=realF3;
+  /* 7AM TO 7PM, AND WHICH SHIFTS ARE OFFERED (2026-10-30) */
+  const cal4=WEEK.oncall.calendar.map(d=>JSON.parse(JSON.stringify(d)));
+  cal4.forEach(d=>{ const wd=new Date(d.date+'T12:00:00Z').getUTCDay(); d.day.offered=[0,5,6].includes(wd); d.overnight.offered=false; if(!d.day.offered && !d.day.confirmed.length) d.day.gap=false; if(!d.overnight.confirmed.length) d.overnight.gap=false; });
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { calendar:cal4, offered:{'fri:day':true,'sat:day':true,'sun:day':true}, offered_words:'Friday, Saturday and Sunday 7am to 7pm', offered_set:false });
+  await PW.load(); await sleep(50);
+  ok('offered: the line says what is open (the starting set), Tuesday says Not offered, Saturday daytime is Open', /Open for sign-up: Friday, Saturday and Sunday 7am to 7pm \(the starting set\)/.test(txt())
+    && /Not offered/.test(dayOf('2026-11-03').innerText) && /Day 7a to 7p · Open/.test(dayOf('2026-11-07').innerText) && /open shifts? in the next 4 weeks \(offered shifts nobody is on yet\)/.test(txt()), dayOf('2026-11-03').innerText);
+  ok('...an owner gets "Open or close shifts"', [...box.querySelectorAll('button')].some(b=>/Open or close shifts/.test(b.innerText)));
+  PW.ocGrid(); await sleep(30);
+  ok('...the grid: 7 days, two shifts each, Friday to Sunday daytime ticked', [...box.querySelectorAll('button[aria-pressed]')].length===14 && [...box.querySelectorAll('button[aria-pressed="true"]')].map(b=>b.getAttribute('onclick').match(/'([a-z]+:[a-z]+)'/)[1]).sort().join()==='fri:day,sat:day,sun:day');
+  const realMerge=window.tkMerge; let merged=null, mlabel=''; window.tkMerge=async(fn,label)=>{ const m={}; const ch=fn(m,{}); merged=m; mlabel=ch.join(); return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
+  await PW.ocOffer('fri:overnight'); await sleep(30);
+  ok('...tapping Friday 7pm to 7am opens it: saved with the others, worded for the change log', merged && JSON.stringify(merged.prn_oncall_offered)==='{"fri:day":true,"sat:day":true,"sun:day":true,"fri:overnight":true}' && mlabel==='opened Friday 7pm to 7am for on-call sign-up', [merged, mlabel]);
+  await PW.ocOffer('sun:day'); await sleep(30);
+  ok('...tapping Sunday 7am to 7pm closes it', merged && !('sun:day' in merged.prn_oncall_offered) && mlabel==='closed Sunday 7am to 7pm for on-call sign-up', [merged, mlabel]);
+  window.tkMerge=realMerge; (0,eval)('tkMerge=window.tkMerge');
+  const wasLive=WEEK.live; WEEK.live=true; CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator']; await PW.load(); await sleep(30);
+  ok('...someone who is not an owner sees what is open, not the grid', /Open for sign-up/.test(txt()) && ![...box.querySelectorAll('button')].some(b=>/Open or close shifts/.test(b.innerText)), txt().slice(0,200));
+  WEEK.live=wasLive; CC_ROLES=['owner_admin']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin']; PW.ocGrid(); await PW.load(); await sleep(30);
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:false }); await PW.load(); await sleep(30);
   ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1191\)/.test(txt()));
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:true, shift_live:false }); await PW.load(); await sleep(30);
