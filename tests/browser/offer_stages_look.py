@@ -26,7 +26,7 @@ let OFFERS = [
   {{ id:'of-wd', name:'Wes Withdrawn', phone:'4175550204', position:'Caregiver', offered_by:'Samantha Troutman', interview_date:{D(8)}, onboarding_path:'new', offer_status:'withdrawn', offer_withdrawn_at:new Date().toISOString() }},
   {{ id:'of-signed', name:'Gia Signed', phone:'4175550205', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(3)}, onboarding_path:'new', offer_status:'accepted', offer_signed_at:new Date().toISOString(), pd_signed_at:new Date().toISOString() }},
   {{ id:'of-old', name:'Bea Oldpath', phone:'4175550206', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(59)}, onboarding_path:'old' }},
-  {{ id:'of-old2', name:'Ava Oldpath', phone:'4175550207', position:'CNA', offered_by:'Krystal Land', interview_date:{D(27)}, onboarding_path:'old' }},
+  {{ id:'of-old2', name:'Ava Oldpath', phone:'4175550207', position:'CNA', offered_by:'Krystal Land', interview_date:{D(27)}, onboarding_path:'old', axiscare_applicant_id:'777', attributes:{{ dogs:true, dementia:true, cats:false, smoking:false }} }},
   {{ id:'of-done', name:'Dot Donestep', phone:'4175550208', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(15)}, onboarding_path:'old', step1_done_at:new Date().toISOString(), attributes_entered_at:new Date().toISOString(), viventium_entered_at:new Date().toISOString() }},
   {{ id:'of-moved', name:'Nora Moved', phone:'4175550209', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(20)}, onboarding_path:'old', step1_done_at:new Date().toISOString() }},
   {{ id:'of-nothired', name:'Ned Nothired', phone:'4175550210', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(30)}, onboarding_path:'old' }},
@@ -54,7 +54,16 @@ T = r"""async(CODE)=>{
   ok('Gone quiet: one closed line with its count, holding only the 30+ day one', !!gq && !gq.open && /Gone quiet · 1/.test(gq.querySelector('summary').innerText) && [...gq.querySelectorAll('details summary b')].map(b=>b.textContent).join()==='Bea Oldpath', gq&&gq.innerText.slice(0,200));
   const card=n=>[...document.querySelectorAll('#offersList details')].find(d=>d.querySelector('summary b')&&d.querySelector('summary b').textContent===n);
   ok('Close offer on old-path cards, not on the new path (it has Withdraw)', !!card('Ava Oldpath').querySelector('[onclick^="offerCloseAsk"]') && !card('Gia Signed').querySelector('[onclick^="offerCloseAsk"]'));
-  card('Ava Oldpath').open=true; card('Ava Oldpath').querySelector('[onclick^="offerCloseAsk"]').click();
+  /* ATTRIBUTES, CLEARER (2026-10-31): the Next box says exactly what to tick in AxisCare and has one Done button */
+  card('Ava Oldpath').open=true; const av=card('Ava Oldpath').innerText;
+  ok('the attributes step says what to do in AxisCare, with one Done button', /Next: Enter their attributes in AxisCare/.test(av) && /Done, all entered in AxisCare/.test(av) && /Attributes screen/.test(av), av.slice(0,400));
+  ok('tick list: answered yes to tick, answered no to leave off, the rest flagged as not asked', /Tick these \(2\)[\s\S]*Dementia[\s\S]*Dogs/.test(av) && /Leave these off \(2\)[\s\S]*Cats[\s\S]*Smoking/.test(av) && /Not asked at the interview, ask them \(13\)/.test(av), av.slice(0,600));
+  ok('while it is the next step the answers show once (no second list below)', !/AxisCare attribute answers/.test(av));
+  const bea=card('Bea Oldpath'); bea.open=true;
+  ok('no AxisCare record: the step says add them first', /Add them to AxisCare as an applicant, then enter their attributes/.test(bea.innerText));
+  ok('the card tag names AxisCare', /Enter attributes in AxisCare/.test(card('Ava Oldpath').querySelector('summary').innerText));
+  card('Ava Oldpath').scrollIntoView(); window.__shot=true;
+  card('Ava Oldpath').querySelector('[onclick^="offerCloseAsk"]').click();
   ok('Close offer asks why with her two reasons and says nothing is sent', /Didn't finish Step 1/.test(card('Ava Oldpath').innerText) && /Not moving forward/.test(card('Ava Oldpath').innerText) && /Nothing is sent to them and nothing is deleted/.test(card('Ava Oldpath').innerText));
   caregivers.push({ id:'g-ava', first:'Ava', phone:'(417) 555-0207', active:true }); renderOffers();
   ok('Ava is already on the roster (same phone, one record): she moves to Completed Step 1 by herself', !names().includes('Ava Oldpath') && offerStage(OFFERS.find(o=>o.id==='of-old2'))==='completed', names());
@@ -90,6 +99,10 @@ with sync_playwright() as pw:
     pg.evaluate("()=>{ const t=document.getElementById('tab-offers'); for(let el=t; el; el=el.parentElement){ if(getComputedStyle(el).display==='none') el.style.display='block'; } t.scrollIntoView(); }")
     bb = pg.locator('#tab-offers').bounding_box()
     if bb: pg.screenshot(path=os.path.join(OUT, 'offer_stages.png'), clip={'x': bb['x'], 'y': bb['y'], 'width': min(1300, bb['width']), 'height': min(900, bb['height'])})
+    # 2026-10-31: proof picture of the attributes step on an open card
+    pg.evaluate("()=>{ const d=[...document.querySelectorAll('#offersList details')].find(x=>/Ava Oldpath/.test(x.querySelector('summary').innerText)); d.open=true; d.scrollIntoView(); }")
+    cb = pg.evaluate("()=>{ const r=[...document.querySelectorAll('#offersList details')].find(x=>/Ava Oldpath/.test(x.querySelector('summary').innerText)).getBoundingClientRect(); return {x:r.x,y:r.y,width:r.width,height:Math.min(r.height,700)}; }")
+    pg.screenshot(path=os.path.join(OUT, 'offer_attributes.png'), clip={'x': cb['x'], 'y': cb['y'], 'width': min(1300, cb['width']), 'height': cb['height']})
     # 2026-10-12 "I can't easily click": real mouse clicks on each pill, anywhere on it (the dot, the words, the count)
     for st, where in [('rejected', 'offdot'), ('completed', 'offnav-n'), ('sent', None), ('accepted', None)]:
         btn = pg.locator('#offstage-' + st); btn.scroll_into_view_if_needed()
