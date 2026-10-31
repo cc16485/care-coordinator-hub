@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><meta name="theme-color" content="#0D365F">
+<title>My on-call · Caring Companions</title>
+<!-- ============================================================
+     ON CALL FOR OUR LEVEL 3 CAREGIVERS (Samantha 2026-10-30, Krystal's idea: "Yes to all, we will only have caregivers who can
+     do level 3 be on-call"). A caregiver's own "My on-call" page, opened from the link in the office's invite (?c=&e=&t=, 30 days).
+     No login. What on call is, the On-Call Expectations to read and sign, then the same on-call calendar as the PRN CNA Team's
+     page (today plus 4 weeks, daytime 7am to 5pm and overnight 5pm to 7am, Just this one or Every week); the office confirms each.
+     The on-call code below is the PRN Team page's own (prn.html), unchanged; only the server calls are this page's.
+     Never pay amounts, never another person's name. Office preview: ?preview=<AxisCare caregiver id> with a Hub sign-in.
+     Server: oncall-page. Switch ops_settings.prn_oncall_invite_live (off: "isn't open yet"; the office preview works).
+     ============================================================ -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0D365F;--teal:#1F7A8C;--honey:#F0A63A;--cream:#faf9f6;--ink:#2b3a47;--soft:#EAF4F6;--line:#e4e8ea;--muted:#6b7a86;--card:#fff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);font-family:'Poppins',system-ui,sans-serif;color:var(--ink);font-size:16px;line-height:1.45}
+.serif{font-family:'Fraunces',Georgia,serif;font-weight:700}
+.frame{max-width:430px;margin:0 auto;background:var(--cream);min-height:100vh;box-shadow:0 0 40px rgba(13,54,95,.15)}
+@media(min-width:700px){body{padding:24px 0}.frame{border-radius:28px;overflow:hidden;min-height:auto}}
+.sample{background:var(--navy);color:#fff;font-size:13px;padding:10px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.sample b{color:#FBD38D}
+.sample select{font:inherit;font-size:13px;border-radius:8px;border:0;padding:4px 6px}
+header{background:#fff;padding:14px 16px 18px;border-bottom:1px solid var(--line)}
+header .logo{height:44px;display:block}
+.me{display:flex;gap:14px;align-items:center;margin-top:14px}
+.me img{width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid var(--soft)}
+.me h1{font-size:22px;color:var(--navy);line-height:1.15}
+.team{display:inline-block;margin-top:4px;background:var(--soft);color:var(--teal);font-weight:600;font-size:13px;padding:3px 10px;border-radius:999px}
+.motto{margin-top:12px;font-size:14px;color:var(--muted)}
+.motto b{color:var(--navy)}
+nav{position:sticky;top:0;z-index:5;display:flex;gap:6px;overflow-x:auto;background:var(--cream);padding:10px 12px;border-bottom:1px solid var(--line)}
+nav a{flex:0 0 auto;text-decoration:none;color:var(--navy);font-weight:600;font-size:13px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--line)}
+main{padding:14px 14px 40px}
+section{margin-top:22px;scroll-margin-top:60px}
+section>h2{font-size:20px;color:var(--navy);margin-bottom:4px}
+section>p.sub{font-size:13px;color:var(--muted);margin-bottom:10px}
+.card{background:var(--card);border-radius:18px;padding:14px;border:1px solid var(--line);margin-bottom:10px}
+.update{border-left:6px solid var(--honey)}
+.update h3{font-size:16px;color:var(--navy)}
+.update p{font-size:14px;margin-top:6px}
+.update .from{font-size:13px;color:var(--muted);margin-top:8px}
+.look{display:flex;gap:12px;align-items:center;justify-content:space-between}
+.look b{color:var(--navy)}
+.switch{position:relative;width:52px;height:30px;flex:0 0 52px;border-radius:999px;background:#c9d2d8;border:0;cursor:pointer;transition:background .2s}
+.switch:after{content:'';position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}
+.switch.on{background:var(--teal)}.switch.on:after{left:25px}
+.look-note{margin-top:10px;display:none}
+.look-note.show{display:block}
+input[type=text],textarea{width:100%;font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff}
+.small{font-size:13px;color:var(--muted)}
+.ok{font-size:13px;color:var(--teal);font-weight:600;margin-top:8px}
+h3.grp{font-size:15px;color:var(--teal);margin:14px 0 8px;display:flex;align-items:center;gap:8px}
+h3.grp span{background:var(--soft);border-radius:999px;padding:1px 9px;font-size:12px}
+.shift .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.shift h4{font-size:17px;color:var(--navy);line-height:1.2}
+.shift .when{font-weight:600;font-size:15px;margin-top:2px}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.tag{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--soft);color:var(--teal)}
+.tag.fam{background:#fdf1dc;color:#9a6312}
+.tag.out{background:#eef0f2;color:var(--muted)}
+.tag.mentor{background:#e8e3f4;color:#5b4a8a}
+.det{font-size:14px;margin-top:8px}
+.det b{color:var(--navy)}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button.b,a.b{font:inherit;font-size:14px;font-weight:600;border-radius:12px;padding:10px 14px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
+button.b.pri,a.b.pri{background:var(--teal);border-color:var(--teal);color:#fff}
+button.b:disabled{opacity:.55;cursor:default}
+.answered{margin-top:12px;background:var(--soft);border-radius:12px;padding:10px 12px;font-size:14px;color:var(--navy);display:none}
+.answered.show{display:block}
+.empty{font-size:14px;color:var(--muted);text-align:center;padding:12px}
+.client{display:flex;gap:12px;align-items:center}
+.client .dot{width:44px;height:44px;border-radius:50%;background:var(--soft);color:var(--teal);display:flex;align-items:center;justify-content:center;font-weight:700;flex:0 0 44px}
+.client h4{color:var(--navy);font-size:16px}
+.kind{font-size:15px;font-style:italic;color:var(--navy)}
+.kind small{display:block;font-style:normal;font-size:12px;color:var(--muted);margin-top:6px}
+.miles{display:flex;gap:8px;flex-wrap:wrap}
+.mile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px;flex:1 1 45%}
+.mile b{display:block;color:var(--navy);font-size:15px}
+.mile.todo{opacity:.55}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:var(--muted)}
+.row span:last-child{font-weight:600;color:var(--navy);text-align:right}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{font:inherit;font-size:13px;font-weight:600;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
+.chip.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.terms{white-space:pre-wrap;font-size:14px;background:var(--soft);border-radius:12px;padding:12px;margin-top:8px;color:var(--navy)}
+.ocrow{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:6px;align-items:center;padding:4px 0;border-top:1px solid var(--line);font-size:13px}
+.ocrow .dt{font-weight:600;color:var(--navy)}
+.slot{font:inherit;font-size:12.5px;font-weight:600;border-radius:10px;padding:8px 4px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer;text-align:center;line-height:1.2}
+.slot.pick{background:var(--teal);border-color:var(--teal);color:#fff}
+.slot.mine{background:#DCFCE7;border-color:#86EFAC;color:#166534;cursor:default}
+.slot.asked{background:#FEF3C7;border-color:#FCD34D;color:#92400E}
+.slot.taken,.slot.past{background:#f1f2f3;color:var(--muted);border-color:#f1f2f3;cursor:default}
+.slot .wk{display:block;font-size:11px;font-weight:700;margin-top:2px}
+.slot.pick.weekly{background:var(--navy);border-color:var(--navy)}
+.ocmode{display:inline-flex;background:#f1f2f3;border-radius:999px;padding:3px;gap:3px;margin-top:8px}
+.ocmode button{font:inherit;font-size:13.5px;font-weight:600;border:0;background:transparent;color:var(--navy);border-radius:999px;padding:7px 14px;cursor:pointer}
+.ocmode button[aria-pressed="true"]{background:#fff;color:var(--teal);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ocweekly{margin-top:8px;padding:10px 12px;background:var(--soft);border-radius:12px;font-size:14px;color:var(--navy)}
+.course{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.course h4{font-size:15px;color:var(--navy)}
+footer{text-align:center;font-size:12px;color:var(--muted);padding:10px 16px 24px}
+.cna-only{}
+body.caregiver .cna-only{display:none}
+.sample.office{background:#F0A63A;color:#122F52;font-weight:600}
+.sample.office b{color:#122F52}
+.pvtoast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#122F52;color:#fff;font-size:13px;font-weight:600;padding:9px 14px;border-radius:999px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50}
+.pvtoast.show{opacity:1}
+
+.grid{display:grid;grid-template-columns:52px repeat(4,1fr);gap:6px;align-items:center;margin-top:8px}
+.grid .dh{font-size:12px;color:var(--muted);font-weight:600;text-align:center}
+.grid .dn{font-size:14px;font-weight:600;color:var(--navy)}
+.grid button{font:inherit;font-size:12px;font-weight:600;min-height:38px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+.grid button.on{background:var(--teal);border-color:var(--teal);color:#fff}
+label.fld{display:block;font-size:14px;font-weight:600;color:var(--navy);margin-top:14px}
+input[type=number],input[type=date]{font:inherit;font-size:15px;border:1px solid var(--line);border-radius:12px;padding:9px 12px;background:#fff;margin-top:6px}
+.yn{display:flex;gap:8px;margin-top:6px}
+.msg{font-size:14px;margin-top:10px;font-weight:600;color:var(--teal)}
+.msg.err{color:#a33a2b}
+.state{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 18px;margin:30px 14px;text-align:center}
+.state h1{font-size:22px;color:var(--navy);margin-bottom:8px}
+a.b{display:inline-block;text-decoration:none;line-height:1.3}
+@media(min-width:700px){.frame{min-height:100vh}}
+</style></head>
+<body>
+<div class="frame" id="app"><div class="state"><h1>One moment…</h1><p class="small">Opening your page.</p></div></div>
+<script>
+const SUPA = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/oncall-page'
+const QS = new URLSearchParams(location.search)
+const PV = QS.get('preview') || ''
+const LINK = { c: QS.get('c') || '', e: QS.get('e') || '', t: QS.get('t') || '' }
+const $ = (id) => document.getElementById(id)
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const dWord = (ymd, o) => { if (!/^\d{4}-\d\d-\d\d/.test(String(ymd || ''))) return ''; return new Date(String(ymd).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', o || { month: 'short', day: 'numeric' }) }
+const t12 = (hm) => { const m = /^(\d\d):(\d\d)$/.exec(String(hm || '')); if (!m) return ''; const h = +m[1]; return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h >= 12 ? 'pm' : 'am') }
+let D = null
+/* the PRN page's on-call code calls oncall_sign / oncall_ask / oncall_withdraw; this page's server names them sign / ask / withdraw */
+const RENAME = { oncall_sign: 'sign', oncall_ask: 'ask', oncall_withdraw: 'withdraw' }
+
+function staffToken() {
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^sb-.*-auth-token$/.test(k)) { const j = JSON.parse(localStorage.getItem(k)); return j && (j.access_token || (j.currentSession && j.currentSession.access_token)) || '' } } } catch (e) {}
+  return ''
+}
+async function call(body) {
+  const headers = { 'Content-Type': 'application/json' }
+  if (PV) headers.Authorization = 'Bearer ' + staffToken()
+  body = Object.assign({}, body, { action: RENAME[body.action] || body.action })
+  const r = await fetch(SUPA, { method: 'POST', headers, body: JSON.stringify(PV ? Object.assign({ caregiver_ax: PV }, body) : Object.assign({}, LINK, body)) })
+  const j = await r.json().catch(() => ({}))
+  return Object.assign({ _status: r.status }, j)
+}
+function toast(t) { let el = $('pvtoast'); if (!el) { el = document.createElement('div'); el.id = 'pvtoast'; el.className = 'pvtoast'; document.body.appendChild(el) } el.textContent = t; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 1800) }
+/* every change goes through here; the office preview changes nothing */
+async function act(body, msgEl) {
+  if (PV) { toast('Preview only. Nothing was sent or saved.'); return null }
+  if (msgEl) { msgEl.className = 'msg'; msgEl.textContent = 'Saving…' }
+  const r = await call(body)
+  if (msgEl) { msgEl.className = r.ok ? 'msg' : 'msg err'; msgEl.textContent = r.ok ? (r.message || 'Saved.') : (r.error || r.message || 'Something went wrong. Please try again.') }
+  return r
+}
+function stateCard(title, text, office) {
+  $('app').innerHTML = '<div class="state"><img class="logo" src="cc-logo.png" alt="Caring Companions" style="height:40px;margin:0 auto 14px;display:block"><h1 class="serif">' + esc(title) + '</h1><p>' + esc(text) + '</p>'
+    + (office ? '<p class="small" style="margin-top:12px">Caring Companions · <a href="sms:+14172348494">' + esc(office) + '</a></p>' : '') + '</div>'
+}
+
+/* ON CALL (2026-10-29, her decisions 23, 24, 27): read and sign the On-Call Expectations once (again if the words change),
+   then tap open shifts in the next 4 weeks and ask for them; the office confirms each one. A shift you're on is given back
+   by calling the office at least 24 hours ahead. Never another person's name. */
+const OC_PICK = new Map()   // date|slot -> true when every week
+let OC_MODE = 'once'
+const wkWord = (w) => w.word + (w.status === 'asked' ? ' (waiting for the office)' : ' (since ' + dWord(w.since, { month: 'short', day: 'numeric' }) + ')')
+/* their every-week on-call shifts, for On call and for My hours (the 60-day check-in) */
+function weeklyList(d, checkin) {
+  const su = d.oncall && d.oncall.signup, w = ((su && su.weekly) || []).filter((x) => !checkin || x.status === 'confirmed')
+  if (!w.length) return ''
+  const call = '<a href="tel:+14172348494">' + esc(d.office || '(417) 234-8494') + '</a>'
+  return '<div class="ocweekly"><b>' + (checkin ? 'Your every-week on-call shifts' : 'Every week') + ':</b> ' + w.map((x) => esc(wkWord(x))).join('; ') + '.'
+    + '<br><span class="small">' + (checkin ? 'Still right? ' : '') + 'To stop one, call the office at least 24 hours before the next one starts: ' + call + '.</span></div>'
+}
+const SLOTW = { day: 'Day<br>7am to 5pm', overnight: 'Night<br>5pm to 7am' }
+function onCallSection(d) {
+  const su = d.oncall && d.oncall.signup
+  if (!su) return ''
+  if (!su.ready) return '<section id="oncall"><h2 class="serif">On call</h2><div class="card empty">On call can\'t load just now. Check back soon.</div></section>'
+  const wait = su.waiting ? '<p class="small" style="margin-bottom:6px"><b>Waiting:</b> caregiver on-call invites are switched off, so caregivers don\'t see this page yet.</p>' : ''
+  const call = '<a href="tel:+14172348494">' + esc(d.office || '(417) 234-8494') + '</a>'
+  let body
+  if (su.blocked) body = '<div class="card"><p>On call isn\'t open to you right now. Call the office with any questions: ' + call + '.</p></div>'
+  else if (!su.signed) body = '<div class="card">' + (su.signed_before ? '<p class="small"><b>The On-Call Expectations changed.</b> Please read and sign them again before you sign up.</p>' : '<p class="small">Before your first on-call shift, please read and sign these.</p>')
+    + '<div class="terms">' + esc(su.terms) + '</div>'
+    + '<label class="fld" style="display:flex;gap:10px;align-items:flex-start"><input type="checkbox" id="ocAgree" style="width:20px;height:20px;flex:0 0 auto;margin-top:2px"> I have read and agree to the On-Call Expectations.</label>'
+    + '<label class="fld">Type your full name<br><input type="text" id="ocName" autocomplete="name" maxlength="80" placeholder="First and last name"></label>'
+    + '<div class="btns"><button class="b pri" id="ocSign">Sign</button></div><p class="msg" id="ocSignMsg"></p></div>'
+  else {
+    const rows = su.slots.map((r) => '<div class="ocrow"><span class="dt">' + esc(dWord(r.date, { weekday: 'short', month: 'short', day: 'numeric' })) + '</span>'
+      + ['day', 'overnight'].map((sl) => { const v = r[sl], k = r.date + '|' + sl
+          if (v.state === 'mine') return '<span class="slot mine">You\'re on call<br>' + (sl === 'day' ? '7am to 5pm' : '5pm to 7am') + (v.weekly ? '<span class="wk">every week</span>' : '') + '</span>'
+          if (v.state === 'asked') return '<button class="slot asked" data-ocw="' + esc(v.id) + '" title="Take back your ask">Waiting for<br>the office ✕' + (v.weekly ? '<span class="wk">every week</span>' : '') + '</button>'
+          if (v.state === 'taken') return v.skip ? '<span class="slot taken" title="Your every-week shift, but someone else has it this week">Someone else<br>this week</span>' : '<span class="slot taken">Taken</span>'
+          if (v.state === 'past') return '<span class="slot past">' + (sl === 'day' ? 'Day' : 'Night') + '</span>'
+          return '<button class="slot' + (OC_PICK.has(k) ? ' pick' + (OC_PICK.get(k) ? ' weekly' : '') : '') + '" data-ocp="' + esc(k) + '" aria-pressed="' + (OC_PICK.has(k) ? 'true' : 'false') + '">' + SLOTW[sl] + (OC_PICK.get(k) ? '<span class="wk">every week</span>' : '') + '</button>' }).join('') + '</div>').join('')
+    const mine = su.slots.flatMap((r) => ['day', 'overnight'].filter((sl) => r[sl].state === 'mine').map((sl) => esc(dWord(r.date, { weekday: 'short', month: 'short', day: 'numeric' })) + ' ' + (sl === 'day' ? 'daytime' : 'overnight')))
+    body = '<div class="card">' + (mine.length ? '<p><b>You\'re on call:</b> ' + mine.join(', ') + '. Thank you!</p>' : '')
+      + weeklyList(d, false)
+      + '<p class="small" style="margin-top:6px">Take an open shift one time, or every week. Choose, tap the open shifts you\'d like, then ask. The office confirms each one with you. Nothing is set until they do.</p>'
+      + (su.weekly_ready !== true ? '' : '<div class="ocmode" role="group" aria-label="How often"><button type="button" data-ocm="once" aria-pressed="' + (OC_MODE === 'once') + '">Just this one</button><button type="button" data-ocm="weekly" aria-pressed="' + (OC_MODE === 'weekly') + '">Every week</button></div>')
+      + '<div style="margin-top:8px">' + rows + '</div>'
+      + '<div class="btns"><button class="b pri" id="ocAsk">Ask for these shifts</button></div><p class="msg" id="ocAskMsg"></p>'
+      + '<p class="small" style="margin-top:8px">Need to give back a shift you\'re on? Call the office at least ' + esc(su.give_back_hours) + ' hours before it starts: ' + call + '.</p>'
+      + '<p class="small" style="margin-top:6px">You signed the On-Call Expectations. <a href="javascript:void 0" id="ocShowTerms">Read them again</a></p><div class="terms" id="ocTerms" style="display:none">' + esc(su.terms) + '</div></div>'
+  }
+  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + wait + body + '</section>'
+}
+function wireOnCall() {
+  document.querySelectorAll('[data-ocm]').forEach((b) => b.onclick = () => { OC_MODE = b.dataset.ocm; document.querySelectorAll('[data-ocm]').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')) })
+  document.querySelectorAll('[data-ocp]').forEach((b) => b.onclick = () => {
+    const k = b.dataset.ocp, sl = k.split('|')[1]
+    if (OC_PICK.has(k)) OC_PICK.delete(k); else OC_PICK.set(k, OC_MODE === 'weekly')
+    const on = OC_PICK.has(k), wk = on && OC_PICK.get(k)
+    b.classList.toggle('pick', on); b.classList.toggle('weekly', !!wk); b.setAttribute('aria-pressed', on ? 'true' : 'false')
+    b.innerHTML = SLOTW[sl] + (wk ? '<span class="wk">every week</span>' : '')
+  })
+  if ($('ocShowTerms')) $('ocShowTerms').onclick = () => { const t = $('ocTerms'); t.style.display = t.style.display === 'none' ? '' : 'none' }
+  if ($('ocSign')) $('ocSign').onclick = async () => {
+    const m = $('ocSignMsg')
+    if (!$('ocAgree').checked) { m.className = 'msg err'; m.textContent = 'Check the box to say you have read and agree.'; return }
+    const r = await act({ action: 'oncall_sign', agree: true, typed_name: $('ocName').value, version: D.oncall.signup.version }, m)
+    if (r && r.ok) setTimeout(load, 1200)
+  }
+  if ($('ocAsk')) $('ocAsk').onclick = async () => {
+    const m = $('ocAskMsg')
+    if (!OC_PICK.size) { m.className = 'msg err'; m.textContent = 'Tap the shifts you would like first.'; return }
+    const r = await act({ action: 'oncall_ask', slots: [...OC_PICK].map(([k, wk]) => ({ date: k.split('|')[0], slot: k.split('|')[1], ...(wk ? { weekly: true } : {}) })) }, m)
+    if (r && r.ok) { OC_PICK.clear(); setTimeout(load, 1500) }
+  }
+  document.querySelectorAll('[data-ocw]').forEach((b) => b.onclick = async () => {
+    if (PV) return toast('Preview only. Nothing was sent or saved.')
+    if (!confirm('Take back your ask for this shift?')) return
+    const r = await act({ action: 'oncall_withdraw', id: Number(b.dataset.ocw) }, $('ocAskMsg')); if (r && r.ok) setTimeout(load, 900)
+  })
+}
+
+
+function render() {
+  const d = D
+  $('app').innerHTML = (PV ? '<div class="sample office"><span><b>Office preview</b> of ' + esc(d.first) + '\'s My on-call page. Nothing you tap is sent or saved.</span></div>' : '')
+    + '<header><img class="logo" src="cc-logo.png" alt="Caring Companions"><div class="me"><div><h1 class="serif">Hi, ' + esc(d.first) + '!</h1><span class="team">On call · Level 3</span></div></div>'
+    + '<p class="motto">Thank you for being someone families can count on.</p></header>'
+    + '<main><section id="about"><h2 class="serif">What on call means</h2><div class="card"><p>' + esc(d.about) + '</p>'
+    + '<div class="row"><span>Daytime</span><span>7am to 5pm</span></div><div class="row"><span>Overnight</span><span>5pm to 7am the next morning</span></div>'
+    + '<p class="small" style="margin-top:8px">Questions? Call or text the office: <a href="tel:+14172348494">' + esc(d.office || '(417) 234-8494') + '</a>.</p></div></section>'
+    + onCallSection(d)
+    + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'
+  wireOnCall()
+}
+
+async function load() {
+  if (!PV && !(LINK.c && LINK.t)) return stateCard('My on-call', 'Please open this page from the link in our text. If you need a fresh link, text us.', '(417) 234-8494')
+  let r
+  try { r = await call({ action: PV ? 'preview' : 'view' }) } catch (e) { return stateCard('We couldn\'t open your page', 'Please check your connection and try again.', '(417) 234-8494') }
+  if (r.ok) { D = { first: r.first, office: r.office, today: r.today, about: r.about, oncall: { words: 'Daytime 7am to 5pm and overnight 5pm to 7am, for the next 4 weeks.', signup: Object.assign({}, r.signup, { waiting: r.waiting }) } }; return render() }
+  if (r.closed) return stateCard('Almost ready', r.message, r.office)
+  if (r.expired) return stateCard('This link has expired', r.message, r.office)
+  if (r.prn || r.notlevel) return stateCard('My on-call', r.message, r.office)
+  return stateCard('We couldn\'t open this page', r.error || 'Please try again in a minute.', PV ? '' : '(417) 234-8494')
+}
+load()
+</script>
+</body></html>

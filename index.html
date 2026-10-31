@@ -7391,7 +7391,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=16"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=17"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=3"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15719,6 +15719,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_oncall_first_live', name:'On call first: an open shift during someone\'s on-call time goes to them first',
     on:'The open shift shows "On call now" with a Call button and Covering it / Didn\'t answer / Didn\'t cover. The automatic texts wait until you record how the call went, at most 20 minutes after the shift opened. A miss: that on-call shift is not paid and they can\'t sign up again.',
     off:'Off: nothing waits. Owners see the "On call now" box on open shifts, marked practice.' },
+  /* 2026-10-30 (Krystal's idea, her "Yes to all", Level 3 only): invite our caregivers to on call from the On call tab */
+  { key:'prn_oncall_invite_live', name:'Caregiver on-call invites: invite Level 3 caregivers from the On call tab',
+    on:'The On call tab\'s Invite caregivers box texts a Level 3 caregiver their own My on-call link from the office line (a person presses Send, never 9pm to 8am). On their page they read what on call is, sign the On-Call Expectations, and sign up by shift, one time or every week. You confirm each one on the calendar, the same as the PRN CNAs.',
+    off:'Off: Send invite is refused and their page says it isn\'t open yet. You can still see the list, copy a link, and preview a caregiver\'s page.' },
   /* 2026-10-29 (plan sections 5 and 8): per-person signs in Our teams, and the "Looking for hours" tag on ask lists */
   /* 2026-10-29 (plan section 3): "Would you like more hours?" on their page, where the 60-day check-in lands */
   { key:'prn_more_hours_live', name:'"Would you like more hours?" on their PRN Team page', needsPage:true,
@@ -15737,7 +15741,7 @@ const PRN_ONCALL_TERMS_DEFAULT = ['PRN CNA On-Call Expectations','When you sign 
   '1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.','2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.',
   '3. Be ready to start a shift within 1 hour.','4. If the office calls you about an open shift during your on-call time, you cover it.',
   "5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.",
-  '6. If something comes up, call the office at least 24 hours before your on-call shift starts.'].join('\n');
+  '6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts.'].join('\n');
 function prnStep5Fill(){
   const st = DATA.ops_settings||{};
   [['set_prn_page_ready_msg','prn_page_ready_msg',PRN_PAGE_READY_DEFAULT],['set_prn_reconfirm_page_msg','prn_reconfirm_page_msg',PRN_RECONFIRM_PAGE_DEFAULT],['set_prn_monthly_msg','prn_monthly_msg',PRN_MONTHLY_DEFAULT],['set_prn_feedback_msg','prn_feedback_msg',PRN_FEEDBACK_DEFAULT]].forEach(([id,k,d])=>{

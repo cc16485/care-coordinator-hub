@@ -142,7 +142,11 @@
      who can't sign up after a miss (an owner can let them again), and the payroll counts.
      EVERY WEEK (2026-10-30, her "yes to all 7"): every-week shifts and asks are marked; one ✓ confirms the whole series and
      its weeks are added on their own; a week someone else holds shows who missed out. "+" can put someone on every week.
-     The Every-week shifts list has "They called to stop it" (weeks 24 hours or more away are taken back). */
+     The Every-week shifts list has "They called to stop it" (weeks 24 hours or more away are taken back).
+     OUR CAREGIVERS (2026-10-30, Krystal's idea, her "Yes to all", Level 3 only): an Invite caregivers box lists active Level 3
+     caregivers from AxisCare with their status; Send invite texts their own My on-call link from the office line (switch
+     prn_oncall_invite_live), Copy link hands it over, See their page previews it. Caregivers carry a "Caregiver" tag. */
+  var INV = null, INV_OPEN = '';
   var OC_OPEN = '', OC_MISS = '';
   var WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   var dShort = function (d) { return new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
@@ -162,13 +166,13 @@
       var who = c.confirmed.map(function (p) {
         if (p.missed) return '<div class="oc-who miss" title="' + e((oc.miss_kinds || {})[p.missed] || 'Missed') + ': not paid">✗ <b>' + e(p.name) + '</b> <span class="field-note">' + e(p.missed === 'no_answer' ? "didn't answer" : "didn't cover") + '</span></div>';
         var missing = OC_MISS === String(p.id) ? '<div class="oc-pick"><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'no_answer\')">Didn\'t answer our call</button><button class="oc-btn" onclick="PW.ocMiss(' + Number(p.id) + ',\'not_covered\')">Didn\'t cover the shift</button><button class="oc-btn" onclick="PW.ocMissOpen(\'\')">Cancel</button></div>' : '';
-        return '<div class="oc-who">✓ <b>' + e(p.name) + '</b>' + (p.weekly ? ' <span class="field-note" title="Every week">↻ every week</span>' : '') + (p.whole ? ' <span class="field-note">whole day</span>' : '') + (!p.shift_recorded ? ' <span class="field-note">no shift recorded</span>' : '')
+        return '<div class="oc-who">✓ <b>' + e(p.name) + '</b>' + (p.caregiver ? ' <span class="oc-tag no">Caregiver</span>' : '') + (p.weekly ? ' <span class="field-note" title="Every week">↻ every week</span>' : '') + (p.whole ? ' <span class="field-note">whole day</span>' : '') + (!p.shift_recorded ? ' <span class="field-note">no shift recorded</span>' : '')
           + (!d.past ? '<button class="oc-x" title="Take back (they called at least 24 hours ahead, or plans changed)" onclick="PW.cancel(' + Number(p.id) + ')">✕</button>' : '')
           + (d.date <= today && d.date >= addD(today, -14) ? ' <button class="oc-btn" title="They didn\'t answer the office, or didn\'t cover a shift" onclick="PW.ocMissOpen(\'' + Number(p.id) + '\')">Missed</button>' : '') + '</div>' + missing;
       }).join('');
       var asks = d.past ? '' : c.asked.map(function (p) {
         var pp = person(p.applicant_id);
-        return '<div class="oc-ask oc-who ask"><b>' + e(p.name) + '</b> asked' + (p.weekly ? ' <b>every week</b>' : '') + (pp.blocked ? ' <span class="field-note">(can\'t sign up)</span>' : '')
+        return '<div class="oc-ask oc-who ask"><b>' + e(p.name) + '</b>' + (p.caregiver ? ' <span class="oc-tag no">Caregiver</span>' : '') + ' asked' + (p.weekly ? ' <b>every week</b>' : '') + (pp.blocked ? ' <span class="field-note">(can\'t sign up)</span>' : '')
           + ' <button class="oc-btn" title="' + (p.weekly ? 'Confirm it, every week' : 'Confirm it') + '" onclick="PW.ocOk(' + Number(p.id) + ',this,' + (p.weekly ? 'true' : 'false') + ')">✓</button><button class="oc-btn" title="Not this one" onclick="PW.ocNo(' + Number(p.id) + ')">✕</button></div>'; }).join('');
       var put = !d.past && !c.confirmed.some(function (p) { return !p.missed; }) && mayPut.length
         ? (OC_OPEN === key ? '<div class="oc-pick"><select id="ocPut_' + e(key) + '">' + mayPut.map(function (p) { return '<option value="' + e(p.applicant_id) + '">' + e(p.name) + '</option>'; }).join('') + '</select>'
@@ -186,7 +190,7 @@
         : p.signed_old ? '<span class="oc-tag no">Signed an older version: signs again on their page</span>' : '<span class="oc-tag no">Not signed yet</span>';
       var blk = p.blocked ? ' <span class="oc-tag bad">Can\'t sign up: ' + e(p.miss ? p.miss.word.toLowerCase() : 'missed') + (p.miss && p.miss.at ? ', ' + e(fmt(p.miss.at)) : '') + '</span>'
         + (isOwner() ? ' <button class="fb" onclick="PW.ocLift(\'' + e(p.applicant_id) + '\',this)">Let them sign up again</button>' : ' <span class="field-note">An owner can let them sign up again.</span>') : '';
-      return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + sig + blk + '</div>'; }).join('') : '<div class="field-note">Nobody is on the PRN CNA Team yet.</div>';
+      return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + (p.caregiver ? '<span class="oc-tag no">Caregiver</span> ' : '') + sig + blk + '</div>'; }).join('') : '<div class="field-note">Nobody is on the PRN CNA Team yet.</div>';
     var older = (oc.offers || []).filter(function (o) { return o.pattern !== 'not_now'; });
     return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
       + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1191). Asks, misses and signatures show once it has run.</div>' : '')
@@ -194,7 +198,8 @@
       + '<div class="field-note">Two shifts a day: daytime 7am to 5pm, overnight 5pm to 7am. Members take an open shift one time or every week on their PRN Team page after signing the On-Call Expectations; you confirm each one (an every-week shift once, then its weeks are added on their own, skipping any week someone else holds). To stop an every-week shift they call at least 24 hours ahead; use They called to stop it below. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
       + '<div class="field-note" style="margin-top:6px;"><b>' + gaps + ' open shift' + (gaps === 1 ? '' : 's') + '</b> in the next 4 weeks.</div>'
       + '<div class="oc-cal"><div class="oc-grid">' + WD.map(function (w) { return '<div class="oc-h">' + w + '</div>'; }).join('') + days + '</div></div>'
-      + '<div style="margin-top:14px;"><b style="font-size:13.5px;color:var(--navy);">The PRN CNA Team</b><div class="oc-ppl">' + people + '</div></div>'
+      + '<div style="margin-top:14px;"><b style="font-size:13.5px;color:var(--navy);">The PRN CNA Team and invited caregivers</b><div class="oc-ppl">' + people + '</div></div>'
+      + inviteHtml(oc)
       + (oc.weekly_ready ? '<div style="margin-top:12px;"><b style="font-size:13.5px;color:var(--navy);">Every-week shifts</b><div class="oc-ppl">'
         + ((oc.series || []).length ? oc.series.map(function (x) {
             return '<div class="oc-p"><b>' + e(x.name || '') + '</b> ' + e(x.word) + (x.status === 'asked' ? ' <span class="oc-tag no">Asked, waiting for you</span>' : ' <span class="oc-tag ok">Since ' + e(dShort(x.since)) + (x.confirmed_by ? ', confirmed by ' + e(x.confirmed_by) : '') + '</span>')
@@ -205,6 +210,28 @@
       + (older.length ? '<div class="field-note" style="margin-top:10px;">Earlier on-call preferences (before sign-up by shift): ' + older.map(function (o) { return e(o.name) + ', ' + e(String(o.pattern_word || '').toLowerCase()); }).join('; ') + '</div>' : '')
       + '</div>';
   }
+  /* OUR CAREGIVERS: the Invite caregivers box (loads on a tap; AxisCare's caregiver list takes a few seconds) */
+  function inviteHtml(oc) {
+    var head = '<div style="margin-top:14px;padding:10px 12px;background:var(--bg);border-radius:10px;"><b style="font-size:13.5px;color:var(--navy);">Invite caregivers to on call</b> <span class="field-note">Level 3 (Advanced Care) only</span>'
+      + (!oc.invite_live ? '<div class="field-note" style="margin-top:4px;"><b>Invites are off</b> (Settings, PRN Teams, Caregiver on-call invites): Send invite is refused and their page says it isn\'t open yet. You can still copy a link and see their page.</div>' : '');
+    if (!INV) return head + '<div style="margin-top:8px;"><button class="fb" onclick="PW.invLoad(this)">Show Level 3 caregivers</button></div></div>';
+    if (INV.error) return head + '<div class="field-note" style="margin-top:6px;">' + e(INV.error) + ' <button class="fb" onclick="PW.invLoad(this)">Try again</button></div></div>';
+    var rows = (INV.people || []).map(function (p) {
+      var st = [p.invited_at ? '<span class="oc-tag ok">Invited ' + e(fmt(p.invited_at)) + (p.invited_via === 'link' ? ' (link)' : '') + '</span>' : '<span class="oc-tag no">Not invited</span>',
+        p.signed ? '<span class="oc-tag ok">Signed the expectations</span>' : p.signed_old ? '<span class="oc-tag no">Signed an older version</span>' : '',
+        p.upcoming ? '<span class="oc-tag ok">' + p.upcoming + ' on-call shift' + (p.upcoming === 1 ? '' : 's') + ' ahead</span>' : '',
+        p.blocked ? '<span class="oc-tag bad">Can\'t sign up (missed)</span>' : '', !p.has_phone ? '<span class="oc-tag bad">No phone in AxisCare</span>' : ''].filter(Boolean).join(' ');
+      var open = INV_OPEN === p.caregiver_ax ? '<div class="oc-pick" style="width:100%;"><textarea id="invMsg_' + e(p.caregiver_ax) + '" rows="4" style="width:100%;font-size:13px;">' + e(String(INV.message || '').replace(/\{first_name\}/g, p.first || p.name.split(' ')[0])) + '</textarea>'
+        + '<div class="field-note">{link} becomes their own link. Sent from the office line.</div><div><button class="oc-btn" onclick="PW.invSend(\'' + e(p.caregiver_ax) + '\',this)">Send</button> <button class="oc-btn" onclick="PW.invOpen(\'\')">Cancel</button></div></div>' : '';
+      return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + st + ' <span style="margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;">'
+        + (p.has_phone ? '<button class="fb" onclick="PW.invOpen(\'' + e(p.caregiver_ax) + '\')">' + (p.invited_at ? 'Invite again' : 'Send invite') + '</button>' : '')
+        + '<button class="fb" onclick="PW.invLink(\'' + e(p.caregiver_ax) + '\',this)">Copy link</button>'
+        + '<button class="fb" onclick="window.open(\'oncall.html?preview=' + e(p.caregiver_ax) + '\',\'_blank\')">See their page</button></span>' + open + '</div>';
+    }).join('');
+    return head + '<div class="field-note" style="margin-top:4px;">Active caregivers AxisCare shows at Level 3. The PRN CNA Team signs up on their own PRN Team page. Once a caregiver signs up, you confirm each shift on the calendar above, the same as the PRN CNAs.</div>'
+      + '<div class="oc-ppl">' + (rows || '<div class="field-note">No active Level 3 caregivers in AxisCare right now.</div>') + '</div></div>';
+  }
+
   /* after a miss: what was taken back, and a Call button (from the office line) to tell them */
   function onCallMissed(r) {
     if (!r || r.outcome !== 'missed') return;
@@ -435,6 +462,35 @@
           + ((r.failed || []).length ? ' Could not take back: ' + r.failed.map(dShort).join(', ') + '. Take them back by hand.' : '');
         if (typeof ccAlert === 'function') ccAlert(msg); else alert(msg);
       } catch (y) { alert('Not saved: ' + y.message); if (btn) btn.disabled = false; }
+    },
+    invLoad: async function (btn) {
+      if (btn) btn.disabled = true;
+      try { INV = await call({ action: 'oncall_invites' }); } catch (x) { INV = { error: x.message }; }
+      draw();
+    },
+    invOpen: function (ax) { INV_OPEN = String(ax || ''); draw(); },
+    invSend: async function (ax, btn) {
+      var p = ((INV || {}).people || []).find(function (x) { return x.caregiver_ax === ax; }) || {};
+      var ta = document.getElementById('invMsg_' + ax), msg = ta ? ta.value : '';
+      if (/—/.test(msg)) { alert('Please use a comma or a period instead of an em dash.'); return; }
+      if (typeof ccConfirm === 'function' && !(await ccConfirm('Text ' + (p.name || 'them') + ' this invite from the office line, with their own My on-call link?'))) return;
+      if (btn) btn.disabled = true;
+      try {
+        var r = await call({ action: 'oncall_invite_send', caregiver_ax: ax, message: msg, send_id: 'inv-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8) });
+        INV_OPEN = ''; INV = await call({ action: 'oncall_invites' }); draw();
+        var m = 'Sent to ' + (p.name || 'them') + '.' + (r.warning ? ' ' + r.warning : '');
+        if (typeof ccAlert === 'function') ccAlert(m); else alert(m);
+      } catch (x) { alert(x.message); if (btn) btn.disabled = false; }
+    },
+    invLink: async function (ax, btn) {
+      if (btn) btn.disabled = true;
+      try {
+        var r = await call({ action: 'oncall_invite_link', caregiver_ax: ax });
+        var copied = false; try { await navigator.clipboard.writeText(r.link); copied = true; } catch (y) { /* shown below */ }
+        INV = await call({ action: 'oncall_invites' }); draw();
+        var m = (copied ? 'Copied their My on-call link (good for 30 days).' : 'Their My on-call link (good for 30 days):\n' + r.link) + (r.live ? '' : '\n\nInvites are off, so their page says it isn\'t open yet.');
+        if (typeof ccAlert === 'function') ccAlert(m); else alert(m);
+      } catch (x) { alert(x.message); if (btn) btn.disabled = false; }
     },
     ocLift: async function (aid, btn) {
       var reason = window.prompt('Why can they sign up for on call again? (kept with your name)');

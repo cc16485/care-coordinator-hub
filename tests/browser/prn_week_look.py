@@ -111,6 +111,35 @@ async()=>{
   const realF2=window.fetch; window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week') && JSON.parse(o.body).action==='oncall_series_end'){ CALLS.push(JSON.parse(o.body)); return new Response(JSON.stringify({outcome:'ended',taken_back:['2026-11-07','2026-11-21'],kept:[{date:'2026-10-31',shift:'day'}],failed:[]}),{status:200}); } return realF2(u,o); };
   await PW.ocEnd(3); await sleep(50); window.fetch=realF2;
   ok('...They called to stop it: sends the reason, then says what was taken back and what stays theirs', CALLS.some(c=>c.action==='oncall_series_end' && c.series_id===3 && c.note==='New job on Saturdays') && /Taken back: Nov 7, Nov 21/.test(alerted) && /Still theirs \(within 24 hours\): Oct 31 daytime/.test(alerted) && /24 hours or more/.test(confirmed), alerted);
+  /* OUR CAREGIVERS ON CALL (2026-10-30, Level 3 only) */
+  const cal3=WEEK.oncall.calendar.map(d=>JSON.parse(JSON.stringify(d)));
+  cal3.find(d=>d.date==='2026-11-05').day.confirmed=[{id:21,applicant_id:'ax:501',name:'Maria Lopez',whole:false,shift_recorded:true,missed:null,caregiver:true}];
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { calendar:cal3, invite_live:false, people:WEEK.oncall.people.concat([{applicant_id:'ax:501',name:'Maria Lopez',caregiver:true,signed:true,signed_at:'2026-10-30T15:00:00Z',blocked:false}]) });
+  await PW.load(); await sleep(50);
+  ok('caregivers: Maria on the calendar and in the people list with a Caregiver tag', /Maria Lopez\s*Caregiver/.test(dayOf('2026-11-05').innerText) && /Maria Lopez\s*Caregiver\s*Signed the expectations/.test(txt()), dayOf('2026-11-05').innerText);
+  ok('...the Invite box: Level 3 only, invites off said so, loads on a tap', /Invite caregivers to on call/.test(txt()) && /Level 3 \(Advanced Care\) only/.test(txt()) && /Invites are off/.test(txt()) && /Show Level 3 caregivers/.test(txt()));
+  const INVR={ ok:true, live:false, message:"Hi {first_name}! We're inviting a few of our caregivers to sign up for on-call shifts. {link}", people:[
+    {caregiver_ax:'504',name:'Opal Nophone',first:'Ope',has_phone:false,invited_at:null,signed:false,upcoming:0,blocked:false},
+    {caregiver_ax:'501',name:'Maria Lopez',first:'Maria',has_phone:true,invited_at:'2026-10-30T15:00:00Z',invited_via:'text',signed:true,upcoming:2,blocked:false}] };
+  const realF3=window.fetch; let opened=''; window.open=(u)=>{ opened=u; };
+  window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body);
+      if(b.action==='oncall_invites'){ CALLS.push(b); return new Response(JSON.stringify(INVR),{status:200}); }
+      if(b.action==='oncall_invite_link'){ CALLS.push(b); return new Response(JSON.stringify({outcome:'link',link:'https://cc.mo-care.com/oncall.html?c=501&e=1&t=x',live:false}),{status:200}); }
+      if(b.action==='oncall_invite_send'){ CALLS.push(b); return new Response(JSON.stringify({outcome:'sent'}),{status:200}); } }
+    return realF3(u,o); };
+  await PW.invLoad(); await sleep(50);
+  ok('...the list: each caregiver with status (invited when, signed, shifts ahead, no phone), Send invite only with a phone', /Opal Nophone\s*Not invited\s*No phone in AxisCare/.test(txt()) && /Maria Lopez\s*Invited Oct 30\s*Signed the expectations\s*2 on-call shifts ahead/.test(txt())
+    && /Invite again/.test(txt()) && ![...box.querySelectorAll('button')].some(b=>/^Send invite$/.test(b.innerText)), txt().slice(txt().indexOf('Invite caregivers'), txt().indexOf('Invite caregivers')+500));
+  PW.invOpen('501'); await sleep(30);
+  const ita=document.getElementById('invMsg_501');
+  ok('...Invite again opens the drafted text with her first name, to edit', ita && /^Hi Maria! We're inviting/.test(ita.value) && /\{link\}/.test(ita.value), ita && ita.value);
+  ita.value='Hi Maria, want to be on call? {link}'; await PW.invSend('501'); await sleep(50);
+  ok('...Send sends her edited words, her id and a send id', CALLS.some(c=>c.action==='oncall_invite_send' && c.caregiver_ax==='501' && c.message==='Hi Maria, want to be on call? {link}' && /^inv-/.test(c.send_id)) && /Sent to Maria Lopez/.test(alerted), alerted);
+  await PW.invLink('504'); await sleep(50);
+  ok('...Copy link asks for her link and says invites are off', CALLS.some(c=>c.action==='oncall_invite_link' && c.caregiver_ax==='504') && /oncall\.html\?c=501|Copied/.test(alerted) && /Invites are off/.test(alerted), alerted);
+  [...box.querySelectorAll('button')].find(b=>/See their page/.test(b.innerText)).click();
+  ok('...See their page opens the office preview of her page', /^oncall\.html\?preview=\d+$/.test(opened), opened);
+  window.fetch=realF3;
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:false }); await PW.load(); await sleep(30);
   ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1191\)/.test(txt()));
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:true, shift_live:false }); await PW.load(); await sleep(30);
