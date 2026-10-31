@@ -27,7 +27,6 @@
     ['A visit is missing a clock-in or clock-out', go('ops', '', 'Needs Attention'), 'Call the client to confirm the times from the card, then fix the visit in AxisCare.'],
     ['See the schedule, or change one visit', go('', 'calloffs', 'Cara: Call-offs & open shifts'), 'Open shifts are on Cara\'s board. Change a visit in AxisCare.'],
     ['How did a new pairing go?', go('carematch', '', 'Care Match Check-ins'), 'Call when a check-in is due and log both sides.'],
-    ['GHEs and medication visits', go('nursevisits', '', 'Nurse Scheduling'), 'Who is due, which nurse, and the GHE forms.'],
     ['A caregiver asked for no shift texts', go('', 'dno', 'Cara: No shift texts'), 'Add them here; nobody can text them about shifts.'],
   ];
 

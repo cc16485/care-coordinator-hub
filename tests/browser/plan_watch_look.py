@@ -53,10 +53,7 @@ T = r"""async()=>{
   ok('...submitted: "waiting on DSDS"', c().status==='submitted' && c().submitted_on==='2026-10-18' && /submitted 10\/18\/2026: waiting on DSDS/.test(box()));
   document.getElementById('mcpCO_'+id).value='approved_new_plan'; await mcpChange(id,'close'); await sleep(120);
   ok('...DSDS\'s decision closes it into "earlier change requests"; the plan itself is untouched (no units changed)', c().status==='closed' && c().outcome==='approved_new_plan' && /1 earlier change request/.test(box()) && p().plan_end==='2026-12-05' && p().services.length===1);
-  /* Nurse Scheduling */
-  switchTab('nursevisits'); await sleep(300);
-  const card=document.getElementById('mcpCard').innerText;
-  ok('Nurse Scheduling\'s short list includes the plan ending soon ("48 days left"; watch Fusion for the new plan) and leaves out the long one', /Pat Soon\s*Plan to 12\/05\/2026 \(48 days left\)/.test(card) && /watch Fusion for the new plan/.test(card) && !/Lou Long/.test(card), card.slice(0,700));
+  /* Nurse Scheduling (its plan list) was removed 2026-10-31 */
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
