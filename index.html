@@ -7405,7 +7405,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=1"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15735,8 +15735,12 @@ const PRN_STEP5_SWITCHES = [
     on:'PRN CNAs read and sign the On-Call Expectations on their page, then ask for open on-call shifts one at a time (next 4 weeks). Each ask waits on the On call calendar until you confirm it. Only someone who signed the current expectations, and hasn\'t missed an on-call shift, can be put on call.',
     off:'Off: members don\'t see on-call sign-up, and you can put anyone on call from the calendar without a signature. You can see what they would see in What they see.' },
   { key:'prn_oncall_first_live', name:'On call first: an open shift during someone\'s on-call time goes to them first',
-    on:'The open shift shows "On call now" with a Call button and Covering it / Didn\'t answer / Didn\'t cover. The automatic texts wait until you record how the call went, at most 20 minutes after the shift opened. A miss: that on-call shift is not paid and they can\'t sign up again.',
+    on:'The open shift shows "On call now" with a Call button and Covering it / Didn\'t answer / Said they can\'t. Cara waits until you record how it went or they answer the text, at most 15 minutes. A miss (no answer, or they can\'t): that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again.',
     off:'Off: nothing waits. Owners see the "On call now" box on open shifts, marked practice.' },
+  /* 2026-10-31 (her picks): the on-call person is texted at once, and at 15 minutes with no answer the admins get one text */
+  { key:'prn_oncall_text_live', name:'On call first: text the on-call person at once (needs "On call first" on too)',
+    on:'When a call-in falls in someone\'s on-call time, they get a text from the office line right away ("You\'re on call, and Ruth in Nixa needs someone today 9am to 1pm. Please call the office now, or reply YES"), and the office calls too. Never anyone AxisCare has working then. At 15 minutes with no answer, the admins get one text to record it.',
+    off:'Off: nobody is texted as on call. The office still sees "On call now" and calls them.' },
   /* 2026-10-30 (Krystal's idea, her "Yes to all", Level 3 only): invite our caregivers to on call from the On call tab */
   { key:'prn_oncall_invite_live', name:'Caregiver on-call invites: invite Level 3 caregivers from the On call tab',
     on:'The On call tab\'s Invite caregivers box texts a Level 3 caregiver their own My on-call link from the office line (a person presses Send, never 9pm to 8am). On their page they read what on call is, sign the On-Call Expectations, and sign up by shift, one time or every week. You confirm each one on the calendar, the same as the PRN CNAs.',
@@ -41549,9 +41553,10 @@ function covOpenBody(c,tallies){
      answers and one list in three groups; Cara's history and the time and hand-off settings join "More for this shift" */
   if(scOn){
     const extra=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
-    return SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) });
+    /* 2026-10-31: the simple card shows who is on call (it was left out) and the PRN team buttons, first */
+    return (window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) });
   }
-  return banner+cipCaseHtml(c)+(window.ONC?ONC.html(c):'')+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
+  return banner+cipCaseHtml(c)+(window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
 }
 function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
 function covClosedBody(c,tallies){
