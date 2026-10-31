@@ -341,7 +341,7 @@ async()=>{
   ok('Settings: "Open the PRN Team page to members", off', /Open the PRN Team page to members/.test(sw) && /: off/.test(sw), sw);
   window.tkMerge=async(fn)=>{ const base=JSON.parse(JSON.stringify(DATA.ops_settings||{})), m=JSON.parse(JSON.stringify(base)); const ch=fn(m,base)||[]; DATA.ops_settings=m; return { changed:ch, error:null }; }; (0,eval)('tkMerge=window.tkMerge');
   window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
-  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===14, sw);
+  ok('Settings: the three link texts, each off', ['"Your PRN Team page is ready" text','Page link in the welcome text','60-day check-in opens their PRN Team page'].every(n=>sw.includes(n)) && (sw.match(/: off/g)||[]).length===15, sw);   // 15 since 2026-10-30 (Caregiver on-call invites)
   ok('Settings: "Would you like more hours?" on their page, off', /"Would you like more hours\?" on their PRN Team page: off/.test(sw), sw);
   ok('Settings: Our teams signs and the "Looking for hours" tag, off', /Our teams signs and the "Looking for hours" tag on ask lists: off/.test(sw), sw);
   ok('Settings: the on-call shift choice, off', /On call: pick the shift when confirming \(daytime, overnight or whole day\): off/.test(sw), sw);
