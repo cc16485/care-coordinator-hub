@@ -1479,7 +1479,7 @@ function renderOffers(){
   /* One line telling you the single next thing, so the card can stay shut. */
   const nextStep=o=>
       !o.axiscare_applicant_id   ? ['Add to AxisCare','#B45309','#FEF3C7']
-    : !o.attributes_entered_at   ? ['Enter attributes','#B45309','#FEF3C7']
+    : !o.attributes_entered_at   ? ['Enter attributes in AxisCare','#B45309','#FEF3C7']
     : !o.step1_done_at           ? ['Waiting on their Step 1','#6E6559','#F4F2ED']
     :                              ['Ready for background & references','#15803D','#DCFCE7'];
 
@@ -1488,13 +1488,35 @@ function renderOffers(){
      screen at once, which meant reading four to find the one that was yours. */
   const body=o=>{
     const attrs=o.attributes||{};
-    const attrHtml=OFFER_ATTRS.map(a=>{
-      const no=attrs[a[0]]===false;
-      return '<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.18rem 0;border-bottom:1px dashed #FAF9F6;font-size:.8rem">'+
-        '<span>'+esc(a[1])+'</span><b style="color:'+(no?'#DC2626':'#15803D')+'">'+(no?'NO':'Yes')+'</b></div>';
-    }).join('');
-    const lvl=o.level_confirmed||'';
     const id=esc(o.id);
+    const attrHtml=OFFER_ATTRS.map(a=>{
+      const v=attrs[a[0]];
+      return '<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.18rem 0;border-bottom:1px dashed #FAF9F6;font-size:.8rem">'+
+        '<span>'+esc(a[1])+'</span><b style="color:'+(v===false?'#DC2626':v===true?'#15803D':'#A89C8B')+'">'+(v===false?'NO':v===true?'Yes':'not asked')+'</b></div>';
+    }).join('');
+    /* ATTRIBUTES, CLEARER (Samantha 2026-10-31: "the office still enters attributes in AxisCare, make it clearer so it gets
+       done"). AxisCare has no way for the Hub to set attributes, so a person ticks them on the AxisCare Attributes screen.
+       When that is the next step, the card shows exactly what to tick and what to leave off, then one button. */
+    const attrSheet=(()=>{
+      const tick=OFFER_ATTRS.filter(a=>attrs[a[0]]===true), off=OFFER_ATTRS.filter(a=>attrs[a[0]]===false),
+            unk=OFFER_ATTRS.filter(a=>attrs[a[0]]!==true&&attrs[a[0]]!==false);
+      const col=(title,list,c,mark)=>'<div style="flex:1 1 200px;min-width:180px">'+
+        '<div style="font-size:.74rem;font-weight:700;color:'+c+';margin-bottom:.2rem">'+title+' ('+list.length+')</div>'+
+        (list.length?list.map(a=>'<div style="font-size:.8rem;padding:.08rem 0">'+mark+' '+esc(a[1])+'</div>').join(''):'<div style="font-size:.78rem;color:#A89C8B">none</div>')+'</div>';
+      return '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:.55rem;background:#fff;border:1px solid #F3E2C7;border-radius:8px;padding:.55rem .7rem">'+
+        col('Tick these',tick,'#15803D','☑')+col('Leave these off',off,'#B91C1C','☐')+
+        (unk.length?col('Not asked at the interview, ask them',unk,'#6E6559','?'):'')+'</div>';
+    })();
+    const attrStep=o.axiscare_applicant_id
+      ? {done:!!o.attributes_entered_at, label:'Enter their attributes in AxisCare',
+         btn:'<button class="fb" style="background:#0D365F;color:#fff;border-color:#0D365F" onclick="markOfferEntered(\''+id+'\',this)">Done, all entered in AxisCare</button>',
+         note:'In AxisCare, open them under Applicants, go to their Attributes screen, and tick the boxes below. The same answers are in the important note on their AxisCare record.',
+         sheet:attrSheet}
+      : {done:!!o.attributes_entered_at, label:'Add them to AxisCare as an applicant, then enter their attributes',
+         btn:'<button class="fb" style="background:#0D365F;color:#fff;border-color:#0D365F" onclick="markOfferEntered(\''+id+'\',this)">Done, added and entered in AxisCare</button>',
+         note:'The automatic add to AxisCare did not work'+(o.axiscare_push_error?' ('+esc(o.axiscare_push_error)+')':'')+'. Add them under Applicants in AxisCare, then tick the boxes below on their Attributes screen.',
+         sheet:attrSheet};
+    const lvl=o.level_confirmed||'';
 
     /* The ladder, in order. Done ones tick quietly; the first unfinished one
        is the only place a button appears. */
@@ -1513,13 +1535,9 @@ function renderOffers(){
        btn:'', note:'Sent automatically when they signed. <span class="hp1" data-offer="'+id+'">Checking how far they are…</span>'},
       {done:(typeof candidates!=='undefined'?candidates:[]).some(c=>String(c.offer_id||'')===String(o.id)), label:'Background &amp; references',
        btn:'', note:'The Hub moves them in by itself when Step 1 is complete (their signed permission is in), and tells Recruiting to start the checks and references.'},
-      {done:!!o.attributes_entered_at, label:'AxisCare attributes',
-       btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
-       note:'From the copy sheet on their readiness card, then mark it here.'},
+      attrStep,
     ]:[
-      {done:!!o.attributes_entered_at, label:'AxisCare attributes',
-       btn:'<button class="fb" onclick="markOfferEntered(\''+id+'\',this)">Mark entered in AxisCare</button>',
-       note:o.axiscare_applicant_id?'Pushed automatically, just confirm the attributes.':'Auto-push did not take, so add them by hand first.'},
+      attrStep,
       {done:!!o.step1_done_at, label:'Their Step 1 paperwork',
        btn:'<button class="fb" onclick="markOfferStep1(\''+id+'\',this)">Mark Step 1 done</button>',
        /* 2026-10-12 (Samantha: "we don't do viventium until orientation"): no Viventium step or entry sheet on offer cards */
@@ -1563,6 +1581,7 @@ function renderOffers(){
       (np||o.offer_withdrawn_at?'':'<button class="fb" style="color:#B91C1C;border-color:#FCA5A5" onclick="offerCloseAsk(\''+id+'\')">Close offer</button>')+
       '</div>'+
       '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">'+now.note+'</div>'+
+      (now.sheet||'')+
       (np?'':'<div id="oc_'+id+'" style="display:none;margin-top:.5rem;font-size:.8rem"></div>')+
       '</div>'+
       (ladder?'<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.45rem">'+ladder+'</div>':'')+
@@ -1633,8 +1652,9 @@ function renderOffers(){
       [1,2,3].map(n=>'<option value="'+n+'"'+(lvl===n?' selected':'')+'>Level '+n+'</option>').join('')+
       '</select></label></div>'+
 
-      '<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#0D365F">AxisCare attribute answers</summary>'+
-      '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>';
+      /* while entering them is the next step, the tick list above is the one place they show */
+      (now===attrStep?'':'<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:#0D365F">AxisCare attribute answers</summary>'+
+      '<div style="max-width:420px;margin-top:.4rem">'+attrHtml+'</div></details>');
   };
 
   const card=o=>{
