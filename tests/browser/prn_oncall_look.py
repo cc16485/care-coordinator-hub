@@ -4,7 +4,7 @@ server call is answered here, nothing is sent or saved. (PORT=<static server por
 import os, json
 from playwright.sync_api import sync_playwright
 PORT = os.environ.get('PORT', '8811')
-TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts."  # her approved words, all six points (the server sends these)
+TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 7pm, and overnight, 7pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts."  # her approved words, all six points (the server sends these)
 def slots():
     out = []
     for i in range(28):
@@ -13,6 +13,7 @@ def slots():
         if i == 0: r = dict(r, day={ 'state': 'past' })
         if i == 2: r = dict(r, day={ 'state': 'mine', 'can_give_back': True }, overnight={ 'state': 'taken' })
         if i == 3: r = dict(r, overnight={ 'state': 'asked', 'id': 41 })
+        if i == 5: r = dict(r, overnight={ 'state': 'closed' })   # 2026-10-30: not offered
         out.append(r)
     return out
 def view(**su):
@@ -21,7 +22,7 @@ def view(**su):
     return { 'ok': True, 'preview': False, 'live': True, 'today': '2026-10-29', 'first': 'Grace', 'team': 'cna', 'team_label': 'PRN CNA Team', 'since': '2026-03-14', 'on_schedule': True,
       'looking': { 'on': False }, 'offered': [], 'clients': [], 'thanks': [], 'courses': [], 'office': '(417) 234-8494',
       'hours': { 'windows': {}, 'target_hours': None, 'outside_ok': False, 'updated_at': None, 'short_notice_ok': None, 'break_until': None },
-      'oncall': { 'pattern': None, 'confirmed': [], 'patterns': { 'every_weekend': 'Every weekend' }, 'words': 'On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am the next morning.', 'signup': base } }
+      'oncall': { 'pattern': None, 'confirmed': [], 'patterns': { 'every_weekend': 'Every weekend' }, 'words': 'On call comes in two shifts: daytime, 7am to 7pm, and overnight, 7pm to 7am the next morning.', 'signup': base } }
 R = []; ok = lambda n, c, d='': R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
 def page(pw, qs, answer):
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 400, 'height': 1800}); calls = []
@@ -63,6 +64,7 @@ with sync_playwright() as pw:
     t = pg.inner_text('#oncall')
     ok("23: signed: today plus 4 weeks, two shifts a day; theirs, asked, taken, too soon", pg.locator('.ocrow').count() == 28 and "You're on call: Sat, Oct 31 daytime" in t and 'Waiting for' in t and 'Taken' in t and pg.locator('.slot.past').count() == 1, t[:700])
     ok('...never another person\'s name, never pay', 'Grace' not in t.replace("You're on call", '') and '$' not in t)
+    ok('2026-10-30: a shift that isn\'t offered says "Not offered" and can\'t be tapped', 'Not\noffered' in t and pg.locator('[data-ocp="2026-11-03|overnight"]').count() == 0, t[:600])
     ok('27: giving one back is a call to the office, 24 hours ahead', 'Call the office at least 24 hours before it starts' in t)
     pg.click('#ocAsk'); pg.wait_for_timeout(100)
     ok('...asking with nothing tapped: says so, sends nothing', not any(c.get('action') == 'oncall_ask' for c in calls) and 'Tap the shifts' in pg.inner_text('#ocAskMsg'))
@@ -120,7 +122,7 @@ with sync_playwright() as pw:
       window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm'); let alerted=''; window.ccAlert=(m)=>{alerted=m}; (0,eval)('ccAlert=window.ccAlert');
       (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin'];
       sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
-      let NOW={ ok:true, live:false, cases:[{ case_id:'cv1', oncall_id:7, applicant_id:'g', name:'Grace Hill', first:'Grace', date:'2026-11-02', slot:'day', slot_word:'Daytime, 7am to 5pm', phone:'+14175550101', outcome:null, hold_until:null }] };
+      let NOW={ ok:true, live:false, cases:[{ case_id:'cv1', oncall_id:7, applicant_id:'g', name:'Grace Hill', first:'Grace', date:'2026-11-02', slot:'day', slot_word:'Daytime, 7am to 7pm', phone:'+14175550101', outcome:null, hold_until:null }] };
       const CALLS=[]; const real=window.fetch;
       window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week')){ const b=JSON.parse(o.body); CALLS.push(b);
         if(b.action==='oncall_now') return new Response(JSON.stringify(NOW),{status:200});
@@ -130,7 +132,7 @@ with sync_playwright() as pw:
       ok('nothing before it has loaded', ONC.html(c)==='');
       await ONC.load(true); await sleep(30);
       let h=ONC.html(c), d=document.createElement('div'); d.innerHTML=h; document.body.appendChild(d);
-      ok('switch off, owner: "On call now: Grace Hill", marked practice, nothing waits', /On call now: Grace Hill/.test(d.innerText) && /Practice: only owners see this, and nothing waits/.test(d.innerText) && /\\(daytime, 7am to 5pm\\)/.test(d.innerText), d.innerText);
+      ok('switch off, owner: "On call now: Grace Hill", marked practice, nothing waits', /On call now: Grace Hill/.test(d.innerText) && /Practice: only owners see this, and nothing waits/.test(d.innerText) && /\\(daytime, 7am to 7pm\\)/.test(d.innerText), d.innerText);
       ok('...Call from the office line (the Hub call button), and the three outcomes', !!d.querySelector('[data-oc-phone="+14175550101"]') && /Covering it/.test(d.innerText) && /Didn't answer in 15 minutes/.test(d.innerText) && /Didn't cover the shift/.test(d.innerText), d.innerHTML.slice(0,600));
       ok('...a closed case or another case: nothing', ONC.html(Object.assign({},c,{status:'filled'}))==='' && ONC.html(Object.assign({},c,{id:'cv2'}))==='');
       CC_ROLES=['care_coordinator']; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['care_coordinator'];

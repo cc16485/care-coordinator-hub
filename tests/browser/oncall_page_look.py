@@ -4,8 +4,8 @@ sent or saved. (PORT=<static server port> python3 tests/browser/oncall_page_look
 import os, json
 from playwright.sync_api import sync_playwright
 PORT = os.environ.get('PORT', '8811')
-TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts."
-ABOUT = "On call means keeping your phone close during a daytime (7am to 5pm) or overnight (5pm to 7am) shift. If a caregiver can't make it, the office calls you first. You're paid for each on-call shift, plus your pay for any shift you cover. Sign up for the shifts that fit your life, one time or every week. Once you're on call, families are counting on you."
+TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 7pm, and overnight, 7pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts."
+ABOUT = "On call means keeping your phone close during a daytime (7am to 7pm) or overnight (7pm to 7am) shift. If a caregiver can't make it, the office calls you first. You're paid for each on-call shift, plus your pay for any shift you cover. Sign up for the shifts that fit your life, one time or every week. Once you're on call, families are counting on you."
 def slots():
     out = []
     for i in range(28):
@@ -47,7 +47,7 @@ with sync_playwright() as pw:
     V = view(signed=False, signed_before=False)
     b, pg, calls, errs = page(pw, LINK, lambda body: (200, V) if body.get('action') == 'view' else (200, { 'ok': True, 'message': 'Thank you, Maria. You can sign up for on-call shifts now.' }))
     t = pg.inner_text('#app')
-    ok('C3: Hi Maria, "On call · Level 3", what on call means, the two shifts, the office number', 'Hi, Maria!' in t and 'On call · Level 3' in t and 'keeping your phone close' in t and '5pm to 7am the next morning' in t and '(417) 234-8494' in t, t[:600])
+    ok('C3: Hi Maria, "On call · Level 3", what on call means, the two shifts, the office number', 'Hi, Maria!' in t and 'On call · Level 3' in t and 'keeping your phone close' in t and '7pm to 7am the next morning' in t and '(417) 234-8494' in t, t[:600])
     ok('...the expectations word for word (all six, the new Rule 6), a box and their name; no shifts yet', all(f'{i}. ' in t for i in range(1, 7)) and 'To stop an every-week on-call shift' in t and pg.locator('#ocAgree').count() == 1 and pg.locator('[data-ocp]').count() == 0)
     ok('...never a dollar amount', '$' not in t)
     pg.check('#ocAgree'); pg.fill('#ocName', 'Maria Lopez'); pg.click('#ocSign'); pg.wait_for_timeout(200)
