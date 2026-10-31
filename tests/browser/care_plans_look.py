@@ -78,16 +78,7 @@ T = r"""async(FX)=>{
   await mcpAddItems('invoice.pdf', [{page:1,x:10,y:400,str:'Invoice 42'}]); await sleep(100);
   ok('Not a care plan: says so, nothing to confirm', /No service lines found/.test(document.getElementById('mcpPend').innerText) && !document.getElementById('mcpSave'));
   mcpDiscard();
-  /* Nurse Scheduling: who still needs a plan, each name opens the profile on the Payer tab */
-  switchTab('nursevisits'); await sleep(300);
-  const card=document.getElementById('mcpCard');
-  ok('Nurse Scheduling: no upload there; it says plans are uploaded in each client\'s profile', !card.querySelector('input[type=file]') && /uploaded in each client's profile, on the Payer tab/.test(card.innerText));
-  ok('...the standing of the 3 active clients (Pat has a current plan; 2 not sorted; the past client left out)', /3 active clients:\s*1 with a current plan.*2 not sorted/.test(card.innerText) && !/Old Client/.test(card.innerText), card.innerText.slice(0,500));
-  const a=card.querySelector('[data-open-client="902"]');
-  ok('...each name opens their profile on the Payer tab', a && a.getAttribute('data-open-tab')==='payer');
-  window.__P.length=0; await mcpMark('902','private'); await mcpMark('903','medicaid'); await sleep(150);
-  ok('..."How do they pay": Lou private pay, Kim Medicaid with a plan to upload, each saved with who', window.__P.length===2 && window.__P[0][1].payer==='private' && window.__P[0][1].by==='krystal@mo-care.com' && window.__P[1][1].payer==='medicaid');
-  ok('...the list now shows only Kim (open their profile and upload)', /Kim Medicaid\s*Medicaid, no plan uploaded\s*Open their profile and upload their plan/.test(card.innerText) && !/Lou Two/.test(card.innerText) && /0 not sorted/.test(card.innerText), card.innerText.slice(0,600));
+  /* Nurse Scheduling (its plan list) was removed 2026-10-31 */
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
