@@ -48,7 +48,19 @@ T = r"""async(CODE)=>{
   offStageView('rejected'); const rj=document.getElementById('offersList').innerText;
   ok('Offer rejected: declined, withdrawn, expired, not hired, each with its tag', ['Dana Declined','Wes Withdrawn','Eli Expired','Ned Nothired'].every(x=>names().includes(x)) && /Declined/.test(rj)&&/Withdrawn/.test(rj)&&/Expired/.test(rj)&&/Not hired/.test(rj), [names(), rj.slice(0,300)]);
   offStageView('accepted');
-  ok('Accepted · Step 1 sent: signed new offer + the two old-path offers, oldest first', names().join()==='Bea Oldpath,Ava Oldpath,Gia Signed', names());
+  /* GONE QUIET (2026-10-31): Bea has not moved in 59 days, so she folds under the Gone quiet line after the moving cards */
+  ok('Accepted · Step 1 sent: signed new offer + the two old-path offers, oldest first, quiet ones last', names().join()==='Ava Oldpath,Gia Signed,Bea Oldpath', names());
+  const gq=document.getElementById('offQuiet');
+  ok('Gone quiet: one closed line with its count, holding only the 30+ day one', !!gq && !gq.open && /Gone quiet · 1/.test(gq.querySelector('summary').innerText) && [...gq.querySelectorAll('details summary b')].map(b=>b.textContent).join()==='Bea Oldpath', gq&&gq.innerText.slice(0,200));
+  const card=n=>[...document.querySelectorAll('#offersList details')].find(d=>d.querySelector('summary b')&&d.querySelector('summary b').textContent===n);
+  ok('Close offer on old-path cards, not on the new path (it has Withdraw)', !!card('Ava Oldpath').querySelector('[onclick^="offerCloseAsk"]') && !card('Gia Signed').querySelector('[onclick^="offerCloseAsk"]'));
+  card('Ava Oldpath').open=true; card('Ava Oldpath').querySelector('[onclick^="offerCloseAsk"]').click();
+  ok('Close offer asks why with her two reasons and says nothing is sent', /Didn't finish Step 1/.test(card('Ava Oldpath').innerText) && /Not moving forward/.test(card('Ava Oldpath').innerText) && /Nothing is sent to them and nothing is deleted/.test(card('Ava Oldpath').innerText));
+  caregivers.push({ id:'g-ava', first:'Ava', phone:'(417) 555-0207', active:true }); renderOffers();
+  ok('Ava is already on the roster (same phone, one record): she moves to Completed Step 1 by herself', !names().includes('Ava Oldpath') && offerStage(OFFERS.find(o=>o.id==='of-old2'))==='completed', names());
+  caregivers.push({ id:'g-ava2', first:'Ava', email:'x@example.test', phone:'4175550207' }); renderOffers();
+  ok('two roster records with that phone: not certain, she stays and the card says check', names().includes('Ava Oldpath') && /May already be working: check/.test(card('Ava Oldpath').innerText), names());
+  caregivers.length=0; renderOffers();
   ok('Accepted explains old-path offers wait for Mark Step 1 done', /Mark Step 1 done/.test(document.getElementById('offStageNote').innerText));
   const ages=[...document.querySelectorAll('#offersList > details summary span')].filter(s=>/days ago/.test(s.textContent));
   ok('a month or more waiting is red, a week amber', ages.some(s=>/5[89] days/.test(s.textContent)&&/185, 28, 28/.test(getComputedStyle(s).color)) && ages.some(s=>/2[67] days/.test(s.textContent)&&/180, 83, 9/.test(getComputedStyle(s).color)), ages.map(s=>s.textContent+' '+getComputedStyle(s).color));
