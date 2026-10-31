@@ -10,6 +10,9 @@ OUT = os.environ.get('OUT', '/tmp')
 s_ = socket.socket(); s_.bind(('127.0.0.1', 0)); PORT = s_.getsockname()[1]; s_.close()
 srv = subprocess.Popen([sys.executable, '-m', 'http.server', str(PORT), '-d', ROOT], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); time.sleep(1)
 ENG = open(os.path.join(ROOT, 'caregivers-engine.js')).read()
+# The engine is an IIFE: this test pastes its code in as globals, so it would pass even when the real page cannot reach
+# renderOffers. A stage click then only lit the pill until Refresh (2026-10-30).
+assert 'window.renderOffers = renderOffers' in ENG, 'caregivers-engine.js must expose window.renderOffers for offStageView'
 def cut(a, b):
     i = ENG.index(a); j = ENG.index(b, i + 1); return ENG[i:j]
 STUBS = "".join(f"if (typeof window.{n} !== 'function') window.{n} = () => {v};\n" for n, v in [('vivSheet', "''"), ('obDeriveStatus', "'Checks running'"), ('updateGroupBadges', 'undefined'),

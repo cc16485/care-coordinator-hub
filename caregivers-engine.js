@@ -11974,6 +11974,8 @@ window.markOfferStep1 = markOfferStep1;
 
 window.confirmOfferLevel = confirmOfferLevel;
 window.renderPastOffers = renderPastOffers;
+/* offStageView (index.html) redraws the list through this; without it a stage click only lit the pill (2026-10-30). */
+window.renderOffers = renderOffers;
 /* Every function the engine's own rendered HTML calls through an inline
    onclick. The engine is an IIFE, so anything not exported here throws
    ReferenceError the moment somebody clicks — which is exactly what
