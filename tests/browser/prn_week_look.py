@@ -85,6 +85,32 @@ async()=>{
     payroll:[{ month:'2026-11', members:[{ applicant_id:'g', name:'Grace Lee', day:0, overnight:2, whole:1, not_recorded:0, missed:1 }] }, { month:'2026-10', members:[] }] });
   await PW.load(); await sleep(50);
   ok('payroll counts by month, missed ones not paid, counts only, never dollars', /On-call shifts for payroll/.test(txt()) && /November 2026/.test(txt()) && /Grace Lee: 2 overnight, 1 whole day, 1 missed \(not paid\)/.test(txt()) && /Nobody on call/.test(txt()) && !/\$/.test(txt().split('On-call shifts for payroll')[1]||''), txt());
+  /* EVERY WEEK (2026-10-30, her "yes to all 7") */
+  ok('every week: before its records are on the server, said so; no every-week box on +', /Every week shows here once its records are on the server/.test(txt()));
+  const cal2=WEEK.oncall.calendar.map(d=>JSON.parse(JSON.stringify(d)));
+  cal2.find(d=>d.date==='2026-10-31').day.confirmed[0].weekly=true;
+  cal2.find(d=>d.date==='2026-11-01').overnight.asked[0].weekly=true;
+  cal2.find(d=>d.date==='2026-11-14').day.confirmed=[{id:11,applicant_id:'t',name:'Tom Ray',whole:false,shift_recorded:true,missed:null}];
+  cal2.find(d=>d.date==='2026-11-14').day.skipped=[{series_id:3,applicant_id:'g',name:'Grace Lee'}];
+  WEEK.oncall=Object.assign({}, WEEK.oncall, { weekly_ready:true, calendar:cal2, series:[{id:3,applicant_id:'g',name:'Grace Lee',word:'Saturdays, daytime',slot:'day',weekday:6,status:'confirmed',since:'2026-10-31',confirmed_by:'Krystal'},
+    {id:4,applicant_id:'t',name:'Tom Ray',word:'Sundays, overnight',slot:'overnight',weekday:0,status:'asked',since:'2026-11-01',confirmed_by:null}] });
+  await PW.load(); await sleep(50);
+  ok('every week: Grace\'s Saturday is marked every week, Tom\'s ask says every week', /every week/.test(dayOf('2026-10-31').innerText) && /asked\s*every week/.test(dayOf('2026-11-01').innerText), dayOf('2026-11-01').innerText);
+  ok('...the week Tom holds shows Grace missed out that week', /Grace Lee: someone else has it this week/.test(dayOf('2026-11-14').innerText), dayOf('2026-11-14').innerText);
+  ok('...the Every-week shifts list: who, which, since, waiting; Stop only on a confirmed one', /Every-week shifts/.test(txt()) && /Grace Lee\s*Saturdays, daytime\s*Since Oct 31, confirmed by Krystal/.test(txt()) && /Tom Ray\s*Sundays, overnight\s*Asked, waiting for you/.test(txt())
+    && [...box.querySelectorAll('button')].filter(b=>/They called to stop it/.test(b.innerText)).length===1, txt().slice(txt().indexOf('Every-week shifts'), txt().indexOf('Every-week shifts')+300));
+  let confirmed=''; window.ccConfirm=async(m)=>{ confirmed=m; return true; }; (0,eval)('ccConfirm=window.ccConfirm');
+  await PW.ocOk(9,null,true); ok('...✓ on an every-week ask says it repeats until they call to stop it', /repeats every week on its own/.test(confirmed) && CALLS.filter(c=>c.action==='oncall_confirm' && c.ask_id===9).length>=2);
+  PW.ocOpen('2026-11-02|day'); await sleep(30);
+  document.getElementById('ocWeekly_2026-11-02|day').checked=true; await PW.ocPut('2026-11-02','day'); await sleep(30);
+  ok('...+ with every week: sends every_week, and says every Monday', CALLS.some(c=>c.action==='oncall_confirm' && c.date==='2026-11-02' && c.shift==='day' && c.every_week===true) && /every Monday from Nov 2/.test(confirmed), confirmed);
+  PW.ocOpen('2026-11-03|day'); await sleep(30); const before=CALLS.length; let al=''; window.alert=(m)=>{ al=m; };
+  document.getElementById('ocWeekly_2026-11-03|day').checked=true; document.getElementById('ocWhole_2026-11-03|day').checked=true; await PW.ocPut('2026-11-03','day'); await sleep(30);
+  ok('...every week and the whole day together: refused, nothing sent', CALLS.length===before && /one shift/.test(al), al);
+  PW.ocOpen(''); window.prompt=()=>'New job on Saturdays';
+  const realF2=window.fetch; window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/prn-week') && JSON.parse(o.body).action==='oncall_series_end'){ CALLS.push(JSON.parse(o.body)); return new Response(JSON.stringify({outcome:'ended',taken_back:['2026-11-07','2026-11-21'],kept:[{date:'2026-10-31',shift:'day'}],failed:[]}),{status:200}); } return realF2(u,o); };
+  await PW.ocEnd(3); await sleep(50); window.fetch=realF2;
+  ok('...They called to stop it: sends the reason, then says what was taken back and what stays theirs', CALLS.some(c=>c.action==='oncall_series_end' && c.series_id===3 && c.note==='New job on Saturdays') && /Taken back: Nov 7, Nov 21/.test(alerted) && /Still theirs \(within 24 hours\): Oct 31 daytime/.test(alerted) && /24 hours or more/.test(confirmed), alerted);
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:false }); await PW.load(); await sleep(30);
   ok('before Desktop 1190: says the records are not on the server yet', /not on the server yet \(Desktop step 1191\)/.test(txt()));
   WEEK.oncall=Object.assign({}, WEEK.oncall, { records_ready:true, shift_live:false }); await PW.load(); await sleep(30);

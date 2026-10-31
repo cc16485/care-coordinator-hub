@@ -4,7 +4,7 @@ server call is answered here, nothing is sent or saved. (PORT=<static server por
 import os, json
 from playwright.sync_api import sync_playwright
 PORT = os.environ.get('PORT', '8811')
-TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts."  # her approved words, all six points (the server sends these)
+TERMS = "PRN CNA On-Call Expectations\nWhen you sign up for an on-call shift, families are counting on you.\n1. On call comes in two shifts: daytime, 7am to 5pm, and overnight, 5pm to 7am.\n2. Keep your phone on and with you. Answer the office, or call back, within 15 minutes.\n3. Be ready to start a shift within 1 hour.\n4. If the office calls you about an open shift during your on-call time, you cover it.\n5. If you don't answer the office within 15 minutes, or you don't cover the shift, you won't be paid for that on-call shift, and you won't be able to sign up for on call again.\n6. If something comes up, call the office at least 24 hours before your on-call shift starts. To stop an every-week on-call shift, call the office at least 24 hours before the next one starts."  # her approved words, all six points (the server sends these)
 def slots():
     out = []
     for i in range(28):
@@ -74,6 +74,33 @@ with sync_playwright() as pw:
     pg.click('[data-ocw="41"]'); pg.wait_for_timeout(200)
     ok('...their own waiting ask can be taken back', any(c.get('action') == 'oncall_withdraw' and c.get('id') == 41 for c in calls))
     ok('no page errors', not errs, errs); b.close()
+    # EVERY WEEK (2026-10-30, her "yes to all 7")
+    sl = slots()
+    sl[2] = dict(sl[2], day={ 'state': 'mine', 'weekly': True, 'can_give_back': True })
+    sl[3] = dict(sl[3], overnight={ 'state': 'asked', 'id': 41, 'weekly': True })
+    sl[16] = dict(sl[16], day={ 'state': 'taken', 'skip': True })
+    WK = [{ 'id': 3, 'word': 'Saturdays, daytime', 'slot': 'day', 'weekday': 6, 'status': 'confirmed', 'since': '2026-10-31' }, { 'id': 4, 'word': 'Sundays, overnight', 'slot': 'overnight', 'weekday': 0, 'status': 'asked', 'since': '2026-11-01' }]
+    V = view(slots=sl, weekly=WK, weekly_ready=True)
+    b, pg, calls, errs = page(pw, LINK, ans)
+    t = pg.inner_text('#oncall')
+    ok('every week: their shift and their ask say every week; the week someone else holds says so, never who', 'every week' in pg.inner_text('.ocrow:nth-of-type(3)') and 'every week' in pg.inner_text('[data-ocw="41"]') and 'Someone else' in t and 'this week' in t, t[:600])
+    ok('...the list: Saturdays (since Oct 31), Sundays waiting for the office, and how to stop one', 'Every week: Saturdays, daytime (since Oct 31); Sundays, overnight (waiting for the office).' in t and 'To stop one, call the office at least 24 hours before the next one starts' in t, t[:500])
+    h = pg.inner_text('#hours')
+    ok('...My hours (where the 60-day check-in lands): only the confirmed ones, "Still right?"', 'Your every-week on-call shifts: Saturdays, daytime (since Oct 31).' in h and 'Still right?' in h and 'Sundays' not in h, h)
+    ok('...a choice before tapping: Just this one (chosen) or Every week', pg.locator('[data-ocm="once"][aria-pressed="true"]').count() == 1 and pg.locator('[data-ocm="weekly"]').count() == 1)
+    pg.click('[data-ocp="2026-11-02|day"]'); pg.click('[data-ocm="weekly"]'); pg.click('[data-ocp="2026-11-02|overnight"]')
+    ok('...a shift tapped on Every week says every week', 'every week' in pg.inner_text('[data-ocp="2026-11-02|overnight"]') and 'every week' not in pg.inner_text('[data-ocp="2026-11-02|day"]') and pg.locator('.slot.pick.weekly').count() == 1)
+    pg.click('#ocAsk'); pg.wait_for_timeout(200)
+    ac = [c for c in calls if c.get('action') == 'oncall_ask']
+    ok('...Ask sends which ones are every week', ac and sorted((s['date'] + s['slot'] + ('W' if s.get('weekly') else '')) for s in ac[-1]['slots']) == ['2026-11-02day', '2026-11-02overnightW'], ac)
+    pg.locator('#oncall').screenshot(path=os.environ.get('SHOT2', '/tmp/prn_oncall_weekly.png'))
+    ok('no page errors (every week)', not errs, errs); b.close()
+    V = view(weekly_ready=False)
+    b, pg, calls, errs = page(pw, LINK, ans)
+    ok('...before its records are on the server: no Every week choice, one time works as before', pg.locator('[data-ocm]').count() == 0 and pg.locator('[data-ocp]').count() > 0); b.close()
+    V = view()
+    b, pg, calls, errs = page(pw, LINK, ans)
+    ok('...an older server that doesn\'t say (Hub merged first): no Every week choice either', pg.locator('[data-ocm]').count() == 0 and pg.locator('[data-ocp]').count() > 0); b.close()
     # blocked
     V = view(blocked=True)
     b, pg, calls, errs = page(pw, LINK, lambda body: (200, V))
