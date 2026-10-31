@@ -265,7 +265,8 @@
 
   /* ── THE PRN TEAMS HOME (2026-10-29, Samantha: "I thought it would be more PRN Team tabs"): opened from its own link
      (#prnteams), five tabs instead of one long page. From inside Recruit, the same stacked view as before. ── */
-  var TAB = 'week', PANES = { week: 'prnWeek', teams: 'prnTeams', oncall: 'prnOnCall', recruiting: 'prnDash', see: 'prnSee' };
+  /* 2026-10-31: Field Support Visits got their own tab (gap-mentor.js GM.tabMount) */
+  var TAB = 'week', PANES = { week: 'prnWeek', teams: 'prnTeams', oncall: 'prnOnCall', fsv: 'prnFsv', recruiting: 'prnDash', see: 'prnSee' };
   var isHome = function () { return document.documentElement.classList.contains('prnonly'); };
   var put = function (id, html) { var el = document.getElementById(id); if (el) el.innerHTML = html; };
   function panes() {
@@ -364,7 +365,8 @@
     var see = document.getElementById('prnSee'); if (see && (TAB === 'see' || !see.innerHTML) && see.getAttribute('data-for') !== SEE + '|' + (W ? 1 : 0)) { see.innerHTML = seeHtml(); see.setAttribute('data-for', SEE + '|' + (W ? 1 : 0)); }
     var show = W && (W.live || isOwner());
     if (isHome()) {
-      put('prnWeek', show ? weekHtml() + monthlyHtml() + (window.GM ? GM.weekHtml() : '') : (W ? offNote : ''));
+      put('prnWeek', show ? weekHtml() + (window.GM ? GM.weekPointer() : '') + monthlyHtml() : (W ? offNote : ''));
+      if (TAB === 'fsv' && window.GM) GM.tabMount('prnFsv');
       put('prnOnCall', show ? onCallHtml() : (W ? offNote : ''));
       put('prnTeams', teamsHtml());
     } else {
