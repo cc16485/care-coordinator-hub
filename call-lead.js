@@ -71,13 +71,17 @@
     const btn = (label, js, primary) => '<button class="' + (primary ? 'primary' : 'ghost') + '" style="font-size:12px;padding:4px 10px;" onclick="' + js + '">' + esc(label) + '</button>';
     const onLead = l && Array.isArray(l.from_calls) && l.from_calls.some(x => x && x.message_id === id);
     if(l && busy) return '<span class="field-note">Reading the call…</span>';
-    if(l) return '<span class="field-note">Lead: <b>' + esc(leadName(l)) + '</b></span> ' + btn('Open lead', 'CallLead.openLead(\'' + esc(l.id) + '\')', false)
-      + (onLead ? '' : ' <button class="ghost" style="font-size:12px;padding:4px 10px;" data-lead="' + esc(l.id) + '" onclick="CallLead.make(\'' + esc(id) + '\',this)">Add from this call</button>');
+    /* Send to Caring CDS (2026-11-01, send-to-cds.js): the hint and the button, when it is switched on */
+    const cds = (lead, fam) => window.SendToCds ? SendToCds.callHtml(id, (CL.readings[id] || {}).summary, lead, fam) : '';
+    if(l){ const c = cds(l, false); return '<span class="field-note">Lead: <b>' + esc(leadName(l)) + '</b></span> ' + btn('Open lead', 'CallLead.openLead(\'' + esc(l.id) + '\')', false)
+      + (onLead ? '' : ' <button class="ghost" style="font-size:12px;padding:4px 10px;" data-lead="' + esc(l.id) + '" onclick="CallLead.make(\'' + esc(id) + '\',this)">Add from this call</button>') + (c ? ' ' + c : ''); }
     if(busy) return '<span class="field-note">Reading the call…</span>';
+    if(window.SendToCds && SendToCds.callDecided(id)) return cds(null, false);
     if(nl) return '<span class="field-note">Not a lead' + (nl.reason && NOT_REASONS[nl.reason] ? ': ' + esc(NOT_REASONS[nl.reason].toLowerCase()) : '') + ' (' + esc(String(nl.by || '').split(' ')[0] || 'someone') + ') ·<a href="#" onclick="CallLead.undoNot(\'' + esc(id) + '\');return false;">Undo</a></span>';
     const tag = likely(id) ? '<span class="tag-chip" style="background:#E6EEF7;color:#0D365F;font-weight:700;">Sounds like a new family</span> ' : '';
     return tag + btn('Make this a lead', 'CallLead.make(\'' + esc(id) + '\',this)', likely(id))
-      + (likely(id) ? ' ' + btn('Not a lead', 'CallLead.markNot(\'' + esc(id) + '\')', false) : '');
+      + (likely(id) ? ' ' + btn('Not a lead', 'CallLead.markNot(\'' + esc(id) + '\')', false) : '')
+      + (cds(null, likely(id)) ? ' ' + cds(null, likely(id)) : '');
   }
   /** Calls tab: a second line under an answered call (summary from the call reader + the buttons). */
   function callRow(c){
@@ -98,7 +102,7 @@
   /** Call Follow Ups, top: likely new families nobody has decided on yet (never lost quietly). */
   function waitingHtml(rows){
     (rows || []).forEach(seed);
-    const w = (rows || []).filter(r => (r.channel || 'call') === 'call' && r.call_type === 'new_client_inquiry' && okId(r.message_id) && !leadFor(r.message_id) && !notLead(r.message_id));
+    const w = (rows || []).filter(r => (r.channel || 'call') === 'call' && r.call_type === 'new_client_inquiry' && okId(r.message_id) && !leadFor(r.message_id) && !notLead(r.message_id) && !(window.SendToCds && SendToCds.callDecided(r.message_id)));
     if(!w.length) return '';
     return '<div class="card" style="padding:12px 14px;margin-bottom:10px;border:1.5px solid #B9CDE4;background:#F4F8FC;">'
       + '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--navy);">SOUNDS LIKE A NEW FAMILY, NOT A LEAD YET (' + w.length + ')</div>'
@@ -639,5 +643,5 @@
     finally{ if(a) a.textContent = was; }
   }
 
-  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, _state: CL };
+  window.CallLead = { suppressed, answeredBy, reconcile, card, yes, undoYes, notAsk, notCancel, notPick, play, NOT_REASONS, factsOf, readLead, fillFromLead, oldAiLeads, oldAiHtml, heardHtml, fileHeard, PLACEHOLDER, mergeDraft, load, bar, callRow, cardBar, waitingHtml, make, stamp, afterSave, attachTo, clearForm, markNot, undoNot, openLead, leadFor, repaint, _state: CL };
 })();

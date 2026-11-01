@@ -169,6 +169,8 @@
     const calmBar = cards && window.LeadTable && LeadTable.calmShowing && owner && !LeadTable.calmLive(DATA.ops_settings || {})
       ? (calm ? '<div class="lc-preview"><b>Preview of the calmer Leads list.</b> Only you see it, in this browser. Everyone else still has the colourful one.<span style="flex:1;"></span><button class="lb-btn" onclick="ltCalmPreview(false)">Back to the colourful list</button></div>'
         : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="ltCalmPreview(true)">Preview the calmer Leads list (only you see it)</button></div>') : '';
+    /* 2026-11-01 Send to Caring CDS: who is waiting to be sent, and sends that did not finish (send-to-cds.js) */
+    const cdsCard = window.SendToCds ? SendToCds.boardHtml() + SendToCds.previewAsk() : '';
     const sub = document.getElementById('lsSubtitle');
     if(sub){ if(!sub.dataset.list) sub.dataset.list = sub.textContent;
       sub.textContent = cards ? (window.LeadTable ? 'Every family from their first call until they say yes. Click a column to sort by it. ' + (calm ? 'Red needs you now, gold needs you today.' : 'Red is late or new.') + ' Once they say yes they move to Client Care → Getting ready.'
@@ -181,8 +183,8 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     /* Lead turns (Stage 1, policy 2026-10-18): who gets the next new lead, only while turns are on */
     const nextTile = opts.nextUp ? '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:var(--navy);font-size:18px;">' + esc(opts.nextUp) + '</span><span class="lb-tile-l">next up for a new lead</span></div>' : '';
-    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = previewBar + calmBar + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
-    else if(nums){ nums.style.display = ''; nums.innerHTML = previewBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
+    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = cdsCard + previewBar + calmBar + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
+    else if(nums){ nums.style.display = ''; nums.innerHTML = cdsCard + previewBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
       + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
       + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>'; }
@@ -301,6 +303,8 @@
   function lbPayer(id){ if(typeof openLeadProfile === 'function') openLeadProfile(id, 'payer'); }
   async function lbLostCds(id){
     const l = lead(id); if(!l) return;
+    /* 2026-11-01: with Send to Caring CDS on, this really sends them (send-to-cds.js), and closes the lead the same way */
+    if(window.SendToCds && SendToCds.showing(DATA.ops_settings || {}, typeof ccIsOwner === 'function' && ccIsOwner())) return SendToCds.sendLead(id);
     if(!(await ccConfirm('Mark ' + ((typeof cpLeadClientName === 'function' && cpLeadClientName(l)) || 'this family') + ' lost: referred to Caring CDS?'))) return;
     Object.assign(l, { lost_reason:'Referred to Caring CDS', lost_reason_key:'referred_cds' });
     window.LeadRules.setStatus(l, 'Lost', { by:(typeof ccActor === 'function' ? ccActor().email : ''), why:'Referred to Caring CDS' });
