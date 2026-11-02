@@ -41,7 +41,7 @@ CANDS = [
     r2n='Pat Friend', r2_type='personal', r2s='Positive', oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending', oos='yes', fp='Required'),
   P(id=2, first='Kristin', last='Sample', added=day(12), oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending'),
   P(id=3, first='Holly', last='Sample', added=day(12), oig='CLEAR', oig_date=day(10), edl='Pending', fcsr='Pending', casenet='Pending'),
-  P(id=4, first='Denise', last='Sample', added=day(2), r1n='A Boss', r1_type='professional', r1s='Positive', r2n='B Pal', r2s='Positive', oig='CLEAR', edl='Clear', fcsr='Pending', fcsr_date=day(1), casenet='Pending'),
+  P(id=4, first='Denise', last='Sample', added=day(2), r1n='A Boss', r1_type='professional', r1s='Positive', r2n='B Pal', r2s='Positive', oig='CLEAR', edl='Clear', fcsr='Pending', fcsr_sent_date=day(3), fcsr_sent_by='kim@mo-care.com', casenet='Clear', casenet_date=day(2)),
   P(id=5, first='Ready', last='Person', added=day(4), onboarding_path='new', step1_done_at=day(5) + 'T15:00:00Z', r1n='A Boss', r1_type='professional', r1s='Positive', r2n='B Pal', r2s='Positive', oig='CLEAR', edl='Clear', fcsr='Clear', casenet='Clear', oos='yes', fp='Required', resolvedAt=day(0) + 'T15:00:00Z'),
   P(id=6, first='Flagged', last='Person', added=day(6), oig='FLAGGED', edl='Pending', fcsr='Pending', casenet='Pending'),
   P(id=7, first='Test', last='Signer', added=day(14), oig='Pending', edl='Pending', fcsr='Pending', casenet='Pending'),
@@ -88,6 +88,16 @@ with sync_playwright() as pw:
     reff = pg.evaluate("async ()=>{ ckdOpen(2); ckdRefForm(2); const m=document.getElementById('ckdRefForm'); const z=[+getComputedStyle(m).zIndex, +getComputedStyle(document.getElementById('bgrDrawer')).zIndex]; m.querySelector('#rfName').value='Ann Boss'; m.querySelector('#rfPhone').value='4175550199'; m.querySelector('#rfCo').value='Brookdale'; m.querySelector('#rfGo').click(); await new Promise(r=>setTimeout(r,200)); const c=candidates.find(x=>x.id===2); const panel=document.getElementById('bgrDrawer').innerText; return { z, saved:[c.r1n,c.r1_phone,c.r1_type,c.r1_company,c.r1s], closed:!document.getElementById('ckdRefForm'), big: document.getElementById('ob-modal') && document.getElementById('ob-modal').classList.contains('open'), panelHas: panel.includes('Ann Boss') }; }")
     pg.evaluate("()=>{ bgrCloseDrawer(); }")
     leave = pg.evaluate("async ()=>{ ckdLeaveOpen(10); const m=document.getElementById('ckdLeave'); const t=m.innerText.replace(/\\s+/g,' '); m.querySelector('input[value=other_job]').click(); m.querySelector('#lvGo').click(); await new Promise(r=>setTimeout(r,300)); const c=candidates.find(x=>x.id===10); return { t, gone: !!c.not_hired, why: c.not_hired_reason, open: !!document.getElementById('ckdLeave'), listed: [...document.querySelectorAll('#ckdDash .ckd-row:not(.ckd-row-h)')].some(r=>r.innerText.startsWith('Quiet Person')) }; }")
+    # 2026-11-02 FCSR ordered: Denise was ordered 3 days ago; Holly (EDL now clear) has not been ordered; an older record kept the day as a Pending result
+    fcsr = pg.evaluate("""()=>{ const txt = () => [...document.querySelectorAll('#ckdDash .ckd-row:not(.ckd-row-h)')].map(r=>r.innerText.replace(/\\s+/g,' ').trim());
+      ckdOpen(4); const den = document.getElementById('bgrDrawer').innerText.replace(/\\s+/g,' ');
+      const h = candidates.find(x=>x.id===3); h.edl='Clear'; h.edl_date='2026-10-30'; h.casenet='Clear'; renderCkd();
+      const hollyRow = txt().find(r=>r.startsWith('Holly')) || ''; ckdOpen(3); const holly = document.getElementById('bgrDrawer').innerText.replace(/\\s+/g,' ');
+      h.fcsr_date = new Date(Date.now()-5*864e5).toISOString().slice(0,10); renderCkd(); const legacyRow = txt().find(r=>r.startsWith('Holly')) || '';
+      h.fcsr='Clear'; renderCkd(); const clearRow = txt().find(r=>r.startsWith('Holly')) || '';
+      return { den, hollyRow, holly, legacyRow, clearRow }; }""")
+    pg.evaluate("()=>{ ckdOpen(4); }"); pg.wait_for_timeout(300)
+    pg.screenshot(path=os.path.join(OUT, 'checks_fcsr.png'), clip={'x': 1440 - 470, 'y': 0, 'width': 470, 'height': 1000})
     pg.evaluate("()=>{ bgrCloseDrawer(); ckdFilter('s2'); }"); s2_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').all_inner_texts()
     pg.evaluate("()=>{ ckdFilter('s1'); }"); refs_rows = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
     pg.evaluate("()=>{ ckdFilter('all'); ckdToggleTest(); }"); with_tests = pg.locator('#ckdDash .ckd-row:not(.ckd-row-h)').count()
@@ -112,7 +122,11 @@ ck('oldest first', rows[0].startswith('Claire Sample') and any(r.startswith('Den
 ck('references and checks side by side: the Hub already sent Susie the form, and the checks lane says Run OIG', 'References: Form sent to Susie Boss' in rows[0] and 'Call if you like' in rows[0] and '(417) 555-0101' in rows[0] and 'Record answer' in rows[0] and 'Checks: Run the OIG check' in rows[0] and core(rows[0]).endswith('Run OIG'), rows[0])
 ck('no references given: ask for them, and run OIG at the same time', any(r.startswith('Kristin') and 'References: No references given yet' in r and 'Add a reference' in r and core(r).endswith('Record OIG') for r in rows), rows)
 ck('Holly: ask for references and record EDL, both at once', any(r.startswith('Holly') and 'Add a reference' in r and core(r).endswith('Record EDL') for r in rows), rows)
-ck('Denise: references done in green words, FCSR ordered', any(r.startswith('Denise') and 'References: Done: 2 good, 1 from work.' in r and 'FCSR ordered' in r and core(r).endswith('Record FCSR') for r in rows), rows)
+ck('Denise: references done in green words, FCSR ordered 3 days ago and waiting', any(r.startswith('Denise') and 'References: Done: 2 good, 1 from work.' in r and 'FCSR ordered, 3d' in r and 'Checks: FCSR ordered ' in r and 'waiting 3 days. Check the state site to see if it is back.' in r and core(r).endswith('Record FCSR') for r in rows), rows)
+ck('FCSR ordered: her checklist says ordered, waiting 3 days, who marked it, the FCSR site, Change ordered date', all(x in fcsr['den'] for x in ['waiting 3 days', 'kim@mo-care.com', 'Open FCSR site', 'Change ordered date', 'Record result']) and 'Mark as ordered' not in fcsr['den'], fcsr['den'])
+ck('FCSR not ordered yet: the row and the checklist offer Mark as ordered', core(fcsr['hollyRow']).endswith('Mark as ordered') and 'Order FCSR in the state system, then press Mark as ordered.' in fcsr['hollyRow'] and 'Mark as ordered' in fcsr['holly'], (fcsr['hollyRow'], fcsr['holly']))
+ck('an older record with a Pending FCSR and a date counts as ordered, 5 days', 'FCSR ordered, 5d' in fcsr['legacyRow'] and 'waiting 5 days' in fcsr['legacyRow'], fcsr['legacyRow'])
+ck('once the FCSR result is recorded the waiting is gone', 'FCSR ordered' not in fcsr['clearRow'] and 'waiting' not in fcsr['clearRow'].split('days waiting',1)[-1], fcsr['clearRow'])
 ck('a flagged check says review', any(r.startswith('Flagged') and core(r).endswith('Review') for r in rows), rows)
 ck('no fingerprint anywhere: not on the dashboard, not in the checklist', 'ingerprint' not in R['html'] and 'ingerprint' not in person)
 ck('the party: the cleared person gets the ribbon and confetti once', 'Ready is cleared!' in R['partyText'] and 'Nothing is sent' in R['partyText'] and not R['againParty'], R['partyText'])
