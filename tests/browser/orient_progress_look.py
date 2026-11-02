@@ -13,13 +13,23 @@ async()=>{
   const full=n=>({ module:n, scene:9, complete:true, heard:10, first_at:ago(5*D), last_at:ago(5*D), moved_at:ago(5*D) });
   const ROWS=[
     { name:'Fake Stuck Person', axiscare_id:'9001', phone:'4175550101', email:'stuck@example.test', status_label:'In Training', status:'in_progress',
-      assigned_at:ago(6*D), welcome_sent_at:ago(6*D), nudged_at:ago(2*D), units:[full(1),full(2),full(3),{ module:4, scene:2, complete:false, heard:3, first_at:ago(4*D), last_at:ago(1*H), moved_at:ago(3*D) }] },
+      assigned_at:ago(6*D), welcome_sent_at:ago(6*D), nudged_at:ago(2*D), due_date:new Date(Date.now()+D).toLocaleDateString('en-CA',{timeZone:'America/Chicago'}),
+      messages:[{ kind:'invite', how:'office', by:'krystal@mo-care.com', channels:['text','email'], at:ago(6*D) }, { kind:'reminder', how:'automatic', channels:['text','email'], at:ago(2*D) },
+        { kind:'reminder', how:'office', by:'krystal@mo-care.com', channels:['email'], not_sent:['text: after 6pm'], at:ago(1*D) }], units:[full(1),full(2),full(3),{ module:4, scene:2, complete:false, heard:3, first_at:ago(4*D), last_at:ago(1*H), moved_at:ago(3*D) }] },
     { name:'Fake Moving Person', axiscare_id:'9002', phone:'4175550102', status_label:'In Training', status:'in_progress',
       assigned_at:ago(2*D), welcome_sent_at:ago(2*D), units:[full(1),{ module:2, scene:6, complete:false, heard:7, first_at:ago(3*H), last_at:ago(1*H), moved_at:ago(1*H) }] },
-    { name:'Fake Never Opened', axiscare_id:'9003', phone:'4175550103', status_label:'In Training', status:'not_started', assigned_at:ago(9*D), welcome_sent_at:ago(9*D), units:[] },
+    { name:'Fake Never Opened', axiscare_id:'9003', phone:'4175550103', status_label:'In Training', status:'not_started', assigned_at:ago(9*D), welcome_sent_at:ago(9*D), due_date:'2026-01-02', units:[] },
     { name:'Fake Just Invited', axiscare_id:'9004', status_label:'In Training', status:'not_started', assigned_at:ago(3*H), welcome_sent_at:ago(3*H), units:[] },
-    { name:'Fake Finished', axiscare_id:'9005', status_label:'Active', status:'complete', assigned_at:ago(20*D), welcome_sent_at:ago(20*D), completed_at:ago(10*D), attested_at:ago(10*D), units:[1,2,3,4,5,6,7,8,9,10,11].map(full) },
-    { name:'Fake No Signoff', axiscare_id:'9006', status_label:'Active', status:'complete', assigned_at:ago(30*D), completed_at:ago(25*D), units:[1,2,3,4,5,6,7,8,9,10,11].map(full) } ];
+    { name:'Fake Finished', axiscare_id:'9005', status_label:'Active', status:'complete', assigned_at:ago(20*D), welcome_sent_at:ago(20*D), completed_at:ago(10*D), attested_at:ago(10*D), units:[1,2,3,4,5,6,7,8,9,10,11].map(full),
+      certificate_at:ago(10*D), messages:[{ kind:'certificate', how:'caregiver', channels:['email'], at:ago(10*D) }] },
+    { name:'Fake No Signoff', axiscare_id:'9006', status_label:'Active', status:'complete', assigned_at:ago(30*D), completed_at:ago(25*D), cleared_notified_at:ago(24*D), certificate_at:ago(25*D), units:[1,2,3,4,5,6,7,8,9,10,11].map(full) } ];
+  const AFTER={ ok:true, rows:[{ axiscare_id:'9005', name:'Fake Finished', card:'closed', active:{ state:'confirmed', at:ago(10*D), at_orientation:true }, approved:{ at:ago(9*D), by:'The Hub (verified)' },
+    text:{ state:'sent', at:ago(9*D) }, checkin:{ done:false, at:null, opened_at:ago(9*D) } }] };
+  let AFAIL=false; const INV=[];
+  window.__inv=async(name,o)=>{ INV.push([name,o&&o.body&&o.body.action]); if(name==='caregiver-journey') return AFAIL?{ data:null, error:{ message:'Edge Function returned a non-2xx status code' } }:{ data:AFTER, error:null }; return { data:null, error:null }; };
+  /* the real client makes .functions fresh on every read, so wrap it */
+  (0,eval)("sb=new Proxy(sb||{},{ get:(t,k)=>k==='functions'?{ invoke:(n,o)=>window.__inv(n,o) }:(typeof t[k]==='function'?t[k].bind(t):t[k]) });");
+  DATA.coordinator_staff=[{ name:'Krystal Land', email:'krystal@mo-care.com' }];
   const CALLS=[], WRITES=[]; let FAIL=false;
   window.fetch=async(u,o)=>{ if(String(u).includes('/functions/v1/hub-training-data')){ CALLS.push(String(u));
       return FAIL?new Response(JSON.stringify({error:'Sign in to the Hub with an office account first.'}),{status:401}):new Response(JSON.stringify(ROWS),{status:200}); }
@@ -44,7 +54,7 @@ async()=>{
   ok('four lists in order: Needs you, In orientation, Invited, Finished', JSON.stringify(cards)==='["Needs you (3)","In orientation (1)","Invited, not started yet (1)","Finished in the last 60 days (1)"]', cards);
   const need=P.querySelectorAll('.orp-card')[0].innerText;
   ok('stuck: unit, screen, how long, and that they came back but could not get further', /Fake Stuck Person/.test(need) && /Unit 4 of 11: Caring for Clients the Caring Companions Way, screen 3 of 12/.test(need) && /Stuck on Unit 4, screen 3 of 12: no new screen since/.test(need) && /3 days ago/.test(need) && /could not get further/.test(need), need);
-  ok('stuck: invited when and the reminder day', /Invited [A-Z][a-z]{2} \d+, \d+:\d\d [AP]M/.test(need) && /reminder [A-Z][a-z]{2} \d+/.test(need), need);
+  ok('stuck: invited when', /Invited [A-Z][a-z]{2} \d+, \d+:\d\d [AP]M/.test(need), need);
   ok('never opened: invited 9 days ago and has not opened orientation yet', /Fake Never Opened/.test(need) && /Invited 9 days ago and has not opened orientation yet/.test(need), need);
   ok('finished without signing off: in Needs you, worded as a note', /Fake No Signoff/.test(need) && /never signed off/.test(need), need);
   ok('the stuck one comes first', need.indexOf('Fake Stuck Person') < need.indexOf('Fake Never Opened') && need.indexOf('Fake Never Opened') < need.indexOf('Fake No Signoff'));
@@ -57,6 +67,16 @@ async()=>{
   const calls=[...P.querySelectorAll('.acts a')].filter(a=>a.innerText==='Call');
   ok('Call buttons go through the office line (no tel: link)', calls.length===3 && calls.every(a=>!String(a.getAttribute('href')||'').startsWith('tel:')), calls.map(a=>a.outerHTML.slice(0,120)));
   ok('summary counts', /3\s*Need you/.test(t()) && /2\s*In orientation/.test(t()) && /2\s*Invited, not started/.test(t()) && /2\s*Finished, last 60 days/.test(t()), P.querySelector('.orp-sum').innerText);
+
+  ok('the readiness cards were read once with the list', INV.some(x=>x[0]==='caregiver-journey'&&x[1]==='orientation_after'), INV);
+  ok('stuck person: due tomorrow, and every invite and reminder with who and how', /due [A-Z][a-z]{2} \d+/.test(need) && /Sent: Invite [A-Z][a-z]{2} \d+, by Krystal, text and email · Reminder [A-Z][a-z]{2} \d+, automatic, text and email · Reminder [A-Z][a-z]{2} \d+, by Krystal, email \(text: after 6pm\)/.test(need), need);
+  ok('never opened: past due in red', /past due Jan 2/.test(need) && P.querySelector('.orp-late'), need);
+  const fin=P.querySelectorAll('.orp-card')[3].innerText;
+  ok('finished (new way): certificate emailed, Active, approved, text sent, check-in call waiting', /After finishing: Certificate emailed [A-Z][a-z]{2} \d+ · Active in AxisCare [A-Z][a-z]{2} \d+ · Approved to Work [A-Z][a-z]{2} \d+ · "You finished your orientation" text sent [A-Z][a-z]{2} \d+ · Check-in call waiting since/.test(fin), fin);
+  ok('finished (older way): certificate saved, Active from AxisCare status, the cleared text', /After finishing: Certificate saved [A-Z][a-z]{2} \d+ · Active in AxisCare · "Cleared to work" text sent/.test(need), need);
+  AFAIL=true; await OPR.load(); await sleep(50);
+  ok('readiness read fails: said on the page, the Training lines still show', /Could not read the readiness cards/.test(t()) && /Certificate emailed/.test(t()) && /Readiness card not read/.test(t()) && !/Approved to Work [A-Z]/.test(t()), t().slice(0,400));
+  AFAIL=false; await OPR.load(); await sleep(50);
 
   /* the stuck setting */
   document.getElementById('orpDays').value='5'; await OPR.saveDays(); await sleep(50);
