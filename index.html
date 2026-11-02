@@ -35,7 +35,7 @@
     var st = document.getElementById('ccNoticeStack');
     if (!st) {
       st = document.createElement('div'); st.id = 'ccNoticeStack'; st.setAttribute('role', 'alert');
-      st.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10002;width:min(540px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px);overflow:auto;';
+      st.style.cssText = 'position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:2147482001;width:min(540px,calc(100vw - 32px));display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 24px);overflow:auto;';
       document.body.appendChild(st);
     }
     return st;
@@ -62,11 +62,12 @@
   W.ccNotice = function(text){ show('note', text); };
   /* ccConfirm(msg) / ccPrompt(msg, value): the same question, asked on the page. They keep the browser's meaning exactly
      (OK = true / the typed text, even empty; Cancel = false / null), so "OK for yes, Cancel for no" wording still reads
-     right. Enter answers OK, Escape answers Cancel. */
+     right. Enter answers OK, Escape answers Cancel. 2026-11-01: the question and the notices sit above every Hub window (the
+     Screening desk at 10002 hid the Reveal reason question at 10001, so Reveal looked dead). */
   function pageAsk(msg, isPrompt, value){
     return new Promise(function(res){
       var ov = document.createElement('div'); ov.className = 'cc-ask';
-      ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:2147482000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
       var card = document.createElement('div');
       card.style.cssText = 'background:#fff;border-radius:12px;max-width:540px;width:100%;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.2);font:14px/1.5 system-ui,-apple-system,sans-serif;color:#1B2733;';
       var m = String(msg == null ? '' : msg), cut = m.indexOf('\n\n');
@@ -26932,7 +26933,7 @@ function apAsk({ title, text, ok, back, input, placeholder, value, fields }){
     const esc = escapeHtmlComms;
     const ov = document.createElement('div');
     ov.className = 'ap-ask';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:10001;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:2147482000;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;';
     ov.innerHTML = '<div style="background:var(--card,#fff);border-radius:12px;max-width:520px;width:100%;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.2);">'
       + '<b style="font-size:16px;color:var(--navy);">' + esc(title) + '</b>'
       + (text ? '<div style="white-space:pre-wrap;font-size:14px;margin-top:8px;">' + esc(text) + '</div>' : '')
