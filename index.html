@@ -22685,7 +22685,7 @@ async function prnDashLoad(){
       sb.from('prn_checkins').select('*').order('sent_at'),
     ]);
     const keys = (pos.data||[]).map(x=>x.key);
-    const apps = keys.length ? ((await sb.from('job_applicants').select('id,first_name,last_name,created_at,completed_at,screen_grade,status,position,decline_reason').in('position', keys)).data||[]) : [];
+    const apps = keys.length ? ((await sb.from('job_applicants').select('id,first_name,last_name,created_at,completed_at,screen_grade,status,position,decline_reason,source').in('position', keys)).data||[]).filter(r=>!apIsDemo(r)) : [];
     const ids = apps.map(a=>a.id);
     const bk = ids.length ? ((await sb.from('interview_bookings').select('applicant_id,status').in('applicant_id', ids).eq('status','booked')).data||[]) : [];
     let census = null; try{ census = await cgdCensus(); }catch(_){ census = null; }
@@ -23081,7 +23081,7 @@ async function rnLoad(btn){
     ]);
     if(a.error) throw a.error;
     if(b.error) throw b.error;
-    RN_AP = a.data || []; RN_BK = b.data || []; RN_LOADED = true;
+    RN_AP = (a.data || []).filter(r=>!apIsDemo(r)); RN_BK = b.data || []; RN_LOADED = true;
     RN_CO = {}; ((c && c.data) || []).forEach(x=>{ RN_CO[x.id] = x.name; });
     rnRender();
   }catch(e){
@@ -24041,6 +24041,15 @@ function trainhubOpen(){ framedOpen('trainhubFrame','https://training.mo-care.co
    them is the person who was right but early: when an opening appears, they
    are the cheapest hire available and Augusta never let us reach them.
    Requires job-applicants.sql and scheduling.sql. */
+/* DEMO AND TEST APPLICANTS (Samantha 2026-11-01, "hides the demo and test applicants from the lists and counts"): the
+   sample people (source "example") and the office's own test applications stay in the database untouched, but no list
+   or count shows them. Needs the row's source and names. */
+function apIsDemo(a){
+  if(!a) return false;
+  const f = String(a.first_name||'').trim(), l = String(a.last_name||'').trim();
+  return a.source === 'example' || /\(test\)/i.test(f+' '+l) || /^zztest/i.test(f) || (/^example$/i.test(f) && /^example$/i.test(l));
+}
+window.apIsDemo = apIsDemo;
 let AP_ROWS = [], AP_BOOK = {}, AP_COORD = {}, AP_CHURN = {}, AP_POS = [], AP_POSTINGS = [], apFilter = 'qualified';
 
 /* Cleared the screen means: nothing we knock people back for, and nobody in
@@ -24078,7 +24087,7 @@ async function apLoad(btn){
         .eq('status','cancelled').limit(5000),
     ]);
     if(a.error) throw a.error;
-    AP_ROWS = a.data || [];
+    AP_ROWS = (a.data || []).filter(r=>!apIsDemo(r));
     /* One person can carry several rows — a no-show and the rebooking, an old
        cancelled time and the moved one. The live 'booked' row is the one every
        button acts on, so it always wins the map. */

@@ -319,7 +319,8 @@
       (async function () { var c = await cgdCensus(); FIND.cg = (c && c.caregivers) || []; })().catch(function (e) { FIND.err.cg = e && e.message || String(e); FIND.cg = []; }),
       (async function () { FIND.cl = (await cl360Identity()) || []; })().catch(function (e) { FIND.err.cl = e && e.message || String(e); FIND.cl = []; }),
       (async function () {
-        var a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,status,screen_grade,position,created_at,city,office').order('created_at', { ascending: false }).limit(2000);
+        var a = await sb.from('job_applicants').select('id,first_name,last_name,phone,email,status,screen_grade,position,created_at,city,office,source').order('created_at', { ascending: false }).limit(2000);
+        if (a && a.data && window.apIsDemo) a.data = a.data.filter(function (r) { return !window.apIsDemo(r); });   /* demo and test applicants stay out (11-01) */
         if (window.OKO && a && a.data) OKO.remember(a.data);   /* 806 */
         if (a.error) throw a.error;
         FIND.ap = (a.data || []).filter(function (r) { return r.status !== 'hired'; });
