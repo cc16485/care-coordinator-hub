@@ -14,6 +14,10 @@
    reminder the Training Platform sent with who sent it, and after finishing: the certificate email, Active in AxisCare, Approve
    to Work, the finished-orientation text and the check-in call (new-path cards from caregiver-journey ?orientation_after; the
    older way from the Training record).
+   Linked with Onboarding (2026-11-02, her ask: "link the two tabs: show where they are in orientation on the Onboarding rows, add
+   the badge to the Orientation tab, and add a link between them"): Onboarding keeps every to-do (badge Mailed, check-in call,
+   approval); this page only shows them. A Training person is matched to the Hub by AxisCare number, else by a name only one
+   person has (rowFor). OPR.brief draws the Onboarding row's orientation line, OPR.show jumps here, OPR.toOnboarding jumps back.
    The red count on the Orientation pill is the Needs you count, checked at sign-in and every 30 minutes. Nobody is
    texted by this page. Unit times come from course_unit_marks (Training orientation-progress.sql), so units finished
    before 2026-11-01 carry the day of their last save only.
@@ -33,7 +37,7 @@
      loaded when a caregiver tab opens, and the pill count is read at sign-in. The public key, not a secret. */
   const FN = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data';
   const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
-  const ST = { rows:null, err:'', busy:false, at:0, after:null, afterErr:'' };
+  const ST = { rows:null, err:'', busy:false, at:0, after:null, afterErr:'', focus:'' };
   const el = () => document.getElementById('orpMount');
   const ts = iso => { const t = iso ? new Date(iso).getTime() : NaN; return isNaN(t) ? 0 : t; };
   const day = iso => ts(iso) ? new Date(iso).toLocaleDateString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }) : '';
@@ -78,7 +82,54 @@
   }
   function afterFor(r){ const ax = String(r.axiscare_id || '').replace(/\D/g, ''); return ax && ST.after ? (ST.after[ax] || null) : null; }
   function people(){ return (ST.rows || []).map(read); }
+
+  /* ── the same person in both tabs: the AxisCare number first, else a name only one person has ── */
+  const digits = v => String(v == null ? '' : v).replace(/\D/g, '');
+  const nkey = v => String(v || '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+  function matchIn(list, ax, name, axOf, nameOf){
+    const a = digits(ax);
+    if(a){ const hit = list.find(x => digits(axOf(x)) === a); if(hit) return hit; }
+    const k = nkey(name); if(!k) return null;
+    const same = list.filter(x => nkey(nameOf(x)) === k);
+    return same.length === 1 ? same[0] : null;
+  }
+  function rowFor(ax, name){ return matchIn(ST.rows || [], ax, name, r => r.axiscare_id, r => r.name); }
+  /* the Hub caregiver list (caregivers-engine.js shares it as ckdRoster once a caregiver tab has loaded it) */
+  function roster(){
+    try{ const g = typeof ckdRoster === 'function' ? ckdRoster() : typeof caregivers !== 'undefined' ? caregivers : null; return Array.isArray(g) ? g : null; }catch(e){ return null; }
+  }
+  /* the Hub caregiver list record (where the badge is kept) */
+  function rosterFor(r){
+    try{ return roster() ? matchIn(roster(), r.axiscare_id, r.name, g => g.axiscare_id, g => ((g.first || '') + ' ' + (g.last || ''))) : null; }catch(e){ return null; }
+  }
+  /* the Onboarding list person for a Training row (Onboarding's own list, once that part of the Hub is loaded) */
+  function onboardingFor(r){
+    try{
+      if(!ST.onb) ST.onb = typeof ckdOrientWho === 'function' ? ckdOrientWho() : [];
+      return matchIn(ST.onb, r.axiscare_id, r.name, x => x.ax, x => x.name);
+    }catch(e){ return null; }
+  }
   function needs(list){ return list.filter(p => p.alert); }
+
+  /* the Onboarding row's orientation line: { text, bad, id } or null (not matched, or not read yet: the first ask reads, then
+     Onboarding draws again) */
+  function brief(ax, name){
+    if(!ST.rows){ if(!ST.busy && !ST.at) load(); return null; }
+    const r = rowFor(ax, name); if(!r) return null;
+    const p = read(r), id = String(r.training_id || '');
+    if(p.state === 'done') return { text:'Finished orientation ' + day(r.completed_at), bad:false, id };
+    if(p.state === 'notstarted') return { text:p.alert ? 'Has not opened orientation (invited ' + ago(p.invited) + ')' : 'Orientation not opened yet', bad:!!p.alert, id };
+    if(p.alert && !p.soft) return { text:'Stuck in orientation on Unit ' + (p.cur ? p.cur[0] : UNITS.length) + ' of ' + UNITS.length, bad:true, id };
+    return { text:p.cur ? 'Orientation: Unit ' + p.cur[0] + ' of ' + UNITS.length : 'Orientation: finishing up', bad:false, id };
+  }
+  function show(id){ ST.focus = String(id || ''); if(typeof switchTab === 'function') switchTab('orientprog'); }
+  function toOnboarding(name){ window.CKD_FIND = String(name || ''); if(typeof switchTab === 'function') switchTab('cgbackground'); }
+  function badgeBit(r){
+    const g = rosterFor(r); if(!g) return '';
+    if(g.badge_mailed_at) return 'Badge mailed ' + esc(day(g.badge_mailed_at));
+    if(g.badge_not_needed) return 'No badge needed';
+    return onboardingFor(r) ? '<span class="orp-wait">Badge not mailed yet</span>' : '';
+  }
 
   async function fetchRows(){
     if(typeof trainHubTok !== 'function') return { error:'The Hub sign-in is not loaded on this page.' };
@@ -107,6 +158,7 @@
     if(aft.error){ ST.afterErr = aft.error; ST.after = null; } else { ST.afterErr = ''; ST.after = aft.by; }
     if(out.error) ST.err = out.error; else { ST.err = ''; ST.rows = out.rows; }
     badge(); draw();
+    try{ if(typeof activeTab !== 'undefined' && activeTab === 'cgbackground' && typeof renderCkd === 'function') renderCkd(); }catch(e){}
   }
   function badge(){
     const b = document.getElementById('orpPillBadge'); if(!b) return;
@@ -134,13 +186,14 @@
       + '.orp-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text-muted);margin:4px 0 10px}.orp-foot input{width:4.5rem}'
       + '.orp-err{background:#FDE8E8;color:#8B2A20;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:13px}'
       + '.orp-msgs,.orp-after{font-size:12.5px;color:var(--text);margin-top:4px;line-height:1.55}.orp-msgs b,.orp-after b{color:var(--navy);font-weight:700}'
+      + '.orp-row.orp-focus{background:#FFF8E6;box-shadow:0 0 0 2px #F0A63A;border-radius:10px;padding-left:10px;padding-right:10px}'
       + '.orp-late{color:#B23B2E;font-weight:700}.orp-ok{color:#1F7A4D}.orp-wait{color:#8A5A12}.orp-no{color:#B23B2E}';
     document.head.appendChild(s); };
 
   function hubName(r){
     const name = String(r.name || '').trim() || 'Name not on file';
     try{
-      const c = r.axiscare_id && typeof caregivers !== 'undefined' ? caregivers.find(x => String(x.axiscare_id || '') === String(r.axiscare_id)) : null;
+      const c = r.axiscare_id && roster() ? roster().find(x => String(x.axiscare_id || '') === String(r.axiscare_id)) : null;
       if(c && typeof personName === 'function') return personName({ caregiver_id:c.id }, name, '', 'checks', 'checks');
     }catch(e){}
     return esc(name);
@@ -219,14 +272,18 @@
       p.invited ? (r.welcome_sent_at ? 'Invited ' : 'Assigned ') + esc(when(new Date(p.invited).toISOString())) : '',
       dueBit(r),
       p.state === 'inprogress' && (p.moved || p.seen) ? 'last new screen ' + esc(when(new Date(p.moved || p.seen).toISOString())) : '',
-      r.status_label ? 'AxisCare: ' + esc(r.status_label) : ''
+      r.status_label ? 'AxisCare: ' + esc(r.status_label) : '',
+      badgeBit(r)
     ].filter(Boolean).join(' · ');
     const call = r.phone && typeof ocAttrs === 'function' ? '<a class="ibtn" ' + ocAttrs(r.phone, { email:r.email }) + '>Call</a>' : '';
-    return '<div class="orp-row"><div class="who"><div class="orp-name">' + hubName(r) + chip + '</div>'
+    const onb = onboardingFor(r);
+    const toOnb = onb ? '<button type="button" class="ibtn" onclick="OPR.toOnboarding(this.dataset.n)" data-n="' + esc(onb.name) + '" title="Their to-dos (badge, check-in call, approval) are on Onboarding">Onboarding</button>' : '';
+    const fid = String(r.training_id || '');
+    return '<div class="orp-row' + (fid && fid === ST.focus ? ' orp-focus' : '') + '"' + (fid ? ' id="orp-p-' + esc(fid) + '"' : '') + '><div class="who"><div class="orp-name">' + hubName(r) + chip + '</div>'
       + '<div class="orp-line">' + line + '</div>' + (p.state !== 'notstarted' && p.state !== 'done' ? bar(p) : '')
       + (p.alert ? '<div class="orp-why' + (p.soft ? ' soft' : '') + '">' + esc(p.alert) + '</div>' : '')
       + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state === 'done' ? afterLine(p) : '') + '</div>'
-      + '<div class="acts">' + call + '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a></div></div>';
+      + '<div class="acts">' + call + toOnb + '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a></div></div>';
   }
   function card(title, note, list, hot, empty){
     return '<div class="orp-card' + (hot && list.length ? ' hot' : '') + '"><h3>' + title + (list.length ? ' (' + list.length + ')' : '') + '</h3>'
@@ -235,6 +292,7 @@
   function draw(){
     const m = el(); if(!m) return; css();
     if(!ST.rows && ST.busy){ m.innerHTML = '<div class="field-note">Reading orientation from the Training Platform…</div>'; return; }
+    ST.onb = null;
     const list = people();
     const sortT = (a, b) => (b.moved || b.seen || b.invited) - (a.moved || a.seen || a.invited);
     const need = needs(list).sort((a, b) => (a.soft - b.soft) || sortT(a, b));
@@ -258,6 +316,10 @@
       + '<button class="secondary" onclick="OPR.load()"' + (ST.busy ? ' disabled' : '') + '>' + (ST.busy ? 'Reading…' : 'Refresh') + '</button>'
       + (canSet ? '<label for="orpDays">Stuck after</label><input id="orpDays" type="number" min="1" max="30" step="1" value="' + nd + '"><span>days</span><button class="secondary" onclick="OPR.saveDays(this)">Save</button><span id="orpDaysSaved"></span>' : '')
       + '</div>';
+    if(ST.focus && ST.rows){
+      const f = document.getElementById('orp-p-' + ST.focus); ST.focus = '';
+      if(f && f.scrollIntoView) f.scrollIntoView({ block:'center' });
+    }
   }
   async function saveDays(btn){
     const sv = document.getElementById('orpDaysSaved');
@@ -276,5 +338,5 @@
   /* the pill count: once after sign-in, then every 30 minutes while the page is open */
   let timer = null;
   function watch(){ if(timer) return; load(); timer = setInterval(() => { if(document.visibilityState === 'visible') load(); }, 30 * 60e3); }
-  window.OPR = { mount, load, saveDays, watch, _read:read, _units:UNITS, _st:ST };
+  window.OPR = { mount, load, saveDays, watch, brief, show, toOnboarding, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor };
 })();
