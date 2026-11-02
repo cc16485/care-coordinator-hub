@@ -50,7 +50,7 @@ async(CODE)=>{
   (0,eval)("scxState='ready'"); window.SCX={};
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(50);
   window.CRX={ list:()=>[{ offer_id:'o1', name:'Fake Stuck Person', next:{ key:'cg.orientation.done', title:'Finish orientation' } }, { offer_id:'o2', name:'Fake Moving Person', next:{ key:'cg.orientation.done', title:'Finish orientation' } }], open(){} };
-  ok('the Onboarding list has the two made-up people on the orientation step', JSON.stringify(ckdOrientWho().map(x=>[x.name,x.ax,x.stop]))==='[["Fake Stuck Person","9001",5],["Fake Moving Person","",5]]', ckdOrientWho());
+  ok('the Onboarding list has the two made-up people on the orientation step', JSON.stringify(ckdOrientWho().map(x=>[x.name,x.ax,x.stop]))==='[["Fake Stuck Person","9001",3],["Fake Moving Person","",3]]', ckdOrientWho());
   switchTab('orientprog');
   await OPR.load(); OPR.mount(); await sleep(150);
   const P=document.getElementById('tab-orientprog'), rowOf=n=>[...P.querySelectorAll('.orp-row')].find(r=>r.innerText.includes(n));
