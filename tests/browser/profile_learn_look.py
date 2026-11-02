@@ -22,9 +22,10 @@ LOOK = {'ok': True, 'live': False, 'built_at': '2026-11-02T20:00:00Z', 'built_by
     'team': [{'key': 'tea_mary', 'text': 'Family likes Mary, Katie, Amy and Catherine; asked to take Ariel off.', 'sources': [2]}]},
   'tasks': [{'name': 'Reposition every 2 hours', 'when': 'each visit', 'instructions': 'Roll him toward you using the draw sheet'}]}
 page = '''<!doctype html><meta charset="utf-8"><style>:root{--navy:#0D365F;--border:#E3E0D8}</style><body><div id="cp_learned"></div><div id="cp_needs"></div><script>
-window.DATA = { ops_settings: {}, client_profiles: [{ id: 'cp_ax297', life: { enjoys: { text: 'His grandkids', by: 'Kay', at: '2026-10-01' } } }] };
-window.CC_ROLES = ['care_coordinator']; window.ME = { name: 'Krystal', email: 'krystal@mo-care.com' };
-window.CP = { ax: '297', lead: null, r: { client_name: 'Dan Probstfield' } };
+let DATA = { ops_settings: {}, client_profiles: [{ id: 'cp_ax297', life: { enjoys: { text: 'His grandkids', by: 'Kay', at: '2026-10-01' } } }] };
+let CC_ROLES = ['care_coordinator']; let ME = { name: 'Krystal', email: 'krystal@mo-care.com' };
+/* like the Hub page: DATA, CP, CC_ROLES and ME are the page's own names, never on window (the 2026-11-02 miss) */
+const CP = { ax: '297', lead: null, r: { client_name: 'Dan Probstfield' } };
 window.CONFIG = { supabase_url: 'https://x.supabase.co', supabase_anon_key: 'anon' };
 window.CALLS = []; window.SAVED = []; window.LOOK = %s;
 window.sb = { auth: { getSession: async () => ({ data: { session: { access_token: 't' } } }) },
@@ -89,8 +90,9 @@ try:
     pg.evaluate('DATA.ops_settings.care_needs_live = true; window.CN.mount("cp_needs")'); pg.wait_for_timeout(500)
     t = pg.inner_text('#cp_needs')
     ok('Care needs: a client with no inquiry finds their Journey through AxisCare and shows the checklist', 'Matching requirements' in t and 'No inquiry is on file' not in t, t[:300])
-    pg.evaluate("window.sb.from = (t) => { const o = { select: () => o, eq: () => o, in: () => o, then: (ok) => ok({ data: [], error: null }) }; return o; }; window.CP = { ax: '298', lead: null }; window.CN.mount('cp_needs')"); pg.wait_for_timeout(400)
+    pg.evaluate("window.sb.from = (t) => { const o = { select: () => o, eq: () => o, in: () => o, then: (ok) => ok({ data: [], error: null }) }; return o; }; CP.ax = '298'; CP.lead = null; window.CN.mount('cp_needs')"); pg.wait_for_timeout(400)
     ok('Care needs: no inquiry and no Journey yet says one opens on the first Save above', 'One opens the first time someone saves a need' in pg.inner_text('#cp_needs'))
+    ok('the card finds the client and settings by the page\'s own names (none on window)', pg.evaluate('typeof window.CP === "undefined" && typeof window.DATA === "undefined"'))
     ok('no page errors', not errs, errs)
     b.close()
 finally:
