@@ -33,7 +33,7 @@ HUB_JS = """() => {
     if (body.action === 'show') return { status: 200, data: { ok: true, method: 'card', number: '4111111111111111', seconds: 300 } };
     if (body.action === 'entered') { D.sends[1].payment = Object.assign({}, D.sends[1].payment, { locked: false, erased_at: 'x', erased_why: 'entered', entered_at: '2026-10-28T16:00:00Z', entered_by: 'Billie Billing' }); return { status: 200, data: { ok: true } }; }
     return { status: 400, data: { error: 'unknown' } }; };
-  document.body.innerHTML = '<div id="cp_agreement"><div class="card">Client Care Agreement</div></div><div id="cp_payer"><div class="card">Payer</div></div>';
+  document.body.innerHTML = '<div id="cp_agreement"><div class="card">Client Care Agreement</div></div><div id="cp_payer"><div class="card">Payer</div></div><div id="cp_evv_forms"></div>';
 }"""
 
 with sync_playwright() as pw:
@@ -50,7 +50,8 @@ with sync_playwright() as pw:
        and t.index('GUIDE program') < t.index('Payment authorization') and 'Send something' in t, t)
     ok('...switch off: says only owners can send, to try it', 'only owners can send' in t)
     ok('...a returned payment form shows the last 4 and "waiting to be entered", never the number', 'Visa ending 1111' in t and 'waiting to be entered' in t and '41111111' not in q.content())
-    ok('...the Payer tab gets its own card with payment forms only', 'Payment forms' in q.inner_text('#cp_fsend_payer') and 'GUIDE' not in q.inner_text('#cp_fsend_payer') and 'Send a payment form' in q.inner_text('#cp_fsend_payer'))
+    ok('...Communication & Documents gets a Documents card with payment forms only, and the Payer tab has none (Samantha 2026-11-02)', 'Documents' in q.inner_text('#cp_fsend_docs') and 'GUIDE' not in q.inner_text('#cp_fsend_docs') and 'Send a payment form' in q.inner_text('#cp_fsend_docs')
+       and q.evaluate("() => document.getElementById('cp_evv_forms').nextElementSibling.id") == 'cp_fsend_docs' and q.evaluate("() => document.getElementById('cp_payer').nextElementSibling.id") != 'cp_fsend_docs')
     q.click('#cp_fsend button:has-text("Send something")'); q.wait_for_timeout(100)
     ok('Send something: the four pieces', q.locator('#cp_fsend input[name=fsPiece]').count() == 4)
     q.check('#cp_fsend input[name=fsPiece][value=agreement]'); q.wait_for_timeout(100)
