@@ -25,14 +25,14 @@
   ];
   const ADVANCED = [['catheter_change', 'Changing, inserting or removing a catheter'], ['stoma_care', 'Stoma care'], ['bowel_program', 'A bowel program'], ['prescription_creams', 'Prescription creams'], ['nurse_set_medication', 'Medication help set up by a nurse'], ['passive_range_of_motion', 'Passive range of motion']];
   const S = { box: null, key: null, ep: null, cur: {}, draft: {}, msg: '', busy: false, err: '' };
-  const live = () => !!((window.DATA || {}).ops_settings || {}).care_needs_live;
+  const live = () => !!(((typeof DATA !== 'undefined' && DATA) || {}).ops_settings || {}).care_needs_live;
   const q = p => p.then(r => { if (r.error) throw r.error; return r.data || []; });
   async function ensureRules(){
     if (window.CCMatch) return;
     await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'match-rules.js?v=20261018'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   }
   async function load(){
-    const l = window.CP && CP.lead, ax = window.CP && CP.ax ? String(CP.ax) : ''; S.ep = null; S.cur = {}; S.err = '';
+    const l = (typeof CP !== 'undefined' && CP) && CP.lead, ax = (typeof CP !== 'undefined' && CP) && CP.ax ? String(CP.ax) : ''; S.ep = null; S.cur = {}; S.err = '';
     if (l) {
       const src = await q(sb.from('episode_source').select('episode_id').eq('system', 'lead').eq('role', 'origin').eq('source_ref', String(l.id)));
       S.ep = (src[0] && src[0].episode_id) || null;
@@ -48,7 +48,7 @@
   }
   const curVal = k => S.cur[k] ? S.cur[k].value : undefined;
   const val = k => (k in S.draft) ? S.draft[k] : curVal(k);
-  function intakeOf(){ const l = window.CP && CP.lead; return l ? CCMatch.fromLead(l.client_attributes || {}) : {}; }
+  function intakeOf(){ const l = (typeof CP !== 'undefined' && CP) && CP.lead; return l ? CCMatch.fromLead(l.client_attributes || {}) : {}; }
   function needsForRule(){ const n = {}; CCMatch.SKILLS.forEach(s => { const f = S.cur['need_' + s.key]; if (f) n[s.key] = { value: f.value, stage: f.layer }; }); return n; }
   function seg(kind, opts, v){ return '<span style="display:inline-flex;gap:3px;flex-wrap:wrap">' + opts.map(([val2, lab]) => '<button type="button" class="' + (v === val2 ? 'primary' : 'secondary') + '" style="font-size:12px;padding:3px 9px" onclick="window.CN.set(\'' + kind + '\',\'' + val2 + '\')">' + esc(lab) + '</button>').join('') + '</span>'; }
   function who(f){ return f ? '<span class="field-note">' + (f.layer === 'current' ? 'current' : 'care plan') + ', ' + esc(String(f.recorded_by || '').split('@')[0]) + ' ' + esc(String(f.recorded_at || '').slice(0, 10)) + '</span>' : '<span class="field-note" style="color:#92400E">not yet known</span>'; }
@@ -56,7 +56,7 @@
     const box = S.box; if (!box) return;
     if (!live()) { box.innerHTML = ''; return; }
     if (!window.CCMatch) { box.innerHTML = '<div class="card" style="padding:14px 18px;margin-bottom:12px;"><div class="field-note">Loading…</div></div>'; return; }
-    const l = window.CP && CP.lead;
+    const l = (typeof CP !== 'undefined' && CP) && CP.lead;
     let h = '<div class="card" style="padding:14px 18px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><b style="font-size:15px;color:var(--navy);">🧩 Care needs for matching</b></div>'
       + '<div class="field-note" style="margin-bottom:8px">Confirm each need on the care plan: Required, Preferred or No. What the family told us at intake shows beside it, to confirm; it never counts until you confirm. Nothing here texts anyone, and no matching screen reads these yet.</div>';
     if (!l && !S.ep && !S.err) return box.innerHTML = h + '<div class="field-note">No inquiry is on file for this client, so there is no Journey to keep their needs on yet. One opens the first time someone saves a need from "Learned from AxisCare and calls" above.</div></div>';
@@ -108,7 +108,7 @@
   async function mount(id){
     S.box = document.getElementById(id); if (!S.box) return;
     if (!live()) { S.box.innerHTML = ''; return; }
-    const key = window.CP && CP.lead ? CP.lead.id : (window.CP && CP.ax ? 'ax' + CP.ax : null);
+    const key = (typeof CP !== 'undefined' && CP) && CP.lead ? CP.lead.id : ((typeof CP !== 'undefined' && CP) && CP.ax ? 'ax' + CP.ax : null);
     if (key !== S.key) { S.key = key; S.draft = {}; S.msg = ''; }
     render();
     try { await ensureRules(); await load(); } catch (e) { S.err = String(e && e.message || e); }

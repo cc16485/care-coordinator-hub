@@ -120,7 +120,7 @@
   async function saveOnProfile(x){
     const id = 'cp_ax' + S.ax, prev = (DATA.client_profiles || []).find((p) => p && p.id === id) || {};
     const now = new Date().toISOString(), from = srcText(x.sources).slice(0, 200);
-    const item = Object.assign({}, prev, { id, axiscare_client_id: S.ax, client_name: prev.client_name || (CP.r && CP.r.client_name) || '', updated_at: now, updated_by: me() });
+    const item = Object.assign({}, prev, { id, axiscare_client_id: S.ax, client_name: prev.client_name || (typeof CP !== 'undefined' && CP && CP.r && CP.r.client_name) || '', updated_at: now, updated_by: me() });
     if (x.section === 'safety' || x.section === 'family') {
       const k = x.section + '_notes'; item[k] = (Array.isArray(prev[k]) ? prev[k] : []).concat([{ text: x.text, by: me(), at: now, from }]);
     } else if (x.section === 'home') {
@@ -151,7 +151,7 @@
 
   function mount(id){
     S.box = document.getElementById(id); if (!S.box) return;
-    const ax = window.CP && CP.ax ? String(CP.ax).trim() : '';
+    const ax = (typeof CP !== 'undefined' && CP) && CP.ax ? String(CP.ax).trim() : '';
     if (!ax || !(live() || owner())) { S.box.innerHTML = ''; return; }
     if (ax !== S.ax) { S.ax = ax; S.d = null; S.err = ''; S.msg = ''; S.busy = ''; S.at = 0; }
     render();
