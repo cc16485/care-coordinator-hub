@@ -5551,7 +5551,11 @@ async function bgrRunOIG(boardId, btn){
    locked record holds ("on file, ending 1234"), the FCSR registration sheet (the facts the DHSS form asks for, in order),
    the links to the DHSS sites (we never type into them from here), the reveal log, and, for any active office user (2026-10-21, her rule;
    the Screening staff list no longer gates it), the Reveal buttons: one field, a reason, five minutes on screen, then wiped. The value lives only
-   in this page's memory while the countdown runs: never in storage, never in a log, never in a note. */
+   in this page's memory while the countdown runs: never in storage, never in a log, never in a note.
+   2026-11-01 (Samantha, after the hidden reason question: "dont make us do that"): the SSN and date of birth fill in by themselves
+   when the desk opens, like the profile (her 10-21 rule), and Reveal asks no reason. The server still checks the office sign-in and
+   logs every showing ("Shown on the Screening desk" / "Opened on the Screening desk"). Kept in page memory per offer for 30
+   minutes so reopening the desk does not log it again; never in storage. */
 let SD = { candId: null, offerId: null, data: null, shown: {}, timers: {} };
 function sdEligible(b){
   if(!b || !b.offer_id) return false;
@@ -5586,6 +5590,25 @@ async function bgrScreeningDesk(candId){
   try { SD.data = await sdCall({ action: 'screening', offer_id: SD.offerId }); }
   catch(e){ document.getElementById('sdBody').innerHTML = '<div style="color:#B91C1C;font-size:.85rem">The desk could not open: ' + sdEsc(e.message || e) + '</div><div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="sdClose()">Close</button></div>'; return; }
   sdRender();
+  sdAuto();
+}
+const SD_AUTO = {};
+async function sdAuto(){
+  const d = SD.data, I = d && d.identity, oid = SD.offerId; if(!I || !d.may_reveal || I.purged_at) return;
+  const hit = SD_AUTO[oid] && Date.now() - SD_AUTO[oid].at < 30 * 60000 ? SD_AUTO[oid] : null;
+  const got = hit ? hit.v : {};
+  if(!hit){
+    for(const key of ['ssn', 'dob']){
+      if(!I[key]) continue;
+      try { const r = await sdCall({ action: 'reveal', offer_id: oid, field: key, reason: 'Shown on the Screening desk' }); got[key] = String(r.value || ''); }
+      catch(e){ /* the Reveal button stays for that field */ }
+    }
+    if(Object.keys(got).length) SD_AUTO[oid] = { at: Date.now(), v: got };
+  }
+  if(SD.offerId !== oid || !SD.data) return;
+  Object.keys(got).forEach(k => { SD.shown[k] = { value: got[k], until: Infinity }; });
+  if(!hit){ try { SD.data = await sdCall({ action: 'screening', offer_id: oid }); } catch(_){} }   /* the log and the count, fresh */
+  if(SD.offerId === oid) sdRender();
 }
 function sdWhen(iso){ return iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; }
 function sdRender(){
@@ -5601,7 +5624,7 @@ function sdRender(){
     return line(label, v);
   };
   let h = '<div style="font-weight:800;color:#0D365F;font-size:1rem">&#128274; Screening desk · ' + sdEsc(((c.first||'') + ' ' + (c.last||'')).trim()) + '</div>'
-    + '<div style="font-size:.76rem;color:#6E6559;margin:.15rem 0 .4rem">The locked details are kept encrypted on the server; a reveal shows one for five minutes to any office staff member, and every reveal is logged with who, when and why.</div>'
+    + '<div style="font-size:.76rem;color:#6E6559;margin:.15rem 0 .4rem">The locked details are kept encrypted on the server; the Social Security number and date of birth show here for any active office user, and every showing is logged with who and when.</div>'
     + '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.8rem">FCSR registration and every required screening (EDL, FCSR, OIG, fingerprints if they lived outside Missouri) must <b>clear before this person has any participant contact</b>. The 15-day registration deadline is never permission to work.</div>';
   if(!d.may_reveal) h += '<div style="font-size:.78rem;color:#8A7F70;margin-top:.5rem">Your sign-in is not an active office account, so the details stay locked for you.</div>';
   h += '<div style="' + lbl + '">On the locked record' + (I && I.captured_at ? ' <span style="font-weight:400;text-transform:none;letter-spacing:0">· captured ' + sdEsc(sdWhen(I.captured_at)) + ' · ' + (I.reveals||0) + ' reveal' + ((I.reveals||0)===1?'':'s') + ' so far</span>' : '') + '</div>';
@@ -5644,8 +5667,7 @@ function sdRender(){
   Object.keys(SD.shown).forEach(sdTick);
 }
 async function sdReveal(key, btn){
-  const reason = ((await ccPrompt('Why are you opening this ' + ({ssn:'Social Security number',dob:'date of birth',license:'license number'}[key]) + '? (logged with your name and the time)\nFor example: FCSR registration, EDL check, driving record check')) || '').trim();
-  if(reason.length < 5){ if(reason) alert('Please give a reason of at least five characters.'); return; }
+  const reason = 'Opened on the Screening desk';
   if(btn){ btn.disabled = true; btn.textContent = 'Opening…'; }
   try {
     const r = await sdCall({ action: 'reveal', offer_id: SD.offerId, field: key, reason });
@@ -5659,6 +5681,7 @@ function sdTick(key){
   const paint = () => {
     const s = SD.shown[key]; const el = document.getElementById('sd_cd_' + key);
     if(!s) return;
+    if(s.until === Infinity){ clearInterval(SD.timers[key]); delete SD.timers[key]; if(el) el.textContent = ''; return; }
     const left = Math.max(0, Math.round((s.until - Date.now()) / 1000));
     if(el) el.textContent = 'wipes in ' + Math.floor(left/60) + ':' + String(left%60).padStart(2,'0');
     if(left <= 0){ clearInterval(SD.timers[key]); delete SD.timers[key]; delete SD.shown[key]; sdRender(); }
