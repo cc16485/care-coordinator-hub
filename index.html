@@ -28463,8 +28463,9 @@ async function renderInterviewsLegacy(btn){
     const r=await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data?action=job_offers',{
       method:'POST',headers:{'x-hub-token':await trainHubTok(),'apikey':COMMS_ANON,'Authorization':'Bearer '+COMMS_ANON,'Content-Type':'application/json'},
       body:'{}'});
-    const data=await r.json();
+    let data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
+    if(typeof offerIsTest==='function') data=data.filter(o=>!offerIsTest(o));
     const esc=escapeHtmlComms;
     const chip=(ok,label)=>'<span class="tag-chip" style="background:'+(ok?'#E1F1ED;color:#1F7A8C':'#F7ECCB;color:#C17A12')+';">'+(ok?'✓ ':'⏳ ')+label+'</span>';
     box.innerHTML=data.length?data.map(o=>
