@@ -41,11 +41,11 @@ async(CODE)=>{
   ok('rows: done with time and verifier, expired EDL flagged as due again, OIG blocked with its reason, Approve to Work later', /Done · .*The Hub \(verified\)/.test(t) && /Expired on 2026-08-30: due again/.test(t) && /Flagged: see the background review/.test(t) && /After: Approved to advance to orientation/.test(t), t.slice(0,900));
   ok('evidence is shown as words, never a number: the signed form fingerprint and the document on file', /signed form 751522b8a492/.test(t) && /document on file/.test(t));
   const btns=()=>[...document.querySelectorAll('#crBody button')].map(b=>b.textContent.trim());
-  ok('a coordinator not on the Advance list sees no Confirm button; nobody sees Not needed (owners only)', !btns().includes('Confirm') && !btns().includes('Not needed'), btns());
+  ok('a coordinator not on the Advance list sees no Confirm button; nobody sees Mark not needed (owners only)', !btns().includes('Confirm') && !btns().includes('Mark not needed'), btns());
   ok('the dates line: employment start (orientation) not yet, AxisCare hire date shown', /Employment start \(orientation completed\): not yet · AxisCare hire date: 2026-10-05/.test(t));
   CRX.close(); mayAdvance=true; isOwner=true; await CRX.open('o-1','Ava Lee'); await sleep(120);
   t=document.getElementById('crBody').innerText;
-  ok('on the Advance list and an owner: one Confirm (the ready confirmed row), Not needed on open rows', btns().filter(x=>x==='Confirm').length===1 && btns().includes('Not needed'), btns());
+  ok('on the Advance list and an owner: one Confirm (the ready confirmed row), Mark not needed on open rows', btns().filter(x=>x==='Confirm').length===1 && btns().includes('Mark not needed'), btns());
   const btn=[...document.querySelectorAll('#crBody button')].find(b=>b.textContent==='Confirm'); btn.click(); await sleep(150);
   t=document.getElementById('crBody').innerText;
   ok('Confirm asks the server for that row and the card re-draws it as done by Samantha', __calls.some(c=>c.b.action==='confirm' && c.b.step_key==='cg.approve.advance' && c.b.journey_id==='j-1') && /Approved to advance to orientation[\s\S]*Done · .*Samantha/.test(t), t.slice(0,700));
@@ -61,7 +61,7 @@ async(CODE)=>{
   ok('the press asks the server for approve_work (nothing else) and the card re-draws: Approval recorded, AxisCare update failed, with Retry; still locked; Approved to Work NOT shown', __calls.some(c=>c.b.action==='approve_work' && c.b.journey_id==='j-1') && /Approval recorded, AxisCare update failed/.test(t) && /AxisCare answered 400/.test(t) && btns().some(x=>/Retry the AxisCare update/.test(x)) && /Scheduling: locked/.test(t) && !/Approved to Work Oct/.test(t), t.slice(0,900));
   const rb=[...document.querySelectorAll('#crBody button')].find(b=>/Retry/.test(b.textContent)); rb.click(); await sleep(150); t=document.getElementById('crBody').innerText;
   ok('Retry asks the server; after the read-back the pill says Approved to Work with the date, AxisCare read back Active, the text sent, scheduling unlocked, no Retry', __calls.some(c=>c.b.action==='retry_axiscare') && /Approved to Work Oct 14, 2026/.test(t) && /read back Active/.test(t) && /cleared text sent/.test(t) && /Scheduling: unlocked/.test(t) && !btns().some(x=>/Retry/.test(x)), t.slice(0,900));
-  ok('the owner never sees Not needed on the Approve to Work or AxisCare rows', !btns().some(x=>x==='Not needed') || ![...document.querySelectorAll('#crBody button')].some(b=>b.textContent==='Not needed' && /approve\.work|axiscare\.active/.test(b.getAttribute('onclick')||'')));
+  ok('the owner never sees Mark not needed on the Approve to Work or AxisCare rows', !btns().some(x=>x==='Mark not needed') || ![...document.querySelectorAll('#crBody button')].some(b=>b.textContent==='Mark not needed' && /approve\.work|axiscare\.active/.test(b.getAttribute('onclick')||'')));
   /* the Orientations tab list */
   let rows=CRX.list(); await sleep(50); rows=CRX.list(); const fl=CRX.finalListHtml(rows);
   ok('the Ready for final approval list: Ava (ready) and Ben (approval recorded, AxisCare failed) with a Readiness chip each; Cy (neither) left out', /Ready for final approval/.test(fl) && /Ava Lee/.test(fl) && /Ben Ray/.test(fl) && /AxisCare update failed/.test(fl) && !/Cy Lo/.test(fl) && (fl.match(/CRX\.open/g)||[]).length===2, fl.slice(0,600));

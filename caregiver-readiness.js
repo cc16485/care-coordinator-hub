@@ -27,14 +27,26 @@
     if(document.getElementById('crModal')) return;
     const w = document.createElement('div'); w.id = 'crModal';
     w.style.cssText = 'display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,54,95,.35);align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
-    w.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div id="crBody"></div></div>';
+    w.innerHTML = '<div id="crPanel" style="background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div id="crBody"></div></div>';
     w.addEventListener('click', e => { if(e.target === w) close(); });
     document.body.appendChild(w);
   }
   function close(){ const m = document.getElementById('crModal'); if(m) m.style.display = 'none'; CUR = null; }
+  /* side: the Onboarding tab's names (Samantha 2026-11-02: "slide in from the side like the Step 1 people"), the same
+     right-hand panel as bgrDrawer. Every other opener keeps the centered card. */
+  function layout(side){
+    const m = document.getElementById('crModal'), p = document.getElementById('crPanel');
+    m.style.justifyContent = side ? 'flex-end' : 'center'; m.style.padding = side ? '0' : '1rem'; m.style.overflow = side ? 'hidden' : 'auto';
+    m.style.background = side ? 'rgba(15,54,95,.28)' : 'rgba(15,54,95,.35)';
+    p.style.cssText = side
+      ? 'background:#fff;width:520px;max-width:94vw;height:100%;overflow-y:auto;padding:18px 20px;box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(102%);transition:transform .22s ease;box-sizing:border-box'
+      : 'background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0';
+    if(side) requestAnimationFrame(() => { p.style.transform = 'translateX(0)'; });
+  }
   let OPEN_OFFER = '';
-  async function open(offerId, who){
-    ensureModal(); const m = document.getElementById('crModal'); m.style.display = 'flex';
+  function openSide(offerId){ if(typeof bgrCloseDrawer === 'function') bgrCloseDrawer(); return open(offerId, '', true); }
+  async function open(offerId, who, side){
+    ensureModal(); const m = document.getElementById('crModal'); layout(!!side); m.style.display = 'flex';
     document.getElementById('crBody').innerHTML = '<div style="font-size:.85rem;color:#6E6559">Opening their readiness card…</div>';
     OPEN_OFFER = String(offerId);
     try { CUR = await call({ action:'get', offer_id:String(offerId) }); CUR.who = who || ''; render(); }
@@ -120,7 +132,10 @@
       const rs = rows.filter(r => r.def.stage === st); if(!rs.length) return;
       h += '<div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin:.8rem 0 .25rem">' + esc((v.rail.find(x => x.key === st) || {}).label || st) + '</div>';
       rs.forEach(r => {
-        const [sym, col, lab] = STATUS[r.status] || STATUS.later;
+        let [sym, col, lab] = STATUS[r.status] || STATUS.later;
+        /* a form they sign themselves in Step 1 that is not signed yet reads as waiting on them, never "Ready" (2026-11-02) */
+        const ownSig = /^cg\.(step1|consent)\./.test(r.key);
+        if(ownSig && ['ready', 'later'].indexOf(r.status) > -1 && !(r.st && r.st.completed_at)) { sym = '○'; col = '#B45309'; lab = 'Not signed yet: waiting on ' + (String(d.journey && d.journey.client_name || '').trim().split(/\s+/)[0] || 'them') + ' to sign it in Step 1'; }
         const may = (d.may || {})[r.key];
         const ev = r.st && r.st.evidence ? r.st.evidence : null;
         let line = '<div style="display:flex;gap:.5rem;align-items:flex-start;padding:.3rem 0;border-bottom:1px solid #F1EDE4;font-size:.84rem">'
@@ -137,7 +152,9 @@
         if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
         /* SLICE 7: AxisCare has no door for attributes or availability: the copy sheet lays out the Step 1 answers to type in */
         if(r.key === 'cg.axiscare.attributes' || r.key === 'cg.axiscare.availability') line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.copySheet(\'' + (r.key === 'cg.axiscare.attributes' ? 'attributes' : 'availability') + '\',this)" title="The Step 1 answers in AxisCare order, to type on the AxisCare screen">&#9112; Copy sheet</button>';
-        if(d.is_owner && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark not needed, with the reason">Not needed</button>';
+        /* Samantha 2026-11-02: the button read like a label ("it should not say not needed"). It now says what it does, and
+           never shows on the offer or on a form the person signs themselves. */
+        if(d.is_owner && !ownSig && !/^cg\.offer\./.test(r.key) && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark this not needed for this person, with the reason">Mark not needed</button>';
         h += line + '</div>';
       });
     });
@@ -256,5 +273,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
+  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
 })();

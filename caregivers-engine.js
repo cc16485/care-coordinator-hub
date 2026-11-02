@@ -7520,7 +7520,7 @@ function ckdJourneyStop(r){
 }
 function ckdCardStop(r){
   const k = String((r.next && r.next.key) || '');
-  if(!k || /^cg\.(offer|step1|consent)\./.test(k)) return 0;
+  if(!k || /^cg\.(offer|step1|consent|company)\./.test(k)) return 0;   /* company: the company signature is part of Step 1 (2026-11-02) */
   if(/^cg\.(check|refs|health|credential)\./.test(k)) return 1;
   if(k === 'cg.approve.advance') return 2;
   if(/^cg\.step2\./.test(k)) return 3;
@@ -7532,7 +7532,7 @@ function ckdStepNext(c, stop){
   if(stop === 2){
     const j = ckdJourneyFor(c);
     if(c.onboarding_path === 'new' && j && j.next && j.next.key === 'cg.approve.advance')
-      return { text:'Checks are done. Waiting on Samantha or Zachary to say go for Step 2.', label:'Open card', on:'CRX.open(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
+      return { text:'Checks are done. Waiting on Samantha or Zachary to say go for Step 2.', label:'Open card', on:'CRX.openSide(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
     return { text:'Send Step 2 in Viventium, then come back and press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
   }
   if(stop === 3){
@@ -7550,19 +7550,22 @@ function ckdStepNext(c, stop){
   return { text:'Step 2 is checked. Invite ' + first + ' to the 15-minute welcome video call.', label:'Invite', on:'wcInvite(' + id + ',this)', how:'welcomecall' };
 }
 function ckdRosterNext(r){
-  const open = 'CRX.open(\'' + bgrEsc(String(r.offer_id)) + '\')';
+  const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
   if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
-    if(ckdCardStop(r) === 0) return { text:'Step 1 is not finished. Waiting on ' + first + (n.title ? ' (next: ' + n.title + ')' : '') + '.', label:'Open card', on:open, wait:true, how:'card' };
+    if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
     return { text:(n.title ? n.title : 'Open their card to see what is next') + '.', label:'Open card', on:open, wait:true, how:'card' };
   }
   if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
   const n = r.next || {};
-  const mine = !n.owner || /coordinator|staff/i.test(String(n.owner));
-  return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine ? ' (' + n.owner + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
+  /* owner is { role, email } from the server; it once printed as [object Object] (2026-11-02) */
+  const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
+  const mine = !n.owner || /coordinator|staff/i.test(String(o.role || ''));
+  const whose = o.role === 'owner' ? 'Samantha or Zachary' : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
 function ckdPeople(){
@@ -7716,7 +7719,7 @@ function ckdOrientHTML(p){
 function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
   const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
-  const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.open(\'' + bgrEsc(String(j.offer_id)) + '\')';
+  const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')';   /* both slide in from the right (2026-11-02) */
   const party = c && p.stop >= 2 && p.stop <= 4 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
@@ -7761,7 +7764,7 @@ function renderCkd(){
     + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + L.all.length + ' new ' + (L.all.length === 1 ? 'hire' : 'hires') + ' from Step 1 to approved to work · ' + mine + ' with something for you. Oldest first.</div></div>'
     +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
     + (start ? '<div class="ckd-start"><div class="ckd-start-t"><span class="ckd-kick">Start here</span><b>' + bgrEsc(start.p.name) + ': ' + bgrEsc(start.a.text) + '</b>'
-        + '<button type="button" class="ckd-link" onclick="' + (start.p.c ? 'ckdOpen(' + start.p.c.id + ')' : 'CRX.open(\'' + bgrEsc(String(start.p.j.offer_id)) + '\')') + '">How do I do this?</button></div>'
+        + '<button type="button" class="ckd-link" onclick="' + (start.p.c ? 'ckdOpen(' + start.p.c.id + ')' : 'CRX.openSide(\'' + bgrEsc(String(start.p.j.offer_id)) + '\')') + '">How do I do this?</button></div>'
         + '<button type="button" class="ckd-go ckd-go-big" onclick="' + start.a.on + '">' + bgrEsc(start.a.label) + '</button></div>'
       : '<div class="ckd-start ckd-start-calm"><div class="ckd-start-t"><span class="ckd-kick">Start here</span><b>Nothing is waiting on you right now. Everyone else is waiting on a caregiver, a reference or an owner.</b></div></div>')
     + '<div class="ckd-tiles">' + tile('all', L.all.length, 'Everyone') + CKD_STOPS.slice(1).map((t, i) => tile('s' + (i + 1), L.byStop[i + 1].length, t)).join('') + '</div>'
