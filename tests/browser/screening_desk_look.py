@@ -41,16 +41,21 @@ async(CODE)=>{
   sdClose();
   mayReveal=true; await bgrScreeningDesk(901); await sleep(120);
   body=document.getElementById('sdBody').innerText;
-  ok('on the list: three Reveal buttons, one per field', (body.match(/Reveal \(5 min\)/g)||[]).length===3, body.slice(0,300));
+  ok('an office user: the SSN and date of birth fill in by themselves (no click, no reason); only the license keeps a Reveal button', /529123456/.test(body) && /05\/05\/1990/.test(body) && (body.match(/Reveal \(5 min\)/g)||[]).length===1 && !/wipes in/.test(body), body.slice(0,500));
+  let rev=__calls.filter(c=>c.b.action==='reveal');
+  ok('two showings asked of the server, each logged as shown on the Screening desk', rev.length===2 && rev.map(r=>r.b.field).join()==='ssn,dob' && rev.every(r=>r.b.reason==='Shown on the Screening desk'), rev);
+  ok('the log shows who', /Krystal · "Shown on the Screening desk"/.test(body), body.slice(-400));
+  window.ccPrompt=async()=>{ window.__asked=true; return 'x'; };
   const btn=[...document.querySelectorAll('#sdBody button')].find(b=>/Reveal \(5 min\)/.test(b.textContent)); btn.click(); await sleep(200);
-  body=document.getElementById('sdBody').innerText;
-  const rev=__calls.filter(c=>c.b.action==='reveal');
-  ok('one reveal: the server was asked for one field with the typed reason', rev.length===1 && rev[0].b.field==='ssn' && rev[0].b.reason==='FCSR registration', rev);
-  ok('the SSN shows with a countdown and a Copy button, appears on the registration sheet, and the log shows who and why', /529123456/.test(body) && /wipes in [45]:\d\d/.test(body) && /Copy/.test(body) && /Krystal · "FCSR registration"/.test(body), body.slice(0,700));
+  body=document.getElementById('sdBody').innerText; rev=__calls.filter(c=>c.b.action==='reveal');
+  ok('Reveal asks no question: the license opens with the reason filled in for them', !window.__asked && rev.length===3 && rev[2].b.field==='license' && rev[2].b.reason==='Opened on the Screening desk', rev);
+  ok('the license shows with a countdown and a Copy button', /M123456789/.test(body) && /wipes in [45]:\d\d/.test(body) && /Copy/.test(body), body.slice(0,700));
   ok('the value lives only in page memory: nothing in localStorage or sessionStorage', Object.keys(localStorage).length===0 && Object.keys(sessionStorage).length===0);
-  SD.shown.ssn.until=Date.now()+900; await sleep(1600);
+  SD.shown.license.until=Date.now()+900; await sleep(1600);
   body=document.getElementById('sdBody').innerText;
-  ok('when the countdown ends the value is wiped from the page and the field shows "on file" again', !/529123456/.test(body) && /on file, ending 3456/.test(body), body.slice(0,300));
+  ok('when the countdown ends the license is wiped and shows "on file" again; the SSN stays', !/M123456789/.test(body) && /on file, ending 6789/.test(body) && /529123456/.test(body), body.slice(0,300));
+  sdClose(); await bgrScreeningDesk(901); await sleep(120);
+  ok('reopening within 30 minutes shows them again without logging again', /529123456/.test(document.getElementById('sdBody').innerText) && __calls.filter(c=>c.b.action==='reveal').length===3);
   sdClose(); ok('closing the desk clears everything', JSON.stringify(SD.shown)==='{}' && Object.keys(SD.timers).length===0);
   /* proof required */
   bgrRecordCheck(901,'edl'); await sleep(30);
