@@ -63,7 +63,7 @@ ck('the tab is in the interviews group', /interviews:\[[^\]]*'orientprog'/.test(
 ck('the panel and its mount exist', html.includes('id="tab-orientprog"') && html.includes('id="orpMount"'));
 ck('opening the tab draws it', html.includes("if(activeTab==='orientprog' && window.OPR) OPR.mount();"));
 ck('both sign-in paths start the pill count', (html.match(/if\(window\.OPR\) OPR\.watch\(\)/g) || []).length === 2);
-ck('the script is loaded', html.includes('<script src="orient-progress.js?v=4"></script>'));
+ck('the script is loaded', html.includes('<script src="orient-progress.js?v=5"></script>'));
 const ENG = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
 const KEY = (ENG.match(/const TRAINING_HUB_ANON='([^']+)'/) || [])[1];
 ck('reads through the office-only hub-training-data server, with the same public key as the engine', !!KEY && src.includes("FN + '?action=orientation_progress'") && src.includes('functions/v1/hub-training-data') && src.includes("const ANON = '" + KEY + "'") && src.includes("'x-hub-token':await trainHubTok()"));

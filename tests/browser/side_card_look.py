@@ -61,11 +61,11 @@ ok('Onboarding names: a readiness-card person opens CRX.openSide', "CRX.openSide
 nxt = re.search(r"function ckdRosterNext\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
 ok('Onboarding Open card buttons slide in too', "CRX.openSide(" in nxt and "CRX.open(" not in nxt)
 ok('Step 1 people still open their own side panel', "c ? 'ckdOpen(' + c.id + ')'" in row)
-ok('[object Object] fixed: the owner is worded from its role', "o.role === 'owner' ? 'Samantha or Zachary'" in nxt and "' (' + n.owner + ')'" not in nxt)
+ok('[object Object] fixed: the owner is worded from its role', "'a person on the Approve to Work list'" in nxt and "' (' + n.owner + ')'" not in nxt)
 stop = re.search(r"function ckdCardStop\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
 ok('the company signature counts as Step 1 on the stops', "offer|step1|consent|company" in stop)
 idx = open(os.path.join(HERE, '..', '..', 'index.html')).read()
-ok('index loads caregiver-readiness.js v=9', 'caregiver-readiness.js?v=9' in idx)
+ok('index loads caregiver-readiness.js v=9', 'caregiver-readiness.js?v=10' in idx)
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 1280, 'height': 800})
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
