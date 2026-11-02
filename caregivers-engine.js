@@ -8517,6 +8517,10 @@ function renderAC(){
       /* 2026-10-12: a hand-set Current or Overdue, or a flagged result, wins over the date; a stored result word like
          CLEAR (carried over at hire) is not an override, or the table would show CLEAR long after the check lapsed */
       const ov=String(overrideStatus||'').trim();
+      /* 2026-11-01: a pre-hire result on file with its document but no date (a GoHighLevel result carried onto the record
+         by the database's prehire fill) shows as that result with "date not on file", not Pending: the check was done,
+         only its date is unknown, so no next-due date is invented */
+      if(!lastStr && /^clear$/i.test(ov) && proof) return `<div class="chk">${badge(ov)}<span class="chk-date">Date not on file</span><span>${proofLink(proof)}</span></div>`;
       const s=(ov==='Current'||ov==='Overdue'||/flag|issue/i.test(ov))?ov:info.status;
       const nd=info.nextDue?info.nextDue.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
       const dl=info.days!==null?(info.days<0?`${Math.abs(info.days)}d overdue`:`due in ${info.days}d`):'';

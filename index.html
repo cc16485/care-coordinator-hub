@@ -19554,7 +19554,11 @@ function cgdHistoryMount(){
    person_id). This shows them; it never changes a record. Her rulings: GoHighLevel's result is shown ("GoHighLevel
    says: Clear"), never copied into the Hub's check; the Hub's own document stays first and both show; Checkr gets a
    line and an audit column; GoHighLevel's reference checks are a separate list (never guessed into the Hub's slots).
-   Read once, kept 5 minutes. A failed read says so (never an empty-looking card). */
+   Read once, kept 5 minutes. A failed read says so (never an empty-looking card).
+   2026-11-01 (her "fix the four urgent Hub problems", #3): a CLEAR GoHighLevel EDL / FCSR / OIG result now fills the
+   caregiver record's check where it still says Pending (never a real value), in the database itself (Staffing repo
+   prehire_checks_fill.sql: on every caregiver save, at the move to the roster, and when a document is imported). This
+   page still only reads. */
 const PHD={ rows:null, at:0, err:null, busy:null };
 const PHD_LABEL={ edl:'EDL', oig:'OIG', fcsr:'FCSR', checkr:'Checkr', ref_pro_1:'Professional reference check 1', ref_pro_2:'Professional reference check 2',
   ref_pro_3:'Professional reference check 3', ref_personal_1:'Personal reference check 1', ref_personal_2:'Personal reference check 2' };
