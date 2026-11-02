@@ -132,7 +132,10 @@
       const rs = rows.filter(r => r.def.stage === st); if(!rs.length) return;
       h += '<div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#8A7F70;margin:.8rem 0 .25rem">' + esc((v.rail.find(x => x.key === st) || {}).label || st) + '</div>';
       rs.forEach(r => {
-        const [sym, col, lab] = STATUS[r.status] || STATUS.later;
+        let [sym, col, lab] = STATUS[r.status] || STATUS.later;
+        /* a form they sign themselves in Step 1 that is not signed yet reads as waiting on them, never "Ready" (2026-11-02) */
+        const ownSig = /^cg\.(step1|consent)\./.test(r.key);
+        if(ownSig && ['ready', 'later'].indexOf(r.status) > -1 && !(r.st && r.st.completed_at)) { sym = '○'; col = '#B45309'; lab = 'Not signed yet: waiting on ' + (String(d.journey && d.journey.client_name || '').trim().split(/\s+/)[0] || 'them') + ' to sign it in Step 1'; }
         const may = (d.may || {})[r.key];
         const ev = r.st && r.st.evidence ? r.st.evidence : null;
         let line = '<div style="display:flex;gap:.5rem;align-items:flex-start;padding:.3rem 0;border-bottom:1px solid #F1EDE4;font-size:.84rem">'
@@ -149,7 +152,9 @@
         if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
         /* SLICE 7: AxisCare has no door for attributes or availability: the copy sheet lays out the Step 1 answers to type in */
         if(r.key === 'cg.axiscare.attributes' || r.key === 'cg.axiscare.availability') line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.copySheet(\'' + (r.key === 'cg.axiscare.attributes' ? 'attributes' : 'availability') + '\',this)" title="The Step 1 answers in AxisCare order, to type on the AxisCare screen">&#9112; Copy sheet</button>';
-        if(d.is_owner && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark not needed, with the reason">Not needed</button>';
+        /* Samantha 2026-11-02: the button read like a label ("it should not say not needed"). It now says what it does, and
+           never shows on the offer or on a form the person signs themselves. */
+        if(d.is_owner && !ownSig && !/^cg\.offer\./.test(r.key) && r.key !== 'cg.approve.work' && r.key !== 'cg.axiscare.active' && ['ready', 'attention', 'later', 'blocked'].indexOf(r.status) > -1 && r.def.required !== false) line += '<button class="ibtn" style="font-size:.72rem;flex:none;color:#8A7F70" onclick="CRX.notNeeded(\'' + esc(r.key) + '\',this)" title="Owners only: mark this not needed for this person, with the reason">Mark not needed</button>';
         h += line + '</div>';
       });
     });

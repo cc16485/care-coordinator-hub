@@ -7520,7 +7520,7 @@ function ckdJourneyStop(r){
 }
 function ckdCardStop(r){
   const k = String((r.next && r.next.key) || '');
-  if(!k || /^cg\.(offer|step1|consent)\./.test(k)) return 0;
+  if(!k || /^cg\.(offer|step1|consent|company)\./.test(k)) return 0;   /* company: the company signature is part of Step 1 (2026-11-02) */
   if(/^cg\.(check|refs|health|credential)\./.test(k)) return 1;
   if(k === 'cg.approve.advance') return 2;
   if(/^cg\.step2\./.test(k)) return 3;
@@ -7556,13 +7556,16 @@ function ckdRosterNext(r){
   if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
-    if(ckdCardStop(r) === 0) return { text:'Step 1 is not finished. Waiting on ' + first + (n.title ? ' (next: ' + n.title + ')' : '') + '.', label:'Open card', on:open, wait:true, how:'card' };
+    if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
     return { text:(n.title ? n.title : 'Open their card to see what is next') + '.', label:'Open card', on:open, wait:true, how:'card' };
   }
   if(r.blocked && r.blocked.length) return { text:'Stuck: ' + r.blocked.join(', ') + '.', label:'Open card', on:open, warn:true, how:'card' };
   const n = r.next || {};
-  const mine = !n.owner || /coordinator|staff/i.test(String(n.owner));
-  return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine ? ' (' + n.owner + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
+  /* owner is { role, email } from the server; it once printed as [object Object] (2026-11-02) */
+  const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
+  const mine = !n.owner || /coordinator|staff/i.test(String(o.role || ''));
+  const whose = o.role === 'owner' ? 'Samantha or Zachary' : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
 function ckdPeople(){

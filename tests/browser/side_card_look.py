@@ -25,7 +25,22 @@ async(CODE)=>{
   ok('an open Step 1 side panel is closed first', __drawerClosed===1, __drawerClosed);
   m.dispatchEvent(new MouseEvent('click', { bubbles:true })); await sleep(50);
   ok('a click beside the panel closes it', getComputedStyle(m).display==='none');
-  await CRX.openSide('o-1'); await sleep(300); window.__shot1=true;
+  /* 2026-11-02: an owner on an unfinished Step 1 */
+  answer.is_owner=true; answer.journey.client_name='Gretchen Sledd';
+  answer.view={ rows:[
+    { key:'cg.step1.availability', def:{ key:'cg.step1.availability', title:'Availability and scheduling commitment signed', stage:'step1', proof:'verified', permission:'hub', required:true }, st:{ state:'open' }, status:'ready', owner:{ role:'hub' } },
+    { key:'cg.company.countersign', def:{ key:'cg.company.countersign', title:'Signed for Caring Companions', stage:'step1', proof:'record', required:true }, st:{ state:'open' }, status:'later', why:'After: Availability', owner:{ role:'owner' } },
+    { key:'cg.check.oig', def:{ key:'cg.check.oig', title:'OIG exclusion check', stage:'screening', proof:'proof', permission:'screening', required:true }, st:{ state:'open' }, status:'ready', owner:{ role:'staffing_coordinator' } } ],
+    next:null, complete:false, stage:'step1', stageLabel:'Step 1', rail:[{ key:'step1', label:'Step 1', state:'now' }, { key:'screening', label:'Screening', state:'todo' }] };
+  CRX.close(); await CRX.openSide('o-1'); await sleep(300);
+  const rowEl=k=>[...document.querySelectorAll('#crBody > div > div, #crBody div')].find(d=>d.style.display==='flex' && d.innerHTML.includes(k));
+  const bt=t=>[...document.querySelectorAll('#crBody button')].map(b=>b.textContent);
+  const txt=document.getElementById('crBody').innerText;
+  ok('an unsigned Step 1 form says it is waiting on them, not Ready', /Not signed yet: waiting on Gretchen to sign it in Step 1/.test(txt), txt.slice(0,600));
+  ok('no button anywhere says just "Not needed"', !bt().includes('Not needed'), bt());
+  ok('no Mark not needed on a form they sign themselves', ![...document.querySelectorAll('#crBody button')].some(b=>/step1\.availability/.test(b.getAttribute('onclick')||'')), bt());
+  ok('the owner still has Mark not needed on other open rows (the company signature, a check)', [...document.querySelectorAll('#crBody button')].filter(b=>b.textContent==='Mark not needed').length===2, bt());
+  window.__shot1=true;
   return R;
 }
 """
@@ -46,6 +61,9 @@ ok('Onboarding names: a readiness-card person opens CRX.openSide', "CRX.openSide
 nxt = re.search(r"function ckdRosterNext\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
 ok('Onboarding Open card buttons slide in too', "CRX.openSide(" in nxt and "CRX.open(" not in nxt)
 ok('Step 1 people still open their own side panel', "c ? 'ckdOpen(' + c.id + ')'" in row)
+ok('[object Object] fixed: the owner is worded from its role', "o.role === 'owner' ? 'Samantha or Zachary'" in nxt and "' (' + n.owner + ')'" not in nxt)
+stop = re.search(r"function ckdCardStop\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
+ok('the company signature counts as Step 1 on the stops', "offer|step1|consent|company" in stop)
 idx = open(os.path.join(HERE, '..', '..', 'index.html')).read()
 ok('index loads caregiver-readiness.js v=9', 'caregiver-readiness.js?v=9' in idx)
 with sync_playwright() as pw:
