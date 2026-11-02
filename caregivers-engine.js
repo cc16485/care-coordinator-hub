@@ -1476,7 +1476,7 @@ function renderOffers(){
     sent:'Offer sent, waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves; once both are signed they move to Accepted.',
     rejected:'Declined, withdrawn, expired unsigned, or not hired. Nothing to do here; an expired offer can be resent from its card.',
     accepted:'Signed, and their Step 1 is out. They move to Completed Step 1 by themselves when it is done.'+(active.some(o=>o.onboarding_path!=='new')?' Offers from before online signing (marked Old path) stay here until someone presses <b>Mark Step 1 done</b>.':''),
-    completed:'Step 1 is done, so they hand off to Background &amp; References.'+(active.length?' The cards below still need one thing from you.':'')
+    completed:'Step 1 is done, so they move to the Onboarding tab: Viventium Step 2, checks and references, all at the same time.'+(active.length?' The cards below still need one thing from you.':'')
   })[stage]||'';
 
   /* One line telling you the single next thing, so the card can stay shut. */
@@ -7501,56 +7501,64 @@ function ckdLaneHTML(c, nx){
    from the record that already says it, and every button is the one the old screens used. */
 /* 2026-10-22 (Samantha, the In Training plan v2): after Step 2 is checked, the orientation information goes out (AxisCare In Training
    first); then orientation, the welcome video call, profile and badge; then Approved and Active, and the check-in call */
-const CKD_STOPS = ['Step 1', 'Checks and references', 'Send Step 2', 'Check Step 2', 'Send orientation information', 'Orientation, video call, profile, badge', 'Approved, then check-in call'];
+/* 2026-11-02 (Samantha: "Send orientation once checks and references are clear. Step 2 goes right after Step 1"): Viventium Step 2
+   is no longer a stop. It is its own line on the row from the moment Step 1 is done, alongside the checks and references, until
+   it is checked in Viventium; Approve to Work still waits for it. No owner says go before Step 2 (her words: "I dont want there
+   to be an owner approved to go for step 2"): the Hub completes Approve to Advance by itself once the checks clear. */
+const CKD_STOPS = ['Step 1', 'Checks and references', 'Send orientation', 'Orientation, video call, profile, badge', 'Approved, then check-in call'];
 function ckdJourneyRows(){ try{ return (window.CRX && typeof CRX.list === 'function') ? (CRX.list(() => renderCkd()) || []) : []; }catch(e){ return []; } }
 function ckdJourneyFor(c){ return c && c.offer_id ? ckdJourneyRows().find(r => String(r.offer_id) === String(c.offer_id)) || null : null; }
 function ckdWc(c){ try{ return typeof wcRowFor === 'function' ? wcRowFor(c) : null; }catch(e){ return null; } }
 /* where a checks row is: the record's own stamps, in order */
+function ckdOrientSent(c){ const inv = (c && c.step2_invite) || {}; return !!(inv.orientation && inv.state !== 'failed'); }
 function ckdStopOf(c){
   if(ckdStep1Waiting(c)) return 0;
   if(obDeriveStatus(c) !== 'Ready for Orientation') return 1;
-  if(!c.step2_sent_at) return 2;
-  if(!c.step2_verified_at) return 3;
-  return 4;
+  if(c.onboarding_path !== 'new'){ const w = ckdWc(c); return w && w.invited_at ? 3 : 2; }   /* the old path: orientation after the video call */
+  return ckdOrientSent(c) ? 3 : 2;
 }
 /* a readiness card's stop. Only someone really on the caregiver list is at stop 5 or 6. A card with no caregiver list record
    (2026-10-30: Gretchen, Yasmine, Tina and Kionna were still on Step 1 but showed "Approved, then check-in call") goes by
    the step the card says is next. */
 function ckdJourneyStop(r){
-  if(r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed')) return 6;
+  if(r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed')) return 4;
   if(!ckdRosterFor(r)) return ckdCardStop(r);
-  return r.checkin_open ? 6 : 5;
+  return r.checkin_open ? 4 : 3;
 }
 function ckdCardStop(r){
   const k = String((r.next && r.next.key) || '');
   if(!k || /^cg\.(offer|step1|consent|company)\./.test(k)) return 0;   /* company: the company signature is part of Step 1 (2026-11-02) */
-  if(/^cg\.(check|refs|health|credential)\./.test(k)) return 1;
-  if(k === 'cg.approve.advance') return 2;
-  if(/^cg\.step2\./.test(k)) return 3;
-  return 4;
+  if(/^cg\.(check|refs|health|credential)\./.test(k) || k === 'cg.approve.advance') return 1;   /* the Hub completes Approve to Advance (2026-11-02) */
+  return 3;
 }
-/* the next step for stops 2 to 4 (stop 1 has its two lanes) */
+/* the next step for stops 2 and 3 (stop 1 has its lanes) */
 function ckdStepNext(c, stop){
   const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
-  if(stop === 2){
+  const inv = c.step2_invite || {}, w = ckdWc(c);
+  /* the old path (no readiness card): the welcome video call invitation waits for Step 2 to be checked, and orientation follows the call */
+  if(c.onboarding_path !== 'new'){
+    if(!c.step2_verified_at && !(w && w.invited_at)) return { text:'Their welcome video call invitation waits for Step 2 to be checked (the Viventium line).', label:'', on:'', wait:true, how:'step2wait' };
+  } else if(stop === 2){
     const j = ckdJourneyFor(c);
-    if(c.onboarding_path === 'new' && j && j.next && j.next.key === 'cg.approve.advance')
-      return { text:'Checks are done. Waiting on a person on the Approve to Advance list to say go for Step 2.', label:'Open card', on:'CRX.openSide(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
-    return { text:'Send Step 2 in Viventium, then come back and press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
+    if(j && j.next && j.next.key === 'cg.approve.advance')
+      return { text:'Checks and references are clear. The Hub opens their orientation within a few minutes.', label:'', on:'', wait:true, how:'advance' };
+    const failed = inv.orientation && inv.state === 'failed';
+    return { text:(failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + '). ' : 'Checks and references are clear. ') + 'Add ' + first + ' in AxisCare as In Training, then send their orientation.',
+             label:failed ? 'Send again' : 'Send orientation', on:'axSetupOpen(' + id + ')', warn:!!failed, how:'axsetup' };
   }
-  if(stop === 3){
-    if(c.step2_done_at) return { text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
-    return { text:'Waiting on ' + first + ' to finish Step 2 (sent ' + day(c.step2_sent_at) + '). The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
-  }
-  /* IN TRAINING PLAN v2, PART B (2026-10-22): Step 2 checked with the button switch on = add them to AxisCare, then one button */
-  const inv = c.step2_invite || {};
-  if(inv.state === 'button' && !inv.orientation) return { text:'Step 2 is checked. Add ' + first + ' to AxisCare as In Training, then send their orientation information.', label:'AxisCare setup', on:'axSetupOpen(' + id + ')', how:'axsetup' };
-  const w = ckdWc(c);
-  if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
+  if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + (c.step2_verified_at ? '' : '. Step 2 should be done before it') + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
   if(w && w.status === 'noshow') return { text:first + ' missed the welcome video call. Call them, then invite again.', label:'Invite again', on:'wcInvite(' + id + ',this)', warn:true, how:'welcomecall' };
-  if(w && w.invited_at && inv.orientation) return { text:'Orientation information sent ' + day(inv.at || w.invited_at) + '. Waiting on ' + first + ' to book the welcome video call and start orientation.', label:'Send again', on:'axSetupOpen(' + id + ')', wait:true, how:'axsetup' };
+  if(ckdOrientSent(c)) return { text:'Orientation sent ' + day(inv.at) + (inv.state === 'held' && inv.text_held ? ' (the text goes at 8am)' : '') + '. Waiting on ' + first + ' to do orientation and book the welcome video call.', label:'Send again', on:'axSetupOpen(' + id + ')', wait:true, how:'axsetup' };
   if(w && w.invited_at) return { text:'Invited to the welcome video call ' + day(w.invited_at) + '. Waiting on ' + first + ' to book.', label:'Send again', on:'wcInvite(' + id + ',this)', wait:true, how:'welcomecall' };
   return { text:'Step 2 is checked. Invite ' + first + ' to the 15-minute welcome video call.', label:'Invite', on:'wcInvite(' + id + ',this)', how:'welcomecall' };
+}
+/* VIVENTIUM STEP 2, its own line (2026-11-02): from Step 1 done until it is checked, alongside everything else on the row */
+function ckdStep2Lane(c){
+  const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+  if(c.step2_verified_at) return { lane:'Viventium', text:'Step 2 checked ' + day(c.step2_verified_at) + '.', label:'', on:'', done:true };
+  if(c.step2_done_at) return { lane:'Viventium', text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
+  if(c.step2_sent_at) return { lane:'Viventium', text:'Step 2 sent ' + day(c.step2_sent_at) + '. Waiting on ' + first + ' to finish it. The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
+  return { lane:'Viventium', text:'Add ' + first + ' in Viventium for Step 2, then press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
 }
 function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
@@ -7617,22 +7625,23 @@ function ckdActsFor(p){
     const stuck = ckdStep1Stuck(p.j);
     const out = [stuck ? { lane:'', text:stuck.text, warn:true, call:stuck.call, label:stuck.call ? '' : 'Open card', on:'CRX.openSide(\'' + bgrEsc(String(p.j.offer_id)) + '\')' } : Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
     out.push({ lane:'', text:'', label:'Take off', on:'ckdLeaveOpen(null,\'' + bgrEsc(String(p.j.offer_id)) + '\')', quiet:true, small:true });
-    if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
-    else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
+    if(p.stop === 3 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
+    else if(p.stop === 3 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
     return out;
   }
   const c = p.c, extra = [];
   if(c.prn_offer && !c.prn_offer.answer) extra.push({ lane:'PRN', text:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call ' + (c.first || 'them') + ' and record their answer.', label:'Their answer', on:'ckdPrnAnswer(' + c.id + ')', how:'prn' });
   const q = ckdQuiet(c, p.stop);
   if(q && !(c.prn_offer && !c.prn_offer.answer)) extra.push({ lane:'No word', text:'Nothing from ' + (c.first || 'them') + ' in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', label:'What now?', on:'ckdLeaveOpen(' + c.id + ')', how:'quiet' });
-  if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(extra);
-  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(extra);
+  const s2 = p.stop >= 1 ? [ckdStep2Lane(c)] : [];   /* 2026-11-02: Step 2 runs alongside, from Step 1 done */
+  if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(s2, extra);
+  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(s2, extra);
 }
 const ckdDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
 /* GONE QUIET (her answer 2026-10-21: "Yes, after 10 days"): only where they owe us the next move: Step 1, Step 2, booking the
    welcome video call. A hint only; nobody is ever taken off by the Hub. */
 function ckdQuiet(c, stop){
-  const since = stop === 0 ? (c.addedAt || c.added) : stop === 3 && !c.step2_done_at ? c.step2_sent_at : stop === 4 ? (() => { const w = ckdWc(c); return w && w.invited_at && w.status !== 'booked' && w.status !== 'done' ? w.invited_at : null; })() : null;
+  const since = stop === 0 ? (c.addedAt || c.added) : c.step2_sent_at && !c.step2_done_at && !c.step2_verified_at ? c.step2_sent_at : stop === 3 ? (() => { const w = ckdWc(c); return w && w.invited_at && w.status !== 'booked' && w.status !== 'done' ? w.invited_at : null; })() : null;
   if(!since) return 0;
   const d = Math.floor((Date.now() - new Date(String(since).length === 10 ? since + 'T12:00:00' : since).getTime()) / 864e5);
   return d >= 10 ? d : 0;
@@ -7724,7 +7733,7 @@ async function ckdGoodbye(c, why){
   catch(e){ alert('The text could not be sent (' + e.message + '). Nothing was sent. You may want to call ' + (c.first || 'them') + '.'); }
 }
 function ckdRoadHTML(stop, bad){
-  return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of 7">' + CKD_STOPS.map((_, i) =>
+  return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of ' + CKD_STOPS.length + '">' + CKD_STOPS.map((_, i) =>
     '<i class="' + (i < stop ? 'on' : i === stop ? (bad ? 'bad' : 'now') : '') + '"></i>').join('') + '</span>';
 }
 /* ORIENTATION ON THE ROW (2026-11-02, Samantha: "link the two tabs: show where they are in orientation on the Onboarding rows").
@@ -7733,7 +7742,7 @@ function ckdRoadHTML(stop, bad){
 function ckdOrientAx(p){ const g = p.j ? ckdRosterFor(p.j) : null; return (g && g.axiscare_id) || (p.c && p.c.axiscare_id) || ''; }
 function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop })); }
 function ckdOrientHTML(p){
-  if(p.stop < 4 || !window.OPR || typeof OPR.brief !== 'function') return '';
+  if(p.stop < 3 || !window.OPR || typeof OPR.brief !== 'function') return '';
   const o = OPR.brief(ckdOrientAx(p), p.name); if(!o) return '';
   return '<button type="button" class="ckd-orient' + (o.bad ? ' ckd-orient-bad' : '') + '" onclick="OPR.show(\'' + bgrEsc(o.id) + '\')" title="Open them on the Orientation tab">' + bgrEsc(o.text) + ' &rsaquo;</button>';
 }
@@ -7741,7 +7750,7 @@ function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
   const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
   const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')';   /* both slide in from the right (2026-11-02) */
-  const party = c && p.stop >= 2 && p.stop <= 4 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
+  const party = c && p.stop >= 2 && p.stop <= 3 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
@@ -7813,7 +7822,7 @@ function renderCkd(){
    ribbon on their row. Good news only, nothing sent, nothing counted or compared, still for reduced motion. "Seen" is kept
    in this browser only (CEL's own memory), a convenience and never a record. */
 function ckdCelebrate(ppl){
-  const fresh = ppl.filter(p => p.c && p.stop >= 2 && p.stop <= 4 && p.c.resolvedAt && (Date.now() - new Date(p.c.resolvedAt).getTime()) < 14 * 864e5);
+  const fresh = ppl.filter(p => p.c && p.stop >= 2 && p.stop <= 3 && p.c.resolvedAt && (Date.now() - new Date(p.c.resolvedAt).getTime()) < 14 * 864e5);
   if(!fresh.length || document.getElementById('ckdParty')) return;
   const first = window.CEL && typeof CEL._firstTime === 'function' ? CEL._firstTime : (k => { try{ if(localStorage.getItem('ckd_' + k)) return false; localStorage.setItem('ckd_' + k, '1'); return true; }catch(e){ return false; } });
   const p = fresh.find(x => first('cleared_' + x.c.id)); if(!p) return;
@@ -7827,7 +7836,7 @@ function ckdCelebrate(ppl){
     + '<circle r="52" fill="#F0A63A" stroke="#0D365F" stroke-width="2.5"/><circle r="40" fill="#fff" stroke="#0D365F" stroke-width="2"/><path d="M-18 2 L-6 14 L20 -14" fill="none" stroke="#1F7A8C" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>'
     + '<div class="ckd-party-in"><span class="ckd-kick">Checks and references done</span><h3>' + bgrEsc(firstName) + ' is cleared!</h3>'
     + '<p>OIG, EDL, FCSR and Case.net are clear, with two good references and one from work. Nice work getting here.</p>'
-    + '<div class="ckd-party-btns"><button type="button" class="ckd-go ckd-go-big" id="ckdPartyGo">Next: send Step 2</button><button type="button" class="ckd-link" id="ckdPartyX">Close</button></div>'
+    + '<div class="ckd-party-btns"><button type="button" class="ckd-go ckd-go-big" id="ckdPartyGo">Next: send orientation</button><button type="button" class="ckd-link" id="ckdPartyX">Close</button></div>'
     + '<span class="ckd-party-note">Plays once for you. Then a small ribbon stays on their row. Nothing is sent to ' + bgrEsc(firstName) + '.</span></div></div>';
   document.body.appendChild(sh);
   const shut = () => sh.remove();
@@ -8073,20 +8082,20 @@ const CKD_HOW = {
   casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
   review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
     'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
-  advance: ['The checks and references are done. A person on the Approve to Advance list says go before Step 2.', 'Nothing for you to do: a person on the Approve to Advance list has a card for it.'],
-  step2send: ['Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
+  advance: ['The checks and references are clear. The Hub marks them ready for orientation by itself, within a few minutes.', 'Nothing for you to do. When it is done, their row shows Send orientation.'],
+  step2send: ['Do this as soon as their Step 1 is done. It runs at the same time as the checks and references.', 'Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
     'The Hub sends them their Step 2 message and reminds them on day 3 and day 6.'],
   step2wait: ['Nothing to do yet. They are finishing Step 2 in Viventium.', 'If they tell you on the phone that they are done, press They said done.',
     'Day 8 with nothing? The Hub gives you a card to call them.'],
   step2check: ['Open them in Viventium.', 'Press Check Step 2 and tick each form you can see is really done. Telling us is not the same as done.',
     'If something is missing, use Still open to text them which one.'],
-  welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
-    'On the call you check their ID on camera for the I-9 and welcome them.',
-    'Press Done at the end. With the Send orientation information button on, their orientation link already went with the welcome message; otherwise it goes out from our training site now.'],
-  axsetup: ['Press AxisCare setup. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
+  welcomecall: ['The link to book the 15-minute video call goes out with their orientation, once the checks and references are clear.',
+    'On the call you check their ID on camera for the I-9 and welcome them. Their Step 2 should be done in Viventium first, because their ID is uploaded there.',
+    'Press Done at the end.'],
+  axsetup: ['Their checks and references are clear. Step 2 does not have to be done yet.', 'Press Send orientation. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
     'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
     'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
-    'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call.'],
+    'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call. If their Step 2 is not checked yet, it asks them to finish it before the video call.'],
   checkin: ['They finished orientation and are Active in AxisCare. The Hub texted them the AxisCare app guide.',
     'Call them. Make sure everything is on file and complete, and answer any questions about orientation or the job.',
     'Make sure the AxisCare app is downloaded and they can sign in. Ask if they would like a quick test clock-in.',
@@ -8162,7 +8171,7 @@ function ckdPersonHTML(c){
     + '<div class="ckd-p-head"><div><h2 class="ckd-h" style="font-size:22px">' + bgrEsc(ckdName(c)) + '</h2><div class="ckd-sub">' + bgrEsc(meta.join(' · ')) + '</div></div>'
     +   '<button type="button" class="ckd-x" onclick="bgrCloseDrawer()" aria-label="Close">&times;</button></div>'
     + '<div class="ckd-bar"><div class="ckd-bar-track"><div class="ckd-bar-fill" style="width:' + Math.round(done / steps.length * 100) + '%"></div></div><b>' + done + ' of ' + steps.length + ' done</b></div>'
-    + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of 7: ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
+    + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of ' + CKD_STOPS.length + ': ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
     + ckdNextCardHTML(c)
     + (ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>' : '')
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
@@ -8170,6 +8179,9 @@ function ckdPersonHTML(c){
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
     +   (slots.length < 4 ? '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="ckdRefForm(' + id + ')">+ Add a reference</button>' : '') + '</div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
+    + (ckdStep1Waiting(c) ? '' : (() => { const v = ckdStep2Lane(c);   /* 2026-11-02: Step 2 right after Step 1 */
+        return '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Viventium Step 2</h3><span>Needed before they can work</span></div><div class="ckd-box' + (v.done ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><div class="ckd-box-sub">' + bgrEsc(v.text) + '</div></div>'
+          + (v.label ? '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0"><button type="button" class="ckd-go' + (v.wait ? ' ckd-go-line' : '') + '" onclick="' + v.on + '">' + bgrEsc(v.label) + '</button></span>' : '') + '</div></div></div>'; })())
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Experience and Level of Care</h3><span>Never holds up hiring</span></div>' + lvlCardHTML(c) + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
@@ -9783,7 +9795,7 @@ async function axSetupOpen(id){
   const c = wcSrcFor(id); if(!c) return;
   const w = document.createElement('div'); w.className = 'ccpop-wrap';
   w.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto';
-  w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">AxisCare setup: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
+  w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">Send orientation: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="ibtn" id="axCheck">Check AxisCare</button><span style="flex:1"></span><button class="btn" id="axSend" style="font-size:15px;padding:10px 18px">Send orientation information</button></div></div>';
   document.body.appendChild(w);
   const body = w.querySelector('#axBody'), close = () => { window.__axVals = null; w.remove(); };
