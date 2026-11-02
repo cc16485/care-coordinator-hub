@@ -6069,7 +6069,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <button type="button" class="subtab" data-cs="packet" onclick="cpCareSub('packet')">Caregiver packet</button>
       <button type="button" class="subtab" data-cs="notes" onclick="cpCareSub('notes')">Care notes</button>
     </div>
-    <div class="cp-care-sub" data-cs="asmt"><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
+    <div class="cp-care-sub" data-cs="asmt"><div id="cp_learned"></div><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
     <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_gm"></div><div id="cp_review_slot"></div></div>
     <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
     <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
@@ -7478,7 +7478,7 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
-<script src="client-glance.js?v=2"></script><!-- the client at a glance (2026-10-29) -->
+<script src="client-glance.js?v=3"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=9"></script>
@@ -10638,11 +10638,13 @@ function cpRenderCare(){
   try{ if(window.GM) GM.mountClient('cp_gm', ax, (CP.r&&CP.r.client_name)||''); }catch(e){ console.warn('gap mentors card', e); }
   /* Care needs (Track 3c, care-needs.js, only while its Admin switch is on) and the Caregiver packet (care-packet.js)
      mount into their own sub-tabs; clear them so a previous client's card never shows */
-  ['cp_needs','cp_packet'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
+  ['cp_needs','cp_packet','cp_learned'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
   /* 2026-10-12 fix: the shift-notes state is a page-level const named CN (line ~9787), so a bare CN here meant THAT object
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
-  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261018'; sc.onload=go; document.head.appendChild(sc); } }
+  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261102'; sc.onload=go; document.head.appendChild(sc); } }
+  /* 2026-11-02 (Samantha): Learned from AxisCare and calls (profile-learn.js), top of Assessments & care plans; owners only until its switch is on */
+  if(String(CP.ax||'').trim()&&((DATA.ops_settings||{}).profile_learn_live||(Array.isArray(CC_ROLES)&&CC_ROLES.includes('owner_admin')))){ const go=()=>{ try{ window.PLRN&&window.PLRN.mount('cp_learned'); }catch(e){ console.warn('learned card', e); } }; if(window.PLRN) go(); else { const sc=document.createElement('script'); sc.src='profile-learn.js?v=20261102'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
 /* 2026-10-29: the home visit on the iPad (home-visit.js), from the lead or the client */
