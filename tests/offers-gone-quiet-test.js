@@ -36,6 +36,14 @@ set([A, B], [{ id: 'g1', phone: '4175550101' }]);
 ck('another open offer has the same phone: maybe for both', ctx.offerOnRoster(A).state === 'maybe' && ctx.offerOnRoster(B).state === 'maybe');
 set([A, Object.assign({}, B, { offer_withdrawn_at: '2026-09-01' })], [{ id: 'g1', phone: '4175550101' }]);
 ck('a closed earlier offer with the same phone does not block it', ctx.offerOnRoster(A).state === 'yes');
+/* in AxisCare (2026-11-01): Training tied the offer to an active AxisCare caregiver by name (matched) */
+const M = Object.assign({}, A, { matched: true });
+set([M], [{ id: 'g1', phone: '4175550101' }, { id: 'g2', email: 'alpha@example.test' }]);
+ck('tied in AxisCare plus a phone or email hit: moved on, even when the roster hit alone is a maybe', ctx.offerOnRoster(M).state === 'maybe' && ctx.offerMovedOn(M) && ctx.offerStage(M) === 'completed');
+set([M], [{ id: 'g1', first: 'Test', last: 'Alpha' }]);
+ck('tied in AxisCare by name only, no phone or email hit: stays put (a name alone never counts)', !ctx.offerMovedOn(M) && ctx.offerStage(M) === 'accepted');
+set([Object.assign({}, M, { step1_done_at: daysAgo(1) })], [{ id: 'g1', phone: '4175550101', active: false }]);
+ck('Step 1 done and in AxisCare: off the Completed Step 1 cards, into the past list', ctx.offerMovedOn(ctx.OFFERS[0]));
 set([{ id: 3, phone: '555-01' }], [{ id: 'g1', phone: '555-01' }]);
 ck('a short or partial phone never matches', ctx.offerOnRoster(ctx.OFFERS[0]).state === 'no');
 ck('nothing is written to the roster (read only)', !/offerOnRoster[\s\S]{0,40}(saveCaregivers|\.offer_id\s*=)/.test(cut(eng, 'function offerOnRoster(o){', 'function offerQuietDays(')));
