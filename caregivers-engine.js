@@ -1700,6 +1700,10 @@ function offerMovedOn(o){
   /* Orientation Video Call done moves them to the roster with their offer id (2026-10-02) */
   if((typeof caregivers!=='undefined' ? caregivers : []).some(g=>g.offer_id!=null && String(g.offer_id)===String(o.id))) return true;
   if(offerOnRoster(o).state==='yes') return true;
+  /* IN AXISCARE (Samantha 2026-11-01, "i dont want step one complete to be bogged down by people who have moved on"):
+     Training ties the offer to an active AxisCare caregiver by name (o.matched). With a phone or email hit on the roster
+     too it is the same person, so the offer is done here even when the roster hit alone is only a 'maybe'. */
+  if(o.matched&&offerOnRoster(o).state!=='no') return true;
   if(!candidates.some(c=>String(c.offer_id)===String(o.id))) return false;
   /* PRACTICE RUN FIX (2026-10-11): on the new path the Step 1 link lives on this card and the person is moved into
      Background & References BEFORE Step 1, so the card stays on Open offers until Step 1 is signed (or the offer is
