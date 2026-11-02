@@ -7478,6 +7478,9 @@ function ckdLanes(c){
 }
 function ckdLaneHTML(c, nx){
   let phone = '';
+  /* the stuck Step 1 Call (2026-11-02): from the office line, like every Hub call */
+  if(nx.call) return '<div class="ckd-next"><span class="ckd-next-text ckd-warn">' + bgrEsc(nx.text) + '</span>'
+    + '<a class="ckd-go"' + ocAttrs(nx.call.dial, { email:nx.call.email }) + '>Call ' + bgrEsc(nx.call.show) + '</a></div>';
   if(nx.slot){
     const ph = c['r'+nx.slot+'_phone'], em = c['r'+nx.slot+'_email'], p = ph ? obFmtPhone(ph) : null;
     phone = p ? ' <a class="ckd-phone"' + ocAttrs(p.dial, { email:em }) + '>' + bgrEsc(p.show) + '</a>'
@@ -7592,9 +7595,27 @@ function ckdLists(){
 }
 /* a person's actions: stop 1 has a references line and a checks line; every other stop has one */
 function ckdRosterFor(j){ return j && j.offer_id && typeof caregivers !== 'undefined' ? caregivers.find(g => String(g.offer_id) === String(j.offer_id)) || null : null; }
+/* STUCK IN STEP 1 (Samantha 2026-11-02: "Show the stuck Step 1 right on the Onboarding row: red Stuck, how many days, and a
+   Call button, using the card that already exists"). The card is the one the readiness sweep raises (cj_step1stall_<journey>,
+   two business days after the second Step 1 reminder); the row shows it while it is open and drops it when the card closes. */
+function ckdStep1Stuck(j){
+  if(!j || !j.journey_id || typeof DATA === 'undefined') return null;
+  const card = (DATA.ops_items || []).find(x => x && x.id === 'cj_step1stall_' + j.journey_id && x.status !== 'done' && x.status !== 'resolved');
+  if(!card) return null;
+  const found = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => x && String(x.id) === String(j.offer_id)), o = found || {};
+  const from = o.step1_sent_at || card.created_at || card.first_at, ms = Date.parse(from || '');
+  const days = Number.isFinite(ms) ? Math.max(0, Math.floor((Date.now() - ms) / 86400000)) : null;
+  const first = String(j.name || '').trim().split(/\s+/)[0] || 'them';
+  const sent = Number.isFinite(ms) ? new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+  const p = o.phone ? obFmtPhone(o.phone) : null;
+  const text = 'Stuck in Step 1' + (days != null ? ' for ' + days + ' day' + (days === 1 ? '' : 's') : '') + (sent ? ' (link sent ' + sent + ')' : '')
+    + '. The reminders did not do it: call ' + first + ' and help them finish.' + (found && !p ? ' No phone number on their offer.' : '');
+  return { card, days, text, call: p ? { dial:p.dial, show:p.show, email:o.email || '' } : null };
+}
 function ckdActsFor(p){
   if(p.j){
-    const out = [Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
+    const stuck = ckdStep1Stuck(p.j);
+    const out = [stuck ? { lane:'', text:stuck.text, warn:true, call:stuck.call, label:stuck.call ? '' : 'Open card', on:'CRX.openSide(\'' + bgrEsc(String(p.j.offer_id)) + '\')' } : Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
     out.push({ lane:'', text:'', label:'Take off', on:'ckdLeaveOpen(null,\'' + bgrEsc(String(p.j.offer_id)) + '\')', quiet:true, small:true });
     if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
     else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
