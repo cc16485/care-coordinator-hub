@@ -53,7 +53,7 @@ with sync_playwright() as pw:
           if(bd.no_answer){ CI={ ...CI, tries:[...CI.tries, { at:'2026-10-22T16:00:00Z' }] }; return { data:ans(), error:null }; }
           if(bd.ticks) CI={ ...CI, ticks:{ ...CI.ticks, ...Object.fromEntries(Object.entries(bd.ticks).map(([k,v])=>[k, v?{ at:'x' }:null])) } };
           if(bd.test_clock) CI={ ...CI, test_clock:{ choice:bd.test_clock } };
-          if(bd.finish){ const all=['on_file','questions','app'].every(k=>CI.ticks[k]) && CI.test_clock; if(!all) return { data:{ error:'Tick all three and choose test clock-in done or no thanks first. Your ticks are saved; nothing was finished.' }, error:null }; CI={ ...CI, done:true, open:false, at:'2026-10-22T16:30:00Z' }; }
+          if(bd.finish){ const all=['on_file','questions','app','profile'].every(k=>CI.ticks[k]) && CI.test_clock; if(!all) return { data:{ error:'Tick every box and choose test clock-in done or no thanks first. Your ticks are saved; nothing was finished.' }, error:null }; CI={ ...CI, done:true, open:false, at:'2026-10-22T16:30:00Z' }; }
           return { data:ans(), error:null }; }
         return { data:{ ok:true }, error:null }; };
       (0,eval)("sb.functions.invoke=(fn,o)=>window.__inv(fn,o)");
@@ -100,8 +100,8 @@ with sync_playwright() as pw:
       [...document.querySelectorAll('#crBody button')].find(b=>/^✓ Done$/.test(b.textContent.trim())).click(); await sleep(250); out.done=t();
       return out; }""")
     if SHOT: pg.screenshot(path=SHOT.replace('.png', '-checkin.png'))
-    ok('readiness card: a Check-in call block with three ticks, test clock-in choice, Done and No answer; shift texts wait', 'Check-in call' in c['open'] and c['boxes'] == 3 and 'Quick test clock-in' in c['open'] and 'Shift texts wait until this call is done' in c['open'], c['open'][-700:])
-    ok('Done with ticks missing: the server refusal is shown', 'Tick all three' in c['refused'], c['refused'])
+    ok('readiness card: a Check-in call block with four ticks, test clock-in choice, Done and No answer; shift texts wait', 'Check-in call' in c['open'] and c['boxes'] == 4 and 'Quick test clock-in' in c['open'] and 'Shift texts wait until this call is done' in c['open'], c['open'][-700:])
+    ok('Done with ticks missing: the server refusal is shown', 'Tick every box' in c['refused'], c['refused'])
     ok('No answer: counted on the card', 'No answer 1 time' in c['tried'], c['tried'][-400:])
     ok('all ticked + no thanks + Done: "Done" with test clock-in: no thanks', '✓ Done' in c['done'] and 'test clock-in: no thanks' in c['done'], c['done'][-400:])
     pg.close(); b.close()

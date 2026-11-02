@@ -63,7 +63,7 @@ ck('the tab is in the interviews group', /interviews:\[[^\]]*'orientprog'/.test(
 ck('the panel and its mount exist', html.includes('id="tab-orientprog"') && html.includes('id="orpMount"'));
 ck('opening the tab draws it', html.includes("if(activeTab==='orientprog' && window.OPR) OPR.mount();"));
 ck('both sign-in paths start the pill count', (html.match(/if\(window\.OPR\) OPR\.watch\(\)/g) || []).length === 2);
-ck('the script is loaded', html.includes('<script src="orient-progress.js?v=3"></script>'));
+ck('the script is loaded', html.includes('<script src="orient-progress.js?v=4"></script>'));
 const ENG = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
 const KEY = (ENG.match(/const TRAINING_HUB_ANON='([^']+)'/) || [])[1];
 ck('reads through the office-only hub-training-data server, with the same public key as the engine', !!KEY && src.includes("FN + '?action=orientation_progress'") && src.includes('functions/v1/hub-training-data') && src.includes("const ANON = '" + KEY + "'") && src.includes("'x-hub-token':await trainHubTok()"));
@@ -93,7 +93,9 @@ ck('Onboarding line: nobody matching: nothing shown', OPR.brief('999', 'No Body'
 ck('the jump to Onboarding hands the name to its search (CKD_FIND) and opens the tab', src.includes("window.CKD_FIND = String(name || ''); if(typeof switchTab === 'function') switchTab('cgbackground')"));
 ck('the jump to Orientation remembers the person and scrolls to them', src.includes("ST.focus = String(id || '')") && src.includes("document.getElementById('orp-p-' + ST.focus)"));
 ck('the badge is read from the Hub caregiver list, never written here', src.includes('g.badge_mailed_at') && !/badge_mailed_at\s*=/.test(src));
-ck('Onboarding keeps every to-do: this page has no Mailed or check-in button', !/ckdBadgeMailed|checkinDone|CRX\.open/.test(src));
+/* 2026-11-02 (Samantha): "Approve to Work button, then the check-in call with a profile tick, then Ready for shifts" on this tab.
+   The badge Mailed button stays on Onboarding only. */
+ck('the badge Mailed button stays on Onboarding', !/ckdBadgeMailed/.test(src));
 ck('the Orientation tab loads the caregiver part of the Hub (badge, Onboarding list) and draws again when it lands',
   /const SCX_TABS = \['orientprog'/.test(html) && html.includes("if(tab==='orientprog' && window.OPR) OPR.mount();"));
 ck('Onboarding rows show the line from the orientation step on, and its search takes the hand-off',
