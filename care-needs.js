@@ -32,10 +32,16 @@
     await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'match-rules.js?v=20261018'; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
   }
   async function load(){
-    const l = window.CP && CP.lead; S.ep = null; S.cur = {}; S.err = '';
-    if (!l) return;
-    const src = await q(sb.from('episode_source').select('episode_id').eq('system', 'lead').eq('role', 'origin').eq('source_ref', String(l.id)));
-    S.ep = (src[0] && src[0].episode_id) || null; if (!S.ep) return;
+    const l = window.CP && CP.lead, ax = window.CP && CP.ax ? String(CP.ax) : ''; S.ep = null; S.cur = {}; S.err = '';
+    if (l) {
+      const src = await q(sb.from('episode_source').select('episode_id').eq('system', 'lead').eq('role', 'origin').eq('source_ref', String(l.id)));
+      S.ep = (src[0] && src[0].episode_id) || null;
+    } else if (ax) {
+      /* 2026-11-02 (profile-learn): a client with no inquiry keeps their needs on the Journey of the person AxisCare's client number belongs to */
+      const ps = await q(sb.from('person_source_id').select('person_id').eq('system', 'axiscare').eq('source_id', ax));
+      if (ps[0]) { const eps = await q(sb.from('journey_episode').select('episode_id').eq('person_id', ps[0].person_id).in('state', ['open', 'converted', 'established'])); S.ep = (eps[0] && eps[0].episode_id) || null; }
+    }
+    if (!S.ep) return;
     const kinds = CCMatch.SKILLS.map(s => 'need_' + s.key).concat(EXTRA.map(e => e.kind), ['need_advanced_tasks']);
     (await q(sb.from('client_fact_current').select('fact_id,kind,layer,value,certainty,recorded_by,recorded_at').eq('episode_id', S.ep).in('layer', ['plan', 'current']).in('kind', kinds)))
       .forEach(f => { const was = S.cur[f.kind]; if (!was || (f.layer === 'current' && was.layer !== 'current') || String(f.recorded_at) > String(was.recorded_at)) S.cur[f.kind] = f; });
@@ -53,10 +59,10 @@
     const l = window.CP && CP.lead;
     let h = '<div class="card" style="padding:14px 18px;margin-bottom:12px;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;"><b style="font-size:15px;color:var(--navy);">🧩 Care needs for matching</b></div>'
       + '<div class="field-note" style="margin-bottom:8px">Confirm each need on the care plan: Required, Preferred or No. What the family told us at intake shows beside it, to confirm; it never counts until you confirm. Nothing here texts anyone, and no matching screen reads these yet.</div>';
-    if (!l) return box.innerHTML = h + '<div class="field-note">No inquiry is on file for this client, so there is no Journey to keep their needs on yet.</div></div>';
+    if (!l && !S.ep && !S.err) return box.innerHTML = h + '<div class="field-note">No inquiry is on file for this client, so there is no Journey to keep their needs on yet. One opens the first time someone saves a need from "Learned from AxisCare and calls" above.</div></div>';
     if (S.err) return box.innerHTML = h + '<div class="field-note" style="color:#B91C1C">Could not load: ' + esc(S.err) + '</div></div>';
     if (!S.ep) return box.innerHTML = h + '<div class="field-note">This client\'s Journey is not open yet, so needs cannot be kept. It opens with their inquiry.</div></div>';
-    const cs = CCMatch.clientState({ payer: (l.funding_source === 'medicaid' ? 'medicaid' : l.funding_source), plan_current: true, needs: needsForRule(), facts: { more_than_one_to_transfer: curVal('need_more_than_one_to_transfer') === 'yes' }, advanced_tasks: (curVal('need_advanced_tasks') || []).map(k => (ADVANCED.find(a => a[0] === k) || [k, k])[1]) });
+    const cs = CCMatch.clientState({ payer: ((l || {}).funding_source === 'medicaid' ? 'medicaid' : (l || {}).funding_source), plan_current: true, needs: needsForRule(), facts: { more_than_one_to_transfer: curVal('need_more_than_one_to_transfer') === 'yes' }, advanced_tasks: (curVal('need_advanced_tasks') || []).map(k => (ADVANCED.find(a => a[0] === k) || [k, k])[1]) });
     const banner = cs.status === 'ok' ? ['#DCFCE7', '#15803D', 'Matching requirements complete: every need is confirmed on the care plan.'] : cs.status === 'flagged' ? ['#FEE2E2', '#991B1B', cs.message] : cs.status === 'not_matched' ? ['#F4F2ED', '#3A342C', cs.message] : ['#FEF3C7', '#92400E', cs.message];
     h += '<div style="background:' + banner[0] + ';color:' + banner[1] + ';border-radius:8px;padding:7px 10px;font-size:13px;font-weight:600;margin-bottom:8px">' + esc(banner[2]) + '</div>';
     const intake = intakeOf();
@@ -65,7 +71,7 @@
       h += '<tr style="border-top:1px solid var(--border)"><td style="padding:5px 4px;font-weight:600">' + esc(s.label) + (s.checkFirst ? ' <span class="field-note">(checked first)</span>' : '') + (s.medicaid ? ' <span class="field-note" style="color:#92400E">(' + (s.medicaid === 'apc' ? 'Medicaid: advanced personal care' : 'Medicaid: waits on MMAC') + ')</span>' : '') + '</td>'
         + '<td style="padding:5px 4px">' + (it ? '<span class="field-note">from intake: ' + esc(it.value) + ', to confirm</span>' : '') + '</td>'
         + '<td style="padding:5px 4px;white-space:nowrap">' + seg(k, RPN, val(k)) + '</td><td style="padding:5px 4px">' + (k in S.draft && S.draft[k] !== curVal(k) ? '<span class="field-note" style="color:#1E40AF">changed, not saved</span>' : who(S.cur[k])) + '</td></tr>'; });
-    EXTRA.forEach(e => { const ca = (l.client_attributes || {})[e.lead];
+    EXTRA.forEach(e => { const ca = ((l || {}).client_attributes || {})[e.lead];
       h += '<tr style="border-top:1px solid var(--border)"><td style="padding:5px 4px;font-weight:600">' + esc(e.label) + '</td><td style="padding:5px 4px">' + (ca ? '<span class="field-note">from intake: ' + esc(ca) + ', to confirm</span>' : '') + '</td>'
         + '<td style="padding:5px 4px">' + seg(e.kind, e.opts, val(e.kind)) + '</td><td style="padding:5px 4px">' + (e.kind in S.draft && S.draft[e.kind] !== curVal(e.kind) ? '<span class="field-note" style="color:#1E40AF">changed, not saved</span>' : who(S.cur[e.kind])) + '</td></tr>'; });
     const adv = val('need_advanced_tasks') || [];
@@ -102,7 +108,7 @@
   async function mount(id){
     S.box = document.getElementById(id); if (!S.box) return;
     if (!live()) { S.box.innerHTML = ''; return; }
-    const key = window.CP && CP.lead ? CP.lead.id : null;
+    const key = window.CP && CP.lead ? CP.lead.id : (window.CP && CP.ax ? 'ax' + CP.ax : null);
     if (key !== S.key) { S.key = key; S.draft = {}; S.msg = ''; }
     render();
     try { await ensureRules(); await load(); } catch (e) { S.err = String(e && e.message || e); }
