@@ -11,7 +11,10 @@
   'use strict'
   var S = { data: null, err: '', loading: false, days: 90, who: '' }
   var e = function (s) { return (s == null ? '' : String(s)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') }
-  var D = function () { return (window.DATA && window.DATA.ops_settings) || {} }
+  /* 2026-11-02 fix: DATA is a page-level let in index.html (never window.DATA), so this was always {} and the page stayed hidden
+     from everyone but owners even with app_activity_live on. Read the page-level one (same fix as care-packet.js 2026-10-12). */
+  function data() { try { return (typeof DATA !== 'undefined' && DATA) || window.DATA || null } catch (x) { return window.DATA || null } }
+  var D = function () { var d = data(); return (d && d.ops_settings) || {} }
   function owner() { return typeof ccIsOwner === 'function' ? !!ccIsOwner() : (typeof CC_ROLES !== 'undefined' && Array.isArray(CC_ROLES) && CC_ROLES.indexOf('owner_admin') >= 0) }
   function allowed() { return D().app_activity_live === true || owner() }
   function pillSync() { var p = document.querySelector('.fpill[data-tab="bookingapp"]'); if (p) p.style.display = allowed() ? '' : 'none' }

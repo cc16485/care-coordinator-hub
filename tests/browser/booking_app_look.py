@@ -8,7 +8,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 PAGE = r"""<!doctype html><html><head><meta charset="utf-8"><style>.card{border:1px solid #ddd}</style></head><body>
 <div class="fpill" data-tab="bookingapp" style="display:none">Booking App</div><div id="baa_box"></div>
 <script>
-window.__owner=%OWNER%; window.DATA={ ops_settings:{ app_activity_live:%LIVE% } }; window.ccIsOwner=function(){ return window.__owner }; window.__calls=[];
+let DATA={ ops_settings:{ app_activity_live:%LIVE% } };  /* the page's own name, never on window, like the Hub */
+window.__owner=%OWNER%; window.ccIsOwner=function(){ return window.__owner }; window.__calls=[];
 var P=[{ id:'c1', name:'Lisa Ray', relationship:'Daughter', email:'lisa@x.test', client_name:'Dorothy Ray', axiscare_client_id:'501', app_status:'active', app_can_book:true, app_invited_at:'2026-10-23T18:08:00Z', app_invited_by:'samantha@mo-care.com', welcome_sent_at:'2026-10-23T21:38:00Z', welcome_sent_by:'Samantha Troutman', welcome_version:'regular', last_sign_in:'2026-10-25T16:00:00Z', first_open:'2026-10-25T16:01:00Z', last_open:'2026-10-25T16:20:00Z', opens:2, sign_in_readable:true },
   { id:'c2', name:'Tom Ray', relationship:'Son', email:'tom@x.test', client_name:'Dorothy Ray', axiscare_client_id:'501', app_status:'active', app_can_book:false, app_invited_at:'2026-10-23T18:09:00Z', app_invited_by:'samantha@mo-care.com', welcome_sent_at:null, last_sign_in:null, last_open:null, opens:0, sign_in_readable:true }];
 window.callAction=async function(fn,b){ window.__calls.push([fn,b]); return { status:200, data:{ ok:true, from:'2026-07-27', recording_since:'2026-10-25T16:01:00Z', people:P,
@@ -33,6 +34,9 @@ with sync_playwright() as pw:
     b = pw.chromium.launch()
     pg, errs = run(b, 'false', 'false')
     ok('switch off, not an owner: no pill, and the page says it is off without asking the server', pg.evaluate("document.querySelector('.fpill').style.display") == 'none' and (pg.evaluate('BAA.mount()') or True) and 'turned off' in pg.inner_text('#baa_box') and pg.evaluate('window.__calls.length') == 0)
+    pg.close()
+    pg, errs = run(b, 'false', 'true')
+    ok('switch on, not an owner: the pill shows and the page asks the server', pg.evaluate("document.querySelector('.fpill').style.display") == '' and (pg.evaluate('BAA.mount()') or True) and 'turned off' not in pg.inner_text('#baa_box') and pg.evaluate('window.__calls.length') == 1)
     pg.close()
     pg, errs = run(b, 'true', 'false')
     ok('switch off: owners still see the pill', pg.evaluate("document.querySelector('.fpill').style.display") == '')
