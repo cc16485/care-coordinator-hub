@@ -1400,6 +1400,9 @@ function pathChip(p){
   return '<span class="badge" title="' + (v === 'new' ? 'New onboarding path: offer sent on or after the switch date' : 'Current onboarding process (the path every offer is on until the switch date is set)') + '" style="font-size:.62rem;background:' + (v === 'new' ? '#DCFCE7;color:#15803D' : '#F3F4F6;color:#4B5563') + '">' + (v === 'new' ? 'New path' : 'Old path') + '</span>';
 }
 let OFFERS=[];
+/* TEST OFFERS (Samantha 2026-11-01): rehearsal offers are made "by Slice ... test / rehearsal / practice run", never by
+   a real office person. Leave them out everywhere so they never count as people turning down our offers. */
+function offerIsTest(o){ return /\bslice\b|rehearsal|practice run|\btest\b/i.test(String(o&&o.offered_by||'')); }
 async function loadOffers(btn){
   const box=document.getElementById('offersList');
   /* Fetch even with no panel on screen: Background & References reads OFFERS
@@ -1412,7 +1415,7 @@ async function loadOffers(btn){
       body:'{}'});
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
-    OFFERS=data;
+    OFFERS=data.filter(o=>!offerIsTest(o));
     if(box) renderOffers();
     updateOffersBadge();
   }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load offers: '+(e&&e.message?e.message:'error')+'</div>'; }
