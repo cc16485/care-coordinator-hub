@@ -63,7 +63,7 @@ ck('the tab is in the interviews group', /interviews:\[[^\]]*'orientprog'/.test(
 ck('the panel and its mount exist', html.includes('id="tab-orientprog"') && html.includes('id="orpMount"'));
 ck('opening the tab draws it', html.includes("if(activeTab==='orientprog' && window.OPR) OPR.mount();"));
 ck('both sign-in paths start the pill count', (html.match(/if\(window\.OPR\) OPR\.watch\(\)/g) || []).length === 2);
-ck('the script is loaded', html.includes('<script src="orient-progress.js?v=2"></script>'));
+ck('the script is loaded', html.includes('<script src="orient-progress.js?v=3"></script>'));
 const ENG = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
 const KEY = (ENG.match(/const TRAINING_HUB_ANON='([^']+)'/) || [])[1];
 ck('reads through the office-only hub-training-data server, with the same public key as the engine', !!KEY && src.includes("FN + '?action=orientation_progress'") && src.includes('functions/v1/hub-training-data') && src.includes("const ANON = '" + KEY + "'") && src.includes("'x-hub-token':await trainHubTok()"));
@@ -72,6 +72,35 @@ ck('does not need caregivers-engine.js loaded (the pill count runs at sign-in)',
 ck('calls go from the office line (ocAttrs), never a bare tel: link', src.includes('ocAttrs(r.phone') && !/tel:/.test(src));
 ck('nothing on this page texts or emails anyone', !/ghl|send-reminder|send-invite|sms/i.test(src.replace(/^\s*\/\*[\s\S]*?\*\//m, '')));
 ck('no em dash in the copy', !src.includes('—') && !html.slice(html.indexOf('id="tab-orientprog"') - 200, html.indexOf('id="orpMount"')).includes('—'));
+
+/* LINKED WITH ONBOARDING (2026-11-02) */
+OPR._st.rows = [
+  { training_id:'t1', axiscare_id:'AC-701', name:'Ann Lee', status:'in_progress', welcome_sent_at:ago(4 * D), units:[full(1), full(2), { module:3, scene:1, complete:false, heard:2, first_at:ago(3 * D), last_at:ago(3 * D), moved_at:ago(3 * D) }] },
+  { training_id:'t2', axiscare_id:'', name:'Bo  Ray', status:'in_progress', units:[{ module:1, scene:2, complete:false, heard:3, first_at:ago(H), last_at:ago(H), moved_at:ago(H) }] },
+  { training_id:'t3', axiscare_id:'', name:'Cy Dee', status:'not_started', welcome_sent_at:ago(5 * D), units:[] },
+  { training_id:'t4', axiscare_id:'', name:'Cy Dee', status:'complete', completed_at:ago(D), attested_at:ago(D), units:[] },
+  { training_id:'t5', axiscare_id:'802', name:'Dot Fay', status:'complete', completed_at:'2026-10-30T15:00:00Z', attested_at:ago(D), units:[] }
+];
+OPR._st.at = Date.now();
+let b = OPR.brief('701', 'Someone Else');
+ck('Onboarding line: matched by AxisCare number (digits), stuck shows red with the unit', b && b.id === 't1' && b.bad && b.text === 'Stuck in orientation on Unit 3 of 11', b);
+b = OPR.brief('', 'bo ray');
+ck('Onboarding line: no AxisCare number, matched by name (case and spaces ignored), moving shows the unit', b && b.id === 't2' && !b.bad && b.text === 'Orientation: Unit 1 of 11', b);
+ck('Onboarding line: two Training people with the same name and no number: nothing shown (never a guess)', OPR.brief('', 'Cy Dee') === null);
+b = OPR.brief('802', 'Dot Fay');
+ck('Onboarding line: finished shows the day', b && /^Finished orientation Oct 30$/.test(b.text), b);
+ck('Onboarding line: nobody matching: nothing shown', OPR.brief('999', 'No Body') === null);
+ck('the jump to Onboarding hands the name to its search (CKD_FIND) and opens the tab', src.includes("window.CKD_FIND = String(name || ''); if(typeof switchTab === 'function') switchTab('cgbackground')"));
+ck('the jump to Orientation remembers the person and scrolls to them', src.includes("ST.focus = String(id || '')") && src.includes("document.getElementById('orp-p-' + ST.focus)"));
+ck('the badge is read from the Hub caregiver list, never written here', src.includes('g.badge_mailed_at') && !/badge_mailed_at\s*=/.test(src));
+ck('Onboarding keeps every to-do: this page has no Mailed or check-in button', !/ckdBadgeMailed|checkinDone|CRX\.open/.test(src));
+ck('the Orientation tab loads the caregiver part of the Hub (badge, Onboarding list) and draws again when it lands',
+  /const SCX_TABS = \['orientprog'/.test(html) && html.includes("if(tab==='orientprog' && window.OPR) OPR.mount();"));
+ck('Onboarding rows show the line from the orientation step on, and its search takes the hand-off',
+  ENG.includes("if(p.stop < 4 || !window.OPR || typeof OPR.brief !== 'function') return '';") && ENG.includes("+ ckdOrientHTML(p) + '</div>'") && ENG.includes("if(window.CKD_FIND){ q = String(window.CKD_FIND)"));
+ck('the caregiver code (a closed block) shares the Onboarding list, its redraw and the caregiver list',
+  ENG.includes('window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;'));
+ck('no em dash in the new Onboarding copy', !ENG.slice(ENG.indexOf('ORIENTATION ON THE ROW'), ENG.indexOf('function ckdRowHTML')).includes('—'));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -7703,6 +7703,16 @@ function ckdRoadHTML(stop, bad){
   return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of 7">' + CKD_STOPS.map((_, i) =>
     '<i class="' + (i < stop ? 'on' : i === stop ? (bad ? 'bad' : 'now') : '') + '"></i>').join('') + '</span>';
 }
+/* ORIENTATION ON THE ROW (2026-11-02, Samantha: "link the two tabs: show where they are in orientation on the Onboarding rows").
+   From the Orientation tab's own read (orient-progress.js OPR.brief), from the orientation step on; a click opens them there.
+   Matched by AxisCare number, else by a name only one person has. Shows nothing until it is read or when nobody matches. */
+function ckdOrientAx(p){ const g = p.j ? ckdRosterFor(p.j) : null; return (g && g.axiscare_id) || (p.c && p.c.axiscare_id) || ''; }
+function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop })); }
+function ckdOrientHTML(p){
+  if(p.stop < 4 || !window.OPR || typeof OPR.brief !== 'function') return '';
+  const o = OPR.brief(ckdOrientAx(p), p.name); if(!o) return '';
+  return '<button type="button" class="ckd-orient' + (o.bad ? ' ckd-orient-bad' : '') + '" onclick="OPR.show(\'' + bgrEsc(o.id) + '\')" title="Open them on the Orientation tab">' + bgrEsc(o.text) + ' &rsaquo;</button>';
+}
 function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
   const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
@@ -7711,7 +7721,7 @@ function ckdRowHTML(p){
   return '<div class="ckd-row">'
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
-    + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span></div>'
+    + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span>' + ckdOrientHTML(p) + '</div>'
     + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'
     + '<div class="ckd-lanes">' + acts.map(nx => ckdLaneHTML(c || {}, nx)).join('') + '</div>'
     + '</div>';
@@ -7729,7 +7739,9 @@ function renderCkd(){
   if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
   if(typeof wcLoad === 'function' && typeof WC_AT !== 'undefined' && Date.now() - WC_AT > 30000){ WC_AT = Date.now(); Promise.resolve(wcLoad()).then(() => { try{ renderCkd(); }catch(e){} }).catch(() => {}); }
   const L = ckdLists();
-  const q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
+  let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
+  /* the Orientation tab's Onboarding button: open the list on that one person */
+  if(window.CKD_FIND){ q = String(window.CKD_FIND).trim().toLowerCase(); window.CKD_FIND = ''; CKD_FILTER = 'all'; }
   const stopF = /^s\d$/.test(CKD_FILTER) ? Number(CKD_FILTER.slice(1)) : null;
   let list = stopF === null ? L.all : L.byStop[stopF];
   if(q) list = list.filter(p => p.name.toLowerCase().includes(q) || (p.c && typeof obRefMatchSlots === 'function' && obRefMatchSlots(p.c, q).length));
@@ -12160,6 +12172,8 @@ window.bgrRefPickChoose = bgrRefPickChoose;
 window.bgrSyncRefAnswers = bgrSyncRefAnswers;
 window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
+/* the Orientation tab (orient-progress.js, 2026-11-02): who is on Onboarding, the caregiver list (badge), and drawing Onboarding again */
+window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;

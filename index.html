@@ -2305,6 +2305,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-road i.now{width:16px;height:16px;background:#F0A63A;border:2px solid #0D365F}
         .ckd-road i.bad{width:16px;height:16px;background:#FEF3F2;border:2px solid #B42318}
         .ckd-stop{font-size:12.5px;font-weight:700;color:#0D365F}
+        .ckd-orient{align-self:flex-start;background:#EEF4FB;color:#2F6FB0;border:0;border-radius:10px;padding:2px 9px;font-size:12px;font-weight:600;cursor:pointer;text-align:left}
+        .ckd-orient:hover{text-decoration:underline}.ckd-orient-bad{background:#FDE8E8;color:#B23B2E}
         .ckd-kick{font-size:11.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9C6410}
         .ckd-start{display:flex;align-items:center;gap:16px;justify-content:space-between;background:#fff;border:2px solid #0D365F;border-radius:16px;padding:16px 20px}
         .ckd-start-calm{border-color:#CDE7E4;background:#F4F9F8}
@@ -7425,7 +7427,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=2"></script><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=3"></script><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -8202,7 +8204,8 @@ function ccParentClick(p){
    would be rude, so it is fetched the first time a Caregivers tab is opened
    and never again. Until it lands the panel shows a loading line rather than
    dead buttons. */
-const SCX_TABS = ['cgbackground', 'cgorient', 'cgtraining', 'cgcompliance', 'cgattendance', 'cgwriteups', 'offers'];
+/* orientprog (2026-11-02): the Orientation tab reads the badge and the Onboarding list from it */
+const SCX_TABS = ['orientprog', 'cgbackground', 'cgorient', 'cgtraining', 'cgcompliance', 'cgattendance', 'cgwriteups', 'offers'];
 let scxState = 'idle';
 function scxEnsure(tab){
   if(!SCX_TABS.includes(tab)) return;
@@ -8270,7 +8273,8 @@ function scxRender(tab){
   if(!window.SCX) return;
   const fn = { cgbackground:'renderBGRTab', cgorient:'renderOrientations', cgtraining:'renderTR', cgcompliance:'renderAC', cgattendance:'renderAttendance', cgwriteups:'renderWriteups', offers:'loadOffers' }[tab];
   try{ if(fn && SCX[fn]) SCX[fn](); }catch(e){ console.warn('caregiver panel render:', e); }
-  if(tab==='cgtraining' && window.OP) OP.cleanup();   /* 2026-10-28: Needs orientation proof, at the top of the tab */
+  if(tab==='cgtraining' && window.OP) OP.cleanup();
+  if(tab==='orientprog' && window.OPR) OPR.mount();   /* 2026-10-28: Needs orientation proof, at the top of the tab */
 }
 
 function ccRenderSub2(tab){
