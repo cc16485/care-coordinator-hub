@@ -50,12 +50,20 @@ ck('finished, never signed off: a soft note (not on the pill)', p.state === 'don
 p = OPR._read({ status: 'complete', completed_at: ago(D), signoff_note_at: ago(D), units: [] });
 ck('finished with the office note on the sign-off: no alert', !p.alert);
 
+OPR._st.after = { '619': { axiscare_id:'619', text:{ state:'failed', why:'no phone number on file' } }, '620': { axiscare_id:'620', active:{ state:'failed', why:'AxisCare said 400' } } };
+p = OPR._read({ status: 'complete', axiscare_id: '619', completed_at: ago(D), attested_at: ago(D), units: [] });
+ck('finished, the "you finished" text failed: a soft note with why (not on the pill)', p.soft && /did not go: no phone number on file/.test(p.alert), p.alert);
+p = OPR._read({ status: 'complete', axiscare_id: 'AC-620', completed_at: ago(D), attested_at: ago(D), units: [] });
+ck('finished, AxisCare refused Active: a soft note (matched on the AxisCare number digits)', p.soft && /Not switched to Active in AxisCare: AxisCare said 400/.test(p.alert), p.alert);
+OPR._st.after = null;
+ck('the after-finishing read goes through caregiver-journey orientation_after', src.includes("sb.functions.invoke('caregiver-journey', { body:{ action:'orientation_after' } })"));
+ck('a failed readiness read is shown, not hidden', src.includes('Could not read the readiness cards'));
 ck('the pill is in Recruit & Onboard, right after Onboarding', /id="bgrPillBadge"[^\n]*\n[^\n]*\n\s*<div class="fpill" data-tab="orientprog"/.test(html));
 ck('the tab is in the interviews group', /interviews:\[[^\]]*'orientprog'/.test(html));
 ck('the panel and its mount exist', html.includes('id="tab-orientprog"') && html.includes('id="orpMount"'));
 ck('opening the tab draws it', html.includes("if(activeTab==='orientprog' && window.OPR) OPR.mount();"));
 ck('both sign-in paths start the pill count', (html.match(/if\(window\.OPR\) OPR\.watch\(\)/g) || []).length === 2);
-ck('the script is loaded', html.includes('<script src="orient-progress.js?v=1"></script>'));
+ck('the script is loaded', html.includes('<script src="orient-progress.js?v=2"></script>'));
 const ENG = fs.readFileSync(path.join(ROOT, 'caregivers-engine.js'), 'utf8');
 const KEY = (ENG.match(/const TRAINING_HUB_ANON='([^']+)'/) || [])[1];
 ck('reads through the office-only hub-training-data server, with the same public key as the engine', !!KEY && src.includes("FN + '?action=orientation_progress'") && src.includes('functions/v1/hub-training-data') && src.includes("const ANON = '" + KEY + "'") && src.includes("'x-hub-token':await trainHubTok()"));

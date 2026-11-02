@@ -9,6 +9,11 @@
      · In orientation: the unit they are on, the screen, the units done
      · Invited, not started yet
      · Finished (last 60 days): the day, and whether they signed off
+   Each person also shows (2026-11-01, her second ask: "every reminder with its date (log the Send reminder button too), and an
+   after-finishing line per person"): the due date (7 days after the invite, Training orientation-messages.sql), every invite and
+   reminder the Training Platform sent with who sent it, and after finishing: the certificate email, Active in AxisCare, Approve
+   to Work, the finished-orientation text and the check-in call (new-path cards from caregiver-journey ?orientation_after; the
+   older way from the Training record).
    The red count on the Orientation pill is the Needs you count, checked at sign-in and every 30 minutes. Nobody is
    texted by this page. Unit times come from course_unit_marks (Training orientation-progress.sql), so units finished
    before 2026-11-01 carry the day of their last save only.
@@ -28,7 +33,7 @@
      loaded when a caregiver tab opens, and the pill count is read at sign-in. The public key, not a secret. */
   const FN = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/hub-training-data';
   const ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJkcXVqeGl5Y3ljd2hza3l2cndhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMyMTg1NDgsImV4cCI6MjA5ODc5NDU0OH0.SFjAfj--b-tWrk8bMVLeM-tGwD8VBaPsEBtUAp5tPew';
-  const ST = { rows:null, err:'', busy:false, at:0 };
+  const ST = { rows:null, err:'', busy:false, at:0, after:null, afterErr:'' };
   const el = () => document.getElementById('orpMount');
   const ts = iso => { const t = iso ? new Date(iso).getTime() : NaN; return isNaN(t) ? 0 : t; };
   const day = iso => ts(iso) ? new Date(iso).toLocaleDateString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }) : '';
@@ -53,7 +58,10 @@
     const p = { r, done, cur, curU, moved, seen, invited, state:'', alert:'', soft:false };
     if(r.status === 'complete'){
       p.state = 'done';
-      if(!r.attested_at && !r.signoff_note_at){ p.alert = 'Finished, but never signed off (typing their name to confirm they did it themselves). Send the sign-off reminder from the Training Platform.'; p.soft = true; }
+      const a = afterFor(r);
+      if(a && a.text && a.text.state === 'failed'){ p.alert = 'The "you finished your orientation" text did not go: ' + (a.text.why || 'no reason given') + '. Call them, or text them from the office line.'; p.soft = true; }
+      else if(a && a.active && a.active.state === 'failed'){ p.alert = 'Not switched to Active in AxisCare: ' + (a.active.why || 'AxisCare refused it') + '. Set it in AxisCare by hand.'; p.soft = true; }
+      else if(!r.attested_at && !r.signoff_note_at){ p.alert = 'Finished, but never signed off (typing their name to confirm they did it themselves). Send the sign-off reminder from the Training Platform.'; p.soft = true; }
     } else if(!units.length){
       p.state = 'notstarted';
       if(invited && Date.now() - invited > limit) p.alert = 'Invited ' + ago(invited) + ' and has not opened orientation yet.';
@@ -68,6 +76,7 @@
     }
     return p;
   }
+  function afterFor(r){ const ax = String(r.axiscare_id || '').replace(/\D/g, ''); return ax && ST.after ? (ST.after[ax] || null) : null; }
   function people(){ return (ST.rows || []).map(read); }
   function needs(list){ return list.filter(p => p.alert); }
 
@@ -81,10 +90,21 @@
       return { rows:data };
     }catch(e){ return { error:'Could not reach the Training Platform.' }; }
   }
+  /* the Hub's readiness cards (new onboarding path): Active, Approve to Work, the finished text, the check-in call */
+  async function fetchAfter(){
+    try{
+      if(typeof sb === 'undefined' || !sb || !sb.functions) return { error:'The Hub sign-in is not loaded on this page.' };
+      const { data, error } = await sb.functions.invoke('caregiver-journey', { body:{ action:'orientation_after' } });
+      if(error || !data || !data.ok){ let m = (data && data.error) || (error && error.message) || 'no answer'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(e){} return { error:m }; }
+      const by = {}; (data.rows || []).forEach(x => { if(x.axiscare_id && !by[x.axiscare_id]) by[x.axiscare_id] = x; });
+      return { by };
+    }catch(e){ return { error:'Could not reach the Hub server.' }; }
+  }
   async function load(){
     if(ST.busy) return; ST.busy = true; draw();
-    const out = await fetchRows();
+    const [out, aft] = await Promise.all([fetchRows(), fetchAfter()]);
     ST.busy = false; ST.at = Date.now();
+    if(aft.error){ ST.afterErr = aft.error; ST.after = null; } else { ST.afterErr = ''; ST.after = aft.by; }
     if(out.error) ST.err = out.error; else { ST.err = ''; ST.rows = out.rows; }
     badge(); draw();
   }
@@ -112,7 +132,9 @@
       + '.orp-row .acts{display:flex;gap:6px;flex-wrap:wrap}.orp-row .acts a,.orp-row .acts button{padding:6px 12px;font-size:12.5px}'
       + '.orp-empty{padding:12px 0;font-size:13.5px;color:var(--text-muted);border-top:1px solid #EEF1F5}'
       + '.orp-foot{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--text-muted);margin:4px 0 10px}.orp-foot input{width:4.5rem}'
-      + '.orp-err{background:#FDE8E8;color:#8B2A20;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:13px}';
+      + '.orp-err{background:#FDE8E8;color:#8B2A20;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:13px}'
+      + '.orp-msgs,.orp-after{font-size:12.5px;color:var(--text);margin-top:4px;line-height:1.55}.orp-msgs b,.orp-after b{color:var(--navy);font-weight:700}'
+      + '.orp-late{color:#B23B2E;font-weight:700}.orp-ok{color:#1F7A4D}.orp-wait{color:#8A5A12}.orp-no{color:#B23B2E}';
     document.head.appendChild(s); };
 
   function hubName(r){
@@ -129,6 +151,60 @@
       const u = byNum[n]; const cls = u && u.complete ? 'd' : (p.cur && p.cur[0] === n && p.state === 'inprogress') ? (p.alert ? 's' : 'c') : '';
       return '<i class="' + cls + '"></i>'; }).join('') + '</div>';
   }
+  /* who sent it: an office email becomes the person's name */
+  function sender(by){
+    if(!by) return '';
+    if(!/@/.test(by)) return by;
+    try{ const s = ((typeof DATA !== 'undefined' && DATA && DATA.coordinator_staff) || []).find(x => String(x.email || '').toLowerCase() === String(by).toLowerCase());
+      if(s && s.name) return String(s.name).split(' ')[0]; }catch(e){}
+    return String(by).split('@')[0];
+  }
+  const ch = list => !list ? '' : list.length === 2 ? 'text and email' : list.join(' and ');
+  /* every invite and reminder, oldest first: "Oct 30 automatic, text and email · Nov 2 by Krystal, text" */
+  function msgsLine(r){
+    const ms = (r.messages || []).filter(m => m.kind !== 'certificate');
+    if(!ms.length) return r.nudged_at ? '<div class="orp-msgs"><b>Reminders:</b> ' + esc(day(r.nudged_at)) + ' automatic</div>' : '';
+    const word = { invite:'Invite', reminder:'Reminder', signoff_reminder:'Sign-off reminder' };
+    return '<div class="orp-msgs"><b>Sent:</b> ' + ms.map(m => {
+      const who = m.how === 'automatic' ? 'automatic' : m.by ? 'by ' + sender(m.by) : 'by the office';
+      const how = ch(m.channels);
+      const miss = (m.not_sent || []).length ? ' <span class="orp-wait">(' + esc(m.not_sent.join('; ')) + ')</span>' : '';
+      return esc(word[m.kind] || m.kind) + ' ' + esc(day(m.at)) + ', ' + esc(who) + (how ? ', ' + esc(how) : '') + miss;
+    }).join(' · ') + '</div>';
+  }
+  /* after finishing: certificate email, Active in AxisCare, Approve to Work, the finished text, the check-in call */
+  function afterLine(p){
+    const r = p.r, a = afterFor(r), out = [];
+    const cert = (r.messages || []).filter(m => m.kind === 'certificate').pop();
+    if(cert) out.push((cert.channels || []).length ? '<span class="orp-ok">Certificate emailed ' + esc(day(cert.at)) + '</span>' : '<span class="orp-no">Certificate not emailed (' + esc((cert.not_sent || []).join('; ') || 'no reason given') + ')</span>');
+    else if(r.certificate_at) out.push('<span class="orp-ok">Certificate saved ' + esc(day(r.certificate_at)) + '</span>');
+    if(a && a.active && a.active.state === 'confirmed') out.push('<span class="orp-ok">Active in AxisCare ' + esc(day(a.active.at)) + '</span>');
+    else if(a && a.active && a.active.state === 'failed') out.push('<span class="orp-no">Not Active in AxisCare (it refused)</span>');
+    else if(r.axiscare_active_at) out.push('<span class="orp-ok">Active in AxisCare ' + esc(day(r.axiscare_active_at)) + '</span>');
+    else if(r.status_label === 'Active') out.push('<span class="orp-ok">Active in AxisCare</span>');
+    else out.push('<span class="orp-wait">Not Active in AxisCare yet</span>');
+    if(a){
+      out.push(a.approved ? '<span class="orp-ok">Approved to Work ' + esc(day(a.approved.at)) + '</span>' : '<span class="orp-wait">Approve to Work not done yet</span>');
+      const t = a.text;
+      if(t && t.state === 'sent') out.push('<span class="orp-ok">"You finished your orientation" text sent ' + esc(day(t.at)) + '</span>');
+      else if(t && t.state === 'due') out.push('<span class="orp-wait">"You finished your orientation" text waiting for texting hours (8am to 6pm)</span>');
+      else if(t && t.state === 'practice') out.push('<span class="orp-wait">"You finished your orientation" text recorded only (its switch was off)</span>');
+      else if(t && t.state === 'failed') out.push('<span class="orp-no">"You finished your orientation" text not sent</span>');
+      else out.push('<span class="orp-wait">"You finished your orientation" text goes at Approve to Work</span>');
+      const c = a.checkin;
+      if(c && c.done) out.push('<span class="orp-ok">Check-in call done ' + esc(day(c.at)) + '</span>');
+      else if(c) out.push('<span class="orp-wait">Check-in call waiting' + (c.opened_at ? ' since ' + esc(day(c.opened_at)) : '') + '</span>');
+    } else if(ST.afterErr) out.push('<span class="orp-no">Readiness card not read (see the note at the top)</span>');
+    else if(r.cleared_notified_at) out.push('<span class="orp-ok">"Cleared to work" text sent ' + esc(day(r.cleared_notified_at)) + '</span>');
+    else out.push('<span class="orp-wait">No readiness card in the Hub (the older way): no "finished" text on record</span>');
+    return '<div class="orp-after"><b>After finishing:</b> ' + out.join(' · ') + '</div>';
+  }
+  function dueBit(r){
+    if(!r.due_date || r.status === 'complete') return '';
+    const late = String(r.due_date) < new Date().toLocaleDateString('en-CA', { timeZone:'America/Chicago' });
+    const d = new Date(String(r.due_date) + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone:'UTC', month:'short', day:'numeric' });
+    return late ? '<span class="orp-late">past due ' + esc(d) + '</span>' : 'due ' + esc(d);
+  }
   function row(p){
     const r = p.r;
     const chip = p.state === 'done' ? '<span class="orp-chip orp-c-done">Finished</span>'
@@ -141,7 +217,7 @@
     else line = 'Has not opened orientation yet';
     const meta = [
       p.invited ? (r.welcome_sent_at ? 'Invited ' : 'Assigned ') + esc(when(new Date(p.invited).toISOString())) : '',
-      r.nudged_at ? 'reminder ' + esc(day(r.nudged_at)) : '',
+      dueBit(r),
       p.state === 'inprogress' && (p.moved || p.seen) ? 'last new screen ' + esc(when(new Date(p.moved || p.seen).toISOString())) : '',
       r.status_label ? 'AxisCare: ' + esc(r.status_label) : ''
     ].filter(Boolean).join(' · ');
@@ -149,7 +225,7 @@
     return '<div class="orp-row"><div class="who"><div class="orp-name">' + hubName(r) + chip + '</div>'
       + '<div class="orp-line">' + line + '</div>' + (p.state !== 'notstarted' && p.state !== 'done' ? bar(p) : '')
       + (p.alert ? '<div class="orp-why' + (p.soft ? ' soft' : '') + '">' + esc(p.alert) + '</div>' : '')
-      + '<div class="orp-meta">' + meta + '</div></div>'
+      + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state === 'done' ? afterLine(p) : '') + '</div>'
       + '<div class="acts">' + call + '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a></div></div>';
   }
   function card(title, note, list, hot, empty){
@@ -168,6 +244,7 @@
     const nd = stuckDays();
     const canSet = typeof ccCan === 'function' && ccCan('manage_settings');
     m.innerHTML = (ST.err ? '<div class="orp-err">Could not read orientation: ' + esc(ST.err) + (ST.rows ? ' The list below is from ' + esc(when(new Date(ST.at).toISOString())) + '.' : '') + '</div>' : '')
+      + (ST.afterErr && ST.rows ? '<div class="orp-err">Could not read the readiness cards (' + esc(ST.afterErr) + '), so the after-finishing lines below show only what the Training Platform knows.</div>' : '')
       + '<div class="orp-sum">'
       + '<div class="' + (need.filter(p => !p.soft).length ? 'hot' : '') + '"><b>' + need.length + '</b><span>Need you</span></div>'
       + '<div><b>' + (inp.length + need.filter(p => p.state === 'inprogress').length) + '</b><span>In orientation</span></div>'
