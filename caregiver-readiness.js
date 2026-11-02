@@ -27,14 +27,26 @@
     if(document.getElementById('crModal')) return;
     const w = document.createElement('div'); w.id = 'crModal';
     w.style.cssText = 'display:none;position:fixed;inset:0;z-index:10003;background:rgba(15,54,95,.35);align-items:flex-start;justify-content:center;padding:1rem;overflow:auto';
-    w.innerHTML = '<div style="background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div id="crBody"></div></div>';
+    w.innerHTML = '<div id="crPanel" style="background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0"><div id="crBody"></div></div>';
     w.addEventListener('click', e => { if(e.target === w) close(); });
     document.body.appendChild(w);
   }
   function close(){ const m = document.getElementById('crModal'); if(m) m.style.display = 'none'; CUR = null; }
+  /* side: the Onboarding tab's names (Samantha 2026-11-02: "slide in from the side like the Step 1 people"), the same
+     right-hand panel as bgrDrawer. Every other opener keeps the centered card. */
+  function layout(side){
+    const m = document.getElementById('crModal'), p = document.getElementById('crPanel');
+    m.style.justifyContent = side ? 'flex-end' : 'center'; m.style.padding = side ? '0' : '1rem'; m.style.overflow = side ? 'hidden' : 'auto';
+    m.style.background = side ? 'rgba(15,54,95,.28)' : 'rgba(15,54,95,.35)';
+    p.style.cssText = side
+      ? 'background:#fff;width:520px;max-width:94vw;height:100%;overflow-y:auto;padding:18px 20px;box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(102%);transition:transform .22s ease;box-sizing:border-box'
+      : 'background:#fff;border-radius:12px;max-width:640px;width:100%;padding:18px 20px;box-shadow:0 12px 40px rgba(0,0,0,.2);margin:1rem 0';
+    if(side) requestAnimationFrame(() => { p.style.transform = 'translateX(0)'; });
+  }
   let OPEN_OFFER = '';
-  async function open(offerId, who){
-    ensureModal(); const m = document.getElementById('crModal'); m.style.display = 'flex';
+  function openSide(offerId){ if(typeof bgrCloseDrawer === 'function') bgrCloseDrawer(); return open(offerId, '', true); }
+  async function open(offerId, who, side){
+    ensureModal(); const m = document.getElementById('crModal'); layout(!!side); m.style.display = 'flex';
     document.getElementById('crBody').innerHTML = '<div style="font-size:.85rem;color:#6E6559">Opening their readiness card…</div>';
     OPEN_OFFER = String(offerId);
     try { CUR = await call({ action:'get', offer_id:String(offerId) }); CUR.who = who || ''; render(); }
@@ -256,5 +268,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
+  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
 })();
