@@ -7535,7 +7535,7 @@ function ckdStepNext(c, stop){
   if(stop === 2){
     const j = ckdJourneyFor(c);
     if(c.onboarding_path === 'new' && j && j.next && j.next.key === 'cg.approve.advance')
-      return { text:'Checks are done. Waiting on Samantha or Zachary to say go for Step 2.', label:'Open card', on:'CRX.openSide(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
+      return { text:'Checks are done. Waiting on a person on the Approve to Advance list to say go for Step 2.', label:'Open card', on:'CRX.openSide(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
     return { text:'Send Step 2 in Viventium, then come back and press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
   }
   if(stop === 3){
@@ -7556,7 +7556,7 @@ function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
     if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
@@ -7567,7 +7567,7 @@ function ckdRosterNext(r){
   /* owner is { role, email } from the server; it once printed as [object Object] (2026-11-02) */
   const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
   const mine = !n.owner || /coordinator|staff/i.test(String(o.role || ''));
-  const whose = o.role === 'owner' ? 'Samantha or Zachary' : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  const whose = o.role === 'owner' ? (/^cg\.(company\.countersign|approve\.work)$/.test(String(n.key || '')) ? 'a person on the Approve to Work list' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
   return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
@@ -8073,7 +8073,7 @@ const CKD_HOW = {
   casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
   review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
     'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
-  advance: ['The checks and references are done. An owner says go before Step 2.', 'Nothing for you to do: Samantha or Zachary have a card for it.'],
+  advance: ['The checks and references are done. A person on the Approve to Advance list says go before Step 2.', 'Nothing for you to do: a person on the Approve to Advance list has a card for it.'],
   step2send: ['Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
     'The Hub sends them their Step 2 message and reminds them on day 3 and day 6.'],
   step2wait: ['Nothing to do yet. They are finishing Step 2 in Viventium.', 'If they tell you on the phone that they are done, press They said done.',
@@ -8091,7 +8091,7 @@ const CKD_HOW = {
     'Call them. Make sure everything is on file and complete, and answer any questions about orientation or the job.',
     'Make sure the AxisCare app is downloaded and they can sign in. Ask if they would like a quick test clock-in.',
     'Tick each one on their card and press Done. No answer? Press No answer and try again tomorrow. Shift texts wait for this call.'],
-  approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  approve: ['Everything is done. Only a person on the Approve to Work list can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
   quiet: ['Call them. Life changes: ask if flexible PRN shifts would work better for them.', 'If PRN fits, press What now? and then I offered PRN.', 'If they are done, press What now? and pick why. The Hub stops their reminders and keeps their record.'],
   prn: ['Call them and ask if PRN (flexible shifts they can accept or decline) works for them.', 'Press Their answer. Yes keeps them on the list as PRN. No opens Take off the list.'],
   badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],

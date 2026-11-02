@@ -88,7 +88,7 @@ async()=>{
   AFTER.may_approve_work=false; AFTER.rows.push(Object.assign(JSON.parse(JSON.stringify(AFTER.rows[2])),{ axiscare_id:'9105', name:'Fake Older Way', journey_id:'j-x', offer_id:'o-x', ready:{ ready_for_final:true, missing:[] } }));
   await OPR.load(); await sleep(100);
   const rx=rowOf('Fake Older Way');
-  ok('someone not on the Approve to Work list: no button, says who may', rx && !rx.querySelector('.orp-go') && /Waiting for a person on the Approve to Work list \(Samantha or Zachary\)/.test(rx.innerText), rx&&rx.innerText);
+  ok('someone not on the Approve to Work list: no button, says who may', rx && !rx.querySelector('.orp-go') && /Waiting for a person on the Approve to Work list\./.test(rx.innerText), rx&&rx.innerText);
   AFTER.switches.checkin_live=false; AFTER.rows[0].checkin=null; AFTER.rows[0].approved={ at:ago(H), by:'Samantha Troutman' };
   await OPR.load(); await sleep(100);
   ok('check-in switch off: approved and Active counts as ready for shifts (they leave the Finish line)', !rowOf('Fake Ready Person'), t().slice(0,400));

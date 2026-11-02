@@ -211,7 +211,7 @@
     try { d = await call({ action:'get', offer_id:String(offerId) }); }
     catch(e){ back(); alert('The card could not be read: ' + (e.message || e)); return false; }
     if(!d.journey || !d.approve || !d.approve.ready_for_final){ back(); await open(offerId); return false; }
-    if(!d.approve.may_approve_work){ back(); alert('Only a person on the Approve to Work list (Samantha or Zachary) may approve.'); return false; }
+    if(!d.approve.may_approve_work){ back(); alert('Only a person on the Approve to Work list may approve.'); return false; }
     if(!(await ccConfirm(approveWords(d)))){ back(); return false; }
     if(btn) btn.textContent = 'Saving…';
     try { CUR = Object.assign(await call({ action:'approve_work', journey_id: d.journey.journey_id }), { who: '' }); LIST.at = 0; return true; }
@@ -266,7 +266,7 @@
     if(!ready.length) return '';
     return '<div style="background:linear-gradient(135deg,#f3f7ff,#eef2ff);border:1.5px solid #0D365F;border-radius:12px;padding:.85rem 1rem;margin-bottom:1rem">'
       + '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.6rem;flex-wrap:wrap"><span style="font-size:.95rem">✓</span><span style="font-size:.88rem;font-weight:700;color:#0D365F">Ready for final approval</span><span style="background:#0D365F;color:#fff;font-size:.68rem;font-weight:700;border-radius:12px;padding:.1rem .5rem">' + ready.length + '</span>'
-      + '<span style="font-size:.75rem;color:#6E6559">' + (LIST.may ? 'Open the card and press Approve to Work.' : 'Waiting for a person on the Approve to Work list (Samantha or Zachary).') + '</span></div>'
+      + '<span style="font-size:.75rem;color:#6E6559">' + (LIST.may ? 'Open the card and press Approve to Work.' : 'Waiting for a person on the Approve to Work list.') + '</span></div>'
       + '<div style="display:flex;flex-direction:column;gap:.45rem">' + ready.map(r => '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:.45rem .6rem;background:#fff;border:1.5px solid ' + (r.axiscare === 'failed' ? '#B91C1C' : '#0D365F') + ';border-radius:9px;padding:.45rem .8rem"><span style="font-size:.84rem;font-weight:600;color:#0D365F">' + esc(r.name) + '</span>'
         + (r.axiscare === 'failed' ? '<span style="font-size:.7rem;color:#B91C1C;font-weight:700">Approval recorded, AxisCare update failed: open the card and press Retry</span>' : '<span style="font-size:.7rem;color:#6E6559">every requirement complete · scheduling locked until the press</span>')
         + '<span style="margin-left:auto">' + chip(r.offer_id) + '</span></div>').join('') + '</div></div>';
