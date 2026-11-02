@@ -82,7 +82,7 @@
   }
   /* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the check-in call. Three ticks and the test clock-in choice save
      as they are pressed; Done finishes it (the server refuses until all are in); No answer keeps it for the next business day. */
-  const CHECKIN = [['on_file', 'Everything on file and complete'], ['questions', 'Questions about orientation and the job answered'], ['app', 'AxisCare app downloaded and they can sign in']];
+  const CHECKIN = [['on_file', 'Everything on file and complete'], ['questions', 'Questions about orientation and the job answered'], ['app', 'AxisCare app downloaded and they can sign in'], ['profile', 'Profile complete']];   /* profile: the Finish line, 2026-11-02 */
   function checkinBlock(c){
     let h = '<div style="border-top:1px solid #EEE9DF;margin-top:.5rem;padding-top:.5rem"><div style="font-weight:800;color:#0D365F">Check-in call</div>';
     if(c.done) return h + '<div style="color:#15803D;margin-top:.2rem">✓ Done ' + esc(when(c.at)) + (c.test_clock ? ' · test clock-in: ' + (c.test_clock.choice === 'done' ? 'done' : 'no thanks') : '') + '</div></div>';
@@ -175,12 +175,30 @@
   async function record(key, btn){ const result = (await ccPrompt('Result (for example: verified, current):')); if(!result) return; const document_ = (await ccPrompt('Where is the document? Paste a link or the file path on the row:')); if(!document_) { alert('A result needs its document.'); return; } const expires = (await ccPrompt('Expiry date, YYYY-MM-DD (blank if none):')) || ''; await act({ action:'record', step_key:key, result, document: document_, expires }, btn); }
   async function notNeeded(key, btn){ const reason = (await ccPrompt('Why is this not needed for this person? (owners only; permanent)')); if(!reason || reason.trim().length < 5) return; await act({ action:'not_needed', step_key:key, reason }, btn); }
   /* SLICE 5: the owner's press and the Retry */
+  function approveWords(d){
+    const done = (d.view.rows || []).filter(r => ['complete', 'not_needed', 'exception'].indexOf(r.status) > -1).length;
+    return 'Approve ' + d.journey.client_name + ' to work?\n\n' + done + ' requirements complete, Level of Care ' + d.approve.level_of_care.level + '.\nThis records your name and the exact time (permanent), ' + (d.approve.switches.axiscare_live ? 'sets them Active in AxisCare and reads it back' : 'records the AxisCare update as practice (the switch is off)') + ', then ' + (d.approve.switches.text_live ? 'sends the cleared text (8am to 6pm, yes-to-texts, opt-outs).' : 'records the cleared text as practice (the switch is off).');
+  }
   async function approve(btn){
     const d = CUR; if(!d || !d.approve) return;
-    const done = (d.view.rows || []).filter(r => ['complete', 'not_needed', 'exception'].indexOf(r.status) > -1).length;
-    const words = 'Approve ' + d.journey.client_name + ' to work?\n\n' + done + ' requirements complete, Level of Care ' + d.approve.level_of_care.level + '.\nThis records your name and the exact time (permanent), ' + (d.approve.switches.axiscare_live ? 'sets them Active in AxisCare and reads it back' : 'records the AxisCare update as practice (the switch is off)') + ', then ' + (d.approve.switches.text_live ? 'sends the cleared text (8am to 6pm, yes-to-texts, opt-outs).' : 'records the cleared text as practice (the switch is off).');
-    if(!(await ccConfirm(words))) return;
+    if(!(await ccConfirm(approveWords(d)))) return;
     await act({ action:'approve_work' }, btn);
+  }
+  /* the Orientation tab's Finish line (2026-11-02): the same press without opening the card first. The card is read fresh; when it
+     is not ready it opens, so the office sees what is missing. Answers true once the server recorded the approval. */
+  async function approveOffer(offerId, btn){
+    ensureModal(); const label = btn ? btn.textContent : '';
+    if(btn){ btn.disabled = true; btn.textContent = 'Checking…'; }
+    const back = () => { if(btn){ btn.disabled = false; btn.textContent = label; } };
+    let d;
+    try { d = await call({ action:'get', offer_id:String(offerId) }); }
+    catch(e){ back(); alert('The card could not be read: ' + (e.message || e)); return false; }
+    if(!d.journey || !d.approve || !d.approve.ready_for_final){ back(); await open(offerId); return false; }
+    if(!d.approve.may_approve_work){ back(); alert('Only a person on the Approve to Work list (Samantha or Zachary) may approve.'); return false; }
+    if(!(await ccConfirm(approveWords(d)))){ back(); return false; }
+    if(btn) btn.textContent = 'Saving…';
+    try { CUR = Object.assign(await call({ action:'approve_work', journey_id: d.journey.journey_id }), { who: '' }); LIST.at = 0; return true; }
+    catch(e){ back(); alert('Not approved: ' + (e.message || e)); return false; }
   }
   async function retry(btn){ await act({ action:'retry_axiscare' }, btn); }
   /* SLICE 7: the copy sheet (attributes or availability) from the signed Step 1 answers; Copy puts it on the clipboard as lines */
@@ -238,5 +256,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, close, confirm, record, notNeeded, approve, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
+  window.CRX = { open, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
 })();
