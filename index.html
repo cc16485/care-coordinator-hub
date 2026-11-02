@@ -1219,6 +1219,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          person's lifecycle row; job_offers is untouched. -->
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Offers<span class="subtab-badge" id="offersBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Onboarding<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
+    <!-- 2026-11-01 (Samantha): who was invited to orientation and when, the unit they are on, who is stuck, who finished (orient-progress.js) -->
+    <div class="fpill" data-tab="orientprog" onclick="switchTab('orientprog')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Orientation<span class="subtab-badge red" id="orpPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')" style="display:none" title="Folded into Onboarding (2026-10-21); open it from Onboarding, More"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
     <!-- 2026-10-01 (Samantha): the reference page sits at the far right, apart from the working tabs -->
     <span style="flex:1 1 auto;"></span>
@@ -1944,6 +1946,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- ===================== TAB: APPLICANTS ===================== -->
     <!-- Applicant journey & messages (2026-10-01): every message an applicant gets, its wording, timing, trigger and
          whether it shows in GoHighLevel Conversations. Data: applicant-journey.js, loaded the first time this opens. -->
+    <!-- ORIENTATION (2026-11-01, Samantha): read from the Training Platform by orient-progress.js -->
+    <section class="tabpanel" id="tab-orientprog">
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12.5px;font-weight:700;color:#2F6FB0;text-transform:uppercase;letter-spacing:.04em;">Recruit &amp; Onboard</div>
+        <h2 style="margin:2px 0 0;font-size:27px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Orientation</h2>
+        <div class="field-note" style="font-size:14px;margin-top:3px;">Everyone invited to the online Agency Orientation: when they were invited, the unit they are on, who is stuck, and when they finished.</div>
+      </div>
+      <div id="orpMount"><div class="field-note">Loading…</div></div>
+    </section>
     <section class="tabpanel" id="tab-apjourney">
       <!-- 2026-10-21 (Samantha): the "Applicant journey & messages" search box and the "See a real applicant's journey"
            finder were removed from the top of this tab. A person's journey still opens from their offer. -->
@@ -7414,7 +7425,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=1"></script><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -7679,6 +7690,7 @@ async function signIn(){
   await flushPendingSync();
   ccKeyMapCheck();
   renderActiveTab();
+  try{ if(window.OPR) OPR.watch(); }catch(e){}
 }
 async function signOut(){
   if(sb) await sb.auth.signOut();
@@ -8152,7 +8164,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8560,7 +8572,7 @@ const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
-  cgbackground:'Onboarding', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
+  cgbackground:'Onboarding', orientprog:'Orientation', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
@@ -8821,6 +8833,7 @@ function renderActiveTab(){
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
+  if(activeTab==='orientprog' && window.OPR) OPR.mount();
   if(activeTab==='schedguide'&&typeof SG!=='undefined') SG.render();
   if(activeTab==='interviews') ivqLoad();
   if(activeTab==='coverage'){ renderCoverage(); }
@@ -38194,6 +38207,7 @@ function renderMgrStrip(){
       if(window.CC_PHONE){ phStart(); return; }
       renderActiveTab();
       updateStartLinkBadge();
+      try{ if(window.OPR) OPR.watch(); }catch(e){}
     }
   }
 })();
