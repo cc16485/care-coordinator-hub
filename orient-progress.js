@@ -133,8 +133,8 @@
     if(p.alert && !p.soft) return { text:'Stuck in orientation on Unit ' + (p.cur ? p.cur[0] : UNITS.length) + ' of ' + UNITS.length, bad:true, id };
     return { text:p.cur ? 'Orientation: Unit ' + p.cur[0] + ' of ' + UNITS.length : 'Orientation: finishing up', bad:false, id };
   }
-  function show(id){ ST.focus = String(id || ''); if(typeof switchTab === 'function') switchTab('orientprog'); }
-  function toOnboarding(name){ window.CKD_FIND = String(name || ''); if(typeof switchTab === 'function') switchTab('cgbackground'); }
+  function show(id){ ST.focus = String(id || ''); if(folded() && typeof window.obtOpenQueue === 'function'){ if(ST.focus) ST.open[ST.focus] = true; window.obtOpenQueue('orient'); return; } if(typeof switchTab === 'function') switchTab('orientprog'); }
+  function toOnboarding(name){ window.CKD_FIND = String(name || ''); if(folded() && typeof window.obtOpenQueue === 'function'){ window.obtOpenQueue('all'); return; } if(typeof switchTab === 'function') switchTab('cgbackground'); }
   function badgeBit(r){
     const g = rosterFor(r); if(!g) return '';
     if(g.badge_mailed_at) return 'Badge mailed ' + esc(day(g.badge_mailed_at));
@@ -185,10 +185,11 @@
     try{ if(typeof activeTab !== 'undefined' && activeTab === 'cgbackground' && typeof renderCkd === 'function') renderCkd(); }catch(e){}
   }
   function badge(){
-    const b = document.getElementById('orpPillBadge'); if(!b) return;
-    const n = ST.rows ? needs(people()).filter(p => !p.soft).length : 0;
-    if(n > 0){ b.textContent = n; b.style.display = ''; b.title = n + ' new hire' + (n === 1 ? '' : 's') + ' stuck or not started in orientation'; }
-    else b.style.display = 'none';
+    const n = ST.rows ? needs(people()).filter(p => !p.soft).length : 0, f = folded();
+    const set = (b, on) => { if(!b) return; if(on && n > 0){ b.textContent = n; b.style.display = ''; b.title = n + ' new hire' + (n === 1 ? '' : 's') + ' stuck or not started in orientation'; } else b.style.display = 'none'; };
+    set(document.getElementById('orpPillBadge'), !f);
+    set(document.getElementById('orpOnbBadge'), f);
+    const pill = document.querySelector('.fpill[data-tab="orientprog"]'); if(pill) pill.style.display = f ? 'none' : '';
   }
 
   const css = () => { if(document.getElementById('orpCss')) return; const s = document.createElement('style'); s.id = 'orpCss';
@@ -225,6 +226,12 @@
       + '.orp-miss{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0 2px}.orp-miss span{font-size:12px;background:#FDE8E8;color:#8B2A20;border-radius:8px;padding:2px 8px}'
       + '.orp-where{font-size:11px;font-weight:700;color:#64748B;background:#F1F5F9;border-radius:8px;padding:2px 7px;margin-left:6px;vertical-align:2px}'
       + '@media (max-width:720px){.orp-frow{grid-template-columns:minmax(0,1fr) auto}.orp-frow.hd{display:none}.orp-frow>.fd,.orp-frow>.fa{grid-column:1/-1}}'
+      + '.orp-otw{background:#fff;border:1px solid var(--border);border-radius:12px;overflow-x:auto}.orp-ot{border-collapse:collapse;width:100%;font-size:12.5px}'
+      + '.orp-ot th,.orp-ot td{padding:7px 8px;border-bottom:1px solid #EEF1F5;text-align:left;vertical-align:middle;white-space:nowrap}.orp-ot th{background:#f6f5f0;font-size:11.5px;color:#55677a;font-weight:700}'
+      + '.orp-ot .orp-wrapc{white-space:normal;min-width:180px}.orp-og td{background:#f6f5f0;font-weight:800;font-size:12px;color:var(--navy)}.orp-og.hot td{color:#B23B2E}'
+      + '.orp-ox td{background:#FAFBFC;white-space:normal}.orp-ox .orp-row{border-top:0}.orp-oa{display:flex;gap:6px}.orp-oa a,.orp-oa button{padding:4px 10px;font-size:12px}'
+      + '.orp-ub{display:inline-block;width:56px;height:6px;border-radius:3px;background:#E5E9EF;margin-right:6px;vertical-align:middle;overflow:hidden}.orp-ub i{display:block;height:100%;background:#3C9D6A}'
+      + '@media (max-width:760px){.orp-ot thead{display:none}.orp-ot tr{display:block;border-bottom:1px solid #EEF1F5;padding:6px 4px}.orp-ot td{display:inline-block;border:0;padding:2px 6px;white-space:normal}.orp-ot .orp-on{display:block}.orp-oa{display:flex}}'
       + '.orp-late{color:#B23B2E;font-weight:700}.orp-ok{color:#1F7A4D}.orp-wait{color:#8A5A12}.orp-no{color:#B23B2E}';
     document.head.appendChild(s); };
 
@@ -502,7 +509,8 @@
     return '<div class="orp-frow hd"><div>Name</div><div>Finished</div><div>After finishing</div><div></div></div>' + shown.map(finRow).join('')
       + (list.length > shown.length ? '<div class="orp-foot" style="margin-top:8px">Showing ' + shown.length + ' of ' + list.length + '. <button class="secondary" onclick="OPR.more()">Show ' + Math.min(PAGE, list.length - shown.length) + ' more</button></div>' : '');
   }
-  function draw(){
+  function draw(){ badge(); drawTab(); if(hostOn()) hostDraw(); }   /* badge: the tab hides and the count moves as soon as the switch is read */
+  function drawTab(){
     const m = el(); if(!m) return; css();
     if(!ST.rows && ST.busy){ m.innerHTML = '<div class="field-note">Reading orientation from the Training Platform…</div>'; return; }
     ST.onb = null;
@@ -557,6 +565,92 @@
       else if(!(tab === 'done' && !ST.fin)) ST.focus = '';
     }
   }
+
+  /* ── ORIENTATION INSIDE ONBOARDING (Samantha 2026-11-03: "Go with your picks on all four and build it, with the switch off",
+     https://claude.ai/artifact/HUbmzQ7Gq3vmcE9dqN2mK2). With ops_settings.orientation_in_onboarding_live (and the Onboarding
+     table on), the Orientation tab is hidden and its view is drawn inside Onboarding when the Orientation work queue is picked:
+     a row per person in the same four lists (Needs you, Finish line, In orientation, Invited, not started), each opening to
+     exactly what this tab shows today (row / finishRow, the same buttons and ticks), then Finished history (finTable) and the
+     stuck-days setting. Same rules, same reads, same server steps; nothing new is sent or saved. ── */
+  function folded(){ const o = (typeof DATA !== 'undefined' && DATA && DATA.ops_settings) || {}; return o.orientation_in_onboarding_live === true && o.onboarding_table_live === true; }
+  const hostOn = () => !!(ST.host && document.body.contains(ST.host));
+  function inOnboarding(host, q){
+    ST.host = host; ST.hostQ = String(q || ''); css();
+    if(!ST.busy && (!ST.rows || Date.now() - ST.at > 60e3 || (ST.histOpen && ST.fin === null))) load(!!ST.histOpen); else hostDraw();
+  }
+  function hostHist(on){ ST.histOpen = !!on; ST.show = PAGE; if(on && ST.fin === null && !ST.busy) load(true); else draw(); }
+  function hostStatus(p, fin){
+    if(fin){ const a = afterFor(p.r), f = a ? finishState(a) : {};
+      return f.approved ? '<span class="orp-ok">Approved</span>' : a && a.ready && a.ready.ready_for_final ? '<span class="orp-ok">Ready to approve</span>' : '<span class="orp-wait">Finished</span>'; }
+    if(p.state === 'done') return '<span class="orp-ok">Finished</span>';
+    if(p.alert) return '<span class="' + (p.soft ? 'orp-wait' : 'orp-late') + '">' + (p.state === 'notstarted' ? 'Not opened' : p.soft ? 'Sign-off' : 'Stuck') + '</span>';
+    return p.state === 'inprogress' ? '<span class="orp-ok">Moving</span>' : '<span class="orp-wait">Invited</span>';
+  }
+  function hostLast(p, fin){
+    const r = p.r;
+    if(fin){ const wait = Math.floor((Date.now() - ts(r.completed_at)) / DAY); return 'Finished ' + esc(day(r.completed_at)) + (wait >= 1 ? ', <span class="' + (wait > stuckDays() ? 'orp-late' : '') + '">waiting ' + wait + ' day' + (wait === 1 ? '' : 's') + '</span>' : ''); }
+    if(p.state === 'done') return 'Finished ' + esc(day(r.completed_at));
+    if(p.alert && !p.soft) return '<span class="orp-late">' + esc(p.alert) + '</span>';
+    if(p.state === 'inprogress' && p.cur) return 'Unit ' + p.cur[0] + ', ' + esc(ago(p.moved || p.seen));
+    return p.state === 'notstarted' ? '<span class="orp-meta">Not opened yet</span>' : 'Finishing up';
+  }
+  function hostSent(r){
+    const ms = (r.messages || []).filter(m => m.kind !== 'certificate'), word = { invite:'Invite', reminder:'Reminder', signoff_reminder:'Sign-off reminder' };
+    if(!ms.length) return r.nudged_at ? 'Reminder ' + esc(day(r.nudged_at)) : '<span class="orp-meta">·</span>';
+    const last = ms[ms.length - 1];
+    return esc(word[last.kind] || last.kind) + ' ' + esc(day(last.at)) + (ms.length > 1 ? ' <span class="orp-meta">(' + ms.length + ' sent)</span>' : '');
+  }
+  function hostNext(p){
+    const a = afterFor(p.r), f = finishState(a), id = String(p.r.training_id || '');
+    const label = !f.approved ? (a.ready && a.ready.ready_for_final ? (ST.meta.may ? 'Approve to Work' : 'Waiting on approval') : 'Still needs ' + (((a.ready && a.ready.missing) || []).length || '') + '')
+      : f.active ? 'Check-in call' : 'AxisCare';
+    return '<button type="button" class="ibtn" onclick="OPR.toggle(\'' + esc(id) + '\')">' + esc(label.trim()) + '</button>';
+  }
+  function hostRow(p, fin){
+    const r = p.r, id = String(r.training_id || ''), open = !!ST.open[id], foc = id && id === ST.focus;
+    const units = p.state === 'done' ? UNITS.length : p.done;
+    const working = working_(p) ? '<span class="orp-chip orp-c-wait" title="Already Active in AxisCare: a current caregiver redoing orientation, not a new hire">Already working</span>' : '';
+    const call = r.phone && typeof ocAttrs === 'function' ? '<a class="ibtn" ' + ocAttrs(r.phone, { email:r.email }) + '>Call</a>' : '';
+    const acts = fin ? hostNext(p) : (p.state !== 'done' && window.HREM ? HREM.orientBtn(r) : '') + call;
+    return '<tr class="orp-or' + (foc ? ' orp-focus' : '') + '"' + (id ? ' id="orp-p-' + esc(id) + '"' : '') + '>'
+      + '<td class="orp-on"><span class="orp-nm">' + hubName(r) + '</span>' + working + '<button type="button" class="orp-hist" onclick="OPR.toggle(\'' + esc(id) + '\')" aria-expanded="' + open + '">' + (open ? 'Hide' : 'More') + '</button></td>'
+      + '<td>' + hostStatus(p, fin) + '</td>'
+      + '<td><span class="orp-ub"><i style="width:' + Math.round(units / UNITS.length * 100) + '%"></i></span>' + units + '/' + UNITS.length + '</td>'
+      + '<td class="orp-wrapc">' + hostLast(p, fin) + '</td>'
+      + '<td>' + (p.invited ? esc(day(new Date(p.invited).toISOString())) : '<span class="orp-meta">·</span>') + (dueBit(r) ? ' · ' + dueBit(r) : '') + '</td>'
+      + '<td>' + hostSent(r) + '</td>'
+      + '<td><div class="orp-oa">' + acts + '</div></td></tr>'
+      + (open ? '<tr class="orp-ox"><td colspan="7">' + (fin ? finishRow(p) : row(p)) + '</td></tr>' : '');
+  }
+  function hostDraw(){
+    const m = ST.host; if(!m) return; css();
+    if(!ST.rows){ m.innerHTML = ST.err ? '<div class="orp-err">Could not read orientation: ' + esc(ST.err) + '</div>' : '<div class="field-note">Reading orientation from the Training Platform…</div>'; return; }
+    ST.onb = null;
+    const L = lists(), nd = stuckDays(), q = ST.hostQ.trim().toLowerCase(), f = list => q ? list.filter(p => hit(p, q)) : list;
+    const G = [['need', 'Needs you: stuck, not opened, or not signed off', false], ['fin', 'Finish line: finished, before shifts', true], ['inp', 'In orientation', false], ['wait', 'Invited, not started', false]];
+    const body = G.map(([k, t, fin]) => { const xs = f(L[k]); return xs.length ? '<tr class="orp-og' + (k === 'need' && xs.some(p => !p.soft) ? ' hot' : '') + '"><td colspan="7">' + t + ' (' + xs.length + ')</td></tr>' + xs.map(p => hostRow(p, fin)).join('') : ''; }).join('');
+    const done = f(L.done).filter(inWindow).filter(p => !ST.prob || p.alert);
+    const canSet = typeof ccCan === 'function' && ccCan('manage_settings');
+    const hist = ST.histOpen || !!q;
+    m.innerHTML = (ST.err ? '<div class="orp-err">Could not read orientation: ' + esc(ST.err) + ' The list below is from ' + esc(when(new Date(ST.at).toISOString())) + '.</div>' : '')
+      + (ST.afterErr ? '<div class="orp-err">Could not read the readiness cards (' + esc(ST.afterErr) + '), so the after-finishing lines show only what the Training Platform knows.</div>' : '')
+      + '<div class="orp-otw"><table class="orp-ot"><thead><tr><th>Name</th><th>Status</th><th>Units</th><th>Last activity</th><th>Invited, due</th><th>Sent</th><th></th></tr></thead><tbody>'
+      + (body || '<tr><td colspan="7" class="orp-empty">' + (q ? 'Nobody in orientation matches that search.' : 'Nobody is in orientation right now.') + '</td></tr>') + '</tbody></table></div>'
+      + '<div class="orp-card" style="margin-top:12px"><h3>Finished history' + (ST.fin ? ' (' + L.done.length + ')' : '') + '</h3>'
+      + (hist ? '<div class="orp-tools" style="margin-top:6px"><select id="orpWin" onchange="OPR.win(this.value)" aria-label="Finished when">' + [['30', 'Last 30 days'], ['90', 'Last 90 days'], ['year', 'This year'], ['all', 'Everyone']].map(([v, t]) => '<option value="' + v + '"' + (ST.win === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>'
+          + '<label><input type="checkbox" id="orpProb" onchange="OPR.prob(this.checked)"' + (ST.prob ? ' checked' : '') + '> Only with a problem</label><button class="secondary" onclick="OPR.hist(false)">Hide</button></div>'
+          + (ST.fin === null && !ST.finErr ? '<p>Reading everyone who finished…</p>' : ST.finErr ? '<p class="orp-no">Could not read everyone who finished (' + esc(ST.finErr) + '). Showing the last 60 days.</p>' : '')
+          + (done.length ? finTable(done) : empty(ST.prob ? 'Nobody in this time has a problem after finishing.' : 'Nobody finished in this time.'))
+        : '<p>Everyone who ever finished, with the certificate PDF and their full history. <button class="secondary" onclick="OPR.hist(true)">Show finished history</button></p>')
+      + '</div>'
+      + '<div class="orp-foot"><span>From the Training Platform' + (ST.at ? ', read ' + esc(when(new Date(ST.at).toISOString())) : '') + '.</span>'
+      + '<button class="secondary" onclick="OPR.load()"' + (ST.busy ? ' disabled' : '') + '>' + (ST.busy ? 'Reading…' : 'Refresh') + '</button>'
+      + (canSet ? '<label for="orpDays">Stuck after</label><input id="orpDays" type="number" min="1" max="30" step="1" value="' + nd + '"><span>days</span><button class="secondary" onclick="OPR.saveDays(this)">Save</button><span id="orpDaysSaved"></span>' : '<span>Stuck after ' + nd + ' day' + (nd === 1 ? '' : 's') + ' with no new screen.</span>')
+      + '</div>';
+    if(ST.focus){ const f2 = document.getElementById('orp-p-' + ST.focus); if(f2){ ST.focus = ''; if(f2.scrollIntoView) f2.scrollIntoView({ block:'center' }); } }
+  }
+  /* the Orientation queue's count on Onboarding: everyone in the four lists */
+  function queueCount(){ if(!ST.rows) return null; const L = lists(); return L.need.length + L.fin.length + L.inp.length + L.wait.length; }
   /* the hiring strip's numbers (hire-strip.js): null until the list is read */
   function counts(){
     if(!ST.rows) return null;
@@ -593,5 +687,5 @@
     const r = rowFor(ax, name), a = r ? afterFor(r) : null; if(!a) return null;
     return { approved:!!a.approved, ready:!!(a.ready && a.ready.ready_for_final), missing:((a.ready && a.ready.missing) || []).map(short), checkin:a.checkin || null, active:a.active || null };
   }
-  window.OPR = { mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { inOnboarding, folded, queueCount, hist:hostHist, mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();

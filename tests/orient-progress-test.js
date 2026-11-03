@@ -90,7 +90,8 @@ ck('Onboarding line: two Training people with the same name and no number: nothi
 b = OPR.brief('802', 'Dot Fay');
 ck('Onboarding line: finished shows the day', b && /^Finished orientation Oct 30$/.test(b.text), b);
 ck('Onboarding line: nobody matching: nothing shown', OPR.brief('999', 'No Body') === null);
-ck('the jump to Onboarding hands the name to its search (CKD_FIND) and opens the tab', src.includes("window.CKD_FIND = String(name || ''); if(typeof switchTab === 'function') switchTab('cgbackground')"));
+/* 2026-11-03 Orientation inside Onboarding: with that switch on the jump opens Onboarding's Everyone queue instead */
+ck('the jump to Onboarding hands the name to its search (CKD_FIND) and opens the tab (or, folded in, the Everyone queue)', src.includes("window.CKD_FIND = String(name || '');") && src.includes("if(typeof switchTab === 'function') switchTab('cgbackground'); }") && src.includes("window.obtOpenQueue('all')"));
 ck('the jump to Orientation remembers the person and scrolls to them', src.includes("ST.focus = String(id || '')") && src.includes("document.getElementById('orp-p-' + ST.focus)"));
 ck('the badge is read from the Hub caregiver list, never written here', src.includes('g.badge_mailed_at') && !/badge_mailed_at\s*=/.test(src));
 /* 2026-11-02 (Samantha): "Approve to Work button, then the check-in call with a profile tick, then Ready for shifts" on this tab.
