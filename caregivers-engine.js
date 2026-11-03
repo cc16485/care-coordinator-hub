@@ -8065,7 +8065,7 @@ function obtCellHTML(x, k){
   else if(x.s === 'na') inner = '<span class="obt-none">–</span>';
   else inner = (x.t ? '<span class="obt-t' + (x.late ? ' obt-late' : x.s === 'wait' ? ' obt-wait' : '') + (x.warn ? ' obt-warnt' : '') + '">' + (x.late ? obtIcon('clock') : '') + bgrEsc(x.t) + '</span>' : '');
   const link = x.link && x.s !== 'ok' ? ' onclick="' + x.link + '" style="cursor:pointer"' : '';
-  return '<td class="obt-c obt-' + x.s + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + '</td>';
+  return '<td class="obt-c obt-st-' + x.s + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + '</td>';
 }
 function obtWhoHTML(m){
   const order = ['review', 'office', 'applicant', 'outside'];
@@ -8082,7 +8082,10 @@ function obtNameHTML(m){
   return '<button type="button" class="obt-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
     + '<button type="button" class="obt-more" onclick="' + panel + '" title="Their checklist: every detail, notes, Take off">Checklist</button>'
     + (m.nearly ? '<span class="obt-near" title="One step from Approve to Work">' + obtIcon('star') + bgrEsc(m.nearly) + '</span>' : '')
-    + m.extra.map(e => '<button type="button" class="obt-tag' + (e.late ? ' obt-tag-late' : '') + '" onclick="' + e.on + '" title="' + bgrEsc(e.tip) + '">' + bgrEsc(e.t) + '</button>').join('');
+    + m.extra.map(e => '<button type="button" class="obt-tag' + (e.late ? ' obt-tag-late' : '') + '" onclick="' + e.on + '" title="' + bgrEsc(e.tip) + '">' + bgrEsc(e.t) + '</button>').join('')
+    /* 2026-11-03: the Step 2 Send reminder and its history line (with the still-interested check-in), as today's rows show
+       them (hire-remind.js, 2026-11-02); the table left them out */
+    + (c && window.HREM ? '<div class="obt-rem">' + HREM.s2Btn(c) + HREM.s2Line(c) + '</div>' : '');
 }
 function obtRowHTML(m, hi){
   return '<tr class="obt-r' + (m.who.has('review') ? ' obt-r-rev' : '') + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
