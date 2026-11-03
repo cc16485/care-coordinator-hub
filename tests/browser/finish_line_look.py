@@ -38,7 +38,7 @@ async()=>{
       return { data:{ ok:true }, error:null }; }
     return { data:{ ok:true }, error:null }; };
   (0,eval)("sb=new Proxy(sb||{},{ get:(t,k)=>k==='functions'?{ invoke:(n,o)=>window.__inv(n,o) }:(typeof t[k]==='function'?t[k].bind(t):t[k]) });");
-  window.fetch=async(u,o)=>String(u).includes('/functions/v1/hub-training-data')?new Response(JSON.stringify(ROWS),{status:200}):new Response('{}',{status:200});
+  window.fetch=async(u,o)=>String(u).includes('/functions/v1/hub-training-data')?new Response(JSON.stringify(String(u).includes('orientation_finished')?ROWS.filter(r=>r.status==='complete'):ROWS),{status:200}):new Response('{}',{status:200});
   (0,eval)("trainHubTok=async()=>'t'");
   const ALERTS=[], CONFIRMS=[]; window.alert=m=>ALERTS.push(String(m)); (0,eval)("ccConfirm=async m=>{ window.__cf.push(String(m)); return true; }; ccPrompt=async()=>'left a voicemail';"); window.__cf=CONFIRMS;
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin'];
@@ -46,18 +46,21 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; await sleep(300);
   switchTab('orientprog'); await OPR.load(); await sleep(150);
   const P=document.getElementById('tab-orientprog'), t=()=>P.innerText;
-  const heads=[...P.querySelectorAll('.orp-card')].map(c=>c.querySelector('h3').innerText);
-  ok('the Finish line sits at the top, with the three new hires who finished and are not done', heads[0]==='Finish line (3)' && heads.includes('In orientation (1)') && heads.includes('Finished in the last 60 days (2)'), heads);
+  let DONE_HAS=false; const tabs=()=>[...P.querySelectorAll('.orp-tab')].map(x=>x.innerText.replace(/\s+/g,' ').trim());
+  OPR.tab('done'); await sleep(30);
+  ok('fully done and the older way are in Finished, not on the Finish line', /Fake All Done/.test(P.querySelector('.orp-card').innerText) && /Fake Older Way/.test(P.querySelector('.orp-card').innerText), P.querySelector('.orp-card').innerText);
+  OPR.tab('fin'); await sleep(30);
+  ok('the Finish line tab has the three new hires who finished and are not done', tabs().includes('3 Finish line') && tabs().includes('1 In orientation') && P.querySelector('.orp-tab.on').innerText.includes('Finish line'), tabs());
   const F=()=>P.querySelector('.orp-card').innerText, rowOf=n=>[...P.querySelectorAll('.orp-fin')].find(r=>r.innerText.includes(n));
-  ok('oldest finished first', F().indexOf('Fake Calling Person') < F().indexOf('Fake Ready Person') && F().indexOf('Fake Ready Person') < F().indexOf('Fake Not Ready'), F());
-  ok('fully done and the older way stay in Finished, not on the Finish line', !/Fake All Done|Fake Older Way/.test(F()) && /Fake All Done/.test(P.querySelectorAll('.orp-card')[1].innerText+P.querySelectorAll('.orp-card')[2].innerText+t()), heads);
-  ok('summary: At the finish line 3', /3\s*At the finish line/.test(P.querySelector('.orp-sum').innerText), P.querySelector('.orp-sum').innerText);
+  ok('longest waiting first', F().indexOf('Fake Calling Person') < F().indexOf('Fake Ready Person') && F().indexOf('Fake Ready Person') < F().indexOf('Fake Not Ready'), F());
+  ok('fully done and the older way are not on the Finish line', !/Fake All Done|Fake Older Way/.test(F()), F());
+  ok('how long each has waited since finishing', /waiting \d+ days?/.test(F()), F());
   const r1=rowOf('Fake Ready Person');
   ok('each row shows three steps in order', [...r1.querySelectorAll('.orp-st')].map(x=>x.innerText).join('|')==='Approve to Work|Check-in call|Ready for shifts');
   ok('ready: the green Approve to Work button, with what it does', r1.querySelector('.orp-go') && r1.querySelector('.orp-go').innerText.includes('Approve to Work') && /sets them Active in AxisCare/.test(r1.innerText), r1.innerText);
   ok('ready: the call waits for the approval, and says what the call covers', /After Approve to Work\. Call them to answer questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete/.test(r1.innerText));
   const r3=rowOf('Fake Not Ready');
-  ok('not ready: no button, what is missing by name, the readiness card one click away', !r3.querySelector('.orp-go') && /Not ready yet: still needs TB test, Hepatitis B choice/.test(r3.innerText) && [...r3.querySelectorAll('button')].some(b=>b.innerText==='Readiness card'), r3.innerText);
+  ok('not ready: no button, what is missing by name, the readiness card one click away', !r3.querySelector('.orp-go') && /Not ready yet\. Still needs \(2\):/.test(r3.innerText) && JSON.stringify([...r3.querySelectorAll('.orp-miss span')].map(x=>x.innerText))==='["TB test","Hepatitis B choice"]' && [...r3.querySelectorAll('button')].some(b=>b.innerText==='Readiness card'), r3.innerText);
   const r2=rowOf('Fake Calling Person');
   ok('approved: step 1 done with who and when', /Approved [A-Z][a-z]{2} \d+.* by Samantha Troutman/.test(r2.innerText) && r2.querySelector('.orp-step.done'), r2.innerText);
   const boxes=[...r2.querySelectorAll('.orp-tick input[type=checkbox]')];
@@ -77,7 +80,7 @@ async()=>{
   rr=rowOf('Fake Calling Person'); [...rr.querySelectorAll('button')].find(b=>b.innerText==='No answer').click(); await sleep(150);
   ok('No answer saves a try with the note', INV.some(b=>b.action==='checkin'&&b.no_answer===true&&b.note==='left a voicemail'), INV);
   rr=rowOf('Fake Calling Person'); rr.querySelector('button.orp-go').click(); await sleep(150);
-  ok('every box ticked: Call done finishes, and they leave the Finish line for Finished', !rowOf('Fake Calling Person') && /Finish line \(2\)/.test(t()) && /Fake Calling Person/.test(t()), t().slice(0,500));
+  ok('every box ticked: Call done finishes, and they leave the Finish line for Finished', !rowOf('Fake Calling Person') && tabs().includes('2 Finish line') && (OPR.tab('done'), DONE_HAS=/Fake Calling Person/.test(t()), OPR.tab('fin'), DONE_HAS), t().slice(0,500));
 
   INV.length=0; rowOf('Fake Ready Person').querySelector('button.orp-go').click(); await sleep(250);
   ok('Approve to Work: the card is read fresh, the same confirm as the card, then approve_work for that card', INV.map(b=>b.action).filter(a=>a!=='list').join()==='get,approve_work,orientation_after' && INV[1].journey_id==='j-ready' && /Approve Fake Ready Person to work\?/.test(CONFIRMS[0]||''), [INV,CONFIRMS]);
