@@ -7530,8 +7530,13 @@ function ckdJourneyFor(c){ return c && c.offer_id ? ckdJourneyRows().find(r => S
 function ckdWc(c){ try{ return typeof wcRowFor === 'function' ? wcRowFor(c) : null; }catch(e){ return null; } }
 /* where a checks row is: the record's own stamps, in order */
 function ckdOrientSent(c){ const inv = (c && c.step2_invite) || {}; return !!(inv.orientation && inv.state !== 'failed'); }
+/* 2026-11-02 (Samantha: "Send orientation once the four checks are clear, references still required before Approve to Work"):
+   on the new path orientation waits for the four checks only; the references carry on alongside (their own line) and Approve to
+   Advance and Approve to Work still wait for them. A flagged check or a reference with a concern still stops here. */
+function ckdChecksClear(c){ return c.oig === 'CLEAR' && c.edl === 'Clear' && c.fcsr === 'Clear' && c.casenet === 'Clear' && obDeriveStatus(c) !== 'Needs Review'; }
 function ckdStopOf(c){
   if(ckdStep1Waiting(c)) return 0;
+  if(c.onboarding_path === 'new') return !ckdChecksClear(c) ? 1 : ckdOrientSent(c) ? 3 : 2;
   if(obDeriveStatus(c) !== 'Ready for Orientation') return 1;
   if(c.onboarding_path !== 'new'){ const w = ckdWc(c); return w && w.invited_at ? 3 : 2; }   /* the old path: orientation after the video call */
   return ckdOrientSent(c) ? 3 : 2;
@@ -7558,11 +7563,8 @@ function ckdStepNext(c, stop){
   if(c.onboarding_path !== 'new'){
     if(!c.step2_verified_at && !(w && w.invited_at)) return { text:'Their welcome video call invitation waits for Step 2 to be checked (the Viventium line).', label:'', on:'', wait:true, how:'step2wait' };
   } else if(stop === 2){
-    const j = ckdJourneyFor(c);
-    if(j && j.next && j.next.key === 'cg.approve.advance')
-      return { text:'Checks and references are clear. The Hub opens their orientation within a few minutes.', label:'', on:'', wait:true, how:'advance' };
     const failed = inv.orientation && inv.state === 'failed';
-    return { text:(failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + '). ' : 'Checks and references are clear. ') + 'Add ' + first + ' in AxisCare as In Training, then send their orientation.',
+    return { text:(failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + '). ' : 'Background checks are clear. ') + 'Add ' + first + ' in AxisCare as In Training, then send their orientation.',
              label:failed ? 'Send again' : 'Send orientation', on:'axSetupOpen(' + id + ')', warn:!!failed, how:'axsetup' };
   }
   if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + (c.step2_verified_at ? '' : '. Step 2 should be done before it') + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
@@ -7654,7 +7656,10 @@ function ckdActsFor(p){
   if(q && !(c.prn_offer && !c.prn_offer.answer)) extra.push({ lane:'No word', text:'Nothing from ' + (c.first || 'them') + ' in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', label:'What now?', on:'ckdLeaveOpen(' + c.id + ')', how:'quiet' });
   const s2 = p.stop >= 1 ? [ckdStep2Lane(c)] : [];   /* 2026-11-02: Step 2 runs alongside, from Step 1 done */
   if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(s2, extra);
-  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(s2, extra);
+  /* 2026-11-02: references still open after the checks cleared keep their own line, with the same buttons */
+  const ref = c.onboarding_path === 'new' ? ckdRefNext(c) : null;
+  const refs = ref ? [Object.assign({ lane:'References' }, ref, { text:ref.text + ' Needed before Approve to Work.' })] : [];
+  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(refs, s2, extra);
 }
 const ckdDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
 /* GONE QUIET (her answer 2026-10-21: "Yes, after 10 days"): only where they owe us the next move: Step 1, Step 2, booking the
@@ -8109,17 +8114,16 @@ const CKD_HOW = {
   casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
   review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
     'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
-  advance: ['The checks and references are clear. The Hub marks them ready for orientation by itself, within a few minutes.', 'Nothing for you to do. When it is done, their row shows Send orientation.'],
   step2send: ['Do this as soon as their Step 1 is done. It runs at the same time as the checks and references.', 'Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
     'The Hub sends them their Step 2 message and reminds them on day 3 and day 6.'],
   step2wait: ['Nothing to do yet. They are finishing Step 2 in Viventium.', 'If they tell you on the phone that they are done, press They said done.',
     'Day 8 with nothing? The Hub gives you a card to call them.'],
   step2check: ['Open them in Viventium.', 'Press Check Step 2 and tick each form you can see is really done. Telling us is not the same as done.',
     'If something is missing, use Still open to text them which one.'],
-  welcomecall: ['The link to book the 15-minute video call goes out with their orientation, once the checks and references are clear.',
+  welcomecall: ['The link to book the 15-minute video call goes out with their orientation, once the four background checks are clear.',
     'On the call you check their ID on camera for the I-9 and welcome them. Their Step 2 should be done in Viventium first, because their ID is uploaded there.',
     'Press Done at the end.'],
-  axsetup: ['Their checks and references are clear. Step 2 does not have to be done yet.', 'Press Send orientation. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
+  axsetup: ['Their four background checks are clear. References and Step 2 do not have to be done yet: they keep going on their own lines, and Approve to Work still waits for both.', 'Press Send orientation. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
     'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
     'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
     'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call. If their Step 2 is not checked yet, it asks them to finish it before the video call.'],
