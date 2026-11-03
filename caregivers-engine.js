@@ -1449,9 +1449,17 @@ function offerStage(o){
   if(o.onboarding_path==='new'&&!(o.offer_signed_at&&o.pd_signed_at)) return 'sent';
   return 'accepted';
 }
+/* when a turned-down offer was closed: withdrawn, declined or expired on the offer; not hired from their Background & References
+   record (not_hired_date or left_at); else the interview day (2026-11-03, clean lists) */
+function offerClosedAt(o){
+  const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
+  return Date.parse(o.offer_withdrawn_at||o.offer_declined_at||o.offer_expires_at||(c&&c.not_hired&&(c.left_at||c.not_hired_date))||o.interview_date||'')||0;
+}
 function offerStageCounts(){
   const n={sent:0,rejected:0,accepted:0,completed:0};
-  OFFERS.forEach(o=>{ n[offerStage(o)]++; });
+  /* 2026-11-03: the Offer rejected count is the last 30 days (older ones are folded away as history) */
+  const recent=o=>Date.now()-offerClosedAt(o)<=30*864e5;
+  OFFERS.forEach(o=>{ const st=offerStage(o); if(st!=='rejected'||recent(o)) n[st]++; });
   return n;
 }
 function renderOffers(){
@@ -1470,9 +1478,14 @@ function renderOffers(){
      who has moved on is the searchable list under it. Oldest first: the ones going stale surface. */
   const active=OFFERS.filter(o=>offerStage(o)===stage&&(stage==='rejected'||!offerMovedOn(o)))
     .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));
+  /* CLEAN LISTS (2026-11-03, her plan part 4): turned-down, withdrawn and expired offers are history, not work. The last 30 days
+     show, newest first; older ones fold away under "Older", kept for the record. */
+  const closedAt=o=>offerClosedAt(o);
+  if(stage==='rejected') active.sort((a,b)=>closedAt(b)-closedAt(a));
+  const oldRej=stage==='rejected'?active.filter(o=>Date.now()-closedAt(o)>30*864e5):[];
   /* GONE QUIET (2026-10-31): only where people are still expected to move (Offer sent, Accepted) */
   const foldable=stage==='sent'||stage==='accepted';
-  const quiet=foldable?active.filter(offerIsQuiet):[], moving=foldable?active.filter(o=>!offerIsQuiet(o)):active;
+  const quiet=foldable?active.filter(offerIsQuiet):[], moving=foldable?active.filter(o=>!offerIsQuiet(o)):active.filter(o=>!oldRej.includes(o));
   if(note) note.innerHTML = ({
     sent:'Offer sent, waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves; once both are signed they move to Accepted.',
     rejected:'Declined, withdrawn, expired unsigned, or not hired. Nothing to do here; an expired offer can be resent from its card.',
@@ -1688,7 +1701,13 @@ function renderOffers(){
           '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
   };
   box.innerHTML = active.length
-    ? (moving.length ? moving.map(card).join('') : '<div style="color:#A89C8B;font-size:.85rem;margin-bottom:.5rem">Nobody moving right now.</div>')+
+    ? (moving.length ? moving.map(card).join('') : '<div style="color:#A89C8B;font-size:.85rem;margin-bottom:.5rem">'+(stage==='rejected'?'None in the last 30 days.':'Nobody moving right now.')+'</div>')+
+      (oldRej.length
+        ? '<details id="offOldRej" style="margin-top:.4rem;border-top:1px dashed #E8E2D8;padding-top:.5rem">'+
+          '<summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6E6559;padding:.35rem 0">Older · '+oldRej.length+
+          ' <span style="font-weight:400;color:#A89C8B">closed more than 30 days ago, kept for the record. Nothing to do here.</span></summary>'+
+          '<div style="margin-top:.4rem">'+oldRej.map(card).join('')+'</div></details>'
+        : '')+
       (quiet.length
         ? '<details id="offQuiet"'+(OFF_QUIET_OPEN?' open':'')+' ontoggle="OFF_QUIET_OPEN=this.open" style="margin-top:.4rem;border-top:1px dashed #E8E2D8;padding-top:.5rem">'+
           '<summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6E6559;padding:.35rem 0">Gone quiet · '+quiet.length+

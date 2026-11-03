@@ -23494,14 +23494,17 @@ async function ivqLoad(btn){
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const from = new Date(Date.now() - 14*864e5).toISOString();
-    const [b, a, c] = await Promise.all([
-      sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow'])
-        .gte('starts_at', from).order('starts_at'),
+    /* 2026-11-03 (Samantha, "keep all lists clean always ... only the applicants that need our attention", part 4): a booking
+       whose time passed with no outcome stays in "waiting on an outcome" until someone records one, however long ago; it used
+       to drop off this list silently after 14 days. Attended and no-show rows are still read for the last 14 days only. */
+    const [b0, b1, a, c] = await Promise.all([
+      sb.from('interview_bookings').select('*').eq('status','booked').order('starts_at'),
+      sb.from('interview_bookings').select('*').in('status',['attended','noshow']).gte('starts_at', from).order('starts_at'),
       sb.from('job_applicants').select('id,first_name,last_name,phone,email,position,posting_title,status'),
       sb.from('coordinators').select('id,name'),
     ]);
-    if(b.error) throw b.error;
-    IVQ = b.data || [];
+    if(b0.error) throw b0.error;
+    IVQ = [...(b0.data || []), ...((b1 && b1.data) || [])];
     IVQ_APP = {}; (a.data||[]).forEach(x=>{ IVQ_APP[x.id]=x; });
     if(window.ApText) ApText.load();   /* 574 */
     IVQ_CO  = {}; (c.data||[]).forEach(x=>{ IVQ_CO[x.id]=x.name; });
@@ -23553,7 +23556,9 @@ function ivqRender(){
     const d = new Date(b.starts_at);
     const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
-      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
+      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(overdue && !isToday(d) ? d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+timeLabel(d) : timeLabel(d))+'</span>'
+      /* waiting on an outcome: how long, red from 3 days (2026-11-03) */
+      + (overdue ? (()=>{ const n=Math.floor((Date.now()-d.getTime())/864e5); return n>=1 ? '<span class="tag-chip" style="background:'+(n>=3?'#FEE2E2;color:#B91C1C':'#FEF3C7;color:#92400E')+';">'+n+' day'+(n===1?'':'s')+' ago, no outcome yet</span>' : ''; })() : '')
       + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
       + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
