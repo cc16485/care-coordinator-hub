@@ -22,8 +22,12 @@ async()=>{
     if(u.includes('/send-reminder')){ CALLS.push(['send-reminder',body,h['x-hub-token']||'']); return new Response(JSON.stringify({ status:'sent', channels:['text','email'] }),{status:200}); }
     return new Response('{}',{status:200}); };
   (0,eval)("trainHubTok=async()=>'hub-tok'");
-  window.__inv=async()=>({ data:{ ok:true, rows:[] }, error:null });
-  (0,eval)("sb=new Proxy(sb||{},{ get:(t,k)=>k==='functions'?{ invoke:(n,o)=>window.__inv(n,o) }:k==='from'?(tb)=>{ const q={ select:()=>q, gte:()=>q, order:()=>q, limit:async()=>({ data: tb==='applicant_texts'?window.__texts:[], error:null }), in:()=>q, eq:()=>q }; return q; }:(typeof t[k]==='function'?t[k].bind(t):t[k]) });");
+  window.__INV=[]; window.__inv=async(n,o)=>{ window.__INV.push([n,o&&o.body]); return { data:{ ok:true, rows:[], kept:true }, error:null }; };
+  (0,eval)("sb=new Proxy(sb||{},{ get:(t,k)=>k==='functions'?{ invoke:(n,o)=>window.__inv(n,o) }:k==='from'?(tb)=>{ const q={ select:()=>q, gte:()=>q, order:()=>q, limit:async()=>({ data: tb==='applicant_texts'?window.__texts:tb==='last_chance_asks'?window.__lc:[], error:null }), in:()=>q, eq:()=>q }; return q; }:(typeof t[k]==='function'?t[k].bind(t):t[k]) });");
+  window.__lc=[{ id:'lc1', stage:'apply_finish', applicant_id:'a1', asked_at:ago(1*D), practice:false, closed:false, answer:null },
+    { id:'lc2', stage:'apply_book', applicant_id:'a2', asked_at:ago(1*D), practice:true, closed:true, outcome:'practice' },
+    { id:'lc3', stage:'offer', offer_id:'off-1', asked_at:ago(2*D), practice:false, closed:true, answer:'yes', answered_at:ago(1*D), outcome:'relinked' },
+    { id:'lc4', stage:'orientation', training_id:'t1', asked_at:ago(1*D), practice:false, closed:false, answer:null }];
   window.__texts=[{ applicant_id:'a1', kind:'text', status:'sent', created_at:ago(1*D), sent_at:ago(1*D), created_by:'krystal@mo-care.com' }];
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin'];
   DATA.ops_settings=DATA.ops_settings||{}; DATA.coordinator_staff=[{ name:'Krystal Land', email:'krystal@mo-care.com' }];
@@ -50,6 +54,10 @@ async()=>{
   ok('finished, not booked -> "Pick an interview time"', OPENED[1] && OPENED[1][0]==='a2' && OPENED[1][1]==='book', OPENED);
   ok('...its history says when the automatic reminders stopped', u && /The automatic reminders stopped [A-Z][a-z]{2} \d+/.test(u.querySelector('summary').innerText), u && u.querySelector('summary').innerText);
   ok('booked: no Send reminder on Applicants (it is on Interviews)', bk && !bk.querySelector('.hrm-btn'));
+  ok('check-in, waiting: when it went and when they come off, with Keep on list', p && /"Still interested\?" text: sent [A-Z][a-z]{2} \d+\. No answer yet: they come off the list [A-Z][a-z]{2} \d+ if they do not answer\./.test(p.querySelector('summary').innerText) && p.querySelector('.hrm-keep'), p && p.querySelector('summary').innerText);
+  ok('check-in, switch off: who it would have asked', u && /"Still interested\?" text: would have gone [A-Z][a-z]{2} \d+ \(the switch is off, nothing was sent\)/.test(u.querySelector('summary').innerText), u && u.querySelector('summary').innerText);
+  if(p){ p.querySelector('.hrm-keep').click(); await sleep(200); }
+  ok('Keep on list asks first, then closes the check-in on the server (last-chance keep) without opening the card', CONF.some(m=>/Keep them on the list/.test(m)) && window.__INV.some(([n,b])=>n==='last-chance' && b && b.action==='keep' && b.id==='lc1') && !p.open, [CONF, window.__INV]);
 
   switchTab('interviews'); await sleep(200); ivqRender(); await sleep(300); ivqRender(); await sleep(100);
   const iv=[...document.querySelectorAll('#ivqList > div div, #ivqList div')].find(d=>/Fake Booked/.test(d.innerText) && d.querySelector('.hrm-btn'));
@@ -65,6 +73,7 @@ async()=>{
   const card=()=>[...document.querySelectorAll('#offersList details')].find(d=>/Fake Offer Sent/.test(d.innerText));
   ok('Offers (sent): Send reminder on the card line', card() && card().querySelector('summary .hrm-btn'), document.getElementById('offersList').innerText.slice(0,300));
   ok('...its history: sent by Krystal, the automatic reminder', card() && /Reminders: [A-Z][a-z]{2} \d+ by Krystal, offer sent · [A-Z][a-z]{2} \d+ automatic, reminder/.test(card().querySelector('summary').innerText), card() && card().querySelector('summary').innerText);
+  ok('Offers: the check-in answer shows (said YES, link sent again)', card() && /"Still interested\?" text: said YES [A-Z][a-z]{2} \d+, link sent again/.test(card().querySelector('summary').innerText), card() && card().querySelector('summary').innerText);
   if(card()){ card().querySelector('.hrm-btn').click(); await sleep(200); }
   ok('...asks first, then resends the offer with your Hub sign-in', CONF.some(m=>/Fake Offer Sent again/.test(m)) && CALLS.some(c=>c[0]==='job-offer' && /resend_offer/.test(c[1]) && /off-1/.test(c[1]) && c[2]), [CONF, CALLS.filter(c=>c[0]==='job-offer')]);
   ok('...and says what went', window.__toast.some(m=>/Sent to Fake Offer Sent by text and email/.test(m)), window.__toast);
@@ -76,6 +85,7 @@ async()=>{
 
   switchTab('orientprog'); await OPR.load(); await sleep(200);
   const orow=[...document.querySelectorAll('#tab-orientprog .orp-row')].find(r=>/Fake Never Opened/.test(r.innerText));
+  ok('Orientation: the waiting check-in shows on the row', orow && /"Still interested\?" text: sent .* they come off the list/.test(orow.innerText), orow && orow.innerText);
   ok('Orientation: Send reminder on the row, with the Sent line already there', orow && orow.querySelector('.hrm-btn') && /Sent: Invite/.test(orow.innerText), orow && orow.innerText);
   if(orow){ orow.querySelector('.hrm-btn').click(); await sleep(200); }
   ok('...asks first, then sends through the Training Platform with your Hub sign-in', CONF.some(m=>/orientation reminder/.test(m)) && CALLS.some(c=>c[0]==='send-reminder' && /"caregiver_id":"t1"/.test(c[1]) && c[2]==='hub-tok'), CALLS.filter(c=>c[0]==='send-reminder'));

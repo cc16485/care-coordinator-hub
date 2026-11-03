@@ -411,7 +411,7 @@
     return '<div class="orp-row' + (fid && fid === ST.focus ? ' orp-focus' : '') + '"' + (fid ? ' id="orp-p-' + esc(fid) + '"' : '') + '><div class="who"><div class="orp-name">' + hubName(r) + chip + working + '</div>'
       + '<div class="orp-line">' + line + '</div>' + (p.state !== 'notstarted' && p.state !== 'done' ? bar(p) : '')
       + (p.alert ? '<div class="orp-why' + (p.soft ? ' soft' : '') + '">' + esc(p.alert) + '</div>' : '')
-      + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state === 'done' ? afterLine(p) : '') + '</div>'
+      + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state !== 'done' && window.HREM ? HREM.lcLine({ training_id:r.training_id }, ['orientation']) : '') + (p.state === 'done' ? afterLine(p) : '') + '</div>'
       + '<div class="acts">' + (p.state !== 'done' && window.HREM ? HREM.orientBtn(r) : '') + call + (p.state === 'done' ? certBtn(r) : '') + toOnbBtn(r) + TP_LINK + '</div></div>';
   }
   const TP_LINK = '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a>';
@@ -593,5 +593,5 @@
     const r = rowFor(ax, name), a = r ? afterFor(r) : null; if(!a) return null;
     return { approved:!!a.approved, ready:!!(a.ready && a.ready.ready_for_final), missing:((a.ready && a.ready.missing) || []).map(short), checkin:a.checkin || null, active:a.active || null };
   }
-  window.OPR = { mount, load:() => load(), counts, finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();
