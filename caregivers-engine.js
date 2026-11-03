@@ -1455,6 +1455,7 @@ function offerStageCounts(){
   return n;
 }
 function renderOffers(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const box=document.getElementById('offersList');
   const counts=offerStageCounts();
@@ -1671,7 +1672,9 @@ function renderOffers(){
         return '<details style="background:#fff;border:1px solid '+(why||o.attributes_entered_at?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem">'+
           '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.75rem .95rem">'+
           '<span style="min-width:4.1rem;font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;color:'+(stale?'#B45309':'#6E6559')+'">'+esc(offerDate(o.interview_date))+'</span>'+
-          '<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>'+
+          /* the name opens their profile (2026-11-02, her ask: "click at any time on any name and get to the applicant's
+             profile"); the rest of the line still opens and closes the card */
+          (window.HP&&o.id?'<b role="link" tabindex="0" class="hs-name" style="font-size:.95rem;color:#0D365F;cursor:pointer;text-decoration:underline;text-decoration-color:#C9D3DE;text-underline-offset:3px" title="Open their profile" onclick="event.preventDefault();event.stopPropagation();HP.open({offer_id:\''+esc(String(o.id))+'\'})" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.click()}">'+esc(o.name)+'</b>':'<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>')+
           '<span style="font-size:.76rem;color:#6E6559">'+esc(o.position||'Caregiver')+(o.offered_by?' · by '+esc(o.offered_by):'')+'</span>'+
           (age==null?'':'<span style="font-size:.72rem;'+(old?'font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:.1rem .5rem':stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
             (age===0?'today':age===1?'1 day ago':age+' days ago')+'</span>')+
@@ -7756,7 +7759,7 @@ function ckdRoadHTML(stop, bad){
    From the Orientation tab's own read (orient-progress.js OPR.brief), from the orientation step on; a click opens them there.
    Matched by AxisCare number, else by a name only one person has. Shows nothing until it is read or when nobody matches. */
 function ckdOrientAx(p){ const g = p.j ? ckdRosterFor(p.j) : null; return (g && g.axiscare_id) || (p.c && p.c.axiscare_id) || ''; }
-function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop })); }
+function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop, key:p.c ? { candidate_id:String(p.c.id) } : p.j && p.j.offer_id ? { offer_id:String(p.j.offer_id) } : null })); }
 function ckdOrientHTML(p){
   if(p.stop < 3 || !window.OPR || typeof OPR.brief !== 'function') return '';
   const o = OPR.brief(ckdOrientAx(p), p.name); if(!o) return '';
@@ -7766,9 +7769,13 @@ function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
   const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
   const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')';   /* both slide in from the right (2026-11-02) */
+  /* the name opens their profile (2026-11-02, her ask: "click at any time on any name and get to the applicant's profile");
+     the checklist that used to open from the name is the Checklist button beside it */
+  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(j.offer_id)) + '}').replace(/"/g, '&quot;') + ')' : open;
   const party = c && p.stop >= 2 && p.stop <= 3 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
-    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
+    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
+    +   '<button type="button" class="ckd-check" onclick="' + open + '" title="Their onboarding checklist">Checklist</button>'
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
     + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span>' + ckdOrientHTML(p) + '</div>'
     + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'
@@ -7784,6 +7791,7 @@ function ckdStartHere(ppl){
   return null;
 }
 function renderCkd(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ckdDash'); if(!box) return;
   if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
   if(typeof wcLoad === 'function' && typeof WC_AT !== 'undefined' && Date.now() - WC_AT > 30000){ WC_AT = Date.now(); Promise.resolve(wcLoad()).then(() => { try{ renderCkd(); }catch(e){} }).catch(() => {}); }
@@ -12236,6 +12244,8 @@ window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 /* the Orientation tab (orient-progress.js, 2026-11-02): who is on Onboarding, the caregiver list (badge), and drawing Onboarding again */
 window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;
+/* the hiring strip's read of Offers and Onboarding (hire-strip.js, 2026-11-02): read only */
+window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED };
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;

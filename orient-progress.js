@@ -220,7 +220,7 @@
       + '.orp-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.orp-tools input[type=search]{flex:1 1 280px;min-width:0;margin:0}.orp-tools select{width:auto;margin:0}.orp-tools label{display:inline-flex;gap:6px;align-items:center;font-size:13px;margin:0;font-weight:400}.orp-tools label input{width:auto;margin:0}'
       + '.orp-frow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.7fr) minmax(0,1.6fr) auto;gap:12px;align-items:center;padding:9px 0;border-top:1px solid #EEF1F5;font-size:13px}'
       + '.orp-frow.hd{font-size:12px;color:var(--text-muted);font-weight:700;padding:4px 0}.orp-frow .acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}.orp-frow .acts a,.orp-frow .acts button{padding:5px 10px;font-size:12.5px}'
-      + '.orp-nm{background:none;border:0;padding:0;font:inherit;font-weight:700;color:var(--navy);font-size:14px;cursor:pointer;text-align:left}.orp-nm:hover{text-decoration:underline}'
+      + '.orp-nm{font-weight:700;color:var(--navy);font-size:14px}.orp-hist{background:none;border:0;padding:0 0 0 8px;font:inherit;font-size:12px;color:#2F6FB0;cursor:pointer}.orp-hist:hover{text-decoration:underline}'
       + '.orp-more{padding:4px 0 10px 0;border-top:0}.orp-detail{grid-column:1/-1;background:#FAFBFC;border-radius:10px;padding:8px 12px}'
       + '.orp-miss{display:flex;gap:5px;flex-wrap:wrap;margin:5px 0 2px}.orp-miss span{font-size:12px;background:#FDE8E8;color:#8B2A20;border-radius:8px;padding:2px 8px}'
       + '.orp-where{font-size:11px;font-weight:700;color:#64748B;background:#F1F5F9;border-radius:8px;padding:2px 7px;margin-left:6px;vertical-align:2px}'
@@ -228,13 +228,18 @@
       + '.orp-late{color:#B23B2E;font-weight:700}.orp-ok{color:#1F7A4D}.orp-wait{color:#8A5A12}.orp-no{color:#B23B2E}';
     document.head.appendChild(s); };
 
+  /* the name opens their profile (2026-11-02, her ask: "click at any time on any name and get to the applicant's profile"):
+     the caregiver list first, then their Onboarding row, then their offer (one offer with that name only) */
   function hubName(r){
     const name = String(r.name || '').trim() || 'Name not on file';
     try{
       const c = r.axiscare_id && roster() ? roster().find(x => String(x.axiscare_id || '') === String(r.axiscare_id)) : null;
-      if(c && typeof personName === 'function') return personName({ caregiver_id:c.id }, name, '', 'checks', 'checks');
+      if(c && typeof personName === 'function') return personName({ caregiver_id:c.id }, esc(name), '', 'checks', 'checks');
+      const o = onboardingFor(r), offs = window.SCX && typeof SCX.getOffers === 'function' && Array.isArray(SCX.getOffers()) ? SCX.getOffers() : [];
+      const key = o && o.key ? o.key : (() => { const f = matchIn(offs, r.axiscare_id, r.name, x => x.axiscare_id, x => x.name); return f && f.id ? { offer_id:String(f.id) } : null; })();
+      if(key && window.HP) return '<span class="name-cell" role="link" tabindex="0" style="cursor:pointer;color:var(--navy)" title="Open their profile" onclick="HP.open(' + esc(JSON.stringify(key)) + ')" onkeydown="if(event.key===\'Enter\')this.click()">' + esc(name) + ' <span style="font-size:.65rem;color:var(--teal)">↗</span></span>';
     }catch(e){}
-    return esc(name);
+    return '<span title="Not found in the Hub (no caregiver, Onboarding row or offer with this name)">' + esc(name) + '</span>';
   }
   function bar(p){
     const byNum = {}; (p.r.units || []).forEach(u => { byNum[u.module] = u; });
@@ -453,7 +458,7 @@
     else st = '<span class="orp-wait">Not Active in AxisCare yet' + (r.status_label ? ' (' + esc(r.status_label) + ')' : '') + '</span>';
     const call = r.phone && typeof ocAttrs === 'function' ? '<a class="ibtn" ' + ocAttrs(r.phone, { email:r.email }) + '>Call</a>' : '';
     return '<div class="orp-frow' + (id && id === ST.focus ? ' orp-focus' : '') + '"' + (id ? ' id="orp-p-' + esc(id) + '"' : '') + '>'
-      + '<div><button type="button" class="orp-nm" onclick="OPR.toggle(\'' + esc(id) + '\')" aria-expanded="' + open + '">' + esc(String(r.name || '').trim() || 'Name not on file') + '</button><div class="orp-meta">' + sign + '</div></div>'
+      + '<div><span class="orp-nm">' + hubName(r) + '</span><button type="button" class="orp-hist" onclick="OPR.toggle(\'' + esc(id) + '\')" aria-expanded="' + open + '">' + (open ? 'Hide history' : 'History') + '</button><div class="orp-meta">' + sign + '</div></div>'
       + '<div class="fd">' + esc(day(r.completed_at)) + '</div><div class="fa">' + st + '</div>'
       + '<div class="acts">' + certBtn(r) + call + '</div>'
       + (open ? '<div class="orp-detail"><div class="orp-meta">' + [ (p.invited ? (r.welcome_sent_at ? 'Invited ' : 'Assigned ') + esc(when(new Date(p.invited).toISOString())) : ''), 'Finished ' + esc(when(r.completed_at)), r.status_label ? 'AxisCare: ' + esc(r.status_label) : '', badgeBit(r) ].filter(Boolean).join(' · ') + '</div>'
@@ -545,11 +550,18 @@
       + (canSet ? '<label for="orpDays">Stuck after</label><input id="orpDays" type="number" min="1" max="30" step="1" value="' + nd + '"><span>days</span><button class="secondary" onclick="OPR.saveDays(this)">Save</button><span id="orpDaysSaved"></span>' : '')
       + '</div>';
     if(focused){ const i = document.getElementById('orpQ'); if(i){ i.focus(); try{ i.setSelectionRange(caret, caret); }catch(e){} } }
+    if(window.HSTRIP) HSTRIP.soon();
     if(ST.focus && ST.rows){
       const f = document.getElementById('orp-p-' + ST.focus);
       if(f){ ST.open[ST.focus] = true; ST.focus = ''; if(f.scrollIntoView) f.scrollIntoView({ block:'center' }); }
       else if(!(tab === 'done' && !ST.fin)) ST.focus = '';
     }
+  }
+  /* the hiring strip's numbers (hire-strip.js): null until the list is read */
+  function counts(){
+    if(!ST.rows) return null;
+    const L = lists();
+    return { need:L.need.length, hard:L.need.filter(p => !p.soft).length, fin:L.fin.length, inp:L.inp.length, wait:L.wait.length };
   }
   function setTab(k){ ST.tab = k; ST.q = ''; ST.show = PAGE; draw(); }
   let qt = null;
@@ -575,5 +587,5 @@
   /* the pill count: once after sign-in, then every 30 minutes while the page is open */
   let timer = null;
   function watch(){ if(timer) return; load(); timer = setInterval(() => { if(document.visibilityState === 'visible') load(); }, 30 * 60e3); }
-  window.OPR = { mount, load:() => load(), saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { mount, load:() => load(), counts, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();

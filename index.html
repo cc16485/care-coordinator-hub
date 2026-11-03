@@ -2288,6 +2288,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-row-h{border-top:none;background:#f6f5f0;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#55677a;padding:10px 18px}
         .ckd-who{display:flex;flex-direction:column;gap:2px;min-width:0}
         .ckd-name{font:inherit;font-size:15.5px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer}
+        .ckd-check{font:inherit;font-size:11.5px;font-weight:700;color:#2F6FB0;background:#EEF4FB;border:1px solid #D3E2F3;border-radius:999px;padding:1px 9px;align-self:flex-start;cursor:pointer}
         .ckd-name:hover{text-decoration:underline}
         .ckd-wait{font-size:12.5px;font-weight:600}
         .ckd-pills{display:flex;gap:6px;flex-wrap:wrap}
@@ -7429,7 +7430,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=6"></script><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=7"></script><script src="hire-strip.js?v=1"></script><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -8823,6 +8824,7 @@ function ccRenderPulse(){
   if(tb){ tb.style.display=L.act?'inline-flex':'none'; tb.textContent=L.act||''; }
 }
 function renderActiveTab(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   svApplyDateText();
   ccRenderViewAs();
   ccRenderPulse();
@@ -23449,6 +23451,7 @@ async function ivqLoad(btn){
 }
 
 function ivqRender(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ivqList'); if(!box) return;
   const esc = escapeHtmlComms;
   const now = Date.now();
@@ -24323,6 +24326,7 @@ function apChips(r){
 }
 
 function apRender(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('apList'); if(!box) return;
   apFindRun();
   apRenderFilter();
