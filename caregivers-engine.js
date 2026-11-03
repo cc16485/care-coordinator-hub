@@ -7888,6 +7888,11 @@ const OBT_KEY = 'ckd_table_queue';
 let OBT_Q = (() => { try{ return localStorage.getItem(OBT_KEY) || 'all'; }catch(e){ return 'all'; } })();
 function obtOn(){ return !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.onboarding_table_live === true); }
 function obtQueue(k){ OBT_Q = (OBT_Q === k && k !== 'all') ? 'all' : k; try{ localStorage.setItem(OBT_KEY, OBT_Q); }catch(e){} renderCkd(); }
+/* 2026-11-03 Orientation inside Onboarding: open Onboarding on one queue (from the Orientation column, or a link elsewhere) */
+function obtOpenQueue(k){ OBT_Q = k; try{ localStorage.setItem(OBT_KEY, OBT_Q); }catch(e){}
+  const d = document.getElementById('ckdDash');   /* the engine's own activeTab is not the Hub's tab, so look at the page */
+  if(!(d && d.offsetParent) && typeof window.switchTab === 'function') window.switchTab('cgbackground'); else renderCkd(); }
+const obtFolded = () => !!(window.OPR && typeof OPR.folded === 'function' && OPR.folded());
 const OBT_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'Refs'], ['step2', 'Step 2'], ['orient', 'Orientation'], ['finish', 'Finish']];
 const OBT_WHO = { review:'Review', office:'Office', applicant:'Applicant', outside:'Outside' };
 const OBT_GROUPS = {
@@ -8116,7 +8121,7 @@ function obtRender(box){
   list.sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
   const job = OBT_COLS.some(x => x[0] === OBT_Q) ? OBT_Q : null;
   const sum = (k, label, cls, tip) => '<button type="button" class="obt-s obt-s-' + cls + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '" title="' + bgrEsc(tip) + '"><b>' + n(k) + '</b><span>' + label + '</span></button>';
-  const chip = (k, label) => { const c = n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
+  const chip = (k, label) => { const c = k === 'orient' && obtFolded() ? (OPR.queueCount() ?? '…') : n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
   const start = ckdStartHere(L.all);
   const head = '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th><th scope="col">Holding up</th>' + OBT_COLS.map(([k, t]) => '<th scope="col"' + (k === job ? ' class="obt-hi"' : '') + '>' + t + '</th>').join('') + '</tr>';
   let body;
@@ -8145,10 +8150,12 @@ function obtRender(box){
     + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
     + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Step 2') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
     + run.join('')
-    + '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
-    + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>'
-    + '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>'
+    + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
+       '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
+    + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
+    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>')
     + ckdMoreHTML(L);
+  { const oh = document.getElementById('obtOrient'); if(oh) OPR.inOnboarding(oh, q); }
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
   ckdRefreshPerson();
   ckdCelebrate(L.all);
@@ -12590,7 +12597,7 @@ window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRost
 window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED,
   /* Send reminder on every row (hire-remind.js, 2026-11-02): the same offer sends the cards use */
   offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
-window.obtQueue = obtQueue;   /* 2026-11-03 the Onboarding table's queues */
+window.obtQueue = obtQueue; window.obtOpenQueue = obtOpenQueue;   /* 2026-11-03 the Onboarding table's queues */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
