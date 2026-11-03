@@ -22,11 +22,14 @@ r = row(x.obChecksHtml({ id: 9, fcsr: 'Clear', fcsr_date: '2026-10-14', fcsr_sen
 ok(/>Clear<\/span>/.test(r) && /sent 10\/09\/2026, back in 5 days/.test(r) && !/obFcsrSent/.test(r), 'the result in: sent date kept, how long it took');
 
 const f = cut(ENG, 'async function obFcsrSent(candId){', 'window.obFcsrSent = obFcsrSent;');
-const run = answer => { const calls = []; const c = { candidates: [{ id: 9 }], prompt: () => answer, ccPrompt: async () => answer, alert: m => calls.push(['alert', m]), bgrApplyBoardChange: (id, ch) => calls.push(['save', id, ch]), Date, String, isNaN };
+/* 2026-11-03 the date comes from a picker window (obFcsrPickDate: Today, Yesterday, a calendar) instead of typing YYYY-MM-DD */
+const run = answer => { const calls = []; const c = { candidates: [{ id: 9 }], obFcsrPickDate: async () => answer, alert: m => calls.push(['alert', m]), bgrApplyBoardChange: (id, ch) => calls.push(['save', id, ch]), Date, String, isNaN };
   vm.createContext(c); vm.runInContext(f, c); return c.obFcsrSent(9).then(() => calls); };
 (async () => {
 let k = await run(iso(2)); ok(k[0][0] === 'save' && k[0][2].fcsr_sent_date === iso(2) && 'fcsr_sent_at' in k[0][2], 'saves the sent date with who and when');
-ok((await run('10/09/2026'))[0][0] === 'alert' && (await run(iso(-3)))[0][0] === 'alert', 'a wrong or future date is refused');
+const pick = cut(ENG, 'function obFcsrPickDate(c, today){', 'async function obFcsrSent(candId){');
+ok(/type="date"/.test(pick) && /max="' \+ today \+ '"/.test(pick) && />Today</.test(pick) && />Yesterday</.test(pick), 'the picker: Today, Yesterday and a calendar that stops at today');
+ok(/d > today/.test(pick) && /Pick a day on or before today/.test(pick), 'a future date is refused in the window, with words');
 ok((await run(null)).length === 0, 'Cancel saves nothing');
 
 const desk = cut(ENG, 'function sdRender(){', 'async function sdReveal(');
