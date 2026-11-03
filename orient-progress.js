@@ -587,5 +587,11 @@
   /* the pill count: once after sign-in, then every 30 minutes while the page is open */
   let timer = null;
   function watch(){ if(timer) return; load(); timer = setInterval(() => { if(document.visibilityState === 'visible') load(); }, 30 * 60e3); }
-  window.OPR = { mount, load:() => load(), counts, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  /* 2026-11-03 (the Onboarding table's Finish column and "nearly ready"): a person's readiness for Approve to Work as the
+     Finish line already reads it, or null when not matched or not read yet. Read only. */
+  function finishOf(ax, name){
+    const r = rowFor(ax, name), a = r ? afterFor(r) : null; if(!a) return null;
+    return { approved:!!a.approved, ready:!!(a.ready && a.ready.ready_for_final), missing:((a.ready && a.ready.missing) || []).map(short), checkin:a.checkin || null, active:a.active || null };
+  }
+  window.OPR = { mount, load:() => load(), counts, finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();

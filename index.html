@@ -2368,6 +2368,69 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-box-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
         .ckd-box-acts:empty{display:none}
         .ckd-p-foot{display:flex;gap:16px;flex-wrap:wrap;border-top:1px solid #e4e1d8;padding-top:12px}
+        /* 2026-11-03 Onboarding as one table (caregivers-engine.js obtRender, switch onboarding_table_live) */
+        .obt-sum{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+        .obt-s{font:inherit;text-align:left;cursor:pointer;background:#fff;border:1.5px solid #e4e1d8;border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:1px;color:#0D365F}
+        .obt-s b{font-size:22px;font-weight:800;line-height:1.1}.obt-s span{font-size:12.5px;font-weight:600;color:#55677a;line-height:1.25}
+        .obt-s:hover{border-color:#1F7A8C}.obt-s.obt-on{border-color:#0D365F;box-shadow:inset 0 0 0 1px #0D365F}
+        .obt-s-office b{color:#0D365F}.obt-s-wait b{color:#55677a}.obt-s-rev b{color:#7A2E8C}.obt-s-near b{color:#1F7A4D}.obt-s-late b{color:#B45309}
+        .obt-start{font-size:14px;color:#16283a;background:#F4F9FA;border:1px solid #CDE7E4;border-radius:10px;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .obt-qs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.obt-ql{font-size:12.5px;font-weight:700;color:#55677a;margin-right:2px}
+        .obt-q{font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#0D365F;border:1px solid #d9d5ca;border-radius:999px;padding:4px 11px}
+        .obt-q span{color:#55677a;font-weight:700;margin-left:2px}.obt-q.obt-on{background:#0D365F;color:#fff;border-color:#0D365F}.obt-q.obt-on span{color:#E8C988}
+        .obt-wrap{background:#fff;border:1px solid #e4e1d8;border-radius:12px;overflow-x:auto}
+        table.obt{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+        .obt th,.obt td{padding:6px 6px;border-bottom:1px solid #eeebe3;text-align:left;vertical-align:middle;white-space:nowrap}
+        .obt thead th{background:#f6f5f0;font-size:11.5px;font-weight:700;color:#55677a;letter-spacing:.03em;position:sticky;top:0;z-index:2}
+        .obt .obt-n{position:sticky;left:0;z-index:1;background:#fff;min-width:150px;max-width:190px;white-space:normal;border-right:1px solid #eeebe3}
+        .obt thead .obt-n{z-index:3;background:#f6f5f0}
+        .obt th.obt-hi{background:#E3F1F3;color:#0D365F}.obt td.obt-hi{background:#F4FAFB}
+        .obt-name{font:inherit;font-size:14px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer;display:block}
+        .obt-more{font:inherit;font-size:11.5px;color:#1F7A8C;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;margin-right:6px}
+        .obt-near{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:#1F7A4D;background:#E6F4EC;border-radius:999px;padding:1px 7px;margin-top:2px}
+        .obt-tag{font:inherit;font-size:11.5px;font-weight:700;color:#8A5A00;background:#FFF4DF;border:none;border-radius:999px;padding:1px 7px;margin:2px 4px 0 0;cursor:pointer}
+        .obt-tag-late{color:#B45309}
+        .obt svg.navi,.obt-key svg.navi,.obt-cards svg.navi,.obt-start svg.navi{width:13px;height:13px;vertical-align:-2px;margin-right:2px}
+        .obt-ok{color:#1F7A4D;font-weight:700}.obt-lnk{background:none;border:none;padding:0;cursor:pointer}
+        .obt-none{color:#b3b0a6;font-weight:700}
+        .obt-t{font-weight:700;margin-right:4px;color:#16283a}.obt-wait{color:#8A5A00;font-weight:700}
+        .obt-late{color:#B45309;font-weight:800}.obt-warnt{color:#B42318}
+        .obt-rev{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:800;color:#7A2E8C;background:#F5E8F8;border:1px solid #E3C6EA;border-radius:6px;padding:1px 6px;margin-right:4px}
+        .obt-rev-b{font:inherit;font-size:11.5px;cursor:pointer}.obt-rev-b:hover{background:#EBD3F1}
+        .obt-r-rev .obt-n{box-shadow:inset 3px 0 0 #7A2E8C}
+        .obt-b{font:inherit;font-size:12px;font-weight:700;cursor:pointer;background:#0D365F;color:#fff;border:1px solid #0D365F;border-radius:7px;padding:3px 9px;text-decoration:none;display:inline-block}
+        .obt-b:hover{background:#1F7A8C;border-color:#1F7A8C}
+        .obt-b-q{background:#fff;color:#0D365F;border-color:#cfd8e2}.obt-b-q:hover{background:#F4FAFB;color:#0D365F}
+        .obt-b-w{background:#B42318;border-color:#B42318}
+        .obt-b-rev{background:#7A2E8C;border-color:#7A2E8C}
+        .obt-call{color:#1F7A8C;margin-right:4px;text-decoration:none}
+        .obt-who{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;margin:1px 3px 1px 0}
+        .obt-who-office{background:#E3EAF3;color:#0D365F}.obt-who-applicant{background:#FFF4DF;color:#8A5A00}.obt-who-outside{background:#EEF0F2;color:#4A5563}
+        .obt-who-review{background:#F5E8F8;color:#7A2E8C}.obt-who-none{background:#E6F4EC;color:#1F7A4D}
+        .obt-mks{display:inline-flex;gap:2px;margin-right:5px;vertical-align:middle}
+        .obt-mk{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;font-size:10.5px;font-weight:800;border:1px solid #d9d5ca;color:#a09d93;background:#fff}
+        .obt-mk-ok{background:#1F7A4D;border-color:#1F7A4D;color:#fff}.obt-mk-wait{background:#FFF4DF;border-color:#F0D9A8;color:#8A5A00}
+        .obt-mk-todo{background:#0D365F;border-color:#0D365F;color:#fff}.obt-mk-late{background:#FDE7D3;border-color:#F3B987;color:#B45309}
+        .obt-g td{background:#f6f5f0;font-size:12px;font-weight:800;color:#0D365F;padding:6px 10px;position:sticky;left:0}
+        .obt-g2 td{color:#7A2E8C}
+        .obt-empty{padding:18px;color:#55677a;font-size:14px}
+        .obt-key{font-size:12px;color:#55677a;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+        .obt-cards{display:none}
+        @media (max-width:760px){
+          .obt-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .obt-wrap{display:none}
+          .obt-cards{display:flex;flex-direction:column;gap:8px}
+          .obt-card{background:#fff;border:1px solid #e4e1d8;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+          .obt-card.obt-r-rev{box-shadow:inset 3px 0 0 #7A2E8C}
+          .obt-card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+          .obt-card-w{font-size:13px;white-space:nowrap}
+          .obt-pms{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+          .obt-pm{font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px;border:1px solid #e4e1d8;color:#a09d93}
+          .obt-pm-ok{background:#E6F4EC;border-color:#BFE3CC;color:#1F7A4D}.obt-pm-wait{background:#FFF4DF;border-color:#F0D9A8;color:#8A5A00}
+          .obt-pm-todo{background:#E3EAF3;border-color:#C5D3E4;color:#0D365F}.obt-pm-late{background:#FDE7D3;border-color:#F3B987;color:#B45309}
+          .obt-pm-rev{background:#F5E8F8;border-color:#E3C6EA;color:#7A2E8C}.obt-pm-hi{outline:2px solid #1F7A8C}
+          .obt-card-b{display:flex;flex-wrap:wrap;gap:6px}
+        }
         @media (max-width:900px){
           .ckd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
           .ckd-start{flex-direction:column;align-items:stretch}
@@ -7430,7 +7493,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=8"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=1"></script><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=9"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=1"></script><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
