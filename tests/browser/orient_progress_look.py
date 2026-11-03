@@ -108,9 +108,9 @@ async()=>{
   OPR.win('90'); OPR.prob(true); await sleep(30);
   ok('Only with a problem: the one who never signed off', frows().length===1 && /Fake No Signoff/.test(frows()[0].innerText) && /never signed off/.test(frows()[0].innerText), frows().map(x=>x.innerText));
   OPR.prob(false); await sleep(30);
-  frows()[0].querySelector('.orp-nm').click(); await sleep(30);
+  frows()[0].querySelector('.orp-hist').click(); await sleep(30);
   const fd=frows()[0].innerText;
-  ok('the name opens the full history', /After finishing: Certificate emailed [A-Z][a-z]{2} \d+ · Active in AxisCare [A-Z][a-z]{2} \d+ · Approved to Work [A-Z][a-z]{2} \d+ · "You finished your orientation" text sent [A-Z][a-z]{2} \d+ · Check-in call waiting since/.test(fd) && /Training Platform/.test(fd), fd);
+  ok('History opens the full history', /After finishing: Certificate emailed [A-Z][a-z]{2} \d+ · Active in AxisCare [A-Z][a-z]{2} \d+ · Approved to Work [A-Z][a-z]{2} \d+ · "You finished your orientation" text sent [A-Z][a-z]{2} \d+ · Check-in call waiting since/.test(fd) && /Training Platform/.test(fd), fd);
   const W=[]; window.open=()=>{ const w={ location:'', close(){ w.closed=true; } }; W.push(w); return w; };
   [...frows()[0].querySelectorAll('button')].find(x=>x.innerText==='PDF').click(); await sleep(80);
   ok('PDF: asks for a private link for that person and opens it', W.length===1 && W[0].location==='https://example.test/cert.pdf' && CALLS.some(u=>u.includes('certificate_link') && u.includes('00000000-0000-0000-0000-000000009005')), [W, CALLS.slice(-2)]);
@@ -169,7 +169,7 @@ with sync_playwright() as pw:
     pg.evaluate("()=>OPR.load()"); pg.wait_for_timeout(300)
     if SHOTS: pg.locator('#tab-orientprog').screenshot(path=os.path.join(SHOTS, 'orientation_tab.png'))
     if SHOTS:
-        pg.evaluate("()=>{ OPR.tab('done'); document.querySelector('.orp-frow:not(.hd) .orp-nm').click(); }"); pg.wait_for_timeout(150)
+        pg.evaluate("()=>{ OPR.tab('done'); document.querySelector('.orp-frow:not(.hd) .orp-hist').click(); }"); pg.wait_for_timeout(150)
         pg.locator('#tab-orientprog').screenshot(path=os.path.join(SHOTS, 'orientation_finished.png'))
         pg.evaluate("()=>OPR.tab('need')"); pg.wait_for_timeout(100)
     pg.set_viewport_size({'width': 390, 'height': 844}); pg.wait_for_timeout(200)

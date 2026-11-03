@@ -55,7 +55,7 @@ async(CODE)=>{
   await OPR.load(); OPR.mount(); await sleep(150);
   OPR.find('fake'); await sleep(200);   /* the search shows every tab at once (2026-11-02 sub-tabs) */
   const P=document.getElementById('tab-orientprog'), rowOf=n=>[...P.querySelectorAll('.orp-row,.orp-frow')].find(r=>r.innerText.includes(n));
-  const f0=rowOf('Fake Finished'); if(f0) f0.querySelector('.orp-nm').click(); await sleep(50);
+  const f0=rowOf('Fake Finished'); if(f0) f0.querySelector('.orp-hist').click(); await sleep(50);
   const st=rowOf('Fake Stuck Person'), mv=rowOf('Fake Moving Person'), fin=rowOf('Fake Finished');
   ok('Orientation: the stuck one on Onboarding without a badge says Badge not mailed yet', st && /Badge not mailed yet/.test(st.innerText), st&&st.innerText);
   ok('Orientation: the badge mailed Oct 30 shows (matched by name, no AxisCare number)', mv && /Badge mailed Oct 30/.test(mv.innerText), mv&&mv.innerText);
