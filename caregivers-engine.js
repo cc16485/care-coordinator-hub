@@ -1681,7 +1681,9 @@ function renderOffers(){
           '<span style="flex:1"></span>'+
           (ros.state==='maybe'?'<span title="Someone on the caregiver roster has this phone or email, but it is not certain it is the same person. Check, then Mark Step 1 done or Close offer." style="font-size:.72rem;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:.15rem .6rem">May already be working: check</span>':'')+
           '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
+          (!why&&window.HREM?HREM.offBtn(o,offerStage(o)):'')+   /* 2026-11-02: Send reminder, and its history line below */
           '<span style="color:#A89C8B;font-size:.74rem">details ▾</span>'+
+          (!why&&window.HREM?HREM.offLine(o,offerStage(o)):'')+
           '</summary>'+
           '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
   };
@@ -7781,6 +7783,7 @@ function ckdRowHTML(p){
   return '<div class="ckd-row">'
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
     +   '<button type="button" class="ckd-check" onclick="' + open + '" title="Their onboarding checklist">Checklist</button>'
+    +   (c && window.HREM ? HREM.s2Btn(c) + HREM.s2Line(c) : '')   /* 2026-11-02: Send reminder (Step 2), and its history line */
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
     + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span>' + ckdOrientHTML(p) + '</div>'
     + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'
@@ -12249,7 +12252,9 @@ window.bgrOpenDrawer = bgrOpenDrawer;
 /* the Orientation tab (orient-progress.js, 2026-11-02): who is on Onboarding, the caregiver list (badge), and drawing Onboarding again */
 window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;
 /* the hiring strip's read of Offers and Onboarding (hire-strip.js, 2026-11-02): read only */
-window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED };
+window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED,
+  /* Send reminder on every row (hire-remind.js, 2026-11-02): the same offer sends the cards use */
+  offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;

@@ -7430,7 +7430,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=7"></script><script src="hire-strip.js?v=1"></script><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=8"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=1"></script><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -23500,6 +23500,7 @@ function ivqRender(){
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
+      + (window.HREM && !overdue && a.phone ? HREM.ivBtn(b) : '')   /* 2026-11-02: Send reminder, and its history line below */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
       + (overdue ? '' :
@@ -23507,6 +23508,7 @@ function ivqRender(){
           + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\'' + esc(b.applicant_id) + '\')">✕ Cancel</button>')
       + '<button class="fb" onclick="ivqOutcome(\'' + esc(b.applicant_id) + '\')">'
         + (overdue?'📝 How did it go?':'Open') + '</button>'
+      + (window.HREM && !overdue ? HREM.ivLine(b) : '')
       + '</div>';
   };
 
@@ -24394,7 +24396,9 @@ function apRender(){
       + '<span style="font-size:.76rem;color:#6E6559;">'+esc(apPosLabel(r.position)||r.posting_title||'Caregiver')
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
+      + (window.HREM ? HREM.apBtn(r, !!(b && b.status==='booked')) : '')   /* 2026-11-02: Send reminder, and its history line below */
       + '<span style="color:#A89C8B;font-size:.74rem;">details ▾</span>'
+      + (window.HREM ? HREM.apLine(r, !!(b && b.status==='booked')) : '')
       /* While a search is on, why they matched sits on the row itself (miles, the hours, their own words). */
       + (AP_FIND.on ? '<div style="flex-basis:100%;margin-top:-.45rem;">'+apFindChips(r)+'</div>' : '')
       + '</summary><div style="padding:0 .9rem .9rem;">'
