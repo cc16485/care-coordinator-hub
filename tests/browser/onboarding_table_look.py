@@ -84,6 +84,7 @@ async(CODE)=>{
     finishOf:(ax, name) => ({ 'Jo Placeholder':{ approved:false, ready:false, missing:['Caregiver profile published'] }, 'Kai Madeup':{ approved:false, ready:true, missing:[] } })[name] || null,
     show(){} };
   window.CGP2 = { gateFor:g => ({ loaded:true, published: g.id !== 801 }) };
+  window.step2Sent = window.step2Sent || function(){};
   CKD_OIG.rows = []; CKD_OIG.at = Date.now();
   renderCkd();
   const dash=document.getElementById('ckdDash');
@@ -96,6 +97,7 @@ async(CODE)=>{
   const out = { H, sum, start: txt(dash.querySelector('.obt-start')), rows:[...dash.querySelectorAll('tr.obt-r')].map(r => txt(r.querySelector('.obt-n'))),
     sticky: getComputedStyle(dash.querySelector('tbody .obt-n')).position, more: txt(dash.querySelector('.ckd-more')),
     ava:{ who:txt(cell('Ava Fake', 2)), orient:txt(cell('Ava Fake', col('Orientation'))), refs:txt(cell('Ava Fake', col('Refs'))), refsCall: !!cell('Ava Fake', col('Refs')).querySelector('a.obt-call') },
+    beaName:txt(rowOf('Bea Sample').querySelector('.obt-n')), avaName:txt(rowOf('Ava Fake').querySelector('.obt-n')), ivyName:txt(rowOf('Ivy Example').querySelector('.obt-n')),
     bea:{ fcsr:txt(cell('Bea Sample', col('FCSR'))), step2:txt(cell('Bea Sample', col('Step 2'))), step2Late: !!cell('Bea Sample', col('Step 2')).querySelector('.obt-late'), who:txt(cell('Bea Sample', 2)) },
     cora:{ edl:txt(cell('Cora Sampleton', col('EDL'))), refs:txt(cell('Cora Sampleton', col('Refs'))), who:txt(cell('Cora Sampleton', 2)) },
     dana:{ fcsr:txt(cell('Dana Demo', col('FCSR'))), step2:txt(cell('Dana Demo', col('Step 2'))), refs:txt(cell('Dana Demo', col('Refs'))), refsLate: !!cell('Dana Demo', col('Refs')).querySelector('.obt-late') },
@@ -137,6 +139,7 @@ with sync_playwright() as pw:
     ck('summary: "waiting" never counts someone the office or a review owes a move (the two never overlap)', s.get('Need office action', 0) + s.get('Waiting on applicants or outside', 0) <= 13 and s.get('Need office action', 0) >= 6, s)
     ck('Ava: checks clear, references 0/2 with a call link: Send orientation in its own column; held up by office and outside', 'Send' in R['ava']['orient'] and '0/2' in R['ava']['refs'] and R['ava']['refsCall'] and 'Office' in R['ava']['who'], R['ava'])
     ck('Bea: FCSR ordered 9 days, waiting on the state (Outside), Record button; Step 2 9 days overdue (no DONE in 8)', __import__('re').search(r'\dd', R['bea']['fcsr']) and 'Record' in R['bea']['fcsr'] and R['bea']['step2Late'] and 'Outside' in R['bea']['who'] and 'Applicant' in R['bea']['who'], R['bea'])
+    ck('Step 2 out and not done: Send reminder and the reminder history under the name, as on today\'s rows (Bea, Ava); none once Step 2 is checked (Ivy)', 'Send reminder' in R['beaName'] and 'Step 2 sent' in R['beaName'] and 'Send reminder' in R['avaName'] and 'Send reminder' not in R['ivyName'], [R['beaName'], R['avaName'], R['ivyName']])
     ck('Cora: EDL Record, FCSR Order, reference form sent 2 days ago is waiting on the reference, not overdue', 'Record' in R['cora']['edl'] and 'Outside' in R['cora']['who'], R['cora'])
     ck('Dana: FCSR Order; Step 2 said done: Check; reference with no answer in 7 days is overdue', 'Order' in R['dana']['fcsr'] and 'Check' in R['dana']['step2'] and R['dana']['refsLate'], R['dana'])
     ck('Gia: EDL Issues Found is Review (shield), never shown as overdue; held up by Review; no Send orientation', R['gia']['rev'] and not R['gia']['late'] and R['gia']['who'].startswith('Review') and 'Send' not in R['gia']['orient'], R['gia'])
