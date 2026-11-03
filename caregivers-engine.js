@@ -5799,11 +5799,11 @@ function bgrTriage(r){
       if(awaiting)  return { stage:'Checks in progress', waitingOn:'Reference', why:'Reference request sent, awaiting a response', next:'Awaiting reference', group:'others' };
     }
     // background checks
-    const fcsrOrdered = !!board.fcsr_date && board.fcsr !== 'Clear';
+    const fcsrOrdered = !!(board.fcsr_sent_date || board.fcsr_date) && board.fcsr !== 'Clear';
     if(fcsrOrdered) return { stage:'Checks in progress', waitingOn:'External check', why:'FCSR ordered, awaiting the result', next:'Awaiting FCSR result', group:'others' };
     if(board.oig !== 'CLEAR' && !board.oig_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'OIG check not run yet', next:'Run OIG', group:'nextstep' };
     if(board.edl !== 'Clear' && !board.edl_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'EDL result not recorded', next:'Record EDL', group:'nextstep' };
-    if(board.fcsr !== 'Clear' && !board.fcsr_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
+    if(board.fcsr !== 'Clear' && !board.fcsr_date && !board.fcsr_sent_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
     /* No fingerprints from 2026-10-21 (IHS ending). */
     return { stage:'Checks in progress', waitingOn:'Unknown', why:'Needs review', next:'Needs review', group:'others' };
   }
@@ -6477,7 +6477,7 @@ function bgrRecordCheck(candId, which){
   document.getElementById('bgrCheckTitle').textContent = 'Record ' + meta.label + ': ' + (c.first + ' ' + c.last).trim();
   const cur = c[which] || meta.opts[0];
   document.getElementById('bgrCheckResult').innerHTML = meta.opts.map(o => '<option value="'+bgrEsc(o)+'"'+(o===cur?' selected':'')+'>'+bgrEsc(o)+'</option>').join('');
-  document.getElementById('bgrCheckDate').value = c[which+'_date'] || new Date().toISOString().slice(0,10);
+  document.getElementById('bgrCheckDate').value = (which === 'fcsr' && (c.fcsr || 'Pending') === 'Pending' ? '' : c[which+'_date']) || new Date().toISOString().slice(0,10);
   const f = document.getElementById('bgrCheckFile'); if(f) f.value = '';
   const url = document.getElementById('bgrCheckProof'); if(url) url.value = '';
   const curDoc = c[which+'_proof'];
@@ -7374,6 +7374,21 @@ const CKD_CHECKS = [
   { k:'fcsr',    label:'FCSR',     ok:'Clear', bad:'Issues Found', how:'Order it in the state system, then record the result' },
   { k:'casenet', label:'Case.net', ok:'Clear', bad:'Issues Found', how:'Search Missouri courts, attach the PDF' },
 ];
+/* FCSR ordered (Samantha 2026-11-02: "put in when we ordered the FCSR and show that has been done and its pending, because it
+   can take 1 day or sometimes a week"). The day it was ordered is fcsr_sent_date (Mark as ordered); older records kept it as a
+   Pending result with a date. Only while no result is recorded. */
+function ckdFcsrOrdered(c){
+  if(!c || c.fcsr === 'Clear' || c.fcsr === 'Issues Found') return '';
+  return c.fcsr_sent_date || c.fcsr_date || '';
+}
+function ckdFcsrDays(c){
+  const d = ckdFcsrOrdered(c), t = d ? new Date(String(d).slice(0, 10) + 'T12:00:00').getTime() : NaN;
+  return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 864e5));
+}
+function ckdFcsrWaitText(c){
+  const n = ckdFcsrDays(c);
+  return 'Ordered ' + (fmtD(String(ckdFcsrOrdered(c)).slice(0, 10)) || '') + (n === null ? '' : n === 0 ? ', today' : ', waiting ' + n + (n === 1 ? ' day' : ' days'));
+}
 function ckdRefSlots(c){ return [1,2,3,4].filter(n => String(c['r'+n+'n']||'').trim() || c['r'+n+'_phone'] || c['r'+n+'_email']); }
 function ckdGoodRefs(c){ return [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length; }
 function ckdChecksLeft(c){ return CKD_CHECKS.filter(x => c[x.k] !== x.ok); }
@@ -7387,8 +7402,9 @@ function ckdSteps(c){
   const rp = refPolicy(c), good = ckdGoodRefs(c);
   const refLabel = (good >= 2 && !rp.ok && !rp.blocked) ? 'References: 1 from work needed' : 'References ' + Math.min(good, 2) + ' of 2';
   const out = [{ k:'refs', label:refLabel, state: rp.ok ? 'done' : rp.blocked ? 'bad' : good ? 'half' : 'todo' }];
-  CKD_CHECKS.forEach(x => out.push({ k:x.k, label:x.label,
-    state: c[x.k] === x.ok ? 'done' : c[x.k] === x.bad ? 'bad' : (x.k === 'fcsr' && c.fcsr_date) ? 'half' : 'todo' }));
+  CKD_CHECKS.forEach(x => { const ord = x.k === 'fcsr' && ckdFcsrOrdered(c), n = ord ? ckdFcsrDays(c) : null;
+    out.push({ k:x.k, label: ord ? 'FCSR ordered' + (n ? ', ' + n + 'd' : '') : x.label,
+    state: c[x.k] === x.ok ? 'done' : c[x.k] === x.bad ? 'bad' : ord ? 'half' : 'todo' }); });
   return out;
 }
 /* The reference to work next: a pending one with a phone first, then any pending one. */
@@ -7415,10 +7431,10 @@ function ckdCheckNext(c){
     return c.oig_date ? { text:'Record the OIG result.', label:'Record OIG', on:'bgrRecordCheck('+id+',\'oig\')' }
                       : { text:'Run the OIG check. It takes one click.', label:'Run OIG', on:'bgrRunOIG('+id+',this)' };
   if(c.edl !== 'Clear' && c.edl !== 'Issues Found') return { text:'Search the EDL list and record what you find.', label:'Record EDL', on:'bgrRecordCheck('+id+',\'edl\')' };
-  if(c.fcsr !== 'Clear' && c.fcsr !== 'Issues Found')
-    return c.fcsr_date ? { text:'FCSR ordered ' + (fmtD(c.fcsr_date) || '') + '. Record the result when it comes back.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' }
-                       : { text:'Order FCSR in the state system, then record it.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' };
+  const fcsrOpen = c.fcsr !== 'Clear' && c.fcsr !== 'Issues Found';
+  if(fcsrOpen && !ckdFcsrOrdered(c)) return { text:'Order FCSR in the state system, then press Mark as ordered.', label:'Mark as ordered', on:'obFcsrSent('+id+')', how:'fcsr' };
   if(c.casenet !== 'Clear' && c.casenet !== 'Issues Found') return { text:'Search Case.net and record what you find.', label:'Record Case.net', on:'bgrRecordCheck('+id+',\'casenet\')' };
+  if(fcsrOpen) return { text:'FCSR ' + ckdFcsrWaitText(c).replace(/^Ordered/, 'ordered') + '. Check the state site to see if it is back.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')', how:'fcsrwait', wait:true };
   return null;
 }
 function ckdRefNext(c){
@@ -8077,8 +8093,11 @@ const CKD_HOW = {
     'The search result is saved as the proof by itself.'],
   edl: ['Open the Missouri EDL search and type their full name.', 'Save the result page as a PDF.', 'Press Record EDL, pick the result, and attach the PDF.'],
   fcsr: ['Open the Screening desk (FCSR sheet) on their checklist for the details the state asks for.',
-    'Order the FCSR screening in the state system. Record it with the date you ordered it.',
-    'When the result comes back, press Record FCSR again, pick the result, and attach it.'],
+    'Order the FCSR screening in the state system.',
+    'Press Mark as ordered and give the day you ordered it. Their row then shows how many days it has been waiting.'],
+  fcsrwait: ['The result can take a day or up to a week. Open the FCSR site and see if it is back.',
+    'Not back yet? Nothing to do. Their row keeps counting the days.',
+    'Back? Press Record FCSR, pick the result, and attach it.'],
   casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
   review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
     'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
@@ -8113,7 +8132,7 @@ function ckdHowKey(a){
   if(/openOBModal/.test(on)) return 'addrefs';
   if(/bgrRunOIG|'oig'/.test(on)) return 'oig';
   if(/'edl'/.test(on)) return 'edl';
-  if(/'fcsr'/.test(on)) return 'fcsr';
+  if(/'fcsr'|obFcsrSent/.test(on)) return 'fcsr';
   if(/'casenet'/.test(on)) return 'casenet';
   if(/bgrvOpenModal/.test(on) || a.warn) return 'review';
   return '';
@@ -8159,10 +8178,17 @@ function ckdPersonHTML(c){
     const on = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'bgrRunOIG(' + id + ',this)' : 'bgrRecordCheck(' + id + ',\'' + x.k + '\')';
     const label = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'Run now' : (ok || bad) ? 'Change' : 'Record result';
     const date = c[x.k + '_date'] ? fmtD(c[x.k + '_date']) : '';
-    const st = ok ? 'Clear' + (date ? ' · ' + date : '') : bad ? 'Something found' + (date ? ' · ' + date : '') : (x.k === 'fcsr' && date ? 'Ordered ' + date : x.how);
-    const site = x.k === 'casenet' && !ok ? '<a class="ckd-link" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener">Open Case.net</a>' : '';
+    const ord = x.k === 'fcsr' && ckdFcsrOrdered(c);
+    const st = ok ? 'Clear' + (date ? ' · ' + date : '') : bad ? 'Something found' + (date ? ' · ' + date : '') : ord ? ckdFcsrWaitText(c) + (c.fcsr_sent_by ? ' · ' + c.fcsr_sent_by : '') : x.how;
+    let under = '', site = x.k === 'casenet' && !ok ? '<a class="ckd-link" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener">Open Case.net</a>' : '';
+    /* FCSR (2026-11-02): Mark as ordered first, then it shows as waiting until the result is recorded */
+    if(x.k === 'fcsr' && !ok && !bad){
+      if(!ord) return '<div class="ckd-box"><div class="ckd-box-top"><div><b>FCSR</b><div class="ckd-box-sub">' + bgrEsc(st) + '</div></div>'
+        + '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0"><button type="button" class="ckd-link" onclick="' + on + '">Record result</button><button type="button" class="ckd-go" onclick="obFcsrSent(' + id + ')">Mark as ordered</button></span></div></div>';
+      under = '<div class="ckd-box-acts" style="margin-top:4px"><a class="ckd-link" href="https://health.mo.gov/safety/fcsr/" target="_blank" rel="noopener">Open FCSR site</a><button type="button" class="ckd-link" onclick="obFcsrSent(' + id + ')">Change ordered date</button></div>';
+    }
     return '<div class="ckd-box' + (ok ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + x.label + '</b><div class="ckd-box-sub"' + (bad ? ' style="color:#B42318;font-weight:700"' : '') + '>' + bgrEsc(st) + '</div>'
-      + (c[x.k + '_proof'] ? '<div class="ckd-box-sub">' + bgrCheckProofHtml(c[x.k + '_proof']) + '</div>' : '') + '</div>'
+      + (c[x.k + '_proof'] ? '<div class="ckd-box-sub">' + bgrCheckProofHtml(c[x.k + '_proof']) + '</div>' : '') + under + '</div>'
       + '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0">' + site + '<button type="button" class="ckd-go' + (ok || bad ? ' ckd-go-line' : '') + '" onclick="' + on + '">' + label + '</button></span></div></div>';
   };
   const slots = ckdRefSlots(c);
@@ -11053,13 +11079,13 @@ function obChecksHtml(c){
     /* FCSR (Samantha 2026-10-14): when it went to the state, and how many days it has been waiting */
     if(k === 'fcsr'){
       if(c.offer_id) acts.unshift(link('bgrScreeningDesk(' + id + ')', 'FCSR sheet'));   /* the facts from their Step 1, in the state form's order */
-      if(v === 'Pending') acts.push(link('obFcsrSent(' + id + ')', c.fcsr_sent_date ? 'Change the sent date' : 'Mark as sent to the state'));
+      if(v === 'Pending') acts.push(link('obFcsrSent(' + id + ')', c.fcsr_sent_date ? 'Change the ordered date' : 'Mark as ordered'));
       if(v === 'Pending') acts.push(link('obFcsrTextOpen(' + id + ')', 'Send registration steps'));
     }
     const sentD = k === 'fcsr' && c.fcsr_sent_date ? c.fcsr_sent_date : '';
     const daysSince = d => { const t = new Date(String(d) + 'T12:00:00').getTime(); return isNaN(t) ? null : Math.max(0, Math.round((Date.now() - t) / 864e5)); };
     const waiting = sentD && v === 'Pending';
-    const sentLine = sentD ? '<div style="font-size:11.5px;color:' + 'var(--text-muted)' + ';">sent ' + esc(day(sentD))
+    const sentLine = sentD ? '<div style="font-size:11.5px;color:' + 'var(--text-muted)' + ';">ordered ' + esc(day(sentD))
       + (waiting ? ', waiting ' + daysSince(sentD) + (daysSince(sentD) === 1 ? ' day' : ' days') : c.fcsr_date ? ', back in ' + Math.max(0, Math.round((new Date(c.fcsr_date + 'T12:00:00') - new Date(sentD + 'T12:00:00')) / 864e5)) + ' days' : '')
       + (c.fcsr_sent_by ? ' · ' + esc(c.fcsr_sent_by) : '') + '</div>' : '';
     return '<tr style="border-bottom:1px solid #F0EDE6;">'
@@ -11081,7 +11107,7 @@ window.obChecksMount = obChecksMount;
 async function obFcsrSent(candId){
   const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
   const today = new Date(); const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  const v = (await ccPrompt('What day was the FCSR screening sent to the state? (YYYY-MM-DD)', c.fcsr_sent_date || iso));
+  const v = (await ccPrompt('What day did you order the FCSR? (YYYY-MM-DD)', c.fcsr_sent_date || iso));
   if(v === null) return;
   const d = String(v).trim();
   if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d + 'T12:00:00')) || d > iso){ alert('That did not look like a date on or before today. Try ' + iso + '.'); return; }
