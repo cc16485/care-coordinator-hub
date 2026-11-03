@@ -7798,11 +7798,25 @@ function ckdStartHere(ppl){
   }
   return null;
 }
+function ckdMoreHTML(L){
+  return ''
+    + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
+    +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
+    +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
+    +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
+    +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'all\')">Full table</button>'
+    + '</div>';
+}
 function renderCkd(){
   if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ckdDash'); if(!box) return;
   if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
   if(typeof wcLoad === 'function' && typeof WC_AT !== 'undefined' && Date.now() - WC_AT > 30000){ WC_AT = Date.now(); Promise.resolve(wcLoad()).then(() => { try{ renderCkd(); }catch(e){} }).catch(() => {}); }
+  if(obtOn()) return obtRender(box);   /* 2026-11-03 Onboarding as one table, Admin switch onboarding_table_live */
   const L = ckdLists();
   let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
   /* the Orientation tab's Onboarding button: open the list on that one person */
@@ -7835,16 +7849,284 @@ function renderCkd(){
     +   '<div class="ckd-row ckd-row-h"><span>Person</span><span>Where they are</span><span>Progress</span><span>Your next step</span></div>'
     +   (list.length ? list.map(ckdRowHTML).join('') : '<div class="ckd-empty">' + (q ? 'Nobody matches that search.' : 'Nobody at this stop right now.') + '</div>')
     + '</div>'
-    + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
-    +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
-    +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
-    +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
-    +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'all\')">Full table</button>'
-    + '</div>';
+    + ckdMoreHTML(L);
+  if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
+  ckdRefreshPerson();
+  ckdCelebrate(L.all);
+}
+/* ── ONBOARDING AS ONE TABLE (Samantha 2026-11-03: "I approve the overall direction of the Onboarding Table Plan and agree with
+   your recommended choices for all six decisions", https://claude.ai/artifact/VZpHc5MVyhuDFdYGH9A5qm, with her refinements:
+   the name stays visible, each job filter is a real work queue, what is holding each person up, overdue never looks like a
+   compliance concern, everyone stays visible through Approved to Work, nearly ready, and a small summary). Admin switch
+   ops_settings.onboarding_table_live (off = today's page). It only SHOWS: every button is the one today's rows press, every
+   fact is one the Hub already keeps, and nothing new is saved, sent or required. The last filter is kept in this browser only.
+   Who is holding someone up comes from the step itself: their own move (Step 1, Step 2, orientation, booking, profile) is the
+   applicant; a state result or a reference's answer is outside; a flagged check or a reference with a concern is review;
+   everything with a button for us is the office. Overdue uses only the times the Hub already uses: Step 1 stuck (its card),
+   a reference 5 days without an answer, Step 2 8 days without DONE, orientation stuck (Orientation tab setting), a missed
+   video call, and 10 days on the list. ── */
+const OBT_KEY = 'ckd_table_queue';
+let OBT_Q = (() => { try{ return localStorage.getItem(OBT_KEY) || 'all'; }catch(e){ return 'all'; } })();
+function obtOn(){ return !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.onboarding_table_live === true); }
+function obtQueue(k){ OBT_Q = (OBT_Q === k && k !== 'all') ? 'all' : k; try{ localStorage.setItem(OBT_KEY, OBT_Q); }catch(e){} renderCkd(); }
+const OBT_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'Refs'], ['step2', 'Step 2'], ['orient', 'Orientation'], ['finish', 'Finish']];
+const OBT_WHO = { review:'Review', office:'Office', applicant:'Applicant', outside:'Outside' };
+const OBT_GROUPS = {
+  oig:    ['Record the OIG result', '', 'Flagged: Samantha or Zachary decide'],
+  edl:    ['Search the EDL list and record it', '', 'Issues found: Samantha or Zachary decide'],
+  fcsr:   ['Order now', 'Ordered, waiting on the state', 'Issues found: Samantha or Zachary decide'],
+  casenet:['Search Case.net and record it', '', 'Issues found: Samantha or Zachary decide'],
+  refs:   ['Call or add a reference', 'Form sent, waiting on the reference', 'A reference with a concern: Samantha or Zachary decide'],
+  step2:  ['Send or check Step 2', 'Waiting on the applicant to finish Step 2', ''],
+  orient: ['Ready to send orientation', 'In orientation', ''],
+  finish: ['Office to-dos: badge, approval, check-in call', 'Waiting on the applicant: orientation, video call, profile', ''],
+  step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', '']
+};
+const obtDaysSince = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 864e5)) : null; };
+const obtOpenCard = j => j && j.offer_id ? 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')' : '';
+/* one cell: s = ok | todo | wait | rev | none | na; who = office | applicant | outside | review; late = overdue by an existing rule */
+function obtCell(s, t, o){ return Object.assign({ s, t:t || '' }, o || {}); }
+function obtReview(c){ return { label:'Review', on:(typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal(' + c.id + ')' : 'ckdOpen(' + c.id + ')' }; }
+function obtChecks(c){
+  const out = {}, id = c.id, wait1 = ckdStep1Waiting(c);
+  CKD_CHECKS.forEach(x => {
+    const v = c[x.k];
+    if(v === x.ok){ out[x.k] = obtCell('ok', '', { tip:x.label + ' clear' + (c[x.k + '_date'] ? ' ' + fmtD(String(c[x.k + '_date']).slice(0, 10)) : '') }); return; }
+    if(v === x.bad){ out[x.k] = obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:x.label + ': ' + v + '. Samantha or Zachary decide.' }); return; }
+    if(wait1){ out[x.k] = obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' }); return; }
+    if(x.k === 'oig'){
+      const auto = !c.oig_date ? ckdOigSearch(c) : null, n = auto ? ((auto.evidence && auto.evidence.match_count) || 0) : null;
+      out.oig = c.oig_date || auto ? obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'oig\')' }, tip:auto ? 'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state.' : 'no matches. Record it as Clear.') : 'Record the OIG result.' })
+                                   : obtCell('todo', '', { who:'office', b:{ label:'Run', on:'bgrRunOIG(' + id + ',this)' }, tip:'Run the OIG check. It takes one click.' });
+    } else if(x.k === 'fcsr' && ckdFcsrOrdered(c)){
+      const n = ckdFcsrDays(c);
+      out.fcsr = obtCell('wait', n === null ? 'Ordered' : n + 'd', { who:'outside', days:n, b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'fcsr\')', quiet:true }, tip:ckdFcsrWaitText(c) + '. Check the state site to see if it is back.' });
+    } else if(x.k === 'fcsr'){
+      out.fcsr = obtCell('todo', '', { who:'office', b:{ label:'Order', on:'obFcsrSent(' + id + ')' }, tip:'Order FCSR in the state system, then press Order to mark it ordered.' });
+    } else {
+      out[x.k] = obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'' + x.k + '\')' }, tip:x.how + '.' });
+    }
+  });
+  return out;
+}
+function obtRefs(c){
+  const rp = refPolicy(c), good = ckdGoodRefs(c);
+  if(rp.ok) return obtCell('ok', '', { tip:'References done' });
+  if(rp.blocked) return obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:rp.why });
+  if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' });
+  const nx = ckdRefNext(c) || {}, cnt = Math.min(good, 2) + '/2';
+  const ph = nx.slot ? c['r' + nx.slot + '_phone'] : null, p = ph ? obFmtPhone(ph) : null;
+  if(nx.quiet) return obtCell('wait', cnt, { who:'outside', b:{ label:'Record', on:nx.on, quiet:true }, call:p, tip:nx.text });
+  const m = /no answer in (\d+) days/.exec(nx.text || ''), days = m ? Number(m[1]) : null;
+  return obtCell('todo', cnt, { who:'office', b:{ label:nx.label === 'Add a reference' ? 'Add' : 'Record', on:nx.on }, call:p, days, late:days !== null && days >= 5, tip:nx.text });
+}
+function obtStep2(c){
+  if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'After Step 1' });
+  const v = ckdStep2Lane(c), id = c.id;
+  if(c.step2_verified_at) return obtCell('ok', '', { tip:v.text });
+  if(c.step2_done_at) return obtCell('todo', '', { who:'office', b:{ label:'Check', on:'step2Verify(' + id + ')' }, tip:v.text });
+  if(c.step2_sent_at){ const d = obtDaysSince(c.step2_sent_at);
+    return obtCell('wait', d === null ? 'Sent' : d + 'd', { who:'applicant', days:d, late:d !== null && d >= 8, b:{ label:'Said done', on:'step2Reported(' + id + ')', quiet:true }, tip:v.text + (d !== null && d >= 8 ? ' No DONE in ' + d + ' days.' : '') }); }
+  return obtCell('todo', '', { who:'office', b:{ label:'I sent it', on:'step2Sent(' + id + ')' }, tip:v.text });
+}
+function obtOrient(c, stop){
+  if(stop < 2) return obtCell('none', '', { tip:c.onboarding_path === 'new' ? 'After OIG, EDL, FCSR and Case.net are clear' : 'After the checks and references are clear' });
+  const inv = c.step2_invite || {};
+  if(c.onboarding_path === 'new' && stop === 2){
+    const failed = inv.orientation && inv.state === 'failed';
+    return obtCell('todo', failed ? 'Did not go' : '', { who:'office', warn:failed, b:{ label:failed ? 'Send again' : 'Send', on:'axSetupOpen(' + c.id + ')' }, tip:failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + ').' : 'Add them in AxisCare as In Training, then send their orientation.' });
+  }
+  if(c.onboarding_path !== 'new' && stop === 2){ const nx = ckdStepNext(c, stop); return obtCell(nx.wait ? 'wait' : 'todo', '', { who:nx.wait ? 'applicant' : 'office', b:nx.label ? { label:nx.label, on:nx.on, quiet:!!nx.wait } : null, tip:nx.text }); }
+  return obtOrientProgress({ c, stop, name:ckdName(c) });
+}
+/* orientation itself, from the Orientation tab's reading (OPR.brief); never guessed when that list has not answered */
+function obtOrientProgress(p){
+  const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
+  if(!o) return obtCell('wait', 'Sent', { who:'applicant', tip:'Orientation sent. Their progress shows once the Orientation tab list has loaded.' });
+  const on = 'OPR.show(\'' + bgrEsc(o.id) + '\')';
+  if(/^Finished/.test(o.text)) return obtCell('ok', '', { tip:o.text, link:on });
+  const u = /Unit (\d+) of (\d+)/.exec(o.text);
+  return obtCell('wait', u ? 'U' + u[1] + '/' + u[2] : 'Sent', { who:'applicant', late:!!o.bad, tip:o.text + '. Open them on the Orientation tab.', link:on });
+}
+/* the Finish column: orientation, video call, profile, badge, approved, as the readiness card and the Finish line already read them */
+function obtFinish(p, j, g){
+  const c = p.c, marks = [], acts = [];
+  const mk = (k, label, s, tip) => marks.push({ k, label, s, tip });
+  const fin = (window.OPR && typeof OPR.finishOf === 'function' && (g || c)) ? OPR.finishOf((g && g.axiscare_id) || (c && c.axiscare_id) || '', p.name) : null;
+  const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
+  mk('O', 'Orientation', o && /^Finished/.test(o.text) ? (fin && fin.missing.some(m => /orientation/i.test(m)) ? 'wait' : 'ok') : o ? 'wait' : 'none',
+     o ? o.text + (fin && fin.missing.some(m => /orientation/i.test(m)) ? '. Not verified on their readiness card yet.' : '') : 'Orientation not started');
+  const w = c ? ckdWc(c) : null;
+  if(w && w.status === 'done') mk('V', 'Video call', 'ok', 'Welcome video call done');
+  else if(w && w.status === 'noshow'){ mk('V', 'Video call', 'late', 'Missed the welcome video call'); acts.push({ label:'Invite again', on:'wcInvite(' + c.id + ',this)', warn:true }); }
+  else if(w && w.status === 'booked') mk('V', 'Video call', 'wait', 'Booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : ''));
+  else if(w && w.invited_at) mk('V', 'Video call', 'wait', 'Invited ' + ckdDay(w.invited_at) + ', not booked yet');
+  else mk('V', 'Video call', g ? 'ok' : 'none', g ? 'On the caregiver list (added at the video call)' : 'Not invited yet');
+  const pg = g && window.CGP2 && typeof CGP2.gateFor === 'function' ? CGP2.gateFor(g) : null;
+  mk('P', 'Profile', pg && pg.loaded ? (pg.published ? 'ok' : 'wait') : 'none', pg && pg.loaded ? (pg.published ? 'Profile published' : 'Profile not published yet') : 'Profile shows once they are on the caregiver list');
+  if(g && (g.badge_mailed_at || g.badge_not_needed)) mk('B', 'Badge', 'ok', g.badge_mailed_at ? 'Badge mailed ' + ckdDay(g.badge_mailed_at) : 'Badge not needed');
+  else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
+  else mk('B', 'Badge', 'none', 'After the video call');
+  if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
+  else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
+  else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
+    mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list.');
+    if(!auto) acts.unshift({ label:'Approve', on:obtOpenCard(j) }); }
+  else mk('A', 'Approved', 'none', fin && fin.missing.length ? 'Still needs: ' + fin.missing.join(', ') : 'Not ready yet');
+  const any = marks.some(m => m.s !== 'none');
+  const late = marks.some(m => m.s === 'late'), todo = acts.length > 0, wait = marks.some(m => m.s === 'wait');
+  return obtCell(!any ? 'none' : todo ? 'todo' : marks.every(m => m.s === 'ok') ? 'ok' : wait ? 'wait' : 'none', '',
+    { marks, acts, who:todo ? 'office' : wait ? 'applicant' : '', late, warn:acts.some(a => a.warn), fin, b:acts[0] ? { label:acts[0].label, on:acts[0].on } : null });
+}
+/* nearly ready (her ask: "one actionable step away from approval"): everything done but the approval itself, or exactly one
+   thing left on the Finish line's own list */
+function obtNearly(m){
+  const j = m.j, f = m.cells.finish && m.cells.finish.fin;
+  if(j && j.approved_to_work) return null;
+  if(j && j.ready_for_final) return 'Ready to approve';
+  if(f && !f.approved && f.missing.length === 1) return 'Only ' + f.missing[0] + ' left';
+  return null;
+}
+/* one person, every column */
+function obtModel(p){
+  const c = p.c, j = p.j || (c ? ckdJourneyFor(c) : null), g = j ? ckdRosterFor(j) : null, cells = {};
+  if(c){
+    cells.step1 = ckdStep1Waiting(c) ? obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' }) : obtCell('ok', '', { tip:'Step 1 done' });
+    Object.assign(cells, obtChecks(c));
+    cells.refs = obtRefs(c); cells.step2 = obtStep2(c); cells.orient = obtOrient(c, p.stop);
+  } else {
+    const stuck = ckdStep1Stuck(j), n = j && j.next ? j.next : {};
+    if(p.stop === 0 && stuck) cells.step1 = obtCell('wait', 'Stuck ' + stuck.days + 'd', { who:'applicant', late:true, call:stuck.call ? { dial:stuck.call.dial, show:stuck.call.show } : null, b:stuck.call ? null : { label:'Open', on:obtOpenCard(j) }, tip:stuck.text });
+    else if(p.stop === 0 && n.key === 'cg.company.countersign') cells.step1 = obtCell('todo', '', { who:'office', b:{ label:'Countersign', on:obtOpenCard(j) }, tip:(n.title || 'Company signature') + ' (a person on the Approve to Work list)' });
+    else if(p.stop === 0) cells.step1 = obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' });
+    else cells.step1 = obtCell('ok', '', { tip:'Step 1 done' });
+    const card = 'On their readiness card';
+    ['oig', 'edl', 'fcsr', 'casenet', 'refs', 'step2'].forEach(k => { cells[k] = obtCell(p.stop >= 3 ? 'ok' : 'na', '', { tip:card }); });
+    if(p.stop >= 1 && p.stop < 3){ const nx = ckdRosterNext(j); cells.refs = obtCell(nx.warn ? 'rev' : 'na', '', { who:nx.warn ? 'review' : '', b:{ label:'Open card', on:obtOpenCard(j), quiet:true }, tip:nx.text }); }
+    cells.orient = p.stop >= 3 ? obtOrientProgress(p) : obtCell('none', '', { tip:'After the checks' });
+  }
+  cells.finish = p.stop >= 3 || (j && (j.ready_for_final || j.approved_to_work)) ? obtFinish(p, j, g) : obtCell('none', '', { tip:'After orientation is sent' });
+  const m = { p, c, j, g, cells, name:p.name };
+  const who = new Set(); let late = false;
+  OBT_COLS.forEach(([k]) => { const x = cells[k]; if(!x) return; if(x.s === 'rev') who.add('review'); else if((x.s === 'todo' || x.s === 'wait') && x.who) who.add(x.who); if(x.late) late = true; });
+  m.who = who; m.late = late; m.nearly = obtNearly(m);
+  m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : (ckdStep1Stuck(j) || {}).days ?? null;
+  if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant'))) m.longWait = true;
+  m.extra = [];
+  if(c && c.prn_offer && !c.prn_offer.answer) m.extra.push({ t:'PRN offered', on:'ckdPrnAnswer(' + c.id + ')', tip:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call them and record their answer.' });
+  const q = c ? ckdQuiet(c, p.stop) : 0;
+  if(q && !(c.prn_offer && !c.prn_offer.answer)) m.extra.push({ t:'No word ' + q + 'd', on:'ckdLeaveOpen(' + c.id + ')', tip:'Nothing from them in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', late:true });
+  return m;
+}
+/* which queue a person is in for a job column, and which group: 0 to start, 1 waiting, 2 review */
+function obtGroupOf(cell){ return !cell ? -1 : cell.s === 'rev' ? 2 : cell.s === 'todo' ? 0 : cell.s === 'wait' ? 1 : -1; }
+function obtInQueue(m, k){
+  if(k === 'all') return true;
+  if(k === 'office') return m.who.has('office');
+  if(k === 'waiting') return !m.who.has('office') && !m.who.has('review') && (m.who.has('applicant') || m.who.has('outside'));
+  if(k === 'review') return m.who.has('review');
+  if(k === 'nearly') return !!m.nearly;
+  if(k === 'late') return m.late || m.longWait;
+  return obtGroupOf(m.cells[k]) >= 0;
+}
+function obtIcon(id){ return '<svg class="navi" aria-hidden="true"><use href="icons.svg#i-' + id + '"></use></svg>'; }
+function obtBtn(b, small){ return b && b.label ? '<button type="button" class="obt-b' + (b.quiet ? ' obt-b-q' : '') + (b.warn ? ' obt-b-w' : '') + (small ? ' obt-b-s' : '') + '" onclick="' + b.on + '">' + bgrEsc(b.label) + '</button>' : ''; }
+function obtCallA(p){ return p ? '<a class="obt-call"' + ocAttrs(p.dial, {}) + ' title="Call ' + bgrEsc(p.show) + ' from the office line">' + obtIcon('phone') + '</a>' : ''; }
+function obtCellHTML(x, k){
+  if(!x) return '<td></td>';
+  const tip = x.tip ? ' title="' + bgrEsc(x.tip) + '"' : '';
+  if(k === 'finish'){
+    const marks = (x.marks || []).map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('');
+    return '<td class="obt-c obt-fin"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + '</td>';
+  }
+  let inner;
+  if(x.s === 'ok') inner = x.link ? '<button type="button" class="obt-ok obt-lnk" onclick="' + x.link + '">' + obtIcon('check') + '</button>' : '<span class="obt-ok">' + obtIcon('check') + '</span>';
+  else if(x.s === 'rev') inner = x.b ? '<button type="button" class="obt-rev obt-rev-b" onclick="' + x.b.on + '">' + obtIcon('shield') + 'Review</button>' : '<span class="obt-rev">' + obtIcon('shield') + 'Review</span>';
+  else if(x.s === 'none') inner = '<span class="obt-none">·</span>';
+  else if(x.s === 'na') inner = '<span class="obt-none">–</span>';
+  else inner = (x.t ? '<span class="obt-t' + (x.late ? ' obt-late' : x.s === 'wait' ? ' obt-wait' : '') + (x.warn ? ' obt-warnt' : '') + '">' + (x.late ? obtIcon('clock') : '') + bgrEsc(x.t) + '</span>' : '');
+  const link = x.link && x.s !== 'ok' ? ' onclick="' + x.link + '" style="cursor:pointer"' : '';
+  return '<td class="obt-c obt-' + x.s + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + '</td>';
+}
+function obtWhoHTML(m){
+  const order = ['review', 'office', 'applicant', 'outside'];
+  return order.filter(k => m.who.has(k)).map(k => '<span class="obt-who obt-who-' + k + '">' + OBT_WHO[k] + '</span>').join('') || '<span class="obt-who obt-who-none">Nothing</span>';
+}
+function obtWaitHTML(m){
+  if(m.days === null) return '<span class="obt-none">–</span>';
+  return '<span class="' + (m.longWait ? 'obt-late' : m.days >= 5 ? 'obt-wait' : '') + '">' + (m.longWait ? obtIcon('clock') : '') + (m.days === 0 ? 'New' : m.days + 'd') + '</span>';
+}
+function obtNameHTML(m){
+  const p = m.p, c = m.c, j = m.j;
+  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(j.offer_id)) + '}').replace(/"/g, '&quot;') + ')' : (c ? 'ckdOpen(' + c.id + ')' : obtOpenCard(j));
+  const panel = c ? 'ckdOpen(' + c.id + ')' : obtOpenCard(j);
+  return '<button type="button" class="obt-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
+    + '<button type="button" class="obt-more" onclick="' + panel + '" title="Their checklist: every detail, notes, Take off">Checklist</button>'
+    + (m.nearly ? '<span class="obt-near" title="One step from Approve to Work">' + obtIcon('star') + bgrEsc(m.nearly) + '</span>' : '')
+    + m.extra.map(e => '<button type="button" class="obt-tag' + (e.late ? ' obt-tag-late' : '') + '" onclick="' + e.on + '" title="' + bgrEsc(e.tip) + '">' + bgrEsc(e.t) + '</button>').join('');
+}
+function obtRowHTML(m, hi){
+  return '<tr class="obt-r' + (m.who.has('review') ? ' obt-r-rev' : '') + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
+    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td><td class="obt-c obt-h">' + obtWhoHTML(m) + '</td>'
+    + OBT_COLS.map(([k]) => obtCellHTML(m.cells[k], k).replace('<td class="obt-c', '<td class="obt-c' + (k === hi ? ' obt-hi' : ''))).join('') + '</tr>';
+}
+/* the phone: one short card per person, the marks in a row and only the buttons that apply */
+function obtCardHTML(m, hi){
+  const marks = OBT_COLS.filter(([k]) => k !== 'finish').map(([k, t]) => { const x = m.cells[k] || {}; const cls = x.s === 'ok' ? 'ok' : x.s === 'rev' ? 'rev' : x.late ? 'late' : x.s === 'wait' ? 'wait' : x.s === 'todo' ? 'todo' : 'none';
+    return '<span class="obt-pm obt-pm-' + cls + (k === hi ? ' obt-pm-hi' : '') + '" title="' + bgrEsc(t + (x.tip ? ': ' + x.tip : '')) + '">' + t + '</span>'; }).join('');
+  const f = m.cells.finish, fm = f && f.marks ? '<span class="obt-mks">' + f.marks.map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('') + '</span>' : '';
+  const btns = OBT_COLS.map(([k, t]) => { const x = m.cells[k]; if(!x || x.s === 'ok' || x.s === 'none' || x.s === 'na') return ''; const bs = [];
+      if(x.call) bs.push('<a class="obt-b obt-b-q"' + ocAttrs(x.call.dial, {}) + '>' + t + ': Call</a>');
+      if(x.b) bs.push(obtBtn(Object.assign({}, x.b, { label:t + ': ' + x.b.label })).replace('class="obt-b', x.s === 'rev' ? 'class="obt-b obt-b-rev' : 'class="obt-b'));
+      return bs.join(''); }).join('');
+  return '<div class="obt-card' + (m.who.has('review') ? ' obt-r-rev' : '') + '"><div class="obt-card-top"><div>' + obtNameHTML(m) + '</div><div class="obt-card-w">' + obtWaitHTML(m) + '</div></div>'
+    + '<div class="obt-card-h">' + obtWhoHTML(m) + '</div><div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
+}
+function obtRender(box){
+  const L = ckdLists(), models = L.all.map(obtModel);
+  let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
+  if(window.CKD_FIND){ q = String(window.CKD_FIND).trim().toLowerCase(); window.CKD_FIND = ''; OBT_Q = 'all'; }
+  const valid = ['all', 'office', 'waiting', 'review', 'nearly', 'late'].concat(OBT_COLS.map(x => x[0]));
+  if(valid.indexOf(OBT_Q) < 0) OBT_Q = 'all';
+  const n = k => models.filter(m => obtInQueue(m, k)).length;
+  let list = models.filter(m => obtInQueue(m, OBT_Q));
+  if(q) list = list.filter(m => m.name.toLowerCase().includes(q) || (m.c && typeof obRefMatchSlots === 'function' && obRefMatchSlots(m.c, q).length));
+  list.sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
+  const job = OBT_COLS.some(x => x[0] === OBT_Q) ? OBT_Q : null;
+  const sum = (k, label, cls, tip) => '<button type="button" class="obt-s obt-s-' + cls + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '" title="' + bgrEsc(tip) + '"><b>' + n(k) + '</b><span>' + label + '</span></button>';
+  const chip = (k, label) => { const c = n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
+  const start = ckdStartHere(L.all);
+  const head = '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th><th scope="col">Holding up</th>' + OBT_COLS.map(([k, t]) => '<th scope="col"' + (k === job ? ' class="obt-hi"' : '') + '>' + t + '</th>').join('') + '</tr>';
+  let body;
+  if(job){
+    const g = OBT_GROUPS[job] || ['To do', 'Waiting', 'Review'], parts = [2, 0, 1].map(i => [i, list.filter(m => obtGroupOf(m.cells[job]) === i)]);
+    body = parts.filter(([, xs]) => xs.length).map(([i, xs]) => '<tr class="obt-g obt-g' + i + '"><td colspan="' + (OBT_COLS.length + 3) + '">' + bgrEsc(g[i] || ['To do', 'Waiting', 'Review'][i]) + ' (' + xs.length + ')</td></tr>'
+      + xs.sort((a, b) => ((b.cells[job].days ?? b.days ?? -1) - (a.cells[job].days ?? a.days ?? -1))).map(m => obtRowHTML(m, job)).join('')).join('');
+  } else body = list.map(m => obtRowHTML(m, null)).join('');
+  const cards = (job ? [2, 0, 1].flatMap(i => list.filter(m => obtGroupOf(m.cells[job]) === i)) : list).map(m => obtCardHTML(m, job)).join('');
+  const empty = q ? 'Nobody matches that search.' : OBT_Q === 'all' ? 'Nobody is onboarding right now.' : 'Nothing in this list right now.';
+  const run = [];
+  if(CKD_RUN.busy) run.push('<div class="ckd-msg">Bringing in reference answers and older offers…</div>');
+  if(CKD_RUN.err) run.push('<div class="ckd-msg ckd-err">' + bgrEsc(CKD_RUN.err) + '</div>');
+  if(CKD_RUN.note) run.push('<div class="ckd-msg">' + bgrEsc(CKD_RUN.note) + '</div>');
+  const notAdded = CKD_RUN.notAdded || [];
+  if(notAdded.length) run.push('<div class="ckd-msg ckd-soft"><b>' + notAdded.length + ' offered ' + (notAdded.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> ' + notAdded.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
+  box.innerHTML = ''
+    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">From Step 1 to Approved to Work. Longest waiting first.</div></div>'
+    +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
+    + '<div class="obt-sum">' + sum('all', 'Active', 'all', 'Everyone onboarding')
+    +   sum('office', 'Need office action', 'office', 'Has a button for us')
+    +   sum('waiting', 'Waiting on applicants or outside', 'wait', 'Nothing for us: waiting on the applicant, a reference or the state')
+    +   sum('review', 'Need review', 'rev', 'A flagged check or a reference with a concern: Samantha or Zachary decide')
+    +   sum('nearly', 'Nearly ready', 'near', 'One step from Approve to Work')
+    +   sum('late', 'Overdue', 'late', 'Past the times the Hub already uses (Step 1 stuck, 5 days without a reference answer, 8 days without Step 2 DONE, stuck in orientation, a missed video call, 10 days on the list)') + '</div>'
+    + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
+    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Step 2') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
+    + run.join('')
+    + '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
+    + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>'
+    + '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>'
+    + ckdMoreHTML(L);
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
   ckdRefreshPerson();
   ckdCelebrate(L.all);
@@ -12255,6 +12537,7 @@ window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRost
 window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED,
   /* Send reminder on every row (hire-remind.js, 2026-11-02): the same offer sends the cards use */
   offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
+window.obtQueue = obtQueue;   /* 2026-11-03 the Onboarding table's queues */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;
