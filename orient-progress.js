@@ -412,7 +412,7 @@
       + '<div class="orp-line">' + line + '</div>' + (p.state !== 'notstarted' && p.state !== 'done' ? bar(p) : '')
       + (p.alert ? '<div class="orp-why' + (p.soft ? ' soft' : '') + '">' + esc(p.alert) + '</div>' : '')
       + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state === 'done' ? afterLine(p) : '') + '</div>'
-      + '<div class="acts">' + call + (p.state === 'done' ? certBtn(r) : '') + toOnbBtn(r) + TP_LINK + '</div></div>';
+      + '<div class="acts">' + (p.state !== 'done' && window.HREM ? HREM.orientBtn(r) : '') + call + (p.state === 'done' ? certBtn(r) : '') + toOnbBtn(r) + TP_LINK + '</div></div>';
   }
   const TP_LINK = '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a>';
   /* a current caregiver (Active in AxisCare) redoing orientation, not someone waiting to start */
@@ -587,5 +587,5 @@
   /* the pill count: once after sign-in, then every 30 minutes while the page is open */
   let timer = null;
   function watch(){ if(timer) return; load(); timer = setInterval(() => { if(document.visibilityState === 'visible') load(); }, 30 * 60e3); }
-  window.OPR = { mount, load:() => load(), counts, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { mount, load:() => load(), counts, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();
