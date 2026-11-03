@@ -11401,13 +11401,44 @@ function obChecksHtml(c){
 }
 window.obChecksMount = obChecksMount;
 /* FCSR sent to the state: the date it went, who marked it, and when. The result is still recorded with its proof. */
+/* 2026-11-03 (Samantha: "i would rather the date be a easy to pick date on the order fcsr"): a small window with Today and
+   Yesterday buttons and a calendar (nothing after today), in place of typing YYYY-MM-DD. Saves exactly what it saved before. */
+function obFcsrPickDate(c, today){
+  return new Promise(done => {
+    const old = document.getElementById('fcsrPick'); if(old) old.remove();
+    const yest = (() => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA'); })();
+    const name = ((c.first || '') + ' ' + (c.last || '')).trim() || 'this person';
+    const w = document.createElement('div'); w.id = 'fcsrPick';
+    w.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.35);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px';
+    const b = 'font:inherit;font-size:14px;font-weight:700;border-radius:9px;padding:9px 16px;cursor:pointer;';
+    w.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="fcsrPickT" style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:18px 20px;display:flex;flex-direction:column;gap:12px;color:#16283a">'
+      + '<b id="fcsrPickT" style="font-size:17px;color:#0D365F">When did you order the FCSR for ' + bgrEsc(name) + '?</b>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-d="' + today + '" style="' + b + 'background:#0D365F;color:#fff;border:1px solid #0D365F">Today</button>'
+      +   '<button type="button" data-d="' + yest + '" style="' + b + 'background:#fff;color:#0D365F;border:1px solid #cfd8e2">Yesterday</button></div>'
+      + '<label style="font-size:13.5px;color:#55677a;display:flex;flex-direction:column;gap:4px">Or pick the day<input type="date" id="fcsrPickD" value="' + bgrEsc(c.fcsr_sent_date || today) + '" max="' + today + '" style="font:inherit;font-size:15px;padding:8px 10px;border:1px solid #cfd8e2;border-radius:9px;width:100%;box-sizing:border-box"></label>'
+      + '<div id="fcsrPickErr" style="font-size:13px;color:#B42318;display:none"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="fcsrPickX" style="' + b + 'background:#fff;color:#55677a;border:1px solid #e4e1d8">Cancel</button>'
+      +   '<button type="button" id="fcsrPickOk" style="' + b + 'background:#1F7A8C;color:#fff;border:1px solid #1F7A8C">Save that day</button></div></div>';
+    document.body.appendChild(w);
+    const close = v => { w.remove(); document.removeEventListener('keydown', key); done(v); };
+    const pick = d => { const err = w.querySelector('#fcsrPickErr');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d || '') || d > today){ err.textContent = 'Pick a day on or before today.'; err.style.display = 'block'; return; }
+      close(d); };
+    const key = e => { if(e.key === 'Escape') close(null); };
+    document.addEventListener('keydown', key);
+    w.addEventListener('click', e => { if(e.target === w) close(null); });
+    w.querySelectorAll('[data-d]').forEach(x => x.addEventListener('click', () => pick(x.getAttribute('data-d'))));
+    w.querySelector('#fcsrPickD').addEventListener('input', () => { w.querySelector('#fcsrPickErr').style.display = 'none'; });
+    w.querySelector('#fcsrPickOk').addEventListener('click', () => pick(w.querySelector('#fcsrPickD').value));
+    w.querySelector('#fcsrPickX').addEventListener('click', () => close(null));
+    setTimeout(() => { const t = w.querySelector('[data-d]'); if(t) t.focus(); }, 0);
+  });
+}
 async function obFcsrSent(candId){
   const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
   const today = new Date(); const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  const v = (await ccPrompt('What day did you order the FCSR? (YYYY-MM-DD)', c.fcsr_sent_date || iso));
-  if(v === null) return;
-  const d = String(v).trim();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d + 'T12:00:00')) || d > iso){ alert('That did not look like a date on or before today. Try ' + iso + '.'); return; }
+  const d = await obFcsrPickDate(c, iso);
+  if(d === null) return;
   bgrApplyBoardChange(c.id, { fcsr_sent_date: d, fcsr_sent_by: ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''), fcsr_sent_at: new Date().toISOString() });
 }
 window.obFcsrSent = obFcsrSent;

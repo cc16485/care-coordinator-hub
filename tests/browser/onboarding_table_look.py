@@ -39,7 +39,9 @@ function renderOB(){ renderCkd(); } function renderAlerts(){}
 const WC = __WC__; function wcRowFor(c){ return WC[c.id] || null; } function wcWhen(x){ return 'Thu 10am'; }
 """ + cut('function obRefType(v){', 'function obRefTypeLabel(') + cut('function obRefCellTypeLine(c,n){', '/* &t= and &co=') \
   + cut('function obSendDay(iso){', 'function obRefSendRecordLines(') + cut('function obFmtPhone(ph){', 'function obRefCellHTML(') \
-  + cut('/* ── CHECKS DASHBOARD (2026-10-21)', 'function renderOB(){')
+  + cut('/* ── CHECKS DASHBOARD (2026-10-21)', 'function renderOB(){') \
+  + "var SAVED = []; function bgrApplyBoardChange(id, ch){ SAVED.push([id, ch]); const c = candidates.find(x => x.id === id); Object.assign(c, ch); renderCkd(); }\n" \
+  + cut('function obFcsrPickDate(c, today){', 'window.obFcsrSent = obFcsrSent;') + 'window.obFcsrSent = obFcsrSent;\n'
 P = lambda **k: k
 CLEAR = dict(oig='CLEAR', oig_date=day(6), edl='Clear', edl_date=day(6), fcsr='Clear', fcsr_date=day(5), casenet='Clear', casenet_date=day(6))
 REFS_OK = dict(r1n='Ref Boss', r1_type='professional', r1s='Positive', r2n='Ref Pal', r2s='Positive')
@@ -177,6 +179,23 @@ with sync_playwright() as pw:
     m.screenshot(path=os.path.join(OUT, 'obt_phone.png'), clip={'x': 0, 'y': max(0, box['y'] - 8), 'width': 390, 'height': min(2200, box['height'] + 16)}, full_page=True)
     m.evaluate("()=>obtQueue('fcsr')"); m.wait_for_timeout(200); box = m.locator('#ckdDash').bounding_box()
     m.screenshot(path=os.path.join(OUT, 'obt_phone_fcsr.png'), clip={'x': 0, 'y': max(0, box['y'] - 8), 'width': 390, 'height': min(1600, box['height'] + 16)}, full_page=True)
+    # 2026-11-03 Order FCSR opens a date window (Today, Yesterday, a calendar) instead of asking for YYYY-MM-DD
+    pg.set_viewport_size({'width': 1440, 'height': 1000}); pg.evaluate("()=>obtQueue('fcsr')"); pg.wait_for_timeout(200)
+    pg.locator('tr.obt-r', has_text='Dana Demo').locator('button', has_text='Order').click(); pg.wait_for_timeout(200)
+    win = pg.evaluate("()=>{ const w=document.getElementById('fcsrPick'); return w ? { text:w.innerText.replace(/\\s+/g,' '), max:w.querySelector('#fcsrPickD').max, val:w.querySelector('#fcsrPickD').value, type:w.querySelector('#fcsrPickD').type } : null; }")
+    ck('Order FCSR opens a window: Today, Yesterday, and a calendar that stops at today', win and 'When did you order the FCSR for Dana Demo?' in win['text'] and 'Yesterday' in win['text'] and win['type'] == 'date' and win['max'] == win['val'], win)
+    pg.screenshot(path=os.path.join(OUT, 'obt_fcsr_date.png'), clip={'x': 440, 'y': 250, 'width': 560, 'height': 420})
+    pg.evaluate("()=>{ const i=document.getElementById('fcsrPickD'); const d=new Date(i.max+'T12:00:00'); d.setDate(d.getDate()+3); i.value=d.toLocaleDateString('en-CA'); }")
+    pg.click('#fcsrPickOk'); pg.wait_for_timeout(150)
+    fut = pg.evaluate("()=>({ open: !!document.getElementById('fcsrPick'), err: (document.getElementById('fcsrPickErr')||{}).innerText || '', saved: SAVED.length })")
+    ck('a day after today is refused in the window, nothing saved', fut['open'] and 'on or before today' in fut['err'] and fut['saved'] == 0, fut)
+    pg.locator('#fcsrPick button', has_text='Yesterday').click(); pg.wait_for_timeout(200)
+    got = pg.evaluate("()=>({ open: !!document.getElementById('fcsrPick'), saved: SAVED.map(x=>[x[0], x[1].fcsr_sent_date]), cell: (([...document.querySelectorAll('tr.obt-r')].find(r=>r.innerText.includes('Dana Demo'))||{}).innerText||'').replace(/\\s+/g,' ') })")
+    ck('Yesterday saves yesterday as the order day (the same field as before), and Dana moves to "Ordered, waiting on the state"', not got['open'] and got['saved'] == [[4, day(1)]] and __import__('re').search(r'\dd\s*Record', got['cell']), got)
+    pg.locator('tr.obt-r', has_text='Cora Sampleton').locator('button', has_text='Order').click(); pg.wait_for_timeout(150)
+    pg.keyboard.press('Escape'); pg.wait_for_timeout(100)
+    esc = pg.evaluate("()=>({ open: !!document.getElementById('fcsrPick'), saved: SAVED.length })")
+    ck('Cancel (Escape) closes the window and saves nothing', not esc['open'] and esc['saved'] == 1, esc)
     off = pg.evaluate("()=>{ DATA.ops_settings.onboarding_table_live = false; renderCkd(); const d=document.getElementById('ckdDash'); return { table: !!d.querySelector('table.obt'), rows: d.querySelectorAll('.ckd-row:not(.ckd-row-h)').length, tiles: d.querySelectorAll('.ckd-tile').length }; }")
     ck('switch off: today\'s page, unchanged (rows and stop tiles, no table)', not off['table'] and off['rows'] >= 10 and off['tiles'] == 5, off)
     ck('no page errors', not errs, errs)
@@ -185,5 +204,5 @@ srv.shutdown()
 bad = 0
 for n, ok, note in res:
     print(('PASS  ' if ok else 'FAIL  ') + n + ('' if ok else '  ' + note)); bad += 0 if ok else 1
-print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['obt_desktop_everyone.png', 'obt_desktop_fcsr.png', 'obt_desktop_scrolled.png', 'obt_phone.png', 'obt_phone_fcsr.png']))
+print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['obt_desktop_everyone.png', 'obt_desktop_fcsr.png', 'obt_desktop_scrolled.png', 'obt_phone.png', 'obt_phone_fcsr.png', 'obt_fcsr_date.png']))
 raise SystemExit(1 if bad else 0)
