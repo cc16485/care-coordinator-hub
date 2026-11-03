@@ -14,6 +14,9 @@
                                 resent, the automatic reminders.
      · Orientation:             the Training Platform's orientation reminder (send-reminder, with your own Hub sign-in).
                                 History: the Sent line the Orientation tab already shows.
+   The "still interested?" check-in (2026-11-03, part 3: Hub server last-chance, last_chance_asks) shows on the same line:
+   sent and when they come off the list if they do not answer (with Keep on list), or what their answer did; while its
+   switch is off, who it would have asked.
    The Finish line has no reminder: those steps are the office's. Texts still go only 8am to 6pm (held for the morning);
    every send is recorded where it was before, so the line shows it the next time the list draws.
    ===================================================================================================================== */
@@ -25,7 +28,7 @@
   const day = iso => ts(iso) ? new Date(ts(iso)).toLocaleDateString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }) : '';
   const get = n => { try{ return (0, eval)(n); }catch(e){ return undefined; } };
   const toast = m => { try{ (typeof ccToast === 'function' ? ccToast : alert)(m); }catch(e){} };
-  const ST = { texts:null, textsAt:0, offerEv:null, offerAt:0, busy:{} };
+  const ST = { texts:null, textsAt:0, offerEv:null, offerAt:0, lc:null, lcAt:0, busy:{} };
   const AGAIN = 2 * 60e3;
 
   /* who sent it: an office email becomes a first name */
@@ -69,6 +72,54 @@
     }catch(e){ ST.offerAt = Date.now(); }
     ST.busy.o = false;
   }
+  async function loadLc(){
+    if(ST.busy.l || (ST.lc && Date.now() - ST.lcAt < AGAIN) || typeof sb === 'undefined') return;
+    ST.busy.l = true;
+    try{
+      const since = new Date(Date.now() - 60 * 864e5).toISOString();
+      const { data, error } = await sb.from('last_chance_asks').select('*').gte('asked_at', since).order('asked_at').limit(3000);
+      if(!error){ ST.lc = Array.isArray(data) ? data : []; ST.lcAt = Date.now(); redraw(); } else ST.lcAt = Date.now();
+    }catch(e){ ST.lcAt = Date.now(); }
+    ST.busy.l = false;
+  }
+  /* the "still interested?" check-in for one person (the newest for that stage): one line, and Keep on list while it waits */
+  function lcLine(key, stages){
+    loadLc();
+    const list = (Array.isArray(ST.lc) ? ST.lc : []).filter(a => (key.applicant_id && String(a.applicant_id) === String(key.applicant_id)) || (key.candidate_id && String(a.candidate_id) === String(key.candidate_id))
+      || (key.offer_id && String(a.offer_id) === String(key.offer_id)) || (key.training_id && String(a.training_id) === String(key.training_id)))
+      .filter(a => !stages || stages.includes(a.stage));
+    const a = list[list.length - 1]; if(!a) return '';
+    const q = '<b>"Still interested?" text:</b> ';
+    if(a.practice) return '<div class="hrm-line hrm-none">' + q + 'would have gone ' + esc(day(a.asked_at)) + ' (the switch is off, nothing was sent)</div>';
+    const said = { yes:'said YES', no:'said NO', stop:'replied STOP', other:'answered' }[a.answer] || '';
+    const when = day(a.answered_at || a.outcome_at || a.asked_at);
+    let t;
+    if(!a.closed && !a.answer){
+      const off = new Date(ts(a.asked_at) + 3 * 864e5).toISOString();
+      return '<div class="hrm-line"><span class="hrm-lc">' + q + 'sent ' + esc(day(a.asked_at)) + '. No answer yet: they come off the list ' + esc(day(off)) + ' if they do not answer.</span> '
+        + '<button type="button" class="hrm-keep" onclick="event.preventDefault();event.stopPropagation();HREM.lcKeep(\'' + esc(a.id) + '\',this)">Keep on list</button></div>';
+    }
+    if(a.outcome === 'relinked') t = said + ' ' + when + ', link sent again';
+    else if(a.outcome === 'yes_link_waiting') t = said + ' ' + when + ', their link goes at 9am';
+    else if(a.outcome === 'taken_off') t = (said ? said + ' ' + when : 'no answer in 3 days') + ', taken off the list' + (said ? '' : ' ' + when);
+    else if(a.outcome === 'take_off_failed') t = (said || 'no answer') + ', but taking them off did not work (see Needs Attention)';
+    else if(a.outcome === 'card') t = said + ' ' + when + ' "' + String(a.answer_text || '').slice(0, 80) + '", a card is with the office';
+    else if(a.outcome === 'kept_by_office') t = 'kept on the list' + (a.outcome_by ? ' by ' + String(a.outcome_by).split(' ')[0] : '') + ' ' + when;
+    else if(a.outcome === 'step_done' || a.outcome === 'left_otherwise') t = 'sent ' + day(a.asked_at) + '; they moved on before it ended';
+    else if(a.outcome === 'not_sent') t = 'did not go ' + day(a.asked_at) + ' (see Needs Attention)';
+    else t = 'sent ' + day(a.asked_at);
+    return '<div class="hrm-line">' + q + esc(t) + '</div>';
+  }
+  async function lcKeep(id, btn){
+    if(!(typeof ccConfirm === 'function' ? await ccConfirm('Keep them on the list? The "still interested?" check-in closes now and they will not be taken off for not answering.') : confirm('Keep them on the list?'))) return;
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    try{
+      const { data, error } = await sb.functions.invoke('last-chance', { body:{ action:'keep', id } });
+      if(error || (data && data.error)){ let m = (data && data.error) || (error && error.message) || 'no answer'; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(e){} throw new Error(m); }
+      toast('Kept on the list.');
+    }catch(e){ alert('Not saved: ' + (e.message || e)); }
+    ST.lcAt = 0; loadLc();
+  }
   let pend = null;
   function redraw(){
     clearTimeout(pend);
@@ -78,6 +129,8 @@
         if(t === 'applicants' && typeof get('apRender') === 'function') get('apRender')();
         else if(t === 'interviews' && typeof get('ivqRender') === 'function') get('ivqRender')();
         else if(t === 'offers' && window.HSTRIP_ENGINE && HSTRIP_ENGINE.renderOffers) HSTRIP_ENGINE.renderOffers();
+        else if(t === 'cgbackground' && typeof window.renderCkd === 'function') window.renderCkd();
+        else if(t === 'orientprog' && window.OPR && OPR._redraw) OPR._redraw();
       }catch(e){}
     }, 80);
   }
@@ -98,10 +151,11 @@
     return btnHtml("ApText.open('" + esc(r.id) + "',{pick:'" + pick + "'})", r.status === 'partial' ? 'A text asking them to finish the application (you see it before it goes)' : 'A text with their own link to pick an interview time (you see it before it goes)');
   }
   function apLine(r, booked){
-    if(!apOpen(r) || booked) return '';
+    const lc = r ? lcLine({ applicant_id:r.id }, ['apply_finish', 'apply_book']) : '';
+    if(!apOpen(r) || booked) return lc;
     const auto = [['finish_nudge_1_at', 'finish the form'], ['finish_nudge_2_at', 'finish the form'], ['nudge_1_at', 'pick a time'], ['nudge_2_at', 'pick a time'], ['nudge_3_at', 'pick a time'], ['nudge_4_at', 'pick a time']]
       .filter(([k]) => r[k]).map(([k, w]) => ({ at:r[k], who:'automatic', what:w }));
-    const out = line(auto.concat(texts(r.id)), 'Reminders: none yet');
+    const out = line(auto.concat(texts(r.id)), 'Reminders: none yet') + lc;
     return out + (r.gave_up_at ? '<div class="hrm-line hrm-none">The automatic reminders stopped ' + esc(day(r.gave_up_at)) + '.</div>' : '');
   }
 
@@ -126,7 +180,7 @@
     if(!ST.offerEv) return '';
     const k = OFFER_KINDS[stage];
     const items = (ST.offerEv[o.id] || []).filter(e => k[e.kind]).map(e => ({ at:e.at, who:who(e.by), what:k[e.kind] + (e.practice ? ' (recorded only, the switch is off)' : '') }));
-    return line(items, 'Reminders: none yet');
+    return line(items, 'Reminders: none yet') + lcLine({ offer_id:o.id }, [stage === 'sent' ? 'offer' : 'step1']);
   }
   async function offerSend(id, stage, btn){
     const E = window.HSTRIP_ENGINE; if(!E || !E.offerAction){ alert('Offers are still loading. Try again in a moment.'); return; }
@@ -152,7 +206,7 @@
     const items = [{ at:c.step2_sent_at, who:who(c.step2_sent_by), what:'Step 2 sent' }];
     if(c.step2_resent_at) items.push({ at:c.step2_resent_at, who:who(c.step2_resent_by), what:'Step 2 resent' });
     Object.keys(c.step2_reminders || {}).forEach(k => { const r = c.step2_reminders[k] || {}; if(r.at) items.push({ at:r.at, who:'automatic', what:'reminder' }); });
-    return line(items);
+    return line(items) + lcLine({ candidate_id:c.id }, ['step2']);
   }
 
   /* ── Orientation (the Training Platform's own reminder, with your Hub sign-in) ── */
@@ -173,9 +227,10 @@
   }
 
   const css = () => { if(document.getElementById('hrmCss')) return; const s = document.createElement('style'); s.id = 'hrmCss';
-    s.textContent = '.hrm-btn{font:inherit;font-size:12px;font-weight:700;color:#fff;background:#2F6FB0;border:0;border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}.hrm-btn:hover{background:#245A92}.hrm-btn:disabled{opacity:.6}'
+    s.textContent = '.hrm-keep{font:inherit;font-size:11.5px;font-weight:700;color:#1F7A4D;background:#E7F6EC;border:1px solid #B7E1C6;border-radius:999px;padding:1px 9px;cursor:pointer;margin-left:4px}.hrm-lc{color:#8A5A12}'
+      + '.hrm-btn{font:inherit;font-size:12px;font-weight:700;color:#fff;background:#2F6FB0;border:0;border-radius:999px;padding:4px 12px;cursor:pointer;white-space:nowrap}.hrm-btn:hover{background:#245A92}.hrm-btn:disabled{opacity:.6}'
       + '.hrm-line{font-size:12.5px;color:#3A342C;line-height:1.5;flex-basis:100%;margin-top:2px}.hrm-line b{color:#0D365F;font-weight:700}.hrm-none{color:#8A8070}';
     document.head.appendChild(s); };
   css();
-  window.HREM = { apBtn, apLine, ivBtn, ivLine, offBtn, offLine, offerSend, s2Btn, s2Line, orientBtn, orientSend, _st:ST, _line:line };
+  window.HREM = { lcLine, lcKeep, apBtn, apLine, ivBtn, ivLine, offBtn, offLine, offerSend, s2Btn, s2Line, orientBtn, orientSend, _st:ST, _line:line };
 })();
