@@ -1695,6 +1695,7 @@ function renderOffers(){
           (ros.state==='maybe'?'<span title="Someone on the caregiver roster has this phone or email, but it is not certain it is the same person. Check, then Mark Step 1 done or Close offer." style="font-size:.72rem;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:.15rem .6rem">May already be working: check</span>':'')+
           '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
           (!why&&window.HREM?HREM.offBtn(o,offerStage(o)):'')+   /* 2026-11-02: Send reminder, and its history line below */
+          (!why&&window.HSHIFT&&(offerStage(o)==='sent'||offerStage(o)==='accepted')?HSHIFT.btn({ name:o.name, phone:o.phone },offerStage(o)==='sent'?'offer':'step1'):'')+   /* 2026-11-03: Tell them about shifts */
           '<span style="color:#A89C8B;font-size:.74rem">details ▾</span>'+
           (!why&&window.HREM?HREM.offLine(o,offerStage(o)):'')+
           '</summary>'+
@@ -7803,6 +7804,7 @@ function ckdRowHTML(p){
     + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
     +   '<button type="button" class="ckd-check" onclick="' + open + '" title="Their onboarding checklist">Checklist</button>'
     +   (c && window.HREM ? HREM.s2Btn(c) + HREM.s2Line(c) : '')   /* 2026-11-02: Send reminder (Step 2), and its history line */
+    +   (c && window.HSHIFT && c.step2_sent_at && !c.step2_done_at && !c.step2_verified_at ? HSHIFT.btn({ name:p.name, phone:c.phone, zip:c.zip }, 'step2') : '')   /* 2026-11-03: Tell them about shifts */
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
     + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span>' + ckdOrientHTML(p) + '</div>'
     + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'

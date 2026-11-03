@@ -419,7 +419,7 @@
       + '<div class="orp-line">' + line + '</div>' + (p.state !== 'notstarted' && p.state !== 'done' ? bar(p) : '')
       + (p.alert ? '<div class="orp-why' + (p.soft ? ' soft' : '') + '">' + esc(p.alert) + '</div>' : '')
       + '<div class="orp-meta">' + meta + '</div>' + msgsLine(r) + (p.state !== 'done' && window.HREM ? HREM.lcLine({ training_id:r.training_id }, ['orientation']) : '') + (p.state === 'done' ? afterLine(p) : '') + '</div>'
-      + '<div class="acts">' + (p.state !== 'done' && window.HREM ? HREM.orientBtn(r) : '') + call + (p.state === 'done' ? certBtn(r) : '') + toOnbBtn(r) + TP_LINK + '</div></div>';
+      + '<div class="acts">' + (p.state !== 'done' && window.HREM ? HREM.orientBtn(r) : '') + (p.state !== 'done' && window.HSHIFT ? HSHIFT.btn({ name:r.name, phone:r.phone }, 'orientation') : '') + call + (p.state === 'done' ? certBtn(r) : '') + toOnbBtn(r) + TP_LINK + '</div></div>';
   }
   const TP_LINK = '<a class="ibtn" href="https://training.mo-care.com/#/admin" target="_blank" rel="noopener">Training Platform</a>';
   /* a current caregiver (Active in AxisCare) redoing orientation, not someone waiting to start */
