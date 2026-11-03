@@ -14509,7 +14509,9 @@ async function n3Send(itemId, circle, members, ov){
     const first=String(m.name||'').split(' ')[0]||'there';
     try{
       const { data, error } = await sb.functions.invoke('circle-send',{ body:{ circle_id:String(circle.id), purpose:'care_note', contact_ids:[String(m.id)], body:'Hi '+first+', '+text, item_id:itemId } });
-      if(error||!data||!data.ok||!data.reached) throw new Error((data&&data.error)||(error&&error.message)||'not reached (opted out, or no way to reach them)');
+      if(error){ let em=error.message; try{ const j=await error.context.json(); if(j&&j.error) em=j.error; }catch(_){} throw new Error(em); }   /* the server's own words (after 9 PM, no permission) */
+      const pr=data&&(data.people||[]).find(x=>String(x.id)===String(m.id));
+      if(!data||!data.ok||!data.reached) throw new Error((data&&data.error)||(pr&&pr.why)||'not reached (opted out, or no way to reach them)');
       done.push(m.name);
       item.family_contacts=(item.family_contacts||[]).concat({ name:m.name, how:'text', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
     }catch(e){ failed.push(m.name+': '+String(e&&e.message||e)); }
@@ -23812,12 +23814,16 @@ function fcCircleBody(c, people, linked, esc, inProfile){
         + '<label style="margin-top:8px;">What to tell them</label>'
         + '<textarea id="fcmsg_' + esc(c.id) + '" rows="4"></textarea>'
         + '<div class="field-note" id="fcwho_' + esc(c.id) + '" style="margin-top:7px;"></div>'
+        + '<div id="fcppl_' + esc(c.id) + '" style="margin-top:6px;"></div>'
         + '<div style="display:flex;gap:9px;margin-top:11px;flex-wrap:wrap;">'
         + '<button class="primary" onclick="fcSend(\'' + esc(c.id) + '\',this)">Send to the circle</button>'
         + '<button class="ghost" onclick="document.getElementById(\'fcbox_' + esc(c.id) + '\').style.display=\'none\'">Cancel</button>'
         + '</div>'
         + '<div id="fcerr_' + esc(c.id) + '" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
-      + '</div></div></details>';
+      + '</div>'
+      /* the last send's result stays after the box closes, so it is never sent twice by accident */
+      + '<div id="fcres_' + esc(c.id) + '" style="display:none;font-size:13px;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;"></div>'
+      + '</div></details>';
 }
 
 /* Change 6a: a circle is created FOR a client (picked from the clients the hub
@@ -23960,16 +23966,65 @@ function fcCompose(circleId, kind){
   }
   const people = (FC_CONTACTS[circleId]||[]).filter(function(p){
     return kind==='change' ? p.wants_changes!==false : p.wants_general!==false; });
-  const reach = people.filter(function(p){ return (p.phone&&p.sms_consent)||p.email; });
+  /* who it reaches, and how, comes from the server just below (fcPreview); this guess used to count AxisCare numbers nobody had confirmed */
   document.getElementById('fcwho_'+circleId).textContent =
-    'Goes to ' + reach.length + ' of ' + people.length + ' in the circle'
-    + (people.length-reach.length
-        ? ', and ' + (people.length-reach.length) + (people.length-reach.length===1?' has':' have') + ' no way to be reached'
-        : '')
-    + '. Replies come to the office line.';
+    'For ' + people.length + ' in the circle. Replies come to the office line.';
   document.getElementById('fcerr_'+circleId).style.display='none';
+  document.getElementById('fcres_'+circleId).style.display='none';
   box.style.display='block';
   box.scrollIntoView({behavior:'smooth', block:'center'});
+  fcPreview(circleId, kind);
+}
+
+/* 2026-11-02 (after "Sent to 0 of a client's circle"): before Send, the server says person by person how this
+   message would reach them. A number AxisCare gave us is only texted once a person confirms it, so it is asked here,
+   one tick per number, recorded with your name (the same confirm as the Family app line). Outside 8 AM to 9 PM it says
+   nothing can go now. */
+const FC_TEXT_WORDS = { ok:'text', no_consent:'texts not OK', no_phone:'no phone number', rejected:'number was marked wrong before', error:"number couldn't be checked" };
+async function fcPreview(circleId, kind){
+  const ppl = document.getElementById('fcppl_'+circleId); if(!ppl) return;
+  const box = document.getElementById('fcbox_'+circleId);
+  ppl.innerHTML = '<div class="field-note">Checking how this reaches each person…</div>';
+  let d;
+  try{
+    const r = await callAction('circle-send', { circle_id: circleId, kind: kind, body: 'preview', dry: true });
+    d = r.data; if(!d || r.status >= 400) throw new Error((d && d.error) || ('answered ' + r.status));
+  }catch(e){ ppl.innerHTML = '<div class="field-note" style="color:var(--red);">Could not check who this reaches: ' + escapeHtmlComms(e.message || 'error') + '. You can still press Send; the result will say who got it.</div>'; return; }
+  if(box.dataset.kind !== kind) return;   // a different button was pressed meanwhile
+  const e = escapeHtmlComms;
+  const rows = (d.people || []).map(function(p){
+    const first = String(p.name || '').split(' ')[0] || 'their';
+    const how = [];
+    if(p.text === 'ok') how.push('text'); else if(p.text !== 'unconfirmed') how.push(FC_TEXT_WORDS[p.text] || p.text);
+    how.push(p.email ? 'email' : 'no email');
+    let line = '<div style="padding:3px 0;"><b>' + e(p.name) + '</b> <span class="field-note">' + e(how.join(' · ')) + '</span>';
+    if(p.text === 'unconfirmed') line += '<div style="margin:3px 0 0 2px;"><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:0;">'
+      + '<input type="checkbox" class="fc-confirm" data-id="' + e(p.id) + '" data-name="' + e(p.name) + '"> Yes, ' + e(p.phone) + ' is ' + e(first) + "'s own number</label>"
+      + '<div class="field-note">AxisCare gave us this number, so it is texted only once a person checks it. Leave it unticked to skip the text' + (p.email ? ' (the email still goes)' : '') + '.</div></div>';
+    return line + '</div>';
+  }).join('');
+  ppl.innerHTML = rows + (d.in_hours === false
+    ? '<div style="color:var(--red);font-size:13px;margin-top:6px;"><b>It is after 9 PM.</b> Family Circle messages go out between 8 AM and 9 PM, so nothing can be sent now. Call the family, or send this after 8 AM.</div>' : '');
+}
+
+/* The send reply, person by person. Nobody is left as a bare number. */
+function fcResult(circleId, c, data){
+  const res = document.getElementById('fcres_'+circleId), e = escapeHtmlComms;
+  const people = (data && data.people) || [];
+  if(!people.length){   /* a server from before 2026-11-02 sends counts only */
+    res.innerHTML = '<div style="font-weight:700;' + (data && data.reached ? '' : 'color:var(--red);') + '">' + (data && data.reached ? 'Sent to ' + data.reached + ' of ' + (data.of ?? '?') + '.' : 'Nobody got this message.') + '</div>';
+    res.style.display = 'block'; return !!(data && data.reached && data.reached === data.of);
+  }
+  const got = people.filter(function(p){ return p.reached; }), missed = people.filter(function(p){ return !p.reached; });
+  const notes = got.filter(function(p){ return p.why; });
+  const head = !got.length
+    ? '<div style="color:var(--red);font-weight:700;">Nobody got this message.</div>'
+    : '<div style="color:var(--green,#15803d);font-weight:700;">Sent to ' + got.length + ' of ' + people.length + ' in ' + e(c.client_name) + "'s circle: " + e(got.map(function(p){ return p.name; }).join(', ')) + '.</div>';
+  const lines = missed.map(function(p){ return '<div style="color:var(--red);">Not sent to <b>' + e(p.name) + '</b>: ' + e(p.why || 'no way to reach them') + '.</div>'; })
+    .concat(notes.map(function(p){ return '<div class="field-note">' + e(p.name) + ': ' + e(p.why) + '.</div>'; }));
+  res.innerHTML = '<div class="field-note" style="margin-bottom:3px;">Your message just now</div>' + head + lines.join('') + (missed.length ? '<div class="field-note" style="margin-top:4px;">Call ' + (missed.length === 1 ? 'them' : 'each of them') + ', or fix what is listed and send again.</div>' : '');
+  res.style.display = 'block';
+  return !missed.length && !notes.length;
 }
 
 function fcChangeText(circleId){
@@ -24003,17 +24058,27 @@ async function fcSend(circleId, btn){
   const kind = box.dataset.kind || 'update';
   if(!body){ err.textContent='Write the message first.'; err.style.display='block'; return; }
   const c = FC.find(function(x){ return String(x.id)===String(circleId); });
-  if(!(await ccConfirm('Send this to ' + c.client_name + "'s circle?"))) return;
+  const ticks = Array.prototype.slice.call(box.querySelectorAll('.fc-confirm:checked'));
+  if(!(await ccConfirm('Send this to ' + c.client_name + "'s circle?"
+      + (ticks.length ? ' You are confirming the number for ' + ticks.map(function(t){ return t.dataset.name; }).join(', ') + '.' : '')))) return;
   btn.disabled = true; btn.textContent = 'Sending…';
+  err.style.display='none'; document.getElementById('fcres_'+circleId).style.display='none';
   try{
+    for(const t of ticks){
+      const r = await callAction('family-app-office', { action:'confirm_phone', contact_id: t.dataset.id, on: true });
+      if(!r.data || r.status >= 400) throw new Error('Nothing was sent. ' + t.dataset.name + "'s number was not confirmed: " + ((r.data && r.data.error) || ('answered ' + r.status)));
+    }
     const { data, error } = await sb.functions.invoke('circle-send', {
       body: { circle_id: circleId, kind: kind, body: body, sent_by: (ME.name || ME.email || '') },
     });
-    if(error) throw error;
+    if(error){ let m = error.message; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
     box.style.display='none';
-    alert('Sent to ' + ((data && data.reached) ?? '') + ' of ' + c.client_name + "'s circle.");
+    const all = fcResult(circleId, c, data);
+    if(all && typeof ccToast==='function') ccToast('Sent to everyone in ' + c.client_name + "'s circle.");
+    document.getElementById('fcres_'+circleId).scrollIntoView({behavior:'smooth', block:'nearest'});
   }catch(e){
-    err.textContent = 'Could not send: ' + (e&&e.message||'error');
+    const m = String(e&&e.message||'error');
+    err.textContent = /^Nothing was sent/.test(m) ? m : 'Could not send: ' + m;
     err.style.display='block';
   }finally{ btn.disabled=false; btn.textContent='Send to the circle'; }
 }
