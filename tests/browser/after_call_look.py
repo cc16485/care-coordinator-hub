@@ -60,6 +60,16 @@ async()=>{
   const C=document.getElementById('crBody'), ct=()=>C.innerText;
   ok('readiness card: "Call after orientation" before approval, with the six lines and Send video link', /Call after orientation/.test(ct()) && /Approve to Work waits for this call/.test(ct()) && C.querySelectorAll('input[type=checkbox]').length>=6 && /Send video link/.test(ct()) && /Not ready/.test(ct()), ct().slice(0,800));
   ok('readiness card: no Orientation Video Call wording', !/Orientation Video Call|video call/i.test(ct().replace(/Send video link/g,'')), ct().slice(0,600));
+  /* 2026-11-04 the AxisCare Class and attributes lines: the Class is not a checkbox (Check / Set it), the attributes show the interview answers */
+  CARD.facts.call={ axiscare_class:'PRN TEAM - CNA', axiscare_id:'9102', attributes:{ dogs:true, smoking:false } };
+  CARD.approve.call_ticks=Object.assign({}, TK, { attributes:'Attributes entered in AxisCare (asked anything not asked at the interview)', axclass:'AxisCare Class is right' });
+  await CRX.open('o-call'); await sleep(250);
+  ok('call card: the AxisCare Class line names PRN TEAM - CNA with Check and Set it, and is not a box a person can tick', /AxisCare Class: PRN TEAM - CNA/.test(ct()) && [...C.querySelectorAll('button')].some(b=>b.innerText==='Set it') && C.querySelectorAll('input[type=checkbox]').length===7, ct().slice(0,900));
+  ok('call card: the attributes line shows what to tick and what to leave off (the Not asked list needs the Offers code, not loaded on this page)', /Tick these \(1\)/.test(ct()) && /Dogs/.test(ct()) && /Leave these off \(1\)/.test(ct()) && /Smoking/.test(ct()), ct().slice(700,1700));
+  INV.length=0; CONFIRMS.length=0; [...C.querySelectorAll('button')].find(b=>b.innerText==='Set it').click(); await sleep(200);
+  ok('Set it asks first, then one checkin class_set for that card', /Set their Class in AxisCare/.test(CONFIRMS.at(-1)||'') && INV.some(b=>b.action==='checkin'&&b.class_set===true&&b.journey_id==='j-call'), [CONFIRMS, INV]);
+  INV.length=0; [...C.querySelectorAll('button')].find(b=>b.innerText==='Check').click(); await sleep(200);
+  ok('Check reads AxisCare (checkin class_check), nothing written', INV.some(b=>b.action==='checkin'&&b.class_check===true) && !INV.some(b=>b.class_set), INV);
   window.__shotCard=true;
   /* Team Work: the call card is for whoever is free */
   const pl=TW.place({ id:'cj_checkin_j-call', kind:'orientation_call', status:'open', owner:'', opened_by:'caregiver-journey', urgency:'today', due:ago(-D) }, TW.ctx());

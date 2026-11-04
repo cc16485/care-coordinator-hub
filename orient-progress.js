@@ -356,7 +356,12 @@
     else {
       const names = ST.meta.ticks || TICKS, tk = c.ticks || {};
       s2 = '<div class="orp-meta">' + (after ? 'Look at their ID on video and complete I-9 Section 2 in Viventium, make sure everything is done, help with the AxisCare app, and talk about clients and shifts.' : 'Answer their questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete.') + (c.tries ? ' Tried ' + c.tries + ' time' + (c.tries === 1 ? '' : 's') + ' with no answer.' : '') + '</div>'
-        + Object.keys(names).map(k => '<label class="orp-tick"><input type="checkbox" ' + (tk[k] ? 'checked ' : '') + 'onchange="OPR.tick(\'' + jid + '\',\'' + esc(k) + '\',this)"> ' + esc(names[k]) + '</label>').join('')
+        + Object.keys(names).map(k => k === 'axclass'
+            /* 2026-11-04 the AxisCare Class: the Hub ticks it after reading AxisCare (Check) or writing the right one (Set it) */
+            ? '<div class="orp-tick"><b style="color:' + (tk[k] ? '#15803D' : '#B45309') + '">' + (tk[k] ? '✓' : '○') + '</b> AxisCare Class: <b>' + esc(a.axiscare_class || 'their Level') + '</b>'
+              + '<button class="ibtn" onclick="OPR.classCheck(\'' + jid + '\',false,this)">Check</button><button class="ibtn" onclick="OPR.classCheck(\'' + jid + '\',true,this)">Set it</button></div>'
+            : '<label class="orp-tick"><input type="checkbox" ' + (tk[k] ? 'checked ' : '') + 'onchange="OPR.tick(\'' + jid + '\',\'' + esc(k) + '\',this)"> ' + esc(names[k]) + '</label>'
+              + (k === 'attributes' && window.CRX && typeof CRX.attrSheet === 'function' ? CRX.attrSheet({ attributes:a.attributes || {} }) : '')).join('')
         + '<div class="orp-tick">Test clock-in on "Practice": <label><input type="radio" name="orpTc' + jid + '" ' + (c.test_clock === 'done' ? 'checked ' : '') + 'onchange="OPR.clock(\'' + jid + '\',\'done\',this)"> done</label> <label><input type="radio" name="orpTc' + jid + '" ' + (c.test_clock === 'declined' ? 'checked ' : '') + 'onchange="OPR.clock(\'' + jid + '\',\'declined\',this)"> no thanks</label></div>'
         + '<div class="acts" style="margin-top:6px">' + (r.phone && typeof ocAttrs === 'function' ? '<a class="ibtn" ' + ocAttrs(r.phone, { email:r.email }) + '>Call</a>' : '')
         + '<button class="orp-go" onclick="OPR.callDone(\'' + jid + '\',this)">✓ Call done</button><button class="ibtn" onclick="OPR.noAnswer(\'' + jid + '\',this)">No answer</button>'
@@ -389,6 +394,10 @@
   async function tick(jid, k, box){ box.disabled = true; if(!(await cj({ action:'checkin', journey_id:jid, ticks:{ [k]: !!box.checked } }))){ box.checked = !box.checked; box.disabled = false; } }
   const clock = (jid, v, box) => cj({ action:'checkin', journey_id:jid, test_clock:v }, box);
   const callDone = (jid, btn) => cj({ action:'checkin', journey_id:jid, finish:true }, btn, '✓ Call done');
+  async function classCheck(jid, set, btn){
+    if(set && typeof ccConfirm === 'function' && !(await ccConfirm('Set their Class in AxisCare now? Their Level or PRN Team class is replaced by the right one; every other class stays.'))) return;
+    await cj({ action:'checkin', journey_id:jid, [set ? 'class_set' : 'class_check']: true }, btn, set ? 'Set it' : 'Check');
+  }
   async function videoLink(jid, btn){
     if(typeof ccConfirm === 'function' && !(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return;
     if(await cj({ action:'checkin', journey_id:jid, video_link:true }, btn, 'Send video link') && typeof toast === 'function') toast('Video link sent');
@@ -696,5 +705,5 @@
     const r = rowFor(ax, name), a = r ? afterFor(r) : null; if(!a) return null;
     return { approved:!!a.approved, ready:!!(a.ready && a.ready.ready_for_final), missing:((a.ready && a.ready.missing) || []).map(short), checkin:a.checkin || null, active:a.active || null };
   }
-  window.OPR = { inOnboarding, folded, queueCount, hist:hostHist, mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, videoLink, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { classCheck, inOnboarding, folded, queueCount, hist:hostHist, mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, videoLink, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();

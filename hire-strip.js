@@ -114,6 +114,7 @@
     const t = get('activeTab');
     if(t === 'applicants') return 'applied';
     if(t === 'interviews') return 'interview';
+    if(t === 'cgbackground' && typeof window.obtOio === 'function' && window.obtOio()){ const q = (() => { try{ return localStorage.getItem('ckd_table_queue'); }catch(e){ return ''; } })(); if(q === 'offer') return 'offer'; if(q === 'step1') return 'step1'; }
     if(t === 'offers'){ const s = get('OFF_STAGE'); return s === 'accepted' ? 'step1' : s === 'sent' ? 'offer' : ''; }
     if(t === 'cgbackground') return 'checks';
     if(t === 'orientprog'){ const s = window.OPR && OPR._st ? OPR._st.tab : ''; return s === 'fin' ? 'finish' : 'orient'; }
@@ -121,6 +122,8 @@
   }
   function go(tab){ if(typeof switchTab === 'function') switchTab(tab); }
   function goOffers(stage){
+    /* 2026-11-04: with Offers inside Onboarding, the Offer stage is the table's Offer queue (Step 1 is its own column there) */
+    if(typeof window.obtOio === 'function' && window.obtOio() && typeof window.obtOpenQueue === 'function'){ window.obtOpenQueue(stage === 'sent' ? 'offer' : 'step1'); return; }
     try{ (0, eval)("OFF_STAGE='" + stage + "'; OFF_STAGE_PICKED=true;"); }catch(e){}
     if(get('activeTab') === 'offers'){ try{ get('offView')(get('offCurrentView')); }catch(e){} draw(); } else go('offers');
   }
