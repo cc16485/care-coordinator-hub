@@ -641,7 +641,7 @@
       try {
         var c = client(); if (!c) throw new Error('not signed in');
         if (!(await rulesReady())) throw new Error('the eligibility rules did not load');
-        var r = await c.from('caregiver_profiles').select('id,candidate_id,axiscare_id,published,status,updated_at').neq('status', 'withdrawn').order('updated_at', { ascending: false });
+        var r = await c.from('caregiver_profiles').select('id,candidate_id,axiscare_id,published,status,updated_at,submitted_at,photo_path,consent').neq('status', 'withdrawn').order('updated_at', { ascending: false });
         if (r.error) throw r.error;
         var w = await c.from('welcome_calls').select('candidate_id,status');
         if (w.error) throw w.error;
