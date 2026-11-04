@@ -31,7 +31,7 @@ PAGE = """<!doctype html><meta charset=utf-8><body>
 <div class="fsubbar"><div class="fpill">Family bookings<span id="famPillBadge" style="display:none"></span></div></div>
 <div id="cp_cl360Circle"></div><div id="famBookings"></div>
 <script>
-window.DATA = { ops_settings: { family_app_live: false, family_app_service_MO: 'PP - WC' }, caregivers: [
+let DATA = { ops_settings: { family_app_live: false, family_app_service_MO: 'PP - WC' }, caregivers: [  /* the page's own name, never on window, like the Hub */
   { first: 'Maria', last: 'Lopez', axiscare_id: 88 }, { first: 'Gone', last: 'Away', axiscare_id: 66, active: false }, { first: 'Maria', last: 'Lopez', axiscare_id: 88 } ] };
 window.__calls = [];
 const M = { '00000009-aaaa-4bbb-8ccc-000000000009': { id: '00000009-aaaa-4bbb-8ccc-000000000009', name: 'Lisa Ray', email: 'lisa@x.test', app_status: null, app_can_book: false }, '00000000-aaaa-4bbb-8ccc-000000000010': { id: '00000000-aaaa-4bbb-8ccc-000000000010', name: 'Tom Ray', email: '' }, '00000001-aaaa-4bbb-8ccc-000000000011': { id: '00000001-aaaa-4bbb-8ccc-000000000011', name: 'Ann', email: 'a@x.test', app_status: 'active', app_can_book: true } };
@@ -210,7 +210,7 @@ with sync_playwright() as p:
     pg.fill('#famhf-c1', 'Respite for her daughter'); pg.click('button:has-text("Turn on for 90 days")'); pg.wait_for_timeout(120)
     ck('Release 3: Help us fill on, shown with its date and reason', 'on until 2099-01-01 (Respite for her daughter)' in pg.inner_text('#famBookings'), pg.inner_text('#famBookings')[-600:])
     # Her check 2026-10-17: with caregiver offers ON, routine requests are listed, not counted; late charges are a list
-    pg.evaluate("window.DATA.ops_settings.family_offer_live = true; B.push({ id: 'b6', client_name: 'Dorothy Ray', visit_date: '2099-01-03', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', late_charge_hours: 2, late_pay_caregiver: 'Maria L.' })")
+    pg.evaluate("DATA.ops_settings.family_offer_live = true; B.push({ id: 'b6', client_name: 'Dorothy Ray', visit_date: '2099-01-03', start_time: '09:00', end_time: '11:00', hours: 2, tasks: ['Companionship'], status: 'cancelled', state: 'MO', late_charge_hours: 2, late_pay_caregiver: 'Maria L.' })")
     pg.evaluate('FAMAPP.render()'); pg.wait_for_timeout(120)
     t = pg.inner_text('#famBookings')
     ck('offers on: routine requests are under "Asking caregivers, nothing for you to do", not Needs you; the badge counts only what needs a person', 'Asking caregivers, nothing for you to do (1)' in t and 'Needs you (1)' in t and pg.inner_text('#famPillBadge') == '1', [l for l in t.split(chr(10)) if 'Needs you' in l or 'Asking caregivers' in l] + [pg.inner_text('#famPillBadge')])

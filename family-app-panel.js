@@ -12,7 +12,11 @@
   function call(body) { return window.callAction('family-app-office', body).then(function (r) { if (!r.data || r.status >= 400) throw new Error((r.data && r.data.error) || ('The family app door answered ' + r.status)); return r.data }) }
   function t12(hhmm) { var p = String(hhmm || '').split(':'), h = Number(p[0]); if (isNaN(h)) return ''; return ((h + 11) % 12 + 1) + ':' + (p[1] || '00') + ' ' + (h < 12 ? 'AM' : 'PM') }
   function day(d) { return new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }) }
-  function settings() { return (window.DATA && window.DATA.ops_settings) || {} }
+  /* 2026-11-02 fix: DATA is a page-level let in index.html (never window.DATA), so settings were always {} (every switch read
+     as off) and the caregiver list was always empty. Read the page-level one (same fix as care-packet.js 2026-10-12). */
+  function data() { try { return (typeof DATA !== 'undefined' && DATA) || window.DATA || null } catch (x) { return window.DATA || null } }
+  function settings() { var d = data(); return (d && d.ops_settings) || {} }
+  function roster() { var d = data(); return (d && d.caregivers) || [] }
 
   // ── Family Circle line ──────────────────────────────────────────────────────────────────────────────────────────
   /* Her rule 2026-10-17: the welcome is sent by a person, and the Hub notes when, by whom and which version.
@@ -301,13 +305,13 @@
     return '<div class="field-note" style="margin-top:4px;">Offered: ' + os.map(function (o) { return e(o.caregiver_name || '?') + ' (' + e(OFFER_WORD[o.state] || o.state) + (o.picked_start ? ', ' + e(t12(o.picked_start)) : '') + ')' }).join(' · ') + '</div>'
   }
   function caregiverOptions() {
-    var list = ((window.DATA && window.DATA.caregivers) || []).filter(function (g) { return g && g.axiscare_id && g.active !== false })
+    var list = roster().filter(function (g) { return g && g.axiscare_id && g.active !== false })
     list.sort(function (a, b) { return String(a.first || '').localeCompare(String(b.first || '')) })
     var seen = {}
     return list.filter(function (g) { var k = String(g.axiscare_id); if (seen[k]) return false; seen[k] = 1; return true })
       .map(function (g) { return '<option value="' + e(g.axiscare_id) + '">' + e([g.first, g.last].filter(Boolean).join(' ')) + '</option>' }).join('')
   }
-  function cgName(id) { var g = ((window.DATA && window.DATA.caregivers) || []).find(function (x) { return String(x.axiscare_id) === String(id) }); return g ? e([g.first, g.last].filter(Boolean).join(' ')) : 'caregiver ' + e(id) }
+  function cgName(id) { var g = roster().find(function (x) { return String(x.axiscare_id) === String(id) }); return g ? e([g.first, g.last].filter(Boolean).join(' ')) : 'caregiver ' + e(id) }
   // Release 1: when the family will hear back, Central time ("Wed, Oct 21, 6 PM")
   function byWords(iso) { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).replace(':00', '') } catch (x) { return '' } }
   function bookingCard(b, today) {
