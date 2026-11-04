@@ -91,18 +91,18 @@ async(CODE)=>{
   const txt = e => (e ? e.innerText : '').replace(/\s+/g,' ').trim();
   const rowOf = n => [...dash.querySelectorAll('tr.obt-r')].find(r => r.querySelector('.obt-n').innerText.includes(n));
   const cell = (n, i) => { const r = rowOf(n); return r ? r.children[i] : null; };
-  const H = [...dash.querySelectorAll('thead th')].map(th => th.innerText.trim());
+  const H = [...dash.querySelectorAll('thead tr:last-child th')].map(th => th.innerText.trim());
   const col = name => H.indexOf(name);
   const sum = Object.fromEntries([...dash.querySelectorAll('.obt-s')].map(b => [b.querySelector('span').innerText, Number(b.querySelector('b').innerText)]));
   const out = { H, sum, start: txt(dash.querySelector('.obt-start')), rows:[...dash.querySelectorAll('tr.obt-r')].map(r => txt(r.querySelector('.obt-n'))),
     sticky: getComputedStyle(dash.querySelector('tbody .obt-n')).position, more: txt(dash.querySelector('.ckd-more')),
-    ava:{ who:txt(cell('Ava Fake', 2)), orient:txt(cell('Ava Fake', col('Orientation'))), refs:txt(cell('Ava Fake', col('Refs'))), refsCall: !!cell('Ava Fake', col('Refs')).querySelector('a.obt-call') },
+    ava:{ who:txt(cell('Ava Fake', 2)), orient:txt(cell('Ava Fake', col('Orientation'))), refs:txt(cell('Ava Fake', col('References'))), refsCall: !!cell('Ava Fake', col('References')).querySelector('a.obt-call') },
     beaName:txt(rowOf('Bea Sample').querySelector('.obt-n')), avaName:txt(rowOf('Ava Fake').querySelector('.obt-n')), ivyName:txt(rowOf('Ivy Example').querySelector('.obt-n')),
-    bea:{ fcsr:txt(cell('Bea Sample', col('FCSR'))), step2:txt(cell('Bea Sample', col('Step 2'))), step2Late: !!cell('Bea Sample', col('Step 2')).querySelector('.obt-late'), who:txt(cell('Bea Sample', 2)) },
-    cora:{ edl:txt(cell('Cora Sampleton', col('EDL'))), refs:txt(cell('Cora Sampleton', col('Refs'))), who:txt(cell('Cora Sampleton', 2)) },
-    dana:{ fcsr:txt(cell('Dana Demo', col('FCSR'))), step2:txt(cell('Dana Demo', col('Step 2'))), refs:txt(cell('Dana Demo', col('Refs'))), refsLate: !!cell('Dana Demo', col('Refs')).querySelector('.obt-late') },
+    bea:{ fcsr:txt(cell('Bea Sample', col('FCSR'))), step2:txt(cell('Bea Sample', col('Viventium (Step 2)'))), step2Late: !!cell('Bea Sample', col('Viventium (Step 2)')).querySelector('.obt-late'), who:txt(cell('Bea Sample', 2)) },
+    cora:{ edl:txt(cell('Cora Sampleton', col('EDL'))), refs:txt(cell('Cora Sampleton', col('References'))), who:txt(cell('Cora Sampleton', 2)) },
+    dana:{ fcsr:txt(cell('Dana Demo', col('FCSR'))), step2:txt(cell('Dana Demo', col('Viventium (Step 2)'))), refs:txt(cell('Dana Demo', col('References'))), refsLate: !!cell('Dana Demo', col('References')).querySelector('.obt-late') },
     gia:{ edl:txt(cell('Gia Pretend', col('EDL'))), rev: !!cell('Gia Pretend', col('EDL')).querySelector('.obt-rev'), late: !!cell('Gia Pretend', col('EDL')).querySelector('.obt-late'), who:txt(cell('Gia Pretend', 2)), orient:txt(cell('Gia Pretend', col('Orientation'))) },
-    hal:{ refs:txt(cell('Hal Mock', col('Refs'))), orient:txt(cell('Hal Mock', col('Orientation'))) },
+    hal:{ refs:txt(cell('Hal Mock', col('References'))), orient:txt(cell('Hal Mock', col('Orientation'))) },
     ivy:{ orient:txt(cell('Ivy Example', col('Orientation'))), late: !!cell('Ivy Example', col('Orientation')).querySelector('.obt-late'), finish:txt(cell('Ivy Example', col('Finish'))) },
     jo:{ finish:txt(cell('Jo Placeholder', col('Finish'))), name:txt(rowOf('Jo Placeholder').querySelector('.obt-n')) },
     kai:{ finish:txt(cell('Kai Madeup', col('Finish'))), name:txt(rowOf('Kai Madeup').querySelector('.obt-n')) },
@@ -110,6 +110,17 @@ async(CODE)=>{
     max:{ step1:txt(cell('Max Draft', col('Step 1'))), oig:txt(cell('Max Draft', col('OIG'))), who:txt(cell('Max Draft', 2)) },
     tia:{ step1:txt(cell('Tia Sample', col('Step 1'))), call: !!cell('Tia Sample', col('Step 1')).querySelector('a.obt-call'), who:txt(cell('Tia Sample', 2)) },
     nia:{ name:txt(rowOf('Nia Specimen').querySelector('.obt-n')) } };
+  /* 2026-11-04: groups over the columns, dates on done steps, why lines, edges, references as a count, I-9 in Viventium */
+  out.groups = [...dash.querySelectorAll('thead tr.obt-grp th')].map(th => th.textContent.trim()).filter(Boolean);
+  out.edges = Object.fromEntries(['Bea Sample', 'Gia Pretend', 'Ivy Example', 'Cora Sampleton'].map(n => [n.split(' ')[0], rowOf(n).className]));
+  out.dates = { avaOig:txt(cell('Ava Fake', col('OIG'))), ivyStep2:txt(cell('Ivy Example', col('Viventium (Step 2)'))) };
+  out.why = { beaFcsr:txt(cell('Bea Sample', col('FCSR'))), beaHold:txt(cell('Bea Sample', 2)), danaRefs:txt(cell('Dana Demo', col('References'))), coraRefs:txt(cell('Cora Sampleton', col('References'))) };
+  out.refsDone = { ivy:txt(cell('Ivy Example', col('References'))), ivyIcon: !!cell('Ivy Example', col('References')).querySelector('svg') };
+  out.i9 = { ivy:txt(cell('Ivy Example', col('I-9 in Viventium'))), kai:txt(cell('Kai Madeup', col('I-9 in Viventium'))) };
+  const fo = OPR.finishOf; OPR.finishOf = (ax, name) => name === 'Jo Placeholder' ? { approved:false, ready:false, missing:['Caregiver profile published', 'I-9 Section 2 completed by an authorized representative'] } : fo(ax, name);
+  renderCkd(); out.i9.jo = txt(cell('Jo Placeholder', col('I-9 in Viventium'))); out.i9.joBtn = !!cell('Jo Placeholder', col('I-9 in Viventium')).querySelector('button');
+  out.i9.queue = (obtQueue('i9'), [...dash.querySelectorAll('tbody tr')].map(r => r.classList.contains('obt-g') ? '# ' + txt(r) : txt(r.querySelector('.obt-n')).split(' ')[0]));
+  OBT_Q = 'all'; OPR.finishOf = fo; renderCkd();
   obtQueue('fcsr');
   out.fcsrRows = [...dash.querySelectorAll('tbody tr')].map(r => r.classList.contains('obt-g') ? '# ' + txt(r) : txt(r.querySelector('.obt-n')));
   out.fcsrHi = !!dash.querySelector('thead th.obt-hi') && dash.querySelector('thead th.obt-hi').innerText.trim();
@@ -133,7 +144,7 @@ with sync_playwright() as pw:
                .replace('__D14__', ts(14)).replace('__D2__', ts(2)).replace('__D7__', ts(7))
     R = pg.evaluate(T, code)
     s = R['sum']
-    ck('columns: name, days, holding up, then every step to Finish', R['H'] == ['Name', 'Days', 'Holding up', 'Step 1', 'OIG', 'EDL', 'FCSR', 'Case.net', 'Refs', 'Step 2', 'Orientation', 'Finish'], R['H'])
+    ck('columns: name, days, holding up, then every step to Finish', R['H'] == ['Name', 'Days', 'Holding up', 'Step 1', 'OIG', 'EDL', 'FCSR', 'Case.net', 'References', 'Viventium (Step 2)', 'I-9 in Viventium', 'Orientation', 'Finish'], R['H'])
     ck('the name column stays put when the table scrolls sideways', R['sticky'] == 'sticky', R['sticky'])
     ck('summary: 13 active, review 2 (flagged EDL, negative reference), nearly ready 2', s.get('Active') == 13 and s.get('Need review') == 2 and s.get('Nearly ready') == 2, s)
     ck('summary: "waiting" never counts someone the office or a review owes a move (the two never overlap)', s.get('Need office action', 0) + s.get('Waiting on applicants or outside', 0) <= 13 and s.get('Need office action', 0) >= 6, s)
@@ -158,10 +169,21 @@ with sync_playwright() as pw:
     ck('Nearly ready: Jo and Kai only', sorted(x.split(' ')[0] for x in R['nearRows']) == ['Jo', 'Kai'], R['nearRows'])
     ck('Review: Gia and Hal only', sorted(x.split(' ')[0] for x in R['revRows']) == ['Gia', 'Hal'], R['revRows'])
     ck('Overdue: Bea (Step 2), Dana (reference), Ivy (orientation), Tia (Step 1)', all(any(n in x for x in R['lateRows']) for n in ['Bea', 'Dana', 'Ivy', 'Tia']), R['lateRows'])
+    ck('labels over the columns: Application, Background checks, References and Viventium, Getting ready to work', R['groups'] == ['Application', 'Background checks', 'References and Viventium', 'Getting ready to work'], R['groups'])
+    ck('done steps show their date (OIG cleared, Viventium Step 2 checked)', __import__('re').search(r'[A-Z][a-z]{2} \d', R['dates']['avaOig']) and __import__('re').search(r'[A-Z][a-z]{2} \d', R['dates']['ivyStep2']), R['dates'])
+    ck('why lines: FCSR at the state since a day; a reference with no answer in 7 days; a form sent to a reference; Holding up says what and why', 'At the state since' in R['why']['beaFcsr'] and 'no answer 7 days' in R['why']['danaRefs'] and 'Form sent to Ref Three' in R['why']['coraRefs'] and ':' in R['why']['beaHold'], R['why'])
+    ck('edges: Bea red (overdue), Gia purple (review), Cora none', 'obt-r-late' in R['edges']['Bea'] and 'obt-r-rev' in R['edges']['Gia'] and 'obt-r-late' not in R['edges']['Cora'] and 'obt-r-quiet' not in R['edges']['Cora'], R['edges'])
+    ck('references done read 2/2, never only a check mark', R['refsDone']['ivy'].startswith('2/2') and not R['refsDone']['ivyIcon'], R['refsDone'])
+    ck('I-9 in Viventium: nothing before the video call (Ivy); done when the readiness card no longer lists it (Kai); I-9 done button once the video call is done and it is still open (Jo), in its own queue', R['i9']['ivy'] == '·' and R['i9']['kai'] == '' and 'I-9 done' in R['i9']['jo'] and R['i9']['joBtn'] and 'Jo' in R['i9']['queue'], R['i9'])
     ck('More links unchanged', 'How long people take' in R['more'] and 'Full table' in R['more'] and 'Taken off the list' in R['more'], R['more'])
     pg.evaluate("()=>obtQueue('all')"); pg.wait_for_timeout(200)
     box = pg.locator('#ckdDash').bounding_box()
     pg.screenshot(path=os.path.join(OUT, 'obt_desktop_everyone.png'), clip={'x': box['x'] - 8, 'y': max(0, box['y'] - 8), 'width': box['width'] + 16, 'height': min(1400, box['height'] + 16)}, full_page=True)
+    pg.evaluate("()=>{ const fo=OPR.finishOf; OPR.finishOf=(ax,n)=> n==='Jo Placeholder' ? { approved:false, ready:false, missing:['Caregiver profile published','I-9 Section 2 completed by an authorized representative'] } : fo(ax,n); window._fo=fo; obtQueue('i9'); }"); pg.wait_for_timeout(200)
+    box = pg.locator('#ckdDash').bounding_box()
+    pg.screenshot(path=os.path.join(OUT, 'obt_i9_queue.png'), clip={'x': box['x'] - 8, 'y': max(0, box['y'] - 8), 'width': box['width'] + 16, 'height': min(700, box['height'] + 16)}, full_page=True)
+    pg.evaluate("()=>{ location.hash=''; }")
+    pg.evaluate("()=>{ OPR.finishOf=window._fo; }")
     pg.evaluate("()=>obtQueue('fcsr')"); pg.wait_for_timeout(200)
     box = pg.locator('#ckdDash').bounding_box()
     pg.screenshot(path=os.path.join(OUT, 'obt_desktop_fcsr.png'), clip={'x': box['x'] - 8, 'y': max(0, box['y'] - 8), 'width': box['width'] + 16, 'height': min(1000, box['height'] + 16)}, full_page=True)
@@ -207,5 +229,5 @@ srv.shutdown()
 bad = 0
 for n, ok, note in res:
     print(('PASS  ' if ok else 'FAIL  ') + n + ('' if ok else '  ' + note)); bad += 0 if ok else 1
-print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['obt_desktop_everyone.png', 'obt_desktop_fcsr.png', 'obt_desktop_scrolled.png', 'obt_phone.png', 'obt_phone_fcsr.png', 'obt_fcsr_date.png']))
+print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['obt_desktop_everyone.png', 'obt_desktop_fcsr.png', 'obt_desktop_scrolled.png', 'obt_phone.png', 'obt_phone_fcsr.png', 'obt_fcsr_date.png', 'obt_i9_queue.png']))
 raise SystemExit(1 if bad else 0)

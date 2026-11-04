@@ -7476,11 +7476,11 @@ function ckdRefNext(c){
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
     const how = req && req.texted_at ? 'texted and emailed' : 'sent';
     if(days !== null && days < 5)
-      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
-    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
+      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', short:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
+    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), short:nm + (days !== null ? ', no answer ' + days + (days === 1 ? ' day' : ' days') : ', not called yet'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
-  if(!ckdRefSlots(c).length) return { text:'No references given yet. Ask ' + (c.first || 'them') + ' for two, one from a past job, and add them here.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
-  return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
+  if(!ckdRefSlots(c).length) return { text:'No references given yet. Ask ' + (c.first || 'them') + ' for two, one from a past job, and add them here.', short:'No references given yet', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
+  return { text:rp.why + ' Add another reference.', short:rp.why, label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
 }
 /* ONE next step. The filter decides which kind comes first; otherwise references come first (they take the longest),
    then the checks. */
@@ -7895,7 +7895,14 @@ function obtOpenQueue(k){ OBT_Q = k; try{ localStorage.setItem(OBT_KEY, OBT_Q); 
   const d = document.getElementById('ckdDash');   /* the engine's own activeTab is not the Hub's tab, so look at the page */
   if(!(d && d.offsetParent) && typeof window.switchTab === 'function') window.switchTab('cgbackground'); else renderCkd(); }
 const obtFolded = () => !!(window.OPR && typeof OPR.folded === 'function' && OPR.folded());
-const OBT_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'Refs'], ['step2', 'Step 2'], ['orient', 'Orientation'], ['finish', 'Finish']];
+/* 2026-11-04 (Samantha, from the CDS attendant table): dates on done steps, a short why line under anything waiting or late,
+   labels over related columns, a red (overdue) or gold (10+ days on the list) edge on the name, references always as a count,
+   "Viventium (Step 2)", and an I-9 in Viventium column read from the readiness card's own I-9 Section 2 row */
+const OBT_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'References'], ['step2', 'Viventium (Step 2)'], ['i9', 'I-9 in Viventium'], ['orient', 'Orientation'], ['finish', 'Finish']];
+const OBT_HEADS = [['Application', ['step1']], ['Background checks', ['oig', 'edl', 'fcsr', 'casenet']], ['References and Viventium', ['refs', 'step2', 'i9']], ['Getting ready to work', ['orient', 'finish']]];
+const obtGroupStart = k => OBT_HEADS.some(h => h[1][0] === k);
+/* a date-only value ("2026-10-24") is read at noon so it never shows the day before */
+const obtDay = v => { const s = String(v || ''); return !s ? '' : ckdDay(/^\d{4}-\d{2}-\d{2}$/.test(s.slice(0, 10)) && s.length <= 10 ? s.slice(0, 10) + 'T12:00:00' : s); };
 const OBT_WHO = { review:'Review', office:'Office', applicant:'Applicant', outside:'Outside' };
 const OBT_GROUPS = {
   oig:    ['Record the OIG result', '', 'Flagged: Samantha or Zachary decide'],
@@ -7904,6 +7911,7 @@ const OBT_GROUPS = {
   casenet:['Search Case.net and record it', '', 'Issues found: Samantha or Zachary decide'],
   refs:   ['Call or add a reference', 'Form sent, waiting on the reference', 'A reference with a concern: Samantha or Zachary decide'],
   step2:  ['Send or check Step 2', 'Waiting on the applicant to finish Step 2', ''],
+  i9:     ['Complete I-9 Section 2 in Viventium', '', ''],
   orient: ['Ready to send orientation', 'In orientation', ''],
   finish: ['Office to-dos: badge, approval, check-in call', 'Waiting on the applicant: orientation, video call, profile', ''],
   step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', '']
@@ -7917,16 +7925,16 @@ function obtChecks(c){
   const out = {}, id = c.id, wait1 = ckdStep1Waiting(c);
   CKD_CHECKS.forEach(x => {
     const v = c[x.k];
-    if(v === x.ok){ out[x.k] = obtCell('ok', '', { tip:x.label + ' clear' + (c[x.k + '_date'] ? ' ' + fmtD(String(c[x.k + '_date']).slice(0, 10)) : '') }); return; }
+    if(v === x.ok){ out[x.k] = obtCell('ok', '', { d:obtDay(c[x.k + '_date']), tip:x.label + ' clear' + (c[x.k + '_date'] ? ' ' + fmtD(String(c[x.k + '_date']).slice(0, 10)) : '') }); return; }
     if(v === x.bad){ out[x.k] = obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:x.label + ': ' + v + '. Samantha or Zachary decide.' }); return; }
     if(wait1){ out[x.k] = obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' }); return; }
     if(x.k === 'oig'){
       const auto = !c.oig_date ? ckdOigSearch(c) : null, n = auto ? ((auto.evidence && auto.evidence.match_count) || 0) : null;
-      out.oig = c.oig_date || auto ? obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'oig\')' }, tip:auto ? 'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state.' : 'no matches. Record it as Clear.') : 'Record the OIG result.' })
+      out.oig = c.oig_date || auto ? obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'oig\')' }, why:auto ? (n ? 'Hub found ' + n + ' possible match' + (n === 1 ? '' : 'es') : 'Hub found no matches') : '', tip:auto ? 'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state.' : 'no matches. Record it as Clear.') : 'Record the OIG result.' })
                                    : obtCell('todo', '', { who:'office', b:{ label:'Run', on:'bgrRunOIG(' + id + ',this)' }, tip:'Run the OIG check. It takes one click.' });
     } else if(x.k === 'fcsr' && ckdFcsrOrdered(c)){
       const n = ckdFcsrDays(c);
-      out.fcsr = obtCell('wait', n === null ? 'Ordered' : n + 'd', { who:'outside', days:n, b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'fcsr\')', quiet:true }, tip:ckdFcsrWaitText(c) + '. Check the state site to see if it is back.' });
+      out.fcsr = obtCell('wait', n === null ? 'Ordered' : n + 'd', { who:'outside', days:n, b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'fcsr\')', quiet:true }, why:'At the state since ' + obtDay(ckdFcsrOrdered(c)), tip:ckdFcsrWaitText(c) + '. Check the state site to see if it is back.' });
     } else if(x.k === 'fcsr'){
       out.fcsr = obtCell('todo', '', { who:'office', b:{ label:'Order', on:'obFcsrSent(' + id + ')' }, tip:'Order FCSR in the state system, then press Order to mark it ordered.' });
     } else {
@@ -7937,22 +7945,23 @@ function obtChecks(c){
 }
 function obtRefs(c){
   const rp = refPolicy(c), good = ckdGoodRefs(c);
-  if(rp.ok) return obtCell('ok', '', { tip:'References done' });
+  /* always a count (her ask 2026-11-04: "1/2", never only a check mark) */
+  if(rp.ok) return obtCell('ok', '2/2', { tip:'References done' });
   if(rp.blocked) return obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:rp.why });
   if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' });
   const nx = ckdRefNext(c) || {}, cnt = Math.min(good, 2) + '/2';
   const ph = nx.slot ? c['r' + nx.slot + '_phone'] : null, p = ph ? obFmtPhone(ph) : null;
-  if(nx.quiet) return obtCell('wait', cnt, { who:'outside', b:{ label:'Record', on:nx.on, quiet:true }, call:p, tip:nx.text });
+  if(nx.quiet) return obtCell('wait', cnt, { who:'outside', b:{ label:'Record', on:nx.on, quiet:true }, call:p, why:nx.short || '', tip:nx.text });
   const m = /no answer in (\d+) days/.exec(nx.text || ''), days = m ? Number(m[1]) : null;
-  return obtCell('todo', cnt, { who:'office', b:{ label:nx.label === 'Add a reference' ? 'Add' : 'Record', on:nx.on }, call:p, days, late:days !== null && days >= 5, tip:nx.text });
+  return obtCell('todo', cnt, { who:'office', b:{ label:nx.label === 'Add a reference' ? 'Add' : 'Record', on:nx.on }, call:p, days, late:days !== null && days >= 5, why:nx.short || '', tip:nx.text });
 }
 function obtStep2(c){
   if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'After Step 1' });
   const v = ckdStep2Lane(c), id = c.id;
-  if(c.step2_verified_at) return obtCell('ok', '', { tip:v.text });
-  if(c.step2_done_at) return obtCell('todo', '', { who:'office', b:{ label:'Check', on:'step2Verify(' + id + ')' }, tip:v.text });
+  if(c.step2_verified_at) return obtCell('ok', '', { d:obtDay(c.step2_verified_at), tip:v.text });
+  if(c.step2_done_at) return obtCell('todo', '', { who:'office', b:{ label:'Check', on:'step2Verify(' + id + ')' }, why:(c.first || 'They') + ' said done ' + obtDay(c.step2_done_at), tip:v.text });
   if(c.step2_sent_at){ const d = obtDaysSince(c.step2_sent_at);
-    return obtCell('wait', d === null ? 'Sent' : d + 'd', { who:'applicant', days:d, late:d !== null && d >= 8, b:{ label:'Said done', on:'step2Reported(' + id + ')', quiet:true }, tip:v.text + (d !== null && d >= 8 ? ' No DONE in ' + d + ' days.' : '') }); }
+    return obtCell('wait', d === null ? 'Sent' : d + 'd', { who:'applicant', days:d, late:d !== null && d >= 8, b:{ label:'Said done', on:'step2Reported(' + id + ')', quiet:true }, why:'Sent ' + obtDay(c.step2_sent_at) + ', not DONE yet', tip:v.text + (d !== null && d >= 8 ? ' No DONE in ' + d + ' days.' : '') }); }
   return obtCell('todo', '', { who:'office', b:{ label:'I sent it', on:'step2Sent(' + id + ')' }, tip:v.text });
 }
 function obtOrient(c, stop){
@@ -7972,7 +7981,7 @@ function obtOrientProgress(p){
   const on = 'OPR.show(\'' + bgrEsc(o.id) + '\')';
   if(/^Finished/.test(o.text)) return obtCell('ok', '', { tip:o.text, link:on });
   const u = /Unit (\d+) of (\d+)/.exec(o.text);
-  return obtCell('wait', u ? 'U' + u[1] + '/' + u[2] : 'Sent', { who:'applicant', late:!!o.bad, tip:o.text + '. Open them on the Orientation tab.', link:on });
+  return obtCell('wait', u ? 'U' + u[1] + '/' + u[2] : 'Sent', { who:'applicant', late:!!o.bad, why:o.text, tip:o.text + '. Open them on the Orientation tab.', link:on });
 }
 /* the Finish column: orientation, video call, profile, badge, approved, as the readiness card and the Finish line already read them */
 function obtFinish(p, j, g){
@@ -8002,7 +8011,7 @@ function obtFinish(p, j, g){
   const any = marks.some(m => m.s !== 'none');
   const late = marks.some(m => m.s === 'late'), todo = acts.length > 0, wait = marks.some(m => m.s === 'wait');
   return obtCell(!any ? 'none' : todo ? 'todo' : marks.every(m => m.s === 'ok') ? 'ok' : wait ? 'wait' : 'none', '',
-    { marks, acts, who:todo ? 'office' : wait ? 'applicant' : '', late, warn:acts.some(a => a.warn), fin, b:acts[0] ? { label:acts[0].label, on:acts[0].on } : null });
+    { marks, acts, who:todo ? 'office' : wait ? 'applicant' : '', late, warn:acts.some(a => a.warn), fin, why:fin && !fin.approved && fin.missing.length ? 'Still needs: ' + fin.missing.join(', ') : '', b:acts[0] ? { label:acts[0].label, on:acts[0].on } : null });
 }
 /* nearly ready (her ask: "one actionable step away from approval"): everything done but the approval itself, or exactly one
    thing left on the Finish line's own list */
@@ -8013,29 +8022,55 @@ function obtNearly(m){
   if(f && !f.approved && f.missing.length === 1) return 'Only ' + f.missing[0] + ' left';
   return null;
 }
+/* I-9 in Viventium (her ask 2026-11-04): after the ID is seen on the welcome video call, someone completes Section 2 in Viventium.
+   Read from what the Hub already keeps: the Step 2 check's own I-9 line (step2_i9_s2_at), or the readiness card's
+   "I-9 Section 2" row (missing from its list = done). The button confirms that same readiness-card row, in the presser's name. */
+function obtI9(c, j, fin){
+  if(c && c.step2_i9_s2_at) return obtCell('ok', '', { d:obtDay(c.step2_i9_s2_at), tip:'I-9 Section 2 completed ' + obtDay(c.step2_i9_s2_at) });
+  if(j && (j.approved_to_work || j.ready_for_final)) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  const f = fin && fin.fin, open = f && f.missing.some(x => /I-9/i.test(x));
+  if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  const v = fin && (fin.marks || []).find(x => x.k === 'V');
+  if(open && v && v.s === 'ok' && j && j.journey_id)
+    return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, why:'ID seen on the video call', tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
+  return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
+}
+async function obtI9Done(jid, btn){
+  if(!(await ccConfirm('Record that you examined their ID documents and completed I-9 Section 2 in Viventium?\n\nThis completes the I-9 Section 2 row on their readiness card in your name, with the time. Only the person who did it should press this.'))) return;
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' }); }
+  catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+  try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
+  renderCkd();
+}
 /* one person, every column */
 function obtModel(p){
   const c = p.c, j = p.j || (c ? ckdJourneyFor(c) : null), g = j ? ckdRosterFor(j) : null, cells = {};
   if(c){
-    cells.step1 = ckdStep1Waiting(c) ? obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' }) : obtCell('ok', '', { tip:'Step 1 done' });
+    cells.step1 = ckdStep1Waiting(c) ? obtCell('wait', 'Waiting', { who:'applicant', why:'Step 1 forms not finished', tip:'Waiting on their Step 1 forms' }) : obtCell('ok', '', { d:obtDay(c.step1_done_at || (c.step1_landed && c.step1_landed.at)), tip:'Step 1 done' });
     Object.assign(cells, obtChecks(c));
     cells.refs = obtRefs(c); cells.step2 = obtStep2(c); cells.orient = obtOrient(c, p.stop);
   } else {
     const stuck = ckdStep1Stuck(j), n = j && j.next ? j.next : {};
-    if(p.stop === 0 && stuck) cells.step1 = obtCell('wait', 'Stuck ' + stuck.days + 'd', { who:'applicant', late:true, call:stuck.call ? { dial:stuck.call.dial, show:stuck.call.show } : null, b:stuck.call ? null : { label:'Open', on:obtOpenCard(j) }, tip:stuck.text });
+    if(p.stop === 0 && stuck) cells.step1 = obtCell('wait', 'Stuck ' + stuck.days + 'd', { who:'applicant', late:true, call:stuck.call ? { dial:stuck.call.dial, show:stuck.call.show } : null, b:stuck.call ? null : { label:'Open', on:obtOpenCard(j) }, why:'Reminders did not do it: call them', tip:stuck.text });
     else if(p.stop === 0 && n.key === 'cg.company.countersign') cells.step1 = obtCell('todo', '', { who:'office', b:{ label:'Countersign', on:obtOpenCard(j) }, tip:(n.title || 'Company signature') + ' (a person on the Approve to Work list)' });
     else if(p.stop === 0) cells.step1 = obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' });
     else cells.step1 = obtCell('ok', '', { tip:'Step 1 done' });
     const card = 'On their readiness card';
-    ['oig', 'edl', 'fcsr', 'casenet', 'refs', 'step2'].forEach(k => { cells[k] = obtCell(p.stop >= 3 ? 'ok' : 'na', '', { tip:card }); });
+    ['oig', 'edl', 'fcsr', 'casenet', 'refs', 'step2'].forEach(k => { cells[k] = obtCell(p.stop >= 3 ? 'ok' : 'na', p.stop >= 3 && k === 'refs' ? '2/2' : '', { tip:card }); });
     if(p.stop >= 1 && p.stop < 3){ const nx = ckdRosterNext(j); cells.refs = obtCell(nx.warn ? 'rev' : 'na', '', { who:nx.warn ? 'review' : '', b:{ label:'Open card', on:obtOpenCard(j), quiet:true }, tip:nx.text }); }
     cells.orient = p.stop >= 3 ? obtOrientProgress(p) : obtCell('none', '', { tip:'After the checks' });
   }
   cells.finish = p.stop >= 3 || (j && (j.ready_for_final || j.approved_to_work)) ? obtFinish(p, j, g) : obtCell('none', '', { tip:'After orientation is sent' });
+  cells.i9 = obtI9(c, j, cells.finish);
   const m = { p, c, j, g, cells, name:p.name };
   const who = new Set(); let late = false;
   OBT_COLS.forEach(([k]) => { const x = cells[k]; if(!x) return; if(x.s === 'rev') who.add('review'); else if((x.s === 'todo' || x.s === 'wait') && x.who) who.add(x.who); if(x.late) late = true; });
   m.who = who; m.late = late; m.nearly = obtNearly(m);
+  /* one line under Holding up: the first review, then late, then office, then waiting cell, with its why */
+  { const rank = x => x.s === 'rev' ? 0 : x.late ? 1 : x.s === 'todo' ? 2 : x.s === 'wait' ? 3 : 9;
+    const top = OBT_COLS.map(([k, t]) => [t, cells[k]]).filter(([, x]) => x && rank(x) < 9).sort((a, b) => rank(a[1]) - rank(b[1]))[0];
+    m.hold = top ? top[0] + ': ' + (top[1].s === 'rev' ? 'needs review' : top[1].why || (top[1].b && top[1].b.label) || top[1].t || 'waiting') : ''; }
   m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : (ckdStep1Stuck(j) || {}).days ?? null;
   if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant'))) m.longWait = true;
   m.extra = [];
@@ -8059,21 +8094,27 @@ function obtIcon(id){ return '<svg class="navi" aria-hidden="true"><use href="ic
 function obtBtn(b, small){ return b && b.label ? '<button type="button" class="obt-b' + (b.quiet ? ' obt-b-q' : '') + (b.warn ? ' obt-b-w' : '') + (small ? ' obt-b-s' : '') + '" onclick="' + b.on + '">' + bgrEsc(b.label) + '</button>' : ''; }
 function obtCallA(p){ return p ? '<a class="obt-call"' + ocAttrs(p.dial, {}) + ' title="Call ' + bgrEsc(p.show) + ' from the office line">' + obtIcon('phone') + '</a>' : ''; }
 function obtCellHTML(x, k){
-  if(!x) return '<td></td>';
+  const gs = obtGroupStart(k) ? ' obt-gs' : '', refs = k === 'refs' ? ' obt-refs' : '';
+  if(!x) return '<td class="obt-c' + gs + '"></td>';
   const tip = x.tip ? ' title="' + bgrEsc(x.tip) + '"' : '';
+  const why = x.why && x.s !== 'ok' && x.s !== 'none' ? '<span class="obt-why' + (x.late ? ' obt-why-late' : '') + '">' + bgrEsc(x.why) + '</span>' : '';
   if(k === 'finish'){
     const marks = (x.marks || []).map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('');
-    return '<td class="obt-c obt-fin"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + '</td>';
+    return '<td class="obt-c obt-fin' + gs + '"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + why + '</td>';
   }
   let inner;
-  if(x.s === 'ok') inner = x.link ? '<button type="button" class="obt-ok obt-lnk" onclick="' + x.link + '">' + obtIcon('check') + '</button>' : '<span class="obt-ok">' + obtIcon('check') + '</span>';
+  /* a done step shows its date when the Hub has one; references show their count ("2/2"), never only a check */
+  const okIn = (x.t ? bgrEsc(x.t) : obtIcon('check')) + (x.d ? '<span class="obt-dt">' + bgrEsc(x.d) + '</span>' : '');
+  if(x.s === 'ok') inner = x.link ? '<button type="button" class="obt-ok obt-lnk" onclick="' + x.link + '">' + okIn + '</button>' : '<span class="obt-ok">' + okIn + '</span>';
   else if(x.s === 'rev') inner = x.b ? '<button type="button" class="obt-rev obt-rev-b" onclick="' + x.b.on + '">' + obtIcon('shield') + 'Review</button>' : '<span class="obt-rev">' + obtIcon('shield') + 'Review</span>';
   else if(x.s === 'none') inner = '<span class="obt-none">·</span>';
   else if(x.s === 'na') inner = '<span class="obt-none">–</span>';
   else inner = (x.t ? '<span class="obt-t' + (x.late ? ' obt-late' : x.s === 'wait' ? ' obt-wait' : '') + (x.warn ? ' obt-warnt' : '') + '">' + (x.late ? obtIcon('clock') : '') + bgrEsc(x.t) + '</span>' : '');
   const link = x.link && x.s !== 'ok' ? ' onclick="' + x.link + '" style="cursor:pointer"' : '';
-  return '<td class="obt-c obt-st-' + x.s + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + '</td>';
+  return '<td class="obt-c obt-st-' + x.s + gs + refs + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + why + '</td>';
 }
+/* the edge on the name: purple review (as before) wins, then red overdue, then gold 10+ days on the list */
+const obtEdge = m => m.who.has('review') ? ' obt-r-rev' : m.late ? ' obt-r-late' : m.longWait ? ' obt-r-quiet' : '';
 function obtWhoHTML(m){
   const order = ['review', 'office', 'applicant', 'outside'];
   return order.filter(k => m.who.has(k)).map(k => '<span class="obt-who obt-who-' + k + '">' + OBT_WHO[k] + '</span>').join('') || '<span class="obt-who obt-who-none">Nothing</span>';
@@ -8095,8 +8136,8 @@ function obtNameHTML(m){
     + (c && window.HREM ? '<div class="obt-rem">' + HREM.s2Btn(c) + HREM.s2Line(c) + '</div>' : '');
 }
 function obtRowHTML(m, hi){
-  return '<tr class="obt-r' + (m.who.has('review') ? ' obt-r-rev' : '') + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
-    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td><td class="obt-c obt-h">' + obtWhoHTML(m) + '</td>'
+  return '<tr class="obt-r' + obtEdge(m) + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
+    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td><td class="obt-c obt-h">' + obtWhoHTML(m) + (m.hold ? '<span class="obt-why">' + bgrEsc(m.hold) + '</span>' : '') + '</td>'
     + OBT_COLS.map(([k]) => obtCellHTML(m.cells[k], k).replace('<td class="obt-c', '<td class="obt-c' + (k === hi ? ' obt-hi' : ''))).join('') + '</tr>';
 }
 /* the phone: one short card per person, the marks in a row and only the buttons that apply */
@@ -8108,8 +8149,8 @@ function obtCardHTML(m, hi){
       if(x.call) bs.push('<a class="obt-b obt-b-q"' + ocAttrs(x.call.dial, {}) + '>' + t + ': Call</a>');
       if(x.b) bs.push(obtBtn(Object.assign({}, x.b, { label:t + ': ' + x.b.label })).replace('class="obt-b', x.s === 'rev' ? 'class="obt-b obt-b-rev' : 'class="obt-b'));
       return bs.join(''); }).join('');
-  return '<div class="obt-card' + (m.who.has('review') ? ' obt-r-rev' : '') + '"><div class="obt-card-top"><div>' + obtNameHTML(m) + '</div><div class="obt-card-w">' + obtWaitHTML(m) + '</div></div>'
-    + '<div class="obt-card-h">' + obtWhoHTML(m) + '</div><div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
+  return '<div class="obt-card' + obtEdge(m) + '"><div class="obt-card-top"><div>' + obtNameHTML(m) + '</div><div class="obt-card-w">' + obtWaitHTML(m) + '</div></div>'
+    + '<div class="obt-card-h">' + obtWhoHTML(m) + (m.hold ? '<span class="obt-why">' + bgrEsc(m.hold) + '</span>' : '') + '</div><div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
 }
 function obtRender(box){
   const L = ckdLists(), models = L.all.map(obtModel);
@@ -8125,7 +8166,8 @@ function obtRender(box){
   const sum = (k, label, cls, tip) => '<button type="button" class="obt-s obt-s-' + cls + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '" title="' + bgrEsc(tip) + '"><b>' + n(k) + '</b><span>' + label + '</span></button>';
   const chip = (k, label) => { const c = k === 'orient' && obtFolded() ? (OPR.queueCount() ?? '…') : n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
   const start = ckdStartHere(L.all);
-  const head = '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th><th scope="col">Holding up</th>' + OBT_COLS.map(([k, t]) => '<th scope="col"' + (k === job ? ' class="obt-hi"' : '') + '>' + t + '</th>').join('') + '</tr>';
+  const head = '<tr class="obt-grp"><th class="obt-n"></th><th colspan="2"></th>' + OBT_HEADS.map(([t, ks]) => '<th scope="colgroup" colspan="' + ks.length + '" class="obt-gs">' + t + '</th>').join('') + '</tr>'
+    + '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th><th scope="col">Holding up</th>' + OBT_COLS.map(([k, t]) => '<th scope="col" class="' + (k === job ? 'obt-hi' : '') + (obtGroupStart(k) ? ' obt-gs' : '') + '">' + t + '</th>').join('') + '</tr>';
   let body;
   if(job){
     const g = OBT_GROUPS[job] || ['To do', 'Waiting', 'Review'], parts = [2, 0, 1].map(i => [i, list.filter(m => obtGroupOf(m.cells[job]) === i)]);
@@ -8150,12 +8192,12 @@ function obtRender(box){
     +   sum('nearly', 'Nearly ready', 'near', 'One step from Approve to Work')
     +   sum('late', 'Overdue', 'late', 'Past the times the Hub already uses (Step 1 stuck, 5 days without a reference answer, 8 days without Step 2 DONE, stuck in orientation, a missed video call, 10 days on the list)') + '</div>'
     + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
-    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Step 2') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
+    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
     + run.join('')
     + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
        '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
     + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
-    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>')
+    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>')
     + ckdMoreHTML(L);
   { const oh = document.getElementById('obtOrient'); if(oh) OPR.inOnboarding(oh, q); }
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
