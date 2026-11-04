@@ -231,27 +231,28 @@
       + '<div class="obt-card-b"><span class="obt-who obt-who-' + (r.hold === 'family' ? 'applicant' : r.hold) + '">' + HOLD[r.hold] + '</span>' + (r.holdNote ? '<span class="field-note">' + esc(r.holdNote) + '</span>' : '')
       + (c.s === 'todo' || c.s === 'late' ? '<button type="button" class="obt-b' + (c.s === 'late' ? ' obt-b-w' : '') + '" onclick="' + esc(r.go) + '">' + esc(c.t) + '</button>' : '<button type="button" class="obt-b obt-b-q" onclick="' + esc(r.go) + '">Open</button>') + '</div></div>';
   }
-  function chipRow(label, key, labels, rows) {
-    return '<div class="obt-qs"><span class="obt-ql">' + label + '</span>' + Object.keys(labels).map(k => {
-      const n = rows.filter(r => (key === 'job' ? r.job : key === 'hold' ? r.hold : r.payer) === k && pass(r, key)).length;
-      if (key === 'pay' && !n && F.pay !== k) return '';
-      return '<button type="button" class="obt-q' + (F[key] === k ? ' obt-on' : '') + '" onclick="GRT.set(\'' + key + '\',\'' + k + '\')">' + esc(labels[k]) + ' <span>' + n + '</span></button>';
-    }).join('') + '</div>';
+  /* 2026-11-04 her ask: "put the Getting ready table's filters in one row of menus, like the CDS Leads table" */
+  const SHOW = { now: 'Need you now', today: 'Today', family: 'Waiting on the family', outside: 'Waiting on someone outside', week: 'Starting this week' };
+  function menu(label, key, labels, rows) {
+    return '<label class="grt-m' + (F[key] ? ' grt-on' : '') + '"><span>' + label + '</span><select onchange="GRT.pick(\'' + key + '\',this.value)"><option value="">All</option>'
+      + Object.keys(labels).map(k => {
+        const n = key === 'tile' ? rows.filter(r => TILES[k](r) && pass(r, 'tile')).length : rows.filter(r => (key === 'job' ? r.job : key === 'hold' ? r.hold : r.payer) === k && pass(r, key)).length;
+        if (key === 'pay' && !n && F.pay !== k) return '';
+        return '<option value="' + k + '"' + (F[key] === k ? ' selected' : '') + '>' + esc(labels[k]) + ' (' + n + ')</option>';
+      }).join('') + '</select></label>';
   }
   /* the whole table, as one piece of HTML (Before staffing's list box, or Starting care on the Clients list) */
   function html() {
     const m = model(), rows = m.rows, list = rows.filter(r => pass(r));
     const jobs = {}; COLS.forEach(c => { jobs[c.k] = c.job; });
-    const tile = (k, n, label, cls) => '<button type="button" class="obt-s ' + cls + (F.tile === k ? ' obt-on' : '') + '" onclick="GRT.set(\'tile\',\'' + k + '\')"><b>' + n + '</b><span>' + label + '</span></button>';
     const n = k => rows.filter(TILES[k]).length;
     const any = F.job || F.hold || F.pay || F.tile || F.q;
     return '<div class="grt" style="display:flex;flex-direction:column;gap:10px">'
       + (m.loaded ? '' : '<div class="field-note">Reading every family getting ready…</div>')
-      + '<div class="obt-sum">' + tile('all', rows.length, 'families getting ready', 'obt-s-office') + tile('now', n('now'), 'need you now', 'obt-s-late') + tile('today', n('today'), 'today', 'obt-s-wait')
-      + tile('family', n('family'), 'waiting on the family', 'obt-s-wait') + tile('outside', n('outside'), 'waiting on someone outside', 'obt-s-wait') + tile('week', n('week'), 'starting this week', 'obt-s-near') + '</div>'
-      + chipRow('Who needs', 'job', jobs, rows) + chipRow('Holding up', 'hold', HOLD, rows) + chipRow('Payer', 'pay', PAY, rows)
-      + '<div class="obt-qs"><span class="obt-ql">Find</span><input id="grtQ" type="search" placeholder="Name or town" value="' + esc(F.q) + '" oninput="GRT.find(this.value)" style="font:inherit;font-size:13px;padding:4px 10px;border:1px solid #d9d5ca;border-radius:8px;min-width:0;max-width:240px">'
-      + (any ? '<button type="button" class="obt-q" onclick="GRT.clear()">Clear filters</button>' : '') + '</div>'
+      + '<div class="grt-bar">' + menu('Show', 'tile', SHOW, rows) + menu('Who needs', 'job', jobs, rows) + menu('Holding up', 'hold', HOLD, rows) + menu('Payer', 'pay', PAY, rows)
+      + '<input id="grtQ" class="grt-find" type="search" placeholder="Find a name or town" value="' + esc(F.q) + '" oninput="GRT.find(this.value)">'
+      + (any ? '<button type="button" class="grt-clear" onclick="GRT.clear()">Clear filters</button>' : '')
+      + '<span class="grt-sum"><b>' + rows.length + '</b> getting ready · <b class="grt-red">' + n('now') + '</b> need you now · <b>' + n('today') + '</b> today · <b>' + n('week') + '</b> starting this week</span></div>'
       + '<div class="obt-wrap"><table class="obt"><thead><tr><th class="obt-n">Family</th>' + COLS.map((c, i) => '<th' + (i === 4 ? ' style="border-left:2px solid #e4e1d8"' : '') + '>' + esc(c.h) + '</th>').join('') + '<th>Start date</th><th>Holding up</th><th>Days on this step</th></tr></thead><tbody>'
       + (list.length ? list.map(rowHTML).join('') : '<tr><td colspan="' + (COLS.length + 4) + '" class="obt-empty">' + (rows.length ? 'Nobody matches these filters.' : 'Nobody is getting ready right now. A family shows here once they say yes.') + '</td></tr>')
       + '</tbody></table></div>'
@@ -269,7 +270,7 @@
     if (had) { const q = document.getElementById('grtQ'); if (q) { q.focus(); try { q.setSelectionRange(pos, pos); } catch (e) { /* ok */ } } }
   }
   /* Before staffing: the table instead of the checklist cards, with the old filters hidden (Completed stays one click away) */
-  const TITLE = ['Getting ready', 'Every family who said yes, from the agreement to the next-day follow-up, one row each. Each step has its own column with its button in it. Pick a chip to see only one job, or who a family is waiting on.'];
+  const TITLE = ['Getting ready', 'Every family who said yes, from the agreement to the next-day follow-up, one row each. Each step has its own column with its button in it. Use the menus to see only one job, or who a family is waiting on.'];
   function heading(table) {
     const h = document.querySelector('#tab-soc h2'), n = h && h.parentElement && h.parentElement.querySelector('.field-note'); if (!h) return;
     if (!heading.was) heading.was = [h.textContent, n ? n.textContent : ''];
@@ -283,6 +284,7 @@
   window.GRT = {
     on, html, model, intoSoc, redraw, COLS, _AG: AG, _F: () => F,
     set(k, v) { F[k] = F[k] === v || (k === 'tile' && v === 'all') ? null : v; save(); redraw(); },
+    pick(k, v) { F[k] = v || null; save(); redraw(); },
     find(v) { F.q = String(v || ''); clearTimeout(window.GRT._t); window.GRT._t = setTimeout(redraw, 150); },
     clear() { F = { job: null, hold: null, pay: null, tile: null, q: '' }; save(); redraw(); },
     heading,
