@@ -8007,7 +8007,10 @@ function obtFinish(p, j, g){
   else if(w && w.invited_at) mk('V', 'Video call', 'wait', 'Invited ' + ckdDay(w.invited_at) + ', not booked yet');
   else mk('V', 'Video call', g ? 'ok' : 'none', g ? 'On the caregiver list (added at the video call)' : 'Not invited yet');
   const pg = g && window.CGP2 && typeof CGP2.gateFor === 'function' ? CGP2.gateFor(g) : null;
-  mk('P', 'Profile', pg && pg.loaded ? (pg.published ? 'ok' : 'wait') : 'none', pg && pg.loaded ? (pg.published ? 'Profile published' : 'Profile not published yet') : 'Profile shows once they are on the caregiver list');
+  /* P (Samantha 2026-11-04): white until their profile is filled in, yellow once it is (photo, answers, OK to use), green once published */
+  const pr = pg && pg.row, pDone = !!(pr && pr.submitted_at && pr.photo_path && pr.consent);
+  mk('P', 'Profile', pg && pg.loaded ? (pg.published ? 'ok' : pDone ? 'wait' : 'none') : 'none',
+     pg && pg.loaded ? (pg.published ? 'Profile published' : pDone ? 'Profile filled in, not published yet' : 'Profile not filled in yet') : 'Profile shows once they are on the caregiver list');
   if(g && (g.badge_mailed_at || g.badge_not_needed)) mk('B', 'Badge', 'ok', g.badge_mailed_at ? 'Badge mailed ' + ckdDay(g.badge_mailed_at) : 'Badge not needed');
   else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
   else mk('B', 'Badge', 'none', obtCallOn() ? 'Once they are on the caregiver list' : 'After the video call');
