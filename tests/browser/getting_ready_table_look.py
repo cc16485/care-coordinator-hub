@@ -74,7 +74,7 @@ READ = r"""
       cells: td.slice(1, 8).map(x => x.textContent.trim()), start: td[8] && td[8].textContent.trim(), startRed: !!(td[8] && td[8].classList.contains('obt-warnt')),
       hold: td[9] && td[9].textContent.trim(), edge: td[0].getAttribute('style') || '' }; });
   const heads = [...document.querySelectorAll('#socList table.obt thead th')].map(x => x.textContent.trim());
-  const sum = [...document.querySelectorAll('#socList .obt-s')].map(b => b.textContent.trim());
+  const sum = [(document.querySelector('#socList .grt-sum') || {}).textContent || ''];
   const chips = [...document.querySelectorAll('#socList .obt-q')].map(b => b.textContent.trim());
   return { rows, heads, sum, chips, filtersHidden: getComputedStyle(document.getElementById('socFilters')).display === 'none' };
 }"""
@@ -124,7 +124,14 @@ with sync_playwright() as pw:
     ck('the heading says Getting ready (one table), and goes back with the switch off', pg.evaluate("()=>document.querySelector('#tab-soc h2').textContent === 'Getting ready'"))
     ck('Cy\'s agreement shows its signed date', 'Oct' in cy['cells'][0] or 'Nov' in cy['cells'][0], cy)
     ck('the coordinator\'s first name shows under the family', 'Krystal' in pg.evaluate("()=>document.querySelector('#socList tbody').textContent"))
-    ck('the summary counts every family', any(s.startswith('7') and 'families getting ready' in s for s in R['sum']), R['sum'])
+    ck('the summary counts every family', R['sum'][0].startswith('7 getting ready'), R['sum'])
+    ck('the filters are one row of menus (Show, Who needs, Holding up, Payer) and Find, side by side, no tiles or chip rows', pg.evaluate("""()=>{ const bar = document.querySelector('#socList .grt-bar');
+      const labels = [...bar.querySelectorAll('.grt-m > span')].map(x => x.textContent);
+      return JSON.stringify(labels) === JSON.stringify(['Show','Who needs','Holding up','Payer']) && !!bar.querySelector('#grtQ') && !document.querySelector('#socList .obt-sum') && !document.querySelector('#socList .obt-qs') && new Set([...bar.querySelectorAll('.grt-m, #grtQ')].map(e => Math.round(e.getBoundingClientRect().top / 10))).size === 1; }"""))
+    ck('picking a menu filters the table and is remembered', pg.evaluate("""()=>{ const s = [...document.querySelectorAll('#socList .grt-m')].find(l => l.textContent.startsWith('Holding up')).querySelector('select');
+      s.value = 'outside'; s.dispatchEvent(new Event('change')); const n = document.querySelectorAll('#socList table.obt tbody tr').length;
+      const kept = JSON.parse(localStorage.getItem('grt_filter')).hold === 'outside'; GRT.clear(); return n === 1 && kept; }"""))
+    ck('Show: Need you now', pg.evaluate("""()=>{ GRT.pick('tile','now'); const n = document.querySelectorAll('#socList table.obt tbody tr').length; GRT.clear(); return n === 2; }"""))
     ck('an agreement is read once per family (not on every redraw)', pg.evaluate("()=>{ const n = AGCALLS.length; GRT.redraw(); GRT.redraw(); return AGCALLS.length === n && n > 0 && n <= 6; }"))
     # chips
     pg.evaluate("()=>GRT.set('hold','outside')"); pg.wait_for_timeout(150)
