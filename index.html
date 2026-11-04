@@ -5431,6 +5431,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <button class="filter-pill active" data-cf="active" onclick="cgdFilter('active',this)">Active</button>
       <button class="filter-pill" data-cf="training" onclick="cgdFilter('training',this)" title="In Training in AxisCare: new hires still onboarding, not offered shifts">Onboarding (In Training)</button>
       <button class="filter-pill" data-cf="inactive" onclick="cgdFilter('inactive',this)">Inactive</button>
+      <button class="filter-pill" data-cf="gonequiet" onclick="cgdFilter('gonequiet',this)" title="Active caregivers with no visit in 30 days (PRN team 60): the still-wanting-to-work check-in">Gone quiet<span id="gqCount"></span></button>
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
       <button class="filter-pill" data-cf="profiles" onclick="cgdFilter('profiles',this)" title="Who still needs a finished caregiver profile, and the button that sends them their link">🪪 Profiles</button>
@@ -7502,7 +7503,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=11"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=11"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=1"></script><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -18344,6 +18345,8 @@ function cgdRenderList(){
   const cnt=document.getElementById('cgdCount');
   if(cnt) cnt.textContent=nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)';
   const q=cgdNorm(CGD.q);
+  /* 2026-11-04: Gone quiet, the still-wanting-to-work check-in for caregivers with no visit in 30 days. gone-quiet.js draws it. */
+  if(CGD.filter==='gonequiet' && !q && window.GQ){ GQ.render(el); return; }
   /* 452 (2026-10-05): the profile catch-up for current caregivers. caregiver-profile-panel.js draws it. */
   if(CGD.filter==='profiles' && !q && typeof CGP2!=='undefined' && CGP2.catchupRender){
     CGP2.catchupRender(el, all.filter(cgdWorking).map(c=>{ const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
