@@ -185,7 +185,7 @@
     const id = esc(r.id);
     return '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
       + '<span class="field-note" id="gt_ap_meta"></span><span class="sp" style="flex:1"></span>'
-      + '<button class="linklike" type="button" onclick="ghlThread(\'gt_ap\', {phone:' + JSON.stringify(String(r.phone || '')) + ', email:' + JSON.stringify(String(r.email || '')) + '})">↻ Load</button>'
+      + '<button class="linklike" type="button" onclick="ghlThread(\'gt_ap\', {phone:' + esc(JSON.stringify(String(r.phone || ''))) + ', email:' + esc(JSON.stringify(String(r.email || ''))) + '})">↻ Load</button>'
       + '<a class="linklike" id="gt_ap_open" href="#" target="_blank" rel="noopener" style="display:none;">Open in GHL ↗</a></div>'
       + '<div id="gt_ap" style="margin-top:8px;"><div class="field-note">Not loaded. Press Load to see what we have sent and received.</div></div>'
       + '<div style="display:flex;gap:8px;margin-top:10px;align-items:flex-start;">'
