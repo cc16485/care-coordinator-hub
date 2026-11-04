@@ -1009,10 +1009,10 @@ window.AP_JOURNEY = [
   "button": "Onboarding row: Send orientation, then Send orientation information",
   "timing": "Right after the button; texts 8am to 6pm, held otherwise.",
   "channel": "text + email",
-  "rule": "Same as #22.05 without the booking link: orientation and profile, Nothing about the call after orientation: the office calls at its convenience once orientation is finished and the new hire is not told to expect it (Samantha 2026-11-04). If their Viventium Step 2 is still open, it asks them to finish it too.",
+  "rule": "Same as #22.05 without the booking link: orientation and profile, One line says their care coordinator will call after orientation to get them started, with nothing to book and no word about the ID on video; the office calls at its convenience (Samantha 2026-11-04, the same as offer letter version 3). If their Viventium Step 2 is still open, it asks them to finish it too.",
   "subject": "Welcome to Caring Companions! Your next steps",
-  "text": "Hi {first}, welcome to Caring Companions! Your paperwork is all checked. Two things, in any order: 1) Start your online orientation (about 2 hours): {orientation} 2) Finish your caregiver profile, a friendly photo and a few words for families: {profile} We are also mailing you your Caring Companions employee badge! Questions? Call (417) 234-8494.",
-  "email_summary": "The same two steps with buttons (start orientation, finish my profile), then the badge in the mail. No word about the call after orientation.",
+  "text": "Hi {first}, welcome to Caring Companions! Your paperwork is all checked. Two things, in any order: 1) Start your online orientation (about 2 hours): {orientation} 2) Finish your caregiver profile, a friendly photo and a few words for families: {profile} When you finish orientation, your care coordinator will call you to get you started. We are also mailing you your Caring Companions employee badge! Questions? Call (417) 234-8494.",
+  "email_summary": "The same two steps with buttons (start orientation, finish my profile), then one line that their care coordinator will call after orientation (nothing to book), and the badge in the mail.",
   "shows_in_ghl": true,
   "failure_visible": true
  },
