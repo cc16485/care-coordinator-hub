@@ -7768,7 +7768,7 @@ async function ckdLeave(c, j, why, note){
   try{ if(window.CRX && CRX._clear) CRX._clear(); }catch(_){}
   bgrCloseDrawer(); renderOB(); renderAlerts();
   if(err) alert('Taken off the list here. ' + (c ? '' : 'Not done: ') + 'The server did not stop their reminders yet (' + err + ').' + (c ? '\n\nTheir reference reminders and Step 2 reminders may keep going until the server step is installed. Tell Claude.' : ''));
-  else if(server && server.axiscare_card) alert('Done. They are already in AxisCare, so set them inactive there. You have a card for it.');
+  else if(server && (server.axiscare || server.axiscare_card)){ const m = window.FALLOFF ? FALLOFF.leftNote(server) : 'Done. They are already in AxisCare, so set them inactive there. You have a card for it.'; if(m) alert(m); }   /* 2026-11-04 fall-offs (falloff.js) */
   return c ? true : !err;
 }
 async function ckdGoodbye(c, why){
@@ -8675,6 +8675,7 @@ function renderOB(){
           ${c.not_hired_reason?`<span class="sub" style="color:#ef4444">${{background:'BG Issue',reference:'Ref Concern',noshow:'No-Show',withdrew:'Withdrew',other:'Other',ghosted:'Stopped answering',other_job:'Took another job',changed_mind:'Changed their mind',our_decision:'We decided'}[c.not_hired_reason]||c.not_hired_reason}</span>`:''}
           ${c.not_hired_notes?`<span class="sub" style="color:var(--gray);font-style:italic">${c.not_hired_notes}</span>`:''}
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
+          ${window.FALLOFF?FALLOFF.chip(c):''}
         `:`
           ${st==='Ready for Orientation'?obOrientBanner(c):`<span class="badge ${stBadge}">${st}</span>`}
           ${st!=='Ready for Orientation'&&offeredChip(c)?`<br><span style="display:inline-block;margin-top:4px;">${offeredChip(c)}</span>`:''}
@@ -9455,7 +9456,9 @@ async function reactivateOB(id){
   /* 2026-10-21: the server reopens their readiness card and the reference requests 'leave' closed (owners and the Approve
      to Work list). If it says no, they stay off the list. */
   if(c.left_at){
-    try{ await lvlCall({ action:'come_back', candidate_id:String(c.id), offer_id:c.offer_id ? String(c.offer_id) : undefined, note:'Brought back from the Hub' }); }
+    try{ const r = await lvlCall({ action:'come_back', candidate_id:String(c.id), offer_id:c.offer_id ? String(c.offer_id) : undefined, note:'Brought back from the Hub' });
+      /* 2026-11-04: what the server did in AxisCare (back to In Training, or a card) */
+      if(r && r.axiscare && r.note){ if(window.FALLOFF) FALLOFF._st.at = 0; setTimeout(() => alert(r.note), 0); } }
     catch(e){ if(!/unknown action|not found/i.test(e.message || '')){ alert('Not brought back: ' + e.message); return; } }
   }
   delete c.not_hired; delete c.not_hired_reason; delete c.not_hired_notes; delete c.not_hired_date; delete c.left_at; delete c.left_by;
