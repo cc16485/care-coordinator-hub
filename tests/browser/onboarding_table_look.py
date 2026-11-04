@@ -114,7 +114,7 @@ async(CODE)=>{
   out.groups = [...dash.querySelectorAll('thead tr.obt-grp th')].map(th => th.textContent.trim()).filter(Boolean);
   out.edges = Object.fromEntries(['Bea Sample', 'Gia Pretend', 'Ivy Example', 'Cora Sampleton'].map(n => [n.split(' ')[0], rowOf(n).className]));
   out.dates = { avaOig:txt(cell('Ava Fake', col('OIG'))), ivyStep2:txt(cell('Ivy Example', col('Viventium (Step 2)'))) };
-  out.why = { beaFcsr:txt(cell('Bea Sample', col('FCSR'))), beaHold:txt(cell('Bea Sample', 2)), danaRefs:txt(cell('Dana Demo', col('References'))), coraRefs:txt(cell('Cora Sampleton', col('References'))) };
+  out.why = { lines:document.querySelectorAll('.obt-why').length, beaFcsrTip:cell('Bea Sample', col('FCSR')).title, danaRefsTip:cell('Dana Demo', col('References')).title };
   out.refsDone = { ivy:txt(cell('Ivy Example', col('References'))), ivyIcon: !!cell('Ivy Example', col('References')).querySelector('svg') };
   out.i9 = { ivy:txt(cell('Ivy Example', col('I-9 in Viventium'))), kai:txt(cell('Kai Madeup', col('I-9 in Viventium'))) };
   const fo = OPR.finishOf; OPR.finishOf = (ax, name) => name === 'Jo Placeholder' ? { approved:false, ready:false, missing:['Caregiver profile published', 'I-9 Section 2 completed by an authorized representative'] } : fo(ax, name);
@@ -171,7 +171,7 @@ with sync_playwright() as pw:
     ck('Overdue: Bea (Step 2), Dana (reference), Ivy (orientation), Tia (Step 1)', all(any(n in x for x in R['lateRows']) for n in ['Bea', 'Dana', 'Ivy', 'Tia']), R['lateRows'])
     ck('labels over the columns: Application, Background checks, References and Viventium, Getting ready to work', R['groups'] == ['Application', 'Background checks', 'References and Viventium', 'Getting ready to work'], R['groups'])
     ck('done steps show their date (OIG cleared, Viventium Step 2 checked)', __import__('re').search(r'[A-Z][a-z]{2} \d', R['dates']['avaOig']) and __import__('re').search(r'[A-Z][a-z]{2} \d', R['dates']['ivyStep2']), R['dates'])
-    ck('why lines: FCSR at the state since a day; a reference with no answer in 7 days; a form sent to a reference; Holding up says what and why', 'At the state since' in R['why']['beaFcsr'] and 'no answer 7 days' in R['why']['danaRefs'] and 'Form sent to Ref Three' in R['why']['coraRefs'] and ':' in R['why']['beaHold'], R['why'])
+    ck('compact (her ask 11-04): no reason lines under steps; the detail stays on hover', R['why']['lines'] == 0 and R['why']['beaFcsrTip'] and R['why']['danaRefsTip'], R['why'])
     ck('edges: Bea red (overdue), Gia purple (review), Cora none', 'obt-r-late' in R['edges']['Bea'] and 'obt-r-rev' in R['edges']['Gia'] and 'obt-r-late' not in R['edges']['Cora'] and 'obt-r-quiet' not in R['edges']['Cora'], R['edges'])
     ck('references done read 2/2, never only a check mark', R['refsDone']['ivy'].startswith('2/2') and not R['refsDone']['ivyIcon'], R['refsDone'])
     ck('I-9 in Viventium: nothing before the video call (Ivy); done when the readiness card no longer lists it (Kai); I-9 done button once the video call is done and it is still open (Jo), in its own queue', R['i9']['ivy'] == '·' and R['i9']['kai'] == '' and 'I-9 done' in R['i9']['jo'] and R['i9']['joBtn'] and 'Jo' in R['i9']['queue'], R['i9'])
