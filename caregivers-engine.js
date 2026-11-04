@@ -3039,13 +3039,13 @@ const HB_TEMPLATES = {
 
   boundary: {
     label:'Client boundaries and gifts', section:'4Q, Gifts & Gratuities', level:'Verbal Warning',
-    policy:['Many clients express appreciation through gifts or tips. While small tokens of appreciation may occasionally be appropriate, employees should never request or expect gifts.',
-            'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept expensive gifts or valuable property.',
-            'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or other significant gifts, politely decline the gift and notify the office.'],
-    boxes:['Asked a client for money','Requested or solicited a gift','Accepted an expensive gift or valuable property','Did not decline and report a significant gift','Became personally involved in family conflicts','Shared excessive personal information','Made promises that could not be kept'],
+    policy:['Many clients express appreciation through gifts or tips. Employees may not accept gifts or tips of any kind, not even small ones, and should never request or expect gifts.',
+            'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept gifts, tips, or valuable property.',
+            'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or any other gift or tip, politely decline the gift and notify the office.'],
+    boxes:['Asked a client for money','Requested or solicited a gift','Accepted a gift, tip or valuable property','Did not decline and report a gift or tip','Became personally involved in family conflicts','Shared excessive personal information','Made promises that could not be kept'],
     why:'Clients are often vulnerable and depend on their caregiver. Financial involvement or over-familiarity puts them at risk, compromises judgement, and creates exposure for the caregiver as much as for the agency.',
-    expect:['Never ask for or expect money, gifts or favours from a client or family.','Politely decline any significant gift and tell the office the same day.','Keep the relationship professional and focused on care.','Do not become involved in family disagreements.'],
-    caution:'Under 4Q a small token of appreciation is NOT a violation. Do not issue this notice for one. If the concern is a pattern, describe the pattern.' },
+    expect:['Never ask for or expect money, gifts or favours from a client or family.','Politely decline any gift or tip and tell the office the same day.','Keep the relationship professional and focused on care.','Do not become involved in family disagreements.'],
+    caution:'Since 11-04, 4Q says no gifts or tips of any kind, not even small ones. Describe exactly what was offered and what the caregiver did with it.' },
 
   phone: {
     label:'Improper phone use', section:'2P, Personal Cell Phone Use', level:'Coaching',
