@@ -31,7 +31,9 @@
   const TEAM_KINDS = ['coverage', 'staffing_issue', 'staffing', 'coverage_outcome', 'family_call', 'call_followup', 'confirm_times',
     'evv_fix', 'evv_review', 'late_notice', 'visit_risk', 'callout', 'call_off', 'running_late', 'missed_clockin', 'missed_clockout',
     /* 2026-10-18: open shifts from coverage-watch (ops_open_<id>), added by the Today / follow-up work */
-    'open_shift'];
+    'open_shift',
+    /* 2026-11-04 (Samantha): the call after orientation, for whichever care coordinator is free (after_orientation_call_live) */
+    'orientation_call'];
   const TEAM_OPENERS = /^(timekeeper|late-watch|callout|quiet-callout|confirm_times|axiscare-watch|ongoing-sweep|call-tasks|attendance-watch)/;
   /* A person made it, so a person decided whose it is (rule 1: explicitly assigned). */
   const PERSON_OPENERS = ['person', 'quick-capture', 'phone', 'capture'];

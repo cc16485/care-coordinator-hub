@@ -7913,7 +7913,7 @@ const OBT_GROUPS = {
   step2:  ['Send or check Step 2', 'Waiting on the applicant to finish Step 2', ''],
   i9:     ['Complete I-9 Section 2 in Viventium', '', ''],
   orient: ['Ready to send orientation', 'In orientation', ''],
-  finish: ['Office to-dos: badge, approval, check-in call', 'Waiting on the applicant: orientation, video call, profile', ''],
+  finish: ['Office to-dos: calls, badge, approval', 'Waiting on the applicant: orientation, profile', ''],
   step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', '']
 };
 const obtDaysSince = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 864e5)) : null; };
@@ -7983,7 +7983,9 @@ function obtOrientProgress(p){
   const u = /Unit (\d+) of (\d+)/.exec(o.text);
   return obtCell('wait', u ? 'U' + u[1] + '/' + u[2] : 'Sent', { who:'applicant', late:!!o.bad, tip:o.text + '. Open them on the Orientation tab.', link:on });
 }
-/* the Finish column: orientation, video call, profile, badge, approved, as the readiness card and the Finish line already read them */
+/* the call after orientation replaces the welcome video call (Samantha 2026-11-04), behind ops_settings.after_orientation_call_live */
+const obtCallOn = () => !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.after_orientation_call_live === true);
+/* the Finish column: orientation, video call (or the call after orientation), profile, badge, approved, as the readiness card and the Finish line already read them */
 function obtFinish(p, j, g){
   const c = p.c, marks = [], acts = [];
   const mk = (k, label, s, tip) => marks.push({ k, label, s, tip });
@@ -7991,8 +7993,16 @@ function obtFinish(p, j, g){
   const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
   mk('O', 'Orientation', o && /^Finished/.test(o.text) ? (fin && fin.missing.some(m => /orientation/i.test(m)) ? 'wait' : 'ok') : o ? 'wait' : 'none',
      o ? o.text + (fin && fin.missing.some(m => /orientation/i.test(m)) ? '. Not verified on their readiness card yet.' : '') : 'Orientation not started');
-  const w = c ? ckdWc(c) : null;
-  if(w && w.status === 'done') mk('V', 'Video call', 'ok', 'Welcome video call done');
+  const w = c ? ckdWc(c) : null, ci = fin && fin.checkin;
+  /* AFTER-ORIENTATION CALL (Samantha 2026-11-04, after_orientation_call_live): no video call; C = the care coordinator's call
+     after orientation (I-9 on camera, everything checked, app, clients and shifts), before Approve to Work */
+  if(obtCallOn()){
+    if(ci && ci.done) mk('C', 'Call after orientation', 'ok', 'Call after orientation done');
+    else if(ci){ mk('C', 'Call after orientation', 'todo', 'Call them: I-9 on camera, everything checked, app, clients and shifts' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : '')); if(j) acts.push({ label:'Call', on:obtOpenCard(j) }); }
+    else if(j && (j.approved_to_work || j.ready_for_final)) mk('C', 'Call after orientation', 'ok', j.approved_to_work ? 'Approved to Work' : 'Everything done');
+    else mk('C', 'Call after orientation', 'none', 'Opens when they finish orientation');
+  }
+  else if(w && w.status === 'done') mk('V', 'Video call', 'ok', 'Welcome video call done');
   else if(w && w.status === 'noshow'){ mk('V', 'Video call', 'late', 'Missed the welcome video call'); acts.push({ label:'Invite again', on:'wcInvite(' + c.id + ',this)', warn:true }); }
   else if(w && w.status === 'booked') mk('V', 'Video call', 'wait', 'Booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : ''));
   else if(w && w.invited_at) mk('V', 'Video call', 'wait', 'Invited ' + ckdDay(w.invited_at) + ', not booked yet');
@@ -8001,7 +8011,7 @@ function obtFinish(p, j, g){
   mk('P', 'Profile', pg && pg.loaded ? (pg.published ? 'ok' : 'wait') : 'none', pg && pg.loaded ? (pg.published ? 'Profile published' : 'Profile not published yet') : 'Profile shows once they are on the caregiver list');
   if(g && (g.badge_mailed_at || g.badge_not_needed)) mk('B', 'Badge', 'ok', g.badge_mailed_at ? 'Badge mailed ' + ckdDay(g.badge_mailed_at) : 'Badge not needed');
   else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
-  else mk('B', 'Badge', 'none', 'After the video call');
+  else mk('B', 'Badge', 'none', obtCallOn() ? 'Once they are on the caregiver list' : 'After the video call');
   if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
   else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
   else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
@@ -8030,6 +8040,12 @@ function obtI9(c, j, fin){
   if(j && (j.approved_to_work || j.ready_for_final)) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   const f = fin && fin.fin, open = f && f.missing.some(x => /I-9/i.test(x));
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  if(obtCallOn()){
+    /* with the call after orientation, the I-9 line is ticked on that call (it completes this same readiness-card row) */
+    const cm = fin && (fin.marks || []).find(x => x.k === 'C');
+    if(open && cm && cm.s === 'todo' && j) return obtCell('todo', '', { who:'office', b:{ label:'Call', on:obtOpenCard(j) }, tip:'Look at their ID on video during the call after orientation, complete I-9 Section 2 in Viventium, then tick the I-9 line on the call.' });
+    return obtCell('none', '', { tip:'On the call after orientation, where their ID is checked on video' });
+  }
   const v = fin && (fin.marks || []).find(x => x.k === 'V');
   if(open && v && v.s === 'ok' && j && j.journey_id)
     return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
@@ -8192,7 +8208,7 @@ function obtRender(box){
     + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
        '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
     + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
-    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, V = video call, P = profile, B = badge, A = approved</div>')
+    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, ' + (obtCallOn() ? 'C = call after orientation' : 'V = video call') + ', P = profile, B = badge, A = approved</div>')
     + ckdMoreHTML(L);
   { const oh = document.getElementById('obtOrient'); if(oh) OPR.inOnboarding(oh, q); }
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }

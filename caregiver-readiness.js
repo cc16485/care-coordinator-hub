@@ -80,14 +80,17 @@
         if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
         if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
       /* IN TRAINING PLAN v2 (2026-10-22): the check-in call from the Staffing Coordinator, after the read-back */
-      if(a.checkin) h += checkinBlock(a.checkin);
+      if(a.checkin) h += checkinBlock(a.checkin, a);
       if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
     } else if(a.ready_for_final){
+      if(a.checkin && a.switches && a.switches.after_call) h += checkinBlock(a.checkin, a);
       if(a.auto_approve_live) h += '<div style="font-size:.78rem;color:#15803D;margin-bottom:.2rem">The Hub approves them by itself within the hour (every required step is done). You can also press the button now.</div>';
       h += '<div>Every requirement above is complete. ' + (a.may_approve_work ? 'Press Approve to Work to record your name and the exact time, set them Active in AxisCare and read it back, then send the cleared text.' : 'Only a person on the Approve to Work list (Admin page) can press the button.') + '</div>';
       if(!a.switches.axiscare_live) h += '<div style="font-size:.76rem;color:#B45309;margin-top:.2rem">The AxisCare update switch is off: the press records practice and nothing is written to AxisCare.</div>';
       if(a.may_approve_work) h += '<div style="margin-top:.5rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.approve(this)">✓ Approve to Work</button></div>';
     } else {
+      /* AFTER-ORIENTATION CALL (2026-11-04): the call comes before Approve to Work, so it shows here once orientation is done */
+      if(a.checkin && a.switches && a.switches.after_call) h += checkinBlock(a.checkin, a);
       h += '<div style="color:#6E6559">Not ready: ' + (a.blocked && a.blocked.length ? 'blocked on ' + esc(a.blocked.join('; ')) : 'requirements above are still open') + '.</div>';
     }
     return h + '</div>';
@@ -95,20 +98,24 @@
   /* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the check-in call. Three ticks and the test clock-in choice save
      as they are pressed; Done finishes it (the server refuses until all are in); No answer keeps it for the next business day. */
   const CHECKIN = [['on_file', 'Everything on file and complete'], ['questions', 'Questions about orientation and the job answered'], ['app', 'AxisCare app downloaded and they can sign in'], ['profile', 'Profile complete']];   /* profile: the Finish line, 2026-11-02 */
-  function checkinBlock(c){
-    let h = '<div style="border-top:1px solid #EEE9DF;margin-top:.5rem;padding-top:.5rem"><div style="font-weight:800;color:#0D365F">Check-in call</div>';
+  /* AFTER-ORIENTATION CALL (Samantha 2026-11-04, after_orientation_call_live): the same block, opened when orientation is done and
+     before Approve to Work, with the server's own list of lines (I-9 on camera first, clients and shifts last) and Send video link */
+  function checkinBlock(c, a){
+    const after = !!(a && a.switches && a.switches.after_call), lines = a && a.call_ticks ? Object.entries(a.call_ticks) : CHECKIN;
+    let h = '<div style="border-top:1px solid #EEE9DF;margin-top:.5rem;padding-top:.5rem"><div style="font-weight:800;color:#0D365F">' + (after ? 'Call after orientation' : 'Check-in call') + '</div>';
     if(c.done) return h + '<div style="color:#15803D;margin-top:.2rem">✓ Done ' + esc(when(c.at)) + (c.test_clock ? ' · test clock-in: ' + (c.test_clock.choice === 'done' ? 'done' : 'no thanks') : '') + '</div></div>';
-    h += '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">Shift texts wait until this call is done.' + (c.tries && c.tries.length ? ' No answer ' + c.tries.length + (c.tries.length === 1 ? ' time' : ' times') + ', last ' + esc(when(c.tries[c.tries.length - 1].at)) + '.' : '') + '</div>';
-    CHECKIN.forEach(([k, label]) => { h += '<label style="display:flex;gap:8px;align-items:center;padding:3px 0;cursor:pointer"><input type="checkbox" ' + (c.ticks && c.ticks[k] ? 'checked ' : '') + 'onchange="CRX.checkinTick(\'' + k + '\',this)"> ' + esc(label) + '</label>'; });
+    h += '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">' + (after ? 'Approve to Work waits for this call. For the I-9, look at their ID on video: press Send video link to text them the office video room.' : 'Shift texts wait until this call is done.') + (c.tries && c.tries.length ? ' No answer ' + c.tries.length + (c.tries.length === 1 ? ' time' : ' times') + ', last ' + esc(when(c.tries[c.tries.length - 1].at)) + '.' : '') + '</div>';
+    lines.forEach(([k, label]) => { h += '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:3px 0;cursor:pointer"><input type="checkbox" style="flex:none;width:auto;margin:2px 0 0" ' + (c.ticks && c.ticks[k] ? 'checked ' : '') + 'onchange="CRX.checkinTick(\'' + k + '\',this)"><span style="flex:1;min-width:0">' + esc(label) + '</span></label>'; });
     const tc = c.test_clock && c.test_clock.choice;
     h += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:3px 0"><span>Quick test clock-in:</span>'
-      + '<label style="cursor:pointer"><input type="radio" name="crTestClock" ' + (tc === 'done' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'done\',this)"> done</label>'
-      + '<label style="cursor:pointer"><input type="radio" name="crTestClock" ' + (tc === 'declined' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'declined\',this)"> no thanks</label></div>';
-    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.4rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.checkinDone(this)">✓ Done</button><button class="ibtn" onclick="CRX.checkinNoAnswer(this)">No answer</button></div>';
+      + '<label style="cursor:pointer;display:inline-flex;gap:4px;align-items:center"><input type="radio" style="width:auto;margin:0" name="crTestClock" ' + (tc === 'done' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'done\',this)"> done</label>'
+      + '<label style="cursor:pointer;display:inline-flex;gap:4px;align-items:center"><input type="radio" style="width:auto;margin:0" name="crTestClock" ' + (tc === 'declined' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'declined\',this)"> no thanks</label></div>';
+    h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.4rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.checkinDone(this)">✓ Done</button><button class="ibtn" onclick="CRX.checkinNoAnswer(this)">No answer</button>' + (after ? '<button class="ibtn" onclick="CRX.videoLink(this)">Send video link</button>' : '') + '</div>';
     return h + '</div>';
   }
   async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){ box.checked = !box.checked; box.disabled = false; alert('Not saved: ' + (e.message || e)); } }
   async function checkinClock(v, box){ try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, test_clock: v }), { who: CUR.who }); render(); }catch(e){ alert('Not saved: ' + (e.message || e)); } }
+  async function videoLink(btn){ if(!(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return; await act({ action:'checkin', video_link: true }, btn); }
   async function checkinDone(btn){ await act({ action:'checkin', finish: true }, btn); }
   async function checkinNoAnswer(btn){ const note = (await ccPrompt('No answer. A note (optional, for example "left a voicemail"):', '')) || ''; await act({ action:'checkin', no_answer: true, note }, btn); }
   function card(){
@@ -146,7 +153,7 @@
           + (ev && (ev.document || ev.result || ev.fingerprint) ? ' · evidence: ' + esc([ev.result, ev.document ? 'document on file' : '', ev.fingerprint ? 'signed form ' + String(ev.fingerprint).slice(0, 12) : ''].filter(Boolean).join(', ')) : '')
           + (ev && ev.source ? ' · ' + esc(ev.source) : '')
           + ' · <span title="' + esc(r.def.proof) + '">' + esc(proofWords(r.def.proof)) + '</span></div>'
-          + (r.key === 'cg.step2.participant_rights' ? rightsLine(d.facts && d.facts.rights, r) : '') + '</div>';
+          + (r.key === 'cg.step2.participant_rights' ? rightsLine(d.facts && Object.assign({}, d.facts.rights, { after_call: !!d.facts.after_call }), r) : '') + '</div>';
         /* Approve to Work has its own button in the Final approval block (it also updates AxisCare); the generic Confirm never shows for it */
         if(may && r.def.proof === 'confirmed' && r.key !== 'cg.approve.work' && ['ready', 'attention'].indexOf(r.status) > -1) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.confirm(\'' + esc(r.key) + '\',this)">Confirm</button>';
         if(may && r.def.proof === 'proof' && ['ready', 'attention'].indexOf(r.status) > -1 && /^cg\.credential\./.test(r.key)) line += '<button class="ibtn" style="font-size:.72rem;flex:none" onclick="CRX.record(\'' + esc(r.key) + '\',this)">Record</button>';
@@ -158,7 +165,7 @@
         h += line + '</div>';
       });
     });
-    h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, the Orientation Video Call, the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
+    h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, ' + (d.facts && d.facts.after_call ? 'the call after orientation' : 'the Orientation Video Call') + ', the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
     if(d.events && d.events.length) h += '<details style="margin-top:.5rem"><summary style="font-size:.76rem;color:#0D365F;cursor:pointer">History (' + d.events.length + ')</summary>' + d.events.slice(0, 40).map(e => '<div style="font-size:.74rem;padding:.12rem 0">' + esc(when(e.at)) + ' · ' + esc(e.kind) + (e.step_key ? ' · ' + esc(e.step_key) : '') + ' · ' + esc(e.actor_name || e.actor_email) + (e.reason ? ' · "' + esc(e.reason) + '"' : '') + '</div>').join('') + '</details>';
     /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
     if(d.may_export) h += '<div id="crExport" style="margin-top:.6rem;font-size:.78rem"><button class="ibtn" onclick="CRX.exportFile(this)" title="A read-only PDF of every requirement, who verified, when, evidence and the history, with five-minute links to each proof. Every export is logged.">&#8681; Personnel file (PDF)</button></div>';
@@ -168,8 +175,14 @@
   }
   /* 2026-10-13 (her ruling, 19 CSR 15-7.021(24)(B)5): Client Rights is signed in Step 1 (received and reviewed) and explained
      with the Code of Ethics and the HIPAA policy at the Orientation Video Call; the row needs both. Whose explanation, when. */
-  function rightsWords(rs, ev){
+  function rightsWords(rs, ev, afterCall){
     rs = rs || {}; ev = ev || {};
+    /* AFTER-ORIENTATION CALL (her ruling 2026-11-04, "the video orientation reviews it"): the Step 1 signature plus orientation */
+    if(ev.via === 'step1 + online orientation' || (afterCall && !ev.explained_at)){
+      const sg = ev.signed_at || rs.signed_at, done = ev.via === 'step1 + online orientation';
+      const sigW = sg ? 'Signed in Step 1 ' + day(sg) : 'Not signed in Step 1 yet';
+      return { state: done ? 'complete' : sg ? 'waiting_explanation' : 'not_started', text: (done ? 'Complete: ' : '') + sigW + '; ' + (done ? 'reviewed in the online orientation.' : 'reviewed in the online orientation once they finish it.') };
+    }
     const signed = ev.signed_at || rs.signed_at, at = ev.explained_at || rs.explained_at, by = ev.explained_by || rs.explained_by;
     const state = ev.explained_at || rs.state === 'complete' ? 'complete' : signed ? 'waiting_explanation' : at ? 'waiting_signature' : 'not_started';
     const sig = signed ? 'Signed in Step 1 ' + day(signed) : 'Not signed in Step 1 yet';
@@ -177,7 +190,7 @@
     return { state, text: state === 'complete' ? 'Complete: ' + sig + '; ' + exp + '.' : sig + '; ' + exp + '.' };
   }
   function rightsLine(rs, r){
-    const w = rightsWords(rs, r && r.st && r.st.evidence), col = w.state === 'complete' ? '#15803D' : '#B45309';
+    const w = rightsWords(rs, r && r.st && r.st.evidence, rs && rs.after_call), col = w.state === 'complete' ? '#15803D' : '#B45309';
     return '<div class="cr-rights" style="font-size:.74rem;color:' + col + ';margin-top:.15rem">' + esc(w.text) + '</div>';
   }
   const ownerWords = o => !o ? 'the Hub' : o.email ? o.email : o.role === 'owner' ? 'an owner' : o.role === 'hub' ? 'the Hub (verified on its own)' : (o.role || '').replace(/_/g, ' ');
@@ -273,5 +286,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer };
+  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink };
 })();
