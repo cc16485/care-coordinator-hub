@@ -33,6 +33,7 @@ const STRIP = /\{[^}]*\}|\[[^\]]*\]|https?:\/\/\S+|\(private:[^)]*\)|\(?417\)?[ 
 /* sentences assembled from parts in the code: each part must still be there */
 const PARTS = {
   25: [['a reminder that your in-person Caring Companions orientation at our office is tomorrow', ['a reminder that ', 'your in-person Caring Companions orientation at our office', ' is tomorrow, ']]],
+  22.06: [['Two things, in any order: 1) Start your online orientation (about 2 hours)', ['Two things, in any order: ${one}', '1) Start your online orientation (about 2 hours): ${orientation}']]],   /* 2026-11-04: the call after orientation */
   28: [['Sign-off version: Hi', []], ['you still have required training to finish (due by', ['a friendly reminder from Caring Companions: ', 'you still have required training to finish${duePhrase}']]],
 }
 const w = {}; new Function('window', fs.readFileSync(JOURNEY, 'utf8'))(w)

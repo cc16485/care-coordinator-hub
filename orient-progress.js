@@ -215,7 +215,7 @@
       + '.orp-fin .who{flex:1 1 100%}.orp-steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}'
       + '.orp-step{flex:1 1 230px;display:flex;gap:10px;border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:#FAFBFC}.orp-step.now{border-color:var(--navy);background:#fff}.orp-step.done{border-color:#B7E1C6;background:#F3FBF6}'
       + '.orp-num{flex:0 0 26px;height:26px;border-radius:50%;color:#fff;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center}.orp-sb{flex:1;min-width:0}.orp-st{font-weight:700;color:var(--navy);font-size:14px}'
-      + '.orp-tick{display:flex!important;flex-direction:row;gap:6px;align-items:center;font-size:13px;font-weight:400;padding:3px 0;margin:0;cursor:pointer;flex-wrap:wrap;color:var(--text)}.orp-tick label{display:inline-flex!important;gap:4px;align-items:center;margin:0;font-weight:400}.orp-tick input{width:auto!important;height:auto;margin:0!important;flex:0 0 auto;display:inline-block}.orp-go{background:#1F7A4D;color:#fff;border:0;border-radius:8px;font-weight:800;padding:8px 14px;margin-top:6px;cursor:pointer}.orp-go:disabled{opacity:.6}'
+      + '.orp-tick{display:flex!important;flex-direction:row;gap:6px;align-items:center;font-size:13px;font-weight:400;padding:3px 0;margin:0;cursor:pointer;flex-wrap:wrap;color:var(--text)}label.orp-tick{flex-wrap:nowrap;align-items:flex-start}label.orp-tick>input{flex:none;margin-top:2px}.orp-tick label{display:inline-flex!important;gap:4px;align-items:center;margin:0;font-weight:400}.orp-tick input{width:auto!important;height:auto;margin:0!important;flex:0 0 auto;display:inline-block}.orp-go{background:#1F7A4D;color:#fff;border:0;border-radius:8px;font-weight:800;padding:8px 14px;margin-top:6px;cursor:pointer}.orp-go:disabled{opacity:.6}'
       + '.orp-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px}.orp-tab{background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px 14px;min-width:120px;text-align:left;cursor:pointer;font:inherit}'
       + '.orp-tab b{display:block;font-size:20px;color:var(--navy)}.orp-tab span{font-size:12.5px;color:var(--text-muted)}.orp-tab.hot b{color:#B23B2E}.orp-tab.on{border:2px solid var(--navy);background:#F4F7FB;padding:7px 13px}'
       + '.orp-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.orp-tools input[type=search]{flex:1 1 280px;min-width:0;margin:0}.orp-tools select{width:auto;margin:0}.orp-tools label{display:inline-flex;gap:6px;align-items:center;font-size:13px;margin:0;font-weight:400}.orp-tools label input{width:auto;margin:0}'
@@ -312,7 +312,7 @@
   function finishState(a){
     const sw = ST.meta.switches || {};
     const approved = !!a.approved, active = !!(a.active && a.active.state === 'confirmed'), c = a.checkin;
-    const callDone = !!(c && c.done) || (approved && active && !c && sw.checkin_live === false);
+    const callDone = !!(c && c.done) || (!sw.after_call && approved && active && !c && sw.checkin_live === false);
     return { approved, active, callDone, ready: approved && active && callDone };
   }
   function inFinish(p){
@@ -345,18 +345,22 @@
         : '<div class="orp-meta">Not ready yet' + (a.ready && a.ready.error ? ' (the card could not be checked: ' + esc(a.ready.error) + ')' : '') + '.</div>';
     }
     s1 += oid && window.CRX ? ' <button class="ibtn" onclick="CRX.open(\'' + oid + '\')">Readiness card</button>' : '';
-    /* 2. the check-in call */
-    let s2; const c = a.checkin;
-    if(!f.approved) s2 = '<div class="orp-meta">After Approve to Work. Call them to answer questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete.</div>';
+    /* 2. the check-in call (AFTER-ORIENTATION CALL, Samantha 2026-11-04, switch after_orientation_call_live: the call comes FIRST,
+       right after orientation, with the I-9 on camera and clients and shifts; Approve to Work waits for it) */
+    let s2; const c = a.checkin, after = !!sw.after_call;
+    if(after && c && c.done) s2 = '<div class="orp-meta">Done ' + esc(when(c.at)) + '</div>';
+    else if(after && !c) s2 = '<div class="orp-meta">Opens within the hour of finishing orientation, as a Team Work card for the care coordinators.</div>';
+    else if(!after && !f.approved) s2 = '<div class="orp-meta">After Approve to Work. Call them to answer questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete.</div>';
     else if(c && c.done) s2 = '<div class="orp-meta">Done ' + esc(when(c.at)) + '</div>';
     else if(!c) s2 = '<div class="orp-meta">' + (sw.checkin_live === false ? 'The "Check-in call after orientation" switch is off, so no call is held for them. Shift texts are not waiting on it.' : 'Opens once AxisCare reads back Active.') + '</div>';
     else {
       const names = ST.meta.ticks || TICKS, tk = c.ticks || {};
-      s2 = '<div class="orp-meta">Answer their questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete.' + (c.tries ? ' Tried ' + c.tries + ' time' + (c.tries === 1 ? '' : 's') + ' with no answer.' : '') + '</div>'
+      s2 = '<div class="orp-meta">' + (after ? 'Look at their ID on video and complete I-9 Section 2 in Viventium, make sure everything is done, help with the AxisCare app, and talk about clients and shifts.' : 'Answer their questions, make sure the AxisCare app is downloaded and they can sign in, and that their profile is complete.') + (c.tries ? ' Tried ' + c.tries + ' time' + (c.tries === 1 ? '' : 's') + ' with no answer.' : '') + '</div>'
         + Object.keys(names).map(k => '<label class="orp-tick"><input type="checkbox" ' + (tk[k] ? 'checked ' : '') + 'onchange="OPR.tick(\'' + jid + '\',\'' + esc(k) + '\',this)"> ' + esc(names[k]) + '</label>').join('')
         + '<div class="orp-tick">Test clock-in on "Practice": <label><input type="radio" name="orpTc' + jid + '" ' + (c.test_clock === 'done' ? 'checked ' : '') + 'onchange="OPR.clock(\'' + jid + '\',\'done\',this)"> done</label> <label><input type="radio" name="orpTc' + jid + '" ' + (c.test_clock === 'declined' ? 'checked ' : '') + 'onchange="OPR.clock(\'' + jid + '\',\'declined\',this)"> no thanks</label></div>'
         + '<div class="acts" style="margin-top:6px">' + (r.phone && typeof ocAttrs === 'function' ? '<a class="ibtn" ' + ocAttrs(r.phone, { email:r.email }) + '>Call</a>' : '')
-        + '<button class="orp-go" onclick="OPR.callDone(\'' + jid + '\',this)">✓ Call done</button><button class="ibtn" onclick="OPR.noAnswer(\'' + jid + '\',this)">No answer</button></div>';
+        + '<button class="orp-go" onclick="OPR.callDone(\'' + jid + '\',this)">✓ Call done</button><button class="ibtn" onclick="OPR.noAnswer(\'' + jid + '\',this)">No answer</button>'
+        + (after ? '<button class="ibtn" onclick="OPR.videoLink(\'' + jid + '\',this)">Send video link</button>' : '') + '</div>';
     }
     /* 3. Ready for shifts */
     const s3 = '<div class="orp-meta">' + (f.ready ? 'Shift texts can go to them.' : 'Shift texts wait until the steps above are done.') + '</div>';
@@ -365,8 +369,9 @@
       + '<div class="orp-line">Finished orientation ' + esc(when(r.completed_at)) + (wait >= 1 ? ' · <span class="' + (wait > stuckDays() ? 'orp-late' : '') + '">waiting ' + wait + ' day' + (wait === 1 ? '' : 's') + '</span>' : '') + '</div>'
       + '<div class="acts" style="margin-top:6px">' + certBtn(r) + toOnbBtn(r) + '</div>'
       + (p.alert ? '<div class="orp-why soft">' + esc(p.alert) + '</div>' : '')
-      + '<div class="orp-steps">' + step(1, 'Approve to Work', f.approved ? 'done' : 'now', s1)
-      + step(2, 'Check-in call', f.callDone ? 'done' : f.approved ? 'now' : 'later', s2)
+      + '<div class="orp-steps">' + (after
+        ? step(1, 'Call after orientation', f.callDone ? 'done' : 'now', s2) + step(2, 'Approve to Work', f.approved ? 'done' : f.callDone ? 'now' : 'later', s1)
+        : step(1, 'Approve to Work', f.approved ? 'done' : 'now', s1) + step(2, 'Check-in call', f.callDone ? 'done' : f.approved ? 'now' : 'later', s2))
       + step(3, 'Ready for shifts', f.ready ? 'done' : 'later', s3) + '</div></div></div>';
   }
   /* the buttons: the same caregiver-journey steps as the readiness card; a refusal is shown, never hidden */
@@ -384,6 +389,10 @@
   async function tick(jid, k, box){ box.disabled = true; if(!(await cj({ action:'checkin', journey_id:jid, ticks:{ [k]: !!box.checked } }))){ box.checked = !box.checked; box.disabled = false; } }
   const clock = (jid, v, box) => cj({ action:'checkin', journey_id:jid, test_clock:v }, box);
   const callDone = (jid, btn) => cj({ action:'checkin', journey_id:jid, finish:true }, btn, '✓ Call done');
+  async function videoLink(jid, btn){
+    if(typeof ccConfirm === 'function' && !(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return;
+    if(await cj({ action:'checkin', journey_id:jid, video_link:true }, btn, 'Send video link') && typeof toast === 'function') toast('Video link sent');
+  }
   async function noAnswer(jid, btn){
     const note = typeof ccPrompt === 'function' ? await ccPrompt('No answer. A note (optional, for example "left a voicemail"):', '') : '';
     if(note === null) return;
@@ -535,7 +544,7 @@
       body = card('', 'Stuck means no new screen for ' + nd + ' day' + (nd === 1 ? '' : 's') + '. A call usually sorts it out: a screen that will not move on, a sound that will not play, or a lost link. New hires come before people already working.',
         L.need.length ? L.need.map(row).join('') : empty('Nobody is stuck. Everyone in orientation is moving.'), hard);
     } else if(tab === 'fin'){
-      body = card('', 'Finished orientation. Three steps before shifts: Approve to Work, the check-in call, then ready for shifts. Longest waiting first.',
+      body = card('', 'Finished orientation. Three steps before shifts: ' + ((ST.meta.switches || {}).after_call ? 'the call after orientation, Approve to Work, then ready for shifts.' : 'Approve to Work, the check-in call, then ready for shifts.') + ' Longest waiting first.',
         L.fin.length ? L.fin.map(finishRow).join('') : empty('Nobody is waiting at the finish line.'));
     } else if(tab === 'inp'){
       body = card('', '', L.inp.length ? L.inp.map(row).join('') : empty('Nobody is part way through right now.'));
@@ -687,5 +696,5 @@
     const r = rowFor(ax, name), a = r ? afterFor(r) : null; if(!a) return null;
     return { approved:!!a.approved, ready:!!(a.ready && a.ready.ready_for_final), missing:((a.ready && a.ready.missing) || []).map(short), checkin:a.checkin || null, active:a.active || null };
   }
-  window.OPR = { inOnboarding, folded, queueCount, hist:hostHist, mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
+  window.OPR = { inOnboarding, folded, queueCount, hist:hostHist, mount, load:() => load(), counts, _redraw:() => draw(), finishOf, _anon:ANON, saveDays, tab:setTab, find, win:setWin, prob:setProb, more, toggle, cert, watch, brief, show, toOnboarding, approve, retry, tick, clock, callDone, noAnswer, videoLink, _read:read, _units:UNITS, _st:ST, _rowFor:rowFor, _inFinish:inFinish, _finishRow:finishRow };
 })();

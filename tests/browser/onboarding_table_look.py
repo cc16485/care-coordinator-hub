@@ -121,6 +121,14 @@ async(CODE)=>{
   renderCkd(); out.i9.jo = txt(cell('Jo Placeholder', col('I-9 in Viventium'))); out.i9.joBtn = !!cell('Jo Placeholder', col('I-9 in Viventium')).querySelector('button');
   out.i9.queue = (obtQueue('i9'), [...dash.querySelectorAll('tbody tr')].map(r => r.classList.contains('obt-g') ? '# ' + txt(r) : txt(r.querySelector('.obt-n')).split(' ')[0]));
   OBT_Q = 'all'; OPR.finishOf = fo; renderCkd();
+  /* 2026-11-04: the call after orientation, no video call (switch after_orientation_call_live): C replaces V; the I-9 line is on the call */
+  DATA.ops_settings = Object.assign(DATA.ops_settings || {}, { after_orientation_call_live:true });
+  OPR.finishOf = (ax, name) => name === 'Jo Placeholder' ? { approved:false, ready:false, missing:['I-9 Section 2 completed by an authorized representative', 'Call after orientation from a care coordinator'], checkin:{ done:false, tries:[] } } : fo(ax, name);
+  renderCkd();
+  const joF = cell('Jo Placeholder', col('Finish')), joI = cell('Jo Placeholder', col('I-9 in Viventium'));
+  out.call = { marks:[...joF.querySelectorAll('.obt-mk')].map(x => x.innerText).join(''), callTip:(joF.querySelector('.obt-mk[title^="Call after"]') || {}).title || '', i9Btn:(joI.querySelector('button') || {}).innerText || '', key:(dash.querySelector('.obt-key') || {}).innerText || '' };
+  window._afterFo = OPR.finishOf;
+  DATA.ops_settings.after_orientation_call_live = false; OPR.finishOf = fo; renderCkd();
   obtQueue('fcsr');
   out.fcsrRows = [...dash.querySelectorAll('tbody tr')].map(r => r.classList.contains('obt-g') ? '# ' + txt(r) : txt(r.querySelector('.obt-n')));
   out.fcsrHi = !!dash.querySelector('thead th.obt-hi') && dash.querySelector('thead th.obt-hi').innerText.trim();
@@ -175,6 +183,8 @@ with sync_playwright() as pw:
     ck('edges: Bea red (overdue), Gia purple (review), Cora none', 'obt-r-late' in R['edges']['Bea'] and 'obt-r-rev' in R['edges']['Gia'] and 'obt-r-late' not in R['edges']['Cora'] and 'obt-r-quiet' not in R['edges']['Cora'], R['edges'])
     ck('references done read 2/2, never only a check mark', R['refsDone']['ivy'].startswith('2/2') and not R['refsDone']['ivyIcon'], R['refsDone'])
     ck('I-9 in Viventium: nothing before the video call (Ivy); done when the readiness card no longer lists it (Kai); I-9 done button once the video call is done and it is still open (Jo), in its own queue', R['i9']['ivy'] == '·' and R['i9']['kai'] == '' and 'I-9 done' in R['i9']['jo'] and R['i9']['joBtn'] and 'Jo' in R['i9']['queue'], R['i9'])
+    ck('switch on: the Finish column shows C (call after orientation) instead of V, and the key says so', 'C' in R['call']['marks'] and 'V' not in R['call']['marks'] and 'I-9' in R['call']['callTip'] and 'C = call after orientation' in R['call']['key'], R['call'])
+    ck('switch on: the I-9 column opens the call (the I-9 line is ticked there), no separate I-9 done button', R['call']['i9Btn'] == 'Call', R['call'])
     ck('More links unchanged', 'How long people take' in R['more'] and 'Full table' in R['more'] and 'Taken off the list' in R['more'], R['more'])
     pg.evaluate("()=>obtQueue('all')"); pg.wait_for_timeout(200)
     box = pg.locator('#ckdDash').bounding_box()
@@ -183,6 +193,10 @@ with sync_playwright() as pw:
     box = pg.locator('#ckdDash').bounding_box()
     pg.screenshot(path=os.path.join(OUT, 'obt_i9_queue.png'), clip={'x': box['x'] - 8, 'y': max(0, box['y'] - 8), 'width': box['width'] + 16, 'height': min(700, box['height'] + 16)}, full_page=True)
     pg.evaluate("()=>{ location.hash=''; }")
+    pg.evaluate("()=>{ DATA.ops_settings.after_orientation_call_live=true; OPR.finishOf=window._afterFo; obtQueue('all'); }"); pg.wait_for_timeout(200)
+    box = pg.locator('#ckdDash').bounding_box()
+    pg.screenshot(path=os.path.join(OUT, 'obt_after_call.png'), clip={'x': box['x'] - 8, 'y': max(0, box['y'] - 8), 'width': box['width'] + 16, 'height': min(1400, box['height'] + 16)}, full_page=True)
+    pg.evaluate("()=>{ DATA.ops_settings.after_orientation_call_live=false; }")
     pg.evaluate("()=>{ OPR.finishOf=window._fo; }")
     pg.evaluate("()=>obtQueue('fcsr')"); pg.wait_for_timeout(200)
     box = pg.locator('#ckdDash').bounding_box()
