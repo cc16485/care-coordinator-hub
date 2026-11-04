@@ -7511,7 +7511,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=11"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=11"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -30488,6 +30488,7 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
+    if(it && it.kind==='falloff_said_yes' && it.status==='open' && window.FALLOFF) return FALLOFF.actions(it);   /* 2026-11-04 Put back */
     if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
@@ -34950,6 +34951,11 @@ const OPS_KINDS = {
      differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
   final_approval:        { label:'Ready for final approval',          hours:24 },
   axiscare_active_failed:{ label:'AxisCare update failed (approved)', hours:4  },
+  /* 2026-11-04 onboarding fall-offs (falloff.js): AxisCare not changed, a person decides; a reply after the check-in took them off */
+  axiscare_inactive_after_leave:{ label:'Set inactive in AxisCare (left onboarding)', hours:24 },
+  falloff_axis_failed:   { label:'AxisCare not changed (left onboarding)', hours:24 },
+  falloff_axis_skipped:  { label:'Check AxisCare by hand (left onboarding)', hours:24 },
+  falloff_said_yes:      { label:'Replied after being taken off',     hours:24 },
   hire_date_check:       { label:'Hire date differs from orientation', hours:48 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
