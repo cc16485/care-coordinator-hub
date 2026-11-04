@@ -931,7 +931,7 @@
   function startingHtml(){
     if(!live()) return '';
     const { js, old } = startingRows();
-    if(CJL.rows === null) return '<div class="field-note">Reading who is starting care…</div>';
+    if(CJL.rows === null && !(window.GRT && GRT.on())) return '<div class="field-note">Reading who is starting care…</div>';
     if(window.__cqRows === undefined && typeof cqLaunchFor === 'function' && !startingHtml._asked){ startingHtml._asked = true; cqLaunchFor({}).then(() => { try{ if(typeof renderClientsBoard === 'function') renderClientsBoard(); }catch(e){} }); }
     /* AxisCare clients nobody has matched yet ("Who is this?") sit at the top: they used to live on the First shift tab */
     let waitHtml = '';
@@ -940,6 +940,8 @@
         cqfLoad(window.__cqRows || []).then(() => { try{ if(typeof activeTab !== 'undefined' && activeTab === 'clientsboard' && typeof renderClientsBoard === 'function') renderClientsBoard(); }catch(e){} }); }
       waitHtml = cqfWaitingHtml((window.__cqRows || []).filter(c => c && c.status !== 'complete'));
     }
+    /* 2026-11-03 Getting ready as one table (getting-ready-table.js, switch getting_ready_table_live): the same families, one table */
+    if(window.GRT && GRT.on()) return waitHtml + GRT.html();
     if(!js.length && !old.length) return waitHtml + '<div class="card" style="padding:16px 18px;color:var(--text-muted);">Nobody is starting care right now. A new client appears here once someone has talked to them.</div>';
     const rank = j => j.catalog === 'nine' ? (j.step_n || 1) / 9 : R.STAGES.indexOf(j.stage) / R.STAGES.length;
     js.sort((a, b) => rank(b) - rank(a) || String(a.client_name).localeCompare(String(b.client_name)));
@@ -1073,5 +1075,5 @@
     '.wk-jr{border-left:5px solid #1E4FB8}.wk-jr-blocked{border-left-color:#B42318}.wk-jr-attention{border-left-color:#B42318;background:#FFF6F5}.wk-jr-waiting{border-left-color:#9A6412}',
     '@media (max-width:720px){.cj-head,.cj-full{border-radius:0;margin-left:-4px;margin-right:-4px}.cj-t{font-size:20px}.cj-actions button{min-height:44px;flex:1 1 auto}.cj-form input:not([type=checkbox]),.cj-form select{font-size:16px;min-height:44px;max-width:none}.cj-row-body{padding-left:0}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { cjPathOpen:pathOpen, cjAutoOpen:autoOpen, cjDrawPath:drawPath, cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjSyncStart:syncStart, cjOneFor:oneFor, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
+  Object.assign(window, { cjTableRows:() => ({ rows:listRows(), loaded:CJL.rows !== null || (!live() && !owner()) }), cjPathOpen:pathOpen, cjAutoOpen:autoOpen, cjDrawPath:drawPath, cjWorkCard:workCard, cjStartingHtml:startingHtml, cjStartingCount:() => live() ? startingRows().n + (typeof cqfWaitingList === 'function' ? cqfWaitingList((window.__cqRows || []).filter(c => c && c.status !== 'complete')).length : 0) : 0, cjNavTidy:navTidy, cjOld:oldCard, cjMore:() => { CJ.more = !CJ.more; if(!CJ.more) CJ.mode = null; render(); }, cjHasJourney:hasJourney, cjSetFill:setFill, cjSetToggle:setToggle, cjSetRoutes:setRoutes, cjListBlock:listBlock, cjStageFor:stageFor, cjOwnsLaunch:ownsLaunch, cjListRefresh:listRefresh, cjJourneyFor:journeyFor, cjMountProfile:mountProfile, cjPick:pick, cjShowStage:showStage, cjFilter:filter, cjEditStart:editStart, cjSyncStart:syncStart, cjOneFor:oneFor, cjAssignCc:assignCc, cjRoute:route, cjSaidYes:saidYes, cjUndoYes:undoYes, cjCall:call, CJ_STATE:CJ });
 })();
