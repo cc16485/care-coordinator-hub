@@ -18,7 +18,8 @@ async(asOwner)=>{
     { id:'r5', axiscare_id:'105', name:'Fake Riley', team:'caregiver', state:'card', asked_at:ago(3*D), answer_text:'who is this?' },
     { id:'r6', axiscare_id:'106', name:'Fake Avery', team:'caregiver', last_visit:ymd(-50*D), state:'to_owner', answer:null, to_owner_why:'No answer by Oct 30 (asked Oct 23).' },
     { id:'r7', axiscare_id:'107', name:'Fake Stopper', team:'caregiver', state:'to_owner', answer:'stop', to_owner_why:'They replied STOP to the check-in (no goodbye text will go).' },
-    { id:'r8', axiscare_id:'108', name:'Fake Leave', team:'caregiver', state:'skipped', skip_note:'On approved leave', skip_by:'Krystal Land' } ];
+    { id:'r8', axiscare_id:'108', name:'Fake Leave', team:'caregiver', state:'skipped', skip_note:'On approved leave', skip_by:'Krystal Land' },
+    { id:'r9', axiscare_id:'109', name:'Fake Office', team:'caregiver', state:'skipped', skip_note:'Office staff', skip_by:'Samantha', skip_until:'9999-12-31' } ];
   window.__INV=[]; window.__live=true;
   window.__inv=async(n,o)=>{ const b=o&&o.body; window.__INV.push([n,b]);
     if(n!=='gone-quiet') return { data:{ ok:true }, error:null };
@@ -54,9 +55,11 @@ async(asOwner)=>{
   ok('Not this one needs a note (nothing saved without one)', !window.__INV.some(([n,b])=>b && b.action==='skip'));
   window.__answer='On approved leave'; [...box.querySelectorAll('a')].find(a=>/Not this one/.test(a.innerText)).click(); await sleep(200);
   ok('...with a note it is saved', window.__INV.some(([n,b])=>b && b.action==='skip' && b.note==='On approved leave'));
+  ok('...after asking whether to leave them off for good (office staff)', window.__cf.some(m=>/Leave them off this list for good\?/.test(m)) && window.__INV.some(([n,b])=>b && b.action==='skip' && b.forever===true), window.__cf);
   ok('asked: who asked and when it goes to Samantha', /Asked [A-Z][a-z]{2} \d+ by Krystal/.test(txt()) && /Goes to Samantha [A-Z][a-z]{2} \d+ if they don't answer/.test(txt()), txt());
   ok('YES: when, the shift-by date, and Find them a shift', /Said YES [A-Z][a-z]{2} \d+/.test(txt()) && /Needs a shift by [A-Z][a-z]{2} \d+/.test(txt()) && [...box.querySelectorAll('button')].some(b=>/Find them a shift/.test(b.innerText)));
   ok('unclear reply: their words, Mark as YES and Send to Samantha', /who is this\?/.test(txt()) && [...box.querySelectorAll('button')].some(b=>/Send to Samantha/.test(b.innerText)));
+  ok('Recently closed shows someone left off for good as Never on this list', /Never on this list: Office staff/.test(box.querySelector('details').textContent), box.querySelector('details') && box.querySelector('details').textContent);
   ok('Recently closed shows the skipped one with its note', /Not this one: On approved leave \(Krystal\)/.test(box.querySelector('details').innerText.replace(/\s+/g,' ')) || /Not this one: On approved leave/.test(box.querySelector('details').textContent), box.querySelector('details') && box.querySelector('details').textContent);
   ok('no page text says "AI" or uses an em dash', !/\bAI\b/.test(txt()) && !/—/.test(txt()));
   if(asOwner){
