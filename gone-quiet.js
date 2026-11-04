@@ -5,7 +5,7 @@
    answer, YES needs a shift within 14 days, NO or no answer goes to her for sign-off. She approved the words and this list.
    The server (Hub server gone-quiet, table gone_quiet) builds the list every Monday and reads the replies; this file only
    draws it, in three parts:
-     · Ready to ask: tick and Send (the check-in text and email), or Not this one with a note (off the list 30 days).
+     · Ready to ask: tick and Send (the check-in text and email), or Not this one with a note (off the list 30 days, or for good for office staff).
      · Waiting on an answer: asked (comes to Samantha on the reply-by day), an unclear reply (Mark as YES / Send to
        Samantha), or YES (needs a shift by a date; Find them a shift opens Cara).
      · Waiting on Samantha: NO, STOP or no answer. Owners see Approve (the goodbye goes) and Keep them; the Termination
@@ -61,7 +61,7 @@
       + (ready.length ? ready.map(r => '<div class="gq-row gq-4"><input type="checkbox"' + (ST.ticked[r.id] ? ' checked' : '') + ' onchange="GQ.tick(\'' + esc(r.id) + '\',this.checked)" aria-label="Ask ' + esc(r.name) + '">'
           + '<div>' + name(r) + '<div class="field-note">' + (r.team === 'prn' ? 'PRN team' : 'Caregiver') + '</div></div><div>' + lastLine(r) + '</div>'
           + '<div class="field-note">' + esc(how(r)) + '<br><a href="javascript:void 0" onclick="GQ.skip(\'' + esc(r.id) + '\')">Not this one</a></div></div>').join('')
-        + '<div class="field-note" style="margin-top:8px;">Untick anyone on approved leave or with a reason. "Not this one" takes them off the list for 30 days, with your note.</div>'
+        + '<div class="field-note" style="margin-top:8px;">Untick anyone on approved leave or with a reason. "Not this one" takes them off the list for 30 days, with your note, or for good (office staff).</div>'
         : '<div class="field-note">Nobody has gone quiet this week.</div>') + '</div>';
     /* waiting on an answer */
     h += '<div class="card gq-card"><div class="gq-h"><b>Waiting on an answer · ' + wait.length + '</b></div>'
@@ -84,7 +84,7 @@
         + '<div class="field-note" style="margin-top:8px;">' + (owner() ? 'Approve sends the goodbye text (never after a STOP). Then finish the checklist on the Owners Hub, including marking them Inactive in AxisCare: <a href="https://hub.mo-care.com/owners.html" target="_blank" rel="noopener">open Offboarding</a>.' : 'Only Samantha sees the sign-off buttons.') + '</div>'
         : '<div class="field-note">Nobody is waiting on a decision.</div>') + '</div>';
     if(recent.length) h += '<details class="card gq-card"><summary style="cursor:pointer;"><b>Recently closed</b> <span class="field-note">(' + recent.length + ')</span></summary>'
-      + recent.map(r => '<div class="gq-row gq-2"><div>' + name(r) + '</div><div class="field-note">' + esc(CLOSED[r.state] || r.state) + (r.skip_note ? ': ' + esc(r.skip_note) : r.keep_note ? ': ' + esc(r.keep_note) : '') + (r.decided_by ? ' (' + esc(who(r.decided_by)) + ')' : r.skip_by ? ' (' + esc(who(r.skip_by)) + ')' : '') + '</div></div>').join('') + '</details>';
+      + recent.map(r => '<div class="gq-row gq-2"><div>' + name(r) + '</div><div class="field-note">' + esc(r.state === 'skipped' && r.skip_until === '9999-12-31' ? 'Never on this list' : CLOSED[r.state] || r.state) + (r.skip_note ? ': ' + esc(r.skip_note) : r.keep_note ? ': ' + esc(r.keep_note) : '') + (r.decided_by ? ' (' + esc(who(r.decided_by)) + ')' : r.skip_by ? ' (' + esc(who(r.skip_by)) + ')' : '') + '</div></div>').join('') + '</details>';
     el.innerHTML = h;
   }
   const CLOSED = { ended:'Ended, approved', kept:'Kept by Samantha', back_to_work:'Back at work', no_shift_after_yes:'Said YES, no shift in 14 days (back on the list Monday)', skipped:'Not this one' };
@@ -115,7 +115,9 @@
     async skip(id){
       const note = prompt('Why not this one? (on leave, a reason). They come off the list for 30 days.', ''); if(note === null) return;
       if(!note.trim()){ alert('Add a short note so the next person knows why.'); return; }
-      await act({ action:'skip', id, note }, 'Off the list for 30 days.');
+      /* Samantha 2026-11-04: office staff set up as caregivers in AxisCare never belong on this list */
+      const forever = await ask('Leave them off this list for good? Choose this for office staff or anyone who should never get this text. Otherwise they are off for 30 days.');
+      await act({ action:'skip', id, note, forever }, forever ? 'Off the list for good.' : 'Off the list for 30 days.');
     },
     async yes(id){ const note = prompt('How did they say yes? (a call, an email reply)', ''); if(note === null) return; await act({ action:'mark_yes', id, note }, 'Marked YES. They need a shift within 14 days.'); },
     async toOwner(id){ const note = prompt('What did they say? (goes on the Termination item for Samantha)', ''); if(note === null) return; await act({ action:'to_owner', id, note }, 'Sent to Samantha.'); },
