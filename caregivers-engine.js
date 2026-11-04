@@ -7903,7 +7903,6 @@ const OBT_HEADS = [['Application', ['step1']], ['Background checks', ['oig', 'ed
 const obtGroupStart = k => OBT_HEADS.some(h => h[1][0] === k);
 /* a date-only value ("2026-10-24") is read at noon so it never shows the day before */
 const obtDay = v => { const s = String(v || ''); return !s ? '' : ckdDay(/^\d{4}-\d{2}-\d{2}$/.test(s.slice(0, 10)) && s.length <= 10 ? s.slice(0, 10) + 'T12:00:00' : s); };
-const OBT_WHO = { review:'Review', office:'Office', applicant:'Applicant', outside:'Outside' };
 const OBT_GROUPS = {
   oig:    ['Record the OIG result', '', 'Flagged: Samantha or Zachary decide'],
   edl:    ['Search the EDL list and record it', '', 'Issues found: Samantha or Zachary decide'],
@@ -8126,10 +8125,6 @@ function obtCellHTML(x, k){
 }
 /* the edge on the name: purple review (as before) wins, then red overdue, then gold 10+ days on the list */
 const obtEdge = m => m.who.has('review') ? ' obt-r-rev' : m.late ? ' obt-r-late' : m.longWait ? ' obt-r-quiet' : '';
-function obtWhoHTML(m){
-  const order = ['review', 'office', 'applicant', 'outside'];
-  return order.filter(k => m.who.has(k)).map(k => '<span class="obt-who obt-who-' + k + '">' + OBT_WHO[k] + '</span>').join('') || '<span class="obt-who obt-who-none">Nothing</span>';
-}
 function obtWaitHTML(m){
   if(m.days === null) return '<span class="obt-none">–</span>';
   return '<span class="' + (m.longWait ? 'obt-late' : m.days >= 5 ? 'obt-wait' : '') + '">' + (m.longWait ? obtIcon('clock') : '') + (m.days === 0 ? 'New' : m.days + 'd') + '</span>';
@@ -8148,7 +8143,7 @@ function obtNameHTML(m){
 }
 function obtRowHTML(m, hi){
   return '<tr class="obt-r' + obtEdge(m) + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
-    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td><td class="obt-c obt-h">' + obtWhoHTML(m) + '</td>'
+    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td>'   /* 2026-11-04 Samantha: the Holding up column is gone ("isn't that helpful") */
     + OBT_COLS.map(([k]) => obtCellHTML(m.cells[k], k).replace('<td class="obt-c', '<td class="obt-c' + (k === hi ? ' obt-hi' : ''))).join('') + '</tr>';
 }
 /* the phone: one short card per person, the marks in a row and only the buttons that apply */
@@ -8161,7 +8156,7 @@ function obtCardHTML(m, hi){
       if(x.b) bs.push(obtBtn(Object.assign({}, x.b, { label:t + ': ' + x.b.label })).replace('class="obt-b', x.s === 'rev' ? 'class="obt-b obt-b-rev' : 'class="obt-b'));
       return bs.join(''); }).join('');
   return '<div class="obt-card' + obtEdge(m) + '"><div class="obt-card-top"><div>' + obtNameHTML(m) + '</div><div class="obt-card-w">' + obtWaitHTML(m) + '</div></div>'
-    + '<div class="obt-card-h">' + obtWhoHTML(m) + '</div><div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
+    + '<div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
 }
 function obtRender(box){
   const L = ckdLists(), models = L.all.map(obtModel);
@@ -8177,12 +8172,12 @@ function obtRender(box){
   const sum = (k, label, cls, tip) => '<button type="button" class="obt-s obt-s-' + cls + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '" title="' + bgrEsc(tip) + '"><b>' + n(k) + '</b><span>' + label + '</span></button>';
   const chip = (k, label) => { const c = k === 'orient' && obtFolded() ? (OPR.queueCount() ?? '…') : n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
   const start = ckdStartHere(L.all);
-  const head = '<tr class="obt-grp"><th class="obt-n"></th><th colspan="2"></th>' + OBT_HEADS.map(([t, ks]) => '<th scope="colgroup" colspan="' + ks.length + '" class="obt-gs">' + t + '</th>').join('') + '</tr>'
-    + '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th><th scope="col">Holding up</th>' + OBT_COLS.map(([k, t]) => '<th scope="col" class="' + (k === job ? 'obt-hi' : '') + (obtGroupStart(k) ? ' obt-gs' : '') + '">' + t + '</th>').join('') + '</tr>';
+  const head = '<tr class="obt-grp"><th class="obt-n"></th><th></th>' + OBT_HEADS.map(([t, ks]) => '<th scope="colgroup" colspan="' + ks.length + '" class="obt-gs">' + t + '</th>').join('') + '</tr>'
+    + '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th>' + OBT_COLS.map(([k, t]) => '<th scope="col" class="' + (k === job ? 'obt-hi' : '') + (obtGroupStart(k) ? ' obt-gs' : '') + '">' + t + '</th>').join('') + '</tr>';
   let body;
   if(job){
     const g = OBT_GROUPS[job] || ['To do', 'Waiting', 'Review'], parts = [2, 0, 1].map(i => [i, list.filter(m => obtGroupOf(m.cells[job]) === i)]);
-    body = parts.filter(([, xs]) => xs.length).map(([i, xs]) => '<tr class="obt-g obt-g' + i + '"><td colspan="' + (OBT_COLS.length + 3) + '">' + bgrEsc(g[i] || ['To do', 'Waiting', 'Review'][i]) + ' (' + xs.length + ')</td></tr>'
+    body = parts.filter(([, xs]) => xs.length).map(([i, xs]) => '<tr class="obt-g obt-g' + i + '"><td colspan="' + (OBT_COLS.length + 2) + '">' + bgrEsc(g[i] || ['To do', 'Waiting', 'Review'][i]) + ' (' + xs.length + ')</td></tr>'
       + xs.sort((a, b) => ((b.cells[job].days ?? b.days ?? -1) - (a.cells[job].days ?? a.days ?? -1))).map(m => obtRowHTML(m, job)).join('')).join('');
   } else body = list.map(m => obtRowHTML(m, null)).join('');
   const cards = (job ? [2, 0, 1].flatMap(i => list.filter(m => obtGroupOf(m.cells[job]) === i)) : list).map(m => obtCardHTML(m, job)).join('');
@@ -8206,7 +8201,7 @@ function obtRender(box){
     + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
     + run.join('')
     + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
-       '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 3) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
+       '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 2) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
     + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
     + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, ' + (obtCallOn() ? 'C = call after orientation' : 'V = video call') + ', P = profile, B = badge, A = approved</div>')
     + ckdMoreHTML(L);
