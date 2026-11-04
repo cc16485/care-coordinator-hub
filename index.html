@@ -2432,6 +2432,20 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .obt-g2 td{color:#7A2E8C}
         .obt-empty{padding:18px;color:#55677a;font-size:14px}
         .obt-key{font-size:12px;color:#55677a;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+        /* 2026-11-04 Offers inside Onboarding: the folds under the table and the offer window */
+        .obt-folds{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+        .obt-fold{border:1px dashed #d9d5ca;border-radius:9px;background:#faf9f6;padding:7px 12px;font-size:13px}
+        .obt-fold summary{cursor:pointer;color:#0D365F}
+        .obt-fold ul{list-style:none;margin:6px 0 2px;padding:0;display:flex;flex-direction:column;gap:4px}
+        .obt-fold li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .obt-fold li .obt-name{display:inline}
+        .obt-fd{color:#55677a;font-size:12.5px}
+        .obt-fold-o{margin-top:6px;background:#fff}
+        .obt-op .ckd-party-in{align-items:stretch;text-align:left}
+        .obt-op p{margin:0;color:#55677a;font-size:13.5px}
+        .obt-op .obt-op-w{color:#B45309}
+        .obt-op-b{display:flex;flex-wrap:wrap;gap:6px}
+        .obt-op-m{font-size:13px}
         .obt-cards{display:none}
         @media (max-width:760px){
           .obt-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -7511,7 +7525,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=11"></script><script src="hire-strip.js?v=1"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -7526,7 +7540,7 @@ The HomeTogether team</pre>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="visit-reasons.js?v=1"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=10"></script><!-- 3b: the one new-hire readiness card -->
+<script src="caregiver-readiness.js?v=11"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=10"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
@@ -8970,6 +8984,8 @@ function renderActiveTab(){
   if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
+  /* 2026-11-04 Offers inside Onboarding: an old link to Offers (not the offer form) opens Onboarding's Offer queue */
+  if(activeTab==='offers' && !JO_FROM_INTERVIEW && offCurrentView!=='new' && typeof obtOio==='function' && obtOio() && typeof obtOpenQueue==='function'){ obtOpenQueue('offer'); return; }
   if(activeTab==='calls') renderCalls();
   if(activeTab==='ops') renderOps();
   if(activeTab==='settings') fillSettingsPanel();
@@ -22375,7 +22391,9 @@ let offCurrentView='open';
 let OFF_STAGE='accepted', OFF_STAGE_PICKED=false;   // the Offers stage tab on screen (2026-10-12)
 /* Set only by an interview result (apToOffer, ivOffer). Without it the offer form never shows. */
 let JO_FROM_INTERVIEW = false;
-function joLeave(){ JO_FROM_INTERVIEW = false; JO_APPLICANT = null; offView('open'); }
+function joLeave(){ JO_FROM_INTERVIEW = false; JO_APPLICANT = null; offView('open');
+  /* 2026-11-04: with Offers inside Onboarding, leaving the offer form lands on Onboarding's Offer queue */
+  if(typeof obtOio==='function'&&obtOio()&&typeof obtOpenQueue==='function') obtOpenQueue('offer'); }
 window.joLeave = joLeave;
 function offView(name){
   if(name==='new' && !JO_FROM_INTERVIEW) name='open';   // an offer is an interview result (2026-10-11)

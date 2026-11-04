@@ -1203,7 +1203,7 @@ function openStaffHandoff(){
   });
   STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open'&&t.urgency==='Today').forEach(t=>
     staffHandoffDraft.push({include:true,note:'',label:'📨 Unfinished TODAY request: '+(t.about?t.about+': ':'')+String(t.message||'').slice(0,80)}));
-  OFFERS.filter(o=>!o.attributes_entered_at).slice(0,5).forEach(o=>
+  if(!(typeof obtOio==='function'&&obtOio())) OFFERS.filter(o=>!o.attributes_entered_at).slice(0,5).forEach(o=>
     staffHandoffDraft.push({include:false,note:'',label:'🤝 New hire awaiting AxisCare attributes: '+(o.name||'')}));
   if(!(eodReports||[]).some(r=>r.report_date===today10))
     staffHandoffDraft.push({include:false,note:'',label:'📄 (Reminder to me) End-of-day report not uploaded yet'});
@@ -1341,7 +1341,7 @@ function renderStaffHome(){
   const reqN=STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open').length;
   const repN=(_repliesData&&_repliesData.replies)?_repliesData.replies.length:null;
   const mtgN=MEETINGS.filter(mtgIncoming).length;
-  const offN=OFFERS.length?OFFERS.filter(o=>!o.attributes_entered_at).length:null;
+  const offN=(typeof obtOio==='function'&&obtOio())?null:OFFERS.length?OFFERS.filter(o=>!o.attributes_entered_at).length:null;   /* 2026-11-04: on the call after orientation instead */
   const shiftN=(typeof OPEN_SHIFTS!=='undefined'&&OPEN_SHIFTS)?OPEN_SHIFTS.length:null;
   const ciN=CI_PAIRS?CI_PAIRS.filter(p=>ciPairInfo(p).dueNow).length:null;
   const eodDone=(eodReports||[]).some(r=>r.report_date===today10);
@@ -1371,7 +1371,7 @@ function renderStaffHome(){
     +row('🔴',shiftN,'Open shifts, next 14 days','Every unassigned visit in AxisCare is yours to fill','scheduling',true)
     +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks. Two calls per match, then done','checkins',false)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
-    +row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
+    +((typeof obtOio==='function'&&obtOio())?'':row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false))
     +row('⛔',blocked,'Blocked from first client contact','Agency Orientation (or a Medicaid caregiver\'s dementia training, until Nov 16) not done yet, so they can\'t be scheduled yet','training',true)
     +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
@@ -1418,6 +1418,8 @@ async function loadOffers(btn){
     OFFERS=data.filter(o=>!offerIsTest(o));
     if(box) renderOffers();
     updateOffersBadge();
+    if(typeof obtOfferPill === 'function') obtOfferPill();   /* 2026-11-04 offers live on Onboarding when the switch is on */
+    if(typeof obtOio === 'function' && obtOio() && typeof renderCkd === 'function' && (document.getElementById('ckdDash') || {}).offsetParent) renderCkd();
   }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load offers: '+(e&&e.message?e.message:'error')+'</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
@@ -1467,6 +1469,9 @@ function renderOffers(){
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const box=document.getElementById('offersList');
   const counts=offerStageCounts();
+  /* OFFER INSIDE ONBOARDING (2026-11-04): the list lives on Onboarding; nothing is drawn here (its boxes would share ids with the
+     offer window there). The offer form on this tab is unchanged. */
+  if(typeof obtOio==='function'&&obtOio()){ if(window.offNavCounts) window.offNavCounts(counts); box.innerHTML='<div style="color:#6E6559;font-size:.88rem">Offers are on the Onboarding tab now, in the Offer column. <button class="fb" onclick="obtOpenQueue(\'offer\')">Open Onboarding</button></div>'; return; }
   /* Until someone clicks a stage, open the first one with people in it. */
   if(typeof OFF_STAGE_PICKED!=='undefined'&&!OFF_STAGE_PICKED){ OFF_STAGE=['sent','accepted','completed','rejected'].find(k=>counts[k])||'sent'; }
   const stage=typeof OFF_STAGE!=='undefined'?OFF_STAGE:'accepted';
@@ -7624,16 +7629,29 @@ function ckdRosterNext(r){
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
 function ckdPeople(){
   const out = [], seen = new Set();
+  /* OFFER INSIDE ONBOARDING (2026-11-04): a turned-down or gone-quiet offer is folded under the table, never a row */
+  const oio = typeof obtOio === 'function' && obtOio(), offerOf = id => id && typeof OFFERS !== 'undefined' ? OFFERS.find(x => String(x.id) === String(id)) : null;
+  const gone = id => oio && obtOfferGone(offerOf(id));
   (typeof candidates !== 'undefined' ? candidates : []).filter(ckdActive).forEach(c => {
     if(c.offer_id) seen.add(String(c.offer_id));
+    if(gone(c.offer_id)) return;
     out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
   });
   ckdJourneyRows().forEach(r => {
     if(!r || r.approved_to_work && r.axiscare !== 'failed' && !r.checkin_open) return;
     if(r.offer_id && seen.has(String(r.offer_id))) return;
+    if(r.offer_id) seen.add(String(r.offer_id));
+    if(gone(r.offer_id)) return;
     const parts = String(r.name || '').trim().split(/\s+/);
     if(!CKD_SHOW_TEST && ckdIsTest(parts[0], parts.slice(1).join(' '))) return;
     out.push({ stop:ckdJourneyStop(r), name:r.name || 'Name not recorded', ms:null, j:r });
+  });
+  /* everyone offered: an open offer (sent, or signed and waiting on Step 1) that no checks row or readiness card shows yet */
+  if(oio) (typeof OFFERS !== 'undefined' ? OFFERS : []).forEach(o => {
+    if(!o || seen.has(String(o.id)) || obtOfferGone(o) || obtOfferTest(o)) return;
+    const stg = offerStage(o); if(stg !== 'sent' && stg !== 'accepted') return;
+    if(offerMovedOn(o)) return;
+    out.push({ stop:0, name:((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Name not recorded', ms:Date.parse(o.offer_sent_at || o.created_at || '') || null, o });
   });
   return out;
 }
@@ -7664,6 +7682,10 @@ function ckdStep1Stuck(j){
   return { card, days, text, call: p ? { dial:p.dial, show:p.show, email:o.email || '' } : null };
 }
 function ckdActsFor(p){
+  if(p.o){
+    const sent = obtOfferSent(p.o), first = p.o.first_name || 'them';
+    return [{ lane:'Offer', text:sent ? 'Offer sent. Waiting on ' + first + ' to sign it on their phone. The Hub reminds them.' : 'Offer signed. Waiting on ' + first + ' to finish Step 1.', label:'', on:'', wait:true, how:'card' }];
+  }
   if(p.j){
     const stuck = ckdStep1Stuck(p.j);
     const out = [stuck ? { lane:'', text:stuck.text, warn:true, call:stuck.call, label:stuck.call ? '' : 'Open card', on:'CRX.openSide(\'' + bgrEsc(String(p.j.offer_id)) + '\')' } : Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
@@ -7898,8 +7920,16 @@ const obtFolded = () => !!(window.OPR && typeof OPR.folded === 'function' && OPR
 /* 2026-11-04 (Samantha, from the CDS attendant table): dates on done steps, a short why line under anything waiting or late,
    labels over related columns, a red (overdue) or gold (10+ days on the list) edge on the name, references always as a count,
    "Viventium (Step 2)", and an I-9 in Viventium column read from the readiness card's own I-9 Section 2 row */
-const OBT_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'References'], ['step2', 'Viventium (Step 2)'], ['i9', 'I-9 in Viventium'], ['orient', 'Orientation'], ['finish', 'Finish']];
-const OBT_HEADS = [['Application', ['step1']], ['Background checks', ['oig', 'edl', 'fcsr', 'casenet']], ['References and Viventium', ['refs', 'step2', 'i9']], ['Getting ready to work', ['orient', 'finish']]];
+const OBT_BASE_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'References'], ['step2', 'Viventium (Step 2)'], ['i9', 'I-9 in Viventium'], ['orient', 'Orientation'], ['finish', 'Finish']];
+const OBT_BASE_HEADS = [['Application', ['step1']], ['Background checks', ['oig', 'edl', 'fcsr', 'casenet']], ['References and Viventium', ['refs', 'step2', 'i9']], ['Getting ready to work', ['orient', 'finish']]];
+/* OFFER INSIDE ONBOARDING (Samantha 2026-11-04: "removing the offers tab, and make offer the first step in the chart of onboarding
+   tab - need to not let it get bogged down if people are rejecting the offer...but want to see everyone on the onboarding chart").
+   Admin switch offers_in_onboarding_live (needs the table): an Offer column first, offers not signed yet as rows, and anything
+   declined, withdrawn, expired, closed or gone quiet folded under the table instead of on it. The Offers tab hides; the offer
+   form still opens from an interview. Off = the table exactly as before. */
+function obtOio(){ const o = (typeof DATA !== 'undefined' && DATA && DATA.ops_settings) || {}; return o.offers_in_onboarding_live === true && o.onboarding_table_live === true; }
+let OBT_COLS = OBT_BASE_COLS.slice(), OBT_HEADS = OBT_BASE_HEADS.slice();
+function obtSetCols(){ const on = obtOio(); OBT_COLS = on ? [['offer', 'Offer']].concat(OBT_BASE_COLS) : OBT_BASE_COLS.slice(); OBT_HEADS = on ? [['Offer', ['offer']]].concat(OBT_BASE_HEADS) : OBT_BASE_HEADS.slice(); }
 const obtGroupStart = k => OBT_HEADS.some(h => h[1][0] === k);
 /* a date-only value ("2026-10-24") is read at noon so it never shows the day before */
 const obtDay = v => { const s = String(v || ''); return !s ? '' : ckdDay(/^\d{4}-\d{2}-\d{2}$/.test(s.slice(0, 10)) && s.length <= 10 ? s.slice(0, 10) + 'T12:00:00' : s); };
@@ -7913,10 +7943,80 @@ const OBT_GROUPS = {
   i9:     ['Complete I-9 Section 2 in Viventium', '', ''],
   orient: ['Ready to send orientation', 'In orientation', ''],
   finish: ['Office to-dos: calls, badge, approval', 'Waiting on the applicant: orientation, profile', ''],
-  step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', '']
+  step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', ''],
+  offer:  ['Office to-dos', 'Waiting on them to sign the offer', '']
 };
 const obtDaysSince = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 864e5)) : null; };
 const obtOpenCard = j => j && j.offer_id ? 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')' : '';
+/* the offer behind a row: its own (a row that is only an offer), else the one its checks row or readiness card points at */
+function obtOfferFor(p){ if(p.o) return p.o; const id = (p.c && p.c.offer_id) || (p.j && p.j.offer_id); return id && typeof OFFERS !== 'undefined' ? OFFERS.find(x => String(x.id) === String(id)) || null : null; }
+const obtOfferSent = o => !!o && typeof offerStage === 'function' && offerStage(o) === 'sent';
+const obtOfferGone = o => !!o && typeof offerStage === 'function' && (offerStage(o) === 'rejected' || (offerStage(o) === 'sent' && offerIsQuiet(o)));
+const obtOfferTest = o => typeof ckdIsTest === 'function' && ckdIsTest(o.first_name, o.last_name) && !CKD_SHOW_TEST;
+/* Sent 3d (waiting on them; red from day 7, the day the still-interested check-in asks), else signed with the date */
+function obtOfferCell(o){
+  if(!o) return obtCell('na', '', { tip:'No offer on file (an older hire)' });
+  const id = bgrEsc(String(o.id)), open = 'obtOfferPanel(\'' + id + '\')';
+  if(obtOfferSent(o)){
+    const d = obtDaysSince(o.offer_sent_at || o.created_at), late = d != null && d >= 7;
+    return obtCell('wait', 'Sent' + (d != null ? ' ' + d + 'd' : ''), { who:'applicant', late, days:d, link:open, b:{ label:'Resend', on:'obtOfferResend(\'' + id + '\',this)', quiet:!late },
+      tip:late ? 'Offer sent ' + d + ' days ago and not signed yet. Call them; the still-interested check-in asks too.' : 'Offer sent. Waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves.' });
+  }
+  const at = [o.offer_signed_at, o.pd_signed_at].filter(Boolean).sort().pop();
+  return obtCell('ok', '', { d:obtDay(at), link:open, tip:at ? 'Offer signed ' + obtDay(at) : 'Offer accepted' });
+}
+/* the offer's own things, in one small window: resend, the signing link, the signed documents, close the offer */
+function obtOfferPanel(id){
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(id)); if(!o) return;
+  const old = document.getElementById('obtOp'); if(old) old.remove();
+  const e = bgrEsc(String(o.id)), nm = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'This offer', sent = obtOfferSent(o);
+  const signed = [o.offer_signed_at, o.pd_signed_at].filter(Boolean).sort().pop();
+  const b = (label, on, id2) => '<button type="button" class="obt-b"' + (id2 ? ' id="' + id2 + '"' : '') + ' onclick="' + on + '">' + label + '</button>';
+  const sh = document.createElement('div'); sh.id = 'obtOp'; sh.className = 'ckd-party-shade';
+  sh.innerHTML = '<div class="ckd-party-card obt-op" role="dialog" aria-label="Their offer"><div class="ckd-party-in">'
+    + '<span class="ckd-kick">Offer</span><h3>' + bgrEsc(nm) + '</h3>'
+    + '<p>' + bgrEsc((o.position || 'Caregiver') + (o.offer_sent_at || o.created_at ? ' · sent ' + obtDay(o.offer_sent_at || o.created_at) : '') + (signed ? ' · signed ' + obtDay(signed) : sent ? ' · not signed yet' : '')) + '</p>'
+    + (o.axiscare_push_error && !o.axiscare_applicant_id ? '<p class="obt-op-w">AxisCare: the Hub could not add them as an applicant (' + bgrEsc(o.axiscare_push_error) + '). Add them in AxisCare by hand.</p>' : '')
+    + '<div class="obt-op-b">'
+    + (sent ? b('Resend the offer', 'offerResend(\'' + e + '\',this)', 'obtOpRs') + b('Signing link', 'offerSignLink(\'' + e + '\',this)') : '')
+    + (o.offer_pdf_path ? b('Offer letter', 'offerOpenDoc(\'' + e + '\',\'offer\',this)') : '') + (o.pd_pdf_path ? b('Position description', 'offerOpenDoc(\'' + e + '\',\'pd\',this)') : '')
+    + (window.HP ? b('Their profile', 'document.getElementById(\'obtOp\').remove();HP.open({offer_id:\'' + e + '\'})') : '')
+    + b('Close offer', 'offerCloseAsk(\'' + e + '\')') + '</div>'
+    + '<div id="od_' + e + '" class="obt-op-m" style="display:none"></div><div id="ol_' + e + '" class="obt-op-m"></div><div id="oc_' + e + '" class="obt-op-m" style="display:none"></div>'
+    + '<div class="ckd-party-btns"><button type="button" class="ckd-link" onclick="obtOfferPanelClose()">Close</button></div></div></div>';
+  document.body.appendChild(sh);
+  sh.onclick = ev => { if(ev.target === sh) obtOfferPanelClose(); };
+}
+function obtOfferPanelClose(){ const x = document.getElementById('obtOp'); if(x) x.remove(); renderCkd(); }
+async function obtOfferResend(id, btn){
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(id)); if(!o) return;
+  if(!(await ccConfirm('Send ' + ((o.first_name || 'them') + '').trim() + ' their offer link again, by text and email?'))) return;
+  obtOfferPanel(id); offerResend(id, document.getElementById('obtOpRs'));
+}
+/* under the table: offers that went quiet before signing, and the ones turned down (30 days, then Older), never rows */
+function obtOfferFolds(){
+  if(!obtOio() || typeof OFFERS === 'undefined') return '';
+  const list = OFFERS.filter(o => !obtOfferTest(o));
+  const quiet = list.filter(o => obtOfferSent(o) && offerIsQuiet(o)).sort((a, b) => String(a.offer_sent_at || a.created_at || '').localeCompare(String(b.offer_sent_at || b.created_at || '')));
+  const shut = list.filter(o => offerStage(o) === 'rejected').sort((a, b) => offerClosedAt(b) - offerClosedAt(a));
+  const recent = shut.filter(o => Date.now() - offerClosedAt(o) <= 30 * 864e5), older = shut.filter(o => !recent.includes(o));
+  const row = (o, why, when) => { const e = bgrEsc(String(o.id)), nm = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Name not recorded';
+    return '<li><button type="button" class="obt-name" onclick="' + (window.HP ? 'HP.open({offer_id:\'' + e + '\'})' : 'obtOfferPanel(\'' + e + '\')') + '">' + bgrEsc(nm) + '</button>'
+      + '<span class="obt-fd">' + bgrEsc(why) + (when ? ' · ' + bgrEsc(when) : '') + '</span>'
+      + (why === 'Expired' || why === 'Gone quiet' ? '<button type="button" class="obt-b obt-b-q obt-b-s" onclick="obtOfferPanel(\'' + e + '\')">Open</button>' : '') + '</li>'; };
+  const closedWhy = o => { const w = offerRejectedWhy(o), r = String(o.offer_withdraw_reason || ''); return w === 'Withdrawn' && /^Closed: /.test(r) ? r.slice(8) : w; };
+  const fold = (cls, title, n, tip, body) => '<details class="obt-fold ' + cls + '"><summary title="' + bgrEsc(tip) + '"><b>' + bgrEsc(title) + ' (' + n + ')</b></summary>' + body + '</details>';
+  return '<div class="obt-folds">'
+    + fold('obt-fold-q', 'Gone quiet', quiet.length, 'Offers sent ' + offerQuietDays() + '+ days ago with no movement (Settings, Offers: gone quiet). Off the table so it stays the people still moving.',
+        quiet.length ? '<ul>' + quiet.map(o => row(o, 'Gone quiet', 'sent ' + obtDay(o.offer_sent_at || o.created_at))).join('') + '</ul>' : '<p class="obt-fd">Nobody.</p>')
+    + fold('obt-fold-r', 'Turned down, last 30 days', recent.length, 'Declined, withdrawn, expired, closed or not hired. Nothing to do here; an expired offer can be resent.',
+        (recent.length ? '<ul>' + recent.map(o => row(o, closedWhy(o), obtDay(new Date(offerClosedAt(o)).toISOString()))).join('') + '</ul>' : '<p class="obt-fd">Nobody in the last 30 days.</p>')
+        + (older.length ? fold('obt-fold-o', 'Older', older.length, 'Turned down more than 30 days ago', '<ul>' + older.map(o => row(o, closedWhy(o), obtDay(new Date(offerClosedAt(o)).toISOString()))).join('') + '</ul>') : ''))
+    + '</div>';
+}
+/* the Offers tab pill hides while offers live on Onboarding (the offer form still opens there from an interview) */
+function obtOfferPill(){ const on = obtOio(), pill = document.querySelector('.fpill[data-tab="offers"]'); if(pill) pill.style.display = on ? 'none' : ''; return on; }
+window.obtOio = obtOio; window.obtOfferPill = obtOfferPill; window.obtOfferPanel = obtOfferPanel; window.obtOfferPanelClose = obtOfferPanelClose; window.obtOfferResend = obtOfferResend;
 /* one cell: s = ok | todo | wait | rev | none | na; who = office | applicant | outside | review; late = overdue by an existing rule */
 function obtCell(s, t, o){ return Object.assign({ s, t:t || '' }, o || {}); }
 function obtReview(c){ return { label:'Review', on:(typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal(' + c.id + ')' : 'ckdOpen(' + c.id + ')' }; }
@@ -8080,14 +8180,22 @@ function obtModel(p){
     cells.orient = p.stop >= 3 ? obtOrientProgress(p) : obtCell('none', '', { tip:'After the checks' });
   }
   cells.finish = p.stop >= 3 || (j && (j.ready_for_final || j.approved_to_work)) ? obtFinish(p, j, g) : obtCell('none', '', { tip:'After orientation is sent' });
+  const off = obtOio() ? obtOfferFor(p) : null;
+  if(obtOio()){
+    cells.offer = obtOfferCell(off);
+    /* not signed yet: nothing after the offer has started (Step 1 goes out when they sign) */
+    if(obtOfferSent(off)) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'finish') cells[k] = obtCell('none', '', { tip:'After they sign the offer' }); });
+    else if(p.o) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'step1' && k !== 'finish') cells[k] = obtCell('none', '', { tip:'After Step 1' }); });
+  }
   cells.i9 = obtI9(c, j, cells.finish);
   const m = { p, c, j, g, cells, name:p.name };
   const who = new Set(); let late = false;
   OBT_COLS.forEach(([k]) => { const x = cells[k]; if(!x) return; if(x.s === 'rev') who.add('review'); else if((x.s === 'todo' || x.s === 'wait') && x.who) who.add(x.who); if(x.late) late = true; });
   m.who = who; m.late = late; m.nearly = obtNearly(m);
-  m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : (ckdStep1Stuck(j) || {}).days ?? null;
-  if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant'))) m.longWait = true;
+  m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : p.o ? obtDaysSince(p.o.offer_sent_at || p.o.created_at) : (ckdStep1Stuck(j) || {}).days ?? null;
+  if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant')) && !obtOfferSent(off)) m.longWait = true;
   m.extra = [];
+  if(off && off.axiscare_push_error && !off.axiscare_applicant_id) m.extra.push({ t:'AxisCare: add by hand', late:true, on:'obtOfferPanel(\'' + bgrEsc(String(off.id)) + '\')', tip:'The Hub could not add them in AxisCare as an applicant: ' + off.axiscare_push_error });
   if(c && c.prn_offer && !c.prn_offer.answer) m.extra.push({ t:'PRN offered', on:'ckdPrnAnswer(' + c.id + ')', tip:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call them and record their answer.' });
   const q = c ? ckdQuiet(c, p.stop) : 0;
   if(q && !(c.prn_offer && !c.prn_offer.answer)) m.extra.push({ t:'No word ' + q + 'd', on:'ckdLeaveOpen(' + c.id + ')', tip:'Nothing from them in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', late:true });
@@ -8133,9 +8241,9 @@ function obtWaitHTML(m){
   return '<span class="' + (m.longWait ? 'obt-late' : m.days >= 5 ? 'obt-wait' : '') + '">' + (m.longWait ? obtIcon('clock') : '') + (m.days === 0 ? 'New' : m.days + 'd') + '</span>';
 }
 function obtNameHTML(m){
-  const p = m.p, c = m.c, j = m.j;
-  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(j.offer_id)) + '}').replace(/"/g, '&quot;') + ')' : (c ? 'ckdOpen(' + c.id + ')' : obtOpenCard(j));
-  const panel = c ? 'ckdOpen(' + c.id + ')' : obtOpenCard(j);
+  const p = m.p, c = m.c, j = m.j, oid = j ? j.offer_id : p.o ? p.o.id : null;
+  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(oid)) + '}').replace(/"/g, '&quot;') + ')' : (c ? 'ckdOpen(' + c.id + ')' : j ? obtOpenCard(j) : 'obtOfferPanel(\'' + bgrEsc(String(oid)) + '\')');
+  const panel = c ? 'ckdOpen(' + c.id + ')' : j ? obtOpenCard(j) : 'obtOfferPanel(\'' + bgrEsc(String(oid)) + '\')';
   return '<button type="button" class="obt-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
     + '<button type="button" class="obt-more" onclick="' + panel + '" title="Their checklist: every detail, notes, Take off">Checklist</button>'
     + (m.nearly ? '<span class="obt-near" title="One step from Approve to Work">' + obtIcon('star') + bgrEsc(m.nearly) + '</span>' : '')
@@ -8162,6 +8270,7 @@ function obtCardHTML(m, hi){
     + '<div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
 }
 function obtRender(box){
+  obtSetCols(); obtOfferPill();
   const L = ckdLists(), models = L.all.map(obtModel);
   let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
   if(window.CKD_FIND){ q = String(window.CKD_FIND).trim().toLowerCase(); window.CKD_FIND = ''; OBT_Q = 'all'; }
@@ -8192,21 +8301,22 @@ function obtRender(box){
   const notAdded = CKD_RUN.notAdded || [];
   if(notAdded.length) run.push('<div class="ckd-msg ckd-soft"><b>' + notAdded.length + ' offered ' + (notAdded.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> ' + notAdded.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
   box.innerHTML = ''
-    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">From Step 1 to Approved to Work. Longest waiting first.</div></div>'
+    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + (obtOio() ? 'From the offer to Approved to Work.' : 'From Step 1 to Approved to Work.') + ' Longest waiting first.</div></div>'
     +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
     + '<div class="obt-sum">' + sum('all', 'Active', 'all', 'Everyone onboarding')
     +   sum('office', 'Need office action', 'office', 'Has a button for us')
     +   sum('waiting', 'Waiting on applicants or outside', 'wait', 'Nothing for us: waiting on the applicant, a reference or the state')
     +   sum('review', 'Need review', 'rev', 'A flagged check or a reference with a concern: Samantha or Zachary decide')
     +   sum('nearly', 'Nearly ready', 'near', 'One step from Approve to Work')
-    +   sum('late', 'Overdue', 'late', 'Past the times the Hub already uses (Step 1 stuck, 5 days without a reference answer, 8 days without Step 2 DONE, stuck in orientation, a missed video call, 10 days on the list)') + '</div>'
+    +   sum('late', 'Overdue', 'late', 'Past the times the Hub already uses (Step 1 stuck, 5 days without a reference answer, 8 days without Step 2 DONE, stuck in orientation, a missed video call, 10 days on the list' + (obtOio() ? ', an offer not signed in 7 days' : '') + ')') + '</div>'
     + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
-    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
+    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + (obtOio() ? chip('offer', 'Offer') : '') + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
     + run.join('')
     + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
        '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 2) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
     + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
     + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, ' + (obtCallOn() ? 'C = call after orientation' : 'V = video call') + ', P = profile, B = badge, A = approved</div>')
+    + obtOfferFolds()
     + ckdMoreHTML(L);
   { const oh = document.getElementById('obtOrient'); if(oh) OPR.inOnboarding(oh, q); }
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }

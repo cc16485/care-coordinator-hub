@@ -105,7 +105,17 @@
     let h = '<div style="border-top:1px solid #EEE9DF;margin-top:.5rem;padding-top:.5rem"><div style="font-weight:800;color:#0D365F">' + (after ? 'Call after orientation' : 'Check-in call') + '</div>';
     if(c.done) return h + '<div style="color:#15803D;margin-top:.2rem">✓ Done ' + esc(when(c.at)) + (c.test_clock ? ' · test clock-in: ' + (c.test_clock.choice === 'done' ? 'done' : 'no thanks') : '') + '</div></div>';
     h += '<div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 .3rem">' + (after ? 'Approve to Work waits for this call. For the I-9, look at their ID on video: press Send video link to text them the office video room.' : 'Shift texts wait until this call is done.') + (c.tries && c.tries.length ? ' No answer ' + c.tries.length + (c.tries.length === 1 ? ' time' : ' times') + ', last ' + esc(when(c.tries[c.tries.length - 1].at)) + '.' : '') + '</div>';
-    lines.forEach(([k, label]) => { h += '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:3px 0;cursor:pointer"><input type="checkbox" style="flex:none;width:auto;margin:2px 0 0" ' + (c.ticks && c.ticks[k] ? 'checked ' : '') + 'onchange="CRX.checkinTick(\'' + k + '\',this)"><span style="flex:1;min-width:0">' + esc(label) + '</span></label>'; });
+    const cf = (CUR && CUR.facts && CUR.facts.call) || {};
+    lines.forEach(([k, label]) => {
+      /* 2026-11-04 the AxisCare Class: only the Hub ticks it, after reading AxisCare (Check), or writing the right one (Set it) */
+      if(k === 'axclass'){ const t = c.ticks && c.ticks[k];
+        h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:3px 0"><span style="flex:none;width:13px;color:' + (t ? '#15803D' : '#B45309') + ';font-weight:800">' + (t ? '✓' : '○') + '</span>'
+          + '<span>AxisCare Class: <b>' + esc(cf.axiscare_class || 'their Level') + '</b>' + (t ? ' <span style="color:#15803D">(AxisCare has it)</span>' : '') + '</span>'
+          + '<button class="ibtn" style="padding:.1rem .5rem" onclick="CRX.classCheck(false,this)">Check</button><button class="ibtn" style="padding:.1rem .5rem" onclick="CRX.classCheck(true,this)">Set it</button></div>';
+        return; }
+      h += '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:3px 0;cursor:pointer"><input type="checkbox" style="flex:none;width:auto;margin:2px 0 0" ' + (c.ticks && c.ticks[k] ? 'checked ' : '') + 'onchange="CRX.checkinTick(\'' + k + '\',this)"><span style="flex:1;min-width:0">' + esc(label) + '</span></label>'; 
+      if(k === 'attributes') h += attrSheet(cf);
+    });
     const tc = c.test_clock && c.test_clock.choice;
     h += '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:3px 0"><span>Quick test clock-in:</span>'
       + '<label style="cursor:pointer;display:inline-flex;gap:4px;align-items:center"><input type="radio" style="width:auto;margin:0" name="crTestClock" ' + (tc === 'done' ? 'checked ' : '') + 'onchange="CRX.checkinClock(\'done\',this)"> done</label>'
@@ -113,6 +123,17 @@
     h += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:.4rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.checkinDone(this)">✓ Done</button><button class="ibtn" onclick="CRX.checkinNoAnswer(this)">No answer</button>' + (after ? '<button class="ibtn" onclick="CRX.videoLink(this)">Send video link</button>' : '') + '</div>';
     return h + '</div>';
   }
+  /* the interview's attributes, as the Offers card showed them: what to tick in AxisCare, what to leave off, what to ask */
+  function attrSheet(cf){
+    /* the names from the Offers code when it is loaded (it loads with Recruit & Onboard); else the answer's own keys, spelled out */
+    const v = cf.attributes || {}, A = typeof OFFER_ATTRS !== 'undefined' ? OFFER_ATTRS : Object.keys(v).map(k => [k, k.replace(/_/g, ' ').replace(/^./, x => x.toUpperCase())]);
+    if(!A.length) return '';
+    const col = (title, list, color, mark) => '<div style="flex:1 1 150px;min-width:140px"><div style="font-size:.72rem;font-weight:800;color:' + color + '">' + title + ' (' + list.length + ')</div>' + (list.length ? list.map(x => '<div style="font-size:.78rem">' + mark + ' ' + esc(x[1]) + '</div>').join('') : '<div style="font-size:.76rem;color:#A89C8B">none</div>') + '</div>';
+    const tick = A.filter(x => v[x[0]] === true), off = A.filter(x => v[x[0]] === false), ask = A.filter(x => v[x[0]] !== true && v[x[0]] !== false);
+    return '<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin:.1rem 0 .3rem 21px;border:1px solid #F3E2C7;border-radius:8px;padding:.4rem .6rem;background:#fff">'
+      + col('Tick these', tick, '#15803D', '☑') + col('Leave these off', off, '#B91C1C', '☐') + (ask.length ? col('Not asked at the interview: ask them', ask, '#6E6559', '?') : '') + '</div>';
+  }
+  async function classCheck(set, btn){ if(set && !(await ccConfirm('Set their Class in AxisCare now? Their Level or PRN Team class is replaced by the right one; every other class stays.'))) return; await act({ action:'checkin', [set ? 'class_set' : 'class_check']: true }, btn); }
   async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){ box.checked = !box.checked; box.disabled = false; alert('Not saved: ' + (e.message || e)); } }
   async function checkinClock(v, box){ try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, test_clock: v }), { who: CUR.who }); render(); }catch(e){ alert('Not saved: ' + (e.message || e)); } }
   async function videoLink(btn){ if(!(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return; await act({ action:'checkin', video_link: true }, btn); }
@@ -286,5 +307,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink };
+  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet };
 })();
