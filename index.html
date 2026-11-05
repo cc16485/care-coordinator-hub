@@ -26180,10 +26180,10 @@ async function apOnboardMount(r, hostEl){
        Background & References record is found the way Their journey finds it (the same read, by applicant). Read only. */
     let cands = (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
     let boardCand = intake ? cands.find(c => c && String(c.intake_id || '') === String(intake.id)) || null : null;
-    let cid = boardCand ? boardCand.id : null;
-    if(cid == null && window.HP && typeof HP.ids === 'function') cid = (await HP.ids({ applicant_id: r.id })).candidate_id;
+    let cid = boardCand ? boardCand.id : null, cgId = null;
+    if(cid == null && window.HP && typeof HP.ids === 'function'){ const ids = await HP.ids({ applicant_id: r.id }); cid = ids.candidate_id; cgId = ids.caregiver_id; }
     /* the reference cards come from the Caregivers engine, which loads only when a Caregivers tab opens; load it here */
-    if(cid != null && !boardCand){
+    if((cid != null || cgId != null) && !boardCand){
       if(!cands.length) cands = await apScxCandidates();
       boardCand = cands.find(c => c && String(c.id) === String(cid)) || null;
     }
@@ -26215,6 +26215,8 @@ async function apOnboardMount(r, hostEl){
     /* the same record carries their background checks (Training & checks tab) */
     { const ch = !hostEl && document.getElementById('apChecksHost');
       if(ch){ if(boardCand && typeof obChecksMount === 'function'){ ch.className = 'pp-checks'; obChecksMount(ch, boardCand.id); }
+              /* 2026-11-05: on the roster, the checks they were hired on, from their caregiver record (read only) */
+              else if(cgId != null && typeof obChecksRosterMount === 'function'){ ch.className = 'pp-checks'; obChecksRosterMount(ch, cgId); }
               else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is made. Until then, record them on Background &amp; References.</div>'; } }
     if(boardCand && typeof obRefCardsMount === 'function'){
       out += '<div class="pp-refcards" data-cand="' + esc(String(boardCand.id)) + '"><div class="field-note">Reading their references…</div></div>';
