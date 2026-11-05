@@ -7612,7 +7612,7 @@ The HomeTogether team</pre>
   window.addEventListener('unhandledrejection', e=>{ const r=e&&e.reason; show(r&&r.message?r.message:String(r||'a step that waits failed'), r&&r.stack?String(r.stack).split('\n')[1]:''); });
 })();
 </script>
-<script src="shift-flags.js?v=3"></script>
+<script src="shift-flags.js?v=4"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
@@ -7671,7 +7671,7 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=4"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="calmer-mywork.js?v=1"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -14709,6 +14709,7 @@ async function n3Send(itemId, circle, members, ov){
     }catch(e){ failed.push(m.name+': '+String(e&&e.message||e)); }
   }
   if(done.length){ try{ await persist('ops_items', item); }catch(e){} }
+  if(done.length){ try{ if(window.cnCloseIfDone) await cnCloseIfDone(item); }catch(e){} }   /* Calmer My Work: the family was told */
   msg.innerHTML=(done.length?'Sent to '+escapeHtmlComms(done.join(', '))+'. ':'')+(failed.length?'<span style="color:var(--red);">Not sent: '+escapeHtmlComms(failed.join('; '))+'</span>':'');
   if(btn) btn.disabled=false;
   try{ opsRenderQueue(); }catch(e){}
@@ -14719,6 +14720,7 @@ async function n3Called(itemId, memberId){
   try{ const m=await sb.from('circle_contacts').select('name').eq('id',memberId); name=((m.data||[])[0]||{}).name||''; }catch(e){}
   item.family_contacts=(item.family_contacts||[]).concat({ name:name||'a family member', how:'call', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
   try{ await persist('ops_items', item); }catch(e){}
+  try{ if(window.cnCloseIfDone) await cnCloseIfDone(item); }catch(e){}   /* Calmer My Work: the family was told */
   const msg=document.querySelector('#n3Ov #n3Msg'); if(msg) msg.textContent='Recorded: you called '+(name||'them')+'.';
   try{ opsRenderQueue(); }catch(e){}
 }

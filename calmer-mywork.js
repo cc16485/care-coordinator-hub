@@ -56,7 +56,8 @@
       return W.TW.list().filter(x => !textWorking(x.it, now));
     } catch (e) { return []; }
   }
-  const isRem = it => !!(W.MWT && typeof W.MWT.tierOf === 'function' && W.MWT.tierOf(it) === 'rem');
+  /* a red shift-note flag is "act today": never folded away as a reminder, whatever its urgency says */
+  const isRem = it => !(it && it.kind === 'care_note' && it.level === 'red') && !!(W.MWT && typeof W.MWT.tierOf === 'function' && W.MWT.tierOf(it) === 'rem');
   /* 2 · the groups, from the same lanes My Work already works out */
   function groups() {
     let rows = [], b = { mine: [], waiting: [] };
