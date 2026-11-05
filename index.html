@@ -26150,6 +26150,17 @@ async function apIntakeByContact(r){
     return rows[0] || null;
   }catch(e){ return null; }
 }
+/* 2026-11-05: the Caregivers engine's records, loading the engine when no Caregivers tab has opened yet (10 seconds at most) */
+async function apScxCandidates(){
+  const got = () => (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
+  if(got().length || typeof scxEnsure !== 'function') return got();
+  await new Promise(done => {
+    const t = setTimeout(done, 10000);
+    window.addEventListener('scx-hydrated', function(){ clearTimeout(t); done(); }, { once:true });
+    scxEnsure('cgbackground');
+  });
+  return got();
+}
 async function apOnboardMount(r, hostEl){
   const host = hostEl || document.getElementById('apOnboardHost'); if(!host) return;
   const esc = escapeHtmlComms;
@@ -26167,16 +26178,19 @@ async function apOnboardMount(r, hostEl){
     let R = refs.error ? [] : (refs.data||[]);
     /* 2026-11-05: Step 1 forms are no longer kept in hire_intake, so most people have no start form there. Their
        Background & References record is found the way Their journey finds it (the same read, by applicant). Read only. */
-    const cands = (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
+    let cands = (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
     let boardCand = intake ? cands.find(c => c && String(c.intake_id || '') === String(intake.id)) || null : null;
-    if(!boardCand && window.HP && typeof HP.ids === 'function'){
-      const cid = (await HP.ids({ applicant_id: r.id })).candidate_id;
-      if(cid != null) boardCand = cands.find(c => c && String(c.id) === String(cid)) || null;
+    let cid = boardCand ? boardCand.id : null;
+    if(cid == null && window.HP && typeof HP.ids === 'function') cid = (await HP.ids({ applicant_id: r.id })).candidate_id;
+    /* the reference cards come from the Caregivers engine, which loads only when a Caregivers tab opens; load it here */
+    if(cid != null && !boardCand){
+      if(!cands.length) cands = await apScxCandidates();
+      boardCand = cands.find(c => c && String(c.id) === String(cid)) || null;
     }
     /* 2026-10-12: requests asked from Background & References carry their board record, not the application. Found by
-       id: the board record made from this start form (intake_id), then that record's requests. Read only. */
-    if(!R.length && boardCand){
-      try{ const q = await sb.from('reference_requests').select('*').eq('candidate_id', boardCand.id).order('slot'); if(!q.error) R = q.data || []; }catch(e){}
+       id: their board record, then that record's requests. Read only. */
+    if(!R.length && cid != null){
+      try{ const q = await sb.from('reference_requests').select('*').eq('candidate_id', cid).order('slot'); if(!q.error) R = q.data || []; }catch(e){}
     }
     /* one line per reference: a slot can hold an older request and a newer one; the answered one, else the newest */
     { const by = {}; R.forEach(x => { const cur = by[x.slot];
