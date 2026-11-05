@@ -41,16 +41,38 @@
   /* one person on the table: who they are, which jobs, how far along, and their availability */
   const offerOf = id => { const L = get('OFFERS'); return id && Array.isArray(L) ? L.find(o => o && String(o.id) === String(id)) || null : null; };
   function offerIdOf(p){ return String((p.c && p.c.offer_id) || (p.j && p.j.offer_id) || (p.o && p.o.id) || ''); }
-  /* 11-04 fix (Samantha: "these arent all caregivers, a few are PRN"): the offer wins over the application, and PRN is read the
-     way the server reads it (prn-welcome-video.sql, offer-sign): hours PRN, classification prn, or a PRN position such as prn_cna */
+  /* PRN and CNA (11-04/05, Samantha: "these arent all caregivers, a few are PRN", then "it will show for a moment and then bounce
+     back to showing 11 caregivers"). Every source can only ADD a job, never take one away, so data that arrives later (the
+     offer list, the PRN Teams list) never wipes out what another source already said:
+       · the PRN Teams list (pay_tracks, track prn_team, the same list as Recruit > PRN Teams), matched by AxisCare id, phone,
+         email or name: the record of who is PRN, and its team says CNA or Caregiver
+       · the offer: classification prn, a PRN position or position_key (the Hub's offer list has no hours field)
+       · the application or record: a position such as prn_cna, the credential, or a yes to a PRN offer */
   const words = v => String(v == null ? '' : v).replace(/[_-]+/g, ' ');
+  const d10 = v => { const d = String(v || '').replace(/\D/g, ''); return d.length >= 10 ? d.slice(-10) : ''; };
+  const low = v => String(v || '').trim().toLowerCase();
+  const nm = (f, l) => low(f) && low(l) ? low(f) + ' ' + low(l) : '';
+  function prnTrackFor(p, g){
+    const T = get('PRN_T'); if(!T || !Array.isArray(T.tracks)) return null;
+    const o = p.o || offerOf(offerIdOf(p)) || {}, c = p.c || {};
+    const ax = new Set([g && g.axiscare_id, c.axiscare_id, p.j && p.j.axiscare_caregiver_id].filter(Boolean).map(String));
+    const ph = new Set([o.phone, c.phone].map(d10).filter(Boolean)), em = new Set([o.email, c.email].map(low).filter(Boolean));
+    const nms = new Set([nm(o.first_name, o.last_name), nm(c.first, c.last), low(p.name)].filter(Boolean));
+    return T.tracks.find(t => { if(!t || t.track !== 'prn_team') return false;
+      const a = (T.apps || {})[t.applicant_id] || {};
+      return (t.axiscare_caregiver_id && ax.has(String(t.axiscare_caregiver_id))) || (d10(a.phone) && ph.has(d10(a.phone)))
+        || (low(a.email) && em.has(low(a.email))) || (nm(a.first_name, a.last_name) && nms.has(nm(a.first_name, a.last_name))); }) || null;
+  }
   function jobsOf(p, g){
-    const o = p.o || offerOf(offerIdOf(p)), c = p.c || {};
-    const pos = words((o && (o.position_key || o.position)) || c.position || (g && g.position) || c.credential);
+    const o = p.o || offerOf(offerIdOf(p)) || {}, c = p.c || {}, tr = prnTrackFor(p, g);
+    const team = tr ? (typeof prnTeamOf === 'function' ? prnTeamOf(tr) : (tr.team === 'caregiver' ? 'caregiver' : 'cna')) : '';
+    const said = [o.position_key, o.position, c.position, g && g.position, c.credential].map(words).join(' | ');
+    const cna = team === 'cna' || /\bcna\b/i.test(said);
+    const nurse = !cna && /\b(lpn|rn|nurse)\b/i.test(said);
+    const prn = !!tr || /^prn$/i.test(String(o.classification || '')) || /^prn$/i.test(String(o.hours_type || '')) || /\bprn\b/i.test(said)
+      || !!(c.prn_offer && c.prn_offer.answer === 'yes');
     const out = [];
-    if(/\bcna\b/i.test(pos)) out.push('cna'); else if(!/\b(lpn|rn|nurse)\b/i.test(pos)) out.push('cg');
-    const prn = (o && (/^prn$/i.test(String(o.hours_type || '')) || /^prn$/i.test(String(o.classification || '')) || /\bprn\b/i.test(words(o.position)) || /\bprn\b/i.test(words(o.position_key))))
-      || /\bprn\b/i.test(words(c.position)) || (c.prn_offer && c.prn_offer.answer === 'yes');
+    if(cna) out.push('cna'); else if(!nurse) out.push('cg');
     if(prn) out.push('prn');
     return out;
   }
@@ -79,7 +101,15 @@
   }
 
   /* the Step 1 grids, read once per open (and again after five minutes) */
+  /* the PRN Teams list, read once a minute at most with the Hub's own prnLoad (Recruit > PRN Teams) */
+  let prnAsked = 0;
+  function loadPrn(){
+    if(typeof get('prnLoad') !== 'function' || Date.now() - prnAsked < 60000) return;
+    prnAsked = Date.now();
+    Promise.resolve().then(() => get('prnLoad')()).then(redraw, () => {});
+  }
   async function load(models, force){
+    loadPrn();
     const ids = [...new Set((models || []).filter(m => !unsignedOffer(m.p)).map(m => offerIdOf(m.p)).filter(Boolean))].sort();
     const key = ids.join(',');
     if(ST.loading || (!force && ST.rows && ST.asked === key && Date.now() - ST.at < FRESH_MS)) return;
