@@ -28,6 +28,28 @@
   /* calmer flags */
   const ALWAYS_OWN = ['a fall or injury', 'signs of neglect or abuse', 'medication'];
   const calmOn = () => { try{ return !!(DATA.ops_settings && DATA.ops_settings.calm_flags_live === true); }catch(e){ return false; } };
+  /* Calmer My Work (2026-11-05, her rule): a red flag closes itself once someone has called the caregiver AND the family
+     was told (a sent text or a recorded call, not just the draft opened) or an incident report was started. "Not a
+     concern" asks for a short reason. "Watch it" never closes it. Only when the switch is on for everyone (closing is
+     a real change, so an owner's preview does not do it). Which red flags must have an incident report is her call, not
+     decided here. */
+  const calmerLive = () => { try{ return !!(DATA.ops_settings && DATA.ops_settings.calmer_mywork_live === true); }catch(e){ return false; } };
+  async function cnCloseIfDone(it){
+    if(!calmerLive() || !it || it.level !== 'red' || it.status !== 'open') return false;
+    const did = new Set((Array.isArray(it.cn_actions) ? it.cn_actions : []).map(a => a && a.what));
+    const told = Array.isArray(it.family_contacts) && it.family_contacts.length > 0, inc = did.has('incident');
+    if(!did.has('called') || !(told || inc)) return false;
+    const at = new Date().toISOString(), m = me();
+    const how = [told ? 'told the family' : '', inc ? 'started an incident report' : ''].filter(Boolean).join(' and ');
+    it.status = 'done'; it.closed_at = at; it.closed_by = m.email; it.outcome = ['called'].concat(told ? ['family'] : [], inc ? ['incident'] : []);
+    it.close_note = 'Called the caregiver and ' + how; it.auto_closed_reason = 'Closed by its steps: called the caregiver and ' + how;
+    if(!it.claimed_by){ it.claimed_by = m.email; it.claimed_by_name = m.name; it.claimed_at = at; }
+    if(typeof opsLog === 'function') opsLog(it, 'Closed: called the caregiver and ' + how);
+    try{ opEvent('item_resolved', { item:it, summary:(it.about || it.title || '') + ': called the caregiver and ' + how }); }catch(e){}
+    await persist('ops_items', it);
+    try{ (typeof ccToast === 'function' ? ccToast : function(){})('Red flag closed: called the caregiver and ' + how + '.'); }catch(e){}
+    return true;
+  }
   const markable = it => !!(it && it.flag_kind && ALWAYS_OWN.indexOf(it.flag_kind) === -1 && it.client_ax && it.level !== 'unread');
   function canMark(){
     try{ if(typeof ccIsOwner === 'function' && ccIsOwner()) return true; }catch(e){}
@@ -102,7 +124,7 @@
   }
   function refresh(){ try{ if(typeof myWorkRefresh === 'function') myWorkRefresh(); }catch(e){} try{ if(typeof opsRenderQueue === 'function') opsRenderQueue(); }catch(e){} }
   /* a recorded step (the office line opens by itself through office-call.js) */
-  async function cnDid(id, what){ const it = item(id); if(!it) return; await save(it, what); refresh(); }
+  async function cnDid(id, what){ const it = item(id); if(!it) return; await save(it, what); await cnCloseIfDone(it); refresh(); }
   /* a new Hub card for someone, linked back to this flag */
   async function newWork(it, f){
     const a = me(), now = new Date().toISOString();
@@ -128,19 +150,29 @@
         /* 2026-10-27 incident report (Stage 1): the caregiver fills in and signs a real report; the server makes the
            Incidents owner's card. The flag records the step once the report is started. */
         if(btn) btn.disabled = false;
-        window.INC.fromFlag(it, async () => { await save(it, 'incident', 'Started an incident report for ' + (it.caregiver || 'the caregiver')); refresh(); });
+        window.INC.fromFlag(it, async () => { await save(it, 'incident', 'Started an incident report for ' + (it.caregiver || 'the caregiver')); await cnCloseIfDone(it); refresh(); });
         return;
       } else if(what === 'incident'){
         const owner = domainOwner('incidents') || String(it.owner || me().email).toLowerCase();
         const w = await newWork(it, { kind:'client_issue', domain:'incidents', title:'Incident: ' + (it.about || who) + ', ' + (it.flag_kind || 'shift note') + (it.visit_day ? ' (' + it.visit_day + ')' : ''),
           detail:String(it.detail || '').slice(0, 1500), owner, owner_name:(typeof opsOwnerName === 'function' && opsOwnerName(owner)) || '' });
         await save(it, 'incident', 'Wrote it up as an incident (new card for ' + (w.owner_name || owner) + ')');
+        await cnCloseIfDone(it);
         ccToast('Written up as an incident on ' + (first(w.owner_name) || 'the Incidents owner') + '\'s My Work.');
       } else if(what === 'watch'){
         const d = new Date(); d.setDate(d.getDate() + 3);
         it.sub_state = 'waiting'; it.waiting_on = 'the next shift notes for ' + who; it.check_back = d.toLocaleDateString('en-CA', { timeZone:'America/Chicago' });
         await save(it, 'watch', 'Watching it, back ' + it.check_back);
         ccToast('Watching it. It comes back on ' + d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }) + '.');
+      } else if(what === 'ok' && calmerLive() && it.level === 'red'){
+        /* a red flag that is not a concern says why, in a few words */
+        const box = document.getElementById('cnNorm_' + it.id);
+        if(box) box.innerHTML = '<div style="margin-top:8px;padding:10px;border-radius:8px;background:var(--bg,#F6F9FD);">'
+          + '<label class="field-note" for="cnOkWhy_' + esc(it.id) + '">Why it is not a concern (a few words)</label>'
+          + '<input id="cnOkWhy_' + esc(it.id) + '" style="width:100%;margin:4px 0 6px;padding:6px 8px;font-size:13px;" placeholder="She was tired, ate lunch, back to normal">'
+          + '<button class="primary cn-btn" onclick="cnOkSave(\'' + esc(it.id) + '\')">Close as not a concern</button> <span class="field-note" id="cnOkErr_' + esc(it.id) + '"></span></div>';
+        if(btn) btn.disabled = false;
+        return;
       } else if(what === 'ok'){
         const at = new Date().toISOString(), m = me();
         it.status = 'done'; it.closed_at = at; it.closed_by = m.email; it.outcome = ['ok']; it.close_note = 'Not a concern';
@@ -151,6 +183,18 @@
       }
     }catch(e){ ccToast('Couldn\'t save that just now. Try again in a moment.'); }
     if(btn) btn.disabled = false;
+    refresh();
+  }
+  async function cnOkSave(id){
+    const it = item(id); if(!it) return;
+    const why = String((document.getElementById('cnOkWhy_' + id) || {}).value || '').trim();
+    if(why.length < 3){ const e = document.getElementById('cnOkErr_' + id); if(e) e.textContent = 'Write a few words first.'; return; }
+    const at = new Date().toISOString(), m = me();
+    it.status = 'done'; it.closed_at = at; it.closed_by = m.email; it.outcome = ['ok']; it.close_note = 'Not a concern: ' + why;
+    if(!it.claimed_by){ it.claimed_by = m.email; it.claimed_by_name = m.name; it.claimed_at = at; }
+    try{ opEvent('item_resolved', { item:it, summary:(it.about || it.title || '') + ': not a concern (' + why + ')' }); }catch(e){}
+    await save(it, 'ok', 'Closed: not a concern. ' + why);
+    ccToast('Closed as not a concern.');
     refresh();
   }
   /* "Normal for Patsy": one line about what is usual, saved for the client, and this card closes */
@@ -280,5 +324,6 @@
   }
   Object.assign(window, { cnSetFill, cnSetToggle });
   Object.assign(window, { cnNormalOpen, cnNormalSave, cnNormalRemove, cnReopen });
+  Object.assign(window, { cnCloseIfDone, cnOkSave });   /* Calmer My Work: a red flag closes by its steps */
   Object.assign(window, { cnIsFlag:isFlag, cnBlock:block, cnActions:actions, cnStep, cnDid, cnCloseExtra:closeExtra, cnCloseRead:closeRead, cnProfileFlags:profileFlags });
 })();
