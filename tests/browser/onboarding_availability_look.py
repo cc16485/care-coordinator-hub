@@ -59,7 +59,22 @@ async(arg)=>{
     J({ position:'Caregiver' }, { position:'CNA', hours_type:'PRN' }),
     J({ position:'Caregiver' }, { position:'CNA', classification:'part_time', position_key:'cna' }),
     J({ position:'Caregiver' }, { position:'Caregiver', hours_type:'FULL_TIME' }),
-    J({ position:'lpn' }, null) ];
+    J({ position:'lpn' }, null),
+    /* the bounce (11-05): the offer list arrives later saying only Caregiver; it must not wipe out the application's prn_cna */
+    J({ position:'prn_cna' }, { position:'Caregiver', classification:null, position_key:'caregiver' }) ];
+  /* the PRN Teams list (pay_tracks) is the record: matched by phone, email, name or AxisCare id, its team says CNA or Caregiver */
+  const PT0 = window.PRN_T; PRN_T = { at:1, tracks:[{ track:'prn_team', team:'cna', applicant_id:'a1' }, { track:'prn_team', team:'caregiver', applicant_id:'a2' },
+      { track:'ongoing', team:'cna', applicant_id:'a3' }, { track:'prn_team', team:'cna', applicant_id:'a4', axiscare_caregiver_id:'620' }],
+    apps:{ a1:{ first_name:'Tina', last_name:'Example', phone:'(417) 555-0101' }, a2:{ first_name:'Steph', last_name:'Example', email:'Steph@Example.test' },
+      a3:{ first_name:'Olive', last_name:'Ongoing', phone:'4175550103' }, a4:{ first_name:'Yaz', last_name:'Other' } } };
+  const K = (p, g) => OAV._jobs(p, g || null).join(',');
+  out.trackJobs = [
+    K({ c:{ first:'Tina', last:'Example', phone:'417-555-0101', position:'Caregiver' }, o:{ position:'Caregiver' } }),
+    K({ c:{ first:'S', last:'E', email:'steph@example.test', position:'Caregiver' }, o:{ position:'Caregiver' } }),
+    K({ c:{ first:'Olive', last:'Ongoing', phone:'4175550103', position:'Caregiver' } }),
+    K({ c:{ first:'Yasmine', last:'Morris', position:'Caregiver' } }, { axiscare_id:'620' }),
+    K({ c:{ first:'Nobody', last:'Here', phone:'4175550199', position:'Caregiver' } }) ];
+  PRN_T = PT0 || { at:0, tracks:[], history:[], apps:{} };
   OAV.cell('mon', 'morning'); await wait(30);
   out.monMorning = txt(dash.querySelector('.oav-who'));
   OAV.cell('sat', 'overnight'); await wait(30);
@@ -109,7 +124,9 @@ with sync_playwright() as p:
     ck('the panel sits between the work queues and the table', re.search(r'obt-qs \| oav \| obt-wrap', r['open']['order']), r['open']['order'])
     ck('the Show availability button sits up by the search box (her ask 11-04)', r['open']['head'], r['open'])
     ck('PRN and CNA read the way offers really are: classification prn, position_key, prn_cna keys; the offer wins over the application',
-       r['realJobs'] == ['cna,prn', 'cg,prn', 'cna,prn', 'cg,prn', 'cna,prn', 'cna', 'cg', ''], r['realJobs'])
+       r['realJobs'] == ['cna,prn', 'cg,prn', 'cna,prn', 'cg,prn', 'cna,prn', 'cna', 'cg', '', 'cna,prn'], r['realJobs'])
+    ck('the PRN Teams list marks PRN (by phone, email or AxisCare id) and its team says CNA; an ongoing track is not PRN; no match changes nothing',
+       r['trackJobs'] == ['cna,prn', 'cg,prn', 'cg', 'cna,prn', 'cg'], r['trackJobs'])
     ck('tap Monday morning: Ava (with the hours she wrote, 7-3) and Bea', 'Mon morning (2)' in r['monMorning'] and 'Ava Fake' in r['monMorning'] and '7-3' in r['monMorning'] and 'Bea Sample' in r['monMorning'], r['monMorning'])
     ck('filled in, availability form not signed yet: counted, marked (her pick 3)', 'Cora Sampleton' in r['satNight'] and 'not signed yet' in r['satNight'] and r['dot'], r['satNight'])
     ck('availability unknown lists the names and says they are never counted as free', 'Availability unknown' in r['unknown'] and 'never counted as free' in r['unknown'] and 'Hal Mock' in r['unknown'], r['unknown'])
