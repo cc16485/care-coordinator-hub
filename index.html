@@ -4815,6 +4815,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="calloff-answers">
+<h3>❓ Was it covered? answers</h3>
+<p class="hint">Cara gets a Was it covered? tab: every finished call-off still waiting for an answer, even if its card is gone, with a What AxisCare shows check (who clocked in for that client at that time). The cards get five answers, including Not needed (no care was owed, such as care that hadn't started), and close only with an answer, so the call-off is always recorded too. Owners can answer several at once with one reason. Nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="caaSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="caaToggleBtn" onclick="CAA.toggle_(this)">Turn on Was it covered? answers for everyone</button>
+  <button class="secondary" id="caaPreviewBtn" onclick="CAA.preview(!CAA.previewOn());">Preview it (only me)</button>
+  <span class="field-note" id="caaSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="clients-glance">
 <h3>📊 Clients at a glance</h3>
 <p class="hint">A new look for Clients: tiles on top (active clients from AxisCare, hours of care in the next 7 days with how much has a caregiver, open visits, call-offs in the last 30 days split by how they ended, and Needs you), one line for check-ins and plan reviews instead of a chip on every row, labeled columns, a Coverage chart button (the week by Morning, Afternoon, Evening, Overnight) and a Check with AxisCare list for clients the Hub and AxisCare disagree about. Only the look changes: nothing is sent and nobody's status changes by itself. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
@@ -7596,7 +7607,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=2"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -7650,13 +7661,13 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=1"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="mywork-tidy.js?v=2"></script>
+<script src="mywork-tidy.js?v=3"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=7"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
-<script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
+<script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
@@ -19432,6 +19443,7 @@ function lhSetFill(){
   try{ ltcSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
   try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
+  try{ if(window.CAA) CAA.settingsFill(); }catch(e){}
   try{ if(window.HFOLD) HFOLD.settingsFill(); }catch(e){}
   try{ if(window.OAV) OAV.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
@@ -30209,6 +30221,7 @@ async function opsTakeIt(id){
    shift carries the no-texts marks so the server's closure pass never texts anyone about it. */
 async function covOutcome(itemId, how){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  if(window.CAA&&CAA.showing()) return CAA.answer(it.case_id, how, { item:it });   /* 2026-11-05: calloff-answers.js closes the case and its card */
   const a=ccActor(), now=new Date().toISOString();
   let c=null;
   try{ const { data } = await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
@@ -30642,6 +30655,7 @@ function obligationOpenAction(it){
     if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
+      if(it.kind==='coverage_outcome'&&window.CAA&&CAA.showing()) return CAA.cardActions(it);   /* five answers + What AxisCare shows */
       if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("covOutcome('"+id+"','covered_other_way')",'Covered',true)+b("covOutcome('"+id+"','uncovered')",'Not covered')
         +b("covOutcome('"+id+"','client_cancelled')",'Client cancelled')
@@ -37806,7 +37820,8 @@ function opsClose(id, anchorId){
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
   if(it.kind==='hr_file'){ location.hash=it.link?String(it.link).replace(/^#/,''):'hr/formal'; return; }
-  if(it.kind==='livein_countersign'){ location.hash='hr/livein'; return; }   /* closes only when the Live-In Agreement is countersigned (2026-10-29) */   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
+  if(it.kind==='livein_countersign'){ location.hash='hr/livein'; return; }
+  if(window.CAA&&CAA.guards(it)) return CAA.ask(it, document.getElementById(anchorId||('act_'+id)));   /* a Was it covered? card closes with an answer (2026-11-05) */   /* closes only when the Live-In Agreement is countersigned (2026-10-29) */   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
@@ -37830,6 +37845,7 @@ function opsClose(id, anchorId){
 }
 /* Marking an item done, the one way (2026-10-07: shared by the Hub's Done and the phone's Done). */
 async function opsCloseCommit(it, note, outcome){
+    if(window.CAA&&CAA.guards(it)){ ccToast('Answer "Was it covered?" to close this card, so the call-off is recorded too.'); return; }
     if(outcome) it.outcome=outcome;
     it.status='done'; it.closed_at=new Date().toISOString();
     it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
@@ -38916,6 +38932,7 @@ function covRenderSubBar(S){
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
     ['hours','\ud83d\udcca Hours & matching',(typeof NH!=='undefined'?NH.count():0),''],   // new hires waiting for hours (2026-10-12)
     ['dno','\ud83d\udd15 No shift texts',dnoN,''],
+    ...(window.CAA&&CAA.showing()?[['answers','\u2753 Was it covered?',CAA.count(),'red']]:[]),   // calloff-answers.js (2026-11-05)
     ['history','\ud83d\uddc2 History',0,''],
   ];
   bar.innerHTML=tabs.map(t=>'<button class="fb'+(COV_SUB===t[0]?' active':'')+'" onclick="covSubGo(\''+t[0]+'\')">'+t[1]
@@ -41384,6 +41401,8 @@ function covSummary(c){
   if(c.resolved_how==='uncovered') return 'Closed uncovered after '+covDur(c)+', '+n+' asked, '+r+' replied.';
   /* 2026-10-24: closed from AxisCare's reason (reasons by id) */
   if(c.resolved_how==='client_cancelled') return 'Cancelled by the client, closed after '+covDur(c)+'. Nobody was texted about it.';
+  if(c.resolved_how==='covered_other_way') return 'Covered (recorded after the shift)'+(c.covered_by?': '+esc(c.covered_by):'')+'.';
+  if(c.resolved_how==='not_needed') return 'Not needed: no care was owed (recorded after the shift). Nobody was texted about it.';
   if(c.resolved_how==='couldnt_staff') return 'We couldn\'t staff it, closed after '+covDur(c)+'. The family gets a call from a person.';
   return 'Open '+dur+', '+n+' asked, '+r+' replied.';
 }
@@ -42012,6 +42031,7 @@ function renderCoverage(){
     else { try{ if(typeof NH!=='undefined') NH.render(); }catch(e){} hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
     return;
   }
+  if(COV_SUB==='answers'){ if(window.CAA&&CAA.showing()){ box.innerHTML=CAA.list(); return; } COV_SUB='calloffs'; }   // calloff-answers.js (2026-11-05)
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   /* Each sub-tab IS its section (2026-09-18): one kind of work per screen.

@@ -107,27 +107,28 @@
   }
 
   /* ── call-offs, last 30 days, by how they ended ───────────────────────────────────────────────────────── */
-  const CO_KIND = { covered:['Covered', 'c-ok'], missed:['Missed care', 'c-bad'], open:['Still open', 'c-bad'], unknown:['No outcome yet', 'c-warn'], cancelled:['Client cancelled', 'c-dim'] };
+  const CO_KIND = { covered:['Covered', 'c-ok'], missed:['Missed care', 'c-bad'], open:['Still open', 'c-bad'], unknown:['No outcome yet', 'c-warn'], cancelled:['Client cancelled', 'c-dim'], notneeded:['Not needed', 'c-dim'] };
   function calloffKind(c){
     if(!c || c.kind === 'interest' || c.status === 'dismissed' || c.status === 'merged' || c.not_a_callin === true) return null;
     const how = String(c.resolved_how || '');
     if(how === 'covered' || how === 'covered_other_way') return 'covered';
     if(how === 'uncovered' || how === 'couldnt_staff') return 'missed';
     if(how === 'client_cancelled') return 'cancelled';
+    if(how === 'not_needed') return 'notneeded';
     if(c.status === 'open' || c.status === 'flagged') return 'open';
     return 'unknown';
   }
   function calloffs(){
-    const since = new Date(Date.now() - 30 * 864e5).toISOString(), by = {}, tot = { n:0, covered:0, missed:0, open:0, unknown:0, cancelled:0 };
+    const since = new Date(Date.now() - 30 * 864e5).toISOString(), by = {}, tot = { n:0, covered:0, missed:0, open:0, unknown:0, cancelled:0, notneeded:0 };
     ((get('DATA') || {}).coverage_cases || []).forEach(c => {
       const k = calloffKind(c); if(!k || String(c.opened_at || '') < since) return;
-      const ax = String(c.client_axiscare_id || ''); const b = by[ax] || (by[ax] = { n:0, covered:0, missed:0, open:0, unknown:0, cancelled:0 });
+      const ax = String(c.client_axiscare_id || ''); const b = by[ax] || (by[ax] = { n:0, covered:0, missed:0, open:0, unknown:0, cancelled:0, notneeded:0 });
       b[k]++; b.n++; tot[k]++; tot.n++;
     });
     return { by, tot };
   }
   const calloffChips = b => !b || !b.n ? '<span class="field-note">none</span>'
-    : ['missed', 'open', 'unknown', 'covered', 'cancelled'].filter(k => b[k]).map(k => '<span class="clg-chip ' + CO_KIND[k][1] + '">' + b[k] + ' ' + CO_KIND[k][0].toLowerCase() + '</span>').join('');
+    : ['missed', 'open', 'unknown', 'covered', 'cancelled', 'notneeded'].filter(k => b[k]).map(k => '<span class="clg-chip ' + CO_KIND[k][1] + '">' + b[k] + ' ' + CO_KIND[k][0].toLowerCase() + '</span>').join('');
 
   /* ── who is where: AxisCare decides "active"; the Hub and AxisCare disagreeing goes to a list ──────────── */
   const axActive = x => !!(x.ax && x.ax.active && !x.axOnly);
