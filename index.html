@@ -23610,7 +23610,7 @@ function ivqRender(){
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
-      + (window.HREM && !overdue && a.phone ? HREM.ivBtn(b) : '')   /* 2026-11-02: Send reminder, and its history line below */
+      + (window.HREM && !overdue && a.phone ? HREM.ivBtn(b) : '')   /* 2026-11-02: Send reminder (2026-11-04: no history line under the row, her call) */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
       + (overdue ? '' :
@@ -23618,7 +23618,6 @@ function ivqRender(){
           + '<button class="fb" style="color:var(--red);" onclick="apCancelBooking(\'' + esc(b.applicant_id) + '\')">✕ Cancel</button>')
       + '<button class="fb" onclick="ivqOutcome(\'' + esc(b.applicant_id) + '\')">'
         + (overdue?'📝 How did it go?':'Open') + '</button>'
-      + (window.HREM && !overdue ? HREM.ivLine(b) : '')
       + '</div>';
   };
 
