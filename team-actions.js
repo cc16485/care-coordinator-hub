@@ -161,6 +161,7 @@
   /* ── This is finished (the helper closes it; the owner can reopen it for a day) ── */
   function finish(id, anchorId){
     const it = item(id); if(!it) return;
+    if(window.CAA && window.CAA.guards(it)) return window.CAA.ask(it, document.getElementById(anchorId || ('act_' + id)));   /* a Was it covered? card closes with an answer (2026-11-05) */
     const o = firstOf(it.owner);
     const el = pop(anchorId, '<div style="font-size:13.5px;font-weight:700;">This is finished</div>'
       + '<div class="field-note">Closes it. ' + esc(o) + ' is told you closed it and why, and can reopen it until this time tomorrow.</div>'

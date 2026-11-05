@@ -65,6 +65,7 @@
     let n = 0; const done = [];
     for(const id of ids){
       const i = items.findIndex(x => x && x.id === id); if(i < 0) continue;
+      if(W.CAA && W.CAA.guards(items[i])) continue;   /* a Was it covered? card closes only with an answer (calloff-answers.js) */
       const next = clearOne(items[i], a, why, at); if(!next) continue;
       items[i] = Object.assign(items[i], next);
       if(typeof W.persist === 'function') await W.persist('ops_items', items[i]);
