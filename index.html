@@ -4779,6 +4779,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="caregivers-glance">
+<h3>📊 Caregivers at a glance</h3>
+<p class="hint">A new look for Caregivers, Directory: four tiles on top (active caregivers by level, hours on the schedule in the next 7 days against the hours caregivers told us they want, who wants more hours, and who has nothing on the schedule), a count on every filter button, and labeled columns for town, next 7 days, time with us and phone. The two AxisCare upkeep lines move under the list. Only the look changes: nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="cggSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="cggToggleBtn" onclick="CGG.toggle(this)">Turn on the new Caregivers look for everyone</button>
+  <button class="secondary" id="cggPreviewBtn" onclick="CGG.preview(!CGG.previewOn());CGG.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="cggSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="ask-help">
 <h3>Ask for help</h3>
 <p class="hint">Asking for help is tracked (approved 2026-10-18): who was asked, what for and by when; they accept (saying what they'll do) or decline (saying why); no answer in 15 minutes for urgent work, or by the end of their shift, shows as "Help not answered". The card stays the owner's and open. Nothing is texted or emailed.</p>
@@ -5449,6 +5460,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <span style="flex:1;"></span>
       <input id="cgdSearch" placeholder="Search any caregiver, current or historical…" style="min-width:260px;" oninput="cgdSearchGo(this.value)">
     </div>
+    <div id="cgdGlance"></div><!-- 2026-11-04: Caregivers at a glance tiles (caregivers-glance.js, ops_settings.caregivers_glance_live) -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="cgdFilters">
       <button class="filter-pill active" data-cf="active" onclick="cgdFilter('active',this)">Active</button>
       <button class="filter-pill" data-cf="training" onclick="cgdFilter('training',this)" title="In Training in AxisCare: new hires still onboarding, not offered shifts">Onboarding (In Training)</button>
@@ -7525,7 +7537,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -18360,14 +18372,39 @@ async function cgaxRender(){
     +sec('Active in the Hub with no AxisCare number (not changed; never sent open shifts)',nn)
     +'<div class="field-note" style="margin-top:6px;">AxisCare decides who is active. Nobody is deleted; a caregiver AxisCare makes active again comes back on its own.</div></details>';
 }
+/* the people each filter button shows (one rule for the list and for the counts on the buttons) */
+function cgdRowsFor(filter, all){
+  if(filter==='inactive') return all.filter(c=>!c.active);
+  if(filter==='training') return all.filter(cgdTraining);
+  if(filter==='needsdata') return all.filter(c=>cgdWorking(c) && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id));
+  if(filter==='attention') return all.filter(c=>{ if(!cgdWorking(c)) return false;
+      const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
+      if(!g) return true;                                  // no hub data connected
+      const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
+      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
+      return bad||unk; });
+  return all.filter(cgdWorking);
+}
 function cgdRenderList(){
   const el=document.getElementById('cgdList'); if(!el||!CGD.census) return;
   cgaxRender();
   const esc=escapeHtmlComms;
   const all=CGD.census.caregivers||[];
   const nAct=all.filter(cgdWorking).length, nTrain=all.filter(cgdTraining).length;
+  /* 2026-11-04 (her "room for improvement here?"): Caregivers at a glance, tiles and labeled columns. caregivers-glance.js
+     draws it while ops_settings.caregivers_glance_live is on, or for an owner's own preview. */
+  const glance=!!(window.CGG&&CGG.showing());
+  if(window.CGG) CGG.placeUpkeep(glance);
   const cnt=document.getElementById('cgdCount');
-  if(cnt) cnt.textContent=nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)';
+  if(cnt) cnt.innerHTML=esc(nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)')+(window.CGG?CGG.previewLink():'');
+  const gl=document.getElementById('cgdGlance');
+  if(gl){
+    if(glance){ CGG.loadSched();
+      gl.innerHTML=CGG.top(all, CGD.filter, { active:nAct, training:nTrain, inactive:all.length-all.filter(c=>c.active).length,
+        attention:cgdRowsFor('attention',all).length, needsdata:cgdRowsFor('needsdata',all).length }); }
+    else { gl.innerHTML=''; document.querySelectorAll('#cgdFilters .cgg-n').forEach(n=>n.remove()); }
+  }
+  if(!glance&&(CGD.filter==='wantmore'||CGD.filter==='nosched')){ CGD.filter='active'; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b.getAttribute('data-cf')==='active')); }
   const q=cgdNorm(CGD.q);
   /* 2026-11-04: Gone quiet, the still-wanting-to-work check-in for caregivers with no visit in 30 days. gone-quiet.js draws it. */
   if(CGD.filter==='gonequiet' && !q && window.GQ){ GQ.render(el); return; }
@@ -18378,23 +18415,15 @@ function cgdRenderList(){
     return;
   }
   let rows;
+  const tileRows=glance&&!q?CGG.rowsFor(CGD.filter, all.filter(cgdWorking)):null;
   if(q){ rows=all.filter(c=>cgdNorm(c.first+c.last).includes(q)||String(c.mobile||'').replace(/\D/g,'').includes(String(CGD.q).replace(/\D/g,'')||'ZZZ')); }
-  else if(CGD.filter==='inactive'){ rows=all.filter(c=>!c.active); }
-  else if(CGD.filter==='training'){ rows=all.filter(cgdTraining); }
-  else if(CGD.filter==='needsdata'){ rows=all.filter(c=>cgdWorking(c) && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id)); }
-  else if(CGD.filter==='attention'){
-    rows=all.filter(c=>{ if(!cgdWorking(c)) return false;
-      const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
-      if(!g) return true;                                  // no hub data connected
-      const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
-      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
-      return bad||unk; });
-  }
-  else { rows=all.filter(cgdWorking); }
-  rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
+  else if(tileRows){ rows=tileRows; }
+  else { rows=cgdRowsFor(CGD.filter, all); }
+  if(!tileRows||CGD.filter!=='wantmore') rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
   const cap = (CGD.filter==='inactive'&&!q) ? 200 : 600;
   const shown=rows.slice(0,cap);
-  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">'+(CGD.filter==='training'&&!q?'Nobody is In Training in AxisCare right now.':'Nobody matches this view.')+'</div>'; return; }
+  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">'+(CGD.filter==='training'&&!q?'Nobody is In Training in AxisCare right now.':CGD.filter==='wantmore'&&!q?'Nobody is short of the hours they want for the next 7 days.':CGD.filter==='nosched'&&!q?'Everyone active has something on the schedule in the next 7 days.':'Nobody matches this view.')+'</div>'; return; }
+  if(glance){ el.innerHTML=CGG.list(shown)+(rows.length>cap?'<div class="field-note" style="margin-top:6px;">Showing '+cap+' of '+rows.length+'. Narrow with search.</div>':''); return; }
   el.innerHTML='<div class="card" style="padding:0;overflow:hidden;">'+shown.map(c=>{
     const nm=(c.first+' '+c.last).trim();
     const g=cgdLegacyFor(c.id,nm), ov=cgdOverlayFor(c.id);
@@ -19342,6 +19371,7 @@ function lhSetFill(){
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
   try{ ltcSetFill(); }catch(e){}
+  try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ if(window.OH) OH.settingsFill(); }catch(e){}
