@@ -41,12 +41,17 @@
   /* one person on the table: who they are, which jobs, how far along, and their availability */
   const offerOf = id => { const L = get('OFFERS'); return id && Array.isArray(L) ? L.find(o => o && String(o.id) === String(id)) || null : null; };
   function offerIdOf(p){ return String((p.c && p.c.offer_id) || (p.j && p.j.offer_id) || (p.o && p.o.id) || ''); }
+  /* 11-04 fix (Samantha: "these arent all caregivers, a few are PRN"): the offer wins over the application, and PRN is read the
+     way the server reads it (prn-welcome-video.sql, offer-sign): hours PRN, classification prn, or a PRN position such as prn_cna */
+  const words = v => String(v == null ? '' : v).replace(/[_-]+/g, ' ');
   function jobsOf(p, g){
-    const o = p.o || offerOf(offerIdOf(p));
-    const pos = String((p.c && p.c.position) || (o && o.position) || (g && g.position) || (p.c && p.c.credential) || '');
+    const o = p.o || offerOf(offerIdOf(p)), c = p.c || {};
+    const pos = words((o && (o.position_key || o.position)) || c.position || (g && g.position) || c.credential);
     const out = [];
     if(/\bcna\b/i.test(pos)) out.push('cna'); else if(!/\b(lpn|rn|nurse)\b/i.test(pos)) out.push('cg');
-    if((o && o.hours_type === 'PRN') || (p.c && p.c.prn_offer && p.c.prn_offer.answer === 'yes')) out.push('prn');
+    const prn = (o && (/^prn$/i.test(String(o.hours_type || '')) || /^prn$/i.test(String(o.classification || '')) || /\bprn\b/i.test(words(o.position)) || /\bprn\b/i.test(words(o.position_key))))
+      || /\bprn\b/i.test(words(c.position)) || (c.prn_offer && c.prn_offer.answer === 'yes');
+    if(prn) out.push('prn');
     return out;
   }
   function stageOf(m){
@@ -97,13 +102,15 @@
   const nameBtn = (x, extra) => '<button type="button" class="oav-name" onclick="OAV.find(' + esc(JSON.stringify(x.name)) + ')" title="Find ' + esc(x.name) + ' in the table">'
     + esc(x.name) + (x.av && !x.av.signed ? '<span class="oav-dot" title="Filled in, availability form not signed yet">not signed yet</span>' : '') + (extra ? '<span class="oav-x">' + esc(extra) + '</span>' : '') + '</button>';
 
-  /* the panel, drawn inside the Onboarding table (obtRender) */
-  function panel(models){
+  function button(){
     if(!showing()) return '';
-    const btn = '<button type="button" class="obt-q oav-toggle' + (isOpen() ? ' obt-on' : '') + '" onclick="OAV.toggleOpen()" aria-expanded="' + isOpen() + '">'
+    return '<span class="oav-bar">' + '<button type="button" class="obt-q oav-toggle' + (isOpen() ? ' obt-on' : '') + '" onclick="OAV.toggleOpen()" aria-expanded="' + isOpen() + '">'
       + (isOpen() ? 'Hide availability' : 'Show availability') + '</button>'
-      + (!live(settings()) ? '<span class="oav-pv">Preview, only you see this. <a href="javascript:void(0)" onclick="OAV.preview(false)">Stop my preview</a></span>' : '');
-    if(!isOpen()) return '<div class="oav-bar">' + btn + '</div>';
+      + (!live(settings()) ? '<span class="oav-pv">Preview, only you see this. <a href="javascript:void(0)" onclick="OAV.preview(false)">Stop my preview</a></span>' : '') + '</span>';
+  }
+  /* the panel, drawn inside the Onboarding table (obtRender); its button sits up by the search box (button()) */
+  function panel(models){
+    if(!showing() || !isOpen()) return '';
     load(models);
     const all = people(models), xs = all.filter(inJob), known = xs.filter(x => x.av), unknown = xs.filter(x => !x.av);
     const n = j => all.filter(x => j === 'all' || x.jobs.includes(j)).length;
@@ -132,8 +139,7 @@
     const top = Math.max(1, ...tot);
     const ready = '<div class="oav-ready"><div class="oav-rh">Ready by <span class="oav-muted">hours a week they want, by how far along they are</span></div>'
       + STAGES.map(([k, t, tip], i) => '<div class="oav-row" title="' + esc(tip) + '"><span>' + esc(t) + ' <span class="oav-muted">(' + ppl[i] + ')</span></span><i style="width:' + Math.round(tot[i] / top * 100) + '%"></i><em>' + tot[i] + ' h</em></div>').join('') + '</div>';
-    return '<div class="oav-bar">' + btn + '</div>'
-      + '<section class="oav" aria-label="Onboarding availability">'
+    return '<section class="oav" aria-label="Onboarding availability">'
       + '<div class="oav-chips">' + chip('all', 'Everyone') + chip('cg', 'Caregivers') + chip('cna', 'CNAs') + chip('prn', 'PRN') + '</div>'
       + '<div class="oav-tiles"><div class="oav-t"><b>' + xs.length + '</b><span>in onboarding</span></div>'
       + '<div class="oav-t"><b>' + want + ' h</b><span>a week they want</span></div>'
@@ -179,5 +185,5 @@
       ? '<a href="javascript:void(0)" class="oav-pvl" onclick="OAV.preview(true)">Preview the availability chart (only you)</a>' : '';
   }
 
-  root.OAV = { live, showing, panel, people, load, cell, unknown, job:setJob, toggleOpen, find, reload, preview:setPreviewAndDraw, previewOn:preview, settingsFill, toggle, previewLink, _st:ST };
+  root.OAV = { live, showing, panel, button, people, load, cell, unknown, job:setJob, toggleOpen, find, reload, preview:setPreviewAndDraw, previewOn:preview, settingsFill, toggle, previewLink, _st:ST, _jobs:jobsOf };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -48,7 +48,18 @@ async(arg)=>{
   const tiles = () => [...dash.querySelectorAll('.oav-t')].map(t => txt(t));
   const chips = () => [...dash.querySelectorAll('.oav-chip')].map(t => txt(t));
   out.open = { calls: OAVT_CALLS.map(x => [x[0], x[1].action, x[1].offer_ids]), tiles: tiles(), chips: chips(), grid: grid(), ready: [...dash.querySelectorAll('.oav-row')].map(r => txt(r)),
-    order: [...dash.children].map(e => e.className).join(' | ') };
+    order: [...dash.children].map(e => e.className).join(' | '), head: !!dash.querySelector('.ckd-head .oav-head .oav-toggle') && !!dash.querySelector('.ckd-head .oav-head #ckdSearch') };
+  /* the real shapes on 11-04 (her "a few are PRN"): newer offers say classification prn + position_key, applications keep keys like prn_cna */
+  const J = (c, o) => OAV._jobs({ c, o }, null).join(',');
+  out.realJobs = [
+    J({ position:'Caregiver' }, { position:'CNA', classification:'prn', position_key:'cna' }),
+    J({ position:'Caregiver' }, { position:'Caregiver', classification:'prn', position_key:'caregiver' }),
+    J({ position:'prn_cna' }, null),
+    J({ position:'prn_caregiver' }, null),
+    J({ position:'Caregiver' }, { position:'CNA', hours_type:'PRN' }),
+    J({ position:'Caregiver' }, { position:'CNA', classification:'part_time', position_key:'cna' }),
+    J({ position:'Caregiver' }, { position:'Caregiver', hours_type:'FULL_TIME' }),
+    J({ position:'lpn' }, null) ];
   OAV.cell('mon', 'morning'); await wait(30);
   out.monMorning = txt(dash.querySelector('.oav-who'));
   OAV.cell('sat', 'overnight'); await wait(30);
@@ -95,7 +106,10 @@ with sync_playwright() as p:
     ck('job chips with counts: Everyone, Caregivers, CNAs, PRN', [x.split(' ')[0] for x in ch] == ['Everyone', 'Caregivers', 'CNAs', 'PRN'] and ch[2] == 'CNAs 1' and ch[3] == 'PRN 2', ch)
     rd = r['open']['ready']
     ck('ready by: four steps with hours (Jo 20 h nearly ready or later; Ava + Bea + Cora + Ivy in checks/orientation)', len(rd) == 4 and rd[0].startswith('Approved to Work') and rd[3].startswith('Still in Step 1') and sum(int(re.search(r'(\d+) h$', x).group(1)) for x in rd) == 127, rd)
-    ck('the panel sits between the work queues and the table', re.search(r'obt-qs.*oav-bar \| oav.*obt-wrap', r['open']['order']), r['open']['order'])
+    ck('the panel sits between the work queues and the table', re.search(r'obt-qs \| oav \| obt-wrap', r['open']['order']), r['open']['order'])
+    ck('the Show availability button sits up by the search box (her ask 11-04)', r['open']['head'], r['open'])
+    ck('PRN and CNA read the way offers really are: classification prn, position_key, prn_cna keys; the offer wins over the application',
+       r['realJobs'] == ['cna,prn', 'cg,prn', 'cna,prn', 'cg,prn', 'cna,prn', 'cna', 'cg', ''], r['realJobs'])
     ck('tap Monday morning: Ava (with the hours she wrote, 7-3) and Bea', 'Mon morning (2)' in r['monMorning'] and 'Ava Fake' in r['monMorning'] and '7-3' in r['monMorning'] and 'Bea Sample' in r['monMorning'], r['monMorning'])
     ck('filled in, availability form not signed yet: counted, marked (her pick 3)', 'Cora Sampleton' in r['satNight'] and 'not signed yet' in r['satNight'] and r['dot'], r['satNight'])
     ck('availability unknown lists the names and says they are never counted as free', 'Availability unknown' in r['unknown'] and 'never counted as free' in r['unknown'] and 'Hal Mock' in r['unknown'], r['unknown'])
@@ -106,6 +120,8 @@ with sync_playwright() as p:
     pg.evaluate("()=>{ OAV.job('all'); OAV.cell('mon','morning'); }"); pg.wait_for_timeout(150)
     box = pg.locator('section.oav').bounding_box()
     pg.screenshot(path=os.path.join(OUT, 'oav_desktop.png'), clip={'x': box['x'] - 12, 'y': max(0, box['y'] - 60), 'width': box['width'] + 24, 'height': box['height'] + 72}, full_page=True)
+    hb = pg.locator('#ckdDash .ckd-head').bounding_box(); sb2 = pg.locator('section.oav').bounding_box()
+    pg.screenshot(path=os.path.join(OUT, 'oav_header.png'), clip={'x': hb['x'] - 12, 'y': max(0, hb['y'] - 12), 'width': hb['width'] + 24, 'height': sb2['y'] - hb['y'] + 200}, full_page=True)
     found = pg.evaluate("()=>{ [...document.querySelectorAll('.oav-name')].find(b=>b.innerText.includes('Bea')); if(!document.querySelector('.oav-name')) return ['no names: '+((document.querySelector('.oav-who')||{}).innerText||'')]; [...document.querySelectorAll('.oav-name')].find(b=>b.innerText.includes('Bea')).click(); return [...document.querySelectorAll('tr.obt-r')].map(r=>r.querySelector('.obt-n').innerText.split('\\n')[0]); }")
     ck('a name finds that person in the table', len(found) == 1 and 'Bea' in found[0], found)
     # a failed read says so, with Try again, and does not keep asking
@@ -136,5 +152,5 @@ srv.shutdown()
 bad = 0
 for n, ok, note in res:
     print(('PASS  ' if ok else 'FAIL  ') + n + ('' if ok else '  ' + note)); bad += 0 if ok else 1
-print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['oav_desktop.png', 'oav_phone.png']))
+print(f'{len(res) - bad} / {len(res)}'); print('screenshots: ' + ', '.join(os.path.join(OUT, f) for f in ['oav_header.png', 'oav_desktop.png', 'oav_phone.png']))
 raise SystemExit(1 if bad else 0)
