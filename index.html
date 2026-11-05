@@ -4815,6 +4815,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="clients-glance">
+<h3>📊 Clients at a glance</h3>
+<p class="hint">A new look for Clients: tiles on top (active clients from AxisCare, hours of care in the next 7 days with how much has a caregiver, open visits, call-offs in the last 30 days split by how they ended, and Needs you), one line for check-ins and plan reviews instead of a chip on every row, labeled columns, a Coverage chart button (the week by Morning, Afternoon, Evening, Overnight) and a Check with AxisCare list for clients the Hub and AxisCare disagree about. Only the look changes: nothing is sent and nobody's status changes by itself. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="clgSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="clgToggleBtn" onclick="CLG.toggle(this)">Turn on the new Clients look for everyone</button>
+  <button class="secondary" id="clgPreviewBtn" onclick="CLG.preview(!CLG.previewOn());CLG.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="clgSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="onboarding-availability">
 <h3>📅 Onboarding availability chart</h3>
 <p class="hint">A Show availability button on Caregivers, Onboarding (the table look). It opens a week grid of when the people in onboarding can work (Morning, Afternoon, Evening, Overnight, Monday to Sunday), with Everyone, Caregivers, CNAs and PRN, the hours a week they want, who has availability unknown, and a Ready by line. It reads each person's own Step 1 answers (or their availability record once they are on the AxisCare roster). Nothing is sent or changed.</p>
@@ -5765,6 +5776,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button class="linklike" onclick="clLoad(true)">↻ Refresh</button>
   </div>
   <div id="clSyncLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
+  <div id="clGlance"></div><!-- 2026-11-05: Clients at a glance tiles (clients-glance.js, ops_settings.clients_glance_live) -->
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
   <div id="clNotClient" class="field-note" style="margin-top:10px;font-size:12.5px;"></div>
@@ -7573,7 +7585,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -19408,6 +19420,7 @@ function lhSetFill(){
   try{ lcSetFill(); }catch(e){}
   try{ ltcSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
+  try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
   try{ if(window.OAV) OAV.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
@@ -35275,7 +35288,7 @@ function clSearchGo(v){ CL.q=v; clearTimeout(clSearchT); clSearchT=setTimeout(re
 const clNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function clCensusName(c){ return ((c.goes_by||c.first||'')+' '+(c.last||'')).trim()||('AxisCare client #'+c.id); }
 async function clLoadIssues(){
-  const { data, error }=await sb.from('client_issue').select('id,client_person_id,summary,state,urgency').not('state','in','(resolved,closed_no_action)');
+  const { data, error }=await sb.from('client_issue').select('id,client_person_id,axiscare_client_id,summary,state,urgency,owner,waiting_on,reported_at').not('state','in','(resolved,closed_no_action)');
   if(error) throw error; return data||[];
 }
 async function clLoad(force){
@@ -35298,7 +35311,7 @@ function clDue(r, issues){
   const add=(kind,tone,label,tab,due)=>out.push({ kind, tone, label, tab, due:due||'' });
   if(ax){
     const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===ax).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
-    if(!ci) add('checkin','warn','no check-in yet','checkins');
+    if(!ci){ add('checkin','warn','no check-in yet','checkins'); out[out.length-1].none=true; }   /* none: no record at all, never "overdue" (Clients at a glance) */
     else if(ci.next_checkin_due&&ci.next_checkin_due<t) add('checkin','bad','check-in overdue since '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
     else if(ci.next_checkin_due&&ci.next_checkin_due<=wk) add('checkin','warn','check-in due '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
     /* R1 (2026-09-29, her ruling): the LATEST check-in decides; a later one without the box clears the flag, history stays */
@@ -35306,7 +35319,7 @@ function clDue(r, issues){
     else if(ci&&ciDecliningAx(ax)) add('ckconcern','warn','satisfaction dropping','checkins');
     /* PRN step 8b: a Gap Mentor's note or a set-aside suggestion (kinds mentor_*) is never a plan review, so it never hides one due */
     const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&!/^mentor_/.test(String(x.kind||''))&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
-    if(!rv) add('review','warn','first plan review needed','care:reviews');
+    if(!rv){ add('review','warn','first plan review needed','care:reviews'); out[out.length-1].none=true; }
     else {
       if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care:reviews');
       if(rv.next_due&&rv.next_due<t) add('review','bad','plan review overdue since '+d(rv.next_due),'care:reviews',rv.next_due);
@@ -35361,6 +35374,11 @@ function renderClientsBoard(){
   if(sl){ const b=CL.beat, ageH=b?(Date.now()-new Date(b.at).getTime())/36e5:null, stale=!b||b.ok===false||!(ageH<=7);
     sl.innerHTML=b?('<span style="'+(stale?'color:var(--red);font-weight:700;':'')+'">Client sync from AxisCare: '+(b.ok===false?'failed ':'last ran ')+esc(new Date(b.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+(b.note?' · '+esc(b.note):'')+(stale&&b.ok!==false?' · it should run every 6 hours':'')+'</span>')
       :'<span>Client sync from AxisCare: not run yet (Desktop 641 starts it).</span>'; }
+  /* 2026-11-05 (her "make this better like the charts we have made"): Clients at a glance. clients-glance.js draws the
+     tiles, the labeled columns and the coverage chart while ops_settings.clients_glance_live is on, or for an owner's own preview. */
+  if(window.CLG){ CLG.placeUpkeep(CLG.showing()); if(cnt&&CL.census) cnt.insertAdjacentHTML('beforeend', CLG.previewLink()); }
+  if(window.CLG&&CLG.showing()){ CLG.render(all, { nAct, box, startN:(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true)?cjStartingCount():null }); return; }
+  const gl0=document.getElementById('clGlance'); if(gl0) gl0.innerHTML='';
   const FILTERS=[
     ...(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true?[['Starting care', ()=>false]]:[]),
     ['Needs something', x=>!x.past&&!x.paused&&((x.bad+x.warn)>0||!!x.unconnected)],
