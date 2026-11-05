@@ -85,6 +85,8 @@
     }
     if(!SV.cases){ box.innerHTML = '<div class="card" style="padding:12px 16px;"><b style="color:var(--navy);">Staffing view</b> <span class="field-note">Loading…</span></div>'; load().then(render); return; }
     const S = sections(SV.cases, SV.tk, SV.tomorrow && SV.tomorrow.rows);
+    /* Calmer My Work (2026-11-05): nothing waiting folds to one line */
+    if(window.CMW && CMW.svFold(S)){ box.innerHTML = CMW.svLine(who, mine, SV.tomorrow && SV.tomorrow.error); if(!SV.tomorrow) loadTomorrow().then(render); return; }
     const go = (hash) => 'onclick="location.hash=\'' + esc(hash) + '\'" style="cursor:pointer;"';
     const row = (main, sub, right, hash) => '<div class="hero-row" ' + (hash ? go(hash) : '') + '>'
       + '<div class="m">' + main + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>' + (right ? '<div class="go">' + right + '</div>' : '') + '</div>';

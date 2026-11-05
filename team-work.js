@@ -119,6 +119,10 @@
   /* The path, in the approved words. Only the care-at-risk track ever texts anyone. */
   function escalation(it, ctx){
     const t = track(it, ctx);
+    /* Calmer My Work (2026-11-05, her pick 10): say only what really happens. Nothing sends the 20 and 35 minute texts. */
+    if(t === 'care' && root && root.CMW && root.CMW.on()) return { track:t, steps:[
+      { at:0, who:'everyone on duty', how:'on screen' }, { at:10, who:'the person in charge', how:'on screen' }, { at:20, who:'leadership', how:'on screen' } ],
+      words:'Care at risk: everyone on duty sees it now. Not taken in 10 min: the person in charge. 20 min: leadership, on screen.' };
     if(t === 'care') return { track:t, steps:[
       { at:0, who:'everyone on duty', how:'on screen' },
       { at:10, who:'the person in charge', how:'on screen' },

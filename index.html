@@ -7660,13 +7660,13 @@ The HomeTogether team</pre>
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="client-glance.js?v=3"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
-<script src="staffing-view.js?v=1"></script>
+<script src="staffing-view.js?v=2"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
 <script src="mywork-tidy.js?v=4"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=7"></script><script src="cc-followups.js?v=1"></script><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="calmer-mywork.js?v=1"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -8978,6 +8978,7 @@ function ccRenderPulse(){
   /* 2026-10-05: one meaning of late, said by whose it is (opsLateFor / opsLateUnowned). */
   let late=0, lateNo=0;
   try{ late=opsLateFor(opsMeKey()).length; lateNo=opsLateUnowned().length; }catch(e){}
+  try{ if(window.CMW&&CMW.on()) late=CMW.counts().late; }catch(e){}   /* Calmer My Work: the same late number as the page */
   const ci=ciLatestByClient().filter(c=>c.next_checkin_due && c.next_checkin_due<t).length;   /* R1: the latest check-in per client decides */
   const chips=[];
   /* The 'N follow-ups due' chip is gone. It existed to compensate for lead
@@ -8992,6 +8993,7 @@ function ccRenderPulse(){
   /* ONE HEADLINE NUMBER (2026-10-17, her fix 3): the chip says what needs you right now (Today's Act now lane). Only
      when nothing does, it says how much of yours is late. One number, never both. */
   let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
+  try{ if(window.CMW&&CMW.on()) L={ act:CMW.counts().urgent, late:late }; }catch(e){}
   if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
   else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
@@ -11518,6 +11520,8 @@ function renderTodayStrip(){
         :'<div class="field-note">Nothing came in.</div>')
       +'<div id="sylSlot" style="margin-top:10px;"></div><div id="sylWrap"></div></div>';
   }
+  /* Calmer My Work: one line, and a yellow note only when the Hub could not read something */
+  if(window.CMW&&CMW.on()){ box.innerHTML=CMW.lineHtml({ since:nOv, cov:cov.length, axisErr:!!(d&&d.error), ivErr:!!(BT_IV&&BT_IV.error) })+panel; return; }
   box.innerHTML=(window.MWTidy&&MWTidy.on()?MWTidy.stripHtml(parts):'<div class="ts-strip">'+t1+t2+t3+t4+t5+'</div>')+panel;
 }
 
@@ -29882,7 +29886,7 @@ function myWorkTabs(b){
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* Team Work (Stage 1, 2026-10-18): next to Today for everyone once it is on; owners see it as a preview while off */
-  if(window.TW && TW.visible()) t.splice(1,0,['team',TW.on()?'Team Work':'Team Work (preview)']);
+  if(window.TW && TW.visible() && !(window.CMW && CMW.on())) t.splice(1,0,['team',TW.on()?'Team Work':'Team Work (preview)']);   /* Calmer My Work: no tab, On duty now sits on Today */
   /* Follow-ups (2026-11-05, cc-followups.js): calls and texts nobody answered, right next to Today; owners only while in practice */
   if(window.CFU && CFU.visible()) t.splice(1,0,['followups',CFU.label()]);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
@@ -30760,6 +30764,7 @@ async function myWorkTalk(id, btn){
   renderMyWork(); if(typeof suTodayRender==='function') suTodayRender();
 }
 function myWorkCard(it, i){
+  const calm=!!(window.CMW&&CMW.on());   /* Calmer My Work: one line, one button; the rest is in ⋯ */
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   if(it && it.kind==='journey') return jrCard(it, i);
   if(it && it.kind==='new_family_call' && window.CallLead && CallLead.card) return CallLead.card(it, i);
@@ -30842,10 +30847,11 @@ function myWorkCard(it, i){
     +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
       +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
       +esc(String(it.owner||'').toLowerCase()===String(opsMeKey()||'').toLowerCase()?opsDueText(it):opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>'
+    +(calm?((OPS_KINDS[it.kind]&&OPS_KINDS[it.kind].label)||fromCall?'<span class="field-note">'+esc([(OPS_KINDS[it.kind]&&OPS_KINDS[it.kind].label)||'',fromCall].filter(Boolean).join(' · '))+'</span>':'')
+      :'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>')
     +states
     +'<span style="flex:1;"></span>'
-    +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
+    +'<span class="wkchip'+(d?'':' cmw-unclassified')+'" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
     +'title="What is this about?">'+esc(d?d.label:'Unclassified')+'</span>'
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
@@ -30971,8 +30977,8 @@ function myWorkCard(it, i){
     h+='<button class="'+(otherCl?'ghost':'primary')+'" style="padding:6px 13px;font-size:12.5px;" '
       +(otherCl?'title="'+esc((it.claimed_by_name||'Someone').split(' ')[0])+' is handling this. Close it only if you know it’s finished" ':'')
       +'onclick="opsClose(\''+it.id+'\')">'+(otherCl?'Done…':'Done')+'</button>'
-      +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
-      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>';
+      +(calm?'':'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>');
   }
   if(it.sub_state==='waiting' && !it.check_back)
     h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;color:var(--red);" '
@@ -30980,7 +30986,7 @@ function myWorkCard(it, i){
   /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
      closes the card. */
   /* fix 5 (2026-10-17): Jot on my desk moved into the ⋯ menu, so a card has three buttons: Done, Hand off, Talk about */
-  if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
+  if(window.suTalk && !calm) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
@@ -31000,6 +31006,11 @@ function myWorkMore(id, anchorId){
     +(warn?'color:var(--red);':'')+'">'+label+'</div>';
   let h='';
   const meCl=ccActor().email;
+  /* Calmer My Work: Hand off and Talk about live here instead of on every card */
+  if(window.CMW&&CMW.on()){
+    if(it.owner && String(it.owner).toLowerCase()===meCl) h+=opt('cmw_handoff','Hand off…');
+    if(window.suTalk) h+=opt('cmw_talk', suTalk.forWork(it.id)?'Don’t need to talk about it':'Talk about');
+  }
   /* Take it = ownership (2026-10-05). The old "I've got it (stays theirs)" is gone: a claim without ownership was
      the invisible kind of ownership her rule replaces. */
   if(String(it.owner||'').toLowerCase()!==meCl)
@@ -31045,6 +31056,8 @@ function myWorkMore(id, anchorId){
       /* 2026-10-17: taking someone else's work is a transfer: confirm and a reason (TA.transfer); my own is "I'm on it" */
       if(r.dataset.what==='claim') return (window.TA && it.owner && String(it.owner).toLowerCase()!==ccActor().email) ? TA.transfer(id, anchorId) : opsTakeIt(id);
       if(r.dataset.what==='jot') return dkJotWork(id, document.getElementById(anchorId));
+      if(r.dataset.what==='cmw_handoff') return myWorkHandOff(id, anchorId);
+      if(r.dataset.what==='cmw_talk') return myWorkTalk(id, document.getElementById(anchorId));
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -31112,6 +31125,7 @@ function renderMyWork(){
   try{ if(typeof bnBtnSync==='function') bnBtnSync(); }catch(e){}   /* Stage 4: the Bonuses button */
   try{ if(typeof cctBtnSync==='function') cctBtnSync(); }catch(e){}   /* Stage 5: the My month / Team button */
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  try{ if(window.CMW) CMW.sync(); }catch(e){}   /* Calmer My Work (2026-11-05): the page class, before anything draws */
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   try{ opsReconcileInbox(); }catch(e){ console.warn('[inbox cards]', e); }   /* Today gap cards (2026-10-18): messages and meeting requests */
   try{ renderTodayStrip(); }catch(e){ console.warn('[today strip]', e); }   /* NEW TODAY (2026-10-19) */
@@ -31225,13 +31239,20 @@ function renderMyWork(){
   const team=myWorkTeamHtml(b);
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   /* Team Work (Stage 1): care at risk from the on-duty pile stays on Today for whoever is on duty */
-  if(window.TW&&TW.on()){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
+  if(window.TW&&TW.on()&&!(window.CMW&&CMW.on())){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
   /* Stage 2: someone asked me for help; accept or decline (the card stays theirs) */
   if(window.AH&&AH.on()){ const ah=AH.laneHtml(it=>myWorkCard(it,-1)); if(ah) h+=ah; }
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   /* My Work tiers (Stage 2, 2026-10-18): Needs you now, then the four groups, instead of the time lanes. Past its day,
      Waiting & watching and Offered to the team stay as they are below. */
+  /* Calmer My Work (2026-11-05, calmer-mywork.js): On duty now, Late, Today, Later this week; everything else folded */
+  if(window.CMW) h=CMW.previewLink()+h;
+  if(window.CMW && CMW.on()){
+    const selC=myWorkSelectable(), own=typeof ccIsOwner==='function'&&ccIsOwner();
+    wrap.innerHTML=(((own&&selC.length)||MYWORK_SEL.size)?myWorkBulkBar(selC):'')+(window.TA?TA.stripHtml():'')+CMW.todayHtml({ top:h });
+    return;
+  }
   const tiers=!!(window.MWT&&MWT.active());
   if(window.MWT) h=MWT.previewLink()+h;
   if(tiers){
