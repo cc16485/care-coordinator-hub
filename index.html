@@ -2386,6 +2386,31 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .obt-qs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.obt-ql{font-size:12.5px;font-weight:700;color:#55677a;margin-right:2px}
         .obt-q{font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#0D365F;border:1px solid #d9d5ca;border-radius:999px;padding:4px 11px}
         .obt-q span{color:#55677a;font-weight:700;margin-left:2px}.obt-q.obt-on{background:#0D365F;color:#fff;border-color:#0D365F}.obt-q.obt-on span{color:#E8C988}
+        /* 2026-11-04 Onboarding availability chart (onboarding-availability.js) */
+        .oav-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0 0}.oav-pv{font-size:12.5px;color:#55677a}
+        .oav{background:#fff;border:1px solid #e4e1d8;border-radius:12px;padding:14px;margin:10px 0 4px;display:flex;flex-direction:column;gap:12px;color:#0D365F}
+        .oav-chips{display:flex;flex-wrap:wrap;gap:6px}
+        .oav-chip{font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#0D365F;border:1px solid #d9d5ca;border-radius:999px;padding:4px 12px}
+        .oav-chip b{color:#55677a;margin-left:2px}.oav-chip.on{background:#0D365F;color:#fff;border-color:#0D365F}.oav-chip.on b{color:#E8C988}
+        .oav-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .oav-t{font:inherit;text-align:left;background:#F6F9FD;border:1.5px solid transparent;border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;color:#0D365F}
+        .oav-t b{font-size:22px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}.oav-t span{font-size:12.5px;font-weight:600;color:#55677a}
+        .oav-unk{background:#FDF3E1;cursor:pointer}.oav-unk b,.oav-unk span{color:#8A5A0B}.oav-unk.on{border-color:#B7791F}
+        .oav-gw{overflow-x:auto}
+        .oav-grid{display:grid;grid-template-columns:78px repeat(7,minmax(40px,1fr));gap:4px;min-width:380px}
+        .oav-hd{text-align:center;font-size:12.5px;font-weight:700;color:#55677a}.oav-rl{display:flex;align-items:center;font-size:12.5px;font-weight:700;color:#55677a}
+        .oav-c{font:inherit;height:38px;border:1.5px solid transparent;border-radius:7px;font-weight:800;font-size:15px;cursor:pointer;color:#0D365F;font-variant-numeric:tabular-nums}
+        .oav-c:hover{border-color:#0D365F}.oav-c.oav-sel{border-color:#0D365F;box-shadow:0 0 0 2px #E8C988}
+        .oav-h0{background:#F3F2EE;color:#9aa4ae}.oav-h1{background:#E3F4F3}.oav-h2{background:#A9DCD8}.oav-h3{background:#54BDB8;color:#06302D}
+        .oav-who{font-size:13.5px;line-height:1.7}.oav-muted{color:#55677a;font-size:12.5px}
+        .oav-name{font:inherit;font-size:13px;cursor:pointer;background:#F6F9FD;border:1px solid #e2e8f0;border-radius:999px;padding:1px 10px;margin:2px 4px 2px 0;color:#0D365F}
+        .oav-name:hover{border-color:#0D365F}.oav-dot{font-size:11px;font-weight:700;color:#8A5A0B;background:#FDF3E1;border-radius:999px;padding:0 6px;margin-left:5px}.oav-x{color:#55677a;margin-left:5px;font-size:12px}
+        .oav-ready{display:flex;flex-direction:column;gap:6px}.oav-rh{font-weight:700;font-size:13.5px}
+        .oav-row{display:grid;grid-template-columns:minmax(0,230px) minmax(0,1fr) 56px;gap:10px;align-items:center;font-size:13px}
+        .oav-row i{display:block;height:12px;border-radius:4px;background:#54BDB8;min-width:2px}.oav-row em{font-style:normal;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+        .oav-note{border-top:1px solid #eee9de;padding-top:8px}.oav-pvl{font-size:12.5px}
+        @media (max-width:760px){ .oav{padding:12px 10px}.oav-tiles{grid-template-columns:1fr 1fr 1fr}.oav-t{padding:8px}.oav-t b{font-size:18px}.oav-row{grid-template-columns:minmax(0,130px) minmax(0,1fr) 48px}
+          .oav-grid{grid-template-columns:58px repeat(7,minmax(0,1fr));gap:3px;min-width:0}.oav-rl,.oav-hd{font-size:11px}.oav-c{height:34px;font-size:14px;border-radius:6px} }
         .obt-wrap{background:#fff;border:1px solid #e4e1d8;border-radius:12px;overflow-x:auto}
         table.obt{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
         .obt th,.obt td{padding:6px 6px;border-bottom:1px solid #eeebe3;text-align:left;vertical-align:middle;white-space:nowrap}
@@ -4787,6 +4812,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="cggToggleBtn" onclick="CGG.toggle(this)">Turn on the new Caregivers look for everyone</button>
   <button class="secondary" id="cggPreviewBtn" onclick="CGG.preview(!CGG.previewOn());CGG.settingsFill();">Preview it (only me)</button>
   <span class="field-note" id="cggSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="onboarding-availability">
+<h3>📅 Onboarding availability chart</h3>
+<p class="hint">A Show availability button on Caregivers, Onboarding (the table look). It opens a week grid of when the people in onboarding can work (Morning, Afternoon, Evening, Overnight, Monday to Sunday), with Everyone, Caregivers, CNAs and PRN, the hours a week they want, who has availability unknown, and a Ready by line. It reads each person's own Step 1 answers (or their availability record once they are on the AxisCare roster). Nothing is sent or changed.</p>
+<div id="oavSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="oavToggleBtn" onclick="OAV.toggle(this)">Turn on the availability chart for everyone</button>
+  <button class="secondary" id="oavPreviewBtn" onclick="OAV.preview(!OAV.previewOn());">Preview it (only me)</button>
+  <span class="field-note" id="oavSaved"></span>
 </div>
 </div>
 
@@ -7537,7 +7573,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="onboarding-availability.js?v=1"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -19372,6 +19408,7 @@ function lhSetFill(){
   try{ lcSetFill(); }catch(e){}
   try{ ltcSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
+  try{ if(window.OAV) OAV.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ if(window.OH) OH.settingsFill(); }catch(e){}
