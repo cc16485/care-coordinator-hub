@@ -8301,7 +8301,7 @@ function obtRender(box){
   const notAdded = CKD_RUN.notAdded || [];
   if(notAdded.length) run.push('<div class="ckd-msg ckd-soft"><b>' + notAdded.length + ' offered ' + (notAdded.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> ' + notAdded.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
   box.innerHTML = ''
-    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + (obtOio() ? 'From the offer to Approved to Work.' : 'From Step 1 to Approved to Work.') + ' Longest waiting first.</div></div>'
+    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + (obtOio() ? 'From the offer to Approved to Work.' : 'From Step 1 to Approved to Work.') + ' Longest waiting first.' + (window.OAV ? ' ' + OAV.previewLink() : '') + '</div></div>'
     +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
     + '<div class="obt-sum">' + sum('all', 'Active', 'all', 'Everyone onboarding')
     +   sum('office', 'Need office action', 'office', 'Has a button for us')
@@ -8312,6 +8312,7 @@ function obtRender(box){
     + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
     + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + (obtOio() ? chip('offer', 'Offer') : '') + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
     + run.join('')
+    + (window.OAV ? OAV.panel(models) : '')   /* 2026-11-04 Onboarding availability chart (onboarding-availability.js) */
     + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
        '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 2) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
     + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
