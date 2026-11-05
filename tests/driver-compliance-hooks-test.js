@@ -7,7 +7,7 @@ const R = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 const html = R('index.html'), js = R('driver-compliance.js'), page = R('driver.html'), step1 = R('step1.html');
 let pass = 0, fail = 0;
 const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'FAIL  ') + n + (ok || x === undefined ? '' : '  ' + JSON.stringify(x).slice(0, 300))); };
-ck('driver-compliance.js is loaded once, with ?v=1, after hire-profile.js', (html.match(/<script src="driver-compliance\.js\?v=1"><\/script>/g) || []).length === 1 && html.indexOf('driver-compliance.js?v=1') > html.indexOf('hire-profile.js?v='));
+ck('driver-compliance.js is loaded once, with a ?v= number, after hire-profile.js', (html.match(/<script src="driver-compliance\.js\?v=\d+"><\/script>/g) || []).length === 1 && html.indexOf('driver-compliance.js?v=') > html.indexOf('hire-profile.js?v='));
 const open = html.slice(html.indexOf('async function cgdOpenProfile('), html.indexOf('/* ═══ PROFILE BEFORE THE FIRST SHIFT'));
 ck('caregiver page: the Overview line slot sits in "Anything in the way of scheduling?"', /card\('Anything in the way of scheduling\?','<div id="cgdProfGate"><\/div><div id="cgdDrvGate"><\/div>/.test(open));
 ck('caregiver page: the Driver Compliance card is on the Checks tab (inside cgdSec-compliance)', (() => { const a = open.indexOf("'<div id=\"cgdSec-compliance\""), b = open.indexOf("'<div id=\"cgdSec-skills\""), c = open.indexOf('<div id="cgdDrv"></div>'); return a > 0 && c > a && c < b; })());
