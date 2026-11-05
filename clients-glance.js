@@ -246,7 +246,9 @@
     if(!CLs.picked && !VIEWS.some(v => v[0] === CLs.filter)) CLs.filter = ctx.startN > 0 ? 'Starting care' : 'Active';
     if(!VIEWS.some(v => v[0] === CLs.filter)) CLs.filter = 'Active';
     if(fl) fl.innerHTML = VIEWS.map(v => '<button class="filter-pill' + (v[0] === 'Starting care' || v[0] === 'Active' ? ' cl-main' : '') + (v[0] === CLs.filter ? ' active' : '') + '" onclick="CL.filter=\'' + v[0] + '\';CL.picked=true;CLG.clearPick();renderClientsBoard()">' + v[0] + ' <span style="opacity:.65;">' + v[1] + '</span></button>').join('')
-      + '<button class="filter-pill' + (ST.panel === 'coverage' ? ' active' : '') + '" style="margin-left:14px;" onclick="CLG.panelGo(\'coverage\')">' + (ST.panel === 'coverage' ? 'Hide the coverage chart' : 'Coverage chart') + '</button>';
+      + '<button class="filter-pill' + (ST.panel === 'coverage' ? ' active' : '') + '" style="margin-left:14px;" onclick="CLG.panelGo(\'coverage\')">' + (ST.panel === 'coverage' ? 'Hide the coverage chart' : 'Coverage chart') + '</button>'
+      + (famOn() ? '<button class="filter-pill' + (ST.filter === 'famtext' ? ' active' : '') + '" onclick="CLG.pick(\'famtext\')">Family can\'t get texts' + (ST.fam ? ' <span style="opacity:.65;">' + act.filter(x => !x.past && !x.paused && !ST.fam.textable.has(String(x.r.axiscare_client_id))).length + '</span>' : '') + '</button>' : '');
+    if(ST.filter === 'famtext' && !famOn()) ST.filter = '';
 
     if(CLs.filter === 'Starting care' && !ST.filter){ box.innerHTML = panels(S, nd, rec, mm) + (typeof cjStartingHtml === 'function' ? cjStartingHtml() : ''); return; }
 
@@ -256,6 +258,7 @@
     if(q) rows = all.filter(x => clNorm(x.r.client_name).includes(q) || clNorm(x.ax && ((x.ax.first || '') + (x.ax.last || '') + (x.ax.goes_by || ''))).includes(q) || String(x.r.axiscare_client_id) === CLs.q.trim().replace(/^#/, ''));
     else if(ST.filter === 'open') rows = act.filter(x => (cOf(x) || {}).open);
     else if(ST.filter === 'calloff') rows = all.filter(x => !x.past && (CO.by[String(x.r.axiscare_client_id)] || {}).n);
+    else if(ST.filter === 'famtext') rows = ST.fam ? act.filter(x => !x.past && !x.paused && !ST.fam.textable.has(String(x.r.axiscare_client_id))) : [];
     else rows = all.filter({ Active:axActive, Paused:x => !x.past && !!x.paused, Past:x => x.past, 'Check with AxisCare':x => !!mismatch(x) }[CLs.filter] || axActive);
     const coOf = x => CO.by[String(x.r.axiscare_client_id)] || { n:0, missed:0 };
     if(ST.filter === 'calloff') sortBy = (a, b) => (coOf(b).missed - coOf(a).missed) || (coOf(b).n - coOf(a).n);
@@ -270,6 +273,10 @@
       if(out.length) other = '<div class="field-note" style="margin:6px 0 0;">Also in the hours above: ' + out.map(c => esc(c.name || 'AxisCare client #' + c.id) + ' ' + hrs(c.min) + (c.open ? ' (' + hrs(c.open) + ' open)' : '')).join(' · ') + '. Not on the Active list.</div>';
     }
  const head = !q && !ST.filter && CLs.filter === 'Check with AxisCare' ? '<div class="clg-note"><b>The Hub and AxisCare disagree about these clients.</b><span>Nothing changes by itself. Open the profile to end or pause care if AxisCare is right, or fix AxisCare if the Hub is right.</span></div>'
+      : ST.filter === 'famtext' ? '<div class="clg-note"><b>Nobody in these families can get a text if a caregiver is running late.</b><span>'
+        + (ST.famErr ? 'Couldn\'t read the Family Circles: ' + esc(ST.famErr) + '.' : !ST.fam ? 'Loading the Family Circles…'
+          : 'On your next call, ask: "Is it OK if we text you if a caregiver is running late?" If they say yes, check Texts OK for them on the client\'s Family Circle. ' + rows.map(x => esc(x.r.client_name || ('#' + x.r.axiscare_client_id)) + ' (' + esc(famWhy(x).toLowerCase()) + ')').join(' · '))
+        + '</span><a href="javascript:void(0)" onclick="CLG.clearPick();renderClientsBoard()">Show everyone again</a></div>'
       : ST.filter ? '<div class="clg-note"><b>' + (ST.filter === 'open' ? 'Clients with open visits, next 7 days' : 'Clients with call-offs, last 30 days, missed care first') + '</b><a href="javascript:void(0)" onclick="CLG.clearPick();renderClientsBoard()">Show everyone again</a></div>' : '';
     box.innerHTML = panels(S, nd, rec, mm) + head + (rows.length ? table(rows, S, CO) : '<div class="card" style="padding:16px 18px;color:var(--text-muted);">' + (q ? 'No client by that name in the Hub or AxisCare.' : 'Nobody here right now.') + '</div>') + other;
   }
@@ -382,7 +389,28 @@
     } else if(box && a.parentNode === box){ tab.insertBefore(a, document.getElementById('clGlance') || f); tab.appendChild(b); box.remove(); }
   }
 
+  /* 2026-11-05 running late, telling the family (her decision 7): "Family can't get texts" lists the active clients whose
+     Family Circle has nobody who said Texts OK for running-late texts (or no circle at all), so a coordinator can ask on
+     their next call. Nothing is sent from here. Shown with ops_settings.late_family_step_live, or the owner's preview of it. */
+  const famOn = () => settings().late_family_step_live === true || (typeof root.lnFamPreview === 'function' && !!root.lnFamPreview());
+  async function loadFam(){
+    if(ST.famLoading) return; ST.famLoading = true; ST.famErr = '';
+    try{
+      const sbc = get('sb');
+      const [c, m] = await Promise.all([sbc.from('care_circles').select('id,axiscare_client_id').eq('active', true), sbc.from('circle_contacts').select('circle_id,phone,sms_consent,wants_late,stopped_at,axiscare_removed_at')]);
+      if(c.error || m.error) throw (c.error || m.error);
+      const byCircle = {}; (c.data || []).forEach(k => { if(k.axiscare_client_id != null) byCircle[k.id] = String(k.axiscare_client_id); });
+      const linked = new Set(Object.values(byCircle)), textable = new Set();
+      (m.data || []).forEach(x => { const ax = byCircle[x.circle_id];
+        if(ax && x.sms_consent === true && x.wants_late !== false && !x.stopped_at && !x.axiscare_removed_at && String(x.phone || '').replace(/\D/g, '').length >= 10) textable.add(ax); });
+      ST.fam = { linked, textable };
+    }catch(e){ ST.famErr = (e && e.message) || 'could not read the Family Circles'; }
+    ST.famLoading = false; redraw();
+  }
+  const famWhy = x => { const ax = String(x.r.axiscare_client_id); return !ST.fam ? '' : !ST.fam.linked.has(ax) ? 'No Family Circle linked' : 'Nobody said Texts OK'; };
+
   function pick(f){
+    if(f === 'famtext' && !ST.fam) loadFam();
     if(f === 'needs'){ ST.panel = ST.panel === 'needs' ? '' : 'needs'; ST.filter = ''; }
     else { ST.filter = ST.filter === f ? '' : f; if(ST.panel === 'needs') ST.panel = ''; }
     redraw();

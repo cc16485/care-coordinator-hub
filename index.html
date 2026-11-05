@@ -4564,13 +4564,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="fb" id="lnCallBtn" onclick="lnSetToggle('late_call_live',this)">Turn off calls</button>
 </div>
 <p class="hint" id="lnCallHint" style="margin-top:0;"><b>Calls</b> (on unless you turn them off): when you or Krystal talk with a caregiver on the office line (either of you calling, or them calling in) and they say they're running late, the Hub reads the call's transcript, even while the notices above are in practice. It opens a "Running late" card, notes the call on the missed clock-in card ("Mary said on your 4:31pm call: running late, about 8 minutes (around 4:39pm)"), and, only when they gave a time, pauses the missed clock-in texts to the admins until 5 minutes after that time (never more than 2 hours past the start). If there's still no clock-in then, the texts start again. "Can't make it" or no time given: the texts carry on. Nothing is texted to anyone because of a call; the family only hears when a person taps "Send to the family".</p>
+<div id="lnFamStepBox" style="border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin:0 0 10px;">
+  <b>Telling the family</b> (Samantha 2026-11-05, option A). Still one tap by a person, never automatic. When it is on: the admins' running-late text names who in the family can be told; the Send button shows whenever they gave a time and someone can get texts, with a note when it is under the minutes below or the Hub was not sure (check before you send); the card stays at the top, "Tell the family?", until someone sends, chooses "Don't tell the family", or calls them and taps "I called them"; and anyone in the Family Circle with a phone can be called from the card.
+  <div id="lnFamStepStatus" class="field-note" style="margin:6px 0;"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="fb" id="lnFamBtn" onclick="lnSetToggle('late_family_step_live',this)">Turn on telling the family</button><button class="fb" id="lnFamPrevBtn" onclick="lnFamPreviewToggle()">Preview it (only you)</button></div>
+</div>
 <div class="grid2"><div><label>Look back before a shift (minutes)</label><input id="set_ln_look" inputmode="numeric" placeholder="120"></div><div><label>Family hears when this many minutes late or more</label><input id="set_ln_fam" inputmode="numeric" placeholder="10"></div></div>
 <label>Thank-you to the caregiver (they gave a time)</label>
 <textarea id="set_ln_thanks" rows="2" placeholder="Thanks for letting us know, {first_name}. We'll plan on you getting to {client}'s around {eta}. Drive safe."></textarea>
 <label>Question to the caregiver (no time given)</label>
 <textarea id="set_ln_ask" rows="2" placeholder="Thanks for letting us know, {first_name}. About what time do you think you'll get to {client}'s?"></textarea>
 <label>Family text (after "Hi" and their first name)</label>
-<textarea id="set_ln_family" rows="3" placeholder="A quick update from Caring Companions. {caregiver} is running a little late for {client}'s {time} visit today and expects to arrive around {eta}. We're sorry for the wait. Questions? Call us at (417) 234-8494."></textarea>
+<textarea id="set_ln_family" rows="3" placeholder="A quick update from Caring Companions. {caregiver} is running late for {client}'s {time} visit today and expects to arrive around {eta}. We're sorry for the wait. Questions? Call us at (417) 234-8494."></textarea>
 <label>Family update (a new time)</label>
 <textarea id="set_ln_update" rows="2" placeholder="An update from Caring Companions: {caregiver} now expects to get to {client}'s around {eta}."></textarea>
 <label>Family, they arrived</label>
@@ -7609,7 +7614,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=2"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -20344,8 +20349,15 @@ async function cgdPrnAfter(msg){
 /* ── RUNNING LATE (L1, 2026-09-29): the card, the Settings card, the caregiver's and the client's lines ─────────── */
 const LN_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/late-alert';
 const LN_VIEW={};
+/* 2026-11-05 the family step (ops_settings.late_family_step_live), or an owner's own preview on this browser */
+function lnFamPreview(){ try{ return typeof ccIsOwner==='function' && ccIsOwner() && localStorage.getItem('lnFamStep')==='1'; }catch(e){ return false; } }
+function lnFamPreviewToggle(){
+  if(!ccIsOwner()) return;
+  try{ if(lnFamPreview()) localStorage.removeItem('lnFamStep'); else localStorage.setItem('lnFamStep','1'); }catch(e){}
+  Object.keys(LN_VIEW).forEach(k=>delete LN_VIEW[k]); lnSetFill();
+}
 async function lnCall(id, action, extra){
-  const r=await fetch(LN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify(Object.assign({ id, action }, extra||{})) });
+  const r=await fetch(LN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify(Object.assign({ id, action }, lnFamPreview()?{ preview:true }:{}, extra||{})) });
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.error) throw new Error(j.error||('late-alert '+r.status));
   return j;
@@ -20369,6 +20381,8 @@ function lnBody(itemId, msg){
       +(D.call.missed_clockin_paused_until?'<div class="field-note">Missed clock-in texts to the admins paused until '+esc(D.call.missed_clockin_paused_until)+'.</div>':'')+'</div>':'')
     +(D.said||[]).filter(s=>!(D.call && D.call.quote && s.channel==='call')).map(s=>'<div style="background:#F1F5F9;border-radius:8px;padding:6px 9px;margin-bottom:5px;font-size:13px;">'+esc(s.text)+'<div class="field-note">'+(s.channel==='call'?'Call':'Text')+' at '+esc(s.at)+'</div></div>').join('')
     +'<div style="font-size:13px;margin:4px 0;"><b>'+(D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Expected about '+esc(D.eta)+(D.eta_by?' ('+esc(D.eta_by)+')':''):'No arrival time yet'))+'</b>'+(D.sure===false?' · <span style="color:#B45309;">the Hub wasn\'t sure which visit, check with them</span>':'')+'</div>';
+  const famStep=D.kind==='late'&&F.step, famFirst=famStep&&!D.closed&&!F.decided;
+  if(famFirst) h+=lnFamStepHtml(itemId, D);
   if(!D.closed){
     h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;">'
       +(D.seen?'<span class="field-note">Seen by '+esc(D.seen.by)+' at '+esc(D.seen.at)+'</span>':'<button class="primary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'seen\')">Seen</button>')
@@ -20376,7 +20390,8 @@ function lnBody(itemId, msg){
       +(D.kind==='cant_make_it'?'<button class="secondary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'coverage\')">Open a coverage case</button>':'')
       +'</div>';
   }
-  if(D.kind==='late'){
+  if(famStep && !famFirst) h+=lnFamStepHtml(itemId, D);
+  if(D.kind==='late' && !famStep){
     (F.sent||[]).forEach(s=>{ h+='<div class="field-note" style="margin-top:5px;color:var(--green);">Family '+(s.what==='arrived'?'told they arrived':s.what==='update'?'sent the update':'told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+')</div>'; });
     if(F.skipped) h+='<div class="field-note" style="margin-top:5px;">'+esc(F.skipped.by)+' chose not to tell the family.</div>';
     if(F.can){
@@ -20392,17 +20407,56 @@ function lnBody(itemId, msg){
     +'<div class="field-note" id="lnMsg_'+esc(itemId)+'" style="margin-top:4px;">'+esc(msg||'')+'</div></div>';
   return h;
 }
-async function lnDo(itemId, action){
+/* The family step on the card (her option A, decisions 2, 3, 4, 9, 10): who can be told, the text, Send / Don't tell,
+   and calling anyone in the Family Circle with "I called them". Nothing goes without a tap. */
+function lnFamStepHtml(itemId, D){
+  const esc=escapeHtmlComms, F=D.family||{}, btn='font-size:12.5px;padding:5px 12px;', id=esc(itemId), open=!D.closed&&!F.decided;
+  const pp=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):''; };
+  let h='<div style="margin:6px 0;border:1px solid '+(open?'#F2C46D':'var(--border)')+';background:'+(open?'#FFF8EA':'#fff')+';border-radius:8px;padding:8px 10px;">'
+    +'<div style="font-weight:700;color:var(--navy);font-size:13.5px;">'+(open?'Tell '+esc(D.client_first)+'\'s family?':esc(D.client_first)+'\'s family')+'</div>';
+  (F.sent||[]).forEach(s=>{ h+='<div class="field-note" style="margin-top:4px;color:var(--green);">'+(s.what==='called'?'Called by '+esc(s.by)+' at '+esc(s.at):'Family '+(s.what==='arrived'?'told they arrived':s.what==='update'?'sent the update':'told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+')')+'</div>'; });
+  if(F.skipped) h+='<div class="field-note" style="margin-top:4px;">'+esc(F.skipped.by)+' chose not to tell the family.</div>';
+  if(!D.closed && (open || (F.is_update && F.can))){
+    if(F.note) h+='<div style="color:#B45309;font-size:12.5px;font-weight:700;margin-top:4px;">'+esc(F.note)+'</div>';
+    if(F.can){
+      h+='<div class="field-note" style="margin-top:4px;">Texts '+esc((F.first_names||[]).join(', '))+' (Family Circle, agreed to texts). Each starts "Hi" and their first name.</div>'
+        +'<textarea id="lnFam_'+id+'" rows="3" style="width:100%;font-size:13px;padding:7px;border-radius:7px;">'+esc(F.draft||'')+'</textarea>'
+        +(F.hours_ok===false?'<div class="field-note"><b>Family texts go '+esc(F.hours||'6am to 9pm')+'.</b> Call them instead if it can\'t wait.</div>':'');
+    } else if(open) h+='<div class="field-note" style="margin-top:4px;">'+esc((F.why||'').replace(/^./,c=>c.toUpperCase()))+'.</div>';
+    h+='<div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;">'
+      +(F.can?'<button class="primary" style="'+btn+'"'+(F.hours_ok===false?' disabled':'')+' onclick="lnDo(\''+id+'\',\'family\')">'+(F.is_update?'Send the update':'Send to the family')+'</button>':'')
+      +(open?'<button class="ghost" style="'+btn+'" onclick="lnDo(\''+id+'\',\'skip\')">Don\'t tell the family</button>':'')+'</div>';
+  }
+  if(open && ((F.call_list||[]).length || F.client_phone)){
+    h+='<div class="field-note" style="margin-top:7px;"><b>Or call them</b> (rings your phone first, then connects from the office number):</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">'
+      +(F.call_list||[]).map(m=>'<button class="secondary" style="'+btn+'" title="'+esc(pp(m.phone))+'" onclick="lnDo(\''+id+'\',\'bridge\',{ target:\'member\', member_id:\''+esc(m.id)+'\' })">📞 '+esc(m.first)+(m.relationship?' ('+esc(m.relationship)+')':'')+'</button>').join('')
+      +(F.client_phone?'<button class="secondary" style="'+btn+'" onclick="lnDo(\''+id+'\',\'bridge\',{ target:\'client\' })">📞 '+esc(D.client_first)+'\'s home</button>':'')+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;"><input id="lnCalled_'+id+'" placeholder="Who you talked to (optional)" style="font-size:12.5px;padding:4px 7px;flex:1;min-width:150px;"><button class="ghost" style="'+btn+'" onclick="lnDo(\''+id+'\',\'called\')">I called them</button></div>';
+  }
+  if(F.arrived_can) h+='<textarea id="lnArr_'+id+'" rows="2" style="width:100%;font-size:13px;padding:7px;border-radius:7px;margin-top:6px;">'+esc(F.arrived_draft||'')+'</textarea><button class="primary" style="'+btn+'" onclick="lnDo(\''+id+'\',\'arrived\')">Tell the family '+esc(D.caregiver_first)+' arrived</button>';
+  return h+'</div>';
+}
+async function lnDo(itemId, action, args){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const D=LN_VIEW[itemId]||{}, F=D.family||{};
   let extra={};
+  if(action==='bridge'){
+    const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Ringing your phone…';
+    try{ const j=await lnCall(it.late_notice_id, 'bridge', args||{});
+      const who=args&&args.member_id?((F.call_list||[]).find(x=>x.id===args.member_id)||{}):null;
+      if(m) m.textContent=j.ok?'Your phone is ringing. Answer it and press a key to be connected from the office number. Then tap "I called them".'
+        :'Could not ring your phone'+(j.message?': '+j.message:j.why==='not_found'?': they are not in GoHighLevel yet':'')+'.'+(who&&who.phone?' Their number: '+who.phone.replace(/^\+1/,'').replace(/(\d{3})(\d{3})(\d{4})/,'($1) $2-$3')+'.':''); }
+    catch(e){ if(m) m.textContent='Could not: '+e.message; }
+    return;
+  }
+  if(action==='called'){ extra={ note:((document.getElementById('lnCalled_'+itemId)||{}).value||'').trim() }; }
   if(action==='eta'){ const v=(document.getElementById('lnEta_'+itemId)||{}).value||''; if(!v){ const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Pick a time first.'; return; } extra={ hhmm:v }; }
   if(action==='family'){ const t=((document.getElementById('lnFam_'+itemId)||{}).value||'').trim(); if(!t) return; if(!(await ccConfirm('Text '+(F.first_names||[]).join(', ')+' now?'))) return; extra={ text:t }; }
   if(action==='arrived'){ if(!(await ccConfirm('Tell the family '+D.caregiver_first+' arrived?'))) return; extra={ text:((document.getElementById('lnArr_'+itemId)||{}).value||'').trim() }; }
   if(action==='coverage' && !(await ccConfirm('Open a coverage case for this shift? The call-in process takes it from there.'))) return;
   const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Working…';
   try{ const j=await lnCall(it.late_notice_id, action, extra);
-    opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
+    opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', called:'called the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
     await lnOpen(itemId, j.count?'Sent to '+j.count+'.':(j.others_told?'Done. The other admins were told.':'Done.')); }
   catch(e){ if(m) m.textContent='Could not: '+e.message; }
 }
@@ -20462,6 +20516,12 @@ async function lnSetFill(){
   if(s) s.textContent=!on('late_watch_live')?'Practice: running-late messages are found and listed below; nothing is texted and no card opens.'
     :'Notices ON · caregiver replies '+(on('late_cg_reply_live')?'ON':'off')+' · admin texts '+(on('late_admin_live')?'ON':'off')+'. The family is only texted by a person\'s tap.';
   if(s) s.textContent+=' Calls: '+(on('late_call_live')?'ON (a caregiver\'s call is read and can pause the missed clock-in texts until 5 minutes after the time they gave).':'off.');
+  const fs=document.getElementById('lnFamStepStatus'), fb=document.getElementById('lnFamBtn'), fp=document.getElementById('lnFamPrevBtn'), owner=typeof ccIsOwner==='function'&&ccIsOwner(), prev=typeof lnFamPreview==='function'&&lnFamPreview();
+  if(fs) fs.innerHTML=(on('late_family_step_live')?'<b style="color:#1E8449;">On.</b>':'<b style="color:#B7791F;">Off.</b> The card works as before.')
+    +(prev?' <b>You are previewing it</b> on this browser: the running-late cards show the new family step to you only. The admin texts and the card title change only when it is on.':'')
+    +(owner?'':' Only Samantha or Zachary can turn it on or off.');
+  if(fb){ fb.textContent=on('late_family_step_live')?'Turn off telling the family':'Turn on telling the family'; if(fb.style) fb.style.display=owner?'':'none'; }
+  if(fp){ fp.textContent=prev?'Stop previewing':'Preview it (only you)'; if(fp.style) fp.style.display=owner&&!on('late_family_step_live')?'':'none'; }
   const box=document.getElementById('lnPractice'); if(!box) return;
   let rows=[]; try{ const r=await sb.from('late_notices').select('*').eq('status','practice').gte('shift_date', new Date(Date.now()-7*864e5).toISOString().slice(0,10)).order('shift_start',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
   const esc=escapeHtmlComms, clk=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'short', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
@@ -20489,9 +20549,11 @@ async function lnSetSave(btn){
 async function lnSetToggle(key, btn){
   const st=DATA.ops_settings||{}, on=key==='late_call_live'?(st[key]===false):!(st[key]===true);
   if(key!=='late_watch_live' && key!=='late_call_live' && on && st.late_watch_live!==true) return;
+  if(key==='late_family_step_live' && !ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
   const ask={ late_watch_live:on?'Turn on running-late notices? From the next check, a caregiver\'s running-late message opens a card in Needs Attention, and their missed clock-in texts wait until 5 minutes after the time they gave. Nothing is texted yet.':'Turn off running-late notices? It goes back to practice (found and listed, nothing else).',
     late_cg_reply_live:on?'Turn on caregiver replies? A caregiver who texts that they\'re running late gets one thank-you with their time, or one "about what time?"':'Turn off caregiver replies?',
     late_admin_live:on?'Turn on admin texts? Every admin is texted a link now and every 5 minutes until someone taps Seen.':'Turn off admin texts? The card still opens in Needs Attention.',
+    late_family_step_live:on?'Turn on telling the family? From the next check (within 5 minutes): the admins\' running-late text names who in the family can be told, the Send button shows whenever there is a time and someone to text (with a note when it is only a few minutes or the Hub was not sure), and the card stays at the top until someone sends, chooses not to, or records a call. The family is still only texted when a person taps Send.':'Turn off telling the family? The card goes back to how it was: the Send button only at 10+ minutes when the Hub is sure.',
     late_call_live:on?'Turn calls back on? A caregiver\'s call that says they\'re running late opens a card, and when they gave a time the missed clock-in texts pause until 5 minutes after it.':'Turn off calls? Calls are still read, but only in practice (listed below): no card, and the missed clock-in texts are never paused because of a call.' }[key];
   if(!(await ccConfirm(ask))) return;
   if(btn) btn.disabled=true;
