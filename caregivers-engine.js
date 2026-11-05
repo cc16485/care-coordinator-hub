@@ -8302,7 +8302,7 @@ function obtRender(box){
   if(notAdded.length) run.push('<div class="ckd-msg ckd-soft"><b>' + notAdded.length + ' offered ' + (notAdded.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> ' + notAdded.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
   box.innerHTML = ''
     + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + (obtOio() ? 'From the offer to Approved to Work.' : 'From Step 1 to Approved to Work.') + ' Longest waiting first.' + (window.OAV ? ' ' + OAV.previewLink() : '') + '</div></div>'
-    +   '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div>'
+    +   '<div class="oav-head">' + (window.OAV && OAV.button ? OAV.button() : '') + '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div></div>'
     + '<div class="obt-sum">' + sum('all', 'Active', 'all', 'Everyone onboarding')
     +   sum('office', 'Need office action', 'office', 'Has a button for us')
     +   sum('waiting', 'Waiting on applicants or outside', 'wait', 'Nothing for us: waiting on the applicant, a reference or the state')
