@@ -4826,6 +4826,17 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 </div>
 
+<div class="settings-section" data-set="hiring-fold">
+<h3>🗂️ Hiring tab, tidy</h3>
+<p class="hint">A shorter Hiring tab on each applicant's page: every section (The offer, References, The whole journey, Signed documents, Driver Compliance, Hepatitis B) folds to one line with a short summary and opens with a click. Their journey (Now, Next, Missing or follow-up) always stays open, and each person's browser remembers what they opened. The "Open Hiring" banner goes while Hiring is open, and signed Step 1 forms show once, under Signed documents. Only the look changes: nothing is sent or saved. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="hfSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="hfToggleBtn" onclick="HFOLD.toggle(this)">Turn on the tidy Hiring tab for everyone</button>
+  <button class="secondary" id="hfPreviewBtn" onclick="HFOLD.preview(!HFOLD.previewOn());HFOLD.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="hfSaved"></span>
+</div>
+</div>
+
 <div class="settings-section" data-set="onboarding-availability">
 <h3>📅 Onboarding availability chart</h3>
 <p class="hint">A Show availability button on Caregivers, Onboarding (the table look). It opens a week grid of when the people in onboarding can work (Morning, Afternoon, Evening, Overnight, Monday to Sunday), with Everyone, Caregivers, CNAs and PRN, the hours a week they want, who has availability unknown, and a Ready by line. It reads each person's own Step 1 answers (or their availability record once they are on the AxisCare roster). Nothing is sent or changed.</p>
@@ -7585,7 +7596,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=3"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -7601,7 +7612,7 @@ The HomeTogether team</pre>
 <script src="visit-reasons.js?v=1"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=11"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=11"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=12"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
@@ -19421,6 +19432,7 @@ function lhSetFill(){
   try{ ltcSetFill(); }catch(e){}
   try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
   try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
+  try{ if(window.HFOLD) HFOLD.settingsFill(); }catch(e){}
   try{ if(window.OAV) OAV.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
@@ -25929,6 +25941,11 @@ function apNextStep(r, b){
 function apTab(k){
   if(!AP_TABS_HAVE.includes(k)) k = 'overview';
   AP_TAB = k;
+  /* 2026-11-05: the tidy Hiring tab: no "Open Hiring" banner while Hiring is open; the folded summaries follow what loads */
+  if(window.HFOLD) HFOLD.mark();
+  { const tidy = !!(window.HFOLD && HFOLD.showing()), nb = document.querySelector('#apProfLeft [data-next-go="hiring"]');
+    if(nb) nb.style.display = tidy && k === 'hiring' ? 'none' : '';
+    if(tidy && k === 'hiring') HFOLD.watch(document.getElementById('apPane-hiring')); }
   PP_TABS.forEach(([t]) => {
     const pane = document.getElementById('apPane-' + t); if(pane) pane.style.display = t === k ? 'block' : 'none';
     const btn = document.getElementById('apTabBtn-' + t); if(btn){ btn.classList.toggle('active', t === k); btn.setAttribute('aria-selected', String(t === k)); }
@@ -25936,7 +25953,11 @@ function apTab(k){
   if(k === 'interview' && AP_PROF && window.IR){ const el = document.getElementById('apIrHost'); if(el && !el.dataset.done){ el.dataset.done = '1'; IR.mount(el, AP_PROF); } }   /* 2026-10-13 */
   const r = AP_PROF; if(!r || !window.HP) return;
   /* the Whole profile's pieces, read when their tab is first opened */
-  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
+  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1';
+    /* 2026-11-05: the tidy Hiring tab draws the journey and the documents in their own folded sections (hiring-fold.js) */
+    const jy = document.getElementById('apHpJourney'), dc = document.getElementById('apHpDocs');
+    if(jy && dc){ HP.mount(el, { applicant_id: r.id }, ['status']); HP.mount(jy, { applicant_id: r.id }, ['journey']); HP.mount(dc, { applicant_id: r.id }, ['docs']); }
+    else HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
   if(k === 'hiring' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
   if(k === 'checks' && window.DT){ const el = document.getElementById('apDt'); if(el && !el.dataset.done){ el.dataset.done = '1'; DT.mount(el, { applicant_id: r.id, name: [r.first_name, r.last_name].filter(Boolean).join(' ') }); } }   /* 2026-10-13 Drug tests */
   if(k === 'hiring' && window.HEPB){ const el = document.getElementById('apHepb'); if(el && !el.dataset.done){ el.dataset.done = '1'; HEPB.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
@@ -26035,7 +26056,7 @@ function apRenderProfile(){
         + (r.city||r.zip ? ' · ' + esc(r.city||r.zip) : '') + ' · applied ' + esc(when(r.created_at)) + '</div>'
       + ppStagesHtml(apStageNow(r, b), ended) + '</div>'
     + '</div>'
-    + '<div class="' + nx[0] + '"><div><small>' + nx[1] + '</small>' + nx[2] + '</div>' + nx[3] + '</div>'
+    + '<div class="' + nx[0] + '"' + (/apTab\('hiring'\)/.test(nx[3]) ? ' data-next-go="hiring"' : '') + '><div><small>' + nx[1] + '</small>' + nx[2] + '</div>' + nx[3] + '</div>'
     + '<div class="pp-links">' + links.join('') + '</div>'
     + '</div>';
 
@@ -26093,7 +26114,7 @@ function apRenderProfile(){
       /* 2026-10-13: the AI review, kept apart from the interviewer's notes above (interview-review-ui.js) */
       + (window.IR ? apProfCard('AI interview review', '<div id="apIrHost"></div>', 'A second set of ears, office only. It runs only when you tap it, and never scores or decides.') : '')
       + (offered ? '<div id="apHpSkills"></div>' : ''))
-    + pane('hiring',
+    + pane('hiring', window.HFOLD && HFOLD.showing() ? apHiringFolded(r) :
         apProfCard('The offer', apProfOffer(r), '')
       + apProfCard('References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
           'Each reference, where they have got to, and what to do next.')
@@ -26597,6 +26618,20 @@ function apProfInterview(r){
   return out;
 }
 
+/* 2026-11-05: the Hiring tab, tidy (hiring-fold.js, ops_settings.hiring_fold_live): Their journey stays open, everything
+   else folds to one line with its summary. Same ids as the current tab, so every mount and button works the same. */
+function apHiringFolded(r){
+  const esc = escapeHtmlComms, H = { FULL_TIME:'Full time', PART_TIME:'Part time', PRN:'PRN' };
+  const day = iso => new Date(iso).toLocaleDateString('en-US',{month:'short', day:'numeric'});
+  const offerSum = [esc(r.offer_position||''), esc(H[r.offer_hours]||''), r.hired_at ? 'hired ' + esc(day(r.hired_at)) : r.offer_sent_at ? 'offer sent ' + esc(day(r.offer_sent_at)) : ''].filter(Boolean).join(' · ');
+  return (window.HP ? '<div class="card" style="padding:4px 18px 16px;margin-bottom:14px;"><div id="apHpHiring"></div></div>' : '')
+    + HFOLD.card('offer', 'The offer', apProfOffer(r), '', offerSum)
+    + HFOLD.card('refs', 'References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>', 'Each reference, where they have got to, and what to do next.', '')
+    + (window.HP ? HFOLD.card('journey', 'The whole journey, step by step', '<div id="apHpJourney"></div>', '', '')
+                 + HFOLD.card('docs', 'Signed documents and proofs', '<div id="apHpDocs"></div>', '', '') : '')
+    + (window.DRV ? HFOLD.card('driver', 'Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.', '') : '')
+    + (window.HEPB ? HFOLD.card('hepb', 'Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.', '') : '');
+}
 function apProfOffer(r){
   const esc = escapeHtmlComms;
   const HOURS = { FULL_TIME:'Full time', PART_TIME:'Part time', PRN:'PRN, as needed' };

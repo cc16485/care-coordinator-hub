@@ -110,7 +110,7 @@
   }
   function docsHtml(p){
     const docs = p.documents || [];
-    return '<div style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
+    return '<div data-hf-sum="' + (docs.length ? docs.length + (docs.length === 1 ? ' document' : ' documents') : 'nothing signed yet') + '" style="margin-top:.8rem"><b style="color:#0D365F">Signed documents and proofs</b> <span class="field-note">(' + docs.length + ') · each opens by a five-minute link; every open is logged with your name</span>'
       + (docs.length ? '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.35rem;margin-top:.4rem">' + docs.map((d, i) =>
           '<div style="border:1px solid #E8E2D8;border-radius:8px;padding:.4rem .55rem;display:flex;gap:.5rem;align-items:center"><span style="flex:1;font-size:.82rem"><b>' + esc(d.label) + '</b>'
           + (d.at ? '<br><span class="field-note">' + esc(central(d.at)) + '</span>' : '') + '</span>' + revealBtn(p, d) + '<button class="ibtn" onclick="HP.doc(' + i + ',this)">Open</button></div>').join('') + '</div>'
@@ -191,9 +191,12 @@
     const oid = (p.ids || {}).offer_id;
     if(st.step1) h += '<div style="font-size:.82rem;margin-top:.45rem"><b>Step 1 forms</b> <span class="field-note">signed forms are read-only and never change; open them under Signed documents below</span>'
       + (oid ? ' <button class="ibtn" style="font-size:.74rem" onclick="HP.step1(\'' + esc(oid) + '\',this)">&#128065; See their Step 1 screens</button>' : '')
+      /* 2026-11-05: with the tidy Hiring tab, signed forms show once, under Signed documents (hiring-fold.js) */
+      + (() => { const n = st.step1.forms.filter(f => (f.state || (f.signed_at ? 'signed' : '')) === 'signed').length;
+          return n ? '<div class="hp-s1-note field-note" style="display:none;margin-top:.2rem">' + n + ' of ' + st.step1.forms.length + ' signed; open them under Signed documents.' + (n < st.step1.forms.length ? ' Still to do:' : '') + '</div>' : ''; })()
       + '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.2rem .8rem;margin-top:.2rem">' + st.step1.forms.map(f => { const S1 = { signed:['Signed','#15803D','#DCFCE7'], in_progress:['In Progress','#92400E','#FEF3C7'], not_started:['Not Started','#6E6559','#F4F2ED'], needs_attention:['Needs Attention','#B91C1C','#FEE2E2'] }[f.state || (f.signed_at ? 'signed' : 'not_started')] || ['', '#6E6559', '#F4F2ED'];
           /* 2026-10-13 (Samantha): each form's own status, and an office person can open a signed form at once, before Step 1 is finished */
-          return '<div><span style="font-size:.68rem;font-weight:700;color:' + S1[1] + ';background:' + S1[2] + ';border-radius:6px;padding:.05rem .4rem">' + S1[0] + '</span> ' + esc(f.title)
+          return '<div' + ((f.state || (f.signed_at ? 'signed' : '')) === 'signed' ? ' class="hp-s1-signed"' : '') + '><span style="font-size:.68rem;font-weight:700;color:' + S1[1] + ';background:' + S1[2] + ';border-radius:6px;padding:.05rem .4rem">' + S1[0] + '</span> ' + esc(f.title)
             + (f.signed_at ? ' <span class="field-note">' + esc(central(f.signed_at)) + '</span>' : '') + (f.why ? ' <span class="field-note" style="color:#B91C1C">' + esc(f.why) + '</span>' : '')
             + (oid && (f.signed_at || f.state === 'in_progress') ? ' <a class="field-note" href="step1.html?review=' + esc(oid) + '" target="_blank" rel="noopener">open</a>' : '') + '</div>'; }).join('') + '</div></div>'
       + (oid ? '<div class="hp-s1" data-offer="' + esc(oid) + '" style="display:none;margin-top:.5rem"></div>' : '');
@@ -231,7 +234,10 @@
     const tl = p.timeline || []; const groups = JSTEPS.map(([t]) => ({ t, rows: [] }));
     tl.forEach(x => { const i = JSTEPS.findIndex(([, re]) => re.test(x.what)); if(i >= 0) groups[i].rows.push(x); });
     const ids = p.ids || {};
-    let h = '<div style="margin-top:.8rem;border:1px solid #E8E2D8;border-radius:10px;padding:.6rem .75rem"><b style="color:#0D365F">The whole journey, step by step</b> <span class="field-note">every send, answer and completion from the records, newest last; the full list is on History</span>'
+    /* 2026-11-05: the one-line summary the tidy Hiring tab shows while this is folded (hiring-fold.js) */
+    const last = tl.length ? tl.slice().sort((a, b) => String(a.at || '').localeCompare(String(b.at || ''))).pop() : null;
+    const hfSum = tl.length ? tl.length + (tl.length === 1 ? ' entry' : ' entries') + ' · last ' + central(last.at) + ': ' + String(last.what || '').slice(0, 70) : 'nothing yet';
+    let h = '<div data-hf-sum="' + esc(hfSum) + '" style="margin-top:.8rem;border:1px solid #E8E2D8;border-radius:10px;padding:.6rem .75rem"><b style="color:#0D365F">The whole journey, step by step</b> <span class="field-note">every send, answer and completion from the records, newest last; the full list is on History</span>'
       + (ids.offer_id && p.path === 'new' && window.CRX ? ' <button class="ibtn" style="font-size:.74rem" onclick="CRX.open(\'' + esc(ids.offer_id) + '\')">&#9776; Readiness card: every requirement, who owns it, Approve to Work</button>' : '');
     h += groups.map(g => '<div style="margin-top:.5rem"><div style="font-size:.8rem;font-weight:800;color:' + (g.rows.length ? '#0D365F' : '#8A7F70') + '">' + esc(g.t) + (g.rows.length ? '' : ' <span class="field-note">nothing yet</span>') + '</div>'
       + g.rows.slice(-6).map(x => { const T = TYPES[x.type] || TYPES.done; return '<div style="font-size:.78rem;margin:.1rem 0 0 .6rem"><span style="color:#6E6559">' + esc(central(x.at)) + '</span> <span style="font-size:.66rem;font-weight:700;color:' + T[1] + ';background:' + T[2] + ';border-radius:6px;padding:0 .35rem">' + T[0] + '</span> ' + esc(x.what) + (x.by ? ' <span class="field-note">' + esc(x.by) + '</span>' : '') + '</div>'; }).join('')
