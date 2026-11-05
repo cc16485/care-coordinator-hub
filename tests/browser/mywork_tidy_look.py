@@ -43,7 +43,9 @@ async()=>{
   /* ── ON ── */
   DATA.ops_settings.mywork_tidy_live=true; myWorkGo('today'); renderMyWork(); await sleep(150);
   ok('on · the top is one line, the five boxes are gone', !!document.querySelector('.mwt-strip') && !document.querySelector('#todayStrip .ts-strip') && /Coverage:/.test($('todayStrip').innerText), $('todayStrip').innerText.slice(0,200));
-  const t=tabs();
+  let t=tabs();
+  /* 2026-11-05: Follow-ups (practice) sits next to Today for owners (cc-followups.js); the rest keep their order */
+  t=t.filter(x=>!/^Follow-ups/.test(x));
   ok('on · tabs: Today, Team Work, All mine, Waiting, More', /^Today/.test(t[0]) && /^Team Work/.test(t[1]) && /^All mine/.test(t[2]) && /^Waiting/.test(t[3]) && /^More/.test(t[4]) && !t.some(x=>/^Reviews/.test(x)), t);
   MWTidy.more(); await sleep(60);
   ok('on · More opens the rest (Reviews, Up for grabs, Unassigned…)', tabs().some(x=>/^Reviews/.test(x)) && tabs().some(x=>/^Unassigned/.test(x)), tabs());
@@ -56,7 +58,7 @@ async()=>{
   const pastBox=[...document.querySelectorAll('details')].find(d=>/PAST ITS DAY/.test(d.textContent));
   ok('on · call cards 2+ days past their day are folded in Past its day', pastBox && pastBox.querySelector('.tw-card[data-id="old1"]') && pastBox.querySelector('.tw-card[data-id="old2"]'), pastBox&&pastBox.textContent.slice(0,200));
   ok('on · owners get boxes and the toolbar', document.querySelectorAll('.mwt-box').length>0 && /Select everything over 3 days late/.test(w()));
-  const badge=(document.querySelector('#myWorkTabs .subtab:nth-child(2) .subtab-badge')||{}).textContent||'';
+  const badge=(([...document.querySelectorAll('#myWorkTabs .subtab')].find(x=>/^Team Work/.test(x.textContent))||{querySelector:()=>null}).querySelector('.subtab-badge')||{}).textContent||'';
   ok('on · the Team Work number leaves out what folded away', /^\d+$/.test(badge) && +badge < TW.list().length, [badge, TW.list().length]);
   window.__shot && await window.__shot('1-team-work');
 
