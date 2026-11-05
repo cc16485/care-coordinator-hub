@@ -44129,6 +44129,26 @@ function ccOpenRef(sub){
         { kind:'state', text:'A provider that can no longer meet the needs of a participant who still needs help gives written notice of discharge to the participant or family and to the Division at least 21 days before the discharge, and keeps providing care for those 21 days or until DSDS arranges other care.', source:'19 CSR 15-7.021(16)(D)', url:'https://www.sos.mo.gov/cmsimages/adrules/csr/current/19csr/19c15-7.pdf', checked:'2026-10-15' },
         { kind:'choice', text:'Caring Companions stops agency Medicaid (IHS and ADW) on November 16, 2026. CDS continues through our sister company.', source:'Samantha, 2026-10-14', url:'', checked:'' },
         { kind:'procedure', text:'Families only hear about this in wording Samantha has approved.', source:'', url:'', checked:'' }
+      ] },
+    /* cds_transfer (2026-11-05, her ask: "Write the office steps for transferring a CDS caller, put them in the Hub SOPs") */
+    { slot:'cds_transfer', moment:'lead', state:'MO', drafted:'Claude, 2026-11-05', title:'A CDS caller on our line: transfer them to Caring CDS',
+      when:'Someone calls 417-234-8494 and asks about CDS (consumer directed services), Medicaid home care, or getting paid to care for a family member. CDS is our sister company, Caring Companions CDS, with its own office line: (417) 218-2888.',
+      owner:'Whoever answers the call', backup:'',
+      steps:[
+        'Before you transfer, get their name and the best number to reach them, in case the call drops.',
+        'Tell them: "That is our sister company, Caring Companions CDS. I am going to connect you with their office now so you get the right answers."',
+        'In the LeadConnector app, tap Transfer, open the dial pad, and dial (417) 218-2888.',
+        'Use a warm transfer: the caller waits on hold while CDS rings. When CDS answers, say who is calling and what they need, then leave the call.',
+        'If nobody at CDS answers: go back to the caller, tell them CDS will call them back, and keep their name and number.',
+        'After the call, open the call card in the Hub and press Send to Caring CDS. CDS gets them on its Leads list with our call notes, and our family-lead follow-up stops.',
+        'Do not promise hours, pay, or that they qualify. Caring Companions CDS answers those.'
+      ],
+      where:[{ label:'LeadConnector app: Transfer on the call', url:'' },{ label:'Hub: the call card, Send to Caring CDS', url:'' },{ label:'Caring Companions CDS office hub', url:'https://hub.caringcds.com' }],
+      done_when:'The caller is talking with Caring Companions CDS (or CDS has their name and number to call back), and the call card shows they were sent to Caring CDS.',
+      escalate_if:'The Transfer button is missing, or the app will not dial an outside number: the app needs version 3.97.3 or newer and your user must be allowed to transfer to outside numbers. Take their name and number, press Send to Caring CDS, and tell Samantha so she can fix your settings.',
+      why:[
+        { kind:'choice', text:'CDS callers get their answers from Caring Companions CDS, our sister company, not from our office.', source:'Samantha, 2026-11-01', url:'', checked:'' },
+        { kind:'procedure', text:'Send to Caring CDS puts them on the CDS Leads list and takes them out of our family-lead texts and emails, so nobody gets two sets of follow-up.', source:'', url:'', checked:'' }
       ] }
   ];
   let openId=null, editId=null, staffingLinks=null, stateFilter='all';
@@ -44380,7 +44400,8 @@ function ccOpenRef(sub){
     if(!isOwner()) return;
     const have=new Set(all().map(d=>d.slot).filter(Boolean));
     for(const s of STARTERS.filter(x=>!have.has(x.slot))){
-      await put(Object.assign(JSON.parse(JSON.stringify(s)), { id:'sop_'+s.slot, status:'draft', drafted_by:'Claude, 2026-10-17' }));
+      const d=JSON.parse(JSON.stringify(s)); delete d.drafted;
+      await put(Object.assign(d, { id:'sop_'+s.slot, status:'draft', drafted_by:s.drafted||'Claude, 2026-10-17' }));
     }
     sopRender();
   };
