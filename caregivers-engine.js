@@ -11556,6 +11556,39 @@ function obChecksMount(el, candId){
   const c = candidates.find(x => String(x.id) === String(candId));
   el.innerHTML = c ? obChecksHtml(c) : '<div class="field-note">Their Background &amp; References record was not found, so their checks cannot show here.</div>';
 }
+/* 2026-11-05: once someone is on the roster their Background & References record is gone and the checks they were hired
+   on live on their caregiver record (oig_status, edl_status, fcsr_status, casenet, fp). Shown read only: at hire they
+   are kept exactly as they are, for audits; later OIG runs and renewals are on Compliance. */
+function obChecksRosterMount(el, cgId){
+  if(!el) return;
+  const cg = caregivers.find(x => String(x.id) === String(cgId));
+  el.innerHTML = cg ? obChecksRosterHtml(cg) : '<div class="field-note">Their caregiver record was not found, so their checks cannot show here.</div>';
+}
+function obChecksRosterHtml(cg){
+  const esc = bgrEsc;
+  const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
+  const tone = v => /^(clear|n\/a|not required)$/i.test(String(v||'')) ? ['#15803D','#DCFCE7'] : /flag|issue|overdue/i.test(String(v||'')) ? ['#B91C1C','#FEE2E2'] : ['#B45309','#FEF3C7'];
+  const field = { oig:'oig_status', edl:'edl_status', fcsr:'fcsr_status', casenet:'casenet', fp:'fp' };
+  const rows = BGR_CHECKS.map(m => {
+    const k = m.k, d = cg[k + '_date'], proof = cg[k + '_proof'];
+    let v = String(cg[field[k]] || '');
+    if(k === 'fp' && cg.oos !== 'yes' && (!v || v === 'N/A')) v = 'Not required';
+    else if(!v) v = d ? 'Clear' : 'Not on file';   /* a clear OIG run blanks the status and keeps the date */
+    if(/^clear$/i.test(v)) v = 'Clear'; else if(/^flagged$/i.test(v)) v = 'Flagged';
+    const t = tone(v);
+    return '<tr style="border-bottom:1px solid #F0EDE6;">'
+      + '<td style="padding:7px 8px;font-weight:600;color:var(--navy);white-space:nowrap;">' + esc(m.label) + '</td>'
+      + '<td style="padding:7px 8px;"><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;color:' + t[0] + ';background:' + t[1] + ';white-space:nowrap;">' + esc(v) + '</span></td>'
+      + '<td style="padding:7px 8px;white-space:nowrap;">' + esc(day(d)) + '</td>'
+      + '<td style="padding:7px 8px;">' + (proof ? '<a class="pp-link" href="#" data-proof="' + esc(proof).replace(/"/g, '&quot;') + '" onclick="SCX.viewProof(this.dataset.proof);return false">Open</a>'
+          : (v !== 'Not required' && v !== 'Not on file' ? '<span style="color:#B45309;">none on file</span>' : '')) + '</td></tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px;">'
+    + '<thead><tr style="text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'
+    + '<th style="padding:6px 8px;">Check</th><th style="padding:6px 8px;">Result</th><th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Proof</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div>'
+    + '<div class="field-note" style="margin-top:6px;">From their caregiver record, kept as they were at hire. Monthly OIG runs and renewals are on Compliance.</div>';
+}
 function obChecksHtml(c){
   const esc = bgrEsc, id = c.id;
   const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
