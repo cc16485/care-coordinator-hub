@@ -35,7 +35,7 @@ function fakeSb(rows){ return { from(){ let f = rows.slice(); const q = { select
 
   /* the caregiver page carries the application half */
   const half = cut(IDX, 'async function cgdAppHalfMount(axid, appId){', 'async function cgdApAct(fn, id){');
-  for (const box of ["'What they told us'", "'The screen'", "'Where they have worked'", "'The interview'", "'The offer'", "'Getting them started'", "'Their journey, forms and signed documents'", 'apOffboard', 'apToOffer'])
+  for (const box of ["'What they told us'", "'The screen'", "'Where they have worked'", "'The interview'", "'The offer'", "'References'", "'Their journey, forms and signed documents'", 'apOffboard', 'apToOffer'])
     ok(half.includes(box), 'caregiver page carries: ' + box);
   ok(/apOnboardMount\(r, document\.getElementById\('cgdApOnboard'\)\)/.test(half) && /async function apOnboardMount\(r, hostEl\)/.test(IDX), 'start paperwork draws into its own box (no shared ids with the application page)');
   ok(/if\(CGD_APP && CGD_APP\.axid===axid\) return;/.test(half), 'mounted once per open');

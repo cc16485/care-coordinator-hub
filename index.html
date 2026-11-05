@@ -7589,7 +7589,7 @@ The HomeTogether team</pre>
 <script src="visit-reasons.js?v=1"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=11"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=10"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="hire-profile.js?v=11"></script><!-- the main profile of a hire (2026-10-11) -->
 <script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
@@ -19706,7 +19706,7 @@ async function cgdAppHalfMount(axid, appId){
     + '<div id="cgdApSkills"></div>';
   const h=document.getElementById('cgdApHire');
   if(h) h.innerHTML=apProfCard('The offer', apProfOffer(r), '')
-    + apProfCard('Getting them started', '<div id="cgdApOnboard"><div class="field-note">Looking…</div></div>', 'References, the screenings and the paperwork.')
+    + apProfCard('References', '<div id="cgdApOnboard"><div class="field-note">Looking…</div></div>', 'Each reference, where they have got to, and what to do next.')
     + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="cgdApHp"></div>', 'Read from their records. Signed documents never change.') : '')
     + '<div class="pp-links" style="margin:0 0 10px;">'
       + '<button type="button" class="pp-link" onclick="cgdApAct(\'apToOffer\',\''+id+'\')">Offer form</button>'
@@ -26082,8 +26082,8 @@ function apRenderProfile(){
       + (offered ? '<div id="apHpSkills"></div>' : ''))
     + pane('hiring',
         apProfCard('The offer', apProfOffer(r), '')
-      + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
-          'References, the screenings and the paperwork, wherever they have got to.')
+      + apProfCard('References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
+          'Each reference, where they have got to, and what to do next.')
       + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="apHpHiring"></div>', 'Read from their records. Signed documents never change.') : '')
       + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : '')
       + (window.HEPB ? apProfCard('Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.') : ''))   /* 2026-10-13 driver-compliance.js, hepb-card.js */
@@ -26159,18 +26159,24 @@ async function apOnboardMount(r, hostEl){
         .eq('applicant_id', r.id).order('created_at',{ascending:false}).limit(1),
       sb.from('reference_requests').select('*').eq('applicant_id', r.id).order('slot'),
     ]);
-    if(h.error) throw h.error;
-    let intake = (h.data||[])[0];
+    let intake = h.error ? null : (h.data||[])[0];   /* the old start form is optional now; a refusal never hides the references */
     /* Fix 2 of 4 (2026-10-08): hire_intake.applicant_id was only ever set by a one-time backfill, so every newer start
        form showed here as "No start form yet". When the link is missing, their start form is found by the phone or
        email on the application, the same match the import uses. Read only; nothing is written. */
     if(!intake) intake = await apIntakeByContact(r);
     let R = refs.error ? [] : (refs.data||[]);
+    /* 2026-11-05: Step 1 forms are no longer kept in hire_intake, so most people have no start form there. Their
+       Background & References record is found the way Their journey finds it (the same read, by applicant). Read only. */
+    const cands = (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
+    let boardCand = intake ? cands.find(c => c && String(c.intake_id || '') === String(intake.id)) || null : null;
+    if(!boardCand && window.HP && typeof HP.ids === 'function'){
+      const cid = (await HP.ids({ applicant_id: r.id })).candidate_id;
+      if(cid != null) boardCand = cands.find(c => c && String(c.id) === String(cid)) || null;
+    }
     /* 2026-10-12: requests asked from Background & References carry their board record, not the application. Found by
        id: the board record made from this start form (intake_id), then that record's requests. Read only. */
-    if(!R.length && intake && window.SCX && typeof SCX.getCandidates === 'function'){
-      const ids = (SCX.getCandidates() || []).filter(c => c && String(c.intake_id || '') === String(intake.id)).map(c => c.id).filter(x => x != null);
-      if(ids.length){ try{ const q = await sb.from('reference_requests').select('*').in('candidate_id', ids).order('slot'); if(!q.error) R = q.data || []; }catch(e){} }
+    if(!R.length && boardCand){
+      try{ const q = await sb.from('reference_requests').select('*').eq('candidate_id', boardCand.id).order('slot'); if(!q.error) R = q.data || []; }catch(e){}
     }
     /* one line per reference: a slot can hold an older request and a newer one; the answered one, else the newest */
     { const by = {}; R.forEach(x => { const cur = by[x.slot];
@@ -26178,9 +26184,8 @@ async function apOnboardMount(r, hostEl){
       R = Object.values(by).sort((a, b) => (a.slot||0) - (b.slot||0)); }
     let out = '';
 
-    if(!intake){
-      out += '<div class="field-note">No start form yet. It sends itself when the offer goes out, and lands here when they fill it in.</div>';
-    } else {
+    /* the old start form's rows show only for the few who have one; Step 1 forms are on Their journey below */
+    if(intake){
       const back = intake.screening_cleared_at;
       out += apProfRow('Start form', esc(new Date(intake.created_at).toLocaleDateString('en-US',{month:'long', day:'numeric'})) + ' · signed')
         + apProfRow('AxisCare number', esc(intake.candidate_id || '') )
@@ -26191,14 +26196,12 @@ async function apOnboardMount(r, hostEl){
             ? 'deleted once screening cleared' : '<span style="color:#B45309;">still held, deleted when screening clears</span>');
     }
 
-    /* 2026-10-12 step 3: when their Background & References record is found (by id, through the start form), the
+    /* 2026-10-12 step 3: when their Background & References record is found (by id), the
        reference cards show here instead of the list: everything about each reference, and every action for it */
-    const boardCand = (intake && window.SCX && typeof SCX.getCandidates === 'function')
-      ? (SCX.getCandidates() || []).find(c => c && String(c.intake_id || '') === String(intake.id)) : null;
     /* the same record carries their background checks (Training & checks tab) */
     { const ch = !hostEl && document.getElementById('apChecksHost');
       if(ch){ if(boardCand && typeof obChecksMount === 'function'){ ch.className = 'pp-checks'; obChecksMount(ch, boardCand.id); }
-              else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is linked to their start form. Until then, record them on Background &amp; References.</div>'; } }
+              else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is made. Until then, record them on Background &amp; References.</div>'; } }
     if(boardCand && typeof obRefCardsMount === 'function'){
       out += '<div class="pp-refcards" data-cand="' + esc(String(boardCand.id)) + '"><div class="field-note">Reading their references…</div></div>';
     } else if(R.length){
@@ -26215,15 +26218,14 @@ async function apOnboardMount(r, hostEl){
                   ? '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 9px;">chased ' + x.reminder_count + '×</span>'
                   : '<span class="field-note">asked</span>')
             + '</div>').join('');
-    } else if(intake){
-      out += '<div class="field-note" style="margin-top:10px;">No references asked yet. They go out on their own once the start form is in.</div>';
+    } else {
+      out += '<div class="field-note">No references asked yet. They go out on their own once Step 1 is signed.</div>';
     }
 
     host.innerHTML = out;
     host.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand));
   }catch(e){
-    host.innerHTML = '<div class="field-note">Could not read the onboarding: ' + esc(e && e.message || 'error')
-      + '<br>If this mentions applicant_id, run <b>recruit-lifecycle.sql</b>.</div>';
+    host.innerHTML = '<div class="field-note">Could not read their references: ' + esc(e && e.message || 'error') + '</div>';
   }
 }
 

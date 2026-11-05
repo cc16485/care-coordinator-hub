@@ -72,6 +72,16 @@
       render();
     }catch(e){ if(PENDING && PENDING.ks === ks) PENDING = null; el.innerHTML = '<div class="field-note" style="color:#B91C1C">Could not read their records: ' + esc(e.message) + '</div>'; }
   }
+  /* 2026-11-05: their ids (offer, Background & References record) from the same read HP.mount makes, so a card beside it
+     finds their record without a second call. Read only. */
+  async function ids(k){
+    const ks = JSON.stringify(k);
+    if(CUR && JSON.stringify(KEY) === ks) return CUR.ids || {};
+    try{
+      if(!PENDING || PENDING.ks !== ks) PENDING = { ks, p: call(Object.assign({ action:'get' }, k)) };
+      const got = await PENDING.p; return (got && got.ids) || {};
+    }catch(e){ return {}; }
+  }
   function partsHtml(p, parts){
     let h = '';
     for(const part of parts){
@@ -366,5 +376,5 @@
   }
   function idHide(key){ clearInterval(IDV.timers[key]); delete IDV.timers[key]; delete IDV.shown[key]; idDraw(); }
   async function idCopy(key){ try{ await navigator.clipboard.writeText(IDV.shown[key] ? (key === 'dob' ? fmtId(key, IDV.shown[key].value) : IDV.shown[key].value) : ''); }catch(_){} }
-  window.HP = { open, panel: panelOpen, close, chip, doc, mount, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, revealHere, idAsk, idReveal, idHide, idCopy };
+  window.HP = { open, panel: panelOpen, close, chip, doc, mount, ids, step1, filter: k => { FILTER = k; render(); }, openApplication, fillOfferProgress, identity, revealHere, idAsk, idReveal, idHide, idCopy };
 })();
