@@ -11628,7 +11628,7 @@ function obChecksHtml(c){
     + '<tbody>' + rows + '</tbody></table></div>'
     + '<div class="field-note" style="margin-top:6px;">Every result needs its date and its proof. At hire these are kept exactly as they are, for audits.</div>';
 }
-window.obChecksMount = obChecksMount;
+window.obChecksMount = obChecksMount; window.obChecksRosterMount = obChecksRosterMount;   /* 2026-11-05: roster people, read only */
 /* FCSR sent to the state: the date it went, who marked it, and when. The result is still recorded with its proof. */
 /* 2026-11-03 (Samantha: "i would rather the date be a easy to pick date on the order fcsr"): a small window with Today and
    Yesterday buttons and a calendar (nothing after today), in place of typing YYYY-MM-DD. Saves exactly what it saved before. */
