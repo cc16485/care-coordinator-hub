@@ -224,7 +224,7 @@
     ['Interview', /interview/i],
     ['Offer', /^Offer|^They opened the offer|^They declined|Position description/],
     ['Step 1', /Step 1/],
-    ['Background checks and references', /Background & References|OIG|EDL|FCSR|Case\.net|Fingerprint|^Reference|Evidence:/],
+    ['Background checks and references', /Background & References|OIG|EDL|FCSR|Case\.net|Fingerprint|^Reference|Evidence:|^Record[: ]/],
     ['Step 2 in Viventium', /Step 2/],
     ['Orientation Video Call', /Orientation Video Call/],
     ['Training', /Orientation completed|Dementia course|On-the-job|Annual training|training/i],
