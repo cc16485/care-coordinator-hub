@@ -15,6 +15,10 @@
      person, permanently. There is no automatic family text.)
      432: a notice that came from a CALL shows "Mary said on your 4:31pm call: running late, about 8 minutes (around
      4:39pm)" and their words, and the time reads "from your call".
+     2026-11-05 THE FAMILY STEP (her option A, ops_settings.late_family_step_live): while the family question is open the
+     "Tell the family?" card comes first: the Send button whenever there is a time and someone can get texts (with a note
+     when it is only a few minutes, or the Hub was not sure), "Don't tell the family", and a call to anyone in the Family
+     Circle with "I called them". Still only a person's tap sends anything.
      ============================================================ -->
 <style>
   :root{ --navy:#0E3860; --teal:#54BDB8; --honey:#FFC671; --bg:#F6F9FD; --border:#E2E8F0; --gray:#6B7280; --red:#C0392B; --green:#1E8449; }
@@ -46,6 +50,9 @@
   .row{ display:flex; gap:8px; } .row > *{ flex:1; }
   .callbox{ background:#EEF7F6; border-color:var(--teal); }
   .callline{ font-size:16px; font-weight:800; color:var(--navy); }
+  .famask{ background:#FFF8EA; border-color:#F2C46D; }
+  .warnnote{ color:#B45309; font-size:14px; font-weight:700; margin-top:6px; }
+  input.txt{ font-size:15px; padding:10px 12px; border:1px solid var(--border); border-radius:10px; width:100%; margin-top:8px; font-family:inherit; }
   button:disabled{ opacity:.5; cursor:not-allowed; }
 </style>
 <script src="office-call.js?v=433"></script>
@@ -88,6 +95,8 @@ function render(msg){
     +(D.eta&&D.eta_by?'<div class="note">Time '+esc(D.eta_by)+'.</div>':'')
     +(D.sure===false?'<div class="note">The Hub wasn\'t sure which visit this is, or the message was unclear. Check with '+esc(D.caregiver_first)+'.</div>':'')
     +'<div style="margin-top:10px;"><h2>What '+esc(D.caregiver_first)+' said</h2>'+(D.said||[]).map(s=>'<div class="said">'+esc(s.text)+'<div class="note">'+(s.channel==='call'?'Call':'Text')+' at '+esc(s.at)+'</div></div>').join('')+'</div></div>';
+  const famStep=D.kind==='late'&&F.step, famOpen=famStep&&!D.closed&&!F.decided;
+  if(famOpen) h+=famStepHtml();
   if(D.closed) h+='<div class="done">'+(D.closed.how==='clocked_in'?esc(D.caregiver_first)+' clocked in'+(D.closed.clock_in?' at '+esc(D.closed.clock_in):'')+'.':D.closed.how==='coverage_case'?'A coverage case has this shift now.':'This notice is closed.')+'</div>';
   if(!D.closed){
     h+='<div class="card">'+(D.seen?'<div class="done">Seen by '+esc(D.seen.by)+' at '+esc(D.seen.at)+'.</div>':'<button class="primary" id="bSeen">Seen</button><div class="note">Stops the reminder texts for every admin.</div>')
@@ -102,7 +111,8 @@ function render(msg){
       :!D.handoff_live?'<div class="card"><div class="note">'+esc(H.first)+' is on shift with '+esc(D.client_first)+' before this one. Asking them to stay is switched off.</div></div>'
       :'<div class="card"><h2>'+esc(H.first)+' is there now</h2><button class="navy" id="bStay">Ask '+esc(H.first)+' to stay</button><div class="note">Texts '+esc(H.first)+' once: can you stay until '+esc(D.caregiver_first)+' gets there? Only when you tap.</div></div>';
   }
-  if(D.kind==='late'){
+  if(famStep&&!famOpen) h+=famStepHtml();
+  if(D.kind==='late'&&!famStep){
     h+='<div class="card"><h2>'+esc(D.client_first)+'\'s family</h2>';
     (F.sent||[]).forEach(s=>{ h+='<div class="done" style="margin-top:6px;">'+(s.what==='arrived'?'Told they arrived':s.what==='update'?'Update sent':'Told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+' '+(s.count===1?'person':'people')+').</div>'; });
     if(F.skipped) h+='<div class="note">'+esc(F.skipped.by)+' chose not to tell the family ('+esc(F.skipped.at)+').</div>';
@@ -120,7 +130,7 @@ function render(msg){
   h+='<div class="card"><h2>Call</h2>'
     /* 431: calls go from the office line; 433: the tap rings your phone first (GoHighLevel call bridge), the browser and the cell stay as backups (office-call.js) */
     +((D.caregiver_phone||D.caregiver_ghl)?ocInline(D.caregiver_phone,'Call '+D.caregiver_first,D.caregiver_ghl&&Object.assign({ name:D.caregiver_first },D.caregiver_ghl),null,'caregiver'):'<div class="note">No phone for '+esc(D.caregiver_first)+' on the roster.</div>')
-    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl&&Object.assign({ name:D.client_first },D.client_ghl),null,'client')+'<div class="note">The client is never texted by this. A call is yours to make.</div>':'')
+    +((D.client_phone||D.client_ghl)?ocInline(D.client_phone,'Call '+D.client_first+'\'s home',D.client_ghl&&Object.assign({ name:D.client_first },D.client_ghl),null,'client')+'<div class="note">'+((D.family||{}).step?'The home line is never texted. A call is yours to make.':'The client is never texted by this. A call is yours to make.')+'</div>':'')
     +'</div><div class="err" id="err">'+esc(msg||'')+'</div>';
   app.innerHTML=h;
   const on=(id,fn)=>{ const b=document.getElementById(id); if(b) b.onclick=fn; };
@@ -130,7 +140,42 @@ function render(msg){
   on('bFam', ()=>act('family', ()=>{ const t=((document.getElementById('famText')||{}).value||'').trim(); if(!t) throw new Error('The text is empty.'); return { text:t }; }, 'Text '+(F.first_names||[]).join(', ')+' now?'));
   on('bSkip', ()=>act('skip'));
   on('bStay', ()=>act('ask_stay', null, 'Text '+(D.handoff||{}).first+' to ask if they can stay?'));
+  on('bCalled', ()=>act('called', ()=>({ note:((document.getElementById('calledNote')||{}).value||'').trim() })));
+  ((D.family||{}).call_list||[]).forEach((m,i)=>on('bMem'+i, ()=>ring({ target:'member', member_id:m.id }, m.phone)));
+  on('bHome', ()=>ring({ target:'client' }, D.client_phone));
   on('bArr', ()=>act('arrived', ()=>({ text:((document.getElementById('arrText')||{}).value||'').trim() }), 'Tell the family '+D.caregiver_first+' arrived?'));
+}
+/* the family step card (her option A): who can be told, the text, Send / Don't tell, and calls with "I called them" */
+function famStepHtml(){
+  const F=D.family||{}, open=!D.closed&&!F.decided;
+  let h='<div class="card'+(open?' famask':'')+'"><h2>'+(open?'Tell '+esc(D.client_first)+'\'s family?':esc(D.client_first)+'\'s family')+'</h2>';
+  (F.sent||[]).forEach(s=>{ h+='<div class="done" style="margin-top:6px;">'+(s.what==='called'?'Called by '+esc(s.by)+' at '+esc(s.at)+'.':(s.what==='arrived'?'Told they arrived':s.what==='update'?'Update sent':'Told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+' '+(s.count===1?'person':'people')+').')+'</div>'; });
+  if(F.skipped) h+='<div class="note">'+esc(F.skipped.by)+' chose not to tell the family ('+esc(F.skipped.at)+').</div>';
+  if(!D.closed && (open || (F.is_update && F.can))){
+    if(F.note) h+='<div class="warnnote">'+esc(F.note)+'</div>';
+    if(F.can){
+      h+='<div class="note" style="margin-top:6px;">Texts '+esc((F.first_names||[]).join(', '))+' (Family Circle, agreed to texts). Each text starts "Hi '+esc((F.first_names||['there'])[0])+'," with their own name.</div>'
+        +'<textarea id="famText" rows="4" maxlength="600">'+esc(F.draft||'')+'</textarea>'
+        +(F.hours_ok===false?'<div class="note"><b>Family texts go '+esc(F.hours||'6am to 9pm')+'.</b> It\'s outside those hours now. Call them instead if it can\'t wait.</div>':'')
+        +'<button class="primary" id="bFam"'+(F.hours_ok===false?' disabled':'')+'>'+(F.is_update?'Send the update to the family':'Send to the family')+'</button>';
+    } else if(open) h+='<div class="note" style="margin-top:6px;">'+esc((F.why||'').replace(/^./,c=>c.toUpperCase()))+'.</div>';
+    if(open) h+='<button class="ghost" id="bSkip">Don\'t tell the family</button><div class="note">Sending, or choosing not to, also stops the reminder texts.</div>';
+  }
+  if(open && ((F.call_list||[]).length || F.client_phone)){
+    h+='<h2 style="margin-top:14px;">Or call them</h2><div class="note">Rings your phone first, then connects from the office number.</div>'
+      +(F.call_list||[]).map((m,i)=>'<button class="ghost" id="bMem'+i+'">📞 Call '+esc(m.first)+(m.relationship?' ('+esc(m.relationship)+')':'')+'</button>').join('')
+      +(F.client_phone?'<button class="ghost" id="bHome">📞 Call '+esc(D.client_first)+'\'s home</button>':'')
+      +'<input class="txt" id="calledNote" placeholder="Who you talked to (optional)"><button class="navy" id="bCalled">I called them</button>';
+  }
+  if(F.arrived_can) h+='<textarea id="arrText" rows="2" maxlength="600">'+esc(F.arrived_draft||'')+'</textarea><button class="primary" id="bArr">Tell the family '+esc(D.caregiver_first)+' arrived</button>';
+  return h+'</div>';
+}
+async function ring(args, phone){
+  const el=document.getElementById('err'); if(el) el.textContent='Ringing your phone…';
+  try{ const j=await call('bridge', args);
+    if(el) el.textContent=j.ok?'Your phone is ringing. Answer it and press a key to be connected. Then tap "I called them".'
+      :'Could not ring your phone'+(j.message?': '+j.message:j.why==='not_found'?': they are not in GoHighLevel yet':'')+'.'+(phone?' Their number: '+pretty(phone)+'.':''); }
+  catch(e){ if(el) el.textContent=e.message; }
 }
 function confirmBox(q){ return new Promise(res=>{ const e=document.getElementById('err'); e.innerHTML='<div class="card" style="margin-top:10px;"><div style="font-weight:700;color:var(--navy);">'+esc(q)+'</div><button class="primary" id="cYes">Yes</button><button class="ghost" id="cNo">Cancel</button></div>';
   document.getElementById('cYes').onclick=()=>{ e.innerHTML=''; res(true); }; document.getElementById('cNo').onclick=()=>{ e.innerHTML=''; res(false); }; }); }
