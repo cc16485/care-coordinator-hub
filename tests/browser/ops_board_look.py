@@ -33,6 +33,7 @@ SETUP = r"""async(mode)=>{
     { id:'t_call', kind:'call_followup', status:'open', urgency:'today', domain:'money', owner:S, caregiver_ax:'7', about:'Example: Dana W.', title:'Call back about mileage for 11-04', created_at:ago(5), due:ahead(1) },
     { id:'t_old', kind:'call_followup', status:'open', urgency:'normal', domain:'program_administration', owner:S, about:'Example: Old call', title:'Send the form she asked for', created_at:ago(24*12), due:ago(24*10) },
     { id:'cfp_keep', kind:'call_followup', status:'open', urgency:'normal', domain:'program_administration', owner:S, about:'Example: A promise', title:'Call her back Friday as promised', created_at:ago(24*12), due:ago(24*10) },
+    { id:'t_stale', kind:'call_followup', status:'open', urgency:'urgent', domain:'scheduling_coverage', owner:S, about:'(phone lead)', title:'Open a call-off for an old visit', created_at:ago(24*21), due:ago(24*21) },
     { id:'t_req', kind:'request', status:'open', urgency:'normal', owner:'', about:'Example: Office request', title:'Order more gloves', created_at:ago(30), due:ahead(30) },
     { id:'t_later', kind:'request', status:'open', urgency:'normal', owner:S, sub_state:'waiting', check_back:new Date(Date.now()+3*864e5).toISOString().slice(0,10), about:'Example: Waiting on a fax', title:'Fax from the doctor', created_at:ago(24), due:ago(2) },
     { id:'t_k', kind:'confirm_times', status:'open', urgency:'today', domain:'client_care', owner:K, about:'Example: Tom R.', title:'Confirm times', created_at:ago(6), due:ago(2) }
@@ -56,13 +57,13 @@ T = r"""async()=>{
   ok('the columns', JSON.stringify(heads)===JSON.stringify(['Who','What came in','Need','Owner','When','Waiting','Do it','Move it','Done']), heads);
   const rows=()=>[...document.querySelectorAll('.opb tbody tr[data-id]')];
   const ids=()=>rows().map(r=>r.getAttribute('data-id'));
-  ok('opens on mine + care nobody has: the approval, the open shift, my calls, my waiting card; not Krystal\'s, not nobody\'s gloves', JSON.stringify(ids().slice().sort())===JSON.stringify(['appr_d1','cfp_keep','t_call','t_cov','t_later','t_old']), ids());
+  ok('opens on mine + care nobody has: the approval, the open shift, my calls, my waiting card; not Krystal\'s, not nobody\'s gloves', JSON.stringify(ids().slice().sort())===JSON.stringify(['appr_d1','cfp_keep','t_call','t_cov','t_later','t_old','t_stale']), ids());
   ok('care or safety first, then the approval; waiting card last', ids()[0]==='t_cov' && ids()[1]==='appr_d1' && ids()[ids().length-1]==='t_later', ids());
   ok('red edge on care or safety, gold on today', /opb-red/.test(rows()[0].className) && /opb-gold/.test(rows()[2].className));
   const cov=rows()[0].innerText;
   ok('nobody\'s open shift: Take it in Owner, Find cover in Do it, Care or safety', /Take it/.test(cov) && /Find cover/.test(cov) && /Care or safety/.test(cov), cov);
   const tiles=[...document.querySelectorAll('.opb-tile')].map(t=>t.innerText.replace(/\s+/g,' ').trim());
-  ok('tiles: 2 care or safety, Yours 5, Nobody\'s yet 2', /^2 Care or safety/.test(tiles[0]) && /^5 Yours/.test(tiles[1]) && /^2 Nobody's yet/.test(tiles[4]), tiles);
+  ok('tiles: 2 care or safety, Yours 5, Nobody\'s yet 2', /^2 Care or safety/.test(tiles[0]) && /^6 Yours/.test(tiles[1]) && /^2 Nobody's yet/.test(tiles[4]), tiles);
   ok('the tab badge counts care that is mine or nobody\'s', /subtab-badge red">1</.test(myWorkTabBadge('board',{})), myWorkTabBadge('board',{}));
   window.__shot='board';
   return R; }"""
@@ -74,12 +75,12 @@ ACT = r"""async()=>{
   OPB.tile('nobody'); await sleep(40);
   ok('Nobody\'s yet: the open shift and the gloves', JSON.stringify(ids().sort())===JSON.stringify(['t_cov','t_req']), ids());
   OPB.tile('nobody'); OPB.set('owner',''); await sleep(40);
-  ok('Owner: Everyone shows the whole office (8 cards + 1 approval)', rows().length===9, ids());
+  ok('Owner: Everyone shows the whole office (9 cards + 1 approval)', rows().length===10, ids());
   ok('the menus are remembered', JSON.parse(localStorage.getItem('opbF')).owner==='');
   OPB.set('who','caregiver'); await sleep(40);
   ok('Who: Caregiver', ids().includes('t_call') && !ids().includes('t_req'), ids());
   OPB.reset(); await sleep(40);
-  ok('Back to mine + care nobody has', rows().length===6);
+  ok('Back to mine + care nobody has', rows().length===7);
   [...rows().find(r=>r.getAttribute('data-id')==='t_call').querySelectorAll('button')].find(b=>b.innerText==='See the call').click(); await sleep(60);
   const card=document.querySelector('.opb-card .wkcard[data-id="t_call"]');
   ok('Do it opens the card itself under the row, with its own buttons', !!card && /Done/.test(card.innerText) && /Hand off/.test(card.innerText), card&&card.innerText.slice(0,200));
@@ -96,6 +97,9 @@ ACT = r"""async()=>{
   ok('Undo is offered', /Board cleanup cleared 1 card/.test(document.getElementById('myWorkWrap').innerText) && /Undo/.test(document.getElementById('myWorkWrap').innerText));
   await OPB.undo(); await sleep(60);
   ok('Undo reopens it', DATA.ops_items.find(i=>i.id==='t_old').status==='open');
+  ok('after many redraws the board still has its look (style kept in the page head)', !!document.head.querySelector('#opbCss') && getComputedStyle(document.querySelector('.opb-tiles')).display==='grid' && getComputedStyle(document.querySelector('.opb-menus')).display==='flex');
+  ok('an urgent card three weeks late is not in the red tile', !rows().some(r=>r.getAttribute('data-id')==='t_stale' && /opb-red/.test(r.className)));
+  ok('"(phone lead)" shows as Name not on file', /Name not on file/.test(document.getElementById('myWorkWrap').innerText) && !/\(phone lead\)/.test(document.getElementById('myWorkWrap').innerText));
   ok('no em dash on the board', !document.getElementById('myWorkWrap').innerText.includes('—'));
   return R; }"""
 STAFF = r"""async()=>{

@@ -31,6 +31,11 @@ ck('cleanup: never a journey step or a project, never a closed card', !B.cleanab
 ck('cleanup: with no due day, counts from when it was made', B.cleanable({ status:'open', kind:'request', id:'r', created_at:iso(now - 9 * D) }, now));
 ck('opens on: mine, plus care or safety nobody has; not someone else\'s, not nobody\'s ordinary work',
   B.startView({ mine:true, owner:'me', need:'other' }) && B.startView({ mine:false, owner:'', need:'care' }) && !B.startView({ mine:false, owner:'k', need:'care' }) && !B.startView({ mine:false, owner:'', need:'other' }));
+ck('right now: an urgent card due 3 hours ago is care or safety', B.needOf({ kind:'call_followup', urgency:'urgent' }, false, now, false) === 'care' && B.careNow({ urgency:'urgent', due:iso(now - 3 * 36e5) }, false, now, false));
+ck('right now: an urgent card 3 weeks late is late work, not care or safety', !B.careNow({ urgency:'urgent', due:iso(now - 21 * D) }, false, now, false) && B.needOf({ kind:'call_followup', urgency:'urgent', domain:'scheduling_coverage', due:iso(now - 21 * D) }, false, now, false) === 'call');
+ck('right now: past its day is not care or safety; the Team Work care-at-risk track always is', !B.careNow({ urgency:'urgent', due:iso(now) }, false, now, true) && B.careNow({ due:iso(now - 21 * D) }, true, now, false));
+ck('an old red shift-note flag shows as a Shift-note flag', B.needOf({ kind:'care_note', urgency:'urgent', domain:'client_care', due:iso(now - 11 * D) }, false, now, false) === 'note' && B.NEED.note === 'Shift-note flag');
+ck('the cleanup still never clears an old urgent card', !B.cleanable({ status:'open', kind:'call_followup', id:'x', urgency:'urgent', due:iso(now - 21 * D) }, now));
 ck('the words', B.NEED.care === 'Care or safety' && B.NEED.approval === 'Approval' && B.WHO.family === 'Family or client');
 const words = Object.values(B.NEED).concat(Object.values(B.WHO)).join(' ');
 ck('no em dashes', !/—/.test(require('fs').readFileSync(__dirname + '/../ops-board.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')) && !/—/.test(words));
