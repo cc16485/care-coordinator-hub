@@ -4949,6 +4949,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div><label>Owner Escalation at (min)</label><input type="number" id="lrManager" min="7" max="240" step="1"></div>
 <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" onclick="lrSave(this)">Save the minutes</button><span class="field-note" id="lrSaved"></span></div>
 </div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Assessment booking</div>
+<p class="hint">New Client Assessments booked in the Hub's own calendar: Krystal first (8:30 to 1:30), then Samantha (10:00 to 4:30), Monday to Friday. 90 minutes held, plus 30 minutes to drive either side; families are told 60 to 90 minutes. Families book on mo-care.com/book, the office from a lead. Nothing goes to a family until its switch is on.</p>
+<div id="asmtSet"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;">Coordinator cards</div>
+<p class="hint">The card a family opens from their confirmation, the same look as a caregiver card. Only a published card is linked.</p>
+<div id="ccardSet"></div>
 <p class="hint" style="margin-top:6px;">The owner's text at 5 minutes is fixed. Who the backup is comes from the Operations duty window (Dashboard → Responsible now → Manage, the Backup person); with none set, Owner Escalation is told at 15. Texts go to the mobile numbers on the Team page (Owners Hub → Admin → Team).</p>
 <!-- Lead turns (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18): who owns a new
      lead, by turn. ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live; only Samantha or Zachary can change it. -->
@@ -15342,6 +15348,7 @@ async function asmtBookUrls(){
   return ASMT_URLS;
 }
 async function asmtBook(leadId, kind){
+  if(hubAsmtOn()) return hubAsmtBook(leadId);
   const esc=escapeHtmlComms, u=await asmtBookUrls();
   const l=leadId?(DATA.leads||[]).find(x=>x.id===leadId):null;
   if(!u.home&&!u.med){ alert('Paste the New Client Assessment booking link into Settings first (Callout texts card).'); return; }
@@ -15362,9 +15369,153 @@ async function asmtBook(leadId, kind){
   ov.querySelectorAll('button[data-k]').forEach(b=>b.onclick=()=>asmtBook(leadId, b.getAttribute('data-k')));
 }
 async function calBookAssessment(){
+  if(hubAsmtOn()) return hubAsmtBook(null);
   const u=await asmtBookUrls();
   if(u.home) window.open(u.home,'_blank');
   else alert('Paste the New Client Assessment booking link into Settings first (Callout texts card).');
+}
+/* ── Assessments booked in the Hub (Samantha 2026-11-05: "I would like to build that within the hub, and the hubs
+   calendars"). With ops_settings.hub_assessment_booking_live on, every "Book the assessment visit" button opens this
+   instead of the GoHighLevel calendar: the Hub's own open times (Krystal first 8:30 to 1:30, then Samantha 10:00 to 4:30,
+   90 minutes held plus 30 minutes to drive), booked through the assessment-book server, which picks the coordinator,
+   holds their Team Calendar, updates the lead and makes the prep item. The confirmation goes only when the person ticks
+   it. Upcoming visits are listed with a Cancel (nothing is sent; the office calls the family). */
+const hubAsmtOn=()=>((DATA.ops_settings||{}).hub_assessment_booking_live===true);
+async function hubAsmtCall(body){
+  const { data:{ session } }=await sb.auth.getSession();
+  const r=await fetch(`${CONFIG.supabase_url}/functions/v1/assessment-book`, { method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey:CONFIG.supabase_anon_key, Authorization:'Bearer '+((session&&session.access_token)||CONFIG.supabase_anon_key) },
+    body:JSON.stringify(body) });
+  let j={}; try{ j=await r.json(); }catch(_){}
+  return { ok:r.ok, status:r.status, ...j };
+}
+const hubAsmtWhen=iso=>{ const d=new Date(iso);
+  return { day:d.toLocaleDateString('en-US',{ timeZone:'America/Chicago', weekday:'long', month:'short', day:'numeric' }),
+           ymd:d.toLocaleDateString('sv-SE',{ timeZone:'America/Chicago' }),
+           time:d.toLocaleTimeString('en-US',{ timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' }) }; };
+async function hubAsmtBook(leadId){
+  const esc=escapeHtmlComms, l=leadId?(DATA.leads||[]).find(x=>x.id===leadId):null;
+  const old=document.getElementById('asmtBookOv'); if(old) old.remove();
+  const ov=document.createElement('div'); ov.id='asmtBookOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(13,54,95,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:30px 16px;overflow:auto;';
+  const who=l?(cpLeadClientName(l)||''):'';
+  const f=(id,lab,val,type)=>'<div><label>'+lab+'</label><input id="'+id+'" type="'+(type||'text')+'" value="'+esc(val||'')+'"></div>';
+  ov.innerHTML='<div role="dialog" aria-modal="true" style="background:#fff;border-radius:14px;max-width:760px;width:100%;padding:18px 20px;box-shadow:0 20px 50px rgba(0,0,0,.25);">'
+    +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><b style="font-size:17px;color:var(--navy);">📅 Book the assessment visit'+(l?' · '+esc(((l.first_name||'')+' '+(l.last_name||'')).trim()):'')+'</b><span style="flex:1;"></span><button class="secondary" id="hubAsmtX">Close</button></div>'
+    +'<div class="field-note" style="margin-top:4px;">The Hub picks who goes (Krystal first in her hours) and holds 90 minutes plus drive time on the Team Calendar. Families are told it usually takes 60 to 90 minutes.</div>'
+    +'<div class="grid2" style="margin-top:10px;">'+f('haFirst','First name',l&&l.first_name)+f('haLast','Last name',l&&l.last_name)+f('haPhone','Phone',l&&l.phone,'tel')+f('haEmail','Email',l&&l.email,'email')
+    +f('haClient','Who the care is for',who)+f('haRel','They are the… (daughter, son, self)','')+'</div>'
+    +'<div style="margin-top:8px;"><label>Address of the visit</label><input id="haAddr" value="'+esc((l&&(l.address||l.client_address))||'')+'"></div>'
+    +'<div style="margin-top:8px;"><label>Notes for the coordinator</label><input id="haNotes" value=""></div>'
+    +'<div style="margin-top:12px;"><label>Pick a time</label><div id="haSlots" class="field-note">Loading the open times…</div></div>'
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-weight:600;"><input type="checkbox" id="haSend" checked> Text and email the confirmation to them</label>'
+    +'<div style="display:flex;gap:10px;align-items:center;margin-top:12px;"><button class="primary" id="haGo" disabled>Book it</button><span class="field-note" id="haMsg"></span></div>'
+    +'<div style="margin-top:16px;border-top:1px solid var(--border);padding-top:10px;"><b style="color:var(--navy);">Coming up</b><div id="haList" class="field-note">Loading…</div></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#hubAsmtX').onclick=()=>ov.remove();
+  let pick='';
+  const go=ov.querySelector('#haGo'), msg=ov.querySelector('#haMsg');
+  const loadSlots=async()=>{
+    const box=ov.querySelector('#haSlots'); const r=await hubAsmtCall({ action:'slots' });
+    if(!r.ok){ box.innerHTML='<span style="color:var(--red);">The open times could not be loaded: '+esc(r.error||r.status)+'</span>'; return; }
+    const by={}; (r.slots||[]).forEach(s=>{ const w=hubAsmtWhen(s.starts_at); (by[w.ymd]=by[w.ymd]||{ day:w.day, list:[] }).list.push({ iso:s.starts_at, time:w.time }); });
+    const days=Object.keys(by).sort();
+    if(!days.length){ box.innerHTML='<span style="color:var(--red);">No open times in the next three weeks. Check the assessment hours.</span>'; return; }
+    box.innerHTML=days.slice(0,10).map(k=>'<div style="margin:6px 0;"><b>'+esc(by[k].day)+'</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
+      +by[k].list.map(s=>'<button class="secondary" data-t="'+esc(s.iso)+'" style="font-size:12.5px;padding:4px 10px;">'+esc(s.time)+'</button>').join('')+'</div></div>').join('');
+    box.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ box.querySelectorAll('button[data-t]').forEach(x=>x.className='secondary'); b.className='primary'; pick=b.getAttribute('data-t'); go.disabled=false; msg.textContent=''; });
+  };
+  const loadList=async()=>{
+    const box=ov.querySelector('#haList');
+    const { data, error }=await sb.from('assessment_bookings').select('id,starts_at,first_name,last_name,client_name,coordinator_id,send_note').eq('status','booked').gte('starts_at', new Date(Date.now()-3600000).toISOString()).order('starts_at').limit(25);
+    if(error){ box.textContent='Could not load: '+error.message; return; }
+    const names={}; try{ const c=await sb.from('coordinators').select('id,name'); (c.data||[]).forEach(x=>names[x.id]=x.name); }catch(_){}
+    box.innerHTML=(data||[]).length?(data||[]).map(b=>{ const w=hubAsmtWhen(b.starts_at); return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:5px 0;border-top:1px solid var(--border);">'
+      +'<span><b>'+esc(w.day)+' '+esc(w.time)+'</b> · '+esc(b.client_name||((b.first_name||'')+' '+(b.last_name||'')).trim())+' · '+esc(String(names[b.coordinator_id]||'').split(' ')[0])+'</span>'
+      +(b.send_note?'<span style="color:var(--gray);">'+esc(b.send_note)+'</span>':'')
+      +'<span style="flex:1;"></span><button class="linklike" data-c="'+esc(b.id)+'" style="font-size:12px;">Cancel</button></div>'; }).join(''):'Nothing booked yet.';
+    box.querySelectorAll('button[data-c]').forEach(b=>b.onclick=async()=>{
+      if(!(await ccConfirm('Cancel this assessment? The time goes back on the calendar. Nothing is sent to the family, so call them.'))) return;
+      b.disabled=true; const r=await hubAsmtCall({ action:'cancel', id:b.getAttribute('data-c'), reason:'cancelled in the Hub' });
+      if(!r.ok){ alert('Could not cancel: '+(r.error||r.status)); b.disabled=false; return; }
+      try{ busySync().catch(()=>{}); }catch(_){}
+      loadList(); loadSlots();
+    });
+  };
+  go.onclick=async()=>{
+    const v=id=>ov.querySelector('#'+id).value.trim();
+    if(!pick){ msg.textContent='Pick a time first.'; return; }
+    go.disabled=true; msg.textContent='Booking…';
+    const r=await hubAsmtCall({ action:'book', office:true, starts_at:pick, lead_id:leadId||'', first_name:v('haFirst'), last_name:v('haLast'), phone:v('haPhone'),
+      email:v('haEmail'), client_name:v('haClient'), relationship:v('haRel'), address:v('haAddr'), notes:v('haNotes'), send_confirmation:ov.querySelector('#haSend').checked });
+    if(!r.ok){ go.disabled=false; msg.innerHTML='<span style="color:var(--red);">'+esc(r.error||('Could not book ('+r.status+')'))+'</span>'; if(r.taken){ pick=''; loadSlots(); } return; }
+    msg.innerHTML='<b style="color:var(--teal);">Booked: '+esc(r.day)+' at '+esc(r.time)+' with '+esc(r.coordinator)+'.</b> '+esc(r.note||'');
+    pick=''; go.disabled=true;
+    try{ if(typeof loadFromSupabase==='function') await loadFromSupabase(); }catch(_){}
+    loadList(); loadSlots();
+  };
+  loadSlots(); loadList();
+}
+/* Assessment booking settings: the three switches (hers) and the coordinator cards (Settings) */
+const ASMT_SWITCHES=[
+  { k:'hub_assessment_booking_live', name:'Book assessments in the Hub', what:'Every "Book the assessment visit" button in the Hub opens the Hub\'s own times (Krystal first, then Samantha; 90 minutes held plus drive time) instead of the GoHighLevel calendar. The website page is switched separately.',
+    on:'Turn on Hub booking?\n\nFrom now, the office books assessments from the Hub\'s own calendar. The GoHighLevel calendar stays as it is.', off:'Turn off Hub booking? The buttons open the GoHighLevel calendar again. Visits already booked in the Hub stay booked.' },
+  { k:'assessment_confirm_live', name:'Confirmation text and email', what:'Your approved exception: a family who books on mo-care.com/book gets one text and one email right away with the day, the time, who is coming and their card. Office bookings send it only when the box is ticked.',
+    on:'Turn on the confirmation?\n\nFrom the next website booking, the family gets one text and one email right away.', off:'Turn off the confirmation? Website bookings get no text or email; the office should call them.' },
+  { k:'assessment_reminder_live', name:'Day-before reminder text', what:'Your approved exception: one text the day before the visit, from 9 AM, with who is coming and their card. Never to anyone opted out.',
+    on:'Turn on the day-before reminder?\n\nFrom the next hourly check after 9 AM, families with a visit tomorrow get one text.', off:'Turn off the day-before reminder? No reminder texts; the office calls if it wants to.' } ];
+function asmtSetFill(){
+  const box=document.getElementById('asmtSet'); if(!box) return; const st=DATA.ops_settings||{}, esc=escapeHtmlComms;
+  box.innerHTML=ASMT_SWITCHES.map(sw=>{ const on=st[sw.k]===true; return '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">'
+    +'<div style="flex:1 1 320px;min-width:0;"><b>'+esc(sw.name)+'</b> <span class="badge '+(on?'ok':'muted')+'" style="font-size:10px;">'+(on?'On':'Off')+'</span><div class="field-note" style="margin-top:2px;">'+esc(sw.what)+'</div></div>'
+    +'<button class="secondary" onclick="asmtToggle(\''+sw.k+'\', this)">'+(on?'Turn off':'Turn on')+'</button><span class="field-note" id="asmtSaved_'+sw.k+'"></span></div>'; }).join('');
+  ccardFill();
+}
+async function asmtToggle(k, btn){
+  const sw=ASMT_SWITCHES.find(x=>x.k===k); if(!sw) return; const on=!((DATA.ops_settings||{})[k]===true);
+  if(!(await ccConfirm(on?sw.on:sw.off))) return;
+  if(btn) btn.disabled=true;
+  const out=await tkMerge((m)=>{ m[k]=on; if(on&&!m[k+'_since']) m[k+'_since']=new Date().toISOString(); return [sw.name+(on?' ON':' OFF')]; }, 'assessment booking');
+  if(btn) btn.disabled=false;
+  const sv=document.getElementById('asmtSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
+  asmtSetFill();
+}
+async function ccardFill(){
+  const box=document.getElementById('ccardSet'); if(!box||!sb) return; const esc=escapeHtmlComms;
+  const { data, error }=await sb.from('coordinators').select('id,name,active,card_title,card_photo_url,card_about,card_experience,card_why,card_video_url,card_published').eq('active',true).order('booking_order',{ nullsFirst:false });
+  if(error){ box.innerHTML='<div class="field-note">Coordinator cards arrive with Desktop 1316 ('+esc(error.message)+').</div>'; return; }
+  const ta=(id,lab,val,ph)=>'<div style="margin-top:6px;"><label>'+lab+'</label><textarea id="'+id+'" rows="3" placeholder="'+esc(ph||'')+'" style="width:100%;">'+esc(val||'')+'</textarea></div>';
+  box.innerHTML=(data||[]).map(c=>{ const k=esc(c.id), F=esc(String(c.name||'').split(' ')[0]); return '<details style="border-top:1px solid var(--border);padding:8px 0;"><summary style="cursor:pointer;"><b>'+esc(c.name)+'</b> <span class="badge '+(c.card_published?'ok':'muted')+'" style="font-size:10px;">'+(c.card_published?'Published':'Not published')+'</span></summary>'
+    +'<div class="grid2" style="margin-top:6px;"><div><label>Title</label><input id="cc_title_'+k+'" value="'+esc(c.card_title||'')+'" placeholder="Care coordinator"></div>'
+    +'<div><label>Photo</label><div style="display:flex;gap:6px;align-items:center;"><input id="cc_photo_'+k+'" value="'+esc(c.card_photo_url||'')+'" placeholder="https://… or upload" style="flex:1;"><input type="file" accept="image/*" id="cc_file_'+k+'" style="max-width:190px;"></div></div></div>'
+    +ta('cc_about_'+k,'A little about '+F,c.card_about,'A few warm sentences, in '+F+'\'s own words. Use the name, not he or she.')
+    +ta('cc_exp_'+k,F+'\'s experience in senior care',c.card_experience,'')
+    +ta('cc_why_'+k,'Why '+F+' does this work',c.card_why,'')
+    +'<div style="margin-top:6px;"><label>Say hello video link (optional)</label><input id="cc_video_'+k+'" value="'+esc(c.card_video_url||'')+'" placeholder="https://…"></div>'
+    +'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="cc_pub_'+k+'"'+(c.card_published?' checked':'')+'> Published (families see it in their confirmation)</label>'
+    +'<div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap;"><button class="secondary" onclick="ccardSave(\''+k+'\', this)">Save '+F+'\'s card</button>'
+    +'<a class="linklike" target="_blank" rel="noopener" href="coordinator.html?id='+k+'">See it as a family does</a><span class="field-note" id="cc_saved_'+k+'"></span></div></details>'; }).join('')
+    +'<div class="field-note" style="margin-top:6px;"><a class="linklike" target="_blank" rel="noopener" href="coordinator.html?demo=1">See an example card</a></div>';
+}
+async function ccardSave(id, btn){
+  const g=s=>document.getElementById('cc_'+s+'_'+id), sv=g('saved'); btn.disabled=true; sv.textContent='Saving…';
+  try{
+    const file=g('file').files&&g('file').files[0];
+    if(file){
+      const path=id+'/'+Date.now()+'.'+((file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'')||'jpg');
+      const up=await sb.storage.from('coordinator-cards').upload(path, file, { upsert:false, contentType:file.type||'image/jpeg' });
+      if(up.error) throw up.error;
+      g('photo').value=sb.storage.from('coordinator-cards').getPublicUrl(path).data.publicUrl;
+    }
+    const card={ title:g('title').value, photo:g('photo').value, about:g('about').value, experience:g('exp').value, why:g('why').value, video:g('video').value, published:g('pub').checked };
+    const { data:{ session } }=await sb.auth.getSession();
+    const { error }=await sb.rpc('coordinator_card_save', { p_id:id, p_card:card, p_by:(session&&session.user&&session.user.email)||'' });
+    if(error) throw error;
+    sv.textContent=card.published?'Saved. Families see it from their next confirmation.':'Saved (not published).';
+    ccardFill();
+  }catch(e){ sv.textContent='Could not save: '+(e.message||e); }
+  btn.disabled=false;
 }
 async function covMsgsSave(btn){
   /* ops_settings is an OBJECT, not an item array, so it saves whole with a
@@ -16166,6 +16317,7 @@ function fillSettingsPanel(){
   try{ lnSetFill(); }catch(_){}
   try{ lhSetFill(); }catch(_){}
   try{ inqSetFill(); }catch(_){}
+  try{ asmtSetFill(); }catch(_){}
   try{ cbFill(); }catch(_){}
   tkFill();
   try{ tkoFill(); }catch(_){}
@@ -23673,6 +23825,9 @@ async function busySync(){
     else { const l = a.lead_id ? (DATA.leads||[]).find(x=>x.id===a.lead_id) : null;
       const lp = l && l.assessment_at ? btChi(l.assessment_at) : null; if(lp && lp.date===day) min = lp.min; }
     if(min === null) return;
+    /* 2026-11-05: a visit booked in the Hub (assessment-book) already holds the right person's calendar, drive time
+       included (source hub_assessment), so its care assessment record is not held a second time */
+    { const l2 = a.lead_id ? (DATA.leads||[]).find(x=>x.id===a.lead_id) : null; if(l2 && l2.assessment_booking_id) return; }
     const st = chiISO(day, min);
     if(new Date(st) < cutoff) return;
     if(ghlStarts.has(Math.round(Date.parse(st)/60000))) return;
