@@ -7615,7 +7615,7 @@ The HomeTogether team</pre>
 <script src="shift-flags.js?v=4"></script>
 <script src="incidents.js?v=8"></script>
 <script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
-<script src="prn-week.js?v=19"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=4"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
+<script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
@@ -15973,6 +15973,10 @@ const PRN_STEP5_SWITCHES = [
   { key:'prn_oncall_invite_live', name:'Caregiver on-call invites: invite Level 3 caregivers from the On call tab',
     on:'The On call tab\'s Invite caregivers box texts a Level 3 caregiver their own My on-call link from the office line (a person presses Send, never 9pm to 8am). On their page they read what on call is, sign the On-Call Expectations, and sign up by shift, one time or every week. You confirm each one on the calendar, the same as the PRN CNAs.',
     off:'Off: Send invite is refused and their page says it isn\'t open yet. You can still see the list, copy a link, and preview a caregiver\'s page.' },
+  /* 2026-11-02 (her five calls, Level 3 PRN Caregivers): on call and Field Support Visits on their PRN Team page */
+  { key:'prn_level3_caregiver_live', name:'Level 3 PRN Caregivers: on call and Field Support Visits on their PRN Team page', needsPage:true,
+    on:'A PRN Caregiver AxisCare shows active at Level 3 sees On call on their page (the same expectations, calendar and rules as the PRN CNAs) and can be approved for Field Support Visits in Our teams (refreshers and care updates, never supervisory visits). For a Level 3 client they are asked with the PRN Teams. Level 1 and 2 PRN Caregivers see nothing new. Anyone already signed up through My on-call keeps it.',
+    off:'Off: nothing changes for anyone. You can see what a Level 3 PRN Caregiver would get in What they see, marked waiting.' },
   /* 2026-10-29 (plan sections 5 and 8): per-person signs in Our teams, and the "Looking for hours" tag on ask lists */
   /* 2026-10-29 (plan section 3): "Would you like more hours?" on their page, where the 60-day check-in lands */
   { key:'prn_more_hours_live', name:'"Would you like more hours?" on their PRN Team page', needsPage:true,
