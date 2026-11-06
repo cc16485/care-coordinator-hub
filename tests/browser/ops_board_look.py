@@ -118,8 +118,13 @@ LIVE = r"""async()=>{
   ok('on: older views for one week', /Older views, for one week/.test(document.getElementById('myWorkWrap').innerText));
   ok('on, coordinator: opens on Krystal\'s rows plus the open shift nobody has', JSON.stringify([...document.querySelectorAll('.opb tbody tr[data-id]')].map(r=>r.getAttribute('data-id')).sort())===JSON.stringify(['t_care','t_cov','t_k']));
   ok('on, coordinator: no Board cleanup (owners only), no approvals', !/Board cleanup/.test(document.getElementById('myWorkWrap').innerText) && !/appr_/.test(document.getElementById('myWorkWrap').innerHTML));
+  const hid=id=>{ const e=document.getElementById(id); return !e || getComputedStyle(e).display==='none'; };
+  ['todayStrip','dkDashLine','staffingView'].forEach(id=>{ const e=document.getElementById(id); if(e) e.innerHTML='<div class="card">strip '+id+'</div>'; });
+  ok('on: the busy strips above the board are hidden (summary line, My Desk line, Staffing view, the lone tab)', hid('todayStrip') && hid('dkDashLine') && hid('staffingView') && hid('myWorkTabs'));
+  ok('on: the morning note box hides in the day and shows from 5 pm', document.getElementById('tab-mywork').classList.contains('opb-day') === (()=>{ const h=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'numeric',hourCycle:'h23'}).format(new Date())); return h>=5&&h<17; })());
   OPB.older('today'); await sleep(60);
   ok('an older view brings the tabs back, with the board first', MYWORK_TAB==='today' && myWorkTabs(myWorkBuckets())[0][0]==='board' && myWorkTabs(myWorkBuckets()).length>2);
+  ok('an older view brings back the strips and the tabs', !hid('staffingView') && !hid('todayStrip') && !hid('myWorkTabs'));
   myWorkGo('board'); await sleep(40);
   DATA.ops_settings.ops_board_live_since=new Date(Date.now()-8*864e5).toISOString(); renderMyWork(); await sleep(40);
   ok('after a week the older views link is gone', !/Older views/.test(document.getElementById('myWorkWrap').innerText));

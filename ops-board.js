@@ -283,6 +283,19 @@
       + olderHtml();
     wrap.innerHTML = h;
   }
+  /* her ask 2026-11-05 "remove the busy stuff from the top": on the board, the strips above it hide (the tiles say the same);
+     the morning note box shows from 5 pm Chicago time, and the tab row hides when the board is the only tab */
+  const CALM = '<style id="opbCalm">#tab-mywork.opb-calm #todayStrip,#tab-mywork.opb-calm #dkDashLine,#tab-mywork.opb-calm #staffingView,'
+    + '#tab-mywork.opb-calm.opb-day #ohPin details,#tab-mywork.opb-calm.opb-one #myWorkTabs{display:none!important}</style>';
+  function calm(onBoard){
+    const sec = document.getElementById('tab-mywork'); if(!sec) return;
+    if(!document.getElementById('opbCalm')){ const t = document.createElement('div'); t.innerHTML = CALM; document.head.appendChild(t.firstChild); }
+    const b = !!onBoard && visible();
+    let hr = 12; try{ hr = Number(new Intl.DateTimeFormat('en-US', { timeZone:'America/Chicago', hour:'numeric', hourCycle:'h23' }).format(new Date())); }catch(e){}
+    sec.classList.toggle('opb-calm', b);
+    sec.classList.toggle('opb-day', b && hr >= 5 && hr < 17);
+    sec.classList.toggle('opb-one', b && on() && !S.older);
+  }
   function redraw(){ try{ if(typeof W.renderMyWork === 'function') W.renderMyWork(); }catch(e){} }
 
   /* ── hooks for index.html ── */
@@ -303,7 +316,7 @@
     try{ const h = document.querySelector('#tab-mywork h2'); if(h) h.textContent = label; }catch(e){}
   }
 
-  W.OPB = Object.assign({}, CORE, { on, visible, rows, count, render, tabs, start, nameSync, state:S,
+  W.OPB = Object.assign({}, CORE, { on, visible, rows, count, render, tabs, start, nameSync, calm, state:S,
     tile:k => { S.tile = S.tile === k ? '' : k; redraw(); },
     set:(k, v) => { S.f[k] = v; save(); redraw(); },
     reset:() => { S.tile = ''; S.f = { when:'', who:'', need:'', owner:'start' }; save(); redraw(); },
