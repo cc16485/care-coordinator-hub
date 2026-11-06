@@ -6976,8 +6976,12 @@ async function obFindWorkHistory(c){
 async function obDateCheck(c, n){
   const m=c&&c[`r${n}_manual`]; if(!m) return '';
   if(obRefType(m.type||c[`r${n}_type`])!=='professional'){ m.date_check=''; return ''; }
-  let wh=null; try{ wh=await obFindWorkHistory(c); }catch(e){ wh=null; }
-  m.date_check=obDateCheckCompare(wh, [m.employer_confirmed, c[`r${n}_company`]], m.emp_from, m.emp_to);
+  /* 2026-11-05: the job the applicant gave in Step 1, which the reference saw on the form ("Is this right?"), comes first;
+     the old application's work history only when there is none */
+  let wh=null;
+  if(m.claim_given && typeof m.claim_given==='object') wh=[m.claim_given];
+  else { try{ wh=await obFindWorkHistory(c); }catch(e){ wh=null; } }
+  m.date_check=obDateCheckCompare(wh, [m.employer_confirmed, c[`r${n}_company`], m.claim_given&&m.claim_given.company], m.emp_from, m.emp_to);
   return m.date_check;
 }
 
@@ -6989,6 +6993,13 @@ const OB_ANS={
   rehire:{yes:'Yes',no:'No',policy:"Their policy doesn't allow them to say"},
   trust_family:{yes:'Yes',reservations:'Yes, with some reservations',no:'No'},
 };
+/* 2026-11-05 "Is this right?" on the reference form: what the applicant told us, and whether the reference said it was right */
+function obClaimRows(m){
+  const c=m&&m.claim_given; if(!m||!m.claim_answer||!c||typeof c!=='object') return [];
+  const job=[c.role, c.role?('at '+(c.company||'')):(c.company||'')].filter(Boolean).join(' ')+((c.from||c.to)?', '+(c.from||'?')+' to '+(c.to||'?'):'');
+  return [['What the applicant told us', job||'Not given'],
+          ['Did the reference say it was right?', m.claim_answer==='right'?'Yes, they confirmed it':'No, something is different (their answers are below)']];
+}
 function obRefQA(m, type){
   m=m||{};
   const a=(k,v)=>{ const raw=v!==undefined?v:m[k]; return raw?((OB_ANS[k]&&OB_ANS[k][raw])||String(raw)):'Not answered'; };
@@ -6996,6 +7007,7 @@ function obRefQA(m, type){
   if(t==='professional'){
     const to=String(m.emp_to||'').toLowerCase()==='present'?'still works there':(m.emp_to||'?');
     return [
+      ...obClaimRows(m),
       ['Company or employer, as they gave it', a('employer_confirmed')],
       ['When they worked there', (m.emp_from||m.emp_to)?((m.emp_from||'?')+' to '+to):'Not answered'],
       ['Their job title', a('job_title')],
