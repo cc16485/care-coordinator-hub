@@ -235,7 +235,9 @@ function refAnswerPatch(c, r){
     rel_answer:r.rel_answer||'', employer_confirmed:r.employer_confirmed||'',
     emp_from:r.emp_from||'', emp_to:r.emp_to||'', job_title:r.job_title||'',
     hours_type:r.hours_type||'', rehire:r.rehire||'', trust_family:r.trust_family||'',
-    responder_title:r.responder_title||'', date_check:'' };
+    responder_title:r.responder_title||'', date_check:'',
+    /* 2026-11-05 "Is this right?": what the applicant told us about the job, and the reference's answer (right / changed) */
+    ...(r.claim_answer ? { claim_given:r.claim_given||null, claim_answer:r.claim_answer } : {}) };
   const set={};
   set['r'+n+'n']=c['r'+n+'n']||r.ref_name||r.responder_name||'';
   set['r'+n+'_manual']=manual;

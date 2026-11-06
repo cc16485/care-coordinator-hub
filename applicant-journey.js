@@ -477,7 +477,7 @@ window.AP_JOURNEY = [
   "rule": "Email by itself. From 2026-10-21 (her rule) also a text from the office line when ref_auto_text_live is on; see entry 18.1. No email and no phone = office call card.",
   "subject": "A quick reference for {candidate name}",
   "text": null,
-  "email_summary": "'{candidate} listed you as a reference for a caregiving job with us... a few quick questions, no wrong answers. An honest middling answer helps us more than a glowing one.' [Answer a few quick questions]",
+  "email_summary": "'{candidate} listed you as a {professional or personal} reference for {a CNA job, a caregiver job} with us. We would be grateful for two minutes... a few quick questions, no wrong answers. An honest middling answer helps us more than a glowing one.' [Answer a few quick questions]",
   "shows_in_ghl": true,
   "failure_visible": true,
   "page": "https://cc.mo-care.com/reference.html?r=preview&c=Jordan%20Ellis&n=Denise%20Hollan&rel=Charge%20nurse"
@@ -493,7 +493,7 @@ window.AP_JOURNEY = [
   "channel": "text (office line)",
   "rule": "Her rule 2026-10-21: the Hub texts each reference automatically from the office line, with STOP to opt out; the office calls when needed. A reference who replied STOP becomes a call card the same day. Words approved 2026-11-05 (the office text without the thank-you line); on with the Admin switch Text references by themselves.",
   "subject": null,
-  "text": "Hi {first}, this is Caring Companions In-Home Senior Care. {Candidate} listed you as a reference. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
+  "text": "Hi {first}, this is Caring Companions In-Home Senior Care. {Candidate} listed you as a {professional or personal} reference for {a CNA job, a caregiver job} with us. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
@@ -525,7 +525,7 @@ window.AP_JOURNEY = [
   "channel": "text (office line)",
   "rule": "Once. Words approved 2026-11-05 (the office text without the thank-you line); on with the Admin switch Text references by themselves.",
   "subject": null,
-  "text": "Hi {first}, just a friendly reminder. This is Caring Companions In-Home Senior Care. {Candidate} listed you as a reference. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
+  "text": "Hi {first}, just a friendly reminder. This is Caring Companions In-Home Senior Care. {Candidate} listed you as a {professional or personal} reference for {a CNA job, a caregiver job} with us. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
@@ -541,7 +541,7 @@ window.AP_JOURNEY = [
   "channel": "email or text",
   "rule": "Text needs recorded verbal OK. Raw fetch: a GoHighLevel refusal shows only to the person who pressed (no card).",
   "subject": "A quick reference for {candidate name}",
-  "text": "Hi {ref first}, this is Caring Companions In-Home Senior Care. {candidate} listed you as a reference. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
+  "text": "Hi {ref first}, this is Caring Companions In-Home Senior Care. {candidate} listed you as a {professional or personal} reference for {a CNA job, a caregiver job} with us. A few quick questions, about two minutes: {link} Reply STOP to opt out.",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true

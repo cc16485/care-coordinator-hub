@@ -81,8 +81,19 @@
 
     <!-- ===== Professional set (t=professional) ===== -->
     <div class="set" id="setPro">
-      <div class="card">
+      <!-- 2026-11-05 Samantha: "prefill and give the reference the option to mark they are correct or to make a change to what
+           we gave". Shown only when the server finds the job in their Step 1 work history this reference can speak to. -->
+      <div class="card" id="claimCard" style="display:none">
+        <p class="q" id="claimQ"></p>
+        <p class="hint">Is this right? <span class="req">*</span></p>
+        <div class="opts">
+          <label class="opt"><input type="radio" name="claim" value="right" onchange="claimUI()"> Yes, that's right</label>
+          <label class="opt"><input type="radio" name="claim" value="changed" onchange="claimUI()"> Something is different</label>
+        </div>
+      </div>
+      <div class="card" id="timeCard">
         <p class="q">About their time with you</p>
+        <p class="hint" id="timeHint" style="display:none">Here is what they told us. Please change anything that is not right.</p>
         <label class="f" for="employer">Company or employer</label>
         <input class="t" id="employer" placeholder="e.g. Sunrise Senior Living">
         <div class="row2">
@@ -227,6 +238,31 @@ if (CO) g('employer').value = CO;
 g(MODE==='professional' ? 'setPro' : 'setPer').style.display = 'block';
 g('titleWrap').style.display = MODE==='professional' ? 'block' : 'none';
 
+/* 2026-11-05 "Is this right?": what the applicant told us about this job, filled in; the reference says yes, or fixes it */
+let CLAIM = null;
+const isPresentWord = v => /\b(present|current|currently|now|still)\b/i.test(String(v || ''));
+function showClaim(c, first){
+  CLAIM = c;
+  const to = isPresentWord(c.to) ? 'now' : c.to;
+  const when = c.from && to ? c.from + ' to ' + to : (c.from ? 'from ' + c.from : (c.to ? 'until ' + c.to : ''));
+  g('claimQ').innerHTML = escH(first) + ' told us: <b>' + escH([c.role, c.role ? 'at ' + c.company : c.company].filter(Boolean).join(' ')) + (when ? ', ' + escH(when) : '') + '.</b>';
+  g('employer').value = c.company || g('employer').value;
+  g('empFrom').value = c.from || '';
+  if (isPresentWord(c.to)) { g('stillHere').checked = true; stillUI(); } else g('empTo').value = c.to || '';
+  g('jobTitle').value = c.role || '';
+  g('claimCard').style.display = 'block';
+  g('timeHint').style.display = 'block';
+  claimUI();
+}
+function claimUI(){
+  if (!CLAIM) return;
+  const a = pick('claim');
+  g('timeCard').style.display = a === 'changed' ? 'block' : 'none';
+  /* "Yes" sends exactly what they told us */
+  if (a === 'right') { g('employer').value = CLAIM.company || ''; g('empFrom').value = CLAIM.from || '';
+    g('stillHere').checked = isPresentWord(CLAIM.to); g('empTo').value = g('stillHere').checked ? '' : (CLAIM.to || ''); stillUI(); g('jobTitle').value = CLAIM.role || ''; }
+}
+
 /* PRACTICE HIRES ONLY: ask the server whether this request is a practice hire's; anything else (or no answer) = today's form */
 let PRACTICE = null, PRACTICE_TASKS = [];
 const escH = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
@@ -237,6 +273,7 @@ async function loadTasks(){
   try { const r = await sb.functions.invoke('reference-tasks', { body: { action: 'view', r: REQ } }); d = r.data; } catch (e) { d = null; }
   /* 2026-10-21 (Level of Care, her approved Oct 8 design): the server may show the task questions to every work reference
      (show: true), not only practice hires; their "I saw it myself" answers can verify a level. */
+  if (d && d.claimed && MODE === 'professional') showClaim(d.claimed, d.first || who.split(' ')[0]);
   if (!d || (d.practice !== true && d.show !== true)) return;
   PRACTICE = d; const first = d.first || who.split(' ')[0];
   PRACTICE_TASKS = [...new Set((d.entries || []).flatMap(e => (e.tasks || []).map(t => t.key)))];
@@ -249,6 +286,7 @@ async function loadTasks(){
   if (g('trustCard')) g('trustCard').style.display = 'none';
 }
 loadTasks();
+
 
 function stillUI(){
   const on = g('stillHere').checked;
@@ -322,6 +360,7 @@ function buildAnswers(){
 }
 function missingAnswers(){
   const m = [];
+  if (CLAIM && !pick('claim')) m.push('whether what they told us about the job is right');
   if (MODE === 'professional' && !pick('rehire')) m.push('whether they are eligible for rehire');
   if (MODE === 'personal' && !PRACTICE && !pick('trust')) m.push('whether you would trust them with your own family');
   if (PRACTICE) {
@@ -350,6 +389,12 @@ async function send(){
       const task_confirm = {}; PRACTICE_TASKS.forEach(k => { task_confirm[k] = pick('task_' + k); });
       const { data: td, error: te } = await sb.functions.invoke('reference-tasks', { body: { action: 'save', r: REQ, task_confirm, comfort_why: txt('comfortWhy') || null } });
       if (te || !td || !td.ok || td.saved == null) throw new Error('task answers not saved: ' + ((td && td.error) || (te && te.message) || 'no reply'));
+    }
+    if (CLAIM && pick('claim')) {
+      /* "Is this right?" first, while the request is still open. If it does not save, their answers below still go (the
+         company, dates and job title they gave are in them); the office then compares by hand. */
+      try { const { data: cd } = await sb.functions.invoke('reference-tasks', { body: { action: 'claim', r: REQ, answer: pick('claim') } });
+        if (!cd || !cd.ok) console.error('claim not saved', cd); } catch (e) { console.error('claim not saved', e); }
     }
     const { data, error } = await sb.rpc('reference_answer', { p_id: REQ, p_answers: buildAnswers() });
     if(error) throw error;
