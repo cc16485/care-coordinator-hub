@@ -4949,12 +4949,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div><label>Owner Escalation at (min)</label><input type="number" id="lrManager" min="7" max="240" step="1"></div>
 <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;"><button class="secondary" onclick="lrSave(this)">Save the minutes</button><span class="field-note" id="lrSaved"></span></div>
 </div>
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Assessment booking</div>
-<p class="hint">New Client Assessments booked in the Hub's own calendar: Krystal first (8:30 to 1:30), then Samantha (10:00 to 4:30), Monday to Friday. 90 minutes held, plus 30 minutes to drive either side; families are told 60 to 90 minutes. Families book on mo-care.com/book, the office from a lead. Nothing goes to a family until its switch is on.</p>
-<div id="asmtSet"></div>
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;">Coordinator cards</div>
-<p class="hint">The card a family opens from their confirmation, the same look as a caregiver card. Only a published card is linked.</p>
-<div id="ccardSet"></div>
 <p class="hint" style="margin-top:6px;">The owner's text at 5 minutes is fixed. Who the backup is comes from the Operations duty window (Dashboard → Responsible now → Manage, the Backup person); with none set, Owner Escalation is told at 15. Texts go to the mobile numbers on the Team page (Owners Hub → Admin → Team).</p>
 <!-- Lead turns (Stage 1 of the Care Coordinator Leads and Bonus plan, policy approved by Samantha 2026-10-18): who owns a new
      lead, by turn. ops_settings.lead_rotation {people:[{name, on}]} + lead_rotation_live; only Samantha or Zachary can change it. -->
@@ -5169,6 +5163,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="webhook-box"><code id="leadWebhookUrl">POST https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/lead-intake?token=cclead_…</code></div>
 </div>
 
+<!-- 2026-11-06 (Samantha: "cant find the assessment booking in settings"): its own section, not the bottom of Leads -->
+<div class="settings-section" id="asmtSettings" data-set="assessment-booking">
+<h3>📅 Assessment booking</h3>
+<p class="hint">New Client Assessments booked in the Hub's own calendar: Krystal first (8:30 to 1:30), then Samantha (10:00 to 4:30), Monday to Friday. 90 minutes held, plus 30 minutes to drive either side; families are told 60 to 90 minutes. Families book on mo-care.com/book, the office from a lead. Nothing goes to a family until its switch is on.</p>
+<div id="asmtSet"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;">Coordinator cards</div>
+<p class="hint">The card a family opens from their confirmation, the same look as a caregiver card. Only a published card is linked.</p>
+<div id="ccardSet"></div>
+</div>
 <div class="settings-section" id="hvSettings" data-set="home-visit">
 <h3>Home visit</h3>
 <p class="hint">The rates and minimums the iPad home visit shows on its care level screen. Changing them here changes what the next visit shows; agreements already signed are not touched.</p>
