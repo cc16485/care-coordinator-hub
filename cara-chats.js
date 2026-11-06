@@ -1,5 +1,5 @@
 /* ============================================================================================================================
-   ASK CARA CHATS (Team → Ask Cara chats, beside Inbox). Samantha 2026-11-05: "can we see transcripts from conversations that
+   ASK CARA CHATS (Leads → Ask Cara chats, between Leads board and Reports; beside Inbox until 11-06). Samantha 2026-11-05: "can we see transcripts from conversations that
    happen in ask cara chat bot on our website", then "build an Ask Cara Chats page in the Hub so the office can read website
    chat transcripts" (her pick: a sub-tab beside Inbox). Same day: Cara offers a call back after the first real question,
    and what they leave becomes a Website lead whose note says "Ask Cara chat <id>" (website cara-widget.js).

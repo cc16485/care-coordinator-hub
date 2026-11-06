@@ -32,7 +32,9 @@ async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,500)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const box=()=>document.getElementById('cchats_box'), txt=()=>box().innerText;
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
-  ok('the Ask Cara chats pill sits in the Team bar right after Inbox', (()=>{ const p=[...document.querySelectorAll('#fsub-team .fpill')].map(x=>x.dataset.tab); return p[0]==='inbox'&&p[1]==='carachats'; })());
+  ok('the Ask Cara chats pill sits in the Leads bar between Leads board and Reports', (()=>{ const p=[...document.querySelectorAll('#fsub-leads .fpill')].map(x=>x.dataset.tab); return p[0]==='leadsstarts'&&p[1]==='carachats'&&p[2]==='reports'; })());
+  ok('it is no longer in the Conversations bar', !document.querySelector('#fsub-team .fpill[data-tab="carachats"]'));
+  ok('Ask Cara chats belongs to the Leads group', ccGroupOf('carachats')==='leads');
   switchTab('carachats'); await sleep(600);
   ok('the page loads', !!window.CCHATS && /Ask Cara chats/.test(txt()), txt().slice(0,200));
   const q=window.__log.queries[0]||{};
