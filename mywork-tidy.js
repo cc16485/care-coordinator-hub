@@ -65,6 +65,7 @@
     let n = 0; const done = [];
     for(const id of ids){
       const i = items.findIndex(x => x && x.id === id); if(i < 0) continue;
+      if(W.CAA && W.CAA.guards(items[i])) continue;   /* a Was it covered? card closes only with an answer (calloff-answers.js) */
       const next = clearOne(items[i], a, why, at); if(!next) continue;
       items[i] = Object.assign(items[i], next);
       if(typeof W.persist === 'function') await W.persist('ops_items', items[i]);
@@ -127,7 +128,8 @@
     return '<div class="card mwt-strip" style="padding:10px 14px;margin-bottom:12px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;font-size:13.5px;">' + parts.map(item).join('<span style="color:var(--border);" aria-hidden="true">|</span>') + '</div>';
   }
   /* ── five tabs: Today, Team Work, All mine, Waiting, More ── */
-  const MAIN = ['today', 'team', 'mine', 'waiting'];
+  /* 2026-11-05: Follow-ups (cc-followups.js) sits next to Today when it is shown (her pick 1), never under More */
+  const MAIN = ['today', 'followups', 'team', 'mine', 'waiting'];
   function tabsHtml(TABS, active, badge){
     const main = TABS.filter(([k]) => MAIN.indexOf(k) > -1), rest = TABS.filter(([k]) => MAIN.indexOf(k) === -1);
     const tab = ([k, label]) => '<div class="subtab' + (active === k ? ' active' : '') + '" onpointerdown="if(MYWORK_TAB!==\'' + k + '\')myWorkGo(\'' + k + '\')" onclick="if(MYWORK_TAB!==\'' + k + '\')myWorkGo(\'' + k + '\')">' + label + badge(k) + '</div>';

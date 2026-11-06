@@ -30,7 +30,7 @@ ok(ctx.PP_TABS.map(t => t[1]).join(' | ') === 'Overview | Application & intervie
 const render = cut(IDX, 'function apRenderProfile(){', '/* ---- The half of somebody');
 ok(/AP_TABS_HAVE = \['overview','interview'\]\.concat\(offered \? \['hiring','checks'\] : \[\]\)/.test(render), 'applicant: 4 tabs, hiring + checks once offered');
 ok(/started_at \|\| r\.left_at \|\| r\.status==='left'\) \? \['performance'\]/.test(render), 'performance once they started');
-for (const box of ["'What they told us'", "'The screen'", "'Where they have worked'", "'The interview'", "'The offer'", "'Getting them started'", "'Training'", "'Since they started'", "'Texts & emails'", "'How it ended'", 'apNoshowPanel(r)', 'apDecisionPanel(r)', 'apReviewBox', 'apPrnHtml(r)'])
+for (const box of ["'What they told us'", "'The screen'", "'Where they have worked'", "'The interview'", "'The offer'", "'References'", "'Training'", "'Since they started'", "'Texts & emails'", "'How it ended'", 'apNoshowPanel(r)', 'apDecisionPanel(r)', 'apReviewBox', 'apPrnHtml(r)'])
   ok(render.includes(box), 'nothing lost from the old page: ' + box);
 for (const act of ['apBookFor', 'apCancelBooking', 'apInterview', 'apToOffer', 'apToPool', 'apFromPool', 'apDecline', 'apOffboard', 'apCgLink', 'ApText.btn'])
   ok(cut(IDX, 'function apNextStep(r, b){', 'function apTab(k){').includes(act) || render.includes(act), 'every action still reachable: ' + act);

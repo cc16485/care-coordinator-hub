@@ -171,7 +171,8 @@
     const b = (act, label, strong) => '<button type="button" class="ibtn' + (strong ? ' ibtn-strong' : '') + '" style="margin:0 6px 6px 0" onclick="DRV.form(' + i + ',\'' + act + '\')">' + label + '</button>';
     h += '<div style="margin-top:10px;padding-top:8px;border-top:1px solid #EEE9DF">'
       + b('verify:license', 'Verify license') + b('verify:insurance', 'Verify insurance') + b('verify:coverage', 'Verify coverage') + b('verify:mvr', 'Verify driving record')
-      + (st !== 'approved' ? b('approve', 'Approve driver', true) : '')
+      /* 2026-11-05 (Samantha): the dark button only once the server says they can be approved; until then it looks like the others */
+      + (st !== 'approved' ? b('approve', 'Approve driver', d.can_approve !== false) : '')
       + (st !== 'suspended' && st !== 'non_driver' ? b('suspend', 'Suspend') : '')
       + (st !== 'non_driver' ? b('non_driver', 'Mark Non-Driver') : '')
       + b('send_link', 'Send the caregiver their secure link') + '</div>';

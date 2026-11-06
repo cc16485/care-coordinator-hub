@@ -1,6 +1,7 @@
 /* family-send.js · SEND TO FAMILY, the Hub card (Samantha 2026-10-28: "build it with your picks: Billing owner enters payment
    forms, no 3-digit code unless AxisCare needs it, start with the four pieces").
-   On a client's Start of Care tab (under the Client Care Agreement) and on the Payer tab (payment picked). The office picks
+   On a client's Start of Care tab (under the Client Care Agreement) and, as "Documents" (payment forms only), on the
+   Communication & Documents tab (Samantha 2026-11-02: payment forms "should not be in payer", moved off the Payer tab). The office picks
    the piece and ONE person from this client's Family Circle; anyone who can't get it shows why. The card keeps the history:
    sent, opened, done, cancelled. A returned payment form shows the last 4 only; a care coordinator, the Billing owner or an
    owner can Show the full numbers once, to type into AxisCare (Samantha 2026-10-28: "Care Coordinators can input payment
@@ -22,7 +23,7 @@
     if (status >= 400) { const e = new Error(data.message || data.error || ('The send service answered ' + status)); e.outcome = data.outcome; e.data = data; throw e; }
     return data;
   }
-  const hosts = () => ['cp_fsend', 'cp_fsend_payer'].map(id => document.getElementById(id)).filter(Boolean);
+  const hosts = () => ['cp_fsend', 'cp_fsend_docs'].map(id => document.getElementById(id)).filter(Boolean);
   async function load() {
     const a = ax(); if (!a) return;
     try { S.data = await call({ action: 'list', client_ax: a }); S.err = ''; } catch (e) { S.data = null; S.err = e.message; }
@@ -103,14 +104,14 @@
     if (S.err) return '<div class="card" style="margin-top:12px"><b>Send to family</b><div class="field-note">Could not load: ' + esc(S.err) + '</div></div>';
     if (!S.data) return '<div class="card" style="margin-top:12px"><b>Send to family</b><div class="field-note">Loading…</div></div>';
     const d = S.data, list = payer ? d.sends.filter(s => s.piece === 'payment') : d.sends;
-    return '<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b style="color:var(--navy,#0E3860);font-size:15.5px">' + (payer ? 'Payment forms' : 'Send to family') + '</b>'
+    return '<div class="card" style="margin-top:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><b style="color:var(--navy,#0E3860);font-size:15.5px">' + (payer ? 'Documents' : 'Send to family') + '</b>'
       + (d.can_send ? '<button class="primary" data-fs-new="' + (payer ? 'payment' : '') + '">' + (payer ? 'Send a payment form' : 'Send something') + '</button>' : '') + '</div>'
       + (!d.live ? '<div class="field-note" style="margin-top:4px">' + (d.can_send ? 'Not switched on yet: only owners can send, to try it.' : 'Not switched on yet.') + '</div>' : '')
       + (S.pick !== null && S.host === (payer ? 'payer' : 'soc') ? sheet() : '')
       + (list.length ? '<div style="margin-top:8px">' + list.map(rowHtml).join('') + '</div>' : '<div class="field-note" style="margin-top:6px">Nothing sent yet.' + (payer ? ' The payment form replaces the GHL Credit Card &amp; ACH form.' : '') + '</div>')
       + '</div>';
   }
-  function draw() { hosts().forEach(h => { h.innerHTML = html(h.id === 'cp_fsend_payer'); }); }
+  function draw() { hosts().forEach(h => { h.innerHTML = html(h.id === 'cp_fsend_docs'); }); }
   function tick(id) {
     clearInterval(S.timers[id]); const end = Date.now() + 300e3;
     S.timers[id] = setInterval(() => { const left = Math.max(0, end - Date.now()), el = document.querySelector('[data-left="' + id + '"]');
@@ -118,8 +119,8 @@
       if (!left) { clearInterval(S.timers[id]); delete S.shown[id]; draw(); } }, 1000);
   }
   document.addEventListener('click', async e => {
-    const t = e.target.closest('[data-fs-row],[data-fs-new],[data-fs-send],[data-fs-show],[data-fs-entered],[data-fs-cancel],[data-fs-again],[data-fs-goagree]'); if (!t || !t.closest('#cp_fsend,#cp_fsend_payer')) return;
-    const payer = !!t.closest('#cp_fsend_payer');
+    const t = e.target.closest('[data-fs-row],[data-fs-new],[data-fs-send],[data-fs-show],[data-fs-entered],[data-fs-cancel],[data-fs-again],[data-fs-goagree]'); if (!t || !t.closest('#cp_fsend,#cp_fsend_docs')) return;
+    const payer = !!t.closest('#cp_fsend_docs');
     if (t.dataset.fsRow) { S.open = S.open === t.dataset.fsRow ? '' : t.dataset.fsRow; return draw(); }
     if (t.dataset.fsNew !== undefined) { S.host = payer ? 'payer' : 'soc'; S.pick = S.pick !== null ? null : (t.dataset.fsNew || ''); S.who = ''; return draw(); }
     if (t.dataset.fsAgain) { S.host = payer ? 'payer' : 'soc'; S.pick = t.dataset.fsAgain; S.who = ''; return draw(); }
@@ -144,14 +145,14 @@
     }
   });
   document.addEventListener('change', e => {
-    if (!e.target.closest || !e.target.closest('#cp_fsend,#cp_fsend_payer')) return;
+    if (!e.target.closest || !e.target.closest('#cp_fsend,#cp_fsend_docs')) return;
     if (e.target.name === 'fsPiece') { S.pick = e.target.value; S.who = ''; draw(); }
     if (e.target.name === 'fsWho') { S.who = e.target.value; draw(); }
   });
   function mount() {
-    const soc = document.getElementById('cp_agreement'), pay = document.getElementById('cp_payer');
+    const soc = document.getElementById('cp_agreement'), pay = document.getElementById('cp_evv_forms');
     if (soc && !document.getElementById('cp_fsend')) soc.insertAdjacentHTML('afterend', '<div id="cp_fsend"></div>');
-    if (pay && !document.getElementById('cp_fsend_payer')) pay.insertAdjacentHTML('afterend', '<div id="cp_fsend_payer"></div>');
+    if (pay && !document.getElementById('cp_fsend_docs')) pay.insertAdjacentHTML('afterend', '<div id="cp_fsend_docs"></div>');
     if (S.ax !== ax()) { S.ax = ax(); S.data = null; S.open = ''; S.pick = null; S.who = ''; S.shown = {}; Object.values(S.timers).forEach(clearInterval); S.timers = {}; }
     draw(); load();
   }

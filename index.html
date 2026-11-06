@@ -343,7 +343,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=20"></script><script src="applicant-text.js?v=4"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=20"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -1218,7 +1218,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          reached, and the signing link lives on its card. Offers are still made FROM the person and tracked ON the
          person's lifecycle row; job_offers is untouched. -->
     <div class="fpill" data-tab="offers" onclick="switchTab('offers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-doc"/></svg> Offers<span class="subtab-badge" id="offersBadge" style="display:none;"></span></div>
-    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Onboarding<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="cgbackground" onclick="switchTab('cgbackground')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-search"/></svg> Onboarding<span class="subtab-badge red" id="bgrPillBadge" style="display:none;"></span><span class="subtab-badge red" id="orpOnbBadge" style="display:none;margin-left:3px"></span></div>
     <!-- 2026-11-01 (Samantha): who was invited to orientation and when, the unit they are on, who is stuck, who finished (orient-progress.js) -->
     <div class="fpill" data-tab="orientprog" onclick="switchTab('orientprog')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-grad"/></svg> Orientation<span class="subtab-badge red" id="orpPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="cgorient" onclick="switchTab('cgorient')" style="display:none" title="Folded into Onboarding (2026-10-21); open it from Onboarding, More"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> Orientations</div>
@@ -1716,6 +1716,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <div style="flex:1;"></div>
         <button class="secondary" id="cctBtn" style="display:none;" onclick="cctOpen()" title="Your month (owners: the team side by side and reviews)">My month</button>
         <button class="secondary" id="bnBtn" style="display:none;" onclick="bnOpen()" title="Your new-client bonuses (pay is private)">Bonuses</button>
+        <!-- 2026-11-05 (her ask): + Add lead on My Work too, the same button as the Leads page -->
+        <button class="primary" onclick="openCallCockpit()">+ Add lead</button>
         <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
       </div>
       <!-- NEW TODAY (2026-10-19): the strip is what the Dashboard was for, on one line (renderTodayStrip) -->
@@ -2288,6 +2290,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-row-h{border-top:none;background:#f6f5f0;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#55677a;padding:10px 18px}
         .ckd-who{display:flex;flex-direction:column;gap:2px;min-width:0}
         .ckd-name{font:inherit;font-size:15.5px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer}
+        .ckd-check{font:inherit;font-size:11.5px;font-weight:700;color:#2F6FB0;background:#EEF4FB;border:1px solid #D3E2F3;border-radius:999px;padding:1px 9px;align-self:flex-start;cursor:pointer}
         .ckd-name:hover{text-decoration:underline}
         .ckd-wait{font-size:12.5px;font-weight:600}
         .ckd-pills{display:flex;gap:6px;flex-wrap:wrap}
@@ -2367,6 +2370,125 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         .ckd-box-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
         .ckd-box-acts:empty{display:none}
         .ckd-p-foot{display:flex;gap:16px;flex-wrap:wrap;border-top:1px solid #e4e1d8;padding-top:12px}
+        /* 2026-11-03 Onboarding as one table (caregivers-engine.js obtRender, switch onboarding_table_live) */
+        .obt-sum{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+        /* 2026-11-04 Getting ready table: the filters as one row of menus (getting-ready-table.js) */
+        .grt-bar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+        .grt-m{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#55677a;background:#fff;border:1px solid #d9d5ca;border-radius:999px;padding:3px 4px 3px 11px}
+        .grt-m span{white-space:nowrap}.grt-m select{font:inherit;font-size:13px;font-weight:600;color:#0D365F;border:none;background:transparent;padding:2px 4px;width:auto;min-width:0;max-width:190px;margin:0;cursor:pointer}
+        .grt-m.grt-on{background:#0D365F;border-color:#0D365F;color:#E8C988}.grt-m.grt-on select{color:#fff}.grt-m.grt-on select option{color:#16283a}
+        .grt-find{font:inherit;font-size:13px;padding:5px 11px;border:1px solid #d9d5ca;border-radius:999px;min-width:0;width:170px;margin:0}
+        .grt-clear{font:inherit;font-size:12.5px;color:#1F7A8C;background:none;border:none;padding:0;text-decoration:underline;cursor:pointer}
+        .grt-sum{font-size:13px;color:#55677a;margin-left:auto;font-variant-numeric:tabular-nums}.grt-sum b{color:#0D365F}.grt-sum .grt-red{color:#B42318}
+        .obt-s{font:inherit;text-align:left;cursor:pointer;background:#fff;border:1.5px solid #e4e1d8;border-radius:12px;padding:8px 12px;display:flex;flex-direction:column;gap:1px;color:#0D365F}
+        .obt-s b{font-size:22px;font-weight:800;line-height:1.1}.obt-s span{font-size:12.5px;font-weight:600;color:#55677a;line-height:1.25}
+        .obt-s:hover{border-color:#1F7A8C}.obt-s.obt-on{border-color:#0D365F;box-shadow:inset 0 0 0 1px #0D365F}
+        .obt-s-office b{color:#0D365F}.obt-s-wait b{color:#55677a}.obt-s-rev b{color:#7A2E8C}.obt-s-near b{color:#1F7A4D}.obt-s-late b{color:#B45309}
+        .obt-start{font-size:14px;color:#16283a;background:#F4F9FA;border:1px solid #CDE7E4;border-radius:10px;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+        .obt-qs{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.obt-ql{font-size:12.5px;font-weight:700;color:#55677a;margin-right:2px}
+        .obt-q{font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#0D365F;border:1px solid #d9d5ca;border-radius:999px;padding:4px 11px}
+        .obt-q span{color:#55677a;font-weight:700;margin-left:2px}.obt-q.obt-on{background:#0D365F;color:#fff;border-color:#0D365F}.obt-q.obt-on span{color:#E8C988}
+        /* 2026-11-04 Onboarding availability chart (onboarding-availability.js) */
+        .oav-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end}.oav-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.oav-pv{font-size:12.5px;color:#55677a}
+        .oav{background:#fff;border:1px solid #e4e1d8;border-radius:12px;padding:14px;margin:10px 0 4px;display:flex;flex-direction:column;gap:12px;color:#0D365F}
+        .oav-chips{display:flex;flex-wrap:wrap;gap:6px}
+        .oav-chip{font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;color:#0D365F;border:1px solid #d9d5ca;border-radius:999px;padding:4px 12px}
+        .oav-chip b{color:#55677a;margin-left:2px}.oav-chip.on{background:#0D365F;color:#fff;border-color:#0D365F}.oav-chip.on b{color:#E8C988}
+        .oav-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+        .oav-t{font:inherit;text-align:left;background:#F6F9FD;border:1.5px solid transparent;border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;color:#0D365F}
+        .oav-t b{font-size:22px;font-weight:800;line-height:1.15;font-variant-numeric:tabular-nums}.oav-t span{font-size:12.5px;font-weight:600;color:#55677a}
+        .oav-unk{background:#FDF3E1;cursor:pointer}.oav-unk b,.oav-unk span{color:#8A5A0B}.oav-unk.on{border-color:#B7791F}
+        .oav-gw{overflow-x:auto}
+        .oav-grid{display:grid;grid-template-columns:78px repeat(7,minmax(40px,1fr));gap:4px;min-width:380px}
+        .oav-hd{text-align:center;font-size:12.5px;font-weight:700;color:#55677a}.oav-rl{display:flex;align-items:center;font-size:12.5px;font-weight:700;color:#55677a}
+        .oav-c{font:inherit;height:38px;border:1.5px solid transparent;border-radius:7px;font-weight:800;font-size:15px;cursor:pointer;color:#0D365F;font-variant-numeric:tabular-nums}
+        .oav-c:hover{border-color:#0D365F}.oav-c.oav-sel{border-color:#0D365F;box-shadow:0 0 0 2px #E8C988}
+        .oav-h0{background:#F3F2EE;color:#9aa4ae}.oav-h1{background:#E3F4F3}.oav-h2{background:#A9DCD8}.oav-h3{background:#54BDB8;color:#06302D}
+        .oav-who{font-size:13.5px;line-height:1.7}.oav-muted{color:#55677a;font-size:12.5px}
+        .oav-name{font:inherit;font-size:13px;cursor:pointer;background:#F6F9FD;border:1px solid #e2e8f0;border-radius:999px;padding:1px 10px;margin:2px 4px 2px 0;color:#0D365F}
+        .oav-name:hover{border-color:#0D365F}.oav-dot{font-size:11px;font-weight:700;color:#8A5A0B;background:#FDF3E1;border-radius:999px;padding:0 6px;margin-left:5px}.oav-x{color:#55677a;margin-left:5px;font-size:12px}
+        .oav-ready{display:flex;flex-direction:column;gap:6px}.oav-rh{font-weight:700;font-size:13.5px}
+        .oav-row{display:grid;grid-template-columns:minmax(0,230px) minmax(0,1fr) 56px;gap:10px;align-items:center;font-size:13px}
+        .oav-row i{display:block;height:12px;border-radius:4px;background:#54BDB8;min-width:2px}.oav-row em{font-style:normal;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+        .oav-note{border-top:1px solid #eee9de;padding-top:8px}.oav-pvl{font-size:12.5px}
+        @media (max-width:760px){ .oav{padding:12px 10px}.oav-tiles{grid-template-columns:1fr 1fr 1fr}.oav-t{padding:8px}.oav-t b{font-size:18px}.oav-row{grid-template-columns:minmax(0,130px) minmax(0,1fr) 48px}
+          .oav-grid{grid-template-columns:58px repeat(7,minmax(0,1fr));gap:3px;min-width:0}.oav-rl,.oav-hd{font-size:11px}.oav-c{height:34px;font-size:14px;border-radius:6px} }
+        .obt-wrap{background:#fff;border:1px solid #e4e1d8;border-radius:12px;overflow-x:auto}
+        table.obt{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+        .obt th,.obt td{padding:6px 6px;border-bottom:1px solid #eeebe3;text-align:left;vertical-align:middle;white-space:nowrap}
+        .obt thead th{background:#f6f5f0;font-size:11.5px;font-weight:700;color:#55677a;letter-spacing:.03em;position:sticky;top:0;z-index:2}
+        .obt .obt-n{position:sticky;left:0;z-index:1;background:#fff;min-width:150px;max-width:190px;white-space:normal;border-right:1px solid #eeebe3}
+        .obt thead .obt-n{z-index:3;background:#f6f5f0}
+        .obt th.obt-hi{background:#E3F1F3;color:#0D365F}.obt td.obt-hi{background:#F4FAFB}
+        .obt-name{font:inherit;font-size:14px;font-weight:700;color:#0D365F;background:none;border:none;padding:0;text-align:left;cursor:pointer;display:block}
+        .obt-more{font:inherit;font-size:11.5px;color:#1F7A8C;background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;margin-right:6px}
+        .obt-rem{white-space:normal;font-size:11.5px;margin-top:2px}.obt-rem:empty{display:none}
+        .obt-near{display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:#1F7A4D;background:#E6F4EC;border-radius:999px;padding:1px 7px;margin-top:2px}
+        .obt-tag{font:inherit;font-size:11.5px;font-weight:700;color:#8A5A00;background:#FFF4DF;border:none;border-radius:999px;padding:1px 7px;margin:2px 4px 0 0;cursor:pointer}
+        .obt-tag-late{color:#B45309}
+        .obt svg.navi,.obt-key svg.navi,.obt-cards svg.navi,.obt-start svg.navi{width:13px;height:13px;vertical-align:-2px;margin-right:2px}
+        .obt-ok{color:#1F7A4D;font-weight:700}.obt-lnk{background:none;border:none;padding:0;cursor:pointer}
+        .obt-none{color:#b3b0a6;font-weight:700}
+        .obt-t{font-weight:700;margin-right:4px;color:#16283a}.obt-wait{color:#8A5A00;font-weight:700}
+        .obt-late{color:#B45309;font-weight:800}.obt-warnt{color:#B42318}
+        .obt-rev{display:inline-flex;align-items:center;gap:2px;font-size:11.5px;font-weight:800;color:#7A2E8C;background:#F5E8F8;border:1px solid #E3C6EA;border-radius:6px;padding:1px 6px;margin-right:4px}
+        .obt-rev-b{font:inherit;font-size:11.5px;cursor:pointer}.obt-rev-b:hover{background:#EBD3F1}
+        .obt-r-rev .obt-n{box-shadow:inset 3px 0 0 #7A2E8C}
+        /* 2026-11-04 (from the CDS attendant table): edges, dates, why lines, column groups */
+        .obt-r-late .obt-n{box-shadow:inset 4px 0 0 #B42318}.obt-r-quiet .obt-n{box-shadow:inset 4px 0 0 #C98A0B}
+        .obt-edge{display:inline-block;width:4px;height:13px;border-radius:1px;vertical-align:-2px;margin-right:4px}.obt-edge-late{background:#B42318}.obt-edge-quiet{background:#C98A0B}
+        .obt-dt{font-weight:600;font-size:11.5px;margin-left:3px}
+        .obt td.obt-refs{min-width:96px}
+        .obt .obt-gs{border-left:2px solid #e4e1d8}
+        .obt thead tr.obt-grp th{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:#1F7A8C;padding:6px 6px 3px;border-bottom:none;position:static}
+        .obt thead tr.obt-grp th.obt-gs{border-bottom:2px solid #1F7A8C}
+        .obt-b{font:inherit;font-size:12px;font-weight:700;cursor:pointer;background:#0D365F;color:#fff;border:1px solid #0D365F;border-radius:7px;padding:3px 9px;text-decoration:none;display:inline-block}
+        .obt-b:hover{background:#1F7A8C;border-color:#1F7A8C}
+        .obt-b-q{background:#fff;color:#0D365F;border-color:#cfd8e2}.obt-b-q:hover{background:#F4FAFB;color:#0D365F}
+        .obt-b-w{background:#B42318;border-color:#B42318}
+        .obt-b-rev{background:#7A2E8C;border-color:#7A2E8C}
+        .obt-call{color:#1F7A8C;margin-right:4px;text-decoration:none}
+        .obt-who{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:1px 7px;margin:1px 3px 1px 0}
+        .obt-who-office{background:#E3EAF3;color:#0D365F}.obt-who-applicant{background:#FFF4DF;color:#8A5A00}.obt-who-outside{background:#EEF0F2;color:#4A5563}
+        .obt-who-review{background:#F5E8F8;color:#7A2E8C}.obt-who-none{background:#E6F4EC;color:#1F7A4D}
+        .obt-mks{display:inline-flex;gap:2px;margin-right:5px;vertical-align:middle}
+        .obt-mk{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;font-size:10.5px;font-weight:800;border:1px solid #d9d5ca;color:#a09d93;background:#fff}
+        .obt-mk-ok{background:#1F7A4D;border-color:#1F7A4D;color:#fff}.obt-mk-wait{background:#FFF4DF;border-color:#F0D9A8;color:#8A5A00}
+        .obt-mk-todo{background:#0D365F;border-color:#0D365F;color:#fff}.obt-mk-late{background:#FDE7D3;border-color:#F3B987;color:#B45309}
+        .obt-g td{background:#f6f5f0;font-size:12px;font-weight:800;color:#0D365F;padding:6px 10px;position:sticky;left:0}
+        .obt-g2 td{color:#7A2E8C}
+        .obt-empty{padding:18px;color:#55677a;font-size:14px}
+        .obt-key{font-size:12px;color:#55677a;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center}
+        /* 2026-11-04 Offers inside Onboarding: the folds under the table and the offer window */
+        .obt-folds{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+        .obt-fold{border:1px dashed #d9d5ca;border-radius:9px;background:#faf9f6;padding:7px 12px;font-size:13px}
+        .obt-fold summary{cursor:pointer;color:#0D365F}
+        .obt-fold ul{list-style:none;margin:6px 0 2px;padding:0;display:flex;flex-direction:column;gap:4px}
+        .obt-fold li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+        .obt-fold li .obt-name{display:inline}
+        .obt-fd{color:#55677a;font-size:12.5px}
+        .obt-fold-o{margin-top:6px;background:#fff}
+        .obt-op .ckd-party-in{align-items:stretch;text-align:left}
+        .obt-op p{margin:0;color:#55677a;font-size:13.5px}
+        .obt-op .obt-op-w{color:#B45309}
+        .obt-op-b{display:flex;flex-wrap:wrap;gap:6px}
+        .obt-op-m{font-size:13px}
+        .obt-cards{display:none}
+        @media (max-width:760px){
+          .obt-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+          .obt-wrap{display:none}
+          .obt-cards{display:flex;flex-direction:column;gap:8px}
+          .obt-card{background:#fff;border:1px solid #e4e1d8;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+          .obt-card.obt-r-rev{box-shadow:inset 3px 0 0 #7A2E8C}.obt-card.obt-r-late{box-shadow:inset 4px 0 0 #B42318}.obt-card.obt-r-quiet{box-shadow:inset 4px 0 0 #C98A0B}
+          .obt-card-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+          .obt-card-w{font-size:13px;white-space:nowrap}
+          .obt-pms{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+          .obt-pm{font-size:11px;font-weight:700;border-radius:5px;padding:2px 6px;border:1px solid #e4e1d8;color:#a09d93}
+          .obt-pm-ok{background:#E6F4EC;border-color:#BFE3CC;color:#1F7A4D}.obt-pm-wait{background:#FFF4DF;border-color:#F0D9A8;color:#8A5A00}
+          .obt-pm-todo{background:#E3EAF3;border-color:#C5D3E4;color:#0D365F}.obt-pm-late{background:#FDE7D3;border-color:#F3B987;color:#B45309}
+          .obt-pm-rev{background:#F5E8F8;border-color:#E3C6EA;color:#7A2E8C}.obt-pm-hi{outline:2px solid #1F7A8C}
+          .obt-card-b{display:flex;flex-wrap:wrap;gap:6px}
+        }
         @media (max-width:900px){
           .ckd-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}
           .ckd-start{flex-direction:column;align-items:stretch}
@@ -2423,14 +2545,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body"><strong>Run the OIG, EDL, FCSR and Case.net checks.</strong> Use the buttons on their row and record each result. All of them must be clear before they can move on.</div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body"><strong>FCSR</strong> is done by hand in the state system. Log the date ordered, then mark it clear or failed when the result arrives.</div></div>
           <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body"><strong>Ask References.</strong> Press "<svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Ask refs". Anyone with an <b>email</b> gets the form automatically, with questions for a <b>professional</b> or a <b>personal</b> reference. Anyone with only a phone number is never texted automatically: call them and press <b><svg class=navi aria-hidden=true><use href=icons.svg#i-phone></use></svg> Record</b>, or send the form with <b><svg class=navi aria-hidden=true><use href=icons.svg#i-mail></use></svg> Email</b>, or <b><svg class=navi aria-hidden=true><use href=icons.svg#i-chat></use></svg> Text</b> once they said OK on the phone. A quiet emailed reference gets one reminder after 2 days, the applicant is asked to help at 5 days, and the office gets a card at 9. Two positive references are needed.<span class="tip">Answers score themselves, show on the candidate, and are saved as a PDF in the caregiver's profile. Automatic emails go weekdays, 8am to 6pm.</span></div></div>
-          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Once <strong>2 positive references ✅ + OIG ✅ + EDL ✅ + FCSR ✅ + Case.net ✅</strong>, the status changes to <strong>Ready for Orientation</strong> by itself. Their row then shows a small <strong>Moved into orientation</strong> banner, and the next steps (Viventium Step 2, the Orientation Video Call, the caregiver profile, the office backup) are on the <strong>Orientations</strong> tab.</div></div>
-          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">If any check fails, status moves to <strong>Needs Review</strong>. Document the reason and determine next steps with management.</div></div>
-          <div class="guide-section-lbl">After Step 2 is checked (2026-10-22)</div>
-          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body"><strong>Send orientation information.</strong> Add them in AxisCare as a caregiver with status <strong>In Training</strong>, typing the address, zip code and birth date from the <strong>AxisCare setup</strong> card. Then press <strong>Send orientation information</strong>. The Hub checks AxisCare's zip code and birth date match their Step 1 first (the AxisCare app sign-up needs them), then sends one text and email: their orientation link, their profile link and the welcome video call booking. While they are In Training they are onboarding: never offered shifts.</div></div>
-          <div class="guide-step"><div class="guide-step-num">8</div><div class="guide-step-body"><strong>Orientation, video call, profile, badge.</strong> They do the 2-hour online orientation, book and do the 15-minute welcome video call (ID on camera for the I-9) and finish their profile. Mail their badge. They do not download the AxisCare app yet.</div></div>
-          <div class="guide-step"><div class="guide-step-num">9</div><div class="guide-step-body"><strong>Approved and Active.</strong> When orientation is finished and every required step is done, the Hub approves them to work and sets them <strong>Active</strong> in AxisCare by itself, and texts them the AxisCare app guide. Anything missing keeps them In Training, and their card says what.</div></div>
-          <div class="guide-step"><div class="guide-step-num">10</div><div class="guide-step-body"><strong>Check-in call.</strong> The Staffing Coordinator calls them: everything on file, questions about orientation and the job, the AxisCare app downloaded, and a quick test clock-in on the client named <strong>Practice</strong> if they want one. Tick it done on their card. Shift texts wait for this call.</div></div>
-          <div class="guide-step"><div class="guide-step-num">·</div><div class="guide-step-body">Steps 7, 9 and 10 each have an Admin switch (Owners Hub &gt; Admin). Until a switch is on, that step works the old way.</div></div>
+          <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body"><strong>Viventium Step 2, right after Step 1.</strong> As soon as their Step 1 is done, add them in Viventium for Step 2 (payroll, tax, direct deposit, I-9) and press <strong>I sent Step 2</strong> on their <strong>Viventium</strong> line. It runs at the same time as the checks and references. The Hub texts and emails them and reminds them on day 3 and day 6. When they say done, press <strong>Check Step 2</strong> and tick what you see done in Viventium.</div></div>
+          <div class="guide-step"><div class="guide-step-num">6</div><div class="guide-step-body">Once <strong>OIG + EDL + FCSR + Case.net</strong> are clear, their row shows <strong>Send orientation</strong>. References do not have to be done yet: they keep going on their own <strong>References</strong> line, and <strong>2 positive references (1 from work)</strong> are still needed before Approve to Work. No owner approval. If a check or a reference comes back with something on it, they go to <strong>Needs Review</strong> and Samantha or Zachary decide.</div></div>
+          <div class="guide-section-lbl">After the four background checks are clear (2026-11-02)</div>
+          <div class="guide-step"><div class="guide-step-num">7</div><div class="guide-step-body"><strong>Send orientation.</strong> Their references and Step 2 do not have to be done yet. Press <strong>Send orientation</strong>, add them in AxisCare as a caregiver with status <strong>In Training</strong>, typing the address, zip code and birth date shown, then press <strong>Send orientation information</strong>. The Hub checks AxisCare's zip code and birth date match their Step 1 first (the AxisCare app sign-up needs them), then sends one text and email: their orientation link and their profile link, and that a care coordinator will call them once orientation is finished (have your ID with you). If Step 2 is not checked yet, it asks them to finish it before that call. While they are In Training they are onboarding: never offered shifts.</div></div>
+          <div class="guide-step"><div class="guide-step-num">8</div><div class="guide-step-body"><strong>Orientation, profile, badge.</strong> They do the 2-hour online orientation (it reviews the Client Rights, the Code of Ethics and confidentiality) and finish their profile. Mail their badge. There is no welcome video call any more (Samantha 2026-11-04).</div></div>
+          <div class="guide-step"><div class="guide-step-num">9</div><div class="guide-step-body"><strong>Call after orientation.</strong> When orientation is finished, a <strong>Team Work</strong> card opens for the care coordinators. Call them: look at their ID on video (<strong>Send video link</strong> texts them the office video room) and complete I-9 Section 2 in Viventium, make sure everything is on file, answer questions, help them download and sign in to the AxisCare app (a quick test clock-in on the client named <strong>Practice</strong> if they want one), check their profile, and talk about clients and shifts to get them started. Tick each line on their card.</div></div>
+          <div class="guide-step"><div class="guide-step-num">10</div><div class="guide-step-body"><strong>Approved and Active.</strong> When the call is done, <strong>Step 2 is checked in Viventium</strong> and every other required step is done, the Hub approves them to work and sets them <strong>Active</strong> in AxisCare by itself, and texts them the AxisCare app guide. Anything missing keeps them from shifts, and their card says what.</div></div>
+          <div class="guide-step"><div class="guide-step-num">·</div><div class="guide-step-body">Steps 7, 9 and 10 each have an Admin switch (Owners Hub &gt; Admin). Until a switch is on, that step works the old way: until <strong>Call after orientation, no video call</strong> is on, they book a 15-minute welcome video call and the Staffing Coordinator's check-in call comes after Approve to Work.</div></div>
           <div class="guide-section-lbl">Processing stats</div>
           <div class="guide-step"><div class="guide-step-num">·</div><div class="guide-step-body">Use the <strong>Stats</strong> filter button to see how long each candidate is taking. We aim to get applicants to orientation as fast as possible.</div></div>
         </div>
@@ -3918,6 +4040,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <select id="iqPos" onchange="iqRender()" style="font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;"></select>
             <span style="flex:1;"></span>
             <a class="fb" href="interview-sheet.html" target="_blank" rel="noopener" style="text-decoration:none;">Print the interview sheet</a>
+            <!-- 2026-11-02 (her ask): the PRN Teams handout to give PRN applicants at their interview (two pages, print front and back) -->
+            <a class="fb" href="prn-teams-interview-handout.pdf" target="_blank" rel="noopener" style="text-decoration:none;" title="Two pages: print front and back, one for each PRN applicant">Print the PRN Teams handout</a>
             <button class="secondary" onclick="iqAdd()">＋ Add a question</button>
             <button class="ghost" onclick="iqLoad(this)">↻ Refresh</button>
           </div>
@@ -4440,13 +4564,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="fb" id="lnCallBtn" onclick="lnSetToggle('late_call_live',this)">Turn off calls</button>
 </div>
 <p class="hint" id="lnCallHint" style="margin-top:0;"><b>Calls</b> (on unless you turn them off): when you or Krystal talk with a caregiver on the office line (either of you calling, or them calling in) and they say they're running late, the Hub reads the call's transcript, even while the notices above are in practice. It opens a "Running late" card, notes the call on the missed clock-in card ("Mary said on your 4:31pm call: running late, about 8 minutes (around 4:39pm)"), and, only when they gave a time, pauses the missed clock-in texts to the admins until 5 minutes after that time (never more than 2 hours past the start). If there's still no clock-in then, the texts start again. "Can't make it" or no time given: the texts carry on. Nothing is texted to anyone because of a call; the family only hears when a person taps "Send to the family".</p>
+<div id="lnFamStepBox" style="border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin:0 0 10px;">
+  <b>Telling the family</b> (Samantha 2026-11-05, option A). Still one tap by a person, never automatic. When it is on: the admins' running-late text names who in the family can be told; the Send button shows whenever they gave a time and someone can get texts, with a note when it is under the minutes below or the Hub was not sure (check before you send); the card stays at the top, "Tell the family?", until someone sends, chooses "Don't tell the family", or calls them and taps "I called them"; and anyone in the Family Circle with a phone can be called from the card.
+  <div id="lnFamStepStatus" class="field-note" style="margin:6px 0;"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="fb" id="lnFamBtn" onclick="lnSetToggle('late_family_step_live',this)">Turn on telling the family</button><button class="fb" id="lnFamPrevBtn" onclick="lnFamPreviewToggle()">Preview it (only you)</button></div>
+</div>
 <div class="grid2"><div><label>Look back before a shift (minutes)</label><input id="set_ln_look" inputmode="numeric" placeholder="120"></div><div><label>Family hears when this many minutes late or more</label><input id="set_ln_fam" inputmode="numeric" placeholder="10"></div></div>
 <label>Thank-you to the caregiver (they gave a time)</label>
 <textarea id="set_ln_thanks" rows="2" placeholder="Thanks for letting us know, {first_name}. We'll plan on you getting to {client}'s around {eta}. Drive safe."></textarea>
 <label>Question to the caregiver (no time given)</label>
 <textarea id="set_ln_ask" rows="2" placeholder="Thanks for letting us know, {first_name}. About what time do you think you'll get to {client}'s?"></textarea>
 <label>Family text (after "Hi" and their first name)</label>
-<textarea id="set_ln_family" rows="3" placeholder="A quick update from Caring Companions. {caregiver} is running a little late for {client}'s {time} visit today and expects to arrive around {eta}. We're sorry for the wait. Questions? Call us at (417) 234-8494."></textarea>
+<textarea id="set_ln_family" rows="3" placeholder="A quick update from Caring Companions. {caregiver} is running late for {client}'s {time} visit today and expects to arrive around {eta}. We're sorry for the wait. Questions? Call us at (417) 234-8494."></textarea>
 <label>Family update (a new time)</label>
 <textarea id="set_ln_update" rows="2" placeholder="An update from Caring Companions: {caregiver} now expects to get to {client}'s around {eta}."></textarea>
 <label>Family, they arrived</label>
@@ -4679,6 +4808,61 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
   <button class="secondary" id="cgcSetBtn" onclick="cgcToggle(this)">Turn on caregiver connect</button>
   <span class="field-note" id="cgcSetSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="caregivers-glance">
+<h3>📊 Caregivers at a glance</h3>
+<p class="hint">A new look for Caregivers, Directory: four tiles on top (active caregivers by level, hours on the schedule in the next 7 days against the hours caregivers told us they want, who wants more hours, and who has nothing on the schedule), a count on every filter button, and labeled columns for town, next 7 days, time with us and phone. The two AxisCare upkeep lines move under the list. Only the look changes: nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="cggSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="cggToggleBtn" onclick="CGG.toggle(this)">Turn on the new Caregivers look for everyone</button>
+  <button class="secondary" id="cggPreviewBtn" onclick="CGG.preview(!CGG.previewOn());CGG.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="cggSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="calloff-answers">
+<h3>❓ Was it covered? answers</h3>
+<p class="hint">Cara gets a Was it covered? tab: every finished call-off still waiting for an answer, even if its card is gone, with a What AxisCare shows check (who clocked in for that client at that time). The cards get five answers, including Not needed (no care was owed, such as care that hadn't started), and close only with an answer, so the call-off is always recorded too. Owners can answer several at once with one reason. Nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="caaSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="caaToggleBtn" onclick="CAA.toggle_(this)">Turn on Was it covered? answers for everyone</button>
+  <button class="secondary" id="caaPreviewBtn" onclick="CAA.preview(!CAA.previewOn());">Preview it (only me)</button>
+  <span class="field-note" id="caaSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="clients-glance">
+<h3>📊 Clients at a glance</h3>
+<p class="hint">A new look for Clients: tiles on top (active clients from AxisCare, hours of care in the next 7 days with how much has a caregiver, open visits, call-offs in the last 30 days split by how they ended, and Needs you), one line for check-ins and plan reviews instead of a chip on every row, labeled columns, a Coverage chart button (the week by Morning, Afternoon, Evening, Overnight) and a Check with AxisCare list for clients the Hub and AxisCare disagree about. Only the look changes: nothing is sent and nobody's status changes by itself. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="clgSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="clgToggleBtn" onclick="CLG.toggle(this)">Turn on the new Clients look for everyone</button>
+  <button class="secondary" id="clgPreviewBtn" onclick="CLG.preview(!CLG.previewOn());CLG.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="clgSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="hiring-fold">
+<h3>🗂️ Hiring tab, tidy</h3>
+<p class="hint">A shorter Hiring tab on each applicant's page: every section (The offer, References, The whole journey, Signed documents, Driver Compliance, Hepatitis B) folds to one line with a short summary and opens with a click. Their journey (Now, Next, Missing or follow-up) always stays open, and each person's browser remembers what they opened. The "Open Hiring" banner goes while Hiring is open, and signed Step 1 forms show once, under Signed documents. Only the look changes: nothing is sent or saved. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<div id="hfSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="hfToggleBtn" onclick="HFOLD.toggle(this)">Turn on the tidy Hiring tab for everyone</button>
+  <button class="secondary" id="hfPreviewBtn" onclick="HFOLD.preview(!HFOLD.previewOn());HFOLD.settingsFill();">Preview it (only me)</button>
+  <span class="field-note" id="hfSaved"></span>
+</div>
+</div>
+
+<div class="settings-section" data-set="onboarding-availability">
+<h3>📅 Onboarding availability chart</h3>
+<p class="hint">A Show availability button on Caregivers, Onboarding (the table look). It opens a week grid of when the people in onboarding can work (Morning, Afternoon, Evening, Overnight, Monday to Sunday), with Everyone, Caregivers, CNAs and PRN, the hours a week they want, who has availability unknown, and a Ready by line. It reads each person's own Step 1 answers (or their availability record once they are on the AxisCare roster). Nothing is sent or changed.</p>
+<div id="oavSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="oavToggleBtn" onclick="OAV.toggle(this)">Turn on the availability chart for everyone</button>
+  <button class="secondary" id="oavPreviewBtn" onclick="OAV.preview(!OAV.previewOn());">Preview it (only me)</button>
+  <span class="field-note" id="oavSaved"></span>
 </div>
 </div>
 
@@ -5352,10 +5536,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <span style="flex:1;"></span>
       <input id="cgdSearch" placeholder="Search any caregiver, current or historical…" style="min-width:260px;" oninput="cgdSearchGo(this.value)">
     </div>
+    <div id="cgdGlance"></div><!-- 2026-11-04: Caregivers at a glance tiles (caregivers-glance.js, ops_settings.caregivers_glance_live) -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;" id="cgdFilters">
       <button class="filter-pill active" data-cf="active" onclick="cgdFilter('active',this)">Active</button>
       <button class="filter-pill" data-cf="training" onclick="cgdFilter('training',this)" title="In Training in AxisCare: new hires still onboarding, not offered shifts">Onboarding (In Training)</button>
       <button class="filter-pill" data-cf="inactive" onclick="cgdFilter('inactive',this)">Inactive</button>
+      <button class="filter-pill" data-cf="gonequiet" onclick="cgdFilter('gonequiet',this)" title="Active caregivers with no visit in 30 days (PRN team 60): the still-wanting-to-work check-in">Gone quiet<span id="gqCount"></span></button>
       <button class="filter-pill" data-cf="attention" onclick="cgdFilter('attention',this)">Needs attention</button>
       <button class="filter-pill" data-cf="needsdata" onclick="cgdFilter('needsdata',this)">Needs data connection</button>
       <button class="filter-pill" data-cf="profiles" onclick="cgdFilter('profiles',this)" title="Who still needs a finished caregiver profile, and the button that sends them their link">🪪 Profiles</button>
@@ -5619,6 +5805,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <button class="linklike" onclick="clLoad(true)">↻ Refresh</button>
   </div>
   <div id="clSyncLine" class="field-note" style="margin:-4px 0 10px;font-size:13px;"></div>
+  <div id="clGlance"></div><!-- 2026-11-05: Clients at a glance tiles (clients-glance.js, ops_settings.clients_glance_live) -->
   <div id="clFilters" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;"></div>
   <div id="clBoard"><div class="field-note">Loading…</div></div>
   <div id="clNotClient" class="field-note" style="margin-top:10px;font-size:12.5px;"></div>
@@ -5850,7 +6037,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <!-- 2026-10-12 (the new interview, her "yes to all"): what to ask their references about rides onto the offer and into Background & References -->
         <label style="margin-top:10px;">Check with their references</label>
         <textarea id="apIntRefCheck" rows="2" placeholder="Anything you want their references to confirm, e.g. how they handled a client who refused care"></textarea>
-        <div class="field-note" style="margin-top:4px;">Print the <a href="interview-sheet.html" target="_blank" rel="noopener">interview sheet</a> to laminate. On a phone, start the interview from Today in CC Office.</div>
+        <div class="field-note" style="margin-top:4px;">Print the <a href="interview-sheet.html" target="_blank" rel="noopener">interview sheet</a> to laminate. On a phone, start the interview from Today in CC Office. PRN applicant? Print the <a href="prn-teams-interview-handout.pdf" target="_blank" rel="noopener">PRN Teams handout</a> (front and back) to give them.</div>
 
         <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
           <button class="primary" onclick="apOutcome('hired',this)">✅ Hire, make the offer</button>
@@ -6067,7 +6254,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <button type="button" class="subtab" data-cs="packet" onclick="cpCareSub('packet')">Caregiver packet</button>
       <button type="button" class="subtab" data-cs="notes" onclick="cpCareSub('notes')">Care notes</button>
     </div>
-    <div class="cp-care-sub" data-cs="asmt"><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
+    <div class="cp-care-sub" data-cs="asmt"><div id="cp_learned"></div><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
     <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_gm"></div><div id="cp_review_slot"></div></div>
     <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
     <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
@@ -7396,7 +7583,7 @@ The HomeTogether team</pre>
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
-<script src="caregiver-profile-panel.js?v=20261005j"></script>
+<script src="caregiver-profile-panel.js?v=20261104p"></script>
 <script src="family-app-panel.js?v=20261026a"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
@@ -7425,9 +7612,9 @@ The HomeTogether team</pre>
   window.addEventListener('unhandledrejection', e=>{ const r=e&&e.reason; show(r&&r.message?r.message:String(r||'a step that waits failed'), r&&r.stack?String(r.stack).split('\n')[1]:''); });
 })();
 </script>
-<script src="shift-flags.js?v=3"></script>
+<script src="shift-flags.js?v=4"></script>
 <script src="incidents.js?v=8"></script>
-<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=4"></script><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=12"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=6"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -7442,13 +7629,13 @@ The HomeTogether team</pre>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
 <script src="visit-reasons.js?v=1"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
-<script src="caregiver-readiness.js?v=9"></script><!-- 3b: the one new-hire readiness card -->
-<script src="hire-profile.js?v=10"></script><!-- the main profile of a hire (2026-10-11) -->
-<script src="driver-compliance.js?v=1"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
+<script src="caregiver-readiness.js?v=11"></script><!-- 3b: the one new-hire readiness card -->
+<script src="hire-profile.js?v=13"></script><!-- the main profile of a hire (2026-10-11) -->
+<script src="driver-compliance.js?v=2"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
-<script src="hepb-card.js?v=2"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
+<script src="hepb-card.js?v=3"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
-<script src="client-journey.js?v=24"></script>
+<script src="client-journey.js?v=25"></script><script src="getting-ready-table.js?v=2"></script><!-- 2026-11-03: Getting ready as one table (switch getting_ready_table_live) -->
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script>
@@ -7476,18 +7663,18 @@ The HomeTogether team</pre>
 <script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
-<script src="client-glance.js?v=2"></script><!-- the client at a glance (2026-10-29) -->
+<script src="client-glance.js?v=3"></script><!-- the client at a glance (2026-10-29) -->
 <script src="standup-board.js?v=15"></script>
-<script src="staffing-view.js?v=1"></script>
+<script src="staffing-view.js?v=2"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="mywork-tidy.js?v=2"></script>
+<script src="mywork-tidy.js?v=4"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=7"></script><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
-<script src="team-actions.js?v=2"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
+<script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
@@ -8796,6 +8983,7 @@ function ccRenderPulse(){
   /* 2026-10-05: one meaning of late, said by whose it is (opsLateFor / opsLateUnowned). */
   let late=0, lateNo=0;
   try{ late=opsLateFor(opsMeKey()).length; lateNo=opsLateUnowned().length; }catch(e){}
+  try{ if(window.CMW&&CMW.on()) late=CMW.counts().late; }catch(e){}   /* Calmer My Work: the same late number as the page */
   const ci=ciLatestByClient().filter(c=>c.next_checkin_due && c.next_checkin_due<t).length;   /* R1: the latest check-in per client decides */
   const chips=[];
   /* The 'N follow-ups due' chip is gone. It existed to compensate for lead
@@ -8810,6 +8998,7 @@ function ccRenderPulse(){
   /* ONE HEADLINE NUMBER (2026-10-17, her fix 3): the chip says what needs you right now (Today's Act now lane). Only
      when nothing does, it says how much of yours is late. One number, never both. */
   let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
+  try{ if(window.CMW&&CMW.on()) L={ act:CMW.counts().urgent, late:late }; }catch(e){}
   if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
   else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
   if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
@@ -8821,6 +9010,7 @@ function ccRenderPulse(){
   if(tb){ tb.style.display=L.act?'inline-flex':'none'; tb.textContent=L.act||''; }
 }
 function renderActiveTab(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   svApplyDateText();
   ccRenderViewAs();
   ccRenderPulse();
@@ -8885,6 +9075,8 @@ function renderActiveTab(){
   if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
+  /* 2026-11-04 Offers inside Onboarding: an old link to Offers (not the offer form) opens Onboarding's Offer queue */
+  if(activeTab==='offers' && !JO_FROM_INTERVIEW && offCurrentView!=='new' && typeof obtOio==='function' && obtOio() && typeof obtOpenQueue==='function'){ obtOpenQueue('offer'); return; }
   if(activeTab==='calls') renderCalls();
   if(activeTab==='ops') renderOps();
   if(activeTab==='settings') fillSettingsPanel();
@@ -10510,7 +10702,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261030a'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261028b'; sc.onload=go; document.head.appendChild(sc); } }
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261030a'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261102a'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -10636,11 +10828,13 @@ function cpRenderCare(){
   try{ if(window.GM) GM.mountClient('cp_gm', ax, (CP.r&&CP.r.client_name)||''); }catch(e){ console.warn('gap mentors card', e); }
   /* Care needs (Track 3c, care-needs.js, only while its Admin switch is on) and the Caregiver packet (care-packet.js)
      mount into their own sub-tabs; clear them so a previous client's card never shows */
-  ['cp_needs','cp_packet'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
+  ['cp_needs','cp_packet','cp_learned'].forEach(id=>{ const el=document.getElementById(id); if(el) el.innerHTML=''; });
   /* 2026-10-12 fix: the shift-notes state is a page-level const named CN (line ~9787), so a bare CN here meant THAT object
      ("CN.mount is not a function") and the error stopped the packet card below from drawing. Always window.CN here, and
      each card mounts on its own so one failing never hides the other. */
-  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261018'; sc.onload=go; document.head.appendChild(sc); } }
+  if((DATA.ops_settings||{}).care_needs_live){ const go=()=>{ try{ window.CN&&window.CN.mount&&window.CN.mount('cp_needs'); }catch(e){ console.warn('care needs card', e); } }; if(window.CN&&window.CN.mount) go(); else { const sc=document.createElement('script'); sc.src='care-needs.js?v=20261102b'; sc.onload=go; document.head.appendChild(sc); } }
+  /* 2026-11-02 (Samantha): Learned from AxisCare and calls (profile-learn.js), top of Assessments & care plans; owners only until its switch is on */
+  if(String(CP.ax||'').trim()&&((DATA.ops_settings||{}).profile_learn_live||(Array.isArray(CC_ROLES)&&CC_ROLES.includes('owner_admin')))){ const go=()=>{ try{ window.PLRN&&window.PLRN.mount('cp_learned'); }catch(e){ console.warn('learned card', e); } }; if(window.PLRN) go(); else { const sc=document.createElement('script'); sc.src='profile-learn.js?v=20261102b'; sc.onload=go; document.head.appendChild(sc); } }
   { const go=()=>{ try{ window.CPK&&window.CPK.mount('cp_packet'); }catch(e){ console.warn('caregiver packet card', e); } }; if(window.CPK) go(); else { const sc=document.createElement('script'); sc.src='care-packet.js?v=20261012k'; sc.onload=go; document.head.appendChild(sc); } }
 }
 /* 2026-10-29: the home visit on the iPad (home-visit.js), from the lead or the client */
@@ -11331,6 +11525,8 @@ function renderTodayStrip(){
         :'<div class="field-note">Nothing came in.</div>')
       +'<div id="sylSlot" style="margin-top:10px;"></div><div id="sylWrap"></div></div>';
   }
+  /* Calmer My Work: one line, and a yellow note only when the Hub could not read something */
+  if(window.CMW&&CMW.on()){ box.innerHTML=CMW.lineHtml({ since:nOv, cov:cov.length, axisErr:!!(d&&d.error), ivErr:!!(BT_IV&&BT_IV.error) })+panel; return; }
   box.innerHTML=(window.MWTidy&&MWTidy.on()?MWTidy.stripHtml(parts):'<div class="ts-strip">'+t1+t2+t3+t4+t5+'</div>')+panel;
 }
 
@@ -14505,12 +14701,15 @@ async function n3Send(itemId, circle, members, ov){
     const first=String(m.name||'').split(' ')[0]||'there';
     try{
       const { data, error } = await sb.functions.invoke('circle-send',{ body:{ circle_id:String(circle.id), purpose:'care_note', contact_ids:[String(m.id)], body:'Hi '+first+', '+text, item_id:itemId } });
-      if(error||!data||!data.ok||!data.reached) throw new Error((data&&data.error)||(error&&error.message)||'not reached (opted out, or no way to reach them)');
+      if(error){ let em=error.message; try{ const j=await error.context.json(); if(j&&j.error) em=j.error; }catch(_){} throw new Error(em); }   /* the server's own words (after 9 PM, no permission) */
+      const pr=data&&(data.people||[]).find(x=>String(x.id)===String(m.id));
+      if(!data||!data.ok||!data.reached) throw new Error((data&&data.error)||(pr&&pr.why)||'not reached (opted out, or no way to reach them)');
       done.push(m.name);
       item.family_contacts=(item.family_contacts||[]).concat({ name:m.name, how:'text', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
     }catch(e){ failed.push(m.name+': '+String(e&&e.message||e)); }
   }
   if(done.length){ try{ await persist('ops_items', item); }catch(e){} }
+  if(done.length){ try{ if(window.cnCloseIfDone) await cnCloseIfDone(item); }catch(e){} }   /* Calmer My Work: the family was told */
   msg.innerHTML=(done.length?'Sent to '+escapeHtmlComms(done.join(', '))+'. ':'')+(failed.length?'<span style="color:var(--red);">Not sent: '+escapeHtmlComms(failed.join('; '))+'</span>':'');
   if(btn) btn.disabled=false;
   try{ opsRenderQueue(); }catch(e){}
@@ -14521,6 +14720,7 @@ async function n3Called(itemId, memberId){
   try{ const m=await sb.from('circle_contacts').select('name').eq('id',memberId); name=((m.data||[])[0]||{}).name||''; }catch(e){}
   item.family_contacts=(item.family_contacts||[]).concat({ name:name||'a family member', how:'call', at:new Date().toISOString(), by:(typeof ccActor==='function'?ccActor().name:'') });
   try{ await persist('ops_items', item); }catch(e){}
+  try{ if(window.cnCloseIfDone) await cnCloseIfDone(item); }catch(e){}   /* Calmer My Work: the family was told */
   const msg=document.querySelector('#n3Ov #n3Msg'); if(msg) msg.textContent='Recorded: you called '+(name||'them')+'.';
   try{ opsRenderQueue(); }catch(e){}
 }
@@ -18259,15 +18459,42 @@ async function cgaxRender(){
     +sec('Active in the Hub with no AxisCare number (not changed; never sent open shifts)',nn)
     +'<div class="field-note" style="margin-top:6px;">AxisCare decides who is active. Nobody is deleted; a caregiver AxisCare makes active again comes back on its own.</div></details>';
 }
+/* the people each filter button shows (one rule for the list and for the counts on the buttons) */
+function cgdRowsFor(filter, all){
+  if(filter==='inactive') return all.filter(c=>!c.active);
+  if(filter==='training') return all.filter(cgdTraining);
+  if(filter==='needsdata') return all.filter(c=>cgdWorking(c) && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id));
+  if(filter==='attention') return all.filter(c=>{ if(!cgdWorking(c)) return false;
+      const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
+      if(!g) return true;                                  // no hub data connected
+      const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
+      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
+      return bad||unk; });
+  return all.filter(cgdWorking);
+}
 function cgdRenderList(){
   const el=document.getElementById('cgdList'); if(!el||!CGD.census) return;
   cgaxRender();
   const esc=escapeHtmlComms;
   const all=CGD.census.caregivers||[];
   const nAct=all.filter(cgdWorking).length, nTrain=all.filter(cgdTraining).length;
+  /* 2026-11-04 (her "room for improvement here?"): Caregivers at a glance, tiles and labeled columns. caregivers-glance.js
+     draws it while ops_settings.caregivers_glance_live is on, or for an owner's own preview. */
+  const glance=!!(window.CGG&&CGG.showing());
+  if(window.CGG) CGG.placeUpkeep(glance);
   const cnt=document.getElementById('cgdCount');
-  if(cnt) cnt.textContent=nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)';
+  if(cnt) cnt.innerHTML=esc(nAct+' active caregivers'+(nTrain?' · '+nTrain+' onboarding (In Training)':'')+' · live from AxisCare ('+all.length+' total on record)')+(window.CGG?CGG.previewLink():'');
+  const gl=document.getElementById('cgdGlance');
+  if(gl){
+    if(glance){ CGG.loadSched();
+      gl.innerHTML=CGG.top(all, CGD.filter, { active:nAct, training:nTrain, inactive:all.length-all.filter(c=>c.active).length,
+        attention:cgdRowsFor('attention',all).length, needsdata:cgdRowsFor('needsdata',all).length }); }
+    else { gl.innerHTML=''; document.querySelectorAll('#cgdFilters .cgg-n').forEach(n=>n.remove()); }
+  }
+  if(!glance&&(CGD.filter==='wantmore'||CGD.filter==='nosched')){ CGD.filter='active'; document.querySelectorAll('#cgdFilters .filter-pill').forEach(b=>b.classList.toggle('active',b.getAttribute('data-cf')==='active')); }
   const q=cgdNorm(CGD.q);
+  /* 2026-11-04: Gone quiet, the still-wanting-to-work check-in for caregivers with no visit in 30 days. gone-quiet.js draws it. */
+  if(CGD.filter==='gonequiet' && !q && window.GQ){ GQ.render(el); return; }
   /* 452 (2026-10-05): the profile catch-up for current caregivers. caregiver-profile-panel.js draws it. */
   if(CGD.filter==='profiles' && !q && typeof CGP2!=='undefined' && CGP2.catchupRender){
     CGP2.catchupRender(el, all.filter(cgdWorking).map(c=>{ const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
@@ -18275,23 +18502,15 @@ function cgdRenderList(){
     return;
   }
   let rows;
+  const tileRows=glance&&!q?CGG.rowsFor(CGD.filter, all.filter(cgdWorking)):null;
   if(q){ rows=all.filter(c=>cgdNorm(c.first+c.last).includes(q)||String(c.mobile||'').replace(/\D/g,'').includes(String(CGD.q).replace(/\D/g,'')||'ZZZ')); }
-  else if(CGD.filter==='inactive'){ rows=all.filter(c=>!c.active); }
-  else if(CGD.filter==='training'){ rows=all.filter(cgdTraining); }
-  else if(CGD.filter==='needsdata'){ rows=all.filter(c=>cgdWorking(c) && !cgdLegacyFor(c.id,(c.first+' '+c.last)) && !cgdOverlayFor(c.id)); }
-  else if(CGD.filter==='attention'){
-    rows=all.filter(c=>{ if(!cgdWorking(c)) return false;
-      const g=cgdLegacyFor(c.id,(c.first+' '+c.last));
-      if(!g) return true;                                  // no hub data connected
-      const bad=String(g.oig_status||'')==='FLAGGED'||/issues/i.test(g.edl_status||'')||/issues/i.test(g.fcsr_status||'');
-      const unk=!(g.oig_status||g.edl_status||g.fcsr_status)||!g.orient_date;   /* dementia is optional from 2026-10-15 */
-      return bad||unk; });
-  }
-  else { rows=all.filter(cgdWorking); }
-  rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
+  else if(tileRows){ rows=tileRows; }
+  else { rows=cgdRowsFor(CGD.filter, all); }
+  if(!tileRows||CGD.filter!=='wantmore') rows=rows.slice().sort((a,b)=>(a.last+a.first).localeCompare(b.last+b.first));
   const cap = (CGD.filter==='inactive'&&!q) ? 200 : 600;
   const shown=rows.slice(0,cap);
-  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">'+(CGD.filter==='training'&&!q?'Nobody is In Training in AxisCare right now.':'Nobody matches this view.')+'</div>'; return; }
+  if(!shown.length){ el.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);">'+(CGD.filter==='training'&&!q?'Nobody is In Training in AxisCare right now.':CGD.filter==='wantmore'&&!q?'Nobody is short of the hours they want for the next 7 days.':CGD.filter==='nosched'&&!q?'Everyone active has something on the schedule in the next 7 days.':'Nobody matches this view.')+'</div>'; return; }
+  if(glance){ el.innerHTML=CGG.list(shown)+(rows.length>cap?'<div class="field-note" style="margin-top:6px;">Showing '+cap+' of '+rows.length+'. Narrow with search.</div>':''); return; }
   el.innerHTML='<div class="card" style="padding:0;overflow:hidden;">'+shown.map(c=>{
     const nm=(c.first+' '+c.last).trim();
     const g=cgdLegacyFor(c.id,nm), ov=cgdOverlayFor(c.id);
@@ -19239,6 +19458,11 @@ function lhSetFill(){
   try{ fuSetFill(); }catch(e){}
   try{ lcSetFill(); }catch(e){}
   try{ ltcSetFill(); }catch(e){}
+  try{ if(window.CGG) CGG.settingsFill(); }catch(e){}
+  try{ if(window.CLG) CLG.settingsFill(); }catch(e){}
+  try{ if(window.CAA) CAA.settingsFill(); }catch(e){}
+  try{ if(window.HFOLD) HFOLD.settingsFill(); }catch(e){}
+  try{ if(window.OAV) OAV.settingsFill(); }catch(e){}
   try{ cnSetFill(); }catch(e){}
   try{ if(window.MWTidy) MWTidy.oldFill(); }catch(e){}
   try{ if(window.OH) OH.settingsFill(); }catch(e){}
@@ -19536,7 +19760,7 @@ async function cgdAppHalfMount(axid, appId){
     + '<div id="cgdApSkills"></div>';
   const h=document.getElementById('cgdApHire');
   if(h) h.innerHTML=apProfCard('The offer', apProfOffer(r), '')
-    + apProfCard('Getting them started', '<div id="cgdApOnboard"><div class="field-note">Looking…</div></div>', 'References, the screenings and the paperwork.')
+    + apProfCard('References', '<div id="cgdApOnboard"><div class="field-note">Looking…</div></div>', 'Each reference, where they have got to, and what to do next.')
     + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="cgdApHp"></div>', 'Read from their records. Signed documents never change.') : '')
     + '<div class="pp-links" style="margin:0 0 10px;">'
       + '<button type="button" class="pp-link" onclick="cgdApAct(\'apToOffer\',\''+id+'\')">Offer form</button>'
@@ -20135,8 +20359,15 @@ async function cgdPrnAfter(msg){
 /* ── RUNNING LATE (L1, 2026-09-29): the card, the Settings card, the caregiver's and the client's lines ─────────── */
 const LN_EP='https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/late-alert';
 const LN_VIEW={};
+/* 2026-11-05 the family step (ops_settings.late_family_step_live), or an owner's own preview on this browser */
+function lnFamPreview(){ try{ return typeof ccIsOwner==='function' && ccIsOwner() && localStorage.getItem('lnFamStep')==='1'; }catch(e){ return false; } }
+function lnFamPreviewToggle(){
+  if(!ccIsOwner()) return;
+  try{ if(lnFamPreview()) localStorage.removeItem('lnFamStep'); else localStorage.setItem('lnFamStep','1'); }catch(e){}
+  Object.keys(LN_VIEW).forEach(k=>delete LN_VIEW[k]); lnSetFill();
+}
 async function lnCall(id, action, extra){
-  const r=await fetch(LN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify(Object.assign({ id, action }, extra||{})) });
+  const r=await fetch(LN_EP,{ method:'POST', headers:await cmpAuthHeaders(), body:JSON.stringify(Object.assign({ id, action }, lnFamPreview()?{ preview:true }:{}, extra||{})) });
   const j=await r.json().catch(()=>({}));
   if(!r.ok||j.error) throw new Error(j.error||('late-alert '+r.status));
   return j;
@@ -20160,6 +20391,8 @@ function lnBody(itemId, msg){
       +(D.call.missed_clockin_paused_until?'<div class="field-note">Missed clock-in texts to the admins paused until '+esc(D.call.missed_clockin_paused_until)+'.</div>':'')+'</div>':'')
     +(D.said||[]).filter(s=>!(D.call && D.call.quote && s.channel==='call')).map(s=>'<div style="background:#F1F5F9;border-radius:8px;padding:6px 9px;margin-bottom:5px;font-size:13px;">'+esc(s.text)+'<div class="field-note">'+(s.channel==='call'?'Call':'Text')+' at '+esc(s.at)+'</div></div>').join('')
     +'<div style="font-size:13px;margin:4px 0;"><b>'+(D.kind==='cant_make_it'?'Can\'t make it':(D.eta?'Expected about '+esc(D.eta)+(D.eta_by?' ('+esc(D.eta_by)+')':''):'No arrival time yet'))+'</b>'+(D.sure===false?' · <span style="color:#B45309;">the Hub wasn\'t sure which visit, check with them</span>':'')+'</div>';
+  const famStep=D.kind==='late'&&F.step, famFirst=famStep&&!D.closed&&!F.decided;
+  if(famFirst) h+=lnFamStepHtml(itemId, D);
   if(!D.closed){
     h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;">'
       +(D.seen?'<span class="field-note">Seen by '+esc(D.seen.by)+' at '+esc(D.seen.at)+'</span>':'<button class="primary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'seen\')">Seen</button>')
@@ -20167,7 +20400,8 @@ function lnBody(itemId, msg){
       +(D.kind==='cant_make_it'?'<button class="secondary" style="'+btn+'" onclick="lnDo(\''+esc(itemId)+'\',\'coverage\')">Open a coverage case</button>':'')
       +'</div>';
   }
-  if(D.kind==='late'){
+  if(famStep && !famFirst) h+=lnFamStepHtml(itemId, D);
+  if(D.kind==='late' && !famStep){
     (F.sent||[]).forEach(s=>{ h+='<div class="field-note" style="margin-top:5px;color:var(--green);">Family '+(s.what==='arrived'?'told they arrived':s.what==='update'?'sent the update':'told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+')</div>'; });
     if(F.skipped) h+='<div class="field-note" style="margin-top:5px;">'+esc(F.skipped.by)+' chose not to tell the family.</div>';
     if(F.can){
@@ -20183,17 +20417,56 @@ function lnBody(itemId, msg){
     +'<div class="field-note" id="lnMsg_'+esc(itemId)+'" style="margin-top:4px;">'+esc(msg||'')+'</div></div>';
   return h;
 }
-async function lnDo(itemId, action){
+/* The family step on the card (her option A, decisions 2, 3, 4, 9, 10): who can be told, the text, Send / Don't tell,
+   and calling anyone in the Family Circle with "I called them". Nothing goes without a tap. */
+function lnFamStepHtml(itemId, D){
+  const esc=escapeHtmlComms, F=D.family||{}, btn='font-size:12.5px;padding:5px 12px;', id=esc(itemId), open=!D.closed&&!F.decided;
+  const pp=p=>{ const d=String(p||'').replace(/\D/g,'').slice(-10); return d.length===10?'('+d.slice(0,3)+') '+d.slice(3,6)+'-'+d.slice(6):''; };
+  let h='<div style="margin:6px 0;border:1px solid '+(open?'#F2C46D':'var(--border)')+';background:'+(open?'#FFF8EA':'#fff')+';border-radius:8px;padding:8px 10px;">'
+    +'<div style="font-weight:700;color:var(--navy);font-size:13.5px;">'+(open?'Tell '+esc(D.client_first)+'\'s family?':esc(D.client_first)+'\'s family')+'</div>';
+  (F.sent||[]).forEach(s=>{ h+='<div class="field-note" style="margin-top:4px;color:var(--green);">'+(s.what==='called'?'Called by '+esc(s.by)+' at '+esc(s.at):'Family '+(s.what==='arrived'?'told they arrived':s.what==='update'?'sent the update':'told')+' by '+esc(s.by)+' at '+esc(s.at)+' ('+esc(s.count)+')')+'</div>'; });
+  if(F.skipped) h+='<div class="field-note" style="margin-top:4px;">'+esc(F.skipped.by)+' chose not to tell the family.</div>';
+  if(!D.closed && (open || (F.is_update && F.can))){
+    if(F.note) h+='<div style="color:#B45309;font-size:12.5px;font-weight:700;margin-top:4px;">'+esc(F.note)+'</div>';
+    if(F.can){
+      h+='<div class="field-note" style="margin-top:4px;">Texts '+esc((F.first_names||[]).join(', '))+' (Family Circle, agreed to texts). Each starts "Hi" and their first name.</div>'
+        +'<textarea id="lnFam_'+id+'" rows="3" style="width:100%;font-size:13px;padding:7px;border-radius:7px;">'+esc(F.draft||'')+'</textarea>'
+        +(F.hours_ok===false?'<div class="field-note"><b>Family texts go '+esc(F.hours||'6am to 9pm')+'.</b> Call them instead if it can\'t wait.</div>':'');
+    } else if(open) h+='<div class="field-note" style="margin-top:4px;">'+esc((F.why||'').replace(/^./,c=>c.toUpperCase()))+'.</div>';
+    h+='<div style="display:flex;gap:8px;margin-top:5px;flex-wrap:wrap;">'
+      +(F.can?'<button class="primary" style="'+btn+'"'+(F.hours_ok===false?' disabled':'')+' onclick="lnDo(\''+id+'\',\'family\')">'+(F.is_update?'Send the update':'Send to the family')+'</button>':'')
+      +(open?'<button class="ghost" style="'+btn+'" onclick="lnDo(\''+id+'\',\'skip\')">Don\'t tell the family</button>':'')+'</div>';
+  }
+  if(open && ((F.call_list||[]).length || F.client_phone)){
+    h+='<div class="field-note" style="margin-top:7px;"><b>Or call them</b> (rings your phone first, then connects from the office number):</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">'
+      +(F.call_list||[]).map(m=>'<button class="secondary" style="'+btn+'" title="'+esc(pp(m.phone))+'" onclick="lnDo(\''+id+'\',\'bridge\',{ target:\'member\', member_id:\''+esc(m.id)+'\' })">📞 '+esc(m.first)+(m.relationship?' ('+esc(m.relationship)+')':'')+'</button>').join('')
+      +(F.client_phone?'<button class="secondary" style="'+btn+'" onclick="lnDo(\''+id+'\',\'bridge\',{ target:\'client\' })">📞 '+esc(D.client_first)+'\'s home</button>':'')+'</div>'
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;"><input id="lnCalled_'+id+'" placeholder="Who you talked to (optional)" style="font-size:12.5px;padding:4px 7px;flex:1;min-width:150px;"><button class="ghost" style="'+btn+'" onclick="lnDo(\''+id+'\',\'called\')">I called them</button></div>';
+  }
+  if(F.arrived_can) h+='<textarea id="lnArr_'+id+'" rows="2" style="width:100%;font-size:13px;padding:7px;border-radius:7px;margin-top:6px;">'+esc(F.arrived_draft||'')+'</textarea><button class="primary" style="'+btn+'" onclick="lnDo(\''+id+'\',\'arrived\')">Tell the family '+esc(D.caregiver_first)+' arrived</button>';
+  return h+'</div>';
+}
+async function lnDo(itemId, action, args){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
   const D=LN_VIEW[itemId]||{}, F=D.family||{};
   let extra={};
+  if(action==='bridge'){
+    const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Ringing your phone…';
+    try{ const j=await lnCall(it.late_notice_id, 'bridge', args||{});
+      const who=args&&args.member_id?((F.call_list||[]).find(x=>x.id===args.member_id)||{}):null;
+      if(m) m.textContent=j.ok?'Your phone is ringing. Answer it and press a key to be connected from the office number. Then tap "I called them".'
+        :'Could not ring your phone'+(j.message?': '+j.message:j.why==='not_found'?': they are not in GoHighLevel yet':'')+'.'+(who&&who.phone?' Their number: '+who.phone.replace(/^\+1/,'').replace(/(\d{3})(\d{3})(\d{4})/,'($1) $2-$3')+'.':''); }
+    catch(e){ if(m) m.textContent='Could not: '+e.message; }
+    return;
+  }
+  if(action==='called'){ extra={ note:((document.getElementById('lnCalled_'+itemId)||{}).value||'').trim() }; }
   if(action==='eta'){ const v=(document.getElementById('lnEta_'+itemId)||{}).value||''; if(!v){ const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Pick a time first.'; return; } extra={ hhmm:v }; }
   if(action==='family'){ const t=((document.getElementById('lnFam_'+itemId)||{}).value||'').trim(); if(!t) return; if(!(await ccConfirm('Text '+(F.first_names||[]).join(', ')+' now?'))) return; extra={ text:t }; }
   if(action==='arrived'){ if(!(await ccConfirm('Tell the family '+D.caregiver_first+' arrived?'))) return; extra={ text:((document.getElementById('lnArr_'+itemId)||{}).value||'').trim() }; }
   if(action==='coverage' && !(await ccConfirm('Open a coverage case for this shift? The call-in process takes it from there.'))) return;
   const m=document.getElementById('lnMsg_'+itemId); if(m) m.textContent='Working…';
   try{ const j=await lnCall(it.late_notice_id, action, extra);
-    opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
+    opEvent('late_'+action,{ item_id:it.id, area:'coverage', summary:(ccActor().name||'Someone')+': '+({ seen:'saw', eta:'changed the arrival time on', family:'texted the family about', skip:'chose not to tell the family about', called:'called the family about', arrived:'told the family about the arrival for', coverage:'opened a coverage case from' }[action]||action)+' the running-late notice ('+(it.caregiver||'')+')' });
     await lnOpen(itemId, j.count?'Sent to '+j.count+'.':(j.others_told?'Done. The other admins were told.':'Done.')); }
   catch(e){ if(m) m.textContent='Could not: '+e.message; }
 }
@@ -20253,6 +20526,12 @@ async function lnSetFill(){
   if(s) s.textContent=!on('late_watch_live')?'Practice: running-late messages are found and listed below; nothing is texted and no card opens.'
     :'Notices ON · caregiver replies '+(on('late_cg_reply_live')?'ON':'off')+' · admin texts '+(on('late_admin_live')?'ON':'off')+'. The family is only texted by a person\'s tap.';
   if(s) s.textContent+=' Calls: '+(on('late_call_live')?'ON (a caregiver\'s call is read and can pause the missed clock-in texts until 5 minutes after the time they gave).':'off.');
+  const fs=document.getElementById('lnFamStepStatus'), fb=document.getElementById('lnFamBtn'), fp=document.getElementById('lnFamPrevBtn'), owner=typeof ccIsOwner==='function'&&ccIsOwner(), prev=typeof lnFamPreview==='function'&&lnFamPreview();
+  if(fs) fs.innerHTML=(on('late_family_step_live')?'<b style="color:#1E8449;">On.</b>':'<b style="color:#B7791F;">Off.</b> The card works as before.')
+    +(prev?' <b>You are previewing it</b> on this browser: the running-late cards show the new family step to you only. The admin texts and the card title change only when it is on.':'')
+    +(owner?'':' Only Samantha or Zachary can turn it on or off.');
+  if(fb){ fb.textContent=on('late_family_step_live')?'Turn off telling the family':'Turn on telling the family'; if(fb.style) fb.style.display=owner?'':'none'; }
+  if(fp){ fp.textContent=prev?'Stop previewing':'Preview it (only you)'; if(fp.style) fp.style.display=owner&&!on('late_family_step_live')?'':'none'; }
   const box=document.getElementById('lnPractice'); if(!box) return;
   let rows=[]; try{ const r=await sb.from('late_notices').select('*').eq('status','practice').gte('shift_date', new Date(Date.now()-7*864e5).toISOString().slice(0,10)).order('shift_start',{ascending:false}); rows=r.data||[]; }catch(_){ return; }
   const esc=escapeHtmlComms, clk=x=>{ try{ return new Date(x).toLocaleString('en-US',{ timeZone:'America/Chicago', weekday:'short', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
@@ -20280,9 +20559,11 @@ async function lnSetSave(btn){
 async function lnSetToggle(key, btn){
   const st=DATA.ops_settings||{}, on=key==='late_call_live'?(st[key]===false):!(st[key]===true);
   if(key!=='late_watch_live' && key!=='late_call_live' && on && st.late_watch_live!==true) return;
+  if(key==='late_family_step_live' && !ccIsOwner()){ alert('Only Samantha or Zachary can turn this on or off.'); return; }
   const ask={ late_watch_live:on?'Turn on running-late notices? From the next check, a caregiver\'s running-late message opens a card in Needs Attention, and their missed clock-in texts wait until 5 minutes after the time they gave. Nothing is texted yet.':'Turn off running-late notices? It goes back to practice (found and listed, nothing else).',
     late_cg_reply_live:on?'Turn on caregiver replies? A caregiver who texts that they\'re running late gets one thank-you with their time, or one "about what time?"':'Turn off caregiver replies?',
     late_admin_live:on?'Turn on admin texts? Every admin is texted a link now and every 5 minutes until someone taps Seen.':'Turn off admin texts? The card still opens in Needs Attention.',
+    late_family_step_live:on?'Turn on telling the family? From the next check (within 5 minutes): the admins\' running-late text names who in the family can be told, the Send button shows whenever there is a time and someone to text (with a note when it is only a few minutes or the Hub was not sure), and the card stays at the top until someone sends, chooses not to, or records a call. The family is still only texted when a person taps Send.':'Turn off telling the family? The card goes back to how it was: the Send button only at 10+ minutes when the Hub is sure.',
     late_call_live:on?'Turn calls back on? A caregiver\'s call that says they\'re running late opens a card, and when they gave a time the missed clock-in texts pause until 5 minutes after it.':'Turn off calls? Calls are still read, but only in practice (listed below): no card, and the missed clock-in texts are never paused because of a call.' }[key];
   if(!(await ccConfirm(ask))) return;
   if(btn) btn.disabled=true;
@@ -21067,6 +21348,10 @@ function renderSocTab(){
         socReadyCheck(l);
     });
   }
+  /* 2026-11-03 Getting ready as one table (getting-ready-table.js, switch getting_ready_table_live): every family from the
+     yes to the next-day follow-up, both halves, instead of these cards. "Completed starts of care" still opens the old list. */
+  if(window.GRT&&GRT.on()&&socActiveFilter!=='done'){ GRT.intoSoc(wrap); return; }
+  { const sf=document.getElementById('socFilters'); if(sf) sf.style.display=''; if(window.GRT&&GRT.heading) GRT.heading(false); }
   rows.sort((a,b)=>(socIsStuck(b.soc)?1:0)-(socIsStuck(a.soc)?1:0) || socWaitingDays(b.soc)-socWaitingDays(a.soc));
   /* the move-over (483): client journeys before the Team stage come first; older checklists follow for anyone who has one */
   const jLive=!!(DATA.ops_settings&&DATA.ops_settings.client_journey_live===true);
@@ -22193,7 +22478,7 @@ function joPreviewMsgs(){
     +"We're excited to begin the onboarding process with you.\n\n"
     +'Your next step is to watch your email for a message from Viventium, our secure onboarding system. It will contain your official job offer and the first portion of your onboarding paperwork.\n\n'
     +'Please complete it as soon as possible. This paperwork gives us permission to begin your background check and contact your professional references.\n\n'
-    +"Once your background check and references are complete, we'll text you to book a quick 15-minute Orientation Video Call. After that, you'll do your paid training from home on your phone or computer.\n\n"
+    +"Once your background check and references are complete, we'll text you a private link to your paid orientation, which you do from home on your phone or computer. When you finish, a care coordinator will call you to get you started.\n\n"
     +"📞 Please save our office number: (417) 234-8494. This is our main office number and the one you'll use to call or text us if you have any questions.\n\n"
     +'Welcome to the Caring Companions team!';
   document.getElementById('jo_prev_email').innerHTML=
@@ -22206,10 +22491,10 @@ function joPreviewMsgs(){
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 2: Background Check &amp; Reference Checks</b></p>'
     +'<p style="margin:4px 0;">Once you\'ve completed your onboarding paperwork, we\'ll begin your background check and contact your professional references.</p>'
     +'<p style="margin:4px 0;">We\'ll let you know as soon as everything has been successfully completed.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Your 15-Minute Orientation Video Call</b></p>'
-    +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and a link to book a quick Orientation Video Call. Join from your phone or computer.</p>'
-    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: Paid Training From Home</b></p>'
-    +'<p style="margin:4px 0;">After the call, we\'ll text you a private link to your paid orientation and Alzheimer\'s and dementia training. Do it on your phone or computer, in pieces if you like.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 3: Paid Training From Home</b></p>'
+    +'<p style="margin:4px 0;">Once your background check and references are complete, we\'ll send Step 2 of your Viventium paperwork and text you a private link to your paid orientation. Do it on your phone or computer, in pieces if you like.</p>'
+    +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Step 4: A Call From Your Care Coordinator</b></p>'
+    +'<p style="margin:4px 0;">When you finish orientation, a care coordinator will call you to go over everything, help you set up the AxisCare app, and talk about your first clients and shifts. Please have your ID with you for that call.</p>'
     +'<p style="margin:8px 0 2px;"><b style="color:#0D365F;">Save Our Office Number</b></p>'
     +'<p style="margin:4px 0;">Please save our office number: <b>(417) 234-8494</b>.<br>This is our main office number and the one you\'ll use to call or text us if you have questions during the onboarding process or after you join our team.</p>'
     +'<p style="margin:4px 0;">We\'re excited to welcome you to Caring Companions and look forward to working with you!</p>'
@@ -22284,7 +22569,9 @@ let offCurrentView='open';
 let OFF_STAGE='accepted', OFF_STAGE_PICKED=false;   // the Offers stage tab on screen (2026-10-12)
 /* Set only by an interview result (apToOffer, ivOffer). Without it the offer form never shows. */
 let JO_FROM_INTERVIEW = false;
-function joLeave(){ JO_FROM_INTERVIEW = false; JO_APPLICANT = null; offView('open'); }
+function joLeave(){ JO_FROM_INTERVIEW = false; JO_APPLICANT = null; offView('open');
+  /* 2026-11-04: with Offers inside Onboarding, leaving the offer form lands on Onboarding's Offer queue */
+  if(typeof obtOio==='function'&&obtOio()&&typeof obtOpenQueue==='function') obtOpenQueue('offer'); }
 window.joLeave = joLeave;
 function offView(name){
   if(name==='new' && !JO_FROM_INTERVIEW) name='open';   // an offer is an interview result (2026-10-11)
@@ -23427,14 +23714,17 @@ async function ivqLoad(btn){
   if(btn){ btn.disabled=true; btn.textContent='↻ Loading…'; }
   try{
     const from = new Date(Date.now() - 14*864e5).toISOString();
-    const [b, a, c] = await Promise.all([
-      sb.from('interview_bookings').select('*').in('status',['booked','attended','noshow'])
-        .gte('starts_at', from).order('starts_at'),
+    /* 2026-11-03 (Samantha, "keep all lists clean always ... only the applicants that need our attention", part 4): a booking
+       whose time passed with no outcome stays in "waiting on an outcome" until someone records one, however long ago; it used
+       to drop off this list silently after 14 days. Attended and no-show rows are still read for the last 14 days only. */
+    const [b0, b1, a, c] = await Promise.all([
+      sb.from('interview_bookings').select('*').eq('status','booked').order('starts_at'),
+      sb.from('interview_bookings').select('*').in('status',['attended','noshow']).gte('starts_at', from).order('starts_at'),
       sb.from('job_applicants').select('id,first_name,last_name,phone,email,position,posting_title,status'),
       sb.from('coordinators').select('id,name'),
     ]);
-    if(b.error) throw b.error;
-    IVQ = b.data || [];
+    if(b0.error) throw b0.error;
+    IVQ = [...(b0.data || []), ...((b1 && b1.data) || [])];
     IVQ_APP = {}; (a.data||[]).forEach(x=>{ IVQ_APP[x.id]=x; });
     if(window.ApText) ApText.load();   /* 574 */
     IVQ_CO  = {}; (c.data||[]).forEach(x=>{ IVQ_CO[x.id]=x.name; });
@@ -23447,6 +23737,7 @@ async function ivqLoad(btn){
 }
 
 function ivqRender(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ivqList'); if(!box) return;
   const esc = escapeHtmlComms;
   const now = Date.now();
@@ -23485,7 +23776,9 @@ function ivqRender(){
     const d = new Date(b.starts_at);
     const name = ((a.first_name||'')+' '+(a.last_name||'')).trim() || 'Applicant';
     return '<div style="display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.55rem 0;border-bottom:1px solid #F0EDE6;font-size:13.5px;">'
-      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(timeLabel(d))+'</span>'
+      + '<span style="min-width:5.2rem;font-weight:700;color:'+(overdue?'#B45309':'#6E6559')+';font-variant-numeric:tabular-nums;">'+esc(overdue && !isToday(d) ? d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+timeLabel(d) : timeLabel(d))+'</span>'
+      /* waiting on an outcome: how long, red from 3 days (2026-11-03) */
+      + (overdue ? (()=>{ const n=Math.floor((Date.now()-d.getTime())/864e5); return n>=1 ? '<span class="tag-chip" style="background:'+(n>=3?'#FEE2E2;color:#B91C1C':'#FEF3C7;color:#92400E')+';">'+n+' day'+(n===1?'':'s')+' ago, no outcome yet</span>' : ''; })() : '')
       + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
       + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
@@ -23495,6 +23788,7 @@ function ivqRender(){
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
+      + (window.HREM && !overdue && a.phone ? HREM.ivBtn(b) : '')   /* 2026-11-02: Send reminder (2026-11-04: no history line under the row, her call) */
       /* "Can we do Thursday instead" and "I have to cancel" are phone calls to
          this screen, so the buttons live on the row the call is about. */
       + (overdue ? '' :
@@ -23812,12 +24106,16 @@ function fcCircleBody(c, people, linked, esc, inProfile){
         + '<label style="margin-top:8px;">What to tell them</label>'
         + '<textarea id="fcmsg_' + esc(c.id) + '" rows="4"></textarea>'
         + '<div class="field-note" id="fcwho_' + esc(c.id) + '" style="margin-top:7px;"></div>'
+        + '<div id="fcppl_' + esc(c.id) + '" style="margin-top:6px;"></div>'
         + '<div style="display:flex;gap:9px;margin-top:11px;flex-wrap:wrap;">'
         + '<button class="primary" onclick="fcSend(\'' + esc(c.id) + '\',this)">Send to the circle</button>'
         + '<button class="ghost" onclick="document.getElementById(\'fcbox_' + esc(c.id) + '\').style.display=\'none\'">Cancel</button>'
         + '</div>'
         + '<div id="fcerr_' + esc(c.id) + '" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>'
-      + '</div></div></details>';
+      + '</div>'
+      /* the last send's result stays after the box closes, so it is never sent twice by accident */
+      + '<div id="fcres_' + esc(c.id) + '" style="display:none;font-size:13px;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 14px;"></div>'
+      + '</div></details>';
 }
 
 /* Change 6a: a circle is created FOR a client (picked from the clients the hub
@@ -23960,16 +24258,65 @@ function fcCompose(circleId, kind){
   }
   const people = (FC_CONTACTS[circleId]||[]).filter(function(p){
     return kind==='change' ? p.wants_changes!==false : p.wants_general!==false; });
-  const reach = people.filter(function(p){ return (p.phone&&p.sms_consent)||p.email; });
+  /* who it reaches, and how, comes from the server just below (fcPreview); this guess used to count AxisCare numbers nobody had confirmed */
   document.getElementById('fcwho_'+circleId).textContent =
-    'Goes to ' + reach.length + ' of ' + people.length + ' in the circle'
-    + (people.length-reach.length
-        ? ', and ' + (people.length-reach.length) + (people.length-reach.length===1?' has':' have') + ' no way to be reached'
-        : '')
-    + '. Replies come to the office line.';
+    'For ' + people.length + ' in the circle. Replies come to the office line.';
   document.getElementById('fcerr_'+circleId).style.display='none';
+  document.getElementById('fcres_'+circleId).style.display='none';
   box.style.display='block';
   box.scrollIntoView({behavior:'smooth', block:'center'});
+  fcPreview(circleId, kind);
+}
+
+/* 2026-11-02 (after "Sent to 0 of a client's circle"): before Send, the server says person by person how this
+   message would reach them. A number AxisCare gave us is only texted once a person confirms it, so it is asked here,
+   one tick per number, recorded with your name (the same confirm as the Family app line). Outside 8 AM to 9 PM it says
+   nothing can go now. */
+const FC_TEXT_WORDS = { ok:'text', no_consent:'texts not OK', no_phone:'no phone number', rejected:'number was marked wrong before', error:"number couldn't be checked" };
+async function fcPreview(circleId, kind){
+  const ppl = document.getElementById('fcppl_'+circleId); if(!ppl) return;
+  const box = document.getElementById('fcbox_'+circleId);
+  ppl.innerHTML = '<div class="field-note">Checking how this reaches each person…</div>';
+  let d;
+  try{
+    const r = await callAction('circle-send', { circle_id: circleId, kind: kind, body: 'preview', dry: true });
+    d = r.data; if(!d || r.status >= 400) throw new Error((d && d.error) || ('answered ' + r.status));
+  }catch(e){ ppl.innerHTML = '<div class="field-note" style="color:var(--red);">Could not check who this reaches: ' + escapeHtmlComms(e.message || 'error') + '. You can still press Send; the result will say who got it.</div>'; return; }
+  if(box.dataset.kind !== kind) return;   // a different button was pressed meanwhile
+  const e = escapeHtmlComms;
+  const rows = (d.people || []).map(function(p){
+    const first = String(p.name || '').split(' ')[0] || 'their';
+    const how = [];
+    if(p.text === 'ok') how.push('text'); else if(p.text !== 'unconfirmed') how.push(FC_TEXT_WORDS[p.text] || p.text);
+    how.push(p.email ? 'email' : 'no email');
+    let line = '<div style="padding:3px 0;"><b>' + e(p.name) + '</b> <span class="field-note">' + e(how.join(' · ')) + '</span>';
+    if(p.text === 'unconfirmed') line += '<div style="margin:3px 0 0 2px;"><label style="display:inline-flex;gap:6px;align-items:center;font-weight:400;margin:0;">'
+      + '<input type="checkbox" class="fc-confirm" data-id="' + e(p.id) + '" data-name="' + e(p.name) + '"> Yes, ' + e(p.phone) + ' is ' + e(first) + "'s own number</label>"
+      + '<div class="field-note">AxisCare gave us this number, so it is texted only once a person checks it. Leave it unticked to skip the text' + (p.email ? ' (the email still goes)' : '') + '.</div></div>';
+    return line + '</div>';
+  }).join('');
+  ppl.innerHTML = rows + (d.in_hours === false
+    ? '<div style="color:var(--red);font-size:13px;margin-top:6px;"><b>It is after 9 PM.</b> Family Circle messages go out between 8 AM and 9 PM, so nothing can be sent now. Call the family, or send this after 8 AM.</div>' : '');
+}
+
+/* The send reply, person by person. Nobody is left as a bare number. */
+function fcResult(circleId, c, data){
+  const res = document.getElementById('fcres_'+circleId), e = escapeHtmlComms;
+  const people = (data && data.people) || [];
+  if(!people.length){   /* a server from before 2026-11-02 sends counts only */
+    res.innerHTML = '<div style="font-weight:700;' + (data && data.reached ? '' : 'color:var(--red);') + '">' + (data && data.reached ? 'Sent to ' + data.reached + ' of ' + (data.of ?? '?') + '.' : 'Nobody got this message.') + '</div>';
+    res.style.display = 'block'; return !!(data && data.reached && data.reached === data.of);
+  }
+  const got = people.filter(function(p){ return p.reached; }), missed = people.filter(function(p){ return !p.reached; });
+  const notes = got.filter(function(p){ return p.why; });
+  const head = !got.length
+    ? '<div style="color:var(--red);font-weight:700;">Nobody got this message.</div>'
+    : '<div style="color:var(--green,#15803d);font-weight:700;">Sent to ' + got.length + ' of ' + people.length + ' in ' + e(c.client_name) + "'s circle: " + e(got.map(function(p){ return p.name; }).join(', ')) + '.</div>';
+  const lines = missed.map(function(p){ return '<div style="color:var(--red);">Not sent to <b>' + e(p.name) + '</b>: ' + e(p.why || 'no way to reach them') + '.</div>'; })
+    .concat(notes.map(function(p){ return '<div class="field-note">' + e(p.name) + ': ' + e(p.why) + '.</div>'; }));
+  res.innerHTML = '<div class="field-note" style="margin-bottom:3px;">Your message just now</div>' + head + lines.join('') + (missed.length ? '<div class="field-note" style="margin-top:4px;">Call ' + (missed.length === 1 ? 'them' : 'each of them') + ', or fix what is listed and send again.</div>' : '');
+  res.style.display = 'block';
+  return !missed.length && !notes.length;
 }
 
 function fcChangeText(circleId){
@@ -24003,17 +24350,27 @@ async function fcSend(circleId, btn){
   const kind = box.dataset.kind || 'update';
   if(!body){ err.textContent='Write the message first.'; err.style.display='block'; return; }
   const c = FC.find(function(x){ return String(x.id)===String(circleId); });
-  if(!(await ccConfirm('Send this to ' + c.client_name + "'s circle?"))) return;
+  const ticks = Array.prototype.slice.call(box.querySelectorAll('.fc-confirm:checked'));
+  if(!(await ccConfirm('Send this to ' + c.client_name + "'s circle?"
+      + (ticks.length ? ' You are confirming the number for ' + ticks.map(function(t){ return t.dataset.name; }).join(', ') + '.' : '')))) return;
   btn.disabled = true; btn.textContent = 'Sending…';
+  err.style.display='none'; document.getElementById('fcres_'+circleId).style.display='none';
   try{
+    for(const t of ticks){
+      const r = await callAction('family-app-office', { action:'confirm_phone', contact_id: t.dataset.id, on: true });
+      if(!r.data || r.status >= 400) throw new Error('Nothing was sent. ' + t.dataset.name + "'s number was not confirmed: " + ((r.data && r.data.error) || ('answered ' + r.status)));
+    }
     const { data, error } = await sb.functions.invoke('circle-send', {
       body: { circle_id: circleId, kind: kind, body: body, sent_by: (ME.name || ME.email || '') },
     });
-    if(error) throw error;
+    if(error){ let m = error.message; try{ const j = await error.context.json(); if(j && j.error) m = j.error; }catch(_){} throw new Error(m); }
     box.style.display='none';
-    alert('Sent to ' + ((data && data.reached) ?? '') + ' of ' + c.client_name + "'s circle.");
+    const all = fcResult(circleId, c, data);
+    if(all && typeof ccToast==='function') ccToast('Sent to everyone in ' + c.client_name + "'s circle.");
+    document.getElementById('fcres_'+circleId).scrollIntoView({behavior:'smooth', block:'nearest'});
   }catch(e){
-    err.textContent = 'Could not send: ' + (e&&e.message||'error');
+    const m = String(e&&e.message||'error');
+    err.textContent = /^Nothing was sent/.test(m) ? m : 'Could not send: ' + m;
     err.style.display='block';
   }finally{ btn.disabled=false; btn.textContent='Send to the circle'; }
 }
@@ -24258,6 +24615,7 @@ function apChips(r){
 }
 
 function apRender(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('apList'); if(!box) return;
   apFindRun();
   apRenderFilter();
@@ -24325,7 +24683,9 @@ function apRender(){
       + '<span style="font-size:.76rem;color:#6E6559;">'+esc(apPosLabel(r.position)||r.posting_title||'Caregiver')
         + (r.city||r.zip?' · '+esc(r.city||r.zip):'') + ' · applied '+esc(ago(r.created_at))+'</span>'
       + '<span style="flex:1;"></span>' + line
+      + (window.HREM ? HREM.apBtn(r, !!(b && b.status==='booked')) : '')   /* 2026-11-02: Send reminder, and its history line below */
       + '<span style="color:#A89C8B;font-size:.74rem;">details ▾</span>'
+      + (window.HREM ? HREM.apLine(r, !!(b && b.status==='booked')) : '')
       /* While a search is on, why they matched sits on the row itself (miles, the hours, their own words). */
       + (AP_FIND.on ? '<div style="flex-basis:100%;margin-top:-.45rem;">'+apFindChips(r)+'</div>' : '')
       + '</summary><div style="padding:0 .9rem .9rem;">'
@@ -25667,6 +26027,11 @@ function apNextStep(r, b){
 function apTab(k){
   if(!AP_TABS_HAVE.includes(k)) k = 'overview';
   AP_TAB = k;
+  /* 2026-11-05: the tidy Hiring tab: no "Open Hiring" banner while Hiring is open; the folded summaries follow what loads */
+  if(window.HFOLD) HFOLD.mark();
+  { const tidy = !!(window.HFOLD && HFOLD.showing()), nb = document.querySelector('#apProfLeft [data-next-go="hiring"]');
+    if(nb) nb.style.display = tidy && k === 'hiring' ? 'none' : '';
+    if(tidy && k === 'hiring') HFOLD.watch(document.getElementById('apPane-hiring')); }
   PP_TABS.forEach(([t]) => {
     const pane = document.getElementById('apPane-' + t); if(pane) pane.style.display = t === k ? 'block' : 'none';
     const btn = document.getElementById('apTabBtn-' + t); if(btn){ btn.classList.toggle('active', t === k); btn.setAttribute('aria-selected', String(t === k)); }
@@ -25674,7 +26039,11 @@ function apTab(k){
   if(k === 'interview' && AP_PROF && window.IR){ const el = document.getElementById('apIrHost'); if(el && !el.dataset.done){ el.dataset.done = '1'; IR.mount(el, AP_PROF); } }   /* 2026-10-13 */
   const r = AP_PROF; if(!r || !window.HP) return;
   /* the Whole profile's pieces, read when their tab is first opened */
-  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
+  if(k === 'hiring'){ const el = document.getElementById('apHpHiring'); if(el && !el.dataset.done){ el.dataset.done = '1';
+    /* 2026-11-05: the tidy Hiring tab draws the journey and the documents in their own folded sections (hiring-fold.js) */
+    const jy = document.getElementById('apHpJourney'), dc = document.getElementById('apHpDocs');
+    if(jy && dc){ HP.mount(el, { applicant_id: r.id }, ['status']); HP.mount(jy, { applicant_id: r.id }, ['journey']); HP.mount(dc, { applicant_id: r.id }, ['docs']); }
+    else HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
   if(k === 'hiring' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
   if(k === 'checks' && window.DT){ const el = document.getElementById('apDt'); if(el && !el.dataset.done){ el.dataset.done = '1'; DT.mount(el, { applicant_id: r.id, name: [r.first_name, r.last_name].filter(Boolean).join(' ') }); } }   /* 2026-10-13 Drug tests */
   if(k === 'hiring' && window.HEPB){ const el = document.getElementById('apHepb'); if(el && !el.dataset.done){ el.dataset.done = '1'; HEPB.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
@@ -25773,7 +26142,7 @@ function apRenderProfile(){
         + (r.city||r.zip ? ' · ' + esc(r.city||r.zip) : '') + ' · applied ' + esc(when(r.created_at)) + '</div>'
       + ppStagesHtml(apStageNow(r, b), ended) + '</div>'
     + '</div>'
-    + '<div class="' + nx[0] + '"><div><small>' + nx[1] + '</small>' + nx[2] + '</div>' + nx[3] + '</div>'
+    + '<div class="' + nx[0] + '"' + (/apTab\('hiring'\)/.test(nx[3]) ? ' data-next-go="hiring"' : '') + '><div><small>' + nx[1] + '</small>' + nx[2] + '</div>' + nx[3] + '</div>'
     + '<div class="pp-links">' + links.join('') + '</div>'
     + '</div>';
 
@@ -25831,10 +26200,10 @@ function apRenderProfile(){
       /* 2026-10-13: the AI review, kept apart from the interviewer's notes above (interview-review-ui.js) */
       + (window.IR ? apProfCard('AI interview review', '<div id="apIrHost"></div>', 'A second set of ears, office only. It runs only when you tap it, and never scores or decides.') : '')
       + (offered ? '<div id="apHpSkills"></div>' : ''))
-    + pane('hiring',
+    + pane('hiring', window.HFOLD && HFOLD.showing() ? apHiringFolded(r) :
         apProfCard('The offer', apProfOffer(r), '')
-      + apProfCard('Getting them started', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
-          'References, the screenings and the paperwork, wherever they have got to.')
+      + apProfCard('References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
+          'Each reference, where they have got to, and what to do next.')
       + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="apHpHiring"></div>', 'Read from their records. Signed documents never change.') : '')
       + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : '')
       + (window.HEPB ? apProfCard('Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.') : ''))   /* 2026-10-13 driver-compliance.js, hepb-card.js */
@@ -25901,6 +26270,17 @@ async function apIntakeByContact(r){
     return rows[0] || null;
   }catch(e){ return null; }
 }
+/* 2026-11-05: the Caregivers engine's records, loading the engine when no Caregivers tab has opened yet (10 seconds at most) */
+async function apScxCandidates(){
+  const got = () => (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
+  if(got().length || typeof scxEnsure !== 'function') return got();
+  await new Promise(done => {
+    const t = setTimeout(done, 10000);
+    window.addEventListener('scx-hydrated', function(){ clearTimeout(t); done(); }, { once:true });
+    scxEnsure('cgbackground');
+  });
+  return got();
+}
 async function apOnboardMount(r, hostEl){
   const host = hostEl || document.getElementById('apOnboardHost'); if(!host) return;
   const esc = escapeHtmlComms;
@@ -25910,18 +26290,27 @@ async function apOnboardMount(r, hostEl){
         .eq('applicant_id', r.id).order('created_at',{ascending:false}).limit(1),
       sb.from('reference_requests').select('*').eq('applicant_id', r.id).order('slot'),
     ]);
-    if(h.error) throw h.error;
-    let intake = (h.data||[])[0];
+    let intake = h.error ? null : (h.data||[])[0];   /* the old start form is optional now; a refusal never hides the references */
     /* Fix 2 of 4 (2026-10-08): hire_intake.applicant_id was only ever set by a one-time backfill, so every newer start
        form showed here as "No start form yet". When the link is missing, their start form is found by the phone or
        email on the application, the same match the import uses. Read only; nothing is written. */
     if(!intake) intake = await apIntakeByContact(r);
     let R = refs.error ? [] : (refs.data||[]);
+    /* 2026-11-05: Step 1 forms are no longer kept in hire_intake, so most people have no start form there. Their
+       Background & References record is found the way Their journey finds it (the same read, by applicant). Read only. */
+    let cands = (window.SCX && typeof SCX.getCandidates === 'function') ? (SCX.getCandidates() || []) : [];
+    let boardCand = intake ? cands.find(c => c && String(c.intake_id || '') === String(intake.id)) || null : null;
+    let cid = boardCand ? boardCand.id : null, cgId = null;
+    if(cid == null && window.HP && typeof HP.ids === 'function'){ const ids = await HP.ids({ applicant_id: r.id }); cid = ids.candidate_id; cgId = ids.caregiver_id; }
+    /* the reference cards come from the Caregivers engine, which loads only when a Caregivers tab opens; load it here */
+    if((cid != null || cgId != null) && !boardCand){
+      if(!cands.length) cands = await apScxCandidates();
+      boardCand = cands.find(c => c && String(c.id) === String(cid)) || null;
+    }
     /* 2026-10-12: requests asked from Background & References carry their board record, not the application. Found by
-       id: the board record made from this start form (intake_id), then that record's requests. Read only. */
-    if(!R.length && intake && window.SCX && typeof SCX.getCandidates === 'function'){
-      const ids = (SCX.getCandidates() || []).filter(c => c && String(c.intake_id || '') === String(intake.id)).map(c => c.id).filter(x => x != null);
-      if(ids.length){ try{ const q = await sb.from('reference_requests').select('*').in('candidate_id', ids).order('slot'); if(!q.error) R = q.data || []; }catch(e){} }
+       id: their board record, then that record's requests. Read only. */
+    if(!R.length && cid != null){
+      try{ const q = await sb.from('reference_requests').select('*').eq('candidate_id', cid).order('slot'); if(!q.error) R = q.data || []; }catch(e){}
     }
     /* one line per reference: a slot can hold an older request and a newer one; the answered one, else the newest */
     { const by = {}; R.forEach(x => { const cur = by[x.slot];
@@ -25929,9 +26318,8 @@ async function apOnboardMount(r, hostEl){
       R = Object.values(by).sort((a, b) => (a.slot||0) - (b.slot||0)); }
     let out = '';
 
-    if(!intake){
-      out += '<div class="field-note">No start form yet. It sends itself when the offer goes out, and lands here when they fill it in.</div>';
-    } else {
+    /* the old start form's rows show only for the few who have one; Step 1 forms are on Their journey below */
+    if(intake){
       const back = intake.screening_cleared_at;
       out += apProfRow('Start form', esc(new Date(intake.created_at).toLocaleDateString('en-US',{month:'long', day:'numeric'})) + ' · signed')
         + apProfRow('AxisCare number', esc(intake.candidate_id || '') )
@@ -25942,14 +26330,14 @@ async function apOnboardMount(r, hostEl){
             ? 'deleted once screening cleared' : '<span style="color:#B45309;">still held, deleted when screening clears</span>');
     }
 
-    /* 2026-10-12 step 3: when their Background & References record is found (by id, through the start form), the
+    /* 2026-10-12 step 3: when their Background & References record is found (by id), the
        reference cards show here instead of the list: everything about each reference, and every action for it */
-    const boardCand = (intake && window.SCX && typeof SCX.getCandidates === 'function')
-      ? (SCX.getCandidates() || []).find(c => c && String(c.intake_id || '') === String(intake.id)) : null;
     /* the same record carries their background checks (Training & checks tab) */
     { const ch = !hostEl && document.getElementById('apChecksHost');
       if(ch){ if(boardCand && typeof obChecksMount === 'function'){ ch.className = 'pp-checks'; obChecksMount(ch, boardCand.id); }
-              else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is linked to their start form. Until then, record them on Background &amp; References.</div>'; } }
+              /* 2026-11-05: on the roster, the checks they were hired on, from their caregiver record (read only) */
+              else if(cgId != null && typeof obChecksRosterMount === 'function'){ ch.className = 'pp-checks'; obChecksRosterMount(ch, cgId); }
+              else ch.innerHTML = '<div class="field-note">Their checks show here once their Background &amp; References record is made. Until then, record them on Background &amp; References.</div>'; } }
     if(boardCand && typeof obRefCardsMount === 'function'){
       out += '<div class="pp-refcards" data-cand="' + esc(String(boardCand.id)) + '"><div class="field-note">Reading their references…</div></div>';
     } else if(R.length){
@@ -25966,15 +26354,14 @@ async function apOnboardMount(r, hostEl){
                   ? '<span style="font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:2px 9px;">chased ' + x.reminder_count + '×</span>'
                   : '<span class="field-note">asked</span>')
             + '</div>').join('');
-    } else if(intake){
-      out += '<div class="field-note" style="margin-top:10px;">No references asked yet. They go out on their own once the start form is in.</div>';
+    } else {
+      out += '<div class="field-note">No references asked yet. They go out on their own once Step 1 is signed.</div>';
     }
 
     host.innerHTML = out;
     host.querySelectorAll('.pp-refcards[data-cand]').forEach(el => obRefCardsMount(el, el.dataset.cand));
   }catch(e){
-    host.innerHTML = '<div class="field-note">Could not read the onboarding: ' + esc(e && e.message || 'error')
-      + '<br>If this mentions applicant_id, run <b>recruit-lifecycle.sql</b>.</div>';
+    host.innerHTML = '<div class="field-note">Could not read their references: ' + esc(e && e.message || 'error') + '</div>';
   }
 }
 
@@ -26317,6 +26704,20 @@ function apProfInterview(r){
   return out;
 }
 
+/* 2026-11-05: the Hiring tab, tidy (hiring-fold.js, ops_settings.hiring_fold_live): Their journey stays open, everything
+   else folds to one line with its summary. Same ids as the current tab, so every mount and button works the same. */
+function apHiringFolded(r){
+  const esc = escapeHtmlComms, H = { FULL_TIME:'Full time', PART_TIME:'Part time', PRN:'PRN' };
+  const day = iso => new Date(iso).toLocaleDateString('en-US',{month:'short', day:'numeric'});
+  const offerSum = [esc(r.offer_position||''), esc(H[r.offer_hours]||''), r.hired_at ? 'hired ' + esc(day(r.hired_at)) : r.offer_sent_at ? 'offer sent ' + esc(day(r.offer_sent_at)) : ''].filter(Boolean).join(' · ');
+  return (window.HP ? '<div class="card" style="padding:4px 18px 16px;margin-bottom:14px;"><div id="apHpHiring"></div></div>' : '')
+    + HFOLD.card('offer', 'The offer', apProfOffer(r), '', offerSum)
+    + HFOLD.card('refs', 'References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>', 'Each reference, where they have got to, and what to do next.', '')
+    + (window.HP ? HFOLD.card('journey', 'The whole journey, step by step', '<div id="apHpJourney"></div>', '', '')
+                 + HFOLD.card('docs', 'Signed documents and proofs', '<div id="apHpDocs"></div>', '', '') : '')
+    + (window.DRV ? HFOLD.card('driver', 'Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.', '') : '')
+    + (window.HEPB ? HFOLD.card('hepb', 'Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.', '') : '');
+}
 function apProfOffer(r){
   const esc = escapeHtmlComms;
   const HOURS = { FULL_TIME:'Full time', PART_TIME:'Part time', PRN:'PRN, as needed' };
@@ -27148,7 +27549,7 @@ function apjOpen(){
   if(window.TWalk) TWalk.mount();
   if(window.AP_JOURNEY && window.AP_WORDS) return apjRender();
   const load = (src) => new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = no; document.head.appendChild(sc); });
-  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261014'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
+  Promise.all([window.AP_JOURNEY ? 0 : load('applicant-journey.js?v=20261104'), window.AP_WORDS ? 0 : load('applicant-words.js?v=20261011').catch(()=>0)])
     .then(apjRender)
     .catch(() => { const b=document.getElementById('apjBody'); if(b) b.innerHTML='<div class="field-note">Could not load the journey list. Reload the page.</div>'; });
   apjLoadCtx();
@@ -28541,6 +28942,8 @@ function opsDigits(p){ return String(p||'').replace(/\D/g,'').replace(/^1/,''); 
 
 function opsReconcileCalls(){
   if(!CALLS_FEED || !Array.isArray(CALLS_FEED.calls)) return;
+  /* 2026-11-05: with Follow-ups on, the server keeps one row (and one reply_needed card) per number, so no missed call cards here */
+  if(window.CFU && CFU.on()) return;
   DATA.ops_items = DATA.ops_items || [];
   const calls = CALLS_FEED.calls;
   const existing = new Map(DATA.ops_items.filter(i=>i.kind==='missed_call').map(i=>[i.source_id,i]));
@@ -29551,7 +29954,9 @@ function myWorkTabs(b){
   /* Up for grabs (2026-10-13): always here, so checking it becomes a habit */
   if(window.TP) t.splice(t.findIndex(x=>x[0]==='unassigned'),0,['pool','Up for grabs']);
   /* Team Work (Stage 1, 2026-10-18): next to Today for everyone once it is on; owners see it as a preview while off */
-  if(window.TW && TW.visible()) t.splice(1,0,['team',TW.on()?'Team Work':'Team Work (preview)']);
+  if(window.TW && TW.visible() && !(window.CMW && CMW.on())) t.splice(1,0,['team',TW.on()?'Team Work':'Team Work (preview)']);   /* Calmer My Work: no tab, On duty now sits on Today */
+  /* Follow-ups (2026-11-05, cc-followups.js): calls and texts nobody answered, right next to Today; owners only while in practice */
+  if(window.CFU && CFU.visible()) t.splice(1,0,['followups',CFU.label()]);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
   /* 2026-10-14: call follow-ups are their own tab on Today (Call Follow Ups), no longer inside My Work */
   return t;
@@ -29894,6 +30299,7 @@ async function opsTakeIt(id){
    shift carries the no-texts marks so the server's closure pass never texts anyone about it. */
 async function covOutcome(itemId, how){
   const it=(DATA.ops_items||[]).find(x=>x.id===itemId); if(!it) return;
+  if(window.CAA&&CAA.showing()) return CAA.answer(it.case_id, how, { item:it });   /* 2026-11-05: calloff-answers.js closes the case and its card */
   const a=ccActor(), now=new Date().toISOString();
   let c=null;
   try{ const { data } = await sb.from('app_data').select('data').eq('key','coverage_cases').maybeSingle();
@@ -30323,9 +30729,11 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
+    if(it && it.kind==='falloff_said_yes' && it.status==='open' && window.FALLOFF) return FALLOFF.actions(it);   /* 2026-11-04 Put back */
     if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
       const id=esc(String(it.id));
+      if(it.kind==='coverage_outcome'&&window.CAA&&CAA.showing()) return CAA.cardActions(it);   /* five answers + What AxisCare shows */
       if(it.kind==='coverage_outcome') return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
         +b("covOutcome('"+id+"','covered_other_way')",'Covered',true)+b("covOutcome('"+id+"','uncovered')",'Not covered')
         +b("covOutcome('"+id+"','client_cancelled')",'Client cancelled')
@@ -30424,6 +30832,7 @@ async function myWorkTalk(id, btn){
   renderMyWork(); if(typeof suTodayRender==='function') suTodayRender();
 }
 function myWorkCard(it, i){
+  const calm=!!(window.CMW&&CMW.on());   /* Calmer My Work: one line, one button; the rest is in ⋯ */
   if(it && it.kind==='project' && typeof pjCard==='function') return pjCard(it, i);
   if(it && it.kind==='journey') return jrCard(it, i);
   if(it && it.kind==='new_family_call' && window.CallLead && CallLead.card) return CallLead.card(it, i);
@@ -30506,10 +30915,11 @@ function myWorkCard(it, i){
     +'<span class="tag-chip" title="Owner · when it is due" style="font-weight:700;background:'
       +(att.level>=2?'var(--red-bg);color:var(--red)':att.level===1?'var(--amber-bg);color:var(--amber)':(it.owner?'var(--bg);color:var(--navy)':'var(--amber-bg);color:var(--amber)'))+';">'
       +esc(String(it.owner||'').toLowerCase()===String(opsMeKey()||'').toLowerCase()?opsDueText(it):opsOwnerTag(it))+(att.level>=2?' · '+esc(att.label):'')+'</span>'
-    +'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>'
+    +(calm?((OPS_KINDS[it.kind]&&OPS_KINDS[it.kind].label)||fromCall?'<span class="field-note">'+esc([(OPS_KINDS[it.kind]&&OPS_KINDS[it.kind].label)||'',fromCall].filter(Boolean).join(' · '))+'</span>':'')
+      :'<span class="field-note">'+esc(opsKindLabel(it))+' · '+esc(fromCall||ago)+'</span>')
     +states
     +'<span style="flex:1;"></span>'
-    +'<span class="wkchip" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
+    +'<span class="wkchip'+(d?'':' cmw-unclassified')+'" id="dom_'+it.id+'" onclick="opsDomainFromCard(\''+it.id+'\',\'dom_'+it.id+'\')" '
     +'title="What is this about?">'+esc(d?d.label:'Unclassified')+'</span>'
     +'<span class="wkmore" id="more_'+it.id+'" onclick="myWorkMore(\''+it.id+'\',\'more_'+it.id+'\')">⋯</span>'
     +'</div>';
@@ -30635,8 +31045,8 @@ function myWorkCard(it, i){
     h+='<button class="'+(otherCl?'ghost':'primary')+'" style="padding:6px 13px;font-size:12.5px;" '
       +(otherCl?'title="'+esc((it.claimed_by_name||'Someone').split(' ')[0])+' is handling this. Close it only if you know it’s finished" ':'')
       +'onclick="opsClose(\''+it.id+'\')">'+(otherCl?'Done…':'Done')+'</button>'
-      +'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
-      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>';
+      +(calm?'':'<button class="ghost" style="padding:6px 13px;font-size:12.5px;" '
+      +'onclick="myWorkHandOff(\''+it.id+'\',\'act_'+it.id+'\')">Hand off</button>');
   }
   if(it.sub_state==='waiting' && !it.check_back)
     h+='<button class="ghost" style="padding:6px 13px;font-size:12.5px;color:var(--red);" '
@@ -30644,7 +31054,7 @@ function myWorkCard(it, i){
   /* My Desk (Stage 5, her yes 2026-10-06): my own steps for this card, with a paperclip back to it. Ticking them never
      closes the card. */
   /* fix 5 (2026-10-17): Jot on my desk moved into the ⋯ menu, so a card has three buttons: Done, Hand off, Talk about */
-  if(window.suTalk) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
+  if(window.suTalk && !calm) h+='<button class="ghost wk-talkbtn" style="padding:6px 13px;font-size:12.5px;" onclick="myWorkTalk(\''+it.id+'\',this)">'+(talkF?'Don’t need to talk about it':'Talk about')+'</button>';
   h+='</div>';
 
   const trail=opsOwnerTrail(it);
@@ -30664,6 +31074,11 @@ function myWorkMore(id, anchorId){
     +(warn?'color:var(--red);':'')+'">'+label+'</div>';
   let h='';
   const meCl=ccActor().email;
+  /* Calmer My Work: Hand off and Talk about live here instead of on every card */
+  if(window.CMW&&CMW.on()){
+    if(it.owner && String(it.owner).toLowerCase()===meCl) h+=opt('cmw_handoff','Hand off…');
+    if(window.suTalk) h+=opt('cmw_talk', suTalk.forWork(it.id)?'Don’t need to talk about it':'Talk about');
+  }
   /* Take it = ownership (2026-10-05). The old "I've got it (stays theirs)" is gone: a claim without ownership was
      the invisible kind of ownership her rule replaces. */
   if(String(it.owner||'').toLowerCase()!==meCl)
@@ -30709,6 +31124,8 @@ function myWorkMore(id, anchorId){
       /* 2026-10-17: taking someone else's work is a transfer: confirm and a reason (TA.transfer); my own is "I'm on it" */
       if(r.dataset.what==='claim') return (window.TA && it.owner && String(it.owner).toLowerCase()!==ccActor().email) ? TA.transfer(id, anchorId) : opsTakeIt(id);
       if(r.dataset.what==='jot') return dkJotWork(id, document.getElementById(anchorId));
+      if(r.dataset.what==='cmw_handoff') return myWorkHandOff(id, anchorId);
+      if(r.dataset.what==='cmw_talk') return myWorkTalk(id, document.getElementById(anchorId));
       if(r.dataset.what==='pool') return TP.offerOpen(id, anchorId);
       if(r.dataset.what==='waiting' && it.sub_state!=='waiting')
         return opsWaitOpen(id, anchorId);
@@ -30768,6 +31185,7 @@ function myWorkTabBadge(k,b){
   if(k==='mine'||k==='escalated'||k==='waiting') return '';
   if(k==='team'){ const tdy=window.MWTidy&&MWTidy.on(), tnow=Date.now(); const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))&&!(tdy&&MWTidy.sortOut(i,tnow))).length;   /* tidy (2026-10-22): EVV, Make it official and call cards past their day are not counted */   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
   if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
+  if(k==='followups'){ const n=window.CFU?CFU.count():0; return n?' <span class="subtab-badge">'+n+'</span>':''; }   /* open for today, once the tab has loaded */
   const n=(b[k]||[]).length;
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
 }
@@ -30775,6 +31193,7 @@ function renderMyWork(){
   try{ if(typeof bnBtnSync==='function') bnBtnSync(); }catch(e){}   /* Stage 4: the Bonuses button */
   try{ if(typeof cctBtnSync==='function') cctBtnSync(); }catch(e){}   /* Stage 5: the My month / Team button */
   const wrap=document.getElementById('myWorkWrap'); if(!wrap) return;
+  try{ if(window.CMW) CMW.sync(); }catch(e){}   /* Calmer My Work (2026-11-05): the page class, before anything draws */
   if(window.CallLead&&CallLead.reconcile) CallLead.reconcile();   /* New family? cards (2026-10-18); redraws only when one opens or closes */
   try{ opsReconcileInbox(); }catch(e){ console.warn('[inbox cards]', e); }   /* Today gap cards (2026-10-18): messages and meeting requests */
   try{ renderTodayStrip(); }catch(e){ console.warn('[today strip]', e); }   /* NEW TODAY (2026-10-19) */
@@ -30815,6 +31234,7 @@ function renderMyWork(){
   if(MYWORK_TAB==='callpractice'){ wrap.innerHTML=''; if(window.CPR) CPR.render(wrap); return; }
   if(MYWORK_TAB==='pool'){ wrap.innerHTML=''; if(window.TP) TP.render(wrap); return; }
   if(MYWORK_TAB==='team'){ wrap.innerHTML=''; if(window.TW) TW.render(wrap); return; }
+  if(MYWORK_TAB==='followups'){ if(window.CFU && CFU.visible()) CFU.render(wrap); else wrap.innerHTML=''; return; }
 
   const rows=myWorkRows();
   const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
@@ -30887,13 +31307,20 @@ function renderMyWork(){
   const team=myWorkTeamHtml(b);
   if(team) h+=lane('YOUR TEAM\'S LATE WORK','escalated to you; it stays theirs unless you take it','var(--red)',null,team);
   /* Team Work (Stage 1): care at risk from the on-duty pile stays on Today for whoever is on duty */
-  if(window.TW&&TW.on()){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
+  if(window.TW&&TW.on()&&!(window.CMW&&CMW.on())){ const tc=TW.careForMe(); if(tc.length) h+=lane('TEAM WORK: CARE AT RISK','the on-duty pile; anyone can act first, Take it makes it yours','var(--red)',tc.length,TW.careHtml()); }
   /* Stage 2: someone asked me for help; accept or decline (the card stays theirs) */
   if(window.AH&&AH.on()){ const ah=AH.laneHtml(it=>myWorkCard(it,-1)); if(ah) h+=ah; }
   if(pinned.length) h+=lane('FROM YOUR HANDOFF','handed to you at the end of a shift; here until you tap Got it on the handoff','var(--teal)',pinned.length,
     pinned.map(it=>myWorkCard(it,-1)).join(''));
   /* My Work tiers (Stage 2, 2026-10-18): Needs you now, then the four groups, instead of the time lanes. Past its day,
      Waiting & watching and Offered to the team stay as they are below. */
+  /* Calmer My Work (2026-11-05, calmer-mywork.js): On duty now, Late, Today, Later this week; everything else folded */
+  if(window.CMW) h=CMW.previewLink()+h;
+  if(window.CMW && CMW.on()){
+    const selC=myWorkSelectable(), own=typeof ccIsOwner==='function'&&ccIsOwner();
+    wrap.innerHTML=(((own&&selC.length)||MYWORK_SEL.size)?myWorkBulkBar(selC):'')+(window.TA?TA.stripHtml():'')+CMW.todayHtml({ top:h });
+    return;
+  }
   const tiers=!!(window.MWT&&MWT.active());
   if(window.MWT) h=MWT.previewLink()+h;
   if(tiers){
@@ -34705,6 +35132,7 @@ function opsKindLabel(it){
 }
 const OPS_KINDS = {
   missed_call:    { label:'Missed call',   hours:1  },
+  reply_needed:   { label:'Call or text back', hours:1 },   /* Follow-ups (cc-followups, 2026-11-05): one card per number, kept by the server */
   review:         { label:'Review',       hours:24 },
   recurring:      { label:'Recurring duty', hours:24 },
   new_lead:       { label:'New lead',      hours:4  },
@@ -34785,6 +35213,11 @@ const OPS_KINDS = {
      differing from the orientation date (the employment start date by policy; nothing is written to AxisCare). */
   final_approval:        { label:'Ready for final approval',          hours:24 },
   axiscare_active_failed:{ label:'AxisCare update failed (approved)', hours:4  },
+  /* 2026-11-04 onboarding fall-offs (falloff.js): AxisCare not changed, a person decides; a reply after the check-in took them off */
+  axiscare_inactive_after_leave:{ label:'Set inactive in AxisCare (left onboarding)', hours:24 },
+  falloff_axis_failed:   { label:'AxisCare not changed (left onboarding)', hours:24 },
+  falloff_axis_skipped:  { label:'Check AxisCare by hand (left onboarding)', hours:24 },
+  falloff_said_yes:      { label:'Replied after being taken off',     hours:24 },
   hire_date_check:       { label:'Hire date differs from orientation', hours:48 },
   /* Step 6 (2026-09-26): made by the promise-run producer from Start Contracts
      and Journey reviews. They close themselves when the source is satisfied. */
@@ -35002,7 +35435,7 @@ function clSearchGo(v){ CL.q=v; clearTimeout(clSearchT); clSearchT=setTimeout(re
 const clNorm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function clCensusName(c){ return ((c.goes_by||c.first||'')+' '+(c.last||'')).trim()||('AxisCare client #'+c.id); }
 async function clLoadIssues(){
-  const { data, error }=await sb.from('client_issue').select('id,client_person_id,summary,state,urgency').not('state','in','(resolved,closed_no_action)');
+  const { data, error }=await sb.from('client_issue').select('id,client_person_id,axiscare_client_id,summary,state,urgency,owner,waiting_on,reported_at').not('state','in','(resolved,closed_no_action)');
   if(error) throw error; return data||[];
 }
 async function clLoad(force){
@@ -35025,7 +35458,7 @@ function clDue(r, issues){
   const add=(kind,tone,label,tab,due)=>out.push({ kind, tone, label, tab, due:due||'' });
   if(ax){
     const ci=(DATA.client_checkins||[]).filter(c=>c&&c.client_name&&String(c.axiscare_client_id||'')===ax).sort((a,b)=>String(b.checkin_date||'').localeCompare(String(a.checkin_date||'')))[0];
-    if(!ci) add('checkin','warn','no check-in yet','checkins');
+    if(!ci){ add('checkin','warn','no check-in yet','checkins'); out[out.length-1].none=true; }   /* none: no record at all, never "overdue" (Clients at a glance) */
     else if(ci.next_checkin_due&&ci.next_checkin_due<t) add('checkin','bad','check-in overdue since '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
     else if(ci.next_checkin_due&&ci.next_checkin_due<=wk) add('checkin','warn','check-in due '+d(ci.next_checkin_due),'checkins',ci.next_checkin_due);
     /* R1 (2026-09-29, her ruling): the LATEST check-in decides; a later one without the box clears the flag, history stays */
@@ -35033,7 +35466,7 @@ function clDue(r, issues){
     else if(ci&&ciDecliningAx(ax)) add('ckconcern','warn','satisfaction dropping','checkins');
     /* PRN step 8b: a Gap Mentor's note or a set-aside suggestion (kinds mentor_*) is never a plan review, so it never hides one due */
     const rv=(DATA.care_plan_reviews||[]).filter(x=>x&&!/^mentor_/.test(String(x.kind||''))&&String(x.axiscare_client_id||'')===ax).sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')))[0];
-    if(!rv) add('review','warn','first plan review needed','care:reviews');
+    if(!rv){ add('review','warn','first plan review needed','care:reviews'); out[out.length-1].none=true; }
     else {
       if(rv.changes_needed&&!rv.plan_updated) add('review','bad','plan changes not in AxisCare yet','care:reviews');
       if(rv.next_due&&rv.next_due<t) add('review','bad','plan review overdue since '+d(rv.next_due),'care:reviews',rv.next_due);
@@ -35088,6 +35521,11 @@ function renderClientsBoard(){
   if(sl){ const b=CL.beat, ageH=b?(Date.now()-new Date(b.at).getTime())/36e5:null, stale=!b||b.ok===false||!(ageH<=7);
     sl.innerHTML=b?('<span style="'+(stale?'color:var(--red);font-weight:700;':'')+'">Client sync from AxisCare: '+(b.ok===false?'failed ':'last ran ')+esc(new Date(b.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))+(b.note?' · '+esc(b.note):'')+(stale&&b.ok!==false?' · it should run every 6 hours':'')+'</span>')
       :'<span>Client sync from AxisCare: not run yet (Desktop 641 starts it).</span>'; }
+  /* 2026-11-05 (her "make this better like the charts we have made"): Clients at a glance. clients-glance.js draws the
+     tiles, the labeled columns and the coverage chart while ops_settings.clients_glance_live is on, or for an owner's own preview. */
+  if(window.CLG){ CLG.placeUpkeep(CLG.showing()); if(cnt&&CL.census) cnt.insertAdjacentHTML('beforeend', CLG.previewLink()); }
+  if(window.CLG&&CLG.showing()){ CLG.render(all, { nAct, box, startN:(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true)?cjStartingCount():null }); return; }
+  const gl0=document.getElementById('clGlance'); if(gl0) gl0.innerHTML='';
   const FILTERS=[
     ...(typeof cjStartingCount==='function'&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true?[['Starting care', ()=>false]]:[]),
     ['Needs something', x=>!x.past&&!x.paused&&((x.bad+x.warn)>0||!!x.unconnected)],
@@ -37480,7 +37918,8 @@ function opsClose(id, anchorId){
   /* HR step 5 (2026-10-18): a coaching card closes only when the conversation is recorded on HR > Coaching */
   if(it.kind==='coaching'){ location.hash='hr/coaching'; return; }
   if(it.kind==='hr_file'){ location.hash=it.link?String(it.link).replace(/^#/,''):'hr/formal'; return; }
-  if(it.kind==='livein_countersign'){ location.hash='hr/livein'; return; }   /* closes only when the Live-In Agreement is countersigned (2026-10-29) */   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
+  if(it.kind==='livein_countersign'){ location.hash='hr/livein'; return; }
+  if(window.CAA&&CAA.guards(it)) return CAA.ask(it, document.getElementById(anchorId||('act_'+id)));   /* a Was it covered? card closes with an answer (2026-11-05) */   /* closes only when the Live-In Agreement is countersigned (2026-10-29) */   /* Tell Zach cards open Incidents and concerns (2026-10-27) */
   const esc=escapeHtmlComms;
   const anchor=document.getElementById(anchorId||('act_'+id))||document.body;
   const el=ccPopOpen(anchor,
@@ -37504,6 +37943,7 @@ function opsClose(id, anchorId){
 }
 /* Marking an item done, the one way (2026-10-07: shared by the Hub's Done and the phone's Done). */
 async function opsCloseCommit(it, note, outcome){
+    if(window.CAA&&CAA.guards(it)){ ccToast('Answer "Was it covered?" to close this card, so the call-off is recorded too.'); return; }
     if(outcome) it.outcome=outcome;
     it.status='done'; it.closed_at=new Date().toISOString();
     it.closed_by=(typeof ME!=='undefined'&&ME.email)?ME.email:'';
@@ -38590,6 +39030,7 @@ function covRenderSubBar(S){
     ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
     ['hours','\ud83d\udcca Hours & matching',(typeof NH!=='undefined'?NH.count():0),''],   // new hires waiting for hours (2026-10-12)
     ['dno','\ud83d\udd15 No shift texts',dnoN,''],
+    ...(window.CAA&&CAA.showing()?[['answers','\u2753 Was it covered?',CAA.count(),'red']]:[]),   // calloff-answers.js (2026-11-05)
     ['history','\ud83d\uddc2 History',0,''],
   ];
   bar.innerHTML=tabs.map(t=>'<button class="fb'+(COV_SUB===t[0]?' active':'')+'" onclick="covSubGo(\''+t[0]+'\')">'+t[1]
@@ -41058,6 +41499,8 @@ function covSummary(c){
   if(c.resolved_how==='uncovered') return 'Closed uncovered after '+covDur(c)+', '+n+' asked, '+r+' replied.';
   /* 2026-10-24: closed from AxisCare's reason (reasons by id) */
   if(c.resolved_how==='client_cancelled') return 'Cancelled by the client, closed after '+covDur(c)+'. Nobody was texted about it.';
+  if(c.resolved_how==='covered_other_way') return 'Covered (recorded after the shift)'+(c.covered_by?': '+esc(c.covered_by):'')+'.';
+  if(c.resolved_how==='not_needed') return 'Not needed: no care was owed (recorded after the shift). Nobody was texted about it.';
   if(c.resolved_how==='couldnt_staff') return 'We couldn\'t staff it, closed after '+covDur(c)+'. The family gets a call from a person.';
   return 'Open '+dur+', '+n+' asked, '+r+' replied.';
 }
@@ -41686,6 +42129,7 @@ function renderCoverage(){
     else { try{ if(typeof NH!=='undefined') NH.render(); }catch(e){} hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
     return;
   }
+  if(COV_SUB==='answers'){ if(window.CAA&&CAA.showing()){ box.innerHTML=CAA.list(); return; } COV_SUB='calloffs'; }   // calloff-answers.js (2026-11-05)
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   /* Each sub-tab IS its section (2026-09-18): one kind of work per screen.
@@ -43243,10 +43687,14 @@ window.covLoadShifts=function(){};
     const early=all.filter(c=>c.status!=='complete'&&!owned(c)&&cqEarlyLead(c));
     const pending=all.filter(c=>c.status!=='complete'&&!owned(c));
     const completed=all.filter(c=>c.status==='complete');
-    let html='<div id="cqf-waiting"></div>'+(typeof cjListBlock==='function'?cjListBlock('first'):'')
-      +(early.length?'<div class="field-note" style="margin:0 0 .6rem;font-size:.75rem;">'+early.length+' first-shift checklist'+(early.length===1?'':'s')+' opened early, before the family\'s Before staffing half was done ('
+    /* 2026-11-03 Getting ready as one table: the families getting ready are in that table (Before staffing); this tab keeps
+       "Waiting to be matched", the manual launch and Completed */
+    const grt=window.GRT&&GRT.on();
+    let html='<div id="cqf-waiting"></div>'+(grt?'<div class="card" style="padding:12px 16px;margin-bottom:.75rem;">Every family getting ready is in one table now. <a href="javascript:void(0)" onclick="switchTab(\'soc\')">Open the Getting ready table</a> · <a href="#" onclick="cqAddManual();return false">+ Add Launch Exception</a></div>':(typeof cjListBlock==='function'?cjListBlock('first'):''))
+      +(early.length&&!grt?'<div class="field-note" style="margin:0 0 .6rem;font-size:.75rem;">'+early.length+' first-shift checklist'+(early.length===1?'':'s')+' opened early, before the family\'s Before staffing half was done ('
         +early.map(c=>'<a href="javascript:void(0)" data-open-lead="'+E(cqEarlyLead(c).id)+'" data-open-tab="start">'+E(c.client_name)+'</a>').join(', ')+'). Both halves show on their profile\'s Start tab.</div>':'');
-    if(!pending.length&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true){
+    if(grt){ /* the table carries them */ }
+    else if(!pending.length&&DATA.ops_settings&&DATA.ops_settings.client_journey_live===true){
       html+='<div class="field-note" style="margin:0 0 .75rem;">No older First shift checklists are open. <a href="#" onclick="cqAddManual();return false">+ Add Launch Exception</a></div>';
     } else if(!pending.length){
       html+='<div style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:10px;padding:1.25rem;text-align:center;color:#166534;font-size:.82rem;margin-bottom:.75rem">✅ No launches in progress.'
@@ -43687,6 +44135,26 @@ function ccOpenRef(sub){
         { kind:'state', text:'A provider that can no longer meet the needs of a participant who still needs help gives written notice of discharge to the participant or family and to the Division at least 21 days before the discharge, and keeps providing care for those 21 days or until DSDS arranges other care.', source:'19 CSR 15-7.021(16)(D)', url:'https://www.sos.mo.gov/cmsimages/adrules/csr/current/19csr/19c15-7.pdf', checked:'2026-10-15' },
         { kind:'choice', text:'Caring Companions stops agency Medicaid (IHS and ADW) on November 16, 2026. CDS continues through our sister company.', source:'Samantha, 2026-10-14', url:'', checked:'' },
         { kind:'procedure', text:'Families only hear about this in wording Samantha has approved.', source:'', url:'', checked:'' }
+      ] },
+    /* cds_transfer (2026-11-05, her ask: "Write the office steps for transferring a CDS caller, put them in the Hub SOPs") */
+    { slot:'cds_transfer', moment:'lead', state:'MO', drafted:'Claude, 2026-11-05', title:'A CDS caller on our line: transfer them to Caring CDS',
+      when:'Someone calls 417-234-8494 and asks about CDS (consumer directed services), Medicaid home care, or getting paid to care for a family member. CDS is our sister company, Caring Companions CDS, with its own office line: (417) 218-2888.',
+      owner:'Whoever answers the call', backup:'',
+      steps:[
+        'Before you transfer, get their name and the best number to reach them, in case the call drops.',
+        'Tell them: "That is our sister company, Caring Companions CDS. I am going to connect you with their office now so you get the right answers."',
+        'In the LeadConnector app, tap Transfer, open the dial pad, and dial (417) 218-2888.',
+        'Use a warm transfer: the caller waits on hold while CDS rings. When CDS answers, say who is calling and what they need, then leave the call.',
+        'If nobody at CDS answers: go back to the caller, tell them CDS will call them back, and keep their name and number.',
+        'After the call, open the call card in the Hub and press Send to Caring CDS. CDS gets them on its Leads list with our call notes, and our family-lead follow-up stops.',
+        'Do not promise hours, pay, or that they qualify. Caring Companions CDS answers those.'
+      ],
+      where:[{ label:'LeadConnector app: Transfer on the call', url:'' },{ label:'Hub: the call card, Send to Caring CDS', url:'' },{ label:'Caring Companions CDS office hub', url:'https://hub.caringcds.com' }],
+      done_when:'The caller is talking with Caring Companions CDS (or CDS has their name and number to call back), and the call card shows they were sent to Caring CDS.',
+      escalate_if:'The Transfer button is missing, or the app will not dial an outside number: the app needs version 3.97.3 or newer and your user must be allowed to transfer to outside numbers. Take their name and number, press Send to Caring CDS, and tell Samantha so she can fix your settings.',
+      why:[
+        { kind:'choice', text:'CDS callers get their answers from Caring Companions CDS, our sister company, not from our office.', source:'Samantha, 2026-11-01', url:'', checked:'' },
+        { kind:'procedure', text:'Send to Caring CDS puts them on the CDS Leads list and takes them out of our family-lead texts and emails, so nobody gets two sets of follow-up.', source:'', url:'', checked:'' }
       ] }
   ];
   let openId=null, editId=null, staffingLinks=null, stateFilter='all';
@@ -43938,7 +44406,8 @@ function ccOpenRef(sub){
     if(!isOwner()) return;
     const have=new Set(all().map(d=>d.slot).filter(Boolean));
     for(const s of STARTERS.filter(x=>!have.has(x.slot))){
-      await put(Object.assign(JSON.parse(JSON.stringify(s)), { id:'sop_'+s.slot, status:'draft', drafted_by:'Claude, 2026-10-17' }));
+      const d=JSON.parse(JSON.stringify(s)); delete d.drafted;
+      await put(Object.assign(d, { id:'sop_'+s.slot, status:'draft', drafted_by:s.drafted||'Claude, 2026-10-17' }));
     }
     sopRender();
   };

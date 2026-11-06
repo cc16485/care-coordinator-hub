@@ -1203,7 +1203,7 @@ function openStaffHandoff(){
   });
   STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open'&&t.urgency==='Today').forEach(t=>
     staffHandoffDraft.push({include:true,note:'',label:'📨 Unfinished TODAY request: '+(t.about?t.about+': ':'')+String(t.message||'').slice(0,80)}));
-  OFFERS.filter(o=>!o.attributes_entered_at).slice(0,5).forEach(o=>
+  if(!(typeof obtOio==='function'&&obtOio())) OFFERS.filter(o=>!o.attributes_entered_at).slice(0,5).forEach(o=>
     staffHandoffDraft.push({include:false,note:'',label:'🤝 New hire awaiting AxisCare attributes: '+(o.name||'')}));
   if(!(eodReports||[]).some(r=>r.report_date===today10))
     staffHandoffDraft.push({include:false,note:'',label:'📄 (Reminder to me) End-of-day report not uploaded yet'});
@@ -1341,7 +1341,7 @@ function renderStaffHome(){
   const reqN=STASKS.filter(t=>t.direction==='to_staffing'&&t.status==='open').length;
   const repN=(_repliesData&&_repliesData.replies)?_repliesData.replies.length:null;
   const mtgN=MEETINGS.filter(mtgIncoming).length;
-  const offN=OFFERS.length?OFFERS.filter(o=>!o.attributes_entered_at).length:null;
+  const offN=(typeof obtOio==='function'&&obtOio())?null:OFFERS.length?OFFERS.filter(o=>!o.attributes_entered_at).length:null;   /* 2026-11-04: on the call after orientation instead */
   const shiftN=(typeof OPEN_SHIFTS!=='undefined'&&OPEN_SHIFTS)?OPEN_SHIFTS.length:null;
   const ciN=CI_PAIRS?CI_PAIRS.filter(p=>ciPairInfo(p).dueNow).length:null;
   const eodDone=(eodReports||[]).some(r=>r.report_date===today10);
@@ -1371,7 +1371,7 @@ function renderStaffHome(){
     +row('🔴',shiftN,'Open shifts, next 14 days','Every unassigned visit in AxisCare is yours to fill','scheduling',true)
     +row('💛',ciN,'Client check-in calls due','First-shift calls on new matches + concern re-checks. Two calls per match, then done','checkins',false)
     +'<div style="font-size:.72rem;font-weight:800;letter-spacing:.06em;color:var(--gray);text-transform:uppercase;margin:.8rem 0 .4rem">📋 Onboarding &amp; Compliance</div>'
-    +row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false)
+    +((typeof obtOio==='function'&&obtOio())?'':row('🤝',offN,'New offers: enter AxisCare attributes','Interviewed caregivers waiting on their profile checklist','offers',false))
     +row('⛔',blocked,'Blocked from first client contact','Agency Orientation (or a Medicaid caregiver\'s dementia training, until Nov 16) not done yet, so they can\'t be scheduled yet','training',true)
     +row('🪪',profN,'New hires: profile needed before first shift','Publish their caregiver profile (photo required) before their first client visit','training',true)
     +row('⏰',attN,'Attendance needs action','Write-ups due, drafted, or approved and ready to issue','attendance',true)
@@ -1418,6 +1418,8 @@ async function loadOffers(btn){
     OFFERS=data.filter(o=>!offerIsTest(o));
     if(box) renderOffers();
     updateOffersBadge();
+    if(typeof obtOfferPill === 'function') obtOfferPill();   /* 2026-11-04 offers live on Onboarding when the switch is on */
+    if(typeof obtOio === 'function' && obtOio() && typeof renderCkd === 'function' && (document.getElementById('ckdDash') || {}).offsetParent) renderCkd();
   }catch(e){ if(box) box.innerHTML='<div style="color:#b91c1c;font-size:.85rem">Could not load offers: '+(e&&e.message?e.message:'error')+'</div>'; }
   finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
@@ -1449,15 +1451,27 @@ function offerStage(o){
   if(o.onboarding_path==='new'&&!(o.offer_signed_at&&o.pd_signed_at)) return 'sent';
   return 'accepted';
 }
+/* when a turned-down offer was closed: withdrawn, declined or expired on the offer; not hired from their Background & References
+   record (not_hired_date or left_at); else the interview day (2026-11-03, clean lists) */
+function offerClosedAt(o){
+  const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
+  return Date.parse(o.offer_withdrawn_at||o.offer_declined_at||o.offer_expires_at||(c&&c.not_hired&&(c.left_at||c.not_hired_date))||o.interview_date||'')||0;
+}
 function offerStageCounts(){
   const n={sent:0,rejected:0,accepted:0,completed:0};
-  OFFERS.forEach(o=>{ n[offerStage(o)]++; });
+  /* 2026-11-03: the Offer rejected count is the last 30 days (older ones are folded away as history) */
+  const recent=o=>Date.now()-offerClosedAt(o)<=30*864e5;
+  OFFERS.forEach(o=>{ const st=offerStage(o); if(st!=='rejected'||recent(o)) n[st]++; });
   return n;
 }
 function renderOffers(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const esc=t=>String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   const box=document.getElementById('offersList');
   const counts=offerStageCounts();
+  /* OFFER INSIDE ONBOARDING (2026-11-04): the list lives on Onboarding; nothing is drawn here (its boxes would share ids with the
+     offer window there). The offer form on this tab is unchanged. */
+  if(typeof obtOio==='function'&&obtOio()){ if(window.offNavCounts) window.offNavCounts(counts); box.innerHTML='<div style="color:#6E6559;font-size:.88rem">Offers are on the Onboarding tab now, in the Offer column. <button class="fb" onclick="obtOpenQueue(\'offer\')">Open Onboarding</button></div>'; return; }
   /* Until someone clicks a stage, open the first one with people in it. */
   if(typeof OFF_STAGE_PICKED!=='undefined'&&!OFF_STAGE_PICKED){ OFF_STAGE=['sent','accepted','completed','rejected'].find(k=>counts[k])||'sent'; }
   const stage=typeof OFF_STAGE!=='undefined'?OFF_STAGE:'accepted';
@@ -1469,14 +1483,19 @@ function renderOffers(){
      who has moved on is the searchable list under it. Oldest first: the ones going stale surface. */
   const active=OFFERS.filter(o=>offerStage(o)===stage&&(stage==='rejected'||!offerMovedOn(o)))
     .sort((a,b)=>String(a.interview_date||'').localeCompare(String(b.interview_date||'')));
+  /* CLEAN LISTS (2026-11-03, her plan part 4): turned-down, withdrawn and expired offers are history, not work. The last 30 days
+     show, newest first; older ones fold away under "Older", kept for the record. */
+  const closedAt=o=>offerClosedAt(o);
+  if(stage==='rejected') active.sort((a,b)=>closedAt(b)-closedAt(a));
+  const oldRej=stage==='rejected'?active.filter(o=>Date.now()-closedAt(o)>30*864e5):[];
   /* GONE QUIET (2026-10-31): only where people are still expected to move (Offer sent, Accepted) */
   const foldable=stage==='sent'||stage==='accepted';
-  const quiet=foldable?active.filter(offerIsQuiet):[], moving=foldable?active.filter(o=>!offerIsQuiet(o)):active;
+  const quiet=foldable?active.filter(offerIsQuiet):[], moving=foldable?active.filter(o=>!offerIsQuiet(o)):active.filter(o=>!oldRej.includes(o));
   if(note) note.innerHTML = ({
     sent:'Offer sent, waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves; once both are signed they move to Accepted.',
     rejected:'Declined, withdrawn, expired unsigned, or not hired. Nothing to do here; an expired offer can be resent from its card.',
     accepted:'Signed, and their Step 1 is out. They move to Completed Step 1 by themselves when it is done.'+(active.some(o=>o.onboarding_path!=='new')?' Offers from before online signing (marked Old path) stay here until someone presses <b>Mark Step 1 done</b>.':''),
-    completed:'Step 1 is done, so they hand off to Background &amp; References.'+(active.length?' The cards below still need one thing from you.':'')
+    completed:'Step 1 is done, so they move to the Onboarding tab: Viventium Step 2, checks and references, all at the same time.'+(active.length?' The cards below still need one thing from you.':'')
   })[stage]||'';
 
   /* One line telling you the single next thing, so the card can stay shut. */
@@ -1671,19 +1690,30 @@ function renderOffers(){
         return '<details style="background:#fff;border:1px solid '+(why||o.attributes_entered_at?'#e4e1d8':'#f59e0b')+';border-radius:12px;margin-bottom:.5rem">'+
           '<summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;padding:.75rem .95rem">'+
           '<span style="min-width:4.1rem;font-size:.78rem;font-weight:700;font-variant-numeric:tabular-nums;color:'+(stale?'#B45309':'#6E6559')+'">'+esc(offerDate(o.interview_date))+'</span>'+
-          '<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>'+
+          /* the name opens their profile (2026-11-02, her ask: "click at any time on any name and get to the applicant's
+             profile"); the rest of the line still opens and closes the card */
+          (window.HP&&o.id?'<b role="link" tabindex="0" class="hs-name" style="font-size:.95rem;color:#0D365F;cursor:pointer;text-decoration:underline;text-decoration-color:#C9D3DE;text-underline-offset:3px" title="Open their profile" onclick="event.preventDefault();event.stopPropagation();HP.open({offer_id:\''+esc(String(o.id))+'\'})" onkeydown="if(event.key===\'Enter\'){event.preventDefault();this.click()}">'+esc(o.name)+'</b>':'<b style="font-size:.95rem;color:#0D365F">'+esc(o.name)+'</b>')+
           '<span style="font-size:.76rem;color:#6E6559">'+esc(o.position||'Caregiver')+(o.offered_by?' · by '+esc(o.offered_by):'')+'</span>'+
           (age==null?'':'<span style="font-size:.72rem;'+(old?'font-weight:700;color:#B91C1C;background:#FEE2E2;border-radius:999px;padding:.1rem .5rem':stale?'font-weight:700;color:#B45309;background:#FEF3C7;border-radius:999px;padding:.1rem .5rem':'color:#A89C8B')+'">'+
             (age===0?'today':age===1?'1 day ago':age+' days ago')+'</span>')+
           '<span style="flex:1"></span>'+
           (ros.state==='maybe'?'<span title="Someone on the caregiver roster has this phone or email, but it is not certain it is the same person. Check, then Mark Step 1 done or Close offer." style="font-size:.72rem;font-weight:700;color:#1D4ED8;background:#DBEAFE;border-radius:999px;padding:.15rem .6rem">May already be working: check</span>':'')+
           '<span style="font-size:.72rem;font-weight:700;color:'+s[1]+';background:'+s[2]+';border-radius:999px;padding:.15rem .6rem">'+s[0]+'</span>'+
+          (!why&&window.HREM?HREM.offBtn(o,offerStage(o)):'')+   /* 2026-11-02: Send reminder, and its history line below */
+          (!why&&window.HSHIFT&&(offerStage(o)==='sent'||offerStage(o)==='accepted')?HSHIFT.btn({ name:o.name, phone:o.phone },offerStage(o)==='sent'?'offer':'step1'):'')+   /* 2026-11-03: Tell them about shifts */
           '<span style="color:#A89C8B;font-size:.74rem">details ▾</span>'+
+          (!why&&window.HREM?HREM.offLine(o,offerStage(o)):'')+
           '</summary>'+
           '<div style="padding:0 .95rem .95rem">'+body(o)+'</div></details>';
   };
   box.innerHTML = active.length
-    ? (moving.length ? moving.map(card).join('') : '<div style="color:#A89C8B;font-size:.85rem;margin-bottom:.5rem">Nobody moving right now.</div>')+
+    ? (moving.length ? moving.map(card).join('') : '<div style="color:#A89C8B;font-size:.85rem;margin-bottom:.5rem">'+(stage==='rejected'?'None in the last 30 days.':'Nobody moving right now.')+'</div>')+
+      (oldRej.length
+        ? '<details id="offOldRej" style="margin-top:.4rem;border-top:1px dashed #E8E2D8;padding-top:.5rem">'+
+          '<summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6E6559;padding:.35rem 0">Older · '+oldRej.length+
+          ' <span style="font-weight:400;color:#A89C8B">closed more than 30 days ago, kept for the record. Nothing to do here.</span></summary>'+
+          '<div style="margin-top:.4rem">'+oldRej.map(card).join('')+'</div></details>'
+        : '')+
       (quiet.length
         ? '<details id="offQuiet"'+(OFF_QUIET_OPEN?' open':'')+' ontoggle="OFF_QUIET_OPEN=this.open" style="margin-top:.4rem;border-top:1px dashed #E8E2D8;padding-top:.5rem">'+
           '<summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:#6E6559;padding:.35rem 0">Gone quiet · '+quiet.length+
@@ -3014,13 +3044,13 @@ const HB_TEMPLATES = {
 
   boundary: {
     label:'Client boundaries and gifts', section:'4Q, Gifts & Gratuities', level:'Verbal Warning',
-    policy:['Many clients express appreciation through gifts or tips. While small tokens of appreciation may occasionally be appropriate, employees should never request or expect gifts.',
-            'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept expensive gifts or valuable property.',
-            'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or other significant gifts, politely decline the gift and notify the office.'],
-    boxes:['Asked a client for money','Requested or solicited a gift','Accepted an expensive gift or valuable property','Did not decline and report a significant gift','Became personally involved in family conflicts','Shared excessive personal information','Made promises that could not be kept'],
+    policy:['Many clients express appreciation through gifts or tips. Employees may not accept gifts or tips of any kind, not even small ones, and should never request or expect gifts.',
+            'Employees may NOT: Ask clients for money. Request gifts. Solicit donations. Pressure clients to purchase items. Accept gifts, tips, or valuable property.',
+            'If a client offers large amounts of cash, jewelry, vehicles, real estate, valuable collectibles or any other gift or tip, politely decline the gift and notify the office.'],
+    boxes:['Asked a client for money','Requested or solicited a gift','Accepted a gift, tip or valuable property','Did not decline and report a gift or tip','Became personally involved in family conflicts','Shared excessive personal information','Made promises that could not be kept'],
     why:'Clients are often vulnerable and depend on their caregiver. Financial involvement or over-familiarity puts them at risk, compromises judgement, and creates exposure for the caregiver as much as for the agency.',
-    expect:['Never ask for or expect money, gifts or favours from a client or family.','Politely decline any significant gift and tell the office the same day.','Keep the relationship professional and focused on care.','Do not become involved in family disagreements.'],
-    caution:'Under 4Q a small token of appreciation is NOT a violation. Do not issue this notice for one. If the concern is a pattern, describe the pattern.' },
+    expect:['Never ask for or expect money, gifts or favours from a client or family.','Politely decline any gift or tip and tell the office the same day.','Keep the relationship professional and focused on care.','Do not become involved in family disagreements.'],
+    caution:'Since 11-04, 4Q says no gifts or tips of any kind, not even small ones. Describe exactly what was offered and what the caregiver did with it.' },
 
   phone: {
     label:'Improper phone use', section:'2P, Personal Cell Phone Use', level:'Coaching',
@@ -5799,11 +5829,11 @@ function bgrTriage(r){
       if(awaiting)  return { stage:'Checks in progress', waitingOn:'Reference', why:'Reference request sent, awaiting a response', next:'Awaiting reference', group:'others' };
     }
     // background checks
-    const fcsrOrdered = !!board.fcsr_date && board.fcsr !== 'Clear';
+    const fcsrOrdered = !!(board.fcsr_sent_date || board.fcsr_date) && board.fcsr !== 'Clear';
     if(fcsrOrdered) return { stage:'Checks in progress', waitingOn:'External check', why:'FCSR ordered, awaiting the result', next:'Awaiting FCSR result', group:'others' };
     if(board.oig !== 'CLEAR' && !board.oig_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'OIG check not run yet', next:'Run OIG', group:'nextstep' };
     if(board.edl !== 'Clear' && !board.edl_date)  return { stage:'Checks in progress', waitingOn:'Us', why:'EDL result not recorded', next:'Record EDL', group:'nextstep' };
-    if(board.fcsr !== 'Clear' && !board.fcsr_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
+    if(board.fcsr !== 'Clear' && !board.fcsr_date && !board.fcsr_sent_date) return { stage:'Checks in progress', waitingOn:'Us', why:'FCSR not ordered yet', next:'Order FCSR', group:'nextstep' };
     /* No fingerprints from 2026-10-21 (IHS ending). */
     return { stage:'Checks in progress', waitingOn:'Unknown', why:'Needs review', next:'Needs review', group:'others' };
   }
@@ -6477,7 +6507,7 @@ function bgrRecordCheck(candId, which){
   document.getElementById('bgrCheckTitle').textContent = 'Record ' + meta.label + ': ' + (c.first + ' ' + c.last).trim();
   const cur = c[which] || meta.opts[0];
   document.getElementById('bgrCheckResult').innerHTML = meta.opts.map(o => '<option value="'+bgrEsc(o)+'"'+(o===cur?' selected':'')+'>'+bgrEsc(o)+'</option>').join('');
-  document.getElementById('bgrCheckDate').value = c[which+'_date'] || new Date().toISOString().slice(0,10);
+  document.getElementById('bgrCheckDate').value = (which === 'fcsr' && (c.fcsr || 'Pending') === 'Pending' ? '' : c[which+'_date']) || new Date().toISOString().slice(0,10);
   const f = document.getElementById('bgrCheckFile'); if(f) f.value = '';
   const url = document.getElementById('bgrCheckProof'); if(url) url.value = '';
   const curDoc = c[which+'_proof'];
@@ -7374,6 +7404,21 @@ const CKD_CHECKS = [
   { k:'fcsr',    label:'FCSR',     ok:'Clear', bad:'Issues Found', how:'Order it in the state system, then record the result' },
   { k:'casenet', label:'Case.net', ok:'Clear', bad:'Issues Found', how:'Search Missouri courts, attach the PDF' },
 ];
+/* FCSR ordered (Samantha 2026-11-02: "put in when we ordered the FCSR and show that has been done and its pending, because it
+   can take 1 day or sometimes a week"). The day it was ordered is fcsr_sent_date (Mark as ordered); older records kept it as a
+   Pending result with a date. Only while no result is recorded. */
+function ckdFcsrOrdered(c){
+  if(!c || c.fcsr === 'Clear' || c.fcsr === 'Issues Found') return '';
+  return c.fcsr_sent_date || c.fcsr_date || '';
+}
+function ckdFcsrDays(c){
+  const d = ckdFcsrOrdered(c), t = d ? new Date(String(d).slice(0, 10) + 'T12:00:00').getTime() : NaN;
+  return isNaN(t) ? null : Math.max(0, Math.floor((Date.now() - t) / 864e5));
+}
+function ckdFcsrWaitText(c){
+  const n = ckdFcsrDays(c);
+  return 'Ordered ' + (fmtD(String(ckdFcsrOrdered(c)).slice(0, 10)) || '') + (n === null ? '' : n === 0 ? ', today' : ', waiting ' + n + (n === 1 ? ' day' : ' days'));
+}
 function ckdRefSlots(c){ return [1,2,3,4].filter(n => String(c['r'+n+'n']||'').trim() || c['r'+n+'_phone'] || c['r'+n+'_email']); }
 function ckdGoodRefs(c){ return [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length; }
 function ckdChecksLeft(c){ return CKD_CHECKS.filter(x => c[x.k] !== x.ok); }
@@ -7387,8 +7432,9 @@ function ckdSteps(c){
   const rp = refPolicy(c), good = ckdGoodRefs(c);
   const refLabel = (good >= 2 && !rp.ok && !rp.blocked) ? 'References: 1 from work needed' : 'References ' + Math.min(good, 2) + ' of 2';
   const out = [{ k:'refs', label:refLabel, state: rp.ok ? 'done' : rp.blocked ? 'bad' : good ? 'half' : 'todo' }];
-  CKD_CHECKS.forEach(x => out.push({ k:x.k, label:x.label,
-    state: c[x.k] === x.ok ? 'done' : c[x.k] === x.bad ? 'bad' : (x.k === 'fcsr' && c.fcsr_date) ? 'half' : 'todo' }));
+  CKD_CHECKS.forEach(x => { const ord = x.k === 'fcsr' && ckdFcsrOrdered(c), n = ord ? ckdFcsrDays(c) : null;
+    out.push({ k:x.k, label: ord ? 'FCSR ordered' + (n ? ', ' + n + 'd' : '') : x.label,
+    state: c[x.k] === x.ok ? 'done' : c[x.k] === x.bad ? 'bad' : ord ? 'half' : 'todo' }); });
   return out;
 }
 /* The reference to work next: a pending one with a phone first, then any pending one. */
@@ -7415,10 +7461,10 @@ function ckdCheckNext(c){
     return c.oig_date ? { text:'Record the OIG result.', label:'Record OIG', on:'bgrRecordCheck('+id+',\'oig\')' }
                       : { text:'Run the OIG check. It takes one click.', label:'Run OIG', on:'bgrRunOIG('+id+',this)' };
   if(c.edl !== 'Clear' && c.edl !== 'Issues Found') return { text:'Search the EDL list and record what you find.', label:'Record EDL', on:'bgrRecordCheck('+id+',\'edl\')' };
-  if(c.fcsr !== 'Clear' && c.fcsr !== 'Issues Found')
-    return c.fcsr_date ? { text:'FCSR ordered ' + (fmtD(c.fcsr_date) || '') + '. Record the result when it comes back.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' }
-                       : { text:'Order FCSR in the state system, then record it.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')' };
+  const fcsrOpen = c.fcsr !== 'Clear' && c.fcsr !== 'Issues Found';
+  if(fcsrOpen && !ckdFcsrOrdered(c)) return { text:'Order FCSR in the state system, then press Mark as ordered.', label:'Mark as ordered', on:'obFcsrSent('+id+')', how:'fcsr' };
   if(c.casenet !== 'Clear' && c.casenet !== 'Issues Found') return { text:'Search Case.net and record what you find.', label:'Record Case.net', on:'bgrRecordCheck('+id+',\'casenet\')' };
+  if(fcsrOpen) return { text:'FCSR ' + ckdFcsrWaitText(c).replace(/^Ordered/, 'ordered') + '. Check the state site to see if it is back.', label:'Record FCSR', on:'bgrRecordCheck('+id+',\'fcsr\')', how:'fcsrwait', wait:true };
   return null;
 }
 function ckdRefNext(c){
@@ -7435,11 +7481,11 @@ function ckdRefNext(c){
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
     const how = req && req.texted_at ? 'texted and emailed' : 'sent';
     if(days !== null && days < 5)
-      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
-    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
+      return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', short:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
+    return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), short:nm + (days !== null ? ', no answer ' + days + (days === 1 ? ' day' : ' days') : ', not called yet'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
   }
-  if(!ckdRefSlots(c).length) return { text:'No references given yet. Ask ' + (c.first || 'them') + ' for two, one from a past job, and add them here.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
-  return { text:rp.why + ' Add another reference.', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
+  if(!ckdRefSlots(c).length) return { text:'No references given yet. Ask ' + (c.first || 'them') + ' for two, one from a past job, and add them here.', short:'No references given yet', label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
+  return { text:rp.why + ' Add another reference.', short:rp.why, label:'Add a reference', on:'ckdRefForm('+id+')', how:'addrefs' };
 }
 /* ONE next step. The filter decides which kind comes first; otherwise references come first (they take the longest),
    then the checks. */
@@ -7501,62 +7547,72 @@ function ckdLaneHTML(c, nx){
    from the record that already says it, and every button is the one the old screens used. */
 /* 2026-10-22 (Samantha, the In Training plan v2): after Step 2 is checked, the orientation information goes out (AxisCare In Training
    first); then orientation, the welcome video call, profile and badge; then Approved and Active, and the check-in call */
-const CKD_STOPS = ['Step 1', 'Checks and references', 'Send Step 2', 'Check Step 2', 'Send orientation information', 'Orientation, video call, profile, badge', 'Approved, then check-in call'];
+/* 2026-11-02 (Samantha: "Send orientation once checks and references are clear. Step 2 goes right after Step 1"): Viventium Step 2
+   is no longer a stop. It is its own line on the row from the moment Step 1 is done, alongside the checks and references, until
+   it is checked in Viventium; Approve to Work still waits for it. No owner says go before Step 2 (her words: "I dont want there
+   to be an owner approved to go for step 2"): the Hub completes Approve to Advance by itself once the checks clear. */
+const CKD_STOPS = ['Step 1', 'Checks and references', 'Send orientation', 'Orientation, video call, profile, badge', 'Approved, then check-in call'];
 function ckdJourneyRows(){ try{ return (window.CRX && typeof CRX.list === 'function') ? (CRX.list(() => renderCkd()) || []) : []; }catch(e){ return []; } }
 function ckdJourneyFor(c){ return c && c.offer_id ? ckdJourneyRows().find(r => String(r.offer_id) === String(c.offer_id)) || null : null; }
 function ckdWc(c){ try{ return typeof wcRowFor === 'function' ? wcRowFor(c) : null; }catch(e){ return null; } }
 /* where a checks row is: the record's own stamps, in order */
+function ckdOrientSent(c){ const inv = (c && c.step2_invite) || {}; return !!(inv.orientation && inv.state !== 'failed'); }
+/* 2026-11-02 (Samantha: "Send orientation once the four checks are clear, references still required before Approve to Work"):
+   on the new path orientation waits for the four checks only; the references carry on alongside (their own line) and Approve to
+   Advance and Approve to Work still wait for them. A flagged check or a reference with a concern still stops here. */
+function ckdChecksClear(c){ return c.oig === 'CLEAR' && c.edl === 'Clear' && c.fcsr === 'Clear' && c.casenet === 'Clear' && obDeriveStatus(c) !== 'Needs Review'; }
 function ckdStopOf(c){
   if(ckdStep1Waiting(c)) return 0;
+  if(c.onboarding_path === 'new') return !ckdChecksClear(c) ? 1 : ckdOrientSent(c) ? 3 : 2;
   if(obDeriveStatus(c) !== 'Ready for Orientation') return 1;
-  if(!c.step2_sent_at) return 2;
-  if(!c.step2_verified_at) return 3;
-  return 4;
+  if(c.onboarding_path !== 'new'){ const w = ckdWc(c); return w && w.invited_at ? 3 : 2; }   /* the old path: orientation after the video call */
+  return ckdOrientSent(c) ? 3 : 2;
 }
 /* a readiness card's stop. Only someone really on the caregiver list is at stop 5 or 6. A card with no caregiver list record
    (2026-10-30: Gretchen, Yasmine, Tina and Kionna were still on Step 1 but showed "Approved, then check-in call") goes by
    the step the card says is next. */
 function ckdJourneyStop(r){
-  if(r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed')) return 6;
+  if(r.ready_for_final || (r.approved_to_work && r.axiscare === 'failed')) return 4;
   if(!ckdRosterFor(r)) return ckdCardStop(r);
-  return r.checkin_open ? 6 : 5;
+  return r.checkin_open ? 4 : 3;
 }
 function ckdCardStop(r){
   const k = String((r.next && r.next.key) || '');
   if(!k || /^cg\.(offer|step1|consent|company)\./.test(k)) return 0;   /* company: the company signature is part of Step 1 (2026-11-02) */
-  if(/^cg\.(check|refs|health|credential)\./.test(k)) return 1;
-  if(k === 'cg.approve.advance') return 2;
-  if(/^cg\.step2\./.test(k)) return 3;
-  return 4;
+  if(/^cg\.(check|refs|health|credential)\./.test(k) || k === 'cg.approve.advance') return 1;   /* the Hub completes Approve to Advance (2026-11-02) */
+  return 3;
 }
-/* the next step for stops 2 to 4 (stop 1 has its two lanes) */
+/* the next step for stops 2 and 3 (stop 1 has its lanes) */
 function ckdStepNext(c, stop){
   const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
-  if(stop === 2){
-    const j = ckdJourneyFor(c);
-    if(c.onboarding_path === 'new' && j && j.next && j.next.key === 'cg.approve.advance')
-      return { text:'Checks are done. Waiting on Samantha or Zachary to say go for Step 2.', label:'Open card', on:'CRX.openSide(\'' + bgrEsc(String(c.offer_id)) + '\')', wait:true, how:'advance' };
-    return { text:'Send Step 2 in Viventium, then come back and press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
+  const inv = c.step2_invite || {}, w = ckdWc(c);
+  /* the old path (no readiness card): the welcome video call invitation waits for Step 2 to be checked, and orientation follows the call */
+  if(c.onboarding_path !== 'new'){
+    if(!c.step2_verified_at && !(w && w.invited_at)) return { text:'Their welcome video call invitation waits for Step 2 to be checked (the Viventium line).', label:'', on:'', wait:true, how:'step2wait' };
+  } else if(stop === 2){
+    const failed = inv.orientation && inv.state === 'failed';
+    return { text:(failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + '). ' : 'Background checks are clear. ') + 'Add ' + first + ' in AxisCare as In Training, then send their orientation.',
+             label:failed ? 'Send again' : 'Send orientation', on:'axSetupOpen(' + id + ')', warn:!!failed, how:'axsetup' };
   }
-  if(stop === 3){
-    if(c.step2_done_at) return { text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
-    return { text:'Waiting on ' + first + ' to finish Step 2 (sent ' + day(c.step2_sent_at) + '). The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
-  }
-  /* IN TRAINING PLAN v2, PART B (2026-10-22): Step 2 checked with the button switch on = add them to AxisCare, then one button */
-  const inv = c.step2_invite || {};
-  if(inv.state === 'button' && !inv.orientation) return { text:'Step 2 is checked. Add ' + first + ' to AxisCare as In Training, then send their orientation information.', label:'AxisCare setup', on:'axSetupOpen(' + id + ')', how:'axsetup' };
-  const w = ckdWc(c);
-  if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
+  if(w && w.status === 'booked' && w.starts_at) return { text:'Welcome video call booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : day(w.starts_at)) + (c.step2_verified_at ? '' : '. Step 2 should be done before it') + '. Join it from Orientation Video Calls.', label:'Open calls', on:'switchTab(\'cgorient\')', wait:true, how:'welcomecall' };
   if(w && w.status === 'noshow') return { text:first + ' missed the welcome video call. Call them, then invite again.', label:'Invite again', on:'wcInvite(' + id + ',this)', warn:true, how:'welcomecall' };
-  if(w && w.invited_at && inv.orientation) return { text:'Orientation information sent ' + day(inv.at || w.invited_at) + '. Waiting on ' + first + ' to book the welcome video call and start orientation.', label:'Send again', on:'axSetupOpen(' + id + ')', wait:true, how:'axsetup' };
+  if(ckdOrientSent(c)) return { text:'Orientation sent ' + day(inv.at) + (inv.state === 'held' && inv.text_held ? ' (the text goes at 8am)' : '') + '. Waiting on ' + first + ' to do orientation and book the welcome video call.', label:'Send again', on:'axSetupOpen(' + id + ')', wait:true, how:'axsetup' };
   if(w && w.invited_at) return { text:'Invited to the welcome video call ' + day(w.invited_at) + '. Waiting on ' + first + ' to book.', label:'Send again', on:'wcInvite(' + id + ',this)', wait:true, how:'welcomecall' };
   return { text:'Step 2 is checked. Invite ' + first + ' to the 15-minute welcome video call.', label:'Invite', on:'wcInvite(' + id + ',this)', how:'welcomecall' };
+}
+/* VIVENTIUM STEP 2, its own line (2026-11-02): from Step 1 done until it is checked, alongside everything else on the row */
+function ckdStep2Lane(c){
+  const id = c.id, first = c.first || 'them', day = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
+  if(c.step2_verified_at) return { lane:'Viventium', text:'Step 2 checked ' + day(c.step2_verified_at) + '.', label:'', on:'', done:true };
+  if(c.step2_done_at) return { lane:'Viventium', text:first + ' said Step 2 is done. Look in Viventium and tick each form that is really done.', label:'Check Step 2', on:'step2Verify(' + id + ')', how:'step2check' };
+  if(c.step2_sent_at) return { lane:'Viventium', text:'Step 2 sent ' + day(c.step2_sent_at) + '. Waiting on ' + first + ' to finish it. The Hub reminds them.', label:'They said done', on:'step2Reported(' + id + ')', wait:true, how:'step2wait' };
+  return { lane:'Viventium', text:'Add ' + first + ' in Viventium for Step 2, then press the button.', label:'I sent Step 2', on:'step2Sent(' + id + ')', how:'step2send' };
 }
 function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on Samantha or Zachary to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
     if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
@@ -7567,22 +7623,35 @@ function ckdRosterNext(r){
   /* owner is { role, email } from the server; it once printed as [object Object] (2026-11-02) */
   const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
   const mine = !n.owner || /coordinator|staff/i.test(String(o.role || ''));
-  const whose = o.role === 'owner' ? 'Samantha or Zachary' : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  const whose = o.role === 'owner' ? (/^cg\.(company\.countersign|approve\.work)$/.test(String(n.key || '')) ? 'a person on the Approve to Work list' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
   return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
 function ckdPeople(){
   const out = [], seen = new Set();
+  /* OFFER INSIDE ONBOARDING (2026-11-04): a turned-down or gone-quiet offer is folded under the table, never a row */
+  const oio = typeof obtOio === 'function' && obtOio(), offerOf = id => id && typeof OFFERS !== 'undefined' ? OFFERS.find(x => String(x.id) === String(id)) : null;
+  const gone = id => oio && obtOfferGone(offerOf(id));
   (typeof candidates !== 'undefined' ? candidates : []).filter(ckdActive).forEach(c => {
     if(c.offer_id) seen.add(String(c.offer_id));
+    if(gone(c.offer_id)) return;
     out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
   });
   ckdJourneyRows().forEach(r => {
     if(!r || r.approved_to_work && r.axiscare !== 'failed' && !r.checkin_open) return;
     if(r.offer_id && seen.has(String(r.offer_id))) return;
+    if(r.offer_id) seen.add(String(r.offer_id));
+    if(gone(r.offer_id)) return;
     const parts = String(r.name || '').trim().split(/\s+/);
     if(!CKD_SHOW_TEST && ckdIsTest(parts[0], parts.slice(1).join(' '))) return;
     out.push({ stop:ckdJourneyStop(r), name:r.name || 'Name not recorded', ms:null, j:r });
+  });
+  /* everyone offered: an open offer (sent, or signed and waiting on Step 1) that no checks row or readiness card shows yet */
+  if(oio) (typeof OFFERS !== 'undefined' ? OFFERS : []).forEach(o => {
+    if(!o || seen.has(String(o.id)) || obtOfferGone(o) || obtOfferTest(o)) return;
+    const stg = offerStage(o); if(stg !== 'sent' && stg !== 'accepted') return;
+    if(offerMovedOn(o)) return;
+    out.push({ stop:0, name:((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Name not recorded', ms:Date.parse(o.offer_sent_at || o.created_at || '') || null, o });
   });
   return out;
 }
@@ -7613,26 +7682,34 @@ function ckdStep1Stuck(j){
   return { card, days, text, call: p ? { dial:p.dial, show:p.show, email:o.email || '' } : null };
 }
 function ckdActsFor(p){
+  if(p.o){
+    const sent = obtOfferSent(p.o), first = p.o.first_name || 'them';
+    return [{ lane:'Offer', text:sent ? 'Offer sent. Waiting on ' + first + ' to sign it on their phone. The Hub reminds them.' : 'Offer signed. Waiting on ' + first + ' to finish Step 1.', label:'', on:'', wait:true, how:'card' }];
+  }
   if(p.j){
     const stuck = ckdStep1Stuck(p.j);
     const out = [stuck ? { lane:'', text:stuck.text, warn:true, call:stuck.call, label:stuck.call ? '' : 'Open card', on:'CRX.openSide(\'' + bgrEsc(String(p.j.offer_id)) + '\')' } : Object.assign({ lane:'' }, ckdRosterNext(p.j))], g = ckdRosterFor(p.j);
     out.push({ lane:'', text:'', label:'Take off', on:'ckdLeaveOpen(null,\'' + bgrEsc(String(p.j.offer_id)) + '\')', quiet:true, small:true });
-    if(p.stop === 5 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
-    else if(p.stop === 5 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
+    if(p.stop === 3 && g && !g.badge_mailed_at && !g.badge_not_needed) out.push({ lane:'Badge', text:'Make their employee badge and mail it.', label:'Mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(p.j.offer_id)) + '\',this)', quiet:true, how:'badge' });
+    else if(p.stop === 3 && g && g.badge_mailed_at) out.push({ lane:'Badge', text:'Mailed ' + new Date(g.badge_mailed_at).toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '.', label:'', on:'', done:true });
     return out;
   }
   const c = p.c, extra = [];
   if(c.prn_offer && !c.prn_offer.answer) extra.push({ lane:'PRN', text:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call ' + (c.first || 'them') + ' and record their answer.', label:'Their answer', on:'ckdPrnAnswer(' + c.id + ')', how:'prn' });
   const q = ckdQuiet(c, p.stop);
   if(q && !(c.prn_offer && !c.prn_offer.answer)) extra.push({ lane:'No word', text:'Nothing from ' + (c.first || 'them') + ' in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', label:'What now?', on:'ckdLeaveOpen(' + c.id + ')', how:'quiet' });
-  if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(extra);
-  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(extra);
+  const s2 = p.stop >= 1 ? [ckdStep2Lane(c)] : [];   /* 2026-11-02: Step 2 runs alongside, from Step 1 done */
+  if(p.stop === 1 || p.stop === 0) return ckdLanes(c).concat(s2, extra);
+  /* 2026-11-02: references still open after the checks cleared keep their own line, with the same buttons */
+  const ref = c.onboarding_path === 'new' ? ckdRefNext(c) : null;
+  const refs = ref ? [Object.assign({ lane:'References' }, ref, { text:ref.text + ' Needed before Approve to Work.' })] : [];
+  return [Object.assign({ lane:'' }, ckdStepNext(c, p.stop))].concat(refs, s2, extra);
 }
 const ckdDay = iso => iso ? new Date(iso).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
 /* GONE QUIET (her answer 2026-10-21: "Yes, after 10 days"): only where they owe us the next move: Step 1, Step 2, booking the
    welcome video call. A hint only; nobody is ever taken off by the Hub. */
 function ckdQuiet(c, stop){
-  const since = stop === 0 ? (c.addedAt || c.added) : stop === 3 && !c.step2_done_at ? c.step2_sent_at : stop === 4 ? (() => { const w = ckdWc(c); return w && w.invited_at && w.status !== 'booked' && w.status !== 'done' ? w.invited_at : null; })() : null;
+  const since = stop === 0 ? (c.addedAt || c.added) : c.step2_sent_at && !c.step2_done_at && !c.step2_verified_at ? c.step2_sent_at : stop === 3 ? (() => { const w = ckdWc(c); return w && w.invited_at && w.status !== 'booked' && w.status !== 'done' ? w.invited_at : null; })() : null;
   if(!since) return 0;
   const d = Math.floor((Date.now() - new Date(String(since).length === 10 ? since + 'T12:00:00' : since).getTime()) / 864e5);
   return d >= 10 ? d : 0;
@@ -7713,7 +7790,7 @@ async function ckdLeave(c, j, why, note){
   try{ if(window.CRX && CRX._clear) CRX._clear(); }catch(_){}
   bgrCloseDrawer(); renderOB(); renderAlerts();
   if(err) alert('Taken off the list here. ' + (c ? '' : 'Not done: ') + 'The server did not stop their reminders yet (' + err + ').' + (c ? '\n\nTheir reference reminders and Step 2 reminders may keep going until the server step is installed. Tell Claude.' : ''));
-  else if(server && server.axiscare_card) alert('Done. They are already in AxisCare, so set them inactive there. You have a card for it.');
+  else if(server && (server.axiscare || server.axiscare_card)){ const m = window.FALLOFF ? FALLOFF.leftNote(server) : 'Done. They are already in AxisCare, so set them inactive there. You have a card for it.'; if(m) alert(m); }   /* 2026-11-04 fall-offs (falloff.js) */
   return c ? true : !err;
 }
 async function ckdGoodbye(c, why){
@@ -7724,16 +7801,16 @@ async function ckdGoodbye(c, why){
   catch(e){ alert('The text could not be sent (' + e.message + '). Nothing was sent. You may want to call ' + (c.first || 'them') + '.'); }
 }
 function ckdRoadHTML(stop, bad){
-  return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of 7">' + CKD_STOPS.map((_, i) =>
+  return '<span class="ckd-road" aria-label="Stop ' + (stop + 1) + ' of ' + CKD_STOPS.length + '">' + CKD_STOPS.map((_, i) =>
     '<i class="' + (i < stop ? 'on' : i === stop ? (bad ? 'bad' : 'now') : '') + '"></i>').join('') + '</span>';
 }
 /* ORIENTATION ON THE ROW (2026-11-02, Samantha: "link the two tabs: show where they are in orientation on the Onboarding rows").
    From the Orientation tab's own read (orient-progress.js OPR.brief), from the orientation step on; a click opens them there.
    Matched by AxisCare number, else by a name only one person has. Shows nothing until it is read or when nobody matches. */
 function ckdOrientAx(p){ const g = p.j ? ckdRosterFor(p.j) : null; return (g && g.axiscare_id) || (p.c && p.c.axiscare_id) || ''; }
-function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop })); }
+function ckdOrientWho(){ return ckdPeople().map(p => ({ name:p.name, ax:ckdOrientAx(p), stop:p.stop, key:p.c ? { candidate_id:String(p.c.id) } : p.j && p.j.offer_id ? { offer_id:String(p.j.offer_id) } : null })); }
 function ckdOrientHTML(p){
-  if(p.stop < 4 || !window.OPR || typeof OPR.brief !== 'function') return '';
+  if(p.stop < 3 || !window.OPR || typeof OPR.brief !== 'function') return '';
   const o = OPR.brief(ckdOrientAx(p), p.name); if(!o) return '';
   return '<button type="button" class="ckd-orient' + (o.bad ? ' ckd-orient-bad' : '') + '" onclick="OPR.show(\'' + bgrEsc(o.id) + '\')" title="Open them on the Orientation tab">' + bgrEsc(o.text) + ' &rsaquo;</button>';
 }
@@ -7741,9 +7818,15 @@ function ckdRowHTML(p){
   const c = p.c, j = p.j, acts = ckdActsFor(p);
   const bad = acts.some(a => a.warn), w = c ? ckdWait(c) : ckdRosterFor(j) ? { text:'On the caregiver list', color:'var(--gray)' } : { text:'Not on the caregiver list yet', color:'var(--gray)' };
   const open = c ? 'ckdOpen(' + c.id + ')' : 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')';   /* both slide in from the right (2026-11-02) */
-  const party = c && p.stop >= 2 && p.stop <= 4 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
+  /* the name opens their profile (2026-11-02, her ask: "click at any time on any name and get to the applicant's profile");
+     the checklist that used to open from the name is the Checklist button beside it */
+  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(j.offer_id)) + '}').replace(/"/g, '&quot;') + ')' : open;
+  const party = c && p.stop >= 2 && p.stop <= 3 ? '<span class="ckd-pill ckd-party"><svg class=navi aria-hidden=true><use href=icons.svg#i-check></use></svg> Checks and references done</span>' : '';
   return '<div class="ckd-row">'
-    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + open + '">' + bgrEsc(p.name) + '</button>'
+    + '<div class="ckd-who"><button type="button" class="ckd-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
+    +   '<button type="button" class="ckd-check" onclick="' + open + '" title="Their onboarding checklist">Checklist</button>'
+    +   (c && window.HREM ? HREM.s2Btn(c) + HREM.s2Line(c) : '')   /* 2026-11-02: Send reminder (Step 2), and its history line */
+    +   (c && window.HSHIFT && c.step2_sent_at && !c.step2_done_at && !c.step2_verified_at ? HSHIFT.btn({ name:p.name, phone:c.phone, zip:c.zip }, 'step2') : '')   /* 2026-11-03: Tell them about shifts */
     +   '<span class="ckd-wait" style="color:' + w.color + '">' + bgrEsc(w.text) + '</span></div>'
     + '<div class="ckd-where">' + ckdRoadHTML(p.stop, bad) + '<span class="ckd-stop">' + (bad ? 'Stuck: ' : '') + CKD_STOPS[p.stop] + '</span>' + ckdOrientHTML(p) + '</div>'
     + '<div class="ckd-pills">' + (c && p.stop <= 1 ? ckdSteps(c).map(ckdPill).join('') : party) + '</div>'
@@ -7758,10 +7841,25 @@ function ckdStartHere(ppl){
   }
   return null;
 }
+function ckdMoreHTML(L){
+  return ''
+    + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
+    +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
+    +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
+    +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
+    +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
+    +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
+    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'all\')">Full table</button>'
+    + '</div>';
+}
 function renderCkd(){
+  if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ckdDash'); if(!box) return;
   if(!HYDRATED){ box.innerHTML = '<div class="ckd-msg ckd-err">The shared data has not loaded yet, so this list is empty for now. If it stays this way, refresh the page.</div>'; return; }
   if(typeof wcLoad === 'function' && typeof WC_AT !== 'undefined' && Date.now() - WC_AT > 30000){ WC_AT = Date.now(); Promise.resolve(wcLoad()).then(() => { try{ renderCkd(); }catch(e){} }).catch(() => {}); }
+  if(obtOn()) return obtRender(box);   /* 2026-11-03 Onboarding as one table, Admin switch onboarding_table_live */
   const L = ckdLists();
   let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
   /* the Orientation tab's Onboarding button: open the list on that one person */
@@ -7794,16 +7892,434 @@ function renderCkd(){
     +   '<div class="ckd-row ckd-row-h"><span>Person</span><span>Where they are</span><span>Progress</span><span>Your next step</span></div>'
     +   (list.length ? list.map(ckdRowHTML).join('') : '<div class="ckd-empty">' + (q ? 'Nobody matches that search.' : 'Nobody at this stop right now.') + '</div>')
     + '</div>'
-    + '<div class="ckd-more"><span class="ckd-more-l">More:</span>'
-    +   '<button type="button" class="ckd-link" onclick="switchTab(\'cgorient\')">Orientation Video Calls and office orientation</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'stats\')">How long people take</button>'
-    +   '<button type="button" class="ckd-link" onclick="openOBModal()">Add a person by hand</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'not_hired\')">Taken off the list (' + L.notHired + ')</button>'
-    +   '<button type="button" class="ckd-link" onclick="ckdSyncNow(this)">Sync reference answers now</button>'
-    +   '<button type="button" class="ckd-link" onclick="bgrMakeRefPdfs(this)">Make missing reference PDFs</button>'
-    +   (L.tests ? '<button type="button" class="ckd-link" onclick="ckdToggleTest()">' + (CKD_SHOW_TEST ? 'Hide' : 'Show') + ' test people (' + L.tests + ')</button>' : '')
-    +   '<button type="button" class="ckd-link" onclick="ckdOldView(\'all\')">Full table</button>'
+    + ckdMoreHTML(L);
+  if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
+  ckdRefreshPerson();
+  ckdCelebrate(L.all);
+}
+/* ── ONBOARDING AS ONE TABLE (Samantha 2026-11-03: "I approve the overall direction of the Onboarding Table Plan and agree with
+   your recommended choices for all six decisions", https://claude.ai/artifact/VZpHc5MVyhuDFdYGH9A5qm, with her refinements:
+   the name stays visible, each job filter is a real work queue, what is holding each person up, overdue never looks like a
+   compliance concern, everyone stays visible through Approved to Work, nearly ready, and a small summary). Admin switch
+   ops_settings.onboarding_table_live (off = today's page). It only SHOWS: every button is the one today's rows press, every
+   fact is one the Hub already keeps, and nothing new is saved, sent or required. The last filter is kept in this browser only.
+   Who is holding someone up comes from the step itself: their own move (Step 1, Step 2, orientation, booking, profile) is the
+   applicant; a state result or a reference's answer is outside; a flagged check or a reference with a concern is review;
+   everything with a button for us is the office. Overdue uses only the times the Hub already uses: Step 1 stuck (its card),
+   a reference 5 days without an answer, Step 2 8 days without DONE, orientation stuck (Orientation tab setting), a missed
+   video call, and 10 days on the list. ── */
+const OBT_KEY = 'ckd_table_queue';
+let OBT_Q = (() => { try{ return localStorage.getItem(OBT_KEY) || 'all'; }catch(e){ return 'all'; } })();
+function obtOn(){ return !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.onboarding_table_live === true); }
+function obtQueue(k){ OBT_Q = (OBT_Q === k && k !== 'all') ? 'all' : k; try{ localStorage.setItem(OBT_KEY, OBT_Q); }catch(e){} renderCkd(); }
+/* 2026-11-03 Orientation inside Onboarding: open Onboarding on one queue (from the Orientation column, or a link elsewhere) */
+function obtOpenQueue(k){ OBT_Q = k; try{ localStorage.setItem(OBT_KEY, OBT_Q); }catch(e){}
+  const d = document.getElementById('ckdDash');   /* the engine's own activeTab is not the Hub's tab, so look at the page */
+  if(!(d && d.offsetParent) && typeof window.switchTab === 'function') window.switchTab('cgbackground'); else renderCkd(); }
+const obtFolded = () => !!(window.OPR && typeof OPR.folded === 'function' && OPR.folded());
+/* 2026-11-04 (Samantha, from the CDS attendant table): dates on done steps, a short why line under anything waiting or late,
+   labels over related columns, a red (overdue) or gold (10+ days on the list) edge on the name, references always as a count,
+   "Viventium (Step 2)", and an I-9 in Viventium column read from the readiness card's own I-9 Section 2 row */
+const OBT_BASE_COLS = [['step1', 'Step 1'], ['oig', 'OIG'], ['edl', 'EDL'], ['fcsr', 'FCSR'], ['casenet', 'Case.net'], ['refs', 'References'], ['step2', 'Viventium (Step 2)'], ['i9', 'I-9 in Viventium'], ['orient', 'Orientation'], ['finish', 'Finish']];
+const OBT_BASE_HEADS = [['Application', ['step1']], ['Background checks', ['oig', 'edl', 'fcsr', 'casenet']], ['References and Viventium', ['refs', 'step2', 'i9']], ['Getting ready to work', ['orient', 'finish']]];
+/* OFFER INSIDE ONBOARDING (Samantha 2026-11-04: "removing the offers tab, and make offer the first step in the chart of onboarding
+   tab - need to not let it get bogged down if people are rejecting the offer...but want to see everyone on the onboarding chart").
+   Admin switch offers_in_onboarding_live (needs the table): an Offer column first, offers not signed yet as rows, and anything
+   declined, withdrawn, expired, closed or gone quiet folded under the table instead of on it. The Offers tab hides; the offer
+   form still opens from an interview. Off = the table exactly as before. */
+function obtOio(){ const o = (typeof DATA !== 'undefined' && DATA && DATA.ops_settings) || {}; return o.offers_in_onboarding_live === true && o.onboarding_table_live === true; }
+let OBT_COLS = OBT_BASE_COLS.slice(), OBT_HEADS = OBT_BASE_HEADS.slice();
+function obtSetCols(){ const on = obtOio(); OBT_COLS = on ? [['offer', 'Offer']].concat(OBT_BASE_COLS) : OBT_BASE_COLS.slice(); OBT_HEADS = on ? [['Offer', ['offer']]].concat(OBT_BASE_HEADS) : OBT_BASE_HEADS.slice(); }
+const obtGroupStart = k => OBT_HEADS.some(h => h[1][0] === k);
+/* a date-only value ("2026-10-24") is read at noon so it never shows the day before */
+const obtDay = v => { const s = String(v || ''); return !s ? '' : ckdDay(/^\d{4}-\d{2}-\d{2}$/.test(s.slice(0, 10)) && s.length <= 10 ? s.slice(0, 10) + 'T12:00:00' : s); };
+const OBT_GROUPS = {
+  oig:    ['Record the OIG result', '', 'Flagged: Samantha or Zachary decide'],
+  edl:    ['Search the EDL list and record it', '', 'Issues found: Samantha or Zachary decide'],
+  fcsr:   ['Order now', 'Ordered, waiting on the state', 'Issues found: Samantha or Zachary decide'],
+  casenet:['Search Case.net and record it', '', 'Issues found: Samantha or Zachary decide'],
+  refs:   ['Call or add a reference', 'Form sent, waiting on the reference', 'A reference with a concern: Samantha or Zachary decide'],
+  step2:  ['Send or check Step 2', 'Waiting on the applicant to finish Step 2', ''],
+  i9:     ['Complete I-9 Section 2 in Viventium', '', ''],
+  orient: ['Ready to send orientation', 'In orientation', ''],
+  finish: ['Office to-dos: calls, badge, approval', 'Waiting on the applicant: orientation, profile', ''],
+  step1:  ['Office to-dos', 'Waiting on the applicant to finish Step 1', ''],
+  offer:  ['Office to-dos', 'Waiting on them to sign the offer', '']
+};
+const obtDaysSince = iso => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? Math.max(0, Math.floor((Date.now() - t) / 864e5)) : null; };
+const obtOpenCard = j => j && j.offer_id ? 'CRX.openSide(\'' + bgrEsc(String(j.offer_id)) + '\')' : '';
+/* the offer behind a row: its own (a row that is only an offer), else the one its checks row or readiness card points at */
+function obtOfferFor(p){ if(p.o) return p.o; const id = (p.c && p.c.offer_id) || (p.j && p.j.offer_id); return id && typeof OFFERS !== 'undefined' ? OFFERS.find(x => String(x.id) === String(id)) || null : null; }
+const obtOfferSent = o => !!o && typeof offerStage === 'function' && offerStage(o) === 'sent';
+const obtOfferGone = o => !!o && typeof offerStage === 'function' && (offerStage(o) === 'rejected' || (offerStage(o) === 'sent' && offerIsQuiet(o)));
+const obtOfferTest = o => typeof ckdIsTest === 'function' && ckdIsTest(o.first_name, o.last_name) && !CKD_SHOW_TEST;
+/* Sent 3d (waiting on them; red from day 7, the day the still-interested check-in asks), else signed with the date */
+function obtOfferCell(o){
+  if(!o) return obtCell('na', '', { tip:'No offer on file (an older hire)' });
+  const id = bgrEsc(String(o.id)), open = 'obtOfferPanel(\'' + id + '\')';
+  if(obtOfferSent(o)){
+    const d = obtDaysSince(o.offer_sent_at || o.created_at), late = d != null && d >= 7;
+    return obtCell('wait', 'Sent' + (d != null ? ' ' + d + 'd' : ''), { who:'applicant', late, days:d, link:open, b:{ label:'Resend', on:'obtOfferResend(\'' + id + '\',this)', quiet:!late },
+      tip:late ? 'Offer sent ' + d + ' days ago and not signed yet. Call them; the still-interested check-in asks too.' : 'Offer sent. Waiting for them to sign the offer letter and position description on their phone. Reminders go by themselves.' });
+  }
+  const at = [o.offer_signed_at, o.pd_signed_at].filter(Boolean).sort().pop();
+  return obtCell('ok', '', { d:obtDay(at), link:open, tip:at ? 'Offer signed ' + obtDay(at) : 'Offer accepted' });
+}
+/* the offer's own things, in one small window: resend, the signing link, the signed documents, close the offer */
+function obtOfferPanel(id){
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(id)); if(!o) return;
+  const old = document.getElementById('obtOp'); if(old) old.remove();
+  const e = bgrEsc(String(o.id)), nm = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'This offer', sent = obtOfferSent(o);
+  const signed = [o.offer_signed_at, o.pd_signed_at].filter(Boolean).sort().pop();
+  const b = (label, on, id2) => '<button type="button" class="obt-b"' + (id2 ? ' id="' + id2 + '"' : '') + ' onclick="' + on + '">' + label + '</button>';
+  const sh = document.createElement('div'); sh.id = 'obtOp'; sh.className = 'ckd-party-shade';
+  sh.innerHTML = '<div class="ckd-party-card obt-op" role="dialog" aria-label="Their offer"><div class="ckd-party-in">'
+    + '<span class="ckd-kick">Offer</span><h3>' + bgrEsc(nm) + '</h3>'
+    + '<p>' + bgrEsc((o.position || 'Caregiver') + (o.offer_sent_at || o.created_at ? ' · sent ' + obtDay(o.offer_sent_at || o.created_at) : '') + (signed ? ' · signed ' + obtDay(signed) : sent ? ' · not signed yet' : '')) + '</p>'
+    + (o.axiscare_push_error && !o.axiscare_applicant_id ? '<p class="obt-op-w">AxisCare: the Hub could not add them as an applicant (' + bgrEsc(o.axiscare_push_error) + '). Add them in AxisCare by hand.</p>' : '')
+    + '<div class="obt-op-b">'
+    + (sent ? b('Resend the offer', 'offerResend(\'' + e + '\',this)', 'obtOpRs') + b('Signing link', 'offerSignLink(\'' + e + '\',this)') : '')
+    + (o.offer_pdf_path ? b('Offer letter', 'offerOpenDoc(\'' + e + '\',\'offer\',this)') : '') + (o.pd_pdf_path ? b('Position description', 'offerOpenDoc(\'' + e + '\',\'pd\',this)') : '')
+    + (window.HP ? b('Their profile', 'document.getElementById(\'obtOp\').remove();HP.open({offer_id:\'' + e + '\'})') : '')
+    + b('Close offer', 'offerCloseAsk(\'' + e + '\')') + '</div>'
+    + '<div id="od_' + e + '" class="obt-op-m" style="display:none"></div><div id="ol_' + e + '" class="obt-op-m"></div><div id="oc_' + e + '" class="obt-op-m" style="display:none"></div>'
+    + '<div class="ckd-party-btns"><button type="button" class="ckd-link" onclick="obtOfferPanelClose()">Close</button></div></div></div>';
+  document.body.appendChild(sh);
+  sh.onclick = ev => { if(ev.target === sh) obtOfferPanelClose(); };
+}
+function obtOfferPanelClose(){ const x = document.getElementById('obtOp'); if(x) x.remove(); renderCkd(); }
+async function obtOfferResend(id, btn){
+  const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(id)); if(!o) return;
+  if(!(await ccConfirm('Send ' + ((o.first_name || 'them') + '').trim() + ' their offer link again, by text and email?'))) return;
+  obtOfferPanel(id); offerResend(id, document.getElementById('obtOpRs'));
+}
+/* under the table: offers that went quiet before signing, and the ones turned down (30 days, then Older), never rows */
+function obtOfferFolds(){
+  if(!obtOio() || typeof OFFERS === 'undefined') return '';
+  const list = OFFERS.filter(o => !obtOfferTest(o));
+  const quiet = list.filter(o => obtOfferSent(o) && offerIsQuiet(o)).sort((a, b) => String(a.offer_sent_at || a.created_at || '').localeCompare(String(b.offer_sent_at || b.created_at || '')));
+  const shut = list.filter(o => offerStage(o) === 'rejected').sort((a, b) => offerClosedAt(b) - offerClosedAt(a));
+  const recent = shut.filter(o => Date.now() - offerClosedAt(o) <= 30 * 864e5), older = shut.filter(o => !recent.includes(o));
+  const row = (o, why, when) => { const e = bgrEsc(String(o.id)), nm = ((o.first_name || '') + ' ' + (o.last_name || '')).trim() || 'Name not recorded';
+    return '<li><button type="button" class="obt-name" onclick="' + (window.HP ? 'HP.open({offer_id:\'' + e + '\'})' : 'obtOfferPanel(\'' + e + '\')') + '">' + bgrEsc(nm) + '</button>'
+      + '<span class="obt-fd">' + bgrEsc(why) + (when ? ' · ' + bgrEsc(when) : '') + '</span>'
+      + (why === 'Expired' || why === 'Gone quiet' ? '<button type="button" class="obt-b obt-b-q obt-b-s" onclick="obtOfferPanel(\'' + e + '\')">Open</button>' : '') + '</li>'; };
+  const closedWhy = o => { const w = offerRejectedWhy(o), r = String(o.offer_withdraw_reason || ''); return w === 'Withdrawn' && /^Closed: /.test(r) ? r.slice(8) : w; };
+  const fold = (cls, title, n, tip, body) => '<details class="obt-fold ' + cls + '"><summary title="' + bgrEsc(tip) + '"><b>' + bgrEsc(title) + ' (' + n + ')</b></summary>' + body + '</details>';
+  return '<div class="obt-folds">'
+    + fold('obt-fold-q', 'Gone quiet', quiet.length, 'Offers sent ' + offerQuietDays() + '+ days ago with no movement (Settings, Offers: gone quiet). Off the table so it stays the people still moving.',
+        quiet.length ? '<ul>' + quiet.map(o => row(o, 'Gone quiet', 'sent ' + obtDay(o.offer_sent_at || o.created_at))).join('') + '</ul>' : '<p class="obt-fd">Nobody.</p>')
+    + fold('obt-fold-r', 'Turned down, last 30 days', recent.length, 'Declined, withdrawn, expired, closed or not hired. Nothing to do here; an expired offer can be resent.',
+        (recent.length ? '<ul>' + recent.map(o => row(o, closedWhy(o), obtDay(new Date(offerClosedAt(o)).toISOString()))).join('') + '</ul>' : '<p class="obt-fd">Nobody in the last 30 days.</p>')
+        + (older.length ? fold('obt-fold-o', 'Older', older.length, 'Turned down more than 30 days ago', '<ul>' + older.map(o => row(o, closedWhy(o), obtDay(new Date(offerClosedAt(o)).toISOString()))).join('') + '</ul>') : ''))
     + '</div>';
+}
+/* the Offers tab pill hides while offers live on Onboarding (the offer form still opens there from an interview) */
+function obtOfferPill(){ const on = obtOio(), pill = document.querySelector('.fpill[data-tab="offers"]'); if(pill) pill.style.display = on ? 'none' : ''; return on; }
+window.obtOio = obtOio; window.obtOfferPill = obtOfferPill; window.obtOfferPanel = obtOfferPanel; window.obtOfferPanelClose = obtOfferPanelClose; window.obtOfferResend = obtOfferResend;
+/* one cell: s = ok | todo | wait | rev | none | na; who = office | applicant | outside | review; late = overdue by an existing rule */
+function obtCell(s, t, o){ return Object.assign({ s, t:t || '' }, o || {}); }
+function obtReview(c){ return { label:'Review', on:(typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal(' + c.id + ')' : 'ckdOpen(' + c.id + ')' }; }
+function obtChecks(c){
+  const out = {}, id = c.id, wait1 = ckdStep1Waiting(c);
+  CKD_CHECKS.forEach(x => {
+    const v = c[x.k];
+    if(v === x.ok){ out[x.k] = obtCell('ok', '', { d:obtDay(c[x.k + '_date']), tip:x.label + ' clear' + (c[x.k + '_date'] ? ' ' + fmtD(String(c[x.k + '_date']).slice(0, 10)) : '') }); return; }
+    if(v === x.bad){ out[x.k] = obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:x.label + ': ' + v + '. Samantha or Zachary decide.' }); return; }
+    if(wait1){ out[x.k] = obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' }); return; }
+    if(x.k === 'oig'){
+      const auto = !c.oig_date ? ckdOigSearch(c) : null, n = auto ? ((auto.evidence && auto.evidence.match_count) || 0) : null;
+      out.oig = c.oig_date || auto ? obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'oig\')' }, tip:auto ? 'The Hub searched the OIG list: ' + (n ? n + ' possible match' + (n === 1 ? '' : 'es') + '. Check the date of birth and state.' : 'no matches. Record it as Clear.') : 'Record the OIG result.' })
+                                   : obtCell('todo', '', { who:'office', b:{ label:'Run', on:'bgrRunOIG(' + id + ',this)' }, tip:'Run the OIG check. It takes one click.' });
+    } else if(x.k === 'fcsr' && ckdFcsrOrdered(c)){
+      const n = ckdFcsrDays(c);
+      out.fcsr = obtCell('wait', n === null ? 'Ordered' : n + 'd', { who:'outside', days:n, b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'fcsr\')', quiet:true }, tip:ckdFcsrWaitText(c) + '. Check the state site to see if it is back.' });
+    } else if(x.k === 'fcsr'){
+      out.fcsr = obtCell('todo', '', { who:'office', b:{ label:'Order', on:'obFcsrSent(' + id + ')' }, tip:'Order FCSR in the state system, then press Order to mark it ordered.' });
+    } else {
+      out[x.k] = obtCell('todo', '', { who:'office', b:{ label:'Record', on:'bgrRecordCheck(' + id + ',\'' + x.k + '\')' }, tip:x.how + '.' });
+    }
+  });
+  return out;
+}
+function obtRefs(c){
+  const rp = refPolicy(c), good = ckdGoodRefs(c);
+  /* always a count (her ask 2026-11-04: "1/2", never only a check mark) */
+  if(rp.ok) return obtCell('ok', '2/2', { tip:'References done' });
+  if(rp.blocked) return obtCell('rev', 'Review', { who:'review', b:obtReview(c), tip:rp.why });
+  if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'Waits for Step 1, which holds their signed permission' });
+  const nx = ckdRefNext(c) || {}, cnt = Math.min(good, 2) + '/2';
+  const ph = nx.slot ? c['r' + nx.slot + '_phone'] : null, p = ph ? obFmtPhone(ph) : null;
+  if(nx.quiet) return obtCell('wait', cnt, { who:'outside', b:{ label:'Record', on:nx.on, quiet:true }, call:p, tip:nx.text });
+  const m = /no answer in (\d+) days/.exec(nx.text || ''), days = m ? Number(m[1]) : null;
+  return obtCell('todo', cnt, { who:'office', b:{ label:nx.label === 'Add a reference' ? 'Add' : 'Record', on:nx.on }, call:p, days, late:days !== null && days >= 5, tip:nx.text });
+}
+function obtStep2(c){
+  if(ckdStep1Waiting(c)) return obtCell('none', '', { tip:'After Step 1' });
+  const v = ckdStep2Lane(c), id = c.id;
+  if(c.step2_verified_at) return obtCell('ok', '', { d:obtDay(c.step2_verified_at), tip:v.text });
+  if(c.step2_done_at) return obtCell('todo', '', { who:'office', b:{ label:'Check', on:'step2Verify(' + id + ')' }, tip:v.text });
+  if(c.step2_sent_at){ const d = obtDaysSince(c.step2_sent_at);
+    return obtCell('wait', d === null ? 'Sent' : d + 'd', { who:'applicant', days:d, late:d !== null && d >= 8, b:{ label:'Said done', on:'step2Reported(' + id + ')', quiet:true }, tip:v.text + (d !== null && d >= 8 ? ' No DONE in ' + d + ' days.' : '') }); }
+  return obtCell('todo', '', { who:'office', b:{ label:'I sent it', on:'step2Sent(' + id + ')' }, tip:v.text });
+}
+function obtOrient(c, stop){
+  if(stop < 2) return obtCell('none', '', { tip:c.onboarding_path === 'new' ? 'After OIG, EDL, FCSR and Case.net are clear' : 'After the checks and references are clear' });
+  const inv = c.step2_invite || {};
+  if(c.onboarding_path === 'new' && stop === 2){
+    const failed = inv.orientation && inv.state === 'failed';
+    return obtCell('todo', failed ? 'Did not go' : '', { who:'office', warn:failed, b:{ label:failed ? 'Send again' : 'Send', on:'axSetupOpen(' + c.id + ')' }, tip:failed ? 'Orientation did not go (' + (inv.why || (inv.not_sent || []).join('; ') || 'refused') + ').' : 'Add them in AxisCare as In Training, then send their orientation.' });
+  }
+  if(c.onboarding_path !== 'new' && stop === 2){ const nx = ckdStepNext(c, stop); return obtCell(nx.wait ? 'wait' : 'todo', '', { who:nx.wait ? 'applicant' : 'office', b:nx.label ? { label:nx.label, on:nx.on, quiet:!!nx.wait } : null, tip:nx.text }); }
+  return obtOrientProgress({ c, stop, name:ckdName(c) });
+}
+/* orientation itself, from the Orientation tab's reading (OPR.brief); never guessed when that list has not answered */
+function obtOrientProgress(p){
+  const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
+  if(!o) return obtCell('wait', 'Sent', { who:'applicant', tip:'Orientation sent. Their progress shows once the Orientation tab list has loaded.' });
+  const on = 'OPR.show(\'' + bgrEsc(o.id) + '\')';
+  if(/^Finished/.test(o.text)) return obtCell('ok', '', { tip:o.text, link:on });
+  const u = /Unit (\d+) of (\d+)/.exec(o.text);
+  return obtCell('wait', u ? 'U' + u[1] + '/' + u[2] : 'Sent', { who:'applicant', late:!!o.bad, tip:o.text + '. Open them on the Orientation tab.', link:on });
+}
+/* the call after orientation replaces the welcome video call (Samantha 2026-11-04), behind ops_settings.after_orientation_call_live */
+const obtCallOn = () => !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.after_orientation_call_live === true);
+/* the Finish column: orientation, video call (or the call after orientation), profile, badge, approved, as the readiness card and the Finish line already read them */
+function obtFinish(p, j, g){
+  const c = p.c, marks = [], acts = [];
+  const mk = (k, label, s, tip) => marks.push({ k, label, s, tip });
+  const fin = (window.OPR && typeof OPR.finishOf === 'function' && (g || c)) ? OPR.finishOf((g && g.axiscare_id) || (c && c.axiscare_id) || '', p.name) : null;
+  const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
+  mk('O', 'Orientation', o && /^Finished/.test(o.text) ? (fin && fin.missing.some(m => /orientation/i.test(m)) ? 'wait' : 'ok') : o ? 'wait' : 'none',
+     o ? o.text + (fin && fin.missing.some(m => /orientation/i.test(m)) ? '. Not verified on their readiness card yet.' : '') : 'Orientation not started');
+  const w = c ? ckdWc(c) : null, ci = fin && fin.checkin;
+  /* AFTER-ORIENTATION CALL (Samantha 2026-11-04, after_orientation_call_live): no video call; C = the care coordinator's call
+     after orientation (I-9 on camera, everything checked, app, clients and shifts), before Approve to Work */
+  if(obtCallOn()){
+    if(ci && ci.done) mk('C', 'Call after orientation', 'ok', 'Call after orientation done');
+    else if(ci){ mk('C', 'Call after orientation', 'todo', 'Call them: I-9 on camera, everything checked, app, clients and shifts' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : '')); if(j) acts.push({ label:'Call', on:obtOpenCard(j) }); }
+    else if(j && (j.approved_to_work || j.ready_for_final)) mk('C', 'Call after orientation', 'ok', j.approved_to_work ? 'Approved to Work' : 'Everything done');
+    else mk('C', 'Call after orientation', 'none', 'Opens when they finish orientation');
+  }
+  else if(w && w.status === 'done') mk('V', 'Video call', 'ok', 'Welcome video call done');
+  else if(w && w.status === 'noshow'){ mk('V', 'Video call', 'late', 'Missed the welcome video call'); acts.push({ label:'Invite again', on:'wcInvite(' + c.id + ',this)', warn:true }); }
+  else if(w && w.status === 'booked') mk('V', 'Video call', 'wait', 'Booked ' + (typeof wcWhen === 'function' ? wcWhen(w.starts_at) : ''));
+  else if(w && w.invited_at) mk('V', 'Video call', 'wait', 'Invited ' + ckdDay(w.invited_at) + ', not booked yet');
+  else mk('V', 'Video call', g ? 'ok' : 'none', g ? 'On the caregiver list (added at the video call)' : 'Not invited yet');
+  const pg = g && window.CGP2 && typeof CGP2.gateFor === 'function' ? CGP2.gateFor(g) : null;
+  /* P (Samantha 2026-11-04): white until their profile is filled in, yellow once it is (photo, answers, OK to use), green once published */
+  const pr = pg && pg.row, pDone = !!(pr && pr.submitted_at && pr.photo_path && pr.consent);
+  mk('P', 'Profile', pg && pg.loaded ? (pg.published ? 'ok' : pDone ? 'wait' : 'none') : 'none',
+     pg && pg.loaded ? (pg.published ? 'Profile published' : pDone ? 'Profile filled in, not published yet' : 'Profile not filled in yet') : 'Profile shows once they are on the caregiver list');
+  if(g && (g.badge_mailed_at || g.badge_not_needed)) mk('B', 'Badge', 'ok', g.badge_mailed_at ? 'Badge mailed ' + ckdDay(g.badge_mailed_at) : 'Badge not needed');
+  else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
+  else mk('B', 'Badge', 'none', obtCallOn() ? 'Once they are on the caregiver list' : 'After the video call');
+  if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
+  else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
+  else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
+    mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list.');
+    if(!auto) acts.unshift({ label:'Approve', on:obtOpenCard(j) }); }
+  else mk('A', 'Approved', 'none', fin && fin.missing.length ? 'Still needs: ' + fin.missing.join(', ') : 'Not ready yet');
+  const any = marks.some(m => m.s !== 'none');
+  const late = marks.some(m => m.s === 'late'), todo = acts.length > 0, wait = marks.some(m => m.s === 'wait');
+  return obtCell(!any ? 'none' : todo ? 'todo' : marks.every(m => m.s === 'ok') ? 'ok' : wait ? 'wait' : 'none', '',
+    { marks, acts, who:todo ? 'office' : wait ? 'applicant' : '', late, warn:acts.some(a => a.warn), fin, b:acts[0] ? { label:acts[0].label, on:acts[0].on } : null });
+}
+/* nearly ready (her ask: "one actionable step away from approval"): everything done but the approval itself, or exactly one
+   thing left on the Finish line's own list */
+function obtNearly(m){
+  const j = m.j, f = m.cells.finish && m.cells.finish.fin;
+  if(j && j.approved_to_work) return null;
+  if(j && j.ready_for_final) return 'Ready to approve';
+  if(f && !f.approved && f.missing.length === 1) return 'Only ' + f.missing[0] + ' left';
+  return null;
+}
+/* I-9 in Viventium (her ask 2026-11-04): after the ID is seen on the welcome video call, someone completes Section 2 in Viventium.
+   Read from what the Hub already keeps: the Step 2 check's own I-9 line (step2_i9_s2_at), or the readiness card's
+   "I-9 Section 2" row (missing from its list = done). The button confirms that same readiness-card row, in the presser's name. */
+function obtI9(c, j, fin){
+  if(c && c.step2_i9_s2_at) return obtCell('ok', '', { d:obtDay(c.step2_i9_s2_at), tip:'I-9 Section 2 completed ' + obtDay(c.step2_i9_s2_at) });
+  if(j && (j.approved_to_work || j.ready_for_final)) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  const f = fin && fin.fin, open = f && f.missing.some(x => /I-9/i.test(x));
+  if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  if(obtCallOn()){
+    /* with the call after orientation, the I-9 line is ticked on that call (it completes this same readiness-card row) */
+    const cm = fin && (fin.marks || []).find(x => x.k === 'C');
+    if(open && cm && cm.s === 'todo' && j) return obtCell('todo', '', { who:'office', b:{ label:'Call', on:obtOpenCard(j) }, tip:'Look at their ID on video during the call after orientation, complete I-9 Section 2 in Viventium, then tick the I-9 line on the call.' });
+    return obtCell('none', '', { tip:'On the call after orientation, where their ID is checked on video' });
+  }
+  const v = fin && (fin.marks || []).find(x => x.k === 'V');
+  if(open && v && v.s === 'ok' && j && j.journey_id)
+    return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
+  return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
+}
+async function obtI9Done(jid, btn){
+  if(!(await ccConfirm('Record that you examined their ID documents and completed I-9 Section 2 in Viventium?\n\nThis completes the I-9 Section 2 row on their readiness card in your name, with the time. Only the person who did it should press this.'))) return;
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' }); }
+  catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+  try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
+  renderCkd();
+}
+/* one person, every column */
+function obtModel(p){
+  const c = p.c, j = p.j || (c ? ckdJourneyFor(c) : null), g = j ? ckdRosterFor(j) : null, cells = {};
+  if(c){
+    cells.step1 = ckdStep1Waiting(c) ? obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' }) : obtCell('ok', '', { d:obtDay(c.step1_done_at || (c.step1_landed && c.step1_landed.at)), tip:'Step 1 done' });
+    Object.assign(cells, obtChecks(c));
+    cells.refs = obtRefs(c); cells.step2 = obtStep2(c); cells.orient = obtOrient(c, p.stop);
+  } else {
+    const stuck = ckdStep1Stuck(j), n = j && j.next ? j.next : {};
+    if(p.stop === 0 && stuck) cells.step1 = obtCell('wait', 'Stuck ' + stuck.days + 'd', { who:'applicant', late:true, call:stuck.call ? { dial:stuck.call.dial, show:stuck.call.show } : null, b:stuck.call ? null : { label:'Open', on:obtOpenCard(j) }, tip:stuck.text });
+    else if(p.stop === 0 && n.key === 'cg.company.countersign') cells.step1 = obtCell('todo', '', { who:'office', b:{ label:'Countersign', on:obtOpenCard(j) }, tip:(n.title || 'Company signature') + ' (a person on the Approve to Work list)' });
+    else if(p.stop === 0) cells.step1 = obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' });
+    else cells.step1 = obtCell('ok', '', { tip:'Step 1 done' });
+    const card = 'On their readiness card';
+    ['oig', 'edl', 'fcsr', 'casenet', 'refs', 'step2'].forEach(k => { cells[k] = obtCell(p.stop >= 3 ? 'ok' : 'na', p.stop >= 3 && k === 'refs' ? '2/2' : '', { tip:card }); });
+    if(p.stop >= 1 && p.stop < 3){ const nx = ckdRosterNext(j); cells.refs = obtCell(nx.warn ? 'rev' : 'na', '', { who:nx.warn ? 'review' : '', b:{ label:'Open card', on:obtOpenCard(j), quiet:true }, tip:nx.text }); }
+    cells.orient = p.stop >= 3 ? obtOrientProgress(p) : obtCell('none', '', { tip:'After the checks' });
+  }
+  cells.finish = p.stop >= 3 || (j && (j.ready_for_final || j.approved_to_work)) ? obtFinish(p, j, g) : obtCell('none', '', { tip:'After orientation is sent' });
+  const off = obtOio() ? obtOfferFor(p) : null;
+  if(obtOio()){
+    cells.offer = obtOfferCell(off);
+    /* not signed yet: nothing after the offer has started (Step 1 goes out when they sign) */
+    if(obtOfferSent(off)) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'finish') cells[k] = obtCell('none', '', { tip:'After they sign the offer' }); });
+    else if(p.o) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'step1' && k !== 'finish') cells[k] = obtCell('none', '', { tip:'After Step 1' }); });
+  }
+  cells.i9 = obtI9(c, j, cells.finish);
+  const m = { p, c, j, g, cells, name:p.name };
+  const who = new Set(); let late = false;
+  OBT_COLS.forEach(([k]) => { const x = cells[k]; if(!x) return; if(x.s === 'rev') who.add('review'); else if((x.s === 'todo' || x.s === 'wait') && x.who) who.add(x.who); if(x.late) late = true; });
+  m.who = who; m.late = late; m.nearly = obtNearly(m);
+  m.days = c ? (() => { const ms = ckdAddedMs(c); return ms === null ? null : Math.max(0, Math.floor((Date.now() - ms) / 864e5)); })() : p.o ? obtDaysSince(p.o.offer_sent_at || p.o.created_at) : (ckdStep1Stuck(j) || {}).days ?? null;
+  if(m.days !== null && m.days >= 10 && (who.has('office') || who.has('applicant')) && !obtOfferSent(off)) m.longWait = true;
+  m.extra = [];
+  if(off && off.axiscare_push_error && !off.axiscare_applicant_id) m.extra.push({ t:'AxisCare: add by hand', late:true, on:'obtOfferPanel(\'' + bgrEsc(String(off.id)) + '\')', tip:'The Hub could not add them in AxisCare as an applicant: ' + off.axiscare_push_error });
+  if(c && c.prn_offer && !c.prn_offer.answer) m.extra.push({ t:'PRN offered', on:'ckdPrnAnswer(' + c.id + ')', tip:'PRN offered ' + ckdDay(c.prn_offer.at) + '. Call them and record their answer.' });
+  const q = c ? ckdQuiet(c, p.stop) : 0;
+  if(q && !(c.prn_offer && !c.prn_offer.answer)) m.extra.push({ t:'No word ' + q + 'd', on:'ckdLeaveOpen(' + c.id + ')', tip:'Nothing from them in ' + q + ' days. Call them: maybe PRN fits better, or take them off the list.', late:true });
+  return m;
+}
+/* which queue a person is in for a job column, and which group: 0 to start, 1 waiting, 2 review */
+function obtGroupOf(cell){ return !cell ? -1 : cell.s === 'rev' ? 2 : cell.s === 'todo' ? 0 : cell.s === 'wait' ? 1 : -1; }
+function obtInQueue(m, k){
+  if(k === 'all') return true;
+  if(k === 'office') return m.who.has('office');
+  if(k === 'waiting') return !m.who.has('office') && !m.who.has('review') && (m.who.has('applicant') || m.who.has('outside'));
+  if(k === 'review') return m.who.has('review');
+  if(k === 'nearly') return !!m.nearly;
+  if(k === 'late') return m.late || m.longWait;
+  return obtGroupOf(m.cells[k]) >= 0;
+}
+function obtIcon(id){ return '<svg class="navi" aria-hidden="true"><use href="icons.svg#i-' + id + '"></use></svg>'; }
+function obtBtn(b, small){ return b && b.label ? '<button type="button" class="obt-b' + (b.quiet ? ' obt-b-q' : '') + (b.warn ? ' obt-b-w' : '') + (small ? ' obt-b-s' : '') + '" onclick="' + b.on + '">' + bgrEsc(b.label) + '</button>' : ''; }
+function obtCallA(p){ return p ? '<a class="obt-call"' + ocAttrs(p.dial, {}) + ' title="Call ' + bgrEsc(p.show) + ' from the office line">' + obtIcon('phone') + '</a>' : ''; }
+function obtCellHTML(x, k){
+  const gs = obtGroupStart(k) ? ' obt-gs' : '', refs = k === 'refs' ? ' obt-refs' : '';
+  if(!x) return '<td class="obt-c' + gs + '"></td>';
+  const tip = x.tip ? ' title="' + bgrEsc(x.tip) + '"' : '';
+  if(k === 'finish'){
+    const marks = (x.marks || []).map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('');
+    return '<td class="obt-c obt-fin' + gs + '"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + '</td>';
+  }
+  let inner;
+  /* a done step shows its date when the Hub has one; references show their count ("2/2"), never only a check */
+  const okIn = (x.t ? bgrEsc(x.t) : obtIcon('check')) + (x.d ? '<span class="obt-dt">' + bgrEsc(x.d) + '</span>' : '');
+  if(x.s === 'ok') inner = x.link ? '<button type="button" class="obt-ok obt-lnk" onclick="' + x.link + '">' + okIn + '</button>' : '<span class="obt-ok">' + okIn + '</span>';
+  else if(x.s === 'rev') inner = x.b ? '<button type="button" class="obt-rev obt-rev-b" onclick="' + x.b.on + '">' + obtIcon('shield') + 'Review</button>' : '<span class="obt-rev">' + obtIcon('shield') + 'Review</span>';
+  else if(x.s === 'none') inner = '<span class="obt-none">·</span>';
+  else if(x.s === 'na') inner = '<span class="obt-none">–</span>';
+  else inner = (x.t ? '<span class="obt-t' + (x.late ? ' obt-late' : x.s === 'wait' ? ' obt-wait' : '') + (x.warn ? ' obt-warnt' : '') + '">' + (x.late ? obtIcon('clock') : '') + bgrEsc(x.t) + '</span>' : '');
+  const link = x.link && x.s !== 'ok' ? ' onclick="' + x.link + '" style="cursor:pointer"' : '';
+  return '<td class="obt-c obt-st-' + x.s + gs + refs + '"' + tip + link + '>' + inner + (x.s === 'rev' ? '' : (x.call ? obtCallA(x.call) : '') + obtBtn(x.b)) + '</td>';
+}
+/* the edge on the name: purple review (as before) wins, then red overdue, then gold 10+ days on the list */
+const obtEdge = m => m.who.has('review') ? ' obt-r-rev' : m.late ? ' obt-r-late' : m.longWait ? ' obt-r-quiet' : '';
+function obtWaitHTML(m){
+  if(m.days === null) return '<span class="obt-none">–</span>';
+  return '<span class="' + (m.longWait ? 'obt-late' : m.days >= 5 ? 'obt-wait' : '') + '">' + (m.longWait ? obtIcon('clock') : '') + (m.days === 0 ? 'New' : m.days + 'd') + '</span>';
+}
+function obtNameHTML(m){
+  const p = m.p, c = m.c, j = m.j, oid = j ? j.offer_id : p.o ? p.o.id : null;
+  const prof = window.HP ? 'HP.open(' + (c ? '{candidate_id:' + JSON.stringify(String(c.id)) + '}' : '{offer_id:' + JSON.stringify(String(oid)) + '}').replace(/"/g, '&quot;') + ')' : (c ? 'ckdOpen(' + c.id + ')' : j ? obtOpenCard(j) : 'obtOfferPanel(\'' + bgrEsc(String(oid)) + '\')');
+  const panel = c ? 'ckdOpen(' + c.id + ')' : j ? obtOpenCard(j) : 'obtOfferPanel(\'' + bgrEsc(String(oid)) + '\')';
+  return '<button type="button" class="obt-name" onclick="' + prof + '" title="Open their profile">' + bgrEsc(p.name) + '</button>'
+    + '<button type="button" class="obt-more" onclick="' + panel + '" title="Their checklist: every detail, notes, Take off">Checklist</button>'
+    + (m.nearly ? '<span class="obt-near" title="One step from Approve to Work">' + obtIcon('star') + bgrEsc(m.nearly) + '</span>' : '')
+    + m.extra.map(e => '<button type="button" class="obt-tag' + (e.late ? ' obt-tag-late' : '') + '" onclick="' + e.on + '" title="' + bgrEsc(e.tip) + '">' + bgrEsc(e.t) + '</button>').join('')
+    /* 2026-11-03: the Step 2 Send reminder and its history line (with the still-interested check-in), as today's rows show
+       them (hire-remind.js, 2026-11-02); the table left them out */
+    + (c && window.HREM ? '<div class="obt-rem">' + HREM.s2Btn(c) + HREM.s2Line(c) + '</div>' : '');
+}
+function obtRowHTML(m, hi){
+  return '<tr class="obt-r' + obtEdge(m) + '"><th scope="row" class="obt-n">' + obtNameHTML(m) + '</th>'
+    + '<td class="obt-c obt-d">' + obtWaitHTML(m) + '</td>'   /* 2026-11-04 Samantha: the Holding up column is gone ("isn't that helpful") */
+    + OBT_COLS.map(([k]) => obtCellHTML(m.cells[k], k).replace('<td class="obt-c', '<td class="obt-c' + (k === hi ? ' obt-hi' : ''))).join('') + '</tr>';
+}
+/* the phone: one short card per person, the marks in a row and only the buttons that apply */
+function obtCardHTML(m, hi){
+  const marks = OBT_COLS.filter(([k]) => k !== 'finish').map(([k, t]) => { const x = m.cells[k] || {}; const cls = x.s === 'ok' ? 'ok' : x.s === 'rev' ? 'rev' : x.late ? 'late' : x.s === 'wait' ? 'wait' : x.s === 'todo' ? 'todo' : 'none';
+    return '<span class="obt-pm obt-pm-' + cls + (k === hi ? ' obt-pm-hi' : '') + '" title="' + bgrEsc(t + (x.tip ? ': ' + x.tip : '')) + '">' + t + '</span>'; }).join('');
+  const f = m.cells.finish, fm = f && f.marks ? '<span class="obt-mks">' + f.marks.map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('') + '</span>' : '';
+  const btns = OBT_COLS.map(([k, t]) => { const x = m.cells[k]; if(!x || x.s === 'ok' || x.s === 'none' || x.s === 'na') return ''; const bs = [];
+      if(x.call) bs.push('<a class="obt-b obt-b-q"' + ocAttrs(x.call.dial, {}) + '>' + t + ': Call</a>');
+      if(x.b) bs.push(obtBtn(Object.assign({}, x.b, { label:t + ': ' + x.b.label })).replace('class="obt-b', x.s === 'rev' ? 'class="obt-b obt-b-rev' : 'class="obt-b'));
+      return bs.join(''); }).join('');
+  return '<div class="obt-card' + obtEdge(m) + '"><div class="obt-card-top"><div>' + obtNameHTML(m) + '</div><div class="obt-card-w">' + obtWaitHTML(m) + '</div></div>'
+    + '<div class="obt-pms">' + marks + fm + '</div>' + (btns ? '<div class="obt-card-b">' + btns + '</div>' : '') + '</div>';
+}
+function obtRender(box){
+  obtSetCols(); obtOfferPill();
+  const L = ckdLists(), models = L.all.map(obtModel);
+  let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
+  if(window.CKD_FIND){ q = String(window.CKD_FIND).trim().toLowerCase(); window.CKD_FIND = ''; OBT_Q = 'all'; }
+  const valid = ['all', 'office', 'waiting', 'review', 'nearly', 'late'].concat(OBT_COLS.map(x => x[0]));
+  if(valid.indexOf(OBT_Q) < 0) OBT_Q = 'all';
+  const n = k => models.filter(m => obtInQueue(m, k)).length;
+  let list = models.filter(m => obtInQueue(m, OBT_Q));
+  if(q) list = list.filter(m => m.name.toLowerCase().includes(q) || (m.c && typeof obRefMatchSlots === 'function' && obRefMatchSlots(m.c, q).length));
+  list.sort((a, b) => (b.days ?? -1) - (a.days ?? -1));
+  const job = OBT_COLS.some(x => x[0] === OBT_Q) ? OBT_Q : null;
+  const sum = (k, label, cls, tip) => '<button type="button" class="obt-s obt-s-' + cls + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '" title="' + bgrEsc(tip) + '"><b>' + n(k) + '</b><span>' + label + '</span></button>';
+  const chip = (k, label) => { const c = k === 'orient' && obtFolded() ? (OPR.queueCount() ?? '…') : n(k); return '<button type="button" class="obt-q' + (OBT_Q === k ? ' obt-on' : '') + '" onclick="obtQueue(\'' + k + '\')" aria-pressed="' + (OBT_Q === k) + '">' + label + ' <span>' + c + '</span></button>'; };
+  const start = ckdStartHere(L.all);
+  const head = '<tr class="obt-grp"><th class="obt-n"></th><th></th>' + OBT_HEADS.map(([t, ks]) => '<th scope="colgroup" colspan="' + ks.length + '" class="obt-gs">' + t + '</th>').join('') + '</tr>'
+    + '<tr><th scope="col" class="obt-n">Name</th><th scope="col">Days</th>' + OBT_COLS.map(([k, t]) => '<th scope="col" class="' + (k === job ? 'obt-hi' : '') + (obtGroupStart(k) ? ' obt-gs' : '') + '">' + t + '</th>').join('') + '</tr>';
+  let body;
+  if(job){
+    const g = OBT_GROUPS[job] || ['To do', 'Waiting', 'Review'], parts = [2, 0, 1].map(i => [i, list.filter(m => obtGroupOf(m.cells[job]) === i)]);
+    body = parts.filter(([, xs]) => xs.length).map(([i, xs]) => '<tr class="obt-g obt-g' + i + '"><td colspan="' + (OBT_COLS.length + 2) + '">' + bgrEsc(g[i] || ['To do', 'Waiting', 'Review'][i]) + ' (' + xs.length + ')</td></tr>'
+      + xs.sort((a, b) => ((b.cells[job].days ?? b.days ?? -1) - (a.cells[job].days ?? a.days ?? -1))).map(m => obtRowHTML(m, job)).join('')).join('');
+  } else body = list.map(m => obtRowHTML(m, null)).join('');
+  const cards = (job ? [2, 0, 1].flatMap(i => list.filter(m => obtGroupOf(m.cells[job]) === i)) : list).map(m => obtCardHTML(m, job)).join('');
+  const empty = q ? 'Nobody matches that search.' : OBT_Q === 'all' ? 'Nobody is onboarding right now.' : 'Nothing in this list right now.';
+  const run = [];
+  if(CKD_RUN.busy) run.push('<div class="ckd-msg">Bringing in reference answers and older offers…</div>');
+  if(CKD_RUN.err) run.push('<div class="ckd-msg ckd-err">' + bgrEsc(CKD_RUN.err) + '</div>');
+  if(CKD_RUN.note) run.push('<div class="ckd-msg">' + bgrEsc(CKD_RUN.note) + '</div>');
+  const notAdded = CKD_RUN.notAdded || [];
+  if(notAdded.length) run.push('<div class="ckd-msg ckd-soft"><b>' + notAdded.length + ' offered ' + (notAdded.length === 1 ? 'person is' : 'people are') + ' not on the list yet:</b> ' + notAdded.map(x => bgrEsc(x.name) + ' (' + bgrEsc(x.why) + ')').join(', ') + '.</div>');
+  box.innerHTML = ''
+    + '<div class="ckd-head"><div><h2 class="ckd-h">Onboarding</h2><div class="ckd-sub">' + (obtOio() ? 'From the offer to Approved to Work.' : 'From Step 1 to Approved to Work.') + ' Longest waiting first.' + (window.OAV ? ' ' + OAV.previewLink() : '') + '</div></div>'
+    +   '<div class="oav-head">' + (window.OAV && OAV.button ? OAV.button() : '') + '<input type="search" id="ckdSearch" class="ckd-search" aria-label="Find a person or reference" placeholder="Find a person or reference" value="' + bgrEsc(q) + '" oninput="ckdSearchInput()"></div></div>'
+    + '<div class="obt-sum">' + sum('all', 'Active', 'all', 'Everyone onboarding')
+    +   sum('office', 'Need office action', 'office', 'Has a button for us')
+    +   sum('waiting', 'Waiting on applicants or outside', 'wait', 'Nothing for us: waiting on the applicant, a reference or the state')
+    +   sum('review', 'Need review', 'rev', 'A flagged check or a reference with a concern: Samantha or Zachary decide')
+    +   sum('nearly', 'Nearly ready', 'near', 'One step from Approve to Work')
+    +   sum('late', 'Overdue', 'late', 'Past the times the Hub already uses (Step 1 stuck, 5 days without a reference answer, 8 days without Step 2 DONE, stuck in orientation, a missed video call, 10 days on the list' + (obtOio() ? ', an offer not signed in 7 days' : '') + ')') + '</div>'
+    + (start ? '<div class="obt-start"><span class="ckd-kick">Start here</span> <b>' + bgrEsc(start.p.name) + ':</b> ' + bgrEsc(start.a.text) + ' ' + obtBtn({ label:start.a.label, on:start.a.on }) + '</div>' : '')
+    + '<div class="obt-qs"><span class="obt-ql">Work queue:</span>' + (obtOio() ? chip('offer', 'Offer') : '') + chip('fcsr', 'FCSR') + chip('edl', 'EDL') + chip('casenet', 'Case.net') + chip('oig', 'OIG') + chip('refs', 'References') + chip('step2', 'Viventium (Step 2)') + chip('i9', 'I-9 in Viventium') + chip('orient', 'Orientation') + chip('finish', 'Finish') + chip('step1', 'Step 1') + '</div>'
+    + run.join('')
+    + (window.OAV ? OAV.panel(models) : '')   /* 2026-11-04 Onboarding availability chart (onboarding-availability.js) */
+    + (OBT_Q === 'orient' && obtFolded() ? '<div id="obtOrient"></div>' :
+       '<div class="obt-wrap"><table class="obt"><thead>' + head + '</thead><tbody>' + (body || '<tr><td class="obt-empty" colspan="' + (OBT_COLS.length + 2) + '">' + empty + '</td></tr>') + '</tbody></table></div>'
+    + '<div class="obt-cards">' + (cards || '<div class="obt-empty">' + empty + '</div>') + '</div>')
+    + (OBT_Q === 'orient' && obtFolded() ? '' : '<div class="obt-key"><span class="obt-ok">' + obtIcon('check') + '</span> done, with the date · <span class="obt-wait">3d</span> waiting · <span class="obt-late">' + obtIcon('clock') + '9d</span> overdue · <span class="obt-rev">' + obtIcon('shield') + 'Review</span> Samantha or Zachary decide · <span class="obt-none">·</span> not yet · <span class="obt-edge obt-edge-late"></span>red edge: overdue · <span class="obt-edge obt-edge-quiet"></span>gold edge: 10+ days on the list · Finish: O = orientation, ' + (obtCallOn() ? 'C = call after orientation' : 'V = video call') + ', P = profile, B = badge, A = approved</div>')
+    + obtOfferFolds()
+    + ckdMoreHTML(L);
+  { const oh = document.getElementById('obtOrient'); if(oh) OPR.inOnboarding(oh, q); }
   if(q){ const s = document.getElementById('ckdSearch'); if(s && document.activeElement !== s){ s.focus(); s.setSelectionRange(s.value.length, s.value.length); } }
   ckdRefreshPerson();
   ckdCelebrate(L.all);
@@ -7813,7 +8329,7 @@ function renderCkd(){
    ribbon on their row. Good news only, nothing sent, nothing counted or compared, still for reduced motion. "Seen" is kept
    in this browser only (CEL's own memory), a convenience and never a record. */
 function ckdCelebrate(ppl){
-  const fresh = ppl.filter(p => p.c && p.stop >= 2 && p.stop <= 4 && p.c.resolvedAt && (Date.now() - new Date(p.c.resolvedAt).getTime()) < 14 * 864e5);
+  const fresh = ppl.filter(p => p.c && p.stop >= 2 && p.stop <= 3 && p.c.resolvedAt && (Date.now() - new Date(p.c.resolvedAt).getTime()) < 14 * 864e5);
   if(!fresh.length || document.getElementById('ckdParty')) return;
   const first = window.CEL && typeof CEL._firstTime === 'function' ? CEL._firstTime : (k => { try{ if(localStorage.getItem('ckd_' + k)) return false; localStorage.setItem('ckd_' + k, '1'); return true; }catch(e){ return false; } });
   const p = fresh.find(x => first('cleared_' + x.c.id)); if(!p) return;
@@ -7827,7 +8343,7 @@ function ckdCelebrate(ppl){
     + '<circle r="52" fill="#F0A63A" stroke="#0D365F" stroke-width="2.5"/><circle r="40" fill="#fff" stroke="#0D365F" stroke-width="2"/><path d="M-18 2 L-6 14 L20 -14" fill="none" stroke="#1F7A8C" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g></g></svg>'
     + '<div class="ckd-party-in"><span class="ckd-kick">Checks and references done</span><h3>' + bgrEsc(firstName) + ' is cleared!</h3>'
     + '<p>OIG, EDL, FCSR and Case.net are clear, with two good references and one from work. Nice work getting here.</p>'
-    + '<div class="ckd-party-btns"><button type="button" class="ckd-go ckd-go-big" id="ckdPartyGo">Next: send Step 2</button><button type="button" class="ckd-link" id="ckdPartyX">Close</button></div>'
+    + '<div class="ckd-party-btns"><button type="button" class="ckd-go ckd-go-big" id="ckdPartyGo">Next: send orientation</button><button type="button" class="ckd-link" id="ckdPartyX">Close</button></div>'
     + '<span class="ckd-party-note">Plays once for you. Then a small ribbon stays on their row. Nothing is sent to ' + bgrEsc(firstName) + '.</span></div></div>';
   document.body.appendChild(sh);
   const shut = () => sh.remove();
@@ -8068,30 +8584,32 @@ const CKD_HOW = {
     'The search result is saved as the proof by itself.'],
   edl: ['Open the Missouri EDL search and type their full name.', 'Save the result page as a PDF.', 'Press Record EDL, pick the result, and attach the PDF.'],
   fcsr: ['Open the Screening desk (FCSR sheet) on their checklist for the details the state asks for.',
-    'Order the FCSR screening in the state system. Record it with the date you ordered it.',
-    'When the result comes back, press Record FCSR again, pick the result, and attach it.'],
+    'Order the FCSR screening in the state system.',
+    'Press Mark as ordered and give the day you ordered it. Their row then shows how many days it has been waiting.'],
+  fcsrwait: ['The result can take a day or up to a week. Open the FCSR site and see if it is back.',
+    'Not back yet? Nothing to do. Their row keeps counting the days.',
+    'Back? Press Record FCSR, pick the result, and attach it.'],
   casenet: ['Press Open Case.net and search their full name.', 'Save the result page as a PDF.', 'Press Record Case.net, pick the result, and attach the PDF.'],
   review: ['Something came back on a check or a reference. Do not tell the applicant anything yet.',
     'Press Review and read what was found.', 'Samantha or Zachary decide. The Hub only sends a notice after one of them presses OK on the exact words.'],
-  advance: ['The checks and references are done. An owner says go before Step 2.', 'Nothing for you to do: Samantha or Zachary have a card for it.'],
-  step2send: ['Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
+  step2send: ['Do this as soon as their Step 1 is done. It runs at the same time as the checks and references.', 'Open Viventium and create their Step 2 (payroll, tax, direct deposit, I-9).', 'Come back here and press I sent Step 2. The Hub writes down your name and the time.',
     'The Hub sends them their Step 2 message and reminds them on day 3 and day 6.'],
   step2wait: ['Nothing to do yet. They are finishing Step 2 in Viventium.', 'If they tell you on the phone that they are done, press They said done.',
     'Day 8 with nothing? The Hub gives you a card to call them.'],
   step2check: ['Open them in Viventium.', 'Press Check Step 2 and tick each form you can see is really done. Telling us is not the same as done.',
     'If something is missing, use Still open to text them which one.'],
-  welcomecall: ['When Step 2 is checked, the Hub invites them to book the 15-minute video call (with their profile link and a note that their badge is coming). If it did not, press Invite.',
-    'On the call you check their ID on camera for the I-9 and welcome them.',
-    'Press Done at the end. With the Send orientation information button on, their orientation link already went with the welcome message; otherwise it goes out from our training site now.'],
-  axsetup: ['Press AxisCare setup. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
+  welcomecall: ['The link to book the 15-minute video call goes out with their orientation, once the four background checks are clear.',
+    'On the call you check their ID on camera for the I-9 and welcome them. Their Step 2 should be done in Viventium first, because their ID is uploaded there.',
+    'Press Done at the end.'],
+  axsetup: ['Their four background checks are clear. References and Step 2 do not have to be done yet: they keep going on their own lines, and Approve to Work still waits for both.', 'Press Send orientation. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
     'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
     'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
-    'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call.'],
+    'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call. If their Step 2 is not checked yet, it asks them to finish it before the video call.'],
   checkin: ['They finished orientation and are Active in AxisCare. The Hub texted them the AxisCare app guide.',
     'Call them. Make sure everything is on file and complete, and answer any questions about orientation or the job.',
     'Make sure the AxisCare app is downloaded and they can sign in. Ask if they would like a quick test clock-in.',
     'Tick each one on their card and press Done. No answer? Press No answer and try again tomorrow. Shift texts wait for this call.'],
-  approve: ['Everything is done. Only Samantha or Zachary can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  approve: ['Everything is done. Only a person on the Approve to Work list can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
   quiet: ['Call them. Life changes: ask if flexible PRN shifts would work better for them.', 'If PRN fits, press What now? and then I offered PRN.', 'If they are done, press What now? and pick why. The Hub stops their reminders and keeps their record.'],
   prn: ['Call them and ask if PRN (flexible shifts they can accept or decline) works for them.', 'Press Their answer. Yes keeps them on the list as PRN. No opens Take off the list.'],
   badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],
@@ -8104,7 +8622,7 @@ function ckdHowKey(a){
   if(/openOBModal/.test(on)) return 'addrefs';
   if(/bgrRunOIG|'oig'/.test(on)) return 'oig';
   if(/'edl'/.test(on)) return 'edl';
-  if(/'fcsr'/.test(on)) return 'fcsr';
+  if(/'fcsr'|obFcsrSent/.test(on)) return 'fcsr';
   if(/'casenet'/.test(on)) return 'casenet';
   if(/bgrvOpenModal/.test(on) || a.warn) return 'review';
   return '';
@@ -8150,10 +8668,17 @@ function ckdPersonHTML(c){
     const on = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'bgrRunOIG(' + id + ',this)' : 'bgrRecordCheck(' + id + ',\'' + x.k + '\')';
     const label = x.k === 'oig' && !ok && !bad && !c.oig_date ? 'Run now' : (ok || bad) ? 'Change' : 'Record result';
     const date = c[x.k + '_date'] ? fmtD(c[x.k + '_date']) : '';
-    const st = ok ? 'Clear' + (date ? ' · ' + date : '') : bad ? 'Something found' + (date ? ' · ' + date : '') : (x.k === 'fcsr' && date ? 'Ordered ' + date : x.how);
-    const site = x.k === 'casenet' && !ok ? '<a class="ckd-link" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener">Open Case.net</a>' : '';
+    const ord = x.k === 'fcsr' && ckdFcsrOrdered(c);
+    const st = ok ? 'Clear' + (date ? ' · ' + date : '') : bad ? 'Something found' + (date ? ' · ' + date : '') : ord ? ckdFcsrWaitText(c) + (c.fcsr_sent_by ? ' · ' + c.fcsr_sent_by : '') : x.how;
+    let under = '', site = x.k === 'casenet' && !ok ? '<a class="ckd-link" href="https://www.courts.mo.gov/casenet/nameSearch.do?newSearch=Y" target="_blank" rel="noopener">Open Case.net</a>' : '';
+    /* FCSR (2026-11-02): Mark as ordered first, then it shows as waiting until the result is recorded */
+    if(x.k === 'fcsr' && !ok && !bad){
+      if(!ord) return '<div class="ckd-box"><div class="ckd-box-top"><div><b>FCSR</b><div class="ckd-box-sub">' + bgrEsc(st) + '</div></div>'
+        + '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0"><button type="button" class="ckd-link" onclick="' + on + '">Record result</button><button type="button" class="ckd-go" onclick="obFcsrSent(' + id + ')">Mark as ordered</button></span></div></div>';
+      under = '<div class="ckd-box-acts" style="margin-top:4px"><a class="ckd-link" href="https://health.mo.gov/safety/fcsr/" target="_blank" rel="noopener">Open FCSR site</a><button type="button" class="ckd-link" onclick="obFcsrSent(' + id + ')">Change ordered date</button></div>';
+    }
     return '<div class="ckd-box' + (ok ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + x.label + '</b><div class="ckd-box-sub"' + (bad ? ' style="color:#B42318;font-weight:700"' : '') + '>' + bgrEsc(st) + '</div>'
-      + (c[x.k + '_proof'] ? '<div class="ckd-box-sub">' + bgrCheckProofHtml(c[x.k + '_proof']) + '</div>' : '') + '</div>'
+      + (c[x.k + '_proof'] ? '<div class="ckd-box-sub">' + bgrCheckProofHtml(c[x.k + '_proof']) + '</div>' : '') + under + '</div>'
       + '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0">' + site + '<button type="button" class="ckd-go' + (ok || bad ? ' ckd-go-line' : '') + '" onclick="' + on + '">' + label + '</button></span></div></div>';
   };
   const slots = ckdRefSlots(c);
@@ -8162,7 +8687,7 @@ function ckdPersonHTML(c){
     + '<div class="ckd-p-head"><div><h2 class="ckd-h" style="font-size:22px">' + bgrEsc(ckdName(c)) + '</h2><div class="ckd-sub">' + bgrEsc(meta.join(' · ')) + '</div></div>'
     +   '<button type="button" class="ckd-x" onclick="bgrCloseDrawer()" aria-label="Close">&times;</button></div>'
     + '<div class="ckd-bar"><div class="ckd-bar-track"><div class="ckd-bar-fill" style="width:' + Math.round(done / steps.length * 100) + '%"></div></div><b>' + done + ' of ' + steps.length + ' done</b></div>'
-    + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of 7: ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
+    + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of ' + CKD_STOPS.length + ': ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
     + ckdNextCardHTML(c)
     + (ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>' : '')
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
@@ -8170,6 +8695,9 @@ function ckdPersonHTML(c){
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
     +   (slots.length < 4 ? '<button type="button" class="ckd-link" style="align-self:flex-start" onclick="ckdRefForm(' + id + ')">+ Add a reference</button>' : '') + '</div>'
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Background checks</h3></div>' + CKD_CHECKS.map(chkBox).join('') + '</div>'
+    + (ckdStep1Waiting(c) ? '' : (() => { const v = ckdStep2Lane(c);   /* 2026-11-02: Step 2 right after Step 1 */
+        return '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Viventium Step 2</h3><span>Needed before they can work</span></div><div class="ckd-box' + (v.done ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><div class="ckd-box-sub">' + bgrEsc(v.text) + '</div></div>'
+          + (v.label ? '<span style="display:flex;gap:12px;align-items:center;flex-shrink:0"><button type="button" class="ckd-go' + (v.wait ? ' ckd-go-line' : '') + '" onclick="' + v.on + '">' + bgrEsc(v.label) + '</button></span>' : '') + '</div></div></div>'; })())
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>Experience and Level of Care</h3><span>Never holds up hiring</span></div>' + lvlCardHTML(c) + '</div>'
     + (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c) ? '<button type="button" class="ckd-go" onclick="bgrvOpenModal(' + id + ')">Background review</button>' : '')
     + '<div class="ckd-p-foot">'
@@ -8272,6 +8800,7 @@ function renderOB(){
           ${c.not_hired_reason?`<span class="sub" style="color:#ef4444">${{background:'BG Issue',reference:'Ref Concern',noshow:'No-Show',withdrew:'Withdrew',other:'Other',ghosted:'Stopped answering',other_job:'Took another job',changed_mind:'Changed their mind',our_decision:'We decided'}[c.not_hired_reason]||c.not_hired_reason}</span>`:''}
           ${c.not_hired_notes?`<span class="sub" style="color:var(--gray);font-style:italic">${c.not_hired_notes}</span>`:''}
           ${c.not_hired_date?`<span class="sub" style="color:var(--gray)">${fmtD(c.not_hired_date)}</span>`:''}
+          ${window.FALLOFF?FALLOFF.chip(c):''}
         `:`
           ${st==='Ready for Orientation'?obOrientBanner(c):`<span class="badge ${stBadge}">${st}</span>`}
           ${st!=='Ready for Orientation'&&offeredChip(c)?`<br><span style="display:inline-block;margin-top:4px;">${offeredChip(c)}</span>`:''}
@@ -9052,7 +9581,9 @@ async function reactivateOB(id){
   /* 2026-10-21: the server reopens their readiness card and the reference requests 'leave' closed (owners and the Approve
      to Work list). If it says no, they stay off the list. */
   if(c.left_at){
-    try{ await lvlCall({ action:'come_back', candidate_id:String(c.id), offer_id:c.offer_id ? String(c.offer_id) : undefined, note:'Brought back from the Hub' }); }
+    try{ const r = await lvlCall({ action:'come_back', candidate_id:String(c.id), offer_id:c.offer_id ? String(c.offer_id) : undefined, note:'Brought back from the Hub' });
+      /* 2026-11-04: what the server did in AxisCare (back to In Training, or a card) */
+      if(r && r.axiscare && r.note){ if(window.FALLOFF) FALLOFF._st.at = 0; setTimeout(() => alert(r.note), 0); } }
     catch(e){ if(!/unknown action|not found/i.test(e.message || '')){ alert('Not brought back: ' + e.message); return; } }
   }
   delete c.not_hired; delete c.not_hired_reason; delete c.not_hired_notes; delete c.not_hired_date; delete c.left_at; delete c.left_by;
@@ -9783,7 +10314,7 @@ async function axSetupOpen(id){
   const c = wcSrcFor(id); if(!c) return;
   const w = document.createElement('div'); w.className = 'ccpop-wrap';
   w.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto';
-  w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">AxisCare setup: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
+  w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">Send orientation: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
     + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="ibtn" id="axCheck">Check AxisCare</button><span style="flex:1"></span><button class="btn" id="axSend" style="font-size:15px;padding:10px 18px">Send orientation information</button></div></div>';
   document.body.appendChild(w);
   const body = w.querySelector('#axBody'), close = () => { window.__axVals = null; w.remove(); };
@@ -11025,6 +11556,39 @@ function obChecksMount(el, candId){
   const c = candidates.find(x => String(x.id) === String(candId));
   el.innerHTML = c ? obChecksHtml(c) : '<div class="field-note">Their Background &amp; References record was not found, so their checks cannot show here.</div>';
 }
+/* 2026-11-05: once someone is on the roster their Background & References record is gone and the checks they were hired
+   on live on their caregiver record (oig_status, edl_status, fcsr_status, casenet, fp). Shown read only: at hire they
+   are kept exactly as they are, for audits; later OIG runs and renewals are on Compliance. */
+function obChecksRosterMount(el, cgId){
+  if(!el) return;
+  const cg = caregivers.find(x => String(x.id) === String(cgId));
+  el.innerHTML = cg ? obChecksRosterHtml(cg) : '<div class="field-note">Their caregiver record was not found, so their checks cannot show here.</div>';
+}
+function obChecksRosterHtml(cg){
+  const esc = bgrEsc;
+  const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
+  const tone = v => /^(clear|n\/a|not required)$/i.test(String(v||'')) ? ['#15803D','#DCFCE7'] : /flag|issue|overdue/i.test(String(v||'')) ? ['#B91C1C','#FEE2E2'] : ['#B45309','#FEF3C7'];
+  const field = { oig:'oig_status', edl:'edl_status', fcsr:'fcsr_status', casenet:'casenet', fp:'fp' };
+  const rows = BGR_CHECKS.map(m => {
+    const k = m.k, d = cg[k + '_date'], proof = cg[k + '_proof'];
+    let v = String(cg[field[k]] || '');
+    if(k === 'fp' && cg.oos !== 'yes' && (!v || v === 'N/A')) v = 'Not required';
+    else if(!v) v = d ? 'Clear' : 'Not on file';   /* a clear OIG run blanks the status and keeps the date */
+    if(/^clear$/i.test(v)) v = 'Clear'; else if(/^flagged$/i.test(v)) v = 'Flagged';
+    const t = tone(v);
+    return '<tr style="border-bottom:1px solid #F0EDE6;">'
+      + '<td style="padding:7px 8px;font-weight:600;color:var(--navy);white-space:nowrap;">' + esc(m.label) + '</td>'
+      + '<td style="padding:7px 8px;"><span style="font-size:11px;font-weight:700;border-radius:999px;padding:2px 9px;color:' + t[0] + ';background:' + t[1] + ';white-space:nowrap;">' + esc(v) + '</span></td>'
+      + '<td style="padding:7px 8px;white-space:nowrap;">' + esc(day(d)) + '</td>'
+      + '<td style="padding:7px 8px;">' + (proof ? '<a class="pp-link" href="#" data-proof="' + esc(proof).replace(/"/g, '&quot;') + '" onclick="SCX.viewProof(this.dataset.proof);return false">Open</a>'
+          : (v !== 'Not required' && v !== 'Not on file' ? '<span style="color:#B45309;">none on file</span>' : '')) + '</td></tr>';
+  }).join('');
+  return '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;min-width:420px;">'
+    + '<thead><tr style="text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);">'
+    + '<th style="padding:6px 8px;">Check</th><th style="padding:6px 8px;">Result</th><th style="padding:6px 8px;">Date</th><th style="padding:6px 8px;">Proof</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table></div>'
+    + '<div class="field-note" style="margin-top:6px;">From their caregiver record, kept as they were at hire. Monthly OIG runs and renewals are on Compliance.</div>';
+}
 function obChecksHtml(c){
   const esc = bgrEsc, id = c.id;
   const day = iso => { const d = iso ? new Date(String(iso).length === 10 ? iso + 'T12:00:00' : iso) : null; return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month:'2-digit', day:'2-digit', year:'numeric' }) : ''; };
@@ -11041,13 +11605,13 @@ function obChecksHtml(c){
     /* FCSR (Samantha 2026-10-14): when it went to the state, and how many days it has been waiting */
     if(k === 'fcsr'){
       if(c.offer_id) acts.unshift(link('bgrScreeningDesk(' + id + ')', 'FCSR sheet'));   /* the facts from their Step 1, in the state form's order */
-      if(v === 'Pending') acts.push(link('obFcsrSent(' + id + ')', c.fcsr_sent_date ? 'Change the sent date' : 'Mark as sent to the state'));
+      if(v === 'Pending') acts.push(link('obFcsrSent(' + id + ')', c.fcsr_sent_date ? 'Change the ordered date' : 'Mark as ordered'));
       if(v === 'Pending') acts.push(link('obFcsrTextOpen(' + id + ')', 'Send registration steps'));
     }
     const sentD = k === 'fcsr' && c.fcsr_sent_date ? c.fcsr_sent_date : '';
     const daysSince = d => { const t = new Date(String(d) + 'T12:00:00').getTime(); return isNaN(t) ? null : Math.max(0, Math.round((Date.now() - t) / 864e5)); };
     const waiting = sentD && v === 'Pending';
-    const sentLine = sentD ? '<div style="font-size:11.5px;color:' + 'var(--text-muted)' + ';">sent ' + esc(day(sentD))
+    const sentLine = sentD ? '<div style="font-size:11.5px;color:' + 'var(--text-muted)' + ';">ordered ' + esc(day(sentD))
       + (waiting ? ', waiting ' + daysSince(sentD) + (daysSince(sentD) === 1 ? ' day' : ' days') : c.fcsr_date ? ', back in ' + Math.max(0, Math.round((new Date(c.fcsr_date + 'T12:00:00') - new Date(sentD + 'T12:00:00')) / 864e5)) + ' days' : '')
       + (c.fcsr_sent_by ? ' · ' + esc(c.fcsr_sent_by) : '') + '</div>' : '';
     return '<tr style="border-bottom:1px solid #F0EDE6;">'
@@ -11064,15 +11628,46 @@ function obChecksHtml(c){
     + '<tbody>' + rows + '</tbody></table></div>'
     + '<div class="field-note" style="margin-top:6px;">Every result needs its date and its proof. At hire these are kept exactly as they are, for audits.</div>';
 }
-window.obChecksMount = obChecksMount;
+window.obChecksMount = obChecksMount; window.obChecksRosterMount = obChecksRosterMount;   /* 2026-11-05: roster people, read only */
 /* FCSR sent to the state: the date it went, who marked it, and when. The result is still recorded with its proof. */
+/* 2026-11-03 (Samantha: "i would rather the date be a easy to pick date on the order fcsr"): a small window with Today and
+   Yesterday buttons and a calendar (nothing after today), in place of typing YYYY-MM-DD. Saves exactly what it saved before. */
+function obFcsrPickDate(c, today){
+  return new Promise(done => {
+    const old = document.getElementById('fcsrPick'); if(old) old.remove();
+    const yest = (() => { const d = new Date(today + 'T12:00:00'); d.setDate(d.getDate() - 1); return d.toLocaleDateString('en-CA'); })();
+    const name = ((c.first || '') + ' ' + (c.last || '')).trim() || 'this person';
+    const w = document.createElement('div'); w.id = 'fcsrPick';
+    w.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.35);z-index:10050;display:flex;align-items:center;justify-content:center;padding:16px';
+    const b = 'font:inherit;font-size:14px;font-weight:700;border-radius:9px;padding:9px 16px;cursor:pointer;';
+    w.innerHTML = '<div role="dialog" aria-modal="true" aria-labelledby="fcsrPickT" style="background:#fff;border-radius:14px;max-width:380px;width:100%;padding:18px 20px;display:flex;flex-direction:column;gap:12px;color:#16283a">'
+      + '<b id="fcsrPickT" style="font-size:17px;color:#0D365F">When did you order the FCSR for ' + bgrEsc(name) + '?</b>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" data-d="' + today + '" style="' + b + 'background:#0D365F;color:#fff;border:1px solid #0D365F">Today</button>'
+      +   '<button type="button" data-d="' + yest + '" style="' + b + 'background:#fff;color:#0D365F;border:1px solid #cfd8e2">Yesterday</button></div>'
+      + '<label style="font-size:13.5px;color:#55677a;display:flex;flex-direction:column;gap:4px">Or pick the day<input type="date" id="fcsrPickD" value="' + bgrEsc(c.fcsr_sent_date || today) + '" max="' + today + '" style="font:inherit;font-size:15px;padding:8px 10px;border:1px solid #cfd8e2;border-radius:9px;width:100%;box-sizing:border-box"></label>'
+      + '<div id="fcsrPickErr" style="font-size:13px;color:#B42318;display:none"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end"><button type="button" id="fcsrPickX" style="' + b + 'background:#fff;color:#55677a;border:1px solid #e4e1d8">Cancel</button>'
+      +   '<button type="button" id="fcsrPickOk" style="' + b + 'background:#1F7A8C;color:#fff;border:1px solid #1F7A8C">Save that day</button></div></div>';
+    document.body.appendChild(w);
+    const close = v => { w.remove(); document.removeEventListener('keydown', key); done(v); };
+    const pick = d => { const err = w.querySelector('#fcsrPickErr');
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d || '') || d > today){ err.textContent = 'Pick a day on or before today.'; err.style.display = 'block'; return; }
+      close(d); };
+    const key = e => { if(e.key === 'Escape') close(null); };
+    document.addEventListener('keydown', key);
+    w.addEventListener('click', e => { if(e.target === w) close(null); });
+    w.querySelectorAll('[data-d]').forEach(x => x.addEventListener('click', () => pick(x.getAttribute('data-d'))));
+    w.querySelector('#fcsrPickD').addEventListener('input', () => { w.querySelector('#fcsrPickErr').style.display = 'none'; });
+    w.querySelector('#fcsrPickOk').addEventListener('click', () => pick(w.querySelector('#fcsrPickD').value));
+    w.querySelector('#fcsrPickX').addEventListener('click', () => close(null));
+    setTimeout(() => { const t = w.querySelector('[data-d]'); if(t) t.focus(); }, 0);
+  });
+}
 async function obFcsrSent(candId){
   const c = candidates.find(x => String(x.id) === String(candId)); if(!c) return;
   const today = new Date(); const iso = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  const v = (await ccPrompt('What day was the FCSR screening sent to the state? (YYYY-MM-DD)', c.fcsr_sent_date || iso));
-  if(v === null) return;
-  const d = String(v).trim();
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(d) || isNaN(new Date(d + 'T12:00:00')) || d > iso){ alert('That did not look like a date on or before today. Try ' + iso + '.'); return; }
+  const d = await obFcsrPickDate(c, iso);
+  if(d === null) return;
   bgrApplyBoardChange(c.id, { fcsr_sent_date: d, fcsr_sent_by: ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''), fcsr_sent_at: new Date().toISOString() });
 }
 window.obFcsrSent = obFcsrSent;
@@ -12198,6 +12793,11 @@ window.bgrOpenDrawer = bgrOpenDrawer;
 /* checks dashboard (2026-10-21) */
 /* the Orientation tab (orient-progress.js, 2026-11-02): who is on Onboarding, the caregiver list (badge), and drawing Onboarding again */
 window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;
+/* the hiring strip's read of Offers and Onboarding (hire-strip.js, 2026-11-02): read only */
+window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED,
+  /* Send reminder on every row (hire-remind.js, 2026-11-02): the same offer sends the cards use */
+  offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
+window.obtQueue = obtQueue; window.obtOpenQueue = obtOpenQueue;   /* 2026-11-03 the Onboarding table's queues */
 window.ckdOpen = ckdOpen; window.ckdFilter = ckdFilter; window.ckdToggleTest = ckdToggleTest; window.ckdOldView = ckdOldView;
 window.ckdSimpleView = ckdSimpleView; window.lvlRecord = lvlRecord; window.lvlApprove = lvlApprove; window.ckdBadgeMailed = ckdBadgeMailed; window.ckdRefForm = ckdRefForm; window.ckdLeaveOpen = ckdLeaveOpen; window.ckdPrnAnswer = ckdPrnAnswer; window.ckdSearchInput = ckdSearchInput; window.ckdSyncNow = ckdSyncNow;
 window.bgrCloseDrawer = bgrCloseDrawer;

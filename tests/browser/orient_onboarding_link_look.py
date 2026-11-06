@@ -40,7 +40,7 @@ async(CODE)=>{
     { training_id:'aaaa-3', name:'Fake Finished', axiscare_id:'9005', status_label:'Active', status:'complete', completed_at:ago(10*D), attested_at:ago(10*D), units:[] } ];
   window.__inv=async()=>({ data:{ ok:true, rows:[] }, error:null });
   (0,eval)("sb=new Proxy(sb||{},{ get:(t,k)=>k==='functions'?{ invoke:(n,o)=>window.__inv(n,o) }:(typeof t[k]==='function'?t[k].bind(t):t[k]) });");
-  window.fetch=async(u,o)=>String(u).includes('/functions/v1/hub-training-data')?new Response(JSON.stringify(ROWS),{status:200}):new Response('{}',{status:200});
+  window.fetch=async(u,o)=>String(u).includes('/functions/v1/hub-training-data')?new Response(JSON.stringify(String(u).includes('orientation_finished')?ROWS.filter(r=>r.status==='complete'):ROWS),{status:200}):new Response('{}',{status:200});
   (0,eval)("trainHubTok=async()=>'t'");
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin'];
   DATA.ops_settings=DATA.ops_settings||{};
@@ -50,10 +50,12 @@ async(CODE)=>{
   (0,eval)("scxState='ready'"); window.SCX={};
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(50);
   window.CRX={ list:()=>[{ offer_id:'o1', name:'Fake Stuck Person', next:{ key:'cg.orientation.done', title:'Finish orientation' } }, { offer_id:'o2', name:'Fake Moving Person', next:{ key:'cg.orientation.done', title:'Finish orientation' } }], open(){} };
-  ok('the Onboarding list has the two made-up people on the orientation step', JSON.stringify(ckdOrientWho().map(x=>[x.name,x.ax,x.stop]))==='[["Fake Stuck Person","9001",5],["Fake Moving Person","",5]]', ckdOrientWho());
+  ok('the Onboarding list has the two made-up people on the orientation step', JSON.stringify(ckdOrientWho().map(x=>[x.name,x.ax,x.stop]))==='[["Fake Stuck Person","9001",3],["Fake Moving Person","",3]]', ckdOrientWho());
   switchTab('orientprog');
   await OPR.load(); OPR.mount(); await sleep(150);
-  const P=document.getElementById('tab-orientprog'), rowOf=n=>[...P.querySelectorAll('.orp-row')].find(r=>r.innerText.includes(n));
+  OPR.find('fake'); await sleep(200);   /* the search shows every tab at once (2026-11-02 sub-tabs) */
+  const P=document.getElementById('tab-orientprog'), rowOf=n=>[...P.querySelectorAll('.orp-row,.orp-frow')].find(r=>r.innerText.includes(n));
+  const f0=rowOf('Fake Finished'); if(f0) f0.querySelector('.orp-hist').click(); await sleep(50);
   const st=rowOf('Fake Stuck Person'), mv=rowOf('Fake Moving Person'), fin=rowOf('Fake Finished');
   ok('Orientation: the stuck one on Onboarding without a badge says Badge not mailed yet', st && /Badge not mailed yet/.test(st.innerText), st&&st.innerText);
   ok('Orientation: the badge mailed Oct 30 shows (matched by name, no AxisCare number)', mv && /Badge mailed Oct 30/.test(mv.innerText), mv&&mv.innerText);

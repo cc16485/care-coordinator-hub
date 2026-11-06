@@ -102,6 +102,7 @@
         : { lines:scheduleLines(g.schedule), hours:hoursWords(g.schedule.weekly_hours), miss:'no regular schedule in AxisCare' },
       err:x.glanceErr || '',
       care:(x.care || []).slice(0, 8),
+      family:(x.family || []).slice(0, 6),
       due
     };
   }
@@ -158,6 +159,9 @@
     const payKey = (j && j.payer) || (l && l.funding_source) || (CC && CC.ax && CC.data && CC.data.payer) || '';
     let cc = (j && j.assigned_cc) || (l && l.assigned_coordinator) || '';
     let care = [], due = [];
+    /* 2026-11-02: safety and family lines saved from "Learned from AxisCare and calls" (profile-learn.js) */
+    const DATA = G('DATA') || {}, prof = ax ? ((DATA.client_profiles || []).find(p => p && p.id === 'cp_ax' + ax) || {}) : {};
+    const saved = k => (Array.isArray(prof[k]) ? prof[k] : []).filter(x => x && x.text);
     try{ const m = root.cpCommandModel(); care = m.care || [];
       if(!cc){ const t = (m.tiles || []).find(x => x.key === 'owner'); if(t && t.v && !/^Nobody/.test(t.v)) cc = t.v; } }catch(e){}
     try{ if(ax && r) due = root.clDue(Object.assign({}, r, { axiscare_client_id:ax }), Array.isArray(CL.issues) ? CL.issues : []); }catch(e){}
@@ -165,7 +169,7 @@
     return { stageK:stage && stage.k, status:chip ? chip.textContent.trim() : '', ax, name:($('cpTitle') || {}).textContent || (r && r.client_name) || '',
       glance:hit && hit.data, glanceErr:hit && hit.err, lead:l, r, census:cen,
       payer:payKey ? (PAY[payKey] || String(payKey).replace(/_/g, ' ').replace(/^./, c => c.toUpperCase())) : '',
-      cc:first(cc), level:ax ? levelFor(ax) : '', care, due, today:new Date().toISOString().slice(0, 10) };
+      cc:first(cc), level:ax ? levelFor(ax) : '', care:care.concat(saved('safety_notes').map(x => ({ tone:'warn', t:x.text }))), family:saved('family_notes'), due, today:new Date().toISOString().slice(0, 10) };
   }
   function goFor(d){
     if(d.kind === 'concern') return "switchTab('mywork')";
@@ -195,6 +199,7 @@
           : '<div class="cg-v"><span class="cg-miss">' + esc(m.schedule.miss) + '</span></div>') + '</div>' : '')
       + (m.err ? '<div class="cg-err">Birth date, address and phone could not be read from AxisCare: ' + esc(m.err) + '</div>' : '')
       + (m.care.length ? '<div class="cg-row"><span class="cg-lbl">Safety</span>' + m.care.map(c => chip(c.tone, c.t)).join('') + '</div>' : '')
+      + ((m.family || []).length ? '<div class="cg-row"><span class="cg-lbl">Family asks</span>' + m.family.map(x => chip('info', x.text)).join('') + '</div>' : '')
       + '<div class="cg-row cg-due"><span class="cg-lbl">Needs attention</span>'
       + (m.due.length ? m.due.map(d => chip(d.tone, cap(d.label), goFor(d))).join('') : '<span class="cg-miss">nothing open or due</span>')
       + '<span style="flex:1;"></span><button class="linklike" onclick="cgRequests(true)">Record a family request</button></div>'

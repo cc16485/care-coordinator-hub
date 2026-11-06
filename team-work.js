@@ -31,7 +31,9 @@
   const TEAM_KINDS = ['coverage', 'staffing_issue', 'staffing', 'coverage_outcome', 'family_call', 'call_followup', 'confirm_times',
     'evv_fix', 'evv_review', 'late_notice', 'visit_risk', 'callout', 'call_off', 'running_late', 'missed_clockin', 'missed_clockout',
     /* 2026-10-18: open shifts from coverage-watch (ops_open_<id>), added by the Today / follow-up work */
-    'open_shift'];
+    'open_shift',
+    /* 2026-11-04 (Samantha): the call after orientation, for whichever care coordinator is free (after_orientation_call_live) */
+    'orientation_call'];
   const TEAM_OPENERS = /^(timekeeper|late-watch|callout|quiet-callout|confirm_times|axiscare-watch|ongoing-sweep|call-tasks|attendance-watch)/;
   /* A person made it, so a person decided whose it is (rule 1: explicitly assigned). */
   const PERSON_OPENERS = ['person', 'quick-capture', 'phone', 'capture'];
@@ -117,6 +119,10 @@
   /* The path, in the approved words. Only the care-at-risk track ever texts anyone. */
   function escalation(it, ctx){
     const t = track(it, ctx);
+    /* Calmer My Work (2026-11-05, her pick 10): say only what really happens. Nothing sends the 20 and 35 minute texts. */
+    if(t === 'care' && root && root.CMW && root.CMW.on()) return { track:t, steps:[
+      { at:0, who:'everyone on duty', how:'on screen' }, { at:10, who:'the person in charge', how:'on screen' }, { at:20, who:'leadership', how:'on screen' } ],
+      words:'Care at risk: everyone on duty sees it now. Not taken in 10 min: the person in charge. 20 min: leadership, on screen.' };
     if(t === 'care') return { track:t, steps:[
       { at:0, who:'everyone on duty', how:'on screen' },
       { at:10, who:'the person in charge', how:'on screen' },

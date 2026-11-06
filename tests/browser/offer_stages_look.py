@@ -18,7 +18,7 @@ def cut(a, b):
 STUBS = "".join(f"if (typeof window.{n} !== 'function') window.{n} = () => {v};\n" for n, v in [('vivSheet', "''"), ('obDeriveStatus', "'Checks running'"), ('updateGroupBadges', 'undefined'),
   ('gotoTab', 'undefined'), ('confirmOfferLevel', 'undefined'), ('markOfferEntered', 'undefined'), ('markOfferStep1', 'undefined'), ('markOfferViventium', 'undefined')])
 D = lambda n: f"new Date(Date.now()-{n}*864e5).toISOString().slice(0,10)"
-CODE = "let candidates = [{ id: 5, first: 'Nora', last: 'Moved', offer_id: 'of-moved' }, { id: 6, first: 'Ned', last: 'Nothired', offer_id: 'of-nothired', not_hired: true }], caregivers = [];\n" + STUBS + cut('const OFFER_ATTRS', 'let OFFERS=[];') + f"""
+CODE = "let candidates = [{ id: 5, first: 'Nora', last: 'Moved', offer_id: 'of-moved' }, { id: 6, first: 'Ned', last: 'Nothired', offer_id: 'of-nothired', not_hired: true, not_hired_date: new Date().toISOString().slice(0,10) }], caregivers = [];\n" + STUBS + cut('const OFFER_ATTRS', 'let OFFERS=[];') + f"""
 let OFFERS = [
   {{ id:'of-sent', name:'Sara Sent', phone:'4175550201', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(2)}, onboarding_path:'new', offer_status:'sent', offer_expires_at:new Date(Date.now()+5*864e5).toISOString() }},
   {{ id:'of-exp', name:'Eli Expired', phone:'4175550202', position:'Caregiver', offered_by:'Krystal Land', interview_date:{D(12)}, onboarding_path:'new', offer_status:'sent', offer_expires_at:new Date(Date.now()-864e5).toISOString() }},

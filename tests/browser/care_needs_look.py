@@ -9,8 +9,8 @@ from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 page = '''<!doctype html><meta charset="utf-8"><body><div id="cp_needs"></div><script src="match-rules.js"></script><script>
-window.DATA = { ops_settings: { care_needs_live: false } };
-window.CP = { lead: { id: 'L1', funding_source: 'private', client_attributes: { hoyer_lift: 'yes', bed_bound: 'no', dementia: 'preferred', cats: 'yes', spanish_speaking: 'no' } } };
+let DATA = { ops_settings: { care_needs_live: false } };  /* the page's own names, never on window, like the Hub */
+const CP = { lead: { id: 'L1', funding_source: 'private', client_attributes: { hoyer_lift: 'yes', bed_bound: 'no', dementia: 'preferred', cats: 'yes', spanish_speaking: 'no' } } };
 window.FACTS = []; window.CALLS = []; window.NEXT = [];
 const chain = (rows) => { const o = { select: () => o, eq: () => o, in: () => o, then: (ok) => ok({ data: rows(), error: null }) }; return o; };
 window.sb = { from: (t) => chain(() => t === 'episode_source' ? [{ episode_id: 'E1' }] : t === 'client_fact_current' ? window.FACTS : []) };

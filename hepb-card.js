@@ -83,8 +83,9 @@
         + '<div><b>Offer due by:</b> ' + (row.due_date ? (late ? '<b style="color:#B91C1C">' + day(row.due_date) + ' (passed)</b>' : day(row.due_date)) : '<span class="field-note">10 working days after initial assignment</span>') + '</div>'
         + '<div><b>Offered:</b> ' + (row.offered_at ? central(row.offered_at) + ' <span class="field-note">' + esc(row.offered_via || '') + '</span>' : '<span class="field-note">not yet</span>') + '</div></div>';
       h += '<div style="margin-top:.4rem">';
-      if(!row.training_date) h += '<input type="date" id="hbTr' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Confirm training date', 'HEPB.act(' + i + ',\'confirm_training\')');
-      if(!row.assignment_date) h += ' <input type="date" id="hbAs' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Set initial assignment', 'HEPB.act(' + i + ',\'set_assignment\')');
+      /* 2026-11-05: Safari shows today in gray in an empty date box, so each box says what it is for (it looked filled in) */
+      if(!row.training_date) h += '<label class="field-note" for="hbTr' + i + '" style="margin-right:4px">Training date:</label><input type="date" id="hbTr' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Confirm training date', 'HEPB.act(' + i + ',\'confirm_training\')');
+      if(!row.assignment_date) h += ' <label class="field-note" for="hbAs' + i + '" style="margin:0 4px 0 8px">First assignment date:</label><input type="date" id="hbAs' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Set initial assignment', 'HEPB.act(' + i + ',\'set_assignment\')');
       if(row.may_send) h += btn('Send link', 'HEPB.act(' + i + ',\'send_link\')');
       if(!row.offered_at && row.status_label === 'Not offered yet') h += btn('Record offer made in person', 'HEPB.act(' + i + ',\'record_offer\')');
       h += '</div>';
@@ -101,7 +102,7 @@
     if((x.doses || []).length) h += '<div>Doses: ' + x.doses.map(z => 'dose ' + esc(z.n) + ' ' + day(z.date)).join(', ') + '</div>';
     if(x.verified_at) h += '<div>Checked ' + esc(central(x.verified_at)) + ' by ' + esc(x.verified_by || '') + '</div>';
     h += '<div style="margin-top:.35rem">';
-    if(x.status === 'vaccine') h += '<input type="date" id="hbDose' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Record a dose', 'HEPB.act(' + i + ',\'record_dose\')') + ((x.doses || []).length ? btn('Series complete', 'HEPB.act(' + i + ',\'series_complete\')') : '');
+    if(x.status === 'vaccine') h += '<label class="field-note" for="hbDose' + i + '" style="margin-right:4px">Dose date:</label><input type="date" id="hbDose' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Record a dose', 'HEPB.act(' + i + ',\'record_dose\')') + ((x.doses || []).length ? btn('Series complete', 'HEPB.act(' + i + ',\'series_complete\')') : '');
     if(['prior_series','immune','contraindicated'].includes(x.status) && !x.verified_at) h += btn('Checked', 'HEPB.act(' + i + ',\'verify\')');
     if(!['complete'].includes(x.status) && x.status !== 'not_required') h += ' <select id="hbCh' + i + '" style="max-width:15rem"><option value="">Record an answer given on paper…</option>' + Object.keys(CHOICE_WORD).map(k => '<option value="' + k + '">' + esc(CHOICE_WORD[k]) + '</option>').join('') + '</select> ' + btn('Record', 'HEPB.act(' + i + ',\'record_choice\')');
     h += '</div>';
