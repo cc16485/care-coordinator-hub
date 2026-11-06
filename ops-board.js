@@ -38,6 +38,15 @@
     return lc(it.urgency) === 'urgent' || lc(it.domain) === 'incidents' || lc(it.sub_state) === 'escalated'
       || !!(e && !e.cleared_at && e.level === 'urgent') || !!careTrack;
   }
+  /* Care or safety RIGHT NOW (the red tile and the Need column): the same 12-hour rule as Today's Act now and Team Work.
+     A red card from three weeks ago is late work, not something happening now (her screenshot 2026-11-05: 49 "care or
+     safety" rows, most of them weeks old). The Board cleanup still never clears a card that was ever care or safety. */
+  function careNow(it, careTrack, now, past){
+    if(careTrack) return true;
+    if(!care(it) || past) return false;
+    const d = ms(it.due) != null ? ms(it.due) : ms(it.created_at);
+    return d == null || now - d <= 12 * HOUR;
+  }
   /* A promise made on a call, or a call nobody could read: never cleared by the cleanup */
   function promise(it){ const id = String(it && it.id || ''); return id.indexOf('cfp_') === 0 || id.indexOf('cfu_') === 0; }
   function whoOf(it){
@@ -48,9 +57,10 @@
     if(it.caregiver_ax || it.caregiver || /^(caregivers|caregiver_performance|scheduling_coverage|money)$/.test(d) || /^(coverage|staffing|missed_note|late_notice|caregiver)/.test(k)) return 'caregiver';
     return 'office';
   }
-  function needOf(it, careTrack){
+  function needOf(it, careTrack, now, past){
     const k = lc(it.kind), d = lc(it.domain);
-    if(care(it, careTrack)) return 'care';
+    if(now == null ? care(it, careTrack) : careNow(it, careTrack, now, past)) return 'care';
+    if(k === 'care_note') return 'note';
     if(k === 'review') return 'review';
     if(k === 'call_followup' || k === 'reply_needed' || k === 'missed_call' || /_reply$/.test(k)) return 'call';
     if(d === 'scheduling_coverage' || /^(coverage|staffing|confirm_times|late_notice|open_shift)/.test(k)) return 'schedule';
@@ -58,7 +68,7 @@
     if(d === 'client_onboarding' || /^(family_welcome|journey|profile_intro|new_family_call|care_packet|new_lead)/.test(k)) return 'start';
     return 'other';
   }
-  const NEED = { care:'Care or safety', call:'Call or text back', schedule:'Scheduling', hiring:'Hiring', start:'Family start', approval:'Approval', review:'Review', other:'Other' };
+  const NEED = { care:'Care or safety', note:'Shift-note flag', call:'Call or text back', schedule:'Scheduling', hiring:'Hiring', start:'Family start', approval:'Approval', review:'Review', other:'Other' };
   const WHO = { family:'Family or client', caregiver:'Caregiver', applicant:'Applicant', lead:'Lead', office:'Office' };
   /* when: 'late' | 'today' | 'later' (parked with a wake-up still ahead, or due after today) */
   function whenOf(it, now, parked){
@@ -94,7 +104,7 @@
   }
   /* Her pick 2: the board opens on my rows plus care or safety nobody has taken */
   function startView(row, me){ return row.mine || (!row.owner && row.need === 'care'); }
-  const CORE = { liveOn, olderViews, care, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO };
+  const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ═══════════════════════════════════ in the Hub ═══════════════════════════════════ */
@@ -119,10 +129,10 @@
     const team = (W.TW && W.TW.on()) ? W.TW.teamIds() : new Set();
     const open = (D().ops_items || []).filter(i => i && i.status === 'open' && (typeof W.opsCanSee !== 'function' || W.opsCanSee(i)));
     const out = open.map(it => {
-      const ct = careTrackOf(it, c), parked = typeof W.opsParked === 'function' && W.opsParked(it);
+      const ct = careTrackOf(it, c), parked = typeof W.opsParked === 'function' && W.opsParked(it), past = typeof W.opsPastDay === 'function' && W.opsPastDay(it);
       const mine = !!m && (lc(it.owner) === m || (Array.isArray(it.also_for) && it.also_for.some(x => lc(x) === m)) || lc(it.claimed_by) === m);
-      return { it, id:it.id, kind:'card', owner:lc(it.owner), mine, team:team.has(it.id), need:needOf(it, ct), who:whoOf(it), when:whenOf(it, now, parked),
-        since:ms(it.created_at), past:typeof W.opsPastDay === 'function' && W.opsPastDay(it), clean:cleanable(it, now, ct) };
+      return { it, id:it.id, kind:'card', owner:lc(it.owner), mine, team:team.has(it.id), need:needOf(it, ct, now, past), who:whoOf(it), when:whenOf(it, now, parked),
+        since:ms(it.created_at), past, clean:cleanable(it, now, ct) };
     });
     /* her pick 3: write-ups waiting on an approver are rows, only for the approve list */
     try{ if(typeof W.discMayApproveAny === 'function' && W.discMayApproveAny()) W.discForMe().forEach(a => out.push({ it:a, id:'appr_' + a.id, kind:'approval',
@@ -207,7 +217,8 @@
         + '<td>You approve it</td><td><span class="opb-when">Today</span></td><td>' + esc(waited(r.since, now)) + '</td>'
         + '<td><button class="primary" onclick="OPB.approvals()">Review</button></td><td></td><td></td></tr>';
     }
-    const title = it.about || it.title || '', what = (it.about && it.title && it.about !== it.title) ? it.title : (it.detail || '');
+    /* "(phone lead)" is the old placeholder for no name (2026-10-15), not a name */
+    const title = (/^\s*\(phone lead\)\s*$/i.test(String(it.about || '')) ? 'Name not on file' : (it.about || it.title || '')), what = (it.about && it.title && it.about !== it.title) ? it.title : (it.detail || '');
     const kindWord = typeof W.opsKindLabel === 'function' ? W.opsKindLabel(it) : it.kind;
     const ownerCell = r.owner ? esc(it.owner_name || name(r.owner)) + (r.team ? '<div class="opb-sub">On duty pile</div>' : '')
       : '<button class="primary" onclick="opsTakeIt(\'' + id + '\')">Take it</button>';
@@ -256,7 +267,9 @@
     if(!wrap) return;
     const now = Date.now(), all = rows(), shown = all.filter(r => pass(r));
     if(S.open && !all.some(r => r.id === S.open)) S.open = '';
-    let h = (document.getElementById('opbCss') ? '' : CSS);
+    /* the style goes in <head> once; inside the board it was wiped by the next redraw (2026-11-05, her screenshot) */
+    if(!document.getElementById('opbCss')){ const t = document.createElement('div'); t.innerHTML = CSS; document.head.appendChild(t.firstChild); }
+    let h = '';
     if(!on()) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>Practice, switched off.</b> Only owners see this tab. Every other tab works as before. '
       + 'When the rows look right, turn on Operations Board on the Owners Hub Admin page.</div>';
     h += tiles(all) + menus(all) + cleanHtml(all);
