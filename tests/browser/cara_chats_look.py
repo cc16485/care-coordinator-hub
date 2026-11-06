@@ -14,6 +14,7 @@ STUB = r"""
     { id:1, asked_at:at('09:00','03'), question:'Do you take Medicaid? (fake)', reply:'Our sister company helps with that. (fake)', outcome:'answered', session_id:null },
     { id:2, asked_at:at('10:00'), question:'How much does care cost? (fake)', reply:'Our rate is $30 an hour. (fake)', outcome:'answered', session_id:'cabc12345' },
     { id:3, asked_at:at('10:02'), question:'Do you cover Ozark? (fake)', reply:'I do not have a confirmed answer. Please call. (fake)', outcome:'none', session_id:'cabc12345' },
+    { id:5, asked_at:at('12:00'), question:'do you accept medicaid', reply:'(install check)', outcome:'answered', session_id:'desktop-1149-check' },
     { id:4, asked_at:at('11:00'), question:'<b>bold</b><img src=x onerror="window.__xss=1"> hi (fake)', reply:'Hello! (fake)', outcome:'answered', session_id:'cxyz98765' },
   ];
   W.__deny=false;
@@ -37,6 +38,7 @@ async()=>{
   const q=window.__log.queries[0]||{};
   ok('it reads only the website chat log, read only', q.t==='kb_answer_log' && q.eq.some(e=>e[0]==='channel'&&e[1]==='cara') && !/\*/.test(q.sel||''), q);
   ok('three chats: two with ids, one old single question', /All chats \(3\)/.test(txt()) && /single question, saved before chats were grouped/.test(txt()), txt());
+  ok('Desktop install checks are hidden and counted', !/install check/.test(txt()) && /1 test questions from Desktop install steps are not shown/.test(txt()), txt());
   ok('the two-question chat is one card, newest chat first', /2 questions/.test(txt()) && txt().indexOf('bold')<txt().indexOf('How much does care cost'), txt());
   ok('it says Cara could not answer one', /Cara could not answer 1/.test(txt()));
   const btn=[...box().querySelectorAll('button')].find(b=>/Left their number: Pat Lee/.test(b.innerText));

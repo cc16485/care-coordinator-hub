@@ -9041,7 +9041,7 @@ function renderActiveTab(){
   if(activeTab==='carelibrary'){ const go=()=>{ try{ window.CLIB&&window.CLIB.mount('clib_box'); }catch(e){ console.warn('care library', e); } };
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='carachats'){ const go=()=>{ try{ window.CCHATS&&window.CCHATS.mount('cchats_box'); }catch(e){ console.warn('ask cara chats', e); } };
-    if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261105a'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261106a'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
     if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }

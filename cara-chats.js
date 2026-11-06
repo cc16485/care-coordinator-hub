@@ -23,6 +23,9 @@
   const S = { box: null, rows: [], limit: PAGE, more: false, loading: false, err: '', filter: 'all', q: '', open: {} };
   const when = iso => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
   const unanswered = r => r.outcome === 'withheld' || r.outcome === 'none';
+  /* Desktop install steps ask Cara test questions as session "desktop-1149-check" and so on (2026-11-05: they showed up as
+     visitor chats). Hidden from the list; the page says how many. */
+  const isCheck = r => /^desktop-\d+-check$/.test(String(r.session_id || ''));
 
   async function load(){
     S.loading = true; S.err = ''; render();
@@ -56,7 +59,7 @@
 
   function chats(){
     const by = {}, list = [];
-    S.rows.forEach(r => {
+    S.rows.filter(r => !isCheck(r)).forEach(r => {
       const k = r.session_id ? 's:' + r.session_id : 'r:' + r.id;
       if (!by[k]) { by[k] = { key: k, sid: r.session_id || '', msgs: [] }; list.push(by[k]); }
       by[k].msgs.push(r);
@@ -103,6 +106,7 @@
   function render(){
     if (!S.box) return;
     const all = chats(), list = shown(all);
+    const nChecks = S.rows.filter(isCheck).length;
     const nLead = all.filter(c => c.lead).length, nMissed = all.filter(c => c.missed).length;
     const pill = (k, label) => '<button class="' + (S.filter === k ? 'primary' : 'secondary') + '" style="padding:5px 12px;font-size:12.5px" onclick="CCHATS.filter(\'' + k + '\')">' + label + '</button>';
     S.box.innerHTML = '<div style="margin-bottom:14px">'
@@ -113,6 +117,7 @@
       + pill('all', 'All chats (' + all.length + ')') + pill('lead', 'Left their number (' + nLead + ')') + pill('missed', 'Cara could not answer (' + nMissed + ')')
       + '<input type="search" placeholder="Search what was asked" value="' + esc(S.q) + '" oninput="CCHATS.search(this.value)" style="flex:1;min-width:160px;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit">'
       + '<button class="linklike" onclick="CCHATS.reload()">Refresh</button></div>'
+      + (nChecks ? '<div class="field-note" style="margin-bottom:6px">' + nChecks + ' test questions from Desktop install steps are not shown.</div>' : '')
       + (S.loading ? '<div class="field-note">Loading chats...</div>'
         : S.err ? '<div style="background:#fdf0f0;color:#a33;border-radius:10px;padding:12px 14px;font-size:13.5px">' + esc(S.err) + '</div>'
         : !all.length ? '<div class="field-note">No website chats yet.</div>'
