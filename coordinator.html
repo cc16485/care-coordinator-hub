@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your care coordinator | Caring Companions</title>
+<!-- A private link, not a public page. Nothing here should ever turn up in a
+     search result for a caregiver's name. -->
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- ============================================================
+     THE COORDINATOR CARD (Samantha 2026-11-05: "maybe we should like the
+     care coordinator/owners profile and say that this is like the profile
+     you will receive on your caregiver"). Linked from the assessment
+     confirmation text and email. The same look as the caregiver card on
+     purpose, so the family sees exactly what they will get for their
+     caregiver. Data comes from coordinator_card(), which returns a
+     published card only. The name is used instead of he or she.
+     ============================================================ -->
+<style>
+  :root{
+    --navy:#0E3860; --teal:#54BDB8; --honey:#F0A63A; --bg:#F6F9FD;
+    --ink:#1B2B3C; --muted:#4A5868; --border:#DCE6F0; --teal-soft:#E4F4F3; --honey-soft:#FFF5E6;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{-webkit-text-size-adjust:100%;}
+  body{font-family:'Poppins','Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--ink);
+       font-size:19px;line-height:1.65;padding:22px 16px 48px;}
+  .wrap{max-width:600px;margin:0 auto;}
+  .brand{text-align:center;margin-bottom:18px;}
+  .brand img{width:200px;max-width:60%;height:auto;display:inline-block;}
+  .card{background:#fff;border:1px solid var(--border);border-radius:24px;overflow:hidden;
+        box-shadow:0 4px 22px rgba(14,56,96,.08);}
+  .hero{padding:30px 22px 24px;text-align:center;background:linear-gradient(180deg,var(--teal-soft) 0%,#fff 100%);}
+  .photo{width:220px;height:220px;max-width:70vw;max-height:70vw;object-fit:cover;border-radius:50%;
+         border:6px solid #fff;outline:4px solid var(--honey);box-shadow:0 6px 22px rgba(14,56,96,.18);
+         display:block;margin:6px auto 18px;background:var(--teal-soft);}
+  .initial{width:220px;height:220px;max-width:70vw;max-height:70vw;border-radius:50%;margin:6px auto 18px;
+           background:var(--teal);color:#fff;font-size:96px;font-weight:800;display:flex;align-items:center;justify-content:center;
+           border:6px solid #fff;outline:4px solid var(--honey);box-shadow:0 6px 22px rgba(14,56,96,.18);}
+  h1{color:var(--navy);font-size:40px;line-height:1.15;font-weight:800;letter-spacing:-.01em;overflow-wrap:anywhere;}
+  .role{color:var(--muted);font-size:19px;margin-top:6px;}
+  .years{display:inline-block;margin-top:14px;background:var(--honey-soft);color:#6B4200;border:1.5px solid #F6D39A;
+         border-radius:999px;padding:6px 18px;font-size:17px;font-weight:700;}
+  .body{padding:8px 24px 26px;}
+  section{padding:20px 0;border-top:1px solid var(--border);}
+  section:first-child{border-top:0;}
+  h2{color:var(--navy);font-size:23px;line-height:1.3;font-weight:700;margin-bottom:8px;overflow-wrap:anywhere;}
+  .body p{font-size:19px;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .tags{display:flex;flex-wrap:wrap;gap:8px;}
+  .tag{background:var(--teal-soft);color:#0B4744;border-radius:999px;padding:7px 15px;font-size:17px;font-weight:600;}
+  video{width:100%;border-radius:16px;border:1px solid var(--border);display:block;background:#000;}
+  .trust{background:var(--teal-soft);border-radius:16px;padding:16px 18px;margin-top:6px;font-size:19px;color:#0B3B39;}
+  .trust b{color:var(--navy);}
+  .call{display:block;text-align:center;background:var(--navy);color:#fff;text-decoration:none;font-weight:700;
+        border-radius:16px;padding:18px 16px;font-size:22px;line-height:1.3;margin-top:22px;min-height:64px;}
+  .call span{display:block;font-size:17px;font-weight:600;color:#CFE3F5;margin-bottom:2px;}
+  .call:focus-visible{outline:4px solid var(--honey);outline-offset:3px;}
+  .foot{text-align:center;color:var(--muted);font-size:16px;margin-top:20px;line-height:1.6;}
+  .state{text-align:center;padding:44px 22px;}
+  .state h1{font-size:28px;margin-bottom:10px;}
+  .state p{color:var(--muted);font-size:19px;}
+  .visit li{margin:0 0 8px 1.1em;font-size:19px;}
+  .more{display:block;text-align:center;margin-top:14px;font-size:18px;color:var(--navy);font-weight:600;}
+  .demo{background:var(--honey-soft);border:1.5px solid #F6D39A;border-radius:14px;padding:12px 14px;
+        font-size:17px;color:#6B4200;margin-bottom:16px;text-align:center;line-height:1.5;}
+  @media (max-width:380px){ body{font-size:18px;} h1{font-size:34px;} .body{padding:6px 18px 22px;} }
+  @media print{
+    body{background:#fff;padding:0;font-size:15pt;}
+    .card{box-shadow:none;border:1px solid #999;}
+    .hero{background:#fff;}
+    .photo,.initial{box-shadow:none;}
+    video{display:none;}
+    .call{background:#fff;color:var(--navy);border:2px solid var(--navy);}
+    .call span{color:var(--muted);}
+    section{break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><img src="cc-logo.png" alt="Caring Companions In-Home Senior Care"></div>
+  <main id="host"><div class="card"><div class="state"><p>One moment…</p></div></div></main>
+  <div class="foot">Caring Companions In-Home Senior Care<br>Springfield, Missouri</div>
+</div>
+
+<script>
+const SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
+const OFFICE = '(417) 234-8494', OFFICE_TEL = 'tel:+14172348494';
+const BEFORE = 'https://mo-care.com/before-your-assessment';
+
+const esc = s => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const safeUrl = u => /^https:\/\/[^\s"'<>]+$/i.test(String(u || '')) ? String(u) : '';
+
+const callBtn = () => '<a class="call" href="' + OFFICE_TEL + '"><span>Questions? Tap to call the office</span>' + OFFICE + '</a>';
+
+function state(title, line){
+  document.getElementById('host').innerHTML =
+    '<div class="card"><div class="state"><h1>' + esc(title) + '</h1><p>' + esc(line) + '</p>' + callBtn() + '</div></div>';
+}
+
+/* An example, so a coordinator can see what they are filling in for. Made up on purpose and labelled as such. */
+const DEMO = {
+  name: 'Jordan Example', first: 'Jordan', title: 'Care coordinator', photo: null, video: null,
+  about: 'Jordan grew up in Springfield and loves helping families find their footing when a parent needs more help at home.',
+  experience: 'Jordan has spent eight years in senior care, first as a caregiver and now coordinating care for families.',
+  why: 'Jordan helped care for a grandfather with dementia and saw how much the right caregiver changed his days.',
+};
+
+/* What we'll do at the visit: the same for every family, so they know the hour is about them, not a sales pitch.
+   From the approved confirmation email and the Before your assessment page. */
+const VISIT = [
+  'Get to know your loved one: their routines, what they enjoy, and what has gotten harder',
+  'Talk about any health needs, so we can plan the right care and the right caregiver match',
+  'Go over the levels of care and what they cost, and answer every question you have',
+  'Leave you everything in writing. There is no obligation, and you can take the time you need',
+];
+
+async function load(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get('id') || '';
+  if(params.get('demo') === '1') return render(DEMO, true);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
+    return state('Nothing to show here', 'This link is missing a piece. Call us and we will send it again.');
+  let p;
+  try{
+    const res = await fetch(SB_URL + '/rest/v1/rpc/coordinator_card', {
+      method: 'POST',
+      headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_id: id }),
+    });
+    if(!res.ok) throw new Error('http ' + res.status);
+    p = await res.json();
+  }catch(e){
+    return state('We could not load this just now', 'Please try again in a moment, or call us.');
+  }
+  if(!p) return state('This card is not available', 'Call the office and we will tell you who is coming.');
+  render(p, false);
+}
+
+function render(p, isDemo){
+  const full = String(p.name || '').trim() || 'Your care coordinator';
+  const first = String(p.first || full.split(/\s+/)[0] || 'your care coordinator').trim();
+  const F = esc(first), N = esc(full);
+  const photo = safeUrl(p.photo), video = safeUrl(p.video);
+  document.title = (isDemo ? 'Example coordinator card' : full + ', your care coordinator') + ' | Caring Companions';
+  const sec = (h, body) => '<section><h2>' + h + '</h2>' + body + '</section>';
+  const para = t => '<p>' + esc(t) + '</p>';
+
+  document.getElementById('host').innerHTML =
+    (isDemo ? '<div class="demo"><b>This is an example.</b> Jordan is not a real person. ' +
+              'It shows what a coordinator card looks like.</div>' : '') +
+    '<article class="card">' +
+      '<div class="hero">' +
+        (photo
+          ? '<img class="photo" src="' + esc(photo) + '" alt="Photo of ' + N + '">'
+          : '<div class="initial" aria-hidden="true">' + esc(first.charAt(0).toUpperCase()) + '</div>') +
+        '<h1>' + N + '</h1>' +
+        '<div class="role">' + esc(p.title || 'Care coordinator') + ', Caring Companions</div>' +
+      '</div>' +
+      '<div class="body">' +
+        (p.about ? sec('A little about ' + F, para(p.about)) : '') +
+        (video ? sec('Say hello to ' + F, '<video controls playsinline preload="metadata" src="' + esc(video) + '"></video>') : '') +
+        (p.experience ? sec(F + '’s experience in senior care', para(p.experience)) : '') +
+        (p.why ? sec('Why ' + F + ' does this work', para(p.why)) : '') +
+        sec('What we’ll do at your visit', '<ul class="visit">' + VISIT.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul>' +
+          '<p>It usually takes 60 to 90 minutes.</p>') +
+        '<div class="trust"><b>This is just like the profile you’ll get for your caregiver</b> before their first visit, so you’ll never have a stranger at the door.</div>' +
+        '<a class="more" href="' + BEFORE + '">Questions families ask us, answered up front</a>' +
+        callBtn() +
+      '</div>' +
+    '</article>';
+}
+load();
+</script>
+</body>
+</html>
