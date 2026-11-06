@@ -1182,6 +1182,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        working. -->
   <div class="fsubbar" id="fsub-leads">
     <div class="fpill" data-tab="leadsstarts" onclick="switchTab('leadsstarts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Leads board</div>
+    <!-- 2026-11-06 (her ask, from GHL where she only sees each link's own page): what visitors asked Cara on mo-care.com,
+         between Leads board and Reports. Read only (cara-chats.js). Was beside Inbox 11-05. -->
+    <div class="fpill" data-tab="carachats" onclick="switchTab('carachats')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Ask Cara chats</div>
     <div class="fpill" data-tab="reports" onclick="switchTab('reports')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Reports</div>
     <span style="flex:1"></span>
     <select id="ccViewAsL" onchange="ccSetViewAs(this.value)" title="View one coordinator's book" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--navy);font-family:inherit;max-width:160px;align-self:center"></select>
@@ -1205,8 +1208,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
-    <!-- 2026-11-05 (her pick, beside Inbox): what visitors asked Cara on mo-care.com, read only (cara-chats.js) -->
-    <div class="fpill" data-tab="carachats" onclick="switchTab('carachats')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Ask Cara chats</div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <!-- 2026-10-19: the AI's reading of each call and text, for checking its work (was Call Follow Ups on Today) -->
     <div class="fpill" data-tab="callfollowups" onclick="switchTab('callfollowups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> AI call reader</div>
@@ -8359,7 +8360,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','carachats','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -9041,7 +9042,7 @@ function renderActiveTab(){
   if(activeTab==='carelibrary'){ const go=()=>{ try{ window.CLIB&&window.CLIB.mount('clib_box'); }catch(e){ console.warn('care library', e); } };
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='carachats'){ const go=()=>{ try{ window.CCHATS&&window.CCHATS.mount('cchats_box'); }catch(e){ console.warn('ask cara chats', e); } };
-    if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261106a'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261106b'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
     if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
