@@ -46,6 +46,8 @@ async()=>{
   let t=tabs();
   /* 2026-11-05: Follow-ups (practice) sits next to Today for owners (cc-followups.js); the rest keep their order */
   t=t.filter(x=>!/^Follow-ups/.test(x));
+  /* 2026-11-05: owners also get the Operations Board practice tab first (ops-board.js); the rest are unchanged */
+  if(/^Operations Board/.test(t[0])) t=t.slice(1);
   ok('on · tabs: Today, Team Work, All mine, Waiting, More', /^Today/.test(t[0]) && /^Team Work/.test(t[1]) && /^All mine/.test(t[2]) && /^Waiting/.test(t[3]) && /^More/.test(t[4]) && !t.some(x=>/^Reviews/.test(x)), t);
   MWTidy.more(); await sleep(60);
   ok('on · More opens the rest (Reviews, Up for grabs, Unassigned…)', tabs().some(x=>/^Reviews/.test(x)) && tabs().some(x=>/^Unassigned/.test(x)), tabs());

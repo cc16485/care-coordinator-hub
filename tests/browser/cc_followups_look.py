@@ -60,7 +60,8 @@ SETUP = r"""async(mode)=>{
 T = r"""async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const tabs=()=>myWorkTabs({}).map(t=>t[0]+':'+t[1]);
-  ok('practice, owner: "Follow-ups (practice)" sits right next to Today', tabs()[1]==='followups:Follow-ups (practice)', tabs());
+  /* 2026-11-05: the Operations Board practice tab (ops-board.js) is first for owners, so Follow-ups is right after Today */
+  ok('practice, owner: "Follow-ups (practice)" sits right next to Today', tabs()[tabs().findIndex(t=>/^today:/.test(t))+1]==='followups:Follow-ups (practice)', tabs());
   myWorkGo('followups'); await sleep(250);
   const W=()=>document.querySelector('.cfu')?document.querySelector('.cfu').innerText:'';
   ok('the practice banner says only owners see it and where to turn it on', /Practice, switched off/.test(W()) && /Owners Hub Admin page/.test(W()), W().slice(0,300));
@@ -147,7 +148,7 @@ SWITCH = r"""async(mode)=>{
   opsReconcileCalls();
   const made=(DATA.ops_items||[]).filter(i=>i.kind==='missed_call').length-before;
   if(mode==='staff'){ ok('practice, coordinator: no Follow-ups tab', tabs.indexOf('followups')===-1, tabs); ok('practice: missed call cards are made as before', made===1, made); }
-  if(mode==='live'){ ok('on, coordinator: "Follow-ups" next to Today', myWorkTabs({})[1][0]==='followups' && myWorkTabs({})[1][1]==='Follow-ups', myWorkTabs({})); ok('on: no missed call cards (the server keeps one card per number)', made===0, made);
+  if(mode==='live'){ const tt=myWorkTabs({}), ti=tt.findIndex(t=>t[0]==='today'); ok('on: "Follow-ups" next to Today', tt[ti+1][0]==='followups' && tt[ti+1][1]==='Follow-ups', tt); ok('on: no missed call cards (the server keeps one card per number)', made===0, made);
     ok('the new card kind has a name', OPS_KINDS.reply_needed && OPS_KINDS.reply_needed.label==='Call or text back'); }
   return R; }"""
 R = []

@@ -129,7 +129,8 @@
   }
   /* ── five tabs: Today, Team Work, All mine, Waiting, More ── */
   /* 2026-11-05: Follow-ups (cc-followups.js) sits next to Today when it is shown (her pick 1), never under More */
-  const MAIN = ['today', 'followups', 'team', 'mine', 'waiting'];
+  /* 2026-11-05: the Operations Board tab (ops-board.js) is first, never under More */
+  const MAIN = ['board', 'today', 'followups', 'team', 'mine', 'waiting'];
   function tabsHtml(TABS, active, badge){
     const main = TABS.filter(([k]) => MAIN.indexOf(k) > -1), rest = TABS.filter(([k]) => MAIN.indexOf(k) === -1);
     const tab = ([k, label]) => '<div class="subtab' + (active === k ? ' active' : '') + '" onpointerdown="if(MYWORK_TAB!==\'' + k + '\')myWorkGo(\'' + k + '\')" onclick="if(MYWORK_TAB!==\'' + k + '\')myWorkGo(\'' + k + '\')">' + label + badge(k) + '</div>';

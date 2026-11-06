@@ -7668,10 +7668,10 @@ The HomeTogether team</pre>
 <script src="staffing-view.js?v=2"></script>
 <script src="end-shift.js?v=9"></script>
 <script src="pool.js?v=1"></script><!-- Up for grabs (2026-10-13): put a task out for anyone with time -->
-<script src="mywork-tidy.js?v=4"></script>
+<script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=1"></script><!-- 2026-11-05 Operations Board (switch ops_board_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -29959,6 +29959,8 @@ function myWorkTabs(b){
   if(window.CFU && CFU.visible()) t.splice(1,0,['followups',CFU.label()]);
   /* 650 (2026-10-12): the AI employee's call follow-ups, practice only, while the Owners Hub switch is on (call-practice.js) */
   /* 2026-10-14: call follow-ups are their own tab on Today (Call Follow Ups), no longer inside My Work */
+  /* Operations Board (2026-11-05, ops-board.js): first tab for owners in practice; with it on, the only tab (older views for a week) */
+  if(window.OPB) return OPB.tabs(t);
   return t;
 }
 
@@ -31185,7 +31187,8 @@ function myWorkTabBadge(k,b){
   if(k==='mine'||k==='escalated'||k==='waiting') return '';
   if(k==='team'){ const tdy=window.MWTidy&&MWTidy.on(), tnow=Date.now(); const n=(b.team||[]).filter(i=>!(typeof opsPastDay==='function'&&opsPastDay(i))&&!(tdy&&MWTidy.sortOut(i,tnow))).length;   /* tidy (2026-10-22): EVV, Make it official and call cards past their day are not counted */   /* past its day is folded, not counted */ return n?' <span class="subtab-badge'+((window.TW&&TW.list().some(x=>x.tc.track==='care'))?' red':'')+'">'+n+'</span>':''; }
   if(k==='today'){ let a=0; try{ a=opsTodayCounts().act; }catch(e){} return a?' <span class="subtab-badge red">'+a+'</span>':''; }
-  if(k==='followups'){ const n=window.CFU?CFU.count():0; return n?' <span class="subtab-badge">'+n+'</span>':''; }   /* open for today, once the tab has loaded */
+  if(k==='followups'){ const n=window.CFU?CFU.count():0; return n?' <span class="subtab-badge">'+n+'</span>':''; }
+  if(k==='board'){ const n=window.OPB?OPB.count():0; return n?' <span class="subtab-badge red">'+n+'</span>':''; }   /* care or safety that is mine or nobody's */   /* open for today, once the tab has loaded */
   const n=(b[k]||[]).length;
   return n?' <span class="subtab-badge'+(k==='approvals'?' red':'')+'">'+n+'</span>':'';
 }
@@ -31204,10 +31207,12 @@ function renderMyWork(){
   const who=document.getElementById('myWorkWho');
   if(who) who.textContent=(ME.name?('Signed in as '+ME.name):'')+'   ·   press ? for shortcuts';
   const b=myWorkBuckets();
+  /* Operations Board (2026-11-05): with it on, open on the board once, and the menu says Operations Board */
+  if(window.OPB){ const st=OPB.start(); if(st) MYWORK_TAB=st; try{ OPB.nameSync(); }catch(e){} }
   const TABS=myWorkTabs(b);
   /* A bucket that is no longer offered — Approvals when the signed-in person
      cannot approve — must not leave the screen showing nothing. */
-  if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB='today';
+  if(!TABS.some(([k])=>k===MYWORK_TAB)) MYWORK_TAB=(window.OPB&&OPB.on()&&TABS.length&&TABS[0][0]==='board')?'board':'today';   /* with the board on, a hidden tab falls back to the board */
   const tabs=document.getElementById('myWorkTabs');
   if(tabs&&window.MWTidy&&MWTidy.on()) tabs.innerHTML=MWTidy.tabsHtml(TABS, MYWORK_TAB, k=>myWorkTabBadge(k,b));   /* tidy (2026-10-22): Today, Team Work, All mine, Waiting, More */
   else if(tabs) tabs.innerHTML=TABS.map(([k,label])=>
@@ -31221,7 +31226,7 @@ function renderMyWork(){
      than going through myWorkRows(). renderApprovalsCc re-checks the
      permission for itself; this branch only decides where it draws. */
   const appr=document.getElementById('myWorkApprovals');
-  if(appr) appr.style.display = (MYWORK_TAB==='approvals') ? '' : 'none';
+  if(appr) appr.style.display = (MYWORK_TAB==='approvals' || (MYWORK_TAB==='board' && window.OPB && OPB.state.appr)) ? '' : 'none';   /* the board's Review opens the same approvals card */
   if(MYWORK_TAB==='approvals'){
     wrap.innerHTML='';
     renderApprovalsCc();
@@ -31235,6 +31240,7 @@ function renderMyWork(){
   if(MYWORK_TAB==='pool'){ wrap.innerHTML=''; if(window.TP) TP.render(wrap); return; }
   if(MYWORK_TAB==='team'){ wrap.innerHTML=''; if(window.TW) TW.render(wrap); return; }
   if(MYWORK_TAB==='followups'){ if(window.CFU && CFU.visible()) CFU.render(wrap); else wrap.innerHTML=''; return; }
+  if(MYWORK_TAB==='board'){ if(window.OPB && OPB.visible()) OPB.render(wrap); else wrap.innerHTML=''; return; }   /* Operations Board (ops-board.js) */
 
   const rows=myWorkRows();
   const tickable=new Set(myWorkSelectable(true).map(r=>r.id));
