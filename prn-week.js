@@ -211,7 +211,7 @@
         + (isOwner() ? ' <button class="fb" onclick="PW.ocLift(\'' + e(p.applicant_id) + '\',this)">Let them sign up again</button>' : ' <span class="field-note">An owner can let them sign up again.</span>') : '';
       return '<div class="oc-p"><b>' + e(p.name) + '</b> ' + (p.caregiver ? '<span class="oc-tag no">Caregiver</span> ' : '') + sig + blk + '</div>'; }).join('') : '<div class="field-note">Nobody is on the PRN CNA Team yet.</div>';
     var older = (oc.offers || []).filter(function (o) { return o.pattern !== 'not_now'; });
-    return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team</h3>'
+    return '<div class="card pw-card"><h3 style="margin:0 0 4px;color:var(--navy);font-size:17px;">On call · PRN CNA Team' + ((((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).prn_level3_caregiver_live === true) ? ' and Level 3 PRN Caregivers' : '') + '</h3>'
       + (!oc.records_ready ? '<div class="pw-practice">The calendar records are not on the server yet (Desktop step 1191). Asks, misses and signatures show once it has run.</div>' : '')
       + (!oc.signup_live ? '<div class="field-note" style="margin-top:4px;"><b>Sign-up on their page is off</b> (Settings, PRN Teams): members can\'t ask for shifts yet, and you can put anyone on call without a signature.</div>' : '')
       + '<div class="field-note">Two shifts a day: daytime 7am to 7pm, overnight 7pm to 7am. Members take an open shift one time or every week on their PRN Team page after signing the On-Call Expectations; you confirm each one (an every-week shift once, then its weeks are added on their own, skipping any week someone else holds). To stop an every-week shift they call at least 24 hours ahead; use They called to stop it below. They answer the office within 15 minutes and can start within 1 hour. A miss: that on-call shift is not paid, their other on-call shifts are taken back, and they can\'t sign up again. They give a shift back by calling at least 24 hours ahead; then tap ✕. On-call pay is in the PRN plan and is never shown on their page.</div>'
@@ -248,7 +248,7 @@
         + '<button class="fb" onclick="PW.invLink(\'' + e(p.caregiver_ax) + '\',this)">Copy link</button>'
         + '<button class="fb" onclick="window.open(\'oncall.html?preview=' + e(p.caregiver_ax) + '\',\'_blank\')">See their page</button></span>' + open + '</div>';
     }).join('');
-    return head + '<div class="field-note" style="margin-top:4px;">Active caregivers AxisCare shows at Level 3. The PRN CNA Team signs up on their own PRN Team page. Once a caregiver signs up, you confirm each shift on the calendar above, the same as the PRN CNAs.</div>'
+    return head + '<div class="field-note" style="margin-top:4px;">Active caregivers AxisCare shows at Level 3. The PRN CNA Team signs up on their own PRN Team page' + ((((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).prn_level3_caregiver_live === true) ? ', and so do Level 3 PRN Caregivers (anyone already invited here keeps My on-call)' : '') + '. Once a caregiver signs up, you confirm each shift on the calendar above, the same as the PRN CNAs.</div>'
       + '<div class="oc-ppl">' + (rows || '<div class="field-note">No active Level 3 caregivers in AxisCare right now.</div>') + '</div></div>';
   }
 
@@ -319,7 +319,8 @@
           + '<div style="font-size:13px;margin-top:4px;">' + wc + '</div>'
           + (chips ? '<div style="margin-top:5px;"><span class="field-note">Familiar clients: </span>' + chips + '</div>' : '')
           + (pageBits ? '<div class="field-note" style="margin-top:4px;">' + pageBits + '</div>' : '') + signs
-          + (team === 'cna' ? gapHtml(t.applicant_id, pi.gap_mentor) : '') + '</div>'
+          /* 2026-11-02: Level 3 PRN Caregivers too, with their switch on (owners see it as practice); the server checks Level 3 in AxisCare */
+          + (team === 'cna' || (team === 'caregiver' && (st.prn_level3_caregiver_live === true || isOwner() || pi.gap_mentor)) ? gapHtml(t.applicant_id, pi.gap_mentor, team) : '') + '</div>'
           + '<div class="pw-btns">' + (ax ? '<button class="fb" onclick="PW.page(\'' + e(ax) + '\')">Open their page</button>' : '')
           + '<button class="fb" onclick="PW.see(\'' + e(t.applicant_id) + '\')">What they see</button>'
           + '<button class="fb" onclick="PW.copyLink(\'' + e(t.applicant_id) + '\',this)" title="Their PRN Team page link, to text them yourself">Copy page link</button></div></div>';
@@ -331,8 +332,9 @@
   }
   /* PRN STEP 8a: Gap Mentor, named by the office for the skills it verified (PRN CNA Team only; an honor, always optional) */
   var GAP_OPEN = {};
-  function gapHtml(aid, gm) {
+  function gapHtml(aid, gm, team) {
     var sk = (W && W.mentor_skills) || {}, id = e(aid);
+    var l3note = team === 'caregiver' ? ' <span class="field-note">Level 3 in AxisCare only' + ((((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).prn_level3_caregiver_live === true) ? '' : '; practice until Level 3 PRN Caregivers is switched on (Settings, PRN Teams)') + '.</span>' : '';
     var line = gm ? '<span class="pw-chip" style="background:#E0F2F1;color:#0F5F5B;">Field Support Visits: ' + e((gm.skills || []).map(function (k) { return sk[k] || k; }).join(', ')) + '</span>'
       + ' <span class="field-note">verified: ' + e(gm.evidence) + (gm.by ? ' (' + e(gm.by) + ')' : '') + '</span>' : '';
     var btn = '<button class="fb" onclick="PW.gapOpen(\'' + id + '\')">' + (gm ? 'Change Field Support Visits' : 'Approve for Field Support Visits') + '</button>';
@@ -341,7 +343,7 @@
       + '<input type="text" id="pwGapEv_' + id + '" maxlength="400" placeholder="How you verified it, for example: references from Mercy, registry-checked CNA" value="' + e(gm ? gm.evidence : '') + '" style="width:100%;margin-top:6px;font-size:13px;">'
       + '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;"><button class="primary" onclick="PW.gapSave(\'' + id + '\',this)">Save</button>' + (gm ? '<button class="fb" onclick="PW.gapSave(\'' + id + '\',this,true)">No longer doing Field Support Visits</button>' : '')
       + '<span class="field-note" id="pwGapSt_' + id + '"></span></div></div>';
-    return '<div style="margin-top:5px;">' + line + ' ' + btn + form + '</div>';
+    return '<div style="margin-top:5px;">' + line + ' ' + btn + l3note + form + '</div>';
   }
   /* What they see: the approved sample of a member's own PRN Team page until the real one (step 5) */
   /* What they see (step 5a): pick a member and see their own PRN Team page, read-only; each look is recorded on the server */

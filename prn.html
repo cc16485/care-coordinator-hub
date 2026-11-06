@@ -230,7 +230,9 @@ function onCallSection(d) {
      for the $50 stipend, lifting the no-pay-on-the-page rule for this one line) */
   const OC_OPTIONAL = '<div class="card" style="margin-bottom:10px"><p class="small" style="margin:0"><b>On call is optional.</b> It never counts against you if you don\'t sign up. Only sign up for a shift when you know you can be reachable and ready the whole time.</p>'
     + '<p class="small" style="margin-top:8px"><b>On-call pay:</b> $50 for each 7am to 7pm on-call shift, plus your PRN rate for any hours you work.</p></div>'
-  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + OC_OPTIONAL + wait + body + '</section>'
+  /* 2026-11-02: a Level 3 PRN Caregiver's page in the office preview while their switch is off */
+  const l3wait = d.level3 && d.level3.waiting ? '<div class="card" style="margin-bottom:10px"><p class="small" style="margin:0"><b>Office preview:</b> Level 3 PRN Caregivers is switched off (Settings, PRN Teams), so ' + esc(d.first) + ' doesn\'t see On call or Field Support Visits yet.</p></div>' : ''
+  return '<section id="oncall"><h2 class="serif">On call</h2><p class="sub">' + esc(d.oncall.words) + '</p>' + l3wait + OC_OPTIONAL + wait + body + '</section>'
 }
 function wireOnCall() {
   document.querySelectorAll('[data-ocm]').forEach((b) => b.onclick = () => { OC_MODE = b.dataset.ocm; document.querySelectorAll('[data-ocm]').forEach((x) => x.setAttribute('aria-pressed', x === b ? 'true' : 'false')) })
@@ -334,7 +336,7 @@ function render() {
           || '<div class="card empty">No Field Support Visits right now. We\'ll show them here when a client or caregiver could use you.</div>')
         + '<p class="small" style="margin-top:6px">' + esc(d.mentor.rules) + '</p></section>'
       /* 2026-10-31 (Samantha: "yes" to a short line for PRN CNAs not yet approved): what Field Support Visits are, and how to ask */
-      : d.team === 'cna' ? '<section id="mentor"><h2 class="serif">Field Support Visits</h2><div class="card"><p class="small" style="margin:0">Some of our PRN CNAs are approved for Field Support Visits: they visit a client\'s home to practice a skill with a caregiver, like a Hoyer lift transfer, or to see how a client is doing and tell the office what has changed. It\'s always your choice.</p>'
+      : (d.team === 'cna' || d.level3) ? '<section id="mentor"><h2 class="serif">Field Support Visits</h2><div class="card"><p class="small" style="margin:0">Some of our ' + (d.level3 ? 'PRN CNAs and Level 3 PRN Caregivers' : 'PRN CNAs') + ' are approved for Field Support Visits: they visit a client\'s home to practice a skill with a caregiver, like a Hoyer lift transfer, or to see how a client is doing and tell the office what has changed. It\'s always your choice.</p>'
         + '<p class="small" style="margin-top:8px">Interested? <a href="sms:+14172348494">Text us</a> and tell us which skills you have experience with.</p></div></section>' : '')
     + '<section id="clients"><h2 class="serif">My clients</h2><p class="sub">Clients you know. When they need someone, you\'re a familiar face.</p>' + clients + '</section>'
     + '<section id="thanks"><h2 class="serif">Thank-yous</h2>' + thanks + '</section>'

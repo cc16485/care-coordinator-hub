@@ -33,6 +33,10 @@
   var Dt = function () { try { return DATA || {}; } catch (x) { return {}; } };
   var isOwner = function () { try { return typeof ccCan === 'function' && ccCan('manage_settings'); } catch (x) { return false; } };
   var live = function () { var st = Dt().ops_settings || {}; return st.prn_mentor_live === true && st.prn_page_live === true; };
+  /* 2026-11-02 (her five calls): Level 3 PRN Caregivers too, with their switch on; supervisory visits stay PRN CNA only */
+  var l3 = function () { return (Dt().ops_settings || {}).prn_level3_caregiver_live === true; };
+  var whoDoes = function () { return l3() ? 'Our PRN CNA Team and Level 3 PRN Caregivers' : 'Our PRN CNA Team'; };
+  var supWho = function () { return l3() ? 'a concern-only supervisory visit (PRN CNAs only)' : 'a concern-only supervisory visit'; };
   var fmt = function (d) { return d ? new Date(String(d).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : ''; };
   var t12 = function (hm) { var m = /^(\d\d):(\d\d)$/.exec(String(hm || '')); if (!m) return ''; var h = +m[1]; return (h % 12 || 12) + (m[2] === '00' ? '' : ':' + m[2]) + (h >= 12 ? 'pm' : 'am'); };
   var span = function (t) { return t12(String(t || '').slice(0, 5)) + ' to ' + t12(String(t || '').slice(6, 11)); };
@@ -131,23 +135,23 @@
       + row('The caregiver it is with (refresher)', sel('gmCg', cgs, 'Pick the caregiver'), 'gmCgRow')
       + ('<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px;"><input type="checkbox" id="gmFam" style="width:auto;margin-top:2px;"><span><b>The family said OK</b> <span class="field-note">Needed for a refresher or a care update: it is an extra person in their home.</span></span></label>'
       + '<label style="display:flex;gap:8px;align-items:center;margin-top:6px;font-size:13px;"><input type="checkbox" id="gmGuide" style="width:auto;"> GUIDE client <input type="checkbox" id="gmVa" style="width:auto;margin-left:12px;"> VA client</label>').replace(/id="gm/g, 'id="' + p)
-      + row('Note for the PRN CNA (nothing private: no door codes or diagnoses)', '<textarea id="gmNote" rows="2" style="width:100%;font-size:13px;" maxlength="500"></textarea>')
+      + row('Note for the PRN member (nothing private: no door codes or diagnoses)', '<textarea id="gmNote" rows="2" style="width:100%;font-size:13px;" maxlength="500"></textarea>')
       + (tab ? '<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;font-size:13px;"><input type="checkbox" id="gtText" style="width:auto;margin-top:2px;"' + (T.text_live ? ' checked' : ' disabled') + '><span><b>Text the PRN CNAs it fits, like an open shift</b> <span class="field-note">'
           + (T.text_live ? 'Each gets one text with their own page link to say yes or not this time. Never anyone working right now, never 9pm to 8am.' : 'Texting is switched off (Settings, PRN Teams), so it shows on their PRN Team pages only.') + '</span></span></label>' : '')
-      + '<div class="field-note" style="margin-top:6px;">It shows on the page of each PRN CNA approved for Field Support Visits it could go to (has the skill, not on a break, not on this client\'s Do Not Return list, free in AxisCare then). Clients they know first. ' + (tab ? '' : 'Nothing is texted from here; PRN Teams, Field Support Visits can text it. ') + 'Company-paid: put it in AxisCare as a non-billable visit once you pick someone.</div>'
+      + '<div class="field-note" style="margin-top:6px;">It shows on the page of each PRN member approved for Field Support Visits it could go to (has the skill, not on a break, not on this client\'s Do Not Return list, free in AxisCare then). Clients they know first. ' + (tab ? '' : 'Nothing is texted from here; PRN Teams, Field Support Visits can text it. ') + 'Company-paid: put it in AxisCare as a non-billable visit once you pick someone.</div>'
       + '<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">' + (tab ? '<button class="primary" onclick="GM.tabAsk(this)">Request it</button><button class="secondary" onclick="GM.tabToggle()">Cancel</button>'
         : '<button class="addlead" onclick="GM.ask(this)">Send the ask</button><button class="ghost" onclick="GM.toggle()">Cancel</button>') + '</div>'
       + '<div class="field-note" id="' + p + 'St" style="margin-top:6px;"></div></div>';
   }
   function visitHtml(v, tab) {
-    var st = { open: 'Waiting for a PRN CNA to say yes', assigned: 'In AxisCare for ' + (v.assigned_name || 'a PRN CNA'), done: 'Done · note in', cancelled: 'Cancelled' }[v.status] || v.status;
+    var st = { open: 'Waiting for a PRN member to say yes', assigned: 'In AxisCare for ' + (v.assigned_name || 'a PRN member'), done: 'Done · note in', cancelled: 'Cancelled' }[v.status] || v.status;
     var yes = (v.answers || []).filter(function (a) { return a.answer === 'yes'; }), no = (v.answers || []).filter(function (a) { return a.answer === 'no'; });
     return '<div style="padding:8px 0;border-top:1px solid var(--border);font-size:13px;">'
       + (tab ? '<b style="color:var(--navy);">' + e(v.client_name) + '</b> · ' : '') + '<b>' + e(KINDS[v.kind] || v.kind) + '</b> · ' + e(fmt(v.visit_date)) + ', ' + e(span(v.visit_time)) + (v.skill ? ' · ' + e(SKILLS[v.skill] || v.skill) : '') + (v.caregiver_name ? ' · with ' + e(v.caregiver_name) : '')
       + ' <span class="field-note">· ' + e(st) + ' · asked by ' + e(v.asked_by) + '</span>'
       + (v.status === 'open' ? '<div style="margin-top:4px;">' + (yes.length ? yes.map(function (a) { return '<button class="fb" onclick="GM.assign(' + Number(v.id) + ',\'' + e(a.applicant_id) + '\',\'' + e(a.name) + '\',this)">' + e(a.name) + ' can do it: put in AxisCare</button>'; }).join(' ')
           : '<span class="field-note">Nobody has said yes yet.</span>') + (no.length ? ' <span class="field-note">' + no.length + ' said not this time.</span>' : '')
-          + (tab ? ' <button class="fb" onclick="GM.tabText(' + Number(v.id) + ',this)" title="Texts each PRN CNA it fits who has not been texted for it yet">Text them</button>' : '')
+          + (tab ? ' <button class="fb" onclick="GM.tabText(' + Number(v.id) + ',this)" title="Texts each PRN member it fits who has not been texted for it yet">Text them</button>' : '')
           + ' <button class="fb" onclick="GM.cancel(' + Number(v.id) + ',this' + (tab ? ',1' : '') + ')">Cancel the ask</button></div>' : '')
       + (tab && (v.texted || []).length && !(TABS.res && TABS.res.id === v.id) ? '<div class="field-note">Texted: ' + e(v.texted.join(', ')) + '</div>' : '')
       + (tab && TABS.res && TABS.res.id === v.id ? resHtml(TABS.res.texts) : '')
@@ -161,7 +165,7 @@
       + '<div style="display:flex;align-items:center;gap:8px;"><b style="font-size:15px;color:var(--navy);">🤝 Field Support Visits</b>'
       + (live() ? '' : '<span class="field-note">Practice: only owners see this until Field Support Visits are switched on (Settings, PRN Teams).</span>')
       + '<span style="flex:1;"></span><button class="secondary" onclick="GM.toggle()">Ask for a Field Support Visit</button></div>'
-      + '<div class="field-note" style="margin-top:2px;">Our PRN CNA Team, for a refresher with a caregiver, a care update when ' + e(String(CUR.name || '').split(' ')[0] || 'a client') + ' is changing, or a concern-only supervisory visit. They observe and practice; the Care Coordinator decides any care plan change.</div>'
+      + '<div class="field-note" style="margin-top:2px;">' + whoDoes() + ', for a refresher with a caregiver, a care update when ' + e(String(CUR.name || '').split(' ')[0] || 'a client') + ' is changing, or ' + supWho() + '. They observe and practice; the Care Coordinator decides any care plan change.</div>'
       + (!CUR.open && (suggestLive() || isOwner()) ? suggestHtml(CUR.sugg = suggestFor(CUR.ax)) : '')
       + (CUR.open ? formHtml() : '')
       + (L === null ? '<div class="field-note" style="margin-top:6px;">Loading…</div>' : L.error ? '<div class="field-note" style="margin-top:6px;color:var(--red);">' + e(L.error) + '</div>'
@@ -207,9 +211,9 @@
     var vs = tl.visits || [];
     host.innerHTML = '<div class="card pw-card">' + practice
       + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;"><h3 style="margin:0;color:var(--navy);font-size:17px;">Field Support Visits</h3>'
-      + '<span class="field-note">' + (L && !L.error ? tl.approved + ' PRN CNA' + (tl.approved === 1 ? '' : 's') + ' approved for Field Support Visits' + (tl.approved ? '' : ' yet: approve them in Our teams') + ' · texting ' + (tl.text_live ? 'on' : 'off') : '') + '</span>'
+      + '<span class="field-note">' + (L && !L.error ? tl.approved + (l3() ? ' PRN member' : ' PRN CNA') + (tl.approved === 1 ? '' : 's') + ' approved for Field Support Visits' + (tl.approved ? '' : ' yet: approve them in Our teams') + ' · texting ' + (tl.text_live ? 'on' : 'off') : '') + '</span>'
       + '<span style="flex:1;"></span>' + (TABS.open ? '' : '<button class="primary" onclick="GM.tabToggle()">+ Request a Field Support Visit</button>') + '</div>'
-      + '<div class="field-note" style="margin-top:4px;">Our PRN CNA Team, for a refresher with a caregiver, a care update when a client is changing, or a concern-only supervisory visit. It shows on each fitting PRN CNA\'s page, and can text them like an open shift. They observe and practice; the Care Coordinator decides any care plan change.</div>'
+      + '<div class="field-note" style="margin-top:4px;">' + whoDoes() + ', for a refresher with a caregiver, a care update when a client is changing, or ' + supWho() + '. It shows on each fitting PRN member\'s page, and can text them like an open shift. They observe and practice; the Care Coordinator decides any care plan change.</div>'
       + (TABS.open ? formHtml('gt', true) : '')
       + (TABS.res && !TABS.res.id ? resHtml(TABS.res.texts) : '')
       + '</div>'
