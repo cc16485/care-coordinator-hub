@@ -1205,6 +1205,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   </div>
   <div class="fsubbar" id="fsub-team">
     <div class="fpill" data-tab="inbox" onclick="switchTab('inbox')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Inbox<span class="subtab-badge red" id="commsTabBadge" style="display:none;"></span></div>
+    <!-- 2026-11-05 (her pick, beside Inbox): what visitors asked Cara on mo-care.com, read only (cara-chats.js) -->
+    <div class="fpill" data-tab="carachats" onclick="switchTab('carachats')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Ask Cara chats</div>
     <div class="fpill" data-tab="comms" onclick="switchTab('comms')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-send"/></svg> Send a Message</div>
     <!-- 2026-10-19: the AI's reading of each call and text, for checking its work (was Call Follow Ups on Today) -->
     <div class="fpill" data-tab="callfollowups" onclick="switchTab('callfollowups')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> AI call reader</div>
@@ -1618,6 +1620,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div class="card" style="padding:18px;"><div id="inboxList"></div></div>
     </section>
+
+    <!-- ===================== TAB: ASK CARA CHATS (Team, 2026-11-05) =====================
+         The website chat's log (kb_answer_log), read only. cara-chats.js draws it. Texts nobody. -->
+    <section class="tabpanel" id="tab-carachats"><div id="cchats_box"></div></section>
 
     <!-- ===================== TAB: STAND-UP (Today, 2026-10-05) =====================
          The team's handoff board, moved in from the Team Hub. standup-board.js draws it.
@@ -8353,7 +8359,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','carachats','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8771,7 +8777,7 @@ const CC_SECTION_TITLES = {
   carematch:'Care Match Check-ins', familybookings:'Family bookings', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
-  supervisory:'Supervisory Visits', inbox:'Inbox', comms:'Communication',
+  supervisory:'Supervisory Visits', inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', bookingapp:'Booking App',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
@@ -9034,6 +9040,8 @@ function renderActiveTab(){
   if(activeTab==='teambuilder'){ tbRender(); }
   if(activeTab==='carelibrary'){ const go=()=>{ try{ window.CLIB&&window.CLIB.mount('clib_box'); }catch(e){ console.warn('care library', e); } };
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
+  if(activeTab==='carachats'){ const go=()=>{ try{ window.CCHATS&&window.CCHATS.mount('cchats_box'); }catch(e){ console.warn('ask cara chats', e); } };
+    if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261105a'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
     if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
