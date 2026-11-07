@@ -44,7 +44,8 @@
   /* the dated lines caregivers read on the Awareness task */
   function awarenessBlock(it) {
     const h = it.health || {}, who = String(it.who || '').trim();
-    return 'HEALTH UPDATE ' + day((it.source || {}).call_at || it.created_at) + (who ? ' (call with ' + who + ')' : '') + ':\n'
+    const via = (it.source || {}).channel === 'text' ? 'texts from ' : 'call with ';
+    return 'HEALTH UPDATE ' + day((it.source || {}).call_at || it.created_at) + (who ? ' (' + via + who + ')' : '') + ':\n'
       + (h.news || []).map((n) => '- ' + (KIND_W[n.kind] || 'Other') + ': ' + String(n.what || '').trim() + (n.when ? ' (' + n.when + ')' : '')).join('\n');
   }
   /* a change's six parts as task instructions, the same layout the care plan uses */
@@ -254,7 +255,7 @@
     root.innerHTML = '<div class="hu-in"><div class="hu-top"><h1>Health news for ' + E(h.client || it.about || 'a client') + '</h1><button class="hu-b2" data-hua="close">Close</button></div>'
       + (it.client_ax ? '' : '<div class="hu-bad">We couldn\'t tell which AxisCare client this is, so nothing can be sent from here. Open the call to see who it was about.</div>')
       + (S.msg ? '<div class="hu-msg">' + E(S.msg) + '</div>' : '') + (S.busy ? '<div class="hu-msg">' + E(S.busy) + '</div>' : '')
-      + '<div class="hu-card"><h2>What was said</h2><div class="hu-src">On a call with ' + E(it.who || 'someone') + ', ' + E(day((it.source || {}).call_at)) + '. Only words really said on the call are kept.</div><ul class="hu-news">'
+      + '<div class="hu-card"><h2>What was said</h2><div class="hu-src">' + ((it.source || {}).channel === 'text' ? 'In texts from ' : 'On a call with ') + E(it.who || 'someone') + ', ' + E(day((it.source || {}).call_at)) + '. Only words really said are kept.</div><ul class="hu-news">'
       + (h.news || []).map((n) => '<li><b>' + E(KIND_W[n.kind] || 'Other') + ':</b> ' + E(n.what) + (n.when ? ' <span class="hu-src">(' + E(n.when) + ')</span>' : '') + (n.said_by ? ' <span class="hu-src">said by ' + E(n.said_by) + '</span>' : '') + (n.quote ? '<div class="hu-q">On the call: "' + E(n.quote) + '"</div>' : '') + '</li>').join('') + '</ul></div>'
       + skillsHtml(it)
       + ((h.ask || []).length ? '<div class="hu-card"><h2>Questions before approving</h2><ul>' + h.ask.map((q) => '<li>' + E(q) + '</li>').join('') + '</ul></div>' : '')
