@@ -15425,14 +15425,20 @@ async function hubAsmtBook(leadId){
   let pick='';
   const go=ov.querySelector('#haGo'), msg=ov.querySelector('#haMsg');
   const loadSlots=async()=>{
-    const box=ov.querySelector('#haSlots'); const r=await hubAsmtCall({ action:'slots' });
+    /* 2026-11-06 (Samantha: "it has an red X on the interview ... let us do this manually for now"): the office also sees times
+       that sit on a coordinator's interview ("1 interview then"); nothing is moved. An older server falls back to the plain times. */
+    const box=ov.querySelector('#haSlots'); let r=await hubAsmtCall({ action:'office_slots' });
+    if(!r.ok && (r.status===400||r.status===404)) r=await hubAsmtCall({ action:'slots' });
     if(!r.ok){ box.innerHTML='<span style="color:var(--red);">The open times could not be loaded: '+esc(r.error||r.status)+'</span>'; return; }
-    const by={}; (r.slots||[]).forEach(s=>{ const w=hubAsmtWhen(s.starts_at); (by[w.ymd]=by[w.ymd]||{ day:w.day, list:[] }).list.push({ iso:s.starts_at, time:w.time }); });
+    const by={}; (r.slots||[]).forEach(s=>{ const w=hubAsmtWhen(s.starts_at); (by[w.ymd]=by[w.ymd]||{ day:w.day, list:[] }).list.push({ iso:s.starts_at, time:w.time, moves:Number(s.moves)||0 }); });
     const days=Object.keys(by).sort();
     if(!days.length){ box.innerHTML='<span style="color:var(--red);">No open times in the next three weeks. Check the assessment hours.</span>'; return; }
     box.innerHTML=days.slice(0,10).map(k=>'<div style="margin:6px 0;"><b>'+esc(by[k].day)+'</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
-      +by[k].list.map(s=>'<button class="secondary" data-t="'+esc(s.iso)+'" style="font-size:12.5px;padding:4px 10px;">'+esc(s.time)+'</button>').join('')+'</div></div>').join('');
-    box.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ box.querySelectorAll('button[data-t]').forEach(x=>x.className='secondary'); b.className='primary'; pick=b.getAttribute('data-t'); go.disabled=false; msg.textContent=''; });
+      +by[k].list.map(s=>'<button class="secondary" data-t="'+esc(s.iso)+'" data-m="'+s.moves+'" style="font-size:12.5px;padding:4px 10px;'+(s.moves?'border-style:dashed;':'')+'">'+esc(s.time)
+        +(s.moves?' <span style="font-size:11px;color:#B91C1C;">'+s.moves+' interview'+(s.moves===1?'':'s')+' then</span>':'')+'</button>').join('')+'</div></div>').join('')
+      +(Object.values(by).some(d=>d.list.some(s=>s.moves))?'<div class="field-note" style="margin-top:6px;">A time marked <b>1 interview then</b> sits on that coordinator\'s interview. Nothing is moved: the interview gets a red ✗ on Interviews, and you move it (video with Samantha, Angiel, or reschedule).</div>':'');
+    box.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ box.querySelectorAll('button[data-t]').forEach(x=>x.className='secondary'); b.className='primary'; pick=b.getAttribute('data-t'); go.disabled=false;
+      const mv=Number(b.getAttribute('data-m'))||0; msg.textContent=mv?('This time sits on '+mv+' interview'+(mv===1?'':'s')+'. You\'ll need to move '+(mv===1?'it':'them')+' by hand.'):''; });
   };
   const loadList=async()=>{
     const box=ov.querySelector('#haList');
@@ -15458,7 +15464,8 @@ async function hubAsmtBook(leadId){
     const r=await hubAsmtCall({ action:'book', office:true, starts_at:pick, lead_id:leadId||'', first_name:v('haFirst'), last_name:v('haLast'), phone:v('haPhone'),
       email:v('haEmail'), client_name:v('haClient'), relationship:v('haRel'), address:v('haAddr'), notes:v('haNotes'), send_confirmation:ov.querySelector('#haSend').checked });
     if(!r.ok){ go.disabled=false; msg.innerHTML='<span style="color:var(--red);">'+esc(r.error||('Could not book ('+r.status+')'))+'</span>'; if(r.taken){ pick=''; loadSlots(); } return; }
-    msg.innerHTML='<b style="color:var(--teal);">Booked: '+esc(r.day)+' at '+esc(r.time)+' with '+esc(r.coordinator)+'.</b> '+esc(r.note||'');
+    msg.innerHTML='<b style="color:var(--teal);">Booked: '+esc(r.day)+' at '+esc(r.time)+' with '+esc(r.coordinator)+'.</b> '+esc(r.note||'')
+      +((r.clashes||[]).length?'<div style="margin-top:6px;color:#B91C1C;"><b>✗ Move by hand:</b> '+esc(r.coordinator)+' has '+(r.clashes||[]).map(c=>esc(c.who)+' at '+esc(c.time)).join(', ')+'. They show with a red ✗ on Interviews.</div>':'');
     pick=''; go.disabled=true;
     try{ if(typeof loadFromSupabase==='function') await loadFromSupabase(); }catch(_){}
     loadList(); loadSlots();
@@ -23889,13 +23896,16 @@ async function ivqLoad(btn){
     /* 2026-11-03 (Samantha, "keep all lists clean always ... only the applicants that need our attention", part 4): a booking
        whose time passed with no outcome stays in "waiting on an outcome" until someone records one, however long ago; it used
        to drop off this list silently after 14 days. Attended and no-show rows are still read for the last 14 days only. */
-    const [b0, b1, a, c] = await Promise.all([
+    const [b0, b1, a, c, hb] = await Promise.all([
       sb.from('interview_bookings').select('*').eq('status','booked').order('starts_at'),
       sb.from('interview_bookings').select('*').in('status',['attended','noshow']).gte('starts_at', from).order('starts_at'),
       sb.from('job_applicants').select('id,first_name,last_name,phone,email,position,posting_title,status'),
       sb.from('coordinators').select('id,name'),
+      /* 2026-11-06: assessments on the calendar, for the red X on an interview they overlap (visit + drive time) */
+      sb.from('coordinator_busy').select('coordinator_id,starts_at,ends_at,label,source').in('source',['hub_assessment','ghl_assessment','assessment']).gte('ends_at', new Date(Date.now()-864e5).toISOString()),
     ]);
     if(b0.error) throw b0.error;
+    IVQ_ASMT = (hb && !hb.error && hb.data) || [];
     IVQ = [...(b0.data || []), ...((b1 && b1.data) || [])];
     IVQ_APP = {}; (a.data||[]).forEach(x=>{ IVQ_APP[x.id]=x; });
     if(window.ApText) ApText.load();   /* 574 */
@@ -23908,6 +23918,14 @@ async function ivqLoad(btn){
   }finally{ if(btn){ btn.disabled=false; btn.textContent='↻ Refresh'; } }
 }
 
+/* 2026-11-06 (Samantha: "it has an red X on the interview stating that it has an assessment booked at the time of the interview
+   and let us do this manually for now"): the assessment hold (the visit plus drive time) that overlaps this interview, for its
+   coordinator; a GoHighLevel booking names nobody, so it counts for everyone. Nothing is moved; people move the interview. */
+let IVQ_ASMT=[];
+function ivqAsmtClash(b){
+  const s=Date.parse(b.starts_at), e=Date.parse(b.ends_at||b.starts_at)||s;
+  return IVQ_ASMT.find(h=>(!h.coordinator_id||String(h.coordinator_id)===String(b.coordinator_id)) && Date.parse(h.starts_at)<e && Date.parse(h.ends_at)>s)||null;
+}
 function ivqRender(){
   if(window.HSTRIP) HSTRIP.soon();   /* the hiring strip on top (hire-strip.js, 2026-11-02) */
   const box = document.getElementById('ivqList'); if(!box) return;
@@ -23956,7 +23974,8 @@ function ivqRender(){
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
           + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
-        + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
+        + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')
+        + (b.status==='booked'&&ivqAsmtClash(b)?' <b title="'+esc(ivqAsmtClash(b).label||'')+'" style="color:#B91C1C;">✗ Assessment booked at this time</b>':'')+'</span>'
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
