@@ -5,7 +5,7 @@ with the review service played in the page. (python3 tests/browser/review_ask_lo
 from playwright.sync_api import sync_playwright
 import os
 src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client_journey_look.py')).read()
-ns = {}; exec(src.split('with sync_playwright() as pw:')[0], ns)
+ns = {'__file__': os.path.join(os.path.dirname(os.path.abspath(__file__)), 'client_journey_look.py')}; exec(src.split('with sync_playwright() as pw:')[0], ns)
 STUB, DATA = ns['STUB'], ns['DATA']
 FAKE = r"""
 (()=>{
@@ -63,12 +63,25 @@ T = r"""async()=>{
   CL.roster=[{ axiscare_client_id:'888', client_name:'Ann Active', role_status:'active' }]; CL.issues=[]; CL.filter='All current'; CL.picked=true;
   switchTab('clientsboard'); renderClientsBoard(); await sleep(400);
   ok('owners see the count on the Clients board: asked, left', /Google reviews, last 90 days: 3 asked · 2 left · 1 said they would/.test(document.getElementById('clFilters').innerText), document.getElementById('clFilters').innerText);
+  /* Settings → Google reviews: the short link (2026-11-06, her "Yes, shorter link") */
+  let box=document.getElementById('rvSet'); if(!box){ box=document.createElement('div'); box.id='rvSet'; document.body.appendChild(box); }
+  DATA.ops_settings=Object.assign({}, DATA.ops_settings||{}, { review_asks_live:true }); delete DATA.ops_settings.google_review_url;
+  const merged=[]; window.tkMerge=async(fn)=>{ const m={}; fn(m); merged.push(m); return {}; }; window.ccConfirm=async()=>true; window.ccIsOwner=()=>true;
+  rvSetFill(); await sleep(50);
+  ok('Settings offers "Use the short link" while the long Google link is in use', /Use the short link/.test(box.innerText) && document.getElementById('rvUrl').value.indexOf('writereview')>0, box.innerText);
+  const useBtn=[...box.querySelectorAll('button')].find(x=>/Use the short link/.test(x.textContent)); if(useBtn) await useBtn.onclick(); await sleep(80);
+  ok('...one click saves https://mo-care.com/review as the review link', merged.length===1 && merged[0].google_review_url==='https://mo-care.com/review' && DATA.ops_settings.google_review_url==='https://mo-care.com/review', merged);
+  ok('...and the button goes away once the short link is saved', !/Use the short link/.test(box.innerText) && document.getElementById('rvUrl').value==='https://mo-care.com/review' && /Saved/.test(box.innerText), box.innerText);
+  document.getElementById('rvUrl').value='https://example.com/review'; await rvSetUrl(null); await sleep(50);
+  ok('...any other website is still refused', merged.length===1 && /doesn.t look like a Google review link/.test(box.innerText), box.innerText);
+  document.getElementById('rvUrl').value='https://search.google.com/local/writereview?placeid=ChIJaUETSOx7z4cRdYKcTMoZ6Go'; await rvSetUrl(null); await sleep(50);
+  ok('...and the long Google link can still be saved back', merged.length===2 && merged[1].google_review_url.indexOf('writereview')>0, merged);
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); pg = b.new_page(viewport={'width': 1280, 'height': 1000}); errs = []
     pg.on('pageerror', lambda e: errs.append(str(e)[:300]))
     pg.route('**/*', lambda r: r.abort() if 'supabase.co' in r.request.url else r.continue_())
-    pg.goto('http://localhost:8765/index.html?proof=review'); pg.wait_for_timeout(1500)
+    pg.goto('http://localhost:' + os.environ.get('PORT', '8765') + '/index.html?proof=review'); pg.wait_for_timeout(1500)
     pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', DATA); pg.evaluate('s=>(0,eval)(s)', FAKE)
     shots = []
     pg.expose_function('pyShot', lambda n: shots.append(n))

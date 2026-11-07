@@ -105,15 +105,17 @@
   const RV_ON = 'Turn on Google review suggestions?\n\nOnce a day, the Hub looks for a happy moment from the last two weeks: kind words a person confirmed, a Care Match call where the family loves their caregiver, a 4 or 5 star check-in, kind words after we solved a problem, or a long-time client whose check-ins stay high. Only for current clients with us two weeks or more, with no open concern, not asked in 90 days. The client\'s Care Coordinator gets ONE card, with the message and your Google review link ready to copy. They send it themselves (or call, or ask in person) and record it; a week later one card asks whether a review was left.\n\nThe Hub never sends a review request itself.';
   const RV_OFF = 'Turn off Google review suggestions? No new cards are made. Anything already suggested or asked stays on the profile, and anyone can still choose to ask from a client\'s profile.';
   const DEFAULT_URL = 'https://search.google.com/local/writereview?placeid=ChIJaUETSOx7z4cRdYKcTMoZ6Go';
+  /* 2026-11-06 her "Yes, shorter link": mo-care.com/review (website #111) opens the same review box, reads better in a text and shows it's us. */
+  const SHORT_URL = 'https://mo-care.com/review';
   const isOwner = () => { try{ return ccIsOwner(); }catch(e){ return false; } };
   function setFill(){
     const box = document.getElementById('rvSet'); if(!box) return;
     const st = (typeof DATA !== 'undefined' && DATA.ops_settings) || {}, on = st.review_asks_live === true, can = isOwner(), url = st.google_review_url || DEFAULT_URL;
     box.innerHTML = '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;">' + (can ? '<button class="' + (on ? 'secondary' : 'primary') + '" onclick="rvSetToggle(this)">' + (on ? 'Turn off' : 'Turn on') + '</button>' : '')
       + '<span class="field-note" id="rvSetMsg">' + (on ? 'On: the Hub suggests asks to Care Coordinators.' : 'Off: no suggestions. Anyone can still choose to ask from a client\'s profile.') + '</span></div>'
-      + '<label class="field-note" style="display:block;">Your Google review link (verified signed in 2026-10-08)</label>'
+      + '<label class="field-note" style="display:block;">Your Google review link (the long Google link was verified signed in 2026-10-08; ' + SHORT_URL.replace('https://', '') + ' opens the same review box)</label>'
       + '<input id="rvUrl" style="width:100%;max-width:640px" value="' + esc(url) + '"' + (can ? '' : ' disabled') + '>'
-      + (can ? ' <button class="secondary" onclick="rvSetUrl(this)">Save link</button> <span class="field-note" id="rvUrlMsg"></span>' : '');
+      + (can ? ' <button class="secondary" onclick="rvSetUrl(this)">Save link</button>' + (url === SHORT_URL ? '' : ' <button class="secondary" onclick="rvUseShort(this)">Use the short link</button>') + ' <span class="field-note" id="rvUrlMsg"></span>' : '');
   }
   async function setToggle(b){
     const on = !(((typeof DATA !== 'undefined' && DATA.ops_settings) || {}).review_asks_live === true);
@@ -126,15 +128,16 @@
   }
   async function setUrl(b){
     const v = ((document.getElementById('rvUrl') || {}).value || '').trim(), msg = document.getElementById('rvUrlMsg');
-    if(!/^https:\/\/(search\.google\.com|g\.page|maps\.app\.goo\.gl)\//.test(v)){ if(msg) msg.textContent = 'That doesn\'t look like a Google review link.'; return; }
+    if(!/^https:\/\/(search\.google\.com|g\.page|maps\.app\.goo\.gl)\//.test(v) && !/^https:\/\/mo-care\.com\/review\/?$/.test(v)){ if(msg) msg.textContent = 'That doesn\'t look like a Google review link (or mo-care.com/review).'; return; }
     if(!(await ccConfirm('Use this as your Google review link in every review message?\n\n' + v + '\n\nOpen it once while signed in to Google first, to be sure it shows the review box for Caring Companions.'))) return;
     if(b) b.disabled = true;
     const out = await tkMerge(m => { const was = m.google_review_url || DEFAULT_URL; m.google_review_url = v; return was === v ? [] : ['Google review link changed']; }, 'Google reviews');
     if(b) b.disabled = false;
     if(out.error){ if(msg) msg.textContent = 'Could not save: ' + out.error.message; return; }
-    DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { google_review_url:v }); if(msg) msg.textContent = 'Saved.';
+    DATA.ops_settings = Object.assign({}, DATA.ops_settings || {}, { google_review_url:v }); setFill(); const m2 = document.getElementById('rvUrlMsg'); if(m2) m2.textContent = 'Saved.';
   }
+  function useShort(b){ const i = document.getElementById('rvUrl'); if(i) i.value = SHORT_URL; return setUrl(b); }
   let countsAt = 0, counts = null;
   async function rvCounts(){ if(counts && Date.now() - countsAt < 300000) return counts; try{ counts = await call({ action:'review_counts' }); countsAt = Date.now(); }catch(e){ counts = null; } return counts && !counts.error ? counts : null; }
-  Object.assign(window, { rvSetFill:setFill, rvSetToggle:setToggle, rvSetUrl:setUrl, rvCounts, rvMount:mount, rvCopy:copy, rvAsked:asked, rvNotNow:notNow, rvOutcome:outcome, rvSuggest:suggest, RV_STATE:RV });
+  Object.assign(window, { rvSetFill:setFill, rvSetToggle:setToggle, rvSetUrl:setUrl, rvUseShort:useShort, rvCounts, rvMount:mount, rvCopy:copy, rvAsked:asked, rvNotNow:notNow, rvOutcome:outcome, rvSuggest:suggest, RV_STATE:RV });
 })();
