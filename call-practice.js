@@ -16,6 +16,10 @@
    practice "would remind" is only shown; nobody is reminded.
    2026-10-14 MAKE THIS A LEAD (call-lead.js): every call card has Make this a lead / Open lead, and calls the reader calls
    a "new client inquiry" that nobody has decided on are listed at the top. The AI only tags; a person decides.
+   2026-11-06 HEALTH NEWS FOR THE CARE PLAN (Part 2 step 1, PRACTICE; plan https://claude.ai/artifact/8FHJhCQ6wj21zjA18JkAHu, all
+   seven recommendations approved): a second reading of each client, family or caregiver call finds news about a client's
+   health or how much help they need (each with the words said on the call) and the care plan changes it would bring.
+   Shown here only, under "Health news". No card, no care plan version, nothing to AxisCare: a person approves later.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -296,6 +300,31 @@
     return '<div class="field-note" style="margin:0 0 6px;">By office line: ' + keys.map(k => '<b>' + esc(k) + '</b> ' + n(m[k].call, 'call') + ', ' + n(m[k].text, 'text')).join(' · ')
       + (unknown ? (keys.length ? ' · ' : '') + unknown + ' where GoHighLevel did not say the line' : '') + '</div>';
   }
+  /* HEALTH NEWS (2026-11-06, practice): what the second reading found, in the office's words */
+  const HKIND = { diagnosis: 'Diagnosis', injury: 'Injury', fall: 'Fall', hospital_or_rehab: 'Hospital or rehab', home_again: 'Home again', hospice: 'Hospice', equipment: 'Equipment',
+    help_needed: 'Help needed', medicines: 'Medicines', thinking_or_mood: 'Thinking or mood', eating_or_drinking: 'Eating or drinking', skin: 'Skin', other: 'Other' };
+  const HCHG = { add: 'Add', change: 'Change', stop: 'Stop' };
+  const hasHealth = r => !!(r && r.detail && r.detail.health && r.detail.health.has_news);
+  const ASK = '<span style="color:#B4650C;font-weight:700;">Ask before approving</span>';
+  function healthHtml(r){
+    const h = (r.detail || {}).health;
+    if(!h) return '';
+    if(h.error) return '<div class="field-note" style="margin-top:8px;">Health news: could not be read this time (' + esc(h.error) + ').</div>';
+    if(!h.has_news) return '';
+    const part = (label, p) => '<div style="font-size:12.5px;margin:2px 0;"><b>' + label + ':</b> ' + (p && !p.ask && p.text ? esc(p.text) : ASK) + '</div>';
+    const news = (h.news || []).map((n, i) => '<div style="font-size:12.5px;margin:4px 0;">' + chip(HKIND[n.kind] || n.kind, '#7A2E2E', '#F7E6E3') + ' <b>' + (i + 1) + '.</b> ' + esc(n.what)
+      + (n.when ? ' <span class="field-note">(' + esc(n.when) + ')</span>' : '') + (n.said_by ? ' <span class="field-note">said by ' + esc(n.said_by) + '</span>' : '')
+      + (n.quote ? '<div class="field-note" style="margin:2px 0 0 4px;">On the call: \u201c' + esc(n.quote) + '\u201d</div>' : '') + '</div>').join('');
+    const changes = (h.plan_changes || []).map(c => '<div style="border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:6px 0;">'
+      + '<div style="font-size:13px;">' + chip(HCHG[c.change] || c.change, '#0D365F', '#E6EEF7') + ' <b>' + esc(c.task) + '</b> <span class="field-note">from news ' + (c.because || []).map(i => i + 1).join(', ') + '</span></div>'
+      + part('When', c.when)
+      + '<div style="font-size:12.5px;margin:2px 0;"><b>How to help:</b> ' + (c.how && !c.how.ask && (c.how.steps || []).length ? '<ol style="margin:2px 0 0;padding-left:20px;">' + c.how.steps.map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>' : ASK) + '</div>'
+      + part('Equipment', c.equipment) + part('Their preferences', c.preferences) + part('Safety', c.safety) + part('Report to the office if', c.report_if) + '</div>').join('');
+    const ask = (h.ask || []).length ? '<div style="margin-top:6px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">QUESTIONS BEFORE APPROVING</div><ul style="margin:2px 0 0;padding-left:18px;font-size:12.5px;">' + h.ask.map(q => '<li>' + esc(q) + '</li>').join('') + '</ul></div>' : '';
+    return '<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#FBF4F4;border:1px solid #EBCFCF;">'
+      + '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#7A2E2E;">HEALTH NEWS FOR THE CARE PLAN' + (h.client ? ': ' + esc(String(h.client).toUpperCase()) : '') + ' <span style="font-weight:600;letter-spacing:0;color:var(--muted);">(practice: no card, nothing changed in the care plan or AxisCare)</span></div>'
+      + news + (changes ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);margin-top:8px;">CARE PLAN CHANGES IT WOULD DRAFT</div>' + changes : '') + ask + '</div>';
+  }
   function render(wrap){
     if(!wrap) return;
     const intro = '<div class="card" style="padding:14px 16px;margin-bottom:12px;background:#FFF8EC;border:1px solid #F0D9A8;">'
@@ -310,9 +339,9 @@
     const resolvedBy = {};
     all.forEach(r => (r.resolves || []).forEach(x => { resolvedBy[x.message_id + ':' + x.task_index] = r.call_at; }));
     const urgent = r => (r.tasks || []).some(t => t.urgency === 'now' || t.urgency === 'today');
-    const words = r => [r.who_name, r.caller, (r.detail || {}).summary, (r.detail || {}).about].concat((r.detail || {}).understood || [], ((r.detail || {}).items || []).map(i => [i.title, i.responsibility, i.why, i.workflow, i.quote].join(' ')), (r.tasks || []).map(x => x.title)).join(' ').toLowerCase();
+    const words = r => [r.who_name, r.caller, (r.detail || {}).summary, (r.detail || {}).about].concat((r.detail || {}).understood || [], ((r.detail || {}).items || []).map(i => [i.title, i.responsibility, i.why, i.workflow, i.quote].join(' ')), (r.tasks || []).map(x => x.title), (((r.detail || {}).health || {}).news || []).map(n => n.what + ' ' + (r.detail.health.client || '')), (((r.detail || {}).health || {}).plan_changes || []).map(c => c.task)).join(' ').toLowerCase();
     const q = lc(CPR.q);
-    const rows = all.filter(r => (CPR.msg ? r.message_id === CPR.msg : (CPR.filter === 'all' || (CPR.filter === 'cards' && (r.tasks || []).length) || (CPR.filter === 'none' && !(r.tasks || []).length && !r.error) || (CPR.filter === 'urgent' && urgent(r)) || (CPR.filter === 'unread' && r.error)))
+    const rows = all.filter(r => (CPR.msg ? r.message_id === CPR.msg : (CPR.filter === 'all' || (CPR.filter === 'cards' && (r.tasks || []).length) || (CPR.filter === 'none' && !(r.tasks || []).length && !r.error) || (CPR.filter === 'urgent' && urgent(r)) || (CPR.filter === 'unread' && r.error) || (CPR.filter === 'health' && hasHealth(r))))
       && (CPR.msg || !CPR.day || chiYmd(Date.parse(r.call_at)) === CPR.day)
       && (CPR.msg || CPR.channel === 'all' || (r.channel || 'call') === CPR.channel)
       && (CPR.msg || !q || q.split(/\s+/).every(w => words(r).includes(w))));
@@ -335,6 +364,7 @@
       + '<select id="cprDay" onchange="CPR.setDay(this.value)" style="flex:0 0 auto;width:auto;font-size:13px;padding:6px 8px;border:1.5px solid var(--border);border-radius:8px;margin:0;">'
       + '<option value="">All ' + DAYS + ' days</option>' + Array.from({ length: DAYS }, (_, i) => { const ymd = chiYmd(Date.now() - i * 864e5); return '<option value="' + ymd + '"' + (CPR.day === ymd ? ' selected' : '') + '>' + (i === 0 ? 'Today' : i === 1 ? 'Yesterday' : esc(day(ymd))) + '</option>'; }).join('') + '</select></div>'
       + '<div class="field-note" style="margin:0 0 10px;">Show: ' + f('all', 'All') + f('cards', 'With cards') + f('urgent', 'Urgent') + f('none', 'No card') + f('unread', 'Couldn\'t read' + (notRead.length + retrying.length ? ' (' + (notRead.length + retrying.length) + ')' : ''))
+      + f('health', 'Health news' + (all.filter(hasHealth).length ? ' (' + all.filter(hasHealth).length + ')' : ''))
       + (openOffered() ? f('open', 'Open from calls (' + openCards().length + ')') : '')
       + f('promises', 'Promises' + (pLate ? ' (' + pLate + ' past due)' : pOpen ? ' (' + pOpen + ' owed)' : ''))
       + f('checks', 'Card checks' + ((CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length ? ' (' + (CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length + ' look done)' : ''))
@@ -373,7 +403,7 @@
         + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:10px;">'
         + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#8A5A00;">' + (live() ? 'WHAT THE AI PUT IN MY WORK' : 'WHAT THE AI WOULD DO') + '</div>' + mine + '</div>'
         + '<div><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--navy);">WHAT THE TEAM DID (WITHIN A DAY)</div>' + theirs + '</div>'
-        + '</div></div>';
+        + '</div>' + healthHtml(r) + '</div>';
     }).join('');
   }
 
@@ -384,7 +414,7 @@
     render(w);
     if(keepFocus){ const n = document.getElementById('cprQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos, pos); }catch(e){} } }
   }
-  window.CPR = { offered, load, render, peopleCards, teamActions,
+  window.CPR = { offered, load, render, peopleCards, teamActions, healthHtml, hasHealth,
     setQuery(v){ CPR.q = String(v || ''); clearTimeout(qTimer); qTimer = setTimeout(() => redraw(true), 200); },
     setDay(v){ CPR.day = String(v || ''); redraw(false); },
     setWho(v){ CPR.who = lc(v); redraw(false); },
