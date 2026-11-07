@@ -1418,6 +1418,7 @@
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Short visit ($ more an hour)<input id="hvSet_short" inputmode="decimal" value="' + extras().short + '" style="width:110px"></label>'
       + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>'
       + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '')
+      + (window.HU && HU.settingsHtml ? HU.settingsHtml() : '')   /* 2026-11-07: the two Read First task names */
       + (function () { const c = aboutCfg(), ta = (id, v) => '<textarea id="' + id + '" rows="7" style="width:100%;font:inherit;font-size:13px">' + E(v.join('\n')) + '</textarea>';
         return '<div style="margin-top:16px"><b>Talking points on the iPad</b><div class="field-note">One per line. About us is step 2 of the visit; the folder list is what coordinators tick as they show it; the jobs are the taps under housekeeping. Leave a box empty to go back to the words from the folder and the website.</div>'
           + '<label class="field-note" style="display:block;margin-top:6px">Open with' + ta('hvSet_aboutOpen', [c.opener]) + '</label>'

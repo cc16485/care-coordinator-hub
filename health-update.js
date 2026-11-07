@@ -22,8 +22,14 @@
   const now = () => new Date().toISOString();
   const KIND = 'health_news';
   const AWARE_I = 100;
-  const AWARE_NAME = 'Awareness of Diagnosis / Injury';
-  const isAware = (name) => /awareness\s+of\s+(diagnos|dx)/i.test(String(name || ''));
+  /* her two tasks (2026-11-07): "Read First: Health Update" gets the health news; "Read First: Home and Family Update" is for
+     the house, the people, pets and routines (a later step). Owners rename them in Settings > Home visit
+     (ops_settings.health_task_names), so nothing here holds the name for good. */
+  const NAMES_DEFAULT = { health: 'Read First: Health Update', home: 'Read First: Home and Family Update' };
+  const names = () => Object.assign({}, NAMES_DEFAULT, ((D().ops_settings || {}).health_task_names) || {});
+  const AWARE_NAME = NAMES_DEFAULT.health;
+  const healthName = () => String(names().health || AWARE_NAME).trim();
+  const isAware = (name) => String(name || '').trim().toLowerCase() === healthName().toLowerCase();
   const MAX = 2000;
   const DAYS = [['N', 'Sun'], ['M', 'Mon'], ['T', 'Tue'], ['W', 'Wed'], ['R', 'Thu'], ['F', 'Fri'], ['S', 'Sat']];
   const PARTS = [['when', 'When'], ['how', 'How to help'], ['equipment', 'Equipment and supplies'], ['preferences', 'Their preferences'], ['safety', 'Safety'], ['report_if', 'Report to the office if']];
@@ -55,14 +61,15 @@
      When the news is about equipment or how much help is needed, each caregiver on the next 3 days of shifts is checked
      against their skills record in the Hub. A warning on the card only (B): it never blocks or changes the schedule.
      Both kinds of record show, and say which (C): "seen by the office" (evidence observed) or "they say they have it".
-     Max assist is the new "complex transfers" skill (D). More than one person to move is her rule: a lift before we staff. */
+     Max assist is not a skill of its own (her change 2026-11-07, replacing decision D): it needs one of the Level 3 skills,
+     bed-bound care or the Hoyer lift (sit-to-stand included). More than one person to move is her rule: a lift before we staff. */
   const NEEDS = [
     [/sit.?to.?stand/i, 'hoyer_lift', 'Sit-to-stand lift'],
     [/hoyer|mechanical lift|sling lift|full.?body sling/i, 'hoyer_lift', 'Hoyer or mechanical lift'],
     [/bed.?bound|bedridden|stays? in bed/i, 'bedbound_care', 'Bed-bound care'],
     [/hospice/i, 'hospice_support', 'Hospice support'],
     [/dementia|alzheimer|confus|memory loss/i, 'dementia_care', 'Dementia care'],
-    [/max(imum)?\s*assist|full assist|complex transfer/i, 'complex_transfers', 'Complex transfers (max assist)'],
+    [/max(imum)?\s*assist|full assist|total assist/i, ['bedbound_care', 'hoyer_lift'], 'Level 3: bed-bound care, Hoyer or sit-to-stand'],
     [/transfer|gait belt|stand.?pivot|help (him|her|them) (stand|up)/i, 'transfers_gait_belt', 'Transfers with a gait belt'],
   ];
   const TWO = /two (people|persons?)|2.?person|more than one person/i;
@@ -75,12 +82,17 @@
   }
   const cgOf = (axId) => (D().caregivers || []).find((g) => g && String(g.axiscare_id || '') === String(axId)) || null;
   function standing(g, key) {
+    if (Array.isArray(key)) {   /* any one of them will do: the best record wins */
+      const all = key.map((k) => standing(g, k)), rank = (x) => (x.ok ? (x.seen ? 3 : 2) : x.word === 'said no' ? 0 : 1);
+      return all.sort((a, b) => rank(b) - rank(a))[0];
+    }
     if (!g) return { ok: false, word: 'not in the Hub' };
     if (key === 'dementia_care' && g.alz_date) return { ok: true, seen: true, word: 'dementia training on file' };
     const e = (g.skills || {})[key];
     if (!e || !e.have) return { ok: false, word: 'not recorded' };
     if (e.have === 'no') return { ok: false, word: 'said no' };
-    return e.evidence === 'observed' ? { ok: true, seen: true, word: 'seen by the office' } : { ok: true, seen: false, word: 'they say they have it' };
+    const which = { bedbound_care: 'bed-bound care', hoyer_lift: 'Hoyer lift' }[key] || '';
+    return e.evidence === 'observed' ? { ok: true, seen: true, word: 'seen by the office', which } : { ok: true, seen: false, word: 'they say they have it', which };
   }
   const when = (iso) => { const t = Date.parse(iso || ''); return isFinite(t) ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
   function skillsHtml(it) {
@@ -96,7 +108,7 @@
     h += S.upcoming.map((u) => {
       const g = cgOf(u.caregiver_axiscare_id);
       const chips = need.skills.map((x) => { const st = standing(g, x.key); if (!st.ok) gaps++;
-        return '<span class="hu-tag ' + (st.ok ? (st.seen ? 'grn' : 'amb') : 'red') + '" style="margin:2px 4px 2px 0">' + E(x.label) + ': ' + E(st.word) + '</span>'; }).join('');
+        return '<span class="hu-tag ' + (st.ok ? (st.seen ? 'grn' : 'amb') : 'red') + '" style="margin:2px 4px 2px 0">' + E(x.label) + ': ' + E(st.word) + (Array.isArray(x.key) && st.which ? ' (' + E(st.which) + ')' : '') + '</span>'; }).join('');
       return '<div class="hu-row" style="margin-top:10px;align-items:flex-start"><div style="min-width:200px"><b>' + E(u.caregiver_name) + '</b><div class="hu-src">next shift ' + E(when(u.next_start)) + '</div></div><div style="flex:1">' + chips + '</div></div>';
     }).join('');
     if (gaps) h += '<div class="hu-bad">Check before the shift: ' + gaps + ' skill' + (gaps === 1 ? ' is' : 's are') + ' not on record for someone scheduled. Ask them, or record it in their Skills and Willingness.</div>';
@@ -104,7 +116,7 @@
   }
 
   /* ---------- the review screen ---------- */
-  const S = { id: null, msg: '', busy: '', tasks: null, catalog: null, err: '', upcoming: null, upErr: '', days: 3 };
+  const S = { id: null, msg: '', busy: '', tasks: null, catalog: null, err: '', upcoming: null, upErr: '', days: 14, textPreview: '', inHours: null };
   function css() {
     if (document.getElementById('huCss')) return;
     const s = document.createElement('style'); s.id = 'huCss';
@@ -125,7 +137,7 @@
   function ensureAware(it) {
     const h = it.health = it.health || {}; h.changes = h.changes || [];
     let c = h.changes.find((x) => x && x.i === AWARE_I);
-    if (!c && (h.news || []).length) { c = { i: AWARE_I, task: AWARE_NAME, awareness: true, state: 'proposed' }; h.changes.unshift(c); }
+    if (!c && (h.news || []).length) { c = { i: AWARE_I, task: healthName(), awareness: true, state: 'proposed' }; h.changes.unshift(c); }
     return c;
   }
   /* the text a change sends, worked out once AxisCare's side has been read; a person's edits are kept */
@@ -136,7 +148,7 @@
       const block = awarenessBlock(it);
       if (there) c.send = { mode: 'update', assignment_id: there.assignment_id, name: there.name, instructions: (block + (there.instructions ? '\n\n' + there.instructions : '')).trim() };
       else if (cat) c.send = { mode: 'add', adl_id: cat.id, name: cat.name, days: DAYS.map((d) => d[0]), require: 1, when: 0, instructions: block };
-      else c.send = { mode: '', name: AWARE_NAME, instructions: block, missing: true };
+      else c.send = { mode: '', name: healthName(), instructions: block, missing: true };
       return;
     }
     if (!c.send) c.send = { mode: '', name: '', instructions: partsText(c) };
@@ -154,18 +166,61 @@
     if (c.state === 'skipped') return '<span class="hu-tag gry">Skipped' + (c.skipped_by ? ' by ' + E(c.skipped_by) : '') + '</span>';
     return '<span class="hu-tag gry">To review</span>';
   }
+  /* ---------- the one button (her "one click", 2026-11-07) ---------- */
+  const reachable = () => (S.upcoming || []).filter((u) => u.has_phone);
+  function oneClickHtml(it, c, can) {
+    const n = reachable().length, label = S.upcoming == null ? 'Update AxisCare' : n ? 'Update AxisCare and text ' + n + ' caregiver' + (n === 1 ? '' : 's') : 'Update AxisCare (nobody to text)';
+    let h = '<div class="hu-row"><button class="hu-b" data-hua="oneclick" data-hui="' + c.i + '"' + (can ? '' : ' disabled') + '>' + E(label) + '</button><button class="hu-b2" data-hua="skip" data-hui="' + c.i + '"' + (canApprove() && !S.busy ? '' : ' disabled') + '>Skip</button>'
+      + (canApprove() ? '' : '<span class="hu-src">Care coordinators and owners approve.</span>') + '</div>';
+    if (S.upcoming == null) return h + '<div class="hu-src" style="margin-top:6px">AxisCare\'s schedule could not be read, so the caregivers can\'t be texted from here right now.</div>';
+    h += '<div class="hu-src" style="margin-top:8px">Who gets the text (everyone on the schedule in the next ' + S.days + ' days): '
+      + (S.upcoming.length ? S.upcoming.map((u) => E(u.caregiver_name) + (u.has_phone ? '' : ' <span class="hu-tag red">no number, call them</span>')).join(', ') : 'nobody is scheduled') + '</div>';
+    if (S.textPreview) h += '<div class="hu-q" style="margin-top:6px">They get: "' + E(S.textPreview) + '"</div>';
+    if (S.inHours === false) h += '<div class="hu-src" style="margin-top:4px">It\'s after 8 pm: AxisCare updates now, the texts go at 8 am.</div>';
+    return h;
+  }
+  const TXT_W = { sent: ['grn', 'texted'], waiting: ['amb', 'goes at 8 am'], failed: ['red', 'did not go through'], refused: ['red', 'not texted'], no_phone: ['red', 'no number: call them'], not_on_roster: ['red', 'not on the Hub roster: call them'] };
+  function textsHtml(it) {
+    const T = (it.health || {}).texts; if (!T && !S.upcoming) return '';
+    const list = (T && T.list) || [], seen = new Set(list.map((x) => String(x.ax)));
+    let h = '<div style="margin-top:12px"><b>Caregivers</b>' + (T && T.error ? '<div class="hu-bad">' + E(T.error) + '</div>' : '');
+    h += list.map((x) => { const w = TXT_W[x.state] || ['gry', x.state]; const again = ['failed', 'refused'].indexOf(x.state) > -1 && x.why !== 'asked not to get texts';
+      return '<div class="hu-row" style="margin-top:6px"><span style="min-width:180px">' + E(x.name) + '</span><span class="hu-tag ' + w[0] + '">' + E(w[1]) + '</span>' + (x.why && x.state !== 'sent' && x.state !== 'waiting' ? ' <span class="hu-src">' + E(x.why) + '</span>' : '')
+        + (again ? '<button class="hu-b2" data-hua="textone" data-ax="' + E(x.ax) + '"' + (canApprove() && !S.busy ? '' : ' disabled') + '>Try again</button>' : '') + '</div>'; }).join('');
+    (S.upcoming || []).filter((u) => !seen.has(String(u.caregiver_axiscare_id))).forEach((u) => {
+      h += '<div class="hu-row" style="margin-top:6px"><span style="min-width:180px">' + E(u.caregiver_name) + '</span><span class="hu-tag amb">added to the schedule after the update</span>'
+        + (u.has_phone ? '<button class="hu-b2" data-hua="textone" data-ax="' + E(u.caregiver_axiscare_id) + '"' + (canApprove() && !S.busy ? '' : ' disabled') + '>Text ' + E(String(u.caregiver_name).split(' ')[0]) + ' too</button>' : ' <span class="hu-src">no number: call them</span>') + '</div>'; });
+    return h + '</div>';
+  }
+  async function oneClick(it, c) {
+    c.state = 'approved'; c.approved_by = me(); c.approved_email = myEmail(); c.approved_at = now(); log(it, 'Approved and sent: ' + healthName());
+    S.busy = 'Updating AxisCare, then texting the caregivers...'; render();
+    await save(it);
+    let out; try { out = await cptCall({ action: 'health_send', card_id: it.id, text_caregivers: true }); } catch (e) { out = { error: String((e && e.message) || e) }; }
+    S.busy = ''; take(it, out);
+    if (!out || out.error) S.msg = 'Nothing was sent. ' + ((out && out.error) || '');
+    else { const L = ((out.texts || {}).list) || [], n = (st) => L.filter((x) => x.state === st).length, aw = (out.steps || []).find((x) => x.i === AWARE_I) || {};
+      S.msg = (aw.ok === false ? 'AxisCare did not confirm the update, so nobody was texted. ' + (aw.detail || '') : 'In AxisCare. ' + (out.texts && out.texts.error ? out.texts.error : n('sent') + ' texted' + (n('waiting') ? ', ' + n('waiting') + ' at 8 am' : '') + (L.length - n('sent') - n('waiting') ? ', ' + (L.length - n('sent') - n('waiting')) + ' to call' : '') + '.')); }
+    render(); loadSide(cardOf(S.id));
+  }
+  async function textOne(it, ax) {
+    S.busy = 'Texting...'; render();
+    let out; try { out = await cptCall({ action: 'health_text_one', card_id: it.id, caregiver_axiscare_id: ax }); } catch (e) { out = { error: String((e && e.message) || e) }; }
+    S.busy = ''; take(it, out); S.msg = out && out.error ? 'Not sent. ' + out.error : 'Done.'; render(); loadSide(cardOf(S.id));
+  }
+  function take(it, out) { if (out && out.card) { const list = D().ops_items || [], k = list.findIndex((x) => x && x.id === it.id); if (k > -1) list[k] = out.card; } }
   function changeHtml(it, c) {
     const s = c.send || {}, locked = c.state !== 'proposed', ok = canApprove() && !S.busy;
     const len = String(s.instructions || '').length;
-    let h = '<div class="hu-card"><div class="hu-row" style="margin-top:0;justify-content:space-between"><h2 style="margin:0">' + E(c.awareness ? AWARE_NAME : c.task) + '</h2>' + stateTag(c) + '</div>';
-    if (c.awareness) h += '<div class="hu-src">The dated news goes on this task so caregivers read it and check it off every shift.</div>';
+    let h = '<div class="hu-card"><div class="hu-row" style="margin-top:0;justify-content:space-between"><h2 style="margin:0">' + E(c.awareness ? healthName() : c.task) + '</h2>' + stateTag(c) + '</div>';
+    if (c.awareness) h += '<div class="hu-src">The dated news goes on this task so caregivers read it and check it off every shift. One press puts it in AxisCare, checks it landed, then texts everyone on the schedule.</div>';
     else {
       h += '<div class="hu-src">' + E({ add: 'New task', change: 'Change to a task', stop: 'Stop a task' }[c.change] || 'Change') + ', because of: ' + E((c.because || []).map((k) => ((it.health.news || [])[k] || {}).what).filter(Boolean).join('; ')) + '</div>';
       h += PARTS.map(([k, l]) => { const x = c[k] || {}; const tx = k === 'how' ? ((x.steps || []).join(' / ')) : x.text; return '<div class="hu-part"><b>' + E(l) + ':</b> ' + (tx ? E(tx) : '') + (x.ask ? ' <span class="hu-ask">Ask before approving</span>' : '') + '</div>'; }).join('');
       if (c.change === 'stop') h += '<div class="hu-src">Removing a task is never done from here. Change it in AxisCare yourself if it should stop.</div>';
     }
     if (!S.tasks) return h + '<div class="hu-src" style="margin-top:8px">' + (S.err ? 'Could not read AxisCare: ' + E(S.err) : 'Reading what AxisCare has for ' + E(it.about || 'the client') + '...') + '</div></div>';
-    if (s.missing) h += '<div class="hu-bad">AxisCare\'s task list has no "' + E(AWARE_NAME) + '" task. Add it in AxisCare, then open this card again.</div>';
+    if (s.missing) h += '<div class="hu-bad">AxisCare\'s task list has no "' + E(healthName()) + '" task yet. Add it in AxisCare (or set its name in Settings > Home visit), then open this card again.</div>';
     else {
       if (!c.awareness) {
         const sel = s.mode === 'update' ? 'u:' + s.assignment_id : s.mode === 'add' ? 'a:' + s.adl_id : '';
@@ -178,9 +233,13 @@
         + DAYS.map(([d, l]) => '<label><input type="checkbox" data-huday="' + c.i + ':' + d + '"' + ((s.days || []).indexOf(d) > -1 ? ' checked' : '') + (locked ? ' disabled' : '') + '> ' + l + '</label>').join(' ') + '</div>';
       h += '<div style="margin-top:8px"><textarea class="hu-ta" data-huta="' + c.i + '"' + (locked ? ' readonly' : '') + '>' + E(s.instructions || '') + '</textarea><div class="hu-src"' + (len > MAX ? ' style="color:#8A2A20;font-weight:700"' : '') + '>' + len + ' of ' + MAX + ' characters AxisCare takes' + (len > MAX ? '. Shorten it (older updates can go) before approving.' : '') + '</div></div>';
     }
-    if (!locked) h += '<div class="hu-row"><button class="hu-b" data-hua="approve" data-hui="' + c.i + '"' + (!ok || !s.mode || len > MAX || !len || (s.mode === 'add' && !(s.days || []).length) ? ' disabled' : '') + '>Approve</button><button class="hu-b2" data-hua="skip" data-hui="' + c.i + '"' + (ok ? '' : ' disabled') + '>Skip</button>'
+    const can = ok && s.mode && len <= MAX && len && !(s.mode === 'add' && !(s.days || []).length);
+    if (!locked && c.awareness) h += oneClickHtml(it, c, can);
+    else if (!locked) h += '<div class="hu-row"><button class="hu-b" data-hua="approve" data-hui="' + c.i + '"' + (!can ? ' disabled' : '') + '>Approve</button><button class="hu-b2" data-hua="skip" data-hui="' + c.i + '"' + (ok ? '' : ' disabled') + '>Skip</button>'
       + (canApprove() ? '' : '<span class="hu-src">Care coordinators and owners approve.</span>') + '</div>';
-    else if (c.state !== 'skipped' && !(c.sent && c.sent.ok)) h += '<div class="hu-row"><button class="hu-b2" data-hua="unapprove" data-hui="' + c.i + '"' + (ok ? '' : ' disabled') + '>Change it</button></div>';
+    else if (c.state !== 'skipped' && !(c.sent && c.sent.ok)) h += '<div class="hu-row"><button class="hu-b2" data-hua="unapprove" data-hui="' + c.i + '"' + (ok ? '' : ' disabled') + '>Change it</button>'
+      + (c.awareness && c.state === 'approved' ? '<button class="hu-b" data-hua="oneclick" data-hui="' + c.i + '"' + (ok ? '' : ' disabled') + '>Try again: update AxisCare and text them</button>' : '') + '</div>';
+    if (c.awareness && c.sent && c.sent.ok) h += textsHtml(it);
     return h + '</div>';
   }
   function render() {
@@ -202,7 +261,7 @@
       + cs.map((c) => changeHtml(it, c)).join('')
       + '<div class="hu-card"><div class="hu-row" style="margin-top:0"><button class="hu-b" data-hua="send"' + (ready && it.client_ax && !S.busy ? '' : ' disabled') + '>Send ' + (ready || '') + ' approved to AxisCare</button>'
       + (it.status === 'open' ? '<button class="hu-b2" data-hua="done"' + (left || S.busy ? ' disabled' : '') + '>Done, close the card</button>' : '<span class="hu-tag grn">Card closed</span>') + '</div>'
-      + '<div class="hu-src" style="margin-top:6px">Nothing goes to AxisCare until you approve it and tap Send. Every send is read back from AxisCare.</div></div>'
+      + '<div class="hu-src" style="margin-top:6px">For the care task changes above. Nothing goes to AxisCare until you approve it and tap Send. Every send is read back from AxisCare.</div></div>'
       + '<div class="hu-card"><h2>History</h2>' + (it.history || []).slice().reverse().map((x) => '<div class="hu-src">' + E(day(x.at)) + ' · ' + E(x.by || '') + ': ' + E(x.text || '') + '</div>').join('') + '</div></div>';
   }
   function wire(root) {
@@ -213,10 +272,12 @@
       S.msg = '';
       if (act === 'close') return close();
       if (!canApprove() && act !== 'close') { S.msg = 'Care coordinators and owners approve health updates.'; return render(); }
-      if (act === 'approve' && c) { c.state = 'approved'; c.approved_by = me(); c.approved_email = myEmail(); c.approved_at = now(); log(it, 'Approved: ' + (c.awareness ? AWARE_NAME : c.task)); await save(it); return render(); }
-      if (act === 'skip' && c) { c.state = 'skipped'; c.skipped_by = me(); c.skipped_at = now(); log(it, 'Skipped: ' + (c.awareness ? AWARE_NAME : c.task)); await save(it); return render(); }
-      if (act === 'unapprove' && c) { c.state = 'proposed'; delete c.approved_by; delete c.approved_email; delete c.approved_at; delete c.skipped_by; log(it, 'Reopened to change: ' + (c.awareness ? AWARE_NAME : c.task)); await save(it); return render(); }
+      if (act === 'approve' && c) { c.state = 'approved'; c.approved_by = me(); c.approved_email = myEmail(); c.approved_at = now(); log(it, 'Approved: ' + (c.awareness ? healthName() : c.task)); await save(it); return render(); }
+      if (act === 'skip' && c) { c.state = 'skipped'; c.skipped_by = me(); c.skipped_at = now(); log(it, 'Skipped: ' + (c.awareness ? healthName() : c.task)); await save(it); return render(); }
+      if (act === 'unapprove' && c) { c.state = 'proposed'; delete c.approved_by; delete c.approved_email; delete c.approved_at; delete c.skipped_by; log(it, 'Reopened to change: ' + (c.awareness ? healthName() : c.task)); await save(it); return render(); }
       if (act === 'send') return send(it);
+      if (act === 'oneclick' && c) return oneClick(it, c);
+      if (act === 'textone') return textOne(it, b.getAttribute('data-ax'));
       if (act === 'done') { it.status = 'done'; it.closed_at = now(); it.closed_by = me(); it.close_note = 'Health news reviewed and sent to AxisCare'; try { if (typeof opsLog === 'function') opsLog(it, it.close_note); } catch (e) {} await save(it); S.msg = 'Card closed.'; return render(); }
     });
     root.addEventListener('change', async (ev) => {
@@ -239,7 +300,7 @@
   }
   async function loadSide(it) {
     if (!it || !it.client_ax || typeof cptCall !== 'function') return;
-    try { const d = await cptCall({ action: 'health_tasks', card_id: it.id }); if (d.error || d.outcome) throw new Error(d.error || d.detail); S.tasks = d.tasks || []; S.catalog = d.catalog || []; S.err = ''; S.upcoming = Array.isArray(d.upcoming) ? d.upcoming : null; S.upErr = d.upcoming_error || ''; S.days = d.days || 3; }
+    try { const d = await cptCall({ action: 'health_tasks', card_id: it.id }); if (d.error || d.outcome) throw new Error(d.error || d.detail); S.tasks = d.tasks || []; S.catalog = d.catalog || []; S.err = ''; S.upcoming = Array.isArray(d.upcoming) ? d.upcoming : null; S.upErr = d.upcoming_error || ''; S.days = d.days || 14; S.textPreview = d.text_preview || ''; S.inHours = d.in_hours; }
     catch (e) { S.err = String((e && e.message) || e); }
     if (S.id === it.id) { const c = cardOf(S.id); if (c) { const before = JSON.stringify(c.health.changes); render(); if (JSON.stringify(c.health.changes) !== before) await save(c); } }
   }
@@ -251,11 +312,30 @@
     render(); loadSide(it);
   }
   function close() { const r = document.getElementById('huRoot'); if (r) r.remove(); S.id = null; try { if (typeof renderMyWork === 'function') renderMyWork(); } catch (e) {} }
+  /* Settings > Home visit (owners): the two AxisCare task names */
+  function settingsHtml() {
+    const n = names();
+    return '<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px"><b>AxisCare tasks for updates caregivers read first</b>'
+      + '<div class="field-note">The health card puts dated news on the first task and texts the caregivers to read it. Use the exact names from AxisCare\'s task list. Set Nov 7, 2026.</div>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px;margin-top:8px">Health update task<input id="huSet_health" value="' + E(n.health) + '" style="max-width:360px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px;margin-top:8px">Home and family update task<input id="huSet_home" value="' + E(n.home) + '" style="max-width:360px"></label>'
+      + '<div style="display:flex;gap:8px;margin-top:8px;align-items:center"><button class="secondary" onclick="HU.settingsSave(this)">Save the task names</button><span class="field-note" id="huSetSaved"></span></div></div>';
+  }
+  async function settingsSave(btn) {
+    if (!isOwner()) { alert('Only owners can change these names.'); return; }
+    const v = (id) => String((document.getElementById(id) || {}).value || '').trim();
+    const health = v('huSet_health'), home = v('huSet_home');
+    if (!health || !home) { alert('Both tasks need a name.'); return; }
+    if (btn) btn.disabled = true;
+    const out = typeof tkMerge === 'function' ? await tkMerge((st) => { st.health_task_names = { health, home, by: me(), at: now() }; return ['Health and home update task names changed']; }, 'Health task names') : { error: { message: 'Settings are not loaded' } };
+    if (btn) btn.disabled = false;
+    const sv = document.getElementById('huSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
+  }
   /* the button on the My Work card */
   function actions(it) {
     const h = it.health || {}, cs = h.changes || [], sent = cs.filter((c) => c.sent && c.sent.ok).length;
     return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="HU.open(\'' + E(it.id) + '\')">Review and send to AxisCare</button>'
       + '<span class="field-note">' + E((h.news || []).length + ' piece' + ((h.news || []).length === 1 ? '' : 's') + ' of news' + (sent ? ', ' + sent + ' sent' : '')) + '</span></div>';
   }
-  window.HU = { open, close, actions, needsOf, standing, skillsHtml, awarenessBlock, partsText, ensureAware, prepare, pick, isAware, KIND, AWARE_I, AWARE_NAME, _s: S };
+  window.HU = { open, close, actions, settingsHtml, settingsSave, names, healthName, needsOf, standing, skillsHtml, awarenessBlock, partsText, ensureAware, prepare, pick, isAware, KIND, AWARE_I, AWARE_NAME, _s: S };
 })();
