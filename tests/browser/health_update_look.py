@@ -103,10 +103,6 @@ async()=>{
     (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' }");
     ok('everyone on the card\'s list sees the ONE health card in their own My Work (owners and the office team)', asOwner.includes('chn_everyone') && asSally.includes('chn_everyone') && !asOther.includes('chn_everyone') && DATA.ops_items.filter(i=>i.id==='chn_everyone').length===1 && !(window.TW&&TW.on()&&TW.teamIds().has('chn_everyone')), [asOwner, asSally, asOther]);
     DATA.ops_items=DATA.ops_items.filter(i=>i.id!=='chn_everyone'); }
-  { const c1=it(); c1.health.checks=[{ visit:'v1', caregiver:'Mia Fakecare', day:'Sun, Nov 8', done:true }, { visit:'v2', caregiver:'Lu Fakecare', day:'Mon, Nov 9', done:false }];
-    await HU.open('chn_famcall0001'); await sleep(300);
-    ok('after the visits: who checked the update off and who did not (call them)', /At their visits/.test(txt()) && /Mia Fakecare\s*checked it off\s*Sun, Nov 8/.test(txt()) && /Lu Fakecare\s*did not check it off\s*Mon, Nov 9: call them/.test(txt()), txt().slice(-1500));
-    delete c1.health.checks; }
   { const c2=JSON.parse(JSON.stringify(it())); c2.id='chn_smsp1'; c2.status='open'; c2.source={ type:'health_news', channel:'text', call_at:'2026-11-05T19:05:00Z' }; c2.health.changes=c2.health.changes.filter(c=>c.i!==100); DATA.ops_items.push(c2);
     await HU.open('chn_smsp1'); await sleep(300);
     ok('a card from texts says so, on the screen and in the dated update', /In texts from Pat Fakename/.test(txt()) && /HEALTH UPDATE Nov 5, 2026 \(texts from Pat Fakename\)/.test((DATA.ops_items.find(i=>i.id==='chn_smsp1').health.changes.find(c=>c.i===100).send||{}).instructions||''), txt().slice(0,600));

@@ -182,7 +182,7 @@
   }
   const TXT_W = { sent: ['grn', 'texted'], waiting: ['amb', 'goes at 8 am'], failed: ['red', 'did not go through'], refused: ['red', 'not texted'], no_phone: ['red', 'no number: call them'], not_on_roster: ['red', 'not on the Hub roster: call them'] };
   function textsHtml(it) {
-    const T = (it.health || {}).texts; if (!T && !S.upcoming && !((it.health || {}).checks || []).length) return '';
+    const T = (it.health || {}).texts; if (!T && !S.upcoming) return '';
     const list = (T && T.list) || [], seen = new Set(list.map((x) => String(x.ax)));
     let h = '<div style="margin-top:12px"><b>Caregivers</b>' + (T && T.error ? '<div class="hu-bad">' + E(T.error) + '</div>' : '');
     h += list.map((x) => { const w = TXT_W[x.state] || ['gry', x.state]; const again = ['failed', 'refused'].indexOf(x.state) > -1 && x.why !== 'asked not to get texts';
@@ -191,8 +191,6 @@
     (S.upcoming || []).filter((u) => !seen.has(String(u.caregiver_axiscare_id))).forEach((u) => {
       h += '<div class="hu-row" style="margin-top:6px"><span style="min-width:180px">' + E(u.caregiver_name) + '</span><span class="hu-tag amb">added to the schedule after the update</span>'
         + (u.has_phone ? '<button class="hu-b2" data-hua="textone" data-ax="' + E(u.caregiver_axiscare_id) + '"' + (canApprove() && !S.busy ? '' : ' disabled') + '>Text ' + E(String(u.caregiver_name).split(' ')[0]) + ' too</button>' : ' <span class="hu-src">no number: call them</span>') + '</div>'; });
-    const checks = (it.health || {}).checks || [];
-    if (checks.length) h += '<div style="margin-top:12px"><b>At their visits</b>' + checks.map((x) => '<div class="hu-row" style="margin-top:6px"><span style="min-width:180px">' + E(x.caregiver) + '</span><span class="hu-tag ' + (x.done ? 'grn' : 'red') + '">' + (x.done ? 'checked it off' : 'did not check it off') + '</span> <span class="hu-src">' + E(x.day) + (x.done ? '' : ': call them') + '</span></div>').join('') + '</div>';
     return h + '</div>';
   }
   async function oneClick(it, c) {
