@@ -168,8 +168,24 @@
     }
     return out;
   }
+  /* The week card's body (pure, 2026-11-07): a day AxisCare did not answer in full (incomplete_dates from
+     axiscare-open-shifts) is never shown as "All covered"; it says it could not be read. */
+  function weekCard(open, gaps, now, asked){
+    const e = x => String(x == null ? '' : x).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    const days = weekOf(open, now, 7), all = days.reduce((a, d) => a.concat(d.shifts), []), soon = all.filter(s => s.soon).length;
+    const ask = asked || (() => false), nAsked = all.filter(ask).length;
+    const g = Array.isArray(gaps) ? gaps : [], gap = k => g.indexOf(k) >= 0, nGap = days.filter(d => gap(d.key)).length;
+    return '<div class="opl-week" id="oplWeek"><div class="opl-hd"><h3>Open shifts, next 7 days</h3><small>From AxisCare: visits with no caregiver. Fill them in AxisCare or open a coverage case.</small></div>'
+      + '<div class="opl-days">' + days.map(d => '<div class="opl-day"><b>' + e(d.day + ' ' + d.num) + '</b>'
+        + d.shifts.map(s => '<span class="opl-sh' + (s.soon ? ' soon' : '') + '">' + e((s.start || '') + ' ' + s.client) + (ask(s) ? '<small>team being asked</small>' : '') + '</span>').join('')
+        + (gap(d.key) ? '<span class="opl-gap" style="color:var(--amber,#B45309);font-weight:700;">Couldn\'t read all of this day from AxisCare. Check AxisCare.</span>'
+          : (d.shifts.length ? '' : '<span class="opl-ok">All covered</span>')) + '</div>').join('') + '</div>'
+      + '<div class="opl-wf">' + (all.length ? '<b>' + all.length + '</b> open this week' + (soon ? ' · <b style="color:var(--red);">' + soon + ' within 48 hours</b>' : '') + (nAsked ? ' · ' + nAsked + ' already have the team being asked' : '')
+        : (nGap ? 'No open shifts found on the days AxisCare answered.' : 'Every visit in the next 7 days has a caregiver.'))
+        + (nGap ? ' · <b style="color:var(--amber,#B45309);">' + nGap + ' day' + (nGap === 1 ? '' : 's') + ' could not be fully read, so ' + (nGap === 1 ? 'it' : 'they') + ' may be missing open shifts</b>' : '') + ' · <button class="linklike" style="font:inherit;" onclick="switchTab(\'coverage\')">Open the coverage page</button></div></div>';
+  }
   const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO,
-    lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, BATCH, BATCH_ORDER };
+    lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, weekCard, BATCH, BATCH_ORDER };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ═══════════════════════════════════ in the Hub ═══════════════════════════════════ */
@@ -373,7 +389,7 @@
         headers:{ 'x-hub-token':await W.trainHubTok(), 'apikey':anon, 'Authorization':'Bearer ' + anon, 'Content-Type':'application/json' }, body:JSON.stringify({ days:7 }) });
       const d = await r.json();
       if(d && d.error){ L.week = []; L.weekErr = String(d.error).indexOf('403') >= 0 ? 'AxisCare said no (403): the API token needs Visits read.' : 'Couldn\'t load open shifts from AxisCare.'; }
-      else { L.week = (d && d.open) || []; L.weekErr = ''; }
+      else { L.week = (d && d.open) || []; L.weekErr = ''; L.weekGap = (d && Array.isArray(d.incomplete_dates)) ? d.incomplete_dates : []; }   /* 2026-11-07: days AxisCare did not answer in full */
     }catch(e){ L.week = []; L.weekErr = 'Couldn\'t reach the open-shifts lookup. Check your connection.'; }
     L.weekAt = Date.now();
     if(MYWORK_ON_BOARD()) redraw();
@@ -382,15 +398,8 @@
   function weekHtml(now){
     if(L.week === undefined || L.week === null) return '<div class="opl-week"><div class="opl-hd"><h3>Open shifts, next 7 days</h3><small>Checking AxisCare…</small></div></div>';
     if(L.weekErr) return '<div class="opl-week"><div class="opl-hd"><h3>Open shifts, next 7 days</h3></div><div class="opl-wf">' + esc(L.weekErr) + '</div></div>';
-    const days = weekOf(L.week, now, 7), all = days.reduce((a, d) => a.concat(d.shifts), []), soon = all.filter(s => s.soon).length;
     const asked = s => (D().ops_items || []).some(i => i && i.status === 'open' && lc(i.kind) === 'coverage' && i.about && lc(i.about) === lc(s.client));
-    const nAsked = all.filter(asked).length;
-    return '<div class="opl-week" id="oplWeek"><div class="opl-hd"><h3>Open shifts, next 7 days</h3><small>From AxisCare: visits with no caregiver. Fill them in AxisCare or open a coverage case.</small></div>'
-      + '<div class="opl-days">' + days.map(d => '<div class="opl-day"><b>' + esc(d.day + ' ' + d.num) + '</b>'
-        + (d.shifts.length ? d.shifts.map(s => '<span class="opl-sh' + (s.soon ? ' soon' : '') + '">' + esc((s.start || '') + ' ' + s.client) + (asked(s) ? '<small>team being asked</small>' : '') + '</span>').join('')
-          : '<span class="opl-ok">All covered</span>') + '</div>').join('') + '</div>'
-      + '<div class="opl-wf">' + (all.length ? '<b>' + all.length + '</b> open this week' + (soon ? ' · <b style="color:var(--red);">' + soon + ' within 48 hours</b>' : '') + (nAsked ? ' · ' + nAsked + ' already have the team being asked' : '')
-        : 'Every visit in the next 7 days has a caregiver.') + ' · <button class="linklike" style="font:inherit;" onclick="switchTab(\'coverage\')">Open the coverage page</button></div></div>';
+    return weekCard(L.week, L.weekGap, now, asked);
   }
   function laneRow(r, now){
     const it = r.it, id = esc(r.id), openNow = S.open === r.id;

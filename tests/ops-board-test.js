@@ -64,6 +64,18 @@ const wk = B.weekOf([{ client:'Example A', date:(d => d.getFullYear() + '-' + St
 ck('open shifts week: 7 days from today, tomorrow\'s shift on day 2 and within 48 hours, far-off shifts left out',
   wk.length === 7 && wk[1].shifts.length === 1 && wk[1].shifts[0].soon && wk.reduce((a, d) => a + d.shifts.length, 0) === 1 && wk[0].shifts.length === 0, wk.map(d => d.key + ':' + d.shifts.length));
 ck('the new words', B.BATCH.welcome[0] === 'Family welcomes to send' && B.BATCH.calls[0] === 'Office to-dos from calls' && !/—/.test(JSON.stringify(B.BATCH)));
+/* 2026-11-07 (her: "this HAS to be accurate"): a day AxisCare did not answer in full is never "All covered" */
+{ const ymd = t => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const shown = B.weekCard([{ client:'Example A', date:ymd(now + D), start:'9:30 AM', start24:'09:30' }], [ymd(now + 4 * D)], now);
+  const cells = shown.split('<div class="opl-day">').slice(1);
+  ck('week card: a shift shows, an unread day says it could not be read, the other days say All covered',
+    /9:30 AM Example A/.test(cells[1]) && /Couldn't read all of this day/.test(cells[4]) && !/All covered/.test(cells[4]) && /All covered/.test(cells[2]) && (shown.match(/All covered/g) || []).length === 5, cells);
+  ck('week card footer counts the unread day', /1 day could not be fully read/.test(shown), shown.slice(-400));
+  const none = B.weekCard([], [], now);
+  ck('week card: every day read and nothing open says every visit has a caregiver', /Every visit in the next 7 days has a caregiver/.test(none) && (none.match(/All covered/g) || []).length === 7 && !/could not be fully read/.test(none));
+  const gapOnly = B.weekCard([], [ymd(now)], now);
+  ck('week card: nothing open but a day unread never claims every visit is covered', !/Every visit in the next 7 days has a caregiver/.test(gapOnly) && /No open shifts found on the days AxisCare answered/.test(gapOnly));
+  ck('week card: a client name is escaped', /&lt;b&gt;/.test(B.weekCard([{ client:'<b>x', date:ymd(now + D), start:'9:00 AM', start24:'09:00' }], [], now))); }
 const words = Object.values(B.NEED).concat(Object.values(B.WHO)).join(' ');
 ck('no em dashes', !/—/.test(require('fs').readFileSync(__dirname + '/../ops-board.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')) && !/—/.test(words));
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
