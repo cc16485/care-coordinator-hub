@@ -51,8 +51,60 @@
   }
   const asks = (c) => PARTS.filter(([k]) => c[k] && c[k].ask).map(([, l]) => l);
 
+  /* ---------- the skill check (her "Yes, all five" 2026-11-07, decisions B, C and D) ----------
+     When the news is about equipment or how much help is needed, each caregiver on the next 3 days of shifts is checked
+     against their skills record in the Hub. A warning on the card only (B): it never blocks or changes the schedule.
+     Both kinds of record show, and say which (C): "seen by the office" (evidence observed) or "they say they have it".
+     Max assist is the new "complex transfers" skill (D). More than one person to move is her rule: a lift before we staff. */
+  const NEEDS = [
+    [/sit.?to.?stand/i, 'hoyer_lift', 'Sit-to-stand lift'],
+    [/hoyer|mechanical lift|sling lift|full.?body sling/i, 'hoyer_lift', 'Hoyer or mechanical lift'],
+    [/bed.?bound|bedridden|stays? in bed/i, 'bedbound_care', 'Bed-bound care'],
+    [/hospice/i, 'hospice_support', 'Hospice support'],
+    [/dementia|alzheimer|confus|memory loss/i, 'dementia_care', 'Dementia care'],
+    [/max(imum)?\s*assist|full assist|complex transfer/i, 'complex_transfers', 'Complex transfers (max assist)'],
+    [/transfer|gait belt|stand.?pivot|help (him|her|them) (stand|up)/i, 'transfers_gait_belt', 'Transfers with a gait belt'],
+  ];
+  const TWO = /two (people|persons?)|2.?person|more than one person/i;
+  function needsOf(it) {
+    const h = it.health || {}, text = [(h.news || []).map((n) => n.kind + ' ' + n.what).join(' \n '),
+      (h.changes || []).filter((c) => !c.awareness).map((c) => c.task + ' ' + PARTS.map(([k]) => k === 'how' ? ((c[k] || {}).steps || []).join(' ') : (c[k] || {}).text || '').join(' ')).join(' \n ')].join(' \n ');
+    const out = [];
+    NEEDS.forEach(([rx, key, label]) => { if (rx.test(text) && !out.some((x) => x.label === label)) out.push({ key, label }); });
+    return { skills: out, two: TWO.test(text) };
+  }
+  const cgOf = (axId) => (D().caregivers || []).find((g) => g && String(g.axiscare_id || '') === String(axId)) || null;
+  function standing(g, key) {
+    if (!g) return { ok: false, word: 'not in the Hub' };
+    if (key === 'dementia_care' && g.alz_date) return { ok: true, seen: true, word: 'dementia training on file' };
+    const e = (g.skills || {})[key];
+    if (!e || !e.have) return { ok: false, word: 'not recorded' };
+    if (e.have === 'no') return { ok: false, word: 'said no' };
+    return e.evidence === 'observed' ? { ok: true, seen: true, word: 'seen by the office' } : { ok: true, seen: false, word: 'they say they have it' };
+  }
+  const when = (iso) => { const t = Date.parse(iso || ''); return isFinite(t) ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
+  function skillsHtml(it) {
+    const need = needsOf(it);
+    if (!need.skills.length && !need.two) return '';
+    let h = '<div class="hu-card"><h2>Can the next caregivers do this?</h2>'
+      + '<div class="hu-src">The news needs: ' + E(need.skills.map((x) => x.label).join(', ') || 'see below') + '. Checked against each caregiver\'s skills in the Hub. A warning only; nothing changes the schedule.</div>';
+    if (need.two) h += '<div class="hu-bad">The news says more than one person to move. Our rule: we never do two-person transfers, so this client needs a lift before we staff.</div>';
+    if (!S.tasks && !S.err) return h + '<div class="hu-src" style="margin-top:8px">Reading the schedule from AxisCare...</div></div>';
+    if (S.upcoming == null) return h + '<div class="hu-bad">' + E(S.upErr || S.err || 'AxisCare\'s schedule could not be read') + '. Check who is coming up in AxisCare yourself.</div></div>';
+    if (!S.upcoming.length) return h + '<div class="hu-src" style="margin-top:8px">Nobody is scheduled with ' + E(it.about || 'this client') + ' in the next ' + S.days + ' days.</div></div>';
+    let gaps = 0;
+    h += S.upcoming.map((u) => {
+      const g = cgOf(u.caregiver_axiscare_id);
+      const chips = need.skills.map((x) => { const st = standing(g, x.key); if (!st.ok) gaps++;
+        return '<span class="hu-tag ' + (st.ok ? (st.seen ? 'grn' : 'amb') : 'red') + '" style="margin:2px 4px 2px 0">' + E(x.label) + ': ' + E(st.word) + '</span>'; }).join('');
+      return '<div class="hu-row" style="margin-top:10px;align-items:flex-start"><div style="min-width:200px"><b>' + E(u.caregiver_name) + '</b><div class="hu-src">next shift ' + E(when(u.next_start)) + '</div></div><div style="flex:1">' + chips + '</div></div>';
+    }).join('');
+    if (gaps) h += '<div class="hu-bad">Check before the shift: ' + gaps + ' skill' + (gaps === 1 ? ' is' : 's are') + ' not on record for someone scheduled. Ask them, or record it in their Skills and Willingness.</div>';
+    return h + '</div>';
+  }
+
   /* ---------- the review screen ---------- */
-  const S = { id: null, msg: '', busy: '', tasks: null, catalog: null, err: '' };
+  const S = { id: null, msg: '', busy: '', tasks: null, catalog: null, err: '', upcoming: null, upErr: '', days: 3 };
   function css() {
     if (document.getElementById('huCss')) return;
     const s = document.createElement('style'); s.id = 'huCss';
@@ -145,6 +197,7 @@
       + (S.msg ? '<div class="hu-msg">' + E(S.msg) + '</div>' : '') + (S.busy ? '<div class="hu-msg">' + E(S.busy) + '</div>' : '')
       + '<div class="hu-card"><h2>What was said</h2><div class="hu-src">On a call with ' + E(it.who || 'someone') + ', ' + E(day((it.source || {}).call_at)) + '. Only words really said on the call are kept.</div><ul class="hu-news">'
       + (h.news || []).map((n) => '<li><b>' + E(KIND_W[n.kind] || 'Other') + ':</b> ' + E(n.what) + (n.when ? ' <span class="hu-src">(' + E(n.when) + ')</span>' : '') + (n.said_by ? ' <span class="hu-src">said by ' + E(n.said_by) + '</span>' : '') + (n.quote ? '<div class="hu-q">On the call: "' + E(n.quote) + '"</div>' : '') + '</li>').join('') + '</ul></div>'
+      + skillsHtml(it)
       + ((h.ask || []).length ? '<div class="hu-card"><h2>Questions before approving</h2><ul>' + h.ask.map((q) => '<li>' + E(q) + '</li>').join('') + '</ul></div>' : '')
       + cs.map((c) => changeHtml(it, c)).join('')
       + '<div class="hu-card"><div class="hu-row" style="margin-top:0"><button class="hu-b" data-hua="send"' + (ready && it.client_ax && !S.busy ? '' : ' disabled') + '>Send ' + (ready || '') + ' approved to AxisCare</button>'
@@ -186,13 +239,13 @@
   }
   async function loadSide(it) {
     if (!it || !it.client_ax || typeof cptCall !== 'function') return;
-    try { const d = await cptCall({ action: 'health_tasks', card_id: it.id }); if (d.error || d.outcome) throw new Error(d.error || d.detail); S.tasks = d.tasks || []; S.catalog = d.catalog || []; S.err = ''; }
+    try { const d = await cptCall({ action: 'health_tasks', card_id: it.id }); if (d.error || d.outcome) throw new Error(d.error || d.detail); S.tasks = d.tasks || []; S.catalog = d.catalog || []; S.err = ''; S.upcoming = Array.isArray(d.upcoming) ? d.upcoming : null; S.upErr = d.upcoming_error || ''; S.days = d.days || 3; }
     catch (e) { S.err = String((e && e.message) || e); }
     if (S.id === it.id) { const c = cardOf(S.id); if (c) { const before = JSON.stringify(c.health.changes); render(); if (JSON.stringify(c.health.changes) !== before) await save(c); } }
   }
   async function open(id) {
     const it = cardOf(id); if (!it || it.kind !== KIND) return;
-    S.id = id; S.msg = ''; S.busy = ''; S.tasks = null; S.catalog = null; S.err = '';
+    S.id = id; S.msg = ''; S.busy = ''; S.tasks = null; S.catalog = null; S.err = ''; S.upcoming = null; S.upErr = '';
     const had = (it.health && it.health.changes || []).some((x) => x && x.i === AWARE_I);
     ensureAware(it); if (!had && (it.health.changes || []).some((x) => x && x.i === AWARE_I)) await save(it);
     render(); loadSide(it);
@@ -204,5 +257,5 @@
     return '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><button class="ghost" style="padding:5px 11px;font-size:12px;" onclick="HU.open(\'' + E(it.id) + '\')">Review and send to AxisCare</button>'
       + '<span class="field-note">' + E((h.news || []).length + ' piece' + ((h.news || []).length === 1 ? '' : 's') + ' of news' + (sent ? ', ' + sent + ' sent' : '')) + '</span></div>';
   }
-  window.HU = { open, close, actions, awarenessBlock, partsText, ensureAware, prepare, pick, isAware, KIND, AWARE_I, AWARE_NAME, _s: S };
+  window.HU = { open, close, actions, needsOf, standing, skillsHtml, awarenessBlock, partsText, ensureAware, prepare, pick, isAware, KIND, AWARE_I, AWARE_NAME, _s: S };
 })();
