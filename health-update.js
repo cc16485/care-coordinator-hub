@@ -55,14 +55,15 @@
      When the news is about equipment or how much help is needed, each caregiver on the next 3 days of shifts is checked
      against their skills record in the Hub. A warning on the card only (B): it never blocks or changes the schedule.
      Both kinds of record show, and say which (C): "seen by the office" (evidence observed) or "they say they have it".
-     Max assist is the new "complex transfers" skill (D). More than one person to move is her rule: a lift before we staff. */
+     Max assist is not a skill of its own (her change 2026-11-07, replacing decision D): it needs one of the Level 3 skills,
+     bed-bound care or the Hoyer lift (sit-to-stand included). More than one person to move is her rule: a lift before we staff. */
   const NEEDS = [
     [/sit.?to.?stand/i, 'hoyer_lift', 'Sit-to-stand lift'],
     [/hoyer|mechanical lift|sling lift|full.?body sling/i, 'hoyer_lift', 'Hoyer or mechanical lift'],
     [/bed.?bound|bedridden|stays? in bed/i, 'bedbound_care', 'Bed-bound care'],
     [/hospice/i, 'hospice_support', 'Hospice support'],
     [/dementia|alzheimer|confus|memory loss/i, 'dementia_care', 'Dementia care'],
-    [/max(imum)?\s*assist|full assist|complex transfer/i, 'complex_transfers', 'Complex transfers (max assist)'],
+    [/max(imum)?\s*assist|full assist|total assist/i, ['bedbound_care', 'hoyer_lift'], 'Level 3: bed-bound care, Hoyer or sit-to-stand'],
     [/transfer|gait belt|stand.?pivot|help (him|her|them) (stand|up)/i, 'transfers_gait_belt', 'Transfers with a gait belt'],
   ];
   const TWO = /two (people|persons?)|2.?person|more than one person/i;
@@ -75,12 +76,17 @@
   }
   const cgOf = (axId) => (D().caregivers || []).find((g) => g && String(g.axiscare_id || '') === String(axId)) || null;
   function standing(g, key) {
+    if (Array.isArray(key)) {   /* any one of them will do: the best record wins */
+      const all = key.map((k) => standing(g, k)), rank = (x) => (x.ok ? (x.seen ? 3 : 2) : x.word === 'said no' ? 0 : 1);
+      return all.sort((a, b) => rank(b) - rank(a))[0];
+    }
     if (!g) return { ok: false, word: 'not in the Hub' };
     if (key === 'dementia_care' && g.alz_date) return { ok: true, seen: true, word: 'dementia training on file' };
     const e = (g.skills || {})[key];
     if (!e || !e.have) return { ok: false, word: 'not recorded' };
     if (e.have === 'no') return { ok: false, word: 'said no' };
-    return e.evidence === 'observed' ? { ok: true, seen: true, word: 'seen by the office' } : { ok: true, seen: false, word: 'they say they have it' };
+    const which = { bedbound_care: 'bed-bound care', hoyer_lift: 'Hoyer lift' }[key] || '';
+    return e.evidence === 'observed' ? { ok: true, seen: true, word: 'seen by the office', which } : { ok: true, seen: false, word: 'they say they have it', which };
   }
   const when = (iso) => { const t = Date.parse(iso || ''); return isFinite(t) ? new Date(t).toLocaleString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''; };
   function skillsHtml(it) {
@@ -96,7 +102,7 @@
     h += S.upcoming.map((u) => {
       const g = cgOf(u.caregiver_axiscare_id);
       const chips = need.skills.map((x) => { const st = standing(g, x.key); if (!st.ok) gaps++;
-        return '<span class="hu-tag ' + (st.ok ? (st.seen ? 'grn' : 'amb') : 'red') + '" style="margin:2px 4px 2px 0">' + E(x.label) + ': ' + E(st.word) + '</span>'; }).join('');
+        return '<span class="hu-tag ' + (st.ok ? (st.seen ? 'grn' : 'amb') : 'red') + '" style="margin:2px 4px 2px 0">' + E(x.label) + ': ' + E(st.word) + (Array.isArray(x.key) && st.which ? ' (' + E(st.which) + ')' : '') + '</span>'; }).join('');
       return '<div class="hu-row" style="margin-top:10px;align-items:flex-start"><div style="min-width:200px"><b>' + E(u.caregiver_name) + '</b><div class="hu-src">next shift ' + E(when(u.next_start)) + '</div></div><div style="flex:1">' + chips + '</div></div>';
     }).join('');
     if (gaps) h += '<div class="hu-bad">Check before the shift: ' + gaps + ' skill' + (gaps === 1 ? ' is' : 's are') + ' not on record for someone scheduled. Ask them, or record it in their Skills and Willingness.</div>';

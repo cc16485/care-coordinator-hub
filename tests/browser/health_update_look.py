@@ -38,7 +38,7 @@ STUB = r"""
       it.history.push({ at:'2026-11-06T20:00:00Z', by:'samantha@mo-care.com', text:'Sent to AxisCare: '+steps.length+' of '+steps.length+' confirmed' });
       return { outcome:'sent', steps, card:it, card_saved:true }; }
     return { error:'unexpected' }; };
-  DATA.caregivers=[ { id:'g55', axiscare_id:'55', first:'Mia', last:'Fakecare', skills:{ complex_transfers:{ have:'yes', evidence:'observed' } } }, { id:'g56', axiscare_id:'56', first:'Lu', last:'Fakecare', skills:{} } ];
+  DATA.caregivers=[ { id:'g55', axiscare_id:'55', first:'Mia', last:'Fakecare', skills:{ bedbound_care:{ have:'yes', evidence:'observed' } } }, { id:'g56', axiscare_id:'56', first:'Lu', last:'Fakecare', skills:{ hoyer_lift:{ have:'yes', evidence:'attested' } } }, ];
   DATA.ops_items=[card]; DATA.leads=[]; DATA.handoffs=[]; DATA.coverage_cases=[];
   DATA.ops_settings={ team_work_live:true, my_work_tiers_live:true };
 }
@@ -56,9 +56,11 @@ async()=>{
   ok('the Awareness of Diagnosis / Injury task comes first', it().health.changes[0].i===100 && /Awareness of Diagnosis \/ Injury/.test(t), it().health.changes.map(c=>c.i));
   ok('it updates the task the client already has: the dated news on top, what it said kept below', aw.send && aw.send.mode==='update' && aw.send.assignment_id==='as2'
     && /^HEALTH UPDATE Nov 5, 2026 \(call with Pat Fakename\):\n- Injury: Sprained left wrist, found on an X-ray \(overnight\)\n- Help needed: Max assist to stand\n\nHEALTH UPDATE Oct 1, 2026: Uses a walker$/.test(aw.send.instructions), aw.send);
-  ok('skill check: the news (max assist) needs complex transfers, checked for each caregiver on the next 3 days', /Can the next caregivers do this\?/.test(t) && /The news needs: Complex transfers \(max assist\)/.test(t) && /Mia Fakecare/.test(t) && /Lu Fakecare/.test(t), t.slice(0,1800));
-  ok('skill check: says which kind of record: seen by the office (green) or not recorded (red), and a warning, never a block', /Complex transfers \(max assist\): seen by the office/.test(t) && /Complex transfers \(max assist\): not recorded/.test(t) && /Check before the shift: 1 skill is not on record/.test(t) && /nothing changes the schedule/.test(t), t.slice(0,1800));
-  ok('the new skill can be recorded in Skills and Willingness', CC_SKILLS.some(x=>x[0]==='complex_transfers'));
+  ok('skill check: max assist is not a skill of its own; it needs a Level 3 skill (bed-bound care, Hoyer or sit-to-stand)', /Can the next caregivers do this\?/.test(t) && /The news needs: Level 3: bed-bound care, Hoyer or sit-to-stand/.test(t) && /Mia Fakecare/.test(t) && /Lu Fakecare/.test(t) && !CC_SKILLS.some(x=>x[0]==='complex_transfers'), t.slice(0,1800));
+  ok('skill check: any one Level 3 skill will do, and it says which and what kind of record', /Level 3: bed-bound care, Hoyer or sit-to-stand: seen by the office \(bed-bound care\)/.test(t) && /Level 3: bed-bound care, Hoyer or sit-to-stand: they say they have it \(Hoyer lift\)/.test(t) && !/Check before the shift/.test(t) && /nothing changes the schedule/.test(t), t.slice(0,1800));
+  DATA.caregivers[1].skills={}; await HU.open('chn_famcall0001'); await sleep(300);
+  ok('skill check: nothing on record is red, with a warning, never a block', /Level 3: bed-bound care, Hoyer or sit-to-stand: not recorded/.test(txt()) && /Check before the shift: 1 skill is not on record/.test(txt()), txt().slice(0,1800));
+  DATA.caregivers[1].skills={ hoyer_lift:{ have:'yes', evidence:'attested' } };
   ok('the care task change shows its parts; unspoken parts say Ask before approving', /Gentle moving and repositioning/.test(t) && /When: Ask before approving/.test(t) && /Safety: Careful of his left wrist/.test(t) && /Questions before approving/.test(t), t.slice(0,2500));
   ok('nothing is approved or sent by itself; Send is off until something is approved', it().health.changes.every(c=>c.state==='proposed') && !window.__log.cpt.some(c=>c.action==='health_send') && btn('send').disabled);
   ok('the change with no AxisCare task picked cannot be approved yet', btn('approve',0).disabled);
