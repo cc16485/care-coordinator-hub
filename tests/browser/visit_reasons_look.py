@@ -12,7 +12,7 @@ DATA = r"""
   window.__asks=[]; window.__oldServer=false;
   sb.auth.getSession=async()=>({ data:{ session:{ access_token:'t' } } });
   const ymdAdd=(ymd,n)=>{ const [y,m,d]=ymd.split('-').map(Number); return new Date(Date.UTC(y,m-1,d+n)).toISOString().slice(0,10); };
-  const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:client==='Ed Anderson'?'1':'2', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
+  const V=(date,time,end,client,cg,extra)=>Object.assign({ visit_id:date+time+client, date, time, end, client, client_id:client==='Ned Fakename'?'1':'2', caregiver:cg||null, caregiver_id:cg?'5':'', clock_in:null, clock_out:null }, extra||{});
   window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}'); window.__asks.push(b);
     if(/visit-change/.test(String(u))){ window.__vc.push(b);
       if(b.action==='reasons') return new Response(JSON.stringify({ live:window.__vcLive, reasons:[{id:5,name:'Staffing Change - Caregiver Change'},{id:6,name:'Staffing Change - Caregiver Call Off'},{id:8,name:'Staffing Change - No Show'},{id:10,name:'Schedule Change - Client Schedule Change'},{id:13,name:'Administrative Correction - Office Error'}] }),{status:200});
@@ -23,13 +23,13 @@ DATA = r"""
     }
     if(!/coverage-shifts/.test(String(u)) || !b.live_schedule) return new Response('{"open":[],"total":0}',{status:200});
     const from=b.start||b.date, to=b.end||b.date, rows=[];
-    for(let d=from; d<=to; d=ymdAdd(d,1)){ rows.push(V(d,'09:00','14:00','Ed Anderson',null)); rows.push(V(d,'16:00','21:00','Ed Anderson','Kim Aide')); if(d.endsWith('-15')) rows.push(V(d,'08:00','12:00','Ruth Barnes','Di Aide')); }
+    for(let d=from; d<=to; d=ymdAdd(d,1)){ rows.push(V(d,'09:00','14:00','Ned Fakename',null)); rows.push(V(d,'16:00','21:00','Ned Fakename','Kim Aide')); if(d.endsWith('-15')) rows.push(V(d,'08:00','12:00','Ruth Barnes','Di Aide')); }
     const body=(window.__oldServer&&b.start)?{ date:'2026-10-06', total:2, unassigned:1, rows:rows.slice(0,2) }:{ date:from, start:b.start?from:undefined, end:b.start?to:undefined, total:rows.length, unassigned:rows.filter(r=>!r.caregiver).length, rows };
     if(!b.start){ delete body.start; delete body.end; }
     return new Response(JSON.stringify(body),{status:200}); };
   try{ localStorage.removeItem('cch_lsview'); }catch(e){}
   window.__vc=[]; window.__vcLive=true; window.__vcRefuse=false;
-  window.__vcVisit={ visit_id:'2026-10-1409:00Ed Anderson', client:'Ed Anderson', client_id:'1', caregiver_id:'5', caregiver:'Kim Aide', date:'2026-10-14', start:'09:00', end:'14:00', started:false, verified:false };
+  window.__vcVisit={ visit_id:'2026-10-1409:00Ed Fakename', client:'Ned Fakename', client_id:'1', caregiver_id:'5', caregiver:'Kim Aide', date:'2026-10-14', start:'09:00', end:'14:00', started:false, verified:false };
   (0,eval)("TB.pool=[{ name:'Lia Listed', axiscare_id:'7', level:2, windows:null, visits:[] },{ name:'Bo Busy', axiscare_id:'8', level:2, windows:null, visits:[{ day:'2026-10-14', start:'08:00', end:'12:00', client:'Ruth Barnes' }] },{ name:'Kim Aide', axiscare_id:'5', level:2, windows:null, visits:[] }]; CC_ROLE_BY_EMAIL={ 'krystal@mo-care.com':['owner_admin'] };");
   DATA.ops_settings={ visit_change_live:true };
 })();

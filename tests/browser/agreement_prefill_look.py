@@ -12,9 +12,9 @@ FIELDS = json.load(open(os.path.join(HERE, 'agreement_fields.json')))
 OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
 CURRENT = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309'
 FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree.', 'initials': {str(n): 'x' for n in range(1, 7)}, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
-FILLED = {'client.client_s_name': 'Edward Anderson', 'client.address': '123 Maple St', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '(417) 555-0100',
-          'ci.date_of_birth': '03/04/1941', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Daughter', 'c1.cell_phone': '(417) 863-7309', 'c1.home_phone': '(417) 555-0200', 'c1.email': 'nancy@example.com',
-          'c2.name': 'Tom Anderson', 'c2.relationship': 'Son'}
+FILLED = {'client.client_s_name': 'Ned Fakename', 'client.address': '123 Maple St', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '(417) 555-0100',
+          'ci.date_of_birth': '03/04/1941', 'c1.name': 'Nancy Fakename', 'c1.relationship': 'Daughter', 'c1.cell_phone': '(417) 555-0173', 'c1.home_phone': '(417) 555-0200', 'c1.email': 'nancy@example.com',
+          'c2.name': 'Tom Fakename', 'c2.relationship': 'Son'}
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
 
@@ -74,17 +74,17 @@ def run(browser, name):
        [im(k) for k in ['c1.cell_phone', 'client.zip', 'ci.date_of_birth', 'c1.email', 'vehicle.year', 'client.address']])
     # who is signing: tap a name
     chips = page.locator('[data-who]').all_inner_texts()
-    ck(f'{name}: "Who is signing today?" lists the people on the agreement', chips == ['Edward Anderson (the client)', 'Nancy Anderson (Daughter)', 'Tom Anderson (Son)'], chips)
+    ck(f'{name}: "Who is signing today?" lists the people on the agreement', chips == ['Ned Fakename (the client)', 'Nancy Fakename (Daughter)', 'Tom Fakename (Son)'], chips)
     page.click('[data-who="1"]')
     ck(f'{name}: tapping a family member fills the name, "someone signing for the client" and the relationship',
-       page.input_value('#sName') == 'Nancy Anderson' and page.locator('[data-role="representative"].on').count() == 1 and page.input_value('#sRel') == 'Daughter' and page.locator('[data-who="1"].on').count() == 1)
+       page.input_value('#sName') == 'Nancy Fakename' and page.locator('[data-role="representative"].on').count() == 1 and page.input_value('#sRel') == 'Daughter' and page.locator('[data-who="1"].on').count() == 1)
     page.click('[data-who="0"]')
-    ck(f'{name}: tapping the client makes the client the signer', page.input_value('#sName') == 'Edward Anderson' and page.locator('[data-role="client"].on').count() == 1)
+    ck(f'{name}: tapping the client makes the client the signer', page.input_value('#sName') == 'Ned Fakename' and page.locator('[data-role="client"].on').count() == 1)
     # backup caregiver: tap a name
     page.click('#backupCard [data-backup="1"]')
     ck(f'{name}: tapping a backup copies their name, relationship and both phones to page 16',
-       page.input_value('input[data-k="backup.full_name"]') == 'Nancy Anderson' and page.input_value('input[data-k="backup.relationship_to_client"]') == 'Daughter'
-       and page.input_value('input[data-k="backup.primary_phone"]') == '(417) 863-7309' and page.input_value('input[data-k="backup.secondary_phone"]') == '(417) 555-0200' and page.locator('#backupCard').count() == 0)
+       page.input_value('input[data-k="backup.full_name"]') == 'Nancy Fakename' and page.input_value('input[data-k="backup.relationship_to_client"]') == 'Daughter'
+       and page.input_value('input[data-k="backup.primary_phone"]') == '(417) 555-0173' and page.input_value('input[data-k="backup.secondary_phone"]') == '(417) 555-0200' and page.locator('#backupCard').count() == 0)
     # the car: Decline -> the vehicle boxes are not needed
     page.click('button[data-t="car.decline"]')
     ck(f'{name}: after Decline the vehicle boxes say Not needed and cannot be typed in', page.locator('input[data-k^="vehicle."]:disabled').count() == 7 and page.get_attribute('input[data-k="vehicle.insurance"]', 'placeholder') == 'Not needed')
@@ -92,7 +92,7 @@ def run(browser, name):
     ck(f'{name}: after Accept they open again', page.locator('input[data-k^="vehicle."]:disabled').count() == 0)
     page.wait_for_timeout(1700)
     sv = [c for c in st['calls'] if c.get('action') == 'save'][-1]['answers']
-    ck(f'{name}: the filled-in and tapped answers save', sv.get('client.address') == '123 Maple St' and sv.get('client.city') == 'Ozark' and sv.get('backup.full_name') == 'Nancy Anderson' and sv.get('car.accept') is True, sv)
+    ck(f'{name}: the filled-in and tapped answers save', sv.get('client.address') == '123 Maple St' and sv.get('client.city') == 'Ozark' and sv.get('backup.full_name') == 'Nancy Fakename' and sv.get('car.accept') is True, sv)
     # fill the empty boxes again
     page.click('#pfAgain'); page.wait_for_function("document.getElementById('pfMsg') && document.getElementById('pfMsg').innerText.indexOf('filled')>=0")
     ck(f'{name}: "Fill in empty boxes from the Hub" fills new ones and says how many', page.input_value('input[data-k="c3.name"]') == 'Amy Lee' and '2 more filled in' in page.inner_text('#pfMsg') and page.input_value('input[data-k="client.city"]') == 'Ozark'

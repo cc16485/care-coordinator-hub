@@ -1,4 +1,4 @@
-/* Team Builder, Stage 2 (2026-10-06, her "start stage 2"; the Ed Anderson plan showed why: nobody could see who had been
+/* Team Builder, Stage 2 (2026-10-06, her "start stage 2"; one client's plan showed why: nobody could see who had been
    asked, what they said, or how many of the 14 shifts were actually confirmed).
    - SEVERAL PEOPLE PER SHIFT. The cell keeps its one main person (plan.cells[key], what the AxisCare preview and Send
      Text Asking read). Everyone else asked about that shift sits in plan.options[key], each with an answer: penciled,

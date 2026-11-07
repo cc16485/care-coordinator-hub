@@ -40,20 +40,20 @@ async()=>{
   ok('...an other project saves with its two steps and no owner sign-off unless ticked', Bo && Bo.template==='blank' && Bo.steps.length===2 && !Bo.signoff.needed, Bo);
   S.ops_items=S.ops_items.filter(x=>x!==Bo); DATA.ops_items=DATA.ops_items.filter(x=>x.id!==(Bo&&Bo.id));
   // an older client-start project (made before 2026-10-18) still works the same
-  const P0=pjBuild({ template:'client_start', title:'Ed Anderson (fake) coming home', about:'Ed Anderson (fake)', owner:'krystal@mo-care.com', ready_by:inDays(7),
-    date_contact:'Pamela Anderson (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
+  const P0=pjBuild({ template:'client_start', title:'Ed Fakename (fake) coming home', about:'Ed Fakename (fake)', owner:'krystal@mo-care.com', ready_by:inDays(7),
+    date_contact:'Pat Fakename (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
   DATA.ops_items.push(P0); await persist('ops_items', P0); await sleep(300);
   const P=S.ops_items.find(x=>x.kind==='project'); const id=P&&P.id;
   ok('the project is saved: kind project, Krystal owns it, ready in 7 days, 8 steps', P && P.owner==='krystal@mo-care.com' && P.ready_by===inDays(7) && P.steps.length===8, P);
   ok('...the Staffing Coordinator joined the team by themselves, and it shows on their My Work (also_for)', P.team.includes('sally@mo-care.com') && P.also_for.includes('sally@mo-care.com'));
   ok('...it needs owner sign-off, and carries no All hands flag', P.signoff.needed===true && !P.all_hands);
-  ok('...step 1 names Pamela and asks for 48 hours notice; step 5 carries the shifts', /Pamela Anderson \(daughter\), ask for 48 hours notice/.test(P.steps[0].label) && /Every shift confirmed \(9am–2pm and 4pm–9pm, 7 days a week\)/.test(P.steps[4].label));
+  ok('...step 1 names Pat and asks for 48 hours notice; step 5 carries the shifts', /Pat Fakename \(daughter\), ask for 48 hours notice/.test(P.steps[0].label) && /Every shift confirmed \(9am–2pm and 4pm–9pm, 7 days a week\)/.test(P.steps[4].label));
   ok('...recruiting is the Staffing Coordinator\'s; shifts and transfer practice are both of theirs; the rest Krystal\'s',
     JSON.stringify(P.steps[3].who)==='["sally@mo-care.com"]' && JSON.stringify(P.steps[4].who)==='["krystal@mo-care.com","sally@mo-care.com"]' && JSON.stringify(P.steps[6].who)==='["krystal@mo-care.com"]');
   ok('...every step is due on or before the ready-by date, none in the past', P.steps.every(s=>s.due<=P.ready_by && s.due>=inDays(0)), P.steps.map(s=>s.due));
   await sleep(200); myWorkGo('today'); await sleep(200);
   let C=document.querySelector('#myWorkWrap .wkcard[data-id="'+id+'"]');
-  ok('the card is in Act Now with PROJECT, owner, ready-by, Pamela and the shifts, and no All hands', C && /PROJECT/.test(C.innerText) && !/ALL HANDS|All hands/.test(C.innerText) && /Krystal owns it/.test(C.innerText) && /in 7 days/.test(C.innerText) && /Pamela Anderson/.test(C.innerText) && /9am–2pm and 4pm–9pm/.test(C.innerText) && opsPriorityKey(P)[0]===0, C&&C.innerText.slice(0,500));
+  ok('the card is in Act Now with PROJECT, owner, ready-by, Pat and the shifts, and no All hands', C && /PROJECT/.test(C.innerText) && !/ALL HANDS|All hands/.test(C.innerText) && /Krystal owns it/.test(C.innerText) && /in 7 days/.test(C.innerText) && /Pat Fakename/.test(C.innerText) && /9am–2pm and 4pm–9pm/.test(C.innerText) && opsPriorityKey(P)[0]===0, C&&C.innerText.slice(0,500));
   ok('...a progress bar: 0 of 8 steps, and the close is locked with the reason', /0 of 8 steps/.test(C.innerText) && /8 steps are still open\. A project closes when every step is done and an owner signs it off\./.test(C.innerText) && !C.querySelector('.pj-close'));
   ok('...no bulk tick box on a project, and it is not selectable', !C.querySelector('.wkchk') && !myWorkSelectable(true).some(r=>r.id===id));
   ok('no All hands banner anywhere', !document.getElementById('pjWorkBanner') && !document.getElementById('pjDashBanner') && !/ALL HANDS ON DECK/.test(document.body.innerText));
@@ -115,24 +115,24 @@ async()=>{
   ok('a task\'s ⋯ menu no longer offers "All hands on deck"', ![...document.querySelectorAll('.ccpop .ccpick-row')].some(r=>/all.hands/i.test(r.dataset.what+r.textContent)));
   ccPopClose();
   // Find in AxisCare: live lookup, a person picks, the project and its plan keep the number
-  const E=pjBuild({ template:'client_start', title:'Ed Anderson coming home', about:'Ed Anderson', owner:'krystal@mo-care.com', ready_by:inDays(7) });
+  const E=pjBuild({ template:'client_start', title:'Ed Fakename coming home', about:'Ed Fakename', owner:'krystal@mo-care.com', ready_by:inDays(7) });
   E.plan_id='tb_ed'; DATA.ops_items.push(E); S.ops_items.push(JSON.parse(JSON.stringify(E)));
-  S.staffing_plans=[{ id:'tb_ed', client:'Ed Anderson', slots:[] }]; DATA.staffing_plans=JSON.parse(JSON.stringify(S.staffing_plans));
+  S.staffing_plans=[{ id:'tb_ed', client:'Ed Fakename', slots:[] }]; DATA.staffing_plans=JSON.parse(JSON.stringify(S.staffing_plans));
   window.__asked=[]; window.ckLookup=async q=>{ window.__asked.push(q); return { axiscare_ok:false, axiscare_error:'AxisCare answered 503' }; };
   myWorkGo('mine'); await sleep(200);
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+E.id+'"]');
   ok('a client-start project offers "Find in AxisCare"', C && C.querySelector('.pj-axfind'));
   C.querySelector('.pj-axfind').click(); await sleep(100); p=pop();
-  ok('...it fills in Ed / Anderson', p.querySelector('#pjAF').value==='Ed' && p.querySelector('#pjAL').value==='Anderson');
+  ok('...it fills in Ed / Fakename', p.querySelector('#pjAF').value==='Ed' && p.querySelector('#pjAL').value==='Fakename');
   p.querySelector('#pjAGo').click(); await sleep(150);
   ok('...AxisCare down: it says so and changes nothing', /couldn’t be checked just now \(AxisCare answered 503\)/.test(p.innerText) && !storeP(E.id).axiscare_client_id, p.innerText);
-  window.ckLookup=async q=>{ window.__asked.push(q); return { axiscare_ok:true, matches:[{ axiscare_client_id:'812', name:'Ed Anderson', active:false, why:['name_only'] },{ axiscare_client_id:null, name:'Family circle only' }] }; };
+  window.ckLookup=async q=>{ window.__asked.push(q); return { axiscare_ok:true, matches:[{ axiscare_client_id:'812', name:'Ed Fakename', active:false, why:['name_only'] },{ axiscare_client_id:null, name:'Family circle only' }] }; };
   p.querySelector('#pjAGo').click(); await sleep(150);
-  ok('...a former client is shown as inactive with its AxisCare number', /Ed Anderson · AxisCare #812/.test(p.innerText) && /former client \(inactive\)/.test(p.innerText) && window.__asked.at(-1).first==='ed' && window.__asked.at(-1).last==='anderson', p.innerText);
+  ok('...a former client is shown as inactive with its AxisCare number', /Ed Fakename · AxisCare #812/.test(p.innerText) && /former client \(inactive\)/.test(p.innerText) && window.__asked.at(-1).first==='ed' && window.__asked.at(-1).last==='fakename', p.innerText);
   p.querySelector('.pj-axpick').click(); await sleep(400);
   ok('...picking it links the project and its Team Builder plan to #812', storeP(E.id).axiscare_client_id==='812' && storeP(E.id).ax_active===false && S.staffing_plans[0].axiscare_client_id==='812');
   C=document.querySelector('#myWorkWrap .wkcard[data-id="'+E.id+'"]');
-  ok('...the card links to his profile and the Find button is gone', C && /AxisCare: Ed Anderson #812 \(inactive in AxisCare\)/.test(C.innerText) && /openClientProfile\('812'\)/.test(C.innerHTML) && !C.querySelector('.pj-axfind'), C&&C.innerText.slice(0,600));
+  ok('...the card links to his profile and the Find button is gone', C && /AxisCare: Ed Fakename #812 \(inactive in AxisCare\)/.test(C.innerText) && /openClientProfile\('812'\)/.test(C.innerHTML) && !C.querySelector('.pj-axfind'), C&&C.innerText.slice(0,600));
   // the conversation and steps that can change
   window.__as('krystal@mo-care.com','Krystal Land');
   const Q=pjBuild({ template:'client_start', title:'Ruth Fake coming home', about:'Ruth Fake', owner:'krystal@mo-care.com', ready_by:inDays(6), date_contact:'Joe Fake' });
@@ -188,12 +188,12 @@ with sync_playwright() as pw:
     # picture: a fresh Ed project, a few steps done
     pg.evaluate('s=>(0,eval)(s)', DATA)
     pg.evaluate("""async()=>{ const d=new Date(); d.setDate(d.getDate()+7); const r=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-      const P=pjBuild({ template:'client_start', title:'Ed Anderson (fake) coming home', about:'Ed Anderson (fake)', owner:'krystal@mo-care.com', ready_by:r, date_contact:'Pamela Anderson (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
+      const P=pjBuild({ template:'client_start', title:'Ed Fakename (fake) coming home', about:'Ed Fakename (fake)', owner:'krystal@mo-care.com', ready_by:r, date_contact:'Pat Fakename (daughter)', notice:'48 hours', shifts:'9am–2pm and 4pm–9pm, 7 days a week', care_level:'bed bound, Hoyer or sit-to-stand' });
       P.steps[0].done_at=new Date().toISOString(); P.steps[0].done_by_name='Krystal Land'; P.steps[3].claimed_by='sally@mo-care.com';
       P.id='ops_proj_pic'; DATA.ops_items.push(P); window.__store.ops_items.push(P);
       const t=new Date(Date.now()-2*36e5).toISOString(), t2=new Date(Date.now()-40*6e4).toISOString();
       window.__store.standup_notes=[{ id:'su_pic', summary:P.title, source:'work', ops_id:P.id, assigned_to_email:'krystal@mo-care.com', status:'open', created_at:t, tagged:['sally@mo-care.com'], history:[],
-        updates:[{ id:'m1', at:t, by:'Samantha Owner', text:'Pamela called: she thinks Thursday. Krystal, can you confirm with her by tomorrow?', tags:['krystal@mo-care.com'], about:'s1' },
+        updates:[{ id:'m1', at:t, by:'Samantha Owner', text:'Pat called: she thinks Thursday. Krystal, can you confirm with her by tomorrow?', tags:['krystal@mo-care.com'], about:'s1' },
                  { id:'m2', at:t2, by:'Krystal Land', text:'Called her back, it is Thursday the 15th unless the doctor says otherwise. @Sally we still have nobody for mornings.', tags:['sally@mo-care.com'] }] }];
       await suTalk.load(true); switchTab('mywork'); await new Promise(r=>setTimeout(r,400)); myWorkGo('today'); await new Promise(r=>setTimeout(r,300)); const c=document.querySelector('.wkcard[data-id="ops_proj_pic"]'); if(c) c.scrollIntoView({block:'start'}); }""")
     pg.screenshot(path='/tmp/projects.png', full_page=False)

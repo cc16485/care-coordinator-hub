@@ -10,9 +10,9 @@ DATA = r"""
   window.__me={ email:'krystal@mo-care.com', name:'Krystal Land' }; (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
   (0,eval)("CC_ROLE_BY_EMAIL={ 'krystal@mo-care.com':['care_coordinator'], 'sam@mo-care.com':['owner_admin'] }; CC_ROLES=['care_coordinator']; OPS_PEOPLE=[{person_id:'k',full_name:'Krystal Land',primary_email:'krystal@mo-care.com'}]; OPS_DOMAINS=[];");
   const d=new Date(); d.setDate(d.getDate()+7); const ready=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  const plan={ id:'tb_ed', client:'Ed Anderson', city:'Springfield', level:2, status:'building', days:['mon','tue','wed','thu','fri','sat','sun'],
+  const plan={ id:'tb_ed', client:'Ned Fakename', city:'Springfield', level:2, status:'building', days:['mon','tue','wed','thu','fri','sat','sun'],
     slots:[{k:'s1',label:'Mornings',start:'09:00',end:'14:00'},{k:'s2',label:'Evenings',start:'16:00',end:'21:00'}], cells:{}, project_id:'ops_proj_ed' };
-  const P=pjBuild({ template:'client_start', title:'Ed Anderson coming home', about:'Ed Anderson', owner:'krystal@mo-care.com', ready_by:ready });
+  const P=pjBuild({ template:'client_start', title:'Ed Fakename coming home', about:'Ned Fakename', owner:'krystal@mo-care.com', ready_by:ready });
   P.id='ops_proj_ed'; P.plan_id='tb_ed';
   window.__store.staffing_plans=[JSON.parse(JSON.stringify(plan))]; DATA.staffing_plans=[plan];
   window.__store.ops_items=[JSON.parse(JSON.stringify(P))]; DATA.ops_items=[P];
