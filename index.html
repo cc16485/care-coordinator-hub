@@ -5172,6 +5172,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;">Coordinator cards</div>
 <p class="hint">The card a family opens from their confirmation, the same look as a caregiver card. Only a published card is linked.</p>
 <div id="ccardSet"></div>
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;">When an assessment lands on an interview</div>
+<p class="hint">The office can book a visit over a coordinator's interview; the Hub then moves the interview by itself, in this order: a video interview with the video backup (if they are free and it is inside their interview hours), else in person with the office backup (inside their office hours, if free), else cancelled with a text asking them to pick a new time. Leave a part empty to skip it.</p>
+<div id="abkSet" class="field-note">Loading…</div>
 </div>
 <div class="settings-section" id="hvSettings" data-set="home-visit">
 <h3>Home visit</h3>
@@ -15425,14 +15428,20 @@ async function hubAsmtBook(leadId){
   let pick='';
   const go=ov.querySelector('#haGo'), msg=ov.querySelector('#haMsg');
   const loadSlots=async()=>{
-    const box=ov.querySelector('#haSlots'); const r=await hubAsmtCall({ action:'slots' });
+    /* 2026-11-06: the office also sees times that fit only by moving a coordinator's interview ("moves 1 interview");
+       an older server without office_slots falls back to the plain times */
+    const box=ov.querySelector('#haSlots'); let r=await hubAsmtCall({ action:'office_slots' });
+    if(!r.ok && (r.status===400||r.status===404)) r=await hubAsmtCall({ action:'slots' });
     if(!r.ok){ box.innerHTML='<span style="color:var(--red);">The open times could not be loaded: '+esc(r.error||r.status)+'</span>'; return; }
-    const by={}; (r.slots||[]).forEach(s=>{ const w=hubAsmtWhen(s.starts_at); (by[w.ymd]=by[w.ymd]||{ day:w.day, list:[] }).list.push({ iso:s.starts_at, time:w.time }); });
+    const by={}; (r.slots||[]).forEach(s=>{ const w=hubAsmtWhen(s.starts_at); (by[w.ymd]=by[w.ymd]||{ day:w.day, list:[] }).list.push({ iso:s.starts_at, time:w.time, moves:Number(s.moves)||0 }); });
     const days=Object.keys(by).sort();
     if(!days.length){ box.innerHTML='<span style="color:var(--red);">No open times in the next three weeks. Check the assessment hours.</span>'; return; }
     box.innerHTML=days.slice(0,10).map(k=>'<div style="margin:6px 0;"><b>'+esc(by[k].day)+'</b><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
-      +by[k].list.map(s=>'<button class="secondary" data-t="'+esc(s.iso)+'" style="font-size:12.5px;padding:4px 10px;">'+esc(s.time)+'</button>').join('')+'</div></div>').join('');
-    box.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ box.querySelectorAll('button[data-t]').forEach(x=>x.className='secondary'); b.className='primary'; pick=b.getAttribute('data-t'); go.disabled=false; msg.textContent=''; });
+      +by[k].list.map(s=>'<button class="secondary" data-t="'+esc(s.iso)+'" data-m="'+s.moves+'" style="font-size:12.5px;padding:4px 10px;'+(s.moves?'border-style:dashed;':'')+'">'+esc(s.time)
+        +(s.moves?' <span style="font-size:11px;color:#92400E;">moves '+s.moves+' interview'+(s.moves===1?'':'s')+'</span>':'')+'</button>').join('')+'</div></div>').join('')
+      +(Object.values(by).some(d=>d.list.some(s=>s.moves))?'<div class="field-note" style="margin-top:6px;">A time marked <b>moves 1 interview</b> fits only by moving that coordinator\'s interview: to a video interview with Samantha, to Angiel at the office, or cancelled with a text asking them to pick a new time. The Hub does it and texts them.</div>':'');
+    box.querySelectorAll('button[data-t]').forEach(b=>b.onclick=()=>{ box.querySelectorAll('button[data-t]').forEach(x=>x.className='secondary'); b.className='primary'; pick=b.getAttribute('data-t'); go.disabled=false;
+      const mv=Number(b.getAttribute('data-m'))||0; msg.textContent=mv?('This time moves '+mv+' interview'+(mv===1?'':'s')+'. The Hub will move '+(mv===1?'it':'them')+' and text the applicant.'):''; });
   };
   const loadList=async()=>{
     const box=ov.querySelector('#haList');
@@ -15458,7 +15467,10 @@ async function hubAsmtBook(leadId){
     const r=await hubAsmtCall({ action:'book', office:true, starts_at:pick, lead_id:leadId||'', first_name:v('haFirst'), last_name:v('haLast'), phone:v('haPhone'),
       email:v('haEmail'), client_name:v('haClient'), relationship:v('haRel'), address:v('haAddr'), notes:v('haNotes'), send_confirmation:ov.querySelector('#haSend').checked });
     if(!r.ok){ go.disabled=false; msg.innerHTML='<span style="color:var(--red);">'+esc(r.error||('Could not book ('+r.status+')'))+'</span>'; if(r.taken){ pick=''; loadSlots(); } return; }
-    msg.innerHTML='<b style="color:var(--teal);">Booked: '+esc(r.day)+' at '+esc(r.time)+' with '+esc(r.coordinator)+'.</b> '+esc(r.note||'');
+    const KM={ video:m=>'now a video interview with '+m.to, backup:m=>'now with '+m.to+' at the office', reschedule:()=>'cancelled, asked to pick a new time' };
+    msg.innerHTML='<b style="color:var(--teal);">Booked: '+esc(r.day)+' at '+esc(r.time)+' with '+esc(r.coordinator)+'.</b> '+esc(r.note||'')
+      +((r.moved||[]).length?'<div style="margin-top:6px;"><b>Interviews moved:</b>'+(r.moved||[]).map(m=>'<div>· '+esc(m.who)+' ('+esc(m.day)+' '+esc(m.time)+'): '+esc((KM[m.kind]||(()=>m.kind))(m))
+        +(m.texted?', texted':' <span style="color:var(--red);">not texted yet: '+esc(m.why||'')+'</span>')+'</div>').join('')+'</div>':'');
     pick=''; go.disabled=true;
     try{ if(typeof loadFromSupabase==='function') await loadFromSupabase(); }catch(_){}
     loadList(); loadSlots();
@@ -15478,7 +15490,7 @@ function asmtSetFill(){
   box.innerHTML=ASMT_SWITCHES.map(sw=>{ const on=st[sw.k]===true; return '<div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);">'
     +'<div style="flex:1 1 320px;min-width:0;"><b>'+esc(sw.name)+'</b> <span class="badge '+(on?'ok':'muted')+'" style="font-size:10px;">'+(on?'On':'Off')+'</span><div class="field-note" style="margin-top:2px;">'+esc(sw.what)+'</div></div>'
     +'<button class="secondary" onclick="asmtToggle(\''+sw.k+'\', this)">'+(on?'Turn off':'Turn on')+'</button><span class="field-note" id="asmtSaved_'+sw.k+'"></span></div>'; }).join('');
-  ccardFill();
+  ccardFill(); abkFill();
 }
 async function asmtToggle(k, btn){
   const sw=ASMT_SWITCHES.find(x=>x.k===k); if(!sw) return; const on=!((DATA.ops_settings||{})[k]===true);
@@ -15488,6 +15500,32 @@ async function asmtToggle(k, btn){
   if(btn) btn.disabled=false;
   const sv=document.getElementById('asmtSaved_'+k); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   asmtSetFill();
+}
+async function abkFill(){
+  const box=document.getElementById('abkSet'); if(!box||!sb) return; const esc=escapeHtmlComms;
+  const c=await sb.from('coordinators').select('id,name,active,video_backup,meeting_link').order('name');
+  if(c.error){ box.innerHTML='These settings arrive with the next Staffing server step ('+esc(c.error.message)+').'; return; }
+  const av=await sb.from('coordinator_availability').select('coordinator_id,day_of_week,start_time,end_time').eq('activity','interview_backup').eq('active',true);
+  const people=c.data||[], vid=people.find(x=>x.video_backup)||null, rows=(av&&av.data)||[], bk=rows.length?String(rows[0].coordinator_id):'';
+  const opt=(sel)=>'<option value="">(nobody)</option>'+people.map(p=>'<option value="'+esc(p.id)+'"'+(String(p.id)===String(sel)?' selected':'')+'>'+esc(p.name)+(p.active?'':' (not taking new bookings)')+'</option>').join('');
+  const D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], hm=s=>String(s||'').slice(0,5);
+  box.innerHTML='<div class="grid2"><div><label>Video backup</label><select id="abkVid">'+opt(vid&&vid.id)+'</select></div>'
+    +'<div><label>Their Google Meet link</label><input id="abkLink" value="'+esc((vid&&vid.meeting_link)||'')+'" placeholder="https://meet.google.com/abc-defg-hij"></div></div>'
+    +'<div style="margin-top:8px;"><label>Office backup (in person)</label><select id="abkBk">'+opt(bk)+'</select></div>'
+    +'<div style="margin-top:6px;">'+[1,2,3,4,5,6,0].map(d=>{ const r=rows.find(x=>x.day_of_week===d); return '<div style="display:flex;gap:8px;align-items:center;margin:3px 0;"><span style="width:38px;">'+D[d]+'</span>'
+      +'<input type="time" id="abkS'+d+'" value="'+hm(r&&r.start_time)+'" style="width:130px;"> to <input type="time" id="abkE'+d+'" value="'+hm(r&&r.end_time)+'" style="width:130px;"><span class="field-note">empty = not in</span></div>'; }).join('')+'</div>'
+    +'<div style="display:flex;gap:10px;align-items:center;margin-top:8px;"><button class="secondary" onclick="abkSave(this)">Save</button><span class="field-note" id="abkSaved"></span></div>';
+}
+async function abkSave(btn){
+  const g=id=>document.getElementById(id), sv=g('abkSaved'); btn.disabled=true; sv.textContent='Saving…';
+  try{
+    const hours=[]; for(const d of [0,1,2,3,4,5,6]){ const s=g('abkS'+d).value, e=g('abkE'+d).value; if(s&&e){ if(e<=s) throw new Error('the end must be after the start ('+['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d]+')'); hours.push({ dow:d, start:s, end:e }); } }
+    const { data:{ session } }=await sb.auth.getSession();
+    const { error }=await sb.rpc('assessment_backup_save', { p_video_coord:g('abkVid').value||null, p_link:g('abkLink').value.trim(), p_backup_coord:g('abkBk').value||null, p_hours:hours, p_by:(session&&session.user&&session.user.email)||'' });
+    if(error) throw error;
+    sv.textContent='Saved.'; abkFill();
+  }catch(e){ sv.textContent='Could not save: '+(e.message||e); }
+  btn.disabled=false;
 }
 async function ccardFill(){
   const box=document.getElementById('ccardSet'); if(!box||!sb) return; const esc=escapeHtmlComms;
@@ -23956,7 +23994,10 @@ function ivqRender(){
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
           + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
-        + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')+'</span>'
+        + (IVQ_CO[b.coordinator_id]?' · with '+esc(IVQ_CO[b.coordinator_id]):'')
+        /* 2026-11-06: moved for a home assessment to a video interview (her Meet link) */
+        + (b.mode==='video'?' · <b style="color:#1d4ed8;">🎥 Video</b>'+(b.meeting_link&&/^https:\/\//.test(b.meeting_link)?' <a class="linklike" target="_blank" rel="noopener" href="'+esc(b.meeting_link)+'">Meet link</a>':''):'')
+        + (b.move_kind?' <span class="field-note" style="display:inline;">(moved for an assessment)</span>':'')+'</span>'
       + '<span style="flex:1;"></span>'
       + (a.phone?'<a class="fb" style="text-decoration:none;"'+ocAttrs(a.phone,{email:a.email})+'>📞 Call</a>':'')
       + (window.ApText && a.phone ? ApText.btn(b.applicant_id) + ApText.slot(b.applicant_id) : '')   /* 574: text them about the interview */
