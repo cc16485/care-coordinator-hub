@@ -463,7 +463,7 @@
     'Before their first visit: our orientation, and a profile with their photo'];
   const ABOUT_FOLDER = [
     'Our Levels of Care', 'Rates & Ways to Pay', 'The service sheet that fits them', 'Meet Your Caregiver', 'Client Handbook',
-    'Personalized Care Proposal (filled in after today)', 'Next Steps', 'Seeing Care Notes & Invoices in AxisCare', 'The Caring Companions App',
+    'Personalized Care Proposal (filled in after today)', 'Next Steps', 'Seeing Care Notes & Invoices in AxisCare',
   ];
   function aboutCfg() {
     const c = (D().ops_settings || {}).visit_about || {}, list = (x, d) => (Array.isArray(x) && x.filter((t) => String(t || '').trim()).length ? x.map((t) => String(t).trim()).filter(Boolean) : d);
