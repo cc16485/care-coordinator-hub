@@ -21,12 +21,12 @@ C = lambda n, name, rel, **k: {'n': n, 'name': name, 'relationship': rel, 'cell'
     'emails': {'weekly_calendar': k.get('cal', False), 'care_plans': False, 'office_messages': False, 'invoices': False},
     'plan': k['plan'], 'bad_state': k.get('bad_state', False), 'todo': k.get('todo', []), 'axiscare_now': k.get('now'), 'hub_now': k.get('hub_now')}
 CONTACTS = [
-    C(1, 'Nancy Anderson', 'Wife', cell='417-863-7309', email='nancy@example.com', line1='123 Maple St', state='Missouri', hipaa=True, medical=True, poa=['health'], book=True, late=True, notes=True, cal=True, bad_state=False,
+    C(1, 'Nancy Fakename', 'Wife', cell='417-555-0173', email='nancy@example.com', line1='123 Maple St', state='Missouri', hipaa=True, medical=True, poa=['health'], book=True, late=True, notes=True, cal=True, bad_state=False,
       plan={'axiscare': {'action': 'update', 'slot': 1}, 'hub': {'action': 'update', 'member_id': 'm1'}},
-      now={'name': 'Nancy Anderson', 'phone': '417-555-0001', 'email': 'old@example.com', 'address': '9 Old Rd, Ozark, MO', 'hipaa_authorized': False, 'can_make_medical_decisions': None},
-      todo=[{'key': 'c1.signin', 'text': "Set up Nancy Anderson's AxisCare family sign-in to see care notes (nancy@example.com)"}, {'key': 'c1.emails', 'text': 'In AxisCare, turn on emails to Nancy Anderson: weekly calendar'}]),
-    C(2, 'Tom Anderson', 'Son', cell='417-555-011', change=True, state='Misery', bad_state=True, plan={'axiscare': {'action': 'add', 'slot': 3}, 'hub': {'action': 'add', 'member_id': None}},
-      hub_now={'name': 'Tom Anderson', 'stopped': True}),
+      now={'name': 'Nancy Fakename', 'phone': '417-555-0001', 'email': 'old@example.com', 'address': '9 Old Rd, Ozark, MO', 'hipaa_authorized': False, 'can_make_medical_decisions': None},
+      todo=[{'key': 'c1.signin', 'text': "Set up Nancy Fakename's AxisCare family sign-in to see care notes (nancy@example.com)"}, {'key': 'c1.emails', 'text': 'In AxisCare, turn on emails to Nancy Fakename: weekly calendar'}]),
+    C(2, 'Tom Fakename', 'Son', cell='417-555-011', change=True, state='Misery', bad_state=True, plan={'axiscare': {'action': 'add', 'slot': 3}, 'hub': {'action': 'add', 'member_id': None}},
+      hub_now={'name': 'Tom Fakename', 'stopped': True}),
     C(3, 'Jane Doe', 'Neighbor', late=True, plan={'axiscare': {'action': 'hub_only', 'slot': None, 'why': "AxisCare's three responsible party slots are taken by other people"}, 'hub': {'action': 'add', 'member_id': None}},
       todo=[{'key': 'c3.phone', 'text': 'Jane Doe asked for texts but gave no phone number: ask for a cell number'}]),
     C(4, 'Bob Ray', 'Friend', plan={'axiscare': {'action': 'hub_only', 'slot': None, 'why': "AxisCare's three responsible party slots are taken by other people"}, 'hub': {'action': 'add', 'member_id': None}}),
@@ -34,12 +34,12 @@ CONTACTS = [
 PAGE = '''<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>:root{--navy:#0E3860;--border:#E2E8F0} body{font-family:sans-serif;margin:0;padding:16px} .card{background:#fff;border-radius:12px} input[type=text]{box-sizing:border-box;padding:6px}</style>
 <body><div id="cp_agreement"></div><script>
-const CP = { ax: '296' }; window.CALLS = []; window.CONFIRMS = [];
+const CP = { ax: '901' }; window.CALLS = []; window.CONFIRMS = [];
 const CONTACTS = %s;
 let REVIEW = null;
 window.ccConfirm = async (m) => { CONFIRMS.push(m); return true; }; window.PROMPTS = []; window.ccPrompt = async (m, d) => { PROMPTS.push([m, d]); return ('PROMPT_ANSWER' in window) ? window.PROMPT_ANSWER : d; }; window.OPENED = [];
 window.callAction = async (fn, b) => { CALLS.push(JSON.parse(JSON.stringify(b)));
-  if (b.action === 'list') return { status: 200, data: { agreements: [{ id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Anderson', role: 'representative' }, contacts_review: REVIEW, answers: { 'c1.email': 'nancy@example.com' }, copies: { emails: [{ to: 'old@example.com', at: '2026-10-16T16:01:00Z', outcome: 'held', detail: 'Not sent: it is outside email hours' }], printed: false } }] } };
+  if (b.action === 'list') return { status: 200, data: { agreements: [{ id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Fakename', role: 'representative' }, contacts_review: REVIEW, answers: { 'c1.email': 'nancy@example.com' }, copies: { emails: [{ to: 'old@example.com', at: '2026-10-16T16:01:00Z', outcome: 'held', detail: 'Not sent: it is outside email hours' }], printed: false } }] } };
   if (b.action === 'contacts') return { status: 200, data: { ok: true, contacts: CONTACTS, review: REVIEW } };
   if (b.action === 'contacts_apply') {
     REVIEW = REVIEW || { people: {}, todo: {} }; const results = [];
@@ -68,7 +68,7 @@ FC = '''<!doctype html><meta charset="utf-8"><body><div id="out"></div><script>f
 const e = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 window.SETS = []; window.fcSet = (id, k, v) => SETS.push([id, k, v]);
 document.getElementById('out').innerHTML = fcCircleBody({ id: 'circ1' }, [
-  { id: 'm1', name: 'Nancy Anderson', sms_consent: true, wants_changes: false, wants_late: true, from_agreement: 'a1' },
+  { id: 'm1', name: 'Nancy Fakename', sms_consent: true, wants_changes: false, wants_late: true, from_agreement: 'a1' },
   { id: 'm2', name: 'Old Member', sms_consent: true, wants_changes: false }], true, e);
 </script>''' % (m.group(0) if m else '')
 open(os.path.join(ROOT, '_fc_test.html'), 'w').write(FC)
@@ -86,8 +86,8 @@ try:
                 pg.click('[data-cag-rev]'); pg.wait_for_selector('[data-car-n="1"]')
                 t = pg.inner_text('[data-cag-revbox]')
                 ck(f'{name}: each person says where they go (AxisCare slot, Family Circle, or Hub only and why)',
-                   'AxisCare slot 1 (updates Nancy Anderson, already there)' in t and 'AxisCare slot 3 (new)' in t and t.count('Family Circle only') == 2 and 'three responsible party slots are taken' in t, t)
-                ck(f'{name}: AxisCare now is shown side by side for Nancy', 'AxisCare now: Nancy Anderson · 417-555-0001 · old@example.com' in t and 'HIPAA No' in t)
+                   'AxisCare slot 1 (updates Nancy Fakename, already there)' in t and 'AxisCare slot 3 (new)' in t and t.count('Family Circle only') == 2 and 'three responsible party slots are taken' in t, t)
+                ck(f'{name}: AxisCare now is shown side by side for Nancy', 'AxisCare now: Nancy Fakename · 417-555-0001 · old@example.com' in t and 'HIPAA No' in t)
                 ck(f'{name}: the signed choices are shown and are not editable', 'Health information (HIPAA): Yes' in t and 'Can book in the app: Yes' in t and 'Can book in the app: not asked on this wording' in t and 'Texts: running late' in t and pg.locator('[data-car-f$=".hipaa"]').count() == 0)
                 ck(f'{name}: a bad state and a STOP reply are pointed out', 'AxisCare needs a 2-letter state' in t and 'replied STOP' in t)
                 ck(f'{name}: the AxisCare checklist lists the hand jobs', pg.locator('[data-car-todo]').count() == 3 and 'family sign-in' in t and 'ask for a cell number' in t)

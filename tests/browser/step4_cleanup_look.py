@@ -36,7 +36,7 @@ async()=>{
   const base={ status:'open', reason:'calloff', client:'Ruth Kay', shift_date:'2099-10-20', shift_time:'09:00-13:00', opened_at:ago(40) };
   DATA.coverage_cases=[
     { ...base, id:'c_ask', asked:[] },
-    { ...base, id:'c_wait', client:'Ed Anderson', asked:[{ id:'w1', name:'Kim Aide', state:'waiting', at:ago(20), auto:false, picked_by_coordinator:true, phone:'+14175550101' }, { id:'w2', name:'Bo Bright', state:'waiting', at:ago(20), auto:false, picked_by_coordinator:true, phone:'+14175550102' }] },
+    { ...base, id:'c_wait', client:'Ned Fakename', asked:[{ id:'w1', name:'Kim Aide', state:'waiting', at:ago(20), auto:false, picked_by_coordinator:true, phone:'+14175550101' }, { id:'w2', name:'Bo Bright', state:'waiting', at:ago(20), auto:false, picked_by_coordinator:true, phone:'+14175550102' }] },
     { ...base, id:'c_yes', client:'Dan Probst', asked:[{ id:'y1', name:'Mary Evans', state:'yes', at:ago(30), replied_at:ago(10), reply:'yes I can', picked_by_coordinator:true }, { id:'y2', name:'Di Waiting', state:'waiting', at:ago(30), picked_by_coordinator:true }] },
     { ...base, id:'c_q', client:'Cyn Stans', asked:[{ id:'q1', name:'Ariel Smith', state:'inquiry', at:ago(30), replied_at:ago(5), reply:'what time does it end?', picked_by_coordinator:true, ghl_contact_id:'C1' }] },
     { ...base, id:'c_done', client:'Steve A', status:'closed', resolved_how:'covered', covered_by:'Mary Evans', resolved_at:ago(5), asked:[] } ];

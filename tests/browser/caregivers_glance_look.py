@@ -16,7 +16,7 @@ async()=>{
   const ago=d=>new Date(Date.now()-d*864e5).toISOString().slice(0,10);
   CGD.census={ caregivers:[
     { id:'1', first:'Makala', last:'Adkins', city:'Ozark', mobile:'417-403-3030', hire_date:ago(150), classes:['Level 3'], active:true, status_label:'Active' },
-    { id:'2', first:'Kim', last:'Anderson', city:'Springfield', mobile:'971-313-4667', hire_date:ago(1500), classes:['Level 2'], active:true, status_label:'Active' },
+    { id:'2', first:'Kim', last:'Fakename', city:'Springfield', mobile:'971-313-4667', hire_date:ago(1500), classes:['Level 2'], active:true, status_label:'Active' },
     { id:'3', first:'Robin', last:'Barclay', city:'Fair Grove', mobile:'417-766-8511', hire_date:ago(20), classes:['Level 2'], active:true, status_label:'Active' },
     { id:'4', first:'Newt', last:'Hire', city:'Ava', mobile:'', hire_date:ago(3), classes:[], active:true, status_label:'In Training' },
     { id:'5', first:'Old', last:'Timer', city:'Ozark', mobile:'', hire_date:ago(3000), classes:['Level 1'], active:false, status_label:'Terminated' } ], at:Date.now() };
@@ -40,14 +40,14 @@ async()=>{
   const hd=(document.querySelector('.cgg-row.hd')||{}).innerText||'';
   ok('labeled columns', /Caregiver/.test(hd)&&/Town/.test(hd)&&/Next 7 days/.test(hd)&&/With us/.test(hd)&&/Phone/.test(hd), hd);
   const rows=[...document.querySelectorAll('.cgg-row.cg')].map(r=>r.innerText.replace(/\s+/g,' ').trim());
-  ok('Kim: 9 of 30 h, wants 21 h more, 4 yrs', rows.some(r=>/Kim Anderson/.test(r)&&/9 of 30 h/.test(r)&&/wants 21 h more/.test(r)&&/4 yrs/.test(r)), rows);
+  ok('Kim: 9 of 30 h, wants 21 h more, 4 yrs', rows.some(r=>/Kim Fakename/.test(r)&&/9 of 30 h/.test(r)&&/wants 21 h more/.test(r)&&/4 yrs/.test(r)), rows);
   ok('Robin: none scheduled, goal not set, new', rows.some(r=>/Robin Barclay/.test(r)&&/none/.test(r)&&/goal not set/.test(r)&&/new/.test(r)), rows);
   ok('a key explains the dots', /checks recorded/.test(txt('cgdList')) && /background issue/.test(txt('cgdList')), txt('cgdList').slice(0,200));
   const up=document.getElementById('cggUpkeep');
   ok('upkeep lines moved under the list', up && up.contains(document.getElementById('cgaxLine')) && up.contains(document.getElementById('cgcLine')));
   CGG.pick('wantmore'); await sleep(120);
   let names=[...document.querySelectorAll('.cgg-row.cg b')].map(b=>b.innerText);
-  ok('Want more hours: biggest gap first (Kim, then Makala)', JSON.stringify(names)==='["Kim Anderson","Makala Adkins"]', names);
+  ok('Want more hours: biggest gap first (Kim, then Makala)', JSON.stringify(names)==='["Kim Fakename","Makala Adkins"]', names);
   CGG.pick('nosched'); await sleep(120);
   names=[...document.querySelectorAll('.cgg-row.cg b')].map(b=>b.innerText);
   ok('Nothing on the schedule tile narrows to Robin', JSON.stringify(names)==='["Robin Barclay"]', names);

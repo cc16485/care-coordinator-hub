@@ -18,20 +18,20 @@ async()=>{
   window.dkStore=window.__fakeStore;
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
-  DATA.leads=[{ id:'L1', first_name:'Pamela', last_name:'Anderson', client_first_name:'Ed', client_last_name:'Anderson', status:'Contacted' }];
+  DATA.leads=[{ id:'L1', first_name:'Pat', last_name:'Fakename', client_first_name:'Ed', client_last_name:'Fakename', status:'Contacted' }];
   DATA.referral_orgs=[{ id:'o1', name:'Mercy Rehab' }];
   switchTab('mydesk'); await sleep(500);
   ok('a blank page has the porch doodle', !!W().querySelector('.dk-pagedoodle svg'));
   const jot=v=>{ const i=document.getElementById('dkJot'); i.value=v; i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true})); };
-  jot('Call Pamela Anderson back Thursday'); await sleep(250);
+  jot('Call Pat Fakename back Thursday'); await sleep(250);
   ok('...and it goes once there is a line', !W().querySelector('.dk-pagedoodle'));
-  const P=db.desk_lines.find(l=>/Pamela/.test(l.body));
+  const P=db.desk_lines.find(l=>/Pat/.test(l.body));
   const tp=W().querySelector('.dk-hint.dk-promise[data-for="'+P.id+'"]');
-  ok('promise tape · names the person the Hub knows', !!tp && /Sounds like a promise to Pamela Anderson\./.test(tp.textContent) && /Make it a Hub follow-up/.test(tp.textContent) && /Just a note/.test(tp.textContent), tp && tp.textContent);
+  ok('promise tape · names the person the Hub knows', !!tp && /Sounds like a promise to Pat Fakename\./.test(tp.textContent) && /Make it a Hub follow-up/.test(tp.textContent) && /Just a note/.test(tp.textContent), tp && tp.textContent);
   ok('promise tape · sits right under its own line (not pinned like the kind-words tape)', !!tp && Math.abs(tp.getBoundingClientRect().top - W().querySelector('[data-dkid="'+P.id+'"]').getBoundingClientRect().bottom) < 30);
   ok('promise tape · looks like honey washi tape', !!tp && /repeating-linear-gradient/.test(getComputedStyle(tp).backgroundImage));
   ok('promise tape · no em dashes', !/—/.test(tp ? tp.textContent : ''));
-  jot('Print Ed Anderson binder'); await sleep(250);
+  jot('Print Ed Fakename binder'); await sleep(250);
   const Q=db.desk_lines.find(l=>/binder/.test(l.body));
   ok('a name with no day, time or "back": no tape', !W().querySelector('.dk-hint[data-for="'+Q.id+'"]'));
   jot('Drop cookies at Mercy Rehab by 3'); await sleep(250);
@@ -41,7 +41,7 @@ async()=>{
   const Wl=db.desk_lines.find(l=>/Wilsons/.test(l.body));
   ok('the older promise words still work, with "a family"', /promise to a family/.test((W().querySelector('.dk-hint[data-for="'+Wl.id+'"]')||{}).textContent||''));
   W().querySelector('.dk-hint[data-for="'+P.id+'"] [data-dk="follow"]').click(); await sleep(200);
-  ok('Make it a Hub follow-up · Capture opens with the words and Pamela Anderson in About', (document.getElementById('capWhat')||{}).value===P.body && (document.getElementById('capAbout')||{}).value==='Pamela Anderson', [(document.getElementById('capWhat')||{}).value,(document.getElementById('capAbout')||{}).value]);
+  ok('Make it a Hub follow-up · Capture opens with the words and Pat Fakename in About', (document.getElementById('capWhat')||{}).value===P.body && (document.getElementById('capAbout')||{}).value==='Pat Fakename', [(document.getElementById('capWhat')||{}).value,(document.getElementById('capAbout')||{}).value]);
   try{ document.getElementById('ccCapWrap').style.display='none'; }catch(e){}
   await sleep(400);
   W().querySelector('.dk-hint[data-for="'+M.id+'"] [data-dk="nohint"]').click(); await sleep(200);

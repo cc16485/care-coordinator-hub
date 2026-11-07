@@ -20,7 +20,7 @@ async()=>{
     { id:'ops_robot', kind:'staffing_issue', status:'open', title:'robot item', about:'Robo', created_at:now, created_by:'timekeeper' },
     { id:'ops_secret', kind:'discipline', sensitive:true, status:'open', title:'Write-up for Pat (fake)', about:'Pat Example', owner:'samantha@mo-care.com', created_at:now, created_by:'samantha@mo-care.com', created_by_email:'samantha@mo-care.com' } ];
   DATA.leads=[ { id:'l1', first_name:'Gina', last_name:'Gale', status:'New', created_at:now } ];
-  DATA.coverage_cases=[ { id:'c1', status:'open', client:'Edward Anderson', shift_date:today, shift_time:'16:00-21:00' }, { id:'c2', status:'open', kind:'interest', client:'New Family' } ];
+  DATA.coverage_cases=[ { id:'c1', status:'open', client:'Ned Fakename', shift_date:today, shift_time:'16:00-21:00' }, { id:'c2', status:'open', kind:'interest', client:'New Family' } ];
   window.fetch=async(u,o)=>{ const b=JSON.parse((o&&o.body)||'{}'); if(b.today_board) return { ok:true, status:200, json:async()=>({ total:13, open:[{ client:'Tommy Mason', time:'09:30', end:'11:30' }] }) }; return { ok:true, status:200, json:async()=>({}) }; };
   sb.auth=Object.assign({}, sb.auth, { getSession:async()=>({ data:{ session:{ access_token:'t' } } }) });
   (0,eval)("BT_IV={ bookings:[], applicants:[] }; BT_IV_AT=Date.now();");
@@ -37,7 +37,7 @@ async()=>{
   const tiles=[...document.querySelectorAll('#todayStrip .ts-tile')].map(t=>t.innerText.replace(/\n+/g,' | '));
   ok('the strip has five tiles in order', tiles.length===5 && /^SINCE YOU LEFT/i.test(tiles[0]) && /^COVERAGE/i.test(tiles[1]) && /^TODAY IN AXISCARE/i.test(tiles[2]) && /^BOOKED TODAY/i.test(tiles[3]) && /^RESPONSIBLE NOW/i.test(tiles[4]), tiles);
   ok('Since you left: people\'s items and new leads, not the robot\'s, not a write-up Krystal can\'t open', /2 came in/.test(tiles[0]) && /Ann, Gina/.test(tiles[0]) && !/Pat/.test(tiles[0]), tiles[0]);
-  ok('Coverage: one open case (a new-client check is not counted), the first one named', /1 open case/.test(tiles[1]) && /Edward Anderson, \w{3}, \w{3} \d+ 16:00/.test(tiles[1]), tiles[1]);
+  ok('Coverage: one open case (a new-client check is not counted), the first one named', /1 open case/.test(tiles[1]) && /Ned Fakename, \w{3}, \w{3} \d+ 16:00/.test(tiles[1]), tiles[1]);
   ok('Today in AxisCare: visits and the open shift', /13 visits/.test(tiles[2]) && /1 open shift: Tommy, 09:30/.test(tiles[2]), tiles[2]);
   ok('Booked today: interviews and assessments', /0 interviews/.test(tiles[3]) && /assessment/.test(tiles[3]), tiles[3]);
   ok('Responsible now names a person or says nobody is on Staffing', /RESPONSIBLE NOW \| ([A-Z][a-z]+|Nobody on Staffing)/.test(tiles[4]) && !/@/.test(tiles[4]), tiles[4]);

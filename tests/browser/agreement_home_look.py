@@ -21,7 +21,7 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(Quiet,
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 BASE = f'http://127.0.0.1:{srv.server_address[1]}'
 SESSION = {'access_token': 'kr', 'refresh_token': 'r', 'token_type': 'bearer', 'expires_in': 3600, 'expires_at': 4102444800, 'user': {'id': 'u-kr', 'email': 'kr@mo-care.com', 'aud': 'authenticated', 'role': 'authenticated', 'app_metadata': {}, 'user_metadata': {}}}
-ANS = {'c1.name': 'Nancy Anderson', 'c1.cell_phone': '417-863-7309', 'c1.email': 'nancy@example.com'}
+ANS = {'c1.name': 'Nancy Fakename', 'c1.cell_phone': '417-555-0173', 'c1.email': 'nancy@example.com'}
 
 def J(route, code, o): route.fulfill(status=code, content_type='application/json', headers={'access-control-allow-origin': '*'}, body=json.dumps(o))
 def office_fake(st):
@@ -44,13 +44,13 @@ def public_fake(st):
         b = json.loads(req.post_data or '{}'); st['calls'].append(b); a = b.get('action')
         if b.get('t') != TOKEN: return J(route, 404, {'error': 'This link does not work. Please call Caring Companions at (417) 234-8494.', 'outcome': 'bad_link'})
         if st.get('signed'): return J(route, 200, {'ok': True, 'state': 'signed'})
-        if a == 'open': return J(route, 200, {'ok': True, 'state': 'need_code', 'to_name': 'Nancy Anderson', 'options': [{'via': 'sms', 'to': '(417) ***-7309'}, {'via': 'email', 'to': 'n****@example.com'}]})
+        if a == 'open': return J(route, 200, {'ok': True, 'state': 'need_code', 'to_name': 'Nancy Fakename', 'options': [{'via': 'sms', 'to': '(417) ***-7309'}, {'via': 'email', 'to': 'n****@example.com'}]})
         if a == 'code': return J(route, 200, {'ok': True, 'outcome': 'sent', 'to': '(417) ***-7309' if b['via'] == 'sms' else 'n****@example.com'})
         if a == 'verify':
             if b.get('code', '').replace(' ', '') != '123456': return J(route, 400, {'error': 'That code is not right. 4 tries left.', 'outcome': 'wrong'})
-            return J(route, 200, {'ok': True, 's': 'S' * 43, 'agreement': st['ag'], 'form': FORM, 'to_name': 'Nancy Anderson'})
+            return J(route, 200, {'ok': True, 's': 'S' * 43, 'agreement': st['ag'], 'form': FORM, 'to_name': 'Nancy Fakename'})
         if b.get('s') != 'S' * 43 or st.get('expire'): return J(route, 401, {'error': 'For your privacy, please confirm it is you again.', 'outcome': 'need_code'})
-        if a == 'get': return J(route, 200, {'ok': True, 'agreement': st['ag'], 'form': FORM, 'to_name': 'Nancy Anderson'})
+        if a == 'get': return J(route, 200, {'ok': True, 'agreement': st['ag'], 'form': FORM, 'to_name': 'Nancy Fakename'})
         if a == 'save':
             bad = [k for k in b['answers'] if k not in FIELDS or k in OFFICE_KEYS or SERVER_ONLY(k)]
             if bad: return J(route, 422, {'error': 'Some answers are not right.'})
@@ -74,10 +74,10 @@ with sync_playwright() as p:
         pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         st = {'calls': [], 'ag': {'id': '11111111-1111-4111-8111-111111111111', 'status': 'draft', 'version': 'Rev. 10/2026', 'office': {'answers': {'level.personal_care': True, 'level.hourly_rate': '32'}}, 'answers': dict(ANS), 'link': None}}
         pg.route('**/functions/v1/client-agreement', office_fake(st))
-        pg.goto(BASE + '/agreement.html?id=11111111-1111-4111-8111-111111111111&cn=Edward%20Anderson'); pg.wait_for_selector('#homeCard')
+        pg.goto(BASE + '/agreement.html?id=11111111-1111-4111-8111-111111111111&cn=Ned%20Fakename'); pg.wait_for_selector('#homeCard')
         pg.click('#homeCard summary')
         ck(f'{eng} office: "Send to sign from home" is filled from the primary contact and the client\'s name, text and email ticked',
-           pg.input_value('#hName') == 'Nancy Anderson' and pg.input_value('#hPhone') == '417-863-7309' and pg.input_value('#hEmail') == 'nancy@example.com' and pg.input_value('#hCN') == 'Edward Anderson' and pg.is_checked('#hSms') and pg.is_checked('#hMail'))
+           pg.input_value('#hName') == 'Nancy Fakename' and pg.input_value('#hPhone') == '417-555-0173' and pg.input_value('#hEmail') == 'nancy@example.com' and pg.input_value('#hCN') == 'Ned Fakename' and pg.is_checked('#hSms') and pg.is_checked('#hMail'))
         pg.uncheck('#hSms'); pg.uncheck('#hMail'); pg.click('#hSend')
         ck(f'{eng} office: nothing ticked: it says so and sends nothing', 'Tick Text it, Email it, or both' in pg.inner_text('#hMsg') and not any(c['action'] == 'link_send' for c in st['calls']))
         st['late'] = True; pg.check('#hSms'); pg.click('#hSend'); pg.wait_for_timeout(400)
@@ -85,10 +85,10 @@ with sync_playwright() as p:
         st['late'] = False; pg.click('#hSend'); pg.wait_for_timeout(400)
         ls = [c for c in st['calls'] if c['action'] == 'link_send'][-1]
         ck(f'{eng} office: it saves first, then sends to the person, by the ways ticked, with the client\'s name',
-           [c['action'] for c in st['calls']][-2:] == ['save', 'link_send'] and ls['to_name'] == 'Nancy Anderson' and ls['channels'] == ['sms'] and ls['phone'] == '417-863-7309' and ls['client_name'] == 'Edward Anderson', ls)
+           [c['action'] for c in st['calls']][-2:] == ['save', 'link_send'] and ls['to_name'] == 'Nancy Fakename' and ls['channels'] == ['sms'] and ls['phone'] == '417-555-0173' and ls['client_name'] == 'Ned Fakename', ls)
         ck(f'{eng} office: sent, and it says Needs Attention will say when they sign', 'Text: Texted.' in pg.inner_text('#hMsg') and 'Needs Attention' in pg.inner_text('#hMsg'))
         pg.reload(); pg.wait_for_selector('#homeCard')
-        ck(f'{eng} office: reopened, the link is shown with who, when, until when, and a Cancel button', 'Link sent to Nancy Anderson ((417) ***-7309)' in pg.inner_text('#homeCard') and 'Not opened yet' in pg.inner_text('#homeCard') and pg.locator('#linkCancel').count() == 1)
+        ck(f'{eng} office: reopened, the link is shown with who, when, until when, and a Cancel button', 'Link sent to Nancy Fakename ((417) ***-7309)' in pg.inner_text('#homeCard') and 'Not opened yet' in pg.inner_text('#homeCard') and pg.locator('#linkCancel').count() == 1)
         pg.click('#linkCancel'); pg.wait_for_timeout(300)
         ck(f'{eng} office: Cancel the link', any(c['action'] == 'link_cancel' for c in st['calls']) and 'cancelled' in pg.inner_text('#linkNow'))
         ck(f'{eng} office: no page errors', not errs, errs)
@@ -110,12 +110,12 @@ with sync_playwright() as p:
             pg.fill('#code', '111111'); pg.click('#codeGo'); pg.wait_for_timeout(300)
             ck(f'{name}: a wrong code says how many tries are left', '4 tries left' in pg.inner_text('#codeMsg'))
             pg.fill('#code', '123 456'); pg.press('#code', 'Enter'); pg.wait_for_selector('[data-tap="1"]')
-            ck(f'{name}: the right code opens their agreement: the real pages, their answers, typeable blanks', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'Nancy Anderson' and pg.locator('input[data-k]').count() > 50)
+            ck(f'{name}: the right code opens their agreement: the real pages, their answers, typeable blanks', pg.locator('.pg').count() == 23 and pg.locator('input[data-k="c1.name"]').input_value() == 'Nancy Fakename' and pg.locator('input[data-k]').count() > 50)
             ck(f'{name}: no "Office: back" button for the family at home', not pg.locator('#backBtn').is_visible())
             ck(f'{name}: every call carried the link and never a Hub sign-in', all(c.get('t') == TOKEN for c in st['calls']) and not any(a and a.startswith('Bearer') for a in st['auth']), st['auth'])
-            ck(f'{name}: the name on the link fills in "who is signing"', pg.input_value('#sName') == 'Nancy Anderson')
+            ck(f'{name}: the name on the link fills in "who is signing"', pg.input_value('#sName') == 'Nancy Fakename')
             pg.click('[data-role="representative"]'); pg.fill('#sRel', 'Wife')
-            for k, v in {'client.client_s_name': 'Edward Anderson', 'client.address': '1 Elm', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '4175550100', 'poa.name': 'Nancy Anderson', 'c1.relationship': 'Wife', 'backup.full_name': 'Tom', 'backup.primary_phone': '4175550111'}.items():
+            for k, v in {'client.client_s_name': 'Ned Fakename', 'client.address': '1 Elm', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '4175550100', 'poa.name': 'Nancy Fakename', 'c1.relationship': 'Wife', 'backup.full_name': 'Tom', 'backup.primary_phone': '4175550111'}.items():
                 pg.fill(f'input[data-k="{k}"]', v)
             for k in ['c1.hipaa_yes', 'c1.medical_yes', 'access.1_client_responsible_party', 'car.decline', 'photos.no_photos', 'comm.accept']: pg.click(f'button[data-t="{k}"]')
             pg.wait_for_timeout(1900)
@@ -129,7 +129,7 @@ with sync_playwright() as p:
             pg.click('#signBtn'); pg.wait_for_timeout(500)
             sb = st.get('signedBody') or {}
             ck(f'{name}: sign sends their signature, name, role, 7 initials and consent, with the link and session',
-               sb.get('t') == TOKEN and sb.get('s') == 'S' * 43 and sb.get('consent') is True and sorted(sb.get('initials', {})) == ['1', '2', '3', '4', '5', '6', 'poa'] and sb.get('signature', '').startswith('data:image/png') and sb['signer']['name'] == 'Nancy Anderson', {k: v for k, v in sb.items() if k != 'signature'})
+               sb.get('t') == TOKEN and sb.get('s') == 'S' * 43 and sb.get('consent') is True and sorted(sb.get('initials', {})) == ['1', '2', '3', '4', '5', '6', 'poa'] and sb.get('signature', '').startswith('data:image/png') and sb['signer']['name'] == 'Nancy Fakename', {k: v for k, v in sb.items() if k != 'signature'})
             ck(f'{name}: thank you, Caring Companions will countersign and send the copy; no countersign button', 'Caring Companions will countersign it and send you your copy' in pg.inner_text('#view') and pg.locator('#toOffice').count() == 0)
             ck(f'{name}: nothing wider than the screen', pg.evaluate('document.documentElement.scrollWidth <= innerWidth + 1'))
             ck(f'{name}: no page errors', not errs, errs)

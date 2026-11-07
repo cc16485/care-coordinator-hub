@@ -21,9 +21,9 @@ SETUP = r"""async()=>{
   const ago=n=>new Date(Date.now()-n*864e5).toISOString(), day=n=>new Date(Date.now()-n*864e5).toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
   DATA.ops_settings=Object.assign({}, DATA.ops_settings||{}, { calloff_answers_live:false });
   const cases=[
-    { id:'cwo_t1', client:'Ed Example', client_axiscare_id:'296', shift_date:day(23), shift_time:'09:00-14:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(30), outcome_asked_at:ago(23), axiscare_visit_id:'s=1:d=x' },
-    { id:'cwo_t2', client:'Ed Example', client_axiscare_id:'296', shift_date:day(22), shift_time:'16:00-21:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(29), outcome_asked_at:ago(22) },
-    { id:'cwo_t3', client:'Ed Example', client_axiscare_id:'296', shift_date:day(21), shift_time:'09:00-14:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(28), outcome_asked_at:ago(21) },
+    { id:'cwo_t1', client:'Ed Example', client_axiscare_id:'901', shift_date:day(23), shift_time:'09:00-14:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(30), outcome_asked_at:ago(23), axiscare_visit_id:'s=1:d=x' },
+    { id:'cwo_t2', client:'Ed Example', client_axiscare_id:'901', shift_date:day(22), shift_time:'16:00-21:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(29), outcome_asked_at:ago(22) },
+    { id:'cwo_t3', client:'Ed Example', client_axiscare_id:'901', shift_date:day(21), shift_time:'09:00-14:00', status:'needs_outcome', opened_by:'ongoing-sweep', opened_at:ago(28), outcome_asked_at:ago(21) },
     { id:'cw_t4', client:'Jackie Sample', client_axiscare_id:'120', shift_date:day(2), shift_time:'12:00-16:00', status:'needs_outcome', opened_by:'axiscare-watch', calling_off:'Iris Testcase', opened_at:ago(3), outcome_asked_at:ago(2) },
     { id:'cwf_t5', client:'(from call — confirm the client)', shift_date:day(5), status:'needs_outcome', opened_by:'cara-flag', calling_off:'Rita Caller', kind:'calloff', opened_at:ago(5), outcome_asked_at:ago(4) },
     { id:'done_t6', client:'Done Client', client_axiscare_id:'1', shift_date:day(3), status:'done', resolved_how:'covered', opened_at:ago(3) } ];

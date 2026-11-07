@@ -63,7 +63,7 @@ T = r"""async()=>{
   const state={ state:'past', person:null, roles:[], pause:null, episodes:[], can:{}, changes:[{ change_id:'chg1', kind:'end', made_at:'2026-10-09T10:00:00Z', made_by_name:'Angie', checklist:[{ key:'dsds', label:'Tell DSDS in writing', rule:'19 CSR 15-7.021(16)(B)', when:'right away', state:'done', by_name:'Angie', on:'2026-10-09', how:'PCCP Request Form' }] }] };
   window.__cj=[]; (0,eval)("cjCall=async(b)=>{ window.__cj.push(b); if(b.action==='care_state') return window.__ccState; if(b.action==='care_checklist'&&b.state==='open'&&!(b.reason||'').trim()) return { error:'Say why' }; return { outcome:'saved' }; }");
   window.__ccState=state;
-  await ccCareMount({ ax:'296' }); await sleep(80);
+  await ccCareMount({ ax:'901' }); await sleep(80);
   const btn=[...cb.querySelectorAll('button')].find(b=>/Reopen/.test(b.textContent));
   ok('a recorded checklist step shows Reopen…', !!btn, cb.innerText.slice(0,400));
   window.prompt=()=>''; await ccCareReopen('chg1','dsds'); await sleep(20);
@@ -72,7 +72,7 @@ T = r"""async()=>{
   const sent=__cj.find(b=>b.action==='care_checklist');
   ok('...with a reason it asks the server to reopen it, with the reason', !!sent && sent.state==='open' && sent.reason==='The fax did not go through' && sent.item==='dsds', __cj);
   state.changes[0].checklist[0]=Object.assign({}, state.changes[0].checklist[0], { state:'open', reopened:{ reason:'The fax did not go through' }, earlier:[{ state:'done', by_name:'Angie', on:'2026-10-09', how:'PCCP Request Form', replaced_by_name:'Angie', reason:'The fax did not go through' }] });
-  await ccCareMount({ ax:'296' }); await sleep(80);
+  await ccCareMount({ ax:'901' }); await sleep(80);
   ok('...a reopened step shows why, and what it said before', /Reopened by .*fax did not go through/.test(cb.innerText) && /Earlier: done by Angie/.test(cb.innerText), cb.innerText.slice(0,600));
   /* ── the Payer tab: a re-upload keeps the evidence ── */
   const prev={ id:'mcp_1', received_on:'2026-10-01', confirmed_by:'kry', confirmed_at:'2026-10-01T10:00:00Z', fusion_verified:{ by:'kry', checked_on:'2026-10-02' }, pdf:{ path:'careplan/mcp_1/1-a.pdf', name:'a.pdf' }, start:{ checks:{ ax_schedule:{ on:'2026-10-03' } } }, changes:[{ id:'c1' }] };

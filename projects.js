@@ -469,8 +469,8 @@
       /* 2026-10-18 (Samantha): no Client start / coming home projects; Start of Care runs on the client's own steps.
          Older client-start projects still open and close as before. */
       + '<input type="hidden" id="pjNT" value="blank">'
-      + lab('Client (if there is one)') + inp('pjNA', 'Ed Anderson', '')
-      + lab('What it is') + inp('pjNTi', 'New shower chair and grab bars for Ed', '')
+      + lab('Client (if there is one)') + inp('pjNA', 'Client name', '')
+      + lab('What it is') + inp('pjNTi', 'New shower chair and grab bars', '')
       + '<div style="display:flex;gap:8px;"><div style="flex:1;">' + lab('Owner') + '<select id="pjNO" style="width:100%;padding:7px;font-size:13px;">' + people.map(e => '<option value="' + esc(e) + '"' + (e === defOwner ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select></div>'
       + '<div style="flex:1;">' + lab('Ready by') + '<input id="pjNR" type="date" value="' + dStr(d) + '" style="width:100%;padding:6px;font-size:13px;"></div></div>'
       + '<div id="pjNBL">' + lab('Steps, one per line')

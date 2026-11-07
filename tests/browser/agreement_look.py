@@ -66,13 +66,13 @@ def flow(browser, name, w, h):
     ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s); window.__opened=[]; window.open=(u)=>{ window.__opened.push(u); return null; };' % json.dumps(json.dumps(SESSION)))
     page = ctx.new_page(); errs = []; page.on('pageerror', lambda e: errs.append(str(e)))
     st = {'calls': []}; page.route('**/functions/v1/client-agreement', fake(st))
-    page.goto(BASE + '/agreement.html?ax=296'); page.wait_for_selector('#startBtn')
+    page.goto(BASE + '/agreement.html?ax=901'); page.wait_for_selector('#startBtn')
     ck(f'{name}: office set-up shows for a new agreement', page.locator('#view h1').inner_text() == 'Set up the agreement')
     page.click('[data-t="level.personal_care"]'); page.fill('[data-k="level.hourly_rate"]', '32'); page.click('[data-ad="guide"]'); page.click('#startBtn')
     page.wait_for_selector('#sName')
     s = [c for c in st['calls'] if c.get('action') == 'start'][0]
     ck(f'{name}: start sends the level (and the same row of the page 11 rate table), the rate and the addenda',
-       s['office'] == {'level.personal_care': True, 'rates.personal_care': True, 'level.hourly_rate': '32'} and s['addenda'] == ['guide'] and s['client_ax'] == '296', s)
+       s['office'] == {'level.personal_care': True, 'rates.personal_care': True, 'level.hourly_rate': '32'} and s['addenda'] == ['guide'] and s['client_ax'] == '901', s)
     ck(f'{name}: the address bar now holds the agreement id (a reload continues it)', 'id=11111111' in page.url, page.url)
     # the real pages, with the blanks on them
     ck(f'{name}: the office sees all 23 real agreement pages', page.locator('.pg').count() == 23 and page.locator('#view h1').inner_text() == 'Fill in the agreement')
@@ -91,33 +91,33 @@ def flow(browser, name, w, h):
     ck(f'{name}: the blanks sit exactly on the printed lines', all(dx < 2 and dy < 2 for _, dx, dy in off), off)
     page.screenshot(path=os.path.join(OUT, f'agreement-fill-{name}.png'))
     # the office fills in part of it ...
-    page.fill('#sName', 'Nancy Anderson'); page.click('[data-role="representative"]'); page.fill('#sRel', 'Wife')
-    office_vals = {'client.client_s_name': 'Edward Anderson', 'client.address': '123 Maple St', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '417-555-0100', 'ci.date_of_birth': '3/4/1941'}
+    page.fill('#sName', 'Nancy Fakename'); page.click('[data-role="representative"]'); page.fill('#sRel', 'Wife')
+    office_vals = {'client.client_s_name': 'Ned Fakename', 'client.address': '123 Maple St', 'client.city': 'Springfield', 'client.zip': '65804', 'client.phone_number': '417-555-0100', 'ci.date_of_birth': '3/4/1941'}
     for k, v in office_vals.items(): page.fill(f'input[data-k="{k}"]', v)
     ck(f'{name}: the printed name and the client name on Exhibit I fill themselves in',
-       page.locator('[data-pv="sig.client.printed_name"]').inner_text() == 'Nancy Anderson' and page.locator('[data-pv="ci.client_s_name"]').inner_text() == 'Edward Anderson')
+       page.locator('[data-pv="sig.client.printed_name"]').inner_text() == 'Nancy Fakename' and page.locator('[data-pv="ci.client_s_name"]').inner_text() == 'Ned Fakename')
     for k in ['car.accept', 'car.decline', 'photos.share_with_my_family', 'photos.no_photos']: page.click(f'button[data-t="{k}"]')
     ck(f'{name}: Accept/Decline is one-or-the-other on the page', page.locator('button[data-t="car.accept"].on').count() == 0 and page.locator('button[data-t="car.decline"]').inner_text() == '✓')
     ck(f'{name}: "No photos" clears the other photo choices', page.locator('button[data-t="photos.share_with_my_family"].on').count() == 0)
     page.wait_for_timeout(1900)
     saves = [c for c in st['calls'] if c.get('action') == 'save']
-    ck(f'{name}: answers save on their own a moment after typing', saves and saves[-1]['answers'].get('client.client_s_name') == 'Edward Anderson' and saves[-1]['answers'].get('car.decline') is True, saves[-1:])
+    ck(f'{name}: answers save on their own a moment after typing', saves and saves[-1]['answers'].get('client.client_s_name') == 'Ned Fakename' and saves[-1]['answers'].get('car.decline') is True, saves[-1:])
     st['fail_save'] = True; page.click('#nextBtn'); page.wait_for_timeout(400)
     ck(f'{name}: a save that fails says so and keeps the office on the pages', 'Not saved' in page.locator('#barMsg').inner_text() and page.locator('#famGo').count() == 0, page.locator('#barMsg').inner_text())
     st['fail_save'] = False; page.click('#nextBtn'); page.wait_for_selector('#famGo')
     ck(f'{name}: the office can hand over a part-filled agreement, and the hand-off says how much is still blank',
-       page.locator('#view h1').inner_text() == 'Hand the tablet to Nancy Anderson' and 'still blank' in page.locator('#view').inner_text(), page.locator('#view').inner_text())
+       page.locator('#view h1').inner_text() == 'Hand the tablet to Nancy Fakename' and 'still blank' in page.locator('#view').inner_text(), page.locator('#view').inner_text())
     page.click('#famGo'); page.wait_for_selector('[data-tap="1"]')
     # ... and the family (an adult child) types in the rest
     ck(f'{name}: the family sees the same 23 pages and can type into any blank', page.locator('.pg').count() == 23 and page.locator('input[data-k]').count() == len(fam_text) and page.locator('button[data-t]').count() == len(fam_check))
-    ck(f'{name}: the office answers show on their pages', page.locator('input[data-k="client.client_s_name"]').input_value() == 'Edward Anderson' and page.locator('button[data-t="car.decline"]').inner_text() == '✓')
+    ck(f'{name}: the office answers show on their pages', page.locator('input[data-k="client.client_s_name"]').input_value() == 'Ned Fakename' and page.locator('button[data-t="car.decline"]').inner_text() == '✓')
     page.locator('[data-sign]').first.click(); page.wait_for_selector('#sheet')
     ck(f'{name}: tapping Sign with blanks left lists them (incl. the POA, since someone signs for the client)',
        'A few things first' in page.locator('#sheet').inner_text() and 'POA name' in page.locator('#sheet').inner_text() and 'Backup caregiver' in page.locator('#sheet').inner_text(), page.locator('#sheet').inner_text())
     page.locator('#sheet [data-goto="c1.name"]').click(); page.wait_for_timeout(500)
     ck(f'{name}: tapping an item closes the list and goes to that blank', page.locator('#sheet').count() == 0 and page.evaluate('document.activeElement && document.activeElement.dataset.k') == 'c1.name')
-    fam_vals = {'poa.name': 'Nancy Anderson', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Anderson', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-863-7309', 'c1.email': 'nancy@example.com', 'c2.name': 'Tom Anderson',
-                'access.lockbox_location': 'Back porch', 'access.lockbox_code': '2468', 'backup.full_name': 'Tom Anderson', 'backup.primary_phone': '417-555-0111'}
+    fam_vals = {'poa.name': 'Nancy Fakename', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Fakename', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-555-0173', 'c1.email': 'nancy@example.com', 'c2.name': 'Tom Fakename',
+                'access.lockbox_location': 'Back porch', 'access.lockbox_code': '2468', 'backup.full_name': 'Tom Fakename', 'backup.primary_phone': '417-555-0111'}
     for k, v in fam_vals.items(): page.fill(f'input[data-k="{k}"]', v)
     for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'c1.book_yes', 'c2.book_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
         page.click(f'button[data-t="{k}"]')
@@ -136,7 +136,7 @@ def flow(browser, name, w, h):
     ck(f'{name}: initials buttons start at the box, leave the printed label readable and stay on screen', all(a_ and b_ for _, a_, b_ in clear), clear)
     for n in ['1', '2', '3', '4', '5', '6', 'poa']:
         page.click(f'[data-tap="{n}"]')
-    ck(f'{name}: tapped boxes show the signer\'s initials (NA) in the box', page.locator('[data-tap="1"]').inner_text() == 'NA' and 'All initials done' in page.locator('#barMsg').inner_text())
+    ck(f'{name}: tapped boxes show the signer\'s initials (NF) in the box', page.locator('[data-tap="1"]').inner_text() == 'NF' and 'All initials done' in page.locator('#barMsg').inner_text())
     page.locator('[data-tap="3"]').scroll_into_view_if_needed(); page.screenshot(path=os.path.join(OUT, f'agreement-initialed-{name}.png'))
     page.click('#nextBtn'); page.wait_for_selector('#sig')
     page.click('#signBtn'); ck(f'{name}: signing without the e-sign box ticked is refused on the page', 'tick the box' in page.locator('#signErr').inner_text())
@@ -145,7 +145,7 @@ def flow(browser, name, w, h):
     page.click('#signBtn'); page.wait_for_selector('#toOffice')
     sg = st['signed']
     ck(f'{name}: sign sends consent, the typed name, the role, six initials + POA, and a real PNG signature',
-       sg['consent'] is True and sg['signer']['name'] == 'Nancy Anderson' and sg['signer']['role'] == 'representative' and sorted(sg['initials']) == ['1', '2', '3', '4', '5', '6', 'poa']
+       sg['consent'] is True and sg['signer']['name'] == 'Nancy Fakename' and sg['signer']['role'] == 'representative' and sorted(sg['initials']) == ['1', '2', '3', '4', '5', '6', 'poa']
        and sg['signature'].startswith('data:image/png;base64,') and len(sg['signature']) > 1500, {k: (v if k != 'signature' else len(v)) for k, v in sg.items()})
     ck(f'{name}: every answer sent is a field on the printed agreement, none of them office or server fields', all(k in FIELDS and k not in OFFICE_KEYS and not SERVER_ONLY(k) for k in sg['answers']) and sg['answers'].get('access.lockbox_code') == '2468',
        [k for k in sg['answers'] if k not in FIELDS or k in OFFICE_KEYS or SERVER_ONLY(k)])
@@ -153,9 +153,9 @@ def flow(browser, name, w, h):
     ck(f'{name}: countersign offers to email the family a copy, ticked, to the primary contact', page.is_checked('#mailCopy') and page.input_value('#mailTo') == 'nancy@example.com' and 'COPY' in page.inner_text('#view') and 'codes are hidden' in page.inner_text('#view'))
     page.fill('#mailTo', 'nancy at example'); draw(page, '#osig'); page.click('#cBtn'); page.wait_for_timeout(300)
     ck(f'{name}: a bad email address is caught before anything is countersigned', 'does not look right' in page.inner_text('#cErr') and 'counter' not in st)
-    page.fill('#mailTo', 'nancy.anderson@example.com'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
-    ck(f'{name}: countersign sends the office signature and the email address, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and st['counter']['email_copy'] == {'to': 'nancy.anderson@example.com'} and 'Signed and saved' in page.locator('#view h1').inner_text(), st['counter'].get('email_copy'))
-    ck(f'{name}: the done screen says the copy was emailed', 'Their copy was emailed to nancy.anderson@example.com' in page.inner_text('#view'))
+    page.fill('#mailTo', 'nancy.fakename@example.com'); page.click('#cBtn'); page.wait_for_selector('#openPdf')
+    ck(f'{name}: countersign sends the office signature and the email address, then Signed and saved', st['counter']['signature'].startswith('data:image/png') and st['counter']['email_copy'] == {'to': 'nancy.fakename@example.com'} and 'Signed and saved' in page.locator('#view h1').inner_text(), st['counter'].get('email_copy'))
+    ck(f'{name}: the done screen says the copy was emailed', 'Their copy was emailed to nancy.fakename@example.com' in page.inner_text('#view'))
     ck(f'{name}: the done screen says which steps were ticked, and that the AxisCare upload is still theirs', '"Signed Care Agreement received" are ticked' in page.inner_text('#view') and '"Service agreement signed and on file" is done' in page.inner_text('#view') and 'Still yours' in page.inner_text('#view'))
     page.click('#openPdf'); page.wait_for_timeout(300); page.click('#printCopy'); page.wait_for_timeout(300)
     ck(f'{name}: Open the signed agreement and Print the family\'s copy open their 5-minute links', page.evaluate('window.__opened') == ['https://example.com/signed.pdf', 'https://example.com/family-copy.pdf'], page.evaluate('window.__opened'))
@@ -211,15 +211,15 @@ with sync_playwright() as p:
         ck(f'{eng}: when Start of Care could not be ticked, it says to tick it by hand', 'tick them by hand' in pg.inner_text('#view'))
         ctx.close()
         ctx = br.new_context(viewport={'width': 768, 'height': 1024}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
-        pg.route('**/functions/v1/client-agreement', fake({'calls': []})); pg.goto(BASE + '/agreement.html?ax=296'); pg.wait_for_selector('#signin')
+        pg.route('**/functions/v1/client-agreement', fake({'calls': []})); pg.goto(BASE + '/agreement.html?ax=901'); pg.wait_for_selector('#signin')
         ck(f'{eng}: not signed in: the Hub sign-in shows, nothing else', pg.locator('#gate').is_visible() and pg.locator('#view').inner_text().strip() == '', errs)
         ctx.close()
         # the client card
         ctx = br.new_context(viewport={'width': 1024, 'height': 768}); pg = ctx.new_page(); errs = []; pg.on('pageerror', lambda e: errs.append(str(e)))
         card = '''<!doctype html><meta charset="utf-8"><body><div id="cp_agreement"></div><script>
-const CP = { ax: '296' }; window.CALLS = [];
+const CP = { ax: '901' }; window.CALLS = [];
 window.callAction = async (fn, b) => { CALLS.push(b); if (b.action === 'list') return { status: 200, data: { agreements: [
- { id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Anderson', role: 'representative' } },
+ { id: 'a1', status: 'countersigned', version: 'Rev. 10/2026', created_at: '2026-10-16T15:00:00Z', countersigned_at: '2026-10-16T16:00:00Z', has_pdf: true, signer: { name: 'Nancy Fakename', role: 'representative' } },
  { id: 'a2', status: 'draft', version: 'Rev. 10/2026', created_at: '2026-10-17T15:00:00Z', has_pdf: false, signer: null }] } };
  if (b.action === 'open') return { status: 200, data: { url: 'https://example.com/a1.pdf' } }; return { status: 400, data: { error: 'x' } }; };
 window.__opened = []; window.open = (u) => { __opened.push(u); };
@@ -227,7 +227,7 @@ window.__opened = []; window.open = (u) => { __opened.push(u); };
         open(os.path.join(ROOT, '_cag_test.html'), 'w').write(card)
         pg.goto(BASE + '/_cag_test.html'); pg.wait_for_selector('[data-cag-open]')
         txt = pg.locator('#cp_agreement').inner_text()
-        ck(f'{eng} card: lists signed and started agreements with who signed', 'Signed' in txt and 'Started, not signed' in txt and 'Nancy Anderson (for the client)' in txt, txt)
+        ck(f'{eng} card: lists signed and started agreements with who signed', 'Signed' in txt and 'Started, not signed' in txt and 'Nancy Fakename (for the client)' in txt, txt)
         pg.click('[data-cag-open]'); pg.wait_for_timeout(300)
         ck(f'{eng} card: Open signed PDF opens the link', pg.evaluate('window.__opened') == ['https://example.com/a1.pdf'])
         ck(f'{eng} card: a draft offers Continue on the tablet', pg.locator('[data-cag-go="a2"]').inner_text() == 'Continue on the tablet')
