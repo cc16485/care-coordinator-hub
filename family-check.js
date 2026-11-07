@@ -12,7 +12,7 @@
   }
   function day(iso) { try { return new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric' }) } catch (x) { return '' } }
   function textable(p) { return !!(p.phone && p.sms_consent && !p.stopped_at) }
-  /* 2026-10-25: the welcome that every family member gets is the AxisCare one (the Booking App email is by hand, optional) */
+  /* 2026-10-25: the welcome that every family member gets is the AxisCare one */
   function welcomeDue(p) { return !!(p.email && p.source === 'axiscare' && p.hipaa_authorized === true && !p.axis_welcome_sent_at && !p.welcome_skip_at) }
 
   /* what needs a look for one client: [label, tone] */
@@ -41,12 +41,10 @@
     bits.push(p.email ? chip('email', 'mute', p.email) : chip('no email', 'warn'))
     bits.push(!p.phone ? chip('no phone', 'warn') : p.stopped_at ? chip('replied STOP', 'bad') : p.sms_consent ? chip('texts ok', 'ok', p.phone) : chip('no texts', 'mute', p.phone))
     bits.push(p.source === 'axiscare' ? chip('AxisCare', 'info') : p.carried_from === 'client' ? chip('the client', 'mute') : chip('typed by office', 'mute'))
-    if (p.app_status === 'active') bits.push(chip('Booking App on', 'ok'))
     if (p.axis_welcome_sent_at) bits.push(chip('AxisCare welcome sent ' + day(p.axis_welcome_sent_at), 'ok'))
     else if (p.welcome_skip_at) bits.push(chip('no AxisCare welcome: ' + (p.welcome_skip_reason || ''), 'mute'))
     else if (p.axis_welcome_failed_at) bits.push(chip('AxisCare welcome couldn\'t go', 'bad', p.axis_welcome_failed_why || ''))
     else if (welcomeDue(p)) bits.push(chip('AxisCare welcome not sent', 'warn'))
-    if (p.welcome_sent_at) bits.push(chip('Booking App email sent ' + day(p.welcome_sent_at), 'ok'))
     if (gone) bits = [chip('no longer on AxisCare\'s list', 'warn')]
     return '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:4px 0;font-size:13px;' + (gone ? 'opacity:.6;' : '') + '">'
       + '<b style="color:var(--navy);">' + esc(p.name || '(no name)') + '</b>'

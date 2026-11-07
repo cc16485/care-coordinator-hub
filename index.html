@@ -1197,8 +1197,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <!-- 2026-10-18 her ask: every active client's Family Circle on one page to check (family-check.js); fixing stays on the profile -->
     <div class="fpill" data-tab="fccheck" onclick="switchTab('fccheck')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Family Circles</div>
-    <!-- 2026-10-25 her ask: everyone with the Booking App and everything they do in it (booking-app-activity.js); shown while ops_settings.app_activity_live is on, owners always -->
-    <div class="fpill" data-tab="bookingapp" onclick="switchTab('bookingapp')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Booking App</div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -1259,7 +1257,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Cara.
          The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
     <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
-    <div class="fpill" data-tab="familybookings" onclick="switchTab('familybookings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Family bookings<span class="subtab-badge red" id="famPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
     <!-- 2026-10-12 (scheduling review step 5, her ask): the reference page sits at the far right, like Applicant journey -->
     <span style="flex:1 1 auto;"></span>
@@ -1333,17 +1330,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- Care Library (Samantha 2026-10-12): how-to videos and notes for caregivers; the office browses, she approves each one;
          a client's caregivers get only what is put in their Caregiver packet (care-library.js, care-packet function). -->
     <section class="tabpanel" id="tab-carelibrary"><div id="clib_box"></div></section>
-    <section class="tabpanel" id="tab-bookingapp">
-      <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-        <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Booking App</h2>
-          <div class="field-note" style="font-size:13.5px;margin-top:3px;">Everyone who has the Booking App, when they signed in, and everything they did in it. Read only.</div>
-        </div>
-        <span style="flex:1;"></span>
-        <button class="ghost" onclick="window.BAA&&BAA.refresh()">↻ Refresh</button>
-      </div>
-      <div id="baa_box"><div class="field-note">Loading…</div></div>
-    </section>
     <section class="tabpanel" id="tab-fccheck">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <div>
@@ -5607,12 +5593,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      Moved from the Staffing hub's "Client Check-Ins" tab on 2026-07-31 and
      renamed so it stops sharing a name with the monthly Client Check-ins.
      Same records, same shared storage — the Staffing hub copy still works. -->
-<section class="tabpanel" id="tab-familybookings">
-<!-- 2026-10-15 (booking plan Step 1c): visits families booked in the family app (family.mo-care.com). family-app-panel.js draws it. -->
-<div class="card" style="padding:14px 16px;margin-bottom:12px;"><h2 style="margin:0 0 4px;">Family bookings</h2>
-<div class="field-note">Visits families requested in the Booking App, whether it's how they schedule all their care (Flexible) or alongside regular shifts (Combination). Caregivers are offered each request automatically; only the ones that need a person are under Needs you. Regular shifts stay in AxisCare as usual.</div></div>
-<div id="famBookings"></div>
-</section>
 <section class="tabpanel" id="tab-carematch">
 <details class="guide">
 <summary>📋 How This Tab Works: Care Match Check-in Calls ▼</summary>
@@ -6708,7 +6688,7 @@ The HomeTogether team</pre>
       </details>
       <details class="pb2-card">
         <summary>"We're not ready yet." <span class="chev">▸</span></summary>
-        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week, or you can request visits from 2 hours through our Caring Companions Booking App. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
+        <div class="pb2-script"><span class="who">Say</span>"That's completely understandable, and there's no pressure. A lot of families start small: a set schedule starts at 4 hours a visit and 8 hours a week. Some start with just HomeTogether for peace of mind. Either way, support is already in place before there's a crisis. Would it help if I did a free assessment now, so you have a plan ready the moment you need it?"</div>
       </details>
       <details class="pb2-card">
         <summary>"I can take care of Mom myself." <span class="chev">▸</span></summary>
@@ -7602,12 +7582,12 @@ The HomeTogether team</pre>
 <script src="bonus.js?v=2"></script>
 <script src="new-clients.js?v=2"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=8"></script><script src="booking-app-activity.js?v=2"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=8"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
 <script src="caregiver-profile-panel.js?v=20261104p"></script>
-<script src="family-app-panel.js?v=20261026a"></script>
+<script src="family-app-panel.js?v=20261107nb"></script>
 <script src="office-ok.js?v=20261016b"></script><!-- 806 (2026-10-16): Oklahoma Companion applicants, the MO/OK chip and picker, messages held for Oklahoma -->
 <script src="step1-facts.js?v=2"></script>
 <!-- 422 (2026-10-03): EVV correction forms, the signed form itself (view page, pickers, profile lists, AxisCare check). -->
@@ -7650,7 +7630,7 @@ The HomeTogether team</pre>
 <script src="progress-paths.js?v=2"></script>
 <script src="seasons.js?v=1"></script>
 <script src="more-fun.js?v=2"></script><!-- 2026-10-18: Client Goals on the Dashboard, sunshine, Friday wins, the garden, client anniversaries --><!-- 2026-10-18: seasons on the Dashboard and work anniversaries (two owner switches) --><!-- 2026-10-18: progress you can see (stepping stones, the road, the suns) --><!-- 2026-10-18: celebrations where work finishes (first visit, oriented, full house, end of shift) --><!-- 2026-10-18: the Hub's drawing kit (good-news scenes for lists that are done) -->
-<script src="visit-reasons.js?v=1"></script>
+<script src="visit-reasons.js?v=2"></script>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=11"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=13"></script><!-- the main profile of a hire (2026-10-11) -->
@@ -7694,7 +7674,7 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=5"></script><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=5"></script><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -8376,7 +8356,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8791,12 +8771,12 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', familybookings:'Family bookings', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
+  carematch:'Care Match Check-ins', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   supervisory:'Supervisory Visits', inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', bookingapp:'Booking App',
+  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
@@ -9040,7 +9020,6 @@ function renderActiveTab(){
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
   try{ if(window.OV) OV.pillSync(); }catch(e){}
-  try{ if(window.BAA) BAA.pillSync(); }catch(e){}
   if(activeTab==='owneroverview' && window.OV) OV.render();
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
   if(activeTab==='trainhub') trainhubOpen();
@@ -9059,9 +9038,8 @@ function renderActiveTab(){
     if(window.CLIB) go(); else { const sc=document.createElement('script'); sc.src='care-library.js?v=20261012b'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='carachats'){ const go=()=>{ try{ window.CCHATS&&window.CCHATS.mount('cchats_box'); }catch(e){ console.warn('ask cara chats', e); } };
     if(window.CCHATS) go(); else { const sc=document.createElement('script'); sc.src='cara-chats.js?v=20261106b'; sc.onload=go; document.head.appendChild(sc); } }
-  if(activeTab==='bookingapp'){ try{ window.BAA&&BAA.mount(); }catch(e){ console.warn('booking app page', e); } }
   if(activeTab==='fccheck'){ const go=()=>{ try{ window.FCK&&window.FCK.mount(); }catch(e){ console.warn('family circles check', e); } };
-    if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261025w'; sc.onload=go; document.head.appendChild(sc); } }
+    if(window.FCK) go(); else { const sc=document.createElement('script'); sc.src='family-check.js?v=20261107nb'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='friendsfamily'){ const go=()=>{ try{ window.FFT&&FFT.mount(); }catch(e){ console.warn('friends and family', e); } };
     if(window.FFT) go(); else { const sc=document.createElement('script'); sc.src='ff-tab.js?v=3'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='today'){ renderToday(); if(typeof dkDashRender==='function') dkDashRender(); if(typeof suTodayRender==='function') suTodayRender(); if(typeof svRender==='function') svRender(); if(typeof hoRefresh==='function') hoRefresh(); }
@@ -9076,7 +9054,6 @@ function renderActiveTab(){
   if(activeTab==='htlocal') renderHtLocal();
   if(activeTab==='checkins') renderCheckins();
   if(activeTab==='carematch') cmRenderAll();
-  if(activeTab==='familybookings' && window.FAMAPP) FAMAPP.render();
   if(activeTab==='routing') rtRender();
   if(activeTab==='sops') sopRender();
   if(activeTab==='sopref') sopRefShow();
@@ -19281,7 +19258,6 @@ function ovSetFill(){
   now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary land on it when you sign in, and see it under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off the Owner Overview':'Turn on the Owner Overview'; b.style.display=owner?'':'none'; }
   try{ if(window.OV) OV.pillSync(); }catch(e){}
-  try{ if(window.BAA) BAA.pillSync(); }catch(e){}
 }
 async function ovToggle(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -24254,8 +24230,6 @@ function fcCircleBody(c, people, linked, esc, inProfile){
 
       + (linked?'':'<div style="background:#FDECEA;border-radius:8px;padding:8px 10px;margin:4px 0 10px;font-size:13px;color:#8A1F17;">This circle isn\'t tied to a client yet, so nothing is sent from it (Cara\'s texts included). '
           +'<button class="fb" style="font-size:12px;" onclick="fcLinkPick(\'' + esc(c.id) + '\')">Link to a client</button></div>')
-      /* 2026-10-25 her rule: the client's Booking App on/off (off = no invites, no Booking App email) */
-      + (linked && window.FAMAPP && FAMAPP.bookingSwitch ? FAMAPP.bookingSwitch(c, 'fcl_') : '')
       + (people.length ? people.map(function(p){
           const ax = p.source==='axiscare' && p.axiscare_list_number;
           const yn = function(v){ return v===true?'yes':v===false?'no':'not answered'; };
@@ -24283,8 +24257,8 @@ function fcCircleBody(c, people, linked, esc, inProfile){
               :(linked&&p.source!=='axiscare'&&p.carried_from!=='client'?'<button class="fb" style="padding:1px 8px;font-size:11.5px;" onclick="fcRpAdd(\'' + esc(p.id) + '\')">Add to AxisCare</button>':''))
             + '<button class="fb" style="padding:1px 8px;" onclick="fcDel(\'' + esc(p.id) + '\')">✕</button>'
             + '</div>'
-            /* 2026-10-18 her ask: the Booking App line (Invite and send welcome, AxisCare + app sign-in steps) under each person.
-               Linked circles only (the app needs the client). Inside the profile too: the profile's Family & Contacts tab shows
+            /* The AxisCare welcome line under each person (2026-11-07: the Booking App is gone, the AxisCare welcome stays).
+               Linked circles only. Inside the profile too: the profile's Family & Contacts tab shows
                THIS box (Client 360's Care circle card has no slot there), so it is where the office sees the family. */
             + (linked && window.FAMAPP && FAMAPP.circleLine ? '<div style="padding:0 0 6px;">' + FAMAPP.circleLine(p, 'fcl_', c) + '</div>' : '');
         }).join('') : '<div class="field-note" style="padding:.5rem 0;">Nobody in this circle yet.</div>')
@@ -42692,7 +42666,7 @@ async function cl360RenderInto(r, out, px, panes){
     if(!circ){ box.innerHTML = '<div class="field-note">No Family Circle is linked to '+esc(name.split(' ')[0])+' yet. Create or link one in Family Circles.</div>'; return; }
     const p2 = await sb.from('circle_contacts').select('*').eq('circle_id', circ.id);
     const members = (p2.data||[]).filter(m=>!m.axiscare_removed_at);
-    box.innerHTML = (window.FAMAPP && FAMAPP.aboutBox ? FAMAPP.aboutBox(circ, px, name) : '') + (window.FAMAPP && FAMAPP.bookingSwitch ? FAMAPP.bookingSwitch(circ, px) : '') + (members.length
+    box.innerHTML = (window.FAMAPP && FAMAPP.aboutBox ? FAMAPP.aboutBox(circ, px, name) : '') + (members.length
       ? members.map(m=>'<div style="font-size:13.5px;padding:4px 0;border-bottom:1px solid var(--border);">'
           + '<b>'+esc(m.name||'(no name)')+'</b>'
           + (m.role||m.relationship ? ' · '+esc(m.role||m.relationship) : '')

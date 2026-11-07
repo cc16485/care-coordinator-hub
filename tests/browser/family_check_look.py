@@ -67,7 +67,7 @@ with sync_playwright() as p:
     ck('the nightly sync line shows', 'Family contacts sync from AxisCare every night' in t, t)
     ck('each client opens their profile on the Family tab', pg.locator('a[data-open-client="55"][data-open-tab="family"]').count() == 1)
     pg.evaluate("FCK.setFilter('all')"); t = pg.inner_text('#fck_box')
-    ck('All: Good Family shows, with main contact, app on, AxisCare welcome + Booking App email sent, and Ned typed by office (info only)', 'Good Family' in t and 'main contact' in t and 'Booking App on' in t and 'AxisCare welcome sent' in t and 'Booking App email sent' in t and 'typed by office' in t and '1 not in AxisCare' in t, t)
+    ck('All: Good Family shows, with main contact, AxisCare welcome sent, no Booking App chips (2026-11-07, even for old app rows), and Ned typed by office (info only)', 'Good Family' in t and 'main contact' in t and 'Booking App' not in t and 'AxisCare welcome sent' in t and 'typed by office' in t and '1 not in AxisCare' in t, t)
     ck('Lisa has no HIPAA so no welcome-not-sent nag for her', 'welcome not sent' not in t, t)
     pg.evaluate("FCK.search('ned')"); t = pg.inner_text('#fck_box')
     ck('search finds a family member and shows their client', 'Good Family' in t and 'Dorothy' not in t, t)
