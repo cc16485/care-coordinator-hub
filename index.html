@@ -7692,7 +7692,7 @@ The HomeTogether team</pre>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=3"></script><!-- 2026-11-05 Operations Board (switch ops_board_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=5"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
-<script src="careplan-v.js?v=5"></script><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
+<script src="careplan-v.js?v=5"></script><script src="health-update.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=12"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
@@ -7703,7 +7703,7 @@ The HomeTogether team</pre>
 <script src="lead-recorder.js?v=3"></script>
 <script src="future-opps.js?v=3"></script>
 <script src="lead-basics.js?v=1"></script><!-- 2026-10-15: the Basics card at the top of a lead, filled from the call --><!-- 2026-10-15: Future Service Opportunities (save for future, demand by area, matches, service area tiers) --><!-- 769 (2026-10-15): calls and texts with a lead record themselves -->
-<script src="call-practice.js?v=14"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
+<script src="call-practice.js?v=15"></script><!-- 650: call follow-ups (its own Call Follow Ups tab on Today since 2026-10-14) -->
 <script>
 /* Change 8b: the Start of Care rules (current step, days waiting, stuck, who owns each step) live
    in client-start.js, the one copy the server's client-start-run also runs. These names are the
@@ -30922,6 +30922,7 @@ function obligationOpenAction(it){
     /* Today cockpit Phase 2 (2026-10-05): the cards the Hub opens when it closes its own loops answer in place. */
     /* 2026-10-17: a visit missing a clock-in or clock-out is a call to the client (confirm-times.js); the EVV form is retired */
     if(it && it.kind==='confirm_times' && it.status==='open' && typeof ccCftActions==='function') return ccCftActions(it);
+    if(it && it.kind==='health_news' && window.HU) return HU.actions(it);   /* 2026-11-07 health news: review and send to AxisCare */
     if(it && it.kind==='falloff_said_yes' && it.status==='open' && window.FALLOFF) return FALLOFF.actions(it);   /* 2026-11-04 Put back */
     if(it && (it.kind==='coverage_outcome'||it.kind==='family_call'||it.kind==='evv_review'||it.kind==='evv_fix'||it.kind==='relationship_call'||it.kind==='relationship_followup') && it.status==='open'){
       const esc=escapeHtmlComms, b=(on,label,primary)=>'<button class="'+(primary?'primary':'ghost')+'" style="padding:5px 11px;font-size:12px;" onclick="'+on+'">'+label+'</button>';
@@ -35372,6 +35373,8 @@ const OPS_KINDS = {
   care_plan_draft_failed: { label:'Care plan draft failed', hours:4 },
   care_plan_finish:       { label:'Finish the care plan', hours:72 },
   care_plan_safety:       { label:'Care plan safety concern', hours:2 },
+  /* Health news from calls (2026-11-07, health-update.js): news about a client's health a call turned up, reviewed and sent to their AxisCare tasks */
+  health_news:            { label:'Health news', hours:24 },
   /* Call follow-ups LIVE (2026-10-13, "Let's stop practicing and go for it!"): work the AI found in a call or text (call-tasks) */
   call_followup:  { label:'Call follow-up', hours:24 },
   /* 2026-10-13: a follow-up someone made from the AI interview review (interview-review-ui.js); opens their Interview tab */
