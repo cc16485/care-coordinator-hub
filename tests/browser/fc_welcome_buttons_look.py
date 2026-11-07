@@ -1,4 +1,4 @@
-"""2026-10-18 her ask: the Booking App line (Invite and send welcome) under each person on the Family Circles tab too.
+"""The AxisCare welcome line under each person on the Family Circles tab (2026-11-07: the Booking App lines are gone).
 Runs the REAL fcRender / fcCircleHtml / fcCircleBody from index.html with the REAL family-app-panel.js in a browser, against a
 stand-in family-app-office door. FAKE people only; nothing reaches production.
    python3 tests/browser/fc_welcome_buttons_look.py"""
@@ -12,9 +12,9 @@ def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:7
 
 i = HTML.index('function fcRender(){'); j = HTML.index('/* Change 6a: a circle is created FOR a client')
 FCJS = HTML[i:j]
-ck('index: the list registers its reload for the app line', "FAMAPP.register('fcl_', fcLoad)" in FCJS)
+ck('index: the list registers its reload for the welcome line', "FAMAPP.register('fcl_', fcLoad)" in FCJS)
 ck('index: the list never hands map()\'s array to fcCircleHtml as inProfile', '.map(fcCircleHtml)' not in FCJS)
-ck('index: drawn inside the profile too (its Family tab shows this box)', "+ (linked && window.FAMAPP && FAMAPP.circleLine ?" in FCJS and "FAMAPP.circleLine(p, 'fcl_', c)" in FCJS and "FAMAPP.bookingSwitch(c, 'fcl_')" in FCJS)
+ck('index: drawn inside the profile too (its Family tab shows this box)', "+ (linked && window.FAMAPP && FAMAPP.circleLine ?" in FCJS and "FAMAPP.circleLine(p, 'fcl_', c)" in FCJS and 'bookingSwitch' not in HTML and 'Booking App' not in PANEL.split('*/', 1)[1])
 ck('index: the profile has no family slot for Client 360\'s card, so this box is the only one', "const slots=['summary','start','care','team','home','history'];" in HTML)
 
 PAGE = """<!doctype html><meta charset=utf-8><body>
@@ -23,9 +23,9 @@ PAGE = """<!doctype html><meta charset=utf-8><body>
 const escapeHtmlComms = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fcRecogChip = () => ''; const famMount = () => {};
 let FC_PROFILE = null, FC = [], FC_CONTACTS = {}, renders = 0;
-const M = { '00000009-aaaa-4bbb-8ccc-000000000009': { id: '00000009-aaaa-4bbb-8ccc-000000000009', circle_id: 'c1', name: 'Lisa Ray', email: 'lisa@x.test', app_status: null },
+const M = { '00000009-aaaa-4bbb-8ccc-000000000009': { id: '00000009-aaaa-4bbb-8ccc-000000000009', circle_id: 'c1', name: 'Lisa Ray', email: 'lisa@x.test' },
             '00000000-aaaa-4bbb-8ccc-000000000010': { id: '00000000-aaaa-4bbb-8ccc-000000000010', circle_id: 'c1', name: 'Tom Ray', email: '' },
-            '00000001-aaaa-4bbb-8ccc-000000000011': { id: '00000001-aaaa-4bbb-8ccc-000000000011', circle_id: 'c1', name: 'Ann Ray', email: 'a@x.test', app_status: 'active', app_can_book: true, welcome_sent_at: '2099-01-02T15:14:00Z', welcome_version: 'regular' },
+            '00000001-aaaa-4bbb-8ccc-000000000011': { id: '00000001-aaaa-4bbb-8ccc-000000000011', circle_id: 'c1', name: 'Ann Ray', email: 'a@x.test' },
             '00000002-aaaa-4bbb-8ccc-000000000012': { id: '00000002-aaaa-4bbb-8ccc-000000000012', circle_id: 'c2', name: 'Nora Free', email: 'n@x.test' } };
 async function fcLoad() {
   renders++;
@@ -36,9 +36,7 @@ async function fcLoad() {
 window.__calls = [];
 window.callAction = async (fn, body) => {
   __calls.push([fn, body]);
-  if (body.action === 'invite') { M[body.contact_id].app_status = 'active'; M[body.contact_id].app_can_book = true; return { status: 200, data: { ok: true } } }
-  if (body.action === 'welcome') return { status: 200, data: { preview: true, name: M[body.contact_id].name, client: 'Dorothy', can_text: false, can_email: true, hipaa_ok: true, include_axis: true, axis_email_on_file: true,
-    kinds: [{ key: 'regular', label: 'Regular Scheduled Care' }], kind: 'regular', text: 'Hi Lisa', email_subject: 'Welcome', email_html: '<p>x</p>' } };
+  if (body.action === 'axis_welcome') return { status: 200, data: { name: M[body.contact_id].name, hipaa_ok: true, axis_email_on_file: true, email_subject: 'Welcome', email_html: '<p>x</p>' } };
   return { status: 400, data: { error: 'unknown' } };
 };
 </script>
@@ -57,19 +55,17 @@ with sync_playwright() as p:
     ck('the list shows each circle closed, under the client\'s name', 'Dorothy Ray' in c1.locator('summary').inner_text() and not c1.evaluate('d => d.open') and not c2.evaluate('d => d.open'), c1.locator('summary').inner_text())
     c1.locator('summary').click(); pg.wait_for_timeout(30)
     t = c1.inner_text()
-    ck('linked circle: Lisa gets Invite and send Booking App email', c1.locator('#fam-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Invite and send Booking App email').count() == 1, t)
-    ck('linked circle: Tom needs an email first', 'Add an email for the AxisCare welcome and the Booking App' in t, t)
-    ck('linked circle: Ann shows app on + Booking App email sent + Send Booking App email; an AxisCare welcome line for each person with an email; the client\'s Booking App switch', 'Booking App: on' in t and 'Booking App email sent' in t and c1.locator('#fam-fcl_-00000001-aaaa-4bbb-8ccc-000000000011 button', has_text='Send Booking App email').count() == 1 and c1.locator('#famax-fcl_-00000001-aaaa-4bbb-8ccc-000000000011 button', has_text='Send AxisCare welcome').count() == 1 and 'Booking App for this client:' in t, t)
-    ck('a circle not linked to a client shows no app buttons', 'Invite' not in c2.inner_text() and 'Booking App' not in c2.inner_text(), c2.inner_text())
-    c1.locator('#fam-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Invite and send Booking App email').click(); pg.wait_for_timeout(150)
-    ck('pressing it invites them (can book) and asks for the welcome preview', [c[1]['action'] for c in pg.evaluate('__calls')][:2] == ['invite', 'welcome'] and pg.evaluate('__calls')[0][1].get('can_book') is True, pg.evaluate('__calls'))
-    ck('the list reloaded and the circle STAYED open', pg.evaluate('renders') == 2 and c1.evaluate('d => d.open'))
-    ck('the welcome preview opens under Lisa, nothing sent yet', pg.locator('#famwel-fcl_-00000009-aaaa-4bbb-8ccc-000000000009').is_visible() and 'Nothing is sent until you press Send Booking App email' in pg.inner_text('#famwel-fcl_-00000009-aaaa-4bbb-8ccc-000000000009'), pg.locator('#famwel-fcl_-00000009-aaaa-4bbb-8ccc-000000000009').count())
-    ck('Lisa now shows Booking App: on', 'Booking App: on' in pg.inner_text('#fam-fcl_-00000009-aaaa-4bbb-8ccc-000000000009'))
-    # inside the client profile the circle is drawn by fcCircleHtml(.., true): no duplicate app line there
+    ck('linked circle: Lisa (email) gets the AxisCare welcome line with Send AxisCare welcome', c1.locator('#famax-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Send AxisCare welcome').count() == 1, t)
+    ck('linked circle: Tom needs an email first', 'Add an email for the AxisCare welcome' in t, t)
+    ck('linked circle: Ann gets the AxisCare welcome line too', c1.locator('#famax-fcl_-00000001-aaaa-4bbb-8ccc-000000000011 button', has_text='Send AxisCare welcome').count() == 1, t)
+    ck('2026-11-07: no Booking App anywhere (no switch, no invite, no app email)', 'Booking App' not in t and 'Invite' not in t and 'Booking App' not in c2.inner_text(), t)
+    c1.locator('#famax-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Send AxisCare welcome').click(); pg.wait_for_timeout(150)
+    ck('pressing Send AxisCare welcome asks only for the AxisCare preview', [c[1]['action'] for c in pg.evaluate('__calls')] == ['axis_welcome'], pg.evaluate('__calls'))
+    ck('the AxisCare preview opens under Lisa, nothing sent yet', pg.locator('#famaxw-fcl_-00000009-aaaa-4bbb-8ccc-000000000009').is_visible() and 'AxisCare welcome for Lisa Ray' in pg.inner_text('#famaxw-fcl_-00000009-aaaa-4bbb-8ccc-000000000009'), pg.locator('#famaxw-fcl_-00000009-aaaa-4bbb-8ccc-000000000009').count())
+    # inside the client profile the circle is drawn by fcCircleHtml(.., true): no duplicate line there
     pg.evaluate("document.getElementById('leadProfileView').style.display='block'; FC_PROFILE={ el:'cp_c_family', ax:'55' }; fcRender();")
-    ck('inside the profile: Lisa (invited above) shows Booking App on + Send welcome; Tom needs an email', 'Booking App: on' in pg.inner_text('#cp_c_family') and pg.locator('#cp_c_family #fam-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Send Booking App email').count() == 1 and 'Add an email for the AxisCare welcome and the Booking App' in pg.inner_text('#cp_c_family'), pg.inner_text('#cp_c_family'))
-    ck('inside the profile: the list leaves that circle out, so no doubled ids', pg.locator('[id="fam-fcl_-00000009-aaaa-4bbb-8ccc-000000000009"]').count() == 1)
+    ck('inside the profile: Lisa has the AxisCare welcome line; Tom needs an email; no Booking App', pg.locator('#cp_c_family #famax-fcl_-00000009-aaaa-4bbb-8ccc-000000000009 button', has_text='Send AxisCare welcome').count() == 1 and 'Add an email for the AxisCare welcome' in pg.inner_text('#cp_c_family') and 'Booking App' not in pg.inner_text('#cp_c_family'), pg.inner_text('#cp_c_family'))
+    ck('inside the profile: the list leaves that circle out, so no doubled ids', pg.locator('[id="famax-fcl_-00000009-aaaa-4bbb-8ccc-000000000009"]').count() == 1)
     ck('no page errors', not errs, errs)
     b.close()
 for r in R: print(r[0], r[1], ('  ' + r[2]) if r[2] else '')

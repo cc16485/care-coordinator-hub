@@ -17,9 +17,9 @@
     call_off: 'Call-off case (finds coverage), on the caregiver\'s attendance', no_show: 'Call-off case, and a card to confirm the no-show',
     swap: 'Our change: never a call-off; an open-shift card if nobody is on it', couldnt_staff: 'Cancelled by us: no open shift, "call the family" card',
     client_cancelled: 'Cancelled by the client: no open shift, no texts', moved: 'A new day or time: an open-shift card if nobody is on it',
-    office_fix: 'Fixing a mistake: an open-shift card if nobody is on it', records: 'Timekeeping or records only', family_app: 'Set by the Booking App',
+    office_fix: 'Fixing a mistake: an open-shift card if nobody is on it', records: 'Timekeeping or records only', family_app: 'No longer used (2026-11-07)',
     unknown: 'Not set yet: treated like "no reason" (visible, never a call-off)' };
-  const CHOICES = ['call_off', 'no_show', 'swap', 'couldnt_staff', 'client_cancelled', 'moved', 'office_fix', 'records', 'family_app'];
+  const CHOICES = ['call_off', 'no_show', 'swap', 'couldnt_staff', 'client_cancelled', 'moved', 'office_fix', 'records'];
   const S = { reasons: null, report: null, err: '', loading: false, open: false, msg: '' };
   async function load(force) {
     if (S.loading || (S.reasons && !force)) return; S.loading = true

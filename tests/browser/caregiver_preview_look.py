@@ -111,32 +111,12 @@ async()=>{
   ok('an empty Life Story: says what to do, fills nothing', /Nothing in Ruth's Life Story yet/.test(tab()) && !/AI draft, not saved yet/.test(tab()));
   DATA.ops_settings={ cgp_ai_draft_live:true }; (0,eval)("CC_ROLES=['care_coordinator']"); await CGP.load(); await sleep(50);
   ok('AI draft, switch on: coordinators see the button (no practice note)', /Draft it from the Life Story/.test(tab()) && !/Practice: only owners see this/.test(tab()));
-  /* From the family (2026-10-25): suggestions from the Booking App wait here; nothing changes by itself */
-  ok('no suggestions: no From the family card', !/From the family/.test(tab()));
-  S.sugg=[{ id:7, contact_name:'Lisa Kay', text:'Mom goes by Ruthie, and she loves Wheel of Fortune.', created_at:'2026-10-25T15:00:00Z' }, { id:8, contact_name:'Tom Kay', text:'No cats anymore.', created_at:'2026-10-25T16:00:00Z' }];
+  /* 2026-11-07: the Booking App is gone, so even if the server still sends old family data, no family cards show */
+  S.sugg=[{ id:7, contact_name:'Lisa Kay', text:'Mom goes by Ruthie.', created_at:'2026-10-25T15:00:00Z' }];
+  S.family={ written:true, about:'Mom taught third grade for 30 years.', enjoys:['Roses'], life:[], updated_by:'Lisa Kay', updated_at:'2026-10-25T15:00:00Z', history:[], photo:{ url:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', view:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', by:'Lisa Kay', at:'2026-10-25T15:30:00Z' } };
   await CGP.load(); await sleep(50);
-  ok('From the family (2): each suggestion with who sent it, and that caregivers don\'t see these', /From the family \(2\)/.test(tab()) && /Mom goes by Ruthie/.test(tab()) && /Lisa Kay/.test(tab()) && /Caregivers don't see these/.test(tab()), tab().slice(0,600));
-  const draftBefore=S.d.about;
-  CGP.suggestion(7,true); await sleep(200);
-  ok('Used it: closes that one only; the draft is unchanged (the office edits it themselves)', /From the family \(1\)/.test(tab()) && !/Mom goes by Ruthie/.test(tab()) && /No cats anymore/.test(tab()) && S.d.about===draftBefore && L.calls.some(c=>c.action==='suggestion_close'&&c.id===7&&c.used===true));
-  CGP.suggestion(8,false); await sleep(200);
-  ok('Not using it: the card goes away when none are left', !/From the family/.test(tab()) && L.calls.some(c=>c.action==='suggestion_close'&&c.id===8&&c.used===false));
-  /* The family's own Booking App profile (2026-10-25): separate, shown to read, copied only on purpose */
-  ok('no family profile: no family card', !/The family's Booking App profile/.test(tab()));
-  S.family={ written:true, about:'Mom taught third grade for 30 years.', enjoys:['Roses','Cardinals'], life:[{label:'Loves to talk about',text:'Her grandkids'}], updated_by:'Lisa Kay', updated_at:'2026-10-25T15:00:00Z', history:[{ at:'2026-10-25T15:00:00Z', by:'Lisa Kay', changes:[{field:'About', before:'Mom taught school.', after:'Mom taught third grade for 30 years.'}] }] };
-  const before=S.d.about; await CGP.load(); await sleep(50);
-  ok('the family card: their words, who wrote it, separate from shifts', /The family's Booking App profile/.test(tab()) && /taught third grade/.test(tab()) && /Her grandkids/.test(tab()) && /Lisa Kay/.test(tab()) && /neither changes the other/.test(tab()), tab().slice(0,700));
-  ok('looking changes nothing: the office draft is untouched', S.d.about===before);
-  CGP.useFamily(); await sleep(200);
-  ok('Use the family\'s words: copied into the office draft only (waiting for approval)', S.d.about==='Mom taught third grade for 30 years.' && /Changes waiting for approval/.test(tab()) && L.calls.some(c=>c.action==='use_family_words'));
-  /* the client's photo (2026-10-25) */
-  S.family.written=true; S.family.photo={ url:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', view:'data:image/gif;base64,R0lGODlhAQABAAAAACw=', by:'Lisa Kay', at:'2026-10-25T15:30:00Z', ai:'checked' };
-  await CGP.load(); await sleep(50);
-  const dl=[...document.querySelectorAll('#cgpHost a')].find(a=>/Download for AxisCare/.test(a.textContent));
-  ok('the photo: who added it, only confirmed caregivers see it, Download for AxisCare (a download link), how to add it in AxisCare', /Photo added by Lisa Kay/.test(tab()) && /Only the caregiver confirmed/.test(tab()) && !!dl && dl.hasAttribute('download') && /upload it to the photo spot/.test(tab()) && !!document.querySelector('#cgpHost img'), tab().slice(0,800));
-  CGP.removePhoto(); await sleep(250);
-  ok('Remove photo: asks, then removes it', !/Photo added by/.test(tab()) && L.calls.some(c=>c.action==='remove_photo'));
-  ok('nothing sent: only the Caregiver Preview server was asked', L.calls.every(x=>['get','save','approve','draft','suggestion_close','use_family_words','remove_photo'].includes(x.action)));
+  ok('no Booking App cards: no From the family, no family profile, no photo, no Booking App wording', !/From the family/.test(tab()) && !/Booking App/.test(tab()) && !/Photo added by/.test(tab()) && !document.querySelector('#cgpHost img') && !CGP.suggestion && !CGP.useFamily && !CGP.removePhoto, tab().slice(0,600));
+  ok('nothing sent: only the Caregiver Preview server was asked', L.calls.every(x=>['get','save','approve','draft'].includes(x.action)));
   /* Family & Contacts */
   const circ={ id:'cc1', client_name:'Ruth Kay', caregiver_about:'Ruth loves her garden.' };
   let box=FAMAPP.aboutBox(circ,'cp_','Ruth Kay');
