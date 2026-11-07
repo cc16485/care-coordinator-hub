@@ -43,15 +43,19 @@ T = r"""async()=>{
   const ftabs=[...document.querySelectorAll('.ftab')].map(x=>x.textContent.trim());
   ok('one section named "Referrals & Marketing"; the separate Marketing item is gone', ftabs.filter(t=>/^Referrals & Marketing/.test(t)).length===1 && !ftabs.some(t=>/^Marketing/.test(t)) && !ftabs.some(t=>/^Referral Partners$/.test(t)), ftabs);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(x=>x.textContent.trim());
-  ok('four tabs, in order: Referral Partners, Friends & Family, Campaigns, Feedback', JSON.stringify(pills)===JSON.stringify(['Referral Partners','Friends & Family','Campaigns','Feedback']), pills);
+  ok('five tabs, in order: Referral Partners, Friends & Family, Campaigns, Feedback, Marketing Materials (2026-11-06)', JSON.stringify(pills)===JSON.stringify(['Referral Partners','Friends & Family','Campaigns','Feedback','Marketing Materials']), pills);
   ok('the Feedback badge is on the section and its tab', !!document.querySelector('.ftab[data-g="partners"] #fbBadge') && !!document.querySelector('#fsub-partners #fbPillBadge'));
   window.__as('krystal@mo-care.com','Krystal Land'); CC_ROLE_BY_EMAIL['krystal@mo-care.com']=['care_coordinator','springfield_lead']; (0,eval)("CC_ROLES=CC_ROLE_BY_EMAIL['krystal@mo-care.com']");
   ccGroupClick('partners'); await sleep(250);
-  ok('the section opens on Referral Partners, with the four-tab bar showing', tabOn('referrers') && vis(document.getElementById('fsub-partners')));
-  for(const [t,why] of [['friendsfamily','Friends & Family'],['campaigns','Campaigns'],['feedback','Feedback']]){
+  ok('the section opens on Referral Partners, with the tab bar showing', tabOn('referrers') && vis(document.getElementById('fsub-partners')));
+  for(const [t,why] of [['friendsfamily','Friends & Family'],['campaigns','Campaigns'],['feedback','Feedback'],['materials','Marketing Materials']]){
     switchTab(t); await sleep(250);
     ok('the '+why+' tab opens in the same section', tabOn(t) && vis(document.getElementById('fsub-partners')) && document.querySelector('#fsub-partners .fpill[data-tab="'+t+'"]').classList.contains('active'));
   }
+  switchTab('materials'); await sleep(900);
+  const mf=document.getElementById('materialsFrame'), md=mf&&mf.contentDocument;
+  ok('Marketing Materials opens marketing.html inside the Hub, its own header hidden', !!md && /marketing\.html\?in=hub/.test(mf.src) && /Thanksgiving 2026/.test(md.body.innerText) && /Google reviews/.test(md.body.innerText) && getComputedStyle(md.querySelector('header')).display==='none', mf&&mf.src);
+  ok('...every PDF it lists is a marketing/ file', [...md.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]')].every(a=>/^marketing\/\d+-[a-z0-9-]+\.pdf\?v=/.test(a.getAttribute('href'))) && md.querySelectorAll('a[href*=".pdf"]').length===7, [...md.querySelectorAll('a[href*=".pdf"]')].map(a=>a.getAttribute('href')));
   switchTab('campaigns'); await sleep(300);
   ok('Campaigns still shows its tools (unchanged)', document.getElementById('tab-campaigns').innerText.trim().length>200, document.getElementById('tab-campaigns').innerText.slice(0,200));
   switchTab('feedback'); await sleep(300);
@@ -61,9 +65,9 @@ T = r"""async()=>{
   ok('Friends & Family: a Care Coordinator sees "Owners run this program" (step 4, owners only)', /Friends & Family/.test(ff) && /Owners run this program/.test(ff), ff);
   ok('...no names, no amounts, no buttons that do anything', !/Barb|Linda|\$\d/.test(ff) && !document.querySelectorAll('#tab-friendsfamily button').length, ff);
   /* old links */
-  for(const [h,t] of [['referrers','referrers'],['campaigns','campaigns'],['marketing','campaigns'],['feedback','feedback'],['referrals-marketing','section'],['friends-family','friendsfamily']]){
+  for(const [h,t] of [['referrers','referrers'],['campaigns','campaigns'],['marketing','campaigns'],['feedback','feedback'],['materials','materials'],['marketing-materials','materials'],['referrals-marketing','section'],['friends-family','friendsfamily']]){
     switchTab('mywork'); await sleep(80); location.hash=h; await sleep(260);
-    ok('the old or new link #'+h+' lands on '+(t==='section'?'the section (its last-used tab)':t), (t==='section'?['referrers','friendsfamily','campaigns','feedback'].includes(activeTab):tabOn(t)) && vis(document.getElementById('fsub-partners')), [h, t, activeTab]);
+    ok('the old or new link #'+h+' lands on '+(t==='section'?'the section (its last-used tab)':t), (t==='section'?['referrers','friendsfamily','campaigns','feedback','materials'].includes(activeTab):tabOn(t)) && vis(document.getElementById('fsub-partners')), [h, t, activeTab]);
   }
   location.hash=''; switchTab('referrers'); await sleep(300);
   /* the directory, as a Care Coordinator */

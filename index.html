@@ -1272,6 +1272,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="friendsfamily" onclick="switchTab('friendsfamily')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Friends &amp; Family</div>
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
+    <div class="fpill" data-tab="materials" onclick="switchTab('materials')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Marketing Materials</div><!-- 2026-11-06 her rule: anything we make is saved here (marketing.html) -->
   </div>
   <!-- 2026-10-26 (her call): LTC Policy, Community (Caregivers Corner), Story Game, 20-Hour Offer and 417 Series retired from the menu; their saved records are untouched -->
 
@@ -5953,6 +5954,9 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <section class="tabpanel" id="tab-docfolders">
   <iframe id="docFoldersFrame" title="Client Folders" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
+<section class="tabpanel" id="tab-materials">
+  <iframe id="materialsFrame" title="Marketing Materials" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
+</section>
 <section class="tabpanel" id="tab-sopref">
   <iframe id="sopRefFrame" title="Payors &amp; Programs" style="width:100%;border:0;display:block;min-height:480px;background:transparent"></iframe>
 </section>
@@ -8369,7 +8373,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','familybookings','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','bookingapp','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8791,7 +8795,7 @@ const CC_SECTION_TITLES = {
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles', bookingapp:'Booking App',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
-  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', friendsfamily:'Friends &amp; Family',
+  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
 };
 /* ---------- Approved hourly pay rates ----------
@@ -9076,6 +9080,7 @@ function renderActiveTab(){
   if(activeTab==='docs') docsShow();
   if(activeTab==='videos') videosShow();
   if(activeTab==='docfolders') ccHubFrame(document.getElementById('docFoldersFrame'), 'client-folders.html?in=hub');
+  if(activeTab==='materials') ccHubFrame(document.getElementById('materialsFrame'), 'marketing.html?in=hub');
   if(activeTab==='supplies') ccHubFrame(document.getElementById('suppliesFrame'), 'supplies.html?in=hub');
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='careplans') cpRender();
@@ -44859,7 +44864,7 @@ function ccOpenRef(sub){
      sections in their own right. */
   var CC_HASH_ALIAS = { programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', photos:'videos', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
-                        growth:'campaigns', marketing:'campaigns', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
+                        growth:'campaigns', marketing:'campaigns', 'marketing-materials':'materials', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
                         /* 'leads' stopped being an alias 2026-09-19: it is a
                            real top-level group now, found without help. */
                         'leads-marketing':'campaigns',
