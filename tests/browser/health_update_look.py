@@ -95,6 +95,14 @@ async()=>{
   [...root().querySelectorAll('[data-hua="textone"]')].find(b=>/Text New too/.test(b.innerText)).click(); await sleep(300);
   ok('...and they are texted', window.__log.cpt.some(c=>c.action==='health_text_one'&&c.caregiver_axiscare_id==='60') && /New Person\s*texted/.test(txt()));
   delete window.__MORE;
+  { const c0=JSON.parse(JSON.stringify(it())); c0.id='chn_everyone'; c0.status='open'; c0.owner='krystal@mo-care.com'; c0.opened_by='health-news'; c0.created_by='call-tasks'; c0.also_for=['samantha@mo-care.com','sally@mo-care.com']; DATA.ops_items.push(c0);
+    const mineIds=()=>{ try{ return myWorkBuckets().mine.map(i=>i.id); }catch(e){ return ['ERR '+e.message]; } };
+    const asOwner=mineIds();
+    (0,eval)("ME={ email:'sally@mo-care.com', name:'Sally Coordinator', shift:'day' }"); const asSally=mineIds();
+    (0,eval)("ME={ email:'nobody@mo-care.com', name:'No One', shift:'day' }"); const asOther=mineIds();
+    (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' }");
+    ok('everyone on the card\'s list sees the ONE health card in their own My Work (owners and the office team)', asOwner.includes('chn_everyone') && asSally.includes('chn_everyone') && !asOther.includes('chn_everyone') && DATA.ops_items.filter(i=>i.id==='chn_everyone').length===1 && !(window.TW&&TW.on()&&TW.teamIds().has('chn_everyone')), [asOwner, asSally, asOther]);
+    DATA.ops_items=DATA.ops_items.filter(i=>i.id!=='chn_everyone'); }
   ok('the task names are a Hub setting owners can change', /Read First: Health Update/.test(HU.settingsHtml()) && /Read First: Home and Family Update/.test(HU.settingsHtml()));
   if(window.__SHOT) await window.__SHOT();
   ok('Done is on once nothing is left', btn('done') && !btn('done').disabled);
