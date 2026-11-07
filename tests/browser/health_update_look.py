@@ -103,6 +103,10 @@ async()=>{
     (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' }");
     ok('everyone on the card\'s list sees the ONE health card in their own My Work (owners and the office team)', asOwner.includes('chn_everyone') && asSally.includes('chn_everyone') && !asOther.includes('chn_everyone') && DATA.ops_items.filter(i=>i.id==='chn_everyone').length===1 && !(window.TW&&TW.on()&&TW.teamIds().has('chn_everyone')), [asOwner, asSally, asOther]);
     DATA.ops_items=DATA.ops_items.filter(i=>i.id!=='chn_everyone'); }
+  { const c2=JSON.parse(JSON.stringify(it())); c2.id='chn_smsp1'; c2.status='open'; c2.source={ type:'health_news', channel:'text', call_at:'2026-11-05T19:05:00Z' }; c2.health.changes=c2.health.changes.filter(c=>c.i!==100); DATA.ops_items.push(c2);
+    await HU.open('chn_smsp1'); await sleep(300);
+    ok('a card from texts says so, on the screen and in the dated update', /In texts from Pat Fakename/.test(txt()) && /HEALTH UPDATE Nov 5, 2026 \(texts from Pat Fakename\)/.test((DATA.ops_items.find(i=>i.id==='chn_smsp1').health.changes.find(c=>c.i===100).send||{}).instructions||''), txt().slice(0,600));
+    DATA.ops_items=DATA.ops_items.filter(i=>i.id!=='chn_smsp1'); HU.close(); await HU.open('chn_famcall0001'); await sleep(300); }
   ok('the task names are a Hub setting owners can change', /Read First: Health Update/.test(HU.settingsHtml()) && /Read First: Home and Family Update/.test(HU.settingsHtml()));
   if(window.__SHOT) await window.__SHOT();
   ok('Done is on once nothing is left', btn('done') && !btn('done').disabled);
