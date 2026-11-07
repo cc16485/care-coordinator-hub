@@ -37,6 +37,33 @@ ck('right now: past its day is not care or safety; the Team Work care-at-risk tr
 ck('an old red shift-note flag shows as a Shift-note flag', B.needOf({ kind:'care_note', urgency:'urgent', domain:'client_care', due:iso(now - 11 * D) }, false, now, false) === 'note' && B.NEED.note === 'Shift-note flag');
 ck('the cleanup still never clears an old urgent card', !B.cleanable({ status:'open', kind:'call_followup', id:'x', urgency:'urgent', due:iso(now - 21 * D) }, now));
 ck('the words', B.NEED.care === 'Care or safety' && B.NEED.approval === 'Approval' && B.WHO.family === 'Family or client');
+/* the new layout (2026-11-07, "Approve all picks") */
+ck('new layout: off unless its own switch is exactly on', !B.lanesOn({}) && !B.lanesOn({ ops_board_live:true }) && B.lanesOn({ ops_board_lanes_live:true }));
+ck('Waiting on us: a Follow-ups row, a missed call, a new family call', ['reply_needed','missed_call','new_family_call'].every(k => B.laneOf({ kind:k, created_at:iso(now - 30 * D) }, { need:'call' }, now) === 'wait'));
+ck('Waiting on us: call cards that promise to get back to a person',
+  B.waitPromise({ kind:'call_followup', title:'Text Example the address for Monday' }) && B.waitPromise({ kind:'call_followup', title:'Check the approval Tuesday; update Example' })
+  && B.waitPromise({ kind:'call_followup', title:'Resend the reference email' }) && B.waitPromise({ kind:'call_followup', title:'x', next_action:'Call back (Example)' }) && B.waitPromise({ kind:'call_followup', id:'cfp_1', title:'x' }));
+ck('not Waiting: call cards that are office to-dos go to Batches as Office to-dos from calls',
+  !B.waitPromise({ kind:'call_followup', title:'Change the visit in AxisCare' }) && !B.waitPromise({ kind:'call_followup', title:'Sign the I-9' })
+  && B.laneOf({ kind:'call_followup', title:'Sign the I-9', due:iso(now) }, { need:'call' }, now) === 'batch' && B.batchOf({ kind:'call_followup' }, {}) === 'calls');
+ck('"Was it covered?" is not shown', B.laneOf({ kind:'coverage_outcome', urgency:'urgent' }, { need:'care' }, now) === 'hide');
+ck('Care today: care or safety right now, and a fresh shift-note flag, health news, open shift',
+  B.laneOf({ kind:'request' }, { need:'care' }, now) === 'care' && B.laneOf({ kind:'care_note', created_at:iso(now - 5 * 36e5) }, { need:'note' }, now) === 'care'
+  && B.laneOf({ kind:'health_news', created_at:iso(now - 36e5) }, {}, now) === 'care' && B.laneOf({ kind:'open_shift', created_at:iso(now - 36e5) }, {}, now) === 'care');
+ck('Care today: a shift-note flag from 3 days ago is not today', B.laneOf({ kind:'care_note', created_at:iso(now - 3 * D), due:iso(now - 3 * D) }, { need:'note' }, now) === 'batch');
+ck('Older than a week: an ordinary card 8 days old; never a promise, never care, never Waiting',
+  B.laneOf({ kind:'journey', created_at:iso(now - 20 * D) }, {}, now) === 'old' && B.laneOf({ kind:'request', id:'cfu_2', due:iso(now - 9 * D) }, {}, now) !== 'old'
+  && B.laneOf({ kind:'request', urgency:'urgent', due:iso(now - 9 * D) }, {}, now) !== 'old' && B.laneOf({ kind:'reply_needed', due:iso(now - 9 * D) }, {}, now) === 'wait');
+ck('batches: welcome, send, hiring, approval, scheduling, other',
+  B.batchOf({ kind:'family_welcome' }, {}) === 'welcome' && B.batchOf({ kind:'send_problem' }, {}) === 'send' && B.batchOf({ kind:'step2_not_sent' }, {}) === 'hiring'
+  && B.batchOf({}, { kind:'approval' }) === 'approval' && B.batchOf({ kind:'confirm_times' }, { need:'schedule' }) === 'schedule' && B.batchOf({ kind:'request' }, { need:'other' }) === 'other'
+  && B.BATCH_ORDER.every(k => B.BATCH[k] && B.BATCH[k][0]));
+ck('one person once: the same contact or the same 10-digit phone', B.personKey({ contact_id:'abc' }) === 'c:abc' && B.personKey({ phone:'+1 (816) 555-0142' }) === 'p:8165550142' && B.personKey({}) === '');
+const wk = B.weekOf([{ client:'Example A', date:(d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'))(new Date(now + D)), start:'8:00 AM', start24:'08:00' },
+  { client:'Example B', date:'2030-01-01', start24:'09:00' }], now, 7);
+ck('open shifts week: 7 days from today, tomorrow\'s shift on day 2 and within 48 hours, far-off shifts left out',
+  wk.length === 7 && wk[1].shifts.length === 1 && wk[1].shifts[0].soon && wk.reduce((a, d) => a + d.shifts.length, 0) === 1 && wk[0].shifts.length === 0, wk.map(d => d.key + ':' + d.shifts.length));
+ck('the new words', B.BATCH.welcome[0] === 'Family welcomes to send' && B.BATCH.calls[0] === 'Office to-dos from calls' && !/—/.test(JSON.stringify(B.BATCH)));
 const words = Object.values(B.NEED).concat(Object.values(B.WHO)).join(' ');
 ck('no em dashes', !/—/.test(require('fs').readFileSync(__dirname + '/../ops-board.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')) && !/—/.test(words));
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);

@@ -104,7 +104,72 @@
   }
   /* Her pick 2: the board opens on my rows plus care or safety nobody has taken */
   function startView(row, me){ return row.mine || (!row.owner && row.need === 'care'); }
-  const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO };
+
+  /* ── THE NEW LAYOUT (Samantha 2026-11-07: "I can't help but feel like we still haven't found the right Operations Board
+     items, layout"; plan https://claude.ai/artifact/Ep6gjjMwVNnNLMFbGMZDsg; "Approve all picks"). Three lanes instead of one
+     table: Waiting on us (people who called, texted or were promised a call back), Care today, Batches (same-kind work as
+     one row with a count). An "Open shifts, next 7 days" card sits on top. "Was it covered?" questions are not shown. Cards
+     more than 7 days old fold under "Older than a week", never care, never a promise. Owners see one line per teammate.
+     Switch: ops_settings.ops_board_lanes_live (off). While off, owners can try it from "Try the new layout". ── */
+  function lanesOn(settings){ return !!(settings && settings.ops_board_lanes_live === true); }
+  const WAIT_KINDS = /^(reply_needed|missed_call|new_family_call|family_call)$/;
+  const CARE_KINDS = /^(care_note|health_news|missed_note|profile_intro|open_shift|late_notice)$/;
+  const HIRING = /^(step1|step2|interview|offer|orientation|hepb|prn_link|invite_followup|axiscare_hire|last_chance|gone_quiet)/;
+  /* a call card that is a promise to get back to a person ("Text Cheryl the address", "...; update Joyce", Call back) */
+  function waitPromise(it){
+    if(!it || lc(it.kind) !== 'call_followup') return false;
+    if(promise(it)) return true;
+    return /(^|;\s*)(call|text|email|reply|resend|tell|let|update)\b/i.test(String(it.title || '')) || /^(call back|text the|email the)/i.test(String(it.next_action || ''));
+  }
+  /* which lane: 'hide' | 'wait' | 'care' | 'old' | 'batch' (row carries need and past from rows()) */
+  function laneOf(it, row, now){
+    const k = lc(it.kind);
+    if(k === 'coverage_outcome') return 'hide';           /* her pick 4: stop asking "Was it covered?" */
+    if(WAIT_KINDS.test(k) || waitPromise(it)) return 'wait';
+    if(row && row.need === 'care') return 'care';
+    const d = ms(it.due) != null ? ms(it.due) : ms(it.created_at), made = ms(it.created_at);
+    if(CARE_KINDS.test(k) && !(row && row.past) && (made == null || now - made <= 36 * HOUR)) return 'care';
+    if(!promise(it) && !care(it) && d != null && now - d > 7 * DAY) return 'old';
+    return 'batch';
+  }
+  function batchOf(it, row){
+    const k = lc(it.kind);
+    if(row && row.kind === 'approval') return 'approval';
+    if(k === 'family_welcome') return 'welcome';
+    if(k === 'send_problem') return 'send';
+    if(HIRING.test(k) || lc(it.domain) === 'recruiting_orientation') return 'hiring';
+    if(k === 'call_followup') return 'calls';
+    if(k === 'care_note') return 'notes';
+    const n = row && row.need;
+    return n === 'schedule' ? 'schedule' : n === 'start' ? 'start' : n === 'review' ? 'review' : 'other';
+  }
+  const BATCH = { approval:['Write-ups to approve', 'You approve them before they go out'], welcome:['Family welcomes to send', 'From the Family & Contacts tab'],
+    send:['Texts or emails that didn\'t go out', 'Fix the number or email, then send again'], hiring:['Hiring steps waiting on the office', 'Step 1, Step 2, Hep B, orientation and more'],
+    calls:['Office to-dos from calls', 'Things said on a call that need doing in AxisCare or the Hub'], notes:['Shift notes to read', 'Flags from caregivers\' notes'],
+    schedule:['Scheduling', 'Times to confirm, coverage cases'], start:['Family start', 'New families getting started'], review:['Reviews', 'Waiting for a look'], other:['Other office work', 'Everything else'] };
+  const BATCH_ORDER = ['approval', 'welcome', 'send', 'calls', 'hiring', 'schedule', 'start', 'notes', 'review', 'other'];
+  /* one person shows once in Waiting: the same contact or phone number */
+  function personKey(it){
+    if(it.contact_id) return 'c:' + it.contact_id;
+    const p = String(it.phone || it.phone10 || '').replace(/\D/g, '').slice(-10);
+    return p.length === 10 ? 'p:' + p : '';
+  }
+  /* Open shifts, next N days: AxisCare's unassigned visits ({client,date,start,end,start24}) by day, from today */
+  function weekOf(open, now, days){
+    const out = [], pad = n => String(n).padStart(2, '0');
+    for(let i = 0; i < days; i++){
+      const d = new Date(now); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i);
+      const key = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      const shifts = (open || []).filter(s => s && s.date === key).map(s => {
+        const t = Date.parse(s.date + 'T' + (s.start24 || '23:59'));
+        return { client:s.client || 'A client', start:s.start || '', end:s.end || '', at:t, soon:!isNaN(t) && t - now <= 48 * HOUR };
+      }).sort((a, b) => (a.at || 0) - (b.at || 0));
+      out.push({ key, day:d.toLocaleDateString('en-US', { weekday:'short' }), num:d.getDate(), shifts });
+    }
+    return out;
+  }
+  const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO,
+    lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, BATCH, BATCH_ORDER };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ═══════════════════════════════════ in the Hub ═══════════════════════════════════ */
@@ -116,7 +181,9 @@
   const owner = () => { try{ return !!W.ccIsOwner(); }catch(e){ return false; } };
   const visible = () => on() || owner();
   const me = () => { try{ return lc(W.opsMeKey()); }catch(e){ return ''; } };
-  const name = e => { try{ return (typeof W.opsOwnerName === 'function' && W.opsOwnerName(e)) || String(e).split('@')[0]; }catch(_){ return String(e); } };
+  /* a name, never an email address (with no staff list loaded, opsOwnerName hands the email back) */
+  const name = e => { let n = ''; try{ n = (typeof W.opsOwnerName === 'function' && W.opsOwnerName(e)) || ''; }catch(_){}
+    if(!n || n.indexOf('@') > 0){ const p = String(n || e).split('@')[0]; n = p.charAt(0).toUpperCase() + p.slice(1); } return n; };
   const ls = (k, v) => { try{ if(v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); }catch(e){} return null; };
 
   const S = { tile:'', open:'', clean:false, appr:false, started:false, older:false, f:{ when:'', who:'', need:'', owner:'start' } };
@@ -263,8 +330,144 @@
     return '<div class="field-note" style="margin-top:14px;text-align:center;">Older views, for one week: '
       + T.map(([k, l]) => '<button class="linklike" style="font:inherit;" onclick="OPB.older(\'' + k + '\')">' + esc(l) + '</button>').join(' · ') + '</div>';
   }
+  /* ═══ the new layout ═══ */
+  /* on: everyone gets it, though an owner can still pick the table; off: only an owner who chose to try it */
+  const lanesView = () => { const pref = ls('opbLanes'); if(owner() && pref === '0') return false; return lanesOn(settings()) || (owner() && pref === '1'); };
+  const L = { who:'mine', bopen:'', oldOpen:false, week:undefined, weekAt:0, weekErr:'' };
+  const LCSS = '<style id="opbLaneCss">'
+    + '.opl-week{background:var(--card,#fff);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin:0 0 14px;}'
+    + '.opl-week h3,.opl-lane h3{margin:0;font-size:16px;color:var(--navy);}.opl-hd{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap;margin:0 0 10px;}'
+    + '.opl-hd small{color:var(--text-muted);font-size:12.5px;}'
+    + '.opl-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}'
+    + '.opl-day{background:var(--bg);border-radius:8px;padding:8px 6px;display:flex;flex-direction:column;gap:5px;min-height:78px;min-width:0;}'
+    + '.opl-day b{font-size:13px;color:var(--navy);}.opl-sh{font-size:12.5px;font-weight:700;background:var(--amber-bg);color:var(--amber);border-radius:5px;padding:3px 6px;overflow-wrap:anywhere;}'
+    + '.opl-sh.soon{background:var(--red-bg);color:var(--red);}.opl-sh small{display:block;font-weight:600;opacity:.85;}.opl-ok{font-size:12px;color:var(--green,#1E6B45);}'
+    + '.opl-wf{font-size:13px;color:var(--text-muted);margin-top:8px;}'
+    + '.opl-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 14px;}'
+    + '.opl-tile{all:unset;box-sizing:border-box;cursor:pointer;background:var(--card,#fff);border:1px solid var(--border);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:2px;}'
+    + '.opl-tile:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}.opl-tile b{font-size:26px;line-height:1;font-variant-numeric:tabular-nums;}'
+    + '.opl-tile.w b{color:var(--teal);}.opl-tile.c b{color:var(--red);}.opl-tile.b b{color:var(--amber);}.opl-tile span{font-weight:700;font-size:14px;}.opl-tile small{color:var(--text-muted);font-size:12px;}'
+    + '.opl-lane{background:var(--card,#fff);border:1px solid var(--border);border-radius:12px;margin:0 0 14px;overflow:hidden;}'
+    + '.opl-lane .opl-hd{padding:10px 14px;margin:0;border-bottom:1px solid var(--border);}'
+    + '.opl-lane.w{box-shadow:inset 4px 0 0 var(--teal);}.opl-lane.c{box-shadow:inset 4px 0 0 var(--red);}.opl-lane.b{box-shadow:inset 4px 0 0 var(--amber);}'
+    + '.opl-row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) auto auto;gap:8px 14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}'
+    + '.opl-row:last-child{border-bottom:0;}.opl-who b{display:block;color:var(--navy);}.opl-sub{color:var(--text-muted);font-size:12.5px;}'
+    + '.opl-what{font-size:13.5px;}.opl-t{font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--text-muted);white-space:nowrap;}.opl-t.long{color:var(--red);font-weight:700;}'
+    + '.opl-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}.opl-btns button,.opl-brow button{padding:5px 12px;font-size:12.5px;white-space:nowrap;}'
+    + '.opl-card{padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);}'
+    + '.opl-brow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);}'
+    + '.opl-brow .n{font-size:20px;font-weight:700;color:var(--amber);min-width:2.2ch;text-align:right;font-variant-numeric:tabular-nums;}'
+    + '.opl-in{background:var(--bg);border-bottom:1px solid var(--border);}.opl-in .opl-row{background:transparent;}'
+    + '.opl-none{padding:14px;color:var(--text-muted);font-size:13.5px;}.opl-foot{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--text-muted);margin:4px 0 0;}'
+    + '@media (max-width:700px){.opl-days{grid-template-columns:1fr;}.opl-day{min-height:0;flex-direction:row;flex-wrap:wrap;align-items:center;}.opl-day b{min-width:4.5em;}'
+    + '.opl-tiles{grid-template-columns:1fr;}.opl-row{grid-template-columns:minmax(0,1fr) auto;}.opl-row .opl-what,.opl-row .opl-btns{grid-column:1/-1;}.opl-row .opl-btns{justify-content:flex-start;}}'
+    + '</style>';
+  /* Open shifts: the same AxisCare lookup the manager strip uses (2 weeks there, 7 days here), once per 15 minutes */
+  async function loadWeek(){
+    if(L.week === null) return;
+    if(L.week !== undefined && Date.now() - L.weekAt < 15 * 60000) return;
+    L.week = null;
+    try{
+      const anon = (typeof COMMS_ANON !== 'undefined') ? COMMS_ANON : '';
+      const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts', { method:'POST',
+        headers:{ 'x-hub-token':await W.trainHubTok(), 'apikey':anon, 'Authorization':'Bearer ' + anon, 'Content-Type':'application/json' }, body:JSON.stringify({ days:7 }) });
+      const d = await r.json();
+      if(d && d.error){ L.week = []; L.weekErr = String(d.error).indexOf('403') >= 0 ? 'AxisCare said no (403): the API token needs Visits read.' : 'Couldn\'t load open shifts from AxisCare.'; }
+      else { L.week = (d && d.open) || []; L.weekErr = ''; }
+    }catch(e){ L.week = []; L.weekErr = 'Couldn\'t reach the open-shifts lookup. Check your connection.'; }
+    L.weekAt = Date.now();
+    if(MYWORK_ON_BOARD()) redraw();
+  }
+  const MYWORK_ON_BOARD = () => { try{ return typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'board'; }catch(e){ return false; } };
+  function weekHtml(now){
+    if(L.week === undefined || L.week === null) return '<div class="opl-week"><div class="opl-hd"><h3>Open shifts, next 7 days</h3><small>Checking AxisCare…</small></div></div>';
+    if(L.weekErr) return '<div class="opl-week"><div class="opl-hd"><h3>Open shifts, next 7 days</h3></div><div class="opl-wf">' + esc(L.weekErr) + '</div></div>';
+    const days = weekOf(L.week, now, 7), all = days.reduce((a, d) => a.concat(d.shifts), []), soon = all.filter(s => s.soon).length;
+    const asked = s => (D().ops_items || []).some(i => i && i.status === 'open' && lc(i.kind) === 'coverage' && i.about && lc(i.about) === lc(s.client));
+    const nAsked = all.filter(asked).length;
+    return '<div class="opl-week" id="oplWeek"><div class="opl-hd"><h3>Open shifts, next 7 days</h3><small>From AxisCare: visits with no caregiver. Fill them in AxisCare or open a coverage case.</small></div>'
+      + '<div class="opl-days">' + days.map(d => '<div class="opl-day"><b>' + esc(d.day + ' ' + d.num) + '</b>'
+        + (d.shifts.length ? d.shifts.map(s => '<span class="opl-sh' + (s.soon ? ' soon' : '') + '">' + esc((s.start || '') + ' ' + s.client) + (asked(s) ? '<small>team being asked</small>' : '') + '</span>').join('')
+          : '<span class="opl-ok">All covered</span>') + '</div>').join('') + '</div>'
+      + '<div class="opl-wf">' + (all.length ? '<b>' + all.length + '</b> open this week' + (soon ? ' · <b style="color:var(--red);">' + soon + ' within 48 hours</b>' : '') + (nAsked ? ' · ' + nAsked + ' already have the team being asked' : '')
+        : 'Every visit in the next 7 days has a caregiver.') + ' · <button class="linklike" style="font:inherit;" onclick="switchTab(\'coverage\')">Open the coverage page</button></div></div>';
+  }
+  function laneRow(r, now){
+    const it = r.it, id = esc(r.id), openNow = S.open === r.id;
+    if(r.kind === 'approval') return '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(it.caregiver || 'Write-up') + '</b><span class="opl-sub">Caregiver</span></div>'
+      + '<div class="opl-what">' + esc((it.level ? it.level + ': ' : '') + (it.reason || '')) + '</div><div class="opl-t">' + esc(waited(r.since, now)) + '</div>'
+      + '<div class="opl-btns"><button class="primary" onclick="OPB.approvals()">Review</button></div></div>';
+    const who = /^\s*\(phone lead\)\s*$/i.test(String(it.about || '')) ? 'Name not on file' : (it.about || it.title || '');
+    const fu = lc(it.kind) === 'reply_needed';
+    const what = fu ? String(it.detail || it.title || '').replace(it.about ? new RegExp('^' + String(it.about).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*') : /^$/, '') :(it.about && it.title && it.about !== it.title) ? it.title : (it.detail || '');
+    const sub = [fu ? 'Called or texted' : WHO[r.who], r.owner && !r.mine ? (it.owner_name || name(r.owner)) : (!r.owner ? 'Nobody yet' : '')].filter(Boolean).join(' · ');
+    const long = r.since && now - r.since > 12 * HOUR;
+    let h = '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + (r.dupe ? ' · also on a call card' : '') + '</span></div>'
+      + '<div class="opl-what">' + esc(String(what).slice(0, 200)) + (it.next_action && !fu ? '<div class="opl-sub">' + esc(String(it.next_action).slice(0, 140)) + '</div>' : '') + '</div>'
+      + '<div class="opl-t' + (long ? ' long' : '') + '">' + esc(waited(r.since, now)) + '</div>'
+      + '<div class="opl-btns">' + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
+      + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button>'
+      + (!/^(journey|project)$/.test(lc(it.kind)) ? '<span id="opldn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'opldn_' + id + '\')">Done</button></span>' : '') + '</div></div>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + '</div>';
+    return h;
+  }
+  /* the pieces of the new layout, from the same rows the table uses (pure enough to test in the page) */
+  function laneModel(){
+    const now = Date.now(), all = rows(), m = me();
+    const scope = r => L.who === 'all' || r.mine || !r.owner;
+    const lanes = { wait:[], care:[], batch:[], old:[], hide:[] };
+    all.forEach(r => { r.lane = r.kind === 'approval' ? 'batch' : laneOf(r.it, r, now); lanes[r.lane].push(r); });
+    /* one person once in Waiting: a Follow-ups row wins over a call card for the same contact */
+    const seen = {};
+    lanes.wait.sort((a, b) => (lc(a.it.kind) === 'reply_needed' ? 0 : 1) - (lc(b.it.kind) === 'reply_needed' ? 0 : 1));
+    lanes.wait = lanes.wait.filter(r => { const k = personKey(r.it); if(!k) return true; if(seen[k]){ seen[k].dupe = true; lanes.batch.push(Object.assign(r, { lane:'batch' })); return false; } seen[k] = r; return true; });
+    const byWait = (a, b) => (a.since || 0) - (b.since || 0);
+    const team = {};
+    if(owner()) lanes.wait.forEach(r => { if(r.owner && !r.mine){ const t = team[r.owner] || (team[r.owner] = { n:0, oldest:null }); t.n++; if(r.since && (t.oldest == null || r.since < t.oldest)) t.oldest = r.since; } });
+    const batches = {};
+    lanes.batch.filter(scope).forEach(r => { const k = batchOf(r.it, r); (batches[k] = batches[k] || []).push(r); });
+    return { now, me:m, wait:lanes.wait.filter(scope).sort(byWait), care:lanes.care.filter(scope).sort(byWait), batches, old:lanes.old.filter(scope).sort(byWait), hidden:lanes.hide.length, team };
+  }
+  function renderLanes(wrap){
+    if(!document.getElementById('opbCss')){ const t = document.createElement('div'); t.innerHTML = CSS; document.head.appendChild(t.firstChild); }
+    if(!document.getElementById('opbLaneCss')){ const t = document.createElement('div'); t.innerHTML = LCSS; document.head.appendChild(t.firstChild); }
+    loadWeek();
+    const M = laneModel(), now = M.now, bk = BATCH_ORDER.filter(k => M.batches[k] && M.batches[k].length), bn = bk.reduce((a, k) => a + M.batches[k].length, 0);
+    let h = '';
+    if(!lanesOn(settings())) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>New layout, practice.</b> Only you see it; everyone else sees the table. '
+      + 'When it looks right, turn on "Operations Board: new layout" on the Owners Hub Admin page. <button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(false)">Back to the table</button></div>';
+    h += weekHtml(now);
+    const oldestW = M.wait.length ? waited(M.wait[0].since, now) : '';
+    h += '<div class="opl-tiles">'
+      + '<button class="opl-tile w" onclick="OPB.jump(\'oplWait\')"><b>' + M.wait.length + '</b><span>Waiting on us</span><small>' + (oldestW ? 'oldest ' + esc(oldestW) : 'Nobody waiting') + '</small></button>'
+      + '<button class="opl-tile c" onclick="OPB.jump(\'oplCare\')"><b>' + M.care.length + '</b><span>Care today</span><small>' + (M.care.length ? 'Care or safety, today' : 'Nothing right now') + '</small></button>'
+      + '<button class="opl-tile b" onclick="OPB.jump(\'oplBatch\')"><b>' + bk.length + '</b><span>Batches</span><small>' + bn + ' item' + (bn === 1 ? '' : 's') + ' in all</small></button></div>';
+    if(owner()) h += '<div class="field-note" style="margin:-6px 0 12px;">Showing ' + (L.who === 'all' ? 'everyone\'s work' : 'yours and nobody\'s') + ' · <button class="linklike" style="font:inherit;" onclick="OPB.lanesWho(\'' + (L.who === 'all' ? 'mine' : 'all') + '\')">' + (L.who === 'all' ? 'Show only mine and nobody\'s' : 'Show everyone') + '</button></div>';
+    const lane = (key, cls, title, small, list) => '<div class="opl-lane ' + cls + '" id="' + key + '"><div class="opl-hd"><h3>' + esc(title) + '</h3><small>' + esc(small) + '</small></div>'
+      + (list.length ? list.map(r => laneRow(r, now)).join('') : '<div class="opl-none">' + (key === 'oplWait' ? 'Nobody is waiting on a call or text back.' : 'Nothing here right now.') + '</div>') + '</div>';
+    h += lane('oplWait', 'w', 'Waiting on us', 'Called, texted or promised a call back. Longest wait first. Follow-ups rows close themselves when the office line calls or texts back.', M.wait);
+    h += lane('oplCare', 'c', 'Care today', 'Shift-note flags, health news, a call before a first visit, an open shift soon', M.care);
+    h += '<div class="opl-lane b" id="oplBatch"><div class="opl-hd"><h3>Batches</h3><small>Same kind of work, done in one sitting</small></div>'
+      + (bk.length ? bk.map(k => { const list = M.batches[k], open = L.bopen === k;
+        const names = list.slice(0, 3).map(r => r.kind === 'approval' ? (r.it.caregiver || 'Write-up') : (r.it.about || r.it.title || '')).filter(Boolean).join(', ');
+        return '<div class="opl-brow" data-batch="' + k + '"><div class="n">' + list.length + '</div><div><b>' + esc(BATCH[k][0]) + '</b><div class="opl-sub">' + esc(names ? names + (list.length > 3 ? ' and ' + (list.length - 3) + ' more' : '') : BATCH[k][1]) + '</div></div>'
+          + '<button class="' + (open ? 'ghost' : 'primary') + '" aria-expanded="' + open + '" onclick="OPB.batch(\'' + k + '\')">' + (open ? 'Close' : 'Open') + '</button></div>'
+          + (open ? '<div class="opl-in">' + list.map(r => laneRow(r, now)).join('') + '</div>' : ''); }).join('') : '<div class="opl-none">Nothing to batch right now.</div>') + '</div>';
+    const foot = [];
+    if(M.old.length) foot.push('<button class="linklike" style="font:inherit;" aria-expanded="' + L.oldOpen + '" onclick="OPB.oldToggle()">' + (L.oldOpen ? 'Hide' : 'Show') + ' ' + M.old.length + ' older than a week</button>');
+    const T = Object.keys(M.team).sort((a, b) => M.team[b].n - M.team[a].n);
+    if(T.length) foot.push('Team: ' + T.map(e => esc(name(e)) + ' ' + M.team[e].n + ' waiting' + (M.team[e].oldest ? ', oldest ' + esc(waited(M.team[e].oldest, now)) : '')).join(' · '));
+    if(M.hidden) foot.push(M.hidden + ' "Was it covered?" question' + (M.hidden === 1 ? ' is' : 's are') + ' no longer shown here');
+    if(owner()) foot.push('<button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(false)">See the table</button>');
+    if(foot.length) h += '<div class="opl-foot">' + foot.join('<span aria-hidden="true">·</span>') + '</div>';
+    if(L.oldOpen && M.old.length) h += '<div class="opl-lane" id="oplOld" style="margin-top:10px;"><div class="opl-hd"><h3>Older than a week</h3><small>Not care or safety, not a promise. Close what is done.</small></div>' + M.old.map(r => laneRow(r, now)).join('') + '</div>';
+    if(window.CFU && !(settings().cc_followups_live === true)) h += '<div class="field-note" style="margin:10px 0 0;">Calls and texts from Follow-ups join Waiting on us once Follow-ups is turned on.</div>';
+    wrap.innerHTML = h + olderHtml();
+  }
+
   function render(wrap){
     if(!wrap) return;
+    if(lanesView()) return renderLanes(wrap);
     const now = Date.now(), all = rows(), shown = all.filter(r => pass(r));
     if(S.open && !all.some(r => r.id === S.open)) S.open = '';
     /* the style goes in <head> once; inside the board it was wiped by the next redraw (2026-11-05, her screenshot) */
@@ -272,6 +475,8 @@
     let h = '';
     if(!on()) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>Practice, switched off.</b> Only owners see this tab. Every other tab works as before. '
       + 'When the rows look right, turn on Operations Board on the Owners Hub Admin page.</div>';
+    if(owner()) h += '<div class="field-note" style="margin:0 0 10px;"><b>New:</b> people waiting on us first, care today, routine work in batches, and open shifts for the week. '
+      + '<button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(true)">Try the new layout</button> (only you see it)</div>';
     h += tiles(all) + menus(all) + cleanHtml(all);
     if(window.CFU && !(settings().cc_followups_live === true)) h += '<div class="field-note" style="margin:0 0 8px;">Calls and texts from Follow-ups join this board as rows once Follow-ups is turned on.</div>';
     h += '<div class="field-note" style="margin:0 0 6px;">' + shown.length + ' of ' + all.length + ' open'
@@ -333,5 +538,12 @@
       S.clean = false; try{ W.ccToast('Board cleanup cleared ' + n + ' card' + (n === 1 ? '' : 's') + '.'); }catch(e){}
       redraw();
     },
-    undo:async () => { if(W.MWTidy) await W.MWTidy.undo(); redraw(); } });
+    undo:async () => { if(W.MWTidy) await W.MWTidy.undo(); redraw(); },
+    /* the new layout */
+    lanesView, laneModel, lanes:L,
+    lanesTry:yes => { ls('opbLanes', yes ? '1' : '0'); S.open = ''; redraw(); },
+    lanesWho:w => { L.who = w === 'all' ? 'all' : 'mine'; redraw(); },
+    batch:k => { L.bopen = L.bopen === k ? '' : k; S.open = ''; redraw(); },
+    oldToggle:() => { L.oldOpen = !L.oldOpen; redraw(); },
+    jump:id => { const e = document.getElementById(id); if(e) e.scrollIntoView({ behavior:'smooth', block:'start' }); } });
 })(typeof window !== 'undefined' ? window : globalThis);
