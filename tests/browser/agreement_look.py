@@ -12,9 +12,9 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 FIELDS = json.load(open(os.path.join(HERE, 'agreement_fields.json')))
 SERVER_ONLY = lambda k: k.startswith(('ini.', 'sig.', 'ci.sig.', 'date.')) or k in ('poa.initials', 'ci.client_s_name')
 OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
-INITIALS = {'1': 'Rates, billing, cancellations and the app', '2': 'Services, safety, home access and the emergency plan (Exhibits B and D)', '3': 'Transportation and use of my car',
+INITIALS = {'1': 'Rates, billing and cancellations', '2': 'Services, safety, home access and the emergency plan (Exhibits B and D)', '3': 'Transportation and use of my car',
             '4': 'Privacy and communication choices (photos, permission to communicate, HIPAA)', '5': 'I received the Client Handbook (Exhibits C and E) and agree to the Infectious Disease Waiver (Exhibit F)', '6': 'Non-solicitation and the $5,000 direct hire fee'}
-CURRENT = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309'   # 2026-10-30: drafts start on the current master, as the server does
+CURRENT = '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0'   # 2026-11-07: drafts start on the current master (no Booking App), as the server does
 FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree to sign this Client Care Agreement electronically.', 'initials': INITIALS, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
@@ -119,8 +119,10 @@ def flow(browser, name, w, h):
     fam_vals = {'poa.name': 'Nancy Fakename', 'poa.relationship': 'Wife', 'c1.name': 'Nancy Fakename', 'c1.relationship': 'Wife', 'c1.cell_phone': '417-555-0173', 'c1.email': 'nancy@example.com', 'c2.name': 'Tom Fakename',
                 'access.lockbox_location': 'Back porch', 'access.lockbox_code': '2468', 'backup.full_name': 'Tom Fakename', 'backup.primary_phone': '417-555-0111'}
     for k, v in fam_vals.items(): page.fill(f'input[data-k="{k}"]', v)
-    for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'c1.book_yes', 'c2.book_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
+    for k in ['c1.hipaa_yes', 'c1.hipaa_no', 'c1.hipaa_yes', 'c1.medical_no', 'c1.text_running_late', 'c1.axis_care_notes', 'c1.email_invoices', 'c2.hipaa_no', 'c2.medical_no', 'access.2_lockbox_access_a_ke', 'comm.accept']:
         page.click(f'button[data-t="{k}"]')
+    # 2026-11-07 (Samantha: the Booking App is no longer offered): Exhibit I has no "Can book in the app" question
+    ck(f'{name}: no "Can book in the app" boxes on the new pages, and the list of blanks never asks for it', page.locator('[data-t*=".book_"],[data-k*=".book_"]').count() == 0 and 'Booking App' not in page.inner_text('body'))
     ck(f'{name}: Yes/No is one-or-the-other for the family too', page.locator('button[data-t="c1.hipaa_no"].on').count() == 0 and page.locator('button[data-t="c1.hipaa_yes"]').inner_text() == '✓')
     ck(f'{name}: 6 initials boxes plus the POA box, and 2 signature lines (agreement and Exhibit I)', page.locator('[data-tap]').count() == 7 and page.locator('[data-sign]').count() == 2)
     big = page.evaluate("() => [...document.querySelectorAll('[data-tap],[data-sign]')].map(b => { const r=b.getBoundingClientRect(); return [r.width, r.height]; })")
@@ -187,15 +189,17 @@ with sync_playwright() as p:
         # 2026-10-17 (8-hour weekly minimum) and 2026-10-18 (overtime Monday to Sunday): each agreement shows the pages of the master it was started on
         # 2026-10-18b (the Booking App terms + "Can book in the app"): the 10-18 wording is now an earlier one too
         # 2026-10-30 (short visits a flat $5.00 more per hour): the 10-18b wording is now an earlier one too
-        NEW, FOURTH, THIRD, SECOND, FIRST = 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309', 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
-        for sha, status, label in ((NEW, 'draft', 'new'), (FOURTH, 'draft', 'old'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (FOURTH, 'signed', 'old-signed'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
+        # 2026-11-07 (the Booking App is no longer offered): the 10-30 wording is now an earlier one too
+        NEW, FIFTH, FOURTH, THIRD, SECOND, FIRST = '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0', 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309', 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (FIFTH, 'draft', 'old'), (FIFTH, 'signed', 'old-signed'), (FOURTH, 'draft', 'old'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (FOURTH, 'signed', 'old-signed'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
             ctx = br.new_context(viewport={'width': 768, 'height': 1024})
             ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
             pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
             pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
             if label == 'new':
                 pg.wait_for_selector('.pg img'); srcs = pg.eval_on_selector_all('.pg img', 'xs => xs.map(x => x.getAttribute("src"))')
-                ck(f'{eng}: a new draft shows the short-visit pages (page 2 the flat $5.00, page 11 Exhibit A)', len(srcs) == 23 and all('rev-2026-10-30/' in s for s in srcs) and any(s.endswith('rev-2026-10-30/p11.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: a new draft shows the pages without the Booking App (rev-2026-11-07, Exhibit I on pages 22 and 23)', len(srcs) == 23 and all('rev-2026-11-07/' in s for s in srcs) and any(s.endswith('rev-2026-11-07/p22.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: ...and no "Can book in the app" boxes on them', pg.locator('[data-t*=".book_"],[data-k*=".book_"]').count() == 0)
             elif label == 'old':
                 pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on an earlier wording ({sha[:4]}) says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)
             else:
