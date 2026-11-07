@@ -88,7 +88,7 @@ try:
                 ck(f'{name}: each person says where they go (AxisCare slot, Family Circle, or Hub only and why)',
                    'AxisCare slot 1 (updates Nancy Fakename, already there)' in t and 'AxisCare slot 3 (new)' in t and t.count('Family Circle only') == 2 and 'three responsible party slots are taken' in t, t)
                 ck(f'{name}: AxisCare now is shown side by side for Nancy', 'AxisCare now: Nancy Fakename · 417-555-0001 · old@example.com' in t and 'HIPAA No' in t)
-                ck(f'{name}: the signed choices are shown and are not editable', 'Health information (HIPAA): Yes' in t and 'Can book in the app: Yes' in t and 'Can book in the app: not asked on this wording' in t and 'Texts: running late' in t and pg.locator('[data-car-f$=".hipaa"]').count() == 0)
+                ck(f'{name}: the signed choices are shown and are not editable (2026-11-07: the app answer only where the agreement asked it)', 'Health information (HIPAA): Yes' in t and 'Can book in the app: Yes' in t and t.count('Can book in the app') == 1 and 'not asked on this wording' not in t and 'Texts: running late' in t and pg.locator('[data-car-f$=".hipaa"]').count() == 0)
                 ck(f'{name}: a bad state and a STOP reply are pointed out', 'AxisCare needs a 2-letter state' in t and 'replied STOP' in t)
                 ck(f'{name}: the AxisCare checklist lists the hand jobs', pg.locator('[data-car-todo]').count() == 3 and 'family sign-in' in t and 'ask for a cell number' in t)
                 pg.screenshot(path=os.path.join(OUT, f'review-{name}.png'), full_page=True)
