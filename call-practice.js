@@ -306,6 +306,13 @@
   const HCHG = { add: 'Add', change: 'Change', stop: 'Stop' };
   const hasHealth = r => !!(r && r.detail && r.detail.health && r.detail.health.has_news);
   const ASK = '<span style="color:#B4650C;font-weight:700;">Ask before approving</span>';
+  /* step 2 (2026-11-07): what happened to the health card; nothing reaches AxisCare until a coordinator sends it from the card */
+  function cardWord(c) {
+    if (c && c.mode === 'live' && c.made) return 'a card in My Work' + (c.owner ? ' for ' + c.owner : '') + '; nothing goes to AxisCare until a coordinator sends it';
+    if (c && c.mode === 'live' && c.why) return 'no new card: ' + c.why;
+    if (c && c.mode === 'practice' && c.would) return 'practice: no card yet; it would go to ' + c.would + '. Nothing changed in AxisCare';
+    return 'practice: no card, nothing changed in the care plan or AxisCare';
+  }
   function healthHtml(r){
     const h = (r.detail || {}).health;
     if(!h) return '';
@@ -322,7 +329,7 @@
       + part('Equipment', c.equipment) + part('Their preferences', c.preferences) + part('Safety', c.safety) + part('Report to the office if', c.report_if) + '</div>').join('');
     const ask = (h.ask || []).length ? '<div style="margin-top:6px;"><div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);">QUESTIONS BEFORE APPROVING</div><ul style="margin:2px 0 0;padding-left:18px;font-size:12.5px;">' + h.ask.map(q => '<li>' + esc(q) + '</li>').join('') + '</ul></div>' : '';
     return '<div style="margin-top:10px;padding:10px 12px;border-radius:10px;background:#FBF4F4;border:1px solid #EBCFCF;">'
-      + '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#7A2E2E;">HEALTH NEWS FOR THE CARE PLAN' + (h.client ? ': ' + esc(String(h.client).toUpperCase()) : '') + ' <span style="font-weight:600;letter-spacing:0;color:var(--muted);">(practice: no card, nothing changed in the care plan or AxisCare)</span></div>'
+      + '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:#7A2E2E;">HEALTH NEWS FOR THE CARE PLAN' + (h.client ? ': ' + esc(String(h.client).toUpperCase()) : '') + ' <span style="font-weight:600;letter-spacing:0;color:var(--muted);">(' + esc(cardWord(h.card)) + ')</span></div>'
       + news + (changes ? '<div style="font-size:11.5px;font-weight:800;letter-spacing:.06em;color:var(--muted);margin-top:8px;">CARE PLAN CHANGES IT WOULD DRAFT</div>' + changes : '') + ask + '</div>';
   }
   function render(wrap){
