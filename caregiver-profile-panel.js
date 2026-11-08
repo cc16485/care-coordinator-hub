@@ -23,7 +23,7 @@
   var SB_URL = 'https://zngsgedlsxinbygwmxwn.supabase.co';
   var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpuZ3NnZWRsc3hpbmJ5Z3dteHduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1NDIzNDQsImV4cCI6MjA5ODExODM0NH0.L_31_UKdccyRH9n7p1GaBlZTqcJipB008H-GIvxwLxM';
   var BUCKET = 'caregiver-profiles';
-  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete,photo_hidden,video_hidden,quick,quick_answers,approval_sent_at,approval_words,approved_at,approved_by,change_request,change_request_at';
+  var COLS = 'id,candidate_id,axiscare_id,applicant_id,first_name,last_name,preferred_name,about,experience,why_this_work,years_experience,photo_path,video_path,consent,consent_at,published,status,drafted_at,drafted_by,link_sent_at,link_sent_by,submitted_at,published_at,published_by,updated_at,created_at,photo_url,needs_review,legacy_intro_id,self_complete,photo_hidden,video_hidden,quick,quick_answers,approval_sent_at,approval_words,approved_at,approved_by,change_request,change_request_at,feature_ok,feature_ok_at';
   var IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
   var VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
   var FIELDS = [
@@ -314,6 +314,9 @@
          row.link_sent_at ? 'Link sent ' + day(row.link_sent_at) + (row.link_sent_by ? ' by ' + esc(who(row.link_sent_by)) : '') : '',
          row.submitted_at ? 'They saved it ' + day(row.submitted_at) : '',
          row.consent ? 'Permission given ' + day(row.consent_at) : 'No permission yet (they tick it on their page)',
+         /* 1383: their separate, optional OK to be featured on Facebook and the website. No means never post them. */
+         row.feature_ok ? '<b style="color:#15803D">📣 OK to feature on Facebook and the website</b> (ticked ' + day(row.feature_ok_at) + ')'
+           : 'Not OK to feature on Facebook or the website' + (row.feature_ok_at ? ' (unticked ' + day(row.feature_ok_at) + ')' : ' (they have not ticked the optional box)'),
          row.published ? 'Published ' + day(row.published_at) + (row.published_by ? ' by ' + esc(who(row.published_by)) : '') + '. Edits you save go live right away.' : ''].filter(Boolean).join(' · ')
       + '</div></div></div>'
       + '<div id="' + k + '-intro"></div>';
