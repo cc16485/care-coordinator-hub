@@ -7689,8 +7689,11 @@ function ckdStep1Stuck(j){
   const first = String(j.name || '').trim().split(/\s+/)[0] || 'them';
   const sent = Number.isFinite(ms) ? new Date(ms).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : '';
   const p = o.phone ? obFmtPhone(o.phone) : null;
-  const text = 'Stuck in Step 1' + (days != null ? ' for ' + days + ' day' + (days === 1 ? '' : 's') : '') + (sent ? ' (link sent ' + sent + ')' : '')
-    + '. The reminders did not do it: call ' + first + ' and help them finish.' + (found && !p ? ' No phone number on their offer.' : '');
+  /* STEP 1 EASIER, PIECE 2 (2026-11-07): the card names the screen they stopped on (stuck_on); work history and references
+     raise it on the third business day, before the second reminder, so the row no longer says the reminders failed. */
+  const on = card.stuck_on ? String(card.stuck_on) : '';
+  const text = (on ? 'Stuck on ' + on : 'Stuck in Step 1') + (days != null ? ' for ' + days + ' day' + (days === 1 ? '' : 's') : '') + (sent ? ' (link sent ' + sent + ')' : '')
+    + (on ? '. Call ' + first + ' and walk them through it.' : '. The reminders did not do it: call ' + first + ' and help them finish.') + (found && !p ? ' No phone number on their offer.' : '');
   return { card, days, text, call: p ? { dial:p.dial, show:p.show, email:o.email || '' } : null };
 }
 function ckdActsFor(p){
