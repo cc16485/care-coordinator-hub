@@ -58,6 +58,13 @@
   .consent label{display:flex;gap:10px;align-items:flex-start;font-weight:600;font-size:15px;cursor:pointer;}
   .consent input{margin-top:4px;flex:none;width:20px;height:20px;}
   .consent .what{font-weight:400;color:var(--muted);font-size:13.5px;margin-top:8px;}
+  /* 1383: the optional feature box, its own card, saved the moment it is ticked or unticked */
+  .feature{background:#FBF8F2;border:1.5px solid var(--border);border-radius:12px;padding:14px 15px;}
+  .feature label{display:flex;gap:10px;align-items:flex-start;font-weight:600;font-size:15px;cursor:pointer;}
+  .feature input{margin-top:4px;flex:none;width:20px;height:20px;}
+  .feature .what{font-weight:400;color:var(--muted);font-size:13.5px;margin-top:8px;}
+  .feature .saved{font-size:13.5px;margin-top:8px;font-weight:600;color:var(--green);display:none;}
+  .feature .saved.bad{color:#B3261E;}
   button.go{width:100%;padding:16px;border:none;border-radius:12px;background:var(--navy);color:#fff;
             font-family:inherit;font-size:17px;font-weight:700;cursor:pointer;margin-top:6px;}
   button.go[disabled]{opacity:.55;cursor:not-allowed;}
@@ -160,7 +167,7 @@
       <div class="consent">
         <label><input type="checkbox" id="consent">
           <span>I give my permission for Caring Companions to share this profile (my photo, video, first name and last initial, and these words) with my clients before my shifts with them.</span></label>
-        <div class="what">This is required. Every client sees who is coming before a visit. It is only shared with clients you are scheduled with, on a private link, and never posted publicly.</div>
+        <div class="what">This is required. Every client sees who is coming before a visit. It is only shared with clients you are scheduled with, on a private link, and never posted publicly unless you tick the optional box below.</div>
       </div>
     </div>
 
@@ -213,6 +220,18 @@
     </div>
     <div class="card ro" id="roCard"></div>
   </div>
+
+  <!-- 1383 (Samantha, 2026-11-08: "Add a separate box"): optional, never needed to save or publish. Moved next to
+       the required box on the form, and shown under every other screen so they can change their mind any time. -->
+  <div class="card" id="featureCard" style="display:none;text-align:left">
+    <h2>Featuring you <span class="opt">Optional</span></h2>
+    <div class="feature">
+      <label><input type="checkbox" id="featureOk" onchange="saveFeature(this)">
+        <span>Yes, Caring Companions may also feature me (my photo, first name and my words) on its Facebook page and website.</span></label>
+      <div class="what">Optional. Saying no never changes your job or your profile. You can change your mind any time on this page.</div>
+      <div class="saved" id="featureSaved"></div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -226,7 +245,28 @@ const MAX_VIDEO = 100 * 1024 * 1024;     // the bucket's own limit
 const IMG = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', heic: 'image/heic', webp: 'image/webp' };
 const VID = { mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm' };
 const $ = id => document.getElementById(id);
-const show = id => ['loading', 'nolink', 'form', 'done', 'published', 'writing', 'approve', 'approved'].forEach(x => $(x).style.display = x === id ? 'block' : 'none');
+const show = id => { ['loading', 'nolink', 'form', 'done', 'published', 'writing', 'approve', 'approved'].forEach(x => $(x).style.display = x === id ? 'block' : 'none'); placeFeature(id); };
+/* 1383: the optional feature box. On the form it sits under the required box; on every other screen it sits at the end. */
+function placeFeature(id) {
+  const c = $('featureCard'); if (!c) return;
+  if (!ME || id === 'loading' || id === 'nolink') { c.style.display = 'none'; return; }
+  $('featureOk').checked = ME.feature_ok === true;
+  if (id === 'form') $('go').parentNode.insertBefore(c, $('go')); else $(id).appendChild(c);
+  c.style.display = 'block';
+}
+async function saveFeature(box) {
+  const want = box.checked, msg = $('featureSaved');
+  box.disabled = true; msg.className = 'saved'; msg.style.display = 'none';
+  try {
+    await fn({ action: 'feature', t: T, ok: want });
+    ME.feature_ok = want;
+    msg.textContent = want ? 'Saved. Thank you!' : 'Saved. We will not feature you.'; msg.style.display = 'block';
+  } catch (e) {
+    box.checked = !want;
+    msg.className = 'saved bad'; msg.textContent = 'That did not save. ' + e.message; msg.style.display = 'block';
+  }
+  box.disabled = false;
+}
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 let ME = null, havePhoto = false, haveVideo = false, SELF = false, QUICK = false;
 /* 452 (Samantha, 2026-10-05): a caregiver already working with us fills in their whole profile themselves: three
