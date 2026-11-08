@@ -43,5 +43,12 @@ x.OFFERS = [];
 acts = x.ckdActsFor(p);
 ok(/for 12 days/.test(acts[0].text) && !/No phone/.test(acts[0].text), 'offers not loaded yet: days from the card, and no false "no phone"', acts[0].text);
 
+/* STEP 1 EASIER, PIECE 2 (2026-11-07): the card names the screen; the row says it and drops "the reminders did not do it" */
+x.OFFERS = [{ id: 'o-1', phone: '4175550142', email: 'kim@example.com', step1_sent_at: new Date(now - 3 * DAY - 60e3).toISOString() }];
+x.DATA.ops_items[0].stuck_on = 'references';
+acts = x.ckdActsFor(p);
+ok(/^Stuck on references for 3 days \(link sent [A-Z][a-z]{2} \d+\)\. Call Kim and walk them through it\.$/.test(acts[0].text) && !/reminders/.test(acts[0].text) && !/\u2014/.test(acts[0].text), 'the screen they stopped on, and no "the reminders did not do it" on day 3', acts[0].text);
+ok(/data-oc-phone="\+14175550142"/.test(x.ckdLaneHTML({}, acts[0])), 'still a Call button from the office line');
+delete x.DATA.ops_items[0].stuck_on;
 ok(/x\.status !== 'done' && x\.status !== 'resolved'/.test(ENG) && /'cj_step1stall_' \+ j\.journey_id/.test(ENG), 'reads the existing card (cj_step1stall_<journey>), nothing new is stored');
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
