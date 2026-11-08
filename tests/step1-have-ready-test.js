@@ -20,5 +20,8 @@ if (fs.existsSync(tf)) {
   const ts = fs.readFileSync(tf, 'utf8')
   ck('the Training email list matches the welcome screen', items.every((x) => ts.includes(x.replace(/'/g, "'"))))
   ck('no "takes about 15 minutes" in the Step 1 link or reminder', !/takes about 15 minutes/.test(ts))
+  // HER RULE 11-07: the texts get no longer than they were (old lines 73 and 65 characters)
+  ck('the link text line is no longer than the old time line', ts.includes('`Have your job and reference phone numbers ready. It saves as you go. `') && 'Have your job and reference phone numbers ready. It saves as you go. '.length <= 73)
+  ck('the reminder text line is no longer than the old time line', ts.includes('`Have job and reference phone numbers ready. It saves your place. Questions?') && 'Have job and reference phone numbers ready. It saves your place. '.length <= 65)
 } else console.log('skip  Training checkout not found at ' + tdir)
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0)
