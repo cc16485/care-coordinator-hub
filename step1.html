@@ -467,6 +467,7 @@ function delRow(id, i){ const rows = (ANS[id] || []).filter((_, k) => k !== i); 
 const cardRows = (id) => (Array.isArray(ANS[id]) ? ANS[id] : []).map((r) => (r && typeof r === 'object' && !Array.isArray(r)) ? { ...r } : {});
 function tidyCard(r){ const t = Array.isArray(r.tasks) ? r.tasks : []; if (Array.isArray(r.refresher)) { r.refresher = r.refresher.filter((k) => k === 'none' || t.includes(k)); if (!r.refresher.length) delete r.refresher; } if (!t.includes('hoyer_lift')) delete r.lifts; }
 function setCard(id, i, k, v, quiet){ const rows = cardRows(id); rows[i] = rows[i] || {}; if (v === '' || v == null || (Array.isArray(v) && !v.length)) delete rows[i][k]; else rows[i][k] = v; tidyCard(rows[i]); ANS[id] = rows; PENDING[id] = rows; delete FROM[id]; if (quiet) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
+function formOfItem(id){ for (const k of Object.keys(FORMS)) if ((FORMS[k].sections || []).some((x) => (x.items || []).some((i) => i.id === id))) return k; return null; }
 function typeCard(el){ setCard(el.dataset.id, +el.dataset.i, el.dataset.k, el.value, true); }
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 function monthToYm(v){ const m = /^([A-Za-z]+) (\d{4})$/.exec(String(v || '').trim()); if (!m) return ''; const n = MONTHS.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()); return n < 0 ? '' : m[2] + '-' + String(n + 1).padStart(2, '0'); }
@@ -527,6 +528,8 @@ async function sign(form){
   const fx = FORMS[form] || {};
   if (fx.choices && !fx.choices.options.some((o) => o.id === HCHOICE)) { e.style.display = 'block'; e.textContent = 'Please choose your answer about the hepatitis B vaccine first.'; BUSY = false; btn.disabled = false; btn.textContent = 'Sign and continue'; return; }
   if (fx.decline && HCHOICE === fx.decline.choice && !HDECL) { e.style.display = 'block'; e.textContent = 'Please tick that you agree to sign the declination statement.'; BUSY = false; btn.disabled = false; btn.textContent = 'Sign and continue'; return; }
+  /* FIX 5: filled-in answers for this form go with it, even when the form only applied later (the driving form) */
+  for (const id of Object.keys(FROM)) if (ANS[id] !== undefined && formOfItem(id) === form && !(id in PENDING)) PENDING[id] = ANS[id];
   try { await flush(); r = await call({ action: 'sign', form, typed_name: name, consent: true, initials: ANS.initials, ...(fx.choices ? { choice: HCHOICE, decline_consent: HDECL } : {}) }); }
   catch (err) { return failed('We could not reach Caring Companions, so this form is not signed yet. Your answers are kept on this page. Check your connection and tap the button again.'); }
   if (r.status !== 200 && r.j && r.j.already) {
@@ -556,7 +559,12 @@ async function init(){
   if (r.status !== 200) return dead((r.j && r.j.error) || 'This link is not valid or has run out.');
   V = r.j; FORMS = {}; for (const f of V.forms) FORMS[f.key] = f; planFromServer();
   ANS = V.answers || {}; SIGS = V.signatures || {}; IDENT = V.identity || {}; HPROOF = V.hepb_proof_link || '';
-  for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; }
+  /* STEP 1 EASIER, FIX 5 (2026-11-07): what the application and interview already told us is filled in AND saved, so it counts
+     when they sign (before this it was only shown, and signing asked for it again). Only for forms not signed yet; they see
+     each one marked "from your application" or "from your interview" and can change it. */
+  const filled = {};
+  for (const [id, p] of Object.entries(V.prefill || {})) if (ANS[id] === undefined) { ANS[id] = p.value; FROM[id] = p.from; const fk = formOfItem(id); if (fk && !SIGS[fk]) filled[id] = p.value; }
+  if (!REVIEW && !PREVIEW && Object.keys(filled).length) { PENDING = { ...filled, ...PENDING }; setTimeout(flush, 0); }
   if (REVIEW) { SCREEN = q.get('screen') && ORDER.includes(q.get('screen')) ? q.get('screen') : '1'; render(); if (location.hash === '#reveal') { const bx = document.getElementById('rvBox'); if (bx) { bx.scrollIntoView({ block: 'center' }); const rs = document.getElementById('rv_reason'); if (rs) rs.focus({ preventScroll: true }); } } return; }
   /* 2026-10-13 (Samantha): reopening the link goes straight to the FIRST form not signed yet (signed forms stay signed) */
   SCREEN = V.completed_at ? '9' : (!V.esign_consent_at ? '1' : (ORDER.includes(V.current_screen) && V.current_screen !== '1' ? V.current_screen : '2'));
