@@ -313,11 +313,11 @@
       + '<td><div class="opb-name">' + esc(title) + '</div><div class="opb-sub">' + esc(WHO[r.who]) + ' · ' + esc(kindWord) + '</div></td>'
       + '<td>' + esc(String(what).slice(0, 220)) + (it.detail && what !== it.detail ? '<div class="opb-sub">“' + esc(String(it.detail).slice(0, 160)) + '”</div>' : '') + '</td>'
       + '<td><span class="opb-need' + (r.need === 'care' ? ' care' : '') + '">' + esc(NEED[r.need]) + '</span></td>'
-      + '<td>' + ownerCell + '</td><td>' + whenCell + '</td><td style="font-variant-numeric:tabular-nums;">' + esc(waited(r.since, now)) + '</td>'
+      + '<td>' + ownerCell + '</td><td>' + whenCell + '</td><td style="font-variant-numeric:tabular-nums;">' + esc(waited(r.since, now)) + (W.CT ? '<div>' + W.CT.badge(r.id) + '</div>' : '') + '</td>'
       + '<td><button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button></td>'
       + '<td id="opbmv_' + id + '"><button class="ghost" onclick="opsWaitOpen(\'' + id + '\',\'opbmv_' + id + '\')">Later this week</button></td>'
       + '<td id="opbdn_' + id + '">' + (closes ? '<button class="ghost" onclick="opsClose(\'' + id + '\',\'opbdn_' + id + '\')">Done</button>' : '') + '</td></tr>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + '</td></tr>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
     return h;
   }
   function cleanHtml(all){
@@ -414,10 +414,10 @@
     let h = '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + (r.dupe ? ' · also on a call card' : '') + '</span></div>'
       + '<div class="opl-what">' + esc(String(what).slice(0, 200)) + (it.next_action && !fu ? '<div class="opl-sub">' + esc(String(it.next_action).slice(0, 140)) + '</div>' : '') + '</div>'
       + '<div class="opl-t' + (long ? ' long' : '') + '">' + esc(waited(r.since, now)) + '</div>'
-      + '<div class="opl-btns">' + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
+      + '<div class="opl-btns">' + (W.CT ? W.CT.badge(r.id) : '') + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
       + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button>'
       + (!/^(journey|project)$/.test(lc(it.kind)) ? '<span id="opldn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'opldn_' + id + '\')">Done</button></span>' : '') + '</div></div>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + '</div>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</div>';
     return h;
   }
   /* the pieces of the new layout, from the same rows the table uses (pure enough to test in the page) */
@@ -445,6 +445,7 @@
     let h = '';
     if(!lanesOn(settings())) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>New layout, practice.</b> Only you see it; everyone else sees the table. '
       + 'When it looks right, turn on "Operations Board: new layout" on the Owners Hub Admin page. <button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(false)">Back to the table</button></div>';
+    if(W.CT) h += W.CT.strip();   /* card conversations (card-threads.js): For you on top */
     h += weekHtml(now);
     const oldestW = M.wait.length ? waited(M.wait[0].since, now) : '';
     h += '<div class="opl-tiles">'
@@ -486,6 +487,7 @@
       + 'When the rows look right, turn on Operations Board on the Owners Hub Admin page.</div>';
     if(owner()) h += '<div class="field-note" style="margin:0 0 10px;"><b>New:</b> people waiting on us first, care today, routine work in batches, and open shifts for the week. '
       + '<button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(true)">Try the new layout</button> (only you see it)</div>';
+    if(W.CT) h += W.CT.strip();   /* card conversations (card-threads.js): For you on top */
     h += tiles(all) + menus(all) + cleanHtml(all);
     if(window.CFU && !(settings().cc_followups_live === true)) h += '<div class="field-note" style="margin:0 0 8px;">Calls and texts from Follow-ups join this board as rows once Follow-ups is turned on.</div>';
     h += '<div class="field-note" style="margin:0 0 6px;">' + shown.length + ' of ' + all.length + ' open'
