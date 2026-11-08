@@ -207,6 +207,12 @@ function confirmerButtons(){
   return btns.length ? '<div class="note" style="margin-top:10px">One tap: the people who saw your family or private-client care</div>' + btns.join('') : '';
 }
 /* 2026-10-11: a card per job, family-care entry and reference. Typing saves quietly; a tap redraws in place. */
+/* The "have these ready" list on the welcome screen (piece 1); the link and reminder texts carry a short form of it. */
+const HAVE_READY = [
+  'Your recent jobs, especially any caregiving jobs: the company, about when you started and left, and a supervisor\'s phone number',
+  'Your work and personal references, with a phone number for each',
+  'Your Social Security number',
+  'If you will drive clients: your driver\'s license and auto insurance card, to take a photo of each'];
 const NOUN = { jobs: 'Job', family_care: 'Care', professional_refs: 'Professional reference', personal_refs: 'Personal reference', backup_refs: 'Backup reference' };
 function cardsHtml(it, locked){
   const rows = Array.isArray(ANS[it.id]) ? ANS[it.id] : [];
@@ -253,7 +259,11 @@ function screenHtml(s){
   if (REVIEW && (s === '1' || s === '9')) return h + reviewSummary(s);
   if (s === '1') {
     const w = V.who;
-    h += '<h1>Welcome, ' + esc(w.first) + '!</h1>' + (window.ARoad ? ARoad.html(3) : '') + '<p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms, about 15 minutes. It saves as you go, so you can stop and come back any time with this same link.</p>';
+    h += '<h1>Welcome, ' + esc(w.first) + '!</h1>' + (window.ARoad ? ARoad.html(3) : '') + '<p class="lede">Your offer for <b>' + esc(w.position) + '</b> is signed. Step 1 is your new-hire paperwork, done right here: ' + V.form_count + ' short forms. It saves as you go, so you can stop and come back any time with this same link.</p>';
+    /* HAVE THESE READY (Samantha 2026-11-07, Step 1 easier plan, piece 1): people leave Step 1 to go find details, so list
+       them first. HER RULE: say nothing about how long Step 1 takes. No counts here, so the reference change (piece 4) needs
+       no new wording. */
+    if (!V.completed_at) h += '<div class="doc" id="haveReady"><h3>Before you start, have these handy</h3><ul style="padding-left:20px;margin:0 0 4px">' + HAVE_READY.map((x) => '<li style="margin:0 0 6px">' + esc(x) + '</li>').join('') + '</ul></div>';
     h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals || (!ANS[f.when.id] && V.forms.find((x) => x.when && x.when.id === f.when.id) === f)).map((f) => '<li style="margin:0 0 6px">' + esc(f.when && !ANS[f.when.id] ? 'Driver or Non-Driver Agreement (you choose on the driving screen)' : f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
     if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
     else h += '<button class="go" onclick="go(\'' + (nextScreen() || '2') + '\')">' + (V.completed_at ? 'See your signed copies' : 'Continue where I left off') + '</button>';
