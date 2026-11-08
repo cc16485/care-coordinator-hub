@@ -19,12 +19,13 @@
   h1{font-size:23px;line-height:1.25;color:var(--navy);margin:12px 0 6px;letter-spacing:-.02em;} h2.ft{font-size:19px;color:var(--navy);margin:14px 0 4px}
   .lede{font-size:16px;margin:0 0 14px;} .prog{display:flex;align-items:center;gap:10px;margin:6px 0 14px;font-size:12.5px;color:var(--muted);font-weight:600}
   .bar{flex:1;height:8px;background:#EEE9DF;border-radius:6px;overflow:hidden} .bar i{display:block;height:100%;background:var(--gold);border-radius:6px}
+  .optsec{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0 6px} .doc .optsec h3{margin:0} .optsec .opt{font-weight:500;text-transform:none;letter-spacing:0;color:var(--muted)}
   .doc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 16px 6px;margin-bottom:14px;font-size:16px;}
   .doc h3{font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold-text);margin:14px 0 6px;} .doc h3:first-child{margin-top:0}
   .doc p{margin:0 0 10px;} .doc .small{font-size:12.5px;color:var(--muted);margin:0 0 10px;}
   .item{margin:0 0 14px} label.q{display:block;font-size:15px;font-weight:600;color:var(--text);margin:0 0 6px;} .note{font-size:12.5px;color:var(--muted);margin:-2px 0 6px}
   .from{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--gold-text);background:#FFF7ED;border:1px solid #FCD9A8;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
-  input[type=text],input[type=number],input[type=date],input[type=tel],input[type=email],select,textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;} input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  input[type=text],input[type=number],input[type=date],input[type=month],input[type=tel],input[type=email],select,textarea{width:100%;font:inherit;font-size:17px;padding:11px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;} input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);outline-offset:1px;}
   /* 2026-10-11 (Samantha: "its hard to click these"): the answer buttons fill the row and are a full thumb tall */
   .seg{display:flex;flex-wrap:wrap;gap:8px} .seg button{flex:1 1 auto;min-width:120px;min-height:50px;font:inherit;font-size:16px;font-weight:600;padding:12px 16px;border:1.5px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;color:var(--text);touch-action:manipulation} .seg button.on{background:var(--navy);color:#fff;border-color:var(--navy)}
   .chk{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0;cursor:pointer} .chk input{width:22px;height:22px;margin:2px 0 0;flex:none;accent-color:var(--gold)}
@@ -239,11 +240,21 @@ function fieldHtml(it, i, f, r, locked){
     case 'multi': case 'lifts': body = (f.options || []).map((o) => box(o, o, (v || []).includes(o))).join(''); break;
     case 'skills': body = (V.skill_groups || []).map((g) => '<div class="sg">' + esc(g.h) + '</div>' + g.skills.map(([k, l]) => box(k, l, (v || []).includes(k))).join('')).join(''); break;
     case 'refresher': body = tasks.map((k) => box(k, (V.skills || {})[k] || k, (v || []).includes(k))).join('') + box('none', 'No, I am ready for all of these', (v || []).includes('none')); break;
+    /* STEP 1 EASIER, PIECE 3 (2026-11-07): a month and year picker, saved as words ("March 2019") like before; "still working
+       here" is a tick box; a date typed before the picker existed stays an ordinary box */
+    case 'month': {
+      const still = f.still && v === f.still, ym = monthToYm(v);
+      if (v && !still && !ym) { body = '<input type="text"' + at + ' value="' + esc(v) + '" oninput="typeCard(this)"' + dis + '>'; break; }
+      body = (still ? '' : '<input type="month"' + at + ' value="' + esc(ym || '') + '" max="' + new Date().toISOString().slice(0, 7) + '" onchange="pickMonth(this)"' + dis + '>')
+        + (f.still ? '<label class="chk"><input type="checkbox"' + at + (still ? ' checked' : '') + ' onchange="stillMonth(this,\'' + jsq(f.still) + '\')"' + dis + '><span>' + esc(f.still.charAt(0).toUpperCase() + f.still.slice(1)) + '</span></label>' : '');
+      break;
+    }
     default: body = '<input type="' + (f.kind === 'tel' ? 'tel' : f.kind === 'email' ? 'email' : 'text') + '"' + (f.kind === 'tel' ? ' inputmode="tel" autocomplete="off"' : f.kind === 'email' ? ' inputmode="email" autocomplete="off"' : '') + at + ' value="' + esc(v ?? '') + '" oninput="typeCard(this)"' + dis + '>';
   }
   return '<div class="fl">' + lab + body + '</div>';
 }
 function cardSeg(id, i, k, pairs, v, locked){ return '<div class="seg">' + pairs.map(([val, lab]) => '<button type="button" class="' + (v === val ? 'on' : '') + '" onclick="setCard(\'' + id + '\',' + i + ',\'' + k + '\',\'' + jsq(val) + '\')"' + (locked ? ' disabled' : '') + '>' + esc(lab) + '</button>').join('') + '</div>'; }
+const SCHOOL_SECS = ['High School', 'Vocational / Technical', 'College / University'], OPEN_SEC = {};
 function screenHtml(s){
   const P = PLAN[s]; const n = ORDER.length;
   /* 2026-10-13: "Form 4 of 12", counted over the forms THEY sign (the Driver or the Non-Driver Agreement, not both) */
@@ -298,6 +309,11 @@ function screenHtml(s){
   for (const i of secs) {
     const sec = f.sections[i];
     if (sec.tone === 'cheer') { h += '<div class="cheer"><h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + linkify(esc(p)) + '</p>').join('') + '</div>'; continue; }
+    /* STEP 1 EASIER, PIECE 3 (2026-11-07): the three school sections are optional (none of their questions is required), so
+       each is one line with an Add button until they open it or have answered it */
+    if (SCHOOL_SECS.includes(sec.h) && !locked && !REVIEW && !OPEN_SEC[sec.h] && (sec.items || []).every((it) => !it.required && (ANS[it.id] == null || ANS[it.id] === ''))) {
+      h += '<div class="optsec"><h3>' + esc(sec.h) + ' <span class="opt">(optional)</span></h3><button type="button" class="mini" onclick="OPEN_SEC[\'' + jsq(sec.h) + '\']=1;render()">Add</button></div>'; continue;
+    }
     h += '<h3>' + esc(sec.h) + '</h3>' + (sec.p || []).map((p) => '<p>' + linkify(esc(p)) + '</p>').join('') + (sec.tip ? '<div class="tip">' + esc(sec.tip) + '</div>' : '');
     for (const it of sec.items || []) { if (SHOW[it.id] && !SHOW[it.id](ANS)) continue; h += itemHtml(it, locked); }
   }
@@ -452,6 +468,11 @@ const cardRows = (id) => (Array.isArray(ANS[id]) ? ANS[id] : []).map((r) => (r &
 function tidyCard(r){ const t = Array.isArray(r.tasks) ? r.tasks : []; if (Array.isArray(r.refresher)) { r.refresher = r.refresher.filter((k) => k === 'none' || t.includes(k)); if (!r.refresher.length) delete r.refresher; } if (!t.includes('hoyer_lift')) delete r.lifts; }
 function setCard(id, i, k, v, quiet){ const rows = cardRows(id); rows[i] = rows[i] || {}; if (v === '' || v == null || (Array.isArray(v) && !v.length)) delete rows[i][k]; else rows[i][k] = v; tidyCard(rows[i]); ANS[id] = rows; PENDING[id] = rows; delete FROM[id]; if (quiet) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 800); } else { flush(); render(); } }
 function typeCard(el){ setCard(el.dataset.id, +el.dataset.i, el.dataset.k, el.value, true); }
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+function monthToYm(v){ const m = /^([A-Za-z]+) (\d{4})$/.exec(String(v || '').trim()); if (!m) return ''; const n = MONTHS.findIndex((x) => x.toLowerCase() === m[1].toLowerCase()); return n < 0 ? '' : m[2] + '-' + String(n + 1).padStart(2, '0'); }
+function ymToMonth(ym){ const m = /^(\d{4})-(\d{2})$/.exec(ym || ''); return m ? MONTHS[+m[2] - 1] + ' ' + m[1] : ''; }
+function pickMonth(el){ setCard(el.dataset.id, +el.dataset.i, el.dataset.k, ymToMonth(el.value)); }
+function stillMonth(el, still){ setCard(el.dataset.id, +el.dataset.i, el.dataset.k, el.checked ? still : ''); }
 function tickCard(el){ const { id, k } = el.dataset, i = +el.dataset.i; const r = cardRows(id)[i] || {}; let cur = new Set(Array.isArray(r[k]) ? r[k] : []); if (el.checked) cur.add(el.value); else cur.delete(el.value); if (k === 'refresher') { if (el.value === 'none' && el.checked) cur = new Set(['none']); else if (el.checked) cur.delete('none'); } setCard(id, i, k, [...cur]); }
 function addCard(id){ const rows = cardRows(id); rows.push({}); ANS[id] = rows; render(); }
 function delCard(id, i){ if (!confirm('Remove ' + (NOUN[id] || 'this').toLowerCase() + ' ' + (i + 1) + '?')) return; const rows = cardRows(id).filter((_, k) => k !== i); ANS[id] = rows; PENDING[id] = rows; flush(); render(); }
