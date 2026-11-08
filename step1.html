@@ -263,6 +263,7 @@ function screenHtml(s){
     /* HAVE THESE READY (Samantha 2026-11-07, Step 1 easier plan, piece 1): people leave Step 1 to go find details, so list
        them first. HER RULE: say nothing about how long Step 1 takes. No counts here, so the reference change (piece 4) needs
        no new wording. */
+    if (SIGS.reference_consent) h += laterRefsBox();
     if (!V.completed_at) h += '<div class="doc" id="haveReady"><h3>Before you start, have these handy</h3><ul style="padding-left:20px;margin:0 0 4px">' + HAVE_READY.map((x) => '<li style="margin:0 0 6px">' + esc(x) + '</li>').join('') + '</ul></div>';
     h += '<div class="doc"><h3>What Step 1 covers</h3><ul style="padding-left:20px;margin:0 0 10px">' + V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals || (!ANS[f.when.id] && V.forms.find((x) => x.when && x.when.id === f.when.id) === f)).map((f) => '<li style="margin:0 0 6px">' + esc(f.when && !ANS[f.when.id] ? 'Driver or Non-Driver Agreement (you choose on the driving screen)' : f.title) + (SIGS[f.key] ? ' <span style="color:var(--green);font-weight:700">✓ signed</span>' : '') + '</li>').join('') + '</ul><p class="small">For your background checks, one form asks for your Social Security number and date of birth. They are kept encrypted on our server, seen only by the office person who orders your checks, and every look is logged. Your record will show only "on file, ending" with the last four digits.</p></div>';
     if (!V.esign_consent_at) h += '<div class="signbox"><h3>Signing electronically</h3><label class="chk"><input type="checkbox" id="esign"><span>I agree to complete and sign my Step 1 paperwork electronically, and I understand my typed name on each form has the same effect as my handwritten signature. I can ask the office for paper copies at any time.</span></label><button class="go" onclick="begin()">Begin Step 1</button><div class="err" id="e_begin"></div></div>';
@@ -273,6 +274,7 @@ function screenHtml(s){
   if (s === '9') {
     h += '<h1>All done, ' + esc(V.who.first) + '.</h1>' + (window.ARoad ? ARoad.html(4) : '') + '<p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
     if (HPROOF) h += proofBox();
+    h += laterRefsBox();
     h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
     setTimeout(loadCopies, 50);
     if (PREVIEW) h += '<div class="pnote"><b>What happens next:</b> ' + esc(NEXT_NOTE['9']) + '</div>';
@@ -395,6 +397,45 @@ const when = (iso) => iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'A
 /* 2026-10-11 (Samantha: "every single form pops to the top after each answer"): an answer redraws the screen where you are;
    only moving to another screen starts at the top. */
 let SHOWN = null;
+/* ───── STEP 1 EASIER, PIECE 4 (Samantha 2026-11-07): sign the references with two (one professional) and add the last one
+   later on this same link. The server puts it straight on the office's record (add_reference); the signed form never changes. ───── */
+const usableRefL = (x) => !!(x && String(x.name || '').trim() && (String(x.phone || '').trim() || String(x.email || '').trim()) && x.may_contact === 'yes');
+function refsOwedLocal(){
+  const req = V.references_required || { professional: 2, personal: 1 }, n = (v) => (Array.isArray(v) ? v : []).filter(usableRefL).length;
+  const pro = n(ANS.professional_refs), per = n(ANS.personal_refs);
+  if (ANS.no_employer_history === 'yes') return { professional: 0, personal: 0, any: Math.max(0, req.professional + req.personal - pro - per) };
+  return { professional: Math.max(0, req.professional - pro), personal: Math.max(0, req.personal - per), any: 0 };
+}
+let LATER_KIND = 'professional', LATER_DONE = '';
+function laterRefsBox(){
+  const o = V.refs_owed; if (!o) return LATER_DONE ? '<div class="okmsg" id="laterOk">Thank you, we added ' + esc(LATER_DONE) + '. We have the references we need.</div>' : '';
+  const total = (o.professional || 0) + (o.personal || 0) + (o.any || 0);
+  if (!total) return LATER_DONE ? '<div class="okmsg" id="laterOk">Thank you, we added ' + esc(LATER_DONE) + '. We have the references we need.</div>' : '';
+  const kind = o.professional ? 'professional' : o.personal ? 'personal' : LATER_KIND, pro = kind === 'professional';
+  const what = (o.professional ? [o.professional + ' professional reference' + (o.professional > 1 ? 's' : '') + ' (a supervisor or manager)'] : []).concat(o.personal ? [o.personal + ' personal reference (a friend, co-worker, past client, pastor or similar, not a relative)'] : []).concat(o.any ? [o.any + ' more reference' + (o.any > 1 ? 's' : '')] : []).join(' and ');
+  const inp = (id, label, type) => '<div class="item"><label class="q" for="' + id + '">' + esc(label) + '</label><input type="' + (type || 'text') + '" id="' + id + '"></div>';
+  let h = '<div class="doc" id="laterRefs"><h3>' + (total === 1 ? 'Add your last reference' : 'Add your last ' + total + ' references') + '</h3>'
+    + (LATER_DONE ? '<p class="okmsg">Thank you, we added ' + esc(LATER_DONE) + '.</p>' : '')
+    + '<p>We still need ' + esc(what) + '. Add it here whenever you have it; it goes straight to the office.</p>';
+  if (o.any) h += '<div class="item"><label class="q">Professional or personal?</label><div class="seg"><button type="button" class="' + (pro ? 'on' : '') + '" onclick="LATER_KIND=\'professional\';render()">Professional</button><button type="button" class="' + (!pro ? 'on' : '') + '" onclick="LATER_KIND=\'personal\';render()">Personal</button></div></div>';
+  h += inp('lr_name', 'Full name') + (pro ? inp('lr_company', 'Company') + inp('lr_role', 'Their role') : inp('lr_rel', 'How you know them')) + inp('lr_phone', 'Their phone', 'tel') + inp('lr_email', 'Their email', 'email')
+    + '<div class="item"><label class="q">May we contact them?</label><div class="seg" id="lr_may"><button type="button" onclick="laterMay(this,\'yes\')">Yes</button><button type="button" onclick="laterMay(this,\'no\')">No</button></div></div>'
+    + '<button class="go" id="lr_go" onclick="addLater(\'' + kind + '\')">Add this reference</button><div class="err" id="e_later"></div></div>';
+  return h;
+}
+let LATER_MAY = '';
+function laterMay(btn, v){ LATER_MAY = v; for (const b of btn.parentNode.children) b.classList.toggle('on', b === btn); }
+async function addLater(kind){
+  if (BUSY) return;
+  const g = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; }, e = document.getElementById('e_later'), btn = document.getElementById('lr_go');
+  const ref = { name: g('lr_name'), phone: g('lr_phone'), email: g('lr_email'), may_contact: LATER_MAY, ...(kind === 'professional' ? { company: g('lr_company'), role: g('lr_role') } : { relationship: g('lr_rel') }) };
+  for (const k of Object.keys(ref)) if (!ref[k]) delete ref[k];
+  BUSY = true; btn.disabled = true; btn.textContent = 'Adding…';
+  let r; try { r = await call({ action: 'add_reference', kind, ref }); } catch (err) { r = { status: 0, j: { error: 'We could not reach Caring Companions. Check your connection and tap the button again.' } }; }
+  BUSY = false;
+  if (r.status !== 200 || !r.j.ok) { btn.disabled = false; btn.textContent = 'Add this reference'; e.style.display = 'block'; e.textContent = (r.j && r.j.error) || 'That did not save. Please try again.'; return; }
+  LATER_DONE = ref.name; LATER_MAY = ''; V.refs_owed = r.j.refs_owed || null; render();
+}
 function render(){ const same = SHOWN === SCREEN, y = window.scrollY; main().innerHTML = screenHtml(SCREEN); window.scrollTo(0, same ? y : 0); SHOWN = SCREEN; }
 function go(s){ SCREEN = s; render(); if (!REVIEW) save({}, s); }
 
@@ -477,6 +518,7 @@ async function sign(form){
   BUSY = false;
   if (r.status !== 200) return failed((r.j && r.j.error) || 'This form is not signed yet. Your answers are kept. Tap the button to try again.');
   SIGS[form] = { at: r.j.signed_at, typed_name: name, version: r.j.version };
+  if (form === 'reference_consent') V.refs_owed = refsOwedLocal();
   if (r.j.proof_link) HPROOF = r.j.proof_link;
   if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
 }
@@ -622,6 +664,13 @@ async function previewCall(b){
     if (r.j.missing.length) return { status: 400, j: { error: 'Please answer these first: ' + r.j.missing.join('; ') + '.' } };
     PSIGN[b.form] = true; const done = V.order.every((k) => !applies(k) || k === b.form || SIGS[k]);
     return ok({ form: b.form, signed_at: new Date().toISOString(), version: FORMS[b.form].version, pdf: true, done, signed_count: Object.keys(SIGS).length + 1, form_count: V.form_count });
+  }
+  if (b.action === 'add_reference') {
+    const x = b.ref || {}, o = V.refs_owed || { professional: 0, personal: 0, any: 0 };
+    if (!String(x.name || '').trim() || !(String(x.phone || '').trim() || String(x.email || '').trim())) return { status: 400, j: { error: 'Please fill in: the name, and a phone or an email' } };
+    if (x.may_contact !== 'yes') return { status: 400, j: { error: 'We can only use a reference we may contact. Please add someone we may contact.' } };
+    const left = { ...o }; if (left[b.kind] > 0) left[b.kind]--; else if (left.any > 0) left.any--; else return { status: 409, j: { error: 'Thank you, we already have the references we need.' } };
+    return ok({ slot: 3, refs_owed: left });
   }
   return { status: 400, j: { error: 'Not in the preview.' } };
 }
