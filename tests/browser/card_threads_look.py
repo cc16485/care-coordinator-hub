@@ -73,9 +73,12 @@ SETUP = r"""async(mode)=>{
 OWNER = r"""async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const W=()=>document.getElementById('myWorkWrap').innerText;
+  const tb=()=>{ const e=document.getElementById('ctTodayBadge'); return e && e.style.display!=='none' ? e.innerText : ''; }, bb=()=>[...document.querySelectorAll('.ct-bell')].map(x=>x.innerText).join('|');
+  ok('off: no 💬 alert on the Today tab or the Board tab', tb()==='' && bb()==='', [tb(), bb()]);
   ok('off: nothing loads, no For you, no 💬; owners see "Try card conversations"', !document.getElementById('ctForYou') && !/💬/.test(W()) && /Try card conversations/.test(W()) && !window.__rpc.length, W().slice(0,300));
   CT.tryIt(true); await sleep(200);
   ok('trying it: the practice note says only owners who try it see it and points to the Admin page', /Card conversations, practice/.test(W()) && /Owners Hub Admin page/.test(W()), W().slice(0,400));
+  ok('the alert (pick 2, Hub only): 💬 3 on the Today tab, seen from anywhere in the Hub, and on the Board tab', tb()==='💬 3' && bb()==='💬 3', [tb(), bb()]);
   const fy=document.getElementById('ctForYou'), ft=fy?fy.innerText:'';
   ok('For you: 3 waiting on you, the late task first, then the question, then the mention', /For you\s*3/.test(ft)
     && [...fy.querySelectorAll('.ct-fi')].map(x=>x.getAttribute('data-card')).join(',')==='fu_2,fu_1,fu_3', ft);
@@ -125,6 +128,8 @@ OWNER = r"""async()=>{
   await opsClose('fu_1', 'opldn_fu_1'); await sleep(80);
   ok('Done with a task still open asks "Close the card anyway?" and No keeps it open', window.__asked.some(m=>/Krystal hasn't completed "Tell her yes/.test(m) && /Close the card anyway\?/.test(m)) && (DATA.ops_items.find(i=>i.id==='fu_1')||{}).status===before, window.__asked);
   const n=window.__asked.length; window.__yes=true;
+  await sleep(50); const fyn=(document.querySelector('#ctForYou .ct-n')||{}).innerText;
+  ok('after answering and completing, the 💬 alert matches For you ('+fyn+')', tb()===('💬 '+fyn) && (bb()===''||bb()===('💬 '+fyn)) || (fyn==='0' && tb()===''), [fyn, tb(), bb()]);
   window.scrollTo(0,0);
   return R; }"""
 STAFF = r"""async()=>{
@@ -132,6 +137,8 @@ STAFF = r"""async()=>{
   const W=()=>document.getElementById('myWorkWrap').innerText;
   await sleep(150);
   const ft=(document.getElementById('ctForYou')||{}).innerText||'';
+  const tb=()=>{ const e=document.getElementById('ctTodayBadge'); return e && e.style.display!=='none' ? e.innerText : ''; }, bb=()=>[...document.querySelectorAll('.ct-bell')].map(x=>x.innerText).join('|');
+  ok('switched on: Krystal\'s Today tab shows 💬 1 for Samantha\'s question', tb()==='💬 1', tb());
   ok('switched on: Krystal gets For you with Samantha\'s question, no practice note, no Try link', /For you\s*1/.test(ft) && /Can you check his Monday shifts/.test(ft) && !/practice/.test(W()) && !/Try card conversations/.test(W()), ft);
   ok('...she is waiting on Samantha for her question about Example: Dana P.', /You are waiting on: Samantha \(Example: Dana P\.\)/.test(ft), ft);
   CT.go('fu_3'); await sleep(150);
@@ -169,8 +176,8 @@ with sync_playwright() as pw:
     pg = page(); pg.evaluate(SETUP, 'staff'); R += pg.evaluate(STAFF); pg.screenshot(path=SHOTS + 'staff.png', full_page=True)
     pg = page(); pg.evaluate(SETUP, 'ownerTable'); pg.evaluate("()=>CT.tryIt(true)"); R += pg.evaluate(TABLE, 'fu_1')
     pg = page(); pg.evaluate(SETUP, 'staffOff')
-    off = pg.evaluate("()=>({ fy:!!document.getElementById('ctForYou'), tr:/Try card conversations/.test(document.getElementById('myWorkWrap').innerText), rpc:window.__rpc.length })")
-    R.append(['PASS' if not off['fy'] and not off['tr'] and not off['rpc'] else 'FAIL', 'switched off: a coordinator sees nothing new and nothing is read', off])
+    off = pg.evaluate("()=>({ bell:(document.getElementById('ctTodayBadge')||{style:{}}).style.display!=='none' || !!document.querySelector('.ct-bell'), fy:!!document.getElementById('ctForYou'), tr:/Try card conversations/.test(document.getElementById('myWorkWrap').innerText), rpc:window.__rpc.length })")
+    R.append(['PASS' if not off['fy'] and not off['tr'] and not off['rpc'] and not off['bell'] else 'FAIL', 'switched off: a coordinator sees nothing new and nothing is read', off])
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 srv.shutdown()
 for st, n, d in R: print(st + '  ' + n + ('' if st == 'PASS' else '  ' + str(d)))

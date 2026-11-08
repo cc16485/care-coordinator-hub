@@ -103,7 +103,7 @@
   const cardOf = id => (D().ops_items || []).find(i => i && i.id === id);
   const whenWord = v => { const t = ms(v); if(t == null) return ''; try{ return typeof W.callsFmtWhen === 'function' ? W.callsFmtWhen(v) : new Date(t).toLocaleString('en-US', { month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
   const onBoard = () => { try{ return typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'board'; }catch(e){ return false; } };
-  function redraw(){ try{ if(onBoard() && typeof W.renderMyWork === 'function') W.renderMyWork(); }catch(e){} }
+  function redraw(){ try{ bell(); }catch(e){} try{ if(onBoard() && typeof W.renderMyWork === 'function') W.renderMyWork(); }catch(e){} }
 
   /* ── reading ── */
   async function load(force){
@@ -121,9 +121,26 @@
     }catch(e){
       S.err = /card_messages|does not exist|relation/i.test(String(e && e.message)) ? 'Card conversations are not set up on the server yet (Desktop step 1381).' : 'Couldn\'t load card conversations. Check your connection; it tries again in a minute.';
     }
-    S.loading = false; S.loadedAt = Date.now(); redraw();
+    S.loading = false; S.loadedAt = Date.now(); bell(); redraw();
   }
-  setInterval(() => { try{ if(on() && onBoard() && document.visibilityState === 'visible') load(true); }catch(e){} }, 60000);
+  /* The alert (pick 2, Hub only, never a text): how many questions, tasks and new mentions wait on me, shown as a 💬 count
+     on the Today tab from anywhere in the Hub and on the Board tab. Refreshes every minute on the board, every 2 minutes elsewhere. */
+  function waiting(){ return on() && meEmail() ? forYou(S.msgs, meEmail(), S.seen, openCard, Date.now()).mine.length : 0; }
+  function bellHtml(){ const n = waiting(); return n ? ' <span class="subtab-badge amber ct-bell" title="' + n + ' waiting on you in card conversations">💬 ' + n + '</span>' : ''; }
+  function bell(){
+    try{
+      const el = document.getElementById('ctTodayBadge'); if(!el) return;
+      const n = waiting();
+      el.textContent = n ? '💬 ' + n : ''; el.style.display = n ? '' : 'none';
+      el.title = n ? n + ' waiting on you in card conversations' : '';
+      document.querySelectorAll('.ct-bell').forEach(b => { if(n){ b.textContent = '💬 ' + n; b.title = el.title; } else b.remove(); });
+    }catch(e){}
+  }
+  setInterval(() => { try{
+    if(!on() || document.visibilityState !== 'visible'){ bell(); return; }
+    if(onBoard() || !S.loadedAt || Date.now() - S.loadedAt > 115000) load(true);
+  }catch(e){} }, 60000);
+  setTimeout(() => { try{ if(on()) load(true); else bell(); }catch(e){} }, 8000);
 
   /* ── drawing ── */
   const CSS = '<style id="ctCss">'
@@ -164,7 +181,7 @@
       return owner() ? '<div class="field-note" style="margin:0 0 10px;"><b>New:</b> conversations on cards. Ask someone a question, give them a task to mark Complete, pin the decision. '
         + '<button class="linklike" style="font:inherit;" onclick="CT.tryIt(true)">Try card conversations</button> (only you see it)</div>' : '';
     }
-    css(); load();
+    css(); load(); setTimeout(bell, 0);   /* keep the 💬 alert in step with For you after every change */
     const now = Date.now(), F = forYou(S.msgs, meEmail(), S.seen, openCard, now);
     let h = '';
     if(!(settings().card_threads_live === true)) h += '<div class="card" style="padding:9px 14px;margin:0 0 10px;background:var(--amber-bg);color:var(--amber);font-size:13px;"><b>Card conversations, practice.</b> Only owners who try it see the conversations; '
@@ -296,6 +313,6 @@
     }catch(e){}
   }
 
-  W.CT = Object.assign({}, CORE, { on, load, badge, strip, thread, post, answer, complete, pin, del, draft, go, state:S, guardClose,
-    tryIt:yes => { ls('ctTry', yes ? '1' : null); S.loadedAt = 0; if(yes) load(true); redraw(); } });
+  W.CT = Object.assign({}, CORE, { on, load, badge, strip, waiting, bell, bellHtml, thread, post, answer, complete, pin, del, draft, go, state:S, guardClose,
+    tryIt:yes => { ls('ctTry', yes ? '1' : null); S.loadedAt = 0; if(yes) load(true); bell(); redraw(); } });
 })(typeof window !== 'undefined' ? window : globalThis);
