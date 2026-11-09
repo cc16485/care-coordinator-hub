@@ -6900,6 +6900,9 @@ The HomeTogether team</pre>
      the first conversation (reached-by.js). Source and Referred By stay as they are. -->
 <div id="leadReachedRow" style="grid-column:1/-1;display:none;"><label>How did they reach us?</label>
 <div id="leadReachedPills" class="rb-pills"></div><input type="hidden" id="lead_reached_by"><span id="leadReachedNote" class="rb-note"></span></div>
+<!-- 2026-11-09 (her monthly content scorecard): what brought them to us, a video, a search, a friend. The choices live in
+     heard-about.js, shared with the Owners Hub Cockpit. Ask it once, near the end of the first call. -->
+<div style="grid-column:1/-1;"><label>How did they hear about us?</label><select id="lead_heard_about"></select></div>
 <div style="grid-column:1/-1;"><label>Referred By</label>
   <!-- Picked from the partners we already keep records on, because a typed
        name is how "Mercy", "Mercy Hospital" and "mercy hosp" become three
@@ -7577,6 +7580,7 @@ The HomeTogether team</pre>
 <script src="email-library.js?v=1026"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=23"></script>
+<script src="heard-about.js?v=1"></script><script>(function(){ var e=document.getElementById('lead_heard_about'); if(e&&window.HeardAbout) e.innerHTML=HeardAbout.optionsHtml(''); })();</script>
 <script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=2"></script><!-- Speed to lead (2026-10-22, her design): each coordinator's own numbers; 2026-10-26 in the My Desk drawer, no Leads tab --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
 <script src="bonus.js?v=2"></script>
@@ -9839,7 +9843,7 @@ async function aiSuggestBranch(){
 const LEAD_FIELDS=[
   ['first_name','lead_first_name','text'], ['last_name','lead_last_name','text'], ['phone','lead_phone','text'],
   ['email','lead_email','text'], ['relationship','lead_relationship','text'], ['source','lead_source','raw','Phone'],
-  ['referral_org_id','lead_referral_org_id','org'], ['referral_source_name','lead_referral_source_name','text'], ['referral_subtype','lead_referral_subtype','raw',''],
+  ['referral_org_id','lead_referral_org_id','org'], ['referral_source_name','lead_referral_source_name','text'], ['referral_subtype','lead_referral_subtype','raw',''], ['heard_about','lead_heard_about','raw',''],
   ['client_name_not_provided','lead_client_name_not_provided','check'],
   ['client_first_name','lead_client_first_name','text'], ['client_last_name','lead_client_last_name','text'],
   ['client_dob','lead_client_dob','raw'], ['client_gender','lead_client_gender','raw'],
@@ -36039,7 +36043,7 @@ function cpRenderCommand(){
      fields a person saves. */
 const LPI_FORBIDDEN=['status','assigned_coordinator','axiscare_client_id','funding_source','intent_tags','follow_up_branch',
   'follow_up_due','last_contacted_at','dcn','county','state_submitted','state_status','price_quoted','quoted_price_amount'];
-const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name','referral_subtype'];
+const LPI_CALLER=['first_name','last_name','phone','email','relationship','source','referral_org_id','referral_source_name','referral_subtype','heard_about'];
 const LPI_CH=[
   { n:1, key:'found',  t:'How they found us',             secs:['leadSecCaller','leadSecUrgency'], keys:LPI_CALLER.concat(['desired_start_kind','desired_start_date']) },
   { n:2, key:'person', t:'The person who needs care',     secs:['leadSecClient'], keys:['client_name_not_provided','client_first_name','client_last_name','client_dob','client_gender','client_address','client_city','client_state','client_zip','client_phone','marital_status','language'] },
@@ -36966,7 +36970,7 @@ window.addEventListener('beforeunload', ev=>{ if(LPI.editing&&lpiDirty()){ ev.pr
    save, and marks a value that went back to what it was within a day ("changed back": how the
    intake undo bug looked). Nothing here can edit anything. */
 const CLG_LABEL={ first_name:'Caller first name', last_name:'Caller last name', phone:'Caller phone', email:'Caller email', relationship:'Relationship',
-  source:'How they found us', referral_org_id:'Referred by (partner)', referral_source_name:'Referred by', client_name_not_provided:'Client name not given',
+  source:'How they found us', referral_org_id:'Referred by (partner)', referral_source_name:'Referred by', heard_about:'How they heard about us', client_name_not_provided:'Client name not given',
   client_first_name:'Client first name', client_last_name:'Client last name', client_dob:'Date of birth', client_gender:'Gender', client_address:'Street address',
   client_city:'Town', client_state:'State', client_zip:'ZIP', client_phone:'Client phone', marital_status:'Marital status', language:'Language',
   urgency:'Urgency', needs:'Kind of help', weight_bearing:'Bears weight and pivots', level_estimate:'Early level guess', safety:'Safety', mobility:'Mobility',
