@@ -43,7 +43,11 @@ function fakeSb(rows){ return { from(){ let f = rows.slice(); const q = { select
   ok(/cgdAppHalfMount\(axid, String\(j\.application\.record_id\)\)/.test(IDX), 'the hiring history\'s own application link fills it too');
   ok(/\['hiring',\['hire'\]\]/.test(IDX) && /no application on file: no Hiring tab/.test(IDX), 'Hiring tab only when there is an application');
   ok(/HP\.mount\(el,\{ applicant_id:CGD_APP\.id \},\['timeline'\]\)/.test(IDX), 'History uses their application timeline when there is one');
-  ok(cut(IDX, 'function apToldHtml(r){', 'function apRenderProfile(){').includes("'Are you 18 or older?'") && /const told = apToldHtml\(r\), flags = apFlagsHtml\(r\);/.test(IDX), 'one builder for the application answers, used by both pages');
+  ok(cut(IDX, 'function apToldHtml(r){', 'function apRenderProfile(){').includes("'Are you '+apMinAge(r)+' or older?'") && /const told = apToldHtml\(r\), flags = apFlagsHtml\(r\);/.test(IDX), 'one builder for the application answers, used by both pages');
+  { const m = IDX.match(/const AGE21_FROM = '[^']+';\nfunction apMinAge\(r\)\{[^\n]+\}/);
+    const f = m && new Function(m[0] + '; return apMinAge;')();
+    ok(f && f({ created_at:'2026-11-01T15:00:00Z' }) === 18 && f({ created_at:'2026-11-10T15:00:00Z' }) === 21 && f({}) === 21,
+       'age rule: applied before 11-09 keeps 18, new applicants 21 (her rule 11-09)'); }
   ok(!/—/.test(half) && !/New hire — day/.test(IDX), 'no em dashes');
 
   console.log(`person-both-halves: ${pass} passed, ${fail} failed`);
