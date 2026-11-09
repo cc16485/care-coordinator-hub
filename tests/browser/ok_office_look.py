@@ -81,8 +81,8 @@ try:
       window.apBookFor = (id) => { window.__booked = id; }; }""")
     pg.evaluate("apScreenAsk('a-ok-2', 'questions')"); pg.wait_for_timeout(80)
     q = pg.inner_text('#apBookSlots')
-    ok('Ask these first (Oklahoma): 18+, allowed to work, OKSCREEN, driving clients; nothing about a year of experience',
-       'OKSCREEN fingerprint background check' in q and '18 or older' in q and 'Every Companion drives clients' in q and 'reliable transportation' not in q and 'paid caregiving experience' not in q, q)
+    ok('Ask these first (Oklahoma): 21+ for a new applicant, allowed to work, OKSCREEN, driving clients; nothing about a year of experience',
+       'OKSCREEN fingerprint background check' in q and '21 or older' in q and 'Every Companion drives clients' in q and 'reliable transportation' not in q and 'paid caregiving experience' not in q, q)
     pg.evaluate("['age','auth','oks','drv'].forEach(k => document.getElementById('apScrOk_'+k).value = 'yes')")
     pg.evaluate("document.querySelector('#apBookSlots button.primary').click()"); pg.wait_for_timeout(150)
     rpc = pg.evaluate('__rpc')
