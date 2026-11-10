@@ -82,6 +82,32 @@ async()=>{
   ok('Katlin sees the role card, one item per line', /Hold every booked interview/.test(pin()) && /Check the EVV list/.test(pin()) && !/- Check/.test(pin()) && /Notes are on the applicant/.test(pin()) && /Family complaints/.test(pin()), pin());
   ok('Katlin cannot edit the role card', (AFH.settingsFill(), true) && (switchTab('settings'), true) && (AFH.settingsFill(), $('afhEvery').disabled===true));
   switchTab('mywork'); renderMyWork(); await sleep(50);
+  /* ── the recruitment posting log ── */
+  window.__asked=[]; window.ccConfirm=async m=>{ window.__asked.push(m); return true; };
+  as(KT,'Katlin Fake'); switchTab('mywork'); renderMyWork(); await sleep(100);
+  const card=()=>$('rpCard'), cv=(id,v)=>{ const x=card().querySelector('#'+id); x.value=v; };
+  ok('the card has the posting log with where each business sends applicants', !!card() && /findcdscaregivers\.com/.test(card().innerText) && /21 and up/.test(card().innerText) && /No posts logged yet/.test(card().innerText), card()&&card().innerText);
+  await AFH.addPost(card().querySelector('button')); await sleep(30);
+  ok('it asks for the business first, saves nothing', /Pick which business/.test(card().innerText) && !(DATA.recruit_posts||[]).length);
+  cv('rpBiz','cds'); cv('rpWhere','cna_school'); cv('rpPlace','Ozarks Tech CNA program'); cv('rpLink','https://example.com/p1');
+  await AFH.addPost(card().querySelector('button')); await sleep(60);
+  const p1=(DATA.recruit_posts||[])[0]||{};
+  ok('Log this post · saved with who, when, business and place', p1.business==='cds' && p1.where==='cna_school' && p1.place==='Ozarks Tech CNA program' && p1.by===KT && !!p1.at && L.writes.includes('recruit_posts:'+p1.id), p1);
+  ok('it shows on her card', /Ozarks Tech CNA program/.test(card().innerText) && /CDS/.test(card().innerText) && /0 applicants/.test(card().innerText), card().innerText);
+  cv('rpBiz','cds'); cv('rpWhere','cna_school'); cv('rpPlace','  ozarks tech  CNA program'); cv('rpLink','');
+  await AFH.addPost(card().querySelector('button')); await sleep(60);
+  ok('same business, same place within 14 days: she is asked first', window.__asked.length===1 && /Already posted for CDS in Ozarks Tech CNA program/.test(window.__asked[0]) && DATA.recruit_posts.length===2, window.__asked);
+  cv('rpBiz','cc'); cv('rpWhere','cna_school'); cv('rpPlace','Ozarks Tech CNA program');
+  await AFH.addPost(card().querySelector('button')); await sleep(60);
+  ok('another business in the same place is not a repeat', window.__asked.length===1 && DATA.recruit_posts.length===3);
+  await AFH.addReply(p1.id); await AFH.addReply(p1.id); await sleep(30);
+  ok('+1 applicant · counted and saved', p1.replies===2 && p1.replies_by===KT && /2 applicants/.test(card().innerText));
+  as('samantha@mo-care.com','Samantha Troutman'); switchTab('settings'); await sleep(100); AFH.settingsFill();
+  const full=()=>($('rpFull')||{}).innerText||'';
+  ok('Settings · the whole log, who posted, and which places bring applicants', /Which places bring applicants/i.test(full()) && /Ozarks Tech CNA program\s*2 posts, 2 applicants/.test(full()) && /Katlin/.test(full()), full());
+  AFH.logFilter('smn'); await sleep(20);
+  ok('Settings · filter by business', /No posts logged yet/.test(full()));
+  AFH.logFilter('');
   ok('no texts or emails were sent', !L.fn.some(f=>/send|sms|text|email|notify/i.test(f)), L.fn);
   return R;
 }
@@ -116,7 +142,7 @@ with sync_playwright() as pw:
     b, pg, errs = page(pw, '2026-11-09T17:45:00-06:00')
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        pg.evaluate("()=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; DATA.ops_settings.after_hours_role={ every_shift:'Hold every booked interview, or reschedule it\\nCheck the EVV list\\nPost recruiting posts for all three businesses', done_means:'Interview notes are on the applicant\\nEach post is in the posting log', not_yours:'Family complaints\\nPay questions\\nAnything that needs a judgment call' }; (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); switchTab('mywork'); myWorkGo('today'); renderMyWork(); }"); pg.wait_for_timeout(800)
+        pg.evaluate("()=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; DATA.ops_settings.after_hours_role={ every_shift:'Hold every booked interview, or reschedule it\\nCheck the EVV list\\nPost recruiting posts for all three businesses', done_means:'Interview notes are on the applicant\\nEach post is in the posting log', not_yours:'Family complaints\\nPay questions\\nAnything that needs a judgment call' }; DATA.recruit_posts=[{ id:'s1', at:'2026-11-09T23:50:00Z', by:'katlin@mo-care.com', business:'cds', where:'cna_school', place:'Ozarks Tech CNA program (fake)', replies:2 },{ id:'s2', at:'2026-11-09T23:40:00Z', by:'katlin@mo-care.com', business:'cc', where:'facebook_group', place:'Nixa Community Board (fake)', replies:0 },{ id:'s3', at:'2026-11-06T23:40:00Z', by:'katlin@mo-care.com', business:'smn', where:'facebook_group', place:'Branson Locals (fake)', replies:1 }]; (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); switchTab('mywork'); myWorkGo('today'); renderMyWork(); }"); pg.wait_for_timeout(800)
         pg.evaluate("()=>renderMyWork()"); pg.wait_for_timeout(200)
         pg.locator('#afhPin').screenshot(path=os.path.join(SHOTS, '1-katlin-card.png'))
         pg.set_viewport_size({'width': 390, 'height': 900}); pg.wait_for_timeout(300)
