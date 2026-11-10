@@ -463,7 +463,22 @@
     if(apReady){
       const h = { decided:G('AP_DECIDED') || ['offer','hired','pool','left','declined'], qualified:G('apQualified') || (() => true),
         offered:G('apIsOffered') || (() => false), noshowElsewhere:G('apNoshowElsewhere') || (() => false) };
+      /* one row per person (2026-11-09, live check: 5 people were listed twice because they applied twice). Same phone or
+         email = same person. A half-done form is left out when that person has any other application that went further,
+         and of their open rows the furthest along ("hasn't booked") is the one kept. */
+      const keysOf = r => [last10(r.phone).length === 10 ? 'p' + last10(r.phone) : '', r.email ? 'e' + lc(r.email) : ''].filter(Boolean);
+      const further = new Set();
+      AP.forEach(r => { if(r && r.status !== 'partial') keysOf(r).forEach(k => further.add(k)); });
+      const picked = new Map();
       fuApplicants(AP, G('AP_BOOK') || {}, now, h).forEach(x => {
+        const ks = keysOf(x.r);
+        if(x.k === 'form' && ks.some(k => further.has(k))) return;
+        const k = ks[0] || 'id' + x.r.id, prev = picked.get(k) || ks.map(kk => picked.get(kk)).find(Boolean);
+        if(prev && (prev.k === 'book' || x.k !== 'book')) return;
+        if(prev) picked.forEach((v, kk) => { if(v === prev) picked.delete(kk); });
+        ks.concat(k).forEach(kk => picked.set(kk, x));
+      });
+      [...new Set(picked.values())].forEach(x => {
         const r = x.r;
         if((last10(r.phone).length === 10 && seen.has(last10(r.phone))) || (r.email && seen.has(lc(r.email)))) return;   /* already listed from Onboarding */
         if(x.days !== null && x.days < 1) return;
