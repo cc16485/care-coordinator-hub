@@ -27,7 +27,7 @@
   const START_DAYS = 10;
   const CARE_KINDS = ['pc', 'apc', 'adw_respite', 'adw_homemaker', 'adw_chore'];
 
-  /** the authorized start: the earliest start of our personal care / APC / ADW lines (not the GHE or nurse visit lines) */
+  /** the authorized start: the earliest start of our personal care / APC / ADW lines (not the nurse visit lines) */
   function authorizedStart(plan) {
     const s = ((plan && plan.services) || []).filter(x => x.ours && CARE_KINDS.indexOf(x.kind) > -1 && isDate(x.start)).map(x => x.start).sort();
     return s[0] || '';

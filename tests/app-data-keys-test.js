@@ -57,7 +57,7 @@ if (require.main === module) {
   ck('every app_data key the code uses is in app-data-keys.json (' + keys.length + ' keys)', !missing.length,
     missing.map((k) => k + ' [' + [...found[k]].join(', ') + ']').join('; ') + '  -> add it to app-data-keys.json (node tests/app-data-keys-test.js --write) AND run the Desktop key-map step so the database accepts it');
   ck('the list is sorted and has no repeats', JSON.stringify(listed) === JSON.stringify([...new Set(listed)].sort()));
-  ck('the keys that broke on 2026-10-17 are found', ['medicaid_plans', 'visit_watch', 'ghe_watch', 'call_lead_marks'].every((k) => keys.includes(k)));
+  ck('the keys that broke on 2026-10-17 are found (ghe_watch left with GHE, 2026-11-09)', ['medicaid_plans', 'visit_watch', 'call_lead_marks'].every((k) => keys.includes(k)));
   ck('another table\'s key column is not mistaken for app_data (activity_types "interview")', !keys.includes('interview'));
   ck('the side pages\' own slots are found (game, guide, series)', ['memory_clients', 'guide_screens', 'pro_videos', 'ht_included'].every((k) => keys.includes(k)));
   const idx = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');

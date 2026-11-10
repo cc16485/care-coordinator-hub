@@ -1,8 +1,7 @@
-"""Slice 9: the Hub side of evidence hardening, offline. A signed GHE form opens locked with Amend; Save on a signed form
-sends only what may change; Amend keeps the signed form and makes a draft copy; a refused save is explained. Inquiry
-documents: Remove hides the document and keeps the file. The discharge checklist: Reopen needs a reason. The Payer tab: a
-re-upload of the same plan keeps its evidence. Agency documents (guide.html) are checked by reading the page source.
-(python3 tests/browser/evidence_look.py [port])"""
+"""Slice 9: the Hub side of evidence hardening, offline. Inquiry documents: Remove hides the document and keeps the file.
+The discharge checklist: Reopen needs a reason. The Payer tab: a re-upload of the same plan keeps its evidence. Agency
+documents (guide.html) are checked by reading the page source. (The signed GHE form checks left with the GHE form:
+Nurse Scheduling 10-30, GHE everywhere 2026-11-09, her word.) (python3 tests/browser/evidence_look.py [port])"""
 import os, sys, re
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -16,35 +15,6 @@ T = r"""async()=>{
   window.__rpc=[]; window.__rpcErr=null; window.__alerts=[]; window.alert=m=>__alerts.push(String(m));
   sb.rpc=async(n,a)=>{ __rpc.push([n,JSON.parse(JSON.stringify(a))]); return __rpcErr?{ data:null, error:__rpcErr }:{ data:null, error:null }; };
   window.__removed=[]; const realFrom=sb.storage&&sb.storage.from; sb.storage={ from:b=>({ remove:async p=>{ __removed.push([b,p]); return { error:null }; }, upload:async()=>({ error:null }), createSignedUrl:async()=>({ data:{ signedUrl:'x' } }) }) };
-  /* ── GHE ── */
-  DATA.ghe_forms=[{ id:'g1', client:'Mary Client', client_id:'nc1', visit_date:'2026-10-05', nurse:'Lee LPN', f:{ ghe_client:'Mary Client', ghe_visit_date:'2026-10-05', ghe_nurse:'Lee LPN', ghe_sig_sup_date:'' }, checks:[], radios:{}, total:12, status:'rn_review', sig_nurse:PNG, sig_part:PNG, sig_sup:'' }];
-  gheOpen('g1'); await sleep(150);
-  const note=document.getElementById('gheLockNote'), cl=document.getElementById('ghe_client');
-  ok('a signed form opens locked: the answers cannot be typed in, the note says why, Amend is offered', cl.disabled && /Signed by the participant/.test(note.innerText) && /reviewing RN can still sign/.test(note.innerText) && document.getElementById('gheAmendBtn').style.display!=='none', [cl.disabled, note.innerText]);
-  ok('...the nurse and participant signature pads are locked; the RN pad and its date are open', document.getElementById('ghe_sig_part').style.pointerEvents==='none' && document.getElementById('ghe_sig_nurse').style.pointerEvents==='none' && document.getElementById('ghe_sig_sup').style.pointerEvents==='' && !document.getElementById('ghe_sig_sup_date').disabled);
-  cl.disabled=false; cl.value='Someone Else'; document.getElementById('ghe_sig_sup_date').value='2026-10-07';
-  const sup=document.getElementById('ghe_sig_sup'); sup.dataset.signed='1';
-  __rpc.length=0; await gheSave(document.getElementById('gheSaveBtn')); await sleep(30);
-  let it=(__rpc.find(c=>c[0]==='upsert_app_data_item')||[])[1]; it=it&&it.item;
-  ok('Save on a signed form: the client name typed over is NOT sent; the RN signature and its date are', !!it && it.client==='Mary Client' && it.f.ghe_client==='Mary Client' && it.sig_part===PNG && /^data:image\/png/.test(it.sig_sup) && it.f.ghe_sig_sup_date==='2026-10-07', it);
-  __rpcErr={ code:'42501', message:'The GHE form for Mary Client, visit 2026-10-05 was signed by the participant, so its answers cannot change. Use Amend to make a corrected copy; the signed form stays.' };
-  sb.from=()=>({ select:()=>({ eq:()=>({ maybeSingle:async()=>({ data:{ data:DATA.ghe_forms }, error:null }) }) }) });
-  await gheSave(document.getElementById('gheSaveBtn')); await sleep(30);
-  ok('a save the database refuses is explained in words (not queued to retry)', __alerts.some(a=>/Not saved: .*Use Amend/.test(a)), __alerts);
-  __rpcErr=null; __rpc.length=0;
-  window.prompt=()=>'too short';
-  await gheAmend(); await sleep(20);
-  ok('Amend needs a real reason', __rpc.length===0 && __alerts.some(a=>/what needs correcting/.test(a)));
-  window.prompt=()=>'The visit date was written as the 5th but the visit was on the 6th';
-  await gheAmend(); await sleep(150);
-  const puts=__rpc.filter(c=>c[0]==='upsert_app_data_item').map(c=>c[1].item);
-  const cp=puts.find(x=>x.amends==='g1'), old=puts.find(x=>x.id==='g1');
-  ok('Amend: a draft copy naming the signed form and why (signatures to collect again), then the signed form marked replaced', puts.length===2 && cp && cp.status==='draft' && !cp.sig_part && !cp.sig_nurse && /written as the 5th/.test(cp.amend_reason) && cp.f.ghe_client==='Mary Client' && old && old.superseded_by===cp.id && old.sig_part===PNG, puts);
-  ok('...the copy opens for editing with the reason shown', gheV('ghe_id')===cp.id && !document.getElementById('ghe_client').disabled && /amended copy of the form/.test(document.getElementById('gheLockNote').innerText), document.getElementById('gheLockNote').innerText);
-  gheOpen('g1'); await sleep(100);
-  ok('the signed original opens read-only as replaced, with a link to the copy and no Save', /Replaced by an amended copy/.test(document.getElementById('gheLockNote').innerText) && document.getElementById('gheSaveBtn').style.display==='none' && document.getElementById('gheAmendBtn').style.display==='none' && document.getElementById('ghe_rn_reviewer').disabled);
-  gheClose();
-  ok('the replaced form is not counted and is not in the Fusion check', GheFormRules.fusionToCheck([Object.assign({}, old, { status:'uploaded' })]).length===0 && /Replaced by an amended copy/.test(gheNextStep(old)));
   /* ── inquiry documents ── */
   (0,eval)("persist=async(k,r)=>{ window.__rpc.push(['persist',k,JSON.parse(JSON.stringify(r))]); }");
   (0,eval)("lpLead={ id:'L9', docs:[{ slot:'EMOMED', name:'emomed.pdf', path:'L9/EMOMED-1-emomed.pdf', size:2048, at:'2026-10-01T10:00:00Z' }, { slot:'FUSION', name:'fusion.pdf', path:'L9/FUSION-2-fusion.pdf', size:1024, at:'2026-10-02T10:00:00Z' }] };");
@@ -80,7 +50,7 @@ T = r"""async()=>{
   ok('a re-upload with no new PDF keeps the Fusion check, the PDF, the start record, the change requests and the first received date; the re-upload is listed', r1.fusion_verified.checked_on==='2026-10-02' && r1.pdf.name==='a.pdf' && r1.start.checks.ax_schedule && r1.changes.length===1 && r1.received_on==='2026-10-01' && r1.reuploads.length===1 && r1.reuploads[0].by==='ang' && r1.confirmed_by==='kry', r1);
   const r2=mcpKeepEvidence(prev, { id:'mcp_1', received_on:'2026-10-09', pdf:{ path:'careplan/mcp_1/2-b.pdf', name:'b.pdf' } });
   ok('a re-upload with a new PDF makes it current and lists the earlier PDF', r2.pdf.name==='b.pdf' && r2.pdf_earlier.length===1 && r2.pdf_earlier[0].name==='a.pdf', r2);
-  ok('no em dash in anything shown', !/—/.test(document.getElementById('lp_docs').innerText+cb.innerText+document.getElementById('gheLockNote').innerText));
+  ok('no em dash in anything shown', !/—/.test(document.getElementById('lp_docs').innerText+cb.innerText));
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []

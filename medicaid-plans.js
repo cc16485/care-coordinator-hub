@@ -1,5 +1,5 @@
 /* =============================================================================
-   medicaid-plans.js · the state's Medicaid care plan, in the client's profile (GHE fix, slice 1, Samantha 2026-10-08)
+   medicaid-plans.js · the state's Medicaid care plan, in the client's profile (Samantha 2026-10-08)
 
    Her rule: the care plan is uploaded in the intake, in the client's profile (Payer tab), not in a separate place.
    The Medicaid coordinator uploads the PDF downloaded from Fusion. care-plan-rules.js reads it; the coordinator sees
@@ -10,7 +10,7 @@
        phone or date of birth); an empty DCN on the inquiry is filled from it. SLICE 8 (2026-10-11, her decision 1): the PDF
        is kept privately in the Hub as the source document (the client bucket, every open logged); Fusion stays the official
        record. Someone records checking the plan against Fusion (who, the date checked); the nightly client audit asks for it.
-     · each GHE month the plan authorizes goes onto the nurse board for that client (added if they weren't there)
+   GHE was removed from everywhere in the Hub (her word 2026-11-09): nothing here reads GHE months or writes a nurse board.
    Nothing is sent to Fusion, AxisCare or anyone, and "where the state is" is left for the person to set.
 
    Nurse Scheduling shows every active client's standing (current plan / plan ended / Medicaid with no plan / not
@@ -131,23 +131,8 @@
       DATA.medicaid_plans = plans().filter(p => p.id !== rec.id).concat([rec]);
       await persist('medicaid_plans', rec);
       if (t.lead && !t.dcn && r.plan.dcn) { t.lead.dcn = r.plan.dcn; await persist('leads', t.lead); }
-      const ghes = r.summary.ghes; let boardNote = '';
-      if (ghes.length) {
-        DATA.nurse_clients = DATA.nurse_clients || [];
-        let nc = DATA.nurse_clients.find(x => x.active !== false && ((t.ax && String(x.axiscare_client_id || '') === t.ax) || (t.lead_id && String(x.lead_id || '') === t.lead_id)));
-        const bm = CarePlanRules.boardMonths(nc, ghes);
-        if (!nc) {
-          const idr = (typeof CL360_IDENTITY !== 'undefined' && CL360_IDENTITY || []).find(x => t.ax && String(x.axiscare_client_id) === t.ax);
-          nc = { id: uid(), name: t.name, axiscare_client_id: t.ax || '', lead_id: t.lead_id || '', phone: (idr && idr.phone) || (t.lead && (t.lead.client_phone || t.lead.phone)) || '',
-                 weekly_meds: false, assigned_nurse: '', notes: '', active: true, added_at: new Date().toISOString(), added_by: me(), added_from: 'care_plan' };
-          DATA.nurse_clients.push(nc); boardNote = ' Added to the nurse board.';
-        }
-        Object.assign(nc, bm, { ghe_from_plan: rec.id, ghe_updated_at: new Date().toISOString(), ghe_updated_by: me() });
-        await persist('nurse_clients', nc);
-        boardNote = ' GHE ' + ghes.map(g => mon(g.month)).join(', ') + ' on the nurse board.' + boardNote;
-      }
       MCP.pending = null;
-      say('Care plan saved for ' + t.name + '.' + boardNote);
+      say('Care plan saved for ' + t.name + '.');
       if (typeof cpRenderPayer === 'function') cpRenderPayer(); else refresh();
     } catch (e) { r.saving = false; r.saveError = 'Not saved: ' + String((e && e.message) || e); refresh(); }
   };
@@ -156,13 +141,12 @@
     if (r.reading) return '<div class="mcp-pend"><b>' + h(r.file_name) + '</b> <span class="field-note">reading…</span></div>';
     if (r.error) return '<div class="mcp-pend"><b>' + h(r.file_name) + '</b><div class="mcp-stop">' + h(r.error) + '</div><button class="ghost" onclick="mcpDiscard()">Remove</button></div>';
     const p = r.plan, s = r.summary, c = checks(r), ok = !c.stop.length;
-    const svc = s.ours.map(x => '<tr><td>' + h(x.label) + (x.type && x.label !== x.type ? ' <span class="field-note">(' + h(x.type) + ')</span>' : '') + '</td><td>' + usd(x.start) + ' to ' + usd(x.end) + '</td><td>'
+    const svc = s.ours.map(x => '<tr><td>' + h(x.label) + (x.type && x.label !== x.type && x.kind !== 'nurse' ? ' <span class="field-note">(' + h(x.type) + ')</span>' : '') + '</td><td>' + usd(x.start) + ' to ' + usd(x.end) + '</td><td>'
       + h(x.units.length ? (x.units.length + ' month' + (x.units.length === 1 ? '' : 's') + ', ' + (u => u.join(' / ') + (u.length === 1 && u[0] === 1 ? ' unit ' : ' units '))(Array.from(new Set(x.units.map(u => u.units)))) + (x.units[0].code || '')) : '') + '</td><td>' + h(x.prior_auth) + '</td></tr>').join('');
     return '<div class="mcp-pend" id="mcpPend">'
       + '<div class="mcp-head"><b>' + h(p.name || '(no name read)') + '</b><span class="field-note">DCN ' + h(p.dcn || '?') + ' · plan ' + usd(p.plan_start) + ' to ' + usd(p.plan_end) + (p.generated ? ' · generated ' + usd(p.generated) : '') + ' · ' + h(r.file_name) + '</span></div>'
       + c.stop.map(x => '<div class="mcp-stop">' + h(x) + '</div>').join('')
       + (svc ? '<div class="mcp-tbl"><table><thead><tr><th>Our service</th><th>Dates</th><th>Authorized</th><th>Prior authorization</th></tr></thead><tbody>' + svc + '</tbody></table></div>' : '')
-      + (s.ghes.length ? '<div class="mcp-ghe">GHE authorized: <b>' + s.ghes.map(g => mon(g.month) + (g.code ? ' (' + h(g.code) + ')' : '')).join(', ') + '</b>. This goes on the nurse board when you confirm.</div>' : (s.needsGhe ? '' : '<div class="field-note">No GHE on this plan, and none expected for these services.</div>'))
       + s.notes.map(x => '<div class="mcp-note">' + h(x) + '</div>').join('')
       + (ok ? '<div class="mcp-form">'
         + (c.nameDiff ? '<label class="mcp-chk"><input type="checkbox" id="mcpNameOk"' + (r.nameOk ? ' checked' : '') + ' onchange="mcpNameOk(this.checked)"> The plan says ' + h(p.name) + '. Yes, this is ' + h(r.t.name) + '\'s plan.</label>' : '')
@@ -184,11 +168,11 @@
     const list = mine(t), cur = list[0], tdy = todayIso();
     const lead = t.lead, st = lead && lead.state_status;
     box.innerHTML = '<div class="mcp-top"><div><b class="mcp-title">State care plan</b>'
-      + '<div class="field-note">For a Medicaid client: download their care plan from Fusion and upload the PDF here. You check what was read and confirm it; the GHE months go on the nurse board. Fusion stays the official record; the PDF is kept here privately as the source document, and every open is logged.</div></div>'
+      + '<div class="field-note">For a Medicaid client: download their care plan from Fusion and upload the PDF here. You check what was read and confirm it. Fusion stays the official record; the PDF is kept here privately as the source document, and every open is logged.</div></div>'
       + '<label class="mcp-up">' + (cur ? 'Upload a newer plan' : 'Upload the care plan') + '<input type="file" id="mcpFile" accept="application/pdf,.pdf" onchange="mcpUpload(this)"></label></div>'
       + (MCP.pending ? '<div class="mcp-pends">' + pendingHtml(MCP.pending) + '</div>' : '')
       + (cur ? '<div class="mcp-cur"><span class="mcp-chip ' + (cur.plan_end >= tdy ? 'ok' : 'warn') + '">' + (cur.plan_end >= tdy ? 'Current plan' : 'Plan ended') + '</span> '
-        + usd(cur.plan_start) + ' to ' + usd(cur.plan_end) + (cur.ghe_months && cur.ghe_months.length ? ' · GHE ' + cur.ghe_months.map(mon).join(', ') : '')
+        + usd(cur.plan_start) + ' to ' + usd(cur.plan_end)
         + '<div class="field-note">Received ' + usd(cur.received_on) + ', confirmed by ' + h(cur.confirmed_by) + (cur.generated ? ' · Fusion generated ' + usd(cur.generated) : '') + '</div>'
         + proofHtml(cur)
         + (cur.services || []).filter(x => x.ours).map(x => '<div class="field-note">' + h(x.label) + ': ' + usd(x.start) + ' to ' + usd(x.end) + (x.prior_auth ? ' · PA ' + h(x.prior_auth) : '') + '</div>').join('')
@@ -425,7 +409,7 @@
       const st = r.st, ax = h(r.o.ax);
       let chip, act = '';
       if (st.s === 'current') { const w = typeof IhsRules !== 'undefined' ? IhsRules.planWatch(st.plan, t) : { state: 'ok' };
-        chip = '<span class="mcp-chip ' + (w.state === 'soon' ? 'warn' : 'ok') + '">Plan to ' + usd(st.plan.plan_end) + (w.state === 'soon' ? ' (' + w.left + ' days left)' : '') + (st.plan.ghe_months && st.plan.ghe_months.length ? ' · GHE ' + st.plan.ghe_months.map(mon).join(', ') : '') + '</span>';
+        chip = '<span class="mcp-chip ' + (w.state === 'soon' ? 'warn' : 'ok') + '">Plan to ' + usd(st.plan.plan_end) + (w.state === 'soon' ? ' (' + w.left + ' days left)' : '') + '</span>';
         if (w.state === 'soon') act = 'DSDS reassesses before then: watch Fusion for the new plan'; }
       else if (st.s === 'ended') { chip = '<span class="mcp-chip warn">Plan ended ' + usd(st.plan.plan_end) + '</span>'; act = 'Open their profile and upload the current plan'; }
       else if (st.s === 'not_medicaid') chip = '<span class="mcp-chip">' + h(PAYERS[st.mark.payer] || st.mark.payer) + '</span>';
