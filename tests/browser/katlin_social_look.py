@@ -80,12 +80,23 @@ async()=>{
   window.__fail=false; KP.socialRefresh(); await sleep(300);
   ok('Refresh brings the list back', /Coming up on our pages\s*3/.test(page()));
 
+  /* the Operations Board row's shortcut (her ask 2026-11-10) */
+  as(KT,'Katlin Fake'); switchTab('mywork'); await sleep(150);
+  const nav=()=>document.querySelector('#fsub2 [data-kpnav]');
+  ok('Operations Board row has a My page subtab for her', !!nav() && /My page/.test(nav().innerText), ($('fsub2')||{}).innerText);
+  nav().click(); await sleep(200);
+  ok('it opens her page where she last was (Coming up)', activeTab==='kpsocial', activeTab);
+  as('krystal@mo-care.com','Krystal Land'); switchTab('mywork'); await sleep(150);
+  ok('another coordinator has no such subtab', !nav(), ($('fsub2')||{}).innerText);
+  as('samantha@mo-care.com','Samantha Troutman'); switchTab('mywork'); await sleep(150);
+  ok('an owner sees it as Katlin\'s page', !!nav() && /Katlin's page/.test(nav().innerText));
+
   /* owner sees the same; another coordinator does not */
   as('samantha@mo-care.com','Samantha Troutman'); KP.render('kpsocial'); await sleep(50);
   ok('the owner sees what Katlin reviews', /What Katlin reviews/.test(page()) && /tea time/.test(page()), page().slice(0,200));
   as('krystal@mo-care.com','Krystal Land');
   ok('another coordinator has no pill', !shown());
-  ok('the Coming up pill calls only the read function (the owner-only open-shifts refresh is the Recruiting pill\'s own)', window.__calls.filter(c=>!c.url.includes('axiscare-open-shifts')).every(c=>c.url.includes('blotato-coming-up') && c.method==='POST'), window.__calls.map(c=>c.url));
+  ok('the Coming up pill calls only the read function (open-shifts reads belong to Recruiting and Operations Board)', window.__calls.filter(c=>!/axiscare-open-shifts|coverage-shifts/.test(c.url)).every(c=>c.url.includes('blotato-coming-up') && c.method==='POST'), window.__calls.map(c=>c.url));
   ok('nothing was texted, emailed or called', !(L.fn||[]).some(f=>/sms|text|email|send|call/i.test(String(f))), L.fn);
   return R;
 }

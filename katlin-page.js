@@ -152,9 +152,18 @@
     p.style.display = (allowed() && (!!pageEmail() || owner())) ? '' : 'none';
     const text = pageLabel(), lab = p.querySelector('.kpLab'); if(lab) lab.textContent = text;
     if(owner() && pageEmail()) refreshAuto(false);
+    /* the Operations Board row's shortcut appears once whose page it is has loaded */
+    try{ const bar = document.getElementById('fsub2'), want = !!navPill();
+      if(bar && CC_PARENT_OF[activeTab] === 'myworkgrp' && want !== !!bar.querySelector('[data-kpnav]') && typeof ccRenderSub2 === 'function') ccRenderSub2(activeTab); }catch(e){}
     /* the header title follows (CC_SECTION_TITLES is a top-level const in index.html, read by name) */
     try{ VIEWS.forEach(v => { CC_SECTION_TITLES[v.t] = text + ' · ' + v.l; });
       if(isKp(activeTab) && typeof ccSetSectionTitle === 'function') ccSetSectionTitle(activeTab); }catch(e){}
+  }
+
+  /* The shortcut in the Operations Board row (her ask 2026-11-10): opens her page where she last was in it. */
+  function navPill(){
+    if(!allowed() || !pageEmail()) return '';
+    return '<div class="fpill2" data-kpnav="1" onclick="ccParentClick(\'katlingrp\')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> ' + esc(pageLabel()) + '</div>';
   }
 
   /* ── css, once ── */
@@ -757,7 +766,7 @@
     render();
   }
 
-  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson, socialPick, socialDaysPick, socialRefresh, flagOpen, flagPost,
+  const KP = { allowed, isKp, pillSync, navPill, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson, socialPick, socialDaysPick, socialRefresh, flagOpen, flagPost,
     _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf, fuApplicants, fuStage, fuSort, FU_SAY, socialDays, isVideo } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
