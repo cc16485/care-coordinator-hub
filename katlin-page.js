@@ -62,6 +62,58 @@
     { id:'kp_nd_recs', every:'week', text:'Friday: thank anyone new who recommended us on Nextdoor, and send Samantha the week\'s count.' }
   ];
 
+  /* ── automatic hiring needs (her ask 2026-11-10): open shifts from AxisCare, summed up WITHOUT client names ──
+     The open-shifts lookup returns client names, and Katlin works from outside the US, so it is only ever called from
+     an OWNER's browser. That browser keeps town, day, time and count, and saves that summary to
+     ops_settings.katlin_page.auto_needs. Katlin's browser never asks AxisCare and never receives a name. */
+  const WD = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  function townOf(client, roster){
+    const n = lc(client); if(!n) return '';
+    const hit = (roster || []).find(c => lc(c.name) === n)
+      || (roster || []).find(c => { const a = lc(c.name).split(/\s+/), b = n.split(/\s+/); return a.length > 1 && b.length > 1 && a[0] === b[0] && a[a.length - 1] === b[b.length - 1]; });
+    return hit && hit.town ? String(hit.town).trim().replace(/\b\w/g, x => x.toUpperCase()) : '';
+  }
+  /* open: [{date, start, end, client}], roster: [{name, town}] -> [{town, days:['Sat','Sun'], time, count, first}] (no names) */
+  function autoNeeds(open, roster){
+    const g = new Map();
+    (open || []).forEach(v => {
+      if(!v || !v.date) return;
+      const town = townOf(v.client, roster) || '';
+      const time = v.start && v.end ? v.start + ' to ' + v.end : (v.start || 'time not set');
+      const k = lc(town) + '|' + time;
+      const d = WD[new Date(v.date + 'T12:00:00Z').getUTCDay()];
+      const r = g.get(k) || { town, time, days:[], count:0, first:v.date };
+      if(r.days.indexOf(d) < 0) r.days.push(d);
+      r.count++; if(v.date < r.first) r.first = v.date;
+      g.set(k, r);
+    });
+    return [...g.values()].map(r => Object.assign(r, { days:['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].filter(d => r.days.indexOf(d) >= 0) }))
+      .sort((a, b) => b.count - a.count || a.first.localeCompare(b.first));
+  }
+  const AUTO = { busy:false, tried:0 };
+  async function refreshAuto(force){
+    if(!owner() || AUTO.busy) return;
+    const cur = (cfg().auto_needs || {});
+    if(!force && cur.at && Date.now() - new Date(cur.at).getTime() < 6 * 3600e3) return;
+    if(!force && Date.now() - AUTO.tried < 10 * 60000) return;
+    AUTO.busy = true; AUTO.tried = Date.now();
+    let out;
+    try{
+      const anon = (() => { try{ return COMMS_ANON; }catch(e){ return ''; } })();
+      const tok = typeof W.trainHubTok === 'function' ? await W.trainHubTok() : '';
+      const r = await fetch('https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/axiscare-open-shifts', { method:'POST',
+        headers:{ 'x-hub-token':tok, 'apikey':anon, 'Authorization':'Bearer ' + anon, 'Content-Type':'application/json' }, body:JSON.stringify({ days:14 }) });
+      const d = await r.json();
+      if(!d || d.error) throw new Error('AxisCare did not answer');
+      const roster = typeof W.matchClients === 'function' ? W.matchClients() : [];
+      out = { at:new Date().toISOString(), list:autoNeeds(d.open || [], roster), unread_days:Array.isArray(d.incomplete_dates) ? d.incomplete_dates.length : 0 };
+    }catch(e){ out = null; }
+    AUTO.busy = false;
+    if(!out){ if(force) alert('Could not read open shifts from AxisCare just now. Try again in a few minutes.'); return; }
+    await save(kp => { kp.auto_needs = out; return ['open shifts summary refreshed (' + out.list.length + ' groups, no names)']; }, 'Katlin\'s page');
+    try{ if(isKp(activeTab)) render(activeTab); }catch(e){}
+  }
+
   /* ── settings ── */
   function cfg(){ return (D().ops_settings || {}).katlin_page || {}; }
   const pageEmail = () => lc(cfg().email);
@@ -96,6 +148,7 @@
     const p = document.querySelector('.fpill[data-parent="katlingrp"]'); if(!p) return;
     p.style.display = (allowed() && (!!pageEmail() || owner())) ? '' : 'none';
     const text = pageLabel(), lab = p.querySelector('.kpLab'); if(lab) lab.textContent = text;
+    if(owner() && pageEmail()) refreshAuto(false);
     /* the header title follows (CC_SECTION_TITLES is a top-level const in index.html, read by name) */
     try{ VIEWS.forEach(v => { CC_SECTION_TITLES[v.t] = text + ' · ' + v.l; });
       if(isKp(activeTab) && typeof ccSetSectionTitle === 'function') ccSetSectionTitle(activeTab); }catch(e){}
@@ -240,7 +293,15 @@
     const { c, isOwner, nm, mine } = ctx, log = Array.isArray(c.recruit_log) ? c.recruit_log : [], now = Date.now();
     const links = typeof c.recruit_links === 'string' ? c.recruit_links : LINKS_STARTER;
     const needs = Array.isArray(c.hiring_needs) ? c.hiring_needs : [];
-    let html = `<div class="kp-card"><h3>Who we're hiring for right now</h3>
+    const an = c.auto_needs || null;
+    let html = `<div class="kp-card"><h3>Open shifts to hire for</h3>
+      <p class="kp-when" style="margin-top:0">From AxisCare: visits in the next 2 weeks with no caregiver, by town, day and time. ${an && an.at ? 'Updated ' + esc(fmtAt(an.at)) + '.' : 'Not read yet.'}</p>
+      ${an && an.list && an.list.length ? an.list.map(n => `<div class="kp-task"><div class="kp-t"><div><b>${esc(n.town || 'Town not on file (ask Samantha)')}</b> · ${esc(n.days.join(', '))}</div>
+          <div>${esc(n.time)} <span class="kp-when">· ${n.count} open shift${n.count === 1 ? '' : 's'}</span></div></div></div>`).join('')
+        : (an && an.at ? '<p>No open shifts right now.</p>' : '')}
+      ${an && an.unread_days ? `<p class="kp-when">${an.unread_days} day${an.unread_days === 1 ? '' : 's'} could not be fully read from AxisCare, so there may be more.</p>` : ''}
+      ${isOwner ? `<div class="kp-row"><button class="secondary" onclick="KP.refreshAuto(true)">Refresh now</button><span class="kp-when">Refreshes by itself when an owner has the Hub open (at most every 6 hours). Only towns, days and times are saved, never client names.</span></div>` : ''}</div>`;
+    html += `<div class="kp-card"><h3>Also hiring for</h3>
       ${needs.length ? needs.map(n => `<div class="kp-task"><div class="kp-t"><div><b>${esc(n.position)}</b> <span class="kp-when">· ${esc(n.biz || '')}</span></div>
           <div>${esc(n.area || '')}${n.hours ? ' · ' + esc(n.hours) : ''}</div>${n.note ? `<div class="kp-when">${esc(n.note)}</div>` : ''}
           <div class="kp-when">Added ${esc(fmtAt(n.at))}</div></div>
@@ -431,8 +492,8 @@
     render();
   }
 
-  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed,
-    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue } };
+  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto,
+    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
 })(typeof window !== 'undefined' ? window : globalThis);

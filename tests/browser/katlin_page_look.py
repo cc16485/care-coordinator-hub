@@ -19,6 +19,15 @@ EXTRA = r"""
   DATA.ops_settings={ team_work_live:true };
   DATA.staffing_tasks=[];
   window.__alerts=[]; window.alert=m=>window.__alerts.push(String(m)); window.confirm=()=>true;
+  /* AxisCare open shifts (made-up clients) and the client roster with towns */
+  window.__axCalls=[]; const realFetch=window.fetch.bind(window);
+  window.fetch=(u,o)=>{ if(String(u).includes('axiscare-open-shifts')){ window.__axCalls.push((0,eval)('ME.email'));
+      return Promise.resolve(new Response(JSON.stringify({ open:[
+        { date:'2026-11-21', start:'9:30am', end:'1:30pm', client:'Pat Fakename' }, { date:'2026-11-22', start:'9:30am', end:'1:30pm', client:'Pat Fakename' },
+        { date:'2026-11-18', start:'5:00pm', end:'10:00pm', client:'Ned Testperson' }, { date:'2026-11-19', start:'5:00pm', end:'10:00pm', client:'Ned Testperson' } ], incomplete_dates:[] }), { headers:{ 'Content-Type':'application/json' } })); }
+    return realFetch(u,o); };
+  window.matchClients=()=>[ { name:'Pat Fakename', town:'Nixa' }, { name:'Ned Testperson', town:'Ozark' } ];
+  window.trainHubTok=async()=>'fake-token';
 })();
 """
 T = r"""
@@ -53,7 +62,10 @@ async()=>{
   ok('the owner sees her tasks, with the starter Nextdoor ones', /Katlin's tasks/.test(page()) && /Search Nextdoor for neighbors/.test(page()), page().slice(0,500));
   $('kpNew').value='Call the CNA school about a posting (fake task)'; $('kpEvery').value=''; await KP.addTask(); await sleep(50);
   ok('the owner adds a task', (DATA.ops_settings.katlin_page.tasks||[]).some(t=>/CNA school/.test(t.text)) && /CNA school/.test(page()));
-  await go('kprecruit');
+  await sleep(300); await go('kprecruit');
+  ok('open shifts were read from the owner\'s browser and summed up by town', (window.__axCalls||[]).length===1 && window.__axCalls[0]==='samantha@mo-care.com' && ((DATA.ops_settings.katlin_page.auto_needs||{}).list||[]).length===2, [window.__axCalls, DATA.ops_settings.katlin_page.auto_needs]);
+  ok('the saved summary has no client names', !/Fakename|Testperson|Pat |Ned /.test(JSON.stringify(DATA.ops_settings.katlin_page)), JSON.stringify(DATA.ops_settings.katlin_page.auto_needs));
+  ok('Recruiting shows open shifts by town, day and time', /Open shifts to hire for/.test(page()) && /Ozark · Wed, Thu/.test(page()) && /5:00pm to 10:00pm/.test(page()) && /Nixa · Sat, Sun/.test(page()), page().slice(0,700));
   ok('Recruiting: starter places and where to send people', /Facebook community and job groups/.test(page()) && /mo-care.com\/careers/.test(page()), page().slice(0,600));
   $('kpNdBiz').value='Caring Companions'; $('kpNdPos').value='Caregiver (fake test need)'; $('kpNdArea').value='Nixa, Ozark'; $('kpNdHours').value='Weekends 8am to 2pm'; await KP.addNeed(); await sleep(50);
   ok('the owner adds a hiring need (position, area, days and hours)', (DATA.ops_settings.katlin_page.hiring_needs||[]).length===1 && /Caregiver \(fake test need\)/.test(page()) && /Nixa, Ozark · Weekends 8am to 2pm/.test(page()), page().slice(0,500));
@@ -86,6 +98,9 @@ async()=>{
   ok('and shows in her notes as waiting', /fake test note/.test(page()) && /waiting/.test(page()), page().slice(0,500));
   await go('kprecruit');
   ok('she sees the hiring need', /Caregiver \(fake test need\)/.test(page()) && /Weekends 8am to 2pm/.test(page()));
+  ok('she sees the open shifts by town', /Ozark · Wed, Thu/.test(page()) && /Nixa · Sat, Sun/.test(page()));
+  ok('her browser never asked AxisCare and her page holds no client name', !(window.__axCalls||[]).includes(KT) && !/Fakename|Testperson/.test(document.body.innerHTML), window.__axCalls);
+  ok('she has no Refresh button', !/Refresh now/.test(page()));
   ok('she cannot add needs or places', !$('kpNdPos') && !$('kpPlName'));
   const plId=DATA.ops_settings.katlin_page.places[2].id;
   $('kpLk_'+plId).value='facebook.com/groups/fake-test/post'; await KP.logPost(plId); await sleep(50);

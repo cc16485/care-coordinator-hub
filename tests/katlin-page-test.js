@@ -1,7 +1,7 @@
 /* Katlin's page rules (katlin-page.js): when a task counts as done, which Nextdoor post is "this week".
    node tests/katlin-page-test.js */
 const KP = require('../katlin-page.js');
-const { dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER } = KP._rules;
+const { dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf } = KP._rules;
 let pass = 0, fail = 0;
 const ok = (n, c, d) => { if(c){ pass++; console.log('PASS ·', n); } else { fail++; console.log('FAIL ·', n, d === undefined ? '' : JSON.stringify(d)); } };
 
@@ -27,6 +27,25 @@ ok('coming up = the next ones', upcoming(posts, currentPost(posts, '2026-11-17')
 ok('an earlier post never marked posted is listed', missed(posts, currentPost(posts, '2026-11-24'), { 2:{ at:'x' } }, '2026-11-24').map(p => p.week).join() === '1');
 ok('a miss older than 4 weeks is not', missed(posts, { week:9, date:'2027-01-05' }, {}, '2027-01-05').length === 0);
 ok('three starter tasks for Nextdoor', STARTER.length === 3 && STARTER.every(t => t.id && t.text));
+
+/* automatic hiring needs: town, day, time, count, never a name (made-up clients) */
+const roster = [ { name:'Pat Fakename', town:'nixa' }, { name:'Ned Q Testperson', town:'Ozark' } ];
+ok('town by full name', townOf('Pat Fakename', roster) === 'Nixa');
+ok('town by first and last name when a middle name differs', townOf('Ned Testperson', roster) === 'Ozark');
+ok('no town when the client is not on file', townOf('Client #41', roster) === '');
+const open = [
+  { date:'2026-11-14', start:'9:30am', end:'1:30pm', client:'Pat Fakename' },
+  { date:'2026-11-15', start:'9:30am', end:'1:30pm', client:'Pat Fakename' },
+  { date:'2026-11-18', start:'5:00pm', end:'10:00pm', client:'Ned Testperson' },
+  { date:'2026-11-19', start:'5:00pm', end:'10:00pm', client:'Ned Testperson' },
+  { date:'2026-11-20', start:'5:00pm', end:'10:00pm', client:'Ned Testperson' },
+  { date:'2026-11-16', start:'8:00am', end:'12:00pm', client:'Client #41' } ];
+const an = autoNeeds(open, roster);
+ok('grouped by town and time, biggest first', an.length === 3 && an[0].town === 'Ozark' && an[0].count === 3 && an[0].days.join() === 'Wed,Thu,Fri', an);
+ok('weekend shifts in Nixa', an[1].town === 'Nixa' && an[1].days.join() === 'Sat,Sun' && an[1].time === '9:30am to 1:30pm', an[1]);
+ok('an unknown client still counts, with no town', an[2].town === '' && an[2].count === 1);
+ok('no client name anywhere in the summary', !/Pat|Ned|Fakename|Testperson|#41/.test(JSON.stringify(an)), JSON.stringify(an));
+ok('a weekly place is due after 7 days', placeDue({ every:'week' }, { at:new Date(Date.now() - 8 * 864e5).toISOString() }, Date.now()) && !placeDue({ every:'week' }, { at:new Date().toISOString() }, Date.now()));
 
 /* the real posts file */
 const list = require('../nextdoor/posts.json').posts;
