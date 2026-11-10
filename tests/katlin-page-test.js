@@ -76,6 +76,23 @@ ok('a weekly place is due after 7 days', placeDue({ every:'week' }, { at:new Dat
   ok('wording: warm and simple, no dashes', Object.values(FU_SAY).every(t => !/[—–]/.test(t) && !/\bAI\b|\bVA\b/.test(t)));
 }
 
+/* Coming up on social (2026-11-10) */
+{
+  const { socialDays, isVideo } = KP._rules;
+  const posts = [
+    { id:'3', at:'2026-11-18T02:30:00.000Z', page:'Page B', text:'late Tue night in Missouri' },
+    { id:'1', at:'2026-11-17T16:00:00.000Z', page:'Page A', text:'Tue morning' },
+    { id:'2', at:'2026-11-18T16:00:00.000Z', page:'Page A', text:'Wed morning' } ];
+  const d = socialDays(posts, '');
+  ok('social: grouped by MISSOURI day (8:30pm Tue Missouri is Wed in UTC, still Tuesday)', d.map(x => x.day + ':' + x.posts.map(p => p.id).join('')).join() === '2026-11-17:13,2026-11-18:2', d);
+  ok('social: one page only', socialDays(posts, 'Page A').reduce((n, x) => n + x.posts.length, 0) === 2);
+  ok('social: videos told from photos', isVideo('https://x/y.mp4') && isVideo('https://x/y.MOV?t=1') && !isVideo('https://x/y.jpeg'));
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'katlin-page.js'), 'utf8');
+  const view = src.slice(src.indexOf('COMING UP ON SOCIAL'), src.indexOf('render the view for the active pill'));
+  ok('social: the page never writes to Blotato (no delete/update calls, only the read function)', !/backend\.blotato|method:'(DELETE|PATCH|PUT)'/.test(view) && /blotato-coming-up/.test(view));
+  ok('social: no em dashes, no "AI" in its words', !/[—–]/.test(view) && !/\bAI\b/.test(view));
+}
+
 /* the real posts file */
 const list = require('../nextdoor/posts.json').posts;
 const fs = require('fs'), path = require('path');

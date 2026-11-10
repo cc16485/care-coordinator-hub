@@ -1644,6 +1644,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <section class="tabpanel" id="tab-kptasks"><div id="kpWrapTasks"></div></section>
     <section class="tabpanel" id="tab-kpfollow"><div id="kpWrapFollow"></div></section>
     <section class="tabpanel" id="tab-kpnextdoor"><div id="kpWrapNextdoor"></div></section>
+    <section class="tabpanel" id="tab-kpsocial"><div id="kpWrapSocial"></div></section>
     <section class="tabpanel" id="tab-kpnotes"><div id="kpWrapNotes"></div></section>
     <section class="tabpanel" id="tab-kprecruit"><div id="kpWrapRecruit"></div></section>
     <section class="tabpanel" id="tab-teammeetings">
@@ -7692,7 +7693,7 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
-<script src="katlin-page.js?v=4"></script><!-- Katlin's own page (2026-11-10) -->
+<script src="katlin-page.js?v=5"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=6"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
@@ -8376,7 +8377,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8390,7 +8391,7 @@ const CC_SUBTABS = {
   /* 2026-10-14 (her call): My Desk and To talk about live inside My Work */
   /* 2026-10-19: To talk about retired (a flag is a chip on its card; Team Meetings' Prepare a meeting lists every flag) */
   /* 2026-11-10 (her call): Katlin's own page, four pills (katlin-page.js) */
-  katlingrp:[ { t:'kptasks', l:'Tasks', i:'i-check' }, { t:'kpfollow', l:'Follow-ups', i:'i-chat' }, { t:'kpnextdoor', l:'Nextdoor', i:'i-home' }, { t:'kpnotes', l:'Notes', i:'i-chat' }, { t:'kprecruit', l:'Recruiting', i:'i-users' } ],
+  katlingrp:[ { t:'kptasks', l:'Tasks', i:'i-check' }, { t:'kpfollow', l:'Follow-ups', i:'i-chat' }, { t:'kpnextdoor', l:'Nextdoor', i:'i-home' }, { t:'kpsocial', l:'Coming up', i:'i-calendar' }, { t:'kpnotes', l:'Notes', i:'i-chat' }, { t:'kprecruit', l:'Recruiting', i:'i-users' } ],
   myworkgrp:[ { t:'mywork', l:'My Work', i:'i-clipboard' }, { t:'mydesk', l:'My Desk', i:'i-desk' },
     /* 2026-10-18 (her ask): Client Goals, weekly care hours and CDS consumers; owners set the goals (client-goals.js) */
     { t:'clientgoals', l:'Client Goals', i:'i-target' } ],
@@ -8786,7 +8787,7 @@ function ccGroupClick(g){
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
-  kptasks:'My page · Tasks', kpfollow:'My page · Follow-ups', kpnextdoor:'My page · Nextdoor', kpnotes:'My page · Notes', kprecruit:'My page · Recruiting',
+  kptasks:'My page · Tasks', kpfollow:'My page · Follow-ups', kpnextdoor:'My page · Nextdoor', kpsocial:'My page · Coming up', kpnotes:'My page · Notes', kprecruit:'My page · Recruiting',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
   cgbackground:'Onboarding', orientprog:'Orientation', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
@@ -44902,7 +44903,7 @@ function ccOpenRef(sub){
      NOT have one: an alias is checked first and would shadow the real thing.
      That is what happened to 'scheduling' and 'caregivers' when those became
      sections in their own right. */
-  var CC_HASH_ALIAS = { 'my-page':'kptasks', 'follow-ups':'kpfollow', katlin:'kptasks', katlinpage:'kptasks', programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', photos:'videos', grow:'clients', phone:'calls', 'clients-care':'clients',
+  var CC_HASH_ALIAS = { 'my-page':'kptasks', 'follow-ups':'kpfollow', 'coming-up':'kpsocial', katlin:'kptasks', katlinpage:'kptasks', programs:'sopref', payors:'sopref', documents:'docs', forms:'docs', templates:'docs', 'client-folders':'docfolders', 'order-supplies':'supplies', photos:'videos', grow:'clients', phone:'calls', 'clients-care':'clients',
                         carecoordinator:'clients', 'care-coordinator':'clients',
                         growth:'campaigns', marketing:'campaigns', 'marketing-materials':'materials', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
                         /* 'leads' stopped being an alias 2026-09-19: it is a
