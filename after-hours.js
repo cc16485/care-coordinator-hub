@@ -125,6 +125,7 @@
       + '<div class="afh-box"><div class="afh-k">Every shift</div>' + ul(r.every, notYet) + '</div>'
       + '<div class="afh-box"><div class="afh-k">Done means</div>' + ul(r.done, notYet) + '</div>'
       + '<div class="afh-box"><div class="afh-k">Not yours: hand to Samantha</div>' + ul(r.notyours, notYet) + '</div></div>'
+      + (preview ? '' : logHtml(false))
       + '<div class="field-note">Questions for the office: write on the card itself; the office answers on their next shift. When you finish, press End my shift so the morning team gets your handoff.</div>'
       + '</div>';
   }
@@ -154,7 +155,8 @@
       + ta('afhNot', 'Not yours', r.not_yours, 'what to hand back to Samantha, one per line')
       + (owner() ? '<div style="display:flex;gap:8px;align-items:center;margin-top:8px;"><button class="secondary" onclick="AFH.saveRole(this)">Save the role card</button><span class="field-note" id="afhSaved">'
         + (r.updated_at ? 'Last saved by ' + esc(first(r.updated_by) || r.updated_by_name || '') + ' on ' + esc(String(r.updated_at).slice(0, 10)) + '.' : '') + '</span></div>' : '<div class="field-note">Only Samantha or Zachary can change this.</div>')
-      + (hs.length ? '<details style="margin-top:10px;"><summary class="field-note" style="cursor:pointer;">Preview what ' + esc(first(hs[0])) + ' sees</summary><div style="margin-top:8px;">' + cardHtml(hs[0], true) + '</div></details>' : '');
+      + (hs.length ? '<details style="margin-top:10px;"><summary class="field-note" style="cursor:pointer;">Preview what ' + esc(first(hs[0])) + ' sees</summary><div style="margin-top:8px;">' + cardHtml(hs[0], true) + '</div></details>' : '')
+      + '<div style="margin-top:16px;">' + logHtml(true) + '</div>';
   }
   async function saveRole(btn){
     if(!owner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -167,6 +169,90 @@
     try{ pin(); }catch(e){}
   }
 
-  W.AFH = { pin, settingsFill, saveRole, windowsOf, holders, shift, both, clock, lines, role };
-  if(typeof module !== 'undefined' && module.exports) module.exports = { windowsOf, holders, shift, clock, lines };
+  /* ── RECRUITMENT POSTING LOG (Samantha 2026-11-09: "recruitment postings on cna schools, community groups on facebook,
+     etc will be big for all three"). Every post gets a row: when, who, which business, where, link, and how many
+     applicants or replies it brought. Saved in app_data recruit_posts. Warns before posting the same business in the
+     same place again within 14 days (groups remove repeat posters). Owners see the whole log and which places bring
+     applicants in Settings > After-Hours Care Coordinator. Nothing here posts anything or contacts anyone. */
+  const BIZ = [['cc', 'Caring Companions In-Home Senior Care', 'mo-care.com careers · 21 and up'],
+               ['cds', 'CDS', 'findcdscaregivers.com · 18 and up'],
+               ['smn', 'Show-Me Neighbors', 'showmeneighbors.com, Become a Neighbor']];
+  const WHERE = [['cna_school', 'CNA school'], ['facebook_group', 'Facebook group'], ['other', 'Other']];
+  const REPEAT_DAYS = 14;
+  const bizName = k => (BIZ.find(b => b[0] === k) || [k, k])[1];
+  const whereName = k => (WHERE.find(b => b[0] === k) || [k, k])[1];
+  const posts = () => (D().recruit_posts || []).filter(p => p && !p.removed_at);
+  const placeKey = p => lc(p.place).replace(/\s+/g, ' ');
+  /* the last post for the same business in the same place within REPEAT_DAYS (pure) */
+  function repeatOf(list, business, place, now){
+    const k = lc(place).replace(/\s+/g, ' ');
+    return (list || []).filter(p => p && !p.removed_at && p.business === business && placeKey(p) === k && now - Date.parse(p.at) < REPEAT_DAYS * 864e5)
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))[0] || null;
+  }
+  /* places by applicants brought, since a time (pure) */
+  function placeStats(list, since){
+    const m = {};
+    (list || []).filter(p => p && !p.removed_at && Date.parse(p.at) >= since).forEach(p => {
+      const k = p.business + '|' + placeKey(p);
+      const x = m[k] = m[k] || { business:p.business, place:p.place, where:p.where, posts:0, replies:0, last:p.at };
+      x.posts++; x.replies += Number(p.replies) || 0; if(p.at > x.last) x.last = p.at;
+      if(p.at < (x.first || '9')){ x.first = p.at; x.place = p.place; }   /* the name as first written */
+    });
+    return Object.values(m).sort((a, b) => b.replies - a.replies || b.posts - a.posts);
+  }
+  const LOG = { biz:'' };
+  const day = iso => { try{ return new Date(iso).toLocaleDateString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }); }catch(e){ return String(iso || '').slice(0, 10); } };
+  function logHtml(full){
+    const all = posts().sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+    const shown = (LOG.biz ? all.filter(p => p.business === LOG.biz) : all).slice(0, full ? 200 : 6);
+    const sel = (id, opts, ph) => '<select id="' + id + '" style="padding:6px 8px;font-size:13px;border-radius:8px;width:auto;">' + (ph ? '<option value="">' + ph + '</option>' : '') + opts.map(o => '<option value="' + o[0] + '">' + esc(o[1]) + '</option>').join('') + '</select>';
+    const form = '<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0;">'
+      + sel('rpBiz', BIZ, 'Which business?') + sel('rpWhere', WHERE, 'Where?')
+      + '<input id="rpPlace" placeholder="Name: Ozarks Tech CNA program, Nixa Moms group…" style="flex:1;min-width:200px;padding:6px 8px;font-size:13px;border-radius:8px;">'
+      + '<input id="rpLink" placeholder="Link to the post (optional)" style="flex:1;min-width:160px;padding:6px 8px;font-size:13px;border-radius:8px;">'
+      + '<button class="secondary" onclick="AFH.addPost(this)">Log this post</button></div><div id="rpMsg" class="field-note"></div>';
+    const filt = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;">' + [['', 'All']].concat(BIZ).map(b => '<button class="' + (LOG.biz === b[0] ? 'secondary' : 'ghost') + '" style="padding:3px 10px;font-size:12px;" onclick="AFH.logFilter(\'' + b[0] + '\')">' + esc(b[0] === 'cc' ? 'Caring Companions' : b[1]) + '</button>').join('') + '</div>';
+    const row = p => '<div class="afh-iv" style="flex-wrap:wrap;"><b style="min-width:58px">' + esc(day(p.at)) + '</b><span style="min-width:150px">' + esc(p.business === 'cc' ? 'Caring Companions' : bizName(p.business)) + '</span><span style="flex:1;min-width:160px">'
+      + esc(p.place) + ' <span class="field-note">' + esc(whereName(p.where)) + (full && p.by ? ' · ' + esc(first(p.by)) : '') + '</span>' + (p.link && /^https?:\/\//.test(p.link) ? ' <a href="' + esc(p.link) + '" target="_blank" rel="noopener">post</a>' : '') + '</span>'
+      + '<span class="field-note">' + (Number(p.replies) || 0) + ' applicant' + ((Number(p.replies) || 0) === 1 ? '' : 's') + '</span> <button class="ghost" style="padding:1px 8px;font-size:12px;" onclick="AFH.addReply(\'' + esc(p.id) + '\')">+1</button></div>';
+    const list = shown.length ? shown.map(row).join('') : '<div class="field-note">No posts logged yet.</div>';
+    let stats = '';
+    if(full){
+      const st = placeStats(all, Date.now() - 90 * 864e5).slice(0, 8);
+      stats = '<div class="afh-k" style="margin-top:10px;">Which places bring applicants (last 90 days)</div>'
+        + (st.length ? st.map(x => '<div class="afh-iv"><span style="min-width:150px">' + esc(x.business === 'cc' ? 'Caring Companions' : bizName(x.business)) + '</span><span style="flex:1">' + esc(x.place) + '</span><span class="field-note">' + x.posts + ' post' + (x.posts === 1 ? '' : 's') + ', ' + x.replies + ' applicant' + (x.replies === 1 ? '' : 's') + '</span></div>').join('') : '<div class="field-note">Nothing yet.</div>');
+    }
+    return '<div class="afh-box"' + (full ? ' id="rpFull"' : ' id="rpCard"') + '><div class="afh-k">Recruitment posting log' + (full ? '' : ' · newest 6') + '</div>'
+      + '<div class="field-note">' + BIZ.map(b => '<b>' + esc(b[0] === 'cc' ? 'Caring Companions' : b[1]) + '</b>: ' + esc(b[2])).join(' · ') + '</div>'
+      + form + (full ? filt : '') + list + stats + '</div>';
+  }
+  function redrawLog(){ try{ pin(); }catch(e){} try{ settingsFill(); }catch(e){} }
+  async function addPost(btn){
+    const box = btn && btn.closest ? btn.closest('.afh-box') : document;
+    const v = id => String(((box.querySelector && box.querySelector('#' + id)) || document.getElementById(id) || {}).value || '').trim();
+    const msg = t => { const m = (box.querySelector && box.querySelector('#rpMsg')) || document.getElementById('rpMsg'); if(m) m.textContent = t; };
+    const business = v('rpBiz'), where = v('rpWhere'), place = v('rpPlace').replace(/\s+/g, ' '), link = v('rpLink');
+    if(!business){ msg('Pick which business the post is for.'); return; }
+    if(!where){ msg('Pick where it was posted.'); return; }
+    if(!place){ msg('Write the name of the school or group.'); return; }
+    const rep = repeatOf(posts(), business, place, Date.now());
+    if(rep){
+      const ok = typeof W.ccConfirm === 'function' ? await W.ccConfirm('Already posted for ' + bizName(business) + ' in ' + rep.place + ' on ' + day(rep.at) + '.\n\nGroups often remove people who post the same thing again within ' + REPEAT_DAYS + ' days. Log it anyway?') : confirm('Already posted there on ' + day(rep.at) + '. Log it anyway?');
+      if(!ok){ msg('Not logged.'); return; }
+    }
+    const item = { id:'rp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at:new Date().toISOString(), by:me(), business, where, place, link, replies:0 };
+    if(btn) btn.disabled = true;
+    const DD = D(); DD.recruit_posts = (DD.recruit_posts || []).concat([item]);
+    try{ await W.persist('recruit_posts', item); }catch(e){ msg('Could not save: ' + (e && e.message || e)); if(btn) btn.disabled = false; return; }
+    redrawLog();
+  }
+  async function addReply(id){
+    const p = (D().recruit_posts || []).find(x => x && x.id === id); if(!p) return;
+    p.replies = (Number(p.replies) || 0) + 1; p.replies_at = new Date().toISOString(); p.replies_by = me();
+    await W.persist('recruit_posts', p); redrawLog();
+  }
+  function logFilter(b){ LOG.biz = b; settingsFill(); }
+
+  W.AFH = { pin, settingsFill, saveRole, windowsOf, holders, shift, both, clock, lines, role, addPost, addReply, logFilter, repeatOf, placeStats };
+  if(typeof module !== 'undefined' && module.exports) module.exports = { windowsOf, holders, shift, clock, lines, repeatOf, placeStats };
 })(typeof window !== 'undefined' ? window : this);
