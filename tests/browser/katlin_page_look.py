@@ -26,9 +26,11 @@ async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,600)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const L=window.__log, $=id=>document.getElementById(id), KT='katlin@mo-care.com';
   const as=(e,n)=>(0,eval)("ME={ email:'"+e+"', name:'"+n+"', shift:'day' };");
-  const pill=()=>document.querySelector('.fpill[data-tab="katlinpage"]');
+  const pill=()=>document.querySelector('.fpill[data-parent="katlingrp"]');
   const shown=()=>{ KP.pillSync(); return pill().style.display!=='none'; };
-  const page=()=>($('kpWrap')||{}).innerText||'';
+  const HOST={ kptasks:'kpWrapTasks', kpnextdoor:'kpWrapNextdoor', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
+  const page=()=>($(HOST[activeTab])||{}).innerText||'';
+  const go=async t=>{ switchTab(t); await sleep(150); };
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   ok('the test computer is in Vietnam', /Ho_Chi_Minh|Saigon/.test(Intl.DateTimeFormat().resolvedOptions().timeZone));
 
@@ -40,45 +42,69 @@ async()=>{
   /* the owner sets it up */
   as('samantha@mo-care.com','Samantha Troutman');
   ok('an owner sees the pill to set it up', shown());
-  switchTab('katlinpage'); await sleep(100);
+  ccParentClick('katlingrp'); await sleep(150);
+  ok('the parent pill opens Tasks', activeTab==='kptasks', activeTab);
   ok('the owner is asked whose page it is', /Whose page is this\?/.test(page()), page().slice(0,300));
   $('kpWho').value=KT; await KP.setWho(); await sleep(50);
   ok('whose page it is is saved in ops_settings (audited save)', (DATA.ops_settings.katlin_page||{}).email===KT && L.writes.includes('ops_settings'), DATA.ops_settings.katlin_page);
   ok('the owner\'s pill now says Katlin\'s page', /Katlin's page/.test(pill().innerText), pill().innerText);
-  await sleep(400); KP.render();
+  const sub=($('fsub2')||{}).innerText||'';
+  ok('four pills under it: Tasks, Nextdoor, Notes, Recruiting', /Tasks/.test(sub)&&/Nextdoor/.test(sub)&&/Notes/.test(sub)&&/Recruiting/.test(sub), sub);
   ok('the owner sees her tasks, with the starter Nextdoor ones', /Katlin's tasks/.test(page()) && /Search Nextdoor for neighbors/.test(page()), page().slice(0,500));
   $('kpNew').value='Call the CNA school about a posting (fake task)'; $('kpEvery').value=''; await KP.addTask(); await sleep(50);
   ok('the owner adds a task', (DATA.ops_settings.katlin_page.tasks||[]).some(t=>/CNA school/.test(t.text)) && /CNA school/.test(page()));
-  ok('the owner does not get a note box (it is for her)', !/Send Samantha a note/.test(page()));
+  await go('kprecruit');
+  ok('Recruiting: starter places and where to send people', /Facebook community and job groups/.test(page()) && /mo-care.com\/careers/.test(page()), page().slice(0,600));
+  $('kpNdBiz').value='Caring Companions'; $('kpNdPos').value='Caregiver (fake test need)'; $('kpNdArea').value='Nixa, Ozark'; $('kpNdHours').value='Weekends 8am to 2pm'; await KP.addNeed(); await sleep(50);
+  ok('the owner adds a hiring need (position, area, days and hours)', (DATA.ops_settings.katlin_page.hiring_needs||[]).length===1 && /Caregiver \(fake test need\)/.test(page()) && /Nixa, Ozark · Weekends 8am to 2pm/.test(page()), page().slice(0,500));
+  $('kpPlName').value='Fake Test CNA Program board'; $('kpPlEvery').value='month'; await KP.addPlace(); await sleep(50);
+  ok('the owner adds a place to post', (DATA.ops_settings.katlin_page.places||[]).length===3 && /Fake Test CNA Program board/.test(page()));
 
   /* Katlin */
   as(KT,'Katlin Fake');
   ok('Katlin sees her pill', shown());
   ok('it says My page', /My page/.test(pill().innerText), pill().innerText);
-  switchTab('katlinpage'); await sleep(500);
+  await go('kptasks');
+  ok('her Tasks: the owner\'s new task is there', /Your tasks/.test(page()) && /CNA school/.test(page()), page().slice(0,400));
+  ok('she cannot add or remove tasks', !$('kpNew') && !document.querySelector('.kpw .kp-x[title="Remove this task"]'));
+  await KP.tick('kp_nd_search', true); await sleep(50);
+  ok('she ticks a daily task, saved with her name', ((DATA.ops_settings.katlin_page.done||{}).kp_nd_search||{}).by===KT && /Done .* by Katlin/.test(page()), DATA.ops_settings.katlin_page.done);
+  await go('kpnextdoor'); await sleep(400); KP.render('kpnextdoor');
   const p=page();
-  ok('her page: her tasks, this week\'s Nextdoor post, a note box', /Your tasks/.test(p) && /This week on Nextdoor/.test(p) && /Send Samantha a note/.test(p), p.slice(0,600));
-  ok('the owner\'s new task is on her page', /CNA school/.test(p));
-  ok('this week is week 2 (Nov 17)', /Week 2 · Tue, Nov 17/i.test(p), p.slice(0,900));
-  ok('the post text is there', /Getting Mom or Dad's house ready|Ozarks ice storm/.test(p));
-  const img=document.querySelector('#kpWrap .kp-photo img');
+  ok('Nextdoor: this week is week 2 (Nov 17)', /Week 2 · Tue, Nov 17/i.test(p), p.slice(0,700));
+  ok('the post text is there', /Ozarks ice storm/.test(p));
+  await sleep(700); const img=document.querySelector('#kpWrapNextdoor .kp-photo img');
   ok('its photo loads', img && img.complete && img.naturalWidth>0, img && img.src);
   ok('week 1 is flagged as not marked posted', /Not marked posted yet: week 1/.test(p));
   ok('coming up lists the next posts', /Coming up/i.test(p) && /Week 3/.test(p));
-  await KP.tick('kp_nd_search', true); await sleep(50);
-  ok('she ticks a daily task, saved with her name', ((DATA.ops_settings.katlin_page.done||{}).kp_nd_search||{}).by===KT && /Done .* by Katlin/.test(page()), DATA.ops_settings.katlin_page.done);
   await KP.posted(2, true); await sleep(50);
   ok('she marks week 2 posted', ((DATA.ops_settings.katlin_page.posted||{})[2]||{}).by===KT && /✓ Posted/.test(page()));
-  ok('she cannot add or remove tasks', !$('kpNew') && !document.querySelector('#kpWrap .kp-x[title="Remove this task"]'));
+  await go('kpnotes');
   $('kpNote').value='A neighbor on Nextdoor asked about care for her dad (fake test note).'; await KP.sendNote(); await sleep(50);
   const note=(DATA.staffing_tasks||[]).slice(-1)[0]||{};
   ok('her note becomes a message to the Owners', note.direction==='to_owners' && note.from_email===KT && /fake test note/.test(note.message) && L.writes.some(w=>w.startsWith('staffing_tasks:')), note);
+  ok('and shows in her notes as waiting', /fake test note/.test(page()) && /waiting/.test(page()), page().slice(0,500));
+  await go('kprecruit');
+  ok('she sees the hiring need', /Caregiver \(fake test need\)/.test(page()) && /Weekends 8am to 2pm/.test(page()));
+  ok('she cannot add needs or places', !$('kpNdPos') && !$('kpPlName'));
+  const plId=DATA.ops_settings.katlin_page.places[2].id;
+  $('kpLk_'+plId).value='facebook.com/groups/fake-test/post'; await KP.logPost(plId); await sleep(50);
+  ok('she logs a recruiting post with its link', (DATA.ops_settings.katlin_page.recruit_log||[]).length===1 && /Last posted .* by Katlin/.test(page()) && /see the post/.test(page()), page().slice(0,900));
+
+  /* the owner replies to her note */
+  as('samantha@mo-care.com','Samantha Troutman');
+  await go('kpnotes');
+  ok('the owner sees her note with a reply box', /Notes from Katlin/.test(page()) && !!$('kpRe_'+note.id));
+  $('kpRe_'+note.id).value='Thank you! I will call her today.'; await KP.reply(note.id); await sleep(50);
+  ok('the reply is saved and the note is done (its card closes itself)', note.status==='done' && note.reply==='Thank you! I will call her today.' && /Samantha: Thank you!/.test(page()), note);
+  as(KT,'Katlin Fake'); KP.render('kpnotes');
+  ok('Katlin sees the reply', /Samantha: Thank you!/.test(page()));
 
   /* someone else */
   as('krystal@mo-care.com','Krystal Land');
   ok('another coordinator still has no pill', !shown());
-  window.__alerts=[]; switchTab('mywork'); switchTab('katlinpage');
-  ok('and is turned away if she opens it by link', window.__alerts.some(a=>/private/.test(a)), window.__alerts);
+  window.__alerts=[]; switchTab('mywork'); switchTab('kprecruit');
+  ok('and is turned away if she opens it by link', window.__alerts.some(a=>/private/.test(a)) && activeTab==='mywork', [window.__alerts, activeTab]);
   ok('nothing was texted, emailed or called', !(L.fn||[]).some(f=>/sms|text|email|send|call/i.test(String(f))), L.fn);
   return R;
 }
@@ -104,11 +130,11 @@ with sync_playwright() as pw:
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        pg.evaluate("()=>{ (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); switchTab('katlinpage'); }"); pg.wait_for_timeout(800)
+        pg.evaluate("()=>{ (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); switchTab('kprecruit'); }"); pg.wait_for_timeout(800)
         pg.screenshot(path=os.path.join(SHOTS, '1-katlin.png'), full_page=True)
-        pg.evaluate("()=>{ (0,eval)(\"ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' };\"); KP.render(); }"); pg.wait_for_timeout(300)
+        pg.evaluate("()=>{ (0,eval)(\"ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' };\"); switchTab('kprecruit'); }"); pg.wait_for_timeout(300)
         pg.screenshot(path=os.path.join(SHOTS, '2-samantha.png'), full_page=True)
-        pg.set_viewport_size({'width': 390, 'height': 900}); pg.evaluate("()=>{ (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); KP.render(); }"); pg.wait_for_timeout(300)
+        pg.set_viewport_size({'width': 390, 'height': 900}); pg.evaluate("()=>{ (0,eval)(\"ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };\"); switchTab('kpnotes'); }"); pg.wait_for_timeout(300)
         pg.screenshot(path=os.path.join(SHOTS, '3-phone.png'), full_page=True)
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)

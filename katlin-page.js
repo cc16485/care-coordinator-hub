@@ -88,16 +88,17 @@
     PX.busy = false; render();
   }
 
-  /* ── menu pill ── */
+  /* ── menu: one parent pill (data-parent="katlingrp") with four pills under it ── */
+  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
+  const isKp = tab => VIEWS.some(v => v.t === tab) || tab === 'katlinpage';
+  function pageLabel(){ return (pageEmail() && me() === pageEmail()) ? 'My page' : (pageEmail() ? first(pageEmail()) + '\'s page' : 'Katlin\'s page'); }
   function pillSync(){
-    const p = document.querySelector('.fpill[data-tab="katlinpage"]'); if(!p) return;
-    const ok = allowed() && (!!pageEmail() || owner());
-    p.style.display = ok ? '' : 'none';
-    const lab = p.querySelector('.kpLab');
-    const text = (pageEmail() && me() === pageEmail()) ? 'My page' : (pageEmail() ? first(pageEmail()) + '\'s page' : 'Katlin\'s page');
-    if(lab) lab.textContent = text;
-    /* the header title follows the pill (CC_SECTION_TITLES is a top-level const in index.html, read by name) */
-    try{ CC_SECTION_TITLES.katlinpage = text; if(activeTab === 'katlinpage' && typeof ccSetSectionTitle === 'function') ccSetSectionTitle('katlinpage'); }catch(e){}
+    const p = document.querySelector('.fpill[data-parent="katlingrp"]'); if(!p) return;
+    p.style.display = (allowed() && (!!pageEmail() || owner())) ? '' : 'none';
+    const text = pageLabel(), lab = p.querySelector('.kpLab'); if(lab) lab.textContent = text;
+    /* the header title follows (CC_SECTION_TITLES is a top-level const in index.html, read by name) */
+    try{ VIEWS.forEach(v => { CC_SECTION_TITLES[v.t] = text + ' · ' + v.l; });
+      if(isKp(activeTab) && typeof ccSetSectionTitle === 'function') ccSetSectionTitle(activeTab); }catch(e){}
   }
 
   /* ── css, once ── */
@@ -105,42 +106,45 @@
     if(document.getElementById('kpCss')) return;
     const s = document.createElement('style'); s.id = 'kpCss';
     s.textContent = `
-#kpWrap{max-width:860px}
-#kpWrap .kp-h{font-size:22px;font-weight:700;color:var(--navy,#0D365F);margin:4px 0 2px}
-#kpWrap .kp-sub{color:var(--text-muted,#55677a);margin-bottom:16px}
-#kpWrap .kp-card{background:#fff;border:1px solid var(--border,#e4e1d8);border-radius:12px;padding:16px 18px;margin-bottom:16px}
-#kpWrap .kp-card h3{margin:0 0 10px;font-size:17px;color:var(--navy,#0D365F)}
-#kpWrap .kp-grp{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#C17A12;margin:12px 0 4px}
-#kpWrap .kp-task{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f0eee8}
-#kpWrap .kp-task:last-child{border-bottom:0}
-#kpWrap .kp-task input{width:20px;height:20px;margin-top:1px;flex:0 0 auto;cursor:pointer}
-#kpWrap .kp-task.done .kp-t{color:#8a978f;text-decoration:line-through}
-#kpWrap .kp-t{flex:1;line-height:1.4}
-#kpWrap .kp-when{font-size:12px;color:#8a978f}
-#kpWrap span.kp-when{white-space:nowrap}
-#kpWrap .kp-row span.kp-when{white-space:normal}
-#kpWrap .kp-x{border:0;background:none;color:#8a978f;cursor:pointer;font-size:16px;padding:0 4px}
-#kpWrap .kp-add{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-#kpWrap .kp-add input{flex:1;min-width:220px;width:auto}
-#kpWrap .kp-add select,#kpWrap .kp-row select{width:auto;flex:0 0 auto}
-#kpWrap .kp-post{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px}
-@media(max-width:700px){#kpWrap .kp-post{grid-template-columns:1fr}}
-#kpWrap .kp-text{white-space:pre-wrap;background:#faf9f6;border:1px solid #eee9dd;border-radius:10px;padding:12px;line-height:1.45;font-size:14px}
-#kpWrap .kp-photo img{width:100%;border-radius:10px;display:block}
-#kpWrap .kp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
-#kpWrap .kp-ok{color:#14606F;font-weight:600}
-#kpWrap .kp-warn{background:#fff7e8;border:1px solid #f0d9a8;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
-#kpWrap details{border-top:1px solid #f0eee8;padding:8px 0}
-#kpWrap summary{cursor:pointer;font-weight:600}
-#kpWrap textarea{width:100%;min-height:80px;box-sizing:border-box}
-#kpWrap .kp-row select{width:auto}`;
+.kpw{max-width:860px}
+.kpw .kp-h{font-size:22px;font-weight:700;color:var(--navy,#0D365F);margin:4px 0 2px}
+.kpw .kp-sub{color:var(--text-muted,#55677a);margin-bottom:16px}
+.kpw .kp-card{background:#fff;border:1px solid var(--border,#e4e1d8);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.kpw .kp-card h3{margin:0 0 10px;font-size:17px;color:var(--navy,#0D365F)}
+.kpw .kp-grp{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#C17A12;margin:12px 0 4px}
+.kpw .kp-task{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid #f0eee8}
+.kpw .kp-task:last-child{border-bottom:0}
+.kpw .kp-task input[type=checkbox]{width:20px;height:20px;margin-top:1px;flex:0 0 auto;cursor:pointer}
+.kpw .kp-task.done .kp-t{color:#8a978f;text-decoration:line-through}
+.kpw .kp-t{flex:1;line-height:1.4;min-width:0}
+.kpw .kp-when{font-size:12px;color:#8a978f}
+.kpw span.kp-when{white-space:nowrap}
+.kpw .kp-row span.kp-when{white-space:normal}
+.kpw .kp-x{border:0;background:none;color:#8a978f;cursor:pointer;font-size:16px;padding:0 4px}
+.kpw .kp-add{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.kpw .kp-add input{flex:1;min-width:200px;width:auto}
+.kpw .kp-add select,.kpw .kp-row select{width:auto;flex:0 0 auto}
+.kpw .kp-post{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px}
+@media(max-width:700px){.kpw .kp-post{grid-template-columns:1fr}}
+.kpw .kp-text{white-space:pre-wrap;background:#faf9f6;border:1px solid #eee9dd;border-radius:10px;padding:12px;line-height:1.45;font-size:14px}
+.kpw .kp-photo img{width:100%;border-radius:10px;display:block}
+.kpw .kp-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.kpw .kp-ok{color:#14606F;font-weight:600}
+.kpw .kp-due{color:#9C6410;font-weight:700}
+.kpw .kp-warn{background:#fff7e8;border:1px solid #f0d9a8;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:14px}
+.kpw .kp-reply{background:#EAF4F6;border-radius:10px;padding:8px 12px;margin-top:6px;font-size:14px}
+.kpw details{border-top:1px solid #f0eee8;padding:8px 0}
+.kpw summary{cursor:pointer;font-weight:600}
+.kpw textarea{width:100%;min-height:80px;box-sizing:border-box}
+.kpw .kp-links{white-space:pre-wrap;line-height:1.5}`;
     document.head.appendChild(s);
   }
 
-  /* ── render ── */
+  /* ── shared bits ── */
   const fmtDay = ds => new Date(ds + 'T12:00:00Z').toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', timeZone:'UTC' });
   const fmtAt = t => { try{ return new Date(t).toLocaleString('en-US', { timeZone:TZ, month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) + ' Missouri'; }catch(e){ return ''; } };
-  const EVERY = { day:'every day', week:'every week' };
+  const EVERY = { day:'every day', week:'every week', month:'every month' };
+  const newId = p => (typeof W.uid === 'function' ? W.uid() : p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
 
   function taskRow(t, done, today, isOwner){
     const d = isDone(t, done, today), who = (done[t.id] || {});
@@ -149,7 +153,6 @@
       ${t.every ? `<span class="kp-when">${EVERY[t.every] || ''}</span>` : ''}
       ${isOwner ? `<button class="kp-x" title="Remove this task" onclick="KP.removeTask('${esc(t.id)}')">✕</button>` : ''}</div>`;
   }
-
   function postBlock(p, posted, big){
     const mark = posted[p.week];
     return `<div class="kp-post"><div>
@@ -160,40 +163,26 @@
           ${mark ? `<span class="kp-ok">✓ Posted ${esc(fmtAt(mark.at))}</span> <button class="kp-x" title="Not posted after all" onclick="KP.posted(${p.week},false)">undo</button>`
                  : `<button class="secondary" onclick="KP.posted(${p.week},true)">I posted it</button>`}
           <span class="kp-when" id="kpCopied${p.week}"></span></div>
-      </div><div class="kp-photo"><img src="nextdoor/${esc(p.photo)}" alt="Photo for this post" loading="lazy"></div></div>`;
+      </div><div class="kp-photo"><img src="nextdoor/${esc(p.photo)}" alt="Photo for this post"${big ? '' : ' loading="lazy"'}></div></div>`;
   }
 
-  function render(){
-    const host = document.getElementById('kpWrap'); if(!host) return;
-    css(); pillSync();
-    if(!allowed()){ host.innerHTML = '<div class="kp-card">This page is private.</div>'; return; }
-    const isOwner = owner(), email = pageEmail();
-    if(!email){
-      if(!isOwner){ host.innerHTML = '<div class="kp-card">This page is private.</div>'; return; }
-      const staff = (D().coordinator_staff || []).filter(s => s && s.email && s.active !== false).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
-      host.innerHTML = `<div class="kp-h">Katlin's page</div><div class="kp-sub">Her own page: tasks you give her, this week's Nextdoor post and a note box to you.</div>
-        <div class="kp-card"><h3>Whose page is this?</h3><p>Pick her from the team list. Only she and the owners will see this page.</p>
-        <div class="kp-row"><select id="kpWho"><option value="">Choose a person</option>${staff.map(s => `<option value="${esc(lc(s.email))}">${esc(s.name || s.email)}</option>`).join('')}</select>
-        <button class="primary" onclick="KP.setWho()">Save</button></div></div>`;
-      return;
-    }
-    const c = cfg(), done = c.done || {}, posted = c.posted || {}, today = dayOf(Date.now()), all = tasks();
-    const nm = first(email), mine = me() === email;
+  /* ── the four views ── */
+  function viewTasks(ctx){
+    const { c, today, isOwner, nm, mine } = ctx, done = c.done || {}, all = tasks();
     const grp = (label, list) => list.length ? `<div class="kp-grp">${label}</div>` + list.map(t => taskRow(t, done, today, isOwner)).join('') : '';
     const once = all.filter(t => !t.every), daily = all.filter(t => t.every === 'day'), weekly = all.filter(t => t.every === 'week');
     const openOnce = once.filter(t => !isDone(t, done, today));
     const doneOnce = once.filter(t => isDone(t, done, today) && (Date.now() - new Date(done[t.id].at).getTime()) < 7 * 864e5);
-    let html = `<div class="kp-h">${mine ? 'My page' : esc(nm) + '\'s page'}</div>
-      <div class="kp-sub">${mine ? 'Your tasks from Samantha, this week\'s Nextdoor post and a quick way to reach her.' : 'What ' + esc(nm) + ' sees. Add a task below and it shows up on her page.'}</div>`;
-
-    html += `<div class="kp-card"><h3>${mine ? 'Your tasks' : esc(nm) + '\'s tasks'}</h3>
+    return `<div class="kp-card"><h3>${mine ? 'Your tasks' : esc(nm) + '\'s tasks'}</h3>
       ${grp('To do', openOnce)}${grp('Every day', daily)}${grp('Every week', weekly)}${grp('Done this week', doneOnce)}
       ${!all.length ? '<p class="kp-when">No tasks yet.</p>' : ''}
       ${isOwner ? `<div class="kp-add"><input id="kpNew" placeholder="Give ${esc(nm)} a task" onkeydown="if(event.key==='Enter')KP.addTask()">
         <select id="kpEvery"><option value="">Once</option><option value="day">Every day</option><option value="week">Every week</option></select>
         <button class="primary" onclick="KP.addTask()">Add task</button></div>` : ''}</div>`;
-
-    html += `<div class="kp-card"><h3>This week on Nextdoor</h3>`;
+  }
+  function viewNextdoor(ctx){
+    const { c, today } = ctx, posted = c.posted || {};
+    let html = `<div class="kp-card"><h3>This week on Nextdoor</h3>`;
     if(PX.err) html += `<p>${esc(PX.err)}</p>`;
     else if(!PX.list){ html += '<p class="kp-when">Loading the posts…</p>'; loadPosts(); }
     else{
@@ -205,8 +194,15 @@
       const earlier = (PX.list || []).filter(p => cur && p.date < cur.date).slice(-4).reverse();
       if(earlier.length) html += `<div class="kp-grp" style="margin-top:18px">Earlier posts</div>` + earlier.map(p => `<details><summary>Week ${p.week} · ${esc(fmtDay(p.date))} · ${esc(p.title)}${posted[p.week] ? ' ✓' : ''}</summary>${postBlock(p, posted, false)}</details>`).join('');
     }
-    html += `</div>`;
-
+    return html + `</div>`;
+  }
+  function notesOf(email){
+    return (D().staffing_tasks || []).filter(t => t && t.direction === 'to_owners' && lc(t.from_email) === email)
+      .sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+  }
+  function viewNotes(ctx){
+    const { email, isOwner, nm, mine } = ctx, list = notesOf(email);
+    let html = '';
     if(mine || !isOwner){
       html += `<div class="kp-card"><h3>Send Samantha a note</h3>
         <p class="kp-when" style="margin-top:0">A neighbor asking for care, a question, or anything she should know. It goes to the owners' My Work.</p>
@@ -214,7 +210,102 @@
         <div class="kp-row"><select id="kpNoteWhen"><option>Today</option><option selected>This week</option><option>When you can</option></select>
         <button class="primary" onclick="KP.sendNote()">Send to Samantha</button><span class="kp-when" id="kpNoteSaid"></span></div></div>`;
     }
-    if(isOwner) html += `<p class="kp-when">Only ${esc(nm)} and the owners can see this page. <a href="#" onclick="KP.changeWho();return false;">Change whose page this is</a></p>`;
+    html += `<div class="kp-card"><h3>${mine ? 'Your notes' : 'Notes from ' + esc(nm)}</h3>`;
+    if(!list.length) html += `<p class="kp-when">No notes yet.</p>`;
+    html += list.slice(0, 40).map(t => {
+      const open = t.status === 'open';
+      return `<div class="kp-task"><div class="kp-t"><div>${esc(t.message)}</div>
+        <div class="kp-when">${esc(fmtAt(t.created_at))} · ${esc(t.urgency || '')} · ${open ? '<span class="kp-due">waiting</span>' : 'done' + (t.done_by ? ' by ' + esc(String(t.done_by).split(' ')[0]) : '')}</div>
+        ${t.reply ? `<div class="kp-reply"><b>${esc(String(t.reply_by_name || 'Samantha').split(' ')[0])}:</b> ${esc(t.reply)}</div>` : ''}
+        ${isOwner && open ? `<div class="kp-add"><input id="kpRe_${esc(t.id)}" placeholder="Reply to ${esc(nm)} (optional)"><button class="primary" onclick="KP.reply('${esc(t.id)}')">Reply and mark done</button></div>` : ''}
+      </div></div>`;
+    }).join('');
+    return html + `</div>`;
+  }
+  /* Recruiting: places to post (owners add, with how often) and her posting log. */
+  const PLACE_STARTER = [
+    { id:'kp_pl_fb', name:'Springfield-area Facebook community and job groups', biz:'All three', every:'week', note:'' },
+    { id:'kp_pl_cna', name:'CNA school job boards and instructors', biz:'All three', every:'month', note:'' }
+  ];
+  const LINKS_STARTER = 'Caring Companions In-Home Senior Care: mo-care.com/careers (caregivers 21 or older)\nCaring Companions CDS: findcdscaregivers.com\nShow-Me Neighbors: showmeneighbors.com (Become a Neighbor)';
+  function places(){ const c = cfg(); return Array.isArray(c.places) ? c.places : PLACE_STARTER; }
+  function lastPost(log, placeId){ return (log || []).filter(x => x.place === placeId).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null; }
+  /* due: never posted, or older than its repeat (week 7 days, month 30 days); a one-time place is due until posted once */
+  function placeDue(pl, last, now){
+    if(!last) return true;
+    const age = (now - new Date(last.at).getTime()) / 864e5;
+    return pl.every === 'week' ? age >= 7 : pl.every === 'month' ? age >= 30 : false;
+  }
+  function viewRecruit(ctx){
+    const { c, isOwner, nm, mine } = ctx, log = Array.isArray(c.recruit_log) ? c.recruit_log : [], now = Date.now();
+    const links = typeof c.recruit_links === 'string' ? c.recruit_links : LINKS_STARTER;
+    const needs = Array.isArray(c.hiring_needs) ? c.hiring_needs : [];
+    let html = `<div class="kp-card"><h3>Who we're hiring for right now</h3>
+      ${needs.length ? needs.map(n => `<div class="kp-task"><div class="kp-t"><div><b>${esc(n.position)}</b> <span class="kp-when">· ${esc(n.biz || '')}</span></div>
+          <div>${esc(n.area || '')}${n.hours ? ' · ' + esc(n.hours) : ''}</div>${n.note ? `<div class="kp-when">${esc(n.note)}</div>` : ''}
+          <div class="kp-when">Added ${esc(fmtAt(n.at))}</div></div>
+        ${isOwner ? `<button class="kp-x" title="Filled, remove it" onclick="KP.removeNeed('${esc(n.id)}')">✕</button>` : ''}</div>`).join('')
+        : `<p class="kp-when">${isOwner ? 'Nothing listed yet. Add what you need below and ' + esc(nm) + ' builds her posts from it.' : 'Nothing listed right now. Samantha adds positions here.'}</p>`}
+      ${isOwner ? `<div class="kp-grp" style="margin-top:14px">Add a hiring need</div>
+        <div class="kp-add"><select id="kpNdBiz"><option>Caring Companions</option><option>CDS</option><option>Show-Me Neighbors</option></select>
+          <input id="kpNdPos" placeholder="Position (e.g. caregiver, PRN CNA)"></div>
+        <div class="kp-add"><input id="kpNdArea" placeholder="Area or towns (e.g. Nixa, Ozark)"><input id="kpNdHours" placeholder="Days and hours (e.g. weekends 8am to 2pm)"></div>
+        <div class="kp-add"><input id="kpNdNote" placeholder="Anything else for the post (optional)"><button class="primary" onclick="KP.addNeed()">Add</button></div>` : ''}</div>`;
+    html += `<div class="kp-card"><h3>Where to send people</h3>
+      <div class="kp-text kp-links">${esc(links)}</div>
+      ${isOwner ? `<details><summary>Change this</summary><textarea id="kpLinks">${esc(links)}</textarea><div class="kp-row"><button class="primary" onclick="KP.saveLinks()">Save</button></div></details>` : ''}</div>`;
+    const pls = places();
+    html += `<div class="kp-card"><h3>Places to post</h3>`;
+    if(!pls.length) html += `<p class="kp-when">No places yet.</p>`;
+    html += pls.map(pl => {
+      const last = lastPost(log, pl.id), due = placeDue(pl, last, now);
+      return `<div class="kp-task"><div class="kp-t"><div><b>${esc(pl.name)}</b> <span class="kp-when">· ${esc(pl.biz || '')}${pl.every ? ' · ' + EVERY[pl.every] : ' · once'}</span></div>
+          ${pl.note ? `<div class="kp-when">${esc(pl.note)}</div>` : ''}
+          <div class="kp-when">${last ? 'Last posted ' + esc(fmtAt(last.at)) + ' by ' + esc(String(last.by_name || '').split(' ')[0]) : 'Not posted yet'}${due ? ' · <span class="kp-due">due</span>' : ''}</div>
+          <div class="kp-add" style="margin-top:6px"><input id="kpLk_${esc(pl.id)}" placeholder="Link to the post (optional)"><button class="secondary" onclick="KP.logPost('${esc(pl.id)}')">I posted here</button></div></div>
+        ${isOwner ? `<button class="kp-x" title="Remove this place" onclick="KP.removePlace('${esc(pl.id)}')">✕</button>` : ''}</div>`;
+    }).join('');
+    if(isOwner) html += `<div class="kp-grp" style="margin-top:16px">Add a place</div>
+      <div class="kp-add"><input id="kpPlName" placeholder="Where (e.g. a Facebook group or school)">
+        <select id="kpPlBiz"><option>All three</option><option>Caring Companions</option><option>CDS</option><option>Show-Me Neighbors</option></select>
+        <select id="kpPlEvery"><option value="week">Every week</option><option value="month">Every month</option><option value="">Once</option></select></div>
+      <div class="kp-add"><input id="kpPlNote" placeholder="Note for ${esc(nm)} (optional): link, who to ask, what to post"><button class="primary" onclick="KP.addPlace()">Add place</button></div>`;
+    html += `</div>`;
+    const recent = log.slice().sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 20);
+    html += `<div class="kp-card"><h3>Posting log</h3>${recent.length ? recent.map(x => {
+      const pl = pls.find(p => p.id === x.place);
+      return `<div class="kp-task"><div class="kp-t">${esc(pl ? pl.name : x.place_name || 'A place')}${x.link ? ` · <a href="${esc(/^https?:\/\//.test(x.link) ? x.link : 'https://' + x.link)}" target="_blank" rel="noopener">see the post</a>` : ''}
+        <div class="kp-when">${esc(fmtAt(x.at))} by ${esc(String(x.by_name || '').split(' ')[0])}</div></div></div>`;
+    }).join('') : `<p class="kp-when">${mine ? 'Nothing logged yet. Click "I posted here" after each post.' : 'Nothing logged yet.'}</p>`}</div>`;
+    return html;
+  }
+
+  /* ── render the view for the active pill ── */
+  const HOST = { kptasks:'kpWrapTasks', kpnextdoor:'kpWrapNextdoor', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
+  function render(view){
+    let v = view; try{ if(!v) v = isKp(activeTab) ? activeTab : 'kptasks'; }catch(e){ v = v || 'kptasks'; }
+    if(v === 'katlinpage') v = 'kptasks';
+    const host = document.getElementById(HOST[v]); if(!host) return;
+    host.classList.add('kpw'); css(); pillSync();
+    if(!allowed()){ host.innerHTML = '<div class="kp-card">This page is private.</div>'; return; }
+    const isOwner = owner(), email = pageEmail();
+    if(!email){
+      if(!isOwner){ host.innerHTML = '<div class="kp-card">This page is private.</div>'; return; }
+      const staff = (D().coordinator_staff || []).filter(s => s && s.email && s.active !== false).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+      host.innerHTML = `<div class="kp-h">Katlin's page</div><div class="kp-sub">Her own page: tasks you give her, the Nextdoor posts, notes to you and recruiting posts.</div>
+        <div class="kp-card"><h3>Whose page is this?</h3><p>Pick her from the team list. Only she and the owners will see this page.</p>
+        <div class="kp-row"><select id="kpWho"><option value="">Choose a person</option>${staff.map(s => `<option value="${esc(lc(s.email))}">${esc(s.name || s.email)}</option>`).join('')}</select>
+        <button class="primary" onclick="KP.setWho()">Save</button></div></div>`;
+      return;
+    }
+    const ctx = { c:cfg(), today:dayOf(Date.now()), isOwner, email, nm:first(email), mine:me() === email };
+    const SUB = { kptasks:ctx.mine ? 'Your tasks from Samantha. Tick each one when it is done.' : 'What ' + esc(ctx.nm) + ' sees. Add a task and it shows up on her page.',
+      kpnextdoor:'One post every Tuesday on the Caring Companions Nextdoor page.',
+      kpnotes:ctx.mine ? 'Notes to Samantha, and her replies.' : 'Notes ' + esc(ctx.nm) + ' sent you. Reply here and it closes the card in your My Work.',
+      kprecruit:'Job posts for Caring Companions, CDS and Show-Me Neighbors: where to post, how often, and a log of each post.' };
+    let html = `<div class="kp-h">${esc(pageLabel())}</div><div class="kp-sub">${SUB[v]}</div>`;
+    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
+    if(isOwner) html += `<p class="kp-when">Only ${esc(ctx.nm)} and the owners can see this page. <a href="#" onclick="KP.changeWho();return false;">Change whose page this is</a></p>`;
     host.innerHTML = html;
   }
 
@@ -284,12 +375,64 @@
       const d = D(); d.staffing_tasks = d.staffing_tasks || []; d.staffing_tasks.push(t);
       await W.persist('staffing_tasks', t);
       if(box) box.value = '';
-      const s = document.getElementById('kpNoteSaid'); if(s) s.textContent = 'Sent. Samantha will see it in My Work.';
+      render(); const s = document.getElementById('kpNoteSaid'); if(s) s.textContent = 'Sent. Samantha will see it in My Work.';
     }catch(e){ alert('Your note did not send. Please try again.'); }
   }
 
-  const KP = { allowed, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote,
-    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER } };
+  async function reply(id){
+    if(!owner()) return;
+    const t = (D().staffing_tasks || []).find(x => x.id === id); if(!t) return;
+    const text = String((document.getElementById('kpRe_' + id) || {}).value || '').trim();
+    t.reply = text; t.reply_at = new Date().toISOString(); t.reply_by_name = meName();
+    t.status = 'done'; t.done_at = t.reply_at; t.done_by = meName();   /* same as coordMsgDone; the owners' card closes itself */
+    try{ await W.persist('staffing_tasks', t); }catch(e){ alert('That did not save. Please try again.'); }
+    render();
+  }
+  async function logPost(placeId){
+    const pl = places().find(x => x.id === placeId); if(!pl) return;
+    const link = String((document.getElementById('kpLk_' + placeId) || {}).value || '').trim();
+    await save(kp => { if(!Array.isArray(kp.places)) kp.places = PLACE_STARTER.map(x => Object.assign({}, x));
+      kp.recruit_log = (Array.isArray(kp.recruit_log) ? kp.recruit_log : []).concat([{ id:newId('kpl_'), place:placeId, place_name:pl.name, link, at:new Date().toISOString(), by:me(), by_name:meName() }]).slice(-300);
+      return ['recruiting post logged: ' + pl.name.slice(0, 50)]; }, 'Katlin\'s page');
+    render();
+  }
+  async function addPlace(){
+    if(!owner()) return;
+    const v = id => String((document.getElementById(id) || {}).value || '').trim();
+    const name = v('kpPlName'); if(!name){ alert('Write where to post first.'); return; }
+    const pl = { id:newId('kpp_'), name, biz:v('kpPlBiz'), every:v('kpPlEvery'), note:v('kpPlNote'), by:me(), at:new Date().toISOString() };
+    await save(kp => { if(!Array.isArray(kp.places)) kp.places = PLACE_STARTER.map(x => Object.assign({}, x)); kp.places.push(pl); return ['recruiting place added: ' + name.slice(0, 50)]; }, 'Katlin\'s page');
+    render();
+  }
+  async function removePlace(id){
+    if(!owner()) return;
+    const pl = places().find(x => x.id === id); if(!pl || !confirm('Remove this place?\n\n' + pl.name)) return;
+    await save(kp => { if(!Array.isArray(kp.places)) kp.places = PLACE_STARTER.map(x => Object.assign({}, x)); kp.places = kp.places.filter(x => x.id !== id); return ['recruiting place removed: ' + pl.name.slice(0, 50)]; }, 'Katlin\'s page');
+    render();
+  }
+  async function saveLinks(){
+    if(!owner()) return;
+    const text = String((document.getElementById('kpLinks') || {}).value || '').trim();
+    await save(kp => { kp.recruit_links = text; return ['where to send people changed']; }, 'Katlin\'s page');
+    render();
+  }
+  async function addNeed(){
+    if(!owner()) return;
+    const v = id => String((document.getElementById(id) || {}).value || '').trim();
+    const position = v('kpNdPos'); if(!position){ alert('Write the position first.'); return; }
+    const n = { id:newId('kpn_'), biz:v('kpNdBiz'), position, area:v('kpNdArea'), hours:v('kpNdHours'), note:v('kpNdNote'), by:me(), at:new Date().toISOString() };
+    await save(kp => { kp.hiring_needs = (Array.isArray(kp.hiring_needs) ? kp.hiring_needs : []).concat([n]); return ['hiring need added: ' + position.slice(0, 50)]; }, 'Katlin\'s page');
+    render();
+  }
+  async function removeNeed(id){
+    if(!owner()) return;
+    const n = (cfg().hiring_needs || []).find(x => x.id === id); if(!n || !confirm('Remove this hiring need?\n\n' + n.position)) return;
+    await save(kp => { kp.hiring_needs = (kp.hiring_needs || []).filter(x => x.id !== id); return ['hiring need removed: ' + n.position.slice(0, 50)]; }, 'Katlin\'s page');
+    render();
+  }
+
+  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed,
+    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
 })(typeof window !== 'undefined' ? window : globalThis);
