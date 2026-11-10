@@ -1,8 +1,8 @@
-"""The state's Medicaid care plan, uploaded in the client's profile (GHE fix slice 1, her rule 2026-10-08: "in the intake,
+"""The state's Medicaid care plan, uploaded in the client's profile (her rule 2026-10-08: "in the intake,
 in the client's profile"), in the real Hub page offline: the Payer tab's State care plan box; upload (the fixture: two
 real Fusion plans with every name and number replaced); what was read; the received date required; a plan for someone
 else caught (DCN stops it, a different name must be confirmed); confirm; the plan kept without address/phone/birth date;
-an empty DCN filled; the GHE month on the nurse board; a client with no inquiry; a CDS plan stopped; and Nurse
+an empty DCN filled; no GHE and no nurse board (GHE removed 2026-11-09, her word); a client with no inquiry; a CDS plan stopped; and Nurse
 Scheduling's list of who still needs a plan, each name opening the profile's Payer tab. (python3 tests/browser/care_plans_look.py [port])"""
 import os, sys, json
 from playwright.sync_api import sync_playwright
@@ -21,7 +21,7 @@ FAKE = r"""
   (0,eval)("CC_PICK_OPTS=[{name:'Pat Sample',ax:'901',pid:'p1',past:false},{name:'Lou Two',ax:'902',pid:'p2',past:false},{name:'Kim Medicaid',ax:'903',pid:'p3',past:false},{name:'Old Client',ax:'904',pid:'p4',past:true}]");
   (0,eval)("ccPickOptions=async()=>CC_PICK_OPTS");
   (0,eval)("CL360_IDENTITY=[{axiscare_client_id:'901',client_name:'Pat Sample',phone:'4175550101'}]");
-  DATA.nurse_clients=[]; DATA.nurse_visits=[]; DATA.ghe_forms=[]; DATA.nurse_staff=[]; DATA.medicaid_plans=[];
+  DATA.nurse_clients=[]; DATA.nurse_visits=[]; DATA.nurse_staff=[]; DATA.medicaid_plans=[];
   W.__lead={ id:'L1', is_test:true, client_first_name:'Pat', client_last_name:'Sample', funding_source:'medicaid', dcn:'', state_status:'submitted', state_submitted:'2026-09-20', axiscare_client_id:'901', soc:{ steps:[] } };
   DATA.leads=[W.__lead];
   W.__open=(lead,ax,name)=>{ (0,eval)('CP'); CP.lead=lead; CP.ax=ax; CP.r={ client_name:name }; cpRenderPayer(); };
@@ -36,8 +36,8 @@ T = r"""async(FX)=>{
   ok('The profile\'s Payer tab has a "State care plan" box with an upload button, and says none is uploaded yet', box() && /State care plan/.test(box().innerText) && /Upload the care plan/.test(box().innerText) && /No care plan uploaded yet/.test(box().innerText) && document.getElementById('mcpFile').accept.includes('pdf'));
   let row=await mcpAddItems('plan-agency.pdf', FX.agency); await sleep(150);
   let tx=document.getElementById('mcpPend').innerText;
-  ok('Uploaded: what was read (name, DCN, plan period, generated date), our services and their authorizations', /PAT SAMPLE/.test(tx) && /DCN 12345678/.test(tx) && /08\/10\/2026 to 01\/31\/2027/.test(tx) && /generated 10\/08\/2026/.test(tx) && /Agency personal care/.test(tx) && /GHE \(nurse visit\)/.test(tx) && /20260000000001/.test(tx), tx);
-  ok('...the GHE month it authorizes, and the other provider noted, not taken', /GHE authorized: Nov 2026 \(T1001\)/.test(tx) && /Also served by EMEREST HEALTH CDS OF MISSOU/.test(tx));
+  ok('Uploaded: what was read (name, DCN, plan period, generated date), our services and their authorizations', /PAT SAMPLE/.test(tx) && /DCN 12345678/.test(tx) && /08\/10\/2026 to 01\/31\/2027/.test(tx) && /generated 10\/08\/2026/.test(tx) && /Agency personal care/.test(tx) && /Authorized nurse visit/.test(tx) && /20260000000001/.test(tx), tx);
+  ok('...no GHE anywhere in what was read, and the other provider noted, not taken', !/GHE/.test(tx) && !/nurse board/.test(tx) && /Also served by EMEREST HEALTH CDS OF MISSOU/.test(tx));
   ok('...no client to pick: it is this profile\'s client, and the names match so no extra confirmation', !document.querySelector('#mcpPend [list]') && !document.getElementById('mcpNameOk'));
   ok('...Confirm stays off until the received date is entered, and says why; nothing saved', document.getElementById('mcpSave').disabled && /Enter the date we received this plan/.test(tx) && window.__P.length===0);
   mcpRecv('2099-01-01'); await sleep(80);
@@ -46,17 +46,17 @@ T = r"""async(FX)=>{
   ok('...with the date, Confirm and save turns on', !document.getElementById('mcpSave').disabled);
   await mcpSave(); await sleep(250);
   const plans=window.__P.filter(x=>x[0]==='medicaid_plans').map(x=>x[1]), nc=window.__P.filter(x=>x[0]==='nurse_clients').map(x=>x[1]), leads=window.__P.filter(x=>x[0]==='leads').map(x=>x[1]);
-  ok('Saved: the plan for this client (inquiry and AxisCare #901), received Oct 7, confirmed by Krystal', plans.length===1 && plans[0].lead_id==='L1' && plans[0].axiscare_client_id==='901' && plans[0].received_on==='2026-10-07' && plans[0].confirmed_by==='krystal@mo-care.com' && plans[0].ghe_months.join()==='2026-11', plans);
+  ok('Saved: the plan for this client (inquiry and AxisCare #901), received Oct 7, confirmed by Krystal', plans.length===1 && plans[0].lead_id==='L1' && plans[0].axiscare_client_id==='901' && plans[0].received_on==='2026-10-07' && plans[0].confirmed_by==='krystal@mo-care.com' && !('ghe_months' in plans[0]), plans);
   ok('...never the address, phone or date of birth', !/ADDRESS|0000000000|1950|Phone|DOB/.test(JSON.stringify(plans[0])));
   ok('...the inquiry had no DCN: it is filled from the plan', leads.length===1 && leads[0].dcn==='12345678' && __lead.dcn==='12345678', leads);
-  ok('...Pat Sample goes on the nurse board with the GHE in November 2026 and its authorization', nc.length===1 && nc[0].name==='Pat Sample' && nc[0].axiscare_client_id==='901' && nc[0].lead_id==='L1' && nc[0].ghe1==='2026-11' && nc[0].ghe_auth['2026-11'].code==='T1001' && nc[0].phone==='4175550101', nc);
-  ok('...the toast says so', /Care plan saved for Pat Sample\. GHE Nov 2026 on the nurse board\. Added to the nurse board\./.test(window.__toast||''), window.__toast);
+  ok('...nothing goes on a nurse board (GHE removed)', nc.length===0 && DATA.nurse_clients.length===0, nc);
+  ok('...the toast says only that the plan was saved', /^Care plan saved for Pat Sample\.$/.test(window.__toast||''), window.__toast);
   const after=box().innerText;
-  ok('...the box now shows the current plan, who confirmed it, and the services with their authorizations', /Current plan\s*08\/10\/2026 to 01\/31\/2027 · GHE Nov 2026/.test(after) && /Received 10\/07\/2026, confirmed by krystal@mo-care.com/.test(after) && /Agency personal care: 08\/10\/2026 to 01\/31\/2027 · PA 20260000000001/.test(after) && /Upload a newer plan/.test(after), after);
+  ok('...the box now shows the current plan, who confirmed it, and the services with their authorizations', /Current plan\s*08\/10\/2026 to 01\/31\/2027/.test(after) && !/GHE/.test(after) && /Received 10\/07\/2026, confirmed by krystal@mo-care.com/.test(after) && /Agency personal care: 08\/10\/2026 to 01\/31\/2027 · PA 20260000000001/.test(after) && /Upload a newer plan/.test(after), after);
   ok('...and points out where the state is still says "submitted" (a person sets Authorized)', /Where the state is still says "submitted"/.test(after) && __lead.state_status==='submitted');
   /* the same plan again: no second record or board entry */
   window.__P.length=0; await mcpAddItems('plan-agency.pdf', FX.agency); mcpRecv('2026-10-07'); await sleep(50); await mcpSave(); await sleep(150);
-  ok('The same plan again: replaces the record, no second nurse-board entry', DATA.medicaid_plans.filter(p=>p.kind==='plan').length===1 && DATA.nurse_clients.length===1);
+  ok('The same plan again: replaces the record, still nothing on a nurse board', DATA.medicaid_plans.filter(p=>p.kind==='plan').length===1 && DATA.nurse_clients.length===0);
   /* someone else's plan: a DCN that isn't this client's stops it */
   __lead.dcn='99999999'; __open(__lead,'901','Pat Sample'); await mcpAddItems('plan-agency.pdf', FX.agency); await sleep(100);
   tx=document.getElementById('mcpPend').innerText;

@@ -26,7 +26,7 @@
   else root.VisitRules = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  const GHE = /\bT1001\b/i;
+  const NURSE_VISIT = /\bT1001\b/i;
   const RISK_IN_A_ROW = 2, RISK_DAYS = 5, SHORT_SHARE = 0.75, UNDER_SHARE = 0.9;
   const t = v => String(v || '');
   const when = v => t(v && (v.scheduledStartDate || v.startDate));
@@ -43,10 +43,10 @@
     }
     return out;
   }
-  /** a care visit: not removed, not the GHE (T1001); when the plan names codes, one of those codes */
+  /** a care visit: not removed, not a nurse visit (T1001); when the plan names codes, one of those codes */
   function isCare(v, codes) {
     if (!v || v.removed) return false;
-    const c = codeOf(v); if (GHE.test(c) || GHE.test(t((v.service || {}).description))) return false;
+    const c = codeOf(v); if (NURSE_VISIT.test(c) || NURSE_VISIT.test(t((v.service || {}).description))) return false;
     return !codes || !codes.length || !c || codes.indexOf(c) > -1;
   }
   /** one visit: delivered (clocked in and out), in progress, not delivered (its time passed, no clock-in), or upcoming */

@@ -7664,15 +7664,15 @@ The HomeTogether team</pre>
 <script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=3"></script>
 <script src="staffing-rules.js?v=2"></script>
-<script src="care-plan-rules.js?v=1"></script>
+<script src="care-plan-rules.js?v=2"></script>
 <script src="writeup-rules.js?v=4"></script>
 
 
 
-<script src="ihs-rules.js?v=2"></script>
-<script src="visit-rules.js?v=2"></script>
+<script src="ihs-rules.js?v=3"></script>
+<script src="visit-rules.js?v=3"></script>
 <script src="client-audit.js?v=1"></script><!-- SLICE 8: client proofs, logged opens, the client audit export -->
-<script src="medicaid-plans.js?v=9"></script>
+<script src="medicaid-plans.js?v=10"></script>
 <script src="staffing-sheet.js?v=2"></script>
 <script src="reached-by.js?v=1"></script><!-- How did they reach us? (2026-10-22, her mockup board 3): behind ops_settings.lead_reached_by_live -->
 <script src="lead-cards.js?v=2"></script><!-- Leads as cards (2026-10-22, her approved mockup): the CDS look, behind ops_settings.leads_cards_live -->
@@ -7784,7 +7784,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list (a Team Hub record). Access itself is given from My Team here.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { client_flag_normals: [], caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], ghe_forms: [], nurse_staff: [], medicaid_plans: [], ghe_watch: [], visit_watch: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { client_flag_normals: [], caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], nurse_staff: [], medicaid_plans: [], visit_watch: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -7915,7 +7915,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['client_flag_normals','caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','ghe_forms','nurse_staff','medicaid_plans','ghe_watch','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching','overnight_handoff','recruit_posts'];
+  const keys = ['client_flag_normals','caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','nurse_staff','medicaid_plans','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching','overnight_handoff','recruit_posts'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -11096,7 +11096,7 @@ function cpRenderPayer(){
     +'<button class="linklike" style="font-size:12px;" onclick="openLeadModal(\''+esc(l.id)+'\')">open the whole intake form</button></div>'
     /* 2026-10-15: Medicaid is no longer accepted, so the state care plan shows only for a Medicaid family already on file */
     +'</div>'+(med?'<div class="card mcp-box" id="cpPlanBox" style="padding:14px 18px;margin-top:12px;"></div>':'')+'<div id="cpPayFacts"></div>';
-  /* GHE fix (her rule 2026-10-08): the state care plan is uploaded here, in the client's intake */
+  /* her rule 2026-10-08: the state care plan is uploaded here, in the client's intake */
   if(med&&typeof mcpProfileRender==='function') mcpProfileRender();
   lpfRenderPayerFacts();
 }
@@ -19256,20 +19256,20 @@ async function tnToggle(btn){
   const sv=document.getElementById('tnSaved'); if(sv) sv.textContent=out.error?('Could not save: '+out.error.message):(on?'On.':'Off.');
   tnSetFill();
 }
-/* Server jobs follow the settings (server jobs off Samantha, batch 2). Owners only. On: GHE reminders, Medicaid visits,
-   nurse visit checks and RN review stop falling back to Samantha by name: they use the work area's owner, then the
-   Springfield lead (and the GHE "still not booked" email and digest go to Payer Programs' escalation person). */
+/* Server jobs follow the settings (server jobs off Samantha, batch 2). Owners only. On: Medicaid visits stops falling back
+   to Samantha by name: it uses the work area's owner, then the Springfield lead. (GHE reminders, nurse visit checks and
+   RN review were removed with GHE, her word 2026-11-09.) */
 function rbSetFill(){
   const now=document.getElementById('rbSetNow'), b=document.getElementById('rbToggleBtn'); if(!now) return;
   const on=(DATA.ops_settings||{}).routing_by_settings_live===true, owner=ccIsOwner();
-  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> GHE reminders, Medicaid visits, nurse visit checks and RN review go to the work area\'s owner, then the Springfield lead, never to you by name.'
-    :'<b style="color:#B7791F;">Off.</b> Those four jobs still fall back to you by name when nobody owns Payer Programs.')+(owner?'':' Only Samantha or Zachary can change this.');
+  now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> Medicaid visits go to the work area\'s owner, then the Springfield lead, never to you by name.'
+    :'<b style="color:#B7791F;">Off.</b> Medicaid visits still fall back to you by name when nobody owns its work area.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off':'Turn on'; b.style.display=owner?'':'none'; }
 }
 async function rbToggle(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
   const on=!((DATA.ops_settings||{}).routing_by_settings_live===true);
-  if(!(await ccConfirm(on?'Turn on: server jobs follow the settings?\n\nGHE reminders, Medicaid visits, nurse visit checks and RN review stop falling back to you by name. With nobody owning Payer Programs today, that work goes to Krystal (the Springfield lead), and the GHE "still not booked" email and digest go to Payer Programs\' escalation person.':'Turn off? Those four jobs go back to falling back to you by name.'))) return;
+  if(!(await ccConfirm(on?'Turn on: server jobs follow the settings?\n\nMedicaid visits stop falling back to you by name. With nobody owning that work area, it goes to Krystal (the Springfield lead).':'Turn off? Medicaid visits go back to falling back to you by name.'))) return;
   if(btn) btn.disabled=true;
   const out=await tkMerge((m)=>{ m.routing_by_settings_live=on; if(on) m.routing_by_settings_live_since=new Date().toISOString(); return ['server jobs follow the settings '+(on?'ON':'OFF')]; }, 'server routing');
   if(btn) btn.disabled=false;
@@ -35377,8 +35377,6 @@ const OPS_KINDS = {
   /* Referral Partner Desk (2026-10-08): one card per partner owner per week; urgent referrals never wait for it */
   partner_week:    { label:'Partner outreach', hours:168 },
   review_followup: { label:'Review follow-up', hours:72 },
-  ghe_unbooked:   { label:'GHE not booked', hours:48 },
-  ghe_missed:     { label:'Missed GHE', hours:24 },
   visit_risk:     { label:'Visits not delivered', hours:4 },
   visit_review:   { label:'Monthly visit review', hours:120 },
   respite_limit:  { label:'Respite schedule', hours:24 },
@@ -45426,12 +45424,6 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 /* =================== END CARA SCOPE =================== */
 @keyframes caraspin{to{transform:rotate(360deg);}}
 
-/* Missed GHEs (slice 3, 2026-10-08) */
-.nvm-row{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--border);font-size:13.5px}
-.nvm-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.nvm-form select{width:auto;max-width:100%}
-.nvm-form input{width:auto;min-width:0;max-width:100%}
-.nvm-form label{display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:600;color:var(--text-muted)}
 .iss-griev{margin-top:8px;padding:8px 10px;border-radius:8px;background:#FBF3E2;color:var(--text);font-size:13px}
 /* Nurses (slice 2, 2026-10-08) */
 .ns-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
@@ -45461,7 +45453,6 @@ html.embedded .fsubbar .fpill.active, .fsubbar .fpill.active {
 .mcp-box .mcp-tbl table{border-collapse:collapse;width:100%;font-size:13px;min-width:520px}
 .mcp-box .mcp-tbl th{text-align:left;font-size:11.5px;color:var(--text-muted);padding:4px 8px;border-bottom:1px solid var(--border)}
 .mcp-box .mcp-tbl td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:top}
-.mcp-box .mcp-ghe{margin-top:8px;font-size:13.5px;color:var(--green)}
 .mcp-box .mcp-note{margin-top:4px;font-size:13px;color:var(--text-muted)}
 .mcp-box .mcp-stop{margin-top:6px;font-size:13.5px;color:var(--red);font-weight:600}
 .mcp-box .mcp-form{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}

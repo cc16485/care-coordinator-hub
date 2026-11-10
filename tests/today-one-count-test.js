@@ -14,7 +14,7 @@ const ck = (n, ok, x) => { ok ? pass++ : fail++; console.log((ok ? 'PASS  ' : 'F
 /* the badge follows the header's number */
 function pulse(act, late) {
   const els = { topbarPulse: { innerHTML: '' }, todayBadge: { style: {}, textContent: 'old' } };
-  const c = { DATA: { leads: [], ghe_forms: [] }, document: { getElementById: (id) => els[id] || null }, today: () => '2026-10-18',
+  const c = { DATA: { leads: [] }, document: { getElementById: (id) => els[id] || null }, today: () => '2026-10-18',
     opsLateFor: () => new Array(late).fill(0), opsLateUnowned: () => [], opsMeKey: () => 'me', ciLatestByClient: () => [],
     opsTodayCounts: () => ({ act, late }), String, Array };
   vm.createContext(c); vm.runInContext(cut('function ccRenderPulse(){', '\nfunction ') + '\nthis.f = ccRenderPulse;', c); c.f();

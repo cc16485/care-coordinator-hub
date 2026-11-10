@@ -1,5 +1,5 @@
 /* =============================================================================
-   care-plan-rules.js · reading the state's Medicaid care plan (GHE fix, slice 1, Samantha approved 2026-10-08)
+   care-plan-rules.js · reading the state's Medicaid care plan (Samantha approved 2026-10-08)
    Pure functions: the Hub's care plan upload and the tests run this one file.
 
    The PDF is the "Home & Community Based Services Care Plan" the Medicaid coordinator downloads from Fusion.
@@ -7,15 +7,14 @@
 
    WHAT THE PLAN LOOKS LIKE (read from real plans, 2026-10-08):
    · page 1: participant name, DCN, "Care Plan Information mm/dd/yyyy - mm/dd/yyyy", "Date Generated" in the footer
-   · then one block per service: a service line (Service Type, Start, End, Provider, GHE 1, GHE 2, Prior Authorization),
-     a units table (Start Date, End Date, Procedure Code, Authorized Units, one row per month) and a task table
-   · THE GHE IS ITS OWN SERVICE LINE ("GHE", procedure T1001, 1 unit, its own prior authorization) in the month the state
-     authorized it. The GHE 1 / GHE 2 columns printed N/A on every line seen so far; if they ever carry a month, it is read too.
+   · then one block per service: a service line (Service Type, Start, End, Provider, two nurse visit month columns, Prior
+     Authorization), a units table (Start Date, End Date, Procedure Code, Authorized Units, one row per month) and a task table
+   · a state nurse visit line (procedure T1001) is read as an authorized nurse visit. The two nurse visit month columns are
+     found only so the columns after them line up; what they say is not kept. (Her word 2026-11-09: GHE is removed from
+     everywhere in the Hub, it is a Medicaid thing.)
    · column positions differ from page to page, so columns are found from each table's own heading, never fixed
    · lines for another provider (e.g. a CDS vendor) appear on the same plan: kept as "also served by", never ours
 
-   Who gets a GHE (MAN 3.15 rev. Jul 2026; INFO 05-26-02): Agency Model personal care and APC. Not CDS-only, ADW-only,
-   ILW-only. So an Agency PC/APC plan of ours with no GHE line is flagged for the coordinator to check in Fusion.
    ============================================================================= */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -29,7 +28,7 @@
 
   /* what kind of service a line is, by its Service Type wording */
   const KINDS = [
-    ['ghe', /^ghe$|general health eval/i, 'GHE (nurse visit)'],
+    ['nurse', /^ghe$|general health eval/i, 'Authorized nurse visit'],
     ['cds', /\bcds\b|consumer directed/i, 'Consumer directed (CDS)'],
     ['ilw', /\bilw\b|independent living/i, 'Independent Living Waiver'],
     ['apc', /\bapc\b|advanced personal/i, 'Advanced personal care (APC)'],
@@ -40,13 +39,7 @@
     ['pc', /^pc\b|personal care/i, 'Agency personal care'],
   ];
   function kindOf(type) { for (const [k, re, label] of KINDS) if (re.test(t(type))) return { kind: k, label }; return { kind: 'other', label: t(type) || 'Other service' }; }
-  const PROGRAM = { pc: 'ihs', apc: 'ihs', ghe: 'ihs', nurse: 'ihs', adw_respite: 'adw', adw_homemaker: 'adw', adw_chore: 'adw', cds: 'cds', ilw: 'cds' };
-
-  /* a month from a GHE 1 / GHE 2 cell, if the state ever prints one (mm/yyyy or mm/dd/yyyy) */
-  function cellMonth(s) {
-    s = t(s); let m = /^(\d{1,2})\/(\d{4})$/.exec(s); if (m) return m[2] + '-' + m[1].padStart(2, '0');
-    m = /^(\d{1,2})\/\d{1,2}\/(\d{4})$/.exec(s); return m ? m[2] + '-' + m[1].padStart(2, '0') : '';
-  }
+  const PROGRAM = { pc: 'ihs', apc: 'ihs', nurse: 'ihs', adw_respite: 'adw', adw_homemaker: 'adw', adw_chore: 'adw', cds: 'cds', ilw: 'cds' };
 
   /**
    * items: [{ page, x, y, str }] as the PDF reader gives them (y grows upward, as in PDF space).
@@ -78,7 +71,7 @@
       for (const i of svcRow) { const k = colOf(cols, i.x); if (!k) continue; const prev = cell[k]; cell[k] = prev == null ? i.s : (/^\//.test(i.s) ? prev + i.s : prev + ' ' + i.s); }
       const type = t(cell.type), kd = kindOf(type), provider = t(cell.provider);
       svc = { type, kind: kd.kind, label: kd.label, program: PROGRAM[kd.kind] || 'other', start: iso(cell.start), end: iso(cell.end),
-        provider, ours: OURS.test(provider), ghe1: cellMonth(cell.ghe1), ghe2: cellMonth(cell.ghe2), prior_auth: /^\d{8,}$/.test(t(cell.pa)) ? t(cell.pa) : '',
+        provider, ours: OURS.test(provider), prior_auth: /^\d{8,}$/.test(t(cell.pa)) ? t(cell.pa) : '',
         units: [], tasks: [] };
       out.services.push(svc); svcRow = null;
     };
@@ -89,11 +82,11 @@
         closeSvcRow();
         const band = body.filter(i => i.page === L.page && i.y <= L.y + 2 && i.y >= L.y - 20);
         const find = re => band.filter(i => re.test(i.s)).sort((a, b) => a.x - b.x);
-        const ghe = find(/^GHE$/);
+        const nv = find(/^GHE$/); /* the state's two nurse visit month columns: found only so later columns line up */
         cols = [{ k: 'type', x: L.items[0].x }];
         const st = find(/^Start/)[0], en = find(/^End/)[0], pr = find(/^Provider$/)[0], pa = find(/^Prior$/)[0];
         if (st) cols.push({ k: 'start', x: st.x }); if (en) cols.push({ k: 'end', x: en.x }); if (pr) cols.push({ k: 'provider', x: pr.x });
-        if (ghe[0]) cols.push({ k: 'ghe1', x: ghe[0].x }); if (ghe[1]) cols.push({ k: 'ghe2', x: ghe[1].x }); if (pa) cols.push({ k: 'pa', x: pa.x });
+        for (const c of nv.slice(0, 2)) cols.push({ k: 'skip', x: c.x }); if (pa) cols.push({ k: 'pa', x: pa.x });
         const bottom = Math.min.apply(null, band.map(i => i.y));
         while (li + 1 < lines.length && lines[li + 1].page === L.page && lines[li + 1].y >= bottom - 0.5) li++;
         mode = 'service'; svcRow = []; continue;
@@ -130,46 +123,18 @@
     return out;
   }
 
-  /** the GHE months this plan authorizes for us: the GHE service lines, plus any month printed in the GHE 1/2 columns */
-  function gheMonths(plan) {
-    const out = [];
-    for (const s of (plan && plan.services) || []) {
-      if (!s.ours) continue;
-      if (s.kind === 'ghe' && s.start) {
-        const code = (s.units[0] && s.units[0].code) || '';
-        out.push({ month: s.start.slice(0, 7), start: s.start, end: s.end, prior_auth: s.prior_auth, code, from: 'GHE line' });
-      }
-      for (const w of ['ghe1', 'ghe2']) if (s[w]) out.push({ month: s[w], start: '', end: '', prior_auth: s.prior_auth, code: '', from: w.toUpperCase() + ' column' });
-    }
-    const seen = {}; return out.filter(g => (seen[g.month] ? false : (seen[g.month] = true))).sort((a, b) => a.month.localeCompare(b.month));
-  }
-
   /** what the coordinator needs to know before confirming */
   function summary(plan, today) {
     today = String(today || '').slice(0, 10);
     const svcs = (plan && plan.services) || [], ours = svcs.filter(s => s.ours), others = svcs.filter(s => !s.ours);
     const programs = Array.from(new Set(ours.map(s => s.program)));
-    const ghes = gheMonths(plan);
-    const needsGhe = ours.some(s => s.kind === 'pc' || s.kind === 'apc');
     const notes = [], stops = [].concat((plan && plan.problems) || []);
     if (!ours.length) stops.push('Caring Companions In Home is not the provider on any line of this plan.');
     if (ours.length && ours.every(s => s.program === 'cds')) stops.push('This is a CDS plan. It belongs on the CDS side (CDS Hub), not here.');
     if (plan && plan.plan_end && today && plan.plan_end < today) notes.push('This plan ended ' + plan.plan_end + '. Upload the current one from Fusion if there is a newer plan.');
-    if (needsGhe && !ghes.length) notes.push('Agency personal care with no GHE line on this plan. Check Fusion: Agency Model clients get GHEs in months 4 and 10.');
     if (ours.some(s => s.program === 'cds')) notes.push('Our CDS lines on this plan are left for the CDS side.');
     for (const s of others) notes.push('Also served by ' + (s.provider.replace(/,.*$/, '') || 'another provider') + ': ' + s.label + '.');
-    return { programs, ghes, needsGhe, ours: ours.filter(s => s.program !== 'cds'), others, notes, stops, ok: !stops.length };
-  }
-
-  /** the nurse board's two GHE windows after this plan: every GHE month known for the client, the latest two kept */
-  function boardMonths(existing, ghes) {
-    const months = [existing && existing.ghe1, existing && existing.ghe2].filter(Boolean).map(m => String(m).slice(0, 7));
-    for (const g of ghes || []) months.push(g.month);
-    const u = Array.from(new Set(months)).sort();
-    const last2 = u.slice(-2);
-    const auth = Object.assign({}, (existing && existing.ghe_auth) || {});
-    for (const g of ghes || []) auth[g.month] = { prior_auth: g.prior_auth, code: g.code };
-    return { ghe1: last2[0] || null, ghe2: last2[1] || null, ghe_auth: auth };
+    return { programs, ours: ours.filter(s => s.program !== 'cds'), others, notes, stops, ok: !stops.length };
   }
 
   /** where an active client stands: a current plan, an ended plan, marked not Medicaid, or unknown */
@@ -187,13 +152,13 @@
     ctx = ctx || {};
     const svc = (plan.services || []).map(s => ({ type: s.type, kind: s.kind, label: s.label, program: s.program, start: s.start, end: s.end,
       provider: s.ours ? 'Caring Companions In Home' : s.provider.replace(/,\s*\(?\d[\d\s()-]*$/, '').replace(/,\s*$/, ''), ours: s.ours,
-      prior_auth: s.ours ? s.prior_auth : '', ghe1: s.ghe1, ghe2: s.ghe2, units: s.ours ? s.units : [], tasks: s.ours ? s.tasks : [] }));
+      prior_auth: s.ours ? s.prior_auth : '', units: s.ours ? s.units : [], tasks: s.ours ? s.tasks : [] }));
     return { id: 'mcp_' + String(ctx.ax) + '_' + String(plan.plan_start || '') + '_' + String(plan.generated || ''), kind: 'plan',
       axiscare_client_id: String(ctx.ax || ''), client_name: ctx.client_name || plan.name, dcn: plan.dcn,
       plan_start: plan.plan_start, plan_end: plan.plan_end, generated: plan.generated, received_on: ctx.received_on || '',
-      file_name: ctx.file_name || '', services: svc, ghe_months: gheMonths(plan).map(g => g.month),
+      file_name: ctx.file_name || '', services: svc,
       confirmed_by: ctx.by || '', confirmed_at: ctx.at || '' };
   }
 
-  return { parse, kindOf, gheMonths, summary, boardMonths, clientStatus, record, iso };
+  return { parse, kindOf, summary, clientStatus, record, iso };
 });

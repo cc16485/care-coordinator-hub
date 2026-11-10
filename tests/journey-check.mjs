@@ -59,7 +59,7 @@ const ALLOW = [
   [/automation-watchdog|shared-backup|monthly-backup|sync-axiscare/, /./, 'office-only alert or backup email'],
   [/evidence-write|identity-backfill/, /./, 'internal tools that never send a message'],
   [/hub-access|caregiver-hiring-history|profile-check|issues-run|lead-intake|cc-booking|carematch-watch|timekeeper-watch|lead-nurture/, /^'[^']*'$|^"[^"]*"$|title|summary|routed|error|note:|detail|skipped|do_not_contact|stop_reason/, 'an internal status, card title or note'],
-  [/interview-messages|job-offer|caregiver-availability|coverage-run|coverage-reply|ghe-reminders|ht-local/, /error|routed|skipped|note:|title:|summary:|detail:|census|truncated|held|esc\(item/, 'an internal status, error or card'],
+  [/interview-messages|job-offer|caregiver-availability|coverage-run|coverage-reply|ht-local/, /error|routed|skipped|note:|title:|summary:|detail:|census|truncated|held|esc\(item/, 'an internal status, error or card'],
 ]
 const dashCode = []
 for (const [f, s] of Object.entries(raw)) {
