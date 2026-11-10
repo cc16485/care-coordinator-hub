@@ -17,7 +17,7 @@ EXTRA = r"""
     CC_ROLE_BY_EMAIL['${KT}']=['care_coordinator'];`);
   DATA.coordinator_staff.push({ id:'skt', name:'Katlin Fake', email:KT });
   DATA.ops_settings={ team_work_live:true };
-  DATA.staffing_tasks=[];
+  DATA.staffing_tasks=[]; DATA.recruit_posts=[];
   window.__alerts=[]; window.alert=m=>window.__alerts.push(String(m)); window.confirm=()=>true;
   /* AxisCare open shifts (made-up clients) and the client roster with towns */
   window.__axCalls=[]; const realFetch=window.fetch.bind(window);
@@ -103,8 +103,12 @@ async()=>{
   ok('she has no Refresh button', !/Refresh now/.test(page()));
   ok('she cannot add needs or places', !$('kpNdPos') && !$('kpPlName'));
   const plId=DATA.ops_settings.katlin_page.places[2].id;
-  $('kpLk_'+plId).value='facebook.com/groups/fake-test/post'; await KP.logPost(plId); await sleep(50);
-  ok('she logs a recruiting post with its link', (DATA.ops_settings.katlin_page.recruit_log||[]).length===1 && /Last posted .* by Katlin/.test(page()) && /see the post/.test(page()), page().slice(0,900));
+  $('kpLk_'+plId).value='facebook.com/groups/fake-test/post'; window.__alerts=[]; await KP.logPost(plId); await sleep(50);
+  ok('she must pick the business first', window.__alerts.some(a=>/which business/.test(a)) && !(DATA.recruit_posts||[]).length);
+  $('kpBz_'+plId).value='cc'; await KP.logPost(plId); await sleep(50);
+  const rp=(DATA.recruit_posts||[])[0]||{};
+  ok('she logs a recruiting post in the ONE shared log (recruit_posts, the After-Hours card\'s)', (DATA.recruit_posts||[]).length===1 && rp.business==='cc' && rp.where==='cna_school' && rp.place_id===plId && L.writes.includes('recruit_posts:'+rp.id) && !('recruit_log' in DATA.ops_settings.katlin_page), rp);
+  ok('the place shows when she last posted, and the log shows it', /Last posted .* by Katlin/.test(page()) && /Caring Companions · Fake Test CNA Program board/.test(page()) && /see the post/.test(page()), page().slice(0,1200));
 
   /* the owner replies to her note */
   as('samantha@mo-care.com','Samantha Troutman');

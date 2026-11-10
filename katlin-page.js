@@ -282,7 +282,17 @@
   ];
   const LINKS_STARTER = 'Caring Companions In-Home Senior Care: mo-care.com/careers (caregivers 21 or older)\nCaring Companions CDS: findcdscaregivers.com\nShow-Me Neighbors: showmeneighbors.com (Become a Neighbor)';
   function places(){ const c = cfg(); return Array.isArray(c.places) ? c.places : PLACE_STARTER; }
-  function lastPost(log, placeId){ return (log || []).filter(x => x.place === placeId).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null; }
+  /* One posting log for the whole Hub: app_data recruit_posts (the After-Hours card's log, after-hours.js).
+     Items: { id, at, by, business:'cc'|'cds'|'smn', where:'cna_school'|'facebook_group'|'other', place, link, replies, place_id? } */
+  const BIZ = [['cc', 'Caring Companions'], ['cds', 'CDS'], ['smn', 'Show-Me Neighbors']];
+  const bizName = k => (BIZ.find(b => b[0] === k) || [k, k])[1];
+  const PBIZ = { 'Caring Companions':'cc', 'CDS':'cds', 'Show-Me Neighbors':'smn' };
+  const whereOf = name => /facebook/i.test(name) ? 'facebook_group' : /cna|school|college|program/i.test(name) ? 'cna_school' : 'other';
+  const rposts = () => (D().recruit_posts || []).filter(p => p && !p.removed_at);
+  function lastPost(log, pl){
+    const k = lc(pl.name).replace(/\s+/g, ' ');
+    return (log || []).filter(x => x.place_id === pl.id || lc(x.place).replace(/\s+/g, ' ') === k).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0] || null;
+  }
   /* due: never posted, or older than its repeat (week 7 days, month 30 days); a one-time place is due until posted once */
   function placeDue(pl, last, now){
     if(!last) return true;
@@ -290,7 +300,7 @@
     return pl.every === 'week' ? age >= 7 : pl.every === 'month' ? age >= 30 : false;
   }
   function viewRecruit(ctx){
-    const { c, isOwner, nm, mine } = ctx, log = Array.isArray(c.recruit_log) ? c.recruit_log : [], now = Date.now();
+    const { c, isOwner, nm, mine } = ctx, log = rposts(), now = Date.now();
     const links = typeof c.recruit_links === 'string' ? c.recruit_links : LINKS_STARTER;
     const needs = Array.isArray(c.hiring_needs) ? c.hiring_needs : [];
     const an = c.auto_needs || null;
@@ -319,11 +329,12 @@
     html += `<div class="kp-card"><h3>Places to post</h3>`;
     if(!pls.length) html += `<p class="kp-when">No places yet.</p>`;
     html += pls.map(pl => {
-      const last = lastPost(log, pl.id), due = placeDue(pl, last, now);
+      const last = lastPost(log, pl), due = placeDue(pl, last, now), one = PBIZ[pl.biz] || '';
       return `<div class="kp-task"><div class="kp-t"><div><b>${esc(pl.name)}</b> <span class="kp-when">· ${esc(pl.biz || '')}${pl.every ? ' · ' + EVERY[pl.every] : ' · once'}</span></div>
           ${pl.note ? `<div class="kp-when">${esc(pl.note)}</div>` : ''}
-          <div class="kp-when">${last ? 'Last posted ' + esc(fmtAt(last.at)) + ' by ' + esc(String(last.by_name || '').split(' ')[0]) : 'Not posted yet'}${due ? ' · <span class="kp-due">due</span>' : ''}</div>
-          <div class="kp-add" style="margin-top:6px"><input id="kpLk_${esc(pl.id)}" placeholder="Link to the post (optional)"><button class="secondary" onclick="KP.logPost('${esc(pl.id)}')">I posted here</button></div></div>
+          <div class="kp-when">${last ? 'Last posted ' + esc(fmtAt(last.at)) + ' by ' + esc(first(last.by)) : 'Not posted yet'}${due ? ' · <span class="kp-due">due</span>' : ''}</div>
+          <div class="kp-add" style="margin-top:6px"><select id="kpBz_${esc(pl.id)}">${one ? '' : '<option value="">For which business?</option>'}${BIZ.map(b => `<option value="${b[0]}"${b[0] === one ? ' selected' : ''}>${esc(b[1])}</option>`).join('')}</select>
+            <input id="kpLk_${esc(pl.id)}" placeholder="Link to the post (optional)"><button class="secondary" onclick="KP.logPost('${esc(pl.id)}')">I posted here</button></div></div>
         ${isOwner ? `<button class="kp-x" title="Remove this place" onclick="KP.removePlace('${esc(pl.id)}')">✕</button>` : ''}</div>`;
     }).join('');
     if(isOwner) html += `<div class="kp-grp" style="margin-top:16px">Add a place</div>
@@ -333,11 +344,9 @@
       <div class="kp-add"><input id="kpPlNote" placeholder="Note for ${esc(nm)} (optional): link, who to ask, what to post"><button class="primary" onclick="KP.addPlace()">Add place</button></div>`;
     html += `</div>`;
     const recent = log.slice().sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 20);
-    html += `<div class="kp-card"><h3>Posting log</h3>${recent.length ? recent.map(x => {
-      const pl = pls.find(p => p.id === x.place);
-      return `<div class="kp-task"><div class="kp-t">${esc(pl ? pl.name : x.place_name || 'A place')}${x.link ? ` · <a href="${esc(/^https?:\/\//.test(x.link) ? x.link : 'https://' + x.link)}" target="_blank" rel="noopener">see the post</a>` : ''}
-        <div class="kp-when">${esc(fmtAt(x.at))} by ${esc(String(x.by_name || '').split(' ')[0])}</div></div></div>`;
-    }).join('') : `<p class="kp-when">${mine ? 'Nothing logged yet. Click "I posted here" after each post.' : 'Nothing logged yet.'}</p>`}</div>`;
+    html += `<div class="kp-card"><h3>Posting log</h3><p class="kp-when" style="margin-top:0">The same log as the After-Hours card. Applicant counts are added there.</p>${recent.length ? recent.map(x => `<div class="kp-task"><div class="kp-t">${esc(bizName(x.business))} · ${esc(x.place || 'A place')}${x.link ? ` · <a href="${esc(/^https?:\/\//.test(x.link) ? x.link : 'https://' + x.link)}" target="_blank" rel="noopener">see the post</a>` : ''}
+        <div class="kp-when">${esc(fmtAt(x.at))} by ${esc(first(x.by))}${x.replies ? ' · ' + x.replies + ' applicant' + (x.replies === 1 ? '' : 's') : ''}</div></div></div>`).join('')
+      : `<p class="kp-when">${mine ? 'Nothing logged yet. Click "I posted here" after each post.' : 'Nothing logged yet.'}</p>`}</div>`;
     return html;
   }
 
@@ -452,9 +461,13 @@
   async function logPost(placeId){
     const pl = places().find(x => x.id === placeId); if(!pl) return;
     const link = String((document.getElementById('kpLk_' + placeId) || {}).value || '').trim();
-    await save(kp => { if(!Array.isArray(kp.places)) kp.places = PLACE_STARTER.map(x => Object.assign({}, x));
-      kp.recruit_log = (Array.isArray(kp.recruit_log) ? kp.recruit_log : []).concat([{ id:newId('kpl_'), place:placeId, place_name:pl.name, link, at:new Date().toISOString(), by:me(), by_name:meName() }]).slice(-300);
-      return ['recruiting post logged: ' + pl.name.slice(0, 50)]; }, 'Katlin\'s page');
+    const business = String((document.getElementById('kpBz_' + placeId) || {}).value || '');
+    if(!business){ alert('Pick which business the post was for.'); return; }
+    const rep = (W.AFH && typeof W.AFH.repeatOf === 'function') ? W.AFH.repeatOf(rposts(), business, pl.name, Date.now()) : null;
+    if(rep && !confirm('Already posted for ' + bizName(business) + ' there on ' + fmtAt(rep.at) + '.\n\nGroups often remove people who post the same thing again within 14 days. Log it anyway?')) return;
+    const item = { id:'rp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), at:new Date().toISOString(), by:me(), business, where:whereOf(pl.name), place:pl.name, link, replies:0, place_id:pl.id };
+    const DD = D(); DD.recruit_posts = (DD.recruit_posts || []).concat([item]);
+    try{ await W.persist('recruit_posts', item); }catch(e){ alert('That did not save. Please try again.'); return; }
     render();
   }
   async function addPlace(){
