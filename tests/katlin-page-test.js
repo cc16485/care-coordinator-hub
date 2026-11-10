@@ -47,6 +47,35 @@ ok('an unknown client still counts, with no town', an[2].town === '' && an[2].co
 ok('no client name anywhere in the summary', !/Pat|Ned|Fakename|Testperson|#41/.test(JSON.stringify(an)), JSON.stringify(an));
 ok('a weekly place is due after 7 days', placeDue({ every:'week' }, { at:new Date(Date.now() - 8 * 864e5).toISOString() }, Date.now()) && !placeDue({ every:'week' }, { at:new Date().toISOString() }, Date.now()));
 
+/* Follow-ups (2026-11-09): who is stuck, from the Hub's own rules */
+{
+  const { fuApplicants, fuStage, fuSort, FU_SAY } = KP._rules;
+  const now = Date.parse('2026-11-17T17:00:00Z'), ago = d => new Date(now - d * 864e5).toISOString();
+  const h = { decided:['offer','hired','pool','left','declined'], qualified:r => r.age_ok !== false, offered:r => !!r.offer_sent_at || r.status === 'hired', noshowElsewhere:r => r.phone === '5550000009' };
+  const rows = [
+    { id:'a1', status:'partial', created_at:ago(3) }, { id:'a2', status:'new', created_at:ago(9) }, { id:'a3', status:'noshow', created_at:ago(5) },
+    { id:'a4', status:'new', created_at:ago(4) }, { id:'a5', status:'hired', created_at:ago(30) }, { id:'a6', status:'declined', created_at:ago(6) },
+    { id:'a7', status:'new', age_ok:false, created_at:ago(2) }, { id:'a8', status:'reviewing', created_at:ago(70) }, { id:'a9', status:'new', screen_grade:'review', created_at:ago(2) },
+    { id:'a10', status:'new', phone:'5550000009', created_at:ago(2) }, { id:'a11', status:'reviewing', post_interview:true, created_at:ago(8) }, { id:'a12', status:'pool', created_at:ago(8) } ];
+  const got = fuApplicants(rows, { a4:{ status:'booked' } }, now, h);
+  ok('applicants: unfinished form and not booked are listed', got.map(x => x.r.id + ':' + x.k).join() === 'a1:form,a2:book', got.map(x => x.r.id + ':' + x.k));
+  ok('applicants: no-shows, an earlier no-show, booked, hired, declined, not qualified, Needs a look, interviewed, pool and 60+ days are left out', !got.some(x => /^a(3|4|5|6|7|8|9|10|11|12)$/.test(x.r.id)));
+  ok('applicants: days since they applied', got[0].days === 3 && got[1].days === 9);
+  const W = (who, extra) => Object.assign({ s:'wait', who }, extra || {});
+  ok('onboarding: offer not signed', fuStage({ cells:{ offer:W('applicant', { days:4 }) } }).k === 'offer');
+  ok('onboarding: Step 1 not done', fuStage({ cells:{ offer:{ s:'ok' }, step1:W('applicant') } }).k === 'step1');
+  ok('onboarding: references not in (form sent, or none given)', fuStage({ cells:{ step1:{ s:'ok' }, refs:W('outside') } }).k === 'refs' && fuStage({ cells:{ step1:{ s:'ok' }, refs:{ s:'todo', who:'office', days:6 } } }).days === 6);
+  ok('onboarding: Step 2 not finished', fuStage({ cells:{ refs:{ s:'ok' }, step2:W('applicant', { days:9, late:true }) } }).k === 'step2');
+  ok('onboarding: orientation not finished', fuStage({ cells:{ refs:{ s:'ok' }, orient:W('applicant') } }).k === 'orient');
+  ok('onboarding: welcome video call invited, not booked', fuStage({ cells:{ finish:{ s:'wait', marks:[{ k:'O', s:'ok' }, { k:'V', s:'wait', tip:'Invited Nov 10, not booked yet' }] } } }).k === 'video');
+  ok('onboarding: a booked video call is not stuck', fuStage({ cells:{ finish:{ s:'wait', marks:[{ k:'V', s:'wait', tip:'Booked Thu 3pm' }] } } }).skip === 'office');
+  ok('onboarding: only background checks open = Krystal has it', fuStage({ cells:{ step1:{ s:'ok' }, refs:{ s:'ok', t:'2/2' }, oig:{ s:'todo', who:'office' }, fcsr:W('outside') } }).skip === 'checks');
+  ok('onboarding: a check with something on it is for the owners', fuStage({ cells:{ edl:{ s:'rev', who:'review' }, step2:W('applicant') } }).skip === 'review');
+  ok('onboarding: only office to-dos = not listed', fuStage({ cells:{ refs:{ s:'ok' }, orient:{ s:'todo', who:'office' } } }).skip === 'office');
+  ok('longest first, unknown last', fuSort([{ name:'b', days:2 }, { name:'c', days:null }, { name:'a', days:12 }]).map(x => x.name).join() === 'a,b,c');
+  ok('wording: warm and simple, no dashes', Object.values(FU_SAY).every(t => !/[—–]/.test(t) && !/\bAI\b|\bVA\b/.test(t)));
+}
+
 /* the real posts file */
 const list = require('../nextdoor/posts.json').posts;
 const fs = require('fs'), path = require('path');

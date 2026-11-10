@@ -141,7 +141,7 @@
   }
 
   /* ── menu: one parent pill (data-parent="katlingrp") with four pills under it ── */
-  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
+  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpfollow', l:'Follow-ups' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
   const isKp = tab => VIEWS.some(v => v.t === tab) || tab === 'katlinpage';
   function pageLabel(){ return (pageEmail() && me() === pageEmail()) ? 'My page' : (pageEmail() ? first(pageEmail()) + '\'s page' : 'Katlin\'s page'); }
   function pillSync(){
@@ -189,7 +189,11 @@
 .kpw details{border-top:1px solid #f0eee8;padding:8px 0}
 .kpw summary{cursor:pointer;font-weight:600}
 .kpw textarea{width:100%;min-height:80px;box-sizing:border-box}
-.kpw .kp-links{white-space:pre-wrap;line-height:1.5}`;
+.kpw .kp-links{white-space:pre-wrap;line-height:1.5}
+.kpw .kp-fu-n{display:inline-block;min-width:22px;text-align:center;font-size:13px;background:#0D365F;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:2px}
+.kpw .kp-fu-name{font-weight:700;color:var(--navy,#0D365F)}
+.kpw .kp-fu-chip:empty{display:none}.kpw .kp-fu-chip{margin-top:3px}
+.kpw .kp-fu-b{margin-top:6px}`;
     document.head.appendChild(s);
   }
 
@@ -350,8 +354,144 @@
     return html;
   }
 
+  /* ── FOLLOW-UPS (Samantha 2026-11-09: "I want Katlin to give more personalized followups to those applicants who have
+     not completed their form, have not booked interview, or have fallen off at any stage"). ONE list of everyone who is
+     waiting on their OWN next step, longest first, with the Hub's own Text (ApText) and Call (office line) buttons.
+     Nothing new decides a stage. Each comes from the screen that already shows it:
+       · Applicants (AP_ROWS / AP_BOOK, read by apLoad): the same rules as apMatching's working lists. status 'partial'
+         = "Did not finish the form"; otherwise qualified, not booked = "No interview booked". 60 days and older is
+         the Inactive list, so it is left out.
+       · Offers and Onboarding: the Onboarding table's own row (obtModel) for each person ckdPeople lists. The first cell
+         that is "waiting on the applicant" is where they stopped (offer, Step 1 with the stuck card ckdStep1Stuck,
+         references, Step 2, orientation, welcome video call).
+     Left out: no-shows (and anyone with an earlier no-show), declined, not qualified, the candidate pool, Needs a look and
+     family care to verify (the office decides first), anyone booked or interviewed, hired or approved, taken off the
+     list, a check that needs Samantha or Zachary, and people whose only open step is a background check (Krystal has
+     those: counted at the bottom, not listed). Reads only. Sends nothing: Katlin presses Text or Call herself. */
+  const FU_SAY = { form:'Started the application, didn\'t finish', book:'Hasn\'t booked an interview', offer:'Offer sent, not signed yet',
+    step1:'Offer accepted, Step 1 not done', refs:'References not in', step2:'Viventium Step 2 not finished', orient:'Orientation not finished',
+    video:'Hasn\'t booked the welcome video call' };
+  const last10 = s => String(s || '').replace(/\D/g, '').slice(-10);
+  const daysSince = (iso, now) => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 864e5)) : null; };
+  /* applicants: rows = AP_ROWS, book = AP_BOOK (any booking: booked, attended or no-show), h = the Hub's own tests */
+  function fuApplicants(rows, book, now, h){
+    return (rows || []).filter(r => r && r.status !== 'noshow' && !(h.decided || []).includes(r.status) && !r.decline_reason
+        && !['duplicate', 'declined', 'review'].includes(r.screen_grade) && r.one_year !== 'family'
+        && h.qualified(r) && !h.offered(r) && !(book || {})[r.id] && !r.post_interview && !h.noshowElsewhere(r))
+      .map(r => ({ k:r.status === 'partial' ? 'form' : 'book', days:daysSince(r.created_at, now), r }))
+      .filter(x => x.days === null || x.days <= 60);
+  }
+  /* an Onboarding row (obtModel's cells) -> where they stopped, or why they are not listed */
+  function fuStage(m){
+    const c = (m && m.cells) || {}, wait = k => c[k] && c[k].s === 'wait' && c[k].who === 'applicant';
+    if(Object.keys(c).some(k => c[k] && c[k].s === 'rev')) return { skip:'review' };
+    if(wait('offer')) return { k:'offer', days:c.offer.days, late:!!c.offer.late };
+    if(wait('step1')) return { k:'step1', late:!!c.step1.late };
+    if(c.refs && (c.refs.s === 'todo' || c.refs.s === 'wait')) return { k:'refs', days:c.refs.days, late:!!c.refs.late };
+    if(wait('step2')) return { k:'step2', days:c.step2.days, late:!!c.step2.late };
+    if(wait('orient')) return { k:'orient', late:!!c.orient.late };
+    const mk = c.finish && Array.isArray(c.finish.marks) ? c.finish.marks.find(x => x.s === 'wait' && (x.k === 'O' || (x.k === 'V' && /^Invited/.test(x.tip || '')))) : null;
+    if(mk) return { k:mk.k === 'O' ? 'orient' : 'video' };
+    if(['oig', 'edl', 'fcsr', 'casenet'].some(k => c[k] && (c[k].s === 'todo' || c[k].s === 'wait'))) return { skip:'checks' };
+    return { skip:'office' };
+  }
+  /* longest first; unknown days last */
+  const fuSort = list => list.slice().sort((a, b) => (b.days == null ? -1 : b.days) - (a.days == null ? -1 : a.days) || String(a.name).localeCompare(String(b.name)));
+
+  /* the live read: the lists their own tabs read, read once in the background if this page is the first to need them */
+  const FU = { ap:0, eng:false, off:0, opr:0, txt:0 };
+  const G = n => { try{ return (0, eval)(n); }catch(e){ return undefined; } };
+  const again = () => { try{ if(activeTab === 'kpfollow') render('kpfollow'); }catch(e){} };
+  function fuEnsure(){
+    const now = Date.now(), rows = G('AP_ROWS'), E = W.HSTRIP_ENGINE;
+    if((!Array.isArray(rows) || !rows.length) && typeof G('apLoad') === 'function' && now - FU.ap > 5 * 60e3){
+      FU.ap = now; Promise.resolve().then(() => G('apLoad')()).catch(() => {}).then(again);
+    }
+    if(!E && !FU.eng && typeof G('scxEnsure') === 'function'){
+      FU.eng = true; W.addEventListener('scx-ready', again); W.addEventListener('scx-hydrated', again);
+      try{ G('scxEnsure')('cgbackground'); }catch(e){}
+    }
+    if(E && !(E.offers() || []).length && now - FU.off > 5 * 60e3 && W.SCX && typeof SCX.loadOffers === 'function'){
+      FU.off = now; Promise.resolve().then(() => SCX.loadOffers()).catch(() => {}).then(again);
+    }
+    if(W.OPR && typeof OPR.counts === 'function' && !OPR.counts() && now - FU.opr > 5 * 60e3){
+      FU.opr = now; Promise.resolve().then(() => OPR.load()).catch(() => {}).then(again);
+    }
+    if(W.ApText && now - FU.txt > 5 * 60e3){ FU.txt = now; Promise.resolve().then(() => ApText.load()).catch(() => {}); }
+  }
+  function fuGather(){
+    fuEnsure();
+    const now = Date.now(), out = [], rows = G('AP_ROWS'), E = W.HSTRIP_ENGINE;
+    const apReady = Array.isArray(rows) && rows.length > 0, AP = apReady ? rows : [];
+    const apFor = (ph, em) => { const p = last10(ph), e = lc(em); return AP.find(r => (p.length === 10 && last10(r.phone) === p) || (e && lc(r.email) === e)) || null; };
+    const posOf = r => { try{ return (typeof G('apPosLabel') === 'function' && G('apPosLabel')(r.position)) || r.posting_title || 'Caregiver'; }catch(e){ return 'Caregiver'; } };
+    const okTag = r => (W.OKO && typeof OKO.isOk === 'function' && OKO.isOk(r)) ? ' · Oklahoma' : '';
+    let krystal = 0, engReady = false;
+    const seen = new Set();
+    if(E){
+      let ppl = [];
+      try{ ppl = E.hydrated() === false ? [] : (E.people() || []); engReady = E.hydrated() !== false; }catch(e){ ppl = []; }
+      const offers = (() => { try{ return E.offers() || []; }catch(e){ return []; } })();
+      const offerOf = id => id ? offers.find(o => String(o.id) === String(id)) || null : null;
+      const people = ppl.filter(p => p && p.stop !== 4);
+      /* with Offers inside Onboarding switched off, the open offers are not rows there: the same two stages the hiring strip counts */
+      const have = new Set(ppl.map(p => String((p.o && p.o.id) || (p.c && p.c.offer_id) || (p.j && p.j.offer_id) || '')).filter(Boolean));
+      if(!ppl.some(p => p.o)) offers.forEach(o => { try{
+        if(!o || have.has(String(o.id)) || E.offerMovedOn(o)) return;
+        const st = E.offerStage(o);
+        if(st === 'sent' && !E.offerIsQuiet(o)) people.push({ stop:0, o, name:((o.first_name || '') + ' ' + (o.last_name || '')).trim(), _k:'offer', _d:daysSince(o.offer_sent_at || o.created_at, now) });
+        else if(st === 'accepted') people.push({ stop:0, o, name:((o.first_name || '') + ' ' + (o.last_name || '')).trim(), _k:'step1', _d:daysSince(o.offer_signed_at || o.offer_sent_at || o.created_at, now) });
+      }catch(e){} });
+      people.forEach(p => {
+        let st, m = null;
+        if(p._k) st = { k:p._k, days:p._d };
+        else { try{ m = E.model(p); }catch(e){ return; } st = fuStage(m); }
+        if(st.skip){ if(st.skip === 'checks') krystal++; return; }
+        const o = p.o || offerOf((p.c && p.c.offer_id) || (p.j && p.j.offer_id));
+        const phone = (p.c && p.c.phone) || (o && o.phone) || '', email = (p.c && p.c.email) || (o && o.email) || '';
+        const stuck = st.k === 'step1' && p.j && typeof E.step1Stuck === 'function' ? E.step1Stuck(p.j) : null;
+        const days = stuck && stuck.days != null ? stuck.days : st.days != null ? st.days : (m && m.days != null ? m.days : null);
+        if(days !== null && days < 1) return;   /* today: give them the day */
+        const ap = apFor(phone, email);
+        if(phone) seen.add(last10(phone)); if(email) seen.add(lc(email));
+        const on = stuck && stuck.card && stuck.card.stuck_on ? ' (stopped on ' + stuck.card.stuck_on + ')' : '';
+        out.push({ name:p.name || 'Name not recorded', pos:(o && o.position) || (p.c && p.c.position) || 'Caregiver', say:FU_SAY[st.k] + on, k:st.k, days,
+          late:!!(st.late || stuck), phone, email, apId:ap ? String(ap.id) : '',
+          open:p.c ? { candidate_id:p.c.id } : o ? { offer_id:String(o.id) } : null });
+      });
+    }
+    if(apReady){
+      const h = { decided:G('AP_DECIDED') || ['offer','hired','pool','left','declined'], qualified:G('apQualified') || (() => true),
+        offered:G('apIsOffered') || (() => false), noshowElsewhere:G('apNoshowElsewhere') || (() => false) };
+      fuApplicants(AP, G('AP_BOOK') || {}, now, h).forEach(x => {
+        const r = x.r;
+        if((last10(r.phone).length === 10 && seen.has(last10(r.phone))) || (r.email && seen.has(lc(r.email)))) return;   /* already listed from Onboarding */
+        if(x.days !== null && x.days < 1) return;
+        out.push({ name:((r.first_name || '') + ' ' + (r.last_name || '')).trim() || 'Name not recorded', pos:posOf(r) + okTag(r), say:FU_SAY[x.k], k:x.k,
+          days:x.days, late:false, phone:r.phone || '', email:r.email || '', apId:String(r.id), open:{ applicant_id:String(r.id) } });
+      });
+    }
+    return { list:fuSort(out), krystal, reading:!apReady || !engReady };
+  }
+  function viewFollow(ctx){
+    const { mine, nm } = ctx, g = fuGather(), n = g.list.length;
+    const openOn = x => x.open ? ' onclick="KP.openPerson(' + esc(JSON.stringify(x.open)) + ');return false;"' : '';
+    const row = x => `<div class="kp-task kp-fu"><div class="kp-t">
+        <div><a href="#" class="kp-fu-name"${openOn(x)}>${esc(x.name)}</a> <span class="kp-when">· ${esc(x.pos)}</span></div>
+        <div>${esc(x.say)}${x.days != null ? ` <span class="${x.late || x.days >= 7 ? 'kp-due' : 'kp-when'}">· ${x.days} day${x.days === 1 ? '' : 's'}</span>` : ''}</div>
+        ${x.apId && W.ApText ? `<div class="kp-fu-chip">${ApText.slot(x.apId)}</div>` : ''}
+        <div class="kp-row kp-fu-b">${x.apId && W.ApText ? ApText.btn(x.apId) : ''}${x.phone && typeof W.ocAttrs === 'function' ? `<a class="fb" style="text-decoration:none"${W.ocAttrs(x.phone, { email:x.email })}>📞 Call</a>` : ''}
+          ${!x.phone && !x.apId ? '<span class="kp-when">No phone number on file</span>' : ''}</div></div></div>`;
+    return `<div class="kp-card"><h3>Applicants to follow up with <span class="kp-fu-n">${n}</span></h3>
+      <p class="kp-when" style="margin-top:0">Everyone waiting on their own next step, longest first. A personal text or call often gets them going again. Nothing is sent until you press Send.</p>
+      ${g.reading ? '<p class="kp-when">Still reading the applicant lists…</p>' : ''}
+      ${n ? g.list.map(row).join('') : (g.reading ? '' : '<p>Nobody is stuck right now.</p>')}
+      <p class="kp-when" style="margin-top:12px">${g.krystal ? g.krystal + ' more ' + (g.krystal === 1 ? 'is' : 'are') + ' waiting on background checks: Krystal has ' + (g.krystal === 1 ? 'that one' : 'those') + '. ' : ''}No-shows, hires and anyone taken off the list are left out.${mine ? '' : ' This is the list ' + esc(nm) + ' sees.'}</p></div>`;
+  }
+  function openPerson(k){ try{ if(W.HP && typeof HP.open === 'function') HP.open(k); }catch(e){} }
+
   /* ── render the view for the active pill ── */
-  const HOST = { kptasks:'kpWrapTasks', kpnextdoor:'kpWrapNextdoor', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
+  const HOST = { kptasks:'kpWrapTasks', kpfollow:'kpWrapFollow', kpnextdoor:'kpWrapNextdoor', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
   function render(view){
     let v = view; try{ if(!v) v = isKp(activeTab) ? activeTab : 'kptasks'; }catch(e){ v = v || 'kptasks'; }
     if(v === 'katlinpage') v = 'kptasks';
@@ -370,11 +510,12 @@
     }
     const ctx = { c:cfg(), today:dayOf(Date.now()), isOwner, email, nm:first(email), mine:me() === email };
     const SUB = { kptasks:ctx.mine ? 'Your tasks from Samantha. Tick each one when it is done.' : 'What ' + esc(ctx.nm) + ' sees. Add a task and it shows up on her page.',
+      kpfollow:ctx.mine ? 'Applicants who stopped partway. Reach out to each one personally.' : 'The applicants ' + esc(ctx.nm) + ' follows up with: everyone who stopped partway, longest first.',
       kpnextdoor:'One post every Tuesday on the Caring Companions Nextdoor page.',
       kpnotes:ctx.mine ? 'Notes to Samantha, and her replies.' : 'Notes ' + esc(ctx.nm) + ' sent you. Reply here and it closes the card in your My Work.',
       kprecruit:'Job posts for Caring Companions, CDS and Show-Me Neighbors: where to post, how often, and a log of each post.' };
     let html = `<div class="kp-h">${esc(pageLabel())}</div><div class="kp-sub">${SUB[v]}</div>`;
-    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
+    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpfollow' ? viewFollow(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
     if(isOwner) html += `<p class="kp-when">Only ${esc(ctx.nm)} and the owners can see this page. <a href="#" onclick="KP.changeWho();return false;">Change whose page this is</a></p>`;
     host.innerHTML = html;
   }
@@ -505,8 +646,8 @@
     render();
   }
 
-  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto,
-    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf } };
+  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson,
+    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf, fuApplicants, fuStage, fuSort, FU_SAY } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
 })(typeof window !== 'undefined' ? window : globalThis);

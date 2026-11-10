@@ -12810,6 +12810,8 @@ window.bgrOpenDrawer = bgrOpenDrawer;
 window.ckdOrientWho = ckdOrientWho; window.renderCkd = renderCkd; window.ckdRoster = () => caregivers;
 /* the hiring strip's read of Offers and Onboarding (hire-strip.js, 2026-11-02): read only */
 window.HSTRIP_ENGINE = { offers:() => OFFERS, offerStage, offerMovedOn, offerAgeDays, offerIsQuiet, people:ckdPeople, acts:ckdActsFor, hydrated:() => HYDRATED,
+  /* Katlin's Follow-ups (katlin-page.js, 2026-11-09): each person's Onboarding row, read only, so the list says exactly what the table says */
+  model:obtModel, step1Stuck:ckdStep1Stuck,
   /* Send reminder on every row (hire-remind.js, 2026-11-02): the same offer sends the cards use */
   offerAction, loadOffers, renderOffers, anon:() => TRAINING_HUB_ANON };
 window.obtQueue = obtQueue; window.obtOpenQueue = obtOpenQueue;   /* 2026-11-03 the Onboarding table's queues */
