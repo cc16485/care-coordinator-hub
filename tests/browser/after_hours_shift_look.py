@@ -14,7 +14,6 @@ EXTRA = r"""
 (()=>{
   const KT='katlin@mo-care.com';
   (0,eval)(`OPS_PEOPLE.push({ person_id:'p_kt', full_name:'Katlin Fake', primary_email:'${KT}' });
-    CC_ROLE_BY_EMAIL['${KT}']=['care_coordinator'];
     sb.from=(t)=>{ const rows={ coordinators:[{ id:'c_kt', name:'Katlin Fake', email:'${KT}' },{ id:'c_k', name:'Krystal Land', email:'krystal@mo-care.com' }],
         interview_bookings:[{ id:'b1', applicant_id:'a1', starts_at:'2026-11-10T00:00:00Z', status:'booked', coordinator_id:'c_kt' }],
         job_applicants:[{ id:'a1', first_name:'Jane', last_name:'Applicant (fake)' }] }[t]||[];
@@ -24,6 +23,7 @@ EXTRA = r"""
   DATA.coordinator_staff.push({ id:'skt', name:'Katlin Fake', email:KT });
   DATA.duty_windows.push({ id:'dkt', area:'after_hours', person:KT, recur:{ days:[1,2,3,4,5], from:'17:30', to:'19:30' } });
   DATA.ops_settings={ team_work_live:true };
+  DATA.ops_items.push({ id:'mci_now', kind:'staffing_issue', opened_by:'timekeeper', status:'open', urgency:'urgent', title:'Missed clock-in 5:30 PM visit (fake)', owner:'krystal@mo-care.com', client_ax:'101', created_at:new Date().toISOString() });
 })();
 """
 T = r"""
@@ -46,6 +46,13 @@ async()=>{
   const end=TW.shiftEnd(KT, now.getTime());
   ok('Team Work counts Katlin on shift until 7:30pm Missouri', end===Date.parse('2026-11-09T19:30:00-06:00'), [end, new Date(end||0).toISOString()]);
   ok('Team Work: nobody else is on an office shift now', TW.shiftEnd('krystal@mo-care.com', now.getTime())==null);
+  ok('Team Work: Katlin is on duty now (no Care Coordinator role needed)', JSON.stringify(TW.onDuty(TW.ctx()))===JSON.stringify([KT]), TW.onDuty(TW.ctx()));
+  ok('new family work still goes only to Care Coordinators, never Katlin', TA.coordinators().indexOf(KT)===-1 && ((TA.lighterCoordinator&&TA.lighterCoordinator())||{}).email!==KT, [TA.coordinators(), TA.lighterCoordinator&&TA.lighterCoordinator()]);
+  (0,eval)("ME={ email:'katlin@mo-care.com', name:'Katlin Fake', shift:'day' };");
+  const care=TW.careForMe().map(x=>x.it.id);
+  ok('care at risk reaches Katlin while she is on duty', care.length>0, care);
+  (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Land', shift:'day' };");
+  ok('and not Krystal, who is off now', TW.careForMe().length===0, TW.careForMe().map(x=>x.it.id));
 
   /* ── Katlin's My Work ── */
   as(KT,'Katlin Fake'); switchTab('mywork'); myWorkGo('today'); renderMyWork(); await sleep(400); renderMyWork(); await sleep(100);
