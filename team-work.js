@@ -240,7 +240,20 @@
     }
     return null;
   }
-  function coordinators(){ try{ return (W.TA && W.TA.coordinators()) || []; }catch(e){ return []; } }
+  /* Team Work's people: the Care Coordinators, plus anyone on an After Hours duty window (Samantha 2026-11-09: the
+     After-Hours Care Coordinator gets Team Work, but NOT new family work). Only Team Work reads this list. New Care
+     Coordination work (team-actions.js lighterCoordinator, teammate) still reads TA.coordinators(), the care_coordinator
+     role, so an After-Hours person never becomes the default for new families. Planned and ended windows don't count. */
+  function afterHoursPeople(){
+    const s = {};
+    ((D().duty_windows) || []).forEach(w => { if(w && w.area === 'after_hours' && w.active !== false && w.person
+      && !(typeof W.rowPlanned === 'function' && W.rowPlanned(w))) s[lc(w.person)] = 1; });
+    return Object.keys(s);
+  }
+  function coordinators(){
+    let base = []; try{ base = ((W.TA && W.TA.coordinators()) || []).map(lc); }catch(e){ base = []; }
+    return base.concat(afterHoursPeople().filter(e => base.indexOf(e) === -1));
+  }
   function leadFor(it){
     const L = (D().leads) || [], ids = [it.lead_id, it.source_id].filter(Boolean).map(String);
     return L.find(l => l && ids.indexOf(String(l.id)) > -1) || null;
