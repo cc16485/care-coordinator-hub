@@ -224,8 +224,10 @@
     ws.forEach(w => {
       let end = null;
       if(w.start && w.end) end = Date.parse(w.end);
-      else if(w.recur){ const [h, m] = String(w.recur.to || '23:59').split(':').map(Number); const x = new Date(when); x.setHours(h, m || 0, 0, 0);
-        if(x.getTime() <= when.getTime()) x.setDate(x.getDate() + 1); end = x.getTime(); }
+      else if(w.recur){ const [h, m] = String(w.recur.to || '23:59').split(':').map(Number);
+        /* Missouri time (2026-11-09, After-Hours Care Coordinator in Vietnam): the window's end is a Missouri clock time */
+        if(typeof W.dutyChi === 'function'){ const now = W.dutyChi(when).mins, to = h * 60 + (m || 0); end = Math.floor(when.getTime() / MIN) * MIN + (((to - now) % 1440 + 1440) % 1440 || 1440) * MIN; }
+        else { const x = new Date(when); x.setHours(h, m || 0, 0, 0); if(x.getTime() <= when.getTime()) x.setDate(x.getDate() + 1); end = x.getTime(); } }
       if(end != null && (best == null || end > best)) best = end;
     });
     return best;
