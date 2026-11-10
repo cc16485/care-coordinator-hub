@@ -7,6 +7,9 @@
      1. Tasks from Samantha: once / every day / every week. Owners add and remove them; she ticks them off.
      2. This week's Nextdoor post (nextdoor/posts.json + photos): Copy text, save photo, "I posted it".
      3. Coming up: the next Nextdoor posts, to work ahead.
+     3b. Coming up on social (2026-11-10, her "Yes, build it"): the posts Blotato has scheduled for the next week, read
+        through the Training server's blotato-coming-up (her Blotato key stays on the server). Read only: nothing here
+        can change, post or delete a post. "Tell Samantha" on a post sends a note the same way as 4.
      4. Send Samantha a note: the Hub's existing "message to the Owners" (staffing_tasks, direction to_owners),
         which becomes a card in the owners' My Work.
    Saved in ops_settings.katlin_page through tkMerge, so who changed what and when is kept (op_events).
@@ -141,7 +144,7 @@
   }
 
   /* ── menu: one parent pill (data-parent="katlingrp") with four pills under it ── */
-  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpfollow', l:'Follow-ups' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
+  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpfollow', l:'Follow-ups' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpsocial', l:'Coming up' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
   const isKp = tab => VIEWS.some(v => v.t === tab) || tab === 'katlinpage';
   function pageLabel(){ return (pageEmail() && me() === pageEmail()) ? 'My page' : (pageEmail() ? first(pageEmail()) + '\'s page' : 'Katlin\'s page'); }
   function pillSync(){
@@ -193,7 +196,16 @@
 .kpw .kp-fu-n{display:inline-block;min-width:22px;text-align:center;font-size:13px;background:#0D365F;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:2px}
 .kpw .kp-fu-name{font-weight:700;color:var(--navy,#0D365F)}
 .kpw .kp-fu-chip:empty{display:none}.kpw .kp-fu-chip{margin-top:3px}
-.kpw .kp-fu-b{margin-top:6px}`;
+.kpw .kp-fu-b{margin-top:6px}
+.kpw .kp-sp{padding:12px 0;border-bottom:1px solid #f0eee8}
+.kpw .kp-sp:last-child{border-bottom:0}
+.kpw .kp-sp-top{display:flex;gap:8px;flex-wrap:wrap;align-items:baseline;margin-bottom:6px}
+.kpw .kp-sp-time{font-weight:700;color:var(--navy,#0D365F)}
+.kpw .kp-chip{display:inline-block;font-size:12px;border-radius:999px;padding:1px 9px;background:#EAF4F6;color:#14606F;font-weight:600}
+.kpw .kp-sp .kp-text{max-height:220px;overflow:auto}
+.kpw .kp-media{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.kpw .kp-media img,.kpw .kp-media video{width:150px;height:150px;object-fit:cover;border-radius:8px;background:#f2f0ea;display:block}
+@media(max-width:700px){.kpw .kp-media img,.kpw .kp-media video{width:calc(50% - 4px);height:auto;aspect-ratio:1}}`;
     document.head.appendChild(s);
   }
 
@@ -505,8 +517,88 @@
   }
   function openPerson(k){ try{ if(W.HP && typeof HP.open === 'function') HP.open(k); }catch(e){} }
 
+  /* ── COMING UP ON SOCIAL (Samantha 2026-11-10: "can Blotato's calendar be embedded into Katlin's hub page so she can
+     easily review the posts" ... "Yes, build it"). Blotato's own calendar needs Samantha's sign-in, so the Training
+     server (blotato-coming-up) reads the schedule with the key it keeps and hands back when / which page / words /
+     media. Read only. The reviewer's tool is "Tell Samantha", a note to the owners like the Notes pill. ── */
+  const SOC = { list:null, at:0, busy:false, err:'', days:7, page:'', open:{} };
+  const SOC_URL = 'https://rdqujxiycycwhskyvrwa.supabase.co/functions/v1/blotato-coming-up';
+  async function loadSocial(force){
+    if(SOC.busy) return;
+    if(!force && SOC.list && Date.now() - SOC.at < 10 * 60e3) return;
+    SOC.busy = true; SOC.err = '';
+    try{
+      const anon = (() => { try{ return COMMS_ANON; }catch(e){ return ''; } })();
+      const tok = typeof W.trainHubTok === 'function' ? await W.trainHubTok() : '';
+      const r = await fetch(SOC_URL, { method:'POST', headers:{ 'x-hub-token':tok, 'apikey':anon, 'Authorization':'Bearer ' + anon, 'Content-Type':'application/json' },
+        body:JSON.stringify({ days:SOC.days }) });
+      const d = await r.json().catch(() => ({}));
+      if(!r.ok || !d || !d.ok) throw new Error((d && d.error) || 'no answer');
+      SOC.list = Array.isArray(d.posts) ? d.posts : []; SOC.at = Date.now();
+    }catch(e){ SOC.err = 'The scheduled posts did not load' + (e && e.message && e.message !== 'no answer' ? ' (' + e.message + ')' : '') + '. Try Refresh in a few minutes.'; }
+    SOC.busy = false;
+    try{ if(activeTab === 'kpsocial') render('kpsocial'); }catch(e){}
+  }
+  /* posts -> [{ day:'2026-11-10', posts:[...] }] by Missouri day, earliest first; page '' = every page */
+  function socialDays(posts, page){
+    const g = new Map();
+    (posts || []).filter(p => p && p.at && (!page || p.page === page)).slice().sort((a, b) => String(a.at).localeCompare(String(b.at)))
+      .forEach(p => { const k = dayOf(p.at); if(!g.has(k)) g.set(k, []); g.get(k).push(p); });
+    return [...g.entries()].map(([day, posts]) => ({ day, posts }));
+  }
+  const isVideo = u => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(String(u || ''));
+  const fmtTime = t => { try{ return new Date(t).toLocaleTimeString('en-US', { timeZone:TZ, hour:'numeric', minute:'2-digit' }); }catch(e){ return ''; } };
+  function socialPost(p){
+    const sid = esc(p.id), open = SOC.open[p.id];
+    const media = (p.media || []).slice(0, 6).map(u => isVideo(u)
+      ? `<video src="${esc(u)}" controls preload="metadata" playsinline></video>`
+      : `<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="Photo for this post" loading="lazy"></a>`).join('');
+    const more = (p.media || []).length > 6 ? `<span class="kp-when">+${p.media.length - 6} more</span>` : '';
+    return `<div class="kp-sp"><div class="kp-sp-top"><span class="kp-sp-time">${esc(fmtTime(p.at))}</span>
+        <span class="kp-chip">${esc(p.platform_name || p.platform || 'Social')}</span><span>${esc(p.page)}</span></div>
+      ${p.title ? `<div style="font-weight:600;margin-bottom:4px">${esc(p.title)}</div>` : ''}
+      ${p.text ? `<div class="kp-text">${esc(p.text)}</div>` : '<div class="kp-when">No words with this post.</div>'}
+      ${media || more ? `<div class="kp-media">${media}${more}</div>` : ''}
+      <div class="kp-row">${open ? `<input id="kpSp_${sid}" placeholder="What looks wrong?" style="flex:1;min-width:200px" onkeydown="if(event.key==='Enter')KP.flagPost('${sid}')">
+          <button class="primary" onclick="KP.flagPost('${sid}')">Send to Samantha</button><button class="kp-x" onclick="KP.flagOpen('${sid}',false)">cancel</button>`
+        : `<button class="secondary" onclick="KP.flagOpen('${sid}',true)">Something's wrong? Tell Samantha</button>`}
+        <span class="kp-when" id="kpSpSaid_${sid}"></span></div></div>`;
+  }
+  function viewSocial(ctx){
+    if(!SOC.list && !SOC.err) loadSocial(false);
+    else if(SOC.list && Date.now() - SOC.at > 10 * 60e3) loadSocial(false);
+    const pages = [...new Set((SOC.list || []).map(p => p.page))].sort();
+    if(SOC.page && pages.indexOf(SOC.page) < 0) SOC.page = '';
+    const days = socialDays(SOC.list, SOC.page), n = days.reduce((a, d) => a + d.posts.length, 0);
+    let html = `<div class="kp-card"><h3>Coming up on our pages <span class="kp-fu-n">${n}</span></h3>
+      <p class="kp-when" style="margin-top:0">Straight from Blotato, Missouri time.${SOC.at ? ' Read at ' + esc(fmtTime(SOC.at)) + '.' : ''} Nothing here can change or delete a post: if one needs a fix, tell Samantha.</p>
+      <div class="kp-row" style="margin-top:0"><select onchange="KP.socialPick(this.value)"><option value="">Every page</option>${pages.map(p => `<option value="${esc(p)}"${p === SOC.page ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>
+        <select onchange="KP.socialDaysPick(this.value)"><option value="7"${SOC.days === 7 ? ' selected' : ''}>Next 7 days</option><option value="14"${SOC.days === 14 ? ' selected' : ''}>Next 14 days</option></select>
+        <button class="secondary" onclick="KP.socialRefresh()">${SOC.busy ? 'Reading…' : 'Refresh'}</button></div>`;
+    if(SOC.err) html += `<div class="kp-warn" style="margin-top:10px">${esc(SOC.err)}</div>`;
+    if(!SOC.list){ html += SOC.err ? '' : '<p class="kp-when">Reading the schedule from Blotato…</p>'; return html + '</div>'; }
+    if(!n) html += '<p>Nothing scheduled in this window.</p>';
+    html += days.map(d => `<div class="kp-grp" style="margin-top:16px">${esc(fmtDay(d.day))} · ${d.posts.length} post${d.posts.length === 1 ? '' : 's'}</div>` + d.posts.map(socialPost).join('')).join('');
+    return html + '</div>';
+  }
+  function socialPick(v){ SOC.page = String(v || ''); render('kpsocial'); }
+  function socialDaysPick(v){ SOC.days = Number(v) === 14 ? 14 : 7; SOC.list = null; loadSocial(true); render('kpsocial'); }
+  function socialRefresh(){ loadSocial(true); render('kpsocial'); }
+  function flagOpen(id, on){ SOC.open[id] = !!on; render('kpsocial'); if(on){ const el = document.getElementById('kpSp_' + id); if(el) el.focus(); } }
+  async function flagPost(id){
+    const p = (SOC.list || []).find(x => String(x.id) === String(id)); if(!p) return;
+    const what = String((document.getElementById('kpSp_' + id) || {}).value || '').trim();
+    if(!what){ alert('Write what looks wrong first.'); return; }
+    const msg = 'About the ' + (p.platform_name || 'social') + ' post on ' + p.page + ', ' + fmtAt(p.at) + ' (Blotato schedule ' + p.id + '): ' + what
+      + (p.text ? '\n\nIt starts: "' + String(p.text).slice(0, 120) + (p.text.length > 120 ? '…' : '') + '"' : '');
+    const soon = Date.parse(p.at) - Date.now() < 24 * 3600e3;
+    try{ await noteToOwners(msg, soon ? 'Today' : 'This week'); }catch(e){ alert('Your note did not send. Please try again.'); return; }
+    SOC.open[id] = false; render('kpsocial');
+    const s = document.getElementById('kpSpSaid_' + id); if(s) s.textContent = 'Sent. Samantha will see it in My Work.';
+  }
+
   /* ── render the view for the active pill ── */
-  const HOST = { kptasks:'kpWrapTasks', kpfollow:'kpWrapFollow', kpnextdoor:'kpWrapNextdoor', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
+  const HOST = { kptasks:'kpWrapTasks', kpfollow:'kpWrapFollow', kpnextdoor:'kpWrapNextdoor', kpsocial:'kpWrapSocial', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
   function render(view){
     let v = view; try{ if(!v) v = isKp(activeTab) ? activeTab : 'kptasks'; }catch(e){ v = v || 'kptasks'; }
     if(v === 'katlinpage') v = 'kptasks';
@@ -527,10 +619,11 @@
     const SUB = { kptasks:ctx.mine ? 'Your tasks from Samantha. Tick each one when it is done.' : 'What ' + esc(ctx.nm) + ' sees. Add a task and it shows up on her page.',
       kpfollow:ctx.mine ? 'Applicants who stopped partway. Reach out to each one personally.' : 'The applicants ' + esc(ctx.nm) + ' follows up with: everyone who stopped partway, longest first.',
       kpnextdoor:'One post every Tuesday on the Caring Companions Nextdoor page.',
+      kpsocial:ctx.mine ? 'Every post scheduled on our pages for the next week. Look each one over and tell Samantha if something is wrong.' : 'What ' + esc(ctx.nm) + ' reviews: every post scheduled in Blotato for the next week, read only.',
       kpnotes:ctx.mine ? 'Notes to Samantha, and her replies.' : 'Notes ' + esc(ctx.nm) + ' sent you. Reply here and it closes the card in your My Work.',
       kprecruit:'Job posts for Caring Companions, CDS and Show-Me Neighbors: where to post, how often, and a log of each post.' };
     let html = `<div class="kp-h">${esc(pageLabel())}</div><div class="kp-sub">${SUB[v]}</div>`;
-    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpfollow' ? viewFollow(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
+    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpfollow' ? viewFollow(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpsocial' ? viewSocial(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
     if(isOwner) html += `<p class="kp-when">Only ${esc(ctx.nm)} and the owners can see this page. <a href="#" onclick="KP.changeWho();return false;">Change whose page this is</a></p>`;
     host.innerHTML = html;
   }
@@ -590,16 +683,19 @@
       if(said) said.textContent = 'Selected. Press Cmd+C (or Ctrl+C) to copy.';
     }
   }
+  async function noteToOwners(message, urgency){
+    const t = { id:(typeof W.uid === 'function' ? W.uid() : 'kpn_' + Date.now().toString(36)), direction:'to_owners', kind:'update', urgency,
+      about:'', caregiver:'', lead_id:null, message, created_at:new Date().toISOString(), from_name:meName(), from_email:me(),
+      status:'open', done_at:null, done_by:null, reply:'' };
+    const d = D(); d.staffing_tasks = d.staffing_tasks || []; d.staffing_tasks.push(t);
+    await W.persist('staffing_tasks', t);
+  }
   async function sendNote(){
     const box = document.getElementById('kpNote'), message = String((box || {}).value || '').trim();
     if(!message){ alert('Write the note first.'); return; }
     const urgency = String((document.getElementById('kpNoteWhen') || {}).value || 'This week');
-    const t = { id:(typeof W.uid === 'function' ? W.uid() : 'kpn_' + Date.now().toString(36)), direction:'to_owners', kind:'update', urgency,
-      about:'', caregiver:'', lead_id:null, message, created_at:new Date().toISOString(), from_name:meName(), from_email:me(),
-      status:'open', done_at:null, done_by:null, reply:'' };
     try{
-      const d = D(); d.staffing_tasks = d.staffing_tasks || []; d.staffing_tasks.push(t);
-      await W.persist('staffing_tasks', t);
+      await noteToOwners(message, urgency);
       if(box) box.value = '';
       render(); const s = document.getElementById('kpNoteSaid'); if(s) s.textContent = 'Sent. Samantha will see it in My Work.';
     }catch(e){ alert('Your note did not send. Please try again.'); }
@@ -661,8 +757,8 @@
     render();
   }
 
-  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson,
-    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf, fuApplicants, fuStage, fuSort, FU_SAY } };
+  const KP = { allowed, isKp, pillSync, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson, socialPick, socialDaysPick, socialRefresh, flagOpen, flagPost,
+    _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf, fuApplicants, fuStage, fuSort, FU_SAY, socialDays, isVideo } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
 })(typeof window !== 'undefined' ? window : globalThis);
