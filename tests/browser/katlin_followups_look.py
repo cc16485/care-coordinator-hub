@@ -25,6 +25,8 @@ EXTRA = r"""
   (0,eval)(`AP_ROWS = ${JSON.stringify([
     { id:'ap1', first_name:'Wren', last_name:'Fakeform', status:'partial', phone:'4175550101', email:'wren@example.test', sms_consent:true, created_at:ago(3) },
     { id:'ap2', first_name:'Opal', last_name:'Nobook', status:'new', phone:'4175550102', sms_consent:true, created_at:ago(12) },
+    { id:'ap2b', first_name:'Opal', last_name:'Nobook', status:'partial', phone:'(417) 555-0102', sms_consent:true, created_at:ago(14) },
+    { id:'ap2c', first_name:'Opal', last_name:'Nobook', status:'new', phone:'4175550102', sms_consent:true, created_at:ago(13) },
     { id:'ap3', first_name:'Rex', last_name:'Noshowfake', status:'noshow', phone:'4175550103', created_at:ago(6) },
     { id:'ap4', first_name:'Ivy', last_name:'Bookedfake', status:'new', phone:'4175550104', created_at:ago(5) },
     { id:'ap5', first_name:'Hal', last_name:'Hiredfake', status:'hired', hired_at:ago(10), offer_sent_at:ago(20), phone:'4175550105', created_at:ago(30) },
@@ -84,6 +86,7 @@ async()=>{
   ok('left out: no-show, booked, hired, declined, applied today, approved, office-only', !/Noshowfake|Bookedfake|Hiredfake|Declinedfake|Todayfake|Approvedfake|Officefake|Checksfake/.test(txt), txt);
   ok('the one with only background checks is Krystal\'s (counted, not listed)', /1 more is waiting on background checks: Krystal has that one/.test(txt), txt.slice(-300));
   ok('Mae is listed once (from Onboarding, not again from Applicants)', names.filter(n=>n==='Mae Stepone').length===1);
+  ok('applied twice (a half-done form and two full ones): listed once, as not booked', names.filter(n=>n==='Opal Nobook').length===1 && /Hasn't booked an interview/.test(line('Opal Nobook')), names);
   const texts=[...host.querySelectorAll('button')].filter(b=>/Text/.test(b.textContent)).length, calls=[...host.querySelectorAll('a[data-oc-phone]')].length;
   ok('Text buttons (the Hub\'s ApText) where there is an applicant record', texts===3, texts);
   ok('Call buttons (office line) on every row', calls===6, calls);
