@@ -23366,6 +23366,20 @@ function pbRender(){
             + '<b style="font-size:13.5px;color:var(--navy);">'+esc(pbRange(p))+'</b>'
             + '<div class="field-note" style="margin-top:3px;">Only Samantha and Zach can change a rate. If this looks wrong, ask before you post it.</div>'
             + '</div>')
+      /* 1417 (2026-11-10, VA family or friend caregiver): who can apply for this role. Shown once the server has the
+         settings (Desktop 1417). Like rates, only Samantha and Zach change them; everyone else sees them. */
+      + (('min_age' in p) ? (
+          '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">Who can apply</div>'
+          + (pbCanSetPay()
+            ? '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;">'
+              + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;">Minimum age <select id="pb_age_'+i+'" style="font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--border);border-radius:7px;">'
+                + [18,21].map(function(a){ return '<option value="'+a+'"'+(Number(p.min_age)===a?' selected':'')+'>'+a+' or older</option>'; }).join('') + '</select></label>'
+              + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="pb_py_'+i+'"'+(p.needs_paid_year!==false?' checked':'')+' style="width:16px;height:16px;accent-color:var(--yellow);">Needs a year of paid caregiving experience</label>'
+              + '<label style="display:flex;align-items:center;gap:6px;font-size:13px;"><input type="checkbox" id="pb_tr_'+i+'"'+(p.needs_transport!==false?' checked':'')+' style="width:16px;height:16px;accent-color:var(--yellow);">Needs reliable transportation</label>'
+              + '</div>'
+              + '<div class="field-note" style="margin:4px 0 0;">Without the paid-year rule, the office calls before an interview is booked.</div>'
+            : '<div class="field-note">' + esc((p.min_age||21)+' or older' + (p.needs_paid_year===false?', no paid experience needed':', a year of paid experience') + (p.needs_transport===false?', no transportation needed':', reliable transportation')) + '. Only Samantha and Zach can change this.</div>')
+        ) : '')
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:12px 0 4px;">Questions only this role asks</div>'
       + '<div class="field-note" style="margin:0 0 8px;">Everyone is already asked about age, work authorization, transport, license, insurance, background and living outside Missouri. These are on top.</div>'
       + (qs.length ? qs.map(function(q,qi){ return '<div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:7px;">'
@@ -23400,6 +23414,11 @@ function pbCollect(i){
   }).filter(function(q){ return q.q; });
   const num = id => { const v = val(id); return v==='' ? null : Number(v); };
   const out = { screener: qs };
+  if(pbCanSetPay() && ('min_age' in p) && document.getElementById('pb_age_'+i)){   // 1417
+    out.min_age = Number(document.getElementById('pb_age_'+i).value) || 21;
+    out.needs_paid_year = !!document.getElementById('pb_py_'+i).checked;
+    out.needs_transport = !!document.getElementById('pb_tr_'+i).checked;
+  }
   if(pbCanSetPay()){
     out.pay_min = num('pb_min_'+i);
     out.pay_max = num('pb_max_'+i);
