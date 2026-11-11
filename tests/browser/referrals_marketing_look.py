@@ -55,7 +55,7 @@ T = r"""async()=>{
   switchTab('materials'); await sleep(900);
   const mf=document.getElementById('materialsFrame'), md=mf&&mf.contentDocument;
   ok('Marketing Materials opens marketing.html inside the Hub, its own header hidden', !!md && /marketing\.html\?in=hub/.test(mf.src) && /Thanksgiving 2026/.test(md.body.innerText) && /Google reviews/.test(md.body.innerText) && getComputedStyle(md.querySelector('header')).display==='none', mf&&mf.src);
-  ok('...every PDF it lists is a marketing/ file', [...md.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]')].every(a=>/^marketing\/\d+-[a-z0-9-]+\.pdf\?v=/.test(a.getAttribute('href'))) && md.querySelectorAll('a[href*=".pdf"]').length===15, [...md.querySelectorAll('a[href*=".pdf"]')].map(a=>a.getAttribute('href')));
+  ok('...every PDF it lists is a marketing/ file', [...md.querySelectorAll('a[href$=".pdf"], a[href*=".pdf?"]')].every(a=>/^marketing\/\d+-[a-z0-9-]+\.pdf\?v=/.test(a.getAttribute('href'))) && md.querySelectorAll('a[href*=".pdf"]').length===16, [...md.querySelectorAll('a[href*=".pdf"]')].map(a=>a.getAttribute('href')));
   switchTab('campaigns'); await sleep(300);
   ok('Campaigns still shows its tools (unchanged)', document.getElementById('tab-campaigns').innerText.trim().length>200, document.getElementById('tab-campaigns').innerText.slice(0,200));
   switchTab('feedback'); await sleep(300);
