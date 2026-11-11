@@ -7624,7 +7624,7 @@ function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
     if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
@@ -7636,9 +7636,9 @@ function ckdRosterNext(r){
   const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
   /* 2026-11-11 her word: owners and all coordinators may sign Step 1 papers for Caring Companions (Staffing #832), so the
      company signature is the coordinator's own step, not a wait on someone else */
-  const coSign = n.key === 'cg.company.countersign';
-  const mine = !n.owner || coSign || /coordinator|staff/i.test(String(o.role || ''));
-  const whose = o.role === 'owner' ? (coSign ? 'an owner or a coordinator' : n.key === 'cg.approve.work' ? 'a person on the Approve to Work list' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  const coSign = n.key === 'cg.company.countersign', ccWork = n.key === 'cg.approve.work'; /* 11-11: care coordinators also approve to work (Staffing #834) */
+  const mine = !n.owner || coSign || ccWork || /coordinator|staff/i.test(String(o.role || ''));
+  const whose = o.role === 'owner' ? (coSign ? 'an owner or a coordinator' : n.key === 'cg.approve.work' ? 'a person on the Approve to Work list or a care coordinator' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
   return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
@@ -8135,7 +8135,7 @@ function obtFinish(p, j, g){
   if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
   else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
   else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
-    mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list.');
+    mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator.');
     if(!auto) acts.unshift({ label:'Approve', on:obtOpenCard(j) }); }
   else mk('A', 'Approved', 'none', fin && fin.missing.length ? 'Still needs: ' + fin.missing.join(', ') : 'Not ready yet');
   const any = marks.some(m => m.s !== 'none');
@@ -8627,7 +8627,7 @@ const CKD_HOW = {
     'Call them. Make sure everything is on file and complete, and answer any questions about orientation or the job.',
     'Make sure the AxisCare app is downloaded and they can sign in. Ask if they would like a quick test clock-in.',
     'Tick each one on their card and press Done. No answer? Press No answer and try again tomorrow. Shift texts wait for this call.'],
-  approve: ['Everything is done. Only a person on the Approve to Work list can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
+  approve: ['Everything is done. Only a person on the Approve to Work list or a care coordinator can approve them to work.', 'They open the card and press Approve. The Hub sets them Active in AxisCare and checks it took.'],
   quiet: ['Call them. Life changes: ask if flexible PRN shifts would work better for them.', 'If PRN fits, press What now? and then I offered PRN.', 'If they are done, press What now? and pick why. The Hub stops their reminders and keeps their record.'],
   prn: ['Call them and ask if PRN (flexible shifts they can accept or decline) works for them.', 'Press Their answer. Yes keeps them on the list as PRN. No opens Take off the list.'],
   badge: ['Make their Caring Companions employee badge (their profile photo is the picture).', 'Mail it to the address on their Step 1.', 'Press Mailed. It never holds up their approval to work.'],
