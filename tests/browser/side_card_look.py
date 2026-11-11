@@ -61,7 +61,7 @@ ok('Onboarding names: a readiness-card person opens CRX.openSide', "CRX.openSide
 nxt = re.search(r"function ckdRosterNext\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
 ok('Onboarding Open card buttons slide in too', "CRX.openSide(" in nxt and "CRX.open(" not in nxt)
 ok('Step 1 people still open their own side panel', "c ? 'ckdOpen(' + c.id + ')'" in row)
-ok('[object Object] fixed: the owner is worded from its role', "'a person on the Approve to Work list'" in nxt and "' (' + n.owner + ')'" not in nxt)
+ok('[object Object] fixed: the owner is worded from its role', "'a person on the Approve to Work list or a care coordinator'" in nxt and "' (' + n.owner + ')'" not in nxt)
 stop = re.search(r"function ckdCardStop\(r\)\{[\s\S]*?\n\}", ENGINE).group(0)
 ok('the company signature counts as Step 1 on the stops', "offer|step1|consent|company" in stop)
 idx = open(os.path.join(HERE, '..', '..', 'index.html')).read()

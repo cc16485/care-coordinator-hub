@@ -338,7 +338,7 @@
     } else if(a.ready && a.ready.ready_for_final){
       s1 = ST.meta.may
         ? '<div class="orp-meta">Every requirement is complete. This records your name and the time, sets them Active in AxisCare, reads it back, then texts them the AxisCare app guide.</div><button class="orp-go" onclick="OPR.approve(\'' + oid + '\',this)">✓ Approve to Work</button>'
-        : '<div class="orp-meta">Every requirement is complete. Waiting for a person on the Approve to Work list.</div>';
+        : '<div class="orp-meta">Every requirement is complete. Waiting for a person on the Approve to Work list or a care coordinator.</div>';
     } else {
       const miss = (a.ready && a.ready.missing) || [];
       s1 = miss.length ? '<div class="orp-meta">Not ready yet. Still needs (' + miss.length + '):</div><div class="orp-miss">' + miss.map(x => '<span>' + esc(short(x)) + '</span>').join('') + '</div>'
