@@ -7434,6 +7434,11 @@ function ckdFcsrWaitText(c){
 function ckdRefSlots(c){ return [1,2,3,4].filter(n => String(c['r'+n+'n']||'').trim() || c['r'+n+'_phone'] || c['r'+n+'_email']); }
 function ckdGoodRefs(c){ return [1,2,3,4].filter(n => c['r'+n+'s'] === 'Positive').length; }
 function ckdChecksLeft(c){ return CKD_CHECKS.filter(x => c[x.k] !== x.ok); }
+/* 2026-11-11 (Samantha: the background check forms come first in Step 1, "so we can start on that immediately"): the server
+   puts them in Background & References when both background forms are signed (step1_landed.bg). The checks open then;
+   references, Step 2 and orientation still wait for all of Step 1. */
+function ckdBgSigned(c){ return !!(c && c.step1_landed && c.step1_landed.bg); }
+function ckdChecksWaiting(c){ return ckdStep1Waiting(c) && !ckdBgSigned(c); }
 function ckdStep1Waiting(c){
   if(!c || c.onboarding_path !== 'new') return false;
   const o = (typeof OFFERS !== 'undefined' ? OFFERS : []).find(x => String(x.id) === String(c.offer_id || ''));
@@ -7507,7 +7512,7 @@ function ckdNext(c){
   if(st === 'Needs Review')
     return { text: rp.blocked ? rp.why : 'A check came back with something on it. Samantha or Zachary decide: open the review with them.', label:'Review',
              on: (typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal('+id+')' : 'ckdOpen('+id+')', warn:true };
-  if(ckdStep1Waiting(c)) return { text:'Waiting on their Step 1, which holds their signed permission for checks.', label:'Open', on:'ckdOpen('+id+')', wait:true };
+  if(ckdChecksWaiting(c)) return { text:'Waiting on their Step 1, which holds their signed permission for checks.', label:'Open', on:'ckdOpen('+id+')', wait:true };
   const ref = ckdRefNext(c), chk = ckdCheckNext(c);
   if(CKD_FILTER === 'checks') return chk || ref;
   if(CKD_FILTER === 'refs') return ref || chk;
@@ -7527,8 +7532,8 @@ function ckdPill(s){
    of both shows one line for each. Review, Step 1 waiting and all clear stay one line. */
 function ckdLanes(c){
   const st = obDeriveStatus(c);
-  if(st === 'Ready for Orientation' || st === 'Needs Review' || ckdStep1Waiting(c)) return [Object.assign({ lane:'' }, ckdNext(c))];
-  const ref = ckdRefNext(c), chk = ckdCheckNext(c);
+  if(st === 'Ready for Orientation' || st === 'Needs Review' || ckdChecksWaiting(c)) return [Object.assign({ lane:'' }, ckdNext(c))];
+  const ref = ckdStep1Waiting(c) ? { text:'References wait for the rest of their Step 1.', label:'', on:'', wait:true } : ckdRefNext(c), chk = ckdCheckNext(c);
   const out = [];
   out.push(Object.assign({ lane:'References' }, ref || { text:'Done: 2 good, 1 from work.', label:'', on:'', done:true }));
   out.push(Object.assign({ lane:'Checks' }, chk || { text:'Done: all four clear.', label:'', on:'', done:true }));
@@ -7574,8 +7579,9 @@ function ckdOrientSent(c){ const inv = (c && c.step2_invite) || {}; return !!(in
    Advance and Approve to Work still wait for them. A flagged check or a reference with a concern still stops here. */
 function ckdChecksClear(c){ return c.oig === 'CLEAR' && c.edl === 'Clear' && c.fcsr === 'Clear' && c.casenet === 'Clear' && obDeriveStatus(c) !== 'Needs Review'; }
 function ckdStopOf(c){
-  if(ckdStep1Waiting(c)) return 0;
-  if(c.onboarding_path === 'new') return !ckdChecksClear(c) ? 1 : ckdOrientSent(c) ? 3 : 2;
+  if(ckdChecksWaiting(c)) return 0;
+  /* 11-11: checks may clear before the rest of Step 1 is signed: they stay at the checks stop until Step 1 is done */
+  if(c.onboarding_path === 'new') return !ckdChecksClear(c) || ckdStep1Waiting(c) ? 1 : ckdOrientSent(c) ? 3 : 2;
   if(obDeriveStatus(c) !== 'Ready for Orientation') return 1;
   if(c.onboarding_path !== 'new'){ const w = ckdWc(c); return w && w.invited_at ? 3 : 2; }   /* the old path: orientation after the video call */
   return ckdOrientSent(c) ? 3 : 2;
@@ -8039,7 +8045,7 @@ window.obtOio = obtOio; window.obtOfferPill = obtOfferPill; window.obtOfferPanel
 function obtCell(s, t, o){ return Object.assign({ s, t:t || '' }, o || {}); }
 function obtReview(c){ return { label:'Review', on:(typeof bgrvNeedsButton === 'function' && bgrvNeedsButton(c)) ? 'bgrvOpenModal(' + c.id + ')' : 'ckdOpen(' + c.id + ')' }; }
 function obtChecks(c){
-  const out = {}, id = c.id, wait1 = ckdStep1Waiting(c);
+  const out = {}, id = c.id, wait1 = ckdChecksWaiting(c);
   CKD_CHECKS.forEach(x => {
     const v = c[x.k];
     if(v === x.ok){ out[x.k] = obtCell('ok', '', { d:obtDay(c[x.k + '_date']), tip:x.label + ' clear' + (c[x.k + '_date'] ? ' ' + fmtD(String(c[x.k + '_date']).slice(0, 10)) : '') }); return; }
@@ -8205,6 +8211,9 @@ function obtModel(p){
     if(obtOfferSent(off)) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'finish') cells[k] = obtCell('none', '', { tip:'After they sign the offer' }); });
     else if(p.o) OBT_BASE_COLS.forEach(([k]) => { if(k !== 'step1' && k !== 'finish') cells[k] = obtCell('none', '', { tip:'After Step 1' }); });
   }
+  /* 2026-11-11: the Step 1 box counts the forms signed (like orientation) and is a check only when Step 1 is completely done,
+     the company signature included (step1-progress.js) */
+  if(window.S1P && cells.step1) cells.step1 = S1P.cell(p, cells.step1);
   cells.i9 = obtI9(c, j, cells.finish);
   const m = { p, c, j, g, cells, name:p.name };
   const who = new Set(); let late = false;
@@ -8289,7 +8298,9 @@ function obtCardHTML(m, hi){
 }
 function obtRender(box){
   obtSetCols(); obtOfferPill();
-  const L = ckdLists(), models = L.all.map(obtModel);
+  const L = ckdLists();
+  if(window.S1P) S1P.load(L.all);   /* 2026-11-11 the Step 1 counts (one read, then every five minutes) */
+  const models = L.all.map(obtModel);
   let q = String((document.getElementById('ckdSearch') || {}).value || '').trim().toLowerCase();
   if(window.CKD_FIND){ q = String(window.CKD_FIND).trim().toLowerCase(); window.CKD_FIND = ''; OBT_Q = 'all'; }
   const valid = ['all', 'office', 'waiting', 'review', 'nearly', 'late'].concat(OBT_COLS.map(x => x[0]));
@@ -8707,7 +8718,8 @@ function ckdPersonHTML(c){
     + '<div class="ckd-bar"><div class="ckd-bar-track"><div class="ckd-bar-fill" style="width:' + Math.round(done / steps.length * 100) + '%"></div></div><b>' + done + ' of ' + steps.length + ' done</b></div>'
     + '<div class="ckd-where">' + ckdRoadHTML(ckdStopOf(c), false) + '<span class="ckd-stop">Stop ' + (ckdStopOf(c) + 1) + ' of ' + CKD_STOPS.length + ': ' + CKD_STOPS[ckdStopOf(c)] + '</span></div>'
     + ckdNextCardHTML(c)
-    + (ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>' : '')
+    + (ckdChecksWaiting(c) ? '<div class="ckd-msg ckd-soft">Waiting on their Step 1, which holds their signed permission. Checks and reference calls wait until it is done.</div>'
+       : ckdStep1Waiting(c) ? '<div class="ckd-msg ckd-soft">They signed the background check forms, so the checks can start now. Reference calls wait for the rest of their Step 1.</div>' : '')
     + '<div class="ckd-sec"><div class="ckd-sec-h"><h3>References</h3><span>Need 2 good ones, 1 from work · have ' + ckdGoodRefs(c) + '</span></div>'
     +   (rp.blocked ? '<div class="ckd-msg ckd-err">' + bgrEsc(rp.why) + '</div>' : '')
     +   (slots.length ? slots.map(refBox).join('') : '<div class="ckd-box-sub">No references given yet.</div>')
