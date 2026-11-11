@@ -48,7 +48,22 @@ ck('old reasons map to keys for reports', R.lostKey({ lost_reason:'Chose another
 const fresh = { interest_notes:'Website form submission (no message left).' };
 ck('new and reaching out: nothing is required', R.missing(fresh, 'new').length === 0 && R.missing(fresh, 'reaching_out').length === 0);
 ck('once reached: who, why, when', R.missing(fresh, 'connected').map(m => m.key).join() === 'client,why,start');
-ck('once an assessment is booked: payer, schedule and town too', R.missing({ client_first_name:'Ruth', why_called:'falls', desired_start:{ kind:'asap' } }, 'assessment').map(m => m.key).join() === 'payer,schedule,town');
+ck('once an assessment is booked: payer, schedule and town too', R.missing({ client_first_name:'Ruth', why_called:'falls', desired_start:{ kind:'asap' } }, 'assessment').map(m => m.key).join() === 'payer,programs,schedule,town');
+{ /* the five program questions (Samantha 2026-11-11): needed before an assessment, never at the yes (the server's yes check is unchanged) */
+  const all = { veteran:'no', ltc:'no', dementia:'no', medicare:'advantage', medicaid:'no' };
+  ck('program questions · needed while deciding and at the assessment', R.missing({}, 'deciding').some(m => m.key === 'programs') && R.missing({}, 'assessment').some(m => m.key === 'programs'));
+  ck('program questions · not required at the yes', !R.missing({}, 'yes').some(m => m.key === 'programs'));
+  ck('program questions · all five answered: nothing missing for them', !R.missing({ program_check:all }, 'assessment').some(m => m.key === 'programs'));
+  ck('program questions · Not sure counts as asked', R.programsAsked({ program_check:{ veteran:'not_sure' } }) === 1);
+  ck('program questions · dementia on file counts as a yes', R.programAnswer({ medical_conditions:['alzheimers'] }, 'dementia') === 'yes' && R.programsAsked({ medical_conditions:['dementia'] }) === 1);
+  const h = R.programHints({ funding_source:'private', program_check:{ veteran:'yes', ltc:'yes', dementia:'yes', medicare:'traditional', medicaid:'yes' } }).map(x => x.key).join();
+  ck('program hints · each yes points to its program', h === 'va,ltc,guide,cds', h);
+  ck('program hints · nothing for the program already chosen', !R.programHints({ funding_source:'va', program_check:{ veteran:'yes' } }).length);
+  ck('program hints · dementia without the Medicare type asks which card', R.programHints({ medical_conditions:['dementia'] }).map(x => x.key).join() === 'guide_ask');
+  ck('program hints · Not for them hides one', !R.programHints({ program_check:{ veteran:'yes', dismissed:{ va:true } } }).length);
+  ck('program hints · no em dashes', !R.programHints({ program_check:{ veteran:'yes', ltc:'yes', dementia:'yes', medicaid:'yes' } }).some(x => /—/.test(x.text + x.title)) && !R.PROGRAM_QS.some(x => /—/.test(x.q)));
+}
+
 ck('short words for the board chip', R.missing({}, 'assessment').find(m => m.key === 'schedule').short === 'hours not asked' && R.missing({}, 'assessment').find(m => m.key === 'payer').short === 'payer not asked');
 ck('a complete family at yes: nothing missing', R.missing({ client_first_name:'Ruth', why_called:'falls', desired_start:{ kind:'asap' }, funding_source:'private', schedule:{ days:['Mon'], times:'', hours_per_week:null }, client_city:'Nixa' }, 'yes').length === 0);
 
@@ -415,7 +430,7 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
   const HRS = R.responseHours({}), NOW = '2026-10-06T15:10:00Z';
   const L = [
     { id:'a', created_at:'2026-10-01T15:00:00Z', source:'Website', first_human_attempt_at:'2026-10-01T15:03:00Z', first_human_contact_at:'2026-10-01T16:00:00Z', assessment_at:'2026-10-03T15:00:00Z', said_yes_at:'2026-10-04T15:00:00Z', status:'Converted', converted_at:'2026-10-04T15:00:00Z', first_shift_at:'2026-10-06T13:00:00Z', schedule:{ days:['Mon'], hours_per_week:10 }, assigned_coordinator:'Krystal', rungs:{ owner_at:'2026-10-01T15:05:00Z' }, speed_miss:{ owner:'kry@mo-care.com', minutes:30 }, comm_log:[{ kind:'owner', body:'Angiel took this inquiry from Krystal' }] },
-    { id:'b', created_at:'2026-10-02T15:00:00Z', source:'Referral', referral_subtype:'hospital', funding_source:'medicaid', waiting:{ reason:'state', since:'2026-08-15', check_back:'2026-10-13' }, first_human_contact_at:'2026-10-02T16:00:00Z', assigned_coordinator:'Angiel', schedule:{ days:['Mon'], hours_per_week:20 }, client_first_name:'Ruth', why_called:'x', desired_start:{ kind:'asap' }, contact_events:[{ at:'2026-10-05T15:00:00Z', actor:'human', direction:'out', channel:'call', outcome:'voicemail' }] },
+    { id:'b', created_at:'2026-10-02T15:00:00Z', source:'Referral', referral_subtype:'hospital', funding_source:'medicaid', program_check:{ veteran:'no', ltc:'no', dementia:'no', medicare:'none', medicaid:'yes' }, waiting:{ reason:'state', since:'2026-08-15', check_back:'2026-10-13' }, first_human_contact_at:'2026-10-02T16:00:00Z', assigned_coordinator:'Angiel', schedule:{ days:['Mon'], hours_per_week:20 }, client_first_name:'Ruth', why_called:'x', desired_start:{ kind:'asap' }, contact_events:[{ at:'2026-10-05T15:00:00Z', actor:'human', direction:'out', channel:'call', outcome:'voicemail' }] },
     { id:'c', created_at:'2026-10-03T15:00:00Z', source:'Phone', funding_source:'medicaid', state_status:'submitted', state_submitted:'2026-10-01', first_human_contact_at:'2026-10-03T16:00:00Z', assigned_coordinator:'Angiel' },
     { id:'s', created_at:'2026-10-05T15:00:00Z', spam:{ at:'x' } } ];
   const N = R.ownerNumbers(L, HRS, { now:NOW, names:{ 'kry@mo-care.com':'Krystal Land' } }).now;
