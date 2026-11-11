@@ -10,6 +10,7 @@ ok(!lines(CRX).length, 'readiness card: no Approve to Work line names Samantha o
 ok(!lines(OPR).length, 'Orientation tab Finish line: names the list');
 ok(!lines(ENG).length, 'Onboarding: the advance, approve and owner lines name the list');
 ok(/Waiting on a person on the Approve to Work list to approve\./.test(ENG) && /Waiting on a person on the Approve to Advance list to say go for Step 2\./.test(ENG), 'the two waiting lines');
-ok(/'a person on the Approve to Work list' : n\.key === 'cg\.approve\.advance' \? 'a person on the Approve to Advance list' : 'an owner'/.test(ENG), 'the next step owner: the company signature and Approve to Work name the Approve to Work list');
+ok(/coSign \? 'an owner or a coordinator' : n\.key === 'cg\.approve\.work' \? 'a person on the Approve to Work list' : n\.key === 'cg\.approve\.advance' \? 'a person on the Approve to Advance list' : 'an owner'/.test(ENG), 'the next step owner: Approve to Work names its list; the company signature says an owner or a coordinator (11-11)');
+ok(/const mine = !n\.owner \|\| coSign/.test(ENG) && /' \(an owner or a coordinator\)'/.test(ENG) && /An owner or a coordinator signs for Caring Companions here\./.test(read('step1.html')) && !/Approve to Work list signs for Caring/.test(read('step1.html')), '11-11: the company signature is a coordinator\'s own step in Onboarding and on the Step 1 screen');
 ok(/caregiver-readiness\.js\?v=10/.test(read('index.html')) && /orient-progress\.js\?v=5/.test(read('index.html')), 'the page loads the new copies');
 console.log(pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
