@@ -260,6 +260,7 @@
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
     if(!lost) h += hintsHtml(l);   /* 2026-11-11: what the five program questions point to */
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
+    if(!lost && vaShows(l)) h += vaHtml(l);   /* 2026-11-11: VA paperwork, filled in over the phone */
     h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
     host.innerHTML = h; host.style.display = '';
     if(window.LeadBasics) setTimeout(() => LeadBasics.fill(l.id), 0);   /* fills the empty lines from the call, once */
@@ -294,6 +295,134 @@
       + '</ul><div class="field-note" style="margin-top:6px;">Never promise free care or that they are approved. Our account in Crosby is Troutman Enterprises, LLC. <a href="guide.html" target="_blank" rel="noopener">The GUIDE page</a> has the full screener.</div>'
       + '</div><div id="lwCrosbyBox" class="lw-gd-frame"><div class="field-note">Crosby opens here when you press "Open Crosby here". If the sign-in will not stay inside the Hub, use "Open Crosby in its own tab".</div></div></div></div>';
   }
+  /* ── VA PAPERWORK, OVER THE PHONE (Samantha 2026-11-11: "fillable va forms that are required and fill them over the phone
+     for the veteran"; no Optum form exists). VA Community Care home aide care (H/HHA) is referred by the veteran's own VA
+     primary care team or social worker, so what we fill in is a request to that team, sent with the veteran's OK. Not
+     enrolled yet: the VA takes the 10-10EZ by phone (877-222-8387), so we do a three-way call and never write down a
+     Social Security number. Aid & Attendance pension forms are claims only VA-accredited people may help prepare, so we
+     send those families to a Veterans Service Officer. Saved on the lead as va_referral. Nothing is sent by the Hub. ── */
+  const VA_PHONE = '877-222-8387', CC_PHONE = '(417) 234-8494', CC_FAX = '(417) 719-7870';
+  const VA_HOW = { fax:'Faxed to the VA clinic', mhv:'The veteran sent it as a My HealtheVet message', mail:'Mailed', call:'Read to the care team on a call', person:'Taken in person' };
+  function vaShows(l){ return l.funding_source === 'va' || (R().programAnswer ? R().programAnswer(l, 'veteran') === 'yes' : false); }
+  function vaDob(v){ const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(v || '')); return m ? m[2] + '/' + m[3] + '/' + m[1] : String(v || ''); }
+  function vaDefaults(l){
+    const needs = (Array.isArray(l.needs) ? l.needs : []).map(k => (typeof LPI_L !== 'undefined' && LPI_L.needs && LPI_L.needs[k]) || k);
+    const care = (typeof cpxCareChips === 'function' ? cpxCareChips(l) : []).map(c => c.t);
+    const hrs = l.schedule && l.schedule.hours_per_week ? String(l.schedule.hours_per_week) : (l.number_of_hours ? String(l.number_of_hours) : '');
+    return { needs:care.concat(needs).join(', '), hours:hrs };
+  }
+  function vaData(l){ const d = vaDefaults(l), v = Object.assign({}, l.va_referral || {}); if(v.needs == null) v.needs = d.needs; if(v.hours == null) v.hours = d.hours; return v; }
+  function vaDay(iso){ const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', timeZone:'America/Chicago' }); }
+  function vaVet(l){ return [l.client_first_name, l.client_last_name].filter(Boolean).join(' ') || 'the veteran'; }
+  function vaHtml(l){
+    const v = vaData(l), en = v.enrolled || '';
+    const inp = (id, label, val, ph) => '<div><label class="lb-k" style="display:block;margin:8px 0 3px;">' + esc(label) + '</label><input id="lwVa_' + id + '" value="' + esc(val || '') + '" placeholder="' + esc(ph || '') + '"></div>';
+    const pick = (val, label) => '<button class="lb-btn"' + (en === val ? ' style="background:var(--navy);color:#fff;"' : '') + ' onclick="lwVaSet(\'enrolled\',' + q(val) + ')">' + esc(label) + '</button>';
+    let h = '<div class="card lw-card" id="lwVa"><div class="lw-head"><b>VA paperwork</b><span class="field-note">fill it in with the veteran on the phone. Nothing is sent until you send it.</span></div>'
+      + '<div style="font-size:13.5px;margin:4px 0 8px;"><b>1. Are they signed up for VA health care?</b> <span class="field-note">They need a VA doctor or care team before the VA can refer them.</span></div>'
+      + '<div class="lb-actions" style="margin:0 0 6px;">' + pick('yes', 'Yes') + pick('no', 'No') + pick('not_sure', 'Not sure') + '</div>';
+    if(en === 'no' || en === 'not_sure')
+      h += '<div style="background:var(--cream,#faf9f6);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13.5px;margin:6px 0 10px;">'
+        + '<b>Apply together by phone (VA Form 10-10EZ).</b> Do a three-way call with the veteran, or the person with their power of attorney, to the VA at <b>' + VA_PHONE + '</b>, Monday to Friday, 8 AM to 8 PM Eastern. Press 1 to apply. The VA fills in the application with them on the phone.'
+        + '<ul style="margin:6px 0 0 18px;"><li>Have ready: discharge papers (DD214) if they have them, health insurance cards, and last year\'s household income.</li>'
+        + '<li>Applying with a power of attorney: the VA needs a copy of it.</li>'
+        + '<li><b>We never write down their Social Security number.</b> They give it to the VA directly.</li>'
+        + '<li>Can\'t do it today? They can also apply at VA.gov or at a VA clinic.</li></ul>'
+        + '<div style="margin-top:8px;">' + (v.applied_at ? '<span class="field-note">✓ Applied ' + esc(vaDay(v.applied_at)) + (v.applied_by ? ' with ' + esc(v.applied_by) : '') + '. Once they are enrolled and have a care team, fill in step 2.</span>'
+          : '<button class="lb-btn" onclick="lwVaSet(\'applied_at\', new Date().toISOString())">They applied today</button>') + '</div></div>';
+    h += '<div style="font-size:13.5px;margin:10px 0 2px;"><b>2. Ask their VA care team for the referral</b> <span class="field-note">Homemaker and Home Health Aide (H/HHA) care through VA Community Care. Their VA doctor or social worker makes it.</span></div>'
+      + '<div class="grid2">'
+      + inp('clinic', 'VA clinic', v.clinic, 'e.g. the VA clinic they go to')
+      + inp('doctor', 'Primary care doctor or team', v.doctor, 'Dr. name or team name')
+      + inp('social', 'VA social worker, if they know', v.social, '')
+      + inp('clinic_phone', 'Clinic phone', v.clinic_phone, '')
+      + inp('clinic_fax', 'Clinic fax', v.clinic_fax, 'ask the clinic for it')
+      + inp('hours', 'Hours a week they are asking about', v.hours, 'e.g. 20')
+      + '</div>'
+      + '<label class="lb-k" style="display:block;margin:8px 0 3px;">Help they need</label><textarea id="lwVa_needs" rows="2" style="width:100%;">' + esc(v.needs || '') + '</textarea>'
+      + '<div class="grid2">' + inp('cg_name', 'Who they want as their caregiver (optional)', v.cg_name, 'a family member or friend') + inp('cg_rel', 'How they know the veteran', v.cg_rel, 'e.g. daughter, neighbor') + '</div>'
+      + '<label style="display:flex;gap:8px;align-items:baseline;font-size:13.5px;margin:10px 0 4px;cursor:pointer;"><input type="checkbox" id="lwVa_ok" style="width:auto;flex:none;"' + (v.ok_at ? ' checked' : '') + '>'
+      + '<span>' + esc(vaVet(l)) + ' (or the person with their power of attorney) said OK to send this request to the VA' + (v.ok_at ? '<span class="field-note"> · ' + esc(vaDay(v.ok_at)) + (v.ok_by ? ', ' + esc(v.ok_by) : '') + '</span>' : '') + '</span></label>'
+      + '<div class="lb-actions" style="margin-top:8px;"><button class="lb-btn" onclick="lwVaSave(this)">Save</button>'
+      + '<button class="lb-btn" onclick="lwVaLetter()">Print or fax the letter</button>'
+      + '<button class="lb-btn" onclick="lwVaCopy(this)">Copy as a My HealtheVet message</button>'
+      + '<button class="linklike" style="font-size:12.5px;" onclick="officeFaxOpen(this)">Our fax and eFax sign-in</button></div>'
+      + '<span class="field-note" id="lwVaMsg"></span>';
+    h += '<div style="font-size:13.5px;margin:12px 0 4px;"><b>3. Mark it sent</b></div>'
+      + (v.sent_at ? '<div style="font-size:13.5px;">✓ ' + esc(VA_HOW[v.sent_how] || 'Sent') + ' on ' + esc(vaDay(v.sent_at)) + (v.sent_by ? ' by ' + esc(v.sent_by) : '') + '. <span class="field-note">If they hear nothing, call the VA care team to check it arrived. VA-paid visits start only once we have the authorization number.</span> <button class="linklike" style="font-size:12.5px;" onclick="lwVaSet(\'sent_at\', \'\')">Undo</button></div>'
+        : '<div class="lb-actions" style="margin:0;"><select id="lwVa_how" style="width:auto;">' + Object.keys(VA_HOW).map(k => '<option value="' + k + '">' + esc(VA_HOW[k]) + '</option>').join('') + '</select><button class="lb-btn" onclick="lwVaSent(this)">Mark sent today</button></div>')
+      + '<div class="field-note" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px;"><b>Aid &amp; Attendance is different.</b> We don\'t fill in VA pension forms: only VA-accredited people, like a Veterans Service Officer, may help prepare them, for free. Send the family to a VSO and give them our signed agreement and paid invoices. Their doctor fills in VA Form 21-2680. <a href="javascript:void(0)" onclick="ccOpenRef(\'va\')">VA on Payors &amp; Programs</a></div>'
+      + '</div>';
+    return h;
+  }
+  function vaRead(l){
+    const v = vaData(l), g = id => { const e = document.getElementById('lwVa_' + id); return e ? String(e.value || '').trim() : null; };
+    ['clinic', 'doctor', 'social', 'clinic_phone', 'clinic_fax', 'hours', 'needs', 'cg_name', 'cg_rel'].forEach(k => { const x = g(k); if(x !== null) v[k] = x; });
+    const ok = document.getElementById('lwVa_ok');
+    if(ok){ if(ok.checked && !v.ok_at){ v.ok_at = new Date().toISOString(); v.ok_by = (typeof ccActor === 'function' && ccActor().name) || ''; } if(!ok.checked){ delete v.ok_at; delete v.ok_by; } }
+    return v;
+  }
+  async function vaPut(v, msg){
+    const l = lead(); if(!l || typeof persist !== 'function') return false;
+    v.updated_at = new Date().toISOString(); v.updated_by = (typeof ccActor === 'function' && ccActor().name) || '';
+    l.va_referral = v;
+    try{ await persist('leads', l); }catch(e){ if(typeof ccToast === 'function') ccToast('Could not save: ' + (e && e.message || e)); else alert('Could not save'); return false; }
+    const card = document.getElementById('lwVa'); if(card){ const tmp = document.createElement('div'); tmp.innerHTML = vaHtml(l); card.replaceWith(tmp.firstChild); }
+    const m = document.getElementById('lwVaMsg'); if(m && msg){ m.textContent = msg; m.style.color = 'var(--green)'; }
+    return true;
+  }
+  window.lwVaSave = function(){ const l = lead(); if(l) vaPut(vaRead(l), 'Saved.'); };
+  window.lwVaSet = function(k, val){
+    const l = lead(); if(!l) return; const v = vaRead(l), me = (typeof ccActor === 'function' && ccActor().name) || '';
+    if(val === '') { delete v[k]; if(k === 'sent_at'){ delete v.sent_how; delete v.sent_by; } } else v[k] = val;
+    if(k === 'applied_at' && val) v.applied_by = me;
+    vaPut(v, 'Saved.');
+  };
+  window.lwVaSent = function(){
+    const l = lead(); if(!l) return; const v = vaRead(l);
+    if(!v.ok_at){ const m = document.getElementById('lwVaMsg'); if(m){ m.textContent = 'Tick that the veteran said OK first.'; m.style.color = 'var(--red)'; } return; }
+    const how = document.getElementById('lwVa_how'); v.sent_how = how ? how.value : 'fax'; v.sent_at = new Date().toISOString(); v.sent_by = (typeof ccActor === 'function' && ccActor().name) || '';
+    vaPut(v, 'Marked sent.');
+  };
+  function vaNeedsLine(v){ return [v.needs ? 'help with ' + String(v.needs).toLowerCase() : '', v.hours ? 'about ' + v.hours + ' hours a week' : ''].filter(Boolean).join(', '); }
+  window.lwVaCopy = function(btn){
+    const l = lead(); if(!l) return; const v = vaRead(l);
+    const t = 'To my VA primary care team' + (v.doctor ? ' (' + v.doctor + ')' : '') + ':\n\n'
+      + 'I would like a referral for Homemaker and Home Health Aide care at home through VA Community Care, with Caring Companions. They are in network with the VA Community Care Network, phone ' + CC_PHONE + '.\n\n'
+      + (vaNeedsLine(v) ? 'I need ' + vaNeedsLine(v) + '.\n\n' : '')
+      + (v.cg_name ? 'I would like ' + v.cg_name + (v.cg_rel ? ' (my ' + v.cg_rel + ')' : '') + ' to be my caregiver, hired through Caring Companions.\n\n' : '')
+      + 'Thank you,\n' + vaVet(l);
+    const done = () => { if(btn){ btn.textContent = 'Copied'; setTimeout(() => { btn.textContent = 'Copy as a My HealtheVet message'; }, 1600); } };
+    if(navigator.clipboard) navigator.clipboard.writeText(t).then(done, () => prompt('Copy this:', t)); else prompt('Copy this:', t);
+  };
+  window.lwVaLetter = function(){
+    const l = lead(); if(!l) return; const v = vaRead(l);
+    const m = document.getElementById('lwVaMsg');
+    if(!v.ok_at){ if(m){ m.textContent = 'Tick that the veteran said OK before printing or faxing.'; m.style.color = 'var(--red)'; } return; }
+    vaPut(v, '');
+    const caller = [l.first_name, l.last_name].filter(Boolean).join(' '), vet = vaVet(l), me = (typeof ccActor === 'function' && ccActor().name) || '';
+    const today = new Date().toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' });
+    const okDay = new Date(v.ok_at).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric', timeZone:'America/Chicago' });
+    const row = (k, val) => val ? '<tr><td style="padding:3px 12px 3px 0;color:#444;">' + esc(k) + '</td><td style="padding:3px 0;"><b>' + esc(val) + '</b></td></tr>' : '';
+    const w = window.open('', '_blank'); if(!w){ if(m){ m.textContent = 'Allow pop-ups to print the letter.'; m.style.color = 'var(--red)'; } return; }
+    w.document.write('<html><head><title>VA referral request: ' + esc(vet) + '</title></head><body style="font-family:Arial,sans-serif;font-size:14px;color:#111;max-width:680px;margin:32px auto;line-height:1.5;">'
+      + '<div style="border-bottom:2px solid #0D365F;padding-bottom:8px;margin-bottom:16px;"><b style="font-size:18px;color:#0D365F;">Caring Companions</b><br>Phone ' + CC_PHONE + ' · Fax ' + CC_FAX + '</div>'
+      + '<p>' + esc(today) + '</p>'
+      + '<table style="border-collapse:collapse;margin-bottom:12px;">' + row('To', [v.doctor || 'Primary care team', v.social ? 'Social worker: ' + v.social : ''].filter(Boolean).join(' · ')) + row('Clinic', v.clinic) + row('Clinic phone', v.clinic_phone) + row('Clinic fax', v.clinic_fax) + '</table>'
+      + '<p><b>Re: Request for a Homemaker and Home Health Aide (H/HHA) referral through VA Community Care</b></p>'
+      + '<table style="border-collapse:collapse;margin-bottom:12px;">' + row('Veteran', vet) + row('Date of birth', vaDob(l.client_dob)) + row('Address', [l.client_address, l.client_city, l.client_state, l.client_zip].filter(Boolean).join(', ')) + row('Phone', l.client_phone || '') + '</table>'
+      + '<p>' + esc(vet) + ' asked us to send this request on their behalf on ' + esc(okDay) + '.</p>'
+      + '<p>' + esc(vet) + ' is asking the VA primary care team to consider a referral for Homemaker and Home Health Aide care at home, provided by Caring Companions. We are in network with the VA Community Care Network.</p>'
+      + (v.needs ? '<p><b>Help needed:</b> ' + esc(v.needs) + '</p>' : '')
+      + (v.hours ? '<p><b>Hours a week the family is asking about:</b> ' + esc(v.hours) + '</p>' : '')
+      + (v.cg_name ? '<p><b>Caregiver the veteran would like:</b> ' + esc(v.cg_name) + (v.cg_rel ? ' (' + esc(v.cg_rel) + ')' : '') + '. They would be hired, trained and supervised by Caring Companions.</p>' : '')
+      + '<p>Please contact ' + (caller && caller !== vet ? esc(caller) + (l.relationship ? ' (' + esc(l.relationship) + ')' : '') + (l.phone ? ' at ' + esc(l.phone) : '') + ', or ' : '') + 'Caring Companions at ' + CC_PHONE + ' with any questions.</p>'
+      + '<p style="margin-top:22px;">Thank you,<br><br>' + esc(me || '__________________') + '<br>Care Coordinator, Caring Companions</p>'
+      + '<p style="margin-top:28px;color:#444;">Veteran or representative signature (optional): ______________________ &nbsp; Date: __________</p>'
+      + '<p style="font-size:11px;color:#666;margin-top:24px;">Confidential: this fax contains health information about a veteran and is meant only for the VA care team named above. If you received it in error, please call ' + CC_PHONE + '.</p>'
+      + '</body></html>');
+    w.document.close(); setTimeout(() => { try{ w.print(); }catch(e){} }, 300);
+  };
   function lwCrosby(btn){
     const box = document.getElementById('lwCrosbyBox'); if(!box) return;
     if(box.querySelector('iframe')){ box.innerHTML = '<div class="field-note">Crosby closed. Press "Open Crosby here" to open it again.</div>'; if(btn) btn.textContent = 'Open Crosby here'; return; }
