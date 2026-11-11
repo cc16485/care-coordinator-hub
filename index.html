@@ -7594,7 +7594,7 @@ The HomeTogether team</pre>
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
 <script src="email-library.js?v=1026"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
-<script src="lead-rules.js?v=23"></script>
+<script src="lead-rules.js?v=24"></script>
 <script src="heard-about.js?v=1"></script><script>(function(){ var e=document.getElementById('lead_heard_about'); if(e&&window.HeardAbout) e.innerHTML=HeardAbout.optionsHtml(''); })();</script>
 <script src="speed-rules.js?v=1"></script><script src="my-speed.js?v=2"></script><!-- Speed to lead (2026-10-22, her design): each coordinator's own numbers; 2026-10-26 in the My Desk drawer, no Leads tab --><!-- Leads intake desk Stage 0 (2026-10-06): desired start, schedule, waiting, lost reasons, required by stage; same file on the server -->
 <script src="relationship-rules.js?v=2"></script><!-- Stage 3 of the Care Coordinator Leads and Bonus plan (2026-10-18): the 7-day and 30-day relationship calls -->
@@ -7682,7 +7682,7 @@ The HomeTogether team</pre>
 <script src="family-link.js?v=1"></script>
 <script src="call-notes.js?v=1"></script><!-- Call notes from recorded calls (2026-10-29): behind ops_settings.call_notes_live --><!-- Who did they call for? (2026-10-29): a family caller's own lead linked to the family they called for --><!-- Leads list the GoHighLevel way, made better (2026-10-29): replaces the cards under ops_settings.leads_cards_live -->
 <script src="leads-board.js?v=23"></script><!-- Leads intake desk Stage 2 (2026-10-06): the board, drawn from LeadRules.boardRow -->
-<script src="lead-workspace.js?v=13"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
+<script src="lead-workspace.js?v=14"></script><!-- the lead workspace (her design's screen 2, 2026-10-07): the profile's Overview until the yes -->
 <script src="client-history.js?v=6"></script><!-- Step D (2026-10-15): the client profile's one History list -->
 <script src="profile-top.js?v=3"></script><!-- a calmer profile top (2026-10-15) -->
 <script src="client-glance.js?v=3"></script><!-- the client at a glance (2026-10-29) -->
@@ -11060,6 +11060,38 @@ const CP_PAYERS=[['','Not recorded'],['private','Private pay'],['ltc','LTC insur
 function cpPayersFor(v){ return v&&!CP_PAYERS.some(x=>x[0]===v)?CP_PAYERS.concat([[v,String(v)]]):CP_PAYERS; }
 const CP_STATE=[['','Not a state submission'],['not_submitted','Not yet submitted'],['submitted','Submitted, waiting on the assessment'],['assessed','Assessed, waiting on authorization'],['authorized','Authorized'],['denied','Denied or withdrawn']];
 function cpStateSteps(l){ return (l&&l.soc&&Array.isArray(l.soc.steps)?l.soc.steps:[]).map((st,i)=>({ st, i })).filter(x=>/FUSION|DSDS|authori[sz]ation/i.test(String(x.st.label||''))&&!(typeof socIsLaunchStep==='function'&&socIsLaunchStep(l.soc.pathway,x.st.id))); }
+/* The five program questions (Samantha 2026-11-11): asked on every first call, required before an assessment is booked.
+   The questions and what each answer points to live in lead-rules.js (PROGRAM_QS, programHints). Saved on the lead as
+   program_check; a dementia Yes also goes into the health conditions, and one already there shows as Yes. Nothing here
+   changes who pays or contacts the family: a person decides. */
+function cpProgramQsHtml(l){
+  if(typeof LeadRules==='undefined'||!LeadRules.PROGRAM_QS) return '';
+  const esc=escapeHtmlComms, RR=LeadRules, n=RR.programsAsked(l), total=RR.PROGRAM_QS.length;
+  const rows=RR.PROGRAM_QS.map(x=>{
+    const cur=RR.programAnswer(l,x.k), onFile=x.k==='dementia'&&cur==='yes'&&!((l.program_check||{}).dementia);
+    const ctl=onFile?'<span style="font-size:13px;font-weight:600;color:var(--green);">Yes <span class="field-note">(on file in health conditions)</span></span>'
+      :'<select id="cpPq_'+x.k+'" style="width:auto;min-width:150px;"><option value="">Not asked</option>'+x.opts.map(o=>'<option value="'+o[0]+'"'+(cur===o[0]?' selected':'')+'>'+esc(o[1])+'</option>').join('')+'</select>';
+    return '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);"><span style="font-size:13.5px;flex:1;min-width:220px;">'+esc(x.q)+'</span>'+ctl+'</div>';
+  }).join('');
+  const hints=RR.programHints(l);
+  return '<div style="margin-bottom:14px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#FAFBFC;">'
+    +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px;"><b style="font-size:14px;color:var(--navy);">The five program questions</b>'
+    +'<span class="field-note" style="'+(n<total?'color:#B23B2E;font-weight:700;':'')+'">'+(n===total?'All 5 asked':n+' of 5 asked, needed before an assessment')+'</span>'
+    +'<span style="flex:1;"></span><button class="linklike" style="font-size:12px;" onclick="ccOpenRef(\'all\')">Why we ask</button></div>'
+    +rows
+    +(hints.length?'<div style="margin-top:8px;">'+hints.map(h=>'<div style="margin-top:6px;padding:7px 10px;border-radius:8px;background:#FDF3E3;color:#7A4A0B;font-size:13px;"><b>'+esc(h.title)+':</b> '+esc(h.text)
+      +' <button class="linklike" style="font-size:12.5px;" onclick="ccOpenRef(\''+h.ref+'\')">Open on Payors &amp; Programs</button></div>').join('')+'</div>':'')
+    +'</div>';
+}
+function cpProgramQsRead(l){
+  if(typeof LeadRules==='undefined'||!LeadRules.PROGRAM_QS) return;
+  const pc=Object.assign({}, l.program_check||{}); let changed=false;
+  LeadRules.PROGRAM_QS.forEach(x=>{ const e=document.getElementById('cpPq_'+x.k); if(!e) return; const v=String(e.value||''); if(String(pc[x.k]||'')!==v){ pc[x.k]=v; changed=true; } });
+  if(!changed) return;
+  if(pc.dementia==='yes'){ const c=Array.isArray(l.medical_conditions)?l.medical_conditions.slice():[]; if(c.indexOf('dementia')<0&&c.indexOf('alzheimers')<0){ c.push('dementia'); l.medical_conditions=c; } }
+  pc.by=(typeof ccActor==='function'&&ccActor().name)||(typeof ME!=='undefined'&&ME&&(ME.name||ME.email))||''; pc.at=new Date().toISOString();
+  l.program_check=pc;
+}
 function cpRenderPayer(){
   const box=document.getElementById('cp_payer'); if(!box) return;
   const esc=escapeHtmlComms, l=CP.lead;
@@ -11076,6 +11108,7 @@ function cpRenderPayer(){
   const lbl='style="font-size:12.5px;font-weight:600;color:var(--navy);display:block;margin-bottom:3px;"';
   box.innerHTML='<div class="card" style="padding:14px 18px;">'
     +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;"><b style="font-size:15px;color:var(--navy);">Payer</b><span style="flex:1;"></span><span class="field-note" id="cpPayMsg"></span></div>'
+    +cpProgramQsHtml(l)
     +'<div class="grid2">'
       +'<div><label '+lbl+'>Who pays</label><select id="cpPayFunding" onchange="cpPayerDraft()">'+opt(cpPayersFor(l.funding_source),l.funding_source)+'</select></div>'
       +'<div><label '+lbl+'>Price quoted</label><div style="display:flex;gap:8px;align-items:center;"><input type="checkbox" id="cpPayQuoted" style="width:auto;"'+(l.price_quoted?' checked':'')+'><input id="cpPayAmount" placeholder="e.g. $35/hr" value="'+esc(l.quoted_price_amount||'')+'" style="flex:1;"></div></div>'
@@ -11111,6 +11144,7 @@ async function cpPayerSave(){
   const v=id=>{ const e=document.getElementById(id); return e?String(e.value||'').trim():''; };
   const msg=document.getElementById('cpPayMsg');
   l.funding_source=v('cpPayFunding');
+  cpProgramQsRead(l);
   const q=document.getElementById('cpPayQuoted'); l.price_quoted=!!(q&&q.checked); l.quoted_price_amount=v('cpPayAmount');
   const prevState=l.state_status;
   if(document.getElementById('cpPayDcn')){ l.dcn=v('cpPayDcn'); l.county=v('cpPayCounty'); l.state_submitted=v('cpPaySubmitted'); l.state_status=v('cpPayStatus'); }
@@ -36610,7 +36644,7 @@ function lpfShown(l,b,k){
     case 'recent_stay': return has||(l.safety||[]).includes('recentHospitalization')||why.includes('discharge');
     case 'medicaid_existing_provider': case 'medicaid_hours_authorized': return has||l.funding_source==='medicaid';
     case 'medicaid_provider_change': return has||lpfVal(b,'medicaid_existing_provider')==='yes';
-    case 'va_veteran': case 'va_program': return has||l.funding_source==='va';
+    case 'va_veteran': case 'va_program': return has||l.funding_source==='va'||!!(l.program_check&&l.program_check.veteran==='yes');
     case 'private_minimums_explained': case 'private_who_pays': return has||l.funding_source==='private';
     default: return true;
   }

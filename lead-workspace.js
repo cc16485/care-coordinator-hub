@@ -77,11 +77,36 @@
       + fact('Wants to start', RR.desiredStartWords(l, ctx.today), miss.start, 'intake')
       + fact('Schedule', RR.scheduleWords(l), miss.schedule, 'intake')
       + fact('Payer', pay, miss.payer, 'payer')
+      + programsFact(l, miss)
       + fact('Where', [l.client_address, l.client_city].filter(Boolean).join(', '), miss.town, 'intake')
       + fact('Needs and safety', care.concat(needs).join(' · '), '', 'care')
       + fact('Came from', src, '', '')
       + '</div></div>';
   }
+  /* the five program questions (Samantha 2026-11-11): asked on the Payer tab, needed before an assessment */
+  function programsFact(l, miss){
+    const RR = R(); if(!RR.PROGRAM_QS) return '';
+    const n = RR.programsAsked(l), total = RR.PROGRAM_QS.length;
+    if(n === total) return fact('Program questions', 'All 5 asked', '', 'payer');
+    return fact('Program questions', miss.programs ? '' : (n ? n + ' of 5 asked' : ''), miss.programs ? n + ' of 5 asked' : '', 'payer');
+  }
+  function hintsHtml(l){
+    const RR = R(); if(!RR.programHints) return '';
+    const hs = RR.programHints(l); if(!hs.length) return '';
+    return '<div class="card lw-card" id="lwHints"><div class="lw-head"><b>Programs to look at</b><span class="field-note">from the five program questions. You decide; nothing changes who pays.</span></div>'
+      + hs.map(h => '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--border);"><div style="flex:1;min-width:220px;font-size:13.5px;"><b>' + esc(h.title) + ':</b> ' + esc(h.text) + '</div>'
+        + '<button class="lb-btn" onclick="ccOpenRef(' + q(h.ref) + ')">Open on Payors &amp; Programs</button>'
+        + '<button class="linklike" style="font-size:12.5px;" onclick="lwHintDismiss(' + q(h.key) + ', this)">Not for them</button></div>').join('')
+      + '</div>';
+  }
+  window.lwHintDismiss = async function(key, btn){
+    const l = lead(); if(!l || typeof persist !== 'function') return;
+    if(btn) btn.disabled = true;
+    const pc = Object.assign({}, l.program_check || {}); pc.dismissed = Object.assign({}, pc.dismissed || {}); pc.dismissed[key] = true;
+    l.program_check = pc;
+    try{ await persist('leads', l); }catch(e){ if(btn) btn.disabled = false; if(typeof ccToast === 'function') ccToast('Could not save: ' + (e && e.message || e)); else alert('Could not save'); return; }
+    const card = document.getElementById('lwHints'); if(card){ const tmp = document.createElement('div'); tmp.innerHTML = hintsHtml(l); card.replaceWith(tmp.firstChild || document.createTextNode('')); }
+  };
   function timelineHtml(l, ctx){
     const items = R().timeline(l, ctx), fmt = iso => { const c = R().chicago(iso); return (c.ymd === ctx.today ? 'Today' : R().dayWords(c.ymd, ctx.today).replace(/^\w/, ch => ch.toUpperCase())) + ' ' + R().clockWords(iso); };
     const K = { family:'lw-tl-family', talked:'lw-tl-talked', try:'', sent:'', auto:'lw-tl-auto', clock:'lw-tl-auto', inquiry:'', note:'lw-tl-note', promise:'', stage:'lw-tl-stage' };
@@ -233,6 +258,7 @@
       + (l.what_to_expect_sent_at ? '<div class="field-note" style="margin-top:6px;">✓ What to expect text sent ' + esc(new Date(l.what_to_expect_sent_at).toLocaleDateString('en-US', { month:'short', day:'numeric' })) + (l.what_to_expect_sent_by === 'automatic' ? ' (automatic)' : '') + '.</div>'
         : (DATA.ops_settings || {}).what_to_expect_text_live === true && R().madeFromCall(l) && !l.said_yes_at && !l.auto_msgs_stopped_at ? '<div class="field-note" style="margin-top:6px;">The what to expect text goes to ' + esc(callerFirst) + ' automatically (7 AM to 8 PM).</div>' : '')
       + '<div class="field-note" style="margin-top:8px;">Each button writes what happened and sets the next step. Nothing goes to ' + esc(callerFirst) + ' unless you send it.</div></div>';
+    if(!lost) h += hintsHtml(l);   /* 2026-11-11: what the five program questions point to */
     if(!lost && l.funding_source === 'guide') h += guideHtml(l);   /* 2026-10-15: the Medicare GUIDE intake, right where the call happens */
     h = '<div class="lw-grid"><div class="lw-main">' + h + knowHtml(l, ctx, r) + timelineHtml(l, ctx) + '</div>' + railHtml(l, ctx, r) + '</div>';
     host.innerHTML = h; host.style.display = '';
