@@ -155,6 +155,20 @@
     .ptable td{ border:none; padding:3px 0; } }
   /* 2026-10-30 (her "our logo doesn't work on a dark background"): the white logo on the navy header; paper drops the navy, so print the regular one */
   @media print{ header img[src="cc-logo-light.png"]{ content:url(cc-logo.png); } }
+  /* step-by-step walkthroughs */
+  .own{ background:var(--navy); color:#fff; border:none; }
+  .own h3{ color:var(--honey); font-size:17px; }
+  .own p, .own li{ font-size:14.5px; color:#fff; }
+  .own ul{ margin:8px 0 0 20px; }
+  ol.steps{ list-style:none; counter-reset:st; margin:8px 0 0; padding:0; }
+  ol.steps > li{ counter-increment:st; position:relative; padding:0 0 14px 44px; font-size:14.5px; }
+  ol.steps > li:before{ content:counter(st); position:absolute; left:0; top:0; width:30px; height:30px; border-radius:50%;
+    background:var(--pale); color:var(--navy); font-weight:700; display:flex; align-items:center; justify-content:center; font-size:14px; }
+  ol.steps > li b.t{ display:block; color:var(--navy); font-size:15px; }
+  ol.steps ul{ margin:4px 0 0 18px; }
+  .say{ display:block; margin-top:6px; background:var(--cream); border-left:3px solid var(--honey); padding:8px 12px; border-radius:6px; font-size:14px; }
+  .ask{ border-color:#e0c48a; background:#fdf8ef; }
+  .ask li{ font-size:14px; }
 </style>
 </head>
 <body>
@@ -194,6 +208,16 @@
 <section id="s-all" class="on">
   <h2 class="serif">Who pays for care?</h2>
   <p class="lead">Every way a family can pay us, in one place. These are the same choices as "Who's paying" on a lead. Pick one above for the details.</p>
+  <div class="card own">
+    <h3>This is your job</h3>
+    <p>Care Coordinators are responsible for knowing <b>all</b> of these programs: private pay, long-term care insurance, VA, and Medicare GUIDE. When a family calls, you are the person who finds every way their care can be paid for and walks them through signing up, from the first call to the first visit. Families should never have to figure out the paperwork alone.</p>
+    <ul>
+      <li>Know who qualifies, what each program pays, and the steps to get started (each tab above).</li>
+      <li>Ask the five questions below on every first call, so no family misses a program they could use.</li>
+      <li>Never make a family wait on a program. Care can start as private pay while GUIDE, LTC or VA paperwork goes through.</li>
+      <li>Never promise approval, hours or a start date until the program has confirmed it.</li>
+    </ul>
+  </div>
   <div class="card">
     <table class="ptable">
       <tr><th>Program</th><th>Who it's for</th><th>New clients?</th><th>Who pays us</th></tr>
@@ -204,6 +228,16 @@
       <tr><td><a href="#cds">CDS</a></td><td>Missouri Medicaid families who want to hire their own caregiver</td><td><span class="tag warn">Caring CDS</span></td><td>Missouri Medicaid, through our sister company</td></tr>
       <tr><td><a href="#medicaid">Medicaid IHS / ADW</a></td><td>Agency-model Missouri Medicaid</td><td><span class="tag bad">No</span></td><td>Ends November 16, 2026</td></tr>
     </table>
+  </div>
+  <div class="card">
+    <h3>Five questions on every first call</h3>
+    <ol class="steps">
+      <li><b class="t">"Did your loved one serve in the military, or were they married to someone who did?"</b> Yes: look at <a href="#va">VA</a>. Community Care if they get care through the VA, Aid &amp; Attendance if not.</li>
+      <li><b class="t">"Do they have a long-term care insurance policy?"</b> Yes: ask them to find the policy and look at <a href="#ltc">LTC insurance</a>.</li>
+      <li><b class="t">"Do they have a dementia or Alzheimer's diagnosis?"</b> and <b class="t">"Is their Medicare the red, white and blue card, or a Medicare Advantage plan?"</b> Diagnosis plus traditional Medicare: screen them for <a href="#guide">GUIDE</a>.</li>
+      <li><b class="t">"Do they have Medicaid?"</b> Active Medicaid and they want to choose their own caregiver: hand off to <a href="#cds">Caring CDS</a>.</li>
+      <li><b class="t">Everyone else, or for hours a program doesn't cover:</b> <a href="#private">private pay</a>. Many families use two at once, for example GUIDE visits plus private-pay hours.</li>
+    </ol>
   </div>
   <div class="card tight">
     <p style="font-size:14.5px;"><b>A Medicaid caller?</b> We no longer take agency Medicaid. Send them to <b>Caring Companions CDS</b>, (417) 218-2888.<br>
@@ -244,6 +278,17 @@
       </ul>
     </div>
   </div>
+  <div class="card">
+    <h3>Getting a private-pay family started</h3>
+    <ol class="steps">
+      <li><b class="t">First call: hear their story first, price after</b>Ask what is going on, who needs help, and what a good week would look like. Ask the five questions on the <a href="#all">Who pays?</a> tab before you settle on private pay.</li>
+      <li><b class="t">Give the rates and minimums</b>Wellness $30, Personal $32, Advanced $34 an hour; 4 hours per visit and 8 hours per week. Mention the Best Price Guarantee if they have a written quote from another agency.</li>
+      <li><b class="t">Book the in-home assessment</b>Set one dated next step before you hang up. Bring the assessment folder (Rev. 10/2026).</li>
+      <li><b class="t">At the assessment: sign the Client Care Agreement</b>By tablet in Start of Care, Send to sign, or paper. Every initials box, a backup caregiver named, and the card or ACH authorization for weekly autopay. Never tell a family there is nothing to sign.</li>
+      <li><b class="t">Start of Care in the hub</b>Fill it in and move it to Ready for Staffing so the caregiver match can start. Don't promise a caregiver or start date until staffing confirms.</li>
+      <li><b class="t">After the first visit</b>Call the family after the first shift. Invoices go out by email each Monday to Sunday week.</li>
+    </ol>
+  </div>
   <div class="card tight"><p style="font-size:14.5px;"><b>Pays privately but has dementia and traditional Medicare?</b> Screen them for <a href="guide.html">GUIDE</a>. Up to 20 of their visits a year could be covered.</p></div>
 </section>
 
@@ -279,6 +324,20 @@
       <p class="muted" style="margin-top:10px;">Continuum: guide@continuumcare.com, 833.801.4336. Families' 24/7 line: 888 466 9008.</p>
     </div>
   </div>
+  <div class="card">
+    <h3>Getting a GUIDE family started</h3>
+    <ol class="steps">
+      <li><b class="t">Screen on the phone</b>Use the screener on the <a class="btn sm ghost" href="guide.html#screen" style="padding:3px 9px;">GUIDE page</a>. Ask about the diagnosis and Medicare Advantage first, since those rule out the most people. Save it to the screening log.
+        <span class="say">"Based on what you've told me, they may qualify. Medicare decides, and I'll walk you through every step."</span> Never say "free care" or "you're approved."</li>
+      <li><b class="t">Collect what Crosby needs</b>Patient name, date of birth, Medicare number (MBI), address, phone, and the unpaid caregiver's name, relationship and phone. The screener builds the summary for you.</li>
+      <li><b class="t">Submit in Crosby Health by Friday noon</b>Alignment comes back the Tuesday about 11 days later. Steps are on the GUIDE page under Crosby Health.</li>
+      <li><b class="t">Don't make them wait</b>If they need help now, start private pay and switch the visits over once they align.</li>
+      <li><b class="t">Do the home assessment</b>The caregiver answers the FAST questions (never the patient), fills in the ZBI alone, and must be named as the unpaid caregiver. Don't rush or repeat the ten-word list.</li>
+      <li><b class="t">Respite decision</b>Crosby shows Pending or Not Eligible. Only FAST stage 5 to 7 with a named unpaid caregiver gets respite dollars. Everyone enrolled still gets care navigation and the 24/7 line.</li>
+      <li><b class="t">Staff it with a GUIDE-trained caregiver</b>Medicare won't pay for a visit by a caregiver without the GUIDE training on file. Tell staffing it's a GUIDE client.</li>
+      <li><b class="t">Bill and track</b>Bill visits in Crosby. Keep count of the 20 visits; they reset July 1 and don't roll over.</li>
+    </ol>
+  </div>
 </section>
 
 <!-- ======================= LTC ======================= -->
@@ -306,6 +365,18 @@
       <p class="muted" style="margin-top:10px;">Ask the family to have the policy out at the home assessment. Handout: folder piece 9.</p>
     </div>
   </div>
+  <div class="card">
+    <h3>Getting an LTC insurance family started</h3>
+    <ol class="steps">
+      <li><b class="t">Get the policy</b>Ask them to upload it on the LTC page at mo-care.com, email it to intake@mo-care.com, or have it out at the assessment. Ask for the policy number and the carrier's claims phone number.</li>
+      <li><b class="t">Read it before you talk money</b>Paste it into the <a href="/#ltcpolicy">LTC Policy tab</a>. Find: does it cover a home care agency, the elimination period, the daily or monthly maximum, the benefit trigger, and whether it allows assignment of benefits (direct billing).</li>
+      <li><b class="t">Call the carrier with the family</b>A three-way call with the policyholder or their power of attorney on the line, since carriers only talk to us with permission. Confirm benefits and open the claim. Write down the claim number, the name of who you spoke to, and the date.</li>
+      <li><b class="t">Help with the claim forms</b>The carrier usually sends a claim packet: a form for the family, one for the doctor or a licensed professional who certifies the need for care, and one for us as the provider. Help the family fill in their part and get the doctor's part back.</li>
+      <li><b class="t">Start care now</b>During the elimination period the family pays our private-pay rate. Sign the Client Care Agreement as usual and keep every invoice; carriers often ask for proof of those days.</li>
+      <li><b class="t">Pick how we bill</b>Direct billing (the family signs the assignment of benefits) or the family pays and sends our invoices in. Set the carrier up as a payor in AxisCare (steps on the LTC Policy tab).</li>
+      <li><b class="t">Keep it paid</b>Send invoices and visit notes on the carrier's schedule. Watch for recertification dates and anything above the daily maximum, which is the family's to pay. Tell the family before they reach the policy's limit.</li>
+    </ol>
+  </div>
   <div class="card tight"><p style="font-size:14.5px;"><b>Have the policy in hand?</b> The hub's <a href="/#ltcpolicy">LTC Policy tab</a> reads it for you, walks through setting the carrier up as a payor in AxisCare, and has our claim steps.</p></div>
 </section>
 
@@ -331,14 +402,43 @@
       <p style="font-size:14.5px;">A monthly, tax-free payment added to a VA pension. The money is the veteran's, so to us this is private pay.</p>
       <ul class="list">
         <li>Wartime-era service, or a surviving spouse who hasn't remarried</li>
-        <li>Needs help with at least two daily activities</li>
+        <li>Meets at least one of these: needs another person's help with daily activities like bathing, dressing or eating; stays in bed much of the day because of illness; lives in a nursing home because of a physical or mental condition; or has very limited eyesight</li>
         <li>Net worth under the VA limit (about $163,700 in 2026, not counting the home, one vehicle and belongings)</li>
         <li>The VA looks back 3 years at asset transfers</li>
       </ul>
       <p class="muted" style="margin-top:10px;">A Veterans Service Officer helps them apply for free. Handout: folder piece 9.</p>
     </div>
   </div>
-  <div class="card tight" style="border-color:#e0c48a; background:#fdf8ef;"><p style="font-size:14.5px;"><b>Not written down yet:</b> where VA Community Care referrals come in and how we bill the VA. Add it here when it's settled.</p></div>
+  <div class="card">
+    <h3>Getting a VA Community Care veteran started</h3>
+    <p class="muted" style="margin-bottom:8px;">We are in network with the VA Community Care Network. The VA pays us directly. It starts with a referral from the veteran's VA doctor.</p>
+    <ol class="steps">
+      <li><b class="t">Check they get care through the VA</b>Ask if the veteran has a VA primary care doctor or care team. If not, they need to enroll in VA health care first (VA.gov or 877-222-8387).</li>
+      <li><b class="t">Ask who they want as their caregiver</b>Many veterans don't want a stranger. A family member or friend can be hired by us as their paid caregiver: 18 or older, no paid experience needed, background checks and orientation still required. Send them to <b>mo-care.com/apply?position=va_family_caregiver</b>. The office calls them first. We pay weekly.</li>
+      <li><b class="t">Get the referral going</b>The veteran or family asks the VA primary care team for a <b>Homemaker and Home Health Aide (H/HHA)</b> referral to Caring Companions. Offer to help: go through the request with them on the phone, then fax, send or mail it for them.
+        <span class="say">"You don't pay Caring Companions for care the VA authorizes. Some veterans have a VA copay, which the VA would tell you about."</span></li>
+      <li><b class="t">Wait for the authorization</b>We need an active VA authorization number before VA-paid visits start. It lists the hours and the type of service. That is all we can give on the VA. If they need help sooner, offer private pay until it arrives.</li>
+      <li><b class="t">Paperwork</b>Client Care Agreement plus the <b>VA Community Care Addendum</b>. A plan of care from, or approved by, the VA.</li>
+      <li><b class="t">Brief staffing</b>EVV clock-in and clock-out every visit (no clock-in, no VA payment). No driving the veteran anywhere. Only the authorized hours and tasks; anything extra is private pay.</li>
+      <li><b class="t">Watch the end date</b>Put the authorization end date on the client's record. Before it runs out, ask the VA care team about renewing it. If it ends or is cut, the family can carry on as private pay.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>Helping an Aid &amp; Attendance family</h3>
+    <ol class="steps">
+      <li><b class="t">Start care as private pay</b>A&amp;A can take months. The family pays us now; the VA can pay benefits back to the date they filed.</li>
+      <li><b class="t">Send them to a Veterans Service Officer</b>VSOs help them apply for free. We don't fill in or file VA claims for families, and nobody should charge them to apply.</li>
+      <li><b class="t">Give them what the VA asks for from us</b>Our signed Client Care Agreement and paid invoices show the cost of care. Their doctor fills in VA Form 21-2680 about the help they need.</li>
+    </ol>
+  </div>
+  <div class="card ask">
+    <h3>Still to confirm with Samantha</h3>
+    <ul class="list">
+      <li>Where VA authorizations arrive (portal, fax or email) and who on the team watches for them.</li>
+      <li>How we bill the VA, and who sends the claims.</li>
+      <li>Who asks the VA to renew an authorization, and how far ahead.</li>
+    </ul>
+  </div>
 </section>
 
 <!-- ======================= CDS ======================= -->
