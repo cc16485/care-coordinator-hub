@@ -191,6 +191,32 @@
   /* stages: new · reaching_out · connected · deciding · assessment · nurture (leadStage) · yes (about to say yes)
      New and reaching out need nothing: we have not spoken to them. Once reached, the three questions any first call
      answers. Once an assessment is booked, payer and schedule. At yes, all of it. */
+  /* ── the five program questions (Samantha 2026-11-11: "required before an assessment is booked") ─────────────────────
+     Asked on every first call so no family misses a program they could use. Kept on the lead as program_check
+     { veteran, ltc, dementia, medicare, medicaid, dismissed:{}, by, at }. Dementia reads the health conditions first,
+     so a diagnosis already on file counts as a yes. Nothing here changes who pays: a person decides. */
+  const YNS = [['yes', 'Yes'], ['no', 'No'], ['not_sure', 'Not sure']];
+  const PROGRAM_QS = [
+    { k:'veteran', q:'Did they serve in the military, or were they married to someone who did?', opts:YNS },
+    { k:'ltc', q:'Do they have a long-term care insurance policy?', opts:YNS },
+    { k:'dementia', q:'Do they have a dementia or Alzheimer\'s diagnosis?', opts:YNS },
+    { k:'medicare', q:'Is their Medicare the red, white and blue card, or a Medicare Advantage plan?', opts:[['traditional', 'Red, white and blue card'], ['advantage', 'Medicare Advantage'], ['none', 'No Medicare'], ['not_sure', 'Not sure']] },
+    { k:'medicaid', q:'Do they have Medicaid?', opts:YNS },
+  ];
+  function dementiaOnFile(l){ const c = Array.isArray(l && l.medical_conditions) ? l.medical_conditions : []; return c.indexOf('dementia') > -1 || c.indexOf('alzheimers') > -1; }
+  function programAnswer(l, k){ if(k === 'dementia' && dementiaOnFile(l)) return 'yes'; const pc = (l && l.program_check) || {}; return String(pc[k] || ''); }
+  function programsAsked(l){ return PROGRAM_QS.filter(x => !!programAnswer(l, x.k)).length; }
+  /* what the answers point to, when the lead is not already set to that program; "Not for them" hides one */
+  function programHints(l){
+    const pay = String(l && l.funding_source || ''), dis = ((l && l.program_check) || {}).dismissed || {}, a = k => programAnswer(l, k), out = [];
+    if(a('veteran') === 'yes' && pay !== 'va') out.push({ key:'va', ref:'va', title:'Veteran', text:'Look at VA Community Care if they get care through the VA, or Aid & Attendance if not.' });
+    if(a('ltc') === 'yes' && pay !== 'ltc') out.push({ key:'ltc', ref:'ltc', title:'Long-term care policy', text:'Ask them to find the policy, then read it on the LTC Policy tab before talking money.' });
+    if(a('dementia') === 'yes' && a('medicare') === 'traditional' && pay !== 'guide') out.push({ key:'guide', ref:'guide', title:'Dementia and traditional Medicare', text:'Screen them for Medicare GUIDE. Up to 20 four-hour visits a year could be covered.' });
+    else if(a('dementia') === 'yes' && (!a('medicare') || a('medicare') === 'not_sure') && pay !== 'guide') out.push({ key:'guide_ask', ref:'guide', title:'Dementia diagnosis', text:'Ask which Medicare card they have. Traditional Medicare could mean GUIDE.' });
+    if(a('medicaid') === 'yes' && pay !== 'cds' && pay !== 'medicaid') out.push({ key:'cds', ref:'cds', title:'Has Medicaid', text:'If they want to choose their own caregiver, hand off to Caring Companions CDS, (417) 218-2888.' });
+    return out.filter(h => !dis[h.key]);
+  }
+
   const REQ = {
     client:  { label:'Who needs care', has:l => !!String((l.client_first_name || '') + (l.client_last_name || '')).trim() || l.client_name_not_provided === true && false },
     why:     { label:'Why they called', has:l => !!whyCalled(l) },
@@ -198,9 +224,10 @@
     payer:   { label:'How they will pay', short:'payer not asked', has:l => !!String(l.funding_source || '').trim() },
     schedule:{ label:'The schedule they need', short:'hours not asked', has:l => !!schedule(l) },
     town:    { label:'Their town', short:'town not asked', has:l => !!String(l.client_city || l.client_zip || '').trim() },
+    programs:{ label:'The five program questions', short:'program questions not asked', has:l => programsAsked(l) === PROGRAM_QS.length },
   };
-  const REQ_BY_STAGE = { new:[], reaching_out:[], connected:['client', 'why', 'start'], deciding:['client', 'why', 'start', 'payer'], nurture:['client', 'why', 'start'],
-    assessment:['client', 'why', 'start', 'payer', 'schedule', 'town'], yes:['client', 'why', 'start', 'payer', 'schedule', 'town'] };
+  const REQ_BY_STAGE = { new:[], reaching_out:[], connected:['client', 'why', 'start'], deciding:['client', 'why', 'start', 'payer', 'programs'], nurture:['client', 'why', 'start'],
+    assessment:['client', 'why', 'start', 'payer', 'programs', 'schedule', 'town'], yes:['client', 'why', 'start', 'payer', 'schedule', 'town'] };
   function missing(l, stage){
     const keys = REQ_BY_STAGE[stage] || [];
     return keys.filter(k => !REQ[k].has(l || {})).map(k => ({ key:k, label:REQ[k].label, short:REQ[k].short || REQ[k].label.toLowerCase() }));
@@ -1375,7 +1402,7 @@
     ymd, addDays, daysBetween, dayWords, desiredStart, desiredStartWords, startRank, schedule, daysWords, scheduleWords, whyCalled,
     waiting, waitingProblems, defaultCheckBack, checkBackDue, lostKey, lostRecord, missing, toForm, compose, migrationPatch,
     responseHours, chicago, chicagoInstant, inResponseHours, nextOpening, clockStart, firstAttemptDue, clockWords, cameInWords, openingWords, callBackWords,
-    firstAttemptState, medianFirstAttemptMinutes, PAYER_WORDS, lastEventWords, replyPending, boardRow, boardSort, dayHeader,
+    firstAttemptState, medianFirstAttemptMinutes, PAYER_WORDS, PROGRAM_QS, programAnswer, programsAsked, programHints, lastEventWords, replyPending, boardRow, boardSort, dayHeader,
     FUTURE, FUTURE_KIND, FUTURE_PERMISSION, isSaved, futureRecord, saveForFuture, statusBeforeSaved, reactivate, mayContact, demand, DEMAND_FAMILIES, DEMAND_HOURS, DEMAND_DAYS,
     markAuthorized, authorizationPending, stateDays, DSDS_AMBER_DAYS, DSDS_RED_DAYS, median, ownerNumbers, periodNumbers, leadNext, nextWords, setNext, STATUSES, setStatus, statusBeforeLost,
     STEP_KEYS, steps, timeline, SCRIPT_KEYS, SCRIPT_LABEL, SCRIPT_DEFAULT, scriptFor, timeCats, staffingLook, whenWords, RUNGS_DEFAULT, RUNG_WORDS, rungSettings, rungsDue, stampRung, oneText,
