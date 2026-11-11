@@ -9584,6 +9584,8 @@ function openCampaign(key){
       '<option value="leads_open">Leads · open (not converted or lost)</option>'+
       '<option value="leads_all">Leads · everyone with an email</option>'+
       '<option value="leads_lost">Leads · lost / went quiet</option>'+
+      '<option value="leads_open_signups">Open leads + website email sign-ups</option>'+
+      '<option value="signups">Website email sign-ups (The Talk worksheets)</option>'+
       '<option value="ax_clients">AxisCare · active clients</option>'+
       '<option value="ax_contacts">AxisCare · client family contacts</option>'+
       '<option value="ax_caregivers">AxisCare · caregivers</option>'+
@@ -9619,6 +9621,17 @@ async function cmpRecipients(){
       const { data } = await sb.from('app_data').select('data').eq('key','caregivers').single();
       out=((data&&data.data)||[]).filter(c=>c.email).map(c=>({email:c.email,name:c.name||((c.first_name||'')+' '+(c.last_name||'')).trim()}));
     }catch(e){ out=[]; }
+  }
+  /* Website email sign-ups (2026-11-11, her "Short welcome, then monthly"): people who asked for The Talk worksheets on
+     mo-care.com. Only those whose four welcome emails are done (the welcome is their email for now), never anyone who
+     unsubscribed. A person still presses Send, same as every family email. */
+  if(src==='signups'||src==='leads_open_signups'){
+    if(src==='leads_open_signups') out=(DATA.leads||[]).filter(l=>l.email&&!l.archived&&l.status!=='Converted'&&l.status!=='Lost').map(l=>({email:l.email,name:leadName(l)}));
+    try{
+      const r=await fetch(CAMPAIGN_ENDPOINT.split('?')[0].replace('campaign-send','family-signup'),{method:'POST',headers:await cmpAuthHeaders(),body:JSON.stringify({action:'list'})});
+      const d=await r.json();
+      out=out.concat((d.signups||[]).filter(x=>x.email&&x.welcome_sent>=4&&!/unsubscribed/i.test(x.stopped||'')).map(x=>({email:x.email,name:x.first||''})));
+    }catch(e){}
   }
   if(src==='ax_clients'||src==='ax_contacts'||src==='ax_caregivers'){
     const map={ax_clients:'clients',ax_contacts:'client_contacts',ax_caregivers:'caregivers'};
