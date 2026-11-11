@@ -13,7 +13,7 @@ import os
 ENG = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'caregivers-engine.js'), encoding='utf-8').read()
 def cut(a, b): i = ENG.index(a); j = ENG.index(b, i + 1); return ENG[i:j]
 # the onboarding row rules live inside the engine's closure: cut them out and run them with stand-ins (no Hub data needed)
-CKD = ('const ckdWc=()=>null, ckdJourneyFor=()=>null, bgrEsc=t=>String(t), wcWhen=x=>x;\n' + cut('function ckdJourneyStop(r){', '/* Everyone on the list')
+CKD = ('const ckdWc=()=>null, ckdJourneyFor=()=>null, ckdRosterFor=()=>null, bgrEsc=t=>String(t), wcWhen=x=>x;\n' + cut('function ckdOrientSent(c){', '\n') + '\n' + cut('function ckdJourneyStop(r){', '/* Everyone on the list')
        + cut('const CKD_HOW = {', 'function ckdHowKey') + '\nwindow.__ckd={ stepNext:ckdStepNext, rosterNext:ckdRosterNext, stop:ckdJourneyStop, how:CKD_HOW };')
 def router(route):
     if 'supabase.co' in route.request.url: return route.abort()
@@ -45,6 +45,7 @@ with sync_playwright() as pw:
       window.__inv=async(fn,o)=>{ const bd=(o&&o.body)||{}; __calls.push({fn,bd});
         if(fn==='step1-sign' && bd.action==='reveal' && bd.field==='dob') return { data:{ ok:true, value:'1990-04-02' }, error:null };
         if(fn==='step2-handoff' && bd.action==='axis_sheet') return { data: bd.check ? { ...sheet(), check: axisOk ? { ok:true, problems:[] } : { ok:false, problems:['AxisCare has no zip code on their address. Add their address with the zip code in AxisCare.', 'AxisCare has no birth date for them. Add their birth date in AxisCare.'] } } : sheet(), error:null };
+        if(fn==='step2-handoff' && bd.action==='axis_fill') return { data:{ ok:true, fill:{ ok:true, axiscare_id:'530', filled:['Social Security number','Birth date','Home address','Gender'], kept:['Mobile phone','Email'], differs:['Home address: AxisCare has "9 Oak", Step 1 has "12 Elm St"'], missing:['Goes by'], not_confirmed:[], class:{ outcome:'confirmed', label:'Level 1 (Wellness)' } } }, error:null };
         if(fn==='step2-handoff' && bd.action==='send_orientation'){ if(!axisOk) return { data:null, error:{ message:'409', context:{ json:async()=>({ error:'Not sent yet. AxisCare has no zip code on their address.', check:{ ok:false, problems:['AxisCare has no zip code on their address.'] } }) } } };
           sentOnce=true; return { data:{ ok:true, invite:{ state:'sent', texted:true, emailed:true, not_sent:[] }, check:{ ok:true, problems:[] } }, error:null }; }
         if(fn==='caregiver-journey' && bd.action==='list') return { data:{ ok:true, rows:[], may_approve_work:false }, error:null };
@@ -70,6 +71,7 @@ with sync_playwright() as pw:
       await axSetupOpen(901); await sleep(300);
       const pop=()=>document.querySelector('#axBody'); out.sheet=pop().innerText;
       out.sendLabel=document.querySelector('#axSend').textContent;
+      document.querySelector('#axFill').click(); await sleep(250); out.fill=pop().innerText; out.fillHtml=pop().innerHTML;
       document.querySelector('#axCheck').click(); await sleep(250); out.checkBad=pop().innerText;
       document.querySelector('#axSend').click(); await sleep(250); out.sendBad=pop().innerText;
       axisOk=true; document.querySelector('#axCheck').click(); await sleep(250); out.checkGood=pop().innerText;
@@ -83,6 +85,9 @@ with sync_playwright() as pw:
     ok('How do I do this? explains AxisCare setup and the check-in call', 'zip code and birth date exactly' in r['how'] and 'test clock-in' in r['how'] and '—' not in r['how'], r['how'])
     ok('the setup card shows what to type: names, phone, email, street, city, state, zip', all(x in r['sheet'] for x in ['Ava', 'Lee', '4175550100', 'ava@example.com', '12 Elm St', 'Ozark', 'MO', '65721']), r['sheet'])
     ok('...and the birth date from Step 1 as MM-DD-YYYY, through the logged reveal (with its reason)', '04-02-1990' in r['sheet'] and any(c.startswith('step1-sign:reveal:dob:Typed into AxisCare') for c in r['calls']), [r['sheet'], r['calls']])
+    ok('Fill AxisCare from Step 1: lists what was filled, the Class, what differs and what Step 1 did not have', all(x in r['fill'] for x in ['Filled in AxisCare from Step 1', 'Social Security number', 'Birth date', 'Class set to Level 1', 'Different in AxisCare', 'Not on their Step 1']) and any(c == 'step2-handoff:axis_fill' for c in r['calls']), r['fill'])
+    ok('...the card tells the office to press Fill instead of typing everything', 'Fill AxisCare from Step 1' in r['sheet'] and 'It only fills blanks' in r['sheet'], r['sheet'])
+    ok('...How do I do this? mentions the Fill button', 'Fill AxisCare from Step 1' in r['how'], r['how'])
     ok('Check AxisCare with a missing zip and birth date: says both, plainly', 'Not ready to send yet' in r['checkBad'] and 'no zip code' in r['checkBad'] and 'no birth date' in r['checkBad'], r['checkBad'])
     ok('Send while it does not match: the refusal shows on the card, nothing claimed sent', 'Not sent yet' in r['sendBad'] and 'Sent by' not in r['sendBad'], r['sendBad'])
     ok('Check AxisCare when it matches: green "they match"', 'zip code and birth date match' in r['checkGood'], r['checkGood'])

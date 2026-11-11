@@ -8641,6 +8641,7 @@ const CKD_HOW = {
     'Press Done at the end.'],
   axsetup: ['Their four background checks are clear. References and Step 2 do not have to be done yet: they keep going on their own lines, and Approve to Work still waits for both.', 'Press Send orientation. It shows what to type into AxisCare: name, phone, email, address with zip code, and birth date.',
     'In AxisCare, add them as a caregiver and set their status to In Training. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.',
+    'Then press Fill AxisCare from Step 1. The Hub copies their Social Security number, birth date, address, middle initial, gender, driver\'s license and Class from Step 1 into AxisCare. It only fills blanks and lists anything that differs.',
     'Press Send orientation information. The Hub checks AxisCare first. If something is missing or does not match, nothing is sent and it says what to fix.',
     'When it matches, they get one text and email: their orientation link, their profile link, and the link to book the welcome video call. If their Step 2 is not checked yet, it asks them to finish it before the video call.'],
   checkin: ['They finished orientation and are Active in AxisCare. The Hub texted them the AxisCare app guide.',
@@ -10335,7 +10336,7 @@ function axSetupHtml(d, dob, chk, msg){
   const e = wcEsc, a = d.address || {}, line = (label, v, key) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559;min-width:110px">' + label + '</span><span style="flex:1;text-align:right;font-weight:600;min-width:0;overflow-wrap:anywhere">' + (v ? e(v) : '<span style="color:#A89C8B;font-weight:400">not given</span>') + '</span>' + (v ? '<button class="ibtn" style="font-size:.72rem" onclick="axCopy(this,\'' + key + '\')">Copy</button>' : '') + '</div>';
   const fmtDob = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v.slice(5, 7) + '-' + v.slice(8, 10) + '-' + v.slice(0, 4) : '';
   window.__axVals = { first:d.first, last:d.last, phone:d.phone, email:d.email, street:[a.address1, a.address2].filter(Boolean).join(' '), city:a.city, state:a.state, zip:a.zip, dob:fmtDob(dob) };
-  let h = '<div style="font-size:13.5px;color:#5C544A;margin-bottom:8px">Add ' + e(d.first || 'them') + ' in AxisCare as a caregiver with status <b>In Training</b>. Type the zip code and birth date exactly: the AxisCare app sign-up needs them to match.</div>'
+  let h = '<div style="font-size:13.5px;color:#5C544A;margin-bottom:8px">Add ' + e(d.first || 'them') + ' in AxisCare as a caregiver with status <b>In Training</b> (name, mobile phone and email are enough). Then press <b>Fill AxisCare from Step 1</b>: the Hub adds their Social Security number, birth date, address, gender, license and Class for you. It only fills blanks.</div>'
     + line('First name', d.first, 'first') + line('Last name', d.last, 'last') + line('Mobile phone', d.phone, 'phone') + line('Email', d.email, 'email')
     + line('Street', window.__axVals.street, 'street') + line('City', a.city, 'city') + line('State', a.state, 'state') + line('Zip code', a.zip, 'zip')
     + line('Birth date', window.__axVals.dob || (d.has_dob ? '' : ''), 'dob')
@@ -10343,6 +10344,21 @@ function axSetupHtml(d, dob, chk, msg){
   if(chk) h += '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;' + (chk.ok ? 'background:#E7F6EC;color:#1F5C38">&#10003; AxisCare has them In Training, and the zip code and birth date match.' : 'background:#FFF7ED;color:#8A4E0C"><b>Not ready to send yet:</b><ul style="margin:4px 0 0 18px;padding:0">' + (chk.problems || []).map(x => '<li>' + e(x) + '</li>').join('') + '</ul>') + '</div>';
   if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
   if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
+  return h;
+}
+/* 2026-11-11 (Samantha: "take all info from step one and complete as much of their axiscare profile as possible"): what the
+   Fill AxisCare from Step 1 button did. Names of fields only: the SSN, birth date and license number never come to this screen. */
+function axFillHtml(f){
+  if(!f) return '';
+  const e = wcEsc, li = a => (a || []).map(x => '<li>' + e(x) + '</li>').join('');
+  if(!f.ok) return '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;background:#FFF7ED;color:#8A4E0C"><b>AxisCare was not filled:</b> ' + e(f.error || 'not found') + '</div>';
+  const cls = f.class ? (f.class.outcome === 'confirmed' ? 'Class set to ' + (f.class.label || 'their class') : f.class.outcome === 'unchanged' ? '' : 'Class not set: ' + (f.class.detail || f.class.outcome)) : '';
+  let h = '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;background:#E7F6EC;color:#1F5C38">'
+    + ((f.filled || []).length ? '<b>&#10003; Filled in AxisCare from Step 1:</b><ul style="margin:4px 0 0 18px;padding:0">' + li(f.filled) + '</ul>' : '<b>&#10003; AxisCare already had everything Step 1 has.</b>')
+    + (cls ? '<div style="margin-top:4px">' + e(cls) + '</div>' : '') + '</div>';
+  if((f.differs || []).length) h += '<div style="margin-top:8px;padding:9px 11px;border-radius:8px;font-size:13.5px;background:#FFF7ED;color:#8A4E0C"><b>Different in AxisCare (left as is, please look):</b><ul style="margin:4px 0 0 18px;padding:0">' + li(f.differs) + '</ul></div>';
+  if((f.not_confirmed || []).length) h += '<div class="field-note" style="margin-top:6px;color:#B91C1C">AxisCare took these but did not show them back: ' + e(f.not_confirmed.join(', ')) + '. Check them in AxisCare.</div>';
+  if((f.missing || []).length) h += '<div class="field-note" style="margin-top:6px">Not on their Step 1, so not filled: ' + e(f.missing.join(', ')) + '.</div>';
   return h;
 }
 async function axCopy(btn, key){
@@ -10354,7 +10370,7 @@ async function axSetupOpen(id){
   const w = document.createElement('div'); w.className = 'ccpop-wrap';
   w.style.cssText = 'position:fixed;inset:0;z-index:10050;background:rgba(15,54,95,.35);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto';
   w.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:18px 20px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px"><b style="font-size:17px;color:var(--navy)">Send orientation: ' + wcEsc((c.first || '') + ' ' + (c.last || '')) + '</b><button class="ibtn" id="axClose">Close</button></div><div id="axBody" style="margin-top:10px">Loading…</div>'
-    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="ibtn" id="axCheck">Check AxisCare</button><span style="flex:1"></span><button class="btn" id="axSend" style="font-size:15px;padding:10px 18px">Send orientation information</button></div></div>';
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="ibtn" id="axFill">Fill AxisCare from Step 1</button><button class="ibtn" id="axCheck">Check AxisCare</button><span style="flex:1"></span><button class="btn" id="axSend" style="font-size:15px;padding:10px 18px">Send orientation information</button></div></div>';
   document.body.appendChild(w);
   const body = w.querySelector('#axBody'), close = () => { window.__axVals = null; w.remove(); };
   w.querySelector('#axClose').onclick = close;
@@ -10365,6 +10381,13 @@ async function axSetupOpen(id){
     body.innerHTML = axSetupHtml(d, dob, null, '');
     if(d.sent) w.querySelector('#axSend').textContent = 'Send again';
   }catch(e){ body.innerHTML = '<div style="color:#B91C1C">' + wcEsc(e.message) + '</div>'; w.querySelector('#axSend').disabled = true; w.querySelector('#axCheck').disabled = true; return; }
+  w.querySelector('#axFill').onclick = async (ev) => {
+    const b = ev.target; b.disabled = true; b.textContent = 'Filling AxisCare…';
+    const { data, error } = await sb.functions.invoke('step2-handoff', { body:{ action:'axis_fill', candidate_id:String(id) } });
+    let j = data || {}; if(error){ try{ j = await error.context.json(); }catch(_){ j = { error: error.message }; } }
+    body.innerHTML = axSetupHtml(d, dob, null, j.fill ? axFillHtml(j.fill) : '<span style="color:#B91C1C">' + wcEsc(j.error || 'AxisCare was not filled.') + '</span>');
+    b.disabled = false; b.textContent = 'Fill AxisCare from Step 1';
+  };
   w.querySelector('#axCheck').onclick = async (ev) => {
     const b = ev.target; b.disabled = true; b.textContent = 'Checking…';
     try{ const r = await s2Call({ action:'axis_sheet', candidate_id:String(id), check:true }); body.innerHTML = axSetupHtml(d, dob, r.check, ''); }
@@ -10376,12 +10399,12 @@ async function axSetupOpen(id){
     const { data, error } = await sb.functions.invoke('step2-handoff', { body:{ action:'send_orientation', candidate_id:String(id) } });
     let j = data || {}; if(error){ try{ j = await error.context.json(); }catch(_){ j = { error: error.message }; } }
     const inv = j.invite || {};
-    if(j.error && !inv.state){ body.innerHTML = axSetupHtml(d, dob, j.check || null, '<span style="color:#B91C1C">' + wcEsc(j.error) + '</span>'); b.disabled = false; b.textContent = d.sent ? 'Send again' : 'Send orientation information'; return; }
+    if(j.error && !inv.state){ body.innerHTML = axSetupHtml(d, dob, j.check || null, '<span style="color:#B91C1C">' + wcEsc(j.error) + '</span>' + axFillHtml(j.fill)); b.disabled = false; b.textContent = d.sent ? 'Send again' : 'Send orientation information'; return; }
     const how = [inv.texted ? 'text' : '', inv.emailed ? 'email' : ''].filter(Boolean).join(' and ');
     const msg = inv.state === 'sent' ? '<b style="color:#1F5C38">Sent by ' + how + '.</b> Their orientation link, profile link and welcome call booking are in one message.' + ((inv.not_sent || []).length ? '<div class="field-note">Not sent: ' + wcEsc(inv.not_sent.join('; ')) + '</div>' : '')
       : inv.state === 'held' ? '<b>The email went. The text goes at 8am</b> (texts go 8am to 6pm).'
       : '<span style="color:#B91C1C"><b>Did not go:</b> ' + wcEsc(inv.why || (inv.not_sent || []).join('; ') || 'refused') + '. A card is on Needs Attention.</span>';
-    body.innerHTML = axSetupHtml(d, dob, j.check || null, msg);
+    body.innerHTML = axSetupHtml(d, dob, j.check || null, msg + axFillHtml(j.fill));
     b.textContent = 'Send again'; b.disabled = false;
     await s2After(id, j);
   };
