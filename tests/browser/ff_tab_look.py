@@ -40,7 +40,7 @@ FAKE = r"""
     const b=o.body||{};
     if(name!=='ff-invite-check') return { data:null, error:{ message:'unexpected '+name } };
     if(b.action==='list') return { data: JSON.parse(JSON.stringify(W.__ff)), error:null };
-    if(b.action==='switch'){ W.__ff.switches[b.name==='ff_invites_live'?'live':'paused']=b.on; W.__ff.switches.log=[{ at:'2026-11-20T16:00:00Z', by:'Samantha Owner', name:b.name, on:b.on }]; return { data:{ ok:true }, error:null }; }
+    if(b.action==='switch'){ W.__ff.switches[b.name==='ff_invites_live'?'live':b.name==='ff_reminders_live'?'reminders':'paused']=b.on; W.__ff.switches.log=[{ at:'2026-11-20T16:00:00Z', by:'Samantha Owner', name:b.name, on:b.on }]; return { data:{ ok:true }, error:null }; }
     if(b.action==='resend' && b.key==='cg_3') return { data:null, error:{ message:'x', context:{ json: async()=>({ error:'Invitations are off. Turn them on first.' }) } } };
     return { data:{ ok:true }, error:null }; } };
   DATA.referral_orgs=[{ id:'mercy', name:'Mercy Rehab', partner_code:'MERCY-K7', program_status:'active' },
@@ -132,6 +132,8 @@ T = r"""async()=>{
   /* the switches */
   window.__calls=[]; [...q('#ffTop').querySelectorAll('button')].find(b=>/Turn invitations on/.test(b.textContent)).click(); await sleep(400);
   ok('Turn invitations on asks first, then flips it on the server; the card turns green and says who did it', window.__calls.some(c=>c[1].action==='switch' && c[1].name==='ff_invites_live' && c[1].on===true) && /Invitations are ON/.test(q('#ffTop').innerText) && q('#ffTop').classList.contains('on') && /by Samantha Owner/.test(q('#ffTop').innerText), [window.__calls, q('#ffTop').innerText]);
+  window.__calls=[]; [...q('#ffRem').querySelectorAll('button')].find(b=>/Turn reminders on/.test(b.textContent)).click(); await sleep(400);
+  ok('Reminders start OFF and have their own switch: Turn reminders on flips ff_reminders_live and the line says ON, every 3 / 6 months', window.__calls.some(c=>c[1].action==='switch' && c[1].name==='ff_reminders_live' && c[1].on===true) && /Reminders are ON/.test(q('#ffRem').innerText) && /every 3 months/.test(q('#ffRem').innerText) && /every 6 months/.test(q('#ffRem').innerText), [window.__calls, q('#ffRem') && q('#ffRem').innerText]);
   window.ccConfirm=async()=>false; (0,eval)('ccConfirm=window.ccConfirm'); window.__calls=[];
   [...q('#ffTop').querySelectorAll('button')].find(b=>/Pause program/.test(b.textContent)).click(); await sleep(250);
   ok('...saying No leaves it as it was', !window.__calls.some(c=>c[1].action==='switch') && /Invitations are ON/.test(q('#ffTop').innerText));

@@ -131,6 +131,9 @@
       + (last ? ' Last change by ' + esc(last.by) + ', ' + esc(when(last.at)) + '.' : '') + '</small></div><div class="acts">'
       + (sw.paused ? btn('Unpause', 'FFT.flip(\'ff_program_paused\', false)', true) : btn(sw.live ? 'Turn invitations off' : 'Turn invitations on', 'FFT.flip(\'ff_invites_live\', ' + (!sw.live) + ')', !sw.live) + btn('Pause program', 'FFT.flip(\'ff_program_paused\', true)'))
       + '</div></div>';
+    /* reminders (2026-11-11, her "yes": caregivers every 3 months, families every 6 months; own switch, starts off) */
+    if(!sw.paused) h += '<div class="ff-meta" id="ffRem"><b>Reminders are ' + (sw.reminders ? 'ON' : 'OFF') + '.</b> ' + (sw.reminders ? 'Anyone already invited and still ready gets a short reminder: caregivers every 3 months, families every 6 months.' : 'Nobody gets a reminder after their invitation.')
+      + ' ' + btn(sw.reminders ? 'Turn reminders off' : 'Turn reminders on', 'FFT.flip(\'ff_reminders_live\', ' + (!sw.reminders) + ')', !sw.reminders) + '</div>';
     h += '<div class="ff-meta">' + (run.run_day ? 'Last checked ' + esc(when(run.ran_at)) + (run.sent ? ' · ' + esc(run.sent) + ' invited that morning' : '') : 'The daily check hasn’t run yet.') + '</div>';
     if(run.problems && run.problems.length) h += '<div class="ff-banner"><b>Couldn’t read everything that morning:</b> ' + run.problems.map(esc).join('; ') + '. Anyone it couldn’t check is held, never invited.</div>';
 
@@ -186,11 +189,12 @@
 
   async function flip(name, on){
     const word = name === 'ff_invites_live' ? (on ? 'Turn Invitations ON? Every ready person will be invited the next weekday morning, once, in the approved words.' : 'Turn Invitations OFF? Nothing more is sent until they are back on.')
+      : name === 'ff_reminders_live' ? (on ? 'Turn Reminders ON? Anyone already invited and still ready gets a short reminder: caregivers every 3 months, families every 6 months.' : 'Turn Reminders OFF? No more reminders are sent.')
       : (on ? 'Pause the program? Nothing is sent while it is paused.' : 'Unpause the program?');
     let yes = false; try{ yes = await ccConfirm(word); }catch(e){ yes = window.confirm(word); }
     if(!yes){ draw(); return; }
     const r = await call({ action:'switch', name, on });
-    if(r.error) say(r.error); else say(name === 'ff_invites_live' ? 'Invitations ' + (on ? 'on.' : 'off.') : on ? 'Program paused.' : 'Program unpaused.');
+    if(r.error) say(r.error); else say(name === 'ff_invites_live' ? 'Invitations ' + (on ? 'on.' : 'off.') : name === 'ff_reminders_live' ? 'Reminders ' + (on ? 'on.' : 'off.') : on ? 'Program paused.' : 'Program unpaused.');
     load();
   }
   async function skip(key, name){
