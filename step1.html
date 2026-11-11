@@ -593,13 +593,13 @@ function reviewFormLine(k){
     + (g.version_mismatch ? ' <b>They signed version ' + esc(g.version) + '; the words shown are version ' + esc(g.current_version) + '. The signed PDF is the exact record.</b>' : '')
     + (g.pdf ? ' <button class="mini" onclick="reviewPdf(\'' + k + '\')">Open the signed PDF</button>' : '') + '</div>';
 }
-/* 2026-10-13: the company signature, for an agreement marked countersign, by a person on the Approve to Work list */
+/* 2026-10-13: the company signature, for an agreement marked countersign; 2026-11-11: by an owner, a coordinator or a person on the Approve to Work list */
 function companyBox(k){
   if (!(V.countersign_forms || []).includes(k)) return '';
   const c = (V.countersignatures || {})[k];
   if (c) return '<div class="signed">Signed for Caring Companions by <b>' + esc(c.typed_name) + '</b> (' + esc(c.by_name || '') + ') on ' + when(c.at) + '.</div>';
   if (!SIG_OF(k)) return '<div class="why">Caring Companions signs this after they do.</div>';
-  if (!V.may_countersign) return '<div class="why"><b>Waiting for the company signature.</b> A person on the Approve to Work list signs for Caring Companions here.</div>';
+  if (!V.may_countersign) return '<div class="why"><b>Waiting for the company signature.</b> An owner or a coordinator signs for Caring Companions here.</div>';
   return '<div class="signbox"><h3>Sign for Caring Companions</h3><label class="chk"><input type="checkbox" id="cs_ok"><span>I am authorized to sign for Caring Companions, I have reviewed this agreement, and I sign it electronically for the Company.</span></label><label class="q" for="cs_name" style="margin-top:8px">Type your full name</label><input type="text" id="cs_name" autocomplete="name" placeholder="First and last name"><button class="go" onclick="companySign(\'' + k + '\')">Sign for Caring Companions</button><div class="err" id="e_cs"></div></div>';
 }
 async function companySign(k){

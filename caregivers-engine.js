@@ -7634,8 +7634,11 @@ function ckdRosterNext(r){
   const n = r.next || {};
   /* owner is { role, email } from the server; it once printed as [object Object] (2026-11-02) */
   const o = n.owner && typeof n.owner === 'object' ? n.owner : { role:String(n.owner || '') };
-  const mine = !n.owner || /coordinator|staff/i.test(String(o.role || ''));
-  const whose = o.role === 'owner' ? (/^cg\.(company\.countersign|approve\.work)$/.test(String(n.key || '')) ? 'a person on the Approve to Work list' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
+  /* 2026-11-11 her word: owners and all coordinators may sign Step 1 papers for Caring Companions (Staffing #832), so the
+     company signature is the coordinator's own step, not a wait on someone else */
+  const coSign = n.key === 'cg.company.countersign';
+  const mine = !n.owner || coSign || /coordinator|staff/i.test(String(o.role || ''));
+  const whose = o.role === 'owner' ? (coSign ? 'an owner or a coordinator' : n.key === 'cg.approve.work' ? 'a person on the Approve to Work list' : n.key === 'cg.approve.advance' ? 'a person on the Approve to Advance list' : 'an owner') : o.role === 'hub' ? 'the Hub checks it' : o.email ? o.email : String(o.role || '').replace(/_/g, ' ');
   return { text:(n.title ? n.title : 'Open their card to see what is next') + (n.owner && !mine && whose ? ' (' + whose + ')' : '') + '.', label:'Open card', on:open, wait:!mine, how:'card' };
 }
 /* Everyone on the list, as { stop, name, ms, c (a checks row) or j (a readiness card row) } */
@@ -8186,7 +8189,7 @@ function obtModel(p){
   } else {
     const stuck = ckdStep1Stuck(j), n = j && j.next ? j.next : {};
     if(p.stop === 0 && stuck) cells.step1 = obtCell('wait', 'Stuck ' + stuck.days + 'd', { who:'applicant', late:true, call:stuck.call ? { dial:stuck.call.dial, show:stuck.call.show } : null, b:stuck.call ? null : { label:'Open', on:obtOpenCard(j) }, tip:stuck.text });
-    else if(p.stop === 0 && n.key === 'cg.company.countersign') cells.step1 = obtCell('todo', '', { who:'office', b:{ label:'Countersign', on:obtOpenCard(j) }, tip:(n.title || 'Company signature') + ' (a person on the Approve to Work list)' });
+    else if(p.stop === 0 && n.key === 'cg.company.countersign') cells.step1 = obtCell('todo', '', { who:'office', b:{ label:'Countersign', on:obtOpenCard(j) }, tip:(n.title || 'Company signature') + ' (an owner or a coordinator)' });
     else if(p.stop === 0) cells.step1 = obtCell('wait', 'Waiting', { who:'applicant', tip:'Waiting on their Step 1 forms' });
     else cells.step1 = obtCell('ok', '', { tip:'Step 1 done' });
     const card = 'On their readiness card';
