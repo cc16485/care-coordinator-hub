@@ -5576,7 +5576,16 @@ async function bgrRunOIG(boardId, btn){
     } catch(e) { proofPath = ''; }
     const keep = (date, verdict) => { c.oig = verdict; c.oig_date = date; c.oig_evidence = evidence; if(proofPath) c.oig_proof = proofPath; c.oig_by = ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''); c.oig_at = new Date().toISOString(); saveCandidates(); try{ renderPeopleChecks(); renderOB(); renderAlerts(); }catch(e){} };
     showOIGResult((c.first + ' ' + c.last).trim(), result, (date) => keep(date, 'CLEAR'), (date) => keep(date, 'FLAGGED'));
-  } catch(e){ alert('OIG check failed: ' + ((e && e.message) || e)); }
+  } catch(e){
+    /* 2026-11-11 (Samantha: an applicant was stuck): when the search cannot run, the only button was Run OIG again,
+       so a check done by hand on the OIG website had nowhere to go. Offer the same recorder the other checks use: pick
+       Clear or Flagged, the date, and upload the PDF from the OIG website (a result still needs its proof). */
+    if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run OIG'; }
+    const why = (e && e.message) || String(e);
+    if(confirm('The OIG search could not run: ' + why + '\n\nYou can search the OIG website yourself (exclusions.oig.hhs.gov), save the result as a PDF, and record it here.\n\nPress OK to record it by hand now.'))
+      bgrRecordCheck(boardId, 'oig');
+    return;
+  }
   if(btn){ btn.disabled = false; btn.textContent = btn._t || 'Run OIG'; }
 }
 
