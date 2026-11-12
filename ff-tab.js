@@ -138,7 +138,7 @@
     if(run.problems && run.problems.length) h += '<div class="ff-banner"><b>Couldn’t read everything that morning:</b> ' + run.problems.map(esc).join('; ') + '. Anyone it couldn’t check is held, never invited.</div>';
 
     /* the four views */
-    const V = [['needs', 'Needs you', needN, true], ['invites', 'Invitations', count('ready'), false], ['rewards', '$100 rewards', rw.filter(x => ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)).length, false], ['referrals', 'Referrals', refs.length, false]];
+    const V = [['needs', 'Needs you', needN, true], ['invites', 'Invitations', count('ready'), false], ['rewards', 'Rewards', rw.filter(x => ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)).length, false], ['referrals', 'Referrals', refs.length, false]];
     h += '<div class="ff-views" role="tablist">' + V.map(([k, w, n, hot]) => '<button role="tab" data-v="' + k + '" aria-selected="' + (ST.view === k) + '" onclick="FFT.view(\'' + k + '\')">' + esc(w) + '<span class="ff-n' + (hot && n ? ' hot' : '') + '">' + n + '</span></button>').join('') + '</div>';
 
     if(ST.view === 'needs'){
@@ -216,9 +216,9 @@
       const w = window.prompt(op === 'not_earned' ? 'Why is it not earned?' : op === 'reopen' ? 'Why reopen it?' : 'Why approve it despite the review?', '');
       if(w == null) { draw(); return; } if(!w.trim()){ say('Say why, so the record shows it.'); draw(); return; } body.why = w.trim();
     }
-    if(op === 'approve' && arg !== 'why'){ let yes = false; const q = 'Approve this $100?'; try{ yes = await ccConfirm(q); }catch(e){ yes = window.confirm(q); } if(!yes) return; }
+    if(op === 'approve' && arg !== 'why'){ let yes = false; const q = 'Approve this reward?';   /* 2026-11-12: the amount differs now (a family $200 off the invoice, a caregiver a $100 bonus); the row shows it */ try{ yes = await ccConfirm(q); }catch(e){ yes = window.confirm(q); } if(!yes) return; }
     if(op === 'done'){
-      const dt = window.prompt(arg ? 'The date the $100 credit went on the invoice in AxisCare (YYYY-MM-DD):' : 'The Viventium payroll date the $100 bonus is on (YYYY-MM-DD):', todayC());
+      const dt = window.prompt(arg ? 'The date the credit went on the invoice in AxisCare (YYYY-MM-DD):' : 'The Viventium payroll date the bonus is on (YYYY-MM-DD):', todayC());
       if(dt == null) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(dt.trim())){ say('Use the form 2026-11-21.'); return; } body.date = dt.trim();
     }
     const r = await call(body);

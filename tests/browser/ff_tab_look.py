@@ -65,7 +65,7 @@ T = r"""async()=>{
   ok('one status card says plainly "Invitations are OFF" and what that means, with real buttons (no tiny check boxes)', /Invitations are OFF/.test(q('#ffTop').innerText) && /Nobody is invited/.test(q('#ffTop').innerText) && /Turn invitations on/.test(q('#ffTop').innerText) && /Pause program/.test(q('#ffTop').innerText) && !q('#ffTop input'), q('#ffTop').innerText);
   /* four views, one at a time */
   const views=qa('.ff-views button').map(b=>b.innerText.replace(/\s+/g,' ').trim());
-  ok('four views, each with a count: Needs you 6 (red), Invitations 3, $100 rewards 5, Referrals 1', JSON.stringify(views.map(v=>v.replace(/\s/g,'')))===JSON.stringify(['Needsyou6','Invitations3','$100rewards5','Referrals1']) && q('.ff-views button[data-v="needs"] .ff-n.hot'), views);
+  ok('four views, each with a count: Needs you 6 (red), Invitations 3, Rewards 5 (2026-11-12: the amounts differ now, so the tab is just "Rewards"), Referrals 1', JSON.stringify(views.map(v=>v.replace(/\s/g,'')))===JSON.stringify(['Needsyou6','Invitations3','Rewards5','Referrals1']) && q('.ff-views button[data-v="needs"] .ff-n.hot'), views);
   ok('it opens on Needs you, and only that view is on the page', q('.ff-views button[data-v="needs"]').getAttribute('aria-selected')==='true' && !q('#ffList') && !q('#ffRewards'));
   ok('Needs you: one card per kind of job, each with a plain heading', JSON.stringify(cardTitles())===JSON.stringify(['Ready to approve','Under review','Tick when payment is received','Apply the credit or pay the bonus','Invitations that didn’t go through','Payer needed']), cardTitles());
   const rw=id=>q('.ff-row[data-rw="'+id+'"]'), rt=id=>rw(id).innerText;
