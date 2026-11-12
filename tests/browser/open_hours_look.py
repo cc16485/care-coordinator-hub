@@ -37,11 +37,11 @@ async()=>{
   const T0=document.getElementById('tbRoot').innerText;
   ok('no "This client needs" on an open-hours plan', !/This client needs/.test(T0), T0.slice(0,600));
   ok('the board has one Ask the whole team card, nothing sent yet', /Ask the whole team about these hours/.test(T0) && /Nothing is sent until you press Text/.test(T0) && !window.__calls.length, T0.slice(0,400));
-  await OH.open('tbOH'); await sleep(100);
+  await OPH.open('tbOH'); await sleep(100);
   const T1=document.getElementById('tbRoot').innerText;
   ok('the preview: her wording to edit, who gets it, who doesn\'t and why, the hours rule', /regular hours open in Nixa/.test(document.getElementById('ohText').value) && /Goes to 27 caregivers/.test(T1) && /Not sent to 3: 2 on the No shift texts list · 1 a nurse/.test(T1) && /9am to 6pm, 20 at a time/.test(T1), T1.slice(0,900));
   document.getElementById('ohText').value=document.getElementById('ohText').value.replace('Questions welcome.','Questions welcome!'); document.getElementById('ohText').dispatchEvent(new Event('input'));
-  await OH.send('tbOH'); await sleep(150);
+  await OPH.send('tbOH'); await sleep(150);
   const sends=window.__calls.filter(x=>x.mode==='send');
   ok('Send texts in batches until everyone has it, with the office\'s edited words', sends.length===2 && sends.every(x=>/Questions welcome!$/.test(x.message) && x.plan_id==='tbOH'), sends.map(x=>x.message.slice(-20)));
   ok('...and says how it went, naming who wasn\'t reached', /Texted 27 caregivers\. Not sent: Zed Q \(no phone on the roster\)/.test(document.getElementById('tbRoot').innerText), document.getElementById('tbRoot').innerText.slice(0,500));
@@ -61,14 +61,14 @@ async()=>{
   ok('green names sit on the squares they said yes to', /Mary/.test(cell('mon|am').innerText) && /Ariel/.test(cell('mon|am').innerText) && !/Mary/.test(cell('mon|pm').innerText) && /Mary/.test(cell('wed|pm').innerText) && /Ariel/.test(cell('sat|pm').innerText), [cell('mon|am').innerText, cell('mon|pm').innerText]);
   [...cell('mon|am').querySelectorAll('button')].find(b=>/Mary/.test(b.textContent)).click(); await sleep(150);
   ok('a click on a green name pencils them in on that square (not confirmed, nothing in AxisCare)', plan.cells['mon|am'] && plan.cells['mon|am'].name==='Mary Evans' && plan.cells['mon|am'].status==='penciled' && plan.cells['mon|am'].cg_ax_id==='11', plan.cells);
-  await OH.sort('tbOH','a3','yes'); await sleep(100);
+  await OPH.sort('tbOH','a3','yes'); await sleep(100);
   const k=CASE.asked.find(a=>a.id==='a3');
   ok('a person answers the question and moves it to green, keeping the days, saved with their name', k.state==='yes' && k.yes_cells.join()==='tue|am' && k.sorted_by==='Krystal Land' && window.__saved.some(([kk,it])=>kk==='coverage_cases'&&it.id==='cwh_tbOH'), k);
   ok('...the box counts move', /🟢 Yes \(3\)/.test(document.getElementById('tbRoot').innerText) && /🟡 Questions \(0\)/.test(document.getElementById('tbRoot').innerText));
   /* switches */
-  live=false; await OH.open('tbOH'); await sleep(80);
+  live=false; await OPH.open('tbOH'); await sleep(80);
   ok('switch off: says where to turn it on, no Text button', /switched off \(Owners Hub Admin page, "Open hours: text the whole team"\)/.test(document.getElementById('tbRoot').innerText) && ![...document.querySelectorAll('#tbRoot button')].some(b=>/^📣 Text/.test(b.textContent)));
-  live=true; win=false; await OH.open('tbOH'); await sleep(80);
+  live=true; win=false; await OPH.open('tbOH'); await sleep(80);
   ok('outside 9am to 6pm: no Text button, come back in the morning', /outside 9am to 6pm/.test(document.getElementById('tbRoot').innerText) && ![...document.querySelectorAll('#tbRoot button')].some(b=>/^📣 Text/.test(b.textContent)));
   /* a client plan still works as before */
   tbClose(); tbNewForm();

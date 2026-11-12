@@ -32,7 +32,7 @@ async()=>{
   TB.planId=null; tbRender(); await sleep(100);
   const H0=document.getElementById('tbRoot').innerText;
   ok('Team Builder lists the older check with its answers', /Earlier new-client asks from Cara \(1\)/.test(H0) && /Dad/.test(H0) && /Ozark · Mon Wed Fri 9a-1p/.test(H0) && /🟢 1 \(Mary\) · 🟡 1 · 🔴 1 · ⏳ 1/.test(H0), H0.slice(0,700));
-  await OH.convert('cov_dad'); await sleep(150);
+  await OPH.convert('cov_dad'); await sleep(150);
   const plan=DATA.staffing_plans[0];
   ok('Make it a plan: Dad\'s days and hours on a new board, linked to the check', plan && plan.client==='Dad' && plan.city==='Ozark' && plan.days.join()==='mon,wed,fri' && plan.slots[0].start==='09:00' && plan.slots[0].end==='13:00' && plan.open_hours===true && plan.from_case==='cov_dad' && DAD.plan_id===plan.id && DAD.open_hours===true && DAD.offered.length===3, [plan, DAD.offered]);
   const B=document.getElementById('tbRoot').innerText;
@@ -41,7 +41,7 @@ async()=>{
   tbClose(); await sleep(80);
   ok('the converted check leaves the earlier list', !/Earlier new-client asks/.test(document.getElementById('tbRoot').innerText));
   const OLD={ id:'cov_old2', kind:'interest', status:'open', client:'Mrs B', asked:[] }; DATA.coverage_cases.push(OLD); tbRender(); await sleep(50);
-  await OH.closeOld('cov_old2'); await sleep(80);
+  await OPH.closeOld('cov_old2'); await sleep(80);
   ok('Close it: closed with who, nobody texted, gone from the list', OLD.status==='closed' && OLD.resolved_by==='Krystal Land' && !/Mrs B/.test(document.getElementById('tbRoot').innerText));
   /* Team Builder's Text box shows Cara's checks */
   const of=window.fetch;

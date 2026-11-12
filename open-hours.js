@@ -11,7 +11,7 @@
    here assigns anyone: penciling in is the board's own step, and AxisCare only changes at "Plan complete".
    ============================================================================= */
 (function () {
-  const OH = { pv: {}, busy: {}, msg: {}, err: {}, draft: {} };
+  const OPH = { pv: {}, busy: {}, msg: {}, err: {}, draft: {} };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const caseId = (plan) => 'cwh_' + String(plan.id).replace(/[^A-Za-z0-9_-]/g, '_');
   /* the plan's ask: cwh_<plan>, or an older Cara new-client check turned into this plan (step 3, linked by plan_id) */
@@ -47,29 +47,29 @@
   }
 
   async function open(planId) {
-    OH.busy[planId] = 'Reading who would get it…'; OH.err[planId] = ''; redraw();
+    OPH.busy[planId] = 'Reading who would get it…'; OPH.err[planId] = ''; redraw();
     try { const out = await call({ action: 'open_hours', plan_id: planId });
       if (out.error) throw new Error(out.error);
-      OH.pv[planId] = out; if (OH.draft[planId] == null) OH.draft[planId] = out.text;
-    } catch (e) { OH.err[planId] = String(e.message || e); }
-    OH.busy[planId] = ''; redraw();
+      OPH.pv[planId] = out; if (OPH.draft[planId] == null) OPH.draft[planId] = out.text;
+    } catch (e) { OPH.err[planId] = String(e.message || e); }
+    OPH.busy[planId] = ''; redraw();
   }
   async function send(planId) {
-    const box = document.getElementById('ohText'); if (box) OH.draft[planId] = box.value;
-    const pv = OH.pv[planId]; if (!pv) return;
+    const box = document.getElementById('ohText'); if (box) OPH.draft[planId] = box.value;
+    const pv = OPH.pv[planId]; if (!pv) return;
     if (!(await ccConfirm('Text ' + pv.will_get + ' caregiver' + (pv.will_get === 1 ? '' : 's') + ' about these hours now?'))) return;
-    OH.err[planId] = ''; let total = 0, failed = [], left = 1, rounds = 0;
+    OPH.err[planId] = ''; let total = 0, failed = [], left = 1, rounds = 0;
     try {
       while (left > 0 && rounds < 20) {
-        rounds++; OH.busy[planId] = 'Texting… ' + total + ' sent so far'; redraw();
-        const out = await call({ action: 'open_hours', plan_id: planId, mode: 'send', message: OH.draft[planId] });
+        rounds++; OPH.busy[planId] = 'Texting… ' + total + ' sent so far'; redraw();
+        const out = await call({ action: 'open_hours', plan_id: planId, mode: 'send', message: OPH.draft[planId] });
         if (out.error) throw new Error(out.error);
         total += (out.sent || []).length; failed = failed.concat(out.failed || []); left = out.remaining || 0;
         if (!(out.sent || []).length) break;
       }
-      OH.msg[planId] = '✓ Texted ' + total + ' caregiver' + (total === 1 ? '' : 's') + '.' + (failed.length ? ' Not sent: ' + failed.join('; ') + '.' : '');
-    } catch (e) { OH.err[planId] = String(e.message || e) + (total ? ' (' + total + ' were texted before this)' : ''); }
-    OH.busy[planId] = ''; OH.pv[planId] = null; await reload(); redraw();
+      OPH.msg[planId] = '✓ Texted ' + total + ' caregiver' + (total === 1 ? '' : 's') + '.' + (failed.length ? ' Not sent: ' + failed.join('; ') + '.' : '');
+    } catch (e) { OPH.err[planId] = String(e.message || e) + (total ? ' (' + total + ' were texted before this)' : ''); }
+    OPH.busy[planId] = ''; OPH.pv[planId] = null; await reload(); redraw();
   }
   /* A person re-sorts an answer (the AI can be wrong, and a question gets answered): green = yes to all of it unless
      the AI already found days; red = no. Saved with who did it. */
@@ -96,41 +96,41 @@
     const cur = (plan.cells || {})[key];
     return '<div style="margin-top:3px;display:flex;flex-wrap:wrap;gap:2px;justify-content:center;" onclick="event.stopPropagation()">'
       + ys.slice(0, 4).map((a) => (cur && cur.name === a.name) ? ''
-        : '<button title="Said yes. Click to pencil them in here." onclick="OH.pencil(\'' + esc(plan.id) + '\',\'' + esc(key) + '\',\'' + esc(a.id) + '\')" style="border:1px solid var(--green);background:var(--green-bg);color:var(--green);border-radius:999px;font-size:10px;font-weight:700;padding:0 6px;cursor:pointer;">'
+        : '<button title="Said yes. Click to pencil them in here." onclick="OPH.pencil(\'' + esc(plan.id) + '\',\'' + esc(key) + '\',\'' + esc(a.id) + '\')" style="border:1px solid var(--green);background:var(--green-bg);color:var(--green);border-radius:999px;font-size:10px;font-weight:700;padding:0 6px;cursor:pointer;">'
           + esc(String(a.name).split(' ')[0]) + '</button>').join('')
       + (ys.length > 4 ? '<span style="font-size:10px;color:var(--green);font-weight:700;">+' + (ys.length - 4) + '</span>' : '') + '</div>';
   }
 
   function boxHtml(plan) {
-    const id = plan.id, c = caseOf(plan), pv = OH.pv[id];
+    const id = plan.id, c = caseOf(plan), pv = OPH.pv[id];
     const head = '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;"><b style="font-size:15px;color:var(--navy);">📣 Ask the whole team about these hours</b>'
       + '<span class="field-note" style="font-size:12px;">One text to every caregiver. Their answers sort themselves into green, yellow and red.</span></div>';
-    const note = (OH.busy[id] ? '<div class="field-note" style="margin-top:6px;">' + esc(OH.busy[id]) + '</div>' : '')
-      + (OH.err[id] ? '<div style="margin-top:6px;background:#FDE8E8;border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--red);">' + esc(OH.err[id]) + '</div>' : '')
-      + (OH.msg[id] ? '<div style="margin-top:6px;font-size:12.5px;color:var(--green);font-weight:700;">' + esc(OH.msg[id]) + '</div>' : '');
+    const note = (OPH.busy[id] ? '<div class="field-note" style="margin-top:6px;">' + esc(OPH.busy[id]) + '</div>' : '')
+      + (OPH.err[id] ? '<div style="margin-top:6px;background:#FDE8E8;border-radius:8px;padding:7px 10px;font-size:12.5px;color:var(--red);">' + esc(OPH.err[id]) + '</div>' : '')
+      + (OPH.msg[id] ? '<div style="margin-top:6px;font-size:12.5px;color:var(--green);font-weight:700;">' + esc(OPH.msg[id]) + '</div>' : '');
     let body = '';
     if (pv) {
       const why = Object.entries(pv.not_sent_why || {}).map(([w, n]) => n + ' ' + w).join(' · ');
       body = '<div style="margin-top:10px;"><div style="font-size:12.5px;font-weight:700;color:var(--navy);">The text ({first_name} becomes each person\'s first name)</div>'
-        + '<textarea id="ohText" rows="4" style="width:100%;font-size:13px;margin-top:4px;" oninput="OH.draft[\'' + esc(id) + '\']=this.value">' + esc(OH.draft[id] || pv.text) + '</textarea>'
+        + '<textarea id="ohText" rows="4" style="width:100%;font-size:13px;margin-top:4px;" oninput="OPH.draft[\'' + esc(id) + '\']=this.value">' + esc(OPH.draft[id] || pv.text) + '</textarea>'
         + '<div style="font-size:13px;margin-top:6px;">Goes to <b>' + pv.will_get + '</b> caregiver' + (pv.will_get === 1 ? '' : 's')
         + (pv.already_asked ? ' (' + pv.already_asked + ' already asked)' : '') + '. People already working some of these hours get it too; the board shows them.</div>'
         + (pv.not_sent ? '<div class="field-note" style="font-size:12px;margin-top:2px;">Not sent to ' + pv.not_sent + ': ' + esc(why) + '.</div>' : '')
         + '<div class="field-note" style="font-size:12px;margin-top:2px;">Texts go 9am to 6pm, 20 at a time. The town is named; never the address, a client\'s name or pay.</div>'
         + '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap;">'
-        + (pv.live ? (pv.window_ok ? '<button class="primary" onclick="OH.send(\'' + esc(id) + '\')">📣 Text ' + pv.will_get + ' caregiver' + (pv.will_get === 1 ? '' : 's') + '</button>'
+        + (pv.live ? (pv.window_ok ? '<button class="primary" onclick="OPH.send(\'' + esc(id) + '\')">📣 Text ' + pv.will_get + ' caregiver' + (pv.will_get === 1 ? '' : 's') + '</button>'
             : '<span style="font-size:12.5px;color:#8A4E0C;font-weight:700;">It\'s outside 9am to 6pm. Come back in the morning to send.</span>')
           : '<span style="font-size:12.5px;color:#8A4E0C;font-weight:700;">Texting the whole team is switched off (Owners Hub Admin page, "Open hours: text the whole team").</span>')
-        + '<button class="secondary" onclick="OH.pv[\'' + esc(id) + '\']=null;tbRender()">Not now</button></div></div>';
+        + '<button class="secondary" onclick="OPH.pv[\'' + esc(id) + '\']=null;tbRender()">Not now</button></div></div>';
     } else if (!c) {
-      body = '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="cara-btn" onclick="OH.open(\'' + esc(id) + '\')">See the text and who gets it</button>'
+      body = '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="cara-btn" onclick="OPH.open(\'' + esc(id) + '\')">See the text and who gets it</button>'
         + '<span class="field-note" style="font-size:12px;">Nothing is sent until you press Text on the next step.</span></div>';
     }
     if (c) {
       const A = c.asked || [], G = A.filter((a) => a.state === 'yes'), Y = A.filter((a) => a.state === 'inquiry'), R = A.filter((a) => a.state === 'no'), W = A.filter((a) => a.state === 'waiting');
       const who = (a) => '<b>' + esc(a.name) + '</b>';
       const said = (a) => a.reply ? '<div class="field-note" style="font-size:11.5px;">"' + esc(String(a.reply).slice(0, 160)) + '"' + (a.read_by && a.read_by !== 'ai' ? ' · read by ' + esc(a.read_by) : '') + (a.sorted_by ? ' · sorted by ' + esc(a.sorted_by) : '') + '</div>' : '';
-      const btn = (a, st, label) => '<button class="fb" style="font-size:11px;padding:1px 8px;" onclick="OH.sort(\'' + esc(id) + '\',\'' + esc(a.id) + '\',\'' + st + '\')">' + label + '</button>';
+      const btn = (a, st, label) => '<button class="fb" style="font-size:11px;padding:1px 8px;" onclick="OPH.sort(\'' + esc(id) + '\',\'' + esc(a.id) + '\',\'' + st + '\')">' + label + '</button>';
       const box = (bg, edge, title, list, row) => '<div style="flex:1 1 230px;background:' + bg + ';border:1px solid ' + edge + ';border-radius:10px;padding:8px 10px;">'
         + '<div style="font-weight:800;font-size:13px;color:var(--navy);margin-bottom:4px;">' + title + ' (' + list.length + ')</div>'
         + (list.length ? list.map(row).join('') : '<div class="field-note" style="font-size:12px;">None yet.</div>') + '</div>';
@@ -145,7 +145,7 @@
         + '</div>'
         + '<div class="field-note" style="font-size:12px;margin-top:6px;">⏳ Not answered yet: ' + W.length + (W.length ? ' (' + esc(W.slice(0, 8).map((a) => String(a.name).split(' ')[0]).join(', ')) + (W.length > 8 ? '…' : '') + ')' : '')
         + ' · texted by ' + esc(c.opened_by || 'the office') + '. Green names also show on each square they said yes to: click one to pencil them in.</div>'
-        + (!pv ? '<div style="margin-top:6px;"><button class="cara-btn ghost" style="font-size:12px;" onclick="OH.open(\'' + esc(id) + '\')">Anyone left to text?</button></div>' : '');
+        + (!pv ? '<div style="margin-top:6px;"><button class="cara-btn ghost" style="font-size:12px;" onclick="OPH.open(\'' + esc(id) + '\')">Anyone left to text?</button></div>' : '');
     }
     return '<div class="card" style="padding:12px 14px;margin:0 0 10px;border-left:4px solid var(--teal);">' + head + body + note + '</div>';
   }
@@ -171,8 +171,8 @@
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
           + '<b>' + esc(c.client || 'New client') + '</b><span class="field-note">' + esc([c.client_city, hoursOf(c)].filter(Boolean).join(' · ')) + '</span>'
           + '<span>🟢 ' + n('yes') + (ys.length ? ' (' + esc(ys.slice(0, 6).join(', ')) + ')' : '') + ' · 🟡 ' + n('inquiry') + ' · 🔴 ' + n('no') + ' · ⏳ ' + n('waiting') + '</span>'
-          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OH.convert(\'' + esc(c.id) + '\')">Make it a Caregiver Matching plan</button>'
-          + '<button class="cara-btn ghost" style="font-size:12px;" onclick="OH.closeOld(\'' + esc(c.id) + '\')">Close it</button></div>'; }).join('')
+          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OPH.convert(\'' + esc(c.id) + '\')">Make it a Caregiver Matching plan</button>'
+          + '<button class="cara-btn ghost" style="font-size:12px;" onclick="OPH.closeOld(\'' + esc(c.id) + '\')">Close it</button></div>'; }).join('')
       + '</div>';
   }
   async function convert(cid) {
@@ -202,5 +202,5 @@
     await persist('coverage_cases', c); redraw();
   }
 
-  window.OH = Object.assign(OH, { open, send, sort, pencil, boxHtml, cellHtml, daysText, caseOf, earlierHtml, convert, closeOld });
+  window.OPH = Object.assign(OPH, { open, send, sort, pencil, boxHtml, cellHtml, daysText, caseOf, earlierHtml, convert, closeOld });
 })();
