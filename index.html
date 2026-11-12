@@ -7661,7 +7661,7 @@ The HomeTogether team</pre>
 <script src="client-journey.js?v=25"></script><script src="getting-ready-table.js?v=2"></script><!-- 2026-11-03: Getting ready as one table (switch getting_ready_table_live) -->
 <script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
-<script src="review-ask.js?v=1"></script>
+<script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
 <script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
@@ -8508,6 +8508,7 @@ function ccRenderSub2(tab){
 }
 function renderFeedback(){
   const el=document.getElementById('fbList'); if(!el) return;
+  if(typeof rsMount==='function') rsMount();   /* 2026-11-11: Google review asks, at the top of the tab */
   const rows=(DATA.feedback||[]).slice().sort((a,b)=>(b.at||'').localeCompare(a.at||''));
   if(!rows.length){ el.innerHTML='<div class="fb-card" style="color:var(--text-muted);">Nothing yet. When someone taps a star in one of your emails, sends a Caregiver of the Year nomination, or records a video at mo-care.com/share-your-story, it shows up here.</div>'; return; }
   el.innerHTML=rows.map(f=>{
@@ -8524,6 +8525,7 @@ function renderFeedback(){
       +(f.message?'<div class="fb-msg">'+esc(f.message)+'</div>':'')
       +((f.name&&f.kind==='nomination')?'<div class="fb-meta">Nominated by '+esc(f.name)+'</div>':'')
       +(f.contact?'<div class="fb-meta">Contact: '+esc(f.contact)+'</div>':'')
+      +(f.sent_to?'<div class="fb-meta">From our review text to '+esc(f.sent_to)+(f.client?' ('+esc(f.client)+'\'s family)':'')+'</div>':'')
       +'<div class="fb-actions">'+(f.seen?'':'<button class="btn btn-secondary" onclick="fbSeen(\''+f.id+'\')">Mark seen</button>')
       +'<button class="btn btn-secondary" onclick="fbDelete(\''+f.id+'\')">Delete</button></div></div>';
   }).join('');
