@@ -1,7 +1,7 @@
 """Ask Cara chats (Team, beside Inbox, 2026-11-05). The real Hub page, offline (files served from this folder), made-up chats and
 leads only; nothing is saved, sent or called. Checks: the pill and panel, one card per chat, single questions from before chats
 had an id, the link to the lead who left their number, the two filters, search, reading a chat, a refused read says Desktop 1314,
-and visitor text is shown as text. (python3 tests/browser/cara_chats_look.py; SHOTS=<dir> saves screenshots)"""
+visitor text is shown as text, and Looked at (2026-11-12): the button, the shared mark, the board count, 14 days. (python3 tests/browser/cara_chats_look.py; SHOTS=<dir> saves screenshots)"""
 import os, sys, pathlib
 from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -56,9 +56,24 @@ async()=>{
   ok('Cara could not answer shows only chats with a miss', /How much does care cost/.test(txt()) && !/Medicaid/.test(txt()));
   CCHATS.filter('all'); CCHATS.search('medicaid'); await sleep(30);
   ok('search finds the old single question', /Medicaid/.test(txt()) && !/How much does care cost/.test(txt()));
+  /* Looked at (2026-11-12): a chat Cara could not answer waits for a look, on this page and as one Operations Board row */
+  window.__saves=0; window.ccMergeSave=async(key,apply)=>{ window.__saves++; const s=JSON.parse(JSON.stringify(DATA.ops_settings||{})); const ch=apply(s,DATA.ops_settings||{})||[]; if(ch.length) DATA.ops_settings=s; return { changed:ch, error:null }; };
+  window.ccActor=()=>({ name:'Krystal (fake)', email:'k@example.com' });
+  DATA.ops_settings=Object.assign({}, DATA.ops_settings||{}); delete DATA.ops_settings.cara_chats_looked;
+  CCHATS.search(''); CCHATS.filter('all'); await sleep(100);
+  ok('the page says 1 chat still to look at, with Mark all', /1 chat Cara could not answer still to look at/.test(txt()) && /Mark all 1 as looked at/.test(txt()), txt().slice(0,600));
+  ok('only the chat Cara could not answer has a Looked at button', box().querySelectorAll('[data-looked]').length===1 && !!box().querySelector('[data-looked="s:cabc12345"]'));
+  ok('the board row counts it', (await CCHATS.todo()).n===1, await CCHATS.todo());
+  box().querySelector('[data-looked]').click(); await sleep(150);
+  ok('Looked at saves who and when for the whole office, once', window.__saves===1 && DATA.ops_settings.cara_chats_looked['s:cabc12345'].by==='Krystal (fake)', DATA.ops_settings.cara_chats_looked);
+  ok('the button becomes "Looked at by Krystal", the line and the board row go away', !box().querySelector('[data-looked]') && /Looked at by Krystal \(fake\)/.test(txt()) && !/still to look at/.test(txt()) && (await CCHATS.todo()).n===0, txt().slice(0,600));
+  ok('the chat itself is still there to read', /Do you cover Ozark|How much does care cost/.test(txt()));
+  delete DATA.ops_settings.cara_chats_looked; const realNow=Date.now; Date.now=()=>realNow()+15*864e5;
+  ok('after 14 days an unmarked chat stops counting on the board', (await CCHATS.todo()).n===0);
+  Date.now=realNow; DATA.ops_settings.cara_chats_looked={ 's:cabc12345':{ at:new Date().toISOString(), by:'x' } };
   CCHATS.search(''); window.__deny=true; CCHATS.reload(); await sleep(200);
   ok('a refused read says what it waits for (Desktop 1314), never a blank page', /waits for Desktop step 1314/.test(txt()), txt());
-  ok('nothing was sent or saved', window.__log.fn.length===0);
+  ok('nothing was sent; the only save is the Looked at mark', window.__log.fn.length===0 && window.__saves===1, [window.__log.fn, window.__saves]);
   return R;
 }
 """
@@ -79,7 +94,7 @@ with sync_playwright() as pw:
     pg.evaluate('s=>(0,eval)(s)', STUB)
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
     if SHOTS:
-        pg.evaluate("async()=>{ window.__deny=false; CCHATS.reload(); await new Promise(r=>setTimeout(r,300)); CCHATS.toggle('s:cabc12345'); }")
+        pg.evaluate("async()=>{ window.__deny=false; delete DATA.ops_settings.cara_chats_looked; CCHATS.reload(); await new Promise(r=>setTimeout(r,300)); CCHATS.toggle('s:cabc12345'); }")
         pg.wait_for_timeout(200); pg.screenshot(path=os.path.join(SHOTS, 'cara_chats.png'))
     b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)

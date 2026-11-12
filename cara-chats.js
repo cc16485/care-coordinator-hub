@@ -8,6 +8,9 @@
      - One card per chat (session_id). Chats saved before 2026-11-05 have no id, so each of those questions shows on its own.
      - A chat whose visitor left their number links to that lead (matched by the chat id in the lead's notes).
      - Nothing here texts, calls or emails anyone.
+     - Looked at (Samantha 2026-11-12, "Add Looked at"): a chat Cara could not answer has a Looked at button. Until someone
+       presses it, and for 14 days from the chat, it counts on the Operations Board as one row (board-feeds.js). The mark is
+       shared by the office: ops_settings.cara_chats_looked { chat key: { at, by } }. The chat log itself stays read only.
    CCHATS.mount(boxId). Needs: sb (the Hub's Supabase client), DATA.leads, openLeadProfile.
    ============================================================================================================================ */
 (function(){
@@ -23,6 +26,27 @@
   const S = { box: null, rows: [], limit: PAGE, more: false, loading: false, err: '', filter: 'all', q: '', open: {} };
   const when = iso => { try { return new Date(iso).toLocaleString('en-US', { timeZone: 'America/Chicago', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
   const unanswered = r => r.outcome === 'withheld' || r.outcome === 'none';
+  /* Looked at: shared marks, and which chats still wait for a look (missed, not marked, asked in the last 14 days) */
+  const TODO_DAYS = 14, KEEP_DAYS = 120, DAY = 864e5;
+  const looked = () => { try { return (DATA.ops_settings && DATA.ops_settings.cara_chats_looked) || {}; } catch (e) { return {}; } };
+  const waits = (c, now) => !!c.missed && !looked()[c.key] && (now - Date.parse(c.last)) <= TODO_DAYS * DAY;
+  const actor = () => { try { const a = ccActor(); return (a && (a.name || a.email)) || 'Someone'; } catch (e) { return 'Someone'; } };
+  async function markLooked(keys){
+    if (!keys.length || typeof ccMergeSave !== 'function') return false;
+    const at = new Date().toISOString(), by = actor();
+    const out = await ccMergeSave('ops_settings', s => {
+      const m = (s.cara_chats_looked && typeof s.cara_chats_looked === 'object') ? s.cara_chats_looked : (s.cara_chats_looked = {});
+      const changed = [];
+      keys.forEach(k => { if (!m[k]) { m[k] = { at, by }; changed.push(k); } });
+      /* marks older than the chats the page can still show are dropped, so this never grows without end */
+      Object.keys(m).forEach(k => { if (Date.now() - Date.parse(m[k].at) > KEEP_DAYS * DAY) delete m[k]; });
+      return changed;
+    });
+    if (out.error) { S.err2 = 'That did not save: ' + (out.error.message || 'try again'); render(); return false; }
+    S.err2 = ''; render();
+    try { if (window.BF) { BF.state.at = 0; } } catch (e) {}
+    return true;
+  }
   /* Desktop install steps ask Cara test questions as session "desktop-1149-check" and so on (2026-11-05: they showed up as
      visitor chats). Hidden from the list; the page says how many. */
   const isCheck = r => /^desktop-\d+-check$/.test(String(r.session_id || ''));
@@ -90,6 +114,8 @@
       + '<div style="font-weight:700;color:var(--navy);font-size:14px">' + esc(String(c.msgs[0].question || '').slice(0, 140)) + '</div>'
       + '<div class="field-note">' + esc(when(c.first)) + ' · ' + (c.sid ? n + (n === 1 ? ' question' : ' questions') : 'single question, saved before chats were grouped')
       + (c.missed ? ' · <span style="color:var(--red);font-weight:700">Cara could not answer ' + c.missed + '</span>' : '') + '</div></div>'
+      + (waits(c, Date.now()) ? '<button class="secondary" data-looked="' + esc(c.key) + '" style="padding:6px 12px;font-size:12.5px" onclick="event.stopPropagation();CCHATS.looked(\'' + esc(c.key) + '\')">Looked at</button>'
+        : (c.missed && looked()[c.key] ? '<span class="field-note" style="align-self:center">Looked at by ' + esc(looked()[c.key].by || 'someone') + ', ' + esc(when(looked()[c.key].at)) + '</span>' : ''))
       + (c.lead ? '<button class="primary" style="padding:6px 12px;font-size:12.5px" onclick="event.stopPropagation();openLeadProfile(\'' + esc(c.lead.id) + '\')">Left their number: ' + esc(leadName) + '</button>' : '')
       + '<span class="field-note" style="align-self:center">' + (open ? 'Hide' : 'Read') + '</span></div>';
     if (!open) return '<div style="padding:11px 0;border-bottom:1px solid var(--border)">' + head + '</div>';
@@ -107,7 +133,7 @@
     if (!S.box) return;
     const all = chats(), list = shown(all);
     const nChecks = S.rows.filter(isCheck).length;
-    const nLead = all.filter(c => c.lead).length, nMissed = all.filter(c => c.missed).length;
+    const nLead = all.filter(c => c.lead).length, nMissed = all.filter(c => c.missed).length, now = Date.now(), nTodo = all.filter(c => waits(c, now)).length;
     const pill = (k, label) => '<button class="' + (S.filter === k ? 'primary' : 'secondary') + '" style="padding:5px 12px;font-size:12.5px" onclick="CCHATS.filter(\'' + k + '\')">' + label + '</button>';
     S.box.innerHTML = '<div style="margin-bottom:14px">'
       + '<h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy)">Ask Cara chats</h2>'
@@ -117,6 +143,9 @@
       + pill('all', 'All chats (' + all.length + ')') + pill('lead', 'Left their number (' + nLead + ')') + pill('missed', 'Cara could not answer (' + nMissed + ')')
       + '<input type="search" placeholder="Search what was asked" value="' + esc(S.q) + '" oninput="CCHATS.search(this.value)" style="flex:1;min-width:160px;font-size:13px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;font-family:inherit">'
       + '<button class="linklike" onclick="CCHATS.reload()">Refresh</button></div>'
+      + (nTodo ? '<div class="field-note" id="cchTodo" style="margin-bottom:6px"><b style="color:var(--red)">' + nTodo + (nTodo === 1 ? ' chat' : ' chats') + ' Cara could not answer still to look at.</b> Read it, fix the answer or call them if they left a number, then press Looked at. '
+          + '<button class="linklike" onclick="CCHATS.lookedAll()">Mark all ' + nTodo + ' as looked at</button></div>' : '')
+      + (S.err2 ? '<div style="background:#fdf0f0;color:#a33;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:6px">' + esc(S.err2) + '</div>' : '')
       + (nChecks ? '<div class="field-note" style="margin-bottom:6px">' + nChecks + ' test questions from Desktop install steps are not shown.</div>' : '')
       + (S.loading ? '<div class="field-note">Loading chats...</div>'
         : S.err ? '<div style="background:#fdf0f0;color:#a33;border-radius:10px;padding:12px 14px;font-size:13.5px">' + esc(S.err) + '</div>'
@@ -133,6 +162,14 @@
     search(v){ S.q = v; render(); const i = S.box && S.box.querySelector('input[type=search]'); if (i) { i.focus(); i.setSelectionRange(v.length, v.length); } },
     reload(){ load(); },
     older(){ S.limit += PAGE; load(); },
+    looked(k){ return markLooked([k]); },
+    lookedAll(){ const now = Date.now(); return markLooked(chats().filter(c => waits(c, now)).map(c => c.key)); },
+    /* the Operations Board's row (board-feeds.js): how many chats still wait for a look */
+    async todo(){
+      if (!S.rows.length && !S.loading) await load();
+      if (S.err) return { err: true, n: 0 };
+      const now = Date.now(); return { n: chats().filter(c => waits(c, now)).length };
+    },
     _chats: chats,
   };
 })();

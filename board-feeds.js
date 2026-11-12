@@ -17,6 +17,7 @@
     { key:'first_shift', label:'First shift', one:'new client waiting on a first-shift follow-up call', many:'new clients waiting on a first-shift follow-up call', sub:'The 24 to 72 hour calls to the family and the caregiver', tab:'clientqueue', go:'Open First shift' },
     { key:'no_checkin', label:'Clients', one:'client with no check-in yet', many:'clients with no check-in yet', sub:'Their first monthly check-in', tab:'clientsboard', go:'Open Clients' },
     { key:'no_review', label:'Clients', one:'client needs a first plan review', many:'clients need a first plan review', sub:'No care plan review on file', tab:'clientsboard', go:'Open Clients' },
+    { key:'cara_missed', label:'Ask Cara chats', one:'website chat Cara could not answer', many:'website chats Cara could not answer', sub:'Read it, fix the answer or call them, then press Looked at', tab:'carachats', go:'Open Ask Cara chats' },
     { key:'ff_needs', label:'Friends & Family', one:'Friends & Family item needs an owner', many:'Friends & Family items need an owner', sub:'Rewards to approve or finish, sends that failed, payers to pick', tab:'friendsfamily', go:'Open Friends & Family' },
     { key:'calls_unmatched', label:'calls nobody could match', one:'call nobody could match', many:'calls nobody could match', sub:'Say who it was and it joins their profile', tab:'ops', go:'Open the calls' },
     { key:'checkins_unlinked', label:'check-ins', one:'check-in with no AxisCare client', many:'check-ins with no AxisCare client', sub:'Link each one to its client', tab:'ops', go:'Open the check-ins' }
@@ -103,6 +104,12 @@
     });
     return [{ n:ck.length, names:ck }, { n:rv.length, names:rv }];
   }
+  /* website chats Cara could not answer, until someone presses Looked at (cara-chats.js, third slice 2026-11-12) */
+  async function caraMissed() {
+    if (!W.CCHATS) await script('cara-chats.js?v=20261112la');
+    if (!W.CCHATS || typeof W.CCHATS.todo !== 'function') return { n:0, err:true };
+    return W.CCHATS.todo();
+  }
   async function ffNeeds() {
     let own = false; try { own = !!W.ccIsOwner(); } catch (e) {}
     if (!own) return { n:0 };
@@ -118,9 +125,9 @@
     const late = function (v) { return new Promise(function (ok) { setTimeout(function () { ok(v); }, S.wait); }); };
     const safe = function (p) { return Promise.race([p.catch(function () { return { n:0, err:true }; }), late({ n:0, err:true })]); };
     const two = Promise.race([clients().catch(function () { return [{ n:0, err:true }, { n:0, err:true }]; }), late([{ n:0, err:true }, { n:0, err:true }])]);
-    return Promise.all([safe(circles()), safe(unmatched()), safe(carematch()), safe(firstShift()), two, safe(ffNeeds())]).then(function (a) {
+    return Promise.all([safe(circles()), safe(unmatched()), safe(carematch()), safe(firstShift()), two, safe(ffNeeds()), safe(caraMissed())]).then(function (a) {
       S.found.circles = a[0]; S.found.calls_unmatched = a[1]; S.found.carematch = a[2]; S.found.first_shift = a[3];
-      S.found.no_checkin = a[4][0]; S.found.no_review = a[4][1]; S.found.ff_needs = a[5]; S.busy = false;
+      S.found.no_checkin = a[4][0]; S.found.no_review = a[4][1]; S.found.ff_needs = a[5]; S.found.cara_missed = a[6]; S.busy = false;
       try { if (typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'board' && typeof W.renderMyWork === 'function') W.renderMyWork(); } catch (e) {}
     });
   }

@@ -67,6 +67,7 @@ FEEDS = r"""async(mode)=>{
   DATA.client_checkins.push({ id:'k3', client_name:'Example: Sam W.', axiscare_client_id:'9', checkin_date:'2026-11-01', next_checkin_due:'2027-06-01' });
   const fake={ data:[{ id:'q1', client_name:'Example: Cy N.', status:'open', first_shift_done:true, followup_client_done:true, followup_caregiver_done:false }, { id:'q2', client_name:'Example: Di O.', status:'open', first_shift_done:true, followup_client_done:true, followup_caregiver_done:true }] };
   const chain={ select:()=>chain, eq:()=>chain, neq:()=>Promise.resolve(fake) }; const realFrom=sb.from.bind(sb); sb.from=t=>t==='client_queue'?chain:realFrom(t);
+  window.CCHATS={ todo:async()=>({ n:2 }) };
   window.__ffAsked=0; window.FFT={ needs:async()=>{ window.__ffAsked++; return { n:3 }; } };
   window.FCK={ look:async()=> mode==='bad' ? { err:'x', names:[] } : { names:['Example: Ada L.','Example: Ben M.','Example: Cy N.','Example: Di O.'] } };
   BF.state.at=0; BF.state.found={}; BF.state.cm=null; await BF.refresh(true); myWorkGo('board'); await new Promise(r=>setTimeout(r,150)); return true; }"""
@@ -75,11 +76,11 @@ CHECK = r"""async(who)=>{
   const rows=()=>[...document.querySelectorAll('#oplBatch .opl-brow[data-feed]')].map(b=>b.getAttribute('data-feed')+':'+b.querySelector('.n').innerText);
   const T=()=>document.getElementById('oplBatch').innerText;
   if(who==='owner'){
-    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','carematch:2','first_shift:1','no_checkin:1','no_review:1','ff_needs:3','checkins_unlinked:1']), rows());
+    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','carematch:2','first_shift:1','no_checkin:1','no_review:1','cara_missed:2','ff_needs:3','checkins_unlinked:1']), rows());
     ok('the Family Circles row names the first three and says 1 more', /Family Circles need a look/.test(T()) && /Example: Ada L\., Example: Ben M\., Example: Cy N\. and 1 more/.test(T()), T());
     ok('card batches still come first', document.querySelector('#oplBatch .opl-brow').hasAttribute('data-batch'));
     const tile=[...document.querySelectorAll('.opl-tile')][2].innerText.replace(/\s+/g,' ');
-    ok('the Batches tile counts them: 14 batches, 25 items', /^14 Batches 25 items in all/.test(tile), tile);
+    ok('the Batches tile counts them: 15 batches, 27 items', /^15 Batches 27 items in all/.test(tile), tile);
     ok('Care Match names the pairs; first shift lists only the launch with a call still open', /Example: Ada L\. and Example: Jo C\./.test(T()) && /Example: Cy N\./.test(T()) && !/Example: Di O\./.test(T()), T());
     ok('a client with no check-in and no plan review is counted; one with both, and one whose care ended, is not', /1\s+Client with no check-in yet\s+Example: Ada L\./.test(T()) && /1\s+Client needs a first plan review\s+Example: Ada L\./.test(T()), T());
     let went=''; const real=window.switchTab; window.switchTab=t=>{ went=t; };
