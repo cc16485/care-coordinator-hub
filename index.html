@@ -7640,7 +7640,7 @@ The HomeTogether team</pre>
 <script src="projects.js?v=7"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
 <script src="team-builder-2.js?v=8"></script>
-<script src="open-hours.js?v=3"></script>
+<script src="open-hours.js?v=4"></script>
 <script src="scheduling-guide.js?v=6"></script>
 <script src="new-hires.js?v=4"></script>
 <script src="hub-scenes.js?v=1"></script>
@@ -40090,7 +40090,7 @@ function tbHomeHtml(){
     +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care team plan</button>'
     +'<span class="field-note" style="max-width:60ch;">The chart you used to draw on paper: shifts down the side, days across the top, pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed.</span>'
     +'</div><div id="tbNewFormBox"></div>'
-    +(typeof OH!=='undefined'?OH.earlierHtml():'');
+    +(typeof OPH!=='undefined'?OPH.earlierHtml():'');
   if(!plans.length) h+='<div class="card" style="padding:16px 18px;color:var(--text-muted);font-size:13.5px;">No plans yet.</div>';
   else h+=plans.map(function(p){
     var cells=Object.keys(p.cells||{}).length, total=(p.days||[]).length*(p.slots||[]).length;
@@ -40240,7 +40240,7 @@ function tbBoardHtml(plan){
           var inner=c
             ?'<div style="border-radius:7px;padding:3px 6px;background:'+(c.status==='yes'?'var(--green-bg)':c.status==='asked'||c.status==='no_reply'?'#FFF4E3':c.status==='maybe'?'#F3EEFF':c.status==='no'?'#FDE8E8':'#F1F5F9')+';color:'+(STATUS[c.status]||STATUS.penciled)[0]+';font-weight:700;'+(c.status==='no'?'text-decoration:line-through;':'')+'">'+esc(String(c.name).split(' ')[0]+' '+(String(c.name).split(' ')[1]||'').slice(0,1))+'<div style="font-size:9.5px;font-weight:600;">'+(c.status==='asked'&&c.ask_channel==='sms'?'texted · '+tbAgo(c.at):(STATUS[c.status]||STATUS.penciled)[1])+'</div>'+(typeof tb2MoreChip==='function'?tb2MoreChip(plan,key):'')+'</div>'
             :'<span style="color:var(--text-dim);font-size:15px;">＋</span>';
-          return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+(typeof OH!=='undefined'?OH.cellHtml(plan,key):'')+'</td>';
+          return '<td onclick="tbCell(\''+key+'\')" style="padding:.3rem;border-top:1px solid var(--border);border-left:1px solid var(--border);text-align:center;cursor:pointer;min-width:64px;'+(open?'outline:2px solid var(--teal);outline-offset:-2px;':'')+'">'+inner+(typeof OPH!=='undefined'?OPH.cellHtml(plan,key):'')+'</td>';
         }).join('')+'</tr>';
     }).join('')+'</tbody></table>'
     +'<button class="fb" onclick="tbAddShift(\''+plan.id+'\')" style="margin-top:8px;">+ Add a shift</button>'
@@ -40275,7 +40275,7 @@ function tbBoardHtml(plan){
       +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
     +(typeof tb2OnboardHtml==='function'?tb2OnboardHtml(plan):'')   /* 2026-10-14: onboarding for this client, the goal and each stage */
     +(typeof tb2ReadinessHtml==='function'?tb2ReadinessHtml(plan)+(plan.open_hours?'':tb2NeedsHtml(plan)):'')
-    +(typeof OH!=='undefined'&&!TB.profileRoot?OH.boxHtml(plan):'')
+    +(typeof OPH!=='undefined'&&!TB.profileRoot?OPH.boxHtml(plan):'')
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
