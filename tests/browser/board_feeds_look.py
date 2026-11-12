@@ -55,23 +55,33 @@ SETUP = r"""async(mode)=>{
   return true;
 }"""
 FEEDS = r"""async(mode)=>{
+  BF.state.wait=1500;
+  for(let i=0;i<200 && BF.state.busy;i++) await new Promise(r=>setTimeout(r,100));
   DATA.feedback=[{ id:'f1', seen:false }, { id:'f2', seen:true }, { id:'f3', seen:false }];
   DATA.client_checkins=[{ id:'k1', client_name:'Example: Nora T.', checkin_date:'2026-11-01' }, { id:'k2', client_name:'Example: Sam W.', axiscare_client_id:'9' }];
   DATA.referral_orgs=[{ id:'o1', name:'Example: Oak Clinic' }, { id:'o2', name:'Example: Elm Rehab' }]; DATA.leads=[];
   window.PartnerRules=Object.assign({}, window.PartnerRules||{}, { needsOwner:o=>o, unlinked:()=>[{ id:'l1' }] });
-  for(let i=0;i<60 && BF.state.busy;i++) await new Promise(r=>setTimeout(r,100));
+  window.cmDue=async()=>({ names:['Example: Ada L. and Example: Jo C.','Example: Ben M. and Example: Kay D.'] });
+  window.cl360Identity=async()=>[{ client_name:'Example: Ada L.', axiscare_client_id:'1', role_status:'active' }, { client_name:'Example: Sam W.', axiscare_client_id:'9', role_status:'active' }, { client_name:'Example: Gone G.', axiscare_client_id:'7', role_status:'ended' }];
+  DATA.care_plan_reviews=[{ id:'r1', axiscare_client_id:'9', at:'2026-10-01', next_due:'2027-06-01' }];
+  DATA.client_checkins.push({ id:'k3', client_name:'Example: Sam W.', axiscare_client_id:'9', checkin_date:'2026-11-01', next_checkin_due:'2027-06-01' });
+  const fake={ data:[{ id:'q1', client_name:'Example: Cy N.', status:'open', first_shift_done:true, followup_client_done:true, followup_caregiver_done:false }, { id:'q2', client_name:'Example: Di O.', status:'open', first_shift_done:true, followup_client_done:true, followup_caregiver_done:true }] };
+  const chain={ select:()=>chain, eq:()=>chain, neq:()=>Promise.resolve(fake) }; const realFrom=sb.from.bind(sb); sb.from=t=>t==='client_queue'?chain:realFrom(t);
+  window.__ffAsked=0; window.FFT={ needs:async()=>{ window.__ffAsked++; return { n:3 }; } };
   window.FCK={ look:async()=> mode==='bad' ? { err:'x', names:[] } : { names:['Example: Ada L.','Example: Ben M.','Example: Cy N.','Example: Di O.'] } };
-  BF.state.at=0; BF.state.found={}; await BF.refresh(true); myWorkGo('board'); await new Promise(r=>setTimeout(r,150)); return true; }"""
+  BF.state.at=0; BF.state.found={}; BF.state.cm=null; await BF.refresh(true); myWorkGo('board'); await new Promise(r=>setTimeout(r,150)); return true; }"""
 CHECK = r"""async(who)=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const rows=()=>[...document.querySelectorAll('#oplBatch .opl-brow[data-feed]')].map(b=>b.getAttribute('data-feed')+':'+b.querySelector('.n').innerText);
   const T=()=>document.getElementById('oplBatch').innerText;
   if(who==='owner'){
-    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','checkins_unlinked:1']), rows());
+    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','carematch:2','first_shift:1','no_checkin:1','no_review:1','ff_needs:3','checkins_unlinked:1']), rows());
     ok('the Family Circles row names the first three and says 1 more', /Family Circles need a look/.test(T()) && /Example: Ada L\., Example: Ben M\., Example: Cy N\. and 1 more/.test(T()), T());
     ok('card batches still come first', document.querySelector('#oplBatch .opl-brow').hasAttribute('data-batch'));
     const tile=[...document.querySelectorAll('.opl-tile')][2].innerText.replace(/\s+/g,' ');
-    ok('the Batches tile counts them: 9 batches, 17 items', /^9 Batches 17 items in all/.test(tile), tile);
+    ok('the Batches tile counts them: 14 batches, 25 items', /^14 Batches 25 items in all/.test(tile), tile);
+    ok('Care Match names the pairs; first shift lists only the launch with a call still open', /Example: Ada L\. and Example: Jo C\./.test(T()) && /Example: Cy N\./.test(T()) && !/Example: Di O\./.test(T()), T());
+    ok('a client with no check-in and no plan review is counted; one with both, and one whose care ended, is not', /1\s+Client with no check-in yet\s+Example: Ada L\./.test(T()) && /1\s+Client needs a first plan review\s+Example: Ada L\./.test(T()), T());
     let went=''; const real=window.switchTab; window.switchTab=t=>{ went=t; };
     document.querySelector('[data-feed="circles"] button').click(); window.switchTab=real;
     ok('the button goes to that list\'s own tab', went==='fccheck', went);
@@ -79,7 +89,8 @@ CHECK = r"""async(who)=>{
     ok('a list that is finished leaves the board by itself', rows().indexOf('feedback:2')<0 && !/feedback/.test(T()), rows());
     ok('no em dashes', !/—/.test(T()));
   } else if(who==='staff'){
-    ok('a coordinator sees the rows but not Needs an owner', rows().indexOf('circles:4')>=0 && !rows().some(x=>/^partner_owner/.test(x)) && rows().indexOf('partner_link:1')>=0, rows());
+    ok('a coordinator\'s board never asks the Friends & Family service', window.__ffAsked===0, window.__ffAsked);
+    ok('a coordinator sees the rows but not Needs an owner', rows().indexOf('circles:4')>=0 && !rows().some(x=>/^partner_owner/.test(x)) && rows().indexOf('partner_link:1')>=0 && !rows().some(x=>/^ff_needs/.test(x)) && rows().indexOf('carematch:2')>=0, rows());
   } else {
     ok('a list that could not be read says so instead of showing nothing', /Couldn't check: Family Circles/.test(T()) && !rows().some(x=>/^circles/.test(x)), T());
   }

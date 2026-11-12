@@ -13,6 +13,11 @@
     { key:'circles', label:'Family Circles', one:'Family Circle needs a look', many:'Family Circles need a look', sub:'Nobody with HIPAA, nobody we can text, or a welcome not sent', tab:'fccheck', go:'Open Family Circles' },
     { key:'partner_owner', label:'Referral Partners', one:'referral partner needs an owner', many:'referral partners need an owner', sub:'Pick a Care Coordinator for each', tab:'referrers', go:'Open Referral Partners' },
     { key:'partner_link', label:'Referral Partners', one:'referral to link to a partner', many:'referrals to link to a partner', sub:'So they count for the right partner', tab:'referrers', go:'Open Referral Partners' },
+    { key:'carematch', label:'Care Match Check-ins', one:'care match call due', many:'care match calls due', sub:'First shift together, good-fit follow-up, or a concern to check again', tab:'carematch', go:'Open Care Match' },
+    { key:'first_shift', label:'First shift', one:'new client waiting on a first-shift follow-up call', many:'new clients waiting on a first-shift follow-up call', sub:'The 24 to 72 hour calls to the family and the caregiver', tab:'clientqueue', go:'Open First shift' },
+    { key:'no_checkin', label:'Clients', one:'client with no check-in yet', many:'clients with no check-in yet', sub:'Their first monthly check-in', tab:'clientsboard', go:'Open Clients' },
+    { key:'no_review', label:'Clients', one:'client needs a first plan review', many:'clients need a first plan review', sub:'No care plan review on file', tab:'clientsboard', go:'Open Clients' },
+    { key:'ff_needs', label:'Friends & Family', one:'Friends & Family item needs an owner', many:'Friends & Family items need an owner', sub:'Rewards to approve or finish, sends that failed, payers to pick', tab:'friendsfamily', go:'Open Friends & Family' },
     { key:'calls_unmatched', label:'calls nobody could match', one:'call nobody could match', many:'calls nobody could match', sub:'Say who it was and it joins their profile', tab:'ops', go:'Open the calls' },
     { key:'checkins_unlinked', label:'check-ins', one:'check-in with no AxisCare client', many:'check-ins with no AxisCare client', sub:'Link each one to its client', tab:'ops', go:'Open the check-ins' }
   ];
@@ -35,7 +40,7 @@
   const W = root;
   const D = function () { try { return DATA || {}; } catch (e) { return {}; } };
   const esc = function (s) { return typeof W.escapeHtmlComms === 'function' ? W.escapeHtmlComms(s) : String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); };
-  const S = { found:{}, at:0, busy:false };
+  const S = { found:{}, at:0, busy:false, wait:12000 };
   const EVERY = 5 * 60 * 1000;
 
   /* lists already in the page: read every time the board draws */
@@ -71,13 +76,51 @@
     const calls = UC.rows && typeof callsGroup === 'function' ? callsGroup(UC.rows) : [];
     return { n:calls.length, names:[] };
   }
+  /* Care Match reads 60 days of visits from AxisCare, so the board asks at most every 30 minutes (the tab itself is live) */
+  async function carematch() {
+    if (typeof W.cmDue !== 'function') return { n:0 };
+    if (S.cm && Date.now() - S.cmAt < 30 * 60 * 1000 && !S.cm.err) return S.cm;
+    S.cm = await carematchNow(); S.cmAt = Date.now(); return S.cm;
+  }
+  async function carematchNow() {
+    const r = await W.cmDue();
+    return r.err ? { n:0, err:true } : { n:r.names.length, names:r.names };
+  }
+  /* New Clients launches (client_queue): the first shift happened, a 24 to 72 hour call is still open */
+  async function firstShift() {
+    if (typeof sb === 'undefined' || !sb) return { n:0 };
+    const r = await sb.from('client_queue').select('id,client_name,status,first_shift_done,followup_client_done,followup_caregiver_done').eq('first_shift_done', true).neq('status', 'complete');
+    if (r.error) return { n:0, err:true };
+    const rows = (r.data || []).filter(function (c) { return c && c.status !== 'archived' && (!c.followup_client_done || !c.followup_caregiver_done); });
+    return { n:rows.length, names:rows.map(function (c) { return c.client_name; }) };
+  }
+  /* the Clients tab's own chips (clDue): active clients with no check-in at all, or no plan review at all */
+  async function clients() {
+    if (typeof cl360Identity !== 'function' || typeof clDue !== 'function') return [{ n:0 }, { n:0 }];
+    const rows = (await cl360Identity()) || [], ck = [], rv = [];
+    rows.forEach(function (r) {
+      clDue(r, []).forEach(function (x) { if (x.none && x.kind === 'checkin') ck.push(r.client_name); if (x.none && x.kind === 'review') rv.push(r.client_name); });
+    });
+    return [{ n:ck.length, names:ck }, { n:rv.length, names:rv }];
+  }
+  async function ffNeeds() {
+    let own = false; try { own = !!W.ccIsOwner(); } catch (e) {}
+    if (!own) return { n:0 };
+    if (!W.FFT) await script('ff-tab.js?v=5');
+    if (!W.FFT || typeof W.FFT.needs !== 'function') return { n:0, err:true };
+    return W.FFT.needs();
+  }
   function refresh(force) {
     const now = Date.now();
     if (S.busy || (!force && now - S.at < EVERY)) return Promise.resolve();
     S.busy = true; S.at = now;
-    const safe = function (p) { return p.catch(function () { return { n:0, err:true }; }); };
-    return Promise.all([safe(circles()), safe(unmatched())]).then(function (a) {
-      S.found.circles = a[0]; S.found.calls_unmatched = a[1]; S.busy = false;
+    /* a list that fails or never answers (12 seconds) is "couldn't check", and never holds up the others */
+    const late = function (v) { return new Promise(function (ok) { setTimeout(function () { ok(v); }, S.wait); }); };
+    const safe = function (p) { return Promise.race([p.catch(function () { return { n:0, err:true }; }), late({ n:0, err:true })]); };
+    const two = Promise.race([clients().catch(function () { return [{ n:0, err:true }, { n:0, err:true }]; }), late([{ n:0, err:true }, { n:0, err:true }])]);
+    return Promise.all([safe(circles()), safe(unmatched()), safe(carematch()), safe(firstShift()), two, safe(ffNeeds())]).then(function (a) {
+      S.found.circles = a[0]; S.found.calls_unmatched = a[1]; S.found.carematch = a[2]; S.found.first_shift = a[3];
+      S.found.no_checkin = a[4][0]; S.found.no_review = a[4][1]; S.found.ff_needs = a[5]; S.busy = false;
       try { if (typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'board' && typeof W.renderMyWork === 'function') W.renderMyWork(); } catch (e) {}
     });
   }
