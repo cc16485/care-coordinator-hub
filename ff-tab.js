@@ -17,7 +17,7 @@
 (function(){
   'use strict';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
-  const ST = { data:null, busy:false, view:'', show:'ready', q:'' };
+  const ST = { data:null, busy:false, view:'', show:'ready', q:'', hr:null };
   const el = () => document.getElementById('ffMount');
   const owner = () => { try{ return typeof ccIsOwner === 'function' && !!ccIsOwner(); }catch(e){ return false; } };
   const day = iso => { if(!iso) return ''; const d = new Date(String(iso).length === 10 ? iso + 'T12:00:00Z' : iso); return isNaN(d) ? '' : d.toLocaleString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }); };
@@ -77,7 +77,71 @@
     + (sub ? '<p>' + sub + '</p>' : '') + (rows.length ? rows.join('') : '<div class="ff-empty">' + esc(empty) + '</div>') + '</div>';
 
   /* one $100 line: who gets what, then the two checks (20 hours, payment received) as a checklist */
+  /* a caregiver hiring bonus line (2026-11-12): $50 after the new hire's first shift, $50 after 60 days and 10 shifts with both
+     still active. No payment tick: the checks are the shifts and the days, read from AxisCare every morning. */
+  const isHire = x => !!x && x.kind === 'hire';
+  function hireRow(x){
+    const lid = esc(x.lead_id), q = s => '\'' + s + '\'', H = (ST.data && ST.data.hire) || {}, days = H.days || 60, need = H.shifts || 10;
+    const n = x.shifts == null ? null : Number(x.shifts);
+    const dn = x.first_shift ? Math.max(0, Math.round((Date.parse((x.shifts_read_on || x.first_shift) + 'T12:00:00Z') - Date.parse(x.first_shift + 'T12:00:00Z')) / 864e5)) : null;
+    const line = 'New caregiver · referred by ' + esc(x.referrer) + ' (caregiver) · $' + esc(x.amount || 50) + ' bonus on ' + esc(x.referrer) + '’s paycheck · part ' + esc(x.part) + ' of 2';
+    const ck = (yes, words) => '<span class="' + (yes ? 'ff-ok' : 'ff-no') + '">' + (yes ? '✓' : '○') + ' ' + words + '</span>';
+    const live = ['on_the_way', 'ready', 'under_review'].includes(x.status);
+    const checks = !['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status) ? '' : '<div class="ff-checks">'
+      + (n == null ? ck(false, 'Shifts not read yet') : x.part === 1 ? ck(n >= 1, 'First completed shift' + (x.first_shift ? ' (' + esc(day(x.first_shift)) + ')' : ''))
+        : ck(n >= need, esc(need) + ' shifts (' + esc(n) + ' so far)') + ck(dn != null && dn >= days, esc(days) + ' days' + (dn == null ? '' : ' (day ' + esc(Math.min(dn, days)) + ')'))
+          + ck(x.hire_active === true && x.referrer_active === true, 'Both still active')) + '</div>';
+    const why = x.status === 'under_review' ? esc((x.reasons || []).join('; ')) : x.status === 'on_the_way' && (x.reasons || []).length ? 'To look at once earned: ' + esc(x.reasons.join('; '))
+      : x.status === 'not_earned' ? 'Not earned: ' + esc(x.decision_why || '') : x.status === 'paid' ? 'Paid on the ' + esc(day(x.done_on)) + ' payroll' : (x.decision_why ? 'Approved: ' + esc(x.decision_why) : '');
+    const acts = (x.status === 'ready' ? btn('Approve', 'FFT.reward(' + q(lid) + ', \'approve\')', true) : '')
+      + (x.status === 'under_review' ? btn('Approve anyway', 'FFT.reward(' + q(lid) + ', \'approve\', \'why\')') : '')
+      + (live ? btn('Not earned', 'FFT.reward(' + q(lid) + ', \'not_earned\')') : '')
+      + (x.status === 'approved' ? btn('Mark paid', 'FFT.reward(' + q(lid) + ', \'done\', false)', true) : '')
+      + (['approved', 'not_earned'].includes(x.status) ? btn('Reopen', 'FFT.reward(' + q(lid) + ', \'reopen\')') : '');
+    const done = ['paid', 'not_earned'].includes(x.status);
+    return row({ attr:' data-rw="' + lid + '" data-st="' + esc(x.status) + '" data-hire="' + esc(x.part) + '"', name:x.hire_name || x.client_name, chip:chip('held', 'Hiring bonus'), line, why:done ? '' : why, bad:x.status === 'under_review',
+      extra:(done && why ? '<div class="ff-line" style="color:var(--text-muted)">' + why + '</div>' : '') + checks, acts });
+  }
+  /* who referred a new hire, set by hand (owners only; the server keeps who set it and when, and a hand-set referrer after the
+     first shift puts the bonus under review). Only a caregiver's own link can be named. */
+  const cgOrgs = () => ((typeof DATA !== 'undefined' && DATA.referral_orgs) || []).filter(o => o && !o.archived && o.program_track === 'friends' && o.ff_kind === 'caregiver').sort((a, b) => String(a.name).localeCompare(String(b.name)));
+  function hireCard(d){
+    const notes = Array.isArray(d.hire_notes) ? d.hire_notes : [], hr = ST.hr, orgs = cgOrgs();
+    const rows = notes.map(n => row({ attr:' data-hn="' + esc(n.applicant_id) + '"', name:n.name, line:n.code ? 'Applied with the link ' + esc(n.code) : 'No link on their application', why:esc(n.why),
+      acts:btn('Set who referred them', 'FFT.hrPick(\'' + esc(n.applicant_id) + '\', \'' + esc(String(n.name).replace(/'/g, '')) + '\')') + (n.org_id ? btn('Remove referrer', 'FFT.hrSave(\'' + esc(n.applicant_id) + '\', true)') : '') }));
+    let form = '<div class="ff-row" id="ffHr"><div class="who"><span class="ff-name">Set who referred a new hire</span><div class="ff-line">For someone who was referred by a caregiver but applied without their link.</div>';
+    if(!orgs.length) form += '<div class="ff-why">No caregiver has a link yet. Caregivers get their link when they are invited.</div></div></div>';
+    else if(!hr) form += '<div class="ff-filters"><input id="ffHrQ" type="search" placeholder="The new hire’s name" style="margin-left:0" onkeydown="if(event.key===\'Enter\')FFT.hrFind(this.value)">' + btn('Find', 'FFT.hrFind(document.getElementById(\'ffHrQ\').value)') + '</div></div></div>';
+    else if(hr.found) form += '<div class="ff-line">' + (hr.found.length ? 'Which one?' : 'Nobody by that name applied.') + '</div><div class="ff-filters">' + hr.found.map(a => btn(a.name + (a.when ? ' (applied ' + day(a.when) + ')' : ''), 'FFT.hrPick(\'' + esc(a.id) + '\', \'' + esc(String(a.name).replace(/'/g, '')) + '\')')).join('') + btn('Cancel', 'FFT.hrCancel()') + '</div></div></div>';
+    else form += '<div class="ff-line"><b>' + esc(hr.name) + '</b> was referred by:</div><div class="ff-filters"><select id="ffHrOrg" style="max-width:260px"><option value="">Choose a caregiver</option>' + orgs.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name) + '</option>').join('') + '</select>'
+      + btn('Save', 'FFT.hrSave(\'' + esc(hr.id) + '\')', true) + btn('Cancel', 'FFT.hrCancel()') + '</div></div></div>';
+    return '<div class="ff-card" id="ffHire"><h3>Caregiver hiring bonus<span class="ff-n">' + notes.length + '</span></h3><p>A caregiver who refers a new caregiver earns $' + esc((d.hire && d.hire.part_amount) || 50) + ' after the new hire’s first completed shift and $' + esc((d.hire && d.hire.part_amount) || 50)
+      + ' more after ' + esc((d.hire && d.hire.days) || 60) + ' days and ' + esc((d.hire && d.hire.shifts) || 10) + ' shifts with both still active. Below: people who applied with a link and have no bonus line, and why.</p>'
+      + (rows.length ? rows.join('') : '<div class="ff-empty">Nobody right now.</div>') + form + '</div>';
+  }
+  async function hrFind(v){
+    const q = String(v || '').trim().replace(/[^A-Za-z' -]/g, ''); if(q.length < 2){ say('Type at least two letters of their name.'); return; }
+    const w = q.split(/\s+/)[0], l = q.split(/\s+/).slice(1).join(' ');
+    let found = [];
+    try{ let r = sb.from('job_applicants').select('id, first_name, last_name, created_at').order('created_at', { ascending:false }).limit(8);
+      r = l ? r.ilike('first_name', w + '%').ilike('last_name', l + '%') : r.or('first_name.ilike.' + w + '%,last_name.ilike.' + w + '%');
+      const { data, error } = await r; if(error){ say('The applications couldn’t be read. Try again.'); return; }
+      found = (data || []).map(a => ({ id:a.id, name:[a.first_name, a.last_name].filter(Boolean).join(' '), when:a.created_at }));
+    }catch(e){ say('The applications couldn’t be read. Try again.'); return; }
+    ST.hr = { found }; draw();
+  }
+  function hrPick(id, name){ ST.view = 'rewards'; ST.hr = { id, name }; draw(); const e = document.getElementById('ffHr'); if(e && e.scrollIntoView) e.scrollIntoView({ block:'center' }); }
+  function hrCancel(){ ST.hr = null; draw(); }
+  async function hrSave(id, clear){
+    const body = { action:'set_referrer', applicant_id:id };
+    if(clear){ let yes = false; const w = 'Remove the referrer from this application? No hiring bonus will start for it.'; try{ yes = await ccConfirm(w); }catch(e){ yes = window.confirm(w); } if(!yes) return; body.clear = true; }
+    else { const o = document.getElementById('ffHrOrg'); if(!o || !o.value){ say('Choose the caregiver who referred them.'); return; } body.org_id = o.value; }
+    const r = await call(body);
+    if(r.error){ say(r.error); return; }
+    say(clear ? 'Referrer removed.' : 'Saved. ' + (r.referrer || 'They') + ' is the referrer. The bonus lines are checked tomorrow morning.'); ST.hr = null; load();
+  }
   function rewardRow(x){
+    if(isHire(x)) return hireRow(x);
     const fam = x.referrer_kind !== 'caregiver', lid = esc(x.lead_id), q = s => '\'' + s + '\'';
     const to = fam ? '$' + esc(x.amount || 100) + ' credit on ' + esc(x.referrer_client ? x.referrer_client + '’s' : 'their') + ' invoice' : '$' + esc(x.amount || 100) + ' bonus on ' + esc(x.referrer) + '’s paycheck';
     const line = 'Referred by ' + esc(x.referrer) + (fam ? (x.referrer_client ? ' (family of ' + esc(x.referrer_client) + ')' : ' (family)') : ' (caregiver)') + ' · ' + to + ' · first visit ' + esc(day(x.first_visit));
@@ -115,7 +179,7 @@
     const sent = inv.filter(x => x.status !== 'skipped');
     /* what needs her */
     const toApprove = rw.filter(x => x.status === 'ready'), toReview = rw.filter(x => x.status === 'under_review');
-    const toTick = rw.filter(x => x.status === 'on_the_way' && x.hours != null && x.hours >= 20 && !x.payment_checked_at);
+    const toTick = rw.filter(x => !isHire(x) && x.status === 'on_the_way' && x.hours != null && x.hours >= 20 && !x.payment_checked_at);
     const toFinish = rw.filter(x => x.status === 'approved'), failed = sent.filter(x => x.status !== 'sent');
     const pn = new Map();
     for(const p of (Array.isArray(run.people) ? run.people : [])) if((p.why || []).some(w => /^Payer needed/.test(w))){ const k = p.client_ax || p.client || p.name; if(!pn.has(k)) pn.set(k, { client:p.client || p.name, why:(p.why || []).find(w => /^Payer needed/.test(w)) }); }
@@ -143,7 +207,7 @@
 
     if(ST.view === 'needs'){
       if(!needN) h += '<div class="ff-card"><div class="ff-empty" style="border:0">Nothing needs you right now.</div></div>';
-      if(toApprove.length) h += card('Ready to approve', '20 hours done and payment received. Approve, and it moves on to be credited or paid.', toApprove.map(rewardRow), '', toApprove.length);
+      if(toApprove.length) h += card('Ready to approve', toApprove.some(isHire) ? 'Earned. Approve, and it moves on to be credited or paid.' : '20 hours done and payment received. Approve, and it moves on to be credited or paid.', toApprove.map(rewardRow), '', toApprove.length);
       if(toReview.length) h += card('Under review', 'Earned, but something needs your look first. The reason is under each name.', toReview.map(rewardRow), '', toReview.length);
       if(toTick.length) h += card('Tick when payment is received', '20 hours are done. Once their payment for those hours comes in, tick it.', toTick.map(rewardRow), '', toTick.length);
       if(toFinish.length) h += card('Apply the credit or pay the bonus', 'Approved. Put the credit on the invoice in AxisCare, or the bonus on the Viventium payroll, then mark it here.', toFinish.map(rewardRow), '', toFinish.length);
@@ -174,8 +238,9 @@
         + card('Ready to approve', '', g(['ready']).map(rewardRow), 'None right now.', g(['ready']).length)
         + card('Under review', '', g(['under_review']).map(rewardRow), 'None right now.', g(['under_review']).length)
         + card('Approved: apply the credit or pay the bonus', '', g(['approved']).map(rewardRow), 'None right now.', g(['approved']).length)
-        + card('On the way', 'Waiting for 20 completed hours (read from AxisCare every morning) and your payment tick.', g(['on_the_way']).map(rewardRow), 'None yet. One starts when someone who came through a Friends & Family link has their first visit.', g(['on_the_way']).length)
+        + card('On the way', 'Waiting for 20 completed hours (read from AxisCare every morning) and your payment tick. A hiring bonus waits for the new caregiver’s shifts instead.', g(['on_the_way']).map(rewardRow), 'None yet. One starts when someone who came through a Friends & Family link has their first visit.', g(['on_the_way']).length)
         + card('Done', '', g(['applied', 'paid', 'not_earned']).map(rewardRow), 'None yet.', g(['applied', 'paid', 'not_earned']).length)
+        + hireCard(d)
         + '</div>';
     }
     if(ST.view === 'referrals'){
@@ -226,6 +291,6 @@
     load();
   }
   function mount(){ draw(); if(owner()) load(); }   /* a Care Coordinator's page never asks the server */
-  window.FFT = { mount, load, draw, flip, skip, unskip, resend, referrals, reward,
+  window.FFT = { mount, load, draw, flip, skip, unskip, resend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
     view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();
