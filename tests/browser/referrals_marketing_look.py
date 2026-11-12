@@ -44,7 +44,7 @@ T = r"""async()=>{
   ok('one section named "Referrals & Marketing"; the separate Marketing item is gone', ftabs.filter(t=>/^Referrals & Marketing/.test(t)).length===1 && !ftabs.some(t=>/^Marketing/.test(t)) && !ftabs.some(t=>/^Referral Partners$/.test(t)), ftabs);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(x=>x.textContent.trim());
   ok('five tabs, in order: Referral Partners, Friends & Family, Campaigns, Feedback, Marketing Materials (2026-11-06)', JSON.stringify(pills)===JSON.stringify(['Referral Partners','Friends & Family','Campaigns','Feedback','Marketing Materials']), pills);
-  ok('the Feedback badge is on the section and its tab', !!document.querySelector('.ftab[data-g="partners"] #fbBadge') && !!document.querySelector('#fsub-partners #fbPillBadge'));
+  ok('the Feedback badge is on its tab only; the top menu has no count badges (her decision 2026-11-12)', !document.querySelector('.ftab[data-g="partners"] .subtab-badge') && !!document.querySelector('#fsub-partners #fbPillBadge'));
   window.__as('krystal@mo-care.com','Krystal Land'); CC_ROLE_BY_EMAIL['krystal@mo-care.com']=['care_coordinator','springfield_lead']; (0,eval)("CC_ROLES=CC_ROLE_BY_EMAIL['krystal@mo-care.com']");
   ccGroupClick('partners'); await sleep(250);
   ok('the section opens on Referral Partners, with the tab bar showing', tabOn('referrers') && vis(document.getElementById('fsub-partners')));
