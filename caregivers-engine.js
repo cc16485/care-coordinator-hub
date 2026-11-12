@@ -1314,9 +1314,7 @@ function badgeNum(id){ const el=document.getElementById(id); return (el&&el.styl
 function updateGroupBadges(){
   const set=(gid,n)=>{ const el=document.getElementById(gid); if(!el) return; el.style.display=n?'inline':'none'; el.textContent=n; };
   set('gb-onboard', badgeNum('offersBadge'));
-  set('gb-hr', badgeNum('attBadge'));
-  set('gb-sched', badgeNum('schedBadge')+badgeNum('checkinsBadge'));
-  set('gb-team', badgeNum('coordreqBadge')+badgeNum('commsBadge')+badgeNum('meetingsBadge'));
+  /* 2026-11-12 (her decision): no count badges on the top menu; gb-hr, gb-sched and gb-team are gone */
   if(activeTab==='home') renderStaffHome();
 }
 let _homeKicked=false;

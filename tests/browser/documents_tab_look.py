@@ -73,7 +73,8 @@ async()=>{
   // every top-level tab is still wired: a top button, a row (when it has one), and a panel for each of its tabs
   const wiring=[];
   for(const g of Object.keys(CC_GROUPS)){
-    if(!document.querySelector('.ftab[data-g="'+g+'"]') && g!=='settings') wiring.push(g+': no top button');
+    /* htorders: HomeTogether is off the menu by her decision 2026-11-12; its pages still open at #htorders */
+    if(!document.querySelector('.ftab[data-g="'+g+'"]') && g!=='settings' && g!=='htorders') wiring.push(g+': no top button');
     for(const t of CC_GROUPS[g]) if(!document.getElementById('tab-'+t)) wiring.push(t+': no panel');
   }
   ok('every top-level tab is still wired (button, row, panels)', !wiring.length, wiring);

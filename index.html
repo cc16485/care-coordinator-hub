@@ -1141,20 +1141,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="ftab active" data-g="today" onclick="ccGroupClick('today')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today<span class="subtab-badge red" id="todayBadge" style="display:none;"></span><span class="subtab-badge amber" id="ctTodayBadge" style="display:none;margin-left:4px;"></span></div><!-- 2026-11-08 card conversations alert (card-threads.js) -->
     <span class="navrule"></span>
     <span class="navsec">Employees</span>
-    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard<span class="subtab-badge red" id="gb-hiring" style="display:none;"></span></div>
+    <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard</div>
     <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
-    <div class="ftab" data-g="hr" onclick="ccGroupClick('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> HR<span class="subtab-badge red" id="gb-hr" style="display:none"></span></div>
-    <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling<span class="subtab-badge red" id="gb-sched" style="display:none;"></span></div>
+    <div class="ftab" data-g="hr" onclick="ccGroupClick('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> HR</div>
+    <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling</div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
     <div class="ftab" data-g="leads" onclick="ccGroupClick('leads')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-phone"/></svg> Leads</div>
-    <div class="ftab" data-g="partners" onclick="ccGroupClick('partners')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrals &amp; Marketing<span class="subtab-badge red" id="fbBadge" style="display:none;"></span></div><!-- 2026-10-26 (her layout): one section, four tabs; the old Marketing item (Campaigns, Feedback) lives here now. Old #referrers, #campaigns and #marketing links still land here -->
-    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care<span class="subtab-badge red" id="gb-grow" style="display:none;"></span></div>
+    <div class="ftab" data-g="partners" onclick="ccGroupClick('partners')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referrals &amp; Marketing</div><!-- 2026-10-26 (her layout): one section, four tabs; the old Marketing item (Campaigns, Feedback) lives here now. Old #referrers, #campaigns and #marketing links still land here -->
+    <div class="ftab" data-g="clients" onclick="ccGroupClick('clients')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Client Care</div>
+    <!-- 2026-11-12 (her decisions, One Work List): HomeTogether is off the menu (the business stopped 11-09); its pages still open at #htorders until the code is removed. The top menu carries no count badges except Today: the Operations Board is the one place to look. -->
     <span class="navrule"></span>
-    <span class="navsec">Services</span>
-    <div class="ftab" data-g="htorders" onclick="ccGroupClick('htorders')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-home"/></svg> HomeTogether<span class="subtab-badge red" id="htBadge" style="display:none;"></span></div>
-    <span class="navrule"></span>
-    <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations<span class="subtab-badge red" id="gb-team" style="display:none;"></span></div>
+    <div class="ftab" data-g="team" onclick="ccGroupClick('team')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chat"/></svg> Conversations</div>
     <div class="ftab" data-g="sops" onclick="ccGroupClick('sops')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> SOPs</div>
     <div class="ftab" data-g="settings" id="settingsFtab" style="display:none;" onclick="switchTab('settings')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-gear"/></svg> Settings</div>
   </div>
@@ -8576,7 +8574,7 @@ async function fbDelete(id){
 }
 function fbBadges(){
   const n=(DATA.feedback||[]).filter(f=>!f.seen).length;
-  for(const id of ['fbBadge','fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
+  for(const id of ['fbPillBadge']){ const b=document.getElementById(id); if(b){ b.textContent=n; b.style.display=n?'':'none'; } }
 }
 // Global esc — renderFeedback and friends use it (escapeHtmlComms
 // hoists, so this is safe to define here).
@@ -9294,7 +9292,6 @@ function updateHTBadge(){
   const nOrd=(DATA.hometogether_orders||[]).filter(o=>(o.status||'New order')==='New order').length;
   const nTk=(DATA.ht_tickets||[]).filter(t=>(t.status||'New')==='New').length;
   const set=(id,n)=>{ const b=document.getElementById(id); if(b){ b.style.display = n ? 'inline-block' : 'none'; b.textContent = n; } };
-  set('htBadge', nOrd + nTk);
   set('htOrdPillBadge', nOrd);
   set('tkPillBadge', nTk);
 }
@@ -21631,8 +21628,6 @@ function updateSocBadge(){
   const b=document.getElementById('socBadge'); if(!b) return;
   const stuck=DATA.leads.filter(l=>l.soc&&socCurrentStep(l.soc)&&socIsStuck(l.soc)).length;
   b.style.display=stuck?'inline-flex':'none'; b.textContent=stuck;
-  const g=document.getElementById('gb-grow');
-  if(g){ g.style.display=stuck?'inline-flex':'none'; g.textContent=stuck; }
 }
 
 /* Shift handoffs are retired — the board is the handoff (her rule, 2026-08-01).
@@ -22463,8 +22458,6 @@ function updateCommsTabBadge(){
   const b=document.getElementById('commsTabBadge'); if(!b) return;
   const n=(DATA.staffing_tasks||[]).filter(t=>t.status==='open'&&(t.direction==='to_coordinators'||(t.direction==='to_owners'&&ccIsOwner()))).length;
   b.style.display=n?'inline-flex':'none'; b.textContent=n;
-  const g=document.getElementById('gb-team');
-  if(g){ g.style.display=n?'inline-flex':'none'; g.textContent=n; }
 }
 
 /* ---------------- Inbox tab (incoming messages) ---------------- */
