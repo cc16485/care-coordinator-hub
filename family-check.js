@@ -111,6 +111,13 @@
     sync: function (btn) { return Promise.resolve(typeof fcSyncAxis === 'function' ? fcSyncAxis(btn) : null).then(load) },
     setFilter: function (k) { S.filter = k; S.q = ''; render() },
     search: function (v) { S.q = v; render(); var i = document.getElementById('fck_q'); if (i) { i.focus(); i.setSelectionRange(v.length, v.length) } },
+    /* the Operations Board's row (board-feeds.js, 2026-11-12): the clients whose circle needs a look, by this page's own rule */
+    look: function () {
+      return (S.loaded ? Promise.resolve() : load()).then(function () {
+        if (!S.loaded) return { err: S.err || 'not loaded', names: [] }
+        return { names: rows().filter(function (x) { return x.issues.some(function (i) { return i[1] !== 'info' }) }).map(function (x) { return x.name }) }
+      })
+    },
     _state: S
   }
 })()

@@ -441,7 +441,10 @@
     if(!document.getElementById('opbCss')){ const t = document.createElement('div'); t.innerHTML = CSS; document.head.appendChild(t.firstChild); }
     if(!document.getElementById('opbLaneCss')){ const t = document.createElement('div'); t.innerHTML = LCSS; document.head.appendChild(t.firstChild); }
     loadWeek();
-    const M = laneModel(), now = M.now, bk = BATCH_ORDER.filter(k => M.batches[k] && M.batches[k].length), bn = bk.reduce((a, k) => a + M.batches[k].length, 0);
+    const M = laneModel(), now = M.now, bk = BATCH_ORDER.filter(k => M.batches[k] && M.batches[k].length);
+    /* lists from other tabs, one row each (board-feeds.js, her rule 2026-11-12: if it needs a person, it is on the board) */
+    let feedHtml = '', feeds = []; try{ if(W.BF){ feedHtml = W.BF.html(); feeds = W.BF.rows(); } }catch(e){}
+    const bn = bk.reduce((a, k) => a + M.batches[k].length, 0) + feeds.reduce((a, r) => a + r.n, 0);
     let h = '';
     if(!lanesOn(settings())) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>New layout, practice.</b> Only you see it; everyone else sees the table. '
       + 'When it looks right, turn on "Operations Board: new layout" on the Owners Hub Admin page. <button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(false)">Back to the table</button></div>';
@@ -451,7 +454,7 @@
     h += '<div class="opl-tiles">'
       + '<button class="opl-tile w" onclick="OPB.jump(\'oplWait\')"><b>' + M.wait.length + '</b><span>Waiting on us</span><small>' + (oldestW ? 'oldest ' + esc(oldestW) : 'Nobody waiting') + '</small></button>'
       + '<button class="opl-tile c" onclick="OPB.jump(\'oplCare\')"><b>' + M.care.length + '</b><span>Care today</span><small>' + (M.care.length ? 'Care or safety, today' : 'Nothing right now') + '</small></button>'
-      + '<button class="opl-tile b" onclick="OPB.jump(\'oplBatch\')"><b>' + bk.length + '</b><span>Batches</span><small>' + bn + ' item' + (bn === 1 ? '' : 's') + ' in all</small></button></div>';
+      + '<button class="opl-tile b" onclick="OPB.jump(\'oplBatch\')"><b>' + (bk.length + feeds.length) + '</b><span>Batches</span><small>' + bn + ' item' + (bn === 1 ? '' : 's') + ' in all</small></button></div>';
     if(owner()) h += '<div class="field-note" style="margin:-6px 0 12px;">Showing ' + (L.who === 'all' ? 'everyone\'s work' : 'yours and nobody\'s') + ' · <button class="linklike" style="font:inherit;" onclick="OPB.lanesWho(\'' + (L.who === 'all' ? 'mine' : 'all') + '\')">' + (L.who === 'all' ? 'Show only mine and nobody\'s' : 'Show everyone') + '</button></div>';
     const lane = (key, cls, title, small, list) => '<div class="opl-lane ' + cls + '" id="' + key + '"><div class="opl-hd"><h3>' + esc(title) + '</h3><small>' + esc(small) + '</small></div>'
       + (list.length ? list.map(r => laneRow(r, now)).join('') : '<div class="opl-none">' + (key === 'oplWait' ? 'Nobody is waiting on a call or text back.' : 'Nothing here right now.') + '</div>') + '</div>';
@@ -462,7 +465,7 @@
         const names = list.slice(0, 3).map(r => r.kind === 'approval' ? (r.it.caregiver || 'Write-up') : (r.it.about || r.it.title || '')).filter(Boolean).join(', ');
         return '<div class="opl-brow" data-batch="' + k + '"><div class="n">' + list.length + '</div><div><b>' + esc(BATCH[k][0]) + '</b><div class="opl-sub">' + esc(names ? names + (list.length > 3 ? ' and ' + (list.length - 3) + ' more' : '') : BATCH[k][1]) + '</div></div>'
           + '<button class="' + (open ? 'ghost' : 'primary') + '" aria-expanded="' + open + '" onclick="OPB.batch(\'' + k + '\')">' + (open ? 'Close' : 'Open') + '</button></div>'
-          + (open ? '<div class="opl-in">' + list.map(r => laneRow(r, now)).join('') + '</div>' : ''); }).join('') : '<div class="opl-none">Nothing to batch right now.</div>') + '</div>';
+          + (open ? '<div class="opl-in">' + list.map(r => laneRow(r, now)).join('') + '</div>' : ''); }).join('') : (feedHtml ? '' : '<div class="opl-none">Nothing to batch right now.</div>')) + feedHtml + '</div>';
     const foot = [];
     if(M.old.length) foot.push('<button class="linklike" style="font:inherit;" aria-expanded="' + L.oldOpen + '" onclick="OPB.oldToggle()">' + (L.oldOpen ? 'Hide' : 'Show') + ' ' + M.old.length + ' older than a week</button>');
     const T = Object.keys(M.team).sort((a, b) => M.team[b].n - M.team[a].n);
