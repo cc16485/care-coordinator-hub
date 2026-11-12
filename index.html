@@ -7694,7 +7694,7 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-page.js?v=6"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="ask-panel.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -42348,12 +42348,21 @@ function covOpenBody(c,tallies){
     +'</details>';
   /* THE SIMPLE CASE CARD (2026-10-24, simple-card.js, switch simple_card_live): one status line, three actions, the compact
      answers and one list in three groups; Cara's history and the time and hand-off settings join "More for this shift" */
+  /* ASK CAREGIVERS, ONE PANEL (2026-11-12, ask-panel.js, switch ask_panel_live): who to ask in three choices (worked with the
+     client, right level, whole team), tick boxes and one send. It stands in for the simple card's list, the classic picker,
+     Ask everyone now and the PRN team buttons. On call, the answers, confirming a yes and everything under More stay. */
+  if(window.AP&&AP.on(c)){
+    const extraA=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
+    const moreA=more.replace('Covered or Close</summary>','Covered or Close</summary>'+extraA).replace(covPickerHtml(c),'').replace('<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>','');
+    return (ns.k==='yes'?banner+covConfirmHtml(c):'')+cipCaseHtml(c)+(window.ONC?ONC.html(c):'')+AP.html(c)
+      +'<div style="margin-top:8px;">'+covOutreachHtml(c)+'</div><div id="covFollow_'+id+'"></div>'+moreA;
+  }
   if(scOn){
     const extra=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
     /* 2026-10-31: the simple card shows who is on call (it was left out) and the PRN team buttons, first */
-    return (window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) });
+    return (window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+SC.body(c,{ cip:cipCaseHtml(c), more:more.replace('Covered or Close</summary>','Covered or Close</summary>'+extra) })+(window.AP?AP.previewLink(c):'');
   }
-  return banner+cipCaseHtml(c)+(window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'');
+  return banner+cipCaseHtml(c)+(window.ONC?ONC.html(c)+ONC.prnHtml(c):'')+(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.on()?CB.html(c):'')+primary+'<div id="covFollow_'+id+'"></div>'+more+(window.SC?SC.previewLink(c):'')+(window.AP?AP.previewLink(c):'');
 }
 function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
 function covClosedBody(c,tallies){
