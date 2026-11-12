@@ -49,10 +49,14 @@
 <div class="sub">Tell us the hours you want and when you want them. We use this to offer you shifts first. Update it any time your life changes.</div>
 
 <div class="card" id="phoneCard">
+  <!-- 2026-11-12 (open doors): a typed phone number no longer opens anyone's hours. It only asks the server to text
+       that caregiver's own personal link to the number we have on file. The answer is the same for every number. -->
   <label>Your phone number</label>
   <input id="ph" type="tel" inputmode="tel" placeholder="417-555-1234">
-  <button class="primary" style="margin-top:12px;" onclick="lookup()">Continue</button>
+  <div class="note" style="margin-top:8px;">To keep your information private, we text you a personal link. Tap it to see and update your hours.</div>
+  <button class="primary" id="linkBtn" style="margin-top:12px;" onclick="textMyLink()">Text me my link</button>
   <div class="err" id="phErr"></div>
+  <div id="linkDone"></div>
 </div>
 
 <div id="form" style="display:none;">
@@ -82,11 +86,12 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 const DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
 const WINS=[['morning','Morn'],['afternoon','Day'],['evening','Eve'],['overnight','Night']];   // 'afternoon' is shown as Daytime
 let SEL={};
-/* PRN4 (2026-09-29): a PRN CNA's 60-day check-in text links here with their own sealed link (c, e, t), so they don't
-   type their phone number. Anything forged or expired falls back to the phone number, as always. */
+/* PRN4 (2026-09-29): a PRN CNA's 60-day check-in text links here with their own sealed link (c, e, t).
+   2026-11-12 (open doors): the sealed link is now the ONLY way in, for everyone. Without one (or with a forged or
+   expired one) the page offers "Text me my link", which sends their link to the number on file. */
 const QS=new URLSearchParams(location.search);
 let LINK=(QS.get('c')&&QS.get('e')&&QS.get('t'))?{ c:QS.get('c'), e:QS.get('e'), t:QS.get('t') }:null;
-const who=()=>LINK?Object.assign({},LINK):{ phone:$('ph').value };
+const who=()=>LINK?Object.assign({},LINK):{};
 
 async function call(body){
   try{
@@ -108,8 +113,24 @@ function tog(d,w,el){
   if(i>=0){ SEL[d].splice(i,1); el.classList.remove('on'); el.textContent='+'; }
   else { SEL[d].push(w); el.classList.add('on'); el.textContent='✓'; }
 }
+let LINKING=false;
+async function textMyLink(){
+  if(LINKING) return;
+  $('phErr').textContent=''; $('linkDone').innerHTML='';
+  const ph=String($('ph').value||'').replace(/\D/g,'').slice(-10);
+  if(ph.length!==10){ $('phErr').textContent='Enter your 10-digit phone number.'; return; }
+  LINKING=true; $('linkBtn').disabled=true;
+  const out=await call({ action:'link', phone:ph });
+  LINKING=false; $('linkBtn').disabled=false;
+  if(out.error){ $('phErr').textContent=out.error; return; }
+  /* an answer without link_flow is an older server that does not text links yet: say so plainly, never "sent" */
+  if(!out.link_flow){ $('phErr').textContent='We could not text your link just now. Please try again in a few minutes, or call the office.'; return; }
+  if(out.held){ $('phErr').textContent=out.message; return; }
+  $('linkDone').innerHTML='<div class="ok">✅ '+esc(out.message)+'</div>';
+}
 async function lookup(){
   $('phErr').textContent='';
+  if(!LINK) return;
   const out=await call(who());
   if(out.error){ $('phErr').textContent=out.error; return; }
   if(out.unknown){ $('phErr').textContent=out.message; if(LINK){ LINK_FAILED(); } return; }

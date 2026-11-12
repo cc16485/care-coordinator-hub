@@ -419,7 +419,7 @@ async function polish(field, btn) {
   btn.disabled = true; btn.textContent = 'Checking…'; box.style.display = 'none';
   try {
     const r = await fetch(SB_URL + '/functions/v1/profile-polish', { method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ text }) });
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ text, t: T }) });
     const b = await r.json().catch(() => ({}));
     if (!r.ok || b.error) throw new Error('could not check');
     if (b.unchanged || String(b.polished).trim() === text) box.innerHTML = '<div class="none">✓ Nothing to fix. That reads well.</div>';
@@ -444,7 +444,7 @@ async function sayIt(field, btn) {
   btn.disabled = true; const was = btn.textContent; btn.textContent = 'Working on it…'; box.style.display = 'none';
   try {
     const r = await fetch(SB_URL + '/functions/v1/profile-polish', { method: 'POST',
-      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ mode: 'say', text, question: SAY_Q[field] }) });
+      headers: { 'Content-Type': 'application/json', apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, body: JSON.stringify({ mode: 'say', text, question: SAY_Q[field], t: T }) });
     const b = await r.json().catch(() => ({}));
     if (!r.ok || b.error || !b.said) throw new Error(b.error || 'could not help');
     box.innerHTML = '<div class="h">Here it is, made from what you typed. Use it, change it, or keep yours.</div><div class="txt" id="polished-' + field + '"></div>'
