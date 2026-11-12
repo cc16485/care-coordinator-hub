@@ -41,6 +41,7 @@ FAKE = r"""
     if(name!=='ff-invite-check') return { data:null, error:{ message:'unexpected '+name } };
     if(b.action==='list') return { data: JSON.parse(JSON.stringify(W.__ff)), error:null };
     if(b.action==='switch'){ W.__ff.switches[b.name==='ff_invites_live'?'live':b.name==='ff_reminders_live'?'reminders':'paused']=b.on; W.__ff.switches.log=[{ at:'2026-11-20T16:00:00Z', by:'Samantha Owner', name:b.name, on:b.on }]; return { data:{ ok:true }, error:null }; }
+    if(b.action==='set_referrer') return b.clear ? { data:{ ok:true, applicant_id:b.applicant_id, referred_by_org:null }, error:null } : { data:{ ok:true, applicant_id:b.applicant_id, referred_by_org:b.org_id, referrer:'Ann Able' }, error:null };
     if(b.action==='resend' && b.key==='cg_3') return { data:null, error:{ message:'x', context:{ json: async()=>({ error:'Invitations are off. Turn them on first.' }) } } };
     return { data:{ ok:true }, error:null }; } };
   DATA.referral_orgs=[{ id:'mercy', name:'Mercy Rehab', partner_code:'MERCY-K7', program_status:'active' },
@@ -65,7 +66,7 @@ T = r"""async()=>{
   ok('one status card says plainly "Invitations are OFF" and what that means, with real buttons (no tiny check boxes)', /Invitations are OFF/.test(q('#ffTop').innerText) && /Nobody is invited/.test(q('#ffTop').innerText) && /Turn invitations on/.test(q('#ffTop').innerText) && /Pause program/.test(q('#ffTop').innerText) && !q('#ffTop input'), q('#ffTop').innerText);
   /* four views, one at a time */
   const views=qa('.ff-views button').map(b=>b.innerText.replace(/\s+/g,' ').trim());
-  ok('four views, each with a count: Needs you 6 (red), Invitations 3, $100 rewards 5, Referrals 1', JSON.stringify(views.map(v=>v.replace(/\s/g,'')))===JSON.stringify(['Needsyou6','Invitations3','$100rewards5','Referrals1']) && q('.ff-views button[data-v="needs"] .ff-n.hot'), views);
+  ok('four views, each with a count: Needs you 6 (red), Invitations 3, Rewards 5 (2026-11-12: the amounts differ now, so the tab is just "Rewards"), Referrals 1', JSON.stringify(views.map(v=>v.replace(/\s/g,'')))===JSON.stringify(['Needsyou6','Invitations3','Rewards5','Referrals1']) && q('.ff-views button[data-v="needs"] .ff-n.hot'), views);
   ok('it opens on Needs you, and only that view is on the page', q('.ff-views button[data-v="needs"]').getAttribute('aria-selected')==='true' && !q('#ffList') && !q('#ffRewards'));
   ok('Needs you: one card per kind of job, each with a plain heading', JSON.stringify(cardTitles())===JSON.stringify(['Ready to approve','Under review','Tick when payment is received','Apply the credit or pay the bonus','Invitations that didn’t go through','Payer needed']), cardTitles());
   const rw=id=>q('.ff-row[data-rw="'+id+'"]'), rt=id=>rw(id).innerText;
@@ -120,7 +121,7 @@ T = r"""async()=>{
   ok('Undo skip goes to the server', window.__calls.some(c=>c[1].action==='unskip' && c[1].key==='cg_9'), window.__calls);
   /* Rewards view */
   FFT.view('rewards'); await sleep(80);
-  ok('$100 rewards: grouped by stage, every group named even when empty', JSON.stringify(cardTitles())===JSON.stringify(['Ready to approve','Under review','Approved: apply the credit or pay the bonus','On the way','Done']), cardTitles());
+  ok('$100 rewards: grouped by stage, every group named even when empty', JSON.stringify(cardTitles())===JSON.stringify(['Ready to approve','Under review','Approved: apply the credit or pay the bonus','On the way','Done','Caregiver hiring bonus']), cardTitles());
   ok('...Done shows Pam: paid on the Nov 13 payroll, no buttons, no check boxes', /Paid on the Nov 13 payroll/.test(rt('R5')) && !rw('R5').querySelectorAll('button,input').length, rt('R5'));
   ok('...Few Hours (On the way): 12 so far, not ticked, what to look at once earned', /○ 20 hours \(12 so far\)/.test(rt('R3')) && /To look at once earned: the new client pays with long-term care insurance/.test(rt('R3')), rt('R3'));
   /* Referrals view */
@@ -138,6 +139,44 @@ T = r"""async()=>{
   [...q('#ffTop').querySelectorAll('button')].find(b=>/Pause program/.test(b.textContent)).click(); await sleep(250);
   ok('...saying No leaves it as it was', !window.__calls.some(c=>c[1].action==='switch') && /Invitations are ON/.test(q('#ffTop').innerText));
   ok('Friends & Family people are not in the professional Program view', PartnerLinksRules.inProgram(DATA.referral_orgs[0]) && !PartnerLinksRules.inProgram(DATA.referral_orgs[1]));
+  /* ── the caregiver hiring bonus (2026-11-12, "Wait, build both") ── */
+  window.ccConfirm=async()=>true; (0,eval)('ccConfirm=window.ccConfirm');
+  const A1='11111111-1111-4111-8111-111111111111', A2='22222222-2222-4222-8222-222222222222', A3='33333333-3333-4333-8333-333333333333';
+  const hl=(aid,part,o)=>Object.assign({ lead_id:'hire:'+aid+':'+part, kind:'hire', part, amount:50, org_id:'ff_cg_1', referrer:'Ann Able', referrer_kind:'caregiver', referrer_ax:'1', applicant_id:aid, status:'on_the_way', reasons:[] }, o);
+  const before=window.__ff.rewards.length;
+  window.__ff.rewards.push(
+    hl(A1,1,{ hire_name:'Nia New', client_name:'Nia New', status:'ready', shifts:3, first_shift:'2026-11-10', shifts_read_on:'2026-11-20', hire_active:true, referrer_active:true }),
+    hl(A1,2,{ hire_name:'Nia New', client_name:'Nia New', shifts:3, first_shift:'2026-11-10', shifts_read_on:'2026-11-20', hire_active:true, referrer_active:true }),
+    hl(A2,1,{ hire_name:'Otis Old', client_name:'Otis Old', status:'under_review', shifts:1, first_shift:'2026-11-18', shifts_read_on:'2026-11-20', hire_active:true, referrer_active:true, reasons:['the new hire may have worked for Caring Companions before'] }));
+  window.__ff.hire={ part_amount:50, days:60, shifts:10 };
+  window.__ff.hire_notes=[{ applicant_id:A3, name:'Fay Family', code:'DANA-K7', org_id:'ff_fam_1', why:'Referred with a family or client link (Dana Ridge). Family and client links are for referring new clients, so there is no hiring bonus.' }];
+  DATA.referral_orgs.push({ id:'ff_cg_1', name:'Ann Able', type:'Friends & Family', program_track:'friends', program_status:'active', partner_code:'ANN-K7', ff_key:'cg_1', ff_kind:'caregiver' });
+  const needBefore=Number(q('.ff-views button[data-v="needs"] .ff-n').textContent);
+  await FFT.load(); await sleep(150); FFT.view('needs'); await sleep(80);
+  ok('hiring bonus: a ready part and one under review join Needs you (two more), and the part still waiting does not ask for a payment tick', Number(q('.ff-views button[data-v="needs"] .ff-n').textContent)===needBefore+2 && !qa('.ff-card').find(c=>/Tick when payment/.test(c.innerText) && /Nia New|Otis Old/.test(c.innerText)), q('.ff-views').innerText);
+  const h=id=>q('.ff-row[data-rw="'+id+'"]'), ht=id=>h(id).innerText;
+  ok('...Nia, part 1: marked Hiring bonus, who referred her, $50 on that caregiver’s paycheck, first shift done, Approve', /^Nia New\s*Hiring bonus/.test(ht('hire:'+A1+':1')) && /New caregiver · referred by Ann Able \(caregiver\) · \$50 bonus on Ann Able’s paycheck · part 1 of 2/.test(ht('hire:'+A1+':1')) && /✓ First completed shift \(Nov 10\)/.test(ht('hire:'+A1+':1')) && /Approve/.test(ht('hire:'+A1+':1')) && !h('hire:'+A1+':1').querySelector('input'), ht('hire:'+A1+':1'));
+  ok('...Otis is under review with the reason in words, and can be approved anyway or marked not earned', /may have worked for Caring Companions before/.test(ht('hire:'+A2+':1')) && /Approve anyway/.test(ht('hire:'+A2+':1')) && /Not earned/.test(ht('hire:'+A2+':1')), ht('hire:'+A2+':1'));
+  window.__calls=[]; [...h('hire:'+A1+':1').querySelectorAll('button')].find(b=>b.textContent==='Approve').click(); await sleep(300);
+  ok('...Approve sends that line to the server like any reward', window.__calls.some(c=>c[1].action==='reward' && c[1].lead_id==='hire:'+A1+':1' && c[1].op==='approve'), window.__calls);
+  FFT.view('rewards'); await sleep(80);
+  ok('Rewards view: part 2 is On the way with its three checks (3 of 10 shifts, day 10 of 60, both still active)', /part 2 of 2/.test(ht('hire:'+A1+':2')) && /○ 10 shifts \(3 so far\)/.test(ht('hire:'+A1+':2')) && /○ 60 days \(day 10\)/.test(ht('hire:'+A1+':2')) && /✓ Both still active/.test(ht('hire:'+A1+':2')) && !/20 hours/.test(ht('hire:'+A1+':2')), ht('hire:'+A1+':2'));
+  ok('...the family rows are as they were (20 hours and the payment tick)', /20 hours \(12 so far\)/.test(rt('R3')) && window.__ff.rewards.length===before+3);
+  const hc=()=>q('#ffHire').innerText;
+  ok('the hiring bonus card says the rule in one line and lists who applied with a link but has no bonus, and why', /\$50 after the new hire’s first completed shift and \$50 more after 60 days and 10 shifts with both still active/.test(hc()) && /Fay Family[\s\S]*Applied with the link DANA-K7[\s\S]*Family and client links are for referring new clients/.test(hc()), hc());
+  [...q('.ff-row[data-hn="'+A3+'"]').querySelectorAll('button')].find(b=>/Set who referred them/.test(b.textContent)).click(); await sleep(80);
+  const opts=[...q('#ffHrOrg').options].map(o=>o.textContent);
+  ok('Set who referred them: only caregivers with a link can be chosen (never a family or a professional partner)', JSON.stringify(opts)===JSON.stringify(['Choose a caregiver','Ann Able']) && /Fay Family was referred by/.test(q('#ffHr').innerText), opts);
+  window.__calls=[]; [...q('#ffHr').querySelectorAll('button')].find(b=>b.textContent==='Save').click(); await sleep(150);
+  ok('...Save with nobody chosen sends nothing and says so', !window.__calls.some(c=>c[1].action==='set_referrer') && /Choose the caregiver/.test(window.__toast), window.__toast);
+  q('#ffHrOrg').value='ff_cg_1'; [...q('#ffHr').querySelectorAll('button')].find(b=>b.textContent==='Save').click(); await sleep(300);
+  ok('...choosing Ann and Save sends the applicant and her record to the server, and says the lines are checked tomorrow', window.__calls.some(c=>c[1].action==='set_referrer' && c[1].applicant_id===A3 && c[1].org_id==='ff_cg_1' && !c[1].clear) && /Ann Able is the referrer/.test(window.__toast), [window.__calls, window.__toast]);
+  window.__calls=[]; [...q('.ff-row[data-hn="'+A3+'"]').querySelectorAll('button')].find(b=>/Remove referrer/.test(b.textContent)).click(); await sleep(300);
+  ok('...Remove referrer asks first, then clears it on the server', window.__calls.some(c=>c[1].action==='set_referrer' && c[1].applicant_id===A3 && c[1].clear===true), window.__calls);
+  ok('no em dashes anywhere on the tab', !/—/.test(tab().innerText));
+  window.__as('krystal@mo-care.com','Krystal Land'); (0,eval)("CC_ROLES=['care_coordinator']"); window.__calls=[]; switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(400);
+  ok('a Care Coordinator still sees none of it: no hiring bonus names, no buttons, no server call', /Owners run this program/.test(txt()) && !/Nia New|Otis Old|Fay Family|Hiring bonus/.test(txt()) && !tab().querySelectorAll('button,input,select').length && !window.__calls.length, txt().slice(0,200));
+  window.__as('sam@mo-care.com','Samantha Owner'); switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(400);   /* back to the owner for the pictures */
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []; R = []
