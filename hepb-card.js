@@ -86,7 +86,8 @@
       /* 2026-11-05: Safari shows today in gray in an empty date box, so each box says what it is for (it looked filled in) */
       if(!row.training_date) h += '<label class="field-note" for="hbTr' + i + '" style="margin-right:4px">Training date:</label><input type="date" id="hbTr' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Confirm training date', 'HEPB.act(' + i + ',\'confirm_training\')');
       if(!row.assignment_date) h += ' <label class="field-note" for="hbAs' + i + '" style="margin:0 4px 0 8px">First assignment date:</label><input type="date" id="hbAs' + i + '" max="' + today + '" style="max-width:10rem"> ' + btn('Set initial assignment', 'HEPB.act(' + i + ',\'set_assignment\')');
-      if(row.may_send) h += btn('Send link', 'HEPB.act(' + i + ',\'send_link\')');
+      /* 2026-11-12 (her switch review): the Hub never texts or emails the offer. This button only copies the caregiver's private link for the office to give by hand. */
+      if(row.may_send) h += btn('Copy link', 'HEPB.act(' + i + ',\'send_link\')');
       if(!row.offered_at && row.status_label === 'Not offered yet') h += btn('Record offer made in person', 'HEPB.act(' + i + ',\'record_offer\')');
       h += '</div>';
     }
@@ -125,8 +126,13 @@
     if(a === 'record_offer'){ const how = (await ccPrompt('How was the vaccine offered? (for example: in person at the office, by phone)')); if(!how) return; body.how = how; }
     const r = await call(body);
     if(!r.ok){ c.msg = r.error; c.msgOk = false; return draw(c); }
-    c.msg = a === 'send_link' ? (r.data.state === 'sent' ? 'Sent.' : r.data.state === 'practice' ? 'Practice: nothing was sent. ' + (r.data.why || '') : 'Not sent: ' + (r.data.not_sent || []).join('; ')) : 'Saved.';
-    c.msgOk = a !== 'send_link' || r.data.state === 'sent';
+    if(a === 'send_link'){
+      /* the server sends nothing: it hands back the link ('link'; an older server said 'practice' and also sent nothing) */
+      const link = String(r.data.link || ''); let copied = false;
+      if(link){ try{ await navigator.clipboard.writeText(link); copied = true; }catch(e){} }
+      c.msg = link ? ((copied ? 'Link copied. ' : 'Their link: ' + link + ' ') + (r.data.why || 'Nothing was sent. Give it to them yourself, then press Record offer.')) : (r.data.state === 'sent' ? 'Sent.' : 'No link came back. Offer it in person and press Record offer.');
+      c.msgOk = !!link || r.data.state === 'sent';
+    } else { c.msg = 'Saved.'; c.msgOk = true; }
     await load(c);
   }
   async function open(i, what){

@@ -127,7 +127,7 @@
     const state = sw.paused ? 'paused' : sw.live ? 'on' : 'off';
     const last = Array.isArray(sw.log) && sw.log.length ? sw.log[sw.log.length - 1] : null;
     let h = '<div class="ff-top ' + state + '" id="ffTop"><div class="ff-state">' + ({ on:'Invitations are ON', off:'Invitations are OFF', paused:'The program is paused' }[state])
-      + '<small>' + ({ on:'Each person who is ready gets one invitation, on a weekday morning (' + esc(d.cap || 60) + ' a morning at most).', off:'Nobody is invited. The list below still updates every morning so you can check it.', paused:'Nothing is sent while the program is paused. The $100 tracking keeps going.' }[state])
+      + '<small>' + ({ on:'Each person who is ready gets one invitation, once. They go out once a week, on Monday morning (' + esc(d.cap || 60) + ' at most).', off:'Nobody is invited. The list below still updates every morning so you can check it.', paused:'Nothing is sent while the program is paused. The $100 tracking keeps going.' }[state])
       + (last ? ' Last change by ' + esc(last.by) + ', ' + esc(when(last.at)) + '.' : '') + '</small></div><div class="acts">'
       + (sw.paused ? btn('Unpause', 'FFT.flip(\'ff_program_paused\', false)', true) : btn(sw.live ? 'Turn invitations off' : 'Turn invitations on', 'FFT.flip(\'ff_invites_live\', ' + (!sw.live) + ')', !sw.live) + btn('Pause program', 'FFT.flip(\'ff_program_paused\', true)'))
       + '</div></div>';
@@ -163,7 +163,7 @@
         const acts = skipped ? btn('Undo skip', 'FFT.unskip(\'' + esc(p.key) + '\')') : (!p.invited ? btn('Skip', 'FFT.skip(\'' + esc(p.key) + '\', \'' + esc(String(p.name).replace(/'/g, '')) + '\')') : '');
         return row({ attr:' data-key="' + esc(p.key) + '"', name:p.name, line,   /* the filter above says the status */ why:esc((p.why || []).filter(w => !/^Email only/.test(w) || p.status !== 'ready').join(' · ')) + (p.note ? ' · ' + esc(p.note) : ''), acts });
       });
-      h += '<div class="ff-card" id="ffList"><h3>Who gets an invitation</h3><p>Checked every morning. Ready means they get one the next weekday morning once invitations are on.</p>'
+      h += '<div class="ff-card" id="ffList"><h3>Who gets an invitation</h3><p>Checked every morning. Ready means they get one the next Monday morning once invitations are on.</p>'
         + '<div class="ff-filters">' + F.map(([k, w, n]) => '<button class="secondary" aria-pressed="' + (ST.show === k) + '" onclick="FFT.show(\'' + k + '\')">' + esc(w) + ' (' + n + ')</button>').join('')
         + '<input id="ffQ" type="search" placeholder="Search a name" value="' + esc(ST.q) + '" oninput="FFT.search(this.value)"></div>'
         + (rows.length ? rows.join('') : '<div class="ff-empty">Nobody here.</div>') + '</div>';
@@ -188,7 +188,7 @@
   }
 
   async function flip(name, on){
-    const word = name === 'ff_invites_live' ? (on ? 'Turn Invitations ON? Every ready person will be invited the next weekday morning, once, in the approved words.' : 'Turn Invitations OFF? Nothing more is sent until they are back on.')
+    const word = name === 'ff_invites_live' ? (on ? 'Turn Invitations ON? Every ready person will be invited next Monday morning, once, in the approved words. After that, newly ready people are invited each Monday.' : 'Turn Invitations OFF? Nothing more is sent until they are back on.')
       : name === 'ff_reminders_live' ? (on ? 'Turn Reminders ON? Anyone already invited and still ready gets a short reminder: caregivers every 3 months, families every 6 months.' : 'Turn Reminders OFF? No more reminders are sent.')
       : (on ? 'Pause the program? Nothing is sent while it is paused.' : 'Unpause the program?');
     let yes = false; try{ yes = await ccConfirm(word); }catch(e){ yes = window.confirm(word); }
