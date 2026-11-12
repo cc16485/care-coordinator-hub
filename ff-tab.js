@@ -168,12 +168,8 @@
       why:x.status === 'sent' ? '' : esc(ch), bad:x.status === 'failed', acts:btn('Resend', 'FFT.resend(\'' + esc(x.person_key) + '\')') });
   }
 
-  function draw(){
-    const m = el(); if(!m) return; css();
-    if(!owner()){ m.innerHTML = '<div class="ff-card" style="padding:16px 18px;"><b style="color:var(--navy)">Owners run this program</b><p class="field-note" style="margin:6px 0 0;">Nothing here needs anything from you. If someone asks about referring a friend, they can call the office at (417) 234-8494.</p></div>'; return; }
-    const d = ST.data;
-    if(!d){ m.innerHTML = '<div class="field-note">' + (ST.busy ? 'Loading…' : '') + '</div>'; return; }
-    if(d.error){ m.innerHTML = '<div class="ff-banner">' + esc(d.error) + ' <button class="secondary" onclick="FFT.load()">Try again</button></div>'; return; }
+  /* what needs an owner, in one place: the tab draws from it and the Operations Board counts it (board-feeds.js, 2026-11-12) */
+  function needParts(d){
     const run = d.run || {}, people = (Array.isArray(run.people) ? run.people : []).filter(p => p.kind !== 'client'), inv = Array.isArray(d.invites) ? d.invites : [], sw = d.switches || {};
     const rw = Array.isArray(d.rewards) ? d.rewards : [], refs = referrals();
     const sent = inv.filter(x => x.status !== 'skipped');
@@ -183,6 +179,15 @@
     const toFinish = rw.filter(x => x.status === 'approved'), failed = sent.filter(x => x.status !== 'sent');
     const pn = new Map();
     for(const p of (Array.isArray(run.people) ? run.people : [])) if((p.why || []).some(w => /^Payer needed/.test(w))){ const k = p.client_ax || p.client || p.name; if(!pn.has(k)) pn.set(k, { client:p.client || p.name, why:(p.why || []).find(w => /^Payer needed/.test(w)) }); }
+    return { run, people, inv, sw, rw, refs, sent, toApprove, toReview, toTick, toFinish, failed, pn };
+  }
+  function draw(){
+    const m = el(); if(!m) return; css();
+    if(!owner()){ m.innerHTML = '<div class="ff-card" style="padding:16px 18px;"><b style="color:var(--navy)">Owners run this program</b><p class="field-note" style="margin:6px 0 0;">Nothing here needs anything from you. If someone asks about referring a friend, they can call the office at (417) 234-8494.</p></div>'; return; }
+    const d = ST.data;
+    if(!d){ m.innerHTML = '<div class="field-note">' + (ST.busy ? 'Loading…' : '') + '</div>'; return; }
+    if(d.error){ m.innerHTML = '<div class="ff-banner">' + esc(d.error) + ' <button class="secondary" onclick="FFT.load()">Try again</button></div>'; return; }
+    const { run, people, inv, sw, rw, refs, sent, toApprove, toReview, toTick, toFinish, failed, pn } = needParts(d);
     const needN = toApprove.length + toReview.length + toTick.length + toFinish.length + failed.length + pn.size;
     if(!ST.view) ST.view = needN ? 'needs' : 'invites';
     const count = st => people.filter(p => p.status === st).length;
@@ -291,6 +296,14 @@
     load();
   }
   function mount(){ draw(); if(owner()) load(); }   /* a Care Coordinator's page never asks the server */
-  window.FFT = { mount, load, draw, flip, skip, unskip, resend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
+  /* the Operations Board's row: how many things on this tab need an owner. Owners only; never asks the server for anyone else. */
+  async function needs(){
+    if(!owner()) return { n:0 };
+    if(!ST.data || ST.data.error){ ST.data = await call({ action:'list' }); try{ draw(); }catch(e){} }
+    if(!ST.data || ST.data.error) return { n:0, err:true };
+    const p = needParts(ST.data);
+    return { n:p.toApprove.length + p.toReview.length + p.toTick.length + p.toFinish.length + p.failed.length + p.pn.size };
+  }
+  window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
     view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();

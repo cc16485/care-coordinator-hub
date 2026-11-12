@@ -51,7 +51,7 @@ SETUP = r"""async(mode)=>{
   const day=n=>{ const d=new Date(Date.now()+n*864e5); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
   window.trainHubTok=async()=>'tok'; window.__osCalls=0;
   const real=window.fetch.bind(window);
-  window.fetch=async(u,o)=>{ if(String(u).indexOf('axiscare-open-shifts')>=0){ window.__osCalls++; window.__osBody=o&&o.body;
+  window.fetch=async(u,o)=>{ if(String(u).indexOf('axiscare-open-shifts')>=0){ /* the Care Match row (board-feeds.js) asks the same service for pairs; this counts the week card's ask only */ if(/"pairs"/.test(String(o&&o.body||''))) return new Response(JSON.stringify({ pairs:[] })); window.__osCalls++; window.__osBody=o&&o.body;
       return new Response(JSON.stringify({ open_count:2, open:[{ client:'Example: Harold J.', date:day(1), start:'8:00 AM', end:'12:00 PM', start24:'08:00' }, { client:'Example: Ruth K.', date:day(5), start:'7:00 PM', end:'11:00 PM', start24:'19:00' }] }), { headers:{ 'Content-Type':'application/json' } }); }
     return real(u,o); };
   switchTab('mywork'); myWorkGo(live ? 'board' : 'today'); await new Promise(r=>setTimeout(r,80));
