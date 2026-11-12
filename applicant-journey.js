@@ -1098,6 +1098,22 @@ window.AP_JOURNEY = [
  },
  {
   "stage": "first shift",
+  "order": 31.05,
+  "name": "My personal availability link (they asked for it)",
+  "trigger": "A caregiver opens cc.mo-care.com/availability, types their phone number and taps 'Text me my link'. The number must match exactly one active roster caregiver; the link goes to the number on file. The page shows the same answer for every number.",
+  "automatic": true,
+  "button": null,
+  "timing": "At once, 7am to 10pm Central. One per caregiver per day, at most 30 an hour across everyone.",
+  "channel": "text only",
+  "rule": "audience caregiver, opt-out check. Since 2026-11-12 a typed phone number no longer opens anyone's hours; the personal link is the only way in. The link works for 21 days.",
+  "subject": null,
+  "text": "Caring Companions: here is your personal link to see and update the hours you want. {link} Reply STOP to opt out.",
+  "email_summary": null,
+  "shows_in_ghl": true,
+  "failure_visible": true
+ },
+ {
+  "stage": "first shift",
   "order": 31.1,
   "name": "30-day availability text (on file)",
   "trigger": "availability-checkin weekday job: an active caregiver whose availability was last saved or confirmed 30+ days ago.",
