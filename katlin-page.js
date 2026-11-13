@@ -237,11 +237,11 @@
         ${big ? `<div class="kp-grp" style="margin-top:0">${esc(p.label || 'Week ' + p.week)} · ${esc(fmtDay(p.date))}</div>` : ''}
         <div class="kp-text" id="kpText${p.week}">${esc(p.text)}</div>
         <div class="kp-row"><button class="primary" onclick="KP.copy(${p.week})">Copy the text</button>
-          <a class="secondary" style="text-decoration:none;display:inline-block;padding:7px 12px;border-radius:8px;border:1px solid var(--border,#d8d3c7);color:inherit" href="nextdoor/${esc(p.photo)}" download="nextdoor-week-${p.week}.jpg">Save the photo</a>
+          <a class="secondary" style="text-decoration:none;display:inline-block;padding:7px 12px;border-radius:8px;border:1px solid var(--border,#d8d3c7);color:inherit" href="nextdoor/${esc(p.photo)}${p.v ? "?v=" + esc(p.v) : ""}" download="nextdoor-week-${p.week}.jpg">Save the photo</a>
           ${mark ? `<span class="kp-ok">✓ Posted ${esc(fmtAt(mark.at))}</span> <button class="kp-x" title="Not posted after all" onclick="KP.posted(${p.week},false)">undo</button>`
                  : `<button class="secondary" onclick="KP.posted(${p.week},true)">I posted it</button>`}
           <span class="kp-when" id="kpCopied${p.week}"></span></div>
-      </div><div class="kp-photo"><img src="nextdoor/${esc(p.photo)}" alt="Photo for this post"${big ? '' : ' loading="lazy"'}></div></div>`;
+      </div><div class="kp-photo"><img src="nextdoor/${esc(p.photo)}${p.v ? "?v=" + esc(p.v) : ""}" alt="Photo for this post"${big ? '' : ' loading="lazy"'}></div></div>`;
   }
 
   /* ── the four views ── */
