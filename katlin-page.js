@@ -234,7 +234,7 @@
   function postBlock(p, posted, big){
     const mark = posted[p.week];
     return `<div class="kp-post"><div>
-        ${big ? `<div class="kp-grp" style="margin-top:0">Week ${p.week} · ${esc(fmtDay(p.date))}</div>` : ''}
+        ${big ? `<div class="kp-grp" style="margin-top:0">${esc(p.label || 'Week ' + p.week)} · ${esc(fmtDay(p.date))}</div>` : ''}
         <div class="kp-text" id="kpText${p.week}">${esc(p.text)}</div>
         <div class="kp-row"><button class="primary" onclick="KP.copy(${p.week})">Copy the text</button>
           <a class="secondary" style="text-decoration:none;display:inline-block;padding:7px 12px;border-radius:8px;border:1px solid var(--border,#d8d3c7);color:inherit" href="nextdoor/${esc(p.photo)}" download="nextdoor-week-${p.week}.jpg">Save the photo</a>
@@ -265,12 +265,12 @@
     else if(!PX.list){ html += '<p class="kp-when">Loading the posts…</p>'; loadPosts(); }
     else{
       const cur = currentPost(PX.list, today), miss = missed(PX.list, cur, posted, today);
-      if(miss.length) html += `<div class="kp-warn">Not marked posted yet: ${miss.map(p => 'week ' + p.week + ' (' + esc(fmtDay(p.date)) + ')').join(', ')}. You'll find ${miss.length > 1 ? 'them' : 'it'} under Earlier posts.</div>`;
+      if(miss.length) html += `<div class="kp-warn">Not marked posted yet: ${miss.map(p => (p.label ? esc(p.label) : 'week ' + p.week) + ' (' + esc(fmtDay(p.date)) + ')').join(', ')}. You'll find ${miss.length > 1 ? 'them' : 'it'} under Earlier posts.</div>`;
       html += cur ? `<p class="kp-when" style="margin-top:0">Post it on the Caring Companions business page (not a personal profile), around 10 to 11am Missouri time on ${esc(fmtDay(cur.date))}.</p>` + postBlock(cur, posted, true) : '<p>No posts loaded.</p>';
       const next = upcoming(PX.list, cur, 4);
-      if(next.length) html += `<div class="kp-grp" style="margin-top:18px">Coming up</div>` + next.map(p => `<details><summary>Week ${p.week} · ${esc(fmtDay(p.date))} · ${esc(p.title)}</summary>${postBlock(p, posted, false)}</details>`).join('');
+      if(next.length) html += `<div class="kp-grp" style="margin-top:18px">Coming up</div>` + next.map(p => `<details><summary>${esc(p.label || 'Week ' + p.week)} · ${esc(fmtDay(p.date))} · ${esc(p.title)}</summary>${postBlock(p, posted, false)}</details>`).join('');
       const earlier = (PX.list || []).filter(p => cur && p.date < cur.date).slice(-4).reverse();
-      if(earlier.length) html += `<div class="kp-grp" style="margin-top:18px">Earlier posts</div>` + earlier.map(p => `<details><summary>Week ${p.week} · ${esc(fmtDay(p.date))} · ${esc(p.title)}${posted[p.week] ? ' ✓' : ''}</summary>${postBlock(p, posted, false)}</details>`).join('');
+      if(earlier.length) html += `<div class="kp-grp" style="margin-top:18px">Earlier posts</div>` + earlier.map(p => `<details><summary>${esc(p.label || 'Week ' + p.week)} · ${esc(fmtDay(p.date))} · ${esc(p.title)}${posted[p.week] ? ' ✓' : ''}</summary>${postBlock(p, posted, false)}</details>`).join('');
     }
     return html + `</div>`;
   }
