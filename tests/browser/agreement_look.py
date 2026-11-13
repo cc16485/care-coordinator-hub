@@ -11,10 +11,11 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.abspath(os.pat
 OUT = sys.argv[1] if len(sys.argv) > 1 else '/tmp'
 FIELDS = json.load(open(os.path.join(HERE, 'agreement_fields.json')))
 SERVER_ONLY = lambda k: k.startswith(('ini.', 'sig.', 'ci.sig.', 'date.')) or k in ('poa.initials', 'ci.client_s_name')
-OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care']
+OFFICE_KEYS = ['level.wellness_care', 'level.personal_care', 'level.advanced_care', 'level.hourly_rate', 'rates.wellness_care', 'rates.personal_care', 'rates.advanced_care',
+               'esv.enrolled', 'esv.once_a_month', 'esv.every_other_week', 'esv.regular_visit_day_and_time']   # 2026-11-12 Exhibit J: the office decides
 INITIALS = {'1': 'Rates, billing and cancellations', '2': 'Services, safety, home access and the emergency plan (Exhibits B and D)', '3': 'Transportation and use of my car',
             '4': 'Privacy and communication choices (photos, permission to communicate, HIPAA)', '5': 'I received the Client Handbook (Exhibits C and E) and agree to the Infectious Disease Waiver (Exhibit F)', '6': 'Non-solicitation and the $5,000 direct hire fee'}
-CURRENT = '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0'   # 2026-11-07: drafts start on the current master (no Booking App), as the server does
+CURRENT = '1137e7e60865b671276bc0a252742e1757a7690f22c835113b367ba45c1b1d1f'   # 2026-11-12: drafts start on the current master (with Exhibit J, Early Support Visits), as the server does
 FORM = {'doc': 'client-care-agreement', 'version': 'Rev. 10/2026', 'pdf_sha256': CURRENT, 'esign_words': 'I agree to sign this Client Care Agreement electronically.', 'initials': INITIALS, 'fields': FIELDS, 'office_keys': OFFICE_KEYS}
 R = []
 def ck(n, c, d=''): R.append(('PASS' if c else 'FAIL', n, '' if c else str(d)[:500]))
@@ -68,6 +69,11 @@ def flow(browser, name, w, h):
     st = {'calls': []}; page.route('**/functions/v1/client-agreement', fake(st))
     page.goto(BASE + '/agreement.html?ax=901'); page.wait_for_selector('#startBtn')
     ck(f'{name}: office set-up shows for a new agreement', page.locator('#view h1').inner_text() == 'Set up the agreement')
+    # 2026-11-12 (Samantha: Early Support Visits inside the agreement, Exhibit J): the office ticks it here, with its schedule and day
+    ck(f'{name}: set-up offers Early Support Visits (Exhibit J): the enrolling box, two schedules with their prices, the visit day',
+       page.locator('#esvCard [data-t="esv.enrolled"]').count() == 1 and page.locator('#esvCard [data-one="esv.once_a_month,esv.every_other_week"]').count() == 2
+       and '$152' in page.inner_text('#esvCard') and '$140' in page.inner_text('#esvCard') and page.locator('#esvCard input[data-k="esv.regular_visit_day_and_time"]').count() == 1, page.inner_text('#view')[:400])
+    page.screenshot(path=os.path.join(OUT, f'agreement-setup-{name}.png'), full_page=True)
     page.click('[data-t="level.personal_care"]'); page.fill('[data-k="level.hourly_rate"]', '32'); page.click('[data-ad="guide"]'); page.click('#startBtn')
     page.wait_for_selector('#sName')
     s = [c for c in st['calls'] if c.get('action') == 'start'][0]
@@ -75,7 +81,7 @@ def flow(browser, name, w, h):
        s['office'] == {'level.personal_care': True, 'rates.personal_care': True, 'level.hourly_rate': '32'} and s['addenda'] == ['guide'] and s['client_ax'] == '901', s)
     ck(f'{name}: the address bar now holds the agreement id (a reload continues it)', 'id=11111111' in page.url, page.url)
     # the real pages, with the blanks on them
-    ck(f'{name}: the office sees all 23 real agreement pages', page.locator('.pg').count() == 23 and page.locator('#view h1').inner_text() == 'Fill in the agreement')
+    ck(f'{name}: the office sees all 26 real agreement pages', page.locator('.pg').count() == 26 and page.locator('#view h1').inner_text() == 'Fill in the agreement')
     pos = page.evaluate('window.__AG_TEST.POS')
     fam_text = [k for k, f in pos.items() if f['type'] == 'text' and k not in OFFICE_KEYS and not SERVER_ONLY(k)]
     fam_check = [k for k, f in pos.items() if f['type'] == 'check' and k not in OFFICE_KEYS]
@@ -109,7 +115,7 @@ def flow(browser, name, w, h):
        page.locator('#view h1').inner_text() == 'Hand the tablet to Nancy Fakename' and 'still blank' in page.locator('#view').inner_text(), page.locator('#view').inner_text())
     page.click('#famGo'); page.wait_for_selector('[data-tap="1"]')
     # ... and the family (an adult child) types in the rest
-    ck(f'{name}: the family sees the same 23 pages and can type into any blank', page.locator('.pg').count() == 23 and page.locator('input[data-k]').count() == len(fam_text) and page.locator('button[data-t]').count() == len(fam_check))
+    ck(f'{name}: the family sees the same 26 pages and can type into any blank', page.locator('.pg').count() == 26 and page.locator('input[data-k]').count() == len(fam_text) and page.locator('button[data-t]').count() == len(fam_check))
     ck(f'{name}: the office answers show on their pages', page.locator('input[data-k="client.client_s_name"]').input_value() == 'Ned Fakename' and page.locator('button[data-t="car.decline"]').inner_text() == '✓')
     page.locator('[data-sign]').first.click(); page.wait_for_selector('#sheet')
     ck(f'{name}: tapping Sign with blanks left lists them (incl. the POA, since someone signs for the client)',
@@ -190,15 +196,17 @@ with sync_playwright() as p:
         # 2026-10-18b (the Booking App terms + "Can book in the app"): the 10-18 wording is now an earlier one too
         # 2026-10-30 (short visits a flat $5.00 more per hour): the 10-18b wording is now an earlier one too
         # 2026-11-07 (the Booking App is no longer offered): the 10-30 wording is now an earlier one too
-        NEW, FIFTH, FOURTH, THIRD, SECOND, FIRST = '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0', 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309', 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
-        for sha, status, label in ((NEW, 'draft', 'new'), (FIFTH, 'draft', 'old'), (FIFTH, 'signed', 'old-signed'), (FOURTH, 'draft', 'old'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (FOURTH, 'signed', 'old-signed'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
+        # 2026-11-12 (Exhibit J, Early Support Visits, inside the agreement): the 11-07 wording is now an earlier one too
+        NEW, SIXTH, FIFTH, FOURTH, THIRD, SECOND, FIRST = '1137e7e60865b671276bc0a252742e1757a7690f22c835113b367ba45c1b1d1f', '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0', 'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309', 'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa', 'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11', 'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3', 'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9'
+        for sha, status, label in ((NEW, 'draft', 'new'), (SIXTH, 'draft', 'old'), (SIXTH, 'signed', 'old-signed'), (FIFTH, 'draft', 'old'), (FIFTH, 'signed', 'old-signed'), (FOURTH, 'draft', 'old'), (THIRD, 'draft', 'old'), (SECOND, 'draft', 'old'), (FIRST, 'draft', 'old'), (FOURTH, 'signed', 'old-signed'), (THIRD, 'signed', 'old-signed'), (SECOND, 'signed', 'old-signed'), (FIRST, 'signed', 'old-signed')):
             ctx = br.new_context(viewport={'width': 768, 'height': 1024})
             ctx.add_init_script('localStorage.setItem("sb-zngsgedlsxinbygwmxwn-auth-token", %s)' % json.dumps(json.dumps(SESSION)))
             pg = ctx.new_page(); st = {'calls': [], 'form': {**FORM, 'pdf_sha256': NEW}, 'ag': {'id': '44444444-4444-4444-8444-444444444444', 'status': status, 'version': 'Rev. 10/2026', 'pdf_sha256': sha, 'office': {'answers': {'level.wellness_care': True}}, 'answers': {}}}
             pg.route('**/functions/v1/client-agreement', fake(st)); pg.goto(BASE + '/agreement.html?id=44444444-4444-4444-8444-444444444444')
             if label == 'new':
                 pg.wait_for_selector('.pg img'); srcs = pg.eval_on_selector_all('.pg img', 'xs => xs.map(x => x.getAttribute("src"))')
-                ck(f'{eng}: a new draft shows the pages without the Booking App (rev-2026-11-07, Exhibit I on pages 22 and 23)', len(srcs) == 23 and all('rev-2026-11-07/' in s for s in srcs) and any(s.endswith('rev-2026-11-07/p22.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: a new draft shows the 26 pages with Exhibit J (rev-2026-11-12, Early Support Visits on pages 24 to 26)', len(srcs) == 26 and all('rev-2026-11-12/' in s for s in srcs) and any(s.endswith('rev-2026-11-12/p26.jpg') for s in srcs), srcs[:3])
+                ck(f'{eng}: ...the Exhibit J boxes are on page 24, and the office-only ones cannot be changed here', pg.locator('#page24 [data-key="esv.enrolled"], #page24 [data-t="esv.enrolled"]').count() == 1 and pg.locator('button[data-t="esv.enrolled"]').count() == 0, pg.locator('#page24').inner_html()[:600])
                 ck(f'{eng}: ...and no "Can book in the app" boxes on them', pg.locator('[data-t*=".book_"],[data-k*=".book_"]').count() == 0)
             elif label == 'old':
                 pg.wait_for_selector('#view .err'); ck(f'{eng}: a draft on an earlier wording ({sha[:4]}) says to start another, no form to fill', 'Start another' in pg.inner_text('#view') and pg.locator('.pg').count() == 0)

@@ -128,14 +128,19 @@ const Q=new URLSearchParams(location.search);
    2026-11-07 (Samantha: Caring Companions no longer offers the Booking App, "New agreement without it"): rev-2026-11-07 is the
    current master. Billing item 9 (the Booking App terms) and each Exhibit I contact's "Can book in the app" Yes / No are gone
    (pages 2 to 9 reflowed, pages 22 and 23 shorter; 160 boxes). Initials 1 of 6 is rates, billing and cancellations. Agreements
-   started on 10-30 or earlier keep their own pages, and the app question is only asked where the pages have it. */
-const PAGE_DIRS={'062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0':'agreement-pages/rev-2026-11-07/',
+   started on 10-30 or earlier keep their own pages, and the app question is only asked where the pages have it.
+   2026-11-12 (Samantha: "do the addendum inside of the care agreement"): rev-2026-11-12 is the current master. Early Support
+   Visits is Exhibit J on pages 24 to 26 and applies only when its box is ticked; item 2 and Exhibit A carry its prices (pages
+   2 to 10 reflowed; 169 boxes, 26 pages, so the page count now comes from each master's fields.json). The office ticks
+   Exhibit J, its schedule and the visit day on the set-up screen. Agreements started on 11-07 or earlier keep their own pages. */
+const PAGE_DIRS={'1137e7e60865b671276bc0a252742e1757a7690f22c835113b367ba45c1b1d1f':'agreement-pages/rev-2026-11-12/',
+  '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0':'agreement-pages/rev-2026-11-07/',
   'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309':'agreement-pages/rev-2026-10-30/',
   'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa':'agreement-pages/rev-2026-10-18b/',
   'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11':'agreement-pages/rev-2026-10-18/',
   'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
   'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9':'agreement-pages/rev-2026-10/'};
-let PAGES_DIR='agreement-pages/rev-2026-11-07/';
+let PAGES_DIR='agreement-pages/rev-2026-11-12/', NPAGES=23;
 function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, PREFILL={}, PFV={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
@@ -256,6 +261,11 @@ function showOffice(){
   <div class="grid"><div>${txt('level.hourly_rate','Hourly rate ($)','text','inputmode="decimal" placeholder="30"')}</div><div><label>Start date (optional)</label><input type="date" id="startDate"></div></div>
   <label>Addenda this client also signs</label><div class="opts"><button type="button" class="pill" data-ad="va">VA Community Care</button><button type="button" class="pill" data-ad="guide">Medicare GUIDE</button></div>
   <div class="field-note" style="font-size:14px;color:var(--muted);margin-top:6px">Addenda are noted on the agreement record; print and sign them on paper for now.</div></div>
+  ${FORM&&FORM.fields&&FORM.fields['esv.enrolled']?`<div class="card" id="esvCard"><label>Early Support Visits (Exhibit J)</label>
+  <div class="field-note" style="font-size:14px;color:var(--muted);margin:0 0 8px">Leave this blank for regular care. For an Early Support Visits client, pick Wellness Care above and enter the hourly rate: 38 for once a month, 35 for every other week.</div>
+  <div class="opts"><button type="button" class="pill${A['esv.enrolled']===true?' on':''}" data-t="esv.enrolled">This client is enrolling in Early Support Visits</button></div>
+  <label style="margin-top:10px">Schedule</label><div class="opts">${oneOf(['esv.once_a_month','esv.every_other_week'],['Once a month, $152 a visit','Every other week, $140 a visit'])}</div>
+  ${txt('esv.regular_visit_day_and_time','Regular visit day and time','text','placeholder="First Tuesday at 9 am"')}</div>`:''}
   <div id="pfNote" class="note">Looking up what we already know about this client…</div>
   <div id="offErr"></div><p><button class="btn" id="startBtn" type="button">Start filling in the agreement</button></p>`;
   wire($('view'));
@@ -270,7 +280,7 @@ function showOffice(){
   }).catch(e=>{ const box=$('pfNote'); if(box) box.innerHTML='Could not look up the client\'s details ('+esc(e.message)+'). The agreement still starts; the boxes may be blank.'; });
   $('view').querySelectorAll('[data-ad]').forEach(b=>{ b.onclick=()=>b.classList.toggle('on'); });
   $('startBtn').onclick=async()=>{
-    const office={}; ['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate'].forEach(k=>{ if(A[k]!=null) office[k]=A[k]; });
+    const office={}; ['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate','esv.enrolled','esv.once_a_month','esv.every_other_week','esv.regular_visit_day_and_time'].forEach(k=>{ if(A[k]!=null) office[k]=A[k]; });
     /* the rate table on page 11 ticks the same level */
     for(const l of ['wellness_care','personal_care','advanced_care']) if(office['level.'+l]===true) office['rates.'+l]=true;
     $('startBtn').disabled=true;
@@ -285,8 +295,9 @@ function showOffice(){
    POS: key -> {type, page, box:[x0,y0,x1,y1]} in PDF points from the top-left of a 612 x 792 page, the same boxes the
    server writes the signed PDF with (agreement-pages/<its master>/fields.json, from the agreement build). */
 let POS=null, saveTimer=null;
-const OFFICE_KEYS=new Set(['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate','rates.wellness_care','rates.personal_care','rates.advanced_care']);
-const ONE_OF=[['level.wellness_care','level.personal_care','level.advanced_care'],['car.accept','car.decline'],['comm.accept','comm.decline'],
+const OFFICE_KEYS=new Set(['level.wellness_care','level.personal_care','level.advanced_care','level.hourly_rate','rates.wellness_care','rates.personal_care','rates.advanced_care',
+  'esv.enrolled','esv.once_a_month','esv.every_other_week','esv.regular_visit_day_and_time']);
+const ONE_OF=[['level.wellness_care','level.personal_care','level.advanced_care'],['car.accept','car.decline'],['comm.accept','comm.decline'],['esv.once_a_month','esv.every_other_week'],
   ...[1,2,3,4].flatMap(n=>[['c'+n+'.hipaa_yes','c'+n+'.hipaa_no'],['c'+n+'.medical_yes','c'+n+'.medical_no'],['c'+n+'.book_yes','c'+n+'.book_no']])];
 const SERVER_ONLY=k=>k.startsWith('ini.')||k.startsWith('sig.')||k.startsWith('ci.sig.')||k.startsWith('date.')||k==='poa.initials'||k==='ci.client_s_name';
 const pad2=n=>String(n).padStart(2,'0');
@@ -295,7 +306,7 @@ async function positions(){
   if(POS) return POS;
   const r=await fetch(PAGES_DIR+'fields.json',{cache:'no-cache'}); const d=await r.json();
   if(AG&&AG.pdf_sha256?d.pdf_sha256!==AG.pdf_sha256:d.version!==FORM.version) throw new Error('The agreement pages on this tablet do not match this agreement. Tell Samantha.');
-  POS=d.fields; return POS;
+  POS=d.fields; NPAGES=d.pages||23; return POS;
 }
 function rememberSigner(){ try{ sessionStorage.setItem('cag-signer-'+AG.id, JSON.stringify(SIGNER)); }catch(e){} }
 function recallSigner(){ try{ const s=JSON.parse(sessionStorage.getItem('cag-signer-'+AG.id)||'null'); if(s&&typeof s==='object') SIGNER=Object.assign({name:'',role:'',relationship:''},s); }catch(e){} }
@@ -347,7 +358,7 @@ function fieldHtml(k,f,mode){
 function pagesHtml(mode){
   const by={}; for(const [k,f] of Object.entries(POS)) (by[f.page]=by[f.page]||[]).push([k,f]);
   let h='<div class="pgs" id="pgs">';
-  for(let p=1;p<=23;p++) h+=`<div class="pg" id="page${p}"><img src="${PAGES_DIR}p${pad2(p)}.jpg" alt="Agreement page ${p}" ${p>2?'loading="lazy"':''}>${(by[p]||[]).map(([k,f])=>fieldHtml(k,f,mode)).join('')}</div>`;
+  for(let p=1;p<=NPAGES;p++) h+=`<div class="pg" id="page${p}"><img src="${PAGES_DIR}p${pad2(p)}.jpg" alt="Agreement page ${p}" ${p>2?'loading="lazy"':''}>${(by[p]||[]).map(([k,f])=>fieldHtml(k,f,mode)).join('')}</div>`;
   return h+'</div>';
 }
 /* the writing on the pages scales with the page */
