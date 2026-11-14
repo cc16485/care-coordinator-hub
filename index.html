@@ -1271,6 +1271,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referral Partners</div>
     <div class="fpill" data-tab="friendsfamily" onclick="switchTab('friendsfamily')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Friends &amp; Family</div>
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
+    <div class="fpill" data-tab="emailresults" onclick="switchTab('emailresults')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Email results</div><!-- 2026-11-13 her ask: who opened, who wrote back, who unsubscribed (email-results.js) -->
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="materials" onclick="switchTab('materials')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Marketing Materials</div><!-- 2026-11-06 her rule: anything we make is saved here (marketing.html) -->
   </div>
@@ -6435,6 +6436,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <p class="hl-lab">Family requests</p>
   <div id="hlFamilies"></div>
 </section>
+<section class="tabpanel" id="tab-emailresults"><div id="emailResults"></div></section><!-- Email results (email-results.js, 2026-11-13) -->
 <section class="tabpanel" id="tab-campaigns">
   <style>
     #tab-campaigns .cmp-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
@@ -7665,7 +7667,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=5"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=2"></script>
@@ -8380,7 +8382,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','emailresults','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8812,7 +8814,7 @@ const CC_SECTION_TITLES = {
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
-  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
+  htlocal:'HomeTogether Hire', campaigns:'Campaigns', emailresults:'Email results', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
 };
 /* ---------- Approved hourly pay rates ----------
@@ -9125,6 +9127,7 @@ function renderActiveTab(){
   if(activeTab==='htorders') renderDevices();
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
+  if(activeTab==='emailresults' && window.CCEmailResults) CCEmailResults.show();
   if(activeTab==='feedback') renderFeedback();
   updateHTBadge(); fbBadges(); cmBadges(); hlBadges();
 }
@@ -45025,7 +45028,7 @@ function ccOpenRef(sub){
                         growth:'campaigns', marketing:'campaigns', 'marketing-materials':'materials', 'referrals-marketing':'partners', referrals:'partners', 'friends-family':'friendsfamily', friends:'friendsfamily',
                         /* 'leads' stopped being an alias 2026-09-19: it is a
                            real top-level group now, found without help. */
-                        'leads-marketing':'campaigns',
+                        'leads-marketing':'campaigns', 'email-results':'emailresults',
                         communication:'team', conversations:'team', messages:'team',
                         hiring:'interviews', recruit:'interviews', onboard:'interviews',
                         'recruit-onboard':'interviews', recruiting:'interviews',
