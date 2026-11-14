@@ -75,7 +75,8 @@ async()=>{
 
   /* her rules are on the page */
   HT.show('wrong'); await sleep(40);
-  ok('the fall card says never lift, and names the hotline', /do not lift the client/i.test(page()) && /800-392-0210/.test(page()));
+  ok('the fall card says never lift and uses Report a concern, like her published procedure', /never lift the client/i.test($('htWrap').textContent) && /Fall, injury or hospitalisation/.test($('htWrap').textContent) && !/New incident report/.test($('htWrap').textContent));
+  ok('the hotline hours match her published procedure (7 am to 8 pm, online after that)', /800-392-0210, 7 am to 8 pm every day/.test($('htWrap').textContent) && /moapss\.health\.mo\.gov/.test($('htWrap').textContent) && !/midnight/.test($('htWrap').textContent));
   HT.show('families'); await sleep(40);
   ok('Medicaid callers are pointed to Caring CDS', /417-218-2888/.test(page()) && /caringcds\.com/.test(page()));
   HT.show('scheduling'); await sleep(40);
