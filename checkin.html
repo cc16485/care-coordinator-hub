@@ -114,7 +114,26 @@ function privateLink() { return 'private.html' + (DEMO ? '?demo=' + ctx.who : ''
 function footer() {
   return '<a class="private" href="' + privateLink() + '"><span class="lk" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span><b>Message the owners privately</b>'
     + '<span>Only Samantha and Zach will read it.</span></span></a>'
-    + '<p class="foot">Rather talk now? Call the office at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a></p>';
+    + '<p class="foot">Rather talk now? Call the office at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a></p>'
+    + (ctx && ctx.who === 'family' ? '<p class="foot"><a href="#" id="stopLink" onclick="event.preventDefault();stopScreen()">Stop these check-ins</a></p>' : '');
+}
+/* "Stop these check-ins" (Samantha 2026-11-14: "they can choose to unsubscribe if they want"). The email's link opens this
+   screen (#k=...&stop=1); a STOP reply to a text is handled by our texting. It stops check-ins only, never care messages. */
+const WANTS_STOP = /(^|[#&])stop=1(&|$)/.test(location.hash);
+function stopScreen() {
+  $('#hi').textContent = 'Hi ' + ((ctx && ctx.first) || 'there') + ',';
+  $('#lead').textContent = '';
+  $('#main').innerHTML = '<div class="card"><h2 class="serif">Stop these check-ins?</h2><p>We will stop sending check-in texts and emails'
+    + (ctx && ctx.self ? '' : ' about ' + esc((ctx && ctx.client) || 'your loved one')) + '. Messages about care and visits are not affected.</p>'
+    + '<button class="go" id="stopGo" style="margin-top:12px">Yes, stop the check-ins</button><div class="err" id="err"></div></div>'
+    + '<p class="foot">Rather talk to us instead? Call the office at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a></p>';
+  $('#stopGo').onclick = async () => {
+    const btn = $('#stopGo'); btn.disabled = true; btn.textContent = 'Saving...';
+    try {
+      if (!DEMO) await api({ action: 'stop' });
+      $('#main').innerHTML = '<div class="card done"><div class="big">✓</div><h2 class="serif">Done</h2><p>You will not get these check-ins again. If you ever want to tell us something, call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p></div>';
+    } catch (e) { btn.disabled = false; btn.textContent = 'Yes, stop the check-ins'; const er = $('#err'); er.textContent = e.message; er.style.display = 'block'; }
+  };
 }
 
 function render() {
@@ -215,7 +234,7 @@ function sample() {
   who.value = DEMO === 'caregiver' ? 'caregiver' : 'family';
   const fill = () => { kind.innerHTML = Object.entries(KINDS[who.value]).map(([k, v]) => '<option value="' + k + '">' + v.label + '</option>').join(''); if (params.get('kind') && KINDS[who.value][params.get('kind')]) kind.value = params.get('kind'); };
   /* ?demo=client: the client's own check-in (2026-11-14: the client is a contact too) */
-  const go = () => { ctx = Object.assign({ who: who.value, kind: kind.value, state: st.value, self: DEMO === 'client' }, SAMPLE[who.value], DEMO === 'client' ? { first: 'Dorothy' } : {}); render(); };
+  const go = () => { ctx = Object.assign({ who: who.value, kind: kind.value, state: st.value, self: DEMO === 'client' }, SAMPLE[who.value], DEMO === 'client' ? { first: 'Dorothy' } : {}); if (WANTS_STOP && ctx.who === 'family') return stopScreen(); render(); };
   fill(); if (params.get('state')) st.value = params.get('state');
   who.onchange = () => { fill(); go(); }; kind.onchange = go; st.onchange = go; go();
 }
@@ -228,6 +247,7 @@ async function real() {
     const v = await api({ action: 'open' });
     if (!KINDS[v.audience] || !KINDS[v.audience][v.kind]) throw new Error('This link is not valid.');
     ctx = { who: v.audience, kind: v.kind, state: v.state, self: v.self === true, first: v.first, client: v.client || 'your loved one', caregiver: v.caregiver || 'your caregiver', caregivers: v.caregivers || [], phone_tail: v.phone_tail || '' };
+    if (WANTS_STOP && ctx.who === 'family') return stopScreen();
     render();
   } catch (e) { stop('We could not open this check-in', esc(e.message) + ' You can call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.'); }
 }
