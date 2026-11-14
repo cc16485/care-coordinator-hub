@@ -15,7 +15,7 @@ async()=>{
   ok('no Training & Compliance section in the top bar', !tabs.some(t=>/Training\s*&\s*Compliance/.test(t)) && tabs.some(t=>/^Caregivers$/.test(t)), tabs);
   const pills=[...document.querySelectorAll('#fsub-cgdir .fpill')].map(x=>x.innerText.trim());
   /* 2026-11-14 (her word): supervisory visits are no longer required, so the Supervisory Visits tab is gone */
-  ok('Caregivers has four tabs, in order', JSON.stringify(pills)===JSON.stringify(['Directory','Background Checks','Orientation & Training','Training Platform']), pills);
+  ok('Caregivers has five tabs, in order (Check-ins added 2026-11-14)', JSON.stringify(pills)===JSON.stringify(['Directory','Check-ins','Background Checks','Orientation & Training','Training Platform']), pills);
   ok('no Supervisory Visits tab or page', !document.querySelector('[data-tab="supervisory"]') && !document.getElementById('tab-supervisory'));
   location.hash='#supervisory'; await sleep(250);
   ok('an old #supervisory link lands on Caregivers', activeTab==='cgdir' && getComputedStyle(document.getElementById('tab-cgdir')).display!=='none', activeTab);
