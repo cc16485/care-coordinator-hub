@@ -6466,9 +6466,10 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   </style>
   <div class="cmp-head">
     <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</h2>
-    <p class="cmp-sub">Your designed email library, ready to send. Pick an audience, open an email to preview it exactly as it will arrive, choose recipients, and send a test to yourself first. Everything goes out through GoHighLevel and lands in each contact's timeline.</p>
+    <p class="cmp-sub">The emails Caring Companions sends from its email library. Campaigns shows what goes out by itself, who is in each one, and what happened. Email library holds every email to read or send by hand. Everything goes out through GoHighLevel and lands on each contact there.</p>
   </div>
   <div id="cmpSub" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;"></div>
+  <div id="cmpCampaigns" style="display:none;"></div><!-- Campaigns > Campaigns (campaigns-view.js, 2026-11-14): what each one is, who is in it, the results -->
   <div id="emailResults" style="display:none;"></div><!-- Campaigns > Results (email-results.js; 2026-11-14 moved in here from its own pill) -->
   <div class="cmp-browse" id="cmpBrowse">
     <div id="cmpAutopilot" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px;"></div>
@@ -7516,7 +7517,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-template.js?v=2"></script><script src="email-library.js?v=1113d"></script>
+<script src="email-template.js?v=2"></script><script src="email-library.js?v=1114c"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=24"></script>
 <script src="heard-about.js?v=1"></script><script>(function(){ var e=document.getElementById('lead_heard_about'); if(e&&window.HeardAbout) e.innerHTML=HeardAbout.optionsHtml(''); })();</script>
@@ -7587,7 +7588,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="campaigns-view.js?v=2"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=5"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=2"></script>
@@ -9365,7 +9366,7 @@ async function cmpAuthHeaders(){
   return tok?{'Content-Type':'application/json','Authorization':'Bearer '+tok}:{'Content-Type':'application/json'};
 }
 const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers']];
-let cmpAud='monthly', cmpKey=null, cmpSending=false, cmpView='library';
+let cmpAud='monthly', cmpKey=null, cmpSending=false, cmpView='campaigns';
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
 const CMP_WINDOWS={'Early January':['01-02','01-08'],'Late January':['01-20','01-26'],'Feb 7–13':['02-07','02-13'],'Late February':['02-20','02-26'],'Early March':['03-02','03-08'],'Mid March':['03-12','03-18'],'Early April':['04-02','04-08'],'Late April':['04-20','04-26'],'May 4–10':['05-04','05-10'],'Late May':['05-20','05-26'],'June 8–14':['06-08','06-14'],'Mid–Late June':['06-17','06-23'],'June 30–July 3':['06-30','07-03'],'Mid July':['07-12','07-18'],'Early August':['08-02','08-08'],'Late August':['08-20','08-26'],'Early September':['09-02','09-08'],'Late September':['09-20','09-26'],'Early–Mid October':['10-05','10-12'],'Late October':['10-20','10-26'],'Nov 10–18':['11-10','11-18'],'Around Nov 11':['11-09','11-12'],'Dec 15–22':['12-15','12-22'],'Dec 27–31':['12-27','12-31'],'January · Q1':['01-08','01-15'],'April · Q2':['04-08','04-15'],'July · Q3':['07-08','07-15'],'October · Q4':['10-08','10-15'],'Nov 20–27':['11-20','11-27'],'Dec 18–24':['12-18','12-24'],'Caregiver Appreciation Week':['05-11','05-17'],'Early November':['11-02','11-08'],'Early December':['12-02','12-08']};
 function cmpSettings(){ return (DATA.campaign_settings||[]).find(x=>x.id==='settings')||{id:'settings',enabled:false,aud_monthly:true,aud_clients:false,aud_client_contacts:false,aud_caregivers:false,daily_cap:150}; }
@@ -9515,11 +9516,21 @@ function cmpAudienceCount(aud){
 
 /* Campaigns has two views (2026-11-14, her question "should email results be a subtab inside campaigns"): the email
    library with the schedule, and Results (who opened, who wrote back, who unsubscribed; email-results.js). */
-function cmpSetView(v){ cmpView=(v==='results'?'results':'library'); renderCampaigns(); }
+function cmpSetView(v){ cmpView=(v==='results'||v==='library')?v:'campaigns'; renderCampaigns(); }
 function renderCampaigns(){
   const auds=document.getElementById('cmpAuds'); if(!auds) return;
-  const sub=document.getElementById('cmpSub'), res=document.getElementById('emailResults');
-  if(sub) sub.innerHTML=[['library','Emails and schedule'],['results','Results']].map(v=>'<button type="button" class="cmp-aud '+(cmpView===v[0]?'active':'')+'" data-view="'+v[0]+'" onclick="cmpSetView(\''+v[0]+'\')">'+v[1]+'</button>').join('');
+  const sub=document.getElementById('cmpSub'), res=document.getElementById('emailResults'), camp=document.getElementById('cmpCampaigns');
+  /* 2026-11-14 (her "make it very clear in the hub what the campain is and who is in it or has been in it and the
+     results"): the first view is the campaigns themselves (campaigns-view.js). The library and the full results follow. */
+  if(cmpView==='campaigns' && !window.CCCampaigns) cmpView='library';
+  if(sub) sub.innerHTML=[['campaigns','Campaigns'],['library','Email library'],['results','All results']].map(v=>'<button type="button" class="cmp-aud '+(cmpView===v[0]?'active':'')+'" data-view="'+v[0]+'" onclick="cmpSetView(\''+v[0]+'\')">'+v[1]+'</button>').join('');
+  if(camp) camp.style.display=(cmpView==='campaigns')?'':'none';
+  if(cmpView==='campaigns'){
+    document.getElementById('cmpBrowse').classList.add('off');
+    document.getElementById('cmpDetail').classList.remove('on');
+    if(res) res.style.display='none';
+    CCCampaigns.show(); return;
+  }
   if(cmpView==='results' && window.CCEmailResults){
     document.getElementById('cmpBrowse').classList.add('off');
     document.getElementById('cmpDetail').classList.remove('on');
@@ -9556,10 +9567,12 @@ function renderCampaigns(){
 function openCampaign(key){
   const e=cmpLib().find(x=>x.key===key); if(!e) return;
   cmpKey=key;
+  /* opened from a campaign card or from Results: put those views away so the email shows */
+  { const c0=document.getElementById('cmpCampaigns'), r0=document.getElementById('emailResults'); if(c0) c0.style.display='none'; if(r0) r0.style.display='none'; }
   document.getElementById('cmpBrowse').classList.add('off');
   const d=document.getElementById('cmpDetail'); d.classList.add('on');
   const segHint=(e.aud==='referrers'&&e.seg)?'<div class="cmp-count">Written for: <b>'+tkEsc(e.seg)+'</b> contacts.</div>':'';
-  d.innerHTML='<button class="cmp-back" onclick="renderCampaigns()">← Back to library</button>'+
+  d.innerHTML='<button class="cmp-back" onclick="renderCampaigns()">← Back</button>'+
   '<div class="cmp-two"><div class="cmp-preview"><iframe id="cmpFrame"></iframe></div>'+
   '<aside class="cmp-side">'+
     '<h4>Send "'+tkEsc(e.subj).slice(0,60)+'"</h4>'+segHint+
