@@ -33,12 +33,23 @@ T = r"""async()=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,700)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   window.__as('krystal@mo-care.com','Krystal Land');
+  DATA.campaign_settings=[{ id:'settings', enabled:true, aud_monthly:false, aud_clients:false, aud_client_contacts:false, aud_caregivers:true, daily_cap:150,
+    auto_monthly_leads:true, auto_partner_series:true, monthly_day:10, partner_series_day:10, monthly_plan:{'12':'m23'}, monthly_plan_skipped:{'2026':{'11':'m22'}}, client_line_note:'keep me' }];
+  window.__P=[]; (0,eval)("persist=async(k,i)=>{ window.__P.push([k,JSON.parse(JSON.stringify(i))]); }");
   switchTab('campaigns'); await sleep(200);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(p=>p.textContent.trim());
-  ok('Referrals & Marketing has an "Email results" pill right after Campaigns', pills.indexOf('Email results')===pills.indexOf('Campaigns')+1 && pills.indexOf('Campaigns')>=0, pills);
-  document.querySelector('#fsub-partners .fpill[data-tab="emailresults"]').click(); await sleep(400);
+  ok('Email results is no longer a pill of its own; Campaigns has two views', pills.indexOf('Email results')<0 && pills.indexOf('Campaigns')>=0 && [...document.querySelectorAll('#cmpSub button')].map(b=>b.textContent).join('|')==='Emails and schedule|Results', pills);
+  const ap=document.getElementById('cmpAutopilot').innerText;
+  ok('the Autopilot row says where the two series stand, and no longer says partner emails stay manual', /Monthly email to open leads: ON\./.test(ap) && /Next is December/.test(ap) && /Partner series: ON\./.test(ap) && !/stay manual/.test(ap), ap);
+  ok('...and does not list a lead email as coming up or overdue while the Leads box is off', !/Honoring those who served/.test(ap), ap);
+  document.getElementById('apC').checked=true; await apSave(); await sleep(100);
+  const saved=(window.__P.find(x=>x[0]==='campaign_settings')||[])[1]||{};
+  ok('ticking a box on the row keeps both series, the plan and every other saved setting', saved.aud_clients===true && saved.auto_monthly_leads===true && saved.auto_partner_series===true && saved.monthly_plan && saved.monthly_plan['12']==='m23' && saved.monthly_day===10 && saved.partner_series_day===10 && saved.monthly_plan_skipped && saved.client_line_note==='keep me', saved);
+  document.getElementById('apC').checked=false; await apSave(); await sleep(100);
+  ok('the email library still shows under Emails and schedule', !!document.querySelector('#cmpGrid') && !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
+  document.querySelector('#cmpSub button[data-view="results"]').click(); await sleep(400);
   const box=document.getElementById('emailResults'), vis=!!(box.offsetWidth||box.offsetHeight);
-  ok('pressing it opens the screen, and the pill is lit', vis && document.querySelector('#fsub-partners .fpill[data-tab="emailresults"]').classList.contains('active') && /Email results/.test(box.innerText), [vis, box.innerText.slice(0,120)]);
+  ok('pressing Results opens it inside Campaigns, with the library put away', vis && document.querySelector('#fsub-partners .fpill[data-tab="campaigns"]').classList.contains('active') && document.getElementById('cmpBrowse').classList.contains('off') && /Email results/.test(box.innerText) && document.querySelector('#cmpSub button[data-view="results"]').classList.contains('active'), [vis, box.innerText.slice(0,120)]);
   ok('it asked the server once', window.__ER.length===1 && window.__ER[0].refresh===true, window.__ER);
   ok('the four tiles read right: 6 sent, 3 opened of 5 we could check, 1 wrote back, 1 unsubscribed', /6\s*Emails sent/.test(box.innerText) && /3\s*Opened\s*of 5 we could check/.test(box.innerText) && /1\s*Wrote back/.test(box.innerText) && /1\s*Unsubscribed/.test(box.innerText), box.innerText.slice(0,500));
   ok('one line per email with its counts', /5 sent · 2 opened · 1 wrote back · 1 did not arrive/.test(box.innerText) && /sent by the schedule/.test(box.innerText), box.innerText.slice(300,900));
@@ -61,6 +72,10 @@ T = r"""async()=>{
   window.__ERmode='401'; await CCEmailResults.load(true); await sleep(100);
   ok('a refusal is shown as what it is, never as an empty list', /could not be read just now: Sign in first\./.test(box.innerText), box.innerText.slice(0,400));
   window.__ERmode='ok'; await CCEmailResults.load(true); await sleep(100);
+  cmpSetView('library'); await sleep(150);
+  ok('back to Emails and schedule: the library returns and Results is put away', !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
+  const n0=window.__ER.length; switchTab('referrers'); await sleep(100); switchTab('emailresults'); await sleep(300);
+  ok('an old Email results link lands on Campaigns, Results', document.querySelector('#fsub-partners .fpill[data-tab="campaigns"]').classList.contains('active') && document.getElementById('emailResults').style.display!=='none' && document.getElementById('cmpBrowse').classList.contains('off'));
   return R; }"""
 with sync_playwright() as pw:
     b = pw.chromium.launch(); errs = []
@@ -77,7 +92,7 @@ with sync_playwright() as pw:
     ph.goto(f'http://localhost:{PORT}/index.html?proof=eresults'); ph.wait_for_timeout(1500)
     for s in (STUB, DATA, FAKE): ph.evaluate('s=>(0,eval)(s)', s)
     w = ph.evaluate("""async()=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; window.__as('krystal@mo-care.com','Krystal Land');
-      switchTab('emailresults'); await new Promise(r=>setTimeout(r,400)); const g=CCEmailResults.groups(CCEmailResults.VIEW.data.sends)[0]; CCEmailResults.toggle(g.k); await new Promise(r=>setTimeout(r,150));
+      switchTab('emailresults'); await new Promise(r=>setTimeout(r,500)); const g=CCEmailResults.groups(CCEmailResults.VIEW.data.sends)[0]; CCEmailResults.toggle(g.k); await new Promise(r=>setTimeout(r,150));
       return { sw:document.documentElement.scrollWidth, cw:document.documentElement.clientWidth, shown:/Hope Hospice/.test(document.getElementById('emailResults').innerText) }; }""")
     R.append(['PASS' if w['sw'] <= w['cw'] + 1 and w['shown'] else 'FAIL', 'on a phone: the screen fits, no sideways scroll', str(w)])
     ph.screenshot(path=os.path.join(SHOTS, 'email_results_phone.png'), full_page=True)

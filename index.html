@@ -1271,7 +1271,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="referrers" onclick="switchTab('referrers')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-handshake"/></svg> Referral Partners</div>
     <div class="fpill" data-tab="friendsfamily" onclick="switchTab('friendsfamily')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-family"/></svg> Friends &amp; Family</div>
     <div class="fpill" data-tab="campaigns" onclick="switchTab('campaigns')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</div>
-    <div class="fpill" data-tab="emailresults" onclick="switchTab('emailresults')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Email results</div><!-- 2026-11-13 her ask: who opened, who wrote back, who unsubscribed (email-results.js) -->
     <div class="fpill" data-tab="feedback" onclick="switchTab('feedback')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> Feedback<span class="subtab-badge red" id="fbPillBadge" style="display:none;"></span></div>
     <div class="fpill" data-tab="materials" onclick="switchTab('materials')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> Marketing Materials</div><!-- 2026-11-06 her rule: anything we make is saved here (marketing.html) -->
   </div>
@@ -6436,7 +6435,6 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
   <p class="hl-lab">Family requests</p>
   <div id="hlFamilies"></div>
 </section>
-<section class="tabpanel" id="tab-emailresults"><div id="emailResults"></div></section><!-- Email results (email-results.js, 2026-11-13) -->
 <section class="tabpanel" id="tab-campaigns">
   <style>
     #tab-campaigns .cmp-head h2{font-size:22px;margin:0 0 4px;color:var(--navy);}
@@ -6477,6 +6475,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <h2><svg class="navi" aria-hidden="true"><use href="icons.svg#i-target"/></svg> Campaigns</h2>
     <p class="cmp-sub">Your designed email library, ready to send. Pick an audience, open an email to preview it exactly as it will arrive, choose recipients, and send a test to yourself first. Everything goes out through GoHighLevel and lands in each contact's timeline.</p>
   </div>
+  <div id="cmpSub" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;"></div>
+  <div id="emailResults" style="display:none;"></div><!-- Campaigns > Results (email-results.js; 2026-11-14 moved in here from its own pill) -->
   <div class="cmp-browse" id="cmpBrowse">
     <div id="cmpAutopilot" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 16px;"></div>
     <div class="cmp-auds" id="cmpAuds"></div>
@@ -8382,7 +8382,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','emailresults','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8814,7 +8814,7 @@ const CC_SECTION_TITLES = {
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
-  htlocal:'HomeTogether Hire', campaigns:'Campaigns', emailresults:'Email results', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
+  htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
 };
 /* ---------- Approved hourly pay rates ----------
@@ -8963,6 +8963,8 @@ const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:
 const CC_RETIRED_FILTER={ checkins:'Check-ins', careplans:'Plan reviews', statesubs:'State submissions' };
 function switchTab(tab){
   tab=GOTO_ALIAS[tab]||tab;
+  /* 2026-11-14 (her call): Email results lives inside Campaigns as its Results view; every old link lands there. */
+  if(tab==='emailresults'){ try{ cmpView='results'; }catch(e){} tab='campaigns'; }
   /* HR step 3 (2026-10-18): Attendance and Write-Ups live inside the HR page now; every old link lands there. */
   if(tab==='cgattendance'||tab==='cgwriteups'){ window.HR_WANT=(tab==='cgwriteups'?'formal':'attendance'); tab='hr'; }
   /* Schedule Watch is gone (2026-10-12, her call): every old link lands on Cara's Missed clock-ins & outs; a caller
@@ -9127,7 +9129,6 @@ function renderActiveTab(){
   if(activeTab==='htorders') renderDevices();
   if(activeTab==='htsupport') renderTickets();
   if(activeTab==='campaigns') renderCampaigns();
-  if(activeTab==='emailresults' && window.CCEmailResults) CCEmailResults.show();
   if(activeTab==='feedback') renderFeedback();
   updateHTBadge(); fbBadges(); cmBadges(); hlBadges();
 }
@@ -9439,14 +9440,17 @@ async function cmpAuthHeaders(){
   return tok?{'Content-Type':'application/json','Authorization':'Bearer '+tok}:{'Content-Type':'application/json'};
 }
 const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers']];
-let cmpAud='monthly', cmpKey=null, cmpSending=false;
+let cmpAud='monthly', cmpKey=null, cmpSending=false, cmpView='library';
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
 const CMP_WINDOWS={'Early January':['01-02','01-08'],'Late January':['01-20','01-26'],'Feb 7–13':['02-07','02-13'],'Late February':['02-20','02-26'],'Early March':['03-02','03-08'],'Mid March':['03-12','03-18'],'Early April':['04-02','04-08'],'Late April':['04-20','04-26'],'May 4–10':['05-04','05-10'],'Late May':['05-20','05-26'],'June 8–14':['06-08','06-14'],'Mid–Late June':['06-17','06-23'],'June 30–July 3':['06-30','07-03'],'Mid July':['07-12','07-18'],'Early August':['08-02','08-08'],'Late August':['08-20','08-26'],'Early September':['09-02','09-08'],'Late September':['09-20','09-26'],'Early–Mid October':['10-05','10-12'],'Late October':['10-20','10-26'],'Nov 10–18':['11-10','11-18'],'Around Nov 11':['11-09','11-12'],'Dec 15–22':['12-15','12-22'],'Dec 27–31':['12-27','12-31'],'January · Q1':['01-08','01-15'],'April · Q2':['04-08','04-15'],'July · Q3':['07-08','07-15'],'October · Q4':['10-08','10-15'],'Nov 20–27':['11-20','11-27'],'Dec 18–24':['12-18','12-24'],'Caregiver Appreciation Week':['05-11','05-17'],'Early November':['11-02','11-08'],'Early December':['12-02','12-08']};
 function cmpSettings(){ return (DATA.campaign_settings||[]).find(x=>x.id==='settings')||{id:'settings',enabled:false,aud_monthly:true,aud_clients:false,aud_client_contacts:false,aud_caregivers:false,daily_cap:150}; }
-function cmpDueSoon(days){
+function cmpDueSoon(days, onlyOn){
   const now=new Date(); const out=[];
   for(const e of cmpLib()){
     if(e.aud==='referrers') continue;
+    /* 2026-11-14: only what the schedule will really send. An email for an audience whose box is off is not "coming up"
+       and is not "due and not gone" (it listed the Veterans Day lead email after November was skipped on purpose). */
+    if(onlyOn && !onlyOn['aud_'+e.aud]) continue;
     const w=CMP_WINDOWS[e.when]; if(!w) continue;
     const start=new Date(now.getFullYear()+'-'+w[0]+'T12:00:00');
     const diff=(start-now)/86400000;
@@ -9468,7 +9472,7 @@ function cmpHealth(cfg){
   if(!cfg.enabled) return '';
   const last=cmpLastAutoSend();
   const days=last? Math.floor((Date.now()-new Date(last.at))/864e5) : null;
-  const overdue=cmpDueSoon(0).filter(d=>!cmpSentThisYear(d.e.key)).length;
+  const overdue=cmpDueSoon(0, cfg).filter(d=>!cmpSentThisYear(d.e.key)).length;
   if(!last) return '<div style="background:#FEE2E2;border:1px solid #FCA5A5;border-radius:9px;padding:9px 12px;margin-top:10px;font-size:13px;">'
     + '<b>Switched on, but nothing has ever sent.</b> The switch and the scheduler are different things. '
     + 'Run <code>select jobname from cron.job;</code> in Supabase. If <b>campaign-auto</b> is not in the list, nothing is calling it.</div>';
@@ -9478,10 +9482,32 @@ function cmpHealth(cfg){
   return '<div class="field-note" style="margin-top:8px;">Last send '+tkWhen(last.at)+'.</div>';
 }
 
+/* The two series she turned on herself (2026-11-13). They are not boxes on this row: each was switched on by a Desktop
+   step that recorded her words, so this only SAYS where they stand. It never changes them. */
+function cmpSeriesLines(cfg){
+  const MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const day=(n)=>{ n=Number(n); return (n>=1&&n<=28)?n:10; };
+  const line=(on,name,rest)=>'<div style="margin-top:6px;font-size:13px;"><b style="color:'+(on?'#227a46':'var(--text-muted)')+';">'+name+': '+(on?'ON':'off')+'.</b> '+rest+'</div>';
+  const plan=(cfg.monthly_plan&&typeof cfg.monthly_plan==='object')?cfg.monthly_plan:{};
+  const now=new Date(); let next='';
+  for(let o=0;o<12&&!next;o++){ const m=(now.getMonth()+o)%12, k=String(m+1).padStart(2,'0');
+    if(!plan[k]) continue;
+    if(o===0 && cmpSentThisYear(plan[k])) continue;
+    const e=cmpLib().find(x=>x.key===plan[k]); next=MON[m]+(e?': "'+tkEsc(e.subj)+'"':''); }
+  const empty=MON.filter((_,m)=>!plan[String(m+1).padStart(2,'0')]);
+  return '<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">'
+    + line(!!cfg.auto_monthly_leads,'Monthly email to open leads', cfg.auto_monthly_leads
+        ? 'One email a month, on the first weekday on or after the '+day(cfg.monthly_day)+'th.'+(next?' Next is '+next+'.':' No month has an email planned.')+(empty.length?' <span class="field-note">Nothing planned for '+tkEsc(empty.join(', '))+'.</span>':'')
+        : 'Leads get no automatic monthly email.')
+    + line(!!cfg.auto_partner_series,'Partner series', cfg.auto_partner_series
+        ? 'One email a month to the Referral Partners email list, on the first weekday on or after the '+day(cfg.partner_series_day)+'th.'
+        : 'Partner emails are sent by hand.')
+    + '<div class="field-note" style="margin-top:4px;">These two are turned on and off by a step you run, not by the boxes above. Who opened and who wrote back is under Results, above.</div></div>';
+}
 function renderAutopilot(){
   const el=document.getElementById('cmpAutopilot'); if(!el) return;
   const cfg=cmpSettings();
-  const due=cmpDueSoon(30);
+  const due=cmpDueSoon(30, cfg);
   el.innerHTML=
   '<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">'+
     '<div style="font-weight:800;color:var(--navy);font-size:15px;">🤖 Autopilot</div>'+
@@ -9492,7 +9518,8 @@ function renderAutopilot(){
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apF" '+(cfg.aud_client_contacts?'checked':'')+' onchange="apSave()"> Client contacts</label>'+
     '<label style="font-size:13px;cursor:pointer;"><input type="checkbox" id="apG" '+(cfg.aud_caregivers?'checked':'')+' onchange="apSave()"> Caregivers</label>'+
   '</div>'+
-  '<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">Runs every morning. Each email sends once per year at most, skips do-not-contact people, and emails you a summary after every run. Referral-partner emails stay manual.</div>'+
+  '<div style="font-size:12.5px;color:var(--text-muted);margin-top:10px;">Runs every morning. Each email sends once per year at most, skips do-not-contact people, and emails you a summary after every run.</div>'+
+  cmpSeriesLines(cfg)+
   (due.length?'<div style="margin-top:10px;font-size:13px;"><b style="color:var(--navy);">Coming up:</b> '+due.slice(0,4).map(d=>'<span style="display:inline-block;background:var(--amber-bg,#FFF4DE);color:#8a5a1a;border-radius:999px;padding:3px 10px;margin:2px 4px 0 0;">'+tkEsc(d.e.when)+' · '+tkEsc(d.e.subj.slice(0,42))+(d.e.subj.length>42?'…':'')+'</span>').join('')+'</div>':'')
   /* How many people each switch actually reaches. Turning one on should not be
      a leap of faith, and the monthly one now stands aside for anyone already
@@ -9507,7 +9534,12 @@ function renderAutopilot(){
   + cmpHealth(cfg);
 }
 async function apSave(){
-  const item={id:'settings',
+  /* 2026-11-14 FIX: this used to save a brand-new record holding only these five boxes, which threw away everything
+     else the sender keeps here: the automatic monthly lead email, the partner series, the monthly plan and their days
+     (her switches, set by Desktop steps 1466 to 1468). Ticking one box would have turned both series off without a
+     word. Now it starts from what is saved and changes only the boxes on this row. */
+  const item={...cmpSettings(),
+    id:'settings',
     enabled:document.getElementById('apOn').checked,
     aud_monthly:document.getElementById('apM').checked,
     aud_clients:document.getElementById('apC').checked,
@@ -9556,8 +9588,20 @@ function cmpAudienceCount(aud){
   return { n:null, held:0, note:'sent by hand, never on a schedule' };
 }
 
+/* Campaigns has two views (2026-11-14, her question "should email results be a subtab inside campaigns"): the email
+   library with the schedule, and Results (who opened, who wrote back, who unsubscribed; email-results.js). */
+function cmpSetView(v){ cmpView=(v==='results'?'results':'library'); renderCampaigns(); }
 function renderCampaigns(){
   const auds=document.getElementById('cmpAuds'); if(!auds) return;
+  const sub=document.getElementById('cmpSub'), res=document.getElementById('emailResults');
+  if(sub) sub.innerHTML=[['library','Emails and schedule'],['results','Results']].map(v=>'<button type="button" class="cmp-aud '+(cmpView===v[0]?'active':'')+'" data-view="'+v[0]+'" onclick="cmpSetView(\''+v[0]+'\')">'+v[1]+'</button>').join('');
+  if(cmpView==='results' && window.CCEmailResults){
+    document.getElementById('cmpBrowse').classList.add('off');
+    document.getElementById('cmpDetail').classList.remove('on');
+    if(res) res.style.display='';
+    CCEmailResults.show(); return;
+  }
+  if(res) res.style.display='none';
   renderAutopilot();
   document.getElementById('cmpBrowse').classList.remove('off');
   document.getElementById('cmpDetail').classList.remove('on');
