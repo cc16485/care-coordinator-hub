@@ -51,7 +51,7 @@ T = r"""async()=>{
   cc.querySelector('#cmpPick button[data-pick="leads"]').click(); await sleep(100);
   ok('...pressing another campaign swaps the page to it, no scrolling', document.querySelectorAll('#cmpCampaigns [data-campaign]').length===1 && !!document.querySelector('#cmpCampaigns [data-campaign="leads"]') && /Next is|Next send|Switched off/.test(document.getElementById('cmpCampaigns').innerText));
   document.querySelector('#cmpPick button[data-pick="clients"]').click(); await sleep(100);
-  ok('...clients and families says there is no campaign', /Nothing goes to clients or families by itself/.test(document.getElementById('cmpCampaigns').innerText));
+  ok('...clients and families shows as its own campaign, off until it is turned on', /Client and family holiday notes/.test(document.getElementById('cmpCampaigns').innerText) && /Nothing goes to clients or families by itself/.test(document.getElementById('cmpCampaigns').innerText));
   document.querySelector('#cmpPick button[data-pick="partner"]').click(); await sleep(100);
   document.querySelector('#cmpCampaigns [data-fold="partner:left"]').click(); await sleep(100);
   ok('...pressing "No longer in it" opens that list', /Nobody has left this campaign|Why they are not in it now/i.test(document.getElementById('cmpCampaigns').innerText));
