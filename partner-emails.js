@@ -113,7 +113,8 @@
   function bulkRecipients(e){
     if(!e) return [];
     const sent = sentMap(), out = [];
-    (DATA.referral_orgs || []).filter(o => o && !o.archived && !o.program_track && (e.seg === ANY || segOf(o) === e.seg)).forEach(o => people(o).forEach(p => { if(!sent[e.key + '|' + p.email]) out.push({ email:p.email, name:p.name, org_id:o.id, contact_id:p.contact_id }); }));
+    /* professional partners and the email list (program_track 'email_list', 2026-11-13); every other program is left out */
+    (DATA.referral_orgs || []).filter(o => o && !o.archived && (!o.program_track || o.program_track === 'email_list') && (e.seg === ANY || segOf(o) === e.seg)).forEach(o => people(o).forEach(p => { if(!sent[e.key + '|' + p.email]) out.push({ email:p.email, name:p.name, org_id:o.id, contact_id:p.contact_id }); }));
     return out;
   }
   async function bulkRecord(e, results){
