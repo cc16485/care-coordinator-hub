@@ -6454,7 +6454,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     #tab-campaigns .cmp-two{display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;}
     @media(max-width:980px){#tab-campaigns .cmp-two{grid-template-columns:1fr;}}
     #tab-campaigns .cmp-preview{background:#F3EDE3;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-    #tab-campaigns .cmp-preview iframe{width:100%;height:640px;border:0;display:block;background:#F3EDE3;}
+    #tab-campaigns .cmp-preview iframe{width:100%;height:max(640px, calc(100vh - 170px));border:0;display:block;background:#F3EDE3;}
     #tab-campaigns .cmp-side{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:sticky;top:80px;}
     #tab-campaigns .cmp-side h4{margin:0 0 10px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--navy);}
     #tab-campaigns .cmp-side select,#tab-campaigns .cmp-side textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:9px 11px;font:inherit;font-size:13.5px;background:#fff;color:var(--text);box-sizing:border-box;}
@@ -9606,10 +9606,16 @@ function renderCampaigns(){
   document.getElementById('cmpBrowse').classList.remove('off');
   document.getElementById('cmpDetail').classList.remove('on');
   auds.innerHTML=CMP_AUDS.map(a=>'<button class="cmp-aud '+(cmpAud===a[0]?'active':'')+'" onclick="cmpAud=\''+a[0]+'\';renderCampaigns()">'+a[1]+'</button>').join('');
-  const list=cmpLib().filter(e=>e.aud===cmpAud);
-  document.getElementById('cmpGrid').innerHTML=list.map(e=>
-    '<div class="cmp-card" onclick="openCampaign(\''+e.key+'\')">'+
-    '<div class="cmp-when" style="color:'+tkEsc(e.ac)+'">'+tkEsc(e.when||'')+(e.seg?' · '+tkEsc(e.seg):'')+'</div>'+
+  /* 2026-11-14 (her "i cant see the emails you made recently"): the partner series was at the very bottom of 38 cards.
+     Series emails come first, in order, under their own heading and numbered; the by-hand emails follow. */
+  const list=cmpLib().filter(e=>e.aud===cmpAud).sort((a,b)=>((a.series?0:1)-(b.series?0:1))||((a.series||0)-(b.series||0)));
+  const nSeries=list.filter(e=>e.series).length;
+  const cmpGroupHead=(t,sub)=>'<div class="cmp-grouphead" style="grid-column:1/-1;margin:6px 0 0;"><div style="font-weight:800;color:var(--navy);font-size:15px;">'+t+'</div><div class="field-note">'+sub+'</div></div>';
+  document.getElementById('cmpGrid').innerHTML=list.map((e,i)=>
+    (nSeries&&i===0?cmpGroupHead('The partner series','One a month to the Referral Partners email list, sent by the schedule. Open one to see it exactly as it arrives.'):'')+
+    (nSeries&&i===nSeries?cmpGroupHead('Other partner emails','Sent by hand, from here or from a partner\'s profile.'):'')+
+    '<div class="cmp-card" onclick="openCampaign(\''+e.key+'\')"'+(e.series?' style="border-left:4px solid #14606F;"':'')+'>'+
+    '<div class="cmp-when" style="color:'+tkEsc(e.ac)+'">'+(e.series?'Partner series · email '+e.series+' of '+nSeries:tkEsc(e.when||'')+(e.seg?' · '+tkEsc(e.seg):''))+'</div>'+
     '<div class="cmp-subj">'+tkEsc(e.subj)+'</div>'+
     '<div class="cmp-meta">'+tkEsc(e.cat||'')+(e.variant?' · '+tkEsc(e.variant):'')+'</div>'+
     (function(){ const l=cmpSentThisYear(e.key), any=cmpSentFor(e.key);
@@ -9657,6 +9663,8 @@ function openCampaign(key){
     document.getElementById('cmpManual').style.display=this.value==='manual'?'block':'none';
     cmpCount();
   };
+  /* 2026-11-14: a partner email opened with "Leads · open" picked as who gets it. It starts on partners now. */
+  if(e.aud==='referrers'){ const src=document.getElementById('cmpSource'); if(src) src.value='orgs'; }
   cmpCount();
 }
 async function cmpRecipients(){
