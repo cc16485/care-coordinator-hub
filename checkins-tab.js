@@ -73,7 +73,9 @@
   const markLine = (c, nowMs) => c.mark ? '<div class="field-note">' + e({ fine: 'Marked fine', call: 'Marked needs a call', called: 'Called' }[c.mark.state] || '') + ' by ' + e(c.mark.by) + ', ' + e(when(c.mark.at, nowMs)) + (c.mark.note ? ': ' + e(c.mark.note) : '') + '</div>' : '';
 
   const ldot = (s) => '<span class="chk-dot" title="' + e(LDOT[s][1]) + '" style="background:' + LDOT[s][0] + '"></span>';
-  const famName = (l) => e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
+  /* the client's own check-in (2026-11-14) says "the client", never "Dorothy's family" */
+  const famName = (l) => l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
+    : e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
   function linkRow(l, nowMs) {
     const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
     const acts = busy ? '<span class="field-note">Saving…</span>'

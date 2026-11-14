@@ -11,7 +11,7 @@
      No sign-in, no portal. Nothing they've already told us is asked again.
      One happiness question first; the next questions appear only when they fit the answer. Under a minute.
      "Message the owners privately" is always on the page and opens private.html with the same code.
-     ?demo=family|caregiver shows sample data and saves nothing (for the office and for tests).
+     ?demo=family|client|caregiver shows sample data and saves nothing (for the office and for tests).
      ============================================================ -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
 <style>
@@ -80,9 +80,9 @@ const code = (location.hash.match(/k=([0-9a-f-]{36}\.\d{9,11}\.[A-Za-z0-9_-]{43}
 /* What each check-in asks first. The first question is always the happiness one; each kind may add ONE question of its own. */
 const KINDS = {
   family: {
-    first_visit: { label: 'After the first visit', lead: c => c.caregiver + ' had a first visit with ' + c.client + '. We would love to hear how it went.', extra: { q: 'Did the caregiver arrive when you expected?', opts: ['Yes', 'A little late', 'No'] } },
-    day_30: { label: 'Day 30', lead: c => 'It has been about a month of care for ' + c.client + '.' },
-    day_90: { label: 'Day 90', lead: c => 'Three months together, thank you for trusting us with ' + c.client + '.', extra: { q: 'How likely are you to recommend us to a friend?', scale: true } },
+    first_visit: { label: 'After the first visit', lead: c => c.self ? 'You had your first visit with ' + c.caregiver + '. We would love to hear how it went.' : c.caregiver + ' had a first visit with ' + c.client + '. We would love to hear how it went.', extra: { q: 'Did the caregiver arrive when you expected?', opts: ['Yes', 'A little late', 'No'] } },
+    day_30: { label: 'Day 30', lead: c => c.self ? 'It has been about a month of care with us.' : 'It has been about a month of care for ' + c.client + '.' },
+    day_90: { label: 'Day 90', lead: c => c.self ? 'Three months together, thank you for trusting us with your care.' : 'Three months together, thank you for trusting us with ' + c.client + '.', extra: { q: 'How likely are you to recommend us to a friend?', scale: true } },
     quarterly: { label: 'Every 3 months', lead: c => 'A quick check-in from the office.' },
   },
   caregiver: {
@@ -126,7 +126,7 @@ function render() {
   A = {};
   const faces = FACES[ctx.who].map(([v, e, t]) => '<button class="face" data-v="' + v + '"><span class="e" aria-hidden="true">' + e + '</span>' + esc(t) + '</button>').join('');
   $('#main').innerHTML = '<div class="bar"><i id="prog"></i></div>'
-    + '<div class="card"><p class="q">' + (ctx.who === 'family' ? 'How are things going with ' + esc(ctx.client) + "'s care?" : 'How are you feeling about work lately?') + '</p>'
+    + '<div class="card"><p class="q">' + (ctx.who === 'family' ? (ctx.self ? 'How are things going with your care?' : 'How are things going with ' + esc(ctx.client) + "'s care?") : 'How are you feeling about work lately?') + '</p>'
     + '<p class="hint">Tap one. It takes less than a minute.</p><div class="faces">' + faces + '</div></div>'
     + '<div id="more"></div><div class="err" id="err"></div>' + footer();
   document.querySelectorAll('.face').forEach(b => b.onclick = () => pick(b.dataset.v));
@@ -214,7 +214,8 @@ function sample() {
   const who = $('#sWho'), kind = $('#sKind'), st = $('#sState');
   who.value = DEMO === 'caregiver' ? 'caregiver' : 'family';
   const fill = () => { kind.innerHTML = Object.entries(KINDS[who.value]).map(([k, v]) => '<option value="' + k + '">' + v.label + '</option>').join(''); if (params.get('kind') && KINDS[who.value][params.get('kind')]) kind.value = params.get('kind'); };
-  const go = () => { ctx = Object.assign({ who: who.value, kind: kind.value, state: st.value }, SAMPLE[who.value]); render(); };
+  /* ?demo=client: the client's own check-in (2026-11-14: the client is a contact too) */
+  const go = () => { ctx = Object.assign({ who: who.value, kind: kind.value, state: st.value, self: DEMO === 'client' }, SAMPLE[who.value], DEMO === 'client' ? { first: 'Dorothy' } : {}); render(); };
   fill(); if (params.get('state')) st.value = params.get('state');
   who.onchange = () => { fill(); go(); }; kind.onchange = go; st.onchange = go; go();
 }
@@ -226,7 +227,7 @@ async function real() {
   try {
     const v = await api({ action: 'open' });
     if (!KINDS[v.audience] || !KINDS[v.audience][v.kind]) throw new Error('This link is not valid.');
-    ctx = { who: v.audience, kind: v.kind, state: v.state, first: v.first, client: v.client || 'your loved one', caregiver: v.caregiver || 'your caregiver', caregivers: v.caregivers || [], phone_tail: v.phone_tail || '' };
+    ctx = { who: v.audience, kind: v.kind, state: v.state, self: v.self === true, first: v.first, client: v.client || 'your loved one', caregiver: v.caregiver || 'your caregiver', caregivers: v.caregivers || [], phone_tail: v.phone_tail || '' };
     render();
   } catch (e) { stop('We could not open this check-in', esc(e.message) + ' You can call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.'); }
 }

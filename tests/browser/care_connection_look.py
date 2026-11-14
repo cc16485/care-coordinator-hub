@@ -36,6 +36,16 @@ with sync_playwright() as pw:
     pv = pg.get_attribute('a.private', 'href') or ''
     ok('check-in: "Message the owners" carries the code after #', pv.startswith('private.html#k=') and CODE in pv, pv)
     ok('check-in: no page errors', not errs, errs)
+    # the client's own check-in (2026-11-14): "your care", never their own name in third person
+    def selfck(route):
+        body = json.loads(route.request.post_data or '{}')
+        if body.get('action') == 'open': return route.fulfill(json={'state': 'ok', 'audience': 'family', 'kind': 'first_visit', 'self': True, 'first': 'Dorothy', 'client': 'Dorothy', 'caregiver': 'Tanya', 'caregivers': ['Tanya'], 'phone_tail': '90'})
+        return route.fulfill(json={'ok': True, 'follow': 'kind_words'})
+    pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', selfck)
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html#k=' + CODE); pg.wait_for_timeout(700)
+    mt = pg.inner_text('main') + pg.inner_text('header')
+    ok('check-in (the client): speaks to them about "your" care', 'You had your first visit with Tanya' in mt and 'How are things going with your care?' in mt, mt[:300])
+    ok('check-in (the client): never "Dorothy\'s care" to Dorothy', "Dorothy's" not in mt and 'with Dorothy' not in mt, mt[:300])
     pg.goto(BASE + 'checkin.html'); pg.wait_for_timeout(300)
     ok('check-in: without a code it asks them to open the link again', 'not complete' in pg.inner_text('main'))
     pg.close()
@@ -110,7 +120,8 @@ with sync_playwright() as pw:
                 L(1, answered_at='2026-11-14T16:00:00Z', mood='improve', what=['The schedule'], call=True, when='afternoon', follow='card', state='needs', note='Times keep changing'),
                 L(2, answered_at='2026-11-14T16:00:00Z', mood='great', thanked=True, follow='kind_words', state='happy', first='Kay', client_first='Opal'),
                 L(3, state='no_response', first='Ned', client_first='Vern'),
-                L(4, answered_at='2026-11-13T16:00:00Z', mood='improve', follow='card', card_id='ops_checkin_4', state='called', confirm=True, first='Ida', client_first='Iris')]})
+                L(4, answered_at='2026-11-13T16:00:00Z', mood='improve', follow='card', card_id='ops_checkin_4', state='called', confirm=True, first='Ida', client_first='Iris'),
+                L(5, answered_at='2026-11-14T16:00:00Z', mood='improve', follow='card', state='needs', first='Walt', client_first='Walt', self=True)]})
         pg.route('**/functions/v1/checkins', chk)
         pg.route('**/*', lambda r: r.fallback() if ('owner-inbox' in r.request.url or 'functions/v1/checkins' in r.request.url) else r.abort() if 'supabase.co' in r.request.url else r.continue_())
         pg.goto(BASE + 'index.html?proof=oix'); pg.wait_for_timeout(1200)
@@ -138,8 +149,9 @@ with sync_playwright() as pw:
     pg.evaluate("switchTab('cgcheckins')"); pg.wait_for_timeout(800)
     pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(300)
     t = pg.inner_text('#checkinsWrap')
+    ok('Check-ins tab: the client\'s own answer says "(the client)", not "Walt\'s family"', 'Walt (the client)' in t and "Walt's family" not in t, t[:600])
     ok('Check-ins: a Families view in the same tab', 'Families' in t and 'Linda' in t and "Dorothy's family" in t, t[:600])
-    ok('Check-ins: who answered, who is happy, who needs attention, who asked for a call, who did not answer', all(x in t for x in ['3 Answered', '1 Happy', '2 Need attention', '1 Asked for a call', '1 No answer']), t[:400])
+    ok('Check-ins: who answered, who is happy, who needs attention, who asked for a call, who did not answer', all(x in t for x in ['4 Answered', '1 Happy', '3 Need attention', '1 Asked for a call', '1 No answer']), t[:400])
     ok('Check-ins: the concern shows what they said and when to call', 'Something needs to change' in t and 'The schedule' in t and 'Asked for a call in the afternoon' in t)
     ok('Check-ins: praise shows it went to Kind Words', 'Thanks passed to Kind Words' in t)
     ok('Check-ins: a closed card nobody confirmed asks to confirm', 'nobody confirmed with them' in t)
