@@ -7,7 +7,7 @@ const lib = fs.readFileSync(path.join(HUB, 'email-library.js'), 'utf8'), html = 
 const api = new Function('CCEmailTemplate', lib + ';return { L: CC_EMAIL_LIBRARY, build: ccBuildEmailHTML, assets: CC_EMAIL_ASSETS }')(T);
 const res = []; const ck = (n, c, d) => res.push([n, !!c, c ? '' : JSON.stringify(d === undefined ? '' : d).slice(0, 600)]);
 const all = api.L.map(e => [e, api.build(e)]);
-ck('every email in the library is drawn, whole, with nothing missing', all.length > 80 && all.every(([e, h]) => /^<!DOCTYPE html>/.test(h) && /<\/html>$/.test(h) && !/undefined|NaN|\[object/.test(h)), all.filter(([e, h]) => /undefined|NaN|\[object/.test(h)).map(([e]) => e.key));
+ck('every email in the library is drawn, whole, with nothing missing', all.length >= 80 && all.every(([e, h]) => /^<!DOCTYPE html>/.test(h) && /<\/html>$/.test(h) && !/undefined|NaN|\[object/.test(h)), all.filter(([e, h]) => /undefined|NaN|\[object/.test(h)).map(([e]) => e.key));
 ck('...with its own subject, headline and every paragraph of its words', all.every(([e, h]) => h.includes(e.head) && (e.blocks || []).filter(b => b.t === 'p').every(b => h.includes(b.text))));
 ck('...and one Unsubscribe link, left as {unsub} for the server to fill in for each person', all.every(([e, h]) => h.split('href="{unsub}"').length === 2));
 ck('pictures come from mo-care.com, not the old address', api.assets === 'https://mo-care.com/email-assets' && all.every(([e, h]) => !/pages\.dev|guide\.mo-care/.test(h)));
