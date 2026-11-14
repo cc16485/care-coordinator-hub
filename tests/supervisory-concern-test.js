@@ -42,10 +42,9 @@ ck('obligations close an item whose code is no longer in mgmt', /mgmt/.test(ob) 
 const hub = fs.readFileSync(__dirname + '/../index.html', 'utf8');
 ck("the Hub's fallback day matches", /return d >= '2026-11-16';/.test(hub));
 ck('the engine asks the rules file', /CCElig\.supervisoryConcernOnly\(\)/.test(fs.readFileSync(__dirname + '/../caregivers-engine.js', 'utf8')));
-// no em dashes in the new copy
-const newCopy = hub.slice(hub.indexOf('<div class="guide-body" data-sv="concern">'), hub.indexOf('<div class="guide-body" data-sv="yearly">'))
-  + hub.slice(hub.indexOf('id="svNoteModalBackdrop"'), hub.indexOf('saveSupervisoryNote()">Save Note'));
-ck('no em dash in the new help text or the note', newCopy.length > 500 && !/[—―]/.test(newCopy));
+// the Supervisory Visits tab was removed 2026-11-14 (her word: supervisory visits are no longer required)
+ck('the Supervisory Visits tab and its pop-ups are gone', !/data-tab="supervisory"|id="tab-supervisory"|supervisoryModalBackdrop|svNoteModalBackdrop|switchTab\('supervisory'\)|openSupervisoryModal|renderSupervisory/.test(hub));
+ck('How-to no longer sends anyone to the tab', !/go\('supervisory'/.test(fs.readFileSync(__dirname + '/../howto.js', 'utf8')));
 
 // Active Compliance (caregivers-engine.js): acWorst and the supervisory cell, lifted from the engine and run against the rules
 {

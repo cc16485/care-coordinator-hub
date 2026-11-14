@@ -169,10 +169,6 @@
           'Read each one. Answer the family, or pass praise to the Kind Words jar.',
           'A happy family: on ' + go('feedback', 'Referrals & Marketing: Feedback') + ' press ' + b('Copy message') + ', send it from the office line, then press ' + b('I asked') + '.' ],
         done: 'The board row is gone.' },
-      { t: 'Supervisory visits', when: 'A visit is due.', steps: [
-          'Open ' + go('supervisory', 'Caregivers: Supervisory Visits') + ' for the list of who is due.',
-          'Do the visit and record it there.' ],
-        done: 'The visit is recorded and nothing is past due.' },
       { t: 'Pausing or ending care', when: 'A hospital stay, a move, or the family stops care.', steps: [
           'Open the client and press ' + b('Pause care') + ' or ' + b('End care') + '. ' + b('Resume care') + ' brings them back.',
           'Follow the written procedure under Ending care below. If none is listed, ask an owner before you promise the family anything.',
