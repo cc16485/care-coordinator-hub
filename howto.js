@@ -209,37 +209,38 @@
     ],
 
     wrong: [
-      { t: 'A fall', when: 'A caregiver calls to say a client fell.', steps: [
-          'Tell the caregiver: do not lift the client, even if the client asks.',
-          'If the client is hurt, in pain, or cannot get up by themselves: call 911.',
-          'Stay on the line or call back until help is there.',
-          'Call the family.',
-          'Open the client and write the report: From the shifts, then ' + b('+ New incident report') + '. Do it the same day.',
-          'Tell an owner.' ],
-        rules: [ 'Caregivers never lift a fallen client. This wins over anything else written.',
+      /* 2026-11-13: these four follow her published procedures (SOPs > Procedures, reviewed 2026-10-18) word for word on
+         what to press and who to tell. My first wording had "+ New incident report", "tell an owner" and the wrong
+         hotline hours; the published ones use Report a concern and name the hours as 7 am to 8 pm. */
+      { t: 'A fall, an injury or a hospital trip', when: 'A caregiver, the client or the family tells us the client fell, got hurt, went to the ER or was admitted. Every fall counts, even if they say they are fine.', steps: [
+          'If a caregiver is calling from the home, remind them: never lift the client. Check them, keep them comfortable on the floor, and call 911 if they are hurt.',
+          'If the client hit their head, is in severe pain, has an injury, or cannot get up on their own, make sure 911 has been called.',
+          'Press ' + b('＋ Report a concern') + ' and pick ' + b('Fall, injury or hospitalisation') + '. Fill in what happened, when, any injuries, which hospital, who was there, and whether the family has been told. This alerts the person in charge.',
+          'Call the family. Share details only with people marked in AxisCare as allowed to hear about the client\'s care.',
+          'In the hospital: press ' + b('Pause care') + ' on their profile, take their upcoming visits off in AxisCare and tell their caregivers.',
+          'Before care restarts, review the care plan with the family. When they are home, press ' + b('Resume care') + ' and put their visits back in AxisCare.' ],
+        rules: [ 'Caregivers never lift a fallen client, even if asked.',
                  'The office line reaches us after hours.' ],
-        done: 'The client is safe, the family knows, and the report is written.' },
-      { t: 'An injury, an illness or a hospital stay', when: 'A client is hurt, suddenly unwell, or admitted.', steps: [
-          'Emergency: 911 first.',
-          'Call the family.',
-          'Write the report on the client: ' + b('+ New incident report') + '.',
-          'A hospital stay: press ' + b('Pause care') + ' on the client and take the visits off the schedule in AxisCare.',
-          'Tell an owner.' ],
-        done: 'The report is written and the schedule is right.' },
-      { t: 'A complaint', when: 'A client or family is unhappy.', steps: [
-          'Listen. Thank them for telling us. Do not argue or explain yet.',
-          'Press ' + b('＋ Report a concern') + ' at the top of any page. Pick the client, write what happened in their words, and say what kind it is and how urgent. It goes on the right person\'s list and shows on the client.',
-          'Call them back the same day with what we are doing about it.',
-          'Tell an owner.',
-          'If it is about a caregiver, see A concern about a caregiver on the Caregivers tab.' ],
-        done: 'The family has heard back, and it is written on the client.' },
-      { t: 'You suspect abuse, neglect or someone taking advantage', when: 'Something you see, or something a caregiver or client tells you.', steps: [
-          'In danger right now: call 911.',
-          'Call the Missouri Adult Abuse and Neglect Hotline, 800-392-0210. It is open 7 a.m. to midnight every day.',
-          'Tell an owner right away.',
-          'Write down what you saw or were told, with the date and time.' ],
-        rules: [ 'We report. We do not investigate, and we do not wait to be sure.' ],
-        done: 'The hotline has been called and an owner knows.' },
+        done: 'The client is safe, the concern is reported in the Hub, the family knows, and the schedule matches where the client really is.' },
+      { t: 'A complaint', when: 'A client or family member tells us they are unhappy with our care, a caregiver, the schedule, billing or how we treated them. It counts however it reaches us.', steps: [
+          'Listen. Thank them for telling us. Do not argue or explain it away. Write down their own words and ask what they would like to happen.',
+          'If what they describe could be abuse, neglect or exploitation, it is not a complaint. Follow the card below and report it first.',
+          'Press ' + b('＋ Report a concern') + '. Pick ' + b('Grievance') + ' if they are unhappy with our services overall, or ' + b('Family complaint about a caregiver') + ' if it is about one caregiver.',
+          'Tell the person in charge the same day. They decide what we do.',
+          'Look into it: talk to the caregiver, and check the visits and shift notes in AxisCare.',
+          'Fix what we can. A refund, a credit or ending service is a leadership decision.',
+          'Nothing about their care changes because they complained. Tell them so.',
+          'Follow up within 14 days to check it stayed fixed, then close the card.' ],
+        done: 'The family has their answer, it stayed fixed, and the card is closed.' },
+      { t: 'You suspect abuse, neglect or someone taking advantage', when: 'You see, hear or are told something that makes you suspect a client is being hurt, neglected, bullied or taken advantage of.', steps: [
+          'If the client is in danger right now, call 911 first.',
+          'Report it yourself, right away, to the Missouri Adult Abuse and Neglect Hotline: 800-392-0210, 7 am to 8 pm every day. Any other time, report online at moapss.health.mo.gov.',
+          'Write down when you reported, how, who you spoke with and any reference number.',
+          'In the Hub, press ' + b('＋ Report a concern') + ' and pick ' + b('Possible abuse, neglect or exploitation') + '. This alerts the person in charge.',
+          'Do not question the client or the person suspected, and do not tell the person suspected that a report was made.',
+          'Keep the client\'s care going.' ],
+        rules: [ 'Never wait for anyone\'s OK to report, and do not wait until you are sure.' ],
+        done: 'The hotline has the report, it is recorded in the Hub, and the person in charge knows.' },
       { t: 'After hours', when: 'Nights, weekends and holidays.', steps: [
           'The steps and who to call are in the After-Hours Escalation Protocol on ' + go('sops', 'SOPs: Procedures') + '.',
           'Leave a handoff with ' + b('End my shift') + ' so the morning starts with what happened.' ] },
