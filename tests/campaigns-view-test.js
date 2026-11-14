@@ -50,6 +50,7 @@ ck('the emails: email 1 went to 6 addresses with its results; email 2 is next fo
 ck('it is ON only when the master switch and the series switch are both on', P.on === true && C.partner({ ...I, cfg: { ...cfg, enabled: false } }).on === false && C.partner({ ...I, cfg: { ...cfg, auto_partner_series: false } }).on === false);
 ck('next send: someone new still owes this month, so it is the next weekday morning', /Next send: Wed, Nov 18/.test(P.when), P.when);
 ck('...and when nobody is owed this month, it is next month on or after the 10th', /Next send: Thu, Dec 10/.test(C.partner({ ...I, orgs: orgs.filter((o) => o.id !== 'o7') }).when), C.partner({ ...I, orgs: orgs.filter((o) => o.id !== 'o7') }).when);
+ck('...an empty list says nobody is on it, never "everyone has had all six"', /Nobody is on the email list yet/.test(C.partner({ ...I, orgs: [], acts: [], res: null }).when) && /Everyone on the list has had all 6/.test(C.partner({ ...I, orgs: [orgs[1]], acts: [1, 2, 3, 4, 5, 6].map((n) => act('o2', 'r' + (38 + n), 'amy@able.example', at(2026, n, 12))), res: null }).when));
 ck('...a 10th on a weekend moves to Monday; before the 10th it is this month', C.nextRun(new Date(2027, 0, 4, 12), 10, true).getDate() === 11 && C.nextRun(new Date(2026, 11, 1, 12), 10, false).getDate() === 10);
 ck('without the results yet it still knows who is in it and what they received, from the partner history', C.partner({ ...I, res: null }).members.length === 4 && C.partner({ ...I, res: null }).emails[0].to === 6 && C.partner({ ...I, res: null }).emails[0].counts === null);
 
@@ -65,11 +66,14 @@ const G = C.caregivers(I);
 ck('caregiver notes: active caregivers with an email; inactive in the Hub or in AxisCare are left out; no email is counted', G.members.map((m) => m.name).join('|') === 'Ruth Able|Sam Cole' && G.noEmail === 1 && G.on === true, G);
 ck('...a run that reached nobody is not shown as sent', G.emails.every((e) => !e.sentAt));
 
-const h = C.html(I, { open: { 'partner:people': true, 'partner:left': true, 'leads:people': true } });
-ck('the page: three campaigns, each ON, with what it is, who gets it and when the next one goes', (h.match(/data-campaign=/g) || []).length === 3 && /Partner series/.test(h) && /Monthly email to open leads/.test(h) && /Caregiver holiday notes/.test(h) && (h.match(/>ON</g) || []).length === 3 && /Who gets it:/.test(h) && /Next send:/.test(h));
-ck('...the emails and results are open from the start; people lists open on a press', /Partner email 1/.test(h) && /2<\/b> opened/.test(h) && /Birch Pointe/.test(h) && /Emails? 1 of 6/.test(h) && /Wrote back/.test(h) && /now a full partner/.test(h));
-ck('...folded lists keep their names off the page until opened', !/Ruth Able/.test(h) && /Who is in it now \(2\)/.test(h));
-ck('...clients and families are said to have no campaign', /Clients and their families/.test(h) && /Nothing goes to clients or families by itself/.test(h));
+const h = C.html(I, { open: { 'partner:left': true }, pick: 'partner' });
+const hL = C.html(I, { open: {}, pick: 'leads' }), hG = C.html(I, { open: {}, pick: 'caregivers' }), hC = C.html(I, { open: {}, pick: 'clients' });
+ck('a row of buttons names every campaign with ON or OFF and how many are in it; clients say "by hand only"', (h.match(/data-pick=/g) || []).length === 4 && /Partner series<div[^>]*>ON · 3 in it/.test(h) && /Monthly email to open leads<div[^>]*>ON · 2 in it/.test(h) && /Caregiver holiday notes<div[^>]*>ON · 2 in it/.test(h) && /Clients and families<div[^>]*>by hand only/.test(h), (h.match(/data-pick="[a-z]+"[^<]*<[^<]*<div[^>]*>[^<]*/g) || []));
+ck('only the picked campaign is on the page, so there is nothing to scroll past', (h.match(/data-campaign=/g) || []).length === 1 && /data-campaign="partner"/.test(h) && !/Home for the holidays/.test(h) && /data-campaign="leads"/.test(hL) && !/Partner email 1/.test(hL) && /data-campaign="caregivers"/.test(hG) && /data-campaign="clients"/.test(hC));
+ck('the picked campaign says what it is, who gets it and when the next one goes', /Who gets it:/.test(h) && /Next send:/.test(h) && />ON</.test(h));
+ck('...its emails with results and who is in it are open from the start; "no longer in it" opens on a press', /Partner email 1/.test(h) && /2<\/b> opened/.test(h) && /Birch Pointe/.test(h) && /Emails? 1 of 6/.test(h) && /Wrote back/.test(h) && /now a full partner/.test(h) && !/became a client/.test(hL) && /Lee Park/.test(hL) && /Ruth Able/.test(hG));
+ck('...a picked name that does not exist falls back to the first campaign', /data-campaign="partner"/.test(C.html(I, { open: {}, pick: 'nope' })));
+ck('...clients and families are said to have no campaign', /Clients and their families/.test(hC) && /Nothing goes to clients or families by itself/.test(hC));
 ck('...while results are still being read it says so, and when they failed it says that and still shows the rest', /Reading who opened/.test(C.html({ ...I, res: null }, { open: {} })) && /could not be read just now \(boom\)/.test(C.html({ ...I, res: null, resError: 'boom' }, { open: {} })) && /Birch|Partner email 1/.test(C.html({ ...I, res: null, resError: 'boom' }, { open: {} })));
 ck('a name with code in it is shown as text', !/<img/.test(C.html({ ...I, orgs: [{ id: 'x', name: '<img src=x>', program_track: 'email_list', email: 'a@b.co' }], acts: [] }, { open: { 'partner:people': true } })));
 ck('her wording rules: no em dashes and no "AI" on the page', !/—/.test(h) && !/\bAI\b/.test(h));

@@ -77,7 +77,7 @@
     return { id: 'partner', name: 'Partner series', on,
       what: 'Six emails that show referral partners why Caring Companions is the home care agency to send families to. Each organization on the Referral Partners email list gets one a month, in order, starting with email 1.',
       who: 'Organizations on the Referral Partners email list (they get emails and no visits). Add or remove one under Referral Partners.',
-      when: on ? (inIt.some((m) => m.next) ? 'Next send: ' + dayWord(nextRun(now, day, owed)) + ', about 9 AM. One a month, on the first weekday on or after the ' + day + 'th.' : 'Everyone on the list has had all ' + N + ' emails.') : 'Switched off. Nothing is being sent.',
+      when: on ? (inIt.some((m) => m.next) ? 'Next send: ' + dayWord(nextRun(now, day, owed)) + ', about 9 AM. One a month, on the first weekday on or after the ' + day + 'th.' : (inIt.length ? 'Everyone on the list has had all ' + N + ' emails.' : 'Nobody is on the email list yet, so nothing goes out.')) : 'Switched off. Nothing is being sent.',
       emails: emails.map((e) => { const rows = sends.filter((s) => s.key === e.key); const tos = new Set(); for (const g of got.values()) { const x = g.get(e.series); if (x) for (const t of x.tos) tos.add(t); }
         const dates = [...got.values()].map((g) => g.get(e.series)).filter(Boolean).map((x) => x.at).sort();
         return { n: e.series, key: e.key, subj: e.subj, to: Math.max(tos.size, rows.length), first: dates[0] || '', counts: rows.length ? R.counts(rows) : null, upNext: inIt.filter((m) => m.next === e.series).length }; }),
@@ -190,19 +190,26 @@
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b></td><td style="' + td + '">' + (Array.isArray(m.had) ? hadWords(m.had, c.total) : (m.had ? m.had + ' email' + (m.had === 1 ? '' : 's') : 'Nothing')) + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td><td style="' + td + '">' + esc(m.why) + '</td></tr>').join('') + '</table>';
     return '<div class="card" data-campaign="' + c.id + '" style="padding:18px 20px;margin:0 0 16px;' + (c.on ? 'border-left:5px solid #14606F;' : '') + '">' + head
       + fold(c.id, 'emails', 'The emails and the results', null, emails + extraLine(c), open('emails', true))
-      + fold(c.id, 'people', 'Who is in it now', c.members.length, people + extra, open('people', false))
+      + fold(c.id, 'people', 'Who is in it now', c.members.length, people + extra, open('people', true))
       + fold(c.id, 'left', 'No longer in it', c.left.length, left, open('left', false)) + '</div>';
   }
   const extraLine = (c) => c.id === 'leads' && c.empty && c.empty.length ? '<div style="font-size:12.5px;color:var(--text-muted);margin-top:8px;">A month with no email planned sends nothing. The plan is changed by a step, not on this screen.</div>' : '';
 
-  const VIEW = { open: {} };
+  /* 2026-11-14 (her "make another subtab under it with the different campaigns so i dont have to scroll"): one campaign
+     on the page at a time, picked from a row of buttons. */
+  const VIEW = { open: {}, pick: 'partner' };
   function html(I, v) {
     const res = I.res, cards = model(I);
     const note = !res ? '<div style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">' + (I.resError ? 'Who opened and who wrote back could not be read just now (' + esc(I.resError) + '). Everything else below is current.' : 'Reading who opened and who wrote back…') + '</div>'
       : (res.still_to_check ? '<div style="font-size:13px;color:#B45309;margin:0 0 12px;">' + res.still_to_check + ' emails are still to be checked for opens. Open Results and press Check again to do the next batch.</div>' : '');
-    return '<p style="color:var(--text-muted);font-size:14px;margin:0 0 14px;max-width:80ch;">These are the emails that go out by themselves. For each one: what it is, each email and what happened to it, who is in it now, and who has left. Nothing on this page sends or changes anything.</p>'
-      + note + cards.map((c) => card(c, v || VIEW, !!res)).join('')
-      + '<div class="card" style="padding:14px 18px;"><div style="font-weight:800;color:var(--navy);">Clients and their families</div><div style="font-size:13px;color:var(--text-muted);margin-top:4px;max-width:80ch;">No campaign. Nothing goes to clients or families by itself. The holiday and program notes in the Email library are sent by hand, by a person, one at a time.</div></div>'
+    const vv = v || VIEW; const tabs = cards.map((c) => [c.id, c.name, c.on, c.members.length]).concat([['clients', 'Clients and families', null, null]]);
+    const pick = tabs.some((t) => t[0] === vv.pick) ? vv.pick : 'partner';
+    const picker = '<div id="cmpPick" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;">' + tabs.map((t) => '<button type="button" data-pick="' + t[0] + '" onclick="CCCampaigns.pick(\'' + t[0] + '\')" style="padding:9px 14px;border-radius:10px;border:1px solid ' + (pick === t[0] ? 'var(--navy)' : 'var(--border)') + ';background:' + (pick === t[0] ? 'var(--navy)' : 'var(--card)') + ';color:' + (pick === t[0] ? '#fff' : 'inherit') + ';font-weight:700;font-size:13.5px;cursor:pointer;text-align:left;">'
+      + esc(t[1]) + (t[2] === null ? '<div style="font-size:11.5px;font-weight:600;opacity:.8;">by hand only</div>' : '<div style="font-size:11.5px;font-weight:600;opacity:.8;">' + (t[2] ? 'ON' : 'OFF') + ' · ' + t[3] + ' in it</div>') + '</button>').join('') + '</div>';
+    const clients = '<div class="card" data-campaign="clients" style="padding:18px 20px;"><div style="font-size:18px;font-weight:800;color:var(--navy);">Clients and their families</div><div style="font-size:14px;margin-top:6px;max-width:80ch;">No campaign. Nothing goes to clients or families by itself.</div><div style="font-size:13px;color:var(--text-muted);margin-top:6px;max-width:80ch;">The holiday and program notes in the Email library are sent by hand, by a person, one at a time. What was sent shows under All results.</div></div>';
+    const shown = pick === 'clients' ? clients : card(cards.find((c) => c.id === pick), vv, !!res);
+    return '<p style="color:var(--text-muted);font-size:14px;margin:0 0 12px;max-width:80ch;">The emails that go out by themselves. Pick one to see what it is, each email and what happened to it, who is in it now, and who has left. Nothing on this page sends or changes anything.</p>'
+      + picker + note + shown
       + '<p style="color:var(--text-muted);font-size:12px;margin:14px 0 0;max-width:80ch;">"Opened" shows when the person\'s email program loads the pictures; some never do, so an opened email can still read "Sent, not opened yet". Each campaign is turned on and off by a step you run.</p>';
   }
   function inputs() {
@@ -214,6 +221,7 @@
   function render() { if (typeof document === 'undefined') return; const box = document.getElementById('cmpCampaigns'); if (box) box.innerHTML = html(inputs(), VIEW); }
   /* Draw at once from what the Hub has; ask for opens and replies (at most every five minutes) and draw again when they come. */
   function show() { render(); if (R && R.VIEW && !R.VIEW.loading && (!R.VIEW.askedAt || Date.now() - R.VIEW.askedAt > 300000)) R.load(true).then(render, render); }
-  function toggle(k) { const cur = VIEW.open[k]; const dflt = /:emails$/.test(k); VIEW.open[k] = !(cur === undefined ? dflt : cur); render(); }
-  return { partner, leads, caregivers, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle };
+  function toggle(k) { const cur = VIEW.open[k]; const dflt = /:(emails|people)$/.test(k); VIEW.open[k] = !(cur === undefined ? dflt : cur); render(); }
+  function pick(id) { VIEW.pick = id; render(); if (typeof window !== 'undefined' && window.scrollTo) { const b = document.getElementById('cmpPick'); if (b && b.getBoundingClientRect().top < 0) b.scrollIntoView(); } }
+  return { partner, leads, caregivers, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle, pick };
 });
