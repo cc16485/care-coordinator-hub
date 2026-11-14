@@ -142,7 +142,31 @@
         return { when: e.when || '', key: e.key, subj: e.subj, sentAt: l ? l.at : '', to: l ? l.sent : 0, counts: rows.length ? R.counts(rows) : null }; }),
       members, left: [], noEmail: (I.caregivers || []).filter((c) => c && c.active !== false && c.axiscare_status_active !== false && !lc(c.email).includes('@')).length };
   }
-  function model(I) { return [partner(I), leads(I), caregivers(I)]; }
+  /* ---- 4. holiday notes to clients and their families (her word 2026-11-14: "clients and families should get holiday
+     emails automated"). Who gets one is read from AxisCare by the sender each time a note goes (people tied to a current
+     client), so the Hub cannot list them ahead of time: it shows who HAS received one, once the first has gone. ---------- */
+  function clientNotes(I) {
+    const cfg = I.cfg || {}, now = I.now || new Date(), res = I.res, yr = String(now.getFullYear());
+    const lib = (I.lib || []).filter((e) => e && (e.aud === 'clients' || e.aud === 'client_contacts') && e.cat === 'Holiday');
+    const keys = new Set(lib.map((e) => e.key));
+    const sends = ((res && res.sends) || []).filter((s) => R.audOf(s) === 'clients' && s.auto && keys.has(s.key) && String(s.at).slice(0, 4) === yr);
+    const log = (I.log || []).filter((x) => x && (x.sent || 0) > 0 && String(x.at || '').slice(0, 4) === yr && keys.has(x.key));
+    const byTo = new Map(); for (const s of sends) { const k = lc(s.to); if (!byTo.has(k)) byTo.set(k, []); byTo.get(k).push(s); }
+    const members = [...byTo.entries()].map(([to, rows]) => { rows.sort((a, b) => String(a.at).localeCompare(String(b.at))); const last = rows[rows.length - 1];
+      return { name: last.name || to, email: to, had: rows.length, lastSubj: last.subj, lastAt: last.at, status: R.statusOf(last) }; }).sort((a, b) => a.name.localeCompare(b.name));
+    const on = !!cfg.enabled && !!cfg.auto_client_holidays; const other = (I.lib || []).filter((e) => e && (e.aud === 'clients' || e.aud === 'client_contacts') && e.cat !== 'Holiday').length;
+    return { id: 'clients', name: 'Client and family holiday notes', on, countWord: on ? 'ON · current clients' : 'OFF · by hand only',
+      what: on ? 'Five warm holiday notes a year to the people we care for, and a matching note to their families: New Year, February, the 4th of July, Thanksgiving and Christmas.'
+               : 'Nothing goes to clients or families by itself. The holiday and program notes in the Email library are sent by hand, by a person, one at a time.',
+      who: 'Clients we are caring for now (active or starting) and their family contacts in AxisCare. Never anyone tied to a past, paused or deceased client, and never someone marked do not contact. A person who is both gets the client note only.',
+      when: on ? 'Each note goes once a year, in its own week.' : 'Switched off. Nothing is being sent.',
+      emails: lib.map((e) => { const l = log.filter((x) => x.key === e.key).sort((a, b) => String(b.at).localeCompare(String(a.at)))[0]; const rows = sends.filter((s) => s.key === e.key);
+        return { when: (e.when || '') + ' · ' + (e.aud === 'clients' ? 'to clients' : 'to families'), key: e.key, subj: e.subj, sentAt: l ? l.at : '', to: l ? l.sent : 0, counts: rows.length ? R.counts(rows) : null }; }),
+      members, left: [], hideLeft: true, tiles: [['Have received one this year', members.length]], peopleTitle: 'Who has received one this year',
+      peopleEmpty: 'No holiday note has gone out yet this year. The list of who gets one is read from AxisCare each time a note goes, so it shows here after the first one.',
+      footnote: other ? 'The ' + other + ' program notes for clients and families are not part of this. They are sent by hand from the Email library.' : '' };
+  }
+  function model(I) { return [partner(I), leads(I), caregivers(I), clientNotes(I)]; }
 
   /* ---- drawing ------------------------------------------------------------------------------------------------------ */
   const TONE = { good: 'background:#DCFCE7;color:#166534;', bad: 'background:#FEE2E2;color:#991B1B;', plain: 'background:#EEF2F7;color:#334155;', muted: 'background:#F5F5F4;color:#78716C;' };
@@ -165,7 +189,7 @@
       + '<div style="font-size:14px;margin-top:6px;max-width:80ch;">' + esc(c.what) + '</div>'
       + '<div style="font-size:13px;color:var(--text-muted);margin-top:6px;max-width:80ch;"><b>Who gets it:</b> ' + esc(c.who) + '</div>'
       + '<div style="font-size:13px;margin-top:6px;font-weight:700;color:' + (c.on ? '#166534' : 'var(--text-muted)') + ';">' + esc(c.when) + '</div></div>'
-      + '<div style="display:flex;gap:8px;">' + [['In it now', c.members.length], ['No longer in it', c.left.length]].map((t) => '<div style="min-width:104px;background:var(--bg,#FAF8F3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--navy);">' + t[1] + '</div><div style="font-size:12px;color:var(--text-muted);">' + t[0] + '</div></div>').join('') + '</div></div>';
+      + '<div style="display:flex;gap:8px;">' + (c.tiles || [['In it now', c.members.length], ['No longer in it', c.left.length]]).map((t) => '<div style="min-width:104px;background:var(--bg,#FAF8F3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--navy);">' + t[1] + '</div><div style="font-size:12px;color:var(--text-muted);">' + t[0] + '</div></div>').join('') + '</div></div>';
     let emails;
     if (c.id === 'partner') emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email</th><th style="' + th + '">Sent</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
       '<tr><td style="' + td + '"><b>' + e.n + '.</b> <a href="#" onclick="openCampaign(\'' + esc(e.key) + '\');return false;" style="color:var(--navy);font-weight:700;">' + esc(e.subj) + '</a></td>'
@@ -176,12 +200,12 @@
       + '<td style="' + td + 'white-space:nowrap;">' + (e.sentAt ? esc(dayWord(e.sentAt)) + ', to ' + e.to : (e.key ? '<span style="color:var(--text-muted);">Not yet</span>' : '')) + '</td>'
       + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.sentAt ? '<span style="color:var(--text-muted);">Sent before people were recorded</span>' : '')) + '</td><td style="' + td + 'text-align:right;">' + preview(e.key) + '</td></tr>').join('') + '</table>';
     let people;
-    if (!c.members.length) people = '<div class="empty">Nobody is in this campaign right now.</div>';
+    if (!c.members.length) people = '<div class="empty">' + esc(c.peopleEmpty || 'Nobody is in this campaign right now.') + '</div>';
     else if (c.id === 'partner') people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Organization</th><th style="' + th + '">Has received</th><th style="' + th + '">Next</th><th style="' + th + '">Last email</th></tr>' + c.members.map((m) =>
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b><div style="color:var(--text-muted);font-size:12px;">' + esc(m.type) + (m.type ? ' · ' : '') + m.addresses + ' email address' + (m.addresses === 1 ? '' : 'es') + (m.someOut ? ' · ' + m.someOut + ' unsubscribed' : '') + '</div></td>'
       + '<td style="' + td + '">' + hadWords(m.had, c.total) + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td>'
       + '<td style="' + td + '">' + (m.next ? 'Email ' + m.next : 'Finished') + '</td><td style="' + td + '">' + (chip(m.status) || '') + '</td></tr>').join('') + '</table>';
-    else people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Lead' : 'Caregiver') + '</th><th style="' + th + '">Has received</th><th style="' + th + '">Last email</th></tr>' + c.members.map((m) =>
+    else people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Lead' : c.id === 'clients' ? 'Person' : 'Caregiver') + '</th><th style="' + th + '">Has received</th><th style="' + th + '">Last email</th></tr>' + c.members.map((m) =>
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b><div style="color:var(--text-muted);font-size:12px;">' + esc(m.email) + '</div></td>'
       + '<td style="' + td + '">' + (m.had ? m.had + ' email' + (m.had === 1 ? '' : 's') : 'Nothing yet') + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last: ' + esc(m.lastSubj) + ', ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td>'
       + '<td style="' + td + '">' + (chip(m.status) || '') + '</td></tr>').join('') + '</table>';
@@ -193,8 +217,8 @@
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b></td><td style="' + td + '">' + (Array.isArray(m.had) ? hadWords(m.had, c.total) : (m.had ? m.had + ' email' + (m.had === 1 ? '' : 's') : 'Nothing')) + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td><td style="' + td + '">' + esc(m.why) + '</td></tr>').join('') + '</table>';
     return '<div class="card" data-campaign="' + c.id + '" style="padding:18px 20px;margin:0 0 16px;' + (c.on ? 'border-left:5px solid #14606F;' : '') + '">' + head
       + fold(c.id, 'emails', 'The emails and the results', null, emails + extraLine(c), open('emails', true))
-      + fold(c.id, 'people', 'Who is in it now', c.members.length, people + extra, open('people', true))
-      + fold(c.id, 'left', 'No longer in it', c.left.length, left, open('left', false)) + '</div>';
+      + fold(c.id, 'people', c.peopleTitle || 'Who is in it now', c.members.length, people + extra + (c.footnote ? '<div style="font-size:13px;color:var(--text-muted);margin-top:8px;">' + esc(c.footnote) + '</div>' : ''), open('people', true))
+      + (c.hideLeft ? '' : fold(c.id, 'left', 'No longer in it', c.left.length, left, open('left', false))) + '</div>';
   }
   const extraLine = (c) => c.id === 'leads' && c.empty && c.empty.length ? '<div style="font-size:12.5px;color:var(--text-muted);margin-top:8px;">A month with no email planned sends nothing. The plan is changed by a step, not on this screen.</div>' : '';
 
@@ -205,12 +229,11 @@
     const res = I.res, cards = model(I);
     const note = !res ? '<div style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">' + (I.resError ? 'Who opened and who wrote back could not be read just now (' + esc(I.resError) + '). Everything else below is current.' : 'Reading who opened and who wrote back…') + '</div>'
       : (res.still_to_check ? '<div style="font-size:13px;color:#B45309;margin:0 0 12px;">' + res.still_to_check + ' emails are still to be checked for opens. Open Results and press Check again to do the next batch.</div>' : '');
-    const vv = v || VIEW; const tabs = cards.map((c) => [c.id, c.name, c.on, c.members.length]).concat([['clients', 'Clients and families', null, null]]);
+    const vv = v || VIEW; const tabs = cards.map((c) => [c.id, c.name, c.countWord || ((c.on ? 'ON' : 'OFF') + ' · ' + c.members.length + ' in it')]);
     const pick = tabs.some((t) => t[0] === vv.pick) ? vv.pick : 'partner';
     const picker = '<div id="cmpPick" style="display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px;">' + tabs.map((t) => '<button type="button" data-pick="' + t[0] + '" onclick="CCCampaigns.pick(\'' + t[0] + '\')" style="padding:9px 14px;border-radius:10px;border:1px solid ' + (pick === t[0] ? 'var(--navy)' : 'var(--border)') + ';background:' + (pick === t[0] ? 'var(--navy)' : 'var(--card)') + ';color:' + (pick === t[0] ? '#fff' : 'inherit') + ';font-weight:700;font-size:13.5px;cursor:pointer;text-align:left;">'
-      + esc(t[1]) + (t[2] === null ? '<div style="font-size:11.5px;font-weight:600;opacity:.8;">by hand only</div>' : '<div style="font-size:11.5px;font-weight:600;opacity:.8;">' + (t[2] ? 'ON' : 'OFF') + ' · ' + t[3] + ' in it</div>') + '</button>').join('') + '</div>';
-    const clients = '<div class="card" data-campaign="clients" style="padding:18px 20px;"><div style="font-size:18px;font-weight:800;color:var(--navy);">Clients and their families</div><div style="font-size:14px;margin-top:6px;max-width:80ch;">No campaign. Nothing goes to clients or families by itself.</div><div style="font-size:13px;color:var(--text-muted);margin-top:6px;max-width:80ch;">The holiday and program notes in the Email library are sent by hand, by a person, one at a time. What was sent shows under All results.</div></div>';
-    const shown = pick === 'clients' ? clients : card(cards.find((c) => c.id === pick), vv, !!res);
+      + esc(t[1]) + '<div style="font-size:11.5px;font-weight:600;opacity:.8;">' + esc(t[2]) + '</div></button>').join('') + '</div>';
+    const shown = card(cards.find((c) => c.id === pick), vv, !!res);
     return '<p style="color:var(--text-muted);font-size:14px;margin:0 0 12px;max-width:80ch;">The emails that go out by themselves. Pick one to see what it is, each email and what happened to it, who is in it now, and who has left. Nothing on this page sends or changes anything.</p>'
       + picker + note + shown
       + '<p style="color:var(--text-muted);font-size:12px;margin:14px 0 0;max-width:80ch;">"Opened" shows when the person\'s email program loads the pictures; some never do, so an opened email can still read "Sent, not opened yet". Each campaign is turned on and off by a step you run.</p>';
@@ -226,5 +249,5 @@
   function show() { render(); if (R && R.VIEW && !R.VIEW.loading && (!R.VIEW.askedAt || Date.now() - R.VIEW.askedAt > 300000)) R.load(true).then(render, render); }
   function toggle(k) { const cur = VIEW.open[k]; const dflt = /:(emails|people)$/.test(k); VIEW.open[k] = !(cur === undefined ? dflt : cur); render(); }
   function pick(id) { VIEW.pick = id; render(); if (typeof window !== 'undefined' && window.scrollTo) { const b = document.getElementById('cmpPick'); if (b && b.getBoundingClientRect().top < 0) b.scrollIntoView(); } }
-  return { partner, leads, caregivers, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle, pick };
+  return { partner, leads, caregivers, clientNotes, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle, pick };
 });
