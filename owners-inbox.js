@@ -86,11 +86,13 @@
       + '<div class="oix-msg">' + esc(m.body) + '</div>';
     for(const n of o.notes) h += '<div class="oix-note' + (n.visible_to_sender ? ' sent' : '') + '"><div class="m">' + (n.author === 'sender' ? esc(m.sender_name || 'They') + ' wrote back' : esc(n.author) + (n.visible_to_sender ? ' replied' : ' · private note')) + ' · ' + esc(when(n.at)) + '</div>' + esc(n.body) + '</div>';
     h += '<textarea id="oixText" placeholder="Write a reply, a private note, or a note to share"></textarea><div class="oix-err" id="oixErr"></div><div class="oix-acts">'
-      + (m.reply_wanted === 'private' && !m.locked ? '<button class="addlead" onclick="OIX.act(\'reply\')">Reply privately</button>' : '')
+      + (m.has_pin ? '<button class="addlead" onclick="OIX.act(\'reply\')">Reply privately</button>' : '')
       + '<button class="ghost" onclick="OIX.act(\'note\')">Save as private note</button>'
       + '<select id="oixTo" style="font:inherit;border:1px solid var(--border);border-radius:8px;padding:4px 6px"><option value="">Share a note with...</option>' + staffOptions() + '</select><button class="ghost" onclick="OIX.act(\'share\')">Share note</button></div>'
-      + '<div style="font-size:12px;color:var(--text-muted);margin-top:6px">' + (m.reply_wanted === 'private' ? (m.locked ? 'Their link is locked after 5 wrong PINs: call them instead.' : 'They are told a message is waiting, never the words. They open it with their own PIN.') : m.reply_wanted === 'call' ? 'They asked for a call.' : 'They did not ask for a reply.')
-      + ' Sharing sends only the words you type, as a card for that person.</div>';
+      + '<div style="font-size:12px;color:var(--text-muted);margin-top:6px">' + (m.has_pin ? (m.locked ? 'Their link is locked after 5 wrong PINs. Make a reset code and call them.' : 'They open your reply with their own PIN. If they gave an email, they are emailed that a message is waiting (never the words, never through GoHighLevel); otherwise you text them from your own phone.') : m.reply_wanted === 'call' ? 'They asked for a call.' : 'They did not ask for a reply.')
+      + ' Sharing sends only the words you type, as a card for that person.</div>'
+      + (m.has_pin ? '<div class="oix-acts"><button class="ghost" onclick="OIX.link()">Their conversation link</button><button class="ghost" onclick="OIX.resetCode()">Forgot PIN: make a reset code</button></div>' : '')
+      + '<div id="oixSend"></div>';
     h += '<div class="oix-trail"><b>Record:</b> ' + o.trail.map(t => esc(t.by_who) + ' ' + esc(t.action) + ' ' + esc(when(t.at))).join(' · ') + '</div>';
     return h;
   }
@@ -110,11 +112,28 @@
     try{
       const r = await api(body);
       if(r.warn){ if(window.confirm(r.warn)) return act(what, true); return; }
-      if(what === 'reply' && r.told === false) alert('Your reply is saved, but the text or email telling them could not go. Call them.');
+      if(what === 'reply'){ await get(id); return r.told === 'email' ? sendBox('Saved. They were emailed that a message is waiting.') : sendBox(r.say || 'Saved. Let them know from your own phone.', r); }
       if(what === 'share' && r.ok) alert('Shared as a card for that person, with only your words.');
       await get(id);
     }catch(e){ err(e.message); }
   }
+
+  /* Telling a sender from the owner's OWN phone: never the office line, never GoHighLevel, so the office cannot see it. */
+  function sendBox(say, r){
+    const el = document.getElementById('oixSend'); if(!el) return;
+    let h = '<div class="oix-msg" style="background:#FFF8E6">' + esc(say);
+    if(r && r.sms){ const ph = String(r.phone || '').replace(/\D/g, '');
+      h += '<div style="margin-top:8px;font-size:13px"><b>Text to send:</b> ' + esc(r.sms) + '</div><div class="oix-acts">'
+        + (ph ? '<a class="addlead" href="sms:+1' + esc(ph) + '?&body=' + encodeURIComponent(r.sms) + '">Text from my phone</a><a class="ghost" href="tel:+1' + esc(ph) + '">Call them</a>' : '')
+        + '<button class="ghost" onclick="navigator.clipboard&&navigator.clipboard.writeText(' + esc(JSON.stringify(r.sms)) + ')">Copy the text</button></div>'; }
+    el.innerHTML = h + '</div>';
+  }
+  async function link(){ try{ const r = await api({ action:'link', id:ST.open.message.id }); sendBox('Their private conversation link. Send it from your own phone; it opens with their PIN.', r); }catch(e){ err(e.message); } }
+  async function resetCode(){
+    if(!window.confirm('Make a one-time reset code? Call them from your own phone and read it to them. It works once, for 24 hours, and unlocks a locked link.')) return;
+    try{ const r = await api({ action:'reset_code', id:ST.open.message.id });
+      sendBox(r.say); const el = document.getElementById('oixSend'); if(el) el.firstChild.insertAdjacentHTML('afterbegin', '<div style="font-size:28px;font-weight:800;letter-spacing:6px;color:var(--navy)">' + esc(r.code.replace(/(\d{3})(\d{3})/, '$1 $2')) + '</div>');
+    }catch(e){ err(e.message); } }
 
   /* ------------------------------------------------------------ anyone in the office: Message the owners */
   function compose(){
@@ -147,5 +166,5 @@
     }catch(x){ b.disabled = false; b.textContent = 'Send to the owners'; e.textContent = /fetch/i.test(x.message) ? 'The private inbox is not switched on yet.' : x.message; }
   }
 
-  window.OIX = { allowed, pillSync, render, load:() => load(false), get, mark, act, compose, close, send, view:(v) => { ST.view = v; draw(); }, _st:ST };
+  window.OIX = { allowed, pillSync, render, load:() => load(false), get, mark, act, link, resetCode, compose, close, send, view:(v) => { ST.view = v; draw(); }, _st:ST };
 })();

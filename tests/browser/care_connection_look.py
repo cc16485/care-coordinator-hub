@@ -50,6 +50,7 @@ with sync_playwright() as pw:
         if a == 'send': return route.fulfill(json={'ok': True, 'reply_link': 'https://cc.mo-care.com/private.html#r=' + CODE})
         if a == 'thread_open':
             return route.fulfill(json={'first': 'Linda', 'session': 's', 'thread': [{'from': 'you', 'at': '2026-11-12T15:00:00Z', 'body': 'hello'}, {'from': 'Samantha', 'at': '2026-11-13T15:00:00Z', 'body': 'Thank you'}]}) if body.get('pin') == '2580' else route.fulfill(status=401, json={'error': 'That PIN is not right. 4 tries left.'})
+        if a == 'pin_reset': return route.fulfill(json={'ok': True}) if body.get('code') == '482913' else route.fulfill(status=401, json={'error': 'That reset code is not right or has run out.'})
         return route.fulfill(status=400, json={'error': 'bad request'})
     pg.route('**/functions/v1/owner-inbox', owner)
     pg.route('**/fonts.googleapis.com/**', lambda r: r.abort())
@@ -68,6 +69,15 @@ with sync_playwright() as pw:
     ok('reply: a wrong PIN says tries left', '4 tries left' in pg.inner_text('main'))
     pg.fill('#pinin', '2580'); pg.click('#ok'); pg.wait_for_timeout(400)
     ok('reply: the right PIN shows the conversation and the 15-minute close', 'Thank you' in pg.inner_text('main') and 'closes in' in pg.inner_text('main'))
+    pg.goto(BASE + 'private.html#r=' + CODE); pg.reload(); pg.wait_for_timeout(400)
+    pg.check('#showpin'); ok('reply: "Show my PIN" shows what they typed', pg.get_attribute('#pinin', 'type') == 'text')
+    pg.click('#forgot'); pg.wait_for_timeout(200)
+    ok('forgot PIN: explains to call for a reset code', 'reset code' in pg.inner_text('body').lower() and 'Thank you' not in pg.inner_text('main'))
+    pg.fill('#rcode', '111111'); pg.fill('#np1', '7395'); pg.fill('#np2', '7395'); pg.click('#setpin'); pg.wait_for_timeout(300)
+    ok('forgot PIN: a wrong reset code is refused', 'not right' in pg.inner_text('main'))
+    pg.fill('#rcode', '482 913'); pg.click('#setpin'); pg.wait_for_timeout(300)
+    rs = [c for c in calls if c[1].get('action') == 'pin_reset']
+    ok('forgot PIN: the right code saves the new PIN and returns to the PIN screen', 'new PIN is saved' in pg.inner_text('main') and rs[-1][1].get('r') == CODE and rs[-1][1].get('pin') == '7395', rs[-1:])
     pg.goto(BASE + 'private.html'); pg.reload(); pg.wait_for_timeout(400)
     ok('standalone: asks for name and phone or email', 'Who is this from?' in pg.inner_text('main'))
     pg.click('[data-f=kind] .opt >> nth=1'); pg.fill('#body', 'An idea'); pg.click('[data-f=reply] .opt >> nth=2'); pg.click('#send'); pg.wait_for_timeout(200)
@@ -83,16 +93,31 @@ with sync_playwright() as pw:
             req = route.request; body = json.loads(req.post_data or '{}'); hits.append(body)
             a = body.get('action')
             if a == 'list': return route.fulfill(json={'messages': [{'id': 'm1', 'created_at': '2026-11-14T15:00:00Z', 'role': 'caregiver', 'kind': 'concern', 'reply_wanted': 'private', 'sender_name': 'Rachel Moore', 'sender_phone': '4175550117', 'status': 'new', 'body': 'x'}]})
-            if a == 'get': return route.fulfill(json={'message': {'id': 'm1', 'created_at': '2026-11-14T15:00:00Z', 'role': 'caregiver', 'kind': 'concern', 'reply_wanted': 'private', 'sender_name': 'Rachel Moore', 'sender_phone': '4175550117', 'status': 'seen', 'body': 'Fewer hours lately'}, 'notes': [], 'trail': [{'at': '2026-11-14T15:00:00Z', 'by_who': 'sender', 'action': 'received'}]})
+            if a == 'get': return route.fulfill(json={'message': {'id': 'm1', 'created_at': '2026-11-14T15:00:00Z', 'role': 'caregiver', 'kind': 'concern', 'reply_wanted': 'private', 'sender_name': 'Rachel Moore', 'sender_phone': '4175550117', 'status': 'seen', 'body': 'Fewer hours lately', 'has_pin': True}, 'notes': [], 'trail': [{'at': '2026-11-14T15:00:00Z', 'by_who': 'sender', 'action': 'received'}]})
             if a == 'send': return route.fulfill(json={'ok': True})
+            if a == 'reply': return route.fulfill(json={'ok': True, 'told': 'you', 'phone': '4175550117', 'sms': 'Hi Rachel, you have a private message waiting from Caring Companions. Open it with your PIN: https://cc.mo-care.com/private.html#r=' + CODE, 'say': 'Text this from your own phone (not the office line), or call them.'})
+            if a == 'reset_code': return route.fulfill(json={'code': '482913', 'hours': 24, 'say': 'Call them from your own phone and read this code to them.'})
             return route.fulfill(json={'ok': True})
         pg.route('**/functions/v1/owner-inbox', oi)
-        pg.route('**/*', lambda r: r.fallback() if 'owner-inbox' in r.request.url else r.abort() if 'supabase.co' in r.request.url else r.continue_())
+        def chk(route):
+            hits.append({'action': 'checkins', **json.loads(route.request.post_data or '{}')})
+            body = json.loads(route.request.post_data or '{}')
+            if body.get('followup'): return route.fulfill(json={'ok': True})
+            L = lambda i, **x: {'id': '00000000-0000-4000-8000-00000000000' + str(i), 'audience': 'family', 'kind': 'day_30', 'label': 'Day 30', 'client_ax': '10' + str(i), 'client_first': 'Dorothy', 'first': 'Linda', 'last': '', 'ref': '',
+                                 'sent_at': '2026-11-14T15:00:00Z', 'channel': 'sms', 'opened_at': None, 'answered_at': None, 'mood': '', 'extra': None, 'what': [], 'note': '', 'call': False, 'when': '', 'thanked': False,
+                                 'follow': '', 'state': 'waiting', 'card_id': '', 'card_open': False, 'confirm': False, 'followups': [], **x}
+            return route.fulfill(json={'ok': True, 'people': [], 'family_off': [], 'links': [
+                L(1, answered_at='2026-11-14T16:00:00Z', mood='improve', what=['The schedule'], call=True, when='afternoon', follow='card', state='needs', note='Times keep changing'),
+                L(2, answered_at='2026-11-14T16:00:00Z', mood='great', thanked=True, follow='kind_words', state='happy', first='Kay', client_first='Opal'),
+                L(3, state='no_response', first='Ned', client_first='Vern'),
+                L(4, answered_at='2026-11-13T16:00:00Z', mood='improve', follow='card', card_id='ops_checkin_4', state='called', confirm=True, first='Ida', client_first='Iris')]})
+        pg.route('**/functions/v1/checkins', chk)
+        pg.route('**/*', lambda r: r.fallback() if ('owner-inbox' in r.request.url or 'functions/v1/checkins' in r.request.url) else r.abort() if 'supabase.co' in r.request.url else r.continue_())
         pg.goto(BASE + 'index.html?proof=oix'); pg.wait_for_timeout(1200)
         pg.evaluate('()=>{ window.__realFetch = window.fetch; }')
         pg.evaluate('s=>(0,eval)(s)', H)
         # the offline harness answers every fetch; let the owner-inbox calls reach this test's pretend server
-        pg.evaluate("()=>{ const hf = window.fetch; window.fetch = (u, o) => String(u).includes('owner-inbox') ? window.__realFetch(u, o) : hf(u, o); }")
+        pg.evaluate("()=>{ const hf = window.fetch; window.fetch = (u, o) => (String(u).includes('owner-inbox') || String(u).includes('functions/v1/checkins')) ? window.__realFetch(u, o) : hf(u, o); }")
         pg.evaluate("""([e,roles])=>{ document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
           (0,eval)("ME={ email:'"+e+"', name:'Test' };"); CC_ROLES=roles; CC_ROLES_CHECKED=true;
           CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin']; CC_ROLE_BY_EMAIL['krystal@mo-care.com']=['care_coordinator']; CC_ROLE_BY_EMAIL[e]=roles; OIX.pillSync(); }""", [role_email, roles])
@@ -100,7 +125,8 @@ with sync_playwright() as pw:
         return pg, errs, hits
     pg, errs, hits = hub('krystal@mo-care.com', ['care_coordinator'])
     ok('Hub coordinator: no Private messages pill', pg.eval_on_selector('.fpill[data-tab="ownersinbox"]', 'e=>getComputedStyle(e).display') == 'none')
-    pg.on('dialog', lambda d: d.accept())
+    DLG = {'text': ''}
+    pg.on('dialog', lambda d: d.accept(DLG['text']) if d.type == 'prompt' else d.accept())
     pg.evaluate("switchTab('ownersinbox')"); pg.wait_for_timeout(300)
     ok('Hub coordinator: the inbox will not open', pg.evaluate('activeTab') != 'ownersinbox')
     ok('Hub coordinator: the page never asked the server for the list', not any(h.get('action') in ('list', 'get') for h in hits), hits)
@@ -108,6 +134,28 @@ with sync_playwright() as pw:
     pg.click('#ownersMsgBtn'); pg.select_option('#oixKind', 'sensitive'); pg.fill('#oixBody', 'About a coworker'); pg.select_option('#oixReply', 'none'); pg.click('#oixSend'); pg.wait_for_timeout(400)
     sent = [h for h in hits if h.get('action') == 'send']
     ok('Hub coordinator: can send, marked as from the Hub', sent and sent[0].get('hub') is True, sent)
+    pg.evaluate("OIX.close()")
+    pg.evaluate("switchTab('cgcheckins')"); pg.wait_for_timeout(800)
+    pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(300)
+    t = pg.inner_text('#checkinsWrap')
+    ok('Check-ins: a Families view in the same tab', 'Families' in t and 'Linda' in t and "Dorothy's family" in t, t[:600])
+    ok('Check-ins: who answered, who is happy, who needs attention, who asked for a call, who did not answer', all(x in t for x in ['3 Answered', '1 Happy', '2 Need attention', '1 Asked for a call', '1 No answer']), t[:400])
+    ok('Check-ins: the concern shows what they said and when to call', 'Something needs to change' in t and 'The schedule' in t and 'Asked for a call in the afternoon' in t)
+    ok('Check-ins: praise shows it went to Kind Words', 'Thanks passed to Kind Words' in t)
+    ok('Check-ins: a closed card nobody confirmed asks to confirm', 'nobody confirmed with them' in t)
+    pg.evaluate("CHK.setView('needs')"); pg.wait_for_timeout(200)
+    ok('Check-ins: family concerns are on Needs you', 'Linda' in pg.inner_text('#checkinsWrap') and 'Ida' in pg.inner_text('#checkinsWrap'))
+    pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(200)
+    DLG['text'] = 'ok'
+    pg.click("text=Resolved… >> nth=0"); pg.wait_for_timeout(300)
+    ok('Check-ins: Resolved without how they know is refused', 'how you know it got better' in pg.inner_text('#checkinsWrap') and not any(h.get('followup') for h in hits))
+    DLG['text'] = 'Called Linda 11/20, schedule is fixed now'
+    pg.click("text=Resolved… >> nth=0"); pg.wait_for_timeout(400)
+    fu = [h for h in hits if h.get('followup')]
+    ok('Check-ins: Resolved with a note is saved', fu and fu[0]['followup']['state'] == 'resolved' and 'schedule' in fu[0]['followup']['note'], fu)
+    ok('Check-ins: no private-message words or counts anywhere on the tab', 'private' not in pg.inner_text('#checkinsWrap').lower())
+    pg.set_viewport_size({'width': 1300, 'height': 900}); pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(200)
+    pg.screenshot(path=os.environ.get('SHOT2', '/tmp/checkins_families.png'))
     ok('Hub coordinator: no page errors', not errs, errs)
     pg.close()
     pg, errs, hits = hub('samantha@mo-care.com', ['owner_admin'])
@@ -116,8 +164,15 @@ with sync_playwright() as pw:
     ok('Hub owner: the inbox lists the message', 'Rachel Moore' in pg.inner_text('#oixWrap'), [pg.evaluate('activeTab'), pg.inner_text('#oixWrap')[:300], pg.evaluate('JSON.stringify(OIX._st)')[:300]])
     if pg.query_selector('.oix-row'): pg.click('.oix-row'); pg.wait_for_timeout(400)
     t = pg.inner_text('#oixWrap')
-    ok('Hub owner: opening shows the words, reply, note, share and the record', all(x in t for x in ['Fewer hours lately', 'Reply privately', 'Save as private note', 'Share note', 'Record:']), t[:500])
-    pg.set_viewport_size({'width': 1300, 'height': 700}); pg.screenshot(path=os.environ.get('SHOT', '/tmp/owners_inbox.png'))
+    ok('Hub owner: opening shows the words, reply, note, share and the record', all(x in t for x in ['Fewer hours lately', 'Reply privately', 'Save as private note', 'Share note', 'Record:', 'make a reset code', 'conversation link']), t[:500])
+    pg.fill('#oixText', 'Thank you Rachel, I am looking into your hours.'); pg.click('text=Reply privately'); pg.wait_for_timeout(500)
+    href = pg.get_attribute('#oixSend a.addlead', 'href') or ''
+    ok('Hub owner: with no email, a "Text from my phone" button opens the owner\'s own messages app', href.startswith('sms:+14175550117') and '%23r%3D' in href, href)
+    ok('Hub owner: the words to send have none of the reply', 'looking into your hours' not in pg.inner_text('#oixSend'))
+    pg.on('dialog', lambda d: d.accept())
+    pg.click('text=Forgot PIN: make a reset code'); pg.wait_for_timeout(400)
+    ok('Hub owner: a reset code shows big, to read by phone', '482 913' in pg.inner_text('#oixSend'), pg.inner_text('#oixSend')[:200])
+    pg.set_viewport_size({'width': 1300, 'height': 760}); pg.screenshot(path=os.environ.get('SHOT', '/tmp/owners_inbox.png'))
     ok('Hub owner: no page errors', not errs, errs)
     pg.close(); b.close()
 

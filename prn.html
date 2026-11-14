@@ -366,7 +366,9 @@ function render() {
     + '<section id="learn"><h2 class="serif">Learn something new</h2><p class="sub">Optional. Tap one you\'d like, and the office will send it to you.</p>' + courses + '<p class="msg" id="crsMsg"></p></section>'
     + (newMember ? '' : '<details class="card" style="margin-bottom:10px"><summary style="cursor:pointer;font-weight:600;color:var(--navy)">Watch our welcome video</summary>' + welcomeVideo(false) + '</details>')
     + '<section id="talk"><h2 class="serif">Talk to us</h2><div class="card"><div class="btns" style="margin-top:0"><a class="b pri" href="sms:+14172348494">Text the office</a><a class="b" href="tel:+14172348494">Call</a><button class="b" id="ideaBtn">Share an idea</button></div>'
-    + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div></div></section>'
+    + '<div class="answered" id="ideaBox"><textarea id="ideaTxt" rows="3" maxlength="500" placeholder="What would make PRN better?"></textarea><div class="btns"><button class="b pri" id="ideaSend">Send my idea</button></div><p class="msg" id="ideaMsg"></p></div>'
+    /* 2026-11-14 Care & Connection: the always-open private page to the owners (no sign-in; the office cannot see it) */
+    + '<p class="small" style="margin-top:12px">Something private? <a href="https://mo-care.com/message-the-owners" style="color:var(--teal);font-weight:600">Message the owners privately</a>. Only Samantha and Zach read it.</p></div></section>'
     + '</main><footer>Caring Companions · ' + esc(d.office || '(417) 234-8494') + '<br>This is your personal page. Please don\'t share the link.</footer>'
   wire()
   wireOnCall()

@@ -19,7 +19,15 @@
   const DAY = 86400000;
   const e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VIEW = { data: null, loading: false, err: '', notOn: false, askedAt: 0, view: 'needs', saving: {}, msg: '' };
-  const VIEWS = [['needs', 'Needs you'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
+  const VIEWS = [['needs', 'Needs you'], ['families', 'Families'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
+  /* CARE & CONNECTION (2026-11-14): the smart-link check-ins (families now, caregivers later), from the same server.
+     A link row's state: needs (a concern, nobody called yet), called, resolved (only with how they know it got better),
+     happy, no_response (three days), waiting, not_sent. confirm: its card was closed in My Work but nobody confirmed. */
+  const MOOD = { great: 'Going great', good: 'Mostly good', improve: 'Something needs to change', call: 'Asked for a call', stressed: 'A little stressed', hard: 'Having a hard time' };
+  const LDOT = { needs: ['#E24B4A', 'needs attention'], called: ['#EF9F27', 'called, not yet resolved'], resolved: ['#1D9E75', 'resolved'], happy: ['#1D9E75', 'happy'],
+    no_response: ['#B4B2A9', 'no answer in three days'], waiting: ['#D3D1C7', 'sent, waiting'], not_sent: ['#888780', 'did not send'] };
+  const linksOf = () => (VIEW.data && VIEW.data.links) || [];
+  const linkNeeds = (l) => l.state === 'needs' || l.state === 'called' || l.confirm;
 
   /** what a check-in is: 'concern' (marked Needs a call, not yet called), 'new' (a reply nobody marked), 'fine', 'called',
       'no_answer' (three days, nothing back), 'sent' (still inside the three days) */
@@ -35,7 +43,7 @@
     const all = [].concat(...(people || []).map((p) => p.checkins.map((c) => ({ p, c }))));
     const recent = all.filter((x) => nowMs - Date.parse(x.c.sent_at) < 30 * DAY && stateOf(x.c) !== 'sent');
     return {
-      needs: all.filter((x) => needsYou(x.c)).length,
+      needs: all.filter((x) => needsYou(x.c)).length + linksOf().filter(linkNeeds).length,
       first90: (people || []).filter((p) => p.day != null && p.day >= 0 && p.day <= 90).length,
       answeredPct: recent.length ? Math.round(100 * recent.filter((x) => x.c.reply).length / recent.length) : null,
       noAnswer: all.filter((x) => stateOf(x.c) === 'no_answer').length,
@@ -64,12 +72,42 @@
   };
   const markLine = (c, nowMs) => c.mark ? '<div class="field-note">' + e({ fine: 'Marked fine', call: 'Marked needs a call', called: 'Called' }[c.mark.state] || '') + ' by ' + e(c.mark.by) + ', ' + e(when(c.mark.at, nowMs)) + (c.mark.note ? ': ' + e(c.mark.note) : '') + '</div>' : '';
 
+  const ldot = (s) => '<span class="chk-dot" title="' + e(LDOT[s][1]) + '" style="background:' + LDOT[s][0] + '"></span>';
+  const famName = (l) => e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
+  function linkRow(l, nowMs) {
+    const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
+    const acts = busy ? '<span class="field-note">Saving…</span>'
+      : l.state === 'needs' ? b('called', 'Called') + ' ' + b('resolved', 'Resolved…')
+      : l.state === 'called' || l.confirm ? b('resolved', 'Resolved…') + ' ' + b('reopened', 'Still a problem')
+      : l.state === 'happy' ? b('reopened', 'Needs a call') : l.state === 'resolved' ? b('reopened', 'Reopen') : '';
+    const last = l.followups[l.followups.length - 1];
+    return '<div class="chk-row">' + ldot(l.state) + '<div class="chk-main"><b>' + famName(l) + '</b> <span class="field-note">' + e(l.label)
+      + (l.answered_at ? ' · answered ' + e(when(l.answered_at, nowMs)) : ' · sent ' + e(when(l.sent_at, nowMs)) + (l.opened_at ? ', opened' : '')) + '</span>'
+      + (l.mood ? '<div class="chk-reply">' + e(MOOD[l.mood] || l.mood) + (l.extra != null && l.extra !== '' ? ' · ' + e(typeof l.extra === 'number' ? l.extra + ' of 10' : l.extra) : '')
+        + (l.what.length ? ' · ' + e(l.what.join(', ')) : '') + (l.note ? '<br>“' + e(l.note) + '”' : '') + '</div>' : '')
+      + (l.call ? '<div class="field-note" style="color:var(--red)">Asked for a call' + (l.when ? ' in the ' + e(l.when) : '') + '</div>' : '')
+      + (l.thanked ? '<div class="field-note">Thanks passed to Kind Words</div>' : '')
+      + (l.confirm ? '<div class="field-note" style="color:var(--red)">The card was closed, but nobody confirmed with them that it got better.</div>' : '')
+      + (last ? '<div class="field-note">' + e({ called: 'Called', resolved: 'Resolved', reopened: 'Reopened', fine: 'Looked fine' }[last.state] || last.state) + ' by ' + e(last.by) + ', ' + e(when(last.at, nowMs)) + (last.note ? ': ' + e(last.note) : '') + '</div>' : '')
+      + '</div><div class="chk-acts">' + acts + '</div></div>';
+  }
+  function familiesHtml(nowMs) {
+    const fam = linksOf().filter((l) => l.audience === 'family');
+    if (!fam.length) return '<div class="empty">No family check-ins yet. They start only after Samantha approves the texts and turns them on.</div>';
+    const c = (f) => fam.filter(f).length;
+    const order = { needs: 0, called: 1, no_response: 3, waiting: 4, happy: 5, resolved: 6, not_sent: 7 };
+    const sum = [['Answered', c((l) => l.answered_at)], ['Happy', c((l) => l.state === 'happy')], ['Need attention', c(linkNeeds)], ['Asked for a call', c((l) => l.call && l.state !== 'resolved')], ['No answer', c((l) => l.state === 'no_response')]];
+    return '<div class="field-note" style="margin-bottom:8px">' + sum.map(([k, v]) => '<b>' + e(v) + '</b> ' + e(k)).join(' · ') + '</div>'
+      + fam.slice().sort((a, b) => ((linkNeeds(a) ? 0 : order[a.state] ?? 8) - (linkNeeds(b) ? 0 : order[b.state] ?? 8)) || String(b.sent_at).localeCompare(String(a.sent_at)))
+        .map((l) => linkRow(l, nowMs)).join('');
+  }
   function needsHtml(people, nowMs) {
+    const linkRows = linksOf().filter(linkNeeds).map((l) => linkRow(l, nowMs)).join('');
     const rows = [];
     for (const p of people) for (const c of p.checkins) if (needsYou(c)) rows.push({ p, c });
     rows.sort((a, b) => (stateOf(a.c) === 'concern' ? 0 : 1) - (stateOf(b.c) === 'concern' ? 0 : 1) || String(b.c.reply ? b.c.reply.at : b.c.sent_at).localeCompare(String(a.c.reply ? a.c.reply.at : a.c.sent_at)));
-    if (!rows.length) return '<div class="empty">Nothing waiting. Every reply has been read.</div>';
-    return rows.map(({ p, c }) => '<div class="chk-row">' + dot(stateOf(c))
+    if (!rows.length) return linkRows || '<div class="empty">Nothing waiting. Every reply has been read.</div>';
+    return linkRows + rows.map(({ p, c }) => '<div class="chk-row">' + dot(stateOf(c))
       + '<div class="chk-main"><b>' + e(p.name) + '</b> <span class="field-note">' + (p.day != null ? 'day ' + e(p.day) + ' · ' : '') + e(c.label) + ' · answered ' + e(when(c.reply ? c.reply.at : c.sent_at, nowMs)) + '</span>'
       + (c.reply ? '<div class="chk-reply">“' + e(c.reply.body) + '”</div>' : '') + markLine(c, nowMs) + '</div>'
       + '<div class="chk-acts">' + markBtns(c) + ' ' + callBtn(p) + '</div></div>').join('');
@@ -101,7 +139,7 @@
     if (!V.data) return '<div class="card"><div class="empty">Loading check-ins…</div></div>';
     const people = V.data.people || [], n = counts(people, nowMs);
     const tile = (label, val, red) => '<div class="kpi"><div class="kl"><span>' + e(label) + '</span></div><div class="kv"' + (red && val ? ' style="color:var(--red)"' : '') + '>' + e(val == null ? '–' : val) + '</div></div>';
-    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
+    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'families' ? familiesHtml(nowMs) : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
     return '<div class="chk-kpis">' + tile('Needs you', n.needs, true) + tile('In first 90 days', n.first90) + tile('Answered, last 30 days', n.answeredPct == null ? null : n.answeredPct + '%') + tile('No answer', n.noAnswer) + '</div>'
       + '<div class="toolbar">' + VIEWS.map(([k, l]) => '<button class="filter-pill' + (V.view === k ? ' active' : '') + '" onclick="CHK.setView(\'' + k + '\')">' + e(l) + (k === 'needs' && n.needs ? ' (' + n.needs + ')' : '') + '</button>').join('')
       + '<div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
@@ -146,9 +184,19 @@
     delete VIEW.saving[id]; render();
   }
   /* the open tab is redrawn whenever anything is saved anywhere: draw from what we have, ask again after five minutes */
+  async function follow(id, state) {
+    let note = '';
+    if (state === 'resolved') { note = typeof prompt === 'function' ? (prompt('How do you know it got better? (for example: "Called Linda 11/20, she says the schedule is right now")') || '').trim() : ''; if (note.length < 8) { VIEW.msg = 'Resolved needs a short note on how you know it got better.'; render(); return; } }
+    VIEW.saving[id] = true; VIEW.msg = ''; render();
+    try { await post({ followup: { invite_id: id, state, note } });
+      for (const l of linksOf()) if (l.id === id) { l.followups.push({ state, by: 'you', at: new Date().toISOString(), note });
+        l.state = state === 'resolved' ? 'resolved' : state === 'called' ? 'called' : state === 'reopened' ? 'needs' : l.state; if (state === 'resolved') l.confirm = false; }
+    } catch (err) { VIEW.msg = 'Not saved: ' + String((err && err.message) || err); }
+    delete VIEW.saving[id]; render();
+  }
   function show() { render(); if (!VIEW.loading && (!VIEW.askedAt || Date.now() - VIEW.askedAt > 300000)) load(); }
   /* any Caregivers tab: ask once in the background, so the pill's number is there before the tab is opened */
   function peek() { if (!VIEW.askedAt && !VIEW.loading) load(); }
   function setView(v) { VIEW.view = v; render(); }
-  return { stateOf, needsYou, counts, html, VIEW, render, load, mark, show, peek, setView };
+  return { stateOf, needsYou, counts, html, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds };
 });

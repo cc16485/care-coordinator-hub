@@ -114,7 +114,7 @@ function compose() {
   h += '<p class="q" style="margin-top:16px">Would you like an owner to reply?</p><div class="opts" data-f="reply">'
     + '<button class="opt" data-v="call">Yes, call me</button><button class="opt" data-v="private">Yes, a private written reply</button><button class="opt" data-v="none">No reply needed</button></div>'
     + '<input type="tel" id="callph" placeholder="Best phone number" inputmode="tel" style="display:none">'
-    + '<div id="pinbox" style="display:none;margin-top:12px"><p class="q" style="font-size:15px">Choose a PIN for your reply</p><p class="hint">4 to 6 numbers. You will need it to read the reply. We never text it, so only you know it.</p>'
+    + '<div id="pinbox" style="display:none;margin-top:12px"><p class="q" style="font-size:15px">Choose a PIN for your reply</p><p class="hint">4 to 6 numbers you will remember (not 1234 and not a year). You will need it to read the reply. We never text it, so only you know it. If you forget it, Samantha or Zach can help.</p>'
     + '<input type="password" id="pin" inputmode="numeric" maxlength="6" placeholder="PIN" autocomplete="new-password"><input type="password" id="pin2" inputmode="numeric" maxlength="6" placeholder="PIN again" autocomplete="new-password"></div></div>';
   h += '<div class="err" id="err"></div><button class="go" id="send">Send to the owners</button>'
     + '<p class="promise"><b>What we promise:</b> only the owners can open this. Your coordinator cannot see it, or even that you wrote. If it is about keeping someone safe, the owners may need to involve others, and will share as little as they can.</p>'
@@ -166,8 +166,12 @@ function pinScreen(note) {
   $('#lead').textContent = 'Enter the PIN you chose when you wrote to us.';
   $('#main').innerHTML = '<div class="card" style="text-align:center"><p class="q">Your PIN</p><p class="hint">4 to 6 numbers. Only you know it.</p>'
     + '<input type="password" id="pinin" inputmode="numeric" maxlength="6" autocomplete="current-password" style="text-align:center;font-size:24px;letter-spacing:8px;margin-top:14px">'
-    + '<div class="err" id="err"></div><button class="go" id="ok" style="margin-top:16px">Open my conversation</button></div>'
-    + '<p class="promise">' + (note ? esc(note) + ' ' : '') + 'Forgot your PIN? Call <a href="' + OFFICE_TEL + '">' + OFFICE + '</a> and ask for Samantha or Zach. After five wrong tries the link locks to keep it private.</p>';
+    + '<label class="hint" style="display:block;margin-top:8px"><input type="checkbox" id="showpin"> Show my PIN</label>'
+    + '<div class="err" id="err"></div><button class="go" id="ok" style="margin-top:16px">Open my conversation</button>'
+    + '<p class="hint" style="margin-top:14px"><a href="#" id="forgot" style="color:var(--teal);font-weight:600">Forgot your PIN?</a></p></div>'
+    + '<p class="promise">' + (note ? esc(note) + ' ' : '') + 'After five wrong tries the link locks to keep it private. Samantha or Zach can help you choose a new PIN.</p>';
+  $('#showpin').onchange = e => { $('#pinin').type = e.target.checked ? 'text' : 'password'; };
+  $('#forgot').onclick = e => { e.preventDefault(); resetScreen(); };
   $('#pinin').focus();
   const go = async () => {
     const pin = $('#pinin').value;
@@ -176,6 +180,28 @@ function pinScreen(note) {
     catch (e) { if (e.locked || e.expired) { $('#main').innerHTML = '<div class="card done"><div class="big">🔒</div><h2 class="serif">' + (e.locked ? 'This link is locked' : 'This link has expired') + '</h2><p>' + esc(e.message) + '</p></div>'; return; } fail(e.message); }
   };
   $('#ok').onclick = go; $('#pinin').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+
+/* Forgot PIN: an owner reads a 6-digit reset code to them over the phone (never texted, so the office never sees it). */
+function resetScreen() {
+  clearInterval(TIMER);
+  $('#h1').textContent = 'Choose a new PIN';
+  $('#lead').textContent = 'Call (417) 234-8494 and ask for Samantha or Zach. They will read you a 6-digit reset code.';
+  $('#main').innerHTML = '<div class="card"><p class="q">Reset code</p><p class="hint">The 6 numbers Samantha or Zach read to you. It works once, for 24 hours.</p>'
+    + '<input type="text" id="rcode" inputmode="numeric" maxlength="7" autocomplete="one-time-code" style="text-align:center;font-size:24px;letter-spacing:6px">'
+    + '<p class="q" style="margin-top:16px">Your new PIN</p><p class="hint">4 to 6 numbers you will remember. Not 1234 and not a year.</p>'
+    + '<input type="password" id="np1" inputmode="numeric" maxlength="6" placeholder="New PIN" autocomplete="new-password"><input type="password" id="np2" inputmode="numeric" maxlength="6" placeholder="New PIN again" autocomplete="new-password">'
+    + '<div class="err" id="err"></div><button class="go" id="setpin" style="margin-top:14px">Save my new PIN</button>'
+    + '<p class="hint" style="margin-top:12px"><a href="' + OFFICE_TEL + '" style="color:var(--teal);font-weight:600">Call ' + OFFICE + '</a> · <a href="#" id="back" style="color:var(--teal);font-weight:600">Back</a></p></div>';
+  $('#back').onclick = e => { e.preventDefault(); pinScreen(''); };
+  $('#setpin').onclick = async () => {
+    const code = $('#rcode').value.replace(/\D/g, ''), p1 = $('#np1').value, p2 = $('#np2').value;
+    if (code.length !== 6) return fail('Enter the 6-digit reset code.');
+    if (!/^\d{4,6}$/.test(p1)) return fail('Choose a PIN of 4 to 6 numbers.');
+    if (p1 !== p2) return fail('The two PINs do not match.');
+    try { await api({ action: 'pin_reset', r: RCODE || 'demo', code, pin: p1 }); pinScreen('Your new PIN is saved.'); }
+    catch (e) { fail(e.message); }
+  };
 }
 
 function thread(t) {
@@ -200,6 +226,7 @@ function thread(t) {
 /* ---------------- sample mode: nothing leaves the page */
 function demoApi(b) {
   if (b.action === 'send') return { ok: true, reply_link: b.reply === 'private' ? 'private.html?demo=reply' : undefined };
+  if (b.action === 'pin_reset') return { ok: true };
   const t = [{ from: 'you', at: '2026-11-12T15:00:00Z', body: 'I have been getting fewer hours since my client went into the hospital and I did not want to bring it up with the office.' },
     { from: 'Zach', at: '2026-11-13T15:00:00Z', body: 'Thank you for telling me, Rachel. I have asked the team to look at open shifts near you this week without mentioning your note. Would mornings work?' }];
   if (b.action === 'thread_send') t.push({ from: 'you', at: new Date().toISOString(), body: b.body });
