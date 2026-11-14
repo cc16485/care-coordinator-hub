@@ -14,7 +14,12 @@ async()=>{
   const tabs=[...document.querySelectorAll('.fbar .ftab')].map(x=>x.innerText.trim());
   ok('no Training & Compliance section in the top bar', !tabs.some(t=>/Training\s*&\s*Compliance/.test(t)) && tabs.some(t=>/^Caregivers$/.test(t)), tabs);
   const pills=[...document.querySelectorAll('#fsub-cgdir .fpill')].map(x=>x.innerText.trim());
-  ok('Caregivers has five tabs, in order', JSON.stringify(pills)===JSON.stringify(['Directory','Supervisory Visits','Background Checks','Orientation & Training','Training Platform']), pills);
+  /* 2026-11-14 (her word): supervisory visits are no longer required, so the Supervisory Visits tab is gone */
+  ok('Caregivers has four tabs, in order', JSON.stringify(pills)===JSON.stringify(['Directory','Background Checks','Orientation & Training','Training Platform']), pills);
+  ok('no Supervisory Visits tab or page', !document.querySelector('[data-tab="supervisory"]') && !document.getElementById('tab-supervisory'));
+  location.hash='#supervisory'; await sleep(250);
+  ok('an old #supervisory link lands on Caregivers', activeTab==='cgdir' && getComputedStyle(document.getElementById('tab-cgdir')).display!=='none', activeTab);
+  location.hash='#mywork'; await sleep(150);
   ok('the old Training & Compliance tab row is gone', !document.getElementById('fsub-caregivers'));
   const where=()=>({ tab:activeTab, group:(document.querySelector('.fbar .ftab.active')||{}).innerText, sub:(document.querySelector('.fsubbar.on')||{}).id,
     shown:!!document.getElementById('tab-'+activeTab) && getComputedStyle(document.getElementById('tab-'+activeTab)).display!=='none' });

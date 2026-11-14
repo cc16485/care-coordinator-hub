@@ -1237,7 +1237,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        sections; deep links resolve to the full profile. -->
   <div class="fsubbar" id="fsub-cgdir">
     <div class="fpill" data-tab="cgdir" onclick="switchTab('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Directory</div>
-    <div class="fpill" data-tab="supervisory" onclick="switchTab('supervisory')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Supervisory Visits</div>
     <!-- 2026-10-28 (Samantha): Training & Compliance folded into Caregivers. With orientation the only required training,
          it no longer needs its own section; background checks and training are facts about each current caregiver. -->
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Background Checks</div>
@@ -2845,7 +2844,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Use the <strong>Overdue</strong> and <strong>Due Soon</strong> filters to prioritize who needs attention. Red = overdue, yellow = coming up within 30 days.</div></div>
           <div class="guide-section-lbl">Supervisory visits &amp; performance reviews</div>
           <div class="guide-step" data-sv="yearly"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Supervisory Visit</strong> dates and <strong>Performance Review</strong> dates in each caregiver's record. These are required for Medicaid compliance audits.</div></div>
-          <div class="guide-step" data-sv="concern"><div class="guide-step-num">4</div><div class="guide-step-body">Log a <strong>Supervisory Visit</strong> on the Supervisory Visits tab when there's a concern; this table shows the last one. It is never due or overdue. Log <strong>Performance Review</strong> dates in each caregiver's record.</div></div>
+          <div class="guide-step" data-sv="concern"><div class="guide-step-num">4</div><div class="guide-step-body">Supervisory visits are no longer required. This table shows the last one on record; it is never due or overdue. Log <strong>Performance Review</strong> dates in each caregiver's record.</div></div>
           <div class="guide-section-lbl">Import / Export</div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Use <strong>📥 Export CSV</strong> to download your full caregiver list for reporting. Use <strong>⬆ Import CSV</strong> to bulk-upload caregivers using the provided template.</div></div>
         </div>
@@ -5779,34 +5778,6 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
 <div id="cp-board" style="padding-bottom:2rem"><div style="color:var(--text-muted);font-size:.85rem">Loading…</div></div>
 </section>
 
-<!-- ===================== TAB: SUPERVISORY VISITS ===================== -->
-<section class="tabpanel" id="tab-supervisory">
-<details class="guide">
-<summary>📋 How This Tab Works, Step by Step ▼</summary>
-<div class="guide-body" data-sv="concern">
-<div class="guide-step"><span class="num">1</span>From November 16, 2026 a supervisory visit happens <b>only when there's a concern</b>: a family complaint about the caregiver, a red shift-note flag, or a concern from a Care Match call. There is no yearly due date, so nobody is ever due or overdue.</div>
-<div class="guide-step"><span class="num">2</span>Visit the client while the caregiver is working, then press <b>+ Log Supervisory Visit</b> and write a short note: what prompted it, what went well, anything to coach, and what the client or family told you.</div>
-<div class="guide-step"><span class="num">3</span>No score, no skills sign-off and no signed form. Who logged it and when are saved from your login.</div>
-<div class="guide-step"><span class="num">4</span>Saving updates the caregiver's "last supervisory visit" date, so their page shows when they were last visited.</div>
-<div class="guide-step flag"><span class="num">!</span>Visits from before November 16 were yearly evaluations for Medicaid. They stay here exactly as they were and open read-only.</div>
-</div>
-<div class="guide-body" data-sv="yearly">
-<div class="guide-step"><span class="num">1</span>Every caregiver needs a supervisory visit <b>at least once a year</b> for Medicaid compliance. A coordinator observes them in a client's home. Due date = last visit + 365 days.</div>
-<div class="guide-step"><span class="num">2</span>Use the <b>Due Soon</b> and <b>Overdue</b> filters to plan your visits. Due Soon shows anyone within the window set in Settings (default 60 days).</div>
-<div class="guide-step"><span class="num">3</span>During the visit, work through the checklist (punctuality, task completion against the care plan, client interaction, safety practices, EVV/documentation compliance) and rate overall performance.</div>
-<div class="guide-step"><span class="num">4</span>Log a proof link (signed form, upload to Drive). This is what an auditor will ask for.</div>
-<div class="guide-step flag"><span class="num">!</span>Completing a visit here also updates the caregiver's "Last Supervisory Visit Date" on the Caregivers, Background Checks tab: same underlying caregiver record, two views.</div>
-</div>
-</details>
-
-<div class="toolbar" id="supervisoryFilters"></div>
-<div class="toolbar">
-<div class="spacer"></div>
-<button class="primary" onclick="openSupervisoryModal()">+ Log Supervisory Visit</button>
-</div>
-<div class="card"><div id="supervisoryTableWrap"></div></div>
-</section>
-
 <!-- ===================== TAB: CLIENTS (roster / single view) ===================== -->
 <!-- CLIENTS (Client path step 5, 2026-09-28): everyone receiving care, each row saying what's open or due.
      One function (clDue) decides "what's due" for both this board and the profile's "Open right now". -->
@@ -7469,79 +7440,6 @@ The HomeTogether team</pre>
 </div>
 </div>
 
-<!-- ============================= SUPERVISORY VISIT MODAL ============================= -->
-<div class="modal-backdrop" id="supervisoryModalBackdrop">
-<div class="modal">
-<h2>Supervisory Visit</h2>
-<div class="modal-sub" data-sv="yearly">Generic checklist shown below. Attach your official Missouri supervisory visit form to replace this with your exact fields.</div>
-<div class="modal-sub" id="sv_readonly_note" hidden>Yearly evaluation from before November 16, 2026. Kept exactly as it was logged, read-only.</div>
-<input type="hidden" id="sv_id">
-<div class="grid2">
-<div><label>Caregiver Name</label><input id="sv_caregiver_name"></div>
-<div><label>AxisCare Caregiver ID</label><input id="sv_axiscare_caregiver_id"></div>
-<div><label>Client Observed</label><input id="sv_client_name"></div>
-<div><label>Visit Date</label><input type="date" id="sv_visit_date"></div>
-<div><label>Coordinator</label><input id="sv_coordinator"></div>
-<div><label>Next Due Date</label><input type="date" id="sv_due_date"></div>
-</div>
-
-<div class="section-title">Checklist</div>
-<div class="checklist" id="sv_checklist">
-<label><input type="checkbox" data-key="punctuality"> On time / appropriate notice given</label>
-<label><input type="checkbox" data-key="appearance"> Appropriate appearance &amp; hygiene</label>
-<label><input type="checkbox" data-key="task_completion"> Completing tasks per the client's care plan</label>
-<label><input type="checkbox" data-key="client_interaction"> Respectful, attentive interaction with client</label>
-<label><input type="checkbox" data-key="safety"> Following safe care practices</label>
-<label><input type="checkbox" data-key="documentation"> EVV clock-in/out &amp; documentation compliant</label>
-</div>
-
-<label>Overall Performance Rating</label>
-<select id="sv_performance_rating">
-<option>Exceeds Expectations</option><option>Meets Expectations</option><option>Needs Improvement</option><option>Unsatisfactory</option>
-</select>
-<label style="display:flex;align-items:center;gap:8px;font-weight:400;color:var(--text);margin-top:10px;">
-<input type="checkbox" id="sv_client_satisfaction_observed" style="width:auto"> Client expressed satisfaction with care during visit
-</label>
-<label>Concerns</label>
-<textarea id="sv_concerns" rows="2"></textarea>
-<label>Corrective Action (if any)</label>
-<textarea id="sv_corrective_action" rows="2"></textarea>
-<label>Proof Link (signed form in Google Drive)</label>
-<input id="sv_proof_link" placeholder="https://drive.google.com/...">
-
-<div class="modal-actions">
-<button class="secondary" onclick="closeModal('supervisoryModalBackdrop')">Close</button>
-<button class="primary" id="sv_save_btn" onclick="saveSupervisoryVisit()">Save Visit</button>
-</div>
-</div>
-</div>
-
-<!-- ============================= SUPERVISORY VISIT NOTE (from 2026-11-16) ============================= -->
-<div class="modal-backdrop" id="svNoteModalBackdrop">
-<div class="modal">
-<h2>Supervisory Visit</h2>
-<div class="modal-sub">A short note about a visit made because of a concern. No score and no form.</div>
-<input type="hidden" id="svn_id">
-<div class="grid2">
-<div><label for="svn_caregiver">Caregiver</label><select id="svn_caregiver"></select></div>
-<div><label for="svn_client">Client</label><input id="svn_client"></div>
-<div><label for="svn_date">Visit date</label><input type="date" id="svn_date"></div>
-<div><label for="svn_prompted">What prompted the visit</label><select id="svn_prompted"></select></div>
-</div>
-<label for="svn_went_well">What went well</label>
-<textarea id="svn_went_well" rows="2"></textarea>
-<label for="svn_coach">Anything to coach</label>
-<textarea id="svn_coach" rows="2" placeholder="Leave blank if nothing"></textarea>
-<label for="svn_view">Client or family's view</label>
-<textarea id="svn_view" rows="2" placeholder="What they told you"></textarea>
-<div class="field-note" id="svn_msg" style="color:var(--red);" role="alert"></div>
-<div class="modal-actions">
-<button class="secondary" onclick="closeModal('svNoteModalBackdrop')">Cancel</button>
-<button class="primary" onclick="saveSupervisoryNote()">Save Note</button>
-</div>
-</div>
-</div>
-
 <!-- The Client History pop-up was retired 2026-09-27 (One profile, step 5): the profile's History tab replaces it. -->
 
 <!-- ============================= SETTINGS (passcode-gated) ============================= -->
@@ -7814,7 +7712,7 @@ function addDaysISO(dateStr, days){
   d.setDate(d.getDate()+days);
   return d.toISOString().slice(0,10);
 }
-let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', supervisory: 'All', clients: 'All' };
+let activeFilters = { leads: 'All', assessments: 'All', checkins: 'All', clients: 'All' };
 
 function uid(){ return 'id_' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); }
 /* Local date, not UTC. toISOString() rolls over at 7pm Missouri time, so an
@@ -8382,7 +8280,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','supervisory','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8810,7 +8708,7 @@ const CC_SECTION_TITLES = {
   carematch:'Care Match Check-ins', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
-  supervisory:'Supervisory Visits', inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
+  inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
@@ -8944,7 +8842,7 @@ function gotoTab(tab){ return switchTab(tab); }
 /* Profile First (2026-09-28): the old Leads and Care Assessments tabs are gone; anything still asking for
    them lands on Leads & Starts instead of failing. */
 /* Active Clients retired 2026-09-29 (her call, ahead of Oct 12): old links and saved last-tabs land on the Clients board */
-const CC_RETIRED_TABS={ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard',
+const CC_RETIRED_TABS={ supervisory:'cgdir', /* 2026-11-14 (her word): supervisory visits are no longer required; the tab is gone and old links land on Caregivers */ leads:'leadsstarts', assessments:'leadsstarts', clients:'clientsboard',
   /* R4 (2026-09-29): the older Client Care lists are gone; their jobs live in the profile, the Clients board and
      Needs Attention. Old links land on the board, on the matching filter. */
   circles:'clientsboard', checkins:'clientsboard', careplans:'clientsboard',
@@ -9105,7 +9003,6 @@ function renderActiveTab(){
   if(activeTab==='supplies') ccHubFrame(document.getElementById('suppliesFrame'), 'supplies.html?in=hub');
   if(activeTab==='clientqueue') cqRender();
   if(activeTab==='careplans') cpRender();
-  if(activeTab==='supervisory') renderSupervisory();
   if(activeTab==='clients') renderClients();
   if(activeTab==='soc') renderSocTab();
   if(activeTab==='comms') renderCommsPage();
@@ -15119,196 +15016,6 @@ function svConcernOnly(){
 }
 /* text that differs before and after the date: [data-sv="yearly"] until then, [data-sv="concern"] from then */
 function svApplyDateText(){ document.body.classList.toggle('sv-concern', svConcernOnly()); }
-const SV_PROMPTS=['Family complaint about the caregiver','Red shift-note flag','Concern from a Care Match call','Other'];
-function svIsNote(v){ return !!(v && v.kind==='concern_note'); }
-
-function renderSupervisory(){
-  svApplyDateText();
-  if(svConcernOnly()) return renderSupervisoryNotes();
-  renderFilterPills('supervisoryFilters', ['All','Due Soon','Overdue','Completed This Year'], activeFilters.supervisory, 'supervisory');
-  let rows = DATA.supervisory_visits.filter(v=>searchMatch(v.caregiver_name));
-  const f = activeFilters.supervisory;
-  if(f==='Overdue') rows = rows.filter(v=>v.due_date && v.due_date < today());
-  else if(f==='Due Soon') rows = rows.filter(v=>v.due_date && daysBetween(today(),v.due_date)>=0 && daysBetween(today(),v.due_date)<=CONFIG.supervisory_window);
-  else if(f==='Completed This Year') rows = rows.filter(v=>v.visit_date && v.visit_date.slice(0,4)===String(new Date().getFullYear()));
-
-  const wrap = document.getElementById('supervisoryTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty">No supervisory visits match.</div>'; return; }
-  wrap.innerHTML = `<table><thead><tr>
-    <th>Caregiver</th><th>Client</th><th>Last Visit</th><th>Due Date</th><th>Status</th><th>Coordinator</th><th>Actions</th>
-  </tr></thead><tbody>${rows.map(v=>{
-    const overdue = v.due_date && v.due_date < today();
-    return `<tr>
-      <td><b>${v.caregiver_name||''}</b></td>
-      <td>${v.client_name||''}</td>
-      <td>${v.visit_date||''}</td>
-      <td>${v.due_date ? (overdue?'<span class="badge bad">'+v.due_date+'</span>':v.due_date) : ''}</td>
-      <td>${v.performance_rating?'<span class="badge ok">Completed</span>':(overdue?'<span class="badge bad">Overdue</span>':'<span class="badge warn">Scheduled</span>')}</td>
-      <td>${v.coordinator||''}</td>
-      <td><button class="linklike" onclick="openSupervisoryModal('${v.id}')">Edit</button></td>
-    </tr>`; }).join('')}</tbody></table>`;
-}
-function renderSupervisoryNotes(){
-  const f0 = activeFilters.supervisory;
-  const f = ['All','This Month','This Year'].includes(f0) ? f0 : 'All';
-  renderFilterPills('supervisoryFilters', ['All','This Month','This Year'], f, 'supervisory');
-  let rows = (DATA.supervisory_visits||[]).filter(v=>searchMatch(v.caregiver_name));
-  const t = today();
-  if(f==='This Month') rows = rows.filter(v=>(v.visit_date||'').slice(0,7)===t.slice(0,7));
-  else if(f==='This Year') rows = rows.filter(v=>(v.visit_date||'').slice(0,4)===t.slice(0,4));
-  rows = rows.slice().sort((a,b)=>String(b.visit_date||'').localeCompare(String(a.visit_date||'')));
-  const wrap = document.getElementById('supervisoryTableWrap');
-  if(rows.length===0){ wrap.innerHTML='<div class="empty">No supervisory visits logged'+(f==='All'?'':' '+f.toLowerCase())+'. Log one when there\'s a concern.</div>'; return; }
-  const e = escapeHtmlComms;
-  wrap.innerHTML = `<table><thead><tr>
-    <th>Date</th><th>Caregiver</th><th>Client</th><th>What prompted it</th><th>Logged by</th><th></th>
-  </tr></thead><tbody>${rows.map(v=>{
-    const note = svIsNote(v);
-    return `<tr>
-      <td>${e(v.visit_date||'')}</td>
-      <td><b>${e(v.caregiver_name||'')}</b></td>
-      <td>${e(v.client_name||'')}</td>
-      <td>${note ? e(v.prompted_by||'') : '<span class="badge">Yearly evaluation (before Nov 16)</span>'}</td>
-      <td>${e(note ? (v.logged_by_name||v.logged_by||'') : (v.coordinator||''))}</td>
-      <td><button class="linklike" onclick="openSupervisoryModal('${e(v.id)}')">${note?'Edit':'View'}</button></td>
-    </tr>`; }).join('')}</tbody></table>`;
-}
-function openSupervisoryModal(id){
-  const v = id ? DATA.supervisory_visits.find(x=>x.id===id) : {};
-  /* from 2026-11-16: a new visit, or one logged as a note, opens the short note; an old yearly evaluation opens read-only */
-  if(svConcernOnly() && (!id || svIsNote(v))) return openSupervisoryNote(id);
-  if(svIsNote(v)) return openSupervisoryNote(id);
-  const readOnly = svConcernOnly();
-  document.querySelectorAll('#supervisoryModalBackdrop input, #supervisoryModalBackdrop select, #supervisoryModalBackdrop textarea').forEach(el=>{ el.disabled = readOnly; });
-  document.getElementById('sv_save_btn').hidden = readOnly;
-  document.getElementById('sv_readonly_note').hidden = !readOnly;
-  document.getElementById('sv_id').value = id||'';
-  document.getElementById('sv_caregiver_name').value = (v&&v.caregiver_name)||'';
-  document.getElementById('sv_axiscare_caregiver_id').value = (v&&v.axiscare_caregiver_id)||'';
-  document.getElementById('sv_client_name').value = (v&&v.client_name)||'';
-  document.getElementById('sv_visit_date').value = (v&&v.visit_date)||today();
-  document.getElementById('sv_coordinator').value = (v&&v.coordinator)||'';
-  document.getElementById('sv_due_date').value = (v&&v.due_date)|| addDays(today(),365);
-  document.getElementById('sv_performance_rating').value = (v&&v.performance_rating)||'Meets Expectations';
-  document.getElementById('sv_client_satisfaction_observed').checked = !!(v&&v.client_satisfaction_observed);
-  document.getElementById('sv_concerns').value = (v&&v.concerns)||'';
-  document.getElementById('sv_corrective_action').value = (v&&v.corrective_action)||'';
-  document.getElementById('sv_proof_link').value = (v&&v.proof_link)||'';
-  const checklist = (v&&v.checklist_responses) || {};
-  document.querySelectorAll('#sv_checklist input[type=checkbox]').forEach(cb=>{ cb.checked = !!checklist[cb.dataset.key]; });
-  document.getElementById('supervisoryModalBackdrop').classList.add('open');
-}
-async function saveSupervisoryVisit(){
-  if(svConcernOnly()) return;   /* old yearly evaluations are read-only from 2026-11-16 */
-  const id = document.getElementById('sv_id').value || uid();
-  const existing = DATA.supervisory_visits.find(x=>x.id===id) || {};
-  const checklist = {};
-  document.querySelectorAll('#sv_checklist input[type=checkbox]').forEach(cb=>{ checklist[cb.dataset.key] = cb.checked; });
-  const record = {
-    id,
-    caregiver_name: document.getElementById('sv_caregiver_name').value.trim(),
-    axiscare_caregiver_id: document.getElementById('sv_axiscare_caregiver_id').value.trim(),
-    client_name: document.getElementById('sv_client_name').value.trim(),
-    visit_date: document.getElementById('sv_visit_date').value,
-    coordinator: document.getElementById('sv_coordinator').value.trim(),
-    due_date: document.getElementById('sv_due_date').value || addDays(document.getElementById('sv_visit_date').value, 365),
-    checklist_responses: checklist,
-    performance_rating: document.getElementById('sv_performance_rating').value,
-    client_satisfaction_observed: document.getElementById('sv_client_satisfaction_observed').checked,
-    concerns: document.getElementById('sv_concerns').value.trim(),
-    corrective_action: document.getElementById('sv_corrective_action').value.trim(),
-    proof_link: document.getElementById('sv_proof_link').value.trim(),
-    status: 'Completed',
-    created_at: existing.created_at || new Date().toISOString(),
-  };
-  const idx = DATA.supervisory_visits.findIndex(x=>x.id===id);
-  if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
-  await persist('supervisory_visits', record);
-
-  await svMirrorToRoster(record);
-  closeModal('supervisoryModalBackdrop');
-  renderSupervisory();
-}
-async function svMirrorToRoster(record){
-  // Mirror the date into the shared caregivers list, same record, two views.
-  // 421: read fresh, then save that ONE caregiver based on the _rev just read
-  // (ccCaregiverPut); a failure is shown, never swallowed. The visit itself is
-  // saved above either way.
-  try{
-    const { data } = await sb.from('app_data').select('data').eq('key','caregivers').maybeSingle();
-    if(data && Array.isArray(data.data)){
-      /* step 4 (2026-10-14): by AxisCare number when the visit has one; the name only when it has none, and only when one
-         caregiver has that name (never the first of two) */
-      const vid = String(record.axiscare_caregiver_id||'').trim();
-      const byName = data.data.filter(g => g.first && g.last && (g.first+' '+g.last).trim().toLowerCase()===String(record.caregiver_name||'').trim().toLowerCase());
-      const cg = vid ? data.data.find(g => String(g.axiscare_id||'')===vid) : (byName.length===1 ? byName[0] : null);
-      if(cg){
-        cg.supv_date = record.visit_date;
-        if(!svIsNote(record)){   /* a concern note has no form, so it never touches the proof fields */
-          cg.supervisory_proof_link = record.proof_link;
-          if(record.proof_link) cg.supv_proof = record.proof_link;   /* 2026-10-12: the field the compliance table reads */
-        }
-        await ccCaregiverPut(cg);
-      } else alert('The visit is saved, but it could not be matched to exactly one caregiver on the roster'+(vid?' (no caregiver has AxisCare number '+vid+')':' (pick the caregiver so it carries their AxisCare number)')+'. Add the date on their page.');
-    }
-  }catch(e){ alert('The visit is saved, but its date did not reach the caregiver roster ('+String((e&&e.message)||e).slice(0,120)+'). Add it on Caregivers, Orientation & Training.'); }
-}
-
-/* The short note (from 2026-11-16): date, caregiver, client, what prompted it, what went well, anything to coach,
-   the client's or family's view. No score, no checklist, no form link, no due date. */
-function svCaregiverOptions(sel){
-  const list=(DATA.caregivers||[]).filter(g=>g.first||g.last).map(g=>({id:String(g.axiscare_id||''), name:((g.first||'')+' '+(g.last||'')).trim()}))
-    .sort((a,b)=>a.name.localeCompare(b.name));
-  const e=escapeHtmlComms;
-  return '<option value="">Pick the caregiver</option>'+list.map(g=>'<option value="'+e(g.id+'|'+g.name)+'"'+(sel&&(g.id&&g.id===sel.id||g.name===sel.name)?' selected':'')+'>'+e(g.name)+'</option>').join('');
-}
-function openSupervisoryNote(id){
-  const v = id ? (DATA.supervisory_visits.find(x=>x.id===id)||{}) : {};
-  document.getElementById('svn_id').value = id||'';
-  document.getElementById('svn_caregiver').innerHTML = svCaregiverOptions(v.caregiver_name ? {id:String(v.axiscare_caregiver_id||''), name:v.caregiver_name} : null);
-  document.getElementById('svn_client').value = v.client_name||'';
-  document.getElementById('svn_date').value = v.visit_date||today();
-  document.getElementById('svn_prompted').innerHTML = '<option value="">Pick one</option>'+SV_PROMPTS.map(p=>'<option'+(v.prompted_by===p?' selected':'')+'>'+p+'</option>').join('');
-  document.getElementById('svn_went_well').value = v.went_well||'';
-  document.getElementById('svn_coach').value = v.coaching||'';
-  document.getElementById('svn_view').value = v.client_view||'';
-  document.getElementById('svn_msg').textContent = '';
-  document.getElementById('svNoteModalBackdrop').classList.add('open');
-}
-async function saveSupervisoryNote(){
-  const msg = document.getElementById('svn_msg');
-  const id = document.getElementById('svn_id').value || uid();
-  const existing = DATA.supervisory_visits.find(x=>x.id===id) || {};
-  const cgv = document.getElementById('svn_caregiver').value;
-  const cut = cgv.indexOf('|');
-  const record = {
-    id,
-    kind: 'concern_note',
-    caregiver_name: cut>=0 ? cgv.slice(cut+1) : '',
-    axiscare_caregiver_id: cut>=0 ? cgv.slice(0,cut) : '',
-    client_name: document.getElementById('svn_client').value.trim(),
-    visit_date: document.getElementById('svn_date').value,
-    prompted_by: document.getElementById('svn_prompted').value,
-    went_well: document.getElementById('svn_went_well').value.trim(),
-    coaching: document.getElementById('svn_coach').value.trim(),
-    client_view: document.getElementById('svn_view').value.trim(),
-    status: 'Completed',
-    logged_by: existing.logged_by || ((typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''),
-    logged_by_name: existing.logged_by_name || ((typeof ME!=='undefined'&&ME&&ME.name)||''),
-    created_at: existing.created_at || new Date().toISOString(),
-  };
-  if(existing.created_at){ record.updated_at = new Date().toISOString(); record.updated_by = (typeof ME!=='undefined'&&ME&&(ME.email||ME.name))||''; }
-  const missing = [!record.caregiver_name&&'the caregiver', !record.client_name&&'the client', !record.visit_date&&'the date', !record.prompted_by&&'what prompted it'].filter(Boolean);
-  if(missing.length){ msg.textContent = 'Add '+missing.join(', ')+' first.'; return; }
-  if(record.visit_date > today()){ msg.textContent = 'The visit date cannot be in the future.'; return; }
-  const idx = DATA.supervisory_visits.findIndex(x=>x.id===id);
-  if(idx>=0) DATA.supervisory_visits[idx]=record; else DATA.supervisory_visits.push(record);
-  await persist('supervisory_visits', record);
-  await svMirrorToRoster(record);
-  closeModal('svNoteModalBackdrop');
-  renderSupervisory();
-}
-
 /* ---------------- CLIENTS (read-only roster across all tabs) ---------------- */
 // Builds one row per distinct client, matched by AxisCare client ID when
 // present (falling back to name) across leads, assessments, and check-ins.
@@ -22448,23 +22155,20 @@ function careStats(){
   const latest=ciLatestByClient();
   const overdueCk=latest.filter(c=>c.next_checkin_due&&c.next_checkin_due<t);
   const escalated=latest.filter(c=>c.escalated);
-  /* from 2026-11-16 supervisory visits are concern-only and never overdue */
-  const svOver=svConcernOnly()?[]:(DATA.supervisory_visits||[]).filter(v=>v.due_date&&v.due_date<t);
   const d30=new Date(Date.now()-30*86400000).toISOString();
   const newStarts=DATA.leads.filter(l=>l.status==='Converted'&&(l.converted_at||'')>=d30);
-  return {overdueCk,escalated,svOver,newStarts};
+  return {overdueCk,escalated,newStarts};
 }
 function renderCareKpis(){
   const wrap=document.getElementById('careKpis'); if(!wrap) return;
   const s=careStats();
   const kpi=(label,val,sub,icon,bg,fg,alert)=>
-    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="'+(label.includes('Supervisory')?'switchTab(\'supervisory\')':label.includes('30')?'switchTab(\'clientsboard\')':label.includes('Escalated')?'clOpen(\'Check-in concerns\')':'clOpen(\'Check-ins\')')+'">'
+    '<div class="kpi" style="cursor:pointer;'+(alert&&val>0?'border-color:#E8B4B4;':'')+'" onclick="'+(label.includes('30')?'switchTab(\'clientsboard\')':label.includes('Escalated')?'clOpen(\'Check-in concerns\')':'clOpen(\'Check-ins\')')+'">'
     +'<div class="kl"><span>'+label+'</span><span class="kw" style="background:'+bg+';color:'+fg+';">'+icon+'</span></div>'
     +'<div class="kv"'+(alert&&val>0?' style="color:var(--red);"':'')+'>'+val+'</div><div class="ks">'+sub+'</div></div>';
   wrap.innerHTML=
     kpi('Check-ins Overdue',s.overdueCk.length,'A quiet client is a leaving client. Call them','💚','#FDE8E8','#B23B3B',true)
     +kpi('Escalated Concerns',s.escalated.length,'Raised by a client, not yet resolved','🚨','#FDE8E8','#B23B3B',true)
-    +(svConcernOnly()?'':kpi('Supervisory Visits Overdue',s.svOver.length,'Quality-of-care proof for the state','🛡','#F7ECCB','#C17A12',true))
     +kpi('New Clients, first 30 days',s.newStarts.length,'Highest cancel risk. Extra attention now','🌟','#E1F1ED','#1F7A8C',false);
 }
 function renderCareQueue(){
@@ -22472,13 +22176,12 @@ function renderCareQueue(){
   const esc=escapeHtmlComms, t=today(), s=careStats(), rows=[];
   s.escalated.forEach(c=>rows.push(['🚨','<b>'+esc(c.client_name||'')+'</b>: escalated concern'+(c.concerns_raised?': '+esc(String(c.concerns_raised).slice(0,70)):''),'cl:Check-in concerns']));
   s.overdueCk.forEach(c=>rows.push(['💚','<b>'+esc(c.client_name||'')+'</b>: check-in '+daysBetween(c.next_checkin_due,t)+' days overdue','cl:Check-ins']));
-  s.svOver.forEach(v=>rows.push(['🛡','<b>'+esc(v.client_name||'')+'</b>: supervisory visit overdue','supervisory']));
   s.newStarts.forEach(l=>rows.push(['🌟','<b>'+esc((l.client_first_name||l.first_name||'')+' '+(l.client_last_name||l.last_name||''))+'</b>: new client ('+(l.converted_at?daysBetween(l.converted_at.slice(0,10),t):'?')+' days in). Check in weekly','checkins']));
   wrap.innerHTML = rows.length
     ? rows.slice(0,10).map(r=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">'
       +'<span>'+r[0]+'</span><span style="flex:1;min-width:0;">'+r[1]+'</span>'
       +'<button class="linklike" onclick="'+(String(r[2]).startsWith('cl:')?'clOpen(\''+String(r[2]).slice(3)+'\')':'switchTab(\''+r[2]+'\')')+'">Open</button></div>').join('')
-      +(rows.length>10?'<div class="field-note" style="margin-top:4px;">+'+(rows.length-10)+' more on the Clients board and the Supervisory tab</div>':'')
+      +(rows.length>10?'<div class="field-note" style="margin-top:4px;">+'+(rows.length-10)+' more on the Clients board</div>':'')
     : '<div class="field-note">Every client is checked in, visited, and settled. That\'s the quality bar. 💚</div>';
 }
 function renderCareAlerts(){
