@@ -6,12 +6,12 @@
      CARE & CONNECTION CHECK-IN (Samantha 2026-11-14). One page for every family and caregiver check-in.
      Opened from a personal smart link in a text or email: checkin.html#k=<invite code>. The code sits after the # so it is
      never sent to the web host or passed on to another site; it names nothing (no name, no client, no question). The server
-     (function checkin-link, not built yet) checks the code's seal and expiry, and answers with only what this page needs:
+     (function checkin-link) checks the code's seal and expiry, and answers with only what this page needs:
      who it's for (first name), family or caregiver, which check-in, and the client's first name for a family.
      No sign-in, no portal. Nothing they've already told us is asked again.
      One happiness question first; the next questions appear only when they fit the answer. Under a minute.
      "Message the owners privately" is always on the page and opens private.html with the same code.
-     DESIGN STAGE: only ?demo=family|caregiver works. Without demo the page says it isn't open yet. Nothing is saved.
+     ?demo=family|caregiver shows sample data and saves nothing (for the office and for tests).
      ============================================================ -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
 <style>
@@ -75,7 +75,7 @@ textarea:focus{outline:none;border-color:var(--teal)}
 const OFFICE = '(417) 234-8494', OFFICE_TEL = 'tel:+14172348494';
 const params = new URLSearchParams(location.search);
 const DEMO = params.get('demo');
-const code = (location.hash.match(/k=([A-Za-z0-9_-]{16,200})/) || [])[1] || '';
+const code = (location.hash.match(/k=([0-9a-f-]{36}\.\d{9,11}\.[A-Za-z0-9_-]{43})/) || [])[1] || '';
 
 /* What each check-in asks first. The first question is always the happiness one; each kind may add ONE question of its own. */
 const KINDS = {
@@ -181,13 +181,24 @@ function pick(v) {
 
 function progress() { const need = 1 + (KINDS[ctx.who][ctx.kind].extra ? 1 : 0); const have = (A.mood ? 1 : 0) + (A.extra != null ? 1 : 0); $('#prog').style.width = Math.min(100, 100 * have / need) + '%'; }
 
-function send() {
+const API = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/checkin-link';
+/* The code goes in the request body, never in a web address. */
+async function api(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ code }, body)), referrerPolicy: 'no-referrer', cache: 'no-store' });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Something went wrong. Try again in a minute.'); return j;
+}
+async function send() {
   const err = $('#err');
   if (KINDS[ctx.who][ctx.kind].extra && A.extra == null) { err.textContent = 'Answer the question above first.'; err.style.display = 'block'; return; }
   if (A.call === 'yes' && !A.when) { err.textContent = 'Pick a good time for the call.'; err.style.display = 'block'; return; }
   const alt = $('#altphone'); if (alt && alt.style.display === 'block' && alt.value.replace(/\D/g, '').length < 10) { err.textContent = 'Enter a 10-digit phone number, or use the one on file.'; err.style.display = 'block'; return; }
   A.note = ($('#note') || {}).value || '';
-  /* Real mode posts {code, answers} to checkin-link. The sample never sends anything. */
+  if (alt && alt.style.display === 'block') A.alt_phone = alt.value;
+  if (!DEMO) {
+    const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
+    try { await api({ action: 'answer', answers: A }); }
+    catch (e) { b.disabled = false; b.textContent = 'Send'; err.textContent = e.message; err.style.display = 'block'; return; }
+  }
   const fam = ctx.who === 'family', thanks = (A.thank || []).filter(x => x !== 'office');
   let title = 'Thank you, ' + ctx.first + '!', body;
   if (A.call === 'yes') body = 'Someone from our office will call you' + (A.when ? ' in the ' + (A.when === 'evening' ? 'early evening' : A.when) : '') + '. If it is urgent, call us now at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.';
@@ -208,7 +219,17 @@ function sample() {
   who.onchange = () => { fill(); go(); }; kind.onchange = go; st.onchange = go; go();
 }
 
-if (DEMO) sample();
-else { $('#hi').textContent = 'Hi there,'; $('#main').innerHTML = '<div class="card done"><div class="big">🌱</div><h2 class="serif">This page is not open yet</h2><p>Call us any time at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p></div>'; }
+function stop(title, body) { $('#hi').textContent = 'Hi there,'; $('#lead').textContent = ''; $('#main').innerHTML = '<div class="card done"><div class="big">🌱</div><h2 class="serif">' + title + '</h2><p>' + body + '</p></div>'; }
+async function real() {
+  if (!code) return stop('This link is not complete', 'Open the link from your text again, or call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.');
+  $('#main').innerHTML = '<p class="foot">Loading...</p>';
+  try {
+    const v = await api({ action: 'open' });
+    if (!KINDS[v.audience] || !KINDS[v.audience][v.kind]) throw new Error('This link is not valid.');
+    ctx = { who: v.audience, kind: v.kind, state: v.state, first: v.first, client: v.client || 'your loved one', caregiver: v.caregiver || 'your caregiver', caregivers: v.caregivers || [], phone_tail: v.phone_tail || '' };
+    render();
+  } catch (e) { stop('We could not open this check-in', esc(e.message) + ' You can call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.'); }
+}
+if (DEMO) sample(); else real();
 </script>
 </body></html>

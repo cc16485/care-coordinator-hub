@@ -1130,6 +1130,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- 2026-11-07 Ask Cara for the Office (ask-cara.js): read-only answers with sources; owners while practicing -->
     <button class="addlead" id="askCaraBtn" onclick="ASKC.open()" title="Ask Cara about a client, a caregiver, the schedule or a rule"
             style="display:none;background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">Ask Cara</button>
+    <!-- 2026-11-14 Care & Connection (owners-inbox.js): any office person can write privately to Samantha and Zach -->
+    <button class="addlead" id="ownersMsgBtn" onclick="OIX.compose()" title="A private message only Samantha and Zach can read"
+            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">🔒 Owners</button>
     <span id="userChip" style="display:flex;align-items:center;gap:8px;padding:3px 12px 3px 4px;border:1px solid var(--border);border-radius:999px;background:#fff;flex:0 0 auto;">
       <span class="su-avatar" id="navAvatar">·</span>
       <span style="line-height:1.15;"><b id="navUserName" style="display:block;font-size:12.5px;white-space:nowrap;">Signed in</b><span id="navUserRole" style="font-size:10px;white-space:nowrap;">Care Coordinator</span></span>
@@ -1161,6 +1164,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="fsubbar" id="fsub-today">
     <!-- audit step 9 (2026-10-18): the Owner Overview, owners only, shown while ops_settings.owner_overview_live is on (owner-overview.js) -->
     <div class="fpill" data-tab="owneroverview" onclick="switchTab('owneroverview')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Owner Overview</div>
+    <!-- 2026-11-14 Care & Connection: the owners' private inbox (owners-inbox.js). The server lets in only owner_admin. -->
+    <div class="fpill" data-tab="ownersinbox" onclick="switchTab('ownersinbox')" style="display:none;">🔒 Private messages<span class="subtab-badge red" id="oixBadge" style="display:none"></span></div>
     <!-- 2026-11-10 (her call): Katlin's own page, seen only by her and the owners (katlin-page.js; whose page = ops_settings.katlin_page.email) -->
     <div class="fpill" data-parent="katlingrp" onclick="ccParentClick('katlingrp')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-star"/></svg> <span class="kpLab">Katlin's page</span></div>
     <!-- NEW TODAY (2026-10-19, her yes to https://claude.ai/artifact/EFKms6fU32DfSTyTZPX1kS): no Dashboard pill; what it was
@@ -1641,6 +1646,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Stand-Up item with an owner and a due date), the team video room, and the old
          Meetings tab's "Request a meeting" (same ids, so its code did not change). -->
     <section class="tabpanel" id="tab-owneroverview"><div id="ovWrap"></div></section>
+    <section class="tabpanel" id="tab-ownersinbox"><div id="oixWrap"></div></section>
     <section class="tabpanel" id="tab-kptasks"><div id="kpWrapTasks"></div></section>
     <section class="tabpanel" id="tab-kpfollow"><div id="kpWrapFollow"></div></section>
     <section class="tabpanel" id="tab-kpnextdoor"><div id="kpWrapNextdoor"></div></section>
@@ -7519,7 +7525,7 @@ The HomeTogether team</pre>
 <script src="bonus.js?v=2"></script>
 <script src="new-clients.js?v=2"></script><!-- New clients scoreboard + bonus v2 settings (2026-10-22): behind ops_settings.bonus_v2_live --><!-- Stage 4 of the Care Coordinator Leads and Bonus plan (2026-10-18): the Bonuses window; the records stay on the server -->
 <script src="team.js?v=5"></script><!-- Stage 5 of the Care Coordinator Leads and Bonus plan (2026-10-18): My month / Team and management reviews; the records stay on the server -->
-<script src="owner-overview.js?v=8"></script><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
+<script src="owner-overview.js?v=8"></script><script src="owners-inbox.js?v=1"></script><!-- 2026-11-14 Care & Connection: owners' private inbox + Message the owners --><!-- audit step 9 (2026-10-18): the Owner Overview, owners only, switched by ops_settings.owner_overview_live -->
 <script src="promise-engine.js"></script>
 <script src="client-start.js"></script>
 <!-- Caregiver profile panel (part 2, slice 2a): shared by the Orientation Video Calls (caregivers engine) and the employee page. -->
@@ -8296,7 +8302,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8713,6 +8719,7 @@ function ccGroupClick(g){
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
   owneroverview:'Owner Overview',
+  ownersinbox:'Private messages',
   kptasks:'My page · Tasks', kpfollow:'My page · Follow-ups', kpnextdoor:'My page · Nextdoor', kpsocial:'My page · Coming up', kpnotes:'My page · Notes', kprecruit:'My page · Recruiting',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
@@ -8891,6 +8898,7 @@ function switchTab(tab){
   if(tab==='settings' && !CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=true; ccSetSectionTitle('settings'); return; }
   if(tab==='settings' && !ccCan('manage_settings')){ alert('You do not have permission to open Settings.'); return; }
   if(tab==='owneroverview' && !(window.OV && OV.allowed())){ alert('The Owner Overview is for Samantha and Zachary, once it is turned on.'); return; }
+  if(tab==='ownersinbox' && !(window.OIX && OIX.allowed())){ alert('Private messages are for Samantha and Zach.'); return; }
   if(/^kp(tasks|follow|nextdoor|notes|recruit)$/.test(tab) && !(window.KP && KP.allowed())){ alert('This page is private.'); return; }
   ccSetSectionTitle(tab);
   const lpv = document.getElementById('leadProfileView');
@@ -8974,6 +8982,8 @@ function renderActiveTab(){
   if(activeTab==='calendar') ivLoad();
   try{ if(window.OV) OV.pillSync(); }catch(e){}
   if(activeTab==='owneroverview' && window.OV) OV.render();
+  try{ if(window.OIX) OIX.pillSync(); }catch(e){}
+  if(activeTab==='ownersinbox' && window.OIX) OIX.render();
   try{ if(window.KP) KP.pillSync(); }catch(e){}
   if(window.KP && KP.isKp(activeTab)) KP.render(activeTab);
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
@@ -19152,6 +19162,7 @@ function ovSetFill(){
   now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary land on it when you sign in, and see it under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off the Owner Overview':'Turn on the Owner Overview'; b.style.display=owner?'':'none'; }
   try{ if(window.OV) OV.pillSync(); }catch(e){}
+  try{ if(window.OIX) OIX.pillSync(); }catch(e){}   /* 2026-11-14: the owners' private-messages pill, once the roles are known */
 }
 async function ovToggle(btn){
   if(!ccIsOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
@@ -21661,6 +21672,7 @@ function ccApplyRoleUi(){
   const wuOk=ccCan('approve_discipline');
   document.querySelectorAll('[data-tab="cgwriteups"],#attWriteupsLink').forEach(el=>{ el.style.display=wuOk?'':'none'; });
   try{ if(window.KP) KP.pillSync(); }catch(_){}
+  try{ if(window.OIX) OIX.pillSync(); }catch(_){}   /* 2026-11-14: roles known, so the owners see their private-messages pill */
   if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
   try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
 }

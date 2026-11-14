@@ -7,13 +7,14 @@
      Three ways in, no sign-in and no portal:
        private.html#k=<code>   from a check-in or any personal smart link: we already know who they are, so nothing is asked twice.
        private.html            the standalone link (website, handbook, texts): they give a name and a phone or email.
-       private.html#r=<code>   a reply from an owner: a one-time code goes to the phone or email we have on file first,
-                               then the conversation shows for 15 minutes. The reply link itself lasts 7 days.
+       private.html#r=<code>   a reply from an owner: their own PIN first (chosen when they asked for a written reply;
+                               never texted, because the office can read texts), then the conversation shows for 15
+                               minutes. The reply link lasts 14 days. Five wrong PINs lock it.
      Codes sit after the # so the web host never receives them. Message words are never in a link, a text or an email:
      the text or email only says a private reply is waiting.
-     Server (function owner-inbox, not built yet): messages are stored where only the owner role (Samantha, Zach) can read
+     Server (function owner-inbox): messages are stored where only the owner role (Samantha, Zach) can read
      them. Coordinators, Ask Cara, reports and the Check-ins tab cannot see them, their count, or that they exist.
-     DESIGN STAGE: only ?demo=family|caregiver|staff|standalone|reply works. Nothing is saved or sent.
+     ?demo=family|caregiver|standalone|reply shows sample data and saves or sends nothing (for the office and for tests).
      ============================================================ -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
 <style>
@@ -37,7 +38,7 @@ main{padding:16px 16px 28px}
 .opts{display:grid;gap:8px;margin-top:12px}
 .opt{font:inherit;text-align:left;background:#fff;border:2px solid var(--line);border-radius:14px;padding:12px 14px;cursor:pointer;color:var(--ink);font-size:15px;display:flex;gap:10px;align-items:center}
 .opt .e{font-size:20px}.opt.on{border-color:var(--teal);background:var(--soft);color:var(--navy);font-weight:600}
-textarea,input[type=text],input[type=tel],input[type=email]{width:100%;font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:#fff;margin-top:10px}
+textarea,input[type=text],input[type=tel],input[type=email],input[type=password]{width:100%;font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:#fff;margin-top:10px}
 textarea{min-height:130px;resize:vertical}
 textarea:focus,input:focus{outline:none;border-color:var(--teal)}
 .as{display:flex;justify-content:space-between;gap:8px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 12px;font-size:14px;color:var(--navy)}
@@ -62,7 +63,7 @@ textarea:focus,input:focus{outline:none;border-color:var(--teal)}
 </style></head>
 <body><div class="frame">
 <div class="sample" id="sample" hidden><b>Sample</b> nothing is saved or sent
-  <select id="sWho" aria-label="How they arrived"><option value="family">Family, from a check-in link</option><option value="caregiver">Caregiver, from a check-in link</option><option value="staff">Office staff, from the Hub</option><option value="standalone">Standalone link</option><option value="reply">A reply from an owner</option></select>
+  <select id="sWho" aria-label="How they arrived"><option value="family">Family, from a check-in link</option><option value="caregiver">Caregiver, from a check-in link</option><option value="standalone">Standalone link</option><option value="reply">A reply from an owner</option></select>
 </div>
 <header><img class="logo" src="cc-logo.png" alt="Caring Companions"><span class="lock">🔒 Owners only</span>
 <h1 class="serif" id="h1">Message the owners</h1><p id="lead">Only Samantha and Zach will read this. It does not go to your coordinator.</p></header>
@@ -70,98 +71,156 @@ textarea:focus,input:focus{outline:none;border-color:var(--teal)}
 </div>
 <script>
 const OFFICE = '(417) 234-8494', OFFICE_TEL = 'tel:+14172348494';
+const API = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/owner-inbox';
 const params = new URLSearchParams(location.search);
 const DEMO = params.get('demo');
+const HASH = new URLSearchParams(location.hash.replace(/^#/, ''));
+const CODE = /^[0-9a-f-]{36}\.\d{9,11}\.[A-Za-z0-9_-]{43}$/.test(HASH.get('k') || '') ? HASH.get('k') : '';
+const RCODE = /^[0-9a-f-]{36}\.\d{9,11}\.[A-Za-z0-9_-]{43}$/.test(HASH.get('r') || '') ? HASH.get('r') : '';
 const $ = s => document.querySelector(s);
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ABOUT = { family: c => c ? c + "'s family" : 'Client family', caregiver: () => 'Caregiver', staff: () => 'Office team', other: () => '' };
 const SAMPLE = {
-  family: { known: true, first: 'Linda', name: 'Linda S.', about: "Dorothy's daughter", phone_tail: '42', email: 'l•••@gmail.com' },
-  caregiver: { known: true, first: 'Rachel', name: 'Rachel M.', about: 'Caregiver', phone_tail: '17' },
-  staff: { known: true, first: 'Krystal', name: 'Krystal L.', about: 'Office team', phone_tail: '05', staff: true },
+  family: { known: true, first: 'Linda', name: 'Linda S.', about: "Dorothy's family", has_phone: true },
+  caregiver: { known: true, first: 'Rachel', name: 'Rachel M.', about: 'Caregiver', has_phone: true },
   standalone: { known: false },
 };
 const KINDS = [['concern', '💬', 'A concern'], ['idea', '💡', 'A suggestion'], ['thanks', '💛', 'Thanks for someone'], ['sensitive', '🔒', 'Something sensitive']];
-let who = null, M = {};
+let who = null, M = {}, SESSION = '', TIMER = null;
+
+/* Codes go in the request body, never in a web address. */
+async function api(body) {
+  if (DEMO) return demoApi(body);
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), referrerPolicy: 'no-referrer', cache: 'no-store' });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { const e = new Error(j.error || 'Something went wrong. Try again in a minute.'); Object.assign(e, j); throw e; }
+  return j;
+}
 
 function compose() {
   M = {};
   $('#h1').textContent = who.known ? 'Hi ' + who.first + ', message the owners' : 'Message the owners';
-  $('#lead').textContent = 'Only Samantha and Zach will read this. ' + (who.staff ? 'It does not go to anyone else in the office.' : 'It does not go to your coordinator.');
+  $('#lead').textContent = 'Only Samantha and Zach will read this. It does not go to your coordinator.';
   let h = '<div class="safety">If someone is in danger right now, call 911.</div>';
   h += '<div class="card"><p class="q">What would you like to share?</p><div class="opts" data-f="kind">'
     + KINDS.map(([v, e, t]) => '<button class="opt" data-v="' + v + '"><span class="e" aria-hidden="true">' + e + '</span>' + t + '</button>').join('') + '</div>'
     + '<textarea id="body" placeholder="Write as much or as little as you like" maxlength="4000"></textarea></div>';
-  if (who.known) h += '<div class="card"><div class="as"><span>Sending as <b>' + esc(who.name) + '</b> · ' + esc(who.about) + '</span><a href="#" id="notme">Not you?</a></div>';
+  if (who.known) h += '<div class="card"><div class="as"><span>Sending as <b>' + esc(who.name) + '</b>' + (who.about ? ' · ' + esc(who.about) : '') + '</span><a href="#" id="notme">Not you?</a></div>';
   else h += '<div class="card"><p class="q">Who is this from?</p><p class="hint">So an owner can get back to you.</p>'
     + '<input type="text" id="nm" placeholder="Your name" autocomplete="name">'
     + '<div class="opts" data-f="role" style="grid-template-columns:1fr 1fr"><button class="opt" data-v="family">Client or family</button><button class="opt" data-v="caregiver">Caregiver</button><button class="opt" data-v="staff">Office team</button><button class="opt" data-v="other">Someone else</button></div>'
     + '<input type="tel" id="ph" placeholder="Phone" inputmode="tel" autocomplete="tel"><input type="email" id="em" placeholder="or email" autocomplete="email"><p class="hint">A phone or an email is needed.</p>';
+  h += '<input type="text" id="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px">';
   h += '<p class="q" style="margin-top:16px">Would you like an owner to reply?</p><div class="opts" data-f="reply">'
-    + '<button class="opt" data-v="call">Yes, call me</button><button class="opt" data-v="private">Yes, a private written reply</button><button class="opt" data-v="none">No reply needed</button></div></div>';
+    + '<button class="opt" data-v="call">Yes, call me</button><button class="opt" data-v="private">Yes, a private written reply</button><button class="opt" data-v="none">No reply needed</button></div>'
+    + '<input type="tel" id="callph" placeholder="Best phone number" inputmode="tel" style="display:none">'
+    + '<div id="pinbox" style="display:none;margin-top:12px"><p class="q" style="font-size:15px">Choose a PIN for your reply</p><p class="hint">4 to 6 numbers. You will need it to read the reply. We never text it, so only you know it.</p>'
+    + '<input type="password" id="pin" inputmode="numeric" maxlength="6" placeholder="PIN" autocomplete="new-password"><input type="password" id="pin2" inputmode="numeric" maxlength="6" placeholder="PIN again" autocomplete="new-password"></div></div>';
   h += '<div class="err" id="err"></div><button class="go" id="send">Send to the owners</button>'
     + '<p class="promise"><b>What we promise:</b> only the owners can open this. Your coordinator cannot see it, or even that you wrote. If it is about keeping someone safe, the owners may need to involve others, and will share as little as they can.</p>'
     + '<p class="foot">Rather talk? Call <a href="' + OFFICE_TEL + '">' + OFFICE + '</a> and ask for Samantha or Zach.</p>';
   $('#main').innerHTML = h;
   document.querySelectorAll('.opts').forEach(g => g.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     g.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x === b)); M[g.dataset.f] = b.dataset.v; $('#err').style.display = 'none';
+    if (g.dataset.f === 'reply') { $('#pinbox').style.display = b.dataset.v === 'private' ? 'block' : 'none'; $('#callph').style.display = b.dataset.v === 'call' && who.known && !who.has_phone ? 'block' : 'none'; }
   }));
-  const nm = $('#notme'); if (nm) nm.onclick = e => { e.preventDefault(); who = SAMPLE.standalone; compose(); };
+  const nm = $('#notme'); if (nm) nm.onclick = e => { e.preventDefault(); who = SAMPLE.standalone; history.replaceState(null, '', location.pathname + location.search); compose(); };
   $('#send').onclick = send;
 }
 
 function fail(t) { const e = $('#err'); e.textContent = t; e.style.display = 'block'; e.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-function send() {
+async function send() {
   M.body = $('#body').value.trim();
   if (!M.kind) return fail('Pick what you would like to share.');
   if (M.body.length < 3) return fail('Write your message first.');
+  const payload = { action: 'send', kind: M.kind, body: M.body, reply: M.reply, website: $('#website').value };
+  if (who.known && who.code) payload.code = who.code;
   if (!who.known) {
-    M.name = $('#nm').value.trim(); M.phone = $('#ph').value.replace(/\D/g, ''); M.email = $('#em').value.trim();
-    if (!M.name) return fail('Add your name.');
-    if (!M.role) return fail('Tell us who you are.');
-    if (M.phone.length < 10 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(M.email)) return fail('Add a 10-digit phone or an email.');
-  }
+    payload.name = $('#nm').value.trim(); payload.role = M.role; payload.phone = $('#ph').value; payload.email = $('#em').value.trim();
+    if (!payload.name) return fail('Add your name.');
+    if (!payload.role) return fail('Tell us who you are.');
+    if (payload.phone.replace(/\D/g, '').length < 10 && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payload.email)) return fail('Add a 10-digit phone or an email.');
+  } else if (M.reply === 'call' && !who.has_phone) payload.phone = $('#callph').value;
   if (!M.reply) return fail('Tell us if you would like a reply.');
-  /* Real mode posts {code?, kind, body, reply, name?, phone?, email?, role?} to owner-inbox. The sample never sends. */
+  if (M.reply === 'private') {
+    const p1 = $('#pin').value, p2 = $('#pin2').value;
+    if (!/^\d{4,6}$/.test(p1)) return fail('Choose a PIN of 4 to 6 numbers.');
+    if (p1 !== p2) return fail('The two PINs do not match.');
+    payload.pin = p1;
+  }
+  const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
+  let out;
+  try { out = await api(payload); } catch (e) { b.disabled = false; b.textContent = 'Send to the owners'; return fail(e.message); }
   $('#h1').textContent = 'Sent to the owners';
   $('#lead').textContent = '';
-  const next = M.reply === 'call' ? 'Samantha or Zach will call you.' : M.reply === 'private' ? 'When an owner replies, we will text you a private link. The words stay on this secure page.' : 'Thank you for telling us.';
-  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">Thank you' + (who.known ? ', ' + esc(who.first) : '') + '</h2><p>Only the owners will read it. ' + next + '</p></div>'
+  const next = M.reply === 'call' ? 'Samantha or Zach will call you.' : M.reply === 'private' ? 'When an owner replies, we will text or email you a link. Open it with your PIN.' : 'Thank you for telling us.';
+  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">Thank you' + (who.known ? ', ' + esc(who.first) : '') + '</h2><p>Only the owners will read it. ' + next + '</p>'
+    + (out.reply_link ? '<p class="hint" style="margin-top:14px">You can also keep this link to check for a reply:<br><a href="' + esc(out.reply_link) + '" style="color:var(--teal);font-weight:600;word-break:break-all">Your private conversation</a></p>' : '') + '</div>'
     + '<p class="foot">Something urgent? Call <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p>';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function verify() {
-  $('#h1').textContent = 'You have a private reply';
-  $('#lead').textContent = 'To keep it private, we will send a code to the phone we have on file for you.';
-  $('#main').innerHTML = '<div class="card" style="text-align:center"><p class="q">Enter the 6-digit code</p><p class="hint">Sent to the phone ending in 42. It works for 10 minutes.</p>'
-    + '<div class="code">' + [...Array(6)].map((_, i) => '<input inputmode="numeric" maxlength="1" aria-label="Digit ' + (i + 1) + '">').join('') + '</div>'
-    + '<div class="err" id="err"></div><button class="go" id="ok" style="margin-top:16px">Open my conversation</button>'
-    + '<p class="hint" style="margin-top:12px"><a href="#" id="resend" style="color:var(--teal);font-weight:600">Send a new code</a></p></div>'
-    + '<p class="promise">Sample: any 6 digits open it. Five wrong codes lock the link and the owners are told.</p>';
-  const ins = [...document.querySelectorAll('.code input')];
-  ins.forEach((el, i) => el.oninput = () => { el.value = el.value.replace(/\D/g, ''); if (el.value && ins[i + 1]) ins[i + 1].focus(); });
-  ins[0].focus();
-  $('#resend').onclick = e => { e.preventDefault(); $('#resend').textContent = 'New code sent'; };
-  $('#ok').onclick = () => { if (ins.map(x => x.value).join('').length !== 6) return fail('Enter all 6 digits.'); thread(); };
+function pinScreen(note) {
+  clearInterval(TIMER); SESSION = '';
+  $('#h1').textContent = 'You have a private message';
+  $('#lead').textContent = 'Enter the PIN you chose when you wrote to us.';
+  $('#main').innerHTML = '<div class="card" style="text-align:center"><p class="q">Your PIN</p><p class="hint">4 to 6 numbers. Only you know it.</p>'
+    + '<input type="password" id="pinin" inputmode="numeric" maxlength="6" autocomplete="current-password" style="text-align:center;font-size:24px;letter-spacing:8px;margin-top:14px">'
+    + '<div class="err" id="err"></div><button class="go" id="ok" style="margin-top:16px">Open my conversation</button></div>'
+    + '<p class="promise">' + (note ? esc(note) + ' ' : '') + 'Forgot your PIN? Call <a href="' + OFFICE_TEL + '">' + OFFICE + '</a> and ask for Samantha or Zach. After five wrong tries the link locks to keep it private.</p>';
+  $('#pinin').focus();
+  const go = async () => {
+    const pin = $('#pinin').value;
+    if (!/^\d{4,6}$/.test(pin)) return fail('Enter your PIN.');
+    try { thread(await api({ action: 'thread_open', r: RCODE || 'demo', pin })); }
+    catch (e) { if (e.locked || e.expired) { $('#main').innerHTML = '<div class="card done"><div class="big">🔒</div><h2 class="serif">' + (e.locked ? 'This link is locked' : 'This link has expired') + '</h2><p>' + esc(e.message) + '</p></div>'; return; } fail(e.message); }
+  };
+  $('#ok').onclick = go; $('#pinin').onkeydown = e => { if (e.key === 'Enter') go(); };
 }
 
-function thread() {
+function thread(t) {
+  SESSION = t.session;
   $('#h1').textContent = 'Your private conversation';
   $('#lead').textContent = 'Only you and the owners can see this.';
-  const msgs = [
-    ['me', 'You · Nov 12', 'I have been getting fewer hours since my client went into the hospital and I did not want to bring it up with the office.'],
-    ['owner', 'Zach · Nov 13', 'Thank you for telling me, Rachel. I have asked the team to look at open shifts near you this week without mentioning your note. Would mornings work?'],
-  ];
-  $('#main').innerHTML = '<p class="timer" id="timer">This page closes in 15:00 to keep it private</p>'
-    + msgs.map(([c, w, t]) => '<div class="msg ' + c + '"><div class="who">' + esc(w) + '</div>' + esc(t) + '</div>').join('')
-    + '<div class="card"><textarea id="rep" placeholder="Write back" maxlength="4000"></textarea><div class="err" id="err"></div><button class="go" id="snd" style="margin-top:10px">Send reply</button></div>'
-    + '<p class="promise">Replies are not texted or emailed. We only tell you a new reply is waiting.</p>';
-  $('#snd').onclick = () => { const t = $('#rep').value.trim(); if (!t) return fail('Write your reply first.'); const d = document.createElement('div'); d.className = 'msg me'; d.innerHTML = '<div class="who">You · now</div>' + esc(t); document.querySelector('.card').before(d); $('#rep').value = ''; };
-  let left = 900; const tm = setInterval(() => { left--; const el = $('#timer'); if (!el) return clearInterval(tm); el.textContent = 'This page closes in ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + ' to keep it private'; if (left <= 0) { clearInterval(tm); verify(); } }, 1000);
+  const fmt = iso => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  $('#main').innerHTML = '<p class="timer" id="timer"></p><div id="msgs">'
+    + t.thread.map(m => '<div class="msg ' + (m.from === 'you' ? 'me' : 'owner') + '"><div class="who">' + esc(m.from === 'you' ? 'You' : m.from) + ' · ' + fmt(m.at) + '</div>' + esc(m.body) + '</div>').join('')
+    + '</div><div class="card"><textarea id="rep" placeholder="Write back" maxlength="4000"></textarea><div class="err" id="err"></div><button class="go" id="snd" style="margin-top:10px">Send reply</button></div>'
+    + '<p class="promise">Replies are never texted or emailed. We only tell you a new message is waiting.</p>';
+  $('#snd').onclick = async () => {
+    const body = $('#rep').value.trim(); if (!body) return fail('Write your reply first.');
+    try { thread(await api({ action: 'thread_send', session: SESSION, body })); }
+    catch (e) { if (e.closed) return pinScreen('For your privacy the page closed.'); fail(e.message); }
+  };
+  let left = 15 * 60; clearInterval(TIMER);
+  const tick = () => { const el = $('#timer'); if (!el) return clearInterval(TIMER); el.textContent = 'This page closes in ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0') + ' to keep it private'; if (left-- <= 0) pinScreen('For your privacy the page closed.'); };
+  tick(); TIMER = setInterval(tick, 1000);
 }
 
-function go(v) { if (v === 'reply') return verify(); who = SAMPLE[v] || SAMPLE.standalone; compose(); }
-if (DEMO) { $('#sample').hidden = false; const s = $('#sWho'); s.value = SAMPLE[DEMO] || DEMO === 'reply' ? DEMO : 'standalone'; s.onchange = () => go(s.value); go(s.value); }
-else { $('#main').innerHTML = '<div class="card done"><div class="big">🌱</div><h2 class="serif">This page is not open yet</h2><p>To reach the owners, call <a href="' + OFFICE_TEL + '">' + OFFICE + '</a> and ask for Samantha or Zach.</p></div>'; }
+/* ---------------- sample mode: nothing leaves the page */
+function demoApi(b) {
+  if (b.action === 'send') return { ok: true, reply_link: b.reply === 'private' ? 'private.html?demo=reply' : undefined };
+  const t = [{ from: 'you', at: '2026-11-12T15:00:00Z', body: 'I have been getting fewer hours since my client went into the hospital and I did not want to bring it up with the office.' },
+    { from: 'Zach', at: '2026-11-13T15:00:00Z', body: 'Thank you for telling me, Rachel. I have asked the team to look at open shifts near you this week without mentioning your note. Would mornings work?' }];
+  if (b.action === 'thread_send') t.push({ from: 'you', at: new Date().toISOString(), body: b.body });
+  return { first: 'Rachel', session: 'demo', thread: t };
+}
+
+async function start() {
+  if (DEMO) {
+    $('#sample').hidden = false; const s = $('#sWho'); s.value = SAMPLE[DEMO] || DEMO === 'reply' ? DEMO : 'standalone';
+    const go = v => { if (v === 'reply') return pinScreen(''); who = SAMPLE[v] || SAMPLE.standalone; compose(); };
+    s.onchange = () => go(s.value); return go(s.value);
+  }
+  if (RCODE) return pinScreen('');
+  if (CODE) {
+    try {
+      const w = await api({ action: 'who', code: CODE });
+      if (w.first) { who = { known: true, code: CODE, first: w.first, name: w.first + (w.initial ? ' ' + w.initial : ''), about: (ABOUT[w.role] || (() => ''))(w.client_first), has_phone: w.has_phone }; return compose(); }
+    } catch (e) { /* fall through to the standalone form */ }
+  }
+  who = SAMPLE.standalone; compose();
+}
+start();
 </script>
 </body></html>
