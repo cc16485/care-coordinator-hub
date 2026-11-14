@@ -9087,10 +9087,10 @@ function acFilter(f,btn){ acFilterVal=f; document.querySelectorAll('#panel-compl
 
 function acWorst(c){
   const o=chkStatus(c.oig_date,30,7), e=chkStatus(c.edl_date,90,14), f=chkStatus(c.fcsr_date,365,30);
-  const sv=chkStatus(c.supv_date,365,30), pr=chkStatus(c.perf_date,365,30);
+  const pr=chkStatus(c.perf_date,365,30);
   const fReg=fcsrRegStatus(c);
-  /* from 2026-11-16 supervisory visits are concern-only: never due, so they no longer count toward the overall status */
-  const ss=svConcernOnly()?[o.status,e.status,f.status,pr.status]:[o.status,e.status,f.status,sv.status,pr.status];
+  /* 2026-11-14 (her word): supervisory visits are no longer required, so they never count toward the overall status */
+  const ss=[o.status,e.status,f.status,pr.status];
   if(fReg.status==='overdue') ss.push('Overdue');
   if(ss.includes('Overdue')) return 'overdue';
   if(ss.includes('Due Soon')) return 'duesoon';
@@ -9098,10 +9098,6 @@ function acWorst(c){
   return 'pending';
 }
 function svConcernOnly(){ return !!(globalThis.CCElig && CCElig.supervisoryConcernOnly && CCElig.supervisoryConcernOnly()); }
-/* From 2026-11-16: the last concern visit's date only, no badge and no next date */
-function supvLastCell(c){
-  return `<div class="chk">${c.supv_date?`<span class="chk-date">Last visit: ${fmtD(c.supv_date)}</span>`:'<span class="chk-date">No visit logged</span>'}<span>${proofLink(c.supv_proof)}</span></div>`;
-}
 function renderAC(){
   const q=((document.querySelector('#panel-compliance input')||{value:''}).value||globalSearch).toLowerCase();
   const list=caregivers.filter(c=>{
@@ -9138,7 +9134,6 @@ function renderAC(){
       <td>${compCell(c.edl_date,e,c.edl_status,c.edl_proof)}</td>
       <td>${(()=>{ const reg=fcsrRegStatus(c); const regColor=reg.status==='ok'?'var(--green)':reg.status==='overdue'?'var(--red)':'var(--amber)'; const regIcon=reg.status==='ok'?'✓':reg.status==='overdue'?'⚠':'⏳'; return compCell(c.fcsr_date,f,c.fcsr_status,c.fcsr_proof)+`<span class="chk-date" style="color:${regColor}">${regIcon} ${reg.label}</span>`; })()}</td>
       <td><div class="chk">${c.oos==='yes'?`<span class="badge ${fpBadge}">${c.fp}</span>${c.fp_date?`<span class="chk-date">${fmtD(c.fp_date)}</span>`:''}${proofLink(c.fp_proof)}`:`<span class="badge b-gray">Not required</span>`}</div></td>
-      <td>${svConcernOnly()?supvLastCell(c):compCell(c.supv_date,sv,'',c.supv_proof)}</td>
       <td>${compCell(c.perf_date,pr,'',c.perf_proof)}</td>
       <td><div class="acts"><button class="ibtn" onclick="openCGModal('compliance',${c.id})">✏️</button>${(sdEligible(c)&&window.CRX)?CRX.chip(c.offer_id):''}${window.HP?HP.chip({caregiver_id:c.id}):''}</div></td>
     </tr>`;
@@ -9849,7 +9844,7 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
   document.getElementById('cg-modal-title').textContent=id?'Edit Caregiver':'Add Caregiver';
   const c=id?caregivers.find(x=>x.id===id):null;
   const g=k=>document.getElementById(k);
-  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-medicaid-note','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-supv-date','cg-supv-proof','cg-perf-date','cg-perf-proof','cg-cna-exp','cg-cna-proof','cg-dl-exp','cg-dl-proof','cg-ins-exp','cg-ins-proof'];
+  const fields=['cg-first','cg-last','cg-hire','cg-axiscare-id','cg-orient','cg-orient-proof','cg-alz','cg-alz-hrs','cg-alz-proof','cg-first-contact','cg-ojt-date','cg-ojt-proof','cg-ojt-online','cg-ojt-online-proof','cg-annual','cg-annual-hrs','cg-annual-proof','cg-medicaid-note','cg-ethics-date','cg-ethics-proof','cg-rights-date','cg-rights-proof','cg-oig','cg-oig-proof','cg-edl','cg-edl-proof','cg-fcsr-reg','cg-fcsr','cg-fcsr-proof','cg-fp-date','cg-fp-proof','cg-perf-date','cg-perf-proof','cg-cna-exp','cg-cna-proof','cg-dl-exp','cg-dl-proof','cg-ins-exp','cg-ins-proof'];
   if(c){
     g('cg-first').value=c.first;g('cg-last').value=c.last;g('cg-hire').value=c.hire_date||'';
     g('cg-oos').value=c.oos||'no';g('cg-orient').value=c.orient_date||'';g('cg-alz').value=c.alz_date||'';
@@ -9865,7 +9860,6 @@ function openCGModal(tab,id=null){ cgReturnTab=tab; editingCG=id;
     g('cg-edl').value=c.edl_date||'';g('cg-edl-s').value=c.edl_status||'';g('cg-edl-proof').value=c.edl_proof||'';
     g('cg-fcsr-reg').value=c.fcsr_reg_date||'';g('cg-fcsr').value=c.fcsr_date||'';g('cg-fcsr-s').value=c.fcsr_status||'';g('cg-fcsr-proof').value=c.fcsr_proof||'';
     g('cg-fp').value=c.fp||'N/A';g('cg-fp-date').value=c.fp_date||'';g('cg-fp-proof').value=c.fp_proof||'';
-    g('cg-supv-date').value=c.supv_date||'';g('cg-supv-proof').value=c.supv_proof||'';
     g('cg-perf-date').value=c.perf_date||'';g('cg-perf-proof').value=c.perf_proof||'';
     g('cg-cna-exp').value=c.cna_expires||'';g('cg-cna-proof').value=c.cna_proof||'';g('cg-dl-exp').value=c.dl_expires||'';g('cg-dl-proof').value=c.dl_proof||'';g('cg-ins-exp').value=c.auto_ins_expires||'';g('cg-ins-proof').value=c.auto_ins_proof||'';   /* SLICE 6 */
   } else { fields.forEach(k=>g(k).value=''); g('cg-oos').value='no';g('cg-ojt-signed').value='no';g('cg-oig-s').value='';g('cg-edl-s').value='';g('cg-fcsr-s').value='';g('cg-fp').value='N/A'; g('cg-medicaid-hand').value='no'; { const m=document.getElementById('cg-medicaid-ax'); if(m) m.innerHTML=''; } }
@@ -9892,7 +9886,8 @@ async function saveCG(){
     edl_date:oldCG?(oldCG.edl_date||''):'',edl_status:oldCG?(oldCG.edl_status||''):'',edl_proof:oldCG?(oldCG.edl_proof||''):'',
     fcsr_reg_date:oldCG?(oldCG.fcsr_reg_date||''):'',fcsr_date:oldCG?(oldCG.fcsr_date||''):'',fcsr_status:oldCG?(oldCG.fcsr_status||''):'',fcsr_proof:oldCG?(oldCG.fcsr_proof||''):'',
     fp:oldCG?(oldCG.fp||'N/A'):'N/A',fp_date:oldCG?(oldCG.fp_date||''):'',fp_proof:oldCG?(oldCG.fp_proof||''):'',
-    supv_date:g('cg-supv-date'),supv_proof:g('cg-supv-proof'),
+    /* 2026-11-14: the supervisory fields left the form; what is on record is kept as it is */
+    supv_date:oldCG?(oldCG.supv_date||''):'',supv_proof:oldCG?(oldCG.supv_proof||''):'',
     perf_date:g('cg-perf-date'),perf_proof:g('cg-perf-proof'),
     /* SLICE 6 (2026-10-10): typed credential expiries with proof; the rules file watches them */
     cna_expires:g('cg-cna-exp'),cna_proof:g('cg-cna-proof'),dl_expires:g('cg-dl-exp'),dl_proof:g('cg-dl-proof'),auto_ins_expires:g('cg-ins-exp'),auto_ins_proof:g('cg-ins-proof')};
@@ -11857,7 +11852,7 @@ function openProfile(first, last){
     const regColor=fReg.status==='ok'?'var(--green)':fReg.status==='overdue'?'var(--red)':'var(--amber)';
     html+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin:.5rem 0 .75rem">`;
     const svConcern=svConcernOnly();
-    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Supervisory Visit',chk:sv,date:cg.supv_date,lastOnly:svConcern},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date,lastOnly})=>{
+    [{label:'OIG',chk:o,date:cg.oig_date},{label:'EDL',chk:e,date:cg.edl_date},{label:'FCSR Annual',chk:f,date:cg.fcsr_date},{label:'Performance Review',chk:pr,date:cg.perf_date}].forEach(({label,chk,date,lastOnly})=>{
       const b=compBadge(chk.status);
       /* from 2026-11-16 a supervisory visit is concern-only: show when the last one was, never a due badge */
       if(lastOnly){ html+=`<div style="background:var(--slate-bg);border-radius:8px;padding:.45rem .6rem"><div style="font-size:.68rem;font-weight:600;color:var(--gray);margin-bottom:.2rem">${label}</div><div style="font-size:.65rem;color:var(--gray)">${date?'Last visit '+fmtD(date):'When there is a concern'}</div></div>`; return; }

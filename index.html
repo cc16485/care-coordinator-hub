@@ -2842,9 +2842,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
           <div class="guide-step"><div class="guide-step-num">1</div><div class="guide-step-body">This tab tracks all <strong>active caregivers</strong> for recurring compliance requirements. Three checks must stay current: <strong>OIG Exclusion</strong>, <strong>EDL</strong>, and <strong>FCSR Background Check</strong>.</div></div>
           <div class="guide-step"><div class="guide-step-num">2</div><div class="guide-step-body">Use the <strong>🔍 Batch OIG Check</strong> button to run the OIG exclusion check on all caregivers at once. This should be done regularly (monthly at minimum).<span class="tip">OIG only requires first and last name. No SSN or date of birth needed.</span></div></div>
           <div class="guide-step"><div class="guide-step-num">3</div><div class="guide-step-body">Use the <strong>Overdue</strong> and <strong>Due Soon</strong> filters to prioritize who needs attention. Red = overdue, yellow = coming up within 30 days.</div></div>
-          <div class="guide-section-lbl">Supervisory visits &amp; performance reviews</div>
-          <div class="guide-step" data-sv="yearly"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Supervisory Visit</strong> dates and <strong>Performance Review</strong> dates in each caregiver's record. These are required for Medicaid compliance audits.</div></div>
-          <div class="guide-step" data-sv="concern"><div class="guide-step-num">4</div><div class="guide-step-body">Supervisory visits are no longer required. This table shows the last one on record; it is never due or overdue. Log <strong>Performance Review</strong> dates in each caregiver's record.</div></div>
+          <div class="guide-section-lbl">Performance reviews</div>
+          <div class="guide-step"><div class="guide-step-num">4</div><div class="guide-step-body">Log <strong>Performance Review</strong> dates in each caregiver's record.</div></div>
           <div class="guide-section-lbl">Import / Export</div>
           <div class="guide-step"><div class="guide-step-num">5</div><div class="guide-step-body">Use <strong>📥 Export CSV</strong> to download your full caregiver list for reporting. Use <strong>⬆ Import CSV</strong> to bulk-upload caregivers using the provided template.</div></div>
         </div>
@@ -2876,7 +2875,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <th>EDL <span style="font-weight:400;opacity:.7">quarterly</span></th>
             <th>FCSR <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Fingerprint BG</th>
-            <th>Supervisory Visit <span style="font-weight:400;opacity:.7" data-sv="yearly">annual</span><span style="font-weight:400;opacity:.7" data-sv="concern">when there's a concern</span></th>
             <th>Performance Review <span style="font-weight:400;opacity:.7">annual</span></th>
             <th>Actions</th>
           </tr></thead>
@@ -3561,9 +3559,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       </div>
       <div class="grp"><label>Fingerprint Date</label><input type="date" id="cg-fp-date"></div>
       <div class="grp"><label>Fingerprint Proof Link</label><input type="url" id="cg-fp-proof" placeholder="https://drive.google.com/..."></div>
-      <div class="sect-lbl">Annual Supervisory &amp; Performance</div>
-      <div class="grp"><label>Last Supervisory Visit Date</label><input type="date" id="cg-supv-date"></div>
-      <div class="grp"><label>Supervisory Visit Proof Link</label><input type="url" id="cg-supv-proof" placeholder="https://drive.google.com/..."></div>
+      <div class="sect-lbl">Annual Performance Review</div>
       <div class="grp"><label>Last Performance Review Date</label><input type="date" id="cg-perf-date"></div>
       <div class="grp"><label>Performance Review Proof Link</label><input type="url" id="cg-perf-proof" placeholder="https://drive.google.com/..."></div>
     </div>
