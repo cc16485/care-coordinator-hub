@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><meta name="referrer" content="no-referrer"><meta name="theme-color" content="#0D365F">
+<title>A quick check-in · Caring Companions</title>
+<!-- ============================================================
+     CARE & CONNECTION CHECK-IN (Samantha 2026-11-14). One page for every family and caregiver check-in.
+     Opened from a personal smart link in a text or email: checkin.html#k=<invite code>. The code sits after the # so it is
+     never sent to the web host or passed on to another site; it names nothing (no name, no client, no question). The server
+     (function checkin-link) checks the code's seal and expiry, and answers with only what this page needs:
+     who it's for (first name), family or caregiver, which check-in, and the client's first name for a family.
+     No sign-in, no portal. Nothing they've already told us is asked again.
+     One happiness question first; the next questions appear only when they fit the answer. Under a minute.
+     "Message the owners privately" is always on the page and opens private.html with the same code.
+     ?demo=family|client|caregiver shows sample data and saves nothing (for the office and for tests).
+     ============================================================ -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,700&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0D365F;--teal:#1F7A8C;--honey:#F0A63A;--cream:#faf9f6;--ink:#2b3a47;--soft:#EAF4F6;--line:#e4e8ea;--muted:#6b7a86;--card:#fff;--rose:#B5473A}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--cream);font-family:'Poppins',system-ui,sans-serif;color:var(--ink);font-size:16px;line-height:1.45}
+.serif{font-family:'Fraunces',Georgia,serif;font-weight:700}
+.frame{max-width:430px;margin:0 auto;background:var(--cream);min-height:100vh;box-shadow:0 0 40px rgba(13,54,95,.15)}
+@media(min-width:700px){body{padding:24px 0}.frame{border-radius:28px;overflow:hidden;min-height:auto}}
+.sample{background:var(--navy);color:#fff;font-size:13px;padding:10px 16px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sample b{color:#FBD38D}.sample select{font:inherit;font-size:13px;border-radius:8px;border:0;padding:4px 6px}
+header{background:#fff;padding:16px 18px 20px;border-bottom:1px solid var(--line)}
+header .logo{height:40px;display:block}
+header h1{font-size:25px;color:var(--navy);line-height:1.2;margin-top:16px}
+header p{font-size:15px;color:var(--muted);margin-top:6px}
+main{padding:16px 16px 28px}
+.card{background:var(--card);border-radius:20px;padding:18px 16px;border:1px solid var(--line);margin-bottom:12px}
+.q{font-size:18px;font-weight:600;color:var(--navy);line-height:1.3}
+.hint{font-size:13px;color:var(--muted);margin-top:4px}
+.faces{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.face{font:inherit;background:#fff;border:2px solid var(--line);border-radius:18px;padding:14px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--ink);font-size:14px;font-weight:500;transition:transform .12s,border-color .12s,background .12s}
+.face .e{font-size:34px;line-height:1}
+.face:active{transform:scale(.97)}
+.face.on{border-color:var(--teal);background:var(--soft);color:var(--navy)}
+.more{display:none;animation:rise .25s ease-out}
+.more.show{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chip{font:inherit;font-size:14px;background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;cursor:pointer;color:var(--ink)}
+.chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+textarea{width:100%;font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:14px;padding:12px;background:#fff;margin-top:12px;min-height:86px;resize:vertical}
+textarea:focus{outline:none;border-color:var(--teal)}
+.yn{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.on-file{margin-top:10px;font-size:14px;background:var(--soft);border-radius:12px;padding:10px 12px;color:var(--navy)}
+.on-file a{color:var(--teal);font-weight:600}
+.go{display:block;width:100%;font:inherit;font-size:17px;font-weight:600;color:#fff;background:var(--navy);border:0;border-radius:16px;padding:15px;cursor:pointer;margin-top:4px}
+.go:disabled{background:#b9c4cc;cursor:default}
+.err{color:var(--rose);font-size:13px;margin-top:8px;display:none}
+.private{display:flex;gap:12px;align-items:center;text-decoration:none;background:#fff;border:1.5px solid var(--navy);border-radius:18px;padding:14px 16px;color:var(--navy);margin-top:18px}
+.private .lk{width:40px;height:40px;flex:0 0 40px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center}
+.private b{display:block;font-size:16px}.private span{font-size:13px;color:var(--muted)}
+.foot{text-align:center;font-size:13px;color:var(--muted);margin-top:18px}
+.foot a{color:var(--teal);font-weight:600;text-decoration:none}
+.done{text-align:center;padding:26px 14px}
+.done .big{font-size:54px}
+.done h2{font-size:24px;color:var(--navy);margin-top:10px}
+.done p{font-size:15px;color:var(--muted);margin-top:8px}
+.bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:0 0 14px}
+.bar i{display:block;height:100%;width:0;background:var(--honey);transition:width .3s}
+</style></head>
+<body><div class="frame">
+<div class="sample" id="sample" hidden><b>Sample</b> nothing is saved
+  <select id="sWho" aria-label="Who the link is for"><option value="family">Family</option><option value="caregiver">Caregiver</option></select>
+  <select id="sKind" aria-label="Which check-in"></select>
+  <select id="sState" aria-label="Link state"><option value="ok">Fresh link</option><option value="answered">Already answered</option><option value="expired">Expired link</option></select>
+</div>
+<header><img class="logo" src="cc-logo.png" alt="Caring Companions"><h1 class="serif" id="hi">Hi there</h1><p id="lead"></p></header>
+<main id="main"></main>
+</div>
+<script>
+const OFFICE = '(417) 234-8494', OFFICE_TEL = 'tel:+14172348494';
+const params = new URLSearchParams(location.search);
+const DEMO = params.get('demo');
+const code = (location.hash.match(/k=([0-9a-f-]{36}\.\d{9,11}\.[A-Za-z0-9_-]{43})/) || [])[1] || '';
+
+/* What each check-in asks first. The first question is always the happiness one; each kind may add ONE question of its own. */
+const KINDS = {
+  family: {
+    first_visit: { label: 'After the first visit', lead: c => c.self ? 'You had your first visit with ' + c.caregiver + '. We would love to hear how it went.' : c.caregiver + ' had a first visit with ' + c.client + '. We would love to hear how it went.', extra: { q: 'Did the caregiver arrive when you expected?', opts: ['Yes', 'A little late', 'No'] } },
+    day_30: { label: 'Day 30', lead: c => c.self ? 'It has been about a month of care with us.' : 'It has been about a month of care for ' + c.client + '.' },
+    day_90: { label: 'Day 90', lead: c => c.self ? 'Three months together, thank you for trusting us with your care.' : 'Three months together, thank you for trusting us with ' + c.client + '.', extra: { q: 'How likely are you to recommend us to a friend?', scale: true } },
+    quarterly: { label: 'Every 3 months', lead: c => 'A quick check-in from the office.' },
+  },
+  caregiver: {
+    week_1: { label: 'Week 1', lead: c => 'You made it through your first week!' },
+    day_30: { label: 'Day 30', lead: c => 'One month with us!', extra: { q: 'Are you getting the hours you want?', opts: ['Yes', 'I want more', 'I want fewer'] } },
+    day_60: { label: 'Day 60', lead: c => 'A quick check-in from the office.' },
+    day_90: { label: 'Day 90', lead: c => '90 days with Caring Companions!', extra: { q: 'How likely are you to tell a friend to work here?', scale: true } },
+    quarterly: { label: 'Every 3 months', lead: c => 'A quick check-in from the office.' },
+  },
+};
+const FACES = {
+  family: [['great', '😊', 'Going great'], ['good', '🙂', 'Mostly good'], ['improve', '😟', 'Something needs to change'], ['call', '📞', "I'd like a call"]],
+  caregiver: [['great', '😍', 'I love it'], ['good', '🙂', 'Pretty well'], ['stressed', '😕', 'A little stressed'], ['hard', '😟', 'Having a hard time']],
+};
+const WHAT = {
+  family: ['The schedule', 'Caregiver changes', 'Arriving on time', 'Care tasks', 'Hearing from the office', 'Something else'],
+  caregiver: ['More hours', 'Different hours', 'Help with a client', 'More training', 'Hearing from the office', 'I just want to be heard'],
+};
+const SAMPLE = {
+  family: { first: 'Linda', client: 'Dorothy', caregiver: 'Tanya', caregivers: ['Tanya', 'Marcus'], phone_tail: '42' },
+  caregiver: { first: 'Rachel', phone_tail: '17' },
+};
+
+const $ = s => document.querySelector(s);
+const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let ctx = null, A = {};
+
+function privateLink() { return 'private.html' + (DEMO ? '?demo=' + ctx.who : '') + (code ? '#k=' + code : ''); }
+function footer() {
+  return '<a class="private" href="' + privateLink() + '"><span class="lk" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span><b>Message the owners privately</b>'
+    + '<span>Only Samantha and Zach will read it.</span></span></a>'
+    + '<p class="foot">Rather talk now? Call the office at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a></p>'
+    + (ctx && ctx.who === 'family' ? '<p class="foot"><a href="#" id="stopLink" onclick="event.preventDefault();stopScreen()">Stop these check-ins</a></p>' : '');
+}
+/* "Stop these check-ins" (Samantha 2026-11-14: "they can choose to unsubscribe if they want"). The email's link opens this
+   screen (#k=...&stop=1); a STOP reply to a text is handled by our texting. It stops check-ins only, never care messages. */
+const WANTS_STOP = /(^|[#&])stop=1(&|$)/.test(location.hash);
+function stopScreen() {
+  $('#hi').textContent = 'Hi ' + ((ctx && ctx.first) || 'there') + ',';
+  $('#lead').textContent = '';
+  $('#main').innerHTML = '<div class="card"><h2 class="serif">Stop these check-ins?</h2><p>We will stop sending check-in texts and emails'
+    + (ctx && ctx.self ? '' : ' about ' + esc((ctx && ctx.client) || 'your loved one')) + '. Messages about care and visits are not affected.</p>'
+    + '<button class="go" id="stopGo" style="margin-top:12px">Yes, stop the check-ins</button><div class="err" id="err"></div></div>'
+    + '<p class="foot">Rather talk to us instead? Call the office at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a></p>';
+  $('#stopGo').onclick = async () => {
+    const btn = $('#stopGo'); btn.disabled = true; btn.textContent = 'Saving...';
+    try {
+      if (!DEMO) await api({ action: 'stop' });
+      $('#main').innerHTML = '<div class="card done"><div class="big">✓</div><h2 class="serif">Done</h2><p>You will not get these check-ins again. If you ever want to tell us something, call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p></div>';
+    } catch (e) { btn.disabled = false; btn.textContent = 'Yes, stop the check-ins'; const er = $('#err'); er.textContent = e.message; er.style.display = 'block'; }
+  };
+}
+
+function render() {
+  const k = KINDS[ctx.who][ctx.kind];
+  $('#hi').textContent = 'Hi ' + ctx.first + ',';
+  $('#lead').textContent = k.lead(ctx);
+  if (ctx.state === 'expired') { $('#lead').textContent = ''; $('#main').innerHTML = '<div class="card done"><div class="big">⏳</div><h2 class="serif">This link has expired</h2><p>Check-in links last 14 days. We would still love to hear from you: call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p></div>' + footer(); return; }
+  if (ctx.state === 'answered') { $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">You already answered</h2><p>Thank you. If something has changed since then, tell us below.</p><button class="go" id="again" style="margin-top:16px">Answer again</button></div>' + footer(); $('#again').onclick = () => { ctx.state = 'ok'; render(); }; return; }
+  A = {};
+  const faces = FACES[ctx.who].map(([v, e, t]) => '<button class="face" data-v="' + v + '"><span class="e" aria-hidden="true">' + e + '</span>' + esc(t) + '</button>').join('');
+  $('#main').innerHTML = '<div class="bar"><i id="prog"></i></div>'
+    + '<div class="card"><p class="q">' + (ctx.who === 'family' ? (ctx.self ? 'How are things going with your care?' : 'How are things going with ' + esc(ctx.client) + "'s care?") : 'How are you feeling about work lately?') + '</p>'
+    + '<p class="hint">Tap one. It takes less than a minute.</p><div class="faces">' + faces + '</div></div>'
+    + '<div id="more"></div><div class="err" id="err"></div>' + footer();
+  document.querySelectorAll('.face').forEach(b => b.onclick = () => pick(b.dataset.v));
+}
+
+function pick(v) {
+  A = { mood: v };
+  document.querySelectorAll('.face').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  const k = KINDS[ctx.who][ctx.kind], fam = ctx.who === 'family';
+  const happy = v === 'great', wantsCall = v === 'call' || v === 'hard';
+  let h = '';
+  if (k.extra) {
+    h += '<div class="card more"><p class="q">' + esc(k.extra.q) + '</p>';
+    h += k.extra.scale ? '<div class="chips" data-f="extra">' + [...Array(11).keys()].map(n => '<button class="chip" data-v="' + n + '">' + n + '</button>').join('') + '</div><p class="hint">0 is not at all, 10 is absolutely.</p>'
+      : '<div class="chips" data-f="extra">' + k.extra.opts.map(o => '<button class="chip" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div>';
+    h += '</div>';
+  }
+  if (happy && fam) {
+    h += '<div class="card more"><p class="q">Would you like to thank someone?</p><p class="hint">We will pass it on. Optional.</p><div class="chips" data-f="thank" data-multi="1">'
+      + ctx.caregivers.map(n => '<button class="chip" data-v="' + esc(n) + '">' + esc(n) + '</button>').join('') + '<button class="chip" data-v="office">The office</button></div>'
+      + '<textarea id="note" placeholder="Anything you would like them to hear"></textarea></div>';
+  } else if (happy) {
+    h += '<div class="card more"><p class="q">So glad to hear it! Anything you want to share?</p><textarea id="note" placeholder="Optional"></textarea></div>';
+  } else if (v !== 'call') {
+    h += '<div class="card more"><p class="q">' + (fam ? 'What could be better?' : 'What would help most?') + '</p><p class="hint">Pick any that fit.</p><div class="chips" data-f="what" data-multi="1">'
+      + WHAT[ctx.who].map(o => '<button class="chip" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div>'
+      + '<textarea id="note" placeholder="Tell us a little more (optional)"></textarea></div>';
+  }
+  if (!happy) {
+    h += '<div class="card more"><p class="q">' + (wantsCall ? 'When is a good time to call?' : 'Would you like a call from the office?') + '</p>'
+      + (wantsCall ? '' : '<div class="chips" data-f="call"><button class="chip" data-v="yes">Yes, please</button><button class="chip" data-v="no">No, this is enough</button></div>')
+      + '<div class="chips" data-f="when" id="when"' + (wantsCall ? '' : ' style="display:none"') + '><button class="chip" data-v="morning">Morning</button><button class="chip" data-v="afternoon">Afternoon</button><button class="chip" data-v="evening">Early evening</button></div>'
+      + '<p class="on-file" id="onfile"' + (wantsCall ? '' : ' style="display:none"') + '>We will call the number ending in <b>' + esc(ctx.phone_tail) + '</b>. <a href="#" id="diff">Use a different number</a></p>'
+      + '<input id="altphone" type="tel" inputmode="tel" placeholder="Best number" style="display:none;width:100%;font:inherit;font-size:15px;border:1.5px solid var(--line);border-radius:14px;padding:12px;margin-top:10px"></div>';
+    if (wantsCall) A.call = 'yes';
+  }
+  h += '<button class="go more" id="send">Send</button>';
+  $('#more').innerHTML = h;
+  requestAnimationFrame(() => document.querySelectorAll('#more .more').forEach((el, i) => setTimeout(() => el.classList.add('show'), i * 90)));
+  document.querySelectorAll('#more .chips').forEach(g => g.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    const f = g.dataset.f;
+    if (g.dataset.multi) { c.classList.toggle('on'); A[f] = [...g.querySelectorAll('.chip.on')].map(x => x.dataset.v); }
+    else { g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c)); A[f] = c.dataset.v; }
+    if (f === 'call') { const y = c.dataset.v === 'yes'; $('#when').style.display = y ? '' : 'none'; $('#onfile').style.display = y ? '' : 'none'; }
+    $('#err').style.display = 'none'; progress();
+  }));
+  const diff = $('#diff'); if (diff) diff.onclick = e => { e.preventDefault(); $('#altphone').style.display = 'block'; $('#altphone').focus(); };
+  $('#send').onclick = send;
+  progress();
+  setTimeout(() => { const m = $('#more .more'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+}
+
+function progress() { const need = 1 + (KINDS[ctx.who][ctx.kind].extra ? 1 : 0); const have = (A.mood ? 1 : 0) + (A.extra != null ? 1 : 0); $('#prog').style.width = Math.min(100, 100 * have / need) + '%'; }
+
+const API = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/checkin-link';
+/* The code goes in the request body, never in a web address. */
+async function api(body) {
+  const r = await fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ code }, body)), referrerPolicy: 'no-referrer', cache: 'no-store' });
+  const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Something went wrong. Try again in a minute.'); return j;
+}
+async function send() {
+  const err = $('#err');
+  if (KINDS[ctx.who][ctx.kind].extra && A.extra == null) { err.textContent = 'Answer the question above first.'; err.style.display = 'block'; return; }
+  if (A.call === 'yes' && !A.when) { err.textContent = 'Pick a good time for the call.'; err.style.display = 'block'; return; }
+  const alt = $('#altphone'); if (alt && alt.style.display === 'block' && alt.value.replace(/\D/g, '').length < 10) { err.textContent = 'Enter a 10-digit phone number, or use the one on file.'; err.style.display = 'block'; return; }
+  A.note = ($('#note') || {}).value || '';
+  if (alt && alt.style.display === 'block') A.alt_phone = alt.value;
+  if (!DEMO) {
+    const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
+    try { await api({ action: 'answer', answers: A }); }
+    catch (e) { b.disabled = false; b.textContent = 'Send'; err.textContent = e.message; err.style.display = 'block'; return; }
+  }
+  const fam = ctx.who === 'family', thanks = (A.thank || []).filter(x => x !== 'office');
+  let title = 'Thank you, ' + ctx.first + '!', body;
+  if (A.call === 'yes') body = 'Someone from our office will call you' + (A.when ? ' in the ' + (A.when === 'evening' ? 'early evening' : A.when) : '') + '. If it is urgent, call us now at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.';
+  else if (A.mood === 'great') body = (thanks.length ? 'We will make sure ' + esc(thanks.join(' and ')) + (thanks.length > 1 ? ' hear' : ' hears') + ' your kind words. ' : '') + (fam ? 'It means a lot to the whole team.' : 'We are lucky to have you.');
+  else body = 'We read every answer. ' + (fam ? 'We will look into it and let you know what we change.' : 'We will look into it and get back to you.');
+  $('#lead').textContent = '';
+  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc(title) + '</h2><p>' + body + '</p></div>' + footer();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function sample() {
+  $('#sample').hidden = false;
+  const who = $('#sWho'), kind = $('#sKind'), st = $('#sState');
+  who.value = DEMO === 'caregiver' ? 'caregiver' : 'family';
+  const fill = () => { kind.innerHTML = Object.entries(KINDS[who.value]).map(([k, v]) => '<option value="' + k + '">' + v.label + '</option>').join(''); if (params.get('kind') && KINDS[who.value][params.get('kind')]) kind.value = params.get('kind'); };
+  /* ?demo=client: the client's own check-in (2026-11-14: the client is a contact too) */
+  const go = () => { ctx = Object.assign({ who: who.value, kind: kind.value, state: st.value, self: DEMO === 'client' }, SAMPLE[who.value], DEMO === 'client' ? { first: 'Dorothy' } : {}); if (WANTS_STOP && ctx.who === 'family') return stopScreen(); render(); };
+  fill(); if (params.get('state')) st.value = params.get('state');
+  who.onchange = () => { fill(); go(); }; kind.onchange = go; st.onchange = go; go();
+}
+
+function stop(title, body) { $('#hi').textContent = 'Hi there,'; $('#lead').textContent = ''; $('#main').innerHTML = '<div class="card done"><div class="big">🌱</div><h2 class="serif">' + title + '</h2><p>' + body + '</p></div>'; }
+async function real() {
+  if (!code) return stop('This link is not complete', 'Open the link from your text again, or call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.');
+  $('#main').innerHTML = '<p class="foot">Loading...</p>';
+  try {
+    const v = await api({ action: 'open' });
+    if (!KINDS[v.audience] || !KINDS[v.audience][v.kind]) throw new Error('This link is not valid.');
+    ctx = { who: v.audience, kind: v.kind, state: v.state, self: v.self === true, first: v.first, client: v.client || 'your loved one', caregiver: v.caregiver || 'your caregiver', caregivers: v.caregivers || [], phone_tail: v.phone_tail || '' };
+    if (WANTS_STOP && ctx.who === 'family') return stopScreen();
+    render();
+  } catch (e) { stop('We could not open this check-in', esc(e.message) + ' You can call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.'); }
+}
+if (DEMO) sample(); else real();
+</script>
+</body></html>
