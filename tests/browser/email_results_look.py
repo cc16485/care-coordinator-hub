@@ -38,7 +38,13 @@ T = r"""async()=>{
   window.__P=[]; (0,eval)("persist=async(k,i)=>{ window.__P.push([k,JSON.parse(JSON.stringify(i))]); }");
   switchTab('campaigns'); await sleep(200);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(p=>p.textContent.trim());
-  ok('Email results is no longer a pill of its own; Campaigns has two views', pills.indexOf('Email results')<0 && pills.indexOf('Campaigns')>=0 && [...document.querySelectorAll('#cmpSub button')].map(b=>b.textContent).join('|')==='Emails and schedule|Results', pills);
+  ok('Email results is no longer a pill of its own; Campaigns has two views', pills.indexOf('Email results')<0 && pills.indexOf('Campaigns')>=0 && [...document.querySelectorAll('#cmpSub button')].map(b=>b.textContent).join('|')==='Campaigns|Email library|All results', pills);
+  const cc=document.getElementById('cmpCampaigns');
+  ok('Campaigns opens on the campaigns: three cards saying what each is, with the library put away', cc.style.display!=='none' && cc.querySelectorAll('[data-campaign]').length===3 && /Partner series/.test(cc.innerText) && /Monthly email to open leads/.test(cc.innerText) && /Caregiver holiday notes/.test(cc.innerText) && /Who gets it:/.test(cc.innerText) && document.getElementById('cmpBrowse').classList.contains('off'), cc.innerText.slice(0,300));
+  ok('...both series read ON with the next send, from the saved settings', (cc.innerText.match(/\bON\b/g)||[]).length>=3 && /Next send:/.test(cc.innerText), cc.innerText.slice(0,600));
+  cc.querySelector('[data-fold="partner:people"]').click(); await sleep(100);
+  ok('...pressing "Who is in it now" lists them', /Organization/.test(document.getElementById('cmpCampaigns').innerText) || /Nobody is in this campaign/.test(document.getElementById('cmpCampaigns').innerText));
+  cmpSetView('library'); await sleep(150);
   const ap=document.getElementById('cmpAutopilot').innerText;
   ok('the Autopilot row says where the two series stand, and no longer says partner emails stay manual', /Monthly email to open leads: ON\./.test(ap) && /Next is December/.test(ap) && /Partner series: ON\./.test(ap) && !/stay manual/.test(ap), ap);
   ok('...and does not list a lead email as coming up or overdue while the Leads box is off', !/Honoring those who served/.test(ap), ap);
@@ -46,7 +52,7 @@ T = r"""async()=>{
   const saved=(window.__P.find(x=>x[0]==='campaign_settings')||[])[1]||{};
   ok('ticking a box on the row keeps both series, the plan and every other saved setting', saved.aud_clients===true && saved.auto_monthly_leads===true && saved.auto_partner_series===true && saved.monthly_plan && saved.monthly_plan['12']==='m23' && saved.monthly_day===10 && saved.partner_series_day===10 && saved.monthly_plan_skipped && saved.client_line_note==='keep me', saved);
   document.getElementById('apC').checked=false; await apSave(); await sleep(100);
-  ok('the email library still shows under Emails and schedule', !!document.querySelector('#cmpGrid') && !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
+  ok('the email library still shows under Email library', !!document.querySelector('#cmpGrid') && !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
   cmpAud='referrers'; renderCampaigns(); await sleep(150);
   const cards=[...document.querySelectorAll('#cmpGrid .cmp-card')].map(c=>c.querySelector('.cmp-when').textContent);
   const heads=[...document.querySelectorAll('#cmpGrid .cmp-grouphead')].map(h=>h.firstChild.textContent);
@@ -86,7 +92,7 @@ T = r"""async()=>{
   ok('a refusal is shown as what it is, never as an empty list', /could not be read just now: Sign in first\./.test(box.innerText), box.innerText.slice(0,400));
   window.__ERmode='ok'; await CCEmailResults.load(true); await sleep(100);
   cmpSetView('library'); await sleep(150);
-  ok('back to Emails and schedule: the library returns and Results is put away', !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
+  ok('back to the Email library: it returns and Results is put away', !document.getElementById('cmpBrowse').classList.contains('off') && document.getElementById('emailResults').style.display==='none');
   const n0=window.__ER.length; switchTab('referrers'); await sleep(100); switchTab('emailresults'); await sleep(300);
   ok('an old Email results link lands on Campaigns, Results', document.querySelector('#fsub-partners .fpill[data-tab="campaigns"]').classList.contains('active') && document.getElementById('emailResults').style.display!=='none' && document.getElementById('cmpBrowse').classList.contains('off'));
   return R; }"""
