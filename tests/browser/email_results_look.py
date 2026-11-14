@@ -39,9 +39,15 @@ T = r"""async()=>{
   switchTab('campaigns'); await sleep(200);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(p=>p.textContent.trim());
   ok('Email results is no longer a pill of its own; Campaigns has two views', pills.indexOf('Email results')<0 && pills.indexOf('Campaigns')>=0 && [...document.querySelectorAll('#cmpSub button')].map(b=>b.textContent).join('|')==='Campaigns|Email library|All results', pills);
-  const cc=document.getElementById('cmpCampaigns');
+  let cc=document.getElementById('cmpCampaigns');
   ok('Campaigns opens on the campaigns: a button for each one and the first one shown, with the library put away', cc.style.display!=='none' && cc.querySelectorAll('[data-campaign]').length===1 && cc.querySelectorAll('#cmpPick button').length===4 && /Partner series/.test(cc.innerText) && /Monthly email to open leads/.test(cc.innerText) && /Caregiver holiday notes/.test(cc.innerText) && /Who gets it:/.test(cc.innerText) && document.getElementById('cmpBrowse').classList.contains('off'), cc.innerText.slice(0,300));
   ok('...the campaigns read ON from the saved settings, and say when the next one goes or that the list is empty', (cc.innerText.match(/\bON\b/g)||[]).length>=3 && /Nobody is on the email list yet|Next send:/.test(cc.innerText), cc.innerText.slice(0,600));
+  cc.querySelector('[data-preview]').click(); await sleep(900);
+  { const fr=document.getElementById('cmpFrame'), fd=fr&&fr.contentDocument;
+    ok('...Preview on an email row opens it as it arrives, with the photo and the button', !!fd && /photos\/scene-/.test(fd.body.innerHTML) && /See what families see/.test(fd.body.innerText) && document.getElementById('cmpCampaigns').style.display==='none' && fr.offsetHeight>=640, fd&&fd.body.innerText.slice(0,160));
+    document.querySelector('#cmpDetail .cmp-back').click(); await sleep(200);
+    ok('...and Back returns to the same campaign', document.getElementById('cmpCampaigns').style.display!=='none' && !!document.querySelector('#cmpCampaigns [data-campaign="partner"]') && !document.getElementById('cmpDetail').classList.contains('on')); }
+  cc=document.getElementById('cmpCampaigns');
   cc.querySelector('#cmpPick button[data-pick="leads"]').click(); await sleep(100);
   ok('...pressing another campaign swaps the page to it, no scrolling', document.querySelectorAll('#cmpCampaigns [data-campaign]').length===1 && !!document.querySelector('#cmpCampaigns [data-campaign="leads"]') && /Next is|Next send|Switched off/.test(document.getElementById('cmpCampaigns').innerText));
   document.querySelector('#cmpPick button[data-pick="clients"]').click(); await sleep(100);

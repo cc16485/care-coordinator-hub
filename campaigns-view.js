@@ -153,6 +153,9 @@
   const fold = (id, key, title, n, body, open) => '<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px;">'
     + '<div style="display:flex;align-items:center;gap:10px;cursor:pointer;" data-fold="' + id + ':' + key + '" onclick="CCCampaigns.toggle(\'' + id + ':' + key + '\')"><div style="font-weight:800;color:var(--navy);font-size:14px;flex:1;">' + title + (n == null ? '' : ' (' + n + ')') + '</div>'
     + '<div style="font-size:12px;color:var(--text-muted);">' + (open ? 'Hide' : 'Show') + '</div></div>' + (open ? '<div style="margin-top:8px;">' + body + '</div>' : '') + '</div>';
+  /* 2026-11-14 (her "can we also preview the look of the email?"): every email row has a Preview button. It opens the email
+     exactly as it arrives (photo, headline, button); Back returns to this campaign. */
+  const preview = (key) => key ? '<button type="button" class="secondary" data-preview="' + esc(key) + '" onclick="openCampaign(\'' + esc(key) + '\')" style="padding:4px 12px;font-size:12.5px;white-space:nowrap;">Preview</button>' : '';
   const hadWords = (had, total) => !had.length ? 'Nothing yet' : 'Email' + (had.length > 1 ? 's ' : ' ') + had.join(', ') + ' of ' + total;
 
   function card(c, v, hasRes) {
@@ -164,14 +167,14 @@
       + '<div style="font-size:13px;margin-top:6px;font-weight:700;color:' + (c.on ? '#166534' : 'var(--text-muted)') + ';">' + esc(c.when) + '</div></div>'
       + '<div style="display:flex;gap:8px;">' + [['In it now', c.members.length], ['No longer in it', c.left.length]].map((t) => '<div style="min-width:104px;background:var(--bg,#FAF8F3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--navy);">' + t[1] + '</div><div style="font-size:12px;color:var(--text-muted);">' + t[0] + '</div></div>').join('') + '</div></div>';
     let emails;
-    if (c.id === 'partner') emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email</th><th style="' + th + '">Sent</th><th style="' + th + '">What happened</th></tr>' + c.emails.map((e) =>
+    if (c.id === 'partner') emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email</th><th style="' + th + '">Sent</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
       '<tr><td style="' + td + '"><b>' + e.n + '.</b> <a href="#" onclick="openCampaign(\'' + esc(e.key) + '\');return false;" style="color:var(--navy);font-weight:700;">' + esc(e.subj) + '</a></td>'
       + '<td style="' + td + 'white-space:nowrap;">' + (e.to ? 'To ' + e.to + (e.first ? ', first on ' + esc(dayWord(e.first)) : '') : '<span style="color:var(--text-muted);">Not sent yet</span>') + (e.upNext ? '<div style="color:#B45309;font-size:12px;">Next for ' + e.upNext + '</div>' : '') + '</td>'
-      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.to ? '<span style="color:var(--text-muted);">' + (hasRes ? 'Not checked yet' : 'Reading results…') + '</span>' : '')) + '</td></tr>').join('') + '</table>';
-    else emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Month' : 'When') + '</th><th style="' + th + '">Email</th><th style="' + th + '">Sent this year</th><th style="' + th + '">What happened</th></tr>' + c.emails.map((e) =>
+      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.to ? '<span style="color:var(--text-muted);">' + (hasRes ? 'Not checked yet' : 'Reading results…') + '</span>' : '')) + '</td><td style="' + td + 'text-align:right;">' + preview(e.key) + '</td></tr>').join('') + '</table>';
+    else emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Month' : 'When') + '</th><th style="' + th + '">Email</th><th style="' + th + '">Sent this year</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
       '<tr><td style="' + td + 'white-space:nowrap;">' + esc(e.month || e.when) + '</td><td style="' + td + '">' + (e.key ? '<a href="#" onclick="openCampaign(\'' + esc(e.key) + '\');return false;" style="color:var(--navy);font-weight:700;">' + esc(e.subj) + '</a>' : '<span style="color:#B45309;">No email planned. Nothing goes this month.</span>') + (e.next ? ' <span style="color:#B45309;font-size:12px;font-weight:700;">Next</span>' : '') + '</td>'
       + '<td style="' + td + 'white-space:nowrap;">' + (e.sentAt ? esc(dayWord(e.sentAt)) + ', to ' + e.to : (e.key ? '<span style="color:var(--text-muted);">Not yet</span>' : '')) + '</td>'
-      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.sentAt ? '<span style="color:var(--text-muted);">Sent before people were recorded</span>' : '')) + '</td></tr>').join('') + '</table>';
+      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.sentAt ? '<span style="color:var(--text-muted);">Sent before people were recorded</span>' : '')) + '</td><td style="' + td + 'text-align:right;">' + preview(e.key) + '</td></tr>').join('') + '</table>';
     let people;
     if (!c.members.length) people = '<div class="empty">Nobody is in this campaign right now.</div>';
     else if (c.id === 'partner') people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Organization</th><th style="' + th + '">Has received</th><th style="' + th + '">Next</th><th style="' + th + '">Last email</th></tr>' + c.members.map((m) =>
