@@ -145,8 +145,12 @@
       + '<div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
       + (V.msg ? '<div class="field-note" role="alert" style="color:var(--red)">' + e(V.msg) + '</div>' : '')
       + '<div class="card">' + body + '</div>'
-      + '<div class="chk-legend">' + Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ') + '</div>'
-      + '<p class="field-note">Today the check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Nothing on this tab sends anything.</p>';
+      + '<div class="chk-legend">' + (V.view === 'families'
+        ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ')
+        : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>'
+      + '<p class="field-note">' + (V.view === 'families'
+        ? 'Families answer on their own one-minute check-in page (after the first visit, day 30, day 90, then every 3 months). A concern makes a card the same day; mark it Resolved only once you know it got better. Thanks go to Kind Words. Nothing on this tab sends anything.'
+        : 'Today the caregiver check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Nothing on this tab sends anything.') + '</p>';
   }
   function setBadge() {
     if (typeof document === 'undefined') return;

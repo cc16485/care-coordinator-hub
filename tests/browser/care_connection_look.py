@@ -155,6 +155,9 @@ with sync_playwright() as pw:
     ok('Check-ins: Resolved with a note is saved', fu and fu[0]['followup']['state'] == 'resolved' and 'schedule' in fu[0]['followup']['note'], fu)
     ok('Check-ins: no private-message words or counts anywhere on the tab', 'private' not in pg.inner_text('#checkinsWrap').lower())
     pg.set_viewport_size({'width': 1300, 'height': 900}); pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(200)
+    ok_btn = pg.query_selector("button:text-is('OK')")
+    if ok_btn and ok_btn.is_visible(): ok_btn.click(); pg.wait_for_timeout(200)   # the refusal shown earlier to the coordinator
+    ok('Check-ins: the Families legend explains the family dots', 'needs attention' in pg.inner_text('#checkinsWrap') and 'one-minute check-in page' in pg.inner_text('#checkinsWrap'))
     pg.screenshot(path=os.environ.get('SHOT2', '/tmp/checkins_families.png'))
     ok('Hub coordinator: no page errors', not errs, errs)
     pg.close()
