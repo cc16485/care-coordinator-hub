@@ -53,14 +53,14 @@ ck('How-to no longer sends anyone to the tab', !/go\('supervisory'/.test(fs.read
   const chkStatus = (a,b,c) => E.chkStatus(a,b,c), fcsrRegStatus = () => ({ status:'ok', label:'ok' });
   const fmtD = s => s, proofLink = p => p ? '[proof]' : '';
   const lib = new Function('CCElig','chkStatus','fcsrRegStatus','fmtD','proofLink','globalThis',
-    src.slice(i, j) + '; return { acWorst, supvLastCell, svConcernOnly };')(E, chkStatus, fcsrRegStatus, fmtD, proofLink, globalThis);
+    src.slice(i, j) + '; return { acWorst, svConcernOnly };')(E, chkStatus, fcsrRegStatus, fmtD, proofLink, globalThis);
   const g = { oig_date:'2026-11-05', edl_date:'2026-10-20', fcsr_date:'2026-06-01', perf_date:'2026-06-01', supv_date:'2025-01-05' };
-  ck('before Nov 16: an old visit makes the caregiver Overdue', at('2026-11-10T15:00:00Z', () => lib.acWorst(g)) === 'overdue');
+  /* 2026-11-14 (her word): supervisory visits are no longer required, so the visit never counts, on either side of the day */
+  ck('before Nov 16: an old visit no longer makes the caregiver Overdue', at('2026-11-10T15:00:00Z', () => lib.acWorst(g)) === 'current');
   ck('from Nov 16: the same caregiver is All Current', at('2026-11-20T15:00:00Z', () => lib.acWorst(Object.assign({}, g, { oig_date:'2026-11-15' }))) === 'current');
-  ck('from Nov 16: no visit at all no longer keeps someone Pending', at('2026-11-20T15:00:00Z', () => lib.acWorst(Object.assign({}, g, { oig_date:'2026-11-15', supv_date:'' }))) === 'current');
-  const cell = lib.supvLastCell(g);
-  ck('the cell shows the last visit only, no badge', /Last visit: 2025-01-05/.test(cell) && !/badge|overdue|due in|Next:/i.test(cell), cell);
-  ck('no visit: says so', /No visit logged/.test(lib.supvLastCell({})));
+  ck('no visit at all does not keep someone Pending', at('2026-11-20T15:00:00Z', () => lib.acWorst(Object.assign({}, g, { oig_date:'2026-11-15', supv_date:'' }))) === 'current');
+  ck('Background Checks has no supervisory column, and the caregiver record no supervisory fields', !/supvLastCell|c\.supv_proof\)\}<\/td>/.test(src) && !/<th>Supervisory Visit|id="cg-supv-date"|id="cg-supv-proof"/.test(hub));
+  ck('saving a caregiver keeps the visit date already on record', /supv_date:oldCG\?\(oldCG\.supv_date\|\|''\):''/.test(src));
 }
 
 console.log(`\n${pass}/${pass + fail} passed`);
