@@ -6234,6 +6234,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
           <button type="button" class="secondary" onclick="logManualCall()">📝 <span class="lr-off">Log a call</span><span class="lr-on">Log a call from another phone</span></button>
           <button type="button" class="secondary" id="ldDncBtn" onclick="ldToggleDnc()">🚫 Do not contact</button>
+          <button type="button" class="secondary" id="ldMonthlyBtn" onclick="ldToggleMonthly()" title="One email a month from the email library, sent automatically to open leads">Monthly emails: on</button>
           <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
         </div>
         <div id="commsLocked" class="field-note" style="display:none;margin-top:8px;"></div>
@@ -10090,6 +10091,9 @@ function renderCommsTimeline(){
     const dncBtn=document.getElementById('ldDncBtn');
     if(dncBtn&&l){ dncBtn.textContent=l.do_not_contact?'🚫 DO NOT CONTACT (recorded)':'🚫 Do not contact';
       dncBtn.style.color=l.do_not_contact?'#B23B2E':''; dncBtn.style.borderColor=l.do_not_contact?'#B23B2E':''; }
+    /* Monthly emails (2026-11-13): the automatic monthly email skips this lead when this is off. */
+    const mBtn=document.getElementById('ldMonthlyBtn');
+    if(mBtn&&l){ const st=ldMonthlyState(l); mBtn.textContent='Monthly emails: '+st.word; mBtn.disabled=!st.can; mBtn.title=st.why; mBtn.style.opacity=st.can?'':'0.6'; }
     let bar=document.getElementById('ldTruthBar');
     if(!bar&&box&&box.parentElement){ bar=document.createElement('div'); bar.id='ldTruthBar';
       box.parentElement.insertBefore(bar, box); }
@@ -10296,6 +10300,32 @@ async function ldLogCall(outcome, note, cbDate, cbTime, nx){
   if(typeof opsReconcileLeads==='function'){ try{ opsReconcileLeads(); }catch(e){} }
   if(typeof myWorkRefresh==='function') myWorkRefresh();
   ccToast((outcome==='connected'?'✓ Logged. First real conversation is on the record':'✓ Logged')+(nx&&nx.day?'. Next follow-up '+nx.day+'.':''));
+}
+/* Monthly emails (Samantha 2026-11-13: "It should be automated to send monthly"): one email a month from the email library
+   goes to open leads by itself. This is the per-person off switch the sender obeys (lead.monthly_emails === false). */
+function ldMonthlyState(l){
+  if(!l) return {word:'off', can:false, why:''};
+  if(!l.email) return {word:'no email on file', can:false, why:'Add an email address to this lead and they will get the monthly email.'};
+  if(l.do_not_contact) return {word:'off (do not contact)', can:false, why:'This family asked us not to contact them, so they get no monthly email.'};
+  if(l.status==='Converted') return {word:'off (now a client)', can:false, why:'Clients are not on the monthly lead emails.'};
+  if(l.status==='Lost') return {word:'off (closed)', can:false, why:'Closed leads are not on the monthly lead emails.'};
+  if(l.monthly_emails===false) return {word:'off', can:true, why:'Turned off for this person. Tap to turn the monthly email back on.'};
+  return {word:'on', can:true, why:'One email a month from the email library, sent automatically. Tap to turn it off for this person.'};
+}
+async function ldToggleMonthly(){
+  const l=commsLead; if(!l) return;
+  const st=ldMonthlyState(l); if(!st.can) return;
+  const a=ccActor(), now=new Date().toISOString();
+  if(l.monthly_emails===false){
+    l.monthly_emails=true; l.monthly_emails_at=now; l.monthly_emails_by=a.email;
+    l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'Monthly emails turned back on', at:now, by:a.email});
+  } else {
+    if(!(await ccConfirm('Turn the monthly email off for this person?\n\nThey will stop getting the one automatic email a month. Nothing else changes.'))) return;
+    l.monthly_emails=false; l.monthly_emails_at=now; l.monthly_emails_by=a.email;
+    l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'Monthly emails turned off', at:now, by:a.email});
+  }
+  await persist('leads', l);
+  renderCommsTimeline();
 }
 /* Do-not-contact: the recorded fact every automated sender obeys. */
 async function ldToggleDnc(){
