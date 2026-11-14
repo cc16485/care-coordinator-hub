@@ -136,7 +136,7 @@ const fakeSb = (answer, log) => ({ functions: { invoke: async (name, o) => { log
     ck('ocInline with no page bridge function: the 431 LeadConnector link, unchanged', h.includes('href="' + APP('gR') + '"') && !/data-oc-bridge/.test(h), h); }
 
   /* ── 4 · the scan: no staff page keeps a bare tel: link ── */
-  const PUBLIC = new Set(['welcome.html', 'start.html', 'meet.html', 'caregiver-profile.html', 'reference.html', 'fix-reference.html', 'email-library.js', 'caregiver.html']);
+  const PUBLIC = new Set(['welcome.html', 'start.html', 'meet.html', 'caregiver-profile.html', 'reference.html', 'fix-reference.html', 'email-library.js', 'email-template.js' /* what an email looks like: read by the people we email, not by staff */, 'caregiver.html']);
   const files = fs.readdirSync(ROOT).filter((f) => /\.(html|js)$/.test(f) && f !== 'office-call.js');
   const bare = files.filter((f) => !PUBLIC.has(f)).filter((f) => /tel:/.test(read(f)));
   ck('scan: no staff Hub file outside office-call.js has a tel: link (every call is office line first, cell inside the panel)', bare.length === 0, bare);
