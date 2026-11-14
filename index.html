@@ -5453,6 +5453,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <!-- the directory (partner-directory.js, 2026-10-26 her layout): every professional partner, searchable, one row each -->
   <div class="pdir-head"><b style="font-size:15.5px;font-weight:800;color:var(--navy);">Directory</b></div>
   <div id="referrersWrap"></div>
+  <div id="refEmailList"></div><!-- the partner email list (partner-email-list.js, 2026-11-13): organizations that get partner emails and no visits -->
   <div id="refDesk"></div><!-- the Referral Partner Desk (referral-desk.js, Step 2, 2026-10-08): this week, needs an owner, link referrals -->
 
   <!-- Field expectation scoreboard: the community-marketing blocks are an
@@ -7663,8 +7664,8 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
-<script src="partner-emails.js?v=3"></script>
+<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-emails.js?v=4"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=2"></script>
 <script src="writeup-rules.js?v=4"></script>
@@ -12116,6 +12117,7 @@ function renderReferrers(){
   /* the old card list (search, touch log inside each card) became the directory, 2026-10-26: same records, one row per
      partner; Log a touch, Schedule and Edit open the same tools, and the touch history is on the profile */
   try{ if(window.PartnerDirectory) PartnerDirectory.render(); }catch(e){ console.warn('partner directory', e); }
+  try{ if(window.PartnerEmailList) PartnerEmailList.render(); }catch(e){ console.warn('partner email list', e); }
 }
 /* This week's face-to-face field touches (Mon-start week), counted per
    coordinator by the email that logged them. Standing target: 2 each.
