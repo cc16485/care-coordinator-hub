@@ -41,7 +41,7 @@
   function build(e){
     const x = JSON.parse(JSON.stringify(e)); x.subj = PE.subj || e.subj;
     if(PE.note.trim()) x.blocks = [{ t:'p', text:PE.note.trim() }].concat(x.blocks || []);
-    return { subj:x.subj, html:typeof ccBuildEmailHTML === 'function' ? ccBuildEmailHTML(x) : '' };
+    return { subj:x.subj, html:typeof ccBuildEmailHTML === 'function' ? ccBuildEmailHTML(x, PE.org ? segOf(PE.org) : '') : '' };
   }
   function open(orgId){
     const o = (DATA.referral_orgs || []).find(x => x.id === orgId); if(!o) return;

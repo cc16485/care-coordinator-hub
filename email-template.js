@@ -8,7 +8,7 @@
      · the website's colors (teal and navy) and a plain white header, the logo on the left
      · a real photo across the top when the email has one (referral-partner emails get one by partner type);
        every other email keeps its drawn banner until a photo is chosen for it
-     · three new blocks an email may use: "stats" (proof tiles), "links" (cards to pages we share openly) and
+     · four new blocks an email may use: "ol" (numbered steps), "stats" (proof tiles), "links" (cards to pages we share openly) and
        "video" (the video's picture with a play button, linked to the page where it plays)
      · a line under referral-partner emails with the three ways to refer
      · a footer that says why they are getting it, written for who is reading (a partner is not told they
@@ -18,6 +18,7 @@
      unsub   the address the Unsubscribe link opens. The server sends each person their own; without one the link
              writes to the office, as before.
      assets  where the pictures are (default https://mo-care.com/email-assets)
+     seg     the partner type of the person it is going to, when known (picks the email's opening line and photo)
    ============================================================================= */
 (function (root, factory) {
   const api = factory();
@@ -50,10 +51,16 @@
   const isPartner = e => !!e && e.aud === 'referrers';
   const safe = u => /^(https?:|mailto:|tel:)/i.test(String(u || '')) ? String(u) : '#';
 
-  function photoOf(e) {
+  function photoOf(e, seg) {
     if (e.photo) return [String(e.photo).replace(/\.(jpe?g|png|webp)$/i, ''), e.photo_alt || 'Caring Companions'];
-    if (isPartner(e)) return PARTNER_PHOTO[e.seg] || PARTNER_PHOTO_ANY;
+    if (isPartner(e)) return PARTNER_PHOTO[e.seg] || PARTNER_PHOTO[seg] || PARTNER_PHOTO_ANY;
     return null;
+  }
+  /* an email may carry "openers": one first sentence per partner type. When the sender knows the partner's type
+     (opts.seg), that sentence leads the email; when it does not, the email starts without one. */
+  function withOpener(e, seg) {
+    const line = e && e.openers && seg ? e.openers[seg] : '';
+    return line ? Object.assign({}, e, { blocks: [{ t: 'p', text: line }].concat(e.blocks || []) }) : e;
   }
   function blocks(e, assets) {
     const P = 'margin:0 0 18px;font-family:' + SANS + ';font-size:16px;line-height:1.65;color:' + INK + ';';
@@ -61,6 +68,9 @@
       if (b.t === 'p') return '<p style="' + P + '">' + b.text + '</p>';
       if (b.t === 'l') return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">' + (b.items || []).map(function (it) {
         return '<tr><td width="30" valign="top" style="font-family:' + SANS + ';font-size:17px;line-height:1.5;color:' + TEAL + ';font-weight:700;">&#10003;</td><td style="font-family:' + SANS + ';font-size:16px;line-height:1.55;color:' + INK + ';padding-bottom:10px;">' + it + '</td></tr>'; }).join('') + '</table>';
+      /* numbered steps, in order */
+      if (b.t === 'ol') return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">' + (b.items || []).map(function (it, i) {
+        return '<tr><td width="34" valign="top" style="font-family:' + SERIF + ';font-size:19px;line-height:1.35;color:' + TEAL + ';font-weight:700;">' + (i + 1) + '.</td><td style="font-family:' + SANS + ';font-size:16px;line-height:1.55;color:' + INK + ';padding-bottom:10px;">' + it + '</td></tr>'; }).join('') + '</table>';
       if (b.t === 'tip') return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 22px;"><tr><td style="background:' + TINT + ';border-left:4px solid ' + TEAL + ';border-radius:0 10px 10px 0;padding:16px 20px;"><div style="font-family:' + SANS + ';font-size:11.5px;font-weight:bold;letter-spacing:0.08em;text-transform:uppercase;color:' + TEAL + ';margin-bottom:6px;">Good to know</div><div style="font-family:' + SANS + ';font-size:15.5px;line-height:1.6;color:' + INK + ';font-weight:600;">' + b.text + '</div></td></tr></table>';
       if (b.t === 'q') return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 22px;"><tr><td style="border-left:4px solid ' + TEAL + ';padding:6px 0 6px 22px;"><div style="font-family:' + SERIF + ';font-size:19px;line-height:1.5;font-style:italic;color:' + NAVY + ';margin-bottom:10px;">' + b.text + '</div><div style="font-family:' + SANS + ';font-size:13.5px;font-weight:bold;color:' + TEAL + ';">' + String(b.by || '').replace(/^[\s,—-]+/, '') + '</div></td></tr></table>';
       if (b.t === 'rating') {
@@ -95,10 +105,11 @@
 
   function build(e, opts) {
     opts = opts || {};
+    e = withOpener(e, opts.seg);
     const assets = String(opts.assets || ASSETS).replace(/\/$/, '');
     /* '{unsub}' is left as it is: the by-hand sender (campaign-send) puts each person's own link there */
     const unsub = opts.unsub === '{unsub}' ? '{unsub}' : safe(opts.unsub || 'mailto:samantha@mo-care.com?subject=Please%20unsubscribe%20me');
-    const partner = isPartner(e), ph = photoOf(e);
+    const partner = isPartner(e), ph = photoOf(e, opts.seg);
     const why = e.footer || WHY[e.aud] || WHY_FAMILY;
     const hero = ph
       ? '<tr><td style="padding:0;"><img src="' + assets + '/photos/' + ph[0] + '.jpg" width="600" alt="' + ph[1] + '" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>'
