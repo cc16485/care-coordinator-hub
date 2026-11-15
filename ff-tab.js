@@ -308,6 +308,16 @@
      words with the same code that sends them, so this is word for word what the person gets, or got. It only reads. */
   function seeClose(){ const o = document.getElementById('ffPv'); if(o) o.remove(); document.removeEventListener('keydown', seeKey); }
   function seeKey(e){ if(e.key === 'Escape') seeClose(); }
+  /* SEND ME A TEST (Samantha 2026-11-15, "yes, build it"): these exact words to YOUR email (subject starts "Test: ") and,
+     when the office alert list has your phone, your phone. The caregiver or family gets nothing; nothing is recorded. */
+  async function testSend(key, b){
+    const msg = document.getElementById('ffPvTest'); if(b) b.disabled = true; if(msg) msg.textContent = 'Sending to you…';
+    const r = await call({ action:'test_send', key });
+    if(b) b.disabled = false;
+    const t = r.error ? (r.error === 'Unknown action.' ? 'The server needs the new Desktop step run first.' : 'Not sent: ' + r.error)
+      : (r.went || []).map(w => (w.channel === 'text' ? 'Text' : 'Email') + (w.ok ? ' sent to ' + (w.channel === 'text' ? 'your phone' : w.to) : w.channel === 'text' && r.no_phone ? ' not sent: no phone for you on the office alert list' : ' didn’t go')).join(' · ');
+    if(msg) msg.textContent = t + (r.error ? '' : '. Only you got it.');
+  }
   async function see(key){
     say('Opening the message…');
     const r = await call({ action:'preview', key });
@@ -321,7 +331,9 @@
     seeClose();
     const o = document.createElement('div'); o.className = 'ff-pv'; o.id = 'ffPv';
     o.innerHTML = '<div class="ff-pv-box" role="dialog" aria-modal="true" aria-label="The message"><div class="ff-pv-top"><div><h3>What ' + esc(first) + (r.sent_at ? ' got' : ' gets') + '</h3>'
-      + '<p class="ff-pv-sub">' + esc(sub) + '</p></div><button class="secondary" onclick="FFT.seeClose()">Close</button></div>'
+      + '<p class="ff-pv-sub">' + esc(sub) + '</p></div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">'
+      + (parts.length ? '<button onclick="FFT.testSend(\'' + esc(key) + '\', this)">Send this to me</button>' : '') + '<button class="secondary" onclick="FFT.seeClose()">Close</button></div></div>'
+      + '<p class="ff-pv-sub" id="ffPvTest" style="margin:8px 0 0"></p>'
       + (parts.length ? parts.join('') : '<div class="ff-empty">Nothing goes to them right now: no text or email they can get.</div>') + '</div>';
     o.addEventListener('click', e => { if(e.target === o) seeClose(); });
     document.body.appendChild(o); document.addEventListener('keydown', seeKey);
@@ -354,6 +366,6 @@
     const p = needParts(ST.data);
     return { n:(owner() ? p.toApprove.length + p.toReview.length + p.toFinish.length : 0) + p.toTick.length + p.failed.length + p.pn.size };
   }
-  window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, see, seeClose, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
+  window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, see, seeClose, testSend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
     view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, who(k){ ST.view = 'invites'; ST.who = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();
