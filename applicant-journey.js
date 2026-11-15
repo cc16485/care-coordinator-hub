@@ -1170,9 +1170,9 @@ window.AP_JOURNEY = [
   "button": null,
   "timing": "Morning after the shift (window reaches 3 days back).",
   "channel": "text only",
-  "rule": "routine_internal. Opt-out door. One per pair ever. Never for the Practice client (test clock-ins) or Office Staff.",
+  "rule": "routine_internal. Opt-out door. One per pair ever. One of four wordings, a different one each time for the same caregiver (2026-11-15). Never for the Practice client (test clock-ins) or Office Staff.",
   "subject": null,
-  "text": "Good morning, {first}! How did your first shift with {client first name} go?",
+  "text": "Good morning, {first}! How did your first shift with {client first name} go? || Hi {first}! How was your first visit with {client first name}? || Morning, {first}! How did things go with {client first name}? || Hey {first}, just checking in. How did it go with {client first name}?",
   "email_summary": null,
   "shows_in_ghl": true,
   "failure_visible": true
