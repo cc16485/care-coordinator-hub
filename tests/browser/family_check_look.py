@@ -13,7 +13,7 @@ ck('index: Family Circles pill in Client Care, after Clients', re.search(r"data-
 ck('index: page, title and loader', 'id="tab-fccheck"' in HTML and 'id="fck_box"' in HTML and "fccheck:'Family Circles'" in HTML and "sc.src='family-check.js?v=" in HTML)
 ck('index: the retired circles tab still redirects (not brought back)', "circles:'clientsboard'" in HTML)
 ck('no em dashes', '—' not in JS)
-ck('read only: the page writes nothing', not re.search(r"\.(insert|update|upsert|delete)\(", JS))
+ck('the only write is the texts ok box (circle_contacts.sms_consent)', not re.search(r"\.(insert|upsert|delete)\(", JS) and re.findall(r"\.update\(([^)]*)\)", JS) == ['{ sms_consent: !!on }'], re.findall(r"\.update\(([^)]*)\)", JS))
 tmp = tempfile.mkdtemp(prefix='fck-')
 scripts = re.findall(r'<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>', HTML, re.S); bad = []
 for i, sc in enumerate(scripts):
@@ -36,12 +36,13 @@ const T = {
     { id: 2, circle_id: 'c1', name: 'Old Son', source: 'axiscare', axiscare_removed_at: '2026-10-01' },
     { id: 3, circle_id: 'c2', name: 'Gina Good', relationship: 'Wife', email: 'g@x.test', phone: '556', sms_consent: true, hipaa_authorized: true, source: 'axiscare', is_primary: true, app_status: 'active', welcome_sent_at: '2026-10-17T15:00:00Z', axis_welcome_sent_at: '2026-10-17T15:00:00Z' },
     { id: 4, circle_id: 'c2', name: 'Neighbor Ned', phone: '557', sms_consent: false, hipaa_authorized: true, source: 'office' },
+    { id: 6, circle_id: 'c2', name: 'Phoneless Pat', relationship: 'Son', hipaa_authorized: true, source: 'axiscare' },
     { id: 5, circle_id: 'c3', name: 'Nobody Linked', email: 'n@x.test' } ],
   app_data: { data: [{ automation: 'circles-sync', at: new Date(Date.now() - 3600e3).toISOString(), ok: true }] } };
-window.__fail = null; window.__loads = 0;
-const q = t => { const o = { select() { return o }, eq() { return o },
+window.__fail = null; window.__loads = 0; window.__writes = []; window.__refuse = false;
+const q = t => { const o = { select() { return o }, eq(k, v) { if (o.patch) o.id = v; return o }, update(p) { o.patch = p; return o },
   maybeSingle() { return Promise.resolve({ data: T.app_data }) },
-  then(res, rej) { if (window.__fail === t) return Promise.resolve({ error: { message: 'boom' } }).then(res, rej); if (t === 'care_circles') window.__loads++; return Promise.resolve({ data: T[t] }).then(res, rej) } }; return o };
+  then(res, rej) { if (window.__fail === t) return Promise.resolve({ error: { message: 'boom' } }).then(res, rej); if (o.patch) { if (window.__refuse) return Promise.resolve({ data: [] }).then(res, rej); window.__writes.push([t, o.id, o.patch]); return Promise.resolve({ data: [{ id: o.id }] }).then(res, rej) } if (t === 'care_circles') window.__loads++; return Promise.resolve({ data: T[t] }).then(res, rej) } }; return o };
 const sb = { from: q };
 async function cl360Identity() { return [
   { client_name: 'Dorothy Ray', axiscare_client_id: '55', role_status: 'active' }, { client_name: 'Good Family', axiscare_client_id: '60', role_status: 'active' },
@@ -58,10 +59,21 @@ with sync_playwright() as p:
     pg.on('pageerror', lambda e: errs.append(str(e)))
     pg.goto('file://' + page); pg.evaluate('FCK.mount()'); pg.wait_for_timeout(80)
     t = pg.inner_text('#fck_box')
-    ck('Needs a look is the default: Dorothy, Empty Circle, No Circle Nan (3); Good Family not listed', 'Needs a look 3' in t and 'Dorothy Ray' in t and 'Empty Circle' in t and 'No Circle Nan' in t and 'Good Family' not in t, t)
+    # 2026-11-15 her ask: Texts ok? is the first and default view
+    ck('Texts ok? is the default: Lisa and Ned not ticked (2), Gina ticked', 'Texts ok? 2 to tick' in t and '2 not ticked yet.' in t and 'Not ticked yet (2)' in t and 'Texts ok (1)' in t and '1 of 3 family members with a phone' in t, t)
+    ck('each line names the client they belong to; gone people are left out', 'for Dorothy Ray' in t and 'for Good Family' in t and 'Old Son' not in t.split('No phone number')[0], t)
+    ck('no phone: listed with a link to their Family tab', 'No phone number (1)' in t and 'Phoneless Pat' in t and pg.locator('a[data-open-client="60"][data-open-tab="family"]').count() == 1, t)
+    pg.click('label[for="fckt_1"]'); pg.wait_for_timeout(60); t = pg.inner_text('#fck_box')
+    ck('ticking Lisa saves sms_consent true on her row and moves her to Texts ok', pg.evaluate('__writes') == [['circle_contacts', 1, {'sms_consent': True}]] and 'Not ticked yet (1)' in t and 'Texts ok (2)' in t and 'Texts ok? 1 to tick' in t, [pg.evaluate('__writes'), t])
+    pg.evaluate('__refuse=true'); pg.click('label[for="fckt_4"]'); pg.wait_for_timeout(60); t = pg.inner_text('#fck_box')
+    ck('a refused save says so and the box goes back unticked', 'Could not save Neighbor Ned' in t and 'Not ticked yet (1)' in t and not pg.is_checked('#fckt_4'), t)
+    pg.evaluate('__refuse=false'); pg.evaluate("FCK.search('gina')"); t = pg.inner_text('#fck_box')
+    ck('search in Texts ok? narrows to that person', 'Gina Good' in t and 'Lisa Ray' not in t and 'Neighbor Ned' not in t, t)
+    pg.evaluate("FCK.setFilter('look')"); t = pg.inner_text('#fck_box')
+    ck('Needs a look: Dorothy, Empty Circle, No Circle Nan (3); Good Family not listed', 'Needs a look 3' in t and 'Dorothy Ray' in t and 'Empty Circle' in t and 'No Circle Nan' in t and 'Good Family' not in t, t)
     ck('past clients are left out', 'Past Pete' not in t and 'All active clients 4' in t, t)
-    ck('Dorothy: nobody with HIPAA, nobody to text, someone left AxisCare', all(x in t for x in ['Nobody with HIPAA', 'Nobody we can text', "1 left AxisCare's list"]), t)
-    ck('Dorothy: Lisa shown with daughter, no HIPAA, texts off; Old Son greyed as gone', 'Lisa Ray' in t and 'Daughter' in t and 'no HIPAA' in t and 'no texts' in t and "no longer on AxisCare's list" in t, t)
+    ck('Dorothy: nobody with HIPAA, someone left AxisCare (Lisa now ticked, so she can be texted)', all(x in t for x in ['Nobody with HIPAA', "1 left AxisCare's list"]) and 'Nobody we can text' not in t.split('Good Family')[0], t)
+    ck('Dorothy: Lisa shown with daughter, no HIPAA, texts off; Old Son greyed as gone', 'Lisa Ray' in t and 'Daughter' in t and 'no HIPAA' in t and 'texts ok' in t and "no longer on AxisCare's list" in t, t)
     ck('a client with no circle and an empty circle are flagged', 'No Family Circle' in t and 'Nobody in the circle' in t, t)
     ck('the unlinked circle is called out at the bottom', "1 circle isn't tied to a client" in t and 'Loose Circle' in t, t)
     ck('the nightly sync line shows', 'Family contacts sync from AxisCare every night' in t, t)

@@ -66,7 +66,7 @@
   /* lists that need a fetch: at most every five minutes, then the board redraws */
   function script(src) { return new Promise(function (ok) { const sc = document.createElement('script'); sc.src = src; sc.onload = ok; sc.onerror = ok; document.head.appendChild(sc); }); }
   async function circles() {
-    if (!W.FCK) await script('family-check.js?v=20261112bf');
+    if (!W.FCK) await script('family-check.js?v=20261115tx');
     if (!W.FCK || typeof W.FCK.look !== 'function') return { n:0, err:true };
     const r = await W.FCK.look();
     return r.err ? { n:0, err:true } : { n:r.names.length, names:r.names };
