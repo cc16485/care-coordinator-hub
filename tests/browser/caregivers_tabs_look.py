@@ -12,10 +12,11 @@ async()=>{
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none'; await sleep(600);
   (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman' };"); CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true; CC_ROLE_BY_EMAIL['samantha@mo-care.com']=['owner_admin'];
   const tabs=[...document.querySelectorAll('.fbar .ftab')].map(x=>x.innerText.trim());
+  ok('no HR or Performance section in the top bar (it is a Caregivers tab)', !tabs.some(t=>/^(HR|Performance)$/.test(t)), tabs);
   ok('no Training & Compliance section in the top bar', !tabs.some(t=>/Training\s*&\s*Compliance/.test(t)) && tabs.some(t=>/^Caregivers$/.test(t)), tabs);
   const pills=[...document.querySelectorAll('#fsub-cgdir .fpill')].map(x=>x.innerText.trim());
   /* 2026-11-14 (her word): supervisory visits are no longer required, so the Supervisory Visits tab is gone */
-  ok('Caregivers has five tabs, in order (Check-ins added 2026-11-14)', JSON.stringify(pills)===JSON.stringify(['Directory','Check-ins','Background Checks','Orientation & Training','Training Platform']), pills);
+  ok('Caregivers has six tabs, in order (Check-ins and Performance added 2026-11-14)', JSON.stringify(pills)===JSON.stringify(['Directory','Check-ins','Performance','Background Checks','Orientation & Training','Training Platform']), pills);
   ok('no Supervisory Visits tab or page', !document.querySelector('[data-tab="supervisory"]') && !document.getElementById('tab-supervisory'));
   location.hash='#supervisory'; await sleep(250);
   ok('an old #supervisory link lands on Caregivers', activeTab==='cgdir' && getComputedStyle(document.getElementById('tab-cgdir')).display!=='none', activeTab);
@@ -23,7 +24,7 @@ async()=>{
   ok('the old Training & Compliance tab row is gone', !document.getElementById('fsub-caregivers'));
   const where=()=>({ tab:activeTab, group:(document.querySelector('.fbar .ftab.active')||{}).innerText, sub:(document.querySelector('.fsubbar.on')||{}).id,
     shown:!!document.getElementById('tab-'+activeTab) && getComputedStyle(document.getElementById('tab-'+activeTab)).display!=='none' });
-  for (const [h, want] of [['cgcompliance','cgcompliance'],['cgtraining','cgtraining'],['trainhub','trainhub'],['training','cgtraining'],['compliance','cgcompliance'],['training-compliance','cgtraining'],['caregivers','cgdir'],['performance','cgdir']]) {
+  for (const [h, want] of [['cgcompliance','cgcompliance'],['cgtraining','cgtraining'],['trainhub','trainhub'],['training','cgtraining'],['compliance','cgcompliance'],['training-compliance','cgtraining'],['caregivers','cgdir'],['performance','hr'],['hr','hr'],['hr/coaching','hr']]) {
     try{ localStorage.removeItem('cch_last_cgdir'); }catch(e){}   /* a section opens on its last-used tab; start fresh */
     location.hash='#'+h; await sleep(250); const w=where();
     ok('#'+h+' opens '+want+' under Caregivers', w.tab===want && /Caregivers/.test(w.group||'') && w.sub==='fsub-cgdir' && w.shown, w);
