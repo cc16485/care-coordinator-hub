@@ -76,12 +76,13 @@ CHECK = r"""async(who)=>{
   const rows=()=>[...document.querySelectorAll('#oplBatch .opl-brow[data-feed]')].map(b=>b.getAttribute('data-feed')+':'+b.querySelector('.n').innerText);
   const T=()=>document.getElementById('oplBatch').innerText;
   if(who==='owner'){
-    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','carematch:2','first_shift:1','no_checkin:1','no_review:1','cara_missed:2','ff_needs:3','checkins_unlinked:1']), rows());
+    ok('lists from other tabs are rows in Batches, with counts', JSON.stringify(rows())===JSON.stringify(['feedback:2','circles:4','partner_owner:2','partner_link:1','first_shift:1','no_checkin:1','no_review:1','cara_missed:2','ff_needs:3','checkins_unlinked:1']), rows());
     ok('the Family Circles row names the first three and says 1 more', /Family Circles need a look/.test(T()) && /Example: Ada L\., Example: Ben M\., Example: Cy N\. and 1 more/.test(T()), T());
     ok('card batches still come first', document.querySelector('#oplBatch .opl-brow').hasAttribute('data-batch'));
     const tile=[...document.querySelectorAll('.opl-tile')][2].innerText.replace(/\s+/g,' ');
-    ok('the Batches tile counts them: 15 batches, 27 items', /^15 Batches 27 items in all/.test(tile), tile);
-    ok('Care Match names the pairs; first shift lists only the launch with a call still open', /Example: Ada L\. and Example: Jo C\./.test(T()) && /Example: Cy N\./.test(T()) && !/Example: Di O\./.test(T()), T());
+    ok('the Batches tile counts them: 14 batches, 25 items', /^14 Batches 25 items in all/.test(tile), tile);
+    /* 2026-11-15 Samantha: Care Match calls are off the board (first-shift text + family first-week check-in cover it) */
+    ok('no Care Match calls row; first shift lists only the launch with a call still open', !/Example: Ada L\. and Example: Jo C\./.test(T()) && /Example: Cy N\./.test(T()) && !/Example: Di O\./.test(T()), T());
     ok('a client with no check-in and no plan review is counted; one with both, and one whose care ended, is not', /1\s+Client with no check-in yet\s+Example: Ada L\./.test(T()) && /1\s+Client needs a first plan review\s+Example: Ada L\./.test(T()), T());
     let went=''; const real=window.switchTab; window.switchTab=t=>{ went=t; };
     document.querySelector('[data-feed="circles"] button').click(); window.switchTab=real;
@@ -91,7 +92,7 @@ CHECK = r"""async(who)=>{
     ok('no em dashes', !/—/.test(T()));
   } else if(who==='staff'){
     ok('a coordinator\'s board never asks the Friends & Family service', window.__ffAsked===0, window.__ffAsked);
-    ok('a coordinator sees the rows but not Needs an owner', rows().indexOf('circles:4')>=0 && !rows().some(x=>/^partner_owner/.test(x)) && rows().indexOf('partner_link:1')>=0 && !rows().some(x=>/^ff_needs/.test(x)) && rows().indexOf('carematch:2')>=0, rows());
+    ok('a coordinator sees the rows but not Needs an owner', rows().indexOf('circles:4')>=0 && !rows().some(x=>/^partner_owner/.test(x)) && rows().indexOf('partner_link:1')>=0 && !rows().some(x=>/^ff_needs/.test(x)) && !rows().some(x=>/^carematch/.test(x)), rows());
   } else {
     ok('a list that could not be read says so instead of showing nothing', /Couldn't check: Family Circles/.test(T()) && !rows().some(x=>/^circles/.test(x)), T());
   }

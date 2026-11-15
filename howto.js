@@ -117,7 +117,7 @@
       { t: 'The first shift, and the days after', when: 'A new client\'s first week.', steps: [
           'Watch ' + go('clientqueue', 'Client Care: Getting ready, First shift') + ' on the day.',
           'Call the family 1 to 3 days after the first shift. It shows on the board as a first shift follow-up.',
-          'When ' + go('carematch', 'Scheduling: Care Match Check-ins') + ' shows a check-in due, call both the family and the caregiver and press ' + b('Log check-in') + '.' ],
+          'Caregivers get the first-shift text and families get the first-week check-in on their own. Read the answers in Check-ins. When someone tells you something about a match, write it in ' + go('carematch', 'Clients: Care Match') + '.' ],
         done: 'The first shift happened, the family has been called, and the check-in is logged.' },
     ],
 

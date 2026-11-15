@@ -1187,7 +1187,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          next to the clients; Caregivers > Check-ins is caregivers only (checkins-tab.js, one load for both) -->
     <div class="fpill" data-tab="clientcheckins" onclick="switchTab('clientcheckins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Check-ins<span class="subtab-badge red" id="cchkBadge" style="display:none"></span></div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
-    <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div><!-- from Scheduling, 2026-11-14 -->
+    <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match</div><!-- from Scheduling, 2026-11-14 -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
@@ -5532,7 +5532,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div class="guide-step"><span class="num">1</span>A launch opens here <b>on its own</b> when a lead's Start of Care reaches Ready for Staffing (all business steps done, AxisCare client linked). Clients created directly in AxisCare arrive through the safety net. There's no routine reason to add one by hand. The Launch Exception link exists for deliberate cases like a readmission where staff decides a new Start of Care isn't needed, and it requires a written reason.</div>
 <div class="guide-step"><span class="num">2</span>Each card is the whole launch, in order: assign the caregiver, brief the caregiver, confirm with the client (notes required on both calls, since they're what saves you when anyone asks "what was agreed"), enter the schedule, verify EVV is ready, first shift completed, then the 24–72 hour follow-ups with the client AND the caregiver. Medicaid launches add the DSDS services-began notice. The caregiver, the schedule and the first shift are read from AxisCare when you open the card: do them in AxisCare as usual and the card fills in. The first shift counts only when AxisCare shows a real clock-in and clock-out, and that date becomes the client's Actual SOC. If AxisCare can't show it, record it by hand with a reason.</div>
 <div class="guide-step"><span class="num">3</span>The scheduling summary note pushes to the client's AxisCare profile when the schedule step is confirmed. When every step and both notes are done, <b>Launch Complete</b> closes the episode. A client who is later discharged and returns gets a fresh episode (Episode 2, 3…). History is never overwritten.</div>
-<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation before their first client, check the Caregivers section before scheduling anyone new. A new hire also needs a published caregiver profile (photo required) before their first shift; the Hub shows <b>Profile needed before first shift</b> until it is. And always check the Do-Not-Return log (Care Match Check-ins tab) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
+<div class="guide-step flag"><span class="num">!</span>A caregiver must have completed Agency Orientation before their first client, check the Caregivers section before scheduling anyone new. A new hire also needs a published caregiver profile (photo required) before their first shift; the Hub shows <b>Profile needed before first shift</b> until it is. And always check the Do-Not-Return log (Clients › Care Match) before assigning. Launch Complete is our operational finish line; whether a client is <i>active</i> is always AxisCare's call, shown on the Clients board.</div>
 </div>
 </details>
 
@@ -5638,38 +5638,19 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      renamed so it stops sharing a name with the monthly Client Check-ins.
      Same records, same shared storage — the Staffing hub copy still works. -->
 <section class="tabpanel" id="tab-carematch">
-<details class="guide">
-<summary>📋 How This Tab Works: Care Match Check-in Calls ▼</summary>
-<div class="guide-body">
-<div class="guide-step"><span class="num">💛</span><b>Why this tab exists:</b> a client will almost never call to complain about a caregiver, especially a fill-in. They just quietly get unhappy, and we find out when they leave. A 2-minute call after a shift catches it while it's fixable, and catches the wins too. This is not the monthly wellness rhythm over in Client Care's Client Check-ins: this tab tracks one specific client and caregiver match, two calls per match, then done. It lives here in Scheduling because a match is made and unmade on the schedule. Every call ends in one of three outcomes:</div>
-<div class="guide-step"><span class="num">⭐</span><b>Favorite:</b> the client loved them. Mark the caregiver as a preferred caregiver on the client's AxisCare profile so scheduling pairs them first from now on. A fill-in who clicks is a long-term match found for free.</div>
-<div class="guide-step"><span class="num">💬</span><b>Coaching:</b> something small ("she likes the dishes hand-dried," "he wants the TV on for lunch"). Pass it to the caregiver kindly, it's a preference, not a write-up, and put it on their AxisCare record with one click below so it's never lost. Small coaching is what turns a fine match into a favorite.</div>
-<div class="guide-step"><span class="num">🚫</span><b>Exclusion:</b> the client doesn't want them back. Logging it here puts it straight on the permanent Do-Not-Return log, then enter the exclusion in AxisCare so the schedule physically can't pair them again.</div>
-<div class="guide-step"><span class="num">1</span><b>After the first shift:</b> the morning after a brand-new match's first shift (9-10am), the hub texts the caregiver automatically: <i>"Good morning, ___! How did your first shift with ___ go?"</i>, and emails the coordinators/admins that a check-in call is due. <b>The client's side is your call</b>, on purpose: a family talks to a person, never a robot. That call within a day or two is the one that saves clients.</div>
-<div class="guide-step"><span class="num">💛</span><b>A match has two sides.</b> Log the client's answer AND the caregiver's answer on the same check-in. Sometimes it's a good match for the client but not the caregiver, or the other way around. The caregiver's reply to the morning text goes in "What the caregiver said." A 🚩 on either side brings the pair back for a follow-up.</div>
-<div class="guide-step"><span class="num">2</span><b>One good-fit follow-up about a month later:</b> "still going well with ___?" If yes, that match is set: no more scheduled calls. Only a 🚩 concerns call brings a pair back on the list (re-check about a week later to make sure it got fixed). Long-standing match from before this tab existed? Click "known good match ✓" on its row instead of calling, it clears without a call.</div>
-<div class="guide-step"><span class="num">☎️</span>A script that works: <i>"Hi, this is ___ from Caring Companions, just checking in. How did things go with [caregiver] this week? Anything they could do differently that would make it even better?"</i> That last question is where the gold is.</div>
-</div>
-</details>
-
-<!-- Who to call (live from AxisCare visits) -->
-<div style="margin-bottom:1.25rem">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.65rem;gap:.6rem;flex-wrap:wrap">
-    <div style="display:flex;align-items:center;gap:.6rem">
-      <span style="font-size:1.1rem">💛</span>
-      <div>
-        <div style="font-size:.92rem;font-weight:700;color:var(--navy)">Who to call: every caregiver in a client's home, last 60 days</div>
-        <div style="font-size:.72rem;color:var(--text-muted)">Live from AxisCare visits. Two calls per match: 🆕 first-shift call, then a good-fit follow-up a month later. After that a pair only comes back if a call raised concerns.</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:.5rem"><button class="primary" style="font-size:.78rem" onclick="cmLoadPairs(this)">↻ Refresh</button></div>
-  </div>
-  <div id="ci-pairs-board"><div style="color:var(--text-muted);font-size:.85rem">Loading recent client–caregiver matches…</div></div>
+<!-- 2026-11-15 Samantha: the 60-day "who to call" list was too much. The caregiver already gets
+     "How did your first shift with ___ go?" (carematch-watch) and the family gets a first-week
+     check-in (checkin-run). Their answers show in Caregivers > Check-ins and Clients > Check-ins.
+     This tab keeps only the form (for when a family or caregiver tells us something) and the log. -->
+<div class="card" style="padding:.85rem 1.1rem;margin-bottom:1rem;font-size:.85rem;color:var(--text)">
+  💛 <b>No calling list here any more.</b> Caregivers get the first-shift text and families get the first-week check-in automatically. Their answers show in
+  <a href="#" onclick="switchTab('cgcheckins');return false;">Caregivers › Check-ins</a> and <a href="#" onclick="switchTab('clientcheckins');return false;">Clients › Check-ins</a>.
+  Use the form below only when someone tells you something about a match: a favorite, a small thing to pass along, or a caregiver not to send back.
 </div>
 
 <!-- Log a check-in -->
 <div id="ci-form" class="card" style="padding:1rem 1.25rem;margin-bottom:1.25rem">
-  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📞 Log a check-in call</div>
+  <div style="font-size:.92rem;font-weight:700;color:var(--navy);margin-bottom:.6rem">📞 Note about a match</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.6rem;margin-bottom:.6rem">
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Client</label><input id="ci-client" type="text" list="ci-client-list" autocomplete="off" placeholder="Pick the client" onfocus="ccPickFill('ci-client-list')"><datalist id="ci-client-list"></datalist><input type="hidden" id="ci-client-ax"></div>
     <div><label style="font-size:.72rem;font-weight:700;color:var(--text-muted)">Caregiver</label><input id="ci-caregiver" type="text" placeholder="Caregiver name"></div>
@@ -7634,14 +7615,14 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-page.js?v=8"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=6"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
-<script src="howto.js?v=2"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
-<script src="coordinator-training.js?v=6"></script>
+<script src="howto.js?v=3"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
+<script src="coordinator-training.js?v=7"></script>
 <script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
 <script src="call-lead.js?v=7"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
@@ -8749,7 +8730,7 @@ const CC_SECTION_TITLES = {
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Sources', playbook:'Scripts',
   ltcpolicy:'LTC Policies', clients:'Care Coordinator', checkins:'Client Check-ins',
-  carematch:'Care Match Check-ins', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
+  carematch:'Care Match', sops:'Procedures', sopref:'Payors &amp; Programs', docs:'Forms &amp; Templates', supplies:'Order Supplies', docfolders:'Client Folders', videos:'Videos &amp; Photos', routing:'Who Handles What',
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   inbox:'Inbox', comms:'Communication',
@@ -44648,7 +44629,7 @@ function ccOpenRef(sub){
     renderDnr();
   };
 
-  window.cmRenderAll=function(){ renderHistory(); renderPairs(); renderDnr(); if(!loadedOnce){ loadedOnce=true; loadPairs(); } };
+  window.cmRenderAll=function(){ renderHistory(); renderDnr(); };  /* 2026-11-15: no calling list, so no 60-day AxisCare read */
   /* the Operations Board's row (board-feeds.js, 2026-11-12): the pairs with a call due, by this page's own rule (pairInfo) */
   window.cmDue=async function(){
     if(PAIRS===null){ loadedOnce=true; await loadPairs(); }

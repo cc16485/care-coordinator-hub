@@ -228,7 +228,7 @@
         { t: 'The first shift and the days after', withT: () => [
             'Lead a home visit with your trainer there, if one is booked. If not, lead the next one that is.',
             'Make a first-week call to a family with your trainer listening.',
-            'When ' + go('carematch', 'Scheduling: Care Match Check-ins') + ' shows one due, call the family and the caregiver and press ' + b('Log check-in') + '.' ],
+            'Caregivers get the first-shift text and families get the first-week check-in on their own. Read the answers in Check-ins. When someone tells you something about a match, write it in ' + go('carematch', 'Clients: Care Match') + '.' ],
           solo: () => [
             'Go back to your own leads. Each one has a next day.',
             'Post your handoff with ' + b('End my shift') + '.' ] },

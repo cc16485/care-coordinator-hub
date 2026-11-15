@@ -14,7 +14,8 @@
     { key:'partner_owner', label:'Referral Sources', one:'referral partner needs an owner', many:'referral partners need an owner', sub:'Pick a Care Coordinator for each', tab:'referrers', go:'Open Referral Sources' },
     { key:'partner_updates', label:'Referral Sources', one:'referral partner is owed an update', many:'referral partners are owed an update', sub:'Thank them and say how it went, once the family says OK', tab:'referrers', go:'Open Referral Sources' },
     { key:'partner_link', label:'Referral Sources', one:'referral to link to a partner', many:'referrals to link to a partner', sub:'So they count for the right partner', tab:'referrers', go:'Open Referral Sources' },
-    { key:'carematch', label:'Care Match Check-ins', one:'care match call due', many:'care match calls due', sub:'First shift together, good-fit follow-up, or a concern to check again', tab:'carematch', go:'Open Care Match' },
+    /* Care Match calls removed 2026-11-15 (Samantha: "too much"): the first-shift text and the family first-week check-in cover it */
+    { key:'carematch_removed', label:'Care Match Check-ins', one:'care match call due', many:'care match calls due', sub:'First shift together, good-fit follow-up, or a concern to check again', tab:'carematch', go:'Open Care Match' },
     { key:'first_shift', label:'First shift', one:'new client waiting on a first-shift follow-up call', many:'new clients waiting on a first-shift follow-up call', sub:'The 24 to 72 hour calls to the family and the caregiver', tab:'clientqueue', go:'Open First shift' },
     { key:'no_checkin', label:'Clients', one:'client with no check-in yet', many:'clients with no check-in yet', sub:'Their first monthly check-in', tab:'clientsboard', go:'Open Clients' },
     { key:'no_review', label:'Clients', one:'client needs a first plan review', many:'clients need a first plan review', sub:'No care plan review on file', tab:'clientsboard', go:'Open Clients' },
@@ -121,7 +122,7 @@
     const late = function (v) { return new Promise(function (ok) { setTimeout(function () { ok(v); }, S.wait); }); };
     const safe = function (p) { return Promise.race([p.catch(function () { return { n:0, err:true }; }), late({ n:0, err:true })]); };
     const two = Promise.race([clients().catch(function () { return [{ n:0, err:true }, { n:0, err:true }]; }), late([{ n:0, err:true }, { n:0, err:true }])]);
-    return Promise.all([safe(circles()), safe(unmatched()), safe(carematch()), safe(firstShift()), two, safe(ffNeeds())]).then(function (a) {
+    return Promise.all([safe(circles()), safe(unmatched()), Promise.resolve({ n:0 }), safe(firstShift()), two, safe(ffNeeds())]).then(function (a) {
       S.found.circles = a[0]; S.found.calls_unmatched = a[1]; S.found.carematch = a[2]; S.found.first_shift = a[3];
       S.found.no_checkin = a[4][0]; S.found.no_review = a[4][1]; S.found.ff_needs = a[5]; S.busy = false;
       try { if (typeof MYWORK_TAB !== 'undefined' && MYWORK_TAB === 'board' && typeof W.renderMyWork === 'function') W.renderMyWork(); } catch (e) {}
