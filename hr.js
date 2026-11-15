@@ -245,6 +245,49 @@
   function pplSort(id) { if (PPL.sort === id) PPL.dir = -PPL.dir; else { PPL.sort = id; PPL.dir = id === 'name' ? 1 : -1; } drawPeople(); }
   function pplOpen(id) { try { switchTab('cgdir'); Promise.resolve(typeof cgdCensus === 'function' ? cgdCensus() : null).then(() => cgdOpenProfile(id, 'performance')); } catch (e) { console.warn('hr people', e); } }
 
+  /* ---------- The red number on the Performance pill (2026-11-14, Samantha: "Yes, add it"). It counts what is waiting
+     on the person looking, nothing else. Everyone: coaching talks assigned to them that are still open, and their
+     30-day "did it help?" checks that are due. Samantha and Zach also: write-ups to decide or still in draft, reports
+     from the office with no decision, coordinators asking for help or to hand a talk off, and cases the agent flagged
+     for real that nobody has marked. Practice cases never count. Reads only. ---------- */
+  function waiting(cs, cases_, wuN, me, o, today) {
+    const mine = (c) => String(c.assigned_to || '').toLowerCase() === me, out = [];
+    const add = (n, one, many) => { if (n) out.push([n, n === 1 ? one : many]); };
+    if (cs) {
+      add(cs.filter((c) => c.status === 'open' && mine(c)).length, 'coaching talk for you to have', 'coaching talks for you to have');
+      add(cs.filter((c) => c.status === 'done' && c.kind === 'coaching' && c.improved === null && c.check_on && String(c.check_on) <= today && mine(c)).length, '30-day check due', '30-day checks due');
+    }
+    if (o) {
+      add(wuN || 0, 'write-up to decide', 'write-ups to decide');
+      if (cases_) {
+        add(cases_.filter(concernOpen).length, 'report from the office', 'reports from the office');
+        add(cases_.filter((c) => !c.practice && !c.review && !MANUAL[c.rule]).length, 'flagged case to look at', 'flagged cases to look at');
+      }
+      if (cs) {
+        add(cs.filter((c) => helpWaiting(c) && !mine(c)).length, 'coordinator asking for help', 'coordinators asking for help');
+        add(cs.filter((c) => c.status === 'open' && c.handoff_at && !mine(c)).length, 'talk someone asked to hand off', 'talks someone asked to hand off');
+      }
+    }
+    return { n: out.reduce((t, x) => t + x[0], 0), parts: out.map((x) => x[0] + ' ' + x[1]) };
+  }
+  function badge() {
+    const b = document.getElementById('perfBadge'); if (!b) return;
+    /* the same write-ups as the dashboard's "Your decision" number: ones this person may approve, and drafts */
+    const list = (typeof DATA !== 'undefined' && DATA && DATA.discipline_actions) || [], can = (a) => { try { return typeof discCanApprove === 'function' ? discCanApprove(a) : { ok: false }; } catch (e) { return { ok: false }; } };
+    const wuN = owner() ? list.filter((a) => a.status === 'draft' || (a.status === 'pending_approval' && can(a).ok)).length : 0;
+    const w = waiting(coach, owner() ? cases : null, wuN, myEmail(), owner(), todayStr());
+    b.textContent = w.n || ''; b.style.display = w.n ? 'inline-flex' : 'none';
+    b.title = w.n ? 'Waiting on you: ' + w.parts.join(', ') : ''; b.setAttribute('aria-label', b.title);
+  }
+  let peekAt = 0;
+  /* asked for when any Caregivers tab opens, at most once every two minutes; opening Performance itself always redraws it */
+  async function peek(force) {
+    if (!force && Date.now() - peekAt < 120000) { badge(); return; }
+    peekAt = Date.now();
+    await Promise.all([loadCoaching(true), owner() ? loadCases(true) : Promise.resolve(null)]);
+    badge();
+  }
+
   /* ---------- Zach's dashboard ---------- */
   function renderHome(box) {
     /* DATA is the Hub's own top-level variable, not a window property */
@@ -424,7 +467,7 @@
   const KIND = { recognition: ['Recognition', 'Pass it on to the caregiver'], coaching: ['Coaching', 'Krystal or Angiel talks with them'], recurring: ['Recurring', 'Zach reviews'], serious: ['Serious', 'Zach right away'] };
   async function loadCases(force) {
     if (cases && !force) return cases;
-    try { const { data, error } = await sb.from('hr_cases').select('*').order('created_at', { ascending: false }).limit(300); if (error) return null; cases = data || []; return cases; }
+    try { const { data, error } = await sb.from('hr_cases').select('*').order('created_at', { ascending: false }).limit(300); if (error) return null; cases = data || []; try { badge(); } catch (e) {} return cases; }
     catch (e) { return null; }
   }
   function renderPractice(box) {
@@ -480,7 +523,7 @@
   const fmtYmd = (s) => { const d = new Date(String(s) + 'T12:00:00'); return isNaN(d) ? String(s || '') : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
   async function loadCoaching(force) {
     if (coach && !force) return coach;
-    try { const { data, error } = await sb.from('hr_coaching').select('*').order('created_at', { ascending: false }).limit(500); if (error) return null; coach = data || []; return coach; }
+    try { const { data, error } = await sb.from('hr_coaching').select('*').order('created_at', { ascending: false }).limit(500); if (error) return null; coach = data || []; try { badge(); } catch (e) {} return coach; }
     catch (e) { return null; }
   }
   async function act(id, action, p) {
@@ -1085,6 +1128,6 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, pplFind, pplSort, pplOpen, lv: lvAct, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
+  window.HR = { render, go, peek, waiting, pplFind, pplSort, pplOpen, lv: lvAct, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
     callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, hbKind: (k) => { hbKind = hbKind === k ? '' : k; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
