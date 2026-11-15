@@ -65,6 +65,9 @@ async()=>{
   CARD.approve.call_ticks=Object.assign({}, TK, { attributes:'Attributes entered in AxisCare (asked anything not asked at the interview)', axclass:'AxisCare Class is right' });
   await CRX.open('o-call'); await sleep(250);
   ok('call card: the AxisCare Class line names PRN TEAM - CNA with Check and Set it, and is not a box a person can tick', /AxisCare Class: PRN TEAM - CNA/.test(ct()) && [...C.querySelectorAll('button')].some(b=>b.innerText==='Set it') && C.querySelectorAll('input[type=checkbox]').length===7, ct().slice(0,900));
+  /* 2026-11-15 folded shut by default (Samantha: too long); one line until opened */
+  ok('call card: the attribute list starts folded, one line with the counts', /Show what to tick in AxisCare \(1 on, 1 off\)/.test(ct()) && !/Tick these/.test(ct()) && !C.querySelector('details').open, ct().slice(700,1700));
+  C.querySelector('details').open=true; await sleep(50);
   ok('call card: the attributes line shows what to tick and what to leave off (the Not asked list needs the Offers code, not loaded on this page)', /Tick these \(1\)/.test(ct()) && /Dogs/.test(ct()) && /Leave these off \(1\)/.test(ct()) && /Smoking/.test(ct()), ct().slice(700,1700));
   INV.length=0; CONFIRMS.length=0; [...C.querySelectorAll('button')].find(b=>b.innerText==='Set it').click(); await sleep(200);
   ok('Set it asks first, then one checkin class_set for that card', /Set their Class in AxisCare/.test(CONFIRMS.at(-1)||'') && INV.some(b=>b.action==='checkin'&&b.class_set===true&&b.journey_id==='j-call'), [CONFIRMS, INV]);
