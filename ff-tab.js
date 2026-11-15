@@ -12,7 +12,10 @@
      · the $100 (step 5, 2026-10-27, "live as I decided"): each referred client with a first visit, hours of 20 from AxisCare,
        the "payment received" tick, Ready / Under review with the reasons; Approve, Not earned, then Credit applied (family,
        the date it went on the invoice in AxisCare) or Paid (caregiver, the Viventium payroll date). Nothing pays by itself.
-   A Care Coordinator sees "Owners run this program" and nothing else: no names, no rewards (her rule).
+   2026-11-14, her words: "Our care coordinators need to be active in viewing and being involved in this program", then "Yes,
+   build that". Every office role (owner, care coordinator, staffing coordinator) sees the whole tab, Skips / Undoes a skip /
+   Resends, and ticks "payment received". OWNERS ONLY: the switches, Approve, Not earned, Credit applied / Paid, Reopen, and
+   setting a new hire's referrer by hand (the server refuses these for anyone else too). No office role: a short note only.
    ===================================================================================================================== */
 (function(){
   'use strict';
@@ -20,6 +23,9 @@
   const ST = { data:null, busy:false, view:'', show:'ready', q:'', hr:null };
   const el = () => document.getElementById('ffMount');
   const owner = () => { try{ return typeof ccIsOwner === 'function' && !!ccIsOwner(); }catch(e){ return false; } };
+  const OFFICE = ['owner_admin', 'care_coordinator', 'staffing_coordinator'];
+  const office = () => { if(owner()) return true; try{ const me = (typeof ME !== 'undefined' && ME) ? ME : {}; const r = typeof ccRolesFor === 'function' ? ccRolesFor(me['email'] || '') : []; return (r || []).some(x => OFFICE.includes(x)); }catch(e){ return false; } };
+  const ownerOnly = html => owner() ? html : '';   /* a button only an owner can use; coordinators see the row without it */
   const day = iso => { if(!iso) return ''; const d = new Date(String(iso).length === 10 ? iso + 'T12:00:00Z' : iso); return isNaN(d) ? '' : d.toLocaleString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' }); };
   const when = iso => { if(!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); };
   /* DESIGN (her ask 2026-10-27: "make sure the design is clear not confusing or jumbled"): one status card with the two switches as
@@ -93,11 +99,11 @@
           + ck(x.hire_active === true && x.referrer_active === true, 'Both still active')) + '</div>';
     const why = x.status === 'under_review' ? esc((x.reasons || []).join('; ')) : x.status === 'on_the_way' && (x.reasons || []).length ? 'To look at once earned: ' + esc(x.reasons.join('; '))
       : x.status === 'not_earned' ? 'Not earned: ' + esc(x.decision_why || '') : x.status === 'paid' ? 'Paid on the ' + esc(day(x.done_on)) + ' payroll' : (x.decision_why ? 'Approved: ' + esc(x.decision_why) : '');
-    const acts = (x.status === 'ready' ? btn('Approve', 'FFT.reward(' + q(lid) + ', \'approve\')', true) : '')
+    const acts = ownerOnly((x.status === 'ready' ? btn('Approve', 'FFT.reward(' + q(lid) + ', \'approve\')', true) : '')
       + (x.status === 'under_review' ? btn('Approve anyway', 'FFT.reward(' + q(lid) + ', \'approve\', \'why\')') : '')
       + (live ? btn('Not earned', 'FFT.reward(' + q(lid) + ', \'not_earned\')') : '')
       + (x.status === 'approved' ? btn('Mark paid', 'FFT.reward(' + q(lid) + ', \'done\', false)', true) : '')
-      + (['approved', 'not_earned'].includes(x.status) ? btn('Reopen', 'FFT.reward(' + q(lid) + ', \'reopen\')') : '');
+      + (['approved', 'not_earned'].includes(x.status) ? btn('Reopen', 'FFT.reward(' + q(lid) + ', \'reopen\')') : ''));
     const done = ['paid', 'not_earned'].includes(x.status);
     return row({ attr:' data-rw="' + lid + '" data-st="' + esc(x.status) + '" data-hire="' + esc(x.part) + '"', name:x.hire_name || x.client_name, chip:chip('held', 'Hiring bonus'), line, why:done ? '' : why, bad:x.status === 'under_review',
       extra:(done && why ? '<div class="ff-line" style="color:var(--text-muted)">' + why + '</div>' : '') + checks, acts });
@@ -108,9 +114,10 @@
   function hireCard(d){
     const notes = Array.isArray(d.hire_notes) ? d.hire_notes : [], hr = ST.hr, orgs = cgOrgs();
     const rows = notes.map(n => row({ attr:' data-hn="' + esc(n.applicant_id) + '"', name:n.name, line:n.code ? 'Applied with the link ' + esc(n.code) : 'No link on their application', why:esc(n.why),
-      acts:btn('Set who referred them', 'FFT.hrPick(\'' + esc(n.applicant_id) + '\', \'' + esc(String(n.name).replace(/'/g, '')) + '\')') + (n.org_id ? btn('Remove referrer', 'FFT.hrSave(\'' + esc(n.applicant_id) + '\', true)') : '') }));
+      acts:!owner() ? '' : btn('Set who referred them', 'FFT.hrPick(\'' + esc(n.applicant_id) + '\', \'' + esc(String(n.name).replace(/'/g, '')) + '\')') + (n.org_id ? btn('Remove referrer', 'FFT.hrSave(\'' + esc(n.applicant_id) + '\', true)') : '') }));
     let form = '<div class="ff-row" id="ffHr"><div class="who"><span class="ff-name">Set who referred a new hire</span><div class="ff-line">For someone who was referred by a caregiver but applied without their link.</div>';
-    if(!orgs.length) form += '<div class="ff-why">No caregiver has a link yet. Caregivers get their link when they are invited.</div></div></div>';
+    if(!owner()) form = '';   /* setting a referrer by hand is an owner's */
+    else if(!orgs.length) form += '<div class="ff-why">No caregiver has a link yet. Caregivers get their link when they are invited.</div></div></div>';
     else if(!hr) form += '<div class="ff-filters"><input id="ffHrQ" type="search" placeholder="The new hire’s name" style="margin-left:0" onkeydown="if(event.key===\'Enter\')FFT.hrFind(this.value)">' + btn('Find', 'FFT.hrFind(document.getElementById(\'ffHrQ\').value)') + '</div></div></div>';
     else if(hr.found) form += '<div class="ff-line">' + (hr.found.length ? 'Which one?' : 'Nobody by that name applied.') + '</div><div class="ff-filters">' + hr.found.map(a => btn(a.name + (a.when ? ' (applied ' + day(a.when) + ')' : ''), 'FFT.hrPick(\'' + esc(a.id) + '\', \'' + esc(String(a.name).replace(/'/g, '')) + '\')')).join('') + btn('Cancel', 'FFT.hrCancel()') + '</div></div></div>';
     else form += '<div class="ff-line"><b>' + esc(hr.name) + '</b> was referred by:</div><div class="ff-filters"><select id="ffHrOrg" style="max-width:260px"><option value="">Choose a caregiver</option>' + orgs.map(o => '<option value="' + esc(o.id) + '">' + esc(o.name) + '</option>').join('') + '</select>'
@@ -151,11 +158,11 @@
       + '<label class="ff-ck"><input type="checkbox"' + (x.payment_checked_at ? ' checked' : '') + (live ? '' : ' disabled') + ' onchange="FFT.reward(' + q(lid) + ', \'payment\', this.checked)"> Payment received' + (x.payment_checked_by ? ' (' + esc(x.payment_checked_by) + ')' : '') + '</label></div>' : '';
     const why = x.status === 'under_review' ? esc((x.reasons || []).join('; ')) : x.status === 'on_the_way' && (x.reasons || []).length ? 'To look at once earned: ' + esc(x.reasons.join('; '))
       : x.status === 'not_earned' ? 'Not earned: ' + esc(x.decision_why || '') : x.status === 'applied' ? 'Credit applied ' + esc(day(x.done_on)) : x.status === 'paid' ? 'Paid on the ' + esc(day(x.done_on)) + ' payroll' : (x.decision_why ? 'Approved: ' + esc(x.decision_why) : '');
-    const acts = (x.status === 'ready' ? btn('Approve', 'FFT.reward(' + q(lid) + ', \'approve\')', true) : '')
+    const acts = ownerOnly((x.status === 'ready' ? btn('Approve', 'FFT.reward(' + q(lid) + ', \'approve\')', true) : '')
       + (x.status === 'under_review' ? btn('Approve anyway', 'FFT.reward(' + q(lid) + ', \'approve\', \'why\')') : '')
       + (live ? btn('Not earned', 'FFT.reward(' + q(lid) + ', \'not_earned\')') : '')
       + (x.status === 'approved' ? btn(fam ? 'Mark credit applied' : 'Mark paid', 'FFT.reward(' + q(lid) + ', \'done\', ' + (fam ? 'true' : 'false') + ')', true) : '')
-      + (['approved', 'not_earned'].includes(x.status) ? btn('Reopen', 'FFT.reward(' + q(lid) + ', \'reopen\')') : '');
+      + (['approved', 'not_earned'].includes(x.status) ? btn('Reopen', 'FFT.reward(' + q(lid) + ', \'reopen\')') : ''));
     /* no status chip: every $100 row sits in a card named for its stage (the chip only repeated the heading) */
     const done = ['applied', 'paid', 'not_earned'].includes(x.status);   /* a settled line's last word is plain text, not a warning colour */
     return row({ attr:' data-rw="' + lid + '" data-st="' + esc(x.status) + '"', name:x.client_name, line, why:done ? '' : why, bad:x.status === 'under_review', extra:(done && why ? '<div class="ff-line" style="color:var(--text-muted)">' + why + '</div>' : '') + checks, acts });
@@ -183,12 +190,13 @@
   }
   function draw(){
     const m = el(); if(!m) return; css();
-    if(!owner()){ m.innerHTML = '<div class="ff-card" style="padding:16px 18px;"><b style="color:var(--navy)">Owners run this program</b><p class="field-note" style="margin:6px 0 0;">Nothing here needs anything from you. If someone asks about referring a friend, they can call the office at (417) 234-8494.</p></div>'; return; }
+    if(!office()){ m.innerHTML = '<div class="ff-card" style="padding:16px 18px;"><b style="color:var(--navy)">The office runs this program</b><p class="field-note" style="margin:6px 0 0;">If someone asks about referring a friend, they can call the office at (417) 234-8494.</p></div>'; return; }
     const d = ST.data;
     if(!d){ m.innerHTML = '<div class="field-note">' + (ST.busy ? 'Loading…' : '') + '</div>'; return; }
     if(d.error){ m.innerHTML = '<div class="ff-banner">' + esc(d.error) + ' <button class="secondary" onclick="FFT.load()">Try again</button></div>'; return; }
     const { run, people, inv, sw, rw, refs, sent, toApprove, toReview, toTick, toFinish, failed, pn } = needParts(d);
-    const needN = toApprove.length + toReview.length + toTick.length + toFinish.length + failed.length + pn.size;
+    const own = owner();
+    const needN = (own ? toApprove.length + toReview.length + toFinish.length : 0) + toTick.length + failed.length + pn.size;
     if(!ST.view) ST.view = needN ? 'needs' : 'invites';
     const count = st => people.filter(p => p.status === st).length;
 
@@ -197,12 +205,13 @@
     const last = Array.isArray(sw.log) && sw.log.length ? sw.log[sw.log.length - 1] : null;
     let h = '<div class="ff-top ' + state + '" id="ffTop"><div class="ff-state">' + ({ on:'Invitations are ON', off:'Invitations are OFF', paused:'The program is paused' }[state])
       + '<small>' + ({ on:'Each person who is ready gets one invitation, once. They go out once a week, on Monday morning (' + esc(d.cap || 60) + ' at most).', off:'Nobody is invited. The list below still updates every morning so you can check it.', paused:'Nothing is sent while the program is paused. The $100 tracking keeps going.' }[state])
-      + (last ? ' Last change by ' + esc(last.by) + ', ' + esc(when(last.at)) + '.' : '') + '</small></div><div class="acts">'
-      + (sw.paused ? btn('Unpause', 'FFT.flip(\'ff_program_paused\', false)', true) : btn(sw.live ? 'Turn invitations off' : 'Turn invitations on', 'FFT.flip(\'ff_invites_live\', ' + (!sw.live) + ')', !sw.live) + btn('Pause program', 'FFT.flip(\'ff_program_paused\', true)'))
+      + (last ? ' Last change by ' + esc(last.by) + ', ' + esc(when(last.at)) + '.' : '') + (own ? '' : ' Only an owner turns invitations on or off.') + '</small></div><div class="acts">'
+      + ownerOnly(sw.paused ? btn('Unpause', 'FFT.flip(\'ff_program_paused\', false)', true) : btn(sw.live ? 'Turn invitations off' : 'Turn invitations on', 'FFT.flip(\'ff_invites_live\', ' + (!sw.live) + ')', !sw.live) + btn('Pause program', 'FFT.flip(\'ff_program_paused\', true)'))
       + '</div></div>';
+    if(!own) h += '<div class="ff-meta" id="ffWho">You can skip or resend invitations and tick when a payment is received. An owner approves every reward and marks it credited or paid.</div>';
     /* reminders (2026-11-11, her "yes": caregivers every 3 months, families every 6 months; own switch, starts off) */
     if(!sw.paused) h += '<div class="ff-meta" id="ffRem"><b>Reminders are ' + (sw.reminders ? 'ON' : 'OFF') + '.</b> ' + (sw.reminders ? 'Anyone already invited and still ready gets a short reminder: caregivers every 3 months, families every 6 months.' : 'Nobody gets a reminder after their invitation.')
-      + ' ' + btn(sw.reminders ? 'Turn reminders off' : 'Turn reminders on', 'FFT.flip(\'ff_reminders_live\', ' + (!sw.reminders) + ')', !sw.reminders) + '</div>';
+      + ' ' + ownerOnly(btn(sw.reminders ? 'Turn reminders off' : 'Turn reminders on', 'FFT.flip(\'ff_reminders_live\', ' + (!sw.reminders) + ')', !sw.reminders)) + '</div>';
     h += '<div class="ff-meta">' + (run.run_day ? 'Last checked ' + esc(when(run.ran_at)) + (run.sent ? ' · ' + esc(run.sent) + ' invited that morning' : '') : 'The daily check hasn’t run yet.') + '</div>';
     if(run.problems && run.problems.length) h += '<div class="ff-banner"><b>Couldn’t read everything that morning:</b> ' + run.problems.map(esc).join('; ') + '. Anyone it couldn’t check is held, never invited.</div>';
 
@@ -212,10 +221,11 @@
 
     if(ST.view === 'needs'){
       if(!needN) h += '<div class="ff-card"><div class="ff-empty" style="border:0">Nothing needs you right now.</div></div>';
-      if(toApprove.length) h += card('Ready to approve', toApprove.some(isHire) ? 'Earned. Approve, and it moves on to be credited or paid.' : '20 hours done and payment received. Approve, and it moves on to be credited or paid.', toApprove.map(rewardRow), '', toApprove.length);
-      if(toReview.length) h += card('Under review', 'Earned, but something needs your look first. The reason is under each name.', toReview.map(rewardRow), '', toReview.length);
+      if(!own && toApprove.length + toReview.length + toFinish.length) h += '<div class="ff-meta" id="ffOwnerWait">Waiting on an owner: ' + (toApprove.length + toReview.length) + ' to approve, ' + toFinish.length + ' to credit or pay. They are on the Rewards view.</div>';
+      if(own && toApprove.length) h += card('Ready to approve', toApprove.some(isHire) ? 'Earned. Approve, and it moves on to be credited or paid.' : '20 hours done and payment received. Approve, and it moves on to be credited or paid.', toApprove.map(rewardRow), '', toApprove.length);
+      if(own && toReview.length) h += card('Under review', 'Earned, but something needs your look first. The reason is under each name.', toReview.map(rewardRow), '', toReview.length);
       if(toTick.length) h += card('Tick when payment is received', '20 hours are done. Once their payment for those hours comes in, tick it.', toTick.map(rewardRow), '', toTick.length);
-      if(toFinish.length) h += card('Apply the credit or pay the bonus', 'Approved. Put the credit on the invoice in AxisCare, or the bonus on the Viventium payroll, then mark it here.', toFinish.map(rewardRow), '', toFinish.length);
+      if(own && toFinish.length) h += card('Apply the credit or pay the bonus', 'Approved. Put the credit on the invoice in AxisCare, or the bonus on the Viventium payroll, then mark it here.', toFinish.map(rewardRow), '', toFinish.length);
       if(failed.length) h += card('Invitations that didn’t go through', 'A card is on your Needs Attention list too.', failed.map(inviteRow), '', failed.length);
       if(pn.size) h += card('Payer needed', 'Held only because the Hub doesn’t know how they pay. Set it on their inquiry; the next morning’s check picks it up.',
         [...pn.values()].map(x => row({ name:x.client, line:esc(x.why.replace(/^Payer needed: /, '').replace(/^./, c => c.toUpperCase())) })), '', pn.size, 'ffPayer');
@@ -295,14 +305,15 @@
     if(r.error) say(r.error); else say({ payment: body.on ? 'Payment received, noted.' : 'Payment tick removed.', approve:'Approved.', not_earned:'Marked not earned.', done: arg ? 'Credit applied, noted.' : 'Paid, noted.', reopen:'Reopened.' }[op] || 'Saved.');
     load();
   }
-  function mount(){ draw(); if(owner()) load(); }   /* a Care Coordinator's page never asks the server */
-  /* the Operations Board's row: how many things on this tab need an owner. Owners only; never asks the server for anyone else. */
+  function mount(){ draw(); if(office()) load(); }   /* someone with no office role never asks the server */
+  /* the Operations Board's row: how many things on this tab need this person. Owners count everything; a coordinator counts what
+     they can do (payment ticks, invitations that didn't go, payer needed). Nobody else asks the server. */
   async function needs(){
-    if(!owner()) return { n:0 };
+    if(!office()) return { n:0 };
     if(!ST.data || ST.data.error){ ST.data = await call({ action:'list' }); try{ draw(); }catch(e){} }
     if(!ST.data || ST.data.error) return { n:0, err:true };
     const p = needParts(ST.data);
-    return { n:p.toApprove.length + p.toReview.length + p.toTick.length + p.toFinish.length + p.failed.length + p.pn.size };
+    return { n:(owner() ? p.toApprove.length + p.toReview.length + p.toFinish.length : 0) + p.toTick.length + p.failed.length + p.pn.size };
   }
   window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
     view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
