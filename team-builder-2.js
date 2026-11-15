@@ -433,7 +433,8 @@
         const mv = (d, l) => '<button class="cara-btn ghost tb2-mv" title="' + (d < 0 ? 'Move up' : 'Move down') + '" style="font-size:11px;padding:1px 6px;" onclick="tb2Move(\'' + esc(key) + '\',\'' + esc(p.pid) + '\',' + d + ')">' + l + '</button>';
         return '<div class="tb2-person" data-pid="' + esc(p.pid) + '" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);">'
           + '<span class="tb2-rank" style="min-width:34px;font-weight:800;color:' + (i === 0 ? 'var(--navy)' : 'var(--text-muted)') + ';">' + ORD(i + 1) + '</span>'
-          + '<span style="display:inline-flex;gap:3px;min-width:58px;">' + (i > 0 ? mv(-1, '↑') : '') + (i < list.length - 1 ? mv(1, '↓') : '') + '</span>'
+          /* 2026-11-14 (Simpler Scheduling): the ↑ ↓ arrows show after "Change the order" */
+          + (TB.reorder ? '<span style="display:inline-flex;gap:3px;min-width:58px;">' + (i > 0 ? mv(-1, '↑') : '') + (i < list.length - 1 ? mv(1, '↓') : '') + '</span>' : '')
           + '<b style="min-width:120px;">' + esc(p.name) + '</b>'
           + (ob ? '<span class="tag-chip" style="background:#F3EEFF;color:#7C3AED;font-weight:700;">' + esc(ob) + '</span>' : '')
           + '<span class="tag-chip" style="background:' + a[2] + ';color:' + a[1] + ';font-weight:700;">' + a[0] + '</span>'
@@ -444,8 +445,8 @@
           + (ask ? '<details style="flex-basis:100%;font-size:12px;"><summary style="cursor:pointer;color:var(--teal);font-weight:700;">The text we sent</summary><div style="white-space:pre-wrap;background:#F8FAFC;border:1px solid var(--border);border-radius:8px;padding:6px 9px;margin-top:4px;">' + esc(ask.text) + '</div></details>' : '')
           + '</div>';
       }).join('')
-      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">' + (list.filter(p => !onboardingNote(p) && p.status !== 'yes').length > 1 ? '<button class="cara-btn tb2-textall" style="font-size:11.5px;" onclick="tb2TextSeveral(\'' + esc(key) + '\')">💬 Text everyone on this shift</button>' : '')
-      + '<span class="field-note" style="font-size:11px;">Add more people from the list below. The 1st choice is who you ask first; use ↑ ↓ to change the order. If the 1st choice says No, the next choice moves up. A Yes is always 1st; only one Yes per shift. Someone still onboarding can be ranked and marked Yes; the shift goes into AxisCare once they’re approved.</span></div></div>';
+      + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;">' + (list.length > 1 ? '<a href="javascript:void(0)" class="tb2-reorder" style="font-size:12px;" onclick="TB.reorder=!TB.reorder;tbRender()">' + (TB.reorder ? 'Done changing the order' : 'Change the order') + '</a>' : '')
+      + '<span class="field-note" style="font-size:11px;">Add more people from the list below. The 1st choice is who you ask first. If the 1st choice says No, the next choice moves up. A Yes is always 1st; only one Yes per shift. Someone still onboarding can be ranked and marked Yes; the shift goes into AxisCare once they’re approved.</span></div></div>';
   }
   /* ── TEXT SEVERAL AT ONCE (2026-10-06, Samantha: "build texting several people at once"). One window: everyone on the
      board who can be texted (on the roster, not already a Yes), each with the shifts they're listed on. One message;
