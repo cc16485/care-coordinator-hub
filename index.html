@@ -7593,7 +7593,7 @@ The HomeTogether team</pre>
 <script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=7"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=9"></script>
+<script src="team-builder-2.js?v=10"></script>
 <script src="open-hours.js?v=5"></script>
 <script src="scheduling-guide.js?v=6"></script>
 <script src="new-hires.js?v=5"></script>
@@ -7611,7 +7611,7 @@ The HomeTogether team</pre>
 <script src="hepb-card.js?v=3"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
 <script src="client-journey.js?v=25"></script><script src="getting-ready-table.js?v=2"></script><!-- 2026-11-03: Getting ready as one table (switch getting_ready_table_live) -->
-<script src="caregiver-matching.js?v=1"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
+<script src="caregiver-matching.js?v=2"></script><!-- Start of Care stage C (2026-10-17): Find Caregivers, shortlist, family preference, conflicts across plans, the recheck rule -->
 <script src="client-care.js?v=7"></script>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
@@ -39984,7 +39984,7 @@ function tbRender(){
 function tbHomeHtml(){
   var plans=tbPlans().slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
   var h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
-    +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care team plan</button>'
+    +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care plan</button>'
     +'<span class="field-note" style="max-width:60ch;">The chart you used to draw on paper: shifts down the side, days across the top, pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed.</span>'
     +'</div><div id="tbNewFormBox"></div>'
     +(typeof OPH!=='undefined'?OPH.earlierHtml():'');
@@ -40000,31 +40000,26 @@ function tbHomeHtml(){
       +tbJourneyChip(p.id)
       +(p.status==='done'?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ complete</span>':'')
       +'<span style="flex:1;"></span>'
-      +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the board →</button>'
+      +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the chart →</button>'
       +'</div>';
   }).join('');
   return h;
 }
 function tbNewForm(){
+  /* 2026-11-14 (Simpler Scheduling, her picks): ask only who, which town, which days (and the level if known). The plan
+     starts with one 9 to 5 shift; add and change shifts right on the chart. No presets, no My Work project from here. */
   var box=document.getElementById('tbNewFormBox'); if(!box) return;
   box.innerHTML='<div class="card" style="padding:14px 18px;margin:0 0 12px;">'
-    /* 2026-10-12 (her ask): a plan can be open hours with no client yet, to ask the whole team who wants them */
-    +'<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;"><span class="field-note" style="font-weight:700;">This plan is for:</span>'
-    +'<button type="button" class="fb active" id="tb-for-client" onclick="tbForPick(false)">A client</button>'
-    +'<button type="button" class="fb" id="tb-for-open" onclick="tbForPick(true)">Open hours, no client yet</button></div>'
-    +'<div style="display:grid;grid-template-columns:1.4fr 1fr .8fr 1fr;gap:8px;">'
-    +'<input id="tb-client" placeholder="Client name (doesn\'t need to be in AxisCare)">'
+    +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;">'
+    +'<input id="tb-client" placeholder="Who is it for? (doesn\'t need to be in AxisCare)">'
     +'<input id="tb-townzip" placeholder="Town & zip, e.g. Mount Vernon 65712">'
-    +'<select id="tb-level"><option value="">Level?</option><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>'
-    +'<select id="tb-pattern">'+Object.keys(TB_PATTERNS).map(function(k){ return '<option value="'+k+'">'+TB_PATTERNS[k].label+'</option>'; }).join('')+'</select>'
+    +'<select id="tb-level"><option value="">Level, if known</option><option value="1">Level 1</option><option value="2">Level 2</option><option value="3">Level 3</option></select>'
     +'</div>'
     +'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">'
     +'<span class="field-note" style="font-weight:700;">Days:</span>'
     +TB_DAYS.map(function(d){ return '<button type="button" class="fb active" data-tbday="'+d+'" onclick="this.classList.toggle(\'active\')">'+TB_DAYL[d]+'</button>'; }).join('')
     +'<span style="flex:1;"></span>'
-    +'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px;font-weight:700;color:var(--navy);margin:0;"><input type="checkbox" id="tb-asproject" checked style="width:auto;margin:0;"> Put it on My Work as a project, ready by</label>'
-    +'<input type="date" id="tb-ready" value="'+(function(){ var d=new Date(); d.setDate(d.getDate()+7); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })()+'" style="width:auto;font-size:12.5px;">'
-    +'<button class="addlead" onclick="tbCreate()">Create the board</button>'
+    +'<button class="addlead" onclick="tbCreate()">Start the chart</button>'
     +'</div></div>';
 }
 function tbForPick(open){
@@ -40034,7 +40029,7 @@ function tbForPick(open){
   if(open&&pat) pat.value='halves';
 }
 async function tbCreate(){
-  var openHours=!!(document.getElementById('tb-for-open')&&document.getElementById('tb-for-open').classList.contains('active'));
+  var openHours=false;   /* the form no longer offers open hours (2026-11-14); Message caregivers at the top of Scheduling asks about a new client */
   var client=document.getElementById('tb-client').value.trim();
   if(!client&&!openHours){ alert('Whose care are we building?'); return; }
   var tz=document.getElementById('tb-townzip').value.trim();
@@ -40044,7 +40039,7 @@ async function tbCreate(){
   if(openHours&&!client) client='Open hours, '+city;
   var days=[].slice.call(document.querySelectorAll('[data-tbday].active')).map(function(b){ return b.getAttribute('data-tbday'); });
   if(!days.length){ alert('Pick at least one day.'); return; }
-  var pat=TB_PATTERNS[document.getElementById('tb-pattern').value]||TB_PATTERNS.twelves;
+  var patEl=document.getElementById('tb-pattern'), pat=(patEl&&TB_PATTERNS[patEl.value])||TB_PATTERNS.custom;
   var p={ id:'tb'+Date.now(), client:client, city:city||null, zip:zip||null, open_hours:openHours||undefined,
     level:document.getElementById('tb-level').value||null,
     days:days, slots:JSON.parse(JSON.stringify(pat.slots)), cells:{},
@@ -40053,9 +40048,7 @@ async function tbCreate(){
   DATA.staffing_plans=DATA.staffing_plans||[]; DATA.staffing_plans.push(p);
   await persist('staffing_plans',p);
   TB.planId=p.id; TB.cellOpen=null;
-  /* 2026-10-06: a new plan goes on My Work as a project unless the box is unticked */
-  var asP=document.getElementById('tb-asproject'), rdy=document.getElementById('tb-ready');
-  if(asP&&asP.checked&&typeof tb2MakeProject==='function') await tb2MakeProject(p.id,{ ready_by:(rdy&&rdy.value)||'' });
+  /* 2026-11-14: no My Work project from here any more (her picks) */
   tbRender(); swRenderBar();
 }
 function tbOpen(id){ TB.planId=id; TB.cellOpen=null; TB.linkOpen=false; TB.linkMsg=''; tbRender(); }
@@ -40155,30 +40148,86 @@ function tbBoardHtml(plan){
     +'<span class="field-note">'+esc([plan.city,tbLevel(plan)?('Level '+tbLevel(plan)+(tbLevelFromAx(plan)?' (from AxisCare)':' (typed; not in AxisCare yet)')):''].filter(Boolean).join(' · '))+'</span>'
     +'<span style="font-size:12.5px;"><b style="color:var(--green);">'+yes+'</b>/'+total+' confirmed'+(gaps?' · <b style="color:var(--red);">'+gaps+' gap'+(gaps===1?'':'s')+'</b>':' · 🎉 every slot filled')+'</span>'
     +'<span style="flex:1;"></span>'
-    +(gaps?'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbFlagGaps()">Flag gaps to recruiting</button>':'')
     +(yes===total&&total>0?'<button class="addlead" style="font-size:12px;" onclick="tbComplete()">✓ Plan complete, show the summary</button>':'')
     +'</div>'
-    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">'
-    +(typeof tb2ProjectBox==='function'?tb2ProjectBox(plan):'')
-    +tbJourneyChip(plan.id)
-    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbLinkToggle()">'+(tbJourneyOf(plan.id)?'Change Journey':'Link to a Journey')+'</button>'
-    +'<div id="famTb" style="flex-basis:100%;"></div>'
-    +(TB.linkMsg?'<span class="field-note" style="font-size:12px;">'+esc(TB.linkMsg)+'</span>':'')
-    +'</div>'
-    +(TB.linkOpen?'<div class="card" style="padding:10px 12px;margin:0 0 10px;">'
-      +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><b style="font-size:13px;color:var(--navy);">Whose care is this plan for?</b>'
-      +'<input placeholder="Search by name" value="'+esc(TB.linkQ||'')+'" oninput="tbLinkFilter(this.value)" style="flex:1;max-width:260px;font-size:12.5px;"></div>'
-      +'<div class="field-note" style="font-size:11.5px;margin-bottom:4px;">Pick the person this plan is really for: the inquiry that started it, or a current client. A plan can be moved later only by Owner / Decision, and never after its shifts are on that Journey.</div>'
-      +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
-    +(typeof tb2OnboardHtml==='function'?tb2OnboardHtml(plan):'')   /* 2026-10-14: onboarding for this client, the goal and each stage */
-    +(typeof tb2ReadinessHtml==='function'?tb2ReadinessHtml(plan)+(plan.open_hours?'':tb2NeedsHtml(plan)):'')
-    +(typeof OPH!=='undefined'&&!TB.profileRoot?OPH.boxHtml(plan):'')
+    /* SIMPLER SCHEDULING (2026-11-14, her picks): the chart with what the client needs on top and one way to message
+       caregivers. The My Work project, Journey link and onboarding goal boxes and the readiness chips are gone from here
+       (each row still says how many are confirmed); the shortlist, family preference, the whole-team text with answers
+       sorted onto the chart, and Flag gaps are under More. */
+    +(plan.open_hours?'':(typeof tb2NeedsHtml==='function'?tb2NeedsHtml(plan):''))
+    +(TB.profileRoot?'':tbAskHtml(plan))
     +'<div class="card" style="padding:8px;overflow-x:auto;">'+grid+'</div>'
     +(teamRows?'<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;"><span class="field-note" style="font-weight:700;">The team so far:</span>'+teamRows+'</div>':'')
+    +(TB.profileRoot?'':tbMoreHtml(plan,gaps))
     +'<div id="tbAssign" style="margin-top:10px;">'+(TB.cellOpen?tbAssignHtml(plan,TB.cellOpen):'<div class="field-note">Click any cell to pencil someone in. Click a filled cell to update or move them.</div>')+'</div>'
     +'<div class="field-note" style="margin-top:8px;">Nothing here touches AxisCare until the plan is complete and you confirm its schedules in the preview.</div>'
     +(plan.axiscare_push&&(plan.axiscare_push.created||[]).length?'<div class="field-note" style="margin-top:4px;color:var(--teal);">Sent to AxisCare '+esc(lpscDate(String(plan.axiscare_push.at).slice(0,10)))+' by '+esc(lpscName(plan.axiscare_push.by))+' ('+plan.axiscare_push.created.length+' schedule'+(plan.axiscare_push.created.length===1?'':'s')+'). <button class="linklike" style="font-size:12px;" onclick="tbComplete()">Open</button></div>':'')
     +tbNotesHtml(plan);
+}
+/* Care planning (2026-11-14, Simpler Scheduling): ONE way to message caregivers about a plan's hours. It opens the same
+   Ask caregivers panel as an open shift (worked with, right level, whole team), on a new-client message made from the
+   plan: the town, the days, and the first start to the last end. The client is never named in the text. Replies come
+   back on that message; pencil the people who say yes onto the chart. */
+var TB_ASK_OPEN={};
+function tbAskCase(plan){
+  return (DATA.coverage_cases||[]).find(function(c){ return c&&c.status==='open'&&String(c.kind)==='interest'&&c.open_hours!==true&&String(c.plan_id||'')===String(plan.id); })||null;
+}
+function tbAskHtml(plan){
+  var c=tbAskCase(plan), open=!!TB_ASK_OPEN[plan.id];
+  var A=c?(c.asked||[]):[], yes=A.filter(function(a){ return a.state==='yes'; });
+  var h='<div class="card" style="padding:10px 14px;margin:0 0 10px;border-left:4px solid var(--teal);">'
+    +'<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">'
+    +'<button class="cara-btn" data-tb-ask="'+esc(plan.id)+'" onclick="tbAskToggle(\''+esc(plan.id)+'\')">💬 Message caregivers about these hours</button>'
+    +(c?'<span class="field-note">'+A.length+' asked'+(yes.length?', <b style="color:var(--green);">'+yes.length+' said yes</b> ('+yes.map(function(a){ return esc(String(a.name||'').split(/\s+/)[0]); }).join(', ')+')':'')+'</span>'
+       :'<span class="field-note">Worked with the client, the right level, or the whole team. You pick who gets it.</span>')
+    +'</div>';
+  if(open&&window.AP){
+    if(!c) h+='<div class="field-note" style="margin-top:8px;">Getting the message ready…</div>';
+    else h+=AP.html(c)+(A.length?'<div style="margin-top:8px;font-weight:700;font-size:13px;color:var(--navy);">Who we asked</div>'+covOutreachHtml(c):'')
+      +'<div style="margin-top:6px;"><a href="javascript:void(0)" class="field-note" onclick="tbAskClose(\''+esc(plan.id)+'\')">Done asking about these hours: close the message</a></div>';
+  }
+  return h+'</div>';
+}
+async function tbAskToggle(id){
+  var plan=(DATA.staffing_plans||[]).find(function(p){ return p&&p.id===id; }); if(!plan) return;
+  TB_ASK_OPEN[id]=!TB_ASK_OPEN[id]; tbRender();
+  if(!TB_ASK_OPEN[id]||tbAskCase(plan)) return;
+  if(!plan.city&&!plan.zip){ TB_ASK_OPEN[id]=false; tbRender(); alert('Which town are these hours in? Add the town to the plan first; the text names the town.'); return; }
+  var slots=(plan.slots||[]).filter(function(x){ return /^\d\d:\d\d$/.test(String(x.start||''))&&/^\d\d:\d\d$/.test(String(x.end||'')); });
+  var start=slots.map(function(x){ return x.start; }).sort()[0]||'', end=slots.map(function(x){ return x.end; }).sort().slice(-1)[0]||'';
+  var f=(window.AS&&AS.interestFields)?AS.interestFields({ name:plan.client||'Care plan', town:[plan.city||'',plan.zip||''].join(' ').trim(), days:plan.days||[], start:start, end:end }):null;
+  if(!f){ TB_ASK_OPEN[id]=false; tbRender(); return; }
+  var c=Object.assign({ id:uid(), status:'open', asked:[], opened_at:new Date().toISOString(), opened_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'',
+    resolved_at:null, resolved_how:null, covered_by:null, note:'From the Care planning chart.', plan_id:plan.id }, f);
+  if(plan.level) c.client_level=Number(plan.level)||undefined;
+  DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
+  try{ opEvent('coverage_interest_opened',{ item_id:c.id, area:'coverage', summary:'Interest check opened from Care planning: '+c.client }); }catch(e){}
+  try{ await persist('coverage_cases',c); }catch(e){ alert('That did not save: '+String((e&&e.message)||e)); }
+  tbRender();
+}
+function tbAskClose(id){
+  var plan=(DATA.staffing_plans||[]).find(function(p){ return p&&p.id===id; }), c=plan?tbAskCase(plan):null;
+  TB_ASK_OPEN[id]=false; if(c) covResolve(c.id,'uncovered'); tbRender();
+}
+/* Everything else on a plan, one click away */
+function tbMoreHtml(plan,gaps){
+  return '<details class="card" style="padding:8px 14px;margin-top:10px;"'+(TB.moreOpen?' open':'')+' ontoggle="TB.moreOpen=this.open">'
+    +'<summary class="field-note" style="cursor:pointer;font-weight:700;">More for this plan<!--cm-sum--></summary>'
+    +'<!--cm-more-->'
+    +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">'
+    +(gaps?'<button class="cara-btn ghost" style="font-size:12px;" onclick="tbFlagGaps()">Flag gaps to recruiting</button>':'')
+    +tbJourneyChip(plan.id)
+    +'<button class="cara-btn ghost" style="font-size:11.5px;" onclick="tbLinkToggle()">'+(tbJourneyOf(plan.id)?'Change who this plan is for':'Who is this plan for?')+'</button>'
+    +(TB.linkMsg?'<span class="field-note" style="font-size:12px;">'+esc(TB.linkMsg)+'</span>':'')
+    +'</div>'
+    +(TB.linkOpen?'<div class="card" style="padding:10px 12px;margin:8px 0 10px;">'
+      +'<div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;"><b style="font-size:13px;color:var(--navy);">Whose care is this plan for?</b>'
+      +'<input placeholder="Search by name" value="'+esc(TB.linkQ||'')+'" oninput="tbLinkFilter(this.value)" style="flex:1;max-width:260px;font-size:12.5px;"></div>'
+      +'<div class="field-note" style="font-size:11.5px;margin-bottom:4px;">Pick the person this plan is really for: the inquiry that started it, or a current client. A plan can be moved later only by Owner / Decision, and never after its shifts are on that Journey.</div>'
+      +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
+    +'<div id="famTb" style="margin-top:8px;"></div>'
+    +(typeof OPH!=='undefined'?'<div style="margin-top:8px;">'+OPH.boxHtml(plan)+'</div>':'')
+    +'</details>';
 }
 /* Shared, append-only notes on a plan — the whole office collaborates here
    (moves off other clients, preferences, any detail worth knowing). Everyone
@@ -40285,7 +40334,10 @@ function tbPoolListHtml(plan,key){
       +(x.cg.axiscare_id
           ?'<b style="min-width:130px;cursor:pointer;color:var(--navy);" role="link" tabindex="0" title="Open their caregiver page" data-open-caregiver="'+esc(String(x.cg.axiscare_id))+'" data-open-tab="work">'+esc(x.cg.name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
           :'<b style="min-width:130px;">'+esc(x.cg.name)+'</b>')
-      +'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>'
+      /* 2026-11-14 (Simpler Scheduling): the first note shows; the rest open with "why" */
+      +(flags.length>1
+        ?'<details style="flex:1;min-width:200px;"><summary class="field-note" style="cursor:pointer;">'+flags[0]+' <span style="color:var(--teal);font-weight:700;">· why</span></summary><div class="field-note" style="margin-top:3px;">'+flags.slice(1).join(' · ')+'</div></details>'
+        :'<span class="field-note" style="flex:1;">'+flags.join(' · ')+'</span>')
       +(drvNo?'<button class="cara-btn ghost" style="font-size:11.5px;" disabled title="'+esc(drvNo)+'">Not available</button>'
         :'<button class="cara-btn" style="font-size:11.5px;" onclick="'+(typeof tb2AddPool==='function'?'tb2AddPool':'tbAssignPool')+'(\''+esc(key)+'\','+x.i+')">'+((plan.cells||{})[key]?'Add to this shift':'Pencil in')+'</button>')
       +'</div>';
@@ -42340,6 +42392,7 @@ function covClosedBody(c,tallies){
 }
 
 function renderCoverage(){
+  if(typeof activeTab!=='undefined'&&activeTab==='teambuilder'&&typeof tbRender==='function'){ try{ tbRender(); }catch(e){} return; }   /* Care planning's Ask panel (2026-11-14) */
   try{ if(window.AS) AS.render(); }catch(e){ console.warn('[message caregivers]', e); }   /* Message caregivers (ask-start.js), above everything on this tab */
   cipEnsureForCases();
   caraRenderCC();

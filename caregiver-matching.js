@@ -70,7 +70,7 @@
     await persist('staffing_plans', p);
     /* linked to the lead's journey, so the plan follows them into AxisCare (the old "Link to a Journey", done for you) */
     if(l){ const ep = await episodeOfLead(l.id); if(ep && typeof tbLinkPlan === 'function'){ try{ await tbLinkPlan(p.id, ep); }catch(e){} } }
-    if(typeof ccToast === 'function') ccToast('Started ' + p.client + '\'s Caregiver Matching plan from what the lead says. Check the days and times.');
+    if(typeof ccToast === 'function') ccToast('Started ' + p.client + '\'s Care planning chart from what the lead says. Check the days and times.');
     if(typeof cpRenderTeam === 'function') cpRenderTeam();
   }
 
@@ -172,7 +172,13 @@
     if(window.__cmInstalled || typeof tbBoardHtml !== 'function' || typeof tbCellFit !== 'function') return;
     window.__cmInstalled = true;
     const origBoard = window.tbBoardHtml;
-    window.tbBoardHtml = function(plan){ return topHtml(plan) + origBoard(plan); };
+    /* 2026-11-14 (Simpler Scheduling): the shortlist, the family's preference, rechecks and "planned in two places" sit
+       under "More for this plan"; its label says how many yeses need a recheck */
+    window.tbBoardHtml = function(plan){
+      const h = origBoard(plan), rc = checksOn() ? rechecksOf(plan).length : 0;
+      if(h.indexOf('<!--cm-more-->') < 0) return topHtml(plan) + h;
+      return h.replace('<!--cm-more-->', topHtml(plan)).replace('<!--cm-sum-->', rc ? ' <span style="color:#9A6412;">· ' + rc + (rc === 1 ? ' yes needs' : ' yeses need') + ' a recheck</span>' : '');
+    };
     window.CM_ORIG_FIT = window.tbCellFit;
     /* the pencil list's fit adds other plans' shifts as conflicts (a warning while it is a pencil) */
     window.tbCellFit = function(cg, d, slot){
