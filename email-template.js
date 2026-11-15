@@ -135,18 +135,21 @@
     const c = String(code == null ? '' : code).trim().toUpperCase();
     return /^[A-Z0-9-]{3,20}$/.test(c) ? 'https://mo-care.com/referral-partners?p=' + c + '#referral-form' : REFER_PLAIN;
   }
-  /* THE REFER A FRIEND LINE (Samantha 2026-11-15, "yes 1"): one warm line under client, family and caregiver notes.
-     A caregiver with a Friends & Family code (opts.friendCode) gets their own page; a caregiver without one gets nothing yet.
-     Clients and families (her word 2026-11-15: "i want families to also have their own link") get their own page when
-     they have a Friends & Family code; everyone else (a Medicaid family, or one not invited yet) gets a kind word with our
-     number and no money or program details, since the reward is private pay only. */
+  /* THE REFER A FRIEND LINE (Samantha 2026-11-15: "yes 1", "i want families to also have their own link", "eveyone should
+     have a link"): one warm line under client, family and caregiver notes, pointing to the person's own Refer a Friend
+     page (opts.friendCode; the sender makes the code if they had none). Only when no code could be made, a kind word
+     with our number. The CDS note sits in small print at the very bottom ("not a main point"). */
   const FRIEND_PAGE = 'https://mo-care.com/refer-a-friend/?p=';
+  const CDS_NOTE = 'If you refer someone to our CDS program, we can\u2019t pay a reward, since CDS is a Medicaid program.';
+  const friendAud = e => !!e && (e.aud === 'caregivers' || e.aud === 'clients' || e.aud === 'client_contacts');
+  const friendOk = code => /^[A-Z0-9-]{3,20}$/.test(String(code == null ? '' : code).trim().toUpperCase());
   function friendLine(e, code) {
-    const c = String(code == null ? '' : code).trim().toUpperCase(), ok = /^[A-Z0-9-]{3,20}$/.test(c);
-    if (e && e.aud === 'caregivers') return ok ? 'Know a family who could use help at home, or someone who would be a great caregiver? <a href="' + FRIEND_PAGE + c + '" style="color:' + TEAL + ';font-weight:700;">Your Refer a Friend page</a> has your own link to share.' : '';
-    if (e && (e.aud === 'clients' || e.aud === 'client_contacts') && ok) return 'Know someone who could use a little extra help at home? <a href="' + FRIEND_PAGE + c + '" style="color:' + TEAL + ';font-weight:700;">Your Refer a Friend page</a> has your own link to share.';
-    if (e && (e.aud === 'clients' || e.aud === 'client_contacts')) return 'Know someone who could use a little extra help at home? We would be glad to talk with them. They can call us at <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>.';
-    return '';
+    if (!friendAud(e)) return '';
+    const c = String(code == null ? '' : code).trim().toUpperCase(), ok = friendOk(c);
+    const link = ok ? '<a href="' + FRIEND_PAGE + c + '" style="color:' + TEAL + ';font-weight:700;">Your Refer a Friend page</a> has your own link to share.' : '';
+    if (e.aud === 'caregivers') return ok ? 'Know a family who could use help at home, or someone who would be a great caregiver? ' + link : '';
+    return ok ? 'Know someone who could use a little extra help at home? ' + link
+      : 'Know someone who could use a little extra help at home? We would be glad to talk with them. They can call us at <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>.';
   }
   function build(e, opts) {
     opts = opts || {};
@@ -195,6 +198,7 @@
       + '<div style="font-family:' + SANS + ';font-size:12.5px;line-height:1.6;color:#c3cdd6;">' + ADDRESS + ' &middot; <a href="tel:4172348494" style="color:#F5D061;text-decoration:none;white-space:nowrap;">' + PHONE + '</a> &middot; <a href="https://mo-care.com" style="color:#c3cdd6;">mo-care.com</a></div>'
       + '<div style="border-top:1px solid #2b527a;margin:14px 0 12px;font-size:0;line-height:0;">&nbsp;</div>'
       + '<div style="font-family:' + SANS + ';font-size:12px;line-height:1.6;color:#9fb0c0;">' + why + ' <a href="' + unsub + '" style="color:#ffffff;font-weight:700;">Unsubscribe</a></div>'
+      + (friendAud(e) && friendOk(opts.friendCode) ? '<div style="font-family:' + SANS + ';font-size:11.5px;line-height:1.6;color:#9fb0c0;margin-top:8px;">' + CDS_NOTE + '</div>' : '')
       + '</td></tr></table></td></tr></table></body></html>';
   }
   return { build, photoOf, festiveOf, referLink, friendLine, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };

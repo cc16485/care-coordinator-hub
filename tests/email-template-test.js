@@ -25,13 +25,13 @@ ck('...Thanksgiving, Christmas and New Year notes each get their own', ['g8:than
 ck('...and still shows its photo and every word', hol.every(([e, h]) => (!e.photo || h.includes('/photos/' + e.photo + '.jpg')) && h.includes(e.head) && (!e.cta || h.includes(e.cta.label))));
 ck('no other email gets any holiday dressing', plain.length >= 40 && plain.every(([e, h]) => !T.festiveOf(e) && !/\/festive\//.test(h)));
 ck('white button words can be read on every holiday color (contrast 4.5 or more)', Object.values(T.FESTIVE).every(t => [t.btn, t.accent].every(c => { const l = x => { const v = parseInt(x, 16) / 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); }; const L = .2126 * l(c.slice(1, 3)) + .7152 * l(c.slice(3, 5)) + .0722 * l(c.slice(5, 7)); return 1.05 / (L + .05) >= 4.5; })));
-{ /* the Refer a Friend line (2026-11-15, "yes 1" and "i want families to also have their own link") */
+{ /* the Refer a Friend line (2026-11-15: "yes 1", "i want families to also have their own link", "eveyone should have a link") */
   const cg = { aud:'caregivers', subj:'s', head:'h', blocks:[{ t:'p', text:'x' }] }, fam = Object.assign({}, cg, { aud:'client_contacts' }), lead = Object.assign({}, cg, { aud:'monthly' });
   const hc = T.build(cg, { friendCode:'AIMEE-K7' }), hn = T.build(cg, {}), hf = T.build(fam, { friendCode:'DANA-K7' }), hfn = T.build(fam, {}), hl = T.build(lead, { friendCode:'X-11' });
-  ck('caregiver with a code: their own Refer a Friend page', hc.includes('https://mo-care.com/refer-a-friend/?p=AIMEE-K7') && /would be a great caregiver/.test(hc));
-  ck('caregiver without a code: no line yet', !/Refer a Friend|great caregiver/.test(hn));
-  ck('family with a code: their own page; family without one: the kind word and our number, no money', hf.includes('refer-a-friend/?p=DANA-K7') && /We would be glad to talk with them/.test(hfn) && !/refer-a-friend|\$\d/.test(hfn));
-  ck('leads and partners never get it', !/Refer a Friend page|glad to talk with them/.test(hl));
+  ck('caregiver and family with a code: their own Refer a Friend page', hc.includes('https://mo-care.com/refer-a-friend/?p=AIMEE-K7') && /would be a great caregiver/.test(hc) && hf.includes('refer-a-friend/?p=DANA-K7'));
+  ck('the CDS note is small print at the very bottom, only with a link', /we can\u2019t pay a reward, since CDS is a Medicaid program/.test(hc) && hc.indexOf('CDS program') > hc.indexOf('Unsubscribe') && !/CDS program/.test(hfn));
+  ck('no code at all (the sender could not make one): a caregiver gets no line, a family the kind word with our number', !/Refer a Friend|great caregiver/.test(hn) && /We would be glad to talk with them/.test(hfn) && !/refer-a-friend|\$\d/.test(hfn));
+  ck('leads and partners never get it', !/Refer a Friend page|glad to talk with them|CDS program/.test(hl));
   ck('no em dash in the line', !/—/.test(hc + hfn));
 }
 const staffing = process.env.STAFFING || path.join(HUB, '..', 'Staffing-Coordinator-Hub'), theirs = path.join(staffing, 'supabase/functions/_shared/email-template.js');
