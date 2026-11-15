@@ -20,8 +20,8 @@
   'use strict';
   const DAY = 86400000;
   const e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const VIEW = { data: null, loading: false, err: '', notOn: false, askedAt: 0, view: 'needs', saving: {}, msg: '' };
-  const VIEWS = [['needs', 'Needs you'], ['answers', 'One-tap answers'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
+  const VIEW = { data: null, loading: false, err: '', notOn: false, askedAt: 0, view: 'needs', saving: {}, msg: '', note: '', dnrForm: '' };
+  const VIEWS = [['needs', 'Needs you'], ['answers', 'One-tap answers'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent'], ['dnr', "Don't send back"]];
   /* CARE & CONNECTION (2026-11-14): the smart-link check-ins (families now, caregivers later), from the same server.
      A link row's state: needs (a concern, nobody called yet), called, resolved (only with how they know it got better),
      happy, no_response (three days), waiting, not_sent. confirm: its card was closed in My Work but nobody confirmed. */
@@ -76,6 +76,47 @@
   };
   const markLine = (c, nowMs) => c.mark ? '<div class="field-note">' + e({ fine: 'Marked fine', call: 'Marked needs a call', called: 'Called' }[c.mark.state] || '') + ' by ' + e(c.mark.by) + ', ' + e(when(c.mark.at, nowMs)) + (c.mark.note ? ': ' + e(c.mark.note) : '') + '</div>' : '';
 
+  /* DON'T SEND BACK (Samantha 2026-11-15): "Needs to have a spot to check that we have marked as don't send back and have that
+     also happen in Axiscare". One tap on a check-in puts the caregiver + client on the Do-Not-Return log (every shift text
+     skips the pair) and writes an important note on both AxisCare profiles. AxisCare's own Caregiver Exclusions has to be
+     set by hand there, so each entry waits on "Set in AxisCare". */
+  const ASK = { caregiver: 'The caregiver', client: 'The client', family: 'The family' };
+  const dnrBtn = (c) => !c.client ? '' : c.dnr_id ? '<span class="chk-dnr" title="On the Do-Not-Return log">🚫 Not sending back</span>'
+    : '<button class="fb" onclick="CHK.noReturn(\'' + e(c.id) + '\')">Don\'t send back</button>';
+  function dnrForm(p, c) {
+    if (VIEW.dnrForm !== c.id) return '';
+    const busy = VIEW.saving['dnr:' + c.id];
+    return '<div class="chk-dnr-form" id="chkDnrForm"><b>Don\'t send ' + e(p.name) + ' back to ' + e(c.client) + '</b>'
+      + '<div class="field-note">Every shift text skips this pair, and an important note goes on both AxisCare profiles.</div>'
+      + '<label>Who asked <select id="chkDnrWho"><option value="">Pick one</option>' + Object.keys(ASK).map((k) => '<option value="' + k + '">' + ASK[k] + '</option>').join('') + '</select></label>'
+      + '<label>What they said <textarea id="chkDnrWhy" rows="2">' + e(c.reply ? c.reply.body : '') + '</textarea></label>'
+      + (busy ? '<span class="field-note">Saving…</span>' : '<button class="fb fb-primary" onclick="CHK.saveNoReturn(\'' + e(c.id) + '\')">Save</button> <button class="fb" onclick="CHK.noReturn(\'\')">Cancel</button>')
+      + '</div>';
+  }
+  const usDay = (iso) => { const ms = Date.parse(iso); return Number.isFinite(ms) ? new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Chicago' }) : ''; };
+  const noteState = (n) => !n ? '' : (n.client === 'sent' && n.caregiver === 'sent') ? '✓ notes on both AxisCare profiles'
+    : '⚠ AxisCare notes: client ' + (n.client === 'sent' ? 'sent' : 'not sent (' + n.client + ')') + ', caregiver ' + (n.caregiver === 'sent' ? 'sent' : 'not sent (' + n.caregiver + ')');
+  function dnrHtml(V) {
+    const list = (V.data && V.data.dnr) || [];
+    if (!list.length) return '<div class="empty">Nobody is marked "don\'t send back" yet. Use the button on a check-in answer, or the Do-Not-Return form on Care Match.</div>';
+    return list.map((r) => {
+      const busy = VIEW.saving['dnrrow:' + r.id], lifted = !!r.lifted_at;
+      const acts = lifted || busy ? (busy ? '<span class="field-note">Saving…</span>' : '')
+        : (r.axiscare_entered ? '' : '<button class="fb fb-primary" onclick="CHK.dnrSet(\'' + e(r.id) + '\')">Set in AxisCare ✓</button> ') + '<button class="fb" onclick="CHK.dnrLift(\'' + e(r.id) + '\')">Undo</button>';
+      return '<div class="chk-row' + (lifted ? ' chk-lifted' : '') + '"><span class="chk-dot" style="background:' + (lifted ? '#B4B2A9' : r.axiscare_entered ? '#1D9E75' : '#E24B4A') + '"></span><div class="chk-main">'
+        + '<b>' + e(r.caregiver) + '</b> does not go back to <b>' + e(r.client) + '</b>' + (lifted ? ' <span class="field-note">(lifted)</span>' : '')
+        + (r.reason ? '<div class="chk-reply">“' + e(r.reason) + '”</div>' : '')
+        + '<div class="field-note">' + e(r.asked_by ? ASK[r.asked_by] + ' asked' : 'Requested by ' + (r.requested_by || 'not set')) + (r.requested_at ? ', ' + e(usDay(r.requested_at)) : '')
+        + ' · marked by ' + e(r.logged_by || 'not set') + (r.logged_at ? ', ' + e(usDay(r.logged_at)) : '') + '</div>'
+        + (r.axiscare_notes ? '<div class="field-note">' + e(noteState(r.axiscare_notes)) + '</div>' : '')
+        + '<div class="field-note"' + (r.axiscare_entered || lifted ? '' : ' style="color:var(--red)"') + '>' + (r.axiscare_entered ? '✅ Set in AxisCare (Caregiver Exclusions)' + (r.axiscare_entered_by ? ' by ' + e(r.axiscare_entered_by) + (r.axiscare_entered_at ? ', ' + e(usDay(r.axiscare_entered_at)) : '') : '')
+          : lifted ? '' : 'Still to do: in AxisCare open ' + e(r.client) + ' → Caregiver Exclusions → add ' + e(r.caregiver) + ', then tick Set in AxisCare.') + '</div>'
+        + (lifted ? '<div class="field-note">Lifted ' + e(usDay(r.lifted_at)) + ' by ' + e(r.lifted_by) + (r.lifted_why ? ': ' + e(r.lifted_why) : '') + '. Shift texts can go to this pair again. If it was set in AxisCare, remove it there too.</div>' : '')
+        + '</div><div class="chk-acts">' + acts + '</div></div>';
+    }).join('');
+  }
+  const dnrToSet = (V) => ((V.data && V.data.dnr) || []).filter((r) => !r.lifted_at && !r.axiscare_entered).length;
+
   const ldot = (s) => '<span class="chk-dot" title="' + e(LDOT[s][1]) + '" style="background:' + LDOT[s][0] + '"></span>';
   /* the client's own check-in (2026-11-14) says "the client", never "Dorothy's family" */
   const famName = (l) => l.audience === 'caregiver' ? e([l.first, l.last].filter(Boolean).join(' ')) : l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
@@ -112,8 +153,8 @@
     if (!rows.length) return linkRows || '<div class="empty">Nothing waiting. Every reply has been read.</div>';
     return linkRows + rows.map(({ p, c }) => '<div class="chk-row">' + dot(stateOf(c))
       + '<div class="chk-main"><b>' + e(p.name) + '</b> <span class="field-note">' + (p.day != null ? 'day ' + e(p.day) + ' · ' : '') + e(c.label) + ' · answered ' + e(when(c.reply ? c.reply.at : c.sent_at, nowMs)) + '</span>'
-      + (c.reply ? '<div class="chk-reply">“' + e(c.reply.body) + '”</div>' : '') + markLine(c, nowMs) + '</div>'
-      + '<div class="chk-acts">' + markBtns(c) + ' ' + callBtn(p) + '</div></div>').join('');
+      + (c.reply ? '<div class="chk-reply">“' + e(c.reply.body) + '”</div>' : '') + markLine(c, nowMs) + dnrForm(p, c) + '</div>'
+      + '<div class="chk-acts">' + markBtns(c) + ' ' + dnrBtn(c) + ' ' + callBtn(p) + '</div></div>').join('');
   }
   function peopleHtml(people, nowMs, only90) {
     const list = only90 ? people.filter((p) => p.day != null && p.day >= 0 && p.day <= 90) : people;
@@ -132,9 +173,9 @@
     for (const p of people) for (const c of p.checkins) rows.push({ p, c });
     rows.sort((a, b) => String(b.c.sent_at).localeCompare(String(a.c.sent_at)));
     if (!rows.length) return '<div class="empty">No check-in texts on record yet.</div>';
-    return '<table class="chk-table"><thead><tr><th>Sent</th><th>To</th><th>Check-in</th><th>Answer</th></tr></thead><tbody>'
+    return '<table class="chk-table"><thead><tr><th>Sent</th><th>To</th><th>Check-in</th><th>Answer</th><th></th></tr></thead><tbody>'
       + rows.map(({ p, c }) => '<tr><td>' + e(when(c.sent_at, nowMs)) + '</td><td>' + e(p.name) + '</td><td>' + e(c.label) + '</td><td>'
-        + dot(stateOf(c)) + ' ' + (c.reply ? e(when(c.reply.at, nowMs)) : e(DOT[stateOf(c)][1])) + '</td></tr>').join('') + '</tbody></table>';
+        + dot(stateOf(c)) + ' ' + (c.reply ? e(when(c.reply.at, nowMs)) + ': ' + e(String(c.reply.body).slice(0, 60)) : e(DOT[stateOf(c)][1])) + dnrForm(p, c) + '</td><td>' + dnrBtn(c) + '</td></tr>').join('') + '</tbody></table>';
   }
   function html(V, nowMs) {
     if (V.notOn) return '<div class="card"><div class="empty">Check-ins is not switched on on the server yet. Run the Desktop step for it, then open this tab again.</div></div>';
@@ -142,13 +183,15 @@
     if (!V.data) return '<div class="card"><div class="empty">Loading check-ins…</div></div>';
     const people = V.data.people || [], n = counts(people, nowMs);
     const tile = (label, val, red) => '<div class="kpi"><div class="kl"><span>' + e(label) + '</span></div><div class="kv"' + (red && val ? ' style="color:var(--red)"' : '') + '>' + e(val == null ? '–' : val) + '</div></div>';
-    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'answers' ? familiesHtml(nowMs, 'caregiver') : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
+    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'answers' ? familiesHtml(nowMs, 'caregiver') : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : V.view === 'dnr' ? dnrHtml(V) : sentHtml(people, nowMs);
     return '<div class="chk-kpis">' + tile('Needs you', n.needs, true) + tile('In first 90 days', n.first90) + tile('Answered, last 30 days', n.answeredPct == null ? null : n.answeredPct + '%') + tile('No answer', n.noAnswer) + '</div>'
-      + '<div class="toolbar">' + VIEWS.map(([k, l]) => '<button class="filter-pill' + (V.view === k ? ' active' : '') + '" onclick="CHK.setView(\'' + k + '\')">' + e(l) + (k === 'needs' && n.needs ? ' (' + n.needs + ')' : '') + '</button>').join('')
+      + '<div class="toolbar">' + VIEWS.map(([k, l]) => '<button class="filter-pill' + (V.view === k ? ' active' : '') + '" onclick="CHK.setView(\'' + k + '\')">' + e(l) + (k === 'needs' && n.needs ? ' (' + n.needs + ')' : '') + (k === 'dnr' && dnrToSet(V) ? ' (' + dnrToSet(V) + ' to set in AxisCare)' : '') + '</button>').join('')
       + '<div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
       + (V.msg ? '<div class="field-note" role="alert" style="color:var(--red)">' + e(V.msg) + '</div>' : '')
+      + (V.note ? '<div class="field-note" role="status" style="color:var(--green,#1D9E75)">' + e(V.note) + '</div>' : '')
       + '<div class="card">' + body + '</div>'
-      + '<div class="chk-legend">' + (V.view === 'answers' ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ') : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>'
+      + (V.view === 'dnr' ? '' : '<div class="chk-legend">' + (V.view === 'answers' ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ') : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>')
+      + (V.view === 'dnr' ? '<p class="field-note">Every caregiver and client pair on the Do-Not-Return log, from this tab and from Care Match. While a pair is on it, no open shift, fill-in, on-call, PRN or follow-up text offers that client to that caregiver. Undo keeps the entry here, with who lifted it and why, and adds a note on both AxisCare profiles.</p>' : '')
       + '<p class="field-note">One-tap answers come from the caregiver check-in page (week 1, day 30, 60, 90, then every 3 months); a hard time or a call request makes a card. The texted check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Family and client check-ins are on Clients &gt; Check-ins. Nothing on this tab sends anything.</p>';
   }
   /** Clients > Check-ins: the family and client answers (Care &amp; Connection) */
@@ -211,9 +254,44 @@
     } catch (err) { VIEW.msg = 'Not saved: ' + String((err && err.message) || err); }
     delete VIEW.saving[id]; render();
   }
+  function noReturn(id) { VIEW.dnrForm = id || ''; VIEW.msg = ''; VIEW.note = ''; render(); }
+  async function saveNoReturn(id) {
+    const who = typeof document !== 'undefined' && document.getElementById('chkDnrWho') ? document.getElementById('chkDnrWho').value : '';
+    const why = typeof document !== 'undefined' && document.getElementById('chkDnrWhy') ? document.getElementById('chkDnrWhy').value.trim() : '';
+    if (!who) { VIEW.msg = 'Pick who asked: the caregiver, the client or the family.'; render(); return; }
+    let reqAt = '';
+    for (const p of (VIEW.data && VIEW.data.people) || []) for (const c of p.checkins) if (c.id === id && c.reply) reqAt = c.reply.at;
+    VIEW.saving['dnr:' + id] = true; VIEW.msg = ''; VIEW.note = ''; render();
+    try {
+      const j = await post({ no_return: { checkin_id: id, asked_by: who, note: why, requested_at: reqAt } });
+      const r = j.entry || {};
+      VIEW.dnrForm = '';
+      VIEW.note = j.already ? r.caregiver + ' and ' + r.client + ' were already on the Do-Not-Return log.'
+        : 'Saved: ' + r.caregiver + ' will not be offered ' + r.client + "'s shifts. " + (noteState(r.axiscare_notes) || '') + '. Last step: in AxisCare open ' + r.client + ' → Caregiver Exclusions → add ' + r.caregiver + ", then tick Set in AxisCare on the Don't send back list.";
+      delete VIEW.saving['dnr:' + id];
+      await load();
+      return;
+    } catch (err) { VIEW.msg = 'Not saved: ' + String((err && err.message) || err); }
+    delete VIEW.saving['dnr:' + id]; render();
+  }
+  async function dnrRow(id, body, done) {
+    VIEW.saving['dnrrow:' + id] = true; VIEW.msg = ''; VIEW.note = ''; render();
+    try { const j = await post(body); const list = (VIEW.data && VIEW.data.dnr) || [], i = list.findIndex((r) => r.id === id);
+      if (i >= 0 && j.entry) list[i] = Object.assign({}, list[i], j.entry); VIEW.note = done; }
+    catch (err) { VIEW.msg = 'Not saved: ' + String((err && err.message) || err); }
+    delete VIEW.saving['dnrrow:' + id]; render();
+  }
+  function dnrSet(id) { return dnrRow(id, { dnr_axiscare: { id } }, 'Marked as set in AxisCare.'); }
+  async function dnrLift(id) {
+    const why = typeof prompt === 'function' ? (prompt('Why is this lifted? (for example: "marked by mistake")') || '').trim() : '';
+    if (why.length < 4) { VIEW.msg = 'Undo needs a short reason.'; render(); return; }
+    await dnrRow(id, { dnr_lift: { id, why } }, 'Lifted. Shift texts can go to this pair again. If it was set in AxisCare, remove it from Caregiver Exclusions there too.');
+    for (const p of (VIEW.data && VIEW.data.people) || []) for (const c of p.checkins) if (c.dnr_id === id) c.dnr_id = '';
+    render();
+  }
   function show() { render(); if (!VIEW.loading && (!VIEW.askedAt || Date.now() - VIEW.askedAt > 300000)) load(); }
   /* any Caregivers tab: ask once in the background, so the pill's number is there before the tab is opened */
   function peek() { if (!VIEW.askedAt && !VIEW.loading) load(); }
   function setView(v) { VIEW.view = VIEWS.some(([k]) => k === v) ? v : 'needs'; render(); }
-  return { stateOf, needsYou, counts, html, clientHtml, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds };
+  return { stateOf, needsYou, counts, html, clientHtml, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds, noReturn, saveNoReturn, dnrSet, dnrLift, dnrHtml };
 });
