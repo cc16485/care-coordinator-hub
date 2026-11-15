@@ -8,7 +8,7 @@ ok('first three names, then "and 2 more"', r[1].sub === 'A, B, C and 2 more', r[
 ok('no names: the plain description', r[0].sub === 'From families and caregivers', r[0].sub);
 ok('each row knows its tab and button', r[1].tab === 'fccheck' && r[1].go === 'Open Family Circles' && r[2].tab === 'ops', r);
 ok('nothing found, no rows', B.rowsOf({}).length === 0 && B.rowsOf(null).length === 0);
-ok('a list that could not be read is named once', JSON.stringify(B.problemsOf({ circles:{ err:true }, partner_owner:{ err:true }, partner_link:{ err:true } })) === JSON.stringify(['Family Circles', 'Referral Partners']), B.problemsOf({ circles:{ err:true } }));
+ok('a list that could not be read is named once', JSON.stringify(B.problemsOf({ circles:{ err:true }, partner_owner:{ err:true }, partner_link:{ err:true } })) === JSON.stringify(['Family Circles', 'Referral Sources']), B.problemsOf({ circles:{ err:true } }));
 const r2 = B.rowsOf({ carematch:{ n:2, names:['A and B', 'C and D'] }, first_shift:{ n:1, names:['E'] }, no_checkin:{ n:3 }, no_review:{ n:1 }, ff_needs:{ n:2 } });
 ok('second slice rows, each with its own tab', JSON.stringify(r2.map(x => x.key + '>' + x.tab)) === JSON.stringify(['carematch>carematch', 'first_shift>clientqueue', 'no_checkin>clientsboard', 'no_review>clientsboard', 'ff_needs>friendsfamily']), r2);
 ok('website chats Cara could not answer go to the Ask Cara chats tab', B.rowsOf({ cara_missed:{ n:2 } })[0].tab === 'carachats');
