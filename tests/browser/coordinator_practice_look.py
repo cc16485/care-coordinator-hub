@@ -118,6 +118,7 @@ async()=>{
   ok('the Payors & Programs page is read: getting-started steps for all five paths', PG && ['private','guide','vacc','aa','ltc'].every(k=>PG[k].steps.length>=3), PG && Object.fromEntries(Object.entries(PG).map(([k,v])=>[k,v.steps.length+'/'+v.facts.length])));
   ok('...GUIDE steps are the page\'s own, in its order', PG.guide.steps[0].t==='Screen on the phone' && PG.guide.steps.some(x=>x.t==='Submit in Crosby Health by Friday noon'));
   ok('...VA is split into Community Care and Aid & Attendance', PG.vacc.steps.some(x=>/authorization/i.test(x.t)) && PG.aa.steps.some(x=>/Veterans Service Officer/.test(x.t)) && PG.aa.facts.some(f=>/surviving spouse/i.test(f)));
+  ok('...long-term care: only the 7 getting-started steps; the AxisCare payor steps become rules', PG.ltc.steps.length===7 && PG.ltc.steps[0].t==='Get the policy' && !PG.ltc.steps.some(x=>x.t==='Create the payor') && PG.ltc.facts.some(f=>/^Create the payor: /.test(f)), PG.ltc.steps.map(x=>x.t));
   ok('..."Still to confirm" lists are never used as rules', !Object.values(PG).some(v=>v.facts.some(f=>/HSRM sign-in and watches/.test(f))));
   const ps=CTP.progScenario('ltc');
   ok('a program scenario: the right step is the page\'s next step; the others are a later step or another program\'s step', ps.qs.every((q,i)=>q.opts.find(o=>o.ok).t===PG.ltc.steps[i].t && q.opts.filter(o=>!o.ok).every(o=>/comes later|is a step for/.test(o.why))));

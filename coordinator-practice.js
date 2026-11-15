@@ -153,9 +153,14 @@
         if (!el || el.tagName === 'H3') return;
         const b = bucketOf(sid, title); if (!b) return;
         el.querySelectorAll(':scope > li').forEach((li) => {
-          if (el.tagName === 'OL') {
+          /* only "Getting ... started" and "Helping ..." lists are a program's first steps; any other numbered list (for
+             example "Setting the carrier up as a payor in AxisCare", 2026-11-15) gives rules instead */
+          if (el.tagName === 'OL' && /^(getting|helping)\b/i.test(title)) {
             const t = clean((li.querySelector('b.t') || {}).textContent); if (!t) return;
             out[b].steps.push({ t, body: clean(li.textContent).replace(t, '').trim() });
+          } else if (el.tagName === 'OL') {
+            const t = clean((li.querySelector('b.t') || {}).textContent), x = clean(li.textContent).replace(t, '').trim();
+            if (t && x.length >= 25) out[b].facts.push(t + ': ' + x);
           } else { const x = clean(li.textContent); if (x.length >= 25) out[b].facts.push(x); }
         });
       });
