@@ -7525,7 +7525,7 @@ The HomeTogether team</pre>
 </div>
 
 <script src="verbs.js?v=3"></script><!-- one vocabulary for the event record (Phase 1, Slice 1); same file as the server's _shared/verbs.js -->
-<script src="email-template.js?v=2"></script><script src="email-library.js?v=1114e"></script>
+<script src="email-template.js?v=2"></script><script src="email-library.js?v=1114va"></script>
 <script src="qrcode.js?v=1"></script><!-- QR code of a signing link so a phone camera can open it (2026-10-09, MIT, vendored) -->
 <script src="lead-rules.js?v=24"></script>
 <script src="heard-about.js?v=1"></script><script>(function(){ var e=document.getElementById('lead_heard_about'); if(e&&window.HeardAbout) e.innerHTML=HeardAbout.optionsHtml(''); })();</script>
@@ -7596,7 +7596,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=8"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="campaigns-view.js?v=2"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="campaigns-view.js?v=3"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=5"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=2"></script>
@@ -7720,7 +7720,7 @@ CONFIG.supabase_anon_key = CONFIG.supabase_anon_key || 'eyJhbGciOiJIUzI1NiIsInR5
 // hub_portals list (a Team Hub record). Access itself is given from My Team here.
 const HUB_SLUG = 'care_coordinator';
 
-let DATA = { client_flag_normals: [], caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], nurse_staff: [], medicaid_plans: [], visit_watch: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
+let DATA = { client_flag_normals: [], caregivers: [], caregiver_overlay: [], caregiver_availability: [], coverage_do_not_offer: [], client_care_blurbs: [], client_profiles: [], ops_items: [], ops_settings: null, leads: [], care_assessments: [], care_plans: [], client_checkins: [], supervisory_visits: [], coordinator_staff: [], on_call_schedule: [], post_call_followups: [], referral_orgs: [], referral_activities: [], activities: [], handoffs: [], staffing_tasks: [], meetings: [], hometogether_orders: [], ht_tickets: [], campaign_log: [], va_series_progress: [], campaign_settings: [], feedback: [], ht_devices: [], consult_bookings: [], booking_settings: [], orient_sessions: [], corner_posts: [], corner_events: [], local_caregivers: [], local_families: [], pay_rates: [], client_rates: [], coverage_cases: [], nurse_clients: [], nurse_visits: [], nurse_staff: [], medicaid_plans: [], visit_watch: [], sop_library: [], dnr_log: [], care_plan_reviews: [], review_rules: [], role_profiles: [], responsibilities: [], recurring_duties: [], duty_windows: [], positions: [], role_permissions: [], automation_log: [] };
 /* Signed-in coordinator, resolved against Settings → Staff by sign-in email.
    shift: 'day' | 'evening' | 'manager'. Samantha is always the manager. */
 let ME = { email:'', name:'', shift:'day' };
@@ -7851,7 +7851,7 @@ async function loadAllData(){
   /* 'caregivers' is the Staffing hub's roster — same shared database. Loaded
      here since 2026-09-12 for the call-off shift picker (name + axiscare_id
      is all the picker reads). */
-  const keys = ['client_flag_normals','caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','nurse_staff','medicaid_plans','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching','overnight_handoff','recruit_posts'];
+  const keys = ['client_flag_normals','caregivers','caregiver_overlay','caregiver_availability','coverage_do_not_offer','client_care_blurbs','client_profiles','ops_items','ops_settings','leads','care_assessments','care_plans','client_checkins','supervisory_visits','coordinator_staff','on_call_schedule','post_call_followups','referral_orgs','referral_activities','activities','handoffs','staffing_tasks','meetings','attendance_events','discipline_actions','cc_goals','hometogether_orders','ht_tickets','campaign_log','va_series_progress','campaign_settings','feedback','ht_devices','consult_bookings','booking_settings','orient_sessions','corner_posts','corner_events','local_caregivers','local_families','interview_calendars','interview_outcomes','pay_rates','client_rates','coverage_cases','timekeeper_cases','evv_followups','evv_corrections','staffing_plans','op_routing','nurse_clients','nurse_visits','nurse_staff','medicaid_plans','visit_watch','sop_library','dnr_log','care_plan_reviews','review_rules','role_profiles','responsibilities','recurring_duties','duty_windows','positions','role_permissions','automation_log','call_lead_marks','phone_suppress','call_coaching','overnight_handoff','recruit_posts'];
   /* CC Office on the phone (2026-10-07): the same keys, read all at once, so the phone opens in a moment on a mobile
      connection instead of one read after another. The computer Hub reads them as before. */
   if(window.CC_PHONE) await Promise.all(keys.map(async key=>{
@@ -9373,7 +9373,7 @@ async function cmpAuthHeaders(){
   let tok=''; try{ const { data:{ session } } = await sb.auth.getSession(); tok=(session&&session.access_token)||''; }catch(e){}
   return tok?{'Content-Type':'application/json','Authorization':'Bearer '+tok}:{'Content-Type':'application/json'};
 }
-const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers']];
+const CMP_AUDS=[['monthly','📅 Monthly calendar'],['referrers','🤝 Referral partners'],['clients','💚 Current clients'],['client_contacts','👨‍👩‍👧 Client family contacts'],['caregivers','🧑‍⚕️ Our caregivers'],['va','🎖️ VA leads']];
 let cmpAud='monthly', cmpKey=null, cmpSending=false, cmpView='campaigns';
 function cmpLib(){ return (typeof CC_EMAIL_LIBRARY!=='undefined')?CC_EMAIL_LIBRARY:[]; }
 const CMP_WINDOWS={'Early January':['01-02','01-08'],'Late January':['01-20','01-26'],'Feb 7–13':['02-07','02-13'],'Late February':['02-20','02-26'],'Early March':['03-02','03-08'],'Mid March':['03-12','03-18'],'Early April':['04-02','04-08'],'Late April':['04-20','04-26'],'May 4–10':['05-04','05-10'],'Late May':['05-20','05-26'],'June 8–14':['06-08','06-14'],'Mid–Late June':['06-17','06-23'],'June 30–July 3':['06-30','07-03'],'Mid July':['07-12','07-18'],'Early August':['08-02','08-08'],'Late August':['08-20','08-26'],'Early September':['09-02','09-08'],'Late September':['09-20','09-26'],'Early–Mid October':['10-05','10-12'],'Late October':['10-20','10-26'],'Nov 10–18':['11-10','11-18'],'Around Nov 11':['11-09','11-12'],'Dec 15–22':['12-15','12-22'],'Dec 27–31':['12-27','12-31'],'January · Q1':['01-08','01-15'],'April · Q2':['04-08','04-15'],'July · Q3':['07-08','07-15'],'October · Q4':['10-08','10-15'],'Nov 20–27':['11-20','11-27'],'Dec 18–24':['12-18','12-24'],'Caregiver Appreciation Week':['05-11','05-17'],'Early November':['11-02','11-08'],'Early December':['12-02','12-08']};
@@ -9459,7 +9459,7 @@ function renderAutopilot(){
      a leap of faith, and the monthly one now stands aside for anyone already
      in a drip, which is worth seeing rather than wondering about. */
   + '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:11px;border-top:1px solid var(--border);padding-top:9px;font-size:13px;">'
-  + CMP_AUDS.filter(a=>a[0]!=='referrers').map(function(a){
+  + CMP_AUDS.filter(a=>a[0]!=='referrers'&&a[0]!=='va').map(function(a){
       const c=cmpAudienceCount(a[0]);
       return '<span><b style="color:var(--navy);">'+(c.n==null?'':c.n)+'</b> '+tkEsc(a[1].replace(/^\S+\s/,''))
         + (c.note?'<span class="field-note"> · '+tkEsc(c.note)+'</span>':'')+'</span>';

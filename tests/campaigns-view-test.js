@@ -68,7 +68,7 @@ ck('...a run that reached nobody is not shown as sent', G.emails.every((e) => !e
 
 const h = C.html(I, { open: { 'partner:left': true }, pick: 'partner' });
 const hL = C.html(I, { open: {}, pick: 'leads' }), hG = C.html(I, { open: {}, pick: 'caregivers' }), hC = C.html(I, { open: {}, pick: 'clients' });
-ck('a row of buttons names every campaign with ON or OFF and how many are in it', (h.match(/data-pick=/g) || []).length === 4 && /Partner series<div[^>]*>ON · 3 in it/.test(h) && /Monthly email to open leads<div[^>]*>ON · 2 in it/.test(h) && /Caregiver holiday notes<div[^>]*>ON · 2 in it/.test(h) && /Client and family holiday notes<div[^>]*>OFF · by hand only/.test(h));
+ck('a row of buttons names every campaign with ON or OFF and how many are in it', (h.match(/data-pick=/g) || []).length === 5 && /Partner series<div[^>]*>ON · 3 in it/.test(h) && /Monthly email to open leads<div[^>]*>ON · 2 in it/.test(h) && /Caregiver holiday notes<div[^>]*>ON · 2 in it/.test(h) && /Client and family holiday notes<div[^>]*>OFF · by hand only/.test(h));
 ck('only the picked campaign is on the page, so there is nothing to scroll past', (h.match(/data-campaign=/g) || []).length === 1 && /data-campaign="partner"/.test(h) && !/Home for the holidays/.test(h) && /data-campaign="leads"/.test(hL) && !/Partner email 1/.test(hL) && /data-campaign="caregivers"/.test(hG) && /data-campaign="clients"/.test(hC));
 ck('the picked campaign says what it is, who gets it and when the next one goes', /Who gets it:/.test(h) && /Next send:/.test(h) && />ON</.test(h));
 ck('...its emails with results and who is in it are open from the start; "no longer in it" opens on a press', /Partner email 1/.test(h) && /2<\/b> opened/.test(h) && /Birch Pointe/.test(h) && /Emails? 1 of 6/.test(h) && /Wrote back/.test(h) && /now a full partner/.test(h) && !/became a client/.test(hL) && /Lee Park/.test(hL) && /Ruth Able/.test(hG));
@@ -87,7 +87,30 @@ ck('...while results are still being read it says so, and when they failed it sa
 ck('a name with code in it is shown as text', !/<img/.test(C.html({ ...I, orgs: [{ id: 'x', name: '<img src=x>', program_track: 'email_list', email: 'a@b.co' }], acts: [] }, { open: { 'partner:people': true } })));
 ck('her wording rules: no em dashes and no "AI" on the page', !/—/.test(h) && !/\bAI\b/.test(h));
 ck('it saves and sends nothing', !/persist\(|fetch\(|upsert|localStorage/.test(src));
-ck('Campaigns opens on the campaigns, then the Email library, then All results', /cmpView='campaigns';/.test(html) && /\[\['campaigns','Campaigns'\],\['library','Email library'\],\['results','All results'\]\]/.test(html) && /<div id="cmpCampaigns" style="display:none;">/.test(html) && /<script src="campaigns-view\.js\?v=2"><\/script>/.test(html));
+ck('Campaigns opens on the campaigns, then the Email library, then All results', /cmpView='campaigns';/.test(html) && /\[\['campaigns','Campaigns'\],\['library','Email library'\],\['results','All results'\]\]/.test(html) && /<div id="cmpCampaigns" style="display:none;">/.test(html) && /<script src="campaigns-view\.js\?v=3"><\/script>/.test(html));
+
+/* ---- the VA series (Samantha 2026-11-14: "Yes, build it off") ---- */
+{ const vlib = [1, 2, 3].map((n) => ({ key: 'v' + n, aud: 'va', series: n, subj: 'VA guide ' + n }));
+  const prog = [{ id: '2026-10-12', sent: { 'a@vet.example': 'v1', 'B@vet.example': 'v1' } }, { id: '2026-11-10', sent: { 'a@vet.example': 'v2', 'c@vet.example': 'v1' } }, { id: 'junk' }, { id: '2026-11-11', sent: { 'x@vet.example': 'r39' } }];
+  const VI = { now: NOW, cfg: { enabled: true, auto_va_series: false }, lib: vlib, vaProgress: prog };
+  let v = C.va(VI);
+  ck('VA series: off until its switch is on, and it says so', v.on === false && /Switched off/.test(v.when) && /^OFF · 3 have received one$/.test(v.countWord), [v.on, v.when, v.countWord]);
+  ck('VA series: who has received which guide comes from the sender\'s daily record, an address counted once', v.members.length === 3 && JSON.stringify(v.members.find((m) => m.name === 'a@vet.example').had) === '[1,2]' && v.members.find((m) => m.name === 'a@vet.example').next === 3 && v.members.find((m) => m.name === 'b@vet.example').next === 2, v.members);
+  ck('VA series: each guide shows how many it has gone to and when it first went; a record for another campaign is ignored', v.emails.length === 3 && v.emails[0].to === 3 && v.emails[1].to === 1 && v.emails[2].to === 0 && v.emails[0].first.slice(0, 10) === '2026-10-12', v.emails);
+  ck('VA series: the tiles count people who have received one and sends this month', JSON.stringify(v.tiles) === JSON.stringify([['Have received one', 3], ['Sent this month', 2]]), v.tiles);
+  v = C.va({ ...VI, cfg: { enabled: true, auto_va_series: true, va_series_day: 12, va_series_daily: 40 } });
+  ck('VA series: on, it says the day of the month and the daily limit', v.on === true && /12th/.test(v.when) && /at most 40 people a day/.test(v.when), v.when);
+  ck('VA series: the master switch off means off', C.va({ ...VI, cfg: { enabled: false, auto_va_series: true } }).on === false);
+  const big = { id: '2026-11-12', sent: {} }; for (let i = 0; i < 250; i++) big.sent['p' + i + '@vet.example'] = 'v1';
+  v = C.va({ ...VI, vaProgress: [big] });
+  ck('VA series: a long list shows the 100 most recent and says how many there are', v.members.length === 100 && v.peopleCount === 250 && /100 most recent of 250/.test(v.footnote), [v.members.length, v.peopleCount]);
+  const vh = C.html({ ...I, lib: lib.concat(vlib), vaProgress: prog }, { open: {}, pick: 'va' });
+  ck('VA series: its page draws with the guides, who received them, and no em dash or "AI"', /data-campaign="va"/.test(vh) && /VA guide 1/.test(vh) && /a@vet\.example/.test(vh) && /Guides 1, 2 of 3/.test(vh) && /See each contact in GoHighLevel/.test(vh) && !/—/.test(vh) && !/\bAI\b/.test(vh), vh.slice(0, 300));
+  ck('VA series: nobody yet says so plainly', /No guide has gone out yet/.test(C.html({ ...I, lib: lib.concat(vlib), vaProgress: [] }, { open: {}, pick: 'va' })));
+  ck('the Hub loads the VA record and lists the VA audience', /campaign_log','va_series_progress',/.test(html) && /va_series_progress: \[\]/.test(html) && /\['va','[^']*VA leads'\]/.test(html));
+  const L = fs.readFileSync(path.join(__dirname, '..', 'email-library.js'), 'utf8'); const arr = JSON.parse(L.slice(L.indexOf('const CC_EMAIL_LIBRARY = ') + 25, L.indexOf('\nconst CC_EMAIL_ASSETS')).trim().replace(/;$/, ''));
+  const vs = arr.filter((e) => e.aud === 'va');
+  ck('the library carries the twelve VA guides in order, each with a subject, a footer line and a button, and no em dash', vs.length === 12 && vs.every((e, i) => e.series === i + 1 && e.key === 'v' + (i + 1) && e.subj && e.footer && e.cta && e.cta.href === 'https://mo-care.com/veterans') && !/—/.test(JSON.stringify(vs)), vs.map((e) => e.key)); }
 for (const [n, c, d] of res) console.log((c ? '  ✓ ' : '  ✗ ') + n + (d ? '\n      ' + d : ''));
 console.log(res.filter((x) => x[1]).length + '/' + res.length + ' passed');
 process.exit(res.every((x) => x[1]) ? 0 : 1);
