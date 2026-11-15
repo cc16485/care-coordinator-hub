@@ -1202,6 +1202,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="clientsboard" onclick="switchTab('clientsboard')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Clients</div>
     <!-- 2026-10-18 her ask: every active client's Family Circle on one page to check (family-check.js); fixing stays on the profile -->
     <div class="fpill" data-tab="fccheck" onclick="switchTab('fccheck')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart"/></svg> Family Circles</div>
+    <!-- 2026-11-14 (Samantha, "yes build it and show me"): family and client check-in answers (Care & Connection) live here,
+         next to the clients; Caregivers > Check-ins is caregivers only (checkins-tab.js, one load for both) -->
+    <div class="fpill" data-tab="clientcheckins" onclick="switchTab('clientcheckins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Check-ins<span class="subtab-badge red" id="cchkBadge" style="display:none"></span></div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
@@ -5551,6 +5554,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
      THE RULE (hers, 2026-09-20): a caregiver appears because AXISCARE says
      they exist. The Hub enriches that identity; it never gets to decide the
      caregiver doesn't exist because an overlay record is missing. -->
+<section class="tabpanel" id="tab-clientcheckins">
+  <div style="margin-bottom:10px"><h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Check-ins</h2>
+    <div class="field-note" style="font-size:13.5px;margin-top:3px;">How families and clients say care is going, from their one-minute check-in page.</div></div>
+  <div id="clientCheckinsWrap"></div>
+</section>
 <section class="tabpanel" id="tab-cgcheckins">
 <style>
   .chk-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
@@ -7561,7 +7569,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=4"></script>
 <script src="incidents.js?v=8"></script>
-<script src="checkins-tab.js?v=4"></script><script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=13"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="step1-progress.js?v=1"></script><!-- 2026-11-11 Step 1 box: forms signed until fully done --><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="checkins-tab.js?v=5"></script><script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=13"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="step1-progress.js?v=1"></script><!-- 2026-11-11 Step 1 box: forms signed until fully done --><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=7"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -8303,7 +8311,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8724,7 +8732,7 @@ const CC_SECTION_TITLES = {
   kptasks:'My page · Tasks', kpfollow:'My page · Follow-ups', kpnextdoor:'My page · Nextdoor', kpsocial:'My page · Coming up', kpnotes:'My page · Notes', kprecruit:'My page · Recruiting',
   callfollowups:'AI call reader',
   schedguide:'How scheduling works',
-  cgbackground:'Onboarding', orientprog:'Orientation', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcheckins:'Check-ins', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
+  cgbackground:'Onboarding', orientprog:'Orientation', cgorient:'Orientation Video Calls', cgtraining:'Orientation &amp; Training', cgcheckins:'Check-ins', clientcheckins:'Client Check-ins', cgcompliance:'Background Checks', cgattendance:'Attendance', cgwriteups:'Write-Ups', hr:'Performance',
   recruit:'Recruit',
   today:'Today', leads:'Leads', bookings:'Consultations',
   soc:'Getting ready · Before staffing', referrers:'Referral Partners', playbook:'Scripts',
@@ -8990,8 +8998,8 @@ function renderActiveTab(){
   if(activeTab==='callfollowups' && window.CPR) CPR.render(document.getElementById('cfuWrap'));
   if(activeTab==='trainhub') trainhubOpen();
   if(activeTab==='cgdir') cgdOpen();
-  if(activeTab==='cgcheckins' && window.CHK) CHK.show();
-  else if(window.CHK && CC_GROUPS.cgdir.includes(activeTab)) CHK.peek();   /* the pill's number, before the tab is opened */
+  if((activeTab==='cgcheckins' || activeTab==='clientcheckins') && window.CHK) CHK.show();
+  else if(window.CHK && (CC_GROUPS.cgdir.includes(activeTab) || CC_GROUPS.clients.includes(activeTab))) CHK.peek();   /* the pill's number, before the tab is opened */
   if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
     if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261029lv'; sc.onload=go; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
