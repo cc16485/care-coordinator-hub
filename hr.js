@@ -16,6 +16,7 @@
   const canCoach = () => { if (owner()) return true; try { return ((CC_ROLE_BY_EMAIL || {})[myEmail()] || []).indexOf('care_coordinator') > -1; } catch (e) { return false; } };
   const W = () => (typeof WriteupRules !== 'undefined' ? WriteupRules : null);
   const VIEWS = [
+    { id: 'people', label: 'Caregivers', note: 'How each caregiver is doing', owner: false },   /* 2026-11-14 */
     { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
     { id: 'practice', label: 'Agent practice', note: 'Check what it would flag', owner: true },
     { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true },
@@ -37,9 +38,12 @@
   function pick(want) {
     const ok = allowed().map((v) => v.id);
     if (want && ok.includes(want)) return want;
+    /* 2026-11-14 (Samantha): the Performance tab inside Caregivers opens on the caregiver list. Zach's phone desk
+       (?m=hr) and his alert link (#hr, which asks for 'home') still open his dashboard. */
+    if (!view && !document.documentElement.classList.contains('ph-hr')) return 'people';
     const last = store.get('cch_hr_view');
     if (last && ok.includes(last)) return last;
-    return ok[0];
+    return ok.find((v) => v !== 'people') || ok[0];   /* only the phone desk gets here with no last view: it opens as it always did */
   }
 
   /* ---------- business days (Corrective Action SOP timing) ---------- */
@@ -112,6 +116,8 @@
           + '.hr-rc{background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;display:grid;gap:5px;min-width:0}.hr-rc-top{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between}.hr-rc-r{font-weight:700;font-size:13.5px;color:var(--navy)}'
           + '.hr-tags{display:flex;gap:6px;flex-wrap:wrap}.hr-tag{font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:999px;background:#E3F3F2;color:#1F6E69}.hr-rc .hr-quote{max-width:80ch;font-size:14.5px;line-height:1.5;overflow-wrap:anywhere}.hr-rc-c{font-size:12.5px;color:#B42318}'
           + '.hr-hb-bar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:4px 0}.hr-hb-bar input[type=search]{flex:1;min-width:200px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font:inherit}'
+          + '.hr-ppl th{cursor:pointer;user-select:none}.hr-ppl th[aria-sort]{color:var(--navy);font-weight:800}.hr-ppl tbody tr{cursor:pointer}.hr-ppl tbody tr:hover{background:var(--bg)}.hr-ppl td.z{color:#9CA3AF}.hr-ppl td.n{font-weight:700;color:var(--navy)}'
+          + '.hr-new{font-size:11px;font-weight:700;color:#1F6E69;background:#E3F3F2;border-radius:999px;padding:1px 8px;margin-left:6px}'
           + '.hr-role p,.hr-role li{font-size:14px;line-height:1.6;max-width:68ch}.hr-sel{user-select:all;font-weight:700}'
           + '@media (max-width:760px){.hr-wrap{grid-template-columns:1fr;padding:12px}.hr-menu{position:static;flex-direction:row;flex-wrap:wrap}.hr-item-note{display:none}.hr-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}';
         document.head.appendChild(st);
@@ -130,9 +136,114 @@
     box.hidden = !!PANEL_OF[view];
     if (PANEL_OF[view]) { if (typeof scxEnsure === 'function') scxEnsure(SCX_OF[view]); return; }
     box.innerHTML = '';
-    ({ home: renderHome, practice: renderPractice, incidents: renderIncidents, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, livein: renderLivein, handbook: renderHandbook, role: renderRole })[view](box);
+    ({ people: renderPeople, home: renderHome, practice: renderPractice, incidents: renderIncidents, oversight: renderOversight, coaching: renderCoaching, terminations: renderTerminations, livein: renderLivein, handbook: renderHandbook, role: renderRole })[view](box);
   }
   function go(v) { view = v; render(v); try { window.scrollTo(0, 0); } catch (e) {} }
+
+  /* ---------- Caregivers (2026-11-14, Samantha: Performance is a tab inside Caregivers, so it opens on "how is each
+     caregiver doing"). One row per working caregiver, counts straight from the record for the last 90 days: no score,
+     no label. Reads only: the attendance events the Hub already holds, hr_coaching (the database already limits who
+     sees which rows), kind words, the Check-ins tab's data when it has loaded, and formal records for owners only.
+     A row opens that caregiver's profile on its Performance section. ---------- */
+  const PPL = { q: '', sort: 'events', dir: -1, rows: null, err: '' };
+  const PPL_COLS = [['name', 'Caregiver'], ['callin', 'Call-ins'], ['tardy', 'Late'], ['ncns', 'No-call/no-show'], ['evv', 'Missed clock-ins'], ['coach', 'Coaching'], ['kind', 'Kind words'], ['chk', 'Last check-in']];
+  const nkey = (x) => String(x || '').toLowerCase().replace(/[^a-z]/g, '');
+  async function loadKind() {
+    try {
+      const r = await sb.from('kind_words').select('id,about,link,said_on,created_at').eq('status', 'kind').eq('about_role', 'caregiver').order('created_at', { ascending: false }).limit(500);
+      if (r.error) return null;
+      const tells = {};
+      try { const { data } = await sb.from('app_data').select('data').eq('key', 'kind_tells').maybeSingle(); (Array.isArray(data && data.data) ? data.data : []).forEach((x) => { if (x && x.id) tells[x.id] = x.tells || []; }); } catch (e) {}
+      return { words: r.data || [], tells };
+    } catch (e) { return null; }
+  }
+  /* the same match the profile's Kind words card uses: a link to them, a "told them" record, their full name, or First L. */
+  function kindMine(k, c, tells) {
+    const ax = String(c.id);
+    if (k.link && k.link.type === 'caregiver' && String(k.link.id) === ax) return true;
+    if ((tells[k.id] || []).some((t) => String(t.caregiver_ax) === ax)) return true;
+    const a = String(k.about || '').trim(); if (!a) return false;
+    if (nkey(a) === nkey((c.first || '') + (c.last || ''))) return true;
+    const m = a.match(/^([A-Za-z'-]+)\s+([A-Za-z])\.?$/);
+    return !!(m && nkey(m[1]) === nkey(c.first) && String(c.last || '').trim().toLowerCase().startsWith(m[2].toLowerCase()));
+  }
+  function peopleRows(cgs, cs, kind, chk, now) {
+    const d90 = now - 90 * 864e5, o = owner();
+    const evAll = (typeof DATA !== 'undefined' && DATA && DATA.attendance_events) || [];
+    const wuAll = o ? ((typeof DATA !== 'undefined' && DATA && DATA.discipline_actions) || []) : [];
+    const recId = (x) => String((x && (x.axiscare_caregiver_id || x.ax_caregiver_id)) || '').trim();
+    const inD = (e) => { const t = new Date(String(e.shift_date || e.created_at || 0).slice(0, 10) + 'T12:00:00').getTime(); return Number.isFinite(t) && t >= d90; };
+    const chkBy = {}; ((chk && chk.people) || []).forEach((p) => { if (p.axiscare_id) chkBy[String(p.axiscare_id)] = p; });
+    return cgs.map((c) => {
+      const id = String(c.id), name = ((c.first || '') + ' ' + (c.last || '')).trim(), nk = name.toLowerCase().replace(/\s+/g, ' ');
+      const mine = (x) => { const i = recId(x); return i ? i === id : String(x.caregiver || '').toLowerCase().replace(/\s+/g, ' ').trim() === nk; };
+      const ev = evAll.filter((e) => mine(e) && inD(e)), n = (f) => ev.filter(f).length;
+      const hired = c.hire_date ? Math.floor((now - new Date(String(c.hire_date).slice(0, 10) + 'T12:00:00').getTime()) / 864e5) : null;
+      const co = cs ? cs.filter((x) => x.subject_type !== 'office' && String(x.axiscare_caregiver_id || '') === id) : null;
+      const p = chkBy[id], last = p && p.checkins && p.checkins.slice().sort((a, b) => String(b.sent_at).localeCompare(String(a.sent_at)))[0];
+      const r = { id, name, last: String(c.last || '').toLowerCase(), day: (hired != null && hired >= 0 && hired <= 90) ? hired : null,
+        callin: n((e) => e.type === 'callin'), tardy: n((e) => e.type === 'tardy'), ncns: n((e) => e.type === 'ncns'), evv: n((e) => e.type === 'evv_missing_in' || e.type === 'evv_missing_out'),
+        coachOpen: co ? co.filter((x) => x.status === 'open').length : null, coachDone: co ? co.filter((x) => x.status === 'done').length : null,
+        kind: kind ? kind.words.filter((k) => kindMine(k, c, kind.tells)).length : null,
+        formal: o ? wuAll.filter(mine).length : null,
+        chkAt: last ? String(last.sent_at) : '', chkState: last ? (last.reply ? 'answered' : (last.waiting === 'no_answer' ? 'no answer' : 'sent')) : '' };
+      r.events = r.callin + r.tardy + r.ncns; r.coach = (r.coachOpen || 0) * 1000 + (r.coachDone || 0);
+      return r;
+    });
+  }
+  function renderPeople(box) {
+    box.innerHTML = '<div class="hr-h">How each caregiver is doing</div><div id="hrPplBox"><div class="field-note">Loading…</div></div>';
+    const census = (typeof cgdCensus === 'function') ? cgdCensus().catch((e) => { PPL.err = String((e && e.message) || e); return null; }) : Promise.resolve(null);
+    try { if (window.CHK && CHK.peek) CHK.peek(); } catch (e) {}
+    PPL.err = '';
+    Promise.all([census, loadCoaching(), loadKind()]).then(([cen, cs, kind]) => {
+      if (view !== 'people') return;
+      const work = (c) => (typeof cgdWorking === 'function' ? cgdWorking(c) : c && c.active === true);
+      const chk = () => (window.CHK && CHK.VIEW && CHK.VIEW.data) || null;
+      const build = () => { PPL.rows = cen ? peopleRows(((cen && cen.caregivers) || []).filter(work), cs, kind, chk(), Date.now()) : null; PPL.noChk = !chk(); drawPeople(); };
+      PPL.noCoach = cs === null; PPL.noKind = kind === null;
+      build();
+      /* the check-ins arrive on their own clock (the Check-ins tab asks for them once): fill that column in when they land */
+      let tries = 0; const wait = () => { if (view !== 'people' || !document.getElementById('hrPplBox') || !cen) return; if (chk()) { build(); return; } if (++tries < 30) setTimeout(wait, 500); };
+      if (!chk()) setTimeout(wait, 500);
+    });
+  }
+  function drawPeople() {
+    const el = document.getElementById('hrPplBox'); if (!el) return;
+    if (!PPL.rows) { el.innerHTML = '<div class="card hr-card field-note">The caregiver list could not be read' + (PPL.err ? ' (' + esc(PPL.err) + ')' : '') + '. Reload the page to try again.</div>'; return; }
+    const o = owner(), q = nkey(PPL.q), k = PPL.sort, dir = PPL.dir;
+    const cols = PPL_COLS.concat(o ? [['formal', 'Formal records']] : []);
+    const val = (r) => (k === 'name' ? r.last + ' ' + r.name.toLowerCase() : k === 'chk' ? r.chkAt : (r[k] == null ? -1 : r[k]));
+    const rows = PPL.rows.filter((r) => !q || nkey(r.name).includes(q)).sort((a, b) => {
+      const x = val(a), y = val(b); if (x !== y) return (x < y ? -1 : 1) * dir;
+      if (k === 'events' && a.evv !== b.evv) return b.evv - a.evv;
+      return (a.last + a.name).localeCompare(b.last + b.name); });
+    const all = PPL.rows, tile = (label, n) => '<div class="hr-tile"><div class="hr-tile-label">' + esc(label) + '</div><div class="hr-tile-n">' + n + '</div></div>';
+    const num = (n) => (n == null ? '<td class="z">?</td>' : '<td class="' + (n ? 'n' : 'z') + '">' + n + '</td>');
+    const day = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    const sortWord = k === 'events' ? 'call-ins, late arrivals and no-call/no-shows together, most first' : (cols.find((c) => c[0] === k) || ['', ''])[1].toLowerCase() + (k === 'name' ? '' : (dir < 0 ? ', most first' : ', fewest first'));
+    el.innerHTML = '<div class="hr-tiles">' + tile('Working caregivers', all.length)
+      + tile('With a call-in, late arrival or no-show', all.filter((r) => r.events).length)
+      + tile('With open coaching', PPL.noCoach ? '?' : all.filter((r) => r.coachOpen).length)
+      + tile('With kind words', PPL.noKind ? '?' : all.filter((r) => r.kind).length) + '</div>'
+      + '<div class="card hr-card"><div class="hr-hb-bar"><input type="search" id="hrPplQ" placeholder="Find a caregiver" aria-label="Find a caregiver" value="' + esc(PPL.q) + '" oninput="HR.pplFind(this.value)">'
+      + '<span class="field-note">' + rows.length + ' of ' + all.length + '</span></div>'
+      + '<div class="field-note">Counts from the record for the last 90 days, scheduled shifts only. These are facts, not a rating. Sorted by ' + esc(sortWord) + '. Press a column name to sort by it. Press a name to open their profile.</div>'
+      + '<div class="hr-scroll"><table class="hr-table hr-ppl"><thead><tr>' + cols.map(([id, label]) => '<th scope="col"' + (k === id ? ' aria-sort="' + (dir < 0 ? 'descending' : 'ascending') + '"' : '') + ' onclick="HR.pplSort(\'' + id + '\')">' + esc(label) + (k === id ? (dir < 0 ? ' ▾' : ' ▴') : '') + '</th>').join('') + '</tr></thead><tbody>'
+      + (rows.length ? rows.map((r) => '<tr onclick="HR.pplOpen(\'' + esc(r.id) + '\')"><td><b>' + esc(r.name) + '</b>' + (r.day != null ? '<span class="hr-new">day ' + r.day + '</span>' : '') + '</td>'
+          + num(r.callin) + num(r.tardy) + num(r.ncns) + num(r.evv)
+          + (r.coachOpen == null ? '<td class="z">?</td>' : '<td class="' + (r.coachOpen || r.coachDone ? 'n' : 'z') + '">' + (r.coachOpen ? r.coachOpen + ' open' : '') + (r.coachOpen && r.coachDone ? ', ' : '') + (r.coachDone ? r.coachDone + ' done' : '') + (!r.coachOpen && !r.coachDone ? '0' : '') + '</td>')
+          + num(r.kind)
+          + '<td class="' + (r.chkAt ? '' : 'z') + '">' + (r.chkAt ? esc(day(r.chkAt)) + ' · ' + esc(r.chkState) : (PPL.noChk ? '?' : 'none yet')) + '</td>'
+          + (o ? num(r.formal) : '') + '</tr>').join('')
+        : '<tr><td colspan="' + cols.length + '" class="z">No caregiver matches that name.</td></tr>')
+      + '</tbody></table></div>'
+      + ((PPL.noCoach || PPL.noKind || PPL.noChk) ? '<div class="field-note hr-foot">A ? means that part could not be read just now' + (PPL.noChk ? ' (check-ins load when the Check-ins tab has answered)' : '') + '. <a href="#" onclick="HR.go(\'people\');return false;">Try again</a></div>' : '')
+      + (o ? '<div class="field-note hr-foot">Formal records show for Samantha and Zach only.</div>' : '') + '</div>';
+  }
+  function pplFind(v) { PPL.q = v; drawPeople(); const i = document.getElementById('hrPplQ'); if (i) { i.focus(); try { i.setSelectionRange(v.length, v.length); } catch (e) {} } }
+  function pplSort(id) { if (PPL.sort === id) PPL.dir = -PPL.dir; else { PPL.sort = id; PPL.dir = id === 'name' ? 1 : -1; } drawPeople(); }
+  function pplOpen(id) { try { switchTab('cgdir'); Promise.resolve(typeof cgdCensus === 'function' ? cgdCensus() : null).then(() => cgdOpenProfile(id, 'performance')); } catch (e) { console.warn('hr people', e); } }
 
   /* ---------- Zach's dashboard ---------- */
   function renderHome(box) {
@@ -974,6 +1085,6 @@
       + '<div class="hr-sub">How to reach Zach</div><p>Message him in the Hub, or email <span class="hr-sel">zach@mo-care.com</span>.</p></div>';
   }
 
-  window.HR = { render, go, lv: lvAct, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
+  window.HR = { render, go, pplFind, pplSort, pplOpen, lv: lvAct, mark, startFormal, concern, newCoach, openFormal, assign, done, help, postpone, improved, reply, reassign, close: closeAs,
     callNow, lookAgain, pickCalls, usePick, confirmCall, excuseCall, playCall, form: (k, v) => { FORM[k] = v; if (view === 'practice') drawPractice(); else drawCoaching(); }, pf: (v) => { pracFilter = v; drawPractice(); }, hbSearch: (v) => { hbQ = v; drawRules(); }, hbSerious: (v) => { hbSerious = !!v; drawRules(); }, hbKind: (k) => { hbKind = hbKind === k ? '' : k; drawRules(); }, _deadlines: deadlines, _addBusinessDays: addBusinessDays, _views: () => allowed().map((v) => v.id) };
 })();
