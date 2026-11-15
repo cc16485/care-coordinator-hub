@@ -86,7 +86,7 @@ const SAMPLE = {
   office: { known: true, first: 'Krystal', name: 'Krystal B.', about: 'Office team', has_phone: true, office: true },
   standalone: { known: false },
 };
-const KINDS = [['concern', '💬', 'A concern'], ['idea', '💡', 'A suggestion'], ['thanks', '💛', 'Thanks for someone'], ['sensitive', '🔒', 'Something sensitive']];
+const KINDS = [['concern', '💬', 'A concern'], ['idea', '💡', 'A suggestion'], ['thanks', '💛', 'Praise or a compliment'], ['sensitive', '🔒', 'Something sensitive']];
 let who = null, M = {}, SESSION = '', TIMER = null;
 
 /* Codes go in the request body, never in a web address. */
@@ -124,6 +124,8 @@ function compose() {
   $('#main').innerHTML = h;
   document.querySelectorAll('.opts').forEach(g => g.querySelectorAll('.opt').forEach(b => b.onclick = () => {
     g.querySelectorAll('.opt').forEach(x => x.classList.toggle('on', x === b)); M[g.dataset.f] = b.dataset.v; $('#err').style.display = 'none';
+    /* Samantha 2026-11-15: praise, not only thanks: "say something more about a Praise/compliment" */
+    if (g.dataset.f === 'kind') $('#body').placeholder = b.dataset.v === 'thanks' ? 'Who or what stood out? A moment, a person, anything we should keep doing.' : 'Write as much or as little as you like';
     if (g.dataset.f === 'reply') { $('#pinbox').style.display = b.dataset.v === 'private' ? 'block' : 'none'; $('#callph').style.display = b.dataset.v === 'call' && who.known && !who.has_phone ? 'block' : 'none'; }
   }));
   const nm = $('#notme'); if (nm) nm.onclick = e => { e.preventDefault(); who = SAMPLE.standalone; history.replaceState(null, '', location.pathname + location.search); compose(); };

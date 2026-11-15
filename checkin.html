@@ -65,6 +65,7 @@ textarea:focus{outline:none;border-color:var(--teal)}
 .gor{margin:16px 0 8px!important}
 .galt{display:flex;flex-direction:column;gap:8px}
 .galt-b{display:block;font:inherit;font-size:15px;font-weight:600;color:var(--navy);background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;text-decoration:none;cursor:pointer}
+.sub{font-size:13px;font-weight:600;color:var(--muted);margin:12px 0 6px}
 .bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:0 0 14px}
 .bar i{display:block;height:100%;width:0;background:var(--honey);transition:width .3s}
 </style></head>
@@ -107,6 +108,8 @@ const WHAT = {
   family: ['The schedule', 'Caregiver changes', 'Arriving on time', 'Care tasks', 'Hearing from the office', 'Something else'],
   caregiver: ['More hours', 'Different hours', 'Help with a client', 'More training', 'Hearing from the office', 'I just want to be heard'],
 };
+/* the server keeps the same list (_shared/care-connection.ts GOING_RIGHT) */
+const GOING_RIGHT = ['Kind, caring visits', 'Good company', 'Help around the house', 'Shows up on time', 'Easy to reach the office', 'Peace of mind'];
 const SAMPLE = {
   family: { first: 'Linda', client: 'Dorothy', caregiver: 'Tanya', caregivers: ['Tanya', 'Marcus'], phone_tail: '42' },
   caregiver: { first: 'Rachel', phone_tail: '17' },
@@ -170,9 +173,14 @@ function pick(v) {
     h += '</div>';
   }
   if (happy && fam) {
-    h += '<div class="card more"><p class="q">Would you like to thank someone?</p><p class="hint">We will pass it on. Optional.</p><div class="chips" data-f="thank" data-multi="1">'
-      + ctx.caregivers.map(n => '<button class="chip" data-v="' + esc(n) + '">' + esc(n) + '</button>').join('') + '<button class="chip" data-v="office">The office</button></div>'
-      + '<textarea id="note" placeholder="Anything you would like them to hear"></textarea></div>';
+    /* Samantha 2026-11-15: "instead of would you like to thank someone, come up with a way to be more open to them sharing
+       what is going right or if they want to highlight something/someone" */
+    h += '<div class="card more"><p class="q">We love hearing that! What\'s going right?</p><p class="hint">Tap anything you would like to highlight. All optional.</p>'
+      + '<p class="sub">Someone who stands out</p><div class="chips" data-f="thank" data-multi="1">'
+      + ctx.caregivers.map(n => '<button class="chip" data-v="' + esc(n) + '">' + esc(n) + '</button>').join('') + '<button class="chip" data-v="office">The office team</button></div>'
+      + '<p class="sub">Something that\'s working</p><div class="chips" data-f="good" data-multi="1">'
+      + GOING_RIGHT.map(o => '<button class="chip" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div>'
+      + '<textarea id="note" placeholder="Tell us about it: a moment, a person, anything we should keep doing"></textarea></div>';
   } else if (happy) {
     h += '<div class="card more"><p class="q">So glad to hear it! Anything you want to share?</p><textarea id="note" placeholder="Optional"></textarea></div>';
   } else if (v !== 'call') {
@@ -227,7 +235,7 @@ async function send() {
   const fam = ctx.who === 'family', thanks = (A.thank || []).filter(x => x !== 'office');
   let title = 'Thank you, ' + ctx.first + '!', body;
   if (A.call === 'yes') body = 'Someone from our office will call you' + (A.when ? ' in the ' + (A.when === 'evening' ? 'early evening' : A.when) : '') + '. If it is urgent, call us now at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.';
-  else if (A.mood === 'great') body = (thanks.length ? 'We will make sure ' + esc(thanks.join(' and ')) + (thanks.length > 1 ? ' hear' : ' hears') + ' your kind words. ' : '') + (fam ? 'It means a lot to the whole team.' : 'We are lucky to have you.');
+  else if (A.mood === 'great') body = (thanks.length ? 'We will make sure ' + esc(thanks.join(' and ')) + (thanks.length > 1 ? ' hear' : ' hears') + ' your kind words. ' : (A.thank || []).includes('office') ? 'We will share your kind words with the office team. ' : '') + (fam ? 'It means a lot to the whole team.' : 'We are lucky to have you.');
   else body = 'We read every answer. ' + (fam ? 'We will look into it and let you know what we change.' : 'We will look into it and get back to you.');
   $('#lead').textContent = '';
   $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc(title) + '</h2><p>' + body + '</p></div>' + googleCard() + footer();

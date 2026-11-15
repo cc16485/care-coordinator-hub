@@ -57,7 +57,13 @@ with sync_playwright() as pw:
     pg.route('**/mo-care.com/**', lambda r: r.fulfill(body='review page'))
     pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', gck)
     pg.goto('about:blank'); pg.goto(BASE + 'checkin.html#k=' + CODE); pg.wait_for_timeout(700)
-    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(500)
+    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300)
+    mt = pg.inner_text('main')
+    ok('going right: a happy family is asked what is going right, not only who to thank', "What's going right?" in mt and 'Someone who stands out' in mt and "Something that's working" in mt and 'thank someone' not in mt.lower() and 'The office team' in mt, mt[:500])
+    pg.click('[data-f=good] .chip >> text=Peace of mind'); pg.click('[data-f=thank] .chip >> text=Tanya'); pg.fill('#note', 'Tanya makes Mom laugh.')
+    pg.click('#send'); pg.wait_for_timeout(500)
+    ga = [b for b in gcalls if b.get('action') == 'answer']
+    ok('going right: what they tapped and wrote is sent', ga and ga[-1]['answers'].get('good') == ['Peace of mind'] and ga[-1]['answers'].get('thank') == ['Tanya'] and ga[-1]['answers'].get('note') == 'Tanya makes Mom laugh.', ga)
     mt = pg.inner_text('main')
     ok('google: a happy answer shows "Would you share that on Google?" under the thank-you', 'Would you share that on Google?' in mt and "about Dorothy's care" in mt and 'Write a Google review' in mt, mt[:400])
     gh = pg.get_attribute('#gReview', 'href') or ''

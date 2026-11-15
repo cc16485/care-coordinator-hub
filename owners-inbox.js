@@ -13,7 +13,7 @@
   'use strict';
   const API = 'https://zngsgedlsxinbygwmxwn.supabase.co/functions/v1/owner-inbox';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
-  const KIND = { concern:'A concern', idea:'A suggestion', thanks:'Thanks for someone', sensitive:'Something sensitive' };
+  const KIND = { concern:'A concern', idea:'A suggestion', thanks:'Praise or a compliment', sensitive:'Something sensitive' };
   const ROLE = { family:'Client family', caregiver:'Caregiver', staff:'Office team', other:'Someone else' };
   const REPLY = { call:'Wants a call', private:'Wants a written reply', none:'No reply needed' };
   const ST = { list:null, open:null, err:'', view:'open', loading:false, at:0 };
