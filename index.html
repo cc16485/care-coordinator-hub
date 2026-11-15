@@ -19968,7 +19968,11 @@ function phdFor(kind, id, candidateId){
 function phdResult(t){ return String(t||'').replace(/^[^A-Za-z0-9]+/,'').trim(); }
 function phdWhen(d){ try{ return new Date(d.imported_at).toLocaleDateString('en-US',{ month:'short', day:'numeric', timeZone:'America/Chicago' }); }catch(e){ return ''; } }
 async function phdOpen(path){
+  if(!path) return;
   if(typeof window.bgrViewProof==='function') return window.bgrViewProof(path);
+  /* 2026-11-15: the caregiver page opens documents before caregivers-engine.js has loaded */
+  if(/^training:/.test(path)){ if(window.OP) return OP.open(path); alert('Could not open the document.'); return; }
+  if(/^https?:\/\//i.test(path)){ window.open(path,'_blank','noopener'); return; }
   try{ const { data, error }=await sb.storage.from('lead-docs').createSignedUrl(path, 3600);
     if(error||!data){ alert('Could not open the document: '+(error?error.message:'unknown')); return; }
     window.open(data.signedUrl,'_blank','noopener'); }catch(e){ alert('Could not open the document.'); }
@@ -20011,7 +20015,7 @@ function cgdPreHireHtml(g){
     const badge='<span style="font-weight:700;color:'+color+'">'+(naFp?'n/a':esc(st))+'</span>';
     const date=o.date?' <span class="field-note">'+esc(String(o.date).slice(0,10))+'</span>':'';
     const doc=o.proof
-      ? ' · <a class="linklike" style="cursor:pointer" onclick="bgrViewProof(\''+esc(String(o.proof)).replace(/\x27/g,'')+'\')">📄 document</a>'
+      ? ' · <a class="linklike" style="cursor:pointer" onclick="phdOpen(\''+esc(String(o.proof)).replace(/\x27/g,'')+'\')">📄 document</a>'
       : (naFp||ghl?'':' · <span class="field-note" style="color:#B45309">no document</span>');
     return '<div style="display:flex;gap:8px;font-size:13.5px;padding:4px 0;border-bottom:1px solid #F6F3EC;"><span class="field-note" style="min-width:110px;">'+label+'</span><span>'+badge+date+doc+ghl+'</span></div>';
   }).join('')
@@ -20060,7 +20064,7 @@ function cgdRefsHtml(g){
   }).join('')+ghlList;
 }
 function cgdRefOpen(i){ const r=(CGD.refsShown||[])[i]; if(!r) return; if(r.pdf) cgdRefPdf(i); else cgdRefAnswers(i); }
-function cgdRefPdf(i){ const r=(CGD.refsShown||[])[i]; if(r&&r.pdf&&typeof window.bgrViewProof==='function') window.bgrViewProof(r.pdf); }
+function cgdRefPdf(i){ const r=(CGD.refsShown||[])[i]; if(r&&r.pdf) phdOpen(r.pdf); }
 /* What a reference said, in plain words, without leaving the profile. Read-only. */
 function cgdRefAnswers(i){
   const r=(CGD.refsShown||[])[i]; if(!r) return;
@@ -21060,7 +21064,7 @@ function cgdComplianceHtml(c,g){
       +'<div><span class="field-note">Last verified:</span> '+(date?esc(day(String(date).slice(0,10))):unknown)+'</div>'
       +'<div><span class="field-note">Next due:</span> '+dueHtml+'</div>'
       +(gap?'<div style="grid-column:1/-1;color:#B45309;font-weight:700;">Medicaid audit: '+esc(gap)+'</div>':'')
-      +'<div><span class="field-note">Evidence:</span> '+(proof?(typeof bgrViewProof==='function'?'<a class="linklike" style="cursor:pointer;color:var(--green);" onclick="bgrViewProof(\''+esc(String(proof)).replace(/\x27/g,'')+'\')">on file, open</a>':'<span style="color:var(--green);">on file</span>'):'<span class="field-note">not yet recorded</span>')+'</div>'
+      +'<div><span class="field-note">Evidence:</span> '+(proof?'<a class="linklike" style="cursor:pointer;color:var(--green);" onclick="phdOpen(\''+esc(String(proof)).replace(/\x27/g,'')+'\')">on file, open</a>':'<span class="field-note">not yet recorded</span>')+'</div>'
       +'<div><span class="field-note">Verified by:</span> '+(key&&g[key+'_by']?esc(g[key+'_by'])+(g[key+'_at']?' · '+day(String(g[key+'_at']).slice(0,10)):''):'<span class="field-note">not recorded (before 10/14/2026)</span>')+'</div>'
       +'</div>'
       /* 2026-10-14 step 3: record a new result here (with its proof); OIG can be run from the page */
