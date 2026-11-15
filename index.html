@@ -1645,6 +1645,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          Coordinator's new clients this month, dollars only for her own and owners. new-clients.js. -->
     <section class="tabpanel" id="tab-clientgoals"><div id="cgoNewClients"></div><div id="cgoWrap"></div></section>
     <section class="tabpanel" id="tab-howto"><div id="htWrap"></div></section><!-- 2026-11-13: How-to for care coordinators (howto.js) -->
+    <section class="tabpanel" id="tab-cctraining"><div id="ctWrap"></div></section><!-- 2026-11-14: Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) -->
 
     <!-- ===================== TAB: TEAM MEETINGS (Today, 2026-10-05) =====================
          Meeting notes and action items (moved in from the Team Hub; each action item is a
@@ -7637,6 +7638,7 @@ The HomeTogether team</pre>
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="howto.js?v=2"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
+<script src="coordinator-training.js?v=1"></script><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
 <script src="call-lead.js?v=7"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
@@ -8313,7 +8315,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8332,7 +8334,9 @@ const CC_SUBTABS = {
     /* 2026-10-18 (her ask): Client Goals, weekly care hours and CDS consumers; owners set the goals (client-goals.js) */
     { t:'clientgoals', l:'Client Goals', i:'i-target' },
     /* 2026-11-13 (her ask): the care coordinators' How-to, one pill with its own sub tabs inside (howto.js) */
-    { t:'howto', l:'How-to', i:'i-book' } ],
+    { t:'howto', l:'How-to', i:'i-book' },
+    /* 2026-11-14 (her ask): Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) */
+    { t:'cctraining', l:'Coordinator Training', i:'i-grad' } ],
 };
 /* page -> parent, derived so the two can never drift apart */
 const CC_PARENT_OF = (() => {
@@ -8743,7 +8747,7 @@ const CC_SECTION_TITLES = {
   clientqueue:'Getting ready · First shift', cgdir:'Caregivers',
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
-  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
+  meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', cctraining:'Coordinator Training', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
   coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
@@ -9057,6 +9061,7 @@ function renderActiveTab(){
   if(activeTab==='mydesk' && typeof dkOpen==='function') dkOpen();
   if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   if(activeTab==='howto' && window.HT) HT.render();
+  if(activeTab==='cctraining' && window.CTR) CTR.render();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
   /* 2026-11-04 Offers inside Onboarding: an old link to Offers (not the offer form) opens Onboarding's Offer queue */
