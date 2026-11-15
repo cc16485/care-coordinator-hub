@@ -94,17 +94,11 @@ async()=>{
   const sent=L.calls.find(c=>c.action==='send_selected');
   ok('Send Cara\'s list: after the office confirms, only Cara\'s picks (never overtime, an overlapping yes, or someone working then)', sent && JSON.stringify(sent.recipients)==='["Amy Fit (fake)","Ben Unknown (fake)"]', L.calls);
   ok('Send Cara\'s list: used the list Cara had already built (no rebuild)', !L.calls.some(c=>c.action==='candidates'));
-  /* the picker */
+  /* the picker: since 2026-11-14 (Simpler Scheduling, her picks) an open shift has the one Ask caregivers panel; the old
+     picker, Send Cara's list and the list preview are no longer on the card. The server still decides who can be texted. */
   switchTab('coverage'); caraShowCase('crit'); await sleep(400);
   const box=document.getElementById('tab-coverage').innerText;
-  ok('picker: Unknown availability, overtime risk and the overlapping yes are shown', /Availability unknown: nothing on file/.test(box) && /Overtime risk: 38h/.test(box) && /Said yes to another open shift then/.test(box), box.slice(0,1500));
-  const ck=n=>{ const el=[...document.querySelectorAll('input[data-pick="crit"]')].find(i=>i.value===n); return el&&el.checked; };
-  ok('picker: Needs Verification is listed with the reason so the office knows why, and has no tick box (cannot be offered)', /Needs Verification \(1\): can't be offered a shift until verified as eligible[\s\S]{0,80}Hal Lapsed \(fake\)[\s\S]{0,40}OIG check over 30 days/.test(box) && !document.querySelector('input[data-pick="crit"][value="Hal Lapsed (fake)"]'), box.slice(0,2500));
-  ok('picker: overtime and overlapping people start unticked; Unknown stays ticked (shown, not hidden)', ck('Amy Fit (fake)')===true && ck('Dee Hours (fake)')===false && ck('Fran Overlap (fake)')===false && ck('Ben Unknown (fake)')===true);
-  ok('picker: "Send Cara\'s list" is there, and the preview of the new list is offered (list switch off)', /Send Cara's list/.test(box) && /Compare with Cara's new list/.test(box));
-  L.calls=[]; await CP1.previewList('crit'); await sleep(200);
-  const box2=document.getElementById('tab-coverage').innerText;
-  ok('preview list: read only (asks candidates_v2), shows Unknown and who the skills rules left out', L.calls.length===1 && L.calls[0].action==='candidates_v2' && /Preview: Cara's new list \(nothing is sent from here\)/.test(box2) && /Left out by the skills rules: Eve Skills/.test(box2), box2.slice(0,2000));
+  ok('the open shift has the Ask caregivers panel, not the old picker', !!document.querySelector('#tab-coverage .askp') && !/Send Cara's list/.test(box) && !document.querySelector('input[data-pick="crit"]'), box.slice(0,1500));
   /* flags */
   L.prompts=[]; await covFlagConfirm('flag1'); await sleep(150);
   const f1=DATA.coverage_cases.find(c=>c.id==='flag1');

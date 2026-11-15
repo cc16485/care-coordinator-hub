@@ -1365,7 +1365,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- Hours and matching moved here from Scheduling > Cara 2026-11-14 (Simpler Scheduling, her picks): it is planning,
            not today's work. Closed until opened; the loads run when it opens. -->
       <details id="schedHoursBox" class="card" style="padding:12px 16px;margin:0 0 16px;" ontoggle="schedHoursRender()">
-        <summary style="cursor:pointer;font-weight:800;color:var(--navy);font-size:15px;">Hours and matching <span class="field-note" style="font-weight:500;">new hires waiting for hours, where we can staff this week, availability on file, the next 7 days</span></summary>
+        <summary style="cursor:pointer;font-weight:800;color:var(--navy);font-size:15px;">Hours and matching <span id="schedHoursN" style="font-size:12px;font-weight:800;color:var(--red);"></span> <span class="field-note" style="font-weight:500;">new hires waiting for hours, where we can staff this week, availability on file, the next 7 days</span></summary>
         <div style="margin-top:10px;">
       <div id="swHoursWrap">
       <div id="nhCard"></div><!-- New hires waiting for hours (2026-10-12, new-hires.js) -->
@@ -7648,7 +7648,7 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-page.js?v=8"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="ask-panel.js?v=3"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="ask-panel.js?v=3"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -39158,7 +39158,9 @@ function covManual(){ return true; }
    History ('history', a link at the bottom of Open shifts). Every older sub-tab name still works and lands in the
    right place: Missed clock-ins are cards in Today, Call-offs and Ongoing shifts are Open shifts, Hours & matching is
    in Care planning, No shift texts is in Settings, and "Was it covered?" is no longer a tab. */
-function covSubNorm(s){ s=String(s||'today'); return ({clockins:'today',newclients:'today',calloffs:'open',ongoing:'open',answers:'open',hours:'today',dno:'today'})[s]||(['today','open','history'].includes(s)?s:'today'); }
+function covSubNorm(s){ s=String(s||'today');
+  if(s==='answers') return (window.CAA&&CAA.showing())?'answers':'open';   /* "Was it covered?" is not a tab; while its switch is on, its list still opens from links */
+  return ({clockins:'today',newclients:'today',calloffs:'open',ongoing:'open',hours:'today',dno:'today'})[s]||(['today','open','history'].includes(s)?s:'today'); }
 let COV_SUB=(function(){ try{ return covSubNorm(localStorage.getItem('cch_covsub')); }catch(e){ return 'today'; } })();
 function covSubGo(s){
   if(s==='hours'){ schedHoursOpen(); return; }
@@ -39724,8 +39726,7 @@ let SW_SUB='';
 const SW_TO_COV={today:'clockins',hours:'hours'};
 function swSubGo(s){
   if(s==='builder'||s==='newclients'){ /* New clients moved to Team Builder (step 3, 2026-10-12) */ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
-  COV_SUB=SW_TO_COV[s]||'clockins'; try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
-  if(activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
+  covSubGo(SW_TO_COV[s]||'today');   /* 2026-11-14: hours opens Care planning; missed clock-ins are in Today */
 }
 function swClockinN(){ return (DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length; }
 function swRenderBar(){ if(typeof caraRenderCC==='function'&&activeTab==='coverage') covRenderSubBar(caraSections()); }
@@ -39976,6 +39977,7 @@ function tbRender(){
   if(!TB.pool&&!TB.loading){ tbLoadPool(); }
   if(!TB.journeys&&!TB.jLoading){ tbLoadJourneys(); }
   var plan=tbPlan();
+  try{ var hn=document.getElementById('schedHoursN'), nn=(typeof NH!=='undefined'&&NH.count)?NH.count():0; if(hn) hn.textContent=nn?nn+(nn===1?' new hire':' new hires')+' waiting for hours':''; }catch(e){}
   root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
   if(plan&&!TB.profileRoot) famMount('famTb', { plan_id:plan.id }, 'plan');
 }
@@ -42270,7 +42272,7 @@ function covOpenBody(c,tallies){
       +(c.calling_off&&!covTakenOff(c)?'<button class="ghost" onclick="covNotCallin(\''+id+'\')">Not a call-in</button>':'')
       +'</div>'
       +'<div id="covFollow_'+id+'"></div>'
-      +(window.CRUN?CRUN.html(c):'')
+      +(window.CRUN&&!(CRUN.active&&CRUN.active(c.id))?CRUN.html(c):'')
       +(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'')
       +'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
         +'<div id="covWord_'+id+'">'+covWordingPreview(c)+'</div></details>'
@@ -42282,6 +42284,7 @@ function covOpenBody(c,tallies){
       +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-muted);">'+covSummary(c)+'</div>'
       +'</details>';
     return status+(window.ONC?ONC.html(c):'')
+      +(window.CRUN&&CRUN.active&&CRUN.active(c.id)?CRUN.html(c):'')   /* Cara is running this shift: in view, with Take it back */
       +(ns.k==='yes'?yesBlock:'')
       +AP.html(c)
       +(A.length?'<div style="margin-top:10px;font-weight:700;font-size:13.5px;color:var(--navy);">Who we asked</div><div>'+covOutreachHtml(c)+'</div>':'')
@@ -42348,6 +42351,7 @@ function renderCoverage(){
   const ckOn=COV_SUB==='today'&&swClockinN()>0;
   show('swTodayWrap',ckOn); show('caraCC',COV_SUB==='today');
   if(ckOn){ swRenderLive(); swAutoRefreshArm(); }
+  if(COV_SUB==='answers'){ box.innerHTML=CAA.list(); return; }   // calloff-answers.js (2026-11-05), reached by link only
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   /* Each sub-tab IS its section (2026-09-18): one kind of work per screen.
