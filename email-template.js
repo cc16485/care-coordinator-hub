@@ -135,6 +135,22 @@
     const c = String(code == null ? '' : code).trim().toUpperCase();
     return /^[A-Z0-9-]{3,20}$/.test(c) ? 'https://mo-care.com/referral-partners?p=' + c + '#referral-form' : REFER_PLAIN;
   }
+  /* THE REFER A FRIEND LINE (Samantha 2026-11-15: "yes 1", "i want families to also have their own link", "eveyone should
+     have a link"): one warm line under client, family and caregiver notes, pointing to the person's own Refer a Friend
+     page (opts.friendCode; the sender makes the code if they had none). Only when no code could be made, a kind word
+     with our number. The CDS note sits in small print at the very bottom ("not a main point"). */
+  const FRIEND_PAGE = 'https://mo-care.com/refer-a-friend/?p=';
+  const CDS_NOTE = 'If you refer someone to our CDS program, we can\u2019t pay a reward, since CDS is a Medicaid program.';
+  const friendAud = e => !!e && (e.aud === 'caregivers' || e.aud === 'clients' || e.aud === 'client_contacts');
+  const friendOk = code => /^[A-Z0-9-]{3,20}$/.test(String(code == null ? '' : code).trim().toUpperCase());
+  function friendLine(e, code) {
+    if (!friendAud(e)) return '';
+    const c = String(code == null ? '' : code).trim().toUpperCase(), ok = friendOk(c);
+    const link = ok ? '<a href="' + FRIEND_PAGE + c + '" style="color:' + TEAL + ';font-weight:700;">Your Refer a Friend page</a> has your own link to share.' : '';
+    if (e.aud === 'caregivers') return ok ? 'Know a family who could use help at home, or someone who would be a great caregiver? ' + link : '';
+    return ok ? 'Know someone who could use a little extra help at home? ' + link
+      : 'Know someone who could use a little extra help at home? We would be glad to talk with them. They can call us at <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>.';
+  }
   function build(e, opts) {
     opts = opts || {};
     e = withOpener(e, opts.seg);
@@ -170,6 +186,7 @@
       + (th ? sprig + '</td></tr><tr><td class="cc-pad" style="padding:28px 34px 8px;">' : '')
       + blocks(e, assets, th)
       + (e.cta ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 8px;"><tr><td class="cc-btn" align="' + (th ? 'center' : 'left') + '"><a href="' + safe(e.cta.href) + '" style="display:inline-block;background:' + (th ? th.btn : TEAL) + ';color:#ffffff;font-family:' + SANS + ';font-size:16px;font-weight:700;text-decoration:none;text-align:center;padding:14px 26px;border-radius:8px;">' + e.cta.label + '</a></td></tr></table>' : '')
+      + (friendLine(e, opts.friendCode) ? '<p style="margin:10px 0 0;font-family:' + SANS + ';font-size:14.5px;line-height:1.6;color:' + MUTED + ';">' + friendLine(e, opts.friendCode) + '</p>' : '')
       + (partner ? '<p style="margin:10px 0 0;font-family:' + SANS + ';font-size:14.5px;line-height:1.6;color:' + MUTED + ';">Have a patient who needs help at home? <a href="' + refer + '" style="color:' + TEAL + ';font-weight:700;">Refer in two minutes</a>, call <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>, or fax <span style="white-space:nowrap;">' + FAX + '</span>.</p>' : '')
       + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e6eceb;"><tr><td style="padding:18px 0 26px;">'
       + '<div style="font-family:' + SERIF + ';font-size:17px;font-style:italic;color:' + MUTED + ';margin-bottom:3px;">' + (e.sign || 'With care,') + '</div>'
@@ -181,7 +198,8 @@
       + '<div style="font-family:' + SANS + ';font-size:12.5px;line-height:1.6;color:#c3cdd6;">' + ADDRESS + ' &middot; <a href="tel:4172348494" style="color:#F5D061;text-decoration:none;white-space:nowrap;">' + PHONE + '</a> &middot; <a href="https://mo-care.com" style="color:#c3cdd6;">mo-care.com</a></div>'
       + '<div style="border-top:1px solid #2b527a;margin:14px 0 12px;font-size:0;line-height:0;">&nbsp;</div>'
       + '<div style="font-family:' + SANS + ';font-size:12px;line-height:1.6;color:#9fb0c0;">' + why + ' <a href="' + unsub + '" style="color:#ffffff;font-weight:700;">Unsubscribe</a></div>'
+      + (friendAud(e) && friendOk(opts.friendCode) ? '<div style="font-family:' + SANS + ';font-size:11.5px;line-height:1.6;color:#9fb0c0;margin-top:8px;">' + CDS_NOTE + '</div>' : '')
       + '</td></tr></table></td></tr></table></body></html>';
   }
-  return { build, photoOf, festiveOf, referLink, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };
+  return { build, photoOf, festiveOf, referLink, friendLine, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };
 });
