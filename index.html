@@ -4855,11 +4855,11 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 </div>
 
 <div class="settings-section" data-set="calloff-answers">
-<h3>❓ Was it covered? answers</h3>
-<p class="hint">Cara gets a Was it covered? tab: every finished call-off still waiting for an answer, even if its card is gone, with a What AxisCare shows check (who clocked in for that client at that time). The cards get five answers, including Not needed (no care was owed, such as care that hadn't started), and close only with an answer, so the call-off is always recorded too. Owners can answer several at once with one reason. Nothing is sent to anyone. While it is off, an owner can preview it for themselves. Only Samantha or Zachary can turn this on or off.</p>
+<h3>🔎 Find covers made outside the Hub</h3>
+<p class="hint">When a shift was covered by a phone call and changed straight in AxisCare, the Hub finds it by itself. After a call-off's shift ends, Cara checks AxisCare for whoever clocked in for that client at that time, even on a different visit, and checks again each night for 6 weeks. The call-off then closes as covered by that person. Nothing is sent to anyone. (Renamed 2026-11-14; this used to be called "Was it covered? answers". Asking the office "Was it covered?" stays off on its own setting.)</p>
 <div id="caaSetNow" class="field-note" style="margin:6px 0 8px;"></div>
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="caaToggleBtn" onclick="CAA.toggle_(this)">Turn on Was it covered? answers for everyone</button>
+  <button class="secondary" id="caaToggleBtn" onclick="CAA.toggle_(this)">Turn on finding covers in AxisCare</button>
   <button class="secondary" id="caaPreviewBtn" onclick="CAA.preview(!CAA.previewOn());">Preview it (only me)</button>
   <span class="field-note" id="caaSaved"></span>
 </div>
@@ -7589,7 +7589,7 @@ The HomeTogether team</pre>
 </script>
 <script src="shift-flags.js?v=4"></script>
 <script src="incidents.js?v=8"></script>
-<script src="checkins-tab.js?v=6"></script><script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=13"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=1"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="step1-progress.js?v=1"></script><!-- 2026-11-11 Step 1 box: forms signed until fully done --><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
+<script src="checkins-tab.js?v=6"></script><script src="orientation-proof.js?v=1"></script><script src="orient-progress.js?v=13"></script><script src="hire-strip.js?v=2"></script><script src="hire-remind.js?v=2"></script><script src="hire-shifts.js?v=1"></script><script src="gone-quiet.js?v=2"></script><script src="caregivers-glance.js?v=1"></script><script src="clients-glance.js?v=3"></script><script src="calloff-answers.js?v=2"></script><script src="hiring-fold.js?v=1"></script><script src="onboarding-availability.js?v=3"></script><script src="step1-progress.js?v=1"></script><!-- 2026-11-11 Step 1 box: forms signed until fully done --><script src="falloff.js?v=1"></script><!-- 2026-11-04: Caregivers at a glance (tiles, labeled columns), behind ops_settings.caregivers_glance_live --><!-- 2026-11-04: onboarding fall-offs, AxisCare line + Put back --><!-- 2026-11-04: Caregivers > Gone quiet --><!-- 2026-11-03: Tell them about shifts on onboarding rows --><!-- 2026-11-02: Send reminder on every Recruit & Onboard row --><!-- 2026-11-02: the hiring strip on every Recruit & Onboard tab --><!-- 2026-11-01: the Orientation tab and its stuck count --><!-- 2026-10-28: verified orientation (profile section, cleanup list, settings) -->
 <script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=7"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
@@ -42139,7 +42139,7 @@ function covOpenFoot(){
   return COV_SUB==='history'
     ?'<div style="margin-top:12px;"><a href="javascript:void(0)" onclick="schedGo(\'openshifts\')" style="font-size:13px;font-weight:700;">&larr; Back to Open shifts</a></div>'
     :'<div style="margin-top:12px;display:flex;gap:18px;flex-wrap:wrap;"><a href="javascript:void(0)" onclick="caraOpenHistory()" style="font-size:13px;font-weight:700;">History: closed shifts and the last 30 days &rarr;</a>'
-      +((window.CAA&&CAA.showing()&&CAA.count())?'<a href="javascript:void(0)" onclick="covSubGo(\'answers\')" style="font-size:13px;font-weight:700;">Was it covered? '+CAA.count()+' waiting for an answer &rarr;</a>':'')+'</div>';
+      +((window.CAA&&CAA.showing()&&CAA.count()&&!(DATA.ops_settings&&DATA.ops_settings.covered_question_off===true))?'<a href="javascript:void(0)" onclick="covSubGo(\'answers\')" style="font-size:13px;font-weight:700;">Was it covered? '+CAA.count()+' waiting for an answer &rarr;</a>':'')+'</div>';
 }
 
 /* ── Change 6b: AxisCare's class is the care level once someone is in care ──
