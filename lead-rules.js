@@ -211,7 +211,7 @@
     const pay = String(l && l.funding_source || ''), dis = ((l && l.program_check) || {}).dismissed || {}, a = k => programAnswer(l, k), out = [];
     if(a('veteran') === 'yes' && pay !== 'va') out.push({ key:'va', ref:'va', title:'Veteran', text:'Look at VA Community Care if they get care through the VA, or Aid & Attendance if not.' });
     if(a('ltc') === 'yes' && pay !== 'ltc') out.push({ key:'ltc', ref:'ltc', title:'Long-term care policy', text:'Ask them to find the policy, then read it before talking money (SOPs, Payors & Programs, LTC insurance).' });
-    if(a('dementia') === 'yes' && a('medicare') === 'traditional' && pay !== 'guide') out.push({ key:'guide', ref:'guide', title:'Dementia and traditional Medicare', text:'Screen them for Medicare GUIDE. Up to 20 four-hour visits a year could be covered.' });
+    if(a('dementia') === 'yes' && a('medicare') === 'traditional' && pay !== 'guide') out.push({ key:'guide', ref:'guide', title:'Dementia and traditional Medicare', text:'Screen them for Medicare GUIDE. Up to 19 four-hour visits a year could be covered.' });
     else if(a('dementia') === 'yes' && (!a('medicare') || a('medicare') === 'not_sure') && pay !== 'guide') out.push({ key:'guide_ask', ref:'guide', title:'Dementia diagnosis', text:'Ask which Medicare card they have. Traditional Medicare could mean GUIDE.' });
     if(a('medicaid') === 'yes' && pay !== 'cds' && pay !== 'medicaid') out.push({ key:'cds', ref:'cds', title:'Has Medicaid', text:'If they want to choose their own caregiver, hand off to Caring Companions CDS, (417) 218-2888.' });
     return out.filter(h => !dis[h.key]);
