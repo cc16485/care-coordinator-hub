@@ -42,17 +42,9 @@ async (mode) => {
   window.scrollTo(0, 0);
   const txt = () => host.innerText.replace(/\s+/g, ' ');
   const rows = () => [...host.querySelectorAll('[data-askp-row]')].map((x) => x.getAttribute('data-askp-row').replace('Example: ', '') + (x.checked ? '*' : ''));
-  if (mode === 'office_off') {
-    ok('switch off, office: today\'s card, no panel, no Try link', !host.querySelector('.askp') && !/Try the new Ask caregivers panel/.test(txt()), txt().slice(0, 300));
-    ok('switch off: the list was never asked for', !sent.some((x) => x.action === 'candidates_v2'), sent.map((x) => x.action));
-    return R;
-  }
-  if (mode === 'owner') {
-    ok('switch off, owner: today\'s card plus a way to try the panel', !host.querySelector('.askp') && /Try the new Ask caregivers panel/.test(txt()), txt().slice(-300));
-    AP.preview(true); await sleep(500); draw();
-    ok('Try it: the panel, marked as only in your browser', !!host.querySelector('.askp') && /only in your browser/.test(txt()) && /Back to the old card/.test(txt()), txt().slice(0, 300));
-    AP.preview(false); await sleep(100);
-    ok('Back to the old card', !host.querySelector('.askp'));
+  if (mode === 'office_off' || mode === 'owner') {
+    /* 2026-11-14 (Simpler Scheduling, her picks): the panel is on for everyone; the switch is no longer read */
+    ok('switch off: the office still gets the panel, no Try link', !!host.querySelector('.askp') && !/Try the new Ask caregivers panel/.test(txt()) && !/only in your browser/.test(txt()), txt().slice(0, 300));
     return R;
   }
   ok('the panel asks one question with three choices and their counts', /Who do you want to ask\?/.test(txt()) && /Worked with Example: 3 caregivers, last 6 months/.test(txt().replace('Example: Example:', 'Example:')) || /Worked with Example:/.test(txt()), txt().slice(0, 500));

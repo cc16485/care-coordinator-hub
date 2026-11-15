@@ -171,7 +171,7 @@
         return '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:6px 0;border-top:1px solid var(--border);font-size:13px;">'
           + '<b>' + esc(c.client || 'New client') + '</b><span class="field-note">' + esc([c.client_city, hoursOf(c)].filter(Boolean).join(' · ')) + '</span>'
           + '<span>🟢 ' + n('yes') + (ys.length ? ' (' + esc(ys.slice(0, 6).join(', ')) + ')' : '') + ' · 🟡 ' + n('inquiry') + ' · 🔴 ' + n('no') + ' · ⏳ ' + n('waiting') + '</span>'
-          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OPH.convert(\'' + esc(c.id) + '\')">Make it a Caregiver Matching plan</button>'
+          + '<span style="flex:1;"></span><button class="cara-btn" style="font-size:12px;" onclick="OPH.convert(\'' + esc(c.id) + '\')">Make it a Care planning chart</button>'
           + '<button class="cara-btn ghost" style="font-size:12px;" onclick="OPH.closeOld(\'' + esc(c.id) + '\')">Close it</button></div>'; }).join('')
       + '</div>';
   }

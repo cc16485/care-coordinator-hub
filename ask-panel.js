@@ -10,8 +10,8 @@
    Nothing new on the server: the list is coverage-run "candidates_v2" and the send is "send_selected", which works out who
    may be texted again on the server, so this page can only choose WITHIN the safe set. The wording is the office's saved
    wording (Settings); it is shown, not typed here. Replies land on the shift as before.
-   Switch: ops_settings.ask_panel_live (off). While off, an owner can try it in their own browser (localStorage ask_panel_preview).
-   When on it stands in for the simple card's list, the classic picker, "Ask everyone now" and the PRN team buttons. */
+   On for everyone since 2026-11-14 (Simpler Scheduling, her picks); ops_settings.ask_panel_live is no longer read.
+   It stands in for the simple card's list, the classic picker, "Ask everyone now" and the PRN team buttons. */
 (function (root) {
   'use strict';
   const lc = (s) => String(s == null ? '' : s).trim().toLowerCase();
@@ -74,11 +74,8 @@
   const W = root;
   const E = (s) => (typeof W.escapeHtmlComms === 'function' ? W.escapeHtmlComms(s) : String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
   const ls = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} } };
-  const settings = () => { try { return (DATA && DATA.ops_settings) || {}; } catch (e) { return {}; } };
-  const owner = () => { try { return !!W.ccIsOwner(); } catch (e) { return false; } };
-  const live = () => settings().ask_panel_live === true;
-  const preview = () => owner() && ls.get('ask_panel_preview') === '1';
-  function on(c) { return !!c && c.status === 'open' && String(c.kind) !== 'interest' && c.open_hours !== true && (live() || preview()); }
+  /* 2026-11-14 (her "Yes, use your picks" on Simpler Scheduling): the one way to ask, for everyone. The switch is no longer read. */
+  function on(c) { return !!c && c.status === 'open' && String(c.kind) !== 'interest' && c.open_hours !== true; }
   async function call(body) {
     const s = await sb.auth.getSession(), session = s && s.data && s.data.session;
     if (!session || !session.access_token) throw new Error('Sign in to the Hub first.');
@@ -116,8 +113,6 @@
     const id = E(c.id), s = ST[c.id];
     if (!s || (s.key !== keyOf(c) && !s.loading)) { setTimeout(() => load(c.id), 0); }
     let h = '<div id="askp_' + id + '" class="askp" style="margin-top:8px;border:1px solid #C9D5E3;border-radius:12px;padding:12px 14px;background:#fff;">';
-    if (preview() && !live()) h += '<div style="font-size:12.5px;background:#FFF4E3;border-radius:8px;padding:6px 10px;margin-bottom:8px;">The new Ask caregivers panel, only in your browser (the office still sees the old card). '
-      + '<a href="javascript:void(0)" onclick="AP.preview(false)">Back to the old card</a></div>';
     if (!s || (s.loading && !s.people)) return h + '<div class="field-note">Finding who can take this shift…</div></div>';
     if (s.err && !s.people) return h + '<div style="color:#B42318;font-size:13.5px;">Couldn\'t build the list: ' + E(s.err) + ' <a href="javascript:void(0)" onclick="AP.load(\'' + id + '\')">Try again</a></div></div>';
     const people = s.people || [], n = counts(people), list = listFor(people, s.choice, s.filter), ticks = ticksOf(s), who = firstName(clientOf(c));
@@ -140,7 +135,7 @@
         + list.map((p, i) => '<label style="display:flex;gap:10px;align-items:center;padding:7px 2px;border-bottom:1px solid #EAECF0;font-size:14px;cursor:pointer;"><input type="checkbox" data-askp-row="' + E(p.name) + '"' + (ticks.has(p.name) ? ' checked' : '')
           + ' onchange="AP.tick(\'' + id + '\',' + i + ',this.checked)" style="width:auto;margin:0;"><span style="flex:1;min-width:0;font-weight:600;color:#101828;">' + E(p.name) + '</span><span style="font-size:12.5px;color:' + (p.concern ? '#B42318' : '#475467') + ';text-align:right;">' + E(facts(p)) + '</span></label>').join('') + '</div>';
     } else {
-      h += '<div class="field-note" style="margin-top:10px;">' + (s.choice === 'worked' ? 'Nobody who can be asked has worked with ' + E(who) + ' in the last 6 months. Try Right level.' : s.choice === 'level' ? 'Nobody else fits this filter. Try another, or Whole team.' : 'Nobody is left to ask for this shift.') + '</div>';
+      h += '<div class="field-note" style="margin-top:10px;">' + (s.choice === 'worked' ? (String(c.kind) === 'interest' ? 'A new client: nobody has worked with them yet. Use Right level or Whole team.' : 'Nobody who can be asked has worked with ' + E(who) + ' in the last 6 months. Try Right level.') : s.choice === 'level' ? 'Nobody else fits this filter. Try another, or Whole team.' : 'Nobody is left to ask for this shift.') + '</div>';
     }
     const out = leftOut(s.pool), nOut = out.reduce((a, g) => a + g.names.length, 0);
     if (nOut) h += '<details style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">Not asked: ' + nOut + (nOut === 1 ? ' person' : ' people') + '. See who and why</summary>'
@@ -160,7 +155,7 @@
     const c = caseOf(id), s = ST[id]; if (!c || !s || s.sending) return;
     const list = listFor(s.people || [], s.choice, s.filter), ticks = ticksOf(s), names = list.filter((p) => ticks.has(p.name)).map((p) => p.name);
     if (!names.length) return;
-    const ask = 'Text ' + names.length + (names.length === 1 ? ' caregiver' : ' caregivers') + ' about this shift for ' + clientOf(c) + '?';
+    const ask = 'Text ' + names.length + (names.length === 1 ? ' caregiver' : ' caregivers') + (String(c.kind) === 'interest' ? ' about these hours for a new client (' + clientOf(c) + ' is not named in the text)?' : ' about this shift for ' + clientOf(c) + '?');
     let yes = true; try { if (typeof W.ccConfirm === 'function') yes = await W.ccConfirm(ask); } catch (e) { yes = false; }
     if (!yes) return;
     s.sending = true; s.said = ''; rerender();
@@ -175,8 +170,7 @@
     s.sending = false; await load(id);
   }
   function previewLink(c) {
-    if (live() || !owner() || preview() || !c || c.status !== 'open' || String(c.kind) === 'interest' || c.open_hours === true) return '';
-    return '<div style="margin-top:8px;"><a href="javascript:void(0)" onclick="AP.preview(true)" style="font-size:12.5px;font-weight:700;">Try the new Ask caregivers panel (only you, only this browser) &rarr;</a></div>';
+    return '';
   }
   W.AP = Object.assign({}, CORE, { on, html, load, send, previewLink, state: ST,
     pick(id, k) { const s = ST[id]; if (!s) return; s.choice = k; s.said = ''; rerender(); },
