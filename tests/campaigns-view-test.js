@@ -110,7 +110,8 @@ ck('Campaigns opens on the campaigns, then the Email library, then All results',
   ck('the Hub loads the VA record and lists the VA audience', /campaign_log','va_series_progress',/.test(html) && /va_series_progress: \[\]/.test(html) && /\['va','[^']*VA leads'\]/.test(html));
   const L = fs.readFileSync(path.join(__dirname, '..', 'email-library.js'), 'utf8'); const arr = JSON.parse(L.slice(L.indexOf('const CC_EMAIL_LIBRARY = ') + 25, L.indexOf('\nconst CC_EMAIL_ASSETS')).trim().replace(/;$/, ''));
   const vs = arr.filter((e) => e.aud === 'va');
-  ck('the library carries the twelve VA guides in order, each with a subject, a footer line and a button, and no em dash', vs.length === 12 && vs.every((e, i) => e.series === i + 1 && e.key === 'v' + (i + 1) && e.subj && e.footer && e.cta && e.cta.href === 'https://mo-care.com/veterans') && !/—/.test(JSON.stringify(vs)), vs.map((e) => e.key)); }
+  ck('the library carries the twelve VA guides in order, each with a subject, a footer line and a button, and no em dash', vs.length === 12 && vs.every((e, i) => e.series === i + 1 && e.key === 'v' + (i + 1) && e.subj && e.footer && e.cta && e.cta.href === 'https://mo-care.com/veterans') && !/—/.test(JSON.stringify(vs)), vs.map((e) => e.key));
+  ck('every VA guide says the veteran can choose their own caregiver: an employee, background checks, family or a friend (her word 2026-11-14)', vs.every((e) => e.blocks.filter((b) => b.t === 'tip' && /choose their own caregiver/.test(b.text) && /Caring Companions employee/.test(b.text) && /background checks/.test(b.text) && /family member or a friend/.test(b.text)).length === 1), vs.filter((e) => !e.blocks.some((b) => b.t === 'tip')).map((e) => e.key)); }
 for (const [n, c, d] of res) console.log((c ? '  ✓ ' : '  ✗ ') + n + (d ? '\n      ' + d : ''));
 console.log(res.filter((x) => x[1]).length + '/' + res.length + ' passed');
 process.exit(res.every((x) => x[1]) ? 0 : 1);
