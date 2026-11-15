@@ -20,7 +20,7 @@
 (function(){
   'use strict';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
-  const ST = { data:null, busy:false, view:'', show:'ready', q:'', hr:null };
+  const ST = { data:null, busy:false, view:'', show:'ready', who:'all', q:'', hr:null };
   const el = () => document.getElementById('ffMount');
   const owner = () => { try{ return typeof ccIsOwner === 'function' && !!ccIsOwner(); }catch(e){ return false; } };
   const OFFICE = ['owner_admin', 'care_coordinator', 'staffing_coordinator'];
@@ -59,6 +59,7 @@
       + '.ff-checks{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:13px}.ff-ck{display:flex !important;gap:6px;align-items:center;width:auto;font-weight:600;color:var(--text)}'
       + '.ff-ck input{width:auto !important;margin:0;flex:0 0 auto}.ff-ok{color:#1F7A4D}.ff-no{color:#94A3B8}'
       + '.ff-filters{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0 4px}.ff-filters button{padding:5px 12px;font-size:13px;border-radius:999px}'
+      + '.ff-who{margin:10px 0 0}.ff-who button{font-size:12.5px;padding:4px 11px}.ff-who button[aria-pressed="true"]{background:var(--navy,#0E3860)!important}'
       + '.ff-filters button[aria-pressed="true"]{background:var(--teal,#1F7A8C);color:#fff;border-color:transparent}.ff-filters input{max-width:220px;margin-left:auto}'
       + '.ff-empty{padding:12px 0;font-size:13.5px;color:var(--text-muted);border-top:1px solid #EEF1F5}'
       + '.ff-banner{background:#FDF3E3;color:#7A4A0B;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-size:13px}.ff-meta{font-size:12.5px;color:var(--text-muted);margin:-6px 0 12px}'
@@ -206,7 +207,10 @@
     const own = owner();
     const needN = (own ? toApprove.length + toReview.length + toFinish.length : 0) + toTick.length + failed.length + pn.size;
     if(!ST.view) ST.view = needN ? 'needs' : 'invites';
-    const count = st => people.filter(p => p.status === st).length;
+    /* 2026-11-15 (Samantha, "Yes, build it"): one list, with a Caregivers / Families split on top. A client with no family
+       email on file counts with Families. */
+    const isWho = (k, w) => w === 'all' || (w === 'caregiver' ? k === 'caregiver' : k !== 'caregiver');
+    const count = st => people.filter(p => p.status === st && isWho(p.kind, ST.who)).length;
 
     /* the status card */
     const state = sw.paused ? 'paused' : sw.live ? 'on' : 'off';
@@ -224,7 +228,7 @@
     if(run.problems && run.problems.length) h += '<div class="ff-banner"><b>Couldn’t read everything that morning:</b> ' + run.problems.map(esc).join('; ') + '. Anyone it couldn’t check is held, never invited.</div>';
 
     /* the four views */
-    const V = [['needs', 'Needs you', needN, true], ['invites', 'Invitations', count('ready'), false], ['rewards', 'Rewards', rw.filter(x => ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)).length, false], ['referrals', 'Referrals', refs.length, false]];
+    const V = [['needs', 'Needs you', needN, true], ['invites', 'Invitations', people.filter(p => p.status === 'ready').length, false], ['rewards', 'Rewards', rw.filter(x => ['on_the_way', 'ready', 'under_review', 'approved'].includes(x.status)).length, false], ['referrals', 'Referrals', refs.length, false]];
     h += '<div class="ff-views" role="tablist">' + V.map(([k, w, n, hot]) => '<button role="tab" data-v="' + k + '" aria-selected="' + (ST.view === k) + '" onclick="FFT.view(\'' + k + '\')">' + esc(w) + '<span class="ff-n' + (hot && n ? ' hot' : '') + '">' + n + '</span></button>').join('') + '</div>';
 
     if(ST.view === 'needs'){
@@ -239,11 +243,13 @@
         [...pn.values()].map(x => row({ name:x.client, line:esc(x.why.replace(/^Payer needed: /, '').replace(/^./, c => c.toUpperCase())) })), '', pn.size, 'ffPayer');
     }
     if(ST.view === 'invites'){
-      const F = [['ready', 'Ready to invite', count('ready')], ['waiting', 'Waiting', count('waiting')], ['held', 'Held', count('held')], ['invited', 'Invited', sent.length]];
+      const F = [['ready', 'Ready to invite', count('ready')], ['waiting', 'Waiting', count('waiting')], ['held', 'Held', count('held')], ['invited', 'Invited', sent.filter(x => isWho(x.kind, ST.who)).length]];
+      const inShow = w => ST.show === 'invited' ? sent.filter(x => isWho(x.kind, w)).length : people.filter(p => p.status === ST.show && isWho(p.kind, w)).length;
+      const WHO = [['all', 'Everyone', inShow('all')], ['caregiver', 'Caregivers', inShow('caregiver')], ['family', 'Families', inShow('family')]];
       const q = ST.q.trim().toLowerCase(), hit = s => !q || String(s || '').toLowerCase().includes(q);
       let rows;
-      if(ST.show === 'invited') rows = sent.filter(x => hit(x.name + ' ' + (x.client_name || ''))).map(inviteRow);
-      else rows = people.filter(p => p.status === ST.show && hit(p.name + ' ' + (p.client || ''))).sort((a, b) => String(a.name).localeCompare(String(b.name))).map(p => {
+      if(ST.show === 'invited') rows = sent.filter(x => isWho(x.kind, ST.who) && hit(x.name + ' ' + (x.client_name || ''))).map(inviteRow);
+      else rows = people.filter(p => p.status === ST.show && isWho(p.kind, ST.who) && hit(p.name + ' ' + (p.client || ''))).sort((a, b) => String(a.name).localeCompare(String(b.name))).map(p => {
         const skipped = (p.why || [])[0] && /^Skipped/.test(p.why[0]);
         const how = p.status === 'ready' ? 'By ' + (p.channels || []).map(c => c === 'text' ? 'text' : 'email').join(' and ') : '';
         const line = esc(kindWords(p)) + (p.payer ? ' · ' + esc(p.payer) : '') + (how ? ' · ' + esc(how) : '') + (p.invited ? ' · invited ' + esc(day(p.invited.at)) : '');
@@ -252,6 +258,7 @@
         return row({ attr:' data-key="' + esc(p.key) + '"', name:p.name, line,   /* the filter above says the status */ why:esc((p.why || []).filter(w => !/^Email only/.test(w) || p.status !== 'ready').join(' · ')) + (p.note ? ' · ' + esc(p.note) : ''), acts:see + acts });
       });
       h += '<div class="ff-card" id="ffList"><h3>Who gets an invitation</h3><p>Checked every morning. Ready means they get one the next Monday morning once invitations are on.</p>'
+        + '<div class="ff-filters ff-who" role="group" aria-label="Who">' + WHO.map(([k, w, n]) => '<button class="secondary" aria-pressed="' + (ST.who === k) + '" onclick="FFT.who(\'' + k + '\')">' + esc(w) + ' (' + n + ')</button>').join('') + '</div>'
         + '<div class="ff-filters">' + F.map(([k, w, n]) => '<button class="secondary" aria-pressed="' + (ST.show === k) + '" onclick="FFT.show(\'' + k + '\')">' + esc(w) + ' (' + n + ')</button>').join('')
         + '<input id="ffQ" type="search" placeholder="Search a name" value="' + esc(ST.q) + '" oninput="FFT.search(this.value)"></div>'
         + (rows.length ? rows.join('') : '<div class="ff-empty">Nobody here.</div>') + '</div>';
@@ -348,5 +355,5 @@
     return { n:(owner() ? p.toApprove.length + p.toReview.length + p.toFinish.length : 0) + p.toTick.length + p.failed.length + p.pn.size };
   }
   window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, see, seeClose, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
-    view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
+    view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, who(k){ ST.view = 'invites'; ST.who = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();
