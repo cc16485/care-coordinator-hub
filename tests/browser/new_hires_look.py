@@ -25,7 +25,7 @@ async()=>{
   ok('Nina: hired Oct 2 (10 days ago), Nixa, nothing scheduled, wants 30 a week', /hired Oct 2 \(10 days ago\) · Nixa/.test(t) && /nothing scheduled in the next 2 weeks · wants 30 h a week/.test(t), t.slice(0,600));
   ok('her availability in words', /Mon, Wed: mornings, daytimes · Fri: evenings/.test(t), t.slice(0,800));
   ok('Lee: 4 hours scheduled, no form: "assumed available any time" (her rule)', /4 h in the next 2 weeks/.test(t) && /No availability on file: assumed available any time/.test(t));
-  /* 2026-11-14: Hours and matching is a section in Care planning; its heading shows the count */
+  /* 2026-11-14: Hours and matching is a section in Schedule planner; its heading shows the count */
   if(typeof tbRender==='function'){ switchTab('teambuilder'); await new Promise(r=>setTimeout(r,200)); }
   const hn=(document.getElementById('schedHoursN')||{}).textContent||'';
   ok('the Hours and matching heading shows the count (2)', /2 new hires? waiting for hours/.test(hn), hn);

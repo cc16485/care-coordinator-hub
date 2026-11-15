@@ -23,10 +23,10 @@
     ['A caregiver calls off', go('coverage', '', 'Today'), 'Press Someone\'s calling off, then ask on the shift.'],
     ['A shift has nobody on it', go('', 'open', 'Open shifts'), 'Open the shift and ask caregivers.'],
     ['A new client, or a care assessment coming up', go('coverage', '', 'Message caregivers (top of Today)'), 'About a new client: ask who wants the hours.'],
-    ['Building a client\'s week', go('teambuilder', '', 'Care planning'), 'Pencil people in on the chart.'],
+    ['Building a client\'s week', go('teambuilder', '', 'Schedule planner'), 'Pencil people in on the chart.'],
     ['Someone hasn\'t clocked in or out', go('coverage', '', 'Today'), 'It shows as a card at the top. Call them.'],
     ['A finished visit is missing a clock-in or clock-out', go('ops', '', 'Needs Attention'), 'Call the client to confirm the times, then fix it in AxisCare.'],
-    ['Who wants more hours?', go('', 'hours', 'Care planning: Hours and matching'), 'Check it on Mondays.'],
+    ['Who wants more hours?', go('', 'hours', 'Schedule planner: Hours and matching'), 'Check it on Mondays.'],
     ['A caregiver asked for no shift texts', go('', 'dno', 'Settings: No shift texts'), 'Add them there.'],
   ];
 
@@ -50,7 +50,7 @@
       'Choose who to ask and press <b>Text</b>. Answers come back on the message.',
     ])
     + steps('🧩 Building a client\'s week', false, [
-      'Go to <b>Care planning</b>, press <b>New care plan</b>: who, which town, which days.',
+      'Go to <b>Schedule planner</b>, press <b>Plan a new schedule</b>: who, which town, which days.',
       'Change the shifts right on the chart. Mark what the client needs at the top.',
       'Press <b>Message caregivers about these hours</b> to ask, or click a square to pencil someone in and mark asked, yes, maybe or no.',
       'When every square is confirmed, <b>Plan complete</b> shows the summary and puts the schedules into AxisCare after a preview.',
@@ -93,7 +93,7 @@
       ['The shift is covered (others who said yes)', 'coverage_msg_covered', ph('set_cov_covered'), 'coverage_send_live'],
       ['Open hours, to the whole team', 'open_hours_msg', ph('set_oh_msg'), 'open_hours_live'],
       ['Open hours, thank-you to a Yes', 'open_hours_ack_msg', ph('set_oh_ack'), 'open_hours_ack_live'],
-      ['Care planning, asking one caregiver', 'team_ask_msg', "Hi {first_name}, it's Caring Companions. We're building a care team for {client}, a new client{where}: {when}{start}. {care}Would you be interested in these hours? Nothing is set yet - reply YES if you'd like to be considered, or NO. Questions welcome.", 'team_ask_live'],
+      ['Schedule planner, asking one caregiver', 'team_ask_msg', "Hi {first_name}, it's Caring Companions. We're building a care team for {client}, a new client{where}: {when}{start}. {care}Would you be interested in these hours? Nothing is set yet - reply YES if you'd like to be considered, or NO. Questions welcome.", 'team_ask_live'],
       ['No clock-in yet', 'timekeeper_msg', ph('set_tk_msg'), 'timekeeper_text_live'],
       ['No clock-out yet', 'timekeeper_msg_out', ph('set_tko_msg'), 'timekeeper_text_live'],
       ['Availability link', 'coverage_msg_avail_invite', ph('set_cov_avail_invite'), null],

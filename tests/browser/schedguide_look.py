@@ -18,7 +18,7 @@ async()=>{
   last.click(); await sleep(250);
   const P=document.getElementById('tab-schedguide'), t=P.innerText;
   ok('it opens inside Scheduling with its own title', activeTab==='schedguide' && document.querySelector('.ftab.active,.ftab.on')?.dataset.g==='scheduling' && /How scheduling works/.test(t), [activeTab]);
-  ok('which tab for which problem: 10 rows (2026-10-31: Nurse Scheduling gone; 2026-10-24: + a client cancels or we can\'t staff; Team Builder is Caregiver Matching now)', P.querySelectorAll('table tr').length===8 && /A caregiver calls off/.test(t) && /Care planning/.test(t) && /Open shifts/.test(t), P.querySelectorAll('table tr').length);
+  ok('which tab for which problem: 10 rows (2026-10-31: Nurse Scheduling gone; 2026-10-24: + a client cancels or we can\'t staff; Team Builder is Caregiver Matching now)', P.querySelectorAll('table tr').length===8 && /A caregiver calls off/.test(t) && /Schedule planner/.test(t) && /Open shifts/.test(t), P.querySelectorAll('table tr').length);
   [...P.querySelectorAll('table tr')].find(r=>/clocked in/.test(r.textContent)).querySelector('a').click(); await sleep(200);
   ok('a row\'s link goes to that tab (missed clock-ins are in Today since 2026-11-14)', activeTab==='coverage' && COV_SUB==='today', [activeTab, COV_SUB]);
   switchTab('schedguide'); await sleep(200);

@@ -1252,7 +1252,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="openshifts" onclick="schedGo('openshifts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Open shifts<span class="subtab-badge" id="covPillBadge3" style="display:none;background:var(--slate-bg);color:var(--navy);"></span></div>
     <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Cara.
          The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
-    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Care planning</div>
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Schedule planner</div>
     <!-- Care Match Check-ins moved to Client Care 2026-11-14 (Simpler Scheduling): it is client relations. -->
     <!-- 2026-10-12 (scheduling review step 5, her ask): the reference page sits at the far right, like Applicant journey -->
     <span style="flex:1 1 auto;"></span>
@@ -1339,8 +1339,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Care planning</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">A week chart for a client: shifts down the side, days across the top. Pencil caregivers in as you call, then send the schedule to AxisCare when the whole team is set.</div>
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Schedule planner</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">A scheduling tool: work out who covers a client's week before it goes on AxisCare. Shifts down the side, days across the top. Pencil caregivers in as you call, then send the schedule to AxisCare when the whole team is set. Delete the schedule here once you're done with it.</div>
       </div>
       <!-- Hours and matching moved here from Scheduling > Cara 2026-11-14 (Simpler Scheduling, her picks): it is planning,
            not today's work. Closed until opened; the loads run when it opens. -->
@@ -4514,7 +4514,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
 <textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
-<label>Open hours: the text to the whole team (Care planning, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<label>Open hours: the text to the whole team (Schedule planner, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
 <label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
 <textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
@@ -8742,7 +8742,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   inbox:'Inbox', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', cctraining:'Coordinator Training', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Scheduling', teambuilder:'Care planning', carelibrary:'Care Library', fccheck:'Family Circles',
+  coverage:'Scheduling', teambuilder:'Schedule planner', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
@@ -11012,9 +11012,9 @@ async function cpRenderTeam(){
   const cj=window.CJ_STATE&&CJ_STATE.data&&CJ_STATE.data.journey;
   const plan=(f&&f.plan)||(typeof cmPlanFor==='function'?cmPlanFor({ lead:CP.lead, ax:CP.ax, journey_id:cj&&cj.journey_id }):null);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care planning</b></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Schedule planner</b></div>'
     +(plan?'<div id="cp_tb"></div>'
-      :'<div class="field-note">No Care planning chart for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
+      :'<div class="field-note">No Schedule planner chart for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
         +'<button class="primary" style="margin-top:8px;" onclick="cmFindCaregivers(this)">Find Caregivers</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
@@ -39157,7 +39157,7 @@ function covManual(){ return true; }
 /* SIMPLER SCHEDULING (2026-11-14, her picks): the page has two views, Today ('today') and Open shifts ('open'), plus
    History ('history', a link at the bottom of Open shifts). Every older sub-tab name still works and lands in the
    right place: Missed clock-ins are cards in Today, Call-offs and Ongoing shifts are Open shifts, Hours & matching is
-   in Care planning, No shift texts is in Settings, and "Was it covered?" is no longer a tab. */
+   in Schedule planner, No shift texts is in Settings, and "Was it covered?" is no longer a tab. */
 function covSubNorm(s){ s=String(s||'today');
   if(s==='answers') return (window.CAA&&CAA.showing())?'answers':'open';   /* "Was it covered?" is not a tab; while its switch is on, its list still opens from links */
   return ({clockins:'today',newclients:'today',calloffs:'open',ongoing:'open',hours:'today',dno:'today'})[s]||(['today','open','history'].includes(s)?s:'today'); }
@@ -39168,7 +39168,7 @@ function covSubGo(s){
   COV_SUB=covSubNorm(s); try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
   if(typeof activeTab!=='undefined'&&activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
 }
-/* Hours & matching lives in Care planning now: open that tab and its Hours and matching section */
+/* Hours & matching lives in Schedule planner now: open that tab and its Hours and matching section */
 function schedHoursOpen(){
   if(typeof activeTab==='undefined'||activeTab!=='teambuilder') switchTab('teambuilder');
   const d=document.getElementById('schedHoursBox'); if(d){ d.open=true; schedHoursRender(); if(d.scrollIntoView) d.scrollIntoView({behavior:'smooth',block:'start'}); }
@@ -39667,7 +39667,7 @@ let SW_SUB='';
 const SW_TO_COV={today:'clockins',hours:'hours'};
 function swSubGo(s){
   if(s==='builder'||s==='newclients'){ /* New clients moved to Team Builder (step 3, 2026-10-12) */ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
-  covSubGo(SW_TO_COV[s]||'today');   /* 2026-11-14: hours opens Care planning; missed clock-ins are in Today */
+  covSubGo(SW_TO_COV[s]||'today');   /* 2026-11-14: hours opens Schedule planner; missed clock-ins are in Today */
 }
 function swClockinN(){ return (DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length; }
 function swRenderBar(){ if(typeof caraRenderCC==='function'&&activeTab==='coverage') covRenderSubBar(caraSections()); }
@@ -39909,11 +39909,11 @@ function tbRender(){
 function tbHomeHtml(){
   var plans=tbPlans().slice().sort(function(a,b){ return String(b.created_at||'').localeCompare(String(a.created_at||'')); });
   var h='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">'
-    +'<button class="cov-cta teal" onclick="tbNewForm()">🧩 New care plan</button>'
-    +'<span class="field-note" style="max-width:60ch;">The chart you used to draw on paper: shifts down the side, days across the top, pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed.</span>'
+    +'<button class="cov-cta teal" onclick="tbNewForm()">🗓️ Plan a new schedule</button>'
+    +'<span class="field-note" style="max-width:60ch;">For scheduling only, not the client\'s care plan. The chart you used to draw on paper: pencil people in as you call. Nothing goes on the AxisCare schedule until the whole week is confirmed. When you\'re done, press Delete.</span>'
     +'</div><div id="tbNewFormBox"></div>'
     +(typeof OPH!=='undefined'?OPH.earlierHtml():'');
-  if(!plans.length) h+='<div class="card" style="padding:16px 18px;color:var(--text-muted);font-size:13.5px;">No plans yet.</div>';
+  if(!plans.length) h+='<div class="card" style="padding:16px 18px;color:var(--text-muted);font-size:13.5px;">No schedules being planned right now.</div>';
   else h+=plans.map(function(p){
     var cells=Object.keys(p.cells||{}).length, total=(p.days||[]).length*(p.slots||[]).length;
     var yes=Object.values(p.cells||{}).filter(function(c){ return c&&c.status==='yes'; }).length;
@@ -39925,7 +39925,8 @@ function tbHomeHtml(){
       +tbJourneyChip(p.id)
       +(p.status==='done'?'<span style="color:var(--green);font-weight:700;font-size:12px;">✓ complete</span>':'')
       +'<span style="flex:1;"></span>'
-      +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the chart →</button>'
+      +'<button class="cara-btn" style="font-size:12px;" onclick="tbOpen(\''+esc(p.id)+'\')">Open the schedule →</button>'
+      +'<button class="cara-btn ghost" style="font-size:12px;color:var(--red);" data-tbdel="'+esc(p.id)+'" onclick="tbDeletePlan(\''+esc(p.id)+'\')" title="Remove this planning chart. Nothing on AxisCare changes.">Delete</button>'
       +'</div>';
   }).join('');
   return h;
@@ -40083,7 +40084,7 @@ function tbBoardHtml(plan){
     +(plan.axiscare_push&&(plan.axiscare_push.created||[]).length?'<div class="field-note" style="margin-top:4px;color:var(--teal);">Sent to AxisCare '+esc(lpscDate(String(plan.axiscare_push.at).slice(0,10)))+' by '+esc(lpscName(plan.axiscare_push.by))+' ('+plan.axiscare_push.created.length+' schedule'+(plan.axiscare_push.created.length===1?'':'s')+'). <button class="linklike" style="font-size:12px;" onclick="tbComplete()">Open</button></div>':'')
     +tbNotesHtml(plan);
 }
-/* Care planning (2026-11-14, Simpler Scheduling): ONE way to message caregivers about a plan's hours. It opens the same
+/* Schedule planner (2026-11-14, Simpler Scheduling): ONE way to message caregivers about a plan's hours. It opens the same
    Ask caregivers panel as an open shift (worked with, right level, whole team), on a new-client message made from the
    plan: the town, the days, and the first start to the last end. The client is never named in the text. Replies come
    back on that message; pencil the people who say yes onto the chart. */
@@ -40117,10 +40118,10 @@ async function tbAskToggle(id){
   var f=(window.AS&&AS.interestFields)?AS.interestFields({ name:plan.client||'Care plan', town:[plan.city||'',plan.zip||''].join(' ').trim(), days:plan.days||[], start:start, end:end }):null;
   if(!f){ TB_ASK_OPEN[id]=false; tbRender(); return; }
   var c=Object.assign({ id:uid(), status:'open', asked:[], opened_at:new Date().toISOString(), opened_by:(typeof ME!=='undefined'&&(ME.name||ME.email))||'',
-    resolved_at:null, resolved_how:null, covered_by:null, note:'From the Care planning chart.', plan_id:plan.id }, f);
+    resolved_at:null, resolved_how:null, covered_by:null, note:'From the Schedule planner chart.', plan_id:plan.id }, f);
   if(plan.level) c.client_level=Number(plan.level)||undefined;
   DATA.coverage_cases=DATA.coverage_cases||[]; DATA.coverage_cases.push(c);
-  try{ opEvent('coverage_interest_opened',{ item_id:c.id, area:'coverage', summary:'Interest check opened from Care planning: '+c.client }); }catch(e){}
+  try{ opEvent('coverage_interest_opened',{ item_id:c.id, area:'coverage', summary:'Interest check opened from Schedule planner: '+c.client }); }catch(e){}
   try{ await persist('coverage_cases',c); }catch(e){ alert('That did not save: '+String((e&&e.message)||e)); }
   tbRender();
 }
@@ -40146,7 +40147,27 @@ function tbMoreHtml(plan,gaps){
       +'<div id="tbLinkList">'+tbLinkListHtml(plan)+'</div></div>':'')
     +'<div id="famTb" style="margin-top:8px;"></div>'
     +(typeof OPH!=='undefined'?'<div style="margin-top:8px;">'+OPH.boxHtml(plan)+'</div>':'')
+    +'<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+    +'<button class="cara-btn ghost" style="font-size:12px;color:var(--red);" onclick="tbDeletePlan(\''+esc(plan.id)+'\')">Delete this schedule</button>'
+    +'<span class="field-note" style="font-size:11.5px;">Done with it? This removes the planning chart only. Visits already on AxisCare stay.</span>'
+    +'</div>'
     +'</details>';
+}
+/* Delete a planning chart when the office is done with it (Samantha 2026-11-15: "Need to be able to delete it out when
+   done using it"). Removes only the Hub's chart: AxisCare visits already sent stay, and an open "message caregivers"
+   ask from this chart is closed first so no card is left pointing at a chart that is gone. */
+async function tbDeletePlan(id){
+  var plan=tbPlans().find(function(p){ return p.id===id; }); if(!plan) return;
+  var msg='Delete the schedule plan for '+(plan.client||'this client')+'?\n\nThis removes the planning chart from the Hub. Anything already sent to AxisCare stays on AxisCare.';
+  var ok=(typeof ccConfirm==='function')?await ccConfirm(msg):confirm(msg);
+  if(!ok) return;
+  try{ var c=tbAskCase(plan); if(c&&typeof covResolve==='function') await covResolve(c.id,'uncovered'); }catch(e){}
+  DATA.staffing_plans=(DATA.staffing_plans||[]).filter(function(p){ return p&&p.id!==id; });
+  if(TB.planId===id){ TB.planId=null; TB.cellOpen=null; }
+  try{ delete TB_ASK_OPEN[id]; }catch(e){}
+  await removeItem('staffing_plans', id);
+  try{ opEvent('staffing_plan_deleted',{ item_id:id, area:'coverage', summary:'Schedule plan deleted: '+(plan.client||'') }); }catch(e){}
+  tbRender();
 }
 /* Shared, append-only notes on a plan — the whole office collaborates here
    (moves off other clients, preferences, any detail worth knowing). Everyone
@@ -40336,7 +40357,7 @@ async function tbAskOpen(key){
   var asked=dr.asked_before||[], edited=false;
   var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
   var blockers=[];
-  if(!dr.live) blockers.push('Sending from Care planning is switched off right now.');
+  if(!dr.live) blockers.push('Sending from Schedule planner is switched off right now.');
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
@@ -41889,7 +41910,7 @@ function covWordingRaw(c){
   return { interest:!!m.interest, tier1:bake(m.tier1), other:bake(m.other) };
 }
 /* From the Ask caregivers panel (2026-11-14): open the shift's More and its wording, then the editor. A message made from
-   Care planning has no shift card, so it opens on Open shifts first. */
+   Schedule planner has no shift card, so it opens on Open shifts first. */
 function covEditWordingOpen(id){
   try{ COV_MORE_OPEN.add(id); COV_WORD_OPEN[id]=true; }catch(e){}
   const go=function(){ if(document.getElementById('covWord_'+id)){ covEditWording(id); const b=document.getElementById('covWord_'+id); if(b&&b.scrollIntoView) b.scrollIntoView({behavior:'smooth',block:'center'}); return true; } return false; };
@@ -42058,8 +42079,8 @@ function covOpenBody(c,tallies){
       +(A.length?'<div style="margin-top:10px;font-weight:700;font-size:13.5px;color:var(--navy);">Who we asked</div><div>'+covOutreachHtml(c)+'</div>':'')
       +done+moreS;
   }
-  /* whole-team open hours are asked and answered on their Care planning chart */
-  return '<div class="field-note" style="margin-top:8px;">These open hours are asked about from their Care planning chart. <a href="javascript:void(0)" onclick="switchTab(\'teambuilder\')">Open Care planning</a></div>'+covOutreachHtml(c);
+  /* whole-team open hours are asked and answered on their Schedule planner chart */
+  return '<div class="field-note" style="margin-top:8px;">These open hours are asked about from their Schedule planner chart. <a href="javascript:void(0)" onclick="switchTab(\'teambuilder\')">Open Schedule planner</a></div>'+covOutreachHtml(c);
 }
 function covMoreToggle(id,on){ if(on) COV_MORE_OPEN.add(id); else COV_MORE_OPEN.delete(id); }
 function covClosedBody(c,tallies){
@@ -42103,7 +42124,7 @@ function covClosedBody(c,tallies){
 }
 
 function renderCoverage(){
-  if(typeof activeTab!=='undefined'&&activeTab==='teambuilder'&&typeof tbRender==='function'){ try{ tbRender(); }catch(e){} return; }   /* Care planning's Ask panel (2026-11-14) */
+  if(typeof activeTab!=='undefined'&&activeTab==='teambuilder'&&typeof tbRender==='function'){ try{ tbRender(); }catch(e){} return; }   /* Schedule planner's Ask panel (2026-11-14) */
   try{ if(window.AS) AS.render(); }catch(e){ console.warn('[message caregivers]', e); }   /* Message caregivers (ask-start.js), above everything on this tab */
   cipEnsureForCases();
   caraRenderCC();
