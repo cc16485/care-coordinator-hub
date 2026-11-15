@@ -1036,7 +1036,11 @@
     }
     return out;
   }
-  const PARTNER_KINDS = ['receipt', 'assessment', 'outcome_started', 'outcome_lost', 'weekly', 'thanks_general'];
+  /* Samantha 2026-11-15: "I only want to let them know that we reached the client and were able to get them set up with care,
+     and let them know how much we appreciate the referral." So the partner hears two things (we reached the family; care is
+     set up), each with a thank-you, plus a general thank-you when the family says no to updates. The assessment, "did not
+     start" and weekly Medicaid lines are no longer offered; their labels stay so past messages still read right. */
+  const PARTNER_KINDS = ['receipt', 'outcome_started', 'thanks_general'];
   const PARTNER_LABEL = { receipt:'We reached the family', assessment:'Assessment scheduled', outcome_started:'The family chose us', outcome_lost:'The family did not start with us', weekly:'Weekly status while Medicaid is pending', thanks_general:'Thank you (no family details)' };
   const PARTNER_DEFAULT = {   /* her words (reviewed 2026-10-07): drafts a person reads and sends */
     receipt:'Hi {partner}, this is {me} with Caring Companions. Thank you for referring {client} to us. We connected with {family} today and are working with the family on next steps. I will keep you updated as things move forward.',
@@ -1075,11 +1079,11 @@
     }
     if(l.first_human_contact_at && !has('receipt')) due.push({ kind:'receipt', title:PARTNER_LABEL.receipt, text:fill(tpl('receipt'), v) });
     const asm = asmtNext(Object.assign({}, ctx, { lead:l, now:ctx.now || new Date().toISOString(), today }));
-    if(asm && asm.kind === 'booked' && !has('assessment')) due.push({ kind:'assessment', title:PARTNER_LABEL.assessment, text:fill(tpl('assessment'), Object.assign({}, v, { day:dayWords(asm.day, today) })) });
+    if(PARTNER_KINDS.indexOf('assessment') > -1 && asm && asm.kind === 'booked' && !has('assessment')) due.push({ kind:'assessment', title:PARTNER_LABEL.assessment, text:fill(tpl('assessment'), Object.assign({}, v, { day:dayWords(asm.day, today) })) });
     if(l.said_yes_at && !has('outcome_started')) due.push({ kind:'outcome_started', title:PARTNER_LABEL.outcome_started, text:fill(tpl('outcome_started'), Object.assign({}, v, { start:l.first_shift_at ? 'already behind us: care began ' + dayWords(chicago(l.first_shift_at).ymd, today) : 'being set up now, once the schedule and caregiver are confirmed' })) });
-    if(String(l.status || '') === 'Lost' && !has('outcome_lost')) due.push({ kind:'outcome_lost', title:PARTNER_LABEL.outcome_lost, text:fill(tpl('outcome_lost'), Object.assign({}, v, { reason:LOST_SHARE[lostKey(l)] || 'The family decided not to move forward at this time.' })) });
+    if(PARTNER_KINDS.indexOf('outcome_lost') > -1 && String(l.status || '') === 'Lost' && !has('outcome_lost')) due.push({ kind:'outcome_lost', title:PARTNER_LABEL.outcome_lost, text:fill(tpl('outcome_lost'), Object.assign({}, v, { reason:LOST_SHARE[lostKey(l)] || 'The family decided not to move forward at this time.' })) });
     const w = waiting(l);
-    if(PROFESSIONAL.indexOf(sub) > -1 && l.funding_source === 'medicaid' && w && w.reason === 'state' && !l.said_yes_at && String(l.status || '') !== 'Lost'){
+    if(PARTNER_KINDS.indexOf('weekly') > -1 && PROFESSIONAL.indexOf(sub) > -1 && l.funding_source === 'medicaid' && w && w.reason === 'state' && !l.said_yes_at && String(l.status || '') !== 'Lost'){
       const since = lastAt && lastAt > (w.since || '') ? chicago(lastAt).ymd : (w.since || today);
       if(daysBetween(since, today) >= 7) due.push({ kind:'weekly', title:PARTNER_LABEL.weekly, text:fill(tpl('weekly'), Object.assign({}, v, { days:String(stateDays(l, w, today) == null ? daysBetween(w.since || today, today) : stateDays(l, w, today)) })) });
     }

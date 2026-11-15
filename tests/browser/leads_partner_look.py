@@ -52,11 +52,8 @@ async()=>{
   ok('...and the timeline shows it', /Krystal emailed Mercy Rehab: we reached the family/.test(T()));
   /* a booked visit: the assessment line is due; Copy + mark by call */
   DATA.care_assessments=[{ id:'a1', lead_id:'mar', status:'Scheduled', visit_date:'2026-10-07' }]; lwRender(); await sleep(100);
-  ok('a booked visit: "Assessment scheduled" is due', /Assessment scheduled\s*Draft it/.test(T()));
-  window.confirm=()=>true; [...host.querySelectorAll('button')].find(b=>b.textContent==='Draft it').click(); await sleep(120);
-  const pop2=document.querySelector('.ccpop'); ok('...the words say tomorrow', /assessment scheduled for tomorrow/.test(pop2.querySelector('#lwPdText').value), pop2.querySelector('#lwPdText').value);
-  pop2.querySelector('#lwPdCopy').click(); await sleep(300);
-  ok('Copy and mark: recorded as told by call, a call touch on the partner; nothing else went through the comms door', l.partner_msgs.length===2 && l.partner_msgs[1].kind==='assessment' && l.partner_msgs[1].channel==='call' && DATA.referral_activities.length===2 && DATA.referral_activities[1].kind==='call' && window.__log.comms.length===1, l.partner_msgs);
+  ok('a booked visit adds nothing for the partner (her 11-15 word: only "we reached them" and "care is set up")', !/Assessment scheduled/.test(T()) && !/Draft it/.test(T()), T().slice(T().indexOf('Referral partner'), T().indexOf('Referral partner')+500));
+  /* after the yes the page becomes the client journey; "The family chose us" is drafted from its handoff (lead-rules-test covers the words) */
   /* the intake form: the subtype fills itself from the partner */
   openLeadModal(); await sleep(100);
   const sel=document.getElementById('lead_referral_org_id'); sel.value='o1'; leadRefOrgPicked();
@@ -66,7 +63,7 @@ async()=>{
   ok('...and saves on the inquiry (referral_subtype case_manager, org o1)', w.referral_subtype==='case_manager' && w.referral_org_id==='o1', w);
   /* settings */
   switchTab('settings'); await sleep(300); lhSetFill();
-  ok('Settings → Leads: the six partner lines (the general thank-you added 2026-11-15), blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===6 && /Thank you for referring/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
+  ok('Settings → Leads: the three partner lines (her 11-15 word: reached them, care set up, a general thank-you), blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===3 && /Thank you for referring/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
   return R;
 }
 """
