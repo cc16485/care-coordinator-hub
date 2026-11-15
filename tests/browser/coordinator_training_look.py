@@ -39,7 +39,7 @@ async()=>{
   ok('the Operations Board row has a Coordinator Training pill beside How-to', row().indexOf('Coordinator Training')===row().indexOf('How-to')+1, row());
   document.querySelector('#fsub2 [data-tab="cctraining"]').click(); await sleep(200);
   ok('the pill opens the training page', (0,eval)('activeTab')==='cctraining' && $('tab-cctraining').classList.contains('active'));
-  ok('four views', [...document.querySelectorAll('#ctPills .ct-pill')].map(b=>b.textContent).join('|')==='This week|The whole program|Skills|The plan');
+  ok('five views', [...document.querySelectorAll('#ctPills .ct-pill')].map(b=>b.textContent).join('|')==='This week|Practice|The whole program|Skills|The plan');
   ok('with no plan an owner is told how to start one, and sees week 1', /Nobody is in training right now/.test(page()) && /Week 1: Welcome/.test(page()));
 
   /* the whole program: eight weeks, every link real, drafts never shown */

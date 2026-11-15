@@ -428,8 +428,8 @@
 
   /* ---------------------------------------------------------------- drawing ---- */
   let view = 'week', openWeek = '';
-  try { const v = localStorage.getItem('cch_training_view'); if (['week', 'program', 'skills', 'plan'].includes(v)) view = v; } catch (e) { /* first visit */ }
-  const VIEWS = [['week', 'This week'], ['program', 'The whole program'], ['skills', 'Skills'], ['plan', 'The plan']];
+  try { const v = localStorage.getItem('cch_training_view'); if (['week', 'practice', 'program', 'skills', 'plan'].includes(v)) view = v; } catch (e) { /* first visit */ }
+  const VIEWS = [['week', 'This week'], ['practice', 'Practice'], ['program', 'The whole program'], ['skills', 'Skills'], ['plan', 'The plan']];
 
   const css = '<style id="ctCss">'
     + '.ct-pill{border:1.5px solid #D8DEE6;background:#fff;color:var(--navy);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer;}'
@@ -474,6 +474,8 @@
       + (d.done_when ? '<div class="field-note" style="margin-top:8px;font-size:12.5px;"><b>Done when:</b> ' + esc(d.done_when) + '</div>' : '')
       + (d.escalate_if ? '<div style="margin-top:8px;padding:8px 12px;border-radius:10px;background:#FFF8E6;font-size:13px;line-height:1.5;"><b>Tell the person in charge if:</b> ' + esc(d.escalate_if) + '</div>' : '')
       + '<div style="margin-top:8px;font-size:13px;"><a href="javascript:void(0)" onclick="CTR.openProcedure(\'' + esc(id) + '\')" style="font-weight:700;color:var(--teal);">Open the full procedure</a></div>'
+      + (window.CTP && steps.length >= 3 ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"><button class="secondary" style="padding:4px 12px;font-size:12.5px;" onclick="CTP.scenario(\'' + esc(id) + '\')">Practice it: what do you do next?</button>'
+          + '<button class="secondary" style="padding:4px 12px;font-size:12.5px;" onclick="CTP.order(\'' + esc(id) + '\')">Put the steps in order</button></div>' : '')
       + '</details>'
       + (p ? '<label class="ct-item" style="border-top:0;margin-top:6px;"><input type="checkbox" ' + (done ? 'checked ' : '') + (can ? '' : 'disabled ') + 'onchange="CTR.tick(\'' + tid + '\',this.checked)"><span>I practiced this one out loud</span></label>' : '')
       + '</details>';
@@ -652,7 +654,7 @@
 
   function html() {
     const p = current();
-    const body = view === 'week' ? viewWeek(p) : view === 'program' ? viewProgram(p) : view === 'skills' ? viewSkills(p) : viewPlan(p);
+    const body = view === 'week' ? viewWeek(p) : view === 'practice' ? (window.CTP ? CTP.html(p) : '<div class="card" style="padding:14px 18px;">Practice did not load. Reload the page.</div>') : view === 'program' ? viewProgram(p) : view === 'skills' ? viewSkills(p) : viewPlan(p);
     return css + headerHtml(p) + '<div id="ctBody">' + body + '</div>';
   }
   function render() { const el = document.getElementById('ctWrap'); if (!el) return; el.innerHTML = html(); }
