@@ -241,18 +241,18 @@
   function settingsFill(){
     const now = document.getElementById('caaSetNow'), b = document.getElementById('caaToggleBtn'), pv = document.getElementById('caaPreviewBtn'); if(!now) return;
     const on = live(settings()), owner = isOwner();
-    now.innerHTML = (on ? '<b style="color:#1E8449;">On.</b> Everyone has the Was it covered? tab and the new card buttons.'
-      : '<b style="color:#B7791F;">Off.</b> Cards work as before' + (preview() ? ', except for you (preview, this browser).' : '.')) + (owner ? '' : ' Only Samantha or Zachary can change this.');
-    if(b){ b.textContent = on ? 'Turn off Was it covered? answers' : 'Turn on Was it covered? answers for everyone'; b.style.display = owner ? '' : 'none'; }
+    now.innerHTML = (on ? '<b style="color:#1E8449;">On.</b> Cara finds covers made in AxisCare after the shift and rechecks each night for 6 weeks.'
+      : '<b style="color:#B7791F;">Off.</b> Cara only checks the call-off\'s own visit, not other visits for that client, and does not recheck later' + (preview() ? ', except for you (preview, this browser).' : '.')) + (owner ? '' : ' Only Samantha or Zachary can change this.');
+    if(b){ b.textContent = on ? 'Turn off finding covers in AxisCare' : 'Turn on finding covers in AxisCare'; b.style.display = owner ? '' : 'none'; }
     if(pv){ pv.textContent = preview() ? 'Stop my preview' : 'Preview it (only me)'; pv.style.display = owner && !on ? '' : 'none'; }
   }
   async function toggleLive(btnEl){
     if(!isOwner()){ alert('Only Samantha or Zachary can change this.'); return; }
     const on = !live(settings());
-    if(!(await ccConfirm(on ? 'Turn on Was it covered? answers for everyone?\n\nCara gets a Was it covered? tab listing every finished call-off still waiting for an answer, with what AxisCare shows. The cards get five answers (including Not needed) and close only with an answer. Nothing is sent to anyone.'
-      : 'Turn off Was it covered? answers? The tab goes away and the cards work as before.'))) return;
+    if(!(await ccConfirm(on ? 'Turn on finding covers in AxisCare?\n\nAfter a call-off\'s shift, Cara checks AxisCare for whoever clocked in for that client at that time, and checks again each night for 6 weeks. A call-off covered by phone closes by itself. Nothing is sent to anyone.'
+      : 'Turn off finding covers in AxisCare? Cara will only check the call-off\'s own visit, and will not recheck later.'))) return;
     if(btnEl) btnEl.disabled = true;
-    const out = await tkMerge(m => { m.calloff_answers_live = on; if(on && !m.calloff_answers_live_since) m.calloff_answers_live_since = new Date().toISOString(); return ['Was it covered? answers ' + (on ? 'ON' : 'OFF')]; }, 'Was it covered? answers');
+    const out = await tkMerge(m => { m.calloff_answers_live = on; if(on && !m.calloff_answers_live_since) m.calloff_answers_live_since = new Date().toISOString(); return ['Finding covers in AxisCare (calloff_answers_live) ' + (on ? 'ON' : 'OFF')]; }, 'Finding covers in AxisCare');
     if(btnEl) btnEl.disabled = false;
     const sv = document.getElementById('caaSaved'); if(sv) sv.textContent = out.error ? ('Could not save: ' + out.error.message) : (on ? 'On.' : 'Off.');
     settingsFill(); redraw();
