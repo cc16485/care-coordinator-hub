@@ -1,5 +1,7 @@
 /* =============================================================================
-   checkins-tab.js · Caregivers > Check-ins (window.CHK)
+   checkins-tab.js · Caregivers > Check-ins and Clients > Check-ins (window.CHK)
+   2026-11-14 (Samantha, "yes build it and show me"): family and client check-in answers live on Clients > Check-ins
+   (#clientCheckinsWrap, badge #cchkBadge); Caregivers > Check-ins is caregivers only again. One load serves both.
    Samantha 2026-11-14: "one place, maybe a check-in tab next to caregiver roster, where we see what was sent and when,
    who responded, get notified when people respond, all the things to make a real effective program of retaining the
    first 90 days of employment and ongoing", then "go" to the first step: the tab, showing what already goes out.
@@ -19,14 +21,15 @@
   const DAY = 86400000;
   const e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VIEW = { data: null, loading: false, err: '', notOn: false, askedAt: 0, view: 'needs', saving: {}, msg: '' };
-  const VIEWS = [['needs', 'Needs you'], ['families', 'Families'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
+  const VIEWS = [['needs', 'Needs you'], ['answers', 'One-tap answers'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
   /* CARE & CONNECTION (2026-11-14): the smart-link check-ins (families now, caregivers later), from the same server.
      A link row's state: needs (a concern, nobody called yet), called, resolved (only with how they know it got better),
      happy, no_response (three days), waiting, not_sent. confirm: its card was closed in My Work but nobody confirmed. */
   const MOOD = { great: 'Going great', good: 'Mostly good', improve: 'Something needs to change', call: 'Asked for a call', stressed: 'A little stressed', hard: 'Having a hard time' };
   const LDOT = { needs: ['#E24B4A', 'needs attention'], called: ['#EF9F27', 'called, not yet resolved'], resolved: ['#1D9E75', 'resolved'], happy: ['#1D9E75', 'happy'],
     no_response: ['#B4B2A9', 'no answer in three days'], waiting: ['#D3D1C7', 'sent, waiting'], not_sent: ['#888780', 'did not send'] };
-  const linksOf = () => (VIEW.data && VIEW.data.links) || [];
+  /* aud: 'family' (Clients > Check-ins) or 'caregiver' (Caregivers > Check-ins) */
+  const linksOf = (aud) => ((VIEW.data && VIEW.data.links) || []).filter((l) => !aud || l.audience === aud);
   const linkNeeds = (l) => l.state === 'needs' || l.state === 'called' || l.confirm;
 
   /** what a check-in is: 'concern' (marked Needs a call, not yet called), 'new' (a reply nobody marked), 'fine', 'called',
@@ -43,7 +46,8 @@
     const all = [].concat(...(people || []).map((p) => p.checkins.map((c) => ({ p, c }))));
     const recent = all.filter((x) => nowMs - Date.parse(x.c.sent_at) < 30 * DAY && stateOf(x.c) !== 'sent');
     return {
-      needs: all.filter((x) => needsYou(x.c)).length + linksOf().filter(linkNeeds).length,
+      needs: all.filter((x) => needsYou(x.c)).length + linksOf('caregiver').filter(linkNeeds).length,
+      familyNeeds: linksOf('family').filter(linkNeeds).length,
       first90: (people || []).filter((p) => p.day != null && p.day >= 0 && p.day <= 90).length,
       answeredPct: recent.length ? Math.round(100 * recent.filter((x) => x.c.reply).length / recent.length) : null,
       noAnswer: all.filter((x) => stateOf(x.c) === 'no_answer').length,
@@ -74,7 +78,7 @@
 
   const ldot = (s) => '<span class="chk-dot" title="' + e(LDOT[s][1]) + '" style="background:' + LDOT[s][0] + '"></span>';
   /* the client's own check-in (2026-11-14) says "the client", never "Dorothy's family" */
-  const famName = (l) => l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
+  const famName = (l) => l.audience === 'caregiver' ? e([l.first, l.last].filter(Boolean).join(' ')) : l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
     : e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
   function linkRow(l, nowMs) {
     const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
@@ -93,18 +97,15 @@
       + (last ? '<div class="field-note">' + e({ called: 'Called', resolved: 'Resolved', reopened: 'Reopened', fine: 'Looked fine' }[last.state] || last.state) + ' by ' + e(last.by) + ', ' + e(when(last.at, nowMs)) + (last.note ? ': ' + e(last.note) : '') + '</div>' : '')
       + '</div><div class="chk-acts">' + acts + '</div></div>';
   }
-  function familiesHtml(nowMs) {
-    const fam = linksOf().filter((l) => l.audience === 'family');
-    if (!fam.length) return '<div class="empty">No family check-ins yet. They start only after Samantha approves the texts and turns them on.</div>';
-    const c = (f) => fam.filter(f).length;
+  function familiesHtml(nowMs, aud) {
+    const fam = linksOf(aud || 'family');
+    if (!fam.length) return '<div class="empty">' + (aud === 'caregiver' ? 'No one-tap caregiver check-ins yet. They start only after Samantha approves the texts and turns them on.' : 'No family or client check-ins yet. They go out on weekdays between 10 AM and 5 PM.') + '</div>';
     const order = { needs: 0, called: 1, no_response: 3, waiting: 4, happy: 5, resolved: 6, not_sent: 7 };
-    const sum = [['Answered', c((l) => l.answered_at)], ['Happy', c((l) => l.state === 'happy')], ['Need attention', c(linkNeeds)], ['Asked for a call', c((l) => l.call && l.state !== 'resolved')], ['No answer', c((l) => l.state === 'no_response')]];
-    return '<div class="field-note" style="margin-bottom:8px">' + sum.map(([k, v]) => '<b>' + e(v) + '</b> ' + e(k)).join(' · ') + '</div>'
-      + fam.slice().sort((a, b) => ((linkNeeds(a) ? 0 : order[a.state] ?? 8) - (linkNeeds(b) ? 0 : order[b.state] ?? 8)) || String(b.sent_at).localeCompare(String(a.sent_at)))
+    return fam.slice().sort((a, b) => ((linkNeeds(a) ? 0 : order[a.state] ?? 8) - (linkNeeds(b) ? 0 : order[b.state] ?? 8)) || String(b.sent_at).localeCompare(String(a.sent_at)))
         .map((l) => linkRow(l, nowMs)).join('');
   }
   function needsHtml(people, nowMs) {
-    const linkRows = linksOf().filter(linkNeeds).map((l) => linkRow(l, nowMs)).join('');
+    const linkRows = linksOf('caregiver').filter(linkNeeds).map((l) => linkRow(l, nowMs)).join('');
     const rows = [];
     for (const p of people) for (const c of p.checkins) if (needsYou(c)) rows.push({ p, c });
     rows.sort((a, b) => (stateOf(a.c) === 'concern' ? 0 : 1) - (stateOf(b.c) === 'concern' ? 0 : 1) || String(b.c.reply ? b.c.reply.at : b.c.sent_at).localeCompare(String(a.c.reply ? a.c.reply.at : a.c.sent_at)));
@@ -141,29 +142,39 @@
     if (!V.data) return '<div class="card"><div class="empty">Loading check-ins…</div></div>';
     const people = V.data.people || [], n = counts(people, nowMs);
     const tile = (label, val, red) => '<div class="kpi"><div class="kl"><span>' + e(label) + '</span></div><div class="kv"' + (red && val ? ' style="color:var(--red)"' : '') + '>' + e(val == null ? '–' : val) + '</div></div>';
-    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'families' ? familiesHtml(nowMs) : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
+    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'answers' ? familiesHtml(nowMs, 'caregiver') : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
     return '<div class="chk-kpis">' + tile('Needs you', n.needs, true) + tile('In first 90 days', n.first90) + tile('Answered, last 30 days', n.answeredPct == null ? null : n.answeredPct + '%') + tile('No answer', n.noAnswer) + '</div>'
       + '<div class="toolbar">' + VIEWS.map(([k, l]) => '<button class="filter-pill' + (V.view === k ? ' active' : '') + '" onclick="CHK.setView(\'' + k + '\')">' + e(l) + (k === 'needs' && n.needs ? ' (' + n.needs + ')' : '') + '</button>').join('')
       + '<div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
       + (V.msg ? '<div class="field-note" role="alert" style="color:var(--red)">' + e(V.msg) + '</div>' : '')
       + '<div class="card">' + body + '</div>'
-      + '<div class="chk-legend">' + (V.view === 'families'
-        ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ')
-        : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>'
-      + '<p class="field-note">' + (V.view === 'families'
-        ? 'Families answer on their own one-minute check-in page (after the first visit, day 30, day 90, then every 3 months). A concern makes a card the same day; mark it Resolved only once you know it got better. Thanks go to Kind Words. Nothing on this tab sends anything.'
-        : 'Today the caregiver check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Nothing on this tab sends anything.') + '</p>';
+      + '<div class="chk-legend">' + (V.view === 'answers' ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ') : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>'
+      + '<p class="field-note">One-tap answers come from the caregiver check-in page (week 1, day 30, 60, 90, then every 3 months); a hard time or a call request makes a card. The texted check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Family and client check-ins are on Clients &gt; Check-ins. Nothing on this tab sends anything.</p>';
+  }
+  /** Clients > Check-ins: the family and client answers (Care &amp; Connection) */
+  function clientHtml(V, nowMs) {
+    if (V.notOn) return '<div class="card"><div class="empty">Check-ins is not switched on on the server yet.</div></div>';
+    if (V.err && !V.data) return '<div class="card"><div class="empty">Check-ins could not load: ' + e(V.err) + ' <button class="fb" onclick="CHK.load()">Try again</button></div></div>';
+    if (!V.data) return '<div class="card"><div class="empty">Loading check-ins…</div></div>';
+    const fam = linksOf('family'), c = (f) => fam.filter(f).length;
+    const tile = (label, val, red) => '<div class="kpi"><div class="kl"><span>' + e(label) + '</span></div><div class="kv"' + (red && val ? ' style="color:var(--red)"' : '') + '>' + e(val) + '</div></div>';
+    return '<div class="chk-kpis">' + tile('Needs you', c(linkNeeds), true) + tile('Asked for a call', c((l) => l.call && l.state !== 'resolved'), true) + tile('Answered', c((l) => l.answered_at)) + tile('Happy', c((l) => l.state === 'happy')) + tile('No answer', c((l) => l.state === 'no_response')) + '</div>'
+      + '<div class="toolbar"><div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
+      + (V.msg ? '<div class="field-note" role="alert" style="color:var(--red)">' + e(V.msg) + '</div>' : '')
+      + '<div class="card">' + familiesHtml(nowMs) + '</div>'
+      + '<div class="chk-legend">' + Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ') + '</div>'
+      + '<p class="field-note">Families and clients answer on their own one-minute check-in page (after the first visit, day 30, day 90, then every 3 months). A concern makes a card the same day; mark it Resolved only once you know it got better. Thanks go to Kind Words. Nothing on this tab sends anything.</p>';
   }
   function setBadge() {
     if (typeof document === 'undefined') return;
-    const b = document.getElementById('chkBadge'); if (!b) return;
-    const n = VIEW.data ? counts(VIEW.data.people || [], Date.now()).needs : 0;
-    b.textContent = n || ''; b.style.display = n ? 'inline-flex' : 'none';
+    const n = VIEW.data ? counts(VIEW.data.people || [], Date.now()) : { needs: 0, familyNeeds: 0 };
+    for (const [id, v] of [['chkBadge', n.needs], ['cchkBadge', n.familyNeeds]]) { const b = document.getElementById(id); if (b) { b.textContent = v || ''; b.style.display = v ? 'inline-flex' : 'none'; } }
   }
   function render() {
     setBadge();
     if (typeof document === 'undefined') return;
     const box = document.getElementById('checkinsWrap'); if (box) box.innerHTML = html(VIEW, Date.now());
+    const cbox = document.getElementById('clientCheckinsWrap'); if (cbox) cbox.innerHTML = clientHtml(VIEW, Date.now());
   }
   const endpoint = () => (typeof CAMPAIGN_ENDPOINT !== 'undefined' ? String(CAMPAIGN_ENDPOINT).replace(/campaign-send$/, 'checkins') : '');
   async function post(body) {
@@ -203,6 +214,6 @@
   function show() { render(); if (!VIEW.loading && (!VIEW.askedAt || Date.now() - VIEW.askedAt > 300000)) load(); }
   /* any Caregivers tab: ask once in the background, so the pill's number is there before the tab is opened */
   function peek() { if (!VIEW.askedAt && !VIEW.loading) load(); }
-  function setView(v) { VIEW.view = v; render(); }
-  return { stateOf, needsYou, counts, html, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds };
+  function setView(v) { VIEW.view = VIEWS.some(([k]) => k === v) ? v : 'needs'; render(); }
+  return { stateOf, needsYou, counts, html, clientHtml, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds };
 });
