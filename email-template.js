@@ -14,6 +14,12 @@
      · a footer that says why they are getting it, written for who is reading (a partner is not told they
        "have been in touch about care for your family"), and an Unsubscribe link that works by itself
    The words of every email are untouched: this file only draws them.
+   2026-11-14, Samantha on the holiday emails: "could you make them more festive?" ... "visually". A holiday email
+   (cat "Holiday") now gets its holiday's own look: a drawn band across the top (email-assets/festive/<holiday>-top.png),
+   the holiday's color on the small label, the button and the "Good to know" box, the heading centered like a card with
+   a small drawn ornament under it, all on a panel of the holiday's pale color, and a stripe of the holiday's colors above the footer. Which holiday is read from
+   the email's drawn-banner name (h21 is Thanksgiving), or from "festive" when an email names one. Every other email
+   is drawn exactly as before. The drawings are made by tools/festive-art.py.
    CCEmailTemplate.build(email, { unsub, assets }) returns the whole email as HTML.
      unsub   the address the Unsubscribe link opens. The server sends each person their own; without one the link
              writes to the office, as before.
@@ -27,7 +33,7 @@
 })(typeof globalThis !== 'undefined' ? globalThis : (typeof self !== 'undefined' ? self : this), function () {
   'use strict';
   const ASSETS = 'https://mo-care.com/email-assets';
-  const TEAL = '#14606F', NAVY = '#0D365F', INK = '#2c3d4d', MUTED = '#45566a', TINT = '#E4F4F3', GOLD = '#A88400';
+  const TEAL = '#14606F', TEAL_ = TEAL, NAVY = '#0D365F', INK = '#2c3d4d', MUTED = '#45566a', TINT = '#E4F4F3', TINT_ = TINT, GOLD = '#A88400';
   const SANS = "Arial,Helvetica,sans-serif", SERIF = "Georgia,'Times New Roman',serif";
   const PHONE = '(417) 234-8494', FAX = '(417) 719-7870', ADDRESS = '1331 N Stewart Ave, Ste B, Springfield, MO 65802';
   /* the photo a referral-partner email gets when it names none: by who it is written for */
@@ -41,6 +47,25 @@
     'Elder Law & Financial': ['scene-sofa-album', 'A daughter and a caregiver laughing with an older woman on the sofa'],
   };
   const PARTNER_PHOTO_ANY = ['scene-door-handshake', 'A caregiver greeting an older woman at her front door'];
+  /* the holiday look. accent: label, check marks and box edge · btn: the button · tint: the box · bar: the stripe above the footer */
+  const FESTIVE = {
+    newyear:      { name: 'New Year',         accent: '#1F5E8C', btn: '#0D365F', tint: '#FBF5DF', bar: ['#0D365F', '#F5D061', '#0D365F'], alt: 'Fireworks, stars and confetti' },
+    valentine:    { name: "Valentine's Day",  accent: '#B4324F', btn: '#B4324F', tint: '#FDEFF1', bar: ['#B4324F', '#F08FA2', '#B4324F'], alt: 'A string of hearts' },
+    mothers:      { name: "Mother's Day",     accent: '#9C3D6B', btn: '#9C3D6B', tint: '#FBF0F5', bar: ['#9C3D6B', '#E88BB0', '#6FA37E'], alt: 'A garland of flowers' },
+    fathers:      { name: "Father's Day",     accent: '#1F5E7A', btn: '#1F5E7A', tint: '#E6F0F5', bar: ['#1F5E7A', '#F0A63A', '#103D47'], alt: 'Mountains, pine trees and a rising sun' },
+    july4:        { name: 'Independence Day', accent: '#B22234', btn: '#1E3A6E', tint: '#F1F4FA', bar: ['#B22234', '#FFFFFF', '#1E3A6E'], alt: 'Red, white and blue flags and fireworks' },
+    autumn:       { name: 'Autumn',           accent: '#A8481A', btn: '#A8481A', tint: '#FBF0E3', bar: ['#A8481A', '#E8B23A', '#8E2F24'], alt: 'Falling autumn leaves' },
+    thanksgiving: { name: 'Thanksgiving',     accent: '#A8481A', btn: '#A8481A', tint: '#FBF1E2', bar: ['#A8481A', '#E8B23A', '#7A8B3A'], alt: 'A garland of autumn leaves and pumpkins' },
+    veterans:     { name: 'Veterans Day',     accent: '#B22234', btn: '#0D365F', tint: '#F1F4FA', bar: ['#B22234', '#FFFFFF', '#0D365F'], alt: 'White stars on navy with a gold star' },
+    christmas:    { name: 'The holidays',     accent: '#1E5B45', btn: '#A32035', tint: '#F1F7F2', bar: ['#A32035', '#D9B45A', '#1E5B45'], alt: 'An evergreen garland with red bows and ornaments' },
+  };
+  const FESTIVE_BY_BANNER = { h1: 'newyear', h3: 'valentine', h9: 'mothers', h11: 'fathers', h13: 'july4', h19: 'autumn', h21: 'thanksgiving', h22: 'veterans', h23: 'christmas' };
+  /* the holiday an email is dressed for, or '' */
+  function festiveOf(e) {
+    if (!e) return '';
+    if (e.festive && FESTIVE[e.festive]) return e.festive;
+    return e.cat === 'Holiday' && FESTIVE_BY_BANNER[e.banner] || '';
+  }
   const WHY = {
     referrers: "You're receiving this because your organization serves older adults in the Springfield area. We send one email a month.",
     caregivers: "You're receiving this because you are part of the Caring Companions team.",
@@ -62,7 +87,8 @@
     const line = e && e.openers && seg ? e.openers[seg] : '';
     return line ? Object.assign({}, e, { blocks: [{ t: 'p', text: line }].concat(e.blocks || []) }) : e;
   }
-  function blocks(e, assets) {
+  function blocks(e, assets, th) {
+    const TEAL = th ? th.accent : TEAL_, TINT = th ? th.tint : TINT_;
     const P = 'margin:0 0 18px;font-family:' + SANS + ';font-size:16px;line-height:1.65;color:' + INK + ';';
     return (e.blocks || []).map(function (b) {
       if (b.t === 'p') return '<p style="' + P + '">' + b.text + '</p>';
@@ -111,6 +137,10 @@
     const unsub = opts.unsub === '{unsub}' ? '{unsub}' : safe(opts.unsub || 'mailto:samantha@mo-care.com?subject=Please%20unsubscribe%20me');
     const partner = isPartner(e), ph = photoOf(e, opts.seg);
     const why = e.footer || WHY[e.aud] || WHY_FAMILY;
+    const fest = festiveOf(e), th = fest ? FESTIVE[fest] : null, mid = th ? 'text-align:center;' : '';
+    const band = th ? '<tr><td style="padding:0;background:' + th.tint + ';"><img src="' + assets + '/festive/' + fest + '-top.png" width="600" alt="' + th.alt + '" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>' : '';
+    const sprig = th ? '<div style="margin:0;text-align:center;"><img src="' + assets + '/festive/' + fest + '-sprig.png" width="240" height="40" alt="" style="display:inline-block;border:0;width:240px;max-width:100%;height:auto;"></div>' : '';
+    const bar = th ? '<tr><td style="padding:0;font-size:0;line-height:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' + th.bar.map(function (c) { return '<td width="33%" height="6" style="height:6px;background:' + c + ';font-size:0;line-height:0;">&nbsp;</td>'; }).join('') + '</tr></table></td></tr>' : '';
     const hero = ph
       ? '<tr><td style="padding:0;"><img src="' + assets + '/photos/' + ph[0] + '.jpg" width="600" alt="' + ph[1] + '" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>'
       : (e.banner ? '<tr><td style="padding:0;background:' + TINT + ';"><img src="' + assets + '/' + e.banner + '.jpg" width="600" alt="Caring Companions" style="display:block;border:0;width:100%;max-width:600px;height:auto;"></td></tr>' : '');
@@ -124,17 +154,19 @@
       + '<td align="left"><img src="' + assets + '/cc-logo.png" width="168" alt="Caring Companions, Quality Caregivers 24 7 365" style="display:block;border:0;width:168px;height:auto;"></td>'
       + (partner ? '<td class="cc-for" align="right" style="font-family:' + SANS + ';font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:' + TEAL + ';">For referral partners</td>' : '')
       + '</tr></table></td></tr>'
-      + hero
-      + '<tr><td class="cc-pad" style="padding:30px 34px 8px;">'
-      + (e.eye ? '<div style="font-family:' + SANS + ';font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:' + TEAL + ';margin:0 0 10px;">' + e.eye + '</div>' : '')
-      + '<h1 class="cc-h1" style="margin:0 0 16px;font-family:' + SERIF + ';font-size:29px;line-height:1.18;font-weight:700;color:' + NAVY + ';">' + e.head + '</h1>'
-      + blocks(e, assets)
-      + (e.cta ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 8px;"><tr><td class="cc-btn" align="left"><a href="' + safe(e.cta.href) + '" style="display:inline-block;background:' + TEAL + ';color:#ffffff;font-family:' + SANS + ';font-size:16px;font-weight:700;text-decoration:none;text-align:center;padding:14px 26px;border-radius:8px;">' + e.cta.label + '</a></td></tr></table>' : '')
+      + band + hero
+      + '<tr><td class="cc-pad" style="padding:30px 34px ' + (th ? '22px;background:' + th.tint + ';' : '8px;') + '">'
+      + (e.eye ? '<div style="' + mid + 'font-family:' + SANS + ';font-size:' + (th ? '13px' : '12px') + ';font-weight:700;letter-spacing:' + (th ? '.14em' : '.08em') + ';text-transform:uppercase;color:' + (th ? th.accent : TEAL) + ';margin:0 0 10px;">' + e.eye + '</div>' : '')
+      + '<h1 class="cc-h1" style="' + mid + 'margin:0 0 16px;font-family:' + SERIF + ';font-size:29px;line-height:1.18;font-weight:700;color:' + NAVY + ';">' + e.head + '</h1>'
+      + (th ? sprig + '</td></tr><tr><td class="cc-pad" style="padding:28px 34px 8px;">' : '')
+      + blocks(e, assets, th)
+      + (e.cta ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 8px;"><tr><td class="cc-btn" align="' + (th ? 'center' : 'left') + '"><a href="' + safe(e.cta.href) + '" style="display:inline-block;background:' + (th ? th.btn : TEAL) + ';color:#ffffff;font-family:' + SANS + ';font-size:16px;font-weight:700;text-decoration:none;text-align:center;padding:14px 26px;border-radius:8px;">' + e.cta.label + '</a></td></tr></table>' : '')
       + (partner ? '<p style="margin:10px 0 0;font-family:' + SANS + ';font-size:14.5px;line-height:1.6;color:' + MUTED + ';">Have a patient who needs help at home? <a href="https://mo-care.com/refer" style="color:' + TEAL + ';font-weight:700;">Refer in two minutes</a>, call <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>, or fax <span style="white-space:nowrap;">' + FAX + '</span>.</p>' : '')
       + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e6eceb;"><tr><td style="padding:18px 0 26px;">'
       + '<div style="font-family:' + SERIF + ';font-size:17px;font-style:italic;color:' + MUTED + ';margin-bottom:3px;">' + (e.sign || 'With care,') + '</div>'
       + '<div style="font-family:' + SANS + ';font-size:15px;font-weight:bold;color:' + NAVY + ';">The Caring Companions Team</div>'
       + '</td></tr></table></td></tr>'
+      + bar
       + '<tr><td class="cc-pad" style="background:' + NAVY + ';padding:24px 34px 26px;">'
       + '<div style="font-family:' + SERIF + ';font-size:16px;color:#ffffff;margin:0 0 4px;">Caring Companions In-Home Senior Care</div>'
       + '<div style="font-family:' + SANS + ';font-size:12.5px;line-height:1.6;color:#c3cdd6;">' + ADDRESS + ' &middot; <a href="tel:4172348494" style="color:#F5D061;text-decoration:none;white-space:nowrap;">' + PHONE + '</a> &middot; <a href="https://mo-care.com" style="color:#c3cdd6;">mo-care.com</a></div>'
@@ -142,5 +174,5 @@
       + '<div style="font-family:' + SANS + ';font-size:12px;line-height:1.6;color:#9fb0c0;">' + why + ' <a href="' + unsub + '" style="color:#ffffff;font-weight:700;">Unsubscribe</a></div>'
       + '</td></tr></table></td></tr></table></body></html>';
   }
-  return { build, photoOf, PARTNER_PHOTO, WHY, ASSETS };
+  return { build, photoOf, festiveOf, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };
 });
