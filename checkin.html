@@ -62,6 +62,9 @@ textarea:focus{outline:none;border-color:var(--teal)}
 .gcard{margin-top:14px;text-align:center}
 .gcard .hint{margin-bottom:14px}
 .glink{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.gor{margin:16px 0 8px!important}
+.galt{display:flex;flex-direction:column;gap:8px}
+.galt-b{display:block;font:inherit;font-size:15px;font-weight:600;color:var(--navy);background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:12px;text-decoration:none;cursor:pointer}
 .bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:0 0 14px}
 .bar i{display:block;height:100%;width:0;background:var(--honey);transition:width .3s}
 </style></head>
@@ -218,7 +221,7 @@ async function send() {
   if (alt && alt.style.display === 'block') A.alt_phone = alt.value;
   if (!DEMO) {
     const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
-    try { const r = await api({ action: 'answer', answers: A }); GOOGLE = r && /^https:\/\//.test(r.google || '') ? r.google : ''; }
+    try { const r = await api({ action: 'answer', answers: A }); GOOGLE = r && /^https:\/\//.test(r.google || '') ? r.google : ''; FACEBOOK = r && /^https:\/\/(www\.)?facebook\.com\//.test(r.facebook || '') ? r.facebook : ''; }
     catch (e) { b.disabled = false; b.textContent = 'Send'; err.textContent = e.message; err.style.display = 'block'; return; }
   }
   const fam = ctx.who === 'family', thanks = (A.thank || []).filter(x => x !== 'office');
@@ -229,19 +232,39 @@ async function send() {
   $('#lead').textContent = '';
   $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc(title) + '</h2><p>' + body + '</p></div>' + googleCard() + footer();
   const gb = $('#gReview'); if (gb) gb.onclick = () => { if (!DEMO) api({ action: 'google' }).catch(() => {}); };
+  const fb = $('#fbReview'); if (fb) fb.onclick = () => { if (!DEMO) api({ action: 'google', where: 'facebook' }).catch(() => {}); };
+  const sw = $('#shareWords'); if (sw) sw.onclick = () => { $('#shareBox').style.display = 'block'; sw.style.display = 'none'; $('#shareText').focus(); };
+  const ss = $('#shareSend'); if (ss) ss.onclick = async () => {
+    const t = $('#shareText').value.trim(), er = $('#shareErr');
+    if (t.length < 3) { er.textContent = 'Write a few words first.'; er.style.display = 'block'; return; }
+    ss.disabled = true; ss.textContent = 'Sending...';
+    try { if (!DEMO) await api({ action: 'share', words: t }); $('#shareBox').innerHTML = '<p class="hint" style="margin:0">Thank you! We may share your words on our website, with your first name only.</p>'; }
+    catch (e) { ss.disabled = false; ss.textContent = 'Send'; er.textContent = e.message; er.style.display = 'block'; }
+  };
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 /* Samantha 2026-11-15: "we NEED more google reviews - can we loop in our request to google review in when someone gives
    positive feedback during any check in". The server decides who is asked (a happy family or client answer, never
    caregivers or office staff, never after a concern) and sends the link back; the sample shows it for the same answers. */
-let GOOGLE = '';
+/* Samantha 2026-11-15, next: "Should we also offer other ways for them to share? Maybe Facebook ... google can be hard
+   becasue if they dont have a gmail email they cant leave a review". Google stays first; under it, Facebook and
+   "Share your words with us" (saved to Kind Words, ok to share, for her to pick for the website). */
+let GOOGLE = '', FACEBOOK = '';
 function googleCard() {
-  const url = DEMO ? ((ctx.who === 'family' && A.call !== 'yes' && (A.mood === 'great' || (A.mood === 'good' && !(A.what || []).length))) ? 'https://mo-care.com/review' : '') : GOOGLE;
+  const asked = ctx.who === 'family' && A.call !== 'yes' && (A.mood === 'great' || (A.mood === 'good' && !(A.what || []).length));
+  const url = DEMO ? (asked ? 'https://mo-care.com/review' : '') : GOOGLE;
+  const fbu = DEMO ? (asked ? 'https://www.facebook.com/1043697295676809/reviews' : '') : FACEBOOK;
   if (!url) return '';
   return '<div class="card gcard"><p class="q">Would you share that on Google?</p>'
     + '<p class="hint">' + (ctx.self ? 'A few words from you' : 'A few words from you about ' + esc(ctx.client) + "'s care") + ' help other Springfield families find care they can trust. It takes about a minute.</p>'
     + '<a class="go glink" id="gReview" href="' + esc(url) + '" target="_blank" rel="noopener">'
-    + '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg>Write a Google review</a></div>';
+    + '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg>Write a Google review</a>'
+    + '<p class="hint gor">No Google account? That is okay.</p><div class="galt">'
+    + (fbu ? '<a class="galt-b" id="fbReview" href="' + esc(fbu) + '" target="_blank" rel="noopener">Recommend us on Facebook</a>' : '')
+    + '<button class="galt-b" id="shareWords" type="button">Share your words with us</button></div>'
+    + '<div id="shareBox" style="display:none;text-align:left"><textarea id="shareText" placeholder="A few words about your care with us">' + esc(A.note || '') + '</textarea>'
+    + '<p class="hint" style="margin:6px 0 0">We may share these on our website with your first name only.</p>'
+    + '<button class="go" id="shareSend" style="margin-top:10px">Send</button><div class="err" id="shareErr"></div></div></div>';
 }
 
 function sample() {

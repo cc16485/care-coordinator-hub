@@ -52,7 +52,7 @@ with sync_playwright() as pw:
     def gck(route):
         body = json.loads(route.request.post_data or '{}'); gcalls.append(body)
         if body.get('action') == 'open': return route.fulfill(json={'state': 'ok', 'audience': 'family', 'kind': 'quarterly', 'first': 'Linda', 'client': 'Dorothy', 'caregiver': 'Tanya', 'caregivers': ['Tanya'], 'phone_tail': '42'})
-        if body.get('action') == 'answer': return route.fulfill(json={'ok': True, 'follow': 'none', 'google': 'https://mo-care.com/review'})
+        if body.get('action') == 'answer': return route.fulfill(json={'ok': True, 'follow': 'none', 'google': 'https://mo-care.com/review', 'facebook': 'https://www.facebook.com/1043697295676809/reviews'})
         return route.fulfill(json={'ok': True})
     pg.route('**/mo-care.com/**', lambda r: r.fulfill(body='review page'))
     pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', gck)
@@ -68,6 +68,17 @@ with sync_playwright() as pw:
     except Exception: pass
     pg.wait_for_timeout(300)
     ok('google: pressing it tells the server (code in the body), so the Feedback tab shows the tap', any(b.get('action') == 'google' and b.get('code') == CODE for b in gcalls), gcalls)
+    # other ways to share (2026-11-15: "Maybe Facebook ... google can be hard")
+    ok('facebook: "No Google account?" offers Facebook with our page link, in a new tab', 'No Google account?' in pg.inner_text('main') and pg.get_attribute('#fbReview', 'href') == 'https://www.facebook.com/1043697295676809/reviews' and pg.get_attribute('#fbReview', 'target') == '_blank')
+    pg.route('**/facebook.com/**', lambda r: r.fulfill(body='fb'))
+    with pg.context.expect_page() as newp: pg.click('#fbReview')
+    try: newp.value.close()
+    except Exception: pass
+    pg.wait_for_timeout(300)
+    ok('facebook: pressing it tells the server it was Facebook', any(b.get('action') == 'google' and b.get('where') == 'facebook' for b in gcalls), gcalls)
+    pg.click('#shareWords'); pg.wait_for_timeout(200)
+    pg.fill('#shareText', 'You have been a blessing to our family.'); pg.click('#shareSend'); pg.wait_for_timeout(400)
+    ok('share: their words go to the server with the code, and they are thanked', any(b.get('action') == 'share' and b.get('words') == 'You have been a blessing to our family.' and b.get('code') == CODE for b in gcalls) and 'first name only' in pg.inner_text('main'), gcalls)
     pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', checkin)
     pg.goto('about:blank'); pg.goto(BASE + 'checkin.html#k=' + CODE); pg.wait_for_timeout(700)
     pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(500)

@@ -28,7 +28,7 @@
   function counts(c){
     const box = (n, l, t) => '<div class="rs-n" title="' + esc(t) + '"><b>' + (n || 0) + '</b><span>' + l + '</span></div>';
     return '<div class="rs-counts">' + box(c.sent, 'asked', 'Texted from here, or offered Google after a happy check-in') + box(c.opened, 'opened the link', 'Opened their link') + box(c.rated, 'gave stars', 'Tapped stars and sent them')
-      + box(c.happy, '4 or 5 stars', 'Were offered Google') + box(c.google_tapped, 'tapped Google', 'Pressed Review us on Google') + box(c.reviewed, 'reviewed', 'Left a Google review (matched from Google, or marked by hand)') + '</div>';
+      + box(c.happy, '4 or 5 stars', 'Were offered Google') + box(c.google_tapped, 'tapped Google', 'Pressed Review us on Google') + box(c.other_shared, 'Facebook or words', 'No Google account: pressed Recommend us on Facebook, or shared their words (in Kind Words)') + box(c.reviewed, 'reviewed', 'Left a Google review (matched from Google, or marked by hand)') + '</div>';
   }
   function clientRows(){
     const d = S.data, q = S.q.trim().toLowerCase();
@@ -66,7 +66,7 @@
       return '<tr><td>' + day(s.sent_at) + (s.text === 'failed' ? ' <span class="rs-pill warn">text refused</span>' : '') + '</td><td><a href="#p/A' + esc(s.ax) + '/summary">' + esc(s.client) + '</a></td>'
         + '<td>' + esc(s.to) + (s.relationship ? ' <span class="field-note">' + esc(s.relationship) + '</span>' : '') + '</td><td>' + (s.source === 'checkin' ? '<span class="rs-pill ok">Happy check-in</span>' : esc(s.by)) + '</td>'
         + '<td data-l="Opened">' + (s.text === 'failed' ? '' : yes(s.opened_at, day(s.opened_at))) + '</td><td data-l="Stars">' + (s.rating ? stars(s.rating) + (s.rating <= 3 ? ' <span class="rs-pill warn">call them</span>' : '') : (s.text === 'failed' ? '' : '<span class="rs-no">not yet</span>')) + '</td>'
-        + '<td data-l="Tapped Google">' + (s.rating && s.rating <= 3 ? '<span class="field-note">not offered</span>' : s.text === 'failed' ? '' : yes(s.google_clicked_at, day(s.google_clicked_at))) + '</td><td>' + rev + '</td></tr>';
+        + '<td data-l="Tapped Google">' + (s.rating && s.rating <= 3 ? '<span class="field-note">not offered</span>' : s.text === 'failed' ? '' : yes(s.google_clicked_at, day(s.google_clicked_at)) + (s.facebook_clicked_at ? ' <span class="rs-pill">Facebook</span>' : '') + (s.words_at ? ' <span class="rs-pill">Shared words</span>' : '')) + '</td><td>' + rev + '</td></tr>';
     }).join('') + '</tbody></table>';
   }
   function draw(){
