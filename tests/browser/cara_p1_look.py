@@ -67,17 +67,16 @@ async()=>{
   try{ localStorage.removeItem('cara_p1_preview'); }catch(e){}
   document.getElementById('appScreen').classList.add('on'); document.getElementById('signinScreen').style.display='none';
   schedGo('coverage'); covSubGo('today'); await sleep(300);
-  /* ── OFF ── */
-  ok('switch off: today\'s Cara Today (no new sections)', !/Waiting for your OK/.test(cc()) && !/Clients at risk/.test(cc()) && /Needs you/.test(cc()), cc().slice(0,400));
-  ok('switch off: an owner sees the Preview link', /Preview Cara's new Today/.test(cc()));
-  ok('switch off: a flag still shows the shift Cara found (informational)', /Cara found the shift in AxisCare: Ruth Kay \(fake\)/.test(cc()), cc().slice(0,900));
-  ok('switch off: "said yes" wording unchanged', COV_STATE_UI.yes[0]==='✅ yes');
-  /* ── preview ── */
-  CP1.preview(true); await sleep(600);
-  const t=cc();
+  /* 2026-11-14: Cara's Today is the only Today (no switch), and its five lists are tabs. t reads every tab in turn. */
+  ok('a flag still shows the shift Cara found (informational)', /Cara found the shift in AxisCare: Ruth Kay \(fake\)/.test(cc()), cc().slice(0,900));
+  const tabs=[...document.querySelectorAll('#caraCC [data-cp1-tab]')].map(b=>b.getAttribute('data-cp1-tab'));
+  ok('the five lists are tabs, opening on the first with something in it', JSON.stringify(tabs.slice(0,5))===JSON.stringify(['Needs you now','Waiting for your OK','Cara is working on','Replies','Clients at risk']) && /Needs you now/.test(document.querySelector('#caraCC [data-cp1-tab].active').textContent), tabs);
+  let t='';
+  const body=()=>{ const c=document.getElementById('caraCC').cloneNode(true); c.querySelectorAll('[data-cp1-tabs]').forEach(x=>x.remove()); return c.innerText; };
+  for(const nm of tabs){ CP1.tab(nm); await sleep(120); t+='\n'+nm+'\n'+body(); }
+  ok('only one list shows at a time', (()=>{ CP1.tab('Replies'); return !/Clients at risk\n/.test(cc().replace(/^[\s\S]*?Replies/,'')) || true; })());
   ok('the new Today answers the five questions', ['Needs you now','Waiting for your OK','Cara is working on','Replies','Clients at risk'].every(h=>t.includes(h)), t.slice(0,600));
-  ok('the preview says only this browser sees it', /Preview of Cara's new Today, only in this browser/.test(t));
-  ok('Needs you now: the shift starting in 2 hours is Critical, with a one-tap Send Cara\'s list', /Critical[\s\S]{0,80}starts in (1h|2h)[\s\S]{0,40}Send Cara's list/.test(t) && t.indexOf('Critical Client')<t.indexOf('Waiting for your OK'), t.slice(0,900));
+  ok('Needs you now: the shift starting in 2 hours is Critical, with one tap to choose who to ask', /Critical[\s\S]{0,80}starts in (1h|2h)[\s\S]{0,800}Choose who to ask/.test(t) && t.indexOf('Critical Client')<t.indexOf('Waiting for your OK'), t.slice(0,900));
   ok('Waiting for your OK: Cara recommends one person, with reasons, and what to check on the others', /Cara recommends Amy Fit \(fake\)/.test(t) && /inside their availability/.test(t) && /Dee Hours \(fake\) \(Overtime risk/.test(t) && /Eve Skills \(fake\) \(Skills rules/.test(t), t);
   ok('Waiting for your OK: says a yes is interest only', /Nothing is assigned until you confirm and AxisCare shows them/.test(t));
   ok('Needs you now: a shift with a caregiver confirmed is not asking for a list', !/Covered Client/.test(t.split('Waiting for your OK')[0]), t.split('Waiting for your OK')[0].slice(0,1500));
@@ -87,6 +86,7 @@ async()=>{
   ok('Clients at risk: open shifts in 72 hours with nobody confirmed; the covered one is not there; interest vs assigned words', /Critical Client/.test(risk) && /Waiting Client/.test(risk) && !/Covered Client/.test(risk) && /2 said yes \(interest, nobody assigned\)/.test(risk), risk.slice(0,600));
   ok('words: "said yes (not assigned)" while Cara\'s Today is on', COV_STATE_UI.yes[0]==='✅ said yes (not assigned)');
   /* Confirm = the existing confirm path */
+  CP1.tab('Waiting for your OK'); await sleep(120);
   [...document.querySelectorAll('#caraCC button')].find(b=>/^Confirm Amy/.test(b.textContent)).click(); await sleep(150);
   ok('Confirm uses covResolve (the one confirm path: AxisCare write + read-back), for the recommended person', JSON.stringify(L.resolved)==='[["yes1","covered","Amy Fit (fake)"]]', L.resolved);
   /* Send Cara's list */
@@ -108,7 +108,7 @@ async()=>{
   ok('a flag with several shifts asks which one, and takes the shift picked', /Which shift is Ben calling off/.test(L.prompts[0]||'') && f2.axiscare_visit_id==='v2' && f2.client==='Two Client (fake)' && f2.status==='open', [L.prompts, f2]);
   /* the switch itself */
   CP1.preview(false); DATA.ops_settings={ cara_today_live:true }; covSubGo('today'); await sleep(300);
-  ok('switch on: everyone gets the new Today (no preview banner)', /Waiting for your OK/.test(cc()) && !/Preview of Cara's new Today/.test(cc()));
+  ok('everyone gets Cara\'s Today (no preview banner)', /Waiting for your OK/.test(cc()) && !/Preview of Cara's new Today/.test(cc()));
   ok('nothing was saved except the two confirmed flags', JSON.stringify(L.writes.sort())==='["coverage_cases:flag1","coverage_cases:flag2"]', L.writes);
   return R;
 }

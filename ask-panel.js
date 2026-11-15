@@ -25,7 +25,9 @@
       if (seen[k]) { if (team && !seen[k].team) seen[k].team = team === 'caregiver' ? 'caregiver' : 'cna'; return; }
       out.push(seen[k] = { name: String(x.name), level: typeof x.level === 'number' ? x.level : null, visits: h && h.visits ? Number(h.visits) : 0, last: h ? String(h.last || '') : '',
         favorite: !!(mine && mine.favorite), concern: !!(mine && mine.rating === 'concern'), team: team === 'caregiver' ? 'caregiver' : team ? 'cna' : '',
-        free: x.free_then === true, why: String(x.why || '') });
+        free: x.free_then === true, why: String(x.why || ''),
+        /* 2026-11-14: the server keeps people who would go into overtime on the list (last); the panel says so and leaves them unticked */
+        ot: !!(x.hours && x.hours.level === 'ot'), otText: x.hours && x.hours.text ? String(x.hours.text) : '', newHire: !!x.new_hire });
     };
     const p = pool || {};
     (p.group1 || []).forEach((x) => add(x, false)); (p.group0 || []).forEach((x) => add(x, true)); (p.prn_other || []).forEach((x) => add(x, true));
@@ -43,7 +45,7 @@
   }
   /* pure: who starts ticked. Worked with and Whole team: everyone listed, except a concern. Right level: the first five. */
   function defaultTicks(list, choice) {
-    const ok = list.filter((p) => !p.concern);
+    const ok = list.filter((p) => !p.concern && !p.ot);
     return (choice === 'level' ? ok.slice(0, 5) : ok).map((p) => p.name);
   }
   /* pure: the people the server left out, grouped by its own reason, biggest group first. Never people already asked. */
@@ -63,7 +65,9 @@
     if (p.team) b.push(p.team === 'cna' ? 'PRN CNA Team' : 'PRN Caregiver Team');
     if (p.visits) b.push(p.visits + (p.visits === 1 ? ' visit' : ' visits'));
     if (p.favorite) b.push('their favorite');
+    if (p.newHire) b.push('new hire, needs hours');
     if (p.concern) b.push('a concern on file');
+    if (p.ot) b.push(p.otText || 'would go into overtime');
     if (!p.visits && p.free) b.push('free then');
     return b.join(' · ');
   }
@@ -133,7 +137,7 @@
         + '<a href="javascript:void(0)" onclick="AP.all(\'' + id + '\',true)">Tick all</a><a href="javascript:void(0)" onclick="AP.all(\'' + id + '\',false)">Untick all</a></div>'
         + '<div style="margin-top:4px;border-top:1px solid #EAECF0;' + (list.length > 12 ? 'max-height:420px;overflow:auto;' : '') + '">'
         + list.map((p, i) => '<label style="display:flex;gap:10px;align-items:center;padding:7px 2px;border-bottom:1px solid #EAECF0;font-size:14px;cursor:pointer;"><input type="checkbox" data-askp-row="' + E(p.name) + '"' + (ticks.has(p.name) ? ' checked' : '')
-          + ' onchange="AP.tick(\'' + id + '\',' + i + ',this.checked)" style="width:auto;margin:0;"><span style="flex:1;min-width:0;font-weight:600;color:#101828;">' + E(p.name) + '</span><span style="font-size:12.5px;color:' + (p.concern ? '#B42318' : '#475467') + ';text-align:right;">' + E(facts(p)) + '</span></label>').join('') + '</div>';
+          + ' onchange="AP.tick(\'' + id + '\',' + i + ',this.checked)" style="width:auto;margin:0;"><span style="flex:1;min-width:0;font-weight:600;color:#101828;">' + E(p.name) + '</span><span style="font-size:12.5px;color:' + (p.concern || p.ot ? '#B42318' : '#475467') + ';text-align:right;">' + E(facts(p)) + '</span></label>').join('') + '</div>';
     } else {
       h += '<div class="field-note" style="margin-top:10px;">' + (s.choice === 'worked' ? (String(c.kind) === 'interest' ? 'A new client: nobody has worked with them yet. Use Right level or Whole team.' : 'Nobody who can be asked has worked with ' + E(who) + ' in the last 6 months. Try Right level.') : s.choice === 'level' ? 'Nobody else fits this filter. Try another, or Whole team.' : 'Nobody is left to ask for this shift.') + '</div>';
     }
@@ -142,7 +146,7 @@
       + out.map((g) => '<div style="font-size:12.5px;margin-top:4px;"><b>' + E(g.why) + ':</b> ' + E(g.names.slice(0, 30).join(', ')) + (g.names.length > 30 ? ' and ' + (g.names.length - 30) + ' more' : '') + '</div>').join('')
       + '<div class="field-note" style="margin-top:4px;">These rules are checked again on the server when you send, so nobody outside them can be texted from here.</div></details>';
     h += '<details style="margin-top:6px;"><summary class="field-note" style="cursor:pointer;">The text they get</summary>' + (typeof W.covWordingPreview === 'function' ? W.covWordingPreview(c) : '')
-      + '<div class="field-note" style="margin-top:4px;">This is the office\'s saved wording. Change it in Settings.</div></details>';
+      + '<div class="field-note" style="margin-top:4px;">This is the office\'s saved wording. <a href="javascript:void(0)" onclick="covEditWordingOpen(\'' + id + '\')">Change it for this shift</a> (Settings changes it for every shift).</div></details>';
     if (s.said) h += '<div data-askp-said="1" style="margin-top:8px;font-size:13px;border-radius:8px;padding:7px 10px;background:' + (s.saidBad ? '#FDECEA;color:#B42318' : '#E8F5EC;color:#1D6B43') + ';">' + E(s.said) + '</div>';
     h += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">'
       + '<button type="button" data-askp-send="1" onclick="AP.send(\'' + id + '\')"' + (nT && !s.sending ? '' : ' disabled') + ' style="' + btnCss + 'background:#0E3860;color:#fff;border:0;' + (nT && !s.sending ? '' : 'opacity:.5;cursor:default;') + '">'
