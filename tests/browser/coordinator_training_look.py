@@ -109,6 +109,31 @@ async()=>{
   CTR.show('week'); await sleep(40);
   ok('someone else sees the program but not Angiel\'s plan', /You do not have a training plan/.test(page()) && !/Angiel/.test(page()));
 
+  /* a remote plan (Katlin, Vietnam, Mon-Fri evenings, trained by Samantha) leaves out what needs someone in Springfield */
+  as('samantha@mo-care.com','Samantha Troutman'); DATA.coordinator_staff.push({ id:'skat', name:'Katlin H', email:'katlin@mo-care.com', active:true });
+  CTR.startNew(); await sleep(60);
+  $('ct_name').value='Katlin H'; $('ct_email').value='katlin@mo-care.com'; $('ct_start').value='2026-11-16';
+  document.querySelectorAll('.ct_day').forEach(c=>{ c.checked=true; }); $('ct_trainer').value='samantha@mo-care.com'; $('ct_remote').checked=true;
+  $('ct_hours0').value='Mon-Fri 5:30-7:30pm Central';
+  L.writes.length=0; await CTR.save(); await sleep(60);
+  const kp=DATA.call_coaching.find(x=>x.id==='training:katlin@mo-care.com');
+  ok('an owner can be the trainer and the plan saves as remote', kp && kp.remote===true && kp.trainer==='samantha@mo-care.com' && L.writes.join()==='call_coaching:training:katlin@mo-care.com', kp);
+  ok('The plan says training days and works remotely, with the remote day', /Training days:\s*Mon, Tue, Wed, Thu, Fri \(works remotely\)/.test(page()) && /What a training day looks like \(remote\)/.test(page()) && /Start on a video call together/.test(page()), page().slice(0,900));
+  ok('Angiel\'s plan is untouched', !DATA.call_coaching.find(x=>x.id==='training:angiel@mo-care.com').remote);
+  as('katlin@mo-care.com','Katlin H'); CTR.show('program'); await sleep(60);
+  document.querySelectorAll('.ct-week').forEach(d=>d.open=true);
+  ok('Katlin does not see home visits, folders or holding the office', !/Go along on a home visit/.test(txt()) && !/Lead a home visit/.test(txt()) && !/Put together one practice folder/.test(txt()) && !/hold the office this afternoon/i.test(txt()) && !/Sit in on an in-person interview/.test(txt()));
+  ok('...but keeps video-friendly work: interviews, calls, AxisCare, the Leads board', /You lead an interview and your trainer sits in/.test(txt()) && /AxisCare together/.test(txt()) && /Take your first real new family call/.test(txt()));
+  const kt=CTR.totals(kp), at=CTR.totals(DATA.call_coaching.find(x=>x.id==='training:angiel@mo-care.com'));
+  ok('her total is smaller by exactly the in-person lines, and 21 skills instead of 24', at.of-kt.of===CTR.IN_PERSON.size && kt.skills===21 && at.skills===24, [kt,at]);
+  CTR.show('week'); await sleep(40);
+  ok('her week shows training days Mon-Fri and spreads the three sessions', /Training days: Mon, Nov 16/.test(page()) && /Spread the three sessions/.test(page()) && /With Samantha/.test(page()), page().slice(0,700));
+  CTR.show('skills'); await sleep(40);
+  ok('her skills leave out the home visit and holding the office', !/Holds the office alone/.test(page()) && !/Runs a home visit/.test(page()) && /Leads an interview alone/.test(page()));
+  as('samantha@mo-care.com','Samantha Troutman'); CTR.pick('katlin@mo-care.com'); CTR.show('skills'); await sleep(40);
+  ok('Samantha, her trainer, can sign off her 21 skills', document.querySelectorAll('#ctBody button.secondary').length===21, document.querySelectorAll('#ctBody button.secondary').length);
+  CTR.pick('angiel@mo-care.com');
+
   /* links out */
   as('samantha@mo-care.com','Samantha Troutman'); CTR.show('program'); await sleep(40);
   document.querySelectorAll('.ct-week').forEach(d=>d.open=true);

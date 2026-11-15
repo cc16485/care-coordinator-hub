@@ -327,7 +327,7 @@
       ['cl_flag', 'Acts on a shift-note flag or a change in condition the same day'],
       ['cl_end', 'Pauses or ends care so the Hub, AxisCare and the family all match'] ] },
     { g: 'Caregivers', list: [
-      ['cg_interview', 'Leads an in-person interview alone and records how it went'],
+      ['cg_interview', 'Leads an interview alone and records how it went'],
       ['cg_hire', 'Moves a new hire through the offer, background checks and orientation'],
       ['cg_coach', 'Writes up a coaching talk, and knows a write-up needs an owner\'s approval'] ] },
     { g: 'When something goes wrong', list: [
@@ -339,15 +339,28 @@
   ];
   const ALL_SKILLS = SKILLS.reduce((a, g) => a.concat(g.list), []);
 
+  /* REMOTE (2026-11-14, her pick for Katlin, who works from Vietnam 5:30 to 7:30pm Central): a plan marked remote hides the
+     lines and skills that need someone physically in Springfield, so the progress can reach the end. Video interviews,
+     calls, the Hub and AxisCare all work from anywhere and stay. */
+  const IN_PERSON = new Set([
+    'w1-3w-3',                         // sit in on in-person interviews from now on
+    'w4-1w-2', 'w4-1w-3', 'w4-1s-3',   // the client folder, going on a home visit, practice folders
+    'w4-3w-1',                         // leading a home visit
+    'w8-1s-3', 'w8-2s-2', 'w8-3s-1'    // holding the office alone
+  ]);
+  const IN_PERSON_SKILLS = new Set(['fam_assess', 'soc_visit', 'own_office']);
+  const isRemote = (p) => !!(p && p.remote);
+  const skillsFor = (p) => isRemote(p) ? ALL_SKILLS.filter((k) => !IN_PERSON_SKILLS.has(k[0])) : ALL_SKILLS;
+
   /* every tick has a steady id: week, session number, with/solo, line number (w2-1w-3). Lines are only ever added at
      the end of a list, so a tick never moves to a different line. */
-  const sessionItems = (w, si) => {
-    const s = w.sessions[si];
-    return { withT: s.withT().map((t, i) => ({ id: w.k + '-' + (si + 1) + 'w-' + (i + 1), t })), solo: s.solo().map((t, i) => ({ id: w.k + '-' + (si + 1) + 's-' + (i + 1), t })) };
+  const sessionItems = (w, si, p) => {
+    const s = w.sessions[si], keep = (x) => !(isRemote(p) && IN_PERSON.has(x.id));
+    return { withT: s.withT().map((t, i) => ({ id: w.k + '-' + (si + 1) + 'w-' + (i + 1), t })).filter(keep), solo: s.solo().map((t, i) => ({ id: w.k + '-' + (si + 1) + 's-' + (i + 1), t })).filter(keep) };
   };
-  const weekIds = (w) => {
+  const weekIds = (w, p) => {
     const ids = [];
-    w.sessions.forEach((s, si) => { const it = sessionItems(w, si); it.withT.concat(it.solo).forEach((x) => ids.push(x.id)); });
+    w.sessions.forEach((s, si) => { const it = sessionItems(w, si, p); it.withT.concat(it.solo).forEach((x) => ids.push(x.id)); });
     w.drills.forEach((d) => { if (proc(d)) ids.push(w.k + '-d-' + d); });
     return ids;
   };
@@ -405,11 +418,12 @@
 
   /* ---------------------------------------------------------------- progress ---- */
   const doneMap = (p) => (p && p.done) || {};
-  function weekProgress(p, w) { const ids = weekIds(w); const d = doneMap(p); return { n: ids.filter((i) => d[i]).length, of: ids.length }; }
+  function weekProgress(p, w) { const ids = weekIds(w, p); const d = doneMap(p); return { n: ids.filter((i) => d[i]).length, of: ids.length }; }
   function totals(p) {
     let n = 0, of = 0; WEEKS.forEach((w) => { const x = weekProgress(p, w); n += x.n; of += x.of; });
     const s = (signOf(p && p.email) || {}).signed || {};
-    return { n, of, signed: ALL_SKILLS.filter((k) => s[k[0]]).length, skills: ALL_SKILLS.length };
+    const list = skillsFor(p);
+    return { n, of, signed: list.filter((k) => s[k[0]]).length, skills: list.length };
   }
 
   /* ---------------------------------------------------------------- drawing ---- */
@@ -472,9 +486,9 @@
       + '<span style="font-weight:800;color:var(--navy);font-size:15px;">Week ' + n + ': ' + esc(w.title) + '</span>'
       + (pr ? '<span class="ct-tag' + (pr.n === pr.of && pr.of ? ' ok' : '') + '">' + pr.n + ' of ' + pr.of + ' done</span>' : '') + '</summary>';
     const sess = w.sessions.map((s, si) => {
-      const it = sessionItems(w, si);
+      const it = sessionItems(w, si, p);
       return '<div class="card" style="padding:12px 16px;margin:10px 0 0;">'
-        + '<div style="font-weight:800;color:var(--navy);font-size:14px;">Day ' + (si + 1) + ': ' + esc(s.t) + (days[si] ? ' <span class="field-note" style="font-weight:600;">' + esc(words(days[si])) + '</span>' : '') + '</div>'
+        + '<div style="font-weight:800;color:var(--navy);font-size:14px;">Day ' + (si + 1) + ': ' + esc(s.t) + (days[si] && days.length <= w.sessions.length ? ' <span class="field-note" style="font-weight:600;">' + esc(words(days[si])) + '</span>' : '') + '</div>'
         + '<div class="ct-h">With ' + esc(trainer) + '</div>' + it.withT.map((x) => itemHtml(p, x)).join('')
         + '<div class="ct-h">On your own</div>' + it.solo.map((x) => itemHtml(p, x)).join('')
         + '</div>';
@@ -483,7 +497,8 @@
     const notes = p ? notesHtml(p, w.k) : '';
     return '<details class="card ct-week" data-week="' + w.k + '" ' + (open ? 'open ' : '') + 'style="padding:14px 18px;margin:0 0 12px;">' + head
       + '<div style="font-size:13.5px;line-height:1.5;margin-top:8px;max-width:85ch;"><b>By the end of this week:</b> ' + esc(w.goal) + '</div>'
-      + (days.length ? '<div class="field-note" style="font-size:12.5px;margin-top:4px;">In the office: ' + days.map(words).map(esc).join(', ') + '.' + (days.length < w.sessions.length ? ' Fewer office days than sessions this week, so carry what is left into next week.' : '') + '</div>' : '')
+      + (days.length ? '<div class="field-note" style="font-size:12.5px;margin-top:4px;">' + (isRemote(p) ? 'Training days: ' : 'In the office: ') + days.map(words).map(esc).join(', ') + '.'
+          + (days.length < w.sessions.length ? ' Fewer ' + (isRemote(p) ? 'training' : 'office') + ' days than sessions this week, so carry what is left into next week.' : days.length > w.sessions.length ? ' Spread the three sessions across these days.' : '') + '</div>' : '')
       + sess
       + (drills ? '<div class="card" style="padding:12px 16px;margin:10px 0 0;"><div style="font-weight:800;color:var(--navy);font-size:14px;">Practice drills</div>'
           + '<div class="field-note" style="font-size:12.5px;margin-top:2px;">Each one is a real situation from our published procedures. The answers are the procedure itself.</div>' + drills + '</div>' : '')
@@ -554,7 +569,8 @@
     const sign = canSign(p);
     return '<div class="card" style="padding:14px 18px;margin-bottom:12px;font-size:13.5px;line-height:1.55;">These are what a care coordinator must be able to do alone. '
       + 'A skill is signed off by the trainer or an owner after they have watched it done, not after it has been read about.' + (p ? '' : ' Nobody is in training right now, so nothing here is signed.') + '</div>'
-      + SKILLS.map((g) => '<div class="card" style="padding:12px 16px;margin:0 0 10px;"><div style="font-weight:800;color:var(--navy);font-size:14px;">' + esc(g.g) + '</div>'
+      + SKILLS.map((g) => ({ g: g.g, list: g.list.filter((k) => !(isRemote(p) && IN_PERSON_SKILLS.has(k[0]))) })).filter((g) => g.list.length)
+        .map((g) => '<div class="card" style="padding:12px 16px;margin:0 0 10px;"><div style="font-weight:800;color:var(--navy);font-size:14px;">' + esc(g.g) + '</div>'
         + g.list.map((k) => {
             const got = s[k[0]];
             return '<div class="ct-item" data-skill="' + k[0] + '"><span style="flex:1;">' + esc(k[1]) + '</span>'
@@ -569,16 +585,29 @@
     ['More days', 'More office time. Leads interviews, and takes scheduling in the afternoons with a backup a phone call away.'],
     ['On your own', 'Full office hours. Shares every client with the other care coordinator and holds the afternoons alone.'],
   ];
+  const STAGE_HELP_REMOTE = [
+    ['Learning', 'Trains live with the trainer by video during their own hours. The eight weeks of this program.'],
+    ['More', 'More of the work alone: interviews, calls and the evening cards, with the trainer reachable.'],
+    ['On your own', 'Holds their hours alone and hands off to the office every morning.'],
+  ];
   function viewPlan(p) {
     const stages = (p && Array.isArray(p.stages)) ? p.stages : [];
-    const stageHtml = '<div class="ct-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">' + STAGE_HELP.map((h, i) => {
+    const help = isRemote(p) ? STAGE_HELP_REMOTE : STAGE_HELP;
+    const stageHtml = '<div class="ct-grid" style="grid-template-columns:repeat(3,minmax(0,1fr));">' + help.map((h, i) => {
       const st = stages[i] || {};
       return '<div class="card" style="padding:12px 16px;margin:0;"><div class="ct-tag">Stage ' + (i + 1) + '</div><div style="font-weight:800;color:var(--navy);font-size:15px;margin-top:6px;">' + esc(h[0]) + '</div>'
         + (st.from ? '<div style="font-size:13px;font-weight:700;margin-top:4px;">From ' + esc(longDay(st.from)) + '</div>' : (p && i ? '<div class="field-note" style="font-size:12.5px;margin-top:4px;">Date not set</div>' : ''))
         + (st.hours ? '<div style="font-size:13.5px;margin-top:4px;">' + esc(st.hours) + '</div>' : '')
         + '<div class="field-note" style="font-size:12.5px;margin-top:6px;line-height:1.5;">' + esc(h[1]) + '</div></div>';
     }).join('') + '</div>';
-    const rhythm = '<div class="card" style="padding:14px 18px;margin:12px 0 0;"><div style="font-weight:800;color:var(--navy);font-size:14px;">What a training day looks like</div>'
+    const rhythm = isRemote(p) ? '<div class="card" style="padding:14px 18px;margin:12px 0 0;"><div style="font-weight:800;color:var(--navy);font-size:14px;">What a training day looks like (remote)</div>'
+      + '<ol style="margin:8px 0 0 18px;padding:0;font-size:13.5px;line-height:1.6;">'
+      + '<li><b>Start on a video call together.</b> Read the Operations Board side by side and agree what today\'s session is.</li>'
+      + '<li><b>Share your screen.</b> Watch it done on the trainer\'s screen, then do it on yours while they watch.</li>'
+      + '<li><b>The rest of your hours are yours.</b> Do the reading and the practice drills, and work the real cards you have been shown how to do.</li>'
+      + '<li><b>Finish with a handoff.</b> Press End my shift and write what the office needs in the morning.</li></ol>'
+      + '<div class="field-note" style="font-size:12.5px;margin-top:8px;line-height:1.5;">Lines that need someone in Springfield, such as home visits and holding the office, are left out of this plan.</div></div>'
+      : '<div class="card" style="padding:14px 18px;margin:12px 0 0;"><div style="font-weight:800;color:var(--navy);font-size:14px;">What a training day looks like</div>'
       + '<ol style="margin:8px 0 0 18px;padding:0;font-size:13.5px;line-height:1.6;">'
       + '<li><b>Start together.</b> Read the Operations Board with your trainer and agree what today\'s session is.</li>'
       + '<li><b>The morning is beside your trainer.</b> Watch it done, then do it with help. In-person interviews are 10:30am to 12:30pm, so sit in whenever one is booked.</li>'
@@ -593,7 +622,7 @@
         + (owner() ? '<span><button class="secondary" style="padding:4px 12px;font-size:12.5px;" onclick="CTR.edit()">Change the plan</button> <button class="linklike" onclick="CTR.end()">End this plan</button></span>' : '') + '</div>'
         + '<div style="font-size:13.5px;line-height:1.7;margin-top:6px;">'
         + '<b>First day:</b> ' + esc(longDay(p.start) || 'Not set') + '<br>'
-        + '<b>Office days:</b> ' + esc(dayList(p) || 'Not set') + '<br>'
+        + '<b>' + (isRemote(p) ? 'Training days' : 'Office days') + ':</b> ' + esc(dayList(p) || 'Not set') + (isRemote(p) ? ' (works remotely)' : '') + '<br>'
         + '<b>Trainer:</b> ' + esc(p.trainer ? nameOf(p.trainer) : 'Not set') + '</div></div>';
     } else top = noPlanHtml();
     const form = (owner() && (formOpen || !p)) ? formHtml(formOpen === 'edit' ? p : null) : '';
@@ -611,7 +640,8 @@
       + '<div><label for="ct_email">Their Hub sign-in email</label><input id="ct_email" type="email" autocomplete="off" value="' + v(p && p.email) + '"' + (p ? ' disabled' : '') + '></div>'
       + '<div><label for="ct_start">First day in the office</label><input id="ct_start" type="date" value="' + v(p && p.start) + '"></div>'
       + '<div><label for="ct_trainer">Trainer</label><select id="ct_trainer"><option value="">Choose</option>' + staff.map((s) => '<option value="' + esc(lc(s.email)) + '"' + (p && lc(p.trainer) === lc(s.email) ? ' selected' : '') + '>' + esc(s.name || s.email) + '</option>').join('') + '</select></div></div>'
-      + '<label>Office days during training</label><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13.5px;">' + [1, 2, 3, 4, 5].map((d) => '<label style="display:inline-flex;gap:5px;align-items:center;margin:0;font-weight:600;"><input type="checkbox" class="ct_day" value="' + d + '"' + (p && (p.days || []).includes(d) ? ' checked' : '') + '>' + DN[d] + '</label>').join('') + '</div>'
+      + '<label style="display:inline-flex;gap:6px;align-items:center;font-weight:700;"><input type="checkbox" id="ct_remote"' + (p && p.remote ? ' checked' : '') + '> Works remotely (leaves out home visits, folders and holding the office)</label>'
+      + '<label>Office days during training (training days if remote)</label><div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13.5px;">' + [1, 2, 3, 4, 5].map((d) => '<label style="display:inline-flex;gap:5px;align-items:center;margin:0;font-weight:600;"><input type="checkbox" class="ct_day" value="' + d + '"' + (p && (p.days || []).includes(d) ? ' checked' : '') + '>' + DN[d] + '</label>').join('') + '</div>'
       + '<label style="margin-top:14px;">The three stages: the hours, and the day each one starts</label>'
       + STAGE_HELP.map((h, i) => '<div style="display:grid;grid-template-columns:110px minmax(0,1fr) 160px;gap:8px;align-items:center;margin-top:6px;"><span style="font-size:13px;font-weight:700;">' + (i + 1) + '. ' + esc(h[0]) + '</span>'
           + '<input type="text" id="ct_hours' + i + '" placeholder="Days and hours" value="' + v(st[i] && st[i].hours) + '">'
@@ -675,13 +705,14 @@
     if (!name) return bad('Add their name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return bad('Add the email they sign in to the Hub with.');
     if (!parse(start)) return bad('Pick their first day in the office.');
-    if (!days.length) return bad('Tick the days they are in the office.');
+    if (!days.length) return bad('Tick the days they train.');
+    const remote = !!(document.getElementById('ct_remote') || {}).checked;
     if (!trainer) return bad('Choose who trains them.');
     if (trainer === email) return bad('The trainer has to be someone else.');
     if (!editing && planOf(email) && !planOf(email).ended_at) return bad('They already have a plan. Use Change the plan.');
     const stages = STAGE_HELP.map((h, i) => ({ name: h[0], hours: g('ct_hours' + i).slice(0, 160), from: i ? (parse(g('ct_from' + i)) ? g('ct_from' + i) : '') : start }));
     const old = editing || planOf(email) || {};
-    const next = Object.assign({}, old, { id: 'training:' + email, kind: 'training', email, name, trainer, start, days, stages,
+    const next = Object.assign({}, old, { id: 'training:' + email, kind: 'training', email, name, trainer, start, days, stages, remote,
       done: old.done || {}, notes: old.notes || [], started_by: old.started_by || myEmail(), started_at: old.started_at || now(), ended_at: '' });
     try {
       await put(next);
@@ -707,5 +738,5 @@
   }
 
   window.CTR = { WEEKS, SKILLS, VIEWS, render, show, openWeek: openWeekFn, pick, tick, sign, addNote, startNew, edit, cancel, save, end,
-    openProcedure, openHowTo, view: () => view, current, weekNow, officeDays, totals, weekIds, plans };
+    openProcedure, openHowTo, view: () => view, current, weekNow, officeDays, totals, weekIds, plans, IN_PERSON, IN_PERSON_SKILLS };
 })();
