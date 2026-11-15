@@ -106,7 +106,7 @@
       + (p.prn ? '<span style="font-size:11px;font-weight:800;color:#8A5A00;background:#FBF1D9;border-radius:999px;padding:1px 8px;">PRN</span>' : '')
       + '<span class="field-note">' + E(p.channel) + (p.replied_at ? ' · ' + E(when(p.replied_at)) : '') + (p.asked_at ? ' · asked ' + E(when(p.asked_at)) : '') + '</span></div>'
       + saidHtml(p)
-      + (p.wants_regular ? '<div style="margin-top:5px;font-size:13px;font-weight:700;color:var(--green);">Would like this as their regular weekly shift. Talk with them; set it up in Caregiver Matching if you agree.</div>' : '')
+      + (p.wants_regular ? '<div style="margin-top:5px;font-size:13px;font-weight:700;color:var(--green);">Would like this as their regular weekly shift. Talk with them; set it up in Care planning if you agree.</div>' : '')
       + historyHtml(p)
       + '<div style="margin-top:6px;font-size:13px;"><b style="color:' + (ok ? 'var(--green)' : 'var(--red)') + ';">' + (ok ? '✓ Eligible' : '✕ Not eligible') + '</b> <span class="field-note">' + E(p.eligibility ? p.eligibility.why : '') + '</span></div>'
       + '<div style="margin-top:4px;font-size:13px;font-weight:700;color:' + (p.recommended ? 'var(--green)' : 'var(--navy)') + ';">' + E(p.why) + '</div>'

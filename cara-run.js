@@ -147,5 +147,8 @@
     const declined = (r.declined || []).length ? '<div class="field-note" style="margin-top:5px;">Not this one: ' + r.declined.map((x) => E(x.name) + ' (' + E(first(x.by)) + (x.why ? ', ' + E(x.why) : '') + ')').join(', ') + '</div>' : '';
     return box(head + needs + ended + asked(d) + declined + timeline(d) + (r.practice ? practiceNote : ''));
   }
-  window.CRUN = { html, load, start, stop, notThis, notThisSend, notThisCancel, visible };
+  /* 2026-11-14 (Simpler Scheduling): the shift card keeps "Let Cara run it" under More, but a run that is going (or needs
+     the office) shows in view. True once the run is known to be running, paused or waiting on the office. */
+  function active(id) { const st = ST[id], r = st && st.data && st.data.run; return !!(r && ['running', 'paused', 'needs_office'].includes(r.status)); }
+  window.CRUN = { html, load, start, stop, notThis, notThisSend, notThisCancel, visible, active };
 })();

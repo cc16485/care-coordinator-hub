@@ -514,7 +514,7 @@
       + '<div style="margin-top:12px;display:flex;align-items:baseline;gap:8px;"><b style="font-size:13px;color:var(--navy);">The text</b><span class="field-note" style="font-size:11.5px;">' + esc(TOK_FIRST) + ' and ' + esc(TOK_WHEN) + ' are filled in for each person. Edit anything else.</span></div>'
       + '<textarea id="tsMsg" rows="5" style="width:100%;box-sizing:border-box;font-family:inherit;font-size:14px;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;margin-top:4px;"></textarea>'
       + (late ? '<div style="background:#FFF4E3;border:1px solid #F3D19C;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:#8A4E0C;">It’s ' + esc(new Date().toLocaleTimeString('en-US', { timeZone:'America/Chicago', hour:'numeric', minute:'2-digit' })) + '. These texts reach people late. You can still send them.</div>' : '')
-      + (!live ? '<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">Sending from Caregiver Matching is switched off right now. Nothing can be sent.</div>' : '')
+      + (!live ? '<div style="background:#FDE8E8;border:1px solid #F5B5B5;border-radius:8px;padding:7px 10px;margin-top:8px;font-size:12.5px;color:var(--red);">Sending from Care planning is switched off right now. Nothing can be sent.</div>' : '')
       + '<div id="tsRes" style="margin-top:8px;"></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px;"><span class="field-note" id="tsCount"></span><button class="secondary" id="tsX">Cancel</button><button class="cara-btn" id="tsSend"' + (live ? '' : ' disabled') + '>Send</button></div>';
     const $ = q => ov.querySelector(q);
@@ -559,7 +559,7 @@
     const plan = ((typeof DATA !== 'undefined' && DATA.staffing_plans) || []).find(x => x && (x.id === p.plan_id || x.project_id === p.id));
     if(!plan) return '';
     return '<div class="tb2-pjline" style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">' + readinessHtml(plan, true).replace('margin:0 0 8px', 'margin:0')
-      + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open Caregiver Matching</button></div>';
+      + '<button class="ghost" style="padding:4px 10px;font-size:12px;" onclick="tb2OpenPlan(\'' + esc(plan.id) + '\')">Open Care planning</button></div>';
   }
   function openPlan(id){ try{ switchTab('teambuilder'); }catch(e){} tbOpen(id); }
 

@@ -20,7 +20,7 @@ async()=>{
   ok('it opens inside Scheduling with its own title', activeTab==='schedguide' && document.querySelector('.ftab.active,.ftab.on')?.dataset.g==='scheduling' && /How scheduling works/.test(t), [activeTab]);
   ok('which tab for which problem: 10 rows (2026-10-31: Nurse Scheduling gone; 2026-10-24: + a client cancels or we can\'t staff; Team Builder is Caregiver Matching now)', P.querySelectorAll('table tr').length===10 && /A caregiver calls off/.test(t) && /Scheduling: Caregiver Matching/.test(t) && /Client Cancelled Shift/.test(t), P.querySelectorAll('table tr').length);
   [...P.querySelectorAll('table a')].find(a=>/Missed clock-ins/.test(a.textContent)).click(); await sleep(200);
-  ok('a row\'s link goes to that tab (Cara, Missed clock-ins & outs)', activeTab==='coverage' && COV_SUB==='clockins', [activeTab, COV_SUB]);
+  ok('a row\'s link goes to that tab (missed clock-ins are in Today since 2026-11-14)', activeTab==='coverage' && COV_SUB==='today', [activeTab, COV_SUB]);
   switchTab('schedguide'); await sleep(200);
   const t2=document.getElementById('tab-schedguide').innerText;
   ok('step-by-step guides: call-off, which reason, clock-in, open hours, team, missing clock-in/out, one visit', ['A caregiver calls off','Which reason to pick in AxisCare','Someone hasn','Regular open hours','Building a new client','A missing clock-in or clock-out','Changing one visit'].every(x=>t2.includes(x)), t2.slice(0,300));

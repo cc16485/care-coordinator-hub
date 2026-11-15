@@ -1206,6 +1206,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
          next to the clients; Caregivers > Check-ins is caregivers only (checkins-tab.js, one load for both) -->
     <div class="fpill" data-tab="clientcheckins" onclick="switchTab('clientcheckins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Check-ins<span class="subtab-badge red" id="cchkBadge" style="display:none"></span></div>
     <!-- 2026-10-12 (her call): the Care Library, how-to videos for caregivers she approves one by one (care-library.js) -->
+    <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div><!-- from Scheduling, 2026-11-14 -->
     <div class="fpill" data-tab="carelibrary" onclick="switchTab('carelibrary')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-video"/></svg> Care Library</div>
     <span style="flex:1"></span>
     <!-- One hub, one truth, a lens per person: filters Leads, State
@@ -1264,11 +1265,14 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        lives in the Staffing hub, so it is a frame rather than a copy: two
        correction logs would be worse than one somewhere else. -->
   <div class="fsubbar" id="fsub-scheduling">
-    <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Cara - AI Scheduling Assistant<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
+    <!-- 2026-11-14 Simpler Scheduling (her picks): three plain tabs. Today and Open shifts are the same page (tab 'coverage')
+         showing what needs a person now, or every shift still looking for someone. -->
+    <div class="fpill" data-tab="coverage" onclick="schedGo('coverage')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-sun"/></svg> Today<span class="subtab-badge red" id="covPillBadge2" style="display:none;"></span></div>
+    <div class="fpill" data-tab="openshifts" onclick="schedGo('openshifts')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Open shifts<span class="subtab-badge" id="covPillBadge3" style="display:none;background:var(--slate-bg);color:var(--navy);"></span></div>
     <!-- 2026-10-17 (her names, Start of Care stage C): Team Builder is now Caregiver Matching, in Scheduling after Cara.
          The tab id stays 'teambuilder' so every link, bookmark and saved plan keeps working. -->
-    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregiver Matching</div>
-    <div class="fpill" data-tab="carematch" onclick="switchTab('carematch')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-heart-honey"/></svg> Care Match Check-ins</div>
+    <div class="fpill" data-tab="teambuilder" onclick="switchTab('teambuilder')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Care planning</div>
+    <!-- Care Match Check-ins moved to Client Care 2026-11-14 (Simpler Scheduling): it is client relations. -->
     <!-- 2026-10-12 (scheduling review step 5, her ask): the reference page sits at the far right, like Applicant journey -->
     <span style="flex:1 1 auto;"></span>
     <div class="fpill" style="margin-left:auto;" data-tab="schedguide" onclick="switchTab('schedguide')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-book"/></svg> How scheduling works</div>
@@ -1355,19 +1359,48 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     </section>
     <section class="tabpanel" id="tab-teambuilder">
       <div style="margin-bottom:14px;">
-        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Caregiver Matching</h2>
-        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">Build a client's team on a week grid: pencil caregivers in as you call, then confirm the schedules into AxisCare when the whole team is set.</div>
+        <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Care planning</h2>
+        <div class="field-note" style="font-size:13.5px;margin-top:3px;max-width:76ch;">A week chart for a client: shifts down the side, days across the top. Pencil caregivers in as you call, then send the schedule to AxisCare when the whole team is set.</div>
       </div>
+      <!-- Hours and matching moved here from Scheduling > Cara 2026-11-14 (Simpler Scheduling, her picks): it is planning,
+           not today's work. Closed until opened; the loads run when it opens. -->
+      <details id="schedHoursBox" class="card" style="padding:12px 16px;margin:0 0 16px;" ontoggle="schedHoursRender()">
+        <summary style="cursor:pointer;font-weight:800;color:var(--navy);font-size:15px;">Hours and matching <span id="schedHoursN" style="font-size:12px;font-weight:800;color:var(--red);"></span> <span class="field-note" style="font-weight:500;">new hires waiting for hours, where we can staff this week, availability on file, the next 7 days</span></summary>
+        <div style="margin-top:10px;">
+      <div id="swHoursWrap">
+      <div id="nhCard"></div><!-- New hires waiting for hours (2026-10-12, new-hires.js) -->
+      <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
+      <!-- How current the availability on file is (her pick #10), with the ONE "Text the availability link" button. The
+           six-week trends (drifting away, running hot, client care shrinking) moved to Reports 2026-10-12 (step 4). -->
+      <div id="hwRadar" style="margin-bottom:16px;"></div>
+      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
+        <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
+        <!-- "Next 7 days" is real again: coverage-shifts hours_watch derives
+             both boundaries from the Chicago calendar (today + the following
+             six dates, seven inclusive). The status line shows the actual
+             dates the backend returned after a load - never a range this
+             browser computed for itself. -->
+        <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
+        <span style="flex:1;"></span>
+        <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
+      </div>
+      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
+
+      <!-- The "Who could cover a new client?" lookup left 2026-10-12 (scheduling review step 4): Team Builder and its
+           "Ask the whole team" do that job. -->
+      <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
+      <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
+      </div>
+        </div>
+      </details>
       <div id="swBuilderWrap"><div id="tbRoot"><div class="field-note">Loading…</div></div>
     </section>
     <section class="tabpanel" id="tab-coverage">
       <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
         <div>
-          <h2 style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Cara</h2>
-          <div style="font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--green);margin-top:4px;">AI Scheduling Assistant</div>
-          <div class="field-note" style="font-size:13.5px;margin-top:2px;max-width:760px;">Cara finds coverage for open shifts, watches for missed clock-ins and clock-outs, handles caregiver outreach, and brings your team the decisions that need human judgment.</div>
-          <!-- Status is written by caraRenderCC so it reflects the real gate
-               rather than a hard-coded claim. -->
+          <h2 id="covTitle" style="margin:2px 0 0;font-size:24px;font-weight:800;letter-spacing:-0.02em;color:var(--navy);">Today</h2>
+          <div id="covTitleNote" class="field-note" style="font-size:13.5px;margin-top:2px;max-width:760px;">What needs a person right now.</div>
+          <!-- Cara is a quiet helper now (2026-11-14): one small line, written by caraRenderCC from the real switch. -->
           <div id="caraStatus" style="margin-top:7px;"></div>
         </div>
         <span style="flex:1;"></span>
@@ -1394,6 +1427,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- New-client interest checks start from Cara's New clients sub-tab (back in Cara 2026-10-12, her call). -->
       <div style="display:flex;gap:10px;margin:0 0 14px;flex-wrap:wrap;">
         <button class="cov-cta" onclick="covOpenAdd('calloff')">📞 Someone's calling off</button>
+        <button class="cov-cta teal" id="asTopBtn" onclick="AS.toggle()">💬 Message caregivers</button>
       </div>
 
       <!-- The Open Shifts mirror that used to sit here was REMOVED 2026-09-12
@@ -1404,36 +1438,13 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
       <!-- The command centre. Every number in it is derived from
            coverage_cases / asked[] / ops_items at render time; nothing here
            writes, and no case appears in more than one section. -->
+      <div id="askStart"></div><!-- Message caregivers, one starting point (2026-11-12, ask-start.js): a new client or an AxisCare shift, then the Ask caregivers panel -->
       <div id="covSubBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;"></div>
       <!-- What Schedule Watch held (moved here 2026-10-12, her call: "all need to be in Cara"). Each shows only on its
            own Cara sub-tab: Missed clock-ins & outs, New clients, Hours & matching. The sw* functions draw them as before. -->
       <div id="swTodayWrap" style="display:none;"><div id="swLive" style="margin-bottom:26px;"></div></div>
       <!-- New clients left Cara 2026-10-12 (scheduling review step 3): asking the team about hours lives on Team Builder
            ("Ask the whole team"); any older check still open shows at the top of Team Builder. -->
-      <div id="swHoursWrap" style="display:none;">
-      <div id="nhCard"></div><!-- New hires waiting for hours (2026-10-12, new-hires.js) -->
-      <div id="ssRoot"></div><!-- Where we can staff this week (staffing-sheet.js, Referral Partner Desk Step 4, 2026-10-08) -->
-      <!-- How current the availability on file is (her pick #10), with the ONE "Text the availability link" button. The
-           six-week trends (drifting away, running hot, client care shrinking) moved to Reports 2026-10-12 (step 4). -->
-      <div id="hwRadar" style="margin-bottom:16px;"></div>
-      <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;margin:0 0 6px;padding-top:6px;">
-        <h3 style="margin:0;font-size:20px;font-weight:800;letter-spacing:-0.015em;color:var(--navy);">Upcoming schedule and hours</h3>
-        <!-- "Next 7 days" is real again: coverage-shifts hours_watch derives
-             both boundaries from the Chicago calendar (today + the following
-             six dates, seven inclusive). The status line shows the actual
-             dates the backend returned after a load - never a range this
-             browser computed for itself. -->
-        <span id="hwWindowPill" style="background:#fff;border:1px solid var(--border);border-radius:999px;padding:4px 12px;font-size:12.5px;font-weight:700;color:var(--text-muted);">Next 7 days</span>
-        <span style="flex:1;"></span>
-        <button class="cara-btn ghost" onclick="hwLoad(this)">Refresh from AxisCare</button>
-      </div>
-      <div style="font-size:13.5px;color:var(--text-muted);margin:0 0 16px;max-width:76ch;">Caregivers set their own target and windows at <b>cc.mo-care.com/availability</b>. Scheduled hours come live from AxisCare for the next 7 days. Biggest gap first, so these are the people to call before they quietly job-hunt. New hires are flagged for their first 60 days.</div>
-
-      <!-- The "Who could cover a new client?" lookup left 2026-10-12 (scheduling review step 4): Team Builder and its
-           "Ask the whole team" do that job. -->
-      <div id="hwStateWrap" style="margin:0 0 12px;"><span class="cara-mono" id="hwState"></span></div>
-      <div id="hwList"><div style="font-size:13.5px;color:var(--text-muted);">Open this tab and hit Refresh to load.</div></div>
-      </div>
       <div id="caraCC"></div>
 
       <!-- Since 2026-09-18 the opener is a MODAL (her call: the inline card
@@ -4476,6 +4487,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <p class="hint">Everything below except the Supabase connection is shared with the whole team, on every device. Pasting a key here switches it on for Krystal too. You can also manage the same settings from the <a href="https://hub.mo-care.com/admin" target="_blank" rel="noopener"><b>Admin page</b></a>.</p>
 </div>
 
+<div class="settings-section" data-set="dno">
+<h3>🔕 No shift texts</h3>
+<p class="hint">Caregivers on this list are never texted about open shifts: not by the Ask caregivers panel and not by any automation. An SSI income cap is the usual reason; a "through" date lifts it automatically the day after. Calling someone yourself is always still your judgment. (Moved here from Scheduling 2026-11-14.)</p>
+<div id="dnoSettingsBox"></div>
+</div>
+
 <div class="settings-section" data-set="callout-texts">
 <h3>📣 Callout texts (canned responses)</h3>
 <div id="slpHost"></div><!-- shift page link pilot (shift-link-pilot.js, 2026-10-24) --><div id="vrHost"></div><!-- what AxisCare reasons mean (visit-reasons.js, 2026-10-24) -->
@@ -4518,7 +4535,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <label>30-day availability text, when nothing is on file yet ({first_name}, {link})</label>
 <textarea id="set_avail_ck_none" rows="3" placeholder="Hi {first_name}, it's Caring Companions! Tell us the days and times you can work so we can offer you shifts that fit: {link} You can also choose to get texts about shifts outside those times. It takes 30 seconds."></textarea>
 <!-- 2026-10-12 (scheduling review step 4): the open-hours wording, editable like every other callout text -->
-<label>Open hours: the text to the whole team (Caregiver Matching, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
+<label>Open hours: the text to the whole team (Care planning, "Ask the whole team"; {first_name}, {town}, {days}, {times}, and {choice} = "You can take some of the days, or just some of the hours." The office can still edit it before each send. No client name, address or pay.)</label>
 <textarea id="set_oh_msg" rows="3" placeholder="Hi {first_name}, it's Caring Companions. We have regular hours open in {town}: {days}, {times}. {choice}Interested? Reply with the days and times that work for you, or NO if not. Questions welcome."></textarea>
 <label>Open hours: the thank-you to a Yes (only while its switch is on, once per person; {first_name})</label>
 <textarea id="set_oh_ack" rows="2" placeholder="Thanks, {first_name}! We got your answer and we'll be in touch once the schedule is set."></textarea>
@@ -7576,10 +7593,10 @@ The HomeTogether team</pre>
 <script src="prn-week.js?v=20"></script><script src="oncall-now.js?v=2"></script><script src="gap-mentor.js?v=5"></script><!-- PRN step 2 (2026-10-28): This week + on call on the PRN Teams page -->
 <script src="projects.js?v=7"></script>
 <script src="match-rules.js?v=20261018"></script><!-- the one match rule; Team Builder, the Staffing sheet and the new-hire card read its driving rule (Driver Compliance, 2026-10-13) -->
-<script src="team-builder-2.js?v=8"></script>
-<script src="open-hours.js?v=4"></script>
+<script src="team-builder-2.js?v=9"></script>
+<script src="open-hours.js?v=5"></script>
 <script src="scheduling-guide.js?v=6"></script>
-<script src="new-hires.js?v=4"></script>
+<script src="new-hires.js?v=5"></script>
 <script src="hub-scenes.js?v=1"></script>
 <script src="celebrate.js?v=2"></script>
 <script src="progress-paths.js?v=2"></script>
@@ -7631,7 +7648,7 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-page.js?v=8"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="ask-panel.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=6"></script><script src="cara-run.js?v=1"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=3"></script><script src="ask-panel.js?v=3"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=6"></script><script src="last-minute.js?v=2"></script><script src="ask-list.js?v=4"></script><script src="simple-card.js?v=4"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -8315,7 +8332,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carematch','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8748,7 +8765,7 @@ const CC_SECTION_TITLES = {
   statesubs:'State Submissions: Medicaid IHS', careplans:'Care Plan Reviews', leadsstarts:'Leads', clientsboard:'Clients',
   inbox:'Inbox', carachats:'Ask Cara chats', comms:'Communication',
   meetings:'Team Meetings', standup:'To talk about', mydesk:'My Desk', clientgoals:'Client Goals', howto:'How-to', cctraining:'Coordinator Training', teammeetings:'Team Meetings', calendar:'Team Calendar', evv:'EVV', interviews:'Interviews', applicants:'Applicants', trainhub:'Training Platform', interviews:'Interviews', offers:'Offers', ops:'Needs Attention', calls:'Phone',
-  coverage:'Cara - AI Scheduling Assistant', teambuilder:'Caregiver Matching', carelibrary:'Care Library', fccheck:'Family Circles',
+  coverage:'Scheduling', teambuilder:'Care planning', carelibrary:'Care Library', fccheck:'Family Circles',
   reports:'Reports', htorders:'HomeTogether Orders', htsupport:'HomeTogether Support',
   htlocal:'HomeTogether Hire', campaigns:'Campaigns', feedback:'Feedback', materials:'Marketing Materials', friendsfamily:'Friends &amp; Family',
   community:'Community', settings:'Settings',
@@ -8905,7 +8922,9 @@ function switchTab(tab){
   if(tab==='cgattendance'||tab==='cgwriteups'){ window.HR_WANT=(tab==='cgwriteups'?'formal':'attendance'); tab='hr'; }
   /* Schedule Watch is gone (2026-10-12, her call): every old link lands on Cara's Missed clock-ins & outs; a caller
      that wanted another part follows with swSubGo, which moves on to New clients, Hours & matching or Team Builder. */
-  if(tab==='hourswatch'){ tab='coverage'; try{ COV_SUB='clockins'; }catch(e){} }
+  if(tab==='hourswatch'){ tab='coverage'; try{ COV_SUB='today'; }catch(e){} }
+  /* Simpler Scheduling (2026-11-14): "Open shifts" is the coverage page showing every shift still looking for someone */
+  if(tab==='openshifts'){ tab='coverage'; try{ COV_SUB='open'; localStorage.setItem('cch_covsub','open'); }catch(e){} }
   if(CC_RETIRED_TABS[tab]){ const f=CC_RETIRED_FILTER[tab], to=CC_RETIRED_TABS[tab];
     if(f&&to==='leadsstarts'&&typeof LS!=='undefined') LS.filter=f; else if(f&&typeof CL!=='undefined') CL.filter=f; tab=to; }
   /* 2026-10-03: the Hub Settings link (GoHighLevel menu, cc.mo-care.com/#settings) opens the page before the roles are
@@ -10990,9 +11009,9 @@ async function cpRenderTeam(){
   const cj=window.CJ_STATE&&CJ_STATE.data&&CJ_STATE.data.journey;
   const plan=(f&&f.plan)||(typeof cmPlanFor==='function'?cmPlanFor({ lead:CP.lead, ax:CP.ax, journey_id:cj&&cj.journey_id }):null);
   box.innerHTML='<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
-    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Caregiver Matching</b></div>'
+    +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><b style="font-size:15px;color:var(--navy);">🧩 Care planning</b></div>'
     +(plan?'<div id="cp_tb"></div>'
-      :'<div class="field-note">No Caregiver Matching plan for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
+      :'<div class="field-note">No Care planning chart for this family yet. Find Caregivers starts one from what the lead already says (days, times, town, level), and it follows them into AxisCare.</div>'
         +'<button class="primary" style="margin-top:8px;" onclick="cmFindCaregivers(this)">Find Caregivers</button>')
     +'</div>'
     +'<div class="card" style="padding:14px 18px;margin-bottom:12px;">'
@@ -16231,6 +16250,7 @@ function settingsFocusApply(){
 }
 function fillSettingsPanel(){
   covMsgsFill();
+  try{ dnoSettingsPaint(); }catch(e){}   /* No shift texts lives in Settings since 2026-11-14 */
   try{ settingsFocusApply(); }catch(_){}
   try{ prnSetFill(); }catch(_){}
   try{ opSetFill(); }catch(_){}
@@ -39033,16 +39053,16 @@ function caraNeedsCard(c){
     cta='Review and pick &rarr;';
   }else if(why==='pick'){
     head=String(c.kind)==='interest'
-      ? 'The '+first+' interest check needs its list.'
-      : first+"'s "+when+' shift needs its ask list.';
-    sub='Nothing sends on its own. Build the list, uncheck anyone you\'d rather not ask, and choose who gets the text.';
-    cta='Build the ask list &rarr;';
+      ? 'Nobody has been asked about '+first+' yet.'
+      : 'Nobody has been asked about '+first+"'s "+when+' shift yet.';
+    sub='Nothing is sent on its own. Open it and choose who to ask.';
+    cta='Choose who to ask &rarr;';
   }else if(why==='quiet'){
     var qa=(c.asked||[]), qNo=qa.filter(function(a){ return a.state==='no'; }).length;
     var qNew=qa.map(function(a){ return new Date(a.at||0).getTime(); }).filter(isFinite).sort(function(x,y){ return y-x; })[0];
     head='Nobody\'s answered for '+first+"'s "+when+' shift.';
-    sub=qa.length+' asked '+(qNew?Math.round((Date.now()-qNew)/60000)+' min ago':'')+': '+qNo+' said no, '+(qa.length-qNo)+' silent, zero yes. Widen to Group 2 or start calling.';
-    cta='Widen the ask &rarr;';
+    sub=qa.length+' asked '+(qNew?Math.round((Date.now()-qNew)/60000)+' min ago':'')+': '+qNo+' said no, '+(qa.length-qNo)+' not answered, nobody has said yes. Ask more people, or start calling.';
+    cta='Ask more people &rarr;';
   }else if(why==='question'){
     const qs=(c.asked||[]).filter(a=>a.state==='inquiry');
     head=esc(qs[0].name)+(qs.length>1?' and '+(qs.length-1)+' other'+(qs.length>2?'s':''):'')
@@ -39134,14 +39154,42 @@ function caraFilledCard(c){
    everything else is a workspace you visit on purpose.) ─────────────────── */
 /* Cara's automatic waves were retired 2026-10-12 (decision 6, Desktop 631): a person always picks who gets asked. */
 function covManual(){ return true; }
-let COV_SUB=(function(){ try{ return localStorage.getItem('cch_covsub')||'today'; }catch(e){ return 'today'; } })();
-function covSubGo(s){ COV_SUB=s; try{ localStorage.setItem('cch_covsub',s); }catch(e){} renderCoverage(); }
+/* SIMPLER SCHEDULING (2026-11-14, her picks): the page has two views, Today ('today') and Open shifts ('open'), plus
+   History ('history', a link at the bottom of Open shifts). Every older sub-tab name still works and lands in the
+   right place: Missed clock-ins are cards in Today, Call-offs and Ongoing shifts are Open shifts, Hours & matching is
+   in Care planning, No shift texts is in Settings, and "Was it covered?" is no longer a tab. */
+function covSubNorm(s){ s=String(s||'today');
+  if(s==='answers') return (window.CAA&&CAA.showing())?'answers':'open';   /* "Was it covered?" is not a tab; while its switch is on, its list still opens from links */
+  return ({clockins:'today',newclients:'today',calloffs:'open',ongoing:'open',hours:'today',dno:'today'})[s]||(['today','open','history'].includes(s)?s:'today'); }
+let COV_SUB=(function(){ try{ return covSubNorm(localStorage.getItem('cch_covsub')); }catch(e){ return 'today'; } })();
+function covSubGo(s){
+  if(s==='hours'){ schedHoursOpen(); return; }
+  if(s==='dno'){ dnoOpenSettings(); return; }
+  COV_SUB=covSubNorm(s); try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
+  if(typeof activeTab!=='undefined'&&activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
+}
+/* Hours & matching lives in Care planning now: open that tab and its Hours and matching section */
+function schedHoursOpen(){
+  if(typeof activeTab==='undefined'||activeTab!=='teambuilder') switchTab('teambuilder');
+  const d=document.getElementById('schedHoursBox'); if(d){ d.open=true; schedHoursRender(); if(d.scrollIntoView) d.scrollIntoView({behavior:'smooth',block:'start'}); }
+}
+function schedHoursRender(){
+  const d=document.getElementById('schedHoursBox'); if(!d||!d.open) return;
+  try{ if(typeof NH!=='undefined') NH.render(); }catch(e){}
+  hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad();
+  try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){}
+}
+/* No shift texts lives in Settings now */
+function dnoOpenSettings(){
+  CC_SETTINGS_FOCUS='dno'; switchTab('settings'); try{ settingsFocusApply(); }catch(e){} dnoSettingsPaint();
+}
+function dnoSettingsPaint(){ const el=document.getElementById('dnoSettingsBox'); if(el) el.innerHTML=dnoCardHtml(); }
 function covSubFor(c){
   if(!c) return 'today';
   if(c.status==='flagged') return 'today';
   if(String(c.kind)==='interest') return 'today';   // new-client checks live on Team Builder now (step 3)
   if(c.status!=='open') return 'history';
-  return covIsOngoing(c)?'ongoing':'calloffs';
+  return 'open';
 }
 /* Coordinators think in "how long until someone stands at that door" — so
    every card leads with time-to-shift and Today sorts by it. */
@@ -39158,25 +39206,18 @@ function covCountdown(c){
   return diff>0?'shift starts in '+span:'shift started '+span+' ago';
 }
 function covRenderSubBar(S){
-  const bar=document.getElementById('covSubBar'); if(!bar) return;
-  const ongoingN=S.open.filter(covIsOngoing).length;
-  const calloffN=S.open.length-ongoingN;
-  const dnoN=(DATA.coverage_do_not_offer||[]).filter(dnoActive).length;
-  const newN=(DATA.coverage_cases||[]).filter(c=>c&&c.status==='open'&&String(c.kind)==='interest').length;
-  /* Schedule Watch's parts live here since 2026-10-12 (her call). */
-  const tabs=[
-    ['today','\u26a1 Today',S.needs.length,'red'],
-    ['clockins','\u23f0 Missed clock-ins & outs',swClockinN(),'red'],
-    ['calloffs','\ud83d\udcf5 Call-offs & open shifts',calloffN,''],
-    ['ongoing','\ud83d\udd01 Ongoing shifts',ongoingN,''],
-    ['hours','\ud83d\udcca Hours & matching',(typeof NH!=='undefined'?NH.count():0),''],   // new hires waiting for hours (2026-10-12)
-    ['dno','\ud83d\udd15 No shift texts',dnoN,''],
-    ...(window.CAA&&CAA.showing()?[['answers','\u2753 Was it covered?',CAA.count(),'red']]:[]),   // calloff-answers.js (2026-11-05)
-    ['history','\ud83d\uddc2 History',0,''],
-  ];
-  bar.innerHTML=tabs.map(t=>'<button class="fb'+(COV_SUB===t[0]?' active':'')+'" onclick="covSubGo(\''+t[0]+'\')">'+t[1]
-    +(t[2]?' <span style="background:'+(t[3]==='red'?'var(--red)':'var(--slate-bg)')+';color:'+(t[3]==='red'?'#fff':'var(--navy)')+';border-radius:999px;padding:1px 7px;font-size:11px;font-weight:800;margin-left:4px;">'+t[2]+'</span>':'')
-    +'</button>').join('');
+  const bar=document.getElementById('covSubBar'); if(bar) bar.innerHTML='';
+  const openN=S.open.length;
+  const b3=document.getElementById('covPillBadge3'); if(b3){ b3.style.display=openN?'inline-block':'none'; b3.textContent=openN; }
+  /* Today and Open shifts are one page (tab 'coverage'): light the pill for the view showing */
+  if(typeof activeTab!=='undefined'&&activeTab==='coverage'){
+    const isOpen=COV_SUB==='open'||COV_SUB==='history';
+    const t=document.querySelector('.fsubbar .fpill[data-tab="coverage"]'), o=document.querySelector('.fsubbar .fpill[data-tab="openshifts"]');
+    if(t) t.classList.toggle('active',!isOpen); if(o) o.classList.toggle('active',isOpen);
+    const h=document.getElementById('covTitle'); if(h) h.textContent=COV_SUB==='history'?'History':isOpen?'Open shifts':'Today';
+    const n=document.getElementById('covTitleNote');
+    if(n) n.textContent=COV_SUB==='history'?'Shifts that are closed, and the last 30 days.':isOpen?'Every shift still looking for someone, soonest first.':'What needs a person right now.';
+  }
 }
 /* A compact waiting row: who, how soon, what's come back, one link in. */
 function covWaitingRow(c){
@@ -39221,8 +39262,8 @@ function caraRenderCC(){
   if(statusEl){
     statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:12.5px;">'
       +'<span style="width:8px;height:8px;border-radius:50%;background:'+(engineOn?'var(--green)':'var(--text-muted)')+';"></span>'
-      +'<b style="color:var(--navy);">'+(engineOn?'Cara is active':'Callout engine is off')+'</b>'
-      +'<span class="field-note">'+(engineOn?(manualMode?'Monitoring: you choose who gets asked':'Monitoring coverage'):'asks are recorded by hand')+'</span></span>';
+      +'<b style="color:var(--navy);">'+(engineOn?'Cara is helping':'Caregiver texting is off')+'</b>'
+      +'<span class="field-note">'+(engineOn?'she checks who can work; only the people you pick are texted':'write down who you called with “I asked someone”')+'</span></span>';
   }
 
   covRenderSubBar(S);
@@ -39329,7 +39370,7 @@ async function dnoAdd(){
   const arr=DATA.coverage_do_not_offer=DATA.coverage_do_not_offer||[];
   const i=arr.findIndex(x=>x&&x.id===item.id); if(i>=0) arr[i]=item; else arr.push(item);
   await persist('coverage_do_not_offer', item);
-  caraRenderCC();
+  caraRenderCC(); try{ dnoSettingsPaint(); }catch(e){}
 }
 async function dnoRemove(id){
   const arr=DATA.coverage_do_not_offer||[];
@@ -39338,7 +39379,7 @@ async function dnoRemove(id){
   if(!(await ccConfirm('Start offering open shifts to '+(d.name||'this caregiver')+' again?'))) return;
   DATA.coverage_do_not_offer=arr.filter(x=>!(x&&x.id===id));
   await removeItem('coverage_do_not_offer', id);
-  caraRenderCC();
+  caraRenderCC(); try{ dnoSettingsPaint(); }catch(e){}
 }
 
 /* ── Direct routes ────────────────────────────────────────────────────────
@@ -39685,8 +39726,7 @@ let SW_SUB='';
 const SW_TO_COV={today:'clockins',hours:'hours'};
 function swSubGo(s){
   if(s==='builder'||s==='newclients'){ /* New clients moved to Team Builder (step 3, 2026-10-12) */ if(activeTab!=='teambuilder') switchTab('teambuilder'); else tbRender(); return; }
-  COV_SUB=SW_TO_COV[s]||'clockins'; try{ localStorage.setItem('cch_covsub',COV_SUB); }catch(e){}
-  if(activeTab!=='coverage') switchTab('coverage'); else renderCoverage();
+  covSubGo(SW_TO_COV[s]||'today');   /* 2026-11-14: hours opens Care planning; missed clock-ins are in Today */
 }
 function swClockinN(){ return (DATA.timekeeper_cases||[]).filter(function(l){ return l&&l.kind!=='clock_out'&&!l.resolved_at; }).length; }
 function swRenderBar(){ if(typeof caraRenderCC==='function'&&activeTab==='coverage') covRenderSubBar(caraSections()); }
@@ -39937,6 +39977,7 @@ function tbRender(){
   if(!TB.pool&&!TB.loading){ tbLoadPool(); }
   if(!TB.journeys&&!TB.jLoading){ tbLoadJourneys(); }
   var plan=tbPlan();
+  try{ var hn=document.getElementById('schedHoursN'), nn=(typeof NH!=='undefined'&&NH.count)?NH.count():0; if(hn) hn.textContent=nn?nn+(nn===1?' new hire':' new hires')+' waiting for hours':''; }catch(e){}
   root.innerHTML=plan?tbBoardHtml(plan):tbHomeHtml();
   if(plan&&!TB.profileRoot) famMount('famTb', { plan_id:plan.id }, 'plan');
 }
@@ -40324,7 +40365,7 @@ async function tbAskOpen(key){
   var asked=dr.asked_before||[], edited=false;
   var askedOn=function(k){ var a=asked.filter(function(x){ return (x.cells||[]).indexOf(k)>=0; }).sort(function(p,q){ return String(q.sent_at).localeCompare(String(p.sent_at)); })[0]; return a||null; };
   var blockers=[];
-  if(!dr.live) blockers.push('Sending from Caregiver Matching is switched off right now.');
+  if(!dr.live) blockers.push('Sending from Care planning is switched off right now.');
   if(!dr.caregiver.on_roster) blockers.push(name+' is not on the caregiver roster, so there is no number to text.');
   else if(!dr.caregiver.phone_last4) blockers.push(name+' has no phone number on the roster.');
   if((dr.caregiver.opt_out||[]).length) blockers.push(name+' has asked not to get texts ('+dr.caregiver.opt_out.join('; ')+').');
@@ -40613,9 +40654,9 @@ function swRenderLive(){
     .sort(function(a,b){ return String(b.resolved_at||'').localeCompare(String(a.resolved_at||'')); });
   var needing=live.filter(function(l){ return l.office_alerted_at; }).length;
 
-  var h=swBanner(S)
-    +swFragHtml()
-    +'<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;margin-bottom:11px;">'
+  /* Simpler Scheduling (2026-11-14): these are cards at the top of Today now, shown only when there are any, so the
+     watch's on/off banner and the "Today looks sturdy" forecast stay off this page. */
+  var h='<div style="display:flex;gap:11px;align-items:baseline;flex-wrap:wrap;margin-bottom:11px;">'
     +'<h3 style="margin:0;font-size:20px;font-weight:800;color:var(--navy);letter-spacing:-0.015em;">Missed clock-ins &amp; outs</h3>'
     +'<span style="font-size:13px;color:var(--text-dim);">Today</span>'
     +(live.length?'<span class="cara-pill '+(needing&&S.watchLive?'alarm':'work')+'">'+live.length+' open</span>':'')
@@ -41804,10 +41845,9 @@ function covOutreachHtml(c){
     const last=waves[waves.length-1];
     const newest=Math.max(...last.asks.map(a=>new Date(a.at||0).getTime()));
     const dueAt=new Date(newest+fuse*60000);
-    h+='<div class="field-note" style="margin-top:7px;">Cara asks a few at a time, worked-with-this-client first, never the whole roster at once. '
-      +(dueAt.getTime()>Date.now()
-        ?'If nobody accepts, the next wave goes out around <b>'+covClock(dueAt.toISOString())+'</b>.'
-        :'The next wave goes out on Cara’s next pass (every few minutes).')+'</div>';
+    /* 2026-11-14: the "never the whole roster at once" line is gone; Cara's own waves were retired 2026-10-12 and the Ask panel
+       has Whole team. A next-wave time shows only if the engine really has one coming. */
+    if(dueAt.getTime()>Date.now()) h+='<div class="field-note" style="margin-top:7px;">Cara may ask a few more around <b>'+covClock(dueAt.toISOString())+'</b> if nobody says yes.</div>';
   }
   if(open&&c.callout_escalated_at){
     h+='<div style="margin-top:7px;padding:7px 10px;border-radius:7px;background:var(--red-bg);border:1px solid var(--red);font-size:12.5px;color:var(--red);font-weight:600;">Cara ran out of caregivers to ask '+covAgo(c.callout_escalated_at)+' ago and escalated to the office. This case needs a person now.</div>';
@@ -42207,11 +42247,48 @@ function covOpenBody(c,tallies){
   /* ASK CAREGIVERS, ONE PANEL (2026-11-12, ask-panel.js, switch ask_panel_live): who to ask in three choices (worked with the
      client, right level, whole team), tick boxes and one send. It stands in for the simple card's list, the classic picker,
      Ask everyone now and the PRN team buttons. On call, the answers, confirming a yes and everything under More stay. */
+  /* SIMPLER SCHEDULING (2026-11-14, her "Yes, use your picks"): an open shift opens with five things. One line on what is
+     happening, who is on call, the Ask caregivers panel, who answered (Confirm on a yes), and Covered / Close uncovered.
+     Everything else is one click away under More. The six-step rail, the PRN team buttons, "Ask everyone now" and the
+     three-group list are gone from the card: the Ask panel's Whole team and its PRN filters do those jobs. */
   if(window.AP&&AP.on(c)){
-    const extraA=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
-    const moreA=more.replace('Covered or Close</summary>','Covered or Close</summary>'+extraA).replace(covPickerHtml(c),'').replace('<div style="margin-top:6px;">'+covOutreachHtml(c)+'</div>','');
-    return (ns.k==='yes'?banner+covConfirmHtml(c):'')+cipCaseHtml(c)+(window.ONC?ONC.html(c):'')+AP.html(c)
-      +'<div style="margin-top:8px;">'+covOutreachHtml(c)+'</div><div id="covFollow_'+id+'"></div>'+moreA;
+    const A=c.asked||[], n=st=>A.filter(a=>a.state===st).length;
+    const yesBlock=(window.CB&&CB.on()&&String(c.kind)!=='interest')?CB.html(c):covConfirmHtml(c);
+    const line=ns.k==='yes'||ns.k==='family'||ns.k==='questions'?ns.text
+      :A.length?(A.length+' texted'+(n('no')?', '+n('no')+' said no':'')+(n('waiting')?', '+n('waiting')+' not answered yet':'')+', nobody has said yes yet')
+      :'Nobody has been asked yet. Choose who to ask below.';
+    const status='<div data-cov-status="'+id+'" style="margin-top:8px;padding:9px 12px;border-radius:9px;background:#F0F7FF;border:1px solid #CFE0F5;font-size:14px;font-weight:700;color:var(--navy);">'+line+'</div>';
+    const done='<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">'
+      +'<button class="addlead" onclick="covResolve(\''+id+'\',\'covered\')">Covered ✓</button>'
+      +'<button class="ghost" onclick="covResolve(\''+id+'\',\'uncovered\')">Close uncovered</button></div>';
+    const lm=Math.max(0,Math.round(Number(c.bonus&&c.bonus.amount)||0));
+    const moreS='<details'+(COV_MORE_OPEN.has(c.id)?' open':'')+' ontoggle="covMoreToggle(\''+id+'\',this.open)" style="margin-top:10px;border-top:1px solid var(--border);padding-top:6px;">'
+      +'<summary class="field-note" style="cursor:pointer;font-weight:700;">More for this shift</summary>'
+      +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin-top:8px;">'
+      +(covFollowCandidates(c).length?'<button class="ghost" onclick="covFollowOpen(\''+id+'\')">📨 Follow up with those we asked</button>':'')
+      +(window.LM&&LM.bonus?'<button class="ghost" onclick="LM.bonus(\''+id+'\')">'+(lm?'$'+lm+' bonus (change)':'Add a bonus')+'</button>':'')
+      +'<button class="ghost" onclick="covAsk(\''+id+'\')">＋ I asked someone</button>'
+      +(c.axiscare_visit_id?'':'<button class="ghost" style="color:var(--honey-ink);" onclick="covToggleAdd(\''+id+'\')">🔗 Attach the real shift</button>')
+      +(c.calling_off&&!covTakenOff(c)?'<button class="ghost" onclick="covNotCallin(\''+id+'\')">Not a call-in</button>':'')
+      +'</div>'
+      +'<div id="covFollow_'+id+'"></div>'
+      +(window.CRUN&&!(CRUN.active&&CRUN.active(c.id))?CRUN.html(c):'')
+      +(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'')
+      +'<details'+(COV_WORD_OPEN[c.id]?' open':'')+' style="margin-top:8px;"><summary class="field-note" style="cursor:pointer;">📤 What caregivers are being texted</summary>'
+        +'<div id="covWord_'+id+'">'+covWordingPreview(c)+'</div></details>'
+      +(c.calling_off?'<div class="field-note" style="margin-top:6px;">📵 '+esc(c.calling_off)+' '+covOffWords(c)+(c.axiscare_visit_id?'. The exact AxisCare shift is attached; confirming a fill replaces them on it.':'')+'</div>':'')
+      +cipCaseHtml(c)
+      +(c.note?'<div class="field-note" style="margin-top:5px;">'+esc(c.note)+'</div>':'')
+      +((c.opened_by==='axiscare-watch')?'<div class="field-note" style="margin-top:3px;">Opened automatically from the AxisCare unassignment.</div>':'')
+      +covLoopHtml(c)
+      +'<div style="margin-top:9px;padding-top:8px;border-top:1px solid var(--border);font-size:12.5px;font-weight:600;color:var(--text-muted);">'+covSummary(c)+'</div>'
+      +'</details>';
+    return status+(window.ONC?ONC.html(c):'')
+      +(window.CRUN&&CRUN.active&&CRUN.active(c.id)?CRUN.html(c):'')   /* Cara is running this shift: in view, with Take it back */
+      +(ns.k==='yes'?yesBlock:'')
+      +AP.html(c)
+      +(A.length?'<div style="margin-top:10px;font-weight:700;font-size:13.5px;color:var(--navy);">Who we asked</div><div>'+covOutreachHtml(c)+'</div>':'')
+      +done+moreS;
   }
   if(scOn){
     const extra=(window.CRUN?CRUN.html(c):'')+(window.CB&&CB.rulesHtml?CB.rulesHtml(c):'');
@@ -42263,49 +42340,33 @@ function covClosedBody(c,tallies){
 }
 
 function renderCoverage(){
+  try{ if(window.AS) AS.render(); }catch(e){ console.warn('[message caregivers]', e); }   /* Message caregivers (ask-start.js), above everything on this tab */
   cipEnsureForCases();
   caraRenderCC();
   const box=document.getElementById('covList'); if(!box) return;
-  /* Schedule Watch's parts, on their own Cara sub-tabs (2026-10-12): only one of them shows at a time, and the
-     board's own lists step aside for it. */
-  if(COV_SUB==='newclients') COV_SUB='today';   // that tab moved to Team Builder (step 3, 2026-10-12)
-  const sw={clockins:'today',hours:'hours'}[COV_SUB]||'';
-  SW_SUB=sw;
+  /* Simpler Scheduling (2026-11-14): missed clock-ins and outs are cards at the top of Today, only when there are any */
+  COV_SUB=covSubNorm(COV_SUB);
+  SW_SUB=COV_SUB==='today'?'today':'';
   const show=(id,on)=>{ const el=document.getElementById(id); if(el) el.style.display=on?'':'none'; };
-  show('swTodayWrap',sw==='today'); show('swHoursWrap',sw==='hours'); show('caraCC',!sw);
-  if(sw){
-    box.innerHTML='';
-    if(sw==='today'){ swRenderLive(); swAutoRefreshArm(); }
-    else { try{ if(typeof NH!=='undefined') NH.render(); }catch(e){} hwAskRender(); hwRender(); hwRadarRender(); if(HW_SCHED===null) hwLoad(); try{ if(typeof ssPaint==='function'){ ssPaint(); ssLoad(); } }catch(e){} }
-    return;
-  }
-  if(COV_SUB==='answers'){ if(window.CAA&&CAA.showing()){ box.innerHTML=CAA.list(); return; } COV_SUB='calloffs'; }   // calloff-answers.js (2026-11-05)
+  const ckOn=COV_SUB==='today'&&swClockinN()>0;
+  show('swTodayWrap',ckOn); show('caraCC',COV_SUB==='today');
+  if(ckOn){ swRenderLive(); swAutoRefreshArm(); }
+  if(COV_SUB==='answers'){ box.innerHTML=CAA.list(); return; }   // calloff-answers.js (2026-11-05), reached by link only
   if(COV_SUB==='today'){ box.innerHTML=''; return; }   // Today lives in #caraCC
   let list=(DATA.coverage_cases||[]).slice().sort((a,b)=>(b.opened_at||'').localeCompare(a.opened_at||''));
   /* Each sub-tab IS its section (2026-09-18): one kind of work per screen.
      Interest checks moved wholesale to Schedule Watch (her call). */
-  if(COV_SUB==='ongoing') list=list.filter(c=>c.status==='open'&&covIsOngoing(c));
-  else if(COV_SUB==='calloffs') list=list.filter(c=>c.status==='open'&&String(c.kind)!=='interest'&&!covIsOngoing(c));
+  /* Open shifts: call-offs, one-time and every-week openings in one list, soonest shift first */
+  if(COV_SUB==='open') list=list.filter(c=>c.status==='open'&&String(c.kind)!=='interest').sort((x,y)=>covShiftMs(x)-covShiftMs(y));
   else if(COV_SUB==='history') list=list.filter(c=>c.status!=='open'&&c.status!=='flagged');
-  else if(COV_SUB==='dno'){
-    /* Its own sub-tab (her call, 2026-09-19): the caregivers who asked NOT
-       to be texted about open shifts — clear name, no digging in History. */
-    box.innerHTML='<div class="field-note" style="margin-bottom:10px;max-width:70ch;">Caregivers on this list are never texted about open shifts: not by a coordinator\'s ask list and not by any automation. An SSI income cap is the usual reason; a "through" date lifts it automatically the day after. Asking someone by hand (a call, a personal text) is always still your judgment.</div>'
-      +dnoCardHtml();
-    return;
-  }
   // badge: open COVERAGE cases (interest checks aren't uncovered shifts),
   // red because an uncovered shift is late by definition
   const openN=(DATA.coverage_cases||[]).filter(c=>c.status==='open'&&String(c.kind)!=='interest').length;
   const b=document.getElementById('covPillBadge');
   if(b){ b.style.display=openN?'inline-block':'none'; b.textContent=openN; }
   if(!list.length){
-    const EMPTY={calloffs:'No open call-offs or one-time shifts. That is the goal state.',
-      ongoing:'No standing openings right now. The hourly sweep adds any it finds in the AxisCare schedule.',
-      newclients:'No interest checks running. The big 📣 button up top starts one.',
-      history:'Nothing resolved yet.'};
-    box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+(EMPTY[COV_SUB]||'Nothing here yet.')+'</div>'
-      +(COV_SUB==='history'?'<div style="height:16px;"></div>'+dnoCardHtml():'');
+    const EMPTY={open:'No open shifts. Every shift has someone.', history:'Nothing closed yet.'};
+    box.innerHTML='<div class="card" style="padding:18px;color:var(--text-muted);font-size:13.5px;">'+(EMPTY[COV_SUB]||'Nothing here yet.')+'</div>'+covOpenFoot();
     return;
   }
     /* THE COVERED-LOOP SCOREBOARD (her pick #2, 2026-09-19): median
@@ -42338,9 +42399,13 @@ function renderCoverage(){
     }
     box.innerHTML=(COV_SUB==='history'?scoreHtml:'')
     +list.map(covCaseCard).join('')
-    +(COV_SUB==='history'
-      ?'<div class="field-note" style="margin-top:10px;">The callout message wording lives in ⚙️ Settings → Callout texts.</div>'
-      :'');
+    +covOpenFoot();
+}
+/* the small links under Open shifts and History (History is a link now, not a tab) */
+function covOpenFoot(){
+  return COV_SUB==='history'
+    ?'<div style="margin-top:12px;"><a href="javascript:void(0)" onclick="schedGo(\'openshifts\')" style="font-size:13px;font-weight:700;">&larr; Back to Open shifts</a></div>'
+    :'<div style="margin-top:12px;"><a href="javascript:void(0)" onclick="caraOpenHistory()" style="font-size:13px;font-weight:700;">History: closed shifts and the last 30 days &rarr;</a></div>';
 }
 
 /* ── Change 6b: AxisCare's class is the care level once someone is in care ──

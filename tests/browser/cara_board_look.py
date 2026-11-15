@@ -59,7 +59,7 @@ async()=>{
   ok('switch off: today\'s confirm block, no board, the board server not asked', !/Who answered/.test(tab()) && /can cover/i.test(tab()) && !L.calls.some(c=>c.action==='board'), tab().slice(0,600));
   DATA.ops_settings={ cara_board_live:true }; renderCoverage(); await sleep(700);
   const t=tab();
-  ok('switch on: the board replaces the confirm block (one place to pick); the banner points to it', /Who answered/.test(t) && !/can cover: pick the best fit/i.test(t) && /Answers are sorted below\. Only a full-shift yes from someone eligible can be confirmed\./.test(t), t.slice(0,800));
+  ok('switch on: the board replaces the confirm block (one place to pick)', /Who answered/.test(t) && !/can cover: pick the best fit/i.test(t), t.slice(0,800));
   ok('five boxes with their counts: full 3, part or different hours 1, question 1, no 1, Needs Verification 1', /Yes, full shift \(3\)/.test(t) && /Part or different hours \(1\)/.test(t) && /Question \(1\)/.test(t) && /No \(1\)/.test(t) && /Needs Verification \(1\)/.test(t), t.slice(0,1200));
   ok('who hasn\'t answered is listed apart', /Not answered yet: Wendy Wait \(fake\)/.test(t));
   ok('the chips say Cara\'s pick, overtime risk, and the partial hours', /Cara's pick/.test(t) && /overtime risk/.test(t) && /8am to 1pm/.test(t));

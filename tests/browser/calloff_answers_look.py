@@ -46,7 +46,7 @@ T = r"""async()=>{
   ok('off: no Was it covered? tab', !tabs().some(t=>/Was it covered/.test(t)), tabs());
   ok('off: the card keeps its three old buttons', (()=>{ const h=obligationOpenAction(DATA.ops_items[1]); return /Client cancelled/.test(h) && !/Not needed/.test(h) && !/What AxisCare shows/.test(h); })());
   CAA.preview(true); await sleep(150);
-  ok('preview: a Was it covered? tab with 5 waiting', tabs().some(t=>/Was it covered\? 5/.test(t)), tabs());
+  ok('preview: 5 waiting (no tab since 2026-11-14; the list opens by link)', CAA.count()===5 && !tabs().length, [CAA.count(), tabs()]);
   covSubGo('answers'); await sleep(150);
   const L=()=>document.getElementById('covList').innerText;
   ok('the list: 5 waiting, 2 with a card, oldest first, grouped by client', /5 waiting, 2 with a card/.test(L()) && L().indexOf('Ed Example')<L().indexOf('Jackie Sample'), L().slice(0,500));
@@ -108,10 +108,10 @@ GUARD = r"""async()=>{
   const before=card.status; await (window.MWTidy&&MWTidy.clear?MWTidy.clear(['ops_covq_cw_t9'],'The day has passed'):Promise.resolve());
   ok('Clear old cards leaves it open', card.status==='open', card.status);
   CAA.preview(false); await sleep(80);
-  ok('preview off: the tab goes away, the old buttons are back', ![...document.querySelectorAll('#covSubBar button')].some(b=>/Was it covered/.test(b.innerText)) && !/Not needed/.test(obligationOpenAction(card)));
+  ok('preview off: the old buttons are back', !/Not needed/.test(obligationOpenAction(card)));
   (0,eval)("ME={ email:'krystal@mo-care.com', name:'Krystal' };"); CC_ROLES=['coordinator'];
   DATA.ops_settings.calloff_answers_live=true; renderCoverage(); await sleep(80);
-  ok('switch on: a coordinator gets the tab', [...document.querySelectorAll('#covSubBar button')].some(b=>/Was it covered/.test(b.innerText)));
+  ok('switch on: still no tab (Simpler Scheduling, 2026-11-14)', ![...document.querySelectorAll('#covSubBar button')].length);
   covSubGo('answers'); await sleep(80);
   ok('...but no tick boxes (answering several at once is for owners)', !document.querySelector('#covList input[type=checkbox]'));
   return R; }"""
