@@ -46,6 +46,14 @@
       + '.ff-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:11px 0;border-top:1px solid #EEF1F5}.ff-row .who{flex:1 1 260px;min-width:0}'
       + '.ff-name{font-weight:700;color:var(--navy);font-size:15px}.ff-line{font-size:13px;color:var(--text);margin-top:2px}.ff-why{font-size:13px;color:#8A5A12;margin-top:2px}.ff-bad-why{color:#B23B2E}'
       + '.ff-row .acts{display:flex;gap:6px;flex-wrap:wrap}.ff-row button{padding:6px 12px;font-size:12.5px}'
+      /* See the message (2026-11-15) */
+      + '.ff-pv{position:fixed;inset:0;background:rgba(14,56,96,.35);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:4vh 16px;overflow-y:auto}'
+      + '.ff-pv-box{background:#fff;border-radius:14px;width:100%;max-width:640px;padding:20px 22px;box-shadow:0 20px 60px rgba(14,56,96,.25)}'
+      + '.ff-pv-box h3{margin:0 0 4px;font-size:18px;color:var(--navy,#0E3860)}.ff-pv-sub{font-size:13px;color:var(--text-muted);margin:0 0 14px}'
+      + '.ff-pv-h{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 6px}'
+      + '.ff-pv-sms{background:#E9EEF4;border-radius:16px 16px 16px 4px;padding:10px 14px;font-size:14.5px;line-height:1.45;white-space:pre-wrap;max-width:420px;color:#16283a}'
+      + '.ff-pv-subj{font-size:14px;margin:0 0 6px}.ff-pv-mail{width:100%;height:420px;border:1px solid #E2E8F0;border-radius:10px;background:#fff}'
+      + '.ff-pv-top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}'
       + '.ff-chip{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;margin-left:6px;vertical-align:2px}'
       + '.ff-ready{background:#E7F6EC;color:#1F7A4D}.ff-waiting{background:#FDF3E3;color:#A8660E}.ff-held{background:#F1F5F9;color:#64748B}.ff-bad{background:#FDE8E8;color:#B23B2E}'
       + '.ff-checks{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;font-size:13px}.ff-ck{display:flex !important;gap:6px;align-items:center;width:auto;font-weight:600;color:var(--text)}'
@@ -172,7 +180,7 @@
     const st = { sent:['ready', 'Sent'], partial:['waiting', 'Partly sent'], failed:['bad', 'Didn’t go'] }[x.status] || ['held', x.status];
     return row({ attr:' data-inv="' + esc(x.person_key) + '"', name:x.name, chip:chip(st[0], st[1]),
       line:esc(x.kind === 'caregiver' ? 'Caregiver' : 'Family' + (x.client_name ? ' of ' + x.client_name : '')) + ' · ' + esc(when(x.last_sent_at)) + (x.sends > 1 ? ' · sent ' + esc(x.sends) + ' times' : '') + ' · their link: ' + esc(x.code || ''),
-      why:x.status === 'sent' ? '' : esc(ch), bad:x.status === 'failed', acts:btn('Resend', 'FFT.resend(\'' + esc(x.person_key) + '\')') });
+      why:x.status === 'sent' ? '' : esc(ch), bad:x.status === 'failed', acts:btn('See the message', 'FFT.see(\'' + esc(x.person_key) + '\')') + btn('Resend', 'FFT.resend(\'' + esc(x.person_key) + '\')') });
   }
 
   /* what needs an owner, in one place: the tab draws from it and the Operations Board counts it (board-feeds.js, 2026-11-12) */
@@ -240,7 +248,8 @@
         const how = p.status === 'ready' ? 'By ' + (p.channels || []).map(c => c === 'text' ? 'text' : 'email').join(' and ') : '';
         const line = esc(kindWords(p)) + (p.payer ? ' · ' + esc(p.payer) : '') + (how ? ' · ' + esc(how) : '') + (p.invited ? ' · invited ' + esc(day(p.invited.at)) : '');
         const acts = skipped ? btn('Undo skip', 'FFT.unskip(\'' + esc(p.key) + '\')') : (!p.invited ? btn('Skip', 'FFT.skip(\'' + esc(p.key) + '\', \'' + esc(String(p.name).replace(/'/g, '')) + '\')') : '');
-        return row({ attr:' data-key="' + esc(p.key) + '"', name:p.name, line,   /* the filter above says the status */ why:esc((p.why || []).filter(w => !/^Email only/.test(w) || p.status !== 'ready').join(' · ')) + (p.note ? ' · ' + esc(p.note) : ''), acts });
+        const see = p.kind !== 'client' ? btn('See the message', 'FFT.see(\'' + esc(p.key) + '\')') : '';   /* 2026-11-15: the exact words they get */
+        return row({ attr:' data-key="' + esc(p.key) + '"', name:p.name, line,   /* the filter above says the status */ why:esc((p.why || []).filter(w => !/^Email only/.test(w) || p.status !== 'ready').join(' · ')) + (p.note ? ' · ' + esc(p.note) : ''), acts:see + acts });
       });
       h += '<div class="ff-card" id="ffList"><h3>Who gets an invitation</h3><p>Checked every morning. Ready means they get one the next Monday morning once invitations are on.</p>'
         + '<div class="ff-filters">' + F.map(([k, w, n]) => '<button class="secondary" aria-pressed="' + (ST.show === k) + '" onclick="FFT.show(\'' + k + '\')">' + esc(w) + ' (' + n + ')</button>').join('')
@@ -288,6 +297,29 @@
     if(!yes) return;
     say('Sending…'); const r = await call({ action:'resend', key }); say(r.error ? r.error : 'Sent again.'); load();
   }
+  /* SEE THE MESSAGE (Samantha 2026-11-15: "We can't see what was sent to them?" then "Yes, add it"). The server builds the
+     words with the same code that sends them, so this is word for word what the person gets, or got. It only reads. */
+  function seeClose(){ const o = document.getElementById('ffPv'); if(o) o.remove(); document.removeEventListener('keydown', seeKey); }
+  function seeKey(e){ if(e.key === 'Escape') seeClose(); }
+  async function see(key){
+    say('Opening the message…');
+    const r = await call({ action:'preview', key });
+    if(r.error){ say(r.error === 'Unknown action.' ? 'The server needs step 1494 run first.' : r.error); return; }
+    const first = String(r.name || '').split(/\s+/)[0] || 'They';
+    const sub = r.sent_at ? 'Sent ' + when(r.sent_at) + (r.status && r.status !== 'sent' ? ' (' + (r.status === 'partial' ? 'only part went through' : r.status === 'failed' ? 'it didn’t go through' : r.status) + ')' : '') + '. This is what went.'
+      : 'Not sent yet. This is what goes out on the Monday they are invited.' + (r.code ? '' : ' Their own link is made that morning; the __ shows where its two letters go.');
+    const parts = (r.messages || []).map((m, i) => m.channel === 'text'
+      ? '<div class="ff-pv-h">Text message</div><div class="ff-pv-sms">' + esc(m.text) + '</div>'
+      : '<div class="ff-pv-h">Email</div><div class="ff-pv-subj"><b>Subject:</b> ' + esc(m.subject) + '</div><iframe class="ff-pv-mail" sandbox="" title="The email" data-i="' + i + '"></iframe>');
+    seeClose();
+    const o = document.createElement('div'); o.className = 'ff-pv'; o.id = 'ffPv';
+    o.innerHTML = '<div class="ff-pv-box" role="dialog" aria-modal="true" aria-label="The message"><div class="ff-pv-top"><div><h3>What ' + esc(first) + (r.sent_at ? ' got' : ' gets') + '</h3>'
+      + '<p class="ff-pv-sub">' + esc(sub) + '</p></div><button class="secondary" onclick="FFT.seeClose()">Close</button></div>'
+      + (parts.length ? parts.join('') : '<div class="ff-empty">Nothing goes to them right now: no text or email they can get.</div>') + '</div>';
+    o.addEventListener('click', e => { if(e.target === o) seeClose(); });
+    document.body.appendChild(o); document.addEventListener('keydown', seeKey);
+    o.querySelectorAll('iframe[data-i]').forEach(f => { f.srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:14px">' + ((r.messages[+f.dataset.i] || {}).html || '') + '</body>'; });
+  }
   const todayC = () => new Date().toLocaleString('sv-SE', { timeZone:'America/Chicago' }).slice(0, 10);
   async function reward(lid, op, arg){
     const body = { action:'reward', lead_id:lid, op };
@@ -315,6 +347,6 @@
     const p = needParts(ST.data);
     return { n:(owner() ? p.toApprove.length + p.toReview.length + p.toFinish.length : 0) + p.toTick.length + p.failed.length + p.pn.size };
   }
-  window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
+  window.FFT = { needs, mount, load, draw, flip, skip, unskip, resend, see, seeClose, referrals, reward, hrFind, hrPick, hrCancel, hrSave,
     view(k){ ST.view = k; draw(); }, show(k){ ST.view = 'invites'; ST.show = k; draw(); }, search(v){ ST.q = v; ST.focus = true; draw(); }, state:ST };
 })();
