@@ -21,7 +21,7 @@
   const DAY = 86400000;
   const e = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const VIEW = { data: null, loading: false, err: '', notOn: false, askedAt: 0, view: 'needs', saving: {}, msg: '' };
-  const VIEWS = [['needs', 'Needs you'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
+  const VIEWS = [['needs', 'Needs you'], ['answers', 'One-tap answers'], ['first90', 'First 90 days'], ['everyone', 'Everyone'], ['sent', 'What was sent']];
   /* CARE & CONNECTION (2026-11-14): the smart-link check-ins (families now, caregivers later), from the same server.
      A link row's state: needs (a concern, nobody called yet), called, resolved (only with how they know it got better),
      happy, no_response (three days), waiting, not_sent. confirm: its card was closed in My Work but nobody confirmed. */
@@ -78,7 +78,7 @@
 
   const ldot = (s) => '<span class="chk-dot" title="' + e(LDOT[s][1]) + '" style="background:' + LDOT[s][0] + '"></span>';
   /* the client's own check-in (2026-11-14) says "the client", never "Dorothy's family" */
-  const famName = (l) => l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
+  const famName = (l) => l.audience === 'caregiver' ? e([l.first, l.last].filter(Boolean).join(' ')) : l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
     : e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
   function linkRow(l, nowMs) {
     const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
@@ -97,9 +97,9 @@
       + (last ? '<div class="field-note">' + e({ called: 'Called', resolved: 'Resolved', reopened: 'Reopened', fine: 'Looked fine' }[last.state] || last.state) + ' by ' + e(last.by) + ', ' + e(when(last.at, nowMs)) + (last.note ? ': ' + e(last.note) : '') + '</div>' : '')
       + '</div><div class="chk-acts">' + acts + '</div></div>';
   }
-  function familiesHtml(nowMs) {
-    const fam = linksOf('family');
-    if (!fam.length) return '<div class="empty">No family or client check-ins yet. They go out on weekdays between 10 AM and 5 PM.</div>';
+  function familiesHtml(nowMs, aud) {
+    const fam = linksOf(aud || 'family');
+    if (!fam.length) return '<div class="empty">' + (aud === 'caregiver' ? 'No one-tap caregiver check-ins yet. They start only after Samantha approves the texts and turns them on.' : 'No family or client check-ins yet. They go out on weekdays between 10 AM and 5 PM.') + '</div>';
     const order = { needs: 0, called: 1, no_response: 3, waiting: 4, happy: 5, resolved: 6, not_sent: 7 };
     return fam.slice().sort((a, b) => ((linkNeeds(a) ? 0 : order[a.state] ?? 8) - (linkNeeds(b) ? 0 : order[b.state] ?? 8)) || String(b.sent_at).localeCompare(String(a.sent_at)))
         .map((l) => linkRow(l, nowMs)).join('');
@@ -142,14 +142,14 @@
     if (!V.data) return '<div class="card"><div class="empty">Loading check-ins…</div></div>';
     const people = V.data.people || [], n = counts(people, nowMs);
     const tile = (label, val, red) => '<div class="kpi"><div class="kl"><span>' + e(label) + '</span></div><div class="kv"' + (red && val ? ' style="color:var(--red)"' : '') + '>' + e(val == null ? '–' : val) + '</div></div>';
-    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
+    const body = V.view === 'needs' ? needsHtml(people, nowMs) : V.view === 'answers' ? familiesHtml(nowMs, 'caregiver') : V.view === 'first90' ? peopleHtml(people, nowMs, true) : V.view === 'everyone' ? peopleHtml(people, nowMs, false) : sentHtml(people, nowMs);
     return '<div class="chk-kpis">' + tile('Needs you', n.needs, true) + tile('In first 90 days', n.first90) + tile('Answered, last 30 days', n.answeredPct == null ? null : n.answeredPct + '%') + tile('No answer', n.noAnswer) + '</div>'
       + '<div class="toolbar">' + VIEWS.map(([k, l]) => '<button class="filter-pill' + (V.view === k ? ' active' : '') + '" onclick="CHK.setView(\'' + k + '\')">' + e(l) + (k === 'needs' && n.needs ? ' (' + n.needs + ')' : '') + '</button>').join('')
       + '<div class="spacer"></div><button class="fb" onclick="CHK.load()">' + (V.loading ? 'Checking…' : 'Check again') + '</button></div>'
       + (V.msg ? '<div class="field-note" role="alert" style="color:var(--red)">' + e(V.msg) + '</div>' : '')
       + '<div class="card">' + body + '</div>'
-      + '<div class="chk-legend">' + Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ') + '</div>'
-      + '<p class="field-note">Today the caregiver check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Family and client check-ins are on Clients &gt; Check-ins. Nothing on this tab sends anything.</p>';
+      + '<div class="chk-legend">' + (V.view === 'answers' ? Object.keys(LDOT).map((k) => ldot(k) + ' ' + e(LDOT[k][1])).join(' &nbsp; ') : Object.keys(DOT).filter((k) => k !== 'called').map((k) => dot(k) + ' ' + e(DOT[k][1])).join(' &nbsp; ')) + '</div>'
+      + '<p class="field-note">One-tap answers come from the caregiver check-in page (week 1, day 30, 60, 90, then every 3 months); a hard time or a call request makes a card. The texted check-ins are the morning-after text for each new caregiver and client pair, and the PRN "glad to go back?" text. A reply is the first text back within three days. Texts are on record from November 5, 2026. Family and client check-ins are on Clients &gt; Check-ins. Nothing on this tab sends anything.</p>';
   }
   /** Clients > Check-ins: the family and client answers (Care &amp; Connection) */
   function clientHtml(V, nowMs) {
