@@ -88,6 +88,24 @@ with sync_playwright() as pw:
     ok('private: no sign-in token is sent from the public page', all(not c[2] for c in calls))
     ok('private: the thank-you gives their conversation link', 'Your private conversation' in pg.inner_text('main'))
     ok('private: codes never in a web address', all(CODE not in c[0] for c in calls))
+    # an OFFICE check-in link (2026-11-14): the same private form, her questions on top, the code sent, nothing typed
+    pg2 = b.new_page(viewport={'width': 390, 'height': 844}); calls2 = []
+    pg2.on('pageerror', lambda e: errs.append(str(e)[:200]))
+    def office(route):
+        body = json.loads(route.request.post_data or '{}'); calls2.append(body)
+        if body.get('action') == 'who': return route.fulfill(json={'first': 'Krystal', 'initial': 'B.', 'role': 'staff', 'client_first': '', 'has_phone': True, 'office_checkin': True})
+        if body.get('action') == 'send': return route.fulfill(json={'ok': True})
+        return route.fulfill(status=400, json={'error': 'bad request'})
+    pg2.route('**/functions/v1/owner-inbox', office); pg2.route('**/fonts.googleapis.com/**', lambda r: r.abort())
+    pg2.goto(BASE + 'private.html#k=' + CODE); pg2.wait_for_timeout(600)
+    t2 = pg2.inner_text('body')
+    ok('office check-in: her heading and questions, "Only Samantha and Zach", sending as Krystal B. (Office team)',
+       'Hi Krystal, your check-in with Samantha and Zach' in t2 and "What's going well? Is anything frustrating or making your job harder? We want to hear it all. Only Samantha and Zach will read this." in t2
+       and 'Krystal B.' in t2 and 'Office team' in t2, t2[:400])
+    pg2.click('[data-f=kind] .opt >> nth=0'); pg2.fill('#body', 'Busy week'); pg2.click('[data-f=reply] .opt >> nth=2'); pg2.click('#send'); pg2.wait_for_timeout(500)
+    s2 = [c for c in calls2 if c.get('action') == 'send']
+    ok('office check-in: the answer goes to the owners\' inbox with the link\'s code, no name typed', s2 and s2[0].get('code') == CODE and 'name' not in s2[0], s2)
+    pg2.close()
     pg.goto(BASE + 'private.html#r=' + CODE); pg.reload(); pg.wait_for_timeout(500)
     ok('reply: asks for their PIN first and shows nothing else', 'Your PIN' in pg.inner_text('main') and 'Thank you' not in pg.inner_text('main'))
     pg.fill('#pinin', '1111'); pg.click('#ok'); pg.wait_for_timeout(300)
