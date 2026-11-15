@@ -27,4 +27,7 @@ const out = A.leftOut(pool);
 ok('left out: grouped by the server\'s reason, biggest first; never the already asked, the inactive, or the Canceled Shift placeholder', JSON.stringify(out) === JSON.stringify([{ why: 'working then', names: ['Busy B', 'Busy C'] }, { why: 'Level 1 caregiver; client needs Level 2', names: ['Low L'] }]), out);
 ok('row facts read in plain words', A.facts(P.find((p) => p.name === 'Marcus T')) === 'Level 3 · PRN CNA Team · 14 visits · their favorite' && A.facts(P.find((p) => p.name === 'Alice B')) === 'Level 2 · free then', [A.facts(P.find((p) => p.name === 'Marcus T')), A.facts(P.find((p) => p.name === 'Alice B'))]);
 ok('an empty answer is an empty list, not an error', A.peopleOf(null).length === 0 && A.leftOut(null).length === 0);
+/* 2026-11-14: someone who would go into overtime stays on the list, says so, and starts unticked */
+const P2 = A.peopleOf({ group1: [{ name: 'Over O', level: 2, history: { visits: 4 }, hours: { level: 'ot', text: 'would be 44 h this week' } }, { name: 'Fine F', level: 2, history: { visits: 2 } }], group0: [], prn_other: [], group2: [], prn_ongoing: [], excluded: [] });
+ok('overtime: listed, said in words, unticked', P2.length === 2 && A.facts(P2[0]).includes('would be 44 h this week') && JSON.stringify(A.defaultTicks(A.listFor(P2, 'worked'), 'worked')) === '["Fine F"]', [A.facts(P2[0]), A.defaultTicks(A.listFor(P2, 'worked'), 'worked')]);
 console.log(pass + '/' + n + ' passed'); process.exit(pass === n ? 0 : 1);

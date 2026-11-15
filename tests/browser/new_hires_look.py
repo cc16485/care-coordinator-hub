@@ -33,9 +33,9 @@ async()=>{
   ok('Find them hours opens Cara\'s board (Live Schedule is gone, 2026-10-31)', activeTab==='coverage', [activeTab]);
   /* Cara's ask list: the tag */
   DATA.coverage_cases=[{ id:'cv1', status:'open', reason:'calloff', client:'Ruth Kay', shift_date:'2099-10-20', shift_time:'09:00-13:00', asked:[] }];
-  COV_PICK['cv1']={ data:{ group0:[], group1:[], group2:[{ name:'Nina Newhire', first:'Nina', axiscare_id:'2', new_hire:{ hired:'2026-10-02', days:10 }, free_then:true, why:'active caregiver' }, { name:'Oscar Oldhand', first:'Oscar', axiscare_id:'1', why:'active caregiver' }], prn_other:[], prn_ongoing:[], excluded:[], meta:{} } };
-  const ph=document.createElement('div'); ph.innerHTML=covPickerHtml(DATA.coverage_cases[0]);
-  ok('Cara\'s ask list tags her "new hire, needs hours"', /Nina Newhire[\s\S]*new hire, needs hours/.test(ph.innerText) && !/Oscar Oldhand[^\n]*new hire/.test(ph.innerText), ph.innerText.slice(0,500));
+  /* 2026-11-14: the Ask caregivers panel tags them (the old picker is gone) */
+  const ppl=AP.peopleOf({ group0:[], group1:[], group2:[{ name:'Nina Newhire', axiscare_id:'2', new_hire:{ hired:'2026-10-02', days:10 } }, { name:'Oscar Oldhand', axiscare_id:'3' }], prn_other:[], prn_ongoing:[], excluded:[] });
+  ok('Cara\'s ask list tags her "new hire, needs hours"', /new hire, needs hours/.test(AP.facts(ppl[0])) && !/new hire/.test(AP.facts(ppl[1])), ppl.map(AP.facts));
   /* Team Builder list: first among equal fits, tagged */
   const plan={ id:'tbN', client:'Mary Ex', city:'Branson', days:['mon'], slots:[{ k:'s1', label:'Shift 1', start:'09:00', end:'13:00' }], cells:{} };
   DATA.staffing_plans=[plan]; TB.planId='tbN'; TB.poolQ='';
