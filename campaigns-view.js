@@ -93,19 +93,21 @@
     const nameOf = (l) => (((l.first_name || '') + ' ' + (l.last_name || '')).trim()) || l.email;
     const inDrip = (l) => !!l.nurture_started_at && !l.nurture_stopped_at;
     const open = (l) => l.status !== 'Converted' && l.status !== 'Lost';
+    /* 2026-11-15: a lead's campaign (lead.email_campaign; the older monthly_emails === false = none) */
+    const camp = (l) => { const c = lc(l.email_campaign); return c === 'va' || c === 'none' || c === 'main' ? c : (l.monthly_emails === false ? 'none' : 'main'); };
     const whyNot = (l) => !open(l) ? (l.status === 'Converted' ? 'became a client' : 'marked lost')
-      : l.do_not_contact ? 'marked do not contact' : l.monthly_emails === false ? 'Monthly emails turned off on their profile'
+      : l.do_not_contact ? 'marked do not contact' : camp(l) === 'va' ? 'in the VA series instead' : camp(l) === 'none' ? 'set to no automatic emails on their profile'
       : out.has(lc(l.email)) ? 'unsubscribed' : inDrip(l) ? 'still getting their welcome emails; they join when those finish' : '';
     const sends = ((res && res.sends) || []).filter((s) => R.audOf(s) === 'leads' && s.auto);
     const rowsOf = (email) => sends.filter((s) => lc(s.to) === lc(email)).sort((a, b) => String(a.at).localeCompare(String(b.at)));
     const seen = new Set();
     const members = all.filter((l) => !whyNot(l) && !seen.has(lc(l.email)) && seen.add(lc(l.email))).map((l) => { const rows = rowsOf(l.email), last = rows[rows.length - 1];
       return { name: nameOf(l), email: lc(l.email), had: rows.length, lastSubj: last ? last.subj : '', lastAt: last ? last.at : '', status: last ? R.statusOf(last) : null }; }).sort((a, b) => a.name.localeCompare(b.name));
-    const waiting = all.filter((l) => open(l) && !l.do_not_contact && l.monthly_emails !== false && !out.has(lc(l.email)) && inDrip(l)).map((l) => ({ name: nameOf(l), why: whyNot(l) }));
+    const waiting = all.filter((l) => open(l) && !l.do_not_contact && camp(l) === 'main' && !out.has(lc(l.email)) && inDrip(l)).map((l) => ({ name: nameOf(l), why: whyNot(l) }));
     const memberSet = new Set(members.map((m) => m.email)); const byEmail = new Map(all.map((l) => [lc(l.email), l]));
     const gotBefore = [...new Set(sends.map((s) => lc(s.to)))].filter((e) => !memberSet.has(e));
     const left = gotBefore.map((e) => { const l = byEmail.get(e), rows = rowsOf(e); return { name: l ? nameOf(l) : e, had: rows.length, lastAt: rows[rows.length - 1].at, why: l ? (whyNot(l) || 'no longer an open lead') : (out.has(e) ? 'unsubscribed' : 'no longer a lead in the Hub') }; })
-      .concat(all.filter((l) => l.monthly_emails === false && open(l) && !gotBefore.includes(lc(l.email))).map((l) => ({ name: nameOf(l), had: 0, lastAt: '', why: 'Monthly emails turned off on their profile' })))
+      .concat(all.filter((l) => camp(l) !== 'main' && open(l) && !gotBefore.includes(lc(l.email))).map((l) => ({ name: nameOf(l), had: 0, lastAt: '', why: whyNot(l) || (camp(l) === 'va' ? 'in the VA series instead' : 'set to no automatic emails on their profile') })))
       .sort((a, b) => a.name.localeCompare(b.name));
     const yr = String(now.getFullYear()); const log = (I.log || []).filter((x) => x && (x.sent || 0) > 0 && String(x.at || '').slice(0, 4) === yr && /monthly/i.test(String(x.source || '')));
     const on = !!cfg.enabled && !!cfg.auto_monthly_leads; const day = dayOf(cfg.monthly_day);
@@ -189,7 +191,7 @@
     const daily = Number(cfg.va_series_daily) >= 1 ? Math.min(Number(cfg.va_series_daily), 500) : 25;
     return { id: 'va', name: 'VA series', on, countWord: (on ? 'ON' : 'OFF') + ' · ' + all.length + ' have received one', total: N,
       what: 'Twelve guides about VA benefits and care at home: the four VA programs, who qualifies, how to ask, what has changed, family as the paid caregiver, Aid and Attendance, and who helps at no charge. One a month, in order.',
-      who: 'GoHighLevel contacts tagged "va lead" that have an email address (the VA list you bought). Left out: Do Not Disturb, a bounced or client tag, unsubscribed, do not contact. A contact tagged "lead" without "va lead" is a general lead and gets the monthly lead email instead.',
+      who: 'GoHighLevel contacts tagged "va lead" that have an email address (the VA list you bought), plus Hub leads in the VA series: everyone from the VA page, and anyone you move to it on their lead (Emails: VA series). Left out: Do Not Disturb, a bounced or client tag, unsubscribed, do not contact. Anyone on the VA list gets the VA guides instead of the main monthly email.',
       when: on ? 'From the ' + day + 'th of each month, on weekdays about 9 AM, to at most ' + daily + ' people a day until everyone has had that month\'s guide.' : 'Switched off. Nothing is being sent.',
       emails: emails.map((e) => { const k = perKey.get(e.key); return { n: e.series, key: e.key, subj: e.subj, to: k ? k.to : 0, first: k ? k.first + 'T12:00:00' : '', counts: null, upNext: 0 }; }),
       members: all.slice(0, SHOW).map((m) => Object.assign({}, m, { lastAt: m.lastAt + 'T12:00:00' })), left: [], hideLeft: true,
@@ -259,6 +261,17 @@
   /* 2026-11-14 (her "make another subtab under it with the different campaigns so i dont have to scroll"): one campaign
      on the page at a time, picked from a row of buttons. */
   const VIEW = { open: {}, pick: 'partner' };
+  /* 2026-11-15 (her ask: "make clear how we enroll a lead into a certain campaign") */
+  function howLeads() {
+    return '<details data-cmp-how="1" style="margin:0 0 14px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:#fff;">'
+      + '<summary style="cursor:pointer;font-weight:700;color:var(--navy);font-size:14px;">How a lead gets into a campaign</summary>'
+      + '<ol style="margin:8px 0 0 18px;padding:0;font-size:13.5px;line-height:1.55;">'
+      + '<li><b>Every new lead with an email starts on the main monthly email.</b> Nothing to do.</li>'
+      + '<li><b>A lead from the VA page starts on the VA series</b> instead, and is tagged "va lead" in GoHighLevel by itself.</li>'
+      + '<li><b>After you talk with them, change it on their lead:</b> open the lead, go to <b>Family &amp; Contacts</b>, and in the Communications box pick <b>Emails</b>: Main monthly email, VA series (veterans), or No automatic emails.</li>'
+      + '<li>Anyone tagged <b>"va lead"</b> in GoHighLevel also gets the VA series, and not the main monthly email.</li>'
+      + '</ol><div style="font-size:12.5px;color:var(--text-muted);margin-top:6px;">A lead gets one campaign at a time. Someone still getting their first welcome emails joins the monthly email when those finish.</div></details>';
+  }
   function html(I, v) {
     const res = I.res, cards = model(I);
     const note = !res ? '<div style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">' + (I.resError ? 'Who opened and who wrote back could not be read just now (' + esc(I.resError) + '). Everything else below is current.' : 'Reading who opened and who wrote back…') + '</div>'
@@ -269,7 +282,7 @@
       + esc(t[1]) + '<div style="font-size:11.5px;font-weight:600;opacity:.8;">' + esc(t[2]) + '</div></button>').join('') + '</div>';
     const shown = card(cards.find((c) => c.id === pick), vv, !!res);
     return '<p style="color:var(--text-muted);font-size:14px;margin:0 0 12px;max-width:80ch;">The emails that go out by themselves. Pick one to see what it is, each email and what happened to it, who is in it now, and who has left. Nothing on this page sends or changes anything.</p>'
-      + picker + note + shown
+      + howLeads() + picker + note + shown
       + '<p style="color:var(--text-muted);font-size:12px;margin:14px 0 0;max-width:80ch;">"Opened" shows when the person\'s email program loads the pictures; some never do, so an opened email can still read "Sent, not opened yet". Each campaign is turned on and off by a step you run.</p>';
   }
   function inputs() {
