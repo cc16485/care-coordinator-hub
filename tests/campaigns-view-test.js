@@ -58,7 +58,7 @@ const L = C.leads(I);
 ck('lead email: in it now = open leads with an email, not switched off, not do-not-contact, not in welcome emails', L.members.map((m) => m.name).join('|') === 'Ana Ruiz|Lee Park', L.members.map((m) => m.name));
 ck('...what each has received counts only the automatic monthly emails, not one sent by hand', L.members.find((m) => m.name === 'Lee Park').had === 1 && L.members.find((m) => m.name === 'Lee Park').status.word === 'Opened' && L.members.find((m) => m.name === 'Ana Ruiz').had === 0);
 ck('...someone still in welcome emails is listed as not in it yet', L.waiting.map((w) => w.name).join() === 'Drip Now');
-ck('no longer in it: the lead who became a client, and the one switched off on their profile', L.left.map((l) => l.name + ':' + l.why).join('|') === 'Off Person:Monthly emails turned off on their profile|Won Kim:became a client', L.left);
+ck('no longer in it: the lead who became a client, and the one switched off on their profile', L.left.map((l) => l.name + ':' + l.why).join('|') === 'Off Person:set to no automatic emails on their profile|Won Kim:became a client', L.left);
 ck('the plan month by month: sent, next, planned, or nothing planned', L.emails.length === 12 && L.emails[8].to === 6 && L.emails[8].sentAt && L.emails[11].next === true && L.emails[11].subj === 'Home for the holidays?' && L.emails[0].key === '' && L.empty.includes('January') && !L.empty.includes('December'), L.emails);
 ck('next send names the date and the month', /Next send: Thu, Dec 10, about 9 AM \(December's email\)/.test(L.when), L.when);
 
@@ -87,7 +87,7 @@ ck('...while results are still being read it says so, and when they failed it sa
 ck('a name with code in it is shown as text', !/<img/.test(C.html({ ...I, orgs: [{ id: 'x', name: '<img src=x>', program_track: 'email_list', email: 'a@b.co' }], acts: [] }, { open: { 'partner:people': true } })));
 ck('her wording rules: no em dashes and no "AI" on the page', !/—/.test(h) && !/\bAI\b/.test(h));
 ck('it saves and sends nothing', !/persist\(|fetch\(|upsert|localStorage/.test(src));
-ck('Campaigns opens on the campaigns, then the Email library, then All results', /cmpView='campaigns';/.test(html) && /\[\['campaigns','Campaigns'\],\['library','Email library'\],\['results','All results'\]\]/.test(html) && /<div id="cmpCampaigns" style="display:none;">/.test(html) && /<script src="campaigns-view\.js\?v=3"><\/script>/.test(html));
+ck('Campaigns opens on the campaigns, then the Email library, then All results', /cmpView='campaigns';/.test(html) && /\[\['campaigns','Campaigns'\],\['library','Email library'\],\['results','All results'\]\]/.test(html) && /<div id="cmpCampaigns" style="display:none;">/.test(html) && /<script src="campaigns-view\.js\?v=4"><\/script>/.test(html));
 
 /* ---- the VA series (Samantha 2026-11-14: "Yes, build it off") ---- */
 { const vlib = [1, 2, 3].map((n) => ({ key: 'v' + n, aud: 'va', series: n, subj: 'VA guide ' + n }));
@@ -113,5 +113,10 @@ ck('Campaigns opens on the campaigns, then the Email library, then All results',
   ck('the library carries the twelve VA guides in order, each with a subject, a footer line and a button, and no em dash', vs.length === 12 && vs.every((e, i) => e.series === i + 1 && e.key === 'v' + (i + 1) && e.subj && e.footer && e.cta && e.cta.href === 'https://mo-care.com/veterans') && !/—/.test(JSON.stringify(vs)), vs.map((e) => e.key));
   ck('every VA guide says the veteran can choose their own caregiver: an employee, background checks, family or a friend (her word 2026-11-14)', vs.every((e) => e.blocks.filter((b) => b.t === 'tip' && /choose their own caregiver/.test(b.text) && /Caring Companions employee/.test(b.text) && /background checks/.test(b.text) && /family member or a friend/.test(b.text)).length === 1), vs.filter((e) => !e.blocks.some((b) => b.t === 'tip')).map((e) => e.key)); }
 for (const [n, c, d] of res) console.log((c ? '  ✓ ' : '  ✗ ') + n + (d ? '\n      ' + d : ''));
+/* 2026-11-15: each lead's campaign (email_campaign): VA leads are out of the monthly list and say why; the explainer is on the page */
+{ const I2 = Object.assign({}, I, { leads: [{ id: 'v1', first_name: 'Val', email: 'val@x.example', status: 'New', email_campaign: 'va' }, { id: 'm1', first_name: 'Max', email: 'max@x.example', status: 'New' }, { id: 'n1', first_name: 'Ned', email: 'ned@x.example', status: 'New', email_campaign: 'none' }] })
+  const L2 = C.leads(I2)
+  ck('a lead in the VA series is not on the monthly list, and says so', L2.members.map((m) => m.name).join('|') === 'Max' && L2.left.some((l) => l.name === 'Val' && /VA series/.test(l.why)) && L2.left.some((l) => l.name === 'Ned' && /no automatic emails/.test(l.why)), L2)
+  ck('the page says how a lead gets into a campaign', /How a lead gets into a campaign/.test(C.html(I2, { open: {}, pick: 'leads' })) && /VA page/.test(C.html(I2, { open: {}, pick: 'leads' }))) }
 console.log(res.filter((x) => x[1]).length + '/' + res.length + ' passed');
 process.exit(res.every((x) => x[1]) ? 0 : 1);
