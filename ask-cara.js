@@ -41,8 +41,8 @@
     let root = document.getElementById('askcRoot');
     if (!S.open) { if (root) root.remove(); return; }
     if (!root) {
-      root = document.createElement('div'); root.id = 'askcRoot'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Ask Cara');
-      root.innerHTML = '<div class="askc-top"><div><b>Ask Cara</b><div class="askc-sub">Reads our records and your rules. Never changes anything.' + (live() ? '' : ' Practice: owners only.') + '</div></div><button class="askc-x" aria-label="Close" onclick="ASKC.close()">×</button></div>'
+      root = document.createElement('div'); root.id = 'askcRoot'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-label', 'Ask AI');
+      root.innerHTML = '<div class="askc-top"><div><b>✨ Ask AI</b><div class="askc-sub">Our AI helper (Cara) reads our records and our rules. It never changes anything.' + (live() ? '' : ' Practice: owners only.') + '</div></div><button class="askc-x" aria-label="Close" onclick="ASKC.close()">×</button></div>'
         + '<div class="askc-body" id="askcBody"></div>'
         + '<div class="askc-foot"><textarea class="askc-in" id="askcIn" rows="1" placeholder="Ask about a client, a caregiver, the schedule or a rule"></textarea><button class="askc-send" id="askcSend" aria-label="Send" onclick="ASKC.send()">↑</button></div>';
       document.body.appendChild(root);
@@ -61,7 +61,7 @@
   async function send() {
     const ta = document.getElementById('askcIn'); const q = String((ta && ta.value) || '').trim();
     if (!q || S.busy) return;
-    if (!allowed()) { S.turns.push({ q, a: '', err: 'Ask Cara is in practice with the owners for now.' }); return render(); }
+    if (!allowed()) { S.turns.push({ q, a: '', err: 'Ask AI is in practice with the owners for now.' }); return render(); }
     ta.value = ''; S.busy = true;
     const history = S.turns.filter((t) => t.a && !t.err).slice(-3).flatMap((t) => [{ role: 'user', text: t.q }, { role: 'assistant', text: t.a }]);
     const turn = { q, a: null }; S.turns.push(turn); render();
