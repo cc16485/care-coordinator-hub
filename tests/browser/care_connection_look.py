@@ -46,6 +46,42 @@ with sync_playwright() as pw:
     mt = pg.inner_text('main') + pg.inner_text('header')
     ok('check-in (the client): speaks to them about "your" care', 'You had your first visit with Tanya' in mt and 'How are things going with your care?' in mt, mt[:300])
     ok('check-in (the client): never "Dorothy\'s care" to Dorothy', "Dorothy's" not in mt and 'with Dorothy' not in mt, mt[:300])
+    # the Google review ask after a happy check-in (Samantha 2026-11-15: "loop in our request to google review in when someone
+    # gives positive feedback during any check in"): the server decides and sends the link back; the page shows a card
+    gcalls = []
+    def gck(route):
+        body = json.loads(route.request.post_data or '{}'); gcalls.append(body)
+        if body.get('action') == 'open': return route.fulfill(json={'state': 'ok', 'audience': 'family', 'kind': 'quarterly', 'first': 'Linda', 'client': 'Dorothy', 'caregiver': 'Tanya', 'caregivers': ['Tanya'], 'phone_tail': '42'})
+        if body.get('action') == 'answer': return route.fulfill(json={'ok': True, 'follow': 'none', 'google': 'https://mo-care.com/review'})
+        return route.fulfill(json={'ok': True})
+    pg.route('**/mo-care.com/**', lambda r: r.fulfill(body='review page'))
+    pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', gck)
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html#k=' + CODE); pg.wait_for_timeout(700)
+    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(500)
+    mt = pg.inner_text('main')
+    ok('google: a happy answer shows "Would you share that on Google?" under the thank-you', 'Would you share that on Google?' in mt and "about Dorothy's care" in mt and 'Write a Google review' in mt, mt[:400])
+    gh = pg.get_attribute('#gReview', 'href') or ''
+    ok('google: the button opens the review link the server sent, in a new tab', gh == 'https://mo-care.com/review' and pg.get_attribute('#gReview', 'target') == '_blank', gh)
+    ok('google: no long dash and no "5 stars" in what the family reads', '\u2014' not in mt and '5 star' not in mt.lower(), mt[:400])
+    with pg.context.expect_page() as newp: pg.click('#gReview')
+    try: newp.value.close()
+    except Exception: pass
+    pg.wait_for_timeout(300)
+    ok('google: pressing it tells the server (code in the body), so the Feedback tab shows the tap', any(b.get('action') == 'google' and b.get('code') == CODE for b in gcalls), gcalls)
+    pg.unroute('**/functions/v1/checkin-link'); pg.route('**/functions/v1/checkin-link', checkin)
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html#k=' + CODE); pg.wait_for_timeout(700)
+    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(500)
+    ok('google: no link from the server, no Google card', 'Google' not in pg.inner_text('main'), pg.inner_text('main')[:300])
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html?demo=caregiver&kind=quarterly'); pg.wait_for_timeout(500)
+    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(400)
+    ok('google: the caregiver sample never shows Google (employees may not review us there)', 'Google' not in pg.inner_text('main'), pg.inner_text('main')[:300])
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html?demo=family&kind=quarterly'); pg.wait_for_timeout(500)
+    pg.click('.face[data-v=great]'); pg.wait_for_timeout(300); pg.click('#send'); pg.wait_for_timeout(400)
+    ok('google: the family sample shows the card for "Going great"', 'Would you share that on Google?' in pg.inner_text('main'), pg.inner_text('main')[:300])
+    if os.environ.get('SHOT'): pg.screenshot(path=os.environ['SHOT'], full_page=True)
+    pg.goto('about:blank'); pg.goto(BASE + 'checkin.html?demo=family&kind=quarterly'); pg.wait_for_timeout(500)
+    pg.click('.face[data-v=improve]'); pg.wait_for_timeout(300); pg.click('[data-f=call] .chip >> nth=1'); pg.click('#send'); pg.wait_for_timeout(400)
+    ok('google: the family sample never shows it after "Something needs to change"', 'Google' not in pg.inner_text('main'), pg.inner_text('main')[:300])
     # "Stop these check-ins" from the email link (2026-11-14)
     stops = []
     def stopck(route):

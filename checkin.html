@@ -59,6 +59,9 @@ textarea:focus{outline:none;border-color:var(--teal)}
 .done .big{font-size:54px}
 .done h2{font-size:24px;color:var(--navy);margin-top:10px}
 .done p{font-size:15px;color:var(--muted);margin-top:8px}
+.gcard{margin-top:14px;text-align:center}
+.gcard .hint{margin-bottom:14px}
+.glink{display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
 .bar{height:6px;background:var(--line);border-radius:6px;overflow:hidden;margin:0 0 14px}
 .bar i{display:block;height:100%;width:0;background:var(--honey);transition:width .3s}
 </style></head>
@@ -215,7 +218,7 @@ async function send() {
   if (alt && alt.style.display === 'block') A.alt_phone = alt.value;
   if (!DEMO) {
     const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
-    try { await api({ action: 'answer', answers: A }); }
+    try { const r = await api({ action: 'answer', answers: A }); GOOGLE = r && /^https:\/\//.test(r.google || '') ? r.google : ''; }
     catch (e) { b.disabled = false; b.textContent = 'Send'; err.textContent = e.message; err.style.display = 'block'; return; }
   }
   const fam = ctx.who === 'family', thanks = (A.thank || []).filter(x => x !== 'office');
@@ -224,8 +227,21 @@ async function send() {
   else if (A.mood === 'great') body = (thanks.length ? 'We will make sure ' + esc(thanks.join(' and ')) + (thanks.length > 1 ? ' hear' : ' hears') + ' your kind words. ' : '') + (fam ? 'It means a lot to the whole team.' : 'We are lucky to have you.');
   else body = 'We read every answer. ' + (fam ? 'We will look into it and let you know what we change.' : 'We will look into it and get back to you.');
   $('#lead').textContent = '';
-  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc(title) + '</h2><p>' + body + '</p></div>' + footer();
+  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc(title) + '</h2><p>' + body + '</p></div>' + googleCard() + footer();
+  const gb = $('#gReview'); if (gb) gb.onclick = () => { if (!DEMO) api({ action: 'google' }).catch(() => {}); };
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+/* Samantha 2026-11-15: "we NEED more google reviews - can we loop in our request to google review in when someone gives
+   positive feedback during any check in". The server decides who is asked (a happy family or client answer, never
+   caregivers or office staff, never after a concern) and sends the link back; the sample shows it for the same answers. */
+let GOOGLE = '';
+function googleCard() {
+  const url = DEMO ? ((ctx.who === 'family' && A.call !== 'yes' && (A.mood === 'great' || (A.mood === 'good' && !(A.what || []).length))) ? 'https://mo-care.com/review' : '') : GOOGLE;
+  if (!url) return '';
+  return '<div class="card gcard"><p class="q">Would you share that on Google?</p>'
+    + '<p class="hint">' + (ctx.self ? 'A few words from you' : 'A few words from you about ' + esc(ctx.client) + "'s care") + ' help other Springfield families find care they can trust. It takes about a minute.</p>'
+    + '<a class="go glink" id="gReview" href="' + esc(url) + '" target="_blank" rel="noopener">'
+    + '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="#fff" d="M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3 6.1 20.6l1.3-6.6L2.5 9.4l6.6-.8z"/></svg>Write a Google review</a></div>';
 }
 
 function sample() {
