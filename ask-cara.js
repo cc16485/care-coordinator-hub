@@ -75,12 +75,46 @@
     } catch (e) { turn.a = ''; turn.err = String((e && e.message) || e); }
     S.busy = false; render();
   }
-  function open() { if (!allowed()) return; S.open = true; render(); setTimeout(() => { const t = document.getElementById('askcIn'); if (t) t.focus(); }, 50); }
+  function open() { if (!allowed()) return; tipDone(); S.open = true; render(); setTimeout(() => { const t = document.getElementById('askcIn'); if (t) t.focus(); }, 50); }
   function close() { S.open = false; render(); }
   function fill(q) { const t = document.getElementById('askcIn'); if (t) { t.value = q; t.focus(); } }
   function go(kind, id) { try { if (kind === 'client') openClientProfile(id); else openCaregiverProfile(id); } catch (e) {} }
   /* the top-bar button shows only for those who may use it (owners while practicing) */
-  function showButton() { const b = document.getElementById('askCaraBtn'); if (b) b.style.display = allowed() ? '' : 'none'; }
+  function showButton() { const b = document.getElementById('askCaraBtn'); if (b) b.style.display = allowed() ? '' : 'none'; tip(); }
+
+  /* NEW-FEATURE TIP (2026-11-15, her "New tip in the Hub"): so the office knows Ask AI is there for them. A small bubble
+     under the button, per person, on their first 5 page loads, until they close it or open Ask AI. Nothing is sent and
+     nothing is saved anywhere but this browser; if the browser keeps nothing, the tip just shows and can be closed. */
+  const TIP_LOADS = 5;
+  const tipKey = () => 'askai_tip_v1:' + myEmail();
+  const tipGet = () => { try { return JSON.parse(localStorage.getItem(tipKey()) || '{}') || {}; } catch (e) { return {}; } };
+  const tipSet = (v) => { try { localStorage.setItem(tipKey(), JSON.stringify(v)); } catch (e) {} };
+  let tipCounted = false, tipClosed = false;
+  function tipDone() { tipClosed = true; const t = tipGet(); t.done = true; tipSet(t); const el = document.getElementById('askaiTip'); if (el) el.remove(); }
+  function tip() {
+    const b = document.getElementById('askCaraBtn'); let el = document.getElementById('askaiTip');
+    const show = !tipClosed && b && b.style.display !== 'none' && b.offsetParent && !S.open && myEmail();
+    if (!show) { if (el) el.remove(); return; }
+    const t = tipGet(); if (t.done) { if (el) el.remove(); return; }
+    if (!tipCounted) { tipCounted = true; t.n = (t.n || 0) + 1; tipSet(t); }
+    if ((t.n || 0) > TIP_LOADS) { if (el) el.remove(); return; }
+    if (!el) {
+      el = document.createElement('div'); el.id = 'askaiTip'; el.setAttribute('role', 'note');
+      el.style.cssText = 'position:fixed;z-index:4100;width:300px;background:#fff;color:#1B2A2E;border:1px solid #E2E8F0;border-radius:12px;'
+        + 'box-shadow:0 12px 32px rgba(14,56,96,.22);padding:12px 14px;font-size:13.5px;line-height:1.45';
+      el.innerHTML = '<div style="position:absolute;top:-7px;left:var(--ax,40px);width:12px;height:12px;background:#fff;border-left:1px solid #E2E8F0;border-top:1px solid #E2E8F0;transform:rotate(45deg)"></div>'
+        + '<button aria-label="Close" onclick="ASKC.tipDone()" style="position:absolute;top:4px;right:6px;border:none;background:none;font-size:18px;cursor:pointer;color:#5C6B70">×</button>'
+        + '<b style="color:#0D365F">New: ✨ Ask AI</b>'
+        + '<div style="margin:4px 0 8px">Ask it anything you would normally dig through calls, texts and AxisCare for: who is with a client tomorrow, '
+        + 'what changed this week, which caregivers know the Hoyer lift. It shows where each answer came from and only reads; it never texts anyone or changes AxisCare.</div>'
+        + '<button onclick="ASKC.open()" style="font:inherit;font-weight:700;border:none;border-radius:8px;background:#1F6F78;color:#fff;padding:6px 12px;cursor:pointer">Try it</button>';
+      document.body.appendChild(el);
+    }
+    const r = b.getBoundingClientRect(), w = 300, left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - 8));
+    el.style.left = left + 'px'; el.style.top = (r.bottom + 10) + 'px';
+    el.style.setProperty('--ax', Math.max(14, Math.min(w - 26, r.left + r.width / 2 - left - 6)) + 'px');
+  }
+  addEventListener('resize', tip);
   setInterval(showButton, 3000); document.addEventListener('DOMContentLoaded', showButton);
-  window.ASKC = { open, close, send, fill, go, showButton, _s: S, allowed };
+  window.ASKC = { open, close, send, fill, go, showButton, tipDone, _s: S, allowed };
 })();
