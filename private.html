@@ -83,6 +83,7 @@ const ABOUT = { family: c => c ? c + "'s family" : 'Client family', caregiver: (
 const SAMPLE = {
   family: { known: true, first: 'Linda', name: 'Linda S.', about: "Dorothy's family", has_phone: true },
   caregiver: { known: true, first: 'Rachel', name: 'Rachel M.', about: 'Caregiver', has_phone: true },
+  office: { known: true, first: 'Krystal', name: 'Krystal B.', about: 'Office team', has_phone: true, office: true },
   standalone: { known: false },
 };
 const KINDS = [['concern', '💬', 'A concern'], ['idea', '💡', 'A suggestion'], ['thanks', '💛', 'Thanks for someone'], ['sensitive', '🔒', 'Something sensitive']];
@@ -99,8 +100,9 @@ async function api(body) {
 
 function compose() {
   M = {};
-  $('#h1').textContent = who.known ? 'Hi ' + who.first + ', message the owners' : 'Message the owners';
-  $('#lead').textContent = 'Only Samantha and Zach will read this. It does not go to your coordinator.';
+  /* an office check-in link (Samantha 2026-11-14, her words): the same private form, with her questions on top */
+  $('#h1').textContent = who.office ? 'Hi ' + who.first + ', your check-in with Samantha and Zach' : who.known ? 'Hi ' + who.first + ', message the owners' : 'Message the owners';
+  $('#lead').textContent = who.office ? "What's going well? Is anything frustrating or making your job harder? We want to hear it all. Only Samantha and Zach will read this." : 'Only Samantha and Zach will read this. It does not go to your coordinator.';
   let h = '<div class="safety">If someone is in danger right now, call 911.</div>';
   h += '<div class="card"><p class="q">What would you like to share?</p><div class="opts" data-f="kind">'
     + KINDS.map(([v, e, t]) => '<button class="opt" data-v="' + v + '"><span class="e" aria-hidden="true">' + e + '</span>' + t + '</button>').join('') + '</div>'
@@ -243,7 +245,7 @@ async function start() {
   if (CODE) {
     try {
       const w = await api({ action: 'who', code: CODE });
-      if (w.first) { who = { known: true, code: CODE, first: w.first, name: w.first + (w.initial ? ' ' + w.initial : ''), about: (ABOUT[w.role] || (() => ''))(w.client_first), has_phone: w.has_phone }; return compose(); }
+      if (w.first) { who = { known: true, code: CODE, first: w.first, name: w.first + (w.initial ? ' ' + w.initial : ''), about: (ABOUT[w.role] || (() => ''))(w.client_first), has_phone: w.has_phone, office: w.office_checkin === true }; return compose(); }
     } catch (e) { /* fall through to the standalone form */ }
   }
   who = SAMPLE.standalone; compose();
