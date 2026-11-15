@@ -1248,7 +1248,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- 2026-11-14 (Samantha): one place for caregiver check-ins, the first 90 days and ongoing (checkins-tab.js) -->
     <div class="fpill" data-tab="cgcheckins" onclick="switchTab('cgcheckins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Check-ins<span class="subtab-badge red" id="chkBadge" style="display:none"></span></div>
     <!-- 2026-11-14 (Samantha): "put Performance as a tab inside Caregivers". Same page (hr.js), same who-sees-what; old #hr links land here. -->
-    <div class="fpill" data-tab="hr" onclick="switchTab('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Performance</div>
+    <div class="fpill" data-tab="hr" onclick="switchTab('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Performance<span class="subtab-badge red" id="perfBadge" style="display:none"></span></div>
     <!-- 2026-10-28 (Samantha): Training & Compliance folded into Caregivers. With orientation the only required training,
          it no longer needs its own section; background checks and training are facts about each current caregiver. -->
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Background Checks</div>
@@ -9002,8 +9002,11 @@ function renderActiveTab(){
   if(activeTab==='cgdir') cgdOpen();
   if((activeTab==='cgcheckins' || activeTab==='clientcheckins') && window.CHK) CHK.show();
   else if(window.CHK && (CC_GROUPS.cgdir.includes(activeTab) || CC_GROUPS.clients.includes(activeTab))) CHK.peek();   /* the pill's number, before the tab is opened */
-  if(activeTab==='hr'){ const go=()=>{ try{ const w=window.HR_WANT; window.HR_WANT=null; if(window.HR) HR.render(w); }catch(e){ console.warn('hr', e); } };
-    if(window.HR) go(); else { const sc=document.createElement('script'); sc.src='hr.js?v=20261114a'; sc.onload=go; document.head.appendChild(sc); } }
+  /* 2026-11-14 (Samantha): the Performance pill carries a red number, so its page loads when any Caregivers tab opens */
+  if(activeTab==='hr' || CC_GROUPS.cgdir.includes(activeTab)){ const isHr=activeTab==='hr';
+    const go=()=>{ try{ if(!window.HR) return; if(isHr){ const w=window.HR_WANT; window.HR_WANT=null; HR.render(w); } HR.peek(); }catch(e){ console.warn('hr', e); } };
+    if(window.HR) go(); else if(window.__hrLoading) window.__hrLoading.push(go);
+    else { window.__hrLoading=[go]; const sc=document.createElement('script'); sc.src='hr.js?v=20261114b'; sc.onload=()=>{ const q=window.__hrLoading||[]; window.__hrLoading=null; q.forEach(f=>f()); }; document.head.appendChild(sc); } }
   if(activeTab==='circles') fcLoad();
   if(activeTab==='applicants') apLoad();
   if(activeTab==='apjourney') apjOpen();
