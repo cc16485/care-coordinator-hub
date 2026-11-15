@@ -212,9 +212,9 @@ if __name__ == '__main__':
     srv.shutdown()
     idx = open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
     sops = idx[idx.index('id="fsub-sops"'):idx.index('</div>\n\n', idx.index('id="fsub-sops"'))]
-    ck('index.html: Forms & Templates and Client Folders sit inside SOPs (no separate Documents tab)',
-       'data-g="docs"' not in idx and "switchTab('docs')" in sops and "switchTab('docfolders')" in sops
-       and "'docs','docfolders'" in idx and 'forms.html?in=hub' in idx and 'client-folders.html?in=hub' in idx)
+    ck('index.html: Forms & Templates sits inside SOPs, Client Folders in Growth since 2026-11-15 (no separate Documents tab)',
+       'data-g="docs"' not in idx and "switchTab('docs')" in sops and "switchTab('docfolders')" not in sops
+       and "'materials','videos','docfolders'" in idx and 'forms.html?in=hub' in idx and 'client-folders.html?in=hub' in idx)
     for r in R:
         if r[0] == 'FAIL': print(r[0], r[1], r[2])
     print('forms_library_look: %d passed, %d failed' % (sum(r[0] == 'PASS' for r in R), sum(r[0] == 'FAIL' for r in R)))
