@@ -471,15 +471,28 @@
     <h3>Getting an LTC insurance family started</h3>
     <ol class="steps">
       <li><b class="t">Get the policy</b>Ask them to upload it on the LTC page at mo-care.com, email it to intake@mo-care.com, or have it out at the assessment. Ask for the policy number and the carrier's claims phone number.</li>
-      <li><b class="t">Read it before you talk money</b>Paste it into the <a href="/#ltcpolicy">LTC Policy tab</a>. Find: does it cover a home care agency, the elimination period, the daily or monthly maximum, the benefit trigger, and whether it allows assignment of benefits (direct billing).</li>
+      <li><b class="t">Read it before you talk money</b>Read the policy, or its benefits summary pages, yourself. Find: does it cover a home care agency, the elimination period, the daily or monthly maximum, the benefit trigger, and whether it allows assignment of benefits (direct billing).</li>
       <li><b class="t">Call the carrier with the family</b>A three-way call with the policyholder or their power of attorney on the line, since carriers only talk to us with permission. Confirm benefits and open the claim. Write down the claim number, the name of who you spoke to, and the date.</li>
       <li><b class="t">Help with the claim forms</b>The carrier usually sends a claim packet: a form for the family, one for the doctor or a licensed professional who certifies the need for care, and one for us as the provider. Help the family fill in their part and get the doctor's part back.</li>
       <li><b class="t">Start care now</b>During the elimination period the family pays our private-pay rate. Sign the Client Care Agreement as usual and keep every invoice; carriers often ask for proof of those days.</li>
-      <li><b class="t">Pick how we bill</b>Direct billing (the family signs the assignment of benefits) or the family pays and sends our invoices in. Set the carrier up as a payor in AxisCare (steps on the LTC Policy tab).</li>
+      <li><b class="t">Pick how we bill</b>Direct billing (the family signs the assignment of benefits) or the family pays and sends our invoices in. Set the carrier up as a payor in AxisCare (steps below).</li>
       <li><b class="t">Keep it paid</b>Send invoices and visit notes on the carrier's schedule. Watch for recertification dates and anything above the daily maximum, which is the family's to pay. Tell the family before they reach the policy's limit.</li>
     </ol>
   </div>
-  <div class="card tight"><p style="font-size:14.5px;"><b>Have the policy in hand?</b> The hub's <a href="/#ltcpolicy">LTC Policy tab</a> reads it for you, walks through setting the carrier up as a payor in AxisCare, and has our claim steps.</p></div>
+  <!-- 2026-11-15 (her ask "fix the ltc policy page"): the LTC Policy tab was retired 2026-10-26; its AxisCare payor steps live here now -->
+  <div class="card">
+    <h3>Setting the carrier up as a payor in AxisCare</h3>
+    <p style="font-size:14.5px;">The general steps. Exact menu names depend on how our AxisCare is set up, so check as you go.</p>
+    <ol class="steps">
+      <li><b class="t">Create the payor</b>Settings or Admin, then Payers (or Payers &amp; Bill Rates), then Add Payer. Name it clearly, for example "Genworth, LTC insurance", and set the type to Private Insurance or Long-Term Care.</li>
+      <li><b class="t">Set the bill rate</b>Enter our private-pay rate for this payor so invoices add up correctly. If the carrier pays a fixed daily amount, still bill our real rate. The policy's daily maximum goes on the authorization in the next step.</li>
+      <li><b class="t">Add the payor to the client</b>Open the client, then Payers or Authorizations, and add the LTC payor. Set the dates and enter the policy's daily or monthly maximum as the authorization cap, so AxisCare warns you before a visit goes over what the policy covers.</li>
+      <li><b class="t">Handle the elimination period</b>AxisCare does not track it. Keep the client on private pay until the elimination period is met, write down the date it was met, then make the LTC payor the main payor from that date on.</li>
+      <li><b class="t">For direct billing</b>Add the carrier's billing address to the payor and attach what the carrier asks for: the signed plan of care, the assignment of benefits, and the caregiver visit logs.</li>
+      <li><b class="t">Bill and send the claim</b>Make the payor invoice, then export the visit logs or EVV records the carrier wants and send them with the claim form. Most carriers want this monthly.</li>
+    </ol>
+    <p style="font-size:14.5px;">When the family pays us and sends our invoices in themselves, bill the client as private pay, and use the LTC payor only to keep track of the daily and lifetime limits. Every few months, check what is left of the policy's lifetime benefit, so the family hears from us well before care outruns coverage.</p>
+  </div>
 </section>
 
 <!-- ======================= VA ======================= -->

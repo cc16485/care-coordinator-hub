@@ -6256,7 +6256,14 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <a id="commsCallBtn" href="#" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-weight:600;color:var(--text);background:#fff;">☎ Call</a>
           <button type="button" class="secondary" onclick="logManualCall()">📝 <span class="lr-off">Log a call</span><span class="lr-on">Log a call from another phone</span></button>
           <button type="button" class="secondary" id="ldDncBtn" onclick="ldToggleDnc()">🚫 Do not contact</button>
-          <button type="button" class="secondary" id="ldMonthlyBtn" onclick="ldToggleMonthly()" title="One email a month from the email library, sent automatically to open leads">Monthly emails: on</button>
+          <!-- 2026-11-15 (her ask): which automatic emails this lead gets. Every new lead with an email starts on the main monthly
+               email; the VA page starts them on the VA series; a person changes it here after talking with them. -->
+          <label id="ldCampaignWrap" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--navy);margin:0;" title="Which automatic emails this lead gets">Emails
+            <select id="ldCampaignSel" onchange="ldSetCampaign(this.value)" style="width:auto;font-size:13px;padding:6px 8px;">
+              <option value="main">Main monthly email</option>
+              <option value="va">VA series (veterans)</option>
+              <option value="none">No automatic emails</option>
+            </select></label>
           <button type="button" class="secondary" onclick="refreshCommsTimeline(this)">↻ Refresh</button>
         </div>
         <div id="commsLocked" class="field-note" style="display:none;margin-top:8px;"></div>
@@ -7616,7 +7623,7 @@ The HomeTogether team</pre>
 <script src="review-ask.js?v=1"></script><script src="review-send.js?v=1"></script><!-- 2026-11-11: send and track Google review asks from the Feedback tab -->
 <script src="partner-rules.js?v=4"></script>
 <script src="referral-desk.js?v=9"></script>
-<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="campaigns-view.js?v=3"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
+<script src="partner-directory.js?v=1"></script><script src="partner-email-list.js?v=1"></script><script src="email-results.js?v=1"></script><script src="campaigns-view.js?v=4"></script><script src="partner-links-rules.js?v=3"></script><script src="partner-links.js?v=4"></script><!-- Partner links, step 2 (2026-10-26): codes, links, QR, the owners' Program view and Sources to check; tracking only -->
 <script src="partner-emails.js?v=6"></script>
 <script src="staffing-rules.js?v=2"></script>
 <script src="care-plan-rules.js?v=2"></script>
@@ -7656,7 +7663,7 @@ The HomeTogether team</pre>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="howto.js?v=2"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
 <script src="coordinator-training.js?v=4"></script>
-<script src="coordinator-practice.js?v=2"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
+<script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
 <script src="call-lead.js?v=7"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
@@ -10125,8 +10132,9 @@ function renderCommsTimeline(){
     if(dncBtn&&l){ dncBtn.textContent=l.do_not_contact?'🚫 DO NOT CONTACT (recorded)':'🚫 Do not contact';
       dncBtn.style.color=l.do_not_contact?'#B23B2E':''; dncBtn.style.borderColor=l.do_not_contact?'#B23B2E':''; }
     /* Monthly emails (2026-11-13): the automatic monthly email skips this lead when this is off. */
-    const mBtn=document.getElementById('ldMonthlyBtn');
-    if(mBtn&&l){ const st=ldMonthlyState(l); mBtn.textContent='Monthly emails: '+st.word; mBtn.disabled=!st.can; mBtn.title=st.why; mBtn.style.opacity=st.can?'':'0.6'; }
+    const cSel=document.getElementById('ldCampaignSel'), cWrap=document.getElementById('ldCampaignWrap');
+    if(cSel&&l){ const st=ldMonthlyState(l); cSel.value=ldCampaignOf(l); cSel.disabled=!l.email||!!l.do_not_contact||l.status==='Converted'||l.status==='Lost';
+      if(cWrap) cWrap.title=!l.email?'Add an email address and they start on the main monthly email.':(cSel.disabled?st.why:'Which automatic emails this lead gets. Change it after you talk with them.'); }
     let bar=document.getElementById('ldTruthBar');
     if(!bar&&box&&box.parentElement){ bar=document.createElement('div'); bar.id='ldTruthBar';
       box.parentElement.insertBefore(bar, box); }
@@ -10344,6 +10352,29 @@ function ldMonthlyState(l){
   if(l.status==='Lost') return {word:'off (closed)', can:false, why:'Closed leads are not on the monthly lead emails.'};
   if(l.monthly_emails===false) return {word:'off', can:true, why:'Turned off for this person. Tap to turn the monthly email back on.'};
   return {word:'on', can:true, why:'One email a month from the email library, sent automatically. Tap to turn it off for this person.'};
+}
+/* WHICH CAMPAIGN (Samantha 2026-11-15: "all leads with emails should automatically be enrolled in the default main lead nurture
+   campaign, but i would like to have a way to put them into va or whatever specialty campaign after talking to them").
+   lead.email_campaign: 'main' (or not set) = the main monthly email; 'va' = the VA series; 'none' = no automatic email.
+   The server reads the same field (_shared/va-series.ts campaignOf); the older monthly_emails === false reads as 'none'. */
+const LD_CAMPAIGNS={ main:'the main monthly email', va:'the VA series (veterans)', none:'no automatic emails' };
+function ldCampaignOf(l){ const c=String((l&&l.email_campaign)||'').toLowerCase(); if(c==='va'||c==='none'||c==='main') return c; return l&&l.monthly_emails===false?'none':'main'; }
+async function ldSetCampaign(v){
+  const l=commsLead; if(!l||!LD_CAMPAIGNS[v]) return;
+  const was=ldCampaignOf(l); if(v===was) return;
+  const sel=document.getElementById('ldCampaignSel');
+  const more=v==='va'?'\n\nThey get one VA guide a month instead of the main monthly email. (The "va lead" tag in GoHighLevel is not added from here; add it there too if you want the contact tagged.)'
+    :v==='none'?'\n\nThey stop getting automatic emails. Nothing else changes.':'\n\nThey get the one automatic main email a month.';
+  if(!(await ccConfirm('Move '+(([l.first_name,l.last_name].filter(Boolean).join(' '))||'this lead')+' to '+LD_CAMPAIGNS[v]+'?'+more))){ if(sel) sel.value=was; return; }
+  const a=ccActor(), now=new Date().toISOString();
+  l.email_campaign=v; l.email_campaign_at=now; l.email_campaign_by=a.email;
+  l.monthly_emails=(v!=='none'); l.monthly_emails_at=now; l.monthly_emails_by=a.email;
+  if(v==='va'){ l.intent_tags=Array.from(new Set([...(l.intent_tags||[]),'va lead'])); }
+  else if(Array.isArray(l.intent_tags)) l.intent_tags=l.intent_tags.filter(t=>t!=='va lead');
+  l.comm_log=(l.comm_log||[]); l.comm_log.push({body:'Emails: '+LD_CAMPAIGNS[v]+' (was '+LD_CAMPAIGNS[was]+')', at:now, by:a.email});
+  await persist('leads', l);
+  renderCommsTimeline();
+  ccToast('Emails: '+LD_CAMPAIGNS[v]);
 }
 async function ldToggleMonthly(){
   const l=commsLead; if(!l) return;
@@ -12801,10 +12832,10 @@ function leadPayorUI(){
   const hint=document.getElementById('leadPayorHint');
   if(!hint) return;
   const H={
-    private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
-    ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy. The LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
-    va:'🎖️ <b>VA → Krystal\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    guide:'🧠 <b>Medicare GUIDE → Krystal\'s book.</b> Run the GUIDE screener first (<a href="guide.html" target="_blank" rel="noopener">GUIDE page</a>): dementia diagnosis, Original Medicare (not Advantage), not in hospice or PACE, an unpaid caregiver, a private home. Then enter the patient in <a href="https://app.crosbyhealth.com/login" target="_blank" rel="noopener">Crosby Health</a> (our account is Troutman Enterprises, LLC). Never promise free care or approval.',
+    private:'💰 <b>Private Pay.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
+    ltc:'📄 <b>LTC insurance.</b> Get the carrier and policy number if they have it handy, and ask them to find the policy. How to read it and set the carrier up as a payor: SOPs, Payors &amp; Programs, LTC insurance. Bills private-side until benefits kick in.',
+    va:'🎖️ <b>VA.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
+    guide:'🧠 <b>Medicare GUIDE.</b> Run the GUIDE screener first (<a href="guide.html" target="_blank" rel="noopener">GUIDE page</a>): dementia diagnosis, Original Medicare (not Advantage), not in hospice or PACE, an unpaid caregiver, a private home. Then enter the patient in <a href="https://app.crosbyhealth.com/login" target="_blank" rel="noopener">Crosby Health</a> (our account is Troutman Enterprises, LLC). Never promise free care or approval.',
     medicaid:'⛔ <b>We no longer accept Medicaid.</b> If they want care paid by Medicaid, our sister company Caring Companions CDS may fit (417) 218-2888. Change the payer to CDS, or to private pay if they would rather pay themselves.',
     cds:'↪️ <b>CDS goes to our sister company, Caring Companions CDS</b> (417) 218-2888. Take their name, number, who needs care and the county, and save the lead so it can be passed to CDS.',
   };
