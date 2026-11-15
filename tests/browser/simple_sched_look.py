@@ -1,7 +1,7 @@
 """Simpler Scheduling (Samantha 2026-11-14, "Yes, use your picks"). The real page, offline, MADE-UP people and shifts.
-Three tabs (Today, Open shifts, Care planning), two buttons on top (Someone's calling off, Message caregivers), missed
+Three tabs (Today, Open shifts, Schedule planner), two buttons on top (Someone's calling off, Message caregivers), missed
 clock-ins as cards in Today, call-offs and every-week openings in one Open shifts list, History as a link, Hours and
-matching in Care planning, No shift texts in Settings, Care Match Check-ins in Client Care, and an open shift that opens
+matching in Schedule planner, No shift texts in Settings, Care Match Check-ins in Client Care, and an open shift that opens
 with five things. Nothing real is reached. (python3 tests/browser/simple_sched_look.py; SHOTS=<folder> saves pictures)"""
 import os, sys, threading, functools, http.server, socketserver
 from playwright.sync_api import sync_playwright
@@ -39,7 +39,7 @@ CHECK = r"""
 async () => {
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,500)]); const sleep=ms=>new Promise(r=>setTimeout(r,ms));
   const pills = () => [...document.querySelectorAll('#fsub-scheduling .fpill')].map(p => p.innerText.replace(/\s+/g,' ').replace(/\d+$/,'').trim());
-  ok('Scheduling has Today, Open shifts, Care planning (and the guide on the right)', JSON.stringify(pills()) === JSON.stringify(['Today','Open shifts','Care planning','How scheduling works']), pills());
+  ok('Scheduling has Today, Open shifts, Schedule planner (and the guide on the right)', JSON.stringify(pills()) === JSON.stringify(['Today','Open shifts','Schedule planner','How scheduling works']), pills());
   ok('Care Match Check-ins is in Client Care now', !!document.querySelector('#fsub-clients .fpill[data-tab="carematch"]') && !document.querySelector('#fsub-scheduling .fpill[data-tab="carematch"]'));
   schedGo('coverage'); await sleep(400);
   const panel = document.getElementById('tab-coverage'), txt = () => panel.innerText.replace(/\s+/g,' ');
@@ -110,8 +110,8 @@ async () => {
   AS.toggle(false); await sleep(100);
   ok('closed again', !document.getElementById('askStartCard'));
   covSubGo('hours'); await sleep(400);
-  ok('Hours & matching: opens Care planning with that section open', activeTab === 'teambuilder' && document.getElementById('schedHoursBox').open && document.getElementById('tab-teambuilder').contains(document.getElementById('hwList')), [activeTab]);
-  ok('Care planning is titled so', /Care planning/.test(document.querySelector('#tab-teambuilder h2').innerText));
+  ok('Hours & matching: opens Schedule planner with that section open', activeTab === 'teambuilder' && document.getElementById('schedHoursBox').open && document.getElementById('tab-teambuilder').contains(document.getElementById('hwList')), [activeTab]);
+  ok('Schedule planner is titled so', /Schedule planner/.test(document.querySelector('#tab-teambuilder h2').innerText));
   return R;
 }
 """

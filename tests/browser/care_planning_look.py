@@ -1,9 +1,9 @@
-"""Care planning (Simpler Scheduling step 2, Samantha 2026-11-14, "Yes, use your picks"). The real page, offline, MADE-UP
+"""Schedule planner (Simpler Scheduling step 2, Samantha 2026-11-14, "Yes, use your picks"). The real page, offline, MADE-UP
 people. The chart with what the client needs on top and ONE "Message caregivers about these hours" button that opens the
 Ask caregivers panel; the My Work project, Journey link, onboarding goal and readiness chips are gone from above the chart;
 the shortlist, family preference, the whole-team text and Flag gaps are under More; the roster shows one note per person
 with the rest behind "why"; the order arrows show after "Change the order"; a new plan asks only who, town, days and level;
-Hours and matching sits on Care planning. Nothing real is reached. (python3 tests/browser/care_planning_look.py; SHOTS=<folder>)"""
+Hours and matching sits on Schedule planner. Nothing real is reached. (python3 tests/browser/care_planning_look.py; SHOTS=<folder>)"""
 import os, sys, threading, functools, http.server, socketserver
 from playwright.sync_api import sync_playwright
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE)); SHOTS = os.environ.get('SHOTS', '')
@@ -34,7 +34,7 @@ async () => {
   TB.pool = [{ name: 'Example: Alice B.', axiscare_id: '11', level: 2, city: 'Nixa', visits: [] }, { name: 'Example: Gus H.', axiscare_id: '12', level: 3, city: 'Ozark', visits: [] }];
   switchTab('teambuilder'); await sleep(300);
   const P = () => document.getElementById('tab-teambuilder');
-  ok('the page is called Care planning', /Care planning/.test(P().querySelector('h2').innerText));
+  ok('the page is called Schedule planner', /Schedule planner/.test(P().querySelector('h2').innerText));
   ok('Hours and matching is a closed section here', !!document.getElementById('schedHoursBox') && !document.getElementById('schedHoursBox').open);
   tbNewForm(); await sleep(50);
   ok('a new plan asks only who, town, level and days: no presets, no My Work box, no open-hours toggle', !!document.getElementById('tb-client') && !!document.getElementById('tb-townzip') && !document.getElementById('tb-pattern') && !document.getElementById('tb-asproject') && !document.getElementById('tb-for-open'));
@@ -62,6 +62,19 @@ async () => {
   const rows = [...document.querySelectorAll('#tbPoolList details')];
   ok('the roster: one note per person, the rest behind "why"', rows.length >= 1 && rows.every(d => !d.open) && /why/.test(rows[0].querySelector('summary').innerText), document.getElementById('tbPoolList') && document.getElementById('tbPoolList').innerText.slice(0,400));
   ok('no em dashes in view', !/—/.test(vis()));
+  /* 2026-11-15 her ask: say it is a scheduling tool, and let the office delete a chart when done */
+  ok('More has Delete this schedule', /Delete this schedule/.test(P().textContent));
+  TB.planId = null; TB.cellOpen = null; tbRender(); await sleep(150);
+  ok('the list says it is for scheduling, not the care plan', /For scheduling only, not the client's care plan/.test(P().innerText) && /Plan a new schedule/.test(P().innerText) && /A scheduling tool/.test(P().innerText), P().innerText.slice(0,600));
+  const removed=[]; window.removeItem = async (k, id) => { removed.push([k,id]); };
+  const askBefore = (DATA.coverage_cases||[]).find(x => x.plan_id === 'tbX' && x.status === 'open');
+  const closed=[]; const realResolve = window.covResolve; window.covResolve = async (id, how) => { closed.push([id, how]); };
+  const delBtn = P().querySelector('[data-tbdel="tbX"]');
+  ok('each schedule on the list has a Delete button', !!delBtn);
+  await tbDeletePlan('tbX'); await sleep(200);
+  ok('Delete removes the chart from the list and the saved data', !(DATA.staffing_plans||[]).some(p => p.id === 'tbX') && removed.some(r => r[0]==='staffing_plans' && r[1]==='tbX') && !P().querySelector('[data-tbdel="tbX"]'), [removed, DATA.staffing_plans.length]);
+  ok('an open message from that chart is closed too', !askBefore || closed.some(x => x[0] === askBefore.id && x[1] === 'uncovered'), closed);
+  window.covResolve = realResolve;
   return R;
 }
 """
@@ -75,9 +88,9 @@ with sync_playwright() as pw:
     R += pg.evaluate(T)
     if SHOTS:
         pg.evaluate("async()=>{ TB_ASK_OPEN={}; TB.cellOpen=null; tbRender(); await new Promise(r=>setTimeout(r,200)); window.scrollTo(0,0); }")
-        pg.screenshot(path=os.path.join(SHOTS, '5 Care planning.png'), full_page=True)
+        pg.screenshot(path=os.path.join(SHOTS, '5 Schedule planner.png'), full_page=True)
         pg.evaluate("async()=>{ await tbAskToggle('tbX'); await new Promise(r=>setTimeout(r,400)); window.scrollTo(0,0); }")
-        pg.screenshot(path=os.path.join(SHOTS, '6 Care planning, message caregivers.png'), full_page=True)
+        pg.screenshot(path=os.path.join(SHOTS, '6 Schedule planner, message caregivers.png'), full_page=True)
     pg.set_viewport_size({'width': 400, 'height': 900}); pg.wait_for_timeout(200)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 srv.shutdown()
