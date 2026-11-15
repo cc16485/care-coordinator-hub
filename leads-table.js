@@ -171,12 +171,56 @@
   }
   const READY_LABEL = { ready:'Sounds ready', deciding:'Interested', looking:'Just looking', none:'Not read yet' };
   function payerOf(x){ const l = x.l; return l.funding_source ? ((x.ctx && x.ctx.payer_label) || (R().PAYER_WORDS || {})[l.funding_source] || l.funding_source) : ''; }
-  /* who called, then the gray facts (no $: it has its own column) */
-  function simpleFacts(x, h){
-    const l = x.l, out = [], cl = String(l.client_first_name || '').trim(), caller = String(l.first_name || '').trim();
-    if(caller && cl && caller.toLowerCase() !== cl.toLowerCase()) out.push((l.relationship ? String(l.relationship).trim() + ' ' : '') + caller);
-    else if(cl && caller && caller.toLowerCase() === cl.toLowerCase()) out.push('Called for themselves');
-    return out.concat(calmFacts(x, h).filter(f => !/\/mo$/.test(f)));
+  /* the gray facts under the name (no $: it has its own column; who called is its own clickable label) */
+  function simpleFacts(x, h){ return calmFacts(x, h).filter(f => !/\/mo$/.test(f)); }
+  /* who called, as a label you can click to set (2026-11-15, her "click to add that they are the potential client or what
+     relationship to the potential client"). "Self" is the word the Hub already reads as the client calling for themselves. */
+  const SELF_RE = /^(self|myself|me|client|the client|patient)$/i;
+  const WHO_RELS = ['Daughter', 'Son', 'Wife', 'Husband', 'Sister', 'Brother', 'Granddaughter', 'Grandson', 'Niece', 'Nephew', 'Friend', 'Neighbor', 'Case manager', 'Social worker', 'Discharge planner'];
+  const cap = s => { s = String(s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+  function whoWords(l){
+    const rel = String((l && l.relationship) || '').trim(), caller = String((l && l.first_name) || '').trim();
+    if(SELF_RE.test(rel)) return { set:true, text:'The client, calling for themselves' };
+    if(rel) return { set:true, text:cap(rel) + (caller ? ' ' + caller : '') };
+    return { set:false, text:caller ? 'Add how ' + caller + ' is related' : 'Add who called' };
+  }
+  function whoLabel(l){
+    const w = whoWords(l);
+    return '<button type="button" class="lts-who' + (w.set ? '' : ' lts-who-add') + '" data-no-open="1" onclick="ltWho(\'' + esc(l.id) + '\', this)" title="' + (w.set ? 'Change who called' : 'Is this the potential client, or how are they related?') + '">'
+      + (w.set ? '' : '<span aria-hidden="true">+ </span>') + esc(w.text) + '</button>';
+  }
+  /* the pop-up: "This is the potential client", or their relationship to the client */
+  function ltWho(id, btn){
+    const D = (typeof DATA !== 'undefined' ? DATA : root.DATA) || {}, l = (D.leads || []).find(x => x && String(x.id) === String(id));
+    if(!l || typeof root.ccPopOpen !== 'function') return;
+    const caller = String(l.first_name || '').trim() || 'the caller';
+    const client = String(l.client_first_name || '').trim() || 'the potential client';
+    const cur = String(l.relationship || '').trim(), isSelf = SELF_RE.test(cur);
+    const known = WHO_RELS.some(r => r.toLowerCase() === cur.toLowerCase());
+    const pick = (val, label, on) => '<button type="button" class="lts-whopick' + (on ? ' on' : '') + '" data-val="' + esc(val) + '">' + esc(label) + '</button>';
+    const el = root.ccPopOpen(btn, '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">Who is ' + esc(caller) + '?</div>'
+      + pick('Self', 'This is the potential client', isSelf)
+      + '<div style="font-size:12.5px;font-weight:600;color:#55677a;margin:10px 0 6px;">Or their relationship to ' + esc(client) + '</div>'
+      + '<div class="lts-whogrid">' + WHO_RELS.map(r => pick(r, r, !isSelf && r.toLowerCase() === cur.toLowerCase())).join('') + '</div>'
+      + '<div style="display:flex;gap:6px;margin-top:10px;"><input id="ltWhoOther" placeholder="Something else" value="' + esc(!isSelf && cur && !known ? cur : '') + '" style="flex:1;min-height:34px;padding:0 10px;border:1px solid #d9d5ca;border-radius:8px;font:inherit;font-size:14px;">'
+      + '<button type="button" class="lts-whopick" id="ltWhoSave">Save</button></div>'
+      /* the son came in as his own lead and his dad is a lead too: the existing "Who did they call for?" links them */
+      + (typeof root.flOpen === 'function' && !isSelf ? '<div style="margin-top:12px;padding-top:10px;border-top:1px solid #efece4;font-size:13px;color:#55677a;">Is the person they called for already a lead?'
+        + ' <button type="button" class="linklike" id="ltWhoLink" style="font-size:13px;">Link ' + esc(caller) + ' to that family</button></div>' : ''), { width:330 });
+    const lk = el.querySelector('#ltWhoLink'); if(lk) lk.onclick = () => { root.ccPopClose(); root.flOpen(id); };
+    const save = async val => {
+      val = String(val || '').trim(); if(!val) return;
+      l.relationship = val;
+      /* the client calling for themselves: their name is the client's name when nobody wrote one yet */
+      if(SELF_RE.test(val) && !String(l.client_first_name || '').trim() && !String(l.client_last_name || '').trim()){ l.client_first_name = l.first_name || ''; l.client_last_name = l.last_name || ''; }
+      root.ccPopClose();
+      try{ if(typeof root.persist === 'function') await root.persist('leads', l); }catch(e){ if(typeof root.ccToast === 'function') root.ccToast('Could not save. Try again.'); return; }
+      if(typeof root.ccToast === 'function') root.ccToast(SELF_RE.test(val) ? 'Saved: ' + caller + ' is the potential client' : 'Saved: ' + caller + ' is ' + client + '\'s ' + val.toLowerCase());
+      redraw();
+    };
+    el.querySelectorAll('.lts-whopick[data-val]').forEach(b => b.onclick = () => save(b.dataset.val));
+    el.querySelector('#ltWhoSave').onclick = () => save(el.querySelector('#ltWhoOther').value);
+    el.querySelector('#ltWhoOther').onkeydown = e => { if(e.key === 'Enter') save(e.target.value); };
   }
   function simpleMatch(x){
     const q = String(LT.q || '').trim().toLowerCase(); if(!q) return true;
@@ -203,7 +247,7 @@
       + (yes ? '<button class="lb-btn" onclick="lbYes(\'' + id + '\', this)">They said yes</button>' : '');
     return '<article class="lts-row' + (ct === 'wait' ? '' : ' ltr-' + ct) + '" role="row" data-lead="' + id + '">'
       + '<div class="lts-fam" role="cell"><button type="button" class="lt-namebtn" data-open-lead="' + id + '" data-open-tab="summary" title="Open their profile">' + esc(r.name || 'No name') + '</button>'
-        + (facts.length ? '<span class="lt-facts" title="' + esc(facts.join('\n')) + '">' + esc(facts.join(' · ')) + '</span>' : '') + '</div>'
+        + '<span class="lts-sub">' + whoLabel(l) + (facts.length ? '<span class="lt-facts" title="' + esc(facts.join('\n')) + '">' + esc(' · ' + facts.join(' · ')) + '</span>' : '') + '</span></div>'
       + '<div class="lts-num" role="cell"><span class="lt-lbl">Hours</span>' + (v.hours ? esc(v.hours) + ' / wk' : '<span class="lts-unk">Not heard</span>') + '</div>'
       + '<div class="lts-num" role="cell"><span class="lt-lbl">Per month</span>' + (v.usd ? money(v.usd) : '<span class="lts-unk">Not known</span>') + '</div>'
       + '<div class="lts-when" role="cell"><span class="lt-lbl">When</span><span class="ltw ltw-' + ct + '" title="' + esc([r.when.sub ? hv(r.when.sub) : '', 'Next: ' + hv(r.next.text)].filter(Boolean).join('\n')) + '">' + esc(due) + '</span>'
@@ -442,6 +486,11 @@
       + '.lts-head{border-top:0;background:#f6f5f0;padding-top:10px;padding-bottom:10px;font-size:13.5px;font-weight:600;color:#55677a;}'
       + '.lts-colbtn{display:inline-flex;align-items:center;gap:5px;border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;}.lts-colbtn.on{color:var(--navy);}'
       + '.lts-fam{display:flex;flex-direction:column;gap:2px;min-width:0;}.lts .lt-namebtn{font-size:15px;font-weight:700;}'
+      + '.lts-sub{display:flex;align-items:baseline;min-width:0;white-space:nowrap;}.lts-sub .lt-facts{min-width:0;}'
+      + '.lts-who{flex:0 0 auto;border:0;background:none;padding:0;font:inherit;font-size:12.5px;color:#6b7884;cursor:pointer;text-align:left;}.lts-who:hover{color:var(--navy);text-decoration:underline;}'
+      + '.lts-who-add{color:#1F7A8C;font-weight:600;}'
+      + '.lts-whopick{min-height:34px;padding:0 12px;border:1px solid #d9d5ca;border-radius:999px;background:#fff;font:inherit;font-size:13.5px;color:#2c3a47;cursor:pointer;}.lts-whopick:hover{border-color:#1F7A8C;}.lts-whopick.on{background:#EAF4F6;border-color:#1F7A8C;color:#14606F;font-weight:600;}'
+      + '.lts-whogrid{display:flex;flex-wrap:wrap;gap:6px;}'
       + '.lts-num{font-size:14px;white-space:nowrap;}.lts-unk{color:#8a96a3;}'
       + '.lts-when{display:flex;flex-direction:column;gap:2px;min-width:0;}.lts-when small{font-size:12px;color:#8a96a3;}'
       + '.lts-tag{display:inline-block;padding:3px 10px;border-radius:999px;background:#f1efe8;color:#55677a;font-size:12.5px;font-weight:600;white-space:nowrap;}'
@@ -493,8 +542,8 @@
 
   const api = { html, state:LT, phoneWords, initials, dayWords, agoWords, cameAt, lastActivity, sorter, nextSort, SORTS,
     calmLive, calmPreview, calmShowing, calmTone, calmCounts, calmSummary, calmFacts,
-    simpleLive, simplePreview, simpleShowing, statusWord, simpleFacts };
+    simpleLive, simplePreview, simpleShowing, statusWord, simpleFacts, whoWords };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.LeadTable = api;
-  Object.assign(root, { ltTab, ltSortBy, ltSortCol, ltPage, ltPer, ltCalmPreview, ltSimplePreview, ltView, ltSearch, ltFilterOff, ltAddFilter, ltRowMenu });
+  Object.assign(root, { ltTab, ltSortBy, ltSortCol, ltPage, ltPer, ltCalmPreview, ltSimplePreview, ltView, ltSearch, ltFilterOff, ltAddFilter, ltRowMenu, ltWho });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
