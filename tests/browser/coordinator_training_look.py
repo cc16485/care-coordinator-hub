@@ -44,7 +44,7 @@ async()=>{
 
   /* the whole program: eight weeks, every link real, drafts never shown */
   CTR.show('program'); await sleep(60);
-  ok('eight weeks', document.querySelectorAll('.ct-week').length===8, document.querySelectorAll('.ct-week').length);
+  ok('nine weeks, How families pay third', document.querySelectorAll('.ct-week').length===9 && document.querySelectorAll('.ct-week')[2].dataset.week==='wpay', document.querySelectorAll('.ct-week').length);
   document.querySelectorAll('.ct-week, .ct-drill, .ct-drill details').forEach(d=>d.open=true);
   const bad=[];
   for(const a of $('ctWrap').querySelectorAll('a[onclick]')){
@@ -53,7 +53,9 @@ async()=>{
     else if((m=/covSubGo\('([a-z]+)'\)/.exec(oc))){ if(!['calloffs','clockins','ongoing','hours'].includes(m[1])) bad.push('no Cara tab '+m[1]); }
     else if((m=/CTR\.openHowTo\('([a-z]+)'\)/.exec(oc))){ if(!HT.CARDS[m[1]]) bad.push('no How-to tab '+m[1]); }
     else if((m=/CTR\.openProcedure\('([a-z_]+)'\)/.exec(oc))){ if(!DATA.sop_library.some(d=>d.id===m[1]&&d.status!=='draft')) bad.push('link to unpublished '+m[1]); }
-    else if(!/CTR\.openWeek/.test(oc)) bad.push('odd link '+oc);
+    else if((m=/CTR\.openProgram\('([a-z]*)'\)/.exec(oc))){ if(!['all','private','early','guide','va','ltc'].includes(m[1])) bad.push('no program tab '+m[1]); }
+    else if((m=/CTP\.call\('([a-z_]+)'\)/.exec(oc))){ if(!CTP.PERSONAS.some(x=>x[0]===m[1])) bad.push('no caller '+m[1]); }
+    else if(!/CTR\.openWeek|CTR\.openGuide\('(screen)?'\)|CTR\.show\('practice'\)/.test(oc)) bad.push('odd link '+oc);
   }
   ok('every link goes to a real page, a How-to tab, or a published procedure', !bad.length, bad.slice(0,8));
   ok('a draft procedure is never linked or drilled', !/A draft step nobody should see/.test(txt()) && ![...$('ctWrap').querySelectorAll('a')].some(a=>/sop_privacy/.test(a.getAttribute('onclick')||'')));
@@ -61,6 +63,11 @@ async()=>{
   ok('a drill shows the published procedure\'s own situation, steps, done when and when to tell', /A caregiver tells us the client fell/.test(txt()) && /Made-up fall step two/.test(txt()) && /Made-up done when/.test(txt()) && /Made-up tell-them-if/.test(txt()));
   ok('no em or en dash anywhere, no "plain language"', !/[—–]/.test(txt()) && !/plain (language|English)/i.test(txt()));
 
+  const wp=document.querySelector('.ct-week[data-week="wpay"]').textContent;
+  ok('How families pay teaches private pay, Medicare GUIDE, VA Community Care, Aid & Attendance and long-term care insurance, a day each', /Private pay, and the five questions/.test(wp) && /Medicare GUIDE/.test(wp) && /VA: Community Care and Aid & Attendance/.test(wp) && /Long-term care insurance/.test(wp) && /benefit trigger, the elimination period, the daily maximum/.test(wp));
+  ok('...with a practice call for each program', ['daughter_falls','dementia_son','veteran_wife','aa_widow','ltc_policy'].every(k=>document.querySelector('.ct-week[data-week="wpay"] a[onclick*="CTP.call(\''+k+'\')"]')));
+  ok('...and skills to sign off for each', ['pay_private','pay_guide','pay_vacc','pay_aa','pay_ltc'].every(k=>CTR.SKILLS.some(g=>g.list.some(x=>x[0]===k))));
+  ok('nothing in the program says Medicaid & VA or sends anyone to the retired LTC Policy tab', !/Medicaid & VA|LTC Policy tab/.test($('ctWrap').textContent));
   /* an owner starts Angiel's plan */
   CTR.show('plan'); await sleep(60);
   ok('an owner sees the start form', !!$('ctForm'));
@@ -84,7 +91,7 @@ async()=>{
 
   /* Angiel sees her own week and ticks it */
   as('angiel@mo-care.com','Angiel Falig'); CTR.show('week'); await sleep(60);
-  ok('Angiel sees her own week 1 with her dates', /You are in week 1 of 8/.test(page()) && /Nov 17/.test(page()) && /With Krystal/.test(page()), page().slice(0,400));
+  ok('Angiel sees her own week 1 with her dates', /You are in week 1 of 9/.test(page()) && /Nov 17/.test(page()) && /With Krystal/.test(page()), page().slice(0,400));
   ok('two office days but three sessions: she is told to carry the rest into next week', /carry what is left into next week/.test(page()));
   L.writes.length=0; await CTR.tick('w1-1w-1', true); await sleep(40);
   ok('a tick saves on her own row', L.writes.join()==='call_coaching:training:angiel@mo-care.com' && DATA.call_coaching.find(x=>x.id==='training:angiel@mo-care.com').done['w1-1w-1']);
@@ -96,10 +103,10 @@ async()=>{
 
   /* Krystal, the trainer, signs one off on a separate row */
   as('krystal@mo-care.com','Krystal Land'); CTR.show('skills'); await sleep(60);
-  ok('the trainer sees Angiel\'s skills with Sign off buttons', document.querySelectorAll('#ctBody button.secondary').length===24, document.querySelectorAll('#ctBody button.secondary').length);
+  ok('the trainer sees Angiel\'s skills with Sign off buttons', document.querySelectorAll('#ctBody button.secondary').length===29, document.querySelectorAll('#ctBody button.secondary').length);
   L.writes.length=0; await CTR.sign('wr_fall', true); await sleep(40);
   ok('a sign-off saves on trainsign:angiel, not on her plan', L.writes.join()==='call_coaching:trainsign:angiel@mo-care.com', L.writes);
-  ok('it shows who signed it', /Signed off by Krystal/.test(page()) && /1 of 24 skills signed off/.test(page()));
+  ok('it shows who signed it', /Signed off by Krystal/.test(page()) && /1 of 29 skills signed off/.test(page()));
   ok('Angiel\'s tick is still there after Krystal saved', !!DATA.call_coaching.find(x=>x.id==='training:angiel@mo-care.com').done['w1-1w-1']);
   CTR.show('plan'); await sleep(40);
   ok('the trainer cannot change the plan', !/Change the plan/.test(page()) && !$('ctForm'));
@@ -125,13 +132,13 @@ async()=>{
   ok('Katlin does not see home visits, folders or holding the office', !/Go along on a home visit/.test(txt()) && !/Lead a home visit/.test(txt()) && !/Put together one practice folder/.test(txt()) && !/hold the office this afternoon/i.test(txt()) && !/Sit in on an in-person interview/.test(txt()));
   ok('...but keeps video-friendly work: interviews, calls, AxisCare, the Leads board', /You lead an interview and your trainer sits in/.test(txt()) && /AxisCare together/.test(txt()) && /Take your first real new family call/.test(txt()));
   const kt=CTR.totals(kp), at=CTR.totals(DATA.call_coaching.find(x=>x.id==='training:angiel@mo-care.com'));
-  ok('her total is smaller by exactly the in-person lines, and 21 skills instead of 24', at.of-kt.of===CTR.IN_PERSON.size && kt.skills===21 && at.skills===24, [kt,at]);
+  ok('her total is smaller by exactly the in-person lines, and 21 skills instead of 24', at.of-kt.of===CTR.IN_PERSON.size && kt.skills===26 && at.skills===29, [kt,at]);
   CTR.show('week'); await sleep(40);
   ok('her week shows training days Mon-Fri and spreads the three sessions', /Training days: Mon, Nov 16/.test(page()) && /Spread the three sessions/.test(page()) && /With Samantha/.test(page()), page().slice(0,700));
   CTR.show('skills'); await sleep(40);
   ok('her skills leave out the home visit and holding the office', !/Holds the office alone/.test(page()) && !/Runs a home visit/.test(page()) && /Leads an interview alone/.test(page()));
   as('samantha@mo-care.com','Samantha Troutman'); CTR.pick('katlin@mo-care.com'); CTR.show('skills'); await sleep(40);
-  ok('Samantha, her trainer, can sign off her 21 skills', document.querySelectorAll('#ctBody button.secondary').length===21, document.querySelectorAll('#ctBody button.secondary').length);
+  ok('Samantha, her trainer, can sign off her 26 skills', document.querySelectorAll('#ctBody button.secondary').length===26, document.querySelectorAll('#ctBody button.secondary').length);
   CTR.pick('angiel@mo-care.com');
 
   /* links out */

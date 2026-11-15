@@ -12,6 +12,7 @@
                             are a separate copy on purpose: the real coverage screen texts real caregivers, so practice
                             never runs there. Their rules are the How-to's (published 11-13).
      5 Trainer view         each person on their own card, never ranked: what they practiced, how it went, what comes back.
+   6 How families pay      (2026-11-15) read live from programs.html: What next, Steps in order, Which program is it?
    Come-back practice: an item done perfectly comes back later and later (3, 7, 14, 30 days); a slip brings it back
    tomorrow. Saved in app_data call_coaching (already registered) as practice:<email>, written only by that person.
    Nothing here texts, emails or calls anyone, and nothing reaches AxisCare.
@@ -126,6 +127,121 @@
       done: 'The visit has real times, or it has cover.' },
   };
 
+  /* ======================================================================= how families pay ============== */
+  /* 2026-11-15 (her ask: "make sure all coordinators know the ins and outs of private pay, Medicare GUIDE program, VA
+     community care network, Long Term care policies"). Read LIVE from the Payors & Programs page (programs.html), the one
+     place each payor is written down, so practice never says something the page does not. Each program's "Getting ...
+     started" steps become What do you do next? and Steps in order; the rules in its lists become Which program is it? */
+  const PROG = [['private', 'Private pay', 's-private'], ['guide', 'Medicare GUIDE', 's-guide'], ['vacc', 'VA Community Care', 's-va'],
+    ['aa', 'Aid & Attendance', 's-va'], ['ltc', 'Long-term care insurance', 's-ltc']];
+  const PTAB = { private: 'private', guide: 'guide', vacc: 'va', aa: 'va', ltc: 'ltc' };
+  let PG = null, PG_ERR = '', PG_LOADING = null;
+  const clean = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+  function parsePrograms(text) {
+    const doc = new DOMParser().parseFromString(text, 'text/html'), out = {};
+    for (const [k, label] of PROG) out[k] = { key: k, label, steps: [], facts: [] };
+    const bucketOf = (sid, title) => sid === 's-va' ? (/aid\s*(&|and)\s*attendance/i.test(title) ? 'aa' : 'vacc') : ({ 's-private': 'private', 's-guide': 'guide', 's-ltc': 'ltc' })[sid];
+    for (const sid of ['s-private', 's-guide', 's-va', 's-ltc']) {
+      const sec = doc.getElementById(sid); if (!sec) continue;
+      sec.querySelectorAll('.fact').forEach((f) => {
+        const n = clean((f.querySelector('.n') || {}).textContent), l = clean((f.querySelector('.l') || {}).textContent);
+        const b = bucketOf(sid, ''); if (n && l && b) out[b].facts.push(l + ': ' + n);
+      });
+      sec.querySelectorAll('h3').forEach((h) => {
+        const title = clean(h.textContent); if (/still to confirm|everything else/i.test(title)) return;
+        let el = h.nextElementSibling; while (el && !/^(UL|OL|H3)$/.test(el.tagName)) el = el.nextElementSibling;
+        if (!el || el.tagName === 'H3') return;
+        const b = bucketOf(sid, title); if (!b) return;
+        el.querySelectorAll(':scope > li').forEach((li) => {
+          if (el.tagName === 'OL') {
+            const t = clean((li.querySelector('b.t') || {}).textContent); if (!t) return;
+            out[b].steps.push({ t, body: clean(li.textContent).replace(t, '').trim() });
+          } else { const x = clean(li.textContent); if (x.length >= 25) out[b].facts.push(x); }
+        });
+      });
+    }
+    return out;
+  }
+  function loadPrograms() {
+    if (PG || PG_LOADING) return PG_LOADING;
+    PG_LOADING = fetch('programs.html', { cache: 'no-store' }).then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then((t) => { PG = parsePrograms(t); if (!PROG.some(([k]) => PG[k].steps.length >= 3)) { PG = null; throw new Error('no steps found'); } })
+      .catch((e) => { PG_ERR = 'The Payors & Programs page could not be read (' + (e && e.message || e) + '). Reload the page.'; })
+      .finally(() => { PG_LOADING = null; if (typeof activeTab !== 'undefined' && activeTab === 'cctraining' && window.CTR && CTR.view() === 'practice') CTR.render(); });
+    return PG_LOADING;
+  }
+  const progLabel = (k) => (PROG.find((x) => x[0] === k) || [k, k])[1];
+  /** What do you do next? for a program: the right next step, a later step, a step from another program */
+  function progScenario(k) {
+    const P = PG && PG[k]; if (!P || P.steps.length < 3) return null;
+    const st = P.steps, n = Math.min(st.length, 8), others = PROG.map(([x]) => x).filter((x) => x !== k && PG[x] && PG[x].steps.length);
+    const qs = [];
+    for (let i = 0; i < n; i++) {
+      const opts = [{ t: st[i].t, ok: true, body: st[i].body }];
+      const later = i + 2 < st.length ? i + 2 : (st.length - 1 > i ? st.length - 1 : -1);
+      if (later > i) opts.push({ t: st[later].t, ok: false, why: 'Not yet. That comes later, at step ' + (later + 1) + '.' });
+      if (others.length) { const o = others[hash(k + i) % others.length], os = PG[o].steps; opts.push({ t: os[hash(o + i) % os.length].t, ok: false, why: 'That is a step for ' + progLabel(o) + '.' }); }
+      qs.push({ q: i === 0 ? 'What do you do first?' : 'What do you do next?', done: st.slice(0, i).map((x) => x.t), opts: shuffle(opts, 'p:' + k + ':' + i) });
+    }
+    return { id: 'p:' + k, prog: k, title: P.label, when: 'A family is starting with ' + P.label + '.', qs, done_when: '', escalate_if: '', rk: 'pnext:' + k, rlabel: 'What do you do next: ' + P.label };
+  }
+  /** Which program is it? A rule from the page, its program name hidden; two from each program, a fresh mix each day */
+  const MASK = /Medicare GUIDE|\bGUIDE\b|VA Community Care|Community Care Network|Community Care|Aid (?:&|and) Attendance|\bA&A\b|long-term care insurance|long-term care polic(?:y|ies)|\bLTC\b/gi;
+  function whichQuiz() {
+    if (!PG) return null;
+    const day = new Date().toISOString().slice(0, 10), qs = [];
+    for (const [k] of PROG) {
+      const f = shuffle(PG[k].facts, k + day).slice(0, 2);
+      for (const t of f) qs.push({ fact: t.replace(MASK, '(this program)'), ans: k, orig: t });
+    }
+    return qs.length >= 4 ? shuffle(qs, 'which' + day) : null;
+  }
+  function startProgNext(k) {
+    if (!PG) { loadPrograms(); say('Reading the Payors & Programs page. Try again in a moment.'); return; }
+    const sc = progScenario(k); if (!sc) { say('That program has too few steps on the page to practice.'); return; }
+    S = { type: 'scen', sc, i: 0, marks: [] };
+    open('What do you do next?', 'From the Payors & Programs page: <b>' + esc(sc.title) + '</b>'); drawScenario();
+  }
+  function startProgOrder(k) {
+    if (!PG) { loadPrograms(); say('Reading the Payors & Programs page. Try again in a moment.'); return; }
+    const P = PG[k]; if (!P || P.steps.length < 3) { say('That program has too few steps on the page to practice.'); return; }
+    const st = P.steps.slice(0, 8).map((x) => x.t);
+    let mix = shuffle(st.map((_, i) => i), 'p:' + k + ':order'); if (mix.every((v, i) => v === i)) mix = mix.slice(1).concat(mix[0]);
+    S = { type: 'order', d: { id: 'p:' + k, title: P.label, prog: k }, st, mix, built: [], checked: false, rk: 'porder:' + k, rlabel: 'Steps in order: ' + P.label };
+    open('Put the steps in order', 'From the Payors & Programs page: <b>' + esc(P.label) + '</b>'); drawOrder();
+  }
+  function startWhich() {
+    if (!PG) { loadPrograms(); say('Reading the Payors & Programs page. Try again in a moment.'); return; }
+    const qs = whichQuiz(); if (!qs) { say('The Payors & Programs page has too few rules to quiz.'); return; }
+    S = { type: 'which', qs, i: 0, marks: [] };
+    open('Which program is it?', 'Rules from the Payors & Programs page, with the program\'s name hidden. A fresh mix each day.'); drawWhich();
+  }
+  function drawWhich() {
+    const { qs, i, marks } = S;
+    if (i >= qs.length) {
+      const right = marks.filter((m) => m === true).length;
+      record('pwhich', 'Which program is it?', right, qs.length);
+      body(pips(qs.length, marks) + '<p style="font-size:16px;font-weight:700;color:var(--navy);margin:0 0 8px;">' + right + ' of ' + qs.length + ' right the first time.</p>'
+        + '<div class="field-note" style="font-size:13.5px;">' + (right === qs.length ? 'You know which rule goes with which program.' : 'This comes back to you tomorrow, with a new mix.') + '</div>'
+        + finishBtns('CTP.which()', 'Another round'));
+      return;
+    }
+    const q = qs[i];
+    body(pips(qs.length, marks) + '<div class="ctp-card" style="background:#FAFBFC;font-size:14.5px;line-height:1.5;">' + esc(q.fact) + '</div>'
+      + '<div style="font-weight:800;color:var(--navy);margin-top:6px;">Which program is this rule from?</div>'
+      + PROG.map(([k, l]) => '<button class="ctp-opt" data-k="' + k + '" onclick="CTP.pick(\'' + k + '\')">' + esc(l) + '</button>').join('') + '<div id="ctpWhy"></div>');
+  }
+  function pickWhich(k) {
+    const q = S.qs[S.i], ok = k === q.ans;
+    if (S.marks[S.i] === undefined) S.marks[S.i] = ok;
+    const b = document.querySelector('#ctpBody .ctp-opt[data-k="' + k + '"]'); if (b) b.classList.add(ok ? 'ok' : 'no');
+    if (ok) {
+      document.querySelectorAll('#ctpBody .ctp-opt').forEach((x) => { x.disabled = true; });
+      document.getElementById('ctpWhy').innerHTML = '<div class="ctp-why ok"><b>' + esc(progLabel(q.ans)) + '.</b> ' + esc(q.orig) + '</div><div style="margin-top:10px;"><button class="primary" onclick="CTP.next()">Next</button></div>';
+    } else document.getElementById('ctpWhy').innerHTML = '<div class="ctp-why no"><b>Not quite.</b> Try again.</div>';
+    const p = document.querySelector('#ctpBody .ctp-pips'); if (p) p.outerHTML = pips(S.qs.length, S.marks);
+  }
+
   /* ======================================================================= 1 · practice call ============= */
   const PERSONAS = [   /* the labels only; the stories live on the server so nobody reads ahead */
     ['daughter_falls', 'A worried daughter', 'Linda, about her mom, Ruth, 84, in Nixa'],
@@ -133,7 +249,8 @@
     ['dementia_son', 'A son whose dad has dementia', 'Mark, about his dad, Harold, 77, in Republic'],
     ['medicaid', 'A caller on Medicaid', 'Teresa, about herself, 68, in Springfield'],
     ['ltc_policy', 'A family with long-term care insurance', 'Susan, about her mom, Betty, 88, in Springfield'],
-    ['discharge', 'A hospital discharge in two days', 'Kevin, about his dad, Ray, 80, in Springfield'] ];
+    ['discharge', 'A hospital discharge in two days', 'Kevin, about his dad, Ray, 80, in Springfield'],
+    ['aa_widow', 'A veteran\'s widow', 'Dorothy, about herself, 86, in Battlefield'] ];
   const BEATS = [['story', 'Their story'], ['home', 'Day to day at home'], ['help', 'What help looks like'], ['paid', 'How it gets paid'], ['next', 'Next step']];
   async function callServer(body) {
     const r = await sb.functions.invoke('practice-call', { body });
@@ -199,13 +316,14 @@
     const { sc, i, marks } = S;
     if (i >= sc.qs.length) {
       const right = marks.filter((m) => m === true).length;
-      record('scen:' + sc.id, 'What do you do next: ' + sc.title, right, sc.qs.length);
+      record(sc.rk || ('scen:' + sc.id), sc.rlabel || ('What do you do next: ' + sc.title), right, sc.qs.length);
       body(pips(sc.qs.length, marks) + '<p style="font-size:16px;font-weight:700;color:var(--navy);margin:0 0 8px;">' + right + ' of ' + sc.qs.length + ' right the first time.</p>'
         + '<div class="field-note" style="font-size:13.5px;">' + (right === sc.qs.length ? 'Every step matched the procedure. This one comes back in a few days to keep it fresh.' : 'The ones you missed come back to you tomorrow.') + '</div>'
         + (sc.done_when ? '<div style="margin-top:10px;font-size:13.5px;"><b>Done when:</b> ' + esc(sc.done_when) + '</div>' : '')
         + (sc.escalate_if ? '<div class="ctp-why" style="background:#FFF8E6;"><b>Tell the person in charge if:</b> ' + esc(sc.escalate_if) + '</div>' : '')
-        + '<div style="margin-top:10px;font-size:13px;"><a href="javascript:void(0)" onclick="CTP.close();CTR.openProcedure(\'' + esc(sc.id) + '\')" style="font-weight:700;color:var(--teal);">Read the full procedure</a></div>'
-        + finishBtns("CTP.scenario('" + esc(sc.id) + "')"));
+        + (sc.prog ? '<div style="margin-top:10px;font-size:13px;"><a href="javascript:void(0)" onclick="CTP.close();CTR.openProgram(\'' + esc(PTAB[sc.prog]) + '\')" style="font-weight:700;color:var(--teal);">Read ' + esc(sc.title) + ' on the Payors &amp; Programs page</a></div>'
+                   : '<div style="margin-top:10px;font-size:13px;"><a href="javascript:void(0)" onclick="CTP.close();CTR.openProcedure(\'' + esc(sc.id) + '\')" style="font-weight:700;color:var(--teal);">Read the full procedure</a></div>')
+        + finishBtns(sc.prog ? "CTP.progNext('" + esc(sc.prog) + "')" : "CTP.scenario('" + esc(sc.id) + "')"));
       return;
     }
     const q = sc.qs[i];
@@ -218,16 +336,17 @@
   function pick(k) {
     if (!S) return;
     if (S.type === 'round') return pickRound(k);
+    if (S.type === 'which') return pickWhich(k);
     const q = S.sc.qs[S.i], o = q.opts[k];
     if (S.marks[S.i] === undefined) S.marks[S.i] = !!o.ok;
     const b = document.querySelector('#ctpBody .ctp-opt[data-k="' + k + '"]'); if (b) b.classList.add(o.ok ? 'ok' : 'no');
     if (o.ok) {
       document.querySelectorAll('#ctpBody .ctp-opt').forEach((x) => { x.disabled = true; });
-      document.getElementById('ctpWhy').innerHTML = '<div class="ctp-why ok">Right.</div><div style="margin-top:10px;"><button class="primary" onclick="CTP.next()">Next</button></div>';
+      document.getElementById('ctpWhy').innerHTML = '<div class="ctp-why ok">Right.' + (o.body ? ' ' + esc(o.body) : '') + '</div><div style="margin-top:10px;"><button class="primary" onclick="CTP.next()">Next</button></div>';
     } else document.getElementById('ctpWhy').innerHTML = '<div class="ctp-why no"><b>Not quite.</b> ' + esc(o.why || '') + ' Try again.</div>';
     const p = document.querySelector('#ctpBody .ctp-pips'); if (p) p.outerHTML = pips(S.sc.qs.length, S.marks);
   }
-  function next() { if (!S) return; if (S.type === 'round') { S.i++; return drawRound(); } S.i++; drawScenario(); }
+  function next() { if (!S) return; S.i++; if (S.type === 'round') return drawRound(); if (S.type === 'which') return drawWhich(); drawScenario(); }
 
   /* ---- steps in order ---- */
   function startOrder(id) {
@@ -245,13 +364,13 @@
       + '</div><div><div style="font-weight:800;color:var(--navy);font-size:14px;">Your order</div>'
       + (built.length ? built.map((i, k) => '<div class="ctp-place' + (checked ? (i === k ? ' ok' : ' no') : '') + '"><span class="n">' + (k + 1) + '</span><span>' + esc(st[i]) + '</span></div>').join('') : '<div class="field-note" style="margin-top:8px;">Tap a step on the left to place it here.</div>')
       + '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">' + (checked ? '' : '<button class="primary" ' + (built.length === st.length ? '' : 'disabled ') + 'onclick="CTP.checkOrder()">Check my order</button>')
-      + '<button class="secondary" onclick="CTP.order(\'' + esc(S.d.id) + '\')">Start over</button></div><div id="ctpOrderRes"></div></div></div>');
+      + '<button class="secondary" onclick="' + (S.d.prog ? 'CTP.progOrder(\'' + esc(S.d.prog) + '\')' : 'CTP.order(\'' + esc(S.d.id) + '\')') + '">Start over</button></div><div id="ctpOrderRes"></div></div></div>');
   }
   function place(i) { if (!S || S.checked) return; S.built.push(i); drawOrder(); }
   function checkOrder() {
     if (!S || S.built.length !== S.st.length) return;
     S.checked = true; const n = S.built.filter((v, k) => v === k).length; drawOrder();
-    record('order:' + S.d.id, 'Steps in order: ' + S.d.title, n, S.st.length);
+    record(S.rk || ('order:' + S.d.id), S.rlabel || ('Steps in order: ' + S.d.title), n, S.st.length);
     document.getElementById('ctpOrderRes').innerHTML = '<div class="ctp-why ' + (n === S.st.length ? 'ok' : 'no') + '">' + (n === S.st.length ? '<b>All in order.</b>' : '<b>' + n + ' of ' + S.st.length + ' in the right place.</b> The red ones are out of order. This one comes back tomorrow.') + '</div>';
   }
 
@@ -362,10 +481,11 @@
   }
 
   /* ======================================================================= the Practice tab =============== */
-  const KIND = (k) => k.split(':')[0];
+  const KIND = (k) => k.split(':')[0];   /* pwhich has no ':' and is handled by name */
   function openItem(k) {
     const [kind, id] = [KIND(k), k.slice(k.indexOf(':') + 1)];
     if (kind === 'scen') startScenario(id); else if (kind === 'order') startOrder(id); else if (kind === 'round') startRound(id); else if (kind === 'call') startCall(id);
+    else if (kind === 'pnext') startProgNext(id); else if (kind === 'porder') startProgOrder(id); else if (k === 'pwhich') startWhich();
   }
   const statsOf = (e, sinceDays) => {
     const r = recOf(e) || {}, since = Date.now() - (sinceDays || 7) * DAY;
@@ -381,7 +501,7 @@
     const lc_ = st.lastCall;
     return '<div class="card" style="padding:14px 18px;margin:0 0 12px;">'
       + '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><b style="color:var(--navy);font-size:16px;">' + esc(isMe ? 'Your practice' : (plan && plan.name) || nameOf(e)) + '</b>'
-      + (plan && window.CTR ? '<span class="ctp-tag">Week ' + Math.max(1, Math.min(8, CTR.weekNow(plan))) + ' of 8</span>' : '')
+      + (plan && window.CTR ? '<span class="ctp-tag">Week ' + Math.max(1, Math.min(CTR.WEEKS.length, CTR.weekNow(plan))) + ' of ' + CTR.WEEKS.length + '</span>' : '')
       + (plan && plan.trainer ? '<span class="ctp-tag honey">Trainer: ' + esc(firstName(nameOf(plan.trainer))) + '</span>' : '') + (plan && plan.remote ? '<span class="ctp-tag">Remote</span>' : '') + '</div>'
       + '<div style="font-size:13.5px;margin-top:8px;line-height:1.6;">Practiced this week: <b>' + st.week + '</b> · Practice calls: <b>' + st.calls + '</b>'
       + (st.firstTotal ? ' · Right the first time: <b>' + st.firstRight + ' of ' + st.firstTotal + '</b>' : '') + '</div>'
@@ -404,10 +524,18 @@
     const due = dueFor(me);
     const dueHtml = due.length ? '<div class="card" style="padding:14px 18px;margin:0 0 12px;border-color:#F0A63A;"><div style="font-weight:800;color:var(--navy);font-size:15px;">Coming back to you today</div>'
       + '<div class="ctp-launch" style="margin-top:8px;">' + due.map((v) => '<button onclick="CTP.openItem(\'' + esc(v.k) + '\')"><b>' + esc(v.label) + '</b><span>Last time ' + v.last_score + ' of ' + v.of + '</span></button>').join('') + '</div></div>' : '';
-    const week = p && window.CTR ? CTR.weekNow(p) : 0, W = window.CTR && CTR.WEEKS[Math.max(0, Math.min(7, (week || 1) - 1))];
+    const week = p && window.CTR ? CTR.weekNow(p) : 0, W = window.CTR && CTR.WEEKS[Math.max(0, Math.min(CTR.WEEKS.length - 1, (week || 1) - 1))];
     const weekProcs = W ? W.drills.filter((id) => usable(proc(id))) : [];
     const thisWeek = weekProcs.length ? '<div class="card" style="padding:14px 18px;margin:0 0 12px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">' + (p ? 'For week ' + Math.max(1, week) + ': ' + esc(W.title) : 'To start') + '</div>'
       + '<div class="ctp-launch" style="margin-top:8px;">' + weekProcs.map((id) => '<button onclick="CTP.scenario(\'' + id + '\')"><b>' + esc(proc(id).title) + '</b><span>What do you do next?</span></button><button onclick="CTP.order(\'' + id + '\')"><b>' + esc(proc(id).title) + '</b><span>Put the steps in order</span></button>').join('') + '</div></div>' : '';
+    if (!PG && !PG_ERR) loadPrograms();
+    const pay = '<div class="card" style="padding:14px 18px;margin:0 0 12px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">How families pay</div>'
+      + '<div class="field-note" style="font-size:13px;margin-top:2px;">Private pay, Medicare GUIDE, VA Community Care, Aid &amp; Attendance and long-term care insurance, read from the Payors &amp; Programs page. When the page changes, the practice changes with it. '
+      + '<a href="javascript:void(0)" onclick="CTR.openProgram(\'\')" style="font-weight:700;color:var(--teal);">Open the page</a></div>'
+      + (PG ? '<div class="ctp-launch" style="margin-top:8px;"><button onclick="CTP.which()"><b>Which program is it?</b><span>A rule with its program hidden. A fresh mix each day.</span></button>'
+          + PROG.filter(([k]) => PG[k].steps.length >= 3).map(([k, l]) => '<button onclick="CTP.progNext(\'' + k + '\')"><b>' + esc(l) + '</b><span>What do you do next?</span></button><button onclick="CTP.progOrder(\'' + k + '\')"><b>' + esc(l) + '</b><span>Getting started, steps in order</span></button>').join('') + '</div>'
+        : '<div class="field-note" style="font-size:13px;margin-top:8px;' + (PG_ERR ? 'color:#A83A2F;' : '') + '">' + esc(PG_ERR || 'Reading the Payors & Programs page…') + '</div>')
+      + '</div>';
     const calls = '<div class="card" style="padding:14px 18px;margin:0 0 12px;"><div style="font-weight:800;color:var(--navy);font-size:15px;">Practice calls</div>'
       + '<div class="field-note" style="font-size:13px;margin-top:2px;">A made-up caller answers whatever you say. At the end your coach grades the call against our first-call procedure and the five beats. Text only, or speak where your browser allows.</div>'
       + '<div class="ctp-launch" style="margin-top:8px;">' + PERSONAS.map((x) => '<button onclick="CTP.call(\'' + x[0] + '\')"><b>' + esc(x[1]) + '</b><span>' + esc(x[2]) + '</span></button>').join('') + '</div></div>';
@@ -424,9 +552,11 @@
     const others = (owner() ? (window.CTR ? CTR.plans() : []) : (window.CTR ? CTR.plans().filter((x) => lc(x.trainer) === me) : [])).filter((x) => !p || lc(x.email) !== lc(p.email));
     const otherHtml = others.length ? '<details class="card" style="padding:14px 18px;margin:0 0 12px;"><summary style="cursor:pointer;font-weight:800;color:var(--navy);font-size:15px;">Everyone you train</summary><div style="margin-top:10px;">'
       + others.map((x) => personCard(x.email, x, false)).join('') + '</div></details>' : '';
-    return top + (trainer ? '' : personCard(me, mine ? p : null, true)) + dueHtml + thisWeek + calls + rounds + all + otherHtml;
+    const payFirst = W && W.k === 'wpay';
+    return top + (trainer ? '' : personCard(me, mine ? p : null, true)) + dueHtml + (payFirst ? pay + calls + thisWeek : thisWeek + pay + calls) + rounds + all + otherHtml;
   }
 
-  window.CTP = { html, close, scenario: startScenario, order: startOrder, round: startRound, call: startCall, pick, next, place, checkOrder, send, endCall, mic, openItem,
+  window.CTP = { html, close, scenario: startScenario, order: startOrder, round: startRound, call: startCall, pick,
+    progNext: startProgNext, progOrder: startProgOrder, which: startWhich, loadPrograms, programs: () => PG, progScenario, whichQuiz, PROG, next, place, checkOrder, send, endCall, mic, openItem,
     build: scenario, dueFor, upcomingFor, recOf, ROUNDS, PERSONAS, state: () => S };
 })();
