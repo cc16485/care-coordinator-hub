@@ -3,8 +3,8 @@
    =============================================================================
    Samantha, 2026-11-14: "make it very clear in the hub what the campain is and who is in it or has been in it and the
    results".
-   One card per campaign that runs by itself: the partner series, the monthly email to open leads, and the caregiver
-   holiday notes. Each card answers four questions in the same order:
+   One card per campaign that runs by itself: the partner series, the monthly email to open leads, the caregiver
+   holiday notes, the client and family holiday notes, and the VA series (2026-11-14). Each card answers four questions in the same order:
      1. What is it?            what goes out, to whom, how often, and whether it is on
      2. The emails             each email in order, when it went, to how many, and what happened
      3. Who is in it now       every organization or person, what they have received, what comes next
@@ -166,7 +166,38 @@
       peopleEmpty: 'No holiday note has gone out yet this year. The list of who gets one is read from AxisCare each time a note goes, so it shows here after the first one.',
       footnote: other ? 'The ' + other + ' program notes for clients and families are not part of this. They are sent by hand from the Email library.' : '' };
   }
-  function model(I) { return [partner(I), leads(I), caregivers(I), clientNotes(I)]; }
+  /* ---- 5. the VA series (her word 2026-11-14: "for veterans aka 'va lead' i want to mostly be about the VA and be extremely
+     helpful"). The list lives in GoHighLevel (contacts tagged "va lead") and is read by the sender on each run, so the Hub
+     cannot list it ahead of time: it shows who HAS received a guide, from the sender's own daily record
+     (va_series_progress). Opens and replies are not read for this one: a row per person for a list this size would
+     outweigh everything else the Hub keeps. They show on each contact in GoHighLevel. ------------------------------- */
+  function va(I) {
+    const cfg = I.cfg || {}, now = I.now || new Date();
+    const emails = (I.lib || []).filter((e) => e && e.aud === 'va' && e.series).sort((a, b) => a.series - b.series);
+    const nOf = new Map(emails.map((e) => [e.key, e.series])); const N = emails.length;
+    const got = new Map();   // address -> Map(series n -> day)
+    const perKey = new Map(); let thisMonth = 0; const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    for (const p of I.vaProgress || []) { if (!p || !p.sent || typeof p.sent !== 'object') continue;
+      for (const [addr, key] of Object.entries(p.sent)) { const n = nOf.get(key); if (!n) continue; const a = lc(addr);
+        if (!got.has(a)) got.set(a, new Map()); got.get(a).set(n, String(p.id));
+        const k = perKey.get(key) || { to: 0, first: '' }; k.to++; if (!k.first || String(p.id) < k.first) k.first = String(p.id); perKey.set(key, k);
+        if (String(p.id).slice(0, 7) === ym) thisMonth++; } }
+    const all = [...got.entries()].map(([email, g]) => { const had = [...g.keys()].sort((a, b) => a - b), last = had[had.length - 1];
+      let next = 0; for (let n = 1; n <= N; n++) if (!g.has(n)) { next = n; break; }
+      return { name: email, email: '', had, last, lastAt: g.get(last), next }; }).sort((a, b) => String(b.lastAt).localeCompare(String(a.lastAt)) || a.name.localeCompare(b.name));
+    const SHOW = 100; const on = !!cfg.enabled && !!cfg.auto_va_series; const day = dayOf(cfg.va_series_day);
+    const daily = Number(cfg.va_series_daily) >= 1 ? Math.min(Number(cfg.va_series_daily), 500) : 25;
+    return { id: 'va', name: 'VA series', on, countWord: (on ? 'ON' : 'OFF') + ' · ' + all.length + ' have received one', total: N,
+      what: 'Twelve guides about VA benefits and care at home: the four VA programs, who qualifies, how to ask, what has changed, family as the paid caregiver, Aid and Attendance, and who helps at no charge. One a month, in order.',
+      who: 'GoHighLevel contacts tagged "va lead" that have an email address (the VA list you bought). Left out: Do Not Disturb, a bounced or client tag, unsubscribed, do not contact. A contact tagged "lead" without "va lead" is a general lead and gets the monthly lead email instead.',
+      when: on ? 'From the ' + day + 'th of each month, on weekdays about 9 AM, to at most ' + daily + ' people a day until everyone has had that month\'s guide.' : 'Switched off. Nothing is being sent.',
+      emails: emails.map((e) => { const k = perKey.get(e.key); return { n: e.series, key: e.key, subj: e.subj, to: k ? k.to : 0, first: k ? k.first + 'T12:00:00' : '', counts: null, upNext: 0 }; }),
+      members: all.slice(0, SHOW).map((m) => Object.assign({}, m, { lastAt: m.lastAt + 'T12:00:00' })), left: [], hideLeft: true,
+      tiles: [['Have received one', all.length], ['Sent this month', thisMonth]], peopleTitle: 'Who has received a guide', peopleCount: all.length,
+      peopleEmpty: 'No guide has gone out yet. The list is read from GoHighLevel each time the sender runs, so people show here after their first guide.',
+      footnote: (all.length > SHOW ? 'Showing the ' + SHOW + ' most recent of ' + all.length + '. ' : '') + 'Who opened and who wrote back is on each contact in GoHighLevel, not on this page. The daily number is small on purpose: this list sat unused, so bounces can be read before the next group goes.' };
+  }
+  function model(I) { return [partner(I), leads(I), caregivers(I), clientNotes(I), va(I)]; }
 
   /* ---- drawing ------------------------------------------------------------------------------------------------------ */
   const TONE = { good: 'background:#DCFCE7;color:#166534;', bad: 'background:#FEE2E2;color:#991B1B;', plain: 'background:#EEF2F7;color:#334155;', muted: 'background:#F5F5F4;color:#78716C;' };
@@ -191,10 +222,10 @@
       + '<div style="font-size:13px;margin-top:6px;font-weight:700;color:' + (c.on ? '#166534' : 'var(--text-muted)') + ';">' + esc(c.when) + '</div></div>'
       + '<div style="display:flex;gap:8px;">' + (c.tiles || [['In it now', c.members.length], ['No longer in it', c.left.length]]).map((t) => '<div style="min-width:104px;background:var(--bg,#FAF8F3);border:1px solid var(--border);border-radius:10px;padding:9px 12px;text-align:center;"><div style="font-size:22px;font-weight:800;color:var(--navy);">' + t[1] + '</div><div style="font-size:12px;color:var(--text-muted);">' + t[0] + '</div></div>').join('') + '</div></div>';
     let emails;
-    if (c.id === 'partner') emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email</th><th style="' + th + '">Sent</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
+    if (c.id === 'partner' || c.id === 'va') emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email</th><th style="' + th + '">Sent</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
       '<tr><td style="' + td + '"><b>' + e.n + '.</b> <a href="#" onclick="openCampaign(\'' + esc(e.key) + '\');return false;" style="color:var(--navy);font-weight:700;">' + esc(e.subj) + '</a></td>'
       + '<td style="' + td + 'white-space:nowrap;">' + (e.to ? 'To ' + e.to + (e.first ? ', first on ' + esc(dayWord(e.first)) : '') : '<span style="color:var(--text-muted);">Not sent yet</span>') + (e.upNext ? '<div style="color:#B45309;font-size:12px;">Next for ' + e.upNext + '</div>' : '') + '</td>'
-      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.to ? '<span style="color:var(--text-muted);">' + (hasRes ? 'Not checked yet' : 'Reading results…') + '</span>' : '')) + '</td><td style="' + td + 'text-align:right;">' + preview(e.key) + '</td></tr>').join('') + '</table>';
+      + '<td style="' + td + '">' + (e.counts ? results(e.counts) : (e.to ? '<span style="color:var(--text-muted);">' + (c.id === 'va' ? 'See each contact in GoHighLevel' : hasRes ? 'Not checked yet' : 'Reading results…') + '</span>' : '')) + '</td><td style="' + td + 'text-align:right;">' + preview(e.key) + '</td></tr>').join('') + '</table>';
     else emails = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Month' : 'When') + '</th><th style="' + th + '">Email</th><th style="' + th + '">Sent this year</th><th style="' + th + '">What happened</th><th style="' + th + '"></th></tr>' + c.emails.map((e) =>
       '<tr><td style="' + td + 'white-space:nowrap;">' + esc(e.month || e.when) + '</td><td style="' + td + '">' + (e.key ? '<a href="#" onclick="openCampaign(\'' + esc(e.key) + '\');return false;" style="color:var(--navy);font-weight:700;">' + esc(e.subj) + '</a>' : '<span style="color:#B45309;">No email planned. Nothing goes this month.</span>') + (e.next ? ' <span style="color:#B45309;font-size:12px;font-weight:700;">Next</span>' : '') + '</td>'
       + '<td style="' + td + 'white-space:nowrap;">' + (e.sentAt ? esc(dayWord(e.sentAt)) + ', to ' + e.to : (e.key ? '<span style="color:var(--text-muted);">Not yet</span>' : '')) + '</td>'
@@ -205,6 +236,9 @@
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b><div style="color:var(--text-muted);font-size:12px;">' + esc(m.type) + (m.type ? ' · ' : '') + m.addresses + ' email address' + (m.addresses === 1 ? '' : 'es') + (m.someOut ? ' · ' + m.someOut + ' unsubscribed' : '') + '</div></td>'
       + '<td style="' + td + '">' + hadWords(m.had, c.total) + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td>'
       + '<td style="' + td + '">' + (m.next ? 'Email ' + m.next : 'Finished') + '</td><td style="' + td + '">' + (chip(m.status) || '') + '</td></tr>').join('') + '</table>';
+    else if (c.id === 'va') people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">Email address</th><th style="' + th + '">Has received</th><th style="' + th + '">Next</th></tr>' + c.members.map((m) =>
+      '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b></td><td style="' + td + '">' + hadWords(m.had, c.total).replace(/^Email/, 'Guide') + '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div></td>'
+      + '<td style="' + td + '">' + (m.next ? 'Guide ' + m.next : 'Finished') + '</td></tr>').join('') + '</table>';
     else people = '<table style="width:100%;border-collapse:collapse;font-size:13px;"><tr><th style="' + th + '">' + (c.id === 'leads' ? 'Lead' : c.id === 'clients' ? 'Person' : 'Caregiver') + '</th><th style="' + th + '">Has received</th><th style="' + th + '">Last email</th></tr>' + c.members.map((m) =>
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b><div style="color:var(--text-muted);font-size:12px;">' + esc(m.email) + '</div></td>'
       + '<td style="' + td + '">' + (m.had ? m.had + ' email' + (m.had === 1 ? '' : 's') : 'Nothing yet') + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last: ' + esc(m.lastSubj) + ', ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td>'
@@ -217,7 +251,7 @@
       '<tr><td style="' + td + '"><b>' + esc(m.name) + '</b></td><td style="' + td + '">' + (Array.isArray(m.had) ? hadWords(m.had, c.total) : (m.had ? m.had + ' email' + (m.had === 1 ? '' : 's') : 'Nothing')) + (m.lastAt ? '<div style="color:var(--text-muted);font-size:12px;">last on ' + esc(dayWord(m.lastAt)) + '</div>' : '') + '</td><td style="' + td + '">' + esc(m.why) + '</td></tr>').join('') + '</table>';
     return '<div class="card" data-campaign="' + c.id + '" style="padding:18px 20px;margin:0 0 16px;' + (c.on ? 'border-left:5px solid #14606F;' : '') + '">' + head
       + fold(c.id, 'emails', 'The emails and the results', null, emails + extraLine(c), open('emails', true))
-      + fold(c.id, 'people', c.peopleTitle || 'Who is in it now', c.members.length, people + extra + (c.footnote ? '<div style="font-size:13px;color:var(--text-muted);margin-top:8px;">' + esc(c.footnote) + '</div>' : ''), open('people', true))
+      + fold(c.id, 'people', c.peopleTitle || 'Who is in it now', c.peopleCount == null ? c.members.length : c.peopleCount, people + extra + (c.footnote ? '<div style="font-size:13px;color:var(--text-muted);margin-top:8px;">' + esc(c.footnote) + '</div>' : ''), open('people', true))
       + (c.hideLeft ? '' : fold(c.id, 'left', 'No longer in it', c.left.length, left, open('left', false))) + '</div>';
   }
   const extraLine = (c) => c.id === 'leads' && c.empty && c.empty.length ? '<div style="font-size:12.5px;color:var(--text-muted);margin-top:8px;">A month with no email planned sends nothing. The plan is changed by a step, not on this screen.</div>' : '';
@@ -242,12 +276,12 @@
     const D = (typeof DATA !== 'undefined' && DATA) || {}; const RV = (R && R.VIEW) || {};
     return { now: new Date(), cfg: (typeof cmpSettings === 'function') ? cmpSettings() : {}, lib: (typeof cmpLib === 'function') ? cmpLib() : [],
       orgs: D.referral_orgs || [], acts: D.referral_activities || [], leads: D.leads || [], caregivers: D.caregivers || ((typeof caregivers !== 'undefined' && caregivers) || []),
-      log: D.campaign_log || [], res: RV.data || null, resError: RV.notOn ? 'the results reader is not installed' : (RV.err || '') };
+      log: D.campaign_log || [], vaProgress: D.va_series_progress || [], res: RV.data || null, resError: RV.notOn ? 'the results reader is not installed' : (RV.err || '') };
   }
   function render() { if (typeof document === 'undefined') return; const box = document.getElementById('cmpCampaigns'); if (box) box.innerHTML = html(inputs(), VIEW); }
   /* Draw at once from what the Hub has; ask for opens and replies (at most every five minutes) and draw again when they come. */
   function show() { render(); if (R && R.VIEW && !R.VIEW.loading && (!R.VIEW.askedAt || Date.now() - R.VIEW.askedAt > 300000)) R.load(true).then(render, render); }
   function toggle(k) { const cur = VIEW.open[k]; const dflt = /:(emails|people)$/.test(k); VIEW.open[k] = !(cur === undefined ? dflt : cur); render(); }
   function pick(id) { VIEW.pick = id; render(); if (typeof window !== 'undefined' && window.scrollTo) { const b = document.getElementById('cmpPick'); if (b && b.getBoundingClientRect().top < 0) b.scrollIntoView(); } }
-  return { partner, leads, caregivers, clientNotes, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle, pick };
+  return { partner, leads, caregivers, clientNotes, va, model, html, nextRun, weekdayOnOrAfter, VIEW, render, show, toggle, pick };
 });
