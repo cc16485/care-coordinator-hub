@@ -34,7 +34,7 @@ async()=>{
   ok('once she switches it on, every office user sees it', btn().style.display!=='none' && ASKC.allowed());
   delete DATA.ops_settings.ask_cara_live; (0,eval)("ME={ email:'samantha@mo-care.com', name:'Samantha Troutman', shift:'day' }"); ASKC.showButton();
   btn().click(); await sleep(150);
-  ok('the panel opens over the page, saying it only reads, with starter questions', root() && /Reads our records and your rules\. Never changes anything\./.test(txt()) && /Practice: owners only/.test(txt()) && root().querySelectorAll('.askc-start button').length===4, txt().slice(0,400));
+  ok('the panel opens over the page, saying it only reads, with starter questions', root() && /Ask AI/.test(txt()) && /reads our records and our rules\. It never changes anything\./.test(txt()) && /Practice: owners only/.test(txt()) && root().querySelectorAll('.askc-start button').length===4, txt().slice(0,400));
   document.getElementById('askcIn').value='What changed with Ned this week?'; ASKC.send(); await sleep(50);
   ok('while it looks things up, it says so', /Looking that up/.test(txt()));
   await sleep(400);
