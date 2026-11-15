@@ -160,13 +160,18 @@
     const work = rows.filter(r => r.set === 'work' && r.l).map(r => { const st = r.st, cx = Object.assign(ctxFor(r.l, st), { now, today }); const br = R.boardRow(r.l, cx); return { r:br, l:r.l, st, lead:r.l, ctx:cx }; });
     /* 2026-10-22 (her approved mockup): the CDS card look, while ops_settings.leads_cards_live is on, or an owner's own preview */
     const owner = typeof ccIsOwner === 'function' && ccIsOwner();
-    const cards = !!(window.LeadCards && LeadCards.showing(DATA.ops_settings || {}, owner));
-    const previewBar = window.LeadCards && owner && !LeadCards.liveOn(DATA.ops_settings || {})
+    /* 2026-11-15 (her "Build it switched off"): the cleaner list, the GoHighLevel layout, while ops_settings.leads_simple_live is on, or an owner's own preview */
+    const simple = !!(window.LeadTable && LeadTable.simpleShowing && window.LeadCards && LeadTable.simpleShowing(DATA.ops_settings || {}, owner));
+    const simpleBar = window.LeadTable && LeadTable.simpleShowing && owner && !LeadTable.simpleLive(DATA.ops_settings || {})
+      ? (simple ? '<div class="lc-preview"><b>Preview of the cleaner Leads list.</b> Only you see it, in this browser. Everyone else still has the list they have today.<span style="flex:1;"></span><button class="lb-btn" onclick="ltSimplePreview(false)">Back to today\'s list</button></div>'
+        : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="ltSimplePreview(true)">Preview the cleaner Leads list (only you see it)</button></div>') : '';
+    const cards = simple || !!(window.LeadCards && LeadCards.showing(DATA.ops_settings || {}, owner));
+    const previewBar = simple ? simpleBar : window.LeadCards && owner && !LeadCards.liveOn(DATA.ops_settings || {})
       ? (cards ? '<div class="lc-preview"><b>Preview of the new Leads list.</b> Only you see it, in this browser. Everyone else still has the list.<span style="flex:1;"></span><button class="lb-btn" onclick="lcPreview(false)">Back to the list</button></div>'
         : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="lcPreview(true)">Preview the new Leads list (only you see it)</button></div>') : '';
     /* 2026-10-30 (her approved mockup 9ReTBpXJ7PwkbreCVSb8te): the calm look of the list, while ops_settings.leads_calm_live is on, or an owner's own preview */
-    const calm = !!(cards && window.LeadTable && LeadTable.calmShowing && LeadTable.calmShowing(DATA.ops_settings || {}, owner));
-    const calmBar = cards && window.LeadTable && LeadTable.calmShowing && owner && !LeadTable.calmLive(DATA.ops_settings || {})
+    const calm = simple || !!(cards && window.LeadTable && LeadTable.calmShowing && LeadTable.calmShowing(DATA.ops_settings || {}, owner));
+    const calmBar = simple ? '' : cards && window.LeadTable && LeadTable.calmShowing && owner && !LeadTable.calmLive(DATA.ops_settings || {})
       ? (calm ? '<div class="lc-preview"><b>Preview of the calmer Leads list.</b> Only you see it, in this browser. Everyone else still has the colourful one.<span style="flex:1;"></span><button class="lb-btn" onclick="ltCalmPreview(false)">Back to the colourful list</button></div>'
         : '<div class="lb-preview-ask" style="grid-column:1/-1;margin:0;font-size:13px;"><button class="linklike" onclick="ltCalmPreview(true)">Preview the calmer Leads list (only you see it)</button></div>') : '';
     /* 2026-11-01 Send to Caring CDS: who is waiting to be sent, and sends that did not finish (send-to-cds.js) */
@@ -183,8 +188,8 @@
     const tile = (n, label, col, f) => '<button class="lb-tile" onclick="lbFilter(\'' + f + '\')"><span class="lb-tile-n" style="color:' + col + ';">' + n + '</span><span class="lb-tile-l">' + label + '</span></button>';
     /* Lead turns (Stage 1, policy 2026-10-18): who gets the next new lead, only while turns are on */
     const nextTile = opts.nextUp ? '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:var(--navy);font-size:18px;">' + esc(opts.nextUp) + '</span><span class="lb-tile-l">next up for a new lead</span></div>' : '';
-    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = cdsCard + previewBar + calmBar + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
-    else if(nums){ nums.style.display = ''; nums.innerHTML = cdsCard + previewBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
+    if(nums && cards){ nums.style.display = 'block'; nums.innerHTML = cdsCard + previewBar + calmBar + (simple ? '' : simpleBar) + (calm ? LeadTable.calmSummary : LeadCards.summary)(work.filter(x => lbIn(x, 'All')), { nextUp:opts.nextUp, median:med }); }
+    else if(nums){ nums.style.display = ''; nums.innerHTML = cdsCard + previewBar + simpleBar + nextTile + tile(nowRows.length, 'need you now', '#DC2626', 'now') + tile(newUntouched.length, 'new, nobody has tried', '#DC2626', 'new') + tile(asmToday, 'assessments today', 'var(--navy)', 'later')
       + tile(work.filter(x => x.r.group === 'waiting').length, 'waiting', 'var(--text-muted)', 'waiting')
       + tile(work.filter(x => x.r.chips.some(c => c.tone === 'missing')).length, 'missing required', '#B91C1C', 'missing')
       + '<div class="lb-tile lb-tile-static"><span class="lb-tile-n" style="color:#15803D;">' + (med == null ? '–' : med + ' <span style="font-size:14px;">min</span>') + '</span><span class="lb-tile-l">median first attempt today</span></div>'; }
@@ -192,7 +197,9 @@
     const owners = [...new Set(work.map(x => first(x.r.owner)).filter(Boolean))].sort();
     const F = [['All', 'All'], ['now', 'Need you now'], ['new', 'New'], ['talking', 'Talking'], ['assessment', 'Assessment'], ['waiting', 'Waiting']];
     const ownerPick = '<label for="lbOwner" class="lb-k" style="margin-right:4px;">Showing</label><select id="lbOwner" onchange="lbOwner(this.value)"><option value="">Everyone\'s families</option>' + owners.map(o => '<option value="' + esc(o) + '"' + (LB.owner === o ? ' selected' : '') + '>' + esc(o) + '\'s</option>').join('') + '</select>';
-    if(fl && cards) fl.innerHTML = ownerPick + (LB.filter !== 'All' ? '<button class="filter-pill" onclick="lbFilter(\'All\')">← Back to the cards</button>' : '');
+    /* the cleaner list keeps "whose families" inside its Add filter */
+    if(fl && simple) fl.innerHTML = LB.filter !== 'All' ? '<button class="filter-pill" onclick="lbFilter(\'All\')">← Back to the list</button>' : '';
+    else if(fl && cards) fl.innerHTML = ownerPick +(LB.filter !== 'All' ? '<button class="filter-pill" onclick="lbFilter(\'All\')">← Back to the cards</button>' : '');
     else if(fl) fl.innerHTML = ownerPick
       + F.map(f => '<button class="filter-pill' + (LB.filter === f[0] ? ' active' : '') + '" onclick="lbFilter(\'' + f[0] + '\')">' + f[1] + ' <span style="opacity:.65;">' + work.filter(x => lbIn(x, f[0])).length + '</span></button>').join('');
     /* the look-ups (the sets that are not the working board) */
@@ -230,7 +237,7 @@
       + (window.HS && (LB.filter === 'All' || LB.filter === 'now') && !by.now.length ? HS.banner({ scene:'phone', say:'Every new family has heard from us.', sub:'No one is waiting on a call from us right now. A new inquiry shows here the moment it comes in.' }) : '');
     if(cards && LB.filter === 'All'){
       /* 2026-10-29 (her "do the same for our leads"): the list the GoHighLevel way, made better (leads-table.js) */
-      const helpers = { calm, btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
+      const helpers = { calm, simple, owner:LB.owner || '', btn, yesReady, fromWeb:typeof leadFromWebForm === 'function' ? leadFromWebForm : null, impSort,
         searching:!!String(((document.getElementById('globalSearch') || {}).value) || '').trim(),
         /* 2026-10-29: calls and texts that reach a linked caller's own lead after the link count as the family's last activity */
         extraFor:l => ({ events:window.FamilyLink ? FamilyLink.linkedTo(l.id, DATA.leads).reduce((a, c) => a.concat((c.contact_events || []).filter(e => e && String(e.at) > String(c.linked_to.at))), []) : [],
@@ -281,11 +288,19 @@
       ccPopClose(); await persist('leads', l); if(typeof opsReconcileLeads === 'function'){ try{ opsReconcileLeads(); }catch(e){} } redraw();
     };
   }
-  function lbMore(id, btn){
+  /* top = the row's own buttons (the cleaner Leads list puts them in this menu, 2026-11-15); they run as if pressed on the ··· */
+  function lbMore(id, btn, top){
     const l = lead(id); if(!l || typeof ccPopOpen !== 'function') return;
     const row = (t, fn) => '<div class="ccpick-row" data-fn="' + fn + '" style="padding:8px;border-radius:8px;cursor:pointer;font-size:13.5px;">' + t + '</div>';
     const el = ccPopOpen(btn, '<div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:4px;">' + esc(((l.client_first_name || '') + ' ' + (l.client_last_name || '')).trim() || ((l.first_name || '') + ' ' + (l.last_name || '')).trim()) + '</div>'
+      + (top ? '<div class="ltm-top">' + top + '</div>' : '')
       + row('Open their profile', 'open') + row('Edit the inquiry (start, schedule, waiting on…)', 'edit') + row('Schedule the assessment', 'schedule') + row('Set a follow-up', 'followup') + (window.FamilyLink ? row('Who did they call for?', 'calledfor') : '') + (window.FutureOpps ? row('Save for future…', 'future') : '') + (window.LeadRecorder && LeadRecorder.isLive() ? row('Log a call from another phone', 'log') : '') + (l.said_yes_at ? '' : row('They said yes', 'yes')) + row('Mark lost…', 'lost') + (typeof leadFromWebForm === 'function' && leadFromWebForm(l) ? row('Not a real inquiry (spam)', 'spam') : ''), { width:300 });
+    /* a top button closes the menu, then does its job anchored on the ··· (its own pop-up opens there) */
+    el.querySelectorAll('.ltm-top button[onclick]').forEach(b => {
+      const code = b.getAttribute('onclick'); b.removeAttribute('onclick');
+      b.addEventListener('click', ev => { ev.preventDefault(); ccPopClose(); try{ (new Function('event', code)).call(btn, ev); }catch(e){ console.error(e); } });
+    });
+    el.querySelectorAll('.ltm-top a[data-oc-phone]').forEach(a => a.addEventListener('click', () => setTimeout(() => { try{ ccPopClose(); }catch(e){} }, 0)));
     el.querySelectorAll('.ccpick-row').forEach(r => { r.onmouseenter = () => r.style.background = 'var(--bg)'; r.onmouseleave = () => r.style.background = '';
       r.onclick = () => { const fn = r.dataset.fn; ccPopClose();
         if(fn === 'open') lbOpen(id); else if(fn === 'edit' && typeof openLeadModal === 'function') openLeadModal(id); else if(fn === 'schedule') lbSchedule(id); else if(fn === 'followup') lbFollowUp(id, btn); else if(fn === 'log') lbLog(id, btn); else if(fn === 'future') FutureOpps.save(id); else if(fn === 'calledfor') flOpen(id);

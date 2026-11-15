@@ -204,7 +204,9 @@
   function lcStep(k){ if(!STEPS.some(s => s.key === k)) return; LC.step = k; try{ root.localStorage.setItem('lcStep', k); }catch(e){} try{ if(typeof root.renderLeadsStarts === 'function') root.renderLeadsStarts(); }catch(e){} }
   function lcPreview(on){ setPreview(!!on); try{ if(typeof root.renderLeadsStarts === 'function') root.renderLeadsStarts(); }catch(e){} }
 
-  const api = { STEPS, step, hv, dateWords, cameIn, lastContact, liveOn, previewOn, setPreview, showing, html, summary, state:LC };
+  const api = { STEPS, step, hv, dateWords, cameIn, lastContact, liveOn, previewOn, setPreview, showing, html, summary, state:LC,
+    /* 2026-11-15: one family's card on its own, for the card view of the cleaner Leads list (leads-table.js) */
+    card:(x, now, h) => { style(); x.step = x.step || step(x.r, x.l, x.ctx); return card(x, now, h || {}); } };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.LeadCards = api;
   root.lcStep = lcStep; root.lcPreview = lcPreview;
