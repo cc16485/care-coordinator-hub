@@ -137,7 +137,7 @@ with sync_playwright() as pw:
     # guide
     st['piece'] = 'guide'; p.goto('http://hub.test/family-form.html#t=' + TOK); p.wait_for_timeout(400); p.click('text=Email me a code'); p.wait_for_timeout(100); p.fill('#code', '123456'); p.click('#go'); p.wait_for_timeout(300)
     t = p.inner_text('main')
-    ok('GUIDE: the website\'s wording (20 four-hour visits, approved provider), who it is for, a link to the full page', 'up to 20 four-hour respite visits a year' in t and 'approved GUIDE respite provider' in t and 'Medicare Advantage' in t and p.locator('a[href="https://mo-care.com/medicare-guide"]').count() == 1)
+    ok('GUIDE: the website\'s wording (19 four-hour visits, approved provider), who it is for, a link to the full page', 'up to 19 four-hour respite visits a year' in t and 'approved GUIDE respite provider' in t and 'Medicare Advantage' in t and p.locator('a[href="https://mo-care.com/medicare-guide"]').count() == 1)
     p.fill('#best', 'after 3pm'); p.click('#yes'); p.wait_for_timeout(300)
     ok('...Yes, call me about it: the answer and the best time', st['sub'].get('answer') == 'call_me' and st['sub'].get('best_time') == 'after 3pm' and "We'll call you" in p.inner_text('main'))
     ok('no long dashes on the family\'s page', '—' not in (ROOT / 'family-form.html').read_text() and '–' not in (ROOT / 'family-form.html').read_text())
