@@ -163,9 +163,32 @@
       /* Partner links (2026-10-26): how the referral came in, and every change to the source */
       + (window.PartnerLinks ? PartnerLinks.leadSourceHtml(l) : '')
       + (org && (org.phone || org.email) ? '<div class="field-note">' + (org.phone ? tel(org.phone, org.email) : '') + (org.phone && org.email ? ' · ' : '') + (org.email ? esc(org.email) : '') + '</div>' : '') + '</div>'
+      /* the family's OK (2026-11-15): asked once, recorded with who and when; nothing about the family goes before a yes */
+      + okHtml(l, pl)
       + (pl.due.length ? '<div class="lw-fact-k" style="margin-top:10px;">Due to go (a draft, you send it)</div>' + pl.due.map(d => '<div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span style="font-size:13px;font-weight:700;color:var(--navy);">' + esc(d.title) + '</span><button class="lb-btn" onclick="lwPartnerDraft(this, \'' + esc(d.kind) + '\')">Draft it</button></div>').join('') : '')
       + (pl.sent.length ? '<div class="lw-fact-k" style="margin-top:10px;">They heard from us</div>' + pl.sent.slice(0, 5).map(m => '<div style="font-size:12.5px;margin-top:4px;"><b>' + esc(RR.PARTNER_LABEL[m.kind] || 'An update') + '</b> · ' + esc(fmt(m.at)) + ' · ' + esc(m.channel) + (m.by ? ' · ' + esc(first(ctx.names[String(m.by).toLowerCase()] || String(m.by).split('@')[0])) : '') + '</div>').join('') : '<div class="field-note" style="margin-top:8px;">Nothing has gone to them yet about this family.</div>')
       + '<div class="field-note" style="margin-top:8px;">Nothing goes to a partner by itself. Each line is a draft you read, change and send.</div></div>';
+  }
+  function okHtml(l, pl){
+    const ok = l.partner_ok || {}, who = esc(pl.partner.name), when = ok.at ? ' (' + esc(String(ok.by || '').split('@')[0]) + ', ' + esc(new Date(ok.at).toLocaleDateString('en-US', { timeZone:'America/Chicago', month:'short', day:'numeric' })) + ')' : '';
+    const change = '<button class="lb-btn" style="margin-left:6px;" onclick="lwPartnerOk(\'' + (ok.v === 'yes' ? 'no' : 'yes') + '\')">Change to ' + (ok.v === 'yes' ? 'no' : 'yes') + '</button>';
+    if(ok.v === 'yes') return '<div class="field-note" style="margin-top:10px;">✓ The family said we may update ' + who + when + '.' + change + '</div>';
+    if(ok.v === 'no') return '<div class="field-note" style="margin-top:10px;">The family asked us not to share updates with ' + who + when + '. Only a general thank-you goes, with no family details.' + change + '</div>';
+    return '<div style="margin-top:10px;padding:10px 12px;background:#FDF3E3;border-radius:8px;"><div style="font-size:13px;font-weight:700;color:var(--navy);">Ask the family: is it OK to let ' + who + ' know how things go?</div>'
+      + '<div class="field-note" style="margin-top:2px;">' + (pl.waiting && pl.waiting.length ? esc(pl.waiting.map(d => d.title).join(', ')) + ' waits for their answer.' : 'Ask on your next call. Updates wait for their answer.') + '</div>'
+      + '<div style="display:flex;gap:6px;margin-top:6px;"><button class="lb-btn" onclick="lwPartnerOk(\'yes\')">OK to update them</button><button class="lb-btn" onclick="lwPartnerOk(\'no\')">Don\'t update them</button></div></div>';
+  }
+  async function partnerOk(v){
+    const l = lead(), RR = R(); if(!l || !RR) return;
+    const a = (typeof ccActor === 'function') ? ccActor() : { email:'' };
+    RR.setPartnerOk(l, v, a.email || a.name || '');
+    await persist('leads', l); render();
+  }
+  /** every update owed to a referral partner (Operations Board count, Referral Partners list) */
+  function partnerOwed(){
+    const RR = R(); if(!RR || !RR.partnerOwed || typeof DATA === 'undefined') return [];
+    const tpl = (DATA.ops_settings || {}).partner_templates || {};
+    return RR.partnerOwed(DATA.leads || [], l => Object.assign({}, ctxFor(l), { templates:tpl }), RR.ymd(new Date()));
   }
   /* the draft: her words (or Settings\'), editable; Send by email (the partner\'s address, from you), or Copy and mark it told by call or text */
   function partnerDraft(b, kind){
@@ -509,11 +532,11 @@
     const RR = R(); if(!l || !RR || !l.said_yes_at) return '';
     const ctx = ctxFor(l), pl = RR.partnerLoop(l, Object.assign({}, ctx, { templates:(DATA.ops_settings || {}).partner_templates || {} }));
     const thanked = (Array.isArray(l.contact_events) ? l.contact_events : []).some(e => e && e.actor === 'human' && e.direction === 'out' && e.channel === 'sms' && e.at >= l.said_yes_at);
-    const toldPartner = pl.partner && !pl.due.some(d => d.kind === 'outcome_started');
+    const toldPartner = pl.partner && pl.sent.some(m => m && m.kind === 'outcome_started');
     return '<div class="lw-handoff"><div class="lw-fact-k">Carried forward</div><div style="font-size:13px;">' + esc(RR.carriedForward(l, ctx)) + '</div>'
       + '<div class="lw-fact-k" style="margin-top:8px;">Goes out now, when you send it</div><div class="lb-actions" style="margin-top:4px;">'
       + (l.phone ? (thanked ? '<span class="field-note">✓ ' + esc(first(l.first_name) || 'The family') + ' was texted after the yes.</span>' : '<button class="lb-btn" onclick="lwText(this, LeadRules.yesThanks(CP.lead, { me:(ccActor().name||\'\'), scripts:(DATA.ops_settings||{}).lead_scripts||{} }))">Thank-you text to ' + esc(first(l.first_name) || 'the family') + '</button>') : '')
-      + (pl.partner ? (toldPartner ? '<span class="field-note">✓ ' + esc(pl.partner.name) + ' was told.</span>' : '<button class="lb-btn" onclick="lwPartnerDraft(this, \'outcome_started\')">Tell ' + esc(pl.partner.name) + ': they chose us</button>') : '')
+      + (pl.partner ? (toldPartner ? '<span class="field-note">✓ ' + esc(pl.partner.name) + ' was told.</span>' : pl.ok !== 'yes' ? '<span class="field-note">' + (pl.ok === 'no' ? 'The family asked us not to update ' + esc(pl.partner.name) + '.' : 'Ask the family if ' + esc(pl.partner.name) + ' may hear how it went (Referral partner card).') + '</span>' : '<button class="lb-btn" onclick="lwPartnerDraft(this, \'outcome_started\')">Tell ' + esc(pl.partner.name) + ': they chose us</button>') : '')
       + '</div><div class="field-note" style="margin-top:4px;">Both are drafts in your words; nothing goes out by itself. Creating the client in AxisCare is the journey step below.</div></div>';
   }
 
@@ -553,5 +576,5 @@
     '.lw-rail-t{font-size:13.5px;color:var(--navy)}.lw-up{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:6px}.lw-contacts{margin-top:8px;font-size:13px;display:flex;flex-direction:column;gap:8px}.lw-links{margin-top:6px;font-size:13px;display:flex;flex-direction:column;gap:4px}',
     '@media (max-width:720px){.lw-steps{grid-template-columns:repeat(2,minmax(0,1fr))}.lw-facts{grid-template-columns:1fr}.lw-tl-row{grid-template-columns:1fr;gap:2px}}'
   ].join(''); document.head.appendChild(st); }catch(e){}
-  Object.assign(window, { lwCrosby, LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
+  Object.assign(window, { lwCrosby, LeadWorkspace:{ render, active, people, waitingFor, handoffHtml }, lwRender:render, lwPartnerDraft:partnerDraft, lwPartnerOk:partnerOk, lwPartnerOwed:partnerOwed, lwPartnerFill:partnerFill, lwPartnerSave:partnerSave, lwActive:active, lwTab:tab, lwTrim:trim, lwLog, lwFollowUp, lwSchedule, lwOpenAsmt, lwDsds, lwYes, lwOwner, lwAi, lwNote, lwText, lwWaiting, lwScriptsFill:scriptsFill, lwScriptsSave:scriptsSave });
 })();
