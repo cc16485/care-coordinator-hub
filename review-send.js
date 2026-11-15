@@ -27,8 +27,8 @@
   }
   function counts(c){
     const box = (n, l, t) => '<div class="rs-n" title="' + esc(t) + '"><b>' + (n || 0) + '</b><span>' + l + '</span></div>';
-    return '<div class="rs-counts">' + box(c.sent, 'texted', 'Review asks texted from here') + box(c.opened, 'opened the link', 'Opened their link') + box(c.rated, 'gave stars', 'Tapped stars and sent them')
-      + box(c.happy, '4 or 5 stars', 'Were offered Google') + box(c.google_tapped, 'tapped Google', 'Pressed Review us on Google') + box(c.reviewed, 'reviewed', 'Left a Google review (matched from Google, or marked by hand)') + '</div>';
+    return '<div class="rs-counts">' + box(c.sent, 'asked', 'Texted from here, or offered Google after a happy check-in') + box(c.opened, 'opened the link', 'Opened their link') + box(c.rated, 'gave stars', 'Tapped stars and sent them')
+      + box(c.happy, '4 or 5 stars', 'Were offered Google') + box(c.google_tapped, 'tapped Google', 'Pressed Review us on Google') + box(c.other_shared, 'Facebook or words', 'No Google account: pressed Recommend us on Facebook, or shared their words (in Kind Words)') + box(c.reviewed, 'reviewed', 'Left a Google review (matched from Google, or marked by hand)') + '</div>';
   }
   function clientRows(){
     const d = S.data, q = S.q.trim().toLowerCase();
@@ -56,17 +56,17 @@
   function sentRows(){
     const d = S.data, q = S.q.trim().toLowerCase();
     const rows = (d.sends || []).filter(s => !s.test && (!q || (s.client + ' ' + s.to + ' ' + s.by).toLowerCase().includes(q)));
-    if(!rows.length) return '<div class="rs-empty">Nothing texted from here yet.</div>';
+    if(!rows.length) return '<div class="rs-empty">No review asks yet.</div>';
     const yes = (t, label) => t ? '<span class="rs-yes" title="' + esc(new Date(t).toLocaleString()) + '">' + label + '</span>' : '<span class="rs-no">not yet</span>';
-    return '<table class="rs-t"><thead><tr><th>Texted</th><th>Client</th><th>To</th><th>By</th><th>Opened</th><th>Stars</th><th>Tapped Google</th><th>Google review</th></tr></thead><tbody>' + rows.map(s => {
+    return '<table class="rs-t"><thead><tr><th>Asked</th><th>Client</th><th>To</th><th>By</th><th>Opened</th><th>Stars</th><th>Tapped Google</th><th>Google review</th></tr></thead><tbody>' + rows.map(s => {
       const rev = s.review === 'left' ? '<span class="rs-pill ok">' + (s.review_how === 'google' ? 'On Google' + (s.review_stars ? ' ' + s.review_stars + '★' : '') + (s.review_name ? ' as ' + esc(s.review_name) : '') : 'Left one (marked)') + '</span>'
           + (s.review_how === 'by_hand' ? ' <button class="linklike" onclick="rsMark(\'' + s.id + '\',null)">undo</button>' : '')
         : s.review === 'didnt' ? '<span class="rs-pill">Didn\'t</span> <button class="linklike" onclick="rsMark(\'' + s.id + '\',null)">undo</button>'
         : s.text === 'failed' ? '' : '<button class="linklike" onclick="rsMark(\'' + s.id + '\',\'left\')">Left one</button> · <button class="linklike" onclick="rsMark(\'' + s.id + '\',\'didnt\')">Didn\'t</button>';
       return '<tr><td>' + day(s.sent_at) + (s.text === 'failed' ? ' <span class="rs-pill warn">text refused</span>' : '') + '</td><td><a href="#p/A' + esc(s.ax) + '/summary">' + esc(s.client) + '</a></td>'
-        + '<td>' + esc(s.to) + (s.relationship ? ' <span class="field-note">' + esc(s.relationship) + '</span>' : '') + '</td><td>' + esc(s.by) + '</td>'
+        + '<td>' + esc(s.to) + (s.relationship ? ' <span class="field-note">' + esc(s.relationship) + '</span>' : '') + '</td><td>' + (s.source === 'checkin' ? '<span class="rs-pill ok">Happy check-in</span>' : esc(s.by)) + '</td>'
         + '<td data-l="Opened">' + (s.text === 'failed' ? '' : yes(s.opened_at, day(s.opened_at))) + '</td><td data-l="Stars">' + (s.rating ? stars(s.rating) + (s.rating <= 3 ? ' <span class="rs-pill warn">call them</span>' : '') : (s.text === 'failed' ? '' : '<span class="rs-no">not yet</span>')) + '</td>'
-        + '<td data-l="Tapped Google">' + (s.rating && s.rating <= 3 ? '<span class="field-note">not offered</span>' : s.text === 'failed' ? '' : yes(s.google_clicked_at, day(s.google_clicked_at))) + '</td><td>' + rev + '</td></tr>';
+        + '<td data-l="Tapped Google">' + (s.rating && s.rating <= 3 ? '<span class="field-note">not offered</span>' : s.text === 'failed' ? '' : yes(s.google_clicked_at, day(s.google_clicked_at)) + (s.facebook_clicked_at ? ' <span class="rs-pill">Facebook</span>' : '') + (s.words_at ? ' <span class="rs-pill">Shared words</span>' : '')) + '</td><td>' + rev + '</td></tr>';
     }).join('') + '</tbody></table>';
   }
   function draw(){
@@ -81,7 +81,7 @@
       + '<button class="fb' + (S.filter === 'due' ? ' active' : '') + '" onclick="rsFilter(\'due\')">Not asked in ' + d.again_days + ' days (' + due + ')</button>'
       + '<button class="fb' + (S.filter === 'all' ? ' active' : '') + '" onclick="rsFilter(\'all\')">All current clients (' + (d.clients || []).length + ')</button></div>'
       + '<div id="rsClients">' + clientRows() + '</div>'
-      + '<h4 class="rs-h4">Texted so far</h4><div id="rsSent">' + sentRows() + '</div></div>';
+      + '<h4 class="rs-h4">Asked so far</h4><div id="rsSent">' + sentRows() + '</div></div>';
     if(S.open) rsLen();
   }
   async function open(ax){

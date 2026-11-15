@@ -53,7 +53,7 @@ T = r"""async()=>{
   const V=window.__rs; switchTab('feedback'); await sleep(700);
   const box=()=>document.getElementById('rsBox'), txt=()=>box().innerText;
   ok('the Feedback tab opens with "Google review asks" at the top, above the star cards', box() && /Google review asks/.test(txt()) && box().compareDocumentPosition(document.getElementById('fbList')) & Node.DOCUMENT_POSITION_FOLLOWING, txt());
-  ok('...the counts: texted, opened, gave stars, 4 or 5 stars, tapped Google, reviewed', /3\s*texted/.test(txt()) && /2\s*opened the link/.test(txt()) && /2\s*gave stars/.test(txt()) && /1\s*4 or 5 stars/.test(txt()) && /1\s*tapped Google/.test(txt()) && /1\s*reviewed/.test(txt()), txt());
+  ok('...the counts: asked, opened, gave stars, 4 or 5 stars, tapped Google, reviewed', /3\s*asked/.test(txt()) && /2\s*opened the link/.test(txt()) && /2\s*gave stars/.test(txt()) && /1\s*4 or 5 stars/.test(txt()) && /1\s*tapped Google/.test(txt()) && /1\s*reviewed/.test(txt()), txt());
   const cl=()=>document.getElementById('rsClients').innerText;
   ok('...first, current clients NOT asked in 90 days (Hilda, Nora), not Carl', /Hilda Happy/.test(cl()) && /Nora None/.test(cl()) && !/Carl Match/.test(cl()), cl());
   ok('...with their Care Coordinator, and "never" asked', /Krystal Land/.test(cl()) && /never/.test(cl()));
@@ -72,7 +72,7 @@ T = r"""async()=>{
   document.getElementById('rsSendBtn').click(); await sleep(600);
   const sc=V.calls.find(c=>c.action==='send');
   ok('Send: sends the EDITED text to Rosa for Hilda', sc && sc.client_ax==='10' && sc.contact_id==='a' && sc.message==='Hi Rosa, this is Krystal. How are we doing? {link}', sc);
-  ok('...and Rosa is now in "Texted so far", not yet opened', /Rosa Diaz/.test(document.getElementById('rsSent').innerText) && /not yet/.test(document.getElementById('rsSent').innerText) && !/Hilda Happy/.test(cl()), document.getElementById('rsSent').innerText);
+  ok('...and Rosa is now in "Asked so far", not yet opened', /Rosa Diaz/.test(document.getElementById('rsSent').innerText) && /not yet/.test(document.getElementById('rsSent').innerText) && !/Hilda Happy/.test(cl()), document.getElementById('rsSent').innerText);
   const sent=document.getElementById('rsSent').innerText;
   ok('the sent list shows a Google match ("On Google 5★ as Jan M."), a low rating ("call them", Google not offered)', /On Google 5★ as Jan M\./.test(sent) && /call them/.test(sent) && /not offered/.test(sent), sent);
   const edRow=[...document.querySelectorAll('#rsSent tr')].find(r=>/Ed Open/.test(r.innerText));
