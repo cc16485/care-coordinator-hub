@@ -136,7 +136,8 @@ with sync_playwright() as pw:
                 L(2, answered_at='2026-11-14T16:00:00Z', mood='great', thanked=True, follow='kind_words', state='happy', first='Kay', client_first='Opal'),
                 L(3, state='no_response', first='Ned', client_first='Vern'),
                 L(4, answered_at='2026-11-13T16:00:00Z', mood='improve', follow='card', card_id='ops_checkin_4', state='called', confirm=True, first='Ida', client_first='Iris'),
-                L(5, answered_at='2026-11-14T16:00:00Z', mood='improve', follow='card', state='needs', first='Walt', client_first='Walt', self=True)]})
+                L(5, answered_at='2026-11-14T16:00:00Z', mood='improve', follow='card', state='needs', first='Walt', client_first='Walt', self=True),
+                L(6, audience='caregiver', kind='week_1', label='Week 1', answered_at='2026-11-14T16:00:00Z', mood='hard', follow='card', state='needs', first='Rachel', last='Moss', client_first='', client_ax='')]})
         pg.route('**/functions/v1/checkins', chk)
         pg.route('**/*', lambda r: r.fallback() if ('owner-inbox' in r.request.url or 'functions/v1/checkins' in r.request.url) else r.abort() if 'supabase.co' in r.request.url else r.continue_())
         pg.goto(BASE + 'index.html?proof=oix'); pg.wait_for_timeout(1200)
@@ -175,7 +176,13 @@ with sync_playwright() as pw:
     pg.evaluate("switchTab('cgcheckins')"); pg.wait_for_timeout(500)
     ct = pg.inner_text('#checkinsWrap')
     ok('Caregivers > Check-ins: caregivers only (no family rows, no Families button)', 'Linda' not in ct and "Dorothy's family" not in ct and 'Families' not in ct and 'Clients > Check-ins' in ct, ct[:500])
-    ok('Caregivers > Check-ins: its red number no longer counts families', not pg.is_visible('#chkBadge'), pg.inner_text('#chkBadge'))
+    ok('Caregivers > Check-ins: its red number counts caregivers only (1), never families', pg.inner_text('#chkBadge').strip() == '1', pg.inner_text('#chkBadge'))
+    ok('Caregivers > Check-ins: a caregiver\'s one-tap concern is on Needs you, with their name', 'Rachel Moss' in ct and 'Having a hard time' in ct, ct[:500])
+    pg.evaluate("CHK.setView('answers')"); pg.wait_for_timeout(200)
+    at_ = pg.inner_text('#checkinsWrap')
+    ok('Caregivers > Check-ins: a One-tap answers view lists caregiver answers only', 'Rachel Moss' in at_ and 'Week 1' in at_ and 'Linda' not in at_ and 'Walt' not in at_, at_[:500])
+    pg.evaluate("CHK.setView('needs')"); pg.wait_for_timeout(200)
+    ok('Clients > Check-ins never shows caregiver answers', 'Rachel' not in pg.evaluate("document.getElementById('clientCheckinsWrap').innerText"))
     pg.evaluate("CHK.setView('families')"); pg.wait_for_timeout(200)
     ok('an old "Families" view falls back to Needs you', 'Linda' not in pg.inner_text('#checkinsWrap'))
     pg.evaluate("switchTab('clientcheckins')"); pg.wait_for_timeout(400)
