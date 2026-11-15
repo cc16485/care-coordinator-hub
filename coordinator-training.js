@@ -65,7 +65,7 @@
             'Get signed in to the Hub, the office phone line, AxisCare and your email. Your trainer checks each one works.',
             'Tour the top menu of the Hub together, one section at a time, and say what each one is for.',
             'Watch your trainer open the day on ' + go('mywork', 'Today: Operations Board') + ': the handoff, open shifts, then the lanes in order. Care today, then Waiting on us, then Batches.',
-            'Learn the three buttons at the top of every page: ' + b('＋ Work') + ', ' + b('＋ Add Lead') + ' and ' + b('＋ Report a concern') + '.' ],
+            'Learn where things are added: ' + b('＋ Report a concern') + ' at the top of every page, ' + b('＋ Add work') + ' on My Work and ' + b('＋ Add lead') + ' on Leads.' ],
           solo: () => [
             'Read ' + how('day', 'How-to: Your day') + ', all six cards.',
             READ([['sop_decide', 'Who decides what, and who is in charge'], ['sop_open_day', 'Opening the day and running it'], ['sop_privacy', 'Privacy and what we share'], ['sop_phone', 'The office phone line and click-to-call']]),

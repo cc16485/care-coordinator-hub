@@ -66,7 +66,7 @@ T = r"""async()=>{
   ok('the line\'s late number is the Late group\'s', new RegExp('^'+lateN+' late').test(line.trim()), [lateN, line]);
   ccRenderPulse(); await sleep(50);
   const pulse=document.getElementById('topbarPulse').innerText;
-  ok('the header\'s number is the page\'s too', new RegExp('\\b'+lateN+'\\b\\s*late for you').test(pulse) || /need/.test(pulse), [pulse, lateN]);
+  ok('the header\'s number is the page\'s too', new RegExp('\\b'+lateN+'\\b\\s*late\\b').test(pulse) || /need/.test(pulse), [pulse, lateN]);
   ok('reminders fold into one line', /\d+ reminders? for your information/.test(mw()) && !/Yellow flag: client seemed tired/.test(mw()));
   CMW.rem(); await sleep(80);
   ok('...and open on Show', /Yellow flag: client seemed tired/.test(mw()));
@@ -81,7 +81,8 @@ T = r"""async()=>{
   ok('⋯ holds Hand off and Talk about', pop.some(t=>/^Hand off/.test(t)) && pop.some(t=>/Talk about/.test(t)), pop);
   if(typeof ccPopClose==='function') ccPopClose();
   const addWork=[...document.querySelectorAll('#tab-mywork button')].find(b=>/Add work/.test(b.innerText)), addLead=[...document.querySelectorAll('#tab-mywork button')].find(b=>/\+ Add lead/.test(b.innerText));
-  ok('+ Add work on the page is gone; + Add lead (her ask) stays', !vis(addWork) && vis(addLead));
+  /* 2026-11-15 (her ask): the header's "+ Work" went, so "+ Add work" on the page shows again with the same choices */
+  ok('+ Add work on the page shows (the header has none now); + Add lead (her ask) stays', vis(addWork) && addWork.id==='ccAddBtn' && vis(addLead));
   ok('nothing says "NEEDS YOU NOW · 0" or "Nothing waiting" (empty sections hidden)', !/NEEDS YOU NOW · 0/.test(mw()) && !/Nothing waiting\./.test(mw()));
   const tw=TW.list().find(x=>x.it.id==='ops_covfill_8');
   ok('care-at-risk words say only what happens (no texts to Samantha or Zach)', !/text to Samantha|text to Zach/.test(JSON.stringify(TW.escalation?TW.escalation(tw.it,TW.ctx()):'')) && !/text to Samantha|text to Zach/.test(mw()));

@@ -9,8 +9,8 @@
      2  Today is in time order: On duty now, Late, Today, Later this week. Reminders fold into one line.
      3  Each card is one line and one button that fits it; Hand off and Talk about move into ⋯. No "Unclassified", no code
         names, no "made on" date. Tick boxes only for owners.
-     4  Empty sections are hidden. Group explanations show for a person's first two weeks only. The duplicate "+ Add work"
-        on the page goes (the header has + Work); "+ Add lead" stays (her ask this morning).
+     4  Empty sections are hidden. Group explanations show for a person's first two weeks only. "+ Add work" on the page
+        opens the same choices the header's old "+ Work" did (2026-11-15 the header button went); "+ Add lead" stays.
      5  The header's late number is the page's Late count.
      7  No Team Work tab: what needs whoever is on duty sits at the top of Today ("On duty now"), only for people on duty
         (everyone when nobody is on the schedule), with Take it.
@@ -169,7 +169,6 @@
 body.cmw-on #tab-mywork .wkcard .wkchkhit{display:none}
 body.cmw-on.cmw-owner #tab-mywork .wkcard.selected .wkchkhit,body.cmw-on.cmw-owner #tab-mywork .wkcard:hover .wkchkhit{display:inline-block}
 body.cmw-on #tab-mywork .wkchip.cmw-unclassified{display:none}
-body.cmw-on #tab-mywork button[onclick="opsToggleAdd()"]{display:none}
 body.cmw-on:not(.cmw-new) #tab-mywork .mwt-tier>div:nth-child(2):not([class]){display:none}`;
     document.head.appendChild(s);
   }
