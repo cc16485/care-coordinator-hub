@@ -405,11 +405,20 @@ ck('day headers: Today · Tomorrow · Thursday · Oct 20', R.dayHeader('2026-10-
     ck('web referral marked Urgent: a red "Urgent referral: call Lisa now" flag until someone reaches them', fu.some(f => f.key === 'urgent_referral' && f.tone === 'bad' && /call Lisa now/.test(f.text))
       && !R.flags(Object.assign({}, web, { first_human_contact_at:'2026-10-08T14:20:00Z' }), { today:'2026-10-08' }).some(f => f.key === 'urgent_referral')
       && !R.flags(Object.assign({}, web, { referral_urgency:'routine' }), { today:'2026-10-08' }).some(f => f.key === 'urgent_referral'), fu);
-    const pl = R.partnerLoop(Object.assign({}, web, { first_human_contact_at:'2026-10-08T14:20:00Z' }), { today:'2026-10-08', org:{ name:'Mercy Hospital', people:'Dana Smith (social work)' } });
+    const pl = R.partnerLoop(Object.assign({}, web, { first_human_contact_at:'2026-10-08T14:20:00Z', partner_ok:{ v:'yes' } }), { today:'2026-10-08', org:{ name:'Mercy Hospital', people:'Dana Smith (social work)' } });
     ck('...the partner update greets the person who referred (Lisa), not the first name on the partner record', pl.due[0] && /^Hi Lisa,/.test(pl.due[0].text), pl.due); }
   const row = R.boardRow(base, Object.assign({}, C, { people, stage:'connected' }));
   ck('the board: the discharge outranks an ordinary urgent start (4.5, red, "rehab discharge, assessment not booked") and both flags are chips on the row', row.reason === 'urgent_start' && row.rank === 4.5 && row.when.tone === 'red' && row.when.sub === 'rehab discharge, assessment not booked' && row.chips.some(c => c.key === 'urgent_discharge') && row.chips.some(c => c.key === 'staffing_risk'), row);
-  /* the partner loop */
+  /* the partner loop (2026-11-15: updates about the family wait for the family's OK) */
+  const notAsked = R.partnerLoop(base, C);
+  ck('the family not asked yet: nothing is due, the receipt waits for their OK', notAsked.ok === '' && !notAsked.due.length && notAsked.waiting.map(d => d.kind).join() === 'receipt', notAsked);
+  const saidNo = R.partnerLoop(R.setPartnerOk(JSON.parse(JSON.stringify(base)), 'no', 'kry@mo-care.com', '2026-10-06T15:00:00Z'), Object.assign({}, C, { assessments:[{ status:'Scheduled', visit_date:'2026-10-07' }] }));
+  ck('the family said no: only a general thank-you, with no family name in it', saidNo.ok === 'no' && saidNo.due.map(d => d.kind).join() === 'thanks_general' && !/Marjorie|Teague|Diane/.test(saidNo.due[0].text) && /^Hi Jan, this is Krystal/.test(saidNo.due[0].text), saidNo);
+  const noSent = R.recordPartnerMsg(R.setPartnerOk(JSON.parse(JSON.stringify(base)), 'no', 'k', '2026-10-06T15:00:00Z'), { kind:'thanks_general' }, '2026-10-06T16:00:00Z');
+  ck('...once the thank-you went, nothing more is owed', !R.partnerLoop(noSent, C).due.length);
+  base.partner_ok = { v:'yes', by:'kry@mo-care.com', at:'2026-10-06T15:00:00Z' };
+  const owed = R.partnerOwed([base, Object.assign({}, base, { id:'L-ask', partner_ok:null }), Object.assign({}, base, { id:'L-none', referral_org_id:'', referral_source_name:'', source:'Website' }), Object.assign({}, base, { id:'L-arch', archived:true }), Object.assign({}, base, { id:'L-old', status:'Lost', lost_at:'2026-08-01T15:00:00Z', lost_reason_key:'price' })], l => l.referral_org_id ? C : Object.assign({}, C, { org:null }), '2026-10-08');
+  ck('Updates owed: one to send (family said yes), one to ask the family; none for a lead with no partner, an archived one, or one lost more than 14 days ago', owed.length === 2 && owed[0].kind === 'send' && owed[1].kind === 'ask' && owed[1].id === 'L-ask', owed.map(o => [o.id, o.kind]));
   let pl = R.partnerLoop(base, C);
   ck('partner loop: Mercy Rehab (rehab / skilled nursing, professional); we reached the family → the receipt is due, in her words with Jan, Marjorie Teague, Diane and Krystal', pl.partner.name === 'Mercy Rehab' && pl.partner.professional && pl.due.length === 1 && pl.due[0].kind === 'receipt' && pl.due[0].text === 'Hi Jan, this is Krystal with Caring Companions. Thank you for referring Marjorie Teague to us. We connected with Diane today and are working with the family on next steps. I will keep you updated as things move forward.', pl);
   pl = R.partnerLoop(base, Object.assign({}, C, { assessments:[{ status:'Scheduled', visit_date:'2026-10-07' }] }));

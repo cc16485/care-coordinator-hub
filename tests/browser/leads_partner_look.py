@@ -35,7 +35,11 @@ async()=>{
   await openClient({ lead_id:'mar' }, 'summary'); await sleep(400);
   const host=document.getElementById('lwHost'), T=()=>host.innerText;
   ok('the workspace header carries both chips; the staffing card says 1 caregiver and shows Staffing risk', /Rehab discharge: needs care by Thu/.test(T()) && /Staffing risk: 1 caregiver available Weekends overnights/.test(T()) && /1 caregiver says they are available Weekends overnights/.test(T()), T().slice(0,600));
-  ok('the Referral partner card: Mercy Rehab · Rehab / skilled nursing, Jan, the phone from the office line, the email; "We reached the family" is due with Draft it; nothing has gone to them', /Referral partner\s*Mercy Rehab · Rehab \/ skilled nursing\s*Jan Ortiz/.test(T()) && host.querySelector('a[data-oc-phone="4175550100"]') && /referrals@mercy.org/.test(T()) && /DUE TO GO \(A DRAFT, YOU SEND IT\)\s*We reached the family\s*Draft it/i.test(T()) && /Nothing has gone to them yet/.test(T()), T().slice(T().indexOf('Referral partner'), T().indexOf('Referral partner')+400));
+  ok('the Referral partner card: Mercy Rehab · Rehab / skilled nursing, Jan, the phone from the office line, the email; nothing has gone to them', /Referral partner\s*Mercy Rehab · Rehab \/ skilled nursing\s*Jan Ortiz/.test(T()) && host.querySelector('a[data-oc-phone="4175550100"]') && /referrals@mercy.org/.test(T()) && /Nothing has gone to them yet/.test(T()), T().slice(T().indexOf('Referral partner'), T().indexOf('Referral partner')+400));
+  /* 2026-11-15: nothing about the family goes before the family says OK */
+  ok('not asked yet: the card asks "is it OK to let Mercy Rehab know how things go?", the receipt waits, nothing to draft', /Ask the family: is it OK to let Mercy Rehab know how things go\?/.test(T()) && /We reached the family waits for their answer/.test(T()) && ![...host.querySelectorAll('button')].some(b=>b.textContent==='Draft it'), T().slice(T().indexOf('Referral partner'), T().indexOf('Referral partner')+600));
+  [...host.querySelectorAll('button')].find(b=>b.textContent==='OK to update them').click(); await sleep(300);
+  ok('OK to update them: saved with who, the card says so, and "We reached the family" is due with Draft it', DATA.leads[0].partner_ok && DATA.leads[0].partner_ok.v==='yes' && DATA.leads[0].partner_ok.by==='krystal@mo-care.com' && /The family said we may update Mercy Rehab/.test(T()) && /DUE TO GO \(A DRAFT, YOU SEND IT\)\s*We reached the family\s*Draft it/i.test(T()) && window.__log.writes.some(w=>w.k==='leads'&&w.v.partner_ok), T().slice(T().indexOf('Referral partner'), T().indexOf('Referral partner')+600));
   /* Draft it → Email */
   [...host.querySelectorAll('button')].find(b=>b.textContent==='Draft it').click(); await sleep(120);
   const pop=document.querySelector('.ccpop');
@@ -62,7 +66,7 @@ async()=>{
   ok('...and saves on the inquiry (referral_subtype case_manager, org o1)', w.referral_subtype==='case_manager' && w.referral_org_id==='o1', w);
   /* settings */
   switchTab('settings'); await sleep(300); lhSetFill();
-  ok('Settings → Leads: the five partner lines, blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===5 && /Thank you for referring/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
+  ok('Settings → Leads: the six partner lines (the general thank-you added 2026-11-15), blank, standard wording in grey', document.querySelectorAll('#lwPartner textarea[data-partner]').length===6 && /Thank you for referring/.test(document.querySelector('#lwPartner textarea[data-partner="receipt"]').placeholder));
   return R;
 }
 """

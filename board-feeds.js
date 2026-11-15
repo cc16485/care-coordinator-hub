@@ -12,6 +12,7 @@
     { key:'feedback', label:'Feedback', one:'piece of feedback nobody has opened', many:'pieces of feedback nobody has opened', sub:'From families and caregivers', tab:'feedback', go:'Open Feedback' },
     { key:'circles', label:'Family Circles', one:'Family Circle needs a look', many:'Family Circles need a look', sub:'Nobody with HIPAA, nobody we can text, or a welcome not sent', tab:'fccheck', go:'Open Family Circles' },
     { key:'partner_owner', label:'Referral Partners', one:'referral partner needs an owner', many:'referral partners need an owner', sub:'Pick a Care Coordinator for each', tab:'referrers', go:'Open Referral Partners' },
+    { key:'partner_updates', label:'Referral Partners', one:'referral partner is owed an update', many:'referral partners are owed an update', sub:'Thank them and say how it went, once the family says OK', tab:'referrers', go:'Open Referral Partners' },
     { key:'partner_link', label:'Referral Partners', one:'referral to link to a partner', many:'referrals to link to a partner', sub:'So they count for the right partner', tab:'referrers', go:'Open Referral Partners' },
     { key:'carematch', label:'Care Match Check-ins', one:'care match call due', many:'care match calls due', sub:'First shift together, good-fit follow-up, or a concern to check again', tab:'carematch', go:'Open Care Match' },
     { key:'first_shift', label:'First shift', one:'new client waiting on a first-shift follow-up call', many:'new clients waiting on a first-shift follow-up call', sub:'The 24 to 72 hour calls to the family and the caregiver', tab:'clientqueue', go:'Open First shift' },
@@ -55,6 +56,8 @@
         const need = can ? PR.needsOwner(orgs) : [], un = PR.unlinked(d.leads || []);
         out.partner_owner = { n:need.length, names:need.map(function (o) { return o.name; }) };
         out.partner_link = { n:un.length, names:[] };
+        /* 2026-11-15: updates owed to referral partners (lead-workspace.js reads the leads' own partner loop) */
+        if(typeof W.lwPartnerOwed === 'function'){ const ow = W.lwPartnerOwed(); out.partner_updates = { n:ow.length, names:ow.map(function (x) { return x.partner; }).filter(function (x, i, a) { return a.indexOf(x) === i; }) }; }
       }
     } catch (e) { out.partner_owner = { n:0, err:true }; }
     const cks = (d.client_checkins || []).filter(function (c) { return c && c.client_name && !c.axiscare_client_id; });

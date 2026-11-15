@@ -66,6 +66,15 @@
         + (typeof peOpen === 'function' && ((o.contacts || []).some(c => c && !c.archived && c.email) || o.email) ? '<button class="fb" onclick="peOpen(\'' + esc(x.id) + '\')">Email</button>' : '') + '</div></div>'; }).join('')
       : '<div class="field-note" style="padding:8px 0;">You\'re caught up for the week.</div>';
     h += '</div>';
+    /* Updates owed (Samantha 2026-11-15, "Yes, build both"): every referral where the partner is owed an update, or the family
+       still needs asking whether we may update them. The work is done on the lead's Referral partner card. */
+    const owed = typeof lwPartnerOwed === 'function' ? lwPartnerOwed() : [];
+    if(owed.length) h += '<div class="card pd-desk" id="pdOwed"><div class="pd-head"><b>Updates owed to partners</b><span class="field-note">' + owed.length + ' referral' + (owed.length === 1 ? '' : 's') + '</span></div>'
+      + '<div class="field-note pd-sub">Thank them and keep them posted. Nothing about the family goes until the family says it\'s OK.</div>'
+      + owed.map(x => { const l = x.lead, who = String(((l.client_first_name || l.first_name || 'A family') + ' ' + String(l.client_last_name || l.last_name || '').slice(0, 1)).trim()) + (String(l.client_last_name || l.last_name || '') ? '.' : '');
+        return '<div class="pd-row"><div class="pd-main"><b>' + esc(who) + '</b> <span class="field-note">from ' + esc(x.partner) + '</span>'
+          + '<div class="field-note">' + (x.kind === 'ask' ? 'Ask the family if ' + esc(x.partner) + ' may hear how it goes · waiting: ' : 'Ready to send: ') + esc(x.items.join(', ')) + '</div></div>'
+          + '<div class="pd-acts"><button class="' + (x.kind === 'ask' ? 'fb' : 'primary') + '" onclick="try{openLeadProfile(\'' + esc(x.id) + '\')}catch(e){}">' + (x.kind === 'ask' ? 'Open to ask' : 'Open to send') + '</button></div></div>'; }).join('') + '</div>';
     if(need.length) h += '<div class="card pd-desk"><div class="pd-head"><b>Needs an owner</b><span class="field-note">' + need.length + ' partner' + (need.length === 1 ? '' : 's') + ' nobody owns yet; pick a Care Coordinator for each</span></div>'
       + need.map(o => '<div class="pd-row"><div class="pd-main"><a href="javascript:void(0)" onclick="openRefProfile(\'' + esc(o.id) + '\')"><b>' + esc(o.name) + '</b></a><div class="field-note">' + esc(o.type || '') + ' · added ' + esc(day(o.created_at)) + '</div></div>'
         + '<div class="pd-acts"><select id="pdOwn_' + esc(o.id) + '" aria-label="Owner for ' + esc(o.name) + '"><option value="">Pick a person…</option>' + people().map(p => '<option value="' + esc(p.email) + '">' + esc(p.name) + '</option>').join('') + '</select><button class="primary" onclick="pdAssign(\'' + esc(o.id) + '\')">Assign</button></div></div>').join('') + '</div>';

@@ -1036,14 +1036,17 @@
     }
     return out;
   }
-  const PARTNER_KINDS = ['receipt', 'assessment', 'outcome_started', 'outcome_lost', 'weekly'];
-  const PARTNER_LABEL = { receipt:'We reached the family', assessment:'Assessment scheduled', outcome_started:'The family chose us', outcome_lost:'The family did not start with us', weekly:'Weekly status while Medicaid is pending' };
+  const PARTNER_KINDS = ['receipt', 'assessment', 'outcome_started', 'outcome_lost', 'weekly', 'thanks_general'];
+  const PARTNER_LABEL = { receipt:'We reached the family', assessment:'Assessment scheduled', outcome_started:'The family chose us', outcome_lost:'The family did not start with us', weekly:'Weekly status while Medicaid is pending', thanks_general:'Thank you (no family details)' };
   const PARTNER_DEFAULT = {   /* her words (reviewed 2026-10-07): drafts a person reads and sends */
     receipt:'Hi {partner}, this is {me} with Caring Companions. Thank you for referring {client} to us. We connected with {family} today and are working with the family on next steps. I will keep you updated as things move forward.',
     assessment:'Hi {partner}, a quick update on {client}: we connected with the family and have the in-home assessment scheduled for {day}. After the visit, I will let you know where things stand and the anticipated next step toward starting care.',
     outcome_started:'Hi {partner}, good news. {client}\'s family has chosen Caring Companions, and we are moving forward with care. The anticipated start is {start}. Thank you again for trusting us with your referral. We will take good care of them.',
     outcome_lost:'Hi {partner}, I wanted to close the loop on {client}. Care will not be starting with Caring Companions at this time. {reason} Thank you for thinking of us, and please keep us in mind whenever another family needs help.',
     weekly:'Hi {partner}, our weekly update on {client}: the Medicaid authorization is still pending with the state ({days} days so far). We are staying in touch with the family while they wait and are prepared to move to the next step once authorization is received. I will continue to keep you posted.',
+    /* the family said no to updates (Samantha 2026-11-15, "Yes, build both"; her 10-08 design: "Not permitted" = only a general
+       message with nothing that identifies the family) */
+    thanks_general:'Hi {partner}, this is {me} with Caring Companions. Thank you for thinking of us and sending a referral our way. We always follow up right away, and we are grateful for your trust.',
   };
   /* the reason a referral partner hears: brief and appropriate to share; never the family's private details */
   const LOST_SHARE = { could_not_staff:'We were not able to staff the requested schedule.', outside_area:'The home is outside our service area.', price:'The family chose not to move forward at this time.', minimum_hours:'The family chose not to move forward at this time.',
@@ -1062,6 +1065,14 @@
     const over = ctx.templates || {}, tpl = k => String(over[k] || PARTNER_DEFAULT[k]);
     const v = { partner:contact, me:String(ctx.me || 'the Care Coordinator').split(' ')[0], client, family, day:'', start:'', reason:'', days:'' };
     const due = [];
+    /* THE FAMILY'S OK (Samantha 2026-11-15, "Yes, build both"): anything about the family goes to the referrer only after
+       the family said yes (l.partner_ok.v). They said no: one general thank-you with no family details, nothing else.
+       Not asked yet: the updates wait and the card asks the question first. */
+    const okv = String((l.partner_ok && l.partner_ok.v) || '');
+    if(okv === 'no'){
+      if(!has('thanks_general') && !has('receipt')) due.push({ kind:'thanks_general', title:PARTNER_LABEL.thanks_general, text:fill(tpl('thanks_general'), v) });
+      return { partner:{ name, subtype:sub, label:SUBTYPE_LABEL[sub] || '', professional:PROFESSIONAL.indexOf(sub) > -1 }, ok:'no', sent:sent.sort((a, b) => String(b.at).localeCompare(String(a.at))), due, waiting:[] };
+    }
     if(l.first_human_contact_at && !has('receipt')) due.push({ kind:'receipt', title:PARTNER_LABEL.receipt, text:fill(tpl('receipt'), v) });
     const asm = asmtNext(Object.assign({}, ctx, { lead:l, now:ctx.now || new Date().toISOString(), today }));
     if(asm && asm.kind === 'booked' && !has('assessment')) due.push({ kind:'assessment', title:PARTNER_LABEL.assessment, text:fill(tpl('assessment'), Object.assign({}, v, { day:dayWords(asm.day, today) })) });
@@ -1072,7 +1083,34 @@
       const since = lastAt && lastAt > (w.since || '') ? chicago(lastAt).ymd : (w.since || today);
       if(daysBetween(since, today) >= 7) due.push({ kind:'weekly', title:PARTNER_LABEL.weekly, text:fill(tpl('weekly'), Object.assign({}, v, { days:String(stateDays(l, w, today) == null ? daysBetween(w.since || today, today) : stateDays(l, w, today)) })) });
     }
-    return { partner:{ name, subtype:sub, label:SUBTYPE_LABEL[sub] || '', professional:PROFESSIONAL.indexOf(sub) > -1 }, sent:sent.sort((a, b) => String(b.at).localeCompare(String(a.at))), due };
+    const partner = { name, subtype:sub, label:SUBTYPE_LABEL[sub] || '', professional:PROFESSIONAL.indexOf(sub) > -1 }, sorted = sent.sort((a, b) => String(b.at).localeCompare(String(a.at)));
+    if(okv !== 'yes') return { partner, ok:'', sent:sorted, due:[], waiting:due };   /* held until the family is asked */
+    return { partner, ok:'yes', sent:sorted, due, waiting:[] };
+  }
+  /** the family's answer, recorded with who and when (the referrer hears about the family only after a yes) */
+  function setPartnerOk(l, v, by, nowIso){
+    const at = nowIso || new Date().toISOString();
+    l.partner_ok = { v:v === 'yes' ? 'yes' : 'no', by:String(by || ''), at };
+    return l;
+  }
+  /** every update owed to a referral partner across the open inquiries: the Operations Board counts these, Referral Partners
+      lists them. ask = the family hasn't been asked yet and something is waiting on that answer. ctxFor(l) gives the
+      lead's own context (its partner record, assessments, settings), as the lead page uses. */
+  const OWED_CLOSED_DAYS = 14;
+  function partnerOwed(leads, ctxFor, today){
+    const out = [];
+    (leads || []).forEach(l => {
+      if(!l || l.archived || (l.spam && l.spam.at)) return;
+      /* a closed inquiry (started or lost) stays on the list for 14 days after it closed, so old ones never flood it */
+      const st = String(l.status || ''), closedAt = st === 'Lost' ? (l.lost_at || l.updated_at) : (st === 'Converted' || l.said_yes_at) ? (l.said_yes_at || l.updated_at) : '';
+      if(closedAt && today && daysBetween(chicago(closedAt).ymd, today) > OWED_CLOSED_DAYS) return;
+      if((st === 'Lost' || st === 'Converted') && !closedAt) return;
+      let pl; try{ pl = partnerLoop(l, ctxFor ? ctxFor(l) : {}); }catch(e){ return; }
+      if(!pl.partner) return;
+      if(pl.due.length) out.push({ id:l.id, lead:l, partner:pl.partner.name, kind:'send', items:pl.due.map(d => d.title) });
+      else if(pl.waiting && pl.waiting.length) out.push({ id:l.id, lead:l, partner:pl.partner.name, kind:'ask', items:pl.waiting.map(d => d.title) });
+    });
+    return out;
   }
   /* a person sent (or said) something to the referrer: recorded on the inquiry; the timeline and the loop read it */
   function recordPartnerMsg(l, m, nowIso){
@@ -1406,7 +1444,7 @@
     FUTURE, FUTURE_KIND, FUTURE_PERMISSION, isSaved, futureRecord, saveForFuture, statusBeforeSaved, reactivate, mayContact, demand, DEMAND_FAMILIES, DEMAND_HOURS, DEMAND_DAYS,
     markAuthorized, authorizationPending, stateDays, DSDS_AMBER_DAYS, DSDS_RED_DAYS, median, ownerNumbers, periodNumbers, leadNext, nextWords, setNext, STATUSES, setStatus, statusBeforeLost,
     STEP_KEYS, steps, timeline, SCRIPT_KEYS, SCRIPT_LABEL, SCRIPT_DEFAULT, scriptFor, timeCats, staffingLook, whenWords, RUNGS_DEFAULT, RUNG_WORDS, rungSettings, rungsDue, stampRung, oneText,
-    SUBTYPE_LABEL, SUBTYPE_KEYS, PROFESSIONAL, referralSubtype, flags, PARTNER_KINDS, PARTNER_LABEL, PARTNER_DEFAULT, partnerName, partnerLoop, recordPartnerMsg, MEDICAID_LONG_DAYS, medicaidPipeline, missingRequired,
+    SUBTYPE_LABEL, SUBTYPE_KEYS, PROFESSIONAL, referralSubtype, flags, PARTNER_KINDS, PARTNER_LABEL, PARTNER_DEFAULT, partnerName, partnerLoop, recordPartnerMsg, setPartnerOk, partnerOwed, MEDICAID_LONG_DAYS, medicaidPipeline, missingRequired,
     ASMT_TARGET_DAYS, DECISION_DAYS, stageWord, oneNext, FAMILY_REASONS, assessmentOverdue, decisionStale, cadenceNext, medicaidLong, carriedForward, yesThanks, afterCall, afterCallAuto, madeFromCall, afterCallDue };
   if(typeof module !== 'undefined' && module.exports) module.exports = api;
   root.LeadRules = api;

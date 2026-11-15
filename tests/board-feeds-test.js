@@ -12,6 +12,8 @@ ok('a list that could not be read is named once', JSON.stringify(B.problemsOf({ 
 const r2 = B.rowsOf({ carematch:{ n:2, names:['A and B', 'C and D'] }, first_shift:{ n:1, names:['E'] }, no_checkin:{ n:3 }, no_review:{ n:1 }, ff_needs:{ n:2 } });
 ok('second slice rows, each with its own tab', JSON.stringify(r2.map(x => x.key + '>' + x.tab)) === JSON.stringify(['carematch>carematch', 'first_shift>clientqueue', 'no_checkin>clientsboard', 'no_review>clientsboard', 'ff_needs>friendsfamily']), r2);
 ok('website chats Cara could not answer go to the Ask Cara chats tab', B.rowsOf({ cara_missed:{ n:2 } })[0].tab === 'carachats');
+{ const rp = B.rowsOf({ partner_updates:{ n:2, names:['Mercy Hospital', 'CoxHealth'] } })[0];
+  ok('updates owed to referral partners: one row with the partner names, opens Referral Partners (2026-11-15)', rp.key === 'partner_updates' && rp.title === 'referral partners are owed an update' && rp.sub === 'Mercy Hospital, CoxHealth' && rp.tab === 'referrers', rp); }
 ok('every feed has a label, one, many, tab and button', B.FEEDS.every(f => f.label && f.one && f.many && f.tab && f.go), B.FEEDS);
 ok('no em dashes in any wording', !/—/.test(JSON.stringify(B.FEEDS)));
 console.log(pass + '/' + n + ' passed'); process.exit(pass === n ? 0 : 1);

@@ -129,12 +129,21 @@
     }).join('').split('{assets}').join(assets);
   }
 
+  const REFER_PLAIN = 'https://mo-care.com/refer';
+  /** a partner's own referral form link: their code rides along and is remembered by the page (mo-care.com forms.js) */
+  function referLink(code) {
+    const c = String(code == null ? '' : code).trim().toUpperCase();
+    return /^[A-Z0-9-]{3,20}$/.test(c) ? 'https://mo-care.com/referral-partners?p=' + c + '#referral-form' : REFER_PLAIN;
+  }
   function build(e, opts) {
     opts = opts || {};
     e = withOpener(e, opts.seg);
     const assets = String(opts.assets || ASSETS).replace(/\/$/, '');
     /* '{unsub}' is left as it is: the by-hand sender (campaign-send) puts each person's own link there */
     const unsub = opts.unsub === '{unsub}' ? '{unsub}' : safe(opts.unsub || 'mailto:samantha@mo-care.com?subject=Please%20unsubscribe%20me');
+    /* the partner's OWN referral link (Samantha 2026-11-15, "Yes, build both"): opts.code makes it theirs, so a referral sent
+       from the email links to them by itself; '{refer}' is left for the by-hand sender to fill per person; none = the plain page */
+    const refer = opts.refer === '{refer}' ? '{refer}' : safe(opts.refer || referLink(opts.code));
     const partner = isPartner(e), ph = photoOf(e, opts.seg);
     const why = e.footer || WHY[e.aud] || WHY_FAMILY;
     const fest = festiveOf(e), th = fest ? FESTIVE[fest] : null, mid = th ? 'text-align:center;' : '';
@@ -161,7 +170,7 @@
       + (th ? sprig + '</td></tr><tr><td class="cc-pad" style="padding:28px 34px 8px;">' : '')
       + blocks(e, assets, th)
       + (e.cta ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 8px;"><tr><td class="cc-btn" align="' + (th ? 'center' : 'left') + '"><a href="' + safe(e.cta.href) + '" style="display:inline-block;background:' + (th ? th.btn : TEAL) + ';color:#ffffff;font-family:' + SANS + ';font-size:16px;font-weight:700;text-decoration:none;text-align:center;padding:14px 26px;border-radius:8px;">' + e.cta.label + '</a></td></tr></table>' : '')
-      + (partner ? '<p style="margin:10px 0 0;font-family:' + SANS + ';font-size:14.5px;line-height:1.6;color:' + MUTED + ';">Have a patient who needs help at home? <a href="https://mo-care.com/refer" style="color:' + TEAL + ';font-weight:700;">Refer in two minutes</a>, call <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>, or fax <span style="white-space:nowrap;">' + FAX + '</span>.</p>' : '')
+      + (partner ? '<p style="margin:10px 0 0;font-family:' + SANS + ';font-size:14.5px;line-height:1.6;color:' + MUTED + ';">Have a patient who needs help at home? <a href="' + refer + '" style="color:' + TEAL + ';font-weight:700;">Refer in two minutes</a>, call <a href="tel:4172348494" style="color:' + TEAL + ';font-weight:700;text-decoration:none;white-space:nowrap;">' + PHONE + '</a>, or fax <span style="white-space:nowrap;">' + FAX + '</span>.</p>' : '')
       + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-top:1px solid #e6eceb;"><tr><td style="padding:18px 0 26px;">'
       + '<div style="font-family:' + SERIF + ';font-size:17px;font-style:italic;color:' + MUTED + ';margin-bottom:3px;">' + (e.sign || 'With care,') + '</div>'
       + '<div style="font-family:' + SANS + ';font-size:15px;font-weight:bold;color:' + NAVY + ';">The Caring Companions Team</div>'
@@ -174,5 +183,5 @@
       + '<div style="font-family:' + SANS + ';font-size:12px;line-height:1.6;color:#9fb0c0;">' + why + ' <a href="' + unsub + '" style="color:#ffffff;font-weight:700;">Unsubscribe</a></div>'
       + '</td></tr></table></td></tr></table></body></html>';
   }
-  return { build, photoOf, festiveOf, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };
+  return { build, photoOf, festiveOf, referLink, FESTIVE, PARTNER_PHOTO, WHY, ASSETS };
 });

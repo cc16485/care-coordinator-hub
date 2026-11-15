@@ -41,6 +41,8 @@
   function build(e){
     const x = JSON.parse(JSON.stringify(e)); x.subj = PE.subj || e.subj;
     if(PE.note.trim()) x.blocks = [{ t:'p', text:PE.note.trim() }].concat(x.blocks || []);
+    /* 2026-11-15: the partner's own referral link (their code) under the email, so a referral from it links to them */
+    if(window.CCEmailTemplate && typeof CC_EMAIL_ASSETS !== 'undefined') return { subj:x.subj, html:CCEmailTemplate.build(x, { unsub:'{unsub}', assets:CC_EMAIL_ASSETS, seg:PE.org ? segOf(PE.org) : '', code:PE.org ? PE.org.partner_code : '' }) };
     return { subj:x.subj, html:typeof ccBuildEmailHTML === 'function' ? ccBuildEmailHTML(x, PE.org ? segOf(PE.org) : '') : '' };
   }
   function open(orgId){
@@ -114,7 +116,7 @@
     if(!e) return [];
     const sent = sentMap(), out = [];
     /* professional partners and the email list (program_track 'email_list', 2026-11-13); every other program is left out */
-    (DATA.referral_orgs || []).filter(o => o && !o.archived && (!o.program_track || o.program_track === 'email_list') && (e.seg === ANY || segOf(o) === e.seg)).forEach(o => people(o).forEach(p => { if(!sent[e.key + '|' + p.email]) out.push({ email:p.email, name:p.name, org_id:o.id, contact_id:p.contact_id }); }));
+    (DATA.referral_orgs || []).filter(o => o && !o.archived && (!o.program_track || o.program_track === 'email_list') && (e.seg === ANY || segOf(o) === e.seg)).forEach(o => people(o).forEach(p => { if(!sent[e.key + '|' + p.email]) out.push({ email:p.email, name:p.name, org_id:o.id, contact_id:p.contact_id , refer_code:o.partner_code || ''}); }));
     return out;
   }
   async function bulkRecord(e, results){
