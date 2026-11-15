@@ -111,8 +111,8 @@ with sync_playwright() as p:
     row = idx[idx.index('id="fsub-sops"'):idx.index('</div>\n\n', idx.index('id="fsub-sops"'))]
     # 2026-10-30 Videos sits between Client Folders and Order Supplies
     # 2026-10-17 her "i want it inside SOPs": Forms & Templates and Client Folders sit before Order Supplies; Scripts is off the row
-    ck('the SOPs row has Order Supplies, last', re.findall(r"switchTab\('(\w+)'\)", row) == ['sops', 'sopref', 'docs', 'docfolders', 'videos', 'supplies'], re.findall(r"switchTab\('(\w+)'\)", row))
-    ck('it is in the SOPs group and has a panel with a frame', "sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies']" in idx and 'id="tab-supplies"' in idx and 'id="suppliesFrame"' in idx)
+    ck('the SOPs row has Order Supplies, last', re.findall(r"switchTab\('(\w+)'\)", row) == ['sops', 'sopref', 'docs', 'supplies'], re.findall(r"switchTab\('(\w+)'\)", row))
+    ck('it is in the SOPs group and has a panel with a frame', "sops:['sops','sopref','playbook','docs','routing','supplies']" in idx and 'id="tab-supplies"' in idx and 'id="suppliesFrame"' in idx)
     ck('it opens supplies.html inside the Hub', "ccHubFrame(document.getElementById('suppliesFrame'), 'supplies.html?in=hub')" in idx)
     ck('#order-supplies opens it, and links stay inside the Hub', "'order-supplies':'supplies'" in idx and 'forms|supplies)' in ih)
 srv.shutdown()

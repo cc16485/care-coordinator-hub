@@ -43,7 +43,7 @@ T = r"""async()=>{
   const ftabs=[...document.querySelectorAll('.ftab')].map(x=>x.textContent.trim());
   ok('one section named "Referrals & Marketing"; the separate Marketing item is gone', ftabs.filter(t=>/^Referrals & Marketing/.test(t)).length===1 && !ftabs.some(t=>/^Marketing/.test(t)) && !ftabs.some(t=>/^Referral Partners$/.test(t)), ftabs);
   const pills=[...document.querySelectorAll('#fsub-partners .fpill')].map(x=>x.textContent.trim());
-  ok('five tabs, in order: Referral Sources (her word 2026-11-15), Friends & Family, Campaigns, Feedback, Marketing Materials (2026-11-06)', JSON.stringify(pills)===JSON.stringify(['Referral Sources','Friends & Family','Campaigns','Feedback','Marketing Materials']), pills);
+  ok('six tabs, in order: Referral Sources, Friends & Family, Campaigns, Feedback, Marketing Materials (Videos & Photos inside it), Client Folders (her asks 2026-11-15)', JSON.stringify(pills)===JSON.stringify(['Referral Sources','Friends & Family','Campaigns','Feedback','Marketing Materials','Client Folders']), pills);
   ok('the Feedback badge is on its tab only; the top menu has no count badges (her decision 2026-11-12)', !document.querySelector('.ftab[data-g="partners"] .subtab-badge') && !!document.querySelector('#fsub-partners #fbPillBadge'));
   window.__as('krystal@mo-care.com','Krystal Land'); CC_ROLE_BY_EMAIL['krystal@mo-care.com']=['care_coordinator','springfield_lead']; (0,eval)("CC_ROLES=CC_ROLE_BY_EMAIL['krystal@mo-care.com']");
   ccGroupClick('partners'); await sleep(250);
