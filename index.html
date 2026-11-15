@@ -7663,7 +7663,7 @@ The HomeTogether team</pre>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="howto.js?v=2"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
 <script src="coordinator-training.js?v=4"></script>
-<script src="coordinator-practice.js?v=2"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
+<script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
 <script src="call-lead.js?v=7"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
 <script src="call-coach.js?v=1"></script><!-- Taking a call + call coaching (2026-10-18) -->
@@ -12824,10 +12824,10 @@ function leadPayorUI(){
   const hint=document.getElementById('leadPayorHint');
   if(!hint) return;
   const H={
-    private:'💰 <b>Private Pay → Krystal\'s book.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
-    ltc:'📄 <b>LTC insurance → Krystal\'s book.</b> Get the carrier and policy number if they have it handy. The LTC Policy tab reads the policy and sets it up as a payor. Bills private-side until benefits kick in.',
-    va:'🎖️ <b>VA → Krystal\'s book.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
-    guide:'🧠 <b>Medicare GUIDE → Krystal\'s book.</b> Run the GUIDE screener first (<a href="guide.html" target="_blank" rel="noopener">GUIDE page</a>): dementia diagnosis, Original Medicare (not Advantage), not in hospice or PACE, an unpaid caregiver, a private home. Then enter the patient in <a href="https://app.crosbyhealth.com/login" target="_blank" rel="noopener">Crosby Health</a> (our account is Troutman Enterprises, LLC). Never promise free care or approval.',
+    private:'💰 <b>Private Pay.</b> Quote from the rate card in the side panel (levels and what each includes), track it below, and offer the free in-home assessment as the next step.',
+    ltc:'📄 <b>LTC insurance.</b> Get the carrier and policy number if they have it handy, and ask them to find the policy. How to read it and set the carrier up as a payor: SOPs, Payors &amp; Programs, LTC insurance. Bills private-side until benefits kick in.',
+    va:'🎖️ <b>VA.</b> Ask which program (Aid &amp; Attendance vs. a community-care referral). No price quote. Families can read mo-care.com/free-care-for-veterans.',
+    guide:'🧠 <b>Medicare GUIDE.</b> Run the GUIDE screener first (<a href="guide.html" target="_blank" rel="noopener">GUIDE page</a>): dementia diagnosis, Original Medicare (not Advantage), not in hospice or PACE, an unpaid caregiver, a private home. Then enter the patient in <a href="https://app.crosbyhealth.com/login" target="_blank" rel="noopener">Crosby Health</a> (our account is Troutman Enterprises, LLC). Never promise free care or approval.',
     medicaid:'⛔ <b>We no longer accept Medicaid.</b> If they want care paid by Medicaid, our sister company Caring Companions CDS may fit (417) 218-2888. Change the payer to CDS, or to private pay if they would rather pay themselves.',
     cds:'↪️ <b>CDS goes to our sister company, Caring Companions CDS</b> (417) 218-2888. Take their name, number, who needs care and the county, and save the lead so it can be passed to CDS.',
   };
