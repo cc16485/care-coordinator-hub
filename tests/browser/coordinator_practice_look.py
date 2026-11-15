@@ -112,9 +112,39 @@ async()=>{
   ok('...no voice is ever read out', !/speechSynthesis/.test(document.documentElement.innerHTML + String(CTP.call)));
   CTP.close(); await sleep(40);
 
+  /* how families pay: read live from the real programs.html */
+  await CTP.loadPrograms(); await sleep(50);
+  const PG=CTP.programs();
+  ok('the Payors & Programs page is read: getting-started steps for all five paths', PG && ['private','guide','vacc','aa','ltc'].every(k=>PG[k].steps.length>=3), PG && Object.fromEntries(Object.entries(PG).map(([k,v])=>[k,v.steps.length+'/'+v.facts.length])));
+  ok('...GUIDE steps are the page\'s own, in its order', PG.guide.steps[0].t==='Screen on the phone' && PG.guide.steps.some(x=>x.t==='Submit in Crosby Health by Friday noon'));
+  ok('...VA is split into Community Care and Aid & Attendance', PG.vacc.steps.some(x=>/authorization/i.test(x.t)) && PG.aa.steps.some(x=>/Veterans Service Officer/.test(x.t)) && PG.aa.facts.some(f=>/surviving spouse/i.test(f)));
+  ok('..."Still to confirm" lists are never used as rules', !Object.values(PG).some(v=>v.facts.some(f=>/HSRM sign-in and watches/.test(f))));
+  const ps=CTP.progScenario('ltc');
+  ok('a program scenario: the right step is the page\'s next step; the others are a later step or another program\'s step', ps.qs.every((q,i)=>q.opts.find(o=>o.ok).t===PG.ltc.steps[i].t && q.opts.filter(o=>!o.ok).every(o=>/comes later|is a step for/.test(o.why))));
+  const wq=CTP.whichQuiz();
+  ok('Which program is it?: two rules from each of the five, the name hidden', wq.length===10 && ['private','guide','vacc','aa','ltc'].every(k=>wq.filter(q=>q.ans===k).length===2) && !wq.some(q=>/\bGUIDE\b|Community Care|Aid (&|and) Attendance|\bLTC\b/.test(q.fact)), wq.map(q=>q.fact).slice(0,4));
+  ok('...each rule really is on that program\'s part of the page', wq.every(q=>PG[q.ans].facts.includes(q.orig)));
+  CTP.which(); await sleep(40);
+  for(let i=0;i<wq.length;i++){ const q=CTP.state().qs[i]; if(i===0){ CTP.pick(['private','guide','vacc','aa','ltc'].find(k=>k!==q.ans)); await sleep(10); } CTP.pick(q.ans); await sleep(10); CTP.next(); await sleep(10); }
+  await sleep(40);
+  ok('...played through: 9 of 10, saved, and comes back tomorrow', /9 of 10 right the first time/.test(pop()) && rec('angiel@mo-care.com').review['pwhich'] && rec('angiel@mo-care.com').review['pwhich'].box===0, pop().slice(0,200));
+  CTP.close();
+  CTP.progNext('guide'); await sleep(40);
+  ok('What do you do next? for GUIDE opens with the page\'s steps', /From the Payors & Programs page/.test($('ctpSub').innerText) && /What do you do first\?/.test(pop()));
+  const g0=CTP.state().sc.qs[0]; CTP.pick(g0.opts.findIndex(o=>o.ok)); await sleep(20);
+  ok('...a right pick shows the step\'s full wording from the page', /Use the screener/.test(pop()));
+  CTP.close();
+  CTP.progOrder('private'); await sleep(30);
+  for(let i=0;i<CTP.state().st.length;i++) CTP.place(i); CTP.checkOrder(); await sleep(30);
+  ok('Steps in order for private pay saves under its own name', /All in order/.test(pop()) && rec('angiel@mo-care.com').results.slice(-1)[0].label==='Steps in order: Private pay');
+  CTP.close();
+  CTR.show('practice'); await sleep(60);
+  ok('the Practice tab has How families pay with each program', /How families pay/.test(ctp()) && /Which program is it\?/.test(ctp()) && /Long-term care insurance/.test(ctp()) && /VA Community Care/.test(ctp()) && /Aid & Attendance/.test(ctp()));
+  ok('a veteran\'s widow is a practice caller', /A veteran's widow/.test(ctp()) && CTP.PERSONAS.some(x=>x[0]==='aa_widow'));
+
   /* the trainer view */
   as('krystal@mo-care.com','Krystal Land'); CTR.pick('angiel@mo-care.com'); CTR.show('practice'); await sleep(80);
-  ok('Krystal (her trainer) sees Angiel\'s card: practiced, calls, right first time', /What Angiel has practiced/.test(ctp()) && /Practiced this week: 6/.test(ctp()) && /Practice calls: 1/.test(ctp()) && /Right the first time: 2 of 6/.test(ctp()), ctp().slice(0,900));
+  ok('Krystal (her trainer) sees Angiel\'s card: practiced, calls, right first time', /What Angiel has practiced/.test(ctp()) && /Practiced this week: 8/.test(ctp()) && /Practice calls: 1/.test(ctp()) && /Right the first time: 3 of 8/.test(ctp()), ctp().slice(0,900));
   ok('...what is coming back to her, and her last practice call with its words', /Coming back/.test(ctp()) && /What do you do next: A fall, injury or hospital trip/.test(ctp()) && /Steps in order: A fall, injury or hospital trip/.test(ctp()) && /Last practice call: A worried daughter, Tue, Nov 17/.test(ctp()), ctp().slice(-900));
   ok('...never ranked or compared', !/\brank|leaderboard|compared to/i.test(ctp().replace('never ranked','')));
   (0,eval)("CC_ROLE_BY_EMAIL['katlin@mo-care.com']=['care_coordinator'];"); as('katlin@mo-care.com','Katlin H'); CTR.pick(''); CTR.show('practice'); await sleep(60);

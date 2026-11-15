@@ -4,7 +4,7 @@
    Put it in the hub and make it world class!")
    One pill, "Coordinator Training", on the Operations Board row (Today), beside How-to. Four views inside it:
      This week        the week the new coordinator is in: sessions with their trainer, work on their own, practice drills
-     The whole program  all eight weeks
+     The whole program  every week (nine since 2026-11-15, when How families pay was added)
      Skills           what they must be able to do alone; the trainer or an owner signs each one off
      The plan         office days and hours, the three stages, the trainer; an owner starts and edits it
    It is NOT a second library and it writes no policy of its own:
@@ -45,9 +45,14 @@
     return d ? '<a href="javascript:void(0)" onclick="CTR.openProcedure(\'' + esc(id) + '\')" style="font-weight:700;color:var(--teal);">' + esc(d.title) + '</a>' : esc(fallback);
   };
   const READ = (pairs) => 'Read these procedures: ' + pairs.map((p) => P(p[0], p[1])).join(', ') + '.';
+  /* 2026-11-15: a program's own tab on the Payors & Programs page, the GUIDE page, a practice call, the Practice tab */
+  const prog = (tab, label) => '<a href="javascript:void(0)" onclick="CTR.openProgram(\'' + tab + '\')" style="font-weight:700;color:var(--teal);">' + label + '</a>';
+  const guideL = (anchor, label) => '<a href="javascript:void(0)" onclick="CTR.openGuide(\'' + anchor + '\')" style="font-weight:700;color:var(--teal);">' + label + '</a>';
+  const callL = (key, label) => '<a href="javascript:void(0)" onclick="CTP.call(\'' + key + '\')" style="font-weight:700;color:var(--teal);">' + label + '</a>';
+  const practiceL = '<a href="javascript:void(0)" onclick="CTR.show(\'practice\')" style="font-weight:700;color:var(--teal);">Practice</a>';
 
   /* =============================================================================
-     THE PROGRAM. Eight weeks. Each week has three sessions; a session is one office day for someone in the office
+     THE PROGRAM. Nine weeks. Each week has three sessions; a session is one office day for someone in the office
      three days a week, and the weeks go faster for someone in five. "with" = beside the trainer; "solo" = on your
      own; "drills" = published procedures to practice from; "review" = what the two of you talk through at the end.
      Functions, not strings, so procedure titles are read from the live library each time the page draws.
@@ -122,6 +127,53 @@
       ],
       drills: ['sop_first_call', 'sop_missed_calls', 'sop_future', 'sop_guide'],
       review: ['Which of the five beats is hardest for you so far?', 'A caller is on Medicaid. What do you say and where do you send them?', 'What must a lead have before you leave it?'] },
+
+    /* 2026-11-15 (her ask): "I want all coordinators to know all payors and program fully ... the ins and outs of private
+       pay, Medicare GUIDE program, VA community care network, Long Term care policies". Taught from the Payors & Programs
+       page itself, one day for each. */
+    { k: 'wpay', title: 'How families pay: private pay, Medicare GUIDE, VA and long-term care insurance',
+      goal: 'From a first call you can tell which programs a family can use, explain each one in your own words, and get a family started in any of them without promising approval, hours or a start date.',
+      sessions: [
+        { t: 'Private pay, and the five questions', withT: () => [
+            'Open ' + prog('all', 'Payors & Programs: Who pays?') + ' together and read "This is your job" and the five questions on every first call.',
+            'Walk ' + prog('private', 'Private pay') + ': the three rates, the minimums, the terms, the Best Price Guarantee and the paperwork.',
+            'Find where ' + prog('early', 'Early Support Visits') + ' fits: someone in Springfield who needs less than 8 hours a week.',
+            'Take a practice call with ' + callL('daughter_falls', 'a worried daughter') + ' while your trainer listens.' ],
+          solo: () => [
+            'Read ' + prog('private', 'Private pay') + ' and ' + prog('early', 'Early Support Visits') + ' until you can give the rates and terms without looking.',
+            READ([['sop_exceptions', 'Exceptions: rates, minimums, area and refunds'], ['sop_billing', 'Rate changes and unpaid balances'], ['sop_referral_credit', 'Client referral credit']]),
+            'On ' + practiceL + ', do Private pay: Getting started, steps in order, and What do you do next?' ] },
+        { t: 'Medicare GUIDE', withT: () => [
+            'Walk ' + prog('guide', 'Medicare GUIDE') + ' together: who qualifies, the 20 respite visits a year, Continuum and Crosby Health.',
+            'Open the ' + guideL('screen', 'GUIDE screener') + ' and screen a pretend family together.',
+            'Go over the words we never say: "free care" or "you\'re approved". Medicare decides.',
+            'Take a practice call with ' + callL('dementia_son', 'a son whose dad has dementia') + '.' ],
+          solo: () => [
+            READ([['sop_guide', 'Medicare GUIDE: screening, assessment and respite']]),
+            'Read the rest of the ' + guideL('', 'GUIDE page') + ', including the Crosby Health steps.',
+            'On ' + practiceL + ', do Medicare GUIDE: Getting started, steps in order, and What do you do next?' ] },
+        { t: 'VA: Community Care and Aid & Attendance', withT: () => [
+            'Walk ' + prog('va', 'VA') + ' together. Start with the two paths: Community Care, where the VA pays us, and Aid & Attendance, where the family pays us.',
+            'Go through the Community Care rules: the authorization number, EVV on every visit, no driving, no holiday rate or mileage, and what happens when an authorization ends.',
+            'Open a veteran\'s lead and see the VA paperwork card on the call screen.',
+            'Take practice calls with ' + callL('veteran_wife', 'a veteran\'s wife') + ' and ' + callL('aa_widow', 'a veteran\'s widow') + '.' ],
+          solo: () => [
+            'Read ' + prog('va', 'VA') + ' again, all of it, including a family member or friend as the veteran\'s caregiver.',
+            'On ' + practiceL + ', do VA Community Care and Aid & Attendance: Getting started, steps in order, and What do you do next?' ] },
+        { t: 'Long-term care insurance', withT: () => [
+            'Walk ' + prog('ltc', 'Long-term care insurance') + ' together: the benefit trigger, the elimination period, the daily maximum, and the two ways to bill.',
+            'Read a sample policy together and find each of those in it.',
+            'Talk through the three-way call with the carrier: who has to be on the line, and what you write down.',
+            'Take a practice call with ' + callL('ltc_policy', 'a family with long-term care insurance') + '.' ],
+          solo: () => [
+            'Read ' + prog('ltc', 'Long-term care insurance') + ' until you can explain the elimination period and the daily maximum to a family in your own words.',
+            'On ' + practiceL + ', do Long-term care insurance: Getting started, steps in order, and What do you do next?, then Which program is it? until you get every one right.' ] },
+      ],
+      drills: ['sop_guide', 'sop_exceptions', 'sop_first_call', 'sop_referral_credit'],
+      review: ['A caller\'s dad served in the Navy and needs help three afternoons a week. What are the two VA paths, and how do you tell which one fits?',
+        'A family has dementia and traditional Medicare. What do you say, and what do you never say?',
+        'A family found a long-term care policy in a drawer. What do you look for first?',
+        'Care is needed now but the program is still going through. What do you offer?', 'What is still unclear?'] },
 
     { k: 'w3', title: 'Caregivers: interviews, hiring and orientation',
       goal: 'You can run an in-person interview and move a new hire from offer to their first shift.',
@@ -272,15 +324,15 @@
       drills: ['sop_fall', 'sop_complaint', 'sop_abuse', 'sop_weather'],
       review: ['Without looking: what are the first three things you do when a caregiver calls about a fall?', 'Who do you tell, and when, after a complaint?', 'What is still unclear?'] },
 
-    { k: 'w8', title: 'Programs, and holding the office on your own',
-      goal: 'You can help a family into the right program, and run the office for an afternoon with nobody beside you.',
+    { k: 'w8', title: 'Holding the office on your own',
+      goal: 'You can run the office for an afternoon with nobody beside you, and every family who calls ends up in the right program.',
       sessions: [
-        { t: 'Who pays, program by program', withT: () => [
-            'Open ' + go('sopref', 'SOPs: Payors & Programs') + ' and walk each program\'s "Getting a family started" steps together.',
+        { t: 'Every way to pay, mixed', withT: () => [
+            'Your trainer calls in as three different families, one after another. For each one, name every program they could use and say the first two steps.',
             'Open a veteran\'s lead and see the VA paperwork card on the call screen.',
             'Talk about what is never promised: how fast a program will approve someone.' ],
           solo: () => [
-            'Read ' + how('programs', 'How-to: Programs') + ' again.',
+            'On ' + practiceL + ', do Which program is it? until you get them all right, then one practice call with each caller.',
             READ([['sop_guide', 'Medicare GUIDE: screening, assessment and respite'], ['sop_exceptions', 'Exceptions: rates, minimums, area and refunds'], ['sop_change', 'Changing a policy, an SOP or a Hub switch']]),
             'You hold the office this afternoon. Your backup is a phone call away.' ] },
         { t: 'A full afternoon alone', withT: () => [
@@ -314,6 +366,12 @@
       ['fam_payer', 'Asks the five program questions, and points Medicaid callers to Caring Companions CDS'],
       ['fam_leads', 'Keeps every open lead with a follow-up day or an assessment booked'],
       ['fam_assess', 'Books an assessment and brings the right folder'] ] },
+    { g: 'Paying for care', list: [
+      ['pay_private', 'Explains our private-pay rates, minimums and terms, and when Early Support Visits fits instead'],
+      ['pay_guide', 'Screens a family for Medicare GUIDE and gets them submitted in Crosby Health, without promising approval'],
+      ['pay_vacc', 'Gets a veteran started with VA Community Care, from the referral request to the authorization, and knows its rules'],
+      ['pay_aa', 'Explains Aid & Attendance, starts care as private pay, and sends the family to a Veterans Service Officer'],
+      ['pay_ltc', 'Reads a long-term care policy for the trigger, the waiting period and the daily maximum, and runs the three-way call with the carrier'] ] },
     { g: 'Starting care', list: [
       ['soc_visit', 'Runs a home visit and gets the Client Care Agreement signed'],
       ['soc_team', 'Builds the team for a new client and introduces the team, not one person'],
@@ -390,12 +448,13 @@
 
   /* ---------------------------------------------------------------- dates ---- */
   const DAY = 86400000;
+  const NW = () => (['', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve'][WEEKS.length] || String(WEEKS.length));
   const DN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const parse = (s) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
   const monday = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
   const words = (d) => d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const longDay = (s) => { const d = parse(s); return d ? d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : ''; };
-  /** which program week today falls in: 0 = has not started, 1..8, 9 = the eight weeks are behind them */
+  /** which program week today falls in: 0 = has not started, 1..WEEKS.length, WEEKS.length + 1 = all behind them */
   function weekNow(p) {
     const st = parse(p && p.start); if (!st) return 1;
     const today = new Date();
@@ -519,13 +578,13 @@
     const seen = plans().filter((x) => owner() || isTrainerOf(x) || lc(x.email) === myEmail());
     const pick = seen.length > 1 || (seen.length === 1 && lc(seen[0].email) !== myEmail())
       ? '<label class="field-note" style="font-size:12.5px;">Showing <select onchange="CTR.pick(this.value)" style="margin-left:4px;">' + seen.map((x) => '<option value="' + esc(lc(x.email)) + '"' + (p && lc(x.email) === lc(p.email) ? ' selected' : '') + '>' + esc(x.name || x.email) + '</option>').join('') + '</select></label>' : '';
-    let line = 'Eight weeks from the first day to holding the office alone. What to read, what to watch, what to do, and what you must be able to do by yourself at the end.';
+    let line = NW().charAt(0).toUpperCase() + NW().slice(1) + ' weeks from the first day to holding the office alone. What to read, what to watch, what to do, and what you must be able to do by yourself at the end.';
     let prog = '';
     if (p) {
       const t = totals(p), n = weekNow(p);
       const me = lc(p.email) === myEmail();
       line = n === 0 ? (me ? 'Your training starts ' : esc(firstName(p.name)) + ' starts ') + esc(longDay(p.start)) + '.'
-        : n > WEEKS.length ? (me ? 'Your eight weeks are behind you.' : esc(firstName(p.name)) + ' has finished the eight weeks.') + ' ' + (t.signed < t.skills ? (t.skills - t.signed) + ' skills are still to be signed off.' : 'Every skill is signed off.')
+        : n > WEEKS.length ? (me ? 'Your ' + NW() + ' weeks are behind you.' : esc(firstName(p.name)) + ' has finished the ' + NW() + ' weeks.') + ' ' + (t.signed < t.skills ? (t.skills - t.signed) + ' skills are still to be signed off.' : 'Every skill is signed off.')
         : (me ? 'You are in ' : esc(firstName(p.name)) + ' is in ') + 'week ' + n + ' of ' + WEEKS.length + ': ' + esc(WEEKS[n - 1].title) + '.';
       const pct = t.of ? Math.round(100 * t.n / t.of) : 0;
       prog = '<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:12px;"><div style="flex:1 1 220px;"><div class="ct-bar"><i style="width:' + pct + '%"></i></div></div>'
@@ -554,7 +613,7 @@
     if (n === 0) return '<div class="card" style="padding:14px 18px;margin-bottom:12px;font-size:13.5px;">Week 1 begins ' + esc(longDay(p.start)) + '. Here is what it holds.</div>' + weekHtml(p, WEEKS[0], 1, true);
     if (n > WEEKS.length) {
       const t = totals(p);
-      return '<div class="card" style="padding:16px 18px;margin-bottom:12px;font-size:14px;line-height:1.55;"><b style="color:var(--navy);">The eight weeks are done.</b> '
+      return '<div class="card" style="padding:16px 18px;margin-bottom:12px;font-size:14px;line-height:1.55;"><b style="color:var(--navy);">The ' + NW() + ' weeks are done.</b> '
         + (t.signed < t.skills ? 'What is left is on ' + b('Skills') + ': ' + (t.skills - t.signed) + ' still to show and sign off.' : 'Every skill is signed off. Well done.')
         + (t.n < t.of ? ' ' + (t.of - t.n) + ' lines in the program are not ticked yet; they are in ' + b('The whole program') + '.' : '') + '</div>';
     }
@@ -583,12 +642,12 @@
   }
 
   const STAGE_HELP = [
-    ['Learning', 'In the office part of the week, beside the trainer every morning. The eight weeks of this program.'],
+    ['Learning', 'In the office part of the week, beside the trainer every morning. The weeks of this program.'],
     ['More days', 'More office time. Leads interviews, and takes scheduling in the afternoons with a backup a phone call away.'],
     ['On your own', 'Full office hours. Shares every client with the other care coordinator and holds the afternoons alone.'],
   ];
   const STAGE_HELP_REMOTE = [
-    ['Learning', 'Trains live with the trainer by video during their own hours. The eight weeks of this program.'],
+    ['Learning', 'Trains live with the trainer by video during their own hours. The weeks of this program.'],
     ['More', 'More of the work alone: interviews, calls and the evening cards, with the trainer reachable.'],
     ['On your own', 'Holds their hours alone and hands off to the office every morning.'],
   ];
@@ -734,11 +793,19 @@
     if (typeof switchTab === 'function') switchTab('sops');
     setTimeout(function () { try { if (typeof sopOpenDoc === 'function') sopOpenDoc(id); } catch (e) { console.error('training procedure:', e); } }, 60);
   }
+  function openProgram(tab) {
+    if (typeof switchTab === 'function') switchTab('sopref');
+    setTimeout(function () { try { if (typeof sopRefShow === 'function') sopRefShow(tab || 'all'); } catch (e) { console.error('training program:', e); } }, 60);
+  }
+  function openGuide(anchor) {
+    if (typeof switchTab === 'function') switchTab('sopref');
+    setTimeout(function () { try { const f = document.getElementById('sopRefFrame'); if (f && typeof ccHubFrame === 'function') ccHubFrame(f, 'guide.html?in=hub' + (anchor ? '#' + anchor : '')); } catch (e) { console.error('training guide:', e); } }, 60);
+  }
   function openHowTo(v) {
     if (typeof switchTab === 'function') switchTab('howto');
     setTimeout(function () { try { if (window.HT) HT.show(v); } catch (e) { console.error('training how-to:', e); } }, 60);
   }
 
   window.CTR = { WEEKS, SKILLS, VIEWS, render, show, openWeek: openWeekFn, pick, tick, sign, addNote, startNew, edit, cancel, save, end,
-    openProcedure, openHowTo, view: () => view, current, weekNow, officeDays, totals, weekIds, plans, IN_PERSON, IN_PERSON_SKILLS };
+    openProcedure, openHowTo, openProgram, openGuide, view: () => view, current, weekNow, officeDays, totals, weekIds, plans, IN_PERSON, IN_PERSON_SKILLS };
 })();
