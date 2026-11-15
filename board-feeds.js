@@ -113,7 +113,7 @@
   async function ffNeeds() {
     let own = false; try { own = !!W.ccIsOwner(); } catch (e) {}
     if (!own) return { n:0 };
-    if (!W.FFT) await script('ff-tab.js?v=5');
+    if (!W.FFT) await script('ff-tab.js?v=6');
     if (!W.FFT || typeof W.FFT.needs !== 'function') return { n:0, err:true };
     return W.FFT.needs();
   }

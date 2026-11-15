@@ -1,7 +1,8 @@
 """Friends & Family tab (step 4, Samantha 2026-10-27: "owners-only tab"), in the real Hub page offline with made-up people and a
 fake ff-invite-check: an owner sees the two switches, today's list (Ready / Waiting / Held, search), Skip with a reason and Undo
-skip, who was invited (with Resend), Payer needed, and referrals received from the Hub's inquiries; a Care Coordinator sees only
-"Owners run this program"; Friends & Family people stay out of the professional Program view; phone width.
+skip, who was invited (with Resend), Payer needed, and referrals received from the Hub's inquiries. Since 2026-11-14 a Care
+Coordinator sees the whole tab, skips, resends and ticks payment received, but has no switch, approve, paid or referrer buttons;
+someone with no office role sees a short note; Friends & Family people stay out of the professional Program view; phone width.
 (PORT=<port> SHOTS=<folder> python3 tests/browser/ff_tab_look.py, static server on that port, 8765 by default)"""
 import os
 from playwright.sync_api import sync_playwright
@@ -58,7 +59,22 @@ T = r"""async()=>{
   /* a Care Coordinator */
   window.__as('krystal@mo-care.com','Krystal Land'); CC_ROLE_BY_EMAIL['krystal@mo-care.com']=['care_coordinator']; (0,eval)("CC_ROLES=CC_ROLE_BY_EMAIL['krystal@mo-care.com']");
   switchTab('friendsfamily'); await sleep(900);
-  ok('a Care Coordinator sees only "Owners run this program": no names, no switches, no buttons, no server call', /Owners run this program/.test(txt()) && !/Ann Able|Dana|Invitations/.test(txt()) && !tab().querySelectorAll('button,input').length && !window.__calls.length, [txt(), window.__calls]);
+  /* 2026-11-14 her change: coordinators see the whole tab and work invitations; payouts, switches and referrers stay with owners */
+  ok('a Care Coordinator: the tab asks the server for the list and shows the people', window.__calls.some(c=>c[0]==='ff-invite-check' && c[1].action==='list') && /Invitations are OFF/.test(txt()), [txt().slice(0,300), window.__calls]);
+  ok('...no switch buttons, and a line saying what is theirs and what is an owner’s', !q('#ffTop button') && /Only an owner turns invitations on or off/.test(q('#ffTop').innerText) && /skip or resend invitations and tick when a payment is received/.test(q('#ffWho').innerText) && !q('#ffRem button'), [q('#ffTop').innerText, q('#ffRem') && q('#ffRem').innerHTML]);
+  ok('...Needs you counts only what a coordinator can do (Tess payment tick, Cal’s invitation, Hal payer = 3), and says what waits on an owner', q('.ff-views button[data-v="needs"] .ff-n').textContent==='3' && JSON.stringify(cardTitles())===JSON.stringify(['Tick when payment is received','Invitations that didn’t go through','Payer needed']) && /Waiting on an owner: 2 to approve, 1 to credit or pay/.test(q('#ffOwnerWait').innerText), [cardTitles(), q('.ff-views').innerText]);
+  { const tess=q('.ff-row[data-rw="R6"]'); window.__calls=[]; tess.querySelector('input').checked=true; tess.querySelector('input').dispatchEvent(new Event('change')); await sleep(250);
+    ok('...a Care Coordinator ticks "payment received"', window.__calls.some(c=>c[1].action==='reward' && c[1].lead_id==='R6' && c[1].op==='payment' && c[1].on===true), window.__calls); }
+  FFT.view('rewards'); await sleep(80);
+  ok('...Rewards: she sees every line, but no Approve, Not earned, Mark paid or Reopen buttons', /Nora New/.test(txt()) && /Carl Credit/.test(txt()) && !qa('.ff-row[data-rw] button').length, qa('.ff-row[data-rw] button').map(b=>b.textContent));
+  FFT.view('invites'); await sleep(80); window.__calls=[]; window.__prompt='Asked us to wait'; q('.ff-row[data-key="cg_1"] button').click(); await sleep(300);
+  ok('...she can Skip someone, with a reason', window.__calls.some(c=>c[1].action==='skip' && c[1].key==='cg_1' && c[1].why==='Asked us to wait'), window.__calls);
+  FFT.show('invited'); await sleep(80);
+  ok('...and Resend an invitation', /Resend/.test(q('.ff-row[data-inv="cg_3"]').innerText));
+  FFT.show('ready'); FFT.view('needs'); window.__prompt='She asked us not to';
+  /* someone with no office role */
+  window.__as('helper@example.com','Helper NoRole'); (0,eval)("CC_ROLES=[]"); window.__calls=[]; FFT.state.data=null; switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(400);
+  ok('someone with no office role sees only a short note: no names, no buttons, no server call', /The office runs this program/.test(txt()) && !/Ann Able|Dana|Invitations/.test(txt()) && !tab().querySelectorAll('button,input').length && !window.__calls.length, [txt(), window.__calls]);
   /* the owner */
   window.__as('sam@mo-care.com','Samantha Owner'); switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(500);
   ok('an owner: the tab asks the server for the list', window.__calls.some(c=>c[0]==='ff-invite-check' && c[1].action==='list'), window.__calls);
@@ -175,7 +191,8 @@ T = r"""async()=>{
   ok('...Remove referrer asks first, then clears it on the server', window.__calls.some(c=>c[1].action==='set_referrer' && c[1].applicant_id===A3 && c[1].clear===true), window.__calls);
   ok('no em dashes anywhere on the tab', !/—/.test(tab().innerText));
   window.__as('krystal@mo-care.com','Krystal Land'); (0,eval)("CC_ROLES=['care_coordinator']"); window.__calls=[]; switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(400);
-  ok('a Care Coordinator still sees none of it: no hiring bonus names, no buttons, no server call', /Owners run this program/.test(txt()) && !/Nia New|Otis Old|Fay Family|Hiring bonus/.test(txt()) && !tab().querySelectorAll('button,input,select').length && !window.__calls.length, txt().slice(0,200));
+  FFT.view('rewards'); await sleep(150);
+  ok('a Care Coordinator sees the hiring bonus lines but cannot approve them or set a referrer', /Nia New/.test(txt()) && /Fay Family/.test(txt()) && !qa('.ff-row[data-rw] button').length && !q('#ffHr') && !qa('.ff-row[data-hn] button').length, txt().slice(0,300));
   window.__as('sam@mo-care.com','Samantha Owner'); switchTab('mywork'); await sleep(100); switchTab('friendsfamily'); await sleep(400);   /* back to the owner for the pictures */
   return R; }"""
 with sync_playwright() as pw:
