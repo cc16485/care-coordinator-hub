@@ -1146,7 +1146,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <span class="navsec">Employees</span>
     <div class="ftab" data-g="interviews" onclick="ccGroupClick('interviews')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Recruit &amp; Onboard</div>
     <div class="ftab" data-g="cgdir" onclick="ccGroupClick('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Caregivers</div>
-    <div class="ftab" data-g="hr" onclick="ccGroupClick('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> HR</div>
+    <!-- 2026-11-14 (Samantha): Performance is a tab inside Caregivers now, not its own section (see fsub-cgdir) -->
     <div class="ftab" data-g="scheduling" onclick="ccGroupClick('scheduling')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clock"/></svg> Scheduling</div>
     <span class="navrule"></span>
     <span class="navsec">Clients</span>
@@ -1244,6 +1244,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="fpill" data-tab="cgdir" onclick="switchTab('cgdir')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-users"/></svg> Directory</div>
     <!-- 2026-11-14 (Samantha): one place for caregiver check-ins, the first 90 days and ongoing (checkins-tab.js) -->
     <div class="fpill" data-tab="cgcheckins" onclick="switchTab('cgcheckins')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-inbox"/></svg> Check-ins<span class="subtab-badge red" id="chkBadge" style="display:none"></span></div>
+    <!-- 2026-11-14 (Samantha): "put Performance as a tab inside Caregivers". Same page (hr.js), same who-sees-what; old #hr links land here. -->
+    <div class="fpill" data-tab="hr" onclick="switchTab('hr')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-clip"/></svg> Performance</div>
     <!-- 2026-10-28 (Samantha): Training & Compliance folded into Caregivers. With orientation the only required training,
          it no longer needs its own section; background checks and training are facts about each current caregiver. -->
     <div class="fpill" data-tab="cgcompliance" onclick="switchTab('cgcompliance')"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-shield"/></svg> Background Checks</div>
@@ -8303,7 +8305,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','cgcompliance','cgtraining','trainhub'],hr:['hr'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide','carematch'],leads:['leadsstarts','carachats','reports'],clients:['soc','clientqueue','clientsboard','fccheck','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','docfolders','videos','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -44849,9 +44851,9 @@ function ccOpenRef(sub){
                         /* Nurse Scheduling removed 2026-10-31 (IHS ends 11-16, her call); old
                            #nursing links land on Cara. */
                         nursing:'coverage',
-                        /* Performance folded into Caregivers 2026-09-20;
-                           its old links land on the directory group. */
-                        performance:'cgdir', cg360:'cgdir',
+                        /* 2026-11-14 (Samantha): Performance is a Caregivers tab;
+                           #performance opens it. */
+                        performance:'hr', cg360:'cgdir',
                         cara:'coverage', 'coverage-help':'coverage',
                         schedwatch:'hourswatch', 'schedule-watch':'hourswatch',
                         'hours-watch':'hourswatch', 'team-builder':'teambuilder' };
