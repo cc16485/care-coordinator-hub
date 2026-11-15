@@ -130,8 +130,10 @@
     if(!A.length) return '';
     const col = (title, list, color, mark) => '<div style="flex:1 1 150px;min-width:140px"><div style="font-size:.72rem;font-weight:800;color:' + color + '">' + title + ' (' + list.length + ')</div>' + (list.length ? list.map(x => '<div style="font-size:.78rem">' + mark + ' ' + esc(x[1]) + '</div>').join('') : '<div style="font-size:.76rem;color:#A89C8B">none</div>') + '</div>';
     const tick = A.filter(x => v[x[0]] === true), off = A.filter(x => v[x[0]] === false), ask = A.filter(x => v[x[0]] !== true && v[x[0]] !== false);
-    return '<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin:.1rem 0 .3rem 21px;border:1px solid #F3E2C7;border-radius:8px;padding:.4rem .6rem;background:#fff">'
-      + col('Tick these', tick, '#15803D', '☑') + col('Leave these off', off, '#B91C1C', '☐') + (ask.length ? col('Not asked at the interview: ask them', ask, '#6E6559', '?') : '') + '</div>';
+    /* folded shut (Samantha 2026-11-15: "they make it too long"); one line until opened */
+    return '<details style="margin:.1rem 0 .3rem 21px"><summary style="cursor:pointer;font-size:.78rem;color:#0D365F;font-weight:700">Show what to tick in AxisCare (' + tick.length + ' on, ' + off.length + ' off' + (ask.length ? ', ' + ask.length + ' to ask' : '') + ')</summary>'
+      + '<div style="display:flex;gap:.8rem;flex-wrap:wrap;margin-top:.3rem;border:1px solid #F3E2C7;border-radius:8px;padding:.4rem .6rem;background:#fff">'
+      + col('Tick these', tick, '#15803D', '☑') + col('Leave these off', off, '#B91C1C', '☐') + (ask.length ? col('Not asked at the interview: ask them', ask, '#6E6559', '?') : '') + '</div></details>';
   }
   async function classCheck(set, btn){ if(set && !(await ccConfirm('Set their Class in AxisCare now? Their Level or PRN Team class is replaced by the right one; every other class stays.'))) return; await act({ action:'checkin', [set ? 'class_set' : 'class_check']: true }, btn); }
   async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){ box.checked = !box.checked; box.disabled = false; alert('Not saved: ' + (e.message || e)); } }
