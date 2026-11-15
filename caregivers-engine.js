@@ -3919,11 +3919,12 @@ function renderDnrLog(){
   if(!DNRLOG.length){ box.innerHTML='<div style="color:#A89C8B;font-size:.85rem">Nothing on the log.</div>'; return; }
   box.innerHTML=DNRLOG.slice().sort((a,b)=>String(b.logged_at).localeCompare(String(a.logged_at))).map(e=>
     '<div style="background:#fff;border:1px solid #fecaca;border-left:4px solid #DC2626;border-radius:10px;padding:.6rem 1rem;margin-bottom:.4rem;font-size:.85rem">'
-    +'<b>'+creqEsc(e.caregiver||'(caregiver)')+'</b> must not return to <b>'+creqEsc(e.client||'(client)')+'</b>'
+    +'<b>'+creqEsc(e.caregiver||'(caregiver)')+'</b> '+(e.lifted_at?'was marked not to return to':'must not return to')+' <b>'+creqEsc(e.client||'(client)')+'</b>'
+    +(e.lifted_at?' <span style="font-size:.72rem;color:#6E6559">(lifted '+new Date(e.lifted_at).toLocaleDateString()+' by '+creqEsc(e.lifted_by||'Not set')+'; shift texts can go to this pair again)</span>':'')
     +(e.reason?': '+creqEsc(e.reason):'')
     +'<div style="font-size:.72rem;color:#6E6559;margin-top:.2rem">requested by '+creqEsc(e.requested_by||'Not set')
     +' · logged '+new Date(e.logged_at).toLocaleDateString()+' by '+creqEsc(e.logged_by||'Not set')
-    +(e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="dnrMarkAxis(\''+e.id+'\');return false;">mark exclusion entered in AxisCare</a>')
+    +(e.lifted_at?'':e.axiscare_entered?' · ✅ exclusion entered in AxisCare':' · ⚠ <a href="#" onclick="dnrMarkAxis(\''+e.id+'\');return false;">mark exclusion entered in AxisCare</a>')
     +'</div></div>').join('');
 }
 async function dnrMarkAxis(id){

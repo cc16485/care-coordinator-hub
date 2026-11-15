@@ -13,16 +13,21 @@ FAKE = r"""
   const W=window; W.__CK=[]; W.__CKmode='ok';
   (0,eval)("cmpAuthHeaders=async()=>({ 'Content-Type':'application/json', Authorization:'Bearer t' })");
   const at=(h)=>new Date(Date.now()-h*3600000).toISOString();
-  const ci=(id,h,reply,extra)=>Object.assign({ id, kind:'first_shift', label:'First shift with a client', sent_at:at(h), text:'How did your first shift with Mae go?', reply:reply?{at:at(h-2),body:reply}:null, waiting:reply?'':(h>72?'no_answer':'sent'), mark:null },extra||{});
+  const ci=(id,h,reply,extra)=>Object.assign({ id, kind:'first_shift', label:'First shift with Mae', client:'Mae', dnr_id:'', sent_at:at(h), text:'How did your first shift with Mae go?', reply:reply?{at:at(h-2),body:reply}:null, waiting:reply?'':(h>72?'no_answer':'sent'), mark:null },extra||{});
   W.__CKdata={ ok:true, at:at(0), texts_from:'2026-11-05', people:[
     { id:'901', axiscare_id:'1', name:'Dana Reed', hire_date:'2026-10-14', day:31, phone_on_file:true, checkins:[ ci('o1',20,'It went ok but she yelled at me and I almost left') ] },
     { id:'902', axiscare_id:'2', name:'Marcus Tate', hire_date:'2026-11-06', day:8, phone_on_file:true, checkins:[ ci('o2',30,'Great! She is so sweet') ] },
     { id:'903', axiscare_id:'3', name:'Priya Shah', hire_date:'2026-09-12', day:63, phone_on_file:true, checkins:[ ci('o3',100,null) ] },
     { id:'904', axiscare_id:'4', name:'Lena Kim', hire_date:'2026-08-18', day:88, phone_on_file:true, checkins:[ ci('o4',150,'All good',{ mark:{ state:'fine', by:'Krystal Land', at:at(140), note:'' } }) ] },
-    { id:'905', axiscare_id:'5', name:'Old Hand', hire_date:'2024-01-10', day:1040, phone_on_file:false, checkins:[] } ] };
+    { id:'905', axiscare_id:'5', name:'Old Hand', hire_date:'2024-01-10', day:1040, phone_on_file:false, checkins:[] } ], dnr:[{ id:'dnr1', caregiver:'Lena Kim', client:'Joe Smith', asked_by:'family', reason:'Please send someone else', requested_at:at(300), logged_at:at(290), logged_by:'Krystal Land', axiscare_entered:false, axiscare_notes:{ client:'sent', caregiver:'AxisCare answered 500' } }] };
   const of=W.fetch; W.fetch=async(u,o)=>{ if(/functions\/v1\/checkins/.test(String(u))){ const b=JSON.parse(o.body); W.__CK.push(b);
       if(W.__CKmode==='404') return new Response('{}',{status:404});
       if(W.__CKmode==='401') return new Response(JSON.stringify({ error:'Sign in first.' }),{status:401});
+      if(b.no_return){ const P=W.__CKdata.people.flatMap(p=>p.checkins.map(c=>({p,c}))).find(x=>x.c.id===b.no_return.checkin_id);
+        const en={ id:'dnr2', caregiver:P.p.name, client:'Mae Brown', asked_by:b.no_return.asked_by, reason:b.no_return.note, requested_at:b.no_return.requested_at||at(0), logged_at:at(0), logged_by:'Krystal Land', axiscare_entered:false, axiscare_notes:{ client:'sent', caregiver:'sent' } };
+        P.c.dnr_id='dnr2'; W.__CKdata.dnr.unshift(en); return new Response(JSON.stringify({ ok:true, entry:en }),{status:200}); }
+      if(b.dnr_axiscare) return new Response(JSON.stringify({ ok:true, entry:{ id:b.dnr_axiscare.id, axiscare_entered:true, axiscare_entered_by:'Krystal Land', axiscare_entered_at:at(0) } }),{status:200});
+      if(b.dnr_lift) return new Response(JSON.stringify({ ok:true, entry:{ id:b.dnr_lift.id, lifted_at:at(0), lifted_by:'Krystal Land', lifted_why:b.dnr_lift.why } }),{status:200});
       if(b.mark) return new Response(JSON.stringify({ ok:true, mark:{ id:b.mark.id, state:b.mark.state, by:'krystal@mo-care.com', by_name:'Krystal Land', at:new Date().toISOString() } }),{status:200});
       return new Response(JSON.stringify(W.__CKdata),{status:200}); }
     return of(u,o); };
@@ -58,6 +63,26 @@ T = r"""async()=>{
   ok('it says it sends nothing, and that texts are on record from November 5', /Nothing on this tab sends anything/.test(box.innerText) && /November 5, 2026/.test(box.innerText));
   renderActiveTab(); renderActiveTab(); await sleep(200);
   ok('the Hub redrawing the tab does not ask again', window.__CK.length===3, window.__CK.length);
+  /* ── Don't send back (2026-11-15) ── */
+  CHK.setView('needs'); await sleep(100);
+  ok("each answer names the client and has a Don't send back button", /First shift with Mae/.test(box.innerText) && [...box.querySelectorAll('button')].some(b=>b.textContent==="Don't send back"), box.innerText.slice(0,400));
+  [...box.querySelectorAll('button')].find(b=>b.textContent==="Don't send back").click(); await sleep(100);
+  ok('it opens a short form: who asked, and what they said (filled with their answer)', !!document.getElementById('chkDnrWho') && /she yelled at me/.test(document.getElementById('chkDnrWhy').value) && /Don't send Dana Reed back to Mae/.test(box.innerText), box.innerText.slice(0,500));
+  const n0=window.__CK.length; [...box.querySelectorAll('button')].find(b=>b.textContent==='Save').click(); await sleep(150);
+  ok('Save without saying who asked is refused, and nothing is sent', window.__CK.length===n0 && /Pick who asked/.test(box.innerText));
+  document.getElementById('chkDnrWho').value='caregiver'; [...box.querySelectorAll('button')].find(b=>b.textContent==='Save').click(); await sleep(400);
+  const nr=window.__CK.find(b=>b.no_return);
+  ok('Save sends the check-in, who asked, their words and when they said it', nr && nr.no_return.checkin_id==='o1' && nr.no_return.asked_by==='caregiver' && /she yelled at me/.test(nr.no_return.note) && !!nr.no_return.requested_at, nr);
+  ok('it says what happened, and the AxisCare step still to do', /Dana Reed will not be offered Mae Brown's shifts/.test(box.innerText) && /notes on both AxisCare profiles/.test(box.innerText) && /Caregiver Exclusions/.test(box.innerText), box.innerText.slice(0,600));
+  ok('the answer now shows it is marked, with no button', /Not sending back/.test(box.innerText) && ![...box.querySelectorAll('button')].some(b=>b.textContent==="Don't send back" && b.closest('.chk-row') && /Dana Reed/.test(b.closest('.chk-row').innerText)));
+  ok("the Don't send back pill counts the ones still to set in AxisCare", [...document.querySelectorAll('#checkinsWrap .filter-pill')].some(p=>/Don't send back \(2 to set in AxisCare\)/.test(p.textContent)), [...document.querySelectorAll('#checkinsWrap .filter-pill')].map(p=>p.textContent));
+  CHK.setView('dnr'); await sleep(100);
+  ok('the list shows every pair, who asked, who marked it, the AxisCare notes, and the step still to do', /Dana Reed does not go back to Mae Brown/.test(box.innerText) && /Lena Kim does not go back to Joe Smith/.test(box.innerText) && /The family asked/.test(box.innerText) && /marked by Krystal Land/.test(box.innerText) && /caregiver not sent \(AxisCare answered 500\)/.test(box.innerText) && /Still to do: in AxisCare open Joe Smith/.test(box.innerText), box.innerText.slice(0,900));
+  [...box.querySelectorAll('button')].find(b=>/Set in AxisCare/.test(b.textContent)).click(); await sleep(200);
+  ok('Set in AxisCare saves and shows who set it', window.__CK.some(b=>b.dnr_axiscare && b.dnr_axiscare.id==='dnr2') && /Set in AxisCare \(Caregiver Exclusions\) by Krystal Land/.test(box.innerText), box.innerText.slice(0,600));
+  window.prompt=()=>'marked by mistake'; [...box.querySelectorAll('button')].find(b=>b.textContent==='Undo').click(); await sleep(200);
+  ok('Undo asks why, saves, keeps the entry as lifted, and reminds to remove it in AxisCare', window.__CK.some(b=>b.dnr_lift && b.dnr_lift.why==='marked by mistake') && /Lifted .* by Krystal Land: marked by mistake/.test(box.innerText) && /remove it from Caregiver Exclusions/.test(box.innerText), box.innerText.slice(0,700));
+  ok("the tab still sends nothing to anyone: only the Hub's own server is asked", window.__CK.every(b=>!b.message && !b.phone));
   window.__CKmode='404'; await CHK.load(); await sleep(100);
   ok('before the server piece is installed it says so', /not switched on on the server yet/.test(box.innerText), box.innerText.slice(0,300));
   window.__CKmode='401'; CHK.VIEW.data=null; await CHK.load(); await sleep(100);
