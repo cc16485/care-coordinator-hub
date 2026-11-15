@@ -129,7 +129,8 @@ async()=>{
   ok('late for you: my past-due items, not parked ones, not other people’s', JSON.stringify(lateMine)===JSON.stringify(['late1','tk1']) && JSON.stringify(lateNo)===JSON.stringify(['un_late']), [lateMine,lateNo]);
   const pulse=$('#topbarPulse').innerText;
   /* 2026-10-17 (fix 3): one headline number; something needs you now (the missed clock-in), so it says that */
-  ok('header: "1 needs you now" and "1 late, no owner"', /1\s*needs you now/.test(pulse) && !/late for you/.test(pulse) && /1\s*late, no owner/.test(pulse) && !/overdue/.test(pulse.replace(/check-ins? overdue/,'')), pulse);
+  /* 2026-11-15 (her ask "need simple"): one late chip, and only when nothing needs you now */
+  ok('header: "1 needs you now" and no second late chip', /1\s*needs you now/.test(pulse) && !/late for you/.test(pulse) && !/no owner/.test(pulse) && !/\blate\b/.test(pulse) && !/overdue/.test(pulse.replace(/check-ins? overdue/,'')), pulse);
   ok('My Work pill badge = the same one number', $('#gb-mywork') ? $('#gb-mywork').textContent==='1' : true, $('#gb-mywork')&&$('#gb-mywork').textContent);
   renderOverviewTop(0,0);
   const c=opsTodayCounts();

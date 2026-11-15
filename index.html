@@ -1113,20 +1113,12 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <div class="spacer"></div>
     <!-- 2026-10-05 (her call): the "What runs by itself" button is removed; the panel is no longer reachable. -->
     <span class="pill" id="syncPill" onclick="syncOpenPanel()" style="cursor:pointer;" title="What has and has not reached the database">☁ Synced</span>
-    <!-- The sticky note that cannot get lost. On every page, because the
-         moment worth capturing never happens on the right tab. -->
-    <!-- 2026-10-05 (her call): one "＋ Add" button (2026-10-14: renamed "＋ Work", her call), Stand-Up first, so the board is where team news goes, and personal
-         reminders (Capture) still have a home. -->
-    <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Jot on your desk, or add to My Work"
-            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Work</button>
-    <button class="addlead" onclick="openCallCockpit()">＋ Add Lead</button>
-    <!-- 2026-10-13 (her call): Report a concern and End my shift moved up from My Work so they are on every page. -->
-    <button class="addlead" onclick="CCIssue.open()" title="Somebody has told us about a problem"
+    <!-- 2026-11-15 (her ask): "＋ Work", "＋ Add Lead" and "Fax" left the top bar (too much). Add work and Add lead stay on My Work and Leads;
+         the fax number stays on the lead page. Report a concern stays here: her fall procedure says to press it from any page. -->
+    <button class="addlead" onclick="CCIssue.open()" title="A family, client or caregiver told you about a problem (a fall, a complaint, a worry). Four questions, then it goes on the list of the person who handles it and shows on the client's profile."
             style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">＋ Report a concern</button>
     <button class="addlead" onclick="eoOpen(this)" title="Hand off what is still moving to whoever is on duty next"
             style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">End my shift</button>
-    <button class="addlead" onclick="officeFaxOpen(this)" title="Our fax number and the eFax sign-in"
-            style="background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">Fax</button>
     <!-- 2026-11-07 Ask Cara for the Office (ask-cara.js): read-only answers with sources; owners while practicing -->
     <button class="addlead" id="askCaraBtn" onclick="ASKC.open()" title="Ask Cara about a client, a caregiver, the schedule or a rule"
             style="display:none;background:transparent;border:1.5px solid rgba(255,255,255,.55);color:#fff;">Ask Cara</button>
@@ -1746,7 +1738,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
         <button class="secondary" id="bnBtn" style="display:none;" onclick="bnOpen()" title="Your new-client bonuses (pay is private)">Bonuses</button>
         <!-- 2026-11-05 (her ask): + Add lead on My Work too, the same button as the Leads page -->
         <button class="primary" onclick="openCallCockpit()">+ Add lead</button>
-        <button class="addlead" onclick="opsToggleAdd()">＋ Add work</button>
+        <!-- 2026-11-15 (her ask): the top bar's "＋ Work" moved here; same choices (jot on my desk, or My Work) -->
+        <button class="addlead" id="ccAddBtn" onclick="ccAddOpen(this)" title="Jot on your desk, or add to My Work">＋ Add work</button>
       </div>
       <!-- NEW TODAY (2026-10-19): the strip is what the Dashboard was for, on one line (renderTodayStrip) -->
       <style>
@@ -3007,7 +3000,9 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <div class="modal" style="max-width:600px">
     <h3 style="color:var(--navy)">Report a concern</h3>
     <p style="font-size:.78rem;color:var(--gray);margin:.3rem 0 .7rem">
-      Four questions. Anything else can be added once it is on somebody's list.</p>
+      Use this when a family, client or caregiver tells you about a problem: a fall, a complaint, a worry about care.
+      When you press <b>Report it</b>, it goes straight onto the work list of the person who handles that kind of problem
+      and shows on the client's profile. Falls and injuries tell the person in charge right away.</p>
 
     <label style="font-size:.78rem;font-weight:700">Who is this about?</label>
     <input id="issClient" list="issClientList" placeholder="Start typing, then pick the client from the list"
@@ -7655,14 +7650,14 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-page.js?v=8"></script><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=5"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=2"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=5"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=1"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
 <script src="howto.js?v=2"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
-<script src="coordinator-training.js?v=4"></script>
+<script src="coordinator-training.js?v=5"></script>
 <script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
 <script src="call-lead.js?v=7"></script><!-- Make this a lead (2026-10-14); v4 the New family? card on Today (2026-10-18) -->
@@ -9005,9 +9000,12 @@ function ccRenderPulse(){
      when nothing does, it says how much of yours is late. One number, never both. */
   let L={act:0,late:0}; try{ L=opsTodayCounts(); }catch(e){}
   try{ if(window.CMW&&CMW.on()) L={ act:CMW.counts().urgent, late:late }; }catch(e){}
+  /* 2026-11-15 (her ask "need simple"): ONE late chip. "late for you" and "late, no owner" became one "N late"; the
+     hover says how many nobody has taken yet. It opens Today on My Work (or Unassigned when only nobody's are late). */
+  let cmwOn=false; try{ cmwOn=!!(window.CMW&&CMW.on()); }catch(e){}
+  const lateAll=cmwOn?late:late+lateNo;   /* Calmer My Work's late already holds the ones nobody owns (the page's Late count) */
   if(L.act) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Today\'s Act now: missed clock-ins, emergencies, a shift about to start with nobody"><b>'+L.act+'</b> need'+(L.act===1?'s':'')+' you now</span>');
-  else if(late) chips.push('<span class="tp-chip" onclick="switchTab(\'mywork\');myWorkGo(\'today\')" title="Your items that are past due (waiting items count only once they come back)"><b>'+late+'</b> late for you</span>');
-  if(lateNo) chips.push('<span class="tp-chip alert" onclick="switchTab(\'mywork\');myWorkGo(\'unassigned\')" title="Past due and nobody owns them yet"><b>'+lateNo+'</b> late, no owner</span>');
+  else if(lateAll) chips.push('<span class="tp-chip'+(lateNo?' alert':'')+'" onclick="switchTab(\'mywork\');myWorkGo(\''+(cmwOn||late?'today':'unassigned')+'\')" title="Past due on My Work'+(lateNo?' ('+lateNo+' nobody has taken yet)':'')+'"><b>'+lateAll+'</b> late</span>');
   if(ci) chips.push('<span class="tp-chip" onclick="clOpen(\'Check-ins\')" title="Client check-ins past due"><b>'+ci+'</b> check-in'+(ci===1?'':'s')+' overdue</span>');
   box.innerHTML = chips.length ? chips.join('') : '<span class="tp-chip ok">✓ Caught up</span>';
   /* ONE COUNT EVERYWHERE (2026-10-18, the Today page map, her yes): the red badge on Today is the same "need you now"

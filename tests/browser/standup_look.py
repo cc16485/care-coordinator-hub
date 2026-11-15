@@ -155,7 +155,7 @@ async()=>{
   $('#capWhat').value='Ask about the weekend float'; await ccCaptureSave(); await sleep(250);
   const wk=(DATA.ops_items||[]).find(x=>x.title==='Ask about the weekend float');
   ok('...saved on My Work AND flagged to talk about', !!wk && S.standup_notes.some(x=>x.source==='work' && x.ops_id===wk.id && x.status==='open'));
-  ok('the top bar says "＋ Work" (no separate Capture button)', /＋ Work/.test($('#ccAddBtn').textContent) && ![...document.querySelectorAll('header button, .topbar button')].some(b=>/✎ Capture/.test(b.textContent)));
+  ok('"＋ Add work" lives on My Work; the top bar has no Work, Add Lead, Fax or Capture button (2026-11-15)', /＋ Add work/.test($('#ccAddBtn').textContent) && !!$('#ccAddBtn').closest('#tab-mywork') && ![...document.querySelectorAll('header.topbar button')].some(b=>/＋ Work|Add Lead|^\s*Fax\s*$|✎ Capture/.test(b.textContent)));
   const mt=suTeamCountHtml('kat@mo-care.com');
   ok('My Team card line: how many to talk about', /\d+ to talk about/.test(mt), mt);
 
