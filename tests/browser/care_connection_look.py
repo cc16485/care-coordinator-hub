@@ -241,7 +241,10 @@ with sync_playwright() as pw:
     ok('Clients > Check-ins: family answers are here', 'Linda' in t and "Dorothy's family" in t, t[:600])
     ok('Clients > Check-ins: who answered, who is happy, who needs attention, who asked for a call, who did not answer', pg.evaluate("[...document.querySelectorAll('#clientCheckinsWrap .kpi')].map(k=>k.innerText.replace(/\\s+/g,' ').trim()).join('|')") == 'Needs you 3|Asked for a call 1|Answered 4|Happy 1|No answer 1', pg.evaluate("[...document.querySelectorAll('#clientCheckinsWrap .kpi')].map(k=>k.innerText).join('|')"))
     ok('Clients > Check-ins: the concern shows what they said and when to call', 'Something needs to change' in t and 'The schedule' in t and 'Asked for a call in the afternoon' in t)
-    ok('Clients > Check-ins: praise shows it went to Kind Words', 'Thanks passed to Kind Words' in t)
+    ok('Clients > Check-ins: praise shows it went to Kind Words', 'Sent to Kind Words' in t)
+    pf = pg.evaluate("CHK.profileHtml('101')"); pf2 = pg.evaluate("CHK.profileHtml('999')")
+    ok('client profile: the form Linda filled out for Dorothy (AxisCare 101), word for word, and nobody else', 'How are things going with Dorothy&#39;s care?' in pf and 'Times keep changing' in pf and 'Tanya is like family' not in pf, pf[:600])
+    ok('client profile: a client with no answers says so', 'No check-in forms answered yet' in pf2, pf2)
     # 2026-11-16 her ask: "i want to see their exact answers to the form"
     ok('exact answers: each question as they saw it, with what they picked', "How are things going with Dorothy's care?" in t and 'What could be better?' in t and 'Would you like a call from the office?' in t and 'Yes, please' in t and 'When is a good time to call?' in t and '(417) 555-0199' in t and 'Times keep changing' in t, t[:1500])
     ok('exact answers: a happy family shows who stands out, what is working, and their words', "What's going right?" in t and 'Tanya, The office team' in t and 'Peace of mind' in t and 'Tanya is like family' in t, t[:1500])

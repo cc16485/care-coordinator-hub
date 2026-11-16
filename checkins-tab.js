@@ -156,6 +156,19 @@
     }
     return '<div class="chk-reply chk-answers">' + qa.join('') + '</div>';
   }
+  /* CLIENT PROFILE (Samantha 2026-11-16: "can their completed form be saved on the clients profile"): every answered
+     family and client check-in for this AxisCare client, newest first, each question with exactly what they picked. */
+  function profileHtml(ax) {
+    if (!ax) return '';
+    if (VIEW.notOn) return '';
+    if (!VIEW.data) return '<div class="field-note">' + (VIEW.err ? 'Check-in forms could not load: ' + e(VIEW.err) : 'Loading check-in forms…') + '</div>';
+    const rows = linksOf('family').filter((l) => String(l.client_ax) === String(ax) && l.answered_at && l.mood)
+      .sort((a, b) => String(b.answered_at).localeCompare(String(a.answered_at)));
+    if (!rows.length) return '<div class="field-note">No check-in forms answered yet.</div>';
+    const day = (iso) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/Chicago' });
+    return rows.map((l) => '<div style="padding:8px 0;border-top:1px solid var(--border);"><b>' + famName(l) + '</b> <span class="field-note">' + e(l.label) + ' · answered ' + e(day(l.answered_at)) + '</span>'
+      + answersHtml(l) + (l.follow === 'kind_words' || l.thanked ? '<div class="field-note">Sent to Kind Words (waiting there for an OK)</div>' : '') + '</div>').join('');
+  }
   function linkRow(l, nowMs) {
     const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
     const acts = busy ? '<span class="field-note">Saving…</span>'
@@ -167,7 +180,7 @@
       + (l.answered_at ? ' · answered ' + e(when(l.answered_at, nowMs)) : ' · sent ' + e(when(l.sent_at, nowMs)) + (l.opened_at ? ', opened' : '')) + '</span>'
       + (l.mood ? answersHtml(l) : '')
       + (l.call ? '<div class="field-note" style="color:var(--red)">Asked for a call' + (l.when ? ' in the ' + e(l.when) : '') + '</div>' : '')
-      + (l.thanked ? '<div class="field-note">Thanks passed to Kind Words</div>' : '')
+      + (l.follow === 'kind_words' || l.thanked ? '<div class="field-note">Sent to Kind Words (waiting there for an OK)</div>' : '')
       + (l.confirm ? '<div class="field-note" style="color:var(--red)">The card was closed, but nobody confirmed with them that it got better.</div>' : '')
       + (last ? '<div class="field-note">' + e({ called: 'Called', resolved: 'Resolved', reopened: 'Reopened', fine: 'Looked fine' }[last.state] || last.state) + ' by ' + e(last.by) + ', ' + e(when(last.at, nowMs)) + (last.note ? ': ' + e(last.note) : '') + '</div>' : '')
       + '</div><div class="chk-acts">' + acts + '</div></div>';
@@ -252,6 +265,7 @@
     if (typeof document === 'undefined') return;
     const box = document.getElementById('checkinsWrap'); if (box) box.innerHTML = html(VIEW, Date.now());
     const cbox = document.getElementById('clientCheckinsWrap'); if (cbox) cbox.innerHTML = clientHtml(VIEW, Date.now());
+    const pbox = document.getElementById('cp_checkin_forms'); if (pbox) pbox.innerHTML = profileHtml(pbox.dataset.ax);
   }
   const endpoint = () => (typeof CAMPAIGN_ENDPOINT !== 'undefined' ? String(CAMPAIGN_ENDPOINT).replace(/campaign-send$/, 'checkins') : '');
   async function post(body) {
@@ -327,5 +341,5 @@
   /* any Caregivers tab: ask once in the background, so the pill's number is there before the tab is opened */
   function peek() { if (!VIEW.askedAt && !VIEW.loading) load(); }
   function setView(v) { VIEW.view = VIEWS.some(([k]) => k === v) ? v : 'needs'; render(); }
-  return { stateOf, needsYou, counts, html, clientHtml, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds, noReturn, saveNoReturn, dnrSet, dnrLift, dnrHtml };
+  return { stateOf, needsYou, counts, html, clientHtml, profileHtml, VIEW, render, load, mark, follow, show, peek, setView, linkNeeds, noReturn, saveNoReturn, dnrSet, dnrLift, dnrHtml };
 });
