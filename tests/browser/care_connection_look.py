@@ -203,8 +203,8 @@ with sync_playwright() as pw:
                                  'sent_at': '2026-11-14T15:00:00Z', 'channel': 'sms', 'opened_at': None, 'answered_at': None, 'mood': '', 'extra': None, 'what': [], 'note': '', 'call': False, 'when': '', 'thanked': False,
                                  'follow': '', 'state': 'waiting', 'card_id': '', 'card_open': False, 'confirm': False, 'followups': [], **x}
             return route.fulfill(json={'ok': True, 'people': [], 'family_off': [], 'links': [
-                L(1, answered_at='2026-11-14T16:00:00Z', mood='improve', what=['The schedule'], call=True, when='afternoon', follow='card', state='needs', note='Times keep changing'),
-                L(2, answered_at='2026-11-14T16:00:00Z', mood='great', thanked=True, follow='kind_words', state='happy', first='Kay', client_first='Opal'),
+                L(1, answered_at='2026-11-14T16:00:00Z', mood='improve', what=['The schedule'], call=True, when='afternoon', alt_phone='4175550199', follow='card', state='needs', note='Times keep changing'),
+                L(2, answered_at='2026-11-14T16:00:00Z', mood='great', thanked=True, thank=['Tanya', 'office'], good=['Peace of mind'], note='Tanya is like family', follow='kind_words', state='happy', first='Kay', client_first='Opal'),
                 L(3, state='no_response', first='Ned', client_first='Vern'),
                 L(4, answered_at='2026-11-13T16:00:00Z', mood='improve', follow='card', card_id='ops_checkin_4', state='called', confirm=True, first='Ida', client_first='Iris'),
                 L(5, answered_at='2026-11-14T16:00:00Z', mood='improve', follow='card', state='needs', first='Walt', client_first='Walt', self=True),
@@ -242,6 +242,9 @@ with sync_playwright() as pw:
     ok('Clients > Check-ins: who answered, who is happy, who needs attention, who asked for a call, who did not answer', pg.evaluate("[...document.querySelectorAll('#clientCheckinsWrap .kpi')].map(k=>k.innerText.replace(/\\s+/g,' ').trim()).join('|')") == 'Needs you 3|Asked for a call 1|Answered 4|Happy 1|No answer 1', pg.evaluate("[...document.querySelectorAll('#clientCheckinsWrap .kpi')].map(k=>k.innerText).join('|')"))
     ok('Clients > Check-ins: the concern shows what they said and when to call', 'Something needs to change' in t and 'The schedule' in t and 'Asked for a call in the afternoon' in t)
     ok('Clients > Check-ins: praise shows it went to Kind Words', 'Thanks passed to Kind Words' in t)
+    # 2026-11-16 her ask: "i want to see their exact answers to the form"
+    ok('exact answers: each question as they saw it, with what they picked', "How are things going with Dorothy's care?" in t and 'What could be better?' in t and 'Would you like a call from the office?' in t and 'Yes, please' in t and 'When is a good time to call?' in t and '(417) 555-0199' in t and 'Times keep changing' in t, t[:1500])
+    ok('exact answers: a happy family shows who stands out, what is working, and their words', "What's going right?" in t and 'Tanya, The office team' in t and 'Peace of mind' in t and 'Tanya is like family' in t, t[:1500])
     ok('Clients > Check-ins: a closed card nobody confirmed asks to confirm', 'nobody confirmed with them' in t)
     ok('Clients > Check-ins: its red number counts the families who need you (3)', pg.inner_text('#cchkBadge').strip() == '3' and pg.is_visible('#cchkBadge'), pg.inner_text('#cchkBadge'))
     pg.evaluate("switchTab('cgcheckins')"); pg.wait_for_timeout(500)
@@ -249,6 +252,7 @@ with sync_playwright() as pw:
     ok('Caregivers > Check-ins: caregivers only (no family rows, no Families button)', 'Linda' not in ct and "Dorothy's family" not in ct and 'Families' not in ct and 'Clients > Check-ins' in ct, ct[:500])
     ok('Caregivers > Check-ins: its red number counts caregivers only (1), never families', pg.inner_text('#chkBadge').strip() == '1', pg.inner_text('#chkBadge'))
     ok('Caregivers > Check-ins: a caregiver\'s one-tap concern is on Needs you, with their name', 'Rachel Moss' in ct and 'Having a hard time' in ct, ct[:500])
+    ok('exact answers: a caregiver sees their own question', 'How are you feeling about work lately?' in ct, ct[:800])
     pg.evaluate("CHK.setView('answers')"); pg.wait_for_timeout(200)
     at_ = pg.inner_text('#checkinsWrap')
     ok('Caregivers > Check-ins: a One-tap answers view lists caregiver answers only', 'Rachel Moss' in at_ and 'Week 1' in at_ and 'Linda' not in at_ and 'Walt' not in at_, at_[:500])
@@ -269,7 +273,7 @@ with sync_playwright() as pw:
     ok('Clients > Check-ins: the legend explains the dots', 'needs attention' in pg.inner_text(W) and 'one-minute check-in page' in pg.inner_text(W))
     ok_btn = pg.query_selector("button:text-is('OK')")
     if ok_btn and ok_btn.is_visible(): ok_btn.click(); pg.wait_for_timeout(200)   # the refusal shown earlier to the coordinator
-    pg.evaluate("window.scrollTo(0,0)"); pg.screenshot(path=os.environ.get('SHOT2', '/tmp/checkins_families.png'))
+    pg.evaluate("window.scrollTo(0,0)"); (pg.locator(W).screenshot(path=os.environ["SHOT3"]) if os.environ.get("SHOT3") else None); pg.screenshot(path=os.environ.get("SHOT2", "/tmp/checkins_families.png"))
     ok('Hub coordinator: no page errors', not errs, errs)
     pg.close()
     pg, errs, hits = hub('samantha@mo-care.com', ['owner_admin'])

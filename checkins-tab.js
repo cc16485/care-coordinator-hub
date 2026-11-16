@@ -121,6 +121,41 @@
   /* the client's own check-in (2026-11-14) says "the client", never "Dorothy's family" */
   const famName = (l) => l.audience === 'caregiver' ? e([l.first, l.last].filter(Boolean).join(' ')) : l.audience === 'family' && l.self ? e(l.client_first || l.first) + ' <span class="field-note">(the client)</span>'
     : e(l.first) + (l.audience === 'family' && l.client_first ? ' <span class="field-note">(' + e(l.client_first) + "'s family)</span>" : '');
+  /* EXACT ANSWERS (Samantha 2026-11-16: "i want to see their exact answers to the form"): every question as the person saw
+     it on checkin.html, with exactly what they tapped or typed. Keep these words the same as checkin.html. */
+  const FACE = { family: { great: 'Going great', good: 'Mostly good', improve: 'Something needs to change', call: "I'd like a call" },
+    caregiver: { great: 'I love it', good: 'Pretty well', stressed: 'A little stressed', hard: 'Having a hard time' } };
+  const EXTRA_Q = { 'family:first_visit': 'Did the caregiver arrive when you expected?', 'family:day_90': 'How likely are you to recommend us to a friend?',
+    'caregiver:day_30': 'Are you getting the hours you want?', 'caregiver:day_90': 'How likely are you to tell a friend to work here?' };
+  const WHEN = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Early evening' };
+  function answersHtml(l) {
+    const fam = l.audience === 'family', qa = [], none = '<span class="field-note">(nothing picked)</span>', blank = '<span class="field-note">(left blank)</span>';
+    /* before the server sends good/thank (Staffing checkins v6), those two rows are left out rather than shown as empty */
+    const full = Array.isArray(l.good);
+    const add = (q, a) => qa.push('<div class="chk-q">' + e(q) + '</div><div class="chk-a">' + a + '</div>');
+    add(fam ? (l.self ? 'How are things going with your care?' : 'How are things going with ' + (l.client_first || 'their loved one') + "'s care?") : 'How are you feeling about work lately?',
+      e((FACE[l.audience] || {})[l.mood] || MOOD[l.mood] || l.mood));
+    const xq = EXTRA_Q[l.audience + ':' + l.kind];
+    if (xq) add(xq, l.extra != null && l.extra !== '' ? e(typeof l.extra === 'number' ? l.extra + ' (0 to 10)' : l.extra) : none);
+    const good = l.good || [], thank = l.thank || [];
+    if (l.mood === 'great' && fam) {
+      if (full) add("We love hearing that! What's going right? Someone who stands out", thank.length ? e(thank.map((t) => t === 'office' ? 'The office team' : t).join(', ')) : none);
+      if (full) add("Something that's working", good.length ? e(good.join(', ')) : none);
+      add('Tell us about it', l.note ? '“' + e(l.note) + '”' : blank);
+    } else if (l.mood === 'great') {
+      add('So glad to hear it! Anything you want to share?', l.note ? '“' + e(l.note) + '”' : blank);
+    } else if (l.mood !== 'call') {
+      add(fam ? 'What could be better?' : 'What would help most?', (l.what || []).length ? e(l.what.join(', ')) : none);
+      add('Tell us a little more', l.note ? '“' + e(l.note) + '”' : blank);
+    }
+    if (l.mood !== 'great') {
+      const wants = l.mood === 'call' || l.mood === 'hard';
+      if (!wants) add('Would you like a call from the office?', l.call ? 'Yes, please' : 'No, this is enough');
+      if (wants || l.call) add('When is a good time to call?', l.when ? e(WHEN[l.when] || l.when) : none);
+      if (l.alt_phone) add('Best number', e(l.alt_phone.replace(/^(\d{3})(\d{3})(\d{4})$/, '($1) $2-$3')));
+    }
+    return '<div class="chk-reply chk-answers">' + qa.join('') + '</div>';
+  }
   function linkRow(l, nowMs) {
     const busy = VIEW.saving[l.id], b = (st, label) => '<button class="fb" onclick="CHK.follow(\'' + e(l.id) + '\',\'' + st + '\')">' + label + '</button>';
     const acts = busy ? '<span class="field-note">Saving…</span>'
@@ -130,8 +165,7 @@
     const last = l.followups[l.followups.length - 1];
     return '<div class="chk-row">' + ldot(l.state) + '<div class="chk-main"><b>' + famName(l) + '</b> <span class="field-note">' + e(l.label)
       + (l.answered_at ? ' · answered ' + e(when(l.answered_at, nowMs)) : ' · sent ' + e(when(l.sent_at, nowMs)) + (l.opened_at ? ', opened' : '')) + '</span>'
-      + (l.mood ? '<div class="chk-reply">' + e(MOOD[l.mood] || l.mood) + (l.extra != null && l.extra !== '' ? ' · ' + e(typeof l.extra === 'number' ? l.extra + ' of 10' : l.extra) : '')
-        + (l.what.length ? ' · ' + e(l.what.join(', ')) : '') + (l.note ? '<br>“' + e(l.note) + '”' : '') + '</div>' : '')
+      + (l.mood ? answersHtml(l) : '')
       + (l.call ? '<div class="field-note" style="color:var(--red)">Asked for a call' + (l.when ? ' in the ' + e(l.when) : '') + '</div>' : '')
       + (l.thanked ? '<div class="field-note">Thanks passed to Kind Words</div>' : '')
       + (l.confirm ? '<div class="field-note" style="color:var(--red)">The card was closed, but nobody confirmed with them that it got better.</div>' : '')
