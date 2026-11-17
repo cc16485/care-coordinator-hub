@@ -1,29 +1,32 @@
 /* =============================================================================
-   writeup-rules.js · who approves a write-up (HR decisions, Samantha 2026-10-18; replaces SOP ruling 2 of 10-17)
+   writeup-rules.js · who approves a write-up
    Pure functions: the CC Hub (Write-Ups, My Work approvals), the Owners Hub Discipline Center and the tests run this file.
 
-   THE RULE (HR Agent build plan, decisions 1 to 3, 2026-10-18):
-   · Every write-up is formal, from a verbal warning up, and only an owner approves one. Zach is the HR lead; Samantha
-     can approve too. Care Coordinators coach, and coaching is not a write-up (its own record, build step 5).
-   · Zach approves routine terminations on his own.
+   THE RULE (Samantha 2026-11-17, replaces the 2026-10-18 "Zach is the HR lead" rules):
+   "we need to rework it to be sent by care coordinators and have Samantha oversee it and put it in my responsibilities."
+   Her July 2026 Corrective Action SOP kept: coaching and verbal warnings only tell the owner; formal approval starts at
+   a written warning.
+   · Care Coordinators prepare and send write-ups. A coaching talk or a verbal warning a Care Coordinator decides
+     and issues; Samantha sees every one in her Friday review.
+   · A written warning, final written warning, suspension or termination review waits for Samantha's approval.
+     Only Samantha approves these. Zach is no longer the HR lead (he steps into the business later).
    · A case marked as involving protected leave, an accommodation, an injury or workers' comp, a discrimination or
-     harassment complaint, a retaliation concern, or another serious legal risk needs Samantha consulted first. Zach
-     can't approve it until she marks the consult on it. Samantha herself can approve it.
-   · An owner may approve a case they started: only owners approve now, and Zach decides on his own (decision 1).
-   · A level this file does not know is still an owner's, never anyone else's.
+     harassment complaint, a retaliation concern, or another serious legal risk is Samantha's at every level.
+   · A level this file does not know is Samantha's, never anyone else's.
    ============================================================================= */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.WriteupRules = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  /* No level is the team's any more (decision 3). Kept as a list so older callers keep working. */
-  const TEAM_LEVELS = [];
+  /* The levels a Care Coordinator decides and issues (her SOP: these only tell the owner). */
+  const TEAM_LEVELS = ['Coaching', 'Verbal Warning'];
   const LEADERSHIP_LEVELS = ['Coaching', 'Verbal Warning', 'Written Warning', 'Final Written Warning', 'Suspension', 'Termination Review'];
   const FIRING_LEVELS = ['Termination Review'];
-  const FIRING_APPROVERS = ['zach@mo-care.com', 'samantha@mo-care.com'];
-  const HR_LEAD = 'zach@mo-care.com';
-  const CONSULT_WITH = 'samantha@mo-care.com';
+  const OWNER_APPROVER = 'samantha@mo-care.com';
+  const FIRING_APPROVERS = [OWNER_APPROVER];
+  const HR_LEAD = OWNER_APPROVER;
+  const CONSULT_WITH = OWNER_APPROVER;
   /* The situations that need Samantha consulted before a final decision (decision 1). */
   const PROTECTED = [
     { key: 'leave', words: 'protected leave' },
@@ -54,7 +57,7 @@
       && (!x.issued_at || t - Date.parse(x.issued_at) <= YEAR_MS));
   }
 
-  /* 'team' or 'leadership'. Always 'leadership' now; kept for the callers that still ask. */
+  /* 'team' (a Care Coordinator decides) or 'leadership' (Samantha approves). */
   function tier(a) {
     return TEAM_LEVELS.indexOf(String((a && a.level) || '')) > -1 ? 'team' : 'leadership';
   }
@@ -87,18 +90,22 @@
   ];
   function missingBeforeDecision(a) { return REQUIRED.filter((r) => !r[2](a)).map((r) => r[1]); }
 
-  /* who: { email, owner (holds approve_discipline) }. Returns { ok, why, consult }. why is said to the person when
-     ok is false; consult is true when the only thing missing is Samantha's consult. */
+  /* who: { email, owner (holds approve_discipline), team (holds approve_team_discipline: Care Coordinators) }.
+     Returns { ok, why, consult, missing }. why is said to the person when ok is false. consult stays in the answer
+     for older callers; it is never true now, because a protected case simply goes to Samantha. */
   function canApprove(a, who) {
     who = who || {};
     const email = low(who.email);
     if (!a || !email) return { ok: false, why: 'Sign in again to approve this.' };
-    if (!who.owner) return { ok: false, why: 'Zach (or Samantha) approves a ' + levelWords(a) + '.' };
+    const isSam = email === OWNER_APPROVER && !!who.owner;
+    const teamLevel = tier(a) === 'team';
+    if (!isSam) {
+      if (!teamLevel) return { ok: false, why: 'Samantha approves a ' + levelWords(a) + '. Send it to her.' };
+      if (!who.team) return { ok: false, why: 'A Care Coordinator or Samantha decides a ' + levelWords(a) + '.' };
+      if (needsConsult(a)) return { ok: false, why: 'Send this to Samantha: it involves ' + protectedWords(a).join(', ') + '.' };
+    }
     const miss = missingBeforeDecision(a);
-    if (miss.length) return { ok: false, missing: miss, why: 'Before this can be approved, fill in: ' + miss.join(', ') + '. Open it in HR, Formal cases.' };
-    if (needsConsult(a) && !consultDone(a) && email !== CONSULT_WITH)
-      return { ok: false, consult: true, why: 'Talk to Samantha first: this case involves ' + protectedWords(a).join(', ')
-        + '. She marks the consult on it, then you can approve.' };
+    if (miss.length) return { ok: false, missing: miss, why: 'Before this can be approved, fill in: ' + miss.join(', ') + '. Open it in Write-Ups.' };
     return { ok: true, why: '' };
   }
 
@@ -110,8 +117,8 @@
 
   /* Who can approve it, said the way a person would say it. */
   function whoApproves(a) {
-    if (needsConsult(a) && !consultDone(a)) return 'Zach, after talking with Samantha';
-    return 'Zach (or Samantha)';
+    if (tier(a) === 'team' && !needsConsult(a)) return 'a Care Coordinator (Samantha sees it)';
+    return 'Samantha';
   }
 
   /* The first person in `people` (emails, in the order to try) who may approve it.
@@ -158,7 +165,7 @@
     return { short: false, kind: '', why: '' };
   }
 
-  return { shortNotice, centralLocal, TEAM_LEVELS, LEADERSHIP_LEVELS, FIRING_LEVELS, FIRING_APPROVERS, HR_LEAD, CONSULT_WITH,
+  return { shortNotice, centralLocal, TEAM_LEVELS, LEADERSHIP_LEVELS, FIRING_LEVELS, FIRING_APPROVERS, HR_LEAD, CONSULT_WITH, OWNER_APPROVER,
     PROTECTED, protectedWords, needsConsult, consultDone, missingBeforeDecision, REQUIRED,
     tier, isFiring, priorWritten, startedBy, canApprove, whoApproves, levelWords, approverFor, samePerson };
 });

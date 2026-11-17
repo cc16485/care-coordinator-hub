@@ -64,7 +64,7 @@ async()=>{
   as('krystal@mo-care.com','Krystal Land',['care_coordinator']); CC_ROLE_BY_EMAIL['samantha@mo-care.com']=[]; 
   HR.go('people'); await sleep(900);
   ok('a coordinator sees the list without the Formal records column or the owner note', names().length===3 && !/Formal records/.test(box().innerText), box().innerText.slice(0,400));
-  ok('a coordinator still has no owner pages in the menu', ![...document.querySelectorAll('.hr-item-label')].some(x=>/dashboard|Formal cases|Terminations/.test(x.textContent)), [...document.querySelectorAll('.hr-item-label')].map(x=>x.textContent));
+  ok('a coordinator still has no owner pages in the menu (Formal cases is theirs since 2026-11-17)', ![...document.querySelectorAll('.hr-item-label')].some(x=>/desk|dashboard|Terminations|Incidents/.test(x.textContent)), [...document.querySelectorAll('.hr-item-label')].map(x=>x.textContent));
   return R;
 }
 """

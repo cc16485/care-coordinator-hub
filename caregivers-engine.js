@@ -3065,7 +3065,7 @@ const HB_TEMPLATES = {
    on the owners, then ready to hand over. History last. */
 /* SOP ruling 2 (2026-10-17): who approves this one, from writeup-rules.js (loaded by the page). */
 function wuWho(a){
-  return (typeof WriteupRules!=='undefined') ? WriteupRules.whoApproves(a, DISC_ACTIONS) : 'Samantha or Zach';
+  return (typeof WriteupRules!=='undefined') ? WriteupRules.whoApproves(a, DISC_ACTIONS) : 'Samantha';
 }
 function renderWriteups(){
   const box=document.getElementById('wuList'); if(!box) return;
@@ -3235,11 +3235,11 @@ function renderAttendance(){
       +(s.triggers.length?'<div style="margin-top:.5rem">'+s.triggers.map((t,ti)=>
         '<div style="display:flex;align-items:center;gap:.6rem;font-size:.8rem;padding:.3rem 0;flex-wrap:wrap"><span style="color:#b91c1c;font-weight:700">→</span>'
         +'<span style="flex:1">'+creqEsc(t.label)+'</span>'
-        /* HR step 1 (2026-10-18): only Samantha and Zach draft or dismiss a write-up; everyone else sees who decides. */
+        /* 2026-11-17: Care Coordinators and Samantha draft or dismiss a write-up; everyone else sees who decides. */
         +(attCanDecide()
           ? '<button class="fb" style="font-size:.72rem;background:#DC2626" onclick="draftWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">📝 Draft '+creqEsc(attStatus(cg).nextLevel)+'</button>'
             +(t.kind==='ncns'?'':'<button class="fb" style="font-size:.72rem;background:#FAF9F6;color:var(--navy);border:1px solid var(--border)" onclick="noWriteup(\''+creqEsc(cg).replace(/'/g,"\\'")+'\','+ti+')">No write-up</button>')
-          : '<span style="font-size:.72rem;color:#6E6559">Zach reviews this</span>')
+          : '<span style="font-size:.72rem;color:#6E6559">A Care Coordinator reviews this</span>')
         +'</div>').join('')+'</div>':'')
       +(s.drafts.length?s.drafts.map(a=>{
         const st=a.status==='pending_approval'?'⏳ awaiting approval':a.status==='approved'?'✅ approved, ready to issue':(a.reject_note?'↩ sent back: “'+creqEsc(a.reject_note)+'”':'📝 draft');
@@ -3256,9 +3256,10 @@ function renderAttendance(){
   }).join('');
   updateAttBadge();
 }
-/* Owners (Zach, the HR lead, and Samantha) decide on write-ups. A coordinator's screen shows the flags but not the
-   buttons, and its badge does not count them, since the next step is not theirs (HR step 1, 2026-10-18). */
-function attCanDecide(){ try{ return typeof ccCan==='function' && ccCan('approve_discipline'); }catch(e){ return false; } }
+/* Write-ups (Samantha 2026-11-17): Care Coordinators prepare and send them, and Samantha oversees. Owners and Care
+   Coordinators (approve_team_discipline) see the Draft and No write-up buttons and count the flags; who approves which
+   level is writeup-rules.js. */
+function attCanDecide(){ try{ return typeof ccCan==='function' && (ccCan('approve_discipline') || ccCan('approve_team_discipline')); }catch(e){ return false; } }
 function updateAttBadge(){
   const b=document.getElementById('attBadge'); if(!b) return;
   if(!attCanDecide()){ b.style.display='none'; updateGroupBadges(); return; }
@@ -3568,14 +3569,14 @@ function openWriteup(id){
   const closeBtn='<button onclick="document.getElementById(\'writeup-modal\').classList.remove(\'open\')" style="margin-left:auto;background:#FAF9F6;border:1px solid var(--border);border-radius:7px;padding:.4rem .9rem;cursor:pointer;font-family:inherit;font-size:.8rem">Close</button>';
   document.getElementById('writeup-body').readOnly = a.status==='pending_approval';
   if(a.status==='draft'){
-    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b>. A '+creqEsc(a.level||'write-up')+' is approved by <b>'+creqEsc(wuWho(a))+'</b>, never by the person who started it. Nothing can be issued until it is approved.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
+    notice.innerHTML='This is a draft. Edit if needed, then <b>send it for approval</b>. A '+creqEsc(a.level||'write-up')+' is decided by <b>'+creqEsc(wuWho(a))+'</b>. Nothing can be issued until it is approved.'+(a.reject_note?'<br>↩ Sent back: “'+creqEsc(a.reject_note)+'”':'');
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'
-      +'<button class="fb" style="background:#0d3a5f" onclick="sendForApproval()">📤 Send for approval</button>'+closeBtn;
+      +'<button class="fb" style="background:#0d3a5f" onclick="sendForApproval()">'+((typeof WriteupRules!=='undefined'&&WriteupRules.tier(a)==='team'&&typeof discCanApprove==='function'&&discCanApprove(a).ok)?'✓ Decide it':'📤 Send for approval')+'</button>'+closeBtn;
   }else if(a.status==='pending_approval'){
     notice.innerHTML='⏳ Waiting for '+creqEsc(wuWho(a))+' to approve it (they see it under My Work, Approvals). It can\'t be edited or issued until it\'s approved.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print preview</button>'+closeBtn;
   }else if(a.status==='approved'){
-    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'Zach')+'. Next: meet with them, then they sign that they received it (below). Signing does not mean they agree.';
+    notice.innerHTML='✅ Approved by '+creqEsc(a.approved_by||'not recorded')+'. Next: meet with them, then they sign that they received it (below). Signing does not mean they agree.';
     acts.innerHTML='<button class="fb" onclick="printWriteup()">🖨 Print / PDF</button>'+closeBtn;
   }else{
     notice.innerHTML='📄 Issued '+String(a.issued_at||'').slice(0,10)+(a.ack?' · '+creqEsc(ACK_WORD[a.ack.status]||a.ack.status):'')
@@ -3603,6 +3604,20 @@ async function sendForApproval(){
   { const miss=(typeof WriteupRules!=='undefined')?WriteupRules.missingBeforeDecision(a):[];
     if(miss.length){ await attPersist('discipline_actions',a); document.getElementById('writeup-check').innerHTML=wuCheckHtml(a); wuFillSections(a);
       alert('Before it goes for approval, fill in: '+miss.join(', ')+'. Your changes are saved.'); return; } }
+  /* 2026-11-17 (Samantha): a coaching talk or a verbal warning is the Care Coordinator's to decide. When the person
+     sending it may decide it (writeup-rules.js says so), it is approved by them right here, and Samantha sees it in
+     her Friday review. A written warning or higher, or a protected case, goes to Samantha as before. */
+  const self=(typeof discCanApprove==='function' && typeof WriteupRules!=='undefined' && WriteupRules.tier(a)==='team') ? discCanApprove(a) : { ok:false };
+  if(self.ok){
+    if(!(await ccConfirm('Decide this '+String(a.level||'write-up').toLowerCase()+' for '+a.caregiver+' yourself?\n\nA coaching talk or a verbal warning is a Care Coordinator\'s call. Your name goes on it, and Samantha sees it in her review.'))){ await attPersist('discipline_actions',a); return; }
+    const me=(typeof ME!=='undefined'&&ME)||{};
+    a.status='approved'; a.sent_for_approval_at=new Date().toISOString(); a.reject_note='';
+    a.approved_by=me.name||me.email||''; a.approved_by_email=String(me.email||'').toLowerCase(); a.approved_at=new Date().toISOString(); a.decided_by_coordinator=true;
+    await attPersist('discipline_actions',a);
+    renderAttendance(); renderWriteups(); openWriteup(a.id);
+    alert('Approved by you. Next: meet with them, then they sign that they received it.');
+    return;
+  }
   a.status='pending_approval'; a.sent_for_approval_at=new Date().toISOString(); a.reject_note='';
   await attPersist('discipline_actions',a);
   document.getElementById('writeup-modal').classList.remove('open');

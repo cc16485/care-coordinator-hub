@@ -1,7 +1,9 @@
 /* =============================================================================
    hr.js · the HR section (HR Agent build step 3, Samantha 2026-10-18)
-   One Hub page with its own menu on the left, so Zach (the remote HR lead) sees his whole job at a glance.
-   Samantha and Zach (approve_discipline) see every item. Care Coordinators see Coaching, Attendance and Zach's role.
+   One Hub page with its own menu on the left.
+   2026-11-17 (Samantha): Care Coordinators prepare and send write-ups and Samantha oversees; Zach is no longer the HR
+   lead and "Zach's role" is off the menu. Owners (approve_discipline) see every item. Care Coordinators see Caregivers,
+   Formal cases (write-ups), Coaching, Attendance and the Handbook.
    Attendance and Write-Ups are the existing Caregivers panels, moved in here (the panels themselves are unchanged).
    Coaching tasks arrive with build step 5; until then the Coaching pages say so plainly.
    Loaded on demand by index.html when the 'hr' tab opens. Reads only; every change still happens in the panels
@@ -13,28 +15,28 @@
   const owner = () => { try { return typeof ccCan === 'function' && ccCan('approve_discipline'); } catch (e) { return false; } };
   const myEmail = () => String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
   /* who may start a coaching talk (2026-10-27, her change: "care coordinators can initiate a coaching call too!") */
-  const canCoach = () => { if (owner()) return true; try { return ((CC_ROLE_BY_EMAIL || {})[myEmail()] || []).indexOf('care_coordinator') > -1; } catch (e) { return false; } };
+  const canCoach = () => { if (owner()) return true; try { if (typeof ccCan === 'function' && ccCan('approve_team_discipline')) return true; } catch (e) {} try { return ((CC_ROLE_BY_EMAIL || {})[myEmail()] || []).indexOf('care_coordinator') > -1; } catch (e) { return false; } };
   const W = () => (typeof WriteupRules !== 'undefined' ? WriteupRules : null);
   const VIEWS = [
     { id: 'people', label: 'Caregivers', note: 'How each caregiver is doing', owner: false },   /* 2026-11-14 */
-    { id: 'home', label: "Zach's dashboard", note: 'What needs you today', owner: true },
+    { id: 'home', label: 'HR desk', note: 'What needs you today', owner: true },
     { id: 'practice', label: 'Agent practice', note: 'Check what it would flag', owner: true },
-    { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true },
+    { id: 'formal', label: 'Formal cases', note: 'Write-ups and approvals', owner: true, coord: true },   /* 2026-11-17: coordinators send write-ups */
     { id: 'incidents', label: 'Incidents and concerns', note: 'From the office, incidents, injuries', owner: true },   /* 2026-10-27 */
     { id: 'oversight', label: 'Coaching oversight', note: 'Is coaching happening', owner: true },
     { id: 'coaching', label: 'Coaching', note: 'Conversations to have', owner: false },
     { id: 'attendance', label: 'Attendance', note: 'Call-ins, late arrivals, no-shows', owner: false },
     { id: 'terminations', label: 'Terminations', note: 'From decision to paperwork', owner: true },
     { id: 'livein', label: 'Live-In Agreement', note: 'Signed on their phone', owner: true },   /* 2026-10-29 */
-    { id: 'handbook', label: 'Handbook', note: 'The rules the agent cites', owner: false },
-    { id: 'role', label: "Zach's role", note: 'For everyone at Caring Companions', owner: false }
+    { id: 'handbook', label: 'Handbook', note: 'The rules the agent cites', owner: false }
+    /* 2026-11-17: "Zach's role" left the menu (Zach is no longer the HR lead); its page code stays below, unused. */
   ];
   const PANEL_OF = { formal: 'tab-cgwriteups', attendance: 'tab-cgattendance' };
   const SCX_OF = { formal: 'cgwriteups', attendance: 'cgattendance' };
   const store = { get: (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
   let view = null;
 
-  function allowed() { const o = owner(); return VIEWS.filter((v) => o || !v.owner); }
+  function allowed() { const o = owner(), c = canCoach(); return VIEWS.filter((v) => o || !v.owner || (v.coord && c)); }
   function pick(want) {
     const ok = allowed().map((v) => v.id);
     if (want && ok.includes(want)) return want;
@@ -125,7 +127,7 @@
       root.innerHTML = '<div class="hr-wrap"><nav class="hr-menu" id="hrMenu" aria-label="Performance"></nav><div class="hr-main" id="hrMain"></div></div>';
     }
     const o = owner();
-    document.getElementById('hrMenu').innerHTML = '<div class="hr-menu-head">' + (o ? "Zach's Performance desk" : 'Performance') + '</div>'
+    document.getElementById('hrMenu').innerHTML = '<div class="hr-menu-head">' + (o ? 'Performance desk' : 'Performance') + '</div>'
       + allowed().map((v) => '<button type="button" class="hr-item' + (v.id === view ? ' on' : '') + '" onclick="HR.go(\'' + v.id + '\')">'
         + '<span class="hr-item-label">' + esc(v.label) + '</span><span class="hr-item-note">' + esc(v.note) + '</span></button>').join('');
     const main = document.getElementById('hrMain');
@@ -239,7 +241,7 @@
         : '<tr><td colspan="' + cols.length + '" class="z">No caregiver matches that name.</td></tr>')
       + '</tbody></table></div>'
       + ((PPL.noCoach || PPL.noKind || PPL.noChk) ? '<div class="field-note hr-foot">A ? means that part could not be read just now' + (PPL.noChk ? ' (check-ins load when the Check-ins tab has answered)' : '') + '. <a href="#" onclick="HR.go(\'people\');return false;">Try again</a></div>' : '')
-      + (o ? '<div class="field-note hr-foot">Formal records show for Samantha and Zach only.</div>' : '') + '</div>';
+      + (o ? '<div class="field-note hr-foot">Formal records show for the owners only.</div>' : '') + '</div>';
   }
   function pplFind(v) { PPL.q = v; drawPeople(); const i = document.getElementById('hrPplQ'); if (i) { i.focus(); try { i.setSelectionRange(v.length, v.length); } catch (e) {} } }
   function pplSort(id) { if (PPL.sort === id) PPL.dir = -PPL.dir; else { PPL.sort = id; PPL.dir = id === 'name' ? 1 : -1; } drawPeople(); }
@@ -379,7 +381,7 @@
       + '<span class="field-note">from ' + esc(c.raised_by_name || c.raised_by || 'the office') + ', ' + esc(fmtYmd(String(c.created_at).slice(0, 10))) + '</span></div>'
       + (c.facts || []).map((f) => '<div style="font-size:13.5px;white-space:pre-wrap;margin:4px 0;"><span class="field-note">' + esc(fmtYmd(f.date)) + ':</span> ' + esc(f.what) + '</div>').join('');
     el.innerHTML = '<div class="card hr-card"><div class="hr-card-h">From the office</div>'
-      + '<div class="field-note">What the office told you about a caregiver (Tell Zach, on the caregiver\'s Performance tab). Only you and Samantha see these. You decide what happens.</div></div>'
+      + '<div class="field-note">What the office told you about a caregiver (Tell Samantha, on the caregiver\'s Performance tab). Only the owners see these. You decide what happens.</div></div>'
       + (open.length ? open.map((c) => '<div class="card hr-card" id="hrCn' + esc(c.id) + '">' + body(c)
           + '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.concern(\'' + esc(c.id) + '\',\'coaching\')">A coaching talk</button> '
           + '<button class="secondary hr-btn" onclick="HR.concern(\'' + esc(c.id) + '\',\'formal\')">A formal case</button> '
@@ -464,7 +466,7 @@
   /* ---------- agent practice (build step 4): what the agent would flag, for Samantha and Zach to mark ---------- */
   let cases = null, pracFilter = 'todo';
   const MANUAL = { office_concern: 1, owner_coaching: 1 };
-  const KIND = { recognition: ['Recognition', 'Pass it on to the caregiver'], coaching: ['Coaching', 'Krystal or Angiel talks with them'], recurring: ['Recurring', 'Zach reviews'], serious: ['Serious', 'Zach right away'] };
+  const KIND = { recognition: ['Recognition', 'Pass it on to the caregiver'], coaching: ['Coaching', 'Krystal or Angiel talks with them'], recurring: ['Recurring', 'Samantha reviews'], serious: ['Serious', 'Samantha right away'] };
   async function loadCases(force) {
     if (cases && !force) return cases;
     try { const { data, error } = await sb.from('hr_cases').select('*').order('created_at', { ascending: false }).limit(300); if (error) return null; cases = data || []; try { badge(); } catch (e) {} return cases; }
@@ -472,7 +474,7 @@
   }
   function renderPractice(box) {
     box.innerHTML = '<div class="hr-h">Agent practice</div>'
-      + '<div class="card hr-card"><div class="field-note">Every morning the Performance agent reads attendance, missed shift notes and kind words, and writes down what it would flag. Nothing is sent to anyone while it practices. Mark each one: <b>Right call</b> or <b>Wrong call</b> (say why). When you and Zach agree with what it catches, it can be switched on.</div>'
+      + '<div class="card hr-card"><div class="field-note">Every morning the Performance agent reads attendance, missed shift notes and kind words, and writes down what it would flag. Nothing is sent to anyone while it practices. Mark each one: <b>Right call</b> or <b>Wrong call</b> (say why). When you agree with what it catches, it can be switched on.</div>'
       + '<div class="hr-hb-bar" style="margin-top:8px;"><label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'todo' ? 'checked' : '') + ' onchange="HR.pf(\'todo\')"> Not marked yet</label>'
       + '<label class="field-note"><input type="radio" name="hrPf" ' + (pracFilter === 'all' ? 'checked' : '') + ' onchange="HR.pf(\'all\')"> All</label></div></div>'
       + '<div id="hrPracList"><div class="field-note">Loading…</div></div>';
@@ -676,7 +678,7 @@
     'Wherever the talking points say STOP: stop talking. Let them answer, even if there is a silence, and do not answer for them. Write down what they say. Then say back what you heard before you go on.',
     'Ask how we can help, and mean it: a different shift time, fewer shifts, help with the app, help with a ride. Write down what you agree to, then make sure the office does it.',
     'Before you finish, say it clearly and kindly: if this keeps happening, the next step is an official write-up, and write-ups can lead to termination.',
-    'If they mention their health, a pregnancy, a family member who is sick, an injury at work, or being treated unfairly: do not push. Thank them, write it down and tell Zach before going further.',
+    'If they mention their health, a pregnancy, a family member who is sick, an injury at work, or being treated unfairly: do not push. Thank them, write it down and tell Samantha before going further.',
     'End with thanks, and record it right away: the date, what you said, what they said, what help you agreed to, and that you explained write-ups come next.'];
   function coachCard(c) {
     const o = owner(), mine = String(c.assigned_to).toLowerCase() === String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
@@ -684,10 +686,10 @@
     const chip = c.status !== 'open' ? '<span class="hr-kind hr-kind-coaching">' + esc({ done: 'Done', flag_wrong: 'Flag was wrong', not_needed: 'Not needed', withdrawn: 'Withdrawn' }[c.status] || c.status) + '</span>'
       : overdue(c) ? '<span class="hr-kind hr-kind-serious">Overdue</span>' : String(c.due_on) === todayStr() ? '<span class="hr-kind hr-kind-recurring">Due today</span>' : '<span class="hr-kind hr-kind-coaching">Due ' + esc(fmtYmd(c.due_on)) + '</span>';
     let h = '<div class="card hr-card"><div class="hr-row" style="border-top:0;padding-top:0;"><span><b>' + esc(c.caregiver) + '</b> · ' + esc(c.topic) + '</span>' + chip + '</div>'
-      + '<div class="field-note">' + (rec ? 'A compliment to pass on' : c.subject_type === 'office' ? 'Office coaching, from a team review (only Samantha and Zach see this)' : 'Coaching, not discipline') + ' · assigned to ' + esc(nameOf(c.assigned_to)) + ' by ' + esc(nameOf(c.assigned_by)) + (c.postpone_count ? ' · postponed ' + c.postpone_count + (c.postpone_count === 1 ? ' time' : ' times') : '') + '</div>'
+      + '<div class="field-note">' + (rec ? 'A compliment to pass on' : c.subject_type === 'office' ? 'Office coaching, from a team review (only the owners see this)' : 'Coaching, not discipline') + ' · assigned to ' + esc(nameOf(c.assigned_to)) + ' by ' + esc(nameOf(c.assigned_by)) + (c.postpone_count ? ' · postponed ' + c.postpone_count + (c.postpone_count === 1 ? ' time' : ' times') : '') + '</div>'
       + '<div style="margin:6px 0;">' + (c.facts || []).slice(0, 12).map((f) => '<div class="field-note">' + esc(f.date) + ' · ' + esc(f.what) + '</div>').join('') + '</div>'
       + (c.talking_points ? '<div class="hr-sub">Suggested talking points</div><div class="hr-quote">' + tpHtml(c.talking_points) + '</div>' : '')
-      + (c.help_note ? '<div class="field-note" style="margin-top:6px;"><b>Asked Zach:</b> ' + esc(c.help_note) + (c.help_reply ? '<br><b>' + esc(nameOf(c.help_reply_by)) + ':</b> ' + esc(c.help_reply) : ' <i>(waiting for a reply)</i>') + '</div>' : '')
+      + (c.help_note ? '<div class="field-note" style="margin-top:6px;"><b>Asked for help:</b> ' + esc(c.help_note) + (c.help_reply ? '<br><b>' + esc(nameOf(c.help_reply_by)) + ':</b> ' + esc(c.help_reply) : ' <i>(waiting for a reply)</i>') + '</div>' : '')
       + (c.handoff_note ? '<div class="field-note"><b>Asked to hand off:</b> ' + esc(c.handoff_note) + '</div>' : '');
     /* COACHING CALLS (2026-10-18, part C2): the recorded call, filled in by drawCalls() */
     if (!rec && (c.status === 'open' || c.call_id)) h += '<div id="hrCall' + id + '"></div>';
@@ -697,7 +699,7 @@
         + (rec ? '' : '<div class="field-note"><b>Expected from now on:</b><br>' + esc(c.expectation).replace(/\n/g, '<br>') + '</div>') + (c.followup ? '<div class="field-note"><b>Help we agreed to give:</b> ' + esc(c.followup) + '</div>' : '');
       if (!rec && c.improved === null && c.check_on && String(c.check_on) <= todayStr())
         h += '<div class="hr-form"><b>30 days on: did it help?</b> <button class="primary hr-btn" onclick="HR.improved(\'' + id + '\',true)">Yes, it improved</button> <button class="secondary hr-btn" onclick="HR.improved(\'' + id + '\',false)">No, it is still happening</button></div>';
-      else if (c.improved !== null && c.improved !== undefined) h += '<div class="field-note"><b>30-day check:</b> ' + (c.improved ? 'it improved' : 'still happening, so it goes to Zach') + (c.improved_note ? ' · ' + esc(c.improved_note) : '') + '</div>';
+      else if (c.improved !== null && c.improved !== undefined) h += '<div class="field-note"><b>30-day check:</b> ' + (c.improved ? 'it improved' : 'still happening, so it goes to Samantha') + (c.improved_note ? ' · ' + esc(c.improved_note) : '') + '</div>';
       else if (!rec && c.check_on) h += '<div class="field-note">30-day check on ' + esc(fmtYmd(c.check_on)) + '.</div>';
     } else if (c.status !== 'open') {
       h += '<div class="field-note"><b>Closed by ' + esc(nameOf(c.closed_by)) + ':</b> ' + esc(c.close_note || '') + '</div>';
@@ -726,12 +728,12 @@
           + '<div class="hr-err" id="hrRerr' + id + '"></div><button class="primary hr-btn" onclick="HR.done(\'' + id + '\')">' + (rec ? 'Mark passed on' : 'Mark coaching done') + '</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button></div>';
       } else if (f === 'help') {
         h += '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">How to have this conversation</div><ol class="hr-tips">' + TIPS.map((t) => '<li>' + esc(t) + '</li>').join('') + '</ol>'
-          + '<div class="field-note">Still unsure? Ask Zach. He can send talking points, practice it with you, or join the call. You stay the owner.</div>'
-          + '<textarea id="hrHn' + id + '" rows="2" placeholder="What would you like help with?"></textarea><button class="primary hr-btn" onclick="HR.help(\'' + id + '\')">Ask Zach</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Close</button></div>';
+          + '<div class="field-note">Still unsure? Ask Samantha. She can send talking points, practice it with you, or join the call. You stay the owner.</div>'
+          + '<textarea id="hrHn' + id + '" rows="2" placeholder="What would you like help with?"></textarea><button class="primary hr-btn" onclick="HR.help(\'' + id + '\')">Ask Samantha</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Close</button></div>';
       } else if (f === 'postpone') {
         h += '<div class="hr-form"><label class="field-note">New date <input type="date" id="hrPd' + id + '" value="' + esc(ymd(addBusinessDays(String(c.due_on) + 'T12:00:00', 2))) + '"></label>'
           + '<div class="field-note">Why does it have to wait?</div><textarea id="hrPr' + id + '" rows="1"></textarea><button class="primary hr-btn" onclick="HR.postpone(\'' + id + '\')">Postpone</button> <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',0)">Cancel</button>'
-          + '<div class="field-note">Zach sees how often a talk is postponed.</div></div>';
+          + '<div class="field-note">Samantha sees how often a talk is postponed.</div></div>';
       } else {
         h += '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.form(\'' + id + '\',\'record\')">' + (rec ? 'Record that I told them' : callsLive(c.id) ? 'Write up the coaching call' : 'Record the conversation') + '</button>'
           + (rec ? '' : ' <button class="secondary hr-btn" onclick="HR.form(\'' + id + '\',\'help\')">Help me with this conversation</button>')
@@ -798,7 +800,7 @@
     const c = (coach || []).find((x) => x.id === id) || {}, o = owner(), me = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase();
     const openRec = c.status === 'open', mins = Math.round((d.min_seconds || 180) / 60);
     let h = '<div class="hr-form"><div class="hr-sub" style="margin-top:0;">Coaching call</div>'
-      + (d.live ? '' : '<div class="hr-note">Practice: only you and Zach see this until coaching calls are switched on. Calls made here never complete a coaching record.</div>')
+      + (d.live ? '' : '<div class="hr-note">Practice: only the owners see this until coaching calls are switched on. Calls made here never complete a coaching record.</div>')
       + (openRec ? '<div class="field-note">Start the call with: <b>"This call is being recorded for our coaching records."</b> It counts when they answer, it lasts at least ' + mins + ' minutes, GoHighLevel has the recording, and you confirm you spoke with them. A voicemail never counts.</div>'
         + '<div class="hr-actions"><button class="primary hr-btn" onclick="HR.callNow(\'' + esc(id) + '\',this)">📞 Call now</button> <button class="secondary hr-btn" onclick="HR.pickCalls(\'' + esc(id) + '\',this)">Pick the call from my recent calls</button></div>' : '');
     (d.calls || []).forEach((k) => {
@@ -901,14 +903,14 @@
     if (await act(id, 'postpone', { due_on: d, reason: r })) { FORM[id] = 0; after(); }
   }
   async function closeAs(id, action) {
-    const q = { flag_wrong: 'Why is this flag wrong? Zach sees your answer.', not_needed: 'Why isn\'t coaching right here? Zach sees your answer.',
-      handoff: 'Why should someone else have this talk? Zach decides who.', withdraw: 'Why withdraw it? (optional)' }[action];
+    const q = { flag_wrong: 'Why is this flag wrong? Samantha sees your answer.', not_needed: 'Why isn\'t coaching right here? Samantha sees your answer.',
+      handoff: 'Why should someone else have this talk? Samantha decides who.', withdraw: 'Why withdraw it? (optional)' }[action];
     const r = await ccPrompt(q, ''); if (r === null) return;
     if (action !== 'withdraw' && !r.trim()) { alert('Write the reason first.'); return; }
     if (await act(id, action, { reason: r.trim() })) after();
   }
   async function improved(id, yes) {
-    const n = await ccPrompt(yes ? 'Good to hear. Anything to note? (optional)' : 'What is still happening? (optional) The agent will bring it to Zach if it repeats.', ''); if (n === null) return;
+    const n = await ccPrompt(yes ? 'Good to hear. Anything to note? (optional)' : 'What is still happening? (optional) The agent will bring it to Samantha if it repeats.', ''); if (n === null) return;
     if (await act(id, 'improved', { improved: yes ? 'true' : 'false', note: n.trim() })) after();
   }
 
@@ -938,7 +940,7 @@
       + '<div class="card hr-card"><div class="hr-card-h">Asking for your help (' + helpL.length + ')</div>' + (helpL.length ? helpL.map((c) => '<div class="hr-row hr-row-top"><span>' + brief(c) + '<br><span class="field-note">"' + esc(c.help_note) + '"</span></span>'
           + '<span style="flex:1;min-width:220px;"><textarea id="hrHr' + esc(c.id) + '" rows="2" placeholder="Talking points, an offer to practice, or to join"></textarea><button class="primary hr-btn" onclick="HR.reply(\'' + esc(c.id) + '\')">Send reply</button></span></div>').join('') : '<div class="field-note">Nobody is waiting on you.</div>') + '</div>'
       + '<div class="card hr-card"><div class="hr-card-h">Asking to hand off (' + hand.length + ')</div>' + (hand.length ? hand.map((c) => '<div class="hr-row"><span>' + brief(c) + '<br><span class="field-note">"' + esc(c.handoff_note) + '"</span></span><span><select id="hrRa' + esc(c.id) + '">'
-          + coordinators().concat(['zach@mo-care.com']).map((e) => '<option value="' + esc(e) + '"' + (e === c.assigned_to ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select> <button class="secondary hr-btn" onclick="HR.reassign(\'' + esc(c.id) + '\')">Reassign</button></span></div>').join('') : '<div class="field-note">None.</div>') + '</div>'
+          + coordinators().concat([(W() && W().HR_LEAD) || ''].filter(Boolean)).map((e) => '<option value="' + esc(e) + '"' + (e === c.assigned_to ? ' selected' : '') + '>' + esc(nameOf(e)) + '</option>').join('') + '</select> <button class="secondary hr-btn" onclick="HR.reassign(\'' + esc(c.id) + '\')">Reassign</button></span></div>').join('') : '<div class="field-note">None.</div>') + '</div>'
       + '<div class="card hr-card"><div class="hr-card-h">Overdue (' + late.length + ')</div>' + (late.length ? late.map((c) => '<div class="hr-row"><span>' + brief(c) + '</span><span class="hr-late">was due ' + esc(fmtYmd(c.due_on)) + '</span></div>').join('') : '<div class="field-note">Nothing overdue.</div>') + '</div>'
       + (closed.length ? '<div class="card hr-card"><div class="hr-card-h">Closed without a talk, last 30 days (' + closed.length + ')</div>' + closed.map((c) => '<div class="hr-row"><span>' + brief(c) + '<br><span class="field-note">' + (c.status === 'flag_wrong' ? 'Flag was wrong' : 'Coaching not right here') + ': "' + esc(c.close_note || '') + '"</span></span></div>').join('') + '</div>' : '');
   }
@@ -1087,9 +1089,9 @@
       if (!items) { el.innerHTML = '<div class="card hr-card field-note">The handbook rules could not be read. Reload the page to try again.</div>'; return; }
       const watched = items.filter((x) => x.t === 'watched'), rules = items.filter((x) => x.t === 'rule');
       el.innerHTML = '<div class="card hr-card"><div class="hr-card-h">What the agent watches</div>'
-        + '<div class="field-note" style="margin-bottom:6px;">Approved by Samantha on 2026-10-18. A threshold opens a review, never discipline on its own. The first time is coaching; the same issue again after coaching goes to Zach; serious ones go straight to Zach.</div>'
+        + '<div class="field-note" style="margin-bottom:6px;">Approved by Samantha on 2026-10-18. A threshold opens a review, never discipline on its own. The first time is coaching; the same issue again after coaching goes to Samantha; serious ones go straight to Samantha.</div>'
         + watched.map((w) => '<div class="hr-row hr-row-top"><span><b>' + esc(w.what) + '</b><br><span class="field-note">' + esc(w.threshold) + '</span></span><span class="hr-quote">' + esc(w.words) + '</span></div>').join('') + '</div>'
-        + '<div class="card hr-card"><div class="hr-card-h">Every rule Zach can cite (' + rules.length + ')</div>'
+        + '<div class="card hr-card"><div class="hr-card-h">Every rule the agent can cite (' + rules.length + ')</div>'
         + '<div class="hr-hb-bar"><input id="hrHbQ" type="search" placeholder="Search: no call, phone, gifts, 2K" value="' + esc(hbQ) + '" oninput="HR.hbSearch(this.value)"></div>'
         + '<div class="hr-chips" id="hrHbChips"></div>'
         + '<div id="hrHbList"></div></div>';
