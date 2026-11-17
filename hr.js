@@ -642,6 +642,7 @@
       category: ({ w05: 'documentation', w06: 'evv' })[c.rule] || 'attendance', event_ids: evRules.includes(c.rule) ? (c.source_ids || []) : [],
       facts: c.facts || [], body: '', status: 'draft', created_at: new Date().toISOString(), created_by: (me.split('@')[0] || 'zach'), created_by_email: me, issued_at: null };
     const id = await window.SCX.addWriteup(a);
+    if (!id) return;   /* refused: the person works in the office (2026-11-17) */
     try { await sb.from('hr_cases').update({ status: 'reviewed', updated_at: new Date().toISOString() }).eq('id', c.id); } catch (e) {}
     try { if (typeof DATA !== 'undefined' && DATA) (DATA.discipline_actions = DATA.discipline_actions || []).push(a); } catch (e) {}
     go('formal'); setTimeout(() => { try { window.SCX.openWriteup(id); } catch (e) {} }, 300);

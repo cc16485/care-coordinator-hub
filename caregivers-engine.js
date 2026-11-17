@@ -2902,7 +2902,27 @@ function attTypeUi(){
     t==='ncns'?'Per Handbook 2U this is serious misconduct. Logging it flags an immediate termination review and alerts Samantha.'
     :t==='callin'?'The hub works out the notice from the shift time and the call time. Under '+attCfg().notice_hours+' hours, or after 5 PM the day before a 7 to 9 AM shift, is short notice (Handbook 2A). It flags it to review: a write-up only if there was no good reason.':'';
 }
+/* Office staff (Samantha 2026-11-17, "Yes, do both"): write-ups about someone who works in the office (an owner, a Care
+   Coordinator, the Springfield lead or a staffing coordinator, matched by full name) are Samantha's and are never kept in
+   the shared write-up list, which the Care Coordinators read. Angiel also works caregiver shifts, so this matters.
+   The database refuses them too (Desktop 1520's guard); this only says so kindly first. */
+const OFFICE_ROLES=['owner_admin','care_coordinator','springfield_lead','staffing_coordinator'];
+function wuOfficeName(name){
+  const n=String(name||'').trim().toLowerCase().replace(/\s+/g,' '); if(!n) return '';
+  try{
+    const p=(typeof OPS_PEOPLE!=='undefined'?OPS_PEOPLE:[]).find(x=>String(x.full_name||'').trim().toLowerCase().replace(/\s+/g,' ')===n);
+    if(!p) return '';
+    const roles=(typeof CC_ROLE_BY_EMAIL!=='undefined'&&CC_ROLE_BY_EMAIL[String(p.primary_email||'').toLowerCase()])||[];
+    return roles.some(r=>OFFICE_ROLES.indexOf(r)>-1)?p.full_name:'';
+  }catch(e){ return ''; }
+}
+function wuOfficeStop(name){
+  const who=wuOfficeName(name); if(!who) return false;
+  alert(who+' works in the office. Write-ups about office staff are Samantha\'s and are not kept in this shared list. Tell Samantha instead.');
+  return true;
+}
 async function attPersist(key,item){
+  if(key==='discipline_actions' && item && wuOfficeStop(item.caregiver)) throw new Error('office staff write-up refused');
   try{ const { error } = await sb.rpc('upsert_app_data_item',{ target_key:key, item }); if(error) throw error; }
   catch(e){ alert('Could not save. Check your connection and try again.'); throw e; }
 }
@@ -3313,6 +3333,7 @@ async function draftWriteup(cg, triggerIdx){
   const s=attStatus(cg);
   const t=s.triggers[triggerIdx]; if(!t) return;
   const level=t.kind==='ncns'?'Termination Review':s.nextLevel;
+  if(wuOfficeStop(attGroupName(cg))) return;
   let by=''; try{ const {data:{session}}=await sb.auth.getSession(); by=(session&&session.user&&session.user.email)||''; }catch(e){}
   const axid=String(cg||'').startsWith('ax:')?String(cg).slice(3):'';
   const a={ id:'dw'+Date.now(), caregiver:attGroupName(cg), ...(axid?{axiscare_caregiver_id:axid}:{}), level, reason:t.label, event_ids:t.events.map(e=>e.id),
@@ -12795,7 +12816,7 @@ window.offerCopyLink = offerCopyLink;
 window.offerSignLink = offerSignLink; window.offerStep1Link = offerStep1Link; window.bgrScreeningDesk = bgrScreeningDesk; window.sdReveal = sdReveal; window.sdClose = sdClose; window.sdCopy = sdCopy;
 window.offerQr = offerQr;
 /* HR step 6 (2026-10-18): the HR page starts a formal case from an agent case and opens it here */
-window.SCX.addWriteup = async (a) => { if (!DISC_ACTIONS.some((x) => x.id === a.id)) DISC_ACTIONS.push(a); await attPersist('discipline_actions', a); try { renderWriteups(); } catch (e) {} return a.id; };
+window.SCX.addWriteup = async (a) => { if (wuOfficeStop(a && a.caregiver)) return ''; if (!DISC_ACTIONS.some((x) => x.id === a.id)) DISC_ACTIONS.push(a); await attPersist('discipline_actions', a); try { renderWriteups(); } catch (e) {} return a.id; };
 window.SCX.openWriteup = (id) => openWriteup(id);
 window.SCX.hasCase = (caseId) => DISC_ACTIONS.some((x) => x && x.case_id === caseId);
 window.offerResend = offerResend;
