@@ -1146,6 +1146,8 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
        is booked. These were scattered across three sections. -->
   <div class="fsubbar" id="fsub-today">
     <!-- audit step 9 (2026-10-18): the Owner Overview, owners only, shown while ops_settings.owner_overview_live is on (owner-overview.js) -->
+    <!-- 2026-11-17 (her "Yes, build it"): My Week, Samantha's own weekly schedule with Claude (my-week.js), shown only to her -->
+    <div class="fpill" data-tab="myweek" onclick="switchTab('myweek')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-calendar"/></svg> My Week</div>
     <div class="fpill" data-tab="owneroverview" onclick="switchTab('owneroverview')" style="display:none;"><svg class="navi" aria-hidden="true"><use href="icons.svg#i-chart"/></svg> Owner Overview</div>
     <!-- 2026-11-14 Care & Connection: the owners' private inbox (owners-inbox.js). The server lets in only owner_admin. -->
     <div class="fpill" data-tab="ownersinbox" onclick="switchTab('ownersinbox')" style="display:none;">🔒 Private messages<span class="subtab-badge red" id="oixBadge" style="display:none"></span></div>
@@ -1631,6 +1633,7 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
     <!-- New clients scoreboard (bonus v2, 2026-10-22: moved here from the top of My Work, her call): the team goal and each Care
          Coordinator's new clients this month, dollars only for her own and owners. new-clients.js. -->
     <section class="tabpanel" id="tab-clientgoals"><div id="cgoNewClients"></div><div id="cgoWrap"></div></section>
+    <section class="tabpanel" id="tab-myweek"><div id="mwWrap"></div></section><!-- 2026-11-17: My Week (my-week.js) -->
     <section class="tabpanel" id="tab-howto"><div id="htWrap"></div></section><!-- 2026-11-13: How-to for care coordinators (howto.js) -->
     <section class="tabpanel" id="tab-cctraining"><div id="ctWrap"></div></section><!-- 2026-11-14: Coordinator Training, the eight-week program for a new care coordinator (coordinator-training.js) -->
 
@@ -7631,7 +7634,8 @@ The HomeTogether team</pre>
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
 <script src="desk.js?v=18"></script>
 <script src="client-goals.js?v=4"></script><!-- 2026-10-18: Client Goals on My Work -->
-<script src="howto.js?v=3"></script><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
+<script src="howto.js?v=3"></script>
+<script src="my-week.js?v=1"></script><!-- 2026-11-17: My Week, Samantha only --><!-- 2026-11-13: How-to for care coordinators, a pill on the Operations Board row -->
 <script src="coordinator-training.js?v=7"></script>
 <script src="coordinator-practice.js?v=3"></script><!-- 2026-11-14: Coordinator Training's Practice tab: practice calls, scenarios, steps in order, practice rounds, trainer view --><!-- 2026-11-14: Coordinator Training, a pill beside How-to -->
 <script src="send-to-cds.js?v=1"></script><!-- Send to Caring CDS (2026-11-01): behind ops_settings.send_to_cds_live -->
@@ -8310,7 +8314,7 @@ document.addEventListener('click', e=>{ const m=document.getElementById('moreMen
 /* ---------------- TABS ---------------- */
 /* The old "Grow" section is gone; everything it held now lives under Care
    Coordinator, nested one level deeper. Order here is the order of the pills. */
-const CC_GROUPS={today:['owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carematch','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials','videos','docfolders'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','routing','supplies'],settings:['settings']};
+const CC_GROUPS={today:['myweek','owneroverview','ownersinbox','kptasks','kpfollow','kpnextdoor','kpsocial','kpnotes','kprecruit','mywork','mydesk','myrole','myteam','clientgoals','howto','cctraining','teammeetings','ops','calls','calendar'],interviews:['recruit','applicants','interviews','cgbackground','orientprog','cgorient','offers','apjourney'],cgdir:['cgdir','cgcheckins','hr','cgcompliance','cgtraining','trainhub'],scheduling:['coverage','teambuilder','schedguide'],leads:['leadsstarts','reports'],clients:['soc','clientqueue','clientsboard','fccheck','clientcheckins','carematch','carelibrary'],partners:['referrers','friendsfamily','campaigns','feedback','materials','videos','docfolders'],team:['inbox','comms','callfollowups'],htorders:['htorders','htsupport','htlocal'],sops:['sops','sopref','playbook','docs','routing','supplies'],settings:['settings']};
 
 /* ---------- Third navigation level ----------
    A pill listed here is a parent rather than a page: clicking it opens its
@@ -8730,6 +8734,7 @@ function ccGroupClick(g){
    Interviews, Phone, Needs Attention, HomeTogether, Campaigns. A fixed title is
    wrong for most of them, so the header names the section you're in. */
 const CC_SECTION_TITLES = {
+  myweek:'My Week',
   owneroverview:'Owner Overview',
   ownersinbox:'Private messages',
   kptasks:'My page · Tasks', kpfollow:'My page · Follow-ups', kpnextdoor:'My page · Nextdoor', kpsocial:'My page · Coming up', kpnotes:'My page · Notes', kprecruit:'My page · Recruiting',
@@ -8998,6 +9003,7 @@ function renderActiveTab(){
   if(activeTab==='recruit'){ renderPayRates(); jpLoad(); jtLoad(); pbLoad(); rcView(rcCurrent); }
   if(activeTab==='calendar') ivLoad();
   try{ if(window.OV) OV.pillSync(); }catch(e){}
+  try{ if(window.MW) MW.pillSync(); }catch(e){}
   if(activeTab==='owneroverview' && window.OV) OV.render();
   try{ if(window.OIX) OIX.pillSync(); }catch(e){}
   if(activeTab==='ownersinbox' && window.OIX) OIX.render();
@@ -9061,6 +9067,7 @@ function renderActiveTab(){
   if(activeTab==='mydesk' && typeof dkOpen==='function') dkOpen();
   if(activeTab==='clientgoals' && typeof cgoOpen==='function') cgoOpen();
   if(activeTab==='howto' && window.HT) HT.render();
+  if(activeTab==='myweek' && window.MW) MW.render('mwWrap');
   if(activeTab==='cctraining' && window.CTR) CTR.render();
   /* the Augusta interview feed was removed 2026-10-01 */
   if(activeTab==='offers'){ offView(offCurrentView); renderInterviews(); }
@@ -19228,6 +19235,7 @@ function ovSetFill(){
   now.innerHTML=(on?'<b style="color:#1E8449;">On.</b> You and Zachary land on it when you sign in, and see it under Today.':'<b style="color:#B7791F;">Off.</b> Nobody sees it yet.')+(owner?'':' Only Samantha or Zachary can change this.');
   if(b){ b.textContent=on?'Turn off the Owner Overview':'Turn on the Owner Overview'; b.style.display=owner?'':'none'; }
   try{ if(window.OV) OV.pillSync(); }catch(e){}
+  try{ if(window.MW) MW.pillSync(); }catch(e){}
   try{ if(window.OIX) OIX.pillSync(); }catch(e){}   /* 2026-11-14: the owners' private-messages pill, once the roles are known */
 }
 async function ovToggle(btn){
@@ -21766,6 +21774,7 @@ function ccApplyRoleUi(){
   const wuOk=ccCan('approve_discipline');
   document.querySelectorAll('[data-tab="cgwriteups"],#attWriteupsLink').forEach(el=>{ el.style.display=wuOk?'':'none'; });
   try{ if(window.KP) KP.pillSync(); }catch(_){}
+  try{ if(window.MW) MW.pillSync(); }catch(_){}
   try{ if(window.OIX) OIX.pillSync(); }catch(_){}   /* 2026-11-14: roles known, so the owners see their private-messages pill */
   if(CC_SETTINGS_PENDING && CC_ROLES_CHECKED){ CC_SETTINGS_PENDING=false; switchTab('settings'); }
   try{ if(document.getElementById('cgcLine') && CGC.log) cgcLineRender(); }catch(_){}
