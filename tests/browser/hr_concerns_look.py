@@ -88,7 +88,7 @@ with sync_playwright() as pw:
     # a Care Coordinator (her change 2026-10-27: "care coordinators can initiate a coaching call too!")
     pg.evaluate("""() => { window.ccCan = () => false; (0, eval)("ME={ email:'krystal@mo-care.com', name:'Krystal Test', shift:'day' };"); HR.render('coaching') }"""); pg.wait_for_timeout(800)
     menu = pg.inner_text('.hr-menu')
-    ok("a coordinator doesn't see Zach's pages (Incidents and concerns, Formal cases)", 'Incidents and concerns' not in menu and 'Formal cases' not in menu, menu)
+    ok("a coordinator doesn't see the owner pages (Incidents and concerns) but sees Formal cases, since coordinators send write-ups (2026-11-17)", 'Incidents and concerns' not in menu and 'Formal cases' in menu, menu)
     ok('...but has + New coaching talk on Coaching', pg.locator('button:has-text("+ New coaching talk")').count() == 1)
     pg.click('button:has-text("+ New coaching talk")'); pg.wait_for_timeout(200)
     ok('...it is hers by default', pg.input_value('#hrNcATo') == 'krystal@mo-care.com', pg.input_value('#hrNcATo'))
