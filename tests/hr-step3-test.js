@@ -9,12 +9,12 @@ const res = []; const ck = (n, c, d) => res.push([n, !!c, c ? '' : String(d === 
 function load(isOwner) {
   const store = {};
   const ctx = { window: {}, document: { getElementById: () => null }, localStorage: { getItem: (k) => store[k] || null, setItem: (k, v) => { store[k] = v; } },
-    ccCan: (p) => isOwner && p === 'approve_discipline', console };
+    ccCan: (p) => (isOwner && p === 'approve_discipline') || p === 'approve_team_discipline', console };   /* the second: a Care Coordinator (2026-11-17) */
   ctx.window = ctx; vm.createContext(ctx); vm.runInContext(SRC, ctx); return ctx.HR;
 }
 const O = load(true), C = load(false);
-ck('owners see every HR page', JSON.stringify(O._views()) === JSON.stringify(['home', 'practice', 'formal', 'oversight', 'coaching', 'attendance', 'terminations', 'handbook', 'role']), O._views());
-ck('coordinators see Coaching, Attendance, Handbook and Zach\'s role only', JSON.stringify(C._views()) === JSON.stringify(['coaching', 'attendance', 'handbook', 'role']), C._views());
+ck('owners see every HR page (no Zach\'s role since 2026-11-17)', JSON.stringify(O._views()) === JSON.stringify(['people', 'home', 'practice', 'formal', 'incidents', 'oversight', 'coaching', 'attendance', 'terminations', 'livein', 'handbook']), O._views());
+ck('coordinators see Caregivers, Formal cases (they send write-ups), Coaching, Attendance and the Handbook', JSON.stringify(C._views()) === JSON.stringify(['people', 'formal', 'coaching', 'attendance', 'handbook']), C._views());
 
 // business days skip weekends: Fri + 1 = Mon
 const fri = '2026-10-16T15:00:00', mon = O._addBusinessDays(fri, 1);

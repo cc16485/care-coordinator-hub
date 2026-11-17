@@ -26,7 +26,7 @@ ck('profile Formal records card only for approve_discipline', /ccCan\('approve_d
 // attendance: only owners see Draft / No write-up
 const att = between(E, 'function renderAttendance(){', '\nfunction updateAttBadge');
 ck('Attendance draft buttons only when attCanDecide()', /attCanDecide\(\)\s*\n?\s*\? '<button class="fb"[^]*draftWriteup/.test(att), att.slice(0, 200));
-ck('...everyone else sees "Zach reviews this"', /Zach reviews this/.test(att));
+ck('...everyone else sees "A Care Coordinator reviews this" (2026-11-17)', /A Care Coordinator reviews this/.test(att));
 ck('attCanDecide asks approve_discipline', /function attCanDecide\(\)\{[^}]*ccCan\('approve_discipline'\)/.test(E));
 ck('the Attendance badge does not nag a coordinator', /if\(!attCanDecide\(\)\)\{ b\.style\.display='none'/.test(E));
 
@@ -36,12 +36,12 @@ ck('approval cards go to the HR lead first', /\[WriteupRules\.HR_LEAD\]/.test(re
 const ap = between(H, 'async function approveWriteupCc(id){', '\n}');
 ck('approving asks the protected-situation question first', ap.indexOf('discProtectedCheck(a)') > -1 && ap.indexOf('discProtectedCheck(a)') < ap.indexOf('discCanApprove(a)'), ap);
 ck('Samantha has an "I was consulted" button', /discMarkConsulted\(/.test(H) && /I was consulted/.test(H));
-ck('the rules file is cache-busted (v4 since step 6)', /writeup-rules\.js\?v=4/.test(H));
+ck('the rules file is cache-busted (v5 since 2026-11-17)', /writeup-rules\.js\?v=5/.test(H));
 
 // no team-approval wording left on screen
 ck('no "any Care Coordinator" approval wording', !/any Care Coordinator<\/b>/.test(H) && !/approved by a Care Coordinator/.test(H));
 const mine = [between(H, 'async function discProtectedCheck', '\n}'), between(H, 'async function discMarkConsulted', '\n}'),
-  between(H, '/* HR step 1 (2026-10-18): write-ups are Samantha', 'if(CC_SETTINGS_PENDING'), between(E, '/* Owners (Zach, the HR lead', 'const n=')];
+  between(H, '/* Write-ups (2026-11-17): Care Coordinators prepare', 'if(CC_SETTINGS_PENDING'), between(E, '/* Write-ups (Samantha 2026-11-17)', 'const n=')];
 ck('no em dashes in the new words', mine.every(t => t && !/\u2014/.test(t)), mine.map(t => t.length));
 
 let f = 0; for (const [n, ok, d] of res) { console.log((ok ? 'PASS' : 'FAIL') + ' · ' + n + (ok ? '' : '  ' + d)); if (!ok) f++; }

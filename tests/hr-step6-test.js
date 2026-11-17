@@ -17,7 +17,7 @@ ck('...a serious case starts as a termination review; a recurring one at the nex
 ck('...it never starts two for the same case', J.includes("if (window.SCX.hasCase(c.id))"));
 ck('...and leaves the handbook section for Zach to pick', !/handbook: \{ section/.test(J.slice(J.indexOf('async function startFormal'), J.indexOf('async function openFormal'))));
 ck('the engine lets the HR page add and open a write-up', E.includes('window.SCX.addWriteup = async (a) =>') && E.includes('window.SCX.openWriteup = (id) => openWriteup(id);'));
-ck('the rules file is cache-busted to v4', H.includes('writeup-rules.js?v=4'));
+ck('the rules file is cache-busted to v5 (2026-11-17)', H.includes('writeup-rules.js?v=5'));
 ck('no em dashes in the new code', !/—/.test(E.slice(E.indexOf('let WU_HB=null;'), E.indexOf('function openWriteup(id){'))) && !/—/.test(J));
 // the checklist actually renders (caught in review: a mark helper was not callable)
 { const part = E.slice(E.indexOf('let WU_HB=null;'), E.indexOf('function openWriteup(id){')).replace('let WU_HB=null;', 'var WU_HB=[];');

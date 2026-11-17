@@ -239,31 +239,32 @@
     };
   }
 
-  /* ── HR (2026-10-27): hand a report to Zach to look into; Zach (or Samantha) writes what he found. Each saved once. ── */
-  const INV_WHY = [['signed','Every signed incident report goes to Zach (automatic)'],['notes','The report doesn\'t match the shift notes'],['late','The office wasn\'t told when it happened'],['story','Stories don\'t match (client, family or caregiver)'],['ane','Possible abuse or neglect'],['other','Something else']];
+  /* ── HR (2026-10-27): hand a report to HR to look into; HR writes what it found. Each saved once.
+     2026-11-17 (Samantha): Zach is no longer the HR lead, so the words say Samantha (incident-report HR_LEAD). ── */
+  const INV_WHY = [['signed','Every signed incident report goes to Samantha (automatic)'],['notes','The report doesn\'t match the shift notes'],['late','The office wasn\'t told when it happened'],['story','Stories don\'t match (client, family or caregiver)'],['ane','Possible abuse or neglect'],['other','Something else']];
   const INV_OUT = [['explained','Nothing more to do (it was explained)'],['coaching','A coaching conversation'],['formal','A formal case (write-up)'],['ended','Ending their work with us'],['other','Something else']];
   const label = (list, k) => ((S.inv && (list === INV_WHY ? S.inv.why : S.inv.outcome) || {})[k]) || (list.find(x => x[0] === k) || ['', k])[1];
   function invHtml(r){
     const box = 'border-top:1px solid var(--border);margin-top:.8rem;padding-top:.6rem';
-    const headH = '<div style="font-weight:800;color:var(--navy)">Zach (HR) looks into it</div>';
+    const headH = '<div style="font-weight:800;color:var(--navy)">Samantha (HR) looks into it</div>';
     if(r.status === 'cancelled') return '';
     if(!r.inv_asked_at) return '<div style="' + box + '">' + headH
-      + '<div class="field-note">Every report goes to Zach by itself once it is signed. If something doesn\'t add up before then, like the caregiver not filling it in, send it to him now.</div>'
+      + '<div class="field-note">Every report goes to Samantha by itself once it is signed. If something doesn\'t add up before then, like the caregiver not filling it in, send it to her now.</div>'
       + '<div id="invAskBox" style="display:none;margin-top:.4rem"><div style="font-size:13px;font-weight:700;color:var(--navy);margin:.3rem 0 .2rem">Why does it need a closer look?</div>'
       + INV_WHY.filter(x => x[0] !== 'signed').map(([v, t]) => '<label style="display:flex;gap:6px;align-items:center;font-size:13.5px;margin:.15rem 0"><input type="checkbox" name="invWhy" value="' + v + '" style="width:auto;margin:0"> ' + esc(label(INV_WHY, v)) + '</label>').join('')
-      + '<div id="invAne" style="display:none;background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.3rem 0"><b>If you suspect abuse or neglect, call the hotline now: <a href="tel:18003920210">' + esc(S.hotline || '1-800-392-0210') + '</a>.</b> Asking Zach doesn\'t replace that call.</div>'
+      + '<div id="invAne" style="display:none;background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.3rem 0"><b>If you suspect abuse or neglect, call the hotline now: <a href="tel:18003920210">' + esc(S.hotline || '1-800-392-0210') + '</a>.</b> Asking Samantha doesn\'t replace that call.</div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.5rem 0 .2rem">What did you notice?</div><textarea id="invNote" rows="3" style="width:100%" placeholder="For example: her report says Carol wasn\'t hurt, but her shift note says Carol hit her hip."></textarea>'
-      + '<div style="margin-top:.5rem"><button class="primary" id="invSend">Send it to Zach</button></div></div>'
-      + '<div id="invOpenRow" style="margin-top:.4rem"><button class="secondary" id="invOpen">Ask Zach to look into it</button></div><div id="invOut" class="field-note" style="margin-top:.3rem"></div></div>';
+      + '<div style="margin-top:.5rem"><button class="primary" id="invSend">Send it to Samantha</button></div></div>'
+      + '<div id="invOpenRow" style="margin-top:.4rem"><button class="secondary" id="invOpen">Ask Samantha to look into it</button></div><div id="invOut" class="field-note" style="margin-top:.3rem"></div></div>';
     const a = r.inv_ask || {}, f = r.inv_findings;
     const auto = r.inv_asked_by === 'system';   /* 2026-10-27: every signed client report goes to Zach automatically */
-    let h = '<div style="' + box + '">' + headH + '<div style="font-size:13.5px;margin:.2rem 0">' + (auto ? '<b>Sent to Zach automatically</b> when it was signed, ' + esc(when(r.inv_asked_at))
+    let h = '<div style="' + box + '">' + headH + '<div style="font-size:13.5px;margin:.2rem 0">' + (auto ? '<b>Sent to Samantha automatically</b> when it was signed, ' + esc(when(r.inv_asked_at))
         + ((a.why || []).includes('late') ? '. <b style="color:#b45309">' + esc(label(INV_WHY, 'late')) + '.</b>' : '.')
       : '<b>Asked by ' + esc(r.inv_asked_by_name || r.inv_asked_by) + '</b>, ' + esc(when(r.inv_asked_at)) + ': ' + esc((a.why || []).map(k => label(INV_WHY, k)).join(' · '))) + '</div>' + (a.note ? '<div style="font-size:13.5px;white-space:pre-wrap;margin:.2rem 0">"' + esc(a.note) + '"</div>' : '');
     if(r.inv_at) return h + lateHtml(r) + '<div style="background:#ECFDF5;border:1px solid #9BD3B0;border-radius:8px;padding:.45rem .65rem;margin-top:.4rem;font-size:13.5px"><b>Looked into by ' + esc(r.inv_by_name || r.inv_by) + '</b>, ' + esc(when(r.inv_at)) + '. What happens next: <b>' + esc(label(INV_OUT, f && f.outcome)) + '</b>'
       + (f && f.findings ? '<div style="white-space:pre-wrap;margin-top:.3rem">' + esc(f.findings) + '</div>' : '') + (f && f.spoke_with ? '<div class="field-note" style="margin-top:.2rem">Talked with: ' + esc(f.spoke_with) + '</div>' : '') + '</div></div>';
     h += lateHtml(r);
-    if(!S.hr) return h + '<div class="field-note">With Zach to look into. He writes what he found here.' + (auto ? ' Something to add, like the report not matching the shift notes? Use Tell Zach on ' + esc(first(r.caregiver)) + '\'s Performance tab.' : '') + '</div></div>';
+    if(!S.hr) return h + '<div class="field-note">With Samantha to look into. She writes what she found here.' + (auto ? ' Something to add, like the report not matching the shift notes? Use Tell Samantha on ' + esc(first(r.caregiver)) + '\'s Performance tab.' : '') + '</div></div>';
     return h + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">What did you find?</div><textarea id="invFind" rows="4" style="width:100%" placeholder="What the shift notes, AxisCare and the people you talked with show."></textarea>'
       + '<input id="invWho" placeholder="Who you talked with (optional)" style="margin-top:.3rem">'
       + '<div style="font-size:13px;font-weight:700;color:var(--navy);margin:.6rem 0 .2rem">What happens next?</div>'
@@ -299,7 +300,7 @@
     const sb1 = document.getElementById('invSend');
     if(sb1) sb1.onclick = async () => {
       sb1.disabled = true;
-      try{ await api({ action:'investigate', id:r.id, why:why(), note:((document.getElementById('invNote') || {}).value || '').trim() }); toast('Sent to Zach. A card is on his My Work.'); refreshAll(r.client_ax); open(r.id); }
+      try{ await api({ action:'investigate', id:r.id, why:why(), note:((document.getElementById('invNote') || {}).value || '').trim() }); toast('Sent to Samantha. A card is on her My Work.'); refreshAll(r.client_ax); open(r.id); }
       catch(e){ sb1.disabled = false; err('invOut', e.message); }
     };
     const sv = document.getElementById('invSave');
@@ -332,7 +333,7 @@
     const client = rows.filter(r => r.kind !== 'employee_injury');
     host.innerHTML = '<div class="card hr-card"><div class="hr-card-h">To look into</div>'
         + (look.length ? look.map(r => row(r, '<span class="field-note">' + esc(whyText(r)) + ' · asked by ' + esc(r.inv_asked_by_name || '') + ', ' + esc(when(r.inv_asked_at)) + '</span>')).join('')
-          : '<div class="field-note">Nothing is waiting. The office sends you a report with "Ask Zach to look into it" on the report.</div>') + '</div>'
+          : '<div class="field-note">Nothing is waiting. The office sends you a report with "Ask Samantha to look into it" on the report.</div>') + '</div>'
       + '<div class="card hr-card"><div class="hr-card-h">Work injuries</div>'
         + (inj.length ? inj.map(r => row(r, injOpen(r) ? '<span class="field-note">' + esc(statusWord(r)) + '</span>' + compLine(r) : '<span class="field-note">checklist done</span>')).join('')
           : '<div class="field-note">None on file. Start one from the caregiver\'s Performance tab (+ New work injury report).</div>')
@@ -361,10 +362,10 @@
     let rows = [], err = '';
     try{ rows = (await api({ action:'list', caregiver:nm })).reports || []; }catch(e){ err = /not found|Failed to send|404/i.test(e.message) ? '' : e.message; }
     if(!document.getElementById(hostId)) return;
-    const word = r => r.status === 'submitted' ? (r.reviewed_at ? 'Signed and reviewed' : r.kind === 'employee_injury' ? 'Signed, waiting for the workers\' comp checklist' : 'Signed, waiting for the office review') + (r.told_late ? ' · office not called at the time' : '') + (invOpen(r) ? ' · with Zach to look into' : r.inv_at ? ' · looked into by HR' : '') : r.status === 'cancelled' ? 'Cancelled' : 'Waiting for them to fill it in';
+    const word = r => r.status === 'submitted' ? (r.reviewed_at ? 'Signed and reviewed' : r.kind === 'employee_injury' ? 'Signed, waiting for the workers\' comp checklist' : 'Signed, waiting for the office review') + (r.told_late ? ' · office not called at the time' : '') + (invOpen(r) ? ' · with Samantha to look into' : r.inv_at ? ' · looked into by HR' : '') : r.status === 'cancelled' ? 'Cancelled' : 'Waiting for them to fill it in';
     S.cgName = nm;
     host.innerHTML = '<div class="card" style="padding:14px 16px;margin-top:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:15px;color:var(--navy)">Incident reports</b><span style="flex:1"></span>'
-      + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.tellZach()">Tell Zach</button>'
+      + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.tellZach()">Tell Samantha</button>'
       + (canCoach() ? '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.newCoaching()">+ New coaching talk</button>' : '')
       + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.injuryFor()">+ New work injury report</button></div>'
       + (err ? '<div class="field-note">Could not load: ' + esc(err) + '</div>' : !rows.length ? '<div class="field-note">None on file.</div>' : rows.map(r => '<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;font-size:13.5px;padding:5px 0;border-top:1px solid var(--border)"><span>' + esc(day(r.happened_on)) + ': ' + (r.kind === 'employee_injury' ? '<b>Work injury</b>' + (r.client_name ? ' at ' + esc(r.client_name) : '') : esc(r.client_name)) + '</span><span class="field-note">' + esc(word(r)) + (r.practice ? ' · practice' : '') + '</span>'
@@ -383,7 +384,7 @@
     const k = String(ax || '');
     if(k && !S.byClient[k] && !S.busy[k]) load(k);
     const rows = (S.byClient[k] && S.byClient[k].reports) || [];
-    const word = r => r.status === 'submitted' ? 'Signed ' + when(r.submitted_at) + (r.reviewed_at ? ', reviewed' : ', not reviewed yet') + (invOpen(r) ? ', with Zach to look into' : r.inv_at ? ', looked into by HR' : '') : r.status === 'cancelled' ? 'Cancelled' : r.sent_at ? 'Waiting for ' + first(r.caregiver) + ' (texted ' + when(r.sent_at) + ')' : 'Not texted yet';
+    const word = r => r.status === 'submitted' ? 'Signed ' + when(r.submitted_at) + (r.reviewed_at ? ', reviewed' : ', not reviewed yet') + (invOpen(r) ? ', with Samantha to look into' : r.inv_at ? ', looked into by HR' : '') : r.status === 'cancelled' ? 'Cancelled' : r.sent_at ? 'Waiting for ' + first(r.caregiver) + ' (texted ' + when(r.sent_at) + ')' : 'Not texted yet';
     return '<div class="cn-prof"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:12.5px;color:var(--navy)">Incident reports</b><span style="flex:1"></span>'
       + '<button class="secondary" style="font-size:12px;padding:4px 10px" onclick="INC.fromProfile()">+ New incident report</button></div>'
       + (S.byClient[k] && S.byClient[k].error ? '<div class="field-note">Could not load the reports: ' + esc(S.byClient[k].error) + '</div>'
@@ -415,13 +416,13 @@
   const canCoach = () => { if(isOwner()) return true; try{ const me = String((typeof ME !== 'undefined' && ME && ME.email) || '').toLowerCase(); return ((CC_ROLE_BY_EMAIL || {})[me] || []).indexOf('care_coordinator') > -1; }catch(e){ return false; } };
   function tellZach(){
     const nm = S.cgName; if(!nm) return alert('Open a caregiver\'s profile first.');
-    sheet(head('Tell Zach about ' + nm, 'Only Zach and Samantha see this. Zach decides what happens next; you don\'t need to look into it.')
+    sheet(head('Tell Samantha about ' + nm, 'Only the owners see this. Samantha decides what happens next; you don\'t need to look into it.')
       + '<div class="fg"><label>What happened?</label><textarea id="tzWhat" rows="4" style="width:100%" placeholder="What you saw or heard, and who told you."></textarea></div>'
       + '<div class="fg"><label>The day it happened</label><input type="date" id="tzDay" value="' + esc(today()) + '"></div>'
-      + '<label style="display:flex;gap:6px;align-items:flex-start;font-size:13.5px;margin:.4rem 0"><input type="checkbox" id="tzSerious" style="width:auto;margin:3px 0 0"> It\'s serious: someone could get hurt, it could be abuse or neglect, or Zach should hear today</label>'
-      + '<div id="tzAne" style="display:none;background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.3rem 0">If you suspect abuse or neglect, call the Missouri hotline now: <a href="tel:18003920210"><b>1-800-392-0210</b></a>. Telling Zach doesn\'t replace that call.</div>'
+      + '<label style="display:flex;gap:6px;align-items:flex-start;font-size:13.5px;margin:.4rem 0"><input type="checkbox" id="tzSerious" style="width:auto;margin:3px 0 0"> It\'s serious: someone could get hurt, it could be abuse or neglect, or Samantha should hear today</label>'
+      + '<div id="tzAne" style="display:none;background:#FDECEC;border-radius:8px;padding:.45rem .6rem;font-size:13px;margin:.3rem 0">If you suspect abuse or neglect, call the Missouri hotline now: <a href="tel:18003920210"><b>1-800-392-0210</b></a>. Telling Samantha doesn\'t replace that call.</div>'
       + '<div class="field-note">If a client was hurt or could have been, start an incident report from the client\'s profile too.</div>'
-      + '<div style="margin-top:.6rem"><button class="primary" id="tzGo">Send to Zach</button></div><div id="tzOut" class="field-note" style="margin-top:.3rem"></div>');
+      + '<div style="margin-top:.6rem"><button class="primary" id="tzGo">Send to Samantha</button></div><div id="tzOut" class="field-note" style="margin-top:.3rem"></div>');
     document.getElementById('tzSerious').onchange = e => { document.getElementById('tzAne').style.display = e.target.checked ? 'block' : 'none'; };
     document.getElementById('tzGo').onclick = async e => {
       const g = (((typeof DATA !== 'undefined') && DATA.caregivers) || []).find(x => ((x.first || '') + ' ' + (x.last || '')).trim().toLowerCase() === nm.toLowerCase());
@@ -429,7 +430,7 @@
       const { error } = await sb.rpc('hr_case_add', { p:{ type:'concern', caregiver:nm, axiscare_id:g ? String(g.axiscare_id || '') : '', what:document.getElementById('tzWhat').value.trim(),
         happened_on:document.getElementById('tzDay').value, serious:document.getElementById('tzSerious').checked ? 'true' : 'false' } });
       if(error){ e.target.disabled = false; document.getElementById('tzOut').innerHTML = '<b style="color:#b91c1c">' + esc(error.message || 'That did not send.') + '</b>'; return; }
-      close(); toast('Sent to Zach. Only Zach and Samantha can see it.');
+      close(); toast('Sent to Samantha. Only the owners can see it.');
     };
   }
   function newCoaching(){ window.HR_NEWCOACH = S.cgName || ''; location.hash = 'hr/coaching'; }
