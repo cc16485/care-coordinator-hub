@@ -70,8 +70,9 @@
 
   function me() {
     try {
-      const a = (typeof ccActor === 'function' && (ccActor() || {}).email) || (typeof ME !== 'undefined' && ME && ME.email) || window.MW_EMAIL || '';
-      return String(a).toLowerCase();
+      const hu = document.getElementById('header_user');   /* the CDS hub shows the signed-in email there */
+      const a = (typeof ccActor === 'function' && (ccActor() || {}).email) || (typeof ME !== 'undefined' && ME && ME.email) || window.MW_EMAIL || (hu && hu.textContent) || '';
+      return String(a).trim().toLowerCase();
     } catch (_) { return String(window.MW_EMAIL || '').toLowerCase(); }
   }
   function allowed() { return ME_EMAILS.indexOf(me()) > -1; }
