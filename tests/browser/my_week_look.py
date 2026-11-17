@@ -1,6 +1,8 @@
-"""My Week (2026-11-17, her "Yes, build it"): Samantha's own weekly schedule with Claude, a pill on the Today row.
-Checks: a coordinator does not see the pill and gets no schedule; Samantha sees it; it shows the five times together,
-the things that run on their own, today marked, the coming dates, no em dash, and nothing is saved or sent.
+"""My Week calendar (2026-11-17): Samantha's own calendar, a pill on the Today row. The calendar server (cds-my-calendar)
+is replaced by an in-memory copy. Checks: a coordinator does not see the pill and gets no schedule; Samantha sees it;
+then tests/browser/my_week_checks.js (the SAME file as the CDS hub's): week, month and year views, check off, Undo, move
+to the next day, drag, pick a day, still open from before, her own items, a failed save shows; nothing goes to the
+Hub's own storage and nothing is texted, emailed or called.
 (python3 tests/browser/my_week_look.py; SHOTS=<dir>)"""
 import os, sys, pathlib, re
 from playwright.sync_api import sync_playwright
@@ -31,17 +33,10 @@ async()=>{
   ok('a coordinator who opens it anyway gets no schedule', /Samantha's own page/.test($('mwWrap').innerText) && !/Money in/.test($('mwWrap').innerText), $('mwWrap').innerText.slice(0,120));
   as('samantha@mo-care.com','Samantha Troutman');
   ok('Samantha sees the My Week pill on the Today row', pill().style.display==='' && !!pill().closest('#fsub-today'));
-  pill().click(); await sleep(200);
-  const t=$('mwWrap').innerText;
+  window.__openMW=async()=>{ pill().click(); };
+  const C=await (0,eval)('('+window.__CHECKS+')')();
+  C.forEach(r=>R.push(r));
   ok('the pill opens My Week', (0,eval)('activeTab')==='myweek' && $('tab-myweek').classList.contains('active'), (0,eval)('activeTab'));
-  ok('the five times together', ['Money in','CDS payroll and Medicaid','Marketing','Growth','Big picture'].every(x=>t.includes(x)) && document.querySelectorAll('#mwWrap .mw-tog').length===5, t.slice(0,300));
-  ok('Monday 9 AM is Money in, Tuesday 9:30 is CDS payroll', /9:00 AM[\s\S]{0,20}Money in/.test(t) && /9:30 AM[\s\S]{0,20}CDS payroll/.test(t));
-  ok('what runs on its own is there', /AxisCare billing and payroll prep email/.test(t) && /CDS payroll locks/.test(t) && /EVV forms email to you and Katlin/.test(t) && /6:30 AM WellSky check/.test(t));
-  ok('the week starts on Monday', document.querySelector('#mwWrap .mw-dn').textContent.startsWith('Monday'));
-  const td=document.querySelector('#mwWrap .mw-day.today');
-  ok('today (Tuesday Nov 17) is marked', !!td && /^Tuesday/.test(td.textContent), td&&td.textContent.slice(0,40));
-  ok('coming up starts with the Nov 20 cutoff and drops past dates', /Fri, Nov 20/.test(t) && !/Nov 1[0-6]\b/.test(t.split('Coming up')[1]||''));
-  ok('no em dash, no "plain language"', !/[\u2014\u2013]/.test(t) && !/plain language/i.test(t));
   location.hash='#myweek'; await sleep(200);
   ok('Owner Overview pill is untouched for a non-owner', !document.querySelector('.fpill[data-tab="owneroverview"]') || document.querySelector('.fpill[data-tab="owneroverview"]').style.display==='none');
   ok('nothing was saved, texted, emailed or called', !(L.writes||[]).length && !(L.fn||[]).some(f=>/sms|text|email|send|call/i.test(String(f))), [L.writes,L.fn]);
@@ -63,10 +58,11 @@ with sync_playwright() as pw:
     errs = []; pg.on('pageerror', lambda e: errs.append(str(e)[:200]))
     pg.goto('http://teamwork.local/index.html?proof=myweek'); pg.wait_for_timeout(1500)
     pg.evaluate('s=>(0,eval)(s)', STUB); pg.evaluate('s=>(0,eval)(s)', EXTRA)
+    pg.evaluate('c=>{ window.__CHECKS=c; }', (ROOT / 'tests/browser/my_week_checks.js').read_text())
     R = pg.evaluate(T); R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]])
     if SHOTS:
         os.makedirs(SHOTS, exist_ok=True)
-        pg.evaluate("()=>{ switchTab('myweek'); }"); pg.wait_for_timeout(250)
+        pg.evaluate("()=>{ switchTab('myweek'); MW._state.view='week'; MW._state.anchor=null; MW._state.undo=null; MW.render('mwWrap'); }"); pg.wait_for_timeout(250)
         pg.screenshot(path=os.path.join(SHOTS, '1-my-week.png'), full_page=True)
         pg.set_viewport_size({'width': 390, 'height': 900}); pg.wait_for_timeout(250)
         pg.screenshot(path=os.path.join(SHOTS, '2-phone.png'), full_page=True)
