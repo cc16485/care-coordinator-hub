@@ -55,6 +55,24 @@
     if(h && h.onlyDays) return (h.cds ? 'CDS: ' : '') + cap(shortOf(h.rest, 64));
     return cap(shortOf(t.text, 64));
   }
+  /* How to as numbered steps (her ask 2026-11-18: "it needs to have more instructions for her - how to").
+     The task's own words, without the short name in front, one sentence per step. */
+  function stepsOf(t){
+    let x = String(t.text || '').trim();
+    const h = headOf(x);
+    if(h && !t.title && h.rest) x = h.rest;
+    return x.split(/\n+|(?<=[.!?])\s+(?=[A-Z'"(])/).map(s => cap(s.trim())).filter(Boolean);
+  }
+  /* web addresses in the steps become links (an email address is left alone) */
+  function linkify(html){
+    return html.replace(/(?<![@\w.\/])((?:https?:\/\/)?(?:[a-z0-9-]+\.)+(?:com|org|gov|net)(?:\/[^\s<,)]*)?)/gi, u => {
+      const href = /^https?:/i.test(u) ? u : 'https://' + u; return `<a href="${href}" target="_blank" rel="noopener">${u}</a>`; });
+  }
+  function howHtml(t, escFn){
+    const st = stepsOf(t), e = escFn || (s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])));
+    if(st.length < 2) return `<div class="kc-steps">${linkify(e(st[0] || ''))}</div>`;
+    return `<ol class="kc-steps">${st.map(s => `<li>${linkify(e(s))}</li>`).join('')}</ol>`;
+  }
   /* when in the shift: start, by 7 PM (family calls and texts), during, end */
   const SLOTS = [ ['start', 'Start of shift'], ['by7', 'Before 7 PM Missouri'], ['any', 'During the shift'], ['end', 'End of shift'] ];
   function slotOf(t){
@@ -250,7 +268,15 @@
 .kpw .kc-tag{display:inline-block;font-size:11.5px;font-weight:700;border-radius:999px;padding:1px 8px;color:var(--c);background:var(--b);margin-left:6px;vertical-align:1px}
 .kpw .kc-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .kpw .kc-acts button,.kpw .kc-acts input[type=date]{font-size:12.5px;padding:3px 9px;border-radius:7px;border:1px solid var(--border,#d8d3c7);background:#fff;cursor:pointer;width:auto}
-.kpw .kc-how{white-space:pre-wrap;background:#faf9f6;border:1px solid #eee9dd;border-radius:9px;padding:9px 11px;margin-top:6px;line-height:1.45;font-size:14px}
+.kpw .kc-how{background:#faf9f6;border:1px solid #eee9dd;border-radius:9px;padding:9px 11px;margin-top:6px;line-height:1.45;font-size:14px}
+.kpw .kc-steps{margin:0;padding-left:20px;line-height:1.5}
+.kpw div.kc-steps{padding-left:0}
+.kpw .kc-steps li{margin:3px 0}
+.kpw .kc-steps a{color:#14606F;font-weight:600}
+.kpw .kc-guide{background:#FFFBF2;border:1px solid #f0d9a8;border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.kpw .kc-guide summary{font-weight:700;color:#0D365F;font-size:16px;cursor:pointer}
+.kpw .kc-guide ol{margin:10px 0 6px;padding-left:22px;line-height:1.5}
+.kpw .kc-guide li{margin:5px 0}
 .kpw .kc-form{display:grid;gap:8px;background:#faf9f6;border:1px solid #eee9dd;border-radius:10px;padding:12px;margin-top:10px}
 .kpw .kc-form .kc-fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .kpw .kc-form input[type=text],.kpw .kc-form textarea{flex:1;min-width:200px;width:auto}
@@ -349,8 +375,8 @@
       <input type="checkbox" ${it.done ? 'checked' : ''} aria-label="Done" onchange="KPC.tick(${enc(it.key)},this.checked)">
       <div style="flex:1;min-width:0"><div><span class="kc-n">${esc(title)}</span><span class="kc-tag" style="${cv(cat)}">${CATS[cat][0]}</span></div>
         <div class="kp-when">${esc(repeatSay(t))}${it.moved ? ' · moved from ' + esc(fmtDay(it.from)) : ''}${who}</div>
-        ${open && how ? `<div class="kc-how">${esc(how)}</div>` : ''}
-        <div class="kc-acts">${how ? `<button onclick="KPC.toggle(${enc(it.key)})">${open ? 'Hide how to' : 'How to'}</button>` : ''}
+        ${open && how ? `<div class="kc-how"><b>How to do it</b>${howHtml(t, esc)}</div>` : ''}
+        <div class="kc-acts">${how ? `<button onclick="KPC.toggle(${enc(it.key)})">${open ? 'Hide the steps' : '📋 How to do it'}</button>` : ''}
           ${it.done ? '' : `<button onclick="KPC.move(${enc(it.key)},${enc(next)})" title="Move to ${esc(fmtDay(next))}">→ Next shift (${esc(DAY3[dowOf(next)])})</button>
           ${S.moving === it.key ? `<input type="date" value="${esc(it.day)}" onchange="KPC.move(${enc(it.key)},this.value)">` : `<button onclick="KPC.moving(${enc(it.key)})">📅 Another day</button>`}`}
           ${it.moved ? `<button onclick="KPC.move(${enc(it.key)},${enc(it.from)})">Put it back</button>` : ''}
@@ -417,6 +443,26 @@
         ${t && isOwner ? `<button class="kp-x" style="margin-left:auto" onclick="KP.removeTask(${enc(t.id)})">Remove this task</button>` : ''}</div></div>`;
   }
 
+  /* "How your calendar works", open until she presses Got it (remembered in this browser only) */
+  const GUIDE = [
+    'When your shift starts, open this page. The blue bar shows tonight\'s shift in Missouri time and your time, how long is left, and how long until 7 PM Missouri. Calls and texts to families must be done by 7 PM Missouri.',
+    'Tonight\'s list is under the week. Work from the top down: <b>Start of shift</b> first, then <b>Before 7 PM</b>, then <b>During the shift</b>, and <b>End of shift</b> last.',
+    'Not sure how to do a task? Press <b>📋 How to do it</b> on it. You get the steps and the links to open.',
+    'Finished a task? Tick its box. Samantha sees it was done, with the time.',
+    'Can\'t get to one tonight? Press <b>→ Next shift</b>, or <b>📅 Another day</b> to pick the day. On the week you can also drag a colored task to another day. Please don\'t just leave it.',
+    'Missed one on an earlier day? It waits under <b>Still open from before</b>. Press <b>Do it tonight</b>, or <b>Skip it</b> if it isn\'t needed anymore.',
+    'Colors: <b style="color:#14606F">CDS</b>, <b style="color:#9C6410">Hiring</b>, <b style="color:#2F6B3A">Social</b>, <b style="color:#5B4B8A">From Samantha</b>. "Every shift 3/11" on a day means 3 of the 11 every-shift tasks are done. Tuesday has the Nextdoor post: its words and photo are on the <b>Nextdoor</b> pill.',
+    'Want a reminder for yourself? Press <b>+ Add to my calendar</b> at the bottom.',
+    'Stuck, or have a question? Open the <b>Notes</b> pill and send Samantha a note. It goes straight to her.'
+  ];
+  const GKEY = 'kpc_guide_closed_v1';
+  const guideClosed = () => { try{ return W.localStorage.getItem(GKEY) === '1'; }catch(e){ return false; } };
+  function guide(isOwner, mine){
+    const open = !guideClosed() && !(isOwner && !mine);
+    return `<details class="kc-guide"${open ? ' open' : ''} ontoggle="KPC.guideToggle(this.open)"><summary>📖 ${isOwner && !mine ? 'How the calendar works (what she sees)' : 'How your calendar works'}</summary>
+      <ol>${GUIDE.map(g => `<li>${g}</li>`).join('')}</ol>
+      ${open ? '<button class="secondary" onclick="KPC.guideToggle(false,true)">Got it, fold this up</button>' : ''}</details>`;
+  }
   function view(){
     css();
     const x = ctxNow(), isOwner = A().owner();
@@ -426,7 +472,7 @@
     const title = S.view === 'week'
       ? (() => { const m = mondayOf(S.anchor), f = addDays(m, 6); return fmtDay(m).replace(/^\w+, /, '') + ' to ' + fmtDay(f).replace(/^\w+, /, ''); })()
       : new Date(S.anchor.slice(0, 8) + '15T12:00:00Z').toLocaleDateString('en-US', { month:'long', year:'numeric', timeZone:'UTC' });
-    return shiftBar(x, false)
+    return shiftBar(x, false) + guide(isOwner, A().mine())
       + `<div class="kc-tools"><span class="kc-title">${esc(title)}</span>
         <button class="kc-nav" onclick="KPC.step(-1)" aria-label="Back">‹</button><button class="kc-nav" onclick="KPC.goToday()">Today</button><button class="kc-nav" onclick="KPC.step(1)" aria-label="Forward">›</button>
         <span class="kc-seg"><button class="${S.view === 'week' ? 'on' : ''}" onclick="KPC.setView('week')">Week</button><button class="${S.view === 'month' ? 'on' : ''}" onclick="KPC.setView('month')">Month</button></span></div>
@@ -519,8 +565,9 @@
     closeForm(){ S.add = false; S.edit = ''; rerender(); },
     formEvery(id, v){ const w = document.getElementById('kcDW_' + id), d = document.getElementById('kcDD_' + id);
       if(w) w.style.display = v === 'week' ? 'inline-flex' : 'none'; if(d) d.style.display = v === 'week' || v === 'day' ? 'none' : 'inline-flex'; },
-    _state:S,
-    _rules:{ START, headOf, daysOf, titleOf, slotOf, catOf, shiftOf, isShiftDay, nextShiftDay, natural, occDone, itemsOn, stillOpen, noDay, prune, moAt, shiftNow, mondayOf, addDays, dayOf }
+    guideToggle(open, fold){ try{ W.localStorage.setItem(GKEY, open ? '0' : '1'); }catch(e){} if(fold) rerender(); },
+    howHtml, _state:S,
+    _rules:{ START, headOf, stepsOf, linkify, daysOf, titleOf, slotOf, catOf, shiftOf, isShiftDay, nextShiftDay, natural, occDone, itemsOn, stillOpen, noDay, prune, moAt, shiftNow, mondayOf, addDays, dayOf }
   };
   W.KPC = KPC;
   if(typeof module !== 'undefined' && module.exports) module.exports = KPC;
