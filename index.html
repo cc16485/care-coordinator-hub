@@ -25615,7 +25615,14 @@ function recListHtml(rows){
         + (r.recorded_by ? '<span class="field-note">by ' + esc(r.recorded_by) + '</span>' : '')
         + (STATE[r.status] ? '<span class="field-note">' + STATE[r.status] + '</span>' : '')
         + '<span style="flex:1;"></span>'
-        + (r.audio_purged_at
+        /* 1542 (2026-11-18): a Google Meet video interview: the video stays in the interviewer's Drive for 30 days */
+        + (r.source==='meet'
+            ? '<span class="field-note">from Google Meet</span>'
+              + (r.video_url && !r.video_deleted_at && /^https:\/\/(drive|docs)\.google\.com\//.test(String(r.video_url))
+                  ? '<a class="fb" style="text-decoration:none;" href="' + esc(r.video_url) + '" target="_blank" rel="noopener">🎥 Watch the video</a>'
+                    + (r.video_delete_after ? '<span class="field-note">until ' + esc(new Date(r.video_delete_after).toLocaleDateString('en-US',{month:'short', day:'numeric'})) + '</span>' : '')
+                  : '<span class="field-note">' + (r.video_deleted_at ? 'video deleted after 30 days, transcript kept' : 'no video') + '</span>')
+          : r.audio_purged_at
             ? '<span class="field-note">audio deleted, transcript kept</span>'
             : '<button class="fb" onclick="recPlay(\'' + esc(r.id) + '\')">▶ Listen</button>')
         + (r.status==='failed' ? '<button class="fb" onclick="recRetry(\'' + esc(r.id) + '\')">Try again</button>' : '')
