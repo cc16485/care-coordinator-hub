@@ -29,17 +29,36 @@ async()=>{ const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify
   let box=document.getElementById('ivHosts'); if(!box){ box=document.createElement('div'); box.id='ivHosts'; document.body.appendChild(box); }
   await ivLoad(); await sleep(100);
   const ht=box.innerText;
-  ok('Interview hours: Katlin shows "Video interviews" and a Video link button', /Katlin[\s\S]*Video interviews/.test(ht) && /Video link/.test(ht), ht.slice(0,400));
-  ok('...Krystal (no link) shows Add video link, one Video chip only', /Add video link/.test(ht) && (ht.match(/Video interviews/g)||[]).length===1, ht.slice(0,400));
+  ok('Interview hours: Katlin shows "Video link set" and a Video link button', /Katlin[\s\S]*Video link set/.test(ht) && /Video link/.test(ht), ht.slice(0,400));
+  ok('...Krystal (no link) shows Add video link, one Video chip only', /Add video link/.test(ht) && (ht.match(/Video link set/g)||[]).length===1, ht.slice(0,400));
   window.ccPrompt=async()=>'https://meet.google.com/new-link-xyz'; (0,eval)('ccPrompt=window.ccPrompt');
   await VI.setLink('co-k'); await sleep(50);
   ok('saving a link for Krystal writes coordinators.meeting_link', window.__U.some(u=>u[0]==='coordinators' && u[1].meeting_link==='https://meet.google.com/new-link-xyz'), window.__U);
-  window.__DB.coordinators[1].meeting_link=null;
+  window.__DB.coordinators[1].meeting_link=null; await ivLoad(); await sleep(50);
+  /* 1541: add hours with the Video tick, Monday to Friday */
+  const INS=[]; const realFrom=sb.from; sb.from=(t)=>{ const b=realFrom(t); if(t==='coordinator_availability'){ b.insert=(rows)=>{ INS.push(rows); return Promise.resolve({error:null}); }; } return b; };
+  IV_DAYWIN={ start:'06:00', end:'21:00' }; (0,eval)("IV_DAYWIN={ start:'06:00', end:'21:00' }");
+  ivAddBlock('co-k'); await sleep(50);
+  const fm=document.getElementById('ivHoursForm'), vrow=document.getElementById('ivHoursVideoRow');
+  ok('the add-hours form has Monday to Friday and a Video tick for interviews', /Monday to Friday/.test(document.getElementById('ivHoursDay').innerText) && vrow.style.display!=='none' && /Video interviews/.test(vrow.innerText), [document.getElementById('ivHoursDay').innerText.slice(0,40), vrow.style.display]);
+  document.getElementById('ivHoursDay').value='wk'; document.getElementById('ivHoursFrom').value='06:00'; document.getElementById('ivHoursTo').value='07:30'; document.getElementById('ivHoursVideo').checked=true;
+  await ivHoursSave(document.createElement('button')); await sleep(50);
+  ok('Video hours for someone with no video link: refused, says add the link first', INS.length===0 && /Add their video link first/.test(document.getElementById('ivHoursErr').innerText), document.getElementById('ivHoursErr').innerText);
+  ivAddBlock('co-v'); document.getElementById('ivHoursDay').value='wk'; document.getElementById('ivHoursFrom').value='17:30'; document.getElementById('ivHoursTo').value='19:30'; document.getElementById('ivHoursVideo').checked=true;
+  await ivHoursSave(document.createElement('button')); await sleep(50);
+  ok('Katlin Mon-Fri 5:30-7:30 PM video: five rows, each video', INS.length===1 && INS[0].length===5 && INS[0].every(r=>r.video===true && r.start_time==='17:30' && r.end_time==='19:30' && r.coordinator_id==='co-v') && INS[0].map(r=>r.day_of_week).join()==='1,2,3,4,5', INS);
+  ivAddBlock('co-k'); document.getElementById('ivHoursDay').value='wk'; document.getElementById('ivHoursFrom').value='10:00'; document.getElementById('ivHoursTo').value='12:00';
+  await ivHoursSave(document.createElement('button')); await sleep(50);
+  ok('Krystal Mon-Fri 10-12 without the tick: in person (no video field)', INS.length===2 && INS[1].length===5 && INS[1].every(r=>r.video===undefined), INS[1]);
+  sb.from=realFrom;
+  window.__DB.coordinator_availability=[{ id:'av1', coordinator_id:'co-v', activity:'interview', day_of_week:1, start_time:'17:30:00', end_time:'19:30:00', video:true }];
+  await ivLoad(); await sleep(80);
+  ok('a video block shows 🎥 and "video" on its chip', /🎥 Mon[^\n]*video/.test(document.getElementById('ivHosts').innerText), document.getElementById('ivHosts').innerText.slice(0,300));
   /* the interview card */
   window.apOpenProfile=()=>{}; window.recMount=()=>{}; window.apMatchMount=()=>{}; window.apLoad=async()=>{}; window.apDecisionOffer=async()=>{}; window.apToOffer=()=>{ window.__OFFER=true; };
   (0,eval)('apOpenProfile=window.apOpenProfile; recMount=window.recMount; apMatchMount=window.apMatchMount; apLoad=window.apLoad; apDecisionOffer=window.apDecisionOffer; apToOffer=window.apToOffer');
   AP_ROWS.length=0; window.__DB.job_applicants.forEach(r=>AP_ROWS.push(JSON.parse(JSON.stringify(r))));
-  AP_BOOK[APID]={ applicant_id:APID, coordinator_id:'co-v', status:'booked' }; AP_BOOK[APIP]={ applicant_id:APIP, coordinator_id:'co-k', status:'booked' };
+  AP_BOOK[APID]={ applicant_id:APID, coordinator_id:'co-v', status:'booked', video:true }; AP_BOOK[APIP]={ applicant_id:APIP, coordinator_id:'co-v', status:'booked', video:false };
   let asked=''; window.apAsk=async(o)=>{ asked=o.title+' '+o.text; return true; }; (0,eval)('apAsk=window.apAsk');
   if(window.OBS) OBS.missing=()=>null;   /* the family reflection gate is tested in interview_obs_look.py */
   const btn=document.createElement('button');
