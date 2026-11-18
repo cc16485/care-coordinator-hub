@@ -29,14 +29,14 @@ SETUP = r"""async(o)=>{
   DATA.ops_items=[{ id:'cfl_m1_0', kind:'call_followup', status:'open', owner:ME.email, owner_name:ME.name, domain:'scheduling_coverage', about:'Example: Mia Rivers', who:'Example: Mia Rivers',
     title:'Move Example: Mia\'s Thursday with Example: Ruth to Friday 9 to 1', detail:'She asked by text.', created_at:ago(2), due:ahead(3), source:{ type:'call_reading', channel:'text', message_id:'m1', call_at:ago(2) } }];
   const visit = { state:'one', visit_id:'9401', client:'Example: Ruth Adams', date:'2026-11-19', start:'10:00', end:'14:00', caregiver_id:'501',
-    proposed:{ date:'2026-11-20', start:'09:00', end:'13:00' }, checks:o.overlap ? { overlap:true, overlap_with:'Example: Dan 9am', week_hours_after:30, over_40:false } : { overlap:false, week_hours_after:30, over_40:false } };
+    proposed:{ date:'2026-11-20', start:'09:00', end:'13:00' }, can_change:true, why:'the visit on Thu Nov 19 with Example: Ruth', change:{ visit_id:'9401', expect:{ caregiver_id:'501', date:'2026-11-19', start:'10:00', end:'14:00' }, set:{ date:'2026-11-20', start:'09:00', end:'13:00' } }, checks:o.overlap ? { overlap:true, overlap_with:['Example: Dan 9am'], week_hours_after:30, over_40:false } : { overlap:false, week_hours_after:30, over_40:false } };
   const done = {};
   const look = () => ({ card_id:'cfl_m1_0', live:o.live, caregiver:{ name:'Example: Mia Rivers', phone_last4:'0111', texts_ok:true, axiscare_id:'501' },
     family_options:[{ key:'c7', name:'Example: Ann Adams', relation:'daughter', phone_last4:'0222', texts_ok:true }, { key:'c8', name:'Example: Bo Adams', relation:'son', phone_last4:'0333', texts_ok:false, why_not:'texts not OK' }],
     visit, steps:[
-      { i:0, kind:'ask_client_family_permission', label:'Ask the client or family first', draft:'Hi Ann, this is Caring Companions. Mia asked to move Thursday 10 to 2 to Friday 9 to 1. Is that OK with you?', waits_for_yes:false, status:done[0]?'done':'ready', done:done[0]||null },
-      { i:1, kind:'axiscare_visit_change', label:'Change the visit in AxisCare', waits_for_yes:true, status:done[1]?'done':'ready', done:done[1]||null },
-      { i:2, kind:'text_caregiver', label:'Text the caregiver', draft:'Hi Mia, you are all set for Friday 9 to 1 with Ruth.', waits_for_yes:true, status:done[2]?'done':'ready', done:done[2]||null },
+      { i:0, kind:'ask_client_family_permission', label:'Ask the client or family first', draft:'Hi Ann, this is Caring Companions. Mia asked to move Thursday 10 to 2 to Friday 9 to 1. Is that OK with you?', waits_for_yes:false, ...(done[0]?Object.assign({status:'done'},done[0]):{status:'ready'}) },
+      { i:1, kind:'axiscare_visit_change', label:'Change the visit in AxisCare', waits_for_yes:true, locked:!(done[0]&&done[0].how==='yes'), ...(done[1]?Object.assign({status:'done'},done[1]):{status:'ready'}) },
+      { i:2, kind:'text_caregiver', label:'Text the caregiver', draft:'Hi Mia, you are all set for Friday 9 to 1 with Ruth.', waits_for_yes:true, ...(done[2]?Object.assign({status:'done'},done[2]):{status:'ready'}) },
       { i:3, kind:'call_back', label:'Call back', status:'needs_person', why:'a person does this one' } ] });
   window.__calls=[];
   (0,eval)("sb.auth.getSession=async()=>({data:{session:{access_token:'tok'}}})");

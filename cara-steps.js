@@ -46,20 +46,30 @@
   }
   function checkWords(v){
     const c = (v && v.checks) || {}, out = [];
-    if(c.overlap) out.push({ bad:true, t:'Overlaps another visit' + (c.overlap_with ? ' (' + c.overlap_with + ')' : '') });
+    if(c.overlap) out.push({ bad:true, t:'Overlaps another visit' + (c.overlap_with && String(c.overlap_with) ? ' (' + (Array.isArray(c.overlap_with) ? c.overlap_with.join(', ') : c.overlap_with) + ')' : '') });
     else if(v && v.checks) out.push({ bad:false, t:'No overlap with their other visits' });
     if(c.week_hours_after != null) out.push({ bad:!!c.over_40, t:(c.over_40 ? 'Goes past 40 hours this week (' : 'Hours this week after the change: ') + Math.round(c.week_hours_after * 10) / 10 + (c.over_40 ? ')' : '') });
     return out;
   }
   /* the body visit-change wants (its own checks run again on the server) */
   function changeBody(v, changeId){
+    if(v.change && v.change.visit_id && v.change.expect && v.change.set) return { action:'change', visit_id:S(v.change.visit_id), expect:v.change.expect, set:v.change.set, reason_id:0, change_id:changeId };
     const p = v.proposed || {}, set = {};
     if(p.date && p.date !== v.date) set.date = p.date;
     if(p.start && p.start !== v.start) set.start = p.start;
     if(p.end && p.end !== v.end) set.end = p.end;
     return { action:'change', visit_id:S(v.visit_id), expect:{ caregiver_id:v.caregiver_id == null ? null : S(v.caregiver_id), date:v.date, start:v.start, end:v.end }, set, reason_id:0, change_id:changeId };
   }
-  const CORE = { onFor, liveOn, wants, blockedBy, visitWords, checkWords, changeBody, TEXT_KINDS, MAX };
+  /* the server's look answer, as the page reads it: a done step carries how / by_name / change_id on itself */
+  function norm(look){
+    const L = Object.assign({}, look || {});
+    L.steps = (Array.isArray(L.steps) ? L.steps : []).map(x => {
+      const s = Object.assign({}, x);
+      if(!s.done && s.status === 'done') s.done = { how:s.how || 'done', by_name:s.by_name || '', change_id:s.change_id || '', at:s.at || '' };
+      return s; });
+    return L;
+  }
+  const CORE = { norm, onFor, liveOn, wants, blockedBy, visitWords, checkWords, changeBody, TEXT_KINDS, MAX };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ── the page ── */
@@ -80,7 +90,7 @@
     const c = C[id] || (C[id] = {});
     if(c.loading || (c.look && !force)) return;
     c.loading = true; c.err = ''; paint(id);
-    try{ c.look = await call('cara-step', { mode:'look', card_id:id }); }
+    try{ c.look = norm(await call('cara-step', { mode:'look', card_id:id })); }
     catch(e){ c.err = e.message || String(e); }
     c.loading = false; paint(id);
   }
@@ -106,7 +116,7 @@
   function chip(t, col){ return '<span class="tag-chip" style="background:var(' + col + '-bg);color:var(' + col + ');margin-left:6px;">' + E(t) + '</span>'; }
   function stepHtml(id, L, steps, i){
     const s = steps[i], c = C[id], live = liveOn(st()), busy = c.busy === i;
-    const done = s.done || null, block = blockedBy(steps, i);
+    const done = s.done || null, block = blockedBy(steps, i) || (s.locked && !done ? 'Waits for the family\'s yes.' : null);
     let h = '<b>' + E(s.label || s.kind) + '</b>';
     if(done) h += chip(done.how === 'yes' ? 'They said yes' : done.how === 'no' ? 'They said no' : done.how === 'sent' ? 'Sent' + (done.by_name ? ' by ' + S(done.by_name).split(' ')[0] : '') : done.how === 'skip' ? 'Skipped' : 'Done', done.how === 'no' ? '--red' : '--teal');
     if(s.status === 'needs_person') return h + '<div class="field-note">' + E(s.why || 'A person does this one.') + (s.draft ? ' Cara\'s note: "' + E(s.draft) + '"' : '') + '</div>';
@@ -133,10 +143,11 @@
       h += '<div style="margin-top:4px;">' + E((v.client ? v.client + ': ' : '') + visitWords(v)) + '</div>';
       const ck = checkWords(v);
       if(ck.length) h += '<div class="field-note">' + ck.map(x => '<span style="color:var(' + (x.bad ? '--red' : '--teal') + ');">' + E(x.t) + '</span>').join(' · ') + '</div>';
-      const stop = ck.some(x => x.bad);
+      const stop = ck.some(x => x.bad) || v.can_change === false || v.started || v.verified;
       h += '<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;"><button class="primary" ' + (!live || block || busy || stop ? 'disabled' : '') + ' onclick="CS.apply(\'' + E(id) + '\',' + i + ')">' + (busy ? 'Changing...' : 'Apply in AxisCare') + '</button>'
         + '<button class="ghost" ' + (busy ? 'disabled' : '') + ' onclick="CS.mark(\'' + E(id) + '\',' + i + ',\'done\')">I changed it in AxisCare</button></div>';
-      if(stop) h += '<div class="field-note" style="color:var(--red);">Cara won\'t apply this one because of the check above. Decide in AxisCare.</div>';
+      if(stop) h += '<div class="field-note" style="color:var(--red);">' + (v.started || v.verified || v.can_change === false ? 'This visit has started or can\'t be changed from the Hub. Change it in AxisCare.' : 'Cara won\'t apply this one because of the check above. Decide in AxisCare.') + '</div>';
+      if(v.why) h += '<div class="field-note">How Cara found it: ' + E(v.why) + '. Check the day and times before you apply.</div>';
       return h;
     }
     return h;
