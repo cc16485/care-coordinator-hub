@@ -96,9 +96,26 @@
     catch(e){ c.err = e.message || String(e); }
     c.loading = false; paint(id);
   }
+  const CSSID = 'csCss';
+  function css(){
+    if(document.getElementById(CSSID)) return;
+    const t = document.createElement('style'); t.id = CSSID;
+    t.textContent = '.cs-chip{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 10px;border-radius:999px;border:1px solid var(--teal);background:#E3F4F3;color:#155A68;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}'
+      + '.cs-chip:hover{background:var(--teal);color:#fff}.cs-wrap{border-left:4px solid var(--teal)!important}'
+      + '.cs-wrap button:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.6)}';
+    document.head.appendChild(t);
+  }
+  /* on the row: a tag that says Cara has steps ready, and opens the card (her word 2026-11-18: "it is very hidden") */
+  function rowTag(it){
+    if(!wants(it) || !onFor(st(), owner())) return '';
+    const n = Array.isArray(it.steps) ? it.steps.length : 0;
+    if(!n) return '';
+    css();
+    return '<div><button class="cs-chip" onclick="event.stopPropagation();OPB.toggle(\'' + E(it.id) + '\')">Cara has ' + n + ' step' + (n === 1 ? '' : 's') + ' ready</button></div>';
+  }
   function panel(it){
     if(!wants(it) || !onFor(st(), owner())) return '';
-    setTimeout(() => load(it.id), 0);
+    css(); setTimeout(() => load(it.id), 0);
     return '<div class="cs-wrap" data-card="' + E(it.id) + '" style="margin:8px 0 4px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">' + body(it.id) + '</div>';
   }
   function body(id){
@@ -156,8 +173,8 @@
   }
   function whoOptions(L, s, id, i){
     if(s.kind === 'text_caregiver'){
-      const g = L.caregiver;
-      if(!g) return '<span class="field-note" style="color:var(--red);">Cara couldn\'t tell which caregiver this is. Text them the usual way.</span>';
+      const g = ('recipient' in s) ? s.recipient : L.caregiver;   /* each text goes to the person it names (server fix 2026-11-18) */
+      if(!g) return '<span class="field-note" style="color:var(--red);">' + E(s.why || 'Cara couldn\'t tell which caregiver this is. Text them the usual way.') + '</span>';
       return '<span class="field-note">To ' + E(g.name) + (g.phone_last4 ? ' (number ending ' + E(g.phone_last4) + ')' : '') + (g.texts_ok === false ? ' · <b style="color:var(--red);">texts not OK</b>' : '') + '</span>';
     }
     const fam = (L.family_options || []).filter(f => f.texts_ok !== false);
@@ -192,5 +209,5 @@
       await mark(id, i, 'done', r.change_id || cid);
     }catch(e){ c.msg = e.message || String(e); c.msgBad = true; c.busy = null; paint(id); }
   }
-  W.CS = Object.assign({ panel, reload:id => load(id, true), send, mark, apply }, CORE);
+  W.CS = Object.assign({ panel, chip:rowTag, reload:id => load(id, true), send, mark, apply }, CORE);
 })(typeof window !== 'undefined' ? window : globalThis);
