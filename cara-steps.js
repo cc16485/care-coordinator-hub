@@ -22,7 +22,9 @@
   /* ── the rules (pure; tests/cara-steps-test.js runs them under node) ── */
   function onFor(settings, isOwner){ return !!(settings && settings.cara_steps_live === true) || !!isOwner; }
   function liveOn(settings){ return !!(settings && settings.cara_steps_live === true); }
-  function wants(it){ return !!it && it.kind === 'call_followup' && !!(it.source && it.source.message_id); }
+  /* only the reader's own follow-up cards carry prepared steps (cf_<reading>_<n>); a "Promise not kept yet" card (cfp_) and
+     a could-not-read card do not, so they show nothing here (2026-11-18 fix) */
+  function wants(it){ return !!it && it.kind === 'call_followup' && /^cf_/.test(String(it.id || '')) && !!(it.source && it.source.message_id) && (!it.source.type || it.source.type === 'call_reading'); }
   /* a step after a permission ask waits until that ask is marked yes */
   function blockedBy(steps, i){
     const s = steps[i]; if(!s || !s.waits_for_yes) return null;

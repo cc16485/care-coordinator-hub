@@ -5,7 +5,7 @@ const R = []; const ok = (n, c, d) => R.push([c ? 'PASS' : 'FAIL', n, c ? '' : J
 
 ok('off for coordinators until the switch; owners always see it as practice', !CS.onFor({}, false) && CS.onFor({}, true) && CS.onFor({ cara_steps_live: true }, false));
 ok('sending only when the switch is on (an owner looking does not turn it on)', !CS.liveOn({}) && !CS.liveOn({ cara_steps_live: 'true' }) && CS.liveOn({ cara_steps_live: true }));
-ok('only call follow-up cards that came from a reading', CS.wants({ kind: 'call_followup', source: { message_id: 'm1' } }) && !CS.wants({ kind: 'call_followup', source: {} }) && !CS.wants({ kind: 'coverage', source: { message_id: 'm1' } }) && !CS.wants(null));
+ok('only call follow-up cards that came from a reading', CS.wants({ id: 'cf_m1_0', kind: 'call_followup', source: { type: 'call_reading', message_id: 'm1' } }) && !CS.wants({ id: 'cf_m1_0', kind: 'call_followup', source: {} }) && !CS.wants({ id: 'cfp_m1_0', kind: 'call_followup', source: { type: 'call_promise', message_id: 'm1' } }) && !CS.wants({ id: 'cfu_m1', kind: 'call_followup', source: { message_id: 'm1' } }) && !CS.wants({ kind: 'coverage', source: { message_id: 'm1' } }) && !CS.wants(null));
 
 const steps = [
   { kind: 'ask_client_family_permission', draft: 'Hi Ann, may we move Thursday to Friday 9 to 1?' },
