@@ -6045,6 +6045,8 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         <!-- 2026-10-13 (her "yes to all" + "build"): the interviewer's observations and the family reflection (interview-observations.js) -->
         <div id="apIntObs" style="margin-top:14px;max-width:760px;"></div>
 
+        <!-- 2026-11-17 (Katlin video interviews): the driver's license check, shown only for a video interview (video-interviews.js) -->
+        <div id="apIntIdCheck" style="margin-top:14px;"></div>
         <label style="margin-top:14px;">How did it go?</label>
         <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
         <!-- 2026-10-12 (the new interview, her "yes to all"): what to ask their references about rides onto the offer and into Background & References -->
@@ -7626,7 +7628,8 @@ The HomeTogether team</pre>
 <script src="mywork-tidy.js?v=5"></script>
 <script src="axis-connection.js?v=1"></script><script src="escalated-simple.js?v=1"></script><!-- 2026-10-30: Escalated to you, made simple --><!-- 2026-10-29: Settings > AxisCare connection -->
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
-<script src="katlin-page.js?v=8"></script><!-- Katlin's own page (2026-11-10) -->
+<script src="katlin-page.js?v=8"></script>
+<script src="video-interviews.js?v=1"></script><!-- Katlin video interviews, Stage A (2026-11-17) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
@@ -27442,6 +27445,7 @@ async function apInterview(id){
   document.getElementById('apIntErr').style.display='none';
   apIntRender();
   apIntObsMount(id);
+  if(window.VI) VI.idCheckMount(id);
   const c = document.getElementById('apIntCard');
   c.style.display='block';
   recMount('recHostInterview', 'interview', r.id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
@@ -27484,6 +27488,7 @@ async function apIntSaveNotes(btn){
     A.notes = (document.getElementById('apIntNotes').value||'').trim();
     { const rc = document.getElementById('apIntRefCheck'); if(rc) A.ref_check = (rc.value||'').trim(); }
     if(window.OBS) A.observations = OBS.clean(A.observations, apIntBy());
+    if(window.VI && VI.value()) VI.beforeOutcome(id, 'notes', A);   // 2026-11-17: keeps the license check with the notes
     /* merge into what is on their record now, so the phone's notes saved in the meantime are kept */
     const cur = await sb.from('job_applicants').select('post_interview').eq('id', id).maybeSingle();
     if(cur.error) throw cur.error;
@@ -27494,6 +27499,7 @@ async function apIntSaveNotes(btn){
     window.__apInt = JSON.parse(JSON.stringify(out));
     try{ localStorage.removeItem(AP_IVD(id)); }catch(e){}
     const r = AP_ROWS.find(x=>String(x.id)===String(id)); if(r) r.post_interview = out;
+    if(window.VI && r) await VI.afterSave(id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
     if(s) s.textContent = 'Saved to their record ' + new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) + '.';
   }catch(e){
     if(s) s.innerHTML = '<span style="color:var(--red);">Not saved: ' + escapeHtmlComms(e && e.message || String(e)) + '. It is still kept on this computer; try again.</span>';
@@ -27920,6 +27926,8 @@ async function apOutcome(outcome, btn){
     if(miss){ await apAsk({ title: 'Not yet', text: miss }); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
     A.observations = OBS.clean(A.observations, apIntBy());
   }
+  /* 2026-11-17: a video interview needs the driver's license check marked; not Matched = the offer waits for an owner */
+  if(window.VI){ const stop = VI.beforeOutcome(id, outcome, A); if(stop){ await apAsk({ title: 'Not yet', text: stop }); return; } }
   let reason = null, wants = null, area = null;
   if(outcome==='declined'){
     reason = await apAsk({ title: 'Why are we not hiring '+(r.first_name||'them')+'?', text: 'Kept for our records, never sent.',
@@ -27944,6 +27952,7 @@ async function apOutcome(outcome, btn){
     if(outcome==='hired') patch.hired_at  = new Date().toISOString();
     const { error } = await sb.from('job_applicants').update(patch).eq('id', id);
     if(error) throw error;
+    if(window.VI) await VI.afterSave(id, ((r.first_name||'')+' '+(r.last_name||'')).trim());
 
     const b = AP_BOOK[id];
     if(b){
@@ -28688,7 +28697,9 @@ function ivRender(){
       + '<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;">'
       + '<b style="font-size:14.5px;color:var(--navy);">' + esc(h.name) + '</b>'
       + (h.active?'':'<span style="font-size:11.5px;font-weight:700;color:#6E6559;background:#F4F2ED;border-radius:999px;padding:2px 9px;">paused</span>')
+      + (window.VI ? VI.hostChip(h) : '')
       + '<span style="flex:1;"></span>'
+      + (window.VI ? VI.hostButton(h) : '')
       + '<button class="fb" onclick="ivAddBlock(\''+esc(h.id)+'\')">＋ Add hours</button>'
       + '<button class="fb" onclick="ivBlockOff(\''+esc(h.id)+'\')">🚫 Block off time</button>'
       + '<button class="fb" onclick="ivToggleHost(\''+esc(h.id)+'\','+(h.active?'false':'true')+')">'
