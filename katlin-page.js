@@ -270,7 +270,7 @@
       return `<div class="kp-task${d ? ' done' : ''}">${on ? `<input type="checkbox" ${d ? 'checked' : ''} onchange="KP.tick('${esc(t.id)}',this.checked)" aria-label="Done">` : '<span style="width:20px;flex:0 0 auto"></span>'}
         <div class="kp-t"><b class="kp-tt">${esc(title)}</b> <span class="kp-chip" style="color:${CC[1]};background:${CC[2]}">${CC[0]}</span>
           <div class="kp-when">${esc(when)}${nx ? ' · next ' + esc(fmtDay(nx)) : on && t.every ? ' · tonight' : ''}${d && d.by_name ? ' · done ' + esc(fmtAt(d.at)) + ' by ' + esc(String(d.by_name).split(' ')[0]) : ''}</div>
-          ${how ? `<details class="kp-how"><summary>How to</summary><div class="kp-text">${esc(how)}</div></details>` : ''}</div>
+          ${how ? `<details class="kp-how"><summary>📋 How to do it</summary><div class="kp-text" style="white-space:normal">${W.KPC.howHtml(t, esc)}</div></details>` : ''}</div>
         ${isOwner ? `<button class="kp-x" title="Remove this task" onclick="KP.removeTask('${esc(t.id)}')">✕</button>` : ''}</div>`;
     };
     const grp = (label, list) => list.length ? `<div class="kp-grp">${label} <span style="color:#8a978f">${list.length}</span></div>` + list.map(row).join('') : '';

@@ -89,5 +89,14 @@ ok('Saturday: next shift is Monday', s2.k === 'next' && s2.day === '2026-11-23',
 const s3 = R.shiftNow(Date.parse('2026-11-18T15:00:00Z'), shift);
 ok('9 AM Wednesday: starts later today', s3.k === 'soon' && s3.day === wed, s3);
 
+/* how to, step by step (2026-11-18) */
+const st = R.stepsOf({ text:"CDS, start of shift (10 min): open hub.caringcds.com > Starting. Pick tonight's people from the Next step column. Calls and texts to families go first and must be done by 7 PM Central." });
+ok('how to: the short name is left off and each sentence is a step', st.length === 3 && /^Open hub\.caringcds\.com/.test(st[0]) && /^Pick tonight/.test(st[1]), st);
+ok('how to: a one-line task is one step', R.stepsOf({ text:'Answer every comment on our Nextdoor posts.' }).length === 1);
+const lk = R.linkify('open hub.caringcds.com &gt; Starting, or mo-care.com/careers, email katlin@mo-care.com');
+ok('how to: web addresses become links, an email address does not', /href="https:\/\/hub\.caringcds\.com"/.test(lk) && /href="https:\/\/mo-care\.com\/careers"/.test(lk) && !/href="https:\/\/mo-care\.com"/.test(lk), lk);
+const hh = KPC.howHtml({ text:'Do A. Then do B.' });
+ok('how to: numbered steps', /<ol class="kc-steps"><li>Do A\.<\/li><li>Then do B\.<\/li><\/ol>/.test(hh), hh);
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

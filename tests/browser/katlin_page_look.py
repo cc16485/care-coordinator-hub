@@ -91,6 +91,11 @@ async()=>{
   ok('Calendar: tonight\'s shift in Missouri and Vietnam time', /Tonight's shift/.test(cal()) && /5:30 PM to 7:30 PM Missouri/.test(cal()) && /Wed 6:30 AM to 8:30 AM Vietnam/.test(cal()), cal().slice(0,400));
   ok('Calendar: it says when the shift starts', /Starts in 6 h 30 min/.test(cal()), cal().slice(0,400));
   ok('Calendar: a week of shift days plus the weekend', document.querySelectorAll('#kpWrapCal .kc-week .kc-col').length===7, document.querySelectorAll('#kpWrapCal .kc-col').length);
+  ok('Calendar: a How your calendar works guide, open for her', /How your calendar works/.test(cal()) && document.querySelector('#kpWrapCal details.kc-guide').open && /Start of shift/.test(cal()), cal().slice(0,900));
+  KPC.toggle('kp_nd_search@2026-11-17'); await sleep(30);
+  ok('Calendar: How to do it shows the steps', /How to do it/.test(cal()) && document.querySelector('#kpWrapCal .kc-how .kc-steps'), cal().slice(0,2000));
+  KPC.guideToggle(false,true); await sleep(30);
+  ok('Calendar: Got it folds the guide', !document.querySelector('#kpWrapCal details.kc-guide').open);
   ok('Calendar: today is picked, with what she ticked', /Tuesday, November 17/.test(cal()) && document.querySelector('#kpWrapCal .kc-col.sel.today'), cal().slice(0,900));
   ok('Calendar: Tuesday\'s Nextdoor post is on it', /Nextdoor post/.test(cal()), cal());
   await KPC.move('kp_nd_comments@2026-11-17','2026-11-18'); await sleep(50);
