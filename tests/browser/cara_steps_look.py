@@ -26,12 +26,12 @@ SETUP = r"""async(o)=>{
   DATA.ops_settings=Object.assign({}, DATA.ops_settings||{}, { ops_board_live:true, ops_board_live_since:new Date(Date.now()-2*864e5).toISOString(), ops_board_lanes_live:false, cara_steps_live:o.live });
   DATA.coordinator_staff=[{ name:'Samantha Troutman', email:'samantha@mo-care.com' }, { name:'Krystal Smith', email:'krystal@mo-care.com' }];
   const ago=h=>new Date(Date.now()-h*36e5).toISOString(), ahead=h=>new Date(Date.now()+h*36e5).toISOString();
-  DATA.ops_items=[{ id:'cfl_m1_0', kind:'call_followup', status:'open', owner:ME.email, owner_name:ME.name, domain:'scheduling_coverage', about:'Example: Mia Rivers', who:'Example: Mia Rivers',
+  DATA.ops_items=[{ id:'cf_m1_0', kind:'call_followup', status:'open', owner:ME.email, owner_name:ME.name, domain:'scheduling_coverage', about:'Example: Mia Rivers', who:'Example: Mia Rivers',
     title:'Move Example: Mia\'s Thursday with Example: Ruth to Friday 9 to 1', detail:'She asked by text.', created_at:ago(2), due:ahead(3), source:{ type:'call_reading', channel:'text', message_id:'m1', call_at:ago(2) } }];
   const visit = { state:'one', visit_id:'9401', client:'Example: Ruth Adams', date:'2026-11-19', start:'10:00', end:'14:00', caregiver_id:'501',
     proposed:{ date:'2026-11-20', start:'09:00', end:'13:00' }, can_change:true, why:'the visit on Thu Nov 19 with Example: Ruth', change:{ visit_id:'9401', expect:{ caregiver_id:'501', date:'2026-11-19', start:'10:00', end:'14:00' }, set:{ date:'2026-11-20', start:'09:00', end:'13:00' } }, checks:o.overlap ? { overlap:true, overlap_with:['Example: Dan 9am'], week_hours_after:30, over_40:false } : { overlap:false, week_hours_after:30, over_40:false } };
   const done = {};
-  const look = () => ({ card_id:'cfl_m1_0', live:o.live, caregiver:{ name:'Example: Mia Rivers', phone_last4:'0111', texts_ok:true, axiscare_id:'501' },
+  const look = () => ({ card_id:'cf_m1_0', live:o.live, caregiver:{ name:'Example: Mia Rivers', phone_last4:'0111', texts_ok:true, axiscare_id:'501' },
     family_options:[{ key:'c7', name:'Example: Ann Adams', relation:'daughter', phone_last4:'0222', texts_ok:true }, { key:'c8', name:'Example: Bo Adams', relation:'son', phone_last4:'0333', texts_ok:false, why_not:'texts not OK' }],
     visit, steps:[
       { i:0, kind:'ask_client_family_permission', label:'Ask the client or family first', draft:'Hi Ann, this is Caring Companions. Mia asked to move Thursday 10 to 2 to Friday 9 to 1. Is that OK with you?', waits_for_yes:false, ...(done[0]?Object.assign({status:'done'},done[0]):{status:'ready'}) },
@@ -48,7 +48,7 @@ SETUP = r"""async(o)=>{
     if(fn==='visit-change' && b.action==='change') return r({ outcome:'changed', confirmed:true, change_id:b.change_id, words:'Thu 10:00-14:00 to Fri 09:00-13:00' });
     return r({ error:'unexpected '+fn }, 400); };
   switchTab('mywork'); myWorkGo('board'); await new Promise(r=>setTimeout(r,150));
-  OPB.toggle('cfl_m1_0'); await new Promise(r=>setTimeout(r,300));
+  OPB.toggle('cf_m1_0'); await new Promise(r=>setTimeout(r,300));
 }"""
 CHECKS = r"""async(o)=>{
   const R=[], ok=(n,c,d)=>R.push([n,!!c,c?'':String(d===undefined?'':JSON.stringify(d)).slice(0,400)]);
@@ -69,7 +69,7 @@ CHECKS = r"""async(o)=>{
  /Overlaps another visit \(Example: Dan 9am\)/.test(txt()) &&   ok('on: the family ask can be sent; Apply and the caregiver text cannot yet', !btns().find(b=>b.t==='Send').off && btn('Apply in AxisCare').disabled && btns().filter(b=>b.t==='Send')[1].off, btns());
   const ta=wrap().querySelector('textarea'); ta.value='Hi Ann, may Mia move Thursday to Friday 9 to 1?'; btns(); btn('Send').click(); await wait(400);
   const s=window.__calls.find(c=>c[0]==='cara-step'&&c[1].mode==='send');
-  ok('Send posts exactly the edited text, to the family member picked, for step 1', s && s[1].text==='Hi Ann, may Mia move Thursday to Friday 9 to 1?' && s[1].to==='family:c7' && s[1].i===0 && s[1].card_id==='cfl_m1_0', s);
+  ok('Send posts exactly the edited text, to the family member picked, for step 1', s && s[1].text==='Hi Ann, may Mia move Thursday to Friday 9 to 1?' && s[1].to==='family:c7' && s[1].i===0 && s[1].card_id==='cf_m1_0', s);
   ok('...the step shows Sent by Krystal, with They said yes / They said no', /Sent by Krystal/.test(txt()) && !!btn('They said yes') && !!btn('They said no'), txt());
   ok('...sent is not a yes: Apply still off', btn('Apply in AxisCare').disabled);
   btn('They said yes').click(); await wait(400);
@@ -92,7 +92,7 @@ with sync_playwright() as pw:
         pg = page(); pg.evaluate(SETUP, o); R += pg.evaluate(CHECKS, dict(o, mode=mode))
         if mode == 'ownerOff': pg.screenshot(path=SHOTS + 'practice.png', full_page=False)
         if mode == 'overlap':
-            pg.evaluate("()=>{ CS.mark('cfl_m1_0',0,'yes') }"); pg.wait_for_timeout(400)
+            pg.evaluate("()=>{ CS.mark('cf_m1_0',0,'yes') }"); pg.wait_for_timeout(400)
             R += pg.evaluate(CHECKS, dict(o, mode=mode, after=True))
         if mode == 'on': pg.screenshot(path=SHOTS + 'on.png', full_page=False)
     pg = page(390); pg.evaluate(SETUP, {'owner': False, 'live': True})
