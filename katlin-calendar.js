@@ -273,6 +273,22 @@
 .kpw div.kc-steps{padding-left:0}
 .kpw .kc-steps li{margin:3px 0}
 .kpw .kc-steps a{color:#14606F;font-weight:600}
+.kpw .kc-chip.iv{border-left:4px solid #1F5E8C;background:#E6F0F8;font-weight:700;color:#123f5f;cursor:pointer}
+.kpw .kc-iv{border:1px solid #cfe0ee;background:#F5F9FD;border-radius:12px;padding:10px 12px;margin:8px 0}
+.kpw .kc-iv.live{border:2px solid #1F5E8C;box-shadow:0 0 0 4px rgba(31,94,140,.12)}
+.kpw .kc-iv-top{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.kpw .kc-iv-time{font-weight:700;color:#1F5E8C;font-size:15px}
+.kpw .kc-iv-name{font-weight:700;color:#0D365F;font-size:16px;margin:3px 0 2px}
+.kpw a.kc-join{display:inline-block;background:#1F5E8C;color:#fff;font-weight:700;border-radius:8px;padding:4px 12px;text-decoration:none;font-size:13px}
+.kpw a.kc-join.big{padding:7px 16px;font-size:14.5px}
+.kpw a.kc-join.live{background:#F2B84B;color:#0D365F;animation:kcPulse 1.6s ease-in-out infinite}
+@keyframes kcPulse{50%{box-shadow:0 0 0 6px rgba(242,184,75,.35)}}
+.kpw .kc-acts a.kc-a{font-size:12.5px;padding:3px 9px;border-radius:7px;border:1px solid var(--border,#d8d3c7);background:#fff;color:inherit}
+.kpw .kc-about{display:grid;gap:5px}
+.kpw .kc-about div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px}
+.kpw .kc-about span{white-space:pre-wrap}
+@media(max-width:600px){.kpw .kc-about div{grid-template-columns:1fr;gap:0}}
+.kpw .kc-ivbar{margin-top:6px;font-size:13.5px;font-weight:700}
 .kpw .kc-guide{background:#FFFBF2;border:1px solid #f0d9a8;border-radius:12px;padding:12px 16px;margin-bottom:14px}
 .kpw .kc-guide summary{font-weight:700;color:#0D365F;font-size:16px;cursor:pointer}
 .kpw .kc-guide ol{margin:10px 0 6px;padding-left:22px;line-height:1.5}
@@ -304,16 +320,117 @@
     return out;
   }
 
+
+  /* ── INTERVIEWS (Samantha 2026-11-18: "will it show her booked interviews with an easy way for her to join it and see
+     some about the applicant" ... "Yes, build it"). Her bookings (interview_bookings for the coordinators row with her
+     email) on the day they happen: Join video (her own video link, coordinators.meeting_link), About the applicant (the
+     answers from the application, job_applicants), Open full profile, Call, and How did it go, which opens the Interviews
+     screen's own outcome card (ivqOutcome) so there is still one record of how it went. Nothing is written here. ── */
+  const IV = { list:null, apps:{}, link:'', coId:'', at:0, busy:false, err:'', email:'' };
+  const APP_COLS = 'id,first_name,last_name,phone,email,posting_title,position,city,zip,miles_out,availability,hours_wanted,job_type,experience_years,experience_kinds,experience,has_license,has_transport,has_insurance,one_year,referral_source,screen_flags,work_history,role_answers,created_at,status';
+  const SBC = () => { try{ return (0, eval)('sb'); }catch(e){ return null; } };
+  function refreshShown(){ try{ const t = (0, eval)('activeTab'); if(W.KP && W.KP.isKp(t)) W.KP.render(t); }catch(e){} }
+  async function loadIv(force){
+    const email = lc(A().pageEmail()), sbc = SBC();
+    if(!email || !sbc || IV.busy) return;
+    if(!force && IV.email === email && IV.list && Date.now() - IV.at < 2 * 60e3) return;
+    IV.busy = true;
+    try{
+      const co = await sbc.from('coordinators').select('id,email,meeting_link').ilike('email', email);
+      if(co.error) throw co.error;
+      const row = (co.data || []).find(r => lc(r.email) === email);
+      IV.email = email; IV.coId = row ? row.id : ''; IV.link = (row && row.meeting_link) || '';
+      let list = [];
+      if(row){
+        const from = new Date(Date.now() - 45 * 864e5).toISOString();
+        const b = await sbc.from('interview_bookings').select('id,applicant_id,coordinator_id,starts_at,ends_at,status,video,notes,reply_text')
+          .eq('coordinator_id', row.id).in('status', ['booked', 'attended', 'noshow']).gte('starts_at', from).order('starts_at');
+        if(b.error) throw b.error;
+        list = b.data || [];
+        const ids = [...new Set(list.map(x => x.applicant_id).filter(Boolean))].filter(id => !IV.apps[id]);
+        if(ids.length){ const a = await sbc.from('job_applicants').select(APP_COLS).in('id', ids); if(!a.error) (a.data || []).forEach(r => { IV.apps[r.id] = r; }); }
+      }
+      IV.list = list; IV.at = Date.now(); IV.err = '';
+    }catch(e){ IV.err = 'The interviews did not load (' + ((e && e.message) || 'no answer') + '). They show again on the next refresh.'; IV.list = IV.list || []; IV.at = Date.now(); }
+    IV.busy = false; refreshShown();
+  }
+  const ivOn = (list, day) => (list || []).filter(b => b && b.starts_at && dayOf(b.starts_at) === day).sort((a, b) => String(a.starts_at).localeCompare(String(b.starts_at)));
+  /* where an interview stands: soon (Join lights up 15 minutes before), now, past, or later */
+  function ivWhen(b, now){
+    const s = Date.parse(b.starts_at), e = Date.parse(b.ends_at || '') || s + 30 * 60e3;
+    if(b.status !== 'booked') return 'over';
+    if(now > e + 30 * 60e3) return 'past';
+    if(now >= s - 15 * 60e3) return 'now';
+    return 'later';
+  }
+  const isVideo = b => b.video !== false;   /* hers are video; a booking marked in person says so */
+  const ivName = a => ((a.first_name || '') + ' ' + (a.last_name || '')).trim() || 'Applicant';
+  const ivShort = a => ((a.first_name || 'Applicant') + (a.last_name ? ' ' + String(a.last_name).charAt(0) + '.' : ''));
+  const yesNo = v => v === true ? 'Yes' : v === false ? 'No' : '';
+  const ONE_YEAR = { yes:'Yes', no:'No', family:'Caring for family only', unsure:'Not sure' };
+  function listText(v){
+    if(v == null || v === '') return '';
+    if(Array.isArray(v)) return v.map(o => typeof o === 'string' ? o : o && typeof o === 'object' ? [o.employer || o.company || o.where, o.title || o.role || o.job, o.dates || o.years || o.when, o.label || o.text].filter(Boolean).join(' · ') : String(o)).filter(Boolean).join('\n');
+    if(typeof v === 'object') return Object.keys(v).map(k => cap(String(k).replace(/_/g, ' ')) + ': ' + (typeof v[k] === 'object' ? JSON.stringify(v[k]) : v[k])).join('\n');
+    return String(v);
+  }
+  /* About the applicant: [label, words] from the application, left out when empty */
+  function aboutRows(a, b){
+    const where = [a.city || (a.zip ? 'ZIP ' + a.zip : ''), a.miles_out ? 'about ' + a.miles_out + ' miles from the office' : ''].filter(Boolean).join(' · ');
+    const exp = [a.experience_years ? a.experience_years + (/year/i.test(a.experience_years) ? '' : ' years') : '', Array.isArray(a.experience_kinds) && a.experience_kinds.length ? a.experience_kinds.join(', ') : ''].filter(Boolean).join(' · ');
+    const drive = [['License', a.has_license], ['Car', a.has_transport], ['Insurance', a.has_insurance]].filter(x => yesNo(x[1])).map(x => x[0] + ' ' + yesNo(x[1]).toLowerCase()).join(' · ');
+    return [
+      ['Applying for', a.posting_title || a.position || ''],
+      ['Applied', a.created_at ? new Date(a.created_at).toLocaleDateString('en-US', { timeZone:TZ, month:'short', day:'numeric', year:'numeric' }) : ''],
+      ['Lives', where],
+      ['Wants', [a.hours_wanted, a.job_type].filter(Boolean).join(' · ')],
+      ['Can work', a.availability || ''],
+      ['Experience', exp],
+      ['In their words', a.experience || ''],
+      ['Driving', drive],
+      ['Can stay a year', ONE_YEAR[lc(a.one_year)] || (a.one_year ? cap(String(a.one_year)) : '')],
+      ['Past jobs', listText(a.work_history)],
+      ['Their answers', listText(a.role_answers)],
+      ['Worth asking about', listText(a.screen_flags)],
+      ['Heard about us', a.referral_source || ''],
+      ['Their note', [b && b.notes, b && b.reply_text].filter(Boolean).join('\n')]
+    ].filter(r => String(r[1] || '').trim());
+  }
+  function joinBtn(b, now, big){
+    const w = ivWhen(b, now);
+    if(!isVideo(b)) return '<span class="kp-when">In person at the office</span>';
+    if(!IV.link) return `<span class="kp-when">${A().mine() ? 'No video link on your profile yet. Ask Samantha to add it.' : 'No video link saved for her yet (Interview hours, 🎥 Add video link).'}</span>`;
+    if(w === 'past' || w === 'over') return '';
+    return `<a class="kc-join${w === 'now' ? ' live' : ''}${big ? ' big' : ''}" href="${esc(IV.link)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🎥 Join video${w === 'now' ? ' now' : ''}</a>`;
+  }
+  function ivRow(b, x){
+    const a = IV.apps[b.applicant_id] || {}, w = ivWhen(b, x.now), key = 'iv:' + b.id, open = !!S.open[key], t = Date.parse(b.starts_at);
+    const st = b.status === 'attended' ? '<span class="kc-tag" style="--c:#14606F;--b:#E3F1F3">Came</span>' : b.status === 'noshow' ? '<span class="kc-tag" style="--c:#B91C1C;--b:#FEE2E2">No-show</span>'
+      : w === 'past' ? '<span class="kc-tag" style="--c:#B45309;--b:#FEF3C7">How did it go?</span>' : w === 'now' ? '<span class="kc-tag" style="--c:#1F5E8C;--b:#E6F0F8">Starting</span>' : '';
+    const rows = aboutRows(a, b);
+    return `<div class="kc-iv${w === 'now' ? ' live' : ''}" id="kcIt_${esc(key.replace(/[^\w-]/g, '_'))}">
+      <div class="kc-iv-top"><span class="kc-iv-time">${isVideo(b) ? '🎥' : '🏢'} ${esc(clock(t, TZ))} Missouri</span><span class="kp-when">${esc(clock(t, VN, true))} Vietnam</span>${st}</div>
+      <div class="kc-iv-name">${esc(ivName(a))} <span class="kp-when">· ${esc(a.posting_title || a.position || 'Caregiver')} interview</span></div>
+      <div class="kc-acts">${joinBtn(b, x.now, true)}
+        <button onclick="KPC.toggle(${enc(key)})">${open ? 'Hide' : '👤 About ' + esc(a.first_name || 'them')}</button>
+        <button onclick="KPC.openApplicant(${enc(b.applicant_id)})">Open full profile</button>
+        ${a.phone && typeof W.ocAttrs === 'function' ? `<a class="kc-a" style="text-decoration:none"${W.ocAttrs(a.phone, { email:a.email })}>📞 Call</a>` : ''}
+        ${b.status === 'booked' && (w === 'past' || w === 'now') ? `<button onclick="KPC.ivOutcome(${enc(b.applicant_id)})">📝 How did it go?</button>` : ''}</div>
+      ${open ? `<div class="kc-how kc-about">${rows.length ? rows.map(r => `<div><b>${esc(r[0])}</b><span>${esc(r[1])}</span></div>`).join('') : '<div class="kp-when">Their application did not load. Open full profile to see it.</div>'}</div>` : ''}</div>`;
+  }
+
   function shiftBar(x, compact){
     const st = shiftNow(x.now, x.shift), d = st.day;
     const items = itemsOn(x.tasks, x.c, d, x.shift), done = items.filter(i => i.done).length, pct = items.length ? Math.round(done * 100 / items.length) : 0;
     const label = d === x.today ? 'Tonight' : new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { weekday:'long', timeZone:'UTC' });
     const mo = clock(st.a, TZ) + ' to ' + clock(st.b, TZ) + ' Missouri';
     const vn = clock(st.a, VN, true) + ' to ' + clock(st.b, VN) + ' Vietnam';
-    if(compact) return `<div class="kc-mini">🗓️ <b>${esc(label)}</b> · ${esc(mo)} (${esc(vn)}) · ${esc(st.say)} · ${done} of ${items.length} done <a href="#" onclick="switchTab('kpcal');return false;">Open the calendar</a></div>`;
+    const ivs = ivOn(IV.list, d).filter(b => b.status === 'booked' && ivWhen(b, x.now) !== 'past'), nx = ivs[0];
+    const ivSay = nx ? '🎥 ' + (ivs.length > 1 ? ivs.length + ' interviews, next ' : 'Interview ') + clock(Date.parse(nx.starts_at), TZ) + ' with ' + ivShort(IV.apps[nx.applicant_id] || {}) : '';
+    if(compact) return `<div class="kc-mini">🗓️ <b>${esc(label)}</b> · ${esc(mo)} (${esc(vn)}) · ${esc(st.say)} · ${done} of ${items.length} done${ivSay ? ' · <b>' + esc(ivSay) + '</b> ' + joinBtn(nx, x.now, false) : ''} <a href="#" onclick="switchTab('kpcal');return false;">Open the calendar</a></div>`;
     return `<div class="kc-bar"><div><div class="kc-sm">${esc(label)}'s shift · ${esc(new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone:'UTC' }))}</div>
         <div class="kc-big">${esc(mo)}</div><div class="kc-sm">${esc(vn)}${A().mine() ? " on your clock" : ", " + esc(A().first(x.email)) + "'s time"}</div></div>
-      <div><span class="kc-live">${esc(st.say)}</span></div>
+      <div><span class="kc-live">${esc(st.say)}</span>${ivSay ? `<div class="kc-ivbar">${esc(ivSay)} ${joinBtn(nx, x.now, false)}</div>` : ''}</div>
       <div class="kc-stat"><div class="kc-ring" style="--p:${pct}"><b>${pct}%</b></div><div class="kc-sm">${done} of ${items.length}<br>done ${d === x.today ? 'tonight' : 'that day'}</div></div></div>`;
   }
 
@@ -337,6 +454,7 @@
       <div class="kc-dh"><span>${DAY3[d.getUTCDay()]}</span><b>${d.getUTCDate()}</b></div>
       ${items.length ? `<div class="kc-pb" title="${done} of ${items.length} done"><i style="width:${Math.round(done * 100 / items.length)}%"></i></div>` : off ? '<div class="kc-more">Day off</div>' : ''}
       ${daily.length ? `<div class="kc-every${dd === daily.length ? ' all' : ''}">${dd === daily.length ? '✓ ' : ''}Every shift · ${dd}/${daily.length}</div>` : ''}
+      ${ivOn(IV.list, day).map(b => `<div class="kc-chip iv${b.status !== 'booked' ? ' done' : ''}" onclick="event.stopPropagation();KPC.pick(${enc(day)},${enc('iv:' + b.id)})">${isVideo(b) ? '🎥' : '🏢'} ${esc(clock(Date.parse(b.starts_at), TZ))} ${esc(ivShort(IV.apps[b.applicant_id] || {}))}</div>`).join('')}
       ${info.map(f => infoChip(f, day)).join('')}${list.map(chip).join('')}${more > 0 ? `<div class="kc-more">+${more} more</div>` : ''}</div>`;
   }
   function weekView(x){
@@ -355,6 +473,7 @@
           ondragover="event.preventDefault()" ondrop="KPC.drop(event,${enc(day)})">
         <span class="kc-mn">${Number(day.slice(8))}${(() => { const dl = items.filter(it => it.t.every === 'day'); return dl.length && dl.every(it => it.done) ? ' ✓' : ''; })()}</span>
         ${once.length ? `<div class="kc-dots">${once.map(it => `<i class="${it.done ? 'done' : ''}" style="${cv(catOf(it.t))}"></i>`).join('')}</div>` : ''}
+        ${(n => n ? `<span style="color:#1F5E8C;font-weight:700">🎥 ${n} interview${n === 1 ? '' : 's'}</span>` : '')(ivOn(IV.list, day).length)}
         ${info.filter(f => f.kind === 'nd').map(() => '<span>🏡 Nextdoor</span>').join('')}
         ${once.slice(0, 2).map(it => `<span style="color:${CATS[catOf(it.t)][1]};font-weight:600">${esc(shortOf(titleOf(it.t), 22))}</span>`).join('')}</div>`;
     }
@@ -404,6 +523,9 @@
       if(nd.length) html += `<div class="kp-warn" style="background:#EEEAF7;border-color:#d8cff0"><b>No day yet (${nd.length})</b>${nd.map(t => `<div class="kc-it"><div style="flex:1"><span class="kc-n">${esc(titleOf(t))}</span>
           <div class="kc-acts"><button onclick="KPC.setDate(${enc(t.id)},${enc(day)})">Put it on ${esc(fmtDay(day))}</button>${isOwner ? `<button onclick="KPC.editOpen(${enc(t.id)})">Edit</button>` : ''}</div>${S.edit === t.id ? form(t) : ''}</div></div>`).join('')}</div>`;
     }
+    const ivs = ivOn(IV.list, day);
+    if(IV.err) html += `<div class="kp-warn">${esc(IV.err)}</div>`;
+    if(ivs.length) html += `<div class="kp-grp" style="color:#1F5E8C">Interviews <span style="color:#8a978f;font-weight:600">${ivs.length}</span></div>` + ivs.map(b => ivRow(b, x)).join('');
     info.forEach(f => {
       if(f.kind === 'nd') html += `<div class="kc-it${f.done ? ' done' : ''}"><input type="checkbox" ${f.done ? 'checked' : ''} aria-label="Posted" onchange="KP.posted(${Number(f.p.week)},this.checked)">
         <div style="flex:1"><span class="kc-n">🏡 ${esc(f.title)}</span><span class="kc-tag" style="${cv('social')}">Nextdoor</span>
@@ -412,7 +534,7 @@
       else html += `<div class="kc-it"><div style="flex:1"><span class="kc-n">📣 ${esc(f.title)}</span><span class="kc-tag" style="${cv('social')}">Blotato</span>
         <div class="kc-acts"><button onclick="switchTab('kpsocial')">Look them over</button></div></div></div>`;
     });
-    if(!items.length && !info.length) html += `<p class="kp-when">${on ? 'Nothing on this day yet.' : 'Nothing planned. Enjoy the day off.'}</p>`;
+    if(!items.length && !info.length && !ivs.length) html += `<p class="kp-when">${on ? 'Nothing on this day yet.' : 'Nothing planned. Enjoy the day off.'}</p>`;
     SLOTS.forEach(([k, label]) => {
       const list = items.filter(it => slotOf(it.t) === k); if(!list.length) return;
       const dn = list.filter(it => it.done).length;
@@ -453,6 +575,7 @@
     'Missed one on an earlier day? It waits under <b>Still open from before</b>. Press <b>Do it tonight</b>, or <b>Skip it</b> if it isn\'t needed anymore.',
     'Colors: <b style="color:#14606F">CDS</b>, <b style="color:#9C6410">Hiring</b>, <b style="color:#2F6B3A">Social</b>, <b style="color:#5B4B8A">From Samantha</b>. "Every shift 3/11" on a day means 3 of the 11 every-shift tasks are done. Tuesday has the Nextdoor post: its words and photo are on the <b>Nextdoor</b> pill.',
     'Want a reminder for yourself? Press <b>+ Add to my calendar</b> at the bottom.',
+    'Interviews show in <b style="color:#1F5E8C">blue</b> at their time. Press <b>👤 About</b> to read their application before you start. <b>🎥 Join video</b> opens your video room and lights up 15 minutes before. Afterwards press <b>📝 How did it go?</b> to record it.',
     'Stuck, or have a question? Open the <b>Notes</b> pill and send Samantha a note. It goes straight to her.'
   ];
   const GKEY = 'kpc_guide_closed_v1';
@@ -469,6 +592,7 @@
     if(!S.sel){ S.sel = isShiftDay(x.shift, x.today) ? x.today : nextShiftDay(x.shift, x.today, true); S.anchor = S.sel; }
     if(!x.a.posts()) x.a.loadPosts();
     x.a.loadSocial(false);
+    loadIv(false);
     const title = S.view === 'week'
       ? (() => { const m = mondayOf(S.anchor), f = addDays(m, 6); return fmtDay(m).replace(/^\w+, /, '') + ' to ' + fmtDay(f).replace(/^\w+, /, ''); })()
       : new Date(S.anchor.slice(0, 8) + '15T12:00:00Z').toLocaleDateString('en-US', { month:'long', year:'numeric', timeZone:'UTC' });
@@ -479,7 +603,7 @@
       <div class="kc-legend">${Object.keys(CATS).map(k => `<span><i style="${cv(k)}"></i>${CATS[k][0] === 'Samantha' ? 'From Samantha' : CATS[k][0]}</span>`).join('')}</div>`
       + (S.view === 'week' ? weekView(x) : monthView(x)) + agenda(x, isOwner);
   }
-  function bar(){ try{ css(); return shiftBar(ctxNow(), true); }catch(e){ return ''; } }
+  function bar(){ try{ css(); loadIv(false); return shiftBar(ctxNow(), true); }catch(e){ return ''; } }
 
   /* ── actions ── */
   const rerender = () => { try{ A().render('kpcal'); }catch(e){} };
@@ -565,9 +689,13 @@
     closeForm(){ S.add = false; S.edit = ''; rerender(); },
     formEvery(id, v){ const w = document.getElementById('kcDW_' + id), d = document.getElementById('kcDD_' + id);
       if(w) w.style.display = v === 'week' ? 'inline-flex' : 'none'; if(d) d.style.display = v === 'week' || v === 'day' ? 'none' : 'inline-flex'; },
+    openApplicant(id){ try{ if(W.HP && typeof W.HP.open === 'function') W.HP.open({ applicant_id:String(id) }); }catch(e){} },
+    ivOutcome(id){ try{ const f = (0, eval)('ivqOutcome'); if(typeof f === 'function') f(String(id)); }catch(e){} },
+    ivRefresh(){ loadIv(true); },
+    _iv:IV,
     guideToggle(open, fold){ try{ W.localStorage.setItem(GKEY, open ? '0' : '1'); }catch(e){} if(fold) rerender(); },
     howHtml, _state:S,
-    _rules:{ START, headOf, stepsOf, linkify, daysOf, titleOf, slotOf, catOf, shiftOf, isShiftDay, nextShiftDay, natural, occDone, itemsOn, stillOpen, noDay, prune, moAt, shiftNow, mondayOf, addDays, dayOf }
+    _rules:{ ivOn, ivWhen, aboutRows, START, headOf, stepsOf, linkify, daysOf, titleOf, slotOf, catOf, shiftOf, isShiftDay, nextShiftDay, natural, occDone, itemsOn, stillOpen, noDay, prune, moAt, shiftNow, mondayOf, addDays, dayOf }
   };
   W.KPC = KPC;
   if(typeof module !== 'undefined' && module.exports) module.exports = KPC;
