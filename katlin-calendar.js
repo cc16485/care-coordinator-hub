@@ -312,7 +312,7 @@
     const vn = clock(st.a, VN, true) + ' to ' + clock(st.b, VN) + ' Vietnam';
     if(compact) return `<div class="kc-mini">🗓️ <b>${esc(label)}</b> · ${esc(mo)} (${esc(vn)}) · ${esc(st.say)} · ${done} of ${items.length} done <a href="#" onclick="switchTab('kpcal');return false;">Open the calendar</a></div>`;
     return `<div class="kc-bar"><div><div class="kc-sm">${esc(label)}'s shift · ${esc(new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { month:'short', day:'numeric', timeZone:'UTC' }))}</div>
-        <div class="kc-big">${esc(mo)}</div><div class="kc-sm">${esc(vn)} on your clock</div></div>
+        <div class="kc-big">${esc(mo)}</div><div class="kc-sm">${esc(vn)}${A().mine() ? " on your clock" : ", " + esc(A().first(x.email)) + "'s time"}</div></div>
       <div><span class="kc-live">${esc(st.say)}</span></div>
       <div class="kc-stat"><div class="kc-ring" style="--p:${pct}"><b>${pct}%</b></div><div class="kc-sm">${done} of ${items.length}<br>done ${d === x.today ? 'tonight' : 'that day'}</div></div></div>`;
   }
