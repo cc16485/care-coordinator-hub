@@ -18,7 +18,7 @@ function world(o = {}){
     }; return b; } };
   let checked = o.checked || null;
   const document = { getElementById: (id) => el(id), querySelector: () => checked ? { value: checked } : null };
-  const ctx = { console, document, sb, IV_HOSTS: coords, AP_BOOK: o.book || { a1: { coordinator_id: 'co-v' }, a2: { coordinator_id: 'co-k' } }, DATA: { staffing_tasks: [] },
+  const ctx = { console, document, sb, IV_HOSTS: coords, AP_BOOK: o.book || { a1: { coordinator_id: 'co-v', video: true }, a2: { coordinator_id: 'co-k', video: false } }, DATA: { staffing_tasks: [] },
     alerts: [], prompts: o.prompts || [] };
   ctx.window = ctx;
   ctx.alert = (m) => ctx.alerts.push(m);
@@ -39,7 +39,7 @@ function world(o = {}){
   ok('a Zoom link is valid', !!VI.validLink('https://us02web.zoom.us/j/123'));
   ok('the HighLevel room, plain http, and junk are not', !VI.validLink('https://meet.mo-care.com/meet/katlin') && !VI.validLink('http://meet.google.com/x') && !VI.validLink('meet.google.com/x') && !VI.validLink(''));
   ok('same rule as the server (office-from.ts videoLink)', /zoom\\\.us\|meet\\\.google\\\.com/.test(src) || src.includes('zoom\\.us|meet\\.google\\.com'));
-  ok('chip only for an interviewer with a link', /Video interviews/.test(VI.hostChip({ meeting_link: 'https://meet.google.com/a' })) && VI.hostChip({ meeting_link: '' }) === '' && VI.hostChip({}) === '');
+  ok('chip only for an interviewer with a link', /Video link set/.test(VI.hostChip({ meeting_link: 'https://meet.google.com/a' })) && VI.hostChip({ meeting_link: '' }) === '' && VI.hostChip({}) === '');
   ok('button says Add video link / Video link', /Add video link/.test(VI.hostButton({ id: 'x' })) && />🎥 Video link</.test(VI.hostButton({ id: 'x', meeting_link: 'https://meet.google.com/a' })));
   ok('names in the chip are escaped', !VI.hostChip({ meeting_link: 'https://meet.google.com/"><b>' }).includes('"><b>'));
 
@@ -76,6 +76,8 @@ function world(o = {}){
   }
   { const w = world({ owner: true }); await w.VI.idCheckMount('a1'); w.set('wrong');
     ok('an owner can still make the offer after looking', w.VI.beforeOutcome('a1', 'hired', {}) === null); }
+  { const w = world({ book: { a3: { coordinator_id: 'co-v', video: false } } }); await w.VI.idCheckMount('a3');
+    ok('1541: an in-person booking with an interviewer who has a link: no license check', w.els.apIntIdCheck.innerHTML === ''); }
   ok('no em dash in the file', !src.includes('—'));
   console.log(fail ? `${fail} OF ${pass + fail} FAILED` : `ALL ${pass} CHECKS PASS`); process.exit(fail ? 1 : 0);
 })();
