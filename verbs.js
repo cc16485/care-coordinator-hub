@@ -72,6 +72,9 @@
     visit_change_refused:{ label: 'visit change refused',   area: 'scheduling', severity: 'fyi' },
     team_ask_sent:       { label: 'texted a caregiver about shifts', area: 'scheduling', severity: 'fyi' },
     team_ask_refused:    { label: 'caregiver text refused', area: 'scheduling', severity: 'fyi' },
+    cara_step_sent:      { label: "sent one of Cara's ready steps", area: 'work', severity: 'fyi' },     /* 2026-11-18 cara-step */
+    cara_step_refused:   { label: "Cara step text refused",  area: 'work',       severity: 'fyi' },
+    cara_step_marked:    { label: "marked one of Cara's ready steps", area: 'work', severity: 'fyi' },
     late_seen:           { label: 'seen (running late)',    area: 'scheduling', severity: 'fyi' },
     late_eta:            { label: 'set an ETA',             area: 'scheduling', severity: 'fyi' },
     late_family:         { label: 'told the family',        area: 'scheduling', severity: 'fyi' },

@@ -317,7 +317,7 @@
       + '<td><button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button></td>'
       + '<td id="opbmv_' + id + '"><button class="ghost" onclick="opsWaitOpen(\'' + id + '\',\'opbmv_' + id + '\')">Later this week</button></td>'
       + '<td id="opbdn_' + id + '">' + (closes ? '<button class="ghost" onclick="opsClose(\'' + id + '\',\'opbdn_' + id + '\')">Done</button>' : '') + '</td></tr>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
     return h;
   }
   function cleanHtml(all){
@@ -417,7 +417,7 @@
       + '<div class="opl-btns">' + (W.CT ? W.CT.badge(r.id) : '') + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
       + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button>'
       + (!/^(journey|project)$/.test(lc(it.kind)) ? '<span id="opldn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'opldn_' + id + '\')">Done</button></span>' : '') + '</div></div>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</div>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</div>';
     return h;
   }
   /* the pieces of the new layout, from the same rows the table uses (pure enough to test in the page) */
