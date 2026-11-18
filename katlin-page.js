@@ -128,7 +128,11 @@
       const kp = m.katlin_page = Object.assign({}, m.katlin_page || {});
       if(!Array.isArray(kp.tasks)) kp.tasks = STARTER.map(t => Object.assign({}, t));
       kp.done = Object.assign({}, kp.done || {}); kp.posted = Object.assign({}, kp.posted || {});
-      return apply(kp) || [];
+      kp.occ = Object.assign({}, kp.occ || {});
+      const said = apply(kp) || [];
+      /* the calendar's ticks and moves (katlin-calendar.js): keep the last 60 days only */
+      if(W.KPC) kp.occ = W.KPC._rules.prune(kp.occ, dayOf(Date.now()));
+      return said;
     }, what);
     if(out && out.error){ alert('That did not save: ' + (out.error.message || out.error) + '. Please try again.'); }
     return out || {};
@@ -144,7 +148,7 @@
   }
 
   /* ── menu: one parent pill (data-parent="katlingrp") with four pills under it ── */
-  const VIEWS = [ { t:'kptasks', l:'Tasks' }, { t:'kpfollow', l:'Follow-ups' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpsocial', l:'Coming up' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
+  const VIEWS = [ { t:'kpcal', l:'Calendar' }, { t:'kptasks', l:'Tasks' }, { t:'kpfollow', l:'Follow-ups' }, { t:'kpnextdoor', l:'Nextdoor' }, { t:'kpsocial', l:'Coming up' }, { t:'kpnotes', l:'Notes' }, { t:'kprecruit', l:'Recruiting' } ];
   const isKp = tab => VIEWS.some(v => v.t === tab) || tab === 'katlinpage';
   function pageLabel(){ return (pageEmail() && me() === pageEmail()) ? 'My page' : (pageEmail() ? first(pageEmail()) + '\'s page' : 'Katlin\'s page'); }
   function pillSync(){
@@ -202,6 +206,10 @@
 .kpw summary{cursor:pointer;font-weight:600}
 .kpw textarea{width:100%;min-height:80px;box-sizing:border-box}
 .kpw .kp-links{white-space:pre-wrap;line-height:1.5}
+.kpw .kp-tt{color:var(--navy,#0D365F)}
+.kpw .kp-task.done .kp-tt{color:#8a978f}
+.kpw details.kp-how{border-top:0;padding:4px 0 0}.kpw details.kp-how summary{font-weight:500;font-size:13px;color:#14606F}
+.kpw details.kp-how .kp-text{margin-top:6px}
 .kpw .kp-fu-n{display:inline-block;min-width:22px;text-align:center;font-size:13px;background:#0D365F;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px;vertical-align:2px}
 .kpw .kp-fu-name{font-weight:700;color:var(--navy,#0D365F)}
 .kpw .kp-fu-chip:empty{display:none}.kpw .kp-fu-chip{margin-top:3px}
@@ -245,7 +253,41 @@
   }
 
   /* ── the four views ── */
+  /* 2026-11-18 revamp: with the calendar loaded, the Tasks pill is the whole list in short names, grouped by when,
+     with the full words under "How to". Tonight's ones tick off here too (same ticks as the calendar). */
   function viewTasks(ctx){
+    const R = W.KPC && W.KPC._rules;
+    if(!R) return viewTasksOld(ctx);
+    const { c, today, isOwner, nm, mine, email } = ctx, all = tasks(), shift = R.shiftOf(D().duty_windows, email);
+    const nextOn = t => { for(let i = 0; i < 40; i++){ const d = R.addDays(today, i); if(R.natural(t, d, shift)) return d; } return ''; };
+    const SL = { start:0, by7:1, any:2, end:3 };
+    const row = t => {
+      const on = !t.every || R.natural(t, today, shift), d = on ? R.occDone(t, t.every ? today : '', c) : null;
+      const title = R.titleOf(t), how = String(t.text || '').trim() !== title ? String(t.text || '') : '';
+      const cat = R.catOf(t), CC = { cds:['CDS', '#14606F', '#E3F1F3'], hiring:['Hiring', '#9C6410', '#FBF0DC'], social:['Social', '#2F6B3A', '#E6F2E6'], other:['Samantha', '#5B4B8A', '#EEEAF7'] }[cat];
+      const nx = !on ? nextOn(t) : '';
+      const when = t.every === 'week' ? 'every ' + R.daysOf(t).map(x => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][x]).join(', ') : t.every === 'month' ? 'every month' : t.every === 'day' ? 'every shift' : (t.date ? fmtDay(t.date) : 'no day yet');
+      return `<div class="kp-task${d ? ' done' : ''}">${on ? `<input type="checkbox" ${d ? 'checked' : ''} onchange="KP.tick('${esc(t.id)}',this.checked)" aria-label="Done">` : '<span style="width:20px;flex:0 0 auto"></span>'}
+        <div class="kp-t"><b class="kp-tt">${esc(title)}</b> <span class="kp-chip" style="color:${CC[1]};background:${CC[2]}">${CC[0]}</span>
+          <div class="kp-when">${esc(when)}${nx ? ' · next ' + esc(fmtDay(nx)) : on && t.every ? ' · tonight' : ''}${d && d.by_name ? ' · done ' + esc(fmtAt(d.at)) + ' by ' + esc(String(d.by_name).split(' ')[0]) : ''}</div>
+          ${how ? `<details class="kp-how"><summary>How to</summary><div class="kp-text">${esc(how)}</div></details>` : ''}</div>
+        ${isOwner ? `<button class="kp-x" title="Remove this task" onclick="KP.removeTask('${esc(t.id)}')">✕</button>` : ''}</div>`;
+    };
+    const grp = (label, list) => list.length ? `<div class="kp-grp">${label} <span style="color:#8a978f">${list.length}</span></div>` + list.map(row).join('') : '';
+    const daily = all.filter(t => t.every === 'day').sort((a, b) => SL[R.slotOf(a)] - SL[R.slotOf(b)]);
+    const weekly = all.filter(t => t.every === 'week'), monthly = all.filter(t => t.every === 'month');
+    const once = all.filter(t => !t.every), openOnce = once.filter(t => !R.occDone(t, '', c));
+    const doneOnce = once.filter(t => { const d = R.occDone(t, '', c); return d && (Date.now() - new Date(d.at).getTime()) < 7 * 864e5; });
+    return `<div class="kp-card"><h3>${mine ? 'Your tasks' : esc(nm) + '\'s tasks'}</h3>
+      <p class="kp-when" style="margin-top:0">The same tasks as the Calendar. Tick tonight's ones here or there.</p>
+      ${grp('One time', openOnce)}${grp('Every shift', daily)}${grp('On certain days', weekly)}${grp('Every month', monthly)}${grp('Done this week', doneOnce)}
+      ${!all.length ? '<p class="kp-when">No tasks yet.</p>' : ''}
+      ${isOwner ? `<div class="kp-add"><input id="kpNew" placeholder="Give ${esc(nm)} a task" onkeydown="if(event.key==='Enter')KP.addTask()">
+        <select id="kpEvery"><option value="">Once</option><option value="day">Every day</option><option value="week">Every week</option></select>
+        <button class="primary" onclick="KP.addTask()">Add task</button></div>
+        <p class="kp-when">For a date, days of the week, a time in the shift or a monthly task, use <a href="#" onclick="switchTab('kpcal');return false;">+ Add on the Calendar</a>.</p>` : ''}</div>`;
+  }
+  function viewTasksOld(ctx){
     const { c, today, isOwner, nm, mine } = ctx, done = c.done || {}, all = tasks();
     const grp = (label, list) => list.length ? `<div class="kp-grp">${label}</div>` + list.map(t => taskRow(t, done, today, isOwner)).join('') : '';
     const once = all.filter(t => !t.every), daily = all.filter(t => t.every === 'day'), weekly = all.filter(t => t.every === 'week');
@@ -607,10 +649,11 @@
   }
 
   /* ── render the view for the active pill ── */
-  const HOST = { kptasks:'kpWrapTasks', kpfollow:'kpWrapFollow', kpnextdoor:'kpWrapNextdoor', kpsocial:'kpWrapSocial', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
+  const HOST = { kpcal:'kpWrapCal', kptasks:'kpWrapTasks', kpfollow:'kpWrapFollow', kpnextdoor:'kpWrapNextdoor', kpsocial:'kpWrapSocial', kpnotes:'kpWrapNotes', kprecruit:'kpWrapRecruit' };
   function render(view){
-    let v = view; try{ if(!v) v = isKp(activeTab) ? activeTab : 'kptasks'; }catch(e){ v = v || 'kptasks'; }
-    if(v === 'katlinpage') v = 'kptasks';
+    let v = view; try{ if(!v) v = isKp(activeTab) ? activeTab : 'kpcal'; }catch(e){ v = v || 'kpcal'; }
+    if(v === 'katlinpage') v = 'kpcal';
+    if(v === 'kpcal' && !W.KPC) v = 'kptasks';
     const host = document.getElementById(HOST[v]); if(!host) return;
     host.classList.add('kpw'); css(); pillSync();
     if(!allowed()){ host.innerHTML = '<div class="kp-card">This page is private.</div>'; return; }
@@ -625,14 +668,16 @@
       return;
     }
     const ctx = { c:cfg(), today:dayOf(Date.now()), isOwner, email, nm:first(email), mine:me() === email };
-    const SUB = { kptasks:ctx.mine ? 'Your tasks from Samantha. Tick each one when it is done.' : 'What ' + esc(ctx.nm) + ' sees. Add a task and it shows up on her page.',
+    const SUB = { kpcal:ctx.mine ? 'Your shifts and everything on them. Tick each one off, or move it to another day.' : 'What ' + esc(ctx.nm) + ' sees: her shifts and every task on them. Add to her calendar, or drag a task to another day.',
+      kptasks:ctx.mine ? 'Your tasks from Samantha. Tick each one when it is done.' : 'What ' + esc(ctx.nm) + ' sees. Add a task and it shows up on her page.',
       kpfollow:ctx.mine ? 'Applicants who stopped partway. Reach out to each one personally.' : 'The applicants ' + esc(ctx.nm) + ' follows up with: everyone who stopped partway, longest first.',
       kpnextdoor:'One post every Tuesday on the Caring Companions Nextdoor page.',
       kpsocial:ctx.mine ? 'Every post scheduled on our pages for the next week. Look each one over and tell Samantha if something is wrong.' : 'What ' + esc(ctx.nm) + ' reviews: every post scheduled in Blotato for the next week, read only.',
       kpnotes:ctx.mine ? 'Notes to Samantha, and her replies.' : 'Notes ' + esc(ctx.nm) + ' sent you. Reply here and it closes the card in your My Work.',
       kprecruit:'Job posts for Caring Companions, CDS and Show-Me Neighbors: where to post, how often, and a log of each post.' };
     let html = `<div class="kp-h">${esc(pageLabel())}</div><div class="kp-sub">${SUB[v]}</div>`;
-    html += v === 'kptasks' ? viewTasks(ctx) : v === 'kpfollow' ? viewFollow(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpsocial' ? viewSocial(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
+    if(v !== 'kpcal' && W.KPC) html += W.KPC.bar();
+    html += v === 'kpcal' ? W.KPC.view() : v === 'kptasks' ? viewTasks(ctx) : v === 'kpfollow' ? viewFollow(ctx) : v === 'kpnextdoor' ? viewNextdoor(ctx) : v === 'kpsocial' ? viewSocial(ctx) : v === 'kpnotes' ? viewNotes(ctx) : viewRecruit(ctx);
     if(isOwner) html += `<p class="kp-when">Only ${esc(ctx.nm)} and the owners can see this page. <a href="#" onclick="KP.changeWho();return false;">Change whose page this is</a></p>`;
     host.innerHTML = html;
   }
@@ -669,6 +714,7 @@
   }
   async function tick(id, on){
     const t = tasks().find(x => x.id === id); if(!t) return;
+    if(t.every && W.KPC){ await W.KPC.tick(id + '@' + dayOf(Date.now()), on); render(); return; }
     await save(kp => {
       if(on){ kp.done[id] = { at:new Date().toISOString(), by:me(), by_name:meName() }; return ['done: ' + t.text.slice(0, 60)]; }
       delete kp.done[id]; return ['not done: ' + t.text.slice(0, 60)];
@@ -766,7 +812,9 @@
     render();
   }
 
-  const KP = { allowed, isKp, pillSync, navPill, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson, socialPick, socialDaysPick, socialRefresh, flagOpen, flagPost,
+  const api = { cfg, tasks, save, render, esc, first, data:D, owner, me, meName, pageEmail, mine:() => !!pageEmail() && me() === pageEmail(),
+    posts:() => PX.list, loadPosts, social:() => SOC.list, loadSocial };
+  const KP = { _api:api, allowed, isKp, pillSync, navPill, render, setWho, changeWho, addTask, removeTask, tick, posted, copy, sendNote, reply, logPost, addPlace, removePlace, saveLinks, addNeed, removeNeed, refreshAuto, openPerson, socialPick, socialDaysPick, socialRefresh, flagOpen, flagPost,
     _rules:{ dayOf, weekOf, isDone, currentPost, upcoming, missed, STARTER, placeDue, autoNeeds, townOf, fuApplicants, fuStage, fuSort, FU_SAY, socialDays, isVideo } };
   W.KP = KP;
   if(typeof module !== 'undefined' && module.exports) module.exports = KP;
