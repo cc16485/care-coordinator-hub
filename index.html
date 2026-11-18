@@ -4183,6 +4183,10 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
             <div><label>From</label><select id="ivHoursFrom"></select></div>
             <div><label>Until</label><select id="ivHoursTo"></select></div>
           </div>
+          <!-- 2026-11-18 (1541): interview hours can be by video, per block (Krystal: video 6-7:30 AM, in person 10-12) -->
+          <label id="ivHoursVideoRow" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13.5px;font-weight:600;">
+            <input type="checkbox" id="ivHoursVideo" style="width:auto;margin:0;"> 🎥 Video interviews (applicants join by their video link)
+          </label>
           <div id="ivHoursErr" style="display:none;color:var(--red);font-size:13px;margin-top:6px;"></div>
           <div style="display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;">
             <button class="primary" onclick="ivHoursSave(this)">Add these hours</button>
@@ -7631,7 +7635,7 @@ The HomeTogether team</pre>
 <script src="after-hours.js?v=2"></script><!-- After-Hours shift card (2026-11-09) -->
 <script src="katlin-calendar.js?v=2"></script><!-- 2026-11-18: Katlin's calendar -->
 <script src="katlin-page.js?v=10"></script>
-<script src="video-interviews.js?v=1"></script><!-- Katlin video interviews, Stage A (2026-11-17) --><!-- Katlin's own page (2026-11-10) -->
+<script src="video-interviews.js?v=2"></script><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
 <script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=7"></script><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=5"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=13"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
@@ -28716,7 +28720,7 @@ function ivRender(){
                 + byAct[k].map(a=>
                     '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);'
                     + 'border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;">'
-                    + esc(IV_DSHORT[a.day_of_week]) + ' ' + esc(ivTime(a.start_time)) + '–' + esc(ivTime(a.end_time))
+                    + (a.video ? '🎥 ' : '') + esc(IV_DSHORT[a.day_of_week]) + ' ' + esc(ivTime(a.start_time)) + '–' + esc(ivTime(a.end_time)) + (a.video ? ' video' : '')
                     + '<button class="fb" style="padding:1px 7px;font-size:11px;" title="Remove"'
                     + ' onclick="ivDelBlock(\''+esc(a.id)+'\')">✕</button></span>').join('')
                 + '</div>';
@@ -28818,8 +28822,12 @@ function ivAddBlock(hostId){
   document.getElementById('ivHoursAct').innerHTML =
     (IV_ACTS.length?IV_ACTS:[{key:'interview',label:'Interview'}])
       .map(a=>'<option value="'+escapeHtmlComms(a.key)+'">'+escapeHtmlComms(a.label)+'</option>').join('');
-  document.getElementById('ivHoursDay').innerHTML =
-    IV_DAYS.map((d,i)=>'<option value="'+i+'"'+(i===2?' selected':'')+'>'+d+'</option>').join('');
+  document.getElementById('ivHoursDay').innerHTML = '<option value="wk">Monday to Friday</option>'
+    + IV_DAYS.map((d,i)=>'<option value="'+i+'"'+(i===2?' selected':'')+'>'+d+'</option>').join('');
+  { const v = document.getElementById('ivHoursVideo'); if(v) v.checked = false;
+    const act = document.getElementById('ivHoursAct'), row = document.getElementById('ivHoursVideoRow');
+    const sync = () => { if(row) row.style.display = act.value === 'interview' ? 'flex' : 'none'; };
+    act.onchange = sync; sync(); }
   ivFillTime('ivHoursFrom', IV_DAYWIN.start, IV_DAYWIN.start, IV_DAYWIN.end);
   ivFillTime('ivHoursTo',    IV_DAYWIN.end,   IV_DAYWIN.start, IV_DAYWIN.end);
   document.getElementById('ivHoursErr').style.display='none';
@@ -28839,13 +28847,18 @@ async function ivHoursSave(btn){
       + '. Change that below if you need hours outside it.';
     err.style.display='block'; return;
   }
+  /* 2026-11-18 (1541): Video hours need the interviewer's own video link first */
+  const video = g('ivHoursAct').value === 'interview' && !!(g('ivHoursVideo') && g('ivHoursVideo').checked);
+  if(video){ const h = IV_HOSTS.find(x=>String(x.id)===String(g('ivHoursHost').value)) || {};
+    if(!String(h.meeting_link||'').trim()){ err.textContent='Add their video link first (the 🎥 button beside their name), then add video hours.'; err.style.display='block'; return; } }
   err.style.display='none';
   btn.disabled = true; btn.textContent = 'Adding…';
   try{
-    const { error } = await sb.from('coordinator_availability').insert({
-      coordinator_id: g('ivHoursHost').value, activity: g('ivHoursAct').value,
-      day_of_week: parseInt(g('ivHoursDay').value,10), start_time: from, end_time: to });
-    if(error) throw error;
+    const dayv = g('ivHoursDay').value, days = dayv === 'wk' ? [1,2,3,4,5] : [parseInt(dayv,10)];
+    const rows = days.map(d => Object.assign({ coordinator_id: g('ivHoursHost').value, activity: g('ivHoursAct').value,
+      day_of_week: d, start_time: from, end_time: to }, video ? { video: true } : {}));
+    const { error } = await sb.from('coordinator_availability').insert(rows);
+    if(error) throw (/video/.test(String(error.message||'')) ? new Error('the database is not ready for video hours yet (Desktop step 1541)') : error);
     ivHoursClose();
     await ivLoad();
   }catch(e){
