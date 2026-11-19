@@ -137,7 +137,7 @@
         { t: 'Private pay, and the five questions', withT: () => [
             'Open ' + prog('all', 'Payors & Programs: Who pays?') + ' together and read "This is your job" and the five questions on every first call.',
             'Walk ' + prog('private', 'Private pay') + ': the three rates, the minimums, the terms, the Best Price Guarantee and the paperwork.',
-            'Find where ' + prog('early', 'Early Support Visits') + ' fits: someone in Springfield who needs less than 8 hours a week.',
+            'Find where ' + prog('early', 'Early Support Visits') + ' fits: someone in Springfield who wants a visit once a month or every other week.',
             'Take a practice call with ' + callL('daughter_falls', 'a worried daughter') + ' while your trainer listens.' ],
           solo: () => [
             'Read ' + prog('private', 'Private pay') + ' and ' + prog('early', 'Early Support Visits') + ' until you can give the rates and terms without looking.',
