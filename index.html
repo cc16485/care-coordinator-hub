@@ -23981,7 +23981,9 @@ function ivqRender(){
       /* waiting on an outcome: how long, red from 3 days (2026-11-03) */
       + (overdue ? (()=>{ const n=Math.floor((Date.now()-d.getTime())/864e5); return n>=1 ? '<span class="tag-chip" style="background:'+(n>=3?'#FEE2E2;color:#B91C1C':'#FEF3C7;color:#92400E')+';">'+n+' day'+(n===1?'':'s')+' ago, no outcome yet</span>' : ''; })() : '')
       + '<b style="color:var(--navy);cursor:pointer;" role="link" tabindex="0" title="Open their page" data-open-applicant="'+esc(b.applicant_id)+'" data-open-tab="interview">'+esc(name)+' <span style="font-size:.65rem;color:var(--teal);">↗</span></b>'
-      + btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings)))
+      /* 2026-11-19 (Samantha: "take Samantha name off of Katlin's interviews in the interview tab"): every booking names its
+         real interviewer ("· with Katlin"), so the old afternoon label shows only on a booking with no interviewer */
+      + (b.coordinator_id ? '' : btWhoChip(btAfternoonName(b.starts_at, btAfternoonRule(DATA.ops_settings))))
       + ((ALSO[b.id]||[]).length ? '<span class="tag-chip" style="background:#FEF3C7;color:#92400E;" title="They applied more than once and hold another booking">also booked '
           + esc((ALSO[b.id]).map(x=>{ const dd=new Date(x.starts_at); return dayLabel(dd)+' '+timeLabel(dd); }).join(', ')) + ' under another application</span>' : '')
       + '<span class="field-note">'+esc(a.posting_title||'Caregiver')
