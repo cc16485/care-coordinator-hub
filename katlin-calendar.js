@@ -415,7 +415,8 @@
         <button onclick="KPC.toggle(${enc(key)})">${open ? 'Hide' : '👤 About ' + esc(a.first_name || 'them')}</button>
         <button onclick="KPC.openApplicant(${enc(b.applicant_id)})">Open full profile</button>
         ${a.phone && typeof W.ocAttrs === 'function' ? `<a class="kc-a" style="text-decoration:none"${W.ocAttrs(a.phone, { email:a.email })}>📞 Call</a>` : ''}
-        ${b.status === 'booked' && (w === 'past' || w === 'now') ? `<button onclick="KPC.ivOutcome(${enc(b.applicant_id)})">📝 How did it go?</button>` : ''}</div>
+        ${b.status === 'booked' && (w === 'past' || w === 'now') ? `<button onclick="KPC.ivOutcome(${enc(b.applicant_id)})">📝 How did it go?</button>` : ''}
+        ${b.status === 'booked' && t > x.now && W.IHO ? `<button onclick="IHO.open(${enc(b.applicant_id)})" title="Can't make it? Same time, someone else does it">🤝 Hand over</button>` : ''}</div>
       ${open ? `<div class="kc-how kc-about">${rows.length ? rows.map(r => `<div><b>${esc(r[0])}</b><span>${esc(r[1])}</span></div>`).join('') : '<div class="kp-when">Their application did not load. Open full profile to see it.</div>'}</div>` : ''}</div>`;
   }
 
