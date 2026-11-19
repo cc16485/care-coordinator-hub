@@ -310,14 +310,14 @@
     const openNow = S.open === r.id;
     const closes = !/^(journey|project)$/.test(lc(it.kind));
     let h = '<tr class="' + (r.need === 'care' ? 'opb-red' : r.when !== 'later' ? 'opb-gold' : '') + '" data-id="' + id + '">'
-      + '<td><div class="opb-name">' + esc(title) + '</div><div class="opb-sub">' + esc(WHO[r.who]) + ' · ' + esc(kindWord) + '</div></td>'
+      + '<td><div class="opb-name">' + esc(title) + '</div><div class="opb-sub">' + esc(WHO[r.who]) + ' · ' + esc(kindWord) + '</div>' + (W.CS ? W.CS.chip(it) : '') + '</td>'
       + '<td>' + esc(String(what).slice(0, 220)) + (it.detail && what !== it.detail ? '<div class="opb-sub">“' + esc(String(it.detail).slice(0, 160)) + '”</div>' : '') + '</td>'
       + '<td><span class="opb-need' + (r.need === 'care' ? ' care' : '') + '">' + esc(NEED[r.need]) + '</span></td>'
       + '<td>' + ownerCell + '</td><td>' + whenCell + '</td><td style="font-variant-numeric:tabular-nums;">' + esc(waited(r.since, now)) + (W.CT ? '<div>' + W.CT.badge(r.id) + '</div>' : '') + '</td>'
       + '<td><button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button></td>'
       + '<td id="opbmv_' + id + '"><button class="ghost" onclick="opsWaitOpen(\'' + id + '\',\'opbmv_' + id + '\')">Later this week</button></td>'
       + '<td id="opbdn_' + id + '">' + (closes ? '<button class="ghost" onclick="opsClose(\'' + id + '\',\'opbdn_' + id + '\')">Done</button>' : '') + '</td></tr>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + (W.CS ? W.CS.panel(it) : '') + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
     return h;
   }
   function cleanHtml(all){
@@ -412,12 +412,12 @@
     const sub = [fu ? 'Called or texted' : WHO[r.who], r.owner && !r.mine ? (it.owner_name || name(r.owner)) : (!r.owner ? 'Nobody yet' : '')].filter(Boolean).join(' · ');
     const long = r.since && now - r.since > 12 * HOUR;
     let h = '<div class="opl-row" data-id="' + id + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + (r.dupe ? ' · also on a call card' : '') + '</span></div>'
-      + '<div class="opl-what">' + esc(String(what).slice(0, 200)) + (it.next_action && !fu ? '<div class="opl-sub">' + esc(String(it.next_action).slice(0, 140)) + '</div>' : '') + '</div>'
+      + '<div class="opl-what">' + esc(String(what).slice(0, 200)) + (it.next_action && !fu ? '<div class="opl-sub">' + esc(String(it.next_action).slice(0, 140)) + '</div>' : '') + (W.CS ? W.CS.chip(it) : '') + '</div>'
       + '<div class="opl-t' + (long ? ' long' : '') + '">' + esc(waited(r.since, now)) + '</div>'
       + '<div class="opl-btns">' + (W.CT ? W.CT.badge(r.id) : '') + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
       + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button>'
       + (!/^(journey|project)$/.test(lc(it.kind)) ? '<span id="opldn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'opldn_' + id + '\')">Done</button></span>' : '') + '</div></div>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</div>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + (W.CS ? W.CS.panel(it) : '') + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</div>';
     return h;
   }
   /* the pieces of the new layout, from the same rows the table uses (pure enough to test in the page) */

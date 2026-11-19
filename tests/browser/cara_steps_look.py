@@ -27,7 +27,7 @@ SETUP = r"""async(o)=>{
   DATA.coordinator_staff=[{ name:'Samantha Troutman', email:'samantha@mo-care.com' }, { name:'Krystal Smith', email:'krystal@mo-care.com' }];
   const ago=h=>new Date(Date.now()-h*36e5).toISOString(), ahead=h=>new Date(Date.now()+h*36e5).toISOString();
   DATA.ops_items=[{ id:'cf_m1_0', kind:'call_followup', status:'open', owner:ME.email, owner_name:ME.name, domain:'scheduling_coverage', about:'Example: Mia Rivers', who:'Example: Mia Rivers',
-    title:'Move Example: Mia\'s Thursday with Example: Ruth to Friday 9 to 1', detail:'She asked by text.', created_at:ago(2), due:ahead(3), source:{ type:'call_reading', channel:'text', message_id:'m1', call_at:ago(2) } }];
+    title:'Move Example: Mia\'s Thursday with Example: Ruth to Friday 9 to 1', detail:'She asked by text.', steps:['Ask the client or family first','Change the visit in AxisCare','Text the caregiver'], created_at:ago(2), due:ahead(3), source:{ type:'call_reading', channel:'text', message_id:'m1', call_at:ago(2) } }];
   const visit = { state:'one', visit_id:'9401', client:'Example: Ruth Adams', date:'2026-11-19', start:'10:00', end:'14:00', caregiver_id:'501',
     proposed:{ date:'2026-11-20', start:'09:00', end:'13:00' }, can_change:true, why:'the visit on Thu Nov 19 with Example: Ruth', change:{ visit_id:'9401', expect:{ caregiver_id:'501', date:'2026-11-19', start:'10:00', end:'14:00' }, set:{ date:'2026-11-20', start:'09:00', end:'13:00' } }, checks:o.overlap ? { overlap:true, overlap_with:['Example: Dan 9am'], week_hours_after:30, over_40:false } : { overlap:false, week_hours_after:30, over_40:false } };
   const done = {};
@@ -36,7 +36,7 @@ SETUP = r"""async(o)=>{
     visit, steps:[
       { i:0, kind:'ask_client_family_permission', label:'Ask the client or family first', draft:'Hi Ann, this is Caring Companions. Mia asked to move Thursday 10 to 2 to Friday 9 to 1. Is that OK with you?', waits_for_yes:false, ...(done[0]?Object.assign({status:'done'},done[0]):{status:'ready'}) },
       { i:1, kind:'axiscare_visit_change', label:'Change the visit in AxisCare', waits_for_yes:true, locked:!(done[0]&&done[0].how==='yes'), ...(done[1]?Object.assign({status:'done'},done[1]):{status:'ready'}) },
-      { i:2, kind:'text_caregiver', label:'Text the caregiver', draft:'Hi Mia, you are all set for Friday 9 to 1 with Ruth.', waits_for_yes:true, ...(done[2]?Object.assign({status:'done'},done[2]):{status:'ready'}) },
+      { i:2, kind:'text_caregiver', label:'Text the caregiver', draft:'Hi Mia, you are all set for Friday 9 to 1 with Ruth.', waits_for_yes:true, ...(o.unsure ? { recipient:null, why:'Cara isn\'t sure which caregiver "Tina" is, so she won\'t guess. Text them the usual way' } : { recipient:{ name:'Example: Tina Shaw', phone_last4:'0411', texts_ok:true } }), ...(done[2]?Object.assign({status:'done'},done[2]):{status:o.unsure?'needs_person':'ready'}) },
       { i:3, kind:'call_back', label:'Call back', status:'needs_person', why:'a person does this one' } ] });
   window.__calls=[];
   (0,eval)("sb.auth.getSession=async()=>({data:{session:{access_token:'tok'}}})");
@@ -57,6 +57,7 @@ CHECKS = r"""async(o)=>{
   const btns=()=>[...(wrap()||document).querySelectorAll('button')].map(b=>({ t:b.innerText.trim(), off:b.disabled }));
   const btn=t=>[...wrap().querySelectorAll('button')].find(b=>b.innerText.trim()===t);
   if(o.mode==='staffOff'){ ok('off: Krystal sees nothing new on the card, and Cara was never asked', !wrap() && !window.__calls.some(c=>c[0]==='cara-step'), window.__calls); return R; }
+  if(o.mode==='unsure'){ ok('unsure: a name Cara can\'t place is never guessed: no Send on that step, and it says why', /isn't sure which caregiver "Tina" is/.test(txt()) && btns().filter(b=>b.t==='Send').length===1, btns()); return R; }
   if(o.mode==='overlap'){ ok('overlap'+(o.after?' (after the family said yes)':'')+': flagged and Apply stays off', /Overlaps another visit \(Example: Dan 9am\)/.test(txt()) && btn('Apply in AxisCare').disabled && /won't apply this one/.test(txt()), txt()); return R; }
   ok(o.mode+': "Cara has this ready" on the opened card, with Nothing goes out until you tap it', /Cara has this ready/.test(txt()) && /Nothing goes out until you tap it/.test(txt()), txt());
   ok(o.mode+': the steps in order, the visit in words, the checks, the call back left to a person', /Ask the client or family first/.test(txt()) && /Thu, Nov 19 10am to 2pm becomes Fri, Nov 20 9am to 1pm/.test(txt())
@@ -66,7 +67,10 @@ CHECKS = r"""async(o)=>{
   if(o.mode==='ownerOff'){
     ok('owner, switch off: marked Practice and every Send and Apply is off', /Practice\./.test(txt()) && btns().filter(b=>/^(Send|Apply in AxisCare)$/.test(b.t)).every(b=>b.off), btns());
     return R; }
- /Overlaps another visit \(Example: Dan 9am\)/.test(txt()) &&   ok('on: the family ask can be sent; Apply and the caregiver text cannot yet', !btns().find(b=>b.t==='Send').off && btn('Apply in AxisCare').disabled && btns().filter(b=>b.t==='Send')[1].off, btns());
+  { const row=document.querySelector('tr[data-id="cf_m1_0"]'), tag=row && row.querySelector('.cs-chip'); ok('on: the row has a "Cara has 3 steps ready" tag button, and nothing odd like [object Object]', !!tag && tag.innerText.trim()==='Cara has 3 steps ready' && !/object Object/.test(row.innerText), row && row.innerText); }
+  const cardEl=document.querySelector('.opb-card'); ok('on: Cara\'s box is at the top of the opened card, above the card itself', !!cardEl && cardEl.querySelector('.cs-wrap') && cardEl.querySelector('.wkcard') && (cardEl.querySelector('.cs-wrap').compareDocumentPosition(cardEl.querySelector('.wkcard')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  ok('on: the caregiver text goes to the person it names (Tina), not the card\'s caregiver (Mia)', /To Example: Tina Shaw \(number ending 0411\)/.test(txt()) && !/To Example: Mia Rivers/.test(txt()), txt());
+  ok('on: the family ask can be sent; Apply and the caregiver text cannot yet', !btns().find(b=>b.t==='Send').off && btn('Apply in AxisCare').disabled && btns().filter(b=>b.t==='Send')[1].off, btns());
   const ta=wrap().querySelector('textarea'); ta.value='Hi Ann, may Mia move Thursday to Friday 9 to 1?'; btns(); btn('Send').click(); await wait(400);
   const s=window.__calls.find(c=>c[0]==='cara-step'&&c[1].mode==='send');
   ok('Send posts exactly the edited text, to the family member picked, for step 1', s && s[1].text==='Hi Ann, may Mia move Thursday to Friday 9 to 1?' && s[1].to==='family:c7' && s[1].i===0 && s[1].card_id==='cf_m1_0', s);
@@ -88,9 +92,11 @@ with sync_playwright() as pw:
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.goto(f'http://127.0.0.1:{PORT}/index.html?proof=cs'); pg.wait_for_timeout(1500)
         pg.evaluate('s=>(0,eval)(s)', STUB); return pg
-    for mode, o in [('staffOff', {'owner': False, 'live': False}), ('ownerOff', {'owner': True, 'live': False}), ('on', {'owner': False, 'live': True}), ('overlap', {'owner': False, 'live': True, 'overlap': True})]:
+    for mode, o in [('staffOff', {'owner': False, 'live': False}), ('ownerOff', {'owner': True, 'live': False}), ('on', {'owner': False, 'live': True}), ('overlap', {'owner': False, 'live': True, 'overlap': True}), ('unsure', {'owner': False, 'live': True, 'unsure': True})]:
         pg = page(); pg.evaluate(SETUP, o); R += pg.evaluate(CHECKS, dict(o, mode=mode))
-        if mode == 'ownerOff': pg.screenshot(path=SHOTS + 'practice.png', full_page=False)
+        if mode == 'ownerOff':
+            pg.screenshot(path=SHOTS + 'practice.png', full_page=False)
+            R.append(['ownerOff: practice buttons look off (faded)', pg.evaluate("()=>{ const b=[...document.querySelectorAll('.cs-wrap button')].find(x=>x.innerText.trim()==='Send'); return !!b && getComputedStyle(b).opacity < 0.6 }"), 'opacity'])
         if mode == 'overlap':
             pg.evaluate("()=>{ CS.mark('cf_m1_0',0,'yes') }"); pg.wait_for_timeout(400)
             R += pg.evaluate(CHECKS, dict(o, mode=mode, after=True))
