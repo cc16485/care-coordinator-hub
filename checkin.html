@@ -94,6 +94,8 @@ const KINDS = {
     quarterly: { label: 'Every 3 months', lead: c => 'A quick check-in from the office.' },
   },
   caregiver: {
+    /* READY TO WORK (Samantha approved 2026-11-19): sent once with the cleared email; its own 4 questions (renderReady) */
+    ready: { label: 'Ready to work', lead: c => "You're cleared to work. Welcome to the team!" },
     week_1: { label: 'Week 1', lead: c => 'You made it through your first week!' },
     day_30: { label: 'Day 30', lead: c => 'One month with us!', extra: { q: 'Are you getting the hours you want?', opts: ['Yes', 'I want more', 'I want fewer'] } },
     day_60: { label: 'Day 60', lead: c => 'A quick check-in from the office.' },
@@ -153,6 +155,7 @@ function render() {
   if (ctx.state === 'expired') { $('#lead').textContent = ''; $('#main').innerHTML = '<div class="card done"><div class="big">⏳</div><h2 class="serif">This link has expired</h2><p>Check-in links last 14 days. We would still love to hear from you: call us at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.</p></div>' + footer(); return; }
   if (ctx.state === 'answered') { $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">You already answered</h2><p>Thank you. If something has changed since then, tell us below.</p><button class="go" id="again" style="margin-top:16px">Answer again</button></div>' + footer(); $('#again').onclick = () => { ctx.state = 'ok'; render(); }; return; }
   A = {};
+  if (ctx.who === 'caregiver' && ctx.kind === 'ready') return renderReady();
   const faces = FACES[ctx.who].map(([v, e, t]) => '<button class="face" data-v="' + v + '"><span class="e" aria-hidden="true">' + e + '</span>' + esc(t) + '</button>').join('');
   $('#main').innerHTML = '<div class="bar"><i id="prog"></i></div>'
     + '<div class="card"><p class="q">' + (ctx.who === 'family' ? (ctx.self ? 'How are things going with your care?' : 'How are things going with ' + esc(ctx.client) + "'s care?") : 'How are you feeling about work lately?') + '</p>'
@@ -211,6 +214,41 @@ function pick(v) {
   $('#send').onclick = send;
   progress();
   setTimeout(() => { const m = $('#more .more'); if (m) m.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 120);
+}
+
+/* READY TO WORK: 1. how ready (1 to 5) 2. AxisCare app set up? 3. Viventium set up? 4. questions. The server keeps the same lists
+   (_shared/care-connection.ts cleanReady). */
+function renderReady() {
+  const yn = f => '<div class="chips" data-f="' + f + '"><button class="chip" data-v="yes">Yes</button><button class="chip" data-v="help">I need help</button></div>';
+  $('#main').innerHTML = '<div class="bar"><i id="prog"></i></div>'
+    + '<div class="card"><p class="q">How ready do you feel for your first shift?</p><p class="hint">1 is not ready yet, 5 is completely ready.</p><div class="chips" data-f="ready">'
+    + [1, 2, 3, 4, 5].map(n => '<button class="chip" data-v="' + n + '">' + n + '</button>').join('') + '</div></div>'
+    + '<div class="card"><p class="q">Is the AxisCare app set up?</p><p class="hint">Your schedule and clocking in. Video: <a href="https://mo-care.com/axiscare-setup">mo-care.com/axiscare-setup</a></p>' + yn('axiscare') + '</div>'
+    + '<div class="card"><p class="q">Is Viventium set up?</p><p class="hint">Your pay. Video: <a href="https://mo-care.com/viventium-setup">mo-care.com/viventium-setup</a></p>' + yn('viventium') + '</div>'
+    + '<div class="card"><p class="q">Any questions or anything we should know?</p><textarea id="note" placeholder="Optional"></textarea></div>'
+    + '<button class="go" id="send">Send</button><div class="err" id="err"></div>' + footer();
+  document.querySelectorAll('#main .chips').forEach(g => g.querySelectorAll('.chip').forEach(c => c.onclick = () => {
+    g.querySelectorAll('.chip').forEach(x => x.classList.toggle('on', x === c)); A[g.dataset.f] = g.dataset.f === 'ready' ? Number(c.dataset.v) : c.dataset.v;
+    $('#err').style.display = 'none'; readyProgress();
+  }));
+  $('#send').onclick = sendReady;
+  readyProgress();
+}
+function readyProgress() { const have = ['ready', 'axiscare', 'viventium'].filter(k => A[k] != null).length; $('#prog').style.width = Math.round(100 * have / 3) + '%'; }
+async function sendReady() {
+  const err = $('#err');
+  if (A.ready == null || !A.axiscare || !A.viventium) { err.textContent = 'Answer the first three questions first.'; err.style.display = 'block'; return; }
+  A.note = ($('#note') || {}).value || '';
+  if (!DEMO) {
+    const b = $('#send'); b.disabled = true; b.textContent = 'Sending...';
+    try { await api({ action: 'answer', answers: A }); }
+    catch (e) { b.disabled = false; b.textContent = 'Send'; err.textContent = e.message; err.style.display = 'block'; return; }
+  }
+  const help = A.axiscare === 'help' || A.viventium === 'help', q = A.note.trim().length >= 2;
+  const body = help || q || A.ready <= 2 ? 'Someone from our office will reach out to help. If it is urgent, call us now at <a href="' + OFFICE_TEL + '">' + OFFICE + '</a>.' : 'We are glad to have you on the team. See you soon!';
+  $('#lead').textContent = '';
+  $('#main').innerHTML = '<div class="card done"><div class="big">💛</div><h2 class="serif">' + esc('Thank you, ' + ctx.first + '!') + '</h2><p>' + body + '</p></div>' + footer();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function progress() { const need = 1 + (KINDS[ctx.who][ctx.kind].extra ? 1 : 0); const have = (A.mood ? 1 : 0) + (A.extra != null ? 1 : 0); $('#prog').style.width = Math.min(100, 100 * have / need) + '%'; }
