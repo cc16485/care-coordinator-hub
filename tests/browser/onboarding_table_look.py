@@ -151,6 +151,7 @@ with sync_playwright() as pw:
     code = CODE.replace('__CANDS__', json.dumps(CANDS)).replace('__OFFERS__', json.dumps(OFFERS)).replace('__ROSTER__', json.dumps(ROSTER)).replace('__WC__', json.dumps({str(k): v for k, v in WC.items()})) \
                .replace('__D14__', ts(14)).replace('__D2__', ts(2)).replace('__D7__', ts(7))
     R = pg.evaluate(T, code)
+    ck('the I-9 done button can reach its helper (2026-11-19: obtI9Done was never exposed, so pressing it threw an error)', pg.evaluate("typeof window.obtI9Done") == 'function')
     s = R['sum']
     ck('columns: name, days, then every step to Finish (no Holding up: Samantha 2026-11-04)', R['H'] == ['Name', 'Days', 'Step 1', 'OIG', 'EDL', 'FCSR', 'Case.net', 'References', 'Viventium (Step 2)', 'I-9 in Viventium', 'Orientation', 'Finish'], R['H'])
     ck('the name column stays put when the table scrolls sideways', R['sticky'] == 'sticky', R['sticky'])

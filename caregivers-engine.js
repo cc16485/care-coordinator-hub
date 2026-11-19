@@ -12948,6 +12948,7 @@ window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + Orientation Video Calls. */
 Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcRights, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
 Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });
+Object.assign(window, { obtI9Done });   /* 2026-11-19: the I-9 done button on the Onboarding table (inline onclick); it was never exposed */
 Object.assign(window, { axSetupOpen, axCopy });   /* 2026-10-22 In Training plan v2, Part B: the AxisCare setup card (inline onclicks) */   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();
