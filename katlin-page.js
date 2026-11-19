@@ -175,7 +175,7 @@
     if(document.getElementById('kpCss')) return;
     const s = document.createElement('style'); s.id = 'kpCss';
     s.textContent = `
-.kpw{max-width:860px}
+.kpw{max-width:none}
 .kpw .kp-h{font-size:22px;font-weight:700;color:var(--navy,#0D365F);margin:4px 0 2px}
 .kpw .kp-sub{color:var(--text-muted,#55677a);margin-bottom:16px}
 .kpw .kp-card{background:#fff;border:1px solid var(--border,#e4e1d8);border-radius:12px;padding:16px 18px;margin-bottom:16px}
