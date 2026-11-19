@@ -215,17 +215,30 @@
   /* 2026-10-30 (Samantha: "1.5x if its for a couple who both need personal care, $5 additional per hour for shorter than 4 hour
      shift"; her answer: a flat $5 an hour on any approved visit under the minimum). The couple rule is the Client Care
      Agreement's "Enhanced couple care rate". Owners change both in Settings > Home visit (ops_settings.visit_extras). */
-  function extras() { const x = (D().ops_settings || {}).visit_extras || {}; return { couple: Number(x.couple_x) || 1.5, short: Number(x.short_fee) >= 0 && x.short_fee !== '' && x.short_fee != null ? Number(x.short_fee) : 5 }; }
+  function extras() { const x = (D().ops_settings || {}).visit_extras || {}; const num = (k, d) => (Number(x[k]) >= 0 && x[k] !== '' && x[k] != null ? Number(x[k]) : d); return { couple: Number(x.couple_x) || 1.5, short: num('short_fee', 5), few: num('few_fee', 5), setup: num('setup_fee', 99) }; }
   const money = (n) => '$' + (Math.round(n * 100) / 100).toFixed(2).replace(/\.00$/, '');
   const COUPLE = [['no', 'One client'], ['both', 'A couple, and both need hands-on care']];
+  /* 2026-11-19 (Samantha: "our rates are based on 8 hours+ per week, anything less is $5 more per hour ... anything less than
+     weekly visit is the $99 to get started"; "less often than weekly would be the regular rate plus 5 plus the 99 setup"; both
+     a short visit and a short week is "$10 more"). The 8 hours a week is no longer a floor: under it costs few_fee more an
+     hour, and visits less often than weekly also carry the one-time setup_fee. Owners change both in Settings > Home visit. */
+  const OFTEN = [['weekly', 'Every week'], ['biweekly', 'Every other week'], ['monthly', 'Once a month']];
+  function often(v) { return v && (v.often === 'biweekly' || v.often === 'monthly') ? v.often : 'weekly'; }
+  function oftenLabel(v) { return OFTEN.find((o) => o[0] === often(v))[1]; }
+  function weekTotal() { return DAYS.map((d) => dayHours(d[0])).reduce((a, b) => a + b, 0); }
+  /* true when the schedule is under the weekly hours the rates are based on: any schedule less often than weekly, or a weekly one under the hours */
+  function fewWeek(v) { const t = weekTotal(); return often(v) !== 'weekly' || (t > 0 && t < mins().week); }
   /* the hourly rate the family pays: the quoted rate, times the couple rate, plus the short-visit amount on a day under the minimum */
-  function billed(v, short) { const base = Number(String(v.rate || '').replace(/[^\d.]/g, '')) || 0, x = extras(); if (!base) return 0; return base * (v.couple === 'both' ? x.couple : 1) + (short ? x.short : 0); }
+  function billed(v, short, plain) { const base = Number(String(v.rate || '').replace(/[^\d.]/g, '')) || 0, x = extras(); if (!base) return 0; return base * (v.couple === 'both' ? x.couple : 1) + (short ? x.short : 0) + (!plain && fewWeek(v) ? x.few : 0); }
   function priceHtml() {
     const v = ST.a.visit, x = extras(), mn = mins(), base = Number(String(v.rate || '').replace(/[^\d.]/g, '')) || 0;
     if (!base) return '<span class="hv-n">Pick a care level to see the rate.</span>';
     const shortDays = DAYS.filter((d) => { const h = dayHours(d[0]); return h > 0 && h < mn.visit; });
-    const rows = ['<div class="hv-li"><span>' + (v.couple === 'both' ? 'Couple care rate (' + x.couple + ' × ' + money(base) + ')' : 'Hourly rate') + '</span><span>' + money(billed(v, false)) + ' an hour</span></div>'];
+    const rows = ['<div class="hv-li"><span>' + (v.couple === 'both' ? 'Couple care rate (' + x.couple + ' × ' + money(base) + ')' : 'Hourly rate') + '</span><span>' + money(billed(v, false, true)) + ' an hour</span></div>'];
+    const few = fewWeek(v), wk = often(v) === 'weekly';
+    if (few) rows.push('<div class="hv-li"><span>' + (wk ? 'Under ' + mn.week + ' hours a week' : oftenLabel(v)) + ': +' + money(x.few) + ' an hour</span><span>' + money(billed(v, false)) + ' an hour</span></div>');
     shortDays.forEach((d) => rows.push('<div class="hv-li"><span>' + d[1] + ', ' + dayHours(d[0]) + ' hours (under ' + mn.visit + '): +' + money(x.short) + ' an hour</span><span>' + money(billed(v, true)) + ' an hour</span></div>'));
+    if (!wk) rows.push('<div class="hv-li"><span>One-time assessment and setup (visits less often than weekly)</span><span>' + money(x.setup) + ', billed with the first visit</span></div>');
     return rows.join('') + (shortDays.length ? '<div class="hv-n">A visit under ' + mn.visit + ' hours happens only when the office approves it.</div>' : '');
   }
   function priceRefresh() { const el = document.getElementById('hvPrice'); if (el) el.innerHTML = priceHtml(); }
@@ -261,7 +274,7 @@
       prefs: { gender: '', spanish: '', cats: '', dogs: '', smoking: '', skills: [], other: '' },
       about: { shown: [], questions: '' }, outings: { interests: [], picks: [] },
       safety: { ec: {} }, home: {}, shift: [],
-      week: {}, start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
+      week: {}, often: 'weekly', start: '', level: '', rate: '', rate_typed: false, comments: '', outcome: '',
       sign: { client: { png: '', name: '', date: '' }, assessor: { png: '', name: me(), date: '' } },
     };
   }
@@ -806,10 +819,11 @@
   function weekSummary() {
     const hs = DAYS.map((d) => dayHours(d[0])).filter((h) => h > 0), tot = hs.reduce((a, b) => a + b, 0), mn = mins();
     if (!hs.length) return '<span class="hv-n">Add start and end times on the days they want care.</span>';
-    const shortV = hs.some((h) => h < mn.visit), shortW = tot < mn.week;
-    return '<span><b>' + tot + ' hours a week</b>, ' + hs.length + ' visit' + (hs.length === 1 ? '' : 's') + '</span>'
-      + '<span class="' + (shortV || shortW ? 'hv-warn' : 'hv-ok') + '">' + (!shortV && !shortW ? 'Meets the ' + mn.visit + ' hours a visit and ' + mn.week + ' hours a week minimum'
-        : [shortV ? 'A visit under ' + mn.visit + ' hours: ' + money(extras().short) + ' more an hour, with the office\'s OK' : '', shortW ? 'Below the ' + mn.week + ' hours a week minimum' : ''].filter(Boolean).join('. ')) + '</span>';
+    const v = ST.a.visit, wk = often(v) === 'weekly', shortV = hs.some((h) => h < mn.visit), shortW = wk && tot < mn.week, x = extras();
+    return '<span><b>' + tot + (wk ? ' hours a week' : ' hours, ' + oftenLabel(v).toLowerCase()) + '</b>, ' + hs.length + ' visit' + (hs.length === 1 ? '' : 's') + '</span>'
+      + '<span class="' + (shortV ? 'hv-warn' : 'hv-ok') + '">' + (!shortV && !shortW && wk ? 'Regular rates: ' + mn.visit + ' hours or more a visit and ' + mn.week + ' or more hours a week'
+        : [shortV ? 'A visit under ' + mn.visit + ' hours: ' + money(x.short) + ' more an hour, with the office\'s OK' : '', shortW ? 'Under ' + mn.week + ' hours a week: ' + money(x.few) + ' more an hour' : '',
+          !wk ? 'Less often than weekly: ' + money(x.few) + ' more an hour, and a one-time ' + money(x.setup) + ' setup' : ''].filter(Boolean).join('. ')) + '</span>';
   }
   /* the level her daily-activities answers point to: hands-on personal care is Personal; a lift or full transfers is Advanced */
   function suggestLevel() {
@@ -836,6 +850,8 @@
     return '<h1>Schedule, payment and care level</h1>'
       + card('Care proposal: days and times', '<div class="hv-week">' + DAYS.map((d) => '<div class="hv-day' + (dayHours(d[0]) ? ' on' : '') + '"><b>' + d[1] + '</b>'
         + field('visit.week.' + d[0] + '.from', '', { type: 'time', attrs: ' aria-label="' + d[1] + ' start"' }) + field('visit.week.' + d[0] + '.to', '', { type: 'time', attrs: ' aria-label="' + d[1] + ' end"' }) + '</div>').join('') + '</div>'
+        + '<div class="hv-row" style="justify-content:flex-start;gap:14px;flex-wrap:wrap"><b>How often?</b>' + pills('visit.often', OFTEN) + '</div>'
+        + '<div class="hv-n">Our rates are based on ' + mins().week + ' or more hours a week. Fewer hours is ' + money(extras().few) + ' more an hour. Visits less often than weekly also have a one-time ' + money(extras().setup) + ' assessment and setup, billed with the first visit.</div>'
         + '<div class="hv-sum" id="hvWeekSum">' + weekSummary() + '</div>' + lab('Hoped-for start', field('visit.start', '', { type: 'date', attrs: ' style="max-width:220px"' })))
       + card('A typical shift', '<div id="hvShift">' + shiftHtml() + '</div>')
       + card('How care will be paid', payerHtml())
@@ -859,9 +875,11 @@
     const sched = days.map((d) => d[1] + ' ' + fmt(v.week[d[0]].from) + ' to ' + fmt(v.week[d[0]].to)).join(', ');
     const short = days.filter((d) => dayHours(d[0]) < mins().visit).map((d) => d[1]);
     const rows = [['Care level and rate', L ? L[1] + (v.rate ? ', $' + String(v.rate).replace(/^\$/, '') + ' an hour' : '') : 'Pick a level on the last screen'],
-      ...(v.couple === 'both' && v.rate ? [['Couple care rate', money(billed(v, false)) + ' an hour (' + extras().couple + ' × the rate)']] : []),
+      ...(v.couple === 'both' && v.rate ? [['Couple care rate', money(billed(v, false, true)) + ' an hour (' + extras().couple + ' × the rate)']] : []),
+      ...(fewWeek(v) && v.rate ? [[often(v) === 'weekly' ? 'Under ' + mins().week + ' hours a week' : oftenLabel(v), money(billed(v, false)) + ' an hour (' + money(extras().few) + ' more an hour)']] : []),
       ...(short.length && v.rate ? [['Short visits (' + short.join(', ') + ')', money(billed(v, true)) + ' an hour, with the office\'s OK']] : []),
-      ['Schedule', sched || 'No days yet'], ['Hoped-for start', v.start || 'Not set'],
+      ...(often(v) !== 'weekly' ? [['One-time assessment and setup', money(extras().setup) + ', billed with the first visit']] : []),
+      ['Schedule', (sched || 'No days yet') + (sched && often(v) !== 'weekly' ? ', ' + oftenLabel(v).toLowerCase() : '')], ['Hoped-for start', v.start || 'Not set'],
       ['Contacts', (v.attendees || []).filter((p) => p.role !== 'client' && p.name).map((p) => p.name).join(', ') || 'None added']];
     /* 2026-10-30 (her: "go straight to the care agreement ... we need to have a signed agreement before we would make them active
        in AxisCare"): the agreement starts from the lead; it moves to the client by itself once they are set up in AxisCare */
@@ -1281,6 +1299,7 @@
         { const m = p.match(/^visit\.acts\.([a-z_]+)\.level$/), r = m && HOUSE.concat(PERSONAL).find((x) => x[0] === m[1]); const h = r && document.getElementById('hvHelp_' + r[0]); if (h) h.innerHTML = helpHtml(r); }
         if (p === 'visit.outings.interests') { const el = document.getElementById('hvPlaces'); if (el) el.innerHTML = placesHtml(); }
         if (p === 'visit.couple') priceRefresh();
+        if (p === 'visit.often') { priceRefresh(); const s = document.getElementById('hvWeekSum'); if (s) s.innerHTML = weekSummary(); }
         if (p === 'visit.outcome') { document.getElementById('hvRail').innerHTML = railHtml(); document.getElementById('hvFoot').innerHTML = footHtml(); }
         if (p === 'visit.about.shown') { const t = pb.closest('.hv-card'); const g = t && t.querySelector('.hv-ch .hv-tag'); if (g) { const f = aboutCfg().folder; g.textContent = (get(p) || []).filter((x) => f.indexOf(x) > -1).length + ' of ' + f.length + ' shown'; } }
         if (/^visit\.(home\.|prefs\.(cats|dogs)$|safety\.hazards$)/.test(p)) { const hs = document.querySelector('#hvRoot .hv-sec[data-sec="' + S_.home + '"]'); if (hs && ST.sec === S_.home) hs.innerHTML = secHome(); }
@@ -1413,9 +1432,11 @@
     box.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">'
       + LEVELS.map((L) => '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">' + E(L[1]) + ' ($ an hour)<input id="hvSet_' + L[0] + '" inputmode="decimal" value="' + r[L[0]] + '" style="width:110px"></label>').join('')
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a visit, at least<input id="hvSet_visit" inputmode="decimal" value="' + m.visit + '" style="width:110px"></label>'
-      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Hours a week, at least<input id="hvSet_week" inputmode="decimal" value="' + m.week + '" style="width:110px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Rates are based on this many hours a week<input id="hvSet_week" inputmode="decimal" value="' + m.week + '" style="width:110px"></label>'
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Couple care (× the rate)<input id="hvSet_couple" inputmode="decimal" value="' + extras().couple + '" style="width:110px"></label>'
       + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Short visit ($ more an hour)<input id="hvSet_short" inputmode="decimal" value="' + extras().short + '" style="width:110px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Fewer hours a week ($ more an hour)<input id="hvSet_few" inputmode="decimal" value="' + extras().few + '" style="width:110px"></label>'
+      + '<label class="field-note" style="display:flex;flex-direction:column;gap:4px">Setup, less often than weekly ($ one time)<input id="hvSet_setup" inputmode="decimal" value="' + extras().setup + '" style="width:110px"></label>'
       + '<button class="secondary" onclick="HV.settingsSave(this)">Save</button><span class="field-note" id="hvSetSaved"></span></div>'
       + (window.CPV && CPV.emSettingsHtml ? CPV.emSettingsHtml() : '')
       + (window.HU && HU.settingsHtml ? HU.settingsHtml() : '')   /* 2026-11-07: the two Read First task names */
@@ -1444,10 +1465,10 @@
     if (typeof ccIsOwner === 'function' && !ccIsOwner()) { alert('Only Samantha or Zachary can change the rates.'); return; }
     const n = (id) => Number(String((document.getElementById(id) || {}).value || '').replace(/[^\d.]/g, ''));
     const vr = { wellness: n('hvSet_wellness'), personal: n('hvSet_personal'), advanced: n('hvSet_advanced') }, vm = { visit: n('hvSet_visit'), week: n('hvSet_week') };
-    const vx = { couple_x: n('hvSet_couple'), short_fee: n('hvSet_short') };
-    if (Object.values(vr).concat(Object.values(vm), [vx.couple_x, vx.short_fee]).some((x) => !(x > 0))) { alert('Every box needs a number above 0.'); return; }
+    const has = (id) => !!document.getElementById(id), vx = { couple_x: n('hvSet_couple'), short_fee: n('hvSet_short'), few_fee: has('hvSet_few') ? n('hvSet_few') : extras().few, setup_fee: has('hvSet_setup') ? n('hvSet_setup') : extras().setup };
+    if (Object.values(vr).concat(Object.values(vm), [vx.couple_x, vx.short_fee, vx.few_fee, vx.setup_fee]).some((x) => !(x > 0))) { alert('Every box needs a number above 0.'); return; }
     if (btn) btn.disabled = true;
-    const out = await tkMerge((s) => { s.visit_rates = vr; s.visit_minimums = vm; s.visit_extras = vx; return ['Home visit rates ' + vr.wellness + '/' + vr.personal + '/' + vr.advanced + ', minimums ' + vm.visit + 'h a visit, ' + vm.week + 'h a week, couple ' + vx.couple_x + 'x, short visit +$' + vx.short_fee]; }, 'Home visit rates');
+    const out = await tkMerge((s) => { s.visit_rates = vr; s.visit_minimums = vm; s.visit_extras = vx; return ['Home visit rates ' + vr.wellness + '/' + vr.personal + '/' + vr.advanced + ', minimums ' + vm.visit + 'h a visit, ' + vm.week + 'h a week, couple ' + vx.couple_x + 'x, short visit +$' + vx.short_fee + ', fewer hours +$' + vx.few_fee + ', setup $' + vx.setup_fee]; }, 'Home visit rates');
     if (btn) btn.disabled = false;
     const sv = document.getElementById('hvSetSaved'); if (sv) sv.textContent = out && out.error ? 'Could not save: ' + out.error.message : 'Saved.';
   }
