@@ -1453,14 +1453,14 @@ let OB_DECLINED=[];
 async function obDeclinedLoad(){
   try{
     const { data, error }=await sb.from('job_applicants').select('phone,email,offer_sent_at,hired_at').eq('status','declined').or('offer_sent_at.not.is.null,hired_at.not.is.null');
-    if(!error) OB_DECLINED=data||[];
+    if(!error) OB_DECLINED=Array.isArray(data)?data:[];
   }catch(e){ /* without it, offers close only the old ways */ }
 }
 function obOfferApplicantDeclined(o){
   const d=t=>String(t||'').replace(/\D/g,'').slice(-10), e=t=>String(t||'').trim().toLowerCase();
   const ph=d(o.phone), em=e(o.email);
   if(ph.length<10&&!em) return false;
-  return OB_DECLINED.some(a=>(ph.length===10&&d(a.phone)===ph)||(!!em&&e(a.email)===em));
+  return Array.isArray(OB_DECLINED)&&OB_DECLINED.some(a=>(ph.length===10&&d(a.phone)===ph)||(!!em&&e(a.email)===em));
 }
 function offerStage(o){
   if(offerRejectedWhy(o)) return 'rejected';
@@ -7722,7 +7722,9 @@ function ckdPeople(){
     out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
   });
   ckdJourneyRows().forEach(r => {
-    if(!r || r.approved_to_work && r.axiscare !== 'failed' && !r.checkin_open) return;
+    /* 2026-11-19 (Samantha: "remove call after orientation as a requirement that keeps them in onboarding ... we now have the
+       automated text that sends out after orientation with the app videos"): an open call no longer keeps someone here */
+    if(!r || r.approved_to_work && r.axiscare !== 'failed') return;
     if(r.offer_id && seen.has(String(r.offer_id))) return;
     if(r.offer_id) seen.add(String(r.offer_id));
     if(gone(r.offer_id)) return;
@@ -8184,7 +8186,8 @@ function obtFinish(p, j, g){
      after orientation (I-9 on camera, everything checked, app, clients and shifts), before Approve to Work */
   if(obtCallOn()){
     if(ci && ci.done) mk('C', 'Call after orientation', 'ok', 'Call after orientation done');
-    else if(ci){ mk('C', 'Call after orientation', 'todo', 'Call them: I-9 on camera, everything checked, app, clients and shifts' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : '')); if(j) acts.push({ label:'Call', on:obtOpenCard(j) }); }
+    /* 2026-11-19: optional now (the app videos text goes out by itself after orientation), so never a to-do or the row's next step */
+    else if(ci) mk('C', 'Call after orientation', 'none', 'Optional: the app videos text goes out by itself after orientation' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : ''));
     else if(j && (j.approved_to_work || j.ready_for_final)) mk('C', 'Call after orientation', 'ok', j.approved_to_work ? 'Approved to Work' : 'Everything done');
     else mk('C', 'Call after orientation', 'none', 'Opens when they finish orientation');
   }
@@ -8202,7 +8205,7 @@ function obtFinish(p, j, g){
   else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
   else mk('B', 'Badge', 'none', obtCallOn() ? 'Once they are on the caregiver list' : 'After the video call');
   if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
-  else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
+  else if(j && j.approved_to_work) mk('A', 'Approved', 'ok', 'Approved to work');
   else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
     mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator.');
     if(!auto) acts.unshift({ label:'Approve', on:obtOpenCard(j) }); }
@@ -8231,9 +8234,10 @@ function obtI9(c, j, fin){
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   if(obtCallOn()){
     /* with the call after orientation, the I-9 line is ticked on that call (it completes this same readiness-card row) */
-    const cm = fin && (fin.marks || []).find(x => x.k === 'C');
-    if(open && cm && cm.s === 'todo' && j) return obtCell('todo', '', { who:'office', b:{ label:'Call', on:obtOpenCard(j) }, tip:'Look at their ID on video during the call after orientation, complete I-9 Section 2 in Viventium, then tick the I-9 line on the call.' });
-    return obtCell('none', '', { tip:'On the call after orientation, where their ID is checked on video' });
+    /* 2026-11-19: the call is optional now, so I-9 Section 2 has its own button once orientation is done (the call opened) */
+    if(open && f && f.checkin && !f.checkin.done && j && j.journey_id)
+      return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Look at their ID (in person or on live video), complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
+    return obtCell('none', '', { tip:'After orientation: look at their ID and complete I-9 Section 2' });
   }
   const v = fin && (fin.marks || []).find(x => x.k === 'V');
   if(open && v && v.s === 'ok' && j && j.journey_id)
