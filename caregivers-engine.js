@@ -10363,6 +10363,9 @@ async function s2After(id, d){
    date through Step 1's own logged reveal, kept only in this open window), a Check AxisCare button, and one big
    Send orientation information button. The server checks AxisCare's zip code and birth date against Step 1 before anything goes. */
 function axSetupHtml(d, dob, chk, msg){
+  /* APPLICANT UNTIL CLEARED (Samantha 2026-11-18, Admin switch applicant_path_live): they stay an applicant in AxisCare until they are
+     cleared to work, so nothing is typed into AxisCare here; a card asks for the conversion after Approve to Work */
+  if(d && d.applicant_path) return axApplicantHtml(d, msg);
   const e = wcEsc, a = d.address || {}, line = (label, v, key) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559;min-width:110px">' + label + '</span><span style="flex:1;text-align:right;font-weight:600;min-width:0;overflow-wrap:anywhere">' + (v ? e(v) : '<span style="color:#A89C8B;font-weight:400">not given</span>') + '</span>' + (v ? '<button class="ibtn" style="font-size:.72rem" onclick="axCopy(this,\'' + key + '\')">Copy</button>' : '') + '</div>';
   const fmtDob = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v.slice(5, 7) + '-' + v.slice(8, 10) + '-' + v.slice(0, 4) : '';
   window.__axVals = { first:d.first, last:d.last, phone:d.phone, email:d.email, street:[a.address1, a.address2].filter(Boolean).join(' '), city:a.city, state:a.state, zip:a.zip, dob:fmtDob(dob) };
@@ -10372,6 +10375,14 @@ function axSetupHtml(d, dob, chk, msg){
     + line('Birth date', window.__axVals.dob || (d.has_dob ? '' : ''), 'dob')
     + '<div class="field-note" style="margin-top:4px">' + (d.has_dob ? 'The birth date is shown from their Step 1, and the showing is logged. It is never saved on this screen.' : 'No birth date on their Step 1. Ask them for it before you send.') + '</div>';
   if(chk) h += '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;' + (chk.ok ? 'background:#E7F6EC;color:#1F5C38">&#10003; AxisCare has them In Training, and the zip code and birth date match.' : 'background:#FFF7ED;color:#8A4E0C"><b>Not ready to send yet:</b><ul style="margin:4px 0 0 18px;padding:0">' + (chk.problems || []).map(x => '<li>' + e(x) + '</li>').join('') + '</ul>') + '</div>';
+  if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
+  if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
+  return h;
+}
+function axApplicantHtml(d, msg){
+  const e = wcEsc;
+  let h = '<div style="font-size:13.5px;color:#5C544A;margin-bottom:8px">Press <b>Send orientation information</b> to send ' + e(d.first || 'them') + ' their orientation link, profile link and welcome in one message.</div>'
+    + '<div style="padding:9px 11px;border-radius:8px;font-size:13.5px;background:#EEF4FB;color:#0E3860"><b>Do not add them to AxisCare as a caregiver yet.</b> They stay an applicant in AxisCare until Step 2, orientation and Approve to Work are done. Then a card on My Work asks you to convert them to a caregiver with status Active, and the Hub does the rest.</div>';
   if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
   if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
   return h;
@@ -10407,7 +10418,8 @@ async function axSetupOpen(id){
   let d = null, dob = '';
   try{
     d = await s2Call({ action:'axis_sheet', candidate_id:String(id) });
-    if(d.has_dob && d.offer_id){ try{ const r = await sb.functions.invoke('step1-sign', { body:{ action:'reveal', offer_id:String(d.offer_id), field:'dob', reason:'Typed into AxisCare (add as In Training)' } }); if(r.data && r.data.ok) dob = String(r.data.value || ''); }catch(_){} }
+    if(d.applicant_path){ w.querySelector('#axFill').style.display = 'none'; w.querySelector('#axCheck').style.display = 'none'; }
+    if(d.has_dob && d.offer_id && !d.applicant_path){ try{ const r = await sb.functions.invoke('step1-sign', { body:{ action:'reveal', offer_id:String(d.offer_id), field:'dob', reason:'Typed into AxisCare (add as In Training)' } }); if(r.data && r.data.ok) dob = String(r.data.value || ''); }catch(_){} }
     body.innerHTML = axSetupHtml(d, dob, null, '');
     if(d.sent) w.querySelector('#axSend').textContent = 'Send again';
   }catch(e){ body.innerHTML = '<div style="color:#B91C1C">' + wcEsc(e.message) + '</div>'; w.querySelector('#axSend').disabled = true; w.querySelector('#axCheck').disabled = true; return; }
@@ -10425,7 +10437,7 @@ async function axSetupOpen(id){
     b.disabled = false; b.textContent = 'Check AxisCare';
   };
   w.querySelector('#axSend').onclick = async (ev) => {
-    const b = ev.target; b.disabled = true; b.textContent = 'Checking AxisCare and sending…';
+    const b = ev.target; b.disabled = true; b.textContent = d && d.applicant_path ? 'Sending…' : 'Checking AxisCare and sending…';
     const { data, error } = await sb.functions.invoke('step2-handoff', { body:{ action:'send_orientation', candidate_id:String(id) } });
     let j = data || {}; if(error){ try{ j = await error.context.json(); }catch(_){ j = { error: error.message }; } }
     const inv = j.invite || {};
