@@ -1414,6 +1414,7 @@ async function loadOffers(btn){
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     OFFERS=data.filter(o=>!offerIsTest(o));
+    await obDeclinedLoad();
     if(box) renderOffers();
     updateOffersBadge();
     if(typeof obtOfferPill === 'function') obtOfferPill();   /* 2026-11-04 offers live on Onboarding when the switch is on */
@@ -1441,7 +1442,25 @@ function offerRejectedWhy(o){
   if(!signed&&(o.offer_status==='expired'||(o.onboarding_path==='new'&&o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()))) return 'Expired';
   const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
   if(c&&c.not_hired) return 'Not hired';
+  if(!o.step1_done_at&&obOfferApplicantDeclined(o)) return 'Not moving forward';
   return '';
+}
+/* 2026-11-19 (Samantha: "i put this in for Tina Shorr but shes still in our onboarding tab"): "Not moving forward" on the
+   application that got this offer (the applicant record with an offer or hire stamp, same phone or email) closes the offer
+   here too, so the person leaves Onboarding. Only applications that reached an offer count, so an old declined application
+   never closes a newer offer, and an offer whose Step 1 is done is left alone. */
+let OB_DECLINED=[];
+async function obDeclinedLoad(){
+  try{
+    const { data, error }=await sb.from('job_applicants').select('phone,email,offer_sent_at,hired_at').eq('status','declined').or('offer_sent_at.not.is.null,hired_at.not.is.null');
+    if(!error) OB_DECLINED=data||[];
+  }catch(e){ /* without it, offers close only the old ways */ }
+}
+function obOfferApplicantDeclined(o){
+  const d=t=>String(t||'').replace(/\D/g,'').slice(-10), e=t=>String(t||'').trim().toLowerCase();
+  const ph=d(o.phone), em=e(o.email);
+  if(ph.length<10&&!em) return false;
+  return OB_DECLINED.some(a=>(ph.length===10&&d(a.phone)===ph)||(!!em&&e(a.email)===em));
 }
 function offerStage(o){
   if(offerRejectedWhy(o)) return 'rejected';
