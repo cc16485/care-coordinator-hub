@@ -77,5 +77,38 @@ ck('the new words', B.BATCH.welcome[0] === 'Family welcomes to send' && B.BATCH.
   ck('week card: nothing open but a day unread never claims every visit is covered', !/Every visit in the next 7 days has a caregiver/.test(gapOnly) && /No open shifts found on the days AxisCare answered/.test(gapOnly));
   ck('week card: a client name is escaped', /&lt;b&gt;/.test(B.weekCard([{ client:'<b>x', date:ymd(now + D), start:'9:00 AM', start24:'09:00' }], [], now))); }
 const words = Object.values(B.NEED).concat(Object.values(B.WHO)).join(' ');
+/* ── Today first (2026-11-19, her "It's still more busy than helpful" and "Yes, build it") ── */
+ck('Today first: off unless the switch is exactly on', !B.todayOn({}) && !B.todayOn({ ops_board_today_live:'yes' }) && B.todayOn({ ops_board_today_live:true }));
+ck('a Waiting row is a reply, a new family, a promise or a call to-do',
+  B.waitType({ kind:'reply_needed' }) === 'reply' && B.waitType({ kind:'missed_call' }) === 'reply' && B.waitType({ kind:'new_family_call' }) === 'newfam'
+  && B.waitType({ kind:'call_followup', id:'cfp_1', title:'Promise not kept yet: Call back Ann' }) === 'promise' && B.waitType({ kind:'call_followup', id:'cf_1', title:'Call back Diana, voicemail' }) === 'reply'
+  && B.waitType({ kind:'call_followup', id:'cf_2', title:'Email Joyce the form' }) === 'todo');
+ck('care today and people waiting to hear back stay on Today at any age',
+  B.todayOf({ kind:'care_note' }, 'care', now) === 'today' && B.todayOf({ kind:'reply_needed', created_at:iso(now - 9 * D) }, 'wait', now) === 'today'
+  && B.todayOf({ kind:'new_family_call', created_at:iso(now - 9 * D) }, 'wait', now) === 'today');
+ck('a promise or call to-do stays on Today for 2 days, then moves to the older list; other lanes are untouched',
+  B.todayOf({ kind:'call_followup', id:'cfp_1', created_at:iso(now - 1.5 * D) }, 'wait', now) === 'today' && B.todayOf({ kind:'call_followup', id:'cfp_1', created_at:iso(now - 2.5 * D) }, 'wait', now) === 'oldp'
+  && B.todayOf({ kind:'call_followup', id:'cf_1', title:'Text Ann the time', created_at:iso(now - 5 * D) }, 'wait', now) === 'oldp' && B.todayOf({ kind:'send_problem' }, 'batch', now) === 'batch' && B.todayOf({}, 'old', now) === 'old');
+ck('one person: the contact or phone, else the name; never Unknown caller or a blank',
+  B.todayKey({ contact_id:'c9', about:'Ann' }) === 'c:c9' && B.todayKey({ about:'Ashley  Lloyd' }) === 'n:ashley lloyd' && B.todayKey({ about:'Unknown caller' }) === '' && B.todayKey({ about:'' }) === ''
+  && B.todayKey({ about:'A number we do not know' }) === '' && B.todayKey({ about:'(phone lead)' }) === '');
+{
+  const r = (id, lane, kind, about, hrs, x) => ({ it:Object.assign({ id, kind, about, created_at:iso(now - hrs * 36e5) }, x || {}), id, lane, since:now - hrs * 36e5 });
+  const G = B.todayGroups([ r('cfp_a1', 'wait', 'call_followup', 'Ashley Lloyd', 30), r('fu_1', 'wait', 'reply_needed', 'Susan D.', 14, { contact_id:'s1' }), r('cfp_a2', 'wait', 'call_followup', 'Ashley Lloyd', 40),
+    r('nf_1', 'wait', 'new_family_call', 'Unknown caller', 80), r('nf_2', 'wait', 'new_family_call', 'Unknown caller', 20), r('cn_1', 'care', 'care_note', 'April D.', 12), r('cn_2', 'care', 'care_note', 'Patsy W.', 3),
+    r('fu_2', 'wait', 'reply_needed', 'Amy J.', 2, { contact_id:'a1' }) ], now);
+  ck('Today order: care first (newest first), then people waiting (longest wait first), then promises',
+    JSON.stringify(G.map(g => g.top.id)) === JSON.stringify(['cn_2', 'cn_1', 'nf_1', 'nf_2', 'fu_1', 'fu_2', 'cfp_a2']), G.map(g => g.top.id));
+  ck('one person is one row: Ashley\'s two promises are one group, oldest on top; two unknown callers stay two rows',
+    G.length === 7 && G[6].rows.length === 2 && G[6].top.id === 'cfp_a2' && G[2].rows.length === 1 && G[3].rows.length === 1, G.map(g => g.rows.length));
+  const mix = B.todayGroups([ r('cfp_x', 'wait', 'call_followup', 'April D.', 5), r('cn_9', 'care', 'care_note', 'April D.', 9) ], now);
+  ck('a care flag and a promise about the same person are one row, care on top', mix.length === 1 && mix[0].top.id === 'cn_9' && mix[0].tier === 0);
+}
+ck('a new family row says what the caller asked for, first sentence only',
+  B.todayWhat({ kind:'new_family_call', title:'New family? ANGELA Y.', detail:'Angie Yates called looking for a caregiver one to two days a week. She left a number.' }) === 'Angie Yates called looking for a caregiver one to two days a week.');
+ck('a promise row drops "Promise not kept yet"; a reply row drops the name in front; long words are cut',
+  B.todayWhat({ kind:'call_followup', id:'cfp_1', title:'Promise not kept yet: Resend portal invitation' }) === 'Resend portal invitation'
+  && B.todayWhat({ kind:'reply_needed', about:'Linda P.', detail:'Linda P.: "Can Thursday move?"' }) === '"Can Thursday move?"'
+  && B.todayWhat({ kind:'call_followup', id:'cf_1', title:'x '.repeat(200) }).length <= 150);
 ck('no em dashes', !/—/.test(require('fs').readFileSync(__dirname + '/../ops-board.js', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')) && !/—/.test(words));
 console.log('\n' + pass + ' passed, ' + fail + ' failed'); process.exit(fail ? 1 : 0);
