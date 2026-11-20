@@ -150,6 +150,12 @@
   async function videoLink(btn){ if(!(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return; await act({ action:'checkin', video_link: true }, btn); }
   async function checkinDone(btn){ await act({ action:'checkin', finish: true }, btn); }
   async function checkinNoAnswer(btn){ const note = (await ccPrompt('No answer. A note (optional, for example "left a voicemail"):', '')) || ''; await act({ action:'checkin', no_answer: true, note }, btn); }
+  /* Take back the offer: hand over to the Onboarding list's own Take off window (reasons, note, server leave) */
+  function takeBack(){
+    const id = OPEN_OFFER; if(!id || typeof window.ckdLeaveOpen !== 'function') return;
+    close(); window.ckdLeaveOpen(null, id);
+    if(!document.getElementById('ckdLeave')) alert('The Hub could not open the take-off window for this person. Open Onboarding, find their row, and try again, or tell Claude.');
+  }
   function card(){
     const d = CUR; if(!d) return '';
     if(!d.journey) return '<div style="font-weight:800;color:#0D365F;font-size:1rem">Readiness</div><div style="font-size:.85rem;color:#6E6559;margin-top:.4rem">No readiness card yet: it starts the moment both offer documents are signed.</div><div style="margin-top:.8rem;text-align:right"><button class="ibtn" onclick="CRX.close()">Close</button></div>';
@@ -202,7 +208,13 @@
     /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
     if(d.may_export) h += '<div id="crExport" style="margin-top:.6rem;font-size:.78rem"><button class="ibtn" onclick="CRX.exportFile(this)" title="A read-only PDF of every requirement, who verified, when, evidence and the history, with five-minute links to each proof. Every export is logged.">&#8681; Personnel file (PDF)</button></div>';
     /* the main profile: every send, receipt and completion with its time, and every signed document */
-    h += '<div style="margin-top:.8rem;display:flex;gap:.4rem;justify-content:flex-end">' + (window.HP ? '<button class="ibtn" onclick="CRX.close();HP.open({offer_id:\'' + esc(OPEN_OFFER) + '\'})">&#128100; Profile</button>' : '') + '<button class="ibtn" onclick="CRX.close()">Close</button></div>';
+    /* 2026-11-20 (Samantha: "we want to take back the offer... taking so long in onboarding sometimes makes us not want to
+       continue with offering employment"): the Onboarding table's Checklist opens this card for a signed hire, and it had
+       no way out. Same Take off the list window as everywhere else; gone once they are Approved to Work. */
+    const canTakeBack = typeof window.ckdLeaveOpen === 'function' && !(d.approve && d.approve.approved) && (!d.journey.status || d.journey.status === 'open');
+    h += '<div style="margin-top:.8rem;display:flex;gap:.4rem;justify-content:flex-end;align-items:center">'
+      + (canTakeBack ? '<button class="ibtn" style="color:#B42318;border-color:#FCA5A5;margin-right:auto" title="Stop their onboarding: you pick the reason, and reminders and cards stop. Nothing is deleted." onclick="CRX.takeBack()">Take back the offer</button>' : '')
+      + (window.HP ? '<button class="ibtn" onclick="CRX.close();HP.open({offer_id:\'' + esc(OPEN_OFFER) + '\'})">&#128100; Profile</button>' : '') + '<button class="ibtn" onclick="CRX.close()">Close</button></div>';
     return h;
   }
   /* 2026-10-13 (her ruling, 19 CSR 15-7.021(24)(B)5): Client Rights is signed in Step 1 (received and reviewed) and explained
@@ -318,5 +330,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet };
+  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet };
 })();
