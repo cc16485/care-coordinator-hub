@@ -152,6 +152,18 @@ with sync_playwright() as pw:
                .replace('__D14__', ts(14)).replace('__D2__', ts(2)).replace('__D7__', ts(7))
     R = pg.evaluate(T, code)
     ck('the I-9 done button can reach its helper (2026-11-19: obtI9Done was never exposed, so pressing it threw an error)', pg.evaluate("typeof window.obtI9Done") == 'function')
+    I9 = pg.evaluate("""async ()=>{ const oc=window.ccConfirm, ok=CRX.call, oa=window.alert; const calls=[], asks=[], alerts=[]; let s1=false;
+      window.alert = m => alerts.push(String(m));
+      CRX.call = async b => { calls.push(b.step_key); if(b.step_key==='cg.step2.i9_s1'){ s1=true; return {}; } if(!s1) throw new Error('Not yet: After: Viventium Step 2: I-9 Section 1 completed by the employee.'); return {}; };
+      window.ccConfirm = async m => { asks.push(String(m)); return true; };
+      await obtI9Done('j1', null); const yes = { calls:calls.slice(), asks:asks.length, second:asks[1]||'', alerts:alerts.slice() };
+      calls.length=0; asks.length=0; alerts.length=0; s1=false; let n=0; window.ccConfirm = async m => { asks.push(String(m)); return ++n === 1; };
+      await obtI9Done('j1', null); const no = { calls:calls.slice(), alerts:alerts.slice() };
+      calls.length=0; alerts.length=0; window.ccConfirm = async () => true; CRX.call = async b => { calls.push(b.step_key); throw new Error('Only a person on the Screening staff list may record this.'); };
+      await obtI9Done('j1', null); const other = { calls:calls.slice(), alerts:alerts.slice() };
+      window.ccConfirm=oc; CRX.call=ok; window.alert=oa; return { yes, no, other }; }""")
+    ck('I-9 done when the card still has I-9 Section 1 open (2026-11-19): it asks, then records Section 1 and Section 2 in order, with no error box', I9['yes']['calls'] == ['cg.i9.section2', 'cg.step2.i9_s1', 'cg.i9.section2'] and I9['yes']['asks'] == 2 and 'Section 1' in I9['yes']['second'] and not I9['yes']['alerts'], I9)
+    ck('I-9 done: saying no to the Section 1 question records nothing more; any other refusal still shows as Not recorded', I9['no']['calls'] == ['cg.i9.section2'] and not I9['no']['alerts'] and I9['other']['calls'] == ['cg.i9.section2'] and len(I9['other']['alerts']) == 1 and 'Not recorded' in I9['other']['alerts'][0], I9)
     s = R['sum']
     ck('columns: name, days, then every step to Finish (no Holding up: Samantha 2026-11-04)', R['H'] == ['Name', 'Days', 'Step 1', 'OIG', 'EDL', 'FCSR', 'Case.net', 'References', 'Viventium (Step 2)', 'I-9 in Viventium', 'Orientation', 'Finish'], R['H'])
     ck('the name column stays put when the table scrolls sideways', R['sticky'] == 'sticky', R['sticky'])

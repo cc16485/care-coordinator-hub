@@ -8247,8 +8247,17 @@ function obtI9(c, j, fin){
 async function obtI9Done(jid, btn){
   if(!(await ccConfirm('Record that you examined their ID documents and completed I-9 Section 2 in Viventium?\n\nThis completes the I-9 Section 2 row on their readiness card in your name, with the time. Only the person who did it should press this.'))) return;
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' }); }
-  catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+  const back = (e) => { alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } };
+  const s2 = () => CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' });
+  try{ await s2(); }
+  catch(e){
+    /* 2026-11-19: the server refuses Section 2 while the card's own "I-9 Section 1" line is open (Step 2 was checked without that
+       tick, and a checked Step 2 cannot be ticked again). The presser confirms that line too, by name, then Section 2 is recorded. */
+    if(!/I-9 Section 1/i.test(String(e.message || e))) return back(e);
+    if(!(await ccConfirm('Their card still shows I-9 Section 1 (the part the employee signs) as open, so Section 2 cannot be recorded yet.\n\nDid you see their signed Section 1 in Viventium? Press OK to record both in your name, with the time: Section 1 signed by the employee, and Section 2 completed by you.'))){ if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+    try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.step2.i9_s1' }); await s2(); }
+    catch(e2){ return back(e2); }
+  }
   try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
   renderCkd();
 }
