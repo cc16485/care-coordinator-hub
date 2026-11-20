@@ -104,6 +104,8 @@ ck('one person: the contact or phone, else the name; never Unknown caller or a b
   const mix = B.todayGroups([ r('cfp_x', 'wait', 'call_followup', 'April D.', 5), r('cn_9', 'care', 'care_note', 'April D.', 9) ], now);
   ck('a care flag and a promise about the same person are one row, care on top', mix.length === 1 && mix[0].top.id === 'cn_9' && mix[0].tier === 0);
 }
+ck('a call card about a client\'s health is a care call; a pay or schedule call card is not',
+  B.careCall({ kind:'call_followup', domain:'client_care' }) && !B.careCall({ kind:'call_followup', domain:'money' }) && !B.careCall({ kind:'care_note', domain:'client_care' }) && !B.careCall(null));
 ck('a new family row says what the caller asked for, first sentence only',
   B.todayWhat({ kind:'new_family_call', title:'New family? ANGELA Y.', detail:'Angie Yates called looking for a caregiver one to two days a week. She left a number.' }) === 'Angie Yates called looking for a caregiver one to two days a week.');
 ck('a promise row drops "Promise not kept yet"; a reply row drops the name in front; long words are cut',

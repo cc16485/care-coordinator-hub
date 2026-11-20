@@ -44,6 +44,7 @@ SETUP = r"""async(mode)=>{
     c('cf_old3','call_followup','Example: Joyce C.','Email Example: Joyce the form',220),
     c('cf_k','call_followup','Example: Rita G.','Call back Example: Rita',9,{ owner:K }),
     c('cf_office','call_followup','Example: Tom R.','Change the visit in AxisCare',8),
+    c('cf_health','call_followup','Example: Eddie M.','Review a possible mini stroke; check in with the family',24*9,{ domain:'client_care', due:ago(24*8) }),
     c('fw_1','family_welcome','Example: Family One','Send the welcome',5,{ owner:'' }),
     c('fw_2','family_welcome','Example: Family Two','Send the welcome',5,{ owner:'' }),
     c('sp_1','send_problem','Example: Walt S.','The text did not go out',6),
@@ -75,16 +76,18 @@ OWNER = r"""async()=>{
   ok('practice banner: only you see it, nothing closed, a way back', /Calmer board, practice/.test(W()) && /Nothing was closed or changed/.test(W()) && /Back to the three lanes/.test(W()), W().slice(0,300));
   ok('no tiles on the calmer board', !document.querySelector('.opl-tile'));
   const ids=()=>[...document.querySelectorAll('#optToday > .opt-row')].map(r=>r.getAttribute('data-id'));
-  ok('Today: 8 people need you, 6 rows shown: care first, then the longest wait, one row per person',
-    /Today\s+8 people need you/.test(document.querySelector('#optToday .opt-hd').innerText.replace(/\s+/g,' ')) && JSON.stringify(ids())===JSON.stringify(['cn_1','fu_3','nf_1','nf_2','fu_1','fu_2']), [document.querySelector('#optToday .opt-hd').innerText, ids()]);
+  ok('Today: 9 people need you, 6 rows shown: care first, then the longest wait, one row per person',
+    /Today\s+9 people need you/.test(document.querySelector('#optToday .opt-hd').innerText.replace(/\s+/g,' ')) && JSON.stringify(ids())===JSON.stringify(['cn_1','cf_health','fu_3','nf_1','nf_2','fu_1']), [document.querySelector('#optToday .opt-hd').innerText, ids()]);
   ok('each Today row has exactly one button', [...document.querySelectorAll('#optToday > .opt-row')].every(r=>r.querySelectorAll('button').length===1));
   const nf=document.querySelector('.opt-row[data-id="nf_1"]').innerText;
   ok('a new family row says what the caller asked for, not "New family?"', /looking for a caregiver one to two days a week\./.test(nf) && !/New family\?/.test(nf) && /New family/.test(nf) && /Call back/.test(nf), nf);
   ok('an unknown new caller is "New caller"', /New caller/.test(document.querySelector('.opt-row[data-id="nf_2"]').innerText));
   ok('a reply row shows the words that came in', /"Can the Thursday visit move to Friday\?"/.test(document.querySelector('.opt-row[data-id="fu_1"]').innerText));
-  ok('"Show 2 more for today"', /Show 2 more for today/.test(W()), W().slice(0,900));
+  const hc=document.querySelector('.opt-row[data-id="cf_health"]');
+  ok('a health item from a call is on Today with the care rows, even 9 days old, never folded', !!hc && /Health, from a call/.test(hc.innerText) && hc.classList.contains('care') && /mini stroke/.test(hc.innerText), hc&&hc.innerText);
+  ok('"Show 3 more for today"', /Show 3 more for today/.test(W()), W().slice(0,900));
   OPB.todayFlip('more'); await sleep(60);
-  ok('Show more lists everyone: Ashley once with her 2 things, then the fresh call to-do', JSON.stringify(ids().slice(6))===JSON.stringify(['cfp_a2','cf_new']) && /Show fewer/.test(W()), ids());
+  ok('Show more lists everyone: Ashley once with her 2 things, then the fresh call to-do', JSON.stringify(ids().slice(6))===JSON.stringify(['fu_2','cfp_a2','cf_new']) && /Show fewer/.test(W()), ids());
   const ash=document.querySelector('.opt-row[data-id="cfp_a2"]');
   ok('Ashley: one row, "2 things", See both, no "Promise not kept yet"', ash.getAttribute('data-n')==='2' && /2 things/.test(ash.innerText) && /See both/.test(ash.innerText) && !/Promise not kept yet/.test(ash.innerText), ash.innerText);
   ash.querySelector('button').click(); await sleep(80);
@@ -120,7 +123,7 @@ OWNER = r"""async()=>{
   const realCounts=window.opsTodayCounts; window.opsTodayCounts=()=>({ act:0, late:5 });
   try{ ccRenderPulse(); }catch(e){}
   const chips=[...document.querySelectorAll('.tp-chip')].map(c=>c.innerText.replace(/\s+/g,' ').trim());
-  ok('the header chip says "8 for today", never "N late"', chips.some(c=>/^8 for today$/.test(c)) && !chips.some(c=>/ late$/.test(c)), chips);
+  ok('the header chip says "9 for today", never "N late"', chips.some(c=>/^9 for today$/.test(c)) && !chips.some(c=>/ late$/.test(c)), chips);
   window.opsTodayCounts=()=>({ act:3, late:5 }); try{ ccRenderPulse(); }catch(e){}
   const chips2=[...document.querySelectorAll('.tp-chip')].map(c=>c.innerText.replace(/\s+/g,' ').trim());
   ok('"needs you now" still wins over the Today number', chips2.some(c=>/^3 need you now$/.test(c)) && !chips2.some(c=>/for today/.test(c)), chips2);

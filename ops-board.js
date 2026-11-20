@@ -208,6 +208,9 @@
     const made = ms(it.created_at);
     return (made == null || now - made <= FRESH) ? 'today' : 'oldp';
   }
+  /* a call card about a client's health or care (2026-11-19: Eddie's possible mini stroke sat under "Office to-dos from calls").
+     It is on Today at any age, with the care rows, until a person closes it. */
+  function careCall(it){ return !!it && lc(it.kind) === 'call_followup' && lc(it.domain) === 'client_care'; }
   /* one person, one row: the contact or phone when the card has one, else the name on it (never "Unknown caller") */
   function todayKey(it){
     const k = personKey(it); if(k) return k;
@@ -238,7 +241,7 @@
   }
   const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO,
     lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, weekCard, BATCH, BATCH_ORDER,
-    todayOn, waitType, todayOf, todayKey, todayGroups, todayWhat, FRESH };
+    todayOn, waitType, todayOf, todayKey, todayGroups, todayWhat, careCall, FRESH };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ═══════════════════════════════════ in the Hub ═══════════════════════════════════ */
@@ -556,7 +559,11 @@
   function todayModel(){
     const M = laneModel(), now = M.now, today = [], oldp = [];
     M.care.forEach(r => today.push(r));
-    M.wait.forEach(r => (todayOf(r.it, 'wait', now) === 'today' ? today : oldp).push(r));
+    /* health from a call comes up to Today from wherever it was folded */
+    const pull = list => (list || []).filter(r => { if(!careCall(r.it)) return true; r.lane = 'care'; r.carecall = true; today.push(r); return false; });
+    pull(M.wait).forEach(r => (todayOf(r.it, 'wait', now) === 'today' ? today : oldp).push(r));
+    Object.keys(M.batches).forEach(k => { M.batches[k] = pull(M.batches[k]); if(!M.batches[k].length) delete M.batches[k]; });
+    M.old = pull(M.old);
     return Object.assign(M, { groups:todayGroups(today, now), oldp });
   }
   /* the header chip's number: people on my Today list */
@@ -568,9 +575,9 @@
     let who = String(it.about || '').trim();
     if(!who || /^\s*\(phone lead\)\s*$/i.test(who)) who = 'Name not on file';
     if(/^unknown caller$/i.test(who)) who = lc(it.kind) === 'new_family_call' ? 'New caller' : 'Caller we do not know';
-    const sub = [r.lane === 'care' ? (WHO[r.who] || 'Care') + ', care today' : SUBT[waitType(it)], multi ? n + ' things' : '',
+    const sub = [r.carecall ? 'Health, from a call' : r.lane === 'care' ? (WHO[r.who] || 'Care') + ', care today' : SUBT[waitType(it)], multi ? n + ' things' : '',
       r.owner && !r.mine ? (it.owner_name || name(r.owner)) : (!r.owner ? 'Nobody yet' : '')].filter(Boolean).join(' · ');
-    const what = r.lane === 'care' ? String(it.title || it.detail || '') : todayWhat(it);
+    const what = r.lane === 'care' && !r.carecall ? String(it.title || it.detail || '') : todayWhat(it);
     let h = '<div class="opt-row' + (r.lane === 'care' ? ' care' : '') + '" data-id="' + id + '" data-n="' + n + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + '</span></div>'
       + '<div class="opt-what" title="' + esc(what) + '">' + esc(what) + '</div><div class="opt-t">' + esc(waited(r.since, now)) + '</div><div class="opt-btns">'
       + (openNow && !multi && !/^(journey|project)$/.test(lc(it.kind)) ? '<span id="optdn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'optdn_' + id + '\')">Done</button></span>' : '')
