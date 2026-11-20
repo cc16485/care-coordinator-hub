@@ -136,7 +136,16 @@
       + col('Tick these', tick, '#15803D', '☑') + col('Leave these off', off, '#B91C1C', '☐') + (ask.length ? col('Not asked at the interview: ask them', ask, '#6E6559', '?') : '') + '</div></details>';
   }
   async function classCheck(set, btn){ if(set && !(await ccConfirm('Set their Class in AxisCare now? Their Level or PRN Team class is replaced by the right one; every other class stays.'))) return; await act({ action:'checkin', [set ? 'class_set' : 'class_check']: true }, btn); }
-  async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){ box.checked = !box.checked; box.disabled = false; alert('Not saved: ' + (e.message || e)); } }
+  async function checkinTick(k, box){ box.disabled = true; try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, ticks:{ [k]: !!box.checked } }), { who: CUR.who }); render(); }catch(e){
+      const want = !!box.checked, undo = (x) => { box.checked = !want; box.disabled = false; if(x) alert('Not saved: ' + (x.message || x)); };
+      /* 2026-11-19: the server refuses the I-9 tick while the card's own "I-9 Section 1" line is open (Step 2 was checked without
+         that tick, and a checked Step 2 cannot be ticked again). The person on the call confirms that line too, by name, then the tick saves. */
+      if(!(k === 'i9' && want && /I-9 Section 1/i.test(String(e.message || e)))) return undo(e);
+      if(!(await ccConfirm('Their card still shows I-9 Section 1 (the part the employee signs) as open, so Section 2 cannot be recorded yet.\n\nDid you see their signed Section 1 in Viventium? Press OK to record both in your name, with the time: Section 1 signed by the employee, and Section 2 completed by you.'))) return undo();
+      try{ const jid = CUR.journey.journey_id; await call({ action:'confirm', journey_id: jid, step_key:'cg.step2.i9_s1' });
+        CUR = Object.assign(await call({ action:'checkin', journey_id: jid, ticks:{ i9:true } }), { who: CUR.who }); LIST.at = 0; render(); }
+      catch(e2){ undo(e2); }
+    } }
   async function checkinClock(v, box){ try{ CUR = Object.assign(await call({ action:'checkin', journey_id: CUR.journey.journey_id, test_clock: v }), { who: CUR.who }); render(); }catch(e){ alert('Not saved: ' + (e.message || e)); } }
   async function videoLink(btn){ if(!(await ccConfirm('Text them the office video room link now, for the I-9 ID check?'))) return; await act({ action:'checkin', video_link: true }, btn); }
   async function checkinDone(btn){ await act({ action:'checkin', finish: true }, btn); }
