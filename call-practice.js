@@ -374,12 +374,15 @@
       + f('health', 'Health news' + (all.filter(hasHealth).length ? ' (' + all.filter(hasHealth).length + ')' : ''))
       + (openOffered() ? f('open', 'Open from calls (' + openCards().length + ')') : '')
       + f('promises', 'Promises' + (pLate ? ' (' + pLate + ' past due)' : pOpen ? ' (' + pOpen + ' owed)' : ''))
+      + (window.CallPrep && CallPrep.offered() ? f('prep', 'New family cards' + (CallPrep.count() ? ' (' + CallPrep.count() + ')' : '')) : '')
       + f('checks', 'Card checks' + ((CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length ? ' (' + (CPR.checks || []).filter(k => k.would === 'close' || k.would === 'suggest').length + ' look done)' : ''))
       + ' <span style="margin:0 6px;color:var(--border);">|</span> ' + c('all', 'Calls and texts') + c('call', 'Calls') + c('text', 'Texts') + '</div>';
     /* the drawing kit (2026-10-18): promises being watched and none owed or past due is the mailbox with its flag down */
     if(window.HS && !CPR.msg && CPR.filter === 'all' && pw.length && !pLate && !pOpen) head += HS.banner({ scene:'mailbox', say:'All the follow-ups are done.', sub:'Every promise from a call or text has been kept. The flag goes up when a new one is owed.' });
     if(CPR.msg) head += '<div class="field-note" style="margin:-4px 0 10px;">Showing one ' + (rows[0] && rows[0].channel === 'text' ? 'text conversation' : 'call') + '. <a href="#" onclick="CPR.openCall(\'\');return false;">Back to all</a></div>';
     if(CPR.filter === 'open' && !CPR.msg && openOffered()){ wrap.innerHTML = intro + head + openView(); return; }
+    /* 2026-11-19 New family cards (call-prep.js): the practice replay, owners only */
+    if(CPR.filter === 'prep' && !CPR.msg && window.CallPrep && CallPrep.offered()){ CallPrep.redraw = () => redraw(false); wrap.innerHTML = intro + head + CallPrep.view(() => redraw(false)); return; }
     if(CPR.filter === 'checks' && !CPR.msg){ wrap.innerHTML = intro + head + checksView(); return; }
     if(CPR.filter === 'promises' && !CPR.msg){ wrap.innerHTML = intro + head + '<div class="field-note" style="margin:0 0 10px;">' + pLate + ' past due with no sign it was kept · ' + pOpen + ' still owed · ' + pKept + ' kept. Use the day box for promises due that day.</div>' + promisesView(); return; }
     if(!rows.length){ wrap.innerHTML = intro + head + '<div class="card" style="padding:18px;text-align:center;">' + (all.length ? 'No calls or texts in this view.' : 'No calls read yet. The reader looks every 10 minutes.') + '</div>'; return; }
@@ -429,6 +432,6 @@
     done: openDone, reopen: openReopen,
     setChannel(k){ CPR.channel = k; redraw(false); },
     setFilter(k){ CPR.filter = k; CPR.msg = ''; const w = host(); if(w) render(w); },
-    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises' && CPR.filter !== 'checks' && CPR.filter !== 'open') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
+    openCall(id){ CPR.msg = String(id || ''); if(!id && CPR.filter !== 'promises' && CPR.filter !== 'checks' && CPR.filter !== 'open' && CPR.filter !== 'prep') CPR.filter = 'all'; redraw(false); const w = host(); if(w && w.scrollIntoView) w.scrollIntoView({ block: 'start' }); },
     refresh(){ CPR.rows = null; const w = host(); if(w) render(w); } };
 })();
