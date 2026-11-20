@@ -55,7 +55,18 @@ async()=>{
   ok('Send video link: asks first, then one checkin video_link for that card', /video room link/.test(CONFIRMS.at(-1)||'') && INV.some(b=>b.action==='checkin'&&b.video_link===true&&b.journey_id==='j-call'), [CONFIRMS,INV]);
   let rr=rowOf('Fake Calling Person'); const b5=[...rr.querySelectorAll('.orp-tick input[type=checkbox]')][5]; b5.checked=true; b5.dispatchEvent(new Event('change')); await sleep(150);
   ok('ticking clients and shifts saves that one line', INV.some(b=>b.action==='checkin'&&b.ticks&&b.ticks.shifts===true), INV);
-  /* the readiness card shows the same call before approval */
+  /* 2026-11-19: the I-9 tick when the card's I-9 Section 1 line is still open: it asks, records Section 1, then the tick */
+  { const keep=window.__inv; let s1=false; const seen=[];
+    window.__inv=async(n,o)=>{ const b=(o&&o.body)||{}; if(n==='caregiver-journey'){ if(b.action==='confirm'&&b.step_key==='cg.step2.i9_s1'){ seen.push('s1'); s1=true; return { data:CARD, error:null }; }
+      if(b.action==='checkin'&&b.ticks&&b.ticks.i9===true){ seen.push('i9'); if(!s1) return { data:{ error:'Their I-9 Section 1 is not done in Viventium yet (Step 2), so Section 2 cannot be recorded. Nothing was saved for the I-9 line.' }, error:null }; } } return keep(n,o); };
+    const r0=AFTER.rows.find(x=>x.journey_id==='j-call'); r0.checkin.ticks.i9=false; await OPR.load(); await sleep(150); OPR.tab('fin'); await sleep(40);
+    ALERTS.length=0; CONFIRMS.length=0; let bx=[...rowOf('Fake Calling Person').querySelectorAll('.orp-tick input[type=checkbox]')][0]; bx.checked=true; bx.dispatchEvent(new Event('change')); await sleep(300);
+    ok('Orientation tab, I-9 tick with Section 1 open: asks about Section 1, records it, then the tick, no error box', seen.join('|')==='i9|s1|i9' && /signed Section 1 in Viventium/.test(CONFIRMS.at(-1)||'') && !ALERTS.length, [seen,CONFIRMS,ALERTS]);
+    s1=false; seen.length=0; ALERTS.length=0; CONFIRMS.length=0; r0.checkin.ticks.i9=false; CARD.checkin && (CARD.checkin.ticks.i9=false); await CRX.open('o-call'); await sleep(250);
+    const cb=[...document.getElementById('crBody').querySelectorAll('input[type=checkbox]')].find(x=>/I-9 Section 2/.test(x.closest('label,div').innerText));
+    if(cb){ cb.checked=true; cb.dispatchEvent(new Event('change')); await sleep(300); }
+    ok('readiness card, I-9 tick with Section 1 open: the same question, Section 1 then the tick, no error box', !!cb && seen.join('|')==='i9|s1|i9' && /signed Section 1 in Viventium/.test(CONFIRMS.at(-1)||'') && !ALERTS.length, [!!cb,seen,CONFIRMS,ALERTS]);
+    window.__inv=keep; r0.checkin.ticks.i9=true; }
   await CRX.open('o-call'); await sleep(250);
   const C=document.getElementById('crBody'), ct=()=>C.innerText;
   ok('readiness card: "Call after orientation" before approval, with the six lines and Send video link', /Call after orientation/.test(ct()) && /Approve to Work waits for this call/.test(ct()) && C.querySelectorAll('input[type=checkbox]').length>=6 && /Send video link/.test(ct()) && /Not ready/.test(ct()), ct().slice(0,800));
