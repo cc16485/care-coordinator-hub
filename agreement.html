@@ -132,15 +132,20 @@ const Q=new URLSearchParams(location.search);
    2026-11-12 (Samantha: "do the addendum inside of the care agreement"): rev-2026-11-12 is the current master. Early Support
    Visits is Exhibit J on pages 24 to 26 and applies only when its box is ticked; item 2 and Exhibit A carry its prices (pages
    2 to 10 reflowed; 169 boxes, 26 pages, so the page count now comes from each master's fields.json). The office ticks
-   Exhibit J, its schedule and the visit day on the set-up screen. Agreements started on 11-07 or earlier keep their own pages. */
-const PAGE_DIRS={'1137e7e60865b671276bc0a252742e1757a7690f22c835113b367ba45c1b1d1f':'agreement-pages/rev-2026-11-12/',
+   Exhibit J, its schedule and the visit day on the set-up screen. Agreements started on 11-07 or earlier keep their own pages.
+   2026-11-19 (Samantha: "its not a flat 35 anymore", "Yes, build it"): rev-2026-11-19 is the current master. The 8 hours a week
+   minimum is gone: under 8 hours a week is the hourly rate plus $5, Early Support Visits are the hourly rate plus $5, and the
+   $99 applies when visits are less often than weekly (pages 2 to 4, 11 and 24 to 26 changed; the same 169 boxes, 26 pages).
+   Agreements started on 11-12 or earlier keep their own pages. */
+const PAGE_DIRS={'9e1825a28dd15da7551cf9c71b36e6d98c1265f7dd75aeae6f1baf43f411671d':'agreement-pages/rev-2026-11-19/',
+  '1137e7e60865b671276bc0a252742e1757a7690f22c835113b367ba45c1b1d1f':'agreement-pages/rev-2026-11-12/',
   '062dad277104f276d824c4bbc65453f35c79b427bbe5ae9a6d24eb7b54b912e0':'agreement-pages/rev-2026-11-07/',
   'e11cbf8295107d42be8419fc76069543371c3788b0981d4c915823244bfc6309':'agreement-pages/rev-2026-10-30/',
   'a06569407574b49985c0c80fcca149db53904c237b850e874298ba23d66ce3fa':'agreement-pages/rev-2026-10-18b/',
   'ce326142e4593c7caac65cc549e6992af8808eebbaac1f0fcdcababef0b8be11':'agreement-pages/rev-2026-10-18/',
   'b04cd3c1f45930aa1926a63036d8bd44f5091dc71ca7ceff78b0f4a39f5081c3':'agreement-pages/rev-2026-10-17/',
   'd2c6df31fd5bcca031916a31355dfff0321a0c68c4c8445fb41d9ab9350b93f9':'agreement-pages/rev-2026-10/'};
-let PAGES_DIR='agreement-pages/rev-2026-11-12/', NPAGES=23;
+let PAGES_DIR='agreement-pages/rev-2026-11-19/', NPAGES=23;
 function pagesFor(ag){ const d=ag&&PAGE_DIRS[ag.pdf_sha256]; const want=d||(ag&&ag.pdf_sha256?PAGES_DIR:'agreement-pages/rev-2026-10/'); if(want!==PAGES_DIR){ PAGES_DIR=want; POS=null; } }
 const oldDraft=ag=>!!(ag&&ag.status==='draft'&&ag.pdf_sha256&&FORM&&FORM.pdf_sha256&&ag.pdf_sha256!==FORM.pdf_sha256);
 let ME={name:'',email:''}, AG=null, FORM=null, A={}, OFFICE={}, PREFILL={}, PFV={}, SIGNER={name:'',role:'',relationship:''}, TAPS={}, step='';
@@ -236,7 +241,7 @@ async function boot(session){
 async function load(ag){
   AG=ag; A=Object.assign({},ag.answers||{}); OFFICE=(ag.office&&ag.office.answers)||{}; PREFILL=Object.assign({},ag.office&&ag.office.prefill); PFV=Object.assign({},ag.office&&ag.office.prefill_values); recallSigner(); pagesFor(ag);
   $('backLink').href='index.html';
-  if(oldDraft(ag)){ $('view').innerHTML='<div class="err">This agreement was started before the wording was updated on October 17, 2026 (scheduled care now has an 8 hours a week minimum), so it can\'t be signed. Go back to the client and tap <b>Start another</b> to begin a new one.</div>'; return; }
+  if(oldDraft(ag)){ $('view').innerHTML='<div class="err">This agreement was started before the agreement wording was last updated, so it can\'t be signed. Go back to the client and tap <b>Start another</b> to begin a new one.</div>'; return; }
   if(ag.status==='draft'){ await positions(); go('fill'); }
   else if(ag.status==='signed') go('office');
   else if(ag.status==='countersigned') showDone();
@@ -262,9 +267,9 @@ function showOffice(){
   <label>Addenda this client also signs</label><div class="opts"><button type="button" class="pill" data-ad="va">VA Community Care</button><button type="button" class="pill" data-ad="guide">Medicare GUIDE</button></div>
   <div class="field-note" style="font-size:14px;color:var(--muted);margin-top:6px">Addenda are noted on the agreement record; print and sign them on paper for now.</div></div>
   ${FORM&&FORM.fields&&FORM.fields['esv.enrolled']?`<div class="card" id="esvCard"><label>Early Support Visits (Exhibit J)</label>
-  <div class="field-note" style="font-size:14px;color:var(--muted);margin:0 0 8px">Leave this blank for regular care. For an Early Support Visits client, pick Wellness Care above and enter the hourly rate: 38 for once a month, 35 for every other week.</div>
+  <div class="field-note" style="font-size:14px;color:var(--muted);margin:0 0 8px">Leave this blank for regular care. For an Early Support Visits client, enter the hourly rate above as the regular rate plus $5: 35 for Wellness Care. The one-time $99 assessment and setup is billed with the first visit.</div>
   <div class="opts"><button type="button" class="pill${A['esv.enrolled']===true?' on':''}" data-t="esv.enrolled">This client is enrolling in Early Support Visits</button></div>
-  <label style="margin-top:10px">Schedule</label><div class="opts">${oneOf(['esv.once_a_month','esv.every_other_week'],['Once a month, $152 a visit','Every other week, $140 a visit'])}</div>
+  <label style="margin-top:10px">Schedule</label><div class="opts">${oneOf(['esv.once_a_month','esv.every_other_week'],['Once a month','Every other week'])}</div>
   ${txt('esv.regular_visit_day_and_time','Regular visit day and time','text','placeholder="First Tuesday at 9 am"')}</div>`:''}
   <div id="pfNote" class="note">Looking up what we already know about this client…</div>
   <div id="offErr"></div><p><button class="btn" id="startBtn" type="button">Start filling in the agreement</button></p>`;
