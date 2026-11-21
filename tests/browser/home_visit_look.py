@@ -21,7 +21,7 @@ STUB = r"""
       single:async()=>({ data:null, error:null }), maybeSingle:async()=>({ data:null, error:null }),
       then(a){ return Promise.resolve({data:[],error:null}).then(a); } }; return p; },
     storage:{ from:()=>({ upload:async()=>{ window.__log.invokes.push('upload'); return { error:null }; } }) },
-    rpc:async()=>({data:null,error:null}), functions:{ invoke:async(n)=>{ window.__log.invokes.push(n); return {data:null,error:null}; } },
+    rpc:async()=>({data:null,error:null}), functions:{ invoke:async(n,o)=>{ window.__log.invokes.push(n); (window.__log.bodies=window.__log.bodies||[]).push([n,o&&o.body]); return {data:null,error:null}; } },
     auth:{ getSession:async()=>({data:{session:{access_token:'t'}}}) } };
     ME={ email:'krystal@mo-care.com', name:'Krystal Land' }; CC_ROLES=['owner_admin']; CC_ROLES_CHECKED=true;
     persist=async(k,v)=>{ window.__log.persists.push([k, JSON.parse(JSON.stringify(v))]); };
@@ -73,6 +73,10 @@ async()=>{
   ok('daily activities (Around the house + Personal care): all 15 of her rows, her questions, medicine questions with RN/LPN, Depends', ['Light housekeeping','Heavy housekeeping','Laundry','Meal preparation','Medication reminders','Shopping and errands','Transportation','Managing appointments','Phone and computer','Mobility and walking','Transfers','Bathing and showering','Toileting','Dressing and grooming','Eating'].every(t=>s4.includes(t))
     && /Needs our nurse \(RN\/LPN\)\?/.test(s4) && /Changing Depends\?/.test(s4) && /Verbal cues/.test(s4) && /Client helps/.test(s4) && !/LNP/.test(s4), s4.slice(0,600));
   ok('nothing suggested before any answer', HV._suggest()==='');
+  /* client driving (2026-11-21): the clear question under Transportation */
+  ok('driving: "Do they want a caregiver to drive them?" and "In whose car?" under Transportation', /Do they want a caregiver to drive them\?/.test(s4) && /In whose car\?/.test(s4) && /Client's car/.test(s4), s4.slice(0,300));
+  tap('visit.drive.want','yes'); tap('visit.drive.car','client_car');
+  ok('driving answers are kept on the visit', HV._st.a.visit.drive && HV._st.a.visit.drive.want==='yes' && HV._st.a.visit.drive.car==='client_car', HV._st.a.visit.drive);
   tap('visit.acts.light_house.level','helps'); ok('household help only = Wellness', HV._suggest()==='wellness');
   tap('visit.acts.bathing.level','standby'); ok('stand-by bathing = Personal', HV._suggest()==='personal');
   /* schedule, payer, level */
@@ -111,11 +115,13 @@ async()=>{
   const small=qa('button,[data-hv]').filter(b=>{ const x=b.getBoundingClientRect(); return x.width>0 && x.height>0 && x.height<36; }).map(b=>b.outerHTML.slice(0,80));
   ok('every button and box is at least 36px tall (fingers)', small.length===0, small.slice(0,5));
   const during={ invokes:L.invokes.slice(), keys:[...new Set(L.persists.map(x=>x[0]))], fn:L.fetches.slice(f0).filter(u=>/functions\/v1/.test(u)) };
-  ok('the visit itself sent nothing: no functions called, only the assessment and the lead saved', during.invokes.length===0 && during.keys.every(k=>['care_assessments','leads'].includes(k)) && during.fn.length===0, during);
+  ok('the visit itself sent nothing: no functions called, only the assessment and the lead saved', during.invokes.filter(n=>n!=='client-driving').length===0 && during.keys.every(k=>['care_assessments','leads'].includes(k)) && during.fn.length===0, during);
   /* finish (it then opens the family's profile, as the old assessment did) */
   q('[data-hva="finish"]').click(); await sleep(1500);
   const f=last();
   ok('Finish: done for the Start of Care check, who and when; the screen closes; tells them to record the outcome', f.status==='Completed — Awaiting Plan' && f.visit.finished_by==='Krystal Land' && f.visit.finished_at && !document.getElementById('hvRoot') && /Ready to start.*Start of Care, step 3/.test(L.toast||''), [f.status, L.toast]);
+  const db=(L.bodies||[]).find(x=>x[0]==='client-driving');
+  ok("Finish sends the driving answer to the client's Driving tab, from the visit", db && db[1].action==='set_mode' && db[1].from==='visit' && db[1].mode==='client_car' && db[1].lead==='lead_betty', L.bodies);
   await HV.open({ leadId:'lead_betty' }); await sleep(200);
   ok('opening again opens the same visit with its answers', DATA.care_assessments.length===1 && HV._st.a.id===a.id && q('[data-hv="visit.story.morning"]').value==='Up about 7. Coffee and toast.');
   await HV.close(); await sleep(100);

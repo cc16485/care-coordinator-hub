@@ -151,6 +151,7 @@ function renderDetails(done) {
     + (d.enjoys && d.enjoys.length ? '<div class="k" style="margin-top:8px">' + who + ' enjoys</div><div class="chips like">' + d.enjoys.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
     + basics(d)
     + '<div class="card"><div class="k">Time</div><div>' + rules + '</div>'
+    + (d.drive ? '<div class="k" style="margin-top:12px">Driving</div><div style="font-size:15.5px;font-weight:600">&#128663; ' + esc(d.drive) + '</div>' : '')   /* client driving (2026-11-21): whose car */
     + (d.help && d.help.length ? '<div class="k" style="margin-top:12px">You\'ll help with</div><div class="chips">' + d.help.map((x) => '<span>' + esc(x) + '</span>').join('') + '</div>' : '')
     + (d.needs && d.needs.length || d.level ? '<div class="k" style="margin-top:12px">Skills needed</div><div style="font-size:15.5px">' + [d.level ? 'Level ' + d.level + ' shift' : '', ...(d.needs || [])].filter(Boolean).map(esc).join(' · ') + '</div>' : '')
     + (d.home && d.home.length || d.care_line ? '<div class="k" style="margin-top:12px">Good to know</div><div style="font-size:15.5px">' + [...(d.home || []), d.care_line || ''].filter(Boolean).map(esc).join(' · ') + '</div>' : '')

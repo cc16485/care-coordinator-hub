@@ -605,6 +605,9 @@
         add(b + 'likes', 'How we help with ' + r[1] + ': how they like it done', 'Daily activities', hp.likes);
         add(b + 'watch', 'How we help with ' + r[1] + ': what to watch for', 'Daily activities', hp.watch); });
       houseJobs().forEach((g) => add('visit.acts.' + g[0] + '.jobs', g[1] + ': the jobs they want help with', 'Around the house', ((((v.acts || {})[g[0]]) || {}).jobs || []).join(', ')));
+      const dr = v.drive || {};
+      add('visit.drive.want', 'Wants a caregiver to drive them', 'Around the house', dr.want === 'yes' ? 'Yes' : dr.want === 'no' ? 'No' : '');
+      add('visit.drive.car', 'In whose car', 'Around the house', (DRIVE_CAR.find((x) => x[0] === dr.car) || [0, ''])[1]);
       const ou = v.outings || {};
       add('visit.outings.interests', 'Outings: what they enjoy', 'Good days out', (ou.interests || []).map((k) => (OUT_INTERESTS.find((x) => x[0] === k) || [0, k])[1]).join(', '));
       add('visit.outings.picks', 'Outings: places the family liked (the family approves each place before we go)', 'Good days out', (ou.picks || []).map((x) => x.name + (x.town ? ' (' + x.town + ')' : '')).join('; '));
@@ -680,11 +683,20 @@
       + '<div class="hv-stack">' + lab('What they do themselves', field(b + 'self')) + lab('Where the supplies are', field(b + 'supplies')) + '</div>'
       + lab('How they like it done', field(b + 'likes', '', { rows: 2 })) + lab('What to watch for', field(b + 'watch', '', { rows: 2 })) + '</div></div>';
   }
+  /* CLIENT DRIVING (Samantha 2026-11-21): "do they want us to provide transportation? Do they want the caregiver to drive the
+     caregivers car or drive the clients car?" Asked under Transportation; on Finish it goes to the client's Driving tab. */
+  const DRIVE_WANT = [['yes', 'Yes, drive them'], ['no', 'No driving']];
+  const DRIVE_CAR = [['caregiver_car', "Caregiver's car"], ['client_car', "Client's car"], ['either', 'Either']];
+  function driveQ() {
+    return '<div class="hv-g2 hv-medq">' + lab('Do they want a caregiver to drive them?', pills('visit.drive.want', DRIVE_WANT))
+      + lab('In whose car?', pills('visit.drive.car', DRIVE_CAR))
+      + '<div class="hv-n" style="grid-column:1/-1">Client\'s car: before a caregiver drives it we need a photo of the insurance card and the inspection paper (or the office marks a newer car exempt). Take the photos on the client\'s Driving tab.</div></div>';
+  }
   function secHouse() {
     return '<h1>Around the house</h1><div class="hv-sub">"These help us see what\'s going well and where a caregiver can make life easier and safer for you."</div>'
       + callCard(callRows('house'))
       + card('Around the house', '<div class="hv-act hv-th"><span>ACTIVITY</span><span>LEVEL OF NEED</span><span>NOTES</span></div>'
-        + HOUSE.map((r) => actRow(r) + (r[0] === 'meds' ? '<div class="hv-g3 hv-medq">'
+        + HOUSE.map((r) => actRow(r) + (r[0] === 'transport' ? driveQ() : '') + (r[0] === 'meds' ? '<div class="hv-g3 hv-medq">'
           + lab('Who fills the pill organizer?', field('visit.meds.fills'))
           + lab('Needs our nurse (RN/LPN)?', pills('visit.meds.nurse', NURSE))
           + lab('Where is the organizer kept?', field('visit.meds.where'))
@@ -1394,8 +1406,22 @@
     /* Care plan Stage 1 (her decision 2): the draft starts as soon as the visit is finished; nothing waits on the iPad */
     try { if (window.CPV) CPV.autoDraft(ST.a); } catch (e) {}
     try { if (ST.lead && typeof asmtToProfile === 'function') await asmtToProfile(ST.lead); } catch (e) {}
+    try { await driveToProfile(ST.a, ST.lead); } catch (e) {}
     try { if (typeof renderAssessments === 'function') renderAssessments(); } catch (e) {}
     try { if (typeof cpRenderCare === 'function') cpRenderCare(); } catch (e) {}
+  }
+
+  /* the visit's driving answer onto the client's Driving tab (client-driving set_mode, from 'visit'); the office's own answer
+     is never changed (the server makes a card instead) */
+  async function driveToProfile(a, l) {
+    const d = (a && a.visit && a.visit.drive) || {};
+    const mode = d.want === 'no' ? 'none' : d.want === 'yes' && ['caregiver_car', 'client_car', 'either'].indexOf(d.car) > -1 ? d.car : '';
+    if (!mode || typeof sb === 'undefined') return;
+    const ax = String(a.axiscare_client_id || (l && l.axiscare_client_id) || '').trim(), lead = l ? String(l.id) : String(a.lead_id || '');
+    if (!ax && !lead) return;
+    const r = await sb.functions.invoke('client-driving', { body: { action: 'set_mode', from: 'visit', mode, ax: ax || undefined, lead: lead || undefined, name: a.client_name || undefined } });
+    const out = r && r.data;
+    if (out && out.conflict) toast('Driving: ' + out.conflict);
   }
 
   /* open({ leadId }) or open({ id }) or open({ ax, name }) */
