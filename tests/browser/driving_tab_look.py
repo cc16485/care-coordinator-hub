@@ -33,7 +33,7 @@ CASES = {
   'from_ghl': {'row': row('pending', status_reason='pre-hire license and insurance copied from GoHighLevel; the office verifies', agreement_form=None, agreement_signed_at=None), 'docs': [dict(d, uploaded_by='GoHighLevel (pre-hire)', expires='2030-03-04') for d in DOCS],
                'derived': {'cleared_to_drive': False, 'approve_blockers': ['The Driver/Vehicle agreement is not signed'], 'audit': audit(False, ['The Driver/Vehicle agreement is not signed', 'The license is not verified'])}},
 }
-AUDIT = {'ok': True, 'counts': {'active': 3, 'done': 1, 'approved': 0, 'non_driver': 2, 'pending': 0, 'none': 1},
+AUDIT = {'ok': True, 'source': 'axiscare', 'counts': {'active': 3, 'done': 1, 'approved': 0, 'non_driver': 2, 'pending': 0, 'none': 1},
   'rows': [{'name': 'Old Driver', 'axiscare_id': '9003', 'status': 'none', 'done': False, 'left': ['Not set up: ask them whether they drive clients, then set them up as a driver or a Non-Driver']},
            {'name': 'Pat Practice', 'axiscare_id': '9001', 'status': 'non_driver', 'done': False, 'left': ['Check with them that Non-Driver is right, then record it']},
            {'name': 'Ava Lee', 'axiscare_id': '9002', 'status': 'non_driver', 'done': True, 'left': []}]}
@@ -132,7 +132,7 @@ try:
     # everyone
     show('approved'); pg.click('#card button:has-text("Driving check: see every active caregiver")'); pg.wait_for_timeout(300)
     t = pg.inner_text('#drvAuditModal')
-    ck('Driving check: every active caregiver, how many are complete, and each one\'s next step', '1 of 3' in t and 'Not set up' in t and 'NOT A DRIVER' in t and 'Check with them that Non-Driver is right' in t and '✓ complete' in t, t)
+    ck('Driving check: everyone Active in AxisCare (said so), how many are complete, and each one\'s next step', 'Everyone Active in AxisCare right now' in t and '1 of 3' in t and 'Not set up' in t and 'NOT A DRIVER' in t and 'Check with them that Non-Driver is right' in t and '✓ complete' in t, t)
     pg.screenshot(path=os.path.join(OUT, 'driving_check_list.png'))
     pg.click('#drvAuditModal a:has-text("Old Driver")'); pg.wait_for_timeout(100)
     ck('...a name opens their profile on the Driving tab', pg.evaluate('OPENED_PROFILE') == ['9003', 'driving'] and pg.locator('#drvAuditModal').count() == 0)
