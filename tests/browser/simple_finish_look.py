@@ -81,7 +81,7 @@ async([CODE, ENGINE])=>{
   ok('no em dash, no "GoHighLevel" anywhere it drew', !/—|GoHighLevel|GHL/.test(t));
   /* the Onboarding table's I-9 done button */
   const src=ENGINE;
-  ok('the table button: with the switch on it asks once and sends finish_i9; off it keeps the old path', /if\(obtSimpleOn\(\)\)\{\s*\n\s*if\(!\(await ccConfirm\('Did you see their ID and finish the I-9 in Viventium\?/.test(src) && /action:'finish_i9', saw_id:true/.test(src) && /action:'confirm', step_key:'cg\.i9\.section2'/.test(src));
+  ok('the table button: with the switch on it asks once and sends finish_i9; off it keeps the old path', /if\(obtSimpleOn\(\)\)\{\s*\n\s*const act = obtActivateOn\(\);\s*\n\s*if\(!\(await ccConfirm\(act \? 'Activate this new employee\?[^']*' : 'Did you see their ID and finish the I-9 in Viventium\?/.test(src) && /action:'finish_i9', saw_id:true/.test(src) && /action:'confirm', step_key:'cg\.i9\.section2'/.test(src));
   simple=true; approved=false; mayWork=true; S={ orientation:true, i9:false, checks:{ ok:true, waiting:[], blocked:[] }, box:BOX, open:true, tidy:S.tidy }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120);
   return R;
 }

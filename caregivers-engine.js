@@ -8178,6 +8178,19 @@ function obtFinish(p, j, g){
   const c = p.c, marks = [], acts = [];
   const mk = (k, label, s, tip) => marks.push({ k, label, s, tip });
   const fin = (window.OPR && typeof OPR.finishOf === 'function' && (g || c)) ? OPR.finishOf((g && g.axiscare_id) || (c && c.axiscare_id) || '', p.name) : null;
+  /* ACTIVATE NEW EMPLOYEE (Samantha 2026-11-21, activate_button_live with the simpler finish): "I need to simplify the finish
+     column ... a simple button Activate New Employee". The column says one thing: what they are waiting on, or the button. The
+     press records the I-9 in the presser's name, sets them Active in AxisCare, sends the text with the two app links, and
+     they leave this list. No letter chips. */
+  if(obtActivateOn()){
+    const miss = fin ? fin.missing : null, base = { fin, marks:[], acts:[], simple:true };
+    if(j && j.approved_to_work && j.axiscare === 'failed') return obtCell('todo', 'AxisCare did not take it', Object.assign(base, { who:'office', warn:true, b:{ label:'Retry', on:obtOpenCard(j) }, tip:'Activated, but AxisCare did not take it. Open the card and press Retry.' }));
+    if(j && j.approved_to_work) return obtCell('ok', 'Activated', Object.assign(base, { tip:'Activated: approved to work' }));
+    if(miss && miss.length === 1 && /I-9/i.test(miss[0]) && j && j.journey_id)
+      return obtCell('todo', '', Object.assign(base, { who:'office', b:{ label:'Activate New Employee', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Checks are clear and orientation is done. Look at their ID (in person or on live video), finish the I-9 in Viventium, then press Activate New Employee. They are set Active in AxisCare, get the text with the AxisCare and Viventium links, and leave this list.' }));
+    const waitO = !miss || miss.some(x => /orientation/i.test(x));
+    return obtCell(miss ? 'wait' : 'none', waitO ? 'Waiting on orientation' : 'Waiting on checks', Object.assign(base, { who:miss ? (waitO ? 'applicant' : 'office') : '', tip:miss && miss.length ? 'Still needs: ' + miss.join(', ') : 'Not ready yet' }));
+  }
   const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
   mk('O', 'Orientation', o && /^Finished/.test(o.text) ? (fin && fin.missing.some(m => /orientation/i.test(m)) ? 'wait' : 'ok') : o ? 'wait' : 'none',
      o ? o.text + (fin && fin.missing.some(m => /orientation/i.test(m)) ? '. Not verified on their readiness card yet.' : '') : 'Orientation not started');
@@ -8221,6 +8234,7 @@ function obtNearly(m){
   const j = m.j, f = m.cells.finish && m.cells.finish.fin;
   if(j && j.approved_to_work) return null;
   if(j && j.ready_for_final) return 'Ready to approve';
+  if(f && !f.approved && f.missing.length === 1 && /I-9/i.test(f.missing[0]) && obtActivateOn()) return 'Ready to activate';
   if(f && !f.approved && f.missing.length === 1) return 'Only ' + f.missing[0] + ' left';
   return null;
 }
@@ -8234,6 +8248,7 @@ function obtI9(c, j, fin){
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   /* THE SIMPLER FINISH (Samantha 2026-11-21, simple_finish_live): checks clear, orientation done, then this one button. It records
      the I-9 in the presser's name and approves them to work, so they leave this list. Shown only when the box is all that is left. */
+  if(obtActivateOn()) return obtCell('none', '', { tip:'Recorded when you press Activate New Employee in the Finish column' });
   if(obtSimpleOn()){
     if(open && f.missing.length === 1 && j && j.journey_id)
       return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Look at their ID (in person or on live video), finish the I-9 in Viventium, then press I-9 done. They are approved to work and leave this list. Only the person who saw the ID presses it.' });
@@ -8252,13 +8267,15 @@ function obtI9(c, j, fin){
   return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
 }
 const obtSimpleOn = () => !!(window.DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
+const obtActivateOn = () => obtSimpleOn() && DATA.ops_settings.activate_button_live === true;
 async function obtI9Done(jid, btn){
   /* THE SIMPLER FINISH (2026-11-21): one press records the I-9 and approves them to work */
   if(obtSimpleOn()){
-    if(!(await ccConfirm('Did you see their ID and finish the I-9 in Viventium?\n\nPress OK to record that in your name, with the time. They are then approved to work, set Active in AxisCare, and leave the Onboarding list. Only the person who saw the ID should press this.'))) return;
+    const act = obtActivateOn();
+    if(!(await ccConfirm(act ? 'Activate this new employee?\n\nDid you see their ID and finish the I-9 in Viventium? Press OK to record that in your name, with the time.\n\nThey are then set Active in AxisCare, get the text with the AxisCare and Viventium links, and leave the Onboarding list.\n\nAlready told them? Press Cancel and use their card instead: it has a "do not send the text" box.' : 'Did you see their ID and finish the I-9 in Viventium?\n\nPress OK to record that in your name, with the time. They are then approved to work, set Active in AxisCare, and leave the Onboarding list. Only the person who saw the ID should press this.'))) return;
     if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
     try{ await CRX.call({ journey_id:jid, action:'finish_i9', saw_id:true }); }
-    catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+    catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = act ? 'Activate New Employee' : 'I-9 done'; } return; }
     try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
     renderCkd(); return;
   }
@@ -8341,6 +8358,7 @@ function obtCellHTML(x, k){
   const tip = x.tip ? ' title="' + bgrEsc(x.tip) + '"' : '';
   if(k === 'finish'){
     const marks = (x.marks || []).map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('');
+    if(x.simple) return '<td class="obt-c obt-fin' + gs + '"' + tip + '>' + (x.b ? obtBtn(x.b) : '<span style="font-size:.78rem;font-weight:600;color:' + (x.s === 'ok' ? '#0F7A4A' : '#6B7280') + '">' + bgrEsc(x.t || '') + '</span>') + (x.b && x.t ? ' <span style="font-size:.74rem;color:#B45309">' + bgrEsc(x.t) + '</span>' : '') + '</td>';
     return '<td class="obt-c obt-fin' + gs + '"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + '</td>';
   }
   let inner;
