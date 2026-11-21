@@ -193,6 +193,74 @@ async()=>{ const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify
   ok('Save notes: on their record, status unchanged, Monday 8 to 4:30, the other days left empty (not guessed)', P.status==='new' && P.post_interview.talk.avail.days.mon.w[0].t==='16:30' && P.post_interview.talk.avail.days.tue.w.length===0 && P.post_interview.talk.avail.complete===false && P.post_interview.talk.work.working==='no', P.post_interview.talk);
   const html=apProfInterview({ id:CG, post_interview:P.post_interview });
   ok('their profile shows "From the interview conversation" with the times and that it is not confirmed yet', /From the interview conversation/.test(html) && /Monday 8 AM to 4:30 PM/.test(html) && /not confirmed yet/.test(html) && /Not working right now/.test(html), html.slice(-700));
+  /* ---- how it went: the score, your take, the outcome (her drawing, "Yes, build this") ---- */
+  const saidQ=[{ quote:'I waited, came back in ten minutes and let her pick the towel', source:'transcript', part:1, at:252, rec:'r1' }];
+  const AREAS=(c,e,j,r,s)=>[['compassion','Compassion and respect',c,'Waited and came back when a client refused a shower.'],['experience','Experience',e,'Described two years of personal care.'],['judgment','Safety and judgment',j,'Called the office about new confusion.'],['reliability','Reliability',r,'Called two hours ahead when her car broke down.'],['schedule','Schedule fit',s,'Evenings and Saturdays, confirmed.']].map(x=>({ key:x[0], label:x[1], score:x[2], why:x[2]?x[3]:'' }));
+  const mk=(over)=>({ id:'rv'+Math.random().toString(36).slice(2,7), applicant_id:CG, kind:'full', created_at:'2026-11-21T15:00:00Z', created_by:'Sam Test', marks:{},
+    review:Object.assign({ kind:'full', style:'talk', notes_only:false, score:4, fit:'Good fit', score_held:[], areas:AREAS(5,4,4,5,3),
+      opinion:'Jordan described two years of hands-on personal care and gave a clear example of staying patient with a client who refused a shower. She called her supervisor two hours ahead the one time she could not make it in.',
+      items:[{ id:'ts1', section:'strengths', said:saidQ, text:'Patience with a client refusing care.' }, { id:'tv2', section:'verify', said:[], text:'Confirm two years at Maple Grove with a reference.' },
+        { id:'tt3', section:'training', said:[], text:'Dementia training would open more clients.' }], parts:[{ rec:'r1', part:1 }], stats:null }, over||{}) });
+  let rh=IR.scoreHtml(mk(),'Jordan');
+  ok('score card: "4 out of 5", the word Good fit, the question about fit, and the opinion', /<b>4<\/b><span>out of 5<\/span>/.test(rh) && />Good fit</.test(rh) && /Is Jordan a good fit for Caring Companions\?/.test(rh) && /two years of hands-on personal care/.test(rh), rh.slice(0,500));
+  ok('...five area bars with their numbers and the reason for each', ['Compassion and respect','Experience','Safety and judgment','Reliability','Schedule fit'].every(x=>rh.includes(x)) && (rh.match(/class="ir-bar"/g)||[]).length===5 && /Called two hours ahead when her car broke down/.test(rh));
+  ok('...the quote behind it with its time, and Before you decide', /4:12/.test(rh) && /let her pick the towel/.test(rh) && /Before you decide/.test(rh) && /Confirm two years at Maple Grove/.test(rh) && /Dementia training would open more clients/.test(rh));
+  ok('...it says it is an opinion, you decide, and nothing changes their status, level or offer', /An opinion to help you/.test(rh) && /You decide\. It never changes their status, level or offer\./.test(rh));
+  ok('...nothing to confirm, correct or dismiss', !/>Confirm<|>Correct<|>Dismiss</.test(rh) && !/IR\.mark\(/.test(rh));
+  rh=IR.scoreHtml(mk({ score:3, fit:'Possible fit', areas:AREAS(5,5,5,5,2), score_held:['The overall score is held at 3 until exact availability is complete.'], items:[{ id:'tav1', section:'availability', said:[], text:'Exact availability was not entered for Tuesday.' }] }),'Jordan');
+  ok('a held score says why, first thing under Before you decide', /<b>3<\/b>/.test(rh) && />Possible fit</.test(rh) && /Before you decide<\/b><ul><li>The overall score is held at 3 until exact availability is complete\./.test(rh) && /not entered for Tuesday/.test(rh), rh.slice(-600));
+  rh=IR.scoreHtml(mk({ score:null, fit:'Not scored', areas:AREAS(5,null,null,null,3), score_held:['Not enough of the interview was covered to give an overall score.'] }),'Jordan');
+  ok('an area that did not come up shows "not covered", never a number; with too few there is no overall score', /not covered/.test(rh) && /no score/.test(rh) && />Not scored</.test(rh) && /Not enough of the interview was covered/.test(rh));
+  rh=IR.scoreHtml(mk({ notes_only:true, score:3, fit:'Possible fit', items:[{ id:'ts1', section:'strengths', said:[{ quote:'Called her supervisor two hours ahead', source:'notes' }], text:'Called in early.' }] }),'Jordan');
+  ok('from notes only: says there was no recording and marks the quote as interviewer notes', /No recording\./.test(rh) && /from the interviewer notes/.test(rh) && /interviewer notes<\/span> <q>Called her supervisor/.test(rh));
+  const oldRow={ id:'rvold', applicant_id:PRN, kind:'full', created_at:'2026-11-21T15:00:00Z', marks:{}, review:{ kind:'full', summary:'Three years of home care.', items:[{ id:'s1', section:'strengths', said:saidQ, text:'Experience.' }], parts:[{ rec:'r1', part:1 }] } };
+  rh=IR.reviewHtml(oldRow);
+  ok('a PRN (or any old-style) review is shown exactly as before: no score, Confirm and Dismiss still there', />Confirm</.test(rh) && />Dismiss</.test(rh) && /second set of ears/.test(rh) && /Summary/.test(rh) && !/out of 5|good fit/i.test(rh) && /any hiring recommendation, score or verdict/.test(rh));
+
+  /* the page: three steps */
+  window.__DB.recordings=[{ id:'r1', kind:'interview', subject_id:CG, status:'done', consent_given:true, turns:[{ start:0, text:'hi', name:'A' }], created_at:'2026-11-21T14:00:00Z' }];
+  window.__DB.interview_reviews=[];
+  await apInterview(CG); await sleep(250);
+  const card=document.getElementById('apIntCard'), step=(v)=>tb().querySelector('.tk-step[data-tkview="'+v+'"]');
+  ok('the Interview card shows three steps: 1 The conversation, 2 How it went, 3 Outcome', card.classList.contains('ap-talk') && /1 The conversation/.test(step('talk').textContent) && /2 How it went/.test(step('went').textContent) && /3 Outcome/.test(step('outcome').textContent));
+  const hidden=(id)=>getComputedStyle(document.getElementById(id)).display==='none';
+  ok('...while talking, the old lower part is out of the way: no observation groups, no old outcome buttons', hidden('apIntHome') && hidden('apIntOutcomeRow') && document.getElementById('apIntObs').parentNode.id==='apIntHome');
+  step('went').click(); await sleep(350);
+  const went=tb().innerText;
+  ok('How it went: the review card, Your take, What we learned and the Outcome on one page', /Is Jordan a good fit for Caring Companions\?/.test(went) && /Would you send Jordan to care for someone in your own family\?/.test(went) && /What we learned/i.test(went) && /your decision/i.test(went) && /Hire/.test(went) && /Candidate pool/.test(went) && /Not hiring/.test(went) && /Save and decide later/.test(went) && /Did not show/.test(went), went.slice(0,500));
+  ok('...no review yet: one button, Get the review, and it says it runs only when tapped', /Get the review/.test(document.getElementById('tkReview').innerText) && /Only when you tap it\. You decide\./.test(document.getElementById('tkReview').innerText));
+  ok('...What we learned shows what was entered (Monday 8 AM to 4:30 PM)', /Monday 8 AM to 4:30 PM/.test(went));
+  const more=document.getElementById('tkMore');
+  ok('...+ More is folded, and holds the quick check, the observation groups and the notes', !more.open && document.getElementById('apIntObs').parentNode.id==='tkMoreBody' && document.getElementById('apIntLegacy').parentNode.id==='tkMoreBody' && document.getElementById('apIntQuickWrap').parentNode.id==='tkMoreBody' && !/Would I feel comfortable assigning this person/.test(document.getElementById('apIntObs').innerText));
+  let asked=''; const realAsk=window.apAsk; window.apAsk=async(o)=>{ asked=(o&&o.text)||''; return null; };
+  const U0=window.__U.length; tb().querySelector('[data-tkout="pool"]').click(); await sleep(250);
+  ok('an outcome before the family question is tapped: stopped, says what to tap, nothing saved', /Tap Yes, Unsure or No/.test(asked) && window.__U.length===U0, [asked, window.__U.slice(U0)]);
+  tb().querySelector('[data-tkfam="yes"]').click(); await sleep(120);
+  ok('one tap answers it, with no note needed', tb().querySelector('[data-tkfam="yes"]').classList.contains('on') && window.__apInt.observations.family.answer==='yes' && !window.__apInt.observations.family.why);
+  document.getElementById('tkMore').open=true; document.querySelector('#tkMoreBody [onclick*="apIntPick"]') && document.querySelector('#tkMoreBody [onclick*="apIntPick"]').click(); await sleep(250);
+  ok('...a tap inside + More keeps the page where it was: still How it went, More still open, the answer kept', /your decision/i.test(tb().innerText) && document.getElementById('tkMore').open && tb().querySelector('[data-tkfam="yes"]').classList.contains('on') && document.getElementById('apIntObs').parentNode.id==='tkMoreBody', [/your decision/i.test(tb().innerText), document.getElementById('tkMore') && document.getElementById('tkMore').open, !!tb().querySelector('[data-tkfam="yes"].on'), document.getElementById('apIntObs').parentNode.id, window.__apInt.talk && window.__apInt.talk.view, !!document.querySelector('#tkMoreBody [onclick*="apIntPick"]')]);
+  tb().querySelector('[data-tkout="save"]').click(); await sleep(300);
+  const P2=window.__DB.job_applicants[0];
+  ok('Save and decide later: on their record, status unchanged, the family answer kept, the open page not saved', P2.status==='new' && P2.post_interview.observations.family.answer==='yes' && P2.post_interview.talk.view===undefined && P2.post_interview.talk.avail.days.mon.w[0].t==='16:30', P2.post_interview);
+  window.__DB.interview_reviews=[mk()]; await IR.card(document.getElementById('tkReview'), P2); await sleep(120);
+  const rc=document.getElementById('tkReview').innerText;
+  ok('with a review: the score card shows on the page, the full detail is folded, Review again is offered', /out of 5/.test(rc) && /Good fit/.test(rc) && /See the full review/.test(rc) && /Review again/.test(rc) && !document.querySelector('#tkReview details').open, rc.slice(0,300));
+  window.__wentShot=true;
+  window.apToOffer=()=>{ window.__OFFER=true; }; asked='';
+  tb().querySelector('[data-tkout="hired"]').click(); await sleep(350);
+  ok('Hire: the same outcome step as before runs (status hired, on to the offer), decided by the person, not the score', window.__DB.job_applicants[0].status==='hired' && !/Tap Yes/.test(asked), [window.__DB.job_applicants[0].status, asked]);
+  window.apAsk=realAsk;
+  await apInterview(PRN); await sleep(250);
+  ok('opening a PRN applicant afterwards: the old card comes back whole (observations with the family question, old buttons, no steps)', !card.classList.contains('ap-talk') && !hidden('apIntHome') && !hidden('apIntOutcomeRow') && document.getElementById('apIntObs').parentNode.id==='apIntHome' && document.getElementById('apIntLegacy').parentNode.id==='apIntHome' && /Would I feel comfortable assigning this person/.test(document.getElementById('apIntObs').innerText) && !document.querySelector('.tk-step'));
+  /* the Interview tab: notes-only and recording buttons */
+  window.__DB.recordings=[]; window.__DB.interview_reviews=[];
+  window.__DB.job_applicants[0].post_interview.notes='Warm and calm. Said she did bathing and dressing at Maple Grove for two years.';
+  const host=document.createElement('div'); document.body.appendChild(host); await IR.mount(host,{ id:CG }); await sleep(80);
+  ok('Interview tab, no recording, notes typed: "Review from the interviewer notes", and it says it reads only the notes', /Review from the interviewer notes/.test(host.innerText) && /There is no recording, so it reads only the notes/.test(host.innerText), host.innerText);
+  const host2=document.createElement('div'); document.body.appendChild(host2); await IR.mount(host2,{ id:PRN }); await sleep(80);
+  ok('...a PRN applicant with no recording gets no such button (as before)', !/Review from the interviewer notes/.test(host2.innerText) && /Analyze appears once a recorded interview/.test(host2.innerText), host2.innerText);
+  host.remove(); host2.remove();
+  ok('Settings: the switch has its own section, New caregiver interview (not inside Leads)', document.getElementById('talkToggleBtn').closest('.settings-section').getAttribute('data-set')==='caregiver-interview');
   ok('Settings with the switch on: says who gets it and that PRN is unchanged', (TALK.settingsFill(), /regular Caregiver applicants get the six-section interview\. PRN and every other position are unchanged/.test(document.getElementById('talkSetNow').textContent)));
   return R; }
 """
@@ -224,6 +292,21 @@ with sync_playwright() as pw:
       x.innerHTML=TALK.html(window.__DB.interview_sections, T, {}); document.body.appendChild(x); }""")
     d.set_viewport_size({'width': 800, 'height': 1900}); d.wait_for_timeout(150)
     d.locator('#tkShot').screenshot(path=os.path.join(OUT, 'interview_talk_hub_availability.png'))
+    d.evaluate("""async()=>{ const x=document.getElementById('tkShot'); x.style.width='1080px'; x.style.background='#F6F9FD'; const A=window.__DB.job_applicants[0];
+      const T=TALK.norm(JSON.parse(JSON.stringify(A.post_interview.talk))); T.view='went';
+      T.avail.days={ mon:{w:[{f:'16:00',t:'22:00'}]}, tue:{w:[{f:'16:00',t:'22:00'}]}, wed:{w:[{f:'16:00',t:'22:00'}]}, thu:{w:[{f:'16:00',t:'22:00'}]}, fri:{w:[{f:'16:00',t:'22:00'}]}, sat:{w:[{f:'08:00',t:'20:00'}]}, sun:{off:true,w:[]} }; T.avail.confirmed=true; T.avail.steady='yes';
+      T.work={ working:'yes', employer:'Maple Grove', hours:'24', plan:'keep', sched:'fixed', start:'2026-12-01' }; T.hours={ want:'25', min:'15', type:'part' }; T.care.levels=['1','2']; T.care.settings=['facilities']; T.dementia='no'; T.dementia_learn='yes';
+      DATA.ops_settings={ interview_talk_live:true };
+      x.innerHTML=TALK.html(window.__DB.interview_sections, T, { steps:true, family:{ answer:'yes' }, first:'Jordan' });
+      const rv=window.__DB.interview_reviews; window.__DB.recordings=[{ id:'r1', kind:'interview', subject_id:A.id, status:'done', consent_given:true, turns:[{start:0,text:'hi'}], created_at:'2026-11-21T14:00:00Z' }];
+      if(!rv.length) rv.push({ id:'rvpic', applicant_id:A.id, kind:'full', created_at:'2026-11-21T15:00:00Z', marks:{}, review:{ kind:'full', style:'talk', score:4, fit:'Good fit', score_held:[], notes_only:false,
+        opinion:'Jordan described two years of hands-on personal care and gave a clear example of staying patient with a client who refused a shower. She called her supervisor two hours ahead the one time she could not make it in. Her evening and weekend hours are steady. She has not done dementia care and wants to learn.',
+        areas:[['compassion','Compassion and respect',5,'Waited and came back when a client refused a shower.'],['experience','Experience',4,'Described two years of personal care at an assisted living home.'],['judgment','Safety and judgment',4,'Called the office when a client seemed more confused.'],['reliability','Reliability',5,'Called two hours ahead when her car broke down.'],['schedule','Schedule fit',3,'Evenings and Saturdays only, because she keeps another job.']].map(a=>({key:a[0],label:a[1],score:a[2],why:a[3]})),
+        items:[{ id:'ts1', section:'strengths', said:[{ quote:'I waited, came back in ten minutes and let her pick the towel.', source:'transcript', part:1, at:252, rec:'r1' }], text:'Patience.' },{ id:'ts2', section:'strengths', said:[{ quote:'My car broke down once and I called my supervisor two hours before my shift.', source:'transcript', part:1, at:580, rec:'r1' }], text:'Called early.' },
+          { id:'tv1', section:'verify', said:[], text:'Confirm two years at Maple Grove with a reference.' },{ id:'tv2', section:'verify', said:[], text:'She keeps her other job: evenings and weekends only.' },{ id:'tt1', section:'training', said:[], text:'Dementia training would open more clients.' }], parts:[{rec:'r1',part:1}] } });
+      await IR.card(x.querySelector('#tkReview'), A); }"""); d.wait_for_timeout(250)
+    d.set_viewport_size({'width': 1130, 'height': 1500}); d.wait_for_timeout(150)
+    d.locator('#tkShot').screenshot(path=os.path.join(OUT, 'interview_talk_hub_how_it_went.png'))
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for s_, n, dd in R: print(s_, '·', n, '' if s_ == 'PASS' else dd)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))

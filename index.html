@@ -343,7 +343,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=3"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="interview-talk.js?v=1"></script><!-- the caregiver interview as a conversation (2026-11-21) --><script src="phone-mode.js?v=21"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=2"></script><script src="interview-review-ui.js?v=5"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><style>#apIntCard.ap-talk #apIntHome,#apIntCard.ap-talk #apIntOutcomeRow,#apIntCard.ap-talk #apIntPoolNote,#apIntCard.ap-talk #apIntHint{display:none !important}</style><script src="interview-talk.js?v=2"></script><!-- the caregiver interview as a conversation (2026-11-21) --><script src="phone-mode.js?v=21"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -5077,15 +5077,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="axcCardsBtn" onclick="AxisConn.toggle(AxisConn.CARDS, this)">Turn on AxisCare read cards</button>
   <span class="field-note" id="axcSaved"></span>
 </div>
-<!-- The caregiver interview as a conversation (2026-11-21, her Caregiver Interview Redesign): interview-talk.js. ops_settings.interview_talk_live -->
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">New caregiver interview</div>
-<p class="hint">Regular Caregiver applicants get the interview as a conversation: six sections, short lines to say, an information button, and exact day-by-day availability. PRN CNA, PRN Caregiver and every other position keep today's interview. Nothing is sent to anyone, and no application answer, care level or status changes. Only Samantha or Zachary can turn this on or off.</p>
-<div id="talkSetNow" class="field-note" style="margin:6px 0 8px;"></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="talkToggleBtn" onclick="TALK.settingsToggle(this)">Turn on the new caregiver interview</button>
-  <button class="secondary" id="talkTryBtn" onclick="TALK.tryIt(!TALK.trying())">Try it (only me)</button>
-  <span class="field-note" id="talkSaved"></span>
-</div>
 <!-- Escalated to you, made simple (2026-10-30, her plan https://claude.ai/artifact/2C6NzZXYUMVdzeQrR12BH4): escalated-simple.js. ops_settings.escalated_simple_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Escalated to you, made simple</div>
 <p class="hint">Escalated to you is grouped by person, with how many and the oldest. Only cards about a client's care at risk or a promise to a family are listed one by one. Each card is one line with I'll do it, Leave with (it stays theirs and is not escalated again for 3 days), and Close; the menu has four choices. Nothing is sent to anyone. Only Samantha or Zachary can turn this on or off.</p>
@@ -5257,6 +5248,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <button class="primary" onclick="mbSave(this)">Save recipients</button>
 <button class="secondary" onclick="mbTest(this)">Send me a test brief now</button>
 <span class="field-note" id="mbStatus"></span>
+</div>
+</div>
+
+<!-- The caregiver interview as a conversation (2026-11-21, her Caregiver Interview Redesign): interview-talk.js. ops_settings.interview_talk_live -->
+<div class="settings-section" data-set="caregiver-interview">
+<h3>🗣 New caregiver interview</h3>
+<p class="hint">Regular Caregiver applicants get the interview as a conversation: six sections, short lines to say, an information button, and exact day-by-day availability. Afterward, Review this interview writes a short assessment with one of three labels; it never changes a status, a level or an offer. PRN CNA, PRN Caregiver and every other position keep today's interview and review. Nothing is sent to anyone. Only Samantha or Zachary can turn this on or off.</p>
+<div id="talkSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="talkToggleBtn" onclick="TALK.settingsToggle(this)">Turn on the new caregiver interview</button>
+  <button class="secondary" id="talkTryBtn" onclick="TALK.tryIt(!TALK.trying())">Try it (only me)</button>
+  <span class="field-note" id="talkSaved"></span>
 </div>
 </div>
 
@@ -6041,7 +6044,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <div class="card" id="apIntCard" style="display:none;padding:16px 18px;margin-top:14px;">
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
           <b style="font-size:15px;color:var(--navy);">Interview with <span id="apIntWho"></span></b>
-          <span class="field-note">fill this in as you talk. It becomes their AxisCare attributes.</span>
+          <span class="field-note" id="apIntHint">fill this in as you talk. It becomes their AxisCare attributes.</span>
           <span style="flex:1;"></span>
           <button class="ghost" onclick="document.getElementById('apIntCard').style.display='none'">Close</button>
         </div>
@@ -6056,19 +6059,25 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
         </details>
         <div id="recHostInterview" style="margin-top:12px;"></div>
         <div id="apIntForm" style="margin-top:12px;"></div>
+        <!-- 2026-11-21 (her drawing, "Yes, build this"): for the new caregiver interview these pieces move into the page's
+             "+ More" fold and beside the outcome (apIntTalkPlace); for every other interview they stay right here. -->
+        <div id="apIntHome">
         <!-- 2026-10-13 (her "yes to all" + "build"): the interviewer's observations and the family reflection (interview-observations.js) -->
         <div id="apIntObs" style="margin-top:14px;max-width:760px;"></div>
 
         <!-- 2026-11-17 (Katlin video interviews): the driver's license check, shown only for a video interview (video-interviews.js) -->
         <div id="apIntIdCheck" style="margin-top:14px;"></div>
+        <div id="apIntLegacy">
         <label style="margin-top:14px;">How did it go?</label>
         <textarea id="apIntNotes" rows="2" placeholder="How they came across, anything that decided it either way…"></textarea>
         <!-- 2026-10-12 (the new interview, her "yes to all"): what to ask their references about rides onto the offer and into Background & References -->
         <label style="margin-top:10px;">Check with their references</label>
         <textarea id="apIntRefCheck" rows="2" placeholder="Anything you want their references to confirm, e.g. how they handled a client who refused care"></textarea>
         <div class="field-note" style="margin-top:4px;">Print the <a href="interview-sheet.html" target="_blank" rel="noopener">interview sheet</a> to laminate. On a phone, start the interview from Today in CC Office. PRN applicant? Print the <a href="prn-teams-interview-handout.pdf" target="_blank" rel="noopener">PRN Teams handout</a> (front and back) to give them.</div>
+        </div>
+        </div>
 
-        <div style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
+        <div id="apIntOutcomeRow" style="display:flex;gap:9px;flex-wrap:wrap;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;">
           <button class="primary" onclick="apOutcome('hired',this)">✅ Hire, make the offer</button>
           <button class="secondary" onclick="apOutcome('pool',this)">🗂 Candidate pool</button>
           <button class="ghost" style="color:var(--red);" onclick="apOutcome('declined',this)">Not hiring</button>
@@ -6076,7 +6085,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
           <button class="secondary" onclick="apIntSaveNotes(this)">Save notes</button>
           <button class="ghost" onclick="apOutcome('noshow',this)">Did not show</button>
         </div>
-        <div class="field-note" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
+        <div class="field-note" id="apIntPoolNote" style="margin-top:8px;">Candidate pool keeps them warm. They stay in <b>Qualified</b> and are first in line when you tell past applicants about an opening.</div>
         <div id="apIntSaid" class="field-note" style="margin-top:6px;"></div>
         <div id="apIntErr" style="display:none;color:var(--red);font-size:13px;margin-top:8px;"></div>
       </div>
@@ -27433,7 +27442,8 @@ function apIntRender(){
     '<button type="button" class="fb" style="'+(A[key]===val?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
     + '" onclick="apIntPick(\''+key+'\',\''+val+'\')">'+esc(lab)+'</button>';
 
-  let html = (window.__apTalk ? '<div id="apIntTalk" style="margin-bottom:18px;max-width:760px;"></div>'
+  apIntTalkPark();   /* the pieces lent to the new interview page go home before this card is redrawn */
+  let html = (window.__apTalk ? '<div id="apIntTalk" style="margin-bottom:18px;"></div><div id="apIntQuickWrap" style="display:none">'
       : apScriptHtml(AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value))))
     + '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);'
       + 'margin:6px 0 8px;border-top:1px solid var(--border);padding-top:14px;">Quick check, 30 seconds (only what their application did not answer)</div>'
@@ -27447,6 +27457,7 @@ function apIntRender(){
     '<input id="apIntTravel" value="'+esc(A.travel_areas||'')+'" oninput="apIntSet(\'travel_areas\',this.value)" '
     + 'placeholder="Springfield, Nixa, Ozark…" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
 
+  if(window.__apTalk) html += '</div>';
   document.getElementById('apIntForm').innerHTML = html;
   apIntTalkMount();
 
@@ -27490,6 +27501,8 @@ async function apInterview(id){
   try{ if(window.TALK && TALK.on() && TALK.applies(r.position)){ const ts = await TALK.load(); if(ts && ts.length){ window.__apTalk = ts;
     let dt = null; try{ dt = JSON.parse(localStorage.getItem(AP_IVD(id)) || 'null'); }catch(e){}
     window.__apInt.talk = TALK.norm(dt && dt.A && dt.A.talk ? dt.A.talk : window.__apInt.talk); } } }catch(e){ window.__apTalk = null; }
+  apIntTalkPark();
+  { const cd = document.getElementById('apIntCard'); if(cd) cd.classList.toggle('ap-talk', !!window.__apTalk); }
   apIntRender();
   apIntObsMount(id);
   if(window.VI) VI.idCheckMount(id);
@@ -27510,14 +27523,37 @@ function apIntDraftSave(){
     notes: (document.getElementById('apIntNotes')||{}).value || '', ref: (document.getElementById('apIntRefCheck')||{}).value || '' })); }catch(e){ /* private window */ }
   const s = document.getElementById('apIntSaid'); if(s) s.textContent = 'Kept on this computer. Save notes (or an outcome) puts it on their record.';
 }
-/* 2026-11-21: the six-section conversation. Kept on this computer as you go; Save notes or an outcome puts it on their record. */
+function apIntTalkPark(){
+  const home = document.getElementById('apIntHome'); if(!home) return;
+  const mb = document.getElementById('tkMore'); if(mb) window.__apMoreOpen = mb.open;
+  /* back in their own order: observations, the ID check, then the notes */
+  ['apIntObs','apIntIdCheck','apIntLegacy'].forEach(id => { const n = document.getElementById(id); if(n) home.appendChild(n); });
+  const qw = document.getElementById('apIntQuickWrap'), form = document.getElementById('apIntForm');
+  if(qw && form && qw.parentNode !== form){ qw.style.display = 'none'; form.appendChild(qw); }
+}
+/* On "How it went": the quick check, the observations and the notes go under + More; the video ID check sits above the
+   outcome (it can hold an outcome back, so it must be in view); the review card is drawn by interview-review-ui.js. */
+function apIntTalkPlace(){
+  const more = document.getElementById('tkMoreBody'); if(!more) return;
+  const qw = document.getElementById('apIntQuickWrap'); if(qw){ qw.style.display = ''; more.appendChild(qw); }
+  ['apIntObs','apIntLegacy'].forEach(id => { const n = document.getElementById(id); if(n) more.appendChild(n); });
+  const idh = document.getElementById('tkIdHost'), idc = document.getElementById('apIntIdCheck'); if(idh && idc) idh.appendChild(idc);
+  const mb = document.getElementById('tkMore'); if(mb && window.__apMoreOpen) mb.open = true;
+  const id = (document.getElementById('apIntId')||{}).value, r = AP_ROWS.find(x=>String(x.id)===String(id));
+  if(window.IR && r) IR.card(document.getElementById('tkReview'), Object.assign({}, r, { post_interview: Object.assign({}, r.post_interview||{}, { notes: (document.getElementById('apIntNotes')||{}).value || '', talk: window.__apInt.talk }) }));
+}
+/* 2026-11-21: the new caregiver interview on the computer, in three steps (interview-talk.js). Kept on this computer as you go. */
 function apIntTalkMount(){
   const tb = document.getElementById('apIntTalk'); if(!tb || !window.TALK || !window.__apTalk) return;
-  const draw = () => { tb.innerHTML = TALK.html(window.__apTalk, window.__apInt.talk, {}); };
+  const id = (document.getElementById('apIntId')||{}).value, r = AP_ROWS.find(x=>String(x.id)===String(id)) || {};
+  const fam = () => { const O = (window.__apInt.observations = window.__apInt.observations || {}); O.family = O.family && typeof O.family === 'object' ? O.family : {}; return O.family; };
+  const draw = () => { apIntTalkPark(); tb.innerHTML = TALK.html(window.__apTalk, window.__apInt.talk, { steps:true, family:fam(), first:r.first_name || '' }); apIntTalkPlace(); };
   draw();
   TALK.bind(tb, () => (window.__apInt.talk = TALK.norm(window.__apInt.talk)), (redraw, moved) => { if(redraw) draw();
     if(moved){ try{ tb.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }
-    clearTimeout(apIntTalkMount.t); apIntTalkMount.t = setTimeout(apIntDraftSave, 400); });
+    clearTimeout(apIntTalkMount.t); apIntTalkMount.t = setTimeout(apIntDraftSave, 400); },
+    { family: (k, v) => { const f = fam(); if(k === 'answer') f.answer = (f.answer === v ? null : v); else f.why = v; },
+      outcome: (kind, btn) => kind === 'save' ? apIntSaveNotes(btn) : apOutcome(kind, btn) });
 }
 function apIntObsMount(id){
   const box = document.getElementById('apIntObs'); if(!box || !window.OBS) return;
@@ -27530,7 +27566,7 @@ function apIntObsMount(id){
     if(s) s.textContent = 'Your observations from earlier on this computer are back. Save notes puts them on their record.';
   }
   window.__apInt.observations = window.__apInt.observations || {};
-  const draw = () => { box.innerHTML = OBS.html(window.__apInt.observations, { open:true }); };
+  const draw = () => { box.innerHTML = OBS.html(window.__apInt.observations, window.__apTalk ? { open:false, noFamily:true } : { open:true }); };
   draw();
   OBS.bind(box, () => (window.__apInt.observations = window.__apInt.observations || {}), redraw => { if(redraw) draw(); clearTimeout(apIntObsMount.t); apIntObsMount.t = setTimeout(apIntDraftSave, 400); });
 }
@@ -27979,8 +28015,9 @@ async function apOutcome(outcome, btn){
 
   /* 2026-10-13 (her rule): nothing is required except the family reflection's why, before an outcome */
   if(window.OBS){
-    const miss = OBS.missing(A.observations);
-    if(miss){ await apAsk({ title: 'Not yet', text: miss }); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
+    /* 2026-11-21 (her OK on the drawing): on the new caregiver interview the family question is one tap and the note is optional */
+    const miss = window.__apTalk ? ((A.observations && A.observations.family && A.observations.family.answer) ? '' : 'Tap Yes, Unsure or No on "Would you send them to care for someone in your own family?" first.') : OBS.missing(A.observations);
+    if(miss){ await apAsk({ title: 'Not yet', text: miss }); const ob = document.getElementById(window.__apTalk ? 'tkMore' : 'apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
     A.observations = OBS.clean(A.observations, apIntBy());
   }
   if(window.__apTalk && window.TALK && A.talk) A.talk = TALK.clean(A.talk, apIntBy());
