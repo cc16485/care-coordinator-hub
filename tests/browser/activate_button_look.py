@@ -11,7 +11,8 @@ m = re.search(r"if\(x\.simple\) return .*\n", ENGINE); SIMPLE = m.group(0)
 T = r"""
 async([PARTS, SIMPLE, CARD, ENGINE])=>{
   const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify(d===undefined?'':d).slice(0,600)]);
-  window.DATA={ ops_settings:{ simple_finish_live:true, activate_button_live:true, after_orientation_call_live:true, auto_approve_work_live:true } };
+  { const d=document.createElement('script'); d.textContent='let DATA={ ops_settings:{ simple_finish_live:true, activate_button_live:true, after_orientation_call_live:true, auto_approve_work_live:true } }; const setSw=(k,v)=>{ DATA.ops_settings[k]=v; };'; document.head.appendChild(d); }
+  ok('the page keeps its settings in a page-level DATA, not on window (the real Hub does the same)', typeof window.DATA === 'undefined');
   window.bgrEsc=(t)=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   window.obtOpenCard=(j)=>"open('"+j.journey_id+"')"; window.ckdOrientAx=()=>''; window.ckdWc=()=>null; window.ckdDay=(d)=>String(d).slice(5,10); window.obtDay=window.ckdDay;
   let FIN={}; window.OPR={ finishOf:(ax,name)=>FIN[name]||null, brief:()=>({ text:'Finished Nov 16' }) };
@@ -28,12 +29,12 @@ async([PARTS, SIMPLE, CARD, ENGINE])=>{
   ok('activated: says Activated, no button', !cells.Dee.f.b && cells.Dee.f.t==='Activated' && cells.Dee.f.s==='ok', cells.Dee.f);
   ok('AxisCare did not take it: Retry, said plainly', cells.Eve.f.b && cells.Eve.f.b.label==='Retry' && /AxisCare did not take it/.test(cells.Eve.html), cells.Eve.f);
   ok('the question on the press names the I-9, AxisCare, the text and the no-text box on the card; nothing about a call', /Activate this new employee\?[^']*finish the I-9 in Viventium[^']*Active in AxisCare[^']*AxisCare and Viventium links[^']*do not send the text/.test(ENGINE) && !/Activate this new employee\?[^']*\bcall/i.test(ENGINE));
-  DATA.ops_settings.activate_button_live=false;
+  setSw('activate_button_live', false);
   const old=T.obtFinish(P('Ava'), J(), { axiscare_id:'9' }), oldI9=T.obtI9({ id:1 }, J(), old);
   ok('switch off: the column is exactly as before (letter chips, I-9 done in the I-9 column)', !old.simple && old.marks.length>=4 && oldI9.b && oldI9.b.label==='I-9 done' && T.obtNearly({ j:J(), cells:{ finish:old } })==='Only '+BOX+' left', [old.marks.length, oldI9]);
-  ok('the card button reads Activate New Employee only with the switch on', /activate_button_live === true \? 'Activate New Employee' : '✓ Cleared to work'/.test(CARD));
+  ok('the card button reads Activate New Employee only with the switch on', /a\.switches && a\.switches\.activate === true \? 'Activate New Employee' : '✓ Cleared to work'/.test(CARD) && !/window\.DATA/.test(CARD) && !/window\.DATA/.test(ENGINE));
   ok('no em dash and no GoHighLevel in the new words', !/—/.test(SIMPLE) && !/Activate[^\n]*(—|GoHighLevel|GHL)/.test(ENGINE));
-  DATA.ops_settings.activate_button_live=true;
+  setSw('activate_button_live', true);
   const names={ Ava:'Ava Lee', Ben:'Ben Ray', Cy:'Cy Moss', Dee:'Dee Park', Eve:'Eve Nu' };
   document.body.innerHTML='<h3 style="margin:0 0 8px">Onboarding · Finish column (preview, made-up names)</h3><table style="border-collapse:collapse;font-size:14px"><tr><th style="text-align:left;padding:6px 14px;border-bottom:2px solid #0D365F">Name</th><th style="text-align:left;padding:6px 14px;border-bottom:2px solid #0D365F">Orientation</th><th style="text-align:left;padding:6px 14px;border-bottom:2px solid #0D365F">Finish</th></tr>'
     + rows.map(([n])=>'<tr><td style="padding:10px 14px;border-bottom:1px solid #e5e0d5"><b>'+names[n]+'</b>'+(cells[n].near?'<div style="font-size:12px;color:#0F7A4A">★ '+cells[n].near+'</div>':'')+'</td><td style="padding:10px 14px;border-bottom:1px solid #e5e0d5">'+(n==='Ben'?'U8/11':'✓')+'</td>'+cells[n].html.replace('<td','<td style="padding:10px 14px;border-bottom:1px solid #e5e0d5"')+'</tr>').join('')+'</table>';
