@@ -19,7 +19,7 @@
     ['communication', 'Communication, from the transcript'], ['safety', 'Confidentiality, safety or boundaries'],
     ['missed', 'Questions the interview did not cover'], ['reference_questions', 'Suggested reference-check questions']];
   var SEC_TALK = [['strengths', 'What they described, from specific answers'], ['concerns', 'Job-related points to follow up'],
-    ['safety', 'Client safety, privacy or boundaries'], ['availability', 'Availability to follow up'], ['verify', 'To confirm before moving forward'],
+    ['safety', 'Client safety, privacy or boundaries'], ['availability', 'Availability to follow up'], ['verify', 'To confirm after the offer, in Step 1'],
     ['training', 'Training that would help'], ['missed', 'Topics the conversation did not cover'], ['reference_questions', 'Suggested reference-check questions']];
   var TONE = function (n) { return n >= 4 ? ['#2E8F8B', '#1F6F6B'] : n === 3 ? ['#D9972B', '#A8660E'] : ['#D4574A', '#B42318']; };
   /* The score card (2026-11-21, her drawing): the ring, the fit word, the opinion, the bars, how they communicated, two or three quotes and
@@ -53,9 +53,14 @@
     if (quotes.length) h += '<div style="margin-top:12px">' + quotes.map(function (s) {
       return '<div class="ir-said" style="margin-top:7px">' + (s.source === 'notes' ? '<span class="ts" style="cursor:default">interviewer notes</span>'
         : '<button class="ts" title="Listen from here" onclick="IR.play(\'' + esc(s.rec) + '\',' + (+s.at || 0) + ',this)">' + clock(s.at) + '</button>') + ' <q>' + esc(s.quote) + '</q></div>'; }).join('') + '</div>';
-    var todo = []; ['safety', 'concerns', 'availability', 'verify', 'training'].forEach(function (sec) { items.forEach(function (it) { if (it.section === sec && todo.length < 6) todo.push(it.clarify || it.text); }); });
+    var todo = []; ['safety', 'concerns', 'availability'].forEach(function (sec) { items.forEach(function (it) { if (it.section === sec && todo.length < 6) todo.push(it.clarify || it.text); }); });
     (R.score_held || []).forEach(function (x) { todo.unshift(x); });
     if (todo.length) h += '<div class="ir-todo"><b>Before you decide</b><ul>' + todo.filter(Boolean).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul></div>';
+    /* Her word 2026-11-21: experience cannot be confirmed until the offer is sent and they finish Step 1, so those
+       points are never under Before you decide. */
+    var later = []; ['verify', 'training'].forEach(function (sec) { items.forEach(function (it) { if (it.section === sec && later.length < 6) later.push(it.text || it.clarify); }); });
+    if (later.length) h += '<div class="ir-todo" style="background:#F1F6FB"><b style="color:#0E3860">After the offer, in Step 1</b><ul>' + later.filter(Boolean).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'
+      + '<div class="field-note" style="margin-top:4px">Experience is what ' + esc(first || 'they') + ' described. It is confirmed with their references and checks after the offer.</div></div>';
     h += '<div class="field-note" style="margin-top:10px">An opinion to help you, based only on what ' + esc(first || 'they') + ' said and what was entered. You decide. It never changes their status, level or offer.</div>';
     return h;
   }
