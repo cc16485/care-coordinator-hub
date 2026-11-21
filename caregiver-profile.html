@@ -292,7 +292,7 @@ function quickMode() {
   QUICK = true;
   $('hiVerb').textContent = 'set up';
   $('ledeNew').style.display = 'none'; $('ledeSelf').style.display = 'block';
-  $('ledeSelf').textContent = "Families see a short profile of you before a visit, so they know a friendly face is coming. We'll write it for you! Add a friendly photo and answer 3 quick questions. It takes about 2 minutes.";
+  $('ledeSelf').textContent = "Families see a short profile of you before a visit, so they know a friendly face is coming. We'll write it for you! Add a friendly photo and answer 3 quick questions." + (ME.new_hire ? "" : " It takes about 2 minutes.");   /* 2026-11-21: a new hire coming from Step 1 is told nothing about time (her rule for applicants) */
   $('wordsCard').style.display = 'none'; $('quickCard').style.display = 'block';
   $('qFirstName').textContent = ME.first_name || 'your first name';
   const a = ME.quick_answers || {};

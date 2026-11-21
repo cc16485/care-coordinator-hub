@@ -285,6 +285,7 @@ function screenHtml(s){
   if (s === '9') {
     h += '<h1>All done, ' + esc(V.who.first) + '.</h1>' + (window.ARoad ? ARoad.html(4) : '') + '<p class="lede">Every form is signed. Here is what happens next: the office orders your background checks and contacts your references; then you hear from us about Step 2 (your payroll paperwork in Viventium) and your Orientation Video Call. Questions any time: ' + PHONE + '.</p>';
     if (HPROOF) h += proofBox();
+    h += profileAskBox();
     h += laterRefsBox();
     h += '<div class="doc"><h3>Your signed copies</h3><div class="copies" id="copies"><p class="small">Fetching your copies…</p></div><p class="small">Each link works for ten minutes; open this page again any time for fresh ones.</p></div>';
     setTimeout(loadCopies, 50);
@@ -423,6 +424,20 @@ function refsOwedLocal(){
   return { professional: Math.max(0, req.professional - pro), personal: Math.max(0, req.personal - per), any: 0 };
 }
 let LATER_KIND = 'professional', LATER_DONE = '';
+/* PROFILE AT STEP 1 (Samantha 2026-11-21, Admin switch profile_at_step1_live): once Step 1 is complete the server sends their
+   own caregiver profile link (V.profile_ask); the All done screen shows "One more thing". No link = no card. Her wording. */
+function profileAskBox(){
+  const p = V.profile_ask; if (!p || !p.link) return '';
+  if (p.sent_in) return '<div class="okmsg" id="profileAsk">Thank you, your caregiver profile is in.</div>';
+  return '<div class="doc" id="profileAsk"><h3>One more thing: your caregiver profile</h3>'
+    + '<p>Families see a short profile of you before your first visit, so they know a friendly face is coming. Add a friendly photo and answer 3 quick questions, and we will write it for you. A short hello video is welcome if you like.</p>'
+    + '<p><a class="go" style="display:block;background:var(--gold);color:#122F52;border-radius:10px;padding:15px;font-size:17px;font-weight:800;text-decoration:none;text-align:center" href="' + esc(p.link) + '">Start my profile</a></p>'
+    + '<p class="small">Not ready? You can do it later. We will send you a reminder with your link.</p></div>';
+}
+/* the last signature just landed: ask once for the profile link (their record is made at that signature) */
+async function loadProfileAsk(){
+  try { const r = await call({ action: 'view' }); if (r.status === 200 && r.j && r.j.profile_ask) { V.profile_ask = r.j.profile_ask; if (SCREEN === '9') render(); } } catch (_) {}
+}
 function laterRefsBox(){
   const o = V.refs_owed; if (!o) return LATER_DONE ? '<div class="okmsg" id="laterOk">Thank you, we added ' + esc(LATER_DONE) + '. We have the references we need.</div>' : '';
   const total = (o.professional || 0) + (o.personal || 0) + (o.any || 0);
@@ -544,7 +559,7 @@ async function sign(form){
   SIGS[form] = { at: r.j.signed_at, typed_name: name, version: r.j.version };
   if (form === 'reference_consent') V.refs_owed = refsOwedLocal();
   if (r.j.proof_link) HPROOF = r.j.proof_link;
-  if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); } else go(nextOf(SCREEN));
+  if (r.j.done) { V.completed_at = r.j.signed_at; go('9'); loadProfileAsk(); } else go(nextOf(SCREEN));
 }
 async function loadCopies(){
   if (PREVIEW) { const box = document.getElementById('copies'); if (box) box.innerHTML = V.forms.filter((f) => !f.when || ANS[f.when.id] === f.when.equals).map((f) => '<a href="#" onclick="previewPdf(\'' + f.key + '\');return false">📄 ' + esc(f.title) + ' (preview PDF)</a>').join(''); return; }

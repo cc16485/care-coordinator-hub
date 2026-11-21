@@ -370,6 +370,23 @@ window.AP_JOURNEY = [
  },
  {
   "stage": "after interview (offer / pool / declined)",
+  "order": 13.37,
+  "name": "Caregiver profile follow-ups after Step 1 (day 3 and day 6)",
+  "trigger": "Step 1 is finished, they are not yet on the caregiver list, and their part of the caregiver profile (photo, 3 quick answers, permission) is not sent in (Admin switch profile_at_step1_live). The first ask is the 'One more thing' card on the Step 1 All done screen.",
+  "automatic": true,
+  "button": null,
+  "timing": "Day 3 and day 6 after Step 1 was finished; 9am to 6pm Central, Monday to Saturday (held, never dropped).",
+  "channel": "text + email",
+  "rule": "Twice at most; someone found late gets one, not two. On day 8 one card asks the office to call them. A follow-up that cannot go becomes a card. Stops the moment their profile is sent in. Off with the Admin switch.",
+  "subject": "Please finish your Caring Companions profile",
+  "text": "Hi {first}, it's Caring Companions. Please finish your caregiver profile before your first shift: {profile} A friendly photo and 3 quick questions, and we write it for you. Questions? Call (417) 234-8494. Reply STOP to opt out.",
+  "email_summary": "Families see a short profile of you before your first visit, so they know a friendly face is coming. Please finish yours before your first shift. Add a friendly photo and answer 3 quick questions, and we will write it for you. A short hello video is welcome if you like. [Start my profile]",
+  "shows_in_ghl": true,
+  "failure_visible": true,
+  "page": "https://cc.mo-care.com/caregiver-profile.html?preview=1"
+ },
+ {
+  "stage": "after interview (offer / pool / declined)",
   "order": 13.4,
   "name": "Offer reminders, day 2 and day 5 (NEW onboarding path, Slice 1e)",
   "trigger": "The scheduled run (every 15 minutes) finds an offer on the new path that is not signed, declined, withdrawn or expired, 2 days and again 5 days after it was sent (the days are set on the Owners Hub Admin page, Reminder days and deadlines).",

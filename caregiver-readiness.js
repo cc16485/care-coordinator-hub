@@ -103,9 +103,12 @@
   function simpleBlock(a){
     const s = a.simple, line = (ok, words, sub) => '<div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0"><span style="flex:none;width:13px;font-weight:800;color:' + (ok ? '#15803D' : '#B45309') + '">' + (ok ? '✓' : '○') + '</span><span>' + words + (sub ? '<div style="font-size:.76rem;color:#B45309">' + esc(sub) + '</div>' : '') + '</span></div>';
     const ck = s.checks || {}, bad = (ck.blocked || []).length ? 'Flagged: ' + ck.blocked.join(', ') + '. An owner decides first.' : (ck.waiting || []).length ? 'Still needed: ' + ck.waiting.join(', ') : '';
-    let h = '<div style="font-size:.78rem;color:#6E6559;margin:.1rem 0 .3rem">Three things and they are cleared to work.</div>';
+    /* PROFILE BEFORE WORK (Samantha 2026-11-21, Admin switch profile_before_work_live): s.profile is sent only when the rule is on */
+    const pf = s.profile || null;
+    let h = '<div style="font-size:.78rem;color:#6E6559;margin:.1rem 0 .3rem">' + (pf ? 'Four' : 'Three') + ' things and they are cleared to work.</div>';
     h += line(!!ck.ok, 'Background checks clear', ck.ok ? '' : (bad || 'Not on file yet'));
     h += line(!!s.orientation, 'Orientation finished', '');
+    if(pf) h += line(!!pf.sent, 'Caregiver profile sent in', pf.sent ? '' : 'They have not sent in their photo and 3 quick answers. The Hub reminds them; send their link again from their profile, or call them.');
     if(s.i9) h += line(true, 'I-9 finished in Viventium', '') + (ck.ok && s.orientation ? '<div style="font-size:.78rem;color:#15803D;margin:.2rem 0">Everything is done. The Hub approves them within the hour.</div>'
       + (s.no_text ? '<div style="font-size:.78rem;color:#6E6559">No cleared text will go: the office already told them.</div>' : a.may_approve_work ? '<div style="margin-top:.2rem"><button class="ibtn" onclick="CRX.noText(this)">Do not send the cleared text</button> <span style="font-size:.76rem;color:#6E6559">if you already told them</span></div>' : '') : '');
     else if(s.open && a.may_approve_work)
@@ -113,7 +116,7 @@
         + '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:2px 0 5px;cursor:pointer;font-size:.82rem;color:#3F3A33"><input type="checkbox" id="crNoText" style="flex:none;width:auto;margin:3px 0 0"><span style="flex:1;min-width:0">Do not send them the cleared text (we already told them)</span></label>'
         + '<div style="margin-top:.3rem"><button id="crI9Go" class="ibtn" disabled style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.finishI9(this)">✓ Cleared to work</button></div>'
         + '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">Saved in your name with the time. They are set Active in AxisCare, get the cleared text (unless you tick the second box), and leave the Onboarding list. Only the person who saw the ID ticks this.</div>';
-    else h += line(false, esc(s.box), s.open ? 'A person on the Approve to Work list or a care coordinator ticks this.' : 'Opens once the two lines above are done.');
+    else h += line(false, esc(s.box), s.open ? 'A person on the Approve to Work list or a care coordinator ticks this.' : 'Opens once the ' + (pf ? 'three' : 'two') + ' lines above are done.');
     const t = s.tidy || [];
     if(t.length) h += '<details style="margin-top:.5rem"><summary style="cursor:pointer;font-size:.78rem;color:#6E6559">Still to tidy (' + t.length + '). None of these hold them back.</summary><div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 0 .9rem">' + t.map(x => '<div>· ' + esc(x) + '</div>').join('') + '</div></details>';
     return h;
