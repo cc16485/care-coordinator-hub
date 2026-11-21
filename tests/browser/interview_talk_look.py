@@ -3,7 +3,7 @@ phone interview and on the Hub's Interview & outcome card, exact day-by-day avai
 Save, the profile, the owner switch, and that PRN and switch-off interviews are exactly the question list.
 Offline, made-up applicants; every Supabase answer is faked; nothing is saved or sent. Serves the files from disk itself.
 The section words are tests/browser/interview_talk_sections.json, a copy of the Staffing repo's
-interview_sections_caregiver.json (what Desktop step 1568 installs).   (python3 tests/browser/interview_talk_look.py)"""
+interview_sections_caregiver.json (what Desktop step 1569 installs).   (python3 tests/browser/interview_talk_look.py)"""
 from playwright.sync_api import sync_playwright
 import os, json, threading, http.server, functools
 HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(os.path.dirname(HERE))

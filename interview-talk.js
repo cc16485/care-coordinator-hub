@@ -9,7 +9,7 @@
      · Exact availability is the one thing that must be typed: day by day, real start and end times, more than one
        window a day when needed. "Anytime" cannot be entered. If they cannot confirm today it closes as Needs follow-up;
        nothing is ever filled in for them.
-     · The words come from the interview_sections table (Staffing step 1568), never from this file.
+     · The words come from the interview_sections table (Staffing step 1569), never from this file.
    Saved on job_applicants.post_interview.talk (office only, like the rest of the interview). Nothing here changes an
    application answer, a care level, a status, or sends anything.
      post_interview.talk = { at, mode:'person'|'video', consent:'yes'|'no',
