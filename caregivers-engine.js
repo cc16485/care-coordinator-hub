@@ -1414,6 +1414,7 @@ async function loadOffers(btn){
     const data=await r.json();
     if(!Array.isArray(data)) throw new Error((data&&data.error)||'unexpected response');
     OFFERS=data.filter(o=>!offerIsTest(o));
+    await obDeclinedLoad();
     if(box) renderOffers();
     updateOffersBadge();
     if(typeof obtOfferPill === 'function') obtOfferPill();   /* 2026-11-04 offers live on Onboarding when the switch is on */
@@ -1441,7 +1442,25 @@ function offerRejectedWhy(o){
   if(!signed&&(o.offer_status==='expired'||(o.onboarding_path==='new'&&o.offer_expires_at&&Date.parse(o.offer_expires_at)<Date.now()))) return 'Expired';
   const c=(typeof candidates!=='undefined'?candidates:[]).find(x=>String(x.offer_id)===String(o.id));
   if(c&&c.not_hired) return 'Not hired';
+  if(!o.step1_done_at&&obOfferApplicantDeclined(o)) return 'Not moving forward';
   return '';
+}
+/* 2026-11-19 (Samantha: "i put this in for Tina Shorr but shes still in our onboarding tab"): "Not moving forward" on the
+   application that got this offer (the applicant record with an offer or hire stamp, same phone or email) closes the offer
+   here too, so the person leaves Onboarding. Only applications that reached an offer count, so an old declined application
+   never closes a newer offer, and an offer whose Step 1 is done is left alone. */
+let OB_DECLINED=[];
+async function obDeclinedLoad(){
+  try{
+    const { data, error }=await sb.from('job_applicants').select('phone,email,offer_sent_at,hired_at').eq('status','declined').or('offer_sent_at.not.is.null,hired_at.not.is.null');
+    if(!error) OB_DECLINED=Array.isArray(data)?data:[];
+  }catch(e){ /* without it, offers close only the old ways */ }
+}
+function obOfferApplicantDeclined(o){
+  const d=t=>String(t||'').replace(/\D/g,'').slice(-10), e=t=>String(t||'').trim().toLowerCase();
+  const ph=d(o.phone), em=e(o.email);
+  if(ph.length<10&&!em) return false;
+  return Array.isArray(OB_DECLINED)&&OB_DECLINED.some(a=>(ph.length===10&&d(a.phone)===ph)||(!!em&&e(a.email)===em));
 }
 function offerStage(o){
   if(offerRejectedWhy(o)) return 'rejected';
@@ -7703,7 +7722,9 @@ function ckdPeople(){
     out.push({ stop:ckdStopOf(c), name:ckdName(c), ms:ckdAddedMs(c), c });
   });
   ckdJourneyRows().forEach(r => {
-    if(!r || r.approved_to_work && r.axiscare !== 'failed' && !r.checkin_open) return;
+    /* 2026-11-19 (Samantha: "remove call after orientation as a requirement that keeps them in onboarding ... we now have the
+       automated text that sends out after orientation with the app videos"): an open call no longer keeps someone here */
+    if(!r || r.approved_to_work && r.axiscare !== 'failed') return;
     if(r.offer_id && seen.has(String(r.offer_id))) return;
     if(r.offer_id) seen.add(String(r.offer_id));
     if(gone(r.offer_id)) return;
@@ -8165,7 +8186,8 @@ function obtFinish(p, j, g){
      after orientation (I-9 on camera, everything checked, app, clients and shifts), before Approve to Work */
   if(obtCallOn()){
     if(ci && ci.done) mk('C', 'Call after orientation', 'ok', 'Call after orientation done');
-    else if(ci){ mk('C', 'Call after orientation', 'todo', 'Call them: I-9 on camera, everything checked, app, clients and shifts' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : '')); if(j) acts.push({ label:'Call', on:obtOpenCard(j) }); }
+    /* 2026-11-19: optional now (the app videos text goes out by itself after orientation), so never a to-do or the row's next step */
+    else if(ci) mk('C', 'Call after orientation', 'none', 'Optional: the app videos text goes out by itself after orientation' + (ci.tries && ci.tries.length ? ' (no answer ' + ci.tries.length + 'x)' : ''));
     else if(j && (j.approved_to_work || j.ready_for_final)) mk('C', 'Call after orientation', 'ok', j.approved_to_work ? 'Approved to Work' : 'Everything done');
     else mk('C', 'Call after orientation', 'none', 'Opens when they finish orientation');
   }
@@ -8183,7 +8205,7 @@ function obtFinish(p, j, g){
   else if(g && j){ mk('B', 'Badge', 'todo', 'Make their employee badge and mail it'); acts.push({ label:'Mark badge mailed', on:'ckdBadgeMailed(\'' + bgrEsc(String(j.offer_id)) + '\',this)' }); }
   else mk('B', 'Badge', 'none', obtCallOn() ? 'Once they are on the caregiver list' : 'After the video call');
   if(j && j.approved_to_work && j.axiscare === 'failed'){ mk('A', 'Approved', 'todo', 'Approved, but AxisCare did not take it'); acts.unshift({ label:'Retry', on:obtOpenCard(j), warn:true }); }
-  else if(j && j.approved_to_work){ mk('A', 'Approved', 'ok', 'Approved to work'); if(j.checkin_open) acts.unshift({ label:'Check-in call', on:obtOpenCard(j) }); }
+  else if(j && j.approved_to_work) mk('A', 'Approved', 'ok', 'Approved to work');
   else if(j && j.ready_for_final){ const auto = DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true;
     mk('A', 'Approved', auto ? 'wait' : 'todo', auto ? 'Everything is done. The Hub approves them within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator.');
     if(!auto) acts.unshift({ label:'Approve', on:obtOpenCard(j) }); }
@@ -8212,9 +8234,10 @@ function obtI9(c, j, fin){
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   if(obtCallOn()){
     /* with the call after orientation, the I-9 line is ticked on that call (it completes this same readiness-card row) */
-    const cm = fin && (fin.marks || []).find(x => x.k === 'C');
-    if(open && cm && cm.s === 'todo' && j) return obtCell('todo', '', { who:'office', b:{ label:'Call', on:obtOpenCard(j) }, tip:'Look at their ID on video during the call after orientation, complete I-9 Section 2 in Viventium, then tick the I-9 line on the call.' });
-    return obtCell('none', '', { tip:'On the call after orientation, where their ID is checked on video' });
+    /* 2026-11-19: the call is optional now, so I-9 Section 2 has its own button once orientation is done (the call opened) */
+    if(open && f && f.checkin && !f.checkin.done && j && j.journey_id)
+      return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Look at their ID (in person or on live video), complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
+    return obtCell('none', '', { tip:'After orientation: look at their ID and complete I-9 Section 2' });
   }
   const v = fin && (fin.marks || []).find(x => x.k === 'V');
   if(open && v && v.s === 'ok' && j && j.journey_id)
@@ -8224,8 +8247,17 @@ function obtI9(c, j, fin){
 async function obtI9Done(jid, btn){
   if(!(await ccConfirm('Record that you examined their ID documents and completed I-9 Section 2 in Viventium?\n\nThis completes the I-9 Section 2 row on their readiness card in your name, with the time. Only the person who did it should press this.'))) return;
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
-  try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' }); }
-  catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+  const back = (e) => { alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } };
+  const s2 = () => CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.i9.section2' });
+  try{ await s2(); }
+  catch(e){
+    /* 2026-11-19: the server refuses Section 2 while the card's own "I-9 Section 1" line is open (Step 2 was checked without that
+       tick, and a checked Step 2 cannot be ticked again). The presser confirms that line too, by name, then Section 2 is recorded. */
+    if(!/I-9 Section 1/i.test(String(e.message || e))) return back(e);
+    if(!(await ccConfirm('Their card still shows I-9 Section 1 (the part the employee signs) as open, so Section 2 cannot be recorded yet.\n\nDid you see their signed Section 1 in Viventium? Press OK to record both in your name, with the time: Section 1 signed by the employee, and Section 2 completed by you.'))){ if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+    try{ await CRX.call({ journey_id:jid, action:'confirm', step_key:'cg.step2.i9_s1' }); await s2(); }
+    catch(e2){ return back(e2); }
+  }
   try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
   renderCkd();
 }
@@ -10363,6 +10395,9 @@ async function s2After(id, d){
    date through Step 1's own logged reveal, kept only in this open window), a Check AxisCare button, and one big
    Send orientation information button. The server checks AxisCare's zip code and birth date against Step 1 before anything goes. */
 function axSetupHtml(d, dob, chk, msg){
+  /* APPLICANT UNTIL CLEARED (Samantha 2026-11-18, Admin switch applicant_path_live): they stay an applicant in AxisCare until they are
+     cleared to work, so nothing is typed into AxisCare here; a card asks for the conversion after Approve to Work */
+  if(d && d.applicant_path) return axApplicantHtml(d, msg);
   const e = wcEsc, a = d.address || {}, line = (label, v, key) => '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed #E8E2D8;font-size:14px"><span style="color:#6E6559;min-width:110px">' + label + '</span><span style="flex:1;text-align:right;font-weight:600;min-width:0;overflow-wrap:anywhere">' + (v ? e(v) : '<span style="color:#A89C8B;font-weight:400">not given</span>') + '</span>' + (v ? '<button class="ibtn" style="font-size:.72rem" onclick="axCopy(this,\'' + key + '\')">Copy</button>' : '') + '</div>';
   const fmtDob = v => /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v.slice(5, 7) + '-' + v.slice(8, 10) + '-' + v.slice(0, 4) : '';
   window.__axVals = { first:d.first, last:d.last, phone:d.phone, email:d.email, street:[a.address1, a.address2].filter(Boolean).join(' '), city:a.city, state:a.state, zip:a.zip, dob:fmtDob(dob) };
@@ -10372,6 +10407,14 @@ function axSetupHtml(d, dob, chk, msg){
     + line('Birth date', window.__axVals.dob || (d.has_dob ? '' : ''), 'dob')
     + '<div class="field-note" style="margin-top:4px">' + (d.has_dob ? 'The birth date is shown from their Step 1, and the showing is logged. It is never saved on this screen.' : 'No birth date on their Step 1. Ask them for it before you send.') + '</div>';
   if(chk) h += '<div style="margin-top:10px;padding:9px 11px;border-radius:8px;font-size:13.5px;' + (chk.ok ? 'background:#E7F6EC;color:#1F5C38">&#10003; AxisCare has them In Training, and the zip code and birth date match.' : 'background:#FFF7ED;color:#8A4E0C"><b>Not ready to send yet:</b><ul style="margin:4px 0 0 18px;padding:0">' + (chk.problems || []).map(x => '<li>' + e(x) + '</li>').join('') + '</ul>') + '</div>';
+  if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
+  if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
+  return h;
+}
+function axApplicantHtml(d, msg){
+  const e = wcEsc;
+  let h = '<div style="font-size:13.5px;color:#5C544A;margin-bottom:8px">Press <b>Send orientation information</b> to send ' + e(d.first || 'them') + ' their orientation link, profile link and welcome in one message.</div>'
+    + '<div style="padding:9px 11px;border-radius:8px;font-size:13.5px;background:#EEF4FB;color:#0E3860"><b>Do not add them to AxisCare as a caregiver yet.</b> They stay an applicant in AxisCare until Step 2, orientation and Approve to Work are done. Then a card on My Work asks you to convert them to a caregiver with status Active, and the Hub does the rest.</div>';
   if(msg) h += '<div style="margin-top:10px;font-size:13.5px">' + msg + '</div>';
   if(d.sent) h += '<div class="field-note" style="margin-top:8px">Sent before: ' + e(new Date(d.sent.at).toLocaleString('en-US', { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' })) + '. Pressing Send again sends the same links again.</div>';
   return h;
@@ -10407,7 +10450,8 @@ async function axSetupOpen(id){
   let d = null, dob = '';
   try{
     d = await s2Call({ action:'axis_sheet', candidate_id:String(id) });
-    if(d.has_dob && d.offer_id){ try{ const r = await sb.functions.invoke('step1-sign', { body:{ action:'reveal', offer_id:String(d.offer_id), field:'dob', reason:'Typed into AxisCare (add as In Training)' } }); if(r.data && r.data.ok) dob = String(r.data.value || ''); }catch(_){} }
+    if(d.applicant_path){ w.querySelector('#axFill').style.display = 'none'; w.querySelector('#axCheck').style.display = 'none'; }
+    if(d.has_dob && d.offer_id && !d.applicant_path){ try{ const r = await sb.functions.invoke('step1-sign', { body:{ action:'reveal', offer_id:String(d.offer_id), field:'dob', reason:'Typed into AxisCare (add as In Training)' } }); if(r.data && r.data.ok) dob = String(r.data.value || ''); }catch(_){} }
     body.innerHTML = axSetupHtml(d, dob, null, '');
     if(d.sent) w.querySelector('#axSend').textContent = 'Send again';
   }catch(e){ body.innerHTML = '<div style="color:#B91C1C">' + wcEsc(e.message) + '</div>'; w.querySelector('#axSend').disabled = true; w.querySelector('#axCheck').disabled = true; return; }
@@ -10425,7 +10469,7 @@ async function axSetupOpen(id){
     b.disabled = false; b.textContent = 'Check AxisCare';
   };
   w.querySelector('#axSend').onclick = async (ev) => {
-    const b = ev.target; b.disabled = true; b.textContent = 'Checking AxisCare and sending…';
+    const b = ev.target; b.disabled = true; b.textContent = d && d.applicant_path ? 'Sending…' : 'Checking AxisCare and sending…';
     const { data, error } = await sb.functions.invoke('step2-handoff', { body:{ action:'send_orientation', candidate_id:String(id) } });
     let j = data || {}; if(error){ try{ j = await error.context.json(); }catch(_){ j = { error: error.message }; } }
     const inv = j.invite || {};
@@ -12913,6 +12957,7 @@ window.obRefSendGo = obRefSendGo;
 /* Remote orientation, slice 1a (2026-10-01): Step 2 tracking + Orientation Video Calls. */
 Object.assign(window, { step2Sent, step2Reported, step2Verify, step2StillOpen, step2Undo, wcInvite, wcLoad, wcTick, wcNotes, wcAct, wcRights, wcOrientLink, cgpOpen });   /* SLICE 4: the three audited Step 2 actions replace step2Mark */
 Object.assign(window, { offeredAddOne, offeredAddAll, intakeFillFromForm });
+Object.assign(window, { obtI9Done });   /* 2026-11-19: the I-9 done button on the Onboarding table (inline onclick); it was never exposed */
 Object.assign(window, { axSetupOpen, axCopy });   /* 2026-10-22 In Training plan v2, Part B: the AxisCare setup card (inline onclicks) */   /* offered people into Background & References (2026-10-08) */
 window.dispatchEvent(new Event('scx-ready'));
 })();

@@ -391,7 +391,21 @@
     if(await CRX.approveOffer(offerId, btn)) await load();
   }
   const retry = (jid, btn) => cj({ action:'retry_axiscare', journey_id:jid }, btn, 'Retry AxisCare');
-  async function tick(jid, k, box){ box.disabled = true; if(!(await cj({ action:'checkin', journey_id:jid, ticks:{ [k]: !!box.checked } }))){ box.checked = !box.checked; box.disabled = false; } }
+  /* 2026-11-19: the I-9 tick is refused while the card's own "I-9 Section 1" line is open; the person on the call confirms that line
+     too, by name (the same question as the readiness card and the Onboarding table), then the tick saves */
+  const I9_ASK = 'Their card still shows I-9 Section 1 (the part the employee signs) as open, so Section 2 cannot be recorded yet.\n\nDid you see their signed Section 1 in Viventium? Press OK to record both in your name, with the time: Section 1 signed by the employee, and Section 2 completed by you.';
+  async function tickI9(jid, box){
+    box.disabled = true; const undo = (x) => { box.checked = false; box.disabled = false; if(x) alert('Not saved: ' + (x.message || x)); };
+    const t = () => window.CRX.call({ action:'checkin', journey_id:jid, ticks:{ i9:true } });
+    try{ await t(); }
+    catch(e){
+      if(!/I-9 Section 1/i.test(String(e.message || e))) return undo(e);
+      if(!(await ccConfirm(I9_ASK))) return undo();
+      try{ await window.CRX.call({ action:'confirm', journey_id:jid, step_key:'cg.step2.i9_s1' }); await t(); }catch(e2){ return undo(e2); }
+    }
+    await load();
+  }
+  async function tick(jid, k, box){ if(k === 'i9' && box.checked) return tickI9(jid, box); box.disabled = true; if(!(await cj({ action:'checkin', journey_id:jid, ticks:{ [k]: !!box.checked } }))){ box.checked = !box.checked; box.disabled = false; } }
   const clock = (jid, v, box) => cj({ action:'checkin', journey_id:jid, test_clock:v }, box);
   const callDone = (jid, btn) => cj({ action:'checkin', journey_id:jid, finish:true }, btn, '✓ Call done');
   async function classCheck(jid, set, btn){

@@ -1,6 +1,7 @@
 /* video-interviews.js (window.VI) · Katlin's video interviews, Stage A (Samantha 2026-11-17, "Yes, both").
-   1. Interview hours: each interviewer gets a "Video link" (coordinators.meeting_link). An interviewer with a link does
-      VIDEO interviews: the server (interview-messages) sends video words, the link and the driver's license line instead
+   1. Interview hours: each interviewer gets a "Video link" (coordinators.meeting_link), and from 2026-11-18 (1541) each
+      block of interview hours can be ticked Video (Krystal: video 6-7:30 AM, in person 10-12). A booking in video hours is
+      a VIDEO interview: the server (interview-messages) sends video words, the link and the driver's license line instead
       of the office address, and mo-care.com/apply marks those times "Video". Google Meet or Zoom links only, the same
       rule the server uses (_shared/office-from.ts videoLink). Nothing is offered until that interviewer has hours.
    2. The interview card: for a video interview, "Driver's license check" (her words: "during interview the person holds
@@ -31,7 +32,7 @@
   function hostChip(h){
     const link = String((h && h.meeting_link) || '').trim();
     return link
-      ? '<span title="' + esc(link) + '" style="font-size:11.5px;font-weight:700;color:#1F5E8C;background:#E6F0F8;border-radius:999px;padding:2px 9px;">🎥 Video interviews</span>'
+      ? '<span title="' + esc(link) + '" style="font-size:11.5px;font-weight:700;color:#1F5E8C;background:#E6F0F8;border-radius:999px;padding:2px 9px;">🎥 Video link set</span>'
       : '';
   }
   function hostButton(h){
@@ -42,8 +43,8 @@
     const h = HOSTS().find(x => String(x.id) === String(id)) || {};
     const cur = String(h.meeting_link || '').trim();
     const raw = await W.ccPrompt('Video interview link for ' + (h.name || 'this interviewer') + '\n\n'
-      + 'Paste their own standing Google Meet link (https://meet.google.com/...). Applicants booked with them get a VIDEO interview with this link, '
-      + 'and their times show as Video on the apply page.\n\nLeave it empty to make them in person again.', cur);
+      + 'Paste their own standing Google Meet link (https://meet.google.com/...). It is sent to applicants booked in their VIDEO hours '
+      + '(tick Video when you add hours). Their other hours stay in person.\n\nLeave it empty to remove it.', cur);
     if(raw === null) return;
     const v = String(raw).trim();
     if(v && !validLink(v)){ alert('That is not a Google Meet or Zoom link. It needs to start with https://meet.google.com/ (or a zoom.us link). Nothing was changed.'); return; }
@@ -62,14 +63,9 @@
   const LABEL = { matched: 'Matched', not_done: 'Not done', wrong: "Didn't look right" };
   let CUR = { id: null, video: false };
 
+  /* 1541 (2026-11-18): video is per block of hours, stamped on the booking (interview_bookings.video) */
   async function bookingIsVideo(applicantId){
-    try{
-      const b = BOOK()[applicantId];
-      const cid = b && b.coordinator_id; if(!cid) return false;
-      const { data, error } = await SB().from('coordinators').select('id, meeting_link').eq('id', cid).maybeSingle();
-      if(error || !data) return false;
-      return !!String(data.meeting_link || '').trim();
-    }catch(e){ return false; }
+    try{ const b = BOOK()[applicantId]; return !!(b && b.video === true); }catch(e){ return false; }
   }
   async function idCheckMount(applicantId){
     const host = document.getElementById('apIntIdCheck'); if(!host) return;

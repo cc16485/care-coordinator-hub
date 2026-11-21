@@ -151,6 +151,19 @@ with sync_playwright() as pw:
     code = CODE.replace('__CANDS__', json.dumps(CANDS)).replace('__OFFERS__', json.dumps(OFFERS)).replace('__ROSTER__', json.dumps(ROSTER)).replace('__WC__', json.dumps({str(k): v for k, v in WC.items()})) \
                .replace('__D14__', ts(14)).replace('__D2__', ts(2)).replace('__D7__', ts(7))
     R = pg.evaluate(T, code)
+    ck('the I-9 done button can reach its helper (2026-11-19: obtI9Done was never exposed, so pressing it threw an error)', pg.evaluate("typeof window.obtI9Done") == 'function')
+    I9 = pg.evaluate("""async ()=>{ const oc=window.ccConfirm, ok=CRX.call, oa=window.alert; const calls=[], asks=[], alerts=[]; let s1=false;
+      window.alert = m => alerts.push(String(m));
+      CRX.call = async b => { calls.push(b.step_key); if(b.step_key==='cg.step2.i9_s1'){ s1=true; return {}; } if(!s1) throw new Error('Not yet: After: Viventium Step 2: I-9 Section 1 completed by the employee.'); return {}; };
+      window.ccConfirm = async m => { asks.push(String(m)); return true; };
+      await obtI9Done('j1', null); const yes = { calls:calls.slice(), asks:asks.length, second:asks[1]||'', alerts:alerts.slice() };
+      calls.length=0; asks.length=0; alerts.length=0; s1=false; let n=0; window.ccConfirm = async m => { asks.push(String(m)); return ++n === 1; };
+      await obtI9Done('j1', null); const no = { calls:calls.slice(), alerts:alerts.slice() };
+      calls.length=0; alerts.length=0; window.ccConfirm = async () => true; CRX.call = async b => { calls.push(b.step_key); throw new Error('Only a person on the Screening staff list may record this.'); };
+      await obtI9Done('j1', null); const other = { calls:calls.slice(), alerts:alerts.slice() };
+      window.ccConfirm=oc; CRX.call=ok; window.alert=oa; return { yes, no, other }; }""")
+    ck('I-9 done when the card still has I-9 Section 1 open (2026-11-19): it asks, then records Section 1 and Section 2 in order, with no error box', I9['yes']['calls'] == ['cg.i9.section2', 'cg.step2.i9_s1', 'cg.i9.section2'] and I9['yes']['asks'] == 2 and 'Section 1' in I9['yes']['second'] and not I9['yes']['alerts'], I9)
+    ck('I-9 done: saying no to the Section 1 question records nothing more; any other refusal still shows as Not recorded', I9['no']['calls'] == ['cg.i9.section2'] and not I9['no']['alerts'] and I9['other']['calls'] == ['cg.i9.section2'] and len(I9['other']['alerts']) == 1 and 'Not recorded' in I9['other']['alerts'][0], I9)
     s = R['sum']
     ck('columns: name, days, then every step to Finish (no Holding up: Samantha 2026-11-04)', R['H'] == ['Name', 'Days', 'Step 1', 'OIG', 'EDL', 'FCSR', 'Case.net', 'References', 'Viventium (Step 2)', 'I-9 in Viventium', 'Orientation', 'Finish'], R['H'])
     ck('the name column stays put when the table scrolls sideways', R['sticky'] == 'sticky', R['sticky'])
@@ -166,7 +179,7 @@ with sync_playwright() as pw:
     ck('Ivy: stuck in orientation shows U3/11 as overdue; Finish shows the video call invited', 'U3/11' in R['ivy']['orient'] and R['ivy']['late'], R['ivy'])
     ck('Jo: finished orientation, on the list, profile not published: Finish asks for the badge; nearly ready names the one thing left', 'Mark badge mailed' in R['jo']['finish'] and 'Only Caregiver profile published left' in R['jo']['name'], R['jo'])
     ck('Kai: everything done: Approve button opens the card; Ready to approve', 'Approve' in R['kai']['finish'] and 'Ready to approve' in R['kai']['name'], R['kai'])
-    ck('Lu: approved, check-in call open: Check-in call', 'Check-in call' in R['lu']['finish'], R['lu'])
+    ck('Lu: approved, check-in call open: no Check-in call step any more (2026-11-19, the app videos text replaces it)', 'Check-in call' not in R['lu']['finish'], R['lu'])
     ck('Max: Step 1 not finished: Step 1 waiting on the applicant, checks wait for Step 1 (no buttons)', 'Waiting' in R['max']['step1'] and 'Run' not in R['max']['oig'], R['max'])
     ck('Tia: stuck in Step 1 for 14 days, with a call link from the office line', 'Stuck 14d' in R['tia']['step1'] and R['tia']['call'], R['tia'])
     ck('Nia: PRN offered shows as a tag by the name', 'PRN offered' in R['nia']['name'], R['nia'])
@@ -183,8 +196,8 @@ with sync_playwright() as pw:
     ck('edges: Bea red (overdue), Gia purple (review), Cora none', 'obt-r-late' in R['edges']['Bea'] and 'obt-r-rev' in R['edges']['Gia'] and 'obt-r-late' not in R['edges']['Cora'] and 'obt-r-quiet' not in R['edges']['Cora'], R['edges'])
     ck('references done read 2/2, never only a check mark', R['refsDone']['ivy'].startswith('2/2') and not R['refsDone']['ivyIcon'], R['refsDone'])
     ck('I-9 in Viventium: nothing before the video call (Ivy); done when the readiness card no longer lists it (Kai); I-9 done button once the video call is done and it is still open (Jo), in its own queue', R['i9']['ivy'] == '·' and R['i9']['kai'] == '' and 'I-9 done' in R['i9']['jo'] and R['i9']['joBtn'] and 'Jo' in R['i9']['queue'], R['i9'])
-    ck('switch on: the Finish column shows C (call after orientation) instead of V, and the key says so', 'C' in R['call']['marks'] and 'V' not in R['call']['marks'] and 'I-9' in R['call']['callTip'] and 'C = call after orientation' in R['call']['key'], R['call'])
-    ck('switch on: the I-9 column opens the call (the I-9 line is ticked there), no separate I-9 done button', R['call']['i9Btn'] == 'Call', R['call'])
+    ck('switch on: the Finish column shows C (call after orientation, optional since 2026-11-19) instead of V, and the key says so', 'C' in R['call']['marks'] and 'V' not in R['call']['marks'] and 'Optional' in R['call']['callTip'] and 'C = call after orientation' in R['call']['key'], R['call'])
+    ck('switch on: the call is optional (2026-11-19), so the I-9 column has its own I-9 done button', R['call']['i9Btn'] == 'I-9 done', R['call'])
     ck('More links unchanged', 'How long people take' in R['more'] and 'Full table' in R['more'] and 'Taken off the list' in R['more'], R['more'])
     pg.evaluate("()=>obtQueue('all')"); pg.wait_for_timeout(200)
     box = pg.locator('#ckdDash').bounding_box()

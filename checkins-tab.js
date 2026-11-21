@@ -133,6 +133,15 @@
     /* before the server sends good/thank (Staffing checkins v6), those two rows are left out rather than shown as empty */
     const full = Array.isArray(l.good);
     const add = (q, a) => qa.push('<div class="chk-q">' + e(q) + '</div><div class="chk-a">' + a + '</div>');
+    /* READY TO WORK (Samantha approved 2026-11-19): its own four questions, the same words as checkin.html */
+    if (l.audience === 'caregiver' && l.kind === 'ready') {
+      const app = (v) => v === 'yes' ? 'Yes' : v === 'help' ? '<b style="color:#B45309">I need help</b>' : none
+      add('How ready do you feel for your first shift?', l.ready != null ? e(l.ready + ' of 5') : none)
+      add('Is the AxisCare app set up?', app(l.axiscare_app))
+      add('Is Viventium set up?', app(l.viventium))
+      add('Any questions or anything we should know?', l.note ? '“' + e(l.note) + '”' : blank)
+      return '<div class="chk-reply chk-answers">' + qa.join('') + '</div>'
+    }
     add(fam ? (l.self ? 'How are things going with your care?' : 'How are things going with ' + (l.client_first || 'their loved one') + "'s care?") : 'How are you feeling about work lately?',
       e((FACE[l.audience] || {})[l.mood] || MOOD[l.mood] || l.mood));
     const xq = EXTRA_Q[l.audience + ':' + l.kind];

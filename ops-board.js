@@ -184,8 +184,64 @@
         : (nGap ? 'No open shifts found on the days AxisCare answered.' : 'Every visit in the next 7 days has a caregiver.'))
         + (nGap ? ' · <b style="color:var(--amber,#B45309);">' + nGap + ' day' + (nGap === 1 ? '' : 's') + ' could not be fully read, so ' + (nGap === 1 ? 'it' : 'they') + ' may be missing open shifts</b>' : '') + ' · <button class="linklike" style="font:inherit;" onclick="switchTab(\'coverage\')">Open the coverage page</button></div></div>';
   }
+  /* ── TODAY FIRST (Samantha 2026-11-19, looking at the three lanes with 294 cards open: "It's still more busy than
+     helpful"; she said "Yes, build it" to the picture). The board opens on one short Today list: care today, people
+     waiting on a call or text back, new family calls, and promises or call to-dos made in the last 2 days. One person is
+     one row with one button. A promise or call to-do older than 2 days leaves Today for "Older promises and call to-dos"
+     (nothing is closed). Everything else is quiet one-line lists under "Everything else, when you have time".
+     Switch: ops_settings.ops_board_today_live. Until it is on, owners can try it from "Try the calmer board". ── */
+  function todayOn(settings){ return !!(settings && settings.ops_board_today_live === true); }
+  const FRESH = 2 * DAY;
+  /* what a Waiting row is: 'reply' (someone is waiting to hear back) | 'newfam' | 'promise' | 'todo' */
+  function waitType(it){
+    const k = lc(it && it.kind);
+    if(k === 'reply_needed' || k === 'missed_call' || k === 'family_call') return 'reply';
+    if(k === 'new_family_call') return 'newfam';
+    if(promise(it)) return 'promise';
+    return /^call\s+back\b/i.test(String(it.title || '')) ? 'reply' : 'todo';
+  }
+  /* where a row sits now: 'today' | 'oldp' (older promise or call to-do) | its lane ('batch', 'old', 'hide') */
+  function todayOf(it, lane, now){
+    if(lane === 'care') return 'today';
+    if(lane !== 'wait') return lane;
+    const t = waitType(it); if(t === 'reply' || t === 'newfam') return 'today';
+    const made = ms(it.created_at);
+    return (made == null || now - made <= FRESH) ? 'today' : 'oldp';
+  }
+  /* a call card about a client's health or care (2026-11-19: Eddie's possible mini stroke sat under "Office to-dos from calls").
+     It is on Today at any age, with the care rows, until a person closes it. */
+  function careCall(it){ return !!it && lc(it.kind) === 'call_followup' && lc(it.domain) === 'client_care'; }
+  /* one person, one row: the contact or phone when the card has one, else the name on it (never "Unknown caller") */
+  function todayKey(it){
+    const k = personKey(it); if(k) return k;
+    const n = lc(it && it.about).replace(/\s+/g, ' ');
+    if(!n || n.length < 3 || /unknown|not on file|do not know|\(phone lead\)/.test(n)) return '';
+    return 'n:' + n;
+  }
+  /* rows [{it, lane, since}] that belong on Today, as one group per person: care first (newest first), then people
+     waiting to hear back and new families (longest wait first), then fresh promises and call to-dos (oldest first) */
+  function todayGroups(rows, now){
+    const tierOf = r => r.lane === 'care' ? 0 : (/^(reply|newfam)$/.test(waitType(r.it)) ? 1 : 2);
+    const by = {}, out = [];
+    (rows || []).forEach(r => {
+      const k = todayKey(r.it), g = (k && by[k]) || { key:k || 'i:' + r.it.id, rows:[] };
+      if(k && !by[k]) by[k] = g; if(!g.rows.length) out.push(g);
+      r.tier = tierOf(r); g.rows.push(r);
+    });
+    out.forEach(g => { g.rows.sort((a, b) => (a.tier - b.tier) || ((a.since || 0) - (b.since || 0))); g.top = g.rows[0]; g.tier = g.top.tier; g.since = g.top.since || 0; });
+    return out.sort((a, b) => (a.tier - b.tier) || (a.tier === 0 ? b.since - a.since : a.since - b.since));
+  }
+  /* what a Today row says came in: a new family row says what the caller asked for, never "New family? NAME" */
+  function todayWhat(it){
+    const t = waitType(it), k = lc(it.kind), cut = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
+    if(k === 'new_family_call'){ const d = String(it.detail || '').replace(/\s+/g, ' ').trim(), one = (d.match(/^.*?[.!?](\s|$)/) || [d])[0].trim(); return cut(one || it.title, 150); }
+    if(k === 'reply_needed'){ const a = String(it.about || ''); let d = String(it.detail || it.title || ''); if(a && d.indexOf(a + ':') === 0) d = d.slice(a.length + 1); return cut(d, 150); }
+    if(t === 'promise') return cut(String(it.title || '').replace(/^promise not kept yet:\s*/i, ''), 150);
+    return cut(it.title || it.detail, 150);
+  }
   const CORE = { liveOn, olderViews, care, careNow, promise, whoOf, needOf, whenOf, doWord, cleanable, startView, NEED, WHO,
-    lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, weekCard, BATCH, BATCH_ORDER };
+    lanesOn, waitPromise, laneOf, batchOf, personKey, weekOf, weekCard, BATCH, BATCH_ORDER,
+    todayOn, waitType, todayOf, todayKey, todayGroups, todayWhat, careCall, FRESH };
   if(typeof module !== 'undefined' && module.exports){ module.exports = CORE; return; }
 
   /* ═══════════════════════════════════ in the Hub ═══════════════════════════════════ */
@@ -317,7 +373,7 @@
       + '<td><button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button></td>'
       + '<td id="opbmv_' + id + '"><button class="ghost" onclick="opsWaitOpen(\'' + id + '\',\'opbmv_' + id + '\')">Later this week</button></td>'
       + '<td id="opbdn_' + id + '">' + (closes ? '<button class="ghost" onclick="opsClose(\'' + id + '\',\'opbdn_' + id + '\')">Done</button>' : '') + '</td></tr>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<tr class="opb-card"><td colspan="9">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</td></tr>';
     return h;
   }
   function cleanHtml(all){
@@ -417,7 +473,7 @@
       + '<div class="opl-btns">' + (W.CT ? W.CT.badge(r.id) : '') + (!r.owner ? '<button class="ghost" onclick="opsTakeIt(\'' + id + '\')">Take it</button>' : '')
       + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + id + '\')">' + (openNow ? 'Close' : esc(doWord(it))) + '</button>'
       + (!/^(journey|project)$/.test(lc(it.kind)) ? '<span id="opldn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'opldn_' + id + '\')">Done</button></span>' : '') + '</div></div>';
-    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CT ? W.CT.thread(it) : '') + '</div>';
+    if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</div>';
     return h;
   }
   /* the pieces of the new layout, from the same rows the table uses (pure enough to test in the page) */
@@ -448,6 +504,8 @@
     let h = '';
     if(!lanesOn(settings())) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>New layout, practice.</b> Only you see it; everyone else sees the table. '
       + 'When it looks right, turn on "Operations Board: new layout" on the Owners Hub Admin page. <button class="linklike" style="font:inherit;" onclick="OPB.lanesTry(false)">Back to the table</button></div>';
+    if(owner()) h += '<div class="field-note" style="margin:0 0 10px;"><b>New:</b> a calmer board. One short Today list, one row per person, everything else folded. '
+      + '<button class="linklike" style="font:inherit;" onclick="OPB.todayTry(true)">Try the calmer board</button> (only you see it)</div>';
     if(W.CT) h += W.CT.strip();   /* card conversations (card-threads.js): For you on top */
     h += weekHtml(now);
     const oldestW = M.wait.length ? waited(M.wait[0].since, now) : '';
@@ -478,8 +536,107 @@
     wrap.innerHTML = h + olderHtml();
   }
 
+  /* ── Today first, in the Hub (2026-11-19) ── */
+  const T = { more:false, lists:false, week:false, oldp:false, CAP:6 };
+  /* on: everyone gets it, though an owner can still go back; off: only an owner who chose to try it */
+  const todayView = () => { const pref = ls('opbToday'); if(owner() && pref === '0') return false; return todayOn(settings()) || (owner() && pref === '1'); };
+  const TCSS = '<style id="opbTodayCss">'
+    + '.opt-card{background:var(--card,#fff);border:1px solid var(--border);border-radius:12px;margin:0 0 14px;overflow:hidden;}'
+    + '.opt-hd{display:flex;justify-content:space-between;align-items:baseline;gap:6px 12px;flex-wrap:wrap;padding:12px 14px;}'
+    + '.opt-hd h3{margin:0;font-size:17px;color:var(--navy);display:inline;}.opt-hd small,.opt-hd span{color:var(--text-muted);font-size:13px;}'
+    + '.opt-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2.2fr) 4.5em auto;gap:8px 14px;align-items:center;padding:10px 14px;border-top:1px solid var(--border);}'
+    + '.opt-row .opl-who b{display:block;color:var(--navy);}.opt-row.care{box-shadow:inset 4px 0 0 var(--red);}'
+    + '.opt-what{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.opt-t{font-size:12.5px;color:var(--text-muted);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}'
+    + '.opt-btns{display:flex;gap:6px;justify-content:flex-end;}.opt-btns button{padding:5px 12px;font-size:12.5px;white-space:nowrap;}'
+    + '.opt-line{all:unset;box-sizing:border-box;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;padding:10px 14px;border-top:1px solid var(--border);font-size:14px;color:var(--text-muted);}'
+    + '.opt-line:hover{background:var(--bg);}.opt-line:focus-visible{outline:2px solid var(--teal);outline-offset:-2px;}'
+    + '.opt-line b{display:inline-block;min-width:2.4ch;margin-right:8px;color:var(--navy);font-variant-numeric:tabular-nums;}.opt-line.more{color:var(--teal);font-weight:600;}'
+    + '.opt-in{background:var(--bg);border-top:1px solid var(--border);}.opt-in .opl-row{background:transparent;}.opt-in .opl-brow:first-child{border-top:0;}'
+    + '.opt-none{padding:16px 14px;border-top:1px solid var(--border);color:var(--text-muted);font-size:14px;}'
+    + '.opt-week{font-size:13.5px;color:var(--text-muted);margin:0 0 12px;}'
+    + '@media (max-width:700px){.opt-row{grid-template-columns:minmax(0,1fr) auto;}.opt-row .opt-what{grid-column:1/-1;white-space:normal;}.opt-row .opt-t{display:none;}}'
+    + '</style>';
+  function todayModel(){
+    const M = laneModel(), now = M.now, today = [], oldp = [];
+    M.care.forEach(r => today.push(r));
+    /* health from a call comes up to Today from wherever it was folded */
+    const pull = list => (list || []).filter(r => { if(!careCall(r.it)) return true; r.lane = 'care'; r.carecall = true; today.push(r); return false; });
+    pull(M.wait).forEach(r => (todayOf(r.it, 'wait', now) === 'today' ? today : oldp).push(r));
+    Object.keys(M.batches).forEach(k => { M.batches[k] = pull(M.batches[k]); if(!M.batches[k].length) delete M.batches[k]; });
+    M.old = pull(M.old);
+    return Object.assign(M, { groups:todayGroups(today, now), oldp });
+  }
+  /* the header chip's number: people on my Today list */
+  function todayCount(){ try{ return todayModel().groups.length; }catch(e){ return 0; } }
+  const SUBT = { reply:'Called or texted', newfam:'New family', promise:'We said we would', todo:'From a call' };
+  function todayRow(g, now){
+    const r = g.top, it = r.it, n = g.rows.length, gid = esc(g.key), id = esc(r.id), multi = n > 1;
+    const openNow = multi ? S.open === g.key : S.open === r.id;
+    let who = String(it.about || '').trim();
+    if(!who || /^\s*\(phone lead\)\s*$/i.test(who)) who = 'Name not on file';
+    if(/^unknown caller$/i.test(who)) who = lc(it.kind) === 'new_family_call' ? 'New caller' : 'Caller we do not know';
+    const sub = [r.carecall ? 'Health, from a call' : r.lane === 'care' ? (WHO[r.who] || 'Care') + ', care today' : SUBT[waitType(it)], multi ? n + ' things' : '',
+      r.owner && !r.mine ? (it.owner_name || name(r.owner)) : (!r.owner ? 'Nobody yet' : '')].filter(Boolean).join(' · ');
+    const what = r.lane === 'care' && !r.carecall ? String(it.title || it.detail || '') : todayWhat(it);
+    let h = '<div class="opt-row' + (r.lane === 'care' ? ' care' : '') + '" data-id="' + id + '" data-n="' + n + '"><div class="opl-who"><b>' + esc(who) + '</b><span class="opl-sub">' + esc(sub) + '</span></div>'
+      + '<div class="opt-what" title="' + esc(what) + '">' + esc(what) + '</div><div class="opt-t">' + esc(waited(r.since, now)) + '</div><div class="opt-btns">'
+      + (openNow && !multi && !/^(journey|project)$/.test(lc(it.kind)) ? '<span id="optdn_' + id + '"><button class="ghost" onclick="opsClose(\'' + id + '\',\'optdn_' + id + '\')">Done</button></span>' : '')
+      + '<button class="' + (openNow ? 'ghost' : 'primary') + '" aria-expanded="' + openNow + '" onclick="OPB.toggle(\'' + (multi ? gid : id) + '\')">' + (openNow ? 'Close' : multi ? (n === 2 ? 'See both' : 'See all ' + n) : esc(doWord(it))) + '</button></div></div>';
+    if(openNow && multi) h += '<div class="opt-in">' + g.rows.map(x => laneRow(x, now)).join('') + '</div>';
+    else if(openNow && typeof W.myWorkCard === 'function') h += '<div class="opl-card">' + W.myWorkCard(it, -1) + (W.CS ? W.CS.panel(it) : '') + (W.CT ? W.CT.thread(it) : '') + '</div>';
+    return h;
+  }
+  /* Open shifts as one quiet line; Show opens the same week card as before. A day AxisCare could not read is said. */
+  function weekLine(now){
+    const wrapL = t => '<div class="opt-week"><b style="color:var(--navy);">Open shifts, next 7 days:</b> ' + t + '</div>';
+    if(L.week === undefined || L.week === null) return wrapL('checking AxisCare…');
+    if(L.weekErr) return wrapL(esc(L.weekErr));
+    const days = weekOf(L.week, now, 7), all = days.reduce((a, d) => a.concat(d.shifts), []), soon = all.filter(s => s.soon).length;
+    const g = Array.isArray(L.weekGap) ? L.weekGap : [], nGap = days.filter(d => g.indexOf(d.key) >= 0).length;
+    const say = (all.length ? '<b>' + all.length + '</b> open' + (soon ? ' · <b style="color:var(--red);">' + soon + ' within 48 hours</b>' : '') : (nGap ? 'none found on the days AxisCare answered' : 'every visit has a caregiver'))
+      + (nGap ? ' · <b style="color:var(--amber,#B45309);">' + nGap + ' day' + (nGap === 1 ? '' : 's') + ' could not be read, check AxisCare</b>' : '');
+    return wrapL(say + ' · <button class="linklike" style="font:inherit;" aria-expanded="' + T.week + '" onclick="OPB.todayFlip(\'week\')">' + (T.week ? 'Hide' : 'Show') + '</button>') + (T.week ? weekHtml(now) : '');
+  }
+  function renderToday(wrap){
+    ['opbCss', 'opbLaneCss', 'opbTodayCss'].forEach((id, i) => { if(!document.getElementById(id)){ const t = document.createElement('div'); t.innerHTML = [CSS, LCSS, TCSS][i]; document.head.appendChild(t.firstChild); } });
+    loadWeek();
+    const M = todayModel(), now = M.now, G = M.groups;
+    if(S.open && !G.some(g => g.key === S.open) && !rows().some(r => r.id === S.open)) S.open = '';
+    let h = '';
+    if(!todayOn(settings())) h += '<div class="card" style="padding:10px 14px;margin:0 0 12px;background:var(--amber-bg);color:var(--amber);font-size:13.5px;"><b>Calmer board, practice.</b> Only you see it. Nothing was closed or changed: every card is still here, most of them folded. '
+      + '<button class="linklike" style="font:inherit;" onclick="OPB.todayTry(false)">Back to the three lanes</button></div>';
+    if(W.CT) h += W.CT.strip();
+    h += weekLine(now);
+    const shown = T.more ? G : G.slice(0, T.CAP), rest = G.length - shown.length;
+    h += '<div class="opt-card" id="optToday"><div class="opt-hd"><div><h3>Today</h3> <span>' + (G.length ? G.length + (G.length === 1 ? ' person needs' : ' people need') + (L.who === 'all' ? ' the office' : ' you') : 'Nobody is waiting') + '</span></div>'
+      + '<small>' + esc(new Date(now).toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' })) + '</small></div>'
+      + (G.length ? shown.map(g => todayRow(g, now)).join('') : '<div class="opt-none">Nobody is waiting on a call or text back, and there is no care flag today.</div>')
+      + (rest > 0 ? '<button class="opt-line more" aria-expanded="false" onclick="OPB.todayFlip(\'more\')"><span>Show ' + rest + ' more for today</span><span aria-hidden="true">▾</span></button>'
+        : (T.more && G.length > T.CAP ? '<button class="opt-line more" aria-expanded="true" onclick="OPB.todayFlip(\'more\')"><span>Show fewer</span><span aria-hidden="true">▴</span></button>' : '')) + '</div>';
+    /* everything else: one quiet line per list */
+    let feedHtml = '', feeds = []; try{ if(W.BF){ feedHtml = W.BF.html(); feeds = W.BF.rows(); } }catch(e){}
+    const lines = [];
+    const line = (key, n, label, open, click, body) => lines.push('<button class="opt-line" data-list="' + key + '" aria-expanded="' + open + '" onclick="' + click + '"><span><b>' + n + '</b>' + esc(label) + '</span><span aria-hidden="true">' + (open ? '▾' : '›') + '</span></button>' + (open ? '<div class="opt-in">' + body() + '</div>' : ''));
+    if(M.oldp.length) line('oldp', M.oldp.length, 'Older promises and call to-dos', T.oldp, 'OPB.todayFlip(\'oldp\')', () => M.oldp.map(r => laneRow(r, now)).join(''));
+    BATCH_ORDER.filter(k => M.batches[k] && M.batches[k].length).forEach(k => line(k, M.batches[k].length, BATCH[k][0], L.bopen === k, 'OPB.batch(\'' + k + '\')', () => M.batches[k].map(r => laneRow(r, now)).join('')));
+    const KEEP = 5, extra = Math.max(0, lines.length - KEEP) + feeds.length, openAll = T.lists || (L.bopen && lines.length > KEEP);
+    let body = (openAll ? lines : lines.slice(0, KEEP)).join('');
+    if(openAll && feedHtml) body += '<div class="opt-in">' + feedHtml + '</div>';
+    if(extra) body += '<button class="opt-line more" aria-expanded="' + !!openAll + '" onclick="OPB.todayFlip(\'lists\')"><span>' + (openAll ? 'Show fewer lists' : 'Show ' + extra + ' more list' + (extra === 1 ? '' : 's')) + '</span><span aria-hidden="true">' + (openAll ? '▴' : '▾') + '</span></button>';
+    if(M.old.length) body += '<button class="opt-line" data-list="old" aria-expanded="' + L.oldOpen + '" onclick="OPB.oldToggle()"><span><b>' + M.old.length + '</b>Older than a week</span><span aria-hidden="true">' + (L.oldOpen ? '▾' : '›') + '</span></button>'
+      + (L.oldOpen ? '<div class="opt-in" id="oplOld">' + M.old.map(r => laneRow(r, now)).join('') + '</div>' : '');
+    if(body) h += '<div class="opt-card" id="optRest"><div class="opt-hd" style="padding-bottom:8px;"><small>Everything else, when you have time</small></div>' + body + '</div>';
+    const foot = [];
+    if(owner()) foot.push('Showing ' + (L.who === 'all' ? 'everyone\'s work' : 'yours and nobody\'s') + ' · <button class="linklike" style="font:inherit;" onclick="OPB.lanesWho(\'' + (L.who === 'all' ? 'mine' : 'all') + '\')">' + (L.who === 'all' ? 'Show only mine and nobody\'s' : 'Show everyone') + '</button>');
+    const TM = Object.keys(M.team).sort((a, b) => M.team[b].n - M.team[a].n);
+    if(TM.length) foot.push('Team: ' + TM.map(e => esc(name(e)) + ' ' + M.team[e].n + ' waiting').join(' · '));
+    if(owner() && todayOn(settings())) foot.push('<button class="linklike" style="font:inherit;" onclick="OPB.todayTry(false)">See the three lanes</button>');
+    if(foot.length) h += '<div class="opl-foot">' + foot.join('<span aria-hidden="true">·</span>') + '</div>';
+    wrap.innerHTML = h + olderHtml();
+  }
   function render(wrap){
     if(!wrap) return;
+    if(todayView()) return renderToday(wrap);
     if(lanesView()) return renderLanes(wrap);
     const now = Date.now(), all = rows(), shown = all.filter(r => pass(r));
     if(S.open && !all.some(r => r.id === S.open)) S.open = '';
@@ -559,5 +716,9 @@
     lanesWho:w => { L.who = w === 'all' ? 'all' : 'mine'; redraw(); },
     batch:k => { L.bopen = L.bopen === k ? '' : k; S.open = ''; redraw(); },
     oldToggle:() => { L.oldOpen = !L.oldOpen; redraw(); },
+    /* Today first (2026-11-19) */
+    todayView, todayModel, todayCount, today:T,
+    todayTry:yes => { ls('opbToday', yes ? '1' : '0'); S.open = ''; redraw(); try{ W.ccRenderPulse(); }catch(e){} },
+    todayFlip:k => { T[k] = !T[k]; if(k === 'lists' && !T.lists) L.bopen = ''; redraw(); },
     jump:id => { const e = document.getElementById(id); if(e) e.scrollIntoView({ behavior:'smooth', block:'start' }); } });
 })(typeof window !== 'undefined' ? window : globalThis);

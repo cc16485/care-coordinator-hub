@@ -87,9 +87,9 @@ async()=>{
   ok('a typed rate is never written over', a.visit.rate==='32.50' && a.visit.level==='wellness');
   q('[data-hva="level"][data-v="personal"]').click();
   await type('visit.week.mon.from','09:00'); await type('visit.week.mon.to','13:00');
-  ok('one 4-hour day: under the 8 hours a week minimum', /4 hours a week/.test(q('#hvWeekSum').innerText) && /Below the 8 hours a week minimum/.test(q('#hvWeekSum').innerText) && !/under 4 hours/.test(q('#hvWeekSum').innerText), q('#hvWeekSum').innerText);
+  ok('one 4-hour day: under 8 hours a week is $5 more an hour', /4 hours a week/.test(q('#hvWeekSum').innerText) && /Under 8 hours a week: \$5 more an hour/.test(q('#hvWeekSum').innerText) && !/under 4 hours/.test(q('#hvWeekSum').innerText), q('#hvWeekSum').innerText);
   await type('visit.week.wed.from','09:00'); await type('visit.week.wed.to','13:00');
-  ok('two 4-hour days: meets the minimum; the days show as on', /8 hours a week/.test(q('#hvWeekSum').innerText) && /Meets the 4 hours a visit/.test(q('#hvWeekSum').innerText) && qa('.hv-day.on').length===2, q('#hvWeekSum').innerText);
+  ok('two 4-hour days: regular rates; the days show as on', /8 hours a week/.test(q('#hvWeekSum').innerText) && /Regular rates: 4 hours or more a visit/.test(q('#hvWeekSum').innerText) && qa('.hv-day.on').length===2, q('#hvWeekSum').innerText);
   tap('visit.outcome','ready');
   q('[data-hvs="5"]').click(); tap('visit.equipment','Hoyer lift'); ok('a Hoyer lift = Advanced', HV._suggest()==='advanced');
   /* sign-off and the agreement card */
