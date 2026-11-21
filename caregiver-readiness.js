@@ -63,7 +63,7 @@
     if(a.ready_for_final) return '<div style="' + base + 'background:#0D365F;color:#fff">Ready for final approval</div>';
     return '<div style="' + base + 'background:#FFF7ED;color:#B45309">Not approved to work</div>';
   }
-  const textWords = t => !t ? '' : t.state === 'sent' ? 'cleared text sent ' + when(t.at) : t.state === 'due' ? 'cleared text held until 8am to 6pm Central (the next check sends it)' : t.state === 'practice' ? 'cleared text recorded, not sent (practice: the switch is off)' : t.state === 'failed' ? 'cleared text not sent: ' + (t.why || 'refused') : t.state;
+  const textWords = t => !t ? '' : t.state === 'sent' ? 'cleared text sent ' + when(t.at) : t.state === 'due' ? 'cleared text held until 8am to 6pm Central (the next check sends it)' : t.state === 'practice' ? 'cleared text recorded, not sent (practice: the switch is off)' : t.state === 'failed' ? 'cleared text not sent: ' + (t.why || 'refused') : t.state === 'skipped' ? 'no cleared text: ' + (t.why || 'the office already told them') + (t.by ? ' (' + t.by + ')' : '') : t.state;
   /* the final approval block: the Level of Care, the lock, AxisCare, the text, the one button */
   function approvalBlock(d){
     const a = d.approve; if(!a) return '';
@@ -74,13 +74,13 @@
       h += '<div>Approved to Work by <b>' + esc(a.approved_by || '') + '</b> · ' + esc(when(a.approved_at)) + '</div>';
       const ax = a.axiscare || {};
       h += '<div style="margin-top:.2rem">AxisCare: ' + (ax.state === 'confirmed' ? '<b style="color:#15803D">read back Active</b> ' + esc(when(ax.at)) : ax.state === 'failed' ? '<b style="color:#B91C1C">' + esc(ax.detail || 'update failed') + '</b>' : ax.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b> (turn on "Approve to Work updates AxisCare" on the Admin page, then Retry)' : 'waiting') + '</div>';
-      if(a.text) h += '<div style="margin-top:.2rem">Text: ' + esc(textWords(a.text)) + '</div>';
+      if(a.text) h += '<div style="margin-top:.2rem">Text: ' + esc(textWords(a.text)) + (a.simple && a.text.state === 'due' && a.may_approve_work ? ' <button class="ibtn" style="padding:.1rem .5rem" onclick="CRX.noText(this)">Do not send it</button>' : '') + '</div>';
       /* SLICE 7: the hire date and the level class, written once after the read-back */
       if(a.prep){ const pw = p => !p || p.state === 'n/a' ? '' : p.state === 'confirmed' ? '<b style="color:#15803D">' + (p.unchanged ? 'already matched' : 'written and read back') + '</b>' + (p.read ? ' (' + esc(p.read) + ')' : '') : p.state === 'failed' ? '<b style="color:#B91C1C">' + esc(p.detail || 'failed') + '</b>' : p.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b>' : 'waiting for the read-back';
         if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
         if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
       /* IN TRAINING PLAN v2 (2026-10-22): the check-in call from the Staffing Coordinator, after the read-back */
-      if(a.checkin) h += checkinBlock(a.checkin, a);
+      if(a.checkin && !a.simple) h += checkinBlock(a.checkin, a);
       if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
     } else if(a.ready_for_final){
       if(a.checkin && a.switches && a.switches.after_call) h += checkinBlock(a.checkin, a);
@@ -106,11 +106,13 @@
     let h = '<div style="font-size:.78rem;color:#6E6559;margin:.1rem 0 .3rem">Three things and they are cleared to work.</div>';
     h += line(!!ck.ok, 'Background checks clear', ck.ok ? '' : (bad || 'Not on file yet'));
     h += line(!!s.orientation, 'Orientation finished', '');
-    if(s.i9) h += line(true, 'I-9 finished in Viventium', '');
+    if(s.i9) h += line(true, 'I-9 finished in Viventium', '') + (ck.ok && s.orientation ? '<div style="font-size:.78rem;color:#15803D;margin:.2rem 0">Everything is done. The Hub approves them within the hour.</div>'
+      + (s.no_text ? '<div style="font-size:.78rem;color:#6E6559">No cleared text will go: the office already told them.</div>' : a.may_approve_work ? '<div style="margin-top:.2rem"><button class="ibtn" onclick="CRX.noText(this)">Do not send the cleared text</button> <span style="font-size:.76rem;color:#6E6559">if you already told them</span></div>' : '') : '');
     else if(s.open && a.may_approve_work)
       h += '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:5px 0;cursor:pointer;font-weight:700;color:#0D365F"><input type="checkbox" id="crI9Box" style="flex:none;width:auto;margin:3px 0 0" onchange="var b=document.getElementById(\'crI9Go\');if(b)b.disabled=!this.checked"><span style="flex:1;min-width:0">' + esc(s.box) + '</span></label>'
+        + '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:2px 0 5px;cursor:pointer;font-size:.82rem;color:#3F3A33"><input type="checkbox" id="crNoText" style="flex:none;width:auto;margin:3px 0 0"><span style="flex:1;min-width:0">Do not send them the cleared text (we already told them)</span></label>'
         + '<div style="margin-top:.3rem"><button id="crI9Go" class="ibtn" disabled style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.finishI9(this)">✓ Cleared to work</button></div>'
-        + '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">Saved in your name with the time. They are set Active in AxisCare, get the cleared text, and leave the Onboarding list. Only the person who saw the ID ticks this.</div>';
+        + '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">Saved in your name with the time. They are set Active in AxisCare, get the cleared text (unless you tick the second box), and leave the Onboarding list. Only the person who saw the ID ticks this.</div>';
     else h += line(false, esc(s.box), s.open ? 'A person on the Approve to Work list or a care coordinator ticks this.' : 'Opens once the two lines above are done.');
     const t = s.tidy || [];
     if(t.length) h += '<details style="margin-top:.5rem"><summary style="cursor:pointer;font-size:.78rem;color:#6E6559">Still to tidy (' + t.length + '). None of these hold them back.</summary><div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 0 .9rem">' + t.map(x => '<div>· ' + esc(x) + '</div>').join('') + '</div></details>';
@@ -118,7 +120,13 @@
   }
   async function finishI9(btn){
     const box = document.getElementById('crI9Box'); if(!box || !box.checked) return;
-    await act({ action:'finish_i9', saw_id:true }, btn);
+    const nt = document.getElementById('crNoText');
+    await act(Object.assign({ action:'finish_i9', saw_id:true }, nt && nt.checked ? { no_text:true } : {}), btn);
+  }
+  /* NO TEXT (Samantha 2026-11-21: "clear a few people without sending them a text because we have already talked to them") */
+  async function noText(btn){
+    if(!(await ccConfirm('Do not send them the cleared text?\n\nUse this when you already told them they are cleared. It is saved in your name. Everything else stays the same.'))) return;
+    await act({ action:'no_text' }, btn);
   }
   /* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the check-in call. Three ticks and the test clock-in choice save
      as they are pressed; Done finishes it (the server refuses until all are in); No answer keeps it for the next business day. */
@@ -362,5 +370,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet, finishI9 };
+  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet, finishI9, noText };
 })();
