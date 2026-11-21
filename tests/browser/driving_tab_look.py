@@ -30,6 +30,8 @@ CASES = {
   'nd_done': {'row': row('non_driver'), 'docs': [], 'derived': {'cleared_to_drive': False, 'audit': audit(True, [], {'at': '2026-11-21T16:00:00Z', 'by': 'Krystal Land', 'how': 'by phone'})}},
   'suspended': {'row': row('suspended', status_reason='insurance expired'), 'docs': DOCS, 'derived': {'cleared_to_drive': False, 'audit': audit(False, ['The insurance is expired or has no expiration date'])}},
   'none': {'row': None, 'docs': [], 'derived': None},
+  'from_ghl': {'row': row('pending', status_reason='pre-hire license and insurance copied from GoHighLevel; the office verifies', agreement_form=None, agreement_signed_at=None), 'docs': [dict(d, uploaded_by='GoHighLevel (pre-hire)', expires='2030-03-04') for d in DOCS],
+               'derived': {'cleared_to_drive': False, 'approve_blockers': ['The Driver/Vehicle agreement is not signed'], 'audit': audit(False, ['The Driver/Vehicle agreement is not signed', 'The license is not verified'])}},
 }
 AUDIT = {'ok': True, 'counts': {'active': 3, 'done': 1, 'approved': 0, 'non_driver': 2, 'pending': 0, 'none': 1},
   'rows': [{'name': 'Old Driver', 'axiscare_id': '9003', 'status': 'none', 'done': False, 'left': ['Not set up: ask them whether they drive clients, then set them up as a driver or a Non-Driver']},
@@ -50,6 +52,7 @@ window.sb = { functions: { invoke: async (name, o) => {
   if(b.action === 'open') return { data:{ ok:true, url:'http://pics.test/' + b.doc_id } };
   if(b.action === 'confirm'){ if(!b.how) return { data:{ ok:false, error:'How did you check with them: by phone, by text or in person?' } }; window.CASE = 'nd_done'; return { data:{ ok:true } }; }
   if(b.action === 'audit') return { data: AUDIT };
+  if(b.action === 'ghl_pull'){ if(window.GHL_ANSWER) return { data: window.GHL_ANSWER }; window.CASE = 'from_ghl'; return { data:{ ok:true, state:'copied', created:true, copied:[{ kind:'license_front', ok:true }, { kind:'license_back', ok:true }, { kind:'insurance', ok:true }] } }; }
   if(b.action === 'send_link') return { data:{ ok:true, state:'practice', why:'nothing was sent', link:'https://cc.mo-care.com/driver.html?d=x' } };
   return { data:{ ok:false, error:'Unknown action.' } };
 } } };
@@ -92,6 +95,16 @@ try:
     ck('Suspended: NOT A DRIVER RIGHT NOW', 'NOT A DRIVER RIGHT NOW (SUSPENDED)' in t, t)
     t = show('none')
     ck('Not set up: NOT A DRIVER (NOT SET UP), with what to ask and both set up buttons', 'NOT A DRIVER (NOT SET UP)' in t and 'ask them whether they will drive clients' in t and pg.locator('#card button:has-text("Set up driver compliance")').count() == 1 and pg.locator('#card button:has-text("Set up as Non-Driver")').count() == 1, t)
+    pg.evaluate('() => { window.GHL_ANSWER = { ok:true, state:"not found in GoHighLevel", copied:[] }; }')
+    pg.click('#card button:has-text("Copy their license and insurance from GoHighLevel")'); pg.wait_for_timeout(400)
+    ck('Not set up: Copy from GoHighLevel, not found: says so in words, nothing changes', any(c.get('action') == 'ghl_pull' and c.get('caregiver_id') == '7' for c in pg.evaluate('CALLS')) and 'contact was not found' in pg.inner_text('#card') and 'NOT A DRIVER (NOT SET UP)' in pg.inner_text('#card'), pg.inner_text('#card'))
+    pg.evaluate('() => { window.GHL_ANSWER = null; }')
+    pg.click('#card button:has-text("Copy their license and insurance from GoHighLevel")'); pg.wait_for_timeout(700)
+    t = pg.inner_text('#card')
+    ck('...copied: the card reads again, Pending Verification, the three pictures labeled from GoHighLevel with the date it lists', 'Copied from GoHighLevel: license front, license back, insurance' in t and 'Pending Verification' in t and 'NOT A DRIVER YET' in t
+       and t.count('from GoHighLevel (pre-hire), it says expires Mar 4, 2030') == 3 and pg.locator('#card .drv-look img').count() == 2, t)
+    ck('...with all three on file, the copy button is not offered again', pg.locator('#card button:has-text("Copy their license and insurance from GoHighLevel")').count() == 0)
+    pg.screenshot(path=os.path.join(OUT, 'driving_tab_from_ghl.png'), full_page=True)
     t = show('non_driver')
     ck('Non-Driver: a red NOT A DRIVER banner, never schedule them to drive a client', '✕ NOT A DRIVER' in t and 'Never schedule them to drive a client' in t and 'every non-driving visit' in t, t)
     ck('...the Non-Driver Agreement signed, with its open button; no pictures asked for', 'Non-Driver Agreement: ✓ signed' in t and pg.locator('#card button:has-text("Open the signed form")').count() == 1 and pg.locator('#card .drv-look').count() == 0 and not pg.evaluate('LOOKS').__len__(), t)

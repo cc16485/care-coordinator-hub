@@ -171,15 +171,17 @@
     const cell = ([k, label]) => {
       const dd = (docs || []).find(x => x.kind === k && !x.superseded_at);
       const inner = dd ? '<div class="drv-look" data-doc="' + esc(dd.id) + '" data-ct="' + esc(dd.content_type || '') + '" style="height:170px;display:flex;align-items:center;justify-content:center;background:#F4F2ED;border-radius:8px;overflow:hidden"><span class="field-note">Loading…</span></div>'
-          + '<div class="field-note" style="margin-top:3px">' + (dd.uploaded_at ? 'uploaded ' + esc(day(dd.uploaded_at)) : '') + (dd.verified_at ? ' · <span style="color:#15803D;font-weight:700">verified</span>' : ' · <span style="color:#B45309;font-weight:700">not verified</span>') + '</div>'
+          + '<div class="field-note" style="margin-top:3px">' + (/^GoHighLevel/.test(String(dd.uploaded_by || '')) ? 'from GoHighLevel (pre-hire)' + (dd.expires ? ', it says expires ' + esc(day(dd.expires)) : '') : dd.uploaded_at ? 'uploaded ' + esc(day(dd.uploaded_at)) : '') + (dd.verified_at ? ' · <span style="color:#15803D;font-weight:700">verified</span>' : ' · <span style="color:#B45309;font-weight:700">not verified</span>') + '</div>'
         : '<div style="height:170px;display:flex;align-items:center;justify-content:center;background:#FEF2F2;border:1px dashed #FCA5A5;border-radius:8px;color:#B91C1C;font-weight:700;font-size:13px;text-align:center;padding:8px">Not on file</div>';
       return '<div style="min-width:0"><div style="font-size:12.5px;font-weight:800;color:var(--navy,#0D365F);margin-bottom:4px">' + label + '</div>' + inner + '</div>';
     };
     const any = (docs || []).some(x => ['license_front','license_back','insurance'].includes(x.kind) && !x.superseded_at);
+    const all3 = ['license_front','license_back','insurance'].every(k => (docs || []).some(x => x.kind === k && !x.superseded_at));
     setTimeout(() => fillLooks(c), 0);
     return '<div style="font-size:13.5px;font-weight:800;margin:2px 0 6px">Pre-hire license and insurance <span class="field-note" style="font-weight:400">(tap a picture to see it full size; every look is logged with your name)</span></div>'
       + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' + kinds.map(cell).join('') + '</div>'
-      + (any ? '' : '<div style="margin-top:6px"><button type="button" class="ibtn" onclick="DRV.sendWhy(' + i + ',\'documents\')">Send them the link to add their photos</button></div>');
+      + '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">' + (all3 || !c.ids.caregiver_id ? '' : ghlBtn(c))
+      + (any ? '' : '<button type="button" class="ibtn" onclick="DRV.sendWhy(' + i + ',\'documents\')">Send them the link to add their photos</button>') + '</div>';
   }
   /* only when the tab is showing: a look is logged with your name, so opening a profile must not count as looking */
   async function fillLooks(c){
@@ -248,7 +250,8 @@
       h += banner('none', null);
       h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13.5px"><b>To finish this tab:</b> ask them whether they will drive clients in their own car.'
         + '<ul style="margin:4px 0 0 18px;padding:0"><li><b>Yes:</b> press Set up driver compliance, then send them their secure link for license and insurance photos and the driver agreement.</li>'
-        + '<li><b>No:</b> press Set up as Non-Driver, then send them their secure link to sign the Non-Driver Agreement.</li></ul></div>';
+        + '<li><b>No:</b> press Set up as Non-Driver, then send them their secure link to sign the Non-Driver Agreement.</li></ul>'
+        + (c.ids.caregiver_id ? '<div style="margin-top:6px">Hired before the Hub? Their pre-hire license and insurance may be on their GoHighLevel contact. ' + ghlBtn(c) + '</div>' : '') + '</div>';
       if(g.dl_expires || g.auto_ins_expires) h += '<div class="field-note" style="margin:4px 0 8px">On the roster, typed by the office and not verified here: '
         + [g.dl_expires ? 'license expires ' + esc(day(g.dl_expires)) : '', g.auto_ins_expires ? 'insurance expires ' + esc(day(g.auto_ins_expires)) : ''].filter(Boolean).join(', ') + '.</div>';
       if(c.ids.caregiver_id){
@@ -320,6 +323,21 @@
     h += auditLink();
     el.innerHTML = h;
   }
+  /* 2026-11-21 (her ask): copy the pre-hire license and insurance from their GoHighLevel contact; nothing is verified by it */
+  const ghlBtn = (c) => '<button type="button" class="ibtn" onclick="DRV.ghl(' + cardIdx(c) + ',this)">Copy their license and insurance from GoHighLevel</button>';
+  const KIND_WORD = { license_front:'license front', license_back:'license back', insurance:'insurance' };
+  async function ghlPull(i, btn){
+    const c = cardAt(i); if(!c || !c.ids.caregiver_id) return;
+    busy(btn, true); const r = await call({ action:'ghl_pull', caregiver_id:c.ids.caregiver_id }); busy(btn, false);
+    if(!r.ok){ c.msg = 'Not copied: ' + r.error; c.msgOk = false; c.blockers = null; draw(c); return; }
+    const d = r.data || {}, ok = (d.copied || []).filter(x => x.ok).map(x => KIND_WORD[x.kind] || x.kind), no = (d.copied || []).filter(x => !x.ok);
+    const words = d.state === 'not found in GoHighLevel' ? 'Their GoHighLevel contact was not found (looked up by phone, then email).'
+      : d.state === 'no license or insurance in GoHighLevel' ? 'Their GoHighLevel contact has no license or insurance uploaded.'
+      : d.state === 'already on file' ? 'Everything GoHighLevel has is already here.'
+      : (ok.length ? 'Copied from GoHighLevel: ' + ok.join(', ') + '.' + (d.created ? ' They are now Pending Verification: verify the documents, then approve.' : ' Nothing is verified by copying.') : '')
+        + (no.length ? ' Not copied: ' + no.map(x => (KIND_WORD[x.kind] || x.kind) + ' (' + x.why + ')').join(', ') + '.' : '');
+    await after(c, { ok:true }, words, !ok.length && !/already/.test(d.state || ''));
+  }
   const auditLink = () => '<div style="margin-top:12px;padding-top:8px;border-top:1px solid #EEE9DF"><button type="button" class="ibtn" onclick="DRV.audit()">Driving check: see every active caregiver</button></div>';
   function mvrWord(v){ return v === 'acceptable' ? 'Acceptable' : v === 'not_acceptable' ? 'Not acceptable' : String(v || ''); }
   function eventDetail(x){
@@ -355,8 +373,8 @@
     if(f.indexOf('verify:') === 0){
       const what = f.slice(7);
       let inner = '';
-      if(what === 'license') inner += lab('License expiration date (as printed on the card)') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.license_expires || '') + '">';
-      if(what === 'insurance') inner += lab('Policy expiration date') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.insurance_expires || '') + '">'
+      if(what === 'license') inner += lab('License expiration date (as printed on the card)') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.license_expires || docExp(c, 'license_front') || '') + '">';
+      if(what === 'insurance') inner += lab('Policy expiration date') + '<input type="date" id="drvExp' + i + '" ' + inp + ' value="' + esc(row.insurance_expires || docExp(c, 'insurance') || '') + '">'
         + lab('Insurance company') + '<input type="text" id="drvIns' + i + '" ' + inp + ' value="' + esc(row.insurer || '') + '">';
       if(what === 'mvr'){
         inner += lab('Result') + '<select id="drvRes' + i + '" ' + inp + '><option value="">Choose…</option><option value="acceptable">Acceptable</option><option value="not_acceptable">Not acceptable</option></select>';
@@ -382,6 +400,8 @@
     if(f === 'setup_nd') return box('Set up as Non-Driver', lab('Reason (required)') + '<textarea id="drvNote' + i + '" rows="2" ' + inp + ' placeholder="e.g. told us they do not drive"></textarea>', 'DRV.act(' + i + ',\'setup_nd\',this)', 'Set up as Non-Driver');
     return '';
   }
+  /* the date a copied document carries (GoHighLevel's own field), offered in the verify form; the office checks it against the card */
+  const docExp = (c, kind) => { const d = ((c.data && c.data.data && c.data.data.docs) || []).find(x => x.kind === kind && !x.superseded_at && x.expires); return d ? String(d.expires).slice(0, 10) : ''; };
   function cardAt(i){ const c = CARDS[i]; return c && c.el.isConnected ? c : null; }
   function setForm(i, f){ const c = cardAt(i); if(!c) return; c.form = f || null; c.msg = ''; c.blockers = null; if(f && f !== 'confirm' && f !== 'setup_nd') c.openDetail = true; draw(c); }
   const val = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
@@ -509,7 +529,7 @@
     gate(document.getElementById('cgdDrvGate'), k);
   }
   function shown(){ Object.values(CARDS).forEach(c => { if(c.el.isConnected && c.el.querySelector('.drv-look span.field-note')) fillLooks(c); }); }
-  window.DRV = { shown, mount, gate, mountCaregiver, open, act, verify, form:setForm, confirm:confirmIt, sendWhy, audit:auditOpen,
+  window.DRV = { shown, ghl:ghlPull, mount, gate, mountCaregiver, open, act, verify, form:setForm, confirm:confirmIt, sendWhy, audit:auditOpen,
     detail:(i, on) => { const c = cardAt(i); if(c) c.openDetail = !!on; }, reload:(i) => { const c = cardAt(i); if(c){ drop(c.ids); load(c, true); } },
     _call:call, _status:STATUS, daysLeft };
 })();
