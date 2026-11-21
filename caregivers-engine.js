@@ -7693,7 +7693,7 @@ function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
     if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
@@ -8266,7 +8266,9 @@ function obtI9(c, j, fin){
     return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
   return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
 }
-const obtSimpleOn = () => !!(window.DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
+/* 2026-11-21 FIX: DATA is a page-level variable and is not on the window object, so the old test here was always false and the table never
+   saw the switch (the card did, from the server). Read it the way obtCallOn does. */
+const obtSimpleOn = () => !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
 const obtActivateOn = () => obtSimpleOn() && DATA.ops_settings.activate_button_live === true;
 async function obtI9Done(jid, btn){
   /* THE SIMPLER FINISH (2026-11-21): one press records the I-9 and approves them to work */
