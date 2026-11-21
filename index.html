@@ -7611,7 +7611,7 @@ The HomeTogether team</pre>
 <script src="journey-rules.js?v=6"></script><!-- 3b: the caregiver subject, applicability facts, expiry, due-from -->
 <script src="caregiver-readiness.js?v=20"></script><!-- 3b: the one new-hire readiness card -->
 <script src="hire-profile.js?v=13"></script><!-- the main profile of a hire (2026-10-11) -->
-<script src="driver-compliance.js?v=2"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
+<script src="driver-compliance.js?v=3"></script><!-- 2026-10-13: Driver Compliance card (Checks tab, applicant Hiring tab) and the Overview line -->
 <script src="drug-tests.js?v=1"></script><!-- 2026-10-13 her ruling: the Drug tests record (Checks tab); kept by management by hand, nothing automatic -->
 <script src="hepb-card.js?v=3"></script><!-- 2026-10-13: Hepatitis B card (OSHA 1910.1030; Checks tab, applicant Hiring tab); status words for everyone, the medical record for owners only -->
 <script src="training-walkthrough.js?v=2"></script><!-- staff try the new-hire journey (2026-10-11) -->
@@ -19905,12 +19905,12 @@ function cgdBackToList(){
   if(f) f.style.display='none'; if(l) l.style.display='block';
   cgdRenderList();
 }
-const CGD_SECTIONS=[['overview','Overview'],['profile','Caregiver profile'],['hiring','Hiring & Experience'],['compliance','Compliance'],
+const CGD_SECTIONS=[['overview','Overview'],['profile','Caregiver profile'],['hiring','Hiring & Experience'],['compliance','Compliance'],['driving','Driving'],
   ['skills','Skills'],['performance','Performance'],['work','Work'],['conversations','Conversations'],['history','History'],
   ['apphalf','Application'],['hire','Hiring']];
 /* One profile, step 2 (2026-10-12): the tabs, in the same names and order as the applicant page. Each tab shows the
    sections that used to be their own buttons; a section name still works, and opens the tab that holds it. */
-const CGD_TABS=[['overview',['overview']],['interview',['apphalf','hiring']],['hiring',['hire']],['checks',['compliance']],['family',['profile']],
+const CGD_TABS=[['overview',['overview']],['interview',['apphalf','hiring']],['hiring',['hire']],['checks',['compliance']],['driving',['driving']],['family',['profile']],
   ['work',['skills','work']],['performance',['performance']],['messages',['conversations']],['history',['history']]];
 function cgdSection(name){
   let tab=CGD_TABS.find(t=>t[0]===name)||CGD_TABS.find(t=>t[1].includes(name))||CGD_TABS[0];
@@ -19919,6 +19919,7 @@ function cgdSection(name){
   CGD_SECTIONS.forEach(([k])=>{ const el=document.getElementById('cgdSec-'+k); if(el) el.style.display=(tab[1].includes(k)?'block':'none'); });
   CGD_TABS.forEach(([k])=>{ const b=document.getElementById('cgdSecBtn-'+k); if(b){ b.classList.toggle('active',k===tab[0]); b.setAttribute('aria-selected',String(k===tab[0])); } });
   if(tab[0]==='history') cgdHistoryMount();
+  if(tab[0]==='driving'&&window.DRV&&DRV.shown) setTimeout(()=>DRV.shown(),0);   /* 2026-11-21: the license and insurance pictures load only when the tab is open */
 }
 /* One profile, step 2 piece 2 (2026-10-12): a hired caregiver's page carries their application and hiring. The
    application is the one connected by id: the applicant they were opened from, or the hiring history's own link. */
@@ -20250,9 +20251,13 @@ async function cgdOpenProfile(axid, tab){
     +card('Pre-Hire Background Checks <span class="field-note" style="font-weight:400;">screenings completed before hire, with the document on file (for audits)</span>', '<div id="cgdPreHireBody">'+cgdPreHireHtml(g)+'</div>', 'cgdPreHireCard')
     +card('References <span class="field-note" style="font-weight:400;">checked before hire, with the PDF of what each one said</span>', '<div id="cgdRefsBody">'+cgdRefsHtml(g)+'</div>', 'cgdRefsCard')
     +card('Compliance & Training <span class="field-note" style="font-weight:400;">(ongoing and annual)</span>', cgdComplianceHtml(c,g), 'cgdComplCard')
-    +(window.DRV?card('Driver Compliance <span class="field-note" style="font-weight:400;">whether they may drive clients, with the documents and every change</span>', '<div id="cgdDrv"></div>', 'cgdDrvCard'):'')   /* 2026-10-13 driver-compliance.js */
     +(window.DT?card('Drug tests <span class="field-note" style="font-weight:400;">only when our policy calls for one; owners record</span>', '<div id="cgdDt"></div>', 'cgdDtCard'):'')   /* 2026-10-13 drug-tests.js (her ruling) */
     +(window.HEPB?card('Hepatitis B <span class="field-note" style="font-weight:400;">the vaccine offer (OSHA): offered, accepted, declined or complete</span>', '<div id="cgdHepb"></div>', 'cgdHepbCard'):'')   /* 2026-10-13 hepb-card.js */
+    +'</div>'
+
+    /* 2026-11-21 (Samantha): Driving is its own tab: Approved Driver or NOT A DRIVER, the pre-hire license and insurance on the page */
+    +'<div id="cgdSec-driving" style="display:none;">'
+    +(window.DRV?card('Driving <span class="field-note" style="font-weight:400;">whether they may drive clients, with their license, insurance and every change</span>', '<div id="cgdDrv"></div>', 'cgdDrvCard'):card('Driving','<div class="field-note">The driving card did not load. Refresh the page.</div>'))
     +'</div>'
 
     +'<div id="cgdSec-skills" style="display:none;">'
@@ -26192,7 +26197,7 @@ async function apCgLinkFill(r){
    One page per person: the top card (who, where they are, the one thing missing) and tabs that appear as they move
    along. Every box below is the same one the page drew before, moved onto its tab; saving goes where it always went.
    Tab keys are shared with the caregiver page so a name anywhere can open on the tab that matches where it was clicked. */
-const PP_TABS = [['overview','Overview'],['interview','Application & interview'],['hiring','Hiring'],['checks','Training & checks'],
+const PP_TABS = [['overview','Overview'],['interview','Application & interview'],['hiring','Hiring'],['checks','Training & checks'],['driving','Driving'],
   ['family','Family profile'],['work','Work'],['performance','Performance'],['messages','Messages'],['history','History']];
 const PP_STAGES = ['Applied','Interview','Offered','Working'];
 /* Back goes where you came from (step 2 piece 3, 2026-10-12). Remembered when a person's page opens from somewhere
@@ -26283,7 +26288,7 @@ function apTab(k){
     const jy = document.getElementById('apHpJourney'), dc = document.getElementById('apHpDocs');
     if(jy && dc){ HP.mount(el, { applicant_id: r.id }, ['status']); HP.mount(jy, { applicant_id: r.id }, ['journey']); HP.mount(dc, { applicant_id: r.id }, ['docs']); }
     else HP.mount(el, { applicant_id: r.id }, ['status','journey','docs']); } }
-  if(k === 'hiring' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
+  if(k === 'driving' && window.DRV){ const el = document.getElementById('apDrv'); if(el && !el.dataset.done){ el.dataset.done = '1'; DRV.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
   if(k === 'checks' && window.DT){ const el = document.getElementById('apDt'); if(el && !el.dataset.done){ el.dataset.done = '1'; DT.mount(el, { applicant_id: r.id, name: [r.first_name, r.last_name].filter(Boolean).join(' ') }); } }   /* 2026-10-13 Drug tests */
   if(k === 'hiring' && window.HEPB){ const el = document.getElementById('apHepb'); if(el && !el.dataset.done){ el.dataset.done = '1'; HEPB.mount(el, { applicant_id: r.id }); } }   /* 2026-10-13 */
   if(k === 'history'){ const el = document.getElementById('apHpHistory'); if(el && !el.dataset.done){ el.dataset.done = '1'; HP.mount(el, { applicant_id: r.id }, ['timeline']); } }
@@ -26353,7 +26358,7 @@ function apRenderProfile(){
   const ended = r.status==='declined' ? 'Not moving forward' : r.status==='left' ? 'Left' : r.status==='pool' ? 'Candidate pool' : '';
 
   /* which tabs this person has: an applicant has four; once offered, the hiring tabs; once started, performance */
-  AP_TABS_HAVE = ['overview','interview'].concat(offered ? ['hiring','checks'] : [])
+  AP_TABS_HAVE = ['overview','interview'].concat(offered ? ['hiring','checks','driving'] : [])
     .concat((r.started_at || r.left_at || r.status==='left') ? ['performance'] : []).concat(['messages','history']);
   if(AP_TAB_FOR !== r.id){ AP_TAB_FOR = r.id; if(!AP_TABS_HAVE.includes(AP_TAB)) AP_TAB = 'overview'; }
   if(!AP_TABS_HAVE.includes(AP_TAB)) AP_TAB = 'overview';
@@ -26448,13 +26453,13 @@ function apRenderProfile(){
       + apProfCard('References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>',
           'Each reference, where they have got to, and what to do next.')
       + (window.HP ? apProfCard('Their journey, forms and signed documents', '<div id="apHpHiring"></div>', 'Read from their records. Signed documents never change.') : '')
-      + (window.DRV ? apProfCard('Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.') : '')
       + (window.HEPB ? apProfCard('Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.') : ''))   /* 2026-10-13 driver-compliance.js, hepb-card.js */
     + pane('checks',
         apProfCard('Background checks', '<div id="apChecksHost"><div class="field-note">Looking…</div></div>', 'Before hire. Record each result here, with its proof.')
       + apProfCard('Training', '<div id="apTrainHost"><div class="field-note">Looking…</div></div>',
           'Read live from the training platform, which is where it actually lives.')
       + (window.DT ? apProfCard('Drug tests', '<div id="apDt"></div>', 'Only when our policy calls for one. Owners record; nothing here happens on its own.') : ''))   /* 2026-10-13 drug-tests.js (her ruling) */
+    + pane('driving', window.DRV ? apProfCard('Driving', '<div id="apDrv"></div>', 'Whether they may drive clients, with their license, insurance and every change.') : apProfCard('Driving', '<div class="field-note">The driving card did not load. Refresh the page.</div>', ''))   /* 2026-11-21 her ask */
     + pane('performance', apProfCard('Since they started', apPerfHtml(r), 'Attendance and write-ups.'))
     + pane('messages', window.ApText ? apProfCard('Texts & emails', ApText.threadHtml(r), 'What we have sent them and what they sent back, from GoHighLevel. Reply from here.') : apProfCard('Texts & emails', '<div class="field-note">Texting did not load. Refresh the page.</div>', ''))   /* 574 */
     + pane('history',
@@ -26961,7 +26966,7 @@ function apHiringFolded(r){
     + HFOLD.card('refs', 'References', '<div id="apOnboardHost"><div class="field-note">Looking…</div></div>', 'Each reference, where they have got to, and what to do next.', '')
     + (window.HP ? HFOLD.card('journey', 'The whole journey, step by step', '<div id="apHpJourney"></div>', '', '')
                  + HFOLD.card('docs', 'Signed documents and proofs', '<div id="apHpDocs"></div>', '', '') : '')
-    + (window.DRV ? HFOLD.card('driver', 'Driver Compliance', '<div id="apDrv"></div>', 'Whether they may drive clients, with the documents and every change.', '') : '')
+    /* 2026-11-21: Driver Compliance moved to its own Driving tab */
     + (window.HEPB ? HFOLD.card('hepb', 'Hepatitis B', '<div id="apHepb"></div>', 'The vaccine offer (OSHA): offered, accepted, declined or complete. Details are for owners only.', '') : '');
 }
 function apProfOffer(r){

@@ -63,15 +63,15 @@ async()=>{
   const banner=()=>document.querySelector('#apProfLeft [data-next-go="hiring"]');
   HFOLD.preview(true); await sleep(1200);
   const d=[...pane().querySelectorAll('details.hf-card')], line=k=>{ const x=pane().querySelector('details[data-hf="'+k+'"] .hf-line'); return x?x.innerText:''; };
-  ok('on: six folded sections, all closed', d.length===6 && d.every(x=>!x.open), d.map(x=>x.dataset.hf+':'+x.open));
+  ok('on: five folded sections (Driver Compliance moved to the Driving tab 2026-11-21), all closed', d.length===5 && d.every(x=>!x.open), d.map(x=>x.dataset.hf+':'+x.open));
   ok('on: Their journey stays open with Now, Next and Missing', /Now:/.test(document.getElementById('apHpHiring').innerText) && /Next:/.test(document.getElementById('apHpHiring').innerText) && /Missing or follow-up/.test(document.getElementById('apHpHiring').innerText));
   ok('summary: The offer', line('offer')==='CNA · PRN · hired '+new Date(AP_PROF.hired_at).toLocaleDateString('en-US',{month:'short',day:'numeric'}), line('offer'));
   ok('summary: References', line('refs')==='1 of 2 back', line('refs'));
   ok('summary: The whole journey', /^3 entries · last .*Reference 3/.test(line('journey')), line('journey'));
   ok('summary: Signed documents', line('docs')==='3 documents', line('docs'));
-  ok('summary: Driver Compliance with its badge', line('driver')==='Pending Verification 3 checks to do', line('driver'));
+  ok('Driver Compliance is not on the Hiring tab (2026-11-21: its own Driving tab)', !document.querySelector('#apPane-hiring #apDrv'));
   ok('summary: Hepatitis B with its badge', line('hepb')==='Answered, the office is checking', line('hepb'));
-  ok('folded content is hidden', !vis(document.getElementById('apHpDocs')) && !vis(document.getElementById('apDrv')));
+  ok('folded content is hidden', !vis(document.getElementById('apHpDocs')));
   ok('the Open Hiring banner goes while Hiring is open', !!banner() && !vis(banner()));
   const s1=document.getElementById('apHpHiring');
   ok('signed Step 1 forms show once: the signed ones hidden here, the one needing attention still shown',
@@ -81,7 +81,7 @@ async()=>{
   const docs=pane().querySelector('details[data-hf="docs"]'); docs.open=true; await sleep(200);
   ok('opening a section shows it', vis(document.getElementById('apHpDocs')) && /Offer letter/.test(document.getElementById('apHpDocs').innerText));
   apRenderProfile(); await sleep(900);
-  ok('...and it stays open after the page redraws', pane().querySelector('details[data-hf="docs"]').open && !pane().querySelector('details[data-hf="driver"]').open);
+  ok('...and it stays open after the page redraws', pane().querySelector('details[data-hf="docs"]').open);
   apTab('overview'); await sleep(100);
   ok('on Overview the banner is back', vis(banner()));
   apTab('hiring'); await sleep(300);
@@ -103,8 +103,8 @@ with sync_playwright() as pw:
     pg.evaluate("apRenderProfile()"); pg.wait_for_timeout(900)
     pg.evaluate("document.querySelectorAll('#apPane-hiring details.hf-card').forEach(d=>d.open=false)"); pg.wait_for_timeout(300)
     pg.evaluate("document.getElementById('apProfLeft').scrollIntoView()"); pg.screenshot(path=SHOTS + 'on.png', full_page=False)
-    pg.evaluate("document.querySelector('#apPane-hiring details[data-hf=\"driver\"]').open=true"); pg.wait_for_timeout(300)
-    pg.evaluate("document.querySelector('#apPane-hiring details[data-hf=\"driver\"]').scrollIntoView({block:'center'})"); pg.screenshot(path=SHOTS + 'on_open.png', full_page=False)
+    pg.evaluate("document.querySelector('#apPane-hiring details[data-hf=\"docs\"]').open=true"); pg.wait_for_timeout(300)
+    pg.evaluate("document.querySelector('#apPane-hiring details[data-hf=\"docs\"]').scrollIntoView({block:'center'})"); pg.screenshot(path=SHOTS + 'on_open.png', full_page=False)
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for s_, n, d in R: print(s_, '·', n, '' if s_ == 'PASS' else d)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
