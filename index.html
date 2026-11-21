@@ -343,7 +343,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=3"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=20"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=3"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="interview-talk.js?v=1"></script><!-- the caregiver interview as a conversation (2026-11-21) --><script src="phone-mode.js?v=21"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -5076,6 +5076,15 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;">
   <button class="secondary" id="axcCardsBtn" onclick="AxisConn.toggle(AxisConn.CARDS, this)">Turn on AxisCare read cards</button>
   <span class="field-note" id="axcSaved"></span>
+</div>
+<!-- The caregiver interview as a conversation (2026-11-21, her Caregiver Interview Redesign): interview-talk.js. ops_settings.interview_talk_live -->
+<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">New caregiver interview</div>
+<p class="hint">Regular Caregiver applicants get the interview as a conversation: six sections, short lines to say, an information button, and exact day-by-day availability. PRN CNA, PRN Caregiver and every other position keep today's interview. Nothing is sent to anyone, and no application answer, care level or status changes. Only Samantha or Zachary can turn this on or off.</p>
+<div id="talkSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="talkToggleBtn" onclick="TALK.settingsToggle(this)">Turn on the new caregiver interview</button>
+  <button class="secondary" id="talkTryBtn" onclick="TALK.tryIt(!TALK.trying())">Try it (only me)</button>
+  <span class="field-note" id="talkSaved"></span>
 </div>
 <!-- Escalated to you, made simple (2026-10-30, her plan https://claude.ai/artifact/2C6NzZXYUMVdzeQrR12BH4): escalated-simple.js. ops_settings.escalated_simple_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Escalated to you, made simple</div>
@@ -19639,6 +19648,7 @@ function lhSetFill(){
   try{ rcSetFill(); }catch(e){}
   try{ if(window.AxisConn) AxisConn.fill(); }catch(e){}
   try{ if(window.ESC) ESC.settingsFill(); }catch(e){}
+  try{ if(window.TALK) TALK.settingsFill(); }catch(e){}
   try{ rdSetFill(); }catch(e){}
   try{ bpSetFill(); }catch(e){}
   try{ bvSetFill(); }catch(e){}
@@ -26925,6 +26935,9 @@ function apProfInterview(r){
   if(window.OBS && OBS.has(A.observations))
     out += '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 6px;">Interviewer observations</div>'
       + OBS.summaryHtml(A.observations);
+  /* 2026-11-21: what the six-section conversation captured (employment, exact availability, hours, what they told us) */
+  if(window.TALK && A.talk){ const ts = TALK.summaryHtml(A.talk);
+    if(ts) out += '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin:16px 0 6px;">From the interview conversation</div>' + ts; }
   return out;
 }
 
@@ -27420,7 +27433,8 @@ function apIntRender(){
     '<button type="button" class="fb" style="'+(A[key]===val?'background:var(--navy);color:#fff;border-color:var(--navy);':'')
     + '" onclick="apIntPick(\''+key+'\',\''+val+'\')">'+esc(lab)+'</button>';
 
-  let html = apScriptHtml(AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value)))
+  let html = (window.__apTalk ? '<div id="apIntTalk" style="margin-bottom:18px;max-width:760px;"></div>'
+      : apScriptHtml(AP_ROWS.find(x=>String(x.id)===String((document.getElementById('apIntId')||{}).value))))
     + '<div style="font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);'
       + 'margin:6px 0 8px;border-top:1px solid var(--border);padding-top:14px;">Quick check, 30 seconds (only what their application did not answer)</div>'
     + AP_QS.filter(([k]) => AP_QUICK.includes(k)).map(([k,q,opts]) => row(esc(q), opts.map(([v,l])=>opt(k,v,l)).join(''))).join('');
@@ -27434,6 +27448,7 @@ function apIntRender(){
     + 'placeholder="Springfield, Nixa, Ozark…" style="font:inherit;font-size:13.5px;padding:7px 10px;border:1px solid var(--border);border-radius:8px;min-width:240px;">');
 
   document.getElementById('apIntForm').innerHTML = html;
+  apIntTalkMount();
 
   /* Their days and shift are being filled in as the conversation goes, and the
      match changes with them. No extra queries: the zip table is already held. */
@@ -27469,6 +27484,12 @@ async function apInterview(id){
   document.getElementById('apIntNotes').value = (r.post_interview && r.post_interview.notes) || '';
   { const rc = document.getElementById('apIntRefCheck'); if(rc) rc.value = (r.post_interview && r.post_interview.ref_check) || ''; }
   document.getElementById('apIntErr').style.display='none';
+  /* 2026-11-21 (her Caregiver Interview Redesign): regular Caregiver applicants get the six conversation sections
+     (interview-talk.js) while its switch is on. Every other position, and the switch off, is the question list. */
+  window.__apTalk = null;
+  try{ if(window.TALK && TALK.on() && TALK.applies(r.position)){ const ts = await TALK.load(); if(ts && ts.length){ window.__apTalk = ts;
+    let dt = null; try{ dt = JSON.parse(localStorage.getItem(AP_IVD(id)) || 'null'); }catch(e){}
+    window.__apInt.talk = TALK.norm(dt && dt.A && dt.A.talk ? dt.A.talk : window.__apInt.talk); } } }catch(e){ window.__apTalk = null; }
   apIntRender();
   apIntObsMount(id);
   if(window.VI) VI.idCheckMount(id);
@@ -27488,6 +27509,15 @@ function apIntDraftSave(){
   try{ localStorage.setItem(AP_IVD(id), JSON.stringify({ at: Date.now(), A: window.__apInt,
     notes: (document.getElementById('apIntNotes')||{}).value || '', ref: (document.getElementById('apIntRefCheck')||{}).value || '' })); }catch(e){ /* private window */ }
   const s = document.getElementById('apIntSaid'); if(s) s.textContent = 'Kept on this computer. Save notes (or an outcome) puts it on their record.';
+}
+/* 2026-11-21: the six-section conversation. Kept on this computer as you go; Save notes or an outcome puts it on their record. */
+function apIntTalkMount(){
+  const tb = document.getElementById('apIntTalk'); if(!tb || !window.TALK || !window.__apTalk) return;
+  const draw = () => { tb.innerHTML = TALK.html(window.__apTalk, window.__apInt.talk, {}); };
+  draw();
+  TALK.bind(tb, () => (window.__apInt.talk = TALK.norm(window.__apInt.talk)), (redraw, moved) => { if(redraw) draw();
+    if(moved){ try{ tb.scrollIntoView({ behavior:'smooth', block:'start' }); }catch(e){} }
+    clearTimeout(apIntTalkMount.t); apIntTalkMount.t = setTimeout(apIntDraftSave, 400); });
 }
 function apIntObsMount(id){
   const box = document.getElementById('apIntObs'); if(!box || !window.OBS) return;
@@ -27514,6 +27544,7 @@ async function apIntSaveNotes(btn){
     A.notes = (document.getElementById('apIntNotes').value||'').trim();
     { const rc = document.getElementById('apIntRefCheck'); if(rc) A.ref_check = (rc.value||'').trim(); }
     if(window.OBS) A.observations = OBS.clean(A.observations, apIntBy());
+    if(window.__apTalk && window.TALK && A.talk) A.talk = TALK.clean(A.talk, apIntBy());
     if(window.VI && VI.value()) VI.beforeOutcome(id, 'notes', A);   // 2026-11-17: keeps the license check with the notes
     /* merge into what is on their record now, so the phone's notes saved in the meantime are kept */
     const cur = await sb.from('job_applicants').select('post_interview').eq('id', id).maybeSingle();
@@ -27952,6 +27983,7 @@ async function apOutcome(outcome, btn){
     if(miss){ await apAsk({ title: 'Not yet', text: miss }); const ob = document.getElementById('apIntObs'); if(ob) ob.scrollIntoView({behavior:'smooth', block:'end'}); return; }
     A.observations = OBS.clean(A.observations, apIntBy());
   }
+  if(window.__apTalk && window.TALK && A.talk) A.talk = TALK.clean(A.talk, apIntBy());
   /* 2026-11-17: a video interview needs the driver's license check marked; not Matched = the offer waits for an owner */
   if(window.VI){ const stop = VI.beforeOutcome(id, outcome, A); if(stop){ await apAsk({ title: 'Not yet', text: stop }); return; } }
   let reason = null, wants = null, area = null;

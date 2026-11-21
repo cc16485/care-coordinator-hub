@@ -1,0 +1,158 @@
+[
+  {
+    "key": "know_you",
+    "title": "Getting to know you",
+    "minutes": "2",
+    "script": [
+      {"t": "say", "text": "Hi! It's nice to meet you! Thanks for taking the time to come in today.", "video": "Hi! It's nice to meet you! Thanks for taking the time to meet with me today. Can you see and hear me okay?"},
+      {"t": "say", "text": "This is really just a chance for us to get to know each other. I'll ask you a little about yourself and your experience, tell you what it's like working with us, and answer any questions you have."},
+      {"t": "say", "text": "Is it okay if I record our conversation? That way I can focus on talking with you instead of taking notes. We use software to transcribe and summarize it afterward."},
+      {"t": "capture", "form": "consent"},
+      {"t": "ask", "text": "So, tell me a little about yourself!", "topic": "about"},
+      {"t": "note", "text": "Let them answer without interrupting."},
+      {"t": "ask", "text": "And what first got you interested in caregiving?", "topic": "why_caregiving"},
+      {"t": "note", "text": "If they already told you, say so and move on."}
+    ],
+    "info": {
+      "purpose": "Build rapport and learn what brought them to caregiving.",
+      "listen": ["Job-related motivation", "Interest in helping others", "Relevant experiences"],
+      "follow_up": ["They mention caregiving experience or a past employer worth a closer look"],
+      "important": ["Do not judge personality style, nerves, accent, family circumstances or unrelated personal information."]
+    }
+  },
+  {
+    "key": "work_availability",
+    "title": "Current work and exact availability",
+    "minutes": "3 to 4",
+    "script": [
+      {"t": "ask", "text": "Now, tell me a little about your current work situation. Are you working anywhere right now?", "topic": "working_now"},
+      {"t": "if", "when": "If yes", "items": [
+        {"t": "ask", "text": "Where are you working, and about how many hours a week?"},
+        {"t": "ask", "text": "Are you looking to leave that job and come work with us, or are you hoping to keep it and work with Caring Companions as a second job?"}
+      ]},
+      {"t": "if", "when": "If keeping the other job", "items": [
+        {"t": "ask", "text": "Do you have a set schedule there, or does it change from week to week?"},
+        {"t": "ask", "text": "When do you usually get your schedule?"},
+        {"t": "ask", "text": "Would your availability with us stay the same every week, or would it depend on your other job?"}
+      ]},
+      {"t": "if", "when": "If planning to leave", "items": [
+        {"t": "ask", "text": "When would you be available to start with us?"}
+      ]},
+      {"t": "capture", "form": "employment"},
+      {"t": "say", "text": "Let's go through your availability so we know exactly when we could schedule you."},
+      {"t": "ask", "text": "Starting with Monday, what's the earliest you could start and the latest you could work?", "topic": "availability"},
+      {"t": "note", "text": "Go through all seven days. \"Anytime\", \"open\" or \"flexible\" is not an answer yet."},
+      {"t": "if", "when": "If they say \"anytime\"", "items": [
+        {"t": "say", "text": "That's great that you're flexible! I do need actual start and end times, though, so we know which shifts we can offer you. For example, could you start at 6 in the morning? Could you work until 10 at night? Let's go day by day."}
+      ]},
+      {"t": "capture", "form": "availability"},
+      {"t": "ask", "text": "And are those hours something you could consistently commit to every week?"},
+      {"t": "ask", "text": "How many hours a week are you hoping for, and what's the minimum you'd need to make the job work for you?", "topic": "hours"},
+      {"t": "capture", "form": "hours"},
+      {"t": "note", "text": "Before moving on, read the schedule back and confirm it."}
+    ],
+    "info": {
+      "purpose": "Find out the realistic, dependable hours we could schedule them.",
+      "listen": ["Actual start and end times for each day", "Whether another job changes week to week", "The hours they want and the least they need"],
+      "follow_up": ["They have another job with changing hours: which hours can they always give us?", "They offer extra flexibility: write it apart from their regular availability"],
+      "important": ["Never assume someone who says they are flexible is available 24 hours a day.", "If they cannot confirm their schedule today, close it as Needs follow-up. Never fill in times for them."]
+    }
+  },
+  {
+    "key": "background_levels",
+    "title": "Caregiving background and our three levels of care",
+    "minutes": "3",
+    "script": [
+      {"t": "say", "text": "Now I'd love to hear a little more about your caregiving experience."},
+      {"t": "ask", "text": "What kind of caregiving have you done so far? Have you mostly worked in people's homes, facilities, or helped care for family?", "topic": "experience"},
+      {"t": "note", "text": "Let them describe their experience."},
+      {"t": "say", "text": "Let me tell you a little about the different types of care we provide, because we actually have three levels."},
+      {"t": "level", "name": "Level 1: Wellness Care", "text": "These are clients who are still pretty independent but could use some help around the house or enjoy having someone there. You might be preparing meals, doing light housekeeping or laundry, running errands, taking them to appointments, reminding them about medications, or simply spending time with them. There's no hands-on personal care at this level."},
+      {"t": "level", "name": "Level 2: Personal Care", "text": "This includes everything in Wellness Care, but these clients also need hands-on help with things like bathing, getting dressed, using the bathroom, incontinence care, walking, or getting safely from one place to another."},
+      {"t": "level", "name": "Level 3: Advanced Care", "text": "These clients have more complex needs and require caregivers with more experience. That might include someone who is bedbound, needs a Hoyer lift, has significant mobility challenges, or has more advanced Alzheimer's or dementia. Some may need closer supervision because of confusion or wandering."},
+      {"t": "ask", "text": "So, thinking about those three levels, which ones have you actually had experience with?", "topic": "levels"},
+      {"t": "ask", "text": "And where did you gain that experience?"},
+      {"t": "ask", "text": "Is there anything you haven't done yet that you'd be interested in learning?", "topic": "training_interest"},
+      {"t": "capture", "form": "care"}
+    ],
+    "info": {
+      "purpose": "Learn what hands-on care they have really done, not how confident they sound.",
+      "listen": ["Specific care they did themselves", "Where they did it and who trained them"],
+      "follow_up": ["\"I've worked with Hoyer lifts\" with no detail: ask how they helped with a transfer and where they were trained"],
+      "important": ["Do not place anyone at Level 2 or Level 3 because they say so. Levels are verified through our normal qualification steps.", "No experience is not a negative. Note what they could be trained on."]
+    }
+  },
+  {
+    "key": "situations",
+    "title": "Real-life caregiving situations",
+    "minutes": "3",
+    "script": [
+      {"t": "say", "text": "One thing about caregiving is that every client is different. Some are easygoing, and others might be having a difficult day."},
+      {"t": "ask", "text": "Can you think of someone you've cared for who was a little more challenging? What was going on, and how did you handle it?", "topic": "hard_client"},
+      {"t": "note", "text": "Let them tell the story. New to caregiving? A family member or another job counts."},
+      {"t": "ask", "text": "Have you ever cared for someone with Alzheimer's or dementia?", "topic": "dementia"},
+      {"t": "if", "when": "If yes", "items": [{"t": "ask", "text": "What was that experience like for you?"}]},
+      {"t": "if", "when": "If no", "items": [{"t": "ask", "text": "Would that be something you'd be interested in learning?"}]},
+      {"t": "capture", "form": "dementia"},
+      {"t": "ask", "text": "Sometimes we notice changes in our clients. Maybe they're suddenly more confused, weaker than usual, or just not acting like themselves. If you noticed something like that, what would you do?", "topic": "change_in_condition"}
+    ],
+    "info": {
+      "purpose": "Understand how they handle hard moments.",
+      "listen": ["Patience and respect", "Staying calm", "Noticing a change in a client", "Safe actions, and knowing when to call for emergency help", "Telling the office quickly", "Respect for the client's dignity and privacy"],
+      "follow_up": ["They describe unsafe care", "They would ignore a big change in a client", "They would not get help", "They speak disrespectfully about clients", "They share a client's name or private details"],
+      "important": ["Never mark someone down only because they have no dementia experience."]
+    }
+  },
+  {
+    "key": "looking_for",
+    "title": "What you're looking for",
+    "minutes": "2",
+    "script": [
+      {"t": "say", "text": "Now I'd love to hear what you're looking for in your next job, because we want this to be a good fit for you, too."},
+      {"t": "ask", "text": "What would make you really happy somewhere and want to stay long-term?", "topic": "looking_for"},
+      {"t": "ask", "text": "Is there anything about caregiving that you know isn't a good fit for you, or anything you'd want more training on before doing?", "topic": "not_a_fit"},
+      {"t": "if", "when": "If recent jobs have not come up", "items": [
+        {"t": "ask", "text": "Tell me a little about your recent jobs. What were you doing, and what made you decide to move on?", "topic": "recent_jobs"}
+      ]},
+      {"t": "if", "when": "If their application does not already say", "items": [
+        {"t": "ask", "text": "Have you ever worked for Caring Companions before?", "topic": "cc_before"}
+      ]},
+      {"t": "capture", "form": "fit"}
+    ],
+    "info": {
+      "purpose": "Understand what they expect and what they prefer in a job.",
+      "listen": ["Realistic expectations about the work", "What they want in communication, support and training"],
+      "follow_up": ["A job, date or reason for leaving that their references should confirm"],
+      "important": ["An honest preference or limit is matching information, not a negative."]
+    }
+  },
+  {
+    "key": "working_here",
+    "title": "Working at Caring Companions, and closing",
+    "minutes": "3",
+    "script": [
+      {"t": "say", "text": "I also want to tell you a little about how things work here, so you know what to expect."},
+      {"t": "head", "text": "Scheduling and hours"},
+      {"t": "say", "text": "Our schedules really depend on what our clients need and what you're available to work. Sometimes we have full-time openings where someone can jump right into a full schedule. Other times, we build hours as we find the right client matches."},
+      {"t": "say", "text": "Because we're caring for people in their homes, schedules can change when a client's needs change. We always do our best to keep our caregivers working and find new opportunities when that happens."},
+      {"t": "head", "text": "Care levels"},
+      {"t": "say", "text": "Everyone starts at Level 1 while we verify their experience and qualifications. Once that's confirmed, we can open up Personal Care and Advanced Care opportunities based on their skills."},
+      {"t": "head", "text": "Training"},
+      {"t": "say", "text": "Before you start with clients, you'll complete paid online training from home. You'll also use your phone to clock in and out of your visits."},
+      {"t": "head", "text": "Reliability and communication"},
+      {"t": "say", "text": "One thing that's really important to us is communication. Our clients depend on us showing up, so if you're ever running late or can't make a shift, we need you to call the office as soon as possible so we can make sure someone is there for the client."},
+      {"t": "ask", "text": "Have you ever had something come up where you couldn't make it to work? How did you handle that?", "topic": "reliability"},
+      {"t": "ask", "text": "Does everything I've shared sound like what you're looking for? Is there anything that gives you pause?", "topic": "pause"},
+      {"t": "head", "text": "Closing"},
+      {"t": "say", "text": "Well, I really appreciate you sharing all of that with me!"},
+      {"t": "ask", "text": "What questions do you have for me? Anything about the job, our clients, or how things work?", "topic": "their_questions"},
+      {"t": "say", "text": "Thank you again for coming in! If we decide to move forward, we'll send you an offer by text and email, followed by your new-hire paperwork that you can complete right from your phone.", "video": "Thank you again for your time today! If we decide to move forward, we'll send you an offer by text and email, followed by your new-hire paperwork that you can complete right from your phone."}
+    ],
+    "info": {
+      "purpose": "Give an honest picture of the job and hear how they handle missing work.",
+      "listen": ["They called their employer early", "They took responsibility", "Anything that gives them pause about hours, levels or the schedule"],
+      "follow_up": ["They need more hours than we can promise early: say so honestly"],
+      "important": ["A life circumstance (kids, a second job, the bus) is never a mark against them. Only how they handled it counts."]
+    }
+  }
+]

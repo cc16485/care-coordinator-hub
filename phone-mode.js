@@ -829,6 +829,10 @@
     var d = ivDraftLoad(IV.id);
     IV.A = d && d.A ? d.A : saved;
     IV.A.script = IV.A.script || {};
+    /* 2026-11-21 (her Caregiver Interview Redesign): the regular Caregiver interview as six conversation sections
+       (interview-talk.js), only while its switch is on. Every other position, and the switch off, is the question list. */
+    IV.talk = null;
+    try { if (window.TALK && TALK.on() && TALK.applies(IV.r.position)) { var ts = await TALK.load(); if (ts && ts.length) { IV.talk = ts; IV.A.talk = TALK.norm(IV.A.talk); } } } catch (e) { IV.talk = null; }
     ivRender(!!(d && d.A));
   }
   function ivRender(fromDraft) {
@@ -839,9 +843,9 @@
       + '<div class="ph-card"><div class="ph-k">Interview</div><div class="ph-t">' + esc(nm) + '</div><div class="ph-s">' + esc(pos || 'Caregiver') + '</div>'
       + (fromDraft ? '<div class="ph-h">Your notes from earlier on this phone are back. Press Save to put them on their record.</div>' : '') + '</div>'
       + '<div id="phRecHost" style="margin-bottom:10px"></div>'
-      + '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">Say first</div><div class="ph-s" style="color:#1B2733;font-size:14px">"Thanks for coming in. This is just a conversation, there are no wrong answers. I’ll ask about you and the care you’ve given, I’ll tell you honestly what the job is like, and you can ask me anything. Is it OK if I record so I can listen to you instead of writing? The recording is written out by software and summarized to help me review it."</div></div>';
-    if (!IV.qs.length) h += '<div class="ph-msg bad" style="margin:0 0 10px">No interview questions are set up yet (Desktop step 622 installs them). Use the laminated sheet for now.</div>';
-    IV.qs.forEach(function (q, i) {
+      + (IV.talk ? '<div id="phIvTalk"></div>' : '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">Say first</div><div class="ph-s" style="color:#1B2733;font-size:14px">"Thanks for coming in. This is just a conversation, there are no wrong answers. I’ll ask about you and the care you’ve given, I’ll tell you honestly what the job is like, and you can ask me anything. Is it OK if I record so I can listen to you instead of writing? The recording is written out by software and summarized to help me review it."</div></div>');
+    if (!IV.talk && !IV.qs.length) h += '<div class="ph-msg bad" style="margin:0 0 10px">No interview questions are set up yet (Desktop step 622 installs them). Use the laminated sheet for now.</div>';
+    (IV.talk ? [] : IV.qs).forEach(function (q, i) {
       var a = A.script[q.id] || {};
       h += '<div class="ph-card"><div class="ph-k">' + (i + 1) + ' · ' + esc(q.section || '') + '</div>'
         + '<div class="ph-t" style="font-size:16.5px">' + esc(q.question) + '</div>'
@@ -852,7 +856,7 @@
     h += '<div class="ph-card"><div class="ph-k">After the last question</div><div class="ph-t" style="font-size:16px">Check before they leave</div>'
       + '<div class="ph-s">Ends part 1 of the recording, writes it out, and lists anything the questions did not cover, so you can ask now. Then press Start recording for part 2. Usually a couple of minutes.</div>'
       + '<div class="ph-btns"><button class="ph-b" data-iv="check">Check before they leave</button></div><div id="phIvCheck"></div></div>';
-    h += '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>'
+    h += (IV.talk ? '' : '<div class="ph-card" style="background:#F7F5F0"><div class="ph-k">The honest picture, 2 minutes</div><div class="ph-s" style="color:#1B2733">Hours build up · everyone starts at Level 1 · the schedule follows the client · the real work (bathing, toileting, dementia) · paid training online, clock in on your phone · late or can’t make it: call the office, never just the client. Then: "Does any of that give you pause?"</div></div>')
       + '<div class="ph-card"><div class="ph-k">Quick check, 30 seconds</div><div class="ph-s">Only what their application did not answer.</div><div id="phIvQuick"></div></div>'
       + '<div id="phIvObs"></div>'
       + '<div class="ph-card"><div class="ph-k">Check with their references</div><textarea class="ph-in" rows="2" data-ivf="ref_check" placeholder="Anything you want their references to confirm">' + esc(A.ref_check || '') + '</textarea>'
@@ -868,6 +872,7 @@
       + '<div class="ph-btns"><button class="ph-b" data-iv="analyze">Analyze Interview</button></div></div>';
     box.innerHTML = h;
     ivQuick();
+    ivTalkMount();
     ivObsMount();
     try { recMount('phRecHost', 'interview', IV.id, nm); } catch (e) { document.getElementById('phRecHost').innerHTML = '<div class="ph-msg bad" style="margin:0">The recorder could not start: ' + esc(e && e.message || e) + '</div>'; }
   }
@@ -885,6 +890,18 @@
   }
   /* 2026-10-13: the interviewer's observations and the family reflection (interview-observations.js, the same section
      as the Hub). Kept on this phone as you go, like the notes; Save puts them on their record. */
+  /* 2026-11-21: the six-section conversation (interview-talk.js). Kept on this phone as you go; Save puts it on their record. */
+  function ivTalkMount() {
+    var tb = document.getElementById('phIvTalk'); if (!tb || !window.TALK || !IV.talk) return;
+    var draw = function () { tb.innerHTML = TALK.html(IV.talk, IV.A.talk, { phone: true }); };
+    draw();
+    TALK.bind(tb, function () { return (IV.A.talk = TALK.norm(IV.A.talk)); }, function (redraw, moved) {
+      if (redraw) draw();
+      if (moved) { try { tb.scrollIntoView({ block: 'start' }); } catch (e) { /* older phones */ } }
+      clearTimeout(IV.t); IV.t = setTimeout(ivDraftSave, 300);
+      var s = document.getElementById('phIvSaid'); if (s) s.textContent = 'Not saved to their record yet (kept on this phone).';
+    });
+  }
   function ivObsMount() {
     var ob = document.getElementById('phIvObs'); if (!ob || !window.OBS) return;
     IV.A.observations = IV.A.observations || {};
@@ -919,6 +936,7 @@
       ['smoker', 'dogs', 'cats', 'client_smokes', 'ref_check', 'notes'].forEach(function (k) { if (A[k] !== undefined) out[k] = typeof A[k] === 'string' ? A[k].trim() : A[k]; });
       if (A.works_with) out.works_with = A.works_with;
       if (A.observations && window.OBS) out.observations = OBS.clean(A.observations, (typeof ME !== 'undefined' && ME && (ME.name || ME.email)) || null);
+      if (IV.talk && A.talk && window.TALK) out.talk = TALK.clean(A.talk, (typeof ME !== 'undefined' && ME && (ME.name || ME.email)) || null);
       out.phone_saved_at = new Date().toISOString();
       var up = await sb.from('job_applicants').update({ post_interview: out }).eq('id', IV.id);
       if (up.error) throw up.error;
