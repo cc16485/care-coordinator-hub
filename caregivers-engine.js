@@ -5348,9 +5348,12 @@ async function bgrEnsureData(force){
   if(BGR_DATA_LOADED && !force) return;
   BGR_DATA_ERR = null;
   try{
-    const rr = await sb.from('reference_requests')
-      .select('id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count, office_attempts')
-      .order('created_at', { ascending: false });
+    const COLS = 'id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count, office_attempts';
+    /* 2026-11-21 (Samantha: "I just clicked to text the form on all these and cant see that it was sent"): also read how
+       each form went (the Hub's own text, the office text or email), so the checklist can say it plainly. If those
+       columns cannot be read, the older list still loads. */
+    let rr = await sb.from('reference_requests').select(COLS + ', texted_at, office_texted_at, office_texted_by, office_emailed_at, office_emailed_by').order('created_at', { ascending: false });
+    if(rr && rr.error) rr = await sb.from('reference_requests').select(COLS).order('created_at', { ascending: false });
     REF_REQUESTS = (rr && rr.data) ? rr.data : [];
     if(rr && rr.error) BGR_DATA_ERR = 'Could not read reference requests.';
   }catch(e){ REF_REQUESTS = []; BGR_DATA_ERR = 'Could not read reference requests.'; }
@@ -7279,6 +7282,28 @@ function obRefSentLine(c,n){
     ? ['💬 Texted the form',"OK'd by phone"].concat(tail).join(' · ')
     : ['✉️ Emailed the form'].concat(tail).join(' · ');
 }
+/* 2026-11-21 (Samantha: "I just clicked to text the form on all these and cant see that it was sent"): every way the
+   form went to this reference, newest first, from the office send (c.rN_sent) and the request row (the Hub's own
+   text and email, and the office stamps). [{ how:'Texted'|'Emailed'|'Sent', at, by }] */
+function obRefSends(c,n){
+  const out=[], t=c&&c[`r${n}_sent`];
+  const rq=(typeof bgrReqsFor==='function'?bgrReqsFor(c):[]).filter(r=>Number(r.slot)===Number(n)).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];
+  if(t&&t.how&&t.at) out.push({ how:t.how==='text'?'Texted':'Emailed', at:t.at, by:t.by||'' });
+  if(rq){
+    const has=(how,at)=>out.some(x=>x.how===how&&Math.abs(Date.parse(x.at)-Date.parse(at))<120000);
+    if(rq.office_texted_at&&!has('Texted',rq.office_texted_at)) out.push({ how:'Texted', at:rq.office_texted_at, by:rq.office_texted_by||'' });
+    if(rq.office_emailed_at&&!has('Emailed',rq.office_emailed_at)) out.push({ how:'Emailed', at:rq.office_emailed_at, by:rq.office_emailed_by||'' });
+    if(rq.texted_at&&!has('Texted',rq.texted_at)) out.push({ how:rq.ref_email?'Texted and emailed':'Texted', at:rq.texted_at, by:'the Hub' });
+    if(rq.sent_at&&!out.some(x=>Math.abs(Date.parse(x.at)-Date.parse(rq.sent_at))<120000)) out.push({ how:rq.ref_email&&!rq.texted_at?'Emailed':'Sent', at:rq.sent_at, by:'the Hub' });
+    if(rq.reminded_at) out.push({ how:'Reminded', at:rq.reminded_at, by:'the Hub' });
+  }
+  return out.filter(x=>!isNaN(Date.parse(x.at))).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+}
+/* "✓ Texted the form Nov 21, 10:42 AM by Samantha Troutman" */
+function obRefSendWords(x){
+  const d=new Date(x.at), when=d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return '✓ '+(x.how==='Reminded'?'Reminder sent':x.how+' the form')+' '+when+(x.by?' by '+x.by:'');
+}
 /* Lines for the PDF and the printed record. Plain text, no em dashes. */
 function obRefSendRecordLines(c,n){
   const out=[], ok=c&&c[`r${n}_sms_ok`], t=c&&c[`r${n}_sent`];
@@ -7383,9 +7408,15 @@ function obRefTextOpen(candId, n){
 function obRefSendClose(){ const m=document.getElementById('obSendModal'); if(m) m.style.display='none'; _obSend=null; }
 async function obRefSendDone(c, n, res, how){
   c[`r${n}_sent`]={ how, at:res.at||new Date().toISOString(), by:res.by||'', to:res.to||'' };
+  /* 2026-11-21: the list the checklist reads is updated at once, so its next action stops saying Call */
+  try{
+    const at=c[`r${n}_sent`].at, rq=(typeof bgrReqsFor==='function'?bgrReqsFor(c):[]).find(r=>Number(r.slot)===Number(n)&&!r.responded_at);
+    if(rq){ if(!rq.sent_at) rq.sent_at=at; if(how==='text'){ rq.office_texted_at=at; rq.office_texted_by=res.by||''; } else { rq.office_emailed_at=at; rq.office_emailed_by=res.by||''; } }
+  }catch(_){}
   obRefSendClose();
   await saveCandidates();
   try{ renderOB(); }catch(e){}
+  try{ ckdRefreshPerson(); }catch(e){}
   obToast(how==='email' ? 'Emailed the form to '+(res.to||'them')+'.' : 'Texted the form to '+(res.to?obFmtPhone(res.to).show:'them')+'.');
 }
 async function obRefSendGo(btn){
@@ -7559,7 +7590,7 @@ function ckdRefNext(c){
     const req = (typeof bgrReqsFor === 'function' ? bgrReqsFor(c) : []).find(r => Number(r.slot) === n && !r.responded_at);
     const sent = req && req.sent_at ? new Date(req.sent_at) : null;
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
-    const how = req && req.texted_at ? 'texted and emailed' : 'sent';
+    const how = req && (req.texted_at || req.office_texted_at) ? (req.office_emailed_at || (req.ref_email && req.texted_at) ? 'texted and emailed' : 'texted') : req && req.office_emailed_at ? 'emailed' : 'sent';
     if(days !== null && days < 5)
       return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', short:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
     return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), short:nm + (days !== null ? ', no answer ' + days + (days === 1 ? ' day' : ' days') : ', not called yet'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
@@ -8790,19 +8821,23 @@ function ckdPersonHTML(c){
   const meta = [c.position || (o && o.position) || '', o && o.created_at ? 'offered ' + bgrD(o.created_at) : '', w.text].filter(Boolean);
   const refBox = n => {
     const s = c['r'+n+'s'] || 'Pending', nm = String(c['r'+n+'n'] || '').trim() || 'Name not given';
-    const tl = obRefCellTypeLine(c, n), sent = obRefSentLine(c, n), mn = c['r'+n+'_manual'];
+    const tl = obRefCellTypeLine(c, n), sends = obRefSends(c, n), mn = c['r'+n+'_manual'];
     const ph = c['r'+n+'_phone'], em = c['r'+n+'_email'], p = ph ? obFmtPhone(ph) : null;
-    const tone = { Positive:['Good','#15803D'], Conditional:['Conditional','#9C6410'], Negative:['Negative','#B42318'], Pending:['Not answered','#9C6410'] }[s] || [s, 'var(--gray)'];
-    const lines = [tl, sent ? sent.replace(/^\S+\s/, '') : '', mn && mn.date ? 'Answered ' + (fmtD(mn.date) || '') + (mn.via ? ' by ' + mn.via : '') : ''].filter(Boolean);
+    const texted = sends.some(x => /^Texted|^Sent/.test(x.how)), emailed = sends.some(x => /mailed/.test(x.how));
+    const tone = { Positive:['Good','#15803D'], Conditional:['Conditional','#9C6410'], Negative:['Negative','#B42318'], Pending: sends.length ? ['Form sent, waiting','#1D4ED8'] : ['Not answered','#9C6410'] }[s] || [s, 'var(--gray)'];
+    const lines = [tl, mn && mn.date ? 'Answered ' + (fmtD(mn.date) || '') + (mn.via ? ' by ' + mn.via : '') : ''].filter(Boolean);
+    const sentHTML = s === 'Pending' ? (sends.length
+        ? sends.slice(0, 3).map(x => '<div class="ckd-box-sub" style="color:#15803D;font-weight:700">' + bgrEsc(obRefSendWords(x)) + '</div>').join('')
+        : '<div class="ckd-box-sub" style="color:#9C6410">Form not sent yet</div>') : '';
     const acts = s === 'Pending'
       ? (p ? '<a class="ckd-go"' + ocAttrs(p.dial, { email:em }) + '>Call ' + bgrEsc(p.show) + '</a>' : '')
         + '<button type="button" class="ckd-go ckd-go-line" onclick="openManualRef(' + id + ',' + n + ')">Record answer</button>'
-        + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">Email the form</button>' : '')
-        + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">Text the form</button>' : '')
+        + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">' + (emailed ? 'Email it again' : 'Email the form') + '</button>' : '')
+        + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">' + (texted ? 'Text it again' : 'Text the form') + '</button>' : '')
       : '<button type="button" class="ckd-link" onclick="openManualRef(' + id + ',' + n + ')">See or change the answer</button>';
     const fix = '<button type="button" class="ckd-link" onclick="ckdRefForm(' + id + ',' + n + ')">Fix their details</button>';
     return '<div class="ckd-box' + (s === 'Positive' ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + bgrEsc(nm) + '</b>'
-      + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + '</div>'
+      + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + sentHTML + '</div>'
       + '<span class="ckd-box-st" style="color:' + tone[1] + '">' + bgrEsc(tone[0]) + '</span></div>'
       + '<div class="ckd-box-acts">' + acts + (s === 'Pending' ? fix : '') + '</div></div>';
   };
