@@ -88,12 +88,37 @@
       h += '<div>Every requirement above is complete. ' + (a.may_approve_work ? 'Press Approve to Work to record your name and the exact time, set them Active in AxisCare and read it back, then send the cleared text.' : 'Only a person on the Approve to Work list (Admin page) can press the button.') + '</div>';
       if(!a.switches.axiscare_live) h += '<div style="font-size:.76rem;color:#B45309;margin-top:.2rem">The AxisCare update switch is off: the press records practice and nothing is written to AxisCare.</div>';
       if(a.may_approve_work) h += '<div style="margin-top:.5rem"><button class="ibtn" style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.approve(this)">✓ Approve to Work</button></div>';
+    } else if(a.simple){
+      /* THE SIMPLER FINISH (Samantha 2026-11-21, simple_finish_live): three things, one box, nothing else holds them */
+      h += simpleBlock(a);
     } else {
       /* AFTER-ORIENTATION CALL (2026-11-04): the call comes before Approve to Work, so it shows here once orientation is done */
       if(a.checkin && a.switches && a.switches.after_call) h += checkinBlock(a.checkin, a);
       h += '<div style="color:#6E6559">Not ready: ' + (a.blocked && a.blocked.length ? 'blocked on ' + esc(a.blocked.join('; ')) : 'requirements above are still open') + '.</div>';
     }
     return h + '</div>';
+  }
+  /* THE SIMPLER FINISH (Samantha 2026-11-21: "its too complicated and still not letting me push the button saying that we
+     completed the I-9"). The server sends the three things (a.simple); the box is the only thing a person does here. */
+  function simpleBlock(a){
+    const s = a.simple, line = (ok, words, sub) => '<div style="display:flex;gap:8px;align-items:flex-start;padding:3px 0"><span style="flex:none;width:13px;font-weight:800;color:' + (ok ? '#15803D' : '#B45309') + '">' + (ok ? '✓' : '○') + '</span><span>' + words + (sub ? '<div style="font-size:.76rem;color:#B45309">' + esc(sub) + '</div>' : '') + '</span></div>';
+    const ck = s.checks || {}, bad = (ck.blocked || []).length ? 'Flagged: ' + ck.blocked.join(', ') + '. An owner decides first.' : (ck.waiting || []).length ? 'Still needed: ' + ck.waiting.join(', ') : '';
+    let h = '<div style="font-size:.78rem;color:#6E6559;margin:.1rem 0 .3rem">Three things and they are cleared to work.</div>';
+    h += line(!!ck.ok, 'Background checks clear', ck.ok ? '' : (bad || 'Not on file yet'));
+    h += line(!!s.orientation, 'Orientation finished', '');
+    if(s.i9) h += line(true, 'I-9 finished in Viventium', '');
+    else if(s.open && a.may_approve_work)
+      h += '<label style="display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;text-align:left;padding:5px 0;cursor:pointer;font-weight:700;color:#0D365F"><input type="checkbox" id="crI9Box" style="flex:none;width:auto;margin:3px 0 0" onchange="var b=document.getElementById(\'crI9Go\');if(b)b.disabled=!this.checked"><span style="flex:1;min-width:0">' + esc(s.box) + '</span></label>'
+        + '<div style="margin-top:.3rem"><button id="crI9Go" class="ibtn" disabled style="background:#0D365F;color:#fff;font-weight:800" onclick="CRX.finishI9(this)">✓ Cleared to work</button></div>'
+        + '<div style="font-size:.76rem;color:#6E6559;margin-top:.3rem">Saved in your name with the time. They are set Active in AxisCare, get the cleared text, and leave the Onboarding list. Only the person who saw the ID ticks this.</div>';
+    else h += line(false, esc(s.box), s.open ? 'A person on the Approve to Work list or a care coordinator ticks this.' : 'Opens once the two lines above are done.');
+    const t = s.tidy || [];
+    if(t.length) h += '<details style="margin-top:.5rem"><summary style="cursor:pointer;font-size:.78rem;color:#6E6559">Still to tidy (' + t.length + '). None of these hold them back.</summary><div style="font-size:.78rem;color:#6E6559;margin:.2rem 0 0 .9rem">' + t.map(x => '<div>· ' + esc(x) + '</div>').join('') + '</div></details>';
+    return h;
+  }
+  async function finishI9(btn){
+    const box = document.getElementById('crI9Box'); if(!box || !box.checked) return;
+    await act({ action:'finish_i9', saw_id:true }, btn);
   }
   /* IN TRAINING PLAN v2, PART B (Samantha approved 2026-10-22): the check-in call. Three ticks and the test clock-in choice save
      as they are pressed; Done finishes it (the server refuses until all are in); No answer keeps it for the next business day. */
@@ -162,15 +187,21 @@
     const v = d.view || {}, rows = v.rows || [];
     const approved = rows.find(r => r.key === 'cg.approve.work');
     let h = '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem"><div><div style="font-weight:800;color:#0D365F;font-size:1rem">Readiness · ' + esc(d.journey.client_name) + '</div>'
-      + '<div style="font-size:.76rem;color:#6E6559;margin-top:.1rem">One card: every requirement, what is blocking, who owns the next move. Drawn from the records; nothing here is typed.</div></div>'
+      + (d.approve && d.approve.simple && !d.approve.approved ? '' : '<div style="font-size:.76rem;color:#6E6559;margin-top:.1rem">One card: every requirement, what is blocking, who owns the next move. Drawn from the records; nothing here is typed.</div>') + '</div>'
       + pill(d.approve, approved) + '</div>';
     if(d.facts && d.facts.dates) h += '<div style="font-size:.76rem;color:#6E6559;margin:.4rem 0">Employment start (orientation completed): <b>' + esc(d.facts.dates.orientation || 'not yet') + '</b> · AxisCare hire date: <b>' + esc(d.facts.dates.axiscare_hire || 'none') + '</b>' + (d.facts.dates.differ ? ' <span style="color:#B45309;font-weight:700">(they differ: reconcile)</span>' : '') + '</div>';
     /* the rail */
     h += '<div style="display:flex;gap:.3rem;flex-wrap:wrap;margin:.6rem 0">' + (v.rail || []).map(s => '<span style="font-size:.7rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:.2rem .55rem;border-radius:999px;' + (s.state === 'done' ? 'background:#DCFCE7;color:#15803D' : s.state === 'now' ? 'background:#0D365F;color:#fff' : s.state === 'stopped' ? 'background:#FDECEC;color:#B91C1C' : 'background:#EEE9DF;color:#8A7F70') + '">' + esc(s.label) + '</span>').join('') + '</div>';
     /* the next move */
-    if(v.next){ const n = v.next; h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.84rem"><b>Next:</b> ' + esc(n.def.title) + ' · <b>' + esc(ownerWords(n.owner)) + '</b>' + (n.why ? ' · ' + esc(n.why) : '') + (n.attention ? ' · <span style="color:#B91C1C;font-weight:700">' + esc(n.attention) + '</span>' : '') + '</div>'; }
+    const sfa = d.approve && d.approve.simple && !d.approve.approved ? d.approve.simple : null;
+    if(sfa){ const words = sfa.open ? 'Look at their ID, finish the I-9 in Viventium, then tick the box below.' : !sfa.orientation ? 'Waiting on them to finish orientation.' : sfa.i9 ? 'Everything is done. The Hub approves them within the hour.' : 'Their background checks are not all clear yet.';
+      h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.84rem"><b>Next:</b> ' + esc(words) + '</div>'; }
+    else if(v.next){ const n = v.next; h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:8px;padding:.5rem .7rem;font-size:.84rem"><b>Next:</b> ' + esc(n.def.title) + ' · <b>' + esc(ownerWords(n.owner)) + '</b>' + (n.why ? ' · ' + esc(n.why) : '') + (n.attention ? ' · <span style="color:#B91C1C;font-weight:700">' + esc(n.attention) + '</span>' : '') + '</div>'; }
     else if(v.complete) h += '<div style="background:#DCFCE7;border-radius:8px;padding:.5rem .7rem;font-size:.84rem;color:#15803D;font-weight:700">Every requirement is complete.</div>';
     h += approvalBlock(d);
+    /* THE SIMPLER FINISH (2026-11-21): the long list is folded shut; the three things above are the whole job */
+    const simpleCard = !!(d.approve && d.approve.simple && !d.approve.approved);
+    if(simpleCard) h += '<details style="margin-top:.6rem"><summary style="cursor:pointer;font-size:.8rem;color:#0D365F;font-weight:700">Show every line on file (' + rows.length + ')</summary>';
     /* the rows by stage */
     const stages = (v.rail || []).map(s => s.key);
     stages.forEach(st => {
@@ -203,6 +234,7 @@
         h += line + '</div>';
       });
     });
+    if(simpleCard) h += '</details>';
     h += '<div style="font-size:.72rem;color:#8A7F70;margin-top:.6rem">Verified rows come from the records on their own (the offer, the Step 1 forms, the Background and References row, ' + (d.facts && d.facts.after_call ? 'the call after orientation' : 'the Orientation Video Call') + ', the roster, the profile, the Training Platform\'s report). Confirmed rows need the named list on the Admin page. Every change is permanent history.</div>';
     if(d.events && d.events.length) h += '<details style="margin-top:.5rem"><summary style="font-size:.76rem;color:#0D365F;cursor:pointer">History (' + d.events.length + ')</summary>' + d.events.slice(0, 40).map(e => '<div style="font-size:.74rem;padding:.12rem 0">' + esc(when(e.at)) + ' · ' + esc(e.kind) + (e.step_key ? ' · ' + esc(e.step_key) : '') + ' · ' + esc(e.actor_name || e.actor_email) + (e.reason ? ' · "' + esc(e.reason) + '"' : '') + '</div>').join('') + '</details>';
     /* SLICE 6: the read-only personnel-file export (owners and the Audit export list; every export logged) */
@@ -330,5 +362,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet };
+  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet, finishI9 };
 })();

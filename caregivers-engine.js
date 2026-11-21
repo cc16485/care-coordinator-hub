@@ -8232,6 +8232,13 @@ function obtI9(c, j, fin){
   if(j && (j.approved_to_work || j.ready_for_final)) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   const f = fin && fin.fin, open = f && f.missing.some(x => /I-9/i.test(x));
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
+  /* THE SIMPLER FINISH (Samantha 2026-11-21, simple_finish_live): checks clear, orientation done, then this one button. It records
+     the I-9 in the presser's name and approves them to work, so they leave this list. Shown only when the box is all that is left. */
+  if(obtSimpleOn()){
+    if(open && f.missing.length === 1 && j && j.journey_id)
+      return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Look at their ID (in person or on live video), finish the I-9 in Viventium, then press I-9 done. They are approved to work and leave this list. Only the person who saw the ID presses it.' });
+    return obtCell('none', '', { tip:open ? 'After orientation and clear background checks: look at their ID and finish the I-9' : 'After orientation: look at their ID and finish the I-9' });
+  }
   if(obtCallOn()){
     /* with the call after orientation, the I-9 line is ticked on that call (it completes this same readiness-card row) */
     /* 2026-11-19: the call is optional now, so I-9 Section 2 has its own button once orientation is done (the call opened) */
@@ -8244,7 +8251,17 @@ function obtI9(c, j, fin){
     return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
   return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
 }
+const obtSimpleOn = () => !!(window.DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
 async function obtI9Done(jid, btn){
+  /* THE SIMPLER FINISH (2026-11-21): one press records the I-9 and approves them to work */
+  if(obtSimpleOn()){
+    if(!(await ccConfirm('Did you see their ID and finish the I-9 in Viventium?\n\nPress OK to record that in your name, with the time. They are then approved to work, set Active in AxisCare, and leave the Onboarding list. Only the person who saw the ID should press this.'))) return;
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+    try{ await CRX.call({ journey_id:jid, action:'finish_i9', saw_id:true }); }
+    catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+    try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
+    renderCkd(); return;
+  }
   if(!(await ccConfirm('Record that you examined their ID documents and completed I-9 Section 2 in Viventium?\n\nThis completes the I-9 Section 2 row on their readiness card in your name, with the time. Only the person who did it should press this.'))) return;
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   const back = (e) => { alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } };
