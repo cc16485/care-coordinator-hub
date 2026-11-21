@@ -24,11 +24,11 @@ ok(ctx.apStageNow({}, null) === 0 && ctx.apStageNow({ post_interview: {} }, null
 ok(!/Getting started/.test(ctx.ppStagesHtml(1)) && /pp-now">Interview/.test(ctx.ppStagesHtml(1)), 'stage strip marks where they are now');
 const bar = ctx.ppTabBarHtml(['overview', 'messages', 'history'], 'messages', 'apTab');
 ok((bar.match(/class="subtab[ "]/g) || []).length === 3 && /active" role="tab" aria-selected="true" id="apTabBtn-messages"/.test(bar), 'tab bar shows only the tabs they have, in the set order');
-ok(ctx.PP_TABS.map(t => t[1]).join(' | ') === 'Overview | Application & interview | Hiring | Training & checks | Family profile | Work | Performance | Messages | History', 'her approved tab names and order');
+ok(ctx.PP_TABS.map(t => t[1]).join(' | ') === 'Overview | Application & interview | Hiring | Training & checks | Driving | Family profile | Work | Performance | Messages | History', 'her approved tab names and order');
 
 /* which tabs an applicant has, read from the renderer itself */
 const render = cut(IDX, 'function apRenderProfile(){', '/* ---- The half of somebody');
-ok(/AP_TABS_HAVE = \['overview','interview'\]\.concat\(offered \? \['hiring','checks'\] : \[\]\)/.test(render), 'applicant: 4 tabs, hiring + checks once offered');
+ok(/AP_TABS_HAVE = \['overview','interview'\]\.concat\(offered \? \['hiring','checks','driving'\] : \[\]\)/.test(render), 'applicant: 4 tabs, hiring + checks + driving once offered (2026-11-21 Driving tab)');
 ok(/started_at \|\| r\.left_at \|\| r\.status==='left'\) \? \['performance'\]/.test(render), 'performance once they started');
 for (const box of ["'What they told us'", "'The screen'", "'Where they have worked'", "'The interview'", "'The offer'", "'References'", "'Training'", "'Since they started'", "'Texts & emails'", "'How it ended'", 'apNoshowPanel(r)', 'apDecisionPanel(r)', 'apReviewBox', 'apPrnHtml(r)'])
   ok(render.includes(box), 'nothing lost from the old page: ' + box);

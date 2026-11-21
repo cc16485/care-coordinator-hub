@@ -52,7 +52,7 @@ window.confirm = () => true; window.ccConfirm = async () => true;
 const P = %s, DC = '%s';
 function refuse(status, body){ return { data:null, error:{ message:'Edge Function returned a non-2xx status code', context:{ status, json: async () => Object.assign({ ok:false }, body) } } }; }
 window.sb = { functions: { invoke: async (name, o) => {
-  const b = o.body; window.CALLS.push(Object.assign({ fn:name }, b));
+  const b = o.body; if(b.reason === "quick look on the Driving tab") window.LOOKS = (window.LOOKS || []).concat([b.doc_id]); else window.CALLS.push(Object.assign({ fn:name }, b));
   if(name === 'hire-profile') return { data:{ ok:true, ids:{ offer_id:'11111111-2222-3333-4444-555555555555', applicant_id:'a1' } } };
   const S = window.SERVER, cur = P[S.status];
   if(b.action === 'get'){ if(!(b.key || b.offer_id || b.caregiver_id || b.axiscare_id)) return refuse(400, { error:'Which person?' }); return { data: JSON.parse(JSON.stringify(cur)) }; }
@@ -95,12 +95,14 @@ try:
     def show(status, key=None):
         pg.evaluate('(s) => { window.SERVER = { status:s }; window.CALLS = []; }', status)
         pg.evaluate('(k) => DRV.mount(document.getElementById("card"), k, { roster:{ dl_expires:"2027-01-31", auto_ins_expires:"2026-12-01" } })', key or {'caregiver_id': '7', 'axiscare_id': 'ax-' + status}); pg.wait_for_timeout(250)
+        # 2026-11-21: the record sits in a folded "full driver record" under the banner, so read the text as written
+        pg.evaluate('() => document.querySelectorAll("#card details").forEach(d => { if(/full driver record/.test(d.querySelector("summary").textContent)) d.open = true })')
         return pg.inner_text('#card')
     t = show('none')
-    ck('Not set up yet: the pill, nothing assumed, the office-typed roster dates said to be unverified, and Set up', 'Not set up yet' in t and 'Nobody is treated as a driver' in t and 'typed by the office and not verified' in t and 'Set up driver compliance' in t, t)
-    pg.click('text=Set up driver compliance'); pg.wait_for_timeout(250)
+    ck('Not set up yet: the pill, nothing assumed, the office-typed roster dates said to be unverified, and Set up', 'NOT A DRIVER (NOT SET UP)' in t and 'may not drive a client' in t and 'typed by the office and not verified' in t and 'Set up driver compliance' in t, t)
+    pg.click('button:has-text("Set up driver compliance")'); pg.wait_for_timeout(250)
     ck('...Set up sends setup { caregiver_id } (no key yet), then the record is read again: Pending Verification', pg.evaluate('CALLS.some(c => c.action === "setup" && c.caregiver_id === "7" && !c.key && !c.as)') and 'Set up at Pending Verification' in pg.inner_text('#card') and 'Pending Verification' in pg.inner_text('#card'), pg.inner_text('#card'))
-    show('none', {'caregiver_id': '7', 'axiscare_id': 'ax-none-2'}); pg.click('text=Set up as Non-Driver'); pg.fill('.drv-form textarea', 'no'); pg.click('.drv-form button.ibtn-strong'); pg.wait_for_timeout(250)
+    show('none', {'caregiver_id': '7', 'axiscare_id': 'ax-none-2'}); pg.click('button:has-text("Set up as Non-Driver")'); pg.fill('.drv-form textarea', 'no'); pg.click('.drv-form button.ibtn-strong'); pg.wait_for_timeout(250)
     ck('...Set up as Non-Driver: a too-short reason is refused in the server\'s words', 'at least five characters' in pg.inner_text('#card'), pg.inner_text('#card'))
     pg.screenshot(path=os.path.join(OUT, 'drv_card_none.png'))
     t = show('non_driver')
@@ -110,11 +112,11 @@ try:
     ck('...expiries with days left, the insurer, coverage and driving record not verified', 'Mar 1, 2027' in t and 'days left' in t and 'Practice Mutual' in t and 'Not checked yet' in t and t.count('Not verified') >= 3, t)
     ck('...missing items and upcoming renewals from the server', 'Missing: the insurance company' in t and 'Upcoming renewals: auto insurance' in t and '19 days left' in t, t)
     ck('...not eligible for transport shifts, said on the card', 'Not eligible for shifts that include transporting a client' in t)
-    ck('...the full history is collapsed by default, with every event', pg.locator('#card details').count() == 1 and pg.evaluate('!document.querySelector("#card details").open') and 'Full history (3)' in t)
-    pg.click("#card summary"); pg.wait_for_timeout(100); ht = pg.inner_text('#card details')
+    ck('...the full history is collapsed by default, with every event', pg.locator('#card details').count() == 2 and pg.evaluate('!document.querySelectorAll("#card details")[1].open') and 'Full history (3)' in t)
+    pg.click("#card details >> nth=1 >> summary"); pg.wait_for_timeout(100); ht = pg.inner_text('#card details >> nth=1')
     ck('...opened, it lists each event with who (newest first)', 'Agreement signed' in ht and 'Document uploaded' in ht and 'Krystal Land' in ht and ht.index('Verified') < ht.index('Agreement signed'), ht)
     # open through the server only
-    pg.evaluate('CALLS = []; OPENED = []'); pg.click('#card button[data-doc="%s"]' % U(13)); pg.wait_for_timeout(250)
+    pg.wait_for_timeout(300); pg.evaluate('CALLS = []; OPENED = []'); pg.click('#card button[data-doc="%s"]' % U(13)); pg.wait_for_timeout(250)
     ck('Open: asks the server (action open, the document id) and opens only the link it returns', pg.evaluate('(id) => CALLS.length === 1 && CALLS[0].action === "open" && CALLS[0].doc_id === id && !CALLS[0].key', U(13)) and pg.evaluate('OPENED') == ['https://zngsgedlsxinbygwmxwn.supabase.co/storage/v1/object/sign/driver-docs/x?token=' + U(13)], pg.evaluate('[CALLS, OPENED]'))
     ck('...no storage address is ever written into the card', 'storage/v1' not in pg.inner_html('#card') and 'driver-docs' not in pg.inner_html('#card'))
     pg.evaluate('CALLS = []; OPENED = []'); pg.click('text=Open the signed agreement'); pg.wait_for_timeout(250)
@@ -171,7 +173,7 @@ try:
     ck('Overview line, Approved Driver: nothing in the way, so no line', pg.inner_text('#gate').strip() == '')
     # applicant page: key resolved through hire-profile to the offer
     pg.evaluate('() => { window.SERVER = { status:"pending" }; window.CALLS = []; return DRV.mount(document.getElementById("ap"), { applicant_id:"a1" }) }'); pg.wait_for_timeout(300)
-    ck('Applicant page: the application is resolved to its offer through hire-profile, then read by offer_id', pg.evaluate('CALLS[0].fn === "hire-profile" && CALLS[0].applicant_id === "a1" && CALLS.some(c => c.fn === "driver-compliance" && c.action === "get" && c.offer_id === "11111111-2222-3333-4444-555555555555")') and 'Pending Verification' in pg.inner_text('#ap'), pg.evaluate('CALLS'))
+    ck('Applicant page: the application is resolved to its offer through hire-profile, then read by offer_id', pg.evaluate('CALLS[0].fn === "hire-profile" && CALLS[0].applicant_id === "a1" && CALLS.some(c => c.fn === "driver-compliance" && c.action === "get" && c.offer_id === "11111111-2222-3333-4444-555555555555")') and 'NOT A DRIVER YET (WAITING FOR THE OFFICE)' in pg.inner_text('#ap'), pg.evaluate('CALLS'))
     ck('no em dash anywhere on the card', '—' not in pg.inner_text('body'))
     ck('no page errors', not errs, errs)
     b.close()

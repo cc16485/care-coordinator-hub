@@ -106,7 +106,7 @@ try:
         pg.click('text=Open the signed agreement'); pg.wait_for_timeout(500)
         D = db(port)
         ck(f'{eng} office: a document and the signed agreement open by the real server\'s five-minute links, each open logged with the name', len(pg.evaluate('OPENED')) == 2 and all('signed.test' in u for u in pg.evaluate('OPENED')) and len(D['document_access_log']) >= 2, [pg.evaluate('OPENED'), D['document_access_log'][-2:], pg.inner_text('#card')[-300:]])
-        pg.click('#card summary'); pg.wait_for_timeout(100); h = pg.inner_text('#card details')
+        pg.click('#card details >> nth=1 >> summary'); pg.wait_for_timeout(100); h = pg.inner_text('#card details >> nth=1')
         ck(f'{eng} office: the real history lists the signature, uploads, verifications and approval', all(w in h for w in ('Agreement signed', 'Document uploaded', 'Verified', 'Approved to drive')), h[:800])
         pg.evaluate('() => DRV.gate(document.getElementById("gate"), { caregiver_id:"204" })'); pg.wait_for_timeout(400)
         ck(f'{eng} office: the Overview line is empty for an Approved Driver', pg.inner_text('#gate').strip() == '')

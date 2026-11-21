@@ -94,7 +94,7 @@
     const ids = await resolve(k);
     let c = cardFor(el);
     if(!c){ c = { el, n:++N }; CARDS[c.n] = c; }
-    Object.assign(c, { k, ids, form:null, msg:'', msgOk:false, blockers:null, roster:(opt && opt.roster) || c.roster || null });
+    Object.assign(c, { k, ids, openDetail:null, form:null, msg:'', msgOk:false, blockers:null, roster:(opt && opt.roster) || c.roster || null });
     if(!Object.keys(ids).length){ el.innerHTML = '<div class="field-note">No offer or Hub record is connected to this person yet, so there is no driver record to show.</div>'; return; }
     await load(c);
   }
@@ -115,6 +115,124 @@
   }
   /* the server's label ("License (front)") as a button word: "Open front", "Open proof of auto insurance" */
   function docWord(d){ const l = String(d.label || DOC_LABEL[d.kind] || d.kind); const m = l.match(/^License \((front|back)\)$/); return m ? m[1] : l.replace(/^[A-Z](?=[a-z])/, (x) => x.toLowerCase()); }
+  /* ---- 2026-11-21 (Samantha): the Driving tab. "make it clear if this caregiver is an approved driver or NOT A DRIVER" ---- */
+  function banner(st, d){
+    const cleared = st === 'approved' && d && d.cleared_to_drive !== false;
+    const B = cleared ? ['#15803D', '#DCFCE7', '#86EFAC', 'APPROVED DRIVER', 'May drive clients in their own car. License and insurance are verified and current.']
+      : st === 'approved' ? ['#B91C1C', '#FEE2E2', '#FCA5A5', 'NOT CLEARED TO DRIVE', 'Approved before, but a license or insurance date has passed. Never schedule them to drive a client until new documents are verified.']
+      : st === 'non_driver' ? ['#B91C1C', '#FEE2E2', '#FCA5A5', 'NOT A DRIVER', 'Never schedule them to drive a client, for errands, outings or appointments. They may work every non-driving visit.']
+      : st === 'suspended' ? ['#B91C1C', '#FEE2E2', '#FCA5A5', 'NOT A DRIVER RIGHT NOW (SUSPENDED)', 'Never schedule them to drive a client until the office verifies new documents and approves again.']
+      : st === 'pending' ? ['#92400E', '#FEF3C7', '#FCD34D', 'NOT A DRIVER YET (WAITING FOR THE OFFICE)', 'They want to drive, but nobody has approved them. Never schedule them to drive a client until they show here as Approved Driver.']
+      : ['#B91C1C', '#FEE2E2', '#FCA5A5', 'NOT A DRIVER (NOT SET UP)', 'We have no driver record for them, so they may not drive a client. Finish this tab.'];
+    return '<div class="drv-banner" style="border:2px solid ' + B[2] + ';background:' + B[1] + ';border-radius:12px;padding:12px 16px;margin-bottom:10px">'
+      + '<div style="font-size:20px;font-weight:900;letter-spacing:.02em;color:' + B[0] + '">' + (cleared ? '✓ ' : '✕ ') + esc(B[3]) + '</div>'
+      + '<div style="font-size:13.5px;margin-top:3px;color:#3A342C">' + esc(B[4]) + '</div>'
+      + (cleared ? '' : '<div class="field-note" style="margin-top:4px">The Hub already keeps anyone who is not an Approved Driver off shifts that include transporting a client.</div>') + '</div>';
+  }
+  function leftHtml(c, d){
+    const a = d && d.audit; if(!a) return '';
+    if(a.done) return '<div style="background:#F0F7F4;border:1px solid #B7E0CB;border-radius:10px;padding:7px 12px;margin-bottom:10px;font-size:13.5px;color:#15803D"><b>✓ This tab is complete.</b>'
+      + (a.confirmed ? ' <span class="field-note">Non-Driver checked with them ' + esc(a.confirmed.how) + (a.confirmed.by ? ' by ' + esc(a.confirmed.by) : '') + ', ' + esc(central(a.confirmed.at)) + '.</span>' : '') + '</div>';
+    return '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:7px 12px;margin-bottom:10px;font-size:13.5px"><b>Still to do on this tab:</b><ul style="margin:3px 0 0 18px;padding:0">'
+      + (a.left || []).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>';
+  }
+  function nonDriverHtml(c, row, d, ev){
+    const i = cardIdx(c), a = (d && d.audit) || {};
+    const signed = row.agreement_form === 'non_driver' && row.agreement_signed_at;
+    let h = '<div style="display:grid;gap:8px;margin-bottom:6px">';
+    h += '<div style="border:1px solid var(--border,#e4e1d8);border-radius:10px;padding:9px 12px;font-size:13.5px"><b>Non-Driver Agreement:</b> '
+      + (signed ? '<span style="color:#15803D;font-weight:700">✓ signed ' + esc(central(row.agreement_signed_at)) + '</span> '
+          + (row.agreement_pdf ? '<button type="button" class="ibtn" style="margin-left:6px" onclick="DRV.open(' + i + ',\'agreement\',this)">Open the signed form</button>' : '')
+        : '<span style="color:#B91C1C;font-weight:800">Not signed.</span> They must sign it. <button type="button" class="ibtn ibtn-strong" style="margin-left:6px" onclick="DRV.sendWhy(' + i + ',\'change\')">Send them the form to sign</button>')
+      + '</div>';
+    h += '<div style="border:1px solid var(--border,#e4e1d8);border-radius:10px;padding:9px 12px;font-size:13.5px"><b>Is Non-Driver right?</b> '
+      + (a.confirmed ? '<span style="color:#15803D;font-weight:700">✓ Checked with them ' + esc(a.confirmed.how) + (a.confirmed.by ? ' by ' + esc(a.confirmed.by) : '') + ', ' + esc(central(a.confirmed.at)) + '.</span>'
+        : '<span style="color:#B45309;font-weight:700">Not checked with them yet.</span> <span class="field-note">' + esc(row.status_reason || '') + '</span>')
+      + '<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">'
+      + (a.confirmed ? '' : '<button type="button" class="ibtn ibtn-strong" onclick="DRV.form(' + i + ',\'confirm\')">They confirmed: they do not drive clients</button>')
+      + '<button type="button" class="ibtn" onclick="DRV.sendWhy(' + i + ',\'change\')">They do drive: send them the driver link</button></div>'
+      + '<div class="field-note" style="margin-top:4px">The driver link lets them upload their license and insurance and sign the driver agreement. They stay NOT A DRIVER until the office verifies and approves.</div>'
+      + (c.form === 'confirm' ? confirmForm(c) : '') + '</div>';
+    return h + '</div>';
+  }
+  function confirmForm(c){
+    const i = cardIdx(c);
+    return '<div class="drv-form" style="margin-top:8px;background:#FAF9F6;border:1px solid var(--border,#e4e1d8);border-radius:10px;padding:10px 12px">'
+      + '<label style="display:block;font-size:12px;font-weight:700;color:#6E6559;margin:0 0 2px">How did you check?</label>'
+      + '<select id="drvHow' + i + '" ' + inp + '><option value="">Choose…</option><option value="phone">By phone</option><option value="text">By text</option><option value="in_person">In person</option></select>'
+      + '<label style="display:block;font-size:12px;font-weight:700;color:#6E6559;margin:6px 0 2px">Note (optional)</label><textarea id="drvNote' + i + '" rows="2" ' + inp + ' placeholder="e.g. no car right now"></textarea>'
+      + '<div style="margin-top:8px;display:flex;gap:6px"><button type="button" class="ibtn ibtn-strong" onclick="DRV.confirm(' + i + ',this)">Record it</button><button type="button" class="ibtn" onclick="DRV.form(' + i + ',\'\')">Cancel</button></div></div>';
+  }
+  /* the pictures on the page: each one through the server's logged open (your name, every look); kept for four minutes */
+  const LOOK = {};
+  function quickLook(c, docs){
+    const kinds = [['license_front', 'License, front'], ['license_back', 'License, back'], ['insurance', 'Auto insurance']];
+    const i = cardIdx(c);
+    const cell = ([k, label]) => {
+      const dd = (docs || []).find(x => x.kind === k && !x.superseded_at);
+      const inner = dd ? '<div class="drv-look" data-doc="' + esc(dd.id) + '" data-ct="' + esc(dd.content_type || '') + '" style="height:170px;display:flex;align-items:center;justify-content:center;background:#F4F2ED;border-radius:8px;overflow:hidden"><span class="field-note">Loading…</span></div>'
+          + '<div class="field-note" style="margin-top:3px">' + (dd.uploaded_at ? 'uploaded ' + esc(day(dd.uploaded_at)) : '') + (dd.verified_at ? ' · <span style="color:#15803D;font-weight:700">verified</span>' : ' · <span style="color:#B45309;font-weight:700">not verified</span>') + '</div>'
+        : '<div style="height:170px;display:flex;align-items:center;justify-content:center;background:#FEF2F2;border:1px dashed #FCA5A5;border-radius:8px;color:#B91C1C;font-weight:700;font-size:13px;text-align:center;padding:8px">Not on file</div>';
+      return '<div style="min-width:0"><div style="font-size:12.5px;font-weight:800;color:var(--navy,#0D365F);margin-bottom:4px">' + label + '</div>' + inner + '</div>';
+    };
+    const any = (docs || []).some(x => ['license_front','license_back','insurance'].includes(x.kind) && !x.superseded_at);
+    setTimeout(() => fillLooks(c), 0);
+    return '<div style="font-size:13.5px;font-weight:800;margin:2px 0 6px">Pre-hire license and insurance <span class="field-note" style="font-weight:400">(tap a picture to see it full size; every look is logged with your name)</span></div>'
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px">' + kinds.map(cell).join('') + '</div>'
+      + (any ? '' : '<div style="margin-top:6px"><button type="button" class="ibtn" onclick="DRV.sendWhy(' + i + ',\'documents\')">Send them the link to add their photos</button></div>');
+  }
+  /* only when the tab is showing: a look is logged with your name, so opening a profile must not count as looking */
+  async function fillLooks(c){
+    if(!c.el.isConnected || c.el.offsetParent === null) return;
+    const boxes = Array.from(c.el.querySelectorAll('.drv-look'));
+    for(const b of boxes){
+      const id = b.dataset.doc, ct = String(b.dataset.ct || '').toLowerCase();
+      /* the file is read once through its five-minute logged link and shown from memory (a blob: address), so no storage
+         address is ever written into the page; kept for this page visit */
+      let u = LOOK[id] ? LOOK[id].blob : '';
+      if(!u){
+        const r = await call({ action:'open', doc_id:id, reason:'quick look on the Driving tab' });
+        const link = r.ok && r.data && r.data.url || '';
+        if(link){ try{ const f = await fetch(link); if(f.ok){ u = URL.createObjectURL(await f.blob()); LOOK[id] = { blob:u }; } }catch(_){} }
+        if(!u){ if(b.isConnected) b.innerHTML = '<span style="color:#B91C1C;font-size:12.5px;padding:6px;text-align:center">Could not show it: ' + esc(r.ok ? 'the file did not load' : (r.error || 'no link')) + '</span>'; continue; }
+      }
+      if(!b.isConnected) return;
+      const a = '<a href="' + esc(u) + '" target="_blank" rel="noopener" style="display:flex;width:100%;height:100%;align-items:center;justify-content:center">';
+      if(ct === 'application/pdf') b.innerHTML = '<div style="width:100%;height:100%;position:relative"><iframe src="' + esc(u) + '#toolbar=0&view=FitH" title="document" style="width:100%;height:100%;border:0"></iframe><a href="' + esc(u) + '" target="_blank" rel="noopener" style="position:absolute;right:6px;bottom:6px;background:#fff;border:1px solid #ddd;border-radius:6px;padding:2px 8px;font-size:12px">Open full size</a></div>';
+      else if(ct === 'image/heic') b.innerHTML = a + '<span class="ibtn">iPhone photo: tap to open it</span></a>';
+      else b.innerHTML = a + '<img src="' + esc(u) + '" alt="document" style="max-width:100%;max-height:100%;object-fit:contain"></a>';
+    }
+  }
+  async function confirmIt(i, btn){
+    const c = cardAt(i); if(!c) return; const row = rowOf(c); if(!row) return;
+    const how = val('drvHow' + i), note = val('drvNote' + i);
+    if(!how){ c.msg = 'Please choose how you checked with them.'; c.msgOk = false; draw(c); return; }
+    busy(btn, true); const r = await call({ action:'confirm', key:row.id, how, note }); busy(btn, false);
+    await after(c, r, 'Recorded: they confirmed they do not drive clients.');
+  }
+  function sendWhy(i, why){ const c = cardAt(i); if(!c) return; c.form = 'send_link'; c.openDetail = true; c.msg = ''; draw(c); const s = document.getElementById('drvWhy' + i); if(s){ s.value = why; s.scrollIntoView({ behavior:'smooth', block:'center' }); } }
+
+  /* ---- everyone: "make sure all active caregivers have that tab fully completed" -------------------------------- */
+  async function auditOpen(){
+    let m = document.getElementById('drvAuditModal');
+    if(!m){ m = document.createElement('div'); m.id = 'drvAuditModal'; m.style.cssText = 'position:fixed;inset:0;background:rgba(13,54,95,.35);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:4vh 12px;overflow:auto';
+      m.onclick = e => { if(e.target === m) m.remove(); }; document.body.appendChild(m); }
+    m.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:860px;width:100%;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.2)"><div class="field-note">Reading every active caregiver…</div></div>';
+    const r = await call({ action:'audit' });
+    const box = m.firstChild;
+    if(!r.ok){ box.innerHTML = '<div style="color:#B91C1C">Could not read the list: ' + esc(r.error) + '</div><button class="ibtn" onclick="document.getElementById(\'drvAuditModal\').remove()">Close</button>'; return; }
+    const k = r.data.counts || {}, rows = r.data.rows || [];
+    const word = x => x.status === 'approved' ? (x.done ? '<b style="color:#15803D">Approved Driver</b>' : '<b style="color:#B91C1C">Not cleared</b>') : x.status === 'non_driver' ? '<b style="color:#B91C1C">NOT A DRIVER</b>'
+      : x.status === 'pending' ? '<b style="color:#92400E">Waiting for the office</b>' : x.status === 'suspended' ? '<b style="color:#B91C1C">Suspended</b>' : '<b style="color:#6E6559">Not set up</b>';
+    box.innerHTML = '<div style="display:flex;align-items:center;gap:8px"><div style="font-size:17px;font-weight:900;color:var(--navy,#0D365F);flex:1">Driving check: every active caregiver</div><button class="ibtn" onclick="document.getElementById(\'drvAuditModal\').remove()">Close</button></div>'
+      + '<div style="font-size:13.5px;margin:6px 0 10px"><b>' + (k.done || 0) + ' of ' + (k.active || 0) + '</b> complete. ' + (k.approved || 0) + ' Approved Driver, ' + (k.non_driver || 0) + ' Non-Driver, ' + (k.pending || 0) + ' waiting for the office, ' + (k.none || 0) + ' not set up.</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:left;color:#6E6559;font-size:12px"><th style="padding:4px 6px">Caregiver</th><th style="padding:4px 6px">Driving</th><th style="padding:4px 6px">Still to do</th></tr></thead><tbody>'
+      + rows.map(x => '<tr style="border-top:1px solid #EEE9DF;vertical-align:top"><td style="padding:6px">' + (x.axiscare_id && typeof openCaregiverProfile === 'function'
+          ? '<a href="javascript:void(0)" onclick="document.getElementById(\'drvAuditModal\').remove();openCaregiverProfile(\'' + esc(x.axiscare_id) + '\',\'driving\')">' + esc(x.name) + '</a>' : esc(x.name)) + '</td>'
+        + '<td style="padding:6px;white-space:nowrap">' + word(x) + '</td>'
+        + '<td style="padding:6px">' + (x.done ? '<span style="color:#15803D">✓ complete</span>' : (x.left || []).map(esc).join('<br>')) + '</td></tr>').join('') + '</tbody></table>';
+  }
+
   function draw(c){
     const el = c.el, r = c.data || {}, i = cardIdx(c);
     if(!r.ok){
@@ -127,7 +245,10 @@
     if(!row){
       /* Existing drivers today: nothing is assumed. Office-typed roster dates are shown as just that. */
       const g = p.roster_dates || c.roster || {};
-      h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">' + pill('none') + '<span class="field-note">No driver compliance record yet. Nobody is treated as a driver until one is set up and approved.</span></div>';
+      h += banner('none', null);
+      h += '<div style="background:#FFF7ED;border:1px solid #FCD9A8;border-radius:10px;padding:8px 12px;margin:8px 0;font-size:13.5px"><b>To finish this tab:</b> ask them whether they will drive clients in their own car.'
+        + '<ul style="margin:4px 0 0 18px;padding:0"><li><b>Yes:</b> press Set up driver compliance, then send them their secure link for license and insurance photos and the driver agreement.</li>'
+        + '<li><b>No:</b> press Set up as Non-Driver, then send them their secure link to sign the Non-Driver Agreement.</li></ul></div>';
       if(g.dl_expires || g.auto_ins_expires) h += '<div class="field-note" style="margin:4px 0 8px">On the roster, typed by the office and not verified here: '
         + [g.dl_expires ? 'license expires ' + esc(day(g.dl_expires)) : '', g.auto_ins_expires ? 'insurance expires ' + esc(day(g.auto_ins_expires)) : ''].filter(Boolean).join(', ') + '.</div>';
       if(c.ids.caregiver_id){
@@ -137,9 +258,16 @@
         h += formHtml(c, {}, {});
       } else h += '<div class="field-note">Their record starts from their Step 1 answer, or from the Hub roster once they are on it.</div>';
       h += msgHtml(c);
+      h += auditLink();
       el.innerHTML = h; return;
     }
     const st = row.status || 'none';
+    h += banner(st, d);
+    h += leftHtml(c, d);
+    if(st === 'non_driver') h += nonDriverHtml(c, row, d, ev);
+    else h += quickLook(c, docs);
+    if(c.openDetail == null) c.openDetail = st !== 'non_driver';   /* a Non-Driver's record is the agreement above; a driver's checks and buttons stay in view */
+    h += '<details' + (c.openDetail ? ' open' : '') + ' ontoggle="DRV.detail(' + i + ',this.open)" style="margin-top:12px"><summary style="cursor:pointer;font-size:13.5px;font-weight:800;color:var(--navy,#0D365F)">The full driver record, checks and buttons</summary><div style="margin-top:8px">';
     h += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">' + pill(st)
       + (row.status_reason ? '<span style="font-size:13px">' + esc(row.status_reason) + '</span>' : '')
       + (row.status_at ? '<span class="field-note">since ' + esc(central(row.status_at)) + '</span>' : '') + '</div>';
@@ -179,6 +307,7 @@
     if(st !== 'approved' && d.can_approve === false && (d.approve_blockers || []).length && c.form !== 'approve')
       h += '<div class="field-note" style="margin-top:2px">Before approval: ' + d.approve_blockers.map(esc).join('; ') + '.</div>';
     h += formHtml(c, row, d);
+    h += '</div></details>';
     h += msgHtml(c);
     /* the full history, collapsed */
     h += '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;font-weight:700;color:var(--navy,#0D365F)">Full history (' + ev.length + ')</summary>'
@@ -188,8 +317,10 @@
           + '<td style="padding:3px 6px;vertical-align:top">' + esc(eventDetail(x)) + '</td>'
           + '<td style="padding:3px 6px;vertical-align:top;color:#6E6559;white-space:nowrap">' + esc(x.by_name || '') + '</td></tr>').join('') + '</tbody></table>'
         : '<div class="field-note" style="margin-top:4px">Nothing yet.</div>') + '</details>';
+    h += auditLink();
     el.innerHTML = h;
   }
+  const auditLink = () => '<div style="margin-top:12px;padding-top:8px;border-top:1px solid #EEE9DF"><button type="button" class="ibtn" onclick="DRV.audit()">Driving check: see every active caregiver</button></div>';
   function mvrWord(v){ return v === 'acceptable' ? 'Acceptable' : v === 'not_acceptable' ? 'Not acceptable' : String(v || ''); }
   function eventDetail(x){
     const d = x.detail || {};
@@ -252,7 +383,7 @@
     return '';
   }
   function cardAt(i){ const c = CARDS[i]; return c && c.el.isConnected ? c : null; }
-  function setForm(i, f){ const c = cardAt(i); if(!c) return; c.form = f || null; c.msg = ''; c.blockers = null; draw(c); }
+  function setForm(i, f){ const c = cardAt(i); if(!c) return; c.form = f || null; c.msg = ''; c.blockers = null; if(f && f !== 'confirm' && f !== 'setup_nd') c.openDetail = true; draw(c); }
   const val = id => { const e = document.getElementById(id); return e ? String(e.value || '').trim() : ''; };
   async function after(c, r, okWords, bad){
     if(r.ok){ c.form = null; c.msg = okWords; c.msgOk = !bad; c.blockers = null; }
@@ -366,7 +497,7 @@
     const why = st === 'none' ? 'no driver compliance record yet' : st === 'non_driver' ? 'non-driving assignments only' : st === 'pending' ? 'documents waiting for the office to verify' : (row.status_reason || 'driving paused');
     g.el.innerHTML = '<div style="background:#FBF6EA;border:1px solid #ECD9AE;border-radius:9px;padding:.45rem .7rem;margin-bottom:.5rem;font-size:.8rem">'
       + '<b>Driving clients:</b> ' + pill(st) + ' <span>' + esc(why) + '.</span> <span class="field-note">Not eligible for transport shifts.</span>'
-      + (typeof cgdSection === 'function' ? ' <a href="javascript:void(0)" onclick="cgdSection(\'checks\')">See Driver Compliance</a>' : '') + '</div>';
+      + (typeof cgdSection === 'function' ? ' <a href="javascript:void(0)" onclick="cgdSection(\'driving\')">Open the Driving tab</a>' : '') + '</div>';
   }
   function refreshGates(ids){ const ks = keyStr(ids); GATES.forEach(g => { if(g.el.isConnected && keyStr(g.ids) === ks) gateDraw(g); }); }
 
@@ -377,6 +508,8 @@
     mount(document.getElementById('cgdDrv'), k, { roster });
     gate(document.getElementById('cgdDrvGate'), k);
   }
-  window.DRV = { mount, gate, mountCaregiver, open, act, verify, form:setForm, reload:(i) => { const c = cardAt(i); if(c){ drop(c.ids); load(c, true); } },
+  function shown(){ Object.values(CARDS).forEach(c => { if(c.el.isConnected && c.el.querySelector('.drv-look span.field-note')) fillLooks(c); }); }
+  window.DRV = { shown, mount, gate, mountCaregiver, open, act, verify, form:setForm, confirm:confirmIt, sendWhy, audit:auditOpen,
+    detail:(i, on) => { const c = cardAt(i); if(c) c.openDetail = !!on; }, reload:(i) => { const c = cardAt(i); if(c){ drop(c.ids); load(c, true); } },
     _call:call, _status:STATUS, daysLeft };
 })();
