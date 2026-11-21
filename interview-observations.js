@@ -69,10 +69,12 @@
         + '<button type="button" class="ob-add" data-oba="' + c[0] + '">+ Add an observation</button></details>';
     });
     var f = O.family || {};
-    h += '<div class="ob-card"><div class="ob-k">Reflection</div><div class="ob-q">' + esc(FAMILY_Q) + '</div><div class="ob-chips">'
+    /* opts.noFamily (2026-11-21): the new caregiver interview page asks the family question in its own Your take card */
+    if (!opts.noFamily) h += '<div class="ob-card"><div class="ob-k">Reflection</div><div class="ob-q">' + esc(FAMILY_Q) + '</div><div class="ob-chips">'
       + FAM.map(function (x) { return '<button type="button" class="ob-chip' + (f.answer === x[0] ? ' on' : '') + '" data-obf="' + x[0] + '">' + x[1] + '</button>'; }).join('')
       + '</div><textarea class="ob-ta" rows="3" data-obw="1" placeholder="Why? What you saw or heard that makes you say that">' + esc(f.why || '') + '</textarea>'
-      + '<div class="ob-req">Required: why (before an outcome). A reflection for you, not a score, and never an automatic no.</div></div>'
+      + '<div class="ob-req">Required: why (before an outcome). A reflection for you, not a score, and never an automatic no.</div></div>';
+    h += ''
       + '<div class="ob-card"><div class="ob-k">Overall interviewer observations</div>'
       + '<textarea class="ob-ta" rows="4" data-obo="1" placeholder="Anything else you noticed, with examples">' + esc(O.overall || '') + '</textarea></div>';
     return h;
