@@ -49,6 +49,10 @@
 
   function itemHtml(row, it) {
     var mk = (row.marks || {})[it.id] || {}, rid = esc(row.id), iid = esc(it.id);
+    /* 2026-11-21 (Samantha: "I dont like the having to confirm each and every single thing for the ai judgement"): the
+       conversation review has no Confirm / Correct / Dismiss. It is something to read; a point becomes work only when
+       someone makes a follow-up task from it. */
+    var plain = (row.review || {}).style === 'talk';
     var h = '<div class="ir-item' + (mk.mark === 'dismiss' ? ' dis' : '') + '" id="ir_' + rid + '_' + iid + '">';
     (it.said || []).forEach(function (s) {
       h += '<div class="ir-said">' + (s.source === 'application' ? '<span class="ts" style="cursor:default">application</span>'
@@ -58,16 +62,17 @@
     });
     if (it.clarify) h += '<div class="ir-clar"><b>AI suggests we clarify:</b> ' + esc(it.clarify) + '</div>';
     if (it.text) h += '<div class="ir-clar"><b>AI ' + (it.section === 'strengths' ? 'notes' : 'suggests') + ':</b> ' + esc(it.text) + '</div>';
-    h += '<div class="ir-acts">' + ['confirm', 'correct', 'dismiss'].map(function (m) {
+    if (!plain) h += '<div class="ir-acts">' + ['confirm', 'correct', 'dismiss'].map(function (m) {
       return '<button class="ir-act' + (mk.mark === m ? ' on' + (m === 'dismiss' ? ' x' : m === 'correct' ? ' e' : '') : '') + '" onclick="IR.mark(\'' + rid + '\',\'' + iid + '\',\'' + m + '\')">' + { confirm: 'Confirm', correct: 'Correct', dismiss: 'Dismiss' }[m] + '</button>';
     }).join('') + (mk.mark ? '<span class="field-note">' + esc(MARK[mk.mark]) + (mk.by ? ' by ' + esc(mk.by) : '') + (mk.at ? ', ' + esc(when(mk.at)) : '') + '</span>' : '') + '</div>';
-    if (mk.mark) h += '<textarea class="ir-ta" rows="2" placeholder="' + (mk.mark === 'correct' ? 'What is actually right' : 'Your follow-up note (for example, what the reference said)') + '" onchange="IR.note(\'' + rid + '\',\'' + iid + '\',this.value)">' + esc(mk.note || '') + '</textarea>';
+    if (mk.mark && !plain) h += '<textarea class="ir-ta" rows="2" placeholder="' + (mk.mark === 'correct' ? 'What is actually right' : 'Your follow-up note (for example, what the reference said)') + '" onchange="IR.note(\'' + rid + '\',\'' + iid + '\',this.value)">' + esc(mk.note || '') + '</textarea>';
     var t = task(mk.task_id);
     if (t) h += '<div class="ir-task"><span><b>Follow-up task:</b> ' + esc(t.title) + ' · ' + esc(t.owner_name || t.owner || 'Unassigned') + '</span>'
       + (t.status === 'done' ? '<span style="color:#1F7A4D;font-weight:700">Resolved' + (t.close_note ? ': ' + esc(t.close_note) : '') + '</span>'
         : '<button class="ir-act" onclick="IR.resolve(\'' + esc(t.id) + '\',\'' + rid + '\')">Mark resolved</button>') + '</div>';
     else if (mk.task_id) h += '<div class="ir-task field-note">A follow-up task was made (it is not on this computer\'s list yet; refresh).</div>';
-    else if (it.section !== 'strengths' && mk.mark !== 'dismiss') h += '<div class="ir-task" id="irt_' + rid + '_' + iid + '"><button class="ir-act" onclick="IR.taskForm(\'' + rid + '\',\'' + iid + '\')">+ Make a follow-up task</button></div>';
+    else if (plain && it.section !== 'strengths' && it.section !== 'training') h += '<div id="irt_' + rid + '_' + iid + '" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><button class="ir-act" style="border:0;padding:2px 0;color:#2E8F8B;background:none" onclick="IR.taskForm(\'' + rid + '\',\'' + iid + '\')">+ Make a follow-up task</button></div>';
+    else if (!plain && it.section !== 'strengths' && mk.mark !== 'dismiss') h += '<div class="ir-task" id="irt_' + rid + '_' + iid + '"><button class="ir-act" onclick="IR.taskForm(\'' + rid + '\',\'' + iid + '\')">+ Make a follow-up task</button></div>';
     return h + '</div>';
   }
 
@@ -136,7 +141,10 @@
     var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       + (ready || fromNotes ? '<button class="primary" onclick="IR.run(\'' + esc(applicantId) + '\',\'full\',this)">' + (fromNotes ? 'Review from the interviewer notes' : goLabel) + '</button>' : '')
       + '<span class="field-note">' + (fromNotes ? 'Only when you tap it. There is no recording, so it reads only the notes typed in the interview, and says so.' : ready ? 'Only when you tap it. Reads ' + ready + ' recorded part' + (ready === 1 ? '' : 's') + ' with consent.' : busy ? 'The recording is still being written out. Analyze appears when the transcript is ready.' : 'Analyze appears once a recorded interview (with consent) has its transcript.') + '</span></div>';
-    if (full.length) { var c = counts(full[0]); h += '<div class="field-note" style="margin-top:6px">' + c.open + ' to follow up · ' + c.dismissed + ' dismissed</div><div style="margin-top:8px">' + reviewHtml(full[0]) + '</div>'; }
+    if (full.length && (full[0].review || {}).style === 'talk') {
+      var mks = full[0].marks || {}, openT = Object.keys(mks).filter(function (k) { var tk = task(mks[k].task_id); return tk && tk.status !== 'done'; }).length;
+      h += (openT ? '<div class="field-note" style="margin-top:6px">' + openT + ' follow-up task' + (openT === 1 ? '' : 's') + ' open</div>' : '') + '<div style="margin-top:8px">' + reviewHtml(full[0]) + '</div>';
+    } else if (full.length) { var c = counts(full[0]); h += '<div class="field-note" style="margin-top:6px">' + c.open + ' to follow up · ' + c.dismissed + ' dismissed</div><div style="margin-top:8px">' + reviewHtml(full[0]) + '</div>'; }
     var older = full.slice(1).concat(checks);
     if (older.length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Earlier reviews and checks (' + older.length + ')</summary>' + older.map(function (r) { return '<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px">' + reviewHtml(r) + '</div>'; }).join('') + '</details>';
     if (R.some(function (x) { return x.turns && x.turns.length; })) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Recording and transcript</summary>'
