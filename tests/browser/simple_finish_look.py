@@ -12,20 +12,21 @@ async([CODE, ENGINE])=>{
   const def=(key,title,stage)=>({ key, title, stage, proof:'confirmed', permission:'office', required:true });
   const BOX='I saw their ID and finished the I-9 in Viventium';
   let S={ orientation:true, i9:false, checks:{ ok:true, waiting:[], blocked:[] }, box:BOX, open:true, tidy:['Signed for Caring Companions (the company signature on the agreements that need it)','Family Care Safety Registry registration','Viventium Step 2: Federal W-4 completed','Attributes entered in AxisCare (copy sheet)'] };
-  let approved=false, mayWork=true, simple=true, refuse='';
+  let approved=false, mayWork=true, simple=true, refuse='', TXT=null;
   const view=()=>({ rows:[
       { key:'cg.offer.signed', def:def('cg.offer.signed','Offer letter and position description signed','offer'), st:{ state:'complete', completed_at:'2026-10-09T20:00:00Z', completed_by_name:'The Hub (verified)' }, status:'complete' },
       { key:'cg.company.countersign', def:def('cg.company.countersign','Signed for Caring Companions (the company signature on the agreements that need it)','step1'), st:{ state:'open' }, status:'ready', why:'' },
       { key:'cg.approve.work', def:def('cg.approve.work','Approved to Work (owners only)','ready'), st: approved ? { state:'complete', completed_at:'2026-11-21T16:00:00Z', completed_by_name:'Sam Owner' } : { state:'open' }, status: approved ? 'complete' : 'later', why:'' } ],
     next:{ key:'cg.company.countersign', def:def('cg.company.countersign','Signed for Caring Companions (the company signature on the agreements that need it)','step1'), owner:{ role:'owner' } }, complete:false,
     rail:[{key:'offer',label:'Offer',state:'done'},{key:'step1',label:'Step 1',state:'now'},{key:'ready',label:'Ready',state:'later'}] });
-  const approve=()=>({ ready_for_final:false, approved, approved_at: approved ? '2026-11-21T16:00:00Z' : null, approved_by: approved ? 'Sam Owner' : null, axiscare: approved ? { state:'confirmed', label:'Active', at:'2026-11-21T16:00:05Z' } : { state:'pending' }, text:null, prep:{ hire_date:{state:'n/a'}, level:{state:'n/a'} }, blocked:[], missing: approved ? [] : [BOX],
+  const approve=()=>({ ready_for_final:false, approved, approved_at: approved ? '2026-11-21T16:00:00Z' : null, approved_by: approved ? 'Sam Owner' : null, axiscare: approved ? { state:'confirmed', label:'Active', at:'2026-11-21T16:00:05Z' } : { state:'pending' }, text: approved ? TXT : null, prep:{ hire_date:{state:'n/a'}, level:{state:'n/a'} }, blocked:[], missing: approved ? [] : [BOX],
     simple: simple ? S : null, locked:!approved, lock_why: approved ? null : 'Scheduling stays locked until Approved to Work and AxisCare reads back Active.', checkin:{ open:!approved, done:approved, ticks:{}, tries:[] }, call_ticks:{ i9:'Saw their ID on camera and completed I-9 Section 2 in Viventium', on_file:'Everything on file and complete' },
     level_of_care:{ level:'Level 1', source:'the default: nothing higher is recorded' }, may_approve_work:mayWork, may_retry:false, auto_approve_live:true, switches:{ axiscare_live:true, text_live:true, after_call:true, checkin_live:true } });
   const answer=()=>({ ok:true, approve:approve(), journey:{ journey_id:'j-1', client_name:'Ava Lee', status:'open' }, steps:[], view:view(), events:[], may:{}, facts:{ dates:{ orientation:'2026-11-05', axiscare_hire:'2026-11-05', differ:false }, call:{} } });
   window.sb={ functions:{ invoke:async(fn,o)=>{ const b=(o&&o.body)||{}; __calls.push({fn,b});
     if(b.action==='get') return { data:answer(), error:null };
-    if(b.action==='finish_i9'){ if(refuse) return { data:{ error:refuse }, error:null }; if(b.saw_id!==true) return { data:{ error:'Tick the box' }, error:null }; approved=true; S={ ...S, i9:true, open:false }; return { data:answer(), error:null }; }
+    if(b.action==='no_text'){ TXT={ state:'skipped', at:'2026-11-21T09:10:00Z', why:'the office already told them', by:'Sam Owner' }; S={ ...S, no_text:true }; return { data:answer(), error:null }; }
+    if(b.action==='finish_i9'){ if(b.no_text) TXT={ state:'skipped', at:'x', why:'the office already told them', by:'Sam Owner' }; if(refuse) return { data:{ error:refuse }, error:null }; if(b.saw_id!==true) return { data:{ error:'Tick the box' }, error:null }; approved=true; S={ ...S, i9:true, open:false }; return { data:answer(), error:null }; }
     if(b.action==='list') return { data:{ ok:true, rows:[] }, error:null };
     return { data:{ error:'Unknown action.' }, error:null }; } } };
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(30);
@@ -51,8 +52,25 @@ async([CODE, ENGINE])=>{
   refuse=''; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); bx().click(); await sleep(30); go().click(); await sleep(150); t=txt();
   ok('the press sends finish_i9 with the tick for this card (one refused, one accepted)', __calls.filter(c=>c.b.action==='finish_i9' && c.b.saw_id===true && c.b.journey_id==='j-1').length === 2);
   ok('after it: Approved to Work by the presser, AxisCare read back Active, the box is gone', /Approved to Work by Sam Owner/.test(t) && /read back Active/.test(t) && !document.getElementById('crI9Box') && !/Three things/.test(t), t.slice(0,500));
+  ok('approved under the simpler finish: the old call checklist is not drawn on the card', !/Call after orientation/.test(t) && !/Check-in call/.test(t));
+  /* NO TEXT: held overnight, stopped from the card */
+  TXT={ state:'due', at:'2026-11-21T09:00:00Z' }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); t=txt();
+  ok('approved, text held until 8am: the card says so and offers "Do not send it"', /cleared text held until 8am to 6pm Central/.test(t) && btns().includes('Do not send it'), t.slice(0,500));
+  [...body().querySelectorAll('button')].find(b=>b.textContent.trim()==='Do not send it').click(); await sleep(150); t=txt();
+  ok('the press asks first, sends no_text for this card, and the card reads "no cleared text: the office already told them (Sam Owner)"', __asks.some(a=>/Do not send them the cleared text\?/.test(a)) && __calls.some(c=>c.b.action==='no_text' && c.b.journey_id==='j-1') && /no cleared text: the office already told them \(Sam Owner\)/.test(t) && !btns().includes('Do not send it'), t.slice(0,500));
+  /* NO TEXT at the box: the second tick rides along */
+  approved=false; TXT=null; S={ ...S, i9:false, open:true, no_text:false }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120);
+  ok('the box has a second, smaller tick: Do not send them the cleared text (we already told them)', !!document.getElementById('crNoText') && /Do not send them the cleared text \(we already told them\)/.test(txt()));
+  window.__shot2 = body().innerHTML;
+  bx().click(); document.getElementById('crNoText').click(); await sleep(30); go().click(); await sleep(150); t=txt();
+  ok('both ticks: finish_i9 carries no_text, and the card reads no cleared text', __calls.some(c=>c.b.action==='finish_i9' && c.b.no_text===true && c.b.saw_id===true) && /no cleared text: the office already told them/.test(t), t.slice(0,400));
+  /* I-9 already recorded, waiting for the hourly approval: the no-text button is there */
+  approved=false; TXT=null; S={ ...S, i9:true, open:false, no_text:false }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); t=txt();
+  ok('I-9 recorded, not approved yet: "The Hub approves them within the hour" and a "Do not send the cleared text" button', /The Hub approves them within the hour/.test(t) && btns().includes('Do not send the cleared text'));
+  [...body().querySelectorAll('button')].find(b=>b.textContent.trim()==='Do not send the cleared text').click(); await sleep(150); t=txt();
+  ok('after it: "No cleared text will go: the office already told them." and the button is gone', /No cleared text will go: the office already told them\./.test(t) && !btns().includes('Do not send the cleared text'));
   /* a coordinator who may not approve sees the lines, never the box */
-  approved=false; S={ ...S, i9:false, open:true }; mayWork=false; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); t=txt();
+  approved=false; S={ ...S, i9:false, open:true, no_text:false }; mayWork=false; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); t=txt();
   ok('not on the list: the three lines, no box, and who may tick it', !document.getElementById('crI9Box') && /A person on the Approve to Work list or a care coordinator ticks this/.test(t));
   /* checks not clear */
   mayWork=true; S={ ...S, open:false, checks:{ ok:false, waiting:['Case.net court records search (Missouri)'], blocked:[] } }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120); t=txt();
