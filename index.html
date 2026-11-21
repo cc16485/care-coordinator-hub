@@ -39092,6 +39092,7 @@ function covTakenOff(c){ return !!c&&(c.opened_by==='axiscare-watch'||c.not_a_ca
 function covOffWords(c){ return c&&c.not_a_callin===true&&c.opened_by!=='axiscare-watch'?'did not call in (marked not a call-in)':covTakenOff(c)?'was taken off the shift':'called off'; }
 function covIsOngoing(c){
   if(!c||String(c.kind)==='interest') return false;
+  if(c.one_date===true) return false;   /* 2026-11-21: one lone open date is a one-time shift (a quiet row from the watcher), so the PRN wording and PRN shift record apply */
   const p=c.shift_pattern;
   return (p&&typeof p==='object'&&p.kind==='open_ongoing')||c.reason==='open';
 }

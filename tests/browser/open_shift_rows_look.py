@@ -31,6 +31,9 @@ async () => {
     { id: 'r5', status: 'open', reason: 'some_new_reason', client: 'Example: Odd R.', shift_date: d(3), shift_time: '10:00-11:30', opened_at: ago(1), asked: [] },
     { id: 'r6', status: 'open', reason: 'call_off', client: 'Example: Bare M.', shift_date: d(4), shift_time: '10:00-12:00', opened_at: ago(1), asked: [],
       shift_pattern: { v: 2, kind: 'mixed', weekday: 'Tuesday', open_dates: [], sibling_dates: 3 } },
+    /* one lone open date, listed by the watcher as a quiet row (2026-11-21) */
+    { id: 'cwo_d_r7', status: 'open', reason: 'open', one_date: true, calling_off: '', opened_by: 'ongoing-sweep', client: 'Example: Solo D.', shift_date: d(6), shift_time: '16:00-19:00', opened_at: ago(1), asked: [],
+      shift_pattern: { v: 2, kind: 'one_time_cover', weekday: 'Friday', regular_caregiver: 'Example: Dana R.' } },
   ];
   schedGo('openshifts'); await sleep(500);
   const row = (id) => { const e = document.getElementById('covcase_' + id); return e ? e.firstElementChild.innerText.replace(/\s+/g, ' ') : ''; };
@@ -47,7 +50,11 @@ async () => {
   ok('one-time cover is unchanged', /One-time cover/.test(row('r3')), row('r3'));
   ok('a reason the page does not know shows in words, without the underscore', /· some new reason/.test(row('r5')), row('r5'));
   ok('no dates on the stamp: the chip still says something true', /Some other Tuesdays are open too/.test(row('r6')), row('r6'));
+  const r7 = row('cwo_d_r7');
+  ok('a single open date is its own row: the day in words, "Open shift"', / 4pm-7pm · Open shift/.test(r7) && !/\d{4}-\d\d-\d\d/.test(r7), r7);
+  ok('a single open date is a one-time shift, not a standing opening (a standing one still is)', covIsOngoing(DATA.coverage_cases[6]) === false && covIsOngoing(DATA.coverage_cases[1]) === true && !/Open every/.test(r7), r7);
   ok('no em dashes on the rows', !/—/.test(all));
+  ok('no em dashes on the single-date row', !/—/.test(r7));
   return R;
 }
 """
