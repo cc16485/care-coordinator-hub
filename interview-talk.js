@@ -48,6 +48,7 @@
     T = T && typeof T === 'object' ? T : {};
     T.at = Number.isInteger(T.at) && T.at >= 0 ? T.at : 0;
     T.mode = T.mode === 'video' ? 'video' : 'person';
+    T.view = T.view === 'went' ? 'went' : 'talk';
     ['work', 'avail', 'hours', 'care', 'fit', 'notes'].forEach(function (k) { T[k] = T[k] && typeof T[k] === 'object' ? T[k] : {}; });
     T.avail.days = T.avail.days && typeof T.avail.days === 'object' ? T.avail.days : {};
     DAYS.forEach(function (d) { var x = T.avail.days[d[0]]; x = T.avail.days[d[0]] = x && typeof x === 'object' ? x : {}; x.w = Array.isArray(x.w) && x.w.length ? x.w : [{ f: '', t: '' }]; });
@@ -110,6 +111,7 @@
     if (T.avail.status !== 'followup') { delete T.avail.status; delete T.avail.why; }
     if (!done) T.avail.confirmed = false;
     T.avail.complete = done && T.avail.confirmed === true && T.avail.status !== 'followup';
+    delete T.view;   /* which page was open is not part of their record */
     T.saved_at = new Date().toISOString(); if (by) T.saved_by = by;
     return T;
   }
@@ -164,6 +166,17 @@
     + '.tk-b{appearance:none;border:1.5px solid #DCE4EE;background:#fff;color:#0E3860;border-radius:11px;padding:12px 16px;font:inherit;font-weight:600;font-size:15px;cursor:pointer}'
     + '.tk-b.p{background:#0E3860;border-color:#0E3860;color:#fff;flex:1}'
     + '.tk-list{margin:8px 0 0;padding-left:20px;font-size:14.5px;line-height:1.55}'
+    + '.tk-steps{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}'
+    + '.tk-step{appearance:none;border:1.5px solid #DCE4EE;background:#fff;color:#5B6878;border-radius:999px;padding:8px 16px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer}'
+    + '.tk-step.on{background:#0E3860;border-color:#0E3860;color:#fff}.tk-step.done{background:#E3F3F2;border-color:#9CCFCC;color:#1F6F6B}'
+    + '.tk-went{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;align-items:start}'
+    + '.tk-went .tk-card{margin:0 0 16px}.tk-h2{font-size:18px;font-weight:700;color:#0E3860;line-height:1.3;margin:3px 0 8px}'
+    + '.tk-outs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:10px}'
+    + '.tk-out{appearance:none;border:1.5px solid #DCE4EE;background:#fff;color:#0E3860;border-radius:13px;padding:14px 8px;font:inherit;font-weight:600;font-size:15px;cursor:pointer;text-align:center}'
+    + '.tk-out small{display:block;font-weight:400;font-size:11.5px;opacity:.85;margin-top:2px}.tk-out.p{background:#1F7A4D;border-color:#1F7A4D;color:#fff}'
+    + 'details.tk-more{border-top:1px solid #EEF1F5;margin-top:12px;padding-top:10px}details.tk-more>summary{cursor:pointer;color:#2E8F8B;font-weight:600;font-size:13.5px;list-style:none}'
+    + 'details.tk-more>summary::-webkit-details-marker{display:none}'
+    + '@media (max-width:900px){.tk-went{grid-template-columns:minmax(0,1fr)}}'
     + '.tk-try{background:#FBF1D9;border-radius:10px;padding:7px 12px;margin:0 0 10px;font-size:13px;color:#5E3D07}'
     + '@media (max-width:520px){.tk-title{font-size:18px}.tk-dname{flex-basis:100%}}';
   function css() { if (document.getElementById('tkCss')) return; var s = document.createElement('style'); s.id = 'tkCss'; s.textContent = CSS; document.head.appendChild(s); }
@@ -285,6 +298,13 @@
   function html(sections, T, opts) {
     css(); T = norm(T); opts = opts || {}; sections = sections || [];
     var n = sections.length, at = Math.min(T.at, n), h = '<div class="tk">';
+    var went = !!opts.steps && T.view === 'went';
+    /* 2026-11-21 (her "Yes, build this" on the drawing): on the computer the interview is three steps, and the second
+       page holds how it went, your take, what we learned and the outcome together. The phone keeps the conversation only. */
+    if (opts.steps) h += '<div class="tk-steps"><button type="button" class="tk-step ' + (went ? 'done' : 'on') + '" data-tkview="talk">1 The conversation' + (went ? ' \u2713' : '') + '</button>'
+      + '<button type="button" class="tk-step' + (went ? ' on' : '') + '" data-tkview="went">2 How it went</button>'
+      + '<button type="button" class="tk-step" data-tkview="outcome">3 Outcome</button></div>';
+    if (went) return h + wentHtml(T, opts) + '</div>';
     if (!live() && trying()) h += '<div class="tk-try">You are trying the new interview. Only you see it. What you save here goes on this applicant\'s record, so use a pretend applicant.</div>';
     h += '<div class="tk-top"><div class="tk-dots" role="tablist" aria-label="Sections">' + sections.map(function (s, i) {
       return '<button type="button" class="tk-dot' + (i === at ? ' now' : i < at ? ' done' : '') + '" data-tkgo="' + i + '" title="' + esc((i + 1) + '. ' + s.title) + '" aria-label="' + esc('Section ' + (i + 1) + ': ' + s.title) + '"></button>';
@@ -304,19 +324,47 @@
       h += '<div class="tk-card"><div class="tk-k">Before they leave</div><div class="tk-title">' + (mm.missing.length ? 'Still needed' : 'Everything we need is here') + '</div>'
         + (mm.missing.length ? '<ul class="tk-list">' + mm.missing.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul><div class="tk-note">Ask now if you can. If they cannot answer today, it stays on the follow-up list. Never fill it in for them.</div>' : '')
         + (mm.follow.length ? '<div class="tk-head">For the office to follow up</div><ul class="tk-list">' + mm.follow.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '')
-        + '</div><div class="tk-nav"><button type="button" class="tk-b" data-tkgo="' + (n - 1) + '">Back to the conversation</button></div>';
+        + '</div><div class="tk-nav"><button type="button" class="tk-b" data-tkgo="' + (n - 1) + '">Back to the conversation</button>'
+        + (opts.steps ? '<button type="button" class="tk-b p" data-tkview="went">Next: How it went</button>' : '') + '</div>';
     }
     return h + '</div>';
+  }
+
+  /* The second page on the computer: the review (drawn by interview-review-ui.js into #tkReview), your take, what we
+     learned, and the outcome. The host fills #tkMoreBody and #tkIdHost with its own pieces. */
+  function wentHtml(T, opts) {
+    var fam = opts.family || {}, first = esc(opts.first || 'them');
+    var h = (!live() && trying() ? '<div class="tk-try">You are trying the new interview. Only you see it. What you save here goes on this applicant\'s record, so use a pretend applicant.</div>' : '')
+      + '<div class="tk-went"><div><div class="tk-card" id="tkReview"><div class="tk-note">Looking for the review\u2026</div></div></div><div>'
+      + '<div class="tk-card"><div class="tk-k">Your take</div><div class="tk-h2">Would you send ' + first + ' to care for someone in your own family?</div>'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap">' + [['yes', 'Yes'], ['unsure', 'Unsure'], ['no', 'No']].map(function (x) { return '<button type="button" class="tk-chip' + (fam.answer === x[0] ? ' on' : '') + '" data-tkfam="' + x[0] + '">' + x[1] + '</button>'; }).join('') + '</div>'
+      + '<textarea class="tk-in" rows="2" style="margin-top:10px" data-tkfamwhy="1" placeholder="Anything you want to add (optional)">' + esc(fam.why || '') + '</textarea>'
+      + '<details class="tk-more" id="tkMore"><summary>+ More: quick check, observations, what to ask references</summary><div id="tkMoreBody" style="margin-top:10px"></div></details></div>'
+      + '<div class="tk-card"><div class="tk-k">What we learned</div>' + (summaryHtml(T, true) || '<div class="tk-note">Nothing entered yet.</div>') + '</div>'
+      + '<div id="tkIdHost"></div>'
+      + '<div class="tk-card" id="tkOutcome"><div class="tk-k">Outcome \u00b7 your decision</div><div class="tk-outs">'
+      + '<button type="button" class="tk-out p" data-tkout="hired">Hire<small>make the offer</small></button>'
+      + '<button type="button" class="tk-out" data-tkout="pool">Candidate pool<small>keep for later</small></button>'
+      + '<button type="button" class="tk-out" data-tkout="declined">Not hiring<small>reason kept, never sent</small></button></div>'
+      + '<div style="display:flex;gap:18px;margin-top:10px"><button type="button" class="tk-link" data-tkout="save">Save and decide later</button><button type="button" class="tk-link" data-tkout="noshow">Did not show</button></div>'
+      + '<div class="tk-note" id="tkOutSaid"></div></div>'
+      + '</div></div>';
+    return h;
   }
 
   function setPath(T, path, v) { var p = path.split('.'), o = T; for (var i = 0; i < p.length - 1; i++) { o[p[i]] = o[p[i]] && typeof o[p[i]] === 'object' ? o[p[i]] : {}; o = o[p[i]]; } o[p[p.length - 1]] = v; }
   function getPath(T, path) { var p = path.split('.'), o = T; for (var i = 0; i < p.length; i++) { if (o == null) return undefined; o = o[p[i]]; } return o; }
   /* Wires one container. get() returns the talk record to change (changed in place); changed(redraw) after every change. */
-  function bind(box, get, changed) {
-    if (!box || box.__tkBound) return; box.__tkBound = true;
+  function bind(box, get, changed, hooks) {
+    if (!box || box.__tkBound) return; box.__tkBound = true; hooks = hooks || {};
     box.addEventListener('click', function (ev) {
-      var t = ev.target.closest && ev.target.closest('[data-tkgo],[data-tkmode],[data-tkinfo],[data-tkc],[data-tka]'); if (!t || !box.contains(t)) return;
+      var t = ev.target.closest && ev.target.closest('[data-tkgo],[data-tkmode],[data-tkinfo],[data-tkc],[data-tka],[data-tkview],[data-tkfam],[data-tkout]'); if (!t || !box.contains(t)) return;
       var T = norm(get());
+      if (t.hasAttribute('data-tkview')) { var vw = t.getAttribute('data-tkview'); T.view = vw === 'talk' ? 'talk' : 'went'; changed(true, true);
+        if (vw === 'outcome') setTimeout(function () { var o = box.querySelector('#tkOutcome'); if (o && o.scrollIntoView) o.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 60);
+        return; }
+      if (t.hasAttribute('data-tkfam')) { if (hooks.family) hooks.family('answer', t.getAttribute('data-tkfam')); changed(true); return; }
+      if (t.hasAttribute('data-tkout')) { if (hooks.outcome) hooks.outcome(t.getAttribute('data-tkout'), t); return; }
       if (t.hasAttribute('data-tkgo')) { T.at = Math.max(0, +t.getAttribute('data-tkgo')); changed(true, true); return; }
       if (t.hasAttribute('data-tkmode')) { T.mode = t.getAttribute('data-tkmode') === 'video' ? 'video' : 'person'; changed(true); return; }
       if (t.hasAttribute('data-tkinfo')) { var k = t.getAttribute('data-tkinfo'); infoOpen[k] = !infoOpen[k]; changed(true); return; }
@@ -348,17 +396,19 @@
       w[t.getAttribute('data-tkw')] = t.value; T.avail.confirmed = false; changed(true);
     });
     box.addEventListener('input', function (ev) {
-      var t = ev.target; if (!t || !t.hasAttribute || !t.hasAttribute('data-tkf')) return;
+      var t = ev.target; if (!t || !t.hasAttribute) return;
+      if (t.hasAttribute('data-tkfamwhy')) { if (hooks.family) hooks.family('why', t.value); changed(false); return; }
+      if (!t.hasAttribute('data-tkf')) return;
       setPath(norm(get()), t.getAttribute('data-tkf'), t.value); changed(false);   /* typing never redraws, or the box loses its place */
     });
   }
 
   /* On their profile's Interview tab: what was captured, in plain lines. */
-  function summaryHtml(T) {
+  function summaryHtml(T, brief) {
     if (!T || typeof T !== 'object') return '';
     css(); T = norm(JSON.parse(JSON.stringify(T))); var out = [], has = function (v) { return String(v == null ? '' : v).trim() !== ''; }, wk = T.work, hr = T.hours;
     var line = function (k, v) { if (has(v)) out.push('<div class="tk-row" style="align-items:flex-start"><span class="tk-dname" style="flex-basis:150px">' + esc(k) + '</span><span class="tk-lab">' + esc(v) + '</span></div>'); };
-    line('Recording', T.consent === 'yes' ? 'They said yes' : T.consent === 'no' ? 'They said no; not recorded' : '');
+    if (!brief) line('Recording', T.consent === 'yes' ? 'They said yes' : T.consent === 'no' ? 'They said no; not recorded' : '');
     line('Working now', wk.working === 'yes' ? [wk.employer, has(wk.hours) ? wk.hours + ' hours a week' : '', wk.plan === 'keep' ? 'keeping it' : wk.plan === 'leave' ? 'leaving it' : '', wk.sched === 'rotating' ? 'schedule changes week to week' + (has(wk.published) ? ' (' + wk.published + ')' : '') : wk.sched === 'fixed' ? 'set schedule' : ''].filter(has).join(', ') : wk.working === 'no' ? 'Not working right now' : '');
     line('Can start', wk.start);
     line('Availability', T.avail.status === 'followup' ? 'Needs follow-up' + (has(T.avail.why) ? ': ' + T.avail.why : '') : readback(T) + (T.avail.confirmed === true ? ' (read back and confirmed)' : has(readback(T)) ? ' (not confirmed yet)' : ''));
@@ -369,8 +419,8 @@
     line('Wants to learn', T.care.learn);
     line('Dementia', T.dementia === 'yes' ? 'Has cared for someone with it' : T.dementia === 'no' ? 'No experience' + (T.dementia_learn === 'yes' ? ', interested in learning' : '') : '');
     line('Worked here before', T.fit.cc_before === 'yes' ? 'Yes' : T.fit.cc_before === 'no' ? 'No' : '');
-    line('Not a fit / training', T.fit.limits); line('Ask references', T.fit.refs);
-    Object.keys(T.notes).forEach(function (k) { line('Note', T.notes[k]); });
+    line('Not a fit / training', T.fit.limits); if (!brief) line('Ask references', T.fit.refs);
+    if (!brief) Object.keys(T.notes).forEach(function (k) { line('Note', T.notes[k]); });
     return out.length ? '<div class="tk">' + out.join('') + '</div>' : '';
   }
 
