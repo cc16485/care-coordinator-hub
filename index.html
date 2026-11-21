@@ -343,7 +343,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=2"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=20"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=3"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="phone-mode.js?v=20"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -19926,6 +19926,9 @@ async function cgdAppHalfMount(axid, appId){
     + apProfCard('The screen', apFlagsHtml(r), '')
     + apProfCard('Where they have worked', apProfWork(r), 'What they claim, and whether anybody has checked it.')
     + apProfCard('The interview', apProfInterview(r), r.post_interview ? '' : 'Nothing recorded.')
+    /* 1542 (2026-11-20, Samantha: "the recording into the applicant and caregiver profile"): the same recording, transcript
+       and review as on their applicant page, office only by the same rules */
+    + (window.IR ? apProfCard('Interview recording and review', '<div id="cgdIrHost"></div>', 'From their interview. Office only. The review runs only when you tap it, and never scores or decides.') : '')
     + '<div id="cgdApSkills"></div>';
   const h=document.getElementById('cgdApHire');
   if(h) h.innerHTML=apProfCard('The offer', apProfOffer(r), '')
@@ -19936,6 +19939,7 @@ async function cgdAppHalfMount(axid, appId){
       + '<button type="button" class="pp-link" style="color:var(--red);" onclick="cgdApAct(\'apOffboard\',\''+id+'\')">'+(r.status==='left'?'Change how they left':'They have left')+'</button>'
     + '</div>';
   apOnboardMount(r, document.getElementById('cgdApOnboard'));
+  if(window.IR){ const irh=document.getElementById('cgdIrHost'); if(irh) IR.mount(irh, r); }
   if(window.HP){ HP.mount(document.getElementById('cgdApHp'), { applicant_id:r.id }, ['status','journey','docs']);
                  HP.mount(document.getElementById('cgdApSkills'), { applicant_id:r.id }, ['skills']); }
   const link=document.getElementById('cgdAppLink'); if(link) link.innerHTML='';   /* the application is on this page now */
@@ -25630,7 +25634,14 @@ function recListHtml(rows){
         + (r.recorded_by ? '<span class="field-note">by ' + esc(r.recorded_by) + '</span>' : '')
         + (STATE[r.status] ? '<span class="field-note">' + STATE[r.status] + '</span>' : '')
         + '<span style="flex:1;"></span>'
-        + (r.audio_purged_at
+        /* 1542 (2026-11-18): a Google Meet video interview: the video stays in the interviewer's Drive for 30 days */
+        + (r.source==='meet'
+            ? '<span class="field-note">from Google Meet</span>'
+              + (r.video_url && !r.video_deleted_at && /^https:\/\/(drive|docs)\.google\.com\//.test(String(r.video_url))
+                  ? '<a class="fb" style="text-decoration:none;" href="' + esc(r.video_url) + '" target="_blank" rel="noopener">🎥 Watch the video</a>'
+                    + (r.video_delete_after ? '<span class="field-note">until ' + esc(new Date(r.video_delete_after).toLocaleDateString('en-US',{month:'short', day:'numeric'})) + '</span>' : '')
+                  : '<span class="field-note">' + (r.video_deleted_at ? 'video deleted after 30 days, transcript kept' : 'no video') + '</span>')
+          : r.audio_purged_at
             ? '<span class="field-note">audio deleted, transcript kept</span>'
             : '<button class="fb" onclick="recPlay(\'' + esc(r.id) + '\')">▶ Listen</button>')
         + (r.status==='failed' ? '<button class="fb" onclick="recRetry(\'' + esc(r.id) + '\')">Try again</button>' : '')
