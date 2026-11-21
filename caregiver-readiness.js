@@ -78,7 +78,11 @@
       /* SLICE 7: the hire date and the level class, written once after the read-back */
       if(a.prep){ const pw = p => !p || p.state === 'n/a' ? '' : p.state === 'confirmed' ? '<b style="color:#15803D">' + (p.unchanged ? 'already matched' : 'written and read back') + '</b>' + (p.read ? ' (' + esc(p.read) + ')' : '') : p.state === 'failed' ? '<b style="color:#B91C1C">' + esc(p.detail || 'failed') + '</b>' : p.state === 'practice' ? '<b style="color:#B45309">practice, nothing written</b>' : 'waiting for the read-back';
         if(a.prep.hire_date && a.prep.hire_date.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare hire date (orientation completion): ' + pw(a.prep.hire_date) + '</div>';
-        if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>'; }
+        if(a.prep.level && a.prep.level.state !== 'n/a') h += '<div style="margin-top:.2rem">AxisCare level class: ' + pw(a.prep.level) + '</div>';
+        /* 2026-11-21 (Samantha: "keep the caregiver at the level they were put at in interview/offer"): activated before the level
+           rule was on, so AxisCare holds a different Class than their level. One press sets it and reads it back. */
+        if(a.prep.level && a.prep.level.differs) h += '<div style="margin-top:.35rem;padding:.45rem .6rem;border:1px solid #F0C36D;background:#FFF8E6;border-radius:8px"><b>AxisCare has ' + esc(a.prep.level.read) + '.</b> Their level is ' + esc(a.prep.level.want) + '.'
+          + (a.may_approve_work ? ' <button class="ibtn" style="background:#0D365F;color:#fff;font-weight:700;margin-left:.3rem" onclick="CRX.setLevel(this)">Set ' + esc(a.prep.level.want) + ' in AxisCare</button>' : ' A person on the Approve to Work list or a care coordinator can set it here.') + '</div>'; }
       /* IN TRAINING PLAN v2 (2026-10-22): the check-in call from the Staffing Coordinator, after the read-back */
       if(a.checkin && !a.simple) h += checkinBlock(a.checkin, a);
       if(a.may_retry || (a.prep && ((a.prep.hire_date && a.prep.hire_date.state === 'failed') || (a.prep.level && a.prep.level.state === 'failed')))) h += '<div style="margin-top:.5rem"><button class="ibtn" onclick="CRX.retry(this)">↻ Retry the AxisCare update</button></div>';
@@ -318,6 +322,7 @@
     catch(e){ back(); alert('Not approved: ' + (e.message || e)); return false; }
   }
   async function retry(btn){ await act({ action:'retry_axiscare' }, btn); }
+  async function setLevel(btn){ if(!(await ccConfirm('Set their Class in AxisCare to their level now?\n\nTheir Level class is replaced by the right one and read back. Every other class stays.'))) return; await act({ action:'retry_axiscare' }, btn); }
   /* SLICE 7: the copy sheet (attributes or availability) from the signed Step 1 answers; Copy puts it on the clipboard as lines */
   async function copySheet(which, btn){
     if(btn){ btn.disabled = true; btn.textContent = 'Loading…'; }
@@ -373,5 +378,5 @@
   }
   /* 2026-10-21: forget the cached list (someone was taken off onboarding), so the next draw asks again */
   function _clear(){ LIST.at = 0; LIST.rows = LIST.rows || []; }
-  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet, finishI9, noText };
+  window.CRX = { open, openSide, close, takeBack, confirm, record, notNeeded, approve, approveOffer, retry, chip, call, list, finalListHtml, exportFile, copySheet, rightsWords, _clear, checkinTick, checkinClock, checkinDone, checkinNoAnswer, videoLink, classCheck, attrSheet, finishI9, noText, setLevel };
 })();

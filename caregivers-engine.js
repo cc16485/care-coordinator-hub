@@ -8220,6 +8220,9 @@ function obtFinish(p, j, g){
     if(miss && miss.length === 1 && /I-9/i.test(miss[0]) && j && j.journey_id)
       return obtCell('todo', '', Object.assign(base, { who:'office', b:{ label:'Activate New Employee', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Checks are clear and orientation is done. Look at their ID (in person or on live video), finish the I-9 in Viventium, then press Activate New Employee. They are set Active in AxisCare, get the text with the AxisCare and Viventium links, and leave this list.' }));
     const waitO = !miss || miss.some(x => /orientation/i.test(x));
+    /* 2026-11-21: with "Caregiver profile needed before the first shift" on, a person missing only their profile is not waiting on checks */
+    const waitP = !waitO && miss && miss.some(x => /profile/i.test(x)) && !miss.some(x => !/profile|I-9/i.test(x));
+    if(waitP) return obtCell('wait', 'Waiting on their profile', Object.assign(base, { who:'applicant', tip:'Still needs: ' + miss.join(', ') }));
     return obtCell(miss ? 'wait' : 'none', waitO ? 'Waiting on orientation' : 'Waiting on checks', Object.assign(base, { who:miss ? (waitO ? 'applicant' : 'office') : '', tip:miss && miss.length ? 'Still needs: ' + miss.join(', ') : 'Not ready yet' }));
   }
   const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;

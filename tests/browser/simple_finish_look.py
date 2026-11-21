@@ -12,14 +12,14 @@ async([CODE, ENGINE])=>{
   const def=(key,title,stage)=>({ key, title, stage, proof:'confirmed', permission:'office', required:true });
   const BOX='I saw their ID and finished the I-9 in Viventium';
   let S={ orientation:true, i9:false, checks:{ ok:true, waiting:[], blocked:[] }, box:BOX, open:true, tidy:['Signed for Caring Companions (the company signature on the agreements that need it)','Family Care Safety Registry registration','Viventium Step 2: Federal W-4 completed','Attributes entered in AxisCare (copy sheet)'] };
-  let approved=false, mayWork=true, simple=true, refuse='', TXT=null;
+  let approved=false, mayWork=true, simple=true, refuse='', TXT=null, LVL={state:'n/a'};
   const view=()=>({ rows:[
       { key:'cg.offer.signed', def:def('cg.offer.signed','Offer letter and position description signed','offer'), st:{ state:'complete', completed_at:'2026-10-09T20:00:00Z', completed_by_name:'The Hub (verified)' }, status:'complete' },
       { key:'cg.company.countersign', def:def('cg.company.countersign','Signed for Caring Companions (the company signature on the agreements that need it)','step1'), st:{ state:'open' }, status:'ready', why:'' },
       { key:'cg.approve.work', def:def('cg.approve.work','Approved to Work (owners only)','ready'), st: approved ? { state:'complete', completed_at:'2026-11-21T16:00:00Z', completed_by_name:'Sam Owner' } : { state:'open' }, status: approved ? 'complete' : 'later', why:'' } ],
     next:{ key:'cg.company.countersign', def:def('cg.company.countersign','Signed for Caring Companions (the company signature on the agreements that need it)','step1'), owner:{ role:'owner' } }, complete:false,
     rail:[{key:'offer',label:'Offer',state:'done'},{key:'step1',label:'Step 1',state:'now'},{key:'ready',label:'Ready',state:'later'}] });
-  const approve=()=>({ ready_for_final:false, approved, approved_at: approved ? '2026-11-21T16:00:00Z' : null, approved_by: approved ? 'Sam Owner' : null, axiscare: approved ? { state:'confirmed', label:'Active', at:'2026-11-21T16:00:05Z' } : { state:'pending' }, text: approved ? TXT : null, prep:{ hire_date:{state:'n/a'}, level:{state:'n/a'} }, blocked:[], missing: approved ? [] : [BOX],
+  const approve=()=>({ ready_for_final:false, approved, approved_at: approved ? '2026-11-21T16:00:00Z' : null, approved_by: approved ? 'Sam Owner' : null, axiscare: approved ? { state:'confirmed', label:'Active', at:'2026-11-21T16:00:05Z' } : { state:'pending' }, text: approved ? TXT : null, prep:{ hire_date:{state:'n/a'}, level:LVL }, blocked:[], missing: approved ? [] : [BOX],
     simple: simple ? S : null, locked:!approved, lock_why: approved ? null : 'Scheduling stays locked until Approved to Work and AxisCare reads back Active.', checkin:{ open:!approved, done:approved, ticks:{}, tries:[] }, call_ticks:{ i9:'Saw their ID on camera and completed I-9 Section 2 in Viventium', on_file:'Everything on file and complete' },
     level_of_care:{ level:'Level 1', source:'the default: nothing higher is recorded' }, may_approve_work:mayWork, may_retry:false, auto_approve_live:true, switches:{ axiscare_live:true, text_live:true, after_call:true, checkin_live:true } });
   const answer=()=>({ ok:true, approve:approve(), journey:{ journey_id:'j-1', client_name:'Ava Lee', status:'open' }, steps:[], view:view(), events:[], may:{}, facts:{ dates:{ orientation:'2026-11-05', axiscare_hire:'2026-11-05', differ:false }, call:{} } });
@@ -27,6 +27,7 @@ async([CODE, ENGINE])=>{
     if(b.action==='get') return { data:answer(), error:null };
     if(b.action==='no_text'){ TXT={ state:'skipped', at:'2026-11-21T09:10:00Z', why:'the office already told them', by:'Sam Owner' }; S={ ...S, no_text:true }; return { data:answer(), error:null }; }
     if(b.action==='finish_i9'){ if(b.no_text) TXT={ state:'skipped', at:'x', why:'the office already told them', by:'Sam Owner' }; if(refuse) return { data:{ error:refuse }, error:null }; if(b.saw_id!==true) return { data:{ error:'Tick the box' }, error:null }; approved=true; S={ ...S, i9:true, open:false }; return { data:answer(), error:null }; }
+    if(b.action==='retry_axiscare'){ LVL={ state:'confirmed', read:LVL.want, want:LVL.want, differs:false }; return { data:answer(), error:null }; }
     if(b.action==='list') return { data:{ ok:true, rows:[] }, error:null };
     return { data:{ error:'Unknown action.' }, error:null }; } } };
   const sc=document.createElement('script'); sc.textContent=CODE; document.head.appendChild(sc); await sleep(30);
@@ -83,6 +84,14 @@ async([CODE, ENGINE])=>{
   const src=ENGINE;
   ok('the table button: with the switch on it asks once and sends finish_i9; off it keeps the old path', /if\(obtSimpleOn\(\)\)\{\s*\n\s*const act = obtActivateOn\(\);\s*\n\s*if\(!\(await ccConfirm\(act \? 'Activate this new employee\?[^']*' : 'Did you see their ID and finish the I-9 in Viventium\?/.test(src) && /action:'finish_i9', saw_id:true/.test(src) && /action:'confirm', step_key:'cg\.i9\.section2'/.test(src));
   simple=true; approved=false; mayWork=true; S={ orientation:true, i9:false, checks:{ ok:true, waiting:[], blocked:[] }, box:BOX, open:true, tidy:S.tidy }; CRX.close(); await CRX.open('o-1','Ava Lee'); await sleep(120);
+  /* 2026-11-21: activated before the level rule, AxisCare holds another Class */
+  approved=true; LVL={ state:'confirmed', read:'Level 1 (Wellness)', want:'Level 3 (Advanced Care)', differs:true }; CRX._clear && CRX._clear();
+  await CRX.open('o-1','Ava Lee'); await sleep(150); t=txt();
+  ok('level differs: the card says what AxisCare has and what their level is, with one button', /AxisCare has Level 1 \(Wellness\)\./.test(t) && /Their level is Level 3 \(Advanced Care\)\./.test(t) && btns().includes('Set Level 3 (Advanced Care) in AxisCare'), [t.slice(0,400), btns()]);
+  const n0=__calls.length; [...body().querySelectorAll('button')].find(b=>/Set Level 3/.test(b.textContent)).click(); await sleep(200); t=txt();
+  ok('level differs: the press asks first, sends the AxisCare retry, and the notice goes away', __asks.some(q=>/Set their Class in AxisCare to their level now\?/.test(q)) && __calls.slice(n0).some(c=>c.b.action==='retry_axiscare') && !/AxisCare has Level 1/.test(t) && !btns().some(x=>/Set Level 3/.test(x)), [__calls.slice(n0).map(c=>c.b.action), t.slice(0,300)]);
+  mayWork=false; LVL={ state:'confirmed', read:'Level 1 (Wellness)', want:'Level 2 (Personal Care)', differs:true }; CRX._clear && CRX._clear(); await CRX.open('o-1','Ava Lee'); await sleep(150);
+  ok('level differs: someone who may not approve sees the notice with no button', /AxisCare has Level 1/.test(txt()) && !btns().some(x=>/Set Level/.test(x)), btns());
   return R;
 }
 """
