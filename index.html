@@ -41222,15 +41222,22 @@ function caraPatternChip(c){
     ?'background:var(--navy);color:#fff;'
     :'background:var(--slate-bg);border:1px solid var(--border);color:var(--text);')
     +'border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:700;">'+txt+'</span>';
-  if(p.kind==='open_ongoing')
-    return pill('Open ongoing'+(p.weekday?' &middot; '+esc(p.weekday)+'s':''),
-      (p.open_dates||[]).length+' upcoming '+wd+' have no caregiver. The slot itself is open',true);
+  /* PLAIN WORDS (Samantha 2026-11-21, looking at an open shift): the chip names the other open dates instead of "Partly open",
+     and the standing opening reads its dates from future_dates (the sweep's field; open_dates was always empty there). */
+  const days=list=>(Array.isArray(list)?list:[]).filter(d=>/^\d{4}-\d\d-\d\d$/.test(String(d))&&String(d)!==String(c.shift_date||''))
+    .map(d=>new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}));
+  const named=(list,more)=>{ const d=days(list), n=d.length+(+more||0); return d.length?d.slice(0,4).join(', ')+(n>4?' and '+(n-4)+' more':''):''; };
+  if(p.kind==='open_ongoing'){
+    const also=named(p.open_dates&&p.open_dates.length?p.open_dates:p.future_dates,p.more_dates);
+    return pill('Open every '+(p.weekday?esc(p.weekday):'week')+(also?' &middot; also '+esc(also):''),
+      'This shift has no regular caregiver. Every date listed is open in AxisCare',true);
+  }
   if(p.kind==='one_time_cover')
     return pill('One-time cover',
       'Ongoing shift'+(p.regular_caregiver?': '+p.regular_caregiver+' has the other dates':'')+'; only this date needs help',false);
   if(p.kind==='mixed')
-    return pill('Partly open',
-      (p.open_dates||[]).length+' of '+(p.sibling_dates||'?')+' upcoming '+wd+' are open',false);
+    return pill(named(p.open_dates)?'Also open: '+esc(named(p.open_dates)):'Some other '+wd+' are open too',
+      (p.open_dates||[]).length+' of '+(p.sibling_dates||'?')+' upcoming '+wd+' have no caregiver in AxisCare'+(p.regular_caregiver?'. '+p.regular_caregiver+' has the others':''),false);
   return pill('One-time','The only date for this schedule on the AxisCare calendar in the next 4 weeks',false);
 }
 /* First name(s), never the surname — a couple keeps both: "Joel & Carol",
@@ -41813,7 +41820,7 @@ function covConfirmHtml(c){
      the fastest thumb. Legacy pending_fill-only cases still render. */
   const yesL=covYesList(c);
   if(!(c.status==='open'&&(yesL.length||c.pending_fill))) return '';
-  const R={calloff:'Call-off',open:'Open shift',new:'New client'};
+  const R={calloff:'Call-off',call_off:'Call-off',open:'Open shift',new:'New client'};
   const cands=yesL.length?yesL:[{name:c.pending_fill.name,replied_at:c.pending_fill.at,reply:'',tier:null}];
   const col=(w)=>{
     const facts=[
@@ -42117,7 +42124,7 @@ async function covSaveWording(id){
   renderCoverage();
 }
 function covCaseCard(c){
-  const R={calloff:'Call-off',open:'Open shift',new:'New client'};
+  const R={calloff:'Call-off',call_off:'Call-off',open:'Open shift',new:'New client'};
 
     const open=c.status==='open';
     const age=open?'<span style="font-weight:800;color:'+(covAgo(c.opened_at).includes('d')?'var(--red)':'var(--honey-ink)')+';">open '+covAgo(c.opened_at)+'</span>':'';
@@ -42140,7 +42147,7 @@ function covCaseCard(c){
       +'<div style="display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;" onclick="covToggleCase(\''+esc(c.id)+'\')">'
       +'<span style="color:var(--text-muted);font-size:12px;">'+(expanded?'▾':'▸')+'</span>'
       +'<b style="font-size:15.5px;color:var(--navy);"><a href="javascript:void(0)" data-open-client="'+esc(String(c.client_axiscare_id||c.client))+'" data-open-tab="team" style="color:inherit;text-decoration:underline dotted;" title="Open their profile (Team &amp; Schedule)">'+esc(c.client)+'</a></b>'
-      +'<span class="field-note">'+esc(c.shift_date||'')+' '+esc(covT12(c.shift_time||''))+' · '+esc(R[c.reason]||c.reason)+'</span>'
+      +'<span class="field-note" title="'+esc(c.shift_date||'')+'">'+esc(c.shift_date?covWhenText(c):covT12(c.shift_time||''))+' · '+esc(R[c.reason]||String(c.reason||'').replace(/_/g,' '))+'</span>'
       +caraPatternChip(c)+cipCaseChip(c)+age+headTallies+pendChip
       +(!open&&c.resolved_how?'<span style="font-size:12px;font-weight:700;color:'+(c.resolved_how==='covered'?'var(--green)':'var(--red)')+';">'+(c.resolved_how==='covered'?'covered by '+esc(c.covered_by||'?'):'closed uncovered')+'</span>':'')
       +'<span style="flex:1;"></span>'
