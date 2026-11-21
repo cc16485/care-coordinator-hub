@@ -22,7 +22,7 @@
     ['safety', 'Client safety, privacy or boundaries'], ['availability', 'Availability to follow up'], ['verify', 'To confirm before moving forward'],
     ['training', 'Training that would help'], ['missed', 'Topics the conversation did not cover'], ['reference_questions', 'Suggested reference-check questions']];
   var TONE = function (n) { return n >= 4 ? ['#2E8F8B', '#1F6F6B'] : n === 3 ? ['#D9972B', '#A8660E'] : ['#D4574A', '#B42318']; };
-  /* The score card (2026-11-21, her drawing): the ring, the fit word, the opinion, the five bars, two or three quotes and
+  /* The score card (2026-11-21, her drawing): the ring, the fit word, the opinion, the bars, how they communicated, two or three quotes and
      Before you decide. An area that was not covered shows as not covered, never as a number. */
   function scoreHtml(row, first) {
     var R = row.review || {}, n = R.score, tone = TONE(n || 0), items = R.items || [];
@@ -37,6 +37,18 @@
       return '<span title="' + esc(a.why || '') + '">' + esc(a.label) + '</span><div class="ir-bar"><i style="width:' + ((a.score || 0) * 20) + '%;background:' + c + '"></i></div><b>' + (a.score || '<span class="field-note" style="font-weight:400">not covered</span>') + '</b>'
         + (a.why ? '<span></span><span class="ir-why">' + esc(a.why) + '</span><span></span>' : '');
     }).join('') + '</div>';
+    /* How they communicated (2026-11-21, her ask): the plain lines under the Communication bar. Interrupting is counted
+       from the recording by the server, the rest is the AI's read of what they did; a negative-employer line always
+       carries their own words. */
+    if ((R.habits || []).length) h += '<div class="ir-hab"><b>How they communicated</b>' + R.habits.map(function (x) {
+      var w = x.level === 'good' ? ['\u2713', '#1F6F6B', '#E4F4F3'] : x.level === 'mixed' ? ['~', '#A8660E', '#FDF3E3'] : ['!', '#B42318', '#FDECEA'];
+      return '<div class="ir-habrow"><i style="color:' + w[1] + ';background:' + w[2] + '">' + w[0] + '</i><div><span class="ir-habl">' + esc(x.label) + '</span> <span class="ir-why">' + esc(x.why || '') + '</span>'
+        + (x.said || []).map(function (q) { return '<div class="ir-said" style="margin-top:4px">' + (q.source === 'notes' ? '<span class="ts" style="cursor:default">interviewer notes</span>'
+          : '<button class="ts" title="Listen from here" onclick="IR.play(\'' + esc(q.rec) + '\',' + (+q.at || 0) + ',this)">' + clock(q.at) + '</button>') + ' <q>' + esc(q.quote) + '</q></div>'; }).join('')
+        + (x.counted && x.level !== 'good' && (x.at || []).length && (R.parts || []).length ? '<div class="ir-said" style="margin-top:4px;border-left-color:#DCE4EE">Listen: ' + x.at.map(function (o) {
+          var rec = ((R.parts || []).filter(function (p) { return p.part === o.part; })[0] || R.parts[0] || {}).rec;
+          return '<button class="ts" title="Listen from here" onclick="IR.play(\'' + esc(rec) + '\',' + Math.max(0, (+o.at || 0) - 5) + ',this)">' + clock(o.at) + '</button>'; }).join('') + '</div>' : '')
+        + '</div></div>'; }).join('') + '</div>';
     var quotes = []; items.forEach(function (it) { if (it.section === 'strengths' || it.section === 'concerns' || it.section === 'safety') (it.said || []).forEach(function (s) { if (quotes.length < 3 && s.source !== 'application') quotes.push(s); }); });
     if (quotes.length) h += '<div style="margin-top:12px">' + quotes.map(function (s) {
       return '<div class="ir-said" style="margin-top:7px">' + (s.source === 'notes' ? '<span class="ts" style="cursor:default">interviewer notes</span>'
@@ -57,6 +69,8 @@
     + '.ir-acts{display:flex;flex-wrap:wrap;gap:6px;align-items:center}.ir-act{appearance:none;border:1.5px solid #DCE4EE;background:#fff;border-radius:8px;padding:4px 10px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}'
     + '.ir-act.on{background:#E7F6EC;border-color:#1F7A4D;color:#1F7A4D}.ir-act.on.x{background:#F3F6FA;border-color:#5B6878;color:#5B6878}.ir-act.on.e{background:#FDF3E3;border-color:#A8660E;color:#A8660E}'
     + '.ir-task{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;background:#F6F9FD;border-radius:8px;padding:6px 9px;font-size:13px}'
+    + '.ir-hab{margin-top:12px;border-top:1px solid #E4E9F0;padding-top:10px;display:grid;gap:7px}.ir-hab>b{font-size:13.5px;color:#0E3860}'
+    + '.ir-habrow{display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:start;font-size:13.5px}.ir-habrow>i{font-style:normal;font-weight:700;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:12.5px}.ir-habl{font-weight:600;color:#0E3860}'
     + '.ir-stat{display:flex;flex-wrap:wrap;gap:16px;font-size:13px;margin-top:6px}.ir-stat b{display:block;font-size:18px;color:#0E3860;font-variant-numeric:tabular-nums}'
     + '.ir-k{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#2E8F8B}.ir-h2{font-size:18px;font-weight:700;color:#0E3860;line-height:1.3;margin:3px 0 10px}'
     + '.ir-score{display:flex;gap:16px;align-items:center}.ir-ring{width:100px;height:100px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}'
