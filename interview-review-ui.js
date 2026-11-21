@@ -5,7 +5,11 @@
    listen) is kept apart from what the AI SUGGESTS we clarify (gold). Each item: Confirm / Correct / Dismiss with a note
    (saved in the review's marks, never changing the AI's words or the interviewer's notes), and any item can become a
    follow-up task on someone's My Work. Confirming is not resolving: a task stays open until its owner marks it resolved.
-   No score, verdict or hiring recommendation, by design. */
+   No score, verdict or hiring recommendation, by design.
+   2026-11-21 (her Caregiver Interview Redesign, Part 3): a regular Caregiver interviewed on the six-section conversation
+   screen gets the conversation review: a short written assessment and one of three labels (never a score), evidence with
+   quotes, availability to follow up, what to confirm, and training. It never changes a status, a level or an offer. With
+   no recording it can read the interviewer's typed notes, and says so. Every other interview is shown exactly as before. */
 (function () {
   var esc = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); };
   var clock = function (s) { s = Math.max(0, Math.round(+s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -13,6 +17,11 @@
   var SEC = [['strengths', 'Experience and strengths, from specific answers'], ['concerns', 'Concerns or inconsistencies to follow up'],
     ['communication', 'Communication, from the transcript'], ['safety', 'Confidentiality, safety or boundaries'],
     ['missed', 'Questions the interview did not cover'], ['reference_questions', 'Suggested reference-check questions']];
+  var SEC_TALK = [['strengths', 'What they described, from specific answers'], ['concerns', 'Job-related points to follow up'],
+    ['safety', 'Client safety, privacy or boundaries'], ['availability', 'Availability to follow up'], ['verify', 'To confirm before moving forward'],
+    ['training', 'Training that would help'], ['missed', 'Topics the conversation did not cover'], ['reference_questions', 'Suggested reference-check questions']];
+  var LABEL = { move_forward: ['Move forward, pending normal verification', '#E7F6EC', '#1F7A4D'], needs_follow_up: ['Needs follow-up', '#FDF3E3', '#A8660E'],
+    concerns: ['Job-related concerns, human review required', '#FDECEC', '#B42318'] };
   var MARK = { confirm: 'Confirmed', correct: 'Corrected', dismiss: 'Dismissed' };
   var CSS = '.ir-tag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:2px 7px;background:#FDF3E3;color:#A8660E}'
     + '.ir-sec{border-top:1px solid #E4E9F0;margin-top:12px;padding-top:10px}.ir-sec h4{margin:0 0 4px;font-size:14px;color:#0E3860}'
@@ -43,8 +52,9 @@
     var h = '<div class="ir-item' + (mk.mark === 'dismiss' ? ' dis' : '') + '" id="ir_' + rid + '_' + iid + '">';
     (it.said || []).forEach(function (s) {
       h += '<div class="ir-said">' + (s.source === 'application' ? '<span class="ts" style="cursor:default">application</span>'
+        : s.source === 'notes' ? '<span class="ts" style="cursor:default">interviewer notes</span>'
         : '<button class="ts" title="Listen from here" onclick="IR.play(\'' + esc(s.rec) + '\',' + (+s.at || 0) + ',this)">' + (s.part > 1 || (row.review.parts || []).length > 1 ? 'Part ' + s.part + ' · ' : '') + clock(s.at) + '</button>')
-        + (s.source === 'application' ? ' Their application says: ' : ' They said: ') + '<q>' + esc(s.quote) + '</q></div>';
+        + (s.source === 'application' ? ' Their application says: ' : s.source === 'notes' ? ' The notes say: ' : ' They said: ') + '<q>' + esc(s.quote) + '</q></div>';
     });
     if (it.clarify) h += '<div class="ir-clar"><b>AI suggests we clarify:</b> ' + esc(it.clarify) + '</div>';
     if (it.text) h += '<div class="ir-clar"><b>AI ' + (it.section === 'strengths' ? 'notes' : 'suggests') + ':</b> ' + esc(it.text) + '</div>';
@@ -62,22 +72,31 @@
   }
 
   function reviewHtml(row) {
-    var R = row.review || {}, st = R.stats;
+    var R = row.review || {}, st = R.stats, talk = R.style === 'talk';
     var h = '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">'
-      + '<span><span class="ir-tag">AI-generated · second set of ears</span> <span class="field-note">' + (R.kind === 'check' ? 'Check before they left' : 'Analyze Interview') + ', ' + esc(when(row.created_at)) + (row.created_by ? ' by ' + esc(row.created_by) : '') + '</span></span></div>';
+      + '<span><span class="ir-tag">AI-generated · ' + (talk && R.kind !== 'check' ? 'your judgment decides' : 'second set of ears') + '</span> <span class="field-note">' + (R.kind === 'check' ? 'Check before they left' : talk ? 'Review of the interview' : 'Analyze Interview') + ', ' + esc(when(row.created_at)) + (row.created_by ? ' by ' + esc(row.created_by) : '') + '</span></span></div>';
     if (R.parts_still_transcribing) h += '<div class="field-note" style="color:#A8660E">' + R.parts_still_transcribing + ' part(s) were still being written out and are not in this review.</div>';
+    if (talk && R.kind !== 'check') {
+      var lb = LABEL[R.recommendation] || LABEL.needs_follow_up;
+      if (R.notes_only) h += '<div style="margin-top:8px;background:#FDF3E3;border-radius:9px;padding:8px 11px;font-size:13px;color:#5E3D07"><b>No recording.</b> This review read only the notes typed during the interview. Notes are not a full transcript, so treat it as a starting point.</div>';
+      h += '<div style="margin-top:10px"><span id="irLabel_' + esc(row.id) + '" style="display:inline-block;font-weight:700;font-size:14px;border-radius:999px;padding:5px 13px;background:' + lb[1] + ';color:' + lb[2] + '">' + esc(lb[0]) + '</span></div>'
+        + (R.label_held ? '<div class="field-note" style="margin-top:4px">' + esc(R.label_held) + '</div>' : '')
+        + (R.assessment ? '<div style="font-size:14.5px;line-height:1.55;margin-top:8px;white-space:pre-wrap">' + esc(R.assessment) + '</div>' : '')
+        + '<div class="field-note" style="margin-top:8px">What they told us is not verified yet. This review never changes their status, their care level or an offer. The hiring decision is yours.</div>';
+    }
     if (R.summary) h += '<div class="ir-sec" style="border-top:0;margin-top:6px;padding-top:0"><h4>Summary</h4><div style="font-size:14px">' + esc(R.summary) + '</div></div>';
     if (st) h += '<div class="ir-sec"><h4>Communication, counted from the recording</h4><div class="ir-stat">'
       + (st.applicant_share != null ? '<div><b>' + st.applicant_share + '%</b>of the talking was the applicant</div>' : '')
       + '<div><b>' + (st.overlap_count || 0) + '</b>times they started while the interviewer was still talking</div>'
       + (st.longest && st.longest.secs ? '<div><b>' + clock(st.longest.secs) + '</b>longest single answer</div>' : '') + '</div>'
       + '<div class="field-note">Recordings can mark people talking at once wrongly when someone pauses; listen before relying on it. Only how long, never why.</div></div>';
-    SEC.forEach(function (s) {
+    (talk ? SEC_TALK : SEC).forEach(function (s) {
       var list = (R.items || []).filter(function (x) { return x.section === s[0]; }); if (!list.length) return;
       h += '<div class="ir-sec"><h4>' + esc(s[1]) + '</h4>' + list.map(function (it) { return itemHtml(row, it); }).join('') + '</div>';
     });
     if (R.dropped_unverified) h += '<div class="field-note" style="margin-top:8px">' + R.dropped_unverified + ' AI item(s) left out because their quote could not be found in the transcript.</div>';
-    h += '<div class="ir-sec field-note">Not in this review, by design: any hiring recommendation, score or verdict, and anything about personality, honesty, mental health or suitability drawn from how someone speaks, their accent or tone. The interviewer\'s notes are kept separately and never changed by the AI.</div>';
+    if (talk) h += '<div class="ir-sec field-note">Not in this review, by design: any score or rating, any decision to hire or not, and anything about personality, honesty, mental health or how long someone will stay, or drawn from how someone speaks, their accent, nerves or appearance. Having no experience is a training need, not a mark against anyone. The interviewer\'s notes are kept separately and never changed by the AI.</div>';
+    else h += '<div class="ir-sec field-note">Not in this review, by design: any hiring recommendation, score or verdict, and anything about personality, honesty, mental health or suitability drawn from how someone speaks, their accent or tone. The interviewer\'s notes are kept separately and never changed by the AI.</div>';
     return h;
   }
   function counts(row) {
@@ -102,14 +121,21 @@
     var recs = await sb.from('recordings').select('*').eq('kind', 'interview').eq('subject_id', applicantId).order('created_at');
     var rv = await sb.from('interview_reviews').select('*').eq('applicant_id', applicantId).order('created_at', { ascending: false });
     if (rv.error && !/interview_reviews/.test(rv.error.message || '')) { host.innerHTML = '<div class="field-note" style="color:var(--red)">Could not load the AI review: ' + esc(rv.error.message) + '</div>'; return; }
-    var ap = await sb.from('job_applicants').select('id,records_hold_at,records_hold_by,records_hold_reason').eq('id', applicantId).maybeSingle();
+    var ap = await sb.from('job_applicants').select('id,position,post_interview,records_hold_at,records_hold_by,records_hold_reason').eq('id', applicantId).maybeSingle();
     var rows = rv.data || [], R = recs.data || [], A = ap.data || {};
     rows.forEach(function (r) { ROWS[r.id] = r; });
     var ready = R.filter(function (x) { return x.consent_given && x.status === 'done'; }).length, busy = R.filter(function (x) { return x.consent_given && (x.status === 'recorded' || x.status === 'transcribing'); }).length;
     var full = rows.filter(function (r) { return r.kind === 'full'; }), checks = rows.filter(function (r) { return r.kind === 'check'; });
+    /* 2026-11-21: a regular Caregiver interviewed on the conversation screen. With no recording at all, the review can
+       read the interviewer's typed notes (the server checks the same thing and says so in the review). */
+    var PI = (A.post_interview && typeof A.post_interview === 'object') ? A.post_interview : {}, TK = PI.talk && typeof PI.talk === 'object' ? PI.talk : null;
+    var isTalk = !!TK && String(A.position || 'caregiver') === 'caregiver';
+    var typed = isTalk ? Object.keys(TK.notes || {}).map(function (k) { return String(TK.notes[k] || '').trim(); }).concat([String(PI.notes || '').trim()]).filter(Boolean).join('\n') : '';
+    var fromNotes = isTalk && !ready && !busy && typed.length >= 40;
+    var goLabel = isTalk ? (full.length ? 'Review again' : 'Review this interview') : (full.length ? 'Analyze again' : 'Analyze Interview');
     var h = '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      + (ready ? '<button class="primary" onclick="IR.run(\'' + esc(applicantId) + '\',\'full\',this)">' + (full.length ? 'Analyze again' : 'Analyze Interview') + '</button>' : '')
-      + '<span class="field-note">' + (ready ? 'Only when you tap it. Reads ' + ready + ' recorded part' + (ready === 1 ? '' : 's') + ' with consent.' : busy ? 'The recording is still being written out. Analyze appears when the transcript is ready.' : 'Analyze appears once a recorded interview (with consent) has its transcript.') + '</span></div>';
+      + (ready || fromNotes ? '<button class="primary" onclick="IR.run(\'' + esc(applicantId) + '\',\'full\',this)">' + (fromNotes ? 'Review from the interviewer notes' : goLabel) + '</button>' : '')
+      + '<span class="field-note">' + (fromNotes ? 'Only when you tap it. There is no recording, so it reads only the notes typed in the interview, and says so.' : ready ? 'Only when you tap it. Reads ' + ready + ' recorded part' + (ready === 1 ? '' : 's') + ' with consent.' : busy ? 'The recording is still being written out. Analyze appears when the transcript is ready.' : 'Analyze appears once a recorded interview (with consent) has its transcript.') + '</span></div>';
     if (full.length) { var c = counts(full[0]); h += '<div class="field-note" style="margin-top:6px">' + c.open + ' to follow up · ' + c.dismissed + ' dismissed</div><div style="margin-top:8px">' + reviewHtml(full[0]) + '</div>'; }
     var older = full.slice(1).concat(checks);
     if (older.length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Earlier reviews and checks (' + older.length + ')</summary>' + older.map(function (r) { return '<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px">' + reviewHtml(r) + '</div>'; }).join('') + '</details>';
@@ -146,9 +172,9 @@
     mount: function (el, r) { css(); HOSTS[r.id] = el; el.innerHTML = '<div class="field-note">Looking…</div>'; return load(r.id); },
     reload: function (applicantId) { return load(applicantId); },
     run: async function (applicantId, kind, btn) {
-      if (btn) { btn.disabled = true; btn.textContent = 'Reading the interview…'; }
+      if (btn) { btn.disabled = true; btn.dataset.was = btn.textContent; btn.textContent = 'Reading the interview…'; }
       try { var d = await call({ applicant_id: applicantId, kind: kind || 'full' }); await load(applicantId); return d; }
-      catch (e) { alert('The AI review did not run: ' + (e && e.message || e) + '\n\nNothing was saved.'); if (btn) { btn.disabled = false; btn.textContent = 'Analyze Interview'; } return null; }
+      catch (e) { alert('The AI review did not run: ' + (e && e.message || e) + '\n\nNothing was saved.'); if (btn) { btn.disabled = false; btn.textContent = btn.dataset.was || 'Analyze Interview'; } return null; }
     },
     call: call, reviewHtml: function (row) { css(); ROWS[row.id] = row; return reviewHtml(row); },
     mark: function (rid, iid, m) { var cur = ((ROWS[rid] || {}).marks || {})[iid] || {}; return save(rid, iid, cur.mark === m ? { mark: null, by: who(), at: new Date().toISOString() } : { mark: m, by: who(), at: new Date().toISOString() }); },

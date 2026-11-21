@@ -343,7 +343,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="office-call.js?v=433"></script>
 <script src="confirm-times.js?v=1017"></script>
-<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=3"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="interview-talk.js?v=1"></script><!-- the caregiver interview as a conversation (2026-11-21) --><script src="phone-mode.js?v=21"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
+<script src="interview-observations.js?v=1"></script><script src="interview-review-ui.js?v=4"></script><!-- the AI interview review (2026-10-13) --><!-- interviewer observations, one file for the Hub and the phone (2026-10-13) --><script src="interview-talk.js?v=1"></script><!-- the caregiver interview as a conversation (2026-11-21) --><script src="phone-mode.js?v=21"></script><script src="applicant-text.js?v=5"></script><!-- 574 (2026-10-10): text an applicant, cancel with our own words --><!-- CC Office on the phone (2026-10-07): index.html?m=1 is the phone mode -->
 <link rel="apple-touch-icon" href="cc-office-icon-180.png"><meta name="apple-mobile-web-app-title" content="CC Office"><meta name="apple-mobile-web-app-capable" content="yes"><!-- 431: every staff click-to-call goes from the office line (LeadConnector) -->
 <style>
   :root{
@@ -5077,15 +5077,6 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
   <button class="secondary" id="axcCardsBtn" onclick="AxisConn.toggle(AxisConn.CARDS, this)">Turn on AxisCare read cards</button>
   <span class="field-note" id="axcSaved"></span>
 </div>
-<!-- The caregiver interview as a conversation (2026-11-21, her Caregiver Interview Redesign): interview-talk.js. ops_settings.interview_talk_live -->
-<div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">New caregiver interview</div>
-<p class="hint">Regular Caregiver applicants get the interview as a conversation: six sections, short lines to say, an information button, and exact day-by-day availability. PRN CNA, PRN Caregiver and every other position keep today's interview. Nothing is sent to anyone, and no application answer, care level or status changes. Only Samantha or Zachary can turn this on or off.</p>
-<div id="talkSetNow" class="field-note" style="margin:6px 0 8px;"></div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
-  <button class="secondary" id="talkToggleBtn" onclick="TALK.settingsToggle(this)">Turn on the new caregiver interview</button>
-  <button class="secondary" id="talkTryBtn" onclick="TALK.tryIt(!TALK.trying())">Try it (only me)</button>
-  <span class="field-note" id="talkSaved"></span>
-</div>
 <!-- Escalated to you, made simple (2026-10-30, her plan https://claude.ai/artifact/2C6NzZXYUMVdzeQrR12BH4): escalated-simple.js. ops_settings.escalated_simple_live -->
 <div class="field-note" style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:14px 0 2px;border-top:1px solid var(--border);padding-top:10px;">Escalated to you, made simple</div>
 <p class="hint">Escalated to you is grouped by person, with how many and the oldest. Only cards about a client's care at risk or a promise to a family are listed one by one. Each card is one line with I'll do it, Leave with (it stays theirs and is not escalated again for 3 days), and Close; the menu has four choices. Nothing is sent to anyone. Only Samantha or Zachary can turn this on or off.</p>
@@ -5257,6 +5248,18 @@ html.embedded .subbar .tab.active, .subbar .tab.active{background:#FAF9F6 !impor
 <button class="primary" onclick="mbSave(this)">Save recipients</button>
 <button class="secondary" onclick="mbTest(this)">Send me a test brief now</button>
 <span class="field-note" id="mbStatus"></span>
+</div>
+</div>
+
+<!-- The caregiver interview as a conversation (2026-11-21, her Caregiver Interview Redesign): interview-talk.js. ops_settings.interview_talk_live -->
+<div class="settings-section" data-set="caregiver-interview">
+<h3>🗣 New caregiver interview</h3>
+<p class="hint">Regular Caregiver applicants get the interview as a conversation: six sections, short lines to say, an information button, and exact day-by-day availability. Afterward, Review this interview writes a short assessment with one of three labels; it never changes a status, a level or an offer. PRN CNA, PRN Caregiver and every other position keep today's interview and review. Nothing is sent to anyone. Only Samantha or Zachary can turn this on or off.</p>
+<div id="talkSetNow" class="field-note" style="margin:6px 0 8px;"></div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px;">
+  <button class="secondary" id="talkToggleBtn" onclick="TALK.settingsToggle(this)">Turn on the new caregiver interview</button>
+  <button class="secondary" id="talkTryBtn" onclick="TALK.tryIt(!TALK.trying())">Try it (only me)</button>
+  <span class="field-note" id="talkSaved"></span>
 </div>
 </div>
 

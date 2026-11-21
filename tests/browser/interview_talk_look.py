@@ -193,6 +193,40 @@ async()=>{ const R=[], ok=(n,c,d)=>R.push([c?'PASS':'FAIL',n,c?'':JSON.stringify
   ok('Save notes: on their record, status unchanged, Monday 8 to 4:30, the other days left empty (not guessed)', P.status==='new' && P.post_interview.talk.avail.days.mon.w[0].t==='16:30' && P.post_interview.talk.avail.days.tue.w.length===0 && P.post_interview.talk.avail.complete===false && P.post_interview.talk.work.working==='no', P.post_interview.talk);
   const html=apProfInterview({ id:CG, post_interview:P.post_interview });
   ok('their profile shows "From the interview conversation" with the times and that it is not confirmed yet', /From the interview conversation/.test(html) && /Monday 8 AM to 4:30 PM/.test(html) && /not confirmed yet/.test(html) && /Not working right now/.test(html), html.slice(-700));
+  /* ---- the review of a conversation interview (her Part 3) ---- */
+  const saidQ=[{ quote:'I waited, came back in ten minutes and let her pick the towel', source:'transcript', part:1, at:51, rec:'r1' }];
+  const mk=(over)=>({ id:'rv'+Math.random().toString(36).slice(2,7), applicant_id:CG, kind:'full', created_at:'2026-11-21T15:00:00Z', created_by:'Sam Test', marks:{},
+    review:Object.assign({ kind:'full', style:'talk', notes_only:false, recommendation:'move_forward', label_held:null,
+      assessment:'They described two years of personal care at an assisted living home, including bathing, dressing and help with walking.\n\nBefore moving forward, confirm that employment and check references.',
+      items:[{ id:'ts1', section:'strengths', said:saidQ, text:'Patience with a client refusing care.' }, { id:'tv2', section:'verify', said:[], text:'Confirm two years at Maple Grove.' },
+        { id:'tt3', section:'training', said:[], text:'Dementia care training.' }], parts:[{ rec:'r1', part:1 }], stats:null }, over||{}) });
+  let rh=IR.reviewHtml(mk());
+  ok('review: the label "Move forward, pending normal verification" and the written assessment, no score', /Move forward, pending normal verification/.test(rh) && /two years of personal care/.test(rh) && !/score|rating: |\d+\s*\/\s*10/i.test(rh.replace(/any score or rating/,'')), rh.slice(0,600));
+  ok('...it says the decision is yours and that nothing changes their status, level or offer', /never changes their status, their care level or an offer\. The hiring decision is yours\./.test(rh) && /your judgment decides/.test(rh));
+  ok('...evidence with the quote and its time, what to confirm, and training', /They said: <q>I waited, came back in ten minutes/.test(rh) && /0:51/.test(rh) && /To confirm before moving forward/.test(rh) && /Training that would help/.test(rh));
+  ok('...the closing note fits this review (no experience is a training need)', /Having no experience is a training need, not a mark against anyone/.test(rh) && !/any hiring recommendation, score or verdict/.test(rh));
+  rh=IR.reviewHtml(mk({ recommendation:'needs_follow_up', label_held:'Exact availability is not complete, so the label is Needs follow-up.', items:[{ id:'tav1', section:'availability', said:[], text:'Exact availability was not entered for Tuesday.' }] }));
+  ok('review: Needs follow-up shows why the label was held, and the missing day', />Needs follow-up</.test(rh) && /Exact availability is not complete/.test(rh) && /Availability to follow up/.test(rh) && /not entered for Tuesday/.test(rh));
+  rh=IR.reviewHtml(mk({ recommendation:'concerns', items:[{ id:'tsa1', section:'safety', said:[{ quote:'I left her alone and ran to the store', source:'transcript', part:1, at:161, rec:'r1' }], clarify:'Left a client alone. Ask what the care plan said.' }] }));
+  ok('review: "Job-related concerns, human review required" with the quote behind it and a way to make a follow-up task', /Job-related concerns, human review required/.test(rh) && /I left her alone and ran to the store/.test(rh) && /Make a follow-up task/.test(rh));
+  rh=IR.reviewHtml(mk({ notes_only:true, recommendation:'needs_follow_up', items:[{ id:'ts1', section:'strengths', said:[{ quote:'Called her supervisor two hours ahead', source:'notes' }], text:'Called in early.' }] }));
+  ok('review from notes only: says there was no recording and marks the quote as from the interviewer notes', /No recording\./.test(rh) && /Notes are not a full transcript/.test(rh) && /interviewer notes<\/span> The notes say: <q>Called her supervisor/.test(rh));
+  window.__reviewShot=IR.reviewHtml(mk())+'<div style="height:14px"></div>'+IR.reviewHtml(mk({ recommendation:'concerns', items:[{ id:'tsa1', section:'safety', said:[{ quote:'I left her alone and ran to the store', source:'transcript', part:1, at:161, rec:'r1' }], clarify:'Left a client alone. Ask what the care plan said.' }] }));
+  const oldRow={ id:'rvold', applicant_id:PRN, kind:'full', created_at:'2026-11-21T15:00:00Z', marks:{}, review:{ kind:'full', summary:'Three years of home care.', items:[{ id:'s1', section:'strengths', said:saidQ, text:'Experience.' }], parts:[{ rec:'r1', part:1 }] } };
+  rh=IR.reviewHtml(oldRow);
+  ok('a PRN (or any old-style) review is shown exactly as before: summary, second set of ears, no label', /second set of ears/.test(rh) && /Summary/.test(rh) && !/pending normal verification|Needs follow-up|human review required/.test(rh) && /any hiring recommendation, score or verdict/.test(rh));
+  /* the button: with no recording, a conversation interview with typed notes can be reviewed from the notes */
+  window.__DB.recordings=[]; window.__DB.interview_reviews=[];
+  window.__DB.job_applicants[0].post_interview.notes='Warm and calm. Said she did bathing and dressing at Maple Grove for two years.';
+  const host=document.createElement('div'); document.body.appendChild(host); await IR.mount(host,{ id:CG }); await sleep(80);
+  ok('no recording, notes typed: the button is "Review from the interviewer notes" and says it reads only the notes', /Review from the interviewer notes/.test(host.innerText) && /There is no recording, so it reads only the notes/.test(host.innerText), host.innerText);
+  const host2=document.createElement('div'); document.body.appendChild(host2); await IR.mount(host2,{ id:PRN }); await sleep(80);
+  ok('...a PRN applicant with no recording gets no such button (as before)', !/Review from the interviewer notes/.test(host2.innerText) && /Analyze appears once a recorded interview/.test(host2.innerText), host2.innerText);
+  window.__DB.recordings=[{ id:'r1', kind:'interview', subject_id:CG, status:'done', consent_given:true, turns:[{ start:0, text:'hi', name:'A' }], created_at:'2026-11-21T14:00:00Z' }];
+  await IR.mount(host,{ id:CG }); await sleep(80);
+  ok('with a recording: the button reads "Review this interview"', /Review this interview/.test(host.innerText) && !/Review from the interviewer notes/.test(host.innerText), host.innerText.slice(0,200));
+  host.remove(); host2.remove();
+  ok('Settings: the switch has its own section, New caregiver interview (not inside Leads)', document.getElementById('talkToggleBtn').closest('.settings-section').getAttribute('data-set')==='caregiver-interview');
   ok('Settings with the switch on: says who gets it and that PRN is unchanged', (TALK.settingsFill(), /regular Caregiver applicants get the six-section interview\. PRN and every other position are unchanged/.test(document.getElementById('talkSetNow').textContent)));
   return R; }
 """
@@ -224,6 +258,8 @@ with sync_playwright() as pw:
       x.innerHTML=TALK.html(window.__DB.interview_sections, T, {}); document.body.appendChild(x); }""")
     d.set_viewport_size({'width': 800, 'height': 1900}); d.wait_for_timeout(150)
     d.locator('#tkShot').screenshot(path=os.path.join(OUT, 'interview_talk_hub_availability.png'))
+    d.evaluate("()=>{ const x=document.getElementById('tkShot'); x.innerHTML=window.__reviewShot; }"); d.wait_for_timeout(150)
+    d.locator('#tkShot').screenshot(path=os.path.join(OUT, 'interview_talk_hub_review.png'))
     R.append(['PASS' if not errs else 'FAIL', 'no page errors', errs[:3]]); b.close()
 for s_, n, dd in R: print(s_, '·', n, '' if s_ == 'PASS' else dd)
 print(sum(r[0] == 'PASS' for r in R), '/', len(R))
