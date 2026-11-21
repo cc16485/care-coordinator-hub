@@ -99,6 +99,11 @@ let V = null, ANS = {}, SIGS = {}, IDENT = {}, FROM = {}, SCREEN = '1', FORMS = 
 /* 2026-10-13 HEPATITIS B: the one choice and the separate agreement to sign the Appendix A statement live in THIS PAGE ONLY
    until they sign (never saved with the Step 1 answers; the server puts them in the confidential record when they sign) */
 let HCHOICE = '', HDECL = false, HPROOF = '';
+/* 2026-11-21 (Samantha: "make sure that the step one paperwork is clear, because it seems many are doing this and it may be by
+   mistake"): the driving question says what each answer means before they choose, the buttons say the whole answer, and a
+   No is checked once ("Just to check") before the Non-Driver form. ND_SURE is for this visit only. */
+let ND_SURE = false;
+const DRIVE_WORDS = { yes: 'Yes, I can drive clients', no: "No, I won't drive clients" };
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 /* which screens hold which sections of which form; the sign box sits on a form's last screen */
 const PLAN = {
@@ -294,7 +299,18 @@ function screenHtml(s){
   }
   if (P.decide && V.deciding && V.deciding[P.decide]) {
     const q = V.deciding[P.decide], decided = (V.forms || []).some((x) => x.when && x.when.id === P.decide && SIGS[x.key]);
-    h += '<h1>' + esc(P.title) + '</h1><div class="doc"><div class="item"><label class="q">' + esc(q.label) + ' <span style="color:var(--gold-text)">*</span></label>' + seg(P.decide, q.options, ANS[P.decide], decided || REVIEW) + (decided ? '<div class="note">Your agreement is signed, so this answer is kept. To change it later, call the office: ' + PHONE + '.</div>' : '') + '</div></div>';
+    const drive = P.decide === 'transport_willing';
+    const opts = drive ? q.options.map(([v, l]) => [v, DRIVE_WORDS[v] || l]) : q.options;
+    h += '<h1>' + esc(P.title) + '</h1><div class="doc"><div class="item"><label class="q">' + esc(q.label) + ' <span style="color:var(--gold-text)">*</span></label>'
+      + (drive && !decided ? '<div class="drive-explain" style="margin:6px 0 10px;font-size:15px;line-height:1.5">Many of our clients need a ride to appointments, errands or outings as part of their care.'
+        + '<ul style="margin:6px 0 0 18px;padding:0"><li><b>Yes:</b> next you take photos of your driver\'s license (front and back) and your auto insurance card, and sign the driver agreement. The office checks them before you drive any client.</li>'
+        + '<li><b>No:</b> you sign a Non-Driver form, and you won\'t be able to work with clients who have transportation on their care plan.</li></ul></div>' : '')
+      + seg(P.decide, opts, ANS[P.decide], decided || REVIEW) + (decided ? '<div class="note">Your agreement is signed, so this answer is kept. To change it later, call the office: ' + PHONE + '.</div>' : '') + '</div></div>';
+    if (drive && ANS[P.decide] === 'no' && !decided && !REVIEW && !ND_SURE) return h + '<div class="doc nd-check" style="border:2px solid var(--gold,#E0B24F);border-radius:12px;padding:14px 16px">'
+      + '<h3 style="margin:0 0 6px">Just to check</h3><p style="margin:0 0 10px">You chose that you won\'t drive clients in your own car. That means you won\'t be able to work with clients who have transportation on their care plan. Is that right?</p>'
+      + '<button type="button" class="go" onclick="ND_SURE=true;render()">Yes, I won\'t drive clients</button> '
+      + '<button type="button" class="back" style="margin-top:8px" onclick="setVal(\'transport_willing\',\'yes\')">I can drive clients</button></div>'
+      + '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button>';
     if (!ANS[P.decide]) return h + '<button class="back" onclick="go(\'' + prevOf(s) + '\')">Back</button>' + (PREVIEW && NEXT_NOTE[s] ? '<div class="pnote"><b>What happens after this screen:</b> ' + esc(NEXT_NOTE[s]) + '</div>' : '');
   }
   const f = FORMS[P.form]; const locked = REVIEW || formSigned(P.form);
