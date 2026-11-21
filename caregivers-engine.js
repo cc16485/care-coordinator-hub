@@ -5348,9 +5348,12 @@ async function bgrEnsureData(force){
   if(BGR_DATA_LOADED && !force) return;
   BGR_DATA_ERR = null;
   try{
-    const rr = await sb.from('reference_requests')
-      .select('id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count, office_attempts')
-      .order('created_at', { ascending: false });
+    const COLS = 'id, created_at, candidate_id, candidate_name, slot, ref_name, ref_email, ref_phone, sent_at, reminded_at, reminder_count, responded_at, responder_name, recommend, concerns, applicant_nudged_at, applicant_nudge_count, office_attempts';
+    /* 2026-11-21 (Samantha: "I just clicked to text the form on all these and cant see that it was sent"): also read how
+       each form went (the Hub's own text, the office text or email), so the checklist can say it plainly. If those
+       columns cannot be read, the older list still loads. */
+    let rr = await sb.from('reference_requests').select(COLS + ', texted_at, office_texted_at, office_texted_by, office_emailed_at, office_emailed_by').order('created_at', { ascending: false });
+    if(rr && rr.error) rr = await sb.from('reference_requests').select(COLS).order('created_at', { ascending: false });
     REF_REQUESTS = (rr && rr.data) ? rr.data : [];
     if(rr && rr.error) BGR_DATA_ERR = 'Could not read reference requests.';
   }catch(e){ REF_REQUESTS = []; BGR_DATA_ERR = 'Could not read reference requests.'; }
@@ -7279,6 +7282,28 @@ function obRefSentLine(c,n){
     ? ['💬 Texted the form',"OK'd by phone"].concat(tail).join(' · ')
     : ['✉️ Emailed the form'].concat(tail).join(' · ');
 }
+/* 2026-11-21 (Samantha: "I just clicked to text the form on all these and cant see that it was sent"): every way the
+   form went to this reference, newest first, from the office send (c.rN_sent) and the request row (the Hub's own
+   text and email, and the office stamps). [{ how:'Texted'|'Emailed'|'Sent', at, by }] */
+function obRefSends(c,n){
+  const out=[], t=c&&c[`r${n}_sent`];
+  const rq=(typeof bgrReqsFor==='function'?bgrReqsFor(c):[]).filter(r=>Number(r.slot)===Number(n)).sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')))[0];
+  if(t&&t.how&&t.at) out.push({ how:t.how==='text'?'Texted':'Emailed', at:t.at, by:t.by||'' });
+  if(rq){
+    const has=(how,at)=>out.some(x=>x.how===how&&Math.abs(Date.parse(x.at)-Date.parse(at))<120000);
+    if(rq.office_texted_at&&!has('Texted',rq.office_texted_at)) out.push({ how:'Texted', at:rq.office_texted_at, by:rq.office_texted_by||'' });
+    if(rq.office_emailed_at&&!has('Emailed',rq.office_emailed_at)) out.push({ how:'Emailed', at:rq.office_emailed_at, by:rq.office_emailed_by||'' });
+    if(rq.texted_at&&!has('Texted',rq.texted_at)) out.push({ how:rq.ref_email?'Texted and emailed':'Texted', at:rq.texted_at, by:'the Hub' });
+    if(rq.sent_at&&!out.some(x=>Math.abs(Date.parse(x.at)-Date.parse(rq.sent_at))<120000)) out.push({ how:rq.ref_email&&!rq.texted_at?'Emailed':'Sent', at:rq.sent_at, by:'the Hub' });
+    if(rq.reminded_at) out.push({ how:'Reminded', at:rq.reminded_at, by:'the Hub' });
+  }
+  return out.filter(x=>!isNaN(Date.parse(x.at))).sort((a,b)=>Date.parse(b.at)-Date.parse(a.at));
+}
+/* "✓ Texted the form Nov 21, 10:42 AM by Samantha Troutman" */
+function obRefSendWords(x){
+  const d=new Date(x.at), when=d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+', '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  return '✓ '+(x.how==='Reminded'?'Reminder sent':x.how+' the form')+' '+when+(x.by?' by '+x.by:'');
+}
 /* Lines for the PDF and the printed record. Plain text, no em dashes. */
 function obRefSendRecordLines(c,n){
   const out=[], ok=c&&c[`r${n}_sms_ok`], t=c&&c[`r${n}_sent`];
@@ -7383,9 +7408,15 @@ function obRefTextOpen(candId, n){
 function obRefSendClose(){ const m=document.getElementById('obSendModal'); if(m) m.style.display='none'; _obSend=null; }
 async function obRefSendDone(c, n, res, how){
   c[`r${n}_sent`]={ how, at:res.at||new Date().toISOString(), by:res.by||'', to:res.to||'' };
+  /* 2026-11-21: the list the checklist reads is updated at once, so its next action stops saying Call */
+  try{
+    const at=c[`r${n}_sent`].at, rq=(typeof bgrReqsFor==='function'?bgrReqsFor(c):[]).find(r=>Number(r.slot)===Number(n)&&!r.responded_at);
+    if(rq){ if(!rq.sent_at) rq.sent_at=at; if(how==='text'){ rq.office_texted_at=at; rq.office_texted_by=res.by||''; } else { rq.office_emailed_at=at; rq.office_emailed_by=res.by||''; } }
+  }catch(_){}
   obRefSendClose();
   await saveCandidates();
   try{ renderOB(); }catch(e){}
+  try{ ckdRefreshPerson(); }catch(e){}
   obToast(how==='email' ? 'Emailed the form to '+(res.to||'them')+'.' : 'Texted the form to '+(res.to?obFmtPhone(res.to).show:'them')+'.');
 }
 async function obRefSendGo(btn){
@@ -7559,7 +7590,7 @@ function ckdRefNext(c){
     const req = (typeof bgrReqsFor === 'function' ? bgrReqsFor(c) : []).find(r => Number(r.slot) === n && !r.responded_at);
     const sent = req && req.sent_at ? new Date(req.sent_at) : null;
     const days = sent && !isNaN(sent) ? Math.floor((Date.now() - sent.getTime()) / 86400000) : null;
-    const how = req && req.texted_at ? 'texted and emailed' : 'sent';
+    const how = req && (req.texted_at || req.office_texted_at) ? (req.office_emailed_at || (req.ref_email && req.texted_at) ? 'texted and emailed' : 'texted') : req && req.office_emailed_at ? 'emailed' : 'sent';
     if(days !== null && days < 5)
       return { text:'Form ' + how + ' to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + '. The Hub reminds them. Call if you like.', short:'Form sent to ' + nm + ' ' + sent.toLocaleDateString('en-US', { month:'short', day:'numeric' }), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')', quiet:true };
     return { text:'Call ' + nm + (tl ? ' (' + tl + ')' : '') + (days !== null ? ', no answer in ' + days + ' days.' : '.'), short:nm + (days !== null ? ', no answer ' + days + (days === 1 ? ' day' : ' days') : ', not called yet'), slot:n, label:'Record answer', on:'openManualRef('+id+','+n+')' };
@@ -7693,7 +7724,7 @@ function ckdRosterNext(r){
   const open = 'CRX.openSide(\'' + bgrEsc(String(r.offer_id)) + '\')';
   if(r.approved_to_work && r.axiscare === 'failed') return { text:'Approved, but AxisCare did not take it. Open the card and press Retry.', label:'Open card', on:open, warn:true, how:'approve' };
   if(r.checkin_open && ckdRosterFor(r)) return { text:'Active in AxisCare. Make the check-in call, then tick it done on their card.', label:'Check-in call', on:open, how:'checkin' };
-  if(r.ready_for_final) return { text: (window.DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator to approve.', label:'Open card', on:open, wait:true, how:'approve' };
+  if(r.ready_for_final) return { text: (typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.auto_approve_work_live === true) ? 'Everything is done. The Hub approves them and sets them Active in AxisCare within the hour.' : 'Everything is done. Waiting on a person on the Approve to Work list or a care coordinator to approve.', label:'Open card', on:open, wait:true, how:'approve' };
   if(!ckdRosterFor(r)){
     const n = r.next || {}, first = String(r.name || '').trim().split(/\s+/)[0] || 'them';
     if(ckdCardStop(r) === 0 && n.key !== 'cg.company.countersign') return { text:'Step 1 is not finished. Waiting on ' + first + ' to sign the rest of their Step 1 forms.', label:'Open card', on:open, wait:true, how:'card' };
@@ -8178,6 +8209,19 @@ function obtFinish(p, j, g){
   const c = p.c, marks = [], acts = [];
   const mk = (k, label, s, tip) => marks.push({ k, label, s, tip });
   const fin = (window.OPR && typeof OPR.finishOf === 'function' && (g || c)) ? OPR.finishOf((g && g.axiscare_id) || (c && c.axiscare_id) || '', p.name) : null;
+  /* ACTIVATE NEW EMPLOYEE (Samantha 2026-11-21, activate_button_live with the simpler finish): "I need to simplify the finish
+     column ... a simple button Activate New Employee". The column says one thing: what they are waiting on, or the button. The
+     press records the I-9 in the presser's name, sets them Active in AxisCare, sends the text with the two app links, and
+     they leave this list. No letter chips. */
+  if(obtActivateOn()){
+    const miss = fin ? fin.missing : null, base = { fin, marks:[], acts:[], simple:true };
+    if(j && j.approved_to_work && j.axiscare === 'failed') return obtCell('todo', 'AxisCare did not take it', Object.assign(base, { who:'office', warn:true, b:{ label:'Retry', on:obtOpenCard(j) }, tip:'Activated, but AxisCare did not take it. Open the card and press Retry.' }));
+    if(j && j.approved_to_work) return obtCell('ok', 'Activated', Object.assign(base, { tip:'Activated: approved to work' }));
+    if(miss && miss.length === 1 && /I-9/i.test(miss[0]) && j && j.journey_id)
+      return obtCell('todo', '', Object.assign(base, { who:'office', b:{ label:'Activate New Employee', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Checks are clear and orientation is done. Look at their ID (in person or on live video), finish the I-9 in Viventium, then press Activate New Employee. They are set Active in AxisCare, get the text with the AxisCare and Viventium links, and leave this list.' }));
+    const waitO = !miss || miss.some(x => /orientation/i.test(x));
+    return obtCell(miss ? 'wait' : 'none', waitO ? 'Waiting on orientation' : 'Waiting on checks', Object.assign(base, { who:miss ? (waitO ? 'applicant' : 'office') : '', tip:miss && miss.length ? 'Still needs: ' + miss.join(', ') : 'Not ready yet' }));
+  }
   const o = (window.OPR && typeof OPR.brief === 'function') ? OPR.brief(ckdOrientAx(p), p.name) : null;
   mk('O', 'Orientation', o && /^Finished/.test(o.text) ? (fin && fin.missing.some(m => /orientation/i.test(m)) ? 'wait' : 'ok') : o ? 'wait' : 'none',
      o ? o.text + (fin && fin.missing.some(m => /orientation/i.test(m)) ? '. Not verified on their readiness card yet.' : '') : 'Orientation not started');
@@ -8221,6 +8265,7 @@ function obtNearly(m){
   const j = m.j, f = m.cells.finish && m.cells.finish.fin;
   if(j && j.approved_to_work) return null;
   if(j && j.ready_for_final) return 'Ready to approve';
+  if(f && !f.approved && f.missing.length === 1 && /I-9/i.test(f.missing[0]) && obtActivateOn()) return 'Ready to activate';
   if(f && !f.approved && f.missing.length === 1) return 'Only ' + f.missing[0] + ' left';
   return null;
 }
@@ -8234,6 +8279,7 @@ function obtI9(c, j, fin){
   if(f && !open) return obtCell('ok', '', { tip:'I-9 Section 2 done on their readiness card' });
   /* THE SIMPLER FINISH (Samantha 2026-11-21, simple_finish_live): checks clear, orientation done, then this one button. It records
      the I-9 in the presser's name and approves them to work, so they leave this list. Shown only when the box is all that is left. */
+  if(obtActivateOn()) return obtCell('none', '', { tip:'Recorded when you press Activate New Employee in the Finish column' });
   if(obtSimpleOn()){
     if(open && f.missing.length === 1 && j && j.journey_id)
       return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Look at their ID (in person or on live video), finish the I-9 in Viventium, then press I-9 done. They are approved to work and leave this list. Only the person who saw the ID presses it.' });
@@ -8251,14 +8297,18 @@ function obtI9(c, j, fin){
     return obtCell('todo', '', { who:'office', b:{ label:'I-9 done', on:'obtI9Done(\'' + bgrEsc(String(j.journey_id)) + '\',this)' }, tip:'Complete I-9 Section 2 in Viventium, then press I-9 done. Only the person who examined their documents presses it.' });
   return obtCell('none', '', { tip:'After the welcome video call, where their ID is checked' });
 }
-const obtSimpleOn = () => !!(window.DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
+/* 2026-11-21 FIX: DATA is a page-level variable and is not on the window object, so the old test here was always false and the table never
+   saw the switch (the card did, from the server). Read it the way obtCallOn does. */
+const obtSimpleOn = () => !!(typeof DATA !== 'undefined' && DATA && DATA.ops_settings && DATA.ops_settings.simple_finish_live === true);
+const obtActivateOn = () => obtSimpleOn() && DATA.ops_settings.activate_button_live === true;
 async function obtI9Done(jid, btn){
   /* THE SIMPLER FINISH (2026-11-21): one press records the I-9 and approves them to work */
   if(obtSimpleOn()){
-    if(!(await ccConfirm('Did you see their ID and finish the I-9 in Viventium?\n\nPress OK to record that in your name, with the time. They are then approved to work, set Active in AxisCare, and leave the Onboarding list. Only the person who saw the ID should press this.'))) return;
+    const act = obtActivateOn();
+    if(!(await ccConfirm(act ? 'Activate this new employee?\n\nDid you see their ID and finish the I-9 in Viventium? Press OK to record that in your name, with the time.\n\nThey are then set Active in AxisCare, get the text with the AxisCare and Viventium links, and leave the Onboarding list.\n\nAlready told them? Press Cancel and use their card instead: it has a "do not send the text" box.' : 'Did you see their ID and finish the I-9 in Viventium?\n\nPress OK to record that in your name, with the time. They are then approved to work, set Active in AxisCare, and leave the Onboarding list. Only the person who saw the ID should press this.'))) return;
     if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
     try{ await CRX.call({ journey_id:jid, action:'finish_i9', saw_id:true }); }
-    catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = 'I-9 done'; } return; }
+    catch(e){ alert('Not recorded: ' + (e.message || e)); if(btn){ btn.disabled = false; btn.textContent = act ? 'Activate New Employee' : 'I-9 done'; } return; }
     try{ CRX._clear(); if(window.OPR && typeof OPR.load === 'function') await OPR.load(); }catch(_){}
     renderCkd(); return;
   }
@@ -8341,6 +8391,7 @@ function obtCellHTML(x, k){
   const tip = x.tip ? ' title="' + bgrEsc(x.tip) + '"' : '';
   if(k === 'finish'){
     const marks = (x.marks || []).map(mk => '<span class="obt-mk obt-mk-' + mk.s + '" title="' + bgrEsc(mk.label + ': ' + mk.tip) + '">' + mk.k + '</span>').join('');
+    if(x.simple) return '<td class="obt-c obt-fin' + gs + '"' + tip + '>' + (x.b ? obtBtn(x.b) : '<span style="font-size:.78rem;font-weight:600;color:' + (x.s === 'ok' ? '#0F7A4A' : '#6B7280') + '">' + bgrEsc(x.t || '') + '</span>') + (x.b && x.t ? ' <span style="font-size:.74rem;color:#B45309">' + bgrEsc(x.t) + '</span>' : '') + '</td>';
     return '<td class="obt-c obt-fin' + gs + '"' + tip + '><span class="obt-mks">' + marks + '</span>' + obtBtn(x.b) + '</td>';
   }
   let inner;
@@ -8770,19 +8821,23 @@ function ckdPersonHTML(c){
   const meta = [c.position || (o && o.position) || '', o && o.created_at ? 'offered ' + bgrD(o.created_at) : '', w.text].filter(Boolean);
   const refBox = n => {
     const s = c['r'+n+'s'] || 'Pending', nm = String(c['r'+n+'n'] || '').trim() || 'Name not given';
-    const tl = obRefCellTypeLine(c, n), sent = obRefSentLine(c, n), mn = c['r'+n+'_manual'];
+    const tl = obRefCellTypeLine(c, n), sends = obRefSends(c, n), mn = c['r'+n+'_manual'];
     const ph = c['r'+n+'_phone'], em = c['r'+n+'_email'], p = ph ? obFmtPhone(ph) : null;
-    const tone = { Positive:['Good','#15803D'], Conditional:['Conditional','#9C6410'], Negative:['Negative','#B42318'], Pending:['Not answered','#9C6410'] }[s] || [s, 'var(--gray)'];
-    const lines = [tl, sent ? sent.replace(/^\S+\s/, '') : '', mn && mn.date ? 'Answered ' + (fmtD(mn.date) || '') + (mn.via ? ' by ' + mn.via : '') : ''].filter(Boolean);
+    const texted = sends.some(x => /^Texted|^Sent/.test(x.how)), emailed = sends.some(x => /mailed/.test(x.how));
+    const tone = { Positive:['Good','#15803D'], Conditional:['Conditional','#9C6410'], Negative:['Negative','#B42318'], Pending: sends.length ? ['Form sent, waiting','#1D4ED8'] : ['Not answered','#9C6410'] }[s] || [s, 'var(--gray)'];
+    const lines = [tl, mn && mn.date ? 'Answered ' + (fmtD(mn.date) || '') + (mn.via ? ' by ' + mn.via : '') : ''].filter(Boolean);
+    const sentHTML = s === 'Pending' ? (sends.length
+        ? sends.slice(0, 3).map(x => '<div class="ckd-box-sub" style="color:#15803D;font-weight:700">' + bgrEsc(obRefSendWords(x)) + '</div>').join('')
+        : '<div class="ckd-box-sub" style="color:#9C6410">Form not sent yet</div>') : '';
     const acts = s === 'Pending'
       ? (p ? '<a class="ckd-go"' + ocAttrs(p.dial, { email:em }) + '>Call ' + bgrEsc(p.show) + '</a>' : '')
         + '<button type="button" class="ckd-go ckd-go-line" onclick="openManualRef(' + id + ',' + n + ')">Record answer</button>'
-        + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">Email the form</button>' : '')
-        + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">Text the form</button>' : '')
+        + (em ? '<button type="button" class="ckd-link" onclick="obRefEmailOpen(' + id + ',' + n + ')">' + (emailed ? 'Email it again' : 'Email the form') + '</button>' : '')
+        + (p ? '<button type="button" class="ckd-link" onclick="obRefTextOpen(' + id + ',' + n + ')">' + (texted ? 'Text it again' : 'Text the form') + '</button>' : '')
       : '<button type="button" class="ckd-link" onclick="openManualRef(' + id + ',' + n + ')">See or change the answer</button>';
     const fix = '<button type="button" class="ckd-link" onclick="ckdRefForm(' + id + ',' + n + ')">Fix their details</button>';
     return '<div class="ckd-box' + (s === 'Positive' ? ' ckd-box-ok' : '') + '"><div class="ckd-box-top"><div><b>' + bgrEsc(nm) + '</b>'
-      + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + '</div>'
+      + lines.map(l => '<div class="ckd-box-sub">' + bgrEsc(l) + '</div>').join('') + sentHTML + '</div>'
       + '<span class="ckd-box-st" style="color:' + tone[1] + '">' + bgrEsc(tone[0]) + '</span></div>'
       + '<div class="ckd-box-acts">' + acts + (s === 'Pending' ? fix : '') + '</div></div>';
   };

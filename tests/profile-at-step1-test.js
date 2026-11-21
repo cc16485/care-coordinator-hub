@@ -29,7 +29,7 @@ ck('quick page: the time line is only for current caregivers', pg.includes('Add 
 /* the readiness card */
 ck('readiness card: the profile line shows only when the server sends the rule', rc.includes("const pf = s.profile || null;") && rc.includes("if(pf) h += line(!!pf.sent, 'Caregiver profile sent in'"))
 ck('readiness card: three things with the rule off, four with it on', rc.includes("(pf ? 'Four' : 'Three') + ' things and they are cleared to work.</div>'"))
-ck('the card script version was bumped', /caregiver-readiness\.js\?v=17/.test(read('index.html')))
+ck('the card script version was bumped', /caregiver-readiness\.js\?v=19/.test(read('index.html')))
 
 /* the message list */
 ck('the follow-up is on the message journey list', jr.includes('"name": "Caregiver profile follow-ups after Step 1 (day 3 and day 6)"') && jr.includes('Please finish your caregiver profile before your first shift: {profile}'))
