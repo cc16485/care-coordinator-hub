@@ -86,9 +86,20 @@
     return { open: open, dismissed: items.filter(function (x) { return (m[x.id] || {}).mark === 'dismiss'; }).length };
   }
 
+  /* 1542 (2026-11-20, Samantha: the recording on the applicant AND the caregiver profile): the Watch the video line of a
+     Google Meet interview. Only a Google Drive link is ever shown as a link. */
+  function meetHtml(x) {
+    var ok = x.video_url && !x.video_deleted_at && /^https:\/\/(drive|docs)\.google\.com\//.test(String(x.video_url));
+    return ' <span class="field-note">from Google Meet</span> ' + (ok
+      ? '<a class="ir-act" style="text-decoration:none" href="' + esc(x.video_url) + '" target="_blank" rel="noopener">🎥 Watch the video</a>'
+        + (x.video_delete_after ? ' <span class="field-note">until ' + esc(new Date(x.video_delete_after).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) + '</span>' : '')
+      : '<span class="field-note">' + (x.video_deleted_at ? 'video deleted after 30 days, transcript kept' : 'no video') + '</span>');
+  }
+
   async function load(applicantId) {
     var host = HOSTS[applicantId]; if (!host) return;
-    var recs = await sb.from('recordings').select('id,status,consent_given,created_at,turns,seconds').eq('kind', 'interview').eq('subject_id', applicantId).order('created_at');
+    /* 1542: every column, so a Google Meet row's video link is read once those columns exist (and nothing breaks before) */
+    var recs = await sb.from('recordings').select('*').eq('kind', 'interview').eq('subject_id', applicantId).order('created_at');
     var rv = await sb.from('interview_reviews').select('*').eq('applicant_id', applicantId).order('created_at', { ascending: false });
     if (rv.error && !/interview_reviews/.test(rv.error.message || '')) { host.innerHTML = '<div class="field-note" style="color:var(--red)">Could not load the AI review: ' + esc(rv.error.message) + '</div>'; return; }
     var ap = await sb.from('job_applicants').select('id,records_hold_at,records_hold_by,records_hold_reason').eq('id', applicantId).maybeSingle();
@@ -104,8 +115,10 @@
     if (older.length) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Earlier reviews and checks (' + older.length + ')</summary>' + older.map(function (r) { return '<div style="margin-top:10px;border-top:1px dashed var(--border);padding-top:8px">' + reviewHtml(r) + '</div>'; }).join('') + '</details>';
     if (R.some(function (x) { return x.turns && x.turns.length; })) h += '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700;color:var(--navy)">Recording and transcript</summary>'
       + R.filter(function (x) { return x.turns && x.turns.length; }).map(function (x, i) {
-        return '<div style="margin-top:8px"><b style="font-size:13px">Part ' + (i + 1) + '</b> <span class="field-note">' + esc(when(x.created_at)) + (x.seconds ? ' · ' + clock(x.seconds) : '') + '</span><div style="max-height:300px;overflow:auto">'
-          + x.turns.map(function (t) { return '<div style="font-size:13.5px;padding:3px 0"><button class="ir-act" style="padding:0 6px" onclick="IR.play(\'' + esc(x.id) + '\',' + (+t.start || 0) + ',this)">' + clock(t.start) + '</button> <span class="field-note">' + esc(t.name || t.speaker || '') + '</span> ' + esc(t.text) + '</div>'; }).join('') + '</div></div>';
+        /* 1542: a Google Meet video interview has no audio in the Hub: the times are plain, and the video opens in Google Drive */
+        var meet = x.source === 'meet';
+        return '<div style="margin-top:8px"><b style="font-size:13px">Part ' + (i + 1) + '</b> <span class="field-note">' + esc(when(x.created_at)) + (x.seconds ? ' · ' + clock(x.seconds) : '') + '</span>' + (meet ? meetHtml(x) : '') + '<div style="max-height:300px;overflow:auto">'
+          + x.turns.map(function (t) { return '<div style="font-size:13.5px;padding:3px 0">' + (meet ? '<span class="field-note" style="font-weight:700">' + clock(t.start) + '</span>' : '<button class="ir-act" style="padding:0 6px" onclick="IR.play(\'' + esc(x.id) + '\',' + (+t.start || 0) + ',this)">' + clock(t.start) + '</button>') + ' <span class="field-note">' + esc(t.name || t.speaker || '') + '</span> ' + esc(t.text) + '</div>'; }).join('') + '</div></div>';
       }).join('') + '</details>';
     /* 2026-10-14 (Samantha: "2 years", 649): when it all goes, and the legal hold that stops it */
     var first = R.length ? R[0].created_at : (rows.length ? rows[rows.length - 1].created_at : null);
