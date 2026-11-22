@@ -6301,16 +6301,16 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
       <button type="button" class="subtab" data-cs="packet" onclick="cpCareSub('packet')">Caregiver packet</button>
       <button type="button" class="subtab" data-cs="notes" onclick="cpCareSub('notes')">Care notes</button>
     </div>
-    <div class="cp-care-sub" data-cs="asmt"><div id="cp_learned"></div><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
+    <div class="cp-care-sub" data-cs="asmt"><div id="pcCareHost"></div><!-- profile-cards.js (2026-11-21, profile fill Stage C) --><div id="cp_learned"></div><div id="cp_care"></div><div id="cp_needs"></div><div id="cp_c_care"></div></div>
     <div class="cp-care-sub" data-cs="reviews"><div id="cp_care_reviews"></div><div id="cp_gm"></div><div id="cp_review_slot"></div></div>
     <div class="cp-care-sub" data-cs="packet"><div id="cp_packet"></div></div>
     <div class="cp-care-sub" data-cs="notes"><div id="cp_shift_notes"></div><div id="cp_arrivals"></div></div>
   </div>
   <div class="cp-pane" data-cp-pane="cgprev"><div id="cgpHost"></div></div>
   <div class="cp-pane" data-cp-pane="driving"><div id="cdrvHost"></div></div>
-  <div class="cp-pane" data-cp-pane="team"><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
+  <div class="cp-pane" data-cp-pane="team"><div id="pcTeamHost"></div><div id="cp_team"></div><div id="cp_cm_slot"></div><div id="cp_c_team"></div></div>
   <div class="cp-pane" data-cp-pane="checkins"><div id="cp_checkins"></div></div>
-  <div class="cp-pane" data-cp-pane="payer"><div id="cp_payer"></div></div>
+  <div class="cp-pane" data-cp-pane="payer"><div id="pcPayerHost"></div><div id="cp_payer"></div></div>
   <div class="cp-pane" data-cp-pane="home">
     <div id="cp_c_home"></div>
 <div class="cp-lead">
@@ -7657,7 +7657,7 @@ The HomeTogether team</pre>
 <script src="katlin-page.js?v=11"></script>
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="profile-cards.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=16"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -10783,7 +10783,8 @@ function cpShowTab(t){
   try{ if(typeof lwTab==='function') lwTab(); }catch(e){}
   if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }
   if(CP.tab==='driving'&&window.CDRV) CDRV.load();
-  if(CP.tab==='family'&&window.FNOTE) FNOTE.load();   /* Family notes + the visit's people (Stage B) */   /* the client's Driving tab (2026-11-21): read only when it is opened */
+  if(CP.tab==='family'&&window.FNOTE) FNOTE.load();
+  if(window.PCARD){ if(CP.tab==='care') PCARD.render('care'); if(CP.tab==='team') PCARD.render('team'); if(CP.tab==='payer') PCARD.render('payer'); }   /* Stage C */   /* Family notes + the visit's people (Stage B) */   /* the client's Driving tab (2026-11-21): read only when it is opened */
   if(CP.tab==='cgprev'&&window.CGP) CGP.load();   /* Caregiver Preview: read fresh each time it is opened */   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 /* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Communication & Documents. */
