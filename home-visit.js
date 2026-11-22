@@ -1407,6 +1407,8 @@
     try { if (window.CPV) CPV.autoDraft(ST.a); } catch (e) {}
     try { if (ST.lead && typeof asmtToProfile === 'function') await asmtToProfile(ST.lead); } catch (e) {}
     try { await driveToProfile(ST.a, ST.lead); } catch (e) {}
+    try { await fillProfile(ST.a); } catch (e) {}
+    try { if (v.outcome === 'ready') await outcomeReady(ST.a, ST.lead); } catch (e) {}
     try { if (typeof renderAssessments === 'function') renderAssessments(); } catch (e) {}
     try { if (typeof cpRenderCare === 'function') cpRenderCare(); } catch (e) {}
   }
@@ -1422,6 +1424,31 @@
     const r = await sb.functions.invoke('client-driving', { body: { action: 'set_mode', from: 'visit', mode, ax: ax || undefined, lead: lead || undefined, name: a.client_name || undefined } });
     const out = r && r.data;
     if (out && out.conflict) toast('Driving: ' + out.conflict);
+  }
+
+  /* PROFILE FILL, Stage A (Samantha 2026-11-21, her answers "as recommended"): the finished visit fills the client
+     profile's empty places (Home & Life, safety, allergies); anything already different becomes a My Work card. */
+  async function fillProfile(a) {
+    if (typeof sb === 'undefined' || !a || !a.id) return;
+    const r = await sb.functions.invoke('profile-fill', { body: { action: 'from_visit', assessment_id: a.id } });
+    const out = r && r.data;
+    if (out && out.ok && (out.filled.length || out.safety_added || out.conflicts)) {
+      toast('Profile filled from the visit: ' + (out.filled.length + out.safety_added) + ' answer' + (out.filled.length + out.safety_added === 1 ? '' : 's') + ' added'
+        + (out.conflicts ? '; ' + out.conflicts + ' differ from what the profile says (a My Work card shows both)' : '') + '.');
+      try { if (typeof loadAll === 'function') loadAll(); } catch (e) {}
+    }
+  }
+  /* her answer 3 (2026-11-21): "Ready to start" at the visit records Start of Care step 3 by itself, with your name.
+     The other outcomes need a reason or a check-back date, so they stay for a person on Start of Care. */
+  async function outcomeReady(a, l) {
+    if (typeof sb === 'undefined' || !l || !l.id) return;
+    const g = await sb.functions.invoke('client-journey', { body: { action: 'get', lead_id: String(l.id) } });
+    const j = g && g.data && g.data.journey;
+    if (!j || !j.journey_id) return;
+    const step = ((g.data.steps || []).find((x) => x.step_key === 'soc.outcome')) || null;
+    if (step && ['done', 'complete', 'not_needed'].indexOf(String(step.state || step.status || '')) > -1) return;
+    const r = await sb.functions.invoke('client-journey', { body: { action: 'apply', journey_id: j.journey_id, step_key: 'soc.outcome', op: 'complete', answer: { outcome: 'ready' } } });
+    if (r && r.data && !r.data.error) toast('Start of Care step 3 recorded: Ready to start.');
   }
 
   /* open({ leadId }) or open({ id }) or open({ ax, name }) */

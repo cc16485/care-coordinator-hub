@@ -120,6 +120,8 @@ async()=>{
   q('[data-hva="finish"]').click(); await sleep(1500);
   const f=last();
   ok('Finish: done for the Start of Care check, who and when; the screen closes; tells them to record the outcome', f.status==='Completed — Awaiting Plan' && f.visit.finished_by==='Krystal Land' && f.visit.finished_at && !document.getElementById('hvRoot') && /Ready to start.*Start of Care, step 3/.test(L.toast||''), [f.status, L.toast]);
+  const pf=(L.bodies||[]).find(x=>x[0]==='profile-fill');
+  ok('Finish fills the client profile from the visit (profile-fill, this visit)', pf && pf[1].action==='from_visit' && pf[1].assessment_id===f.id, L.bodies);
   const db=(L.bodies||[]).find(x=>x[0]==='client-driving');
   ok("Finish sends the driving answer to the client's Driving tab, from the visit", db && db[1].action==='set_mode' && db[1].from==='visit' && db[1].mode==='client_car' && db[1].lead==='lead_betty', L.bodies);
   await HV.open({ leadId:'lead_betty' }); await sleep(200);

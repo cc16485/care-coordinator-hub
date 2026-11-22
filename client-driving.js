@@ -123,6 +123,7 @@
         + '<label>Year <input type="number" min="1950" max="2100" data-cdrv-y value="' + esc(row.car_year || '') + '"></label>'
         + '<label>Miles <input type="number" min="0" data-cdrv-mi value="' + esc(row.car_miles || '') + '"></label>'
         + '<button type="button" class="btn btn-ghost" data-cdrv="car">Save</button></div>'
+        + (row.spare_key ? '<div class="cdrv-note">Spare key: ' + esc(row.spare_key) + ' (from the signed agreement)</div>' : '')
         + (d.car && d.car.missing && d.car.missing.length ? '<div class="cdrv-todo"><b>Still to do before a caregiver may drive this car</b><ul>' + d.car.missing.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '')
         + paperBox('car_insurance', 'Proof of insurance on the client\'s car', row, docs, d)
         + paperBox('inspection', 'Vehicle inspection', row, docs, d)
