@@ -229,7 +229,10 @@
     if (yes(lv('meals'), ['helps', 'full']) || yes(lv('light_house'), ['helps', 'full'])) skill('meals_housekeeping', 'required', 'Meals or light housekeeping');
     else if (lv('meals') === 'not_needed' && lv('light_house') === 'not_needed') skill('meals_housekeeping', 'no', 'Meals and light housekeeping: not needed');
     if (lv('meds') === 'needed') skill('med_reminders', 'required', 'Medication reminders: needed'); else if (lv('meds') === 'not_needed') skill('med_reminders', 'no', 'Medication reminders: not needed');
-    if (lv('transport') === 'full') skill('transportation', 'required', 'Transportation: full help'); else if (lv('transport') === 'none') skill('transportation', 'no', 'Transportation: none');
+    /* client driving (2026-11-21): the visit's clear answer wins over the help level */
+    const dw = (v.drive || {}).want;
+    if (dw === 'yes') skill('transportation', 'required', 'Wants a caregiver to drive them'); else if (dw === 'no') skill('transportation', 'no', 'No driving');
+    else if (lv('transport') === 'full') skill('transportation', 'required', 'Transportation: full help'); else if (lv('transport') === 'none') skill('transportation', 'no', 'Transportation: none');
     ((v.prefs || {}).skills || []).forEach((k) => { if (!callOnly('visit.prefs.skills', k)) skill(k, 'required', 'Skills they need'); });
     const s = v.safety || {};
     if (s.two_person === 'yes' || s.two_person === 'no') out.need_more_than_one_to_transfer = { kind: 'need_more_than_one_to_transfer', value: s.two_person, label: 'Needs more than one person to transfer', shown: s.two_person === 'yes' ? 'Yes' : 'No', from: 'Safety check' };

@@ -27,7 +27,7 @@
    ===================================================================================================================== */
 (function(root){
 'use strict';
-const VERSION = '1.3.0';   /* 1.3.0 (2026-10-18, no two-person transfers, Samantha): the skill "Two-person transfers" and its second-caregiver warning are gone (17 skills); the fact need_more_than_one_to_transfer = yes flags the client "Needs a lift before we staff" until a lift is Required on the care plan (fromFacts carries it as facts.more_than_one_to_transfer, so the server jobs need no change). 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower; all of it only while the Admin switch driver_schedule_gate_live is on (opts.driveGate), and off it is the warning "Driver check (not enforced yet)". 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
+const VERSION = '1.4.0';   /* 1.4.0 (2026-11-21, client driving, Samantha): the client's Driving tab says whose car (transportNeed x.drive: caregiver's car, client's car or either = required, with car and clientCar); clientCarDecision holds a client's-car shift while its papers are not cleared, only while the Admin switch client_car_gate_live is on; driveWords is the line a shift carries. Same code as the server's _shared/driver-eligibility.ts. 1.3.0 (2026-10-18, no two-person transfers, Samantha): the skill "Two-person transfers" and its second-caregiver warning are gone (17 skills); the fact need_more_than_one_to_transfer = yes flags the client "Needs a lift before we staff" until a lift is Required on the care plan (fromFacts carries it as facts.more_than_one_to_transfer, so the server jobs need no change). 1.2.0 (2026-10-13, Driver Compliance in scheduling): driving a client needs an Approved Driver with current license and insurance (transportEligible, the same rule as the server's _shared/driver-eligibility.ts); a client who needs driving at any stage rules out everyone else, a client who would like it ranks them lower; all of it only while the Admin switch driver_schedule_gate_live is on (opts.driveGate), and off it is the warning "Driver check (not enforced yet)". 1.1.0 (2026-10-12, the dark report): adapters for the stored facts, the overlay's willingness and Spanish, AxisCare gender; cleared-to-drive unknown is one more step, never Ready */
 /* ── DRIVING A CLIENT (Driver Compliance, October 13). Her rule: "A caregiver who is Non-Driver, Pending Verification, or
       Suspended must not be treated as eligible for shifts that require transporting clients. Only Approved Drivers with
       current, verified documentation should qualify for transportation assignments." No driver record yet = not eligible
@@ -53,6 +53,11 @@ function transportEligible(cg, today){
 function transportNeed(x){
   x = x || {};
   const req = [], pref = [];
+  /* the client's Driving tab (2026-11-21): caregiver's car, client's car or either = required; the car goes with it */
+  const dm = x.drive && typeof x.drive === 'object' ? String(x.drive.mode == null ? '' : x.drive.mode) : '';
+  const car = ['caregiver_car', 'client_car', 'either'].includes(dm) ? dm : null;
+  if (car) req.push('the Driving tab');
+  const clientCar = car === 'client_car' || car === 'either' ? (x.drive.car && typeof x.drive.car === 'object' ? { ok: x.drive.car.ok === true, why: String(x.drive.car.why || '') } : { ok: false, why: "The client's car is not cleared yet" }) : null;
   if (Array.isArray(x.planNeeds) && x.planNeeds.map(String).includes('transportation')) req.push('the Team Builder plan');
   const rank = l => ['intake', 'assessment', 'plan', 'current'].indexOf(String(l));
   let f = null;
@@ -64,7 +69,25 @@ function transportNeed(x){
   const av = a === true ? 'yes' : String(a == null ? '' : a).toLowerCase();
   if (av === 'yes' || av === 'required') req.push('the lead checklist');
   else if (av === 'preferred') pref.push('the lead checklist');
-  return req.length ? { level: 'required', from: req } : pref.length ? { level: 'preferred', from: pref } : { level: null, from: [] };
+  return req.length ? { level: 'required', from: req, car, clientCar } : pref.length ? { level: 'preferred', from: pref, car, clientCar } : { level: null, from: [], car, clientCar };
+}
+/* The client's car (2026-11-21): only a shift that needs the CLIENT'S car is held while its papers are not cleared, and only
+   while the Admin switch client_car_gate_live is on; 'either' is never held. Same code as _shared/driver-eligibility.ts. */
+function clientCarGateOn(st){ return !!(st && st.client_car_gate_live === true); }
+function clientCarDecision(need, live){
+  if (!need || need.car !== 'client_car' || !need.clientCar || need.clientCar.ok) return { hold: false, note: null };
+  return live ? { hold: true, note: need.clientCar.why + ". Nobody is offered this shift until the office checks the client's car papers on the Driving tab." }
+    : { hold: false, note: "Client's car check (not enforced yet): " + need.clientCar.why };
+}
+/* the words a shift carries: whose car (null = no driving on record) */
+function driveWords(need){
+  if (!need) return null;
+  if (need.car === 'caregiver_car') return 'Driver needed: you drive the client in your own car';
+  if (need.car === 'client_car') return need.clientCar?.ok ? "Driver needed: you drive the client's car" : "Driver needed: the client's car (the office is still checking its papers)";
+  if (need.car === 'either') return need.clientCar?.ok ? "Driver needed: your own car or the client's car" : 'Driver needed: you drive the client in your own car';
+  if (need.level === 'required') return 'Driver needed: driving the client is part of this shift';
+  if (need.level === 'preferred') return 'Driving the client may be part of this shift';
+  return null;
 }
 /* the rollout switch (Admin page, ops_settings.driver_schedule_gate_live, off by default) and what the driving rule does to
    one person for one shift: required + not eligible + switch on = left out; preferred + not eligible + switch on = ranked
@@ -251,7 +274,7 @@ function overlayFacts(item){
 }
 /* AxisCare's caregiver gender ('F', 'M', 'Female', ...) */
 const axisGender = g => { const x = String(g || '').trim().toUpperCase(); return x.startsWith('F') ? 'female' : x.startsWith('M') ? 'male' : null; };
-const api = { VERSION, SKILLS, LIFT_FIRST, VERIFIED, transportEligible, transportNeed, driveGateOn, transportDecision, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
+const api = { VERSION, SKILLS, LIFT_FIRST, VERIFIED, transportEligible, transportNeed, driveGateOn, transportDecision, clientCarGateOn, clientCarDecision, driveWords, clientState, levelNeeded, evaluate, rankFor, fromStep1, fromOverlay, fromLead, fromFacts, overlayFacts, axisGender };
 root.CCMatch = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
