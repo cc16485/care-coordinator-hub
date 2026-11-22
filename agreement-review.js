@@ -11,6 +11,8 @@
 (function () {
   'use strict';
   const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  /* profile fill, Stage B (2026-11-21): the agreement's POA, backup contact and spouse come through this same Approve */
+  const ROLE_WORDS = { poa: 'Legal representative (POA)', backup: 'Backup contact', spouse: 'Spouse' };
   async function call(body) {
     const { status, data } = await callAction('client-agreement', body);
     if (!data) throw new Error('The agreement service answered ' + status);
@@ -55,7 +57,7 @@
       const now = c.axiscare_now ? `<div class="field-note" style="margin-top:4px">AxisCare now: ${esc([c.axiscare_now.name, c.axiscare_now.phone, c.axiscare_now.email, c.axiscare_now.address].filter(Boolean).join(' · '))} · HIPAA ${yn(c.axiscare_now.hipaa_authorized)} · Medical decisions ${yn(c.axiscare_now.can_make_medical_decisions)}</div>` : '';
       return `<div class="card" data-car-n="${c.n}" style="padding:12px 14px;margin:8px 0;border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center">
-          <div style="font-weight:800;color:var(--navy)">${c.n}. ${esc(c.name)}${c.relationship ? ' <span class="field-note">(' + esc(c.relationship) + ')</span>' : ''}</div>
+          <div style="font-weight:800;color:var(--navy)">${c.n <= 4 ? c.n + '. ' : ''}${esc(c.name)}${c.relationship ? ' <span class="field-note">(' + esc(c.relationship) + ')</span>' : ''}${(c.roles || []).map(r => ' <span style="font-size:11px;font-weight:700;color:#7C2D12;background:#FFEDD5;border-radius:999px;padding:2px 8px">' + esc(ROLE_WORDS[r] || r) + '</span>').join('')}</div>
           ${fin ? '' : `<label style="display:flex;gap:6px;align-items:center;font-weight:700"><input type="checkbox" data-car-inc="${c.n}" checked style="width:18px;height:18px"> Approve</label>`}</div>
         <div class="field-note" style="margin-top:4px">Goes to: ${where(c)}</div>${now}
         ${fin ? (rec.outcome === 'left_out' ? `<div class="field-note" style="margin-top:6px">Left out by ${esc(rec.by)} (${esc(when(rec.at))}).</div>` : done(rec)) : `

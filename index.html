@@ -6243,7 +6243,7 @@ The same panel can also send a <b>custom update</b> in your own words to everyon
     <div id="cp_launch"></div>
     <div id="cp_c_start"></div>
   </div>
-  <div class="cp-pane" data-cp-pane="family"><div id="lppFamHost"></div><div id="cp_c_family"></div><div class="profile-grid">
+  <div class="cp-pane" data-cp-pane="family"><div id="famNotesHost"></div><!-- family-notes.js (2026-11-21, profile fill Stage B) --><div id="lppFamHost"></div><div id="cp_c_family"></div><div class="profile-grid">
 <!-- 2026-10-17 her ask: no "Texts & emails" box on Family & Contacts ("no reason it should be here"). ghlThreadReset('gt_lp') is
      null-safe, so nothing else changes. The Nurture drip card was retired 2026-10-07 (clean-up 6.3). -->
     <div>
@@ -7657,7 +7657,7 @@ The HomeTogether team</pre>
 <script src="katlin-page.js?v=11"></script>
 <script src="video-interviews.js?v=2"></script><script src="interview-handover.js?v=1"></script><!-- 1547 (2026-11-18): Hand an interview to someone else --><!-- Katlin video interviews, Stage A (2026-11-17); Video per block of hours (1541) --><!-- Katlin's own page (2026-11-10) -->
 <script src="overnight-handoff.js?v=2"></script><!-- Overnight Handoff (2026-10-29): behind ops_settings.overnight_handoff_live --><!-- My Work, tidier (2026-10-22, her mockup): behind ops_settings.mywork_tidy_live -->
-<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
+<script src="team-work.js?v=8"></script><script src="cc-followups.js?v=1"></script><script src="ops-board.js?v=9"></script><script src="cara-steps.js?v=2"></script><!-- 2026-11-18 Cara's ready steps on call cards (switch cara_steps_live) --><script src="board-feeds.js?v=7"></script><script src="ask-panel.js?v=4"></script><script src="ask-start.js?v=1"></script><script src="card-threads.js?v=2"></script><!-- 2026-11-08 Card conversations (switch card_threads_live) --><!-- 2026-11-05 Operations Board (switch ops_board_live); 2026-11-07 new layout (switch ops_board_lanes_live) --><script src="calmer-mywork.js?v=3"></script><!-- 2026-11-05 Calmer My Work (switch calmer_mywork_live) --><!-- 2026-11-05 Follow-ups (switch cc_followups_live) --><script src="cara-p1.js?v=9"></script><script src="last-minute.js?v=2"></script><script src="cara-board.js?v=7"></script><script src="cara-run.js?v=2"></script><script src="caregiver-preview.js?v=6"></script><script src="client-driving.js?v=2"></script><script src="family-notes.js?v=1"></script><script src="shift-link-pilot.js?v=1"></script><script src="life-story.js?v=1"></script><script src="rec-parts.js?v=1"></script>
 <script src="careplan-v.js?v=6"></script><script src="health-update.js?v=5"></script><script src="ask-cara.js?v=3"></script><!-- health news from calls, reviewed and sent to AxisCare (2026-11-07) --><script src="home-visit.js?v=16"></script><!-- Cara response board (2026-10-24), switched by ops_settings.cara_board_live --><!-- Let Cara run it (Cara Phase 2 Part A, 2026-10-24), switched by ops_settings.cara_run_live --><!-- Cara Phase 1 (2026-10-23): the new Today, Cara recommends, Send Cara's list; switched by ops_settings.cara_today_live --><!-- Team Work (Stage 1, 2026-10-18): the on-duty pile, switched by ops_settings.team_work_live -->
 <script src="my-work-tiers.js?v=2"></script><!-- My Work tiers (Stage 2, 2026-10-18): grouped Today, switched by ops_settings.my_work_tiers_live -->
 <script src="team-actions.js?v=3"></script><script src="ask-help.js?v=1"></script><!-- tracked Ask for help (Stage 2, 2026-10-19), ops_settings.ask_help_live --><!-- Springfield structure (2026-10-17): help, team support, decision, transfer -->
@@ -10782,7 +10782,8 @@ function cpShowTab(t){
   document.querySelectorAll('#cpTabs .cp-tab').forEach(b=>b.classList.toggle('on',b.dataset.cp===CP.tab));
   try{ if(typeof lwTab==='function') lwTab(); }catch(e){}
   if(CP.tab==='care'){ cpCareSub(CP.careSub||'asmt'); cnLoad(false); try{ lnArrivals(); }catch(_){} }
-  if(CP.tab==='driving'&&window.CDRV) CDRV.load();   /* the client's Driving tab (2026-11-21): read only when it is opened */
+  if(CP.tab==='driving'&&window.CDRV) CDRV.load();
+  if(CP.tab==='family'&&window.FNOTE) FNOTE.load();   /* Family notes + the visit's people (Stage B) */   /* the client's Driving tab (2026-11-21): read only when it is opened */
   if(CP.tab==='cgprev'&&window.CGP) CGP.load();   /* Caregiver Preview: read fresh each time it is opened */   /* N1: shift notes are read from AxisCare only when Care is opened; running-late arrival updates */
 }
 /* 422 (2026-10-03): the signed EVV correction forms the office linked to this client, under Communication & Documents. */
@@ -10862,7 +10863,7 @@ async function openClient(seed, tab){
     ['care','team','home'].forEach(k=>{ if(panes[k]) panes[k].innerHTML=note; });
   }
   cpRenderCheckins(); cpRenderPayer(); cpRenderCare(); cpRenderFamily(); cpRenderTeam(); cpRenderChanges(); cpRenderOpenNow();
-  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261030a'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261102a'; sc.onload=go; document.head.appendChild(sc); } }
+  cpRenderCommand(); lpiRender(); if(typeof chMount==='function') chMount(); else { cpRenderChangeLog(); axLogLoad(); callsLoad(); } cpRenderEvvForms(); { const go=()=>{ try{ window.CAG&&window.CAG.mount('cp_agreement'); }catch(e){ console.warn('agreement card', e); } }; if(window.CAG) go(); else { const sc=document.createElement('script'); sc.src='agreement-card.js?v=20261121'; sc.onload=go; document.head.appendChild(sc); } } { const go=()=>{ try{ window.FSEND&&window.FSEND.mount(); }catch(e){ console.warn('send to family', e); } }; if(window.FSEND) go(); else { const sc=document.createElement('script'); sc.src='family-send.js?v=20261102a'; sc.onload=go; document.head.appendChild(sc); } }
   const lslot=document.getElementById('cp_launch');
   if(lslot){ lslot.innerHTML='';
     if(launch&&typeof cqMountProfile==='function') cqMountProfile('cp_launch', launch.id);
@@ -24315,6 +24316,8 @@ function fcCircleBody(c, people, linked, esc, inProfile){
             + (p.stopped_at?'<span class="field-note" style="font-size:11.5px;color:var(--red);">replied STOP</span>':'')
             + (p.from_agreement?'<span class="field-note" style="font-size:11.5px;">from the signed Client Care Agreement</span>':'')
             + (p.relationship?'<span class="field-note">'+esc(p.relationship)+'</span>':'')
+            /* profile fill, Stage B (2026-11-21): from the signed agreement's Approve */
+            + (Array.isArray(p.family_roles)?p.family_roles.map(function(r){ const w={ poa:'Legal representative (POA)', backup:'Backup contact', spouse:'Spouse' }[r]; return w?'<span style="font-size:11px;font-weight:700;color:#7C2D12;background:#FFEDD5;border-radius:999px;padding:2px 8px;">'+esc(w)+'</span>':''; }).join(''):'')
             + fcRecogChip(p)
             + (p.is_primary?'<span style="font-size:11px;font-weight:700;color:#15803D;background:#DCFCE7;border-radius:999px;padding:2px 8px;">main contact</span>':'')
             + '<span style="flex:1;"></span>'
